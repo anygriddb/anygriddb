@@ -45,7 +45,7 @@ export function GalleryView(props: ViewProps) {
               key={row.id}
               type="button"
               onClick={() => table.openRecord(row.id)}
-              className="flex flex-col overflow-hidden rounded-xl border border-border bg-card text-left shadow-sm hover:border-strong-border"
+              className="flex flex-col overflow-hidden rounded-sm border border-border bg-card text-left hover:border-strong-border"
             >
               {cover ? (
                 <div className="flex h-36 items-center justify-center overflow-hidden bg-muted text-muted-foreground">
@@ -83,7 +83,7 @@ export function GalleryView(props: ViewProps) {
             onClick={() =>
               void props.onCreate({}).then((id) => id && table.openRecord(id))
             }
-            className="flex min-h-32 items-center justify-center gap-1 rounded-xl border border-dashed border-border text-sm text-muted-foreground hover:bg-muted"
+            className="flex min-h-32 items-center justify-center gap-1 rounded-sm border border-dashed border-border text-sm text-muted-foreground hover:bg-muted"
           >
             <Plus className="h-4 w-4" aria-hidden />
             {t`Add a record`}

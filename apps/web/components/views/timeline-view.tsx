@@ -148,7 +148,7 @@ export function TimelineView(props: ViewProps) {
                 type="button"
                 onClick={() => table.openRecord(row.id)}
                 className={cn(
-                  "absolute top-1.5 h-6 truncate rounded-md bg-primary px-2 text-left text-xs text-primary-foreground shadow-sm",
+                  "absolute top-1.5 h-6 truncate rounded-md bg-primary px-2 text-left text-xs text-primary-foreground",
                 )}
                 style={{
                   left: ((from - min) / DAY) * perDay,

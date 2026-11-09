@@ -55,7 +55,7 @@ function Code({ text }: { text: string }) {
   const copy = useCopy();
   return (
     <div className="relative">
-      <pre className="overflow-x-auto rounded-lg bg-foreground/95 p-3 text-xs text-background">
+      <pre className="overflow-x-auto rounded-sm bg-foreground/95 p-3 text-xs text-background">
         {text}
       </pre>
       <Button
@@ -179,7 +179,7 @@ export function ApiDocs({ baseId }: { baseId: string }) {
       ) : null}
       {tab === "guide" && table ? (
         <>
-          <section className="rounded-xl border border-border bg-card p-4">
+          <section className="rounded-sm border border-border bg-card p-4">
             <h2 className="mb-2 font-semibold">
               {t`${{ name: table.name }} fields`}
             </h2>
@@ -223,7 +223,7 @@ export function ApiDocs({ baseId }: { baseId: string }) {
               </tbody>
             </table>
           </section>
-          <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+          <section className="flex flex-col gap-3 rounded-sm border border-border bg-card p-4">
             <h2 className="font-semibold">{t`Read rows`}</h2>
             <Code
               text={`curl -H "Authorization: Bearer $AG_TOKEN" \\\n  "${origin}/api/v1/tables/${table.id}/records?limit=50&sort=-${table.columns[0]?.name ?? "id"}"`}
@@ -253,7 +253,7 @@ function McpGuide({ origin }: { origin: string }) {
   const { t } = useLingui();
   const endpoint = `${origin}/mcp`;
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+    <section className="flex flex-col gap-3 rounded-sm border border-border bg-card p-4">
       <h2 className="font-semibold">{t`Connect an AI (MCP)`}</h2>
       <p className="text-sm text-muted-foreground">
         {t`AnyGridDB embeds no model: the AI you run (Claude, Cursor, Ollama with an MCP client…) connects to the instance's MCP server. It reads and writes rows with the token's rights, never more than yours; no administration, no schema. A read-only token offers it reading only.`}

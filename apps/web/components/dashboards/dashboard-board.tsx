@@ -123,7 +123,7 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
         ))}
       </div>
       {widgets.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+        <p className="rounded-sm border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
           {t`Add a metric, a chart, or a view.`}
         </p>
       ) : null}
@@ -159,7 +159,7 @@ function WidgetCard(props: {
 
   return (
     <article
-      className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card"
+      className="flex min-h-0 flex-col overflow-hidden rounded-sm border border-border bg-card"
       style={{
         gridColumn: `${props.widget.x + 1} / span ${props.widget.w}`,
         gridRow: `${props.widget.y + 1} / span ${props.widget.h}`,
@@ -337,7 +337,7 @@ function AddWidgetForm(props: {
 
   return (
     <form
-      className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2"
+      className="grid gap-3 rounded-sm border border-border bg-card p-4 sm:grid-cols-2"
       onSubmit={(event) => {
         event.preventDefault();
         void submit();

@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@anygriddb/ui";
+import { marginColumn } from "./margin-column";
 import { formatDate, formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import type { CatalogColumn } from "../../lib/types";
@@ -117,7 +118,10 @@ export function GridFooter(props: {
             aria-label={
               fn ? undefined : t`Summary of ${{ field: column.label }}`
             }
-            className="flex h-full w-full items-center justify-end gap-1 border-t border-r border-border bg-muted px-2 text-xs text-muted-foreground hover:bg-card"
+            className={cn(
+              "flex h-full w-full items-center justify-end gap-1 border-t border-r border-border bg-muted px-2 text-xs text-muted-foreground hover:bg-card",
+              index === marginColumn(props.frozenCount) && "border-r-margin",
+            )}
           >
             {fn ? (
               <>
@@ -167,7 +171,10 @@ export function GridFooter(props: {
       <div
         role="rowheader"
         aria-colindex={1}
-        className="sticky left-0 z-[9] flex shrink-0 items-center border-t border-r border-border bg-muted px-2 text-xs text-muted-foreground"
+        className={cn(
+          "sticky left-0 z-[9] flex shrink-0 items-center border-t border-r border-border bg-muted px-2 text-xs text-muted-foreground",
+          marginColumn(props.frozenCount) === -1 && "border-r-margin",
+        )}
         style={{ width: 72 }}
       >
         {props.estimated ? (

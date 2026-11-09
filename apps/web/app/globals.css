@@ -10,6 +10,8 @@ body {
   background: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-sans);
+  /* Figures line up in every column, as in a ledger. */
+  font-variant-numeric: tabular-nums;
 }
 
 mark {

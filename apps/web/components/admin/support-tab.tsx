@@ -140,7 +140,7 @@ export function SupportTab() {
           </div>
         </div>
         {jobs.isLoading ? <Spinner /> : null}
-        <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="overflow-x-auto rounded-sm border border-border">
           <table className="w-full text-xs">
             <thead className="bg-muted text-left">
               <tr>
@@ -202,7 +202,7 @@ export function SupportTab() {
         {deliveries.data?.deliveries.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t`None.`}</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border">
+          <div className="overflow-x-auto rounded-sm border border-border">
             <table className="w-full text-xs">
               <thead className="bg-muted text-left">
                 <tr>
@@ -249,7 +249,7 @@ export function SupportTab() {
         {invitations.data?.invitations.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t`None.`}</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border">
+          <div className="overflow-x-auto rounded-sm border border-border">
             <table className="w-full text-xs">
               <thead className="bg-muted text-left">
                 <tr>

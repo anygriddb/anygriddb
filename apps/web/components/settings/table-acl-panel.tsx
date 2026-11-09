@@ -93,7 +93,7 @@ export function TableAclPanel(props: {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
+    <div className="flex flex-col gap-3 rounded-sm border border-border p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Shield className="h-4 w-4 text-muted-foreground" aria-hidden />
         <span className="text-sm font-medium">{t`Field permissions`}</span>

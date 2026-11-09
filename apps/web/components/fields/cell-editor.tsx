@@ -421,7 +421,7 @@ function ListPanel({
   return (
     <div
       ref={ref}
-      className="absolute top-0 left-0 z-30 flex max-h-80 w-72 flex-col rounded-lg border border-border bg-card shadow-xl"
+      className="absolute top-0 left-0 z-30 flex max-h-80 w-72 flex-col rounded-sm border border-border bg-card shadow-xl"
       // Clicks in the panel stay in it: the grid keeps its editor open.
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDownCapture={(event) => {

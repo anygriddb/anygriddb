@@ -160,7 +160,7 @@ export function SignInTrail() {
           : null}
       </p>
       {trail.isLoading ? <Spinner /> : null}
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto rounded-sm border border-border">
         <table className="w-full text-xs">
           <thead className="bg-muted text-left">
             <tr>

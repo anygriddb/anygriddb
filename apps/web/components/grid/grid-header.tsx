@@ -7,6 +7,7 @@ import {
   DropdownMenuTrigger,
   Checkbox,
 } from "@anygriddb/ui";
+import { marginColumn } from "./margin-column";
 import {
   ArrowDownAZ,
   ArrowLeftToLine,
@@ -106,6 +107,7 @@ export function GridHeader(props: {
         className={cn(
           "group/header relative flex shrink-0 items-center gap-1.5 border-r border-b border-strong-border bg-muted px-2 text-xs font-medium",
           frozen && "sticky z-[7]",
+          index === marginColumn(props.frozenCount) && "border-r-margin",
           over === column.name && "border-l-2 border-l-primary",
         )}
         style={{
@@ -279,7 +281,10 @@ export function GridHeader(props: {
       <div
         role="columnheader"
         aria-colindex={1}
-        className="sticky left-0 z-[9] flex shrink-0 items-center border-r border-b border-strong-border bg-muted px-1.5"
+        className={cn(
+          "sticky left-0 z-[9] flex shrink-0 items-center border-r border-b border-strong-border bg-muted px-1.5",
+          marginColumn(props.frozenCount) === -1 && "border-r-margin",
+        )}
         style={{ width: 72 }}
       >
         <Checkbox

@@ -42,7 +42,7 @@ import {
 import { cn } from "./cn";
 
 const surface =
-  "z-50 rounded-lg border border-border bg-card text-foreground shadow-lg outline-none";
+  "z-50 rounded-sm border border-border bg-card text-foreground shadow-lg outline-none";
 
 const menuItem =
   "flex cursor-default select-none items-center gap-2 rounded px-2 py-1.5 text-sm outline-none data-[disabled]:opacity-50 data-[focused]:bg-muted";

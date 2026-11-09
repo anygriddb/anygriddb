@@ -95,7 +95,7 @@ export function ApiConsole(props: {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+    <section className="flex flex-col gap-3 rounded-sm border border-border bg-card p-4">
       <div>
         <h2 className="font-semibold">{t`Try it`}</h2>
         <p className="text-xs text-muted-foreground">
@@ -186,7 +186,7 @@ export function ApiConsole(props: {
           </p>
           <pre
             data-testid="api-answer"
-            className="max-h-96 overflow-auto rounded-lg bg-foreground/95 p-3 text-xs text-background"
+            className="max-h-96 overflow-auto rounded-sm bg-foreground/95 p-3 text-xs text-background"
           >
             {answer.text}
           </pre>

@@ -251,7 +251,7 @@ function NewBaseForm(props: NewBaseProps) {
       </div>
       <div
         className={cn(
-          "flex flex-col items-center gap-2 rounded-lg border border-dashed p-4 text-center text-sm",
+          "flex flex-col items-center gap-2 rounded-sm border border-dashed p-4 text-center text-sm",
           dragging
             ? "border-primary bg-accent/40"
             : "border-border text-muted-foreground",
@@ -314,7 +314,7 @@ function NewBaseForm(props: NewBaseProps) {
           }}
         />
       </div>
-      <div className="flex flex-col gap-2 rounded-lg border border-border p-3 text-sm">
+      <div className="flex flex-col gap-2 rounded-sm border border-border p-3 text-sm">
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -369,7 +369,7 @@ function NewBaseForm(props: NewBaseProps) {
                 aria-checked={template === choice.id}
                 onClick={() => pick(choice.id, choice.name)}
                 className={cn(
-                  "flex flex-col gap-1 rounded-lg border p-3 text-left text-sm hover:bg-muted",
+                  "flex flex-col gap-1 rounded-sm border p-3 text-left text-sm hover:bg-muted",
                   template === choice.id
                     ? "border-primary ring-1 ring-primary"
                     : "border-border",

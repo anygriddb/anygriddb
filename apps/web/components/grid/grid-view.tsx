@@ -49,6 +49,7 @@ import { useTable, type CellValue } from "../table/table-context";
 import { GridFooter } from "./grid-footer";
 import { GridCell } from "./grid-cell";
 import { GridHeader } from "./grid-header";
+import { marginColumn } from "./margin-column";
 import { SelectionSummaryBar } from "./selection-summary";
 import {
   cellId,
@@ -751,6 +752,7 @@ export function GridView(props: GridProps) {
         column={column}
         width={widths[columnIndex] ?? 180}
         left={columnIndex < frozenCount ? offsets[columnIndex] : undefined}
+        margin={columnIndex === marginColumn(frozenCount)}
         height={rowHeight}
         wrap={props.rowHeight !== "short"}
         canEdit={props.canEdit}
@@ -796,7 +798,7 @@ export function GridView(props: GridProps) {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {checked.size > 0 ? (
-        <div className="absolute top-1 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm shadow-lg">
+        <div className="absolute top-1 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-sm border border-border bg-card px-3 py-1.5 text-sm shadow-lg">
           <span>{t`${{ count: checked.size }} rows selected`}</span>
           <button
             type="button"
@@ -1019,6 +1021,7 @@ export function GridView(props: GridProps) {
                       aria-colindex={1}
                       className={cn(
                         "sticky left-0 z-[6] flex shrink-0 items-center gap-2 border-r border-b border-border bg-card px-1.5 text-xs text-muted-foreground",
+                        marginColumn(frozenCount) === -1 && "border-r-margin",
                         tint && `row-tint-${tint}`,
                       )}
                       style={{ width: GUTTER, height: rowHeight }}

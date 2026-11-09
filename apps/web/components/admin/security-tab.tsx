@@ -13,7 +13,7 @@ function Section(props: {
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-border p-4">
+    <section className="flex flex-col gap-3 rounded-sm border border-border p-4">
       <div>
         <h2 className="text-sm font-semibold">{props.title}</h2>
         <p className="text-xs text-muted-foreground">{props.description}</p>

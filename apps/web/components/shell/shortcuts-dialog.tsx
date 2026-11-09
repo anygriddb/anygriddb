@@ -79,7 +79,7 @@ export function ShortcutsDialog() {
         <div className="grid gap-5 overflow-y-auto sm:grid-cols-2">
           {groups.map(([title, items]) => (
             <section key={title}>
-              <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              <h3 className="mb-2 text-xs font-medium text-muted-foreground">
                 {title}
               </h3>
               <ul className="flex flex-col gap-1.5 text-sm">

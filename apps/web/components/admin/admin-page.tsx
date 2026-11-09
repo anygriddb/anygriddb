@@ -121,7 +121,7 @@ function UsersTab() {
         }}
       />
       {list.isLoading ? <Spinner /> : null}
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto rounded-sm border border-border">
         <table className="w-full text-sm">
           <thead className="bg-muted text-left text-xs">
             <tr>
@@ -444,7 +444,7 @@ function AuditTab() {
       <div
         role="radiogroup"
         aria-label={t`Trail`}
-        className="flex w-fit gap-1 rounded-lg border border-border p-0.5"
+        className="flex w-fit gap-1 rounded-sm border border-border p-0.5"
       >
         {(
           [
@@ -561,7 +561,7 @@ function ChangesTrail() {
         {t`The log shows who changed which fields. Values stay in each row's history, behind the table's access rights.`}
       </p>
       {log.isLoading ? <Spinner /> : null}
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto rounded-sm border border-border">
         <table className="w-full text-xs">
           <thead className="bg-muted text-left">
             <tr>
@@ -658,7 +658,7 @@ function HealthTab() {
         {checks.map(([name, check]) => (
           <li
             key={name}
-            className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm"
+            className="flex items-center gap-2 rounded-sm border border-border p-3 text-sm"
           >
             {check.ok ? (
               <CheckCircle2 className="h-5 w-5 text-green-600" aria-hidden />
@@ -734,7 +734,7 @@ function TlsCard() {
   const date = (iso: string) =>
     new Date(iso).toLocaleDateString(i18n.locale, { dateStyle: "long" });
   return (
-    <section className="flex flex-col gap-2 rounded-lg border border-border p-4 text-sm">
+    <section className="flex flex-col gap-2 rounded-sm border border-border p-4 text-sm">
       <h2 className="flex items-center gap-2 font-medium">
         <ShieldCheck className="h-4 w-4 text-green-600" aria-hidden />
         {t`Encrypted connection (HTTPS)`}

@@ -22,7 +22,7 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-5">
+    <section className="rounded-sm border border-border bg-card p-5">
       <h2 className="text-base font-semibold">{title}</h2>
       {description ? (
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
@@ -42,7 +42,7 @@ export function BackupCodes({
   const { t } = useLingui();
   const copy = useCopy();
   return (
-    <div className="rounded-lg border border-primary/40 bg-accent/40 p-4">
+    <div className="rounded-sm border border-primary/40 bg-accent/40 p-4">
       <p className="text-sm font-medium">{t`Backup codes, shown only once.`}</p>
       <ul className="mt-2 grid grid-cols-2 gap-1 font-mono text-sm">
         {codes.map((code) => (
@@ -124,12 +124,12 @@ export function AccountSettings({
       {user.mfaRequired && !user.mfaEnrolled ? (
         <p
           role="alert"
-          className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
+          className="rounded-sm border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
         >
           {t`Your organization asks for a second factor on this account: set one up below to go on.`}
         </p>
       ) : welcome ? (
-        <p className="rounded-lg border border-primary/40 bg-accent/40 p-3 text-sm">
+        <p className="rounded-sm border border-primary/40 bg-accent/40 p-3 text-sm">
           {user.mfaForBases
             ? t`Welcome! Enable a second factor: it is required to create a base.`
             : t`Welcome! A second factor protects your account: you can enable one below.`}

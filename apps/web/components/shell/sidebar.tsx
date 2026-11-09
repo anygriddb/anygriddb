@@ -243,7 +243,7 @@ export function Sidebar({
   }
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-card">
+    <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-background">
       <div className="flex items-center gap-1 border-b border-border px-2 py-2">
         <Link
           to="/"
@@ -268,7 +268,7 @@ export function Sidebar({
       <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label={t`Bases`}>
         {pinned.length > 0 ? (
           <section aria-label={t`Pinned`} className="mb-3">
-            <span className="mb-1 block px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            <span className="mb-1 block px-1 text-xs font-medium text-muted-foreground">
               {t`Pinned`}
             </span>
             <ul className="flex flex-col gap-0.5">
@@ -332,7 +332,7 @@ export function Sidebar({
           </section>
         ) : null}
         <div className="mb-1 flex items-center justify-between px-1">
-          <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          <span className="text-xs font-medium text-muted-foreground">
             {t`Bases`}
           </span>
           {user.canCreateBases === false ? null : (

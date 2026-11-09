@@ -25,7 +25,7 @@ export function InvitationPage({ token }: { token: string }) {
   const next = `/invite/${token}`;
   return (
     <main className="flex h-screen items-center justify-center p-6">
-      <div className="flex w-full max-w-md flex-col gap-4 rounded-xl border border-border bg-card p-6">
+      <div className="flex w-full max-w-md flex-col gap-4 rounded-sm border border-border bg-card p-6">
         <BrandMark className="h-7 w-7" title="AnyGridDB" />
         {preview.isLoading ? <Spinner /> : null}
         {preview.isError ? (

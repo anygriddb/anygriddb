@@ -95,7 +95,7 @@ export function CardFields({
           return null;
         return (
           <div key={column.name} className="min-w-0">
-            <dt className="text-[10px] tracking-wide text-muted-foreground uppercase">
+            <dt className="text-[11px] text-muted-foreground">
               {column.label}
             </dt>
             <dd className="flex min-w-0 text-xs">

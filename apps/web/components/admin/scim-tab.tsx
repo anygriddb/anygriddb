@@ -40,7 +40,7 @@ export function ScimTab() {
   const { url, tokens, groups } = settings.data;
   return (
     <div className="flex max-w-3xl flex-col gap-5 text-sm">
-      <section className="flex flex-col gap-2 rounded-lg border border-border p-4">
+      <section className="flex flex-col gap-2 rounded-sm border border-border p-4">
         <h2 className="font-medium">{t`SCIM 2.0 provisioning`}</h2>
         <p className="text-muted-foreground">
           {t`Your identity provider (Okta, Microsoft Entra ID, …) creates, changes, and deactivates accounts, and keeps groups. Existing accounts are taken over by their email. Then give groups a role in each base's settings.`}
@@ -64,7 +64,7 @@ export function ScimTab() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-3 rounded-lg border border-border p-4">
+      <section className="flex flex-col gap-3 rounded-sm border border-border p-4">
         <h2 className="flex items-center gap-2 font-medium">
           <KeyRound className="h-4 w-4" aria-hidden />
           {t`Tokens`}
@@ -181,7 +181,7 @@ export function ScimTab() {
         </form>
       </section>
 
-      <section className="flex flex-col gap-2 rounded-lg border border-border p-4">
+      <section className="flex flex-col gap-2 rounded-sm border border-border p-4">
         <h2 className="font-medium">{t`Groups`}</h2>
         {groups.length === 0 ? (
           <p className="text-muted-foreground">{t`No group received yet.`}</p>

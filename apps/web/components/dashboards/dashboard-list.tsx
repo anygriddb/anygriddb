@@ -83,7 +83,7 @@ export function DashboardList({ baseId }: { baseId: string }) {
         </form>
       ) : null}
       {list.isLoading ? <Spinner /> : null}
-      <ul className="divide-y divide-border rounded-xl border border-border bg-card">
+      <ul className="divide-y divide-border rounded-sm border border-border bg-card">
         {(list.data?.dashboards ?? []).map((dashboard) => (
           <li
             key={dashboard.id}

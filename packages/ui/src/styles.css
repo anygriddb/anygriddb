@@ -1,22 +1,33 @@
+@import "@fontsource-variable/atkinson-hyperlegible-next/wght.css";
+@import "@fontsource-variable/atkinson-hyperlegible-mono/wght.css";
+
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/*
+ * The register: the page is ledger paper, surfaces are the sheet laid on
+ * it, text is writing ink, borders are its rules. Each text token keeps
+ * 4.5:1 on every surface it is written on (`tokens.test.ts`).
+ */
 :root {
-  --ag-background: #f8fafc;
-  --ag-foreground: #0f172a;
-  --ag-card: #ffffff;
-  --ag-muted: #f1f5f9;
-  --ag-muted-foreground: #586679;
-  --ag-border: #e2e8f0;
-  --ag-strong-border: #cbd5e1;
+  --ag-background: #eaefea;
+  --ag-foreground: #182832;
+  --ag-card: #fbfcfa;
+  --ag-muted: #e1e8e2;
+  --ag-muted-foreground: #5a6a66;
+  --ag-border: #c6d3cb;
+  --ag-strong-border: #a9bab1;
   --ag-primary: #0f766e;
-  --ag-primary-foreground: #f8fafc;
-  --ag-accent: #ccfbf1;
-  --ag-accent-foreground: #134e4a;
-  --ag-danger: #b91c1c;
-  --ag-danger-foreground: #fef2f2;
-  --ag-ring: #14b8a6;
-  --ag-selection: rgba(20, 184, 166, 0.14);
-  --ag-highlight: #fef08a;
+  --ag-primary-foreground: #f6faf8;
+  --ag-accent: #d6efe9;
+  --ag-accent-foreground: #0b4f49;
+  --ag-danger: #b42318;
+  --ag-danger-foreground: #fdf2f1;
+  --ag-ring: #0f8f84;
+  --ag-selection: rgba(15, 118, 110, 0.12);
+  --ag-highlight: #f5e9a8;
+  /* The ledger's red margin rule: where the frozen columns end. */
+  --ag-margin: #c94f47;
+  --ag-shadow: 24 40 50;
   /*
    * Chart series, in this order (never cycled): validated for colour
    * vision deficiencies against the card surface, each mode its own steps.
@@ -35,22 +46,24 @@
 }
 
 [data-theme="dark"] {
-  --ag-background: #0b1220;
-  --ag-foreground: #e2e8f0;
-  --ag-card: #111a2b;
-  --ag-muted: #172235;
-  --ag-muted-foreground: #94a3b8;
-  --ag-border: #233047;
-  --ag-strong-border: #334155;
+  --ag-background: #0f1715;
+  --ag-foreground: #e6ece8;
+  --ag-card: #151f1c;
+  --ag-muted: #1d2a26;
+  --ag-muted-foreground: #9db0a8;
+  --ag-border: #2a3833;
+  --ag-strong-border: #3b4c45;
   --ag-primary: #2dd4bf;
-  --ag-primary-foreground: #042f2e;
-  --ag-accent: #134e4a;
-  --ag-accent-foreground: #ccfbf1;
-  --ag-danger: #f87171;
-  --ag-danger-foreground: #450a0a;
+  --ag-primary-foreground: #04302b;
+  --ag-accent: #16403b;
+  --ag-accent-foreground: #bfede4;
+  --ag-danger: #f47f76;
+  --ag-danger-foreground: #3b0f0c;
   --ag-ring: #2dd4bf;
   --ag-selection: rgba(45, 212, 191, 0.16);
-  --ag-highlight: #854d0e;
+  --ag-highlight: #6b5a14;
+  --ag-margin: #e07a73;
+  --ag-shadow: 0 0 0;
   --ag-series-1: #3987e5;
   --ag-series-2: #d95926;
   --ag-series-3: #199e70;
@@ -79,8 +92,36 @@
   --color-ring: var(--ag-ring);
   --color-selection: var(--ag-selection);
   --color-highlight: var(--ag-highlight);
-  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --color-margin: var(--ag-margin);
+  /*
+   * Atkinson Hyperlegible (Braille Institute, OFL): 0/O, 1/l/I, and 8/B
+   * cannot be mistaken for one another, which is what a grid of someone
+   * else's data asks of a typeface.
+   */
+  --font-sans:
+    "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible", "Segoe UI",
+    system-ui, sans-serif;
+  --font-mono:
+    "Atkinson Hyperlegible Mono Variable", ui-monospace, "Cascadia Mono",
+    monospace;
+  /* Radius says what a thing is: sheets and panels 2px, controls 4px. */
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+  --radius-2xl: 6px;
+  /* Only what floats casts a shadow; what lies on the page is ruled. */
+  --shadow-sm: 0 1px 0 0 rgb(var(--ag-shadow) / 0.06);
+  --shadow-md:
+    0 1px 2px rgb(var(--ag-shadow) / 0.08),
+    0 6px 16px -8px rgb(var(--ag-shadow) / 0.24);
+  --shadow-lg:
+    0 1px 2px rgb(var(--ag-shadow) / 0.08),
+    0 12px 32px -12px rgb(var(--ag-shadow) / 0.28);
+  --shadow-xl:
+    0 2px 4px rgb(var(--ag-shadow) / 0.08),
+    0 20px 48px -16px rgb(var(--ag-shadow) / 0.32);
 }
 
 /* Select option colours: one background/foreground pair per palette entry. */

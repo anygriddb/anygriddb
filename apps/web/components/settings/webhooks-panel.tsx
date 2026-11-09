@@ -157,7 +157,7 @@ function NewWebhookForm(props: {
   const [busy, setBusy] = useState(false);
   return (
     <form
-      className="flex flex-col gap-3 rounded-lg border border-dashed border-border p-3"
+      className="flex flex-col gap-3 rounded-sm border border-dashed border-border p-3"
       onSubmit={async (event) => {
         event.preventDefault();
         setBusy(true);

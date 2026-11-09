@@ -354,7 +354,7 @@ export function FormView(props: ViewProps) {
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
       <div className="flex-1 overflow-y-auto bg-muted/40 p-6">
-        <div className="mx-auto max-w-xl rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="mx-auto max-w-xl rounded-sm border border-border bg-card p-6">
           {props.canEdit ? (
             <input
               aria-label={t`Form title`}

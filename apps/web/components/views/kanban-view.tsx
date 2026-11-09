@@ -38,14 +38,14 @@ function Card({
     <div
       {...dragProps}
       className={cn(
-        "relative rounded-lg border border-border bg-card text-sm shadow-sm hover:border-strong-border",
+        "relative rounded-sm border border-border bg-card text-sm hover:border-strong-border",
         isDragging && "opacity-50",
       )}
     >
       <button
         type="button"
         onClick={() => table.openRecord(row.id)}
-        className="w-full cursor-pointer rounded-lg p-2.5 pr-7 text-left outline-none focus-visible:outline-2 focus-visible:outline-ring"
+        className="w-full cursor-pointer rounded-sm p-2.5 pr-7 text-left outline-none focus-visible:outline-2 focus-visible:outline-ring"
       >
         <p className="truncate font-medium">{name}</p>
         <CardFields row={row} columns={fields} />
@@ -107,7 +107,7 @@ function Stack({
         {...dropProps}
         aria-label={name}
         className={cn(
-          "flex w-10 shrink-0 flex-col items-center rounded-xl bg-muted/70 py-2",
+          "flex w-10 shrink-0 flex-col items-center rounded-sm bg-muted/70 py-2",
           isDropTarget && "ring-2 ring-primary",
         )}
       >
@@ -133,7 +133,7 @@ function Stack({
       {...dropProps}
       aria-label={label || t`No value`}
       className={cn(
-        "flex w-72 shrink-0 flex-col rounded-xl bg-muted/70 p-2",
+        "flex w-72 shrink-0 flex-col rounded-sm bg-muted/70 p-2",
         isDropTarget && "ring-2 ring-primary",
       )}
     >

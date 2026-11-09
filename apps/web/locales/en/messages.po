@@ -1006,6 +1006,10 @@ msgstr "Also create the inverse field in the other table"
 msgid "Also send my notifications by email"
 msgstr "Also send my notifications by email"
 
+#: components/auth/auth-frame.tsx
+msgid "Amount"
+msgstr "Amount"
+
 #: components/admin/sources-tab.tsx
 msgid "An account dedicated to AnyGridDB, never an administrator. The connection uses TLS, with a verified certificate."
 msgstr "An account dedicated to AnyGridDB, never an administrator. The connection uses TLS, with a verified certificate."
@@ -1290,6 +1294,7 @@ msgstr "Base not found"
 
 #: components/admin/admin-page.tsx
 #: components/shell/command-palette.tsx
+#: components/shell/home-page.tsx
 #: components/shell/sidebar.tsx
 msgid "Bases"
 msgstr "Bases"
@@ -1869,6 +1874,7 @@ msgstr "Database not found on the source"
 #: components/admin/admin-page.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/support-tab.tsx
+#: components/auth/auth-frame.tsx
 #: components/fields/field-meta.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/table/automations-dialog.tsx
@@ -4071,6 +4077,10 @@ msgstr "No second factor"
 msgid "No sign-up domains are set (Settings tab): until some are, any address can be invited."
 msgstr "No sign-up domains are set (Settings tab): until some are, any address can be invited."
 
+#: components/shell/home-page.tsx
+msgid "No tables yet"
+msgstr "No tables yet"
+
 #: components/views/kanban-view.tsx
 msgid "No value"
 msgstr "No value"
@@ -4656,6 +4666,10 @@ msgstr "Reconnecting…"
 #: components/table/view-toolbar.tsx
 msgid "Redo"
 msgstr "Redo"
+
+#: components/auth/auth-frame.tsx
+msgid "Reference"
+msgstr "Reference"
 
 #: components/fields/field-editor.tsx
 msgid "Reference a field with {example}. Operators: + - * / % & = != > >= < <=."
@@ -5343,6 +5357,7 @@ msgstr "Signature"
 msgid "signed"
 msgstr "signed"
 
+#: components/auth/auth-frame.tsx
 #: components/record/row-status.tsx
 #: lib/known-text.ts
 msgid "Signed"

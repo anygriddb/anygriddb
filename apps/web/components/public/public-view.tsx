@@ -286,7 +286,7 @@ function PublicRows({
             {list.map((row) => (
               <li
                 key={String(row.id)}
-                className="rounded-xl border border-border bg-card p-3 shadow-sm"
+                className="rounded-sm border border-border bg-card p-3"
               >
                 {primary ? (
                   <p className="truncate font-medium">
@@ -305,7 +305,7 @@ function PublicRows({
                     .slice(0, 5)
                     .map((column) => (
                       <div key={column.name}>
-                        <dt className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                        <dt className="text-[11px] text-muted-foreground">
                           {column.label}
                         </dt>
                         <dd className="flex min-w-0 text-xs">
@@ -454,7 +454,7 @@ export function PublicView({ token }: { token: string }) {
     return (
       <main className="flex h-screen items-center justify-center p-6">
         <form
-          className="flex w-full max-w-sm flex-col gap-3 rounded-xl border border-border bg-card p-6"
+          className="flex w-full max-w-sm flex-col gap-3 rounded-sm border border-border bg-card p-6"
           onSubmit={(event) => {
             event.preventDefault();
             void unlock();
@@ -497,7 +497,7 @@ export function PublicView({ token }: { token: string }) {
       </header>
       {viewType === "form" ? (
         <div className="flex-1 overflow-y-auto bg-muted/40 p-6">
-          <div className="mx-auto max-w-xl rounded-xl border border-border bg-card p-6 shadow-sm">
+          <div className="mx-auto max-w-xl rounded-sm border border-border bg-card p-6">
             <h2 className="text-xl font-semibold">
               {config.form?.title || data.view.name}
             </h2>

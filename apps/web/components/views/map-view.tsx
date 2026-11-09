@@ -55,7 +55,7 @@ export function MapView(props: ViewProps) {
         </span>
       </div>
       <div className="flex min-h-0 flex-1">
-        <div className="relative m-4 flex-1 overflow-hidden rounded-xl border border-border bg-[linear-gradient(transparent_49.5%,var(--ag-border)_50%,transparent_50.5%),linear-gradient(90deg,transparent_49.5%,var(--ag-border)_50%,transparent_50.5%)] bg-[size:12.5%_16.66%]">
+        <div className="relative m-4 flex-1 overflow-hidden rounded-sm border border-border bg-[linear-gradient(transparent_49.5%,var(--ag-border)_50%,transparent_50.5%),linear-gradient(90deg,transparent_49.5%,var(--ag-border)_50%,transparent_50.5%)] bg-[size:12.5%_16.66%]">
           {points.map(({ row, latitude, longitude }) => (
             <button
               key={row.id}

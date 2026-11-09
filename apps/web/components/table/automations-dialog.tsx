@@ -830,7 +830,7 @@ function AutomationEditor(props: {
           onChange={(event) => setName(event.target.value)}
         />
       </div>
-      <section className="flex flex-col gap-2 rounded-lg border border-border p-3">
+      <section className="flex flex-col gap-2 rounded-sm border border-border p-3">
         <Label htmlFor="automation-trigger">{t`When`}</Label>
         <Select
           id="automation-trigger"
@@ -878,7 +878,7 @@ function AutomationEditor(props: {
       {actions.map((action, index) => (
         <section
           key={index}
-          className="flex flex-col gap-2 rounded-lg border border-border p-3"
+          className="flex flex-col gap-2 rounded-sm border border-border p-3"
         >
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-muted-foreground">

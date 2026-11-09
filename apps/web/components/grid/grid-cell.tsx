@@ -39,6 +39,8 @@ export function GridCell(props: {
   width: number;
   /** Offset of a frozen column; undefined for one that scrolls. */
   left: number | undefined;
+  /** Whether its right rule is the ledger's margin (`marginColumn`). */
+  margin: boolean;
   height: number;
   wrap: boolean;
   canEdit: boolean;
@@ -84,6 +86,7 @@ export function GridCell(props: {
       className={cn(
         "relative flex shrink-0 items-start overflow-visible border-r border-b border-border px-2 py-1.5 text-sm",
         props.left !== undefined ? "sticky z-[5] bg-card" : "bg-card",
+        props.margin && "border-r-margin",
         (selected || (flags & FILLING) !== 0) && "bg-selection",
         column.kind === "number" && "justify-end",
         !editable && "text-muted-foreground",

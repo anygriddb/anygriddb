@@ -120,7 +120,7 @@ export function DatePicker(props: DatePickerProps) {
       </Group>
       <AriaPopover
         placement="bottom start"
-        className="z-50 rounded-lg border border-border bg-card p-3 text-foreground shadow-lg outline-none"
+        className="z-50 rounded-sm border border-border bg-card p-3 text-foreground shadow-lg outline-none"
       >
         <AriaDialog className="outline-none">
           <Calendar>

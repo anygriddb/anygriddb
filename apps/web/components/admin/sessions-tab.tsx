@@ -53,7 +53,7 @@ export function SessionsTab() {
         </Button>
       </div>
       {sessions.isLoading ? <Spinner /> : null}
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto rounded-sm border border-border">
         <table className="w-full text-sm">
           <thead className="bg-muted text-left text-xs">
             <tr>

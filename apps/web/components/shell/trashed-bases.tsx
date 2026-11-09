@@ -56,7 +56,7 @@ export function TrashedBases() {
       <p className="mb-3 text-xs text-muted-foreground">
         {t`They stay for 30 days with their data, then are deleted permanently.`}
       </p>
-      <ul className="divide-y divide-border rounded-xl border border-border bg-card">
+      <ul className="divide-y divide-border rounded-sm border border-border bg-card">
         {items.map((entry) => (
           <li
             key={entry.id}

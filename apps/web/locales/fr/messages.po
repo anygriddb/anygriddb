@@ -1006,6 +1006,10 @@ msgstr "Créer aussi le champ inverse dans l'autre table"
 msgid "Also send my notifications by email"
 msgstr "Recevoir aussi mes notifications par email"
 
+#: components/auth/auth-frame.tsx
+msgid "Amount"
+msgstr "Montant"
+
 #: components/admin/sources-tab.tsx
 msgid "An account dedicated to AnyGridDB, never an administrator. The connection uses TLS, with a verified certificate."
 msgstr "Un compte dédié à AnyGridDB, jamais un administrateur. La connexion passe par TLS, certificat vérifié."
@@ -1290,6 +1294,7 @@ msgstr "Base introuvable"
 
 #: components/admin/admin-page.tsx
 #: components/shell/command-palette.tsx
+#: components/shell/home-page.tsx
 #: components/shell/sidebar.tsx
 msgid "Bases"
 msgstr "Bases"
@@ -1869,6 +1874,7 @@ msgstr "Base de données introuvable sur la source"
 #: components/admin/admin-page.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/support-tab.tsx
+#: components/auth/auth-frame.tsx
 #: components/fields/field-meta.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/table/automations-dialog.tsx
@@ -4071,6 +4077,10 @@ msgstr "Aucun second facteur"
 msgid "No sign-up domains are set (Settings tab): until some are, any address can be invited."
 msgstr "Aucun domaine d'inscription n'est défini (onglet Réglages) : tant qu'il n'y en a pas, toute adresse peut être invitée."
 
+#: components/shell/home-page.tsx
+msgid "No tables yet"
+msgstr "Aucune table pour l'instant"
+
 #: components/views/kanban-view.tsx
 msgid "No value"
 msgstr "Sans valeur"
@@ -4656,6 +4666,10 @@ msgstr "Reconnexion…"
 #: components/table/view-toolbar.tsx
 msgid "Redo"
 msgstr "Rétablir"
+
+#: components/auth/auth-frame.tsx
+msgid "Reference"
+msgstr "Référence"
 
 #: components/fields/field-editor.tsx
 msgid "Reference a field with {example}. Operators: + - * / % & = != > >= < <=."
@@ -5343,6 +5357,7 @@ msgstr "Signature"
 msgid "signed"
 msgstr "a signé"
 
+#: components/auth/auth-frame.tsx
 #: components/record/row-status.tsx
 #: lib/known-text.ts
 msgid "Signed"
