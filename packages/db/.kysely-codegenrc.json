@@ -1,0 +1,38 @@
+{
+  "dialect": "postgres",
+  "camelCase": true,
+  "defaultSchemas": ["public"],
+  "excludePattern": "(public.schema_migrations|graphile_worker.*)",
+  "outFile": "src/types.generated.ts",
+  "overrides": {
+    "columns": {
+      "api_tokens.base_ids": "string[] | null",
+      "audit_events.new_value": "unknown",
+      "audit_events.old_value": "unknown",
+      "automation_runs.steps": "Array<{ type: string; ok: boolean; error?: string }> | null",
+      "automations.actions": "unknown",
+      "automations.trigger": "unknown",
+      "dashboard_widgets.config": "Record<string, unknown>",
+      "data_columns.config": "Record<string, unknown> | null",
+      "data_tables.external_key": "string[] | null",
+      "external_status_events.detail": "unknown",
+      "external_statuses.drift": "Record<string, unknown> | null",
+      "external_statuses.sealed": "Record<string, unknown> | null",
+      "external_syncs.columns": "Array<{ name: string; type: string }> | null",
+      "external_watches.cursor": "Record<string, unknown> | null",
+      "external_write_steps.detail": "unknown",
+      "external_writes.new_value": "unknown",
+      "external_writes.old_value": "unknown",
+      "instance_settings.value": "unknown",
+      "jobs.input": "unknown",
+      "jobs.result": "Record<string, unknown> | null",
+      "notifications.data": "Record<string, string> | null",
+      "table_acls.row_filter": "Record<string, unknown> | null",
+      "views.config": "Record<string, unknown> | null",
+      "webhook_deliveries.payload": "unknown",
+      "webhooks.events": "string[]",
+      "webhooks.filter": "unknown",
+      "webhooks.watch_columns": "string[] | null"
+    }
+  }
+}

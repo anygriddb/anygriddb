@@ -1,0 +1,16 @@
+{
+  "name": "@anygriddb/tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "files": [
+    "base.json",
+    "node.json",
+    "web.json"
+  ],
+  "exports": {
+    "./base.json": "./base.json",
+    "./node.json": "./node.json",
+    "./web.json": "./web.json"
+  }
+}

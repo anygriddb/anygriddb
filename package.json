@@ -1,0 +1,58 @@
+{
+  "name": "anygriddb-root",
+  "description": "AnyGridDB — open-source spreadsheet databases (AGPL-3.0, no paid feature locks)",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.28.8",
+  "engines": {
+    "node": ">=26"
+  },
+  "author": {
+    "name": "AnyGridDB contributors",
+    "url": "https://github.com/anygriddb"
+  },
+  "homepage": "https://github.com/anygriddb/anygriddb",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anygriddb/anygriddb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/anygriddb/anygriddb/issues"
+  },
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "format": "prettier --write . --ignore-path .gitignore --ignore-path .prettierignore --ignore-path .git/info/exclude",
+    "format:check": "prettier --check . --ignore-path .gitignore --ignore-path .prettierignore --ignore-path .git/info/exclude",
+    "check:conventions": "node scripts/check-conventions.mjs",
+    "check": "pnpm format:check && pnpm check:conventions && turbo run lint typecheck test",
+    "test:integration": "turbo test:integration",
+    "test:samples": "pnpm --filter @anygriddb/api test:samples",
+    "test:e2e": "turbo test:e2e",
+    "lab:up": "./scripts/lab/up.sh",
+    "lab:down": "./scripts/lab/down.sh",
+    "lab:seed": "./scripts/lab/seed.sh",
+    "prepare": "husky",
+    "preinstall": "npx only-allow pnpm"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.4",
+    "@commitlint/config-conventional": "21.2.4",
+    "@eslint/js": "10.0.1",
+    "eslint": "10.14.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "husky": "9.1.7",
+    "lint-staged": "17.6.0",
+    "prettier": "3.9.10",
+    "turbo": "2.11.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1"
+  },
+  "lint-staged": {
+    "*.{js,cjs,mjs,ts,tsx,json,css,md,yml,yaml}": "prettier --write"
+  }
+}

@@ -1,0 +1,36 @@
+# AnyGridDB — shared toolchain (https://mise.jdx.dev/)
+# Install: curl https://mise.run | sh
+# Then:    mise trust && mise install
+
+[tools]
+node = "26"
+pnpm = "11"
+
+[env]
+_.path = ["{{config_root}}/node_modules/.bin"]
+# No usage data leaves a developer machine either.
+TURBO_TELEMETRY_DISABLED = "1"
+NEXT_TELEMETRY_DISABLED = "1"
+
+[tasks.install]
+description = "Install JS workspace deps"
+run = "pnpm install"
+
+[tasks.dev]
+description = "Start the API and web app on the host"
+run = "pnpm dev"
+
+[tasks.deploy-up]
+description = "Start the default Docker stack (build images)"
+dir = "docker"
+run = "docker compose up -d --build"
+
+[tasks.deploy-down]
+description = "Stop the default Docker stack"
+dir = "docker"
+run = "docker compose down"
+
+[tasks.deploy-logs]
+description = "Follow default stack logs"
+dir = "docker"
+run = "docker compose logs -f"

@@ -1,0 +1,41 @@
+name: Bug
+description: Something in the current app does not work
+title: "Bug: "
+labels: [bug]
+body:
+  - type: checkboxes
+    attributes:
+      label: Existing report
+      description: Search [open issues](https://github.com/anygriddb/anygriddb/issues?q=is%3Aissue+is%3Aopen) first.
+      options:
+        - label: I could not find an existing report for this.
+          required: true
+
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      description: What you did, what you expected, and what happened.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Environment
+      description: The app is `apps/` plus `docker/`.
+      placeholder: |
+        How you run it: pnpm dev | docker compose
+        Commit or version:
+        Browser:
+        Database: PostgreSQL
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Logs or screenshots
+    validations:
+      required: false

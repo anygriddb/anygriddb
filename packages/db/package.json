@@ -1,0 +1,26 @@
+{
+  "name": "@anygriddb/db",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "db:types": "kysely-codegen && prettier --write src/types.generated.ts"
+  },
+  "dependencies": {
+    "kysely": "0.29.7",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@anygriddb/tsconfig": "workspace:*",
+    "@types/node": "26.6.5",
+    "@types/pg": "8.23.1",
+    "kysely-codegen": "0.20.0",
+    "typescript": "6.0.3"
+  }
+}

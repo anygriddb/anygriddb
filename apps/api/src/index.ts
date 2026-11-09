@@ -1,0 +1,89 @@
+import { createDb, migrateDb } from "@anygriddb/db";
+import { promoteListedAdmins } from "./admin.js";
+import { isLoopback, readEnv } from "./env.js";
+import { createFileStore } from "./files/index.js";
+import { migrateQueue } from "./queue/worker.js";
+import { PgBus } from "./realtime/bus.js";
+import { createApp } from "./server.js";
+import { registerQueueGauge, startTracing } from "./observability.js";
+import { loadTls } from "./tls/authority.js";
+
+const env = readEnv();
+const { db, pool, close } = createDb(env.DATABASE_URL, {
+  onError: (error) => {
+    console.error("database connection failed", error);
+  },
+});
+await migrateDb(pool);
+// Row writes queue their events in graphile-worker: its schema comes first.
+await migrateQueue(env.DATABASE_URL, {
+  error: (meta, message) => console.error(message, meta),
+  warn: (meta, message) => console.warn(message, meta),
+  info: () => undefined,
+  debug: () => undefined,
+});
+await promoteListedAdmins(db, env.ADMIN_EMAILS);
+
+// A folder that cannot be written stops the start: better than failing
+// on the first upload. A remote S3 service may come up later.
+const files = createFileStore(env);
+if (files.driver === "disk") await files.check();
+
+// Realtime goes through PostgreSQL: the required stack is PostgreSQL and
+// AnyGridDB (ADR 0009).
+const bus = new PgBus(pool, env.DATABASE_URL, (error, message) => {
+  console.error(message, error);
+});
+await bus.start();
+
+// HTTPS only (ADR 0029): the operator's certificate, or one from the
+// instance's own authority, made at the first start.
+const tls = await loadTls(env, (message) => {
+  console.warn(message);
+});
+// Spans go to the operator's collector, when one is named (ADR 0018).
+const stopTracing = await startTracing({
+  endpoint: env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  serviceName: env.OTEL_SERVICE_NAME,
+  version: process.env.npm_package_version ?? "dev",
+});
+registerQueueGauge(db);
+const app = await createApp({ env, db, files, bus, tls });
+if (tls.authority) {
+  app.log.info(
+    {
+      fingerprint: tls.authority.fingerprint,
+      names: tls.authority.names,
+      download: `${env.PUBLIC_URL}/tls/authority.crt`,
+    },
+    "TLS: the instance's own authority signs the certificate. Install it once on each workstation, after checking its SHA-256 fingerprint, and browsers trust AnyGridDB without a warning.",
+  );
+}
+if (
+  new URL(env.PUBLIC_URL).protocol === "http:" &&
+  isLoopback(new URL(env.PUBLIC_URL).hostname)
+) {
+  app.log.warn(
+    "PUBLIC_URL is a plain HTTP address on this machine: the development server's. The API itself serves HTTPS.",
+  );
+}
+if (files.driver === "s3") {
+  await files.check().catch((error: unknown) => {
+    app.log.warn({ err: error }, "object storage bucket check failed");
+  });
+}
+await app.listen({ port: env.PORT, host: "0.0.0.0" });
+
+const shutdown = async () => {
+  await app.close();
+  await stopTracing();
+  await bus.close();
+  await close();
+};
+
+process.on("SIGINT", () => {
+  void shutdown();
+});
+process.on("SIGTERM", () => {
+  void shutdown();
+});

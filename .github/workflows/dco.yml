@@ -1,0 +1,72 @@
+name: DCO
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Conventional Commits and Signed-off-by
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -eu
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/commits" > /tmp/commits.json
+          python3 - << 'PY'
+          import json
+          import os
+          import pathlib
+          import subprocess
+          import sys
+
+          raw = pathlib.Path("/tmp/commits.json").read_text().strip()
+          commits = []
+          if raw:
+              decoder = json.JSONDecoder()
+              idx = 0
+              while idx < len(raw):
+                  while idx < len(raw) and raw[idx].isspace():
+                      idx += 1
+                  if idx >= len(raw):
+                      break
+                  obj, end = decoder.raw_decode(raw, idx)
+                  commits.extend(obj if isinstance(obj, list) else [obj])
+                  idx = end
+
+          if not commits:
+              print("::error::No commits found on the pull request")
+              sys.exit(1)
+
+          script = "scripts/validate-conventional-commit.sh"
+          failed = False
+          for commit in commits:
+              sha = commit["sha"]
+              # Dependency bots (Renovate, Dependabot) cannot sign off.
+              if (commit.get("author") or {}).get("type") == "Bot":
+                  print(f"Skipping bot commit {sha}")
+                  continue
+              message = commit["commit"]["message"]
+              path = pathlib.Path("/tmp/commit-msg")
+              path.write_text(message if message.endswith("\n") else message + "\n")
+              result = subprocess.run(["sh", script, str(path)])
+              if result.returncode != 0:
+                  print(f"::error::Commit {sha} failed Conventional Commits or DCO")
+                  failed = True
+
+          sys.exit(1 if failed else 0)
+          PY

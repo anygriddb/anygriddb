@@ -1,0 +1,33 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "cacheDir": ".turbo/cache",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {},
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md"]
+    },
+    "test": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md", "!**/*.integration.test.ts"]
+    },
+    "test:integration": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/db/migrations/**"],
+      "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*"]
+    },
+    "test:e2e": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],
+      "passThroughEnv": ["DOCKER_HOST", "CI"]
+    }
+  }
+}

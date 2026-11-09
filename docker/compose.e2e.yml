@@ -1,0 +1,8 @@
+# PostgreSQL for the Playwright run, as the image starts it, published on
+# the loopback only: the browser tests' server runs on this machine.
+services:
+  db:
+    command: !reset []
+    depends_on: !reset {}
+    ports: !override
+      - "127.0.0.1:5433:5432"

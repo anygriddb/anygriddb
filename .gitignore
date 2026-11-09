@@ -1,0 +1,21 @@
+node_modules/
+.turbo/
+dist/
+*.tsbuildinfo
+coverage/
+playwright-report/
+test-results/
+blob-report/
+*.log
+# Files and TLS keys of a local run.
+data/
+
+.env
+.env.*
+!.env.example
+!.env.sample
+!**/.env.example
+!**/.env.sample
+
+# The sample lab's TLS material (scripts/lab/gen-certs.sh).
+docker/lab/certs/

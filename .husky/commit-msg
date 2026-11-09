@@ -1,0 +1,5 @@
+# Enforce Conventional Commits 1.0.0, then the DCO trailer.
+# https://www.conventionalcommits.org/en/v1.0.0/
+
+pnpm exec commitlint --edit "$1"
+sh "$(dirname -- "$0")/../scripts/validate-conventional-commit.sh" "$1"

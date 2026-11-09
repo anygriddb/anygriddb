@@ -1,0 +1,28 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Only these packages may run install scripts (native builds). The others
+# come with Testcontainers and work without their optional native parts.
+allowBuilds:
+  esbuild: true
+  sharp: true
+  cpu-features: false
+  protobufjs: false
+  ssh2: false
+
+engineStrict: true
+
+# `pnpm add` pins the exact version (CONTRIBUTING.md); no ^ or ~ ranges.
+savePrefix: ""
+
+# A version published less than seven days ago is not installed: most
+# compromised releases are caught and pulled within that window. Minutes.
+minimumReleaseAge: 10080
+
+# @fastify/static asks for glob 13, whose every release carries a moderate
+# advisory, as does the minimatch it brings; glob 14 keeps the same API.
+# exceljs asks for uuid 8, under a moderate advisory; 11 keeps `v4`.
+overrides:
+  "@fastify/static>glob": "14.0.3"
+  "exceljs>uuid": "11.1.1"

@@ -1,0 +1,745 @@
+import {
+  AppError,
+  instanceSettingsPatchSchema,
+  JOB_STATUSES,
+  sourceInputSchema,
+  sourceUpdateSchema,
+} from "@anygriddb/core";
+import type { AuthAction } from "@anygriddb/db";
+import { z } from "zod";
+import {
+  accessReportCsv,
+  auditEventsCsv,
+  authEventCount,
+  authEventsCsv,
+  clearFactors,
+  endOtherSessions,
+  endSession,
+  endUserSessions,
+  instanceAuthAudit,
+  instanceRuntime,
+  listFailedDeliveries,
+  listPendingInvitations,
+  listSessions,
+  otherAccount,
+  revokeUserTokens,
+  withdrawInvitation,
+} from "../admin-control.js";
+import { assertEnrolled } from "../auth/access.js";
+import { recordAuthEvent } from "../auth/auth-events.js";
+import { unlockAccount } from "../auth/lockout.js";
+import { ADMIN_RESET_TTL_MS, createResetLink } from "../auth/password-reset.js";
+import {
+  resetLinkUrl,
+  sendResetLink,
+  sendSecurityNotice,
+} from "../auth/security-mail.js";
+import { cancelAnyJob, listAllJobs } from "../jobs.js";
+import { sendMail, smtpReady } from "../mail.js";
+import { resolveLocale, testMailBody, testMailSubject } from "../mail-i18n.js";
+import {
+  instanceAudit,
+  instanceHealth,
+  listUsers,
+  setUserAdmin,
+  setUserDisabled,
+} from "../admin.js";
+import { readSettings, writeSettings } from "../settings.js";
+import {
+  exposeTables,
+  refreshExposedTable,
+  setTableWrites,
+} from "../sources/expose.js";
+import { setTableWatch, watchColumns } from "../sources/watch.js";
+import { setTableSync, syncNow } from "../sources/sync.js";
+import {
+  createSource,
+  deleteSource,
+  exposedIn,
+  listSources,
+  recheckSource,
+  sourceTables,
+  testSource,
+  updateSource,
+  type SourceDeps,
+} from "../sources/sources.js";
+import { publishCatalog } from "../realtime/channels.js";
+import { listGroups } from "../scim/groups.js";
+import {
+  createScimToken,
+  createScimTokenInputSchema,
+  listScimTokens,
+  revokeScimToken,
+  revokeScimTokenInputSchema,
+} from "../scim/tokens.js";
+import type { Context } from "./context.js";
+import { handle } from "./guard.js";
+import { procedure, requestNames, requireUser, t } from "./init.js";
+
+/**
+ * Administration needs an admin's own session, API tokens refused, and a
+ * second factor, whatever the policy says of others (ADR 0043).
+ */
+async function requireAdmin(ctx: Context) {
+  const user = await requireUser(ctx);
+  if (!user.isAdmin || ctx.tokenScope) {
+    throw new AppError("access_denied");
+  }
+  await assertEnrolled(ctx.db, user, []);
+  return user;
+}
+
+const auditInputSchema = z.object({
+  userId: z.uuid().optional(),
+  tableId: z.uuid().optional(),
+  action: z
+    .enum([
+      "insert",
+      "update",
+      "delete",
+      "submit",
+      "lock",
+      "unlock",
+      "sign",
+      "catalog",
+    ])
+    .optional(),
+  source: z.string().trim().max(100).optional(),
+  before: z.iso.datetime().optional(),
+  limit: z.int().min(1).max(200).default(50),
+});
+
+const authActionSchema = z.enum([
+  "login_success",
+  "login_failure",
+  "logout",
+  "session_revoked",
+  "factors_cleared",
+  "tokens_revoked",
+  "account_locked",
+  "account_unlocked",
+  "password_changed",
+  "password_reset_requested",
+  "password_reset",
+  "settings_changed",
+  "account_disabled",
+] satisfies AuthAction[]);
+
+const exportLimit = z.int().min(1).max(10_000).default(10_000);
+
+function sourceDeps(ctx: Context): SourceDeps {
+  return {
+    db: ctx.db,
+    key: ctx.env.AUTH_ENCRYPTION_KEY,
+    settings: ctx.sources,
+  };
+}
+
+/** Client databases (ADR 0026): declared and checked by administrators. */
+const sourcesRouter = t.router({
+  settings: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return {
+        allowedHosts: [...ctx.sources.allowedHosts],
+        allowPlaintext: ctx.sources.allowPlaintext,
+      };
+    }),
+  ),
+  list: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return listSources(ctx.db);
+    }),
+  ),
+  test: procedure.input(sourceInputSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return testSource(sourceDeps(ctx), input);
+    }),
+  ),
+  create: procedure.input(sourceInputSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      const created = await createSource(sourceDeps(ctx), admin.id, input);
+      ctx.req.log.info(
+        { actor: admin.id, source: created.id },
+        "source declared",
+      );
+      return created;
+    }),
+  ),
+  update: procedure.input(sourceUpdateSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      return updateSource(sourceDeps(ctx), admin.id, input);
+    }),
+  ),
+  check: procedure
+    .input(z.object({ id: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        return recheckSource(sourceDeps(ctx), input.id);
+      }),
+    ),
+  expose: procedure
+    .input(
+      z.object({
+        sourceId: z.uuid(),
+        baseId: z.uuid(),
+        tables: z
+          .array(
+            z.object({
+              schema: z.string().min(1).max(128),
+              name: z.string().min(1).max(128),
+            }),
+          )
+          .min(1)
+          .max(100),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const result = await exposeTables(
+          sourceDeps(ctx),
+          admin.id,
+          input,
+          (await requestNames(ctx)).grid,
+        );
+        await publishCatalog(ctx.bus, input.baseId, (error) => {
+          ctx.req.log.error({ err: error }, "catalog publish failed");
+        });
+        return result;
+      }),
+    ),
+  setWrites: procedure
+    .input(
+      z.object({
+        tableId: z.uuid(),
+        update: z.boolean(),
+        insert: z.boolean(),
+        delete: z.boolean(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const result = await setTableWrites(sourceDeps(ctx), admin.id, input);
+        await publishCatalog(ctx.bus, result.baseId, (error) => {
+          ctx.req.log.error({ err: error }, "catalog publish failed");
+        });
+        return result;
+      }),
+    ),
+  refreshTable: procedure
+    .input(z.object({ tableId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const result = await refreshExposedTable(
+          sourceDeps(ctx),
+          admin.id,
+          input.tableId,
+        );
+        await publishCatalog(ctx.bus, result.baseId, (error) => {
+          ctx.req.log.error({ err: error }, "catalog publish failed");
+        });
+        return result;
+      }),
+    ),
+  setWatch: procedure
+    .input(
+      z.object({
+        tableId: z.uuid(),
+        method: z.enum(["column", "change_tracking"]).nullable(),
+        column: z.string().min(1).max(128).optional(),
+        intervalSeconds: z.int().min(5).max(86_400),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await setTableWatch(sourceDeps(ctx), admin.id, input);
+        return { ok: true as const };
+      }),
+    ),
+  setSync: procedure
+    .input(
+      z.object({
+        tableId: z.uuid(),
+        // Null reads the table live again.
+        intervalMinutes: z.int().min(1).max(10_080).nullable(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const { baseId } = await setTableSync(ctx.db, admin.id, input);
+        await publishCatalog(ctx.bus, baseId, (error) => {
+          ctx.req.log.error({ err: error }, "catalog publish failed");
+        });
+        return { ok: true as const };
+      }),
+    ),
+  /**
+   * Where each exposed table stands (writes, watch, copy), from AnyGridDB's
+   * database only: cheap to read again while a refresh runs.
+   */
+  exposures: procedure
+    .input(z.object({ id: z.uuid() }))
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        return Object.fromEntries(await exposedIn(ctx.db, input.id));
+      }),
+    ),
+  syncNow: procedure
+    .input(z.object({ tableId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        await syncNow(ctx.db, input.tableId);
+        return { ok: true as const };
+      }),
+    ),
+  tables: procedure.input(z.object({ id: z.uuid() })).query(({ ctx, input }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      const [tables, exposed, source] = await Promise.all([
+        sourceTables(sourceDeps(ctx), input.id),
+        exposedIn(ctx.db, input.id),
+        ctx.db
+          .selectFrom("sources")
+          .select("engine")
+          .where("id", "=", input.id)
+          .executeTakeFirstOrThrow(),
+      ]);
+      return tables.map((table) => ({
+        ...table,
+        changeTracking: table.changeTracking ?? false,
+        // Columns that can tell changes made elsewhere (ADR 0031).
+        watchColumns: watchColumns(source.engine, table),
+        exposedIn: exposed.get(`${table.schema}.${table.name}`) ?? [],
+      }));
+    }),
+  ),
+  delete: procedure
+    .input(z.object({ id: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await deleteSource(sourceDeps(ctx), admin.id, input.id);
+        return { ok: true as const };
+      }),
+    ),
+});
+
+/** Provisioning by an identity provider (SCIM 2.0, ADR 0038). */
+const scimRouter = t.router({
+  settings: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return {
+        url: `${ctx.env.PUBLIC_URL}/scim/v2`,
+        tokens: await listScimTokens(ctx.db),
+        groups: await listGroups(ctx.db),
+      };
+    }),
+  ),
+  /** A new token, shown once. */
+  createToken: procedure
+    .input(createScimTokenInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        return createScimToken(ctx.db, admin.id, input.name);
+      }),
+    ),
+  revokeToken: procedure
+    .input(revokeScimTokenInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await revokeScimToken(ctx.db, admin.id, input.tokenId);
+        return { ok: true as const };
+      }),
+    ),
+});
+
+export const adminRouter = t.router({
+  scim: scimRouter,
+  sources: sourcesRouter,
+  settings: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return {
+        ...(await readSettings(ctx.db)),
+        // What some choices depend on: email for resets, SSO for its factor.
+        smtpReady: smtpReady(ctx.env),
+        ssoReady: Boolean(
+          (ctx.env.OIDC_ISSUER && ctx.env.OIDC_CLIENT_ID) ||
+          (ctx.env.SAML_ENTRY_POINT && ctx.env.SAML_ISSUER),
+        ),
+      };
+    }),
+  ),
+  updateSettings: procedure
+    .input(instanceSettingsPatchSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await writeSettings(ctx.db, admin.id, input, ctx.req.ip);
+        if (input.maintenance === true) {
+          // Only administrators stay: the others are signed out now.
+          const ended = await endOtherSessions(ctx.db, admin.id, "non_admins");
+          for (const userId of ended) ctx.hub.closeUser(userId);
+        }
+        ctx.req.log.info(
+          { actor: admin.id, keys: Object.keys(input) },
+          "instance settings changed",
+        );
+        return readSettings(ctx.db);
+      }),
+    ),
+  users: procedure
+    .input(
+      z.object({
+        search: z.string().trim().max(100).optional(),
+        offset: z.int().min(0).max(1_000_000).default(0),
+        limit: z.int().min(1).max(100).default(50),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        return listUsers(ctx.db, {
+          ...input,
+          search: input.search || undefined,
+        });
+      }),
+    ),
+  setDisabled: procedure
+    .input(z.object({ userId: z.uuid(), disabled: z.boolean() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await setUserDisabled(ctx.db, admin.id, input.userId, input.disabled);
+        if (input.disabled) ctx.hub.closeUser(input.userId);
+        ctx.req.log.info(
+          { actor: admin.id, target: input.userId, disabled: input.disabled },
+          "account status changed",
+        );
+        return { ok: true as const };
+      }),
+    ),
+  setAdmin: procedure
+    .input(z.object({ userId: z.uuid(), admin: z.boolean() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await setUserAdmin(ctx.db, input.userId, input.admin);
+        ctx.req.log.info(
+          { actor: admin.id, target: input.userId, admin: input.admin },
+          "admin role changed",
+        );
+        return { ok: true as const };
+      }),
+    ),
+  /** The certificate served, and the authority to install (ADR 0029). */
+  tls: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return ctx.tls();
+    }),
+  ),
+  health: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return instanceHealth({ db: ctx.db, bus: ctx.bus, files: ctx.files });
+    }),
+  ),
+  audit: procedure.input(auditInputSchema).query(({ ctx, input }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return instanceAudit(ctx.db, {
+        ...input,
+        source: input.source || undefined,
+      });
+    }),
+  ),
+  /** The sign-in trail (ADR 0042), newest first. */
+  authAudit: procedure
+    .input(
+      z.object({
+        userId: z.uuid().optional(),
+        action: authActionSchema.optional(),
+        before: z.iso.datetime().optional(),
+        limit: z.int().min(1).max(200).default(50),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        const [page, total, settings] = await Promise.all([
+          instanceAuthAudit(ctx.db, input),
+          authEventCount(ctx.db),
+          readSettings(ctx.db),
+        ]);
+        return { ...page, total, retentionDays: settings.authRetentionDays };
+      }),
+    ),
+  /** CSV downloads of both trails, up to 10,000 events, as filtered. */
+  exportAudit: procedure
+    .input(auditInputSchema.extend({ limit: exportLimit }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const page = await instanceAudit(ctx.db, {
+          ...input,
+          source: input.source || undefined,
+        });
+        ctx.req.log.info({ actor: admin.id }, "audit exported");
+        return { csv: auditEventsCsv(page.events) };
+      }),
+    ),
+  exportAuthAudit: procedure
+    .input(
+      z.object({
+        userId: z.uuid().optional(),
+        action: authActionSchema.optional(),
+        before: z.iso.datetime().optional(),
+        limit: exportLimit,
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const page = await instanceAuthAudit(ctx.db, input);
+        ctx.req.log.info({ actor: admin.id }, "sign-in trail exported");
+        return { csv: authEventsCsv(page.events) };
+      }),
+    ),
+  accessReport: procedure.mutation(({ ctx }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      ctx.req.log.info({ actor: admin.id }, "access report exported");
+      return { csv: await accessReportCsv(ctx.db) };
+    }),
+  ),
+  sessions: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      const sessions = await listSessions(ctx.db);
+      return {
+        sessions: sessions.map((session) => ({
+          ...session,
+          mine: session.userId === admin.id,
+        })),
+      };
+    }),
+  ),
+  endSession: procedure
+    .input(z.object({ sessionId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const { userId } = await endSession(ctx.db, admin.id, input.sessionId);
+        ctx.hub.closeUser(userId);
+        return { ok: true as const };
+      }),
+    ),
+  endUserSessions: procedure
+    .input(z.object({ userId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        if (input.userId === admin.id) throw new AppError("invalid_account");
+        const count = await endUserSessions(ctx.db, admin.id, input.userId);
+        ctx.hub.closeUser(input.userId);
+        return { count };
+      }),
+    ),
+  endOtherSessions: procedure.mutation(({ ctx }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      const ended = await endOtherSessions(ctx.db, admin.id, "everyone");
+      ctx.hub.closeAllBut(admin.id);
+      return { count: ended.length };
+    }),
+  ),
+  clearFactors: procedure
+    .input(z.object({ userId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await clearFactors(ctx.db, admin.id, input.userId);
+        ctx.hub.closeUser(input.userId);
+        void sendSecurityNotice(
+          { db: ctx.db, env: ctx.env, log: ctx.req.log },
+          input.userId,
+          { kind: "factors_removed" },
+        );
+        return { ok: true as const };
+      }),
+    ),
+  /** Lifts a lock set by failed sign-ins (ADR 0043). */
+  unlock: procedure
+    .input(z.object({ userId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await otherAccount(ctx.db, admin.id, input.userId);
+        await unlockAccount(ctx.db, admin.id, input.userId);
+        return { ok: true as const };
+      }),
+    ),
+  /**
+   * A link that lets the person set a new password, valid a day. With email
+   * set up it goes to their own address and the administrator never sees
+   * it; without, the administrator gets it to pass on (ADR 0043).
+   */
+  sendPasswordReset: procedure
+    .input(z.object({ userId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await otherAccount(ctx.db, admin.id, input.userId);
+        const link = await createResetLink(ctx.db, {
+          userId: input.userId,
+          createdBy: admin.id,
+          ttlMs: ADMIN_RESET_TTL_MS,
+        });
+        await recordAuthEvent(ctx.db, {
+          action: "password_reset_requested",
+          userId: input.userId,
+          actorId: admin.id,
+          method: "admin",
+          detail: "reset_link",
+          ip: ctx.req.ip,
+        });
+        if (smtpReady(ctx.env)) {
+          const to = await sendResetLink(
+            { db: ctx.db, env: ctx.env, log: ctx.req.log },
+            input.userId,
+            { ...link, byAdmin: true },
+          );
+          if (!to) throw new AppError("smtp_not_configured");
+          return { sent: true as const, to };
+        }
+        return {
+          sent: false as const,
+          link: resetLinkUrl(ctx.env.PUBLIC_URL, link.token),
+          expiresAt: link.expiresAt.toISOString(),
+        };
+      }),
+    ),
+  revokeTokens: procedure
+    .input(z.object({ userId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        return {
+          count: await revokeUserTokens(ctx.db, admin.id, input.userId),
+        };
+      }),
+    ),
+  invitations: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return { invitations: await listPendingInvitations(ctx.db) };
+    }),
+  ),
+  withdrawInvitation: procedure
+    .input(z.object({ invitationId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await withdrawInvitation(ctx.db, input.invitationId);
+        ctx.req.log.info(
+          { actor: admin.id, invitation: input.invitationId },
+          "invitation withdrawn",
+        );
+        return { ok: true as const };
+      }),
+    ),
+  jobs: procedure
+    .input(
+      z.object({
+        status: z.enum(JOB_STATUSES).optional(),
+        limit: z.int().min(1).max(100).default(50),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        return { jobs: await listAllJobs(ctx.db, input) };
+      }),
+    ),
+  cancelJob: procedure
+    .input(z.object({ jobId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await cancelAnyJob(
+          {
+            db: ctx.db,
+            bus: ctx.bus,
+            log: (error, message) => ctx.req.log.error({ err: error }, message),
+          },
+          input.jobId,
+        );
+        ctx.req.log.info(
+          { actor: admin.id, job: input.jobId },
+          "job cancelled",
+        );
+        return { ok: true as const };
+      }),
+    ),
+  failedDeliveries: procedure
+    .input(z.object({ limit: z.int().min(1).max(200).default(50) }))
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        return { deliveries: await listFailedDeliveries(ctx.db, input.limit) };
+      }),
+    ),
+  /** Sends a test email to the administrator's own address. */
+  sendTestMail: procedure.mutation(({ ctx }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      if (!smtpReady(ctx.env)) throw new AppError("smtp_not_configured");
+      const settings = await readSettings(ctx.db);
+      const locale = resolveLocale(null, settings.defaultLocale);
+      await sendMail(ctx.env, {
+        to: admin.email,
+        subject: testMailSubject(locale),
+        text: testMailBody(locale),
+      });
+      return { to: admin.email };
+    }),
+  ),
+  /** Health and configuration facts to send to whoever helps the operator. */
+  supportBundle: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      const [health, runtime] = await Promise.all([
+        instanceHealth({ db: ctx.db, bus: ctx.bus, files: ctx.files }),
+        instanceRuntime({
+          db: ctx.db,
+          env: ctx.env,
+          files: ctx.files,
+          sources: ctx.sources,
+        }),
+      ]);
+      const tls = ctx.tls();
+      return {
+        generatedAt: new Date().toISOString(),
+        health,
+        runtime,
+        tls: tls ? { mode: tls.mode, expires: tls.server.expires } : null,
+      };
+    }),
+  ),
+});

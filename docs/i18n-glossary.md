@@ -1,0 +1,28 @@
+# UI glossary (English source)
+
+Use these terms in `` t`…` `` / `` msg`…` `` so English stays consistent.
+French translations live in `apps/web/locales/fr/messages.po`.
+
+| Concept           | English    | Notes                                                       |
+| ----------------- | ---------- | ----------------------------------------------------------- |
+| Base              | Base       | A workspace of tables                                       |
+| Table             | Table      |                                                             |
+| Field / column    | Field      | Prefer “field” in chrome; “column” only for SQL/source talk |
+| Row / record      | Row        | Prefer “row” in the grid                                    |
+| View              | View       | Grid, kanban, calendar, …                                   |
+| Share             | Share      | Public link                                                 |
+| Automation        | Automation |                                                             |
+| Webhook           | Webhook    |                                                             |
+| Source            | Source     | External client database                                    |
+| Sync / copy       | Sync, copy | ADR 0034                                                    |
+| Trash             | Trash      | Soft-delete                                                 |
+| Role              | Role       | Owner, editor, …                                            |
+| Instance          | Instance   | The deployment                                              |
+| Locale / language | Language   | User-facing menu label                                      |
+
+## Tone
+
+- Sentence case for buttons and labels (`Add a row`, not `Add A Row`).
+- Named ICU placeholders only (`{count}`, `{name}`).
+- English plurals with `plural` / ICU `one` / `other` (and `=0` when needed).
+- Do not invent French formula aliases; function names stay `LEN`, `IF`, …

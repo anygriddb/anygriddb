@@ -1,0 +1,24 @@
+# Security Policy
+
+### Sessions and factors
+
+AnyGridDB serves HTTPS only (ADR 0029): the operator's certificate, or one signed by the instance's own authority, which is name-constrained to the instance's addresses and whose private keys are stored encrypted with `AUTH_ENCRYPTION_KEY`. Plain HTTP on the same port gets a redirect and nothing else. `PUBLIC_URL` must be HTTPS; plain HTTP is accepted only for the development server on the machine's loopback. HSTS is sent with the operator's certificate.
+
+Every connection AnyGridDB opens beyond the machine's loopback is TLS with the certificate verified, and it refuses to start on a setting that breaks this (ADR 0030): its PostgreSQL (`sslmode=verify-full`), S3, SMTP (implicit TLS or required STARTTLS), SAML, clients' databases, and webhooks. In the compose stack, PostgreSQL takes TLS connections only, and RustFS serves HTTPS, both with certificates from the instance's internal authority, which only AnyGridDB trusts, name-constrained to the services.
+
+Sign-in sets a `__Host-` session cookie, `HttpOnly`, `Secure`, and `SameSite=Strict`, only after the password check succeeds. When TOTP or a passkey is enrolled, that factor must succeed before the cookie is set.
+
+Passwords are hashed with Argon2id (64 MiB). TOTP secrets are encrypted at rest with AES-256-GCM under `AUTH_ENCRYPTION_KEY`. Backup codes are stored as hashes. The server keeps a WebAuthn public key and signature counter only; biometrics stay on the device.
+
+Sign-ins, refused sign-ins, sign-outs, and what an administrator does to an account (ended sessions, removed second factors, revoked tokens, unlocks, reset links) go to the `auth_events` trail, with the acting administrator and the client address but never an email, a password, or a token. So does each setting an administrator changes, by name. It is append-only, kept six months to a year as the instance says, and cleared of an erased account's ids and addresses (ADRs 0042, 0043). Administration > Audit log > Sign-ins shows it. Row and catalog changes stay in the separate `audit_events` trail.
+
+The security policy is the administrator's, from defaults most organizations keep (ADR 0043, Administration > Security): administrators always need a second factor, and by default so do base owners; an account locks for 15 minutes after 10 failed passwords or codes in a row, counted per account whatever the address; sessions end after 15 minutes idle and 12 hours in any case; passwords have 12 characters at least, with no character classes or expiry. A reset link works once, an hour when the person asks by email, a day when an administrator sends it, and keeps the second factors. After single sign-on, an account's own second factor is asked too, unless the instance trusts the identity provider's. No setting turns the lock off, lets an administrator work without a second factor, or keeps the sign-in trail less than six months.
+
+Administrators can also keep invitations to the organization's domains, keep base and API token creation to themselves, and have accounts nobody used for 30 to 365 days disabled, after an email warning a week before; administrators and identity-provider accounts are never disabled this way. Administrators are told of each lock in the app and by email, at most ten times an hour (ADR 0044).
+
+### Reporting a Vulnerability
+
+Please report (suspected) security vulnerabilities to ngsanogo@proton.me, or privately through GitHub: [report a vulnerability](https://github.com/anygriddb/anygriddb/security/advisories/new). Do not open a public issue.
+
+- You will receive an answer within 7 working days.
+- If the issue is confirmed, a fix is released as soon as its complexity allows, and the advisory is published with it.

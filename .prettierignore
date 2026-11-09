@@ -1,0 +1,12 @@
+node_modules
+dist
+pnpm-lock.yaml
+coverage
+playwright-report
+test-results
+.turbo
+/data
+docker/lab/seeds
+docker/lab/certs
+# Compiled translation catalogs: the Vite plugin builds them.
+apps/web/locales/*/*.js

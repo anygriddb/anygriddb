@@ -1,0 +1,184 @@
+# AnyGridDB and PostgreSQL. AnyGridDB serves the app and its API on one
+# address, over HTTPS only: https://localhost:3000. Without a certificate of
+# the operator's, it makes its own authority on the `tls` volume (ADR 0029).
+# Files live on the `files` volume. PostgreSQL is reachable from AnyGridDB
+# alone, on the stack's own network, and over TLS only: the one-shot `certs`
+# service issues its certificate from the instance's internal authority
+# before it starts (ADR 0030).
+#
+#   cp .env.example .env
+#   docker compose up -d --build
+#
+# To run AnyGridDB on the host against this PostgreSQL (development):
+#
+#   docker compose -f compose.yml -f compose.dev.yml up -d db
+#
+# On a PostgreSQL of your own (managed): compose.managed.yml alone. From a
+# PostgreSQL 17 stack: scripts/upgrade-postgres.sh. Backups:
+# scripts/backup.sh and scripts/restore.sh. See docs/operations.md.
+#
+# To keep files in an S3-compatible store instead, add the RustFS overlay:
+#
+#   docker compose -f compose.yml -f compose.s3.yml up -d --build
+
+name: anygriddb
+
+x-anygriddb-image: &anygriddb-image
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+  image: anygriddb:local
+
+services:
+  # One-shot, before the services it serves: certificates for the stack's
+  # services from the instance's internal authority (keys owned by each
+  # service's user), and the authority AnyGridDB trusts them by. It runs
+  # as root only to give each key to its service, with no network.
+  certs:
+    <<: *anygriddb-image
+    user: "0:0"
+    restart: "no"
+    network_mode: none
+    security_opt:
+      - no-new-privileges:true
+    command:
+      [
+        "anygriddb",
+        "tls",
+        "services",
+        "--out",
+        "/certs",
+        "--postgres",
+        "db:999:999",
+      ]
+    environment:
+      AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env}
+    volumes:
+      - tls_data:/data/tls
+      - service_certs:/certs
+
+  # One-shot, before PostgreSQL: a stack that ran PostgreSQL 17 keeps its
+  # data in `postgres_data`, which PostgreSQL 18 does not open. Rather than
+  # start on an empty database, it stops and says how to move the data:
+  # scripts/upgrade-postgres.sh, which alone lets it through.
+  postgres-upgrade-check:
+    image: postgres:18
+    restart: "no"
+    network_mode: none
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      ANYGRIDDB_PG_UPGRADE: ${ANYGRIDDB_PG_UPGRADE:-}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        if [ -f /old/PG_VERSION ] && [ ! -f /new/18/docker/PG_VERSION ] && [ -z "$$ANYGRIDDB_PG_UPGRADE" ]; then
+          echo "This stack's data is in PostgreSQL $$(cat /old/PG_VERSION) format (volume postgres_data)." >&2
+          echo "Move it to PostgreSQL 18 first: scripts/upgrade-postgres.sh (docs/operations.md)." >&2
+          exit 1
+        fi
+    volumes:
+      - postgres_data:/old:ro
+      - postgres_18:/new:ro
+
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in docker/.env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in docker/.env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in docker/.env}
+    # TLS only over the network (pg_hba.conf from `certs`); the socket
+    # inside the container stays for the image's own setup and checks.
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/certs/db/db_cert.pem
+      - -c
+      - ssl_key_file=/certs/db/db_key.pem
+      - -c
+      - ssl_min_protocol_version=TLSv1.2
+      - -c
+      - hba_file=/certs/db/pg_hba.conf
+    # PostgreSQL 18 keeps its cluster in /var/lib/postgresql/18/docker.
+    volumes:
+      - postgres_18:/var/lib/postgresql
+      - service_certs:/certs:ro
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+      postgres-upgrade-check:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  app:
+    <<: *anygriddb-image
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      # Verified TLS to PostgreSQL, by the internal authority (ADR 0030).
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=verify-full&sslrootcert=/certs/internal-authority.crt
+      AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env}
+      PORT: "4000"
+      # The address people open, HTTPS: links in emails, passkeys, and the
+      # certificate's names use it.
+      PUBLIC_URL: ${PUBLIC_URL:-https://localhost:3000}
+      # Other names and addresses people reach it by, for its certificate.
+      TLS_NAMES: ${TLS_NAMES:-}
+      # The operator's own certificate, mounted below; empty: the instance's.
+      TLS_CERT_FILE: ${TLS_CERT_FILE:-}
+      TLS_KEY_FILE: ${TLS_KEY_FILE:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      ANYGRIDDB_SOURCES_ALLOWED_HOSTS: ${ANYGRIDDB_SOURCES_ALLOWED_HOSTS:-}
+      ATTACHMENT_MAX_BYTES: ${ATTACHMENT_MAX_BYTES:-}
+      # Metrics and traces, off unless set (ADR 0018).
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+    volumes:
+      - files_data:/data/files
+      - tls_data:/data/tls
+      - service_certs:/certs:ro
+      # The operator's certificate, if any: set TLS_CERT_FILE and
+      # TLS_KEY_FILE to /own-tls/... and mount its folder here.
+      # - ./own-tls:/own-tls:ro
+    ports:
+      - "3000:4000"
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "anygriddb", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - internal
+
+networks:
+  # Dedicated network. `internal: true` would block published ports, so the host
+  # could not reach Postgres or AnyGridDB.
+  internal: {}
+
+volumes:
+  # PostgreSQL 17's data, kept after an upgrade until the operator drops it.
+  postgres_data:
+  postgres_18:
+  files_data:
+  tls_data:
+  service_certs:

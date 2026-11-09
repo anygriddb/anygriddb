@@ -1,0 +1,2 @@
+# Compiled catalogs: the Vite plugin compiles the PO files.
+locales/*/*.js

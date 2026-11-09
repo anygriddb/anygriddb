@@ -1,0 +1,226 @@
+# Operating AnyGridDB
+
+This guide covers running AnyGridDB with Docker Compose. Every procedure
+here was tried on a stack of its own before it was written down.
+
+## Install
+
+```sh
+cd docker
+cp ../.env.example .env
+# In .env: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, PUBLIC_URL, and
+AUTH_ENCRYPTION_KEY="$(openssl rand -base64 32)"   # keep it safe, apart
+docker compose up -d --build
+```
+
+The stack has four services:
+
+- `certs` runs once and issues PostgreSQL its certificate.
+- `postgres-upgrade-check` runs once and refuses to start an empty
+  PostgreSQL 18 on top of 17's data.
+- `db` is PostgreSQL 18, which only takes connections over TLS.
+- `app` is AnyGridDB itself.
+
+AnyGridDB serves HTTPS only on `PUBLIC_URL` (ADR 0029). Without a
+certificate of yours, it makes its own authority; its log and
+Administration > Health give the fingerprint to check before people
+install it.
+
+`AUTH_ENCRYPTION_KEY` seals the sources' passwords, second factors, and
+TLS keys. Lose it and they cannot be read again. Change it and they cannot
+be read either.
+
+### Offline
+
+AnyGridDB calls no outside service at run time, except when a person
+imports an Airtable base: that job reads `api.airtable.com` over HTTPS
+with the personal access token they give, kept sealed and dropped when
+the job ends. Without internet access, that import fails and says so;
+everything else works. On a machine with internet access:
+
+```sh
+docker compose build
+docker save anygriddb:local postgres:18 | gzip > anygriddb-images.tar.gz
+```
+
+Copy that file, `docker/`, and `scripts/` to the target machine, then:
+
+```sh
+docker load < anygriddb-images.tar.gz
+docker compose up -d          # no --build: the images are there
+```
+
+Add `rustfs/rustfs` to the `docker save` command when you use
+`compose.s3.yml`.
+
+## Update AnyGridDB
+
+Back up first (below). Then:
+
+```sh
+git pull
+docker compose up -d --build
+```
+
+Migrations run when AnyGridDB starts, under a lock, so two instances
+starting at once do not both migrate.
+
+## PostgreSQL 17 to 18
+
+The stack runs PostgreSQL 18 on the `postgres_18` volume. PostgreSQL 18
+does not open a 17 cluster, and its image keeps its data elsewhere, so an
+existing stack's data, in `postgres_data`, must be moved.
+
+Until it is moved, `docker compose up` stops at `postgres-upgrade-check`,
+which says so. It never starts an empty database in front of your data.
+
+```sh
+scripts/upgrade-postgres.sh
+```
+
+The script:
+
+1. stops AnyGridDB;
+2. dumps the database with a PostgreSQL 17 of its own, run on the old
+   volume without a network;
+3. starts PostgreSQL 18 on the new volume and restores the dump;
+4. starts AnyGridDB again.
+
+The old volume and the dump stay until you drop them; the script prints
+how. To go back to 17, check out the previous compose file. Its volume is
+untouched.
+
+## Backups
+
+```sh
+scripts/backup.sh
+```
+
+This writes one dated folder under `data/backups/` (or `BACKUP_DIR`)
+while the stack keeps serving. The folder holds:
+
+- `database.dump`, from `pg_dump` in custom format;
+- `files_data.tar.gz`, the attachments, imports, and exports;
+- `tls_data.tar.gz`, the instance's authorities, whose keys stay sealed;
+- `SHA256SUMS`.
+
+The folder and its files are readable by their owner only. The backup
+leaves out `AUTH_ENCRYPTION_KEY` on purpose: keep the key in another
+place than the backups.
+
+Run it from cron, for example nightly:
+
+```cron
+15 2 * * * cd /srv/anygriddb && scripts/backup.sh >> data/backups/backup.log 2>&1
+```
+
+To restore one, into a stack with the same `AUTH_ENCRYPTION_KEY`:
+
+```sh
+scripts/restore.sh data/backups/anygriddb-20261108T021500Z
+```
+
+The script checks the sums, stops AnyGridDB, replaces the database, the
+files, and the authorities with the backup's, and starts AnyGridDB again.
+Try a restore on a spare stack now and then: an untested backup is a
+hope.
+
+The scripts take `docker compose` options after their arguments
+(`-p name -f compose.yml -f other.yml`) and read `ENV_FILE` instead of
+`docker/.env` when it is set.
+
+A base's owner can also save one base, from its settings: a
+`.anygriddb.json` file, or a `.anygriddb.zip` archive with its
+attachments (ADR 0039), imported again from "Nouvelle base", on this
+instance or another. While an archive is written or read, the API keeps
+a copy in the system's temporary folder: allow for the largest base's
+files there.
+
+## A PostgreSQL of your own
+
+To use a managed service or a server you already run, use
+`compose.managed.yml`. It runs AnyGridDB alone:
+
+```sh
+# In docker/.env:
+DATABASE_URL=postgres://anygriddb:…@pg.example.net:5432/anygriddb?sslmode=verify-full&sslrootcert=/managed-ca/ca.pem
+# The provider's certificate authority, if your system does not trust it:
+cp provider-ca.pem docker/managed-ca/ca.pem
+docker compose -f compose.managed.yml up -d --build
+```
+
+- **Version.** PostgreSQL 13 or later is required; 17 or 18 is
+  recommended. No extension is needed.
+- **TLS.** The address must verify the server's certificate
+  (`sslmode=verify-full`). AnyGridDB refuses to start otherwise (ADR 0030).
+- **Rights.** The account owns its database. AnyGridDB creates its
+  tables and the `graphile_worker` and `ag_sync` schemas there.
+- **Connections.** With the default concurrency, one AnyGridDB process
+  opens at most about 22 connections: 10 for requests, 10 for background
+  work, and 1 to listen for realtime messages. Size the service's limit
+  for the processes you run.
+- **Backups.** Back up with the provider's own tools. `scripts/backup.sh`
+  covers the bundled PostgreSQL only; copy `files_data` and `tls_data`
+  the same way it does.
+
+## Provisioning with SCIM
+
+An identity provider can create, change, and deactivate accounts, and
+keep groups, through SCIM 2.0 (ADR 0038).
+
+1. In **Administration → Provisionnement**, create a token. Copy it at
+   once: it is not shown again. It works while its maker is an active
+   administrator.
+2. In the provider, add a SCIM 2.0 application:
+   - **Base URL**: `https://<your address>/scim/v2`, shown on the same
+     page.
+   - **Authentication**: HTTP header, bearer token: the token.
+   - **Okta**: "SCIM 2.0 Test App (Header Auth)". Enable push of new
+     users, profile updates, deactivation, and groups. The unique
+     identifier is `userName`, an email.
+   - **Microsoft Entra ID**: an enterprise application, provisioning
+     mode "Automatic", tenant URL the base URL, secret token the token.
+     Map `userPrincipalName` or `mail` to `userName`, and `mail` to
+     `emails[type eq "work"].value` when they differ.
+3. Give each group a role in the settings of the bases it should reach.
+
+What to know:
+
+- Accounts are keyed by email. A provisioned user whose email already
+  has an account takes it over.
+- Deactivating a user disables the account and ends its sessions;
+  deleting it also takes it out of its groups. Its history stays, and
+  creating it again brings it back.
+- The last active administrator cannot be deactivated through SCIM.
+- Provisioned people sign in through OIDC or SAML: SCIM sets no
+  password.
+- Requests count in the API's rate limit, 600 a minute per address.
+
+## Metrics and traces
+
+Both are off until you turn them on (ADR 0018).
+
+- **Metrics.** Set `METRICS_TOKEN` (32 characters or more). Prometheus
+  reads `/metrics` on AnyGridDB's HTTPS port with that token:
+
+  ```yaml
+  scrape_configs:
+    - job_name: anygriddb
+      scheme: https
+      authorization:
+        credentials: "<METRICS_TOKEN>"
+      tls_config:
+        ca_file: /etc/prometheus/anygriddb-authority.crt # /tls/authority.crt
+      static_configs:
+        - targets: ["anygriddb.example.net:3000"]
+  ```
+
+  Series cover requests by route, tRPC procedures, transactions and
+  connections in use per client database, background tasks, the job
+  queue, and the process.
+
+- **Traces.** Set `OTEL_EXPORTER_OTLP_ENDPOINT` to your OTLP/HTTP
+  collector, over HTTPS. Set `OTEL_EXPORTER_OTLP_HEADERS` for its
+  credentials, and `OTEL_SERVICE_NAME` if `anygriddb` does not suit.
+  Spans cover requests, the procedures under them, transactions in
+  client databases, and background tasks.

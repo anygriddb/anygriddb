@@ -1,0 +1,34 @@
+@import "tailwindcss";
+@import "@anygriddb/ui/styles.css";
+
+@source "./**/*.{ts,tsx}";
+@source "../components/**/*.{ts,tsx}";
+@source "../lib/**/*.{ts,tsx}";
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
+
+mark {
+  background: var(--color-highlight);
+  color: inherit;
+  border-radius: 2px;
+}
+
+/* Printing a record (record panel, "Imprimer la fiche"): the app is set
+   aside and the record, rendered beside it under <body>, prints alone in
+   the page flow, so a long record runs over several pages. */
+[data-print-root] {
+  display: none;
+}
+@media print {
+  body[data-printing="record"] > #root {
+    display: none;
+  }
+  body[data-printing="record"] > [data-print-root] {
+    display: block;
+  }
+}

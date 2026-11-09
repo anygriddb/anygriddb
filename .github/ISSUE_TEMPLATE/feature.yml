@@ -1,0 +1,31 @@
+name: Feature
+description: Suggest a change to the current app
+title: "Feature: "
+labels: [enhancement]
+body:
+  - type: checkboxes
+    attributes:
+      label: Existing request
+      description: Search [open issues](https://github.com/anygriddb/anygriddb/issues?q=is%3Aissue+is%3Aopen) first.
+      options:
+        - label: I could not find an existing request for this.
+          required: true
+
+  - type: textarea
+    attributes:
+      label: Use case
+      description: Who needs this, and what they can do when it exists.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Suggested solution
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: Context
+    validations:
+      required: false

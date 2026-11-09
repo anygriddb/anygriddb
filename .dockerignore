@@ -1,0 +1,13 @@
+node_modules
+dist
+.turbo
+.git
+**/.env
+**/.env.*
+!**/.env.example
+# Local material that must never reach an image or its build cache.
+docker/lab/certs
+**/test-results
+**/playwright-report
+*.log
+*.tsbuildinfo

@@ -1,0 +1,14 @@
+# Development only: publishes PostgreSQL on this machine's loopback, so
+# AnyGridDB running on the host (`pnpm dev`) reaches it. The stack itself
+# never publishes it.
+#
+#   docker compose -f compose.yml -f compose.dev.yml up -d db
+#
+# On the loopback, PostgreSQL runs as the image starts it: the connection
+# never leaves this machine.
+services:
+  db:
+    command: !reset []
+    depends_on: !reset {}
+    ports:
+      - "127.0.0.1:5432:5432"

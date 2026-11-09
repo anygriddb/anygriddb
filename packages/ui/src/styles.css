@@ -1,0 +1,211 @@
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --ag-background: #f8fafc;
+  --ag-foreground: #0f172a;
+  --ag-card: #ffffff;
+  --ag-muted: #f1f5f9;
+  --ag-muted-foreground: #586679;
+  --ag-border: #e2e8f0;
+  --ag-strong-border: #cbd5e1;
+  --ag-primary: #0f766e;
+  --ag-primary-foreground: #f8fafc;
+  --ag-accent: #ccfbf1;
+  --ag-accent-foreground: #134e4a;
+  --ag-danger: #b91c1c;
+  --ag-danger-foreground: #fef2f2;
+  --ag-ring: #14b8a6;
+  --ag-selection: rgba(20, 184, 166, 0.14);
+  --ag-highlight: #fef08a;
+  /*
+   * Chart series, in this order (never cycled): validated for colour
+   * vision deficiencies against the card surface, each mode its own steps.
+   * Magenta, yellow, and aqua sit below 3:1 on white: charts carry a
+   * legend, sparing direct labels, and a table view.
+   */
+  --ag-series-1: #2a78d6;
+  --ag-series-2: #eb6834;
+  --ag-series-3: #1baf7a;
+  --ag-series-4: #eda100;
+  --ag-series-5: #e87ba4;
+  --ag-series-6: #008300;
+  --ag-series-7: #6250d6;
+  --ag-series-8: #e34948;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --ag-background: #0b1220;
+  --ag-foreground: #e2e8f0;
+  --ag-card: #111a2b;
+  --ag-muted: #172235;
+  --ag-muted-foreground: #94a3b8;
+  --ag-border: #233047;
+  --ag-strong-border: #334155;
+  --ag-primary: #2dd4bf;
+  --ag-primary-foreground: #042f2e;
+  --ag-accent: #134e4a;
+  --ag-accent-foreground: #ccfbf1;
+  --ag-danger: #f87171;
+  --ag-danger-foreground: #450a0a;
+  --ag-ring: #2dd4bf;
+  --ag-selection: rgba(45, 212, 191, 0.16);
+  --ag-highlight: #854d0e;
+  --ag-series-1: #3987e5;
+  --ag-series-2: #d95926;
+  --ag-series-3: #199e70;
+  --ag-series-4: #c98500;
+  --ag-series-5: #d55181;
+  --ag-series-6: #008300;
+  --ag-series-7: #9085e9;
+  --ag-series-8: #e66767;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--ag-background);
+  --color-foreground: var(--ag-foreground);
+  --color-card: var(--ag-card);
+  --color-muted: var(--ag-muted);
+  --color-muted-foreground: var(--ag-muted-foreground);
+  --color-border: var(--ag-border);
+  --color-strong-border: var(--ag-strong-border);
+  --color-primary: var(--ag-primary);
+  --color-primary-foreground: var(--ag-primary-foreground);
+  --color-accent: var(--ag-accent);
+  --color-accent-foreground: var(--ag-accent-foreground);
+  --color-danger: var(--ag-danger);
+  --color-danger-foreground: var(--ag-danger-foreground);
+  --color-ring: var(--ag-ring);
+  --color-selection: var(--ag-selection);
+  --color-highlight: var(--ag-highlight);
+  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+/* Select option colours: one background/foreground pair per palette entry. */
+.opt-gray {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+.opt-red {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.opt-orange {
+  background: #ffedd5;
+  color: #9a3412;
+}
+.opt-yellow {
+  background: #fef9c3;
+  color: #854d0e;
+}
+.opt-green {
+  background: #dcfce7;
+  color: #166534;
+}
+.opt-teal {
+  background: #ccfbf1;
+  color: #115e59;
+}
+.opt-blue {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.opt-purple {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+.opt-pink {
+  background: #fce7f3;
+  color: #9d174d;
+}
+.opt-brown {
+  background: #efebe9;
+  color: #5d4037;
+}
+
+[data-theme="dark"] .opt-gray {
+  background: #374151;
+  color: #e5e7eb;
+}
+[data-theme="dark"] .opt-red {
+  background: #7f1d1d;
+  color: #fecaca;
+}
+[data-theme="dark"] .opt-orange {
+  background: #7c2d12;
+  color: #fed7aa;
+}
+[data-theme="dark"] .opt-yellow {
+  background: #713f12;
+  color: #fef08a;
+}
+[data-theme="dark"] .opt-green {
+  background: #14532d;
+  color: #bbf7d0;
+}
+[data-theme="dark"] .opt-teal {
+  background: #134e4a;
+  color: #99f6e4;
+}
+[data-theme="dark"] .opt-blue {
+  background: #1e3a8a;
+  color: #bfdbfe;
+}
+[data-theme="dark"] .opt-purple {
+  background: #581c87;
+  color: #e9d5ff;
+}
+[data-theme="dark"] .opt-pink {
+  background: #831843;
+  color: #fbcfe8;
+}
+[data-theme="dark"] .opt-brown {
+  background: #4e342e;
+  color: #d7ccc8;
+}
+
+.row-tint-gray {
+  box-shadow: inset 3px 0 0 #9ca3af;
+}
+.row-tint-red {
+  box-shadow: inset 3px 0 0 #ef4444;
+}
+.row-tint-orange {
+  box-shadow: inset 3px 0 0 #f97316;
+}
+.row-tint-yellow {
+  box-shadow: inset 3px 0 0 #eab308;
+}
+.row-tint-green {
+  box-shadow: inset 3px 0 0 #22c55e;
+}
+.row-tint-teal {
+  box-shadow: inset 3px 0 0 #14b8a6;
+}
+.row-tint-blue {
+  box-shadow: inset 3px 0 0 #3b82f6;
+}
+.row-tint-purple {
+  box-shadow: inset 3px 0 0 #a855f7;
+}
+.row-tint-pink {
+  box-shadow: inset 3px 0 0 #ec4899;
+}
+.row-tint-brown {
+  box-shadow: inset 3px 0 0 #8d6e63;
+}
+
+/*
+ * Toasts (sonner's rich colors) at WCAG AA contrast: its light defaults
+ * sit between 3.1:1 and 4.4:1 on their backgrounds; these darker tones of
+ * the same hues reach 4.8:1 to 6:1. `:root` outranks the styles sonner
+ * injects after ours.
+ */
+:root [data-sonner-toaster][data-sonner-theme="light"] {
+  --success-text: hsl(140, 100%, 22%);
+  --info-text: hsl(216, 87%, 45%);
+  --warning-text: hsl(31, 92%, 35%);
+  --error-text: hsl(360, 100%, 40%);
+}

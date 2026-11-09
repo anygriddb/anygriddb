@@ -1,0 +1,4 @@
+# Downloaded and checked by scripts/lab/fetch-seeds.sh.
+*.sql
+*.bak
+*.part

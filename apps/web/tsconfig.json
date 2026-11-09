@@ -1,0 +1,12 @@
+{
+  "extends": "@anygriddb/tsconfig/web.json",
+  "include": [
+    "app",
+    "components",
+    "lib",
+    "vite.config.ts",
+    "vitest.config.mts",
+    "lingui.config.ts"
+  ],
+  "exclude": ["node_modules", "dist", "e2e/**", "playwright.config.ts"]
+}

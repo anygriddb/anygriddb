@@ -1,0 +1,128 @@
+# AnyGridDB sample-database lab (opt-in). Not part of the official product
+# stack. Engines speak TLS with the lab CA in ./certs (scripts/lab/gen-certs.sh).
+# SQL Server is profile `mssql` only (OPEN_SOURCE_POLICY.md).
+#
+#   ./scripts/lab/up.sh --mssql
+#   ./scripts/lab/seed.sh --all
+
+name: anygriddb-lab
+
+services:
+  pg:
+    image: postgres:17
+    container_name: aglab-pg
+    environment:
+      POSTGRES_PASSWORD: ${LAB_PASSWORD}
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - aglab-pg-data:/var/lib/postgresql/data
+      - ./certs:/certs:ro
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/certs/server.crt
+      - -c
+      - ssl_key_file=/certs/server.key
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mysql:
+    image: mysql:8.4
+    container_name: aglab-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${LAB_PASSWORD}
+    ports:
+      - "127.0.0.1:53306:3306"
+    volumes:
+      - aglab-mysql-data:/var/lib/mysql
+      - ./certs:/certs:ro
+    command:
+      - --ssl-cert=/certs/server.crt
+      - --ssl-key=/certs/server.key
+      - --ssl-ca=/certs/ca.crt
+      - --require-secure-transport=ON
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-uroot",
+          "-p${LAB_PASSWORD}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  mariadb:
+    image: mariadb:11.4
+    container_name: aglab-mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: ${LAB_PASSWORD}
+    ports:
+      - "127.0.0.1:53307:3306"
+    volumes:
+      - aglab-mariadb-data:/var/lib/mysql
+      - ./certs:/certs:ro
+    command:
+      - --ssl-cert=/certs/server.crt
+      - --ssl-key=/certs/server.key
+      - --ssl-ca=/certs/ca.crt
+      - --require-secure-transport=ON
+      - --character-set-server=utf8mb4
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  mssql:
+    profiles: ["mssql"]
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: aglab-mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${LAB_PASSWORD}
+      MSSQL_PID: Developer
+      MSSQL_MEMORY_LIMIT_MB: "1500"
+    ports:
+      - "127.0.0.1:51433:1433"
+    volumes:
+      - aglab-mssql-data:/var/opt/mssql
+      - aglab-mssql-backup:/var/opt/mssql/backup
+      - ./certs:/certs:ro
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        cp /certs/server.crt /certs/server.key /var/opt/mssql/ &&
+        chmod 600 /var/opt/mssql/server.key &&
+        printf '[network]\ntlscert = /var/opt/mssql/server.crt\ntlskey = /var/opt/mssql/server.key\ntlsprotocols = 1.2\nforceencryption = 1\n[memory]\nmemorylimitmb = 1500\n' > /var/opt/mssql/mssql.conf &&
+        exec /opt/mssql/bin/sqlservr
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" || exit 1',
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+
+volumes:
+  aglab-pg-data:
+  aglab-mysql-data:
+  aglab-mariadb-data:
+  aglab-mssql-data:
+  aglab-mssql-backup:
