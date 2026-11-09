@@ -84,9 +84,9 @@ export function GridCell(props: {
       }
       data-column={column.name}
       className={cn(
-        "relative flex shrink-0 items-start overflow-visible border-r border-b border-border px-2 py-1.5 text-sm",
+        "relative flex shrink-0 items-start overflow-visible border-r border-b border-rule px-2 py-1.5 text-[13px] leading-5",
         props.left !== undefined ? "sticky z-[5] bg-card" : "bg-card",
-        props.margin && "border-r-margin",
+        props.margin && "border-r-2 border-r-margin",
         (selected || (flags & FILLING) !== 0) && "bg-selection",
         column.kind === "number" && "justify-end",
         !editable && "text-muted-foreground",

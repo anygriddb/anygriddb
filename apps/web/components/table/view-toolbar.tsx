@@ -17,6 +17,7 @@ import {
 } from "@anygriddb/ui";
 import {
   ArrowDownUp,
+  Check,
   Download,
   EyeOff,
   Filter,
@@ -34,6 +35,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
+import { useLocale } from "../../lib/i18n";
 import type { CatalogColumn, Collaborator, ViewConfig } from "../../lib/types";
 import { FieldIcon } from "../fields/field-meta";
 import { countConditions, FilterBuilder } from "./filter-builder";
@@ -91,8 +93,11 @@ export function ViewToolbar(props: {
   gridOnly: boolean;
   filterOpen: boolean;
   onFilterOpen: (open: boolean) => void;
+  /** When the last change reached the database: the bar says so. */
+  savedAt?: Date | null;
 }) {
   const { t } = useLingui();
+  const { locale } = useLocale();
   const { config, allColumns } = props;
   const [draft, setDraft] = useState<FilterGroup>(
     config.filter ?? { conjunction: "and", conditions: [] },
@@ -121,12 +126,21 @@ export function ViewToolbar(props: {
   );
 
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-border bg-card px-3 py-1.5">
+    <div className="flex min-h-9 flex-wrap items-center gap-0.5 border-b border-border bg-card px-2 py-0.5">
       {props.onNewRow ? (
-        <ToolButton onClick={props.onNewRow}>
-          <Plus className="h-4 w-4" aria-hidden />
-          {t`New row`}
-        </ToolButton>
+        <>
+          {/* Same verb as the grid's last row; this one opens the new row. */}
+          <ToolButton
+            onClick={props.onNewRow}
+            className="text-primary"
+            aria-label={t`Add a row and open it`}
+            title={t`Add a row and open it`}
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            {t`Add a row`}
+          </ToolButton>
+          <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-border" />
+        </>
       ) : null}
       <Popover>
         <PopoverTrigger asChild>
@@ -498,6 +512,21 @@ export function ViewToolbar(props: {
       ) : null}
 
       <div className="ml-auto flex items-center gap-1">
+        {props.savedAt ? (
+          // Routine edits are confirmed here, not by a toast.
+          <span
+            role="status"
+            className="mr-1 inline-flex items-center gap-1 text-xs text-muted-foreground"
+          >
+            <Check className="h-3 w-3" aria-hidden />
+            {t`Saved at ${{
+              time: new Intl.DateTimeFormat(
+                locale === "fr" ? "fr-FR" : "en-GB",
+                { hour: "2-digit", minute: "2-digit" },
+              ).format(props.savedAt),
+            }}`}
+          </span>
+        ) : null}
         <ToolButton
           aria-label={t`Cancel`}
           disabled={!props.canUndo}

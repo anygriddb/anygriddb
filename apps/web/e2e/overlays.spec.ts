@@ -17,7 +17,7 @@ test("menus, submenus, a context menu, and a popover work from the keyboard", as
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.getByRole("menu")).toBeHidden();
 
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await page.getByRole("button", { name: "New view" }).click();
   await expect(
     page.getByRole("group", { name: "Shared view" }).getByRole("menuitem", {
       name: "Kanban",
@@ -26,7 +26,7 @@ test("menus, submenus, a context menu, and a popover work from the keyboard", as
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toBeHidden();
 
-  await page.getByRole("button", { name: "Add a row" }).click();
+  await page.getByRole("button", { name: "Add a row", exact: true }).click();
   await page
     .locator('[role="gridcell"][data-column="name"]')
     .first()
@@ -51,12 +51,12 @@ test("menus, submenus, a context menu, and a popover work from the keyboard", as
   await page.keyboard.press("ArrowRight");
   await page.getByRole("menuitem", { name: "Français" }).click();
   await expect(
-    page.getByRole("button", { name: "Ajouter une ligne" }),
+    page.getByRole("button", { name: "Ajouter une ligne", exact: true }),
   ).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "fr");
   await page.reload();
   await expect(
-    page.getByRole("button", { name: "Ajouter une ligne" }),
+    page.getByRole("button", { name: "Ajouter une ligne", exact: true }),
   ).toBeVisible();
 
   expect(blocked).toEqual([]);

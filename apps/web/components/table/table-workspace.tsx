@@ -12,8 +12,10 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Database } from "lucide-react";
 import { toast } from "sonner";
 import { toWriteValue } from "../../lib/format";
+import { ENGINE_NAMES } from "../../lib/limits";
 import { useLocale } from "../../lib/i18n";
 import { downloadJobFile, useTrackJob } from "../../lib/jobs";
 import { useTrashActions } from "../../lib/trash";
@@ -215,6 +217,8 @@ export function TableWorkspace({
   );
 
   const [search, setSearch] = useState("");
+  // When the last write reached the database: the toolbar says so.
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
   const viewType = activeView?.viewType ?? "grid";
   const isGrid = viewType === "grid";
   const allColumns = useMemo(() => table?.columns ?? [], [table]);
@@ -440,6 +444,7 @@ export function TableWorkspace({
           });
         }
         void rows.refetchIds(updates.map((update) => update.rowId));
+        setSavedAt(new Date());
       } catch (cause) {
         for (const update of previous)
           rows.patchLocal(update.rowId, update.values);
@@ -503,6 +508,7 @@ export function TableWorkspace({
           reason,
         });
         rows.refresh();
+        setSavedAt(new Date());
         // A client's row has no trash to come back from: no undo there.
         if (track && !external) {
           undo.push({
@@ -540,6 +546,7 @@ export function TableWorkspace({
         );
         await trpc.rows.deleteMany.mutate({ tableId, rowIds, reason });
         rows.refresh();
+        setSavedAt(new Date());
         if (external) {
           // Deleted in the client's database: nothing to restore from.
           toast.success(
@@ -807,43 +814,33 @@ export function TableWorkspace({
   return (
     <TableContext.Provider value={contextValue}>
       <div className="flex min-h-0 flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b border-border bg-card px-4 pt-3">
-          <div className="min-w-0 flex-1 pb-2">
-            <p className="text-xs text-muted-foreground">{base.name}</p>
-            <h1 className="truncate text-lg font-semibold">{table.name}</h1>
-            {table.external?.synced ? (
-              // Read from a copy (ADR 0034): say how fresh it is.
-              <p role="note" className="text-xs text-muted-foreground">
-                {table.external.synced.at
-                  ? t`Copy of the client's database from ${{
-                      date: new Date(table.external.synced.at).toLocaleString(
-                        locale === "fr" ? "fr-FR" : "en-GB",
-                      ),
-                    }}, refreshed every ${{ minutes: table.external.synced.intervalMinutes }} min: read-only`
-                  : t`Copy in preparation: the table is read live until then`}
-              </p>
-            ) : null}
-          </div>
-          <div
-            role="group"
-            className="flex -space-x-1.5 pb-2"
-            aria-label={t`People here`}
-          >
-            {presence.slice(0, 6).map((peer) => (
-              <Tooltip key={peer.userId} content={peer.name}>
+        {/* One line: the table, where it lives, its views, who is here. */}
+        <header className="flex h-11 shrink-0 items-center gap-3 border-b border-border bg-card pr-2 pl-4">
+          <div className="flex min-w-0 shrink-0 items-center gap-2">
+            <h1 className="max-w-64 truncate text-base font-semibold">
+              {table.name}
+            </h1>
+            {table.external ? (
+              // A client's table (ADR 0006): its name in the database, always in view.
+              <Tooltip
+                content={
+                  (ENGINE_NAMES as Record<string, string>)[
+                    table.external.engine
+                  ] ?? table.external.engine
+                }
+              >
                 <span
-                  role="img"
-                  aria-label={peer.name}
                   tabIndex={0}
-                  className="rounded-full ring-2 ring-card outline-none focus-visible:ring-ring"
+                  className="inline-flex h-[22px] max-w-56 items-center gap-1.5 rounded-md border border-border bg-background px-2 font-mono text-xs text-muted-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring"
                 >
-                  <Avatar name={peer.name} />
+                  <Database className="h-3 w-3 shrink-0" aria-hidden />
+                  <span className="truncate">
+                    {table.external.schema}.{table.external.name}
+                  </span>
                 </span>
               </Tooltip>
-            ))}
+            ) : null}
           </div>
-        </header>
-        <div className="border-b border-border bg-muted/40 pt-1.5">
           <ViewTabs
             baseId={baseId}
             tableId={tableId}
@@ -862,8 +859,42 @@ export function TableWorkspace({
                 params: { baseId: baseId, tableId: tableId, viewId: view.id },
               })
             }
+            className="flex-1 self-stretch"
           />
-        </div>
+          <div
+            role="group"
+            className="flex shrink-0 -space-x-1.5"
+            aria-label={t`People here`}
+          >
+            {presence.slice(0, 6).map((peer) => (
+              <Tooltip key={peer.userId} content={peer.name}>
+                <span
+                  role="img"
+                  aria-label={peer.name}
+                  tabIndex={0}
+                  className="rounded-full ring-2 ring-card outline-none focus-visible:ring-ring"
+                >
+                  <Avatar name={peer.name} />
+                </span>
+              </Tooltip>
+            ))}
+          </div>
+        </header>
+        {table.external?.synced ? (
+          // Read from a copy (ADR 0034): say how fresh it is.
+          <p
+            role="note"
+            className="border-b border-border bg-head px-4 py-1 text-xs text-muted-foreground"
+          >
+            {table.external.synced.at
+              ? t`Copy of the client's database from ${{
+                  date: new Date(table.external.synced.at).toLocaleString(
+                    locale === "fr" ? "fr-FR" : "en-GB",
+                  ),
+                }}, refreshed every ${{ minutes: table.external.synced.intervalMinutes }} min: read-only`
+              : t`Copy in preparation: the table is read live until then`}
+          </p>
+        ) : null}
         <ViewToolbar
           config={config}
           columns={visible}
@@ -889,6 +920,7 @@ export function TableWorkspace({
           gridOnly={isGrid}
           filterOpen={filterOpen}
           onFilterOpen={setFilterOpen}
+          savedAt={savedAt}
         />
         {typeof config.description === "string" && config.description ? (
           <p
@@ -935,8 +967,8 @@ export function TableWorkspace({
                     setNewRowOpen(true);
                     return;
                   }
-                  const id = await addRow();
-                  if (id) toast.success(t`Row added`);
+                  // The new row appears in the grid: that is the confirmation.
+                  await addRow();
                 }}
                 onInsertRows={async (list) => {
                   await insertRows(list);

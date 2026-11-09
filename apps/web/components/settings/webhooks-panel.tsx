@@ -453,7 +453,7 @@ export function WebhooksPanel(props: {
                 {t`Turned off after ${{ count: hook.failureCount }} failures in a row.`}
               </p>
             ) : hook.failureCount > 0 ? (
-              <p className="text-xs text-amber-600">
+              <p className="text-xs text-warning">
                 {t`${{ count: hook.failureCount }} failures in a row`}
               </p>
             ) : null}

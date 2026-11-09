@@ -12,27 +12,33 @@ primary, so it keeps its contrast in the light and dark themes.
 | `apps/web/public/icon.svg`             | Browser tab, any size   |
 | `apps/web/public/apple-touch-icon.png` | Home screen (180 px)    |
 
-The interface is a register: the page is ledger paper, the grid and the
-panels are sheets laid on it, text is writing ink, and borders are its
-rules. Tokens live in `packages/ui/src/styles.css`; `tokens.test.ts` holds
-every text token at WCAG AA on each surface it is written on.
+The interface is a notebook: the chrome is the desk, the grid is a ruled
+page laid on it, text is ink, the grid's lines are the page's rules, and
+the red line where the frozen columns end is its margin. Everything else
+is white, ink, and one blue for actions. Tokens live in
+`packages/ui/src/styles.css`; `tokens.test.ts` holds every text token at
+WCAG AA on each surface it is written on.
 
-| Token             | Light     | Dark      | Role                                         |
-| ----------------- | --------- | --------- | -------------------------------------------- |
-| `--ag-background` | `#eaefea` | `#0f1715` | The page                                     |
-| `--ag-card`       | `#fbfcfa` | `#151f1c` | Sheets: grid, panels, dialogs                |
-| `--ag-foreground` | `#182832` | `#e6ece8` | Ink                                          |
-| `--ag-border`     | `#c6d3cb` | `#2a3833` | Rules                                        |
-| `--ag-primary`    | `#0f766e` | `#2dd4bf` | Actions and the mark                         |
-| `--ag-margin`     | `#c94f47` | `#e07a73` | The red margin rule where frozen columns end |
+| Token                | Light     | Dark      | Role                                  |
+| -------------------- | --------- | --------- | ------------------------------------- |
+| `--ag-background`    | `#f3f4f7` | `#141822` | The desk: sidebar, page backgrounds   |
+| `--ag-card`          | `#ffffff` | `#1b2030` | The sheet: grid, panels, dialogs      |
+| `--ag-head`          | `#f7f8fb` | `#1f2537` | A sheet's header, gutter, and summary |
+| `--ag-foreground`    | `#15213a` | `#e7eaf3` | Ink                                   |
+| `--ag-border`        | `#dde1ea` | `#283046` | Lines of the chrome                   |
+| `--ag-rule`          | `#ccd3ee` | `#2f3852` | The sheet's rules                     |
+| `--ag-strong-border` | `#b3bde8` | `#414c72` | The rule under a header               |
+| `--ag-primary`       | `#1f3fae` | `#93a7ff` | Actions, focus, and the mark          |
+| `--ag-margin`        | `#d9626a` | `#e38a90` | The margin where frozen columns end   |
+| `--ag-warning`       | `#8f4f08` | `#e2a84b` | Notices, on `--ag-warning-surface`    |
 
-`theme-color` and the static icons keep the light teal, `#0f766e`.
+`theme-color` and the static icons take the light primary, `#1f3fae`.
 
-Type is Atkinson Hyperlegible Next, with Atkinson Hyperlegible Mono for
-identifiers and code: its 0/O, 1/l/I, and 8/B cannot be mistaken for one
-another. Figures are tabular everywhere. Radius says what a thing is:
-sheets and panels 2 px, controls 4 px, chips round. Only what floats
-(menus, dialogs) casts a shadow; what lies on the page is ruled.
+Type is IBM Plex Sans, with IBM Plex Mono kept for what comes from the
+database as is: identifiers, table names, SQL. Figures are tabular
+everywhere. Radius says what a thing is: sheets and panels 2 px, controls
+4 px, chips round. Only what floats (menus, dialogs) casts a shadow; what
+lies on the desk is ruled.
 
 ## Rules
 

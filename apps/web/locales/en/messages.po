@@ -551,9 +551,17 @@ msgstr "9 months"
 msgid "90 days"
 msgstr "90 days"
 
+#: components/shell/home-page.tsx
+msgid "A base holds tables. A table is a real SQL table: one AnyGridDB keeps in PostgreSQL, or one of a database an administrator connected."
+msgstr "A base holds tables. A table is a real SQL table: one AnyGridDB keeps in PostgreSQL, or one of a database an administrator connected."
+
 #: lib/errors.ts
 msgid "A base must keep at least one owner"
 msgstr "A base must keep at least one owner"
+
+#: components/shell/welcome-page.tsx
+msgid "A base, a first table, three fields. Kept in PostgreSQL from the first row."
+msgstr "A base, a first table, three fields. Kept in PostgreSQL from the first row."
 
 #: components/admin/support-tab.tsx
 msgid "A base's owners invite people. You can withdraw an invitation sent by mistake."
@@ -631,6 +639,14 @@ msgstr "A row outside this selection cannot be linked; links already in place st
 #: lib/errors.ts
 msgid "A rule of the client's database refuses this value"
 msgstr "A rule of the client's database refuses this value"
+
+#: components/shell/welcome-page.tsx
+msgid "A second factor is asked at each sign-in after your password: an authenticator app, or a passkey."
+msgstr "A second factor is asked at each sign-in after your password: an authenticator app, or a passkey."
+
+#: components/shell/welcome-page.tsx
+msgid "A second factor is asked at each sign-in after your password. On this instance it is required before you create a base."
+msgstr "A second factor is asked at each sign-in after your password. On this instance it is required before you create a base."
 
 #: components/table/automations-dialog.tsx
 msgid "A secret address is created when you save. A JSON POST (64 KiB at most) triggers it; each field of the body becomes a variable, listed below."
@@ -802,8 +818,13 @@ msgid "Add a record"
 msgstr "Add a record"
 
 #: components/grid/grid-view.tsx
+#: components/table/view-toolbar.tsx
 msgid "Add a row"
 msgstr "Add a row"
+
+#: components/table/view-toolbar.tsx
+msgid "Add a row and open it"
+msgstr "Add a row and open it"
 
 #: components/views/kanban-view.tsx
 msgid "Add a single select field to arrange cards in columns."
@@ -1075,6 +1096,10 @@ msgstr "AnyGridDB refuses any change to this row. The client's database can stil
 msgid "AnyGridDB signs its certificate with its own authority. Install it once on each workstation: the browser will then trust AnyGridDB, without a warning. It is valid for AnyGridDB's addresses only."
 msgstr "AnyGridDB signs its certificate with its own authority. Install it once on each workstation: the browser will then trust AnyGridDB, without a warning. It is valid for AnyGridDB's addresses only."
 
+#: components/shell/welcome-page.tsx
+msgid "AnyGridDB works on real SQL tables: the ones it keeps for you in PostgreSQL, and the ones of a database an administrator connected."
+msgstr "AnyGridDB works on real SQL tables: the ones it keeps for you in PostgreSQL, and the ones of a database an administrator connected."
+
 #: components/admin/sources-tab.tsx
 msgid "ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT is on: sources connect without TLS. For development only."
 msgstr "ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT is on: sources connect without TLS. For development only."
@@ -1166,7 +1191,7 @@ msgstr "Audit log"
 msgid "Authenticator code"
 msgstr "Authenticator code"
 
-#: components/settings/account-settings.tsx
+#: components/settings/second-factor.tsx
 msgid "Authenticator URL"
 msgstr "Authenticator URL"
 
@@ -1228,7 +1253,7 @@ msgstr "Backup"
 msgid "Backup code"
 msgstr "Backup code"
 
-#: components/settings/account-settings.tsx
+#: components/settings/second-factor.tsx
 msgid "Backup codes, shown only once."
 msgstr "Backup codes, shown only once."
 
@@ -1319,7 +1344,11 @@ msgstr "Body"
 msgid "Body (an id per row)"
 msgstr "Body (an id per row)"
 
-#: components/settings/account-settings.tsx
+#: components/shell/welcome-page.tsx
+msgid "Bring your data"
+msgstr "Bring your data"
+
+#: components/settings/second-factor.tsx
 msgid "Browsers accept passkeys on an HTTPS address only: use TOTP, or open AnyGridDB over HTTPS."
 msgstr "Browsers accept passkeys on an HTTPS address only: use TOTP, or open AnyGridDB over HTTPS."
 
@@ -1512,7 +1541,7 @@ msgstr "Close"
 msgid "Closed"
 msgstr "Closed"
 
-#: components/settings/account-settings.tsx
+#: components/settings/second-factor.tsx
 msgid "Code"
 msgstr "Code"
 
@@ -1597,13 +1626,18 @@ msgstr "Concatenate"
 msgid "Confirm"
 msgstr "Confirm"
 
-#: components/settings/account-settings.tsx
+#: components/settings/second-factor.tsx
 msgid "Confirm TOTP"
 msgstr "Confirm TOTP"
 
 #: components/table/filter-builder.tsx
 msgid "Conjunction"
 msgstr "Conjunction"
+
+#: components/shell/home-page.tsx
+#: components/shell/welcome-page.tsx
+msgid "Connect a database"
+msgstr "Connect a database"
 
 #: components/settings/api-docs.tsx
 msgid "Connect an AI (MCP)"
@@ -1649,6 +1683,7 @@ msgstr "Copied on {date}"
 #: components/settings/account-settings.tsx
 #: components/settings/api-docs.tsx
 #: components/settings/base-settings.tsx
+#: components/settings/second-factor.tsx
 #: components/table/share-dialog.tsx
 msgid "Copy"
 msgstr "Copy"
@@ -1772,10 +1807,6 @@ msgstr "Create rows (POST)"
 #: components/views/calendar-feed.tsx
 msgid "Create the address"
 msgstr "Create the address"
-
-#: components/shell/home-page.tsx
-msgid "Create your first base to get started."
-msgstr "Create your first base to get started."
 
 #: components/admin/admin-page.tsx
 #: components/admin/scim-tab.tsx
@@ -2208,6 +2239,10 @@ msgstr "Duration"
 msgid "Each choice starts at a value that suits most organizations. Change it to follow your own rules: the limits that protect accounts cannot be turned off."
 msgstr "Each choice starts at a value that suits most organizations. Change it to follow your own rules: the limits that protect accounts cannot be turned off."
 
+#: components/auth/auth-frame.tsx
+msgid "Each row is a real row of your database. Each change is signed, dated, and can be undone."
+msgstr "Each row is a real row of your database. Each change is signed, dated, and can be undone."
+
 #: components/grid/grid-footer.tsx
 msgid "Earliest"
 msgstr "Earliest"
@@ -2322,7 +2357,7 @@ msgstr "Enable a second factor in your settings before creating a base."
 msgid "Enable a second factor to create and manage bases."
 msgstr "Enable a second factor to create and manage bases."
 
-#: components/settings/account-settings.tsx
+#: components/settings/second-factor.tsx
 msgid "Enable TOTP"
 msgstr "Enable TOTP"
 
@@ -2813,6 +2848,10 @@ msgstr "Gallery"
 msgid "Give a group a role"
 msgstr "Give a group a role"
 
+#: components/shell/welcome-page.tsx
+msgid "Go to the home page"
+msgstr "Go to the home page"
+
 #: components/shell/command-palette.tsx
 msgid "Go to…"
 msgstr "Go to…"
@@ -2890,6 +2929,10 @@ msgstr "Health"
 msgid "Hello {name}"
 msgstr "Hello {name}"
 
+#: components/shell/welcome-page.tsx
+msgid "Hello {name}. First, protect your account."
+msgstr "Hello {name}. First, protect your account."
+
 #: components/table/automations-dialog.tsx
 msgid "Here is this webhook's address. Copy it now: it will not be shown again."
 msgstr "Here is this webhook's address. Copy it now: it will not be shown again."
@@ -2917,10 +2960,6 @@ msgstr "Hide empty columns"
 #: components/record/record-panel.tsx
 msgid "History"
 msgstr "History"
-
-#: components/shell/sidebar.tsx
-msgid "Home"
-msgstr "Home"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Horizontal bars"
@@ -2954,7 +2993,7 @@ msgstr "How many values in all, blanks included."
 msgid "HTTP header"
 msgstr "HTTP header"
 
-#: components/settings/account-settings.tsx
+#: components/settings/second-factor.tsx
 msgid "I saved the codes"
 msgstr "I saved the codes"
 
@@ -3795,6 +3834,7 @@ msgstr "Monday"
 msgid "Month"
 msgstr "Month"
 
+#: components/record/record-panel.tsx
 #: components/table/view-toolbar.tsx
 msgid "More actions"
 msgstr "More actions"
@@ -3879,6 +3919,7 @@ msgstr "New automation"
 #: components/shell/home-page.tsx
 #: components/shell/new-base-dialog.tsx
 #: components/shell/sidebar.tsx
+#: components/shell/welcome-page.tsx
 msgid "New base"
 msgstr "New base"
 
@@ -3910,7 +3951,6 @@ msgid "New personal view"
 msgstr "New personal view"
 
 #: components/table/new-row-dialog.tsx
-#: components/table/view-toolbar.tsx
 msgid "New row"
 msgstr "New row"
 
@@ -4116,6 +4156,10 @@ msgstr "Not watched"
 msgid "Notes"
 msgstr "Notes"
 
+#: components/shell/home-page.tsx
+msgid "Nothing here yet."
+msgstr "Nothing here yet."
+
 #: components/settings/account-settings.tsx
 #: components/shell/notification-bell.tsx
 msgid "Notifications"
@@ -4173,6 +4217,7 @@ msgid "On this instance, a public link needs a password"
 msgstr "On this instance, a public link needs a password"
 
 #: components/shell/home-page.tsx
+#: components/shell/welcome-page.tsx
 msgid "On this instance, administrators create the bases: ask one for a base, or to be invited to one."
 msgstr "On this instance, administrators create the bases: ask one for a base, or to be invited to one."
 
@@ -4334,7 +4379,7 @@ msgstr "Part of the list, counted from 1; -1 is the last value."
 msgid "Passkey"
 msgstr "Passkey"
 
-#: components/settings/account-settings.tsx
+#: components/settings/second-factor.tsx
 msgid "Passkey registered"
 msgstr "Passkey registered"
 
@@ -4481,6 +4526,10 @@ msgstr "Port"
 msgid "Portable file: schema, views, rows, members, and the attachments in a .zip archive when the base has some. Import it again from “New base”."
 msgstr "Portable file: schema, views, rows, members, and the attachments in a .zip archive when the base has some. Import it again from “New base”."
 
+#: components/shell/welcome-page.tsx
+msgid "PostgreSQL, MySQL, MariaDB, or SQL Server, over TLS. Its tables become tables here; the rights stay in the database."
+msgstr "PostgreSQL, MySQL, MariaDB, or SQL Server, over TLS. Its tables become tables here; the rights stay in the database."
+
 #: components/table/import-dialog.tsx
 msgid "Preparing the import…"
 msgstr "Preparing the import…"
@@ -4542,6 +4591,10 @@ msgstr "Projects"
 #: lib/known-text.ts
 msgid "Projects and tasks, with a timeline and a status board."
 msgstr "Projects and tasks, with a timeline and a status board."
+
+#: components/shell/welcome-page.tsx
+msgid "Protect your account"
+msgstr "Protect your account"
 
 #: components/admin/admin-page.tsx
 msgid "Provisioning"
@@ -4695,7 +4748,7 @@ msgstr "refreshed every"
 msgid "Refused while an audit row, a signature, or a role refers to you."
 msgstr "Refused while an audit row, a signature, or a role refers to you."
 
-#: components/settings/account-settings.tsx
+#: components/settings/second-factor.tsx
 msgid "Register a passkey"
 msgstr "Register a passkey"
 
@@ -4903,10 +4956,9 @@ msgstr "Rounds toward zero, cutting the decimals."
 msgid "Row"
 msgstr "Row"
 
-#: components/table/new-row-dialog.tsx
-#: components/table/table-workspace.tsx
-msgid "Row added"
-msgstr "Row added"
+#: components/record/record-panel.tsx
+msgid "Row {number}"
+msgstr "Row {number}"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Row condition (creations, updates, statuses)"
@@ -4998,6 +5050,10 @@ msgstr "Save"
 msgid "Saved"
 msgstr "Saved"
 
+#: components/table/view-toolbar.tsx
+msgid "Saved at {time}"
+msgstr "Saved at {time}"
+
 #: components/views/timeline-view.tsx
 msgid "Scale"
 msgstr "Scale"
@@ -5075,7 +5131,7 @@ msgstr "Second factor enabled"
 msgid "Second factors removed"
 msgstr "Second factors removed"
 
-#: components/settings/account-settings.tsx
+#: components/settings/second-factor.tsx
 msgid "Secret"
 msgstr "Secret"
 
@@ -5392,6 +5448,10 @@ msgstr "Single select"
 msgid "Skip"
 msgstr "Skip"
 
+#: components/shell/welcome-page.tsx
+msgid "Skip for now"
+msgstr "Skip for now"
+
 #: components/table/automations-dialog.tsx
 msgid "Skipped"
 msgstr "Skipped"
@@ -5513,6 +5573,10 @@ msgstr "Status change"
 #: lib/errors.ts
 msgid "Status change refused"
 msgstr "Status change refused"
+
+#: components/shell/welcome-page.tsx
+msgid "Steps"
+msgstr "Steps"
 
 #: lib/known-text.ts
 msgid "Stopped: automation loop"
@@ -6842,7 +6906,6 @@ msgstr "view"
 
 #: components/dashboards/dashboard-board.tsx
 #: components/fields/link-selection.tsx
-#: components/table/view-tabs.tsx
 msgid "View"
 msgstr "View"
 
@@ -6938,14 +7001,6 @@ msgstr "Wednesday"
 msgid "Week"
 msgstr "Week"
 
-#: components/settings/account-settings.tsx
-msgid "Welcome! A second factor protects your account: you can enable one below."
-msgstr "Welcome! A second factor protects your account: you can enable one below."
-
-#: components/settings/account-settings.tsx
-msgid "Welcome! Enable a second factor: it is required to create a base."
-msgstr "Welcome! Enable a second factor: it is required to create a base."
-
 #: components/fields/formula-docs.ts
 msgid "What comes after the first delimiter; blank when it is not there."
 msgstr "What comes after the first delimiter; blank when it is not there."
@@ -6953,6 +7008,10 @@ msgstr "What comes after the first delimiter; blank when it is not there."
 #: components/fields/formula-docs.ts
 msgid "What comes before the first delimiter; blank when it is not there."
 msgstr "What comes before the first delimiter; blank when it is not there."
+
+#: components/settings/account-settings.tsx
+msgid "What only you can change. Rights on a base are set in that base."
+msgstr "What only you can change. Rights on a base are set in that base."
 
 #: components/admin/security-tab.tsx
 msgid "What people may open to scripts and to anyone with a link."
@@ -6985,6 +7044,10 @@ msgstr "When the row was last changed."
 #: components/table/filter-builder.tsx
 msgid "Where"
 msgstr "Where"
+
+#: components/shell/welcome-page.tsx
+msgid "Where do you want to start?"
+msgstr "Where do you want to start?"
 
 #: components/fields/formula-docs.ts
 msgid "Where the sought text starts, case included; 0 when it is not there."
@@ -7108,6 +7171,10 @@ msgstr "You"
 msgid "You can close this window: the import goes on and stays in the jobs menu."
 msgstr "You can close this window: the import goes on and stays in the jobs menu."
 
+#: components/shell/welcome-page.tsx
+msgid "You can enable it later from your account settings."
+msgstr "You can enable it later from your account settings."
+
 #: components/views/calendar-feed.tsx
 msgid "You have had an address since {date}."
 msgstr "You have had an address since {date}."
@@ -7135,6 +7202,10 @@ msgstr "Your role: {role}"
 #: components/record/row-status.tsx
 msgid "Your signature commits you: enter your password again."
 msgstr "Your signature commits you: enter your password again."
+
+#: components/auth/auth-frame.tsx
+msgid "Your SQL tables, read and written like a page of a notebook."
+msgstr "Your SQL tables, read and written like a page of a notebook."
 
 #: components/table/table-workspace.tsx
 msgid "Your view settings stay local."

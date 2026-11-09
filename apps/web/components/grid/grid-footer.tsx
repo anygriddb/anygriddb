@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@anygriddb/ui";
-import { marginColumn } from "./margin-column";
+import { GUTTER, marginColumn } from "./margin-column";
 import { formatDate, formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import type { CatalogColumn } from "../../lib/types";
@@ -119,8 +119,9 @@ export function GridFooter(props: {
               fn ? undefined : t`Summary of ${{ field: column.label }}`
             }
             className={cn(
-              "flex h-full w-full items-center justify-end gap-1 border-t border-r border-border bg-muted px-2 text-xs text-muted-foreground hover:bg-card",
-              index === marginColumn(props.frozenCount) && "border-r-margin",
+              "flex h-full w-full items-center justify-end gap-1 border-t border-r border-t-strong-border border-r-rule bg-head px-2 text-xs text-muted-foreground hover:bg-muted",
+              index === marginColumn(props.frozenCount) &&
+                "border-r-2 border-r-margin",
             )}
           >
             {fn ? (
@@ -172,10 +173,11 @@ export function GridFooter(props: {
         role="rowheader"
         aria-colindex={1}
         className={cn(
-          "sticky left-0 z-[9] flex shrink-0 items-center border-t border-r border-border bg-muted px-2 text-xs text-muted-foreground",
-          marginColumn(props.frozenCount) === -1 && "border-r-margin",
+          "sticky left-0 z-[9] flex shrink-0 items-center border-t border-r border-t-strong-border border-r-rule bg-head px-2 text-xs whitespace-nowrap text-muted-foreground",
+          marginColumn(props.frozenCount) === -1 &&
+            "border-r-2 border-r-margin",
         )}
-        style={{ width: 72 }}
+        style={{ width: GUTTER }}
       >
         {props.estimated ? (
           <button
@@ -193,11 +195,14 @@ export function GridFooter(props: {
       {Array.from({ length: props.frozenCount }, (_, index) => cell(index))}
       <div
         aria-hidden
-        className="shrink-0 border-t border-border bg-muted"
+        className="shrink-0 border-t border-strong-border bg-head"
         style={{ width: props.padStart }}
       />
       {props.virtualColumns.map((index) => cell(index))}
-      <div aria-hidden className="flex-1 border-t border-border bg-muted" />
+      <div
+        aria-hidden
+        className="flex-1 border-t border-strong-border bg-head"
+      />
     </div>
   );
 }

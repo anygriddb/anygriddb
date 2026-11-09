@@ -82,8 +82,9 @@ export function AuthPage({
   async function finish() {
     finishing.current = true;
     await queryClient.invalidateQueries();
+    // A new account starts with the first-run page: secure it, bring data.
     await (mode === "signup" && next === "/"
-      ? navigate({ to: "/settings", search: { welcome: true }, replace: true })
+      ? navigate({ to: "/welcome", replace: true })
       : navigate({ href: next, replace: true }));
   }
 
@@ -236,7 +237,7 @@ export function AuthPage({
           {instance.data?.maintenance ? (
             <p
               role="status"
-              className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs"
+              className="rounded-md border border-warning/40 bg-warning-surface p-2 text-xs"
             >
               {t`The instance is under maintenance: only administrators can sign in for now.`}
               {instance.data.banner ? (
@@ -297,7 +298,7 @@ export function AuthPage({
             </button>
           ) : null}
           {mode === "signup" && policy !== "open" ? (
-            <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs">
+            <p className="rounded-md border border-warning/40 bg-warning-surface p-2 text-xs">
               {policy === "invite"
                 ? t`Sign-up is by invitation: use the address that received it.`
                 : t`Sign-up is closed on this instance. Ask an administrator for access.`}

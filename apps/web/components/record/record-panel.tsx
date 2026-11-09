@@ -1,5 +1,14 @@
 import { cellText, rowError } from "@anygriddb/core";
-import { Avatar, Button, cn } from "@anygriddb/ui";
+import {
+  Avatar,
+  Button,
+  cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
@@ -10,6 +19,7 @@ import {
   Link as LinkIcon,
   History as HistoryIcon,
   MessageSquare,
+  MoreHorizontal,
   Pencil,
   Trash2,
   X,
@@ -107,14 +117,14 @@ function FieldRow({
       { rowId: row.id, values: { [column.name]: !value } },
     ]);
   return (
-    <div ref={box} className="group grid grid-cols-[10rem_1fr] gap-3 py-2">
-      <div className="flex items-start gap-1.5 pt-1 text-xs font-medium text-muted-foreground">
+    <div ref={box} className="group flex flex-col gap-1 py-2.5">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <FieldIcon fieldType={column.fieldType} />
         <span className="break-words">{column.label}</span>
       </div>
       <div
         className={cn(
-          "relative min-h-8 rounded-md border border-transparent px-2 py-1 text-sm",
+          "relative -mx-2 min-h-8 rounded-md border border-transparent px-2 py-1 text-sm",
           canEditField && "cursor-text hover:border-border",
           editing && !opensPanel(column.fieldType) && "h-9",
           column.fieldType === "long_text" && editing && "h-40",
@@ -586,69 +596,18 @@ export function RecordPanel({
     (external && canWrite(table.role) && unlocked && isEditableLink(column));
   return (
     <aside
-      className="flex w-[34rem] max-w-full shrink-0 flex-col border-l border-border bg-card"
+      className="flex w-[26rem] max-w-full shrink-0 flex-col border-l border-border bg-card"
       aria-label={t`Row details`}
       onKeyDown={(event) => {
         if (event.key === "Escape") onClose();
       }}
     >
-      <header className="flex items-center gap-2 border-b border-border px-4 py-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs text-muted-foreground">
-            {table.table.name} ·{" "}
-            {row.ag_seq === null || row.ag_seq === undefined
-              ? row.id
-              : `#${cellText(row.ag_seq)}`}
-          </p>
-          <h2 className="truncate text-base font-semibold">
-            {title || t`Untitled`}
-          </h2>
-        </div>
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label={t`Print the record`}
-          title={t`Print the record`}
-          onClick={() => setPrinting(true)}
-        >
-          <Printer className="h-4 w-4" aria-hidden />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label={t`Copy row link`}
-          title={t`Copy row link`}
-          onClick={() =>
-            copy(
-              `${window.location.origin}${window.location.pathname}?row=${encodeURIComponent(row.id)}`,
-              t`Link copied`,
-            )
-          }
-        >
-          <LinkIcon className="h-4 w-4" aria-hidden />
-        </Button>
-        {onDuplicate ? (
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label={t`Duplicate row`}
-            title={t`Duplicate row`}
-            onClick={onDuplicate}
-          >
-            <CopyPlus className="h-4 w-4" aria-hidden />
-          </Button>
-        ) : null}
-        {onDelete ? (
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label={t`Delete row`}
-            title={t`Delete row`}
-            onClick={onDelete}
-          >
-            <Trash2 className="h-4 w-4 text-danger" aria-hidden />
-          </Button>
-        ) : null}
+      <header className="flex h-11 shrink-0 items-center gap-0.5 border-b border-border pr-2 pl-4">
+        <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          {row.ag_seq === null || row.ag_seq === undefined
+            ? row.id
+            : t`Row ${{ number: cellText(row.ag_seq) }}`}
+        </p>
         <Button
           size="icon"
           variant="ghost"
@@ -667,6 +626,49 @@ export function RecordPanel({
         >
           <ChevronDown className="h-4 w-4" aria-hidden />
         </Button>
+        <span aria-hidden className="mx-1 h-4 w-px bg-border" />
+        <Button
+          size="icon"
+          variant="ghost"
+          aria-label={t`Copy row link`}
+          title={t`Copy row link`}
+          onClick={() =>
+            copy(
+              `${window.location.origin}${window.location.pathname}?row=${encodeURIComponent(row.id)}`,
+              t`Link copied`,
+            )
+          }
+        >
+          <LinkIcon className="h-4 w-4" aria-hidden />
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon" variant="ghost" aria-label={t`More actions`}>
+              <MoreHorizontal className="h-4 w-4" aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => setPrinting(true)}>
+              <Printer className="h-4 w-4" aria-hidden />
+              {t`Print the record`}
+            </DropdownMenuItem>
+            {onDuplicate ? (
+              <DropdownMenuItem onSelect={onDuplicate}>
+                <CopyPlus className="h-4 w-4" aria-hidden />
+                {t`Duplicate row`}
+              </DropdownMenuItem>
+            ) : null}
+            {onDelete ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem danger onSelect={onDelete}>
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                  {t`Delete row`}
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button
           size="icon"
           variant="ghost"
@@ -678,7 +680,10 @@ export function RecordPanel({
       </header>
       <RowStatus row={row} />
       <div className="flex-1 overflow-y-auto px-4">
-        <div className="divide-y divide-border">
+        <h2 className="pt-4 pb-3 text-xl leading-tight font-semibold break-words">
+          {title || t`Untitled`}
+        </h2>
+        <div className="divide-y divide-rule border-t border-rule">
           {columns.map((column) => (
             <FieldRow
               key={column.name}
@@ -713,28 +718,38 @@ export function RecordPanel({
             ) : null}
           </div>
         ) : null}
-        <div className="mt-4 border-t border-border pt-3 pb-6">
-          <div className="mb-3 flex gap-1" role="tablist">
-            <Button
-              size="xs"
-              variant={tab === "comments" ? "outline" : "ghost"}
+        <div className="mt-2 pb-6">
+          <div className="mb-3 flex gap-4 border-b border-rule" role="tablist">
+            <button
+              type="button"
               role="tab"
               aria-selected={tab === "comments"}
+              className={cn(
+                "-mb-px inline-flex items-center gap-1.5 border-b-2 px-0.5 py-2 text-sm",
+                tab === "comments"
+                  ? "border-primary font-medium text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
               onClick={() => setTab("comments")}
             >
               <MessageSquare className="h-3.5 w-3.5" aria-hidden />
               {t`Comments`}
-            </Button>
-            <Button
-              size="xs"
-              variant={tab === "history" ? "outline" : "ghost"}
+            </button>
+            <button
+              type="button"
               role="tab"
               aria-selected={tab === "history"}
+              className={cn(
+                "-mb-px inline-flex items-center gap-1.5 border-b-2 px-0.5 py-2 text-sm",
+                tab === "history"
+                  ? "border-primary font-medium text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
               onClick={() => setTab("history")}
             >
               <HistoryIcon className="h-3.5 w-3.5" aria-hidden />
               {t`History`}
-            </Button>
+            </button>
           </div>
           {tab === "comments" ? (
             <Comments rowId={row.id} />
@@ -754,10 +769,10 @@ export function RecordPanel({
         ? createPortal(
             <div data-print-root className="bg-white p-6 text-black">
               <p className="text-xs">
-                {table.table.name} ·{" "}
+                {table.table.name},{" "}
                 {row.ag_seq === null || row.ag_seq === undefined
                   ? row.id
-                  : `#${cellText(row.ag_seq)}`}
+                  : t`Row ${{ number: cellText(row.ag_seq) }}`}
               </p>
               <h1 className="mb-4 text-xl font-semibold">
                 {title || t`Untitled`}

@@ -66,7 +66,7 @@ test("dates, lists, and ratings are edited from the keyboard", async ({
     config: { ratingMax: 5 },
   });
   await page.reload();
-  await page.getByRole("button", { name: "Add a row" }).click();
+  await page.getByRole("button", { name: "Add a row", exact: true }).click();
   const grid = page.getByRole("grid");
 
   // A date typed from the grid: the first key opens the editor and goes
@@ -184,8 +184,8 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
     options: ["Lead", "Won"],
   });
   await page.reload();
-  await page.getByRole("button", { name: "Add a row" }).click();
-  await expect(page.getByText("Row added")).toBeVisible();
+  await page.getByRole("button", { name: "Add a row", exact: true }).click();
+  await expect(page.getByText(/Saved at/)).toBeVisible();
   expect(await accessibilityViolations(page)).toEqual([]);
 
   await cell(page, "due").click();
@@ -224,7 +224,7 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
   await expect(panel).toBeHidden();
 
   // A form: its date field is named by its label and filled by keyboard.
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await page.getByRole("button", { name: "New view" }).click();
   await page
     .getByRole("group", { name: "Shared view" })
     .getByRole("menuitem", { name: "Form" })

@@ -31,7 +31,7 @@ export async function signUpWithTable(
   await page.getByLabel("Display name").fill(name);
   await page.getByLabel("Password").fill("correct-horse-battery");
   await page.getByRole("button", { name: "Create account" }).click();
-  await page.waitForURL(/\/settings/);
+  await page.waitForURL(/\/welcome/);
 
   await page.getByRole("button", { name: "Enable TOTP" }).click();
   const secret = await page.getByLabel("Secret").inputValue();

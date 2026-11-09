@@ -179,7 +179,7 @@ export function NewRowDialog(props: {
     try {
       const id = await props.onCreate(out);
       if (id) {
-        toast.success(t`Row added`);
+        // The row appears in the grid: that is the confirmation.
         setValues({});
         props.onClose();
       }

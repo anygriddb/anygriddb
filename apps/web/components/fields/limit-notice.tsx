@@ -9,10 +9,10 @@ export function LimitNotice(props: { id?: string; texts: readonly string[] }) {
   return (
     <div
       id={props.id}
-      className="flex gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs"
+      className="flex gap-2 rounded-md border border-warning/40 bg-warning-surface p-2 text-xs"
     >
       <TriangleAlert
-        className="mt-px h-3.5 w-3.5 shrink-0 text-amber-600"
+        className="mt-px h-3.5 w-3.5 shrink-0 text-warning"
         aria-hidden
       />
       <ul className="flex flex-col gap-1">

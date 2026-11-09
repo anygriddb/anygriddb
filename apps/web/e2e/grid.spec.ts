@@ -7,7 +7,7 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
   const blocked = watchPolicy(page);
   await signUpWithTable(page, "E2E User");
 
-  await page.getByRole("button", { name: "Add a row" }).click();
+  await page.getByRole("button", { name: "Add a row", exact: true }).click();
   const cell = page.locator('[role="gridcell"][data-column="name"]').first();
   await cell.click();
 

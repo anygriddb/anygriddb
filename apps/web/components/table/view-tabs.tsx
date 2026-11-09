@@ -73,6 +73,7 @@ export function ViewTabs(props: {
   userCanEditView: (view: ViewItem) => boolean;
   onChanged: () => Promise<unknown>;
   onCreated: (view: ViewItem) => void;
+  className?: string;
 }) {
   const { t } = useLingui();
   const errorText = useErrorText();
@@ -99,7 +100,10 @@ export function ViewTabs(props: {
   return (
     // Each view is a page of its own: links, the open one marked current.
     <nav
-      className="flex items-center gap-0.5 overflow-x-auto px-2"
+      className={cn(
+        "flex min-w-0 items-stretch gap-3 overflow-x-auto px-1",
+        props.className,
+      )}
       aria-label={t`Views`}
     >
       {props.views.map((view) => {
@@ -110,10 +114,10 @@ export function ViewTabs(props: {
           <div
             key={view.id}
             className={cn(
-              "group flex shrink-0 items-center gap-1 rounded-t-md border-x border-t px-2 py-1.5 text-sm",
+              "group flex shrink-0 items-center gap-1 border-b-2 px-0.5 text-sm",
               active
-                ? "border-border bg-card font-medium"
-                : "border-transparent text-muted-foreground hover:bg-muted",
+                ? "border-primary font-medium text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             <Link
@@ -124,7 +128,7 @@ export function ViewTabs(props: {
                 tableId: props.tableId,
                 viewId: view.id,
               }}
-              className="flex items-center gap-1.5"
+              className="flex items-center gap-1.5 py-2"
             >
               <Icon className="h-3.5 w-3.5" aria-hidden />
               <span className="max-w-40 truncate">{view.name}</span>
@@ -218,9 +222,11 @@ export function ViewTabs(props: {
         );
       })}
       <DropdownMenu>
-        <DropdownMenuTrigger className="ml-1 flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted">
-          <Plus className="h-3.5 w-3.5" aria-hidden />
-          {t`View`}
+        <DropdownMenuTrigger
+          aria-label={t`New view`}
+          className="flex h-7 w-7 shrink-0 items-center justify-center self-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <Plus className="h-4 w-4" aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           {collaborative ? (

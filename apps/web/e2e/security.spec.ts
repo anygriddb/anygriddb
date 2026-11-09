@@ -58,7 +58,7 @@ test("an administrator sets the lock, unlocks an account, and hands over a reset
     await member.getByLabel("Display name").fill(name);
     await member.getByLabel("Password").fill("correct-horse-battery");
     await member.getByRole("button", { name: "Create account" }).click();
-    await member.waitForURL(/\/settings/);
+    await member.waitForURL(/\/welcome/);
 
     // Another browser guesses the password three times.
     const elsewhere = await browser.newContext(from("203.0.113.66"));

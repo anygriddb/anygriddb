@@ -54,7 +54,7 @@ export function ShareDialog({
         {links === "off" ? (
           <p
             role="status"
-            className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-sm"
+            className="rounded-md border border-warning/40 bg-warning-surface p-2 text-sm"
           >
             {t`An administrator turned public links off on this instance. Links made before no longer open.`}
           </p>

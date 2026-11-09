@@ -26,11 +26,14 @@ function tokens(selector: string): Record<string, string> {
 const TEXT_PAIRS: ReadonlyArray<[string, string]> = [
   ["foreground", "background"],
   ["foreground", "card"],
+  ["foreground", "head"],
   ["foreground", "muted"],
   ["foreground", "accent"],
   ["foreground", "highlight"],
+  ["foreground", "warning-surface"],
   ["muted-foreground", "background"],
   ["muted-foreground", "card"],
+  ["muted-foreground", "head"],
   ["muted-foreground", "muted"],
   ["primary", "card"],
   ["primary", "background"],
@@ -39,6 +42,9 @@ const TEXT_PAIRS: ReadonlyArray<[string, string]> = [
   ["danger", "card"],
   ["danger", "background"],
   ["danger-foreground", "danger"],
+  ["warning", "card"],
+  ["warning", "background"],
+  ["warning", "warning-surface"],
 ];
 
 /** Non-text marks that carry meaning: focus ring and margin rule, 3:1. */
@@ -46,6 +52,7 @@ const MARK_PAIRS: ReadonlyArray<[string, string]> = [
   ["ring", "card"],
   ["ring", "background"],
   ["margin", "card"],
+  ["margin", "head"],
 ];
 
 describe.each([

@@ -29,7 +29,7 @@ test("maintenance keeps everyone but administrators out, and an announcement sho
     await member.getByLabel("Display name").fill(`Out ${stamp}`);
     await member.getByLabel("Password").fill("correct-horse-battery");
     await member.getByRole("button", { name: "Create account" }).click();
-    await member.waitForURL(/\/settings/);
+    await member.waitForURL(/\/welcome/);
 
     await page.goto("/admin");
     await page.getByRole("tab", { name: "Settings" }).click();

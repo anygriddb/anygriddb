@@ -1,33 +1,41 @@
-@import "@fontsource-variable/atkinson-hyperlegible-next/wght.css";
-@import "@fontsource-variable/atkinson-hyperlegible-mono/wght.css";
+@import "@fontsource-variable/ibm-plex-sans/wght.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /*
- * The register: the page is ledger paper, surfaces are the sheet laid on
- * it, text is writing ink, borders are its rules. Each text token keeps
- * 4.5:1 on every surface it is written on (`tokens.test.ts`).
+ * The notebook: the chrome is the desk, the sheet is a ruled page laid on
+ * it, text is ink, the grid's lines are the page's rules and the red line
+ * at the frozen edge is its margin. Each text token keeps 4.5:1 on every
+ * surface it is written on (`tokens.test.ts`).
  */
 :root {
-  --ag-background: #eaefea;
-  --ag-foreground: #182832;
-  --ag-card: #fbfcfa;
-  --ag-muted: #e1e8e2;
-  --ag-muted-foreground: #5a6a66;
-  --ag-border: #c6d3cb;
-  --ag-strong-border: #a9bab1;
-  --ag-primary: #0f766e;
-  --ag-primary-foreground: #f6faf8;
-  --ag-accent: #d6efe9;
-  --ag-accent-foreground: #0b4f49;
+  --ag-background: #f3f4f7;
+  --ag-foreground: #15213a;
+  --ag-card: #ffffff;
+  /* Header, gutter, and summary rows of a sheet. */
+  --ag-head: #f7f8fb;
+  --ag-muted: #e9ecf3;
+  --ag-muted-foreground: #4c586e;
+  /* Lines of the chrome; the sheet's own rules are `--ag-rule`. */
+  --ag-border: #dde1ea;
+  --ag-rule: #ccd3ee;
+  --ag-strong-border: #b3bde8;
+  --ag-primary: #1f3fae;
+  --ag-primary-foreground: #ffffff;
+  --ag-accent: #e9edfa;
+  --ag-accent-foreground: #1f3fae;
   --ag-danger: #b42318;
-  --ag-danger-foreground: #fdf2f1;
-  --ag-ring: #0f8f84;
-  --ag-selection: rgba(15, 118, 110, 0.12);
-  --ag-highlight: #f5e9a8;
-  /* The ledger's red margin rule: where the frozen columns end. */
-  --ag-margin: #c94f47;
-  --ag-shadow: 24 40 50;
+  --ag-danger-foreground: #ffffff;
+  --ag-warning: #8f4f08;
+  --ag-warning-surface: #fbf1dd;
+  --ag-ring: #1f3fae;
+  --ag-selection: rgba(31, 63, 174, 0.08);
+  --ag-highlight: #fff1a8;
+  /* The page's margin: where the frozen columns end. */
+  --ag-margin: #d9626a;
+  --ag-shadow: 21 33 58;
   /*
    * Chart series, in this order (never cycled): validated for colour
    * vision deficiencies against the card surface, each mode its own steps.
@@ -46,23 +54,27 @@
 }
 
 [data-theme="dark"] {
-  --ag-background: #0f1715;
-  --ag-foreground: #e6ece8;
-  --ag-card: #151f1c;
-  --ag-muted: #1d2a26;
-  --ag-muted-foreground: #9db0a8;
-  --ag-border: #2a3833;
-  --ag-strong-border: #3b4c45;
-  --ag-primary: #2dd4bf;
-  --ag-primary-foreground: #04302b;
-  --ag-accent: #16403b;
-  --ag-accent-foreground: #bfede4;
-  --ag-danger: #f47f76;
+  --ag-background: #141822;
+  --ag-foreground: #e7eaf3;
+  --ag-card: #1b2030;
+  --ag-head: #1f2537;
+  --ag-muted: #272e42;
+  --ag-muted-foreground: #a6adc0;
+  --ag-border: #283046;
+  --ag-rule: #2f3852;
+  --ag-strong-border: #414c72;
+  --ag-primary: #93a7ff;
+  --ag-primary-foreground: #0d1a4a;
+  --ag-accent: #26304f;
+  --ag-accent-foreground: #b8c6ff;
+  --ag-danger: #ff8a80;
   --ag-danger-foreground: #3b0f0c;
-  --ag-ring: #2dd4bf;
-  --ag-selection: rgba(45, 212, 191, 0.16);
-  --ag-highlight: #6b5a14;
-  --ag-margin: #e07a73;
+  --ag-warning: #e2a84b;
+  --ag-warning-surface: #3b2d12;
+  --ag-ring: #93a7ff;
+  --ag-selection: rgba(147, 167, 255, 0.14);
+  --ag-highlight: #5d4d12;
+  --ag-margin: #e38a90;
   --ag-shadow: 0 0 0;
   --ag-series-1: #3987e5;
   --ag-series-2: #d95926;
@@ -79,9 +91,11 @@
   --color-background: var(--ag-background);
   --color-foreground: var(--ag-foreground);
   --color-card: var(--ag-card);
+  --color-head: var(--ag-head);
   --color-muted: var(--ag-muted);
   --color-muted-foreground: var(--ag-muted-foreground);
   --color-border: var(--ag-border);
+  --color-rule: var(--ag-rule);
   --color-strong-border: var(--ag-strong-border);
   --color-primary: var(--ag-primary);
   --color-primary-foreground: var(--ag-primary-foreground);
@@ -89,21 +103,19 @@
   --color-accent-foreground: var(--ag-accent-foreground);
   --color-danger: var(--ag-danger);
   --color-danger-foreground: var(--ag-danger-foreground);
+  --color-warning: var(--ag-warning);
+  --color-warning-surface: var(--ag-warning-surface);
   --color-ring: var(--ag-ring);
   --color-selection: var(--ag-selection);
   --color-highlight: var(--ag-highlight);
   --color-margin: var(--ag-margin);
   /*
-   * Atkinson Hyperlegible (Braille Institute, OFL): 0/O, 1/l/I, and 8/B
-   * cannot be mistaken for one another, which is what a grid of someone
-   * else's data asks of a typeface.
+   * IBM Plex (OFL): tabular figures that line up, and a mono sibling kept
+   * for what comes from the database as is, identifiers and SQL.
    */
   --font-sans:
-    "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible", "Segoe UI",
-    system-ui, sans-serif;
-  --font-mono:
-    "Atkinson Hyperlegible Mono Variable", ui-monospace, "Cascadia Mono",
-    monospace;
+    "IBM Plex Sans Variable", "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
   /* Radius says what a thing is: sheets and panels 2px, controls 4px. */
   --radius-xs: 2px;
   --radius-sm: 2px;

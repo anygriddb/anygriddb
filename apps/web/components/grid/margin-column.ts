@@ -6,3 +6,6 @@
 export function marginColumn(frozenCount: number): number {
   return frozenCount > 0 ? frozenCount - 1 : -1;
 }
+
+/** Width of the row gutter: the number, the checkbox, the expand button. */
+export const GUTTER = 56;

@@ -30,6 +30,11 @@ const AppShell = page(() =>
 const HomePage = page(() =>
   import("../components/shell/home-page").then((module) => module.HomePage),
 );
+const WelcomePage = page(() =>
+  import("../components/shell/welcome-page").then(
+    (module) => module.WelcomePage,
+  ),
+);
 const BaseHome = page(() =>
   import("../components/shell/base-home").then((module) => module.BaseHome),
 );
@@ -182,18 +187,20 @@ const adminRoute = createRoute({
 const accountRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/settings",
-  validateSearch: z.object({
-    /** Set after sign-up: the page suggests a second factor. */
-    welcome: z.boolean().optional().catch(undefined),
-  }),
   component: function Account() {
-    const { welcome } = accountRoute.useSearch();
     return (
       <div className="flex-1 overflow-y-auto">
-        <AccountSettings welcome={welcome === true} />
+        <AccountSettings />
       </div>
     );
   },
+});
+
+/** A new account's first page: protect it, then bring data. */
+const welcomeRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/welcome",
+  component: WelcomePage,
 });
 
 const baseRoute = createRoute({
@@ -287,6 +294,7 @@ const routeTree = rootRoute.addChildren([
     homeRoute,
     adminRoute,
     accountRoute,
+    welcomeRoute,
     baseRoute,
     baseApiRoute,
     baseSettingsRoute,

@@ -30,7 +30,7 @@ function InstanceBanner() {
   return (
     <div
       role="status"
-      className="flex items-start gap-2 border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm"
+      className="flex items-start gap-2 border-b border-warning/40 bg-warning-surface px-4 py-2 text-sm"
     >
       <Megaphone className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
       <p className="whitespace-pre-line">
@@ -62,14 +62,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const mustEnroll = Boolean(
     session.data && session.data.mfaRequired && !session.data.mfaEnrolled,
   );
-  const onSettings = useLocation({
-    select: (location) => location.pathname === "/settings",
+  const onSetup = useLocation({
+    select: (location) =>
+      location.pathname === "/settings" || location.pathname === "/welcome",
   });
   useEffect(() => {
-    if (mustEnroll && !onSettings) {
+    if (mustEnroll && !onSetup) {
       void navigate({ to: "/settings", replace: true });
     }
-  }, [mustEnroll, onSettings, navigate]);
+  }, [mustEnroll, onSetup, navigate]);
   if (!session.data) {
     return (
       <div className="flex h-screen items-center justify-center">

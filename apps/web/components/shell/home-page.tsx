@@ -1,5 +1,5 @@
 import { Button, Spinner } from "@anygriddb/ui";
-import { Plus, ShieldAlert } from "lucide-react";
+import { Plus, ShieldAlert, Table2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { formatDate } from "../../lib/format";
@@ -28,10 +28,10 @@ export function HomePage() {
   const shortcuts = useShortcuts();
   const { recent } = resolveShortcuts(bases, shortcuts.data);
   return (
-    <div className="flex-1 overflow-y-auto px-8 py-10">
+    <div className="flex-1 overflow-y-auto px-10 py-12">
       <div className="mx-auto max-w-4xl">
-        <header className="flex items-end justify-between gap-4 border-b border-foreground pb-3">
-          <h1 className="text-2xl font-semibold">
+        <header className="flex items-end justify-between gap-4">
+          <h1 className="text-[28px] leading-tight font-semibold">
             {t`Hello ${{ name: session.data?.displayName ?? "" }}`}
           </h1>
           {session.data?.canCreateBases === false ? null : (
@@ -52,31 +52,41 @@ export function HomePage() {
         session.data.mfaForBases ? (
           <Link
             to="/settings"
-            className="mt-4 flex items-center gap-3 rounded-sm border border-amber-500/40 bg-amber-500/10 p-4 text-sm"
+            className="mt-4 flex items-center gap-3 rounded-sm border border-warning/40 bg-warning-surface p-4 text-sm"
           >
-            <ShieldAlert className="h-5 w-5 text-amber-600" aria-hidden />
+            <ShieldAlert className="h-5 w-5 text-warning" aria-hidden />
             {t`Enable a second factor to create and manage bases.`}
           </Link>
         ) : null}
         {recent.length > 0 ? (
-          <section aria-label={t`Recently opened`} className="mt-8">
-            <h2 className="text-sm font-medium text-muted-foreground">
+          <section aria-label={t`Recently opened`} className="mt-10">
+            <h2 className="border-b border-strong-border pb-2 text-xs font-medium text-muted-foreground">
               {t`Recently opened`}
             </h2>
-            <ul className="mt-2 border-t border-border">
+            <ul>
               {recent.slice(0, 8).map(({ base, table, openedAt }) => (
-                <li key={table.id} className="border-b border-border">
+                <li key={table.id} className="border-b border-rule">
                   <Link
                     to="/b/$baseId/t/$tableId/{-$viewId}"
                     params={{ baseId: base.id, tableId: table.id }}
-                    className="flex items-baseline gap-4 py-2 text-sm hover:text-primary"
+                    className="flex min-h-10 items-center gap-4 text-sm hover:bg-muted"
                   >
+                    <Table2
+                      className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                      aria-hidden
+                    />
                     <span className="min-w-0 flex-1 truncate font-medium">
                       {table.name}
                     </span>
                     <span className="hidden min-w-0 flex-1 truncate text-muted-foreground sm:block">
                       {base.name}
                     </span>
+                    {table.external ? (
+                      // A client's table: its name in the database.
+                      <span className="hidden shrink-0 font-mono text-xs text-muted-foreground md:block">
+                        {table.external.schema}.{table.external.name}
+                      </span>
+                    ) : null}
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {formatDate(
                         openedAt,
@@ -93,38 +103,51 @@ export function HomePage() {
         ) : null}
         {catalog.isLoading ? <Spinner className="mt-10" /> : null}
         {catalog.isSuccess && bases.length === 0 ? (
-          <div className="mt-10 border-t border-border text-sm text-muted-foreground">
-            <p className="border-b border-border py-3">
-              {t`Create your first base to get started.`}
+          // An empty desk invites: a base, or a database to connect.
+          <div className="mt-10 border-t border-strong-border py-8 text-sm">
+            <p className="text-base font-medium">{t`Nothing here yet.`}</p>
+            <p className="mt-1 max-w-prose text-muted-foreground">
+              {t`A base holds tables. A table is a real SQL table: one AnyGridDB keeps in PostgreSQL, or one of a database an administrator connected.`}
             </p>
-            <div aria-hidden className="h-11 border-b border-border" />
-            <div aria-hidden className="h-11 border-b border-border" />
+            {session.data?.canCreateBases === false ? null : (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button onClick={() => setCreating(true)}>
+                  <Plus className="h-4 w-4" aria-hidden />
+                  {t`New base`}
+                </Button>
+                {session.data?.isAdmin ? (
+                  <Button variant="outline" asChild>
+                    <Link to="/admin">{t`Connect a database`}</Link>
+                  </Button>
+                ) : null}
+              </div>
+            )}
           </div>
         ) : null}
         {bases.length > 0 ? (
-          <section aria-label={t`Bases`} className="mt-8">
-            <h2 className="text-sm font-medium text-muted-foreground">
+          <section aria-label={t`Bases`} className="mt-10">
+            <h2 className="border-b border-strong-border pb-2 text-xs font-medium text-muted-foreground">
               {t`Bases`}
             </h2>
-            <ul className="mt-2 border-t border-border">
+            <ul>
               {bases.map((base) => (
-                <li key={base.id} className="border-b border-border py-4">
-                  <div className="flex items-baseline gap-4">
+                <li key={base.id} className="border-b border-rule py-5">
+                  <div className="flex items-baseline gap-3">
                     <Link
                       to="/b/$baseId"
                       params={{ baseId: base.id }}
-                      className="min-w-0 truncate text-lg font-semibold hover:text-primary"
+                      className="min-w-0 truncate text-base font-semibold hover:text-primary"
                     >
                       {base.name}
                     </Link>
-                    <span className="ml-auto flex shrink-0 gap-4 text-xs text-muted-foreground">
-                      <span>
-                        {plural(base.tables.length, {
-                          one: `# table`,
-                          other: `# tables`,
-                        })}
-                      </span>
-                      <span>{roleLabel(base.role)}</span>
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      {roleLabel(base.role)}
+                    </span>
+                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                      {plural(base.tables.length, {
+                        one: `# table`,
+                        other: `# tables`,
+                      })}
                     </span>
                   </div>
                   {base.description ? (

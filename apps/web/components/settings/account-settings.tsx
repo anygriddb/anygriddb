@@ -1,14 +1,14 @@
 import { Button, Checkbox, Input, Label } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, KeyRound, ShieldCheck, Trash2 } from "lucide-react";
+import { ShieldCheck, Trash2 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useState, type SubmitEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { useCatalog, useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
-import { registerPasskey } from "../../lib/webauthn";
 import { ConfirmDialog } from "../shell/dialogs";
+import { SecondFactorSetup } from "./second-factor";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 
@@ -22,56 +22,23 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-sm border border-border bg-card p-5">
-      <h2 className="text-base font-semibold">{title}</h2>
-      {description ? (
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-      ) : null}
-      <div className="mt-4 flex flex-col gap-3">{children}</div>
+    // A ruled section of the page: what it is on the left, the controls
+    // on the right.
+    <section className="grid gap-x-10 gap-y-3 border-b border-rule py-7 md:grid-cols-[12rem_minmax(0,1fr)]">
+      <div>
+        <h2 className="text-[15px] font-semibold">{title}</h2>
+        {description ? (
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex min-w-0 flex-col gap-3">{children}</div>
     </section>
   );
 }
 
-export function BackupCodes({
-  codes,
-  onDone,
-}: {
-  codes: string[];
-  onDone: () => void;
-}) {
-  const { t } = useLingui();
-  const copy = useCopy();
-  return (
-    <div className="rounded-sm border border-primary/40 bg-accent/40 p-4">
-      <p className="text-sm font-medium">{t`Backup codes, shown only once.`}</p>
-      <ul className="mt-2 grid grid-cols-2 gap-1 font-mono text-sm">
-        {codes.map((code) => (
-          <li key={code}>{code}</li>
-        ))}
-      </ul>
-      <div className="mt-3 flex gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => copy(codes.join("\n"))}
-        >
-          <Copy className="h-4 w-4" aria-hidden />
-          {t`Copy`}
-        </Button>
-        <Button size="sm" onClick={onDone}>
-          {t`I saved the codes`}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-export function AccountSettings({
-  welcome = false,
-}: {
-  /** Just signed up: suggest a second factor first. */
-  welcome?: boolean;
-}) {
+export function AccountSettings() {
   const { t } = useLingui();
   const copy = useCopy();
   const errorText = useErrorText();
@@ -81,11 +48,6 @@ export function AccountSettings({
   const session = useSession();
   const tokens = useQuery(api.auth.tokens.queryOptions());
   const preferences = useQuery(api.notifications.preferences.queryOptions());
-  const [secret, setSecret] = useState<{ secret: string; url: string } | null>(
-    null,
-  );
-  const [code, setCode] = useState("");
-  const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [tokenName, setTokenName] = useState("");
   const [tokenBases, setTokenBases] = useState<string[]>([]);
   const [tokenReadOnly, setTokenReadOnly] = useState(false);
@@ -110,29 +72,22 @@ export function AccountSettings({
     }
   }
 
-  async function refresh() {
-    await queryClient.invalidateQueries({
-      queryKey: api.session.current.queryKey(),
-    });
-  }
-
   if (!user) return null;
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-6">
-      <h1 className="text-xl font-semibold">{t`Account settings`}</h1>
+    <div className="mx-auto flex w-full max-w-4xl flex-col px-8 py-10">
+      <h1 className="text-[28px] leading-tight font-semibold">
+        {t`Account settings`}
+      </h1>
+      <p className="mt-2 mb-3 text-sm text-muted-foreground">
+        {t`What only you can change. Rights on a base are set in that base.`}
+      </p>
       {user.mfaRequired && !user.mfaEnrolled ? (
         <p
           role="alert"
-          className="rounded-sm border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
+          className="mt-2 rounded-sm border border-warning/40 bg-warning-surface p-3 text-sm"
         >
           {t`Your organization asks for a second factor on this account: set one up below to go on.`}
-        </p>
-      ) : welcome ? (
-        <p className="rounded-sm border border-primary/40 bg-accent/40 p-3 text-sm">
-          {user.mfaForBases
-            ? t`Welcome! Enable a second factor: it is required to create a base.`
-            : t`Welcome! A second factor protects your account: you can enable one below.`}
         </p>
       ) : null}
       <Section title={t`Profile`}>
@@ -241,83 +196,7 @@ export function AccountSettings({
           />
           {user.mfaEnrolled ? t`Second factor enabled` : t`No second factor`}
         </p>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={() =>
-              void run(async () => {
-                const result = await trpc.auth.totp.begin.mutate();
-                setSecret({ secret: result.secret, url: result.otpauthUrl });
-              })
-            }
-          >
-            {t`Enable TOTP`}
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!window.isSecureContext}
-            onClick={() =>
-              void run(async () => {
-                const codes = await registerPasskey();
-                if (codes.length > 0) setBackupCodes(codes);
-                toast.success(t`Passkey registered`);
-                await refresh();
-              })
-            }
-          >
-            <KeyRound className="h-4 w-4" aria-hidden />
-            {t`Register a passkey`}
-          </Button>
-        </div>
-        {window.isSecureContext ? null : (
-          <p className="text-sm text-muted-foreground">
-            {t`Browsers accept passkeys on an HTTPS address only: use TOTP, or open AnyGridDB over HTTPS.`}
-          </p>
-        )}
-        {secret ? (
-          <form
-            className="flex flex-col gap-2"
-            onSubmit={(event: SubmitEvent) => {
-              event.preventDefault();
-              void run(async () => {
-                const result = await trpc.auth.totp.confirm.mutate({
-                  secret: secret.secret,
-                  code,
-                });
-                setBackupCodes(result.backupCodes);
-                setSecret(null);
-                setCode("");
-                await refresh();
-              });
-            }}
-          >
-            <Label htmlFor="totp-secret">{t`Secret`}</Label>
-            <Input
-              id="totp-secret"
-              readOnly
-              value={secret.secret}
-              className="font-mono"
-            />
-            <Label htmlFor="totp-url">{t`Authenticator URL`}</Label>
-            <Input
-              id="totp-url"
-              readOnly
-              value={secret.url}
-              className="font-mono text-xs"
-            />
-            <Label htmlFor="totp-code">{t`Code`}</Label>
-            <Input
-              id="totp-code"
-              inputMode="numeric"
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-            />
-            <Button type="submit">{t`Confirm TOTP`}</Button>
-          </form>
-        ) : null}
-        {backupCodes.length > 0 ? (
-          <BackupCodes codes={backupCodes} onDone={() => setBackupCodes([])} />
-        ) : null}
+        <SecondFactorSetup />
       </Section>
       <Section
         title={t`API tokens`}
@@ -399,7 +278,7 @@ export function AccountSettings({
         ) : (
           <p
             role="status"
-            className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-sm"
+            className="rounded-md border border-warning/40 bg-warning-surface p-2 text-sm"
           >
             {t`On this instance, only administrators create API tokens. The tokens below stop working while it is so.`}
           </p>
@@ -420,20 +299,24 @@ export function AccountSettings({
             >
               <span>
                 {token.name}
-                <span className="ml-2 text-xs text-muted-foreground">
-                  {t`expires on ${{ date: token.expiresAt.slice(0, 10) }}`}
-                  {" · "}
-                  {token.baseIds
-                    ? (catalog.data ?? [])
-                        .filter((base) => token.baseIds?.includes(base.id))
-                        .map((base) => base.name)
-                        .join(", ") || "—"
-                    : t`All bases`}
-                  {token.readOnly ? ` · ${t`Read only`}` : ""}
-                  {" · "}
-                  {token.lastUsedAt
-                    ? t`last used ${{ date: token.lastUsedAt.slice(0, 10) }}`
-                    : t`never used`}
+                <span className="ml-2 inline-flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                  <span>
+                    {t`expires on ${{ date: token.expiresAt.slice(0, 10) }}`}
+                  </span>
+                  <span>
+                    {token.baseIds
+                      ? (catalog.data ?? [])
+                          .filter((base) => token.baseIds?.includes(base.id))
+                          .map((base) => base.name)
+                          .join(", ") || "—"
+                      : t`All bases`}
+                  </span>
+                  {token.readOnly ? <span>{t`Read only`}</span> : null}
+                  <span>
+                    {token.lastUsedAt
+                      ? t`last used ${{ date: token.lastUsedAt.slice(0, 10) }}`
+                      : t`never used`}
+                  </span>
                 </span>
               </span>
               <Button

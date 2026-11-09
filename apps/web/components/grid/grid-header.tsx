@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
   Checkbox,
 } from "@anygriddb/ui";
-import { marginColumn } from "./margin-column";
+import { GUTTER, marginColumn } from "./margin-column";
 import {
   ArrowDownAZ,
   ArrowLeftToLine,
@@ -39,7 +39,7 @@ import { useLingui } from "@lingui/react/macro";
 function LimitMark(props: { text: string }) {
   return (
     <span role="img" aria-label={props.text} title={props.text}>
-      <TriangleAlert className="h-3 w-3 shrink-0 text-amber-600" aria-hidden />
+      <TriangleAlert className="h-3 w-3 shrink-0 text-warning" aria-hidden />
     </span>
   );
 }
@@ -105,9 +105,10 @@ export function GridHeader(props: {
           setOver(null);
         }}
         className={cn(
-          "group/header relative flex shrink-0 items-center gap-1.5 border-r border-b border-strong-border bg-muted px-2 text-xs font-medium",
+          "group/header relative flex shrink-0 items-center gap-1.5 border-r border-b border-r-rule border-b-strong-border bg-head px-2 text-[13px] font-medium text-muted-foreground",
           frozen && "sticky z-[7]",
-          index === marginColumn(props.frozenCount) && "border-r-margin",
+          index === marginColumn(props.frozenCount) &&
+            "border-r-2 border-r-margin",
           over === column.name && "border-l-2 border-l-primary",
         )}
         style={{
@@ -119,17 +120,18 @@ export function GridHeader(props: {
         <FieldIcon fieldType={column.fieldType} />
         {/* The full label and the description, for a truncated header. */}
         <span
-          className="min-w-0 flex-1 truncate"
+          className={cn(
+            "min-w-0 flex-1 truncate",
+            // The primary field is the one written in full ink.
+            column.isPrimary && "text-foreground",
+          )}
           title={column.description || column.label}
         >
           {column.label}
+          {column.isPrimary ? (
+            <span className="sr-only">, {t`Primary field`}</span>
+          ) : null}
         </span>
-        {column.isPrimary ? (
-          <Star
-            className="h-3 w-3 shrink-0 fill-current text-amber-500"
-            aria-label={t`Primary field`}
-          />
-        ) : null}
         {column.requireReason ? (
           <span title={t`Reason required`}>*</span>
         ) : null}
@@ -276,16 +278,17 @@ export function GridHeader(props: {
       role="row"
       aria-rowindex={1}
       className="sticky top-0 z-[8] flex"
-      style={{ width: props.width, height: 34 }}
+      style={{ width: props.width, height: 32 }}
     >
       <div
         role="columnheader"
         aria-colindex={1}
         className={cn(
-          "sticky left-0 z-[9] flex shrink-0 items-center border-r border-b border-strong-border bg-muted px-1.5",
-          marginColumn(props.frozenCount) === -1 && "border-r-margin",
+          "sticky left-0 z-[9] flex shrink-0 items-center border-r border-b border-r-rule border-b-strong-border bg-head px-1.5",
+          marginColumn(props.frozenCount) === -1 &&
+            "border-r-2 border-r-margin",
         )}
-        style={{ width: 72 }}
+        style={{ width: GUTTER }}
       >
         <Checkbox
           aria-label={t`Select all`}
@@ -301,7 +304,7 @@ export function GridHeader(props: {
         <div
           role="columnheader"
           aria-colindex={props.columns.length + 2}
-          className="flex w-12 shrink-0 border-b border-strong-border bg-muted"
+          className="flex w-12 shrink-0 border-b border-strong-border bg-head"
         >
           <button
             type="button"

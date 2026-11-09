@@ -363,10 +363,10 @@ importers:
 
   packages/ui:
     dependencies:
-      '@fontsource-variable/atkinson-hyperlegible-mono':
+      '@fontsource-variable/ibm-plex-sans':
         specifier: 5.3.0
         version: 5.3.0
-      '@fontsource-variable/atkinson-hyperlegible-next':
+      '@fontsource/ibm-plex-mono':
         specifier: 5.3.0
         version: 5.3.0
       '@internationalized/date':
@@ -999,11 +999,11 @@ packages:
   '@fastify/websocket@11.3.4':
     resolution: {integrity: sha512-firnJtEOv6pfdoXIzFDMbd+omgWwFNfLtdM8JejNFr/9lT/9DHkEhjTShuRFeE4phqrevD2B3JRW0v6uyzWhHQ==}
 
-  '@fontsource-variable/atkinson-hyperlegible-mono@5.3.0':
-    resolution: {integrity: sha512-0IbthhO18EEpLe69h+cmrsxCkl4yk80gMk+fAN3+9M5zQvoR1JlkzoJRR6U9/UXLYpVBGEXu+Md2LO8TIp30dw==}
+  '@fontsource-variable/ibm-plex-sans@5.3.0':
+    resolution: {integrity: sha512-agG8tXFEo0hD9+J7npa4vbbWult52eMLVaQ6WQRlhs/iCAojrMAoejru85W9HTVXHfyUj96KM7gp/KGAS87XaQ==}
 
-  '@fontsource-variable/atkinson-hyperlegible-next@5.3.0':
-    resolution: {integrity: sha512-UnLzNUy1RWoLDfydAatP4NaRm99X/WbQEph7q/PymJnCFIOOwKOx3pBmp5ys8trO0dM+CKGuJgeZP9fAR4mQpA==}
+  '@fontsource/ibm-plex-mono@5.3.0':
+    resolution: {integrity: sha512-eTgnZjZEGk1QtD3ZstF+Vclo2HLAni8YMy34/DxllwZvyz1lR/1RF/xTiAquOBO7MvqBx8D2Ig2WCPMVfdZu7Q==}
 
   '@graphile/logger@0.3.0':
     resolution: {integrity: sha512-0+79VNQYCIPQ7sD/rjQCvRV15k9zhWYHFc1QE7Bv0GLchgmxsTNtkKT1RSG8zCy0jPchel7x6o2RQ1dnnzhF0A==}
@@ -6005,9 +6005,9 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@fontsource-variable/atkinson-hyperlegible-mono@5.3.0': {}
+  '@fontsource-variable/ibm-plex-sans@5.3.0': {}
 
-  '@fontsource-variable/atkinson-hyperlegible-next@5.3.0': {}
+  '@fontsource/ibm-plex-mono@5.3.0': {}
 
   '@graphile/logger@0.3.0': {}
 

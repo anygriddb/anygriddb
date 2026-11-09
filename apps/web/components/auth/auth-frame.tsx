@@ -42,23 +42,28 @@ function LedgerSpecimen({ className }: { className?: string }) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  const head = "border-b border-strong-border px-3 py-2 text-left font-medium";
-  const cell = "border-b border-border px-3 py-2.5";
+  const head =
+    "border-b border-strong-border px-3 py-1.5 text-left text-[13px] font-medium";
+  const cell = "border-b border-rule px-3 py-1.5";
   return (
     <div
       aria-hidden
       className={cn(
-        "overflow-hidden rounded-sm border border-border bg-card text-sm",
+        "overflow-hidden rounded-sm border border-rule bg-card text-[13px] leading-5",
         className,
       )}
     >
       <table className="w-full border-collapse">
-        <thead className="bg-muted text-xs text-muted-foreground">
+        <thead className="bg-head text-muted-foreground">
           <tr>
-            <th className={cn(head, "w-10 border-r border-margin")} />
-            <th className={cn(head, "border-r")}>{t`Date`}</th>
-            <th className={cn(head, "border-r")}>{t`Reference`}</th>
-            <th className={cn(head, "border-r text-right")}>{t`Amount`}</th>
+            <th className={cn(head, "w-10 border-r-2 border-margin")} />
+            <th className={cn(head, "border-r border-r-rule")}>{t`Date`}</th>
+            <th className={cn(head, "border-r border-r-rule")}>
+              {t`Reference`}
+            </th>
+            <th className={cn(head, "border-r border-r-rule text-right")}>
+              {t`Amount`}
+            </th>
             <th className={head}>{t`Signed`}</th>
           </tr>
         </thead>
@@ -68,20 +73,20 @@ function LedgerSpecimen({ className }: { className?: string }) {
               <td
                 className={cn(
                   cell,
-                  "border-r border-margin px-2 text-right text-xs text-muted-foreground",
+                  "border-r-2 border-margin bg-head px-2 text-right font-mono text-xs text-muted-foreground",
                 )}
               >
                 {index + 1}
               </td>
-              <td className={cn(cell, "border-r")}>
+              <td className={cn(cell, "border-r border-r-rule")}>
                 {date.format(
                   new Date(entry.date[0], entry.date[1], entry.date[2]),
                 )}
               </td>
-              <td className={cn(cell, "border-r font-mono text-[13px]")}>
+              <td className={cn(cell, "border-r border-r-rule font-mono")}>
                 {entry.reference}
               </td>
-              <td className={cn(cell, "border-r text-right")}>
+              <td className={cn(cell, "border-r border-r-rule text-right")}>
                 {amount.format(entry.amount)}
               </td>
               <td className={cell}>
@@ -99,21 +104,41 @@ function LedgerSpecimen({ className }: { className?: string }) {
 
 /**
  * The frame of the pages outside the app: sign-in, sign-up, and the reset
- * link. The form on the left, the product on the right.
+ * link. The form on the left; on the right, a page of the notebook the
+ * product is: ruled, with its margin, and a sheet of figures on it.
  */
 export function AuthFrame({ children }: { children: ReactNode }) {
+  const { t } = useLingui();
   return (
-    <main className="h-screen overflow-y-auto">
-      <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-12 px-6 py-10 lg:flex-row lg:items-center lg:gap-20">
-        <div className="w-full max-w-sm shrink-0">
-          <div className="mb-10 flex items-center gap-2">
-            <BrandMark className="h-7 w-7" />
-            <span className="text-lg font-semibold">AnyGridDB</span>
-          </div>
-          {children}
+    <main className="flex h-screen overflow-hidden">
+      <section className="flex w-full shrink-0 flex-col overflow-y-auto border-r border-border bg-background px-8 py-10 lg:w-[34rem] lg:px-16">
+        <div className="flex items-center gap-2">
+          <BrandMark className="h-6 w-6" />
+          <span className="text-base font-semibold">AnyGridDB</span>
         </div>
-        <LedgerSpecimen className="hidden min-w-0 flex-1 lg:block" />
-      </div>
+        <div className="my-auto w-full max-w-sm py-10">{children}</div>
+      </section>
+      <section
+        aria-hidden
+        className="relative hidden min-w-0 flex-1 overflow-hidden bg-card lg:block"
+        style={{
+          backgroundImage:
+            "linear-gradient(to bottom, var(--color-rule) 1px, transparent 1px)",
+          backgroundSize: "100% 32px",
+          backgroundPosition: "0 15px",
+        }}
+      >
+        <div className="absolute inset-y-0 left-24 w-0.5 bg-margin" />
+        <div className="absolute top-[143px] right-16 left-32">
+          <p className="max-w-[22ch] text-[28px] leading-8 font-medium tracking-tight">
+            {t`Your SQL tables, read and written like a page of a notebook.`}
+          </p>
+          <p className="mt-8 max-w-[46ch] text-base leading-8 text-muted-foreground">
+            {t`Each row is a real row of your database. Each change is signed, dated, and can be undone.`}
+          </p>
+        </div>
+        <LedgerSpecimen className="absolute top-[399px] right-16 left-32" />
+      </section>
     </main>
   );
 }

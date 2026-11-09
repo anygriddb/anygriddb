@@ -243,23 +243,20 @@ export function Sidebar({
   }
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-background">
-      <div className="flex items-center gap-1 border-b border-border px-2 py-2">
+    <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-background">
+      <div className="flex h-11 shrink-0 items-center px-2">
         <Link
           to="/"
-          aria-label={t`Home`}
-          className="shrink-0 rounded-md p-1 hover:bg-muted"
+          className="flex min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-1.5 hover:bg-muted"
         >
-          <BrandMark className="h-6 w-6" />
+          <BrandMark className="h-5 w-5" />
+          <span className="truncate text-sm font-semibold">AnyGridDB</span>
         </Link>
-        <UserMenu user={user} />
-        <JobsMenu />
-        <NotificationBell />
       </div>
       <button
         type="button"
         onClick={openCommandPalette}
-        className="mx-2 mt-2 flex items-center gap-2 rounded-md border border-border px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+        className="mx-2 flex h-7 items-center gap-2 rounded-md border border-border bg-card px-2 text-sm text-muted-foreground hover:bg-muted"
       >
         <Search className="h-4 w-4" aria-hidden />
         <span className="flex-1 text-left">{t`Search`}</span>
@@ -629,11 +626,16 @@ export function Sidebar({
           })}
         </ul>
       </nav>
-      <div className="flex items-center gap-2 border-t border-border px-3 py-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1 border-t border-border px-2 py-1.5">
+        <UserMenu user={user} />
+        <JobsMenu />
+        <NotificationBell />
+      </div>
+      <div className="flex items-center gap-2 px-3 pb-2 text-[11px] text-muted-foreground">
         {online ? (
-          <Wifi className="h-3.5 w-3.5 text-primary" aria-hidden />
+          <Wifi className="h-3 w-3 text-primary" aria-hidden />
         ) : (
-          <WifiOff className="h-3.5 w-3.5" aria-hidden />
+          <WifiOff className="h-3 w-3" aria-hidden />
         )}
         {online ? t`Live` : t`Offline`}
       </div>

@@ -33,7 +33,7 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await member.getByLabel("Display name").fill(`Member ${stamp}`);
     await member.getByLabel("Password").fill("correct-horse-battery");
     await member.getByRole("button", { name: "Create account" }).click();
-    await member.waitForURL(/\/settings/);
+    await member.waitForURL(/\/welcome/);
 
     await page.goto("/admin");
     await page.getByRole("tab", { name: "Sessions" }).click();

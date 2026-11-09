@@ -96,9 +96,9 @@ test("an administrator shows a client's tables in a base, read where they live",
       grid.getByRole("gridcell", { name: "customer_id: Ada" }).first(),
     ).toBeVisible();
     // Read-only: no new row, and cells say so.
-    await expect(page.getByRole("button", { name: "Add a row" })).toHaveCount(
-      0,
-    );
+    await expect(
+      page.getByRole("button", { name: "Add a row", exact: true }),
+    ).toHaveCount(0);
     await expect(
       grid.getByRole("gridcell", { name: /^status: / }).first(),
     ).toHaveAttribute("aria-readonly", "true");

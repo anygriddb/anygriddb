@@ -9,7 +9,7 @@ test("a formula field written with completion computes in the grid", async ({
   const blocked = watchPolicy(page);
   await signUpWithTable(page, "Formula User");
 
-  await page.getByRole("button", { name: "Add a row" }).click();
+  await page.getByRole("button", { name: "Add a row", exact: true }).click();
   await page.locator('[role="gridcell"][data-column="name"]').first().click();
   const saved = page.waitForResponse(
     (response) => response.url().includes("rows.updateMany") && response.ok(),

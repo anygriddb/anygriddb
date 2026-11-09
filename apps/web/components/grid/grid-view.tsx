@@ -49,7 +49,7 @@ import { useTable, type CellValue } from "../table/table-context";
 import { GridFooter } from "./grid-footer";
 import { GridCell } from "./grid-cell";
 import { GridHeader } from "./grid-header";
-import { marginColumn } from "./margin-column";
+import { GUTTER, marginColumn } from "./margin-column";
 import { SelectionSummaryBar } from "./selection-summary";
 import {
   cellId,
@@ -71,14 +71,13 @@ import { useLingui } from "@lingui/react/macro";
 import { plural } from "@lingui/core/macro";
 
 export const ROW_HEIGHTS = {
-  short: 34,
+  short: 32,
   medium: 56,
   tall: 88,
   extra: 128,
 } as const;
-const HEADER = 34;
+const HEADER = 32;
 const FOOTER = 32;
-const GUTTER = 72;
 
 type Item =
   | { type: "row"; index: number }
@@ -892,7 +891,7 @@ export function GridView(props: GridProps) {
                     <div
                       key={`g-${item.key}`}
                       role="row"
-                      className="group/group absolute left-0 flex items-center gap-2 border-b border-border bg-muted px-2 text-sm font-medium"
+                      className="group/group absolute left-0 flex items-center gap-2 border-b border-rule bg-head px-2 text-sm font-medium"
                       style={{
                         top,
                         height: virtual.size,
@@ -971,11 +970,23 @@ export function GridView(props: GridProps) {
                       >
                         <button
                           type="button"
-                          className="flex h-full w-full items-center gap-2 border-b border-border px-3 text-sm text-muted-foreground hover:bg-muted"
+                          className="group/add flex h-full w-full items-center border-b border-rule text-[13px] text-muted-foreground hover:text-foreground"
                           onClick={() => void props.onAddRow()}
                         >
-                          <Plus className="h-4 w-4" aria-hidden />
-                          {t`Add a row`}
+                          {/* The gutter's share of the row: the plus sits where the numbers do. */}
+                          <span
+                            className={cn(
+                              "sticky left-0 flex h-full shrink-0 items-center justify-end border-r border-rule bg-head px-2 group-hover/add:bg-muted",
+                              marginColumn(frozenCount) === -1 &&
+                                "border-r-2 border-r-margin",
+                            )}
+                            style={{ width: GUTTER }}
+                          >
+                            <Plus className="h-3.5 w-3.5" aria-hidden />
+                          </span>
+                          <span className="px-2 group-hover/add:bg-muted">
+                            {t`Add a row`}
+                          </span>
                         </button>
                       </div>
                     </div>
@@ -1020,8 +1031,9 @@ export function GridView(props: GridProps) {
                       role="rowheader"
                       aria-colindex={1}
                       className={cn(
-                        "sticky left-0 z-[6] flex shrink-0 items-center gap-2 border-r border-b border-border bg-card px-1.5 text-xs text-muted-foreground",
-                        marginColumn(frozenCount) === -1 && "border-r-margin",
+                        "sticky left-0 z-[6] flex shrink-0 items-center gap-1.5 border-r border-b border-rule bg-head px-1.5 font-mono text-xs text-muted-foreground",
+                        marginColumn(frozenCount) === -1 &&
+                          "border-r-2 border-r-margin",
                         tint && `row-tint-${tint}`,
                       )}
                       style={{ width: GUTTER, height: rowHeight }}
@@ -1029,7 +1041,7 @@ export function GridView(props: GridProps) {
                       <Checkbox
                         aria-label={t`Select row ${{ index: item.index + 1 }}`}
                         className={cn(
-                          "h-4 w-4 shrink-0",
+                          "h-3.5 w-3.5 shrink-0",
                           !checked.has(row?.id ?? "") &&
                             "opacity-0 group-hover/row:opacity-100",
                         )}
@@ -1046,7 +1058,7 @@ export function GridView(props: GridProps) {
                       />
                       <span
                         className={cn(
-                          "flex-1 tabular-nums",
+                          "flex-1 text-right tabular-nums",
                           checked.has(row?.id ?? "")
                             ? "hidden"
                             : "group-hover/row:hidden",
@@ -1058,7 +1070,7 @@ export function GridView(props: GridProps) {
                         <button
                           type="button"
                           aria-label={t`Expand row`}
-                          className="hidden h-6 w-6 shrink-0 items-center justify-center rounded hover:bg-muted group-hover/row:inline-flex"
+                          className="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-foreground hover:bg-muted group-hover/row:inline-flex"
                           onClick={() => table.openRecord(row.id)}
                         >
                           <Expand className="h-3.5 w-3.5" aria-hidden />
