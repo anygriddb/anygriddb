@@ -23,6 +23,11 @@ COPY apps/web apps/web
 COPY packages/db packages/db
 COPY packages/core packages/core
 COPY packages/ui packages/ui
+# Which AnyGridDB the bundle reports (ADR 0048). Empty: the root
+# package.json's version, commit not recorded. scripts/build-image.sh sets
+# them from the checkout; a version that is not package.json's stops here.
+ARG ANYGRIDDB_VERSION=""
+ARG ANYGRIDDB_COMMIT=""
 RUN pnpm --filter @anygriddb/api build && pnpm --filter @anygriddb/web build
 
 # The bundle holds the workspace packages, so only the API's own
@@ -54,3 +59,17 @@ RUN printf '#!/bin/sh\nexec node --enable-source-maps /app/apps/api/dist/cli.js 
 USER 1000:1000
 EXPOSE 4000
 CMD ["node", "--enable-source-maps", "dist/index.js"]
+
+# Last, so a new date or commit only relabels the image.
+ARG ANYGRIDDB_VERSION=""
+ARG ANYGRIDDB_COMMIT=""
+ARG ANYGRIDDB_CREATED=""
+LABEL org.opencontainers.image.title="AnyGridDB" \
+      org.opencontainers.image.description="Open-source spreadsheet interface on real SQL tables" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later" \
+      org.opencontainers.image.url="https://github.com/anygriddb/anygriddb" \
+      org.opencontainers.image.source="https://github.com/anygriddb/anygriddb" \
+      org.opencontainers.image.documentation="https://github.com/anygriddb/anygriddb/blob/main/docs/operations.md" \
+      org.opencontainers.image.version="${ANYGRIDDB_VERSION}" \
+      org.opencontainers.image.revision="${ANYGRIDDB_COMMIT}" \
+      org.opencontainers.image.created="${ANYGRIDDB_CREATED}"

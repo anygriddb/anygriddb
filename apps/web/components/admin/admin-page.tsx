@@ -648,13 +648,18 @@ function ChangesTrail() {
 }
 
 function HealthTab() {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const api = useTRPC();
   const health = useQuery({
     ...api.admin.health.queryOptions(),
     refetchInterval: 30_000,
   });
   const data = health.data;
+  const when = (iso: string) =>
+    new Date(iso).toLocaleString(i18n.locale, {
+      dateStyle: "long",
+      timeStyle: "short",
+    });
   const checks = data
     ? ([
         [t`Database`, data.checks.database],
@@ -699,6 +704,26 @@ function HealthTab() {
       <TlsCard />
       {data ? (
         <dl className="grid grid-cols-[16rem_1fr] gap-y-1 text-sm">
+          <dt className="text-muted-foreground">{t`Version`}</dt>
+          <dd>
+            <span className="tabular-nums">{data.build.version}</span>
+            {" · "}
+            {data.build.builtAt === null ? (
+              t`from sources`
+            ) : (
+              <>
+                {data.build.commit ? (
+                  <code className="font-mono text-xs" title={data.build.commit}>
+                    {data.build.commit.slice(0, 12)}
+                  </code>
+                ) : (
+                  t`commit not recorded`
+                )}
+                {" · "}
+                {t`built ${{ date: when(data.build.builtAt) }}`}
+              </>
+            )}
+          </dd>
           <dt className="text-muted-foreground">{t`Queued events`}</dt>
           <dd className="tabular-nums">{data.queue.events}</dd>
           <dt className="text-muted-foreground">

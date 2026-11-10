@@ -11,6 +11,7 @@ import { sql as sqlTag } from "kysely";
 import type { Bus } from "./realtime/bus.js";
 import { factorMethods } from "./auth/access.js";
 import { recordAuthEvent } from "./auth/auth-events.js";
+import { BUILD } from "./build-info.js";
 import type { FileStore } from "./files/index.js";
 import { readSettings } from "./settings.js";
 
@@ -335,6 +336,7 @@ export async function instanceHealth(deps: {
     .executeTakeFirst();
   const memory = process.memoryUsage();
   return {
+    build: BUILD,
     checks: { database, realtime, storage },
     queue: {
       events: queued,

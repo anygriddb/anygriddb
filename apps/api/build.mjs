@@ -3,12 +3,49 @@
 // dist/cli.js (the operator commands);
 // npm packages stay external and are installed next to them, native ones
 // included.
+import { execFileSync } from "node:child_process";
 import { cp, readFile, rm } from "node:fs/promises";
 import { builtinModules } from "node:module";
 import { build } from "esbuild";
 
 const manifest = JSON.parse(await readFile("package.json", "utf8"));
 const declared = new Set(Object.keys(manifest.dependencies ?? {}));
+
+// Which AnyGridDB the bundle is (ADR 0048): the root package.json's
+// version, the commit (ANYGRIDDB_COMMIT, else the checkout's when git
+// answers), and when it was built. A release build names its version in
+// ANYGRIDDB_VERSION: it must be package.json's.
+const { version } = JSON.parse(await readFile("../../package.json", "utf8"));
+if (typeof version !== "string") {
+  console.error("The root package.json has no version.");
+  process.exit(1);
+}
+const wanted = process.env.ANYGRIDDB_VERSION?.replace(/^v/, "");
+if (wanted && wanted !== version) {
+  console.error(
+    `ANYGRIDDB_VERSION is ${wanted}, but package.json says ${version}.`,
+  );
+  process.exit(1);
+}
+function checkoutCommit() {
+  try {
+    return (
+      execFileSync("git", ["rev-parse", "HEAD"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() || null
+    );
+  } catch {
+    return null;
+  }
+}
+const commit =
+  process.env.ANYGRIDDB_COMMIT?.trim().toLowerCase() || checkoutCommit();
+if (commit !== null && !/^[0-9a-f]{7,64}$/.test(commit)) {
+  console.error(`ANYGRIDDB_COMMIT is not a commit hash: ${commit}`);
+  process.exit(1);
+}
+const buildInfo = { version, commit, builtAt: new Date().toISOString() };
 
 await rm("dist", { recursive: true, force: true });
 
@@ -27,8 +64,11 @@ const result = await build({
   sourcemap: true,
   metafile: true,
   logLevel: "info",
-  // The migrations ship in dist/migrations, next to the bundle.
-  define: { __ANYGRID_MIGRATIONS__: JSON.stringify("./migrations") },
+  define: {
+    // The migrations ship in dist/migrations, next to the bundle.
+    __ANYGRID_MIGRATIONS__: JSON.stringify("./migrations"),
+    __ANYGRID_BUILD__: JSON.stringify(buildInfo),
+  },
   plugins: [
     {
       name: "external-packages",

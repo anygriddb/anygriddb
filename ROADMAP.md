@@ -71,6 +71,9 @@ is. Still open, by value:
 1. Oracle when a client needs it (ADRs 0024, 0047): a spike of
    `kysely-oracledb` and `node-oracledb` in thin mode first.
 2. Mark the CI workflow required in GitHub branch protection.
+3. Releases (ADR 0048): publish the image to a registry on each tag,
+   pinned by version and digest in Compose; release notes for operators
+   (added, changed, fixed, breaking); an opt-in check for a newer release.
 
 ## Non-goals
 

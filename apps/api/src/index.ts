@@ -1,6 +1,7 @@
 import { createDb, migrateDb } from "@anygriddb/db";
 import { promoteListedAdmins } from "./admin.js";
 import { passkeysEligible } from "./auth/relying-party.js";
+import { BUILD, describeBuild } from "./build-info.js";
 import { isLoopback, readEnv } from "./env.js";
 import { createFileStore } from "./files/index.js";
 import { migrateQueue } from "./queue/worker.js";
@@ -9,6 +10,7 @@ import { createApp } from "./server.js";
 import { registerQueueGauge, startTracing } from "./observability.js";
 import { loadTls } from "./tls/authority.js";
 
+console.info(`${describeBuild(BUILD)}: starting`);
 const env = readEnv();
 const { db, pool, close } = createDb(env.DATABASE_URL, {
   onError: (error) => {
@@ -46,7 +48,7 @@ const tls = await loadTls(env, (message) => {
 const stopTracing = await startTracing({
   endpoint: env.OTEL_EXPORTER_OTLP_ENDPOINT,
   serviceName: env.OTEL_SERVICE_NAME,
-  version: process.env.npm_package_version ?? "dev",
+  version: BUILD.version,
 });
 registerQueueGauge(db);
 const app = await createApp({ env, db, files, bus, tls });

@@ -59,3 +59,4 @@ asserting: it superseded 0001 and added 0021 to 0026.
 | [0045](0045-cell-editors-and-exact-numbers.md)       | Cell editors on React Aria; exact numbers stay text                                     | Accepted (amends 0012)             |
 | [0046](0046-control-plane-enrichment.md)             | Enrichment without a side schema lives in the control plane                             | Accepted (amends 0032)             |
 | [0047](0047-oracle-dialect-spike.md)                 | Oracle dialect ships only after an OSI + conformance spike                              | Accepted (planning)                |
+| [0048](0048-versions-and-releases.md)                | Versions and releases: SemVer in the root package.json, tags, labelled image            | Accepted                           |

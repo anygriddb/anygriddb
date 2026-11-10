@@ -58,5 +58,8 @@ describe("metrics", () => {
       'anygriddb_job_duration_seconds_count{task="external_sync",outcome="error"} 1',
     );
     expect(text).toContain("anygriddb_process_cpu_seconds_total");
+    expect(text).toMatch(
+      /^anygriddb_build_info\{version="\d+\.\d+\.\d+[^"]*",commit=""\} 1$/m,
+    );
   });
 });

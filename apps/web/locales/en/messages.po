@@ -1415,6 +1415,10 @@ msgstr "Bring your data"
 msgid "Browsers accept passkeys on an HTTPS address only: use TOTP, or open AnyGridDB over HTTPS."
 msgstr "Browsers accept passkeys on an HTTPS address only: use TOTP, or open AnyGridDB over HTTPS."
 
+#: components/admin/admin-page.tsx
+msgid "built {date}"
+msgstr "built {date}"
+
 #: components/fields/field-meta.tsx
 #: components/table/automations-dialog.tsx
 msgid "Button"
@@ -1707,6 +1711,10 @@ msgstr "Comment deleted"
 #: components/shell/shortcuts-dialog.tsx
 msgid "Comments"
 msgstr "Comments"
+
+#: components/admin/admin-page.tsx
+msgid "commit not recorded"
+msgstr "commit not recorded"
 
 #: lib/known-text.ts
 msgid "Companies"
@@ -3015,6 +3023,10 @@ msgstr "Friday"
 #: components/table/filter-builder.tsx
 msgid "From"
 msgstr "From"
+
+#: components/admin/admin-page.tsx
+msgid "from sources"
+msgstr "from sources"
 
 #: components/admin/sources-tab.tsx
 msgid "Full copy"
@@ -6224,8 +6236,8 @@ msgid "The browser refused to copy: select the text and copy it."
 msgstr "The browser refused to copy: select the text and copy it."
 
 #: components/admin/support-tab.tsx
-msgid "The bundle holds health checks, counts, and which features are set up: no data, no address, no secret. The access export lists every account, its bases and roles, and its last sign-in."
-msgstr "The bundle holds health checks, counts, and which features are set up: no data, no address, no secret. The access export lists every account, its bases and roles, and its last sign-in."
+msgid "The bundle holds the version, health checks, counts, and which features are set up: no data, no address, no secret. The access export lists every account, its bases and roles, and its last sign-in."
+msgstr "The bundle holds the version, health checks, counts, and which features are set up: no data, no address, no secret. The access export lists every account, its bases and roles, and its last sign-in."
 
 #: components/admin/admin-page.tsx
 msgid "The certificate is the one the operator provided."
@@ -7364,6 +7376,7 @@ msgstr "Variance (sample)"
 msgid "Verify"
 msgstr "Verify"
 
+#: components/admin/admin-page.tsx
 #: components/admin/sources-tab.tsx
 msgid "Version"
 msgstr "Version"

@@ -82,6 +82,26 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     expect(csv).toContain(memberEmail);
     expect(csv).toContain(email);
 
+    // Which AnyGridDB runs (ADR 0048): the support bundle and Health say
+    // it. This server runs from sources, so no commit or build time.
+    const { version } = JSON.parse(
+      await readFile(new URL("../../../package.json", import.meta.url), "utf8"),
+    ) as { version: string };
+    const bundleDownload = page.waitForEvent("download");
+    await page
+      .getByRole("button", { name: "Download the support bundle" })
+      .click();
+    const bundle = JSON.parse(
+      await readFile((await (await bundleDownload).path()) ?? "", "utf8"),
+    ) as { health: { build: { version: string; commit: string | null } } };
+    expect(bundle.health.build).toMatchObject({ version, commit: null });
+    await page.getByRole("tab", { name: "Health" }).click();
+    await expect(
+      page
+        .locator("dt", { hasText: /^Version$/ })
+        .locator("xpath=following-sibling::dd[1]"),
+    ).toHaveText(`${version} · from sources`);
+
     await other.close();
     expect(blocked).toEqual([]);
   } finally {

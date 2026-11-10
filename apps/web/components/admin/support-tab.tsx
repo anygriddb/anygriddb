@@ -113,7 +113,7 @@ export function SupportTab() {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          {t`The bundle holds health checks, counts, and which features are set up: no data, no address, no secret. The access export lists every account, its bases and roles, and its last sign-in.`}
+          {t`The bundle holds the version, health checks, counts, and which features are set up: no data, no address, no secret. The access export lists every account, its bases and roles, and its last sign-in.`}
         </p>
       </section>
 

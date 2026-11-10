@@ -4,6 +4,7 @@
  *   anygriddb storage migrate --from disk --to s3 [--dry-run]
  *   anygriddb storage sweep [--dry-run]
  *   anygriddb health
+ *   anygriddb version
  *   anygriddb tls services --out <dir> [--postgres <name[:uid:gid]>] [--service <name[:uid:gid]>]…
  *
  * They read the API's environment. `migrate` needs only the storage
@@ -11,6 +12,7 @@
  */
 import { parseArgs } from "node:util";
 import { createDb } from "@anygriddb/db";
+import { BUILD, describeBuild } from "./build-info.js";
 import { readEncryptionKey, readFileSettings } from "./env.js";
 import { healthAuthorities, probeHealth, publicHost } from "./health-probe.js";
 import {
@@ -28,6 +30,8 @@ const USAGE = `Usage:
       Deletes files older than a day that no row names.
   anygriddb health
       Exits 0 when the API on this machine answers (container health checks).
+  anygriddb version [--json]
+      The version, commit, and build time of this AnyGridDB.
   anygriddb tls services --out <dir> [--postgres <name[:uid:gid]>] [--service <name[:uid:gid]>]
       Issues the stack's services their certificates, from the instance's
       internal authority: <dir>/<name>/<name>_cert.pem and _key.pem, owned
@@ -159,6 +163,19 @@ async function health(): Promise<number> {
   });
 }
 
+/** Which AnyGridDB this is: one line, or the facts as JSON. */
+function version(args: string[]): number {
+  const { values } = parseArgs({
+    args,
+    options: { json: { type: "boolean", default: false } },
+    strict: true,
+  });
+  process.stdout.write(
+    values.json ? `${JSON.stringify(BUILD)}\n` : `${describeBuild(BUILD)}\n`,
+  );
+  return 0;
+}
+
 /** `db:999:999`: a service's name, and the user and group its key belongs to. */
 function service(spec: string, postgres: boolean): StackService {
   const [name = "", uid, gid] = spec.split(":");
@@ -214,6 +231,9 @@ async function main(argv: string[]): Promise<number> {
     }
     if (group === "health" && command === undefined) {
       return await health();
+    }
+    if (group === "version" || group === "--version") {
+      return version(command === undefined ? rest : [command, ...rest]);
     }
     if (group === "tls" && command === "services") {
       return await tlsServices(rest);

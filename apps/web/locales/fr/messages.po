@@ -1415,6 +1415,10 @@ msgstr "Apporter vos données"
 msgid "Browsers accept passkeys on an HTTPS address only: use TOTP, or open AnyGridDB over HTTPS."
 msgstr "Le navigateur n'accepte les clés d'accès que sur une adresse HTTPS : utilisez TOTP, ou ouvrez AnyGridDB en HTTPS."
 
+#: components/admin/admin-page.tsx
+msgid "built {date}"
+msgstr "construite le {date}"
+
 #: components/fields/field-meta.tsx
 #: components/table/automations-dialog.tsx
 msgid "Button"
@@ -1707,6 +1711,10 @@ msgstr "Commentaire supprimé"
 #: components/shell/shortcuts-dialog.tsx
 msgid "Comments"
 msgstr "Commentaires"
+
+#: components/admin/admin-page.tsx
+msgid "commit not recorded"
+msgstr "commit non enregistré"
 
 #: lib/known-text.ts
 msgid "Companies"
@@ -3015,6 +3023,10 @@ msgstr "Vendredi"
 #: components/table/filter-builder.tsx
 msgid "From"
 msgstr "À partir de"
+
+#: components/admin/admin-page.tsx
+msgid "from sources"
+msgstr "depuis les sources"
 
 #: components/admin/sources-tab.tsx
 msgid "Full copy"
@@ -6224,8 +6236,8 @@ msgid "The browser refused to copy: select the text and copy it."
 msgstr "Le navigateur a refusé la copie : sélectionnez le texte et copiez-le."
 
 #: components/admin/support-tab.tsx
-msgid "The bundle holds health checks, counts, and which features are set up: no data, no address, no secret. The access export lists every account, its bases and roles, and its last sign-in."
-msgstr "Le dossier contient les contrôles de santé, des comptages et les fonctions configurées : aucune donnée, aucune adresse, aucun secret. L'export des accès liste chaque compte, ses bases et ses rôles, et sa dernière connexion."
+msgid "The bundle holds the version, health checks, counts, and which features are set up: no data, no address, no secret. The access export lists every account, its bases and roles, and its last sign-in."
+msgstr "Le dossier contient la version, les contrôles de santé, des comptages et les fonctions configurées : aucune donnée, aucune adresse, aucun secret. L'export des accès liste chaque compte, ses bases et ses rôles, et sa dernière connexion."
 
 #: components/admin/admin-page.tsx
 msgid "The certificate is the one the operator provided."
@@ -7364,6 +7376,7 @@ msgstr "Variance (échantillon)"
 msgid "Verify"
 msgstr "Vérifier"
 
+#: components/admin/admin-page.tsx
 #: components/admin/sources-tab.tsx
 msgid "Version"
 msgstr "Version"

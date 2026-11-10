@@ -5,7 +5,9 @@
  *   docs/ are kebab-case, but for names a tool or a convention imposes;
  * - migrations are `NNNN_snake_case.sql`, numbered from 0000 without a
  *   gap or a repeat;
- * - dependencies are pinned to exact versions.
+ * - dependencies are pinned to exact versions;
+ * - the root package.json holds the product's version, in SemVer
+ *   (ADR 0048).
  * Only files Git tracks are read. Exits 1 with one line per problem.
  */
 import { execFileSync } from "node:child_process";
@@ -20,6 +22,8 @@ const MIGRATIONS = "packages/db/migrations/";
 const MIGRATION = /^(\d{4})_[a-z0-9]+(_[a-z0-9]+)*\.sql$/;
 const EXACT = /^(\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?|workspace:\*)$/;
 const PINNED = ["dependencies", "devDependencies", "optionalDependencies"];
+const SEMVER =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/;
 
 const tracked = execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" })
   .split("\0")
@@ -71,6 +75,13 @@ for (const path of tracked.filter(
       }
     }
   }
+}
+
+const { version } = JSON.parse(readFileSync("package.json", "utf8"));
+if (typeof version !== "string" || !SEMVER.test(version)) {
+  problems.push(
+    `package.json: version "${version}" is not MAJOR.MINOR.PATCH (the product's version)`,
+  );
 }
 
 if (problems.length > 0) {

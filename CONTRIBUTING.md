@@ -210,3 +210,21 @@ The repository's ruleset, set on GitHub rather than in this tree, protects
 checks: `CI / unit`, `CI / integration`, `CI / e2e`, `Security / codeql`,
 `Security / trivy`, `Security / dependency-review`, `DCO / check`. Secrets
 belong in GitHub Actions secrets or `docker/.env`, never in the tree.
+
+## Releases
+
+The product's version is the root `package.json`'s, in SemVer; the
+workspace packages stay `0.0.0` ([ADR 0048](docs/adr/0048-versions-and-releases.md)).
+Until 1.0, a release that breaks something raises the second number
+(`0.2.0` → `0.3.0`), anything else the third.
+
+1. On an up-to-date `main`, with `CI` green: `pnpm check`,
+   `pnpm test:integration`, and `pnpm test:e2e`.
+2. Open a pull request whose one commit, `chore(release): vX.Y.Z`, sets
+   `version` in the root `package.json`.
+3. Once it is merged, tag the commit it became on `main`:
+   `git tag -a vX.Y.Z <commit>`. The tag's message is the release notes
+   for operators: what was added, changed, and fixed, and first what
+   breaks and what to do about it (environment variables, storage,
+   PostgreSQL version).
+4. Push the tag: `git push origin vX.Y.Z`.

@@ -18,6 +18,10 @@ x-anygriddb-vps-image: &anygriddb-vps-image
   build:
     context: ..
     dockerfile: docker/Dockerfile
+    args:
+      ANYGRIDDB_VERSION: ${ANYGRIDDB_VERSION:-}
+      ANYGRIDDB_COMMIT: ${ANYGRIDDB_COMMIT:-}
+      ANYGRIDDB_CREATED: ${ANYGRIDDB_CREATED:-}
   image: anygriddb:vps
 
 services:

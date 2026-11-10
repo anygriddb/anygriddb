@@ -15,6 +15,7 @@ import {
 } from "@opentelemetry/api";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
+import { BUILD } from "./build-info.js";
 import {
   collectDefaultMetrics,
   Counter,
@@ -25,6 +26,14 @@ import {
 
 export const registry = new Registry();
 collectDefaultMetrics({ register: registry, prefix: "anygriddb_" });
+
+/** Always 1: the running version and commit ride on its labels (ADR 0048). */
+new Gauge({
+  name: "anygriddb_build_info",
+  help: "The AnyGridDB version and commit running.",
+  labelNames: ["version", "commit"] as const,
+  registers: [registry],
+}).set({ version: BUILD.version, commit: BUILD.commit ?? "" }, 1);
 
 const SECONDS = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30];
 

@@ -5,13 +5,22 @@ here was tried on a stack of its own before it was written down.
 
 ## Install
 
+Install a release, never `main`: each release is a Git tag `vX.Y.Z`
+(ADR 0048).
+
 ```sh
+git checkout "$(git tag --list 'v*' --sort=-v:refname | head -n 1)"   # the latest release
 cd docker
 cp ../.env.example .env
 # In .env: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, PUBLIC_URL, and
 AUTH_ENCRYPTION_KEY="$(openssl rand -base64 32)"   # keep it safe, apart
-docker compose up -d --build
+../scripts/build-image.sh
+docker compose up -d
 ```
+
+`scripts/build-image.sh` builds the image with the version, commit, and
+date it was built from; `docker compose up -d --build` works too, without
+the commit.
 
 The stack has four services:
 
@@ -59,7 +68,7 @@ the job ends. Without internet access, that import fails and says so;
 everything else works. On a machine with internet access:
 
 ```sh
-docker compose build
+../scripts/build-image.sh
 docker save anygriddb:local postgres:18 | gzip > anygriddb-images.tar.gz
 ```
 
@@ -75,15 +84,25 @@ Add `rustfs/rustfs` to the `docker save` command when you use
 
 ## Update AnyGridDB
 
-Back up first (below). Then:
+Back up first (below). Then, from the repository's root:
 
 ```sh
-git pull
-docker compose up -d --build
+git fetch --tags
+git tag -n20 v0.2.0              # the release to install, and its notes
+git checkout v0.2.0
+scripts/build-image.sh
+cd docker && docker compose up -d
 ```
+
+Read the notes before a release that changes the first number of the
+version, or the second before 1.0: it may ask for a step of its own.
 
 Migrations run when AnyGridDB starts, under a lock, so two instances
 starting at once do not both migrate.
+
+Administration > Health then shows the version and the commit running,
+and so does `docker compose exec app anygriddb version`. The image's
+labels say the same: `docker image inspect anygriddb:local`.
 
 ## PostgreSQL 17 to 18
 
