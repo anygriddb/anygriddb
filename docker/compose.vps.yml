@@ -1,0 +1,52 @@
+# Isolated VPS constraint harness. Always use project name anygriddb-vps:
+#
+#   docker compose -p anygriddb-vps \
+#     -f compose.yml -f compose.vps.yml -f compose.vps-entry.yml up -d --build
+#
+# Publishes https://127.0.0.1:3100. Never share volumes with the developer
+# stack (project anygriddb on :3000). Env file: docker/.env.vps (scripts/vps/up.sh).
+# Profile overlays: compose.vps-{entry,balanced,credits}.yml. Optional
+# Compose profile `noisy` starts a stress-ng neighbor.
+
+name: anygriddb-vps
+
+x-anygriddb-vps-image: &anygriddb-vps-image
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+  image: anygriddb:vps
+
+services:
+  certs:
+    <<: *anygriddb-vps-image
+
+  app:
+    <<: *anygriddb-vps-image
+    ports: !override
+      - "127.0.0.1:3100:4000"
+    environment:
+      PUBLIC_URL: ${PUBLIC_URL:-https://localhost:3100}
+    mem_swappiness: 0
+    # Constrained vCPU profiles (especially credits) make `anygriddb health`
+    # exceed the stock 5s timeout even when the process is fine.
+    healthcheck:
+      test: ["CMD", "anygriddb", "health"]
+      interval: 15s
+      timeout: 30s
+      retries: 20
+      start_period: 90s
+
+  db:
+    mem_swappiness: 0
+
+  # Optional noisy neighbor: burns host CPU outside the app/db cgroups.
+  neighbor:
+    profiles: ["noisy"]
+    image: alpine:3.21
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    network_mode: none
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - apk add --no-cache stress-ng >/dev/null && exec stress-ng --cpu 0 --timeout 0

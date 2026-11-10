@@ -1,0 +1,11 @@
+# Balanced VPS: 2 dedicated vCPU, 4 GiB total RAM, NVMe-class I/O
+# (~50k IOPS) applied after start by scripts/vps/up.sh.
+services:
+  app:
+    cpus: "1.20"
+    mem_limit: 2560m
+    memswap_limit: 2560m
+  db:
+    cpus: "0.80"
+    mem_limit: 1536m
+    memswap_limit: 1536m

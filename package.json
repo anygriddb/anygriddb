@@ -36,6 +36,9 @@
     "lab:up": "./scripts/lab/up.sh",
     "lab:down": "./scripts/lab/down.sh",
     "lab:seed": "./scripts/lab/seed.sh",
+    "vps:up": "./scripts/vps/up.sh",
+    "vps:down": "./scripts/vps/down.sh",
+    "vps:run": "./scripts/vps/run.sh",
     "prepare": "husky",
     "preinstall": "npx only-allow pnpm"
   },

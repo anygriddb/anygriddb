@@ -1,0 +1,11 @@
+# Entry-level VPS: shared-like ~0.25 vCPU baseline, 2 GiB total RAM,
+# block-storage-class I/O applied after start by scripts/vps/up.sh (~10k IOPS).
+services:
+  app:
+    cpus: "0.20"
+    mem_limit: 1280m
+    memswap_limit: 1280m
+  db:
+    cpus: "0.15"
+    mem_limit: 768m
+    memswap_limit: 768m
