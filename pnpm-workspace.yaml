@@ -20,9 +20,15 @@ savePrefix: ""
 # compromised releases are caught and pulled within that window. Minutes.
 minimumReleaseAge: 10080
 
-# @fastify/static asks for glob 13, whose every release carries a moderate
-# advisory, as does the minimatch it brings; glob 14 keeps the same API.
-# exceljs asks for uuid 8, under a moderate advisory; 11 keeps `v4`.
+# Versions under a moderate advisory, wherever they come from, are lifted
+# to the first fixed line, whose API is the same:
+# - glob 9 to 14.0.1 (GHSA-3g3m-2fjr-6pw4), asked by @fastify/static and,
+#   through testcontainers, archiver-utils 5;
+# - minimatch 7 to 11.0.0 (GHSA-g3hv-75wg-m249), asked by those globs and
+#   the lint tooling;
+# - uuid 8 asked by exceljs; 11 keeps `v4`.
+# Older lines outside the advisories (glob 7, minimatch 3 and 5) stay.
 overrides:
-  "@fastify/static>glob": "14.0.3"
+  "glob@>=9.0.0 <14.0.2": "14.0.3"
+  "minimatch@>=7.0.0 <11.0.1": "11.0.4"
   "exceljs>uuid": "11.1.1"
