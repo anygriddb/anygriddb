@@ -582,6 +582,11 @@ function compileVisibleColumn(
   if (stack.length >= MAX_STACK) {
     return nullOf("text", ctx.d);
   }
+  // Read by a formula, a lookup, or a rollup: a field kept in AnyGridDB's
+  // database is not in the query the engine runs (ADR 0046).
+  if (stack.length > 0 && column.physical?.controlPlane) {
+    throw new AppError("control_plane_formula", column.label);
+  }
   const next = [...stack, key];
   switch (column.fieldType) {
     case "formula": {

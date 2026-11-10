@@ -103,6 +103,18 @@ export const DURATION_FORMATS = ["h:mm", "h:mm:ss", "d h:mm"] as const;
 
 export const RATING_ICONS = ["star", "heart", "thumb", "flag", "fire"] as const;
 
+/** How a single-select is shown and edited (default: coloured chips + list). */
+export const SINGLE_SELECT_APPEARANCES = ["badge", "text", "radio"] as const;
+export type SingleSelectAppearance = (typeof SINGLE_SELECT_APPEARANCES)[number];
+
+/** How a multi-select is shown and edited (default: coloured chips + list). */
+export const MULTI_SELECT_APPEARANCES = ["badge", "text", "checklist"] as const;
+export type MultiSelectAppearance = (typeof MULTI_SELECT_APPEARANCES)[number];
+
+/** How a boolean is shown (default: check glyph). */
+export const BOOLEAN_APPEARANCES = ["check", "switch", "yes_no"] as const;
+export type BooleanAppearance = (typeof BOOLEAN_APPEARANCES)[number];
+
 export const ROLLUP_FNS = [
   "count",
   "counta",
@@ -170,6 +182,9 @@ export const rollupFnSchema = z.enum(ROLLUP_FNS);
 export type ColumnConfig = {
   options?: SelectOption[];
   preventNewOptions?: boolean;
+  /** Select / boolean presentation (read and edit); omitted = current default. */
+  appearance?:
+    SingleSelectAppearance | MultiSelectAppearance | BooleanAppearance;
   number?: NumberFormat;
   date?: DateFormat;
   durationFormat?: (typeof DURATION_FORMATS)[number];
@@ -240,7 +255,12 @@ const CONFIG_SCHEMAS: Record<FieldType, z.ZodType<ColumnConfig>> = {
   duration: z
     .object({ durationFormat: z.enum(DURATION_FORMATS).optional() })
     .strict(),
-  boolean: z.object({ defaultValue: z.boolean().optional() }).strict(),
+  boolean: z
+    .object({
+      defaultValue: z.boolean().optional(),
+      appearance: z.enum(BOOLEAN_APPEARANCES).optional(),
+    })
+    .strict(),
   date: z.object({ date: dateFormatSchema.optional() }).strict(),
   datetime: z.object({ date: dateFormatSchema.optional() }).strict(),
   single_select: z
@@ -248,12 +268,14 @@ const CONFIG_SCHEMAS: Record<FieldType, z.ZodType<ColumnConfig>> = {
       options: selectOptionsSchema,
       preventNewOptions: z.boolean().optional(),
       defaultValue: z.string().max(80).optional(),
+      appearance: z.enum(SINGLE_SELECT_APPEARANCES).optional(),
     })
     .strict(),
   multi_select: z
     .object({
       options: selectOptionsSchema,
       preventNewOptions: z.boolean().optional(),
+      appearance: z.enum(MULTI_SELECT_APPEARANCES).optional(),
     })
     .strict(),
   user: z

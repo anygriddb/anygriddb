@@ -19,6 +19,7 @@ import type { Database, DashboardRow, WidgetRow } from "@anygriddb/db";
 import { readerEngine } from "./acl.js";
 import { liveColumnNames, liveTable, liveView } from "./live.js";
 import { aggregateRows, readTransaction, safeTimeZone } from "./rows.js";
+import { applyControlPlaneReadSpec } from "../sources/control-plane-read-filter.js";
 import { loadView } from "./views.js";
 
 export type { DashboardRow, WidgetRow };
@@ -356,20 +357,32 @@ export async function widgetData(
       ? [config.seriesBy]
       : []),
   ];
+  // A view's filter on fields kept in AnyGridDB resolves to row ids first,
+  // as in the grid (ADR 0046).
+  const viewed: ReadSpec = {
+    filter: spec.filter,
+    search: spec.search,
+    timeZone,
+    me: spec.me,
+    limit: 1,
+  };
+  const scoped = engine.table.external
+    ? await applyControlPlaneReadSpec(deps.db, engine, viewed)
+    : viewed;
   // Computed by the engine the rows live in (ADR 0005): one aggregate per
   // group, not the rows themselves.
-  const rows = await readTransaction(deps.db, engine, (run) =>
-    run(
-      buildGroupAggregates(
-        engine,
-        { filter: spec.filter, search: spec.search, timeZone, me: spec.me },
-        {
-          groups,
-          item: { column: config.column ?? config.groupBy, fn: config.fn },
-        },
-      ),
-    ),
-  );
+  const rows =
+    scoped === null
+      ? []
+      : await readTransaction(deps.db, engine, (run) => {
+          const { limit: _limit, ...within } = scoped;
+          return run(
+            buildGroupAggregates(engine, within, {
+              groups,
+              item: { column: config.column ?? config.groupBy, fn: config.fn },
+            }),
+          );
+        });
   // The client formats keys in the reader's language: a checkbox, a date.
   const typeOf = (name: string | undefined) =>
     engine.table.columns.find((column) => column.name === name)?.fieldType ??

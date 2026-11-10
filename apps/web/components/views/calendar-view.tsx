@@ -11,7 +11,7 @@ import { useLingui } from "@lingui/react/macro";
 import { CalendarFeedButton } from "./calendar-feed";
 
 /** Events a day shows; the others are counted under them. */
-const SHOWN = 3;
+const SHOWN = 6;
 
 function isoDay(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -26,10 +26,12 @@ function Event({
   row,
   label,
   draggable,
+  tint,
 }: {
   row: RowItem;
   label: string;
   draggable: boolean;
+  tint?: string;
 }) {
   const table = useTable();
   // By mouse or touch; from the keyboard, the date is edited in the record.
@@ -46,7 +48,10 @@ function Event({
         event.stopPropagation();
         table.openRecord(row.id);
       }}
-      className="w-full shrink-0 truncate rounded bg-accent px-1.5 py-0.5 text-left text-xs text-accent-foreground"
+      className={cn(
+        "w-full shrink-0 truncate rounded bg-accent px-1.5 py-0.5 text-left text-xs text-accent-foreground",
+        tint && `row-tint-${tint}`,
+      )}
     >
       {label}
     </button>
@@ -165,7 +170,11 @@ export function CalendarView(
   const { t } = useLingui();
   const { locale } = useLocale();
   const table = useTable();
-  const title = useRowTitle();
+  const title = useRowTitle(
+    typeof props.config.titleColumn === "string"
+      ? props.config.titleColumn
+      : undefined,
+  );
   const dated = props.allColumns.filter(
     (column) => column.kind === "date" || column.kind === "datetime",
   );
@@ -306,6 +315,7 @@ export function CalendarView(
                   row={row}
                   label={title(row)}
                   draggable={editable}
+                  tint={props.tintOf?.(row)}
                 />
               ))}
               {(props.counts?.get(key) ?? byDay.get(key)?.length ?? 0) >

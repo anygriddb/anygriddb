@@ -2,41 +2,16 @@ import { Button, Checkbox, Input, Label } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, Trash2 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
-import { useState, type SubmitEvent, type ReactNode } from "react";
+import { useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { useCatalog, useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
+import { NotebookPage, RuledSection } from "../shell/notebook-page";
 import { SecondFactorSetup } from "./second-factor";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
-
-function Section({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    // A ruled section of the page: what it is on the left, the controls
-    // on the right.
-    <section className="grid gap-x-10 gap-y-3 border-b border-rule py-7 md:grid-cols-[12rem_minmax(0,1fr)]">
-      <div>
-        <h2 className="text-[15px] font-semibold">{title}</h2>
-        {description ? (
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            {description}
-          </p>
-        ) : null}
-      </div>
-      <div className="flex min-w-0 flex-col gap-3">{children}</div>
-    </section>
-  );
-}
 
 export function AccountSettings() {
   const { t } = useLingui();
@@ -75,13 +50,11 @@ export function AccountSettings() {
   if (!user) return null;
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col px-8 py-10">
-      <h1 className="text-[28px] leading-tight font-semibold">
-        {t`Account settings`}
-      </h1>
-      <p className="mt-2 mb-3 text-sm text-muted-foreground">
-        {t`What only you can change. Rights on a base are set in that base.`}
-      </p>
+    <NotebookPage
+      width="lg"
+      title={t`Account settings`}
+      description={t`What only you can change. Rights on a base are set in that base.`}
+    >
       {user.mfaRequired && !user.mfaEnrolled ? (
         <p
           role="alert"
@@ -90,15 +63,15 @@ export function AccountSettings() {
           {t`Your organization asks for a second factor on this account: set one up below to go on.`}
         </p>
       ) : null}
-      <Section title={t`Profile`}>
+      <RuledSection title={t`Profile`}>
         <dl className="grid grid-cols-[8rem_1fr] gap-y-1 text-sm">
           <dt className="text-muted-foreground">{t`Display name`}</dt>
           <dd>{user.displayName}</dd>
           <dt className="text-muted-foreground">{t`Email`}</dt>
           <dd>{user.email}</dd>
         </dl>
-      </Section>
-      <Section title={t`Notifications`}>
+      </RuledSection>
+      <RuledSection title={t`Notifications`}>
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
             checked={preferences.data?.notifyByEmail ?? false}
@@ -120,9 +93,9 @@ export function AccountSettings() {
         <p className="text-xs text-muted-foreground">
           {t`Mentions, replies, assignments, and alerts. The email only holds the table name and a link.`}
         </p>
-      </Section>
+      </RuledSection>
       {user.hasPassword ? (
-        <Section
+        <RuledSection
           title={t`Password`}
           description={t`At least ${{ minLength }} characters. Changing it signs you out everywhere else.`}
         >
@@ -179,9 +152,9 @@ export function AccountSettings() {
               {t`Change the password`}
             </Button>
           </form>
-        </Section>
+        </RuledSection>
       ) : null}
-      <Section
+      <RuledSection
         title={t`Two-factor authentication`}
         description={t`A TOTP app or a passkey, asked at each sign-in after your password.`}
       >
@@ -197,8 +170,8 @@ export function AccountSettings() {
           {user.mfaEnrolled ? t`Second factor enabled` : t`No second factor`}
         </p>
         <SecondFactorSetup />
-      </Section>
-      <Section
+      </RuledSection>
+      <RuledSection
         title={t`API tokens`}
         description={t`A token acts with your rights. It is shown once and lives the days you choose, ${{ max: tokenMaxDays }} at most on this instance.`}
       >
@@ -336,8 +309,8 @@ export function AccountSettings() {
             </li>
           ))}
         </ul>
-      </Section>
-      <Section
+      </RuledSection>
+      <RuledSection
         title={t`Delete account`}
         description={t`Refused while an audit row, a signature, or a role refers to you.`}
       >
@@ -358,7 +331,7 @@ export function AccountSettings() {
             {t`Delete`}
           </Button>
         </div>
-      </Section>
+      </RuledSection>
       <ConfirmDialog
         open={confirmErase}
         onOpenChange={setConfirmErase}
@@ -374,6 +347,6 @@ export function AccountSettings() {
           })
         }
       />
-    </div>
+    </NotebookPage>
   );
 }

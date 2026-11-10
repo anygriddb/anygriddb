@@ -1,6 +1,6 @@
 import { Button, Input, Label, Spinner } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { canManage } from "../../lib/types";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { EmptyState, NotebookPage } from "../shell/notebook-page";
 
 export function DashboardList({ baseId }: { baseId: string }) {
   const { t } = useLingui();
@@ -48,20 +49,16 @@ export function DashboardList({ baseId }: { baseId: string }) {
     }
   }
 
+  const dashboards = list.data?.dashboards ?? [];
+
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-6">
-      <div className="flex items-center gap-3">
-        <LayoutDashboard className="h-5 w-5 text-primary" aria-hidden />
-        <h1 className="text-xl font-semibold">
-          {t`Dashboards of ${{ name: base.name }}`}
-        </h1>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        {t`Metrics, charts, and embedded views over this base’s tables.`}
-      </p>
+    <NotebookPage
+      title={t`Dashboards of ${{ name: base.name }}`}
+      description={t`Metrics, charts, and embedded views over this base’s tables.`}
+    >
       {manage ? (
         <form
-          className="flex flex-wrap items-end gap-2"
+          className="mt-4 flex flex-wrap items-end gap-2 border-b border-rule pb-7"
           onSubmit={(event) => {
             event.preventDefault();
             void create();
@@ -82,55 +79,61 @@ export function DashboardList({ baseId }: { baseId: string }) {
           </Button>
         </form>
       ) : null}
-      {list.isLoading ? <Spinner /> : null}
-      <ul className="divide-y divide-border rounded-sm border border-border bg-card">
-        {(list.data?.dashboards ?? []).map((dashboard) => (
-          <li
-            key={dashboard.id}
-            className="flex items-center gap-3 px-4 py-3 text-sm"
-          >
-            <Link
-              to="/b/$baseId/dashboards/$dashboardId"
-              params={{ baseId: baseId, dashboardId: dashboard.id }}
-              className="min-w-0 flex-1 font-medium hover:underline"
-            >
-              {dashboard.name}
-            </Link>
-            <span className="text-xs text-muted-foreground">
-              {new Date(dashboard.updatedAt).toLocaleString()}
-            </span>
-            {manage ? (
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label={t`Delete`}
-                onClick={() => {
-                  void (async () => {
-                    try {
-                      await trpc.dashboards.delete.mutate({
-                        dashboardId: dashboard.id,
-                      });
-                      await queryClient.invalidateQueries({
-                        queryKey: api.dashboards.list.queryKey({ baseId }),
-                      });
-                      toast.success(t`Dashboard deleted`);
-                    } catch (cause) {
-                      toast.error(errorText(cause));
-                    }
-                  })();
-                }}
-              >
-                <Trash2 className="h-4 w-4" aria-hidden />
-              </Button>
-            ) : null}
-          </li>
-        ))}
-        {!list.isLoading && (list.data?.dashboards ?? []).length === 0 ? (
-          <li className="px-4 py-8 text-center text-sm text-muted-foreground">
-            {t`No dashboards yet.`}
-          </li>
-        ) : null}
-      </ul>
-    </div>
+      {list.isLoading ? <Spinner className="mt-6" /> : null}
+      {!list.isLoading && dashboards.length === 0 ? (
+        <EmptyState
+          title={t`No dashboards yet.`}
+          description={
+            manage
+              ? t`Create one to put metrics and charts on this base.`
+              : undefined
+          }
+        />
+      ) : null}
+      {dashboards.length > 0 ? (
+        <ul>
+          {dashboards.map((dashboard) => (
+            <li key={dashboard.id} className="border-b border-rule">
+              <div className="flex min-h-12 items-center gap-3 text-sm">
+                <Link
+                  to="/b/$baseId/dashboards/$dashboardId"
+                  params={{ baseId: baseId, dashboardId: dashboard.id }}
+                  className="min-w-0 flex-1 font-medium hover:underline"
+                >
+                  {dashboard.name}
+                </Link>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(dashboard.updatedAt).toLocaleString()}
+                </span>
+                {manage ? (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label={t`Delete`}
+                    onClick={() => {
+                      void (async () => {
+                        try {
+                          await trpc.dashboards.delete.mutate({
+                            dashboardId: dashboard.id,
+                          });
+                          await queryClient.invalidateQueries({
+                            queryKey: api.dashboards.list.queryKey({ baseId }),
+                          });
+                          toast.success(t`Dashboard deleted`);
+                        } catch (cause) {
+                          toast.error(errorText(cause));
+                        }
+                      })();
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                  </Button>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </NotebookPage>
   );
 }

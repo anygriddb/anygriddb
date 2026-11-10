@@ -11,6 +11,15 @@ export {
 } from "./errors";
 
 export {
+  ATTACHMENT_TYPES,
+  attachmentPreviewKind,
+  isImageAttachmentMime,
+  isInlineAttachmentMime,
+  type AttachmentPreviewKind,
+  type AttachmentType,
+} from "./attachment-types";
+
+export {
   ATTACHMENT_KEY,
   MAX_ARRAY_ITEMS,
   assertCellValue,
@@ -37,10 +46,13 @@ export {
 export {
   buttonConfigSchema,
   type ButtonConfig,
+  BOOLEAN_APPEARANCES,
   DURATION_FORMATS,
+  MULTI_SELECT_APPEARANCES,
   OPTION_COLORS,
   RATING_ICONS,
   ROLLUP_FNS,
+  SINGLE_SELECT_APPEARANCES,
   dateFormatSchema,
   isTimeZone,
   numberFormatSchema,
@@ -52,18 +64,22 @@ export {
   selectOptionSchema,
   selectOptionsSchema,
   timeZoneSchema,
+  type BooleanAppearance,
   type ColumnConfig,
   type LinkSelection,
   type DateFormat,
+  type MultiSelectAppearance,
   type NumberFormat,
   type OptionColor,
   type RollupFn,
   type SelectOption,
+  type SingleSelectAppearance,
 } from "./field-config";
 
 export {
   COMPUTED_TYPES,
   FIELD_TYPES,
+  PRIMARY_TYPES,
   RESERVED_COLUMN_NAMES,
   SYSTEM_COLUMN,
   SYSTEM_TYPES,
@@ -71,6 +87,7 @@ export {
   hasPhysicalColumn,
   isArrayKind,
   isComputedType,
+  isPrimaryType,
   isRelationType,
   isSystemType,
   isWritableType,
@@ -109,6 +126,15 @@ export {
   type LegacyFilter,
   type WithinMode,
 } from "./filter";
+
+export {
+  catalogForFormulaTypes,
+  checkFormulaTyped,
+  type FormulaTypeColumn,
+  type FormulaTypeContext,
+  type FormulaTyped,
+  typeFormula,
+} from "./formula-type";
 
 export {
   assertFormulaShape,
@@ -336,6 +362,9 @@ export {
 } from "./templates";
 
 export {
+  MAX_FROZEN_COLUMNS,
+  MAX_VIEW_GROUPS,
+  MAX_VIEW_SORTS,
   ROW_HEIGHTS,
   VIEW_TYPES,
   applyViewConfigPatch,
@@ -459,6 +488,7 @@ export {
   buildCopyDrop,
   buildCopyInsert,
   buildCopySwap,
+  buildCopyUpsert,
   copyColumns,
   copyRow,
   copyTable,

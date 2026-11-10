@@ -1,5 +1,6 @@
 import { createDb, migrateDb } from "@anygriddb/db";
 import { promoteListedAdmins } from "./admin.js";
+import { passkeysEligible } from "./auth/relying-party.js";
 import { isLoopback, readEnv } from "./env.js";
 import { createFileStore } from "./files/index.js";
 import { migrateQueue } from "./queue/worker.js";
@@ -65,6 +66,14 @@ if (
 ) {
   app.log.warn(
     "PUBLIC_URL is a plain HTTP address on this machine: the development server's. The API itself serves HTTPS.",
+  );
+}
+if (!passkeysEligible(env.PUBLIC_URL)) {
+  app.log.warn(
+    {
+      publicUrl: env.PUBLIC_URL,
+    },
+    "PUBLIC_URL is an IP address: HTTPS and TOTP work; passkeys need a DNS hostname (or localhost) in PUBLIC_URL that people open. Put the IP in TLS_NAMES if it must stay on the certificate (ADR 0029).",
   );
 }
 if (files.driver === "s3") {

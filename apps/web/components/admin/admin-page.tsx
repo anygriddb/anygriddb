@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
+import { NotebookPage } from "../shell/notebook-page";
 import { ScimTab } from "./scim-tab";
 import { SecurityTab } from "./security-tab";
 import { SessionsTab } from "./sessions-tab";
@@ -770,6 +771,15 @@ function TlsCard() {
       <p className="text-xs text-muted-foreground">
         {t`Certificate served, valid until ${{ date: date(data.server.expires) }}, for: ${{ names: data.server.names.join(", ") }}.`}
       </p>
+      {data.passkeysEligible ? (
+        <p className="text-xs text-muted-foreground">
+          {t`Passkeys are available once this connection is trusted (authority installed or your own certificate).`}
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {t`PUBLIC_URL is an IP address: HTTPS and TOTP work; passkeys need a DNS hostname (or localhost) in PUBLIC_URL that people open. Put the IP in TLS_NAMES if it must stay on the certificate.`}
+        </p>
+      )}
     </section>
   );
 }
@@ -962,9 +972,15 @@ export function AdminPage() {
     ["settings", t`Settings`, Settings2],
   ];
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
-      <h1 className="text-xl font-semibold">{t`Administration`}</h1>
-      <div role="tablist" className="flex gap-1 border-b border-border">
+    <NotebookPage
+      width="xl"
+      title={t`Administration`}
+      description={t`Accounts, security, sources, and the instance itself.`}
+    >
+      <div
+        role="tablist"
+        className="mt-4 flex gap-1 overflow-x-auto border-b border-rule"
+      >
         {tabs.map(([value, label, Icon]) => (
           <button
             key={value}
@@ -973,7 +989,7 @@ export function AdminPage() {
             aria-selected={tab === value}
             onClick={() => setTab(value)}
             className={cn(
-              "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm",
+              "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm",
               tab === value
                 ? "border-primary font-medium"
                 : "border-transparent text-muted-foreground hover:text-foreground",
@@ -995,6 +1011,6 @@ export function AdminPage() {
         {tab === "security" ? <SecurityTab /> : null}
         {tab === "settings" ? <SettingsTab /> : null}
       </div>
-    </div>
+    </NotebookPage>
   );
 }

@@ -13,7 +13,11 @@ export type SourceConnection = {
 };
 
 /** What a connection check found. */
-export type SourceCheck = { serverVersion: string };
+export type SourceCheck = {
+  serverVersion: string;
+  /** Set when a read replica was probed with the same save/test. */
+  replicaServerVersion?: string | null;
+};
 
 /** The operator's rules for sources (ADR 0026). */
 export type SourceSettings = {

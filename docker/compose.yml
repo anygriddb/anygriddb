@@ -132,10 +132,11 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=verify-full&sslrootcert=/certs/internal-authority.crt
       AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env}
       PORT: "4000"
-      # The address people open, HTTPS: links in emails, passkeys, and the
-      # certificate's names use it.
+      # Canonical HTTPS origin people open: links, cookies, passkeys (RP ID),
+      # and the certificate's primary name. Use a hostname for passkeys; an
+      # IP alone keeps HTTPS and TOTP (ADR 0029).
       PUBLIC_URL: ${PUBLIC_URL:-https://localhost:3000}
-      # Other names and addresses people reach it by, for its certificate.
+      # Extra certificate SANs only (IPs, aliases). Not the WebAuthn RP ID.
       TLS_NAMES: ${TLS_NAMES:-}
       # The operator's own certificate, mounted below; empty: the instance's.
       TLS_CERT_FILE: ${TLS_CERT_FILE:-}

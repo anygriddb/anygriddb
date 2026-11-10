@@ -16,6 +16,7 @@ import {
   registerAttachmentRoutes,
 } from "./attachments.js";
 import { authorizeGrid } from "./auth/access.js";
+import { passkeysEligible } from "./auth/relying-party.js";
 import { registerRateLimit } from "./rate-limit.js";
 import { registerDataTransferRoutes } from "./data-transfer.js";
 import { registerMcp } from "./mcp/http.js";
@@ -53,14 +54,20 @@ export type TlsInfo = {
   mode: TlsState["mode"];
   server: TlsState["server"];
   authority: Omit<NonNullable<TlsState["authority"]>, "cert"> | null;
+  /**
+   * Whether `PUBLIC_URL` can be a WebAuthn RP ID (hostname or localhost).
+   * An IP-only origin keeps HTTPS and TOTP; passkeys stay off (ADR 0029).
+   */
+  passkeysEligible: boolean;
 };
 
-function tlsInfo(state: TlsState): TlsInfo {
+function tlsInfo(state: TlsState, publicUrl: string): TlsInfo {
   const { cert: _cert, ...authority } = state.authority ?? { cert: "" };
   return {
     mode: state.mode,
     server: state.server,
     authority: state.authority ? (authority as TlsInfo["authority"]) : null,
+    passkeysEligible: passkeysEligible(publicUrl),
   };
 }
 
@@ -387,7 +394,7 @@ export async function createApp(deps: {
         files: deps.files,
         hub,
         sources,
-        tls: () => (tls ? tlsInfo(tls) : null),
+        tls: () => (tls ? tlsInfo(tls, deps.env.PUBLIC_URL) : null),
       }),
     },
   });

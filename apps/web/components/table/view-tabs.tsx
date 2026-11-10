@@ -249,15 +249,7 @@ export function ViewTabs(props: {
             </>
           ) : null}
           <DropdownMenuSection title={t`Personal view`}>
-            {(
-              [
-                "grid",
-                "kanban",
-                "gallery",
-                "calendar",
-                "timeline",
-              ] as ViewType[]
-            ).map((type) => {
+            {(Object.keys(VIEW_LABELS) as ViewType[]).map((type) => {
               const Icon = VIEW_ICONS[type] ?? Sheet;
               return (
                 <DropdownMenuItem

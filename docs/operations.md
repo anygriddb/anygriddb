@@ -30,6 +30,26 @@ install it.
 TLS keys. Lose it and they cannot be read again. Change it and they cannot
 be read either.
 
+### Address people open (`PUBLIC_URL`)
+
+`PUBLIC_URL` is the HTTPS origin people type: links in emails, cookies,
+API documents, the certificate's primary name, and passkeys. Set it to
+that address and open AnyGridDB there. `TLS_NAMES` only adds other names
+or IP addresses to the certificate; it does not change the passkey
+identity.
+
+| How people reach the instance                                                                               | What works                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Hostname in `PUBLIC_URL` (`https://grid.example.org`, `https://grid.lan:3000`, or `https://localhost:3000`) | HTTPS, TOTP, and passkeys once the authority is installed (or your own certificate is trusted)             |
+| IP alone in `PUBLIC_URL` (`https://192.168.1.10:3000`)                                                      | HTTPS and TOTP; passkeys do not (browsers refuse an IP as WebAuthn RP ID). Health and the start log say so |
+
+LAN example with passkeys: give the host a name every workstation resolves
+(DNS, mDNS, or `/etc/hosts`), set
+`PUBLIC_URL=https://grid.lan:3000`, and put the IP in
+`TLS_NAMES=192.168.1.10` so the certificate still covers the address.
+People open `https://grid.lan:3000`, install the authority, then enroll a
+passkey. Until then, or with an IP-only `PUBLIC_URL`, use a TOTP app.
+
 ### Offline
 
 AnyGridDB calls no outside service at run time, except when a person

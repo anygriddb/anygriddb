@@ -233,7 +233,8 @@ function text(value: unknown): string | null {
   return null;
 }
 
-function keyOf(row: Record<string, unknown>, size: number): string[] {
+/** The key's columns of a row the watch builders read, as text. */
+export function keyOf(row: Record<string, unknown>, size: number): string[] {
   return Array.from(
     { length: size },
     (_, index) => text(row[`k${String(index)}`]) ?? "",

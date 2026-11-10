@@ -27,9 +27,9 @@ function savedValues(page: Page) {
 const cell = (page: Page, column: string) =>
   page.locator(`[role="gridcell"][data-column="${column}"]`).first();
 
-// Cell editors on React Aria (ADR 0012): dates in segments and a
-// calendar, lists filtered by typing and walked with the arrows, a
-// rating as a spin button; every one ends with Enter, Tab, or Escape.
+// Cell editors: dates in segments and a calendar, lists filtered by
+// typing and walked with the arrows, a rating as a slider of icons;
+// every one ends with Enter, Tab, or Escape.
 test("dates, lists, and ratings are edited from the keyboard", async ({
   page,
 }) => {
@@ -142,7 +142,7 @@ test("dates, lists, and ratings are edited from the keyboard", async ({
   await expect(page.getByRole("listbox")).toBeHidden();
   await expect(cell(page, "tags")).toContainText("Green");
 
-  // A rating: typed, then raised with the arrow.
+  // A rating: typed, then raised with the arrow on the icon slider.
   await cell(page, "score").click();
   saved = savedValues(page);
   await page.keyboard.type("3");
@@ -150,7 +150,7 @@ test("dates, lists, and ratings are edited from the keyboard", async ({
   expect(await saved).toContain('"score":3');
   await cell(page, "score").click();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("textbox", { name: "Score" })).toBeFocused();
+  await expect(page.getByRole("slider", { name: "Score" })).toBeFocused();
   saved = savedValues(page);
   await page.keyboard.press("ArrowUp");
   await page.keyboard.press("Enter");

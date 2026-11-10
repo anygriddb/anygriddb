@@ -31,7 +31,6 @@ export {
   type ListPickerProps,
   type PickerOption,
 } from "./list-picker";
-export { IntegerField } from "./number-field";
 export { UiTextProvider, useUiText, type UiText } from "./text";
 export {
   ContextMenu,

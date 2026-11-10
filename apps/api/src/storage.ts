@@ -4,17 +4,15 @@
  * bytes live is the file store's business (`files/`).
  */
 import { randomUUID } from "node:crypto";
-import { AppError, ATTACHMENT_KEY, COLUMN_NAME } from "@anygriddb/core";
+import {
+  AppError,
+  ATTACHMENT_KEY,
+  ATTACHMENT_TYPES,
+  COLUMN_NAME,
+} from "@anygriddb/core";
 import { z } from "zod";
 
-export const ATTACHMENT_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "image/webp",
-  "application/pdf",
-  "text/plain",
-] as const;
+export { ATTACHMENT_TYPES };
 
 export const attachmentInputSchema = z.object({
   tableId: z.uuid(),

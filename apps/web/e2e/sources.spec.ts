@@ -54,11 +54,12 @@ test("an administrator shows a client's tables in a base, read where they live",
     await page.getByRole("button", { name: "Declare a source" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Name", { exact: true }).fill(`ERP ${stamp}`);
-    await dialog.getByLabel("Database").fill(database);
-    await dialog.getByLabel("Host").fill(server.hostname);
-    await dialog.getByLabel("Port").fill(server.port);
-    await dialog.getByLabel("Account").fill(account);
-    await dialog.getByLabel("Password").fill(password);
+    // Exact names: the read replica's fields are named after these.
+    await dialog.getByLabel("Database", { exact: true }).fill(database);
+    await dialog.getByLabel("Host", { exact: true }).fill(server.hostname);
+    await dialog.getByLabel("Port", { exact: true }).fill(server.port);
+    await dialog.getByLabel("Account", { exact: true }).fill(account);
+    await dialog.getByLabel("Password", { exact: true }).fill(password);
     await dialog.getByRole("button", { name: "Save" }).click();
     await expect(dialog).toBeHidden();
     await expect(

@@ -262,6 +262,17 @@ export function addedPeople(before: unknown, after: unknown): string[] {
 }
 
 /**
+ * Whether a user field tells people newly put in it. Omitted / true keeps
+ * today's behaviour; only an explicit `notify: false` turns it off.
+ */
+export function assignmentNotifies(config: unknown): boolean {
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    return true;
+  }
+  return (config as { notify?: unknown }).notify !== false;
+}
+
+/**
  * Notifies people newly put in a user field. The event's audit entry
  * tells what the field held before and after the change.
  */
@@ -273,17 +284,19 @@ export async function handleAssignments(
     return;
   const userColumns = await deps.db
     .selectFrom("dataColumns")
-    .select(["name", "label", "fieldType"])
+    .select(["name", "label", "fieldType", "config"])
     .where("tableId", "=", event.tableId)
     .where("fieldType", "=", "user")
     .where(liveColumn())
     .execute();
-  const watched = userColumns.filter(
-    (column) =>
+  const watched = userColumns.filter((column) => {
+    if (!assignmentNotifies(column.config)) return false;
+    return (
       event.event === "insert" ||
       !event.columns ||
-      event.columns.includes(column.name),
-  );
+      event.columns.includes(column.name)
+    );
+  });
   if (watched.length === 0) return;
   let entry = deps.db
     .selectFrom("auditEvents")

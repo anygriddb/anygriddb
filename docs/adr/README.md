@@ -57,3 +57,5 @@ asserting: it superseded 0001 and added 0021 to 0026.
 | [0043](0043-security-policy.md)                      | A security policy the administrator sets: locks, second factor, passwords, sessions     | Accepted (refines 0042)            |
 | [0044](0044-account-policies.md)                     | Who creates bases and tokens, whom owners invite, idle accounts, lock alerts            | Accepted (extends 0043)            |
 | [0045](0045-cell-editors-and-exact-numbers.md)       | Cell editors on React Aria; exact numbers stay text                                     | Accepted (amends 0012)             |
+| [0046](0046-control-plane-enrichment.md)             | Enrichment without a side schema lives in the control plane                             | Accepted (amends 0032)             |
+| [0047](0047-oracle-dialect-spike.md)                 | Oracle dialect ships only after an OSI + conformance spike                              | Accepted (planning)                |

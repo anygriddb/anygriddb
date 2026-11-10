@@ -126,6 +126,65 @@ describe("reading a client's table", () => {
     );
   });
 
+  it("refuses to filter or sort a field kept in AnyGridDB inside the client query", () => {
+    const kept: EngineCatalog = {
+      ...catalog,
+      table: {
+        ...catalog.table,
+        columns: [
+          ...catalog.table.columns,
+          {
+            id: "i9",
+            name: "note",
+            label: "Note",
+            fieldType: "text",
+            config: {},
+            physical: {
+              name: "note",
+              type: "text",
+              zone: "UTC",
+              controlPlane: true,
+            },
+          },
+        ],
+      },
+    };
+    // Read, it is an empty placeholder the API fills after the page, in
+    // the syntax of the engine the page is read from.
+    expect(buildReadRows(kept, { limit: 10 }).text).toContain("null::text");
+    const external = kept.table.external;
+    if (!external) throw new Error("external table expected");
+    const onMysql: EngineCatalog = {
+      ...kept,
+      table: { ...kept.table, external: { ...external, dialect: "mysql" } },
+    };
+    const mysql = buildReadRows(onMysql, { limit: 10 }).text;
+    expect(mysql).toContain("cast(null as char)");
+    expect(mysql).not.toContain("null::");
+    const on = (op: "is" | "is_empty") => ({
+      conjunction: "and" as const,
+      conditions: [{ column: "note", op, value: "x" }],
+    });
+    expect(() => buildReadRows(kept, { limit: 1, filter: on("is") })).toThrow(
+      expect.objectContaining({ code: "control_plane_filter" }),
+    );
+    expect(() =>
+      buildReadRows(kept, {
+        limit: 1,
+        sort: [{ column: "note", direction: "asc" }],
+      }),
+    ).toThrow(expect.objectContaining({ code: "control_plane_sort" }));
+  });
+
+  it("excludes listed client row ids with a bound NOT IN", () => {
+    const sql = buildReadRows(catalog, {
+      excludeRowIds: ["1001", "1002"],
+      limit: 50,
+    });
+    expect(sql.text).toMatch(/not \(.*q\."id".*\)/);
+    expect(sql.values).toContain(JSON.stringify(["1001", "1002"]));
+  });
+
   it("finds no row of AnyGridDB's own table under a text id", () => {
     const native: EngineTable = {
       id: "n",

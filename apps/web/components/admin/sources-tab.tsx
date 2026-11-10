@@ -66,7 +66,9 @@ export function SourcesTab() {
     try {
       const result = await trpc.admin.sources.check.mutate({ id: source.id });
       toast.success(
-        t`${{ name: source.name }} answers (version ${{ version: result.serverVersion }})`,
+        result.replicaServerVersion
+          ? t`${{ name: source.name }} answers (primary ${{ version: result.serverVersion }}, replica ${{ replica: result.replicaServerVersion }})`
+          : t`${{ name: source.name }} answers (version ${{ version: result.serverVersion }})`,
       );
       await refresh();
     } catch (cause) {
@@ -110,7 +112,9 @@ export function SourcesTab() {
                 <th className="px-3 py-2">{t`Name`}</th>
                 <th className="px-3 py-2">{t`Address`}</th>
                 <th className="px-3 py-2">{t`Account`}</th>
+                <th className="px-3 py-2">{t`Side schema`}</th>
                 <th className="px-3 py-2">{t`Version`}</th>
+                <th className="px-3 py-2">{t`Replica`}</th>
                 <th className="px-3 py-2">{t`Checked`}</th>
                 <th className="px-3 py-2">
                   <span className="sr-only">{t`Actions`}</span>
@@ -130,7 +134,27 @@ export function SourcesTab() {
                     {source.host}:{source.port}/{source.database}
                   </td>
                   <td className="px-3 py-2">{source.username}</td>
+                  <td className="px-3 py-2 font-mono text-xs">
+                    {source.sideSchema ? (
+                      source.sideSchema
+                    ) : (
+                      <span className="text-muted-foreground">{t`Not set`}</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2">{source.serverVersion ?? "—"}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {source.replicaHost ? (
+                      <span className="font-mono">
+                        {source.replicaHost}:{source.replicaPort}/
+                        {source.replicaDatabase ?? source.database}
+                        {source.replicaServerVersion
+                          ? ` · ${source.replicaServerVersion}`
+                          : ""}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">{t`None`}</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     {source.checkedAt
                       ? new Date(source.checkedAt).toLocaleString()
@@ -272,14 +296,27 @@ function SourceForm(props: {
   const [limit, setLimit] = useState(String(existing?.connectionLimit ?? 5));
   const [timeZone, setTimeZone] = useState(existing?.timeZone ?? "UTC");
   const [sideSchema, setSideSchema] = useState(existing?.sideSchema ?? "");
+  const [replicaHost, setReplicaHost] = useState(existing?.replicaHost ?? "");
+  const [replicaPort, setReplicaPort] = useState(
+    existing?.replicaPort != null ? String(existing.replicaPort) : "",
+  );
+  const [replicaDatabase, setReplicaDatabase] = useState(
+    existing?.replicaDatabase ?? "",
+  );
+  const [replicaUsername, setReplicaUsername] = useState(
+    existing?.replicaUsername ?? "",
+  );
+  const [replicaPassword, setReplicaPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
   function input(): SourceInput {
+    const primaryPort = Number(port);
+    const replica = replicaHost.trim();
     return {
       name: name.trim(),
       engine,
       host: host.trim(),
-      port: Number(port),
+      port: primaryPort,
       database: database.trim(),
       username: username.trim(),
       password,
@@ -288,6 +325,15 @@ function SourceForm(props: {
       queryTimeoutMs: Math.round(Number(timeout) * 1000),
       timeZone: timeZone.trim() || "UTC",
       sideSchema: sideSchema.trim() || null,
+      replicaHost: replica || null,
+      replicaPort: replica
+        ? replicaPort.trim()
+          ? Number(replicaPort)
+          : primaryPort
+        : null,
+      replicaDatabase: replicaDatabase.trim() || null,
+      replicaUsername: replicaUsername.trim() || null,
+      replicaPassword: replicaPassword || null,
     };
   }
 
@@ -309,13 +355,17 @@ function SourceForm(props: {
           id: existing.id,
         });
         toast.success(
-          t`Connected (version ${{ version: result.serverVersion }})`,
+          result.replicaServerVersion
+            ? t`Connected (primary ${{ version: result.serverVersion }}, replica ${{ replica: result.replicaServerVersion }})`
+            : t`Connected (version ${{ version: result.serverVersion }})`,
         );
         return;
       }
       const result = await trpc.admin.sources.test.mutate(input());
       toast.success(
-        t`Connected (version ${{ version: result.serverVersion }})`,
+        result.replicaServerVersion
+          ? t`Connected (primary ${{ version: result.serverVersion }}, replica ${{ replica: result.replicaServerVersion }})`
+          : t`Connected (version ${{ version: result.serverVersion }})`,
       );
     });
   }
@@ -337,7 +387,13 @@ function SourceForm(props: {
           connectionLimit: next.connectionLimit,
           queryTimeoutMs: next.queryTimeoutMs,
           timeZone: next.timeZone,
+          sideSchema: next.sideSchema,
+          replicaHost: next.replicaHost,
+          replicaPort: next.replicaPort,
+          replicaDatabase: next.replicaDatabase,
+          replicaUsername: next.replicaUsername,
           ...(password ? { password } : {}),
+          ...(replicaPassword ? { replicaPassword } : {}),
         });
       } else {
         await trpc.admin.sources.create.mutate(input());
@@ -488,10 +544,60 @@ function SourceForm(props: {
           id="source-side-schema"
           value={sideSchema}
           placeholder="anygriddb"
+          aria-describedby="source-side-schema-help"
           onChange={(event) => setSideSchema(event.target.value)}
         />
+        <p
+          id="source-side-schema-help"
+          className="text-xs text-muted-foreground"
+        >
+          {t`Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed.`}
+        </p>
+      </div>
+      <div className="col-span-2 flex flex-col gap-1">
+        <Label htmlFor="source-replica-host">{t`Read replica host (optional)`}</Label>
+        <div className="grid grid-cols-[1fr_6rem_1fr] gap-2">
+          <Input
+            id="source-replica-host"
+            value={replicaHost}
+            placeholder={t`Same as primary when empty`}
+            onChange={(event) => setReplicaHost(event.target.value)}
+          />
+          <Input
+            aria-label={t`Replica port`}
+            value={replicaPort}
+            placeholder={port}
+            onChange={(event) => setReplicaPort(event.target.value)}
+          />
+          <Input
+            aria-label={t`Replica database`}
+            value={replicaDatabase}
+            placeholder={database || t`Database`}
+            onChange={(event) => setReplicaDatabase(event.target.value)}
+          />
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <Input
+            aria-label={t`Replica username`}
+            value={replicaUsername}
+            placeholder={username || t`Username`}
+            onChange={(event) => setReplicaUsername(event.target.value)}
+          />
+          <Input
+            type="password"
+            aria-label={t`Replica password`}
+            value={replicaPassword}
+            placeholder={
+              existing?.replicaHost
+                ? t`Leave blank to keep the stored password`
+                : t`Same as primary when empty`
+            }
+            onChange={(event) => setReplicaPassword(event.target.value)}
+            autoComplete="new-password"
+          />
+        </div>
         <p className="text-xs text-muted-foreground">
-          {t`Fields added to this source's tables are kept there, one table per exposed table. The client's tables are never changed. On MySQL and MariaDB, it is a database.`}
+          {t`Grid and API reads use the replica when set; writes stay on the primary. If the replica is unreachable, reads fall back to the primary.`}
         </p>
       </div>
       <DialogFooter className="col-span-2">
@@ -707,7 +813,11 @@ function SourceTables(props: { source: Source }) {
                 </div>
               ) : null}
               {exposure ? (
-                <TableSync exposure={exposure} sourceId={props.source.id} />
+                <TableSync
+                  exposure={exposure}
+                  sourceId={props.source.id}
+                  changeColumns={table.watchColumns}
+                />
               ) : null}
               {exposure && !exposure.sync && table.primaryKey.length > 0 ? (
                 <TableWatch
@@ -869,7 +979,12 @@ const CHANGED = /(updated|modified|changed|modif|last_update|maj|edited)/i;
  * from a copy in AnyGridDB refreshed every few minutes, for a DBA who
  * refuses live queries. What the last refresh did shows.
  */
-function TableSync(props: { exposure: Exposure; sourceId: string }) {
+function TableSync(props: {
+  exposure: Exposure;
+  sourceId: string;
+  /** Client columns that tell changes: the incremental mode reads them. */
+  changeColumns: ReadonlyArray<{ name: string }>;
+}) {
   const { t, i18n } = useLingui();
   const errorText = useErrorText();
   const api = useTRPC();
@@ -877,6 +992,11 @@ function TableSync(props: { exposure: Exposure; sourceId: string }) {
   const { exposure } = props;
   const sync = exposure.sync;
   const [minutes, setMinutes] = useState(String(sync?.intervalMinutes ?? 15));
+  const [mode, setMode] = useState<"full" | "incremental">(
+    sync?.syncMode ?? "full",
+  );
+  const [changeColumn, setChangeColumn] = useState(sync?.changeColumn ?? "");
+  const [fullEvery, setFullEvery] = useState(String(sync?.fullEvery ?? 24));
   const [busy, setBusy] = useState(false);
 
   async function run(action: () => Promise<unknown>) {
@@ -895,14 +1015,34 @@ function TableSync(props: { exposure: Exposure; sourceId: string }) {
       setBusy(false);
     }
   }
-  const save = (intervalMinutes: number | null) =>
+  const save = (
+    intervalMinutes: number | null,
+    next?: {
+      syncMode?: "full" | "incremental";
+      changeColumn?: string | null;
+      fullEvery?: number;
+    },
+  ) =>
     run(() =>
       trpc.admin.sources.setSync.mutate({
         tableId: exposure.tableId,
         intervalMinutes,
+        syncMode: next?.syncMode ?? mode,
+        changeColumn:
+          (next?.syncMode ?? mode) === "incremental"
+            ? (next?.changeColumn ?? changeColumn) || null
+            : null,
+        fullEvery:
+          (next?.syncMode ?? mode) === "incremental"
+            ? (next?.fullEvery ?? fullEveryWanted)
+            : undefined,
       }),
     );
   const wanted = Math.min(10_080, Math.max(1, Math.round(Number(minutes))));
+  const fullEveryWanted = Math.min(
+    10_080,
+    Math.max(1, Math.round(Number(fullEvery)) || 24),
+  );
   const id = `sync-${exposure.tableId}`;
   return (
     <div className="flex basis-full flex-wrap items-center gap-x-3 gap-y-1 pr-3 pb-2 text-sm">
@@ -944,6 +1084,77 @@ function TableSync(props: { exposure: Exposure; sourceId: string }) {
             />
             {t`min`}
           </label>
+          <label className="flex items-center gap-1.5">
+            {t`mode`}
+            <Select
+              aria-label={t`Refresh mode`}
+              className="h-8"
+              value={mode}
+              disabled={busy}
+              onChange={(event) => {
+                const next = event.target.value as "full" | "incremental";
+                setMode(next);
+                // Incremental waits for its column: saved once it is chosen.
+                if (next === "full" || changeColumn) {
+                  void save(wanted, { syncMode: next });
+                }
+              }}
+            >
+              <option value="full">{t`Full copy`}</option>
+              <option value="incremental">{t`Incremental`}</option>
+            </Select>
+          </label>
+          {mode === "incremental" ? (
+            <>
+              <label className="flex items-center gap-1.5">
+                {t`change column`}
+                <Select
+                  aria-label={t`Change column`}
+                  className="h-8 w-44 font-mono text-xs"
+                  value={changeColumn}
+                  disabled={busy || props.changeColumns.length === 0}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setChangeColumn(next);
+                    if (next && next !== (sync.changeColumn ?? ""))
+                      void save(wanted, {
+                        syncMode: "incremental",
+                        changeColumn: next,
+                      });
+                  }}
+                >
+                  <option value="">{t`Choose a column`}</option>
+                  {props.changeColumns.map((column) => (
+                    <option key={column.name} value={column.name}>
+                      {column.name}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+              <label className="flex items-center gap-1.5">
+                {t`full reconcile every`}
+                <Input
+                  aria-label={t`Full reconcile every N refreshes`}
+                  className="h-8 w-20"
+                  inputMode="numeric"
+                  value={fullEvery}
+                  disabled={busy}
+                  onChange={(event) => setFullEvery(event.target.value)}
+                  onBlur={() => {
+                    if (
+                      Number.isFinite(fullEveryWanted) &&
+                      fullEveryWanted !== sync.fullEvery
+                    )
+                      void save(wanted, {
+                        syncMode: "incremental",
+                        fullEvery: fullEveryWanted,
+                      });
+                  }}
+                />
+                {t`refreshes`}
+              </label>
+            </>
+          ) : null}
           <Button
             size="xs"
             variant="outline"
@@ -966,7 +1177,11 @@ function TableSync(props: { exposure: Exposure; sourceId: string }) {
                 : t`First copy in progress: the table is read live until then`}
           </span>
           <p className="basis-full text-xs text-muted-foreground">
-            {t`The table is read from its copy: it can no longer be changed in AnyGridDB, and its changes arrive with each refresh, deletes included.`}
+            {mode === "incremental" && props.changeColumns.length === 0
+              ? t`No column of this table tells when a row changes (a date and time set on every change, or a rowversion): keep the full copy.`
+              : mode === "incremental"
+                ? t`Incremental upserts rows that moved since the last pass; a full reconcile (deletes included) runs every ${{ count: sync.fullEvery }} refreshes.`
+                : t`The table is read from its copy: it can no longer be changed in AnyGridDB, and its changes arrive with each refresh, deletes included.`}
           </p>
         </>
       ) : null}

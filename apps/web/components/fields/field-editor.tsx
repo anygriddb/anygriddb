@@ -1,12 +1,20 @@
 import {
-  checkFormula,
+  BOOLEAN_APPEARANCES,
+  checkFormulaTyped,
   type FilterGroup,
+  type FormulaTypeColumn,
+  type FormulaTypeContext,
+  isPrimaryType,
   limitOf,
   type LinkSelection,
+  MULTI_SELECT_APPEARANCES,
   OPTION_COLORS,
+  RATING_ICONS,
   SIDE_FIELD_TYPES,
   ROLLUP_FNS,
   rollupFitsTarget,
+  SINGLE_SELECT_APPEARANCES,
+  type FieldType,
 } from "@anygriddb/core";
 import {
   Button,
@@ -253,9 +261,12 @@ export function FieldEditor({
   const api = useTRPC();
   const queryClient = useQueryClient();
   const editing = target.mode === "edit" ? target.column : null;
-  // A client's table (ADR 0006): its columns are the client's; AnyGridDB
-  // adds only fields it computes.
+  // A client's table: its columns are the client's; AnyGridDB adds
+  // computed fields always, and storage fields when enrichable.
   const external = table.external !== null;
+  const enrichable = table.external?.enrichable === true;
+  const enrichmentBlocked = table.external?.enrichmentBlocked ?? null;
+  const enrichmentMode = table.external?.enrichment ?? null;
   const config = (editing?.config ?? {}) as Record<string, unknown>;
   const [label, setLabel] = useState(editing?.label ?? "");
   const [fieldType, setFieldType] = useState<string>(
@@ -272,6 +283,7 @@ export function FieldEditor({
     editing?.requireReason ?? false,
   );
   const [unique, setUnique] = useState(editing?.isUnique ?? false);
+  const [primary, setPrimary] = useState(editing?.isPrimary ?? false);
   const [options, setOptions] = useState<Option[]>(
     ((config.options as Option[] | undefined) ?? []).map((option) => ({
       ...option,
@@ -293,11 +305,23 @@ export function FieldEditor({
   const [ratingMax, setRatingMax] = useState(
     String((config.ratingMax as number | undefined) ?? 5),
   );
+  const [ratingIcon, setRatingIcon] = useState(
+    (config.ratingIcon as string | undefined) ?? "star",
+  );
+  const [ratingColor, setRatingColor] = useState(
+    (config.ratingColor as string | undefined) ?? "",
+  );
+  const [appearance, setAppearance] = useState(
+    (config.appearance as string | undefined) ?? "",
+  );
   const [durationFormat, setDurationFormat] = useState(
     (config.durationFormat as string | undefined) ?? "h:mm",
   );
   const [multiple, setMultiple] = useState(
     (config.multiple as boolean | undefined) ?? false,
+  );
+  const [notify, setNotify] = useState(
+    (config.notify as boolean | undefined) ?? true,
   );
   const [formula, setFormula] = useState(editing?.formulaSource ?? "");
   const storedButton = (config.button ?? {}) as {
@@ -373,6 +397,12 @@ export function FieldEditor({
         ]).map(limitText)
       : [];
   const isNew = target.mode === "create";
+  // Kept in AnyGridDB's database (ADR 0046): no row label can read it.
+  const keptApart = isNew
+    ? external &&
+      enrichmentMode === "control_plane" &&
+      SIDE_TYPES.has(fieldType)
+    : editing?.controlPlane === true;
   const converting =
     editing &&
     fieldType !== editing.fieldType &&
@@ -381,11 +411,31 @@ export function FieldEditor({
   const builtConfig = useMemo(() => {
     switch (fieldType) {
       case "single_select":
+        return {
+          options: options
+            .filter((option) => option.name.trim())
+            .map(({ name, color }) => ({ name: name.trim(), color })),
+          ...(appearance &&
+          (SINGLE_SELECT_APPEARANCES as readonly string[]).includes(appearance)
+            ? { appearance }
+            : {}),
+        };
       case "multi_select":
         return {
           options: options
             .filter((option) => option.name.trim())
             .map(({ name, color }) => ({ name: name.trim(), color })),
+          ...(appearance &&
+          (MULTI_SELECT_APPEARANCES as readonly string[]).includes(appearance)
+            ? { appearance }
+            : {}),
+        };
+      case "boolean":
+        return {
+          ...(appearance &&
+          (BOOLEAN_APPEARANCES as readonly string[]).includes(appearance)
+            ? { appearance }
+            : {}),
         };
       case "number":
         return {
@@ -401,11 +451,18 @@ export function FieldEditor({
       case "last_modified_time":
         return { date: { format: dateFormat } };
       case "rating":
-        return { ratingMax: Number(ratingMax) };
+        return {
+          ratingMax: Number(ratingMax),
+          ...(ratingIcon !== "star" ? { ratingIcon } : {}),
+          ...(ratingColor ? { ratingColor } : {}),
+        };
       case "duration":
         return { durationFormat };
       case "user":
-        return { multiple };
+        return {
+          multiple,
+          ...(notify ? {} : { notify: false }),
+        };
       case "button":
         return {
           button: {
@@ -431,8 +488,12 @@ export function FieldEditor({
     currency,
     dateFormat,
     ratingMax,
+    ratingIcon,
+    ratingColor,
+    appearance,
     durationFormat,
     multiple,
+    notify,
   ]);
 
   const formulaRefs = useMemo(
@@ -442,10 +503,40 @@ export function FieldEditor({
         .map((column) => ({ name: column.name, label: column.label })),
     [table.columns, editing?.name],
   );
-  // The server would refuse it: a formula that does not parse is not sent.
+  const formulaTypeContext = useMemo((): FormulaTypeContext => {
+    const asTypeColumn = (column: CatalogColumn): FormulaTypeColumn => ({
+      id: column.id,
+      name: column.name,
+      label: column.label,
+      fieldType: column.fieldType,
+      config: column.config,
+      ...(column.controlPlane ? { controlPlane: true } : {}),
+      ...(column.relation
+        ? {
+            relation: {
+              kind: column.relation.kind,
+              direction: column.relation.direction,
+              targetTableId: column.relation.targetTableId,
+            },
+          }
+        : {}),
+    });
+    return {
+      tableId: table.id,
+      columns: table.columns.map(asTypeColumn),
+      tables: tables.map((item) => ({
+        id: item.id,
+        columns: item.columns.map(asTypeColumn),
+      })),
+      engine: table.external?.engine,
+      excludeColumn: editing?.name,
+    };
+  }, [table, tables, editing?.name]);
+  // The server would refuse it: a formula that does not parse or type is not sent.
   const formulaBlocked =
     fieldType === "formula" &&
-    (!formula.trim() || checkFormula(formula, formulaRefs) !== null);
+    (!formula.trim() ||
+      checkFormulaTyped(formula, formulaRefs, formulaTypeContext) !== null);
 
   function insertFormula(text: string, options?: { back?: number }) {
     const editor = formulaEditor.current;
@@ -484,7 +575,7 @@ export function FieldEditor({
             filter: linkedCondition,
           });
         } else {
-          await trpc.catalog.addColumn.mutate({
+          const created = await trpc.catalog.addColumn.mutate({
             tableId: table.id,
             position: target.position,
             column: {
@@ -498,6 +589,12 @@ export function FieldEditor({
               formulaSource: fieldType === "formula" ? formula : undefined,
             },
           });
+          if (primary && isPrimaryType(fieldType as FieldType)) {
+            await trpc.catalog.setPrimaryColumn.mutate({
+              tableId: table.id,
+              name: created.name,
+            });
+          }
         }
       } else if (editing) {
         if (
@@ -554,6 +651,16 @@ export function FieldEditor({
           formulaSource: fieldType === "formula" ? formula : undefined,
           optionRenames: renames.length > 0 ? renames : undefined,
         });
+        if (
+          primary &&
+          !editing.isPrimary &&
+          isPrimaryType(fieldType as FieldType)
+        ) {
+          await trpc.catalog.setPrimaryColumn.mutate({
+            tableId: table.id,
+            name: editing.name,
+          });
+        }
       }
       await queryClient.invalidateQueries({
         queryKey: api.catalog.list.queryKey(),
@@ -573,7 +680,7 @@ export function FieldEditor({
         return (
           !external ||
           COMPUTED_ON_CLIENT.has(type) ||
-          (table.external?.enrichable === true && SIDE_TYPES.has(type))
+          (enrichable && SIDE_TYPES.has(type))
         );
       }
       if (external) return type === editing.fieldType;
@@ -599,6 +706,29 @@ export function FieldEditor({
         wide={fieldType === "formula"}
       >
         <div className="flex flex-col gap-3">
+          {isNew && external && !enrichable ? (
+            <p
+              role="status"
+              className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground"
+            >
+              {enrichmentBlocked === "synced"
+                ? t`This table is a synced copy: only formulas, lookups, rollups, and buttons can be added. Storage fields need a live table.`
+                : enrichmentBlocked === "no_key"
+                  ? t`This table has no primary key: only formulas, lookups, rollups, and buttons can be added. Storage fields need a key so rows can be matched.`
+                  : t`Only formulas, lookups, rollups, and buttons can be added on this table.`}
+            </p>
+          ) : null}
+          {isNew &&
+          external &&
+          enrichable &&
+          enrichmentMode === "control_plane" ? (
+            <p
+              role="status"
+              className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground"
+            >
+              {t`This source has no side schema: the field is kept in AnyGridDB. A view filters on it by value or emptiness; it cannot sort or group, and formulas, automations, and rules do not read it. Fields added once an administrator names a side schema sort and group.`}
+            </p>
+          ) : null}
           <div className="flex flex-col gap-1">
             <Label htmlFor="field-label">{t`Field name`}</Label>
             <Input
@@ -638,7 +768,67 @@ export function FieldEditor({
           </div>
 
           {fieldType === "single_select" || fieldType === "multi_select" ? (
-            <OptionsEditor options={options} onChange={setOptions} />
+            <>
+              <OptionsEditor options={options} onChange={setOptions} />
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="field-appearance">{t`Display`}</Label>
+                <Select
+                  id="field-appearance"
+                  value={appearance || "badge"}
+                  onChange={(event) =>
+                    setAppearance(
+                      event.target.value === "badge" ? "" : event.target.value,
+                    )
+                  }
+                >
+                  <option value="badge">{t`Coloured badges`}</option>
+                  <option value="text">{t`Plain text`}</option>
+                  {fieldType === "single_select"
+                    ? SINGLE_SELECT_APPEARANCES.filter(
+                        (value) => value === "radio",
+                      ).map((value) => (
+                        <option key={value} value={value}>
+                          {t`Radio buttons`}
+                        </option>
+                      ))
+                    : null}
+                  {fieldType === "multi_select"
+                    ? MULTI_SELECT_APPEARANCES.filter(
+                        (value) => value === "checklist",
+                      ).map((value) => (
+                        <option key={value} value={value}>
+                          {t`Checklist`}
+                        </option>
+                      ))
+                    : null}
+                </Select>
+              </div>
+            </>
+          ) : null}
+
+          {fieldType === "boolean" ? (
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="field-appearance">{t`Display`}</Label>
+              <Select
+                id="field-appearance"
+                value={appearance || "check"}
+                onChange={(event) =>
+                  setAppearance(
+                    event.target.value === "check" ? "" : event.target.value,
+                  )
+                }
+              >
+                {BOOLEAN_APPEARANCES.map((value) => (
+                  <option key={value} value={value}>
+                    {value === "check"
+                      ? t`Checkbox`
+                      : value === "switch"
+                        ? t`Switch`
+                        : t`Yes / No`}
+                  </option>
+                ))}
+              </Select>
+            </div>
           ) : null}
 
           {fieldType === "number" ? (
@@ -707,19 +897,58 @@ export function FieldEditor({
           ) : null}
 
           {fieldType === "rating" ? (
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="rating-max">{t`Maximum rating`}</Label>
-              <Select
-                id="rating-max"
-                value={ratingMax}
-                onChange={(event) => setRatingMax(event.target.value)}
-              >
-                {[3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </Select>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="rating-max">{t`Maximum rating`}</Label>
+                <Select
+                  id="rating-max"
+                  value={ratingMax}
+                  onChange={(event) => setRatingMax(event.target.value)}
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="rating-icon">{t`Icon`}</Label>
+                <Select
+                  id="rating-icon"
+                  value={ratingIcon}
+                  onChange={(event) => setRatingIcon(event.target.value)}
+                >
+                  {RATING_ICONS.map((value) => (
+                    <option key={value} value={value}>
+                      {value === "star"
+                        ? t`Star`
+                        : value === "heart"
+                          ? t`Heart`
+                          : value === "thumb"
+                            ? t`Thumb`
+                            : value === "flag"
+                              ? t`Flag`
+                              : t`Fire`}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="rating-color">{t`Colour`}</Label>
+                <Select
+                  id="rating-color"
+                  value={ratingColor}
+                  onChange={(event) => setRatingColor(event.target.value)}
+                >
+                  <option value="">{t`Default`}</option>
+                  {OPTION_COLORS.map((color) => (
+                    <option key={color} value={color}>
+                      {color}
+                    </option>
+                  ))}
+                </Select>
+              </div>
             </div>
           ) : null}
 
@@ -739,13 +968,22 @@ export function FieldEditor({
           ) : null}
 
           {fieldType === "user" ? (
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={multiple}
-                onChange={(event) => setMultiple(event.target.checked)}
-              />
-              {t`Allow several people`}
-            </label>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={multiple}
+                  onChange={(event) => setMultiple(event.target.checked)}
+                />
+                {t`Allow several people`}
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={notify}
+                  onChange={(event) => setNotify(event.target.checked)}
+                />
+                {t`Notify people when they are assigned`}
+              </label>
+            </div>
           ) : null}
 
           {fieldType === "button" ? (
@@ -970,6 +1208,7 @@ export function FieldEditor({
                     label={t`Formula`}
                     describedBy="formula-help"
                     engine={table.external?.engine}
+                    typeContext={formulaTypeContext}
                     saved={
                       editing?.formulaSource
                         ? {
@@ -1011,6 +1250,23 @@ export function FieldEditor({
               />
               {t`Unique values`}
             </label>
+          ) : null}
+          {isPrimaryType(fieldType as FieldType) && !keptApart ? (
+            <div className="flex flex-col gap-1">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={primary}
+                  disabled={Boolean(editing?.isPrimary)}
+                  onChange={(event) => setPrimary(event.target.checked)}
+                />
+                {t`Primary field`}
+              </label>
+              {editing?.isPrimary ? (
+                <p className="text-xs text-muted-foreground">
+                  {t`Every table needs a primary field. Choose another field to change it.`}
+                </p>
+              ) : null}
+            </div>
           ) : null}
           {CONVERTIBLE.has(fieldType) ||
           fieldType === "user" ||

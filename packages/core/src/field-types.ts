@@ -148,6 +148,28 @@ const VALUE_KIND: Record<Exclude<FieldType, ComputedType>, ValueKind> = {
   button: "text",
 };
 
+/**
+ * Types that may be a table's primary field (row label for links, panels,
+ * and card titles). Must coerce cleanly through `asText` / `labelSql`.
+ */
+export const PRIMARY_TYPES: ReadonlySet<FieldType> = new Set([
+  "text",
+  "long_text",
+  "email",
+  "url",
+  "phone",
+  "number",
+  "date",
+  "datetime",
+  "single_select",
+  "formula",
+  "autonumber",
+]);
+
+export function isPrimaryType(fieldType: FieldType): boolean {
+  return PRIMARY_TYPES.has(fieldType);
+}
+
 export function isWritableType(
   fieldType: FieldType,
 ): fieldType is WritableType {

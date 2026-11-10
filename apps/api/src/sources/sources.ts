@@ -45,6 +45,12 @@ export function publicSource(row: SourceRow) {
     queryTimeoutMs: row.queryTimeoutMs,
     timeZone: row.timeZone,
     sideSchema: row.sideSchema,
+    replicaHost: row.replicaHost,
+    replicaPort: row.replicaPort,
+    replicaDatabase: row.replicaDatabase,
+    replicaUsername: row.replicaUsername,
+    replicaCheckedAt: row.replicaCheckedAt,
+    replicaServerVersion: row.replicaServerVersion,
     serverVersion: row.serverVersion,
     checkedAt: row.checkedAt,
     passwordChangedAt: row.passwordChangedAt,
@@ -106,12 +112,79 @@ function connectionOf(input: SourceInput): SourceConnection {
   };
 }
 
-/** Tries a source before it is saved. */
-export function testSource(
+/**
+ * Connection used for an optional read replica. Null when no replica host
+ * is set. Port and database fall back to the primary; credentials fall
+ * back to the primary password when the replica password is empty.
+ */
+export function replicaConnectionOf(
+  input: SourceInput,
+): SourceConnection | null {
+  const host = input.replicaHost?.trim();
+  if (!host) return null;
+  const password =
+    input.replicaPassword && input.replicaPassword.length > 0
+      ? input.replicaPassword
+      : input.password;
+  return {
+    engine: input.engine,
+    host,
+    port: input.replicaPort ?? input.port,
+    database: input.replicaDatabase?.trim() || input.database,
+    username: input.replicaUsername?.trim() || input.username,
+    password,
+    tlsCa: input.tlsCa ?? null,
+    queryTimeoutMs: input.queryTimeoutMs,
+  };
+}
+
+/** Tries the primary, and the read replica when one is declared. */
+export async function testSource(
   deps: SourceDeps,
   input: SourceInput,
 ): Promise<SourceCheck> {
-  return checkConnection(deps.settings, connectionOf(input));
+  const checked = await checkConnection(deps.settings, connectionOf(input));
+  const replica = replicaConnectionOf(input);
+  if (!replica) return checked;
+  const replicaChecked = await checkConnection(deps.settings, replica);
+  return {
+    serverVersion: checked.serverVersion,
+    replicaServerVersion: replicaChecked.serverVersion,
+  };
+}
+
+/**
+ * The replica's own password, sealed, when one was typed. Without one the
+ * columns stay as they are: null reads the primary's password.
+ */
+function replicaSecret(
+  deps: SourceDeps,
+  replica: SourceConnection | null,
+  typed: string | null | undefined,
+) {
+  if (!replica || !typed) return {};
+  const sealed = encryptSecret(typed, deps.key);
+  return {
+    replicaPasswordCiphertext: sealed.ciphertext,
+    replicaPasswordNonce: sealed.nonce,
+  };
+}
+
+/**
+ * A side schema holds the side tables of fields already added (ADR 0032):
+ * it cannot change, or go, while one of them is kept there.
+ */
+async function assertSideSchemaFree(db: Database, sourceId: string) {
+  const held = await db
+    .selectFrom("dataColumns as c")
+    .innerJoin("dataTables as t", "t.id", "c.tableId")
+    .select("c.id")
+    .where("t.sourceId", "=", sourceId)
+    .where("c.externalSide", "=", true)
+    .where("c.externalControlPlane", "=", false)
+    .limit(1)
+    .executeTakeFirst();
+  if (held) throw new AppError("source_side_in_use");
 }
 
 export async function createSource(
@@ -121,6 +194,8 @@ export async function createSource(
 ) {
   const checked = await testSource(deps, input);
   const sealed = encryptSecret(input.password, deps.key);
+  const replica = replicaConnectionOf(input);
+  const now = new Date();
   try {
     const row = await withAudit(
       deps.db,
@@ -142,9 +217,16 @@ export async function createSource(
             queryTimeoutMs: input.queryTimeoutMs,
             timeZone: input.timeZone,
             sideSchema: input.sideSchema ?? null,
+            replicaHost: replica?.host ?? null,
+            replicaPort: replica?.port ?? null,
+            replicaDatabase: input.replicaDatabase ?? null,
+            replicaUsername: input.replicaUsername ?? null,
             serverVersion: checked.serverVersion,
-            checkedAt: new Date(),
+            checkedAt: now,
+            replicaServerVersion: checked.replicaServerVersion ?? null,
+            replicaCheckedAt: replica ? now : null,
             createdBy: actorId,
+            ...replicaSecret(deps, replica, input.replicaPassword),
           })
           .returningAll()
           .executeTakeFirstOrThrow(),
@@ -169,6 +251,19 @@ export async function updateSource(
   const password =
     patch.password ??
     decryptSecret(row.passwordCiphertext, row.passwordNonce, deps.key);
+  const storedReplicaPassword =
+    row.replicaPasswordCiphertext && row.replicaPasswordNonce
+      ? decryptSecret(
+          row.replicaPasswordCiphertext,
+          row.replicaPasswordNonce,
+          deps.key,
+        )
+      : null;
+  // A replica without a password of its own uses the primary's, the new
+  // one included when it changes.
+  const typedReplicaPassword = patch.replicaPassword || undefined;
+  const replicaPassword =
+    typedReplicaPassword ?? storedReplicaPassword ?? password;
   const next: SourceInput = {
     name: patch.name ?? row.name,
     engine: patch.engine ?? row.engine,
@@ -183,11 +278,29 @@ export async function updateSource(
     timeZone: patch.timeZone ?? row.timeZone,
     sideSchema:
       patch.sideSchema === undefined ? row.sideSchema : patch.sideSchema,
+    replicaHost:
+      patch.replicaHost === undefined ? row.replicaHost : patch.replicaHost,
+    replicaPort:
+      patch.replicaPort === undefined ? row.replicaPort : patch.replicaPort,
+    replicaDatabase:
+      patch.replicaDatabase === undefined
+        ? row.replicaDatabase
+        : patch.replicaDatabase,
+    replicaUsername:
+      patch.replicaUsername === undefined
+        ? row.replicaUsername
+        : patch.replicaUsername,
+    replicaPassword,
   };
+  if ((next.sideSchema ?? null) !== row.sideSchema) {
+    await assertSideSchemaFree(deps.db, row.id);
+  }
   const checked = await testSource(deps, next);
+  const replica = replicaConnectionOf(next);
   const sealed = patch.password
     ? encryptSecret(patch.password, deps.key)
     : undefined;
+  const now = new Date();
   try {
     const updated = await withAudit(
       deps.db,
@@ -207,16 +320,28 @@ export async function updateSource(
             queryTimeoutMs: next.queryTimeoutMs,
             timeZone: next.timeZone,
             sideSchema: next.sideSchema ?? null,
+            replicaHost: replica?.host ?? null,
+            replicaPort: replica?.port ?? null,
+            replicaDatabase: next.replicaDatabase ?? null,
+            replicaUsername: next.replicaUsername ?? null,
             serverVersion: checked.serverVersion,
-            checkedAt: new Date(),
-            updatedAt: new Date(),
+            checkedAt: now,
+            replicaServerVersion: checked.replicaServerVersion ?? null,
+            replicaCheckedAt: replica ? now : null,
+            updatedAt: now,
             ...(sealed
               ? {
                   passwordCiphertext: sealed.ciphertext,
                   passwordNonce: sealed.nonce,
-                  passwordChangedAt: new Date(),
+                  passwordChangedAt: now,
                 }
               : {}),
+            ...(replica
+              ? replicaSecret(deps, replica, typedReplicaPassword)
+              : {
+                  replicaPasswordCiphertext: null,
+                  replicaPasswordNonce: null,
+                }),
           })
           .where("id", "=", patch.id)
           .returningAll()
@@ -294,6 +419,10 @@ export type Exposure = {
     durationMs: number | null;
     changes: number;
     errorCode: string | null;
+    syncMode: "full" | "incremental";
+    changeColumn: string | null;
+    lastFullAt: Date | null;
+    fullEvery: number;
   } | null;
 };
 
@@ -327,6 +456,10 @@ export async function exposedIn(
       "y.durationMs",
       "y.changes as syncChanges",
       "y.errorCode as syncError",
+      "y.syncMode",
+      "y.changeColumn",
+      "y.lastFullAt",
+      "y.fullEvery",
     ])
     .where("t.sourceId", "=", sourceId)
     .where("t.deletedAt", "is", null)
@@ -366,6 +499,11 @@ export async function exposedIn(
                 durationMs: row.durationMs,
                 changes: row.syncChanges ?? 0,
                 errorCode: row.syncError,
+                syncMode:
+                  row.syncMode === "incremental" ? "incremental" : "full",
+                changeColumn: row.changeColumn,
+                lastFullAt: row.lastFullAt,
+                fullEvery: row.fullEvery ?? 24,
               }
             : null,
       },
@@ -377,17 +515,46 @@ export async function exposedIn(
 /** Connects to a saved source again, and records what it found. */
 export async function recheckSource(deps: SourceDeps, id: string) {
   const row = await loadSource(deps.db, id);
-  const checked = await checkConnection(
-    deps.settings,
-    storedConnection(deps, row),
-  );
+  const primary = storedConnection(deps, row);
+  const checked = await checkConnection(deps.settings, primary);
+  const now = new Date();
+  let replicaServerVersion: string | null = null;
+  if (row.replicaHost && row.replicaPort) {
+    const replicaPassword =
+      row.replicaPasswordCiphertext && row.replicaPasswordNonce
+        ? decryptSecret(
+            row.replicaPasswordCiphertext,
+            row.replicaPasswordNonce,
+            deps.key,
+          )
+        : primary.password;
+    const replicaChecked = await checkConnection(deps.settings, {
+      engine: primary.engine,
+      host: row.replicaHost,
+      port: row.replicaPort,
+      database: row.replicaDatabase ?? primary.database,
+      username: row.replicaUsername ?? primary.username,
+      password: replicaPassword,
+      tlsCa: primary.tlsCa,
+      queryTimeoutMs: primary.queryTimeoutMs,
+    });
+    replicaServerVersion = replicaChecked.serverVersion;
+  }
   // A check changes no setting: it is not a catalog change to audit.
   await deps.db
     .updateTable("sources")
-    .set({ serverVersion: checked.serverVersion, checkedAt: new Date() })
+    .set({
+      serverVersion: checked.serverVersion,
+      checkedAt: now,
+      replicaServerVersion,
+      replicaCheckedAt: row.replicaHost ? now : null,
+    })
     .where("id", "=", id)
     .execute();
-  return checked;
+  return {
+    serverVersion: checked.serverVersion,
+    replicaServerVersion,
+  };
 }
 
 export async function deleteSource(

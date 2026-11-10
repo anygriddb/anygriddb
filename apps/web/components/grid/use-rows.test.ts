@@ -66,4 +66,15 @@ describe("rows store", () => {
     await reading;
     expect(store.rowAt(0)).toMatchObject({ score: 4 });
   });
+
+  it("waitFor resolves once the asked indexes are loaded", async () => {
+    const store = await loaded();
+    await expect(store.waitFor(0, 0)).resolves.toBe(true);
+  });
+
+  it("waitFor fails when the store closed before the range arrived", async () => {
+    const store = new RowPages("empty", "table", {}, 100);
+    store.close();
+    await expect(store.waitFor(0, 0)).resolves.toBe(false);
+  });
 });

@@ -743,6 +743,35 @@ export async function signRowAs(
   await announceRows(deps, scope.table.id, "update", [input.rowId], []);
 }
 
+/**
+ * Native batch persistence for product jobs (import, copy, snapshot).
+ * Jobs own their WriteContext events (one import summary, or none — ADR 0008).
+ * Interactive transports must use createRows / updateRows / deleteRows.
+ */
+export async function insertNativeBatch(
+  db: Database,
+  engine: EngineCatalog,
+  context: WriteContext,
+  rows: ReadonlyArray<Readonly<Record<string, CellValue>>>,
+): Promise<string[]> {
+  return insertRows(db, engine, context, rows);
+}
+
+/**
+ * Native batch updates for product jobs. Same contract as insertNativeBatch.
+ */
+export async function updateNativeBatch(
+  db: Database,
+  engine: EngineCatalog,
+  context: WriteContext,
+  updates: ReadonlyArray<{
+    rowId: string;
+    values: Readonly<Record<string, CellValue>>;
+  }>,
+): Promise<string[]> {
+  return updateRowRecords(db, engine, context, updates);
+}
+
 /** Inserts parsed import records in batches and announces one import. */
 export async function importRows(
   deps: RowServiceDeps,

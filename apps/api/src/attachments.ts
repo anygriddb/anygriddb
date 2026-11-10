@@ -7,6 +7,8 @@ import {
   ATTACHMENT_KEY,
   type Binding,
   effectiveTableRole,
+  isImageAttachmentMime,
+  isInlineAttachmentMime,
   roleAllows,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -24,19 +26,43 @@ import { publicErrorBody } from "./http.js";
 
 export const DEFAULT_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 const THUMB_EDGE = 320;
-const IMAGE_TYPES = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "image/webp",
-]);
-/** Types a browser may render inline. Everything else is a download. */
-const INLINE_TYPES = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "image/webp",
-]);
+
+/**
+ * PDFs are shown in an iframe in the attachment dialog. Default API
+ * headers deny framing; same-origin framing is enough for that preview.
+ */
+export function attachmentFrameHeaders(
+  mime: string,
+  inline: boolean,
+): { csp: string; frameOptions: string } | null {
+  if (!inline || mime.toLowerCase() !== "application/pdf") return null;
+  return {
+    csp: "default-src 'none'; frame-ancestors 'self'; base-uri 'none'",
+    frameOptions: "SAMEORIGIN",
+  };
+}
+
+/** How a file is answered: inline preview, or a forced download. */
+export function attachmentResponseMode(
+  mime: string,
+  options: { thumbnail?: boolean; forceDownload?: boolean },
+): {
+  mime: string;
+  inline: boolean;
+  contentType: string;
+  frame: { csp: string; frameOptions: string } | null;
+} {
+  const outMime = options.thumbnail ? "image/webp" : mime;
+  const knownInline =
+    Boolean(options.thumbnail) || isInlineAttachmentMime(outMime);
+  const inline = knownInline && !options.forceDownload;
+  return {
+    mime: outMime,
+    inline,
+    contentType: knownInline ? outMime : "application/octet-stream",
+    frame: attachmentFrameHeaders(outMime, inline),
+  };
+}
 
 export type AttachmentMeta = {
   key: string;
@@ -88,7 +114,7 @@ export async function storeAttachment(
   let width: number | null = null;
   let height: number | null = null;
   let thumbKey: string | null = null;
-  if (IMAGE_TYPES.has(mime)) {
+  if (isImageAttachmentMime(mime)) {
     try {
       const image = sharp(input.bytes, { limitInputPixels: 50_000_000 });
       const meta = await image.metadata();
@@ -318,6 +344,7 @@ function deny(reply: FastifyReply, status: number) {
 
 const uploadQuery = z.object({ tableId: z.uuid() });
 const keyParams = z.object({ key: z.string().regex(ATTACHMENT_KEY) });
+const serveQuery = z.object({ download: z.enum(["1"]).optional() });
 
 export async function registerAttachmentRoutes(
   app: FastifyInstance,
@@ -397,15 +424,24 @@ export async function registerAttachmentRoutes(
       request.log.error({ err: error }, "attachment download failed");
       return deny(reply, 404);
     }
-    const mime = thumbnail ? "image/webp" : meta.mime;
-    const inline = thumbnail || INLINE_TYPES.has(mime);
-    reply.header("Content-Type", inline ? mime : "application/octet-stream");
+    const query = serveQuery.safeParse(request.query);
+    const forceDownload =
+      !thumbnail && query.success && query.data.download === "1";
+    const mode = attachmentResponseMode(meta.mime, {
+      thumbnail,
+      forceDownload,
+    });
+    reply.header("Content-Type", mode.contentType);
     reply.header(
       "Content-Disposition",
-      contentDisposition(meta.filename, inline),
+      contentDisposition(meta.filename, mode.inline),
     );
     reply.header("Cache-Control", "private, max-age=3600");
     reply.header("Cross-Origin-Resource-Policy", "same-site");
+    if (mode.frame) {
+      reply.header("Content-Security-Policy", mode.frame.csp);
+      reply.header("X-Frame-Options", mode.frame.frameOptions);
+    }
     return reply.send(body);
   }
 

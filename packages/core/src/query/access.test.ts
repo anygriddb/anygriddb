@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { FilterGroup } from "../filter";
+import { parseFormula } from "../formula";
 import type { EngineAccess, EngineCatalog } from "./engine";
 import {
   CLIENTS_ID,
   ORDERS_ID,
   SECRET_ID,
   catalogFor,
+  orders,
 } from "./fixtures.test-helpers";
 import {
   buildAggregates,
@@ -170,6 +172,35 @@ describe("row access", () => {
       limit: 10,
       timeZone: "Europe/Paris",
     });
+    expect(sql.text).toContain(`from "t_orders" r where false) q`);
+    expect(sql.values).not.toContain("x");
+    expectBound(sql);
+  });
+
+  it("keeps no row when a rule field fails to project", () => {
+    const base = withAccess({
+      rowFilter: (tableId) =>
+        tableId === ORDERS_ID ? rule("broken", "is", "x") : undefined,
+    });
+    const catalog: EngineCatalog = {
+      ...base,
+      table: {
+        ...base.table,
+        columns: [
+          ...orders.columns,
+          {
+            id: "o-broken",
+            name: "broken",
+            label: "Broken",
+            fieldType: "formula",
+            config: {
+              expr: parseFormula('DATETIME_PARSE("01/02/2026", "DD/MM")', []),
+            },
+          },
+        ],
+      },
+    };
+    const sql = buildReadRows(catalog, { limit: 10 });
     expect(sql.text).toContain(`from "t_orders" r where false) q`);
     expect(sql.values).not.toContain("x");
     expectBound(sql);

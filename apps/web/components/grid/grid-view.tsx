@@ -27,8 +27,10 @@ import {
 } from "lucide-react";
 import {
   type ClipboardEvent,
+  type CSSProperties,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useId,
@@ -54,6 +56,7 @@ import { SelectionSummaryBar } from "./selection-summary";
 import {
   cellId,
   GridSelection,
+  useEditingRow,
   useSelectionState,
   type Cell,
   type Range,
@@ -98,7 +101,8 @@ export type GridProps = {
   frozen: number;
   rowHeight: keyof typeof ROW_HEIGHTS;
   groupBy: ReadonlyArray<{ column: string; direction: "asc" | "desc" }>;
-  colorColumn?: string;
+  /** Option colour name for a data row (select or colour rules). */
+  tintOf?: (row: RowItem) => string | undefined;
   canEdit: boolean;
   /** Adding and deleting rows; a client's table enables them apart. */
   canAdd?: boolean;
@@ -410,6 +414,11 @@ export function GridView(props: GridProps) {
   }
 
   async function fillDown(target: Range) {
+    const ready = await rows.waitFor(target.r1, target.r2);
+    if (!ready) {
+      toast.error(t`Could not load the rows to fill`);
+      return;
+    }
     const sourceRow = rowAtPosition(target.r1);
     if (!sourceRow) return;
     const targets = columns
@@ -438,6 +447,11 @@ export function GridView(props: GridProps) {
     if (!range) return;
     const count = to - range.r2;
     if (count <= 0) return;
+    const ready = await rows.waitFor(range.r1, range.r2 + count);
+    if (!ready) {
+      toast.error(t`Could not load the rows to fill`);
+      return;
+    }
     const targets = columns
       .slice(range.c1, range.c2 + 1)
       .filter(isEditableColumn);
@@ -633,13 +647,24 @@ export function GridView(props: GridProps) {
     event.preventDefault();
     const matrix = parseClipboard(event.clipboardData.getData("text/plain"));
     const start = range ? { r: range.r1, c: range.c1 } : active;
-    const loadedRows: RowItem[] = [];
     const needed = Math.max(matrix.length, range ? range.r2 - range.r1 + 1 : 1);
+    const end = Math.min(
+      start.r + needed - 1,
+      Math.max(visibleRowIndexes.length - 1, 0),
+    );
+    if (end >= start.r) {
+      const ready = await rows.waitFor(start.r, end);
+      if (!ready) {
+        toast.error(t`Could not load the rows to paste into`);
+        return;
+      }
+    }
+    const loadedRows: RowItem[] = [];
     for (let r = start.r; r < start.r + needed; r += 1) {
       const row = rowAtPosition(r);
       if (row) loadedRows[r - start.r] = row;
       else if (r < visibleRowIndexes.length) {
-        toast.error(t`Scroll to load the rows before pasting`);
+        toast.error(t`Could not load the rows to paste into`);
         return;
       }
     }
@@ -728,10 +753,6 @@ export function GridView(props: GridProps) {
     }
     return map;
   }, [props.presence]);
-
-  const colorColumn = props.colorColumn
-    ? columns.find((column) => column.name === props.colorColumn)
-    : undefined;
 
   function renderCell(
     row: RowItem | undefined,
@@ -869,6 +890,7 @@ export function GridView(props: GridProps) {
                 allChecked={
                   checked.size > 0 && checked.size >= rows.loadedRows().length
                 }
+                loadedCount={rows.loadedRows().length}
                 onToggleAll={(value) =>
                   setChecked(
                     value
@@ -995,19 +1017,13 @@ export function GridView(props: GridProps) {
                 const position = positionOfRow(rowIndexOfItem(item) ?? -1);
                 const row = rows.rowAt(item.index);
                 const tint =
-                  colorColumn && row
-                    ? optionsOf(colorColumn).find((option) => {
-                        const value = row[colorColumn.name as keyof RowItem];
-                        return Array.isArray(value)
-                          ? value[0] === option.name
-                          : value === option.name;
-                      })?.color
-                    : undefined;
+                  row && props.tintOf ? props.tintOf(row) : undefined;
                 return (
-                  <div
+                  <EditingRow
                     key={row?.id ?? `r-${item.index}`}
-                    role="row"
-                    aria-rowindex={item.index + 2}
+                    selection={selection}
+                    position={position}
+                    rowIndex={item.index + 2}
                     className="group/row absolute left-0 flex"
                     style={{ top, height: virtual.size, width: totalWidth }}
                     onContextMenu={() => {
@@ -1130,7 +1146,7 @@ export function GridView(props: GridProps) {
                         virtualColumn.index + frozenCount,
                       ),
                     )}
-                  </div>
+                  </EditingRow>
                 );
               })}
               <div style={{ height: rowVirtualizer.getTotalSize() }} />
@@ -1194,6 +1210,33 @@ export function GridView(props: GridProps) {
         columns={columns}
         rowAt={rowAtPosition}
       />
+    </div>
+  );
+}
+
+/**
+ * A body row that rises above later virtualized rows while one of its
+ * cells is edited, so an overflowing list panel keeps the pointer.
+ */
+function EditingRow(props: {
+  selection: GridSelection;
+  position: number;
+  rowIndex: number;
+  className?: string;
+  style?: CSSProperties;
+  onContextMenu?: () => void;
+  children: ReactNode;
+}) {
+  const editing = useEditingRow(props.selection, props.position);
+  return (
+    <div
+      role="row"
+      aria-rowindex={props.rowIndex}
+      className={cn(props.className, editing && "z-40")}
+      style={props.style}
+      onContextMenu={props.onContextMenu}
+    >
+      {props.children}
     </div>
   );
 }

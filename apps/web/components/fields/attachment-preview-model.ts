@@ -1,16 +1,20 @@
-/**
- * Image types the server sends inline (`apps/api/src/attachments.ts`):
- * the preview shows them; any other file is offered as a download.
- */
-const INLINE_IMAGES = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "image/webp",
-]);
+import { attachmentPreviewKind } from "@anygriddb/core";
+
+export {
+  attachmentPreviewKind,
+  type AttachmentPreviewKind,
+} from "@anygriddb/core";
 
 export function isPreviewableImage(mime: string): boolean {
-  return INLINE_IMAGES.has(mime.toLowerCase());
+  return attachmentPreviewKind(mime) === "image";
+}
+
+export function isPreviewablePdf(mime: string): boolean {
+  return attachmentPreviewKind(mime) === "pdf";
+}
+
+export function isPreviewableText(mime: string): boolean {
+  return attachmentPreviewKind(mime) === "text";
 }
 
 /** The file `delta` steps away, wrapping at both ends. */

@@ -13,6 +13,7 @@ import {
   ArrowLeftToLine,
   ArrowRightToLine,
   ArrowUpZA,
+  Check,
   ChevronDown,
   Copy,
   EyeOff,
@@ -25,7 +26,7 @@ import {
   Trash2,
   TriangleAlert,
 } from "lucide-react";
-import { isWritableType } from "@anygriddb/core";
+import { isPrimaryType, isWritableType } from "@anygriddb/core";
 import { useRef, useState } from "react";
 import type { CatalogColumn } from "../../lib/types";
 import { FieldIcon } from "../fields/field-meta";
@@ -54,6 +55,8 @@ export function GridHeader(props: {
   width: number;
   canManage: boolean;
   allChecked: boolean;
+  /** How many loaded rows the header checkbox selects (not the whole view). */
+  loadedCount: number;
   onToggleAll: (value: boolean) => void;
   onResize: (column: string, width: number) => void;
   onReorder: (from: string, to: string) => void;
@@ -205,17 +208,28 @@ export function GridHeader(props: {
               onSelect={() => props.onAction("freeze", column, index)}
             >
               <Pin className="h-4 w-4" aria-hidden />
-              {t`Freeze up to here`}
+              {index === marginColumn(props.frozenCount) ? (
+                t`Unfreeze columns`
+              ) : (
+                <>
+                  {t`Freeze up to here`}
+                  {index < props.frozenCount ? (
+                    <Check className="ml-auto h-4 w-4" aria-hidden />
+                  ) : null}
+                </>
+              )}
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => props.onAction("hide", column, index)}
-            >
-              <EyeOff className="h-4 w-4" aria-hidden />
-              {t`Hide`}
-            </DropdownMenuItem>
+            {column.isPrimary ? null : (
+              <DropdownMenuItem
+                onSelect={() => props.onAction("hide", column, index)}
+              >
+                <EyeOff className="h-4 w-4" aria-hidden />
+                {t`Hide`}
+              </DropdownMenuItem>
+            )}
             {props.canManage ? (
               <>
-                {!column.isPrimary ? (
+                {!column.isPrimary && isPrimaryType(column.fieldType) ? (
                   <DropdownMenuItem
                     onSelect={() => props.onAction("primary", column, index)}
                   >
@@ -291,7 +305,16 @@ export function GridHeader(props: {
         style={{ width: GUTTER }}
       >
         <Checkbox
-          aria-label={t`Select all`}
+          aria-label={
+            props.loadedCount > 0
+              ? t`Select ${{ count: props.loadedCount }} loaded rows`
+              : t`Select loaded rows`
+          }
+          title={
+            props.loadedCount > 0
+              ? t`Selects the ${{ count: props.loadedCount }} rows already loaded`
+              : t`Select loaded rows`
+          }
           className="h-3.5 w-3.5"
           checked={props.allChecked}
           onChange={(event) => props.onToggleAll(event.target.checked)}

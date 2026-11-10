@@ -160,7 +160,7 @@ export const shareRouter = t.router({
         token: tokenSchema,
         access: accessSchema,
         offset: z.int().min(0).max(1_000_000).default(0),
-        limit: z.int().min(1).max(500).default(100),
+        limit: z.int().min(1).max(1000).default(100),
         search: z.string().trim().min(1).max(200).optional(),
         timeZone: z.string().max(64).optional(),
       }),
@@ -185,6 +185,12 @@ export const shareRouter = t.router({
           },
           { total: true },
         );
+        // Public shares have no file route: do not leak raw attachment keys.
+        const attachmentFields = new Set(
+          opened.engine.table.columns
+            .filter((column) => column.fieldType === "attachment")
+            .map((column) => column.name),
+        );
         const rows = page.rows.map((row) =>
           Object.fromEntries(
             Object.entries(row).flatMap(([key, value]) => {
@@ -192,8 +198,10 @@ export const shareRouter = t.router({
                 key === "id" ||
                 key === "ag_seq" ||
                 opened.fields.includes(key)
-              )
+              ) {
+                if (attachmentFields.has(key)) return [[key, []]];
                 return [[key, value]];
+              }
               // Formula errors (ADR 0036), of the fields shown only.
               if (key === ROW_ERRORS && value && typeof value === "object")
                 return [

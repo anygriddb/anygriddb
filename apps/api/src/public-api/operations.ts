@@ -44,12 +44,7 @@ import {
   type RowServiceDeps,
 } from "../services/rows.js";
 import { buildOpenApi } from "./openapi.js";
-import {
-  type Actor,
-  HttpError,
-  MAX_RECORDS,
-  type PublicApiDeps,
-} from "./types.js";
+import { type Actor, MAX_RECORDS, type PublicApiDeps } from "./types.js";
 
 export const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(1000).default(100),
@@ -107,7 +102,7 @@ async function tableFor(
       "read",
     )
   ) {
-    throw new HttpError(404, "Not found");
+    throw new AppError("not_found");
   }
   if (
     !roleAllows(
@@ -358,7 +353,7 @@ export async function listTables(
 ) {
   const list = await readableBaseTables(deps, actor, baseId);
   if (list.length === 0 && !roleFor(actor.bindings, "base", baseId))
-    throw new HttpError(404, "Not found");
+    throw new AppError("not_found");
   const out = [];
   for (const table of list.sort(
     (left, right) => left.position - right.position,
@@ -396,7 +391,7 @@ export async function openApiDocument(
     .executeTakeFirst();
   const list = await readableBaseTables(deps, actor, baseId);
   if (!base || (list.length === 0 && !roleFor(actor.bindings, "base", baseId)))
-    throw new HttpError(404, "Not found");
+    throw new AppError("not_found");
   const described = [];
   for (const table of list) {
     const { engine, rows } = await engineFor(deps, actor, table);
@@ -488,7 +483,7 @@ export async function getRecord(
   const table = await tableFor(deps, actor, tableId, "read");
   const { engine } = await engineFor(deps, actor, table);
   const [row] = await readByIds(deps.db, engine, [recordId], "UTC");
-  if (!row) throw new HttpError(404, "Not found");
+  if (!row) throw new AppError("not_found");
   await attachExternalStatuses(deps.db, engine, [row]);
   await enrichAttachments(
     deps.db,

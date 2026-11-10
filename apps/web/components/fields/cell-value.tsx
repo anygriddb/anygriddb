@@ -2,10 +2,16 @@ import { cellText } from "@anygriddb/core";
 
 import { Avatar, cn, OptionBadge } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
-import { Check, Paperclip, Star } from "lucide-react";
+import { Check, Paperclip } from "lucide-react";
 import type { ReactNode } from "react";
 import { attachmentList, cellDisplay, isLinkArray } from "../../lib/format";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
+import {
+  booleanAppearance,
+  multiSelectAppearance,
+  singleSelectAppearance,
+} from "./field-appearance";
+import { RatingControl } from "./rating-control";
 
 type Option = { name: string; color: string };
 
@@ -75,6 +81,35 @@ export function CellValueView({
     type === "boolean" ||
     (column.kind === "boolean" && typeof value === "boolean")
   ) {
+    const appearance = booleanAppearance(column);
+    if (appearance === "yes_no") {
+      return (
+        <span className="text-sm">
+          {value === true ? t`Yes` : value === false ? t`No` : null}
+        </span>
+      );
+    }
+    if (appearance === "switch") {
+      const on = value === true;
+      return (
+        <span
+          role="img"
+          aria-label={on ? t`checked` : t`unchecked`}
+          className={cn(
+            "inline-flex h-4 w-7 shrink-0 items-center rounded-full px-0.5 transition-colors",
+            on ? "bg-primary" : "bg-muted",
+          )}
+        >
+          <span
+            className={cn(
+              "h-3 w-3 rounded-full bg-card shadow-sm transition-transform",
+              on ? "translate-x-3" : "translate-x-0",
+            )}
+            aria-hidden
+          />
+        </span>
+      );
+    }
     return value === true ? (
       <span
         role="img"
@@ -90,37 +125,35 @@ export function CellValueView({
     const names = Array.isArray(value)
       ? value.map(cellText)
       : [cellText(value)];
+    const appearance =
+      type === "single_select"
+        ? singleSelectAppearance(column)
+        : multiSelectAppearance(column);
+    // radio / checklist only change the editor; read stays badge (or text).
+    const plain = appearance === "text";
     return (
       <span
         className={cn("flex gap-1", wrap ? "flex-wrap" : "overflow-hidden")}
       >
-        {names.map((name) => (
-          <OptionBadge
-            key={name}
-            color={options.find((option) => option.name === name)?.color}
-          >
-            {name}
-          </OptionBadge>
-        ))}
+        {names.map((name) =>
+          plain ? (
+            <span key={name} className="truncate text-sm">
+              {name}
+            </span>
+          ) : (
+            <OptionBadge
+              key={name}
+              color={options.find((option) => option.name === name)?.color}
+            >
+              {name}
+            </OptionBadge>
+          ),
+        )}
       </span>
     );
   }
   if (type === "rating" && typeof value === "number") {
-    const max = (column.config as { ratingMax?: number }).ratingMax ?? 5;
-    return (
-      <span className="flex text-amber-500" aria-label={`${value}/${max}`}>
-        {Array.from({ length: max }, (_, index) => (
-          <Star
-            key={index}
-            className={cn(
-              "h-3.5 w-3.5",
-              index < value ? "fill-current" : "opacity-25",
-            )}
-            aria-hidden
-          />
-        ))}
-      </span>
-    );
+    return <RatingControl column={column} value={value} />;
   }
   if (type === "user" || type === "created_by" || type === "last_modified_by") {
     const ids = Array.isArray(value) ? value.map(cellText) : [cellText(value)];

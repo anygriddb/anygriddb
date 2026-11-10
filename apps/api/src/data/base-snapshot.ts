@@ -46,11 +46,11 @@ import { liveBase, liveTable, liveView } from "./live.js";
 import { addRelation, setLinks } from "./relations.js";
 import {
   baseCollaboratorIds,
-  insertRows,
   readPage,
   writeColumns,
   type WriteContext,
 } from "./rows.js";
+import { insertNativeBatch } from "../services/rows.js";
 import {
   addColumn,
   insertBase,
@@ -769,7 +769,7 @@ export async function importBaseSnapshot(
           ),
         ),
       );
-      const newIds = await insertRows(
+      const newIds = await insertNativeBatch(
         db,
         engine,
         writeContext(userId, physical),

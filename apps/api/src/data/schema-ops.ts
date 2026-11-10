@@ -31,10 +31,13 @@ import {
   normalizeViewConfig,
   OPTION_COLORS,
   parseColumnConfig,
+  PRIMARY_TYPES,
   rollupFitsTarget,
   parseFormula,
   stripColumnFromConfig,
 } from "@anygriddb/core";
+
+export { PRIMARY_TYPES };
 import { runStatement, type Database } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
 import { runRows, withAudit, type AuditTx } from "./audit-context.js";
@@ -61,20 +64,6 @@ const UNIQUE_TYPES: ReadonlySet<FieldType> = new Set([
   "date",
   "datetime",
   "single_select",
-]);
-
-export const PRIMARY_TYPES: ReadonlySet<FieldType> = new Set([
-  "text",
-  "long_text",
-  "email",
-  "url",
-  "phone",
-  "number",
-  "date",
-  "datetime",
-  "single_select",
-  "formula",
-  "autonumber",
 ]);
 
 export function physicalTableName(): string {
@@ -208,6 +197,7 @@ function withPlanned(
         externalWritable: false,
         externalInsertable: false,
         externalSide: false,
+        externalControlPlane: false,
         fieldType: column.fieldType,
         requireReason: column.requireReason,
         config: column.config,
@@ -843,6 +833,11 @@ export async function setPrimaryColumn(
   if (!PRIMARY_TYPES.has(column.fieldType)) {
     throw new AppError("invalid_column");
   }
+  // A row's label is read in the client's query, which a field kept in
+  // AnyGridDB's database is not in (ADR 0046).
+  if (column.externalControlPlane) {
+    throw new AppError("control_plane_formula", column.label);
+  }
   await withAudit(db, { userId, tableId, source: "web" }, async (tx) => {
     await tx
       .updateTable("dataColumns")
@@ -1123,6 +1118,23 @@ export async function updateColumn(
         })
         .where("id", "=", column.id)
         .execute();
+      if (column.isPrimary && !PRIMARY_TYPES.has(fieldType)) {
+        await tx
+          .updateTable("dataColumns")
+          .set({ isPrimary: false })
+          .where("id", "=", column.id)
+          .execute();
+        const next = own.find(
+          (item) => item.id !== column.id && PRIMARY_TYPES.has(item.fieldType),
+        );
+        if (next) {
+          await tx
+            .updateTable("dataColumns")
+            .set({ isPrimary: true })
+            .where("id", "=", next.id)
+            .execute();
+        }
+      }
     },
   );
 }

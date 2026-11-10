@@ -1,13 +1,14 @@
 import { Avatar, Button, Input, Label, Select } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Trash2 } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { downloadJobFile, useTrackJob } from "../../lib/jobs";
 import { useCatalog } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { canManage, type CatalogBase, type Role } from "../../lib/types";
+import { NotebookPage, RuledSection } from "../shell/notebook-page";
 import { useInvalidateCatalog } from "../shell/sidebar";
 import { GroupRoles } from "./group-roles";
 import { TableAclPanel } from "./table-acl-panel";
@@ -29,26 +30,6 @@ export function useRoleLabel() {
           : role === "viewer"
             ? t`Viewer`
             : "—";
-}
-
-function Section({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="rounded-sm border border-border bg-card p-5">
-      <h2 className="text-base font-semibold">{title}</h2>
-      {description ? (
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-      ) : null}
-      <div className="mt-4 flex flex-col gap-3">{children}</div>
-    </section>
-  );
 }
 
 export function BaseSettings({ baseId }: { baseId: string }) {
@@ -124,11 +105,8 @@ export function BaseSettings({ baseId }: { baseId: string }) {
 
   if (!base) return null;
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-6">
-      <h1 className="text-xl font-semibold">
-        {t`${{ name: base.name }} settings`}
-      </h1>
-      <Section title={t`Description`}>
+    <NotebookPage title={t`${{ name: base.name }} settings`}>
+      <RuledSection title={t`Description`}>
         <textarea
           className="min-h-20 rounded-md border border-border bg-card p-2 text-sm"
           aria-label={t`Description`}
@@ -158,8 +136,8 @@ export function BaseSettings({ baseId }: { baseId: string }) {
             {t`Save`}
           </Button>
         ) : null}
-      </Section>
-      <Section
+      </RuledSection>
+      <RuledSection
         title={t`Members`}
         description={t`The base role applies to all of its tables.`}
       >
@@ -302,17 +280,17 @@ export function BaseSettings({ baseId }: { baseId: string }) {
             {t`Your role: ${{ role: roleLabel(base.role) }}`}
           </p>
         )}
-      </Section>
+      </RuledSection>
       {manage ? (
-        <Section
+        <RuledSection
           title={t`Groups`}
           description={t`Groups come from your identity provider. Each member gets the group's role, and loses it on leaving the group.`}
         >
           <GroupRoles baseId={baseId} roleLabel={(value) => roleLabel(value)} />
-        </Section>
+        </RuledSection>
       ) : null}
       {manage ? (
-        <Section
+        <RuledSection
           title={t`Backup`}
           description={t`Portable file: schema, views, rows, members, and the attachments in a .zip archive when the base has some. Import it again from “New base”.`}
         >
@@ -340,10 +318,10 @@ export function BaseSettings({ baseId }: { baseId: string }) {
               {t`Add at least one table before exporting.`}
             </p>
           ) : null}
-        </Section>
+        </RuledSection>
       ) : null}
       {manage ? (
-        <Section
+        <RuledSection
           title={t`Per-table access`}
           description={t`A table override replaces the base role either way. Field rights further restrict reading and writing.`}
         >
@@ -356,10 +334,10 @@ export function BaseSettings({ baseId }: { baseId: string }) {
               people={[...(collaborators.data?.users ?? [])]}
             />
           ))}
-        </Section>
+        </RuledSection>
       ) : null}
       {manage ? (
-        <Section
+        <RuledSection
           title={t`Webhooks`}
           description={t`Signed HTTPS POST (HMAC-SHA256) or email, on every write.`}
         >
@@ -373,9 +351,9 @@ export function BaseSettings({ baseId }: { baseId: string }) {
               />
             </div>
           ))}
-        </Section>
+        </RuledSection>
       ) : null}
-    </div>
+    </NotebookPage>
   );
 }
 

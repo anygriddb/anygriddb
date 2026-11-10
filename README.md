@@ -62,12 +62,13 @@ cp .env.example .env          # every required value, no defaults for secrets
 docker compose up -d --build
 ```
 
-Open https://localhost:3000: the app and its API share that address. Set `PUBLIC_URL` to the address people type, a domain or `https://192.168.1.10:3000`; `http://` on the same port redirects there.
+Open https://localhost:3000: the app and its API share that address. Set `PUBLIC_URL` to the HTTPS origin people type (a hostname such as `https://grid.example.org` or `https://grid.lan:3000`). Put extra certificate names or IP addresses in `TLS_NAMES`. `http://` on the same port redirects there.
 
 AnyGridDB serves HTTPS only, secure by design (ADR 0029):
 
 - With your own certificate, set `TLS_CERT_FILE` and `TLS_KEY_FILE` (see `docker/.env.example`).
-- Without one, AnyGridDB makes its own authority at the first start and signs its certificate with it. Browsers warn until you install that authority, once per workstation: download it from Administration > Health, or from `https://<address>/tls/authority.crt`, and check its SHA-256 fingerprint against the one shown there and in the start log. It can only vouch for AnyGridDB's addresses, never for another site. Passkeys need it installed; TOTP works either way.
+- Without one, AnyGridDB makes its own authority at the first start and signs its certificate with it. Browsers warn until you install that authority, once per workstation: download it from Administration > Health, or from `https://<address>/tls/authority.crt`, and check its SHA-256 fingerprint against the one shown there and in the start log. It can only vouch for AnyGridDB's addresses, never for another site.
+- Passkeys need that trust **and** a DNS hostname (or `localhost`) in `PUBLIC_URL`, matching the address in the browser. An IP-only `PUBLIC_URL` keeps HTTPS and TOTP; passkeys stay off until you give the instance a resolvable name (see `docs/operations.md`).
 
 Inside the stack too, every connection is encrypted and verified (ADR 0030): PostgreSQL takes TLS connections only and RustFS serves HTTPS, with certificates a one-shot `certs` service issues before they start. A `DATABASE_URL`, `S3_ENDPOINT`, or SMTP relay beyond the machine must use verified TLS, or AnyGridDB does not start.
 

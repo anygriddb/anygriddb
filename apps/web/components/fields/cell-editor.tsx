@@ -2,9 +2,9 @@ import { cellText, coerceCellValue } from "@anygriddb/core";
 import {
   Avatar,
   Button,
+  Checkbox,
   cn,
   DatePicker,
-  IntegerField,
   ListPicker,
   OptionBadge,
   Spinner,
@@ -37,6 +37,12 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { useTable, type CellValue } from "../table/table-context";
 import { optionsOf } from "./cell-value";
+import {
+  multiSelectAppearance,
+  ratingVisual,
+  singleSelectAppearance,
+} from "./field-appearance";
+import { RatingControl } from "./rating-control";
 import { AttachmentPreview } from "./attachment-preview";
 import { linkedRowDraft } from "./link-actions";
 import { useLingui } from "@lingui/react/macro";
@@ -332,11 +338,10 @@ function DateEditor({ column, row, initialText, onDone }: EditorProps) {
   );
 }
 
-/** A rating, from none to its field's maximum; the arrows change it. */
+/** A rating: clickable glyphs (icon/colour from the field), arrows, digits. */
 function RatingEditor({ column, row, initialText, onDone }: EditorProps) {
-  const { t } = useLingui();
   const { updateCells } = useTable();
-  const max = (column.config as { ratingMax?: number }).ratingMax ?? 5;
+  const { max } = ratingVisual(column);
   const current = row[column.name as keyof RowItem];
   const stored = typeof current === "number" ? current : null;
   const [value, setValue] = useState<number | null>(() => {
@@ -344,17 +349,9 @@ function RatingEditor({ column, row, initialText, onDone }: EditorProps) {
     return /^\d$/.test(initialText) ? Math.min(max, Number(initialText)) : null;
   });
   const committed = useRef(false);
-  const box = useRef<HTMLDivElement>(null);
 
-  async function commit(move?: Move) {
+  async function commit(next: number | null, move?: Move) {
     if (committed.current) return;
-    // What is typed, as the field will read it on leaving.
-    const text = box.current?.querySelector("input")?.value.trim() ?? "";
-    const next = text === "" ? null : Number(text);
-    if (next !== null && (!Number.isInteger(next) || next < 0 || next > max)) {
-      toast.error(t`Invalid value for ${{ field: column.label }}`);
-      return;
-    }
     committed.current = true;
     onDone(move);
     if (next === stored) return;
@@ -363,29 +360,25 @@ function RatingEditor({ column, row, initialText, onDone }: EditorProps) {
 
   return (
     <div
-      ref={box}
-      className="contents"
-      onPointerDown={(event) => event.stopPropagation()}
-      onKeyDownCapture={(event) =>
-        endingKey(event, (move, keep) => {
-          if (keep) {
-            void commit(move);
-            return;
-          }
+      className={cn(INLINE_EDITOR_CLASS, "flex items-center px-1.5")}
+      onBlur={(event) => {
+        const next = event.relatedTarget;
+        if (next instanceof Node && event.currentTarget.contains(next)) return;
+        void commit(value);
+      }}
+    >
+      <RatingControl
+        column={column}
+        value={value}
+        interactive
+        autoFocus
+        onChange={setValue}
+        onCommit={(next) => void commit(next, "down")}
+        onCancel={() => {
+          if (committed.current) return;
           committed.current = true;
           onDone();
-        })
-      }
-      onBlur={() => void commit()}
-    >
-      <IntegerField
-        aria-label={column.label}
-        value={value}
-        onChange={setValue}
-        minValue={0}
-        maxValue={max}
-        autoFocus
-        className={INLINE_EDITOR_CLASS}
+        }}
       />
     </div>
   );
@@ -421,7 +414,7 @@ function ListPanel({
   return (
     <div
       ref={ref}
-      className="absolute top-0 left-0 z-30 flex max-h-80 w-72 flex-col rounded-sm border border-border bg-card shadow-xl"
+      className="absolute top-0 left-0 z-50 flex max-h-80 w-72 flex-col rounded-sm border border-border bg-card shadow-xl"
       // Clicks in the panel stay in it: the grid keeps its editor open.
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDownCapture={(event) => {
@@ -458,6 +451,9 @@ function SelectEditor({ column, row, onDone }: EditorProps) {
         ? [cellText(current)]
         : [],
   );
+  const selectAppearance = multiple
+    ? multiSelectAppearance(column)
+    : singleSelectAppearance(column);
   const options: PickerOption[] = optionsOf(column).map((option) => ({
     id: option.name,
     textValue: option.name,
@@ -479,6 +475,63 @@ function SelectEditor({ column, row, onDone }: EditorProps) {
         values: { [column.name]: picked[0] === name ? null : name },
       },
     ]);
+  }
+  if (!multiple && selectAppearance === "radio") {
+    return (
+      <ListPanel onClose={onDone} tabCloses>
+        <div
+          role="radiogroup"
+          aria-label={column.label}
+          className="flex max-h-72 flex-col gap-1 overflow-auto p-2"
+        >
+          {optionsOf(column).map((option) => {
+            const checked = picked[0] === option.name;
+            return (
+              <label
+                key={option.name}
+                className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1.5 text-sm hover:bg-muted"
+              >
+                <input
+                  type="radio"
+                  name={`select-${column.name}`}
+                  checked={checked}
+                  className="accent-primary"
+                  onChange={() => void toggle(option.name)}
+                />
+                <OptionBadge color={option.color}>{option.name}</OptionBadge>
+              </label>
+            );
+          })}
+        </div>
+      </ListPanel>
+    );
+  }
+  if (multiple && selectAppearance === "checklist") {
+    return (
+      <ListPanel onClose={onDone} tabCloses>
+        <div
+          role="group"
+          aria-label={column.label}
+          className="flex max-h-72 flex-col gap-1 overflow-auto p-2"
+        >
+          {optionsOf(column).map((option) => {
+            const checked = picked.includes(option.name);
+            return (
+              <label
+                key={option.name}
+                className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1.5 text-sm hover:bg-muted"
+              >
+                <Checkbox
+                  checked={checked}
+                  onChange={() => void toggle(option.name)}
+                />
+                <OptionBadge color={option.color}>{option.name}</OptionBadge>
+              </label>
+            );
+          })}
+        </div>
+      </ListPanel>
+    );
   }
   return (
     <ListPanel onClose={onDone} tabCloses>

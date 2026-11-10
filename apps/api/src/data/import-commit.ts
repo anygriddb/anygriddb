@@ -17,13 +17,11 @@ import { z } from "zod";
 import type { ParsedSheet } from "../import-file.js";
 import { MAX_COPY_ROWS, readAll } from "./data-ops.js";
 import { loadEngine, type TableRow } from "./engine.js";
+import { readPage, writeColumns, type WriteContext } from "./rows.js";
 import {
-  insertRows,
-  readPage,
-  updateRows,
-  writeColumns,
-  type WriteContext,
-} from "./rows.js";
+  insertNativeBatch,
+  updateNativeBatch,
+} from "../services/rows.js";
 import { addColumn, updateColumn } from "./schema-ops.js";
 import type { SummaryEvent } from "../queue/jobs.js";
 import {
@@ -427,6 +425,7 @@ export async function importIntoTable(
             column: staged.headers[input.upsertSource ?? 0] ?? "",
             value: text.slice(0, 80),
             message: "Row locked",
+            code: "row_locked",
           });
         }
         continue;
@@ -508,7 +507,7 @@ export async function importIntoTable(
   for (let index = 0; index < inserts.length; index += BATCH) {
     const batch = inserts.slice(index, index + BATCH);
     inserted += (
-      await insertRows(db, engine, batchContext(inserted + batch.length), batch)
+      await insertNativeBatch(db, engine, batchContext(inserted + batch.length), batch)
     ).length;
     await input.onProgress?.(inserted, total);
   }
@@ -516,7 +515,7 @@ export async function importIntoTable(
   for (let index = 0; index < updates.length; index += BATCH) {
     const batch = updates.slice(index, index + BATCH);
     updated += (
-      await updateRows(
+      await updateNativeBatch(
         db,
         engine,
         batchContext(inserted + updated + batch.length),

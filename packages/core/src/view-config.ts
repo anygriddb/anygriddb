@@ -26,6 +26,11 @@ export const viewTypeSchema = z.enum(VIEW_TYPES);
 
 export const ROW_HEIGHTS = ["short", "medium", "tall", "extra"] as const;
 
+/** Soft product ceilings for view chrome (UI + schema stay in lockstep). */
+export const MAX_VIEW_SORTS = 10;
+export const MAX_VIEW_GROUPS = 5;
+export const MAX_FROZEN_COLUMNS = 10;
+
 const columnList = z.array(columnNameSchema).max(200);
 
 const formFieldSchema = z
@@ -71,13 +76,13 @@ export const viewColorSchema = z
 const shape = {
   filter: filterGroupSchema,
   filtersDisabled: z.boolean(),
-  sort: z.array(rowSortSchema).max(5),
-  groupBy: z.array(groupSpecSchema).max(3),
+  sort: z.array(rowSortSchema).max(MAX_VIEW_SORTS),
+  groupBy: z.array(groupSpecSchema).max(MAX_VIEW_GROUPS),
   search: z.string().trim().min(1).max(200),
   fieldOrder: columnList,
   hiddenFields: columnList,
   columnWidths: z.record(columnNameSchema, z.int().min(40).max(1_200)),
-  frozenColumns: z.int().min(0).max(5),
+  frozenColumns: z.int().min(0).max(MAX_FROZEN_COLUMNS),
   rowHeight: z.enum(ROW_HEIGHTS),
   aggregations: z.record(columnNameSchema, z.enum(AGGREGATE_FNS)),
   color: viewColorSchema,

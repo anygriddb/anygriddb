@@ -19,7 +19,11 @@ export function TimelineView(props: ViewProps) {
   const { t } = useLingui();
   const { locale } = useLocale();
   const table = useTable();
-  const title = useRowTitle();
+  const title = useRowTitle(
+    typeof props.config.titleColumn === "string"
+      ? props.config.titleColumn
+      : undefined,
+  );
   // Today, as of when the view opened: the axis does not move as it renders.
   const [now] = useState(Date.now);
   const dated = props.allColumns.filter(
@@ -139,26 +143,30 @@ export function TimelineView(props: ViewProps) {
             style={{ left: today }}
             aria-hidden
           />
-          {bars.map(({ row, from, to }) => (
-            <div
-              key={row.id}
-              className="relative h-9 border-b border-border/60"
-            >
-              <button
-                type="button"
-                onClick={() => table.openRecord(row.id)}
-                className={cn(
-                  "absolute top-1.5 h-6 truncate rounded-md bg-primary px-2 text-left text-xs text-primary-foreground",
-                )}
-                style={{
-                  left: ((from - min) / DAY) * perDay,
-                  width: Math.max(perDay, ((to - from) / DAY + 1) * perDay),
-                }}
+          {bars.map(({ row, from, to }) => {
+            const tint = props.tintOf?.(row);
+            return (
+              <div
+                key={row.id}
+                className="relative h-9 border-b border-border/60"
               >
-                {title(row)}
-              </button>
-            </div>
-          ))}
+                <button
+                  type="button"
+                  onClick={() => table.openRecord(row.id)}
+                  className={cn(
+                    "absolute top-1.5 h-6 truncate rounded-md bg-primary px-2 text-left text-xs text-primary-foreground",
+                    tint && `row-tint-${tint}`,
+                  )}
+                  style={{
+                    left: ((from - min) / DAY) * perDay,
+                    width: Math.max(perDay, ((to - from) / DAY + 1) * perDay),
+                  }}
+                >
+                  {title(row)}
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

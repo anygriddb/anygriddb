@@ -13,6 +13,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { CellValueView } from "../fields/cell-value";
 import { formPrefill } from "../views/form-prefill";
+import { formRedirectAfterSubmit } from "../views/form-redirect";
 import {
   FieldInput,
   FORM_TIME_ZONE,
@@ -40,6 +41,7 @@ type FormConfig = {
   description?: string;
   submitLabel?: string;
   successMessage?: string;
+  redirectUrl?: string;
   allowAnother?: boolean;
   fields?: FormField[];
 };
@@ -137,6 +139,7 @@ function PublicForm({
         values: out as never,
         timeZone: FORM_TIME_ZONE,
       });
+      if (formRedirectAfterSubmit(form.redirectUrl)) return;
       setDone(true);
       setValues(prefill.values);
     } catch (cause) {
@@ -225,12 +228,16 @@ function PublicRows({
   columns,
   allowCopy,
   cards,
+  titleColumn,
+  cardFields,
 }: {
   token: string;
   access: string | undefined;
   columns: CatalogColumn[];
   allowCopy: boolean;
   cards: boolean;
+  titleColumn?: string;
+  cardFields?: string[];
 }) {
   const { t } = useLingui();
   const { locale } = useLocale();
@@ -253,6 +260,16 @@ function PublicRows({
     }),
   );
   const primary = columns.find((column) => column.isPrimary) ?? columns[0];
+  const titleField =
+    (titleColumn
+      ? columns.find((column) => column.name === titleColumn)
+      : undefined) ?? primary;
+  const detailColumns = cardFields?.length
+    ? cardFields
+        .map((name) => columns.find((column) => column.name === name))
+        .filter((column): column is CatalogColumn => Boolean(column))
+        .filter((column) => column !== titleField)
+    : columns.filter((column) => column !== titleField).slice(0, 5);
   const list = rows.data?.rows ?? [];
   return (
     <div
@@ -288,37 +305,34 @@ function PublicRows({
                 key={String(row.id)}
                 className="rounded-sm border border-border bg-card p-3"
               >
-                {primary ? (
+                {titleField ? (
                   <p className="truncate font-medium">
                     <CellValueView
-                      value={row[primary.name]}
-                      error={rowError(row, primary.name)}
-                      column={primary}
+                      value={row[titleField.name]}
+                      error={rowError(row, titleField.name)}
+                      column={titleField}
                       locale={locale}
                       people={NO_PEOPLE}
                     />
                   </p>
                 ) : null}
                 <dl className="mt-2 flex flex-col gap-1">
-                  {columns
-                    .filter((column) => column !== primary)
-                    .slice(0, 5)
-                    .map((column) => (
-                      <div key={column.name}>
-                        <dt className="text-[11px] text-muted-foreground">
-                          {column.label}
-                        </dt>
-                        <dd className="flex min-w-0 text-xs">
-                          <CellValueView
-                            value={row[column.name]}
-                            error={rowError(row, column.name)}
-                            column={column}
-                            locale={locale}
-                            people={NO_PEOPLE}
-                          />
-                        </dd>
-                      </div>
-                    ))}
+                  {detailColumns.map((column) => (
+                    <div key={column.name}>
+                      <dt className="text-[11px] text-muted-foreground">
+                        {column.label}
+                      </dt>
+                      <dd className="flex min-w-0 text-xs">
+                        <CellValueView
+                          value={row[column.name]}
+                          error={rowError(row, column.name)}
+                          column={column}
+                          locale={locale}
+                          people={NO_PEOPLE}
+                        />
+                      </dd>
+                    </div>
+                  ))}
                 </dl>
               </li>
             ))}
@@ -377,9 +391,9 @@ function PublicRows({
             <Button
               variant="outline"
               onClick={() =>
-                setLimit((current) => Math.min(500, current + 100))
+                setLimit((current) => Math.min(1000, current + 100))
               }
-              disabled={limit >= 500}
+              disabled={limit >= 1000}
             >
               {t`Show more`}
             </Button>
@@ -485,7 +499,11 @@ export function PublicView({ token }: { token: string }) {
   }
   const columns = data.columns as unknown as CatalogColumn[];
   const viewType = data.view.viewType;
-  const config = data.view.config as { form?: FormConfig };
+  const config = data.view.config as {
+    form?: FormConfig;
+    titleColumn?: string;
+    cardFields?: string[];
+  };
   return (
     <main className="flex h-screen flex-col">
       <header className="flex items-center gap-2 border-b border-border bg-card px-4 py-3">
@@ -521,6 +539,8 @@ export function PublicView({ token }: { token: string }) {
           columns={columns}
           allowCopy={data.allowCopy}
           cards={viewType !== "grid"}
+          titleColumn={config.titleColumn}
+          cardFields={config.cardFields}
         />
       )}
     </main>

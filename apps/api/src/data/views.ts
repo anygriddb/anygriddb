@@ -13,6 +13,7 @@ import {
 import type { Database, ViewRow } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
 import { liveColumnNames, liveView, trashedColumnNames } from "./live.js";
+import { clientFilter } from "../sources/control-plane-read-filter.js";
 
 export type { ViewRow };
 
@@ -98,14 +99,18 @@ export function assertViewConfig(
   }
   const config = pruneViewConfig(stored, known);
   try {
+    // Fields kept in AnyGridDB filter a view apart from its query (ADR 0046).
     buildReadRows(engine, {
       limit: 1,
-      filter: config.filter,
+      filter: clientFilter(engine, config.filter),
       sort: config.sort,
       groupBy: config.groupBy,
     });
     for (const rule of config.color?.rules ?? []) {
-      buildReadRows(engine, { limit: 1, filter: rule.filter });
+      buildReadRows(engine, {
+        limit: 1,
+        filter: clientFilter(engine, rule.filter, { check: false }),
+      });
     }
   } catch (error) {
     throw new AppError("invalid_view", { cause: error });

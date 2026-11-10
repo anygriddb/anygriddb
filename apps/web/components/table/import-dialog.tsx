@@ -380,7 +380,8 @@ export function ImportDialog(props: {
                         <td className="px-2 py-1 font-mono">{error.value}</td>
                         <td className="px-2 py-1">
                           {error.code
-                            ? // What a client's database refused (ADR 0028).
+                            ? // Stable code from the job (row_locked) or a
+                              // client's database refusal (ADR 0028).
                               errorText({
                                 data: {
                                   reason: {
@@ -389,9 +390,7 @@ export function ImportDialog(props: {
                                   },
                                 },
                               })
-                            : error.message === "Row locked"
-                              ? t`Row locked`
-                              : t`Invalid value for this type`}
+                            : t`Invalid value for this type`}
                         </td>
                       </tr>
                     ))}

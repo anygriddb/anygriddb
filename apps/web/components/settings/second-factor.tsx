@@ -1,13 +1,15 @@
 import { Button, Input, Label } from "@anygriddb/ui";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, KeyRound } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { useErrorText } from "../../lib/errors";
+import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { registerPasskey } from "../../lib/webauthn";
 import { useLingui } from "@lingui/react/macro";
+import { totpAction, type MfaMethod } from "./second-factor-model";
 
 export function BackupCodes({
   codes,
@@ -57,6 +59,12 @@ export function SecondFactorSetup({
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
+  const session = useSession();
+  const instance = useQuery(api.auth.instance.queryOptions());
+  const methods = (session.data?.mfaMethods ?? []) as MfaMethod[];
+  const totp = totpAction(methods);
+  const passkeysOk =
+    window.isSecureContext && (instance.data?.passkeysEligible ?? true);
   const [secret, setSecret] = useState<{ secret: string; url: string } | null>(
     null,
   );
@@ -79,6 +87,16 @@ export function SecondFactorSetup({
 
   return (
     <div className="flex flex-col gap-3">
+      {methods.length > 0 ? (
+        <ul className="text-sm text-muted-foreground">
+          {methods.includes("totp") ? (
+            <li>{t`Authenticator app (TOTP) is set up.`}</li>
+          ) : null}
+          {methods.includes("webauthn") ? (
+            <li>{t`At least one passkey is registered.`}</li>
+          ) : null}
+        </ul>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
@@ -89,11 +107,11 @@ export function SecondFactorSetup({
             })
           }
         >
-          {t`Enable TOTP`}
+          {totp === "replace" ? t`Replace TOTP` : t`Enable TOTP`}
         </Button>
         <Button
           variant="outline"
-          disabled={!window.isSecureContext}
+          disabled={!passkeysOk}
           onClick={() =>
             void run(async () => {
               const codes = await registerPasskey();
@@ -105,14 +123,20 @@ export function SecondFactorSetup({
           }
         >
           <KeyRound className="h-4 w-4" aria-hidden />
-          {t`Register a passkey`}
+          {methods.includes("webauthn")
+            ? t`Add another passkey`
+            : t`Register a passkey`}
         </Button>
       </div>
-      {window.isSecureContext ? null : (
+      {!window.isSecureContext ? (
         <p className="text-sm text-muted-foreground">
           {t`Browsers accept passkeys on an HTTPS address only: use TOTP, or open AnyGridDB over HTTPS.`}
         </p>
-      )}
+      ) : instance.data && !instance.data.passkeysEligible ? (
+        <p className="text-sm text-muted-foreground">
+          {t`Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Use a TOTP app, or open AnyGridDB at that hostname.`}
+        </p>
+      ) : null}
       {secret ? (
         <form
           className="flex max-w-md flex-col gap-2"
@@ -130,6 +154,11 @@ export function SecondFactorSetup({
             });
           }}
         >
+          {totp === "replace" ? (
+            <p className="text-sm text-muted-foreground">
+              {t`Confirming replaces your current authenticator and issues new backup codes. The old app stops working.`}
+            </p>
+          ) : null}
           <Label htmlFor="totp-secret">{t`Secret`}</Label>
           <Input
             id="totp-secret"
@@ -152,7 +181,7 @@ export function SecondFactorSetup({
             onChange={(event) => setCode(event.target.value)}
           />
           <Button type="submit" className="self-start">
-            {t`Confirm TOTP`}
+            {totp === "replace" ? t`Replace and confirm` : t`Confirm TOTP`}
           </Button>
         </form>
       ) : null}

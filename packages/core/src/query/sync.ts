@@ -154,6 +154,34 @@ export function buildCopyInsert(
   };
 }
 
+/**
+ * Upserts changed rows into the current copy (incremental refresh). Every
+ * non-key column is replaced; `ag_id` is the conflict target.
+ */
+export function buildCopyUpsert(
+  tableId: string,
+  columns: readonly CopyColumn[],
+  rows: ReadonlyArray<Readonly<Record<string, unknown>>>,
+): ParameterizedSql {
+  const names = columns
+    .map((column) => quoteExternalIdent(column.name))
+    .join(", ");
+  const record = columns
+    .map((column) => `${quoteExternalIdent(column.name)} ${column.type}`)
+    .join(", ");
+  const updates = columns
+    .filter((column) => column.name !== "ag_id")
+    .map(
+      (column) =>
+        `${quoteExternalIdent(column.name)} = excluded.${quoteExternalIdent(column.name)}`,
+    )
+    .join(", ");
+  return {
+    text: `insert into ${qualified(copyTable(tableId))} (${names}) select ${names} from jsonb_to_recordset($1::jsonb) as r(${record}) on conflict ("ag_id") do update set ${updates}`,
+    values: [JSON.stringify(rows)],
+  };
+}
+
 /** A link's cell as the key it holds. */
 function linkKey(value: unknown): unknown {
   if (!Array.isArray(value)) return value ?? null;

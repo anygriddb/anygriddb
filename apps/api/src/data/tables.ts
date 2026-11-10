@@ -3,6 +3,7 @@ import {
   buildDropColumn,
   buildDropTable,
   buildNonNullValues,
+  MAX_READ_LIMIT,
 } from "@anygriddb/core";
 import { runStatement, type Database } from "@anygriddb/db";
 import { deleteFiles, type FileStore } from "../files/index.js";
@@ -16,19 +17,26 @@ export async function columnAttachmentKeys(
 ): Promise<string[]> {
   const keys: string[] = [];
   for (const name of columnNames) {
-    const statement = buildNonNullValues({
-      table: physicalName,
-      column: name,
-      limit: 5000,
-    });
-    const result = await runStatement(db, statement);
-    for (const row of result) {
-      const value: unknown = row.value;
-      for (const key of Array.isArray(value) ? value : [value]) {
-        if (typeof key === "string") {
-          keys.push(key);
+    let offset = 0;
+    for (;;) {
+      const statement = buildNonNullValues({
+        table: physicalName,
+        column: name,
+        limit: MAX_READ_LIMIT,
+        offset,
+      });
+      const result = await runStatement(db, statement);
+      if (result.length === 0) break;
+      for (const row of result) {
+        const value: unknown = row.value;
+        for (const key of Array.isArray(value) ? value : [value]) {
+          if (typeof key === "string") {
+            keys.push(key);
+          }
         }
       }
+      offset += result.length;
+      if (result.length < MAX_READ_LIMIT) break;
     }
   }
   return keys;

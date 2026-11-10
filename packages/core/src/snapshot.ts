@@ -170,7 +170,8 @@ export type ExportSnapshotJobInput = z.infer<
 
 /**
  * A copy of a base in one step: its snapshot read into a new base, so the
- * copy carries what a snapshot does (no attachments or user cells).
+ * copy carries what a snapshot does (rows, attachments, and user cells by
+ * email).
  */
 export const duplicateBaseJobInputSchema = z
   .object({

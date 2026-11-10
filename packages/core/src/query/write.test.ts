@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildInsert,
   buildInsertLinks,
+  buildNonNullValues,
   buildRestoreRow,
   buildUpdate,
 } from "./write";
@@ -61,6 +62,28 @@ describe("write builders", () => {
         rightIds: [],
       }),
     ).toThrow("Invalid link");
+  });
+
+  it("caps non-null value reads at the page limit", () => {
+    const sql = buildNonNullValues({
+      table: "t_orders",
+      column: "files",
+      limit: 1000,
+      offset: 1000,
+    });
+    expect(sql.text).toContain("order by ctid limit $1 offset $2");
+    expect(sql.values).toEqual([1000, 1000]);
+    expect(() =>
+      buildNonNullValues({ table: "t_orders", column: "files", limit: 1001 }),
+    ).toThrow("Invalid limit");
+    expect(() =>
+      buildNonNullValues({
+        table: "t_orders",
+        column: "files",
+        limit: 10,
+        offset: -1,
+      }),
+    ).toThrow("Invalid limit");
   });
 
   it("restores a snapshot as a draft with its identity", () => {

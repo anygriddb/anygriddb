@@ -1,6 +1,7 @@
 # 0045 — Cell editors on React Aria; exact numbers stay text
 
-- Status: Accepted (amends 0012 for number fields)
+- Status: Accepted (amends 0012 for number fields); ratings and list
+  appearances amended 2026-11-10
 - Date: 2026-11-09
 
 ## Context
@@ -24,8 +25,18 @@ keys.
   options (`aria-activedescendant`), Enter picks, Escape closes, Tab
   closes and moves to the next cell. A link's "create" is an option of
   the list.
-- **Ratings**: React Aria's NumberField, a spin button between 0 and the
-  field's maximum.
+- **Ratings** (amended 2026-11-10): a slider of the field's own icons
+  (`role="slider"`, 0 to the maximum, its value said as `3/5`), the same
+  control in the grid, the record panel, and the forms. The arrows,
+  Home, End, and a digit change it; Enter or Tab keeps it, Escape leaves
+  it; a click on an icon sets it, and on the current one clears it. The
+  icons are drawn, not controls of their own. It replaced React Aria's
+  NumberField once ratings took an icon and a colour: a spin button
+  showed a number where the cell showed stars.
+- **Lists shown as radio buttons or a checklist** (amended 2026-11-10):
+  a single or multiple choice whose field asks for that appearance is
+  edited with native radio buttons or checkboxes in a labelled group;
+  the default appearance keeps the Autocomplete list.
 - **Numbers stay a text field**, checked as typed (`aria-invalid`) and
   parsed by `coerceCellValue`. React Aria's NumberField holds a float:
   past 15 significant digits it would round what the person typed, which

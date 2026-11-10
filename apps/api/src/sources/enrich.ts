@@ -1,10 +1,8 @@
 /**
- * Fields AnyGridDB adds to a client's table (ADRs 0006, 0032): a status,
- * notes, a date of its own. They live in a side table, in the schema of
- * the client's database its DBA gives AnyGridDB (a database on MySQL and
- * MariaDB), keyed like the client's table and joined to it on read. The
- * client's own table is never changed: AnyGridDB only creates and alters
- * its side tables.
+ * Fields AnyGridDB adds to a client's table (ADRs 0006, 0032, 0046): a
+ * status, notes, a date of its own. With a side schema they live in a side
+ * table of the client's database, joined on read. Without one they live in
+ * the control plane. The client's own table is never changed.
  */
 import {
   AppError,
@@ -118,12 +116,58 @@ export async function addSideField(
     .select(["engine", "sideSchema"])
     .where("id", "=", table.sourceId)
     .executeTakeFirstOrThrow();
-  const schema = source.sideSchema;
-  if (!schema) throw new AppError("source_side_none");
   const { engine } = await loadEngine(db, table.id, () => true);
   const external = engine.table.external;
   if (!external || external.key.length === 0) {
     throw new AppError("external_table_no_key");
+  }
+  const schema = source.sideSchema;
+  // No side schema: keep the field in AnyGridDB (ADR 0046).
+  if (!schema) {
+    return withAudit(
+      db,
+      { userId, tableId: table.id, source: "web" },
+      async (tx) => {
+        await tx
+          .updateTable("dataColumns")
+          .set((eb) => ({ position: eb("position", "+", 1) }))
+          .where("tableId", "=", table.id)
+          .where("position", ">=", position)
+          .where("position", "<", 10_000)
+          .execute();
+        const taken = new Set(
+          (
+            await tx
+              .selectFrom("dataColumns")
+              .select("physicalName")
+              .where("tableId", "=", table.id)
+              .execute()
+          ).map((row) => row.physicalName.toLowerCase()),
+        );
+        for (const key of external.key) taken.add(key.toLowerCase());
+        const column = sideColumnName(planned.name, taken);
+        return tx
+          .insertInto("dataColumns")
+          .values({
+            tableId: table.id,
+            name: planned.name,
+            physicalName: column,
+            fieldType: planned.fieldType,
+            requireReason: planned.requireReason,
+            config: planned.config,
+            label: planned.label,
+            description: planned.description,
+            position,
+            externalType: sideColumnType(external.dialect, sideType),
+            externalWritable: true,
+            externalInsertable: true,
+            externalSide: true,
+            externalControlPlane: true,
+          })
+          .returning(["id", "name"])
+          .executeTakeFirstOrThrow();
+      },
+    );
   }
   const sideName = table.externalSide ?? sideTableName(table.id);
   const sided: EngineTable = {

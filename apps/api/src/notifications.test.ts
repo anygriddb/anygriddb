@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { addedPeople, commentNotifications } from "./notifications.js";
+import {
+  addedPeople,
+  assignmentNotifies,
+  commentNotifications,
+} from "./notifications.js";
 
 const ADA = "11111111-1111-4111-8111-111111111111";
 const BOB = "22222222-2222-4222-8222-222222222222";
@@ -51,5 +55,15 @@ describe("addedPeople", () => {
   it("ignores removals and malformed values", () => {
     expect(addedPeople([ADA, BOB], [ADA])).toEqual([]);
     expect(addedPeople("x", { a: 1 })).toEqual([]);
+  });
+});
+
+describe("assignmentNotifies", () => {
+  it("defaults on and turns off only for an explicit false", () => {
+    expect(assignmentNotifies(undefined)).toBe(true);
+    expect(assignmentNotifies(null)).toBe(true);
+    expect(assignmentNotifies({})).toBe(true);
+    expect(assignmentNotifies({ notify: true, multiple: true })).toBe(true);
+    expect(assignmentNotifies({ notify: false })).toBe(false);
   });
 });

@@ -8,6 +8,7 @@ import {
 import {
   Button,
   Checkbox,
+  cn,
   DatePicker,
   Input,
   Label,
@@ -17,8 +18,9 @@ import {
   Select,
   Textarea,
 } from "@anygriddb/ui";
-import { CheckCircle2, Filter } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { useMemo, useState, type SubmitEvent } from "react";
+import { formRedirectAfterSubmit } from "./form-redirect";
 import {
   dateFieldLocale,
   dateFormatOf,
@@ -34,6 +36,11 @@ import { countConditions, FilterBuilder } from "../table/filter-builder";
 import { toast } from "sonner";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { optionsOf } from "../fields/cell-value";
+import {
+  booleanAppearance,
+  singleSelectAppearance,
+} from "../fields/field-appearance";
+import { RatingControl } from "../fields/rating-control";
 import { isEditableColumn } from "../grid/grid-clipboard";
 import { useTable } from "../table/table-context";
 import { formPrefill } from "./form-prefill";
@@ -64,6 +71,7 @@ type FormConfig = {
   description?: string;
   submitLabel?: string;
   successMessage?: string;
+  redirectUrl?: string;
   allowAnother?: boolean;
   fields?: FormField[];
 };
@@ -111,6 +119,7 @@ export function FieldInput({
   /** Whether a description is shown under the label. */
   described?: boolean;
 }) {
+  const { t } = useLingui();
   const { locale } = useLocale();
   const ids = formFieldIds(column.name);
   const id = ids.id;
@@ -128,7 +137,52 @@ export function FieldInput({
           onChange={(event) => onChange(event.target.value)}
         />
       );
-    case "boolean":
+    case "boolean": {
+      const appearance = booleanAppearance(column);
+      if (appearance === "yes_no") {
+        return (
+          <Select
+            id={id}
+            {...aria}
+            value={value === true ? "yes" : value === false ? "no" : ""}
+            onChange={(event) => {
+              const next = event.target.value;
+              onChange(next === "yes" ? true : next === "no" ? false : "");
+            }}
+          >
+            <option value="">—</option>
+            <option value="yes">{t`Yes`}</option>
+            <option value="no">{t`No`}</option>
+          </Select>
+        );
+      }
+      if (appearance === "switch") {
+        const on = value === true;
+        return (
+          <button
+            id={id}
+            type="button"
+            role="switch"
+            aria-checked={on}
+            aria-labelledby={ids.label}
+            aria-describedby={aria["aria-describedby"]}
+            aria-required={required || undefined}
+            className={cn(
+              "inline-flex h-6 w-11 shrink-0 items-center rounded-full px-0.5 transition-colors",
+              on ? "bg-primary" : "bg-muted",
+            )}
+            onClick={() => onChange(!on)}
+          >
+            <span
+              className={cn(
+                "h-5 w-5 rounded-full bg-card shadow-sm transition-transform",
+                on ? "translate-x-5" : "translate-x-0",
+              )}
+              aria-hidden
+            />
+          </button>
+        );
+      }
       return (
         <Checkbox
           id={id}
@@ -137,7 +191,35 @@ export function FieldInput({
           onChange={(event) => onChange(event.target.checked)}
         />
       );
+    }
     case "single_select":
+      if (singleSelectAppearance(column) === "radio") {
+        return (
+          <div
+            id={id}
+            role="radiogroup"
+            aria-labelledby={ids.label}
+            {...aria}
+            className="flex flex-col gap-2"
+          >
+            {optionsOf(column).map((option) => (
+              <label
+                key={option.name}
+                className="flex items-center gap-2 text-sm"
+              >
+                <input
+                  type="radio"
+                  name={id}
+                  checked={value === option.name}
+                  className="accent-primary"
+                  onChange={() => onChange(option.name)}
+                />
+                {option.name}
+              </label>
+            ))}
+          </div>
+        );
+      }
       return (
         <Select
           id={id}
@@ -183,29 +265,68 @@ export function FieldInput({
       );
     }
     case "rating": {
-      const max = (column.config as { ratingMax?: number }).ratingMax ?? 5;
+      const rating =
+        value === "" || typeof value === "boolean" ? null : Number(value);
       return (
-        <Select
+        <RatingControl
           id={id}
-          {...aria}
-          value={String(value)}
-          onChange={(event) => onChange(event.target.value)}
-        >
-          <option value="">—</option>
-          {Array.from({ length: max + 1 }, (_, index) => (
-            <option key={index} value={index}>
-              {"★".repeat(index) || "0"}
-            </option>
-          ))}
-        </Select>
+          column={column}
+          value={Number.isFinite(rating) ? rating : null}
+          interactive
+          aria-labelledby={ids.label}
+          aria-describedby={aria["aria-describedby"]}
+          aria-required={required || undefined}
+          onChange={(next) => onChange(next === null ? "" : String(next))}
+          onCommit={(next) => onChange(next === null ? "" : String(next))}
+        />
       );
     }
-    case "user":
+    case "user": {
+      const multiple =
+        (column.config as { multiple?: boolean }).multiple === true;
+      const picked = Array.isArray(value)
+        ? value
+        : value
+          ? [String(value)]
+          : [];
+      if (multiple) {
+        return (
+          <div
+            id={id}
+            role="group"
+            aria-labelledby={ids.label}
+            {...aria}
+            className="flex flex-col gap-2"
+          >
+            {[...people.values()].map((person) => {
+              const checked = picked.includes(person.id);
+              return (
+                <label
+                  key={person.id}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onChange={(event) =>
+                      onChange(
+                        event.target.checked
+                          ? [...picked, person.id]
+                          : picked.filter((item) => item !== person.id),
+                      )
+                    }
+                  />
+                  {person.displayName}
+                </label>
+              );
+            })}
+          </div>
+        );
+      }
       return (
         <Select
           id={id}
           {...aria}
-          value={Array.isArray(value) ? (value[0] ?? "") : String(value)}
+          value={picked[0] ?? ""}
           onChange={(event) =>
             onChange(event.target.value ? [event.target.value] : [])
           }
@@ -218,6 +339,7 @@ export function FieldInput({
           ))}
         </Select>
       );
+    }
     case "date":
     case "datetime": {
       const withTime = column.fieldType === "datetime";
@@ -343,6 +465,7 @@ export function FormView(props: ViewProps) {
     try {
       const id = await props.onCreate(out);
       if (id) {
+        if (formRedirectAfterSubmit(form.redirectUrl)) return;
         setDone(true);
         setValues(prefill.values);
       }
@@ -462,8 +585,18 @@ export function FormView(props: ViewProps) {
       {props.canEdit ? (
         <aside className="w-72 shrink-0 overflow-y-auto border-l border-border bg-card p-4">
           <h3 className="mb-2 text-sm font-semibold">{t`Form fields`}</h3>
-          <ul className="flex flex-col gap-1">
-            {candidates.map((column) => {
+          <ul className="flex flex-col gap-2">
+            {[
+              ...fields.flatMap((item) => {
+                const column = candidates.find(
+                  (candidate) => candidate.name === item.column,
+                );
+                return column ? [column] : [];
+              }),
+              ...candidates.filter(
+                (column) => !fields.some((item) => item.column === column.name),
+              ),
+            ].map((column) => {
               const field = fields.find((item) => item.column === column.name);
               const included = Boolean(field) && !field?.hidden;
               // A condition reads the fields placed before this one.
@@ -490,69 +623,133 @@ export function FormView(props: ViewProps) {
                   ),
                 });
               };
+              const move = (delta: number) => {
+                if (place < 0) return;
+                const target = place + delta;
+                if (target < 0 || target >= fields.length) return;
+                const next = [...fields];
+                const [item] = next.splice(place, 1);
+                if (!item) return;
+                next.splice(target, 0, item);
+                patchForm({ fields: next });
+              };
               return (
                 <li
                   key={column.name}
-                  className="flex flex-wrap items-center gap-2 text-sm"
+                  className="flex flex-col gap-1 rounded-md border border-transparent px-0.5 py-0.5 text-sm hover:border-border"
                 >
-                  <Checkbox
-                    checked={included}
-                    aria-label={t`Include ${{ field: column.label }}`}
-                    onChange={(event) =>
-                      update({ hidden: !event.target.checked })
-                    }
-                  />
-                  <span className="min-w-0 flex-1 truncate">
-                    {column.label}
-                  </span>
-                  <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Checkbox
-                      checked={field?.required === true}
-                      disabled={!included}
+                      checked={included}
+                      aria-label={t`Include ${{ field: column.label }}`}
                       onChange={(event) =>
-                        update({ required: event.target.checked })
+                        update({ hidden: !event.target.checked })
                       }
                     />
-                    {t`required`}
-                  </label>
-                  {included && earlier.length > 0 ? (
-                    <Popover>
-                      <PopoverTrigger asChild>
+                    <span className="min-w-0 flex-1 truncate">
+                      {column.label}
+                    </span>
+                    {place >= 0 ? (
+                      <span className="flex items-center">
                         <Button
                           size="icon"
-                          variant={conditions > 0 ? "outline" : "ghost"}
+                          variant="ghost"
                           className="h-6 w-6"
-                          aria-label={
-                            conditions > 0
-                              ? t`Display condition of ${{ field: column.label }}: ${{ count: conditions }}`
-                              : t`Show ${{ field: column.label }} on a condition`
-                          }
+                          disabled={place === 0}
+                          aria-label={t`Move ${{ field: column.label }} up`}
+                          onClick={() => move(-1)}
                         >
-                          <Filter className="h-3.5 w-3.5" aria-hidden />
+                          <ChevronUp className="h-3.5 w-3.5" aria-hidden />
                         </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[36rem] max-w-[95vw]">
-                        <p className="mb-2 text-xs text-muted-foreground">
-                          {t`Show “${{ field: column.label }}” only when earlier answers match:`}
-                        </p>
-                        <FilterBuilder
-                          group={
-                            field?.showIf ?? {
-                              conjunction: "and",
-                              conditions: [],
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          disabled={place >= fields.length - 1}
+                          aria-label={t`Move ${{ field: column.label }} down`}
+                          onClick={() => move(1)}
+                        >
+                          <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                        </Button>
+                      </span>
+                    ) : null}
+                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Checkbox
+                        checked={field?.required === true}
+                        disabled={!included}
+                        onChange={(event) =>
+                          update({ required: event.target.checked })
+                        }
+                      />
+                      {t`required`}
+                    </label>
+                    {included && earlier.length > 0 ? (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant={conditions > 0 ? "outline" : "ghost"}
+                            className="h-6 w-6"
+                            aria-label={
+                              conditions > 0
+                                ? t`Display condition of ${{ field: column.label }}: ${{ count: conditions }}`
+                                : t`Show ${{ field: column.label }} on a condition`
                             }
-                          }
-                          columns={earlier}
-                          people={table.people}
-                          onChange={(group) =>
-                            update({
-                              showIf:
-                                group.conditions.length > 0 ? group : undefined,
-                            })
-                          }
-                        />
-                      </PopoverContent>
-                    </Popover>
+                          >
+                            <Filter className="h-3.5 w-3.5" aria-hidden />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[36rem] max-w-[95vw]">
+                          <p className="mb-2 text-xs text-muted-foreground">
+                            {t`Show “${{ field: column.label }}” only when earlier answers match:`}
+                          </p>
+                          <FilterBuilder
+                            group={
+                              field?.showIf ?? {
+                                conjunction: "and",
+                                conditions: [],
+                              }
+                            }
+                            columns={earlier}
+                            people={table.people}
+                            onChange={(group) =>
+                              update({
+                                showIf:
+                                  group.conditions.length > 0
+                                    ? group
+                                    : undefined,
+                              })
+                            }
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    ) : null}
+                  </div>
+                  {included ? (
+                    <div className="ml-6 flex flex-col gap-1">
+                      <Input
+                        aria-label={t`Label for ${{ field: column.label }}`}
+                        className="h-7 text-xs"
+                        defaultValue={field?.label ?? ""}
+                        placeholder={column.label}
+                        onBlur={(event) => {
+                          const value = event.target.value.trim();
+                          if (value === (field?.label ?? "")) return;
+                          update({ label: value || undefined });
+                        }}
+                      />
+                      <Textarea
+                        aria-label={t`Description for ${{ field: column.label }}`}
+                        className="min-h-12 text-xs"
+                        defaultValue={field?.description ?? ""}
+                        placeholder={t`Description (optional)`}
+                        onBlur={(event) => {
+                          const value = event.target.value.trim();
+                          if (value === (field?.description ?? "")) return;
+                          update({ description: value || undefined });
+                        }}
+                      />
+                    </div>
                   ) : null}
                   {misplaced.has(column.name) ? (
                     <p className="w-full text-xs text-danger">
@@ -564,6 +761,15 @@ export function FormView(props: ViewProps) {
             })}
           </ul>
           <div className="mt-4 flex flex-col gap-2">
+            <Label htmlFor="form-submit-label">{t`Submit button label`}</Label>
+            <Input
+              id="form-submit-label"
+              defaultValue={form.submitLabel ?? ""}
+              placeholder={t`Submit`}
+              onBlur={(event) =>
+                patchForm({ submitLabel: event.target.value || undefined })
+              }
+            />
             <Label htmlFor="form-success">{t`Message after submit`}</Label>
             <Textarea
               id="form-success"
@@ -571,6 +777,17 @@ export function FormView(props: ViewProps) {
               defaultValue={form.successMessage ?? ""}
               onBlur={(event) =>
                 patchForm({ successMessage: event.target.value || undefined })
+              }
+            />
+            <Label htmlFor="form-redirect">{t`Redirect after submit`}</Label>
+            <Input
+              id="form-redirect"
+              type="url"
+              inputMode="url"
+              placeholder="https://"
+              defaultValue={form.redirectUrl ?? ""}
+              onBlur={(event) =>
+                patchForm({ redirectUrl: event.target.value || undefined })
               }
             />
             <label className="flex items-center gap-2 text-sm">

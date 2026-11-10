@@ -271,6 +271,9 @@ const sourcesRouter = t.router({
         tableId: z.uuid(),
         // Null reads the table live again.
         intervalMinutes: z.int().min(1).max(10_080).nullable(),
+        syncMode: z.enum(["full", "incremental"]).optional(),
+        changeColumn: z.string().min(1).max(128).nullable().optional(),
+        fullEvery: z.int().min(1).max(10_080).optional(),
       }),
     )
     .mutation(({ ctx, input }) =>

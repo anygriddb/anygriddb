@@ -2,26 +2,10 @@ import type { InstanceSettingsPatch } from "@anygriddb/core";
 import { Label, Select, Spinner } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { RuledSection } from "../shell/notebook-page";
 import { trpc, useTRPC } from "../../lib/trpc";
-
-function Section(props: {
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="flex flex-col gap-3 rounded-sm border border-border p-4">
-      <div>
-        <h2 className="text-sm font-semibold">{props.title}</h2>
-        <p className="text-xs text-muted-foreground">{props.description}</p>
-      </div>
-      {props.children}
-    </section>
-  );
-}
 
 /**
  * A choice among values, with the current one kept when it is not among
@@ -114,7 +98,7 @@ export function SecurityTab() {
         {t`Each choice starts at a value that suits most organizations. Change it to follow your own rules: the limits that protect accounts cannot be turned off.`}
       </p>
 
-      <Section
+      <RuledSection
         title={t`Second factor`}
         description={t`Administrators always need one; base owners include anyone creating a base. A person without one is asked to set it up before going on.`}
       >
@@ -142,9 +126,9 @@ export function SecurityTab() {
             hint={t`Trust it only if your identity provider requires a second factor of everyone. An account that signs in only through it then needs none here.`}
           />
         ) : null}
-      </Section>
+      </RuledSection>
 
-      <Section
+      <RuledSection
         title={t`Failed sign-ins`}
         description={t`Wrong passwords and wrong second-factor codes count, per account, whatever the address they come from. A success starts the count over. The person is told by email.`}
       >
@@ -182,9 +166,9 @@ export function SecurityTab() {
           onChange={(value) => void save({ lockAlerts: value === "on" })}
           hint={t`Past ten locks within an hour, one last alert says so; the sign-in trail keeps them all.`}
         />
-      </Section>
+      </RuledSection>
 
-      <Section
+      <RuledSection
         title={t`Accounts and access`}
         description={t`Who may create what, whom owners may invite, and what happens to accounts nobody uses.`}
       >
@@ -243,9 +227,9 @@ export function SecurityTab() {
               : t`A sign-in or a token in use counts as activity. Email is not set up: accounts are disabled without warning. Administrators and accounts kept by an identity provider (SCIM) are never disabled; an administrator can enable an account again.`
           }
         />
-      </Section>
+      </RuledSection>
 
-      <Section
+      <RuledSection
         title={t`Sessions`}
         description={t`A session ends after a while without activity, and at its lifetime in any case. A shorter choice applies to sessions already open.`}
       >
@@ -267,9 +251,9 @@ export function SecurityTab() {
           )}
           onChange={(sessionMaxHours) => void save({ sessionMaxHours })}
         />
-      </Section>
+      </RuledSection>
 
-      <Section
+      <RuledSection
         title={t`Passwords`}
         description={t`A longer password is the strongest rule: AnyGridDB asks for no mix of characters, and never for a change on a schedule.`}
       >
@@ -298,9 +282,9 @@ export function SecurityTab() {
               : t`Email is not set up: only an administrator can send a link, which they pass on themselves.`
           }
         />
-      </Section>
+      </RuledSection>
 
-      <Section
+      <RuledSection
         title={t`API tokens and public links`}
         description={t`What people may open to scripts and to anyone with a link.`}
       >
@@ -326,9 +310,9 @@ export function SecurityTab() {
           onChange={(publicLinks) => void save({ publicLinks })}
           hint={t`Links that no longer fit stop opening at once, and open again if you change your mind.`}
         />
-      </Section>
+      </RuledSection>
 
-      <Section
+      <RuledSection
         title={t`Sign-in trail`}
         description={t`Sign-ins, failures, and what administrators changed, with the address. The CNIL recommends keeping such logs six months to a year.`}
       >
@@ -343,7 +327,7 @@ export function SecurityTab() {
           ]}
           onChange={(authRetentionDays) => void save({ authRetentionDays })}
         />
-      </Section>
+      </RuledSection>
     </div>
   );
 }

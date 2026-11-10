@@ -1,16 +1,18 @@
 /**
  * The formula editor (ADR 0021): CodeMirror 6 on the parser of
  * packages/core, the one the server runs. Fields and functions complete
- * as you type, and a formula that does not parse is underlined where it
- * fails. The server checks the types again when the field is saved.
+ * as you type, and a formula that does not parse or type is underlined
+ * where it fails. The server checks again when the field is saved.
  */
 import {
   checkFormula,
   FORMULA_FNS,
   formulaLimits,
   formulaTokens,
+  typeFormula,
   type DialectName,
   type FormulaRef,
+  type FormulaTypeContext,
   type SourceLimit,
 } from "@anygriddb/core";
 import {
@@ -167,6 +169,8 @@ export default function FormulaEditor(props: {
   handle?: Ref<FormulaEditorHandle>;
   /** The engine of a client's table: what it computes differently shows. */
   engine?: DialectName | undefined;
+  /** Columns and engine for live type checking (shared with the server). */
+  typeContext?: FormulaTypeContext | undefined;
   /**
    * What the server found when the formula was saved, types and the
    * fields it reads included: shown while the text is the saved one.
@@ -189,6 +193,7 @@ export default function FormulaEditor(props: {
     refs: props.refs,
     errorText,
     engine: props.engine,
+    typeContext: props.typeContext,
     saved: props.saved,
     limitText,
     say: (descriptor: MessageDescriptor) => i18n._(descriptor),
@@ -249,16 +254,23 @@ export default function FormulaEditor(props: {
         refs,
         errorText: describe,
         engine,
+        typeContext,
         saved,
         limitText: say,
       } = current();
-      const found = source.trim() === "" ? null : checkFormula(source, refs);
+      let found = source.trim() === "" ? null : checkFormula(source, refs);
+      let fromTyped: SourceLimit[] = [];
+      if (!found && source.trim() !== "" && typeContext) {
+        const typed = typeFormula(source, refs, typeContext);
+        if ("kind" in typed) fromTyped = typed.limits;
+        else found = typed;
+      }
       const message = found ? describe(found) : "";
       setProblem(message);
       // What the engine computes differently, marked where it is written.
       const limited = engine ? formulaLimits(source, engine) : [];
       const known = saved?.source === source ? saved.limits : [];
-      setLimits(distinctLimits([...limited, ...known]).map(say));
+      setLimits(distinctLimits([...limited, ...fromTyped, ...known]).map(say));
       const warnings = limited.map((limit): Diagnostic => ({
         from: limit.from,
         to: limit.to,

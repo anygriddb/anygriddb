@@ -26,13 +26,15 @@ import {
 import { liveView, trashedColumnNames } from "./live.js";
 import { addRelation, setLinks } from "./relations.js";
 import {
-  insertRows,
   readPage,
-  updateRows,
   writeColumns,
   type RowRecord,
   type WriteContext,
 } from "./rows.js";
+import {
+  insertNativeBatch,
+  updateNativeBatch,
+} from "../services/rows.js";
 import { addColumn, insertTable, setPrimaryColumn } from "./schema-ops.js";
 import { createView } from "./views.js";
 
@@ -154,7 +156,7 @@ export async function applyTemplate(
     );
     rowIds.set(
       table.key,
-      await insertRows(
+      await insertNativeBatch(
         db,
         engine,
         writeContext(userId, physical, "template"),
@@ -434,7 +436,7 @@ export async function duplicateTable(
       engine,
       [...writable, ...linkColumns.map((item) => item.oldName)],
       async (page) => {
-        const newIds = await insertRows(
+        const newIds = await insertNativeBatch(
           db,
           target.engine,
           writeContext(userId, physical, "duplicate"),
@@ -545,7 +547,7 @@ export async function duplicateColumn(
       return [{ rowId: row.id, values: { [created.name]: cell } }];
     });
     for (let index = 0; index < updates.length; index += BATCH) {
-      await updateRows(
+      await updateNativeBatch(
         db,
         target.engine,
         writeContext(userId, table, "duplicate"),

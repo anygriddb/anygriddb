@@ -8,7 +8,7 @@ import { storeAttachment } from "./attachments.js";
 import { withAudit } from "./data/audit-context.js";
 import { exportBaseSnapshot } from "./data/base-snapshot.js";
 import { loadEngine } from "./data/engine.js";
-import { insertRows } from "./data/rows.js";
+import { insertNativeBatch } from "./services/rows.js";
 import { insertBase, insertTable } from "./data/schema-ops.js";
 import { DiskStore, readFile } from "./files/index.js";
 import { jobRunners } from "./job-runners.js";
@@ -81,7 +81,7 @@ describe("duplicating a base", () => {
       .select("physicalName")
       .where("id", "=", table.id)
       .executeTakeFirstOrThrow();
-    await insertRows(
+    await insertNativeBatch(
       db,
       engine,
       {

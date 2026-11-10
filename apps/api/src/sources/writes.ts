@@ -44,6 +44,12 @@ import {
   TASKS,
 } from "../queue/jobs.js";
 import { readByIds } from "../data/rows.js";
+import {
+  enrichmentRow,
+  loadEnrichmentValues,
+  lockEnrichmentValues,
+  upsertEnrichmentValues,
+} from "./enrichment-values.js";
 import { loadEngine } from "../data/engine.js";
 import {
   sourcePools,
@@ -144,10 +150,17 @@ function assertSideWrite(context: ExternalWriteContext): string {
 function splitSide(values: readonly ExternalValue[]): {
   own: ExternalValue[];
   side: ExternalValue[];
+  controlPlane: ExternalValue[];
 } {
   return {
-    own: values.filter((item) => !item.column.physical.side),
+    own: values.filter(
+      (item) =>
+        !item.column.physical.side && !item.column.physical.controlPlane,
+    ),
     side: values.filter((item) => item.column.physical.side === true),
+    controlPlane: values.filter(
+      (item) => item.column.physical.controlPlane === true,
+    ),
   };
 }
 
@@ -453,11 +466,18 @@ export async function updateExternalRows(
   // Only AnyGridDB's own fields: the client's table is not written, its
   // side rows are locked instead. Otherwise the table's switch comes
   // first: it is what an administrator can change.
-  const sideOnly = fields.every(
-    (name) =>
-      context.engine.table.columns.find((column) => column.name === name)
-        ?.physical?.side === true,
-  );
+  const enrichmentOnly = fields.every((name) => {
+    const physical = context.engine.table.columns.find(
+      (column) => column.name === name,
+    )?.physical;
+    return physical?.controlPlane === true;
+  });
+  const sideOnly = fields.every((name) => {
+    const physical = context.engine.table.columns.find(
+      (column) => column.name === name,
+    )?.physical;
+    return physical?.side === true || physical?.controlPlane === true;
+  });
   const sourceId = sideOnly
     ? assertSideWrite(context)
     : assertEnabled(context, "update");
@@ -465,42 +485,56 @@ export async function updateExternalRows(
   const table = context.engine.table;
   // A locked or signed row is refused before anything (ADR 0033).
   await assertUnsealed(db, context.table.id, ids);
-  // Built before anything is written: a value the column cannot take is
-  // refused here, with no intent to settle.
-  const statements = work.map((update) => {
-    const { own, side } = splitSide(externalValues(columns, update.values));
-    return {
-      update,
-      sql: [
-        ...(own.length > 0
-          ? [buildExternalUpdate(table, update.rowId, own)]
-          : []),
-        ...(side.length > 0
-          ? [buildSideUpsert(table, update.rowId, side)]
-          : []),
-      ],
-    };
+
+  const patches = work.map((update) => {
+    const { own, side, controlPlane } = splitSide(
+      externalValues(columns, update.values),
+    );
+    return { update, own, side, controlPlane };
   });
+  // Fields kept in AnyGridDB's database (ADR 0046) are compared and written
+  // under a lock of their rows there, held across the client's write.
+  const keptIds = patches
+    .filter((patch) => patch.controlPlane.length > 0)
+    .map((patch) => patch.update.rowId);
+  const keptNames = new Set(
+    patches.flatMap((patch) =>
+      patch.controlPlane.map((item) => item.column.name),
+    ),
+  );
+
+  if (enrichmentOnly) {
+    // The client's rows must exist; their own table is not touched.
+    const present = new Set(
+      (await readByIds(db, context.engine, ids, "UTC", [])).map(
+        (row) => row.id,
+      ),
+    );
+    if (ids.some((id) => !present.has(id))) {
+      throw new AppError("source_row_missing");
+    }
+  }
+  const statements = patches.map(({ update, own, side }) => ({
+    update,
+    sql: [
+      ...(own.length > 0
+        ? [buildExternalUpdate(table, update.rowId, own)]
+        : []),
+      ...(side.length > 0 ? [buildSideUpsert(table, update.rowId, side)] : []),
+    ],
+  }));
   const intents: Intent[] = [];
-  const stored = await written(
-    db,
-    context,
-    sourceId,
-    intents,
-    async (run, change) => {
-      for (const chunk of chunks(ids)) {
-        if (sideOnly) {
-          const ensure = buildSideEnsure(table, chunk);
-          if (ensure) await change(ensure);
-          await run(buildSideLock(table, chunk));
-        } else {
-          await run(buildExternalLock(table, chunk));
-        }
-      }
-      const current = await readRows(context, run, ids, fields);
+  const stored = await db.transaction().execute(async (tx) => {
+    const kept = await lockEnrichmentValues(tx, context.table.id, keptIds);
+    const keptRow = (rowId: string) =>
+      enrichmentRow(kept.get(rowId), table.columns, keptNames);
+    // Compares what the person saw, records the intents, then fences
+    // against a lock that committed meanwhile (ADR 0033).
+    const plan = async (
+      current: ReadonlyMap<string, Record<string, unknown>>,
+    ) => {
       for (const { update } of statements) {
-        const row = current.get(update.rowId);
-        if (!row) throw new AppError("source_row_missing");
+        const row = { ...current.get(update.rowId), ...keptRow(update.rowId) };
         for (const [name, value] of Object.entries(update.expected ?? {})) {
           if (!(name in update.values)) continue;
           const seen = columns.get(name)?.relation
@@ -520,7 +554,10 @@ export async function updateExternalRows(
         id: randomUUID(),
         rowId: update.rowId,
         action: "update",
-        oldValue: pick(current.get(update.rowId), Object.keys(update.values)),
+        oldValue: pick(
+          { ...current.get(update.rowId), ...keptRow(update.rowId) },
+          Object.keys(update.values),
+        ),
         newValue: { ...update.values },
       }));
       await recordIntents(db, context, sourceId, planned);
@@ -528,24 +565,67 @@ export async function updateExternalRows(
       // Again once the intents are recorded: a lock that committed since
       // refuses the write, and one that did not waits for it.
       await assertUnsealed(db, context.table.id, ids);
-      for (const { sql } of statements) {
-        for (const statement of sql) await change(statement);
-      }
-      return readRows(context, run, ids, fields);
-    },
-  );
+    };
+    const read: ReadonlyMap<string, Record<string, unknown>> = enrichmentOnly
+      ? await (async () => {
+          await plan(new Map());
+          return new Map();
+        })()
+      : await written(db, context, sourceId, intents, async (run, change) => {
+          for (const chunk of chunks(ids)) {
+            if (sideOnly) {
+              const ensure = buildSideEnsure(table, chunk);
+              if (ensure) await change(ensure);
+              await run(buildSideLock(table, chunk));
+            } else {
+              await run(buildExternalLock(table, chunk));
+            }
+          }
+          const current = await readRows(context, run, ids, fields);
+          for (const { update } of statements) {
+            if (!current.get(update.rowId)) {
+              throw new AppError("source_row_missing");
+            }
+          }
+          await plan(current);
+          for (const { sql } of statements) {
+            for (const statement of sql) await change(statement);
+          }
+          return readRows(context, run, ids, fields);
+        });
+    // The client's part committed: AnyGridDB's own values follow it.
+    for (const { update, controlPlane } of patches) {
+      if (controlPlane.length === 0) continue;
+      await upsertEnrichmentValues(tx, {
+        tableId: context.table.id,
+        rowId: update.rowId,
+        userId: context.userId,
+        patch: Object.fromEntries(
+          controlPlane.map((item) => [item.column.id, item.value]),
+        ),
+      });
+    }
+    return read;
+  });
+  const keptAfter = await loadEnrichmentValues(db, context.table.id, keptIds);
   await recordApplied(
     db,
     context,
-    intents.map((intent) => ({
-      intent,
-      rowId: intent.rowId ?? "",
-      row: pick(
-        stored.get(intent.rowId ?? ""),
-        Object.keys(intent.newValue ?? {}),
-      ),
-      columns: Object.keys(intent.newValue ?? {}),
-    })),
+    intents.map((intent) => {
+      const rowId = intent.rowId ?? "";
+      return {
+        intent,
+        rowId,
+        row: pick(
+          {
+            ...stored.get(rowId),
+            ...enrichmentRow(keptAfter.get(rowId), table.columns, keptNames),
+          },
+          Object.keys(intent.newValue ?? {}),
+        ),
+        columns: Object.keys(intent.newValue ?? {}),
+      };
+    }),
   );
   return ids;
 }
@@ -568,11 +648,19 @@ export async function insertExternalRows(
     table.external?.dialect === "mariadb";
   const statements = rows.map((values) => {
     // AnyGridDB's own fields go in the side row, once the key is known.
-    const { own, side } = splitSide(externalValues(columns, values));
+    const { own, side, controlPlane } = splitSide(
+      externalValues(columns, values),
+    );
     // MySQL and MariaDB name the new row apart: by its key or AUTO_INCREMENT.
     const inserted = mysqlLike ? buildInsertedId(table, own) : null;
     if (mysqlLike && !inserted) throw new AppError("source_row_key_unknown");
-    return { values, sql: buildExternalInsert(table, own), inserted, side };
+    return {
+      values,
+      sql: buildExternalInsert(table, own),
+      inserted,
+      side,
+      controlPlane,
+    };
   });
   const planned: Intent[] = statements.map((statement, index) => ({
     id: randomUUID(),
@@ -609,6 +697,19 @@ export async function insertExternalRows(
       return { ids, read };
     },
   );
+  for (let index = 0; index < statements.length; index += 1) {
+    const statement = statements[index];
+    const rowId = result.ids[index];
+    if (!statement || !rowId || statement.controlPlane.length === 0) continue;
+    const bag: Record<string, unknown> = {};
+    for (const item of statement.controlPlane) bag[item.column.id] = item.value;
+    await upsertEnrichmentValues(db, {
+      tableId: context.table.id,
+      rowId,
+      userId: context.userId,
+      patch: bag,
+    });
+  }
   await recordApplied(
     db,
     context,

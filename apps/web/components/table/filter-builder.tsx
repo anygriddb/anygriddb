@@ -1,6 +1,8 @@
 import {
   DATE_MODES,
   filterOperatorsFor,
+  MAX_FILTER_CONDITIONS,
+  MAX_FILTER_DEPTH,
   WITHIN_MODES,
   type FilterCondition,
   type FilterGroup,
@@ -76,6 +78,13 @@ const SET_OPS = new Set<FilterOperator>([
 ]);
 
 export function operatorsFor(column: CatalogColumn): FilterOperator[] {
+  // Control-plane enrichment (ADR 0046): only equality and emptiness
+  // resolve in PostgreSQL before the client read.
+  if (column.controlPlane) {
+    return column.kind === "boolean"
+      ? (["is"] as FilterOperator[])
+      : (["is", "is_not", "is_empty", "is_not_empty"] as FilterOperator[]);
+  }
   const ops = filterOperatorsFor(column.kind);
   if (column.kind === "links") return ops.filter((op) => !SET_OPS.has(op));
   if (column.kind === "text" && column.fieldType !== "single_select") {
@@ -287,22 +296,27 @@ function ValueInput({
   );
 }
 
-/** Recursive and/or editor for a view filter, three levels deep. */
+/** Recursive and/or editor for a view filter, up to MAX_FILTER_DEPTH. */
 export function FilterBuilder({
   group,
   columns,
   people,
   depth = 1,
+  /** Leaf conditions already used in the whole filter tree (root count). */
+  leafTotal,
   onChange,
 }: {
   group: FilterGroup;
   columns: readonly CatalogColumn[];
   people: ReadonlyMap<string, Collaborator>;
   depth?: number;
+  leafTotal?: number;
   onChange: (group: FilterGroup) => void;
 }) {
   const { t } = useLingui();
   const first = columns[0];
+  const total = leafTotal ?? countConditions(group);
+  const atCap = total >= MAX_FILTER_CONDITIONS;
   const update = (
     index: number,
     node: FilterCondition | FilterGroup | null,
@@ -356,6 +370,7 @@ export function FilterBuilder({
                 columns={columns}
                 people={people}
                 depth={depth + 1}
+                leafTotal={total}
                 onChange={(next) => update(index, next)}
               />
             </div>
@@ -427,9 +442,10 @@ export function FilterBuilder({
         <Button
           size="xs"
           variant="ghost"
-          disabled={!first}
+          disabled={!first || atCap}
           onClick={() =>
             first &&
+            !atCap &&
             onChange({
               ...group,
               conditions: [...group.conditions, newCondition(first)],
@@ -439,13 +455,14 @@ export function FilterBuilder({
           <Plus className="h-3.5 w-3.5" aria-hidden />
           {t`Add a condition`}
         </Button>
-        {depth < 3 ? (
+        {depth < MAX_FILTER_DEPTH ? (
           <Button
             size="xs"
             variant="ghost"
-            disabled={!first}
+            disabled={!first || atCap}
             onClick={() =>
               first &&
+              !atCap &&
               onChange({
                 ...group,
                 conditions: [

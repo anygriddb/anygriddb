@@ -109,8 +109,8 @@ export type FilterGroup = {
   conditions: Array<FilterCondition | FilterGroup>;
 };
 
-export const MAX_FILTER_DEPTH = 3;
-export const MAX_FILTER_CONDITIONS = 50;
+export const MAX_FILTER_DEPTH = 5;
+export const MAX_FILTER_CONDITIONS = 100;
 
 const groupNode: z.ZodType<FilterGroup> = z.lazy(() =>
   z
@@ -129,7 +129,7 @@ export function isFilterGroup(
   return "conjunction" in node;
 }
 
-/** Recursive and/or filter tree: three levels and fifty conditions at most. */
+/** Recursive and/or filter tree: five levels and a hundred conditions at most. */
 export const filterGroupSchema: z.ZodType<FilterGroup> = groupNode.superRefine(
   (group, context) => {
     let count = 0;

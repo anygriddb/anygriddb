@@ -16,26 +16,35 @@ import {
   buildCopyDiff,
   buildCopyDrop,
   buildCopyInsert,
+  buildCopyUpsert,
   buildCopySwap,
   buildReadRows,
+  buildWatchPage,
+  buildWatchStart,
   copyColumns,
   copyRow,
   type CopyColumn,
+  type EngineCatalog,
+  type EngineTable,
   keyValues,
   MAX_READ_LIMIT,
   type RowEvent,
   sealedFields,
   SYNC_SCHEMA,
+  watchKind,
+  type WatchColumn,
 } from "@anygriddb/core";
 import { runStatement, type Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { withAudit } from "../data/audit-context.js";
 import { announceRows } from "../data/announce.js";
-import { loadEngine } from "../data/engine.js";
+import { loadEngine, sourceDialect } from "../data/engine.js";
 import { readTransaction } from "../data/rows.js";
 import { addJob, TASKS, type SqlExecutor } from "../queue/jobs.js";
 import type { Bus } from "../realtime/bus.js";
 import { publishCatalog, publishRows } from "../realtime/channels.js";
+import { sourcePools } from "./pools.js";
+import { keyOf } from "./watch.js";
 import { checkSeals, type SealDeps } from "./statuses.js";
 
 /** Rows read from the client's table at a time. */
@@ -53,10 +62,39 @@ export type SyncInput = {
   tableId: string;
   /** Null reads the table live again, and drops its copy. */
   intervalMinutes: number | null;
+  /** Full copy each time, or changed rows plus a periodic full reconcile. */
+  syncMode?: "full" | "incremental";
+  /** Client column that moves on every change; required for incremental. */
+  changeColumn?: string | null;
+  /** Full reconcile every N incremental refreshes (default 24). */
+  fullEvery?: number;
 };
 
 function syncJobKey(tableId: string): string {
   return `external_sync:${tableId}`;
+}
+
+/**
+ * Whether this refresh must rebuild the whole copy: always for full mode,
+ * and for incremental when the change column / watermark is missing or the
+ * periodic full reconcile is due.
+ */
+export function incrementalDueFull(sync: {
+  syncMode: string;
+  changeColumn: string | null;
+  columns: unknown;
+  watermark: string | null;
+  refreshCount: number;
+  fullEvery: number;
+}): boolean {
+  return (
+    sync.syncMode !== "incremental" ||
+    !sync.changeColumn ||
+    !sync.columns ||
+    sync.watermark === null ||
+    (sync.refreshCount > 0 &&
+      sync.refreshCount % Math.max(1, sync.fullEvery) === 0)
+  );
 }
 
 /** Queues the table's next refresh, replacing a queued one. */
@@ -99,6 +137,7 @@ export async function setTableSync(
   if (table?.storage !== "external" || !table.sourceId) {
     throw new AppError("unknown_table");
   }
+  const sourceId = table.sourceId;
   await withAudit(
     db,
     { userId: actorId, tableId: table.id, source: "web" },
@@ -122,16 +161,31 @@ export async function setTableSync(
         );
         return;
       }
+      const syncMode = input.syncMode ?? "full";
+      const changeColumn =
+        syncMode === "incremental" ? (input.changeColumn ?? null) : null;
+      if (syncMode === "incremental") {
+        await assertChangeColumn(tx, table.id, sourceId, changeColumn);
+      }
       await tx
         .insertInto("externalSyncs")
         .values({
           tableId: table.id,
           intervalMinutes: input.intervalMinutes,
+          syncMode,
+          changeColumn,
+          fullEvery: input.fullEvery ?? 24,
           updatedBy: actorId,
         })
         .onConflict((conflict) =>
           conflict.column("tableId").doUpdateSet({
             intervalMinutes: input.intervalMinutes ?? 15,
+            syncMode,
+            changeColumn,
+            fullEvery: input.fullEvery ?? 24,
+            // New settings start from a full copy, which takes the mark.
+            watermark: null,
+            refreshCount: 0,
             updatedBy: actorId,
             updatedAt: new Date(),
           }),
@@ -145,6 +199,34 @@ export async function setTableSync(
     },
   );
   return { baseId: table.baseId };
+}
+
+/**
+ * An incremental refresh needs a client column the database moves on every
+ * change, as a watch does (ADR 0031): a date and time, or a rowversion.
+ */
+async function assertChangeColumn(
+  db: Pick<Database, "selectFrom">,
+  tableId: string,
+  sourceId: string,
+  name: string | null,
+): Promise<void> {
+  if (!name) throw new AppError("source_watch_column");
+  const found = await db
+    .selectFrom("dataColumns as c")
+    .innerJoin("sources as s", (join) => join.on("s.id", "=", sourceId))
+    .select(["c.externalType", "s.engine"])
+    .where("c.tableId", "=", tableId)
+    .where("c.physicalName", "=", name)
+    .where("c.externalSide", "=", false)
+    .where("c.deletedAt", "is", null)
+    .executeTakeFirst();
+  if (
+    !found?.externalType ||
+    watchKind(sourceDialect(found.engine), found.externalType) === null
+  ) {
+    throw new AppError("source_watch_column");
+  }
 }
 
 /** Refreshes a synced table now, whatever its interval. */
@@ -212,10 +294,29 @@ async function dropNext(db: Database, tableId: string): Promise<void> {
  * page is its own short read: a row a write moves between two pages is
  * read twice or not at all, and the next refresh sets it right.
  */
-async function loadNext(
-  deps: SyncDeps,
-  tableId: string,
-): Promise<{ columns: CopyColumn[]; rows: number }> {
+
+/** Where an incremental refresh stands: the change column's mark. */
+type SyncMark = { value: string | null; key: readonly string[] | null };
+
+function parseMark(text: string | null): SyncMark | null {
+  if (!text) return null;
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (parsed && typeof parsed === "object" && "value" in parsed) {
+      const { value, key } = parsed as { value: unknown; key?: unknown };
+      return {
+        value: typeof value === "string" ? value : null,
+        key: Array.isArray(key) ? key.map(String) : null,
+      };
+    }
+  } catch {
+    // An older or damaged mark: the next refresh copies the table whole.
+  }
+  return null;
+}
+
+/** A synced table read live, its links as the keys they hold. */
+async function liveTable(deps: SyncDeps, tableId: string) {
   const { engine, rows: catalog } = await loadEngine(
     deps.db,
     tableId,
@@ -228,11 +329,9 @@ async function loadNext(
       declared.set(column.physicalName, column.externalType);
     }
   }
-  const columns = copyColumns(engine.table, declared);
-  const fields = sealedFields(engine.table).map((column) => column.name);
   // A link is copied as the key it holds: its foreign key is read as a
   // plain column, without joining the other table for labels.
-  const plain = {
+  const plain: EngineCatalog = {
     ...engine,
     table: {
       ...engine.table,
@@ -250,6 +349,156 @@ async function loadNext(
       ),
     },
   };
+  return { engine, plain, declared };
+}
+
+/** The client column that tells changes, as the watch builders read it. */
+function changeColumnOf(
+  table: EngineTable,
+  declared: ReadonlyMap<string, string>,
+  name: string,
+): WatchColumn {
+  const type = declared.get(name);
+  const dialect = table.external?.dialect;
+  if (!type || !dialect || watchKind(dialect, type) === null) {
+    throw new AppError("source_watch_column");
+  }
+  return { name, type };
+}
+
+/** The change column's mark now, before a full copy reads the table. */
+async function startMark(
+  deps: SyncDeps,
+  tableId: string,
+  changeColumn: string,
+): Promise<string | null> {
+  const { engine, declared } = await liveTable(deps, tableId);
+  const sourceId = engine.table.external?.sourceId;
+  if (!sourceId) return null;
+  const column = changeColumnOf(engine.table, declared, changeColumn);
+  const [start] = await sourcePools().read(sourceId, (run) =>
+    run(buildWatchStart(engine.table, column)),
+  );
+  const value = typeof start?.m === "string" ? start.m : null;
+  return JSON.stringify({ value, key: null });
+}
+
+/**
+ * Upserts the rows whose change column moved past the mark, read live
+ * with the builders that watch a client's table (ADR 0031): in the
+ * column's order, then the key's, so rows sharing a value page right. A
+ * delete is not seen: the periodic full copy finds it.
+ */
+async function loadIncremental(
+  deps: SyncDeps,
+  tableId: string,
+  sync: { changeColumn: string | null; watermark: string | null },
+): Promise<{
+  changes: number;
+  ids: string[];
+  watermark: string;
+  events: RowEvent[];
+}> {
+  const mark = parseMark(sync.watermark);
+  if (!sync.changeColumn || !mark) {
+    throw new AppError("internal_error", "incremental without a mark");
+  }
+  const { engine, plain, declared } = await liveTable(deps, tableId);
+  const sourceId = engine.table.external?.sourceId;
+  if (!sourceId) throw new AppError("internal_error", "native table");
+  const column = changeColumnOf(engine.table, declared, sync.changeColumn);
+  const columns = copyColumns(engine.table, declared);
+  const fields = sealedFields(engine.table).map((item) => item.name);
+  const keyed = (engine.table.external?.key.length ?? 0) > 0;
+  const keySize = engine.table.external?.key.length ?? 0;
+  let at: SyncMark = mark;
+  const changed: string[] = [];
+  for (;;) {
+    const page = await sourcePools().read(sourceId, (run) =>
+      run(
+        buildWatchPage(
+          engine.table,
+          column,
+          at.value === null ? null : { value: at.value, key: at.key },
+          PAGE,
+        ),
+      ),
+    );
+    if (page.length === 0) break;
+    const ids = page.map((row) => String(row.id));
+    const rows = await readTransaction(deps.db, plain, (run) =>
+      run(
+        buildReadRows(plain, {
+          fields,
+          rowIds: ids,
+          limit: ids.length,
+          timeZone: "UTC",
+        }),
+      ),
+    );
+    if (rows.length > 0) {
+      await runStatement(
+        deps.db,
+        buildCopyUpsert(
+          tableId,
+          columns,
+          rows.map((row) => {
+            const id = String(row.id);
+            return copyRow(
+              columns,
+              row,
+              keyed ? keyValues(engine.table, id) : [],
+            );
+          }),
+        ),
+      );
+    }
+    changed.push(...ids);
+    const last = page.at(-1);
+    if (last) {
+      at = { value: String(last.m), key: keyOf(last, keySize) };
+    }
+    if (page.length < PAGE) break;
+    if (changed.length > SYNC_ROW_LIMIT) {
+      throw new AppError("source_sync_too_large");
+    }
+  }
+  const when = new Date().toISOString();
+  const events: RowEvent[] =
+    changed.length === 0
+      ? []
+      : changed.length <= EVENT_LIMIT
+        ? changed.map((rowId) => ({
+            tableId,
+            event: "update" as const,
+            rowId,
+            source: "external",
+            at: when,
+          }))
+        : [
+            {
+              tableId,
+              event: "update" as const,
+              count: changed.length,
+              source: "external",
+              at: when,
+            },
+          ];
+  return {
+    changes: changed.length,
+    ids: changed,
+    watermark: JSON.stringify(at),
+    events,
+  };
+}
+
+async function loadNext(
+  deps: SyncDeps,
+  tableId: string,
+): Promise<{ columns: CopyColumn[]; rows: number }> {
+  const { engine, plain, declared } = await liveTable(deps, tableId);
+  const columns = copyColumns(engine.table, declared);
+  const fields = sealedFields(engine.table).map((column) => column.name);
   const keyed = (engine.table.external?.key.length ?? 0) > 0;
   for (const statement of buildCopyCreate(tableId, columns)) {
     await runStatement(deps.db, statement);
@@ -347,6 +596,12 @@ async function refresh(
       "s.intervalMinutes",
       "s.columns",
       "s.version",
+      "s.syncMode",
+      "s.changeColumn",
+      "s.watermark",
+      "s.lastFullAt",
+      "s.refreshCount",
+      "s.fullEvery",
       "t.baseId",
       "t.deletedAt",
     ])
@@ -356,6 +611,77 @@ async function refresh(
   if (!sync || sync.deletedAt !== null) return null;
   const interval = sync.intervalMinutes * 60;
   const started = Date.now();
+  const dueFull = incrementalDueFull(sync);
+  if (!dueFull) {
+    let incr: Awaited<ReturnType<typeof loadIncremental>>;
+    try {
+      incr = await loadIncremental(deps, tableId, sync);
+    } catch (error) {
+      const code = error instanceof AppError ? error.code : "internal_error";
+      if (!(error instanceof AppError)) deps.log(error, "external sync failed");
+      // A pass that fails starts over from a full copy, which takes its
+      // mark again: an error never freezes the copy.
+      await deps.db
+        .updateTable("externalSyncs")
+        .set({ errorCode: code, errorAt: new Date(), watermark: null })
+        .where("tableId", "=", tableId)
+        .execute();
+      return Math.min(interval, RETRY_SECONDS);
+    }
+    const moved = await deps.db.transaction().execute(async (tx) => {
+      const result = await tx
+        .updateTable("externalSyncs")
+        .set({
+          syncedAt: new Date(),
+          durationMs: Date.now() - started,
+          changes: incr.changes,
+          watermark: incr.watermark,
+          refreshCount: sync.refreshCount + 1,
+          errorCode: null,
+          errorAt: null,
+          version: sync.version + 1,
+        })
+        .where("tableId", "=", tableId)
+        .where("version", "=", sync.version)
+        .executeTakeFirst();
+      // Read live again, or its settings changed meanwhile: the next turn.
+      if (result.numUpdatedRows === 0n) return false;
+      for (const event of incr.events) {
+        await addJob(tx, TASKS.rowEvents, { event }, { maxAttempts: 10 });
+      }
+      return true;
+    });
+    if (!moved || incr.ids.length === 0) return interval;
+    const log = (error: unknown) => deps.log(error, "realtime publish failed");
+    if (incr.ids.length > EVENT_LIMIT) {
+      await publishRows(deps.bus, tableId, "refresh", [], log);
+    } else {
+      await announceRows(
+        { db: deps.db, bus: deps.bus, log: deps.log },
+        tableId,
+        "update",
+        incr.ids,
+      );
+    }
+    if (deps.seals) {
+      try {
+        await checkSeals(deps.seals, { tableId, rowIds: incr.ids });
+      } catch (error) {
+        deps.log(error, "seal check failed");
+      }
+    }
+    return interval;
+  }
+  // An incremental table takes its mark before the copy reads the rows: a
+  // change made while it reads is read again by the next pass.
+  let mark: string | null = null;
+  if (sync.syncMode === "incremental" && sync.changeColumn) {
+    try {
+      mark = await startMark(deps, tableId, sync.changeColumn);
+    } catch (error) {
+      deps.log(error, "external sync mark failed");
+    }
+  }
   let loaded: { columns: CopyColumn[]; rows: number };
   let diff: Diff | null = null;
   try {
@@ -388,6 +714,9 @@ async function refresh(
         errorCode: null,
         errorAt: null,
         version: sync.version + 1,
+        lastFullAt: new Date(),
+        refreshCount: 0,
+        watermark: mark,
       })
       .where("tableId", "=", tableId)
       .where("version", "=", sync.version)

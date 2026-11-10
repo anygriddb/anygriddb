@@ -282,6 +282,7 @@ export interface DataColumns {
   deletedBy: string | null;
   deletedWith: string | null;
   description: string | null;
+  externalControlPlane: Generated<boolean>;
   externalInsertable: Generated<boolean>;
   externalSide: Generated<boolean>;
   externalType: string | null;
@@ -325,6 +326,14 @@ export interface EphemeralLocks {
   owner: string;
 }
 
+export interface ExternalEnrichmentValues {
+  rowId: string;
+  tableId: string;
+  updatedAt: Generated<Timestamp>;
+  updatedBy: string | null;
+  values: Generated<Record<string, unknown>>;
+}
+
 export interface ExternalStatuses {
   checkedAt: Timestamp | null;
   drift: Record<string, unknown> | null;
@@ -354,18 +363,24 @@ export interface ExternalStatusEvents {
 }
 
 export interface ExternalSyncs {
+  changeColumn: string | null;
   changes: Generated<number>;
   columns: Array<{ name: string; type: string }> | null;
   durationMs: number | null;
   errorAt: Timestamp | null;
   errorCode: string | null;
+  fullEvery: Generated<number>;
   intervalMinutes: Generated<number>;
+  lastFullAt: Timestamp | null;
+  refreshCount: Generated<number>;
   rowCount: Int8 | null;
   syncedAt: Timestamp | null;
+  syncMode: Generated<string>;
   tableId: string;
   updatedAt: Generated<Timestamp>;
   updatedBy: string | null;
   version: Generated<number>;
+  watermark: string | null;
 }
 
 export interface ExternalWatches {
@@ -605,6 +620,14 @@ export interface Sources {
   passwordNonce: Buffer;
   port: number;
   queryTimeoutMs: Generated<number>;
+  replicaCheckedAt: Timestamp | null;
+  replicaDatabase: string | null;
+  replicaHost: string | null;
+  replicaPasswordCiphertext: Buffer | null;
+  replicaPasswordNonce: Buffer | null;
+  replicaPort: number | null;
+  replicaServerVersion: string | null;
+  replicaUsername: string | null;
   serverVersion: string | null;
   sideSchema: string | null;
   timeZone: Generated<string>;
@@ -744,6 +767,7 @@ export interface DB {
   dataColumns: DataColumns;
   dataTables: DataTables;
   ephemeralLocks: EphemeralLocks;
+  externalEnrichmentValues: ExternalEnrichmentValues;
   externalStatuses: ExternalStatuses;
   externalStatusEvents: ExternalStatusEvents;
   externalSyncs: ExternalSyncs;

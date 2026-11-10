@@ -59,6 +59,13 @@ export const sourceInputSchema = z
       .regex(/^[A-Za-z_][A-Za-z0-9_]{0,62}$/)
       .nullable()
       .optional(),
+    /** Optional read replica: grid/API reads; writes stay on the primary. */
+    replicaHost: hostSchema.nullable().optional(),
+    replicaPort: z.number().int().min(1).max(65_535).nullable().optional(),
+    replicaDatabase: z.string().trim().min(1).max(128).nullable().optional(),
+    replicaUsername: z.string().trim().min(1).max(128).nullable().optional(),
+    /** Empty keeps the primary password when a replica host is set. */
+    replicaPassword: z.string().max(1_024).nullable().optional(),
   })
   .strict();
 

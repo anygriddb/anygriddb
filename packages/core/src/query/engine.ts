@@ -47,6 +47,11 @@ export type PhysicalColumn = {
    */
   side?: boolean;
   /**
+   * A field AnyGridDB added with no side schema (ADR 0046): values live
+   * in the control plane and are merged after the client read.
+   */
+  controlPlane?: boolean;
+  /**
    * Not in the copy a synced table reads (ADR 0034): a field added since
    * the last refresh. It reads empty until the next one.
    */

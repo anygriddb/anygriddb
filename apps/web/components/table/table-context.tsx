@@ -32,6 +32,8 @@ export type TableContextValue = {
   ) => Promise<void>;
   openRecord: (rowId: string) => void;
   rowsById: ReadonlyMap<string, RowItem>;
+  /** Whether a write is in flight, for the active cell hint. */
+  saveStatus: "idle" | "saving" | "saved" | "error";
 };
 
 export const TableContext = createContext<TableContextValue | null>(null);

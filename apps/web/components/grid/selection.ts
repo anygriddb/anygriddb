@@ -94,6 +94,11 @@ export class GridSelection {
     if (editing?.cell.r === r && editing.cell.c === c) flags |= EDITING;
     return flags;
   }
+
+  /** True when any cell of this row is being edited. */
+  isEditingRow(r: number): boolean {
+    return this.state.editing?.cell.r === r;
+  }
 }
 
 /** Re-renders when this cell's flags change, and only then. */
@@ -108,6 +113,16 @@ export function useCellFlags(
 /** The whole selection, for parts that show it all, such as a menu. */
 export function useSelectionState(selection: GridSelection): SelectionState {
   return useSyncExternalStore(selection.subscribe, selection.getState);
+}
+
+/**
+ * Whether this row holds the cell being edited. Used to raise the row above
+ * later virtualized rows so an overflowing panel keeps pointer events.
+ */
+export function useEditingRow(selection: GridSelection, r: number): boolean {
+  return useSyncExternalStore(selection.subscribe, () =>
+    selection.isEditingRow(r),
+  );
 }
 
 /** The id of a cell's element, for `aria-activedescendant`. */

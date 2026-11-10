@@ -3,6 +3,7 @@ import type { EngineColumn, EngineTable } from "./engine";
 import {
   buildCopyCreate,
   buildCopyInsert,
+  buildCopyUpsert,
   buildCopySwap,
   copyColumns,
   copyRow,
@@ -123,6 +124,9 @@ describe("copies of synced tables", () => {
     ]);
     expect(buildCopyInsert(TABLE_ID, columns, []).text).toContain(
       'on conflict ("ag_id") do nothing',
+    );
+    expect(buildCopyUpsert(TABLE_ID, columns, []).text).toContain(
+      'on conflict ("ag_id") do update set',
     );
     expect(buildCopySwap(TABLE_ID, columns).map((s) => s.text)).toEqual([
       `drop table if exists "ag_sync"."${current}"`,

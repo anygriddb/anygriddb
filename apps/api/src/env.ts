@@ -5,9 +5,10 @@ export type Env = {
   AUTH_ENCRYPTION_KEY: Buffer;
   PORT: number;
   /**
-   * The address people open, scheme, host, and port: links in emails,
-   * passkeys, and the API documents. The API serves the app there. Always
-   * HTTPS, but for the development server on this machine (ADR 0029).
+   * The HTTPS origin people open: links in emails, cookies, API documents,
+   * the certificate's primary name, and the WebAuthn RP ID. Passkeys need
+   * a hostname here (or `localhost`); an IP alone keeps HTTPS and TOTP.
+   * Always HTTPS, but for the development server on this machine (ADR 0029).
    */
   PUBLIC_URL: string;
   /** The operator's certificate and key (PEM); both, or neither. */
@@ -15,7 +16,10 @@ export type Env = {
   TLS_KEY_FILE?: string;
   /** Where the instance's own authority and certificate are kept. */
   TLS_DIR: string;
-  /** Names and addresses the instance's certificate covers besides PUBLIC_URL's. */
+  /**
+   * Extra names and addresses on the certificate only (SANs). Never the
+   * WebAuthn RP ID (ADR 0029).
+   */
   TLS_NAMES: string[];
   /** Where files live: a folder (the default) or an S3-compatible service. */
   STORAGE_DRIVER: "disk" | "s3";

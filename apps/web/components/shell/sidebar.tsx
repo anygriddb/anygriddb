@@ -48,6 +48,7 @@ import { canManage } from "../../lib/types";
 import { BrandMark } from "../brand/brand-mark";
 import { ImportDialog } from "../table/import-dialog";
 import { ConfirmDialog, PromptDialog } from "./dialogs";
+import { NewTableDialog } from "./new-table-dialog";
 import { NewBaseDialog } from "./new-base-dialog";
 import { openCommandPalette } from "./command-palette";
 import { JobsMenu } from "./jobs-menu";
@@ -260,7 +261,7 @@ export function Sidebar({
       >
         <Search className="h-4 w-4" aria-hidden />
         <span className="flex-1 text-left">{t`Search`}</span>
-        <Kbd>Ctrl K</Kbd>
+        <Kbd>{t`Ctrl K`}</Kbd>
       </button>
       <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label={t`Bases`}>
         {pinned.length > 0 ? (
@@ -345,9 +346,18 @@ export function Sidebar({
           )}
         </div>
         {bases.length === 0 && catalog.isSuccess ? (
-          <p className="px-1 py-2 text-sm text-muted-foreground">
-            {t`No bases yet.`}
-          </p>
+          <div className="px-1 py-2 text-sm">
+            <p className="text-muted-foreground">{t`No bases yet.`}</p>
+            {user.canCreateBases === false ? null : (
+              <button
+                type="button"
+                className="mt-1 text-primary hover:underline"
+                onClick={() => setDialog({ kind: "create-base" })}
+              >
+                {t`New base`}
+              </button>
+            )}
+          </div>
         ) : null}
         <ul className="flex flex-col gap-0.5">
           {bases.map((base) => {
@@ -699,33 +709,17 @@ export function Sidebar({
         />
       ) : null}
       {dialog?.kind === "create-table" ? (
-        <PromptDialog
+        <NewTableDialog
           open
           onOpenChange={(open) => !open && setDialog(null)}
           title={t`New table in ${{ name: dialog.base.name }}`}
-          label={t`Table name`}
-          submitLabel={t`Create`}
-          onSubmit={async (name) => {
+          onCreate={async ({ name, columns }) => {
             let created: { id: string } | undefined;
             await act(async () => {
               created = await trpc.catalog.createTable.mutate({
                 baseId: dialog.base.id,
                 name,
-                columns: [
-                  { label: t`Name`, fieldType: "text" },
-                  { label: t`Notes`, fieldType: "long_text" },
-                  {
-                    label: t`Status`,
-                    fieldType: "single_select",
-                    config: {
-                      options: [
-                        { name: t`To do`, color: "gray" },
-                        { name: t`In progress`, color: "blue" },
-                        { name: t`Done`, color: "green" },
-                      ],
-                    },
-                  },
-                ],
+                columns,
               });
             });
             if (created)

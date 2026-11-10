@@ -1,4 +1,9 @@
-import { applyViewConfigPatch, type FilterGroup } from "@anygriddb/core";
+import {
+  applyViewConfigPatch,
+  MAX_VIEW_GROUPS,
+  MAX_VIEW_SORTS,
+  type FilterGroup,
+} from "@anygriddb/core";
 import {
   Avatar,
   Button,
@@ -34,6 +39,7 @@ import {
 import { FieldEditor, type FieldEditorTarget } from "../fields/field-editor";
 import { isLinkField } from "../fields/field-meta";
 import { isEditableColumn } from "../grid/grid-clipboard";
+import { nextFrozenColumns } from "../grid/margin-column";
 import { GridView } from "../grid/grid-view";
 import { useRows } from "../grid/use-rows";
 import { useUndo } from "../grid/use-undo";
@@ -46,8 +52,11 @@ import { KanbanView } from "../views/kanban-view";
 import { MapView } from "../views/map-view";
 import { TimelineView } from "../views/timeline-view";
 import { AutomationsDialog } from "./automations-dialog";
+import { DEFAULT_FROZEN, orderColumns, visibleColumns } from "./column-layout";
 import { ImportDialog } from "./import-dialog";
 import { newCondition } from "./filter-builder";
+import { resolveRowTint } from "./row-tint";
+import { upsertFirstLevel } from "./view-levels";
 import {
   TableContext,
   type CellValue,
@@ -219,34 +228,34 @@ export function TableWorkspace({
   const [search, setSearch] = useState("");
   // When the last write reached the database: the toolbar says so.
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [saveStatus, setSaveStatus] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
   const viewType = activeView?.viewType ?? "grid";
   const isGrid = viewType === "grid";
   const allColumns = useMemo(() => table?.columns ?? [], [table]);
-  const ordered = useMemo(() => {
-    const order = config.fieldOrder ?? [];
-    const byName = new Map(allColumns.map((column) => [column.name, column]));
-    const list = [
-      ...order
-        .map((name) => byName.get(name))
-        .filter((column): column is CatalogColumn => Boolean(column)),
-      ...allColumns.filter((column) => !order.includes(column.name)),
-    ];
-    const primary = list.find((column) => column.isPrimary);
-    return primary
-      ? [primary, ...list.filter((column) => column !== primary)]
-      : list;
-  }, [allColumns, config.fieldOrder]);
+  const ordered = useMemo(
+    () => orderColumns(allColumns, config.fieldOrder),
+    [allColumns, config.fieldOrder],
+  );
   const hidden = useMemo(
     () => new Set(config.hiddenFields ?? []),
     [config.hiddenFields],
   );
   const visible = useMemo(
-    () =>
-      ordered.filter((column) => column.isPrimary || !hidden.has(column.name)),
-    [ordered, hidden],
+    () => visibleColumns(ordered, config.hiddenFields),
+    [ordered, config.hiddenFields],
   );
 
   const groupBy = isGrid ? (config.groupBy ?? []) : [];
+  const tintContext = useMemo(
+    () => ({
+      kinds: new Map(visible.map((column) => [column.name, column.kind])),
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      me: session.data?.id,
+    }),
+    [visible, session.data?.id],
+  );
   // A calendar reads the rows of the six weeks it shows, not a first page.
   const [calendarMonth, setCalendarMonth] = useState(thisMonth);
   const calendarField =
@@ -428,6 +437,7 @@ export function TableWorkspace({
       });
       for (const update of updates)
         rows.patchLocal(update.rowId, update.values);
+      setSaveStatus("saving");
       try {
         // A client's table compares what the person saw with what its
         // row holds now, and refuses the change if it moved (ADR 0006).
@@ -445,11 +455,13 @@ export function TableWorkspace({
         }
         void rows.refetchIds(updates.map((update) => update.rowId));
         setSavedAt(new Date());
+        setSaveStatus("saved");
       } catch (cause) {
         for (const update of previous)
           rows.patchLocal(update.rowId, update.values);
         // What the rows hold now, which may not be what was shown.
         void rows.refetchIds(updates.map((update) => update.rowId));
+        setSaveStatus("error");
         toast.error(errorText(cause));
         return;
       }
@@ -509,6 +521,7 @@ export function TableWorkspace({
         });
         rows.refresh();
         setSavedAt(new Date());
+        setSaveStatus("saved");
         // A client's row has no trash to come back from: no undo there.
         if (track && !external) {
           undo.push({
@@ -528,6 +541,7 @@ export function TableWorkspace({
         }
         return created.ids;
       } catch (cause) {
+        setSaveStatus("error");
         toast.error(errorText(cause));
         return [];
       }
@@ -547,6 +561,7 @@ export function TableWorkspace({
         await trpc.rows.deleteMany.mutate({ tableId, rowIds, reason });
         rows.refresh();
         setSavedAt(new Date());
+        setSaveStatus("saved");
         if (external) {
           // Deleted in the client's database: nothing to restore from.
           toast.success(
@@ -578,6 +593,7 @@ export function TableWorkspace({
           },
         });
       } catch (cause) {
+        setSaveStatus("error");
         toast.error(errorText(cause));
       }
     },
@@ -666,27 +682,39 @@ export function TableWorkspace({
       case "sort-asc":
       case "sort-desc":
         void patchView({
-          sort: [
+          sort: upsertFirstLevel(
+            config.sort ?? [],
             {
               column: column.name,
               direction: action === "sort-asc" ? "asc" : "desc",
             },
-          ],
+            MAX_VIEW_SORTS,
+          ),
         });
         return;
       case "group":
         void patchView({
-          groupBy: [{ column: column.name, direction: "asc" }],
+          groupBy: upsertFirstLevel(
+            config.groupBy ?? [],
+            { column: column.name, direction: "asc" },
+            MAX_VIEW_GROUPS,
+          ),
         });
         return;
       case "hide":
         void patchView({ hiddenFields: [...hidden, column.name] });
         return;
-      case "freeze":
+      case "freeze": {
+        const index = visible.indexOf(column);
+        if (index < 0) return;
         void patchView({
-          frozenColumns: Math.min(5, visible.indexOf(column) + 1),
+          frozenColumns: nextFrozenColumns(
+            config.frozenColumns ?? DEFAULT_FROZEN,
+            index,
+          ),
         });
         return;
+      }
       case "filter": {
         const current = config.filter ?? {
           conjunction: "and" as const,
@@ -797,6 +825,7 @@ export function TableWorkspace({
     setLinks,
     openRecord,
     rowsById,
+    saveStatus,
   };
 
   const viewProps = {
@@ -808,6 +837,8 @@ export function TableWorkspace({
     canEdit: writable,
     onPatch: (patch: ViewPatch) => void patchView(patch),
     onCreate: (values: Record<string, unknown>) => addRow(values),
+    tintOf: (row: RowItem) =>
+      resolveRowTint(row, visible, config.color, tintContext),
     ...(counts ? { counts } : {}),
   };
 
@@ -921,6 +952,7 @@ export function TableWorkspace({
           filterOpen={filterOpen}
           onFilterOpen={setFilterOpen}
           savedAt={savedAt}
+          saveStatus={saveStatus}
         />
         {typeof config.description === "string" && config.description ? (
           <p
@@ -944,13 +976,11 @@ export function TableWorkspace({
                 rows={rows}
                 columns={visible}
                 widths={config.columnWidths ?? {}}
-                frozen={config.frozenColumns ?? 1}
+                frozen={config.frozenColumns ?? DEFAULT_FROZEN}
                 rowHeight={config.rowHeight ?? "short"}
                 groupBy={groupBy}
-                colorColumn={
-                  config.color?.mode === "select"
-                    ? config.color.column
-                    : undefined
+                tintOf={(row) =>
+                  resolveRowTint(row, visible, config.color, tintContext)
                 }
                 canEdit={writable}
                 canAdd={canAdd}

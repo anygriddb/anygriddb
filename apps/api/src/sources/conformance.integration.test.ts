@@ -1777,20 +1777,83 @@ describe("conformance of formulas across engines", () => {
         .where("externalName", "=", "teams")
         .where("deletedAt", "is", null)
         .executeTakeFirstOrThrow();
-      // No side schema yet: the field is refused, plainly.
+      // No side schema yet: the field is kept in AnyGridDB's database, by
+      // the row's key (ADR 0046). A view filters on it; it never sorts.
+      const remarque = await addColumn(db, actorId, teamsTable.id, {
+        label: "Remarque",
+        fieldType: "text",
+      });
+      const keptScope = await loadRowScope(
+        db,
+        {
+          userId: actorId,
+          bindings: [{ role: "owner", scope: "base", scopeId: baseId }],
+        },
+        await db
+          .selectFrom("dataTables")
+          .selectAll()
+          .where("id", "=", teamsTable.id)
+          .executeTakeFirstOrThrow(),
+      );
       trace.push(
         await failure(
-          addColumn(db, actorId, teamsTable.id, {
-            label: "Statut",
-            fieldType: "single_select",
-            options: ["Actif", "Pause"],
-          }),
+          updateRows(
+            services,
+            keptScope,
+            [
+              { rowId: "1", values: { [remarque.name]: "Vue" } },
+              { rowId: "3", values: { [remarque.name]: "Revue" } },
+            ],
+            { source: "web" },
+          ),
+        ),
+      );
+      const remarks = async (spec: Record<string, unknown> = {}) =>
+        (
+          await readPage(
+            db,
+            (await loadEngine(db, teamsTable.id, () => true)).engine,
+            { limit: 10, timeZone: "UTC", ...spec },
+            { total: true },
+          )
+        ).rows
+          .map((row): [string, unknown] => [row.id, row[remarque.name] ?? null])
+          .sort((left, right) => left[0].localeCompare(right[0]));
+      const remarkIs = (op: string, value?: string) => ({
+        filter: {
+          conjunction: "and",
+          conditions: [{ column: remarque.name, op, value }],
+        },
+      });
+      trace.push(
+        await remarks(),
+        await remarks(remarkIs("is", "vue")),
+        await remarks(remarkIs("is_empty")),
+        await failure(
+          remarks({ sort: [{ column: remarque.name, direction: "asc" }] }),
+        ),
+        // Compared under the lock of its row in AnyGridDB.
+        await failure(
+          updateRows(
+            services,
+            keptScope,
+            [
+              {
+                rowId: "1",
+                values: { [remarque.name]: "Tard" },
+                expected: { [remarque.name]: null },
+              },
+            ],
+            { source: "web" },
+          ),
         ),
       );
       await updateSource(deps, actorId, {
         id: sourceId,
         sideSchema: "ag_side",
       });
+      // A field stays where it was made: naming a side schema moves none.
+      trace.push(await remarks());
       const statut = await addColumn(db, actorId, teamsTable.id, {
         label: "Statut",
         fieldType: "single_select",
@@ -1908,8 +1971,19 @@ describe("conformance of formulas across engines", () => {
       traces.set(engine, trace);
     }
     const reference = traces.get("postgres");
-    expect(reference?.slice(0, 5)).toEqual([
-      "source_side_none",
+    const remarked = [
+      ["1", "Vue"],
+      ["2", null],
+      ["3", "Revue"],
+    ];
+    expect(reference?.slice(0, 11)).toEqual([
+      "ok",
+      remarked,
+      [["1", "Vue"]],
+      [["2", null]],
+      "control_plane_sort",
+      "source_conflict",
+      remarked,
       "ok",
       [
         ["1", "Actif", "12.5"],
@@ -2669,6 +2743,121 @@ describe("conformance of formulas across engines", () => {
       "external_table_synced",
       false,
       false,
+    ]);
+    for (const engine of ["mysql", "mariadb", "sqlserver"] as const) {
+      expect(traces.get(engine), engine).toEqual(reference);
+    }
+  }, 300_000);
+
+  it("refreshes a synced table by its change column", async () => {
+    const deps = { db, key, settings };
+    const failure = (promise: Promise<unknown>) =>
+      promise.then(
+        () => "ok",
+        (error: unknown) =>
+          error instanceof AppError ? error.code : String(error),
+      );
+    const traces = new Map<Engine, unknown[]>();
+    for (const [engine, { sourceId, schema }] of declared) {
+      const trace: unknown[] = [];
+      const syncDeps = { db, bus: recordingBus().bus, log: () => undefined };
+      const base = await insertBase(db, actorId, {
+        name: `Incremental ${engine}`,
+      });
+      const {
+        tableIds: [tableId = ""],
+      } = await exposeTables(deps, actorId, {
+        sourceId,
+        baseId: base.id,
+        tables: [{ schema, name: "watched" }],
+      });
+      const text = (value: string) =>
+        engine === "sqlserver" ? `N'${value}'` : `'${value}'`;
+      // SQL Server's fixture has no trigger: the application moves it.
+      const touch =
+        engine === "sqlserver" ? ", changed = sysutcdatetime()" : "";
+      await outside(
+        engine,
+        `insert into watched (id, label) values (40, ${text("p")})`,
+      );
+      // A column that does not tell changes is refused, as for a watch.
+      trace.push(
+        await failure(
+          setTableSync(db, actorId, {
+            tableId,
+            intervalMinutes: 15,
+            syncMode: "incremental",
+            changeColumn: "label",
+          }),
+        ),
+      );
+      await setTableSync(db, actorId, {
+        tableId,
+        intervalMinutes: 15,
+        syncMode: "incremental",
+        changeColumn: "changed",
+        fullEvery: 2,
+      });
+      // The first refresh copies the table whole and takes its mark.
+      trace.push(await runSync(syncDeps, tableId));
+      const copy = async () => {
+        const { engine: catalog } = await loadEngine(db, tableId, () => true);
+        const label = columnOf(catalog, "label");
+        const page = await readPage(
+          db,
+          catalog,
+          { rowIds: ["40", "41"], limit: 2, timeZone: "UTC" },
+          { total: false },
+        );
+        return page.rows
+          .map((row): [string, unknown] => [row.id, row[label]])
+          .sort((left, right) => left[0].localeCompare(right[0]));
+      };
+      trace.push(await copy());
+      await outside(
+        engine,
+        `update watched set label = ${text("q")}${touch} where id = 40`,
+      );
+      await outside(
+        engine,
+        `insert into watched (id, label) values (41, ${text("r")})`,
+      );
+      // An incremental pass reads the rows past the mark, live.
+      trace.push(await runSync(syncDeps, tableId), await copy());
+      const state = async () =>
+        db
+          .selectFrom("externalSyncs")
+          .select(["changes", "refreshCount", "errorCode"])
+          .where("tableId", "=", tableId)
+          .executeTakeFirstOrThrow();
+      trace.push(await state());
+      // A delete is not seen by a pass; the full copy every 2 finds it.
+      await outside(engine, "delete from watched where id = 40");
+      trace.push(await runSync(syncDeps, tableId), await copy());
+      trace.push(await runSync(syncDeps, tableId), await copy(), await state());
+      await outside(engine, "delete from watched where id = 41");
+      await setTableSync(db, actorId, { tableId, intervalMinutes: null });
+      traces.set(engine, trace);
+    }
+    const reference = traces.get("postgres");
+    expect(reference).toEqual([
+      "source_watch_column",
+      900,
+      [["40", "p"]],
+      900,
+      [
+        ["40", "q"],
+        ["41", "r"],
+      ],
+      { changes: 2, refreshCount: 1, errorCode: null },
+      900,
+      [
+        ["40", "q"],
+        ["41", "r"],
+      ],
+      900,
+      [["41", "r"]],
+      { changes: 1, refreshCount: 0, errorCode: null },
     ]);
     for (const engine of ["mysql", "mariadb", "sqlserver"] as const) {
       expect(traces.get(engine), engine).toEqual(reference);

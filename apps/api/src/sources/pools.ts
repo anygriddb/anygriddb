@@ -94,7 +94,12 @@ function unpacked(row: Record<string, unknown>): Record<string, unknown> {
   ) as Record<string, unknown>;
 }
 
-type Entry = { backend: Backend; stamp: string; engine: string };
+type Entry = {
+  backend: Backend;
+  replica: Backend | null;
+  stamp: string;
+  engine: string;
+};
 
 type SourceRow = {
   engine: string;
@@ -648,44 +653,89 @@ export class SourcePools {
     if (current) {
       this.pools.delete(sourceId);
       void current.backend.end().catch(() => undefined);
+      void current.replica?.end().catch(() => undefined);
     }
     const source: SourceRow = {
-      ...row,
+      engine: row.engine,
+      host: row.host,
+      port: row.port,
+      database: row.database,
+      username: row.username,
       password: decryptSecret(
         row.passwordCiphertext,
         row.passwordNonce,
         this.deps.key,
       ),
+      tlsCa: row.tlsCa,
+      connectionLimit: row.connectionLimit,
+      queryTimeoutMs: row.queryTimeoutMs,
     };
     const log: Log = (error) =>
       this.deps.log(error, "source connection failed");
     const plaintext = this.deps.settings.allowPlaintext;
-    let backend: Backend;
-    switch (row.engine) {
-      case "postgres":
-        backend = postgresBackend(source, plaintext, log);
-        break;
-      case "mysql":
-      case "mariadb":
-        backend = mysqlBackend(source, plaintext, log);
-        break;
-      case "sqlserver":
-        backend = sqlServerBackend(source, plaintext, log);
-        break;
-      default:
-        throw new AppError("source_engine_unsupported", row.engine);
+    const open = (target: SourceRow): Backend => {
+      switch (row.engine) {
+        case "postgres":
+          return postgresBackend(target, plaintext, log);
+        case "mysql":
+        case "mariadb":
+          return mysqlBackend(target, plaintext, log);
+        case "sqlserver":
+          return sqlServerBackend(target, plaintext, log);
+        default:
+          throw new AppError("source_engine_unsupported", row.engine);
+      }
+    };
+    const backend = open(source);
+    let replica: Backend | null = null;
+    if (row.replicaHost && row.replicaPort) {
+      if (!this.deps.settings.allows(row.replicaHost)) {
+        throw new AppError("source_host_not_allowed", row.replicaHost);
+      }
+      const replicaPassword =
+        row.replicaPasswordCiphertext && row.replicaPasswordNonce
+          ? decryptSecret(
+              row.replicaPasswordCiphertext,
+              row.replicaPasswordNonce,
+              this.deps.key,
+            )
+          : source.password;
+      replica = open({
+        ...source,
+        host: row.replicaHost,
+        port: row.replicaPort,
+        database: row.replicaDatabase ?? row.database,
+        username: row.replicaUsername ?? row.username,
+        password: replicaPassword,
+      });
     }
-    const entry = { backend, stamp, engine: row.engine };
+    const entry = { backend, replica, stamp, engine: row.engine };
     this.pools.set(sourceId, entry);
     return entry;
   }
 
   /** Runs `body` against the source in one read-only transaction. */
   async read<T>(sourceId: string, body: (run: Run) => Promise<T>): Promise<T> {
-    const { backend, engine } = await this.entry(sourceId);
-    return measureSource({ id: sourceId, engine }, "read", () =>
-      backend.read(body, (cause) => this.deps.log(cause, "source read failed")),
-    );
+    const { backend, replica, engine } = await this.entry(sourceId);
+    const runRead = (target: Backend) =>
+      measureSource({ id: sourceId, engine }, "read", () =>
+        target.read(body, (cause) =>
+          this.deps.log(cause, "source read failed"),
+        ),
+      );
+    if (!replica) return runRead(backend);
+    try {
+      return await runRead(replica);
+    } catch (error) {
+      // A replica that cannot be reached hands the read to the primary. One
+      // that ran out of time does not: the same query would load the
+      // primary as long, which the replica is there to spare.
+      if (error instanceof AppError && error.code === "source_unreachable") {
+        this.deps.log(error, "source replica unreachable; reading primary");
+        return runRead(backend);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -706,12 +756,18 @@ export class SourcePools {
     const current = this.pools.get(sourceId);
     this.pools.delete(sourceId);
     await current?.backend.end().catch(() => undefined);
+    await current?.replica?.end().catch(() => undefined);
   }
 
   async close(): Promise<void> {
     const all = [...this.pools.values()];
     this.pools.clear();
-    await Promise.allSettled(all.map((entry) => entry.backend.end()));
+    await Promise.allSettled(
+      all.flatMap((entry) => [
+        entry.backend.end(),
+        ...(entry.replica ? [entry.replica.end()] : []),
+      ]),
+    );
   }
 }
 

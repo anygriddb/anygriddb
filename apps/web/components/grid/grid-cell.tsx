@@ -85,7 +85,13 @@ export function GridCell(props: {
       data-column={column.name}
       className={cn(
         "relative flex shrink-0 items-start overflow-visible border-r border-b border-rule px-2 py-1.5 text-[13px] leading-5",
-        props.left !== undefined ? "sticky z-[5] bg-card" : "bg-card",
+        // While editing, sit above later rows so the panel receives clicks
+        // (virtualized rows paint in document order otherwise).
+        editing
+          ? cn("z-50 bg-card", props.left !== undefined && "sticky")
+          : props.left !== undefined
+            ? "sticky z-[5] bg-card"
+            : "bg-card",
         props.margin && "border-r-2 border-r-margin",
         (selected || (flags & FILLING) !== 0) && "bg-selection",
         column.kind === "number" && "justify-end",
@@ -121,7 +127,23 @@ export function GridCell(props: {
         <span className="h-3 w-2/3 animate-pulse rounded bg-muted" />
       )}
       {active ? (
-        <span className="pointer-events-none absolute inset-0 z-10 border-2 border-primary" />
+        <span
+          className={cn(
+            "pointer-events-none absolute inset-0 z-10 border-2",
+            table.saveStatus === "saving"
+              ? "border-primary/60"
+              : table.saveStatus === "error"
+                ? "border-danger"
+                : "border-primary",
+          )}
+        />
+      ) : null}
+      {active && table.saveStatus === "saving" ? (
+        <span
+          role="status"
+          className="pointer-events-none absolute top-0.5 right-0.5 z-20 h-1.5 w-1.5 rounded-full bg-primary"
+          aria-label={t`Saving…`}
+        />
       ) : null}
       {props.peer && !active ? (
         <span className="pointer-events-none absolute inset-0 z-10 border-2 border-dashed border-purple-500">

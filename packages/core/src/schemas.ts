@@ -17,6 +17,8 @@ import {
 } from "./query/read";
 import { MAX_BATCH_ROWS } from "./query/write";
 import {
+  MAX_VIEW_GROUPS,
+  MAX_VIEW_SORTS,
   viewConfigPatchSchema,
   viewConfigSchema,
   viewTypeSchema,
@@ -101,7 +103,7 @@ export const createTableInputSchema = z.object({
   baseId: z.uuid(),
   name: labelSchema,
   description: descriptionSchema.optional(),
-  columns: z.array(columnDefinitionSchema).min(1).max(60),
+  columns: z.array(columnDefinitionSchema).min(1).max(200),
 });
 
 export const updateTableInputSchema = z.object({
@@ -203,9 +205,9 @@ export const rowsReadInputSchema = z.object({
   /** Flat filters from older clients, ANDed with `filter`. */
   filters: z.array(legacyFilterSchema).max(50).optional(),
   search: z.string().trim().min(1).max(200).optional(),
-  sort: z.array(rowSortSchema).max(5).optional(),
+  sort: z.array(rowSortSchema).max(MAX_VIEW_SORTS).optional(),
   groupBy: z
-    .union([columnNameSchema, z.array(groupSpecSchema).max(3)])
+    .union([columnNameSchema, z.array(groupSpecSchema).max(MAX_VIEW_GROUPS)])
     .optional(),
   fields: z.array(columnNameSchema).max(500).optional(),
   offset: z.int().min(0).max(10_000_000).default(0),

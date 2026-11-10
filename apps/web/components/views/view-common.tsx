@@ -1,6 +1,14 @@
 import { cellText, rowError } from "@anygriddb/core";
 
-import { Select } from "@anygriddb/ui";
+import {
+  Button,
+  Checkbox,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Select,
+} from "@anygriddb/ui";
+import { LayoutList } from "lucide-react";
 import { cellDisplay } from "../../lib/format";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { CellValueView } from "../fields/cell-value";
@@ -22,17 +30,24 @@ export type ViewProps = {
    * a view shows at most a page of rows, the counts are of them all.
    */
   counts?: ReadonlyMap<string, number>;
+  /** Optional row tint from the view colour settings. */
+  tintOf?: (row: RowItem) => string | undefined;
 };
 
-export function useRowTitle() {
+/** Title text for a card/row: `titleColumn` when set, else the primary field. */
+export function useRowTitle(titleColumn?: string) {
   const table = useTable();
   const primary = table.table.columns.find((column) => column.isPrimary);
+  const chosen = titleColumn
+    ? (table.table.columns.find((column) => column.name === titleColumn) ??
+      primary)
+    : primary;
   return (row: RowItem) => {
-    if (!primary) return `#${cellText(row.ag_seq)}`;
+    if (!chosen) return `#${cellText(row.ag_seq)}`;
     return (
       cellDisplay(
-        row[primary.name as keyof RowItem],
-        primary,
+        row[chosen.name as keyof RowItem],
+        chosen,
         table.locale,
         table.people,
       ) || `#${cellText(row.ag_seq)}`
@@ -130,4 +145,71 @@ export function cardColumns(
         .filter((column) => !column.isPrimary && !exclude.includes(column.name))
         .slice(0, 4);
   return list;
+}
+
+/** Pick which fields appear on kanban/gallery cards. */
+export function CardFieldsPicker({
+  columns,
+  exclude,
+  value,
+  onChange,
+}: {
+  columns: readonly CatalogColumn[];
+  exclude: readonly string[];
+  value: readonly string[] | undefined;
+  onChange: (fields: string[] | null) => void;
+}) {
+  const { t } = useLingui();
+  const choices = columns.filter((column) => !exclude.includes(column.name));
+  const selected = new Set(
+    value ??
+      choices
+        .filter((column) => !column.isPrimary)
+        .slice(0, 4)
+        .map((column) => column.name),
+  );
+  const custom = value !== undefined;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          size="xs"
+          variant={custom ? "outline" : "ghost"}
+          className="h-7 gap-1 text-xs"
+        >
+          <LayoutList className="h-3.5 w-3.5" aria-hidden />
+          {t`Card fields`}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64">
+        <p className="mb-2 text-xs font-medium">{t`Shown on cards`}</p>
+        <ul className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
+          {choices.map((column) => (
+            <li key={column.name}>
+              <label className="flex items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted">
+                <Checkbox
+                  checked={selected.has(column.name)}
+                  onChange={(event) => {
+                    const next = new Set(selected);
+                    if (event.target.checked) next.add(column.name);
+                    else next.delete(column.name);
+                    onChange([...next]);
+                  }}
+                />
+                <span className="truncate">{column.label}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+        <Button
+          size="xs"
+          variant="outline"
+          className="mt-2"
+          onClick={() => onChange(null)}
+        >
+          {t`Use default fields`}
+        </Button>
+      </PopoverContent>
+    </Popover>
+  );
 }

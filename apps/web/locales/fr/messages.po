@@ -220,10 +220,20 @@ msgstr "{0, plural, one {# champ retiré (dans la corbeille)} other {# champs re
 msgid "{0, plural, one {# field updated} other {# fields updated}}"
 msgstr "{0, plural, one {# champ mis à jour} other {# champs mis à jour}}"
 
+#. placeholder {0}: table.columns.length
+#: components/shell/base-home.tsx
+msgid "{0, plural, one {# field} other {# fields}}"
+msgstr "{0, plural, one {# champ} other {# champs}}"
+
 #. placeholder {0}: staged.files
 #: components/shell/new-base-dialog.tsx
 msgid "{0, plural, one {# file} other {# files}}"
 msgstr "{0, plural, one {# fichier} other {# fichiers}}"
+
+#. placeholder {0}: chip.count
+#: components/table/view-toolbar.tsx
+msgid "{0, plural, one {# grouped condition} other {# grouped conditions}}"
+msgstr "{0, plural, one {# condition groupée} other {# conditions groupées}}"
 
 #. placeholder {0}: hidden.size
 #: components/table/view-toolbar.tsx
@@ -258,6 +268,7 @@ msgstr "{0, plural, one {# ligne} other {# lignes}}"
 
 #. placeholder {0}: base.tables.length
 #. placeholder {0}: staged.tables
+#: components/shell/base-home.tsx
 #: components/shell/home-page.tsx
 #: components/shell/new-base-dialog.tsx
 msgid "{0, plural, one {# table} other {# tables}}"
@@ -334,6 +345,7 @@ msgid "{count} person(s) without access to the base, left out of User fields"
 msgstr "{count} personne(s) sans accès à la base, retirée(s) des champs Utilisateur"
 
 #: components/shell/airtable-report.tsx
+#: components/shell/jobs-menu.tsx
 msgid "{count} points to check"
 msgstr "{count} points à vérifier"
 
@@ -413,6 +425,10 @@ msgstr "{message} : {detail}"
 #: components/settings/api-console.tsx
 msgid "{ms} ms"
 msgstr "{ms} ms"
+
+#: components/admin/sources-tab.tsx
+msgid "{name} answers (primary {version}, replica {replica})"
+msgstr "{name} répond (primaire {version}, réplique {replica})"
 
 #: components/admin/sources-tab.tsx
 msgid "{name} answers (version {version})"
@@ -672,6 +688,10 @@ msgstr "Une connexion ou un jeton utilisé compte comme une activité. L'envoi d
 msgid "A sign-in or a token in use counts as activity. The person is warned by email a week before. Administrators and accounts kept by an identity provider (SCIM) are never disabled; an administrator can enable an account again."
 msgstr "Une connexion ou un jeton utilisé compte comme une activité. La personne est prévenue par email une semaine avant. Les administrateurs et les comptes gérés par un fournisseur d'identité (SCIM) ne sont jamais désactivés ; un administrateur peut réactiver un compte."
 
+#: components/shell/new-table-dialog.tsx
+msgid "A single Name field."
+msgstr "Un seul champ Nom."
+
 #: lib/errors.ts
 msgid "A source already has this name"
 msgstr "Une source porte déjà ce nom"
@@ -746,6 +766,10 @@ msgid "Accounts, bases, tables"
 msgstr "Comptes, bases, tables"
 
 #: components/admin/admin-page.tsx
+msgid "Accounts, security, sources, and the instance itself."
+msgstr "Comptes, sécurité, sources et l'instance elle-même."
+
+#: components/admin/admin-page.tsx
 #: components/fields/field-editor.tsx
 #: components/table/automations-dialog.tsx
 msgid "Action"
@@ -769,6 +793,10 @@ msgstr "Actions pour {name}"
 msgid "Active"
 msgstr "Active"
 
+#: components/table/view-toolbar.tsx
+msgid "Active filters"
+msgstr "Filtres actifs"
+
 #: components/dashboards/dashboard-board.tsx
 msgid "Add"
 msgstr "Ajouter"
@@ -776,6 +804,10 @@ msgstr "Ajouter"
 #: components/views/kanban-view.tsx
 msgid "Add a card"
 msgstr "Ajouter une carte"
+
+#: components/table/color-rules-editor.tsx
+msgid "Add a colour rule"
+msgstr "Ajouter une règle de couleur"
 
 #: components/table/filter-builder.tsx
 msgid "Add a condition"
@@ -838,6 +870,10 @@ msgstr "Ajouter un tri"
 msgid "Add a table"
 msgstr "Ajouter une table"
 
+#: components/shell/base-home.tsx
+msgid "Add a table to start keeping rows, or connect a client database from administration."
+msgstr "Ajoutez une table pour commencer à tenir des lignes, ou connectez une base cliente depuis l'administration."
+
 #: components/dashboards/dashboard-board.tsx
 msgid "Add a widget"
 msgstr "Ajouter un widget"
@@ -845,6 +881,10 @@ msgstr "Ajouter un widget"
 #: components/table/automations-dialog.tsx
 msgid "Add an action"
 msgstr "Ajouter une action"
+
+#: components/settings/second-factor.tsx
+msgid "Add another passkey"
+msgstr "Ajouter une autre clé d'accès"
 
 #: lib/errors.ts
 msgid "Add at least one table before exporting"
@@ -1052,6 +1092,7 @@ msgid "an exact date"
 msgstr "une date précise"
 
 #: components/table/filter-builder.tsx
+#: components/table/view-toolbar.tsx
 msgid "and"
 msgstr "et"
 
@@ -1077,8 +1118,8 @@ msgid "Any true"
 msgstr "Au moins une vraie"
 
 #: lib/errors.ts
-msgid "AnyGridDB does not change a client's table: add a formula, a lookup or a rollup instead"
-msgstr "AnyGridDB ne modifie pas la table d'un client : ajoutez plutôt une formule, une recherche ou un cumul"
+msgid "AnyGridDB does not change a client's table: this field cannot be added or changed there"
+msgstr "AnyGridDB ne modifie pas la table d'un client : ce champ ne peut pas y être ajouté ni modifié"
 
 #: components/settings/api-docs.tsx
 msgid "AnyGridDB embeds no model: the AI you run (Claude, Cursor, Ollama with an MCP client…) connects to the instance's MCP server. It reads and writes rows with the token's rights, never more than yours; no administration, no schema. A read-only token offers it reading only."
@@ -1111,6 +1152,10 @@ msgstr "Toute personne qui a le lien peut envoyer une réponse, enregistrée en 
 #: components/table/share-dialog.tsx
 msgid "Anyone with the link sees this view read-only, with your rights."
 msgstr "Toute personne qui a le lien voit cette vue en lecture seule, avec vos droits."
+
+#: components/shell/base-home.tsx
+msgid "API"
+msgstr "API"
 
 #: components/shell/sidebar.tsx
 msgid "API and documentation"
@@ -1165,6 +1210,10 @@ msgstr "Au moins {minLength} caractères."
 msgid "At least {minLength} characters. Changing it signs you out everywhere else."
 msgstr "Au moins {minLength} caractères. Le changer vous déconnecte partout ailleurs."
 
+#: components/settings/second-factor.tsx
+msgid "At least one passkey is registered."
+msgstr "Au moins une clé d'accès est enregistrée."
+
 #: components/table/automations-dialog.tsx
 msgid "at most"
 msgstr "au plus"
@@ -1185,6 +1234,10 @@ msgstr "Essais"
 #: components/admin/admin-page.tsx
 msgid "Audit log"
 msgstr "Journal d'audit"
+
+#: components/settings/second-factor.tsx
+msgid "Authenticator app (TOTP) is set up."
+msgstr "L'application d'authentification (TOTP) est configurée."
 
 #: components/admin/sign-in-trail.tsx
 #: components/auth/auth-page.tsx
@@ -1230,6 +1283,7 @@ msgstr "Numéro auto"
 msgid "Average"
 msgstr "Moyenne"
 
+#: components/auth/auth-page.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/table/automations-dialog.tsx
 msgid "Back"
@@ -1259,6 +1313,7 @@ msgstr "Codes de secours, affichés une seule fois."
 
 #: components/admin/sources-tab.tsx
 #: components/admin/support-tab.tsx
+#: components/shell/base-home.tsx
 msgid "Base"
 msgstr "Base"
 
@@ -1279,6 +1334,10 @@ msgstr "Copie d’une base"
 #: components/shell/new-base-dialog.tsx
 msgid "Base created"
 msgstr "Base créée"
+
+#: components/shell/jobs-menu.tsx
+msgid "Base created, with gaps"
+msgstr "Base créée, avec des lacunes"
 
 #: components/shell/jobs-menu.tsx
 msgid "Base created: {tables} tables, {rows} rows."
@@ -1332,6 +1391,10 @@ msgstr "Les bases déjà créées restent à leurs propriétaires."
 msgid "Before installing it, check that its SHA-256 fingerprint is this one:"
 msgstr "Avant de l'installer, vérifiez que son empreinte SHA-256 est bien celle-ci :"
 
+#: components/shell/new-table-dialog.tsx
+msgid "Blank table"
+msgstr "Table vide"
+
 #: lib/known-text.ts
 msgid "Blocked target (private or internal address)"
 msgstr "Destination bloquée (adresse privée ou interne)"
@@ -1382,6 +1445,10 @@ msgstr "Selon le champ"
 msgid "By invitation to a base"
 msgstr "Sur invitation à une base"
 
+#: components/table/view-toolbar.tsx
+msgid "By rules"
+msgstr "Par règles"
+
 #: components/table/view-tabs.tsx
 msgid "Calendar"
 msgstr "Calendrier"
@@ -1402,10 +1469,11 @@ msgstr "Appeler une URL"
 #: components/shell/dialogs.tsx
 #: components/shell/jobs-menu.tsx
 #: components/shell/new-base-dialog.tsx
+#: components/shell/new-table-dialog.tsx
 #: components/table/automations-dialog.tsx
+#: components/table/color-rules-editor.tsx
 #: components/table/new-row-dialog.tsx
 #: components/table/table-workspace.tsx
-#: components/table/view-toolbar.tsx
 #: lib/jobs.tsx
 #: lib/trash.tsx
 msgid "Cancel"
@@ -1428,6 +1496,10 @@ msgstr "Annulée"
 msgid "Cannot restore: restore the table or fields it depends on first"
 msgstr "Restauration impossible : restaurez d'abord la table ou les champs dont il dépend"
 
+#: components/views/view-common.tsx
+msgid "Card fields"
+msgstr "Champs de carte"
+
 #: components/dashboards/chart-view.tsx
 msgid "Category"
 msgstr "Catégorie"
@@ -1439,6 +1511,14 @@ msgstr "Certificat (facultatif)"
 #: components/admin/admin-page.tsx
 msgid "Certificate served, valid until {date}, for: {names}."
 msgstr "Certificat servi, valable jusqu'au {date}, pour : {names}."
+
+#: components/admin/sources-tab.tsx
+msgid "change column"
+msgstr "colonne de modification"
+
+#: components/admin/sources-tab.tsx
+msgid "Change column"
+msgstr "Colonne de modification"
 
 #: components/settings/account-settings.tsx
 msgid "Change the password"
@@ -1472,12 +1552,14 @@ msgstr "Canal"
 msgid "Chart"
 msgstr "Graphique"
 
+#: components/fields/field-editor.tsx
 #: components/fields/field-meta.tsx
 msgid "Checkbox"
 msgstr "Case à cocher"
 
 #: components/fields/cell-value.tsx
 #: components/table/filter-builder.tsx
+#: components/table/view-toolbar.tsx
 msgid "checked"
 msgstr "coché"
 
@@ -1490,9 +1572,17 @@ msgstr "Vérifiée"
 msgid "Checked at {time}"
 msgstr "Vérifiée à {time}"
 
+#: components/fields/field-editor.tsx
+msgid "Checklist"
+msgstr "Liste à cocher"
+
 #: components/fields/field-meta.tsx
 msgid "Choices and people"
 msgstr "Choix et personnes"
+
+#: components/admin/sources-tab.tsx
+msgid "Choose a column"
+msgstr "Choisir une colonne"
 
 #: components/shell/new-base-dialog.tsx
 msgid "Choose a file"
@@ -1517,6 +1607,10 @@ msgstr "Formule circulaire : elle dépend d'elle-même"
 #: components/table/view-toolbar.tsx
 msgid "Clear"
 msgstr "Effacer"
+
+#: components/table/view-toolbar.tsx
+msgid "Clear filters"
+msgstr "Effacer les filtres"
 
 #: components/settings/table-acl-panel.tsx
 msgid "Clear restrictions"
@@ -1566,6 +1660,18 @@ msgstr "Replier la colonne {name}"
 #: components/table/view-toolbar.tsx
 msgid "Color"
 msgstr "Couleur"
+
+#: components/fields/field-editor.tsx
+msgid "Colour"
+msgstr "Couleur"
+
+#: components/table/color-rules-editor.tsx
+msgid "Colour rules"
+msgstr "Règles de couleur"
+
+#: components/fields/field-editor.tsx
+msgid "Coloured badges"
+msgstr "Badges colorés"
 
 #: components/admin/sources-tab.tsx
 #: components/table/import-dialog.tsx
@@ -1630,6 +1736,10 @@ msgstr "Valider"
 msgid "Confirm TOTP"
 msgstr "Confirmer TOTP"
 
+#: components/settings/second-factor.tsx
+msgid "Confirming replaces your current authenticator and issues new backup codes. The old app stops working."
+msgstr "La confirmation remplace votre application d’authentification actuelle et émet de nouveaux codes de secours. L’ancienne application cesse de fonctionner."
+
 #: components/table/filter-builder.tsx
 msgid "Conjunction"
 msgstr "Conjonction"
@@ -1642,6 +1752,10 @@ msgstr "Connecter une base de données"
 #: components/settings/api-docs.tsx
 msgid "Connect an AI (MCP)"
 msgstr "Brancher une IA (MCP)"
+
+#: components/admin/sources-tab.tsx
+msgid "Connected (primary {version}, replica {replica})"
+msgstr "Connecté (primaire {version}, réplique {replica})"
 
 #: components/admin/sources-tab.tsx
 msgid "Connected (version {version})"
@@ -1658,6 +1772,10 @@ msgstr "Connexions au plus"
 #: lib/known-text.ts
 msgid "Contacts"
 msgstr "Contacts"
+
+#: components/views/gallery-view.tsx
+msgid "Contain"
+msgstr "Contenir"
 
 #: components/table/filter-builder.tsx
 msgid "contains"
@@ -1738,6 +1856,14 @@ msgstr "Copiez cette adresse maintenant : elle ne sera plus affichée."
 msgid "Copy this token now: it will not be shown again."
 msgstr "Copiez ce jeton maintenant : il ne sera plus affiché."
 
+#: components/grid/grid-view.tsx
+msgid "Could not load the rows to fill"
+msgstr "Impossible de charger les lignes à remplir"
+
+#: components/grid/grid-view.tsx
+msgid "Could not load the rows to paste into"
+msgstr "Impossible de charger les lignes où coller"
+
 #: components/fields/field-editor.tsx
 msgid "Count of links"
 msgstr "Nombre de liens"
@@ -1753,7 +1879,7 @@ msgstr "Couverture"
 #: components/dashboards/dashboard-list.tsx
 #: components/settings/account-settings.tsx
 #: components/shell/new-base-dialog.tsx
-#: components/shell/sidebar.tsx
+#: components/shell/new-table-dialog.tsx
 #: components/table/view-tabs.tsx
 msgid "Create"
 msgstr "Créer"
@@ -1795,6 +1921,10 @@ msgstr "Créer le champ"
 #: components/shell/new-base-dialog.tsx
 msgid "Create it in Airtable with data.records:read and schema.bases:read on this base. AnyGridDB uses it, encrypted, for the import only, then forgets it. Attachments, view filters, and rollup calculations do not come over: the report will say so."
 msgstr "Créez-le dans Airtable avec les droits data.records:read et schema.bases:read sur cette base. AnyGridDB l'utilise le temps de l'import, chiffré, puis l'oublie. Les pièces jointes, les filtres des vues et les calculs des cumuls ne passent pas : le rapport le dira."
+
+#: components/dashboards/dashboard-list.tsx
+msgid "Create one to put metrics and charts on this base."
+msgstr "Créez-en un pour y placer métriques et graphiques."
 
 #: components/settings/api-docs.tsx
 msgid "Create or update"
@@ -1851,6 +1981,10 @@ msgstr "CRM"
 msgid "CSV, TSV, JSON, or Excel (.xlsx), up to 100,000 rows. The first row names the columns."
 msgstr "CSV, TSV, JSON ou Excel (.xlsx), 100 000 lignes au plus. La première ligne donne les noms de colonnes."
 
+#: components/shell/sidebar.tsx
+msgid "Ctrl K"
+msgstr "Ctrl K"
+
 #: components/fields/field-editor.tsx
 msgid "Currency"
 msgstr "Devise"
@@ -1884,6 +2018,7 @@ msgstr "Tableau de bord supprimé"
 msgid "Dashboard not found"
 msgstr "Tableau de bord introuvable"
 
+#: components/shell/base-home.tsx
 #: components/shell/sidebar.tsx
 msgid "Dashboards"
 msgstr "Tableaux de bord"
@@ -1957,6 +2092,10 @@ msgstr "Décimales"
 msgid "Declare a source"
 msgstr "Déclarer une source"
 
+#: components/fields/field-editor.tsx
+msgid "Default"
+msgstr "Par défaut"
+
 #: components/admin/admin-page.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Default language"
@@ -2022,6 +2161,10 @@ msgstr "Supprimer les lignes"
 #: components/settings/api-console.tsx
 msgid "Delete rows (DELETE)"
 msgstr "Supprimer des lignes (DELETE)"
+
+#: components/table/color-rules-editor.tsx
+msgid "Delete rule"
+msgstr "Supprimer la règle"
 
 #: components/shell/sidebar.tsx
 msgid "Delete table"
@@ -2113,6 +2256,10 @@ msgstr "Description"
 msgid "Description (optional)"
 msgstr "Description (facultative)"
 
+#: components/views/form-view.tsx
+msgid "Description for {field}"
+msgstr "Description de {field}"
+
 #: components/grid/grid-view.tsx
 msgid "Deselect"
 msgstr "Désélectionner"
@@ -2146,6 +2293,10 @@ msgstr "Désactivé le {date}"
 msgid "Disabled on {date}, unused"
 msgstr "Désactivé le {date}, inutilisé"
 
+#: components/fields/field-editor.tsx
+msgid "Display"
+msgstr "Affichage"
+
 #: components/views/form-view.tsx
 msgid "Display condition of {field}: {count}"
 msgstr "Condition d'affichage de {field} : {count}"
@@ -2166,7 +2317,7 @@ msgstr "Domaines : {domains}. Les invitations déjà envoyées à d'autres adres
 #: components/admin/admin-page.tsx
 #: components/admin/support-tab.tsx
 #: components/fields/button-cell.tsx
-#: components/shell/sidebar.tsx
+#: components/shell/new-table-dialog.tsx
 #: components/table/automations-dialog.tsx
 msgid "Done"
 msgstr "Terminé"
@@ -2267,6 +2418,10 @@ msgstr "Modifier {field}"
 #: components/table/automations-dialog.tsx
 msgid "Edit automation"
 msgstr "Modifier l'automatisation"
+
+#: components/table/view-toolbar.tsx
+msgid "Edit colour rules"
+msgstr "Modifier les règles de couleur"
 
 #: components/fields/field-editor.tsx
 #: components/grid/grid-header.tsx
@@ -2452,6 +2607,10 @@ msgstr "Toutes les lignes de {table}"
 #: components/admin/admin-page.tsx
 msgid "Every session of this account ends now. The person can sign in again."
 msgstr "Toutes les sessions de ce compte prennent fin maintenant. La personne peut se reconnecter."
+
+#: components/fields/field-editor.tsx
+msgid "Every table needs a primary field. Choose another field to change it."
+msgstr "Chaque table a besoin d’un champ principal. Choisissez un autre champ pour le changer."
 
 #: components/table/automations-dialog.tsx
 msgid "Every week"
@@ -2664,13 +2823,18 @@ msgid "field_name"
 msgstr "nom_du_champ"
 
 #: components/admin/admin-page.tsx
+#: components/shell/new-table-dialog.tsx
 #: components/table/view-toolbar.tsx
 msgid "Fields"
 msgstr "Champs"
 
+#: lib/errors.ts
+msgid "Fields are kept in this side schema: it cannot change while they exist"
+msgstr "Des champs sont conservés dans ce schéma latéral : il ne peut pas changer tant qu'ils existent"
+
 #: components/admin/sources-tab.tsx
-msgid "Fields added to this source's tables are kept there, one table per exposed table. The client's tables are never changed. On MySQL and MariaDB, it is a database."
-msgstr "Les champs ajoutés aux tables de cette source y sont rangés, une table par table exposée. Les tables du client ne sont jamais modifiées. Sur MySQL et MariaDB, c'est une base de données."
+msgid "Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed."
+msgstr "Les champs ajoutés aux tables de cette source y sont conservés, une table latérale par table exposée (une base de données sur MySQL et MariaDB). Laissé vide, AnyGridDB les conserve dans sa propre base : ils filtrent une vue, mais ne peuvent ni la trier ni la regrouper. Les tables du client ne sont jamais modifiées."
 
 #: components/shell/jobs-menu.tsx
 msgid "File available for 24 h"
@@ -2701,13 +2865,13 @@ msgstr "Stockage de fichiers non configuré"
 msgid "File too large"
 msgstr "Fichier trop volumineux"
 
+#: lib/errors.ts
+msgid "File too large (2 GiB at most)"
+msgstr "Fichier trop volumineux (2 Gio au maximum)"
+
 #: components/table/import-dialog.tsx
 msgid "File too large (20 MB, 10 MB for Excel)."
 msgstr "Fichier trop volumineux (20 Mo, 10 Mo pour Excel)."
-
-#: lib/errors.ts
-msgid "File too large (40 MB at most)"
-msgstr "Fichier trop volumineux (40 Mo au plus)"
 
 #: components/admin/admin-page.tsx
 msgid "Files"
@@ -2738,6 +2902,10 @@ msgstr "Filtrer sur ce champ"
 msgid "Find a base, a table, or an action"
 msgstr "Rechercher une base, une table ou une action"
 
+#: components/fields/field-editor.tsx
+msgid "Fire"
+msgstr "Feu"
+
 #: components/admin/sources-tab.tsx
 msgid "First check under way"
 msgstr "Première vérification en cours"
@@ -2745,6 +2913,14 @@ msgstr "Première vérification en cours"
 #: components/admin/sources-tab.tsx
 msgid "First copy in progress: the table is read live until then"
 msgstr "Première copie en cours : la table est lue en direct d'ici là"
+
+#: components/views/gallery-view.tsx
+msgid "Fit"
+msgstr "Ajustement"
+
+#: components/fields/field-editor.tsx
+msgid "Flag"
+msgstr "Drapeau"
 
 #: components/admin/security-tab.tsx
 msgid "For"
@@ -2840,6 +3016,18 @@ msgstr "Vendredi"
 msgid "From"
 msgstr "À partir de"
 
+#: components/admin/sources-tab.tsx
+msgid "Full copy"
+msgstr "Copie complète"
+
+#: components/admin/sources-tab.tsx
+msgid "full reconcile every"
+msgstr "réconciliation complète tous les"
+
+#: components/admin/sources-tab.tsx
+msgid "Full reconcile every N refreshes"
+msgstr "Réconciliation complète tous les N rafraîchissements"
+
 #: components/table/view-tabs.tsx
 msgid "Gallery"
 msgstr "Galerie"
@@ -2859,6 +3047,10 @@ msgstr "Aller à…"
 #: components/table/view-tabs.tsx
 msgid "Grid"
 msgstr "Grille"
+
+#: components/admin/sources-tab.tsx
+msgid "Grid and API reads use the replica when set; writes stay on the primary. If the replica is unreachable, reads fall back to the primary."
+msgstr "Les lectures grille et API utilisent la réplique lorsqu’elle est définie ; les écritures restent sur le primaire. Si la réplique est injoignable, les lectures basculent sur le primaire."
 
 #: components/shell/shortcuts-dialog.tsx
 msgid "Grid: editing"
@@ -2924,6 +3116,10 @@ msgstr "Valeur de l'en-tête"
 #: components/admin/admin-page.tsx
 msgid "Health"
 msgstr "Santé"
+
+#: components/fields/field-editor.tsx
+msgid "Heart"
+msgstr "Cœur"
 
 #: components/shell/home-page.tsx
 msgid "Hello {name}"
@@ -2996,6 +3192,10 @@ msgstr "En-tête HTTP"
 #: components/settings/second-factor.tsx
 msgid "I saved the codes"
 msgstr "J'ai copié les codes"
+
+#: components/fields/field-editor.tsx
+msgid "Icon"
+msgstr "Icône"
 
 #: components/settings/api-console.tsx
 msgid "Ids, separated by commas"
@@ -3087,7 +3287,7 @@ msgid "in N days"
 msgstr "dans N jours"
 
 #: components/shell/jobs-menu.tsx
-#: components/shell/sidebar.tsx
+#: components/shell/new-table-dialog.tsx
 msgid "In progress"
 msgstr "En cours"
 
@@ -3106,6 +3306,14 @@ msgstr "Inclure les valeurs de la ligne, lues avec vos droits"
 #: lib/errors.ts
 msgid "Incomplete formula"
 msgstr "Formule incomplète"
+
+#: components/admin/sources-tab.tsx
+msgid "Incremental"
+msgstr "Incrémental"
+
+#: components/admin/sources-tab.tsx
+msgid "Incremental upserts rows that moved since the last pass; a full reconcile (deletes included) runs every {count} refreshes."
+msgstr "L’incrémental met à jour les lignes qui ont bougé depuis le dernier passage ; une réconciliation complète (suppressions comprises) tourne tous les {count} rafraîchissements."
 
 #: components/settings/base-settings.tsx
 msgid "Inherited ({role})"
@@ -3487,6 +3695,10 @@ msgstr "Type"
 msgid "Label"
 msgstr "Libellé"
 
+#: components/views/form-view.tsx
+msgid "Label for {field}"
+msgstr "Libellé de {field}"
+
 #: components/shell/user-menu.tsx
 msgid "Language"
 msgstr "Langue"
@@ -3542,6 +3754,10 @@ msgstr "Plus récente date"
 #: components/views/map-view.tsx
 msgid "Latitude"
 msgstr "Latitude"
+
+#: components/admin/sources-tab.tsx
+msgid "Leave blank to keep the stored password"
+msgstr "Laisser vide pour garder le mot de passe enregistré"
 
 #: components/shell/user-menu.tsx
 msgid "Light"
@@ -3618,6 +3834,10 @@ msgstr "En direct dans la base du client"
 #: app/providers.tsx
 msgid "Loading"
 msgstr "Chargement"
+
+#: components/fields/attachment-preview.tsx
+msgid "Loading preview…"
+msgstr "Chargement de l’aperçu…"
 
 #: components/admin/admin-page.tsx
 #: components/record/row-status.tsx
@@ -3701,6 +3921,10 @@ msgstr "Recherche"
 msgid "lookup carried over as values"
 msgstr "recherche reprise en valeurs"
 
+#: components/auth/auth-page.tsx
+msgid "Lost your authenticator? Use a backup code"
+msgstr "Authentificateur perdu ? Utilisez un code de secours"
+
 #: components/admin/admin-page.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Maintenance"
@@ -3743,6 +3967,7 @@ msgid "MCP (AI)"
 msgstr "MCP (IA)"
 
 #: components/table/filter-builder.tsx
+#: components/table/view-toolbar.tsx
 msgid "Me"
 msgstr "Moi"
 
@@ -3826,6 +4051,10 @@ msgstr "Longueur minimale"
 msgid "Missing closing parenthesis"
 msgstr "Parenthèse fermante manquante"
 
+#: components/admin/sources-tab.tsx
+msgid "mode"
+msgstr "mode"
+
 #: components/table/automations-dialog.tsx
 msgid "Monday"
 msgstr "Lundi"
@@ -3838,6 +4067,14 @@ msgstr "Mois"
 #: components/table/view-toolbar.tsx
 msgid "More actions"
 msgstr "Plus d'actions"
+
+#: components/views/form-view.tsx
+msgid "Move {field} down"
+msgstr "Descendre {field}"
+
+#: components/views/form-view.tsx
+msgid "Move {field} up"
+msgstr "Monter {field}"
 
 #: components/views/kanban-view.tsx
 msgid "Move {name}"
@@ -3870,7 +4107,7 @@ msgstr "il y a N jours"
 #: components/admin/scim-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/settings/webhooks-panel.tsx
-#: components/shell/sidebar.tsx
+#: components/shell/new-table-dialog.tsx
 #: components/table/automations-dialog.tsx
 msgid "Name"
 msgstr "Nom"
@@ -3878,6 +4115,10 @@ msgstr "Nom"
 #: components/admin/admin-page.tsx
 msgid "Name or email"
 msgstr "Nom ou email"
+
+#: components/shell/new-table-dialog.tsx
+msgid "Name, Notes, and a Status list."
+msgstr "Nom, Notes, et une liste Statut."
 
 #: components/fields/formula-docs.ts
 msgid "Natural logarithm; blank for 0 or less."
@@ -3954,10 +4195,12 @@ msgstr "Nouvelle vue personnelle"
 msgid "New row"
 msgstr "Nouvelle ligne"
 
+#: components/shell/base-home.tsx
 #: components/shell/sidebar.tsx
 msgid "New table"
 msgstr "Nouvelle table"
 
+#: components/shell/base-home.tsx
 #: components/shell/sidebar.tsx
 msgid "New table in {name}"
 msgstr "Nouvelle table dans {name}"
@@ -4014,6 +4257,8 @@ msgstr "l'année prochaine"
 #: components/admin/admin-page.tsx
 #: components/admin/security-tab.tsx
 #: components/dashboards/chart-view.tsx
+#: components/fields/cell-value.tsx
+#: components/views/form-view.tsx
 msgid "No"
 msgstr "Non"
 
@@ -4032,6 +4277,10 @@ msgstr "Aucune automatisation sur cette table."
 #: components/shell/sidebar.tsx
 msgid "No bases yet."
 msgstr "Aucune base pour l'instant."
+
+#: components/admin/sources-tab.tsx
+msgid "No column of this table tells when a row changes (a date and time set on every change, or a rowversion): keep the full copy."
+msgstr "Aucune colonne de cette table ne dit quand une ligne change (une date et heure mise à jour à chaque modification, ou un rowversion) : gardez la copie complète."
 
 #: components/record/record-panel.tsx
 msgid "No comments"
@@ -4129,6 +4378,7 @@ msgstr "Sans valeur"
 msgid "Node.js, up for"
 msgstr "Node.js, en service depuis"
 
+#: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/grid/grid-footer.tsx
 #: components/table/view-toolbar.tsx
@@ -4149,10 +4399,14 @@ msgid "Not found"
 msgstr "Introuvable"
 
 #: components/admin/sources-tab.tsx
+msgid "Not set"
+msgstr "Non défini"
+
+#: components/admin/sources-tab.tsx
 msgid "Not watched"
 msgstr "Non suivis"
 
-#: components/shell/sidebar.tsx
+#: components/shell/new-table-dialog.tsx
 msgid "Notes"
 msgstr "Notes"
 
@@ -4172,6 +4426,10 @@ msgstr "Notifications ({count} non lues)"
 #: components/table/automations-dialog.tsx
 msgid "Notify collaborators"
 msgstr "Notifier des collaborateurs"
+
+#: components/fields/field-editor.tsx
+msgid "Notify people when they are assigned"
+msgstr "Prévenir les personnes lorsqu’elles sont assignées"
 
 #: components/fields/field-meta.tsx
 #: components/grid/grid-footer.tsx
@@ -4270,6 +4528,10 @@ msgid "Only changes made in AnyGridDB show here: those of other applications sta
 msgstr "Seules les modifications faites dans AnyGridDB apparaissent ici : celles des autres applications restent dans la base du client."
 
 #: components/fields/field-editor.tsx
+msgid "Only formulas, lookups, rollups, and buttons can be added on this table."
+msgstr "Seules les formules, recherches, agrégats et boutons peuvent être ajoutés sur cette table."
+
+#: components/fields/field-editor.tsx
 msgid "Only the linked rows that match"
 msgstr "Seulement les lignes liées qui correspondent"
 
@@ -4332,6 +4594,7 @@ msgid "Options"
 msgstr "Options"
 
 #: components/table/filter-builder.tsx
+#: components/table/view-toolbar.tsx
 msgid "or"
 msgstr "ou"
 
@@ -4346,10 +4609,6 @@ msgstr "Ou collez des lignes copiées d'un tableur"
 #: components/table/view-toolbar.tsx
 msgid "Order"
 msgstr "Ordre"
-
-#: lib/errors.ts
-msgid "Origin refused"
-msgstr "Origine refusée"
 
 #: components/table/automations-dialog.tsx
 msgid "Otherwise:"
@@ -4382,6 +4641,18 @@ msgstr "Clé d'accès"
 #: components/settings/second-factor.tsx
 msgid "Passkey registered"
 msgstr "Clé d'accès enregistrée"
+
+#: components/admin/admin-page.tsx
+msgid "Passkeys are available once this connection is trusted (authority installed or your own certificate)."
+msgstr "Les clés d'accès sont disponibles une fois cette connexion de confiance (autorité installée ou votre propre certificat)."
+
+#: lib/errors.ts
+msgid "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Open AnyGridDB at that address, or use a TOTP app."
+msgstr "Les clés d'accès exigent un nom d'hôte dans PUBLIC_URL (un nom DNS ou localhost), pas une adresse IP. Ouvrez AnyGridDB à cette adresse, ou utilisez une application TOTP."
+
+#: components/settings/second-factor.tsx
+msgid "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Use a TOTP app, or open AnyGridDB at that hostname."
+msgstr "Les clés d'accès exigent un nom d'hôte dans PUBLIC_URL (un nom DNS ou localhost), pas une adresse IP. Utilisez une application TOTP, ou ouvrez AnyGridDB à ce nom d'hôte."
 
 #: components/admin/sign-in-trail.tsx
 #: components/admin/sources-tab.tsx
@@ -4518,6 +4789,10 @@ msgstr "Épingler {name}"
 msgid "Pinned"
 msgstr "Épinglés"
 
+#: components/fields/field-editor.tsx
+msgid "Plain text"
+msgstr "Texte simple"
+
 #: components/admin/sources-tab.tsx
 msgid "Port"
 msgstr "Port"
@@ -4556,6 +4831,7 @@ msgstr "Mois précédent"
 msgid "Previous row"
 msgstr "Ligne précédente"
 
+#: components/fields/field-editor.tsx
 #: components/grid/grid-header.tsx
 msgid "Primary field"
 msgstr "Champ principal"
@@ -4613,6 +4889,10 @@ msgid "Public links to views and forms"
 msgstr "Liens publics vers les vues et les formulaires"
 
 #: components/admin/admin-page.tsx
+msgid "PUBLIC_URL is an IP address: HTTPS and TOTP work; passkeys need a DNS hostname (or localhost) in PUBLIC_URL that people open. Put the IP in TLS_NAMES if it must stay on the certificate."
+msgstr "PUBLIC_URL est une adresse IP : HTTPS et TOTP fonctionnent ; les clés d'accès exigent un nom d'hôte DNS (ou localhost) dans PUBLIC_URL, que les gens ouvrent. Mettez l'IP dans TLS_NAMES si elle doit rester sur le certificat."
+
+#: components/admin/admin-page.tsx
 msgid "Publish"
 msgstr "Publier"
 
@@ -4629,6 +4909,10 @@ msgstr "En attente"
 #: components/admin/admin-page.tsx
 msgid "Queued events"
 msgstr "Événements en attente"
+
+#: components/fields/field-editor.tsx
+msgid "Radio buttons"
+msgstr "Boutons radio"
 
 #: components/grid/grid-footer.tsx
 msgid "Range (days)"
@@ -4658,6 +4942,10 @@ msgstr "Lecture et écriture"
 #: components/settings/table-acl-panel.tsx
 msgid "Read only"
 msgstr "Lecture seule"
+
+#: components/admin/sources-tab.tsx
+msgid "Read replica host (optional)"
+msgstr "Hôte de la réplique en lecture (optionnel)"
 
 #: components/settings/api-docs.tsx
 msgid "Read rows"
@@ -4700,6 +4988,7 @@ msgstr "Un motif est requis"
 msgid "Reason: {reason}"
 msgstr "Motif : {reason}"
 
+#: components/shell/base-home.tsx
 #: components/shell/home-page.tsx
 msgid "Recently opened"
 msgstr "Ouvertes récemment"
@@ -4715,6 +5004,10 @@ msgstr "Destinataires, séparés par des virgules"
 #: lib/known-text.ts
 msgid "Reconnecting…"
 msgstr "Reconnexion…"
+
+#: components/views/form-view.tsx
+msgid "Redirect after submit"
+msgstr "Redirection après envoi"
 
 #: components/table/view-toolbar.tsx
 msgid "Redo"
@@ -4737,12 +5030,20 @@ msgid "Refresh fields"
 msgstr "Actualiser les champs"
 
 #: components/admin/sources-tab.tsx
+msgid "Refresh mode"
+msgstr "Mode de rafraîchissement"
+
+#: components/admin/sources-tab.tsx
 msgid "Refresh now"
 msgstr "Actualiser maintenant"
 
 #: components/admin/sources-tab.tsx
 msgid "refreshed every"
 msgstr "actualisée toutes les"
+
+#: components/admin/sources-tab.tsx
+msgid "refreshes"
+msgstr "rafraîchissements"
 
 #: components/settings/account-settings.tsx
 msgid "Refused while an audit row, a signature, or a role refers to you."
@@ -4780,6 +5081,10 @@ msgstr "Retirer l'action"
 msgid "Remove condition"
 msgstr "Supprimer la condition"
 
+#: components/table/view-toolbar.tsx
+msgid "Remove filter"
+msgstr "Retirer le filtre"
+
 #: components/settings/group-roles.tsx
 msgid "Remove the group {name}"
 msgstr "Retirer le groupe {name}"
@@ -4813,6 +5118,14 @@ msgstr "Renommer la vue"
 msgid "Repeats a text, up to 10,000 characters."
 msgstr "Répète un texte, jusqu’à 10 000 caractères."
 
+#: components/settings/second-factor.tsx
+msgid "Replace and confirm"
+msgstr "Remplacer et confirmer"
+
+#: components/settings/second-factor.tsx
+msgid "Replace TOTP"
+msgstr "Remplacer le TOTP"
+
 #: components/fields/formula-docs.ts
 msgid "Replaces characters from a position."
 msgstr "Remplace des caractères à partir d’une position."
@@ -4824,6 +5137,26 @@ msgstr "Remplace chaque occurrence d’un texte par un autre."
 #: components/fields/formula-docs.ts
 msgid "Replaces every part that matches the regular expression."
 msgstr "Remplace chaque passage qui suit l’expression régulière."
+
+#: components/admin/sources-tab.tsx
+msgid "Replica"
+msgstr "Réplica"
+
+#: components/admin/sources-tab.tsx
+msgid "Replica database"
+msgstr "Base de la réplique"
+
+#: components/admin/sources-tab.tsx
+msgid "Replica password"
+msgstr "Mot de passe de la réplique"
+
+#: components/admin/sources-tab.tsx
+msgid "Replica port"
+msgstr "Port de la réplique"
+
+#: components/admin/sources-tab.tsx
+msgid "Replica username"
+msgstr "Compte de la réplique"
 
 #: components/record/record-panel.tsx
 msgid "Reply"
@@ -4981,7 +5314,6 @@ msgid "Row id"
 msgstr "Identifiant de la ligne"
 
 #: components/grid/grid-view.tsx
-#: components/table/import-dialog.tsx
 #: lib/errors.ts
 msgid "Row locked"
 msgstr "Ligne verrouillée"
@@ -5031,6 +5363,10 @@ msgstr "Exécutions de « {name} »"
 msgid "s"
 msgstr "s"
 
+#: components/admin/sources-tab.tsx
+msgid "Same as primary when empty"
+msgstr "Identique au primaire si vide"
+
 #: components/table/automations-dialog.tsx
 msgid "Saturday"
 msgstr "Samedi"
@@ -5043,8 +5379,13 @@ msgstr "Samedi"
 #: components/settings/table-acl-panel.tsx
 #: components/shell/dialogs.tsx
 #: components/table/automations-dialog.tsx
+#: components/table/color-rules-editor.tsx
 msgid "Save"
 msgstr "Enregistrer"
+
+#: components/table/view-toolbar.tsx
+msgid "Save failed"
+msgstr "Échec de l’enregistrement"
 
 #: components/settings/base-settings.tsx
 msgid "Saved"
@@ -5053,6 +5394,11 @@ msgstr "Enregistré"
 #: components/table/view-toolbar.tsx
 msgid "Saved at {time}"
 msgstr "Enregistré à {time}"
+
+#: components/grid/grid-cell.tsx
+#: components/table/view-toolbar.tsx
+msgid "Saving…"
+msgstr "Enregistrement…"
 
 #: components/views/timeline-view.tsx
 msgid "Scale"
@@ -5077,10 +5423,6 @@ msgstr "Adresse SCIM"
 #: components/admin/admin-page.tsx
 msgid "Scripts and tools using these tokens stop working at once."
 msgstr "Les scripts et outils qui utilisent ces jetons cessent aussitôt de fonctionner."
-
-#: components/grid/grid-view.tsx
-msgid "Scroll to load the rows before pasting"
-msgstr "Faites défiler pour charger les lignes avant de coller"
 
 #: components/public/public-view.tsx
 #: components/shell/sidebar.tsx
@@ -5140,9 +5482,16 @@ msgid "Security"
 msgstr "Sécurité"
 
 #: components/grid/grid-header.tsx
+msgid "Select {count} loaded rows"
+msgstr "Sélectionner les {count} lignes chargées"
+
 #: components/shell/shortcuts-dialog.tsx
 msgid "Select all"
 msgstr "Tout sélectionner"
+
+#: components/grid/grid-header.tsx
+msgid "Select loaded rows"
+msgstr "Sélectionner les lignes chargées"
 
 #: components/grid/grid-view.tsx
 msgid "Select row {index}"
@@ -5151,6 +5500,10 @@ msgstr "Sélectionner la ligne {index}"
 #: components/grid/selection-summary.tsx
 msgid "Selection statistics"
 msgstr "Statistiques de la sélection"
+
+#: components/grid/grid-header.tsx
+msgid "Selects the {count} rows already loaded"
+msgstr "Sélectionne les {count} lignes déjà chargées"
 
 #: components/admin/admin-page.tsx
 msgid "Send"
@@ -5230,6 +5583,7 @@ msgstr "Réglage modifié"
 msgid "Settings"
 msgstr "Réglages"
 
+#: components/shell/base-home.tsx
 #: components/shell/sidebar.tsx
 msgid "Settings and sharing"
 msgstr "Réglages et partage"
@@ -5302,6 +5656,14 @@ msgstr "Afficher cette aide"
 #: components/admin/admin-page.tsx
 msgid "Shown at the top of the app to everyone signed in"
 msgstr "Affichée en haut de l'application pour toute personne connectée"
+
+#: components/views/view-common.tsx
+msgid "Shown on cards"
+msgstr "Affichés sur les cartes"
+
+#: components/admin/sources-tab.tsx
+msgid "Side schema"
+msgstr "Schéma latéral"
 
 #: components/record/row-status.tsx
 msgid "Sign"
@@ -5536,6 +5898,10 @@ msgstr "Écart type (population)"
 msgid "Standard deviation (sample)"
 msgstr "Écart type (échantillon)"
 
+#: components/fields/field-editor.tsx
+msgid "Star"
+msgstr "Étoile"
+
 #: components/views/timeline-view.tsx
 msgid "Start"
 msgstr "Début"
@@ -5552,6 +5918,10 @@ msgstr "Commencez sans table, ou importez un fichier."
 msgid "Started"
 msgstr "Lancée"
 
+#: components/shell/new-table-dialog.tsx
+msgid "Starter fields"
+msgstr "Champs de départ"
+
 #: components/shell/new-base-dialog.tsx
 msgid "Starting point"
 msgstr "Point de départ"
@@ -5562,7 +5932,7 @@ msgstr "commence par"
 
 #: components/admin/admin-page.tsx
 #: components/admin/support-tab.tsx
-#: components/shell/sidebar.tsx
+#: components/shell/new-table-dialog.tsx
 msgid "Status"
 msgstr "Statut"
 
@@ -5613,6 +5983,10 @@ msgstr "Soumettre"
 #: components/views/form-view.tsx
 msgid "Submit another response"
 msgstr "Envoyer une autre réponse"
+
+#: components/views/form-view.tsx
+msgid "Submit button label"
+msgstr "Libellé du bouton d’envoi"
 
 #: components/record/record-panel.tsx
 msgid "submitted"
@@ -5673,6 +6047,10 @@ msgstr "Fournisseurs"
 msgid "Support"
 msgstr "Support"
 
+#: components/fields/field-editor.tsx
+msgid "Switch"
+msgstr "Interrupteur"
+
 #: components/shell/user-menu.tsx
 msgid "System"
 msgstr "Système"
@@ -5709,6 +6087,7 @@ msgstr "Table dupliquée"
 msgid "Table moved to the trash"
 msgstr "Table placée dans la corbeille"
 
+#: components/shell/new-table-dialog.tsx
 #: components/shell/sidebar.tsx
 #: components/table/import-dialog.tsx
 msgid "Table name"
@@ -5731,6 +6110,7 @@ msgid "Table, base, or action"
 msgstr "Table, base ou action"
 
 #: components/admin/sources-tab.tsx
+#: components/shell/base-home.tsx
 #: components/shell/command-palette.tsx
 msgid "Tables"
 msgstr "Tables"
@@ -5927,6 +6307,10 @@ msgstr "Les premiers caractères."
 #: components/table/import-dialog.tsx
 msgid "The first line names the columns."
 msgstr "La première ligne donne les noms de colonnes."
+
+#: components/table/color-rules-editor.tsx
+msgid "The first matching rule colours the row."
+msgstr "La première règle correspondante colore la ligne."
 
 #: components/fields/formula-docs.ts
 msgid "The first part of the text that matches the regular expression."
@@ -6326,8 +6710,8 @@ msgid "This base has no tables yet."
 msgstr "Cette base ne contient encore aucune table."
 
 #: components/shell/base-home.tsx
-msgid "This base is empty. Add a table from the sidebar."
-msgstr "Cette base est vide. Ajoutez une table depuis la barre latérale."
+msgid "This base is empty."
+msgstr "Cette base est vide."
 
 #: lib/errors.ts
 msgid "This cannot be done to this account"
@@ -6366,12 +6750,28 @@ msgid "This field is computed"
 msgstr "Ce champ est calculé"
 
 #: lib/errors.ts
+msgid "This field is kept in AnyGridDB: formulas, lookups, and rollups cannot read it"
+msgstr "Ce champ est conservé dans AnyGridDB : les formules, recherches et cumuls ne peuvent pas le lire"
+
+#: lib/errors.ts
+msgid "This field is kept in AnyGridDB: it cannot sort or group a live client table"
+msgstr "Ce champ est conservé dans AnyGridDB : il ne peut pas trier ni grouper une table client live"
+
+#: lib/errors.ts
+msgid "This field is kept in AnyGridDB: on a live client table it filters only a view, with AND, by equality or emptiness"
+msgstr "Ce champ est conservé dans AnyGridDB : sur une table client lue en direct, il ne filtre qu'une vue, avec ET, par égalité ou par vide"
+
+#: lib/errors.ts
 msgid "This field is read-only"
 msgstr "Ce champ est en lecture seule"
 
 #: components/table/table-workspace.tsx
 msgid "This field needs a reason, kept in the audit trail."
 msgstr "Ce champ exige un motif, conservé dans l'audit."
+
+#: lib/errors.ts
+msgid "This filter on a field kept in AnyGridDB matches more than 1,000 rows: narrow it"
+msgstr "Ce filtre sur un champ conservé dans AnyGridDB correspond à plus de 1 000 lignes : affinez-le"
 
 #: lib/errors.ts
 msgid "This host is not allowed: the operator adds it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS"
@@ -6437,6 +6837,10 @@ msgstr "Cette version du serveur n'est pas prise en charge : PostgreSQL 13, MySQ
 msgid "This share is password protected."
 msgstr "Ce partage est protégé par un mot de passe."
 
+#: components/fields/field-editor.tsx
+msgid "This source has no side schema: the field is kept in AnyGridDB. A view filters on it by value or emptiness; it cannot sort or group, and formulas, automations, and rules do not read it. Fields added once an administrator names a side schema sort and group."
+msgstr "Cette source n'a pas de schéma latéral : le champ est conservé dans AnyGridDB. Une vue le filtre par valeur ou par vide ; il ne peut ni trier ni regrouper, et les formules, automatisations et règles ne le lisent pas. Les champs ajoutés une fois qu'un administrateur a nommé un schéma latéral se trient et se regroupent."
+
 #: components/table/table-workspace.tsx
 msgid "This table does not exist or is not shared with you."
 msgstr "Cette table n'existe pas ou ne vous est pas partagée."
@@ -6445,6 +6849,10 @@ msgstr "Cette table n'existe pas ou ne vous est pas partagée."
 msgid "This table has no primary key: its rows cannot be changed"
 msgstr "Cette table n'a pas de clé primaire : ses lignes ne peuvent pas être modifiées"
 
+#: components/fields/field-editor.tsx
+msgid "This table has no primary key: only formulas, lookups, rollups, and buttons can be added. Storage fields need a key so rows can be matched."
+msgstr "Cette table n’a pas de clé primaire : seuls les formules, lookups, rollups et boutons peuvent être ajoutés. Les champs stockés ont besoin d’une clé pour apparier les lignes."
+
 #: lib/errors.ts
 msgid "This table has over a million rows: read it live rather than from a copy"
 msgstr "Cette table dépasse un million de lignes : lisez-la en direct plutôt qu'en copie"
@@ -6452,6 +6860,14 @@ msgstr "Cette table dépasse un million de lignes : lisez-la en direct plutôt q
 #: lib/errors.ts
 msgid "This table is a copy refreshed on a schedule: change it in the client's database"
 msgstr "Cette table est une copie actualisée régulièrement : modifiez-la dans la base du client"
+
+#: components/fields/field-editor.tsx
+msgid "This table is a synced copy: only formulas, lookups, rollups, and buttons can be added. Storage fields need a live table."
+msgstr "Cette table est une copie synchronisée : seules les formules, recherches, agrégats et boutons peuvent être ajoutés. Les champs stockés nécessitent une table live."
+
+#: components/fields/attachment-preview.tsx
+msgid "This text file cannot be previewed: download it."
+msgstr "Ce fichier texte ne peut pas être prévisualisé : téléchargez-le."
 
 #: lib/errors.ts
 msgid "This value already exists in the client's database"
@@ -6480,6 +6896,10 @@ msgstr "Via le lien"
 #: components/settings/base-settings.tsx
 msgid "through the group {groups}"
 msgstr "par le groupe {groups}"
+
+#: components/fields/field-editor.tsx
+msgid "Thumb"
+msgstr "Pouce"
 
 #: components/table/automations-dialog.tsx
 msgid "Thursday"
@@ -6518,6 +6938,8 @@ msgid "Timeout"
 msgstr "Délai dépassé"
 
 #: components/dashboards/dashboard-board.tsx
+#: components/views/gallery-view.tsx
+#: components/views/kanban-view.tsx
 msgid "Title"
 msgstr "Titre"
 
@@ -6531,9 +6953,9 @@ msgstr "Jusqu'à"
 
 #: lib/errors.ts
 msgid "To add this field, an administrator names in the source a schema of the client's database kept for AnyGridDB: the client's tables are never changed"
-msgstr "Pour ajouter ce champ, l'administrateur indique dans la source un schéma de la base du client réservé à AnyGridDB : ses tables n'y sont jamais modifiées"
+msgstr "Pour ajouter ce champ, un administrateur indique dans la source un schéma de la base du client réservé à AnyGridDB : les tables du client ne sont jamais modifiées"
 
-#: components/shell/sidebar.tsx
+#: components/shell/new-table-dialog.tsx
 msgid "To do"
 msgstr "À faire"
 
@@ -6654,6 +7076,10 @@ msgstr "Faire confiance au second facteur du fournisseur d'identité"
 msgid "Try again"
 msgstr "Réessayer"
 
+#: components/shell/command-palette.tsx
+msgid "Try another table or base name, or open a recent one from home."
+msgstr "Essayez un autre nom de table ou de base, ou ouvrez-en une récente depuis l'accueil."
+
 #: components/settings/api-console.tsx
 #: components/settings/api-docs.tsx
 msgid "Try it"
@@ -6710,7 +7136,9 @@ msgstr "type sans équivalent repris en texte"
 msgid "Unchanged"
 msgstr "Inchangé"
 
+#: components/fields/cell-value.tsx
 #: components/table/filter-builder.tsx
+#: components/table/view-toolbar.tsx
 msgid "unchecked"
 msgstr "non coché"
 
@@ -6726,6 +7154,10 @@ msgstr "Référence de champ non fermée"
 msgid "Unclosed text: a quote is missing"
 msgstr "Texte non fermé : il manque un guillemet"
 
+#: components/table/view-toolbar.tsx
+msgid "Undo"
+msgstr "Annuler"
+
 #: components/shell/shortcuts-dialog.tsx
 msgid "Undo (Ctrl Shift Z or Ctrl Y: redo)"
 msgstr "Annuler (Ctrl Maj Z ou Ctrl Y : rétablir)"
@@ -6733,6 +7165,10 @@ msgstr "Annuler (Ctrl Maj Z ou Ctrl Y : rétablir)"
 #: lib/errors.ts
 msgid "Unexpected character"
 msgstr "Caractère inattendu"
+
+#: components/grid/grid-header.tsx
+msgid "Unfreeze columns"
+msgstr "Dégeler les colonnes"
 
 #: components/grid/grid-footer.tsx
 msgid "Unique"
@@ -6857,6 +7293,14 @@ msgstr "Américain (12/31/2026)"
 msgid "Use a passkey"
 msgstr "Utiliser une clé d'accès"
 
+#: components/views/view-common.tsx
+msgid "Use default fields"
+msgstr "Utiliser les champs par défaut"
+
+#: components/auth/auth-page.tsx
+msgid "Use one of the one-time codes you saved when you set up your second factor."
+msgstr "Utilisez l'un des codes à usage unique que vous avez enregistrés lors de la configuration du second facteur."
+
 #: components/auth/auth-page.tsx
 msgid "Use the backup code"
 msgstr "Utiliser le code de secours"
@@ -6868,6 +7312,10 @@ msgstr "Utiliser les données collées"
 #: components/admin/admin-page.tsx
 msgid "Used until a person picks their own language."
 msgstr "Utilisée tant qu'une personne n'a pas choisi sa langue."
+
+#: components/admin/sources-tab.tsx
+msgid "Username"
+msgstr "Compte"
 
 #: components/admin/admin-page.tsx
 msgid "Valid until {date}, for: {names}."
@@ -7151,8 +7599,14 @@ msgstr "oui"
 
 #: components/admin/admin-page.tsx
 #: components/dashboards/chart-view.tsx
+#: components/fields/cell-value.tsx
+#: components/views/form-view.tsx
 msgid "Yes"
 msgstr "Oui"
+
+#: components/fields/field-editor.tsx
+msgid "Yes / No"
+msgstr "Oui / Non"
 
 #: components/admin/security-tab.tsx
 msgid "Yes, in the app and by email"

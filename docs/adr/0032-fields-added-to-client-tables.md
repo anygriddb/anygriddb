@@ -16,8 +16,9 @@ the client's own columns. The client's tables are never changed.
 - **The administrator names the side schema** in the source's form (a
   database on MySQL and MariaDB). The DBA creates it and lets the
   source's account create and alter tables there and read and write
-  their rows. Without one, adding a field that stores something is
-  refused with a message saying what to ask for.
+  their rows. Without one, storage fields live in the control plane
+  instead ([0046](0046-control-plane-enrichment.md)), with filter via
+  key lists and no sort or group on live tables.
 - **One side table per exposed table**, `ag_t_<table id>`, made at the
   first field: the client's key columns in their declared types, as its
   primary key, and no foreign key, so the client's table and its
@@ -60,10 +61,11 @@ the client's own columns. The client's tables are never changed.
 
 ## Rejected
 
-- **Fields in AnyGridDB's own database.** They cannot join a client's
-  table in its engine: no sort or group on a large table, and filters
-  only through lists of keys.
 - **Columns added to the client's table.** AnyGridDB never changes a
   client's schema (ADR 0006).
 - **A foreign key from the side table to the client's.** It would hang
   a constraint on the client's table and block its truncation.
+
+Superseded by [0046](0046-control-plane-enrichment.md): refusing every
+storage field when no side schema is granted. Control-plane storage is
+allowed with the limits that ADR recorded here.

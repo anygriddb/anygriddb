@@ -32,6 +32,7 @@ import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { useSnapshotGaps } from "../../lib/snapshot-report";
 import { AirtableReport } from "./airtable-report";
 
 const ICONS = {
@@ -55,11 +56,30 @@ function resultText(job: Job, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+/** Gaps from a finished snapshot import or base copy. */
+function SnapshotGapsReport({ gaps }: { gaps: string[] }) {
+  const { t } = useLingui();
+  if (gaps.length === 0) return null;
+  return (
+    <details className="mt-1 text-xs">
+      <summary className="cursor-pointer text-muted-foreground">
+        {t`${{ count: gaps.length }} points to check`}
+      </summary>
+      <ul className="mt-1 max-h-48 list-disc overflow-y-auto pl-4">
+        {gaps.map((gap) => (
+          <li key={gap}>{gap}</li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 /** The author's recent jobs: progress, cancel, download, and open. */
 export function JobsMenu() {
   const { t } = useLingui();
   const jobError = useJobErrorText();
   const errorText = useErrorText();
+  const snapshotGaps = useSnapshotGaps();
   const api = useTRPC();
   const navigate = useNavigate();
   const session = useSession();
@@ -121,11 +141,15 @@ export function JobsMenu() {
       case "export_snapshot":
         return job.download ? t`File available for 24 h` : t`File expired`;
       case "import_snapshot":
-        return t`Base created`;
+        return snapshotGaps(job.result).length > 0
+          ? t`Base created, with gaps`
+          : t`Base created`;
       case "import_airtable":
         return t`Base created: ${{ tables: resultNumber(job, "tables") }} tables, ${{ rows: resultNumber(job, "rows") }} rows.`;
       case "duplicate_base":
-        return t`Base created`;
+        return snapshotGaps(job.result).length > 0
+          ? t`Base created, with gaps`
+          : t`Base created`;
     }
   }
 
@@ -285,6 +309,11 @@ export function JobsMenu() {
                   </div>
                   {job.status === "done" && job.kind === "import_airtable" ? (
                     <AirtableReport report={job.result?.report} />
+                  ) : null}
+                  {job.status === "done" &&
+                  (job.kind === "import_snapshot" ||
+                    job.kind === "duplicate_base") ? (
+                    <SnapshotGapsReport gaps={snapshotGaps(job.result)} />
                   ) : null}
                 </div>
               </li>

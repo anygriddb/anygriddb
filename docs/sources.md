@@ -25,6 +25,13 @@ connections, in a read-only transaction where the engine has one. Dates
 and times stored without a time zone are read in the source's time zone,
 set in its form (UTC by default).
 
+A source may name a **read replica**: every read goes there (grids, the
+API, copies, change checks) and falls back to the primary when the replica
+cannot be reached; every write stays on the primary. Its host must be
+allowed like the primary's, and its account follows the same rules. It
+uses the primary's account and password unless others are set. A replica
+that lags shows a change a moment after it is saved.
+
 ## Writes
 
 A client's table is read-only until an administrator enables writes on
@@ -71,6 +78,11 @@ minutes.
   it.
 - The table is read live until its first copy is ready. A copy stops at a
   million rows.
+- **Incremental** refreshes read only the rows whose change column moved
+  since the last one: a date and time the database sets on every change,
+  or a SQL Server `rowversion`, as for [changes made elsewhere](#changes-made-elsewhere).
+  A delete is not seen that way: every N refreshes (24 by default) the
+  table is copied whole again.
 
 ## Statuses and signatures
 
@@ -124,6 +136,14 @@ grant alter, select, insert, update, delete
 
 These fields are edited even when the client's table is read-only, and
 filter, sort, and group like the client's own columns.
+
+Without a side schema, the fields are kept in AnyGridDB's own database,
+by the row's key (ADR 0046). A view still filters on them, by value or
+emptiness, combined with AND, up to a thousand matching rows; they cannot
+sort or group, and formulas, automations, and rules do not read them. A
+field stays where it was made: naming a side schema later puts only new
+fields there, and a side schema cannot change while fields are kept in
+it.
 
 ## When the DBA changes a table
 

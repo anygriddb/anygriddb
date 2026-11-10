@@ -9,6 +9,7 @@ import { resolveShortcuts } from "../../lib/shortcut-list";
 import { useShortcuts } from "../../lib/shortcuts";
 import { useRoleLabel } from "../settings/base-settings";
 import { NewBaseDialog } from "./new-base-dialog";
+import { EmptyState } from "./notebook-page";
 import { TrashedBases } from "./trashed-bases";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
@@ -104,25 +105,26 @@ export function HomePage() {
         {catalog.isLoading ? <Spinner className="mt-10" /> : null}
         {catalog.isSuccess && bases.length === 0 ? (
           // An empty desk invites: a base, or a database to connect.
-          <div className="mt-10 border-t border-strong-border py-8 text-sm">
-            <p className="text-base font-medium">{t`Nothing here yet.`}</p>
-            <p className="mt-1 max-w-prose text-muted-foreground">
-              {t`A base holds tables. A table is a real SQL table: one AnyGridDB keeps in PostgreSQL, or one of a database an administrator connected.`}
-            </p>
-            {session.data?.canCreateBases === false ? null : (
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button onClick={() => setCreating(true)}>
-                  <Plus className="h-4 w-4" aria-hidden />
-                  {t`New base`}
-                </Button>
-                {session.data?.isAdmin ? (
-                  <Button variant="outline" asChild>
-                    <Link to="/admin">{t`Connect a database`}</Link>
+          <EmptyState
+            className="mt-10 border-t border-strong-border border-b-0"
+            title={t`Nothing here yet.`}
+            description={t`A base holds tables. A table is a real SQL table: one AnyGridDB keeps in PostgreSQL, or one of a database an administrator connected.`}
+            action={
+              session.data?.canCreateBases === false ? undefined : (
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={() => setCreating(true)}>
+                    <Plus className="h-4 w-4" aria-hidden />
+                    {t`New base`}
                   </Button>
-                ) : null}
-              </div>
-            )}
-          </div>
+                  {session.data?.isAdmin ? (
+                    <Button variant="outline" asChild>
+                      <Link to="/admin">{t`Connect a database`}</Link>
+                    </Button>
+                  ) : null}
+                </div>
+              )
+            }
+          />
         ) : null}
         {bases.length > 0 ? (
           <section aria-label={t`Bases`} className="mt-10">

@@ -15,6 +15,7 @@
       "dashboard_widgets.config": "Record<string, unknown>",
       "data_columns.config": "Record<string, unknown> | null",
       "data_tables.external_key": "string[] | null",
+      "external_enrichment_values.values": "Generated<Record<string, unknown>>",
       "external_status_events.detail": "unknown",
       "external_statuses.drift": "Record<string, unknown> | null",
       "external_statuses.sealed": "Record<string, unknown> | null",

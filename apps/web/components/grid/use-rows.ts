@@ -34,6 +34,8 @@ export type RowsState = Snapshot & {
   refresh: () => void;
   /** Rows currently loaded, in order, for selection math and clipboard. */
   loadedRows: () => RowItem[];
+  /** Loads the index range, then resolves once every row in it is present. */
+  waitFor: (start: number, end: number) => Promise<boolean>;
   patchLocal: (rowId: string, values: Record<string, unknown>) => void;
   refetchIds: (rowIds: string[]) => Promise<void>;
   /** Counts a large client table's rows exactly. */
@@ -200,6 +202,33 @@ export class RowPages {
     }
   };
 
+  /** Asks for the range, then waits until each index in it has a row. */
+  readonly waitFor = async (start: number, end: number): Promise<boolean> => {
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      if (this.closed() || this.snapshot.error) return false;
+      // First page still on the way: we do not yet know how many rows exist.
+      if (this.snapshot.loading && this.pages.size === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        continue;
+      }
+      if (this.snapshot.total === 0) return true;
+      const last = Math.min(end, this.snapshot.total - 1);
+      if (last < start) return true;
+      this.ensure(start, last);
+      let ready = true;
+      for (let index = start; index <= last; index += 1) {
+        if (!this.rowAt(index)) {
+          ready = false;
+          break;
+        }
+      }
+      if (ready) return true;
+      await new Promise((resolve) => setTimeout(resolve, 40));
+    }
+    return false;
+  };
+
   /** Reloads the pages already loaded. */
   readonly refresh = () => {
     this.failed.clear();
@@ -327,6 +356,7 @@ export function useRows(
       ...snapshot,
       rowAt: store.rowAt,
       ensure: store.ensure,
+      waitFor: store.waitFor,
       refresh: store.refresh,
       loadedRows: store.loadedRows,
       patchLocal: store.patchLocal,

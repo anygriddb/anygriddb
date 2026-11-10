@@ -7,6 +7,7 @@ import { optionsOf } from "../fields/cell-value";
 import { useTable } from "../table/table-context";
 import {
   CardFields,
+  CardFieldsPicker,
   cardColumns,
   ColumnPicker,
   useRowTitle,
@@ -20,14 +21,18 @@ function Card({
   row,
   fields,
   draggable,
+  titleColumn,
+  tint,
 }: {
   row: RowItem;
   fields: readonly CatalogColumn[];
   draggable: boolean;
+  titleColumn?: string;
+  tint?: string;
 }) {
   const { t } = useLingui();
   const table = useTable();
-  const title = useRowTitle();
+  const title = useRowTitle(titleColumn);
   const name = title(row);
   const { dragProps, dragButtonProps, isDragging } = useRowDrag(
     row.id,
@@ -40,6 +45,7 @@ function Card({
       className={cn(
         "relative rounded-sm border border-border bg-card text-sm hover:border-strong-border",
         isDragging && "opacity-50",
+        tint && `row-tint-${tint}`,
       )}
     >
       <button
@@ -70,6 +76,8 @@ function Stack({
   fields,
   canEdit,
   collapsed,
+  titleColumn,
+  tintOf,
   onToggle,
   onAdd,
   onMove,
@@ -84,6 +92,8 @@ function Stack({
   canEdit: boolean;
   /** Folded to a narrow strip; cards can still be dropped on it. */
   collapsed: boolean;
+  titleColumn?: string;
+  tintOf?: (row: RowItem) => string | undefined;
   onToggle: () => void;
   onAdd: () => void;
   /** A card was dropped here: put row `rowId` in stack `stackId`. */
@@ -160,6 +170,8 @@ function Stack({
             key={row.id}
             row={row}
             fields={fields}
+            titleColumn={titleColumn}
+            tint={tintOf?.(row)}
             draggable={
               canEdit &&
               row.ag_status !== "locked" &&
@@ -193,10 +205,17 @@ export function KanbanView(props: ViewProps) {
       ? props.config.stackColumn
       : stackable[0]?.name;
   const stack = props.allColumns.find((column) => column.name === stackName);
-  const fields = cardColumns(
-    props.config,
-    props.columns,
-    stackName ? [stackName] : [],
+  const exclude = stackName ? [stackName] : [];
+  const fields = cardColumns(props.config, props.columns, exclude);
+  const cardFields = Array.isArray(props.config.cardFields)
+    ? (props.config.cardFields as string[])
+    : undefined;
+  const titleName =
+    typeof props.config.titleColumn === "string"
+      ? props.config.titleColumn
+      : undefined;
+  const titleChoices = props.columns.filter(
+    (column) => column.fieldType !== "attachment",
   );
   const hideEmpty = props.config.hideEmptyStacks === true;
   const folded = new Set(
@@ -253,6 +272,13 @@ export function KanbanView(props: ViewProps) {
           columns={stackable}
           onChange={(value) => props.onPatch({ stackColumn: value })}
         />
+        <ColumnPicker
+          label={t`Title`}
+          value={titleName}
+          columns={titleChoices}
+          allowNone
+          onChange={(value) => props.onPatch({ titleColumn: value })}
+        />
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Checkbox
             checked={hideEmpty}
@@ -264,6 +290,12 @@ export function KanbanView(props: ViewProps) {
           />
           {t`Hide empty columns`}
         </label>
+        <CardFieldsPicker
+          columns={props.columns}
+          exclude={exclude}
+          value={cardFields}
+          onChange={(fields) => props.onPatch({ cardFields: fields })}
+        />
         {props.total > props.rows.length ? (
           <span className="text-xs text-muted-foreground">
             {t`${{ shown: props.rows.length }} of ${{ total: props.total }} cards`}
@@ -290,6 +322,8 @@ export function KanbanView(props: ViewProps) {
               fields={fields}
               canEdit={props.canEdit}
               collapsed={folded.has(item.id)}
+              titleColumn={titleName}
+              tintOf={props.tintOf}
               onToggle={() => toggle(item.id)}
               onAdd={() =>
                 void props

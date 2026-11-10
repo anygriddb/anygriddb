@@ -205,6 +205,26 @@ export const ERRORS = {
     403,
     "The source's account may not create tables in its side schema",
   ],
+  control_plane_sort: [
+    BAD,
+    "This field is kept in AnyGridDB: it cannot sort or group a live client table",
+  ],
+  control_plane_filter: [
+    BAD,
+    "This field is kept in AnyGridDB: on a live client table it filters only a view, with AND, by equality or emptiness",
+  ],
+  control_plane_formula: [
+    BAD,
+    "This field is kept in AnyGridDB: formulas, lookups, and rollups cannot read it",
+  ],
+  control_plane_filter_broad: [
+    BAD,
+    "This filter on a field kept in AnyGridDB matches more than 1,000 rows: narrow it",
+  ],
+  source_side_in_use: [
+    409,
+    "Fields are kept in this side schema: it cannot change while they exist",
+  ],
   source_changes_expired: [
     BAD,
     "Changes older than the source keeps were missed: the table was read again",

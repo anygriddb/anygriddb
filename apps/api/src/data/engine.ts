@@ -138,7 +138,7 @@ export function sourceEngine(
 }
 
 /** The SQL a source's engine reads; SQL Server comes with its driver. */
-function sourceDialect(
+export function sourceDialect(
   engine: string | undefined,
 ): ExternalRelation["dialect"] {
   if (
@@ -221,12 +221,16 @@ export function toEngineTable(table: TableRow, rows: CatalogRows): EngineTable {
         : external && column.externalType !== null
         ? {
             physical: column.externalSide
-              ? // AnyGridDB writes its own dates and times in UTC.
+              ? // AnyGridDB writes its own dates and times in UTC: in the
+                // side table, or in its own database where the field was
+                // made without one (ADR 0046). The field says which.
                 {
                   name: column.physicalName,
                   type: column.externalType,
                   zone: "UTC",
-                  side: true,
+                  ...(column.externalControlPlane
+                    ? { controlPlane: true }
+                    : { side: true }),
                 }
               : {
                   name: column.physicalName,

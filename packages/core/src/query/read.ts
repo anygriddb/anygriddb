@@ -66,6 +66,11 @@ export type ReadSpec = {
   /** Columns to return. Defaults to every column. */
   fields?: readonly string[];
   rowIds?: readonly string[];
+  /**
+   * Ids to skip (ADR 0046 control-plane blank / is_not): rows without a bag
+   * still match emptiness; exclusion lists those that fail the condition.
+   */
+  excludeRowIds?: readonly string[];
   limit: number;
   offset?: number;
   timeZone?: string;
@@ -146,6 +151,7 @@ function projectColumn(
       column,
       sql: typed.sql,
       options,
+      ...(column.physical?.controlPlane ? { apart: true } : {}),
       ...(limits.size > 0 ? { limits: [...limits.values()] } : {}),
       ...(errorSql ? { errorSql } : {}),
       ...(duration ? { duration } : {}),
@@ -237,7 +243,8 @@ function rowScope(
       }
       const projected = projectColumn(privileged, column);
       if (projected.error) {
-        throw new Error(projected.error);
+        // Same as a rule that no longer compiles: keep no row.
+        return "false";
       }
       columns.set(name, projected);
     }
@@ -351,6 +358,22 @@ function prepare(catalog: EngineCatalog, spec: ReadSpec): Prepared {
         : `q."id" = any(${list}::uuid[])`,
     );
   }
+  if (spec.excludeRowIds && spec.excludeRowIds.length > 0) {
+    if (spec.excludeRowIds.length > MAX_READ_LIMIT) {
+      throw new AppError("invalid_limit");
+    }
+    const skipped = table.external
+      ? spec.excludeRowIds
+      : spec.excludeRowIds.filter((id) => UUID.test(id));
+    if (skipped.length > 0) {
+      const list = d.textList(skipped, (value) => params.bind(value));
+      clauses.push(
+        table.external
+          ? `not (${d.inTexts(`q."id"`, list)})`
+          : `not (q."id" = any(${list}::uuid[]))`,
+      );
+    }
+  }
   const present = clauses.filter((clause): clause is string => clause !== null);
   const where = present.length > 0 ? ` where ${present.join(" and ")}` : "";
   return {
@@ -377,6 +400,9 @@ function lookupRef(
   }
   if (ref.kind === "files" && purpose === "group") {
     throw new AppError("invalid_group");
+  }
+  if (ref.column.physical?.controlPlane) {
+    throw new AppError("control_plane_sort", ref.column.label);
   }
   return ref;
 }
@@ -608,7 +634,8 @@ export function buildGroupCounts(
   if (groups.length === 0) {
     return null;
   }
-  if (groups.length > 3) {
+  // Keep in lockstep with MAX_VIEW_GROUPS in view-config.ts (avoid a cycle).
+  if (groups.length > 5) {
     throw new AppError("invalid_group");
   }
   const prepared = prepare(catalog, { ...spec, limit: 1 });

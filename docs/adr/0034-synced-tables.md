@@ -65,9 +65,10 @@ on SQL Server.
 
 ## Rejected
 
-- **Incremental refresh by the watch column alone.** It cannot see
-  deletes. A full copy and a comparison can, and stay simple; an
-  incremental mode may come for very large tables.
+- **Incremental refresh by the watch column alone, without a periodic
+  full reconcile.** It cannot see deletes. Incremental mode upserts
+  rows past a watermark and still runs a full copy every N refreshes
+  so deletes are found.
 - **Writing through to the client's table.** A DBA who refuses live reads
   refuses live writes too.
 - **A materialized view or foreign tables in AnyGridDB's database.** They

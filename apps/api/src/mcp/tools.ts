@@ -6,7 +6,6 @@ import {
   createRecords,
   deleteRecords,
   getRecord,
-  HttpError,
   listBases,
   listRecords,
   listTables,
@@ -19,12 +18,6 @@ function toolError(error: unknown): {
   content: Array<{ type: "text"; text: string }>;
   isError: true;
 } {
-  if (error instanceof HttpError) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: error.message }],
-    };
-  }
   const body = publicError(
     error instanceof AppError ? error : new AppError("internal_error"),
   );
@@ -81,7 +74,7 @@ export function registerPublicApiTools(
     try {
       return ok(await body(actor));
     } catch (error) {
-      if (!(error instanceof AppError) && !(error instanceof HttpError)) {
+      if (!(error instanceof AppError)) {
         deps.log(error, "mcp tool failed");
       }
       return toolError(error);

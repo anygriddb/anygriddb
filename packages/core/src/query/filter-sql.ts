@@ -26,6 +26,11 @@ export type ColumnRef = {
   elem?: ScalarKind;
   /** Option names in display order, for single and multi selects. */
   options?: readonly string[];
+  /**
+   * Values kept apart from the rows the query reads (ADR 0046): the
+   * query cannot filter on them, the caller resolves them first.
+   */
+  apart?: boolean;
 };
 
 export type FilterContext = {
@@ -298,6 +303,9 @@ export function compileCondition(
   const ref = ctx.columns.get(condition.column);
   if (!ref) {
     throw new AppError("unknown_column", condition.column);
+  }
+  if (ref.apart) {
+    throw new AppError("control_plane_filter", condition.column);
   }
   if (!OPERATORS_BY_KIND[ref.kind].includes(condition.op)) {
     throw new AppError("invalid_filter");

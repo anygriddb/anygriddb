@@ -6,10 +6,14 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { encryptSecret } from "../auth/crypto.js";
 import { withAudit } from "../data/audit-context.js";
-import { insertRows } from "../data/rows.js";
 import { insertBase, insertTable } from "../data/schema-ops.js";
 import { readEnv } from "../env.js";
-import { createRows, findLiveTable, loadRowScope } from "../services/rows.js";
+import {
+  createRows,
+  findLiveTable,
+  insertNativeBatch,
+  loadRowScope,
+} from "../services/rows.js";
 import { loadBindings } from "../auth/access.js";
 import { TASKS } from "./jobs.js";
 import { mkdtemp } from "node:fs/promises";
@@ -182,7 +186,7 @@ describe("row events in graphile-worker", () => {
     await database.deleteFrom("webhookDeliveries").execute();
     const table = await scope();
     for (const count of [500, 1000, 1200]) {
-      await insertRows(
+      await insertNativeBatch(
         database,
         table.engine,
         {

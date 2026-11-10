@@ -49,6 +49,44 @@ describe("parseColumnConfig", () => {
       parseColumnConfig("datetime", { date: { timeZone: "Mars/Base" } }),
     ).toThrow("Invalid column");
   });
+
+  it("accepts appearance for selects and boolean, and rejects a bad one", () => {
+    expect(
+      parseColumnConfig("single_select", {
+        options: ["Open"],
+        appearance: "radio",
+      }),
+    ).toMatchObject({ appearance: "radio" });
+    expect(
+      parseColumnConfig("multi_select", {
+        options: ["A"],
+        appearance: "checklist",
+      }),
+    ).toMatchObject({ appearance: "checklist" });
+    expect(
+      parseColumnConfig("boolean", { appearance: "switch" }),
+    ).toMatchObject({ appearance: "switch" });
+    expect(
+      parseColumnConfig("rating", {
+        ratingMax: 5,
+        ratingIcon: "heart",
+        ratingColor: "pink",
+      }),
+    ).toEqual({
+      ratingMax: 5,
+      ratingIcon: "heart",
+      ratingColor: "pink",
+    });
+    expect(() =>
+      parseColumnConfig("single_select", {
+        options: ["A"],
+        appearance: "checklist",
+      }),
+    ).toThrow("Invalid column");
+    expect(() => parseColumnConfig("boolean", { appearance: "badge" })).toThrow(
+      "Invalid column",
+    );
+  });
 });
 
 describe("rollupFitsTarget", () => {

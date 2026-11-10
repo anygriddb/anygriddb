@@ -32,6 +32,8 @@ import {
   type WriteColumn,
 } from "@anygriddb/core";
 import { readWithin, runStatement, type Database } from "@anygriddb/db";
+import { applyControlPlaneReadSpec } from "../sources/control-plane-read-filter.js";
+import { loadEnrichmentValues } from "../sources/enrichment-values.js";
 import type { SummaryEvent } from "../queue/jobs.js";
 import {
   runRows,
@@ -131,6 +133,7 @@ function readsEveryRow(engine: EngineCatalog, spec: ReadSpec): boolean {
     !spec.filter?.conditions.length &&
     !spec.search &&
     !spec.rowIds &&
+    !spec.excludeRowIds?.length &&
     !engine.access?.rowFilter(engine.table.id)
   );
 }
@@ -167,6 +170,43 @@ export async function readPage(
 }
 
 /**
+ * Fields AnyGridDB keeps for a client's rows in its own database (ADR
+ * 0046), merged into a page read from the client. Only the fields the read
+ * asked for, and never one the reader may not see.
+ */
+async function mergeControlPlane(
+  db: Database,
+  engine: EngineCatalog,
+  rows: RowRecord[],
+  fields: readonly string[] | undefined,
+): Promise<RowRecord[]> {
+  const asked = fields ? new Set(fields) : null;
+  const control = engine.table.columns.filter(
+    (column) =>
+      column.physical?.controlPlane === true &&
+      (asked === null || asked.has(column.name)) &&
+      !engine.access?.hidden(engine.table.id, column.name),
+  );
+  if (control.length === 0 || rows.length === 0) return rows;
+  const bags = await loadEnrichmentValues(
+    db,
+    engine.table.id,
+    rows.map((row) => row.id),
+  );
+  return rows.map((row) => {
+    const bag = bags.get(row.id);
+    if (!bag) return row;
+    const next: RowRecord = { ...row };
+    for (const column of control) {
+      if (Object.hasOwn(bag, column.id)) {
+        next[column.name] = bag[column.id];
+      }
+    }
+    return next;
+  });
+}
+
+/**
  * A page of a client table (ADR 0005). Its count runs apart from the
  * page: a large table read whole shows the total its engine's statistics
  * estimate, and a count that runs past the source's time limit falls back
@@ -183,13 +223,22 @@ async function readExternalPage(
   totalEstimated: boolean;
   groups: GroupRow[];
 }> {
-  const page = buildReadRows(engine, spec);
-  const grouped = buildGroupCounts(engine, spec);
+  const clientSpec = await applyControlPlaneReadSpec(db, engine, spec);
+  if (clientSpec === null) {
+    return {
+      rows: [],
+      total: options.total ? 0 : null,
+      totalEstimated: false,
+      groups: [],
+    };
+  }
+  const page = buildReadRows(engine, clientSpec);
+  const grouped = buildGroupCounts(engine, clientSpec);
   const { rows, groups } = await readTransaction(db, engine, async (run) => ({
     rows: (await run(page)) as RowRecord[],
     groups: grouped
       ? (await run(grouped)).map((row) => ({
-          keys: (spec.groupBy ?? []).map(
+          keys: (clientSpec.groupBy ?? []).map(
             (_, index) => row[`k${index}`] ?? null,
           ),
           depth: Number(row.depth),
@@ -197,20 +246,21 @@ async function readExternalPage(
         }))
       : [],
   }));
+  const merged = await mergeControlPlane(db, engine, rows, clientSpec.fields);
   if (!options.total)
-    return { rows, total: null, totalEstimated: false, groups };
-  const estimate = readsEveryRow(engine, spec)
+    return { rows: merged, total: null, totalEstimated: false, groups };
+  const estimate = readsEveryRow(engine, clientSpec)
     ? await estimateRows(db, engine)
     : null;
   if (!options.exact && estimate !== null && estimate >= ESTIMATE_FROM) {
-    return { rows, total: estimate, totalEstimated: true, groups };
+    return { rows: merged, total: estimate, totalEstimated: true, groups };
   }
   try {
     const [row] = await readTransaction(db, engine, (run) =>
-      run(buildCountRows(engine, spec)),
+      run(buildCountRows(engine, clientSpec)),
     );
     return {
-      rows,
+      rows: merged,
       total: Number(row?.total ?? 0),
       totalEstimated: false,
       groups,
@@ -220,9 +270,9 @@ async function readExternalPage(
       throw error;
     }
     // At least the rows already seen.
-    const seen = (spec.offset ?? 0) + rows.length;
+    const seen = (clientSpec.offset ?? 0) + merged.length;
     return {
-      rows,
+      rows: merged,
       total: Math.max(estimate ?? 0, seen),
       totalEstimated: true,
       groups,
@@ -243,11 +293,12 @@ export async function readByIds(
     timeZone,
     ...(fields ? { fields } : {}),
   });
-  return readTransaction(
+  const rows = await readTransaction(
     db,
     engine,
     async (run) => (await run(statement)) as RowRecord[],
   );
+  return mergeControlPlane(db, engine, rows, fields);
 }
 
 /**
@@ -354,7 +405,14 @@ export async function aggregateRows(
   spec: Omit<ReadSpec, "limit">,
   items: readonly AggregateItem[],
 ): Promise<unknown[]> {
-  const statement = buildAggregates(engine, spec, items);
+  const clientSpec = engine.table.external
+    ? await applyControlPlaneReadSpec(db, engine, { ...spec, limit: 1 })
+    : { ...spec, limit: 1 };
+  if (clientSpec === null) {
+    return items.map(() => null);
+  }
+  const { limit: _limit, ...withoutLimit } = clientSpec;
+  const statement = buildAggregates(engine, withoutLimit, items);
   return readTransaction(db, engine, async (run) => {
     const row = (await run(statement))[0] ?? {};
     return items.map((_, index) => row[`a${index}`] ?? null);

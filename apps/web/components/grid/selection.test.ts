@@ -21,6 +21,8 @@ describe("grid selection", () => {
     expect(selection.flags(4, 3)).toBe(0);
     selection.update({ editing: { cell: { r: 3, c: 2 } } });
     expect(selection.flags(3, 2) & EDITING).toBe(EDITING);
+    expect(selection.isEditingRow(3)).toBe(true);
+    expect(selection.isEditingRow(2)).toBe(false);
   });
 
   it("tells subscribers only about real changes", () => {

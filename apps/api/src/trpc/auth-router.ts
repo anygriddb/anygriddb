@@ -21,6 +21,7 @@ import {
   authenticationResponseSchema,
   registrationResponseSchema,
 } from "../auth/ceremony.js";
+import { passkeysEligible } from "../auth/relying-party.js";
 import {
   MFA_ATTEMPT_LIMIT,
   MFA_COOKIE,
@@ -245,6 +246,8 @@ export const authRouter = t.router({
       selfReset: settings.passwordReset === "self" && smtpReady(ctx.env),
       publicLinks: settings.publicLinks,
       tokenMaxDays: settings.tokenMaxDays,
+      // WebAuthn RP ID needs a hostname in PUBLIC_URL (ADR 0029).
+      passkeysEligible: passkeysEligible(ctx.env.PUBLIC_URL),
     };
   }),
   signup: procedure
@@ -756,6 +759,8 @@ export const sessionRouter = t.router({
     return {
       ...user,
       mfaEnrolled: methods.length > 0,
+      /** Which second factors this account has confirmed. */
+      mfaMethods: methods,
       // What the policy asks of this account (ADR 0043): a factor before
       // working at all, and one before creating a base.
       mfaRequired: (await mfaGate(ctx.db, user, bindings)) === "enroll",

@@ -5,7 +5,7 @@
 import { removeTable } from "../data/tables.js";
 import { addComment, countComments } from "../data/comments.js";
 import { randomBytes } from "node:crypto";
-import { AppError } from "@anygriddb/core";
+import { AppError, buildReadRows } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import {
   GenericContainer,
@@ -25,6 +25,7 @@ import {
   createSource,
   deleteSource,
   listSources,
+  recheckSource,
   sourceTables,
   updateSource,
 } from "./sources.js";
@@ -338,11 +339,12 @@ describe("PostgreSQL sources", () => {
     );
     expect(dated.rows[0]?.text_dates).toBe("1||90|-1|0");
 
-    // A field that stores something needs a side schema (ADR 0032); one
-    // the side table cannot keep is refused outright.
-    await expect(
-      addColumn(db, admin, invoicesId, { label: "Note", fieldType: "text" }),
-    ).rejects.toMatchObject({ code: "source_side_none" });
+    // Without a side schema, a field that stores something is kept in
+    // AnyGridDB's database (ADR 0046); one no table can keep is refused.
+    const note = await addColumn(db, admin, invoicesId, {
+      label: "Note",
+      fieldType: "text",
+    });
     await expect(
       addColumn(db, admin, invoicesId, {
         label: "Files",
@@ -374,6 +376,73 @@ describe("PostgreSQL sources", () => {
         { source: "web" },
       ),
     ).rejects.toThrow("External table is read-only");
+    // Its own fields are written even so, and read back where they live.
+    const services = {
+      db,
+      bus: { publish: () => Promise.resolve() } as never,
+      log: () => undefined,
+    };
+    await updateRows(
+      services,
+      scope,
+      [{ rowId: "1003", values: { [note.name]: "Paid" } }],
+      { source: "web" },
+    );
+    const invoices = (await loadEngine(db, invoicesId, () => true)).engine;
+    const noted = await readPage(
+      db,
+      invoices,
+      {
+        limit: 10,
+        timeZone: "UTC",
+        filter: {
+          conjunction: "and",
+          conditions: [{ column: note.name, op: "is", value: "paid" }],
+        },
+      },
+      { total: true },
+    );
+    expect(noted.rows.map((row) => [row.id, row[note.name]])).toEqual([
+      ["1003", "Paid"],
+    ]);
+    expect(noted.total).toBe(1);
+    // A field rule that hides it hides its value too.
+    const hidden = await readPage(
+      db,
+      {
+        ...invoices,
+        access: {
+          hidden: (_table, name) => name === note.name,
+          readOnly: () => false,
+          rowFilter: () => undefined,
+        },
+      },
+      { rowIds: ["1003"], limit: 1, timeZone: "UTC" },
+      { total: false },
+    );
+    expect(hidden.rows[0]?.[note.name] ?? null).toBeNull();
+    // Only a view's own filter reads it: elsewhere it is refused, not empty.
+    await expect(
+      readPage(
+        db,
+        invoices,
+        {
+          limit: 10,
+          timeZone: "UTC",
+          sort: [{ column: note.name, direction: "asc" }],
+        },
+        { total: false },
+      ),
+    ).rejects.toMatchObject({ code: "control_plane_sort" });
+    expect(() =>
+      buildReadRows(invoices, {
+        limit: 1,
+        filter: {
+          conjunction: "and",
+          conditions: [{ column: note.name, op: "is_empty" }],
+        },
+      }),
+    ).toThrow(expect.objectContaining({ code: "control_plane_filter" }));
     // A source with exposed tables stays.
     await expect(deleteSource(deps, admin, source.id)).rejects.toThrow(
       "Source in use",
@@ -532,6 +601,51 @@ describe("PostgreSQL sources", () => {
     expect(names).toContain("ERP prod");
     expect(names).not.toContain("ERP");
     expect(names).not.toContain("Bad");
+
+    // A read replica without a password of its own uses the primary's, the
+    // next one included (the same server stands in for the replica here).
+    const replicated = await updateSource(deps, admin, {
+      id: created.id,
+      replicaHost: "localhost",
+      replicaPort: port,
+    });
+    expect(replicated).toMatchObject({
+      replicaHost: "localhost",
+      replicaServerVersion: expect.any(String),
+    });
+    const replicaSecret = async () =>
+      (
+        await db
+          .selectFrom("sources")
+          .select("replicaPasswordCiphertext")
+          .where("id", "=", created.id)
+          .executeTakeFirstOrThrow()
+      ).replicaPasswordCiphertext;
+    expect(await replicaSecret()).toBeNull();
+    const rotate = (password: string) =>
+      server?.exec([
+        "psql",
+        "-U",
+        "postgres",
+        "-d",
+        "erp",
+        "-c",
+        `alter role anygriddb password '${password}'`,
+      ]);
+    await rotate("rotated-pass");
+    try {
+      await updateSource(deps, admin, {
+        id: created.id,
+        password: "rotated-pass",
+      });
+      expect(await recheckSource(deps, created.id)).toMatchObject({
+        replicaServerVersion: expect.any(String),
+      });
+      expect(await replicaSecret()).toBeNull();
+    } finally {
+      await rotate("readerpass");
+    }
+    await updateSource(deps, admin, { id: created.id, password: "readerpass" });
 
     // The audit trail records the change, never the encrypted password.
     const events = await db

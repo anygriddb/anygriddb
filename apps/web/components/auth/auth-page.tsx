@@ -56,6 +56,8 @@ export function AuthPage({
   const [methods, setMethods] = useState<Array<"totp" | "webauthn">>([]);
   const [code, setCode] = useState("");
   const [backup, setBackup] = useState("");
+  /** Recovery path: hide TOTP/passkey and show the backup-code form alone. */
+  const [useBackup, setUseBackup] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [forgot, setForgot] = useState(false);
@@ -167,49 +169,9 @@ export function AuthPage({
           </button>
         </form>
       ) : methods.length > 0 ? (
-        <div className="flex flex-col gap-4">
-          <h1 className="text-2xl font-semibold">{t`Second factor`}</h1>
-          {methods.includes("totp") ? (
-            <form
-              className="flex flex-col gap-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void run(async () => {
-                  await trpc.auth.totp.verify.mutate({ code });
-                  await finish();
-                });
-              }}
-            >
-              <Label htmlFor="totp">{t`Authenticator code`}</Label>
-              <Input
-                id="totp"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-              />
-              <Button type="submit" disabled={busy}>
-                {t`Verify`}
-              </Button>
-            </form>
-          ) : null}
-          {methods.includes("webauthn") ? (
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() =>
-                void run(async () => {
-                  await signInWithPasskey();
-                  await finish();
-                })
-              }
-            >
-              <KeyRound className="h-4 w-4" aria-hidden />
-              {t`Use a passkey`}
-            </Button>
-          ) : null}
+        useBackup ? (
           <form
-            className="flex flex-col gap-2"
+            className="flex flex-col gap-3"
             onSubmit={(event) => {
               event.preventDefault();
               void run(async () => {
@@ -218,17 +180,89 @@ export function AuthPage({
               });
             }}
           >
+            <h1 className="text-2xl font-semibold">{t`Backup code`}</h1>
+            <p className="text-sm text-muted-foreground">
+              {t`Use one of the one-time codes you saved when you set up your second factor.`}
+            </p>
             <Label htmlFor="backup">{t`Backup code`}</Label>
             <Input
               id="backup"
+              autoComplete="off"
+              autoFocus
               value={backup}
               onChange={(event) => setBackup(event.target.value)}
             />
-            <Button type="submit" variant="outline" disabled={busy}>
+            <Button type="submit" disabled={busy}>
               {t`Use the backup code`}
             </Button>
+            <button
+              type="button"
+              className="text-center text-sm text-primary hover:underline"
+              onClick={() => {
+                setUseBackup(false);
+                setBackup("");
+                setError("");
+              }}
+            >
+              {t`Back`}
+            </button>
           </form>
-        </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <h1 className="text-2xl font-semibold">{t`Second factor`}</h1>
+            {methods.includes("totp") ? (
+              <form
+                className="flex flex-col gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void run(async () => {
+                    await trpc.auth.totp.verify.mutate({ code });
+                    await finish();
+                  });
+                }}
+              >
+                <Label htmlFor="totp">{t`Authenticator code`}</Label>
+                <Input
+                  id="totp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  value={code}
+                  onChange={(event) => setCode(event.target.value)}
+                />
+                <Button type="submit" disabled={busy}>
+                  {t`Verify`}
+                </Button>
+              </form>
+            ) : null}
+            {methods.includes("webauthn") ? (
+              <Button
+                variant="outline"
+                disabled={busy}
+                onClick={() =>
+                  void run(async () => {
+                    await signInWithPasskey();
+                    await finish();
+                  })
+                }
+              >
+                <KeyRound className="h-4 w-4" aria-hidden />
+                {t`Use a passkey`}
+              </Button>
+            ) : null}
+            <button
+              type="button"
+              className="text-center text-sm text-primary hover:underline"
+              onClick={() => {
+                setUseBackup(true);
+                setCode("");
+                setError("");
+              }}
+            >
+              {t`Lost your authenticator? Use a backup code`}
+            </button>
+          </div>
+        )
       ) : (
         <form className="flex flex-col gap-3" onSubmit={onSubmit}>
           <h1 className="text-2xl font-semibold">

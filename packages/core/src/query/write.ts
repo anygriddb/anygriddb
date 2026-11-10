@@ -11,6 +11,7 @@ import {
   type ParameterizedSql,
 } from "./params";
 import { AppError } from "../errors";
+import { MAX_READ_LIMIT } from "./read";
 
 export type WriteColumn = CellColumn & { name: string };
 
@@ -287,15 +288,24 @@ export function buildNonNullValues(input: {
   table: string;
   column: string;
   limit: number;
+  offset?: number;
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
   assertIdentifier(input.column, "column name");
-  if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 5000) {
+  if (
+    !Number.isInteger(input.limit) ||
+    input.limit < 1 ||
+    input.limit > MAX_READ_LIMIT
+  ) {
+    throw new AppError("invalid_limit");
+  }
+  const offset = input.offset ?? 0;
+  if (!Number.isInteger(offset) || offset < 0) {
     throw new AppError("invalid_limit");
   }
   return {
-    text: `select ${quoteIdent(input.column)} as "value" from ${quoteIdent(input.table)} where ${quoteIdent(input.column)} is not null limit $1`,
-    values: [input.limit],
+    text: `select ${quoteIdent(input.column)} as "value" from ${quoteIdent(input.table)} where ${quoteIdent(input.column)} is not null order by ctid limit $1 offset $2`,
+    values: [input.limit, offset],
   };
 }
 

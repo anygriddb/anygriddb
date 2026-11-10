@@ -44,10 +44,28 @@ connection in clear.
   Health shows its SHA-256 fingerprint and a download link; the start log
   prints the fingerprint; `/tls/authority.crt` serves it to anyone, since
   people install it before they can sign in. Until it is installed,
-  browsers warn, and refuse passkeys; TOTP works.
+  browsers warn. TOTP works either way. Passkeys need the authority
+  installed **and** a hostname in `PUBLIC_URL` (below).
 - **`PUBLIC_URL` must be HTTPS.** Plain HTTP is accepted for one case: the
   development server on the machine's loopback, which forwards to the
-  API's HTTPS. The default is `https://localhost:<PORT>`.
+  API's HTTPS. The default is `https://localhost:<PORT>`. It is the
+  canonical origin: links in emails, `__Host-` cookies, API documents,
+  the certificate's primary name, **and** the WebAuthn relying party
+  (`rpID` and `expectedOrigin`). People open this address.
+- **`TLS_NAMES`** adds other names and addresses to the certificate only
+  (IP SANs, aliases). It never sets the WebAuthn RP ID.
+- **Passkeys need a DNS hostname.** Browsers refuse a bare IP as RP ID
+  (`OriginMissingDomain`). So:
+  - `PUBLIC_URL` with a hostname (`localhost`, a domain, or a private
+    name such as `grid.lan` / `*.home.arpa` that every workstation
+    resolves) → passkeys work once the authority is trusted and people
+    open that same origin;
+  - `PUBLIC_URL` with an IP alone → HTTPS and TOTP work; passkeys do
+    not. Administration > Health and the start log say so. The API
+    refuses to start a WebAuthn ceremony for an IP origin
+    (`invalid_origin`). Put a resolvable hostname in `PUBLIC_URL` (and
+    the IP in `TLS_NAMES` if people still reach it by address) when
+    passkeys are required.
 - **HSTS** is sent with the operator's certificate. With the instance's
   authority it is not: a browser that has not installed the authority
   could not get past the warning, and would be locked out.
@@ -65,6 +83,10 @@ connection in clear.
   certificate to buy. A reverse proxy still fits: it forwards to
   `https://anygriddb:4000`, trusting the instance's authority or not
   checking it on a private network, and may add HSTS itself.
+- A LAN install that people open by IP stays valid for HTTPS and TOTP;
+  passkeys wait on a hostname that matches `PUBLIC_URL`. Health and the
+  second-factor UI do not offer a passkey ceremony that the browser would
+  refuse.
 - Tests run the server over HTTPS; the browser tests accept its authority
   without installing it.
 - Container health checks call `anygriddb health`, which asks the API on
@@ -81,3 +103,8 @@ connection in clear.
   the network for anyone who reaches the port directly.
 - **A separate port for the redirect.** People type the address they were
   given; the same port must answer it.
+- **A WebAuthn RP ID decoupled from `PUBLIC_URL`.** The browser origin and
+  the RP ID must match what people open; a separate override would lie.
+- **Refusing an IP `PUBLIC_URL` at start.** That would break LAN installs
+  that only need TOTP. The incompatibility is for passkeys alone, and is
+  made visible.

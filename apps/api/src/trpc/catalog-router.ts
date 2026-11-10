@@ -275,6 +275,13 @@ export function publicColumns(engine: EngineCatalog, rows: CatalogRows) {
       /** A field AnyGridDB added to a client's table (ADR 0032). */
       side: column.externalSide,
       /**
+       * Enrichment without a side schema: values in the control plane
+       * (ADR 0046). Sort and group are refused; filters are limited.
+       */
+      controlPlane:
+        engine.table.columns.find((item) => item.name === column.name)?.physical
+          ?.controlPlane === true,
+      /**
        * A client's column a new row may fill: its type is written back
        * exactly. Native fields follow `access`.
        */
@@ -492,13 +499,25 @@ export const catalogRouter = t.router({
                           insert: table.externalInsert && !syncs.has(table.id),
                           delete: table.externalDelete && !syncs.has(table.id),
                         },
-                        // Fields may be added: the source has a side
-                        // schema and the table a key (ADR 0032).
+                        // Storage fields: live table with a key (side schema
+                        // or control plane, ADR 0032 / 0046).
                         enrichable:
                           !syncs.has(table.id) &&
                           (table.externalKey ?? []).length > 0 &&
-                          table.sourceId !== null &&
-                          Boolean(rows.sources.get(table.sourceId)?.sideSchema),
+                          table.sourceId !== null,
+                        enrichment: syncs.has(table.id)
+                          ? ("off" as const)
+                          : (table.externalKey ?? []).length === 0 ||
+                              table.sourceId === null
+                            ? ("off" as const)
+                            : rows.sources.get(table.sourceId)?.sideSchema
+                              ? ("client" as const)
+                              : ("control_plane" as const),
+                        enrichmentBlocked: syncs.has(table.id)
+                          ? ("synced" as const)
+                          : (table.externalKey ?? []).length === 0
+                            ? ("no_key" as const)
+                            : null,
                         // Read from a copy, refreshed on a schedule.
                         synced: syncs.has(table.id)
                           ? {

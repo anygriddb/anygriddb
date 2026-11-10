@@ -5,7 +5,11 @@
  * of the read engine asks here, and is the same for both.
  */
 import { AppError } from "../errors";
-import { isWritableType, physicalSqlType } from "../field-types";
+import {
+  isWritableType,
+  physicalSqlType,
+  storedValueKind,
+} from "../field-types";
 import { dialectOf, POSTGRES, type SqlDialect } from "./dialect";
 import type { EngineColumn, EngineTable } from "./engine";
 import { quoteExternalIdent, quoteIdent } from "./params";
@@ -48,7 +52,13 @@ export function readTableSql(table: EngineTable): string {
   }
   const own = new Set(external.key);
   for (const column of table.columns) {
-    if (column.physical && !column.physical.side && !column.physical.missing) {
+    // A field kept in AnyGridDB's database is in neither table (ADR 0046).
+    if (
+      column.physical &&
+      !column.physical.side &&
+      !column.physical.missing &&
+      !column.physical.controlPlane
+    ) {
       own.add(column.physical.name);
     }
   }
@@ -72,8 +82,23 @@ export function columnSql(
 ): string {
   if (column.physical === undefined)
     return `${alias}.${quoteIdent(column.name)}`;
-  // A field added since a synced table's last refresh (ADR 0034).
-  if (column.physical.missing) {
+  // A field added since a synced table's last refresh (ADR 0034), or a
+  // control-plane enrichment field merged after the client read (ADR 0046).
+  if (column.physical.missing || column.physical.controlPlane) {
+    if (dialect.name !== "postgres") {
+      // In the client's engine: a typed null in its own syntax.
+      const kind = isWritableType(column.fieldType)
+        ? storedValueKind(column.fieldType)
+        : "text";
+      return dialect.nullOf(
+        kind === "number" ||
+          kind === "boolean" ||
+          kind === "date" ||
+          kind === "datetime"
+          ? kind
+          : "text",
+      );
+    }
     return isWritableType(column.fieldType)
       ? `null::${physicalSqlType(column.fieldType)}`
       : "null::text";

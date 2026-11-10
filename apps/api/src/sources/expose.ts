@@ -9,12 +9,13 @@ import {
   deriveColumnName,
   madeNames,
   OPTION_COLORS,
+  PRIMARY_TYPES,
   type FieldType,
 } from "@anygriddb/core";
 import { randomBytes } from "node:crypto";
 import { sql } from "kysely";
 import { withAudit, type AuditTx } from "../data/audit-context.js";
-import { isUniqueViolation, PRIMARY_TYPES } from "../data/schema-ops.js";
+import { isUniqueViolation } from "../data/schema-ops.js";
 import { sourceTables, type SourceDeps } from "./sources.js";
 import type { SourceTable } from "./types.js";
 
