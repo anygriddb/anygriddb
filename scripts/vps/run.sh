@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 source "$SCRIPT_DIR/common.sh"
 
-PROFILES=("entry" "balanced" "credits")
+PROFILES=("${VPS_PROFILES[@]}")
 SECONDS_LOAD=20
 CONCURRENCY=4
 API_RPS=8
@@ -16,6 +16,12 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
   --profiles)
     IFS=',' read -r -a PROFILES <<<"$2"
+    for profile in "${PROFILES[@]}"; do
+      is_profile "$profile" || {
+        echo "unknown profile: $profile (one of: ${VPS_PROFILES[*]})" >&2
+        exit 1
+      }
+    done
     shift 2
     ;;
   --seconds)
@@ -122,11 +128,10 @@ ram_pressure() {
   # Temporarily tighten memory to provoke reclaim / OOM under load.
   docker update --memory 256m --memory-swap 256m "$app" >/dev/null || true
   run_case "$profile" "ram-pressure" || true
-  # Restore profile envelope approximately (up.sh re-applies exact limits next).
-  case "$profile" in
-  balanced) docker update --memory 2560m --memory-swap 2560m "$app" >/dev/null || true ;;
-  *) docker update --memory 1280m --memory-swap 1280m "$app" >/dev/null || true ;;
-  esac
+  # Back to the profile's own envelope.
+  profile_settings "$profile"
+  docker update --memory "$VPS_APP_MEM" --memory-swap "$VPS_APP_MEMSWAP" \
+    "$app" >/dev/null || true
   "$SCRIPT_DIR/netem.sh" clear >/dev/null 2>&1 || true
   wait_healthy || true
 }

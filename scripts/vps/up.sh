@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Bring up the isolated VPS harness stack for one profile.
-# Usage: scripts/vps/up.sh <entry|balanced|credits> [--noisy] [--build]
+# Usage: scripts/vps/up.sh <profile> [--noisy] [--no-build] (profiles: common.sh)
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
@@ -11,24 +11,27 @@ NOISY=0
 BUILD=1
 for arg in "$@"; do
   case "$arg" in
-  entry | balanced | credits) PROFILE="$arg" ;;
   --noisy) NOISY=1 ;;
   --no-build) BUILD=0 ;;
   --build) BUILD=1 ;;
   -h | --help)
-    echo "Usage: $0 <entry|balanced|credits> [--noisy] [--no-build]"
+    echo "Usage: $0 <profile> [--noisy] [--no-build]"
     usage_common
     exit 0
     ;;
   *)
-    echo "unknown argument: $arg" >&2
-    exit 1
+    if is_profile "$arg"; then
+      PROFILE="$arg"
+    else
+      echo "unknown argument: $arg" >&2
+      exit 1
+    fi
     ;;
   esac
 done
 
 if [[ -z "$PROFILE" ]]; then
-  echo "Usage: $0 <entry|balanced|credits> [--noisy] [--no-build]" >&2
+  echo "Usage: $0 <profile> [--noisy] [--no-build]" >&2
   exit 1
 fi
 

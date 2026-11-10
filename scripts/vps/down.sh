@@ -20,7 +20,7 @@ for arg in "$@"; do
   esac
 done
 
-# Profile file is required by compose(); any profile overlay works for down.
+# Limits must interpolate; any profile works for tear-down.
 export VPS_PROFILE="${VPS_PROFILE:-entry}"
 ensure_env
 

@@ -20,18 +20,51 @@ fetch_authority() {
     >/dev/null 2>&1
 }
 
-compose_files_for() {
-  local profile="$1"
-  echo -f "$DOCKER_DIR/compose.yml" \
-    -f "$DOCKER_DIR/compose.vps.yml" \
-    -f "$DOCKER_DIR/compose.vps-${profile}.yml"
+# The one definition of each profile: CPU and RAM per container (read by
+# compose.vps.yml) and disk caps (apply_disk_limits). A new profile is a
+# new entry here and in VPS_PROFILES, nothing else.
+profile_settings() {
+  local profile="${1:?profile required}"
+  case "$profile" in
+  entry)
+    # Shared-like ~0.25 vCPU baseline, 2 GiB total RAM, block storage.
+    export VPS_APP_CPUS=0.20 VPS_APP_MEM=1280m VPS_APP_MEMSWAP=1280m
+    export VPS_DB_CPUS=0.15 VPS_DB_MEM=768m VPS_DB_MEMSWAP=768m
+    export VPS_IOPS=10000 VPS_BPS=$((250 * 1024 * 1024))
+    ;;
+  balanced)
+    # 2 dedicated vCPU, 4 GiB total RAM, NVMe-class disk.
+    export VPS_APP_CPUS=1.20 VPS_APP_MEM=2560m VPS_APP_MEMSWAP=2560m
+    export VPS_DB_CPUS=0.80 VPS_DB_MEM=1536m VPS_DB_MEMSWAP=1536m
+    export VPS_IOPS=50000 VPS_BPS=$((1200 * 1024 * 1024))
+    ;;
+  credits)
+    # A burstable instance with its CPU credits spent: ~15% of one core,
+    # the same 2 GiB and disk as entry.
+    export VPS_APP_CPUS=0.12 VPS_APP_MEM=1280m VPS_APP_MEMSWAP=1280m
+    export VPS_DB_CPUS=0.03 VPS_DB_MEM=768m VPS_DB_MEMSWAP=768m
+    export VPS_IOPS=10000 VPS_BPS=$((250 * 1024 * 1024))
+    ;;
+  *)
+    echo "unknown profile: $profile (one of: ${VPS_PROFILES[*]})" >&2
+    return 1
+    ;;
+  esac
+}
+
+is_profile() {
+  local name
+  for name in "${VPS_PROFILES[@]}"; do
+    [[ "$name" == "$1" ]] && return 0
+  done
+  return 1
 }
 
 compose() {
   local profile="${VPS_PROFILE:?VPS_PROFILE unset}"
-  # shellcheck disable=SC2046
+  profile_settings "$profile" || return 1
   docker compose -p "$PROJECT" --env-file "$ENV_FILE" \
-    $(compose_files_for "$profile") "$@"
+    -f "$DOCKER_DIR/compose.yml" -f "$DOCKER_DIR/compose.vps.yml" "$@"
 }
 
 ensure_env() {
@@ -90,27 +123,9 @@ cgroup_io_max() {
 # Apply disk IOPS / bandwidth caps via cgroup v2 (docker update has no
 # --device-*-iops on this Engine). Requires passwordless sudo for the write.
 apply_disk_limits() {
-  local profile="$1"
-  local dev read_iops write_iops read_bps write_bps
+  local profile="$1" dev
+  profile_settings "$profile" || return 1
   dev="$(root_block_device)"
-  case "$profile" in
-  entry | credits)
-    read_iops=10000
-    write_iops=10000
-    read_bps=$((250 * 1024 * 1024))
-    write_bps=$((250 * 1024 * 1024))
-    ;;
-  balanced)
-    read_iops=50000
-    write_iops=50000
-    read_bps=$((1200 * 1024 * 1024))
-    write_bps=$((1200 * 1024 * 1024))
-    ;;
-  *)
-    echo "unknown profile: $profile" >&2
-    return 1
-    ;;
-  esac
   local service name path
   for service in app db; do
     name="$(container_name "$service")"
@@ -120,13 +135,13 @@ apply_disk_limits() {
       return 1
     fi
     if ! printf '%s riops=%s wiops=%s rbps=%s wbps=%s\n' \
-      "$dev" "$read_iops" "$write_iops" "$read_bps" "$write_bps" |
+      "$dev" "$VPS_IOPS" "$VPS_IOPS" "$VPS_BPS" "$VPS_BPS" |
       sudo tee "$path" >/dev/null; then
       echo "warning: could not set io.max on $name (sudo / device $dev)" >&2
       return 0
     fi
   done
-  echo "disk limits on $dev (r/w iops=$read_iops bps=$write_bps) for app+db" >&2
+  echo "disk limits on $dev (r/w iops=$VPS_IOPS bps=$VPS_BPS) for app+db" >&2
 }
 
 wait_healthy() {
@@ -154,8 +169,9 @@ wait_healthy() {
 }
 
 usage_common() {
+  local IFS="|"
+  printf 'Profiles: %s\n' "${VPS_PROFILES[*]}"
   cat <<'EOF'
-Profiles: entry | balanced | credits
 Env:      docker/.env.vps (created on first up)
 URL:      https://localhost:3100  (project anygriddb-vps)
 EOF
