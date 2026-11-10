@@ -118,6 +118,10 @@ export async function listUsers(
       sqlTag<boolean>`exists (select 1 from password_hashes p where p.user_id = u.id)`.as(
         "hasPassword",
       ),
+      // Bound to a sign-on provider's subject (OIDC, SAML).
+      sqlTag<boolean>`exists (select 1 from sso_identities i where i.user_id = u.id)`.as(
+        "signOn",
+      ),
       sqlTag<Date | null>`(select max(s.created_at) from sessions s where s.user_id = u.id)`.as(
         "lastSeen",
       ),

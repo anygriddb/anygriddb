@@ -5806,6 +5806,10 @@ msgstr "Signing secret, shown once:"
 msgid "Single select"
 msgstr "Single select"
 
+#: components/admin/sign-in-trail.tsx
+msgid "Single sign-on unlinked"
+msgstr "Single sign-on unlinked"
+
 #: components/table/import-dialog.tsx
 msgid "Skip"
 msgstr "Skip"
@@ -6186,6 +6190,10 @@ msgstr "Thank you, your response was saved."
 #: components/table/automations-dialog.tsx
 msgid "That match (optional):"
 msgstr "That match (optional):"
+
+#: components/admin/admin-page.tsx
+msgid "The account forgets which identity of the provider it belongs to. The next sign-on with its address binds it again. For an account made again at the provider; otherwise someone else with that address there could take it."
+msgstr "The account forgets which identity of the provider it belongs to. The next sign-on with its address binds it again. For an account made again at the provider; otherwise someone else with that address there could take it."
 
 #: components/admin/sources-tab.tsx
 msgid "The account lacks {rights} on this table."
@@ -7209,6 +7217,18 @@ msgstr "Unknown template"
 #: components/fields/link-selection.tsx
 msgid "Unknown view"
 msgstr "Unknown view"
+
+#: components/admin/admin-page.tsx
+msgid "Unlink"
+msgstr "Unlink"
+
+#: components/admin/admin-page.tsx
+msgid "Unlink {name} from single sign-on?"
+msgstr "Unlink {name} from single sign-on?"
+
+#: components/admin/admin-page.tsx
+msgid "Unlink single sign-on"
+msgstr "Unlink single sign-on"
 
 #: components/admin/admin-page.tsx
 #: components/record/row-status.tsx

@@ -28,6 +28,7 @@ export type AuthAction =
   | "password_reset_requested"
   | "session_revoked"
   | "settings_changed"
+  | "sso_unlinked"
   | "tokens_revoked";
 
 export type AutomationRunStatus = "failed" | "skipped" | "success";
@@ -636,6 +637,15 @@ export interface Sources {
   username: string;
 }
 
+export interface SsoIdentities {
+  createdAt: Generated<Timestamp>;
+  issuer: string;
+  lastSeenAt: Generated<Timestamp>;
+  provider: string;
+  subject: string;
+  userId: string;
+}
+
 export interface StagedUploads {
   createdAt: Generated<Timestamp>;
   expiresAt: Timestamp;
@@ -794,6 +804,7 @@ export interface DB {
   sessions: Sessions;
   shares: Shares;
   sources: Sources;
+  ssoIdentities: SsoIdentities;
   stagedUploads: StagedUploads;
   tableAcls: TableAcls;
   totpSecrets: TotpSecrets;

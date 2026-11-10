@@ -22,6 +22,7 @@ const ACTIONS = [
   "password_reset",
   "settings_changed",
   "account_disabled",
+  "sso_unlinked",
 ] as const;
 type AuthAction = (typeof ACTIONS)[number];
 
@@ -58,6 +59,7 @@ export function SignInTrail() {
       password_reset: t`Password reset`,
       settings_changed: t`Setting changed`,
       account_disabled: t`Account disabled`,
+      sso_unlinked: t`Single sign-on unlinked`,
     })[value];
   const methodLabel = (value: string | null) =>
     value

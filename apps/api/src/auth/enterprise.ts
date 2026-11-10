@@ -13,7 +13,7 @@ import {
   hashSessionToken,
   sessionCookieOptions,
 } from "./session.js";
-import { userForEmail } from "./sso.js";
+import { stableNameId, userForIdentity } from "./sso.js";
 import type { Env } from "../env.js";
 import { readSettings } from "../settings.js";
 import { AppError } from "@anygriddb/core";
@@ -286,13 +286,18 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       const claims = tokens.claims();
       const email = claims?.email;
       const name = claims?.name;
-      // Accounts are matched by email: an address the provider says it did
-      // not verify could take over someone else's account.
-      if (typeof email !== "string" || claims?.email_verified === false) {
+      // An account is found by the provider's subject once bound; the first
+      // time by its address, which the provider must have verified.
+      if (
+        !claims ||
+        typeof email !== "string" ||
+        claims.email_verified === false
+      ) {
         throw new AppError("invalid_credentials");
       }
-      const userId = await userForEmail(
+      const userId = await userForIdentity(
         deps.db,
+        { provider: "oidc", issuer: claims.iss, subject: claims.sub },
         email,
         typeof name === "string" ? name : email,
         deps.env.ADMIN_EMAILS,
@@ -364,13 +369,20 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       const result = await saml.validatePostResponseAsync({
         SAMLResponse: body.SAMLResponse,
       });
-      const email =
-        result.profile?.email ?? result.profile?.mail ?? result.profile?.nameID;
-      if (!email || !email.includes("@")) {
+      const profile = result.profile;
+      const email = profile?.email ?? profile?.mail ?? profile?.nameID;
+      if (!profile || !email || !email.includes("@")) {
         throw new AppError("invalid_credentials");
       }
-      const userId = await userForEmail(
+      // A persistent NameID binds the account; a transient or address-shaped
+      // one says nothing lasting, and the address finds the account.
+      const userId = await userForIdentity(
         deps.db,
+        {
+          provider: "saml",
+          issuer: profile.issuer,
+          subject: stableNameId(profile.nameID, profile.nameIDFormat),
+        },
         email,
         email,
         deps.env.ADMIN_EMAILS,

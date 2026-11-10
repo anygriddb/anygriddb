@@ -322,6 +322,35 @@ export async function clearFactors(
   });
 }
 
+/**
+ * Forgets which provider subjects an account is bound to: its next sign-on
+ * binds it again, to the subject that brings its address (an account made
+ * again at the provider). Its sessions stay.
+ */
+export async function unlinkSignOn(
+  db: Database,
+  actorId: string,
+  userId: string,
+): Promise<number> {
+  await otherAccount(db, actorId, userId);
+  return db.transaction().execute(async (tx) => {
+    const removed = await tx
+      .deleteFrom("ssoIdentities")
+      .where("userId", "=", userId)
+      .executeTakeFirst();
+    const count = Number(removed.numDeletedRows);
+    if (count > 0) {
+      await recordAuthEvent(tx, {
+        action: "sso_unlinked",
+        userId,
+        actorId,
+        method: "admin",
+      });
+    }
+    return count;
+  });
+}
+
 /** Revokes every API token of an account (a leaked token, a departure). */
 export async function revokeUserTokens(
   db: Database,

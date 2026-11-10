@@ -240,11 +240,36 @@ describe("instance controls", () => {
       await code(admin.call().admin.endUserSessions({ userId: adminId })),
     ).toBe("invalid_account");
 
+    // Bound to a provider's subject, the account is listed so, and an
+    // administrator lets it bind again (an account made again there).
+    await db
+      .insertInto("ssoIdentities")
+      .values({
+        provider: "oidc",
+        issuer: "https://idp.example.org",
+        subject: "member-1",
+        userId: memberId,
+      })
+      .execute();
+    const signOn = async () =>
+      (await admin.call().admin.users({ offset: 0, limit: 100 })).users.find(
+        (user) => user.id === memberId,
+      )?.signOn;
+    expect(await signOn()).toBe(true);
+    expect(
+      await code(admin.call().admin.unlinkSignOn({ userId: adminId })),
+    ).toBe("invalid_account");
+    expect(
+      (await admin.call().admin.unlinkSignOn({ userId: memberId })).count,
+    ).toBe(1);
+    expect(await signOn()).toBe(false);
+
     const page = await admin.call().admin.authAudit({ userId: memberId });
     const byAdmin = page.events.filter((event) => event.actorId === adminId);
     expect(byAdmin.map((event) => event.action).sort()).toEqual([
       "factors_cleared",
       "session_revoked",
+      "sso_unlinked",
       "tokens_revoked",
     ]);
     expect(byAdmin.every((event) => event.actorName === "Ada Admin")).toBe(

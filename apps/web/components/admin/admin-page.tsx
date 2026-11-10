@@ -63,7 +63,8 @@ type Tab =
   | "settings";
 
 /** What an administrator may do to another account (ADRs 0042, 0043). */
-type AccountAction = "sessions" | "factors" | "tokens" | "unlock" | "reset";
+type AccountAction =
+  "sessions" | "factors" | "signOn" | "tokens" | "unlock" | "reset";
 
 function date(value: string | null | undefined): string {
   return value ? new Date(value).toLocaleString() : "—";
@@ -280,6 +281,19 @@ function UsersTab() {
                           >
                             {t`Remove their second factors`}
                           </DropdownMenuItem>
+                          {user.signOn ? (
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                setAct({
+                                  id: user.id,
+                                  name: user.displayName,
+                                  action: "signOn",
+                                })
+                              }
+                            >
+                              {t`Unlink single sign-on`}
+                            </DropdownMenuItem>
+                          ) : null}
                           <DropdownMenuItem
                             onSelect={() =>
                               setAct({
@@ -357,6 +371,7 @@ function UsersTab() {
             {
               sessions: t`Sign ${{ name: act.name }} out everywhere?`,
               factors: t`Remove ${{ name: act.name }}'s second factors?`,
+              signOn: t`Unlink ${{ name: act.name }} from single sign-on?`,
               tokens: t`Revoke ${{ name: act.name }}'s API tokens?`,
               unlock: t`Unlock ${{ name: act.name }}'s account?`,
               reset: t`Send ${{ name: act.name }} a password reset link?`,
@@ -366,6 +381,7 @@ function UsersTab() {
             {
               sessions: t`Every session of this account ends now. The person can sign in again.`,
               factors: t`Their authenticator, passkeys, and backup codes are removed, and their sessions end. They sign in with their password and set up a second factor again. For a lost phone or key.`,
+              signOn: t`The account forgets which identity of the provider it belongs to. The next sign-on with its address binds it again. For an account made again at the provider; otherwise someone else with that address there could take it.`,
               tokens: t`Scripts and tools using these tokens stop working at once.`,
               unlock: t`The person can sign in again now, and their count of failed attempts starts over.`,
               reset: t`The link sets a new password once, within a day; their second factors stay. With email set up, it goes to their address and you never see it. Otherwise you get it to pass on: only to them, as it opens their account.`,
@@ -375,6 +391,7 @@ function UsersTab() {
             {
               sessions: t`Sign out`,
               factors: t`Remove`,
+              signOn: t`Unlink`,
               tokens: t`Revoke`,
               unlock: t`Unlock`,
               reset: t`Send`,
@@ -387,6 +404,8 @@ function UsersTab() {
                 await trpc.admin.endUserSessions.mutate({ userId });
               } else if (act.action === "factors") {
                 await trpc.admin.clearFactors.mutate({ userId });
+              } else if (act.action === "signOn") {
+                await trpc.admin.unlinkSignOn.mutate({ userId });
               } else if (act.action === "unlock") {
                 await trpc.admin.unlock.mutate({ userId });
               } else if (act.action === "reset") {

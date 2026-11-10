@@ -23,6 +23,7 @@ import {
   listSessions,
   otherAccount,
   revokeUserTokens,
+  unlinkSignOn,
   withdrawInvitation,
 } from "../admin-control.js";
 import { assertEnrolled } from "../auth/access.js";
@@ -123,6 +124,7 @@ const authActionSchema = z.enum([
   "password_reset",
   "settings_changed",
   "account_disabled",
+  "sso_unlinked",
 ] satisfies AuthAction[]);
 
 const exportLimit = z.int().min(1).max(10_000).default(10_000);
@@ -585,6 +587,15 @@ export const adminRouter = t.router({
           { kind: "factors_removed" },
         );
         return { ok: true as const };
+      }),
+    ),
+  /** Lets an account bind to another provider subject at its next sign-on. */
+  unlinkSignOn: procedure
+    .input(z.object({ userId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        return { count: await unlinkSignOn(ctx.db, admin.id, input.userId) };
       }),
     ),
   /** Lifts a lock set by failed sign-ins (ADR 0043). */

@@ -5806,6 +5806,10 @@ msgstr "Secret de signature, affiché une fois :"
 msgid "Single select"
 msgstr "Choix unique"
 
+#: components/admin/sign-in-trail.tsx
+msgid "Single sign-on unlinked"
+msgstr "Authentification unique déliée"
+
 #: components/table/import-dialog.tsx
 msgid "Skip"
 msgstr "Ignorer"
@@ -6186,6 +6190,10 @@ msgstr "Merci, votre réponse a été enregistrée."
 #: components/table/automations-dialog.tsx
 msgid "That match (optional):"
 msgstr "Qui remplissent (facultatif) :"
+
+#: components/admin/admin-page.tsx
+msgid "The account forgets which identity of the provider it belongs to. The next sign-on with its address binds it again. For an account made again at the provider; otherwise someone else with that address there could take it."
+msgstr "Le compte oublie à quelle identité du fournisseur il appartient. La prochaine connexion avec son adresse le lie de nouveau. Pour un compte recréé chez le fournisseur ; sinon, quelqu'un d'autre ayant cette adresse chez lui pourrait le prendre."
 
 #: components/admin/sources-tab.tsx
 msgid "The account lacks {rights} on this table."
@@ -7209,6 +7217,18 @@ msgstr "Modèle inconnu"
 #: components/fields/link-selection.tsx
 msgid "Unknown view"
 msgstr "Vue introuvable"
+
+#: components/admin/admin-page.tsx
+msgid "Unlink"
+msgstr "Délier"
+
+#: components/admin/admin-page.tsx
+msgid "Unlink {name} from single sign-on?"
+msgstr "Délier {name} de l'authentification unique ?"
+
+#: components/admin/admin-page.tsx
+msgid "Unlink single sign-on"
+msgstr "Délier l'authentification unique"
 
 #: components/admin/admin-page.tsx
 #: components/record/row-status.tsx

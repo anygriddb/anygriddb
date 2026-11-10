@@ -32,7 +32,7 @@ The product is `apps/` and `packages/`.
 | Automations    | Row created, updated, deleted, in a filter, form, schedule, button, webhook; write or delete rows, email, HTTPS, notify; branches, loops                                                                   |
 | Notifications  | Mentions, replies, assignments, automation and webhook alerts; live bell; optional email                                                                                                                   |
 | Audit          | Append-only trail with reason and source, row statuses, password-confirmed signatures                                                                                                                      |
-| Security       | Argon2id, TOTP, passkeys, OIDC, SAML, sliding sessions, rate limits, per-account locks, password change and reset, SSRF-safe requests, account erasure                                                     |
+| Security       | Argon2id, TOTP, passkeys, OIDC and SAML bound to the provider's subject, sliding sessions, rate limits, per-account locks, password change and reset, SSRF-safe requests, account erasure                  |
 | Policy         | Administrator-set, from simple defaults (ADRs 0043, 0044): second factor, locks and alerts, sessions, passwords, tokens, links, domains, invitations, idle accounts                                        |
 | Administration | Accounts (disable, admin, sessions, factors, tokens), SCIM 2.0, sign-up, language, maintenance, announcement, 2FA for all, audit and sign-in trails (CSV), support                                         |
 | Interface      | English source + French locale (ADR 0041), light and dark themes, command palette, keyboard help, pinned bases and tables, recent tables; base settings                                                    |
@@ -53,7 +53,7 @@ The product is `apps/` and `packages/`.
 - A base snapshot names people by email: a user cell keeps the people who are members of the new base. Roles given by groups stay behind.
 - A collaborator with field or row rules cannot use the row trash, and cannot import with updates by key under a row rule.
 - Rows deleted before this release's many-to-many restore fix come back without those links.
-- Single sign-on matches accounts by email, not by the provider's subject; the provider must verify addresses.
+- A SAML provider that sends only transient or address NameIDs matches accounts by address: it must verify them. OIDC, and SAML with a persistent NameID, bind the account to the provider's subject.
 - The map view draws points on a plain SVG projection, without tiles.
 - A synced table is as old as its last refresh, is read-only, stops at a million rows, and links to a table read live show empty.
 - A locked client row is protected from AnyGridDB's writes only: a change another application makes is detected (within five minutes, seconds on a watched table) and told, not refused. Its seal covers every stored column, so a row put back still differs by its `updated_at`.

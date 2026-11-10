@@ -64,7 +64,13 @@ async function fakeProvider() {
         .setProtectedHeader({ alg: "RS256", kid: "k1" })
         .setIssuer(ISSUER)
         .setAudience(CLIENT_ID)
-        .setSubject("subject-1")
+        // The provider's own name for the person: one per address unless
+        // a test says otherwise.
+        .setSubject(
+          typeof state.claims.sub === "string"
+            ? state.claims.sub
+            : `sub-${String(state.claims.email)}`,
+        )
         .setIssuedAt(now)
         .setExpirationTime(now + 300)
         .sign(privateKey);
@@ -196,6 +202,56 @@ describe("OIDC sign-in through openid-client", () => {
     };
     expect(session(await callback(state))).toMatch(/=/);
     expect(session(await callback(state))).toBe("");
+  });
+
+  describe("an account bound to the provider's subject", () => {
+    const email = `bo-${suffix}@example.com`;
+    const userIdOf = async (address: string) =>
+      (
+        await database
+          .selectFrom("users")
+          .select("id")
+          .where("email", "=", address)
+          .executeTakeFirst()
+      )?.id;
+
+    async function signInAs(claims: Claims) {
+      const { state, nonce } = await start();
+      provider.state.nonce = nonce;
+      provider.state.claims = { email_verified: true, ...claims };
+      return callback(state);
+    }
+
+    it("binds the first sign-in, then finds the account by its subject", async () => {
+      expect(
+        session(await signInAs({ sub: `bo-${suffix}`, email, name: "Bo" })),
+      ).toMatch(/=/);
+      const id = await userIdOf(email);
+      const binding = await database
+        .selectFrom("ssoIdentities")
+        .select(["provider", "issuer", "userId"])
+        .where("subject", "=", `bo-${suffix}`)
+        .executeTakeFirst();
+      expect(binding).toEqual({ provider: "oidc", issuer: ISSUER, userId: id });
+      // The address changed at the provider: the same account signs in,
+      // and no other account is made.
+      const moved = `bo-new-${suffix}@example.com`;
+      expect(
+        session(await signInAs({ sub: `bo-${suffix}`, email: moved })),
+      ).toMatch(/=/);
+      expect(await userIdOf(moved)).toBeUndefined();
+    });
+
+    it("refuses another subject that brings a bound account's address", async () => {
+      const response = await signInAs({ sub: `intruder-${suffix}`, email });
+      expect(session(response)).toBe("");
+      const bindings = await database
+        .selectFrom("ssoIdentities")
+        .select("subject")
+        .where("userId", "=", (await userIdOf(email)) ?? "")
+        .execute();
+      expect(bindings).toEqual([{ subject: `bo-${suffix}` }]);
+    });
   });
 
   describe("with a second factor of AnyGridDB's own (ADR 0043)", () => {
