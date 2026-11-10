@@ -4,6 +4,7 @@
  * (geometry, XML, ranges, arrays, binary) shows as read-only text.
  */
 import type { FieldType } from "./field-types";
+import { cutAt, cutAtSpace, withoutOuterGroup } from "./plain-text";
 
 export type SourceColumnType = {
   /** The engine's own name of the type, such as `numeric(12,2)`. */
@@ -42,11 +43,7 @@ const POSTGRES: Record<string, FieldType> = {
 
 /** The base name of a PostgreSQL type: `numeric(12,2)` reads as `numeric`. */
 function baseName(type: string): string {
-  return type
-    .replace(/\(.*\)/, "")
-    .replace(/\[\]$/, "")
-    .trim()
-    .toLowerCase();
+  return withoutOuterGroup(type).replace(/\[\]$/, "").trim().toLowerCase();
 }
 
 export function mapPostgresType(column: SourceColumnType): MappedField {
@@ -97,10 +94,35 @@ const MYSQL: Record<string, FieldType> = {
 export function mysqlEnumValues(columnType: string): string[] | undefined {
   const body = /^enum\((.*)\)$/is.exec(columnType.trim())?.[1];
   if (body === undefined) return undefined;
+  // One pass over the quoted labels, where `''` and a backslash escape the
+  // next character: a pattern with those alternatives backtracks on a long
+  // run of escapes.
   const values: string[] = [];
-  const pattern = /'((?:[^'\\]|''|\\.)*)'/g;
-  for (const match of body.matchAll(pattern)) {
-    values.push((match[1] ?? "").replace(/''/g, "'").replace(/\\(.)/g, "$1"));
+  let at = body.indexOf("'");
+  while (at >= 0) {
+    let value = "";
+    let closed = false;
+    let i = at + 1;
+    while (i < body.length) {
+      const char = body.charAt(i);
+      if (char === "\\" && i + 1 < body.length) {
+        value += body.charAt(i + 1);
+        i += 2;
+      } else if (char === "'" && body.charAt(i + 1) === "'") {
+        value += "'";
+        i += 2;
+      } else if (char === "'") {
+        closed = true;
+        i += 1;
+        break;
+      } else {
+        value += char;
+        i += 1;
+      }
+    }
+    if (!closed) break;
+    values.push(value);
+    at = body.indexOf("'", i);
   }
   return values;
 }
@@ -119,7 +141,7 @@ export function mapMysqlType(column: { type: string }): MappedField {
   if (options && options.length > 0) {
     return { fieldType: "single_select", readOnly: false, options };
   }
-  const base = type.replace(/\(.*$/, "").replace(/\s.*$/, "");
+  const base = cutAtSpace(cutAt(type, "("));
   const fieldType = MYSQL[base];
   if (fieldType) return { fieldType, readOnly: false };
   if (base === "json") return { fieldType: "long_text", readOnly: true };
@@ -158,7 +180,7 @@ const SQL_SERVER: Record<string, FieldType> = {
  */
 export function mapSqlServerType(column: { type: string }): MappedField {
   const type = column.type.trim().toLowerCase();
-  const base = type.replace(/\(.*$/, "");
+  const base = cutAt(type, "(");
   if (/^n?varchar\(max\)$/.test(type)) {
     return { fieldType: "long_text", readOnly: false };
   }

@@ -24,6 +24,7 @@ import type { EngineTable, PhysicalColumn } from "./engine";
 import type { ScalarKind } from "./expressions";
 import { SQLSERVER } from "./dialect-sqlserver";
 import { exactMedian } from "./median";
+import { withoutGroups } from "../plain-text";
 
 export type DialectName = "postgres" | "mysql" | "mariadb" | "sqlserver";
 
@@ -437,11 +438,7 @@ const SAME_TYPE: Record<string, string> = {
 
 /** `numeric(12,2)` reads as `numeric`, `timestamp(3) with time zone` as `timestamp with time zone`. */
 function typeName(type: string): string {
-  return type
-    .toLowerCase()
-    .replace(/\([^)]*\)/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return withoutGroups(type.toLowerCase()).replace(/\s+/g, " ").trim();
 }
 
 function zoneLiteral(zone: string): string {

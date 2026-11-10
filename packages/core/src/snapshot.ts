@@ -8,6 +8,7 @@ import {
 } from "./schemas";
 import { viewConfigSchema, viewTypeSchema } from "./view-config";
 import { ROLES } from "./rbac";
+import { trimRuns } from "./plain-text";
 
 /**
  * Portable JSON of one base: schema, views, optional rows. Versioned.
@@ -207,10 +208,9 @@ export type ImportSnapshotJobInput = z.infer<
 
 /** Filename for a downloaded snapshot: an archive when it holds files. */
 export function snapshotFilename(baseName: string, archive = false): string {
-  const safe = baseName
-    .normalize("NFKD")
-    .replace(/[^\w.-]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 80);
+  const safe = trimRuns(
+    baseName.normalize("NFKD").replace(/[^\w.-]+/g, "_"),
+    "_",
+  ).slice(0, 80);
   return `${safe || "base"}.anygriddb.${archive ? "zip" : "json"}`;
 }

@@ -4,6 +4,7 @@
  * compiles, not by SQL on every row. It must agree with the engines'
  * parsers (`textToInstant` in each dialect), which read a field's text.
  */
+import { trimRuns } from "../plain-text";
 
 /** `YYYY-MM-DD`, then `T` or a space and `HH:MM[:SS[.ffffff]]`, then a zone. */
 const ISO =
@@ -24,7 +25,7 @@ const pad = (value: number, width = 2) => String(value).padStart(width, "0");
  */
 export function parseIsoInstant(text: string, minYear = 1): IsoInstant | null {
   // The engines trim spaces only.
-  const match = ISO.exec(text.replace(/^ +| +$/g, ""));
+  const match = ISO.exec(trimRuns(text, " "));
   if (!match) return null;
   const [year, month, day] = [match[1], match[2], match[3]].map(Number) as [
     number,

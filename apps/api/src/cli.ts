@@ -9,10 +9,10 @@
  * They read the API's environment. `migrate` needs only the storage
  * settings; `sweep` also needs DATABASE_URL.
  */
-import { get } from "node:https";
 import { parseArgs } from "node:util";
 import { createDb } from "@anygriddb/db";
 import { readEncryptionKey, readFileSettings } from "./env.js";
+import { healthAuthorities, probeHealth, publicHost } from "./health-probe.js";
 import {
   issueServiceCertificates,
   type StackService,
@@ -149,31 +149,13 @@ async function sweep(args: string[], settings: FileSettings) {
   return failed === 0 ? 0 : 1;
 }
 
-/**
- * Whether the API on this machine answers over HTTPS. A liveness probe on
- * the loopback interface, which sends nothing secret: it does not check
- * the certificate, which may name only the public host.
- */
-function health(): Promise<number> {
+/** Whether the API on this machine answers over verified HTTPS. */
+async function health(): Promise<number> {
   const port = Number(process.env.PORT ?? "4000");
-  return new Promise((resolve) => {
-    const request = get(
-      {
-        host: "127.0.0.1",
-        port,
-        path: "/health",
-        rejectUnauthorized: false,
-        timeout: 4_000,
-      },
-      (response) => {
-        response.resume();
-        resolve(response.statusCode === 200 ? 0 : 1);
-      },
-    );
-    request.on("timeout", () => request.destroy());
-    request.on("error", () => {
-      resolve(1);
-    });
+  return probeHealth({
+    port,
+    host: publicHost(process.env, port),
+    ca: await healthAuthorities(process.env),
   });
 }
 

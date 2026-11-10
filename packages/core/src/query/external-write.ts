@@ -19,6 +19,7 @@ import type { EngineColumn, EngineTable, PhysicalColumn } from "./engine";
 import { parseIsoInstant } from "./iso-instant";
 import { quoteExternalIdent, SqlParams, type ParameterizedSql } from "./params";
 import { tableSql } from "./storage";
+import { trimEndRun } from "../plain-text";
 
 /** A client column, with where and how it is stored. */
 export type StoredColumn = EngineColumn & { physical: PhysicalColumn };
@@ -449,7 +450,7 @@ function canonical(text: string): string {
   const negative = text.startsWith("-");
   const [whole = "0", fraction = ""] = text.replace(/^-/, "").split(".");
   const integer = whole.replace(/^0+(?=\d)/, "");
-  const decimals = fraction.replace(/0+$/, "");
+  const decimals = trimEndRun(fraction, "0");
   const body = decimals ? `${integer}.${decimals}` : integer;
   return negative && body !== "0" ? `-${body}` : body;
 }

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import pg from "pg";
-import { signUpWithTable, watchPolicy } from "./setup";
+import { signUpWithTable, uniqueStamp, watchPolicy } from "./setup";
 
 const controlUrl =
   process.env.DATABASE_URL ??
@@ -50,7 +50,7 @@ test("an administrator sets the lock, unlocks an account, and hands over a reset
     // Someone signs up in their own browser.
     const own = await browser.newContext(from("198.51.100.20"));
     const member = await own.newPage();
-    const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const stamp = uniqueStamp();
     const memberEmail = `e2e-locked-${stamp}@example.com`;
     const name = `Locked ${stamp}`;
     await member.goto("/signup");

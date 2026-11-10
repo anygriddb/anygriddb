@@ -4,7 +4,10 @@
  * Automated registration against a live instance can call the same admin
  * tRPC procedures the e2e sources parcours uses once the API is up.
  */
-const password = process.env.LAB_PASSWORD ?? "Lab!Admin-2026";
+// Never printed: the person types it from where it is set.
+const password = process.env.LAB_PASSWORD
+  ? "the value of LAB_PASSWORD"
+  : "the lab account's password (default in scripts/lab/grants.sh)";
 const host = process.env.ANYGRIDDB_LAB_HOST ?? "127.0.0.1";
 
 const sources = [

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import pg from "pg";
-import { signUpWithTable, watchPolicy } from "./setup";
+import { signUpWithTable, uniqueStamp, watchPolicy } from "./setup";
 
 const controlUrl =
   process.env.DATABASE_URL ??
@@ -26,7 +26,7 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     // Someone else signs up in their own browser.
     const other = await browser.newContext({ ignoreHTTPSErrors: true });
     const member = await other.newPage();
-    const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const stamp = uniqueStamp();
     const memberEmail = `e2e-member-${stamp}@example.com`;
     await member.goto("/signup");
     await member.getByLabel("Email").fill(memberEmail);

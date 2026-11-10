@@ -331,11 +331,9 @@ async function main() {
     started,
     finished: new Date().toISOString(),
     baseUrl: opts.base,
-    bootstrap: {
-      email: ctx.email,
-      baseId: ctx.baseId,
-      tableId: ctx.tableId,
-    },
+    // Measured here only: what the server sent (ids, bodies) stays out of
+    // the file; the base and table are on the console.
+    bootstrap: { email: ctx.email },
     load,
   };
 

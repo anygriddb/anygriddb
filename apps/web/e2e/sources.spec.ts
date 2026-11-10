@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import pg from "pg";
-import { signUpWithTable, watchPolicy } from "./setup";
+import { signUpWithTable, uniqueStamp, watchPolicy } from "./setup";
 
 // The journey's PostgreSQL holds AnyGridDB's catalog and, beside it, a
 // client's database with an account of its own (ADR 0026).
@@ -12,7 +12,7 @@ test("an administrator shows a client's tables in a base, read where they live",
   page,
 }) => {
   const blocked = watchPolicy(page);
-  const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const stamp = uniqueStamp();
   const database = `e2e_erp_${stamp}`;
   const account = `e2e_reader_${stamp}`;
   const password = "reader-password-e2e";

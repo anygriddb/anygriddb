@@ -7,6 +7,7 @@
  * keep AnyGridDB's results (a quotient to 20 decimals) and finds where the
  * engine's limit truly applies.
  */
+import { cutAt } from "../plain-text";
 
 /** A `decimal(p, s)`: p digits, s of them after the point. */
 export type Digits = { readonly p: number; readonly s: number };
@@ -96,7 +97,7 @@ export function columnDigits(type: string): Digits {
   const lower = type.trim().toLowerCase();
   const sized = /^(?:decimal|numeric)\((\d+),\s*(\d+)\)$/.exec(lower);
   if (sized) return { p: Number(sized[1]), s: Number(sized[2]) };
-  switch (lower.replace(/\(.*$/, "")) {
+  switch (cutAt(lower, "(")) {
     case "tinyint":
       return { p: 3, s: 0 };
     case "smallint":

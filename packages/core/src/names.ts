@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { RESERVED_COLUMN_NAMES } from "./field-types";
 import { AppError } from "./errors";
+import { trimRuns } from "./plain-text";
 
 export const COLUMN_NAME = /^[a-z_][a-z0-9_]*$/;
 
@@ -35,13 +36,14 @@ export function deriveColumnName(
   taken: ReadonlySet<string>,
 ): string {
   const base =
-    label
-      .normalize("NFKD")
-      .replace(/[̀-ͯ]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 48) || "field";
+    trimRuns(
+      label
+        .normalize("NFKD")
+        .replace(/[̀-ͯ]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_"),
+      "_",
+    ).slice(0, 48) || "field";
   const safe =
     /^[0-9]/.test(base) || isReservedColumnName(base) ? `f_${base}` : base;
   if (!taken.has(safe)) {

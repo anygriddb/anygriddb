@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page } from "@playwright/test";
 import { decodeBase32, totpCode } from "../../api/src/auth/totp-code.ts";
@@ -16,6 +17,11 @@ export function watchPolicy(page: Page): string[] {
   return blocked;
 }
 
+/** A unique part for a journey's names: time, then random bytes. */
+export function uniqueStamp(): string {
+  return `${Date.now().toString(36)}${randomBytes(3).toString("hex")}`;
+}
+
 /**
  * A new account with a second factor, a base, and a table, open on its
  * grid. Each journey gets its own account, so journeys run side by side.
@@ -24,7 +30,7 @@ export async function signUpWithTable(
   page: Page,
   name: string,
 ): Promise<{ email: string }> {
-  const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const stamp = uniqueStamp();
   const email = `e2e-${stamp}@example.com`;
   await page.goto("/signup");
   await page.getByLabel("Email").fill(email);

@@ -3,6 +3,7 @@
  * canonical decimal string: an optional `-`, digits, and an optional `.`
  * followed by digits. No exponent, no grouping, no float on the way.
  */
+import { trimEndRun } from "./plain-text";
 
 const CANONICAL = /^-?\d+(?:\.\d+)?$/;
 const SCIENTIFIC = /^([-+]?)(\d*)(?:\.(\d*))?[eE]([-+]?\d{1,4})$/;
@@ -22,7 +23,7 @@ export function isDecimalString(value: unknown): value is string {
 /** `-0012.300` → `-12.3`; `0.0` → `0`. */
 function canonical(sign: string, whole: string, fraction: string): string {
   const integer = whole.replace(/^0+(?=\d)/, "") || "0";
-  const decimals = fraction.replace(/0+$/, "");
+  const decimals = trimEndRun(fraction, "0");
   const body = decimals ? `${integer}.${decimals}` : integer;
   return sign === "-" && /[1-9]/.test(body) ? `-${body}` : body;
 }

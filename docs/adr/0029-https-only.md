@@ -90,7 +90,9 @@ connection in clear.
 - Tests run the server over HTTPS; the browser tests accept its authority
   without installing it.
 - Container health checks call `anygriddb health`, which asks the API on
-  the loopback over HTTPS.
+  the loopback over HTTPS with the certificate verified for `PUBLIC_URL`'s
+  host (the system's authorities, the instance's, the operator's chain):
+  a lapsed or wrong certificate reads as unhealthy.
 
 ## Rejected
 

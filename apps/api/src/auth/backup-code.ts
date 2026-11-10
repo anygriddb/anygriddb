@@ -1,13 +1,17 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const LENGTH = 10;
 
-/** Random backup code. SHA-256 is a code hash here, not a password hash. */
+/**
+ * Random backup code, each character drawn uniformly (`randomInt` rejects
+ * the draws a modulo would bias). SHA-256 is a code hash here, not a
+ * password hash.
+ */
 export function generateBackupCode(): string {
-  const bytes = randomBytes(10);
   let code = "";
-  for (const byte of bytes) {
-    code += ALPHABET.charAt(byte % ALPHABET.length);
+  for (let index = 0; index < LENGTH; index += 1) {
+    code += ALPHABET.charAt(randomInt(ALPHABET.length));
   }
   return code;
 }

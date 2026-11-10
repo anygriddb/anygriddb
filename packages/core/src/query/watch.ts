@@ -21,6 +21,7 @@ import { dialectOf, type DialectName } from "./dialect";
 import type { EngineTable } from "./engine";
 import { quoteExternalIdent, SqlParams, type ParameterizedSql } from "./params";
 import { tableSql } from "./storage";
+import { withoutGroups } from "../plain-text";
 
 /** How a column tells changes: by a date and time, or SQL Server's rowversion. */
 export type WatchKind = "time" | "version";
@@ -33,11 +34,7 @@ const SAFE_TYPE =
   /^[a-z][a-z0-9_]*(?: [a-z][a-z0-9_]*)*(?:\(\s*\d+\s*\))?(?: [a-z][a-z0-9_]*)*$/i;
 
 function base(type: string): string {
-  return type
-    .toLowerCase()
-    .replace(/\(.*?\)/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return withoutGroups(type.toLowerCase()).replace(/\s+/g, " ").trim();
 }
 
 const TIME_TYPES: Record<DialectName, ReadonlySet<string>> = {
