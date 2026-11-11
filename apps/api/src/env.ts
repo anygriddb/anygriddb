@@ -48,6 +48,11 @@ export type Env = {
   SMTP_FROM?: string;
   /** Accounts with these emails become instance administrators. */
   ADMIN_EMAILS?: string;
+  /**
+   * Connections of the pool every request reads and writes through, per
+   * process. The workers and the realtime listener have their own.
+   */
+  DATABASE_POOL_MAX: number;
   /** Events, webhooks, automations, and schedules run at once, per process. */
   WORKER_CONCURRENCY: number;
   /** Imports, exports, copies, and snapshots run at once, per process. */
@@ -76,12 +81,15 @@ function count(
   source: NodeJS.ProcessEnv,
   name: string,
   fallback: number,
+  least = 1,
 ): number {
   const raw = source[name];
   if (raw === undefined || raw === "") return fallback;
   const value = Number(raw);
-  if (!Number.isInteger(value) || value < 1 || value > 64) {
-    throw new Error(`${name} must be an integer between 1 and 64`);
+  if (!Number.isInteger(value) || value < least || value > 64) {
+    throw new Error(
+      `${name} must be an integer between ${String(least)} and 64`,
+    );
   }
   return value;
 }
@@ -349,6 +357,9 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     SMTP_PASSWORD: source.SMTP_PASSWORD,
     SMTP_FROM: source.SMTP_FROM,
     ADMIN_EMAILS: source.ADMIN_EMAILS,
+    // A read holds one connection and asks for others meanwhile: fewer
+    // than four and requests would wait on each other.
+    DATABASE_POOL_MAX: count(source, "DATABASE_POOL_MAX", 10, 4),
     WORKER_CONCURRENCY: count(source, "WORKER_CONCURRENCY", 4),
     JOB_CONCURRENCY: count(source, "JOB_CONCURRENCY", 2),
     SOURCES_ALLOWED_HOSTS: source.ANYGRIDDB_SOURCES_ALLOWED_HOSTS ?? "",

@@ -78,6 +78,18 @@ const jobDuration = new Histogram({
   registers: [registry],
 });
 
+const clientErrors = new Counter({
+  name: "anygriddb_client_errors_total",
+  help: "Failures pages reported from browsers: a page that could not be drawn, an uncaught error, a refused promise.",
+  labelNames: ["kind"] as const,
+  registers: [registry],
+});
+
+/** One failure a page reported (`client-errors.ts`). */
+export function clientErrorReported(kind: string): void {
+  clientErrors.inc({ kind });
+}
+
 /** Jobs waiting, scheduled, running, and failed for good, read at scrape. */
 export function registerQueueGauge(db: Database): void {
   new Gauge({
@@ -103,6 +115,53 @@ export function registerQueueGauge(db: Database): void {
       }
     },
   });
+}
+
+/** What a `pg` pool says of its connections. */
+export type PoolCounts = {
+  totalCount: number;
+  idleCount: number;
+  waitingCount: number;
+  options: { max?: number };
+};
+
+/** How often the pool is asked how many requests wait for a connection. */
+const POOL_SAMPLE_MS = 1_000;
+
+/**
+ * The pool every request goes through. Open and idle connections are read
+ * at scrape. Requests waiting for a connection are sampled every second,
+ * and a scrape gives the most seen since the one before: a wait is over in
+ * seconds and would fall between two scrapes, and read at the scrape it
+ * would count the scrape's own queries. A number that stays above zero
+ * says the pool is too small for the load, or that reads hold their
+ * connection too long. Returns what stops the sampling.
+ */
+export function registerPoolGauge(
+  pool: PoolCounts,
+  everyMs: number = POOL_SAMPLE_MS,
+): () => void {
+  let waited = 0;
+  const sampler = setInterval(() => {
+    waited = Math.max(waited, pool.waitingCount);
+  }, everyMs);
+  sampler.unref();
+  new Gauge({
+    name: "anygriddb_db_pool_connections",
+    help: "AnyGridDB's own database pool: connections open, connections idle, the most requests seen waiting for one since the last scrape, and the most it opens.",
+    labelNames: ["state"] as const,
+    registers: [registry],
+    collect() {
+      this.set({ state: "open" }, pool.totalCount);
+      this.set({ state: "idle" }, pool.idleCount);
+      this.set({ state: "waiting" }, waited);
+      this.set({ state: "max" }, pool.options.max ?? 0);
+      waited = 0;
+    },
+  });
+  return () => {
+    clearInterval(sampler);
+  };
 }
 
 /* ------------------------------------------------------------------ */

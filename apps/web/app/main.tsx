@@ -2,6 +2,8 @@ import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { activateLocale, initialLocale } from "../lib/i18n";
+import { showLoadFailure } from "../lib/load-failure";
+import { reportFailure, reportUncaught } from "../lib/report-failure";
 import { Providers } from "./providers";
 import { router } from "./router";
 import "./globals.css";
@@ -24,8 +26,17 @@ window.addEventListener("vite:preloadError", (event) => {
 const root = document.getElementById("root");
 if (!root) throw new Error("The page has no root element");
 
-// The first render already speaks the person's language.
-await activateLocale(initialLocale());
+reportUncaught();
+
+// The first render already speaks the person's language. Without its
+// words there is nothing to draw: say so, rather than leave a blank page.
+try {
+  await activateLocale(initialLocale());
+} catch (error) {
+  showLoadFailure(root, initialLocale());
+  reportFailure("error", error);
+  throw error;
+}
 
 createRoot(root).render(
   <StrictMode>

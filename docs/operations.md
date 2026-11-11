@@ -258,7 +258,9 @@ docker compose -f compose.managed.yml up -d --build
 - **Connections.** With the default concurrency, one AnyGridDB process
   opens at most about 22 connections: 10 for requests, 10 for background
   work, and 1 to listen for realtime messages. Size the service's limit
-  for the processes you run.
+  for the processes you run. `DATABASE_POOL_MAX` (4 to 64, 10 by default)
+  sets the connections for requests; raise it when
+  `anygriddb_db_pool_connections{state="waiting"}` stays above zero.
 - **Backups.** Back up with the provider's own tools. `scripts/backup.sh`
   covers the bundled PostgreSQL only; copy `files_data` and `tls_data`
   the same way it does.
@@ -310,6 +312,10 @@ What to know:
 
 ## Several API processes
 
+A load balancer asks each process `/ready`: it answers 200 while
+PostgreSQL answers within two seconds, and 503 otherwise, so requests go
+to a process that can serve them. `/health` only says the process is up.
+
 Rate limits are counted in each process's memory. Behind a load balancer,
 put the balancer's addresses in `ANYGRIDDB_TRUSTED_PROXIES` so clients are
 keyed by their real address, and enforce an overall limit on the proxy as
@@ -335,9 +341,34 @@ Both are off until you turn them on (ADR 0018).
         - targets: ["anygriddb.example.net:3000"]
   ```
 
-  Series cover requests by route, tRPC procedures, transactions and
-  connections in use per client database, background tasks, the job
-  queue, and the process.
+  Series cover requests by route, tRPC procedures, the pool requests go
+  through, transactions and connections in use per client database,
+  background tasks, the job queue, failures pages report from browsers,
+  and the process. Rules to start from:
+
+  ```yaml
+  groups:
+    - name: anygriddb
+      rules:
+        - alert: AnyGridDBServerErrors
+          expr: |
+            sum(rate(anygriddb_http_requests_total{status="5xx"}[5m]))
+              / sum(rate(anygriddb_http_requests_total[5m])) > 0.02
+          for: 10m
+        - alert: AnyGridDBSlowRequests
+          expr: |
+            histogram_quantile(0.95, sum by (le)
+              (rate(anygriddb_http_request_duration_seconds_bucket[5m]))) > 2
+          for: 10m
+        - alert: AnyGridDBRequestsWaitForTheDatabase
+          expr: anygriddb_db_pool_connections{state="waiting"} > 0
+          for: 5m
+        - alert: AnyGridDBBackgroundWorkBehind
+          expr: anygriddb_queue_jobs{state="ready"} > 1000
+          for: 15m
+        - alert: AnyGridDBPagesFail
+          expr: sum(increase(anygriddb_client_errors_total[15m])) > 5
+  ```
 
 - **Traces.** Set `OTEL_EXPORTER_OTLP_ENDPOINT` to your OTLP/HTTP
   collector, over HTTPS. Set `OTEL_EXPORTER_OTLP_HEADERS` for its

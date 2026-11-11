@@ -15,7 +15,7 @@ import type { TableRow } from "../data/engine.js";
 import { liveBase } from "../data/live.js";
 import { findLiveTable } from "../services/rows.js";
 import type { Context } from "./context.js";
-import { requireUser } from "./init.js";
+import { requireUser, sharedLookup } from "./init.js";
 import { mapProcedureError } from "./map-error.js";
 
 export type Actor = { user: SessionUser; bindings: Binding[] };
@@ -32,11 +32,17 @@ export async function handle<T>(
   }
 }
 
-/** Session or token user, their bindings, and the MFA gate. */
-export async function authorize(
-  ctx: Context,
-  creatingBase = false,
-): Promise<Actor> {
+/**
+ * Session or token user, their bindings, and the MFA gate. The procedures
+ * of one request that ask at the same moment share one answer.
+ */
+export function authorize(ctx: Context, creatingBase = false): Promise<Actor> {
+  return sharedLookup(ctx, creatingBase ? "actor:base" : "actor", () =>
+    findActor(ctx, creatingBase),
+  );
+}
+
+async function findActor(ctx: Context, creatingBase: boolean): Promise<Actor> {
   const user = await requireUser(ctx);
   if (
     creatingBase &&

@@ -61,6 +61,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: 3.1161.0
         version: 3.1161.0
+      '@fastify/compress':
+        specifier: 9.3.0
+        version: 9.3.0
       '@fastify/cookie':
         specifier: 11.1.5
         version: 11.1.5
@@ -975,6 +978,9 @@ packages:
 
   '@fastify/busboy@3.2.4':
     resolution: {integrity: sha512-lQS8xcXT54rdJb+wlG/Q7SMSdtkZEpLPHooSDUZyyZm9LJD7X1kONPhVoPaHq+dsPtWUGGLIz9gBNhs9qKbylw==}
+
+  '@fastify/compress@9.3.0':
+    resolution: {integrity: sha512-vvm+933zsfsnw7nKsy2GWyix54k7aq3j+9EkwfH6ncngt+DUt5tgVQ/uH07/JrbOWXt1mjADjZ5MbKKwu1xhmA==}
 
   '@fastify/cookie@11.1.5':
     resolution: {integrity: sha512-hs7e0otf7n/lJMpt63EFdQb5/u8kO6DeexEtLPVTybSdItC6SwJ1O0vtTyWvKNR70LZcHLlsUr/y3jFpqtyWRA==}
@@ -4013,6 +4019,10 @@ packages:
     resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
     engines: {node: '>=8.6'}
 
+  mime-db@1.54.0:
+    resolution: {integrity: sha512-aU5EJuIN2WDemCcAp2vFBfp/m4EAhWJnUNSSw0ixs7/kXbd6Pg64EmwJkNdFhB8aWt1sH2CTXrLxo/iAGV3oPQ==}
+    engines: {node: '>= 0.6'}
+
   mime@3.0.0:
     resolution: {integrity: sha512-jSCU7/VB1loIWBZe14aEYHU/+1UMEHoaO7qxCOVJOw9GgH72VAWppxNcjU+x9a2k3GSIBXNKxXQFqRvvZ7vr3A==}
     engines: {node: '>=10.0.0'}
@@ -5906,6 +5916,12 @@ snapshots:
       fast-uri: 4.2.3
 
   '@fastify/busboy@3.2.4': {}
+
+  '@fastify/compress@9.3.0':
+    dependencies:
+      '@fastify/accept-negotiator': 2.1.2
+      fastify-plugin: 6.0.1
+      mime-db: 1.54.0
 
   '@fastify/cookie@11.1.5':
     dependencies:
@@ -8940,6 +8956,8 @@ snapshots:
     dependencies:
       braces: 3.0.3
       picomatch: 2.3.2
+
+  mime-db@1.54.0: {}
 
   mime@3.0.0: {}
 

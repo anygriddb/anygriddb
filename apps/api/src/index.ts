@@ -7,12 +7,17 @@ import { createFileStore } from "./files/index.js";
 import { migrateQueue } from "./queue/worker.js";
 import { PgBus } from "./realtime/bus.js";
 import { createApp } from "./server.js";
-import { registerQueueGauge, startTracing } from "./observability.js";
+import {
+  registerPoolGauge,
+  registerQueueGauge,
+  startTracing,
+} from "./observability.js";
 import { loadTls } from "./tls/authority.js";
 
 console.info(`${describeBuild(BUILD)}: starting`);
 const env = readEnv();
 const { db, pool, close } = createDb(env.DATABASE_URL, {
+  max: env.DATABASE_POOL_MAX,
   onError: (error) => {
     console.error("database connection failed", error);
   },
@@ -51,6 +56,7 @@ const stopTracing = await startTracing({
   version: BUILD.version,
 });
 registerQueueGauge(db);
+registerPoolGauge(pool);
 const app = await createApp({ env, db, files, bus, tls });
 if (tls.authority) {
   app.log.info(
