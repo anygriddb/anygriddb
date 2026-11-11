@@ -291,9 +291,18 @@ What to know:
 - Deactivating a user disables the account and ends its sessions;
   deleting it also takes it out of its groups. Its email, display
   name, and history stay, and creating it again brings it back. That
-  is not account erasure: a person erases their own account in
-  Settings, while it can still sign in (row values in bases still need
-  a manager to trash or edit them).
+  is not account erasure.
+- When someone leaves: disable the account in Administration. Erase
+  only when the identity must leave the instance (Settings for the
+  person, or Administration > Erase on a disabled account, typing the
+  email). Erase refuses an account still managed by SCIM. A base the
+  account alone owns keeps an owner: the person grants one before
+  erasing their own account; an administrator types the email of the
+  active account that takes those bases, their own if they wish, and
+  the bases' audit records it. The only active administrator cannot
+  erase their own account. Audit history
+  and comments stay under the erased-account placeholder; row values
+  still need a manager to trash or edit them.
 - The last active administrator cannot be deactivated through SCIM.
 - Provisioned people sign in through OIDC or SAML: SCIM sets no
   password.

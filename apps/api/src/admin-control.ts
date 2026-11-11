@@ -1,15 +1,17 @@
 /**
- * What an instance administrator does beyond settings (ADR 0042): read the
- * sign-in trail, end sessions, take back an account's factors or tokens,
- * watch the queue and failed deliveries, export audits and access, and
- * gather a support bundle. Every action on an account names its actor in
- * the sign-in trail.
+ * What an instance administrator does beyond settings (ADRs 0042, 0051):
+ * read the sign-in trail, end sessions, take back an account's factors or
+ * tokens, erase a disabled account's identity, watch the queue and failed
+ * deliveries, export audits and access, and gather a support bundle.
+ * Every action on an account names its actor in the sign-in trail.
  */
 import type { AuditAction, AuthAction, Database } from "@anygriddb/db";
 import { AppError } from "@anygriddb/core";
 import { sql as sqlTag } from "kysely";
+import { z } from "zod";
 import { recordAuthEvent } from "./auth/auth-events.js";
-import { ERASED_USER_ID } from "./data/erasure.js";
+import { eraseAccount, ERASED_USER_ID } from "./data/erasure.js";
+import { soleOwnerBases } from "./data/members.js";
 import type { Env } from "./env.js";
 import type { FileStore } from "./files/index.js";
 import { resolveOidc } from "./integrations/oidc.js";
@@ -301,6 +303,68 @@ export async function otherAccount(
     .where("id", "=", userId)
     .executeTakeFirst();
   if (!found) throw new AppError("unknown_account");
+}
+
+export const adminEraseInputSchema = z
+  .object({
+    userId: z.uuid(),
+    /** Must match the account's email (case-insensitive). */
+    email: z.email().max(254),
+    /** Who takes the bases this account alone owns, when it has any. */
+    successorEmail: z.email().max(254).optional(),
+  })
+  .strict();
+
+export type AdminEraseInput = z.infer<typeof adminEraseInputSchema>;
+
+/**
+ * What the erase dialog needs before confirming: the account must already
+ * be disabled and free of an active SCIM binding, and the live bases it
+ * alone owns need an account to take them (ADR 0051).
+ */
+export async function eraseInfo(
+  db: Database,
+  actorId: string,
+  userId: string,
+): Promise<{
+  email: string;
+  disabled: boolean;
+  provisioned: boolean;
+  soleOwnerBases: { id: string; name: string }[];
+}> {
+  await otherAccount(db, actorId, userId);
+  const account = await db
+    .selectFrom("users")
+    .select(["email", "disabledAt", "scimUserName", "deprovisionedAt"])
+    .where("id", "=", userId)
+    .executeTakeFirst();
+  if (!account) throw new AppError("unknown_account");
+  return {
+    email: account.email,
+    disabled: account.disabledAt !== null,
+    provisioned:
+      account.scimUserName !== null && account.deprovisionedAt === null,
+    soleOwnerBases: await soleOwnerBases(db, userId),
+  };
+}
+
+/**
+ * Erases another account on the path self-service erasure takes, after the
+ * administrator confirms its email. Disable first; the identity provider
+ * keeps actively provisioned accounts; the bases the account alone owns go
+ * to the account the administrator names.
+ */
+export async function eraseOtherAccount(
+  db: Database,
+  actorId: string,
+  input: AdminEraseInput,
+): Promise<void> {
+  await otherAccount(db, actorId, input.userId);
+  await eraseAccount(db, input.userId, {
+    actorId,
+    email: input.email,
+    successorEmail: input.successorEmail,
+  });
 }
 
 /**

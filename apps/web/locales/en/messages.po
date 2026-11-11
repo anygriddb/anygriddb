@@ -748,6 +748,10 @@ msgid "Account disabled"
 msgstr "Account disabled"
 
 #: components/admin/sign-in-trail.tsx
+msgid "Account erased"
+msgstr "Account erased"
+
+#: components/admin/sign-in-trail.tsx
 msgid "Account locked"
 msgstr "Account locked"
 
@@ -1683,6 +1687,7 @@ msgid "Client secret"
 msgstr "Client secret"
 
 #: app/providers.tsx
+#: components/admin/admin-page.tsx
 #: components/record/record-panel.tsx
 #: components/settings/table-acl-panel.tsx
 #: components/settings/webhooks-panel.tsx
@@ -2654,6 +2659,18 @@ msgstr "Enter your address: we send a link to choose a new password. Your second
 #: components/admin/integrations-tab.tsx
 msgid "Entry point (SSO URL)"
 msgstr "Entry point (SSO URL)"
+
+#: components/admin/admin-page.tsx
+msgid "Erase"
+msgstr "Erase"
+
+#: components/admin/admin-page.tsx
+msgid "Erase {name}'s account?"
+msgstr "Erase {name}'s account?"
+
+#: components/admin/admin-page.tsx
+msgid "Erase…"
+msgstr "Erase…"
 
 #: components/admin/admin-page.tsx
 #: components/admin/support-tab.tsx
@@ -4337,6 +4354,10 @@ msgstr "New field"
 msgid "New option"
 msgstr "New option"
 
+#: components/admin/admin-page.tsx
+msgid "New owner's email"
+msgstr "New owner's email"
+
 #: components/auth/reset-page.tsx
 #: components/settings/account-settings.tsx
 msgid "New password"
@@ -4493,6 +4514,10 @@ msgstr "No matching row"
 #: components/shell/notification-bell.tsx
 msgid "No notifications"
 msgstr "No notifications"
+
+#: components/admin/admin-page.tsx
+msgid "No one else owns these bases: {bases}. Name the active account that takes them."
+msgstr "No one else owns these bases: {bases}. Name the active account that takes them."
 
 #: components/fields/cell-editor.tsx
 msgid "No one found"
@@ -5300,8 +5325,8 @@ msgid "removed by the identity provider"
 msgstr "removed by the identity provider"
 
 #: components/settings/account-settings.tsx
-msgid "Removes your sign-in and attributes your audit history to an erased account. Values you entered in bases stay until a manager deletes those rows."
-msgstr "Removes your sign-in and attributes your audit history to an erased account. Values you entered in bases stay until a manager deletes those rows."
+msgid "Removes your sign-in and attributes your audit history and comments to an erased account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave."
+msgstr "Removes your sign-in and attributes your audit history and comments to an erased account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave."
 
 #: components/shell/sidebar.tsx
 #: components/table/view-tabs.tsx
@@ -6924,8 +6949,8 @@ msgid "Their authenticator, passkeys, and backup codes are removed, and their se
 msgstr "Their authenticator, passkeys, and backup codes are removed, and their sessions end. They sign in with their password and set up a second factor again. For a lost phone or key."
 
 #: components/admin/admin-page.tsx
-msgid "Their sessions end and their API tokens stop working. Their data and audit history are kept."
-msgstr "Their sessions end and their API tokens stop working. Their data and audit history are kept."
+msgid "Their sessions end and their API tokens stop working. Their data and audit history are kept. When someone leaves, disable the account; erase only when their identity must leave the instance."
+msgstr "Their sessions end and their API tokens stop working. Their data and audit history are kept. When someone leaves, disable the account; erase only when their identity must leave the instance."
 
 #: components/shell/user-menu.tsx
 msgid "Theme"
@@ -6963,6 +6988,10 @@ msgstr "This account is disabled"
 msgid "This account is locked after too many failed attempts. Try again later, or ask an administrator to unlock it."
 msgstr "This account is locked after too many failed attempts. Try again later, or ask an administrator to unlock it."
 
+#: components/admin/admin-page.tsx
+msgid "This account is still managed by the identity provider. Remove it there first, then erase it here."
+msgstr "This account is still managed by the identity provider. Remove it there first, then erase it here."
+
 #: lib/errors.ts
 msgid "This account signs in through your organization's sign-in: it has no password here"
 msgstr "This account signs in through your organization's sign-in: it has no password here"
@@ -6987,9 +7016,13 @@ msgstr "This base is empty."
 msgid "This cannot be done to this account"
 msgstr "This cannot be done to this account"
 
+#: components/admin/admin-page.tsx
+msgid "This cannot be undone. Their email and factors are removed. Audit history and comments stay under “Erased account”. Row values in bases are not wiped."
+msgstr "This cannot be undone. Their email and factors are removed. Audit history and comments stay under “Erased account”. Row values in bases are not wiped."
+
 #: components/settings/account-settings.tsx
-msgid "This cannot be undone. Your email and factors are removed. Row values in bases are not wiped."
-msgstr "This cannot be undone. Your email and factors are removed. Row values in bases are not wiped."
+msgid "This cannot be undone. Your email and factors are removed. Comments stay under “Erased account”. Row values in bases are not wiped."
+msgstr "This cannot be undone. Your email and factors are removed. Comments stay under “Erased account”. Row values in bases are not wiped."
 
 #: lib/errors.ts
 msgid "This column does not tell when a row changes: choose a date and time set on every change, or a rowversion"
@@ -7419,9 +7452,21 @@ msgstr "Two-factor authentication"
 msgid "Type"
 msgstr "Type"
 
+#: components/admin/admin-page.tsx
+msgid "Type {email} to confirm"
+msgstr "Type {email} to confirm"
+
 #: components/table/import-dialog.tsx
 msgid "Type of {name}"
 msgstr "Type of {name}"
+
+#: components/admin/admin-page.tsx
+msgid "Type the account's email to confirm"
+msgstr "Type the account's email to confirm"
+
+#: components/admin/admin-page.tsx
+msgid "Type the new owner's email"
+msgstr "Type the new owner's email"
 
 #: components/shell/airtable-report.tsx
 msgid "type without an equivalent carried over as text"

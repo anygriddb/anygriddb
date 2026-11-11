@@ -101,6 +101,15 @@ function UsersTab() {
     name: string;
     action: AccountAction;
   } | null>(null);
+  const [erase, setErase] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    provisioned: boolean;
+    soleOwnerBases: { id: string; name: string }[];
+    typed: string;
+    successor: string;
+  } | null>(null);
   // A reset link to pass on, when the instance sends no email.
   const [handed, setHanded] = useState<{ name: string; link: string } | null>(
     null,
@@ -217,6 +226,31 @@ function UsersTab() {
                         {user.disabledAt ? t`Enable` : t`Disable`}
                       </Button>
                     )}
+                    {user.disabledAt && !self ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-danger"
+                        onClick={() =>
+                          void run(async () => {
+                            const info = await trpc.admin.eraseInfo.query({
+                              userId: user.id,
+                            });
+                            setErase({
+                              id: user.id,
+                              name: user.displayName,
+                              email: info.email,
+                              provisioned: info.provisioned,
+                              soleOwnerBases: info.soleOwnerBases,
+                              typed: "",
+                              successor: "",
+                            });
+                          })
+                        }
+                      >
+                        {t`Erase…`}
+                      </Button>
+                    ) : null}
                     {user.disabledAt ? (
                       <p className="text-xs text-red-600">
                         {user.disabledReason === "inactive"
@@ -361,7 +395,7 @@ function UsersTab() {
           }
           description={
             confirm.disable
-              ? t`Their sessions end and their API tokens stop working. Their data and audit history are kept.`
+              ? t`Their sessions end and their API tokens stop working. Their data and audit history are kept. When someone leaves, disable the account; erase only when their identity must leave the instance.`
               : t`The person will be able to sign in again.`
           }
           confirmLabel={confirm.disable ? t`Disable` : t`Enable`}
@@ -374,6 +408,81 @@ function UsersTab() {
             )
           }
         />
+      ) : null}
+      {erase ? (
+        <ConfirmDialog
+          open
+          danger={!erase.provisioned}
+          onOpenChange={(open) => !open && setErase(null)}
+          title={t`Erase ${{ name: erase.name }}'s account?`}
+          description={
+            erase.provisioned
+              ? t`This account is still managed by the identity provider. Remove it there first, then erase it here.`
+              : t`This cannot be undone. Their email and factors are removed. Audit history and comments stay under “Erased account”. Row values in bases are not wiped.`
+          }
+          confirmLabel={erase.provisioned ? t`Close` : t`Erase`}
+          onConfirm={async () => {
+            if (erase.provisioned) {
+              return;
+            }
+            if (
+              erase.typed.trim().toLowerCase() !== erase.email.toLowerCase()
+            ) {
+              toast.error(t`Type the account's email to confirm`);
+              throw new Error("confirm_email");
+            }
+            const handsOver = erase.soleOwnerBases.length > 0;
+            if (handsOver && erase.successor.trim() === "") {
+              toast.error(t`Type the new owner's email`);
+              throw new Error("successor_email");
+            }
+            try {
+              await trpc.admin.erase.mutate({
+                userId: erase.id,
+                email: erase.typed.trim(),
+                successorEmail: handsOver ? erase.successor.trim() : undefined,
+              });
+              await refresh();
+            } catch (cause) {
+              toast.error(errorText(cause));
+              throw cause;
+            }
+          }}
+        >
+          {erase.provisioned ? null : (
+            <div className="flex flex-col gap-2">
+              {erase.soleOwnerBases.length > 0 ? (
+                <>
+                  <p className="text-sm">
+                    {t`No one else owns these bases: ${{ bases: erase.soleOwnerBases.map((base) => base.name).join(", ") }}. Name the active account that takes them.`}
+                  </p>
+                  <Label htmlFor="erase-successor">{t`New owner's email`}</Label>
+                  <Input
+                    id="erase-successor"
+                    type="email"
+                    autoComplete="off"
+                    value={erase.successor}
+                    onChange={(event) =>
+                      setErase({ ...erase, successor: event.target.value })
+                    }
+                  />
+                </>
+              ) : null}
+              <Label htmlFor="erase-email">
+                {t`Type ${{ email: erase.email }} to confirm`}
+              </Label>
+              <Input
+                id="erase-email"
+                type="email"
+                autoComplete="off"
+                value={erase.typed}
+                onChange={(event) =>
+                  setErase({ ...erase, typed: event.target.value })
+                }
+              />
+            </div>
+          )}
+        </ConfirmDialog>
       ) : null}
       {act ? (
         <ConfirmDialog

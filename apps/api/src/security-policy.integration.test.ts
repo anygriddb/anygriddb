@@ -18,14 +18,21 @@ import {
   vi,
 } from "vitest";
 import { listUsers, setUserAdmin, setUserDisabled } from "./admin.js";
-import { accessReportCsv, otherAccount } from "./admin-control.js";
+import {
+  accessReportCsv,
+  eraseInfo,
+  eraseOtherAccount,
+  otherAccount,
+} from "./admin-control.js";
 import { requestActor } from "./auth/access.js";
 import { purgeAuthEvents, recordAuthEvent } from "./auth/auth-events.js";
 import { sweepInactiveAccounts } from "./auth/inactivity.js";
 import { purgeResetLinks } from "./auth/password-reset.js";
 import { SESSION_COOKIE } from "./auth/session.js";
 import { createApiToken } from "./auth/tokens.js";
+import { addComment } from "./data/comments.js";
 import { ERASED_USER_ID, eraseAccount } from "./data/erasure.js";
+import { grantMember, soleOwnerBases } from "./data/members.js";
 import { createInvitation, createShare, resolveShare } from "./data/sharing.js";
 import { withAudit } from "./data/audit-context.js";
 import { insertBase, insertTable } from "./data/schema-ops.js";
@@ -767,6 +774,19 @@ describe("the security policy", () => {
           })
           .execute(),
       );
+      const { id: commentId } = await addComment(db, {
+        tableId: table.id,
+        rowId: "row-1",
+        authorId: person.id,
+        body: "Keep this note",
+      });
+      // No one else owns the base: the person hands it over first.
+      expect(await code(eraseAccount(db, person.id))).toBe("invalid_owner");
+      await grantMember(db, person.id, {
+        baseId: base.id,
+        email: `admin-${suffix}@example.org`,
+        role: "owner",
+      });
       await eraseAccount(db, person.id);
       expect(
         await db
@@ -783,6 +803,13 @@ describe("the security policy", () => {
           .where("key", "=", fileKey)
           .executeTakeFirst(),
       ).toEqual({ createdBy: null });
+      expect(
+        await db
+          .selectFrom("comments")
+          .select(["authorId", "body"])
+          .where("id", "=", commentId)
+          .executeTakeFirst(),
+      ).toEqual({ authorId: ERASED_USER_ID, body: "Keep this note" });
       expect(
         await db
           .selectFrom("auditEvents")
@@ -833,6 +860,203 @@ describe("the security policy", () => {
         limit: 10,
       });
       expect(listed.users).toEqual([]);
+    });
+
+    it("lets an administrator erase a disabled account after typing its email", async () => {
+      const person = await account("AdminErase");
+      await setUserDisabled(db, adminId, person.id, true);
+      const info = await eraseInfo(db, adminId, person.id);
+      expect(info).toMatchObject({
+        email: person.email,
+        disabled: true,
+        provisioned: false,
+        soleOwnerBases: [],
+      });
+      await eraseOtherAccount(db, adminId, {
+        userId: person.id,
+        email: person.email.toUpperCase(),
+      });
+      expect(
+        await db
+          .selectFrom("users")
+          .select("id")
+          .where("id", "=", person.id)
+          .executeTakeFirst(),
+      ).toBeUndefined();
+      // The trail keeps that an administrator erased someone; the target
+      // id is cleared with the account (ON DELETE SET NULL).
+      expect(
+        await db
+          .selectFrom("authEvents")
+          .select(["action", "detail", "actorId", "userId"])
+          .where("action", "=", "account_erased")
+          .where("actorId", "=", adminId)
+          .executeTakeFirst(),
+      ).toEqual({
+        action: "account_erased",
+        detail: "admin_erase",
+        actorId: adminId,
+        userId: null,
+      });
+    });
+
+    it("refuses admin erase until the account is disabled, confirmed, and free of SCIM", async () => {
+      const person = await account("Guarded");
+      const attempt = (email = person.email, actorId = adminId) =>
+        code(eraseOtherAccount(db, actorId, { userId: person.id, email }));
+      expect(await attempt()).toBe("invalid_account");
+      await setUserDisabled(db, adminId, person.id, true);
+      expect(await attempt("wrong@example.org")).toBe("invalid_account");
+      expect(await attempt(person.email, person.id)).toBe("invalid_account");
+      // Still kept by the identity provider.
+      await db
+        .updateTable("users")
+        .set({ scimUserName: person.email, deprovisionedAt: null })
+        .where("id", "=", person.id)
+        .execute();
+      expect((await eraseInfo(db, adminId, person.id)).provisioned).toBe(true);
+      expect(await attempt()).toBe("invalid_account");
+      // Removed by the provider: it keeps its name there, and may go here.
+      await db
+        .updateTable("users")
+        .set({ deprovisionedAt: new Date() })
+        .where("id", "=", person.id)
+        .execute();
+      expect((await eraseInfo(db, adminId, person.id)).provisioned).toBe(false);
+      expect(await attempt()).toBe("ok");
+      expect(
+        await db
+          .selectFrom("users")
+          .select("id")
+          .where("id", "=", person.id)
+          .executeTakeFirst(),
+      ).toBeUndefined();
+    });
+
+    it("hands the bases an erased account alone owned to the account the administrator names", async () => {
+      const person = await account("Leaving");
+      const heir = await account("Heir");
+      const idle = await account("Idle");
+      await setUserDisabled(db, adminId, idle.id, true);
+      const soleName = `Sole ${suffix}-${String(n)}`;
+      const base = await insertBase(db, person.id, { name: soleName });
+      await setUserDisabled(db, adminId, person.id, true);
+      expect(await soleOwnerBases(db, person.id)).toEqual([
+        { id: base.id, name: soleName },
+      ]);
+      const erased = () =>
+        db
+          .selectFrom("authEvents")
+          .select("id")
+          .where("action", "=", "account_erased")
+          .where("actorId", "=", adminId)
+          .execute();
+      const before = (await erased()).length;
+      const attempt = (successorEmail?: string) =>
+        code(
+          eraseOtherAccount(db, adminId, {
+            userId: person.id,
+            email: person.email,
+            successorEmail,
+          }),
+        );
+      expect(await attempt()).toBe("invalid_owner");
+      expect(await attempt(`nobody-${suffix}@example.org`)).toBe(
+        "unknown_account",
+      );
+      // Not the account itself, not a disabled one.
+      expect(await attempt(person.email)).toBe("invalid_account");
+      expect(await attempt(idle.email)).toBe("invalid_account");
+      // A refusal writes nothing: the account, its base, and the trail are
+      // as they were.
+      expect((await erased()).length).toBe(before);
+      expect(await soleOwnerBases(db, person.id)).toEqual([
+        { id: base.id, name: soleName },
+      ]);
+      expect(await attempt(heir.email.toUpperCase())).toBe("ok");
+      expect((await erased()).length).toBe(before + 1);
+      expect(
+        await db
+          .selectFrom("roleBindings")
+          .select(["userId", "role"])
+          .where("scope", "=", "base")
+          .where("scopeId", "=", base.id)
+          .execute(),
+      ).toEqual([{ userId: heir.id, role: "owner" }]);
+      // The hand-over is the administrator's act in the base's audit.
+      expect(
+        await db
+          .selectFrom("auditEvents")
+          .select("userId")
+          .where("action", "=", "catalog")
+          .where("userId", "=", adminId)
+          .where(
+            sql<boolean>`new_value ->> 'scope_id' = ${base.id} and new_value ->> 'user_id' = ${heir.id}`,
+          )
+          .execute(),
+      ).toHaveLength(1);
+    });
+
+    it("lets the administrator take the bases themselves", async () => {
+      const person = await account("Alone");
+      const base = await insertBase(db, person.id, {
+        name: `Alone ${suffix}-${String(n)}`,
+      });
+      await setUserDisabled(db, adminId, person.id, true);
+      await eraseOtherAccount(db, adminId, {
+        userId: person.id,
+        email: person.email,
+        successorEmail: `admin-${suffix}@example.org`,
+      });
+      expect(
+        await db
+          .selectFrom("roleBindings")
+          .select(["userId", "role"])
+          .where("scope", "=", "base")
+          .where("scopeId", "=", base.id)
+          .execute(),
+      ).toEqual([{ userId: adminId, role: "owner" }]);
+    });
+
+    it("keeps an active administrator on the instance", async () => {
+      // Administrators left by earlier tests step down for this one.
+      const others = await db
+        .selectFrom("users")
+        .select("id")
+        .where("isAdmin", "=", true)
+        .where("disabledAt", "is", null)
+        .where("id", "<>", adminId)
+        .execute();
+      const stepped = others.map((other) => other.id);
+      if (stepped.length > 0) {
+        await db
+          .updateTable("users")
+          .set({ isAdmin: false })
+          .where("id", "in", stepped)
+          .execute();
+      }
+      try {
+        expect(await code(eraseAccount(db, adminId))).toBe("invalid_account");
+        const second = await account("Second");
+        await setUserAdmin(db, second.id, true);
+        await eraseAccount(db, second.id);
+        expect(
+          await db
+            .selectFrom("users")
+            .select("id")
+            .where("id", "=", second.id)
+            .executeTakeFirst(),
+        ).toBeUndefined();
+        expect(await code(eraseAccount(db, adminId))).toBe("invalid_account");
+      } finally {
+        if (stepped.length > 0) {
+          await db
+            .updateTable("users")
+            .set({ isAdmin: true })
+            .where("id", "in", stepped)
+            .execute();
+        }
+      }
     });
   });
 
