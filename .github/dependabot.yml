@@ -1,6 +1,30 @@
 version: 2
-# npm packages are Renovate's (renovate.json): one bot per ecosystem.
 updates:
+  # cooldown: pnpm refuses a release younger than seven days
+  # (minimumReleaseAge in pnpm-workspace.yaml). Security updates skip it.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    versioning-strategy: increase
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    commit-message:
+      prefix: fix
+      prefix-development: chore
+      include: scope
+    groups:
+      npm-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

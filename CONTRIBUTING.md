@@ -143,7 +143,7 @@ What runs where:
 | ---------------- | ----------------------------------------------------------------------------------------------------- |
 | `git commit`     | Prettier on staged files; commit message format                                                       |
 | `pnpm check`, CI | format, `scripts/check-conventions.mjs` (file names, migrations, versions), ESLint, types, unit tests |
-| CI on every PR   | integration and e2e tests, translation catalogs, commit messages, CodeQL, Trivy, dependency review    |
+| CI on every PR   | integration and e2e tests, translation catalogs, title, commit messages, CodeQL, dependency review    |
 
 ## Messages (i18n)
 
@@ -198,16 +198,21 @@ BREAKING CHANGE: production meta store is Postgres only.
 
 Husky's `commit-msg` runs commitlint, then
 `scripts/validate-conventional-commit.sh`; CI's `Commits / commits` checks
-every commit of a PR again. Renovate (npm) and Dependabot (GitHub Actions,
-Docker) open dependency PRs and write their own messages.
+every commit of a PR again, and the PR's title, which becomes the commit's
+header when the PR is squashed onto `main`. Dependabot opens the dependency
+PRs (npm, GitHub Actions, Docker) and writes its own messages.
 
 ### On GitHub
 
-The repository's ruleset, set on GitHub rather than in this tree, protects
-`main`: pull request, signed commits, no force-push, and these checks (job
-names as GitHub reports them): `unit`, `integration`, `e2e`, `commits`,
-`codeql`, `dependency-review`. Secrets belong in GitHub
-Actions secrets or `docker/.env`, never in the tree.
+The repository's rulesets, set on GitHub rather than in this tree, protect
+`main`: pull request, squash merge only, signed commits, no force-push or
+deletion, and these checks from GitHub Actions (job names as GitHub reports
+them): `unit`, `integration`, `e2e`, `commits`, `codeql`,
+`dependency-review`. Only maintainers create, move, or delete `v*` tags.
+Workflows pin each action to a commit SHA and may use actions from GitHub and
+an allowlist; a new third-party action needs a maintainer to add it. Trivy
+scans the image's system packages on `main` and weekly. Secrets belong in
+GitHub Actions secrets or `docker/.env`, never in the tree.
 
 ## Releases
 

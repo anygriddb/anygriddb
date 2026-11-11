@@ -18,7 +18,7 @@ else
   echo "Creating empty public repo ${ORG}/${REPO} (no README, no push)..."
   gh repo create "${ORG}/${REPO}" \
     --public \
-    --description "AnyGridDB — open-source spreadsheet databases. AGPL-3.0. No paid feature locks." \
+    --description "A spreadsheet interface on the databases you already run. Open source, AGPL-3.0." \
     --disable-wiki
 fi
 
