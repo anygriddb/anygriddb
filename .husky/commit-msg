@@ -1,4 +1,4 @@
-# Enforce Conventional Commits 1.0.0, then the DCO trailer.
+# Enforce Conventional Commits 1.0.0.
 # https://www.conventionalcommits.org/en/v1.0.0/
 
 pnpm exec commitlint --edit "$1"
