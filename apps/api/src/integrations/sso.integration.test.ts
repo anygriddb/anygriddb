@@ -39,7 +39,12 @@ yMWKMogCyoWrLW/RY6VH0iwp8/8=
 function mockOidcDiscovery(): () => void {
   const previous = globalThis.fetch;
   globalThis.fetch = (async (input: string | URL | Request) => {
-    const url = String(input);
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url;
     if (!url.includes(".well-known/openid-configuration")) {
       return {
         ok: false,
