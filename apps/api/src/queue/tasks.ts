@@ -298,8 +298,8 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
       const parsed = z
         .object({
           action: z.string(),
-          userId: z.string().uuid().nullable(),
-          actorId: z.string().uuid().nullable(),
+          userId: z.uuid().nullable(),
+          actorId: z.uuid().nullable(),
           method: z.string().nullable(),
           detail: z.string().nullable(),
           ip: z.string().nullable(),
