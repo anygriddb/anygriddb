@@ -16,6 +16,7 @@ import type { Env } from "./env.js";
 import type { FileStore } from "./files/index.js";
 import { resolveOidc } from "./integrations/oidc.js";
 import { resolveSaml } from "./integrations/saml.js";
+import { loadSiemRow } from "./integrations/siem.js";
 import { resolveSmtp } from "./integrations/smtp.js";
 import { smtpReady } from "./mail.js";
 import type { SourceSettings } from "./sources/types.js";
@@ -606,10 +607,11 @@ export async function instanceRuntime(deps: {
 }) {
   const settings = await readSettings(deps.db);
   const env = deps.env;
-  const [smtp, oidc, saml] = await Promise.all([
+  const [smtp, oidc, saml, siem] = await Promise.all([
     resolveSmtp(deps.db, env),
     resolveOidc(deps.db, env),
     resolveSaml(deps.db, env),
+    loadSiemRow(deps.db),
   ]);
   return {
     publicUrl: env.PUBLIC_URL,
@@ -617,6 +619,7 @@ export async function instanceRuntime(deps: {
     smtp: smtpReady(smtp.config),
     oidc: oidc.config !== null,
     saml: saml.config !== null,
+    siem: siem !== null,
     sourceHosts: [...deps.sources.allowedHosts],
     signup: settings.signup,
     maintenance: settings.maintenance,

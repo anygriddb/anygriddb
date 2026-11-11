@@ -50,6 +50,8 @@ export const TASKS = {
   releaseCheck: "release_check",
   /** One administrator notice to a frozen list of accounts (ADR 0052). */
   operatorMail: "operator_mail",
+  /** One SIEM webhook delivery for an auth event (ADR 0056). */
+  siemEvent: "siem_event",
 } as const;
 
 export type TaskName = (typeof TASKS)[keyof typeof TASKS];

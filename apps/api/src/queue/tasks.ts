@@ -67,6 +67,7 @@ import {
   deliverOperatorMail,
   operatorMailPayloadSchema,
 } from "../operator-mail.js";
+import { deliverSiemEvent } from "../integrations/siem.js";
 import { runScheduledReleaseCheck } from "../release-status.js";
 import { transactionEvents } from "./row-events.js";
 import type { WorkerGroup } from "./worker.js";
@@ -292,6 +293,23 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
         },
         parsed,
       );
+    },
+    [TASKS.siemEvent]: async (payload) => {
+      const parsed = z
+        .object({
+          action: z.string(),
+          userId: z.string().uuid().nullable(),
+          actorId: z.string().uuid().nullable(),
+          method: z.string().nullable(),
+          detail: z.string().nullable(),
+          ip: z.string().nullable(),
+          occurredAt: z.string(),
+        })
+        .parse(payload);
+      await deliverSiemEvent(deps.db, deps.env.AUTH_ENCRYPTION_KEY, {
+        ...parsed,
+        action: parsed.action as import("@anygriddb/db").AuthAction,
+      });
     },
   };
   const jobs: TaskList = {

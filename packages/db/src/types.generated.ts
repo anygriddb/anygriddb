@@ -485,6 +485,15 @@ export interface InstanceSmtp {
   username: string | null;
 }
 
+export interface InstanceSiem {
+  id: Generated<boolean>;
+  secretCiphertext: Buffer;
+  secretNonce: Buffer;
+  updatedAt: Generated<Timestamp>;
+  updatedBy: string | null;
+  url: string;
+}
+
 export interface Invitations {
   acceptedAt: Timestamp | null;
   baseId: string;
@@ -840,6 +849,7 @@ export interface DB {
   instanceOidc: InstanceOidc;
   instanceSaml: InstanceSaml;
   instanceSettings: InstanceSettings;
+  instanceSiem: InstanceSiem;
   instanceSmtp: InstanceSmtp;
   invitations: Invitations;
   jobs: Jobs;

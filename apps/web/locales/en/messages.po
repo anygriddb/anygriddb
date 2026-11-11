@@ -1710,6 +1710,14 @@ msgstr "Clear saved SAML"
 msgid "Clear saved SAML?"
 msgstr "Clear saved SAML?"
 
+#: components/admin/integrations-tab.tsx
+msgid "Clear SIEM webhook"
+msgstr "Clear SIEM webhook"
+
+#: components/admin/integrations-tab.tsx
+msgid "Clear SIEM webhook?"
+msgstr "Clear SIEM webhook?"
+
 #: components/shell/shortcuts-dialog.tsx
 msgid "Clear the selected cells"
 msgstr "Clear the selected cells"
@@ -3366,6 +3374,10 @@ msgstr "Hide empty columns"
 msgid "History"
 msgstr "History"
 
+#: components/admin/integrations-tab.tsx
+msgid "HMAC secret"
+msgstr "HMAC secret"
+
 #: components/dashboards/dashboard-board.tsx
 msgid "Horizontal bars"
 msgstr "Horizontal bars"
@@ -3398,6 +3410,10 @@ msgstr "How many values in all, blanks included."
 #: components/settings/webhooks-panel.tsx
 msgid "HTTP header"
 msgstr "HTTP header"
+
+#: components/admin/integrations-tab.tsx
+msgid "HTTPS URL"
+msgstr "HTTPS URL"
 
 #: components/settings/second-factor.tsx
 msgid "I saved the codes"
@@ -4594,6 +4610,10 @@ msgstr "No fields"
 msgid "No function"
 msgstr "No function"
 
+#: components/admin/integrations-tab.tsx
+msgid "No further auth events are posted until you configure it again."
+msgstr "No further auth events are posted until you configure it again."
+
 #: components/settings/group-roles.tsx
 msgid "No group on this instance. An administrator can receive them from your identity provider (SCIM)."
 msgstr "No group on this instance. An administrator can receive them from your identity provider (SCIM)."
@@ -4904,6 +4924,10 @@ msgstr "Operator"
 #: components/fields/field-editor.tsx
 msgid "Option name"
 msgstr "Option name"
+
+#: components/admin/integrations-tab.tsx
+msgid "Optional HTTPS endpoint that receives selected sign-in and administration events. The body never includes an email, password, or token."
+msgstr "Optional HTTPS endpoint that receives selected sign-in and administration events. The body never includes an email, password, or token."
 
 #: components/fields/field-editor.tsx
 msgid "Options"
@@ -5774,6 +5798,10 @@ msgstr "Save OIDC"
 msgid "Save SAML"
 msgstr "Save SAML"
 
+#: components/admin/integrations-tab.tsx
+msgid "Save SIEM webhook"
+msgstr "Save SIEM webhook"
+
 #: components/admin/admin-page.tsx
 #: components/settings/base-settings.tsx
 msgid "Saved"
@@ -5943,6 +5971,10 @@ msgstr "Send me a test email"
 msgid "Send notice"
 msgstr "Send notice"
 
+#: components/admin/integrations-tab.tsx
+msgid "Send test event"
+msgstr "Send test event"
+
 #: components/shell/shortcuts-dialog.tsx
 msgid "Send the comment; @ to mention"
 msgstr "Send the comment; @ to mention"
@@ -6086,6 +6118,18 @@ msgstr "Shown on cards"
 #: components/admin/sources-tab.tsx
 msgid "Side schema"
 msgstr "Side schema"
+
+#: components/admin/integrations-tab.tsx
+msgid "SIEM webhook"
+msgstr "SIEM webhook"
+
+#: components/admin/integrations-tab.tsx
+msgid "SIEM webhook cleared"
+msgstr "SIEM webhook cleared"
+
+#: components/admin/integrations-tab.tsx
+msgid "SIEM webhook saved"
+msgstr "SIEM webhook saved"
 
 #: components/record/row-status.tsx
 msgid "Sign"
@@ -6594,6 +6638,10 @@ msgstr "Test certificate"
 #: components/admin/support-tab.tsx
 msgid "Test email sent to {to}"
 msgstr "Test email sent to {to}"
+
+#: components/admin/integrations-tab.tsx
+msgid "Test event sent"
+msgstr "Test event sent"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Test failed: {error}"
