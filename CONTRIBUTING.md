@@ -71,7 +71,7 @@ The first account you create administers the instance. Full stack in Docker:
 | `pnpm test`                                 | unit tests only (no Docker)                                                       |
 | `pnpm test:integration`                     | PostgreSQL and client engines in Testcontainers                                   |
 | `pnpm test:e2e`                             | Playwright journeys in Chromium, with axe accessibility checks                    |
-| `pnpm test:samples`                         | sample databases on four engines ([`docker/lab/README.md`](docker/lab/README.md)) |
+| `pnpm test:samples`                         | sample databases on five engines ([`docker/lab/README.md`](docker/lab/README.md)) |
 | `pnpm --filter @anygriddb/web i18n:extract` | refresh the Lingui catalogs                                                       |
 | `pnpm --filter @anygriddb/db db:types`      | regenerate the Kysely types from `DATABASE_URL`, freshly migrated                 |
 
