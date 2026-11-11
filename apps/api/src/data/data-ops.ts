@@ -31,10 +31,7 @@ import {
   type RowRecord,
   type WriteContext,
 } from "./rows.js";
-import {
-  insertNativeBatch,
-  updateNativeBatch,
-} from "../services/rows.js";
+import { insertNativeBatch, updateNativeBatch } from "../services/rows.js";
 import { addColumn, insertTable, setPrimaryColumn } from "./schema-ops.js";
 import { createView } from "./views.js";
 

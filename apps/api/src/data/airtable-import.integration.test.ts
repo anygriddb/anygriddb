@@ -260,6 +260,8 @@ describe("an Airtable base imported", () => {
       .where("id", "=", job.id)
       .executeTakeFirstOrThrow();
     expect(JSON.stringify(stored.input)).not.toContain("ciphertext");
-    expect(stored.input).toMatchObject({ airtableBaseId: "app" + "A".repeat(14) });
+    expect(stored.input).toMatchObject({
+      airtableBaseId: "app" + "A".repeat(14),
+    });
   });
 });

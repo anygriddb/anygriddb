@@ -18,10 +18,7 @@ import type { ParsedSheet } from "../import-file.js";
 import { MAX_COPY_ROWS, readAll } from "./data-ops.js";
 import { loadEngine, type TableRow } from "./engine.js";
 import { readPage, writeColumns, type WriteContext } from "./rows.js";
-import {
-  insertNativeBatch,
-  updateNativeBatch,
-} from "../services/rows.js";
+import { insertNativeBatch, updateNativeBatch } from "../services/rows.js";
 import { addColumn, updateColumn } from "./schema-ops.js";
 import type { SummaryEvent } from "../queue/jobs.js";
 import {
@@ -486,7 +483,8 @@ export async function importIntoTable(
         ...update,
         line: updateLines[index] ?? 0,
       })),
-      summary: (count) => batchContext(count).events as { summary: SummaryEvent },
+      summary: (count) =>
+        batchContext(count).events as { summary: SummaryEvent },
       onProgress: input.onProgress,
       total,
       report: (error) => {
@@ -507,7 +505,12 @@ export async function importIntoTable(
   for (let index = 0; index < inserts.length; index += BATCH) {
     const batch = inserts.slice(index, index + BATCH);
     inserted += (
-      await insertNativeBatch(db, engine, batchContext(inserted + batch.length), batch)
+      await insertNativeBatch(
+        db,
+        engine,
+        batchContext(inserted + batch.length),
+        batch,
+      )
     ).length;
     await input.onProgress?.(inserted, total);
   }
@@ -558,7 +561,8 @@ async function sealedRows(db: Database, tableId: string): Promise<Set<string>> {
 }
 
 /** Rows rejected one by one: what the client refused is about the row. */
-const ROW_REFUSALS = /^(source_value_|source_write_refused|invalid_cell|row_locked|source_conflict|source_row_missing)/;
+const ROW_REFUSALS =
+  /^(source_value_|source_write_refused|invalid_cell|row_locked|source_conflict|source_row_missing)/;
 
 /**
  * Writes an import to a client's table (ADR 0028), batch by batch through

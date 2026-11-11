@@ -18,15 +18,11 @@ const rows = Array.from({ length: 10 }, (_, index) => [
 
 describe("chart series", () => {
   it("orders categories as the select's options, then naturally", () => {
-    const result = chartSeries(
-      columns,
-      { groupBy: "stage", fn: "count_all" },
-      [
-        { key: "Lost", series: undefined, value: 1 },
-        { key: null, series: undefined, value: 2 },
-        { key: "Lead", series: undefined, value: "3" },
-      ],
-    );
+    const result = chartSeries(columns, { groupBy: "stage", fn: "count_all" }, [
+      { key: "Lost", series: undefined, value: 1 },
+      { key: null, series: undefined, value: 2 },
+      { key: "Lead", series: undefined, value: "3" },
+    ]);
     expect(result.categories).toEqual(["Lead", "Lost", "(vide)"]);
     expect(result.series).toEqual([{ name: "", values: [3, 1, 2] }]);
   });
@@ -64,11 +60,9 @@ describe("chart series", () => {
   });
 
   it("draws nothing for a group whose values are all empty", () => {
-    const result = chartSeries(
-      columns,
-      { groupBy: "stage", fn: "sum" },
-      [{ key: "Won", series: undefined, value: null }],
-    );
+    const result = chartSeries(columns, { groupBy: "stage", fn: "sum" }, [
+      { key: "Won", series: undefined, value: null },
+    ]);
     expect(result.series).toEqual([{ name: "", values: [null] }]);
   });
 });
