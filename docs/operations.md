@@ -316,6 +316,64 @@ keyed by their real address, and enforce an overall limit on the proxy as
 well: N replicas otherwise multiply every bucket. WebSocket presence is
 also per process; fan-out uses PostgreSQL `LISTEN`/`NOTIFY`.
 
+
+## Supported topology
+
+The supported production shape is **one API process** with the Compose
+stack in this repository (or an equivalent single instance against a
+managed PostgreSQL).
+
+Several API processes behind a load balancer work for reads and writes,
+with these limits:
+
+- **Rate limits** are counted in each process's memory. Put the balancer
+  in `ANYGRIDDB_TRUSTED_PROXIES` and enforce an overall limit on the proxy:
+  otherwise N replicas multiply every bucket.
+- **WebSocket presence** is per process; fan-out still uses PostgreSQL
+  `LISTEN`/`NOTIFY`, so other browsers see row changes, but presence and
+  some in-memory gates are not shared.
+
+Helm charts and multi-region active-active stay outside this repository.
+
+## Recovery objectives (RPO / RTO)
+
+With the nightly cron example under [Backups](#backups):
+
+| Objective | Typical with the scripts |
+| --------- | ------------------------ |
+| **RPO**   | Up to the time since the last successful `scripts/backup.sh` (about 24 hours on the sample cron). Continuous WAL archiving on your PostgreSQL shortens it. |
+| **RTO**   | The time to run `scripts/restore.sh` on a spare host with the same `AUTH_ENCRYPTION_KEY`, plus DNS or load-balancer cutover. Measure it once on a spare stack. |
+
+An untested backup is a hope: restore onto a spare stack after every major
+upgrade.
+
+## Shipping logs to a collector
+
+API logs are structured JSON (pino). Point your collector (for example
+Grafana Loki via Promtail or Alloy) at the container's stdout. Do not
+enable a third-party telemetry SDK inside AnyGridDB; metrics and OTEL stay
+opt-in as below.
+
+## DSI acceptance checklist
+
+Before opening the instance to users:
+
+1. Install a release image pinned by digest; set `PUBLIC_URL` and
+   `AUTH_ENCRYPTION_KEY`; confirm Health shows a trusted certificate path.
+2. Configure SMTP; send a test email from Support.
+3. Configure OIDC or SAML; use **Test issuer** / **Test certificate**, then
+   complete one real sign-in.
+4. Optionally turn on **SSO-only** (administrators keep a password).
+5. Optionally set the **sign-in allowlist** and `ANYGRIDDB_TRUSTED_PROXIES`.
+6. Create a SCIM token and push one user and one group from the identity
+   provider; assign the group a role on a base.
+7. Set MFA scope to everyone (or your policy); confirm an enrollment gate.
+8. Turn maintenance on briefly; confirm non-admins are signed out.
+9. Run `scripts/backup.sh` and `scripts/restore.sh` on a spare stack.
+10. If you use a SIEM, save the webhook, send a test event, and confirm it
+    arrives with a valid signature.
+11. Scrape `/metrics` with `METRICS_TOKEN` over HTTPS.
+
 ## Metrics and traces
 
 Both are off until you turn them on (ADR 0018).
