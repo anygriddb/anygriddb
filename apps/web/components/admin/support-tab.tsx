@@ -1,9 +1,17 @@
-import { Button, Label, Select, Spinner } from "@anygriddb/ui";
+import {
+  Button,
+  Checkbox,
+  Input,
+  Label,
+  Select,
+  Spinner,
+  Textarea,
+} from "@anygriddb/ui";
 import { JOB_STATUSES, type JobKind, type JobStatus } from "@anygriddb/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLingui } from "@lingui/react/macro";
 import { Download, Mail } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { datedName, downloadCsv, downloadJson } from "../../lib/download";
 import { useErrorText } from "../../lib/errors";
@@ -15,9 +23,12 @@ function date(value: string | null): string {
   return value ? new Date(value).toLocaleString() : "—";
 }
 
+type RecipientMode = "all_active" | "ids";
+
 /**
  * Helping people (ADR 0042): every person's jobs, webhook deliveries that
  * gave up, pending invitations, and what to send to whoever helps.
+ * Operator notices to accounts (ADR 0052) live here too.
  */
 export function SupportTab() {
   const { t } = useLingui();
@@ -29,6 +40,15 @@ export function SupportTab() {
     id: string;
     email: string;
   } | null>(null);
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [mode, setMode] = useState<RecipientMode>("all_active");
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<Map<string, string>>(
+    () => new Map(),
+  );
+  const [confirmSend, setConfirmSend] = useState(false);
+  const [busyMail, setBusyMail] = useState(false);
   const jobs = useQuery(
     api.admin.jobs.queryOptions({ status: status || undefined, limit: 50 }),
   );
@@ -36,6 +56,30 @@ export function SupportTab() {
     api.admin.failedDeliveries.queryOptions({ limit: 50 }),
   );
   const invitations = useQuery(api.admin.invitations.queryOptions());
+  const smtp = useQuery(api.admin.smtp.get.queryOptions());
+  const accounts = useQuery({
+    ...api.admin.users.queryOptions({
+      search: search || undefined,
+      offset: 0,
+      limit: 50,
+    }),
+    enabled: mode === "ids",
+  });
+  const allActivePreview = useQuery({
+    ...api.admin.operatorMailPreview.queryOptions({
+      recipients: { mode: "all_active" },
+    }),
+    enabled: mode === "all_active" && Boolean(smtp.data?.ready),
+  });
+  const recipientCount = useMemo(() => {
+    if (mode === "ids") return selected.size;
+    return allActivePreview.data?.recipientCount ?? null;
+  }, [mode, selected, allActivePreview.data?.recipientCount]);
+  const canCompose =
+    Boolean(smtp.data?.ready) &&
+    subject.trim().length > 0 &&
+    body.trim().length > 0 &&
+    (mode === "all_active" ? (recipientCount ?? 0) > 0 : selected.size > 0);
   async function run(action: () => Promise<unknown>, done?: string) {
     try {
       await action();
@@ -114,6 +158,128 @@ export function SupportTab() {
             <Mail className="h-4 w-4" aria-hidden />
             {t`Send me a test email`}
           </Button>
+        </div>
+      </RuledSection>
+
+      <RuledSection
+        title={t`Message accounts`}
+        description={t`Email a plain-text notice about maintenance, a policy change, or an incident. This is not a newsletter: it ignores each person's notification preference.`}
+      >
+        {!smtp.data?.ready ? (
+          <p className="text-sm text-muted-foreground">
+            {t`Set up email under Integrations before you can send a notice.`}
+          </p>
+        ) : null}
+        <div className="flex flex-col gap-3 max-w-xl">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="operator-mail-subject">{t`Subject`}</Label>
+            <Input
+              id="operator-mail-subject"
+              maxLength={200}
+              value={subject}
+              disabled={!smtp.data?.ready}
+              onChange={(event) => setSubject(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="operator-mail-body">{t`Message`}</Label>
+            <Textarea
+              id="operator-mail-body"
+              rows={6}
+              maxLength={5_000}
+              value={body}
+              disabled={!smtp.data?.ready}
+              onChange={(event) => setBody(event.target.value)}
+            />
+          </div>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm font-medium">{t`Recipients`}</legend>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="operator-mail-mode"
+                checked={mode === "all_active"}
+                disabled={!smtp.data?.ready}
+                onChange={() => setMode("all_active")}
+              />
+              {t`All active accounts`}
+              {mode === "all_active" && recipientCount !== null ? (
+                <span className="text-muted-foreground tabular-nums">
+                  ({recipientCount})
+                </span>
+              ) : null}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="operator-mail-mode"
+                checked={mode === "ids"}
+                disabled={!smtp.data?.ready}
+                onChange={() => setMode("ids")}
+              />
+              {t`Selected accounts`}
+              {mode === "ids" ? (
+                <span className="text-muted-foreground tabular-nums">
+                  ({selected.size})
+                </span>
+              ) : null}
+            </label>
+          </fieldset>
+          {mode === "ids" ? (
+            <div className="flex flex-col gap-2">
+              <Input
+                aria-label={t`Search accounts`}
+                placeholder={t`Name or email`}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              {accounts.isLoading ? <Spinner /> : null}
+              <div className="max-h-48 overflow-y-auto rounded-sm border border-border">
+                <ul className="divide-y divide-border text-sm">
+                  {(accounts.data?.users ?? []).map((user) => {
+                    const checked = selected.has(user.id);
+                    return (
+                      <li key={user.id} className="px-2 py-1.5">
+                        <label className="flex items-start gap-2">
+                          <Checkbox
+                            checked={checked}
+                            onChange={(event) => {
+                              setSelected((current) => {
+                                const next = new Map(current);
+                                if (event.target.checked) {
+                                  next.set(user.id, user.email);
+                                } else {
+                                  next.delete(user.id);
+                                }
+                                return next;
+                              });
+                            }}
+                          />
+                          <span>
+                            <span className="block">{user.displayName}</span>
+                            <span className="block text-xs text-muted-foreground">
+                              {user.email}
+                              {user.disabledAt ? ` · ${t`Disabled`}` : ""}
+                            </span>
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+          ) : null}
+          <div>
+            <Button
+              size="sm"
+              disabled={!canCompose || busyMail}
+              onClick={() => setConfirmSend(true)}
+            >
+              <Mail className="h-4 w-4" aria-hidden />
+              {t`Send notice`}
+            </Button>
+          </div>
         </div>
       </RuledSection>
 
@@ -310,6 +476,45 @@ export function SupportTab() {
               t`Invitation withdrawn`,
             )
           }
+        />
+      ) : null}
+      {confirmSend && recipientCount !== null && recipientCount > 0 ? (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => !open && setConfirmSend(false)}
+          title={t`Send to ${{ count: recipientCount }} accounts?`}
+          description={t`Each person receives this plain-text notice by email. The sign-in trail records that you sent it.`}
+          confirmLabel={t`Send notice`}
+          onConfirm={async () => {
+            setBusyMail(true);
+            try {
+              const result = await trpc.admin.sendOperatorMail.mutate({
+                subject: subject.trim(),
+                body: body.trim(),
+                recipients:
+                  mode === "all_active"
+                    ? { mode: "all_active" }
+                    : {
+                        mode: "ids",
+                        userIds: [...selected.keys()],
+                      },
+              });
+              toast.success(
+                t`Notice queued for ${{ count: result.recipientCount }} accounts`,
+              );
+              setSubject("");
+              setBody("");
+              setSelected(new Map());
+              setConfirmSend(false);
+              await queryClient.invalidateQueries({
+                queryKey: api.admin.operatorMailPreview.queryKey(),
+              });
+            } catch (cause) {
+              toast.error(errorText(cause));
+            } finally {
+              setBusyMail(false);
+            }
+          }}
         />
       ) : null}
     </div>

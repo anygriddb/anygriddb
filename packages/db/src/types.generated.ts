@@ -25,6 +25,7 @@ export type AuthAction =
   | "login_failure"
   | "login_success"
   | "logout"
+  | "operator_mail_sent"
   | "password_changed"
   | "password_reset"
   | "password_reset_requested"

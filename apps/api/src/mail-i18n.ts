@@ -123,6 +123,17 @@ export function testMailBody(locale: MailLocale): string {
     : "This message confirms that this instance can send email.";
 }
 
+/** Fixed footer on an administrator's notice to accounts (ADR 0052). */
+export function operatorMailFooter(locale: MailLocale): string {
+  return locale === "fr"
+    ? "Ce message a été envoyé par un administrateur de votre instance AnyGridDB."
+    : "This message was sent by an administrator of your AnyGridDB instance.";
+}
+
+export function operatorMailText(locale: MailLocale, body: string): string {
+  return `${body.trimEnd()}\n\n—\n${operatorMailFooter(locale)}`;
+}
+
 export function webhookDisabledMailSubject(locale: MailLocale): string {
   return locale === "fr"
     ? `${MAIL_PREFIX}: webhook désactivé`

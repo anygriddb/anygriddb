@@ -137,6 +137,20 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     ).toContainText(`Ada ${stamp}`);
 
     await page.getByRole("tab", { name: "Support" }).click();
+    // Operator notices need SMTP (ADR 0052); without it the form stays shut.
+    await expect(
+      page.getByRole("heading", { name: "Message accounts" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "Set up email under Integrations before you can send a notice.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Send notice" }),
+    ).toBeDisabled();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export who has access" }).click();
     const file = await download;

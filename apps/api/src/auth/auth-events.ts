@@ -45,7 +45,10 @@ export type AuthDetail =
   /** An integration saved or cleared from Administration (ADR 0050). */
   | "smtp"
   | "oidc"
-  | "saml";
+  | "saml"
+  /** Operator mail recipients (ADR 0052): all active, or a chosen list. */
+  | "all_active"
+  | "selected";
 
 /** Only an address is kept: anything else a proxy sent is dropped. */
 export function clientAddress(raw: string | null | undefined): string | null {

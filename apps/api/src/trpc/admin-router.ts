@@ -66,6 +66,12 @@ import {
 import { sendMail, smtpReady } from "../mail.js";
 import { resolveLocale, testMailBody, testMailSubject } from "../mail-i18n.js";
 import {
+  operatorMailInputSchema,
+  operatorMailRecipientsSchema,
+  queueOperatorMail,
+  resolveOperatorRecipients,
+} from "../operator-mail.js";
+import {
   instanceAudit,
   instanceHealth,
   listUsers,
@@ -163,6 +169,7 @@ const authActionSchema = z.enum([
   "account_erased",
   "account_updated",
   "sso_unlinked",
+  "operator_mail_sent",
 ] satisfies AuthAction[]);
 
 const exportLimit = z.int().min(1).max(10_000).default(10_000);
@@ -960,6 +967,48 @@ export const adminRouter = t.router({
       return { to: admin.email };
     }),
   ),
+  /** How many accounts a notice would reach (ADR 0052). */
+  operatorMailPreview: procedure
+    .input(z.object({ recipients: operatorMailRecipientsSchema }))
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        const people = await resolveOperatorRecipients(
+          ctx.db,
+          input.recipients,
+        );
+        return { recipientCount: people.length };
+      }),
+    ),
+  /**
+   * Queues a plain-text notice to every active account or to chosen ones
+   * (ADR 0052). Delivery runs in the worker; the trail records the send.
+   */
+  sendOperatorMail: procedure
+    .input(operatorMailInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const result = await queueOperatorMail(
+          {
+            db: ctx.db,
+            env: ctx.env,
+            actorId: admin.id,
+            ip: ctx.req.ip,
+          },
+          input,
+        );
+        ctx.req.log.info(
+          {
+            actor: admin.id,
+            recipients: result.recipientCount,
+            mode: input.recipients.mode,
+          },
+          "operator mail queued",
+        );
+        return result;
+      }),
+    ),
   /** Health and configuration facts to send to whoever helps the operator. */
   supportBundle: procedure.query(({ ctx }) =>
     handle(ctx, async () => {

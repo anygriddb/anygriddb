@@ -48,6 +48,8 @@ export const TASKS = {
   externalSyncDrop: "external_sync_drop",
   /** Opt-in check for a newer GitHub Release (ADR 0048). */
   releaseCheck: "release_check",
+  /** One administrator notice to a frozen list of accounts (ADR 0052). */
+  operatorMail: "operator_mail",
 } as const;
 
 export type TaskName = (typeof TASKS)[keyof typeof TASKS];
