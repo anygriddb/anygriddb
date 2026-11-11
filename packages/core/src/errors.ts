@@ -146,6 +146,8 @@ export const ERRORS = {
   password_sign_in_disabled: [403, "Password sign-in is disabled"],
   /** Turning on SSO-only without a ready identity provider. */
   sso_required: [BAD, "Single sign-on must be configured first"],
+  /** Interactive sign-in from an address outside the allowlist. */
+  sign_in_address_denied: [403, "Sign-in is not allowed from this address"],
 
   // Integrations.
   invalid_webhook: [BAD, "Invalid webhook"],

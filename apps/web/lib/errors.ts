@@ -141,6 +141,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   invalid_saml: msg`Invalid SAML settings: the entry point must be HTTPS and the certificate must be a valid, unexpired PEM`,
   password_sign_in_disabled: msg`Password sign-in is off: use single sign-on, or ask an administrator`,
   sso_required: msg`Turn on single sign-on (OIDC or SAML) before requiring it for everyone`,
+  sign_in_address_denied: msg`Sign-in is not allowed from this network address`,
 
   invalid_webhook: msg`Invalid webhook: a public HTTPS address or an email is required`,
   invalid_delivery: msg`This delivery cannot be sent again`,

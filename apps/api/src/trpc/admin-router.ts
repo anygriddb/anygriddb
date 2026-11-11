@@ -33,6 +33,7 @@ import { assertEnrolled } from "../auth/access.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
 import { unlockAccount } from "../auth/lockout.js";
 import { ADMIN_RESET_TTL_MS, createResetLink } from "../auth/password-reset.js";
+import { parseSignInCidr } from "../auth/sign-in-allowlist.js";
 import {
   resetLinkUrl,
   sendResetLink,
@@ -596,6 +597,11 @@ export const adminRouter = t.router({
           ]);
           if (oidc.config === null && saml.config === null) {
             throw new AppError("sso_required");
+          }
+        }
+        if (input.signInAllowlist) {
+          for (const entry of input.signInAllowlist) {
+            parseSignInCidr(entry);
           }
         }
         await writeSettings(ctx.db, admin.id, input, ctx.req.ip);

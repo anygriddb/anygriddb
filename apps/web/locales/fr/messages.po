@@ -1079,6 +1079,10 @@ msgstr "Autoriser plusieurs personnes"
 msgid "Allowed"
 msgstr "Autorisés"
 
+#: components/admin/security-tab.tsx
+msgid "Allowed CIDR ranges"
+msgstr "Plages CIDR autorisées"
+
 #: components/admin/sources-tab.tsx
 msgid "Allowed hosts: {hosts}"
 msgstr "Hôtes autorisés : {hosts}"
@@ -4029,6 +4033,10 @@ msgstr "Thème clair"
 msgid "Like FIND, ignoring upper and lower case."
 msgstr "Comme FIND, sans distinguer majuscules et minuscules."
 
+#: components/admin/security-tab.tsx
+msgid "Limit interactive sign-in (password, single sign-on, passkeys) to these client addresses. Empty means any. API tokens, SCIM, and metrics are not gated here. Behind a reverse proxy, set ANYGRIDDB_TRUSTED_PROXIES so the real client address is used."
+msgstr "Limitez la connexion interactive (mot de passe, authentification unique, clés d'accès) à ces adresses client. Vide = toutes. Les jetons d'API, le SCIM et les métriques ne sont pas concernés. Derrière un proxy, réglez ANYGRIDDB_TRUSTED_PROXIES pour l'adresse réelle."
+
 #: components/dashboards/dashboard-board.tsx
 msgid "Line"
 msgstr "Courbe"
@@ -5746,6 +5754,10 @@ msgstr "Samedi"
 msgid "Save"
 msgstr "Enregistrer"
 
+#: components/admin/security-tab.tsx
+msgid "Save allowlist"
+msgstr "Enregistrer la liste"
+
 #: components/admin/integrations-tab.tsx
 msgid "Save and verify"
 msgstr "Enregistrer et vérifier"
@@ -6122,6 +6134,14 @@ msgstr "Déconnecter partout"
 #: components/record/row-status.tsx
 msgid "Sign the row"
 msgstr "Signer la ligne"
+
+#: components/admin/security-tab.tsx
+msgid "Sign-in addresses"
+msgstr "Adresses de connexion"
+
+#: lib/errors.ts
+msgid "Sign-in is not allowed from this network address"
+msgstr "La connexion n'est pas autorisée depuis cette adresse réseau"
 
 #: components/admin/sign-in-trail.tsx
 msgid "Sign-in refused"

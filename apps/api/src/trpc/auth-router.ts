@@ -75,6 +75,7 @@ import {
   totpConfirmSchema,
 } from "../auth/signup.js";
 import { assertMayChangeFactor } from "../auth/factor-step-up.js";
+import { assertSignInAddressAllowed } from "../auth/sign-in-allowlist.js";
 import {
   assertLocalSignInAllowed,
   assertPasswordSignupAllowed,
@@ -306,6 +307,7 @@ export const authRouter = t.router({
     .input(signupInputSchema)
     .mutation(async ({ ctx, input }) => {
       const settings = await readSettings(ctx.db);
+      assertSignInAddressAllowed(settings.signInAllowlist, ctx.req.ip);
       assertPasswordSignupAllowed(settings);
       const email = input.email.toLowerCase();
       const decision = await signupDecision(
@@ -351,6 +353,7 @@ export const authRouter = t.router({
     }),
   login: procedure.input(loginInputSchema).mutation(async ({ ctx, input }) => {
     const settings = await readGateSettings(ctx.db);
+    assertSignInAddressAllowed(settings.signInAllowlist, ctx.req.ip);
     const user = await ctx.db
       .selectFrom("users as u")
       .innerJoin("passwordHashes as p", "p.userId", "u.id")

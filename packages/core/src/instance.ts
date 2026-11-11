@@ -66,6 +66,19 @@ const domainSchema = z
     /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/,
   );
 
+/**
+ * An IPv4/IPv6 address or CIDR for the sign-in allowlist. Shape only; the
+ * API checks the bits when it builds the list.
+ */
+const cidrSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(
+    /^(?:\d{1,3}(?:\.\d{1,3}){3}|\[[0-9a-fA-F:]+\]|[0-9a-fA-F:]+)(?:\/\d{1,3})?$/,
+  );
+
 /** Default when neither the setting nor the environment sets a ceiling. */
 export const DEFAULT_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
 
@@ -86,6 +99,14 @@ const fields = {
    * Administrators keep a password as break-glass (ADR 0053).
    */
   ssoOnly: z.boolean(),
+  /**
+   * Client addresses that may open an interactive session. Empty means
+   * any. API tokens, SCIM, and metrics stay out of this list.
+   */
+  signInAllowlist: z
+    .array(cidrSchema)
+    .max(50)
+    .transform((entries) => [...new Set(entries)]),
   /** Failed passwords and codes in a row that lock an account. */
   lockoutThreshold: bounded("lockoutThreshold"),
   lockoutMinutes: z.union([z.literal(0), bounded("lockoutMinutes")]),
@@ -137,6 +158,7 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   mfaScope: "owners",
   ssoMfa: "local",
   ssoOnly: false,
+  signInAllowlist: [],
   lockoutThreshold: 10,
   lockoutMinutes: 15,
   sessionIdleMinutes: 15,
@@ -167,6 +189,9 @@ export const instanceSettingsSchema = z.object({
   mfaScope: fields.mfaScope.default(INSTANCE_DEFAULTS.mfaScope),
   ssoMfa: fields.ssoMfa.default(INSTANCE_DEFAULTS.ssoMfa),
   ssoOnly: fields.ssoOnly.default(INSTANCE_DEFAULTS.ssoOnly),
+  signInAllowlist: fields.signInAllowlist.default(
+    INSTANCE_DEFAULTS.signInAllowlist,
+  ),
   lockoutThreshold: fields.lockoutThreshold.default(
     INSTANCE_DEFAULTS.lockoutThreshold,
   ),
@@ -209,6 +234,7 @@ export const instanceSettingsPatchSchema = z
     mfaScope: fields.mfaScope.optional(),
     ssoMfa: fields.ssoMfa.optional(),
     ssoOnly: fields.ssoOnly.optional(),
+    signInAllowlist: fields.signInAllowlist.optional(),
     lockoutThreshold: fields.lockoutThreshold.optional(),
     lockoutMinutes: fields.lockoutMinutes.optional(),
     sessionIdleMinutes: fields.sessionIdleMinutes.optional(),
