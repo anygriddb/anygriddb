@@ -1,8 +1,9 @@
 # AnyGridDB sample-database lab (opt-in). Not part of the official product
 # stack. Engines speak TLS with the lab CA in ./certs (scripts/lab/gen-certs.sh).
-# SQL Server is profile `mssql` only (OPEN_SOURCE_POLICY.md).
+# SQL Server is profile `mssql` only; Oracle Free is profile `oracle` only
+# (OPEN_SOURCE_POLICY.md — interoperability images, never the default stack).
 #
-#   ./scripts/lab/up.sh --mssql
+#   ./scripts/lab/up.sh --mssql --oracle
 #   ./scripts/lab/seed.sh --all
 
 name: anygriddb-lab
@@ -120,9 +121,42 @@ services:
       retries: 30
       start_period: 20s
 
+  # Oracle Free 23ai (gvenzl): TCP for seed/sqlplus, TCPS via oracle-tls for
+  # AnyGridDB (thin oracledb, ADR 0047). Profile `oracle` only.
+  oracle:
+    profiles: ["oracle"]
+    image: gvenzl/oracle-free:23-slim-faststart
+    container_name: aglab-oracle
+    environment:
+      ORACLE_PASSWORD: ${LAB_PASSWORD}
+    ports:
+      - "127.0.0.1:51521:1521"
+    volumes:
+      - aglab-oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 10s
+      retries: 90
+      start_period: 120s
+
+  oracle-tls:
+    profiles: ["oracle"]
+    image: nginx:1.30-alpine
+    container_name: aglab-oracle-tls
+    depends_on:
+      oracle:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:52484:2484"
+    volumes:
+      - ./certs:/certs:ro
+      - ./oracle-tls/nginx.conf:/etc/nginx/nginx.conf:ro
+
 volumes:
   aglab-pg-data:
   aglab-mysql-data:
   aglab-mariadb-data:
   aglab-mssql-data:
   aglab-mssql-backup:
+  aglab-oracle-data:

@@ -7,6 +7,7 @@ import { loadEngine } from "../../data/engine.js";
 import { readPage } from "../../data/rows.js";
 import { createSource } from "../sources.js";
 import { sampleWorld, type SampleWorld } from "./engines.js";
+import { SAMPLE_ENGINES, SAMPLE_ENGINES_WITH_NORTHWIND } from "./types.js";
 import {
   closeSampleControl,
   need,
@@ -29,7 +30,7 @@ describe("samples A–B sources and introspection", () => {
     await closeSampleControl(control);
   });
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
+  it.each(SAMPLE_ENGINES)(
     "A8 creates a Chinook source on %s",
     async (engine) => {
       const endpoint = need(
@@ -46,7 +47,7 @@ describe("samples A–B sources and introspection", () => {
     },
   );
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
+  it.each(SAMPLE_ENGINES)(
     "B1–B6 introspects and exposes Chinook on %s",
     async (engine) => {
       const endpoint = need(
@@ -175,7 +176,7 @@ describe("samples A–B sources and introspection", () => {
     expect(tables.some((t) => t.name.toLowerCase() === "film")).toBe(true);
   });
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
+  it.each(SAMPLE_ENGINES_WITH_NORTHWIND)(
     "B Northwind lists customers/orders on %s",
     async (engine) => {
       const endpoint = need(
@@ -185,7 +186,7 @@ describe("samples A–B sources and introspection", () => {
       const declared = await declareSource(
         control,
         endpoint,
-        endpoint.northwindDatabase,
+        need(endpoint.northwindDatabase, "northwind database"),
         `Northwind ${engine}`,
       );
       const tables = await sourceTables(control.deps, declared.sourceId);

@@ -148,17 +148,31 @@ export async function exposeChinook(
           { schema, name: "playlist" },
           { schema, name: "playlist_track" },
         ]
-      : [
-          { schema, name: "Artist" },
-          { schema, name: "Album" },
-          { schema, name: "Track" },
-          { schema, name: "Genre" },
-          { schema, name: "Customer" },
-          { schema, name: "Invoice" },
-          { schema, name: "InvoiceLine" },
-          { schema, name: "Playlist" },
-          { schema, name: "PlaylistTrack" },
-        ];
+      : declared.engine === "oracle"
+        ? [
+            // Oracle stores unquoted Chinook names in capitals (ALL_TABLES).
+            { schema, name: "ARTIST" },
+            { schema, name: "ALBUM" },
+            { schema, name: "TRACK" },
+            { schema, name: "GENRE" },
+            { schema, name: "CUSTOMER" },
+            { schema, name: "INVOICE" },
+            { schema, name: "INVOICELINE" },
+            { schema, name: "PLAYLIST" },
+            { schema, name: "PLAYLISTTRACK" },
+          ]
+        : [
+            // MySQL/MariaDB/SQL Server Chinook: PascalCase names.
+            { schema, name: "Artist" },
+            { schema, name: "Album" },
+            { schema, name: "Track" },
+            { schema, name: "Genre" },
+            { schema, name: "Customer" },
+            { schema, name: "Invoice" },
+            { schema, name: "InvoiceLine" },
+            { schema, name: "Playlist" },
+            { schema, name: "PlaylistTrack" },
+          ];
   const { tableIds } = await exposeTables(control.deps, control.actorId, {
     sourceId: declared.sourceId,
     baseId: control.baseId,
@@ -177,7 +191,7 @@ export async function exposeNorthwind(
   control: SampleControl,
   declared: DeclaredSource,
 ): Promise<Record<string, string>> {
-  const schema = declared.endpoint.northwindSchema;
+  const schema = need(declared.endpoint.northwindSchema, "northwind schema");
   // harryho ports use different casings per engine; introspect and pick.
   const listed = await sourceTables(control.deps, declared.sourceId);
   const want = new Set(

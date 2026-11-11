@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Start the sample-database lab (Postgres, MySQL, MariaDB; SQL Server with --mssql).
+# Start the sample-database lab (Postgres, MySQL, MariaDB; SQL Server with
+# --mssql; Oracle Free with --oracle; both with --all).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 LAB="$ROOT/docker/lab"
@@ -12,8 +13,14 @@ fi
 # Postgres refuses a world-readable key.
 chmod 600 "$LAB/certs/server.key"
 PROFILE_ARGS=()
-if [[ "${1:-}" == "--mssql" ]] || [[ "${1:-}" == "--all" ]]; then
-  PROFILE_ARGS+=(--profile mssql)
-fi
+for arg in "$@"; do
+  case "$arg" in
+    --mssql) PROFILE_ARGS+=(--profile mssql) ;;
+    --oracle) PROFILE_ARGS+=(--profile oracle) ;;
+    --all)
+      PROFILE_ARGS+=(--profile mssql --profile oracle)
+      ;;
+  esac
+done
 docker compose "${PROFILE_ARGS[@]}" up -d
 docker compose "${PROFILE_ARGS[@]}" ps

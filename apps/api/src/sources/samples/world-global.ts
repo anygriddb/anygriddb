@@ -1,11 +1,11 @@
 /**
- * Vitest global setup for the sample suites: the four client engines, started
+ * Vitest global setup for the sample suites: the five client engines, started
  * and loaded once for every suite.
  *
- * With `ANYGRIDDB_LAB_HOST`, the docker/lab compose serves them over TLS.
- * Otherwise Testcontainers starts them on the loopback, and
- * `scripts/lab/seed.sh` loads them, so both paths get the same datasets,
- * grants, and time zone tables.
+ * With `ANYGRIDDB_LAB_HOST`, the docker/lab compose serves them over TLS
+ * (Oracle through the TCPS front on 52484). Otherwise Testcontainers starts
+ * them on the loopback, and `scripts/lab/seed.sh` loads them, so both paths
+ * get the same datasets and grants.
  */
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -23,6 +23,7 @@ const repoRoot = join(
   "../../../../..",
 );
 const STARTUP_MS = 300_000;
+const ORACLE_STARTUP_MS = 600_000;
 
 function postgres(): Promise<StartedTestContainer> {
   return (
@@ -110,6 +111,15 @@ function sqlServer(): Promise<StartedTestContainer> {
     .start();
 }
 
+function oracle(): Promise<StartedTestContainer> {
+  return new GenericContainer("gvenzl/oracle-free:23-slim-faststart")
+    .withEnvironment({ ORACLE_PASSWORD: LAB_PASSWORD })
+    .withExposedPorts(1521)
+    .withWaitStrategy(Wait.forLogMessage(/DATABASE IS READY TO USE/i))
+    .withStartupTimeout(ORACLE_STARTUP_MS)
+    .start();
+}
+
 export default async function setup(
   project: TestProject,
 ): Promise<() => Promise<void>> {
@@ -128,6 +138,7 @@ export default async function setup(
     mysql(),
     mariadb(),
     sqlServer(),
+    oracle(),
   ]);
   const containers = started.flatMap((s) =>
     s.status === "fulfilled" ? [s.value] : [],
@@ -140,7 +151,8 @@ export default async function setup(
     await stop();
     throw failed.reason;
   }
-  const [pg, my, maria, mssql] = containers as [
+  const [pg, my, maria, mssql, ora] = containers as [
+    StartedTestContainer,
     StartedTestContainer,
     StartedTestContainer,
     StartedTestContainer,
@@ -156,6 +168,7 @@ export default async function setup(
         LAB_MYSQL_CONTAINER: my.getId(),
         LAB_MARIADB_CONTAINER: maria.getId(),
         LAB_MSSQL_CONTAINER: mssql.getId(),
+        LAB_ORACLE_CONTAINER: ora.getId(),
       },
       stdio: "inherit",
     });
@@ -173,6 +186,8 @@ export default async function setup(
         mysql: my.getMappedPort(3306),
         mariadb: maria.getMappedPort(3306),
         sqlserver: mssql.getMappedPort(1433),
+        // Plaintext TCP: samples allow plaintext when no lab CA is set.
+        oracle: ora.getMappedPort(1521),
       },
       { adventureWorks: false },
     ),

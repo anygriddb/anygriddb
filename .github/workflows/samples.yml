@@ -1,7 +1,8 @@
 name: Samples
 
 # The sample-database suites (Chinook, Northwind, Sakila, Pagila) on the
-# four engines: long, so weekly and on demand, not on every push.
+# five engines (incl. Oracle Free): long, so weekly and on demand, not on
+# every push.
 on:
   schedule:
     - cron: "17 3 * * 1"

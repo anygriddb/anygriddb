@@ -3,7 +3,6 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AppError, type EngineCatalog } from "@anygriddb/core";
-import { loadEngine } from "../../data/engine.js";
 import { readPage } from "../../data/rows.js";
 import { addColumn } from "../../data/schema-ops.js";
 import { changeStatus, loadRowScope, updateRows } from "../../services/rows.js";
@@ -12,6 +11,7 @@ import { checkSeals } from "../statuses.js";
 import { setTableWatch } from "../watch.js";
 import { recordingBus } from "../../realtime/recording-bus.test-helpers.js";
 import { sampleWorld, type SampleWorld } from "./engines.js";
+import { SAMPLE_ENGINES } from "./types.js";
 import {
   closeSampleControl,
   need,
@@ -84,7 +84,7 @@ describe("samples D–G writes, side, watch, seals", () => {
     );
   }
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
+  it.each(SAMPLE_ENGINES)(
     "D5 updates Genre name under compare-lock on %s",
     async (engine) => {
       const genreId = need(exposedByEngine.get(engine)?.genre, "genre");
@@ -149,7 +149,7 @@ describe("samples D–G writes, side, watch, seals", () => {
     },
   );
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
+  it.each(SAMPLE_ENGINES)(
     "D13 refuses Artist write when disabled on %s",
     async (engine) => {
       const artistId = need(exposedByEngine.get(engine)?.artist, "artist");
@@ -182,21 +182,72 @@ describe("samples D–G writes, side, watch, seals", () => {
     },
   );
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
-    "E side number field on Album on %s",
+  it.each(SAMPLE_ENGINES)(
+    "E side number, email, and rating on Album on %s",
     async (engine) => {
       const albumId = need(exposedByEngine.get(engine)?.album, "album");
-      const side = await addColumn(control.db, control.actorId, albumId, {
+      const sideNumber = await addColumn(control.db, control.actorId, albumId, {
         label: `score_${engine}`,
         fieldType: "number",
       });
-      const { engine: catalog } = await loadEngine(
-        control.db,
-        albumId,
-        () => true,
+      const sideEmail = await addColumn(control.db, control.actorId, albumId, {
+        label: `mail_${engine}`,
+        fieldType: "email",
+      });
+      const sideRating = await addColumn(control.db, control.actorId, albumId, {
+        label: `rate_${engine}`,
+        fieldType: "rating",
+      });
+      const scope = await scopeOf(albumId);
+      for (const name of [sideNumber.name, sideEmail.name, sideRating.name]) {
+        const col = scope.engine.table.columns.find((c) => c.name === name);
+        expect(col?.physical?.side).toBe(true);
+      }
+      const id = columnOf(
+        scope.engine,
+        engine === "postgres" ? "album_id" : "AlbumId",
       );
-      const col = catalog.table.columns.find((c) => c.name === side.name);
-      expect(col?.physical?.side).toBe(true);
+      const page = await readPage(
+        control.db,
+        scope.engine,
+        { limit: 1, offset: 0, timeZone: "UTC" },
+        { total: false },
+      );
+      const row = need(page.rows[0], "row");
+      const rowId = String(row[id]);
+      await updateRows(
+        services,
+        scope,
+        [
+          {
+            rowId,
+            values: {
+              [sideNumber.name]: 7,
+              [sideEmail.name]: "album@example.com",
+              [sideRating.name]: 4,
+            },
+          },
+        ],
+        { source: "web" },
+      );
+      const after = await readPage(
+        control.db,
+        (await scopeOf(albumId)).engine,
+        {
+          limit: 1,
+          offset: 0,
+          timeZone: "UTC",
+          filter: {
+            conjunction: "and",
+            conditions: [{ column: id, op: "is", value: rowId }],
+          },
+        },
+        { total: false },
+      );
+      const updated = need(after.rows[0], "updated");
+      expect(Number(updated[sideNumber.name])).toBe(7);
+      expect(updated[sideEmail.name]).toBe("album@example.com");
+      expect(Number(updated[sideRating.name])).toBe(4);
     },
   );
 
@@ -217,7 +268,7 @@ describe("samples D–G writes, side, watch, seals", () => {
     },
   );
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
+  it.each(SAMPLE_ENGINES)(
     "G submit then lock Album row on %s",
     async (engine) => {
       const albumId = need(exposedByEngine.get(engine)?.album, "album");
