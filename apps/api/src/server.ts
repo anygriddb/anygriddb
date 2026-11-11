@@ -56,7 +56,7 @@ import type { SourceSettings } from "./sources/types.js";
 import { refreshTls, type TlsState } from "./tls/authority.js";
 import { redirectPlainHttp } from "./tls/listener.js";
 import { registerWebApp } from "./web-app.js";
-import { GridHub } from "./ws.js";
+import { GridHub, SOCKET_OPTIONS } from "./ws.js";
 
 /** How often the served certificate is checked for renewal or new files. */
 const TLS_CHECK_MS = 12 * 3_600_000;
@@ -216,7 +216,7 @@ export async function createApp(deps: {
   await registerCompression(app);
   await registerRateLimit(app);
   await app.register(cookie);
-  await app.register(websocket);
+  await app.register(websocket, SOCKET_OPTIONS);
   await registerAttachmentRoutes(app, {
     db: deps.db,
     files: deps.files,

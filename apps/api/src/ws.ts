@@ -7,6 +7,16 @@ import { CELL_TOKEN, cellLockKey, gridChannel } from "./realtime/channels.js";
 import { acquireLock } from "./realtime/locks.js";
 
 const MAX_MESSAGE_CHARS = 16_384;
+/**
+ * The socket server's own options. A page's message holds ASCII tokens only,
+ * so one the parser accepts is never more bytes than characters: anything
+ * longer is refused while it arrives (close 1009), not read whole and then
+ * dropped. Without it a socket takes frames of 100 MiB, and holds some
+ * before its session is known.
+ */
+export const SOCKET_OPTIONS = {
+  options: { maxPayload: MAX_MESSAGE_CHARS },
+} as const;
 /** How often each socket is checked and told the link is alive (ADR 0049). */
 export const BEAT_MS = 25_000;
 const BEAT = JSON.stringify({ type: "beat" });
