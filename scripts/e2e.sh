@@ -22,11 +22,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [ "${CI:-}" = "true" ]; then
-  pnpm --filter @anygriddb/web exec playwright install --with-deps chromium
-else
-  pnpm --filter @anygriddb/web exec playwright install chromium
-fi
+# The browser only, never its system packages: a CI runner already has
+# the libraries, and fetching packages ties every run to a mirror.
+pnpm --filter @anygriddb/web exec playwright install chromium
 
 "${compose[@]}" up -d db --wait
 pnpm --filter @anygriddb/web exec playwright test
