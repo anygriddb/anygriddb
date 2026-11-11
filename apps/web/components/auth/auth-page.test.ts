@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { invitationToken, safeNext } from "./auth-page";
+import { invitationToken, safeNext, signupNeedsMail } from "./auth-page";
 
 describe("safeNext", () => {
   it("keeps an in-app path", () => {
@@ -30,5 +30,20 @@ describe("invitationToken", () => {
     expect(invitationToken("/invite/short")).toBeUndefined();
     expect(invitationToken(`/invite/${"a".repeat(43)}/more`)).toBeUndefined();
     expect(invitationToken(`/b/${"a".repeat(43)}`)).toBeUndefined();
+  });
+});
+
+describe("signupNeedsMail", () => {
+  const token = "a".repeat(43);
+
+  it("tells, before anything is typed, that a sign-up of one's own cannot succeed", () => {
+    expect(signupNeedsMail(true, "/")).toBe(true);
+    expect(signupNeedsMail(true, "/b/abc")).toBe(true);
+  });
+
+  it("lets an invitation's link through, and any sign-up where email works", () => {
+    expect(signupNeedsMail(true, `/invite/${token}`)).toBe(false);
+    expect(signupNeedsMail(false, "/")).toBe(false);
+    expect(signupNeedsMail(undefined, "/")).toBe(false);
   });
 });

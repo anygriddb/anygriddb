@@ -7681,6 +7681,10 @@ msgstr "Cet hôte n'est pas autorisé : l'opérateur l'ajoute à ANYGRIDDB_SOURC
 msgid "This instance is up to date"
 msgstr "Cette instance est à jour"
 
+#: components/auth/auth-page.tsx
+msgid "This instance sends no email, so it cannot confirm a new address. Open the invitation link you were sent, or ask an administrator to add you."
+msgstr "Cette instance n'envoie pas d'emails : elle ne peut pas confirmer une nouvelle adresse. Ouvrez le lien d'invitation que vous avez reçu, ou demandez à un administrateur de vous ajouter."
+
 #: lib/errors.ts
 msgid "This instance sends no email, so it cannot confirm your address. Ask an administrator for an account, or use the invitation link you were sent."
 msgstr "Cette instance n'envoie pas d'e-mail : elle ne peut pas confirmer votre adresse. Demandez un compte à un administrateur, ou utilisez le lien d'invitation reçu."

@@ -16,6 +16,7 @@ import {
   errorCode,
 } from "../trpc/caller.test-helpers.js";
 import {
+  createSignupRequest,
   MAX_PENDING_PER_ADDRESS,
   purgeSignupRequests,
 } from "./signup-requests.js";
@@ -83,6 +84,8 @@ describe("sign-up", () => {
 
   it("makes the first account at once: it sets the instance up", async () => {
     const email = `first-${suffix}@example.org`;
+    // No email is needed for it, and the page knows.
+    expect((await admin.call().auth.instance()).signupNeedsMail).toBe(false);
     expect(
       await admin.call().auth.signup({
         email,
@@ -107,14 +110,14 @@ describe("sign-up", () => {
     expect(await accountOf(email)).toBeUndefined();
     expect(await pending(email)).toBe(0);
     expect(page.jar).toEqual({});
-    expect((await page.call().auth.instance()).signupByMail).toBe(false);
+    expect((await page.call().auth.instance()).signupNeedsMail).toBe(true);
   });
 
   it("makes the account only once the link is opened with the same password", async () => {
     mailOn();
     const email = `ben-${suffix}@example.org`;
     const page = browser();
-    expect((await page.call().auth.instance()).signupByMail).toBe(true);
+    expect((await page.call().auth.instance()).signupNeedsMail).toBe(false);
     expect(
       await page
         .call({ "accept-language": "fr-FR,fr;q=0.9" })
@@ -200,6 +203,23 @@ describe("sign-up", () => {
       await linkFor(email);
     }
     await expect(smtp.next(email, 300)).rejects.toThrow("no mail");
+  });
+
+  it("counts sign-ups that race for an address no request names yet", async () => {
+    const email = `race-${suffix}@example.org`;
+    const made = await Promise.all(
+      Array.from({ length: MAX_PENDING_PER_ADDRESS + 3 }, () =>
+        createSignupRequest(db, {
+          email,
+          displayName: "Race",
+          passwordHash: "not-a-hash",
+        }),
+      ),
+    );
+    expect(made.filter((link) => link !== null)).toHaveLength(
+      MAX_PENDING_PER_ADDRESS,
+    );
+    expect(await pending(email)).toBe(MAX_PENDING_PER_ADDRESS);
   });
 
   it("makes an address of ADMIN_EMAILS an administrator only once it is proved", async () => {
