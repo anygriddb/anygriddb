@@ -13,6 +13,7 @@ import { canManage } from "../../lib/types";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { LoadFailed } from "./load-failed";
 import { NewTableDialog } from "./new-table-dialog";
 import { EmptyState, NotebookPage } from "./notebook-page";
 import { useInvalidateCatalog } from "./sidebar";
@@ -38,6 +39,14 @@ export function BaseHome({ baseId }: { baseId: string }) {
     .slice(0, 6);
 
   if (!catalog.data) {
+    if (catalog.isError) {
+      return (
+        <LoadFailed
+          error={catalog.error}
+          onRetry={() => void catalog.refetch()}
+        />
+      );
+    }
     return (
       <div className="flex flex-1 items-center justify-center">
         <Spinner />

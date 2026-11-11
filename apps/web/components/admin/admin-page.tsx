@@ -25,6 +25,7 @@ import {
   LockKeyhole,
   MonitorSmartphone,
   MoreHorizontal,
+  Plug,
   RefreshCw,
   ScrollText,
   Settings2,
@@ -37,7 +38,9 @@ import { toast } from "sonner";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
+import { LoadFailed } from "../shell/load-failed";
 import { NotebookPage, PageTabs, RuledSection } from "../shell/notebook-page";
+import { IntegrationsTab } from "./integrations-tab";
 import { ScimTab } from "./scim-tab";
 import { SecurityTab } from "./security-tab";
 import { SessionsTab } from "./sessions-tab";
@@ -64,6 +67,7 @@ type Tab =
   | "users"
   | "sessions"
   | "provisioning"
+  | "integrations"
   | "sources"
   | "audit"
   | "health"
@@ -1000,6 +1004,14 @@ function SettingsTab() {
       toast.error(errorText(cause));
     }
   }
+  if (settings.isError) {
+    return (
+      <LoadFailed
+        error={settings.error}
+        onRetry={() => void settings.refetch()}
+      />
+    );
+  }
   if (!settings.data) return <Spinner />;
   const bannerText = banner ?? settings.data.banner ?? "";
   const savedDomains = settings.data.signupDomains.join(", ");
@@ -1117,6 +1129,56 @@ function SettingsTab() {
           {t`Used until a person picks their own language.`}
         </p>
       </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="setting-attachment-mb">{t`Largest attachment`}</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            id="setting-attachment-mb"
+            type="number"
+            className="w-28"
+            min={1}
+            max={500}
+            placeholder="20"
+            aria-describedby="setting-attachment-mb-hint"
+            defaultValue={
+              settings.data.attachmentMaxBytes != null
+                ? String(
+                    Math.round(
+                      settings.data.attachmentMaxBytes / (1024 * 1024),
+                    ),
+                  )
+                : ""
+            }
+            key={String(settings.data.attachmentMaxBytes)}
+            onBlur={(event) => {
+              const raw = event.target.value.trim();
+              if (!raw) {
+                if (settings.data.attachmentMaxBytes != null) {
+                  void save({ attachmentMaxBytes: null });
+                }
+                return;
+              }
+              const mb = Number(raw);
+              if (!Number.isFinite(mb) || mb < 1 || mb > 500) {
+                // Out of bounds: the field shows what is saved again.
+                event.target.value = event.target.defaultValue;
+                return;
+              }
+              const bytes = Math.round(mb * 1024 * 1024);
+              if (bytes !== settings.data.attachmentMaxBytes) {
+                void save({ attachmentMaxBytes: bytes });
+              }
+            }}
+          />
+          <span className="text-sm text-muted-foreground">{t`MiB`}</span>
+        </div>
+        <p
+          id="setting-attachment-mb-hint"
+          className="text-xs text-muted-foreground"
+        >
+          {t`Empty uses the environment, then 20 MiB. Between 1 and 500.`}
+        </p>
+      </div>
       {maintenance !== null ? (
         <ConfirmDialog
           open
@@ -1158,6 +1220,7 @@ export function AdminPage() {
     { value: "users", label: t`Accounts`, icon: Users },
     { value: "sessions", label: t`Sessions`, icon: MonitorSmartphone },
     { value: "provisioning", label: t`Provisioning`, icon: KeyRound },
+    { value: "integrations", label: t`Integrations`, icon: Plug },
     { value: "sources", label: t`Sources`, icon: Database },
     { value: "audit", label: t`Audit log`, icon: ScrollText },
     { value: "health", label: t`Health`, icon: Activity },
@@ -1177,6 +1240,7 @@ export function AdminPage() {
         {tab === "users" ? <UsersTab /> : null}
         {tab === "sessions" ? <SessionsTab /> : null}
         {tab === "provisioning" ? <ScimTab /> : null}
+        {tab === "integrations" ? <IntegrationsTab /> : null}
         {tab === "sources" ? <SourcesTab /> : null}
         {tab === "audit" ? <AuditTab /> : null}
         {tab === "health" ? <HealthTab /> : null}

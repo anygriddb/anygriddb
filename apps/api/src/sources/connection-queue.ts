@@ -19,20 +19,29 @@ export type ConnectionQueue<C> = {
 };
 
 /**
+ * How long a read waits for a free connection, as a PostgreSQL source's
+ * pool does (`connectionTimeoutMillis`): past it, the source is busy.
+ */
+export const QUEUE_WAIT_MS = 10_000;
+
+/**
  * At most `limit` connections to one source, kept idle between uses, for
  * drivers without a pool of their own. Callers past the limit wait in
- * turn. A place freed by a broken connection, or by one that failed to
- * open, goes to the next one waiting on a connection of its own: no one
- * waits for a connection that will never come back.
+ * turn, at most `waitMs`: a source whose connections are all held does
+ * not pile up requests that wait for ever. A place freed by a broken
+ * connection, or by one that failed to open, goes to the next one waiting
+ * on a connection of its own: no one waits for a connection that will
+ * never come back.
  */
 export function connectionQueue<C>(
   limit: number,
   hooks: ConnectionHooks<C>,
+  waitMs = QUEUE_WAIT_MS,
 ): ConnectionQueue<C> {
   const idle: C[] = [];
   const waiting: Array<{
     resolve: (connection: C) => void;
-    reject: (error: unknown) => void;
+    reject: (error: Error) => void;
   }> = [];
   let open = 0;
   let ended = false;
@@ -64,8 +73,26 @@ export function connectionQueue<C>(
         void discard(ready);
       }
       if (open >= limit) {
+        if (waiting.length >= limit) {
+          return Promise.reject(new AppError("source_timeout"));
+        }
         return new Promise((resolve, reject) => {
-          waiting.push({ resolve, reject });
+          const waiter = {
+            resolve: (connection: C) => {
+              clearTimeout(timer);
+              resolve(connection);
+            },
+            reject: (error: Error) => {
+              clearTimeout(timer);
+              reject(error);
+            },
+          };
+          const timer = setTimeout(() => {
+            const at = waiting.indexOf(waiter);
+            if (at >= 0) waiting.splice(at, 1);
+            reject(new AppError("source_timeout"));
+          }, waitMs);
+          waiting.push(waiter);
         });
       }
       return connect();

@@ -6,6 +6,7 @@
  */
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
+import { resolveSmtp } from "../integrations/smtp.js";
 import { sendMail, smtpReady, type SmtpConfig } from "../mail.js";
 import {
   lockAlertBody,
@@ -22,7 +23,7 @@ export const LOCK_ALERTS_PER_HOUR = 10;
 export type LockAlertDeps = {
   db: Database;
   bus: Publisher;
-  env: SmtpConfig & { PUBLIC_URL: string };
+  env: SmtpConfig & { PUBLIC_URL: string; AUTH_ENCRYPTION_KEY: Buffer };
   log: { error: (object: object, message: string) => void };
 };
 
@@ -91,11 +92,12 @@ export async function alertLock(
       deps.log.error({ err: error }, "notification publish failed");
     }
   }
-  if (smtpReady(deps.env)) {
+  const { config: smtp } = await resolveSmtp(deps.db, deps.env);
+  if (smtpReady(smtp)) {
     const locale = resolveLocale(null, settings.defaultLocale);
     const adminUrl = `${deps.env.PUBLIC_URL.replace(/\/+$/, "")}/admin`;
     for (const admin of admins) {
-      await sendMail(deps.env, {
+      await sendMail(smtp, {
         to: admin.email,
         subject: lockAlertSubject(locale, alert),
         text: lockAlertBody(locale, alert, adminUrl),

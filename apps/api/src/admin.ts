@@ -10,6 +10,7 @@ import type { AuditAction, Database } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
 import type { Bus } from "./realtime/bus.js";
 import { factorMethods } from "./auth/access.js";
+import { ERASED_USER_ID } from "./data/erasure.js";
 import { recordAuthEvent } from "./auth/auth-events.js";
 import { BUILD } from "./build-info.js";
 import type { FileStore } from "./files/index.js";
@@ -36,6 +37,7 @@ export async function signupDecision(
   const existing = await db
     .selectFrom("users")
     .select("id")
+    .where("id", "<>", ERASED_USER_ID)
     .limit(1)
     .executeTakeFirst();
   const firstAccount = !existing;
@@ -94,7 +96,9 @@ export async function listUsers(
     ? `%${input.search.replace(/[%_\\]/g, "\\$&")}%`
     : undefined;
   const matching = () => {
-    const query = db.selectFrom("users as u");
+    const query = db
+      .selectFrom("users as u")
+      .where("u.id", "<>", ERASED_USER_ID);
     return pattern
       ? query.where((eb) =>
           eb.or([
@@ -168,7 +172,7 @@ export async function setUserDisabled(
   userId: string,
   disabled: boolean,
 ): Promise<void> {
-  if (actorId === userId) {
+  if (actorId === userId || userId === ERASED_USER_ID) {
     throw new AppError("invalid_account");
   }
   await db.transaction().execute(async (tx) => {
@@ -208,6 +212,9 @@ export async function setUserAdmin(
   userId: string,
   admin: boolean,
 ): Promise<void> {
+  if (userId === ERASED_USER_ID) {
+    throw new AppError("invalid_account");
+  }
   await db.transaction().execute(async (tx) => {
     if (!admin) {
       // Locking the active administrators keeps two of them from removing
@@ -314,6 +321,7 @@ export async function instanceHealth(deps: {
   const userCount = await deps.db
     .selectFrom("users")
     .select(value)
+    .where("id", "<>", ERASED_USER_ID)
     .executeTakeFirst();
   const baseCount = await deps.db
     .selectFrom("bases")

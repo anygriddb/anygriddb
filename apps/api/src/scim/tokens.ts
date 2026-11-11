@@ -9,6 +9,7 @@ import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { z } from "zod";
 import { withAudit } from "../data/audit-context.js";
+import { readGateSettings } from "../settings.js";
 
 const SCIM_TOKEN = /^agscim_[A-Za-z0-9_-]{43}$/;
 
@@ -25,10 +26,17 @@ export async function createScimToken(
   name: string,
 ): Promise<{ id: string; token: string }> {
   const token = `agscim_${randomBytes(32).toString("base64url")}`;
+  const { tokenMaxDays } = await readGateSettings(db);
+  const expiresAt = new Date(Date.now() + tokenMaxDays * 86_400_000);
   const row = await withAudit(db, { userId: actorId, source: "web" }, (tx) =>
     tx
       .insertInto("scimTokens")
-      .values({ name, tokenHash: tokenHash(token), createdBy: actorId })
+      .values({
+        name,
+        tokenHash: tokenHash(token),
+        createdBy: actorId,
+        expiresAt,
+      })
       .returning("id")
       .executeTakeFirstOrThrow(),
   );
@@ -43,6 +51,7 @@ export async function listScimTokens(db: Database) {
       "t.id",
       "t.name",
       "t.createdAt",
+      "t.expiresAt",
       "t.lastUsedAt",
       "u.displayName as createdBy",
       sql<boolean>`(u.is_admin and u.disabled_at is null)`.as("active"),
@@ -52,6 +61,7 @@ export async function listScimTokens(db: Database) {
   return rows.map((row) => ({
     ...row,
     createdAt: row.createdAt.toISOString(),
+    expiresAt: row.expiresAt.toISOString(),
     lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
   }));
 }
@@ -89,6 +99,7 @@ export async function scimActor(
     .innerJoin("users as u", "u.id", "t.createdBy")
     .select(["t.id", "t.createdBy"])
     .where("t.tokenHash", "=", tokenHash(token))
+    .where("t.expiresAt", ">", new Date())
     .where("u.isAdmin", "=", true)
     .where("u.disabledAt", "is", null)
     .executeTakeFirst();

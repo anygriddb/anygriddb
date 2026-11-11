@@ -256,6 +256,34 @@ describe("filters", () => {
   });
 });
 
+describe("search", () => {
+  it("matches only the fields the read asked to show", () => {
+    const limited = buildReadRows(catalogFor(), {
+      limit: 10,
+      search: "secret",
+      fields: ["title"],
+    });
+    const where = limited.text.slice(limited.text.lastIndexOf(" where "));
+    expect(where).toContain(`q."title"`);
+    expect(where).not.toContain(`q."status"`);
+    expect(where).not.toContain(`q."price"`);
+    const open = buildReadRows(catalogFor(), { limit: 10, search: "secret" });
+    expect(open.text).toContain(`q."status"`);
+  });
+
+  it("does not bind a time zone when fields limit the read and search is off", () => {
+    const page = buildReadRows(catalogFor(), {
+      limit: 10,
+      fields: ["title"],
+      timeZone: "UTC",
+    });
+    expect(page.values).not.toContain("UTC");
+    for (let index = 1; index <= page.values.length; index += 1) {
+      expect(page.text).toContain(`$${String(index)}`);
+    }
+  });
+});
+
 describe("count, groups, aggregates", () => {
   it("counts, groups with grouping sets, and aggregates", () => {
     expect(buildCountRows(catalogFor(), { search: "x" }).text).toMatch(

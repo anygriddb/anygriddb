@@ -14,6 +14,7 @@ import { useSession } from "../../lib/session";
 import { useTRPC } from "../../lib/trpc";
 import { safeNext } from "../auth/auth-page";
 import { CommandPalette } from "./command-palette";
+import { LoadFailed } from "./load-failed";
 import { ShortcutsDialog } from "./shortcuts-dialog";
 import { Sidebar } from "./sidebar";
 
@@ -102,6 +103,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   }, [mustEnroll, onSetup, navigate]);
   if (!session.data) {
+    if (session.isError) {
+      return (
+        <LoadFailed
+          fullScreen
+          error={session.error}
+          onRetry={() => void session.refetch()}
+        />
+      );
+    }
     return (
       <div className="flex h-screen items-center justify-center">
         <Spinner />

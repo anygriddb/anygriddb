@@ -74,10 +74,12 @@ describe("instance controls", () => {
     });
     const users = await db
       .selectFrom("users")
-      .select(["id", "isAdmin"])
+      .select(["id", "email", "isAdmin"])
       .execute();
     adminId = users.find((user) => user.isAdmin)?.id ?? "";
-    memberId = users.find((user) => !user.isAdmin)?.id ?? "";
+    // By its address: the account erased people become is no administrator
+    // either.
+    memberId = users.find((user) => user.email === memberEmail)?.id ?? "";
     // A name a spreadsheet would run as a formula, as an identity provider
     // may send one (sign-up refuses it).
     await db

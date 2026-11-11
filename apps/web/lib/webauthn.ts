@@ -72,9 +72,16 @@ export async function signInWithPasskey(): Promise<void> {
   );
 }
 
-/** Registers a passkey. Returns fresh backup codes when the account had none. */
-export async function registerPasskey(): Promise<string[]> {
-  const options = await trpc.auth.webauthn.registerBegin.mutate();
+/**
+ * Registers a passkey, with the proof the account asks for (its password,
+ * or a code from its authenticator). Returns fresh backup codes when the
+ * account had none.
+ */
+export async function registerPasskey(proof?: {
+  password?: string;
+  factorCode?: string;
+}): Promise<string[]> {
+  const options = await trpc.auth.webauthn.registerBegin.mutate(proof);
   const response = await startRegistration({
     optionsJSON: options as PublicKeyCredentialCreationOptionsJSON,
   });

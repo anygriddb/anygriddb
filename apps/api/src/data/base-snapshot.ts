@@ -1,5 +1,6 @@
 import {
   AppError,
+  DEFAULT_ATTACHMENT_MAX_BYTES,
   type BaseSnapshot,
   baseSnapshotSchema,
   type CellValue,
@@ -34,7 +35,6 @@ import { join } from "node:path";
 import type { Database } from "@anygriddb/db";
 import {
   cleanFilename,
-  DEFAULT_ATTACHMENT_BYTES,
   loadAttachmentMeta,
   storeAttachment,
 } from "../attachments.js";
@@ -732,7 +732,7 @@ export async function importBaseSnapshot(
         rows: table.rows,
         fileColumns,
         readFile: input.readFile,
-        maxBytes: input.maxFileBytes ?? DEFAULT_ATTACHMENT_BYTES,
+        maxBytes: input.maxFileBytes ?? DEFAULT_ATTACHMENT_MAX_BYTES,
         report,
       });
       const values = table.rows.map((row) =>

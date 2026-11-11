@@ -62,6 +62,10 @@ export default defineConfig({
         // has no certificate: for this test server only.
         ANYGRIDDB_SOURCES_ALLOWED_HOSTS: "127.0.0.1,localhost",
         ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT: "true",
+        // The browser is the TCP peer. Trusting loopback lets a journey
+        // choose X-Forwarded-For. Production leaves this empty.
+        ANYGRIDDB_TRUSTED_PROXIES:
+          process.env.ANYGRIDDB_TRUSTED_PROXIES ?? "127.0.0.1,::1",
       },
     },
   ],

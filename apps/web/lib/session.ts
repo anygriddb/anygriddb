@@ -6,7 +6,9 @@ export function useSession() {
   return useQuery({
     ...trpc.session.current.queryOptions(),
     staleTime: 60_000,
-    retry: false,
+    // Signed out is an answer (null), not a failure: what fails is the API
+    // out of reach, as while it restarts. Two more tries ride that out.
+    retry: 2,
   });
 }
 

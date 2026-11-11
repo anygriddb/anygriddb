@@ -37,7 +37,11 @@ export type AuthDetail =
   /** Disabled after the instance's delay without activity (ADR 0044). */
   | "inactive"
   /** A setting that changed (`settings_changed`): its key. */
-  | keyof InstanceSettings;
+  | keyof InstanceSettings
+  /** An integration saved or cleared from Administration (ADR 0050). */
+  | "smtp"
+  | "oidc"
+  | "saml";
 
 /** Only an address is kept: anything else a proxy sent is dropped. */
 export function clientAddress(raw: string | null | undefined): string | null {

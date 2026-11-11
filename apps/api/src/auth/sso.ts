@@ -37,6 +37,7 @@ export async function userForIdentity(
   email: string,
   name: string,
   adminEmails?: string,
+  options: { linkExisting?: boolean } = {},
 ): Promise<string> {
   const normalized = email.toLowerCase();
   const { provider, issuer, subject } = identity;
@@ -57,6 +58,11 @@ export async function userForIdentity(
       .select("id")
       .where("email", "=", normalized)
       .executeTakeFirst();
+    // An unverified address must not take over an account that already
+    // exists. A new account can still be created when sign-up allows it.
+    if (existing && options.linkExisting === false) {
+      throw new AppError("invalid_credentials");
+    }
     let userId = existing?.id;
     if (userId && subject) {
       const other = await tx

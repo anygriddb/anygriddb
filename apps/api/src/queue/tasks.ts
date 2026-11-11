@@ -62,6 +62,7 @@ import {
   runSync,
 } from "../sources/sync.js";
 import { announceRows } from "../data/announce.js";
+import { resolveSmtp } from "../integrations/smtp.js";
 import { runScheduledReleaseCheck } from "../release-status.js";
 import { transactionEvents } from "./row-events.js";
 import type { WorkerGroup } from "./worker.js";
@@ -107,31 +108,42 @@ async function fanOut(db: Database, events: readonly RowEvent[]) {
 }
 
 export function taskGroups(deps: TaskDeps): WorkerGroup[] {
-  const notifyDeps: NotifyDeps = {
-    db: deps.db,
-    bus: deps.bus,
-    smtp: deps.env,
-    webOrigin: deps.env.PUBLIC_URL,
-    log: deps.log,
-  };
-  const hookDeps: HookDeps = {
-    db: deps.db,
-    key: deps.env.AUTH_ENCRYPTION_KEY,
-    smtp: deps.env,
-    log: deps.log,
-    notify: (items: NotificationInput[]) => notify(notifyDeps, items),
-  };
-  const automationDeps: AutomationDeps = {
-    db: deps.db,
-    bus: deps.bus,
-    smtp: deps.env,
-    webOrigin: deps.env.PUBLIC_URL,
-    log: deps.log,
-  };
+  async function mailSmtp() {
+    return (await resolveSmtp(deps.db, deps.env)).config;
+  }
+  async function notifyDeps(): Promise<NotifyDeps> {
+    return {
+      db: deps.db,
+      bus: deps.bus,
+      smtp: await mailSmtp(),
+      webOrigin: deps.env.PUBLIC_URL,
+      log: deps.log,
+    };
+  }
+  async function hookDeps(): Promise<HookDeps> {
+    const smtp = await mailSmtp();
+    return {
+      db: deps.db,
+      key: deps.env.AUTH_ENCRYPTION_KEY,
+      smtp,
+      log: deps.log,
+      notify: async (items: NotificationInput[]) =>
+        notify(await notifyDeps(), items),
+    };
+  }
+  async function automationDeps(): Promise<AutomationDeps> {
+    return {
+      db: deps.db,
+      bus: deps.bus,
+      smtp: await mailSmtp(),
+      webOrigin: deps.env.PUBLIC_URL,
+      log: deps.log,
+    };
+  }
   const sealDeps: SealDeps = {
     db: deps.db,
     log: deps.log,
-    notify: (items) => notify(notifyDeps, items),
+    notify: async (items) => notify(await notifyDeps(), items),
     announce: (tableId, rowIds) =>
       announceRows(
         { db: deps.db, bus: deps.bus, log: deps.log },
@@ -151,9 +163,7 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
     files: deps.files,
     log: deps.log,
     key: deps.env.AUTH_ENCRYPTION_KEY,
-    ...(deps.env.ATTACHMENT_MAX_BYTES
-      ? { attachmentMaxBytes: deps.env.ATTACHMENT_MAX_BYTES }
-      : {}),
+    envAttachmentMaxBytes: deps.env.ATTACHMENT_MAX_BYTES,
   });
 
   const rowEvents: Task = async (payload) => {
@@ -172,25 +182,25 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
 
   const events: TaskList = {
     [TASKS.rowEvents]: rowEvents,
-    [TASKS.webhooksEvent]: consumer((event) =>
-      handleWebhookEvent(hookDeps, event),
+    [TASKS.webhooksEvent]: consumer(async (event) =>
+      handleWebhookEvent(await hookDeps(), event),
     ),
     [TASKS.webhookAttempt]: async (payload) => {
       const { deliveryId } = deliveryPayloadSchema.parse(payload);
-      await runDeliveryAttempt(hookDeps, deliveryId);
+      await runDeliveryAttempt(await hookDeps(), deliveryId);
     },
-    [TASKS.assignmentsEvent]: consumer((event) =>
-      handleAssignments(notifyDeps, event),
+    [TASKS.assignmentsEvent]: consumer(async (event) =>
+      handleAssignments(await notifyDeps(), event),
     ),
-    [TASKS.automationsEvent]: consumer((event) =>
-      handleAutomationEvent(automationDeps, event),
+    [TASKS.automationsEvent]: consumer(async (event) =>
+      handleAutomationEvent(await automationDeps(), event),
     ),
     [TASKS.automationRun]: async (payload) => {
       const input = automationRunPayloadSchema.parse(payload);
-      await runQueuedAutomation(automationDeps, input);
+      await runQueuedAutomation(await automationDeps(), input);
     },
     [TASKS.automationSchedules]: async () => {
-      await runDueSchedules(automationDeps);
+      await runDueSchedules(await automationDeps());
     },
     [TASKS.jobsRecover]: async () => {
       await recoverJobs(queueDeps);

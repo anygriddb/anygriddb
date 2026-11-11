@@ -151,7 +151,7 @@ function NewWebhookForm(props: {
     conjunction: "and",
     conditions: [],
   });
-  const [includeValues, setIncludeValues] = useState(true);
+  const [includeValues, setIncludeValues] = useState(false);
   const [headerName, setHeaderName] = useState("");
   const [headerValue, setHeaderValue] = useState("");
   const [busy, setBusy] = useState(false);

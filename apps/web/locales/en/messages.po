@@ -70,6 +70,10 @@ msgid "(empty)"
 msgstr "(empty)"
 
 #: components/admin/scim-tab.tsx
+msgid "(expired)"
+msgstr "(expired)"
+
+#: components/admin/scim-tab.tsx
 msgid "(inactive: no longer an administrator)"
 msgstr "(inactive: no longer an administrator)"
 
@@ -551,6 +555,10 @@ msgstr "1 year"
 msgid "30 days"
 msgstr "30 days"
 
+#: components/admin/integrations-tab.tsx
+msgid "465 for TLS from the start, or 587 with STARTTLS."
+msgstr "465 for TLS from the start, or 587 with STARTTLS."
+
 #: components/admin/security-tab.tsx
 msgid "6 months"
 msgstr "6 months"
@@ -768,6 +776,10 @@ msgstr "Accounts, bases, tables"
 #: components/admin/admin-page.tsx
 msgid "Accounts, security, sources, and the instance itself."
 msgstr "Accounts, security, sources, and the instance itself."
+
+#: components/admin/integrations-tab.tsx
+msgid "ACS URL for the identity provider:"
+msgstr "ACS URL for the identity provider:"
 
 #: components/admin/admin-page.tsx
 #: components/fields/field-editor.tsx
@@ -1298,6 +1310,7 @@ msgid "Back"
 msgstr "Back"
 
 #: components/shell/not-found.tsx
+#: components/shell/page-crashed.tsx
 msgid "Back to home"
 msgstr "Back to home"
 
@@ -1620,6 +1633,7 @@ msgstr "Chosen: {label}"
 msgid "Circular formula: it depends on itself"
 msgstr "Circular formula: it depends on itself"
 
+#: components/admin/integrations-tab.tsx
 #: components/table/view-toolbar.tsx
 msgid "Clear"
 msgstr "Clear"
@@ -1632,9 +1646,41 @@ msgstr "Clear filters"
 msgid "Clear restrictions"
 msgstr "Clear restrictions"
 
+#: components/admin/integrations-tab.tsx
+msgid "Clear saved email"
+msgstr "Clear saved email"
+
+#: components/admin/integrations-tab.tsx
+msgid "Clear saved email?"
+msgstr "Clear saved email?"
+
+#: components/admin/integrations-tab.tsx
+msgid "Clear saved OIDC"
+msgstr "Clear saved OIDC"
+
+#: components/admin/integrations-tab.tsx
+msgid "Clear saved OIDC?"
+msgstr "Clear saved OIDC?"
+
+#: components/admin/integrations-tab.tsx
+msgid "Clear saved SAML"
+msgstr "Clear saved SAML"
+
+#: components/admin/integrations-tab.tsx
+msgid "Clear saved SAML?"
+msgstr "Clear saved SAML?"
+
 #: components/shell/shortcuts-dialog.tsx
 msgid "Clear the selected cells"
 msgstr "Clear the selected cells"
+
+#: components/admin/integrations-tab.tsx
+msgid "Client ID"
+msgstr "Client ID"
+
+#: components/admin/integrations-tab.tsx
+msgid "Client secret"
+msgstr "Client secret"
 
 #: app/providers.tsx
 #: components/record/record-panel.tsx
@@ -2016,6 +2062,10 @@ msgstr "Ctrl K"
 #: components/fields/field-editor.tsx
 msgid "Currency"
 msgstr "Currency"
+
+#: components/settings/second-factor.tsx
+msgid "Current authenticator code"
+msgstr "Current authenticator code"
 
 #: components/settings/account-settings.tsx
 msgid "Current password"
@@ -2488,6 +2538,14 @@ msgstr "Editor"
 msgid "Email"
 msgstr "Email"
 
+#: components/admin/integrations-tab.tsx
+msgid "Email (SMTP)"
+msgstr "Email (SMTP)"
+
+#: components/admin/integrations-tab.tsx
+msgid "Email and single sign-on for this instance. You can leave the environment empty at install and set these here; a complete save here overrides the environment."
+msgstr "Email and single sign-on for this instance. You can leave the environment empty at install and set these here; a complete save here overrides the environment."
+
 #: lib/errors.ts
 msgid "Email is not set up on this instance"
 msgstr "Email is not set up on this instance"
@@ -2499,6 +2557,10 @@ msgstr "Email is not set up, so pass this link on yourself, to this person only:
 #: components/admin/security-tab.tsx
 msgid "Email is not set up: only an administrator can send a link, which they pass on themselves."
 msgstr "Email is not set up: only an administrator can send a link, which they pass on themselves."
+
+#: components/admin/integrations-tab.tsx
+msgid "Email settings saved"
+msgstr "Email settings saved"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Embedded view"
@@ -2523,6 +2585,10 @@ msgstr "Empty the trash"
 #: components/shell/trash-dialog.tsx
 msgid "Empty the trash?"
 msgstr "Empty the trash?"
+
+#: components/admin/admin-page.tsx
+msgid "Empty uses the environment, then 20 MiB. Between 1 and 500."
+msgstr "Empty uses the environment, then 20 MiB. Between 1 and 500."
 
 #: components/table/automations-dialog.tsx
 msgid "Empty: the row as JSON"
@@ -2584,6 +2650,10 @@ msgstr "Engine"
 #: components/auth/auth-page.tsx
 msgid "Enter your address: we send a link to choose a new password. Your second factor stays as it is."
 msgstr "Enter your address: we send a link to choose a new password. Your second factor stays as it is."
+
+#: components/admin/integrations-tab.tsx
+msgid "Entry point (SSO URL)"
+msgstr "Entry point (SSO URL)"
 
 #: components/admin/admin-page.tsx
 #: components/admin/support-tab.tsx
@@ -2701,6 +2771,7 @@ msgstr "Expand column {name}"
 msgid "Expand row"
 msgstr "Expand row"
 
+#: components/admin/scim-tab.tsx
 #: components/admin/support-tab.tsx
 msgid "Expires"
 msgstr "Expires"
@@ -3048,6 +3119,10 @@ msgstr "Friday"
 msgid "From"
 msgstr "From"
 
+#: components/admin/integrations-tab.tsx
+msgid "From address"
+msgstr "From address"
+
 #: components/admin/admin-page.tsx
 msgid "from sources"
 msgstr "from sources"
@@ -3197,6 +3272,7 @@ msgstr "History"
 msgid "Horizontal bars"
 msgstr "Horizontal bars"
 
+#: components/admin/integrations-tab.tsx
 #: components/admin/sources-tab.tsx
 msgid "Host"
 msgstr "Host"
@@ -3232,6 +3308,10 @@ msgstr "I saved the codes"
 #: components/fields/field-editor.tsx
 msgid "Icon"
 msgstr "Icon"
+
+#: components/admin/integrations-tab.tsx
+msgid "IdP certificate (PEM)"
+msgstr "IdP certificate (PEM)"
 
 #: components/settings/api-console.tsx
 msgid "Ids, separated by commas"
@@ -3375,6 +3455,10 @@ msgstr "Insert left"
 msgid "Insert right"
 msgstr "Insert right"
 
+#: components/admin/admin-page.tsx
+msgid "Integrations"
+msgstr "Integrations"
+
 #: lib/errors.ts
 msgid "Internal error"
 msgstr "Internal error"
@@ -3430,6 +3514,10 @@ msgstr "Invalid email or password"
 #: lib/known-text.ts
 msgid "Invalid email settings"
 msgstr "Invalid email settings"
+
+#: lib/errors.ts
+msgid "Invalid email settings: check the host, port, and password"
+msgstr "Invalid email settings: check the host, port, and password"
 
 #: lib/errors.ts
 msgid "Invalid field"
@@ -3489,6 +3577,10 @@ msgid "Invalid number of fields"
 msgstr "Invalid number of fields"
 
 #: lib/errors.ts
+msgid "Invalid OpenID Connect settings"
+msgstr "Invalid OpenID Connect settings"
+
+#: lib/errors.ts
 msgid "Invalid option"
 msgstr "Invalid option"
 
@@ -3519,6 +3611,10 @@ msgstr "Invalid request body"
 #: lib/errors.ts
 msgid "Invalid row identifier"
 msgstr "Invalid row identifier"
+
+#: lib/errors.ts
+msgid "Invalid SAML settings: the entry point must be HTTPS"
+msgstr "Invalid SAML settings: the entry point must be HTTPS"
 
 #: lib/errors.ts
 msgid "Invalid table name"
@@ -3652,6 +3748,14 @@ msgstr "is within"
 msgid "Issue tracking"
 msgstr "Issue tracking"
 
+#: components/admin/integrations-tab.tsx
+msgid "Issuer / Entity ID"
+msgstr "Issuer / Entity ID"
+
+#: components/admin/integrations-tab.tsx
+msgid "Issuer URL"
+msgstr "Issuer URL"
+
 #: components/views/calendar-feed.tsx
 msgid "It has not been read yet."
 msgstr "It has not been read yet."
@@ -3740,6 +3844,10 @@ msgid "Language"
 msgstr "Language"
 
 #: components/admin/admin-page.tsx
+msgid "Largest attachment"
+msgstr "Largest attachment"
+
+#: components/admin/admin-page.tsx
 msgid "Last checked {date}"
 msgstr "Last checked {date}"
 
@@ -3794,6 +3902,18 @@ msgstr "Latest date"
 #: components/views/map-view.tsx
 msgid "Latitude"
 msgstr "Latitude"
+
+#: components/admin/integrations-tab.tsx
+msgid "Leave blank to keep the current certificate"
+msgstr "Leave blank to keep the current certificate"
+
+#: components/admin/integrations-tab.tsx
+msgid "Leave blank to keep the current password"
+msgstr "Leave blank to keep the current password"
+
+#: components/admin/integrations-tab.tsx
+msgid "Leave blank to keep the current secret"
+msgstr "Leave blank to keep the current secret"
 
 #: components/admin/sources-tab.tsx
 msgid "Leave blank to keep the stored password"
@@ -4062,6 +4182,10 @@ msgstr "Metric"
 #: components/dashboards/dashboard-list.tsx
 msgid "Metrics, charts, and embedded views over this base’s tables."
 msgstr "Metrics, charts, and embedded views over this base’s tables."
+
+#: components/admin/admin-page.tsx
+msgid "MiB"
+msgstr "MiB"
 
 #: components/admin/sources-tab.tsx
 msgid "min"
@@ -4501,6 +4625,10 @@ msgstr "Offer to submit another response"
 msgid "Offered role: {role}. Sent to {email}."
 msgstr "Offered role: {role}. Sent to {email}."
 
+#: components/admin/integrations-tab.tsx
+msgid "OIDC settings saved"
+msgstr "OIDC settings saved"
+
 #: components/admin/admin-page.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Older"
@@ -4617,6 +4745,14 @@ msgstr "Open to anyone"
 msgid "Open view"
 msgstr "Open view"
 
+#: components/admin/integrations-tab.tsx
+msgid "OpenID Connect"
+msgstr "OpenID Connect"
+
+#: lib/errors.ts
+msgid "OpenID Connect is not set up on this instance"
+msgstr "OpenID Connect is not set up on this instance"
+
 #: components/settings/api-console.tsx
 msgid "Operation"
 msgstr "Operation"
@@ -4694,6 +4830,7 @@ msgstr "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an
 msgid "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Use a TOTP app, or open AnyGridDB at that hostname."
 msgstr "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Use a TOTP app, or open AnyGridDB at that hostname."
 
+#: components/admin/integrations-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/sources-tab.tsx
 #: components/auth/auth-page.tsx
@@ -4742,6 +4879,10 @@ msgstr "Passwords"
 #: components/admin/security-tab.tsx
 msgid "Past ten locks within an hour, one last alert says so; the sign-in trail keeps them all."
 msgstr "Past ten locks within an hour, one last alert says so; the sign-in trail keeps them all."
+
+#: components/admin/integrations-tab.tsx
+msgid "Paste the identity provider certificate"
+msgstr "Paste the identity provider certificate"
 
 #: components/table/import-dialog.tsx
 msgid "Pasted data"
@@ -4833,6 +4974,7 @@ msgstr "Pinned"
 msgid "Plain text"
 msgstr "Plain text"
 
+#: components/admin/integrations-tab.tsx
 #: components/admin/sources-tab.tsx
 msgid "Port"
 msgstr "Port"
@@ -5057,6 +5199,10 @@ msgstr "Reconnecting…"
 msgid "Redirect after submit"
 msgstr "Redirect after submit"
 
+#: components/admin/integrations-tab.tsx
+msgid "Redirect URL for the identity provider:"
+msgstr "Redirect URL for the identity provider:"
+
 #: components/table/view-toolbar.tsx
 msgid "Redo"
 msgstr "Redo"
@@ -5116,6 +5262,10 @@ msgstr "Release check is off"
 #: components/admin/admin-page.tsx
 msgid "Release check is on"
 msgstr "Release check is on"
+
+#: components/shell/page-crashed.tsx
+msgid "Reload the page"
+msgstr "Reload the page"
 
 #: components/admin/admin-page.tsx
 #: components/fields/cell-editor.tsx
@@ -5427,6 +5577,18 @@ msgstr "s"
 msgid "Same as primary when empty"
 msgstr "Same as primary when empty"
 
+#: components/admin/integrations-tab.tsx
+msgid "SAML"
+msgstr "SAML"
+
+#: lib/errors.ts
+msgid "SAML is not set up on this instance"
+msgstr "SAML is not set up on this instance"
+
+#: components/admin/integrations-tab.tsx
+msgid "SAML settings saved"
+msgstr "SAML settings saved"
+
 #: components/table/automations-dialog.tsx
 msgid "Saturday"
 msgstr "Saturday"
@@ -5443,9 +5605,21 @@ msgstr "Saturday"
 msgid "Save"
 msgstr "Save"
 
+#: components/admin/integrations-tab.tsx
+msgid "Save and verify"
+msgstr "Save and verify"
+
 #: components/table/view-toolbar.tsx
 msgid "Save failed"
 msgstr "Save failed"
+
+#: components/admin/integrations-tab.tsx
+msgid "Save OIDC"
+msgstr "Save OIDC"
+
+#: components/admin/integrations-tab.tsx
+msgid "Save SAML"
+msgstr "Save SAML"
 
 #: components/settings/base-settings.tsx
 msgid "Saved"
@@ -5454,6 +5628,18 @@ msgstr "Saved"
 #: components/table/view-toolbar.tsx
 msgid "Saved at {time}"
 msgstr "Saved at {time}"
+
+#: components/admin/integrations-tab.tsx
+msgid "Saved email cleared"
+msgstr "Saved email cleared"
+
+#: components/admin/integrations-tab.tsx
+msgid "Saved OIDC cleared"
+msgstr "Saved OIDC cleared"
+
+#: components/admin/integrations-tab.tsx
+msgid "Saved SAML cleared"
+msgstr "Saved SAML cleared"
 
 #: components/grid/grid-cell.tsx
 #: components/table/view-toolbar.tsx
@@ -5589,6 +5775,7 @@ msgstr "Send again"
 msgid "Send an email"
 msgstr "Send an email"
 
+#: components/admin/integrations-tab.tsx
 #: components/admin/support-tab.tsx
 msgid "Send me a test email"
 msgstr "Send me a test email"
@@ -6219,6 +6406,7 @@ msgstr "Temporarily disable filters"
 msgid "Test"
 msgstr "Test"
 
+#: components/admin/integrations-tab.tsx
 #: components/admin/support-tab.tsx
 msgid "Test email sent to {to}"
 msgstr "Test email sent to {to}"
@@ -6268,6 +6456,10 @@ msgstr "The account lacks {rights} on this table."
 #: components/admin/sources-tab.tsx
 msgid "The account may read no table: grant it SELECT on the tables to expose."
 msgstr "The account may read no table: grant it SELECT on the tables to expose."
+
+#: components/admin/integrations-tab.tsx
+msgid "The ACS URL is derived from PUBLIC_URL after you save."
+msgstr "The ACS URL is derived from PUBLIC_URL after you save."
 
 #: components/table/automations-dialog.tsx
 msgid "The automation acts with your access; every write is recorded in the audit trail."
@@ -6397,6 +6589,10 @@ msgstr "The hour, from 0 to 23."
 #: components/admin/scim-tab.tsx
 msgid "The identity provider will no longer be able to provision anything with this token."
 msgstr "The identity provider will no longer be able to provision anything with this token."
+
+#: components/admin/integrations-tab.tsx
+msgid "The instance falls back to environment variables, if any."
+msgstr "The instance falls back to environment variables, if any."
 
 #: components/auth/auth-page.tsx
 msgid "The instance is under maintenance: only administrators can sign in for now."
@@ -6529,6 +6725,10 @@ msgstr "The person will be able to sign in again."
 #: components/admin/security-tab.tsx
 msgid "The person, with a link sent by email"
 msgstr "The person, with a link sent by email"
+
+#: components/admin/integrations-tab.tsx
+msgid "The redirect URL is derived from PUBLIC_URL after you save."
+msgstr "The redirect URL is derived from PUBLIC_URL after you save."
 
 #: components/fields/formula-docs.ts
 msgid "The remainder of the division."
@@ -6752,10 +6952,6 @@ msgid "This account already exists"
 msgstr "This account already exists"
 
 #: lib/errors.ts
-msgid "This account has an audit history: an administrator can disable it"
-msgstr "This account has an audit history: an administrator can disable it"
-
-#: lib/errors.ts
 msgid "This account is an administrator: create an account dedicated to AnyGridDB"
 msgstr "This account is an administrator: create an account dedicated to AnyGridDB"
 
@@ -6868,6 +7064,10 @@ msgid "This link does not exist, has expired, or was revoked."
 msgstr "This link does not exist, has expired, or was revoked."
 
 #: lib/errors.ts
+msgid "This link is locked after too many wrong passwords. Try again later."
+msgstr "This link is locked after too many wrong passwords. Try again later."
+
+#: lib/errors.ts
 msgid "This link no longer works: ask for a new one"
 msgstr "This link no longer works: ask for a new one"
 
@@ -6883,9 +7083,21 @@ msgstr "This link takes only one row"
 msgid "this month"
 msgstr "this month"
 
+#: components/shell/load-failed.tsx
+msgid "This page could not be loaded: {reason}"
+msgstr "This page could not be loaded: {reason}"
+
+#: components/shell/load-failed.tsx
+msgid "This page could not be loaded. Check your connection, then try again."
+msgstr "This page could not be loaded. Check your connection, then try again."
+
 #: components/admin/admin-page.tsx
 msgid "This page is for instance administrators."
 msgstr "This page is for instance administrators."
+
+#: components/shell/page-crashed.tsx
+msgid "This page stopped working"
+msgstr "This page stopped working"
 
 #: components/record/row-status.tsx
 msgid "This row has disappeared from the client's database since it was locked."
@@ -7151,6 +7363,7 @@ msgid "Trust the identity provider's second factor"
 msgstr "Trust the identity provider's second factor"
 
 #: components/grid/rows-error.tsx
+#: components/shell/load-failed.tsx
 msgid "Try again"
 msgstr "Try again"
 
@@ -7407,9 +7620,14 @@ msgstr "Use the pasted data"
 msgid "Used until a person picks their own language."
 msgstr "Used until a person picks their own language."
 
+#: components/admin/integrations-tab.tsx
 #: components/admin/sources-tab.tsx
 msgid "Username"
 msgstr "Username"
+
+#: components/admin/integrations-tab.tsx
+msgid "Usually the full email address"
+msgstr "Usually the full email address"
 
 #: components/admin/admin-page.tsx
 msgid "Valid until {date}, for: {names}."
@@ -7567,6 +7785,10 @@ msgstr "What the source's account may read, and how each column will show. Tick 
 #: components/table/view-tabs.tsx
 msgid "What this view is for (empty: no description)"
 msgstr "What this view is for (empty: no description)"
+
+#: components/shell/page-crashed.tsx
+msgid "What you saved is kept. Reload the page to carry on."
+msgstr "What you saved is kept. Reload the page to carry on."
 
 #: components/table/automations-dialog.tsx
 msgid "When"
@@ -7743,6 +7965,10 @@ msgstr "Your organization asks for a second factor on this account: set one up b
 #: components/auth/reset-page.tsx
 msgid "Your password is changed, and every session of the account ended. Sign in with the new one."
 msgstr "Your password is changed, and every session of the account ended. Sign in with the new one."
+
+#: components/settings/second-factor.tsx
+msgid "Your password, to confirm a change of second factor"
+msgstr "Your password, to confirm a change of second factor"
 
 #: components/settings/base-settings.tsx
 msgid "Your role: {role}"

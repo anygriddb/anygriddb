@@ -122,6 +122,10 @@ export async function migrateDb(
   const client = await pool.connect();
   const ran: string[] = [];
   try {
+    // A migration takes the time it needs: the pool's limits are for
+    // requests, and an index built on a large table outlasts them.
+    await client.query(`set statement_timeout = 0`);
+    await client.query(`set lock_timeout = 0`);
     await client.query(`select pg_advisory_lock(hashtext($1))`, [LOCK]);
     await client.query(`
       create table if not exists schema_migrations (
@@ -175,6 +179,9 @@ export async function migrateDb(
     await client
       .query(`select pg_advisory_unlock(hashtext($1))`, [LOCK])
       .catch(() => undefined);
+    // The connection goes back to the pool with the pool's limits.
+    await client.query(`reset statement_timeout`).catch(() => undefined);
+    await client.query(`reset lock_timeout`).catch(() => undefined);
     client.release();
   }
   return ran;

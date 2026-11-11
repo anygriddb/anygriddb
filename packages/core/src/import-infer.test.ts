@@ -7,7 +7,9 @@ describe("inferFieldType", () => {
     expect(inferFieldType(["2026-11-07", "07/11/2026"]).fieldType).toBe("date");
     expect(inferFieldType(["2026-11-07T10:30:00Z"]).fieldType).toBe("datetime");
     expect(inferFieldType(["oui", "non", "oui"]).fieldType).toBe("boolean");
-    expect(inferFieldType(["a@b.fr", "c@d.org"]).fieldType).toBe("email");
+    expect(inferFieldType(["a@example.org", "c@example.com"]).fieldType).toBe(
+      "email",
+    );
     const status = inferFieldType([
       "Open",
       "Done",

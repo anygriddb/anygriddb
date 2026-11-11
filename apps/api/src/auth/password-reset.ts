@@ -2,8 +2,9 @@
  * Changing and resetting passwords (ADR 0043). A reset link sets a new
  * password once: the person asks for it by email, when the instance
  * allows it, or an administrator sends it. Only the link's hash is kept.
- * A new password ends the account's sessions and its lock; its second
- * factors stay, so a reset alone never opens an account that has them.
+ * A new password ends the account's sessions, its API tokens, and its
+ * lock. Its second factors stay, so a reset alone never opens an account
+ * that has them.
  */
 import { createHash, randomBytes } from "node:crypto";
 import { AppError, type InstanceSettings } from "@anygriddb/core";
@@ -129,6 +130,10 @@ export async function resetPassword(
     if (!updated) throw new AppError("sso_account");
     await tx.deleteFrom("sessions").where("userId", "=", link.userId).execute();
     await tx
+      .deleteFrom("apiTokens")
+      .where("userId", "=", link.userId)
+      .execute();
+    await tx
       .deleteFrom("loginChallenges")
       .where("userId", "=", link.userId)
       .execute();
@@ -139,7 +144,8 @@ export async function resetPassword(
 
 /**
  * The person changes their own password: every other session of theirs
- * ends, and so does any link sent to reset it.
+ * ends, every API token of theirs ends, and so does any link sent to
+ * reset it.
  */
 export async function changePassword(
   db: Database,
@@ -160,6 +166,10 @@ export async function changePassword(
       .$if(input.keepSessionHash !== undefined, (query) =>
         query.where("tokenHash", "!=", input.keepSessionHash ?? ""),
       )
+      .execute();
+    await tx
+      .deleteFrom("apiTokens")
+      .where("userId", "=", input.userId)
       .execute();
     await tx
       .deleteFrom("passwordResets")

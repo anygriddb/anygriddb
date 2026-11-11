@@ -165,4 +165,25 @@ describe("isLoopback", () => {
       }).OTEL_EXPORTER_OTLP_ENDPOINT,
     ).toBe("https://collector.internal:4318");
   });
+
+  it("trusts no proxy unless the operator lists addresses or ranges", () => {
+    expect(readEnv(base).TRUSTED_PROXIES).toEqual([]);
+    expect(
+      readEnv({
+        ...base,
+        ANYGRIDDB_TRUSTED_PROXIES: " 127.0.0.1, ::1 ,172.18.0.0/16, fd00::/8",
+      }).TRUSTED_PROXIES,
+    ).toEqual(["127.0.0.1", "::1", "172.18.0.0/16", "fd00::/8"]);
+    for (const refused of [
+      "proxy.internal",
+      "10.0.0.0/33",
+      "fd00::/129",
+      "10.0.0.0/8/8",
+      "10.0.0.0/",
+    ]) {
+      expect(() =>
+        readEnv({ ...base, ANYGRIDDB_TRUSTED_PROXIES: refused }),
+      ).toThrow(/ANYGRIDDB_TRUSTED_PROXIES/);
+    }
+  });
 });

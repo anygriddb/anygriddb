@@ -40,6 +40,7 @@ export {
   parseCsv,
   parseDelimited,
   toCsv,
+  toCsvRows,
   type DelimitedOptions,
 } from "./csv";
 
@@ -173,6 +174,8 @@ export {
   PUBLIC_LINK_MODES,
   SIGNUP_POLICIES,
   SSO_MFA_MODES,
+  ATTACHMENT_MAX_BYTES_CEILING,
+  DEFAULT_ATTACHMENT_MAX_BYTES,
   emailDomainAllowed,
   inactivityDates,
   instanceSettingsPatchSchema,
@@ -181,6 +184,7 @@ export {
   memberDomainAllowed,
   parseAdminEmails,
   parseInstanceSettings,
+  resolveAttachmentMaxBytes,
   sessionWindows,
   signupAllowed,
   type CreatorMode,

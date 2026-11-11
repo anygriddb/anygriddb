@@ -444,11 +444,42 @@ export interface Groups {
   updatedAt: Generated<Timestamp>;
 }
 
+export interface InstanceOidc {
+  clientId: string;
+  clientSecretCiphertext: Buffer;
+  clientSecretNonce: Buffer;
+  id: Generated<boolean>;
+  issuer: string;
+  updatedAt: Generated<Timestamp>;
+  updatedBy: string | null;
+}
+
+export interface InstanceSaml {
+  entryPoint: string;
+  id: Generated<boolean>;
+  idpCert: string;
+  issuer: string;
+  updatedAt: Generated<Timestamp>;
+  updatedBy: string | null;
+}
+
 export interface InstanceSettings {
   key: string;
   updatedAt: Generated<Timestamp>;
   updatedBy: string | null;
   value: unknown;
+}
+
+export interface InstanceSmtp {
+  fromAddress: string;
+  host: string;
+  id: Generated<boolean>;
+  passwordCiphertext: Buffer | null;
+  passwordNonce: Buffer | null;
+  port: Generated<number>;
+  updatedAt: Generated<Timestamp>;
+  updatedBy: string | null;
+  username: string | null;
 }
 
 export interface Invitations {
@@ -592,6 +623,7 @@ export interface RowSignatures {
 export interface ScimTokens {
   createdAt: Generated<Timestamp>;
   createdBy: string;
+  expiresAt: Timestamp;
   id: Generated<string>;
   lastUsedAt: Timestamp | null;
   name: string;
@@ -612,7 +644,9 @@ export interface Shares {
   createdBy: string;
   expiresAt: Timestamp | null;
   id: Generated<string>;
+  passwordFailures: Generated<number>;
   passwordHash: string | null;
+  passwordLockedUntil: Timestamp | null;
   revokedAt: Timestamp | null;
   tokenHash: string;
   viewId: string;
@@ -799,7 +833,10 @@ export interface DB {
   groupMembers: GroupMembers;
   groupRoles: GroupRoles;
   groups: Groups;
+  instanceOidc: InstanceOidc;
+  instanceSaml: InstanceSaml;
   instanceSettings: InstanceSettings;
+  instanceSmtp: InstanceSmtp;
   invitations: Invitations;
   jobs: Jobs;
   loginChallenges: LoginChallenges;

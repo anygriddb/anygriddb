@@ -10,6 +10,7 @@
  */
 import { inactivityDates, type InstanceSettings } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
+import { resolveSmtp } from "../integrations/smtp.js";
 import { smtpReady } from "../mail.js";
 import { readSettings } from "../settings.js";
 import { recordAuthEvent } from "./auth-events.js";
@@ -38,7 +39,8 @@ export async function sweepInactiveAccounts(
 ): Promise<{ warned: number; disabled: number }> {
   const { inactiveDays: days } = await readSettings(deps.db);
   if (days === 0) return { warned: 0, disabled: 0 };
-  const mail = smtpReady(deps.env);
+  const { config: smtp } = await resolveSmtp(deps.db, deps.env);
+  const mail = smtpReady(smtp);
   const idleSince = new Date(now.getTime() - days * DAY);
 
   // Past the delay, and warned a full lead ago when email can warn.

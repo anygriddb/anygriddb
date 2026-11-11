@@ -1,5 +1,6 @@
 export {
   createDb,
+  POOL_WAIT_MS,
   readWithin,
   runStatement,
   type Database,

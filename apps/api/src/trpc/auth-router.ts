@@ -70,9 +70,11 @@ import {
 import {
   backupCodeSchema,
   signupInputSchema,
+  factorProofSchema,
   totpCodeSchema,
   totpConfirmSchema,
 } from "../auth/signup.js";
+import { assertMayChangeFactor } from "../auth/factor-step-up.js";
 import {
   createApiToken,
   listApiTokens,
@@ -93,7 +95,10 @@ import {
   finishRegistration,
 } from "../auth/webauthn.js";
 import { signupDecision } from "../admin.js";
+import { resolveSmtp } from "../integrations/smtp.js";
 import { smtpReady } from "../mail.js";
+import { resolveOidc } from "../integrations/oidc.js";
+import { resolveSaml } from "../integrations/saml.js";
 import { readGateSettings, readSettings } from "../settings.js";
 import { eraseAccount, eraseAccountInputSchema } from "../data/erasure.js";
 import { isUniqueViolation } from "../data/schema-ops.js";
@@ -104,6 +109,45 @@ import { mapProcedureError } from "./map-error.js";
 
 function clearCookie(ctx: Context, name: string): void {
   ctx.res.setCookie(name, "", sessionCookieOptions(new Date(0)));
+}
+
+/** A token acts for its owner. It does not change the account itself. */
+function refuseApiToken(ctx: Context): void {
+  if (ctx.tokenScope) throw new AppError("access_denied");
+}
+
+/**
+ * Replacing an authenticator or registering a passkey. A wrong password
+ * or code counts toward the lock, as one at sign-in does; a proof left
+ * out is refused without counting, since nothing was guessed.
+ */
+async function proveFactorChange(
+  ctx: Context,
+  userId: string,
+  kind: "totp" | "passkey",
+  proof: { password?: string; factorCode?: string },
+): Promise<void> {
+  refuseApiToken(ctx);
+  try {
+    await assertMayChangeFactor(
+      ctx.db,
+      ctx.env.AUTH_ENCRYPTION_KEY,
+      userId,
+      kind,
+      proof,
+    );
+  } catch (error) {
+    const guessed =
+      proof.password !== undefined || proof.factorCode !== undefined;
+    if (
+      guessed &&
+      error instanceof AppError &&
+      error.code === "invalid_credentials"
+    ) {
+      await failedAttempt(ctx, userId);
+    }
+    throw error;
+  }
 }
 
 /** A refused sign-in: logged, and kept in the sign-in trail (ADR 0042). */
@@ -243,7 +287,9 @@ export const authRouter = t.router({
       banner: settings.banner,
       // What the forms need to say (ADR 0043); never the lock's limits.
       passwordMinLength: settings.passwordMinLength,
-      selfReset: settings.passwordReset === "self" && smtpReady(ctx.env),
+      selfReset:
+        settings.passwordReset === "self" &&
+        smtpReady((await resolveSmtp(ctx.db, ctx.env)).config),
       publicLinks: settings.publicLinks,
       tokenMaxDays: settings.tokenMaxDays,
       // WebAuthn RP ID needs a hostname in PUBLIC_URL (ADR 0029).
@@ -352,6 +398,7 @@ export const authRouter = t.router({
   totp: t.router({
     begin: procedure.mutation(async ({ ctx }) => {
       const user = await requireUser(ctx);
+      refuseApiToken(ctx);
       const secret = generateTotpSecret();
       return { secret, otpauthUrl: totpUri(secret, user.displayName) };
     }),
@@ -359,6 +406,7 @@ export const authRouter = t.router({
       .input(totpConfirmSchema)
       .mutation(async ({ ctx, input }) => {
         const user = await requireUser(ctx);
+        await proveFactorChange(ctx, user.id, "totp", input);
         const step = acceptedTotpStep(input.secret, input.code);
         if (step === null) {
           ctx.req.log.warn("authentication failed");
@@ -377,7 +425,9 @@ export const authRouter = t.router({
         await replaceBackupCodes(
           ctx.db,
           user.id,
-          backupCodes.map((code) => hashBackupCode(code)),
+          backupCodes.map((code) =>
+            hashBackupCode(code, ctx.env.AUTH_ENCRYPTION_KEY),
+          ),
         );
         return { backupCodes };
       }),
@@ -435,6 +485,7 @@ export const authRouter = t.router({
           ctx.db,
           challenge.userId,
           input.code,
+          ctx.env.AUTH_ENCRYPTION_KEY,
         );
         if (!ok) {
           await failLoginChallenge(ctx.db, challenge.id, challenge.attempts);
@@ -448,19 +499,25 @@ export const authRouter = t.router({
       }),
   }),
   webauthn: t.router({
-    registerBegin: procedure.mutation(async ({ ctx }) => {
-      const user = await requireUser(ctx);
-      try {
-        return await beginRegistration(ctx.db, ctx.env, user);
-      } catch (error) {
-        mapProcedureError(error, ctx.req.log);
-      }
-    }),
+    registerBegin: procedure
+      .input(factorProofSchema.optional())
+      .mutation(async ({ ctx, input }) => {
+        const user = await requireUser(ctx);
+        try {
+          await proveFactorChange(ctx, user.id, "passkey", input ?? {});
+          return await beginRegistration(ctx.db, ctx.env, user);
+        } catch (error) {
+          mapProcedureError(error, ctx.req.log);
+        }
+      }),
     registerFinish: procedure
       .input(registrationResponseSchema)
       .mutation(async ({ ctx, input }) => {
         const user = await requireUser(ctx);
         try {
+          // The proof was given to begin: only a ceremony begun with it
+          // left a challenge to finish, and that challenge is taken once.
+          refuseApiToken(ctx);
           await finishRegistration(ctx.db, ctx.env, user.id, input);
           if (await hasBackupCodes(ctx.db, user.id)) {
             return { backupCodes: [] as string[] };
@@ -471,7 +528,9 @@ export const authRouter = t.router({
           await replaceBackupCodes(
             ctx.db,
             user.id,
-            backupCodes.map((code) => hashBackupCode(code)),
+            backupCodes.map((code) =>
+              hashBackupCode(code, ctx.env.AUTH_ENCRYPTION_KEY),
+            ),
           );
           return { backupCodes };
         } catch (error) {
@@ -573,7 +632,10 @@ export const authRouter = t.router({
     .input(z.object({ email: z.email().max(254) }))
     .mutation(async ({ ctx, input }) => {
       const settings = await readSettings(ctx.db);
-      if (settings.passwordReset !== "self" || !smtpReady(ctx.env)) {
+      if (
+        settings.passwordReset !== "self" ||
+        !smtpReady((await resolveSmtp(ctx.db, ctx.env)).config)
+      ) {
         throw new AppError("password_reset_disabled");
       }
       const account = await ctx.db
@@ -686,6 +748,7 @@ export const authRouter = t.router({
     .mutation(async ({ ctx, input }) => {
       const user = await requireUser(ctx);
       try {
+        refuseApiToken(ctx);
         const policy = await readGateSettings(ctx.db);
         if (policy.apiTokens === "admins" && !user.isAdmin) {
           throw new AppError("api_tokens_restricted");
@@ -704,6 +767,7 @@ export const authRouter = t.router({
     .mutation(async ({ ctx, input }) => {
       const user = await requireUser(ctx);
       try {
+        refuseApiToken(ctx);
         await revokeApiToken(ctx.db, user.id, input.tokenId);
         return { ok: true as const };
       } catch (error) {
@@ -732,20 +796,16 @@ export const authRouter = t.router({
 });
 
 export const sessionRouter = t.router({
-  providers: procedure.query(({ ctx }) => ({
-    oidc: Boolean(
-      ctx.env.OIDC_ISSUER &&
-      ctx.env.OIDC_CLIENT_ID &&
-      ctx.env.OIDC_CLIENT_SECRET &&
-      ctx.env.OIDC_REDIRECT_URL,
-    ),
-    saml: Boolean(
-      ctx.env.SAML_ENTRY_POINT &&
-      ctx.env.SAML_ISSUER &&
-      ctx.env.SAML_CERT &&
-      ctx.env.SAML_CALLBACK_URL,
-    ),
-  })),
+  providers: procedure.query(async ({ ctx }) => {
+    const [oidc, saml] = await Promise.all([
+      resolveOidc(ctx.db, ctx.env),
+      resolveSaml(ctx.db, ctx.env),
+    ]);
+    return {
+      oidc: oidc.config !== null,
+      saml: saml.config !== null,
+    };
+  }),
   current: procedure.query(async ({ ctx }) => {
     const token = ctx.req.cookies[SESSION_COOKIE];
     const user = await findSessionUser(ctx.db, token);

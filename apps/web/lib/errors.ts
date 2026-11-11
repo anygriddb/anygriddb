@@ -32,7 +32,6 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   instance_maintenance: msg`The instance is under maintenance. Try again later.`,
   unknown_account: msg`No account with this email`,
   account_already_exists: msg`This account already exists`,
-  audit_history_retained: msg`This account has an audit history: an administrator can disable it`,
   invalid_account: msg`This cannot be done to this account`,
   invalid_invitation: msg`This invitation does not exist or has expired`,
   invalid_origin: msg`Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Open AnyGridDB at that address, or use a TOTP app.`,
@@ -46,6 +45,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   unknown_group: msg`Group not found`,
   unknown_widget: msg`Widget not found`,
   public_links_disabled: msg`Public links are turned off on this instance`,
+  share_locked: msg`This link is locked after too many wrong passwords. Try again later.`,
   share_password_required: msg`On this instance, a public link needs a password`,
   unknown_share: msg`Share not found`,
   unknown_template: msg`Unknown template`,
@@ -131,6 +131,11 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   file_too_large: msg`File too large`,
   storage_not_configured: msg`File storage is not set up`,
   smtp_not_configured: msg`Email is not set up on this instance`,
+  invalid_smtp: msg`Invalid email settings: check the host, port, and password`,
+  oidc_not_configured: msg`OpenID Connect is not set up on this instance`,
+  invalid_oidc: msg`Invalid OpenID Connect settings`,
+  saml_not_configured: msg`SAML is not set up on this instance`,
+  invalid_saml: msg`Invalid SAML settings: the entry point must be HTTPS`,
 
   invalid_webhook: msg`Invalid webhook: a public HTTPS address or an email is required`,
   invalid_delivery: msg`This delivery cannot be sent again`,
@@ -220,21 +225,30 @@ function asReason(value: unknown): Reason | undefined {
  * (`data.reason`), an HTTP route's body (`code`), or a job (`reason`).
  */
 export function reasonOf(cause: unknown): Reason {
-  if (cause && typeof cause === "object") {
-    if ("data" in cause && cause.data && typeof cause.data === "object") {
-      const fromTrpc = asReason(
-        "reason" in cause.data ? cause.data.reason : undefined,
-      );
-      if (fromTrpc) return fromTrpc;
-    }
-    if ("reason" in cause) {
-      const fromJob = asReason(cause.reason);
-      if (fromJob) return fromJob;
-    }
-    const fromBody = asReason(cause);
-    if (fromBody) return fromBody;
+  return givenReason(cause) ?? { code: "request_rejected" };
+}
+
+/**
+ * Whether the server said why: false for a call that never reached it
+ * (the network gone, the API restarting), which has no code to translate.
+ */
+export function hasReason(cause: unknown): boolean {
+  return givenReason(cause) !== undefined;
+}
+
+function givenReason(cause: unknown): Reason | undefined {
+  if (!cause || typeof cause !== "object") return;
+  if ("data" in cause && cause.data && typeof cause.data === "object") {
+    const fromTrpc = asReason(
+      "reason" in cause.data ? cause.data.reason : undefined,
+    );
+    if (fromTrpc) return fromTrpc;
   }
-  return { code: "request_rejected" };
+  if ("reason" in cause) {
+    const fromJob = asReason(cause.reason);
+    if (fromJob) return fromJob;
+  }
+  return asReason(cause);
 }
 
 const BY_MESSAGE = new Map<string, ErrorCode>(

@@ -91,7 +91,7 @@ export async function beginRegistration(
     excludeCredentials: existing.map((row) => ({ id: row.credentialId })),
     authenticatorSelection: {
       residentKey: "preferred",
-      userVerification: "preferred",
+      userVerification: "required",
     },
   });
   await storeChallenge(db, user.id, options.challenge, "register");
@@ -113,7 +113,7 @@ export async function finishRegistration(
       expectedChallenge,
       expectedOrigin: party.origin,
       expectedRPID: party.rpID,
-      requireUserVerification: false,
+      requireUserVerification: true,
     });
     if (!result.verified) {
       throw new AppError("webauthn_rejected");
@@ -150,7 +150,7 @@ export async function beginAuthentication(
   const options = await generateAuthenticationOptions({
     rpID: party.rpID,
     allowCredentials: existing.map((row) => ({ id: row.credentialId })),
-    userVerification: "preferred",
+    userVerification: "required",
   });
   await storeChallenge(db, userId, options.challenge, "authenticate");
   return options;
@@ -180,7 +180,7 @@ export async function finishAuthentication(
       expectedChallenge,
       expectedOrigin: party.origin,
       expectedRPID: party.rpID,
-      requireUserVerification: false,
+      requireUserVerification: true,
       credential: {
         id: stored.credentialId,
         publicKey: new Uint8Array(stored.publicKey),

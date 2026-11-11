@@ -9,6 +9,33 @@ type HeaderReply = {
   header: (name: string, value: string) => void;
 };
 
+type FailureLog = {
+  error: (object: Record<string, unknown>, message: string) => void;
+  info: (object: Record<string, unknown>, message: string) => void;
+};
+
+/**
+ * A failed request in the log: a fault of the server (5xx) as an error,
+ * with its stack; a refused request (4xx: a rate limit, a bad input, a
+ * missing right) on one info line, so a client hammering a limit does not
+ * flood the errors an operator alerts on.
+ */
+export function logFailure(
+  log: FailureLog,
+  failure: {
+    error: unknown;
+    status: number;
+    message: string;
+    context?: Record<string, unknown>;
+  },
+): void {
+  if (failure.status >= 500) {
+    log.error({ ...failure.context, err: failure.error }, failure.message);
+    return;
+  }
+  log.info({ ...failure.context, status: failure.status }, failure.message);
+}
+
 /** Removes line breaks so a user value cannot forge extra log lines. */
 export function stripCrlf(value: string): string {
   return value.replace(/[\r\n\u2028\u2029]/g, "");

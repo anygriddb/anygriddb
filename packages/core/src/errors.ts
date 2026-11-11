@@ -30,7 +30,6 @@ export const ERRORS = {
   instance_maintenance: [503, "Instance under maintenance"],
   unknown_account: [404, "Unknown account"],
   account_already_exists: [409, "Account already exists"],
-  audit_history_retained: [409, "Audit history retained"],
   invalid_account: [BAD, "Invalid account"],
   invalid_invitation: [BAD, "Invalid invitation"],
   invalid_origin: [BAD, "Invalid origin"],
@@ -45,6 +44,7 @@ export const ERRORS = {
   unknown_group: [BAD, "Unknown group"],
   unknown_widget: [BAD, "Unknown widget"],
   unknown_share: [BAD, "Unknown share"],
+  share_locked: [429, "Share locked"],
   public_links_disabled: [403, "Public links disabled"],
   share_password_required: [BAD, "Share password required"],
   unknown_template: [BAD, "Unknown template"],
@@ -134,6 +134,11 @@ export const ERRORS = {
   file_too_large: [413, "File too large"],
   storage_not_configured: [412, "Storage not configured"],
   smtp_not_configured: [412, "SMTP not configured"],
+  invalid_smtp: [BAD, "Invalid email settings"],
+  oidc_not_configured: [412, "OIDC not configured"],
+  invalid_oidc: [BAD, "Invalid OIDC settings"],
+  saml_not_configured: [412, "SAML not configured"],
+  invalid_saml: [BAD, "Invalid SAML settings"],
 
   // Integrations.
   invalid_webhook: [BAD, "Invalid webhook"],

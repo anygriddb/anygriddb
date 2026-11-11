@@ -171,6 +171,32 @@ describe("OIDC sign-in through openid-client", () => {
     expect(user?.name).toBe("Ada");
   });
 
+  it("does not attach an unverified address to an account that exists", async () => {
+    const email = `ada-${suffix}@example.com`;
+    const { state, nonce } = await start();
+    provider.state.nonce = nonce;
+    provider.state.claims = { email, name: "Ada", sub: `other-${suffix}` };
+    const response = await callback(state);
+    expect(response.headers.location).toBe("/");
+    expect(session(response)).toBe("");
+  });
+
+  it("creates an account when the address is new and not marked verified", async () => {
+    const email = `new-${suffix}@example.com`;
+    const { state, nonce } = await start();
+    provider.state.nonce = nonce;
+    provider.state.claims = { email, name: "New" };
+    const response = await callback(state);
+    expect(response.statusCode).toBe(302);
+    expect(session(response)).toMatch(/=/);
+    const user = await database
+      .selectFrom("users")
+      .select("id")
+      .where("email", "=", email)
+      .executeTakeFirst();
+    expect(user?.id).toBeTruthy();
+  });
+
   it("refuses an address the provider did not verify", async () => {
     const { state, nonce } = await start();
     provider.state.nonce = nonce;

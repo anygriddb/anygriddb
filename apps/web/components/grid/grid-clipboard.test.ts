@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fillValues, parseClipboard, planPaste } from "./grid-clipboard";
+import { fillValues, parseClipboard, planPaste, toTsv } from "./grid-clipboard";
 
 const columns = [
   {
@@ -66,5 +66,45 @@ describe("grid clipboard", () => {
     expect(fillValues(["0.1", "0.2"], 2)).toEqual(["0.3", "0.4"]);
     expect(fillValues(["a"], 2)).toEqual(["a", "a"]);
     expect(parseClipboard('"a\tb"\tc')).toEqual([["a\tb", "c"]]);
+  });
+
+  const copied = (title: string) =>
+    toTsv(
+      [{ id: "r1", title }] as never[],
+      columns.slice(0, 1),
+      "en",
+      new Map(),
+    );
+
+  it("prefixes a formula so a spreadsheet does not run it", () => {
+    expect(copied('=HYPERLINK("http://example.test")')).toBe(
+      '"\'=HYPERLINK(""http://example.test"")"',
+    );
+    expect(copied("-1+cmd|' /C calc'!A0")).toBe("'-1+cmd|' /C calc'!A0");
+    expect(copied("@SUM(1)")).toBe("'@SUM(1)");
+  });
+
+  it("leaves numbers as numbers, signed or not", () => {
+    expect(copied("-5")).toBe("-5");
+    expect(copied("+33 6 12 34 56 78")).toBe("+33 6 12 34 56 78");
+    expect(copied("-1,234.50")).toBe("-1,234.50");
+    expect(copied("-")).toBe("'-");
+  });
+
+  it("pastes back what it copied, without the guard", () => {
+    for (const value of [
+      "=1+1",
+      "-1+cmd",
+      "@handle",
+      "+x",
+      "'quoted",
+      "'=kept",
+      "-5",
+    ]) {
+      expect(parseClipboard(copied(value))).toEqual([[value]]);
+    }
+    expect(parseClipboard(`${copied("=a")}\t${copied("b")}`)).toEqual([
+      ["=a", "b"],
+    ]);
   });
 });

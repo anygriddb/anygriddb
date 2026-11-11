@@ -5,6 +5,7 @@
  * thrown: the action it reports already happened.
  */
 import type { Database } from "@anygriddb/db";
+import { resolveSmtp } from "../integrations/smtp.js";
 import { sendMail, smtpReady, type SmtpConfig } from "../mail.js";
 import {
   resetMailBody,
@@ -18,15 +19,16 @@ import { readSettings } from "../settings.js";
 
 export type SecurityMailDeps = {
   db: Database;
-  env: SmtpConfig & { PUBLIC_URL: string };
+  env: SmtpConfig & { PUBLIC_URL: string; AUTH_ENCRYPTION_KEY: Buffer };
   log: { error: (object: object, message: string) => void };
 };
 
 async function recipient(
   deps: SecurityMailDeps,
   userId: string,
-): Promise<{ to: string; locale: "en" | "fr" } | null> {
-  if (!smtpReady(deps.env)) return null;
+): Promise<{ to: string; locale: "en" | "fr"; smtp: SmtpConfig } | null> {
+  const { config: smtp } = await resolveSmtp(deps.db, deps.env);
+  if (!smtpReady(smtp)) return null;
   const [user, settings] = await Promise.all([
     deps.db
       .selectFrom("users")
@@ -39,6 +41,7 @@ async function recipient(
   return {
     to: user.email,
     locale: resolveLocale(null, settings.defaultLocale),
+    smtp,
   };
 }
 
@@ -51,7 +54,7 @@ export async function sendSecurityNotice(
   try {
     const to = await recipient(deps, userId);
     if (!to) return false;
-    await sendMail(deps.env, {
+    await sendMail(to.smtp, {
       to: to.to,
       subject: securityMailSubject(to.locale, notice),
       text: securityMailBody(to.locale, notice),
@@ -74,7 +77,7 @@ export async function sendResetLink(
 ): Promise<string | null> {
   const to = await recipient(deps, userId);
   if (!to) return null;
-  await sendMail(deps.env, {
+  await sendMail(to.smtp, {
     to: to.to,
     subject: resetMailSubject(to.locale),
     text: resetMailBody(to.locale, {

@@ -9,6 +9,7 @@ import { useCopy } from "../../lib/clipboard";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
+import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
 
 function date(value: string | null): string {
@@ -37,6 +38,14 @@ export function ScimTab() {
       queryKey: api.admin.scim.settings.queryKey(),
     });
 
+  if (settings.isError) {
+    return (
+      <LoadFailed
+        error={settings.error}
+        onRetry={() => void settings.refetch()}
+      />
+    );
+  }
   if (!settings.data) return <Spinner />;
   const { url, tokens, groups } = settings.data;
   return (
@@ -104,6 +113,7 @@ export function ScimTab() {
                 <th className="px-2 py-1.5">{t`Name`}</th>
                 <th className="px-2 py-1.5">{t`Created by`}</th>
                 <th className="px-2 py-1.5">{t`Created`}</th>
+                <th className="px-2 py-1.5">{t`Expires`}</th>
                 <th className="px-2 py-1.5">{t`Last used`}</th>
                 <th className="px-2 py-1.5" />
               </tr>
@@ -122,6 +132,14 @@ export function ScimTab() {
                   </td>
                   <td className="px-2 py-1.5 text-xs">
                     {date(token.createdAt)}
+                  </td>
+                  <td className="px-2 py-1.5 text-xs">
+                    {date(token.expiresAt)}
+                    {new Date(token.expiresAt) <= new Date() ? (
+                      <span className="ml-1 text-destructive">
+                        {t`(expired)`}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-2 py-1.5 text-xs">
                     {date(token.lastUsedAt)}

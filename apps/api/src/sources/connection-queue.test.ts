@@ -1,31 +1,39 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { connectionQueue } from "./connection-queue.js";
 
 type Fake = { id: number; dropped: boolean };
 
-function fakes(failures = 0) {
+function fakes(failures = 0, waitMs?: number) {
   const opened: Fake[] = [];
   const closed: Fake[] = [];
   let left = failures;
-  const queue = connectionQueue<Fake>(1, {
-    open: () => {
-      if (left > 0) {
-        left -= 1;
-        return Promise.reject(new Error("refused"));
-      }
-      const connection = { id: opened.length + 1, dropped: false };
-      opened.push(connection);
-      return Promise.resolve(connection);
+  const queue = connectionQueue<Fake>(
+    1,
+    {
+      open: () => {
+        if (left > 0) {
+          left -= 1;
+          return Promise.reject(new Error("refused"));
+        }
+        const connection = { id: opened.length + 1, dropped: false };
+        opened.push(connection);
+        return Promise.resolve(connection);
+      },
+      usable: (connection) => !connection.dropped,
+      close: (connection) => {
+        closed.push(connection);
+      },
     },
-    usable: (connection) => !connection.dropped,
-    close: (connection) => {
-      closed.push(connection);
-    },
-  });
+    waitMs,
+  );
   return { queue, opened, closed };
 }
 
 describe("connectionQueue", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("gives a healthy connection back to the one waiting", async () => {
     const { queue, opened } = fakes();
     const first = await queue.acquire();
@@ -73,5 +81,42 @@ describe("connectionQueue", () => {
     });
     queue.release(first, false);
     expect(closed).toEqual([first]);
+  });
+
+  it("serves the one waiting when a connection comes back in time", async () => {
+    vi.useFakeTimers();
+    const { queue } = fakes(0, 1_000);
+    const first = await queue.acquire();
+    const second = queue.acquire();
+    await vi.advanceTimersByTimeAsync(999);
+    queue.release(first, false);
+    await expect(second).resolves.toBe(first);
+    await vi.advanceTimersByTimeAsync(5_000);
+  });
+
+  it("turns away a request once the queue is as long as the pool", async () => {
+    const { queue } = fakes();
+    const first = await queue.acquire();
+    const second = queue.acquire();
+    await expect(queue.acquire()).rejects.toMatchObject({
+      code: "source_timeout",
+    });
+    queue.release(first, false);
+    await expect(second).resolves.toBe(first);
+  });
+
+  it("turns away the one waiting past its time, and keeps the connection", async () => {
+    vi.useFakeTimers();
+    const { queue, opened } = fakes(0, 1_000);
+    const first = await queue.acquire();
+    const second = queue.acquire();
+    const refused = expect(second).rejects.toMatchObject({
+      code: "source_timeout",
+    });
+    await vi.advanceTimersByTimeAsync(1_000);
+    await refused;
+    queue.release(first, false);
+    await expect(queue.acquire()).resolves.toBe(first);
+    expect(opened).toHaveLength(1);
   });
 });
