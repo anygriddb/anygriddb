@@ -9,10 +9,14 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  Navigate,
   Outlet,
+  useRouter,
+  type RouteComponent,
 } from "@tanstack/react-router";
 import { lazy, type ComponentType } from "react";
 import { z } from "zod";
+import { accountsSearchSchema } from "../components/admin/accounts-search";
 import { AuthPage } from "../components/auth/auth-page";
 import { NotFound } from "../components/shell/not-found";
 import { PageCrashed } from "../components/shell/page-crashed";
@@ -40,8 +44,63 @@ const WelcomePage = page(() =>
 const BaseHome = page(() =>
   import("../components/shell/base-home").then((module) => module.BaseHome),
 );
-const AdminPage = page(() =>
-  import("../components/admin/admin-page").then((module) => module.AdminPage),
+const AdminShell = page(() =>
+  import("../components/admin/admin-shell").then((module) => module.AdminShell),
+);
+const AdminOverview = page(() =>
+  import("../components/admin/admin-overview").then(
+    (module) => module.AdminOverview,
+  ),
+);
+const AccountsTab = page(() =>
+  import("../components/admin/accounts-tab").then(
+    (module) => module.AccountsTab,
+  ),
+);
+const AccountAdminPage = page(() =>
+  import("../components/admin/account-page").then(
+    (module) => module.AccountAdminPage,
+  ),
+);
+const SessionsTab = page(() =>
+  import("../components/admin/sessions-tab").then(
+    (module) => module.SessionsTab,
+  ),
+);
+const ScimTab = page(() =>
+  import("../components/admin/scim-tab").then((module) => module.ScimTab),
+);
+const SecurityPage = page(() =>
+  import("../components/admin/security-tab").then(
+    (module) => module.SecurityPage,
+  ),
+);
+const IntegrationsTab = page(() =>
+  import("../components/admin/integrations-tab").then(
+    (module) => module.IntegrationsTab,
+  ),
+);
+const SourcesTab = page(() =>
+  import("../components/admin/sources-tab").then((module) => module.SourcesTab),
+);
+const ChangesTrail = page(() =>
+  import("../components/admin/trails").then((module) => module.ChangesTrail),
+);
+const SignInTrail = page(() =>
+  import("../components/admin/sign-in-trail").then(
+    (module) => module.SignInTrail,
+  ),
+);
+const SettingsTab = page(() =>
+  import("../components/admin/settings-tab").then(
+    (module) => module.SettingsTab,
+  ),
+);
+const HealthTab = page(() =>
+  import("../components/admin/health-tab").then((module) => module.HealthTab),
+);
+const SupportTab = page(() =>
+  import("../components/admin/support-tab").then((module) => module.SupportTab),
 );
 const AccountSettings = page(() =>
   import("../components/settings/account-settings").then(
@@ -189,17 +248,89 @@ const homeRoute = createRoute({
   component: HomePage,
 });
 
+/**
+ * Administration: a first page, then six sections named by task, every
+ * page at an address of its own (ROADMAP #49).
+ */
 const adminRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/admin",
   component: function Admin() {
     return (
       <div className="flex-1 overflow-y-auto">
-        <AdminPage />
+        <AdminShell />
       </div>
     );
   },
 });
+
+function adminPage<const Path extends string>(
+  path: Path,
+  component: RouteComponent,
+) {
+  return createRoute({ getParentRoute: () => adminRoute, path, component });
+}
+
+const adminIndexRoute = adminPage("/", AdminOverview);
+
+/** A section's address opens its first page. */
+const adminPeopleRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "people",
+  component: function People() {
+    return <Navigate to="/admin/people/accounts" replace />;
+  },
+});
+
+const adminAccountsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "people/accounts",
+  validateSearch: accountsSearchSchema,
+  component: function Accounts() {
+    const search = adminAccountsRoute.useSearch();
+    const navigate = adminAccountsRoute.useNavigate();
+    const router = useRouter();
+    return (
+      <AccountsTab
+        search={search}
+        onSearch={(update) => {
+          // A search typed just before leaving the list does not bring
+          // the person back to it.
+          if (router.state.location.pathname !== "/admin/people/accounts") {
+            return;
+          }
+          void navigate({ search: update, replace: true });
+        }}
+      />
+    );
+  },
+});
+
+const adminAccountRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "people/accounts/$userId",
+  component: function Account() {
+    const { userId } = adminAccountRoute.useParams();
+    return <AccountAdminPage userId={userId} />;
+  },
+});
+
+const adminRoutes = [
+  adminIndexRoute,
+  adminPeopleRoute,
+  adminAccountsRoute,
+  adminAccountRoute,
+  adminPage("people/sessions", SessionsTab),
+  adminPage("people/provisioning", ScimTab),
+  adminPage("security", SecurityPage),
+  adminPage("connections", IntegrationsTab),
+  adminPage("sources", SourcesTab),
+  adminPage("trails", ChangesTrail),
+  adminPage("trails/sign-ins", SignInTrail),
+  adminPage("instance", SettingsTab),
+  adminPage("instance/health", HealthTab),
+  adminPage("instance/support", SupportTab),
+];
 
 const accountRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -310,7 +441,7 @@ const routeTree = rootRoute.addChildren([
   shareRoute,
   appRoute.addChildren([
     homeRoute,
-    adminRoute,
+    adminRoute.addChildren(adminRoutes),
     accountRoute,
     welcomeRoute,
     baseRoute,

@@ -171,8 +171,8 @@ export function WelcomePage() {
                 <Option
                   icon={Database}
                   title={t`Connect a database`}
-                  text={t`PostgreSQL, MySQL, MariaDB, or SQL Server, over TLS. Its tables become tables here; the rights stay in the database.`}
-                  onClick={() => void navigate({ to: "/admin" })}
+                  text={t`PostgreSQL, MySQL, MariaDB, SQL Server, or Oracle, over TLS. Its tables become tables here; the rights stay in the database.`}
+                  onClick={() => void navigate({ to: "/admin/sources" })}
                 />
               ) : null}
             </div>

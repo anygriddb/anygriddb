@@ -11,26 +11,13 @@ import { canManage, type CatalogBase, type Role } from "../../lib/types";
 import { NotebookPage, RuledSection } from "../shell/notebook-page";
 import { useInvalidateCatalog } from "../shell/sidebar";
 import { GroupRoles } from "./group-roles";
+import { useRoleLabel } from "./role-label";
 import { TableAclPanel } from "./table-acl-panel";
 import { WebhooksPanel } from "./webhooks-panel";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 
 const ROLES: Role[] = ["owner", "editor", "commenter", "viewer"];
-
-export function useRoleLabel() {
-  const { t } = useLingui();
-  return (role: Role | null | undefined) =>
-    role === "owner"
-      ? t`Owner`
-      : role === "editor"
-        ? t`Editor`
-        : role === "commenter"
-          ? t`Comment`
-          : role === "viewer"
-            ? t`Viewer`
-            : "—";
-}
 
 export function BaseSettings({ baseId }: { baseId: string }) {
   const { t } = useLingui();

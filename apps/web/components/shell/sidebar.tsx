@@ -26,6 +26,7 @@ import {
   PinOff,
   Plus,
   Search,
+  ShieldCheck,
   Settings,
   Table2,
   Trash,
@@ -127,6 +128,7 @@ export function Sidebar({
     /** Whether the policy lets this account create bases (ADR 0044). */
     canCreateBases?: boolean;
     isAdmin?: boolean;
+    isSupport?: boolean;
   };
 }) {
   const { t } = useLingui();
@@ -656,6 +658,20 @@ export function Sidebar({
       </nav>
       <div className="flex items-center gap-1 border-t border-border px-2 py-1.5">
         <UserMenu user={user} />
+        {user.isAdmin || user.isSupport ? (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="shrink-0"
+            aria-label={t`Administration`}
+            title={t`Administration`}
+            asChild
+          >
+            <Link to="/admin">
+              <ShieldCheck className="h-4 w-4" aria-hidden />
+            </Link>
+          </Button>
+        ) : null}
         <JobsMenu />
         <NotificationBell />
       </div>

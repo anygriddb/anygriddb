@@ -808,7 +808,11 @@ export const adminRouter = t.router({
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
         await requireSupport(ctx);
-        return getAccountDetail(ctx.db, input.userId);
+        const [account, smtp] = await Promise.all([
+          getAccountDetail(ctx.db, input.userId),
+          resolveSmtp(ctx.db, ctx.env),
+        ]);
+        return { ...account, smtpReady: smtpReady(smtp.config) };
       }),
     ),
   /** The instance's bases, to give a person a role on (ADR 0057). */

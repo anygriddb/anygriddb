@@ -6,6 +6,17 @@ const controlUrl =
   process.env.DATABASE_URL ??
   "postgres://anygriddb:anygriddb@127.0.0.1:5433/anygriddb";
 
+/**
+ * Addresses of its own (the e2e server trusts the loopback peer, so this
+ * header is the client address): this journey runs last, and the sign-ups
+ * and sign-ins of the others must not have spent its rate limit.
+ */
+const from = (address: string) => ({
+  ignoreHTTPSErrors: true,
+  extraHTTPHeaders: { "x-forwarded-for": address },
+});
+test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.40" } });
+
 // Maintenance signs everyone but administrators out (ADR 0042): this
 // journey runs alone, after the others (the "maintenance" project).
 test("maintenance keeps everyone but administrators out, and an announcement shows", async ({
@@ -20,7 +31,7 @@ test("maintenance keeps everyone but administrators out, and an announcement sho
     await control.query("update users set is_admin = true where email = $1", [
       email,
     ]);
-    const other = await browser.newContext({ ignoreHTTPSErrors: true });
+    const other = await browser.newContext(from("198.51.100.41"));
     const member = await other.newPage();
     const stamp = uniqueStamp();
     const memberEmail = `e2e-out-${stamp}@example.com`;
@@ -30,8 +41,7 @@ test("maintenance keeps everyone but administrators out, and an announcement sho
       password: "correct-horse-battery",
     });
 
-    await page.goto("/admin");
-    await page.getByRole("tab", { name: "Settings" }).click();
+    await page.goto("/admin/instance");
     // The confirmation dialog is named after maintenance too.
     const maintenance = page.getByRole("checkbox", { name: /Maintenance/ });
     // The box changes once the dialog is confirmed.

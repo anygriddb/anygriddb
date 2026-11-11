@@ -588,7 +588,8 @@ export async function getAccountDetail(db: Database, userId: string) {
 
 /**
  * Live bases to give a person a role on, by name: any base, since
- * Administration decides who sees which (ADR 0057).
+ * Administration decides who sees which (ADR 0057). Each comes with the
+ * names of its owners, so two bases of the same name can be told apart.
  */
 export async function listBaseChoices(
   db: Database,
@@ -598,14 +599,22 @@ export async function listBaseChoices(
     ? `%${input.search.replace(/[%_\\]/g, "\\$&")}%`
     : undefined;
   return db
-    .selectFrom("bases")
-    .select(["id", "name"])
-    .where(liveBase())
+    .selectFrom("bases as b")
+    .select([
+      "b.id",
+      "b.name",
+      sqlTag<
+        string[]
+      >`array(select u.display_name from role_bindings r join users u on u.id = r.user_id where r.scope = 'base' and r.scope_id = b.id and r.role = 'owner' and r.group_id is null order by u.display_name limit 3)`.as(
+        "owners",
+      ),
+    ])
+    .where(liveBase("b"))
     .$if(pattern !== undefined, (query) =>
-      query.where("name", "ilike", pattern ?? ""),
+      query.where("b.name", "ilike", pattern ?? ""),
     )
-    .orderBy("name", "asc")
-    .orderBy("id", "asc")
+    .orderBy("b.name", "asc")
+    .orderBy("b.id", "asc")
     .limit(input.limit)
     .execute();
 }

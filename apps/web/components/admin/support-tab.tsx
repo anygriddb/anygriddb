@@ -13,7 +13,7 @@ import { useLingui } from "@lingui/react/macro";
 import { Download, Mail } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { datedName, downloadCsv, downloadJson } from "../../lib/download";
+import { datedName, downloadJson } from "../../lib/download";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
@@ -26,9 +26,10 @@ function date(value: string | null): string {
 type RecipientMode = "all_active" | "ids";
 
 /**
- * Helping people (ADR 0042): every person's jobs, webhook deliveries that
- * gave up, pending invitations, and what to send to whoever helps.
- * Operator notices to accounts (ADR 0052) live here too.
+ * Helping people (ADR 0042): jobs, webhook deliveries that gave up, and
+ * what to send to whoever helps, and notices to accounts (ADR 0052).
+ * Pending invitations sit beside the accounts (ROADMAP #20), who has
+ * access beside the security policy (ROADMAP #49).
  */
 export function SupportTab() {
   const { t } = useLingui();
@@ -36,10 +37,6 @@ export function SupportTab() {
   const api = useTRPC();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<JobStatus | "">("");
-  const [withdraw, setWithdraw] = useState<{
-    id: string;
-    email: string;
-  } | null>(null);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [mode, setMode] = useState<RecipientMode>("all_active");
@@ -55,7 +52,6 @@ export function SupportTab() {
   const deliveries = useQuery(
     api.admin.failedDeliveries.queryOptions({ limit: 50 }),
   );
-  const invitations = useQuery(api.admin.invitations.queryOptions());
   const smtp = useQuery(api.admin.smtp.get.queryOptions());
   const accounts = useQuery({
     ...api.admin.users.queryOptions({
@@ -83,11 +79,9 @@ export function SupportTab() {
   async function run(action: () => Promise<unknown>, done?: string) {
     try {
       await action();
-      await Promise.all(
-        [api.admin.jobs, api.admin.invitations].map((procedure) =>
-          queryClient.invalidateQueries({ queryKey: procedure.queryKey() }),
-        ),
-      );
+      await queryClient.invalidateQueries({
+        queryKey: api.admin.jobs.queryKey(),
+      });
       if (done) toast.success(done);
     } catch (cause) {
       toast.error(errorText(cause));
@@ -116,7 +110,7 @@ export function SupportTab() {
     <div className="flex flex-col gap-4">
       <RuledSection
         title={t`For whoever helps you`}
-        description={t`The bundle holds the version, health checks, counts, and which features are set up: no data, no address, no secret. The access export lists every account, its bases and roles, and its last sign-in.`}
+        description={t`The bundle holds the version, health checks, counts, and which features are set up: no data, no address, no secret. Who has access is exported from Security.`}
       >
         <div className="flex flex-wrap gap-2">
           <Button
@@ -131,19 +125,6 @@ export function SupportTab() {
           >
             <Download className="h-4 w-4" aria-hidden />
             {t`Download the support bundle`}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              void run(async () => {
-                const report = await trpc.admin.accessReport.mutate();
-                downloadCsv(datedName("anygriddb-access", "csv"), report.csv);
-              })
-            }
-          >
-            <Download className="h-4 w-4" aria-hidden />
-            {t`Export who has access`}
           </Button>
           <Button
             size="sm"
@@ -167,7 +148,7 @@ export function SupportTab() {
       >
         {!smtp.data?.ready ? (
           <p className="text-sm text-muted-foreground">
-            {t`Set up email under Integrations before you can send a notice.`}
+            {t`Set up email under Connections before you can send a notice.`}
           </p>
         ) : null}
         <div className="flex flex-col gap-3 max-w-xl">
@@ -404,80 +385,6 @@ export function SupportTab() {
         )}
       </RuledSection>
 
-      <RuledSection
-        title={t`Pending invitations`}
-        description={t`A base's owners invite people. You can withdraw an invitation sent by mistake.`}
-      >
-        {invitations.isLoading ? <Spinner /> : null}
-        {invitations.data?.invitations.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t`None.`}</p>
-        ) : (
-          <div className="overflow-x-auto rounded-sm border border-border">
-            <table className="w-full text-xs">
-              <thead className="bg-muted text-left">
-                <tr>
-                  <th className="px-2 py-1.5">{t`Email`}</th>
-                  <th className="px-2 py-1.5">{t`Base`}</th>
-                  <th className="px-2 py-1.5">{t`Role`}</th>
-                  <th className="px-2 py-1.5">{t`Invited by`}</th>
-                  <th className="px-2 py-1.5">{t`Expires`}</th>
-                  <th className="px-2 py-1.5">
-                    <span className="sr-only">{t`Actions`}</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {(invitations.data?.invitations ?? []).map((invitation) => (
-                  <tr key={invitation.id} className="border-t border-border">
-                    <td className="px-2 py-1.5">{invitation.email}</td>
-                    <td className="px-2 py-1.5">{invitation.baseName}</td>
-                    <td className="px-2 py-1.5">{invitation.role}</td>
-                    <td className="px-2 py-1.5">
-                      {invitation.invitedByName ?? "—"}
-                    </td>
-                    <td className="px-2 py-1.5 whitespace-nowrap">
-                      {date(invitation.expiresAt)}
-                    </td>
-                    <td className="px-2 py-1.5 text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() =>
-                          setWithdraw({
-                            id: invitation.id,
-                            email: invitation.email,
-                          })
-                        }
-                      >
-                        {t`Withdraw`}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </RuledSection>
-      {withdraw ? (
-        <ConfirmDialog
-          open
-          danger
-          onOpenChange={(open) => !open && setWithdraw(null)}
-          title={t`Withdraw the invitation to ${{ email: withdraw.email }}?`}
-          description={t`The link stops working. The base's owners can invite this person again.`}
-          confirmLabel={t`Withdraw`}
-          onConfirm={() =>
-            run(
-              () =>
-                trpc.admin.withdrawInvitation.mutate({
-                  invitationId: withdraw.id,
-                }),
-              t`Invitation withdrawn`,
-            )
-          }
-        />
-      ) : null}
       {confirmSend && recipientCount !== null && recipientCount > 0 ? (
         <ConfirmDialog
           open

@@ -3,22 +3,26 @@
 Use these terms in `` t`…` `` / `` msg`…` `` so English stays consistent.
 French translations live in `apps/web/locales/fr/messages.po`.
 
-| Concept           | English    | Notes                                                       |
-| ----------------- | ---------- | ----------------------------------------------------------- |
-| Base              | Base       | A workspace of tables                                       |
-| Table             | Table      |                                                             |
-| Field / column    | Field      | Prefer “field” in chrome; “column” only for SQL/source talk |
-| Row / record      | Row        | Prefer “row” in the grid                                    |
-| View              | View       | Grid, kanban, calendar, …                                   |
-| Share             | Share      | Public link                                                 |
-| Automation        | Automation |                                                             |
-| Webhook           | Webhook    |                                                             |
-| Source            | Source     | External client database                                    |
-| Sync / copy       | Sync, copy | ADR 0034                                                    |
-| Trash             | Trash      | Soft-delete                                                 |
-| Role              | Role       | Owner, editor, …                                            |
-| Instance          | Instance   | The deployment                                              |
-| Locale / language | Language   | User-facing menu label                                      |
+| Concept           | English                                                  | Notes                                                                                                               |
+| ----------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Base              | Base                                                     | A workspace of tables                                                                                               |
+| Table             | Table                                                    |                                                                                                                     |
+| Field / column    | Field                                                    | Prefer “field” in chrome; “column” only for SQL/source talk                                                         |
+| Row / record      | Row                                                      | Prefer “row” in the grid                                                                                            |
+| View              | View                                                     | Grid, kanban, calendar, …                                                                                           |
+| Share             | Share                                                    | Public link                                                                                                         |
+| Automation        | Automation                                               |                                                                                                                     |
+| Webhook           | Webhook                                                  |                                                                                                                     |
+| Source            | Source                                                   | External client database                                                                                            |
+| Sync / copy       | Sync, copy                                               | ADR 0034                                                                                                            |
+| Trash             | Trash                                                    | Soft-delete                                                                                                         |
+| Role              | Role                                                     | Owner, editor, …                                                                                                    |
+| Instance          | Instance                                                 | The deployment                                                                                                      |
+| Locale / language | Language                                                 | User-facing menu label                                                                                              |
+| Account create    | Add a person                                             | Administration accounts; not “Create account” there                                                                 |
+| Account erase     | Delete                                                   | Not “Erase”; confirmation still types the email                                                                     |
+| Invite / grant    | Invite, Add                                              | Prefer the verb people look for                                                                                     |
+| Admin sections    | People, Security, Connections, Sources, Trails, Instance | Named by task (ROADMAP #49); “Connections” are the services the instance talks to, “Sign-ins” are people signing in |
 
 ## Tone
 

@@ -1,7 +1,10 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import pg from "pg";
 import {
+  findAccount,
   mailedLink,
+  openAdmin,
+  signIn,
   signUp,
   signUpWithTable,
   uniqueStamp,
@@ -24,13 +27,6 @@ const from = (address: string) => ({
 });
 test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.10" } });
 
-async function signIn(page: Page, email: string, password: string) {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-}
-
 // The security policy (ADR 0043): an administrator sets the lock, the
 // account locks after failed passwords, the administrator unlocks it and
 // sends a reset link, which goes to the person's own address, and the
@@ -49,8 +45,7 @@ test("an administrator sets the lock, unlocks an account, and sends a reset link
       email,
     ]);
 
-    await page.goto("/admin");
-    await page.getByRole("tab", { name: "Security" }).click();
+    await page.goto("/admin/security");
     await page.getByLabel("Lock an account after").selectOption("3");
     await expect(page.getByText("Settings saved")).toBeVisible();
 
@@ -91,10 +86,10 @@ test("an administrator sets the lock, unlocks an account, and sends a reset link
         name: new RegExp(`^${name}'s account locked after failed sign-ins`),
       })
       .click();
-    await page.waitForURL(/\/admin$/);
-
-    await page.getByRole("tab", { name: "Accounts" }).click();
-    await page.getByLabel("Search accounts").fill(memberEmail);
+    // It opens the locked accounts, the filter kept in the address.
+    await page.waitForURL(/\/admin\/people\/accounts\?status=locked$/);
+    await expect(page.getByLabel("Status")).toHaveValue("locked");
+    await findAccount(page, memberEmail);
     const row = page.getByRole("row", { name: new RegExp(memberEmail) });
     await expect(row).toContainText("Locked until");
     await page.getByRole("button", { name: `Actions for ${name}` }).click();
@@ -103,7 +98,10 @@ test("an administrator sets the lock, unlocks an account, and sends a reset link
       .getByRole("dialog")
       .getByRole("button", { name: "Unlock" })
       .click();
-    await expect(page.getByText("Done")).toBeVisible();
+    await expect(page.getByText("Unlocked")).toBeVisible();
+    // No longer locked, so no longer in the list of the locked.
+    await expect(row).toBeHidden();
+    await page.getByLabel("Status").selectOption("");
     await expect(row).not.toContainText("Locked until");
 
     // A reset link: with email set up, it goes to the person's own
@@ -150,7 +148,7 @@ test("an administrator sets the lock, unlocks an account, and sends a reset link
     ).toBeVisible();
 
     // Only administrators create bases: the member is told, not offered.
-    await page.getByRole("tab", { name: "Security" }).click();
+    await openAdmin(page, "Security");
     await page.getByLabel("Who can create bases").selectOption("admins");
     await expect(page.getByText("Settings saved").first()).toBeVisible();
     await member.goto("/");
@@ -170,8 +168,7 @@ test("an administrator sets the lock, unlocks an account, and sends a reset link
     );
 
     // The trail keeps the lock, the unlock, the link, and the reset.
-    await page.getByRole("tab", { name: "Audit log" }).click();
-    await page.getByRole("radio", { name: "Sign-ins" }).click();
+    await openAdmin(page, "Trails", "Sign-ins");
     const theirs = page.getByRole("row", { name: new RegExp(name) });
     await expect(
       theirs.filter({ hasText: "Account locked" }).first(),

@@ -96,7 +96,10 @@ export function NotificationBell() {
       void refresh();
     }
     if (item.kind === "account_locked") {
-      void navigate({ to: "/admin" });
+      void navigate({
+        to: "/admin/people/accounts",
+        search: { status: "locked" },
+      });
       return;
     }
     if (!item.baseId || !item.tableId) return;

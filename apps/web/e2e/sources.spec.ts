@@ -54,8 +54,7 @@ test("an administrator shows a client's tables in a base, read where they live",
       email,
     ]);
 
-    await page.goto("/admin");
-    await page.getByRole("tab", { name: "Sources" }).click();
+    await page.goto("/admin/sources");
     await page.getByRole("button", { name: "Declare a source" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Name", { exact: true }).fill(`ERP ${stamp}`);
@@ -131,8 +130,7 @@ test("an administrator shows a client's tables in a base, read where they live",
     await grants.connect();
     await grants.query(`grant update (amount) on invoices to ${account}`);
     await grants.end();
-    await page.goto("/admin");
-    await page.getByRole("tab", { name: "Sources" }).click();
+    await page.goto("/admin/sources");
     await page
       .getByRole("row", { name: new RegExp(`ERP ${stamp}`) })
       .getByRole("button", { name: "Tables" })
