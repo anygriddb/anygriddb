@@ -557,6 +557,17 @@ export interface Relations {
   toTableId: string;
 }
 
+export interface ReleaseStatus {
+  checkedAt: Timestamp;
+  current: string;
+  dismissedVersion: string | null;
+  id: Generated<boolean>;
+  latest: string;
+  newer: boolean;
+  updatedAt: Generated<Timestamp>;
+  url: string;
+}
+
 export interface RoleBindings {
   createdAt: Generated<Timestamp>;
   groupId: string | null;
@@ -799,6 +810,7 @@ export interface DB {
   pins: Pins;
   recentTables: RecentTables;
   relations: Relations;
+  releaseStatus: ReleaseStatus;
   roleBindings: RoleBindings;
   rowSignatures: RowSignatures;
   scimTokens: ScimTokens;

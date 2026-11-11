@@ -6,12 +6,33 @@ here was tried on a stack of its own before it was written down.
 ## Install
 
 Install a release, never `main`: each release is a Git tag `vX.Y.Z`
-(ADR 0048).
+(ADR 0048). Prefer the published image, pinned by version and digest:
+
+```sh
+version=X.Y.Z   # the release to install, from GitHub Releases
+files="https://raw.githubusercontent.com/anygriddb/anygriddb/v$version/docker"
+mkdir anygriddb && cd anygriddb
+curl -fsSLO "$files/compose.yml"
+curl -fsSLO "$files/compose.release.yml"
+curl -fsSL -o .env "$files/.env.example"
+curl -fsSLO "https://github.com/anygriddb/anygriddb/releases/download/v$version/image-pin.env"
+# In .env: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, PUBLIC_URL, and
+AUTH_ENCRYPTION_KEY="$(openssl rand -base64 32)"   # keep it safe, apart
+docker compose -f compose.yml -f compose.release.yml \
+  --env-file .env --env-file image-pin.env up -d
+```
+
+`image-pin.env`, attached to each release, names the image and its
+digest. Give Compose both files: the second one alone would hide `.env`.
+On a PostgreSQL of your own (`compose.managed.yml`), build from a
+checkout.
+
+To build from a checkout instead:
 
 ```sh
 git checkout "$(git tag --list 'v*' --sort=-v:refname | head -n 1)"   # the latest release
 cd docker
-cp ../.env.example .env
+cp .env.example .env
 # In .env: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, PUBLIC_URL, and
 AUTH_ENCRYPTION_KEY="$(openssl rand -base64 32)"   # keep it safe, apart
 ../scripts/build-image.sh
@@ -62,10 +83,12 @@ passkey. Until then, or with an IP-only `PUBLIC_URL`, use a TOTP app.
 ### Offline
 
 AnyGridDB calls no outside service at run time, except when a person
-imports an Airtable base: that job reads `api.airtable.com` over HTTPS
-with the personal access token they give, kept sealed and dropped when
-the job ends. Without internet access, that import fails and says so;
-everything else works. On a machine with internet access:
+imports an Airtable base (`api.airtable.com` over HTTPS with the token
+they give, sealed and dropped when the job ends), or when an
+administrator turns on the release check (Health may look up the
+latest GitHub Release on demand, and a daily job does the same while
+the opt-in stays on). Without internet access, those two fail and say
+so; everything else works. On a machine with internet access:
 
 ```sh
 ../scripts/build-image.sh
@@ -84,7 +107,20 @@ Add `rustfs/rustfs` to the `docker save` command when you use
 
 ## Update AnyGridDB
 
-Back up first (below). Then, from the repository's root:
+Back up first (below). With the published image, read the release's
+notes on GitHub, then take its Compose files and pin:
+
+```sh
+version=X.Y.Z   # the release to install
+files="https://raw.githubusercontent.com/anygriddb/anygriddb/v$version/docker"
+curl -fsSLO "$files/compose.yml"
+curl -fsSLO "$files/compose.release.yml"
+curl -fsSLO "https://github.com/anygriddb/anygriddb/releases/download/v$version/image-pin.env"
+docker compose -f compose.yml -f compose.release.yml \
+  --env-file .env --env-file image-pin.env up -d
+```
+
+From a repository checkout instead:
 
 ```sh
 git fetch --tags
@@ -100,9 +136,14 @@ version, or the second before 1.0: it may ask for a step of its own.
 Migrations run when AnyGridDB starts, under a lock, so two instances
 starting at once do not both migrate.
 
-Administration > Health then shows the version and the commit running,
-and so does `docker compose exec app anygriddb version`. The image's
-labels say the same: `docker image inspect anygriddb:local`.
+Administration > Health then shows the version and the commit running.
+An administrator may opt in there to check GitHub for a newer release;
+the default makes no outbound call. When a newer release is found, a
+dismissible notice appears in Administration until that version is
+dismissed or the instance is upgraded.
+`docker compose exec app anygriddb version` says the same, and so do the
+image's labels: `docker compose images app`, then `docker image inspect`
+on that image.
 
 ## PostgreSQL 17 to 18
 

@@ -230,6 +230,10 @@ export const ERRORS = {
     "Changes older than the source keeps were missed: the table was read again",
   ],
 
+  // Releases (ADR 0048): opt-in check for a newer published version.
+  release_check_disabled: [403, "Release check is off"],
+  release_check_failed: [BAD, "Could not reach the release feed"],
+
   // Transport: input that failed its schema before any rule ran, a request
   // without a session, a refusal with nothing more to say, a missing
   // resource, and a failure people are not told about.

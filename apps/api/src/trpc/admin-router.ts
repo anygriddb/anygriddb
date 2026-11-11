@@ -45,6 +45,13 @@ import {
   setUserAdmin,
   setUserDisabled,
 } from "../admin.js";
+import {
+  dismissReleaseNotice,
+  releaseNotice,
+  releaseNotify,
+  runReleaseCheck,
+  type ReleaseStatus,
+} from "../release-status.js";
 import { readSettings, writeSettings } from "../settings.js";
 import {
   exposeTables,
@@ -135,6 +142,11 @@ function sourceDeps(ctx: Context): SourceDeps {
     key: ctx.env.AUTH_ENCRYPTION_KEY,
     settings: ctx.sources,
   };
+}
+
+/** A release check as the client reads it. */
+function releaseView(status: ReleaseStatus) {
+  return { ...status, checkedAt: status.checkedAt.toISOString() };
 }
 
 /** Client databases (ADR 0026): declared and checked by administrators. */
@@ -463,6 +475,37 @@ export const adminRouter = t.router({
     handle(ctx, async () => {
       await requireAdmin(ctx);
       return instanceHealth({ db: ctx.db, bus: ctx.bus, files: ctx.files });
+    }),
+  ),
+  /**
+   * Opt-in check for a newer GitHub Release (ADR 0048). Refused while
+   * `releaseCheck` is off so the instance never calls home by default.
+   * Persists the result for the Administration banner.
+   */
+  checkRelease: procedure.mutation(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      const status = await runReleaseCheck(ctx.db);
+      return { ...releaseView(status), notify: releaseNotify(true, status) };
+    }),
+  ),
+  /** Last stored release check and whether the update banner should show. */
+  releaseStatus: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      const notice = await releaseNotice(ctx.db);
+      return {
+        status: notice.status ? releaseView(notice.status) : null,
+        notify: notice.notify,
+      };
+    }),
+  ),
+  /** Hides the update banner for the currently known latest release. */
+  dismissRelease: procedure.mutation(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      const status = await dismissReleaseNotice(ctx.db);
+      return { ...releaseView(status), notify: false };
     }),
   ),
   audit: procedure.input(auditInputSchema).query(({ ctx, input }) =>

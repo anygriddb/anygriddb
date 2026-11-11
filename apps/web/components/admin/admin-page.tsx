@@ -30,6 +30,7 @@ import {
   Settings2,
   ShieldCheck,
   Users,
+  X,
   XCircle,
 } from "lucide-react";
 import { useState } from "react";
@@ -50,6 +51,15 @@ import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { known } from "../../lib/known-text";
 import { useCopy } from "../../lib/clipboard";
+
+type ReleaseStatusView = {
+  current: string;
+  latest: string;
+  newer: boolean;
+  url: string;
+  checkedAt: string;
+  dismissedVersion: string | null;
+};
 
 type Tab =
   | "users"
@@ -647,14 +657,74 @@ function ChangesTrail() {
   );
 }
 
+/**
+ * Opt-in update notice (ADR 0048): shown only in Administration when a
+ * newer release was found and not dismissed.
+ */
+function ReleaseBanner() {
+  const { t } = useLingui();
+  const errorText = useErrorText();
+  const api = useTRPC();
+  const queryClient = useQueryClient();
+  const notice = useQuery({
+    ...api.admin.releaseStatus.queryOptions(),
+    refetchInterval: 60_000,
+  });
+  if (!notice.data?.notify || !notice.data.status) return null;
+  const { latest, url } = notice.data.status;
+  const dismiss = async () => {
+    try {
+      await trpc.admin.dismissRelease.mutate();
+      await queryClient.invalidateQueries({
+        queryKey: api.admin.releaseStatus.queryKey(),
+      });
+    } catch (error) {
+      toast.error(errorText(error));
+    }
+  };
+  return (
+    <div
+      role="status"
+      className="mt-4 flex flex-wrap items-center gap-2 rounded-sm border border-warning/40 bg-warning-surface px-3 py-2 text-sm"
+    >
+      <p className="flex-1">
+        <a
+          className="underline underline-offset-2"
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {t`AnyGridDB ${{ latest }} is available`}
+        </a>
+        {" · "}
+        {t`Read the release notes before you upgrade.`}
+      </p>
+      <Button
+        size="sm"
+        variant="ghost"
+        aria-label={t`Dismiss`}
+        onClick={() => void dismiss()}
+      >
+        <X className="h-4 w-4" aria-hidden />
+      </Button>
+    </div>
+  );
+}
+
 function HealthTab() {
   const { t, i18n } = useLingui();
+  const errorText = useErrorText();
   const api = useTRPC();
+  const queryClient = useQueryClient();
   const health = useQuery({
     ...api.admin.health.queryOptions(),
     refetchInterval: 30_000,
   });
+  const settings = useQuery(api.admin.settings.queryOptions());
+  const release = useQuery(api.admin.releaseStatus.queryOptions());
+  const [checkingRelease, setCheckingRelease] = useState(false);
   const data = health.data;
+  const releaseStatus: ReleaseStatusView | null = release.data?.status ?? null;
   const when = (iso: string) =>
     new Date(iso).toLocaleString(i18n.locale, {
       dateStyle: "long",
@@ -667,6 +737,35 @@ function HealthTab() {
         [t`File storage`, data.checks.storage],
       ] as const)
     : [];
+  const saveReleaseCheck = async (releaseCheck: boolean) => {
+    try {
+      await trpc.admin.updateSettings.mutate({ releaseCheck });
+      await queryClient.invalidateQueries({
+        queryKey: api.admin.settings.queryKey(),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: api.admin.releaseStatus.queryKey(),
+      });
+      toast.success(
+        releaseCheck ? t`Release check is on` : t`Release check is off`,
+      );
+    } catch (error) {
+      toast.error(errorText(error));
+    }
+  };
+  const runReleaseCheck = async () => {
+    setCheckingRelease(true);
+    try {
+      await trpc.admin.checkRelease.mutate();
+      await queryClient.invalidateQueries({
+        queryKey: api.admin.releaseStatus.queryKey(),
+      });
+    } catch (error) {
+      toast.error(errorText(error));
+    } finally {
+      setCheckingRelease(false);
+    }
+  };
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -723,6 +822,62 @@ function HealthTab() {
                 {t`built ${{ date: when(data.build.builtAt) }}`}
               </>
             )}
+          </dd>
+          <dt className="text-muted-foreground">{t`Newer release`}</dt>
+          <dd className="flex flex-col gap-2">
+            <label className="flex items-center gap-2">
+              <Checkbox
+                checked={settings.data?.releaseCheck ?? false}
+                disabled={!settings.data}
+                onChange={(event) =>
+                  void saveReleaseCheck(event.target.checked)
+                }
+              />
+              <span>
+                {t`Allow checking GitHub for a newer release (off by default)`}
+              </span>
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={!settings.data?.releaseCheck || checkingRelease}
+                onClick={() => void runReleaseCheck()}
+              >
+                <RefreshCw
+                  className={cn("h-4 w-4", checkingRelease && "animate-spin")}
+                  aria-hidden
+                />
+                {t`Check now`}
+              </Button>
+              {settings.data?.releaseCheck ? (
+                releaseStatus ? (
+                  releaseStatus.newer ? (
+                    <a
+                      className="text-sm underline underline-offset-2"
+                      href={releaseStatus.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {t`AnyGridDB ${{ latest: releaseStatus.latest }} is available`}
+                    </a>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      {t`This instance is up to date`}
+                    </span>
+                  )
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    {t`Not checked yet`}
+                  </span>
+                )
+              ) : null}
+            </div>
+            {settings.data?.releaseCheck && releaseStatus ? (
+              <p className="text-xs text-muted-foreground">
+                {t`Last checked ${{ date: when(releaseStatus.checkedAt) }}`}
+              </p>
+            ) : null}
           </dd>
           <dt className="text-muted-foreground">{t`Queued events`}</dt>
           <dd className="tabular-nums">{data.queue.events}</dd>
@@ -1021,6 +1176,7 @@ export function AdminPage() {
       title={t`Administration`}
       description={t`Accounts, security, sources, and the instance itself.`}
     >
+      <ReleaseBanner />
       <div
         role="tablist"
         className="mt-4 flex gap-1 overflow-x-auto border-b border-rule"

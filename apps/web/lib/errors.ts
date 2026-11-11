@@ -190,6 +190,9 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   source_side_denied: msg`The source's account may not create tables in the schema kept for AnyGridDB: its administrator must allow it`,
   source_changes_expired: msg`SQL Server no longer kept the changes: the table was read again in full`,
 
+  release_check_disabled: msg`Turn on the release check in Health first`,
+  release_check_failed: msg`Could not reach the release feed`,
+
   invalid_input: msg`Invalid input`,
   unauthenticated: msg`Sign in to continue`,
   request_rejected: msg`Request refused`,

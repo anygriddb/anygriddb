@@ -1027,6 +1027,10 @@ msgstr "All their sessions"
 msgid "All true"
 msgstr "All true"
 
+#: components/admin/admin-page.tsx
+msgid "Allow checking GitHub for a newer release (off by default)"
+msgstr "Allow checking GitHub for a newer release (off by default)"
+
 #: components/table/share-dialog.tsx
 msgid "Allow copying the data"
 msgstr "Allow copying the data"
@@ -1116,6 +1120,10 @@ msgstr "Any form of the table"
 #: components/fields/field-editor.tsx
 msgid "Any true"
 msgstr "Any true"
+
+#: components/admin/admin-page.tsx
+msgid "AnyGridDB {latest} is available"
+msgstr "AnyGridDB {latest} is available"
 
 #: lib/errors.ts
 msgid "AnyGridDB does not change a client's table: this field cannot be added or changed there"
@@ -1556,6 +1564,10 @@ msgstr "Channel"
 msgid "Chart"
 msgstr "Chart"
 
+#: components/admin/admin-page.tsx
+msgid "Check now"
+msgstr "Check now"
+
 #: components/fields/field-editor.tsx
 #: components/fields/field-meta.tsx
 msgid "Checkbox"
@@ -1871,6 +1883,10 @@ msgstr "Could not load the rows to fill"
 #: components/grid/grid-view.tsx
 msgid "Could not load the rows to paste into"
 msgstr "Could not load the rows to paste into"
+
+#: lib/errors.ts
+msgid "Could not reach the release feed"
+msgstr "Could not reach the release feed"
 
 #: components/fields/field-editor.tsx
 msgid "Count of links"
@@ -2300,6 +2316,10 @@ msgstr "Disabled on {date}"
 #: components/admin/admin-page.tsx
 msgid "Disabled on {date}, unused"
 msgstr "Disabled on {date}, unused"
+
+#: components/admin/admin-page.tsx
+msgid "Dismiss"
+msgstr "Dismiss"
 
 #: components/fields/field-editor.tsx
 msgid "Display"
@@ -3715,6 +3735,10 @@ msgstr "Label for {field}"
 msgid "Language"
 msgstr "Language"
 
+#: components/admin/admin-page.tsx
+msgid "Last checked {date}"
+msgstr "Last checked {date}"
+
 #: components/fields/field-meta.tsx
 msgid "Last modified by"
 msgstr "Last modified by"
@@ -4235,6 +4259,10 @@ msgid "Newer"
 msgstr "Newer"
 
 #: components/admin/admin-page.tsx
+msgid "Newer release"
+msgstr "Newer release"
+
+#: components/admin/admin-page.tsx
 msgid "Next"
 msgstr "Next"
 
@@ -4401,6 +4429,10 @@ msgstr "None"
 #: components/admin/support-tab.tsx
 msgid "None."
 msgstr "None."
+
+#: components/admin/admin-page.tsx
+msgid "Not checked yet"
+msgstr "Not checked yet"
 
 #: lib/known-text.ts
 msgid "Not configured"
@@ -4963,6 +4995,10 @@ msgstr "Read replica host (optional)"
 msgid "Read rows"
 msgstr "Read rows"
 
+#: components/admin/admin-page.tsx
+msgid "Read the release notes before you upgrade."
+msgstr "Read the release notes before you upgrade."
+
 #: components/admin/sources-tab.tsx
 msgid "read-only"
 msgstr "read-only"
@@ -5072,6 +5108,14 @@ msgstr "Relations"
 #: components/fields/field-editor.tsx
 msgid "Relative (in 3 days)"
 msgstr "Relative (in 3 days)"
+
+#: components/admin/admin-page.tsx
+msgid "Release check is off"
+msgstr "Release check is off"
+
+#: components/admin/admin-page.tsx
+msgid "Release check is on"
+msgstr "Release check is on"
 
 #: components/admin/admin-page.tsx
 #: components/fields/cell-editor.tsx
@@ -6801,6 +6845,10 @@ msgstr "This filter on a field kept in AnyGridDB matches more than 1,000 rows: n
 msgid "This host is not allowed: the operator adds it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS"
 msgstr "This host is not allowed: the operator adds it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS"
 
+#: components/admin/admin-page.tsx
+msgid "This instance is up to date"
+msgstr "This instance is up to date"
+
 #: lib/errors.ts
 msgid "This invitation does not exist or has expired"
 msgstr "This invitation does not exist or has expired"
@@ -7132,6 +7180,10 @@ msgstr "Turn on"
 #: lib/errors.ts
 msgid "Turn on a second factor in your settings"
 msgstr "Turn on a second factor in your settings"
+
+#: lib/errors.ts
+msgid "Turn on the release check in Health first"
+msgstr "Turn on the release check in Health first"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Turned off after {count} failures in a row."

@@ -62,6 +62,7 @@ import {
   runSync,
 } from "../sources/sync.js";
 import { announceRows } from "../data/announce.js";
+import { runScheduledReleaseCheck } from "../release-status.js";
 import { transactionEvents } from "./row-events.js";
 import type { WorkerGroup } from "./worker.js";
 
@@ -264,6 +265,9 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
         3_600_000,
       );
     },
+    [TASKS.releaseCheck]: async () => {
+      await runScheduledReleaseCheck(deps.db, { log: deps.log });
+    },
   };
   const jobs: TaskList = {
     [TASKS.productJob]: async (payload, helpers) => {
@@ -344,6 +348,13 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
           // A purge missed while the instance was down runs at start.
           options: { maxAttempts: 1, backfillPeriod: 86_400_000 },
           identifier: "trash_purge",
+        },
+        {
+          // Opt-in GitHub release check (ADR 0048); no-op while off.
+          task: TASKS.releaseCheck,
+          match: "12 5 * * *",
+          options: once,
+          identifier: "release_check",
         },
       ],
     },

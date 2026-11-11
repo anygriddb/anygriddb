@@ -1027,6 +1027,10 @@ msgstr "Toutes ses sessions"
 msgid "All true"
 msgstr "Toutes vraies"
 
+#: components/admin/admin-page.tsx
+msgid "Allow checking GitHub for a newer release (off by default)"
+msgstr "Autoriser la vérification d'une version plus récente sur GitHub (désactivée par défaut)"
+
 #: components/table/share-dialog.tsx
 msgid "Allow copying the data"
 msgstr "Autoriser la copie des données"
@@ -1116,6 +1120,10 @@ msgstr "Tous les formulaires de la table"
 #: components/fields/field-editor.tsx
 msgid "Any true"
 msgstr "Au moins une vraie"
+
+#: components/admin/admin-page.tsx
+msgid "AnyGridDB {latest} is available"
+msgstr "AnyGridDB {latest} est disponible"
 
 #: lib/errors.ts
 msgid "AnyGridDB does not change a client's table: this field cannot be added or changed there"
@@ -1556,6 +1564,10 @@ msgstr "Canal"
 msgid "Chart"
 msgstr "Graphique"
 
+#: components/admin/admin-page.tsx
+msgid "Check now"
+msgstr "Vérifier maintenant"
+
 #: components/fields/field-editor.tsx
 #: components/fields/field-meta.tsx
 msgid "Checkbox"
@@ -1871,6 +1883,10 @@ msgstr "Impossible de charger les lignes à remplir"
 #: components/grid/grid-view.tsx
 msgid "Could not load the rows to paste into"
 msgstr "Impossible de charger les lignes où coller"
+
+#: lib/errors.ts
+msgid "Could not reach the release feed"
+msgstr "Impossible d'atteindre le flux des versions"
 
 #: components/fields/field-editor.tsx
 msgid "Count of links"
@@ -2300,6 +2316,10 @@ msgstr "Désactivé le {date}"
 #: components/admin/admin-page.tsx
 msgid "Disabled on {date}, unused"
 msgstr "Désactivé le {date}, inutilisé"
+
+#: components/admin/admin-page.tsx
+msgid "Dismiss"
+msgstr "Ignorer"
 
 #: components/fields/field-editor.tsx
 msgid "Display"
@@ -3715,6 +3735,10 @@ msgstr "Libellé de {field}"
 msgid "Language"
 msgstr "Langue"
 
+#: components/admin/admin-page.tsx
+msgid "Last checked {date}"
+msgstr "Dernière vérification {date}"
+
 #: components/fields/field-meta.tsx
 msgid "Last modified by"
 msgstr "Modifié par"
@@ -4235,6 +4259,10 @@ msgid "Newer"
 msgstr "Plus récents"
 
 #: components/admin/admin-page.tsx
+msgid "Newer release"
+msgstr "Version plus récente"
+
+#: components/admin/admin-page.tsx
 msgid "Next"
 msgstr "Suivant"
 
@@ -4401,6 +4429,10 @@ msgstr "Aucune"
 #: components/admin/support-tab.tsx
 msgid "None."
 msgstr "Aucune."
+
+#: components/admin/admin-page.tsx
+msgid "Not checked yet"
+msgstr "Pas encore vérifié"
 
 #: lib/known-text.ts
 msgid "Not configured"
@@ -4963,6 +4995,10 @@ msgstr "Hôte de la réplique en lecture (optionnel)"
 msgid "Read rows"
 msgstr "Lire des lignes"
 
+#: components/admin/admin-page.tsx
+msgid "Read the release notes before you upgrade."
+msgstr "Lisez les notes de version avant de mettre à jour."
+
 #: components/admin/sources-tab.tsx
 msgid "read-only"
 msgstr "lecture seule"
@@ -5072,6 +5108,14 @@ msgstr "Relations"
 #: components/fields/field-editor.tsx
 msgid "Relative (in 3 days)"
 msgstr "Relatif (dans 3 jours)"
+
+#: components/admin/admin-page.tsx
+msgid "Release check is off"
+msgstr "La vérification des versions est désactivée"
+
+#: components/admin/admin-page.tsx
+msgid "Release check is on"
+msgstr "La vérification des versions est activée"
 
 #: components/admin/admin-page.tsx
 #: components/fields/cell-editor.tsx
@@ -6801,6 +6845,10 @@ msgstr "Ce filtre sur un champ conservé dans AnyGridDB correspond à plus de 1 
 msgid "This host is not allowed: the operator adds it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS"
 msgstr "Cet hôte n'est pas autorisé : l'opérateur l'ajoute à ANYGRIDDB_SOURCES_ALLOWED_HOSTS"
 
+#: components/admin/admin-page.tsx
+msgid "This instance is up to date"
+msgstr "Cette instance est à jour"
+
 #: lib/errors.ts
 msgid "This invitation does not exist or has expired"
 msgstr "Cette invitation n'existe pas ou a expiré"
@@ -7132,6 +7180,10 @@ msgstr "Activer"
 #: lib/errors.ts
 msgid "Turn on a second factor in your settings"
 msgstr "Activez un second facteur dans vos réglages"
+
+#: lib/errors.ts
+msgid "Turn on the release check in Health first"
+msgstr "Activez d'abord la vérification des versions dans Santé"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Turned off after {count} failures in a row."

@@ -98,6 +98,11 @@ const fields = {
   inactiveDays: z.union([z.literal(0), bounded("inactiveDays")]),
   /** Tell administrators when an account locks (ADR 0044). */
   lockAlerts: z.boolean(),
+  /**
+   * Whether Administration may ask GitHub for a newer release (ADR 0048).
+   * Off by default: the instance does not call home.
+   */
+  releaseCheck: z.boolean(),
 };
 
 export type InstanceSettings = {
@@ -127,6 +132,7 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   apiTokens: "everyone",
   inactiveDays: 0,
   lockAlerts: true,
+  releaseCheck: false,
 };
 
 const KEYS = Object.keys(fields) as Array<keyof InstanceSettings>;
@@ -166,6 +172,7 @@ export const instanceSettingsSchema = z.object({
   apiTokens: fields.apiTokens.default(INSTANCE_DEFAULTS.apiTokens),
   inactiveDays: fields.inactiveDays.default(INSTANCE_DEFAULTS.inactiveDays),
   lockAlerts: fields.lockAlerts.default(INSTANCE_DEFAULTS.lockAlerts),
+  releaseCheck: fields.releaseCheck.default(INSTANCE_DEFAULTS.releaseCheck),
 });
 
 export const instanceSettingsPatchSchema = z
@@ -191,6 +198,7 @@ export const instanceSettingsPatchSchema = z
     apiTokens: fields.apiTokens.optional(),
     inactiveDays: fields.inactiveDays.optional(),
     lockAlerts: fields.lockAlerts.optional(),
+    releaseCheck: fields.releaseCheck.optional(),
   })
   .strict();
 

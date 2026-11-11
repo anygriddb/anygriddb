@@ -1,0 +1,23 @@
+# Install from the published image, pinned by version and digest (ADR 0048).
+# Pair with compose.yml (and compose.s3.yml) and the pin file attached to
+# the GitHub Release, next to .env:
+#
+#   docker compose -f compose.yml -f compose.release.yml \
+#     --env-file .env --env-file image-pin.env up -d
+#
+# Both env files: the second one alone would hide .env. A PostgreSQL of
+# your own (compose.managed.yml) has no `certs` service: build from a
+# checkout there (docs/operations.md).
+
+name: anygriddb
+
+services:
+  certs:
+    image: ${ANYGRIDDB_IMAGE:?set ANYGRIDDB_IMAGE}@${ANYGRIDDB_DIGEST:?set ANYGRIDDB_DIGEST}
+    build: !reset null
+    pull_policy: missing
+
+  app:
+    image: ${ANYGRIDDB_IMAGE:?set ANYGRIDDB_IMAGE}@${ANYGRIDDB_DIGEST:?set ANYGRIDDB_DIGEST}
+    build: !reset null
+    pull_policy: missing

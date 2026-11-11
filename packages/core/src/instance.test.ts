@@ -168,6 +168,7 @@ describe("more policies (ADR 0044)", () => {
       apiTokens: "everyone",
       inactiveDays: 0,
       lockAlerts: true,
+      releaseCheck: false,
     });
     expect(patch({ inactiveDays: 0 })).toBe(true);
     expect(patch({ inactiveDays: 29 })).toBe(false);

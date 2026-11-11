@@ -67,14 +67,7 @@ The product is `apps/` and `packages/`.
 
 Phases 0 to 8 of the [migration plan](docs/migration-plan.md) are done;
 the [decision records](docs/adr/README.md) say why each piece is as it
-is. Still open, by value:
-
-1. Oracle when a client needs it (ADRs 0024, 0047): a spike of
-   `kysely-oracledb` and `node-oracledb` in thin mode first.
-2. Mark the CI workflow required in GitHub branch protection.
-3. Releases (ADR 0048): publish the image to a registry on each tag,
-   pinned by version and digest in Compose; release notes for operators
-   (added, changed, fixed, breaking); an opt-in check for a newer release.
+is. Nothing is open on the product roadmap today.
 
 ## Non-goals
 

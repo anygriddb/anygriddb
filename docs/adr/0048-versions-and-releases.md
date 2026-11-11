@@ -56,6 +56,12 @@ version as `dev` in production, `npm_package_version` being unset under
   Health says "commit not recorded". `scripts/build-image.sh` sets it.
 - Between two releases, `main` reports the last release's version with
   another commit: the commit tells them apart.
-- Still to come: images published to a registry, tagged by version and
-  pinned by digest in Compose; release notes for operators; an opt-in
-  check for a newer release (no call home by default).
+- Each `vX.Y.Z` tag publishes `ghcr.io/anygriddb/anygriddb` (version,
+  minor, and `latest`) and opens a GitHub Release whose body is the tag's
+  operator notes, with `image-pin.env` (image and digest) attached.
+  Operators install with `compose.yml` + `compose.release.yml` and that
+  pin; nothing is committed back to `main`. Administration may opt in
+  to check GitHub Releases for a newer version (on demand and once a day
+  while the opt-in stays on); a dismissible notice in Administration
+  shows when a newer release is known, until it is dismissed or the
+  instance runs it. The default stays silent (no call home).

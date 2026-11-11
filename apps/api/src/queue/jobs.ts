@@ -46,6 +46,8 @@ export const TASKS = {
   externalSyncs: "external_syncs",
   /** Drops the copy of a table read live again, once reads on it ended. */
   externalSyncDrop: "external_sync_drop",
+  /** Opt-in check for a newer GitHub Release (ADR 0048). */
+  releaseCheck: "release_check",
 } as const;
 
 export type TaskName = (typeof TASKS)[keyof typeof TASKS];

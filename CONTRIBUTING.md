@@ -207,9 +207,9 @@ open dependency PRs; their commits are exempt from sign-off.
 
 The repository's ruleset, set on GitHub rather than in this tree, protects
 `main`: pull request, one approval, signed commits, no force-push, and these
-checks: `CI / unit`, `CI / integration`, `CI / e2e`, `Security / codeql`,
-`Security / trivy`, `Security / dependency-review`, `DCO / check`. Secrets
-belong in GitHub Actions secrets or `docker/.env`, never in the tree.
+checks (job names as GitHub reports them): `unit`, `integration`, `e2e`,
+`check`, `codeql`, `trivy`, `dependency-review`. Secrets belong in GitHub
+Actions secrets or `docker/.env`, never in the tree.
 
 ## Releases
 
@@ -227,4 +227,8 @@ Until 1.0, a release that breaks something raises the second number
    for operators: what was added, changed, and fixed, and first what
    breaks and what to do about it (environment variables, storage,
    PostgreSQL version).
-4. Push the tag: `git push origin vX.Y.Z`.
+4. Push the tag: `git push origin vX.Y.Z`. The Release workflow builds the
+   image, pushes it to `ghcr.io/anygriddb/anygriddb` (version, minor, and
+   `latest`), and opens a GitHub Release with the tag's notes and the
+   digest pin (`image-pin.env`). The first time, make the package public
+   in its GitHub settings: GitHub creates it private.
