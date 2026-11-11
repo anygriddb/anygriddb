@@ -26,6 +26,9 @@ export type AuthDetail =
   | "mfa_failed"
   | "admin_disable"
   | "admin_erase"
+  /** What an administrator corrected on an account (`account_updated`). */
+  | "display_name"
+  | "email"
   | "admin_revoke_session"
   | "admin_revoke_user"
   | "admin_revoke_all"

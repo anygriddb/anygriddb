@@ -17,7 +17,12 @@ import {
   it,
   vi,
 } from "vitest";
-import { listUsers, setUserAdmin, setUserDisabled } from "./admin.js";
+import {
+  listUsers,
+  setUserAdmin,
+  setUserDisabled,
+  updateAccount,
+} from "./admin.js";
 import {
   accessReportCsv,
   eraseInfo,
@@ -27,7 +32,7 @@ import {
 import { requestActor } from "./auth/access.js";
 import { purgeAuthEvents, recordAuthEvent } from "./auth/auth-events.js";
 import { sweepInactiveAccounts } from "./auth/inactivity.js";
-import { purgeResetLinks } from "./auth/password-reset.js";
+import { createResetLink, purgeResetLinks } from "./auth/password-reset.js";
 import { SESSION_COOKIE } from "./auth/session.js";
 import { createApiToken } from "./auth/tokens.js";
 import { addComment } from "./data/comments.js";
@@ -736,6 +741,130 @@ describe("the security policy", () => {
         .where("id", "=", share.id)
         .executeTakeFirstOrThrow();
       expect(counted.passwordFailures).toBe(6);
+    });
+  });
+
+  describe("an account corrected by an administrator", () => {
+    const changes = (userId: string) =>
+      db
+        .selectFrom("authEvents")
+        .select(["detail", "actorId", "method"])
+        .where("action", "=", "account_updated")
+        .where("userId", "=", userId)
+        .orderBy("detail")
+        .execute();
+
+    it("changes the name and the address, names both in the trail, and ends the links sent to the old address", async () => {
+      const person = await account("Misnamed");
+      await createResetLink(db, {
+        userId: person.id,
+        createdBy: adminId,
+        ttlMs: 60_000,
+      });
+      const moved = `renamed-${String(n)}-${suffix}@example.org`;
+      expect(
+        await updateAccount(db, adminId, {
+          userId: person.id,
+          displayName: "Rightly Named",
+          email: moved.toUpperCase(),
+        }),
+      ).toEqual({ displayName: true, email: true });
+      expect(
+        await db
+          .selectFrom("users")
+          .select(["displayName", "email"])
+          .where("id", "=", person.id)
+          .executeTakeFirst(),
+      ).toEqual({ displayName: "Rightly Named", email: moved });
+      expect(await changes(person.id)).toEqual([
+        { detail: "display_name", actorId: adminId, method: "admin" },
+        { detail: "email", actorId: adminId, method: "admin" },
+      ]);
+      expect(
+        await db
+          .selectFrom("passwordResets")
+          .select("id")
+          .where("userId", "=", person.id)
+          .execute(),
+      ).toEqual([]);
+      // The person signs in with the new address, no longer with the old.
+      expect((await signIn(moved)).result).toBe("ok");
+      expect((await signIn(person.email)).result).toBe("invalid_credentials");
+      // Saved again as it is: nothing changes, nothing is recorded.
+      expect(
+        await updateAccount(db, adminId, {
+          userId: person.id,
+          displayName: "Rightly Named",
+          email: moved,
+        }),
+      ).toEqual({ displayName: false, email: false });
+      expect(await changes(person.id)).toHaveLength(2);
+    });
+
+    it("lets an administrator correct their own name, and keeps a link when only the name changes", async () => {
+      const mine = await db
+        .selectFrom("users")
+        .select(["displayName", "email"])
+        .where("id", "=", adminId)
+        .executeTakeFirstOrThrow();
+      await updateAccount(db, adminId, {
+        userId: adminId,
+        displayName: "Ada Lovelace",
+        email: mine.email,
+      });
+      expect(await changes(adminId)).toEqual([
+        { detail: "display_name", actorId: adminId, method: "admin" },
+      ]);
+      await updateAccount(db, adminId, { userId: adminId, ...mine });
+
+      const person = await account("Keeps");
+      await createResetLink(db, {
+        userId: person.id,
+        createdBy: adminId,
+        ttlMs: 60_000,
+      });
+      await updateAccount(db, adminId, {
+        userId: person.id,
+        displayName: "Keeps The Link",
+        email: person.email,
+      });
+      expect(
+        await db
+          .selectFrom("passwordResets")
+          .select("id")
+          .where("userId", "=", person.id)
+          .execute(),
+      ).toHaveLength(1);
+    });
+
+    it("refuses an address another account has, an account the identity provider keeps, and the erased account", async () => {
+      const person = await account("Fixed");
+      const other = await account("Taken");
+      const attempt = (userId: string, email: string) =>
+        code(updateAccount(db, adminId, { userId, displayName: "Any", email }));
+      expect(await attempt(person.id, other.email)).toBe(
+        "account_already_exists",
+      );
+      expect(await attempt(ERASED_USER_ID, person.email)).toBe(
+        "invalid_account",
+      );
+      expect(
+        await attempt("00000000-0000-4000-8000-000000000001", person.email),
+      ).toBe("unknown_account");
+      await db
+        .updateTable("users")
+        .set({ scimUserName: person.email, deprovisionedAt: null })
+        .where("id", "=", person.id)
+        .execute();
+      expect(await attempt(person.id, person.email)).toBe("invalid_account");
+      // Removed by the provider, the account is the instance's to correct.
+      await db
+        .updateTable("users")
+        .set({ deprovisionedAt: new Date() })
+        .where("id", "=", person.id)
+        .execute();
+      expect(await attempt(person.id, person.email)).toBe("ok");
+      expect(await changes(other.id)).toEqual([]);
     });
   });
 

@@ -104,16 +104,22 @@ test("an administrator sets the lock, unlocks an account, and hands over a reset
     // A reset link, handed over since the server sends no email.
     await page.getByRole("button", { name: `Actions for ${name}` }).click();
     await page
-      .getByRole("menuitem", { name: "Send a password reset link" })
+      .getByRole("menuitem", { name: "Create a password reset link" })
       .click();
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Send" })
+      .getByRole("button", { name: "Create the link" })
       .click();
     const handed = page.getByRole("dialog", { name: `Reset link for ${name}` });
-    const link = (await handed.locator("code").textContent()) ?? "";
+    const link = await handed.getByLabel("Reset link").inputValue();
     expect(link).toMatch(/\/reset\/[A-Za-z0-9_-]{43}$/);
-    await handed.getByRole("button", { name: "Cancel" }).click();
+    // Copying leaves the link in view: it closes when the administrator
+    // is done with it.
+    await handed.getByRole("button", { name: "Copy the link" }).click();
+    await expect(page.getByText("Link copied")).toBeVisible();
+    await expect(handed).toBeVisible();
+    await handed.getByRole("button", { name: "Done" }).click();
+    await expect(handed).toBeHidden();
 
     await guess.goto(new URL(link).pathname);
     await guess

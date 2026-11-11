@@ -1,6 +1,7 @@
 import {
   AppError,
   emailDomainAllowed,
+  labelSchema,
   lockState,
   memberDomainAllowed,
   parseAdminEmails,
@@ -8,9 +9,11 @@ import {
 } from "@anygriddb/core";
 import type { AuditAction, Database } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
+import { z } from "zod";
 import type { Bus } from "./realtime/bus.js";
 import { factorMethods } from "./auth/access.js";
 import { ERASED_USER_ID } from "./data/erasure.js";
+import { isUniqueViolation } from "./data/schema-ops.js";
 import { recordAuthEvent } from "./auth/auth-events.js";
 import { BUILD } from "./build-info.js";
 import type { FileStore } from "./files/index.js";
@@ -204,6 +207,84 @@ export async function setUserDisabled(
       });
     }
   });
+}
+
+export const updateAccountInputSchema = z
+  .object({
+    userId: z.uuid(),
+    displayName: labelSchema,
+    email: z.email().max(254),
+  })
+  .strict();
+
+export type UpdateAccountInput = z.infer<typeof updateAccountInputSchema>;
+
+/**
+ * Corrects an account's name or address, the administrator's own included.
+ * An identity provider keeps the accounts it provisions: it would write
+ * its values back. A link mailed to the old address stops working, so the
+ * mailbox left behind cannot open the account. The sign-in trail names
+ * what changed, never the values.
+ */
+export async function updateAccount(
+  db: Database,
+  actorId: string,
+  input: UpdateAccountInput,
+): Promise<{ displayName: boolean; email: boolean }> {
+  if (input.userId === ERASED_USER_ID) {
+    throw new AppError("invalid_account");
+  }
+  const email = input.email.toLowerCase();
+  try {
+    return await db.transaction().execute(async (tx) => {
+      const account = await tx
+        .selectFrom("users")
+        .select(["email", "displayName", "scimUserName", "deprovisionedAt"])
+        .where("id", "=", input.userId)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!account) throw new AppError("unknown_account");
+      if (account.scimUserName !== null && account.deprovisionedAt === null) {
+        throw new AppError("invalid_account");
+      }
+      const changed = {
+        displayName: account.displayName !== input.displayName,
+        email: account.email !== email,
+      };
+      if (!changed.displayName && !changed.email) return changed;
+      await tx
+        .updateTable("users")
+        .set({ displayName: input.displayName, email })
+        .where("id", "=", input.userId)
+        .execute();
+      if (changed.email) {
+        await tx
+          .deleteFrom("passwordResets")
+          .where("userId", "=", input.userId)
+          .where("usedAt", "is", null)
+          .execute();
+      }
+      for (const detail of [
+        changed.displayName ? ("display_name" as const) : null,
+        changed.email ? ("email" as const) : null,
+      ]) {
+        if (!detail) continue;
+        await recordAuthEvent(tx, {
+          action: "account_updated",
+          userId: input.userId,
+          actorId,
+          method: "admin",
+          detail,
+        });
+      }
+      return changed;
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new AppError("account_already_exists");
+    }
+    throw error;
+  }
 }
 
 /** Changes the admin flag; the last active administrator cannot be removed. */

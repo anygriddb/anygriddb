@@ -23,6 +23,7 @@ const ACTIONS = [
   "settings_changed",
   "account_disabled",
   "account_erased",
+  "account_updated",
   "sso_unlinked",
 ] as const;
 type AuthAction = (typeof ACTIONS)[number];
@@ -61,6 +62,7 @@ export function SignInTrail() {
       settings_changed: t`Setting changed`,
       account_disabled: t`Account disabled`,
       account_erased: t`Account erased`,
+      account_updated: t`Account changed`,
       sso_unlinked: t`Single sign-on unlinked`,
     })[value];
   const methodLabel = (value: string | null) =>
@@ -88,6 +90,9 @@ export function SignInTrail() {
             mfa_failed: t`Wrong second factor`,
             admin_disable: t`Account disabled`,
             admin_erase: t`By an administrator`,
+            // What an administrator corrected (account_updated).
+            display_name: t`Display name`,
+            email: t`Email`,
             admin_revoke_session: t`One session`,
             admin_revoke_user: t`All their sessions`,
             admin_revoke_all: t`Everyone else`,

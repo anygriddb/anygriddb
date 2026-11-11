@@ -71,6 +71,8 @@ import {
   listUsers,
   setUserAdmin,
   setUserDisabled,
+  updateAccount,
+  updateAccountInputSchema,
 } from "../admin.js";
 import {
   dismissReleaseNotice,
@@ -159,6 +161,7 @@ const authActionSchema = z.enum([
   "settings_changed",
   "account_disabled",
   "account_erased",
+  "account_updated",
   "sso_unlinked",
 ] satisfies AuthAction[]);
 
@@ -569,6 +572,23 @@ export const adminRouter = t.router({
           ...input,
           search: input.search || undefined,
         });
+      }),
+    ),
+  /**
+   * Corrects an account's name or address. The trail names what changed,
+   * and the log neither value.
+   */
+  updateAccount: procedure
+    .input(updateAccountInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const changed = await updateAccount(ctx.db, admin.id, input);
+        ctx.req.log.info(
+          { actor: admin.id, target: input.userId, changed },
+          "account updated",
+        );
+        return { ok: true as const };
       }),
     ),
   setDisabled: procedure

@@ -12,6 +12,18 @@ const controlUrl =
   process.env.DATABASE_URL ??
   "postgres://anygriddb:anygriddb@127.0.0.1:5433/anygriddb";
 
+/**
+ * Addresses of their own. The e2e server trusts the loopback peer
+ * (`ANYGRIDDB_TRUSTED_PROXIES`), so this header is the client address:
+ * the accounts these journeys make do not spend the sign-in rate limit
+ * the other journeys share.
+ */
+const from = (address: string) => ({
+  ignoreHTTPSErrors: true,
+  extraHTTPHeaders: { "x-forwarded-for": address },
+});
+test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.30" } });
+
 // Instance controls (ADR 0042) an administrator uses beside everyone's
 // work: sessions, the sign-in trail, an account's tokens, the access
 // export. Maintenance, which signs everyone out, has its own journey.
@@ -29,7 +41,7 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     ]);
 
     // Someone else signs up in their own browser.
-    const other = await browser.newContext({ ignoreHTTPSErrors: true });
+    const other = await browser.newContext(from("198.51.100.31"));
     const member = await other.newPage();
     const stamp = uniqueStamp();
     const memberEmail = `e2e-member-${stamp}@example.com`;
@@ -78,13 +90,59 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       .click();
     await expect(page.getByText("Done")).toBeVisible();
 
+    // A name and an address corrected. An address another account has is
+    // refused, and the dialog keeps what was typed.
+    await page
+      .getByRole("button", { name: `Actions for Member ${stamp}` })
+      .click();
+    await page.getByRole("menuitem", { name: "Edit name and email" }).click();
+    const editing = page.getByRole("dialog", {
+      name: `Edit Member ${stamp}'s account`,
+    });
+    await editing.getByLabel("Display name").fill(`Renamed ${stamp}`);
+    await editing.getByLabel("Email").fill(email);
+    await editing.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("This account already exists")).toBeVisible();
+    await expect(editing).toBeVisible();
+    const movedEmail = `e2e-moved-${stamp}@example.com`;
+    await editing.getByLabel("Email").fill(movedEmail);
+    await editing.getByRole("button", { name: "Save" }).click();
+    await expect(editing).toBeHidden();
+    await page.getByLabel("Search accounts").fill(movedEmail);
+    await expect(
+      page.getByRole("row", { name: new RegExp(movedEmail) }),
+    ).toContainText(`Renamed ${stamp}`);
+    // Their own name too, which the page shows at once.
+    await page.getByLabel("Search accounts").fill(email);
+    await page
+      .getByRole("button", { name: "Actions for Admin Controls" })
+      .click();
+    await page.getByRole("menuitem", { name: "Edit name and email" }).click();
+    const own = page.getByRole("dialog", {
+      name: "Edit Admin Controls's account",
+    });
+    await own.getByLabel("Display name").fill(`Ada ${stamp}`);
+    await own.getByRole("button", { name: "Save" }).click();
+    await expect(own).toBeHidden();
+    await expect(
+      page.getByRole("button", { name: `Ada ${stamp}` }).first(),
+    ).toBeVisible();
+    await page.getByRole("tab", { name: "Audit log" }).click();
+    await page.getByRole("radio", { name: "Sign-ins" }).click();
+    await expect(
+      page
+        .getByRole("row", { name: new RegExp(`Renamed ${stamp}`) })
+        .filter({ hasText: "Account changed" })
+        .first(),
+    ).toContainText(`Ada ${stamp}`);
+
     await page.getByRole("tab", { name: "Support" }).click();
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export who has access" }).click();
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/^anygriddb-access-.*\.csv$/);
     const csv = await readFile((await file.path()) ?? "", "utf8");
-    expect(csv).toContain(memberEmail);
+    expect(csv).toContain(movedEmail);
     expect(csv).toContain(email);
 
     // Which AnyGridDB runs (ADR 0048): the support bundle and Health say
@@ -130,7 +188,7 @@ test("an administrator erases a departed owner and names who takes the base", as
     ]);
 
     // The person who will leave alone owns the base they make.
-    const theirs = await browser.newContext({ ignoreHTTPSErrors: true });
+    const theirs = await browser.newContext(from("198.51.100.32"));
     const leaving = await theirs.newPage();
     const stamp = uniqueStamp();
     const { email: leavingEmail } = await signUpWithTable(
@@ -139,7 +197,7 @@ test("an administrator erases a departed owner and names who takes the base", as
     );
 
     // The colleague who takes the base.
-    const other = await browser.newContext({ ignoreHTTPSErrors: true });
+    const other = await browser.newContext(from("198.51.100.33"));
     const heir = await other.newPage();
     const heirEmail = `e2e-heir-${stamp}@example.com`;
     await heir.goto("/signup");
