@@ -8,7 +8,7 @@ Rules for every phase:
 - **Each phase leaves the product working.** Lint, typecheck, unit tests,
   integration tests on PostgreSQL, and the end-to-end journey pass before a
   commit.
-- **Each step is one Conventional Commit** with a sign-off.
+- **Each step is one Conventional Commit.**
 - **Docs follow the code.** `TECH_STACK.md` and `ARCHITECTURE.md` describe
   what runs, not what is planned.
 

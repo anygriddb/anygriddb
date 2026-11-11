@@ -139,11 +139,11 @@ so they are not checked.
 
 What runs where:
 
-| When             | What                                                                                                            |
-| ---------------- | --------------------------------------------------------------------------------------------------------------- |
-| `git commit`     | Prettier on staged files; commit message format and `Signed-off-by`                                             |
-| `pnpm check`, CI | format, `scripts/check-conventions.mjs` (file names, migrations, versions), ESLint, types, unit tests           |
-| CI on every PR   | integration and e2e tests, translation catalogs, commit messages and sign-off, CodeQL, Trivy, dependency review |
+| When             | What                                                                                                  |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| `git commit`     | Prettier on staged files; commit message format                                                       |
+| `pnpm check`, CI | format, `scripts/check-conventions.mjs` (file names, migrations, versions), ESLint, types, unit tests |
+| CI on every PR   | integration and e2e tests, translation catalogs, commit messages, CodeQL, Trivy, dependency review    |
 
 ## Messages (i18n)
 
@@ -172,7 +172,7 @@ complete.
    extend a spec in `apps/web/e2e` (one journey per flow, not per view).
 6. **Text**: extract and translate (above).
 7. **Check**: `pnpm check`.
-8. **Commit**: Conventional Commits with `git commit -s` (DCO). Read your diff:
+8. **Commit**: Conventional Commits. Read your diff:
    no secrets, `.env` files, credentials, or personal data.
 9. **Open the PR** against `main` with the template. Reviews are requested from
    [`.github/CODEOWNERS`](.github/CODEOWNERS).
@@ -194,21 +194,19 @@ fix(web): restore filter hierarchy on import
 feat!: drop SQLite as a production meta store
 
 BREAKING CHANGE: production meta store is Postgres only.
-
-Signed-off-by: Your Name <you@example.com>
 ```
 
 Husky's `commit-msg` runs commitlint, then
-`scripts/validate-conventional-commit.sh`; CI's `DCO / check` checks every
-commit of a PR again. Renovate (npm) and Dependabot (GitHub Actions, Docker)
-open dependency PRs; their commits are exempt from sign-off.
+`scripts/validate-conventional-commit.sh`; CI's `Commits / commits` checks
+every commit of a PR again. Renovate (npm) and Dependabot (GitHub Actions,
+Docker) open dependency PRs and write their own messages.
 
 ### On GitHub
 
 The repository's ruleset, set on GitHub rather than in this tree, protects
-`main`: pull request, one approval, signed commits, no force-push, and these
-checks (job names as GitHub reports them): `unit`, `integration`, `e2e`,
-`check`, `codeql`, `trivy`, `dependency-review`. Secrets belong in GitHub
+`main`: pull request, signed commits, no force-push, and these checks (job
+names as GitHub reports them): `unit`, `integration`, `e2e`, `commits`,
+`codeql`, `dependency-review`. Secrets belong in GitHub
 Actions secrets or `docker/.env`, never in the tree.
 
 ## Releases

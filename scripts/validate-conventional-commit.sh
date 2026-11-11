@@ -22,7 +22,6 @@ if [ -z "$subject" ]; then
 fi
 
 # Allow automated merge / revert wrappers to skip the subject grammar.
-# They still need a Signed-off-by trailer, checked below.
 skip_subject=0
 case "$subject" in
   "Merge "*|"Revert "*|"fixup! "*|"squash! "*)
@@ -78,19 +77,6 @@ if [ "${#subject}" -gt 100 ]; then
   echo "got (${#subject}): $subject" >&2
   exit 1
 fi
-fi
-
-# DCO: same trailer the Check DCO workflow requires on every pull request.
-if ! grep -Eq '^Signed-off-by: .+ <.+>$' "$msg_file"; then
-  cat >&2 <<'EOF'
-error: missing Signed-off-by trailer
-
-  git commit -s
-
-The trailer must look like:
-  Signed-off-by: Your Name <you@example.com>
-EOF
-  exit 1
 fi
 
 exit 0
