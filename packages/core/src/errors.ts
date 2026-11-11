@@ -19,6 +19,8 @@ export const ERRORS = {
   account_locked: [403, "Account locked"],
   signup_closed: [403, "Signup closed"],
   signup_domain_not_allowed: [403, "Signup domain not allowed"],
+  signup_needs_mail: [403, "Signup needs email"],
+  invalid_signup_link: [BAD, "Invalid signup link"],
   password_too_short: [BAD, "Password too short"],
   invalid_reset_link: [BAD, "Invalid reset link"],
   password_reset_disabled: [403, "Password reset disabled"],

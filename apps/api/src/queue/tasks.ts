@@ -50,6 +50,7 @@ import {
 import { purgeAuthEvents } from "../auth/auth-events.js";
 import { sweepInactiveAccounts } from "../auth/inactivity.js";
 import { purgeResetLinks } from "../auth/password-reset.js";
+import { purgeSignupRequests } from "../auth/signup-requests.js";
 import { readSettings } from "../settings.js";
 import { purgeStagedUploads } from "../data/staged-uploads.js";
 import { purgeLocks } from "../realtime/locks.js";
@@ -305,6 +306,7 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
         (await readSettings(deps.db)).authRetentionDays,
       );
       await purgeResetLinks(deps.db);
+      await purgeSignupRequests(deps.db);
       await sweepInactiveAccounts({
         db: deps.db,
         env: deps.env,

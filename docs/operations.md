@@ -365,7 +365,9 @@ Before opening the instance to users:
 
 1. Install a release image pinned by digest; set `PUBLIC_URL` and
    `AUTH_ENCRYPTION_KEY`; confirm Health shows a trusted certificate path.
-2. Configure SMTP; send a test email from Support.
+2. Configure SMTP; send a test email from Support. Without email, people
+   join only by an invitation's link or an account an administrator
+   creates: a sign-up proves its address by a mailed link (ADR 0058).
 3. Configure OIDC or SAML; use **Test issuer** / **Test certificate**, then
    complete one real sign-in.
 4. Optionally turn on **SSO-only** (administrators keep a password).

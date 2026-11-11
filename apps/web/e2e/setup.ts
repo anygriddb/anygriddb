@@ -22,6 +22,75 @@ export function uniqueStamp(): string {
   return `${Date.now().toString(36)}${randomBytes(3).toString("hex")}`;
 }
 
+/** The mail catcher of `scripts/e2e.sh` (docker/compose.e2e.yml). */
+const MAIL_API = process.env.MAIL_API ?? "http://127.0.0.1:8026/api/v1";
+
+/**
+ * The path of the newest link of this app of the given kind mailed to
+ * `to`, waiting for the mail to arrive.
+ */
+export async function mailedLink(
+  to: string,
+  kind: "signup" | "reset",
+): Promise<string> {
+  const link = new RegExp(`/${kind}/[A-Za-z0-9_-]{43}`);
+  const deadline = Date.now() + 20_000;
+  for (;;) {
+    const search = await fetch(
+      `${MAIL_API}/search?query=${encodeURIComponent(`to:"${to}"`)}`,
+    );
+    const { messages } = (await search.json()) as {
+      messages: Array<{ ID: string }>;
+    };
+    // Newest first.
+    for (const message of messages) {
+      const read = await fetch(`${MAIL_API}/message/${message.ID}`);
+      const { Text } = (await read.json()) as { Text: string };
+      const found = link.exec(Text)?.[0];
+      if (found) return found;
+    }
+    if (Date.now() > deadline) {
+      throw new Error(`no ${kind} link mailed to ${to}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
+
+/**
+ * A new account, made as a person makes one, on the first-run page. Past
+ * the instance's first account, the sign-up mails a link to the address,
+ * opened here with the same password (ADR 0058).
+ */
+export async function signUp(
+  page: Page,
+  input: { email: string; name: string; password: string },
+): Promise<void> {
+  await page.goto("/signup");
+  await page.getByLabel("Email").fill(input.email);
+  await page.getByLabel("Display name").fill(input.name);
+  await page.getByLabel("Password").fill(input.password);
+  await page.getByRole("button", { name: "Create account" }).click();
+  const outcome = await Promise.race([
+    page.waitForURL(/\/welcome/).then(
+      () => "session" as const,
+      () => null,
+    ),
+    page
+      .getByRole("heading", { name: "Check your email" })
+      .waitFor()
+      .then(
+        () => "mailed" as const,
+        () => null,
+      ),
+  ]);
+  if (outcome === "session") return;
+  if (outcome === null) throw new Error(`sign-up of ${input.email} stalled`);
+  await page.goto(await mailedLink(input.email, "signup"));
+  await page.getByLabel("Password").fill(input.password);
+  await page.getByRole("button", { name: "Create my account" }).click();
+  await page.waitForURL(/\/welcome/);
+}
+
 /**
  * A new account with a second factor, a base, and a table, open on its
  * grid. Each journey gets its own account, so journeys run side by side.
@@ -32,12 +101,7 @@ export async function signUpWithTable(
 ): Promise<{ email: string }> {
   const stamp = uniqueStamp();
   const email = `e2e-${stamp}@example.com`;
-  await page.goto("/signup");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Display name").fill(name);
-  await page.getByLabel("Password").fill("correct-horse-battery");
-  await page.getByRole("button", { name: "Create account" }).click();
-  await page.waitForURL(/\/welcome/);
+  await signUp(page, { email, name, password: "correct-horse-battery" });
 
   await page.getByRole("button", { name: "Enable TOTP" }).click();
   const secret = await page.getByLabel("Secret").inputValue();

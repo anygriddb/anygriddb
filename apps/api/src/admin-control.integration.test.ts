@@ -21,6 +21,7 @@ import {
   browserFactory,
   enrollTotp,
   errorCode,
+  signUpProved,
   TEST_IP as IP,
 } from "./trpc/caller.test-helpers.js";
 
@@ -71,7 +72,7 @@ describe("instance controls", () => {
     });
     // Administration asks for a second factor (ADR 0043).
     await enrollTotp(admin);
-    await member.call().auth.signup({
+    await signUpProved(member, db, {
       email: memberEmail,
       displayName: "Max Member",
       password: PASSWORD,
@@ -110,7 +111,7 @@ describe("instance controls", () => {
     expect(
       trail.map((event) => [event.action, event.method, event.detail]),
     ).toEqual([
-      ["login_success", "signup", null],
+      ["login_success", "password", null],
       ["login_failure", "password", "invalid_credentials"],
       ["login_success", "password", null],
       ["logout", null, null],

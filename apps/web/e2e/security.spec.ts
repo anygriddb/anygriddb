@@ -1,6 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import pg from "pg";
-import { signUpWithTable, uniqueStamp, watchPolicy } from "./setup";
+import {
+  mailedLink,
+  signUp,
+  signUpWithTable,
+  uniqueStamp,
+  watchPolicy,
+} from "./setup";
 
 const controlUrl =
   process.env.DATABASE_URL ??
@@ -27,10 +33,10 @@ async function signIn(page: Page, email: string, password: string) {
 
 // The security policy (ADR 0043): an administrator sets the lock, the
 // account locks after failed passwords, the administrator unlocks it and
-// sends a reset link (the test server has no email, so the link is handed
-// over), and the person sets a new password, then changes it. It changes
-// instance settings: after the other journeys, before maintenance.
-test("an administrator sets the lock, unlocks an account, and hands over a reset link", async ({
+// sends a reset link, which goes to the person's own address, and the
+// person sets a new password, then changes it. It changes instance
+// settings: after the other journeys, before maintenance.
+test("an administrator sets the lock, unlocks an account, and sends a reset link", async ({
   page,
   browser,
 }) => {
@@ -54,12 +60,11 @@ test("an administrator sets the lock, unlocks an account, and hands over a reset
     const stamp = uniqueStamp();
     const memberEmail = `e2e-locked-${stamp}@example.com`;
     const name = `Locked ${stamp}`;
-    await member.goto("/signup");
-    await member.getByLabel("Email").fill(memberEmail);
-    await member.getByLabel("Display name").fill(name);
-    await member.getByLabel("Password").fill("correct-horse-battery");
-    await member.getByRole("button", { name: "Create account" }).click();
-    await member.waitForURL(/\/welcome/);
+    await signUp(member, {
+      email: memberEmail,
+      name: name,
+      password: "correct-horse-battery",
+    });
 
     // Another browser guesses the password three times.
     const elsewhere = await browser.newContext(from("203.0.113.66"));
@@ -101,27 +106,19 @@ test("an administrator sets the lock, unlocks an account, and hands over a reset
     await expect(page.getByText("Done")).toBeVisible();
     await expect(row).not.toContainText("Locked until");
 
-    // A reset link, handed over since the server sends no email.
+    // A reset link: with email set up, it goes to the person's own
+    // address, and the administrator never sees it.
     await page.getByRole("button", { name: `Actions for ${name}` }).click();
     await page
-      .getByRole("menuitem", { name: "Create a password reset link" })
+      .getByRole("menuitem", { name: "Send a password reset link" })
       .click();
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Create the link" })
+      .getByRole("button", { name: "Send", exact: true })
       .click();
-    const handed = page.getByRole("dialog", { name: `Reset link for ${name}` });
-    const link = await handed.getByLabel("Reset link").inputValue();
-    expect(link).toMatch(/\/reset\/[A-Za-z0-9_-]{43}$/);
-    // Copying leaves the link in view: it closes when the administrator
-    // is done with it.
-    await handed.getByRole("button", { name: "Copy the link" }).click();
-    await expect(page.getByText("Link copied")).toBeVisible();
-    await expect(handed).toBeVisible();
-    await handed.getByRole("button", { name: "Done" }).click();
-    await expect(handed).toBeHidden();
+    await expect(page.getByText(`Link sent to ${memberEmail}`)).toBeVisible();
 
-    await guess.goto(new URL(link).pathname);
+    await guess.goto(await mailedLink(memberEmail, "reset"));
     await guess
       .getByLabel("New password", { exact: true })
       .fill("a-new-long-passphrase");

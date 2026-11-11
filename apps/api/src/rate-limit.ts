@@ -15,14 +15,17 @@ export const RATE_LIMITS: Record<RateBucket, number> = {
 };
 
 const AUTH_PROCEDURES =
-  /(^|[,/])(auth\.(login|signup|totp\.verify|backup\.verify|webauthn\.authenticate\w*|invitation|acceptInvitation|erase|changePassword|requestPasswordReset|resetLink|resetPassword)|rows\.sign)(?=[,?]|$)/;
+  /(^|[,/])(auth\.(login|signup|totp\.verify|backup\.verify|webauthn\.authenticate\w*|invitation|acceptInvitation|erase|changePassword|requestPasswordReset|resetLink|resetPassword|confirmSignup)|rows\.sign)(?=[,?]|$)/;
 
 export function rateBucket(method: string, url: string): RateBucket {
   const path = url.split("?")[0] ?? url;
   if (path.startsWith("/trpc/")) {
     const procedures = decodeURIComponent(path.slice("/trpc/".length));
     if (AUTH_PROCEDURES.test(procedures)) return "auth";
-    if (/(^|,)share\./.test(procedures)) return "share";
+    // A sign-up's link is a token a page opens, as a public share is.
+    if (/(^|,)(share\.|auth\.signupLink(?=[,?]|$))/.test(procedures)) {
+      return "share";
+    }
     return "app";
   }
   if (path.startsWith("/auth/")) return "auth";

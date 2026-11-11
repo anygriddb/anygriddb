@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import pg from "pg";
 import {
   accessibilityViolations,
+  signUp,
   signUpWithTable,
   uniqueStamp,
   watchPolicy,
@@ -45,12 +46,11 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     const member = await other.newPage();
     const stamp = uniqueStamp();
     const memberEmail = `e2e-member-${stamp}@example.com`;
-    await member.goto("/signup");
-    await member.getByLabel("Email").fill(memberEmail);
-    await member.getByLabel("Display name").fill(`Member ${stamp}`);
-    await member.getByLabel("Password").fill("correct-horse-battery");
-    await member.getByRole("button", { name: "Create account" }).click();
-    await member.waitForURL(/\/welcome/);
+    await signUp(member, {
+      email: memberEmail,
+      name: `Member ${stamp}`,
+      password: "correct-horse-battery",
+    });
 
     await page.goto("/admin");
     await page.getByRole("tab", { name: "Sessions" }).click();
@@ -137,7 +137,7 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     ).toContainText(`Ada ${stamp}`);
 
     await page.getByRole("tab", { name: "Support" }).click();
-    // Operator notices need SMTP (ADR 0052); without it the form stays shut.
+    // Operator notices need SMTP (ADR 0052): the journeys' server has it.
     await expect(
       page.getByRole("heading", { name: "Message accounts" }),
     ).toBeVisible();
@@ -145,10 +145,7 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       page.getByText(
         "Set up email under Integrations before you can send a notice.",
       ),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Send notice" }),
-    ).toBeDisabled();
+    ).toBeHidden();
     expect(await accessibilityViolations(page)).toEqual([]);
 
     const download = page.waitForEvent("download");
@@ -214,12 +211,11 @@ test("an administrator erases a departed owner and names who takes the base", as
     const other = await browser.newContext(from("198.51.100.33"));
     const heir = await other.newPage();
     const heirEmail = `e2e-heir-${stamp}@example.com`;
-    await heir.goto("/signup");
-    await heir.getByLabel("Email").fill(heirEmail);
-    await heir.getByLabel("Display name").fill(`Heir ${stamp}`);
-    await heir.getByLabel("Password").fill("correct-horse-battery");
-    await heir.getByRole("button", { name: "Create account" }).click();
-    await heir.waitForURL(/\/welcome/);
+    await signUp(heir, {
+      email: heirEmail,
+      name: `Heir ${stamp}`,
+      password: "correct-horse-battery",
+    });
 
     await page.goto("/admin");
     await page.getByRole("tab", { name: "Accounts" }).click();

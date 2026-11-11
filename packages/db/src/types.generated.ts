@@ -664,6 +664,16 @@ export interface Shares {
   viewId: string;
 }
 
+export interface SignupRequests {
+  createdAt: Generated<Timestamp>;
+  displayName: string;
+  email: string;
+  expiresAt: Timestamp;
+  id: Generated<string>;
+  passwordHash: string;
+  tokenHash: string;
+}
+
 export interface Sources {
   checkedAt: Timestamp | null;
   connectionLimit: Generated<number>;
@@ -867,6 +877,7 @@ export interface DB {
   scimTokens: ScimTokens;
   sessions: Sessions;
   shares: Shares;
+  signupRequests: SignupRequests;
   sources: Sources;
   ssoIdentities: SsoIdentities;
   stagedUploads: StagedUploads;

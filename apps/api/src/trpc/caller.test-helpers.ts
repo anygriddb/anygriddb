@@ -7,6 +7,7 @@ import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { vi } from "vitest";
+import { hashPassword } from "../auth/argon2.js";
 import { decodeBase32, totpCode } from "../auth/totp-code.js";
 import type { Env } from "../env.js";
 import type { FileStore } from "../files/index.js";
@@ -62,6 +63,39 @@ export function browserFactory(deps: {
 export type TestBrowser = ReturnType<ReturnType<typeof browserFactory>>;
 
 /** "ok", or the code a call failed with: an AppError's, or tRPC's. */
+/**
+ * An account whose address is proved, signed in in this browser: what a
+ * sign-up and the link it mails make (ADR 0058), without the mail. For
+ * tests whose subject is not the sign-up itself; `auth.signup` makes the
+ * first account of an instance at once.
+ */
+export async function signUpProved(
+  page: TestBrowser,
+  db: Database,
+  input: { email: string; displayName: string; password: string },
+): Promise<string> {
+  const hash = await hashPassword(input.password);
+  const id = await db.transaction().execute(async (tx) => {
+    const user = await tx
+      .insertInto("users")
+      .values({
+        email: input.email.toLowerCase(),
+        displayName: input.displayName,
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await tx
+      .insertInto("passwordHashes")
+      .values({ userId: user.id, hash })
+      .execute();
+    return user.id;
+  });
+  await page
+    .call()
+    .auth.login({ email: input.email, password: input.password });
+  return id;
+}
+
 export async function errorCode(promise: Promise<unknown>): Promise<string> {
   try {
     await promise;

@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { loadEngine } from "../data/engine.js";
 import { grantMember } from "../data/members.js";
 import type { Env } from "../env.js";
-import { browserFactory } from "../trpc/caller.test-helpers.js";
+import { browserFactory, signUpProved } from "../trpc/caller.test-helpers.js";
 import { readPage } from "../data/rows.js";
 import { addColumn, insertBase } from "../data/schema-ops.js";
 import { loadRowScope, updateRows } from "../services/rows.js";
@@ -725,7 +725,7 @@ describe("PostgreSQL sources", () => {
       },
     })();
     const email = `reader-${randomBytes(4).toString("hex")}@example.org`;
-    await reader.call().auth.signup({
+    await signUpProved(reader, db, {
       email,
       displayName: "Rita Reader",
       password: "correct horse battery staple",

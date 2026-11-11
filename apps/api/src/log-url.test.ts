@@ -9,6 +9,10 @@ describe("logUrl", () => {
     expect(logUrl(`/ical/agcal_${"b".repeat(43)}.ics`)).toBe("/ical/…");
     expect(logUrl("/s/share-token")).toBe("/s/…");
     expect(logUrl("/invite/abc?next=%2F")).toBe("/invite/…?…");
+    expect(logUrl(`/reset/${"c".repeat(43)}`)).toBe("/reset/…");
+    expect(logUrl(`/signup/${"d".repeat(43)}`)).toBe("/signup/…");
+    // The sign-up page itself carries no secret.
+    expect(logUrl("/signup?next=%2F")).toBe("/signup?…");
   });
 
   it("keeps other paths, without their query string", () => {
