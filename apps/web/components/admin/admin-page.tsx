@@ -159,10 +159,10 @@ function UsersTab() {
     if (!email || !displayName || creating) return;
     setCreating(true);
     try {
-      const result = await trpc.admin.createUser.mutate({
+      const result = await trpc.admin.createAccount.mutate({
         email,
         displayName,
-        isAdmin: createAdmin,
+        admin: createAdmin,
       });
       setCreateEmail("");
       setCreateName("");

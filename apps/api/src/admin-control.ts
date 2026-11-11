@@ -319,9 +319,10 @@ export const adminEraseInputSchema = z
 export type AdminEraseInput = z.infer<typeof adminEraseInputSchema>;
 
 /**
- * What the erase dialog needs before confirming: the account must already
- * be disabled and free of an active SCIM binding, and the live bases it
- * alone owns need an account to take them (ADR 0051).
+ * What the delete dialog needs before confirming: whether an identity
+ * provider still manages the account, and the live bases it alone owns,
+ * which need an account to take them. An enabled account may be deleted:
+ * the deletion disables it first (ADR 0059).
  */
 export async function eraseInfo(
   db: Database,
@@ -350,10 +351,11 @@ export async function eraseInfo(
 }
 
 /**
- * Erases another account on the path self-service erasure takes, after the
- * administrator confirms its email. Disable first; the identity provider
- * keeps actively provisioned accounts; the bases the account alone owns go
- * to the account the administrator names.
+ * Deletes another account on the path self-service erasure takes, after
+ * the administrator confirms its email. An enabled account is disabled in
+ * the same transaction (ADR 0059); the identity provider keeps actively
+ * provisioned accounts; the bases the account alone owns go to the account
+ * the administrator names.
  */
 export async function eraseOtherAccount(
   db: Database,
@@ -455,9 +457,8 @@ export async function revokeUserTokens(
 /* ------------------------------------------------------------------ */
 
 /**
- * Pending invitations across the instance. An administrator may withdraw
- * one, not send one: inviting into a base is its owners' decision, and an
- * administrator is not a member of every base.
+ * Pending invitations across the instance, which an administrator sends
+ * again or withdraws: Administration decides who sees which base (ADR 0057).
  */
 export async function listPendingInvitations(db: Database) {
   const rows = await db

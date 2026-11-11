@@ -14,6 +14,7 @@ const SIEM_ACTIONS = new Set<AuthAction>([
   "login_failure",
   "account_locked",
   "account_unlocked",
+  "account_created",
   "account_updated",
   "settings_changed",
   "account_erased",

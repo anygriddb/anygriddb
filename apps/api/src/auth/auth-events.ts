@@ -49,7 +49,9 @@ export type AuthDetail =
   | "siem"
   /** Operator mail recipients (ADR 0052): all active, or a chosen list. */
   | "all_active"
-  | "selected";
+  | "selected"
+  /** An account created as an instance administrator (`account_created`). */
+  | "as_admin";
 
 /** Only an address is kept: anything else a proxy sent is dropped. */
 export function clientAddress(raw: string | null | undefined): string | null {

@@ -752,6 +752,7 @@ msgid "Account changed"
 msgstr "Account changed"
 
 #: components/admin/admin-page.tsx
+#: components/admin/sign-in-trail.tsx
 msgid "Account created"
 msgstr "Account created"
 
@@ -1240,6 +1241,10 @@ msgstr "Apply"
 #: components/dashboards/dashboard-board.tsx
 msgid "Area"
 msgstr "Area"
+
+#: components/admin/sign-in-trail.tsx
+msgid "As an administrator"
+msgstr "As an administrator"
 
 #: lib/errors.ts
 msgid "Ask an administrator to reset your password"

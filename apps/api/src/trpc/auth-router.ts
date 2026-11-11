@@ -51,6 +51,7 @@ import {
   createResetLink,
   findResetLink,
   hasPassword,
+  passwordState,
   resetPassword,
 } from "../auth/password-reset.js";
 import {
@@ -807,13 +808,18 @@ export const authRouter = t.router({
       ) {
         throw new AppError("password_reset_disabled");
       }
-      const account = await ctx.db
+      const found = await ctx.db
         .selectFrom("users as u")
-        .innerJoin("passwordHashes as p", "p.userId", "u.id")
         .select("u.id")
         .where("u.email", "=", input.email.toLowerCase())
         .where("u.disabledAt", "is", null)
         .executeTakeFirst();
+      // A password to reset, or a first one to set: an account that signs
+      // in through its provider has neither.
+      const account =
+        found && (await passwordState(ctx.db, found.id)) !== "provider"
+          ? found
+          : undefined;
       if (account) {
         const link = await createResetLink(ctx.db, {
           userId: account.id,

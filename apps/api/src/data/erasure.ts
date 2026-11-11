@@ -58,8 +58,9 @@ async function successorOf(
  * account, so nothing is written when one applies. The instance keeps an
  * active administrator and a live base keeps an owner: a person hands
  * their bases over before erasing themselves, an administrator names who
- * takes them. An administrator erases only a disabled account that no
- * identity provider still manages, and the sign-in trail records it.
+ * takes them. An administrator may erase an enabled account: the same
+ * transaction disables it first (sessions end), then erases, when no
+ * identity provider still manages it. The sign-in trail records it.
  */
 export async function eraseAccount(
   db: Database,
@@ -88,7 +89,6 @@ export async function eraseAccount(
         if (
           admin.actorId === userId ||
           account.email.toLowerCase() !== admin.email.trim().toLowerCase() ||
-          account.disabledAt === null ||
           provisioned
         ) {
           throw new AppError("invalid_account");
@@ -106,6 +106,25 @@ export async function eraseAccount(
           .forUpdate()
           .execute();
         if (others.length === 0) throw new AppError("invalid_account");
+      }
+      // Administrator path: disable first in this transaction when still
+      // enabled, so Delete needs no prior step and departure stays on the
+      // trail before identity leaves.
+      if (admin && account.disabledAt === null) {
+        await tx
+          .updateTable("users")
+          .set({ disabledAt: new Date(), disabledReason: "admin" })
+          .where("id", "=", userId)
+          .execute();
+        await tx.deleteFrom("sessions").where("userId", "=", userId).execute();
+        await recordAuthEvent(tx, {
+          action: "session_revoked",
+          userId,
+          actorId: admin.actorId,
+          method: "admin",
+          detail: "admin_disable",
+        });
+        account.disabledAt = new Date();
       }
       const owned = await soleOwnerBases(tx, userId);
       if (owned.length > 0) {

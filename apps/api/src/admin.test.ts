@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   changedKeys,
-  createUserInputSchema,
+  createAccountInputSchema,
   updateAccountInputSchema,
 } from "./admin.js";
 
@@ -67,31 +67,62 @@ describe("updateAccountInputSchema", () => {
   });
 });
 
-describe("createUserInputSchema", () => {
-  it("accepts an email and display name, defaulting isAdmin", () => {
+describe("createAccountInputSchema", () => {
+  const base = "00000000-0000-4000-8000-000000000001";
+  const other = "00000000-0000-4000-8000-000000000002";
+
+  it("accepts a person, defaulting to no administration and no base", () => {
     expect(
-      createUserInputSchema.parse({
+      createAccountInputSchema.parse({
         email: "person@example.org",
         displayName: "Person",
       }),
     ).toEqual({
       email: "person@example.org",
       displayName: "Person",
-      isAdmin: false,
+      admin: false,
+      memberships: [],
     });
+    expect(
+      createAccountInputSchema.parse({
+        email: "person@example.org",
+        displayName: "Person",
+        memberships: [
+          { baseId: base, role: "editor" },
+          { baseId: other, role: "viewer" },
+        ],
+      }).memberships,
+    ).toHaveLength(2);
   });
 
-  it("rejects a missing display name and a bad email", () => {
-    expect(
-      createUserInputSchema.safeParse({
+  it("refuses a bad address, no name, a base twice, too many, or an unknown role", () => {
+    const parse = (input: object) =>
+      createAccountInputSchema.safeParse({
         email: "person@example.org",
-      }).success,
+        displayName: "Person",
+        ...input,
+      }).success;
+    expect(parse({ email: "not-an-email" })).toBe(false);
+    expect(parse({ displayName: undefined })).toBe(false);
+    expect(
+      parse({
+        memberships: [
+          { baseId: base, role: "editor" },
+          { baseId: base, role: "viewer" },
+        ],
+      }),
     ).toBe(false);
     expect(
-      createUserInputSchema.safeParse({
-        email: "not-an-email",
-        displayName: "Person",
-      }).success,
+      parse({
+        memberships: Array.from({ length: 21 }, (_, index) => ({
+          baseId: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+          role: "viewer",
+        })),
+      }),
     ).toBe(false);
+    expect(parse({ memberships: [{ baseId: base, role: "root" }] })).toBe(
+      false,
+    );
+    expect(parse({ isAdmin: true })).toBe(false);
   });
 });
