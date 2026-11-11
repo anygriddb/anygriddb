@@ -173,6 +173,42 @@ const SQL_SERVER: Record<string, FieldType> = {
   datetimeoffset: "datetime",
 };
 
+const ORACLE: Record<string, FieldType> = {
+  number: "number",
+  float: "number",
+  binary_float: "number",
+  binary_double: "number",
+  char: "text",
+  nchar: "text",
+  varchar2: "text",
+  nvarchar2: "text",
+  clob: "long_text",
+  nclob: "long_text",
+  date: "date",
+  timestamp: "datetime",
+  "timestamp with time zone": "datetime",
+  "timestamp with local time zone": "datetime",
+  boolean: "boolean",
+};
+
+/**
+ * A column of Oracle: NUMBER(1) is its usual flag, as BOOLEAN is from 23ai;
+ * DATE, which also holds a time of day, reads as a date. JSON shows as
+ * read-only long text; RAW, BLOB, intervals, ROWID, XML, and spatial types
+ * as read-only text.
+ */
+export function mapOracleType(column: { type: string }): MappedField {
+  const type = column.type.trim().toLowerCase();
+  const base = cutAtSpace(cutAt(type, "("));
+  if (/^number\(1\)$/.test(type)) {
+    return { fieldType: "boolean", readOnly: false };
+  }
+  const fieldType = ORACLE[base];
+  if (fieldType) return { fieldType, readOnly: false };
+  if (base === "json") return { fieldType: "long_text", readOnly: true };
+  return { fieldType: "text", readOnly: true };
+}
+
 /**
  * A column of SQL Server: `bit` is its checkbox, `varchar(max)` long text;
  * uniqueidentifier, time, binaries, XML, spatial types, and rowversion

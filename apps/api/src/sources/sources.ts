@@ -13,6 +13,8 @@ import { checkPostgres } from "./postgres.js";
 import { checkMysql } from "./mysql.js";
 import { checkSqlServer } from "./sqlserver.js";
 import { introspectSqlServer } from "./sqlserver-schema.js";
+import { checkOracle } from "./oracle.js";
+import { introspectOracle } from "./oracle-schema.js";
 import { introspectMysql } from "./mysql-schema.js";
 import { introspectPostgres } from "./postgres-schema.js";
 import type {
@@ -94,6 +96,8 @@ export async function checkConnection(
       return checkMysql(source, options);
     case "sqlserver":
       return checkSqlServer(source, options);
+    case "oracle":
+      return checkOracle(source, options);
     default:
       throw new AppError("source_engine_unsupported", source.engine);
   }
@@ -391,6 +395,8 @@ export async function sourceTables(
       return introspectMysql(connection, options);
     case "sqlserver":
       return introspectSqlServer(connection, options);
+    case "oracle":
+      return introspectOracle(connection, options);
     default:
       throw new AppError("source_engine_unsupported", connection.engine);
   }

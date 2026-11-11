@@ -45,6 +45,7 @@ const ENGINES: Array<[SourceEngine, string, boolean]> = [
   ["mysql", "MySQL", true],
   ["mariadb", "MariaDB", true],
   ["sqlserver", "SQL Server", true],
+  ["oracle", "Oracle", true],
 ];
 
 export function SourcesTab() {
@@ -440,7 +441,9 @@ function SourceForm(props: {
         </Select>
       </div>
       <div className="flex flex-col gap-1">
-        <Label htmlFor="source-database">{t`Database`}</Label>
+        <Label htmlFor="source-database">
+          {engine === "oracle" ? t`Service name` : t`Database`}
+        </Label>
         <Input
           id="source-database"
           value={database}
@@ -551,7 +554,7 @@ function SourceForm(props: {
           id="source-side-schema-help"
           className="text-xs text-muted-foreground"
         >
-          {t`Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed.`}
+          {t`Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB, the account's own schema on Oracle). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed.`}
         </p>
       </div>
       <div className="col-span-2 flex flex-col gap-1">

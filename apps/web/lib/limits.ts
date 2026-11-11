@@ -13,6 +13,7 @@ export const ENGINE_NAMES: Record<DialectName, string> = {
   mysql: "MySQL",
   mariadb: "MariaDB",
   sqlserver: "SQL Server",
+  oracle: "Oracle",
 };
 
 const APPROXIMATE = msg`${{ engine: "" }} computes ${{ fn: "" }} approximately: the result is right to 15 digits. This is a limit of ${{ engine: "" }}.`;

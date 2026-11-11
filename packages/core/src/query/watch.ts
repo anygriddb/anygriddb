@@ -52,6 +52,11 @@ const TIME_TYPES: Record<DialectName, ReadonlySet<string>> = {
     "smalldatetime",
     "datetimeoffset",
   ]),
+  oracle: new Set([
+    "timestamp",
+    "timestamp with time zone",
+    "timestamp with local time zone",
+  ]),
 };
 
 /**
@@ -103,6 +108,8 @@ function markText(dialect: DialectName, kind: WatchKind, ref: string): string {
       return `(${ref})::text`;
     case "sqlserver":
       return `convert(varchar(40), ${ref}, 126)`;
+    case "oracle":
+      return `to_char(cast(${ref} as timestamp with time zone) at time zone '+00:00', 'YYYY-MM-DD"T"HH24:MI:SS.FF6TZH:TZM')`;
     default:
       return `cast(${ref} as char)`;
   }
@@ -121,6 +128,8 @@ function markValue(
       return `${placeholder}::${declaredType(column)}`;
     case "sqlserver":
       return `convert(${declaredType(column)}, ${placeholder}, 126)`;
+    case "oracle":
+      return `to_timestamp_tz(${placeholder}, 'YYYY-MM-DD"T"HH24:MI:SS.FF6TZH:TZM')`;
     default:
       // MySQL reads the text in the column's type, in the session's zone.
       return placeholder;
@@ -135,6 +144,8 @@ function behind(dialect: DialectName, value: string, seconds: number): string {
       return `(${value} - interval '${whole} seconds')`;
     case "sqlserver":
       return `dateadd(second, -${whole}, ${value})`;
+    case "oracle":
+      return `(${value} - numtodsinterval(${whole}, 'SECOND'))`;
     default:
       return `(${value} - interval ${whole} second)`;
   }
@@ -147,6 +158,8 @@ function keyText(dialect: DialectName, ref: string): string {
       return `(${ref})::text`;
     case "sqlserver":
       return `cast(${ref} as nvarchar(1000))`;
+    case "oracle":
+      return `cast(${ref} as varchar2(1000))`;
     default:
       return `cast(${ref} as char)`;
   }
@@ -163,7 +176,9 @@ function keyValue(
   type: string | undefined,
   placeholder: string,
 ): string {
-  if (dialect !== "sqlserver" || !type) return placeholder;
+  if ((dialect !== "sqlserver" && dialect !== "oracle") || !type) {
+    return placeholder;
+  }
   const trimmed = type.trim();
   return /^[a-z][a-z0-9_]*(?:\(\s*(?:\d+|max)\s*(?:,\s*\d+\s*)?\))?$/i.test(
     trimmed,
@@ -194,7 +209,7 @@ function limitClause(
   if (!Number.isSafeInteger(limit) || limit < 1) {
     throw new AppError("invalid_limit");
   }
-  return dialect === "sqlserver"
+  return dialect === "sqlserver" || dialect === "oracle"
     ? ` offset 0 rows fetch next ${String(limit)} rows only`
     : dialect === "postgres"
       ? ` limit ${bind(limit)}`

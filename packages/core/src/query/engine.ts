@@ -68,7 +68,7 @@ export type TableStorage = "native" | "external";
 export type ExternalRelation = {
   sourceId: string;
   /** The engine the source runs, whose SQL reads compile to. */
-  dialect: "postgres" | "mysql" | "mariadb" | "sqlserver";
+  dialect: "postgres" | "mysql" | "mariadb" | "sqlserver" | "oracle";
   schema: string;
   name: string;
   /** The primary key's columns, as stored; empty for a view without one. */

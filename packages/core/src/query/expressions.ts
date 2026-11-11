@@ -1654,9 +1654,11 @@ export function formulaError(
       switch (expr.fn) {
         case "error": {
           const [message] = expr.args;
-          return message
-            ? `coalesce(${asText(ctx, compileFormula(ctx, table, alias, message, stack))}, '')`
-            : "''";
+          return d.errorMessage(
+            message
+              ? asText(ctx, compileFormula(ctx, table, alias, message, stack))
+              : undefined,
+          );
         }
         case "is_error":
           return undefined;
@@ -1722,7 +1724,7 @@ export function columnError(
 
 /** A date's weekday as an integer: Monday 0 to Sunday 6. */
 function weekdayIndex(d: SqlDialect, date: string): string {
-  return `((${d.toInt(d.datePart("dow", date))} + 6) % 7)`;
+  return d.mod(`(${d.toInt(d.datePart("dow", date))} + 6)`, "7");
 }
 
 /**
@@ -1874,7 +1876,12 @@ function workdayAround(
   );
   const reached = skip(before);
   const top = d.name === "sqlserver" ? "top 1 " : "";
-  const limit = d.name === "sqlserver" ? "" : " limit 1";
+  const limit =
+    d.name === "sqlserver"
+      ? ""
+      : d.name === "oracle"
+        ? " fetch first 1 rows only"
+        : " limit 1";
   const first = `(select ${top}${reached} from ${d.listFrom(holidays.list, "h1")} where ${h1} ${ahead} ${start} and ${weekday(h1)} and ${reached} ${behind} ${h1} order by ${h1}${sign === 1 ? "" : " desc"}${limit})`;
   const all = count(`${h1} ${ahead} ${start} and ${weekday(h1)}`, "h1", h1);
   return `coalesce(${first}, ${skip(all)})`;
@@ -2417,18 +2424,16 @@ function compileCall(
     case "trim":
       return textResult(d.trim(text(0)));
     case "left":
-      return textResult(
-        `left(${text(0)}, ${clampInt(ctx, num(1), 0, 100_000)})`,
-      );
+      return textResult(d.textLeft(text(0), clampInt(ctx, num(1), 0, 100_000)));
     case "right":
       return textResult(
-        `right(${text(0)}, ${clampInt(ctx, num(1), 0, 100_000)})`,
+        d.textRight(text(0), clampInt(ctx, num(1), 0, 100_000)),
       );
     case "mid": {
       const start = clampInt(ctx, num(1), 1, 100_000);
       return textResult(
         rawArgs.length > 2
-          ? `substring(${text(0)}, ${start}, ${clampInt(ctx, num(2), 0, 100_000)})`
+          ? d.textSlice(text(0), start, clampInt(ctx, num(2), 0, 100_000))
           : d.textFrom(text(0), start),
       );
     }
@@ -2441,7 +2446,7 @@ function compileCall(
       const at = d.locate(delimiter, value, "1", false);
       const part =
         fn === "text_before"
-          ? `left(${value}, ${at} - 1)`
+          ? d.textLeft(value, `${at} - 1`)
           : d.textFrom(value, `${at} + ${d.textLength(delimiter)}`);
       // An empty delimiter sits before the first character.
       const empty = fn === "text_before" ? "''" : value;
@@ -2555,7 +2560,7 @@ function compileCall(
     case "xor": {
       const args = compileArgs(ctx, table, alias, rawArgs, stack);
       return bool(
-        `((${args.map((arg) => `(case when ${asBool(arg, ctx.d)} then 1 else 0 end)`).join(" + ")}) % 2 = 1)`,
+        `(${ctx.d.mod(`(${args.map((arg) => `(case when ${asBool(arg, ctx.d)} then 1 else 0 end)`).join(" + ")})`, "2")} = 1)`,
       );
     }
     case "not":
@@ -2739,7 +2744,7 @@ function compileCall(
         const place = plan.fields.get(token);
         return place === undefined
           ? undefined
-          : `substring(${source}, ${String(place)}, ${String(width)})`;
+          : d.textSlice(source, String(place), String(width));
       };
       const [hour, minute, second] = [at("HH", 2), at("mm", 2), at("ss", 2)];
       const parts = [
@@ -2755,7 +2760,7 @@ function compileCall(
         `${d.textLength(source)} = ${String(plan.length)}`,
         ...plan.literals.map(([place, char]) =>
           d.compareText(
-            `substring(${source}, ${String(place)}, 1)`,
+            d.textSlice(source, String(place), "1"),
             "=",
             d.textParam(ctx.params.bind(char)),
           ),

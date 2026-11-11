@@ -33,6 +33,7 @@ cycle and the stack rewrite:
 | `@fastify/multipart`, `@fastify/rate-limit`, `exceljs`                                  | MIT        |
 | `sharp` (its prebuilt `libvips` binaries are LGPL-3.0-or-later)                         | Apache-2.0 |
 | `mysql2`, `tedious` (client databases)                                                  | MIT        |
+| `oracledb` (Oracle client databases; thin mode; Apache-2.0 elected from dual license)   | Apache-2.0 |
 | `@lingui/core`, `@lingui/react`, `@codemirror/*` (formula editor)                       | MIT        |
 | `@modelcontextprotocol/server`, `@modelcontextprotocol/node` (MCP server)               | Apache-2.0 |
 | `hono`, `@hono/node-server` (used by the MCP server)                                    | MIT        |

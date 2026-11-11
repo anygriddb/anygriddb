@@ -16,6 +16,7 @@ import {
 import type { Database } from "@anygriddb/db";
 import { withAudit } from "../data/audit-context.js";
 import { loadEngine, type TableRow } from "../data/engine.js";
+import { oracleErrorNumber } from "./oracle.js";
 import { firstSqlServerError } from "./sqlserver.js";
 import { sourcePools } from "./pools.js";
 
@@ -42,20 +43,24 @@ function field(error: unknown, name: string): string | undefined {
 }
 
 /** True when a side table or column was there already. */
-function alreadyThere(error: unknown): boolean {
+export function alreadyThere(error: unknown): boolean {
   const first = firstSqlServerError(error);
+  const oracle = oracleErrorNumber(error);
   return (
     field(error, "code") === "42P07" ||
     field(error, "code") === "42701" ||
     field(error, "errno") === "1050" ||
     field(error, "errno") === "1060" ||
     field(first, "number") === "2714" ||
-    field(first, "number") === "2705"
+    field(first, "number") === "2705" ||
+    // ORA-00955 a name already used, ORA-01430 a column already there.
+    oracle === 955 ||
+    oracle === 1430
   );
 }
 
 /** What the client's database said about its side schema, plainly. */
-function sideError(error: unknown, schema: string): unknown {
+export function sideError(error: unknown, schema: string): unknown {
   if (
     error instanceof AppError &&
     error.code !== "source_query_failed" &&
@@ -68,16 +73,26 @@ function sideError(error: unknown, schema: string): unknown {
   const code = field(cause, "code");
   const errno = field(cause, "errno");
   const number = field(first, "number");
-  if (code === "3F000" || errno === "1049" || number === "2760") {
+  const oracle = oracleErrorNumber(cause);
+  // ORA-01918: no such account, which is a schema on Oracle.
+  if (
+    code === "3F000" ||
+    errno === "1049" ||
+    number === "2760" ||
+    oracle === 1918
+  ) {
     return new AppError("source_side_missing", schema, { cause: error });
   }
+  // ORA-01031: no CREATE TABLE there; ORA-01950: no quota to store rows.
   if (
     code === "42501" ||
     errno === "1142" ||
     errno === "1044" ||
     number === "262" ||
     number === "1088" ||
-    number === "15151"
+    number === "15151" ||
+    oracle === 1031 ||
+    oracle === 1950
   ) {
     return new AppError("source_side_denied", schema, { cause: error });
   }

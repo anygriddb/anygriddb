@@ -20,6 +20,7 @@ import {
   type DialectName,
   type SqlDialect,
 } from "./query/dialect";
+import { ORACLE } from "./query/dialect-oracle";
 import { SQLSERVER } from "./query/dialect-sqlserver";
 import type {
   EngineCatalog,
@@ -76,6 +77,8 @@ function dialectNamed(name: DialectName | undefined): SqlDialect {
       return MARIADB;
     case "sqlserver":
       return SQLSERVER;
+    case "oracle":
+      return ORACLE;
     default:
       return POSTGRES;
   }

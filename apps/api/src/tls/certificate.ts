@@ -103,6 +103,7 @@ const OID = {
   authorityKeyIdentifier: "2.5.29.35",
   extKeyUsage: "2.5.29.37",
   serverAuth: "1.3.6.1.5.5.7.3.1",
+  clientAuth: "1.3.6.1.5.5.7.3.2",
 } as const;
 
 function name(commonName: string): Buffer {
@@ -285,6 +286,37 @@ export function issueServer(input: {
         false,
         sequence(tlv(0x80, keyId(input.authority.publicKey))),
       ),
+    ],
+  });
+  return {
+    cert,
+    key: privateKey.export({ type: "pkcs8", format: "pem" }),
+  };
+}
+
+/**
+ * A self-signed client certificate, for a TLS library that takes a key
+ * with the authorities it trusts (Oracle's thin driver): never sent unless
+ * a server asks for one, and its key never leaves the process.
+ */
+export function issueClient(input: {
+  commonName: string;
+  days?: number;
+}): Issued {
+  const { privateKey, publicKey } = keyPair();
+  const notAfter = new Date(Date.now() + (input.days ?? 397) * 86_400_000);
+  const cert = issue({
+    subject: input.commonName,
+    issuer: input.commonName,
+    publicKey,
+    signer: privateKey,
+    notAfter,
+    extensions: [
+      extension(OID.basicConstraints, true, sequence()),
+      // digitalSignature.
+      extension(OID.keyUsage, true, namedBits([0])),
+      extension(OID.extKeyUsage, false, sequence(oid(OID.clientAuth))),
+      extension(OID.subjectKeyIdentifier, false, octets(keyId(publicKey))),
     ],
   });
   return {

@@ -22,11 +22,13 @@ import {
 } from "../field-types";
 import type { EngineTable, PhysicalColumn } from "./engine";
 import type { ScalarKind } from "./expressions";
+import { ORACLE } from "./dialect-oracle";
 import { SQLSERVER } from "./dialect-sqlserver";
 import { exactMedian } from "./median";
 import { withoutGroups } from "../plain-text";
 
-export type DialectName = "postgres" | "mysql" | "mariadb" | "sqlserver";
+export type DialectName =
+  "postgres" | "mysql" | "mariadb" | "sqlserver" | "oracle";
 
 export type SortDirection = "asc" | "desc";
 
@@ -300,8 +302,21 @@ export interface SqlDialect {
   encodeUrl(sql: string): string;
   /** A text's UTF-8 bytes hashed, as lower-case hex. */
   hashHex(sql: string, algorithm: HashAlgorithm): string;
+  /**
+   * A formula error's message, never NULL even when empty (ADR 0036): NULL
+   * means no error. `sql` is the message, or undefined for none.
+   */
+  errorMessage(sql: string | undefined): string;
+  /** A message `errorMessage` made, as the JSON the row carries. */
+  errorJson(sql: string): string;
   /** A text from character `start` (1-based) to its end. */
   textFrom(sql: string, start: string): string;
+  /** The first `count` characters of a text (`count` at least 0). */
+  textLeft(sql: string, count: string): string;
+  /** The last `count` characters of a text (`count` at least 0). */
+  textRight(sql: string, count: string): string;
+  /** `length` characters from character `start` (1-based). */
+  textSlice(sql: string, start: string, length: string): string;
   /**
    * The value at `path` in a JSON text: a scalar as text (a string
    * unquoted), an object or a list as its JSON, blank for JSON null, a
@@ -675,6 +690,11 @@ export const POSTGRES: SqlDialect = {
       ? `md5(convert_to(${sql}, 'UTF8'))`
       : `encode(${algorithm}(convert_to(${sql}, 'UTF8')), 'hex')`,
   textFrom: (sql, start) => `substr(${sql}, ${start})`,
+  errorMessage: (sql) => (sql === undefined ? "''" : `coalesce(${sql}, '')`),
+  errorJson: (sql) => sql,
+  textLeft: (sql, count) => `left(${sql}, ${count})`,
+  textRight: (sql, count) => `right(${sql}, ${count})`,
+  textSlice: (sql, start, length) => `substring(${sql}, ${start}, ${length})`,
   // An ARE takes its case option first. The whole match is the first
   // group of the pattern wrapped in one more.
   regexMatch: (sql, regex, bind) =>
@@ -1337,6 +1357,11 @@ function mysqlDialect(name: "mysql" | "mariadb"): SqlDialect {
         : `sha2(${bytes}, ${algorithm === "sha256" ? "256" : "512"})`;
     },
     textFrom: (sql, start) => `substring(${sql}, ${start})`,
+    errorMessage: (sql) => (sql === undefined ? "''" : `coalesce(${sql}, '')`),
+    errorJson: (sql) => sql,
+    textLeft: (sql, count) => `left(${sql}, ${count})`,
+    textRight: (sql, count) => `right(${sql}, ${count})`,
+    textSlice: (sql, start, length) => `substring(${sql}, ${start}, ${length})`,
     // The case option comes first: a case-insensitive collation would
     // make the match ignore case otherwise. MySQL's ICU names a group `$1`,
     // MariaDB's PCRE2 `\1`.
@@ -1401,6 +1426,8 @@ function baseDialect(table: EngineTable): SqlDialect {
       return MARIADB;
     case "sqlserver":
       return SQLSERVER;
+    case "oracle":
+      return ORACLE;
     default:
       return POSTGRES;
   }

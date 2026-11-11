@@ -119,7 +119,9 @@ async function estimateRows(
       ? `select c.reltuples::bigint as "rows" from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = $1 and c.relname = $2 and c.relkind in ('r', 'p')`
       : external.dialect === "sqlserver"
         ? `select sum(p.rows) as "rows" from sys.partitions p where p.object_id = object_id(quotename($1) + '.' + quotename($2)) and p.index_id in (0, 1)`
-        : `select table_rows as "rows" from information_schema.tables where table_schema = $1 and table_name = $2 and table_type = 'BASE TABLE'`;
+        : external.dialect === "oracle"
+          ? `select num_rows as "rows" from all_tables where owner = $1 and table_name = $2`
+          : `select table_rows as "rows" from information_schema.tables where table_schema = $1 and table_name = $2 and table_type = 'BASE TABLE'`;
   const [row] = await readTransaction(db, engine, (run) =>
     run({ text, values }),
   );

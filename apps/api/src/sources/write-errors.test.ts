@@ -74,6 +74,39 @@ describe("writeError", () => {
     ).toMatchObject({ code: "source_value_required", detail: "name" });
   });
 
+  it("reads Oracle's error numbers and the names its messages quote", () => {
+    const ora = (errorNum: number, message: string) =>
+      writeError("oracle", failure({ errorNum, message }));
+    expect(
+      ora(1407, 'ORA-01407: cannot update ("ERP"."LEDGER"."LABEL") to NULL'),
+    ).toMatchObject({ code: "source_value_required", detail: "LABEL" });
+    expect(
+      ora(1, "ORA-00001: unique constraint (ERP.LEDGER_LABEL_UK) violated"),
+    ).toMatchObject({
+      code: "source_value_duplicate",
+      detail: "LEDGER_LABEL_UK",
+    });
+    expect(
+      ora(
+        12899,
+        'ORA-12899: value too large for column "ERP"."LEDGER"."NOTE" (actual: 8, maximum: 5)',
+      ),
+    ).toMatchObject({ code: "source_value_too_long", detail: "NOTE" });
+    expect(ora(2291, "ORA-02291: integrity constraint")?.code).toBe(
+      "source_value_reference",
+    );
+    expect(ora(1438, "ORA-01438: value larger than precision")?.code).toBe(
+      "source_value_invalid",
+    );
+    expect(
+      ora(20001, "ORA-20001: Invoice is closed\nORA-06512: at line 3"),
+    ).toMatchObject({
+      code: "source_write_refused",
+      detail: "Invoice is closed",
+    });
+    expect(ora(3113, "ORA-03113: end-of-file on channel")).toBeUndefined();
+  });
+
   it("tells SQL Server's foreign keys from its checks, and its own raised errors", () => {
     expect(
       writeError(

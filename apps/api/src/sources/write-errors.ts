@@ -5,6 +5,7 @@
  * Undefined for anything else: the read's mapping applies then.
  */
 import { AppError, type ErrorCode } from "@anygriddb/core";
+import { oracleErrorNumber } from "./oracle.js";
 import { firstSqlServerError } from "./sqlserver.js";
 
 type Mapped = { code: ErrorCode; detail?: string };
@@ -157,9 +158,69 @@ function sqlServer(error: unknown): Mapped | undefined {
   }
 }
 
+/** The last `"…"` of an ORA- message: the column of `"S"."T"."C"`. */
+function lastQuoted(message: string | undefined): string | undefined {
+  const names = message?.match(/"([^"]+)"/g);
+  return names?.at(-1)?.slice(1, -1);
+}
+
+function oracle(error: unknown): Mapped | undefined {
+  const number = oracleErrorNumber(error);
+  const message = said(error);
+  // ORA-20000 to 20999: RAISE_APPLICATION_ERROR, a rule of the client's.
+  if (number >= 20_000 && number <= 20_999) {
+    return {
+      code: "source_write_refused",
+      detail: message?.replace(/^ORA-\d{5}:\s*/, "").split(/ ORA-\d{5}/)[0],
+    };
+  }
+  switch (number) {
+    case 1400:
+    case 1407:
+      return { code: "source_value_required", detail: lastQuoted(message) };
+    case 1:
+      return {
+        code: "source_value_duplicate",
+        detail: quoted(message, /constraint \([^.]+\.([^)]+)\)/i),
+      };
+    case 2291:
+    case 2292:
+      return { code: "source_value_reference" };
+    case 2290:
+      return {
+        code: "source_value_check",
+        detail: quoted(message, /constraint \([^.]+\.([^)]+)\)/i),
+      };
+    case 12899:
+      return { code: "source_value_too_long", detail: lastQuoted(message) };
+    case 1438:
+    case 1722:
+    case 1830:
+    case 1839:
+    case 1840:
+    case 1841:
+    case 1843:
+    case 1847:
+    case 1858:
+    case 1861:
+    case 1874:
+    case 1878:
+      return { code: "source_value_invalid" };
+    case 1031:
+    case 1720:
+      return { code: "source_write_denied" };
+    case 54:
+    case 60:
+    case 30006:
+      return { code: "source_row_busy" };
+    default:
+      return undefined;
+  }
+}
+
 /** The person's message for a refused write, or undefined for another error. */
 export function writeError(
-  engine: "postgres" | "mysql" | "mariadb" | "sqlserver",
+  engine: "postgres" | "mysql" | "mariadb" | "sqlserver" | "oracle",
   error: unknown,
 ): AppError | undefined {
   if (error instanceof AppError) return error;
@@ -168,7 +229,9 @@ export function writeError(
       ? postgres(error)
       : engine === "sqlserver"
         ? sqlServer(firstSqlServerError(error))
-        : mysql(error);
+        : engine === "oracle"
+          ? oracle(error)
+          : mysql(error);
   if (!mapped) return undefined;
   return mapped.detail
     ? new AppError(mapped.code, mapped.detail, { cause: error })

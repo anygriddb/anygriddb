@@ -163,7 +163,7 @@ function projectColumn(
       name: column.name,
       kind: "text",
       column,
-      sql: "null::text",
+      sql: ctx.d.nullOf("text"),
       error: error instanceof Error ? error.message : "Invalid formula",
       ...(error instanceof AppError
         ? {
@@ -542,7 +542,12 @@ function errorsEntry(
   const entries = names.flatMap((name) => {
     const ref = prepared.columns.get(name);
     return ref?.errorSql
-      ? [[name, `q.${errorColumn(order.indexOf(name))}`] as const]
+      ? [
+          [
+            name,
+            prepared.d.errorJson(`q.${errorColumn(order.indexOf(name))}`),
+          ] as const,
+        ]
       : [];
   });
   if (entries.length === 0) return undefined;

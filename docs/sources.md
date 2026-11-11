@@ -6,7 +6,8 @@ administrator (the DBA) prepares two things first:
 
 - **A dedicated account** for AnyGridDB, never an administrator. AnyGridDB
   refuses a PostgreSQL superuser, a MySQL or MariaDB account with a global
-  grant beyond rows, and a SQL Server sysadmin or holder of CONTROL SERVER.
+  grant beyond rows, a SQL Server sysadmin or holder of CONTROL SERVER, and
+  an Oracle DBA / SYSDBA session.
   The account's grants decide what AnyGridDB can see: it lists only the
   tables and columns the account may read.
 - **TLS with a certificate AnyGridDB can verify**: one signed by an
@@ -49,6 +50,9 @@ grant usage on sequence public.customers_id_seq to anygriddb;
 grant update (status, issued) on erp.invoices to 'anygriddb'@'%';
 -- SQL Server
 grant update on dbo.invoices (status, issued) to anygriddb;
+-- Oracle: the tables of the schema `erp`
+grant select, update (status, issued) on erp.invoices to anygriddb;
+grant select, insert on erp.customers to anygriddb;
 ```
 
 Files import into a client's table through the same path, with updates
@@ -132,6 +136,9 @@ create schema anygriddb_side;
 grant create table to anygriddb;
 grant alter, select, insert, update, delete
   on schema::anygriddb_side to anygriddb;
+-- Oracle: the account's own schema, named in capitals (ANYGRIDDB)
+grant create table to anygriddb;
+alter user anygriddb quota 100m on users;
 ```
 
 These fields are edited even when the client's table is read-only, and
@@ -144,6 +151,44 @@ sort or group, and formulas, automations, and rules do not read them. A
 field stays where it was made: naming a side schema later puts only new
 fields there, and a side schema cannot change while fields are kept in
 it.
+
+## Oracle
+
+AnyGridDB reaches Oracle Database 19c or later with the thin driver: no
+Oracle client to install. The source's form takes the **service name**
+(`ORCLPDB1`, `FREEPDB1`) where the other engines take a database. The
+account sees the tables and views of every schema it may read: its own,
+and those granted to it, to its roles, or to `PUBLIC`.
+
+```sql
+create user anygriddb identified by "…";
+grant create session to anygriddb;
+grant select on erp.orders to anygriddb;
+```
+
+TLS goes over TCPS (port 2484 by convention): paste the authority that
+signed the listener's certificate, which must name the host as AnyGridDB
+reaches it. The listener need not ask for a client certificate
+(`SSL_CLIENT_AUTHENTICATION = FALSE`).
+
+Each session reads in UTC, with a dot before decimals, and compares text
+by code point, whatever the database's defaults. What differs from the
+other engines, and why:
+
+- Oracle stores no empty text: `''` is NULL. A blank text reads as
+  blank, `REPT` or `SHA256` of it as blank too, and a list built from such
+  values holds nothing where the others hold an empty text.
+- `NUMBER` keeps no scale: `7.50` is stored and read as `7.5`. A
+  `NUMBER(p)` column refuses a value with decimals rather than round it.
+- `NUMBER(1)` reads as a checkbox; so does `BOOLEAN` from 23ai.
+- `DATE` also holds a time of day: it reads as a date, the day alone,
+  and a date written there is at midnight. Use `TIMESTAMP` for times.
+- `REGEX_MATCH`, `REGEX_EXTRACT`, and `REGEX_REPLACE` are refused, as on
+  SQL Server: Oracle's expressions have no lookahead, and its `$` also
+  matches before a final newline.
+- Locks wait ten seconds for a row another write holds.
+- `RAW`, `BLOB`, intervals, `ROWID`, `XMLTYPE`, and spatial types read as
+  read-only text; `JSON` as read-only long text.
 
 ## When the DBA changes a table
 

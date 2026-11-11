@@ -145,7 +145,8 @@ export function sourceDialect(
     engine === "mysql" ||
     engine === "mariadb" ||
     engine === "postgres" ||
-    engine === "sqlserver"
+    engine === "sqlserver" ||
+    engine === "oracle"
   ) {
     return engine;
   }

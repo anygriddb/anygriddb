@@ -11,6 +11,7 @@ export const SOURCE_ENGINES = [
   "mysql",
   "mariadb",
   "sqlserver",
+  "oracle",
 ] as const;
 export type SourceEngine = (typeof SOURCE_ENGINES)[number];
 
@@ -19,6 +20,9 @@ export const DEFAULT_SOURCE_PORTS: Record<SourceEngine, number> = {
   mysql: 3306,
   mariadb: 3306,
   sqlserver: 1433,
+  // TCPS: AnyGridDB reaches Oracle over verified TLS, which a listener of
+  // its own serves, by convention here (1521 is the plaintext one).
+  oracle: 2484,
 };
 
 const PEM = /^-----BEGIN CERTIFICATE-----[\s\S]+-----END CERTIFICATE-----\s*$/;

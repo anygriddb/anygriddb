@@ -22,7 +22,14 @@ import {
   firstSqlServerError,
   sqlServerSourceError,
 } from "./sqlserver.js";
+import {
+  connectOracle,
+  oracleErrorNumber,
+  oracleExecute,
+  oracleSourceError,
+} from "./oracle.js";
 import { ISOLATION_LEVEL, type Connection } from "tedious";
+import type { Connection as OracleConnection } from "oracledb";
 import type { SourceSettings } from "./types.js";
 import { writeError } from "./write-errors.js";
 import { measureSource } from "../observability.js";
@@ -279,6 +286,23 @@ export function toPositional(statement: Statement): {
 /** SQL Server's placeholders are named: `$3` reads `@p3`, values unchanged. */
 export function toNamed(statement: Statement): string {
   return rewritePlaceholders(statement, (position) => `@p${String(position)}`);
+}
+
+/**
+ * Oracle binds an array by the order placeholders appear in, whatever their
+ * names: each `$n` becomes the next `:k`, its value repeated where `$n` is,
+ * and a value no placeholder reads is left out.
+ */
+export function toOracle(statement: Statement): {
+  text: string;
+  values: unknown[];
+} {
+  const values: unknown[] = [];
+  const text = rewritePlaceholders(statement, (position) => {
+    values.push(statement.values[position - 1]);
+    return `:${String(values.length)}`;
+  });
+  return { text, values };
 }
 
 /** Rewrites each `$n` outside quoted text and identifiers. */
@@ -625,6 +649,164 @@ function sqlServerBackend(
   };
 }
 
+/** What a failed Oracle read tells the person. */
+function oracleReadError(raised: unknown, log: Log): AppError {
+  if (raised instanceof AppError) return raised;
+  const number = oracleErrorNumber(raised);
+  // 942: no such table or view; 904: no such column.
+  if (number === 942 || number === 904) {
+    return new AppError("source_schema_changed", { cause: raised });
+  }
+  const mapped = oracleSourceError(raised);
+  if (mapped.code !== "source_unreachable") return mapped;
+  log(raised);
+  return number > 0
+    ? new AppError("source_query_failed", { cause: raised })
+    : mapped;
+}
+
+/**
+ * Connections to an Oracle source, at most its connection limit: the thin
+ * driver's own pool would keep its sessions apart from the session set-up
+ * each connection needs, so this one keeps idle connections and queues
+ * the reads that wait for one, as for SQL Server.
+ */
+function oracleBackend(row: SourceRow, plaintext: boolean, log: Log): Backend {
+  const idle: OracleConnection[] = [];
+  const waiting: Array<{
+    resolve: (connection: OracleConnection) => void;
+    reject: (error: unknown) => void;
+  }> = [];
+  let open = 0;
+  let ended = false;
+  const source = { ...row, engine: "oracle" as const };
+  async function connect(): Promise<OracleConnection> {
+    open += 1;
+    try {
+      const { connection } = await connectOracle(source, {
+        allowPlaintext: plaintext,
+      });
+      return connection;
+    } catch (error) {
+      open -= 1;
+      throw error;
+    }
+  }
+  async function acquire(): Promise<OracleConnection> {
+    for (let ready = idle.pop(); ready; ready = idle.pop()) {
+      if (ready.isHealthy()) return ready;
+      open -= 1;
+      void ready.close().catch(() => undefined);
+    }
+    if (open >= row.connectionLimit) {
+      return new Promise((resolve, reject) => {
+        waiting.push({ resolve, reject });
+      });
+    }
+    return connect();
+  }
+  function release(connection: OracleConnection, broken: boolean): void {
+    const next = ended ? undefined : waiting.shift();
+    if (!broken && !ended && connection.isHealthy()) {
+      if (next) next.resolve(connection);
+      else idle.push(connection);
+      return;
+    }
+    open -= 1;
+    void connection.close().catch(() => undefined);
+    // The one waiting gets a connection of its own instead.
+    if (next) connect().then(next.resolve, next.reject);
+  }
+  const execute = async (
+    connection: OracleConnection,
+    statement: Statement,
+  ) => {
+    const { text, values } = toOracle(statement);
+    const answer = await oracleExecute(connection, text, values);
+    return { rows: answer.rows.map(unpacked), affected: answer.affected };
+  };
+  return {
+    async read(body, readLog) {
+      let connection: OracleConnection;
+      try {
+        connection = await acquire();
+      } catch (error) {
+        log(error);
+        throw oracleReadError(error, readLog);
+      }
+      let broken = false;
+      const run = async (statement: Statement) =>
+        (await execute(connection, statement)).rows;
+      try {
+        await connection.execute("set transaction read only");
+        let result: Awaited<ReturnType<typeof body>>;
+        try {
+          result = await body(run);
+        } catch (error) {
+          // ORA-01466: a read-only transaction refuses a table whose
+          // definition changed in the last seconds (a field just added).
+          // Read once more, in an ordinary transaction.
+          if (oracleErrorNumber(error) !== 1466) throw error;
+          await connection.rollback();
+          result = await body(run);
+        }
+        await connection.commit();
+        return result;
+      } catch (error) {
+        await connection.rollback().catch(() => {
+          broken = true;
+        });
+        throw oracleReadError(error, readLog);
+      } finally {
+        release(connection, broken);
+      }
+    },
+    async write(body, writeLog) {
+      let connection: OracleConnection;
+      try {
+        connection = await acquire();
+      } catch (error) {
+        log(error);
+        throw oracleReadError(error, writeLog);
+      }
+      const mapped = (error: unknown) =>
+        writeError("oracle", error) ?? oracleReadError(error, writeLog);
+      let broken = false;
+      try {
+        return await inWrite(
+          () =>
+            body(
+              async (statement) => (await execute(connection, statement)).rows,
+              (statement) => execute(connection, statement),
+            ),
+          () => connection.commit(),
+          () =>
+            connection.rollback().catch((error: unknown) => {
+              broken = true;
+              throw error;
+            }),
+          mapped,
+        );
+      } catch (error) {
+        throw mapped(error);
+      } finally {
+        release(connection, broken);
+      }
+    },
+    end: async () => {
+      ended = true;
+      for (const waiter of waiting.splice(0)) {
+        waiter.reject(new AppError("source_unreachable"));
+      }
+      await Promise.all(
+        idle
+          .splice(0)
+          .map((connection) => connection.close().catch(() => undefined)),
+      );
+    },
+  };
+}
+
 export class SourcePools {
   private readonly pools = new Map<string, Entry>();
 
@@ -682,6 +864,8 @@ export class SourcePools {
           return mysqlBackend(target, plaintext, log);
         case "sqlserver":
           return sqlServerBackend(target, plaintext, log);
+        case "oracle":
+          return oracleBackend(target, plaintext, log);
         default:
           throw new AppError("source_engine_unsupported", row.engine);
       }

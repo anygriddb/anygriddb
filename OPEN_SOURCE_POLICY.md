@@ -32,8 +32,11 @@ via an **OSI-licensed client** we ship. We do **not** redistribute proprietary
 servers, drivers with non-OSI EULAs, or commercial “Pro” editions of libraries.
 
 External sources (ADR 0006) follow this rule: `pg`, `mysql2`, and `tedious`
-are MIT clients. The CI runs SQL Server from Microsoft's Developer image to
-test the connector; that image is never shipped or recommended as a default.
+are MIT clients; `oracledb` is used under Apache-2.0 (dual-licensed with
+UPL-1.0; we elect Apache-2.0) in thin mode only — no Oracle Instant Client
+in the image. The CI runs SQL Server from Microsoft's Developer image and
+Oracle Free from `gvenzl/oracle-free` to test the connectors; those images
+are never shipped or recommended as a default.
 
 ## Official default stack (OSI)
 

@@ -1,9 +1,11 @@
 /**
  * The conformance suite (ADR 0005): the same formulas over the same rows
- * on PostgreSQL, MySQL, MariaDB, and SQL Server must read the same, or, where the
- * engine computes in floating point, nearly the same (a double's digits)
- * with the field saying so. PostgreSQL is the reference; a few results
- * are pinned outright, so the reference cannot drift either.
+ * on PostgreSQL, MySQL, MariaDB, SQL Server, and Oracle must read the same,
+ * or, where the engine computes in floating point, nearly the same (a
+ * double's digits) with the field saying so; Oracle's differences all come
+ * from its having no empty text, and are written out. PostgreSQL is the
+ * reference; a few results are pinned outright, so the reference cannot
+ * drift either.
  *
  * Everything goes the way an administrator's does: a source is declared,
  * its table exposed, each formula added as a field, and rows read.
@@ -20,6 +22,7 @@ import { chartSeries } from "../data/dashboards.js";
 import { importIntoTable } from "../data/import-commit.js";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
+import oracledb from "oracledb";
 import pg from "pg";
 import {
   GenericContainer,
@@ -71,7 +74,7 @@ const settings: SourceSettings = {
   allowPlaintext: true,
 };
 
-type Engine = "postgres" | "mysql" | "mariadb" | "sqlserver";
+type Engine = "postgres" | "mysql" | "mariadb" | "sqlserver" | "oracle";
 
 const ROWS = [
   "(1, 7.25, -2.5, 3, 'Hello World', 'o', '2026-02-28', '2026-01-10 09:30:00.25', true, 1)",
@@ -375,6 +378,26 @@ const REGEXES = [
   'REGEX_REPLACE("a.b.c", "\\.", "-") & "|" & REGEX_REPLACE("x\\ny", "y$", "z") & "|" & REGEX_MATCH("ab\\n", "b$")',
 ];
 
+/**
+ * What Oracle reads apart from the others, all for one reason: it stores
+ * no empty text, so case 2's `t` ('' elsewhere) is NULL there, and lists
+ * built from it hold nothing where the others hold "" (docs/sources.md).
+ */
+const ORACLE_EMPTY_TEXT: Record<string, unknown[]> = {
+  '{t} = "É"': [false, null, false],
+  "SHA256({t})": [
+    "65c74c15a686187bb6bbf9958f494fc6b80068034a659a9ad44991b08c58f2d2",
+    null,
+    "4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c",
+  ],
+  'ARRAY_JOIN(ARRAY_FLATTEN(TEXT_SPLIT({s}, " "), {t}, TEXT_SPLIT("x y", " ")), "+")':
+    ["Hello+World+o+x+y", "x+y", "Élan+vital+é+x+y"],
+  // Alpha's cases have `t` "o" and blank: one value, not two.
+  R_unique: ["1", "1", "0"],
+  'ARRAY_JOIN(ARRAY_SORT({L_t}), "+") & "|" & ARRAY_JOIN(ARRAY_SORT({L_t}, "desc"), "+") & "|" & COUNTALL(ARRAY_SORT({L_n}, "desc"))':
+    ["o|o|2", "é|é|1", "||0"],
+};
+
 /** An alternative: PostgreSQL takes the longest match, the others the first. */
 const REGEX_AMBIGUOUS = 'REGEX_EXTRACT("ab", "a|ab")';
 
@@ -430,6 +453,35 @@ function agrees(expected: unknown, actual: unknown): boolean {
   }
   const [a, b] = [Number(expected), Number(actual)];
   return Math.abs(a - b) <= 1e-13 * Math.max(Math.abs(a), Math.abs(b));
+}
+
+/**
+ * Oracle's NUMBER keeps no scale (7.50 is stored and read as 7.5): its
+ * traces compare with decimals written without trailing zeros.
+ */
+function scaleFree(value: unknown): unknown {
+  if (typeof value === "string" && /^-?\d+\.\d*0$/.test(value)) {
+    return value.replace(/\.?0+$/, "");
+  }
+  if (Array.isArray(value)) return value.map(scaleFree);
+  if (value && typeof value === "object" && !(value instanceof Date)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, scaleFree(item)]),
+    );
+  }
+  return value;
+}
+
+/** A trace as an engine reads it: Oracle's without its decimals' scale. */
+function asRead(engine: Engine, value: unknown): unknown {
+  return engine === "oracle" ? scaleFree(value) : value;
+}
+
+/** A read that failed, as the comparison shows it: code, then the cause. */
+function failed(error: unknown): string {
+  if (!(error instanceof AppError)) return `ERR ${String(error)}`;
+  const cause = error.cause instanceof Error ? error.cause.message : "";
+  return `ERR ${error.code} ${cause.split("\n")[0] ?? ""}`.trim();
 }
 
 /** The field name a client column got when exposed (`id` becomes `f_id`). */
@@ -767,6 +819,117 @@ async function sqlServer(): Promise<StartedTestContainer> {
   return server;
 }
 
+const ORACLE_PASSWORD = "Admin_Passw0rd_2026";
+
+/**
+ * The same tables on Oracle, owned by `erp` and read by a dedicated
+ * account given rights on them, as docs/sources.md asks: names quoted in
+ * lower case, as the other engines spell them; NUMBER(1) for booleans;
+ * the side table in the account's own schema.
+ */
+const ORACLE_TABLES = [
+  'create table "teams" ("id" number(10) primary key, "name" varchar2(100), "weight" number(10,3))',
+  'create table "cases" ("id" number(10) primary key, "n" number(14,2), "m" number(14,2), "i" number(10), "s" varchar2(100), "t" varchar2(100), "d" date, "ts" timestamp(6), "b" number(1), "g" number(10) references "teams"("id"))',
+  'create table "ledger" ("id" number(10) generated by default as identity (nocache) primary key, "label" varchar2(20) not null unique, "amount" number(10,2), "qty" number(10), "paid" number(1), "due" date, "at" timestamp(6), "team" number(10) references "teams"("id"), "note" varchar2(5))',
+  'create table "pairs" ("a" number(10), "b" varchar2(10), "v" number(10), primary key ("a", "b"), foreign key ("a") references "teams"("id"))',
+  'create table "watched" ("id" number(10) primary key, "label" varchar2(20), "changed" timestamp(3) default sys_extract_utc(systimestamp) not null)',
+  'create trigger "watched_touch" before update on "watched" for each row begin :new."changed" := sys_extract_utc(systimestamp); end;',
+  'create table "approvals" ("id" number(10) primary key, "label" varchar2(20), "amount" number(10,2), "due" date)',
+  'create table "staff" ("id" number(10) primary key, "name" varchar2(20), "dept" varchar2(10), "salary" number(10,2))',
+];
+
+/** Names the suite's SQL uses, quoted for the tables above. */
+const ORACLE_NAMES =
+  /\b(teams|cases|ledger|pairs|watched|approvals|staff|id|name|weight|label|amount|qty|paid|due|at|team|note|changed|dept|salary)\b/g;
+
+/**
+ * The suite's SQL as Oracle takes it: names quoted, dates and instants
+ * typed, booleans as 0 and 1, several rows inserted one by one, one
+ * statement at a time.
+ */
+function oracleStatements(statement: string): string[] {
+  return statement
+    .split(/;\s*/)
+    .filter((part) => part.trim() !== "")
+    .flatMap((part) => {
+      const typed = part
+        .replace(/'(\d{4}-\d{2}-\d{2})'/g, "date '$1'")
+        .replace(
+          /'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?)'/g,
+          "timestamp '$1'",
+        )
+        .replace(/\btrue\b/g, "1")
+        .replace(/\bfalse\b/g, "0");
+      const quoted = typed.replace(/'[^']*'|"[^"]*"|[A-Za-z_]+/g, (word) =>
+        /^['"]/.test(word) ? word : word.replace(ORACLE_NAMES, '"$1"'),
+      );
+      const many = /^(insert into \S+(?: \([^)]*\))? values )(\(.*\))$/i.exec(
+        quoted,
+      );
+      if (!many) return [quoted];
+      const [, head = "", rows = ""] = many;
+      return rows
+        .split(/\),\s*\(/)
+        .map((row) => `${head}(${row.replace(/^\(|\)$/g, "")})`);
+    });
+}
+
+async function oracleServer(): Promise<StartedTestContainer> {
+  const server = await new GenericContainer(
+    "gvenzl/oracle-free:23-slim-faststart",
+  )
+    .withEnvironment({
+      ORACLE_PASSWORD,
+      APP_USER: "erp",
+      APP_USER_PASSWORD: "erppass",
+    })
+    .withExposedPorts(1521)
+    .withWaitStrategy(Wait.forLogMessage(/DATABASE IS READY TO USE/i))
+    .withStartupTimeout(600_000)
+    .start();
+  const connectString = `localhost:${String(server.getMappedPort(1521))}/FREEPDB1`;
+  const system = await oracledb.getConnection({
+    user: "system",
+    password: ORACLE_PASSWORD,
+    connectString,
+  });
+  for (const statement of [
+    "create user reader identified by readerpass quota unlimited on users",
+    "grant create session, create table to reader",
+  ]) {
+    await system.execute(statement);
+  }
+  await system.close();
+  const erp = await oracledb.getConnection({
+    user: "erp",
+    password: "erppass",
+    connectString,
+  });
+  for (const statement of [
+    ...ORACLE_TABLES,
+    ...[
+      `insert into teams values ${GROUPS.join(", ")}`,
+      `insert into cases values ${ROWS.join(", ")}`,
+      "insert into ledger (label, amount, qty, paid, due, at, team, note) values ('L1', 10.50, 1, 0, '2026-01-01', '2026-01-01 08:00:00', 1, 'x')",
+      "insert into watched (id, label) values (1, 'a'), (2, 'b')",
+      "insert into approvals values (1, 'A1', 10.50, '2026-03-01'), (2, 'A2', 20.00, null)",
+      "insert into staff values (1, 'Ann', 'sales', 100.00), (2, 'Bob', 'ops', 200.00), (3, 'Cy', 'sales', 300.00), (4, 'Di', 'ops', 400.00)",
+      "grant select on cases to reader",
+      "grant select on teams to reader",
+      "grant select, insert, update, delete on ledger to reader",
+      "grant select, insert, update, delete on pairs to reader",
+      "grant select, update on watched to reader",
+      "grant select, update on approvals to reader",
+      "grant select, update on staff to reader",
+    ].flatMap(oracleStatements),
+  ]) {
+    await erp.execute(statement);
+  }
+  await erp.commit();
+  await erp.close();
+  return server;
+}
+
 const MYSQL_TABLES = [
   "create table teams (id int primary key, name varchar(100), weight decimal(10,3))",
   "create table cases (id int primary key, n decimal(14,2), m decimal(14,2), i int, s varchar(100), t varchar(100), d date, ts datetime(6), b tinyint(1), g int, foreign key (g) references teams(id))",
@@ -792,6 +955,7 @@ describe("conformance of formulas across engines", () => {
   let baseId = "";
   /** The PostgreSQL client database, as its own administrator reaches it. */
   let erpUrl = "";
+  let oracle: StartedTestContainer | undefined;
   /** Runs SQL as another application would, with the engine's administrator. */
   const outside = async (engine: Engine, statement: string) => {
     if (engine === "postgres") {
@@ -799,6 +963,21 @@ describe("conformance of formulas across engines", () => {
       await other.connect();
       await other.query(statement);
       await other.end();
+      return;
+    }
+    if (engine === "oracle") {
+      const erp = await oracledb.getConnection({
+        user: "erp",
+        password: "erppass",
+        connectString: `localhost:${String(oracle?.getMappedPort(1521))}/FREEPDB1`,
+      });
+      try {
+        for (const part of oracleStatements(statement)) {
+          await erp.execute(part, [], { autoCommit: true });
+        }
+      } finally {
+        await erp.close();
+      }
       return;
     }
     const [mysqlContainer, mariadbContainer, sqlServerContainer] = servers;
@@ -831,19 +1010,30 @@ describe("conformance of formulas across engines", () => {
   };
 
   beforeAll(async () => {
-    const [mysqlContainer, mariadbContainer, sqlServerContainer] =
-      await Promise.all([
-        mysqlServer("mysql:8.4", {
-          MYSQL_ROOT_PASSWORD: "rootpass",
-          MYSQL_DATABASE: "erp",
-        }),
-        mysqlServer("mariadb:11.4", {
-          MARIADB_ROOT_PASSWORD: "rootpass",
-          MARIADB_DATABASE: "erp",
-        }),
-        sqlServer(),
-      ]);
-    servers.push(mysqlContainer, mariadbContainer, sqlServerContainer);
+    const [
+      mysqlContainer,
+      mariadbContainer,
+      sqlServerContainer,
+      oracleContainer,
+    ] = await Promise.all([
+      mysqlServer("mysql:8.4", {
+        MYSQL_ROOT_PASSWORD: "rootpass",
+        MYSQL_DATABASE: "erp",
+      }),
+      mysqlServer("mariadb:11.4", {
+        MARIADB_ROOT_PASSWORD: "rootpass",
+        MARIADB_DATABASE: "erp",
+      }),
+      sqlServer(),
+      oracleServer(),
+    ]);
+    oracle = oracleContainer;
+    servers.push(
+      mysqlContainer,
+      mariadbContainer,
+      sqlServerContainer,
+      oracleContainer,
+    );
     for (const [server, client] of [
       [mysqlContainer, "mysql"],
       [mariadbContainer, "mariadb"],
@@ -997,6 +1187,14 @@ describe("conformance of formulas across engines", () => {
         username: "reader",
         schema: "dbo",
       },
+      {
+        engine: "oracle",
+        host: "localhost",
+        port: oracleContainer.getMappedPort(1521),
+        database: "FREEPDB1",
+        username: "reader",
+        schema: "ERP",
+      },
     ];
     for (const source of sources) {
       const created = await createSource(deps, actor, {
@@ -1056,10 +1254,8 @@ describe("conformance of formulas across engines", () => {
       // hundred in one query are more than SQL Server compiles (error 8632,
       // source_query_too_complex).
       const entries = [...columns];
-      for (let from = 0; from < entries.length; from += 40) {
-        const chunk = entries.slice(from, from + 40);
-        const wanted = new Set(chunk.map(([, column]) => column));
-        const page = await readPage(
+      const pageOf = (wanted: ReadonlySet<string>) =>
+        readPage(
           db,
           {
             ...engine,
@@ -1077,6 +1273,39 @@ describe("conformance of formulas across engines", () => {
           },
           { total: false },
         );
+      for (let from = 0; from < entries.length; from += 40) {
+        const chunk = entries.slice(from, from + 40);
+        const wanted = new Set(chunk.map(([, column]) => column));
+        const page = await pageOf(wanted).catch(() => null);
+        if (!page) {
+          // One formula the engine refuses fails the page: read each alone,
+          // so the comparison names it, with what the engine said.
+          for (const [formula, column] of chunk) {
+            const alone = await pageOf(new Set([column])).catch(
+              (error: unknown) => error,
+            );
+            const rows =
+              "rows" in (alone as object)
+                ? (alone as Awaited<ReturnType<typeof pageOf>>).rows
+                : undefined;
+            values.set(
+              formula,
+              rows ? rows.map((row) => row[column] ?? null) : [failed(alone)],
+            );
+            values.set(
+              `errors ${formula}`,
+              rows
+                ? rows.map(
+                    (row) =>
+                      (row.ag_errors as Record<string, unknown> | undefined)?.[
+                        column
+                      ] ?? null,
+                  )
+                : [failed(alone)],
+            );
+          }
+          continue;
+        }
         for (const [formula, column] of chunk) {
           values.set(
             formula,
@@ -1093,8 +1322,14 @@ describe("conformance of formulas across engines", () => {
           );
         }
       }
-      values.set(
-        "footer",
+      /** A value of the comparison, or what the engine said instead. */
+      const attempt = async (name: string, read: () => Promise<unknown[]>) => {
+        values.set(
+          name,
+          await read().catch((error: unknown) => [failed(error)]),
+        );
+      };
+      await attempt("footer", async () =>
         (
           await aggregateRows(
             db,
@@ -1108,28 +1343,28 @@ describe("conformance of formulas across engines", () => {
         ).map(Number),
       );
       for (const [name, condition] of FILTERS) {
-        const filtered = await readPage(
-          db,
-          engine,
-          {
-            limit: 10,
-            timeZone: "Europe/Paris",
-            sort: [{ column: "f_id", direction: "asc" }],
-            filter: {
-              conjunction: "and",
-              conditions: [
-                {
-                  ...condition,
-                  column: columnOf(engine, condition.column),
-                } as never,
-              ],
-            },
-          },
-          { total: false },
-        );
-        values.set(
-          `filter ${name}`,
-          filtered.rows.map((row) => row.id),
+        await attempt(`filter ${name}`, async () =>
+          (
+            await readPage(
+              db,
+              engine,
+              {
+                limit: 10,
+                timeZone: "Europe/Paris",
+                sort: [{ column: "f_id", direction: "asc" }],
+                filter: {
+                  conjunction: "and",
+                  conditions: [
+                    {
+                      ...condition,
+                      column: columnOf(engine, condition.column),
+                    } as never,
+                  ],
+                },
+              },
+              { total: false },
+            )
+          ).rows.map((row) => row.id),
         );
       }
       const described = new Map(
@@ -1190,20 +1425,34 @@ describe("conformance of formulas across engines", () => {
         }
       }
       const groups = (await loadEngine(db, groupsId, () => true)).engine;
-      const groupPage = await readPage(
-        db,
-        groups,
-        {
-          limit: 10,
-          sort: [{ column: "f_id", direction: "asc" }],
-          timeZone: "Europe/Paris",
-        },
-        { total: false },
+      const groupPage = (wanted: ReadonlySet<string>) =>
+        readPage(
+          db,
+          {
+            ...groups,
+            table: {
+              ...groups.table,
+              columns: groups.table.columns.filter(
+                (column) =>
+                  column.physical || column.relation || wanted.has(column.name),
+              ),
+            },
+          },
+          {
+            limit: 10,
+            sort: [{ column: "f_id", direction: "asc" }],
+            timeZone: "Europe/Paris",
+          },
+          { total: false },
+        );
+      const together = await groupPage(new Set(groupColumns.values())).catch(
+        () => null,
       );
       for (const [name, column] of groupColumns) {
-        values.set(
-          name,
-          groupPage.rows.map((row) => row[column] ?? null),
+        await attempt(name, async () =>
+          (together ?? (await groupPage(new Set([column])))).rows.map(
+            (row) => row[column] ?? null,
+          ),
         );
       }
       for (const [name, condition] of LIST_FILTERS) {
@@ -1212,23 +1461,23 @@ describe("conformance of formulas across engines", () => {
           values.set(`filter ${name}`, [`no column ${condition.column}`]);
           continue;
         }
-        const filtered = await readPage(
-          db,
-          groups,
-          {
-            limit: 10,
-            timeZone: "Europe/Paris",
-            sort: [{ column: "f_id", direction: "asc" }],
-            filter: {
-              conjunction: "and",
-              conditions: [{ ...condition, column } as never],
-            },
-          },
-          { total: false },
-        );
-        values.set(
-          `filter ${name}`,
-          filtered.rows.map((row) => row.id),
+        await attempt(`filter ${name}`, async () =>
+          (
+            await readPage(
+              db,
+              groups,
+              {
+                limit: 10,
+                timeZone: "Europe/Paris",
+                sort: [{ column: "f_id", direction: "asc" }],
+                filter: {
+                  conjunction: "and",
+                  conditions: [{ ...condition, column } as never],
+                },
+              },
+              { total: false },
+            )
+          ).rows.map((row) => row.id),
         );
       }
       for (const [label, target, fn] of NESTED) {
@@ -1261,10 +1510,7 @@ describe("conformance of formulas across engines", () => {
             nested.rows.map((row) => row[column.name] ?? null),
           );
         } catch (error) {
-          failures.set(
-            label,
-            error instanceof Error ? error.message : String(error),
-          );
+          failures.set(label, failed(error));
         }
       }
       results.set(source.engine, values);
@@ -1301,11 +1547,31 @@ describe("conformance of formulas across engines", () => {
     }
   });
 
-  it.each(["mysql", "mariadb", "sqlserver"] as const)(
+  it.each(["mysql", "mariadb", "sqlserver", "oracle"] as const)(
     "reads the same on %s, or says it is approximate",
     (engine) => {
-      const reference = results.get("postgres");
-      const values = results.get(engine);
+      // Oracle stores no empty text: '' is NULL there, and so is a
+      // formula's empty result. Both read as a blank cell.
+      const blank = (value: unknown): unknown =>
+        engine !== "oracle"
+          ? value
+          : value === ""
+            ? null
+            : Array.isArray(value)
+              ? value.map(blank)
+              : value;
+      const reference = new Map(
+        [...(results.get("postgres") ?? [])].map(([formula, value]) => [
+          formula,
+          blank(value) as unknown[],
+        ]),
+      );
+      const values = new Map(
+        [...(results.get(engine) ?? [])].map(([formula, value]) => [
+          formula,
+          blank(value) as unknown[],
+        ]),
+      );
       const differences: string[] = [];
       for (const formula of [
         ...FORMULAS,
@@ -1314,8 +1580,11 @@ describe("conformance of formulas across engines", () => {
         ...FILTERS.map(([name]) => `filter ${name}`),
         ...ERRORS.flatMap((formula) => [formula, `errors ${formula}`]),
       ]) {
-        const expected = reference?.get(formula);
-        const actual = values?.get(formula);
+        const expected =
+          engine === "oracle" && formula in ORACLE_EMPTY_TEXT
+            ? ORACLE_EMPTY_TEXT[formula]
+            : reference.get(formula);
+        const actual = values.get(formula);
         if (JSON.stringify(actual) !== JSON.stringify(expected)) {
           differences.push(
             `${formula}\n    postgres: ${JSON.stringify(expected)}\n    ${engine}: ${JSON.stringify(actual)}${refused.get(engine)?.has(formula) ? ` (refused: ${refused.get(engine)?.get(formula) ?? ""})` : ""}`,
@@ -1323,8 +1592,8 @@ describe("conformance of formulas across engines", () => {
         }
       }
       for (const formula of [...APPROXIMATE, ...APPROXIMATE_ACROSS]) {
-        const expected = reference?.get(formula) ?? [];
-        const actual = values?.get(formula) ?? [];
+        const expected = reference.get(formula) ?? [];
+        const actual = values.get(formula) ?? [];
         if (
           actual.length !== expected.length ||
           expected.some((value, index) => !agrees(value, actual[index]))
@@ -1335,8 +1604,8 @@ describe("conformance of formulas across engines", () => {
         }
       }
       // MySQL reads a JSON number as a double: to 13 digits, and said.
-      const number = values?.get(JSON_NUMBER) ?? [];
-      const exact = reference?.get(JSON_NUMBER) ?? [];
+      const number = values.get(JSON_NUMBER) ?? [];
+      const exact = reference.get(JSON_NUMBER) ?? [];
       if (
         engine === "mysql"
           ? exact.some((value, index) => !agrees(value, number[index]))
@@ -1346,29 +1615,35 @@ describe("conformance of formulas across engines", () => {
           `${JSON_NUMBER}\n    postgres: ${JSON.stringify(exact)}\n    ${engine}: ${JSON.stringify(number)}`,
         );
       }
-      // Regular expressions: SQL Server refuses them, naming itself; the
-      // others read the same, but where the pattern lets them choose.
+      // Regular expressions: SQL Server and Oracle refuse them, naming
+      // themselves (Oracle lacks lookaheads and `(?:…)`); the others read
+      // the same, but where the pattern lets them choose.
       for (const formula of [...REGEXES, REGEX_AMBIGUOUS]) {
-        if (engine === "sqlserver") {
+        if (engine === "sqlserver" || engine === "oracle") {
           if (!/cannot compute/.test(refused.get(engine)?.get(formula) ?? "")) {
-            differences.push(`${formula}\n    not refused on SQL Server`);
+            differences.push(`${formula}\n    not refused on ${engine}`);
           }
           continue;
         }
         const expected =
           formula === REGEX_AMBIGUOUS
             ? ["a", "a", "a"]
-            : reference?.get(formula);
-        if (JSON.stringify(values?.get(formula)) !== JSON.stringify(expected)) {
+            : reference.get(formula);
+        if (JSON.stringify(values.get(formula)) !== JSON.stringify(expected)) {
           differences.push(
-            `${formula}\n    expected: ${JSON.stringify(expected)}\n    ${engine}: ${JSON.stringify(values?.get(formula))}`,
+            `${formula}\n    expected: ${JSON.stringify(expected)}\n    ${engine}: ${JSON.stringify(values.get(formula))}`,
           );
         }
-        expect(limited.get(engine)?.get(formula), formula).toEqual(
+        const said = limited.get(engine)?.get(formula);
+        const told =
           formula === REGEX_AMBIGUOUS
             ? [{ code: "regex", engine, fn: "REGEX_EXTRACT" }]
-            : [],
-        );
+            : [];
+        if (JSON.stringify(said) !== JSON.stringify(told)) {
+          differences.push(
+            `${formula} (limits)\n    expected: ${JSON.stringify(told)}\n    ${engine}: ${JSON.stringify(said)}`,
+          );
+        }
       }
       expect(differences, differences.join("\n")).toEqual([]);
       const jsonLimit = {
@@ -1749,8 +2024,10 @@ describe("conformance of formulas across engines", () => {
       ["3"],
       ["x"],
     ]);
-    for (const engine of ["mysql", "mariadb", "sqlserver"] as const) {
-      expect(traces.get(engine), engine).toEqual(reference);
+    for (const engine of ["mysql", "mariadb", "sqlserver", "oracle"] as const) {
+      expect(asRead(engine, traces.get(engine)), engine).toEqual(
+        asRead(engine, reference),
+      );
     }
   }, 300_000);
 
@@ -1848,9 +2125,10 @@ describe("conformance of formulas across engines", () => {
           ),
         ),
       );
+      // On Oracle, a schema is an account: AnyGridDB's fields go in its own.
       await updateSource(deps, actorId, {
         id: sourceId,
-        sideSchema: "ag_side",
+        sideSchema: engine === "oracle" ? "READER" : "ag_side",
       });
       // A field stays where it was made: naming a side schema moves none.
       trace.push(await remarks());
@@ -1993,8 +2271,10 @@ describe("conformance of formulas across engines", () => {
       [["1", "Actif", "12.5"]],
       "source_conflict",
     ]);
-    for (const engine of ["mysql", "mariadb", "sqlserver"] as const) {
-      expect(traces.get(engine), engine).toEqual(reference);
+    for (const engine of ["mysql", "mariadb", "sqlserver", "oracle"] as const) {
+      expect(asRead(engine, traces.get(engine)), engine).toEqual(
+        asRead(engine, reference),
+      );
     }
   }, 300_000);
 
@@ -2100,7 +2380,7 @@ describe("conformance of formulas across engines", () => {
       [],
       [],
     ];
-    for (const engine of ["postgres", "mysql", "mariadb"] as const) {
+    for (const engine of ["postgres", "mysql", "mariadb", "oracle"] as const) {
       expect(traces.get(engine), engine).toEqual(byColumn);
     }
     expect(traces.get("sqlserver")).toEqual([
@@ -2418,8 +2698,10 @@ describe("conformance of formulas across engines", () => {
         ["unlock", "person", true],
       ],
     ]);
-    for (const engine of ["mysql", "mariadb", "sqlserver"] as const) {
-      expect(traces.get(engine), engine).toEqual(reference);
+    for (const engine of ["mysql", "mariadb", "sqlserver", "oracle"] as const) {
+      expect(asRead(engine, traces.get(engine)), engine).toEqual(
+        asRead(engine, reference),
+      );
     }
   }, 300_000);
 
@@ -2564,8 +2846,10 @@ describe("conformance of formulas across engines", () => {
       "ok",
       "access_denied",
     ]);
-    for (const engine of ["mysql", "mariadb", "sqlserver"] as const) {
-      expect(traces.get(engine), engine).toEqual(reference);
+    for (const engine of ["mysql", "mariadb", "sqlserver", "oracle"] as const) {
+      expect(asRead(engine, traces.get(engine)), engine).toEqual(
+        asRead(engine, reference),
+      );
     }
   }, 300_000);
 
@@ -2744,8 +3028,10 @@ describe("conformance of formulas across engines", () => {
       false,
       false,
     ]);
-    for (const engine of ["mysql", "mariadb", "sqlserver"] as const) {
-      expect(traces.get(engine), engine).toEqual(reference);
+    for (const engine of ["mysql", "mariadb", "sqlserver", "oracle"] as const) {
+      expect(asRead(engine, traces.get(engine)), engine).toEqual(
+        asRead(engine, reference),
+      );
     }
   }, 300_000);
 
@@ -2859,8 +3145,10 @@ describe("conformance of formulas across engines", () => {
       [["41", "r"]],
       { changes: 1, refreshCount: 0, errorCode: null },
     ]);
-    for (const engine of ["mysql", "mariadb", "sqlserver"] as const) {
-      expect(traces.get(engine), engine).toEqual(reference);
+    for (const engine of ["mysql", "mariadb", "sqlserver", "oracle"] as const) {
+      expect(asRead(engine, traces.get(engine)), engine).toEqual(
+        asRead(engine, reference),
+      );
     }
   }, 300_000);
 
@@ -2920,8 +3208,10 @@ describe("conformance of formulas across engines", () => {
     expect(reference?.[1]).toMatchObject({
       categories: ["(vide)", "false", "true"],
     });
-    for (const engine of ["mysql", "mariadb", "sqlserver"] as const) {
-      expect(traces.get(engine), engine).toEqual(reference);
+    for (const engine of ["mysql", "mariadb", "sqlserver", "oracle"] as const) {
+      expect(asRead(engine, traces.get(engine)), engine).toEqual(
+        asRead(engine, reference),
+      );
     }
   }, 300_000);
 
@@ -3049,13 +3339,21 @@ describe("conformance of formulas across engines", () => {
         ["po-E", "6.00", "6", "1"],
       ],
     ]);
-    for (const engine of ["mysql", "mariadb", "sqlserver"] as const) {
+    for (const engine of ["mysql", "mariadb", "sqlserver", "oracle"] as const) {
       const trace = traces.get(engine);
       expect(trace?.slice(0, 3), engine).toEqual(reference?.slice(0, 3));
       expect(
-        (trace?.[3] as unknown[][]).map((row) => row.slice(1)),
+        asRead(
+          engine,
+          (trace?.[3] as unknown[][]).map((row) => row.slice(1)),
+        ),
         engine,
-      ).toEqual((reference?.[3] as unknown[][]).map((row) => row.slice(1)));
+      ).toEqual(
+        asRead(
+          engine,
+          (reference?.[3] as unknown[][]).map((row) => row.slice(1)),
+        ),
+      );
     }
   }, 300_000);
 
@@ -3144,12 +3442,13 @@ describe("conformance of formulas across engines", () => {
       "mysql",
       "mariadb",
       "sqlserver",
+      "oracle",
     ] as const) {
       expect(traces.get(engine), engine).toEqual([
         true,
         false,
         `trash-${engine.slice(0, 2)}`,
-        "12.30",
+        asRead(engine, "12.30"),
         "2",
         true,
       ]);
@@ -3268,6 +3567,7 @@ describe("conformance of formulas across engines", () => {
       "mysql",
       "mariadb",
       "sqlserver",
+      "oracle",
     ] as const) {
       expect(traces.get(engine), engine).toEqual([
         "external_table_read_only",

@@ -3,11 +3,13 @@ packages:
   - "packages/*"
 
 # Only these packages may run install scripts (native builds). The others
-# come with Testcontainers and work without their optional native parts.
+# come with Testcontainers and work without their optional native parts;
+# oracledb's only checks thick mode, which AnyGridDB does not use.
 allowBuilds:
   esbuild: true
   sharp: true
   cpu-features: false
+  oracledb: false
   protobufjs: false
   ssh2: false
 

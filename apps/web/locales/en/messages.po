@@ -2841,8 +2841,8 @@ msgid "Fields are kept in this side schema: it cannot change while they exist"
 msgstr "Fields are kept in this side schema: it cannot change while they exist"
 
 #: components/admin/sources-tab.tsx
-msgid "Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed."
-msgstr "Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed."
+msgid "Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB, the account's own schema on Oracle). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed."
+msgstr "Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB, the account's own schema on Oracle). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed."
 
 #: components/shell/jobs-menu.tsx
 msgid "File available for 24 h"
@@ -5560,6 +5560,10 @@ msgstr "Sent ({status})"
 #: components/dashboards/dashboard-board.tsx
 msgid "Series (optional)"
 msgstr "Series (optional)"
+
+#: components/admin/sources-tab.tsx
+msgid "Service name"
+msgstr "Service name"
 
 #: components/admin/sessions-tab.tsx
 #: components/admin/sign-in-trail.tsx

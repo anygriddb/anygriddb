@@ -37,7 +37,7 @@ The product is `apps/` and `packages/`.
 | Administration | Accounts (disable, admin, sessions, factors, tokens), SCIM 2.0, sign-up, language, maintenance, announcement, 2FA for all, audit and sign-in trails (CSV), support                                         |
 | Interface      | English source + French locale (ADR 0041), light and dark themes, command palette, keyboard help, pinned bases and tables, recent tables; base settings                                                    |
 | Accessibility  | Date, list, and rating editors on React Aria (ADR 0045); grid, record panel, and forms by keyboard; WCAG 2.2 AA checked by axe in the journeys                                                             |
-| Client data    | PostgreSQL, MySQL, MariaDB, SQL Server tables read where they live, over verified TLS; formulas, lookups, rollups by each engine; read replicas                                                            |
+| Client data    | PostgreSQL, MySQL, MariaDB, SQL Server, Oracle (thin `oracledb`) tables read where they live, over verified TLS; formulas, lookups, rollups by each engine; read replicas                                  |
 | Client writes  | Edits, new rows, deletes, and file imports, compared under lock with what each person saw; three-step trail; refusals said line by line                                                                    |
 | Client changes | Watched by a modification column or SQL Server Change Tracking: open grids, webhooks, and automations follow, once each                                                                                    |
 | Client fields  | Fields people add to a client's table, kept in a side table of its database when granted, otherwise in AnyGridDB (filter via keys; no sort/group on live tables): edited even where the table is read-only |
@@ -59,6 +59,7 @@ The product is `apps/` and `packages/`.
 - A locked client row is protected from AnyGridDB's writes only: a change another application makes is detected (within five minutes, seconds on a watched table) and told, not refused. Its seal covers every stored column, so a row put back still differs by its `updated_at`.
 - Template content (table and field names) is English-authored with stable ids.
 - On SQL Server a page is one query: a table with very many complex computed fields can exceed what SQL Server compiles, and AnyGridDB says so. There, MD5, SHA256, and SHA512 read texts of up to 100,000 characters, and JSON_EXTRACT reads a text value of up to 4,000.
+- On Oracle an empty text is NULL, so a blank text and lists built from it read as nothing; `NUMBER` keeps no scale (`7.50` reads `7.5`); `DATE` reads as a day; regular expressions are refused, as on SQL Server. Only Oracle 23ai is tested; 19c is the floor (docs/sources.md).
 - Regular expressions are a portable subset, written in the formula: `\d`, `\w`, and `\s` are ASCII, and back-references and lookbehinds are refused. SQL Server reads none before 2025, so there they are refused.
 - JSON_EXTRACT needs PostgreSQL 16 or later, where a text that is not JSON can be told apart without failing the read. On MySQL it reads JSON numbers as doubles, and the field says so.
 

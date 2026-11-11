@@ -740,6 +740,7 @@ export {
   checkChoices,
   mapMysqlType,
   mapPostgresType,
+  mapOracleType,
   mapSqlServerType,
   withChoices,
   mysqlEnumValues,

@@ -611,6 +611,11 @@ export const SQLSERVER: SqlDialect = {
   encodeUrl,
   hashHex,
   textFrom: (sql, start) => `substring(${sql}, ${start}, 2147483647)`,
+  errorMessage: (sql) => (sql === undefined ? "''" : `coalesce(${sql}, '')`),
+  errorJson: (sql) => sql,
+  textLeft: (sql, count) => `left(${sql}, ${count})`,
+  textRight: (sql, count) => `right(${sql}, ${count})`,
+  textSlice: (sql, start, length) => `substring(${sql}, ${start}, ${length})`,
   // JSON_VALUE reads scalars, JSON_QUERY objects and lists; a scalar past
   // 4,000 characters reads blank (lax mode).
   // SQL Server reads no regular expression before 2025.

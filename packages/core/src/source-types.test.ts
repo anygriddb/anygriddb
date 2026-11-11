@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   mapMysqlType,
+  mapOracleType,
   mapPostgresType,
   mapSqlServerType,
   mysqlEnumValues,
@@ -84,6 +85,32 @@ describe("MySQL and MariaDB columns", () => {
     ]) {
       expect(mapMysqlType({ type }).readOnly, type).toBe(true);
     }
+  });
+});
+
+describe("Oracle columns", () => {
+  it("maps their types to fields", () => {
+    expect(mapOracleType({ type: "NUMBER(1)" }).fieldType).toBe("boolean");
+    expect(mapOracleType({ type: "NUMBER(14,2)" }).fieldType).toBe("number");
+    expect(mapOracleType({ type: "VARCHAR2(120)" }).fieldType).toBe("text");
+    expect(mapOracleType({ type: "CLOB" }).fieldType).toBe("long_text");
+    expect(
+      mapOracleType({ type: "TIMESTAMP(6) WITH TIME ZONE" }).fieldType,
+    ).toBe("datetime");
+    expect(mapOracleType({ type: "DATE" }).fieldType).toBe("date");
+    expect(mapOracleType({ type: "BOOLEAN" }).fieldType).toBe("boolean");
+    expect(mapOracleType({ type: "JSON" }).readOnly).toBe(true);
+  });
+
+  it("keeps binaries and intervals read-only", () => {
+    expect(mapOracleType({ type: "BLOB" })).toEqual({
+      fieldType: "text",
+      readOnly: true,
+    });
+    expect(mapOracleType({ type: "RAW" }).readOnly).toBe(true);
+    expect(
+      mapOracleType({ type: "INTERVAL DAY(2) TO SECOND(6)" }).readOnly,
+    ).toBe(true);
   });
 });
 

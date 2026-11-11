@@ -148,7 +148,10 @@ function keyParam(
   type: string | undefined,
   placeholder: string,
 ): string {
-  const sqlType = dialect === "sqlserver" ? declared(type) : undefined;
+  const sqlType =
+    dialect === "sqlserver" || dialect === "oracle"
+      ? declared(type)
+      : undefined;
   return sqlType ? `cast(${placeholder} as ${sqlType})` : placeholder;
 }
 
@@ -195,6 +198,9 @@ function rowsMatch(
 const INTEGER =
   /^(?:tinyint|smallint|mediumint|int|integer|bigint|serial|bigserial|smallserial|int2|int4|int8|year)\b/i;
 
+/** Oracle's NUMBER(p) and NUMBER(p,0), which round a fraction away. */
+const ORACLE_INTEGER = /^number\(\s*\d+\s*(?:,\s*0\s*)?\)$/i;
+
 /** `YYYY-MM-DD HH:MM:SS[.ffffff]` in UTC, from an instant. */
 function utcTimestamp(value: string): string {
   const parsed = parseIsoInstant(value);
@@ -212,7 +218,11 @@ function decimalOf(column: StoredColumn, value: CellValue): string {
   const text =
     typeof value === "number" ? numberToDecimal(value) : String(value);
   if (text === undefined) throw new AppError("invalid_cell");
-  if (INTEGER.test(column.physical.type) && /\.\d*[1-9]/.test(text)) {
+  if (
+    (INTEGER.test(column.physical.type) ||
+      ORACLE_INTEGER.test(column.physical.type)) &&
+    /\.\d*[1-9]/.test(text)
+  ) {
     throw new AppError("source_value_invalid", column.label);
   }
   return text;
@@ -232,8 +242,13 @@ function writeValue(
     case "boolean":
       if (typeof value !== "boolean") throw new AppError("invalid_cell");
       // MySQL's boolean is a tinyint; tedious binds a boolean as a bit.
-      if (dialect === "mysql" || dialect === "mariadb")
+      if (
+        dialect === "mysql" ||
+        dialect === "mariadb" ||
+        dialect === "oracle"
+      ) {
         return params.bind(value ? 1 : 0);
+      }
       return dialect === "sqlserver"
         ? params.bind(value)
         : params.bind(value ? "true" : "false");
@@ -242,9 +257,14 @@ function writeValue(
     case "text":
     case "long_text":
     case "single_select":
-    case "date":
       if (typeof value !== "string") throw new AppError("invalid_cell");
       return params.bind(value);
+    case "date":
+      if (typeof value !== "string") throw new AppError("invalid_cell");
+      // Oracle reads a bound text by the session's format, which has a time.
+      return dialect === "oracle"
+        ? `to_date(${params.bind(value)}, 'YYYY-MM-DD')`
+        : params.bind(value);
     case "datetime": {
       if (typeof value !== "string") throw new AppError("invalid_cell");
       const utc = utcTimestamp(value);
@@ -261,6 +281,21 @@ function writeValue(
         return zone === "UTC"
           ? `cast(${instant} as datetime2(7))`
           : `cast(${instant} at time zone '${windowsZone(zone)}' as datetime2(7))`;
+      }
+      if (dialect === "oracle") {
+        const instant = `to_timestamp_tz(${params.bind(`${utc} +00:00`)}, 'YYYY-MM-DD HH24:MI:SS.FF TZH:TZM')`;
+        // `timestamp(6) with time zone`: the precision sits inside the name.
+        const named = physical.type
+          .toLowerCase()
+          .replace(/\(\s*\d+\s*\)/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+        return named === "timestamp with time zone" ||
+          named === "timestamp with local time zone"
+          ? instant
+          : zone === "UTC"
+            ? `cast(${instant} as timestamp(6))`
+            : `cast(from_tz(cast(${instant} as timestamp), '+00:00') at time zone '${zone}' as timestamp(6))`;
       }
       // TIMESTAMP reads and writes in the session's zone, UTC; DATETIME
       // has none, and is stored in the source's.
@@ -279,6 +314,24 @@ function writeValue(
 }
 
 /**
+ * Oracle has no lock timeout for a session: each lock says how long it
+ * waits for a row another write holds, as long as the others do.
+ */
+const ORACLE_LOCK_WAIT_SECONDS = 10;
+
+/** Locks the rows `where` keeps in `from` until the transaction ends. */
+function lockRows(dialect: DialectName, from: string, where: string): string {
+  switch (dialect) {
+    case "sqlserver":
+      return `select 1 as "locked" from ${from} with (updlock, holdlock, rowlock) where ${where}`;
+    case "oracle":
+      return `select 1 as "locked" from ${from} where ${where} for update wait ${String(ORACLE_LOCK_WAIT_SECONDS)}`;
+    default:
+      return `select 1 as "locked" from ${from} where ${where} for update`;
+  }
+}
+
+/**
  * Locks rows until the write's transaction ends, so no one changes them
  * between the read that compares and the write. SQL Server holds an
  * update lock to the end of the transaction.
@@ -290,11 +343,10 @@ export function buildExternalLock(
   const params = new SqlParams();
   const { dialect } = external(table);
   const where = rowsMatch(table, ids, params);
-  const text =
-    dialect === "sqlserver"
-      ? `select 1 as "locked" from ${tableSql(table)} with (updlock, holdlock, rowlock) where ${where}`
-      : `select 1 as "locked" from ${tableSql(table)} where ${where} for update`;
-  return { text, values: params.values };
+  return {
+    text: lockRows(dialect, tableSql(table), where),
+    values: params.values,
+  };
 }
 
 function assignments(
@@ -350,16 +402,24 @@ export function buildExternalInsert(
   const d = dialectOf(table);
   const params = new SqlParams();
   const set = assignments(dialect, values, params);
-  const into = `insert into ${tableSql(table)}${
-    set.length > 0 ? ` (${set.map((item) => item.name).join(", ")})` : ""
-  }`;
-  // A row of defaults only: MySQL and MariaDB have no DEFAULT VALUES.
+  // A row of defaults only: MySQL and MariaDB have no DEFAULT VALUES, and
+  // Oracle takes the default of one column by name.
+  const [first] = key;
+  const named =
+    set.length > 0
+      ? ` (${set.map((item) => item.name).join(", ")})`
+      : dialect === "oracle" && first !== undefined
+        ? ` (${quoteExternalIdent(first)})`
+        : "";
+  const into = `insert into ${tableSql(table)}${named}`;
   const rows =
     set.length > 0
       ? ` values (${set.map((item) => item.sql).join(", ")})`
       : dialect === "mysql" || dialect === "mariadb"
         ? " () values ()"
-        : " default values";
+        : dialect === "oracle"
+          ? " values (default)"
+          : " default values";
   if (dialect === "postgres") {
     const id = d.keyId(key.map((name) => quoteExternalIdent(name)));
     return {
@@ -378,6 +438,21 @@ export function buildExternalInsert(
     const id = d.keyId(columns.map((column) => `a."${column.alias}"`));
     return {
       text: `declare @ag table (${columns.map((column) => `"${column.alias}" ${column.type}`).join(", ")}); ${into} output ${columns.map((column) => `inserted.${quoteExternalIdent(column.name)}`).join(", ")} into @ag${rows}; select ${id} as "id" from @ag a`,
+      values: params.values,
+    };
+  }
+  if (dialect === "oracle" && key.length > 0) {
+    // RETURNING takes INTO there: a block keeps the key in variables of
+    // the columns' own types, then gives the id back as a result.
+    const kept = key.map((_, index) => `"ag_k${String(index)}"`);
+    const declared = key
+      .map(
+        (name, index) =>
+          `${kept[index] ?? ""} ${tableSql(table)}.${quoteExternalIdent(name)}%type;`,
+      )
+      .join(" ");
+    return {
+      text: `declare ${declared} "ag_id" sys_refcursor; begin ${into}${rows} returning ${key.map((name) => quoteExternalIdent(name)).join(", ")} into ${kept.join(", ")}; open "ag_id" for select ${d.keyId(kept)} as "id" from dual; dbms_sql.return_result("ag_id"); end;`,
       values: params.values,
     };
   }
@@ -533,6 +608,19 @@ const SIDE_TYPES: Record<DialectName, Record<SideFieldType, string>> = {
     phone: "nvarchar(100)",
     rating: "int",
   },
+  oracle: {
+    text: "varchar2(1000)",
+    long_text: "clob",
+    number: "number(38,10)",
+    boolean: "number(1)",
+    date: "date",
+    datetime: "timestamp(6) with time zone",
+    single_select: "varchar2(200)",
+    email: "varchar2(500)",
+    url: "varchar2(2000)",
+    phone: "varchar2(100)",
+    rating: "number(10)",
+  },
 };
 
 /** The SQL type a side column of `fieldType` has on an engine. */
@@ -574,7 +662,8 @@ export function buildSideColumn(
   fieldType: SideFieldType,
 ): ParameterizedSql {
   const { dialect } = external(table);
-  const add = dialect === "sqlserver" ? "add" : "add column";
+  const add =
+    dialect === "sqlserver" || dialect === "oracle" ? "add" : "add column";
   return {
     text: `alter table ${sideSql(table)} ${add} ${quoteExternalIdent(name)} ${sideColumnType(dialect, fieldType)} null`,
     values: [],
@@ -618,6 +707,16 @@ export function buildSideUpsert(
         values: params.values,
       };
     }
+    case "oracle": {
+      const cols = [...keys, ...set];
+      const match = keys
+        .map((item) => `t.${item.name} = src.${item.name}`)
+        .join(" and ");
+      return {
+        text: `merge into ${sideSql(table)} t using (select ${cols.map((item) => `${item.sql} as ${item.name}`).join(", ")} from dual) src on (${match}) when matched then update set ${set.map((item) => `t.${item.name} = src.${item.name}`).join(", ")} when not matched then insert (${cols.map((item) => item.name).join(", ")}) values (${cols.map((item) => `src.${item.name}`).join(", ")})`,
+        values: params.values,
+      };
+    }
     default:
       return {
         text: `${into} on duplicate key update ${set.map((item) => `${item.name} = values(${item.name})`).join(", ")}`,
@@ -652,6 +751,28 @@ export function buildSideEnsure(
   // SQL Server's HOLDLOCK locks a missing row's key: nothing to add.
   if (dialect === "sqlserver") return null;
   const params = new SqlParams();
+  const names = key.map((name) => quoteExternalIdent(name)).join(", ");
+  if (dialect === "oracle") {
+    const statements = ids.map((id) => {
+      const values = keyValues(table, id);
+      const where = keyMatch(table, values, params);
+      const row = values
+        .map((value, index) =>
+          keyParam(
+            dialect,
+            keyType(table, key[index] ?? ""),
+            params.bind(value),
+          ),
+        )
+        .join(", ");
+      return `insert into ${sideSql(table)} (${names}) select ${row} from dual where not exists (select 1 from ${sideSql(table)} where ${where});`;
+    });
+    // One call runs one statement: a block holds them all.
+    return {
+      text: `begin ${statements.join(" ")} end;`,
+      values: params.values,
+    };
+  }
   const rows = ids.map(
     (id) =>
       `(${keyValues(table, id)
@@ -664,7 +785,6 @@ export function buildSideEnsure(
         )
         .join(", ")})`,
   );
-  const names = key.map((name) => quoteExternalIdent(name)).join(", ");
   return {
     text:
       dialect === "postgres"
@@ -683,10 +803,7 @@ export function buildSideLock(
   const { dialect } = external(table);
   const where = rowsMatch(table, ids, params);
   return {
-    text:
-      dialect === "sqlserver"
-        ? `select 1 as "locked" from ${sideSql(table)} with (updlock, holdlock, rowlock) where ${where}`
-        : `select 1 as "locked" from ${sideSql(table)} where ${where} for update`,
+    text: lockRows(dialect, sideSql(table), where),
     values: params.values,
   };
 }
