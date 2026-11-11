@@ -94,6 +94,10 @@ function UsersTab() {
   const session = useSession();
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
+  const [createEmail, setCreateEmail] = useState("");
+  const [createName, setCreateName] = useState("");
+  const [createAdmin, setCreateAdmin] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [confirm, setConfirm] = useState<{
     id: string;
     name: string;
@@ -149,9 +153,80 @@ function UsersTab() {
       toast.error(errorText(cause));
     }
   }
+  async function createAccount() {
+    const email = createEmail.trim();
+    const displayName = createName.trim();
+    if (!email || !displayName || creating) return;
+    setCreating(true);
+    try {
+      const result = await trpc.admin.createUser.mutate({
+        email,
+        displayName,
+        isAdmin: createAdmin,
+      });
+      setCreateEmail("");
+      setCreateName("");
+      setCreateAdmin(false);
+      await refresh();
+      if (result.sent) {
+        toast.success(t`Account created. Link sent to ${{ to: result.to }}`);
+      } else {
+        setHanded({ name: displayName, link: result.link });
+        toast.success(t`Account created`);
+      }
+    } catch (cause) {
+      toast.error(errorText(cause));
+    } finally {
+      setCreating(false);
+    }
+  }
   const total = list.data?.total ?? 0;
   return (
     <div className="flex flex-col gap-3">
+      <RuledSection
+        title={t`Create account`}
+        description={t`Creates the account and a password reset link. With email set up, the link is mailed; otherwise you get it to pass on. Public sign-up is controlled under Settings → Sign-ups.`}
+      >
+        <div className="flex max-w-xl flex-col gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="create-account-email">{t`Email`}</Label>
+              <Input
+                id="create-account-email"
+                type="email"
+                autoComplete="off"
+                value={createEmail}
+                onChange={(event) => setCreateEmail(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="create-account-name">{t`Display name`}</Label>
+              <Input
+                id="create-account-name"
+                autoComplete="off"
+                value={createName}
+                onChange={(event) => setCreateName(event.target.value)}
+              />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={createAdmin}
+              onChange={(event) => setCreateAdmin(event.target.checked)}
+            />
+            {t`Instance administrator`}
+          </label>
+          <div>
+            <Button
+              size="sm"
+              disabled={creating || !createEmail.trim() || !createName.trim()}
+              onClick={() => void createAccount()}
+            >
+              {t`Create and send reset`}
+            </Button>
+          </div>
+        </div>
+      </RuledSection>
       <Input
         aria-label={t`Search accounts`}
         placeholder={t`Name or email`}
@@ -1300,7 +1375,7 @@ function SettingsTab() {
           <option value="closed">{t`Closed`}</option>
         </Select>
         <p className="text-xs text-muted-foreground">
-          {t`SSO sign-in follows the same rule for new accounts. Existing accounts are not affected.`}
+          {t`Open: anyone can register from the sign-in page. Closed: only administrators create accounts and send a reset link (Accounts). By invitation: a pending base invitation is required. SSO for new accounts follows the same rule. Existing accounts are not affected.`}
         </p>
       </div>
       <div className="flex flex-col gap-1">
@@ -1434,17 +1509,18 @@ export function AdminPage() {
       </p>
     );
   }
+  // Access control first so Sign-ups, security, and SMTP are not scrolled past.
   const tabs = [
     { value: "users", label: t`Accounts`, icon: Users },
+    { value: "settings", label: t`Settings`, icon: Settings2 },
+    { value: "security", label: t`Security`, icon: LockKeyhole },
+    { value: "integrations", label: t`Integrations`, icon: Plug },
     { value: "sessions", label: t`Sessions`, icon: MonitorSmartphone },
     { value: "provisioning", label: t`Provisioning`, icon: KeyRound },
-    { value: "integrations", label: t`Integrations`, icon: Plug },
     { value: "sources", label: t`Sources`, icon: Database },
     { value: "audit", label: t`Audit log`, icon: ScrollText },
     { value: "health", label: t`Health`, icon: Activity },
     { value: "support", label: t`Support`, icon: LifeBuoy },
-    { value: "security", label: t`Security`, icon: LockKeyhole },
-    { value: "settings", label: t`Settings`, icon: Settings2 },
   ] as const;
   return (
     <NotebookPage
@@ -1456,15 +1532,15 @@ export function AdminPage() {
       <PageTabs tabs={tabs} value={tab} onChange={setTab} />
       <div role="tabpanel">
         {tab === "users" ? <UsersTab /> : null}
+        {tab === "settings" ? <SettingsTab /> : null}
+        {tab === "security" ? <SecurityTab /> : null}
+        {tab === "integrations" ? <IntegrationsTab /> : null}
         {tab === "sessions" ? <SessionsTab /> : null}
         {tab === "provisioning" ? <ScimTab /> : null}
-        {tab === "integrations" ? <IntegrationsTab /> : null}
         {tab === "sources" ? <SourcesTab /> : null}
         {tab === "audit" ? <AuditTab /> : null}
         {tab === "health" ? <HealthTab /> : null}
         {tab === "support" ? <SupportTab /> : null}
-        {tab === "security" ? <SecurityTab /> : null}
-        {tab === "settings" ? <SettingsTab /> : null}
       </div>
     </NotebookPage>
   );

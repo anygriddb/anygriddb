@@ -487,6 +487,79 @@ describe("the security policy", () => {
       });
     });
 
+    it("lets an administrator create an account and hand a reset link", async () => {
+      await policy({ signup: "closed" });
+      try {
+        const email = `provisioned-${suffix}@example.org`;
+        expect(
+          await code(
+            browser().call().auth.signup({
+              email,
+              displayName: "Blocked",
+              password: PASSWORD,
+            }),
+          ),
+        ).toBe("signup_closed");
+        const mailed = await admin.call().admin.createUser({
+          email,
+          displayName: "Provisioned Person",
+        });
+        expect(mailed).toEqual({
+          userId: expect.any(String),
+          sent: true,
+          to: email,
+        });
+        expect(mailText(await smtp.next(email))).toContain(
+          "An administrator sent you a link",
+        );
+        expect((await signIn(email, PASSWORD)).result).toBe(
+          "invalid_credentials",
+        );
+        const host = env.SMTP_HOST;
+        delete env.SMTP_HOST;
+        try {
+          expect(
+            await code(
+              admin.call().admin.createUser({
+                email,
+                displayName: "Again",
+              }),
+            ),
+          ).toBe("account_already_exists");
+          const other = `handed-${suffix}@example.org`;
+          const handed = await admin.call().admin.createUser({
+            email: other,
+            displayName: "Handed Person",
+          });
+          expect(handed.sent).toBe(false);
+          const token = handed.sent
+            ? ""
+            : (handed.link.split("/reset/")[1] ?? "");
+          await browser().call().auth.resetPassword({
+            token,
+            password: "first password from admin",
+          });
+          expect(
+            (await signIn(other, "first password from admin")).result,
+          ).toBe("ok");
+        } finally {
+          env.SMTP_HOST = host;
+        }
+        expect(
+          await code(
+            browser()
+              .call()
+              .admin.createUser({
+                email: `intruder-${suffix}@example.org`,
+                displayName: "No",
+              }),
+          ),
+        ).toBe("UNAUTHORIZED");
+      } finally {
+        await policy({ signup: "open" });
+      }
+    });
+
     it("refuses a link for an account that signs in only by SSO, and an expired one", async () => {
       const sso = await db
         .insertInto("users")
