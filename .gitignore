@@ -7,8 +7,10 @@ playwright-report/
 test-results/
 blob-report/
 *.log
-# Files and TLS keys of a local run.
-data/
+# Files and TLS keys of a local run, where the API was started. Anchored:
+# apps/api/src/data is source.
+/data/
+/apps/*/data/
 
 .env
 .env.*

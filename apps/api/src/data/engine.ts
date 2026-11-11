@@ -172,8 +172,7 @@ export function toEngineTable(table: TableRow, rows: CatalogRows): EngineTable {
           name: table.externalName,
           key: table.externalKey,
           // The fields AnyGridDB added live in the source's side schema.
-          ...(table.externalSide &&
-          rows.sources.get(table.sourceId)?.sideSchema
+          ...(table.externalSide && rows.sources.get(table.sourceId)?.sideSchema
             ? {
                 side: {
                   schema: rows.sources.get(table.sourceId)?.sideSchema ?? "",
@@ -184,7 +183,9 @@ export function toEngineTable(table: TableRow, rows: CatalogRows): EngineTable {
         }
       : undefined;
   // A synced table reads its copy, in AnyGridDB's PostgreSQL (ADR 0034).
-  const copied = copy ? new Map(copy.map((item) => [item.name, item.type])) : null;
+  const copied = copy
+    ? new Map(copy.map((item) => [item.name, item.type]))
+    : null;
   const external =
     live && copied
       ? {
@@ -221,26 +222,27 @@ export function toEngineTable(table: TableRow, rows: CatalogRows): EngineTable {
             },
           }
         : external && column.externalType !== null
-        ? {
-            physical: column.externalSide
-              ? // AnyGridDB writes its own dates and times in UTC: in the
-                // side table, or in its own database where the field was
-                // made without one (ADR 0046). The field says which.
-                {
-                  name: column.physicalName,
-                  type: column.externalType,
-                  zone: "UTC",
-                  ...(column.externalControlPlane
-                    ? { controlPlane: true }
-                    : { side: true }),
-                }
-              : {
-                  name: column.physicalName,
-                  type: column.externalType,
-                  zone: rows.sources.get(external.sourceId)?.timeZone ?? "UTC",
-                },
-          }
-        : {}),
+          ? {
+              physical: column.externalSide
+                ? // AnyGridDB writes its own dates and times in UTC: in the
+                  // side table, or in its own database where the field was
+                  // made without one (ADR 0046). The field says which.
+                  {
+                    name: column.physicalName,
+                    type: column.externalType,
+                    zone: "UTC",
+                    ...(column.externalControlPlane
+                      ? { controlPlane: true }
+                      : { side: true }),
+                  }
+                : {
+                    name: column.physicalName,
+                    type: column.externalType,
+                    zone:
+                      rows.sources.get(external.sourceId)?.timeZone ?? "UTC",
+                  },
+            }
+          : {}),
     };
   });
   const primary = own.find((column) => column.isPrimary);
@@ -265,7 +267,9 @@ export function toEngineTable(table: TableRow, rows: CatalogRows): EngineTable {
 let control: Promise<number[] | undefined> | undefined;
 
 function controlVersion(db: Database): Promise<number[] | undefined> {
-  control ??= sql<{ version: string }>`select current_setting('server_version') as version`
+  control ??= sql<{
+    version: string;
+  }>`select current_setting('server_version') as version`
     .execute(db)
     .then((result) => parseServerVersion(result.rows[0]?.version))
     .catch(() => {

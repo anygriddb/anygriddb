@@ -475,15 +475,9 @@ export function chartSeries(
     const value = decimalToNumber(row.value) ?? null;
     const cell = byKey.get(key) ?? new Map<string, number | null>();
     const before = cell.get(name) ?? null;
-    cell.set(
-      name,
-      value === null ? before : (before ?? 0) + value,
-    );
+    cell.set(name, value === null ? before : (before ?? 0) + value);
     byKey.set(key, cell);
-    seriesTotal.set(
-      name,
-      (seriesTotal.get(name) ?? 0) + Math.abs(value ?? 0),
-    );
+    seriesTotal.set(name, (seriesTotal.get(name) ?? 0) + Math.abs(value ?? 0));
   }
   const allCategories = [...byKey.keys()].sort(
     keyOrder(columns, config.groupBy),
