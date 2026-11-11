@@ -58,6 +58,9 @@ function assignments(
   params: SqlParams,
   columns: readonly WriteColumn[],
   values: Readonly<Record<string, Cell>>,
+  // A list of rows needs each null in its field's type: PostgreSQL would
+  // read a column of bare nulls as text.
+  options: { typedNulls?: boolean } = {},
 ): Array<{ name: string; sql: string }> {
   const keys = Object.keys(values);
   if (keys.length > 200) {
@@ -78,7 +81,13 @@ function assignments(
     if (!isWritableType(column.fieldType)) {
       throw new AppError("invalid_column");
     }
-    return { name: quoteIdent(key), sql: bindCell(params, column, value) };
+    return {
+      name: quoteIdent(key),
+      sql:
+        value === null && options.typedNulls
+          ? `null::${physicalSqlType(column.fieldType)}`
+          : bindCell(params, column, value),
+    };
   });
 }
 
@@ -100,6 +109,111 @@ export function buildInsert(input: {
     text: `insert into ${quoteIdent(input.table)} (${assigned.map((item) => item.name).join(", ")}) values (${assigned.map((item) => item.sql).join(", ")}) returning "id"`,
     values: params.values,
   };
+}
+
+/**
+ * The most bound values one INSERT of many rows carries: well under the
+ * 65,535 the protocol allows a statement.
+ */
+export const MAX_INSERT_PARAMS = 20_000;
+
+/**
+ * One INSERT for rows that all set the same fields. The rows go in, and
+ * their ids come back, in the order given: the rows are numbered and the
+ * INSERT reads them sorted, which is the order PostgreSQL then gives each
+ * its id and its sequence number.
+ */
+export function buildInsertMany(input: {
+  table: string;
+  columns: readonly WriteColumn[];
+  rows: ReadonlyArray<Readonly<Record<string, Cell>>>;
+}): ParameterizedSql {
+  assertIdentifier(input.table, "table name");
+  const first = input.rows[0];
+  if (!first || input.rows.length > MAX_BATCH_ROWS) {
+    throw new AppError("invalid_limit");
+  }
+  const names = Object.keys(first);
+  if (names.length === 0) {
+    throw new AppError("no_columns");
+  }
+  const params = new SqlParams();
+  let fields: string[] = [];
+  const tuples = input.rows.map((values, index) => {
+    if (
+      Object.keys(values).length !== names.length ||
+      names.some((name) => !Object.hasOwn(values, name))
+    ) {
+      throw new AppError("invalid_column_count");
+    }
+    const assigned = assignments(
+      params,
+      input.columns,
+      Object.fromEntries(names.map((name) => [name, values[name] ?? null])),
+      { typedNulls: true },
+    );
+    fields = assigned.map((item) => item.name);
+    return `(${[...assigned.map((item) => item.sql), String(index)].join(", ")})`;
+  });
+  const aliases = names.map((_, index) => `"c${String(index)}"`);
+  return {
+    text: `insert into ${quoteIdent(input.table)} (${fields.join(", ")}) select ${aliases.join(", ")} from (values ${tuples.join(", ")}) as r (${[...aliases, '"n"'].join(", ")}) order by "n" returning "id"`,
+    values: params.values,
+  };
+}
+
+/** The fields a row sets, whatever the order it names them in. */
+function shapeOf(values: Readonly<Record<string, Cell>>): string {
+  return Object.keys(values).sort().join("\u0000");
+}
+
+/**
+ * The INSERTs that write some rows, in their order. Rows that follow each
+ * other and set the same fields share one statement, within the bound on
+ * its values: an import of a thousand rows is a few statements, not a
+ * thousand. `rows` says how many ids each statement gives back.
+ */
+export function buildInserts(input: {
+  table: string;
+  columns: readonly WriteColumn[];
+  rows: ReadonlyArray<Readonly<Record<string, Cell>>>;
+}): Array<{ statement: ParameterizedSql; rows: number }> {
+  const statements: Array<{ statement: ParameterizedSql; rows: number }> = [];
+  let run: Array<Readonly<Record<string, Cell>>> = [];
+  let shape = "";
+  let bound = 0;
+  const flush = () => {
+    if (run.length === 0) return;
+    statements.push({
+      statement:
+        shape === ""
+          ? // A row that sets nothing takes every default.
+            buildInsert({ ...input, values: {} })
+          : buildInsertMany({ ...input, rows: run }),
+      rows: run.length,
+    });
+    run = [];
+    bound = 0;
+  };
+  for (const values of input.rows) {
+    const next = shapeOf(values);
+    const cells = Object.values(values).filter(
+      (value) => value !== null,
+    ).length;
+    if (
+      next !== shape ||
+      next === "" ||
+      run.length >= MAX_BATCH_ROWS ||
+      bound + cells > MAX_INSERT_PARAMS
+    ) {
+      flush();
+    }
+    shape = next;
+    run.push(values);
+    bound += cells;
+  }
+  flush();
+  return statements;
 }
 
 export function buildUpdate(input: {
@@ -143,6 +257,24 @@ export function buildReadStatus(input: {
   return {
     text: `select "ag_status" from ${quoteIdent(input.table)} where "id" = $1 for update`,
     values: [input.id],
+  };
+}
+
+/**
+ * Locks some rows and reads their statuses in one statement. The rows are
+ * locked in the order of their ids, so two writers that take the same rows
+ * never wait on each other in a circle.
+ */
+export function buildReadStatuses(input: {
+  table: string;
+  ids: readonly string[];
+}): ParameterizedSql {
+  assertIdentifier(input.table, "table name");
+  assertIdList(input.ids);
+  const params = new SqlParams();
+  return {
+    text: `select "id", "ag_status" from ${quoteIdent(input.table)} where "id" = any(${params.bindTextArray(input.ids)}::uuid[]) order by "id" for update`,
+    values: params.values,
   };
 }
 

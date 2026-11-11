@@ -1,7 +1,10 @@
 import { randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import cookie from "@fastify/cookie";
+import { indexName } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import Fastify, { type FastifyInstance } from "fastify";
+import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApiToken } from "../auth/tokens.js";
 import { withAudit } from "../data/audit-context.js";
@@ -12,6 +15,8 @@ import { gridChannel } from "../realtime/channels.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { registerRestApi } from "../rest-api.js";
 import { createTestDatabase } from "../test-database.js";
+import { loadBindings } from "../auth/access.js";
+import { createRows, findLiveTable, loadRowScope } from "./rows.js";
 
 const suffix = randomBytes(6).toString("hex");
 
@@ -23,6 +28,7 @@ describe("row writes through the REST API", () => {
   let token = "";
   let clientsId = "";
   let ordersId = "";
+  let ownerId = "";
 
   beforeAll(async () => {
     const created = await createTestDatabase("rows");
@@ -38,6 +44,7 @@ describe("row writes through the REST API", () => {
       .returning("id")
       .execute();
     const owner = people[0]?.id ?? "";
+    ownerId = owner;
     const editor = people[1]?.id ?? "";
     const baseId = (await insertBase(database, owner, { name: "Rows" })).id;
     clientsId = (
@@ -185,5 +192,155 @@ describe("row writes through the REST API", () => {
       records: [{ id: clientId, fields: { orders: [] } }],
     });
     expect(refused.statusCode).toBe(403);
+  });
+
+  it("writes many rows in few statements, and names each one's id in order", async () => {
+    const table = await findLiveTable(database, clientsId);
+    if (!table) throw new Error("no table");
+    const scope = await loadRowScope(
+      database,
+      { userId: ownerId, bindings: await loadBindings(database, ownerId) },
+      table,
+    );
+    // Runs of the same fields, a row of other fields between them, an
+    // empty value, and a row that sets nothing.
+    const rows = Array.from({ length: 120 }, (_, index) => {
+      const values: Record<string, string | null> =
+        index === 60
+          ? {}
+          : index % 25 === 7
+            ? { name: `Bulk ${String(index)}`, city: "Lyon", balance: null }
+            : { name: `Bulk ${String(index)}` };
+      return { values };
+    });
+    const ids = await createRows(
+      { db: database, bus: recorder.bus, log: () => undefined },
+      scope,
+      rows,
+      { source: "web" },
+    );
+    expect(ids).toHaveLength(120);
+    const stored = await sql<{
+      id: string;
+      name: string | null;
+      city: string | null;
+      seq: string;
+    }>`
+      select "id", "name", "city", "ag_seq"::text as seq
+      from ${sql.table(table.physicalName)}
+      where "id" = any(${ids}::uuid[])
+    `.execute(database);
+    const byId = new Map(stored.rows.map((row) => [row.id, row]));
+    expect(ids.map((id) => byId.get(id)?.name ?? null)).toEqual(
+      rows.map((row) => row.values.name ?? null),
+    );
+    expect(byId.get(ids[7] ?? "")?.city).toBe("Lyon");
+    // Created in the order given: the sequence follows it.
+    const sequence = ids.map((id) => BigInt(byId.get(id)?.seq ?? "0"));
+    expect(
+      sequence.every(
+        (value, index) => index === 0 || value > (sequence[index - 1] ?? 0n),
+      ),
+    ).toBe(true);
+    // Each row is in the audit trail, as when written one at a time.
+    const audited = await database
+      .selectFrom("auditEvents")
+      .select("recordId")
+      .where("tableId", "=", clientsId)
+      .where("action", "=", "insert")
+      .where("recordId", "in", ids)
+      .execute();
+    expect(audited).toHaveLength(120);
+  });
+
+  it("refuses a whole update when one of its rows is missing", async () => {
+    const created = await call("POST", clientsId, {
+      records: [
+        { fields: { name: "Kept one" } },
+        { fields: { name: "Kept two" } },
+      ],
+    });
+    const [first, second] = created
+      .json<{ records: Array<{ id: string }> }>()
+      .records.map((record) => record.id);
+    const refused = await call("PATCH", clientsId, {
+      records: [
+        { id: first, fields: { name: "Changed one" } },
+        {
+          id: "00000000-0000-4000-8000-00000000dead",
+          fields: { name: "Nobody" },
+        },
+        { id: second, fields: { name: "Changed two" } },
+      ],
+    });
+    expect(refused.statusCode).toBeGreaterThanOrEqual(400);
+    const names = async () => {
+      const read = await Promise.all(
+        [first, second].map((id) =>
+          app.inject({
+            method: "GET",
+            url: `/api/v1/tables/${clientsId}/records/${id ?? ""}`,
+            headers: { authorization: `Bearer ${token}` },
+          }),
+        ),
+      );
+      return read.map(
+        (answer) => answer.json<{ fields: { name: unknown } }>().fields.name,
+      );
+    };
+    expect(await names()).toEqual(["Kept one", "Kept two"]);
+    // The same update without the missing row goes through, both rows.
+    const accepted = await call("PATCH", clientsId, {
+      records: [
+        { id: second, fields: { name: "Changed two" } },
+        { id: first, fields: { name: "Changed one" } },
+      ],
+    });
+    expect(accepted.statusCode).toBe(200);
+    expect(await names()).toEqual(["Changed one", "Changed two"]);
+  });
+
+  it("indexes a link's foreign key, and gives one to a link made before", async () => {
+    const orders = await database
+      .selectFrom("dataTables")
+      .select("physicalName")
+      .where("id", "=", ordersId)
+      .executeTakeFirstOrThrow();
+    const name = indexName(orders.physicalName, "client", "ix");
+    const found = async () =>
+      (
+        await sql<{ indexdef: string }>`
+          select indexdef from pg_indexes
+          where tablename = ${orders.physicalName} and indexname = ${name}
+        `.execute(database)
+      ).rows.map((row) => row.indexdef);
+    expect(await found()).toEqual([
+      expect.stringContaining("(client)") as string,
+    ]);
+    // A link made before the index existed: the migration names it alike.
+    await sql.raw(`drop index "${name}"`).execute(database);
+    expect(await found()).toEqual([]);
+    const migration = await readFile(
+      new URL(
+        "../../../../packages/db/migrations/0062_link_column_indexes.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    await sql.raw(migration).execute(database);
+    expect(await found()).toHaveLength(1);
+    // The other side of the link stores nothing, and gets no index.
+    const clients = await database
+      .selectFrom("dataTables")
+      .select("physicalName")
+      .where("id", "=", clientsId)
+      .executeTakeFirstOrThrow();
+    const others = await sql<{ indexname: string }>`
+      select indexname from pg_indexes
+      where tablename = ${clients.physicalName} and indexname like 'ix_%'
+    `.execute(database);
+    expect(others.rows.map((row) => row.indexname)).toEqual([
+      indexName(clients.physicalName, "ag_seq", "ix"),
+    ]);
   });
 });

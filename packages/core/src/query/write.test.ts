@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildInsert,
   buildInsertLinks,
+  buildInsertMany,
+  buildInserts,
+  buildReadStatuses,
   buildNonNullValues,
   buildRestoreRow,
   buildUpdate,
@@ -38,6 +41,106 @@ describe("write builders", () => {
     expect(update.text).toBe(
       `update "t_orders" set "price" = null where "id" = $1::uuid returning "id"`,
     );
+  });
+
+  it("writes rows that set the same fields in one statement, in their order", () => {
+    const insert = buildInsertMany({
+      table: "t_orders",
+      columns,
+      rows: [
+        { title: "A", price: 2, tags: ["vip"] },
+        { title: "B", price: null, tags: null },
+      ],
+    });
+    expect(insert.text).toBe(
+      `insert into "t_orders" ("title", "price", "tags") select "c0", "c1", "c2" from (values ($1::text, $2::numeric, array(select jsonb_array_elements_text($3::text::jsonb))::text[], 0), ($4::text, null::numeric, null::text[], 1)) as r ("c0", "c1", "c2", "n") order by "n" returning "id"`,
+    );
+    expect(insert.values).toEqual(["A", 2, '["vip"]', "B"]);
+    // The same fields named in another order are the same row shape.
+    expect(
+      buildInsertMany({
+        table: "t_orders",
+        columns,
+        rows: [
+          { title: "A", price: 1 },
+          { price: 2, title: "B" },
+        ],
+      }).values,
+    ).toEqual(["A", 1, "B", 2]);
+  });
+
+  it("refuses rows of different fields, no rows, and computed columns in one statement", () => {
+    expect(() =>
+      buildInsertMany({
+        table: "t_orders",
+        columns,
+        rows: [{ title: "A" }, { title: "B", price: 1 }],
+      }),
+    ).toThrow("Invalid column count");
+    expect(() =>
+      buildInsertMany({
+        table: "t_orders",
+        columns,
+        rows: [{ title: "A" }, { price: 1 }],
+      }),
+    ).toThrow("Invalid column count");
+    expect(() =>
+      buildInsertMany({ table: "t_orders", columns, rows: [] }),
+    ).toThrow("Invalid limit");
+    expect(() =>
+      buildInsertMany({ table: "t_orders", columns, rows: [{}] }),
+    ).toThrow();
+    expect(() =>
+      buildInsertMany({ table: "t_orders", columns, rows: [{ total: "1" }] }),
+    ).toThrow("Formula column is computed");
+  });
+
+  it("groups the rows that follow each other with the same fields", () => {
+    const rows: Array<Record<string, string | number>> = [
+      { title: "A" },
+      { title: "B" },
+      { title: "C", price: 1 },
+      {},
+      { title: "D" },
+    ];
+    const statements = buildInserts({ table: "t_orders", columns, rows });
+    // Their order is kept: a row of other fields starts a new statement.
+    expect(statements.map((item) => item.rows)).toEqual([2, 1, 1, 1]);
+    expect(statements.map((item) => item.statement.values)).toEqual([
+      ["A", "B"],
+      ["C", 1],
+      [],
+      ["D"],
+    ]);
+    expect(statements[2]?.statement.text).toBe(
+      `insert into "t_orders" default values returning "id"`,
+    );
+    expect(buildInserts({ table: "t_orders", columns, rows: [] })).toEqual([]);
+    // A statement carries a bounded number of values.
+    const many = buildInserts({
+      table: "t_orders",
+      columns,
+      rows: Array.from({ length: 1_200 }, (_, index) => ({
+        title: `Row ${String(index)}`,
+      })),
+    });
+    expect(many.map((item) => item.rows)).toEqual([500, 500, 200]);
+  });
+
+  it("locks rows together, in the order of their ids", () => {
+    const first = "aaaaaaaa-0000-4000-8000-000000000001";
+    const second = "aaaaaaaa-0000-4000-8000-000000000002";
+    const lock = buildReadStatuses({ table: "t_orders", ids: [second, first] });
+    expect(lock.text).toBe(
+      `select "id", "ag_status" from "t_orders" where "id" = any(array(select jsonb_array_elements_text($1::text::jsonb))::uuid[]) order by "id" for update`,
+    );
+    expect(lock.values).toEqual([JSON.stringify([second, first])]);
+    expect(() => buildReadStatuses({ table: "t_orders", ids: [] })).toThrow(
+      "Invalid limit",
+    );
+    expect(() =>
+      buildReadStatuses({ table: "t_orders", ids: ["1 or 1=1"] }),
+    ).toThrow("Invalid row id");
   });
 
   it("rejects computed columns, bad values, and bad ids", () => {

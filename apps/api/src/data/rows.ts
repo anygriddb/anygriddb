@@ -8,11 +8,12 @@ import {
   buildDelete,
   buildExistingIds,
   buildGroupCounts,
-  buildInsert,
+  buildInserts,
   buildInsertLinks,
   buildReadJunction,
   buildReadRows,
   buildReadStatus,
+  buildReadStatuses,
   buildRestoreRow,
   buildSetStatus,
   buildUpdate,
@@ -554,6 +555,26 @@ async function lockRow(
   return status;
 }
 
+/** Locks rows together and gives each one's status, by id. */
+async function lockRows(
+  tx: AuditTx,
+  physicalName: string,
+  rowIds: readonly string[],
+): Promise<Map<string, string>> {
+  const statuses = new Map<string, string>();
+  if (rowIds.length === 0) return statuses;
+  const rows = await runRows(
+    tx,
+    buildReadStatuses({ table: physicalName, ids: [...new Set(rowIds)] }),
+  );
+  for (const row of rows) {
+    if (typeof row.id === "string" && typeof row.ag_status === "string") {
+      statuses.set(row.id.toLowerCase(), row.ag_status);
+    }
+  }
+  return statuses;
+}
+
 function assertWritable(status: string): void {
   if (status === "locked" || status === "signed") {
     throw new AppError("row_locked");
@@ -588,13 +609,22 @@ export async function insertRows(
 ): Promise<string[]> {
   const columns = writeColumns(engine);
   await assertUserValues(db, context.baseId, columns, rows);
-  const statements = rows.map((values) =>
-    buildInsert({ table: context.physicalName, columns, values }),
-  );
+  // Rows that set the same fields go in one statement, not one each.
+  const statements = buildInserts({
+    table: context.physicalName,
+    columns,
+    rows,
+  });
   return withAudit(db, auditContext(context), async (tx) => {
     const ids: string[] = [];
-    for (const statement of statements) {
-      ids.push(readId(await runRows(tx, statement)));
+    for (const { statement, rows: expected } of statements) {
+      const inserted = await runRows(tx, statement);
+      if (inserted.length !== expected) {
+        throw new AppError("no_row");
+      }
+      for (const row of inserted) {
+        ids.push(readId([row]));
+      }
     }
     return ids;
   });
@@ -628,8 +658,21 @@ export async function updateRows(
       }),
     }));
   await withAudit(db, auditContext(context), async (tx) => {
+    // Every row is locked first, in one statement, then checked in the
+    // order asked: the first one missing or locked refuses the write.
+    const statuses = await lockRows(
+      tx,
+      context.physicalName,
+      statements.map((item) => item.rowId),
+    );
     for (const item of statements) {
-      assertWritable(await lockRow(tx, context.physicalName, item.rowId));
+      const status = statuses.get(item.rowId.toLowerCase());
+      if (status === undefined) {
+        throw new AppError("no_row");
+      }
+      assertWritable(status);
+    }
+    for (const item of statements) {
       readId(await runRows(tx, item.statement));
     }
   });

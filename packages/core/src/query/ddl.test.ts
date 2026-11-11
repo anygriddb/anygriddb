@@ -4,7 +4,9 @@ import {
   buildConversionStatements,
   buildCreateJunction,
   buildCreateTable,
+  buildForeignKeyIndex,
   convertExpression,
+  indexName,
   isMetadataConversion,
   sqlLiteral,
 } from "./ddl";
@@ -96,6 +98,21 @@ describe("DDL", () => {
         leftTable: "t_left",
         rightTable: "t_right",
       }),
+    ).toThrow("Invalid table name");
+  });
+
+  it("indexes a link's foreign key column", () => {
+    const table = "t_0123456789abcdef0123456789abcdef";
+    expect(buildForeignKeyIndex({ table, column: "project" }).text).toBe(
+      `create index "${indexName(table, "project", "ix")}" on "${table}" ("project")`,
+    );
+    // The name the migration for existing links computes in SQL.
+    expect(indexName(table, "project", "ix")).toBe(
+      "ix_0123456789abcdef_f4bd82be",
+    );
+    expect(() => buildForeignKeyIndex({ table, column: "ag_seq" })).toThrow();
+    expect(() =>
+      buildForeignKeyIndex({ table: "Bad-Name", column: "project" }),
     ).toThrow("Invalid table name");
   });
 });

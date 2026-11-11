@@ -223,6 +223,23 @@ export function buildAddForeignKeyColumn(input: {
   );
 }
 
+/**
+ * The index of a foreign key column. PostgreSQL makes none of its own: the
+ * other side of the link reads the rows that point to each of its rows, and
+ * deleting a row clears the ones that pointed to it; without the index both
+ * read the whole table.
+ */
+export function buildForeignKeyIndex(input: {
+  table: string;
+  column: string;
+}): ParameterizedSql {
+  assertIdentifier(input.table, "table name");
+  assertUserColumn(input.column);
+  return statement(
+    `create index ${quoteIdent(indexName(input.table, input.column, "ix"))} on ${quoteIdent(input.table)} (${quoteIdent(input.column)})`,
+  );
+}
+
 /** Junction of row ids. Both sides cascade when a row is removed. */
 /**
  * Many-to-many junction: primary key covers left→right lookups; a second
