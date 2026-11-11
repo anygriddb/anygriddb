@@ -444,6 +444,9 @@ export function TableWorkspace({
       });
       for (const update of updates)
         rows.patchLocal(update.rowId, update.values);
+      // Until the save answers, a read made elsewhere may still hold the
+      // rows as they were: it must not put that back under an open editor.
+      const release = rows.holdRows(updates.map((update) => update.rowId));
       // Kept as soon as it is sent: an undo right away waits for the save.
       let settle: (applied: boolean) => void = () => undefined;
       if (options?.undoable !== false) {
@@ -472,6 +475,7 @@ export function TableWorkspace({
             reason,
           });
         }
+        release();
         void rows.refetchIds(updates.map((update) => update.rowId));
         setSavedAt(new Date());
         setSaveStatus("saved");
@@ -479,6 +483,7 @@ export function TableWorkspace({
       } catch (cause) {
         for (const update of previous)
           rows.patchLocal(update.rowId, update.values);
+        release();
         // What the rows hold now, which may not be what was shown.
         void rows.refetchIds(updates.map((update) => update.rowId));
         setSaveStatus("error");
