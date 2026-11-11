@@ -2625,6 +2625,7 @@ msgid "Email"
 msgstr "Email"
 
 #: components/admin/integrations-tab.tsx
+#: components/admin/sign-in-trail.tsx
 msgid "Email (SMTP)"
 msgstr "Email (SMTP)"
 
@@ -4902,6 +4903,7 @@ msgid "Open: anyone can register from the sign-in page. Closed: only administrat
 msgstr "Open: anyone can register from the sign-in page. Closed: only administrators create accounts and send a reset link (Accounts). By invitation: a pending base invitation is required. SSO for new accounts follows the same rule. Existing accounts are not affected."
 
 #: components/admin/integrations-tab.tsx
+#: components/admin/sign-in-trail.tsx
 msgid "OpenID Connect"
 msgstr "OpenID Connect"
 
@@ -5751,6 +5753,7 @@ msgid "Same as primary when empty"
 msgstr "Same as primary when empty"
 
 #: components/admin/integrations-tab.tsx
+#: components/admin/sign-in-trail.tsx
 msgid "SAML"
 msgstr "SAML"
 
@@ -6120,6 +6123,7 @@ msgid "Side schema"
 msgstr "Side schema"
 
 #: components/admin/integrations-tab.tsx
+#: components/admin/sign-in-trail.tsx
 msgid "SIEM webhook"
 msgstr "SIEM webhook"
 
