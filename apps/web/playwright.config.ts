@@ -14,6 +14,10 @@ export default defineConfig({
   use: {
     baseURL: appUrl,
     browserName: "chromium",
+    // A toast fading in has, for a moment, too little contrast: an
+    // accessibility check that lands then fails. With reduced motion, as
+    // a person who asks for it sees them, toasts and panels appear whole.
+    reducedMotion: "reduce",
     ignoreHTTPSErrors: true,
     // Accepted by the certificate verifier itself: with the option above
     // alone, Chromium refuses the handshake of each new connection first
