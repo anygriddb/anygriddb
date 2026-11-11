@@ -13,6 +13,7 @@ import { Link } from "@tanstack/react-router";
 import { lazy, Suspense, useState } from "react";
 import { toast } from "sonner";
 import { useCatalog } from "../../lib/session";
+import { LoadFailed } from "../shell/load-failed";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { canManage } from "../../lib/types";
 // ECharts loads with the dashboards only (ADR 0035).
@@ -44,6 +45,11 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
       <div className="flex h-40 items-center justify-center">
         <Spinner />
       </div>
+    );
+  }
+  if (board.isError) {
+    return (
+      <LoadFailed error={board.error} onRetry={() => void board.refetch()} />
     );
   }
   if (!board.data) {

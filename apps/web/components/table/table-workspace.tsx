@@ -46,6 +46,7 @@ import { useUndo } from "../grid/use-undo";
 import { tableTakesUndo, undoShortcut } from "../../lib/keyboard-undo";
 import { RecordPanel } from "../record/record-panel";
 import { ConfirmDialog, PromptDialog } from "../shell/dialogs";
+import { LoadFailed } from "../shell/load-failed";
 import { CalendarView } from "../views/calendar-view";
 import { FormView } from "../views/form-view";
 import { GalleryView } from "../views/gallery-view";
@@ -855,6 +856,18 @@ export function TableWorkspace({
   }
 
   if (!catalog.data || !views.data) {
+    const failed = catalog.error ?? views.error;
+    if (failed) {
+      return (
+        <LoadFailed
+          error={failed}
+          onRetry={() => {
+            void catalog.refetch();
+            void views.refetch();
+          }}
+        />
+      );
+    }
     return (
       <div className="flex flex-1 items-center justify-center">
         <Spinner />

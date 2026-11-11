@@ -65,11 +65,18 @@ export function SecondFactorSetup({
   const totp = totpAction(methods);
   const passkeysOk =
     window.isSecureContext && (instance.data?.passkeysEligible ?? true);
+  const hasPassword = session.data?.hasPassword ?? false;
   const [secret, setSecret] = useState<{ secret: string; url: string } | null>(
     null,
   );
   const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [factorCode, setFactorCode] = useState("");
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const proof = {
+    ...(hasPassword && password ? { password } : {}),
+    ...(!hasPassword && factorCode ? { factorCode } : {}),
+  };
 
   async function run(action: () => Promise<void>) {
     try {
@@ -97,6 +104,32 @@ export function SecondFactorSetup({
           ) : null}
         </ul>
       ) : null}
+      {hasPassword ? (
+        <div className="flex max-w-md flex-col gap-2">
+          {/* Not "Current password": the page's password form has that field. */}
+          <Label htmlFor="factor-password">
+            {t`Your password, to confirm a change of second factor`}
+          </Label>
+          <Input
+            id="factor-password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </div>
+      ) : methods.includes("totp") ? (
+        <div className="flex max-w-md flex-col gap-2">
+          <Label htmlFor="factor-code">{t`Current authenticator code`}</Label>
+          <Input
+            id="factor-code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={factorCode}
+            onChange={(event) => setFactorCode(event.target.value)}
+          />
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
@@ -114,7 +147,7 @@ export function SecondFactorSetup({
           disabled={!passkeysOk}
           onClick={() =>
             void run(async () => {
-              const codes = await registerPasskey();
+              const codes = await registerPasskey(proof);
               toast.success(t`Passkey registered`);
               await refresh();
               if (codes.length > 0) setBackupCodes(codes);
@@ -146,6 +179,7 @@ export function SecondFactorSetup({
               const result = await trpc.auth.totp.confirm.mutate({
                 secret: secret.secret,
                 code,
+                ...proof,
               });
               setBackupCodes(result.backupCodes);
               setSecret(null);

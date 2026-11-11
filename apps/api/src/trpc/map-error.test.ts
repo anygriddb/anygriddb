@@ -54,6 +54,13 @@ describe("tRPC errors", () => {
       "Internal error",
     );
     expect(log.error).toHaveBeenCalledOnce();
+    const unique = Object.assign(new Error("duplicate key value"), {
+      code: "23505",
+      constraint: "users_email_unique",
+      detail: "Key (email)=(ada@example.com) already exists.",
+    });
+    expect(() => mapProcedureError(unique, log)).toThrow(/Duplicate values/);
+    expect(log.error).toHaveBeenCalledOnce();
     expect(
       describeTRPCError(new TRPCError({ code: "UNAUTHORIZED" })).code,
     ).toBe("unauthenticated");

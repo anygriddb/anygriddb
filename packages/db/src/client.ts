@@ -30,15 +30,32 @@ export type Executor = Kysely<DB>;
 
 export type Statement = { text: string; values: readonly unknown[] };
 
+/**
+ * How long a query waits for a connection: to open one, or for one of the
+ * pool's to come free. Past it the query fails, and so does the request,
+ * rather than hang for as long as the database is out of reach (a network
+ * that drops packets) or every connection is busy.
+ */
+export const POOL_WAIT_MS = 30_000;
+
 export function createDb(
   connectionString: string,
   options: {
     max?: number;
     /** An idle connection failed, e.g. the server restarted. */
     onError?: (error: Error) => void;
+    waitMs?: number;
   } = {},
 ) {
-  const pool = new pg.Pool({ connectionString, max: options.max ?? 10 });
+  const pool = new pg.Pool({
+    connectionString,
+    max: options.max ?? 10,
+    connectionTimeoutMillis: options.waitMs ?? POOL_WAIT_MS,
+    // A backstop for work that does not set its own limit. Reads use
+    // `readWithin` (15s). A lock wait gives the connection back sooner.
+    statement_timeout: 60_000,
+    lock_timeout: 15_000,
+  });
   // Without a listener, a connection's error would end the process: the
   // pool listens to idle ones and replaces them, but a connection in use
   // has no listener between two queries (a transaction waiting on the

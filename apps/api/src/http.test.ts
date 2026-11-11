@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyApiSecurityHeaders,
+  logFailure,
   publicErrorBody,
   publicErrorStatus,
   stripCrlf,
@@ -45,5 +46,41 @@ describe("API security headers", () => {
       error: "Invalid snapshot",
       code: "invalid_snapshot",
     });
+  });
+
+  it("logs a server fault as an error, with its stack", () => {
+    const lines: Array<[string, Record<string, unknown>, string]> = [];
+    const log = {
+      error: (object: Record<string, unknown>, message: string) =>
+        lines.push(["error", object, message]),
+      info: (object: Record<string, unknown>, message: string) =>
+        lines.push(["info", object, message]),
+    };
+    const fault = new Error("connection reset");
+    logFailure(log, {
+      error: fault,
+      status: 500,
+      message: "trpc failed",
+      context: { path: "rows.read" },
+    });
+    expect(lines).toEqual([
+      ["error", { path: "rows.read", err: fault }, "trpc failed"],
+    ]);
+  });
+
+  it("keeps a refused request off the errors, on one line", () => {
+    const lines: Array<[string, Record<string, unknown>, string]> = [];
+    const log = {
+      error: (object: Record<string, unknown>, message: string) =>
+        lines.push(["error", object, message]),
+      info: (object: Record<string, unknown>, message: string) =>
+        lines.push(["info", object, message]),
+    };
+    logFailure(log, {
+      error: { statusCode: 429, error: "Too many requests" },
+      status: 429,
+      message: "request failed",
+    });
+    expect(lines).toEqual([["info", { status: 429 }, "request failed"]]);
   });
 });

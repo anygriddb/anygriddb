@@ -364,9 +364,25 @@ function prepare(catalog: EngineCatalog, spec: ReadSpec): Prepared {
       return tz();
     },
   };
+  // Do not object-spread `filterContext`: its `tz` getter would run now and
+  // bind a time zone Postgres never sees in the SQL (42P18).
+  const visible = spec.fields;
+  const searchContext: FilterContext = visible
+    ? {
+        params: filterContext.params,
+        d: filterContext.d,
+        me: filterContext.me,
+        columns: new Map(
+          [...columns].filter(([name]) => visible.includes(name)),
+        ),
+        get tz() {
+          return filterContext.tz;
+        },
+      }
+    : filterContext;
   const clauses = [
     compileFilter(filterContext, spec.filter),
-    compileSearch(filterContext, spec.search),
+    compileSearch(searchContext, spec.search),
   ];
   if (spec.rowIds) {
     if (spec.rowIds.length === 0 || spec.rowIds.length > MAX_READ_LIMIT) {

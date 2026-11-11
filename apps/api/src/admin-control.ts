@@ -9,8 +9,12 @@ import type { AuditAction, AuthAction, Database } from "@anygriddb/db";
 import { AppError } from "@anygriddb/core";
 import { sql as sqlTag } from "kysely";
 import { recordAuthEvent } from "./auth/auth-events.js";
+import { ERASED_USER_ID } from "./data/erasure.js";
 import type { Env } from "./env.js";
 import type { FileStore } from "./files/index.js";
+import { resolveOidc } from "./integrations/oidc.js";
+import { resolveSaml } from "./integrations/saml.js";
+import { resolveSmtp } from "./integrations/smtp.js";
 import { smtpReady } from "./mail.js";
 import type { SourceSettings } from "./sources/types.js";
 import { readSettings } from "./settings.js";
@@ -279,13 +283,18 @@ export async function endOtherSessions(
 /* Accounts                                                            */
 /* ------------------------------------------------------------------ */
 
-/** Another account than the administrator's own, and one that exists. */
+/**
+ * Another account than the administrator's own, and one that exists. The
+ * account erased people become is not one to act on.
+ */
 export async function otherAccount(
   db: Database,
   actorId: string,
   userId: string,
 ): Promise<void> {
-  if (actorId === userId) throw new AppError("invalid_account");
+  if (actorId === userId || userId === ERASED_USER_ID) {
+    throw new AppError("invalid_account");
+  }
   const found = await db
     .selectFrom("users")
     .select("id")
@@ -434,6 +443,7 @@ export async function withdrawInvitation(
 export async function accessReportCsv(db: Database): Promise<string> {
   const users = await db
     .selectFrom("users as u")
+    .where("u.id", "<>", ERASED_USER_ID)
     .select([
       "u.id",
       "u.email",
@@ -532,12 +542,17 @@ export async function instanceRuntime(deps: {
 }) {
   const settings = await readSettings(deps.db);
   const env = deps.env;
+  const [smtp, oidc, saml] = await Promise.all([
+    resolveSmtp(deps.db, env),
+    resolveOidc(deps.db, env),
+    resolveSaml(deps.db, env),
+  ]);
   return {
     publicUrl: env.PUBLIC_URL,
     storage: deps.files.driver,
-    smtp: smtpReady(env),
-    oidc: Boolean(env.OIDC_ISSUER && env.OIDC_CLIENT_ID),
-    saml: Boolean(env.SAML_ENTRY_POINT && env.SAML_ISSUER),
+    smtp: smtpReady(smtp.config),
+    oidc: oidc.config !== null,
+    saml: saml.config !== null,
     sourceHosts: [...deps.sources.allowedHosts],
     signup: settings.signup,
     maintenance: settings.maintenance,

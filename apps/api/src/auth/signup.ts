@@ -7,7 +7,16 @@ export const signupInputSchema = z.object({
   password: z.string().min(12).max(128),
 });
 
-export const totpConfirmSchema = z.object({
+/** Proves the person before a second factor is replaced or a passkey added. */
+export const factorProofSchema = z.object({
+  password: z.string().min(1).max(128).optional(),
+  factorCode: z
+    .string()
+    .regex(/^\d{6}$/)
+    .optional(),
+});
+
+export const totpConfirmSchema = factorProofSchema.extend({
   secret: z
     .string()
     .regex(/^[A-Z2-7]+$/)

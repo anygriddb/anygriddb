@@ -86,7 +86,11 @@ blocked.addSubnet("224.0.0.0", 4, "ipv4");
 blocked.addAddress("::", "ipv6");
 blocked.addAddress("::1", "ipv6");
 blocked.addSubnet("64:ff9b::", 96, "ipv6");
+blocked.addSubnet("64:ff9b:1::", 48, "ipv6");
+blocked.addSubnet("2001:0::", 32, "ipv6");
+blocked.addSubnet("2002::", 16, "ipv6");
 blocked.addSubnet("fc00::", 7, "ipv6");
+blocked.addSubnet("fec0::", 10, "ipv6");
 blocked.addSubnet("fe80::", 10, "ipv6");
 
 /** The IPv4 address inside `::ffff:a.b.c.d` or `::ffff:xxxx:xxxx`, if any. */
@@ -302,7 +306,7 @@ export async function createWebhook(
       createdBy: input.createdBy,
       filter: input.filter ?? null,
       watchColumns: input.watchColumns?.length ? input.watchColumns : null,
-      includeValues: input.includeValues ?? true,
+      includeValues: input.includeValues ?? false,
       ...sealHeaders(input.headers, key),
     })
     .returning("id")

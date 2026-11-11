@@ -7,8 +7,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DiskStore } from "../files/index.js";
 import { createTestDatabase } from "../test-database.js";
-import { visibleToReader } from "../attachments.js";
+import cookie from "@fastify/cookie";
+import Fastify from "fastify";
+import { registerAttachmentRoutes, visibleToReader } from "../attachments.js";
 import { loadBindings } from "../auth/access.js";
+import { createApiToken } from "../auth/tokens.js";
+import { writeSettings } from "../settings.js";
 import { clearTableAcl, readerEngine, setTableAcl } from "./acl.js";
 import { withAudit } from "./audit-context.js";
 import { insertComputed } from "./computed.js";
@@ -545,7 +549,7 @@ describe("field and row rules on PostgreSQL", () => {
       userId: editor,
       bindings: await loadBindings(database, editor),
     };
-    const deps = { db: database, files: new DiskStore(filesRoot), maxBytes: 1 };
+    const deps = { db: database, files: new DiskStore(filesRoot) };
     // Without rules, reading the table is enough.
     expect(await visibleToReader(deps, reader, ordersId, keys[1] ?? "")).toBe(
       true,
@@ -575,5 +579,47 @@ describe("field and row rules on PostgreSQL", () => {
       false,
     );
     await clearTableAcl(database, owner, ordersId, editor);
+  });
+
+  it("refuses an upload over the limit in force, the setting before the environment", async () => {
+    const app = Fastify();
+    await app.register(cookie);
+    await registerAttachmentRoutes(app, {
+      db: database,
+      files: new DiskStore(filesRoot),
+      envMaxBytes: 4096,
+    });
+    // The editor: an owner would first have to enroll a second factor.
+    const { token } = await createApiToken(database, editor, "upload");
+    const boundary = "----anygriddb-upload";
+    const upload = async (size: number) => {
+      const response = await app.inject({
+        method: "POST",
+        url: `/api/attachments?tableId=${ordersId}`,
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": `multipart/form-data; boundary=${boundary}`,
+        },
+        payload: Buffer.concat([
+          Buffer.from(
+            `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="note.txt"\r\nContent-Type: text/plain\r\n\r\n`,
+          ),
+          Buffer.alloc(size, "a"),
+          Buffer.from(`\r\n--${boundary}--\r\n`),
+        ]),
+      });
+      return response.statusCode;
+    };
+    try {
+      expect(await upload(1024)).toBe(200);
+      expect(await upload(8192)).toBe(413);
+      // The setting wins over the environment, without a restart.
+      await writeSettings(database, owner, { attachmentMaxBytes: 2048 });
+      expect(await upload(3000)).toBe(413);
+      expect(await upload(1500)).toBe(200);
+    } finally {
+      await writeSettings(database, owner, { attachmentMaxBytes: null });
+      await app.close();
+    }
   });
 });

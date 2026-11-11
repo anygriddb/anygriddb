@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+import { ATTACHMENT_MAX_BYTES_CEILING } from "@anygriddb/core";
 import type { FileSettings } from "./files/index.js";
 
 export type Env = {
@@ -52,6 +54,12 @@ export type Env = {
   JOB_CONCURRENCY: number;
   /** Where sources may be declared (ADR 0006); empty allows none. */
   SOURCES_ALLOWED_HOSTS: string;
+  /**
+   * Reverse proxies whose `X-Forwarded-For` is the client address, as IP
+   * addresses or CIDR ranges. Empty: the TCP peer is the client, and a
+   * forwarded header is ignored.
+   */
+  TRUSTED_PROXIES: readonly string[];
   /** Development only: connect to sources without TLS (ADR 0026). */
   SOURCES_ALLOW_PLAINTEXT: boolean;
   /**
@@ -188,6 +196,31 @@ function flag(source: NodeJS.ProcessEnv, name: string): boolean {
   throw new Error(`${name} must be true or false`);
 }
 
+/** An IP address, or a range of them in CIDR notation. */
+function isAddressOrRange(value: string): boolean {
+  const [address = "", prefix, ...rest] = value.split("/");
+  const family = isIP(address);
+  if (family === 0 || rest.length > 0) return false;
+  if (prefix === undefined) return true;
+  return (
+    /^\d{1,3}$/.test(prefix) && Number(prefix) <= (family === 4 ? 32 : 128)
+  );
+}
+
+/** Comma-separated addresses or ranges. Empty means no proxy is trusted. */
+function trustedProxies(source: NodeJS.ProcessEnv): string[] {
+  const list = (source.ANYGRIDDB_TRUSTED_PROXIES ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+  if (!list.every(isAddressOrRange)) {
+    throw new Error(
+      "ANYGRIDDB_TRUSTED_PROXIES must be a comma-separated list of IP addresses or CIDR ranges",
+    );
+  }
+  return list;
+}
+
 function required(source: NodeJS.ProcessEnv, name: string): string {
   const value = source[name];
   if (!value) {
@@ -296,7 +329,10 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     ATTACHMENT_MAX_BYTES: source.ATTACHMENT_MAX_BYTES
       ? Math.max(
           1024,
-          Math.min(500 * 1024 * 1024, Number(source.ATTACHMENT_MAX_BYTES) || 0),
+          Math.min(
+            ATTACHMENT_MAX_BYTES_CEILING,
+            Number(source.ATTACHMENT_MAX_BYTES) || 0,
+          ),
         )
       : undefined,
     OIDC_ISSUER: source.OIDC_ISSUER,
@@ -317,6 +353,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     JOB_CONCURRENCY: count(source, "JOB_CONCURRENCY", 2),
     SOURCES_ALLOWED_HOSTS: source.ANYGRIDDB_SOURCES_ALLOWED_HOSTS ?? "",
     SOURCES_ALLOW_PLAINTEXT: allowPlaintext,
+    TRUSTED_PROXIES: trustedProxies(source),
     ...(metricsToken ? { METRICS_TOKEN: metricsToken } : {}),
     ...(source.OTEL_EXPORTER_OTLP_ENDPOINT
       ? { OTEL_EXPORTER_OTLP_ENDPOINT: source.OTEL_EXPORTER_OTLP_ENDPOINT }

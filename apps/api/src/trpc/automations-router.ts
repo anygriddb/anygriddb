@@ -22,12 +22,14 @@ import type { Context } from "./context.js";
 import { guardTable, handle } from "./guard.js";
 import { procedure, t } from "./init.js";
 import { liveColumn, liveView } from "../data/live.js";
+import { resolveSmtp } from "../integrations/smtp.js";
 
-function automationDeps(ctx: Context): AutomationDeps {
+async function automationDeps(ctx: Context): Promise<AutomationDeps> {
+  const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
   return {
     db: ctx.db,
     bus: ctx.bus,
-    smtp: ctx.env,
+    smtp,
     webOrigin: ctx.env.PUBLIC_URL,
     log: (error, message) => ctx.req.log.error({ err: error }, message),
   };
@@ -189,7 +191,7 @@ export const automationsRouter = t.router({
           .where("id", "=", input.automationId)
           .executeTakeFirst();
         if (!automation) throw new AppError("no_row");
-        return runAutomation(automationDeps(ctx), automation, {
+        return runAutomation(await automationDeps(ctx), automation, {
           rowId: input.rowId,
           depth: 0,
           trigger: "manual",
@@ -218,7 +220,7 @@ export const automationsRouter = t.router({
           .executeTakeFirst();
         if (column?.fieldType !== "button")
           throw new AppError("invalid_automation");
-        const results = await pressButton(automationDeps(ctx), {
+        const results = await pressButton(await automationDeps(ctx), {
           userId: user.id,
           table,
           rowId: input.rowId,

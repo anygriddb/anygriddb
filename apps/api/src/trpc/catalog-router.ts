@@ -90,6 +90,7 @@ import {
   invitationMailSubject,
   resolveLocale,
 } from "../mail-i18n.js";
+import { resolveSmtp } from "../integrations/smtp.js";
 import { sendMail, smtpReady } from "../mail.js";
 import {
   assembleEngine,
@@ -1222,11 +1223,12 @@ export const catalogRouter = t.router({
           await webhookTableId(ctx.db, input.webhookId),
           "manage",
         );
+        const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
         return testWebhook(
           {
             db: ctx.db,
             key: ctx.env.AUTH_ENCRYPTION_KEY,
-            smtp: ctx.env,
+            smtp,
             log: (error, message) => ctx.req.log.error({ err: error }, message),
           },
           input.webhookId,
@@ -1326,7 +1328,8 @@ export const catalogRouter = t.router({
           invitedBy: user.id,
         });
         let mailed = false;
-        if (smtpReady(ctx.env)) {
+        const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
+        if (smtpReady(smtp)) {
           const [base, settings] = await Promise.all([
             ctx.db
               .selectFrom("bases")
@@ -1339,7 +1342,7 @@ export const catalogRouter = t.router({
           const link = `${ctx.env.PUBLIC_URL}/invite/${created.token}`;
           const expiresDate = created.expiresAt.toISOString().slice(0, 10);
           try {
-            await sendMail(ctx.env, {
+            await sendMail(smtp, {
               to: input.email,
               subject: invitationMailSubject(locale, base?.name ?? ""),
               text: invitationMailBody(locale, {

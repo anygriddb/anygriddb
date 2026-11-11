@@ -23,8 +23,31 @@ export function isEditableLink(column: CatalogColumn): boolean {
   return Boolean(column.relation) && column.access !== "read";
 }
 
+/**
+ * What a spreadsheet would run as a formula if a cell began with it, and
+ * the apostrophes already in front of it.
+ */
+const FORMULA_START = /^'*[=+\-@\t\r]/;
+/** A cell with an apostrophe in front of such a start. */
+const GUARDED = /^'+[=+\-@\t\r]/;
+/** A number, signed or not: digits and their separators, never a formula. */
+const PLAIN_NUMBER = /^[+-]?\d[\d.,\s]*$/;
+
+/**
+ * A cell that would be read as a formula gets an apostrophe in front, so
+ * a spreadsheet shows it instead of running it. Numbers stay numbers. A
+ * cell that already has one gets another, so pasting it back gives the
+ * same text.
+ */
 function tsvCell(text: string): string {
-  return /[\t\n"]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  const guarded =
+    FORMULA_START.test(text) && !PLAIN_NUMBER.test(text) ? `'${text}` : text;
+  return /[\t\n"]/.test(guarded) ? `"${guarded.replace(/"/g, '""')}"` : guarded;
+}
+
+/** A pasted cell without the apostrophe `tsvCell` put in front of it. */
+function unguarded(cell: string): string {
+  return GUARDED.test(cell) ? cell.slice(1) : cell;
 }
 
 /** Selected cells as tab-separated text, quoting cells with tabs, newlines, or quotes. */
@@ -59,8 +82,15 @@ export function toTsv(
     .join("\n");
 }
 
-/** Parses clipboard text into a matrix. A single cell may contain anything. */
+/**
+ * Parses clipboard text into a matrix. A single cell may contain anything.
+ * What `toTsv` guarded comes back as it was in the grid.
+ */
 export function parseClipboard(text: string): string[][] {
+  return clipboardCells(text).map((row) => row.map(unguarded));
+}
+
+function clipboardCells(text: string): string[][] {
   const normalized = text.replace(/\r\n/g, "\n").replace(/\n$/, "");
   if (!normalized.includes("\t") && !normalized.includes("\n")) {
     return [[normalized]];

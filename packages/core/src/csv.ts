@@ -1,5 +1,5 @@
 import { AppError } from "./errors";
-const FORMULA_PREFIX = /^[=+\-@]/;
+const FORMULA_PREFIX = /^[=+\-@\t\r]/;
 
 export type DelimitedOptions = {
   delimiter?: "," | ";" | "\t";
@@ -155,12 +155,23 @@ export function toCsv(
   headers: readonly string[],
   rows: readonly Record<string, unknown>[],
 ): string {
+  const header = headers.map(escapeCell).join(",");
+  const records = toCsvRows(headers, rows);
+  return rows.length === 0 ? header : `${header}\n${records}`;
+}
+
+/**
+ * The records alone, without the header line: one page of a file written
+ * page by page.
+ */
+export function toCsvRows(
+  headers: readonly string[],
+  rows: readonly Record<string, unknown>[],
+): string {
   if (headers.length === 0 || headers.length > 500 || rows.length > 100_000) {
     throw new AppError("invalid_csv");
   }
-  const lines = [headers.map(escapeCell).join(",")];
-  for (const row of rows) {
-    lines.push(headers.map((header) => escapeCell(row[header])).join(","));
-  }
-  return lines.join("\n");
+  return rows
+    .map((row) => headers.map((header) => escapeCell(row[header])).join(","))
+    .join("\n");
 }

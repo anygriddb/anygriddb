@@ -36,6 +36,30 @@ import {
   sendSecurityNotice,
 } from "../auth/security-mail.js";
 import { cancelAnyJob, listAllJobs } from "../jobs.js";
+import {
+  clearOidc,
+  loadOidcRow,
+  publicOidc,
+  resolveOidc,
+  saveOidc,
+  oidcUpdateSchema,
+} from "../integrations/oidc.js";
+import {
+  clearSaml,
+  loadSamlRow,
+  publicSaml,
+  resolveSaml,
+  saveSaml,
+  samlUpdateSchema,
+} from "../integrations/saml.js";
+import {
+  clearSmtp,
+  loadSmtpRow,
+  publicSmtp,
+  resolveSmtp,
+  saveSmtp,
+  smtpUpdateSchema,
+} from "../integrations/smtp.js";
 import { sendMail, smtpReady } from "../mail.js";
 import { resolveLocale, testMailBody, testMailSubject } from "../mail-i18n.js";
 import {
@@ -385,20 +409,126 @@ const scimRouter = t.router({
     ),
 });
 
+const smtpRouter = t.router({
+  get: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      const [row, resolved] = await Promise.all([
+        loadSmtpRow(ctx.db),
+        resolveSmtp(ctx.db, ctx.env),
+      ]);
+      return {
+        ...publicSmtp(row),
+        source: resolved.source,
+        ready: smtpReady(resolved.config),
+      };
+    }),
+  ),
+  update: procedure.input(smtpUpdateSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      return saveSmtp(ctx.db, ctx.env.AUTH_ENCRYPTION_KEY, admin.id, input, {
+        ip: ctx.req.ip,
+      });
+    }),
+  ),
+  clear: procedure.mutation(({ ctx }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      await clearSmtp(ctx.db, admin.id, ctx.req.ip);
+      return { ok: true as const };
+    }),
+  ),
+});
+
+const oidcRouter = t.router({
+  get: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      const [row, resolved] = await Promise.all([
+        loadOidcRow(ctx.db),
+        resolveOidc(ctx.db, ctx.env),
+      ]);
+      return {
+        ...publicOidc(row, ctx.env.PUBLIC_URL),
+        source: resolved.source,
+        ready: resolved.config !== null,
+      };
+    }),
+  ),
+  update: procedure.input(oidcUpdateSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      return saveOidc(
+        ctx.db,
+        ctx.env.AUTH_ENCRYPTION_KEY,
+        admin.id,
+        input,
+        ctx.env.PUBLIC_URL,
+        { ip: ctx.req.ip },
+      );
+    }),
+  ),
+  clear: procedure.mutation(({ ctx }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      await clearOidc(ctx.db, admin.id, ctx.req.ip);
+      return { ok: true as const };
+    }),
+  ),
+});
+
+const samlRouter = t.router({
+  get: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      const [row, resolved] = await Promise.all([
+        loadSamlRow(ctx.db),
+        resolveSaml(ctx.db, ctx.env),
+      ]);
+      return {
+        ...publicSaml(row, ctx.env.PUBLIC_URL),
+        source: resolved.source,
+        ready: resolved.config !== null,
+      };
+    }),
+  ),
+  update: procedure.input(samlUpdateSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      return saveSaml(ctx.db, admin.id, input, ctx.env.PUBLIC_URL, {
+        ip: ctx.req.ip,
+      });
+    }),
+  ),
+  clear: procedure.mutation(({ ctx }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      await clearSaml(ctx.db, admin.id, ctx.req.ip);
+      return { ok: true as const };
+    }),
+  ),
+});
+
 export const adminRouter = t.router({
   scim: scimRouter,
   sources: sourcesRouter,
+  smtp: smtpRouter,
+  oidc: oidcRouter,
+  saml: samlRouter,
   settings: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
       await requireAdmin(ctx);
+      const [smtp, oidc, saml] = await Promise.all([
+        resolveSmtp(ctx.db, ctx.env),
+        resolveOidc(ctx.db, ctx.env),
+        resolveSaml(ctx.db, ctx.env),
+      ]);
       return {
         ...(await readSettings(ctx.db)),
         // What some choices depend on: email for resets, SSO for its factor.
-        smtpReady: smtpReady(ctx.env),
-        ssoReady: Boolean(
-          (ctx.env.OIDC_ISSUER && ctx.env.OIDC_CLIENT_ID) ||
-          (ctx.env.SAML_ENTRY_POINT && ctx.env.SAML_ISSUER),
-        ),
+        smtpReady: smtpReady(smtp.config),
+        ssoReady: oidc.config !== null || saml.config !== null,
       };
     }),
   ),
@@ -676,7 +806,7 @@ export const adminRouter = t.router({
           detail: "reset_link",
           ip: ctx.req.ip,
         });
-        if (smtpReady(ctx.env)) {
+        if (smtpReady((await resolveSmtp(ctx.db, ctx.env)).config)) {
           const to = await sendResetLink(
             { db: ctx.db, env: ctx.env, log: ctx.req.log },
             input.userId,
@@ -766,10 +896,11 @@ export const adminRouter = t.router({
   sendTestMail: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
-      if (!smtpReady(ctx.env)) throw new AppError("smtp_not_configured");
+      const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
+      if (!smtpReady(smtp)) throw new AppError("smtp_not_configured");
       const settings = await readSettings(ctx.db);
       const locale = resolveLocale(null, settings.defaultLocale);
-      await sendMail(ctx.env, {
+      await sendMail(smtp, {
         to: admin.email,
         subject: testMailSubject(locale),
         text: testMailBody(locale),

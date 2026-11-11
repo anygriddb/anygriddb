@@ -54,6 +54,7 @@ import {
   loadStagedImport,
   newTableColumns,
 } from "../data/import-commit.js";
+import { exportCsv } from "../data/export-csv.js";
 import { insertTable } from "../data/schema-ops.js";
 import { linkCandidates } from "../data/relations.js";
 import {
@@ -62,7 +63,6 @@ import {
   assertRowsInScope,
   attachSignatures,
   attachmentVisible,
-  exportCsv,
   listCollaborators,
   listTrash,
   parseImport,
@@ -111,6 +111,7 @@ import { queueDeps } from "./jobs-router.js";
 import { guardBase, guardTable, handle, type TableAccess } from "./guard.js";
 import { procedure, requestNames, requireUser, t } from "./init.js";
 import { liveColumnNames, liveTable } from "../data/live.js";
+import { resolveSmtp } from "../integrations/smtp.js";
 
 /** AnyGridDB's own rows are named by a uuid. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -148,11 +149,12 @@ async function writeScope(ctx: Context, tableId: string): Promise<RowScope> {
   return scopeOf(ctx, await guardTable(ctx, tableId, "write"));
 }
 
-export function notifyDeps(ctx: Context): NotifyDeps {
+export async function notifyDeps(ctx: Context): Promise<NotifyDeps> {
+  const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
   return {
     db: ctx.db,
     bus: ctx.bus,
-    smtp: ctx.env,
+    smtp,
     webOrigin: ctx.env.PUBLIC_URL,
     log: (error, message) => ctx.req.log.error({ err: error }, message),
   };
@@ -519,21 +521,22 @@ export const rowsRouter = t.router({
       const access = await guardTable(ctx, input.tableId, "read");
       const { engine } = await engineFor(ctx, access);
       const spec = await readSpec(ctx, access, input, engine);
-      const collected: RowRecord[] = [];
-      for (let offset = 0; offset < 100_000; offset += 1000) {
-        const page = await readPage(
-          ctx.db,
-          engine,
-          { ...spec, offset, limit: 1000, groupBy: undefined },
-          { total: false },
-        );
-        collected.push(...page.rows);
-        if (page.rows.length < 1000) {
-          break;
-        }
-      }
-      await enrichAttachments(ctx.db, attachmentColumns(engine), collected);
-      return { csv: exportCsv(engine, collected, spec.fields) };
+      const attachments = attachmentColumns(engine);
+      const csv = await exportCsv(
+        engine,
+        spec.fields,
+        async (offset, limit) => {
+          const page = await readPage(
+            ctx.db,
+            engine,
+            { ...spec, offset, limit, groupBy: undefined },
+            { total: false },
+          );
+          await enrichAttachments(ctx.db, attachments, page.rows);
+          return page.rows;
+        },
+      );
+      return { csv };
     }),
   ),
   import: procedure.input(importRowsInputSchema).mutation(({ ctx, input }) =>
@@ -706,7 +709,7 @@ export const rowsRouter = t.router({
               .executeTakeFirst()
           : undefined;
         await notify(
-          notifyDeps(ctx),
+          await notifyDeps(ctx),
           commentNotifications({
             tableId: input.tableId,
             rowId: input.rowId,
@@ -741,7 +744,7 @@ export const rowsRouter = t.router({
         );
         if (before) {
           await notify(
-            notifyDeps(ctx),
+            await notifyDeps(ctx),
             commentNotifications({
               tableId: access.table.id,
               rowId: before.rowId,

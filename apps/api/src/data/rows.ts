@@ -28,7 +28,6 @@ import {
   parseDelimited,
   quoteIdent,
   type ReadSpec,
-  toCsv,
   type WriteColumn,
 } from "@anygriddb/core";
 import { readWithin, runStatement, type Database } from "@anygriddb/db";
@@ -1160,21 +1159,4 @@ export function parseImport(
     });
     return values;
   });
-}
-
-export function exportCsv(
-  engine: EngineCatalog,
-  rows: readonly RowRecord[],
-  fields?: readonly string[],
-): string {
-  const columns = engine.table.columns.filter(
-    (column) => !fields || fields.includes(column.name),
-  );
-  const headers = columns.map((column) => column.label);
-  const mapped = rows.map((row) =>
-    Object.fromEntries(
-      columns.map((column) => [column.label, row[column.name]]),
-    ),
-  );
-  return toCsv(headers, mapped);
 }

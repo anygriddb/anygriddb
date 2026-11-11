@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
-import { SAML } from "@node-saml/node-saml";
+import { SAML, ValidateInResponseTo } from "@node-saml/node-saml";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import * as oidc from "openid-client";
 import { factorMethods } from "./access.js";
@@ -13,8 +13,13 @@ import {
   hashSessionToken,
   sessionCookieOptions,
 } from "./session.js";
+import { samlRequestCache } from "./saml-cache.js";
 import { stableNameId, userForIdentity } from "./sso.js";
+import { logCause } from "../data/pg-error.js";
+import { isUniqueViolation } from "../data/schema-ops.js";
 import type { Env } from "../env.js";
+import { resolveOidc, type OidcConfig } from "../integrations/oidc.js";
+import { resolveSaml, type SamlConfig } from "../integrations/saml.js";
 import { readSettings } from "../settings.js";
 import { AppError } from "@anygriddb/core";
 
@@ -24,34 +29,6 @@ type Deps = {
   /** Tests only: a fake identity provider, reached over plain HTTP. */
   oidcTesting?: { fetch: oidc.CustomFetch };
 };
-
-function oidcReady(env: Env): env is Env & {
-  OIDC_ISSUER: string;
-  OIDC_CLIENT_ID: string;
-  OIDC_CLIENT_SECRET: string;
-  OIDC_REDIRECT_URL: string;
-} {
-  return Boolean(
-    env.OIDC_ISSUER &&
-    env.OIDC_CLIENT_ID &&
-    env.OIDC_CLIENT_SECRET &&
-    env.OIDC_REDIRECT_URL,
-  );
-}
-
-function samlReady(env: Env): env is Env & {
-  SAML_ENTRY_POINT: string;
-  SAML_ISSUER: string;
-  SAML_CERT: string;
-  SAML_CALLBACK_URL: string;
-} {
-  return Boolean(
-    env.SAML_ENTRY_POINT &&
-    env.SAML_ISSUER &&
-    env.SAML_CERT &&
-    env.SAML_CALLBACK_URL,
-  );
-}
 
 async function saveState(
   db: Database,
@@ -100,26 +77,86 @@ async function takeState(
   return { verifier: parsed.verifier, nonce: parsed.nonce };
 }
 
-const DISCOVERY_TTL_MS = 60 * 60 * 1000;
-let discovered:
-  { at: number; issuer: string; config: oidc.Configuration } | undefined;
+function samlClient(deps: Deps, config: SamlConfig): SAML {
+  return new SAML({
+    entryPoint: config.SAML_ENTRY_POINT,
+    issuer: config.SAML_ISSUER,
+    idpCert: config.SAML_CERT,
+    callbackUrl: config.SAML_CALLBACK_URL,
+    wantAssertionsSigned: true,
+    audience: config.SAML_ISSUER,
+    validateInResponseTo: ValidateInResponseTo.always,
+    requestIdExpirationPeriodMs: 10 * 60 * 1000,
+    cacheProvider: samlRequestCache(deps.db, deps.env.AUTH_ENCRYPTION_KEY),
+  });
+}
 
 /**
- * The provider's configuration, discovered once an hour. openid-client
+ * One assertion, once: its id is kept for a day, longer than any assertion
+ * is valid, and a second response carrying it is refused. The id is read
+ * from the assertion whose signature was checked, never from the text the
+ * browser posted.
+ */
+async function spendSamlAssertion(
+  deps: Deps,
+  profile: { getAssertion?: () => Record<string, unknown> },
+): Promise<void> {
+  const assertionId = samlAssertionId(profile.getAssertion?.());
+  if (!assertionId) throw new AppError("invalid_credentials");
+  const sealed = encryptSecret("seen", deps.env.AUTH_ENCRYPTION_KEY);
+  try {
+    await deps.db
+      .insertInto("oauthStates")
+      .values({
+        stateHash: hashSessionToken(`saml-assertion:${assertionId}`),
+        kind: "saml-assertion",
+        verifierCiphertext: sealed.ciphertext,
+        verifierNonce: sealed.nonce,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      })
+      .execute();
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new AppError("invalid_credentials");
+    throw error;
+  }
+}
+
+/** The `ID` attribute of a parsed `<Assertion>`, whatever its prefix. */
+export function samlAssertionId(parsed: unknown): string | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  const assertion: unknown = Object.values(parsed)[0];
+  if (!assertion || typeof assertion !== "object" || !("$" in assertion)) {
+    return null;
+  }
+  const attributes = assertion.$;
+  if (!attributes || typeof attributes !== "object" || !("ID" in attributes)) {
+    return null;
+  }
+  return typeof attributes.ID === "string" && attributes.ID.length > 0
+    ? attributes.ID
+    : null;
+}
+
+const DISCOVERY_TTL_MS = 60 * 60 * 1000;
+let discovered:
+  { at: number; for: OidcConfig; config: oidc.Configuration } | undefined;
+
+/**
+ * The provider's configuration, discovered once an hour, and again as
+ * soon as the issuer, the client, or its secret changes: each process
+ * compares what it holds with what is configured now. openid-client
  * checks that the metadata names the configured issuer, then validates
  * every response: state, nonce, PKCE, signature, audience, and expiry.
  */
 async function oidcConfig(
   deps: Deps,
-  env: Env & {
-    OIDC_ISSUER: string;
-    OIDC_CLIENT_ID: string;
-    OIDC_CLIENT_SECRET: string;
-  },
+  env: OidcConfig,
 ): Promise<oidc.Configuration> {
   if (
     discovered &&
-    discovered.issuer === env.OIDC_ISSUER &&
+    discovered.for.OIDC_ISSUER === env.OIDC_ISSUER &&
+    discovered.for.OIDC_CLIENT_ID === env.OIDC_CLIENT_ID &&
+    discovered.for.OIDC_CLIENT_SECRET === env.OIDC_CLIENT_SECRET &&
     Date.now() - discovered.at < DISCOVERY_TTL_MS
   ) {
     return discovered.config;
@@ -144,7 +181,7 @@ async function oidcConfig(
     },
   );
   if (testing) config[oidc.customFetch] = testing.fetch;
-  discovered = { at: Date.now(), issuer: env.OIDC_ISSUER, config };
+  discovered = { at: Date.now(), for: env, config };
   return config;
 }
 
@@ -232,10 +269,11 @@ async function signInRefused(
 
 export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
   app.get("/auth/oidc/start", async (_request, reply) => {
-    if (!oidcReady(deps.env)) {
+    const { config: oidcEnv } = await resolveOidc(deps.db, deps.env);
+    if (!oidcEnv) {
       return reply.code(404).send({ error: "Not found" });
     }
-    const config = await oidcConfig(deps, deps.env);
+    const config = await oidcConfig(deps, oidcEnv);
     const verifier = oidc.randomPKCECodeVerifier();
     const nonce = oidc.randomNonce();
     const state = await saveState(
@@ -245,7 +283,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       { verifier, nonce },
     );
     const authorize = oidc.buildAuthorizationUrl(config, {
-      redirect_uri: deps.env.OIDC_REDIRECT_URL,
+      redirect_uri: oidcEnv.OIDC_REDIRECT_URL,
       scope: "openid email profile",
       state,
       nonce,
@@ -256,7 +294,8 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
   });
 
   app.get("/auth/oidc/callback", async (request, reply) => {
-    if (!oidcReady(deps.env)) {
+    const { config: oidcEnv } = await resolveOidc(deps.db, deps.env);
+    if (!oidcEnv) {
       return reply.code(404).send({ error: "Not found" });
     }
     const query = request.query as { code?: unknown; state?: unknown };
@@ -271,10 +310,10 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
         "oidc",
         query.state,
       );
-      const config = await oidcConfig(deps, deps.env);
+      const config = await oidcConfig(deps, oidcEnv);
       // The callback as the provider called it: the registered redirect URL
       // with the query it appended (code, state, and maybe iss).
-      const current = new URL(deps.env.OIDC_REDIRECT_URL);
+      const current = new URL(oidcEnv.OIDC_REDIRECT_URL);
       const raw = request.raw.url ?? "";
       current.search = raw.includes("?") ? raw.slice(raw.indexOf("?")) : "";
       const tokens = await oidc.authorizationCodeGrant(config, current, {
@@ -295,16 +334,19 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       ) {
         throw new AppError("invalid_credentials");
       }
+      // Only a boolean `true` may take over an account that already exists.
+      // A missing claim can still open a new account when sign-up allows it.
       const userId = await userForIdentity(
         deps.db,
         { provider: "oidc", issuer: claims.iss, subject: claims.sub },
         email,
         typeof name === "string" ? name : email,
         deps.env.ADMIN_EMAILS,
+        { linkExisting: claims.email_verified === true },
       );
       next = await finishSignIn(deps, request, reply, userId, "oidc");
     } catch (error) {
-      request.log.warn({ err: error }, "authentication failed");
+      request.log.warn({ err: logCause(error) }, "authentication failed");
       await signInRefused(deps.db, request, "oidc", error);
     }
     // Signed in or not, the browser goes back to the app.
@@ -312,7 +354,8 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
   });
 
   app.get("/auth/saml/start", async (_request, reply) => {
-    if (!samlReady(deps.env)) {
+    const { config: samlEnv } = await resolveSaml(deps.db, deps.env);
+    if (!samlEnv) {
       return reply.code(404).send({ error: "Not found" });
     }
     const state = await saveState(
@@ -324,20 +367,17 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
         nonce: randomBytes(16).toString("base64url"),
       },
     );
-    const saml = new SAML({
-      entryPoint: deps.env.SAML_ENTRY_POINT,
-      issuer: deps.env.SAML_ISSUER,
-      idpCert: deps.env.SAML_CERT,
-      callbackUrl: deps.env.SAML_CALLBACK_URL,
-      wantAssertionsSigned: true,
-      audience: deps.env.SAML_ISSUER,
-    });
-    const url = await saml.getAuthorizeUrlAsync(state, undefined, {});
+    const url = await samlClient(deps, samlEnv).getAuthorizeUrlAsync(
+      state,
+      undefined,
+      {},
+    );
     return reply.redirect(url);
   });
 
   app.post("/auth/saml/acs", async (request, reply) => {
-    if (!samlReady(deps.env)) {
+    const { config: samlEnv } = await resolveSaml(deps.db, deps.env);
+    if (!samlEnv) {
       return reply.code(404).send({ error: "Not found" });
     }
     let next = "/";
@@ -358,15 +398,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
         "saml",
         body.RelayState,
       );
-      const saml = new SAML({
-        entryPoint: deps.env.SAML_ENTRY_POINT,
-        issuer: deps.env.SAML_ISSUER,
-        idpCert: deps.env.SAML_CERT,
-        callbackUrl: deps.env.SAML_CALLBACK_URL,
-        wantAssertionsSigned: true,
-        audience: deps.env.SAML_ISSUER,
-      });
-      const result = await saml.validatePostResponseAsync({
+      const result = await samlClient(deps, samlEnv).validatePostResponseAsync({
         SAMLResponse: body.SAMLResponse,
       });
       const profile = result.profile;
@@ -374,6 +406,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       if (!profile || !email || !email.includes("@")) {
         throw new AppError("invalid_credentials");
       }
+      await spendSamlAssertion(deps, profile);
       // A persistent NameID binds the account; a transient or address-shaped
       // one says nothing lasting, and the address finds the account.
       const userId = await userForIdentity(
@@ -389,7 +422,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       );
       next = await finishSignIn(deps, request, reply, userId, "saml");
     } catch (error) {
-      request.log.warn({ err: error }, "authentication failed");
+      request.log.warn({ err: logCause(error) }, "authentication failed");
       await signInRefused(deps.db, request, "saml", error);
     }
     // Signed in or not, the browser goes back to the app.

@@ -88,6 +88,15 @@ WebSocket upgrade on `/ws`, and keep an idle connection open for at least
 works, but changes made by others do not show until a page is read again,
 and it says "Connection lost" after 10 seconds.
 
+The client address is the TCP peer. `X-Forwarded-For` is used only when
+`ANYGRIDDB_TRUSTED_PROXIES` names that peer: a comma-separated list of IP
+addresses or CIDR ranges, such as the Docker network the proxy runs on
+(`172.18.0.0/16`). Leave it empty when the API is published directly: a
+client cannot choose the address stored in the sign-in trail or used for
+rate limits. Behind a proxy that is not named there, every request
+carries the proxy's address, and the sign-in rate limit counts everyone
+together.
+
 ### Offline
 
 AnyGridDB calls no outside service at run time, except when a person
@@ -192,9 +201,12 @@ while the stack keeps serving. The folder holds:
 - `tls_data.tar.gz`, the instance's authorities, whose keys stay sealed;
 - `SHA256SUMS`.
 
-The folder and its files are readable by their owner only. The backup
-leaves out `AUTH_ENCRYPTION_KEY` on purpose: keep the key in another
-place than the backups.
+The folder and its files are readable by their owner only. The dump is
+not encrypted: emails, names, and cell values are in it, while secrets
+sealed with `AUTH_ENCRYPTION_KEY` stay ciphertext because the backup
+leaves that key out. Keep the key in another place than the backups,
+and encrypt the disk and the archive (age, gpg, or the volume's own
+encryption) with a key that does not live on the same host.
 
 Run it from cron, for example nightly:
 

@@ -66,6 +66,12 @@ const domainSchema = z
     /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/,
   );
 
+/** Default when neither the setting nor the environment sets a ceiling. */
+export const DEFAULT_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
+
+/** The largest ceiling an instance may choose, in the UI or the environment. */
+export const ATTACHMENT_MAX_BYTES_CEILING = 500 * 1024 * 1024;
+
 const fields = {
   signup: z.enum(SIGNUP_POLICIES),
   defaultLocale: z.enum(["fr", "en"]),
@@ -103,6 +109,14 @@ const fields = {
    * Off by default: the instance does not call home.
    */
   releaseCheck: z.boolean(),
+  /**
+   * Largest attachment in bytes (ADR 0050). Null keeps the environment
+   * bootstrap, then the built-in 20 MiB default.
+   */
+  attachmentMaxBytes: z.union([
+    z.null(),
+    z.int().min(1024).max(ATTACHMENT_MAX_BYTES_CEILING),
+  ]),
 };
 
 export type InstanceSettings = {
@@ -133,6 +147,7 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   inactiveDays: 0,
   lockAlerts: true,
   releaseCheck: false,
+  attachmentMaxBytes: null,
 };
 
 const KEYS = Object.keys(fields) as Array<keyof InstanceSettings>;
@@ -173,6 +188,9 @@ export const instanceSettingsSchema = z.object({
   inactiveDays: fields.inactiveDays.default(INSTANCE_DEFAULTS.inactiveDays),
   lockAlerts: fields.lockAlerts.default(INSTANCE_DEFAULTS.lockAlerts),
   releaseCheck: fields.releaseCheck.default(INSTANCE_DEFAULTS.releaseCheck),
+  attachmentMaxBytes: fields.attachmentMaxBytes.default(
+    INSTANCE_DEFAULTS.attachmentMaxBytes,
+  ),
 });
 
 export const instanceSettingsPatchSchema = z
@@ -199,6 +217,7 @@ export const instanceSettingsPatchSchema = z
     inactiveDays: fields.inactiveDays.optional(),
     lockAlerts: fields.lockAlerts.optional(),
     releaseCheck: fields.releaseCheck.optional(),
+    attachmentMaxBytes: fields.attachmentMaxBytes.optional(),
   })
   .strict();
 
@@ -223,6 +242,18 @@ export function parseInstanceSettings(
     if (parsed.success) settings[key] = parsed.data;
   }
   return settings as InstanceSettings;
+}
+
+/**
+ * UI setting when set, else environment bootstrap, else 20 MiB (ADR 0050).
+ */
+export function resolveAttachmentMaxBytes(
+  settings: Pick<InstanceSettings, "attachmentMaxBytes">,
+  envBytes?: number,
+  fallback: number = DEFAULT_ATTACHMENT_MAX_BYTES,
+): number {
+  if (settings.attachmentMaxBytes != null) return settings.attachmentMaxBytes;
+  return envBytes ?? fallback;
 }
 
 /** `ADMIN_EMAILS`: a comma or space separated list, compared in lower case. */

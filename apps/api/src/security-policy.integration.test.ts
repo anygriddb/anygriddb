@@ -17,17 +17,22 @@ import {
   it,
   vi,
 } from "vitest";
+import { listUsers, setUserAdmin, setUserDisabled } from "./admin.js";
+import { accessReportCsv, otherAccount } from "./admin-control.js";
 import { requestActor } from "./auth/access.js";
-import { purgeAuthEvents } from "./auth/auth-events.js";
+import { purgeAuthEvents, recordAuthEvent } from "./auth/auth-events.js";
 import { sweepInactiveAccounts } from "./auth/inactivity.js";
 import { purgeResetLinks } from "./auth/password-reset.js";
 import { SESSION_COOKIE } from "./auth/session.js";
 import { createApiToken } from "./auth/tokens.js";
+import { ERASED_USER_ID, eraseAccount } from "./data/erasure.js";
 import { createInvitation, createShare, resolveShare } from "./data/sharing.js";
+import { withAudit } from "./data/audit-context.js";
 import { insertBase, insertTable } from "./data/schema-ops.js";
 import type { Env } from "./env.js";
 import { fakeSmtp, mailText } from "./mail.test-helpers.js";
 import { createTestDatabase } from "./test-database.js";
+import { decodeBase32, totpCode } from "./auth/totp-code.js";
 import {
   browserFactory,
   enrollTotp,
@@ -319,6 +324,9 @@ describe("the security policy", () => {
 
     it("changes a password and ends the other sessions, not this one", async () => {
       const person = await account("Cleo");
+      const made = await person.page
+        .call()
+        .auth.createToken({ name: "script" });
       const other = (await signIn(person.email)).page;
       expect(await code(other.call().catalog.list())).toBe("ok");
       expect(
@@ -335,6 +343,13 @@ describe("the security policy", () => {
       });
       expect(await code(person.page.call().catalog.list())).toBe("ok");
       expect(await code(other.call().catalog.list())).toBe("UNAUTHORIZED");
+      expect(
+        await requestActor(
+          db,
+          { authorization: `Bearer ${made.token}` },
+          undefined,
+        ),
+      ).toBeNull();
       expect((await signIn(person.email)).result).toBe("invalid_credentials");
       expect(
         (await signIn(person.email, "a brand new passphrase")).result,
@@ -349,6 +364,9 @@ describe("the security policy", () => {
 
     it("mails a reset link the person asked for, which works once", async () => {
       const person = await account("Ivy");
+      const made = await person.page
+        .call()
+        .auth.createToken({ name: "script" });
       for (let attempt = 0; attempt < 3; attempt += 1) {
         await signIn(person.email, "wrong password here");
       }
@@ -384,6 +402,13 @@ describe("the security policy", () => {
       expect(await code(person.page.call().catalog.list())).toBe(
         "UNAUTHORIZED",
       );
+      expect(
+        await requestActor(
+          db,
+          { authorization: `Bearer ${made.token}` },
+          undefined,
+        ),
+      ).toBeNull();
       expect((await signIn(person.email, "a fresh passphrase")).result).toBe(
         "ok",
       );
@@ -617,6 +642,194 @@ describe("the security policy", () => {
       }
       expect(await resolve(open.token)).toBe("ok");
     });
+
+    it("locks a link after ten wrong passwords", async () => {
+      const base = await insertBase(db, adminId, { name: `Lock ${suffix}` });
+      const table = await insertTable(db, adminId, {
+        baseId: base.id,
+        name: "Leads",
+        columns: [{ name: "title", label: "Title", fieldType: "text" }],
+      });
+      const { id: viewId } = await db
+        .selectFrom("views")
+        .select("id")
+        .where("tableId", "=", table.id)
+        .executeTakeFirstOrThrow();
+      const share = await createShare(db, {
+        viewId,
+        createdBy: adminId,
+        allowCopy: false,
+        password: "a share password",
+      });
+      const open = (password?: string) =>
+        resolveShare(db, env.AUTH_ENCRYPTION_KEY, {
+          token: share.token,
+          password,
+        });
+      const opened = await open();
+      expect(opened.locked).toBe(true);
+      const granted = await open("a share password");
+      for (let attempt = 0; attempt < 9; attempt += 1) {
+        expect((await open("wrong password")).locked).toBe(true);
+      }
+      expect(await code(open("wrong password"))).toBe("share_locked");
+      expect(await code(open("a share password"))).toBe("share_locked");
+      expect(await code(open())).toBe("share_locked");
+      // The lock stops guesses, not someone who already gave the password.
+      const reading = await resolveShare(db, env.AUTH_ENCRYPTION_KEY, {
+        token: share.token,
+        access: granted.access ?? undefined,
+      });
+      expect(reading.locked).toBe(false);
+      await db
+        .updateTable("shares")
+        .set({ passwordLockedUntil: new Date(Date.now() - 1000) })
+        .where("id", "=", share.id)
+        .execute();
+      const again = await open("a share password");
+      expect(again.locked).toBe(false);
+      expect(again.access).toEqual(expect.any(String));
+    });
+  });
+
+  describe("a link's wrong passwords", () => {
+    it("counts each guess, sent together or not", async () => {
+      const base = await insertBase(db, adminId, { name: `Race ${suffix}` });
+      const table = await insertTable(db, adminId, {
+        baseId: base.id,
+        name: "Leads",
+        columns: [{ name: "title", label: "Title", fieldType: "text" }],
+      });
+      const { id: viewId } = await db
+        .selectFrom("views")
+        .select("id")
+        .where("tableId", "=", table.id)
+        .executeTakeFirstOrThrow();
+      const share = await createShare(db, {
+        viewId,
+        createdBy: adminId,
+        allowCopy: false,
+        password: "a share password",
+      });
+      await Promise.all(
+        Array.from({ length: 6 }, () =>
+          resolveShare(db, env.AUTH_ENCRYPTION_KEY, {
+            token: share.token,
+            password: "wrong password",
+          }),
+        ),
+      );
+      const counted = await db
+        .selectFrom("shares")
+        .select("passwordFailures")
+        .where("id", "=", share.id)
+        .executeTakeFirstOrThrow();
+      expect(counted.passwordFailures).toBe(6);
+    });
+  });
+
+  describe("account erasure", () => {
+    it("keeps the trail and drops the person", async () => {
+      const person = await account("Erased");
+      const base = await insertBase(db, person.id, { name: `Gone ${suffix}` });
+      await createInvitation(db, {
+        baseId: base.id,
+        email: person.email,
+        role: "editor",
+        invitedBy: adminId,
+      });
+      await recordAuthEvent(db, {
+        action: "login_success",
+        userId: person.id,
+        method: "password",
+        ip: "203.0.113.10",
+      });
+      const table = await insertTable(db, person.id, {
+        baseId: base.id,
+        name: "Files",
+        columns: [{ name: "title", label: "Title", fieldType: "text" }],
+      });
+      const fileKey = `att_${suffix}`;
+      await withAudit(db, { userId: person.id, source: "web" }, (tx) =>
+        tx
+          .insertInto("attachments")
+          .values({
+            key: fileKey,
+            tableId: table.id,
+            filename: "note.txt",
+            mime: "text/plain",
+            size: 1,
+            createdBy: person.id,
+          })
+          .execute(),
+      );
+      await eraseAccount(db, person.id);
+      expect(
+        await db
+          .selectFrom("users")
+          .select("id")
+          .where("id", "=", person.id)
+          .executeTakeFirst(),
+      ).toBeUndefined();
+      // A file in a cell is the table's: it stays, without its author.
+      expect(
+        await db
+          .selectFrom("attachments")
+          .select("createdBy")
+          .where("key", "=", fileKey)
+          .executeTakeFirst(),
+      ).toEqual({ createdBy: null });
+      expect(
+        await db
+          .selectFrom("auditEvents")
+          .select("userId")
+          .where("userId", "=", person.id)
+          .execute(),
+      ).toEqual([]);
+      expect(
+        await db
+          .selectFrom("auditEvents")
+          .select("userId")
+          .where("userId", "=", ERASED_USER_ID)
+          .executeTakeFirst(),
+      ).toEqual({ userId: ERASED_USER_ID });
+      expect(
+        await db
+          .selectFrom("invitations")
+          .select("email")
+          .where("email", "=", person.email)
+          .execute(),
+      ).toEqual([]);
+      expect(
+        await db
+          .selectFrom("authEvents")
+          .select("ip")
+          .where("ip", "=", "203.0.113.10")
+          .execute(),
+      ).toEqual([]);
+      expect(await code(eraseAccount(db, ERASED_USER_ID))).toBe(
+        "invalid_account",
+      );
+    });
+
+    it("keeps the account erased people become out of reach", async () => {
+      expect(await code(otherAccount(db, adminId, ERASED_USER_ID))).toBe(
+        "invalid_account",
+      );
+      expect(
+        await code(setUserDisabled(db, adminId, ERASED_USER_ID, false)),
+      ).toBe("invalid_account");
+      expect(await code(setUserAdmin(db, ERASED_USER_ID, true))).toBe(
+        "invalid_account",
+      );
+      expect(await accessReportCsv(db)).not.toContain("users.invalid");
+      const listed = await listUsers(db, {
+        search: "users.invalid",
+        offset: 0,
+        limit: 10,
+      });
+      expect(listed.users).toEqual([]);
+    });
   });
 
   describe("sign-up domains", () => {
@@ -759,6 +972,79 @@ describe("the security policy", () => {
         await policy({ apiTokens: "everyone" });
       }
       expect((await asToken(made.token))?.user.id).toBe(person.id);
+    });
+
+    it("refuses a token on account changes, and a password to replace a factor", async () => {
+      const person = await account("Nia");
+      const full = await person.page.call().auth.createToken({ name: "full" });
+      const limited = await person.page
+        .call()
+        .auth.createToken({ name: "read", readOnly: true });
+      const ceremony = {
+        id: "aa",
+        rawId: "aa",
+        type: "public-key" as const,
+        clientExtensionResults: {},
+        response: { clientDataJSON: "aa", attestationObject: "aa" },
+      };
+      for (const token of [full.token, limited.token]) {
+        const caller = person.page.call({
+          authorization: `Bearer ${token}`,
+        });
+        expect(await code(caller.auth.createToken({ name: "wider" }))).toBe(
+          "access_denied",
+        );
+        expect(await code(caller.auth.revokeToken({ tokenId: full.id }))).toBe(
+          "access_denied",
+        );
+        expect(await code(caller.auth.totp.begin())).toBe("access_denied");
+        expect(
+          await code(
+            caller.auth.totp.confirm({
+              secret: "JBSWY3DPEHPK3PXP",
+              code: "000000",
+            }),
+          ),
+        ).toBe("access_denied");
+        expect(await code(caller.auth.webauthn.registerBegin())).toBe(
+          "access_denied",
+        );
+        expect(await code(caller.auth.webauthn.registerFinish(ceremony))).toBe(
+          "access_denied",
+        );
+      }
+      await enrollTotp(person.page);
+      const begun = await person.page.call().auth.totp.begin();
+      const fresh = totpCode(decodeBase32(begun.secret), Date.now());
+      expect(
+        await code(
+          person.page.call().auth.totp.confirm({
+            secret: begun.secret,
+            code: fresh,
+          }),
+        ),
+      ).toBe("invalid_credentials");
+      expect(
+        await code(
+          person.page.call().auth.totp.confirm({
+            secret: begun.secret,
+            code: fresh,
+            password: PASSWORD,
+          }),
+        ),
+      ).toBe("ok");
+      // A passkey asks for the proof once, to begin its ceremony.
+      const passkey = person.page.call().auth.webauthn;
+      expect(await code(passkey.registerBegin())).toBe("invalid_credentials");
+      expect(
+        await code(passkey.registerBegin({ password: "not the password" })),
+      ).toBe("invalid_credentials");
+      expect(await code(passkey.registerFinish(ceremony))).toBe(
+        "challenge_expired",
+      );
+      expect(await code(passkey.registerBegin({ password: PASSWORD }))).toBe(
+        "ok",
+      );
     });
 
     it("keeps invitations to the sign-up domains when asked, pending ones included", async () => {

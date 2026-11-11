@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ADMIN_LOCK_MINUTES,
+  DEFAULT_ATTACHMENT_MAX_BYTES,
   INSTANCE_DEFAULTS,
   emailDomainAllowed,
   inactivityDates,
@@ -10,6 +11,7 @@ import {
   memberDomainAllowed,
   parseAdminEmails,
   parseInstanceSettings,
+  resolveAttachmentMaxBytes,
   sessionWindows,
   signupAllowed,
 } from "./instance";
@@ -214,6 +216,20 @@ describe("more policies (ADR 0044)", () => {
     });
     expect(inactivityDates(active, { inactiveDays: 30 })?.warnAt).toEqual(
       new Date("2026-01-24T00:00:00Z"),
+    );
+  });
+});
+
+describe("resolveAttachmentMaxBytes", () => {
+  it("prefers the UI setting, then env, then 20 MiB", () => {
+    expect(
+      resolveAttachmentMaxBytes({ attachmentMaxBytes: 5_000_000 }, 9_000_000),
+    ).toBe(5_000_000);
+    expect(
+      resolveAttachmentMaxBytes({ attachmentMaxBytes: null }, 9_000_000),
+    ).toBe(9_000_000);
+    expect(resolveAttachmentMaxBytes({ attachmentMaxBytes: null })).toBe(
+      DEFAULT_ATTACHMENT_MAX_BYTES,
     );
   });
 });

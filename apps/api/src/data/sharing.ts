@@ -11,6 +11,7 @@ import {
   roleFor,
 } from "@anygriddb/core";
 import type { Database, ShareRow, TableRow, ViewRow } from "@anygriddb/db";
+import { sql } from "kysely";
 import { hashPassword, verifyPassword } from "../auth/argon2.js";
 import { withAudit } from "./audit-context.js";
 import { liveBase, liveTable, liveView } from "./live.js";
@@ -481,18 +482,61 @@ export async function resolveShare(
   if (!row.share.passwordHash) {
     return { ...row, access: null, locked: false };
   }
+  // Someone who already gave the password keeps reading: the lock stops
+  // guesses, not the people the link was sent to.
   if (verifyShareAccess(key, row.share.id, input.access)) {
     return { ...row, access: input.access ?? null, locked: false };
   }
   if (
-    input.password &&
-    (await verifyPassword(row.share.passwordHash, input.password))
+    row.share.passwordLockedUntil &&
+    row.share.passwordLockedUntil > new Date()
   ) {
+    throw new AppError("share_locked");
+  }
+  if (!input.password) {
+    return { ...row, access: null, locked: true };
+  }
+  if (await verifyPassword(row.share.passwordHash, input.password)) {
+    if (row.share.passwordFailures > 0 || row.share.passwordLockedUntil) {
+      await db
+        .updateTable("shares")
+        .set({ passwordFailures: 0, passwordLockedUntil: null })
+        .where("id", "=", row.share.id)
+        .execute();
+    }
     return {
       ...row,
       access: issueShareAccess(key, row.share.id),
       locked: false,
     };
   }
+  if (await countSharePasswordFailure(db, row.share.id)) {
+    throw new AppError("share_locked");
+  }
   return { ...row, access: null, locked: true };
+}
+
+const SHARE_PASSWORD_ATTEMPTS = 10;
+const SHARE_LOCK_MINUTES = 15;
+
+/**
+ * Counts a wrong password in one statement, so guesses sent at the same
+ * time each count. The last one allowed locks the link and starts the
+ * count again; true when it did.
+ */
+async function countSharePasswordFailure(
+  db: Database,
+  shareId: string,
+): Promise<boolean> {
+  const last = sql<boolean>`password_failures + 1 >= ${SHARE_PASSWORD_ATTEMPTS}`;
+  const counted = await db
+    .updateTable("shares")
+    .set({
+      passwordFailures: sql<number>`case when ${last} then 0 else password_failures + 1 end`,
+      passwordLockedUntil: sql<Date | null>`case when ${last} then now() + make_interval(mins => ${SHARE_LOCK_MINUTES}) else null end`,
+    })
+    .where("id", "=", shareId)
+    .returning("passwordLockedUntil")
+    .executeTakeFirst();
+  return Boolean(counted?.passwordLockedUntil);
 }

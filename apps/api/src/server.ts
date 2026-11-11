@@ -1,6 +1,8 @@
 import cookie from "@fastify/cookie";
 import websocket from "@fastify/websocket";
 import type { Database } from "@anygriddb/db";
+import { ERRORS } from "@anygriddb/core";
+import { TRPCError } from "@trpc/server";
 import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import {
   metricsAllowed,
@@ -11,10 +13,7 @@ import {
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { createServer as createHttpsServer, type Server } from "node:https";
 import type { Bus } from "./realtime/bus.js";
-import {
-  DEFAULT_ATTACHMENT_BYTES,
-  registerAttachmentRoutes,
-} from "./attachments.js";
+import { registerAttachmentRoutes } from "./attachments.js";
 import { authorizeGrid } from "./auth/access.js";
 import { passkeysEligible } from "./auth/relying-party.js";
 import { registerRateLimit } from "./rate-limit.js";
@@ -24,6 +23,7 @@ import { registerRestApi } from "./rest-api.js";
 import { calendarFeedDocument } from "./data/calendar-feeds.js";
 import { queueWebhookRun } from "./automations.js";
 import { logUrl } from "./log-url.js";
+import { trustProxy } from "./trust-proxy.js";
 import { registerScim } from "./scim/routes.js";
 import { registerEnterpriseAuth } from "./auth/enterprise.js";
 import { SESSION_COOKIE, findSessionUser } from "./auth/session.js";
@@ -31,10 +31,12 @@ import type { Env } from "./env.js";
 import type { FileStore } from "./files/index.js";
 import {
   applyApiSecurityHeaders,
+  logFailure,
   publicErrorBody,
   publicErrorStatus,
 } from "./http.js";
 import type { Context } from "./trpc/context.js";
+import { describeTRPCError } from "./trpc/map-error.js";
 import { appRouter } from "./trpc/router.js";
 import { taskGroups } from "./queue/tasks.js";
 import { startQueue } from "./queue/worker.js";
@@ -106,7 +108,7 @@ export async function createApp(deps: {
           },
         }
       : {}),
-    trustProxy: (_address, hop) => hop === 0,
+    trustProxy: trustProxy(deps.env.TRUSTED_PROXIES),
     // tRPC batches queries into one path, `a.b,a.b,…`: past Fastify's 100
     // characters a page of five widgets was answered 414. The web client
     // keeps a whole URL under 6,000 characters.
@@ -206,14 +208,14 @@ export async function createApp(deps: {
   await registerAttachmentRoutes(app, {
     db: deps.db,
     files: deps.files,
-    maxBytes: deps.env.ATTACHMENT_MAX_BYTES ?? DEFAULT_ATTACHMENT_BYTES,
+    envMaxBytes: deps.env.ATTACHMENT_MAX_BYTES,
   });
 
   // HSTS only for a certificate browsers trust on their own: with the
   // instance's authority not yet installed, it would lock people out.
   app.addHook("onRequest", async (request, reply) => {
     applyApiSecurityHeaders(reply, tls?.mode === "operator");
-    requestStarted(request, request.method, request.url.split("?")[0] ?? "");
+    requestStarted(request, request.method, logUrl(request.url));
   });
   // Requests by route pattern, never by path: ids would explode the series.
   app.addHook("onResponse", async (request, reply) => {
@@ -317,10 +319,6 @@ export async function createApp(deps: {
   }
 
   app.setErrorHandler((error: unknown, request, reply) => {
-    request.log.error({ err: error }, "request failed");
-    if (reply.sent) {
-      return;
-    }
     const statusCode =
       typeof error === "object" &&
       error !== null &&
@@ -329,6 +327,10 @@ export async function createApp(deps: {
         ? error.statusCode
         : undefined;
     const status = publicErrorStatus(statusCode);
+    logFailure(request.log, { error, status, message: "request failed" });
+    if (reply.sent) {
+      return;
+    }
     reply.code(status).send(publicErrorBody(status));
   });
 
@@ -398,7 +400,17 @@ export async function createApp(deps: {
         type: string;
         ctx: Context | undefined;
       }) {
-        ctx?.req.log.error({ err: error, path, type }, "trpc failed");
+        if (!ctx) return;
+        const code =
+          error instanceof TRPCError
+            ? describeTRPCError(error).code
+            : "internal_error";
+        logFailure(ctx.req.log, {
+          error,
+          status: ERRORS[code][0],
+          message: "trpc failed",
+          context: { path, type, code },
+        });
       },
       createContext: ({
         req,

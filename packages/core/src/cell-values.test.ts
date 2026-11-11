@@ -15,7 +15,7 @@ const multi = { ...select, fieldType: "multi_select" as const };
 describe("assertCellValue", () => {
   it("accepts typed values and rejects mismatches", () => {
     expect(() =>
-      assertCellValue({ fieldType: "email", config: {} }, "a@b.fr"),
+      assertCellValue({ fieldType: "email", config: {} }, "a@example.org"),
     ).not.toThrow();
     expect(() =>
       assertCellValue({ fieldType: "email", config: {} }, "nope"),

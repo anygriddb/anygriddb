@@ -5,10 +5,12 @@ import {
   type Action,
   AppError,
   ATTACHMENT_KEY,
+  ATTACHMENT_MAX_BYTES_CEILING,
   type Binding,
   effectiveTableRole,
   isImageAttachmentMime,
   isInlineAttachmentMime,
+  resolveAttachmentMaxBytes,
   roleAllows,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -23,8 +25,8 @@ import { readerEngine } from "./data/acl.js";
 import { liveBase, liveTable } from "./data/live.js";
 import { attachmentVisible } from "./data/rows.js";
 import { publicErrorBody } from "./http.js";
+import { readGateSettings } from "./settings.js";
 
-export const DEFAULT_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 const THUMB_EDGE = 320;
 
 /**
@@ -273,7 +275,8 @@ export async function enrichAttachments(
 type HttpDeps = {
   db: Database;
   files: FileStore;
-  maxBytes: number;
+  /** Environment bootstrap; the instance setting wins when set (ADR 0050). */
+  envMaxBytes?: number;
 };
 
 /** A small attachment as base64, for the record panel's inline preview. */
@@ -350,8 +353,11 @@ export async function registerAttachmentRoutes(
   app: FastifyInstance,
   deps: HttpDeps,
 ): Promise<void> {
+  // The most any instance may allow. Each upload is read under the limit
+  // in force when it arrives (the setting, then the environment, then
+  // 20 MiB), so a larger file is refused before it is held in memory.
   await app.register(multipart, {
-    limits: { fileSize: deps.maxBytes, files: 1, fields: 4 },
+    limits: { fileSize: ATTACHMENT_MAX_BYTES_CEILING, files: 1, fields: 4 },
   });
 
   app.post("/api/attachments", async (request, reply) => {
@@ -364,7 +370,11 @@ export async function registerAttachmentRoutes(
     )
       return deny(reply, 403);
     const user = actor.user;
-    const file = await request.file();
+    const maxBytes = resolveAttachmentMaxBytes(
+      await readGateSettings(deps.db),
+      deps.envMaxBytes,
+    );
+    const file = await request.file({ limits: { fileSize: maxBytes } });
     if (!file) return deny(reply, 400);
     let bytes: Buffer;
     try {

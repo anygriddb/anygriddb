@@ -98,3 +98,7 @@ process.on("SIGINT", () => {
 process.on("SIGTERM", () => {
   void shutdown();
 });
+process.on("unhandledRejection", (error) => {
+  app.log.error({ err: error }, "unhandled rejection");
+  void shutdown().finally(() => process.exit(1));
+});

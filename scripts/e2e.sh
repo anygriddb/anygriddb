@@ -14,6 +14,10 @@ export AUTH_ENCRYPTION_KEY="$(
 )"
 export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5433/${POSTGRES_DB}"
 export PUBLIC_URL="https://localhost:4010"
+# The browser is the TCP peer. Trusting loopback lets a journey set its
+# own X-Forwarded-For, so it does not share the rate-limit bucket of the
+# others. Production leaves ANYGRIDDB_TRUSTED_PROXIES empty.
+export ANYGRIDDB_TRUSTED_PROXIES="127.0.0.1,::1"
 
 compose=(docker compose -p anygriddb-e2e -f docker/compose.yml -f docker/compose.e2e.yml)
 

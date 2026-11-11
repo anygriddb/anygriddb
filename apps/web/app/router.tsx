@@ -15,6 +15,7 @@ import { lazy, type ComponentType } from "react";
 import { z } from "zod";
 import { AuthPage } from "../components/auth/auth-page";
 import { NotFound } from "../components/shell/not-found";
+import { PageCrashed } from "../components/shell/page-crashed";
 
 /**
  * A page that loads its own code: a share link or the sign-in page does
@@ -307,6 +308,7 @@ const routeTree = rootRoute.addChildren([
 export const router = createRouter({
   routeTree,
   defaultPendingComponent: Pending,
+  defaultErrorComponent: PageCrashed,
   // Every page reads its data through TanStack Query, which caches it.
   defaultPreload: false,
   scrollRestoration: false,

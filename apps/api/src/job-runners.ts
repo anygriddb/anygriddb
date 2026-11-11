@@ -13,6 +13,7 @@ import {
   importAirtableJobInputSchema,
   importSnapshotJobInputSchema,
   type JobKind,
+  resolveAttachmentMaxBytes,
   roleAllows,
   roleFor,
   trashPurgeJobInputSchema,
@@ -61,7 +62,7 @@ import { type FileStore, readFile as readStoredFile } from "./files/index.js";
 import { exportKey } from "./storage.js";
 import { readAirtableBase } from "./data/airtable-import.js";
 import { decryptSecret } from "./auth/crypto.js";
-import { madeNamesFor } from "./settings.js";
+import { madeNamesFor, readGateSettings } from "./settings.js";
 
 export type RunnerDeps = {
   db: Database;
@@ -72,9 +73,16 @@ export type RunnerDeps = {
   key?: Buffer;
   /** How Airtable is reached: `fetch`, or a stand-in in tests. */
   airtableFetch?: typeof fetch;
-  /** The instance's limit for one attachment, for files a snapshot brings. */
-  attachmentMaxBytes?: number;
+  /** Environment bootstrap for the attachment ceiling (ADR 0050). */
+  envAttachmentMaxBytes?: number;
 };
+
+async function attachmentCeiling(deps: RunnerDeps): Promise<number> {
+  return resolveAttachmentMaxBytes(
+    await readGateSettings(deps.db),
+    deps.envAttachmentMaxBytes,
+  );
+}
 
 /**
  * The author's current rights on the job's table. A job queued by
@@ -391,7 +399,7 @@ const runImportSnapshot =
           onProgress: progress,
           restoreMembers: input.restoreMembers,
           readFile: opened.readFile,
-          maxFileBytes: deps.attachmentMaxBytes,
+          maxFileBytes: await attachmentCeiling(deps),
           names: await madeNamesFor(deps.db),
         },
       );
@@ -549,7 +557,7 @@ const runDuplicateBase =
           // The snapshot names each file by its key in this store.
           readFile: async (key, maxBytes) =>
             (await readStoredFile(deps.files, key, maxBytes))?.bytes,
-          maxFileBytes: deps.attachmentMaxBytes,
+          maxFileBytes: await attachmentCeiling(deps),
           names: await madeNamesFor(deps.db),
         },
       );

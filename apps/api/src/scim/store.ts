@@ -18,6 +18,7 @@ import {
 import type { Database, UserRow } from "@anygriddb/db";
 import { type Expression, type SqlBool, sql } from "kysely";
 import { type AuditTx, withAudit } from "../data/audit-context.js";
+import { ERASED_USER_ID } from "../data/erasure.js";
 import { postgresCode } from "../data/pg-error.js";
 import { syncGroupBindings } from "./groups.js";
 
@@ -134,6 +135,7 @@ async function findAccount(
     .selectFrom("users")
     .select(ACCOUNT_COLUMNS)
     .where("id", "=", id)
+    .where("id", "<>", ERASED_USER_ID)
     .where("deprovisionedAt", "is", null);
   if (lock) query = query.forUpdate();
   const account = await query.executeTakeFirst();
@@ -170,6 +172,7 @@ export async function listScimUsers(
     .selectFrom("users")
     .select(sql<number>`count(*)::int`.as("value"))
     .where("deprovisionedAt", "is", null)
+    .where("id", "<>", ERASED_USER_ID)
     .where(where)
     .executeTakeFirstOrThrow();
   const accounts =
@@ -179,6 +182,7 @@ export async function listScimUsers(
           .selectFrom("users")
           .select(ACCOUNT_COLUMNS)
           .where("deprovisionedAt", "is", null)
+          .where("id", "<>", ERASED_USER_ID)
           .where(where)
           .orderBy("createdAt")
           .orderBy("id")
@@ -247,9 +251,12 @@ async function saveAccount(tx: AuditTx, account: Account, next: ScimUserState) {
     })
     .where("id", "=", account.id)
     .execute();
-  // A deactivated account is signed out everywhere; its API tokens stop.
-  if (!next.active) {
+  // A new address ends sessions and API tokens, so a reset link for the
+  // old address cannot be redirected, and a stolen token does not outlive
+  // the change. A deactivated account is signed out the same way.
+  if (next.email !== account.email || !next.active) {
     await tx.deleteFrom("sessions").where("userId", "=", account.id).execute();
+    await tx.deleteFrom("apiTokens").where("userId", "=", account.id).execute();
   }
 }
 

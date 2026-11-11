@@ -7,8 +7,9 @@ const controlUrl =
   "postgres://anygriddb:anygriddb@127.0.0.1:5433/anygriddb";
 
 /**
- * Addresses of their own (the API trusts its first proxy): the sign-in
- * rate limit the other journeys spent on 127.0.0.1 is not this one's, and
+ * Addresses of their own. The e2e server trusts the loopback peer
+ * (`ANYGRIDDB_TRUSTED_PROXIES`), so this header is the client address:
+ * the sign-in rate limit the other journeys spent is not this one's, and
  * the guesses come from elsewhere than the account's owner.
  */
 const from = (address: string) => ({
