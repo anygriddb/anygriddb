@@ -65,6 +65,11 @@ export default defineConfig({
         // The sources journey reads a database on the same server, which
         // has no certificate: for this test server only.
         ANYGRIDDB_SOURCES_ALLOWED_HOSTS: "127.0.0.1,localhost",
+        // The mail catcher of scripts/e2e.sh: sign-ups and reset links are
+        // mailed, and the journeys read them (MAIL_API in e2e/setup.ts).
+        SMTP_HOST: process.env.SMTP_HOST ?? "127.0.0.1",
+        SMTP_PORT: process.env.SMTP_PORT ?? "1026",
+        SMTP_FROM: process.env.SMTP_FROM ?? "grid@example.org",
         ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT: "true",
         // The browser is the TCP peer. Trusting loopback lets a journey
         // choose X-Forwarded-For. Production leaves this empty.

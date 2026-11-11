@@ -49,6 +49,7 @@ import {
   browserFactory,
   enrollTotp,
   errorCode as code,
+  signUpProved,
 } from "./trpc/caller.test-helpers.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -78,14 +79,11 @@ describe("the security policy", () => {
     n += 1;
     const email = `${name.toLowerCase()}-${String(n)}-${suffix}@example.org`;
     const page = browser();
-    await page
-      .call()
-      .auth.signup({ email, displayName: name, password: PASSWORD });
-    const { id } = await db
-      .selectFrom("users")
-      .select("id")
-      .where("email", "=", email)
-      .executeTakeFirstOrThrow();
+    const id = await signUpProved(page, db, {
+      email,
+      displayName: name,
+      password: PASSWORD,
+    });
     return { email, id, page };
   }
 
@@ -1277,27 +1275,36 @@ describe("the security policy", () => {
               }),
           ),
         ).toBe("signup_domain_not_allowed");
-        expect(await code(account("Inside"))).toBe("ok");
+        // A listed domain: the sign-up waits for its mailed link.
+        expect(
+          await browser()
+            .call()
+            .auth.signup({
+              email: `inside-${suffix}@example.org`,
+              displayName: "Inside",
+              password: PASSWORD,
+            }),
+        ).toEqual({ status: "verify" });
         const base = await insertBase(db, adminId, {
           name: `Guests ${suffix}`,
         });
-        await createInvitation(db, {
+        const invitation = await createInvitation(db, {
           baseId: base.id,
           email: `guest-${suffix}@elsewhere.test`,
           role: "viewer",
           invitedBy: adminId,
         });
+        // Invited, from outside the domains: in at once, from its link.
         expect(
-          await code(
-            browser()
-              .call()
-              .auth.signup({
-                email: `guest-${suffix}@elsewhere.test`,
-                displayName: "Guest",
-                password: PASSWORD,
-              }),
-          ),
-        ).toBe("ok");
+          await browser()
+            .call()
+            .auth.signup({
+              email: `guest-${suffix}@elsewhere.test`,
+              displayName: "Guest",
+              password: PASSWORD,
+              invitation: invitation.token,
+            }),
+        ).toEqual({ status: "session" });
       } finally {
         await policy({ signupDomains: [] });
       }
@@ -1538,6 +1545,7 @@ describe("the security policy", () => {
         email: outside,
         displayName: "Partner",
         password: PASSWORD,
+        invitation: pending.token ?? "",
       });
       expect(
         await code(
@@ -1550,7 +1558,7 @@ describe("the security policy", () => {
       const base = await insertBase(db, adminId, { name: `Late ${suffix}` });
       const email = `late-${suffix}@elsewhere.test`;
       const guest = browser();
-      await guest.call().auth.signup({
+      await signUpProved(guest, db, {
         email,
         displayName: "Late",
         password: PASSWORD,

@@ -8,14 +8,20 @@ import type { Database } from "@anygriddb/db";
 import { resolveSmtp } from "../integrations/smtp.js";
 import { sendMail, smtpReady, type SmtpConfig } from "../mail.js";
 import {
+  accountExistsMailBody,
+  accountExistsMailSubject,
+  type MailLocale,
   resetMailBody,
   resetMailSubject,
   resolveLocale,
+  signupMailBody,
+  signupMailSubject,
   securityMailBody,
   securityMailSubject,
   type SecurityNotice,
 } from "../mail-i18n.js";
 import { readSettings } from "../settings.js";
+import { signupLinkUrl } from "./signup-requests.js";
 
 export type SecurityMailDeps = {
   db: Database;
@@ -91,4 +97,41 @@ export async function sendResetLink(
 
 export function resetLinkUrl(publicUrl: string, token: string): string {
   return `${publicUrl.replace(/\/+$/, "")}/reset/${token}`;
+}
+
+/**
+ * Mails what a sign-up calls for to the address it names, in the language
+ * the page was in (ADR 0058): its link, or, for an address that has an
+ * account, word of the attempt. Returns false without email set up; a
+ * failed send throws.
+ */
+export async function sendSignupMail(
+  deps: SecurityMailDeps,
+  input: { to: string; locale: MailLocale } & (
+    { kind: "link"; token: string; expiresAt: Date } | { kind: "exists" }
+  ),
+): Promise<boolean> {
+  const { config: smtp } = await resolveSmtp(deps.db, deps.env);
+  if (!smtpReady(smtp)) return false;
+  const publicUrl = deps.env.PUBLIC_URL.replace(/\/+$/, "");
+  await sendMail(
+    smtp,
+    input.kind === "link"
+      ? {
+          to: input.to,
+          subject: signupMailSubject(input.locale),
+          text: signupMailBody(input.locale, {
+            link: signupLinkUrl(publicUrl, input.token),
+            expiresAt: input.expiresAt,
+          }),
+        }
+      : {
+          to: input.to,
+          subject: accountExistsMailSubject(input.locale),
+          text: accountExistsMailBody(input.locale, {
+            loginUrl: `${publicUrl}/login`,
+          }),
+        },
+  );
+  return true;
 }

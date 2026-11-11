@@ -29,6 +29,14 @@ export function safeNext(value: string | undefined): string {
   return path === "/login" || path === "/signup" ? "/" : value;
 }
 
+/**
+ * The invitation a sign-up comes from, when the person followed its link:
+ * that link reached the address, which needs no other proof (ADR 0058).
+ */
+export function invitationToken(next: string): string | undefined {
+  return /^\/invite\/([A-Za-z0-9_-]{32,64})$/.exec(next)?.[1];
+}
+
 export function AuthPage({
   mode,
   next: requested,
@@ -63,6 +71,8 @@ export function AuthPage({
   const [busy, setBusy] = useState(false);
   const [forgot, setForgot] = useState(false);
   const [sent, setSent] = useState(false);
+  /** The address a sign-up's link was mailed to (ADR 0058). */
+  const [awaiting, setAwaiting] = useState("");
   const finishing = useRef(false);
   const minLength = instance.data?.passwordMinLength ?? 12;
 
@@ -107,7 +117,17 @@ export function AuthPage({
     event.preventDefault();
     void run(async () => {
       if (mode === "signup") {
-        await trpc.auth.signup.mutate({ email, password, displayName });
+        const invitation = invitationToken(next);
+        const result = await trpc.auth.signup.mutate({
+          email,
+          password,
+          displayName,
+          ...(invitation ? { invitation } : {}),
+        });
+        if (result.status === "verify") {
+          setAwaiting(email);
+          return;
+        }
         await finish();
         return;
       }
@@ -122,7 +142,17 @@ export function AuthPage({
 
   return (
     <AuthFrame>
-      {forgot ? (
+      {awaiting ? (
+        <div className="flex flex-col gap-3">
+          <h1 className="text-2xl font-semibold">{t`Check your email`}</h1>
+          <p role="status" className="text-sm">
+            {t`A message is on its way to ${awaiting}. Open the link it holds to finish: it works for a day.`}
+          </p>
+          <Link className="text-sm text-primary hover:underline" to="/login">
+            {t`Back to sign-in`}
+          </Link>
+        </div>
+      ) : forgot ? (
         <form
           className="flex flex-col gap-3"
           onSubmit={(event) => {

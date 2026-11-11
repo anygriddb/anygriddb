@@ -290,3 +290,41 @@ export function resetMailBody(
     : "You asked to set a new AnyGridDB password.";
   return `${who}\n\n${input.link}\n\nThe link works once, until ${until}. Your second factors stay as they are.\n\nIf you did not ask for it, ignore this email: your password does not change.`;
 }
+
+/** The link that proves the address of a sign-up (ADR 0058). */
+export function signupMailSubject(locale: MailLocale): string {
+  return locale === "fr"
+    ? `${MAIL_PREFIX} : confirmer votre adresse`
+    : `${MAIL_PREFIX}: confirm your address`;
+}
+
+export function signupMailBody(
+  locale: MailLocale,
+  input: { link: string; expiresAt: Date },
+): string {
+  const until = moment(locale, input.expiresAt);
+  if (locale === "fr") {
+    return `Pour créer votre compte AnyGridDB, ouvrez ce lien et saisissez le mot de passe choisi à l'inscription :\n\n${input.link}\n\nLe lien sert jusqu'au ${until}.\n\nSi vous n'avez rien demandé, ignorez ce message : aucun compte n'est créé.`;
+  }
+  return `To create your AnyGridDB account, open this link and enter the password you chose when signing up:\n\n${input.link}\n\nThe link works until ${until}.\n\nIf you did not ask for it, ignore this email: no account is created.`;
+}
+
+/**
+ * A sign-up for an address that has an account already: the person learns
+ * it here, never on the page, which answers the same for every address.
+ */
+export function accountExistsMailSubject(locale: MailLocale): string {
+  return locale === "fr"
+    ? `${MAIL_PREFIX} : vous avez déjà un compte`
+    : `${MAIL_PREFIX}: you already have an account`;
+}
+
+export function accountExistsMailBody(
+  locale: MailLocale,
+  input: { loginUrl: string },
+): string {
+  if (locale === "fr") {
+    return `Quelqu'un a voulu créer un compte AnyGridDB avec cette adresse, qui en a déjà un. Rien n'a changé.\n\nPour vous connecter, ou choisir un nouveau mot de passe si vous l'avez oublié :\n\n${input.loginUrl}\n\nSi vous n'avez rien demandé, ignorez ce message.`;
+  }
+  return `Someone tried to create an AnyGridDB account with this address, which already has one. Nothing changed.\n\nTo sign in, or to set a new password if you forgot it:\n\n${input.loginUrl}\n\nIf you did not ask for it, ignore this email.`;
+}

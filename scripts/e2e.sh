@@ -30,5 +30,5 @@ trap cleanup EXIT
 # the libraries, and fetching packages ties every run to a mirror.
 pnpm --filter @anygriddb/web exec playwright install chromium
 
-"${compose[@]}" up -d db --wait
+"${compose[@]}" up -d db mail --wait
 pnpm --filter @anygriddb/web exec playwright test

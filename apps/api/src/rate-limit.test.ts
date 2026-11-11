@@ -13,10 +13,15 @@ describe("rateBucket", () => {
       "auth.requestPasswordReset",
       "auth.resetLink",
       "auth.resetPassword",
+      "auth.confirmSignup",
     ]) {
       expect(rateBucket("POST", `/trpc/${procedure}`)).toBe("auth");
     }
     expect(rateBucket("GET", "/trpc/share.rows?input=x")).toBe("share");
+    // A sign-up's link only names its address: opened as a share is.
+    expect(
+      rateBucket("GET", "/trpc/auth.instance,auth.signupLink?batch=1"),
+    ).toBe("share");
     expect(rateBucket("POST", "/hooks/automations/aghook_x")).toBe("share");
     expect(rateBucket("GET", "/ical/agcal_x.ics")).toBe("share");
     expect(rateBucket("POST", "/api/attachments?tableId=x")).toBe("upload");

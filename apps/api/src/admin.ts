@@ -43,6 +43,8 @@ export async function signupDecision(
 ): Promise<{
   allowed: boolean;
   isAdmin: boolean;
+  /** The instance has no account yet: this one sets it up, at once. */
+  firstAccount: boolean;
   /** Why not: the sign-up policy, or an address outside the domains. */
   refusal?: "signup_closed" | "signup_domain_not_allowed";
 }> {
@@ -66,7 +68,7 @@ export async function signupDecision(
   // An invitation counts only while invitations may reach this address.
   const invited = Boolean(invitation) && memberDomainAllowed(email, settings);
   if (!signupAllowed(settings.signup, { firstAccount, invited })) {
-    return { allowed: false, isAdmin, refusal: "signup_closed" };
+    return { allowed: false, isAdmin, firstAccount, refusal: "signup_closed" };
   }
   // The domains hold for anyone who comes on their own: an owner's
   // invitation, the operator's ADMIN_EMAILS, and the first account pass.
@@ -76,9 +78,14 @@ export async function signupDecision(
     !invited &&
     !emailDomainAllowed(email, settings.signupDomains)
   ) {
-    return { allowed: false, isAdmin, refusal: "signup_domain_not_allowed" };
+    return {
+      allowed: false,
+      isAdmin,
+      firstAccount,
+      refusal: "signup_domain_not_allowed",
+    };
   }
-  return { allowed: true, isAdmin };
+  return { allowed: true, isAdmin, firstAccount };
 }
 
 /** Grants admin to existing accounts listed in ADMIN_EMAILS, at start-up. */

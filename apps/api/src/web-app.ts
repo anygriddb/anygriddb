@@ -22,7 +22,7 @@ const API_PATH = /^\/(?:api|trpc|auth|ws|health|ready)(?:\/|$)/;
 /** A missing file, such as a chunk of an older build: a 404, not a page. */
 const FILE_PATH = /\/[^/]*\.[A-Za-z0-9]+$/;
 /** Pages reached by a secret link: search engines must not keep them. */
-const TOKEN_PAGE = /^\/(?:s|invite)\//;
+const TOKEN_PAGE = /^\/(?:s|invite|reset|signup)\//;
 
 /**
  * Scripts come from this origin only, with no inline code. Styles allow

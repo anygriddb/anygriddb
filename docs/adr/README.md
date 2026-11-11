@@ -66,6 +66,6 @@ asserting: it superseded 0001 and added 0021 to 0026.
 | [0052](0052-operator-mail.md)                        | Operator mail: plain-text notice to all active or chosen accounts                       | Accepted                           |
 | [0053](0053-sso-prove-and-sso-only.md)               | Prove SSO at save; SSO-only sign-in with admin break-glass                              | Accepted                           |
 | [0054](0054-support-role.md)                         | Support role: helpdesk account ops without full admin                                   | Accepted                           |
-| [0054](0054-support-role.md)                         | Support role: helpdesk account ops without full admin                                   | Accepted                           |
 | [0055](0055-signin-allowlist.md)                     | Sign-in address allowlist (CIDR) for interactive sessions                               | Accepted                           |
 | [0056](0056-siem-webhook.md)                         | SIEM webhook for selected auth events                                                   | Accepted                           |
+| [0058](0058-signup-proves-address.md)                | A sign-up proves its address before the account exists                                  | Accepted                           |

@@ -21,6 +21,8 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   account_locked: msg`This account is locked after too many failed attempts. Try again later, or ask an administrator to unlock it.`,
   signup_closed: msg`Sign-up is not open for this address`,
   signup_domain_not_allowed: msg`Sign-up is open only to your organization's addresses`,
+  signup_needs_mail: msg`This instance sends no email, so it cannot confirm your address. Ask an administrator for an account, or use the invitation link you were sent.`,
+  invalid_signup_link: msg`This link no longer works: sign up again`,
   password_too_short: msg`Password too short. Minimum length`,
   invalid_reset_link: msg`This link no longer works: ask for a new one`,
   password_reset_disabled: msg`Ask an administrator to reset your password`,

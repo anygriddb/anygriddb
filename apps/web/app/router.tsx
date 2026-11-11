@@ -81,6 +81,11 @@ const ResetPasswordPage = page(() =>
     (module) => module.ResetPasswordPage,
   ),
 );
+const ConfirmSignupPage = page(() =>
+  import("../components/auth/confirm-signup-page").then(
+    (module) => module.ConfirmSignupPage,
+  ),
+);
 const PublicView = page(() =>
   import("../components/public/public-view").then(
     (module) => module.PublicView,
@@ -143,6 +148,16 @@ const resetRoute = createRoute({
   component: function Reset() {
     const { token } = resetRoute.useParams();
     return <ResetPasswordPage token={token} />;
+  },
+});
+
+/** The link a sign-up mails to prove its address (ADR 0058). */
+const confirmSignupRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/signup/$token",
+  component: function ConfirmSignup() {
+    const { token } = confirmSignupRoute.useParams();
+    return <ConfirmSignupPage token={token} />;
   },
 });
 
@@ -290,6 +305,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   signupRoute,
   invitationRoute,
+  confirmSignupRoute,
   resetRoute,
   shareRoute,
   appRoute.addChildren([

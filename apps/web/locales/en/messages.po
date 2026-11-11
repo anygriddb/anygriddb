@@ -632,6 +632,10 @@ msgstr "A link works once: an hour when the person asks, a day when an administr
 msgid "A longer password is the strongest rule: AnyGridDB asks for no mix of characters, and never for a change on a schedule."
 msgstr "A longer password is the strongest rule: AnyGridDB asks for no mix of characters, and never for a change on a schedule."
 
+#: components/auth/auth-page.tsx
+msgid "A message is on its way to {awaiting}. Open the link it holds to finish: it works for a day."
+msgstr "A message is on its way to {awaiting}. Open the link it holds to finish: it works for a day."
+
 #: components/views/calendar-feed.tsx
 msgid "A private address for your calendar application (Outlook, Google Calendar, Apple Calendar…). It shows what you can read of this view, from six months back to two years ahead. Keep it to yourself: whoever has it reads these rows."
 msgstr "A private address for your calendar application (Outlook, Google Calendar, Apple Calendar…). It shows what you can read of this view, from six months back to two years ahead. Keep it to yourself: whoever has it reads these rows."
@@ -1347,6 +1351,7 @@ msgid "Back to home"
 msgstr "Back to home"
 
 #: components/auth/auth-page.tsx
+#: components/auth/confirm-signup-page.tsx
 #: components/auth/reset-page.tsx
 msgid "Back to sign-in"
 msgstr "Back to sign-in"
@@ -1617,6 +1622,10 @@ msgstr "Chart"
 msgid "Check now"
 msgstr "Check now"
 
+#: components/auth/auth-page.tsx
+msgid "Check your email"
+msgstr "Check your email"
+
 #: components/fields/field-editor.tsx
 #: components/fields/field-meta.tsx
 msgid "Checkbox"
@@ -1851,6 +1860,10 @@ msgstr "Confirm"
 msgid "Confirm TOTP"
 msgstr "Confirm TOTP"
 
+#: components/auth/confirm-signup-page.tsx
+msgid "Confirm your address"
+msgstr "Confirm your address"
+
 #: components/settings/second-factor.tsx
 msgid "Confirming replaces your current authenticator and issues new backup codes. The old app stops working."
 msgstr "Confirming replaces your current authenticator and issues new backup codes. The old app stops working."
@@ -2053,6 +2066,10 @@ msgstr "Create field"
 #: components/shell/new-base-dialog.tsx
 msgid "Create it in Airtable with data.records:read and schema.bases:read on this base. AnyGridDB uses it, encrypted, for the import only, then forgets it. Attachments, view filters, and rollup calculations do not come over: the report will say so."
 msgstr "Create it in Airtable with data.records:read and schema.bases:read on this base. AnyGridDB uses it, encrypted, for the import only, then forgets it. Attachments, view filters, and rollup calculations do not come over: the report will say so."
+
+#: components/auth/confirm-signup-page.tsx
+msgid "Create my account"
+msgstr "Create my account"
 
 #: components/dashboards/dashboard-list.tsx
 msgid "Create one to put metrics and charts on this base."
@@ -5000,6 +5017,7 @@ msgstr "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an
 #: components/admin/sign-in-trail.tsx
 #: components/admin/sources-tab.tsx
 #: components/auth/auth-page.tsx
+#: components/auth/confirm-signup-page.tsx
 #: components/record/row-status.tsx
 #: components/settings/account-settings.tsx
 #: components/table/share-dialog.tsx
@@ -7307,6 +7325,10 @@ msgstr "This host is not allowed: the operator adds it to ANYGRIDDB_SOURCES_ALLO
 msgid "This instance is up to date"
 msgstr "This instance is up to date"
 
+#: lib/errors.ts
+msgid "This instance sends no email, so it cannot confirm your address. Ask an administrator for an account, or use the invitation link you were sent."
+msgstr "This instance sends no email, so it cannot confirm your address. Ask an administrator for an account, or use the invitation link you were sent."
+
 #: components/auth/auth-page.tsx
 msgid "This instance uses single sign-on. A password works only for administrators."
 msgstr "This instance uses single sign-on. A password works only for administrators."
@@ -7334,6 +7356,14 @@ msgstr "This link no longer works: ask for a new one"
 #: components/auth/reset-page.tsx
 msgid "This link no longer works: it was used, it expired, or a newer one replaced it. Ask for a new one."
 msgstr "This link no longer works: it was used, it expired, or a newer one replaced it. Ask for a new one."
+
+#: components/auth/confirm-signup-page.tsx
+msgid "This link no longer works: it was used, it expired, or the account exists already. Sign in, or sign up again."
+msgstr "This link no longer works: it was used, it expired, or the account exists already. Sign in, or sign up again."
+
+#: lib/errors.ts
+msgid "This link no longer works: sign up again"
+msgstr "This link no longer works: sign up again"
 
 #: lib/errors.ts
 msgid "This link takes only one row"
@@ -7504,6 +7534,10 @@ msgstr "To"
 #: lib/errors.ts
 msgid "To add this field, an administrator names in the source a schema of the client's database kept for AnyGridDB: the client's tables are never changed"
 msgstr "To add this field, an administrator names in the source a schema of the client's database kept for AnyGridDB: the client's tables are never changed"
+
+#: components/auth/confirm-signup-page.tsx
+msgid "To create the account of {email}, enter the password you chose when signing up."
+msgstr "To create the account of {email}, enter the password you chose when signing up."
 
 #: components/shell/new-table-dialog.tsx
 msgid "To do"

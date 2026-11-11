@@ -1,8 +1,16 @@
 /**
  * Paths whose last part is a secret: a public share, an invitation, a
- * calendar feed, a webhook automation's address.
+ * password reset, a sign-up's link, a calendar feed, a webhook
+ * automation's address.
  */
-const SECRET_PREFIXES = ["/s/", "/invite/", "/ical/", "/hooks/automations/"];
+const SECRET_PREFIXES = [
+  "/s/",
+  "/invite/",
+  "/reset/",
+  "/signup/",
+  "/ical/",
+  "/hooks/automations/",
+];
 
 /**
  * A request's address as logs keep it: the secret part of a path that has

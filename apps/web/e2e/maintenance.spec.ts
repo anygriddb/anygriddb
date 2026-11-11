@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import pg from "pg";
-import { signUpWithTable, uniqueStamp, watchPolicy } from "./setup";
+import { signUp, signUpWithTable, uniqueStamp, watchPolicy } from "./setup";
 
 const controlUrl =
   process.env.DATABASE_URL ??
@@ -24,12 +24,11 @@ test("maintenance keeps everyone but administrators out, and an announcement sho
     const member = await other.newPage();
     const stamp = uniqueStamp();
     const memberEmail = `e2e-out-${stamp}@example.com`;
-    await member.goto("/signup");
-    await member.getByLabel("Email").fill(memberEmail);
-    await member.getByLabel("Display name").fill(`Out ${stamp}`);
-    await member.getByLabel("Password").fill("correct-horse-battery");
-    await member.getByRole("button", { name: "Create account" }).click();
-    await member.waitForURL(/\/welcome/);
+    await signUp(member, {
+      email: memberEmail,
+      name: `Out ${stamp}`,
+      password: "correct-horse-battery",
+    });
 
     await page.goto("/admin");
     await page.getByRole("tab", { name: "Settings" }).click();

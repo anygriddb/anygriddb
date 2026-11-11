@@ -14,6 +14,7 @@ import {
   browserFactory,
   enrollTotp,
   errorCode,
+  signUpProved,
 } from "../trpc/caller.test-helpers.js";
 import { clearSmtpCache, resolveSmtp } from "./smtp.js";
 
@@ -155,7 +156,7 @@ describe("operator SMTP", () => {
 
   it("refuses a member", async () => {
     const member = browser();
-    await member.call().auth.signup({
+    await signUpProved(member, db, {
       email: `member-${suffix}@example.org`,
       displayName: "Max",
       password: PASSWORD,

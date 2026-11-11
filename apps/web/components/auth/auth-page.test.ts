@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeNext } from "./auth-page";
+import { invitationToken, safeNext } from "./auth-page";
 
 describe("safeNext", () => {
   it("keeps an in-app path", () => {
@@ -16,5 +16,19 @@ describe("safeNext", () => {
     expect(safeNext("/login#top")).toBe("/");
     expect(safeNext("/signup")).toBe("/");
     expect(safeNext(undefined)).toBe("/");
+  });
+});
+
+describe("invitationToken", () => {
+  it("reads the invitation a sign-up comes from", () => {
+    const token = "a".repeat(43);
+    expect(invitationToken(`/invite/${token}`)).toBe(token);
+  });
+
+  it("finds none in any other path", () => {
+    expect(invitationToken("/")).toBeUndefined();
+    expect(invitationToken("/invite/short")).toBeUndefined();
+    expect(invitationToken(`/invite/${"a".repeat(43)}/more`)).toBeUndefined();
+    expect(invitationToken(`/b/${"a".repeat(43)}`)).toBeUndefined();
   });
 });

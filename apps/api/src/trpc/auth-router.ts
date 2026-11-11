@@ -56,8 +56,13 @@ import {
 import {
   sendResetLink,
   sendSecurityNotice,
+  sendSignupMail,
   type SecurityMailDeps,
 } from "../auth/security-mail.js";
+import {
+  createSignupRequest,
+  findSignupRequest,
+} from "../auth/signup-requests.js";
 import {
   SESSION_COOKIE,
   createSession,
@@ -69,6 +74,7 @@ import {
 } from "../auth/session.js";
 import {
   backupCodeSchema,
+  confirmSignupSchema,
   signupInputSchema,
   factorProofSchema,
   totpCodeSchema,
@@ -102,6 +108,7 @@ import {
 import { signupDecision } from "../admin.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 import { smtpReady } from "../mail.js";
+import { resolveLocale } from "../mail-i18n.js";
 import { resolveOidc } from "../integrations/oidc.js";
 import { resolveSaml } from "../integrations/saml.js";
 import { readGateSettings, readSettings } from "../settings.js";
@@ -278,6 +285,79 @@ async function requireChallenge(ctx: Context) {
   return challenge;
 }
 
+/** The address an invitation's link was sent to, while it is live. */
+async function invitedAddress(
+  ctx: Context,
+  token: string,
+): Promise<string | null> {
+  try {
+    return (await invitationPreview(ctx.db, token)).email;
+  } catch (error) {
+    if (error instanceof AppError && error.code === "invalid_invitation") {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/** The page's language, when it is one mail is written in. */
+function mailLocaleOf(
+  header: string | string[] | undefined,
+): "en" | "fr" | null {
+  const first = (Array.isArray(header) ? header[0] : header)
+    ?.split(",")[0]
+    ?.trim()
+    .slice(0, 2)
+    .toLowerCase();
+  return first === "en" || first === "fr" ? first : null;
+}
+
+/**
+ * Makes an account whose address is proved, with its password, and lets
+ * go of every sign-up still waiting for that address.
+ */
+async function createAccount(
+  ctx: Context,
+  input: {
+    email: string;
+    displayName: string;
+    passwordHash: string;
+    isAdmin: boolean;
+  },
+): Promise<string> {
+  try {
+    return await ctx.db.transaction().execute(async (tx) => {
+      const inserted = await tx
+        .insertInto("users")
+        .values({
+          email: input.email,
+          displayName: input.displayName,
+          isAdmin: input.isAdmin,
+        })
+        .returning("id")
+        .executeTakeFirst();
+      const id = inserted?.id;
+      if (!id) {
+        throw new AppError("no_row");
+      }
+      await tx
+        .insertInto("passwordHashes")
+        .values({ userId: id, hash: input.passwordHash })
+        .execute();
+      await tx
+        .deleteFrom("signupRequests")
+        .where("email", "=", input.email)
+        .execute();
+      return id;
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new AppError("account_already_exists");
+    }
+    throw error;
+  }
+}
+
 export const authRouter = t.router({
   /**
    * Public: how sign-up works here, the default language, and what the
@@ -285,6 +365,7 @@ export const authRouter = t.router({
    */
   instance: procedure.query(async ({ ctx }) => {
     const settings = await readSettings(ctx.db);
+    const mailReady = smtpReady((await resolveSmtp(ctx.db, ctx.env)).config);
     return {
       signup: settings.signup,
       defaultLocale: settings.defaultLocale,
@@ -294,15 +375,22 @@ export const authRouter = t.router({
       passwordMinLength: settings.passwordMinLength,
       ssoOnly: settings.ssoOnly,
       selfReset:
-        !settings.ssoOnly &&
-        settings.passwordReset === "self" &&
-        smtpReady((await resolveSmtp(ctx.db, ctx.env)).config),
+        !settings.ssoOnly && settings.passwordReset === "self" && mailReady,
+      // Past the first account, a sign-up proves its address by a link
+      // mailed to it, or comes from an invitation (ADR 0058).
+      signupByMail: mailReady,
       publicLinks: settings.publicLinks,
       tokenMaxDays: settings.tokenMaxDays,
       // WebAuthn RP ID needs a hostname in PUBLIC_URL (ADR 0029).
       passkeysEligible: passkeysEligible(ctx.env.PUBLIC_URL),
     };
   }),
+  /**
+   * A password sign-up (ADR 0058). The first account, and one that comes
+   * from an invitation to this very address, are made at once. Any other
+   * waits for its address to be proved: a link is mailed to it, and the
+   * answer is the same whether or not the address already has an account.
+   */
   signup: procedure
     .input(signupInputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -320,36 +408,95 @@ export const authRouter = t.router({
         throw new AppError(decision.refusal ?? "signup_closed");
       }
       assertPasswordPolicy(input.password, settings);
-      try {
-        const hash = await hashPassword(input.password);
-        const userId = await ctx.db.transaction().execute(async (tx) => {
-          const inserted = await tx
-            .insertInto("users")
-            .values({
-              email,
-              displayName: input.displayName,
-              isAdmin: decision.isAdmin,
-            })
-            .returning("id")
-            .executeTakeFirst();
-          const id = inserted?.id;
-          if (!id) {
-            throw new AppError("no_row");
-          }
-          await tx
-            .insertInto("passwordHashes")
-            .values({ userId: id, hash })
-            .execute();
-          return id;
+      const passwordHash = await hashPassword(input.password);
+      if (
+        decision.firstAccount ||
+        (input.invitation !== undefined &&
+          (await invitedAddress(ctx, input.invitation)) === email)
+      ) {
+        const userId = await createAccount(ctx, {
+          email,
+          displayName: input.displayName,
+          passwordHash,
+          isAdmin: decision.isAdmin,
         });
         await issueSession(ctx, userId, "signup");
         return { status: "session" as const };
-      } catch (error) {
-        if (isUniqueViolation(error)) {
-          throw new AppError("account_already_exists");
-        }
-        mapProcedureError(error, ctx.req.log);
       }
+      if (!smtpReady((await resolveSmtp(ctx.db, ctx.env)).config)) {
+        throw new AppError("signup_needs_mail");
+      }
+      const locale = resolveLocale(
+        mailLocaleOf(ctx.req.headers["accept-language"]),
+        settings.defaultLocale,
+      );
+      const existing = await ctx.db
+        .selectFrom("users")
+        .select("id")
+        .where("email", "=", email)
+        .executeTakeFirst();
+      const link = existing
+        ? null
+        : await createSignupRequest(ctx.db, {
+            email,
+            displayName: input.displayName,
+            passwordHash,
+          });
+      // Not awaited: how long the mail takes tells nothing of the address.
+      if (existing || link) {
+        void sendSignupMail(
+          mailDeps(ctx),
+          link
+            ? { to: email, locale, kind: "link", ...link }
+            : { to: email, locale, kind: "exists" },
+        ).catch((error: unknown) => {
+          ctx.req.log.error({ err: error }, "sign-up mail failed");
+        });
+      }
+      return { status: "verify" as const };
+    }),
+  /** Public: whether a sign-up's link still works, and for which address. */
+  signupLink: procedure
+    .input(z.object({ token: z.string().max(100) }))
+    .query(async ({ ctx, input }) => {
+      const request = await findSignupRequest(ctx.db, input.token);
+      return request
+        ? { valid: true as const, email: request.email }
+        : { valid: false as const };
+    }),
+  /**
+   * Public: opens a sign-up's link. The password chosen at sign-up proves
+   * the person who opens it made the sign-up; the account is made, every
+   * other request for the address goes, and the person is signed in.
+   */
+  confirmSignup: procedure
+    .input(confirmSignupSchema)
+    .mutation(async ({ ctx, input }) => {
+      const settings = await readSettings(ctx.db);
+      assertSignInAddressAllowed(settings.signInAllowlist, ctx.req.ip);
+      assertPasswordSignupAllowed(settings);
+      const request = await findSignupRequest(ctx.db, input.token);
+      if (!request) throw new AppError("invalid_signup_link");
+      if (!(await verifyPassword(request.passwordHash, input.password))) {
+        throw new AppError("invalid_credentials");
+      }
+      // The policy may have changed since: it holds when the account is made.
+      const decision = await signupDecision(
+        ctx.db,
+        request.email,
+        ctx.env.ADMIN_EMAILS,
+      );
+      if (!decision.allowed) {
+        throw new AppError(decision.refusal ?? "signup_closed");
+      }
+      const userId = await createAccount(ctx, {
+        email: request.email,
+        displayName: request.displayName,
+        passwordHash: request.passwordHash,
+        isAdmin: decision.isAdmin,
+      });
+      await issueSession(ctx, userId, "signup");
+      return { status: "session" as const };
     }),
   login: procedure.input(loginInputSchema).mutation(async ({ ctx, input }) => {
     const settings = await readGateSettings(ctx.db);
