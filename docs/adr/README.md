@@ -64,3 +64,4 @@ asserting: it superseded 0001 and added 0021 to 0026.
 | [0050](0050-operator-integrations-ui.md)             | Operator integrations (SMTP, OIDC, SAML) in the UI; env as optional bootstrap           | Accepted                           |
 | [0051](0051-admin-account-erasure.md)                | Administrator-initiated account erasure; comments under the tombstone                   | Accepted                           |
 | [0052](0052-operator-mail.md)                        | Operator mail: plain-text notice to all active or chosen accounts                       | Accepted                           |
+| [0053](0053-sso-prove-and-sso-only.md)               | Prove SSO at save; SSO-only sign-in with admin break-glass                              | Accepted                           |

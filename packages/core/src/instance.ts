@@ -81,6 +81,11 @@ const fields = {
   banner: z.string().trim().max(500).nullable(),
   mfaScope: z.enum(MFA_SCOPES),
   ssoMfa: z.enum(SSO_MFA_MODES),
+  /**
+   * When true, only single sign-on opens a session for non-administrators.
+   * Administrators keep a password as break-glass (ADR 0053).
+   */
+  ssoOnly: z.boolean(),
   /** Failed passwords and codes in a row that lock an account. */
   lockoutThreshold: bounded("lockoutThreshold"),
   lockoutMinutes: z.union([z.literal(0), bounded("lockoutMinutes")]),
@@ -131,6 +136,7 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   banner: null,
   mfaScope: "owners",
   ssoMfa: "local",
+  ssoOnly: false,
   lockoutThreshold: 10,
   lockoutMinutes: 15,
   sessionIdleMinutes: 15,
@@ -160,6 +166,7 @@ export const instanceSettingsSchema = z.object({
   banner: fields.banner.default(INSTANCE_DEFAULTS.banner),
   mfaScope: fields.mfaScope.default(INSTANCE_DEFAULTS.mfaScope),
   ssoMfa: fields.ssoMfa.default(INSTANCE_DEFAULTS.ssoMfa),
+  ssoOnly: fields.ssoOnly.default(INSTANCE_DEFAULTS.ssoOnly),
   lockoutThreshold: fields.lockoutThreshold.default(
     INSTANCE_DEFAULTS.lockoutThreshold,
   ),
@@ -201,6 +208,7 @@ export const instanceSettingsPatchSchema = z
     banner: fields.banner.optional(),
     mfaScope: fields.mfaScope.optional(),
     ssoMfa: fields.ssoMfa.optional(),
+    ssoOnly: fields.ssoOnly.optional(),
     lockoutThreshold: fields.lockoutThreshold.optional(),
     lockoutMinutes: fields.lockoutMinutes.optional(),
     sessionIdleMinutes: fields.sessionIdleMinutes.optional(),

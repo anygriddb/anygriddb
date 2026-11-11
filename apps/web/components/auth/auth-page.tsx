@@ -50,6 +50,7 @@ export function AuthPage({
   const providers = useQuery(api.session.providers.queryOptions());
   const instance = useQuery(api.auth.instance.queryOptions());
   const policy = instance.data?.signup ?? "open";
+  const ssoOnly = instance.data?.ssoOnly === true;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -319,6 +320,11 @@ export function AuthPage({
               {t`At least ${{ minLength }} characters.`}
             </p>
           ) : null}
+          {mode === "login" && ssoOnly ? (
+            <p className="text-xs text-muted-foreground">
+              {t`This instance uses single sign-on. A password works only for administrators.`}
+            </p>
+          ) : null}
           {mode === "login" && instance.data?.selfReset ? (
             <button
               type="button"
@@ -352,8 +358,8 @@ export function AuthPage({
             </Button>
           ) : null}
           <p className="text-center text-sm text-muted-foreground">
-            {mode === "login" && policy === "closed" ? null : mode ===
-              "login" ? (
+            {mode === "login" &&
+            (policy === "closed" || ssoOnly) ? null : mode === "login" ? (
               <Link
                 className="text-primary hover:underline"
                 to="/signup"

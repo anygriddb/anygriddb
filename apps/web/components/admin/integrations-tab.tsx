@@ -339,6 +339,29 @@ function OidcSection() {
             <Cable className="h-4 w-4" aria-hidden />
             {t`Save OIDC`}
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy || !issuerValue.trim()}
+            onClick={() =>
+              void (async () => {
+                setBusy(true);
+                try {
+                  await trpc.admin.oidc.test.mutate({
+                    issuer: issuerValue.trim(),
+                  });
+                  toast.success(t`OpenID discovery answered`);
+                } catch (cause) {
+                  toast.error(errorText(cause));
+                } finally {
+                  setBusy(false);
+                }
+              })()
+            }
+          >
+            {t`Test issuer`}
+          </Button>
           {oidc.data.configured ? (
             <Button
               type="button"
@@ -494,6 +517,29 @@ function SamlSection() {
           <Button type="submit" size="sm" disabled={busy}>
             <Shield className="h-4 w-4" aria-hidden />
             {t`Save SAML`}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy || !certValue.trim()}
+            onClick={() =>
+              void (async () => {
+                setBusy(true);
+                try {
+                  await trpc.admin.saml.test.mutate({
+                    idpCert: certValue.trim(),
+                  });
+                  toast.success(t`Certificate is valid`);
+                } catch (cause) {
+                  toast.error(errorText(cause));
+                } finally {
+                  setBusy(false);
+                }
+              })()
+            }
+          >
+            {t`Test certificate`}
           </Button>
           {saml.data.configured ? (
             <Button
