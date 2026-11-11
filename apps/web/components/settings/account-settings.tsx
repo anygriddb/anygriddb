@@ -312,7 +312,7 @@ export function AccountSettings() {
       </RuledSection>
       <RuledSection
         title={t`Delete account`}
-        description={t`Refused while an audit row, a signature, or a role refers to you.`}
+        description={t`Removes your sign-in and attributes your audit history to an erased account. Values you entered in bases stay until a manager deletes those rows.`}
       >
         <div className="flex gap-2">
           <Input
@@ -337,7 +337,7 @@ export function AccountSettings() {
         onOpenChange={setConfirmErase}
         danger
         title={t`Permanently delete your account?`}
-        description={t`This cannot be undone.`}
+        description={t`This cannot be undone. Your email and factors are removed. Row values in bases are not wiped.`}
         confirmLabel={t`Delete`}
         onConfirm={() =>
           run(async () => {

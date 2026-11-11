@@ -289,12 +289,23 @@ What to know:
 - Accounts are keyed by email. A provisioned user whose email already
   has an account takes it over.
 - Deactivating a user disables the account and ends its sessions;
-  deleting it also takes it out of its groups. Its history stays, and
-  creating it again brings it back.
+  deleting it also takes it out of its groups. Its email, display
+  name, and history stay, and creating it again brings it back. That
+  is not account erasure: a person erases their own account in
+  Settings, while it can still sign in (row values in bases still need
+  a manager to trash or edit them).
 - The last active administrator cannot be deactivated through SCIM.
 - Provisioned people sign in through OIDC or SAML: SCIM sets no
   password.
 - Requests count in the API's rate limit, 600 a minute per address.
+
+## Several API processes
+
+Rate limits are counted in each process's memory. Behind a load balancer,
+put the balancer's addresses in `ANYGRIDDB_TRUSTED_PROXIES` so clients are
+keyed by their real address, and enforce an overall limit on the proxy as
+well: N replicas otherwise multiply every bucket. WebSocket presence is
+also per process; fan-out uses PostgreSQL `LISTEN`/`NOTIFY`.
 
 ## Metrics and traces
 

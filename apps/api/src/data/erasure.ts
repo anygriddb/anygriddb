@@ -13,7 +13,8 @@ export const ERASED_USER_ID = "00000000-0000-0000-0000-000000000000";
 /**
  * Removes the account and the addresses that name it. Row history stays,
  * attributed to the tombstone account, so the record of what changed
- * outlives the person.
+ * outlives the person. Cell values in bases are not rewritten: a base
+ * owner must trash or edit those rows if the content itself must go.
  */
 export async function eraseAccount(
   db: Database,

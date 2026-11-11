@@ -63,6 +63,22 @@ export async function findSessionUser(
   return user ?? null;
 }
 
+/** True while this session hash still belongs to a live, enabled account. */
+export async function sessionHashAlive(
+  db: Database,
+  tokenHash: string,
+): Promise<boolean> {
+  const row = await db
+    .selectFrom("sessions as s")
+    .innerJoin("users as u", "u.id", "s.userId")
+    .select("s.tokenHash")
+    .where("s.tokenHash", "=", tokenHash)
+    .where("s.expiresAt", ">", new Date())
+    .where("u.disabledAt", "is", null)
+    .executeTakeFirst();
+  return row !== undefined;
+}
+
 /**
  * Idle-timeout renewal. Returns the new expiry when less than half of the
  * idle window is left and the absolute lifetime still allows it, else null.

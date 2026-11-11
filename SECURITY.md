@@ -16,6 +16,10 @@ The security policy is the administrator's, from defaults most organizations kee
 
 Administrators can also keep invitations to the organization's domains, keep base and API token creation to themselves, and have accounts nobody used for 30 to 365 days disabled, after an email warning a week before; administrators and identity-provider accounts are never disabled this way. Administrators are told of each lock in the app and by email, at most ten times an hour (ADR 0044).
 
+### Account erasure and SCIM
+
+A person erases their own account in Settings > Delete account, with their password. That removes their sign-in, second factors, sessions and tokens, the invitations sent to their address, their comments, their personal views, and the public links they created. Audit rows, signatures, and the write trails of client tables keep their facts under one placeholder account; the addresses in the sign-in trail are cleared. What the person typed into tables, and the files they added, are the tables' content and stay: a manager trashes or edits those rows when the content itself must leave the instance. An identity provider's SCIM DELETE or deactivation is not erasure: the account is disabled (and taken out of its groups on DELETE), but its email, display name, and history stay, so the provider can bring it back. Webhook deliveries keep row values for up to 30 days when a webhook was created to include them (off by default); the addresses webhooks call and the mail relay then process personal data.
+
 ### Reporting a Vulnerability
 
 Please report (suspected) security vulnerabilities to ngsanogo@proton.me, or privately through GitHub: [report a vulnerability](https://github.com/anygriddb/anygriddb/security/advisories/new). Do not open a public issue.

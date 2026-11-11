@@ -5239,10 +5239,6 @@ msgstr "refreshed every"
 msgid "refreshes"
 msgstr "refreshes"
 
-#: components/settings/account-settings.tsx
-msgid "Refused while an audit row, a signature, or a role refers to you."
-msgstr "Refused while an audit row, a signature, or a role refers to you."
-
 #: components/settings/second-factor.tsx
 msgid "Register a passkey"
 msgstr "Register a passkey"
@@ -5302,6 +5298,10 @@ msgstr "Remove their second factors"
 #: components/admin/admin-page.tsx
 msgid "removed by the identity provider"
 msgstr "removed by the identity provider"
+
+#: components/settings/account-settings.tsx
+msgid "Removes your sign-in and attributes your audit history to an erased account. Values you entered in bases stay until a manager deletes those rows."
+msgstr "Removes your sign-in and attributes your audit history to an erased account. Values you entered in bases stay until a manager deletes those rows."
 
 #: components/shell/sidebar.tsx
 #: components/table/view-tabs.tsx
@@ -6988,8 +6988,8 @@ msgid "This cannot be done to this account"
 msgstr "This cannot be done to this account"
 
 #: components/settings/account-settings.tsx
-msgid "This cannot be undone."
-msgstr "This cannot be undone."
+msgid "This cannot be undone. Your email and factors are removed. Row values in bases are not wiped."
+msgstr "This cannot be undone. Your email and factors are removed. Row values in bases are not wiped."
 
 #: lib/errors.ts
 msgid "This column does not tell when a row changes: choose a date and time set on every change, or a rowversion"

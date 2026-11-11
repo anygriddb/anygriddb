@@ -26,7 +26,13 @@ import { logUrl } from "./log-url.js";
 import { trustProxy } from "./trust-proxy.js";
 import { registerScim } from "./scim/routes.js";
 import { registerEnterpriseAuth } from "./auth/enterprise.js";
-import { SESSION_COOKIE, findSessionUser } from "./auth/session.js";
+import {
+  SESSION_COOKIE,
+  findSessionUser,
+  hashSessionToken,
+  isSessionToken,
+  sessionHashAlive,
+} from "./auth/session.js";
 import type { Env } from "./env.js";
 import type { FileStore } from "./files/index.js";
 import {
@@ -169,6 +175,7 @@ export async function createApp(deps: {
       }
       app.log.error({ err: error }, message);
     },
+    (tokenHash) => sessionHashAlive(deps.db, tokenHash),
   );
   const stopHeartbeat = hub.startHeartbeat();
   app.addHook("onClose", () => {
@@ -367,16 +374,23 @@ export async function createApp(deps: {
       early.push(raw);
     };
     socket.on("message", hold);
-    void findSessionUser(deps.db, request.cookies[SESSION_COOKIE])
+    const sessionToken = request.cookies[SESSION_COOKIE];
+    void findSessionUser(deps.db, sessionToken)
       .then((user) => {
         socket.off("message", hold);
-        if (!user) {
+        if (!user || !isSessionToken(sessionToken)) {
           request.log.warn("access denied");
           socket.close(4401, "Unauthorized");
           return;
         }
         if (socket.readyState !== socket.OPEN) return;
-        hub.add(socket, user.id, user.displayName, early);
+        hub.add(
+          socket,
+          user.id,
+          user.displayName,
+          early,
+          hashSessionToken(sessionToken),
+        );
       })
       .catch((error: unknown) => {
         socket.off("message", hold);

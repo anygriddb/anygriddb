@@ -15,8 +15,8 @@ export type Context = {
   res: FastifyReply;
   env: Env;
   files: FileStore;
-  /** This process's sockets, to close those of an account cut off. */
-  hub: Pick<GridHub, "closeUser" | "closeAllBut">;
+  /** This process's sockets, to close those of an account or session cut off. */
+  hub: Pick<GridHub, "closeUser" | "closeAllBut" | "closeSession">;
   /** The operator's rules for sources (ADR 0026). */
   sources: SourceSettings;
   /** The certificate served, as administrators see it; null in tests. */

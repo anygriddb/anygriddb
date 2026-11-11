@@ -1,6 +1,7 @@
 import { AppError, type EngineCatalog } from "@anygriddb/core";
 import { describe, expect, it } from "vitest";
-import { stepError, templateValues } from "./automations.js";
+import type { Database } from "@anygriddb/db";
+import { saveAutomation, stepError, templateValues } from "./automations.js";
 
 const engine = {
   table: {
@@ -69,5 +70,33 @@ describe("automation step errors", () => {
     ).toBe("Value already used in the source: orders_label_key");
     expect(stepError(new AppError("row_locked"))).toBe("Row locked");
     expect(stepError(new Error("socket hang up"))).toBe("Network error");
+  });
+});
+
+describe("saveAutomation", () => {
+  // The check comes before anything is read or written: no database.
+  const save = (actions: unknown) =>
+    saveAutomation({} as Database, {
+      tableId: "00000000-0000-4000-8000-000000000001",
+      createdBy: "00000000-0000-4000-8000-000000000002",
+      name: "Notify",
+      enabled: true,
+      trigger: { type: "row_created" },
+      actions: actions as never,
+    });
+  const hook = { type: "call_webhook", url: "https://127.0.0.1/hook" };
+
+  it("refuses a webhook to a private address, wherever the action sits", async () => {
+    for (const actions of [
+      [hook],
+      [{ type: "branch", then: [hook] }],
+      [{ type: "branch", then: [], otherwise: [hook] }],
+      [{ type: "for_each", actions: [hook] }],
+      [{ type: "call_webhook", url: "http://example.org/hook" }],
+    ]) {
+      await expect(save(actions)).rejects.toMatchObject({
+        code: "invalid_webhook",
+      });
+    }
   });
 });

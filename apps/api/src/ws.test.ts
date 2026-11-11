@@ -143,6 +143,85 @@ describe("GridHub heartbeat", () => {
   });
 });
 
+describe("GridHub sessions", () => {
+  it("closes only the socket of the session that logged out", async () => {
+    const { EventEmitter } = await import("node:events");
+    const { GridHub } = await import("./ws.js");
+    const bus = {
+      publish: async () => undefined,
+      onMessage: () => undefined,
+      onReconnect: () => undefined,
+      listening: () => true,
+      close: async () => undefined,
+    };
+    const hub = new GridHub(
+      bus,
+      {} as never,
+      async () => "ok" as const,
+      () => undefined,
+    );
+    const closed: string[] = [];
+    function socketOf(hash: string) {
+      const socket = Object.assign(new EventEmitter(), {
+        OPEN: 1,
+        readyState: 1,
+        send: () => undefined,
+        close: (_code: number, reason: string) => {
+          closed.push(`${hash}:${reason}`);
+          socket.readyState = 3;
+        },
+      });
+      hub.add(socket as never, "user", "Ada", [], hash);
+      return socket;
+    }
+    socketOf("hash-a");
+    socketOf("hash-b");
+    expect(hub.closeSession("hash-a")).toBe(1);
+    expect(closed).toEqual(["hash-a:Unauthorized"]);
+    expect(hub.closeUser("user")).toBe(1);
+    expect(closed).toEqual(["hash-a:Unauthorized", "hash-b:Unauthorized"]);
+  });
+
+  it("cuts a socket whose session is no longer live", async () => {
+    const { EventEmitter } = await import("node:events");
+    const { GridHub } = await import("./ws.js");
+    const bus = {
+      publish: async () => undefined,
+      onMessage: () => undefined,
+      onReconnect: () => undefined,
+      listening: () => true,
+      close: async () => undefined,
+    };
+    let alive = true;
+    const hub = new GridHub(
+      bus,
+      {} as never,
+      async () => "ok" as const,
+      () => undefined,
+      async () => alive,
+    );
+    const closed: string[] = [];
+    const socket = Object.assign(new EventEmitter(), {
+      OPEN: 1,
+      readyState: 1,
+      send: () => undefined,
+      close: (_code: number, reason: string) => {
+        closed.push(reason);
+        socket.readyState = 3;
+      },
+    });
+    const channel = "00000000-0000-4000-8000-0000000000cc";
+    hub.add(socket as never, "user", "Ada", [], "live-hash");
+    socket.emit("message", JSON.stringify({ type: "subscribe", channel }));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(closed).toEqual([]);
+    alive = false;
+    socket.emit("message", JSON.stringify({ type: "subscribe", channel }));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(closed).toEqual(["Unauthorized"]);
+  });
+});
+
 describe("GridHub early messages", () => {
   it("handles, in order, what a page sent before its session was known", async () => {
     const { EventEmitter } = await import("node:events");
