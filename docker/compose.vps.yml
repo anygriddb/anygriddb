@@ -56,7 +56,7 @@ services:
   # Optional noisy neighbor: burns host CPU outside the app/db cgroups.
   neighbor:
     profiles: ["noisy"]
-    image: alpine:3.21
+    image: alpine:3.24
     restart: "no"
     security_opt:
       - no-new-privileges:true
