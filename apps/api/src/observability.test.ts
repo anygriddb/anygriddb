@@ -1,3 +1,5 @@
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { describe, expect, it, vi } from "vitest";
 import {
   routeLabel,
@@ -7,7 +9,93 @@ import {
   registerPoolGauge,
   registry,
   requestAnswered,
+  startTracing,
 } from "./observability.js";
+
+type OtlpSpan = {
+  name: string;
+  traceId: string;
+  spanId: string;
+  parentSpanId?: string;
+};
+type OtlpBody = {
+  resourceSpans: Array<{
+    resource: {
+      attributes: Array<{ key: string; value: { stringValue?: string } }>;
+    };
+    scopeSpans: Array<{ spans: OtlpSpan[] }>;
+  }>;
+};
+
+describe("traces", () => {
+  it("sends nothing and loads nothing without a collector", async () => {
+    const stop = await startTracing({
+      endpoint: undefined,
+      serviceName: "anygriddb",
+      version: "0.0.0",
+    });
+    expect(await measureJob("quiet", () => Promise.resolve(1))).toBe(1);
+    await stop();
+  });
+
+  it("sends a collector each span, under the span it ran in", async () => {
+    const bodies: OtlpBody[] = [];
+    const paths: string[] = [];
+    const collector = createServer((request, response) => {
+      let raw = "";
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        raw += chunk;
+      });
+      request.on("end", () => {
+        paths.push(request.url ?? "");
+        bodies.push(JSON.parse(raw) as OtlpBody);
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end("{}");
+      });
+    });
+    await new Promise<void>((resolve) => {
+      collector.listen(0, "127.0.0.1", resolve);
+    });
+    const { port } = collector.address() as AddressInfo;
+    try {
+      const stop = await startTracing({
+        endpoint: `http://127.0.0.1:${String(port)}/`,
+        serviceName: "anygriddb-test",
+        version: "1.2.3",
+      });
+      await measureJob("outer", () =>
+        measureSource({ id: "s1", engine: "postgresql" }, "read", () =>
+          Promise.resolve(1),
+        ),
+      );
+      // Stopping sends what the batch still holds.
+      await stop();
+      expect(paths).toContain("/v1/traces");
+      const spans = bodies.flatMap((body) =>
+        body.resourceSpans.flatMap((resource) =>
+          resource.scopeSpans.flatMap((scope) => scope.spans),
+        ),
+      );
+      const job = spans.find((span) => span.name === "job outer");
+      const read = spans.find((span) => span.name === "source read");
+      expect(job).toBeDefined();
+      expect(read?.traceId).toBe(job?.traceId);
+      expect(read?.parentSpanId).toBe(job?.spanId);
+      const attributes = bodies[0]?.resourceSpans[0]?.resource.attributes ?? [];
+      expect(
+        attributes.find((item) => item.key === "service.name")?.value
+          .stringValue,
+      ).toBe("anygriddb-test");
+    } finally {
+      await new Promise<void>((resolve) => {
+        collector.close(() => {
+          resolve();
+        });
+      });
+    }
+  });
+});
 
 describe("metrics", () => {
   it("labels built files as one route, whatever their names", () => {

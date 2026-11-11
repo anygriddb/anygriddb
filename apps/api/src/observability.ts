@@ -180,28 +180,38 @@ export async function startTracing(settings: {
   version: string;
 }): Promise<() => Promise<void>> {
   if (!settings.endpoint) return () => Promise.resolve();
-  const [{ NodeTracerProvider, BatchSpanProcessor }, otlp, resources] =
+  const [{ TracerProvider, BatchSpanProcessor }, contexts, otlp, resources] =
     await Promise.all([
-      import("@opentelemetry/sdk-trace-node"),
+      import("@opentelemetry/sdk-trace"),
+      import("@opentelemetry/context-async-hooks"),
       import("@opentelemetry/exporter-trace-otlp-http"),
       import("@opentelemetry/resources"),
     ]);
-  const provider = new NodeTracerProvider({
+  const provider = new TracerProvider({
     resource: resources.resourceFromAttributes({
       "service.name": settings.serviceName,
       "service.version": settings.version,
     }),
     spanProcessors: [
-      new BatchSpanProcessor(
-        new otlp.OTLPTraceExporter({
+      new BatchSpanProcessor({
+        exporter: new otlp.OTLPTraceExporter({
           url: `${settings.endpoint.replace(/\/$/, "")}/v1/traces`,
         }),
-      ),
+      }),
     ],
   });
-  provider.register();
+  // A span's children are found through the async context Node keeps:
+  // without this manager, every span would start a trace of its own.
+  const manager = new contexts.AsyncLocalStorageContextManager().enable();
+  context.setGlobalContextManager(manager);
+  trace.setGlobalTracerProvider(provider);
   tracer = trace.getTracer("anygriddb", settings.version);
-  return () => provider.shutdown();
+  return async () => {
+    await provider.shutdown();
+    trace.disable();
+    context.disable();
+    tracer = trace.getTracer("anygriddb");
+  };
 }
 
 /** Runs `body` in a span of its own, child of the active one. */

@@ -49,7 +49,7 @@ order of work is in the [migration plan](docs/migration-plan.md).
 | Formula editor  | CodeMirror 6 on the shared parser: completion, inline errors; loaded with a formula       | MIT                |
 | Charts          | Apache ECharts 6, SVG renderer, loaded with the dashboards only (ADR 0035)                | Apache-2.0         |
 | Metrics         | `prom-client` 15: `/metrics` for the operator's token only (ADR 0018)                     | Apache-2.0         |
-| Traces          | OpenTelemetry 2.12, loaded only when a collector is named (ADR 0018)                      | Apache-2.0         |
+| Traces          | OpenTelemetry 3.0, loaded only when a collector is named (ADR 0018)                       | Apache-2.0         |
 | UI              | Tailwind 4, light and dark tokens in `packages/ui`                                        | MIT                |
 | i18n            | Lingui 6: English source, ICU plurals, PO catalogs in `apps/web/locales` (ADR 0013, 0041) | MIT                |
 | Tests           | Vitest 5, Testcontainers (PostgreSQL 18 and the client engines), Playwright journeys      | MIT / Apache-2.0   |
