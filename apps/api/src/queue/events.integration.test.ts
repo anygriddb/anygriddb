@@ -115,8 +115,8 @@ describe("row events in graphile-worker", () => {
     await runOnce({ pgPool: pool, taskList: tasks });
   }
 
-  async function scope() {
-    const table = await findLiveTable(database, tableId);
+  async function scope(id: string = tableId) {
+    const table = await findLiveTable(database, id);
     if (!table) throw new Error("no table");
     return loadRowScope(
       database,
@@ -219,5 +219,45 @@ describe("row events in graphile-worker", () => {
       .where("event", "=", "import")
       .execute();
     expect(deliveries).toHaveLength(1);
+  });
+
+  it("hands a row event only to the consumers its table has", async () => {
+    await pool.query("delete from graphile_worker._private_jobs");
+    const baseId = (await scope()).table.baseId;
+    const quietId = (
+      await insertTable(database, owner, {
+        baseId,
+        name: "Quiet",
+        columns: [{ name: "title", label: "Title", fieldType: "text" }],
+      })
+    ).id;
+    const deps = { db: database, bus, log: () => undefined };
+    await createRows(
+      deps,
+      await scope(quietId),
+      [{ values: { title: "A" } }, { values: { title: "B" } }],
+      { source: "web" },
+    );
+    await createRows(deps, await scope(), [{ values: { title: "C" } }], {
+      source: "web",
+    });
+    expect(await queued(TASKS.rowEvents)).toHaveLength(2);
+    // The events alone, so the jobs they queue stay to be counted.
+    await runOnce({
+      pgPool: pool,
+      taskList: { [TASKS.rowEvents]: tasks[TASKS.rowEvents] },
+    });
+    // No webhook, no automation, no user field on Quiet: nothing for its
+    // two rows. The other table has a webhook and nothing else.
+    // (The worker may still be marking its last event done.)
+    const left = (await queued()).filter(
+      (job) => job.task_identifier !== TASKS.rowEvents,
+    );
+    expect(left.map((job) => job.task_identifier)).toEqual([
+      TASKS.webhooksEvent,
+    ]);
+    expect(left[0]?.payload).toMatchObject({
+      event: { tableId, event: "insert" },
+    });
   });
 });

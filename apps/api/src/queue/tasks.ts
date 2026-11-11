@@ -26,6 +26,7 @@ import {
   type QueueDeps,
 } from "../jobs.js";
 import {
+  assignmentNotifies,
   handleAssignments,
   notify,
   purgeNotifications,
@@ -40,10 +41,11 @@ import {
   type HookDeps,
 } from "../webhooks.js";
 import {
-  addJob,
+  addJobs,
   eventPayloadSchema,
   rowEventsPayloadSchema,
   TASKS,
+  type TaskName,
 } from "./jobs.js";
 import { purgeAuthEvents } from "../auth/auth-events.js";
 import { sweepInactiveAccounts } from "../auth/inactivity.js";
@@ -62,6 +64,7 @@ import {
   runSync,
 } from "../sources/sync.js";
 import { announceRows } from "../data/announce.js";
+import { liveColumn } from "../data/live.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 import {
   deliverOperatorMail,
@@ -80,12 +83,85 @@ export type TaskDeps = {
   log: (error: unknown, message: string) => void;
 };
 
-/** The jobs every row event becomes, one per consumer. */
-const CONSUMERS = [
-  TASKS.webhooksEvent,
-  TASKS.assignmentsEvent,
-  TASKS.automationsEvent,
-] as const;
+/** Who takes the row events of a table: only those with work to do. */
+type Consumers = {
+  webhooks: boolean;
+  assignments: boolean;
+  automations: boolean;
+};
+
+/**
+ * Which consumers the tables of some events have: an active webhook, a
+ * user field that notifies, an automation switched on. Most tables have
+ * none, and their writes then queue nothing more.
+ */
+async function consumersOf(
+  db: Database,
+  tableIds: readonly string[],
+): Promise<Map<string, Consumers>> {
+  const [hooks, people, automations] = await Promise.all([
+    db
+      .selectFrom("webhooks")
+      .select("tableId")
+      .distinct()
+      .where("tableId", "in", tableIds)
+      .where("active", "=", true)
+      .execute(),
+    db
+      .selectFrom("dataColumns")
+      .select(["tableId", "config"])
+      .where("tableId", "in", tableIds)
+      .where("fieldType", "=", "user")
+      .where(liveColumn())
+      .execute(),
+    db
+      .selectFrom("automations")
+      .select("tableId")
+      .distinct()
+      .where("tableId", "in", tableIds)
+      .where("enabled", "=", true)
+      .execute(),
+  ]);
+  const withHooks = new Set(hooks.map((row) => row.tableId));
+  const withPeople = new Set(
+    people
+      .filter((column) => assignmentNotifies(column.config))
+      .map((column) => column.tableId),
+  );
+  const withAutomations = new Set(automations.map((row) => row.tableId));
+  return new Map(
+    tableIds.map((id) => [
+      id,
+      {
+        webhooks: withHooks.has(id),
+        assignments: withPeople.has(id),
+        automations: withAutomations.has(id),
+      },
+    ]),
+  );
+}
+
+/** The consumer jobs one event becomes, given who listens to its table. */
+export function consumerTasks(
+  event: RowEvent,
+  consumers: Consumers | undefined,
+): TaskName[] {
+  if (!consumers) return [];
+  const tasks: TaskName[] = [];
+  if (consumers.webhooks) tasks.push(TASKS.webhooksEvent);
+  // People are told of a row they were put on; automations run on a row.
+  if (
+    consumers.assignments &&
+    event.rowId &&
+    (event.event === "insert" || event.event === "update")
+  ) {
+    tasks.push(TASKS.assignmentsEvent);
+  }
+  if (consumers.automations && event.rowId) {
+    tasks.push(TASKS.automationsEvent);
+  }
+  return tasks;
+}
 
 const deliveryPayloadSchema = z.object({ deliveryId: z.uuid() });
 // A webhook call carries its body's values, and no row event.
@@ -100,16 +176,25 @@ const sealsPayloadSchema = z.object({
   rowIds: z.array(z.string().min(1).max(1_000)).max(1_000).optional(),
 });
 
-/** Hands each event of a transaction to every consumer, in one commit. */
+/**
+ * Hands each event of a transaction to the consumers of its table, in one
+ * statement: every job exists, or none does.
+ */
 async function fanOut(db: Database, events: readonly RowEvent[]) {
   if (events.length === 0) return;
-  await db.transaction().execute(async (tx) => {
-    for (const event of events) {
-      for (const task of CONSUMERS) {
-        await addJob(tx, task, { event }, { maxAttempts: 5 });
-      }
-    }
-  });
+  const consumers = await consumersOf(db, [
+    ...new Set(events.map((event) => event.tableId)),
+  ]);
+  await addJobs(
+    db,
+    events.flatMap((event) =>
+      consumerTasks(event, consumers.get(event.tableId)).map((task) => ({
+        task,
+        payload: { event },
+        maxAttempts: 5,
+      })),
+    ),
+  );
 }
 
 export function taskGroups(deps: TaskDeps): WorkerGroup[] {

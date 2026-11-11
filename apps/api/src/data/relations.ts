@@ -5,6 +5,7 @@ import {
   buildClearLinks,
   buildCreateJunction,
   buildExistingIds,
+  buildForeignKeyIndex,
   buildInsertLinks,
   buildReadJunction,
   buildReadReferencing,
@@ -211,6 +212,10 @@ export async function addRelation(
               column: name,
               targetTable: target.physicalName,
             }),
+          );
+          await runRows(
+            tx,
+            buildForeignKeyIndex({ table: source.physicalName, column: name }),
           );
         } else {
           for (const statement of buildCreateJunction({

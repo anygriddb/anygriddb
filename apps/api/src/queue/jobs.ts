@@ -86,6 +86,36 @@ export async function addJob(
 }
 
 /**
+ * Adds many jobs in one statement: they exist together, or not at all.
+ * Nothing is added, and nothing is asked of the database, for an empty list.
+ */
+export async function addJobs(
+  executor: SqlExecutor,
+  jobs: ReadonlyArray<{
+    task: TaskName;
+    payload: unknown;
+    maxAttempts?: number;
+  }>,
+): Promise<void> {
+  if (jobs.length === 0) return;
+  const specs = JSON.stringify(
+    jobs.map((job) => ({
+      identifier: job.task,
+      payload: job.payload,
+      max_attempts: job.maxAttempts ?? null,
+    })),
+  );
+  await sql`
+    select count(*) from graphile_worker.add_jobs(
+      array(
+        select json_populate_record(null::graphile_worker.job_spec, spec)
+        from json_array_elements(${specs}::json) as spec
+      )
+    )
+  `.execute(executor);
+}
+
+/**
  * The row events of a transaction come from its audit entries; an import
  * or another bulk write sends one event of its own instead.
  */
