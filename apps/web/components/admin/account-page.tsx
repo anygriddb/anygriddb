@@ -11,7 +11,6 @@ import { ArrowLeft, LockKeyhole, MoreHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
 import { useSession } from "../../lib/session";
 import { useTRPC } from "../../lib/trpc";
-import { useRoleLabel } from "../settings/role-label";
 import { LoadFailed } from "../shell/load-failed";
 import {
   ACCOUNT_ACTIONS,
@@ -19,6 +18,7 @@ import {
   type AccountAction,
   type AccountTarget,
 } from "./account-actions";
+import { AccountBases } from "./account-bases";
 import { useAuthLabels } from "./auth-labels";
 
 /** The everyday actions, in view at the top of the page (ROADMAP #13). */
@@ -45,7 +45,6 @@ export function AccountAdminPage({ userId }: { userId: string }) {
   const session = useSession();
   const navigate = useNavigate();
   const labels = useAuthLabels();
-  const roleLabel = useRoleLabel();
   const detail = useQuery(api.admin.account.queryOptions({ userId }));
   const actions = useAccountActions({
     mails: detail.data?.smtpReady ?? false,
@@ -167,30 +166,12 @@ export function AccountAdminPage({ userId }: { userId: string }) {
         <Fact label={t`Created`}>{date(account.createdAt)}</Fact>
       </Facts>
 
-      <Part
-        title={t`Bases and roles`}
-        empty={
-          account.bases.length === 0
-            ? t`No base yet. An owner invites them from a base's settings.`
-            : null
-        }
-      >
-        <ul className="divide-y divide-border rounded-sm border border-border">
-          {account.bases.map((base) => (
-            <li
-              key={`${base.id}:${base.viaGroup ?? ""}`}
-              className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
-            >
-              <span className="truncate">{base.name}</span>
-              <span className="text-xs text-muted-foreground">
-                {base.viaGroup
-                  ? t`${{ role: roleLabel(base.role) }}, through the group ${{ group: base.viaGroup }}`
-                  : roleLabel(base.role)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Part>
+      <AccountBases
+        userId={account.id}
+        name={account.displayName}
+        bases={account.bases}
+        canChange={session.data?.isAdmin === true}
+      />
 
       {account.identities.length > 0 ? (
         <Part title={t`Single sign-on`} empty={null}>

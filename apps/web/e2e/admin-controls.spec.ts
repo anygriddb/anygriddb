@@ -264,6 +264,34 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await expect(newcomer.getByText(baseName).first()).toBeVisible();
     await theirs.close();
 
+    // From their page, the administrator changes the role, takes it away,
+    // and gives it again (ROADMAP #68).
+    await openAdmin(page, "People", "Accounts");
+    await findAccount(page, newcomerEmail);
+    await page.getByRole("link", { name: `Newcomer ${stamp}` }).click();
+    const roleOn = page.getByLabel(`Role on ${baseName}`);
+    await expect(roleOn).toHaveValue("editor");
+    await roleOn.selectOption("viewer");
+    await expect(page.getByText("Role changed")).toBeVisible();
+    await expect(roleOn).toHaveValue("viewer");
+    await page.getByRole("button", { name: `Remove from ${baseName}` }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Remove", exact: true })
+      .click();
+    await expect(page.getByText(`Removed from ${baseName}`)).toBeVisible();
+    await expect(roleOn).toBeHidden();
+    await page.getByRole("button", { name: "Give a role on a base" }).click();
+    await page.getByLabel("Find a base").fill(baseName);
+    await page.getByRole("option", { name: baseName }).click();
+    await page.getByLabel(`Role on ${baseName}`).selectOption("commenter");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.getByRole("button", { name: "Give the role" }).click();
+    await expect(page.getByText(`Role given on ${baseName}`)).toBeVisible();
+    await expect(page.getByLabel(`Role on ${baseName}`)).toHaveValue(
+      "commenter",
+    );
+
     await other.close();
     expect(blocked).toEqual([]);
   } finally {

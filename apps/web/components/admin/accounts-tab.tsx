@@ -13,7 +13,6 @@ import {
   ListPicker,
   Select,
   Spinner,
-  type PickerOption,
 } from "@anygriddb/ui";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
@@ -47,6 +46,7 @@ import {
   usersQuery,
   type AccountsSearch,
 } from "./accounts-search";
+import { BaseName, useBaseChoices } from "./base-choices";
 import { InvitationsPanel } from "./invitations-panel";
 import { useRoleLabel } from "../settings/role-label";
 
@@ -478,7 +478,6 @@ function AddPersonDialog({
 }) {
   const { t } = useLingui();
   const errorText = useErrorText();
-  const api = useTRPC();
   const roleLabel = useRoleLabel();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -487,34 +486,8 @@ function AddPersonDialog({
   const [picking, setPicking] = useState(false);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
-  const bases = useQuery({
-    ...api.admin.bases.list.queryOptions({
-      search: typed.trim() || undefined,
-      limit: 50,
-    }),
-    enabled: picking,
-    placeholderData: keepPreviousData,
-  });
-  const found = bases.data?.bases ?? [];
-  const options: PickerOption[] = found.map((base) => {
-    const owners = base.owners.join(", ");
-    return {
-      id: base.id,
-      textValue: owners
-        ? t`${{ base: base.name }}, owned by ${{ owners }}`
-        : base.name,
-      children: (
-        <span className="flex min-w-0 flex-col">
-          <span className="truncate">{base.name}</span>
-          {owners ? (
-            <span className="truncate text-xs text-muted-foreground">
-              {t`Owned by ${{ owners }}`}
-            </span>
-          ) : null}
-        </span>
-      ),
-    };
-  });
+  const bases = useBaseChoices(typed, picking);
+  const found = bases.found;
   const toggle = (baseId: string) => {
     if (memberships.some((row) => row.baseId === baseId)) {
       setMemberships((rows) => rows.filter((row) => row.baseId !== baseId));
@@ -615,13 +588,8 @@ function AddPersonDialog({
               <ul className="flex flex-col gap-1.5">
                 {memberships.map((row) => (
                   <li key={row.baseId} className="flex items-center gap-2">
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-sm">{row.name}</span>
-                      {row.owners ? (
-                        <span className="truncate text-xs text-muted-foreground">
-                          {t`Owned by ${{ owners: row.owners }}`}
-                        </span>
-                      ) : null}
+                    <span className="min-w-0 flex-1">
+                      <BaseName name={row.name} owners={row.owners} />
                     </span>
                     <Select
                       aria-label={t`Role on ${{ base: row.name }}`}
@@ -662,13 +630,13 @@ function AddPersonDialog({
                   listLabel={t`Bases of the instance`}
                   inputValue={typed}
                   onInputChange={setTyped}
-                  options={options}
+                  options={bases.options}
                   selectionMode="multiple"
                   selected={memberships.map((row) => row.baseId)}
                   onToggle={toggle}
                   className="max-h-48"
                   empty={
-                    bases.isLoading ? (
+                    bases.loading ? (
                       <span className="flex justify-center">
                         <Spinner />
                       </span>

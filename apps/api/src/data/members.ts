@@ -100,16 +100,42 @@ export async function bindRole(
     .execute();
 }
 
-async function replaceRole(
+/**
+ * The base's owners, its row held until the transaction ends: two changes
+ * to one base's members wait for each other, so neither can leave it
+ * without an owner while each thought the other one stayed.
+ */
+async function lockedOwners(tx: AuditTx, baseId: string): Promise<string[]> {
+  await tx
+    .selectFrom("bases")
+    .select("id")
+    .where("id", "=", baseId)
+    .forUpdate()
+    .execute();
+  return ownerIds(tx, baseId);
+}
+
+/**
+ * Gives an account one role on a base, or changes it, in an audited
+ * transaction under the actor's name. A base keeps an owner: its last
+ * one cannot be given another role.
+ */
+export async function setMemberRole(
   db: Database,
   actorId: string,
-  userId: string,
-  role: Role,
-  baseId: string,
+  input: { baseId: string; userId: string; role: Role },
 ): Promise<void> {
-  await withAudit(db, { userId: actorId, source: "web" }, (tx) =>
-    bindRole(tx, userId, role, baseId),
-  );
+  await withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
+    const owners = await lockedOwners(tx, input.baseId);
+    if (
+      input.role !== "owner" &&
+      owners.includes(input.userId) &&
+      owners.length < 2
+    ) {
+      throw new AppError("invalid_owner");
+    }
+    await bindRole(tx, input.userId, input.role, input.baseId);
+  });
 }
 
 /**
@@ -188,11 +214,11 @@ export async function grantMember(
   if (!user) {
     throw new AppError("unknown_account");
   }
-  const owners = await ownerIds(db, input.baseId);
-  if (input.role !== "owner" && owners.includes(user.id) && owners.length < 2) {
-    throw new AppError("invalid_owner");
-  }
-  await replaceRole(db, actorId, user.id, input.role, input.baseId);
+  await setMemberRole(db, actorId, {
+    baseId: input.baseId,
+    userId: user.id,
+    role: input.role,
+  });
 }
 
 export async function revokeMember(
@@ -200,13 +226,14 @@ export async function revokeMember(
   actorId: string,
   input: { baseId: string; userId: string },
 ): Promise<void> {
-  const owners = await ownerIds(db, input.baseId);
-  if (owners.includes(input.userId) && owners.length < 2) {
-    throw new AppError("invalid_owner");
-  }
   const tablesOfBase = await tableIds(db, input.baseId);
   const ids = [input.baseId, ...tablesOfBase];
   await withAudit(db, { userId: actorId }, async (tx) => {
+    // A base keeps an owner: its last one cannot leave it.
+    const owners = await lockedOwners(tx, input.baseId);
+    if (owners.includes(input.userId) && owners.length < 2) {
+      throw new AppError("invalid_owner");
+    }
     for (const scopeId of ids) {
       await tx
         .deleteFrom("roleBindings")
