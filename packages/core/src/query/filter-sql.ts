@@ -67,7 +67,11 @@ export function emptySql(ref: ColumnRef, d: SqlDialect = POSTGRES): string {
   const x = ref.expression ?? refSql(ref.name);
   switch (ref.kind) {
     case "text":
-      return `(coalesce(${x}, '') = '')`;
+      // Oracle treats '' as null, so `coalesce(x, '') = ''` is never true
+      // and is_not_empty would drop every row. Null alone means empty.
+      return d.name === "oracle"
+        ? `(${x} is null)`
+        : `(coalesce(${x}, '') = '')`;
     case "links":
       return `(coalesce(${d.linksLength(x)}, 0) = 0)`;
     case "options":

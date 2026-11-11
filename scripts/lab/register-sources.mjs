@@ -51,6 +51,16 @@ const sources = [
     password,
     sideSchema: "anygriddb_side",
   },
+  {
+    name: "Lab Oracle Chinook",
+    engine: "oracle",
+    host,
+    port: 52484,
+    database: "FREEPDB1",
+    username: "anygriddb",
+    password,
+    sideSchema: "ANYGRIDDB",
+  },
 ];
 
 console.log(

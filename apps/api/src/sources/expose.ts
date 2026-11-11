@@ -108,8 +108,7 @@ function primaryColumn(
     texts.find((column) => !column.nullable) ??
     short[0] ??
     texts[0] ??
-    own.find((column) => PRIMARY_TYPES.has(column.field.fieldType)) ??
-    table.columns.find((column) => !links.has(column.name))
+    own.find((column) => PRIMARY_TYPES.has(column.field.fieldType))
   );
 }
 
@@ -670,7 +669,7 @@ export async function refreshExposedTable(
         }
         await tx
           .updateTable("dataColumns")
-          .set({ deletedAt: now, deletedBy: actorId })
+          .set({ deletedAt: now, deletedBy: actorId, isPrimary: false })
           .where("id", "=", field.id)
           .execute();
         // A link's list on the other side goes with it.
@@ -681,6 +680,42 @@ export async function refreshExposedTable(
           .where(sql<boolean>`config->>'inverseOf' = ${field.id}`)
           .execute();
         result.removed.push(field.label);
+      }
+      // Soft-deleting the primary left no live label: pick one again.
+      const liveClient = (
+        await tx
+          .selectFrom("dataColumns")
+          .select([
+            "id",
+            "physicalName",
+            "isPrimary",
+            "externalType",
+            "externalSide",
+          ])
+          .where("tableId", "=", table.id)
+          .where("deletedAt", "is", null)
+          .execute()
+      ).filter(
+        (column) => column.externalType !== null && !column.externalSide,
+      );
+      if (!liveClient.some((column) => column.isPrimary)) {
+        const elected = primaryColumn(client, links);
+        const match = elected
+          ? liveClient.find((column) => column.physicalName === elected.name)
+          : undefined;
+        if (match) {
+          await tx
+            .updateTable("dataColumns")
+            .set({ isPrimary: false })
+            .where("tableId", "=", table.id)
+            .where("deletedAt", "is", null)
+            .execute();
+          await tx
+            .updateTable("dataColumns")
+            .set({ isPrimary: true })
+            .where("id", "=", match.id)
+            .execute();
+        }
       }
       const key = client.primaryKey;
       if (JSON.stringify(key) !== JSON.stringify(table.externalKey ?? [])) {

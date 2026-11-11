@@ -550,6 +550,8 @@ describe("PostgreSQL sources", () => {
     await expect(
       readPage(db, before, { limit: 10, timeZone: "UTC" }, { total: false }),
     ).rejects.toMatchObject({ code: "source_schema_changed" });
+    const beforePrimary = before.table.primaryColumn;
+    expect(beforePrimary).toBe("title");
     const result = await refreshExposedTable(deps, admin, ticketsId);
     expect(result).toMatchObject({
       added: ["assignee"],
@@ -559,6 +561,9 @@ describe("PostgreSQL sources", () => {
     const after = (await loadEngine(db, ticketsId, () => true)).engine;
     const state = after.table.columns.find((column) => column.name === "state");
     expect(state?.fieldType).toBe("single_select");
+    // Dropping the naming primary re-elects another client field (the key).
+    expect(after.table.primaryColumn).toBeTruthy();
+    expect(after.table.primaryColumn).not.toBe("title");
     const page = await readPage(
       db,
       after,
@@ -573,6 +578,32 @@ describe("PostgreSQL sources", () => {
       changed: [],
       removed: [],
     });
+  });
+
+  it("does not elect a boolean as the primary field on expose", async () => {
+    const deps = { db, key, settings };
+    pools ??= new SourcePools({ db, key, settings, log: () => undefined });
+    setSourcePools(pools);
+    const dba = (statement: string) =>
+      server?.exec(["psql", "-U", "postgres", "-d", "erp", "-c", statement]);
+    await dba(
+      "create table flags (a boolean not null, b boolean not null, primary key (a, b)); grant select on flags to anygriddb",
+    );
+    const source = await createSource(deps, admin, {
+      name: "Flags",
+      ...connection(),
+      connectionLimit: 2,
+    });
+    const base = await insertBase(db, admin, { name: "Flags" });
+    const {
+      tableIds: [flagsId = ""],
+    } = await exposeTables(deps, admin, {
+      sourceId: source.id,
+      baseId: base.id,
+      tables: [{ schema: "public", name: "flags" }],
+    });
+    const engine = (await loadEngine(db, flagsId, () => true)).engine;
+    expect(engine.table.primaryColumn).toBeUndefined();
   });
 
   it("saves a source only once it connects, and never sends its password back", async () => {

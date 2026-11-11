@@ -95,6 +95,36 @@ describe("side tables", () => {
     );
   });
 
+  it("writes side email, url, phone, and rating", () => {
+    const mail = column("ag_mail", "email", "text", true);
+    const site = column("ag_url", "url", "text", true);
+    const phone = column("ag_phone", "phone", "text", true);
+    const rate = column("ag_rate", "rating", "integer", true);
+    expect(
+      buildSideUpsert(table("postgres", [id, mail, site, phone, rate]), "7", [
+        { column: mail, value: "a@example.org" },
+        { column: site, value: "https://example.com" },
+        { column: phone, value: "+331" },
+        { column: rate, value: 4 },
+      ]),
+    ).toEqual({
+      text: `insert into "ag_side"."ag_t_1" ("id", "ag_mail", "ag_url", "ag_phone", "ag_rate") values ($1, $2, $3, $4, $5) on conflict ("id") do update set "ag_mail" = excluded."ag_mail", "ag_url" = excluded."ag_url", "ag_phone" = excluded."ag_phone", "ag_rate" = excluded."ag_rate"`,
+      values: ["7", "a@example.org", "https://example.com", "+331", "4"],
+    });
+    const myRate = column("ag_rate", "rating", "int", true);
+    expect(
+      buildSideUpsert(table("mysql", [id, mail, myRate]), "7", [
+        { column: mail, value: "a@example.org" },
+        { column: myRate, value: 3 },
+      ]).values,
+    ).toEqual(["7", "a@example.org", "3"]);
+    expect(() =>
+      buildSideUpsert(table("postgres", [id, mail]), "7", [
+        { column: mail, value: 1 },
+      ]),
+    ).toThrow(/Invalid cell/);
+  });
+
   it("locks side rows, adding empty ones where the engine needs a row to lock", () => {
     expect(buildSideEnsure(table("postgres", [id]), ["1", "2"])).toEqual({
       text: `insert into "ag_side"."ag_t_1" ("id") values ($1), ($2) on conflict do nothing`,

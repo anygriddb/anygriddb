@@ -18,6 +18,48 @@ describe("ORACLE dialect", () => {
     expect(ORACLE.textLength(`t."name"`)).toBe(`length(t."name")`);
   });
 
+  it("filters is_not_empty without comparing to ''", async () => {
+    const { buildReadRows } = await import("./read");
+    const { emptySql } = await import("./filter-sql");
+    expect(emptySql({ name: "name", kind: "text" }, ORACLE)).toBe(
+      `(q."name" is null)`,
+    );
+    const table = {
+      id: "t",
+      storage: "external" as const,
+      physicalName: "x",
+      external: {
+        sourceId: "s",
+        dialect: "oracle" as const,
+        schema: "CHINOOK",
+        name: "AG_PARENT",
+        key: ["ID"],
+      },
+      columns: [
+        {
+          id: "1",
+          name: "name",
+          label: "name",
+          fieldType: "text" as const,
+          config: {},
+          physical: { name: "NAME", type: "varchar2(120)", zone: "UTC" },
+        },
+      ],
+    };
+    const sql = buildReadRows(
+      { table, tables: new Map([["t", table]]), readable: () => true },
+      {
+        limit: 10,
+        filter: {
+          conjunction: "and",
+          conditions: [{ column: "name", op: "is_not_empty" }],
+        },
+      },
+    );
+    expect(sql.text).toContain(`(not (q."name" is null))`);
+    expect(sql.text).not.toMatch(/=\s*''/);
+  });
+
   it("compares text by code point and refuses regular expressions", () => {
     // By code point: each session's NLS_COMP and NLS_SORT are BINARY.
     expect(ORACLE.compareText("a", "=", "b")).toBe("(a = b)");

@@ -151,6 +151,33 @@ describe("external statements", () => {
     ).toEqual(["2.00", "1"]);
   });
 
+  it("writes email, url, phone, and rating on client columns", () => {
+    const mail = column("mail", "email", "text");
+    const site = column("site", "url", "text");
+    const phone = column("phone", "phone", "text");
+    const rate = column("rate", "rating", "integer");
+    expect(
+      buildExternalUpdate(
+        table("postgres", ["id"], [id, mail, site, phone, rate]),
+        "7",
+        [
+          { column: mail, value: "a@example.org" },
+          { column: site, value: "https://example.com" },
+          { column: phone, value: "+331" },
+          { column: rate, value: 5 },
+        ],
+      ),
+    ).toEqual({
+      text: `update "app"."lines" set "mail" = $1, "site" = $2, "phone" = $3, "rate" = $4 where "id" = $5`,
+      values: ["a@example.org", "https://example.com", "+331", "5", "7"],
+    });
+    expect(() =>
+      buildExternalUpdate(table("postgres", ["id"], [id, mail]), "7", [
+        { column: mail, value: 1 },
+      ]),
+    ).toThrow(/Invalid cell/);
+  });
+
   it("adds a row and reads its key back", () => {
     const name = column("name", "text", "text");
     const pg = table("postgres", ["id"], [id, name]);

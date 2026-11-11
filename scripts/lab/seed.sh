@@ -18,6 +18,7 @@ PG="${LAB_PG_CONTAINER:-aglab-pg}"
 MYSQL="${LAB_MYSQL_CONTAINER:-aglab-mysql}"
 MARIADB="${LAB_MARIADB_CONTAINER:-aglab-mariadb}"
 MSSQL="${LAB_MSSQL_CONTAINER:-aglab-mssql}"
+ORACLE="${LAB_ORACLE_CONTAINER:-aglab-oracle}"
 READER=anygriddb
 DO_AW=0
 for arg in "$@"; do
@@ -30,7 +31,7 @@ done
 
 need() {
   if ! docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null | grep -q true; then
-    echo "Container $1 is not running. Start with: ./scripts/lab/up.sh [--mssql]" >&2
+    echo "Container $1 is not running. Start with: ./scripts/lab/up.sh [--mssql] [--oracle]" >&2
     return 1
   fi
 }
@@ -104,6 +105,40 @@ WITH MOVE N'AdventureWorks2022' TO N'/var/opt/mssql/data/AdventureWorks2022.mdf'
   fi
 else
   echo "==> SQL Server container not running; skip MSSQL seeds (./scripts/lab/up.sh --mssql)"
+fi
+
+if docker inspect -f '{{.State.Running}}' "$ORACLE" 2>/dev/null | grep -q true; then
+  echo "==> Chinook on Oracle Free (schema CHINOOK in FREEPDB1)"
+  # Upstream script targets a CDB common user (c##chinook). Lab uses a local
+  # PDB user CHINOOK; strip the CDB account dance and load tables as CHINOOK.
+  body=/tmp/aglab-Chinook_Oracle_body.sql
+  awk 'BEGIN{p=0} /^CREATE TABLE/{p=1} p && !/^conn /{print}' \
+    "$SEEDS/chinook/Chinook_Oracle.sql" >"$body"
+  docker cp "$body" "$ORACLE":/tmp/Chinook_Oracle_body.sql
+  # sqlplus runs as oracle; docker cp leaves the file root-owned.
+  docker exec -u 0 "$ORACLE" chmod 644 /tmp/Chinook_Oracle_body.sql
+  docker exec -i "$ORACLE" sqlplus -s "system/\"${PASSWORD}\"@//localhost/FREEPDB1" <<SQL >/tmp/aglab-seed-oracle-user.log
+WHENEVER SQLERROR EXIT SQL.SQLCODE
+BEGIN
+  EXECUTE IMMEDIATE 'DROP USER chinook CASCADE';
+EXCEPTION
+  WHEN OTHERS THEN
+    IF SQLCODE != -1918 THEN RAISE; END IF;
+END;
+/
+CREATE USER chinook IDENTIFIED BY "${PASSWORD}" QUOTA UNLIMITED ON users;
+GRANT CREATE SESSION, CREATE TABLE, CREATE VIEW, CREATE SEQUENCE, CREATE PROCEDURE TO chinook;
+EXIT;
+SQL
+  docker exec -i "$ORACLE" sqlplus -s "chinook/\"${PASSWORD}\"@//localhost/FREEPDB1" <<SQL >/tmp/aglab-seed-oracle-chinook.log
+WHENEVER SQLERROR EXIT SQL.SQLCODE
+SET DEFINE OFF
+@/tmp/Chinook_Oracle_body.sql
+COMMIT;
+EXIT;
+SQL
+else
+  echo "==> Oracle container not running; skip Oracle seeds (./scripts/lab/up.sh --oracle)"
 fi
 
 echo "==> Least-privilege grants for $READER"

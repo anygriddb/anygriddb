@@ -16,6 +16,7 @@ PG="${LAB_PG_CONTAINER:-aglab-pg}"
 MYSQL="${LAB_MYSQL_CONTAINER:-aglab-mysql}"
 MARIADB="${LAB_MARIADB_CONTAINER:-aglab-mariadb}"
 MSSQL="${LAB_MSSQL_CONTAINER:-aglab-mssql}"
+ORACLE="${LAB_ORACLE_CONTAINER:-aglab-oracle}"
 READER=anygriddb
 
 # --- PostgreSQL ---
@@ -135,4 +136,42 @@ GRANT ALTER, SELECT, INSERT, UPDATE, DELETE ON SCHEMA::anygriddb_side TO [anygri
 SQL
   fi
   echo "  sqlserver: grants ok"
+fi
+
+# --- Oracle (FREEPDB1): reader owns its side tables; Chinook is CHINOOK.* ---
+if docker inspect -f '{{.State.Running}}' "$ORACLE" 2>/dev/null | grep -q true; then
+  docker exec -i "$ORACLE" sqlplus -s "system/\"${PASSWORD}\"@//localhost/FREEPDB1" <<SQL
+WHENEVER SQLERROR EXIT SQL.SQLCODE
+BEGIN
+  EXECUTE IMMEDIATE 'CREATE USER ${READER} IDENTIFIED BY "${PASSWORD}" QUOTA UNLIMITED ON users';
+EXCEPTION
+  WHEN OTHERS THEN
+    IF SQLCODE = -1920 THEN
+      EXECUTE IMMEDIATE 'ALTER USER ${READER} IDENTIFIED BY "${PASSWORD}" QUOTA UNLIMITED ON users';
+    ELSE
+      RAISE;
+    END IF;
+END;
+/
+GRANT CREATE SESSION, CREATE TABLE TO ${READER};
+BEGIN
+  FOR t IN (
+    SELECT table_name FROM all_tables WHERE owner = 'CHINOOK'
+  ) LOOP
+    EXECUTE IMMEDIATE 'GRANT SELECT ON chinook.' || t.table_name || ' TO ${READER}';
+  END LOOP;
+END;
+/
+BEGIN
+  EXECUTE IMMEDIATE 'GRANT INSERT, UPDATE, DELETE ON chinook.playlist TO ${READER}';
+  EXECUTE IMMEDIATE 'GRANT INSERT, UPDATE, DELETE ON chinook.playlisttrack TO ${READER}';
+  EXECUTE IMMEDIATE 'GRANT UPDATE (name) ON chinook.genre TO ${READER}';
+EXCEPTION
+  WHEN OTHERS THEN
+    IF SQLCODE NOT IN (-942, -4042) THEN RAISE; END IF;
+END;
+/
+EXIT;
+SQL
+  echo "  oracle: grants ok"
 fi

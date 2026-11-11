@@ -253,10 +253,14 @@ function writeValue(
         ? params.bind(value)
         : params.bind(value ? "true" : "false");
     case "number":
+    case "rating":
       return params.bind(decimalOf(column, value));
     case "text":
     case "long_text":
     case "single_select":
+    case "email":
+    case "url":
+    case "phone":
       if (typeof value !== "string") throw new AppError("invalid_cell");
       return params.bind(value);
     case "date":

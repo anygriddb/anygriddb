@@ -50,6 +50,8 @@ fetch "$CHINOOK/Chinook_MySql.sql" "$SEEDS/chinook/Chinook_MySql.sql" \
   02a1835417c3ea19bff64e1d1f22be738ce51b3f88b0473c24eebff9a3ccde4b
 fetch "$CHINOOK/Chinook_SqlServer.sql" "$SEEDS/chinook/Chinook_SqlServer.sql" \
   5ea75c9e925ead917d3fabea6ed3cc8c1ff1d036b61e915c94631aafa2b0802b
+fetch "$CHINOOK/Chinook_Oracle.sql" "$SEEDS/chinook/Chinook_Oracle.sql" \
+  8db05a9b191c5c02d3f92c7775f7f581a611f5a46ba6ba8b614a042736dadcda
 
 fetch "$PAGILA/pagila-schema.sql" "$SEEDS/pagila/pagila-schema.sql" \
   8ce358e4c8014087b85296694a0893887bd7a4190e3ce407f2721b86b98e5707

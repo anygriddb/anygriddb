@@ -11,6 +11,7 @@ import { insertComputed } from "../../data/computed.js";
 import { readerEngine, setTableAcl } from "../../data/acl.js";
 import { withAudit } from "../../data/audit-context.js";
 import { sampleWorld, type SampleWorld } from "./engines.js";
+import { SAMPLE_ENGINES } from "./types.js";
 import {
   closeSampleControl,
   need,
@@ -59,7 +60,7 @@ describe("samples C read engine on Chinook", () => {
     await closeSampleControl(control);
   });
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
+  it.each(SAMPLE_ENGINES)(
     "C1 pages Track with limit 100 on %s",
     async (engine) => {
       const trackId = need(exposedByEngine.get(engine)?.track, "track");
@@ -78,7 +79,7 @@ describe("samples C read engine on Chinook", () => {
     },
   );
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
+  it.each(SAMPLE_ENGINES)(
     "C1 rejects limit above 1000 on %s",
     async (engine) => {
       const trackId = need(exposedByEngine.get(engine)?.track, "track");
@@ -98,41 +99,38 @@ describe("samples C read engine on Chinook", () => {
     },
   );
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
-    "C5 sorts Album by title on %s",
-    async (engine) => {
-      const albumId = need(exposedByEngine.get(engine)?.album, "album");
-      const { engine: catalog } = await loadEngine(
-        control.db,
-        albumId,
-        () => true,
-      );
-      const title = physical(catalog, "title");
-      const page = await readPage(
-        control.db,
-        catalog,
-        {
-          limit: 10,
-          offset: 0,
-          timeZone: "UTC",
-          sort: [{ column: title, direction: "asc" }],
-        },
-        { total: false },
-      );
-      expect(page.rows.length).toBeGreaterThan(0);
-      const titles = page.rows.map((row) => text(row[title]));
-      // Sorts follow the source's collation: PostgreSQL's (glibc) passes over
-      // spaces and punctuation, the others' do not.
-      const collator = new Intl.Collator("en", {
-        sensitivity: "base",
-        ignorePunctuation: engine === "postgres",
-      });
-      const sorted = [...titles].sort((a, b) => collator.compare(a, b));
-      expect(titles).toEqual(sorted);
-    },
-  );
+  it.each(SAMPLE_ENGINES)("C5 sorts Album by title on %s", async (engine) => {
+    const albumId = need(exposedByEngine.get(engine)?.album, "album");
+    const { engine: catalog } = await loadEngine(
+      control.db,
+      albumId,
+      () => true,
+    );
+    const title = physical(catalog, "title");
+    const page = await readPage(
+      control.db,
+      catalog,
+      {
+        limit: 10,
+        offset: 0,
+        timeZone: "UTC",
+        sort: [{ column: title, direction: "asc" }],
+      },
+      { total: false },
+    );
+    expect(page.rows.length).toBeGreaterThan(0);
+    const titles = page.rows.map((row) => text(row[title]));
+    // Sorts follow the source's collation: PostgreSQL's (glibc) passes over
+    // spaces and punctuation, the others' do not.
+    const collator = new Intl.Collator("en", {
+      sensitivity: "base",
+      ignorePunctuation: engine === "postgres",
+    });
+    const sorted = [...titles].sort((a, b) => collator.compare(a, b));
+    expect(titles).toEqual(sorted);
+  });
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
+  it.each(SAMPLE_ENGINES)(
     "C4 filters Invoice by billing country USA on %s",
     async (engine) => {
       const invoiceId = need(exposedByEngine.get(engine)?.invoice, "invoice");
@@ -172,7 +170,7 @@ describe("samples C read engine on Chinook", () => {
     },
   );
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
+  it.each(SAMPLE_ENGINES)(
     "C6 aggregates Invoice count on %s",
     async (engine) => {
       const invoiceId = need(exposedByEngine.get(engine)?.invoice, "invoice");
@@ -197,7 +195,7 @@ describe("samples C read engine on Chinook", () => {
     },
   );
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
+  it.each(SAMPLE_ENGINES)(
     "C7 formula LEN(title) on Album on %s",
     async (engine) => {
       const albumId = need(exposedByEngine.get(engine)?.album, "album");
@@ -235,7 +233,7 @@ describe("samples C read engine on Chinook", () => {
     },
   );
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
+  it.each(SAMPLE_ENGINES)(
     "C9 lookup Artist name from Album on %s",
     async (engine) => {
       const albumId = need(exposedByEngine.get(engine)?.album, "album");
@@ -295,7 +293,7 @@ describe("samples C read engine on Chinook", () => {
     },
   );
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
+  it.each(SAMPLE_ENGINES)(
     "C10 field ACL hides UnitPrice on Track on %s",
     async (engine) => {
       const trackId = need(exposedByEngine.get(engine)?.track, "track");

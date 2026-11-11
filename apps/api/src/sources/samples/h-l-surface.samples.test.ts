@@ -7,6 +7,7 @@ import { loadEngine } from "../../data/engine.js";
 import { readPage } from "../../data/rows.js";
 import { addColumn } from "../../data/schema-ops.js";
 import { sampleWorld, type SampleWorld } from "./engines.js";
+import { SAMPLE_ENGINES_WITH_NORTHWIND } from "./types.js";
 import {
   closeSampleControl,
   need,
@@ -31,7 +32,7 @@ describe("samples H–L surface and native regression", () => {
     await closeSampleControl(control);
   });
 
-  it.each(["postgres", "mysql", "mariadb", "sqlserver"] as const)(
+  it.each(SAMPLE_ENGINES_WITH_NORTHWIND)(
     "H Northwind expose and page on %s",
     async (engine) => {
       const endpoint = need(
@@ -41,7 +42,7 @@ describe("samples H–L surface and native regression", () => {
       const declared = await declareSource(
         control,
         endpoint,
-        endpoint.northwindDatabase,
+        need(endpoint.northwindDatabase, "northwind database"),
         `Northwind surface ${engine}`,
       );
       const tables = await exposeNorthwind(control, declared);

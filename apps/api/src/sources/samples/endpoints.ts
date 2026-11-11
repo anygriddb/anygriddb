@@ -6,7 +6,7 @@ import type { SampleEndpoint, SampleEngine } from "./types.js";
 
 export const READER = "anygriddb";
 
-/** The lab's one password: root, sa, and the reader account share it. */
+/** The lab's one password: root, sa, system, and the reader account share it. */
 export const LAB_PASSWORD = process.env.LAB_PASSWORD ?? "Lab!Admin-2026";
 
 export type EnginePorts = Record<SampleEngine, number>;
@@ -17,6 +17,8 @@ export const LAB_PORTS: EnginePorts = {
   mysql: 53306,
   mariadb: 53307,
   sqlserver: 51433,
+  /** TCPS front (`aglab-oracle-tls`); seed/sqlplus uses 51521. */
+  oracle: 52484,
 };
 
 export function sampleEndpoints(
@@ -68,6 +70,20 @@ export function sampleEndpoints(
         ? "AdventureWorks2022"
         : null,
       sideSchema: "anygriddb_side",
+    },
+    {
+      ...account,
+      engine: "oracle",
+      port: ports.oracle,
+      chinookDatabase: "FREEPDB1",
+      chinookSchema: "CHINOOK",
+      northwindDatabase: null,
+      northwindSchema: null,
+      dvdDatabase: null,
+      dvdSchema: null,
+      adventureWorksDatabase: null,
+      // Side tables live in the reader's own schema (ADR 0047).
+      sideSchema: "ANYGRIDDB",
     },
   ];
 }
