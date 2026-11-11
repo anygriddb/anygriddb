@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { reportFailure } from "../../lib/report-failure";
 import { PageCrashed } from "./page-crashed";
 
 type Props = { children: ReactNode };
@@ -17,6 +18,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error("ui crashed", error, info.componentStack);
+    reportFailure("render", error);
   }
 
   render(): ReactNode {

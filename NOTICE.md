@@ -30,7 +30,7 @@ cycle and the stack rewrite:
 | `cmdk` (it brings `@radix-ui/react-dialog`), `sonner`                                   | MIT        |
 | `kysely`, `pg`, `graphile-worker`, `@fastify/static`                                    | MIT        |
 | `lucide-react`                                                                          | ISC        |
-| `@fastify/multipart`, `@fastify/rate-limit`, `exceljs`                                  | MIT        |
+| `@fastify/multipart`, `@fastify/rate-limit`, `@fastify/compress`, `exceljs`             | MIT        |
 | `sharp` (its prebuilt `libvips` binaries are LGPL-3.0-or-later)                         | Apache-2.0 |
 | `mysql2`, `tedious` (client databases)                                                  | MIT        |
 | `oracledb` (Oracle client databases; thin mode; Apache-2.0 elected from dual license)   | Apache-2.0 |

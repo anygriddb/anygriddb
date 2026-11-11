@@ -44,6 +44,7 @@ order of work is in the [migration plan](docs/migration-plan.md).
 | Object storage  | `@aws-sdk/client-s3`, only with `STORAGE_DRIVER=s3`                                       | Apache-2.0         |
 | Thumbnails      | `sharp` (prebuilt libvips is LGPL-3.0-or-later)                                           | Apache-2.0         |
 | Rate limits     | `@fastify/rate-limit`, in memory                                                          | MIT                |
+| Compression     | `@fastify/compress`: answers in Brotli or gzip; built files compressed at build time      | MIT                |
 | Spreadsheets    | `exceljs`: XLSX import (streamed) and export                                              | MIT                |
 | Formula editor  | CodeMirror 6 on the shared parser: completion, inline errors; loaded with a formula       | MIT                |
 | Charts          | Apache ECharts 6, SVG renderer, loaded with the dashboards only (ADR 0035)                | Apache-2.0         |

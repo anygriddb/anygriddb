@@ -72,6 +72,18 @@ describe("readEnv", () => {
     expect(() => readEnv({ ...base, TLS_NAMES: "a/b" })).toThrow(/TLS_NAMES/);
   });
 
+  it("sizes the request pool within bounds", () => {
+    expect(readEnv(base).DATABASE_POOL_MAX).toBe(10);
+    expect(
+      readEnv({ ...base, DATABASE_POOL_MAX: "24" }).DATABASE_POOL_MAX,
+    ).toBe(24);
+    for (const refused of ["3", "65", "ten", "12.5"]) {
+      expect(() => readEnv({ ...base, DATABASE_POOL_MAX: refused })).toThrow(
+        "DATABASE_POOL_MAX must be an integer between 4 and 64",
+      );
+    }
+  });
+
   it("refuses plaintext sources in production", () => {
     expect(() =>
       readEnv({

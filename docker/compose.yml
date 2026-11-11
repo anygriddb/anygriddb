@@ -148,6 +148,8 @@ services:
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       ANYGRIDDB_SOURCES_ALLOWED_HOSTS: ${ANYGRIDDB_SOURCES_ALLOWED_HOSTS:-}
       ATTACHMENT_MAX_BYTES: ${ATTACHMENT_MAX_BYTES:-}
+      # Connections requests share (10 by default); see docs/operations.md.
+      DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-}
       # Metrics and traces, off unless set (ADR 0018).
       METRICS_TOKEN: ${METRICS_TOKEN:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}

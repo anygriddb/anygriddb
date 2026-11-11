@@ -1,6 +1,7 @@
 /**
  * The web app, served on the API's own origin (ADR 0011). Built files are
- * served as they are, hashed ones under /assets cached for a year. Every
+ * served as they are, or as the compressed copy the build made of them,
+ * hashed ones under /assets cached for a year. Every
  * other page path gets index.html with the document's security policy,
  * and the app's router takes it from there.
  */
@@ -17,7 +18,7 @@ export const DEFAULT_WEB_ROOT = fileURLToPath(
 );
 
 /** Paths the API answers itself: an unknown one is a 404, never the app. */
-const API_PATH = /^\/(?:api|trpc|auth|ws|health)(?:\/|$)/;
+const API_PATH = /^\/(?:api|trpc|auth|ws|health|ready)(?:\/|$)/;
 /** A missing file, such as a chunk of an older build: a 404, not a page. */
 const FILE_PATH = /\/[^/]*\.[A-Za-z0-9]+$/;
 /** Pages reached by a secret link: search engines must not keep them. */
@@ -74,6 +75,11 @@ export async function registerWebApp(
       prefix: "/",
       // One route per file of the build, found once at start.
       wildcard: false,
+      // The build leaves a Brotli and a gzip copy beside each text file:
+      // the one the browser accepts goes out, and they are no pages of
+      // their own.
+      preCompressed: true,
+      globIgnore: ["**/*.br", "**/*.gz"],
       index: false,
       // The page itself always goes out with its policy, below.
       allowedPath: (path) => path !== "/index.html",

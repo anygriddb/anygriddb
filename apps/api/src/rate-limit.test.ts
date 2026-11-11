@@ -24,6 +24,7 @@ describe("rateBucket", () => {
     expect(rateBucket("GET", "/api/export/x?format=csv")).toBe("app");
     expect(rateBucket("GET", "/api/v1/tables/x/records")).toBe("api");
     expect(rateBucket("POST", "/mcp")).toBe("api");
+    expect(rateBucket("POST", "/api/client-errors")).toBe("report");
     expect(rateBucket("PATCH", "/scim/v2/Users/x")).toBe("api");
   });
 
@@ -32,5 +33,6 @@ describe("rateBucket", () => {
     expect(rateBucket("GET", "/trpc/catalog.shares?input=x")).toBe("app");
     expect(rateBucket("GET", "/trpc/auth.tokens")).toBe("app");
     expect(rateBucket("GET", "/api/attachments/attabc")).toBe("app");
+    expect(rateBucket("POST", "/api/client-errors/x")).toBe("app");
   });
 });

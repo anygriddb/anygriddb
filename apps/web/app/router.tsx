@@ -16,6 +16,7 @@ import { z } from "zod";
 import { AuthPage } from "../components/auth/auth-page";
 import { NotFound } from "../components/shell/not-found";
 import { PageCrashed } from "../components/shell/page-crashed";
+import { reportFailure } from "../lib/report-failure";
 
 /**
  * A page that loads its own code: a share link or the sign-in page does
@@ -309,6 +310,10 @@ export const router = createRouter({
   routeTree,
   defaultPendingComponent: Pending,
   defaultErrorComponent: PageCrashed,
+  // The operator learns of a page that could not be drawn.
+  defaultOnCatch: (error) => {
+    reportFailure("render", error);
+  },
   // Every page reads its data through TanStack Query, which caches it.
   defaultPreload: false,
   scrollRestoration: false,

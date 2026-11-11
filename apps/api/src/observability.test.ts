@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   routeLabel,
   measureJob,
   measureSource,
   metricsAllowed,
+  registerPoolGauge,
   registry,
   requestAnswered,
 } from "./observability.js";
@@ -26,6 +27,47 @@ describe("metrics", () => {
     expect(metricsAllowed(token, `Bearer ${token}x`)).toBe(false);
     expect(metricsAllowed(token, token)).toBe(false);
     expect(metricsAllowed(token, `Bearer ${token}`)).toBe(true);
+  });
+
+  it("reports the most requests seen waiting for the pool between two scrapes", async () => {
+    vi.useFakeTimers();
+    const pool = {
+      totalCount: 10,
+      idleCount: 0,
+      waitingCount: 0,
+      options: { max: 10 },
+    };
+    const stop = registerPoolGauge(pool);
+    const scrape = () =>
+      registry.getSingleMetricAsString("anygriddb_db_pool_connections");
+    try {
+      // Seven requests wait for a moment, then none: the scrape that
+      // follows still tells of the seven.
+      pool.waitingCount = 7;
+      vi.advanceTimersByTime(1_000);
+      pool.waitingCount = 0;
+      vi.advanceTimersByTime(1_000);
+      const first = await scrape();
+      expect(first).toContain('anygriddb_db_pool_connections{state="open"} 10');
+      expect(first).toContain(
+        'anygriddb_db_pool_connections{state="waiting"} 7',
+      );
+      expect(first).toContain('anygriddb_db_pool_connections{state="max"} 10');
+      // Nobody waited since: the next scrape says so.
+      vi.advanceTimersByTime(1_000);
+      expect(await scrape()).toContain(
+        'anygriddb_db_pool_connections{state="waiting"} 0',
+      );
+      // The scrape's own queries, in line at the instant it reads, are
+      // not a wait.
+      pool.waitingCount = 2;
+      expect(await scrape()).toContain(
+        'anygriddb_db_pool_connections{state="waiting"} 0',
+      );
+    } finally {
+      stop();
+      vi.useRealTimers();
+    }
   });
 
   it("counts requests by route pattern, sources and jobs by outcome", async () => {

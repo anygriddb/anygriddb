@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { brotliCompressSync, brotliDecompressSync, gzipSync } from "node:zlib";
 import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
 import { DOCUMENT_POLICY, registerWebApp } from "./web-app.js";
@@ -64,6 +65,49 @@ describe("the web app", () => {
     );
     const theme = await app.inject({ url: "/theme.js" });
     expect(theme.headers["cache-control"]).toBe("no-cache");
+  });
+
+  it("sends the compressed copy of a built file to a browser that accepts it", async () => {
+    const root = await build();
+    const script = `export const words = ${JSON.stringify("grid ".repeat(400))};`;
+    const file = join(root, "assets", "grid-def456.js");
+    await writeFile(file, script);
+    await writeFile(`${file}.br`, brotliCompressSync(script));
+    await writeFile(`${file}.gz`, gzipSync(script));
+    const app = await server(root);
+    const url = "/assets/grid-def456.js";
+    const brotli = await app.inject({
+      url,
+      headers: { "accept-encoding": "gzip, br" },
+    });
+    expect(brotli.statusCode).toBe(200);
+    expect(brotli.headers["content-encoding"]).toBe("br");
+    expect(brotli.headers["content-type"]).toContain("javascript");
+    expect(brotli.headers["cache-control"]).toBe(
+      "public, max-age=31536000, immutable",
+    );
+    expect(brotli.headers.vary).toContain("accept-encoding");
+    expect(brotliDecompressSync(brotli.rawPayload).toString()).toBe(script);
+    const gzip = await app.inject({
+      url,
+      headers: { "accept-encoding": "gzip" },
+    });
+    expect(gzip.headers["content-encoding"]).toBe("gzip");
+    // A browser that asks for nothing, and a file without a copy, get the
+    // file itself.
+    const plain = await app.inject({ url });
+    expect(plain.headers["content-encoding"]).toBeUndefined();
+    expect(plain.body).toBe(script);
+    const uncopied = await app.inject({
+      url: "/assets/index-abc123.js",
+      headers: { "accept-encoding": "br" },
+    });
+    expect(uncopied.statusCode).toBe(200);
+    expect(uncopied.headers["content-encoding"]).toBeUndefined();
+    expect(uncopied.body).toBe("export {};");
+    // The copies are not files of their own.
+    expect((await app.inject({ url: `${url}.br` })).statusCode).toBe(404);
+    expect((await app.inject({ url: `${url}.gz` })).statusCode).toBe(404);
   });
 
   it("answers 404, not the page, for API paths, files, and other methods", async () => {

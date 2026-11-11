@@ -49,7 +49,35 @@ export const procedure = t.procedure.use(async ({ ctx, next, path }) => {
   return result;
 });
 
-export async function requireUser(ctx: Context): Promise<SessionUser> {
+/**
+ * The procedures of one request start together (a page sends its queries
+ * as one batch), and each asks who is calling. While that lookup is in
+ * flight they share it; once it has answered, the next one asks again, so
+ * nothing is read from an answer older than the lookup itself.
+ */
+const inFlight = new WeakMap<Context, Map<string, Promise<unknown>>>();
+
+export function sharedLookup<T>(
+  ctx: Context,
+  key: string,
+  run: () => Promise<T>,
+): Promise<T> {
+  const lookups = inFlight.get(ctx) ?? new Map<string, Promise<unknown>>();
+  inFlight.set(ctx, lookups);
+  const pending = lookups.get(key);
+  if (pending) return pending as Promise<T>;
+  const lookup = run().finally(() => {
+    lookups.delete(key);
+  });
+  lookups.set(key, lookup);
+  return lookup;
+}
+
+export function requireUser(ctx: Context): Promise<SessionUser> {
+  return sharedLookup(ctx, "user", () => findUser(ctx));
+}
+
+async function findUser(ctx: Context): Promise<SessionUser> {
   const bearer = await findApiToken(ctx.db, ctx.req.headers.authorization);
   if (bearer) {
     await assertNotInMaintenance(ctx.db, bearer.user);

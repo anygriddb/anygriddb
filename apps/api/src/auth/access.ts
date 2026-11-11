@@ -27,25 +27,37 @@ export async function loadBindings(
     .execute();
 }
 
+/** The second factors an account has set up, read in one query. */
 export async function factorMethods(
   db: Database,
   userId: string,
 ): Promise<FactorMethod[]> {
-  const methods: FactorMethod[] = [];
-  const totp = await db
-    .selectFrom("totpSecrets")
-    .select("confirmedAt")
-    .where("userId", "=", userId)
+  const found = await db
+    .selectNoFrom((eb) => [
+      eb
+        .exists(
+          eb
+            .selectFrom("totpSecrets")
+            .select("userId")
+            .where("userId", "=", userId)
+            .where("confirmedAt", "is not", null),
+        )
+        .as("totp"),
+      eb
+        .exists(
+          eb
+            .selectFrom("webauthnCredentials")
+            .select("id")
+            .where("userId", "=", userId),
+        )
+        .as("webauthn"),
+    ])
     .executeTakeFirst();
-  if (totp?.confirmedAt) {
+  const methods: FactorMethod[] = [];
+  if (found?.totp) {
     methods.push("totp");
   }
-  const key = await db
-    .selectFrom("webauthnCredentials")
-    .select("id")
-    .where("userId", "=", userId)
-    .executeTakeFirst();
-  if (key) {
+  if (found?.webauthn) {
     methods.push("webauthn");
   }
   return methods;

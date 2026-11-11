@@ -11,12 +11,16 @@ import {
   requestStarted,
 } from "./observability.js";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
+import { sql } from "kysely";
 import { createServer as createHttpsServer, type Server } from "node:https";
 import type { Bus } from "./realtime/bus.js";
 import { registerAttachmentRoutes } from "./attachments.js";
+import { registerClientErrors } from "./client-errors.js";
+import { registerCompression } from "./compression.js";
 import { authorizeGrid } from "./auth/access.js";
 import { passkeysEligible } from "./auth/relying-party.js";
 import { registerRateLimit } from "./rate-limit.js";
+import { readinessProbe } from "./readiness.js";
 import { registerDataTransferRoutes } from "./data-transfer.js";
 import { registerMcp } from "./mcp/http.js";
 import { registerRestApi } from "./rest-api.js";
@@ -209,6 +213,7 @@ export async function createApp(deps: {
   app.addHook("onClose", async () => {
     await queue.stop();
   });
+  await registerCompression(app);
   await registerRateLimit(app);
   await app.register(cookie);
   await app.register(websocket);
@@ -341,6 +346,7 @@ export async function createApp(deps: {
     reply.code(status).send(body);
   });
 
+  registerClientErrors(app, { publicUrl: deps.env.PUBLIC_URL });
   registerDataTransferRoutes(app, {
     db: deps.db,
     bus: deps.bus,
@@ -360,6 +366,19 @@ export async function createApp(deps: {
   registerScim(app, { db: deps.db, publicUrl: deps.env.PUBLIC_URL });
 
   app.get("/health", () => ({ ok: true }));
+  // Up is not ready: a balancer or a monitor asks whether the database
+  // answers, and gets 503 while it does not.
+  const ready = readinessProbe({
+    ping: () => sql`select 1`.execute(deps.db),
+    listening: () => deps.bus.listening(),
+  });
+  app.get("/ready", async (_request, reply) => {
+    const state = await ready();
+    return reply
+      .code(state.ok ? 200 : 503)
+      .header("cache-control", "no-store")
+      .send(state);
+  });
 
   app.get("/ws", { websocket: true }, (socket, request) => {
     // The page subscribes as soon as the link opens, before its session is
