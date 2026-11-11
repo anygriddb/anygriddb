@@ -5,6 +5,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { LoadFailed } from "../shell/load-failed";
 import { AuthFrame } from "./auth-frame";
 
 /**
@@ -30,6 +31,9 @@ export function ConfirmSignupPage({ token }: { token: string }) {
     <AuthFrame>
       <h1 className="mb-6 text-2xl font-semibold">{t`Confirm your address`}</h1>
       {link.isLoading ? <Spinner /> : null}
+      {link.isError ? (
+        <LoadFailed error={link.error} onRetry={() => void link.refetch()} />
+      ) : null}
       {link.data && !link.data.valid ? (
         <div className="flex flex-col gap-3">
           <p role="alert" className="text-sm">

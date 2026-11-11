@@ -106,7 +106,7 @@ import {
   finishAuthentication,
   finishRegistration,
 } from "../auth/webauthn.js";
-import { signupDecision } from "../admin.js";
+import { hasAccounts, signupDecision } from "../admin.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 import { smtpReady } from "../mail.js";
 import { resolveLocale } from "../mail-i18n.js";
@@ -378,8 +378,10 @@ export const authRouter = t.router({
       selfReset:
         !settings.ssoOnly && settings.passwordReset === "self" && mailReady,
       // Past the first account, a sign-up proves its address by a link
-      // mailed to it, or comes from an invitation (ADR 0058).
-      signupByMail: mailReady,
+      // mailed to it, or comes from an invitation's link (ADR 0058): with
+      // no email, a sign-up of one's own is refused, and the page says so
+      // before anything is typed.
+      signupNeedsMail: !mailReady && (await hasAccounts(ctx.db)),
       publicLinks: settings.publicLinks,
       tokenMaxDays: settings.tokenMaxDays,
       // WebAuthn RP ID needs a hostname in PUBLIC_URL (ADR 0029).

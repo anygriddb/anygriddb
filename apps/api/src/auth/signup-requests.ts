@@ -8,6 +8,7 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
+import { sql } from "kysely";
 
 /** A link works for a day. */
 export const SIGNUP_LINK_TTL_MS = 24 * 60 * 60 * 1000;
@@ -42,14 +43,11 @@ export async function createSignupRequest(
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SIGNUP_LINK_TTL_MS);
   return db.transaction().execute(async (tx) => {
-    // Two sign-ups racing for one address count each other.
-    await tx
-      .selectFrom("signupRequests")
-      .select("id")
-      .where("email", "=", input.email)
-      .where("expiresAt", ">", new Date())
-      .forUpdate()
-      .execute();
+    // Sign-ups racing for one address wait for each other, the first one
+    // too: a lock on rows would hold nothing while none exists yet.
+    await sql`select pg_advisory_xact_lock(hashtext(${`ag_signup:${input.email}`}))`.execute(
+      tx,
+    );
     const live = await tx
       .selectFrom("signupRequests")
       .select((eb) => eb.fn.countAll<string>().as("count"))

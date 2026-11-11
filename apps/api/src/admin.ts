@@ -55,6 +55,17 @@ export const createAccountInputSchema = z
  * Decides whether an email may create an account, and whether it starts
  * as an administrator: the first account, or one listed in ADMIN_EMAILS.
  */
+/** Whether the instance has an account: the first sets it up (ADR 0058). */
+export async function hasAccounts(db: Database): Promise<boolean> {
+  const existing = await db
+    .selectFrom("users")
+    .select("id")
+    .where("id", "<>", ERASED_USER_ID)
+    .limit(1)
+    .executeTakeFirst();
+  return existing !== undefined;
+}
+
 export async function signupDecision(
   db: Database,
   email: string,
@@ -67,13 +78,7 @@ export async function signupDecision(
   /** Why not: the sign-up policy, or an address outside the domains. */
   refusal?: "signup_closed" | "signup_domain_not_allowed";
 }> {
-  const existing = await db
-    .selectFrom("users")
-    .select("id")
-    .where("id", "<>", ERASED_USER_ID)
-    .limit(1)
-    .executeTakeFirst();
-  const firstAccount = !existing;
+  const firstAccount = !(await hasAccounts(db));
   const invitation = await db
     .selectFrom("invitations")
     .select("id")

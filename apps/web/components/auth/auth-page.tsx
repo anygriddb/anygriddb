@@ -37,6 +37,19 @@ export function invitationToken(next: string): string | undefined {
   return /^\/invite\/([A-Za-z0-9_-]{32,64})$/.exec(next)?.[1];
 }
 
+/**
+ * Whether a sign-up from this page would be refused for want of email:
+ * without it, a sign-up of one's own cannot prove its address, and only an
+ * invitation's link brings someone in (ADR 0058). The page says so at once
+ * instead of offering a form that cannot succeed.
+ */
+export function signupNeedsMail(
+  instanceNeedsMail: boolean | undefined,
+  next: string,
+): boolean {
+  return instanceNeedsMail === true && invitationToken(next) === undefined;
+}
+
 export function AuthPage({
   mode,
   next: requested,
@@ -75,6 +88,8 @@ export function AuthPage({
   const [awaiting, setAwaiting] = useState("");
   const finishing = useRef(false);
   const minLength = instance.data?.passwordMinLength ?? 12;
+  const needsMail =
+    mode === "signup" && signupNeedsMail(instance.data?.signupNeedsMail, next);
 
   // The second step a single sign-on left to do (ADR 0043).
   useEffect(() => {
@@ -312,71 +327,82 @@ export function AuthPage({
               ) : null}
             </p>
           ) : null}
-          <Label htmlFor="email">{t`Email`}</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-          {mode === "signup" ? (
-            <>
-              <Label htmlFor="name">{t`Display name`}</Label>
-              <Input
-                id="name"
-                required
-                autoComplete="name"
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-              />
-            </>
-          ) : null}
-          <Label htmlFor="password">{t`Password`}</Label>
-          <Input
-            id="password"
-            type="password"
-            required
-            minLength={mode === "signup" ? minLength : 12}
-            autoComplete={
-              mode === "login" ? "current-password" : "new-password"
-            }
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-          {mode === "signup" ? (
-            <p className="text-xs text-muted-foreground">
-              {t`At least ${{ minLength }} characters.`}
-            </p>
-          ) : null}
-          {mode === "login" && ssoOnly ? (
-            <p className="text-xs text-muted-foreground">
-              {t`This instance uses single sign-on. A password works only for administrators.`}
-            </p>
-          ) : null}
-          {mode === "login" && instance.data?.selfReset ? (
-            <button
-              type="button"
-              className="self-end text-xs text-primary hover:underline"
-              onClick={() => {
-                setForgot(true);
-                setError("");
-              }}
+          {needsMail ? (
+            <p
+              role="status"
+              className="rounded-md border border-warning/40 bg-warning-surface p-2 text-sm"
             >
-              {t`Forgot your password?`}
-            </button>
-          ) : null}
-          {mode === "signup" && policy !== "open" ? (
-            <p className="rounded-md border border-warning/40 bg-warning-surface p-2 text-xs">
-              {policy === "invite"
-                ? t`Sign-up is by invitation: use the address that received it.`
-                : t`Sign-up is closed on this instance. Ask an administrator for access.`}
+              {t`This instance sends no email, so it cannot confirm a new address. Open the invitation link you were sent, or ask an administrator to add you.`}
             </p>
-          ) : null}
-          <Button type="submit" disabled={busy}>
-            {mode === "login" ? t`Sign in` : t`Create account`}
-          </Button>
+          ) : (
+            <>
+              <Label htmlFor="email">{t`Email`}</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+              {mode === "signup" ? (
+                <>
+                  <Label htmlFor="name">{t`Display name`}</Label>
+                  <Input
+                    id="name"
+                    required
+                    autoComplete="name"
+                    value={displayName}
+                    onChange={(event) => setDisplayName(event.target.value)}
+                  />
+                </>
+              ) : null}
+              <Label htmlFor="password">{t`Password`}</Label>
+              <Input
+                id="password"
+                type="password"
+                required
+                minLength={mode === "signup" ? minLength : 12}
+                autoComplete={
+                  mode === "login" ? "current-password" : "new-password"
+                }
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+              {mode === "signup" ? (
+                <p className="text-xs text-muted-foreground">
+                  {t`At least ${{ minLength }} characters.`}
+                </p>
+              ) : null}
+              {mode === "login" && ssoOnly ? (
+                <p className="text-xs text-muted-foreground">
+                  {t`This instance uses single sign-on. A password works only for administrators.`}
+                </p>
+              ) : null}
+              {mode === "login" && instance.data?.selfReset ? (
+                <button
+                  type="button"
+                  className="self-end text-xs text-primary hover:underline"
+                  onClick={() => {
+                    setForgot(true);
+                    setError("");
+                  }}
+                >
+                  {t`Forgot your password?`}
+                </button>
+              ) : null}
+              {mode === "signup" && policy !== "open" ? (
+                <p className="rounded-md border border-warning/40 bg-warning-surface p-2 text-xs">
+                  {policy === "invite"
+                    ? t`Sign-up is by invitation: use the address that received it.`
+                    : t`Sign-up is closed on this instance. Ask an administrator for access.`}
+                </p>
+              ) : null}
+              <Button type="submit" disabled={busy}>
+                {mode === "login" ? t`Sign in` : t`Create account`}
+              </Button>
+            </>
+          )}
           {providers.data?.oidc ? (
             <Button variant="outline" asChild>
               <a href={`/auth/oidc/start`}>{t`Sign in with OIDC`}</a>

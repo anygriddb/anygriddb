@@ -7681,6 +7681,10 @@ msgstr "This host is not allowed: the operator adds it to ANYGRIDDB_SOURCES_ALLO
 msgid "This instance is up to date"
 msgstr "This instance is up to date"
 
+#: components/auth/auth-page.tsx
+msgid "This instance sends no email, so it cannot confirm a new address. Open the invitation link you were sent, or ask an administrator to add you."
+msgstr "This instance sends no email, so it cannot confirm a new address. Open the invitation link you were sent, or ask an administrator to add you."
+
 #: lib/errors.ts
 msgid "This instance sends no email, so it cannot confirm your address. Ask an administrator for an account, or use the invitation link you were sent."
 msgstr "This instance sends no email, so it cannot confirm your address. Ask an administrator for an account, or use the invitation link you were sent."
