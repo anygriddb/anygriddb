@@ -17,6 +17,7 @@ export type AuditAction =
 
 export type AuthAction =
   | "account_disabled"
+  | "account_erased"
   | "account_locked"
   | "account_unlocked"
   | "factors_cleared"

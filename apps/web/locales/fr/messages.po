@@ -748,6 +748,10 @@ msgid "Account disabled"
 msgstr "Ce compte est désactivé"
 
 #: components/admin/sign-in-trail.tsx
+msgid "Account erased"
+msgstr "Compte effacé"
+
+#: components/admin/sign-in-trail.tsx
 msgid "Account locked"
 msgstr "Compte verrouillé"
 
@@ -1683,6 +1687,7 @@ msgid "Client secret"
 msgstr "Secret client"
 
 #: app/providers.tsx
+#: components/admin/admin-page.tsx
 #: components/record/record-panel.tsx
 #: components/settings/table-acl-panel.tsx
 #: components/settings/webhooks-panel.tsx
@@ -2654,6 +2659,18 @@ msgstr "Saisissez votre adresse : nous envoyons un lien pour choisir un nouveau 
 #: components/admin/integrations-tab.tsx
 msgid "Entry point (SSO URL)"
 msgstr "Point d'entrée (URL SSO)"
+
+#: components/admin/admin-page.tsx
+msgid "Erase"
+msgstr "Effacer"
+
+#: components/admin/admin-page.tsx
+msgid "Erase {name}'s account?"
+msgstr "Effacer le compte de {name} ?"
+
+#: components/admin/admin-page.tsx
+msgid "Erase…"
+msgstr "Effacer…"
 
 #: components/admin/admin-page.tsx
 #: components/admin/support-tab.tsx
@@ -4337,6 +4354,10 @@ msgstr "Nouveau champ"
 msgid "New option"
 msgstr "Nouvelle option"
 
+#: components/admin/admin-page.tsx
+msgid "New owner's email"
+msgstr "E-mail du nouveau propriétaire"
+
 #: components/auth/reset-page.tsx
 #: components/settings/account-settings.tsx
 msgid "New password"
@@ -4493,6 +4514,10 @@ msgstr "Aucune ligne correspondante"
 #: components/shell/notification-bell.tsx
 msgid "No notifications"
 msgstr "Aucune notification"
+
+#: components/admin/admin-page.tsx
+msgid "No one else owns these bases: {bases}. Name the active account that takes them."
+msgstr "Personne d’autre n’est propriétaire de ces bases : {bases}. Indiquez le compte actif qui les reprend."
 
 #: components/fields/cell-editor.tsx
 msgid "No one found"
@@ -5300,8 +5325,8 @@ msgid "removed by the identity provider"
 msgstr "retiré par le fournisseur d'identité"
 
 #: components/settings/account-settings.tsx
-msgid "Removes your sign-in and attributes your audit history to an erased account. Values you entered in bases stay until a manager deletes those rows."
-msgstr "Supprime votre connexion et attribue votre historique d'audit à un compte effacé. Les valeurs que vous avez saisies dans les bases restent jusqu'à ce qu'un responsable supprime ces lignes."
+msgid "Removes your sign-in and attributes your audit history and comments to an erased account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave."
+msgstr "Supprime votre connexion et attribue votre historique d’audit et vos commentaires à un compte effacé. Les valeurs saisies dans les bases restent jusqu’à ce qu’un responsable supprime ces lignes. Une base dont vous êtes le seul propriétaire doit d’abord en recevoir un autre, et le seul administrateur ne peut pas partir."
 
 #: components/shell/sidebar.tsx
 #: components/table/view-tabs.tsx
@@ -6924,8 +6949,8 @@ msgid "Their authenticator, passkeys, and backup codes are removed, and their se
 msgstr "Son application d'authentification, ses clés d'accès et ses codes de secours sont retirés, et ses sessions prennent fin. La personne se connecte avec son mot de passe et configure de nouveau un second facteur. Pour un téléphone ou une clé perdus."
 
 #: components/admin/admin-page.tsx
-msgid "Their sessions end and their API tokens stop working. Their data and audit history are kept."
-msgstr "Ses sessions sont fermées et ses jetons d'API cessent de fonctionner. Ses données et l'historique d'audit sont conservés."
+msgid "Their sessions end and their API tokens stop working. Their data and audit history are kept. When someone leaves, disable the account; erase only when their identity must leave the instance."
+msgstr "Leurs sessions se terminent et leurs jetons d’API cessent de fonctionner. Leurs données et leur historique d’audit sont conservés. Quand quelqu’un part, désactivez le compte ; n’effacez que lorsque son identité doit quitter l’instance."
 
 #: components/shell/user-menu.tsx
 msgid "Theme"
@@ -6963,6 +6988,10 @@ msgstr "Ce compte est désactivé"
 msgid "This account is locked after too many failed attempts. Try again later, or ask an administrator to unlock it."
 msgstr "Ce compte est verrouillé après trop d'échecs. Réessayez plus tard, ou demandez à un administrateur de le déverrouiller."
 
+#: components/admin/admin-page.tsx
+msgid "This account is still managed by the identity provider. Remove it there first, then erase it here."
+msgstr "Ce compte est encore géré par le fournisseur d’identité. Retirez-le là-bas d’abord, puis effacez-le ici."
+
 #: lib/errors.ts
 msgid "This account signs in through your organization's sign-in: it has no password here"
 msgstr "Ce compte se connecte par l'authentification de votre organisation : il n'a pas de mot de passe ici"
@@ -6987,9 +7016,13 @@ msgstr "Cette base est vide."
 msgid "This cannot be done to this account"
 msgstr "Opération impossible sur ce compte"
 
+#: components/admin/admin-page.tsx
+msgid "This cannot be undone. Their email and factors are removed. Audit history and comments stay under “Erased account”. Row values in bases are not wiped."
+msgstr "Cette action est irréversible. Leur e-mail et leurs facteurs sont retirés. L’historique d’audit et les commentaires restent sous « Erased account ». Les valeurs des lignes dans les bases ne sont pas effacées."
+
 #: components/settings/account-settings.tsx
-msgid "This cannot be undone. Your email and factors are removed. Row values in bases are not wiped."
-msgstr "Cette action est définitive. Votre adresse et vos seconds facteurs sont retirés. Les valeurs des lignes dans les bases ne sont pas effacées."
+msgid "This cannot be undone. Your email and factors are removed. Comments stay under “Erased account”. Row values in bases are not wiped."
+msgstr "Cette action est irréversible. Votre e-mail et vos facteurs sont retirés. Les commentaires restent sous « Erased account ». Les valeurs des lignes dans les bases ne sont pas effacées."
 
 #: lib/errors.ts
 msgid "This column does not tell when a row changes: choose a date and time set on every change, or a rowversion"
@@ -7419,9 +7452,21 @@ msgstr "Double authentification"
 msgid "Type"
 msgstr "Type"
 
+#: components/admin/admin-page.tsx
+msgid "Type {email} to confirm"
+msgstr "Saisissez {email} pour confirmer"
+
 #: components/table/import-dialog.tsx
 msgid "Type of {name}"
 msgstr "Type de {name}"
+
+#: components/admin/admin-page.tsx
+msgid "Type the account's email to confirm"
+msgstr "Saisissez l’e-mail du compte pour confirmer"
+
+#: components/admin/admin-page.tsx
+msgid "Type the new owner's email"
+msgstr "Saisissez l’e-mail du nouveau propriétaire"
 
 #: components/shell/airtable-report.tsx
 msgid "type without an equivalent carried over as text"

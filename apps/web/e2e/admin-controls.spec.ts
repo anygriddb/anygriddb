@@ -1,7 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import pg from "pg";
-import { signUpWithTable, uniqueStamp, watchPolicy } from "./setup";
+import {
+  accessibilityViolations,
+  signUpWithTable,
+  uniqueStamp,
+  watchPolicy,
+} from "./setup";
 
 const controlUrl =
   process.env.DATABASE_URL ??
@@ -102,6 +107,108 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
         .locator("xpath=following-sibling::dd[1]"),
     ).toHaveText(`${version} · from sources`);
 
+    await other.close();
+    expect(blocked).toEqual([]);
+  } finally {
+    await control.end();
+  }
+});
+
+// A departure (ADR 0051): the account is disabled, then erased. It alone
+// owns a base, so the administrator names the colleague who takes it.
+test("an administrator erases a departed owner and names who takes the base", async ({
+  page,
+  browser,
+}) => {
+  const blocked = watchPolicy(page);
+  const control = new pg.Client({ connectionString: controlUrl });
+  await control.connect();
+  try {
+    const { email: adminEmail } = await signUpWithTable(page, "Erase Admin");
+    await control.query("update users set is_admin = true where email = $1", [
+      adminEmail,
+    ]);
+
+    // The person who will leave alone owns the base they make.
+    const theirs = await browser.newContext({ ignoreHTTPSErrors: true });
+    const leaving = await theirs.newPage();
+    const stamp = uniqueStamp();
+    const { email: leavingEmail } = await signUpWithTable(
+      leaving,
+      `Leaving ${stamp}`,
+    );
+
+    // The colleague who takes the base.
+    const other = await browser.newContext({ ignoreHTTPSErrors: true });
+    const heir = await other.newPage();
+    const heirEmail = `e2e-heir-${stamp}@example.com`;
+    await heir.goto("/signup");
+    await heir.getByLabel("Email").fill(heirEmail);
+    await heir.getByLabel("Display name").fill(`Heir ${stamp}`);
+    await heir.getByLabel("Password").fill("correct-horse-battery");
+    await heir.getByRole("button", { name: "Create account" }).click();
+    await heir.waitForURL(/\/welcome/);
+
+    await page.goto("/admin");
+    await page.getByRole("tab", { name: "Accounts" }).click();
+    await page.getByLabel("Search accounts").fill(leavingEmail);
+    const row = page.getByRole("row", { name: new RegExp(leavingEmail) });
+    // Erase is offered on a disabled account only.
+    await expect(row.getByRole("button", { name: "Erase…" })).toHaveCount(0);
+    await row.getByRole("button", { name: "Disable" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: "Disable" }).click();
+    await expect(row.getByRole("button", { name: "Enable" })).toBeVisible();
+
+    await row.getByRole("button", { name: "Erase…" }).click();
+    await expect(dialog).toContainText("No one else owns these bases: Lab.");
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // Nothing typed, then no new owner, then an address no account has:
+    // each is refused and the dialog stays.
+    const erase = dialog.getByRole("button", { name: "Erase", exact: true });
+    await erase.click();
+    await expect(
+      page.getByText("Type the account's email to confirm"),
+    ).toBeVisible();
+    await dialog
+      .getByLabel(`Type ${leavingEmail} to confirm`)
+      .fill(leavingEmail);
+    await erase.click();
+    await expect(page.getByText("Type the new owner's email")).toBeVisible();
+    await dialog
+      .getByLabel("New owner's email")
+      .fill(`e2e-nobody-${stamp}@example.com`);
+    await erase.click();
+    await expect(page.getByText("No account with this email")).toBeVisible();
+    await expect(dialog).toBeVisible();
+
+    await dialog.getByLabel("New owner's email").fill(heirEmail);
+    await erase.click();
+    await expect(dialog).toBeHidden();
+    await expect(row).toBeHidden();
+
+    const gone = await control.query("select 1 from users where email = $1", [
+      leavingEmail,
+    ]);
+    expect(gone.rowCount).toBe(0);
+    const owners = await control.query(
+      "select u.email from role_bindings r join users u on u.id = r.user_id join bases b on b.id = r.scope_id where r.scope = 'base' and r.role = 'owner' and b.name = 'Lab' and u.email in ($1, $2)",
+      [heirEmail, leavingEmail],
+    );
+    expect(owners.rows).toEqual([{ email: heirEmail }]);
+
+    // The trail says an administrator erased an account, not whose.
+    await page.getByRole("tab", { name: "Audit log" }).click();
+    await page.getByRole("radio", { name: "Sign-ins" }).click();
+    await expect(
+      page
+        .getByRole("row", { name: /Account erased/ })
+        .filter({ hasText: "Erase Admin" })
+        .first(),
+    ).toContainText("By an administrator");
+
+    await theirs.close();
     await other.close();
     expect(blocked).toEqual([]);
   } finally {

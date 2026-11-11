@@ -62,3 +62,4 @@ asserting: it superseded 0001 and added 0021 to 0026.
 | [0048](0048-versions-and-releases.md)                | Versions and releases: SemVer in the root package.json, tags, labelled image            | Accepted                           |
 | [0049](0049-realtime-gaps.md)                        | Realtime gaps: every page re-reads what it may have missed; heartbeat                   | Accepted (completes 0009)          |
 | [0050](0050-operator-integrations-ui.md)             | Operator integrations (SMTP, OIDC, SAML) in the UI; env as optional bootstrap           | Accepted                           |
+| [0051](0051-admin-account-erasure.md)                | Administrator-initiated account erasure; comments under the tombstone                   | Accepted                           |

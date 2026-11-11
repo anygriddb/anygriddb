@@ -1,7 +1,8 @@
 import { AppError, type Role, roleFor } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
-import { withAudit } from "./audit-context.js";
+import { withAudit, type AuditTx } from "./audit-context.js";
+import { liveBase } from "./live.js";
 
 export const grantInputSchema = z.object({
   baseId: z.uuid(),
@@ -42,6 +43,63 @@ async function ownerIds(db: Database, baseId: string): Promise<string[]> {
  * Sets the base role. Table overrides for that user are cleared, so the
  * base role applies to every table again.
  */
+/** Live bases this account alone owns. */
+export async function soleOwnerBases(
+  db: Database,
+  userId: string,
+): Promise<{ id: string; name: string }[]> {
+  return db
+    .selectFrom("bases as b")
+    .innerJoin("roleBindings as own", (join) =>
+      join
+        .onRef("own.scopeId", "=", "b.id")
+        .on("own.scope", "=", "base")
+        .on("own.role", "=", "owner")
+        .on("own.userId", "=", userId),
+    )
+    .select(["b.id", "b.name"])
+    .where(liveBase("b"))
+    .where((eb) =>
+      eb.not(
+        eb.exists(
+          eb
+            .selectFrom("roleBindings as other")
+            .select("other.userId")
+            .whereRef("other.scopeId", "=", "b.id")
+            .where("other.scope", "=", "base")
+            .where("other.role", "=", "owner")
+            .where("other.userId", "<>", userId),
+        ),
+      ),
+    )
+    .orderBy("b.name", "asc")
+    .execute();
+}
+
+/**
+ * Gives an account one role on a base, in the caller's audited
+ * transaction: the bindings it had on the base and its tables give way.
+ */
+export async function bindRole(
+  tx: AuditTx,
+  userId: string,
+  role: Role,
+  baseId: string,
+): Promise<void> {
+  const ids = [baseId, ...(await tableIds(tx, baseId))];
+  // A group's bindings follow the group, not this choice.
+  await tx
+    .deleteFrom("roleBindings")
+    .where("userId", "=", userId)
+    .where("scopeId", "in", ids)
+    .where("groupId", "is", null)
+    .execute();
+  await tx
+    .insertInto("roleBindings")
+    .values({ userId, role, scope: "base", scopeId: baseId })
+    .execute();
+}
+
 async function replaceRole(
   db: Database,
   actorId: string,
@@ -49,20 +107,9 @@ async function replaceRole(
   role: Role,
   baseId: string,
 ): Promise<void> {
-  const ids = [baseId, ...(await tableIds(db, baseId))];
-  await withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
-    // A group's bindings follow the group, not this choice.
-    await tx
-      .deleteFrom("roleBindings")
-      .where("userId", "=", userId)
-      .where("scopeId", "in", ids)
-      .where("groupId", "is", null)
-      .execute();
-    await tx
-      .insertInto("roleBindings")
-      .values({ userId, role, scope: "base", scopeId: baseId })
-      .execute();
-  });
+  await withAudit(db, { userId: actorId, source: "web" }, (tx) =>
+    bindRole(tx, userId, role, baseId),
+  );
 }
 
 /**

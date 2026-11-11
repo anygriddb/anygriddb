@@ -25,6 +25,7 @@ export type AuthDetail =
   | "instance_maintenance"
   | "mfa_failed"
   | "admin_disable"
+  | "admin_erase"
   | "admin_revoke_session"
   | "admin_revoke_user"
   | "admin_revoke_all"

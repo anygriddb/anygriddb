@@ -312,7 +312,7 @@ export function AccountSettings() {
       </RuledSection>
       <RuledSection
         title={t`Delete account`}
-        description={t`Removes your sign-in and attributes your audit history to an erased account. Values you entered in bases stay until a manager deletes those rows.`}
+        description={t`Removes your sign-in and attributes your audit history and comments to an erased account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave.`}
       >
         <div className="flex gap-2">
           <Input
@@ -337,7 +337,7 @@ export function AccountSettings() {
         onOpenChange={setConfirmErase}
         danger
         title={t`Permanently delete your account?`}
-        description={t`This cannot be undone. Your email and factors are removed. Row values in bases are not wiped.`}
+        description={t`This cannot be undone. Your email and factors are removed. Comments stay under “Erased account”. Row values in bases are not wiped.`}
         confirmLabel={t`Delete`}
         onConfirm={() =>
           run(async () => {

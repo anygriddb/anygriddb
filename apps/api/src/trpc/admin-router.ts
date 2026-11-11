@@ -12,10 +12,13 @@ import {
   auditEventsCsv,
   authEventCount,
   authEventsCsv,
+  adminEraseInputSchema,
   clearFactors,
   endOtherSessions,
   endSession,
   endUserSessions,
+  eraseInfo,
+  eraseOtherAccount,
   instanceAuthAudit,
   instanceRuntime,
   listFailedDeliveries,
@@ -155,6 +158,7 @@ const authActionSchema = z.enum([
   "password_reset",
   "settings_changed",
   "account_disabled",
+  "account_erased",
   "sso_unlinked",
 ] satisfies AuthAction[]);
 
@@ -581,6 +585,34 @@ export const adminRouter = t.router({
         return { ok: true as const };
       }),
     ),
+  /**
+   * What the erase dialog needs: whether the account may be erased, and
+   * which live bases still name it as their only owner (ADR 0051).
+   */
+  eraseInfo: procedure
+    .input(z.object({ userId: z.uuid() }))
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        return eraseInfo(ctx.db, admin.id, input.userId);
+      }),
+    ),
+  /**
+   * Erases a disabled account after the administrator types its email.
+   * Same tombstone path as self-service erasure (ADR 0051).
+   */
+  erase: procedure.input(adminEraseInputSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      await eraseOtherAccount(ctx.db, admin.id, input);
+      ctx.hub.closeUser(input.userId);
+      ctx.req.log.info(
+        { actor: admin.id, target: input.userId },
+        "account erased",
+      );
+      return { ok: true as const };
+    }),
+  ),
   setAdmin: procedure
     .input(z.object({ userId: z.uuid(), admin: z.boolean() }))
     .mutation(({ ctx, input }) =>
