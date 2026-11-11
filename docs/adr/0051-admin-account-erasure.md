@@ -1,6 +1,7 @@
 # 0051 — Administrator-initiated account erasure
 
-- Status: Accepted
+- Status: Accepted; erasing only a disabled account is superseded by
+  [0059](0059-delete-account-in-one-step.md)
 - Date: 2026-11-11
 
 ## Context

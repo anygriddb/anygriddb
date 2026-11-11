@@ -1,6 +1,7 @@
 # 0042 — Instance controls: a sign-in trail, maintenance, and account support
 
-- Status: Accepted
+- Status: Accepted; its refusal of administrator grants into a base is
+  superseded by [0057](0057-administration-grants-bases.md)
 - Date: 2026-11-09
 
 ## Context
