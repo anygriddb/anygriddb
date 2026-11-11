@@ -30,6 +30,7 @@ import { isPrimaryType, isWritableType } from "@anygriddb/core";
 import { useRef, useState } from "react";
 import type { CatalogColumn } from "../../lib/types";
 import { FieldIcon } from "../fields/field-meta";
+import { ResizeHandle } from "../shell/resize-handle";
 import { distinctLimits, useLimitText } from "../../lib/limits";
 import { useLingui } from "@lingui/react/macro";
 
@@ -249,38 +250,19 @@ export function GridHeader(props: {
             ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
-        <span
-          role="separator"
-          aria-orientation="vertical"
-          aria-label={t`Resize`}
-          className="absolute top-0 -right-1 z-10 h-full w-2 cursor-col-resize hover:bg-primary/40"
-          onPointerDown={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            const startX = event.clientX;
-            const startWidth = width;
-            const onMove = (move: PointerEvent) => {
-              setResizing({
-                name: column.name,
-                width: Math.max(
-                  60,
-                  Math.min(1200, startWidth + move.clientX - startX),
-                ),
-              });
-            };
-            const onUp = (up: PointerEvent) => {
-              window.removeEventListener("pointermove", onMove);
-              window.removeEventListener("pointerup", onUp);
-              const next = Math.max(
-                60,
-                Math.min(1200, startWidth + up.clientX - startX),
-              );
-              setResizing(null);
-              if (next !== startWidth)
-                props.onResize(column.name, Math.round(next));
-            };
-            window.addEventListener("pointermove", onMove);
-            window.addEventListener("pointerup", onUp);
+        <ResizeHandle
+          width={width}
+          bounds={{ min: 60, max: 1200 }}
+          label={t`Resize`}
+          onResize={(next, phase) => {
+            if (phase === "move") {
+              setResizing({ name: column.name, width: next });
+              return;
+            }
+            setResizing(null);
+            if (next !== (props.widths[index] ?? 180)) {
+              props.onResize(column.name, next);
+            }
           }}
         />
       </div>

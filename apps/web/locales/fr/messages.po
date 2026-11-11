@@ -5246,6 +5246,10 @@ msgstr "Lien de réinitialisation envoyé"
 msgid "Resize"
 msgstr "Redimensionner"
 
+#: components/shell/sidebar.tsx
+msgid "Resize the sidebar"
+msgstr "Redimensionner la barre latérale"
+
 #: components/settings/api-docs.tsx
 msgid "REST at {url}. Authenticate with a token: Authorization: Bearer ag_…"
 msgstr "REST sur {url}. Authentifiez-vous avec un jeton : Authorization: Bearer ag_…"

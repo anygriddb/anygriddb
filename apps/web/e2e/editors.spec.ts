@@ -184,6 +184,49 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
     options: ["Lead", "Won"],
   });
   await page.reload();
+
+  // The sidebar is resized by keyboard and keeps its width; by a drag too.
+  const resize = page.getByRole("separator", { name: "Resize the sidebar" });
+  await resize.focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(resize).toHaveAttribute("aria-valuenow", "272");
+  await page.reload();
+  await expect(resize).toHaveAttribute("aria-valuenow", "272");
+  const strip = await resize.boundingBox();
+  if (!strip) throw new Error("the sidebar has no resize strip");
+  await page.mouse.move(strip.x + strip.width / 2, strip.y + 300);
+  await page.mouse.down();
+  await page.mouse.move(strip.x + strip.width / 2 + 50, strip.y + 300, {
+    steps: 5,
+  });
+  await page.mouse.up();
+  await expect(resize).toHaveAttribute("aria-valuenow", "322");
+  await resize.focus();
+  await page.keyboard.press("Enter");
+  await expect(resize).toHaveAttribute("aria-valuenow", "240");
+
+  // A column is resized by dragging its edge.
+  const dueHeader = page.getByRole("columnheader", { name: /Due/ });
+  const before = (await dueHeader.boundingBox())?.width ?? 0;
+  const edge = await dueHeader
+    .getByRole("separator", { name: "Resize", exact: true })
+    .boundingBox();
+  if (!edge) throw new Error("the column has no resize edge");
+  await page.mouse.move(edge.x + edge.width / 2, edge.y + edge.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    edge.x + edge.width / 2 + 40,
+    edge.y + edge.height / 2,
+    {
+      steps: 5,
+    },
+  );
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await dueHeader.boundingBox())?.width ?? 0)
+    .toBeGreaterThan(before + 30);
+
   await page.getByRole("button", { name: "Add a row", exact: true }).click();
   await expect(page.getByText(/Saved at/)).toBeVisible();
   expect(await accessibilityViolations(page)).toEqual([]);

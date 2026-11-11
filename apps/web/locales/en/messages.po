@@ -5246,6 +5246,10 @@ msgstr "Reset link sent"
 msgid "Resize"
 msgstr "Resize"
 
+#: components/shell/sidebar.tsx
+msgid "Resize the sidebar"
+msgstr "Resize the sidebar"
+
 #: components/settings/api-docs.tsx
 msgid "REST at {url}. Authenticate with a token: Authorization: Bearer ag_…"
 msgstr "REST at {url}. Authenticate with a token: Authorization: Bearer ag_…"

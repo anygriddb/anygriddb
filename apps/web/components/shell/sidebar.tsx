@@ -32,7 +32,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTrackJob } from "../../lib/jobs";
 import { useTrashActions } from "../../lib/trash";
@@ -40,6 +40,13 @@ import { useChannel } from "../../lib/realtime";
 import { useCatalog } from "../../lib/session";
 import { resolveShortcuts } from "../../lib/shortcut-list";
 import { useShortcuts } from "../../lib/shortcuts";
+import {
+  readSidebarWidth,
+  SIDEBAR_WIDTH_DEFAULT,
+  SIDEBAR_WIDTH_MAX,
+  SIDEBAR_WIDTH_MIN,
+  writeSidebarWidth,
+} from "../../lib/sidebar-width";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogBase, CatalogTable } from "../../lib/types";
 import { canManage } from "../../lib/types";
@@ -49,6 +56,7 @@ import { ConfirmDialog, PromptDialog } from "./dialogs";
 import { NewTableDialog } from "./new-table-dialog";
 import { NewBaseDialog } from "./new-base-dialog";
 import { SidebarSources } from "./sidebar-sources";
+import { ResizeHandle } from "./resize-handle";
 import { openCommandPalette } from "./command-palette";
 import { JobsMenu } from "./jobs-menu";
 import { NotificationBell } from "./notification-bell";
@@ -133,6 +141,8 @@ export function Sidebar({
   const { trashed } = useTrashActions();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [width, setWidth] = useState(readSidebarWidth);
+  const aside = useRef<HTMLElement>(null);
   useChannel(params.baseId, {
     message: (message) => {
       if (message.type === "catalog") void invalidate();
@@ -247,7 +257,11 @@ export function Sidebar({
   }
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-background">
+    <aside
+      ref={aside}
+      className="relative flex shrink-0 flex-col border-r border-border bg-background"
+      style={{ width }}
+    >
       <div className="flex h-11 shrink-0 items-center px-2">
         <Link
           to="/"
@@ -645,6 +659,25 @@ export function Sidebar({
         <JobsMenu />
         <NotificationBell />
       </div>
+      <ResizeHandle
+        width={width}
+        keyboard
+        label={t`Resize the sidebar`}
+        bounds={{
+          min: SIDEBAR_WIDTH_MIN,
+          max: SIDEBAR_WIDTH_MAX,
+          reset: SIDEBAR_WIDTH_DEFAULT,
+        }}
+        onResize={(next, phase) => {
+          // While dragging, the panel alone changes width: the tree of
+          // bases is drawn again once, when the drag ends.
+          if (aside.current) aside.current.style.width = `${String(next)}px`;
+          if (phase === "end") {
+            setWidth(next);
+            writeSidebarWidth(next);
+          }
+        }}
+      />
 
       <NewBaseDialog
         open={dialog?.kind === "create-base"}
