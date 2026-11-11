@@ -226,7 +226,10 @@ export async function saveOidc(
   options: {
     ip?: string;
     /** Test seam for OpenID discovery (ADR 0053). */
-    fetch?: Parameters<typeof proveOidcIssuer>[1]["fetch"];
+    fetch?: (
+      input: string,
+      init?: { signal?: AbortSignal },
+    ) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
   } = {},
 ): Promise<PublicOidc> {
   const existing = await db
