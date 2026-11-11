@@ -22,9 +22,17 @@ updates:
       prefix-development: chore
       include: scope
     groups:
+      # Tracing's packages move together: an exporter of one major beside a
+      # provider of another builds, and nothing tests that spans still
+      # leave. Their 0.x numbers make a major look like a minor.
+      opentelemetry:
+        patterns:
+          - "@opentelemetry/*"
       npm-minor-and-patch:
         patterns:
           - "*"
+        exclude-patterns:
+          - "@opentelemetry/*"
         update-types:
           - minor
           - patch
