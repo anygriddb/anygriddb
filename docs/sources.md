@@ -346,7 +346,7 @@ Notes:
 ## Sample database lab
 
 To exercise sources against real schemas (Chinook, Northwind, Sakila,
-Pagila, AdventureWorks) on the four engines over TLS, see
+Pagila, AdventureWorks) on the five engines over TLS, see
 [`docker/lab/README.md`](../docker/lab/README.md).
 
 ```bash
