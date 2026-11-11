@@ -747,6 +747,14 @@ msgstr "Compte"
 msgid "Account changed"
 msgstr "Compte modifié"
 
+#: components/admin/admin-page.tsx
+msgid "Account created"
+msgstr "Compte créé"
+
+#: components/admin/admin-page.tsx
+msgid "Account created. Link sent to {to}"
+msgstr "Compte créé. Lien envoyé à {to}"
+
 #: components/admin/sign-in-trail.tsx
 msgid "Account disabled"
 msgstr "Ce compte est désactivé"
@@ -2004,6 +2012,7 @@ msgstr "Créer une ligne"
 msgid "Create a token"
 msgstr "Créer un jeton"
 
+#: components/admin/admin-page.tsx
 #: components/auth/auth-page.tsx
 msgid "Create account"
 msgstr "Créer le compte"
@@ -2012,6 +2021,10 @@ msgstr "Créer le compte"
 #: components/public/invitation-page.tsx
 msgid "Create an account"
 msgstr "Créer un compte"
+
+#: components/admin/admin-page.tsx
+msgid "Create and send reset"
+msgstr "Créer et envoyer la réinitialisation"
 
 #: components/fields/field-editor.tsx
 msgid "Create field"
@@ -2070,6 +2083,10 @@ msgstr "Date de création"
 #: components/shell/airtable-report.tsx
 msgid "created time, modified time, or number carried over as values"
 msgstr "date de création, de modification ou numéro repris en valeurs"
+
+#: components/admin/admin-page.tsx
+msgid "Creates the account and a password reset link. With email set up, the link is mailed; otherwise you get it to pass on. Public sign-up is controlled under Settings → Sign-ups."
+msgstr "Crée le compte et un lien de réinitialisation du mot de passe. Avec l'e-mail configuré, le lien est envoyé ; sinon vous le recevez pour le transmettre. L'inscription publique se règle sous Réglages → Inscriptions."
 
 #: components/admin/admin-page.tsx
 #: components/settings/webhooks-panel.tsx
@@ -3525,6 +3542,10 @@ msgid "Insert right"
 msgstr "Insérer à droite"
 
 #: components/admin/admin-page.tsx
+msgid "Instance administrator"
+msgstr "Administrateur de l'instance"
+
+#: components/admin/admin-page.tsx
 msgid "Integrations"
 msgstr "Intégrations"
 
@@ -4839,6 +4860,10 @@ msgstr "Ouvertes à tous"
 #: components/dashboards/dashboard-board.tsx
 msgid "Open view"
 msgstr "Ouvrir la vue"
+
+#: components/admin/admin-page.tsx
+msgid "Open: anyone can register from the sign-in page. Closed: only administrators create accounts and send a reset link (Accounts). By invitation: a pending base invitation is required. SSO for new accounts follows the same rule. Existing accounts are not affected."
+msgstr "Ouvert : chacun peut s'inscrire depuis la page de connexion. Fermé : seuls les administrateurs créent les comptes et envoient un lien de réinitialisation (Comptes). Sur invitation : une invitation à une base en attente est requise. La connexion SSO pour les nouveaux comptes suit la même règle. Les comptes existants ne sont pas concernés."
 
 #: components/admin/integrations-tab.tsx
 msgid "OpenID Connect"
@@ -6255,10 +6280,6 @@ msgstr "SQL Server n'a plus gardé assez longtemps les changements : la table a 
 #: components/fields/formula-docs.ts
 msgid "Square root; blank for a negative number."
 msgstr "Racine carrée ; vide pour un nombre négatif."
-
-#: components/admin/admin-page.tsx
-msgid "SSO sign-in follows the same rule for new accounts. Existing accounts are not affected."
-msgstr "La connexion SSO suit la même règle pour les nouveaux comptes. Les comptes existants ne sont pas touchés."
 
 #: components/grid/grid-footer.tsx
 msgid "Standard deviation"

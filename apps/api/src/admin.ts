@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import {
   AppError,
   emailDomainAllowed,
@@ -12,12 +13,20 @@ import { sql as sqlTag } from "kysely";
 import { z } from "zod";
 import type { Bus } from "./realtime/bus.js";
 import { factorMethods } from "./auth/access.js";
+import { hashPassword } from "./auth/argon2.js";
 import { ERASED_USER_ID } from "./data/erasure.js";
-import { isUniqueViolation } from "./data/schema-ops.js";
 import { recordAuthEvent } from "./auth/auth-events.js";
 import { BUILD } from "./build-info.js";
+import { isUniqueViolation } from "./data/schema-ops.js";
 import type { FileStore } from "./files/index.js";
 import { readSettings } from "./settings.js";
+
+/** An administrator creates an account; the person sets their password via reset. */
+export const createUserInputSchema = z.object({
+  email: z.email().max(254),
+  displayName: labelSchema,
+  isAdmin: z.boolean().default(false),
+});
 
 /* ------------------------------------------------------------------ */
 /* Settings and sign-up                                                */
@@ -279,6 +288,45 @@ export async function updateAccount(
       }
       return changed;
     });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new AppError("account_already_exists");
+    }
+    throw error;
+  }
+}
+
+/**
+ * Creates an account for someone else: a random password hash that nobody
+ * knows, so the existing reset path can set the first real password. Sign-up
+ * policy and domains do not apply; the administrator chose this address.
+ */
+export async function createProvisionedUser(
+  db: Database,
+  input: z.infer<typeof createUserInputSchema>,
+): Promise<{ id: string; email: string; displayName: string }> {
+  const email = input.email.toLowerCase();
+  const secret = randomBytes(32).toString("base64url");
+  const hash = await hashPassword(secret);
+  try {
+    const inserted = await db.transaction().execute(async (tx) => {
+      const row = await tx
+        .insertInto("users")
+        .values({
+          email,
+          displayName: input.displayName,
+          isAdmin: input.isAdmin,
+        })
+        .returning(["id", "email", "displayName"])
+        .executeTakeFirst();
+      if (!row) throw new AppError("no_row");
+      await tx
+        .insertInto("passwordHashes")
+        .values({ userId: row.id, hash })
+        .execute();
+      return row;
+    });
+    return inserted;
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new AppError("account_already_exists");

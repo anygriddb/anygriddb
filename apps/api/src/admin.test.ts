@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { changedKeys, updateAccountInputSchema } from "./admin.js";
+import {
+  changedKeys,
+  createUserInputSchema,
+  updateAccountInputSchema,
+} from "./admin.js";
 
 describe("changedKeys", () => {
   it("lists fields whose values differ, without system noise", () => {
@@ -60,5 +64,34 @@ describe("updateAccountInputSchema", () => {
     expect(refused({ displayName: "   " })).toBe(false);
     expect(refused({ email: "ada" })).toBe(false);
     expect(refused({ isAdmin: true })).toBe(false);
+  });
+});
+
+describe("createUserInputSchema", () => {
+  it("accepts an email and display name, defaulting isAdmin", () => {
+    expect(
+      createUserInputSchema.parse({
+        email: "person@example.org",
+        displayName: "Person",
+      }),
+    ).toEqual({
+      email: "person@example.org",
+      displayName: "Person",
+      isAdmin: false,
+    });
+  });
+
+  it("rejects a missing display name and a bad email", () => {
+    expect(
+      createUserInputSchema.safeParse({
+        email: "person@example.org",
+      }).success,
+    ).toBe(false);
+    expect(
+      createUserInputSchema.safeParse({
+        email: "not-an-email",
+        displayName: "Person",
+      }).success,
+    ).toBe(false);
   });
 });

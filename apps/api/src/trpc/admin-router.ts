@@ -72,6 +72,8 @@ import {
   resolveOperatorRecipients,
 } from "../operator-mail.js";
 import {
+  createProvisionedUser,
+  createUserInputSchema,
   instanceAudit,
   instanceHealth,
   listUsers,
@@ -651,6 +653,59 @@ export const adminRouter = t.router({
           "admin role changed",
         );
         return { ok: true as const };
+      }),
+    ),
+  /**
+   * Creates an account and a reset link so the person can set their
+   * password. Sign-up policy does not apply. With SMTP ready the link is
+   * mailed; otherwise the administrator gets it to pass on.
+   */
+  createUser: procedure
+    .input(createUserInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const created = await createProvisionedUser(ctx.db, input);
+        const link = await createResetLink(ctx.db, {
+          userId: created.id,
+          createdBy: admin.id,
+          ttlMs: ADMIN_RESET_TTL_MS,
+        });
+        await recordAuthEvent(ctx.db, {
+          action: "password_reset_requested",
+          userId: created.id,
+          actorId: admin.id,
+          method: "admin",
+          detail: "reset_link",
+          ip: ctx.req.ip,
+        });
+        ctx.req.log.info(
+          {
+            actor: admin.id,
+            target: created.id,
+            admin: input.isAdmin,
+          },
+          "account created by administrator",
+        );
+        if (smtpReady((await resolveSmtp(ctx.db, ctx.env)).config)) {
+          const to = await sendResetLink(
+            { db: ctx.db, env: ctx.env, log: ctx.req.log },
+            created.id,
+            { ...link, byAdmin: true },
+          );
+          if (!to) throw new AppError("smtp_not_configured");
+          return {
+            userId: created.id,
+            sent: true as const,
+            to,
+          };
+        }
+        return {
+          userId: created.id,
+          sent: false as const,
+          link: resetLinkUrl(ctx.env.PUBLIC_URL, link.token),
+          expiresAt: link.expiresAt.toISOString(),
+        };
       }),
     ),
   /** The certificate served, and the authority to install (ADR 0029). */
