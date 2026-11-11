@@ -43,6 +43,7 @@ import { nextFrozenColumns } from "../grid/margin-column";
 import { GridView } from "../grid/grid-view";
 import { useRows } from "../grid/use-rows";
 import { useUndo } from "../grid/use-undo";
+import { tableTakesUndo, undoShortcut } from "../../lib/keyboard-undo";
 import { RecordPanel } from "../record/record-panel";
 import { ConfirmDialog, PromptDialog } from "../shell/dialogs";
 import { CalendarView } from "../views/calendar-view";
@@ -442,6 +443,18 @@ export function TableWorkspace({
       });
       for (const update of updates)
         rows.patchLocal(update.rowId, update.values);
+      // Kept as soon as it is sent: an undo right away waits for the save.
+      let settle: (applied: boolean) => void = () => undefined;
+      if (options?.undoable !== false) {
+        undo.push({
+          label: t`Edit`,
+          undo: () => update(previous, { undoable: false }),
+          redo: () => update(updates, { undoable: false }),
+          settled: new Promise<boolean>((resolve) => {
+            settle = resolve;
+          }),
+        });
+      }
       setSaveStatus("saving");
       try {
         // A client's table compares what the person saw with what its
@@ -461,6 +474,7 @@ export function TableWorkspace({
         void rows.refetchIds(updates.map((update) => update.rowId));
         setSavedAt(new Date());
         setSaveStatus("saved");
+        settle(true);
       } catch (cause) {
         for (const update of previous)
           rows.patchLocal(update.rowId, update.values);
@@ -468,14 +482,7 @@ export function TableWorkspace({
         void rows.refetchIds(updates.map((update) => update.rowId));
         setSaveStatus("error");
         toast.error(errorText(cause));
-        return;
-      }
-      if (options?.undoable !== false) {
-        undo.push({
-          label: t`Edit`,
-          undo: () => update(previous, { undoable: false }),
-          redo: () => update(updates, { undoable: false }),
-        });
+        settle(false);
       }
     },
     [
@@ -491,10 +498,35 @@ export function TableWorkspace({
     ],
   );
 
-  const setLinks = useCallback(
-    async (rowId: string, column: string, targetIds: string[]) => {
+  const setLinks = useCallback<TableContextValue["setLinks"]>(
+    // Named, so its undo entries can call it again.
+    async function link(rowId, column, targetIds, options) {
+      const reason = await askReason([column]);
+      if (
+        reason === undefined &&
+        allColumns.some((item) => item.name === column && item.requireReason)
+      )
+        return;
+      const held = rowsById.get(rowId)?.[column as keyof RowItem];
+      const previous = Array.isArray(held)
+        ? held.flatMap((item: unknown) =>
+            item && typeof item === "object" && "id" in item
+              ? [String(item.id)]
+              : [],
+          )
+        : [];
+      let settle: (applied: boolean) => void = () => undefined;
+      if (options?.undoable !== false) {
+        undo.push({
+          label: t`Edit`,
+          undo: () => link(rowId, column, previous, { undoable: false }),
+          redo: () => link(rowId, column, targetIds, { undoable: false }),
+          settled: new Promise<boolean>((resolve) => {
+            settle = resolve;
+          }),
+        });
+      }
       try {
-        const reason = await askReason([column]);
         await trpc.rows.setLinks.mutate({
           tableId,
           rowId,
@@ -503,12 +535,33 @@ export function TableWorkspace({
           reason,
         });
         await rows.refetchIds([rowId]);
+        settle(true);
       } catch (cause) {
         toast.error(errorText(cause));
+        settle(false);
       }
     },
-    [tableId, rows, askReason, errorText],
+    [tableId, rows, rowsById, allColumns, askReason, errorText, undo, t],
   );
+
+  // Ctrl Z and Ctrl Y (or Ctrl Shift Z) undo and redo the table's changes
+  // wherever the focus is on its page, a cell's list panel included; text
+  // being typed and dialogs keep their own.
+  const { undo: undoLast, redo: redoLast } = undo;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const action = undoShortcut(event);
+      // A list panel copies each key to its active option (untrusted).
+      if (!action || !event.isTrusted || event.defaultPrevented) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (!tableTakesUndo(target)) return;
+      event.preventDefault();
+      void (action === "undo" ? undoLast() : redoLast());
+    };
+    // Captured: a list panel stops the keys it gets from bubbling.
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [undoLast, redoLast]);
 
   const insertRows = useCallback(
     async (
@@ -1010,8 +1063,6 @@ export function TableWorkspace({
                 }}
                 onDeleteRows={deleteRows}
                 onDuplicateRows={duplicateRows}
-                onUndo={() => void undo.undo()}
-                onRedo={() => void undo.redo()}
                 onResize={(column, width) =>
                   void patchView({
                     columnWidths: {

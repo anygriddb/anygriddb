@@ -47,6 +47,7 @@ import { AttachmentPreview } from "./attachment-preview";
 import { linkedRowDraft } from "./link-actions";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { LIST_PANEL_ATTRIBUTE } from "../../lib/keyboard-undo";
 
 type Move = "down" | "right" | "left";
 
@@ -414,6 +415,7 @@ function ListPanel({
   return (
     <div
       ref={ref}
+      {...{ [LIST_PANEL_ATTRIBUTE]: "" }}
       className="absolute top-0 left-0 z-50 flex max-h-80 w-72 flex-col rounded-sm border border-border bg-card shadow-xl"
       // Clicks in the panel stay in it: the grid keeps its editor open.
       onPointerDown={(event) => event.stopPropagation()}
@@ -444,13 +446,15 @@ function SelectEditor({ column, row, onDone }: EditorProps) {
   const [query, setQuery] = useState("");
   const multiple = column.fieldType === "multi_select";
   const current = row[column.name as keyof RowItem];
-  const [picked, setPicked] = useState<string[]>(
-    Array.isArray(current)
-      ? current.map(String)
-      : current
-        ? [cellText(current)]
-        : [],
-  );
+  const pickedOf = (value: typeof current) =>
+    Array.isArray(value) ? value.map(String) : value ? [cellText(value)] : [];
+  const [picked, setPicked] = useState<string[]>(pickedOf(current));
+  // An undo, or another person, changes the cell under the open panel.
+  const [shown, setShown] = useState(current);
+  if (shown !== current) {
+    setShown(current);
+    setPicked(pickedOf(current));
+  }
   const selectAppearance = multiple
     ? multiSelectAppearance(column)
     : singleSelectAppearance(column);
@@ -560,6 +564,12 @@ function UserEditor({ column, row, onDone }: EditorProps) {
   const [picked, setPicked] = useState<string[]>(
     Array.isArray(current) ? current.map(String) : [],
   );
+  // An undo, or another person, changes the cell under the open panel.
+  const [shown, setShown] = useState(current);
+  if (shown !== current) {
+    setShown(current);
+    setPicked(Array.isArray(current) ? current.map(String) : []);
+  }
   const options: PickerOption[] = [...people.values()].map((person) => ({
     id: person.id,
     textValue: person.displayName,
@@ -618,6 +628,12 @@ function LinkEditor({ column, row, onDone }: EditorProps) {
   const [picked, setPicked] = useState<Array<{ id: string; label: string }>>(
     isLinkArray(current) ? current : [],
   );
+  // An undo, or another person, changes the cell under the open panel.
+  const [shown, setShown] = useState(current);
+  if (shown !== current) {
+    setShown(current);
+    setPicked(isLinkArray(current) ? current : []);
+  }
   const single =
     column.fieldType === "relation_one_to_many" &&
     column.relation?.direction !== "inverse";

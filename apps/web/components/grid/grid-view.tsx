@@ -116,8 +116,6 @@ export type GridProps = {
   onInsertRows: (rows: Array<Record<string, CellValue>>) => Promise<void>;
   onDeleteRows: (rowIds: string[]) => Promise<void>;
   onDuplicateRows: (rowIds: string[]) => Promise<void>;
-  onUndo: () => void;
-  onRedo: () => void;
   onResize: (column: string, width: number) => void;
   onReorder: (from: string, to: string) => void;
   onAggregate: (column: string, fn: string | null) => void;
@@ -523,17 +521,6 @@ export function GridView(props: GridProps) {
     if (editing) return;
     const activeRow = active ? rowAtPosition(active.r) : undefined;
     const mod = event.ctrlKey || event.metaKey;
-    if (mod && event.key.toLowerCase() === "z") {
-      event.preventDefault();
-      if (event.shiftKey) props.onRedo();
-      else props.onUndo();
-      return;
-    }
-    if (mod && event.key.toLowerCase() === "y") {
-      event.preventDefault();
-      props.onRedo();
-      return;
-    }
     if (!active) {
       if (event.key.startsWith("Arrow") && visibleRowIndexes.length > 0) {
         event.preventDefault();
