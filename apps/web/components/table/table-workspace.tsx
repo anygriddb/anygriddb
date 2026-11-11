@@ -328,8 +328,13 @@ export function TableWorkspace({
   }, [stackName, stackCounts.data]);
   // A field added, changed, or removed changes what the rows hold: a new
   // formula's values, a converted field's. Read them again.
-  useChannel(baseId, (message) => {
-    if (message.type === "catalog") rows.refresh();
+  useChannel(baseId, {
+    message: (message) => {
+      if (message.type === "catalog") rows.refresh();
+    },
+    resync: () => {
+      rows.refresh();
+    },
   });
 
   const people = useMemo(

@@ -60,3 +60,4 @@ asserting: it superseded 0001 and added 0021 to 0026.
 | [0046](0046-control-plane-enrichment.md)             | Enrichment without a side schema lives in the control plane                             | Accepted (amends 0032)             |
 | [0047](0047-oracle-dialect-spike.md)                 | Oracle dialect: thin mode, shipped on the five-engine conformance suite                 | Accepted                           |
 | [0048](0048-versions-and-releases.md)                | Versions and releases: SemVer in the root package.json, tags, labelled image            | Accepted                           |
+| [0049](0049-realtime-gaps.md)                        | Realtime gaps: every page re-reads what it may have missed; heartbeat                   | Accepted (completes 0009)          |

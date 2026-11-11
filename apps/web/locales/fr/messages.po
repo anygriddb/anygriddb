@@ -1781,6 +1781,10 @@ msgstr "Connecté (primaire {version}, réplique {replica})"
 msgid "Connected (version {version})"
 msgstr "Connexion réussie (version {version})"
 
+#: components/shell/app-shell.tsx
+msgid "Connection lost: changes made by others will show once it is back."
+msgstr "Connexion perdue : les modifications des autres s'afficheront à son retour."
+
 #: lib/known-text.ts
 msgid "Connection refused"
 msgstr "Connexion refusée"
@@ -3859,10 +3863,6 @@ msgstr "À l'écoute"
 msgid "Lists"
 msgstr "Listes"
 
-#: components/shell/sidebar.tsx
-msgid "Live"
-msgstr "En direct"
-
 #: components/admin/sources-tab.tsx
 msgid "Live in the client's database"
 msgstr "En direct dans la base du client"
@@ -4501,10 +4501,6 @@ msgstr "Proposer d'envoyer une autre réponse"
 msgid "Offered role: {role}. Sent to {email}."
 msgstr "Rôle proposé : {role}. Invitation adressée à {email}."
 
-#: components/shell/sidebar.tsx
-msgid "Offline"
-msgstr "Hors ligne"
-
 #: components/admin/admin-page.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Older"
@@ -5048,6 +5044,10 @@ msgstr "Destinataires"
 #: components/table/automations-dialog.tsx
 msgid "Recipients, separated by commas"
 msgstr "Destinataires, séparés par des virgules"
+
+#: components/shell/app-shell.tsx
+msgid "Reconnect now"
+msgstr "Reconnecter maintenant"
 
 #: lib/known-text.ts
 msgid "Reconnecting…"

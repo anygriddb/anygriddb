@@ -78,8 +78,13 @@ export function NotificationBell() {
     queryClient.invalidateQueries({
       queryKey: api.notifications.list.queryKey(),
     });
-  useChannel(session.data?.id, (message) => {
-    if (message.type === "notification") void refresh();
+  useChannel(session.data?.id, {
+    message: (message) => {
+      if (message.type === "notification") void refresh();
+    },
+    resync: () => {
+      void refresh();
+    },
   });
   const unread = list.data?.unread ?? 0;
   const items = list.data?.notifications ?? [];

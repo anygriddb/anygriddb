@@ -338,17 +338,21 @@ export function useRows(
   }, [store]);
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
-  useChannel(tableId, (message) => {
-    if (message.type === "rows" && message.op === "update") {
-      void store.refetchIds(message.rowIds);
-    } else if (
-      message.type === "rows" ||
-      message.type === "stale" ||
-      message.type === "refresh" ||
-      message.type === "delete"
-    ) {
+  useChannel(tableId, {
+    message: (message) => {
+      if (message.type === "rows" && message.op === "update") {
+        void store.refetchIds(message.rowIds);
+      } else if (
+        message.type === "rows" ||
+        message.type === "refresh" ||
+        message.type === "delete"
+      ) {
+        store.refresh();
+      }
+    },
+    resync: () => {
       store.refresh();
-    }
+    },
   });
 
   return useMemo(

@@ -30,15 +30,13 @@ import {
   Table2,
   Trash,
   Trash2,
-  Wifi,
-  WifiOff,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useTrackJob } from "../../lib/jobs";
 import { useTrashActions } from "../../lib/trash";
-import { useChannel, useOnline } from "../../lib/realtime";
+import { useChannel } from "../../lib/realtime";
 import { useCatalog } from "../../lib/session";
 import { resolveShortcuts } from "../../lib/shortcut-list";
 import { useShortcuts } from "../../lib/shortcuts";
@@ -128,15 +126,19 @@ export function Sidebar({
   // The base and table of the page shown, whichever page it is.
   const params = useParams({ strict: false });
   const catalog = useCatalog();
-  const online = useOnline();
   const invalidate = useInvalidateCatalog();
   const trackJob = useTrackJob();
   const snapshotGaps = useSnapshotGaps();
   const { trashed } = useTrashActions();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  useChannel(params.baseId, (message) => {
-    if (message.type === "catalog") void invalidate();
+  useChannel(params.baseId, {
+    message: (message) => {
+      if (message.type === "catalog") void invalidate();
+    },
+    resync: () => {
+      void invalidate();
+    },
   });
   const bases = catalog.data ?? [];
   const shortcuts = useShortcuts();
@@ -640,14 +642,6 @@ export function Sidebar({
         <UserMenu user={user} />
         <JobsMenu />
         <NotificationBell />
-      </div>
-      <div className="flex items-center gap-2 px-3 pb-2 text-[11px] text-muted-foreground">
-        {online ? (
-          <Wifi className="h-3 w-3 text-primary" aria-hidden />
-        ) : (
-          <WifiOff className="h-3 w-3" aria-hidden />
-        )}
-        {online ? t`Live` : t`Offline`}
       </div>
 
       <NewBaseDialog

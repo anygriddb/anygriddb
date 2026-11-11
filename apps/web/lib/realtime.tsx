@@ -1,158 +1,30 @@
+import { useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
-  useMemo,
   useEffectEvent,
+  useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { socketUrl } from "./trpc";
+import {
+  Connection,
+  type ServerMessage,
+  type Subscriber,
+} from "./realtime-connection";
+import { socketUrl, useTRPC } from "./trpc";
 
-export type ServerMessage =
-  | {
-      type: "rows";
-      channel: string;
-      op: "insert" | "update" | "delete" | "refresh";
-      rowIds: string[];
-    }
-  | { type: "stale"; channel: string }
-  | { type: "catalog"; channel: string }
-  | { type: "notification"; channel: string }
-  | {
-      type: "job";
-      channel: string;
-      jobId: string;
-      kind:
-        | "import"
-        | "export"
-        | "duplicate_table"
-        | "trash_purge"
-        | "export_snapshot"
-        | "import_snapshot";
-      status: "queued" | "running" | "done" | "failed" | "cancelled";
-      done: number;
-      total: number | null;
-    }
-  | {
-      type: "presence";
-      channel: string;
-      userId: string;
-      name: string;
-      viewId?: string;
-      rowId?: string;
-      column?: string;
-      gone?: boolean;
-    }
-  | {
-      type:
-        | "patch"
-        | "refresh"
-        | "delete"
-        | "lock"
-        | "hello"
-        | "subscribed"
-        | "error";
-      channel?: string;
-    };
+export type { ServerMessage } from "./realtime-connection";
 
-type Listener = (message: ServerMessage) => void;
+const ConnectionContext = createContext<Connection | null>(null);
 
-class Socket {
-  private socket: WebSocket | null = null;
-  private readonly listeners = new Map<string, Set<Listener>>();
-  private readonly statusListeners = new Set<(online: boolean) => void>();
-  private retry = 0;
-  private timer: ReturnType<typeof setTimeout> | null = null;
-  private closed = false;
-  online = false;
-
-  start(): void {
-    this.closed = false;
-    // On the next tick: a start undone at once (Strict Mode mounts twice)
-    // then opens no socket at all.
-    this.timer = setTimeout(() => this.connect(), 0);
-  }
-
-  stop(): void {
-    this.closed = true;
-    if (this.timer) clearTimeout(this.timer);
-    this.socket?.close();
-    this.socket = null;
-  }
-
-  private connect(): void {
-    if (this.closed || typeof window === "undefined") {
-      return;
-    }
-    const socket = new WebSocket(socketUrl());
-    this.socket = socket;
-    socket.onopen = () => {
-      this.retry = 0;
-      this.setOnline(true);
-      for (const channel of this.listeners.keys()) {
-        this.send({ type: "subscribe", channel });
-      }
-    };
-    socket.onmessage = (event) => {
-      let message: ServerMessage;
-      try {
-        message = JSON.parse(String(event.data)) as ServerMessage;
-      } catch {
-        return;
-      }
-      const channel = "channel" in message ? message.channel : undefined;
-      if (!channel) return;
-      for (const listener of this.listeners.get(channel) ?? []) {
-        listener(message);
-      }
-    };
-    socket.onclose = () => {
-      this.setOnline(false);
-      if (this.closed) return;
-      const delay = Math.min(30_000, 500 * 2 ** this.retry);
-      this.retry += 1;
-      this.timer = setTimeout(() => this.connect(), delay);
-    };
-  }
-
-  private setOnline(value: boolean): void {
-    this.online = value;
-    for (const listener of this.statusListeners) listener(value);
-  }
-
-  send(message: Record<string, unknown>): void {
-    if (this.socket?.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify(message));
-    }
-  }
-
-  subscribe(channel: string, listener: Listener): () => void {
-    let set = this.listeners.get(channel);
-    if (!set) {
-      set = new Set();
-      this.listeners.set(channel, set);
-      this.send({ type: "subscribe", channel });
-    }
-    set.add(listener);
-    return () => {
-      const current = this.listeners.get(channel);
-      current?.delete(listener);
-      if (current && current.size === 0) {
-        this.listeners.delete(channel);
-        this.send({ type: "unsubscribe", channel });
-      }
-    };
-  }
-
-  onStatus(listener: (online: boolean) => void): () => void {
-    this.statusListeners.add(listener);
-    return () => this.statusListeners.delete(listener);
-  }
-}
-
-const SocketContext = createContext<Socket | null>(null);
-
+/**
+ * The page's realtime connection (ADR 0049), opened while `enabled`. It
+ * reconnects at once when the network comes back or the tab is shown.
+ */
 export function RealtimeProvider({
   children,
   enabled,
@@ -160,43 +32,101 @@ export function RealtimeProvider({
   children: ReactNode;
   enabled: boolean;
 }) {
-  const socket = useMemo(() => new Socket(), []);
+  const queryClient = useQueryClient();
+  const api = useTRPC();
+  // The session ended elsewhere: reading it again sends the page to sign-in.
+  const onUnauthorized = useEffectEvent(() => {
+    void queryClient.invalidateQueries({
+      queryKey: api.session.current.queryKey(),
+    });
+  });
+  const [connection] = useState(
+    () =>
+      new Connection({
+        url: socketUrl,
+        open: (url) => new WebSocket(url),
+      }),
+  );
   useEffect(() => {
     if (!enabled) return;
-    socket.start();
-    return () => socket.stop();
-  }, [socket, enabled]);
+    const offUnauthorized = connection.onUnauthorized(() => {
+      onUnauthorized();
+    });
+    connection.start();
+    const wake = () => {
+      connection.wake();
+    };
+    const shown = () => {
+      if (document.visibilityState === "visible") wake();
+    };
+    window.addEventListener("online", wake);
+    document.addEventListener("visibilitychange", shown);
+    return () => {
+      window.removeEventListener("online", wake);
+      document.removeEventListener("visibilitychange", shown);
+      offUnauthorized();
+      connection.stop();
+    };
+  }, [connection, enabled]);
   return (
-    <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>
+    <ConnectionContext.Provider value={connection}>
+      {children}
+    </ConnectionContext.Provider>
   );
 }
 
-/** Subscribes to a channel (table or base id) for as long as the component is mounted. */
+/**
+ * Follows a channel (table, base, or account id) while mounted. `resync`
+ * says how to re-read everything shown from it: realtime messages are
+ * hints, and some may be lost (ADR 0049).
+ */
 export function useChannel(
   channel: string | undefined,
-  listener: Listener,
+  handlers: Subscriber,
 ): void {
-  const socket = useContext(SocketContext);
-  // The latest listener, without subscribing again each time it changes.
-  const onMessage = useEffectEvent(listener);
+  const connection = useContext(ConnectionContext);
+  // The latest handlers, without subscribing again each time they change.
+  const onMessage = useEffectEvent((message: ServerMessage) => {
+    handlers.message(message);
+  });
+  const onResync = useEffectEvent(() => {
+    handlers.resync();
+  });
   useEffect(() => {
-    if (!socket || !channel) return;
-    return socket.subscribe(channel, (message) => {
-      onMessage(message);
+    if (!connection || !channel) return;
+    return connection.subscribe(channel, {
+      message: (message) => {
+        onMessage(message);
+      },
+      resync: () => {
+        onResync();
+      },
     });
-  }, [socket, channel]);
+  }, [connection, channel]);
 }
 
 export function useSocketSend(): (message: Record<string, unknown>) => void {
-  const socket = useContext(SocketContext);
-  return useMemo(() => (message) => socket?.send(message), [socket]);
+  const connection = useContext(ConnectionContext);
+  return useMemo(() => (message) => connection?.send(message), [connection]);
 }
 
-export function useOnline(): boolean {
-  const socket = useContext(SocketContext);
-  const [online, setOnline] = useState(socket?.online ?? false);
-  useEffect(() => (socket ? socket.onStatus(setOnline) : undefined), [socket]);
-  return online;
+const noDownChange = () => () => undefined;
+
+/** True once the page has had no realtime link for a while. */
+export function useConnectionDown(): boolean {
+  const connection = useContext(ConnectionContext);
+  return useSyncExternalStore(
+    connection ? (listener) => connection.onDownChange(listener) : noDownChange,
+    () => connection?.isDown() ?? false,
+  );
+}
+
+/** Opens a link now, without waiting for the next try. */
+export function useReconnect(): () => void {
+  const connection = useContext(ConnectionContext);
+  return useCallback(() => {
+    connection?.reconnect();
+  }, [connection]);
 }
 
 export type Presence = {
@@ -216,26 +146,32 @@ export function usePresence(
 ): Presence[] {
   const send = useSocketSend();
   const [peers, setPeers] = useState<Map<string, Presence>>(new Map());
-  useChannel(channel, (message) => {
-    if (message.type !== "presence" || message.userId === selfId) return;
-    setPeers((current) => {
-      const next = new Map(current);
-      if (message.gone) {
-        next.delete(message.userId);
-      } else {
-        next.set(message.userId, {
-          userId: message.userId,
-          name: message.name,
-          viewId: message.viewId,
-          rowId: message.rowId,
-          column: message.column,
-          seen: Date.now(),
-        });
-      }
-      return next;
-    });
-  });
   const { viewId, rowId, column } = mine;
+  useChannel(channel, {
+    message: (message) => {
+      if (message.type !== "presence" || message.userId === selfId) return;
+      setPeers((current) => {
+        const next = new Map(current);
+        if (message.gone) {
+          next.delete(message.userId);
+        } else {
+          next.set(message.userId, {
+            userId: message.userId,
+            name: message.name,
+            viewId: message.viewId,
+            rowId: message.rowId,
+            column: message.column,
+            seen: Date.now(),
+          });
+        }
+        return next;
+      });
+    },
+    // Back after a gap: say where this person is now, not in 15 s.
+    resync: () => {
+      if (channel) send({ type: "presence", channel, viewId, rowId, column });
+    },
+  });
   useEffect(() => {
     if (!channel) return;
     const beat = () =>

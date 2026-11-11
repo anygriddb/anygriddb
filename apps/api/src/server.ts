@@ -48,6 +48,8 @@ import { GridHub } from "./ws.js";
 
 /** How often the served certificate is checked for renewal or new files. */
 const TLS_CHECK_MS = 12 * 3_600_000;
+/** Messages a page may send before its session is looked up. */
+const MAX_EARLY_MESSAGES = 64;
 
 /** What administrators are shown of the certificate served. */
 export type TlsInfo = {
@@ -166,6 +168,10 @@ export async function createApp(deps: {
       app.log.error({ err: error }, message);
     },
   );
+  const stopHeartbeat = hub.startHeartbeat();
+  app.addHook("onClose", () => {
+    stopHeartbeat();
+  });
 
   app.addContentTypeParser(
     "application/x-www-form-urlencoded",
@@ -347,16 +353,31 @@ export async function createApp(deps: {
   app.get("/health", () => ({ ok: true }));
 
   app.get("/ws", { websocket: true }, (socket, request) => {
+    // The page subscribes as soon as the link opens, before its session is
+    // looked up. A message no handler takes is lost: what it sends
+    // meanwhile is held, within a bound (ADR 0049).
+    const early: unknown[] = [];
+    const hold = (raw: unknown) => {
+      if (early.length >= MAX_EARLY_MESSAGES) {
+        socket.close(1008, "Too many messages");
+        return;
+      }
+      early.push(raw);
+    };
+    socket.on("message", hold);
     void findSessionUser(deps.db, request.cookies[SESSION_COOKIE])
       .then((user) => {
+        socket.off("message", hold);
         if (!user) {
           request.log.warn("access denied");
           socket.close(4401, "Unauthorized");
           return;
         }
-        hub.add(socket, user.id, user.displayName);
+        if (socket.readyState !== socket.OPEN) return;
+        hub.add(socket, user.id, user.displayName, early);
       })
       .catch((error: unknown) => {
+        socket.off("message", hold);
         request.log.error({ err: error }, "websocket session lookup failed");
         socket.close(1011, "Internal error");
       });

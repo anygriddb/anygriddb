@@ -7,6 +7,9 @@ import { CELL_TOKEN, cellLockKey, gridChannel } from "./realtime/channels.js";
 import { acquireLock } from "./realtime/locks.js";
 
 const MAX_MESSAGE_CHARS = 16_384;
+/** How often each socket is checked and told the link is alive (ADR 0049). */
+export const BEAT_MS = 25_000;
+const BEAT = JSON.stringify({ type: "beat" });
 const token = z.string().regex(CELL_TOKEN);
 const cellValue = z.union([
   z.string().max(4_000),
@@ -91,6 +94,8 @@ type SocketState = {
   name: string;
   /** Messages of one socket are handled in order, one at a time. */
   queue: Promise<void>;
+  /** Answered the last ping: the link still carries traffic. */
+  alive: boolean;
 };
 type GridDecision = "ok" | "denied" | "enroll";
 export type GridAuthorizer = (
@@ -191,14 +196,28 @@ export class GridHub {
     });
   }
 
-  add(socket: WebSocket, userId: string, name = ""): void {
+  /**
+   * Takes a signed-in socket. `early` is what the page sent while its
+   * session was looked up, handled first and in order: a page subscribes
+   * as soon as its link opens.
+   */
+  add(
+    socket: WebSocket,
+    userId: string,
+    name = "",
+    early: readonly unknown[] = [],
+  ): void {
     const state: SocketState = {
       channels: new Set(),
       userId,
       name: name.slice(0, 80),
       queue: Promise.resolve(),
+      alive: true,
     };
     this.sockets.set(socket, state);
+    socket.on("pong", () => {
+      state.alive = true;
+    });
     socket.send(JSON.stringify({ type: "hello" }));
     // Authorization is asynchronous: without a queue, an unsubscribe sent
     // just before a subscribe could finish last and silence the channel.
@@ -207,6 +226,10 @@ export class GridHub {
         .then(task)
         .catch((error: unknown) => this.log("error", error, "realtime failed"));
     };
+    for (const raw of early) {
+      const text = rawText(raw);
+      enqueue(() => this.onClient(socket, state, text));
+    }
     socket.on("message", (raw: unknown) => {
       const text = rawText(raw);
       enqueue(() => this.onClient(socket, state, text));
@@ -214,6 +237,36 @@ export class GridHub {
     socket.on("close", () => {
       enqueue(() => this.remove(socket, state));
     });
+  }
+
+  /**
+   * One heartbeat round (ADR 0049). A socket that did not answer the last
+   * ping is dead (a laptop asleep, a dropped NAT entry) and is cut, which
+   * tells the others its presence is gone. The rest are pinged, and sent a
+   * message the page can see too: a browser hides pings from it.
+   */
+  beat(): void {
+    for (const [socket, state] of this.sockets) {
+      if (!state.alive) {
+        socket.terminate();
+        continue;
+      }
+      if (socket.readyState !== socket.OPEN) continue;
+      state.alive = false;
+      socket.ping();
+      socket.send(BEAT);
+    }
+  }
+
+  /** Beats every `everyMs` until the returned function stops it. */
+  startHeartbeat(everyMs = BEAT_MS): () => void {
+    const timer = setInterval(() => {
+      this.beat();
+    }, everyMs);
+    timer.unref();
+    return () => {
+      clearInterval(timer);
+    };
   }
 
   /**

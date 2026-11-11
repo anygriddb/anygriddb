@@ -56,8 +56,6 @@ export async function signUpWithTable(
   await dialog.getByLabel("Table name").fill("Samples");
   await dialog.getByRole("button", { name: "Create", exact: true }).click();
   await page.getByRole("grid").waitFor();
-  // The realtime socket connected on the page's own origin.
-  await expect(page.getByText("Live")).toBeVisible();
   return { email };
 }
 

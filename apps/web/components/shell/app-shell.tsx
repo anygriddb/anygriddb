@@ -1,11 +1,15 @@
-import { Spinner } from "@anygriddb/ui";
+import { Button, Spinner } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import { Megaphone } from "lucide-react";
+import { CloudOff, Megaphone } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { JobsProvider } from "../../lib/jobs";
-import { RealtimeProvider } from "../../lib/realtime";
+import {
+  RealtimeProvider,
+  useConnectionDown,
+  useReconnect,
+} from "../../lib/realtime";
 import { useSession } from "../../lib/session";
 import { useTRPC } from "../../lib/trpc";
 import { safeNext } from "../auth/auth-page";
@@ -41,6 +45,32 @@ function InstanceBanner() {
         ) : null}
         {banner}
       </p>
+    </div>
+  );
+}
+
+/**
+ * The page has had no realtime link for a while (ADR 0049): what it shows
+ * may be out of date, and others' changes will not appear until it is
+ * back. Editing goes on; the page re-reads itself once the link returns.
+ */
+function ConnectionBanner() {
+  const { t } = useLingui();
+  const down = useConnectionDown();
+  const reconnect = useReconnect();
+  if (!down) return null;
+  return (
+    <div
+      role="status"
+      className="flex flex-wrap items-center gap-2 border-b border-warning/40 bg-warning-surface px-4 py-2 text-sm"
+    >
+      <CloudOff className="h-4 w-4 shrink-0" aria-hidden />
+      <p className="flex-1">
+        {t`Connection lost: changes made by others will show once it is back.`}
+      </p>
+      <Button size="sm" variant="outline" onClick={reconnect}>
+        {t`Reconnect now`}
+      </Button>
     </div>
   );
 }
@@ -85,6 +115,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Sidebar user={session.data} />
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <InstanceBanner />
+            <ConnectionBanner />
             {children}
           </div>
         </div>

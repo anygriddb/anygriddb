@@ -114,14 +114,22 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     [report],
   );
 
-  useChannel(session.data?.id, (message) => {
-    if (message.type !== "job") return;
-    report(message.jobId, {
-      status: message.status,
-      done: message.done,
-      total: message.total,
-    });
-    if (isFinished(message.status)) void settle(message.jobId);
+  useChannel(session.data?.id, {
+    message: (message) => {
+      if (message.type !== "job") return;
+      report(message.jobId, {
+        status: message.status,
+        done: message.done,
+        total: message.total,
+      });
+      if (isFinished(message.status)) void settle(message.jobId);
+    },
+    resync: () => {
+      for (const jobId of watchers.current.keys()) void settle(jobId);
+      void queryClient.invalidateQueries({
+        queryKey: api.jobs.list.queryKey(),
+      });
+    },
   });
 
   useEffect(() => {

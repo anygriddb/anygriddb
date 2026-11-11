@@ -80,6 +80,14 @@ LAN example with passkeys: give the host a name every workstation resolves
 People open `https://grid.lan:3000`, install the authority, then enroll a
 passkey. Until then, or with an IP-only `PUBLIC_URL`, use a TOTP app.
 
+### Behind a reverse proxy
+
+AnyGridDB serves HTTPS itself. A proxy in front of it must pass the
+WebSocket upgrade on `/ws`, and keep an idle connection open for at least
+30 seconds (AnyGridDB sends something every 25). Otherwise the app still
+works, but changes made by others do not show until a page is read again,
+and it says "Connection lost" after 10 seconds.
+
 ### Offline
 
 AnyGridDB calls no outside service at run time, except when a person
