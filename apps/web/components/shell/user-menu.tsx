@@ -32,7 +32,12 @@ import { useLingui } from "@lingui/react/macro";
 export function UserMenu({
   user,
 }: {
-  user: { displayName: string; email: string; isAdmin?: boolean };
+  user: {
+    displayName: string;
+    email: string;
+    isAdmin?: boolean;
+    isSupport?: boolean;
+  };
 }) {
   const { t } = useLingui();
   const navigate = useNavigate();
@@ -56,7 +61,7 @@ export function UserMenu({
             <Settings className="h-4 w-4" aria-hidden />
             {t`Account settings`}
           </DropdownMenuItem>
-          {user.isAdmin ? (
+          {user.isAdmin || user.isSupport ? (
             <DropdownMenuItem onSelect={() => void navigate({ to: "/admin" })}>
               <ShieldCheck className="h-4 w-4" aria-hidden />
               {t`Administration`}

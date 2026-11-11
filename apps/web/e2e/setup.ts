@@ -91,6 +91,18 @@ export async function signUp(
   await page.waitForURL(/\/welcome/);
 }
 
+/** Signs in with a password, from the sign-in page. */
+export async function signIn(
+  page: Page,
+  email: string,
+  password: string,
+): Promise<void> {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+}
+
 /**
  * A new account with a second factor, a base, and a table, open on its
  * grid. Each journey gets its own account, so journeys run side by side.
@@ -152,7 +164,40 @@ export async function accessibilityViolations(page: Page): Promise<string[]> {
   return result.violations.map(
     (violation) =>
       `${violation.id}: ${violation.nodes
-        .map((node) => node.target.join(" "))
+        .map(
+          (node) =>
+            `${node.target.join(" ")} ${node.html.replace(/\s+/g, " ").slice(0, 160)}`,
+        )
         .join(", ")}`,
   );
+}
+
+/**
+ * Opens a page of Administration through its own navigation (ROADMAP
+ * #49): a section, then one of its pages when it has several.
+ */
+export async function openAdmin(
+  page: Page,
+  section: string,
+  subpage?: string,
+): Promise<void> {
+  await page
+    .getByRole("navigation", { name: "Administration" })
+    .getByRole("link", { name: section, exact: true })
+    .click();
+  if (subpage) {
+    await page
+      .getByRole("navigation", { name: section })
+      .getByRole("link", { name: subpage, exact: true })
+      .click();
+  }
+}
+
+/**
+ * Finds one account in Administration's list by its address: the list
+ * follows the search box a moment after typing stops.
+ */
+export async function findAccount(page: Page, email: string): Promise<void> {
+  await page.getByLabel("Search accounts").fill(email);
+  await expect(page.getByText("1 account", { exact: true })).toBeVisible();
 }

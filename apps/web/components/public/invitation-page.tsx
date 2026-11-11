@@ -4,7 +4,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
-import { useRoleLabel } from "../settings/base-settings";
+import { useRoleLabel } from "../settings/role-label";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { BrandMark } from "../brand/brand-mark";

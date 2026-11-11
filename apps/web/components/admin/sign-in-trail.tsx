@@ -8,6 +8,7 @@ import { datedName, downloadCsv } from "../../lib/download";
 import { useErrorText } from "../../lib/errors";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { useAuthLabels } from "./auth-labels";
 
 const ACTIONS = [
   "account_created",
@@ -51,42 +52,9 @@ export function SignInTrail() {
       limit: 50,
     }),
   );
-  const actionLabel = (value: AuthAction) =>
-    ({
-      account_created: t`Account created`,
-      login_success: t`Signed in`,
-      login_failure: t`Sign-in refused`,
-      logout: t`Signed out`,
-      session_revoked: t`Session ended`,
-      factors_cleared: t`Second factors removed`,
-      tokens_revoked: t`API tokens revoked`,
-      account_locked: t`Account locked`,
-      account_unlocked: t`Account unlocked`,
-      password_changed: t`Password changed`,
-      password_reset_requested: t`Reset link sent`,
-      password_reset: t`Password reset`,
-      settings_changed: t`Setting changed`,
-      account_disabled: t`Account disabled`,
-      account_erased: t`Account erased`,
-      account_updated: t`Account changed`,
-      sso_unlinked: t`Single sign-on unlinked`,
-      operator_mail_sent: t`Notice emailed`,
-    })[value];
-  const methodLabel = (value: string | null) =>
-    value
-      ? ((
-          {
-            password: t`Password`,
-            totp: t`Authenticator code`,
-            backup: t`Backup code`,
-            webauthn: t`Passkey`,
-            oidc: "OIDC",
-            saml: "SAML",
-            signup: t`Sign-up`,
-            admin: t`Administrator`,
-          } as Record<string, string>
-        )[value] ?? value)
-      : "—";
+  const labels = useAuthLabels();
+  const actionLabel = (value: AuthAction) => labels.action(value);
+  const methodLabel = labels.method;
   const detailLabel = (value: string | null) =>
     value
       ? ((

@@ -300,6 +300,10 @@ msgstr "{actor} vous a mentionné dans {table}"
 msgid "{actor} replied to your comment in {table}"
 msgstr "{actor} a répondu à votre commentaire dans {table}"
 
+#: components/admin/accounts-tab.tsx
+msgid "{base}, owned by {owners}"
+msgstr "{base}, appartenant à {owners}"
+
 #: components/admin/sources-tab.tsx
 msgid "{count, plural, one {# table added to {base}} other {# tables added to {base}}}"
 msgstr "{count, plural, one {# table ajoutée à {base}} other {# tables ajoutées à {base}}}"
@@ -393,6 +397,10 @@ msgstr "{engine} calcule {fn} de façon approchée : le résultat est juste à 1
 msgid "{engine} keeps at most 38 digits in a number: this calculation may be rounded. This is a limit of {engine}."
 msgstr "{engine} garde au plus 38 chiffres par nombre : ce calcul peut être arrondi. C'est une limite de {engine}."
 
+#: components/admin/admin-overview.tsx
+msgid "{failures, plural, one {failure in the last 24 hours} other {failures in the last 24 hours}}"
+msgstr "{failures, plural, one {échec ces dernières 24 heures} other {échecs ces dernières 24 heures}}"
+
 #: components/table/import-dialog.tsx
 msgid "{file}: {count} rows found."
 msgstr "{file} : {count} lignes détectées."
@@ -401,11 +409,11 @@ msgstr "{file} : {count} lignes détectées."
 msgid "{filterCount, plural, one {# filter} other {# filters}}"
 msgstr "{filterCount, plural, one {# filtre} other {# filtres}}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/accounts-tab.tsx
 msgid "{from}–{to} of {total}"
 msgstr "{from}–{to} sur {total}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "{hours} h"
 msgstr "{hours} h"
 
@@ -418,6 +426,10 @@ msgstr "{inserted} lignes ajoutées, {updated} mises à jour, {failed} rejetées
 msgid "{label} ({percent}%)"
 msgstr "{label} ({percent} %)"
 
+#: components/admin/admin-overview.tsx
+msgid "{lockedCount, plural, one {locked account} other {locked accounts}}"
+msgstr "{lockedCount, plural, one {compte verrouillé} other {comptes verrouillés}}"
+
 #: components/fields/field-editor.tsx
 msgid "{lost, plural, one {# value out of {total} cannot be converted and will be cleared. Save anyway?} other {# values out of {total} cannot be converted and will be cleared. Save anyway?}}"
 msgstr "{lost, plural, one {# valeur sur {total} ne pourra pas être convertie et sera vidée. Enregistrer quand même ?} other {# valeurs sur {total} ne pourront pas être converties et seront vidées. Enregistrer quand même ?}}"
@@ -429,6 +441,14 @@ msgstr "{message} : {detail}"
 #: components/settings/api-console.tsx
 msgid "{ms} ms"
 msgstr "{ms} ms"
+
+#: components/admin/accounts-tab.tsx
+msgid "{name} added"
+msgstr "{name} ajouté"
+
+#: components/admin/accounts-tab.tsx
+msgid "{name} added. Their link went to {to}"
+msgstr "{name} ajouté. Son lien est parti à {to}"
 
 #: components/admin/sources-tab.tsx
 msgid "{name} answers (primary {version}, replica {replica})"
@@ -462,9 +482,17 @@ msgstr "{name} : {message}"
 msgid "{name}'s account locked after failed sign-ins"
 msgstr "Compte de {name} verrouillé après des connexions manquées"
 
+#: components/admin/admin-overview.tsx
+msgid "{pending, plural, one {invitation waiting} other {invitations waiting}}"
+msgstr "{pending, plural, one {invitation en attente} other {invitations en attente}}"
+
 #: components/fields/attachment-preview.tsx
 msgid "{position} of {total}"
 msgstr "{position} sur {total}"
+
+#: components/admin/account-page.tsx
+msgid "{role}, through the group {group}"
+msgstr "{role}, par le groupe {group}"
 
 #: components/views/kanban-view.tsx
 msgid "{shown} of {count}"
@@ -473,6 +501,14 @@ msgstr "{shown} sur {count}"
 #: components/views/kanban-view.tsx
 msgid "{shown} of {total} cards"
 msgstr "{shown} cartes sur {total}"
+
+#: components/admin/accounts-tab.tsx
+msgid "{total, plural, one {# account} other {# accounts}}"
+msgstr "{total, plural, one {# compte} other {# comptes}}"
+
+#: components/admin/admin-overview.tsx
+msgid "{unprotectedCount, plural, one {administrator without a second factor} other {administrators without a second factor}}"
+msgstr "{unprotectedCount, plural, one {administrateur sans second facteur} other {administrateurs sans second facteur}}"
 
 #: components/admin/security-tab.tsx
 msgid "{value} characters"
@@ -587,9 +623,9 @@ msgstr "Une base doit garder au moins un propriétaire"
 msgid "A base, a first table, three fields. Kept in PostgreSQL from the first row."
 msgstr "Une base, une première table, trois champs. Dans PostgreSQL dès la première ligne."
 
-#: components/admin/support-tab.tsx
-msgid "A base's owners invite people. You can withdraw an invitation sent by mistake."
-msgstr "Ce sont les propriétaires d'une base qui invitent. Vous pouvez retirer une invitation envoyée par erreur."
+#: components/admin/invitations-panel.tsx
+msgid "A base's owners invite people. You can withdraw an invitation sent by mistake, or send the link again."
+msgstr "Les propriétaires d’une base invitent les personnes. Vous pouvez retirer une invitation envoyée par erreur, ou renvoyer le lien."
 
 #: components/fields/formula-docs.ts
 msgid "A blank value."
@@ -681,8 +717,8 @@ msgid "A secret address is created when you save. A JSON POST (64 KiB at most) t
 msgstr "Une adresse secrète est créée à l'enregistrement. Un POST JSON (64 Kio au plus) la déclenche ; chaque champ du corps devient une variable, listée plus bas."
 
 #: components/admin/sessions-tab.tsx
-msgid "A session ends after {idle} minutes without activity, and after {max} hours in any case (Security tab). Ending one signs the person out at once."
-msgstr "Une session prend fin après {idle} minutes sans activité, et après {max} heures dans tous les cas (onglet Sécurité). En terminer une déconnecte la personne aussitôt."
+msgid "A session ends after {idle} minutes without activity, and after {max} hours in any case (set under Security). Ending one signs the person out at once."
+msgstr "Une session se termine après {idle} minutes sans activité, et après {max} heures dans tous les cas (réglé sous Sécurité). En terminer une déconnecte la personne aussitôt."
 
 #: components/admin/security-tab.tsx
 msgid "A session ends after a while without activity, and at its lifetime in any case. A shorter choice applies to sessions already open."
@@ -740,34 +776,35 @@ msgstr "Accès refusé"
 msgid "Access granted"
 msgstr "Accès accordé"
 
-#: components/admin/admin-page.tsx
+#: components/admin/accounts-tab.tsx
 #: components/admin/sessions-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/sources-tab.tsx
 msgid "Account"
 msgstr "Compte"
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "Account changed"
 msgstr "Compte modifié"
 
-#: components/admin/admin-page.tsx
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "Account created"
 msgstr "Compte créé"
 
-#: components/admin/admin-page.tsx
-msgid "Account created. Link sent to {to}"
-msgstr "Compte créé. Lien envoyé à {to}"
+#: components/admin/account-actions.tsx
+msgid "Account deleted"
+msgstr "Compte supprimé"
 
+#: components/admin/auth-labels.ts
 #: components/admin/sign-in-trail.tsx
 msgid "Account disabled"
 msgstr "Ce compte est désactivé"
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "Account erased"
 msgstr "Compte effacé"
 
+#: components/admin/auth-labels.ts
 #: components/admin/sign-in-trail.tsx
 msgid "Account locked"
 msgstr "Compte verrouillé"
@@ -778,11 +815,12 @@ msgstr "Compte verrouillé"
 msgid "Account settings"
 msgstr "Réglages du compte"
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "Account unlocked"
 msgstr "Compte déverrouillé"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+#: components/admin/admin-sections.ts
 msgid "Accounts"
 msgstr "Comptes"
 
@@ -790,25 +828,22 @@ msgstr "Comptes"
 msgid "Accounts and access"
 msgstr "Comptes et accès"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Accounts, bases, tables"
 msgstr "Comptes, bases, tables"
-
-#: components/admin/admin-page.tsx
-msgid "Accounts, security, sources, and the instance itself."
-msgstr "Comptes, sécurité, sources et l'instance elle-même."
 
 #: components/admin/integrations-tab.tsx
 msgid "ACS URL for the identity provider:"
 msgstr "URL ACS pour le fournisseur d'identité :"
 
-#: components/admin/admin-page.tsx
+#: components/admin/trails.tsx
 #: components/fields/field-editor.tsx
 #: components/table/automations-dialog.tsx
 msgid "Action"
 msgstr "Action"
 
-#: components/admin/admin-page.tsx
+#: components/admin/accounts-tab.tsx
+#: components/admin/invitations-panel.tsx
 #: components/admin/sessions-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/support-tab.tsx
@@ -817,10 +852,12 @@ msgstr "Action"
 msgid "Actions"
 msgstr "Actions"
 
-#: components/admin/admin-page.tsx
+#: components/admin/accounts-tab.tsx
 msgid "Actions for {name}"
 msgstr "Actions pour {name}"
 
+#: components/admin/account-page.tsx
+#: components/admin/accounts-tab.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/table/automations-dialog.tsx
 msgid "Active"
@@ -830,6 +867,7 @@ msgstr "Active"
 msgid "Active filters"
 msgstr "Filtres actifs"
 
+#: components/admin/accounts-tab.tsx
 #: components/dashboards/dashboard-board.tsx
 msgid "Add"
 msgstr "Ajouter"
@@ -877,6 +915,10 @@ msgstr "Ajoutez d'abord un lien vers une autre table."
 #: components/dashboards/dashboard-board.tsx
 msgid "Add a metric, a chart, or a view."
 msgstr "Ajoutez une métrique, un graphique ou une vue."
+
+#: components/admin/accounts-tab.tsx
+msgid "Add a person"
+msgstr "Ajouter une personne"
 
 #: components/views/gallery-view.tsx
 msgid "Add a record"
@@ -926,6 +968,10 @@ msgstr "Ajoutez au moins une table avant d’exporter"
 #: components/settings/base-settings.tsx
 msgid "Add at least one table before exporting."
 msgstr "Ajoutez au moins une table avant d’exporter."
+
+#: components/admin/accounts-tab.tsx
+msgid "Add bases"
+msgstr "Ajouter des bases"
 
 #: components/table/import-dialog.tsx
 msgid "Add every row"
@@ -982,17 +1028,27 @@ msgstr "Ajoute une durée en years, months, weeks, days, hours, minutes ou secon
 msgid "Adds up the numbers and lists of numbers."
 msgstr "Additionne les nombres et les listes de nombres."
 
-#: components/admin/admin-page.tsx
+#: components/admin/admin-shell.tsx
 #: components/shell/command-palette.tsx
+#: components/shell/sidebar.tsx
 #: components/shell/user-menu.tsx
 msgid "Administration"
 msgstr "Administration"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+#: components/admin/accounts-tab.tsx
+#: components/admin/auth-labels.ts
 #: components/admin/sessions-tab.tsx
-#: components/admin/sign-in-trail.tsx
 msgid "Administrator"
 msgstr "Administrateur"
+
+#: components/admin/accounts-tab.tsx
+msgid "Administrator of the instance"
+msgstr "Administrateur de l'instance"
+
+#: components/admin/accounts-tab.tsx
+msgid "Administrators"
+msgstr "Administrateurs"
 
 #: components/admin/security-tab.tsx
 msgid "Administrators always need one; base owners include anyone creating a base. A person without one is asked to set it up before going on."
@@ -1002,6 +1058,7 @@ msgstr "Les administrateurs en ont toujours besoin ; les propriétaires de base 
 msgid "Administrators and base owners"
 msgstr "Les administrateurs et les propriétaires de base"
 
+#: components/admin/account-actions.tsx
 #: components/admin/security-tab.tsx
 msgid "Administrators only"
 msgstr "Les administrateurs seulement"
@@ -1042,9 +1099,10 @@ msgstr "Airtable n'a pas répondu : réessayez plus tard"
 msgid "Airtable refuses this token: it needs data.records:read and schema.bases:read on this base"
 msgstr "Airtable refuse ce jeton : il lui faut les droits data.records:read et schema.bases:read sur cette base"
 
-#: components/admin/admin-page.tsx
+#: components/admin/accounts-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/support-tab.tsx
+#: components/admin/trails.tsx
 msgid "All"
 msgstr "Toutes"
 
@@ -1064,7 +1122,7 @@ msgstr "Toutes ses sessions"
 msgid "All true"
 msgstr "Toutes vraies"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Allow checking GitHub for a newer release (off by default)"
 msgstr "Autoriser la vérification d'une version plus récente sur GitHub (désactivée par défaut)"
 
@@ -1124,6 +1182,10 @@ msgstr "Un compte dédié à AnyGridDB, jamais un administrateur. La connexion p
 msgid "An administrator turned public links off on this instance. Links made before no longer open."
 msgstr "Un administrateur a désactivé les liens publics sur cette instance. Les liens créés avant ne s'ouvrent plus."
 
+#: components/admin/admin-overview.tsx
+msgid "An administrator's password alone opens every account and setting of the instance."
+msgstr "Le seul mot de passe d'un administrateur ouvre tous les comptes et tous les réglages de l'instance."
+
 #: components/admin/security-tab.tsx
 msgid "An API token lives at most"
 msgstr "Un jeton d'API vit au plus"
@@ -1141,7 +1203,7 @@ msgstr "une date précise"
 msgid "and"
 msgstr "et"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Announcement"
 msgstr "Annonce"
@@ -1162,7 +1224,8 @@ msgstr "Tous les formulaires de la table"
 msgid "Any true"
 msgstr "Au moins une vraie"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
+#: components/admin/release-banner.tsx
 msgid "AnyGridDB {latest} is available"
 msgstr "AnyGridDB {latest} est disponible"
 
@@ -1182,7 +1245,7 @@ msgstr "AnyGridDB oublie cette source et son mot de passe. La base du client n'e
 msgid "AnyGridDB refuses any change to this row. The client's database can still be changed by its other applications: AnyGridDB compares the row with its locked values and warns if it changes."
 msgstr "AnyGridDB refuse toute modification de cette ligne. La base du client reste modifiable par ses autres applications : AnyGridDB compare la ligne avec ses valeurs verrouillées et prévient si elle change."
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "AnyGridDB signs its certificate with its own authority. Install it once on each workstation: the browser will then trust AnyGridDB, without a warning. It is valid for AnyGridDB's addresses only."
 msgstr "AnyGridDB signe son certificat avec sa propre autorité. Installez-la une fois sur chaque poste : le navigateur fera alors confiance à AnyGridDB, sans avertissement. Elle ne vaut que pour les adresses d'AnyGridDB."
 
@@ -1222,6 +1285,7 @@ msgstr "Clé d'API"
 msgid "API token lifetime"
 msgstr "Durée de vie des jetons d'API"
 
+#: components/admin/account-page.tsx
 #: components/settings/account-settings.tsx
 msgid "API tokens"
 msgstr "Jetons d'API"
@@ -1230,7 +1294,7 @@ msgstr "Jetons d'API"
 msgid "API tokens and public links"
 msgstr "Jetons d'API et liens publics"
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "API tokens revoked"
 msgstr "Jetons d'API révoqués"
 
@@ -1292,15 +1356,11 @@ msgstr "pièces jointes reprises par leur nom : les fichiers ne sont pas copiés
 msgid "Attempts"
 msgstr "Essais"
 
-#: components/admin/admin-page.tsx
-msgid "Audit log"
-msgstr "Journal d'audit"
-
 #: components/settings/second-factor.tsx
 msgid "Authenticator app (TOTP) is set up."
 msgstr "L'application d'authentification (TOTP) est configurée."
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 #: components/auth/auth-page.tsx
 msgid "Authenticator code"
 msgstr "Code de l'application"
@@ -1309,7 +1369,7 @@ msgstr "Code de l'application"
 msgid "Authenticator URL"
 msgstr "URL pour l'application"
 
-#: components/admin/admin-page.tsx
+#: components/admin/trails.tsx
 msgid "Author"
 msgstr "Auteur"
 
@@ -1361,11 +1421,15 @@ msgstr "Retour à l'accueil"
 msgid "Back to sign-in"
 msgstr "Retour à la connexion"
 
+#: components/admin/admin-overview.tsx
+msgid "Background jobs, webhook deliveries, or automation runs that did not go through."
+msgstr "Tâches de fond, envois de webhooks ou exécutions d'automatisations qui n'ont pas abouti."
+
 #: components/settings/base-settings.tsx
 msgid "Backup"
 msgstr "Sauvegarde"
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 #: components/auth/auth-page.tsx
 msgid "Backup code"
 msgstr "Code de secours"
@@ -1374,8 +1438,8 @@ msgstr "Code de secours"
 msgid "Backup codes, shown only once."
 msgstr "Codes de secours, affichés une seule fois."
 
+#: components/admin/invitations-panel.tsx
 #: components/admin/sources-tab.tsx
-#: components/admin/support-tab.tsx
 #: components/shell/base-home.tsx
 msgid "Base"
 msgstr "Base"
@@ -1439,7 +1503,7 @@ msgstr "Nom de la base"
 msgid "Base not found"
 msgstr "Base introuvable"
 
-#: components/admin/admin-page.tsx
+#: components/admin/accounts-tab.tsx
 #: components/shell/command-palette.tsx
 #: components/shell/home-page.tsx
 #: components/shell/sidebar.tsx
@@ -1450,7 +1514,15 @@ msgstr "Bases"
 msgid "Bases already made stay with their owners."
 msgstr "Les bases déjà créées restent à leurs propriétaires."
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+msgid "Bases and roles"
+msgstr "Bases et rôles"
+
+#: components/admin/accounts-tab.tsx
+msgid "Bases of the instance"
+msgstr "Bases de l'instance"
+
+#: components/admin/health-tab.tsx
 msgid "Before installing it, check that its SHA-256 fingerprint is this one:"
 msgstr "Avant de l'installer, vérifiez que son empreinte SHA-256 est bien celle-ci :"
 
@@ -1470,6 +1542,10 @@ msgstr "Corps"
 msgid "Body (an id per row)"
 msgstr "Corps (un id par ligne)"
 
+#: components/admin/account-page.tsx
+msgid "Bound to single sign-on"
+msgstr "Lié à l'authentification unique"
+
 #: components/shell/welcome-page.tsx
 msgid "Bring your data"
 msgstr "Apporter vos données"
@@ -1478,7 +1554,7 @@ msgstr "Apporter vos données"
 msgid "Browsers accept passkeys on an HTTPS address only: use TOTP, or open AnyGridDB over HTTPS."
 msgstr "Le navigateur n'accepte les clés d'accès que sur une adresse HTTPS : utilisez TOTP, ou ouvrez AnyGridDB en HTTPS."
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "built {date}"
 msgstr "construite le {date}"
 
@@ -1508,7 +1584,7 @@ msgstr "Par un administrateur"
 msgid "By field"
 msgstr "Selon le champ"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "By invitation to a base"
 msgstr "Sur invitation à une base"
 
@@ -1528,6 +1604,7 @@ msgstr "Adresse du calendrier"
 msgid "Call a URL"
 msgstr "Appeler une URL"
 
+#: components/admin/accounts-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/fields/field-editor.tsx
@@ -1579,7 +1656,7 @@ msgstr "Certificat (facultatif)"
 msgid "Certificate is valid"
 msgstr "Le certificat est valide"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Certificate served, valid until {date}, for: {names}."
 msgstr "Certificat servi, valable jusqu'au {date}, pour : {names}."
 
@@ -1603,7 +1680,7 @@ msgstr "Change Tracking n'est pas activé sur cette table, ou le compte n'a pas 
 msgid "Changed outside AnyGridDB since it was locked"
 msgstr "Modifiée hors d'AnyGridDB depuis son verrouillage"
 
-#: components/admin/admin-page.tsx
+#: components/admin/admin-sections.ts
 msgid "Changes"
 msgstr "Modifications"
 
@@ -1623,7 +1700,7 @@ msgstr "Canal"
 msgid "Chart"
 msgstr "Graphique"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Check now"
 msgstr "Vérifier maintenant"
 
@@ -1745,7 +1822,6 @@ msgid "Client secret"
 msgstr "Secret client"
 
 #: app/providers.tsx
-#: components/admin/admin-page.tsx
 #: components/record/record-panel.tsx
 #: components/settings/table-acl-panel.tsx
 #: components/settings/webhooks-panel.tsx
@@ -1756,7 +1832,7 @@ msgstr "Secret client"
 msgid "Close"
 msgstr "Fermer"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Closed"
 msgstr "Fermées"
 
@@ -1820,7 +1896,7 @@ msgid "Columns by"
 msgstr "Colonnes selon"
 
 #: components/record/record-panel.tsx
-#: components/settings/base-settings.tsx
+#: components/settings/role-label.ts
 msgid "Comment"
 msgstr "Commenter"
 
@@ -1833,7 +1909,7 @@ msgstr "Commentaire supprimé"
 msgid "Comments"
 msgstr "Commentaires"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "commit not recorded"
 msgstr "commit non enregistré"
 
@@ -1901,6 +1977,10 @@ msgstr "Connexion perdue : les modifications des autres s'afficheront à son ret
 #: lib/known-text.ts
 msgid "Connection refused"
 msgstr "Connexion refusée"
+
+#: components/admin/admin-sections.ts
+msgid "Connections"
+msgstr "Connexions externes"
 
 #: components/admin/sources-tab.tsx
 msgid "Connections at most"
@@ -1973,7 +2053,7 @@ msgstr "Copier le lien de la ligne"
 msgid "Copy the address"
 msgstr "Copier l'adresse"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Copy the link"
 msgstr "Copier le lien"
 
@@ -2037,10 +2117,6 @@ msgstr "Créez d'abord une base : les tables exposées s'y affichent."
 msgid "Create a link"
 msgstr "Créer un lien"
 
-#: components/admin/admin-page.tsx
-msgid "Create a password reset link"
-msgstr "Créer un lien de réinitialisation du mot de passe"
-
 #: components/table/automations-dialog.tsx
 msgid "Create a row"
 msgstr "Créer une ligne"
@@ -2050,7 +2126,6 @@ msgstr "Créer une ligne"
 msgid "Create a token"
 msgstr "Créer un jeton"
 
-#: components/admin/admin-page.tsx
 #: components/auth/auth-page.tsx
 msgid "Create account"
 msgstr "Créer le compte"
@@ -2059,10 +2134,6 @@ msgstr "Créer le compte"
 #: components/public/invitation-page.tsx
 msgid "Create an account"
 msgstr "Créer un compte"
-
-#: components/admin/admin-page.tsx
-msgid "Create and send reset"
-msgstr "Créer et envoyer la réinitialisation"
 
 #: components/fields/field-editor.tsx
 msgid "Create field"
@@ -2092,11 +2163,12 @@ msgstr "Créer des lignes (POST)"
 msgid "Create the address"
 msgstr "Créer l'adresse"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Create the link"
 msgstr "Créer le lien"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+#: components/admin/accounts-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Created"
 msgstr "Créé le"
@@ -2126,11 +2198,7 @@ msgstr "Date de création"
 msgid "created time, modified time, or number carried over as values"
 msgstr "date de création, de modification ou numéro repris en valeurs"
 
-#: components/admin/admin-page.tsx
-msgid "Creates the account and a password reset link. With email set up, the link is mailed; otherwise you get it to pass on. Public sign-up is controlled under Settings → Sign-ups."
-msgstr "Crée le compte et un lien de réinitialisation du mot de passe. Avec l'e-mail configuré, le lien est envoyé ; sinon vous le recevez pour le transmettre. L'inscription publique se règle sous Réglages → Inscriptions."
-
-#: components/admin/admin-page.tsx
+#: components/admin/trails.tsx
 #: components/settings/webhooks-panel.tsx
 msgid "Creation"
 msgstr "Création"
@@ -2194,7 +2262,7 @@ msgstr "Tableaux de bord"
 msgid "Dashboards of {name}"
 msgstr "Tableaux de bord de {name}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 #: components/admin/sources-tab.tsx
 msgid "Database"
 msgstr "Base de données"
@@ -2203,9 +2271,9 @@ msgstr "Base de données"
 msgid "Database not found on the source"
 msgstr "Base de données introuvable sur la source"
 
-#: components/admin/admin-page.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/support-tab.tsx
+#: components/admin/trails.tsx
 #: components/auth/auth-frame.tsx
 #: components/fields/field-meta.tsx
 #: components/settings/webhooks-panel.tsx
@@ -2262,7 +2330,7 @@ msgstr "Déclarer une source"
 msgid "Default"
 msgstr "Par défaut"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Default language"
 msgstr "Langue par défaut"
@@ -2271,8 +2339,9 @@ msgstr "Langue par défaut"
 msgid "delete"
 msgstr "suppression"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 #: components/admin/sources-tab.tsx
+#: components/admin/trails.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/dashboards/dashboard-list.tsx
 #: components/fields/field-editor.tsx
@@ -2297,9 +2366,17 @@ msgstr "Supprimer « {name} » définitivement ?"
 msgid "Delete {name} permanently"
 msgstr "Supprimer définitivement {name}"
 
+#: components/admin/account-actions.tsx
+msgid "Delete {name}'s account?"
+msgstr "Supprimer le compte de {name} ?"
+
 #: components/settings/account-settings.tsx
 msgid "Delete account"
 msgstr "Supprimer le compte"
+
+#: components/admin/account-actions.tsx
+msgid "Delete account…"
+msgstr "Supprimer le compte…"
 
 #: components/shell/sidebar.tsx
 msgid "Delete base"
@@ -2438,11 +2515,11 @@ msgstr "Destination"
 msgid "Destination of {name}"
 msgstr "Destination de {name}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Disable"
 msgstr "Désactiver"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Disable {name}'s account?"
 msgstr "Désactiver le compte de {name} ?"
 
@@ -2451,19 +2528,23 @@ msgstr "Désactiver le compte de {name} ?"
 msgid "Disable accounts nobody uses"
 msgstr "Désactiver les comptes inutilisés"
 
+#: components/admin/account-actions.tsx
+#: components/admin/accounts-tab.tsx
 #: components/admin/support-tab.tsx
 msgid "Disabled"
 msgstr "Désactivé"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+#: components/admin/accounts-tab.tsx
 msgid "Disabled on {date}"
 msgstr "Désactivé le {date}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+#: components/admin/accounts-tab.tsx
 msgid "Disabled on {date}, unused"
 msgstr "Désactivé le {date}, inutilisé"
 
-#: components/admin/admin-page.tsx
+#: components/admin/release-banner.tsx
 msgid "Dismiss"
 msgstr "Ignorer"
 
@@ -2475,7 +2556,8 @@ msgstr "Affichage"
 msgid "Display condition of {field}: {count}"
 msgstr "Condition d'affichage de {field} : {count}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
+#: components/admin/accounts-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/auth/auth-page.tsx
 #: components/settings/account-settings.tsx
@@ -2490,7 +2572,8 @@ msgstr "ne contient pas"
 msgid "Domains: {domains}. Invitations already sent to other addresses stop working, and so does adding such an account to a base."
 msgstr "Domaines : {domains}. Les invitations déjà envoyées à d'autres adresses ne fonctionnent plus, pas plus que l'ajout d'un tel compte à une base."
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
+#: components/admin/accounts-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/fields/button-cell.tsx
 #: components/shell/new-table-dialog.tsx
@@ -2504,7 +2587,7 @@ msgstr "Terminé"
 msgid "Download"
 msgstr "Télécharger"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Download the authority"
 msgstr "Télécharger l'autorité"
 
@@ -2582,8 +2665,9 @@ msgstr "Plus ancienne"
 msgid "Earliest date"
 msgstr "Plus ancienne date"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 #: components/admin/sources-tab.tsx
+#: components/admin/trails.tsx
 #: components/record/record-panel.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/table/automations-dialog.tsx
@@ -2595,7 +2679,7 @@ msgstr "Modifier"
 msgid "Edit {field}"
 msgstr "Modifier {field}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Edit {name}'s account"
 msgstr "Modifier le compte de {name}"
 
@@ -2612,7 +2696,7 @@ msgstr "Modifier les règles de couleur"
 msgid "Edit field"
 msgstr "Modifier le champ"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Edit name and email"
 msgstr "Modifier le nom et l'email"
 
@@ -2632,13 +2716,14 @@ msgstr "Modifier la source"
 msgid "edited"
 msgstr "modifié"
 
-#: components/settings/base-settings.tsx
+#: components/settings/role-label.ts
 msgid "Editor"
 msgstr "Éditeur"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
+#: components/admin/accounts-tab.tsx
+#: components/admin/invitations-panel.tsx
 #: components/admin/sign-in-trail.tsx
-#: components/admin/support-tab.tsx
 #: components/auth/auth-page.tsx
 #: components/fields/field-meta.tsx
 #: components/settings/account-settings.tsx
@@ -2663,13 +2748,17 @@ msgstr "Email et authentification unique pour cette instance. Vous pouvez laisse
 msgid "Email is not set up on this instance"
 msgstr "L'envoi d'emails n'est pas configuré sur cette instance"
 
-#: components/admin/admin-page.tsx
-msgid "Email is not set up, so pass this link on yourself, to this person only: it lets whoever has it choose the account's password, once, within a day."
-msgstr "L'envoi d'emails n'est pas configuré : transmettez ce lien vous-même, à cette personne seulement. Il permet à qui le détient de choisir le mot de passe du compte, une fois, dans la journée."
+#: components/admin/account-actions.tsx
+msgid "Email is not set up, so pass this link on yourself, to this person only: it lets whoever has it choose the account's password, once."
+msgstr "L'envoi d'emails n'est pas configuré : transmettez ce lien vous-même, à cette personne seulement. Il permet à qui l'a de choisir le mot de passe du compte, une fois."
 
 #: components/admin/security-tab.tsx
 msgid "Email is not set up: only an administrator can send a link, which they pass on themselves."
 msgstr "L'envoi d'emails n'est pas configuré : seul un administrateur peut créer un lien, qu'il transmet lui-même."
+
+#: components/admin/accounts-tab.tsx
+msgid "Email is not set up: you get the link to choose their password, valid a week, to pass on to them."
+msgstr "L'envoi d'emails n'est pas configuré : vous recevez le lien pour choisir son mot de passe, valable une semaine, à lui transmettre."
 
 #: components/admin/integrations-tab.tsx
 msgid "Email settings saved"
@@ -2699,7 +2788,7 @@ msgstr "Vider la corbeille"
 msgid "Empty the trash?"
 msgstr "Vider la corbeille ?"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Empty uses the environment, then 20 MiB. Between 1 and 500."
 msgstr "Vide : environnement, sinon 20 Mio. Entre 1 et 500."
 
@@ -2707,11 +2796,11 @@ msgstr "Vide : environnement, sinon 20 Mio. Entre 1 et 500."
 msgid "Empty: the row as JSON"
 msgstr "Vide : la ligne au format JSON"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Enable"
 msgstr "Réactiver"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Enable {name}'s account again?"
 msgstr "Réactiver le compte de {name} ?"
 
@@ -2727,11 +2816,15 @@ msgstr "Activez un second facteur pour pouvoir créer et administrer des bases."
 msgid "Enable TOTP"
 msgstr "Activer TOTP"
 
+#: components/admin/account-actions.tsx
+msgid "Enabled"
+msgstr "Réactivé"
+
 #: components/fields/formula-docs.ts
 msgid "Encodes the text to put it in a web address."
 msgstr "Encode le texte pour le mettre dans une adresse web."
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Encrypted connection (HTTPS)"
 msgstr "Connexion chiffrée (HTTPS)"
 
@@ -2768,19 +2861,7 @@ msgstr "Saisissez votre adresse : nous envoyons un lien pour choisir un nouveau 
 msgid "Entry point (SSO URL)"
 msgstr "Point d'entrée (URL SSO)"
 
-#: components/admin/admin-page.tsx
-msgid "Erase"
-msgstr "Effacer"
-
-#: components/admin/admin-page.tsx
-msgid "Erase {name}'s account?"
-msgstr "Effacer le compte de {name} ?"
-
-#: components/admin/admin-page.tsx
-msgid "Erase…"
-msgstr "Effacer…"
-
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 #: components/admin/support-tab.tsx
 msgid "Error"
 msgstr "Erreur"
@@ -2815,6 +2896,10 @@ msgstr "Les événements sont gardés {days} jours, puis supprimés. {total} év
 msgid "every"
 msgstr "toutes les"
 
+#: components/admin/access-report.tsx
+msgid "Every account, its bases and roles, and its last sign-in, as a CSV file."
+msgstr "Chaque compte, ses bases et rôles, et sa dernière connexion, en fichier CSV."
+
 #: components/admin/sign-in-trail.tsx
 msgid "Every active account"
 msgstr "Tous les comptes actifs"
@@ -2835,7 +2920,7 @@ msgstr "Toutes les autres sessions prennent fin maintenant, celles des administr
 msgid "Every row of {table}"
 msgstr "Toutes les lignes de {table}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Every session of this account ends now. The person can sign in again."
 msgstr "Toutes les sessions de ce compte prennent fin maintenant. La personne peut se reconnecter."
 
@@ -2851,11 +2936,11 @@ msgstr "Toutes les semaines"
 msgid "Everyone"
 msgstr "Tout le monde"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Everyone but administrators is signed out now, and cannot sign in until you turn it off."
 msgstr "Tout le monde, sauf les administrateurs, est déconnecté maintenant et ne pourra se reconnecter qu'une fois la maintenance désactivée."
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Everyone can sign in again."
 msgstr "Tout le monde peut de nouveau se connecter."
 
@@ -2900,8 +2985,8 @@ msgstr "Déplier la colonne {name}"
 msgid "Expand row"
 msgstr "Développer la ligne"
 
+#: components/admin/invitations-panel.tsx
 #: components/admin/scim-tab.tsx
-#: components/admin/support-tab.tsx
 msgid "Expires"
 msgstr "Expire"
 
@@ -2922,8 +3007,8 @@ msgstr "Exponentielle : e à la puissance du nombre."
 msgid "Export"
 msgstr "Export"
 
-#: components/admin/admin-page.tsx
 #: components/admin/sign-in-trail.tsx
+#: components/admin/trails.tsx
 msgid "Export as CSV"
 msgstr "Exporter en CSV"
 
@@ -2952,7 +3037,7 @@ msgstr "Exporter la vue en Excel"
 msgid "Export view to JSON"
 msgstr "Exporter la vue en JSON"
 
-#: components/admin/support-tab.tsx
+#: components/admin/access-report.tsx
 msgid "Export who has access"
 msgstr "Exporter qui a accès"
 
@@ -2989,15 +3074,15 @@ msgstr "Échec ({error})"
 msgid "Failed attempts before locking"
 msgstr "Échecs avant verrouillage"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Failed automations (24 h)"
 msgstr "Automatisations en échec (24 h)"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Failed deliveries (24 h)"
 msgstr "Envois en échec (24 h)"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Failed jobs (24 h)"
 msgstr "Tâches en échec (24 h)"
 
@@ -3054,7 +3139,7 @@ msgstr "Champ utilisé par"
 msgid "field_name"
 msgstr "nom_du_champ"
 
-#: components/admin/admin-page.tsx
+#: components/admin/trails.tsx
 #: components/shell/new-table-dialog.tsx
 #: components/table/view-toolbar.tsx
 msgid "Fields"
@@ -3084,7 +3169,7 @@ msgstr "Fichier expiré"
 msgid "File ready: {summary}. You can change the name above."
 msgstr "Fichier prêt : {summary}. Vous pouvez changer le nom ci-dessus."
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "File storage"
 msgstr "Stockage des fichiers"
 
@@ -3105,7 +3190,7 @@ msgstr "Fichier trop volumineux (2 Gio au maximum)"
 msgid "File too large (20 MB, 10 MB for Excel)."
 msgstr "Fichier trop volumineux (20 Mo, 10 Mo pour Excel)."
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Files"
 msgstr "Fichiers"
 
@@ -3129,6 +3214,10 @@ msgstr "Filtrer"
 #: components/grid/grid-header.tsx
 msgid "Filter by this field"
 msgstr "Filtrer sur ce champ"
+
+#: components/admin/accounts-tab.tsx
+msgid "Find a base"
+msgstr "Chercher une base"
 
 #: components/shell/shortcuts-dialog.tsx
 msgid "Find a base, a table, or an action"
@@ -3158,7 +3247,7 @@ msgstr "Drapeau"
 msgid "For"
 msgstr "Pendant"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "For an upgrade or a restore. Turning it on signs everyone else out; their API tokens stop working until it is off."
 msgstr "Pour une mise à jour ou une restauration. L'activer déconnecte tous les autres ; leurs jetons d'API ne fonctionnent plus jusqu'à sa désactivation."
 
@@ -3252,7 +3341,7 @@ msgstr "À partir de"
 msgid "From address"
 msgstr "Adresse d'expéditeur"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "from sources"
 msgstr "depuis les sources"
 
@@ -3353,7 +3442,7 @@ msgstr "ne contient aucun de"
 msgid "Header value"
 msgstr "Valeur de l'en-tête"
 
-#: components/admin/admin-page.tsx
+#: components/admin/admin-sections.ts
 msgid "Health"
 msgstr "Santé"
 
@@ -3445,6 +3534,10 @@ msgstr "J'ai copié les codes"
 #: components/fields/field-editor.tsx
 msgid "Icon"
 msgstr "Icône"
+
+#: components/admin/accounts-tab.tsx
+msgid "Identity provider (SCIM)"
+msgstr "Fournisseur d'identité (SCIM)"
 
 #: components/admin/integrations-tab.tsx
 msgid "IdP certificate (PEM)"
@@ -3592,13 +3685,9 @@ msgstr "Insérer à gauche"
 msgid "Insert right"
 msgstr "Insérer à droite"
 
-#: components/admin/admin-page.tsx
-msgid "Instance administrator"
-msgstr "Administrateur de l'instance"
-
-#: components/admin/admin-page.tsx
-msgid "Integrations"
-msgstr "Intégrations"
+#: components/admin/admin-sections.ts
+msgid "Instance"
+msgstr "Instance"
 
 #: lib/errors.ts
 msgid "Internal error"
@@ -3809,11 +3898,15 @@ msgstr "Invitation créée"
 msgid "Invitation emailed"
 msgstr "Invitation envoyée par email"
 
+#: components/admin/invitations-panel.tsx
+msgid "Invitation sent again to {email}"
+msgstr "Invitation renvoyée à {email}"
+
 #: components/public/invitation-page.tsx
 msgid "Invitation to “{name}”"
 msgstr "Invitation à « {name} »"
 
-#: components/admin/support-tab.tsx
+#: components/admin/invitations-panel.tsx
 msgid "Invitation withdrawn"
 msgstr "Invitation retirée"
 
@@ -3829,7 +3922,7 @@ msgstr "Inviter par email"
 msgid "Invite members to set fine-grained permissions."
 msgstr "Invitez des membres pour définir des droits fins."
 
-#: components/admin/support-tab.tsx
+#: components/admin/invitations-panel.tsx
 msgid "Invited by"
 msgstr "Invité par"
 
@@ -3935,7 +4028,7 @@ msgstr "Tâches"
 msgid "Jobs ({count} running)"
 msgstr "Tâches ({count} en cours)"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Jobs queued, running"
 msgstr "Tâches en attente, en cours"
 
@@ -3954,6 +4047,19 @@ msgstr "Kanban"
 #: components/admin/security-tab.tsx
 msgid "Keep events for"
 msgstr "Conserver les événements"
+
+#: components/admin/account-actions.tsx
+#: components/admin/accounts-tab.tsx
+msgid "Kept by the identity provider"
+msgstr "Géré par le fournisseur d'identité"
+
+#: components/admin/account-page.tsx
+msgid "Kept by the identity provider (SCIM)"
+msgstr "Géré par le fournisseur d'identité (SCIM)"
+
+#: components/admin/account-actions.tsx
+msgid "Kept by the identity provider: remove it there first"
+msgstr "Géré par le fournisseur d'identité : retirez-le d'abord là-bas"
 
 #: components/settings/api-docs.tsx
 msgid "Key"
@@ -3984,11 +4090,11 @@ msgstr "Libellé de {field}"
 msgid "Language"
 msgstr "Langue"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Largest attachment"
 msgstr "Pièce jointe maximale"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Last checked {date}"
 msgstr "Dernière vérification {date}"
 
@@ -4012,9 +4118,17 @@ msgstr "Lue pour la dernière fois le {date}."
 msgid "last run {date}"
 msgstr "dernière exécution {date}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+msgid "last seen {date}"
+msgstr "vu pour la dernière fois le {date}"
+
+#: components/admin/accounts-tab.tsx
 msgid "Last sign-in"
 msgstr "Dernière connexion"
+
+#: components/admin/account-page.tsx
+msgid "Last sign-in events"
+msgstr "Derniers événements de connexion"
 
 #: components/admin/scim-tab.tsx
 msgid "Last used"
@@ -4023,6 +4137,10 @@ msgstr "Dernier usage"
 #: components/settings/account-settings.tsx
 msgid "last used {date}"
 msgstr "dernière utilisation {date}"
+
+#: components/admin/account-page.tsx
+msgid "Last used {date}"
+msgstr "Dernière utilisation le {date}"
 
 #: components/table/filter-builder.tsx
 msgid "last week"
@@ -4080,7 +4198,11 @@ msgstr "Limitez la connexion interactive (mot de passe, authentification unique,
 msgid "Line"
 msgstr "Courbe"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
+msgid "Link"
+msgstr "Lien"
+
+#: components/admin/account-actions.tsx
 #: components/grid/grid-view.tsx
 #: components/record/record-panel.tsx
 #: components/settings/base-settings.tsx
@@ -4088,11 +4210,19 @@ msgstr "Courbe"
 msgid "Link copied"
 msgstr "Lien copié"
 
+#: components/admin/invitations-panel.tsx
+msgid "Link copied — email is not set up"
+msgstr "Lien copié — l’e-mail n’est pas configuré"
+
+#: components/admin/account-actions.tsx
+msgid "Link for {name}"
+msgstr "Lien pour {name}"
+
 #: components/admin/sign-in-trail.tsx
 msgid "Link from an administrator"
 msgstr "Lien d'un administrateur"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Link sent to {to}"
 msgstr "Lien envoyé à {to}"
 
@@ -4140,7 +4270,7 @@ msgstr "Chargement"
 msgid "Loading preview…"
 msgstr "Chargement de l’aperçu…"
 
-#: components/admin/admin-page.tsx
+#: components/admin/trails.tsx
 #: components/record/row-status.tsx
 msgid "Lock"
 msgstr "Verrouiller"
@@ -4161,6 +4291,7 @@ msgstr "Verrouiller la vue"
 msgid "locked"
 msgstr "a verrouillé"
 
+#: components/admin/accounts-tab.tsx
 #: components/record/row-status.tsx
 #: lib/known-text.ts
 msgid "Locked"
@@ -4170,11 +4301,13 @@ msgstr "Verrouillée"
 msgid "Locked row {row} of {table} changed outside AnyGridDB"
 msgstr "La ligne {row} de {table}, verrouillée, a changé hors d'AnyGridDB"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+#: components/admin/accounts-tab.tsx
 msgid "Locked until {date}"
 msgstr "Verrouillé jusqu'au {date}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+#: components/admin/accounts-tab.tsx
 msgid "Locked until unlocked"
 msgstr "Verrouillé jusqu'à déverrouillage"
 
@@ -4226,7 +4359,12 @@ msgstr "recherche reprise en valeurs"
 msgid "Lost your authenticator? Use a backup code"
 msgstr "Authentificateur perdu ? Utilisez un code de secours"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+#: components/admin/accounts-tab.tsx
+msgid "Made here"
+msgstr "Créé ici"
+
+#: components/admin/settings-tab.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Maintenance"
 msgstr "Maintenance"
@@ -4234,6 +4372,14 @@ msgstr "Maintenance"
 #: components/shell/app-shell.tsx
 msgid "Maintenance is on: only administrators can sign in."
 msgstr "La maintenance est active : seuls les administrateurs peuvent se connecter."
+
+#: components/admin/account-actions.tsx
+msgid "Make {name} an administrator?"
+msgstr "Faire de {name} un administrateur ?"
+
+#: components/admin/account-actions.tsx
+msgid "Make administrator"
+msgstr "Faire administrateur"
 
 #: components/shell/notification-bell.tsx
 msgid "Many accounts locked within an hour: see the sign-in trail"
@@ -4304,7 +4450,7 @@ msgstr "Membres"
 msgid "Members and access of {name}"
 msgstr "Membres et accès de {name}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Memory used"
 msgstr "Mémoire utilisée"
 
@@ -4333,7 +4479,7 @@ msgstr "Métrique"
 msgid "Metrics, charts, and embedded views over this base’s tables."
 msgstr "Métriques, graphiques et vues intégrées sur les tables de cette base."
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "MiB"
 msgstr "Mio"
 
@@ -4373,6 +4519,7 @@ msgstr "Lundi"
 msgid "Month"
 msgstr "Mois"
 
+#: components/admin/account-page.tsx
 #: components/record/record-panel.tsx
 #: components/table/view-toolbar.tsx
 msgid "More actions"
@@ -4422,7 +4569,7 @@ msgstr "il y a N jours"
 msgid "Name"
 msgstr "Nom"
 
-#: components/admin/admin-page.tsx
+#: components/admin/accounts-tab.tsx
 #: components/admin/support-tab.tsx
 msgid "Name or email"
 msgstr "Nom ou email"
@@ -4451,6 +4598,10 @@ msgstr "Jamais"
 #: components/settings/account-settings.tsx
 msgid "never used"
 msgstr "jamais utilisé"
+
+#: components/admin/account-page.tsx
+msgid "Never used"
+msgstr "Jamais utilisé"
 
 #: components/views/calendar-feed.tsx
 msgid "New address"
@@ -4488,7 +4639,7 @@ msgstr "Nouveau champ"
 msgid "New option"
 msgstr "Nouvelle option"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "New owner's email"
 msgstr "E-mail du nouveau propriétaire"
 
@@ -4532,16 +4683,16 @@ msgstr "Nouvelle vue"
 msgid "New webhook"
 msgstr "Nouveau webhook"
 
-#: components/admin/admin-page.tsx
 #: components/admin/sign-in-trail.tsx
+#: components/admin/trails.tsx
 msgid "Newer"
 msgstr "Plus récents"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Newer release"
 msgstr "Version plus récente"
 
-#: components/admin/admin-page.tsx
+#: components/admin/accounts-tab.tsx
 msgid "Next"
 msgstr "Suivant"
 
@@ -4573,7 +4724,7 @@ msgstr "la semaine prochaine"
 msgid "next year"
 msgstr "l'année prochaine"
 
-#: components/admin/admin-page.tsx
+#: components/admin/accounts-tab.tsx
 #: components/admin/security-tab.tsx
 #: components/dashboards/chart-view.tsx
 #: components/fields/cell-value.tsx
@@ -4581,9 +4732,17 @@ msgstr "l'année prochaine"
 msgid "No"
 msgstr "Non"
 
+#: components/admin/accounts-tab.tsx
+msgid "No account matches these filters. Clear a filter, or add the person."
+msgstr "Aucun compte ne correspond à ces filtres. Retirez un filtre, ou ajoutez la personne."
+
 #: lib/errors.ts
 msgid "No account with this email"
 msgstr "Aucun compte avec cet email"
+
+#: components/admin/accounts-tab.tsx
+msgid "No account yet besides yours. Add a person to bring them in."
+msgstr "Aucun autre compte que le vôtre pour l'instant. Ajoutez une personne pour la faire entrer."
 
 #: components/auth/auth-page.tsx
 msgid "No account yet? Sign up"
@@ -4593,9 +4752,21 @@ msgstr "Pas encore de compte ? Inscription"
 msgid "No accounts match this selection"
 msgstr "Aucun compte ne correspond à cette sélection"
 
+#: components/admin/account-page.tsx
+msgid "No API token."
+msgstr "Aucun jeton d'API."
+
 #: components/table/automations-dialog.tsx
 msgid "No automations on this table."
 msgstr "Aucune automatisation sur cette table."
+
+#: components/admin/accounts-tab.tsx
+msgid "No base by that name"
+msgstr "Aucune base de ce nom"
+
+#: components/admin/account-page.tsx
+msgid "No base yet. An owner invites them from a base's settings."
+msgstr "Aucune base pour l'instant. Un propriétaire l'invite depuis les réglages d'une base."
 
 #: components/shell/sidebar.tsx
 msgid "No bases yet."
@@ -4657,7 +4828,7 @@ msgstr "Aucune ligne correspondante"
 msgid "No notifications"
 msgstr "Aucune notification"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "No one else owns these bases: {bases}. Name the active account that takes them."
 msgstr "Personne d’autre n’est propriétaire de ces bases : {bases}. Indiquez le compte actif qui les reprend."
 
@@ -4668,6 +4839,10 @@ msgstr "Aucune personne trouvée"
 #: components/fields/cell-editor.tsx
 msgid "No options"
 msgstr "Aucune option"
+
+#: components/admin/account-page.tsx
+msgid "No password yet: the first link sets one"
+msgstr "Pas encore de mot de passe : le premier lien en définit un"
 
 #: components/fields/attachment-preview.tsx
 msgid "No preview for this file type: download it."
@@ -4693,9 +4868,17 @@ msgstr "Aucune exécution pour l'instant."
 msgid "No second factor"
 msgstr "Aucun second facteur"
 
+#: components/admin/account-page.tsx
+msgid "No session open right now."
+msgstr "Aucune session ouverte en ce moment."
+
+#: components/admin/account-page.tsx
+msgid "No sign-in event yet."
+msgstr "Aucun événement de connexion pour l'instant."
+
 #: components/admin/security-tab.tsx
-msgid "No sign-up domains are set (Settings tab): until some are, any address can be invited."
-msgstr "Aucun domaine d'inscription n'est défini (onglet Réglages) : tant qu'il n'y en a pas, toute adresse peut être invitée."
+msgid "No sign-up domains are set (Instance, Settings): until some are, any address can be invited."
+msgstr "Aucun domaine d'inscription n'est défini (Instance, Réglages) : tant qu'il n'y en a pas, n'importe quelle adresse peut être invitée."
 
 #: components/shell/home-page.tsx
 msgid "No tables yet"
@@ -4705,10 +4888,11 @@ msgstr "Aucune table pour l'instant"
 msgid "No value"
 msgstr "Sans valeur"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Node.js, up for"
 msgstr "Node.js, en service depuis"
 
+#: components/admin/account-page.tsx
 #: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/grid/grid-footer.tsx
@@ -4717,11 +4901,16 @@ msgstr "Node.js, en service depuis"
 msgid "None"
 msgstr "Aucune"
 
+#: components/admin/invitations-panel.tsx
 #: components/admin/support-tab.tsx
 msgid "None."
 msgstr "Aucune."
 
-#: components/admin/admin-page.tsx
+#: components/admin/accounts-tab.tsx
+msgid "Not administrators"
+msgstr "Non administrateurs"
+
+#: components/admin/health-tab.tsx
 msgid "Not checked yet"
 msgstr "Pas encore vérifié"
 
@@ -4732,6 +4921,14 @@ msgstr "Non configuré"
 #: lib/errors.ts
 msgid "Not found"
 msgstr "Introuvable"
+
+#: components/admin/account-actions.tsx
+msgid "Not linked to single sign-on"
+msgstr "Non lié à l'authentification unique"
+
+#: components/admin/account-actions.tsx
+msgid "Not locked"
+msgstr "Non verrouillé"
 
 #: components/admin/sources-tab.tsx
 msgid "Not set"
@@ -4749,7 +4946,11 @@ msgstr "Notes"
 msgid "Nothing here yet."
 msgstr "Rien ici pour l'instant."
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/admin-overview.tsx
+msgid "Nothing needs your attention."
+msgstr "Rien ne demande votre attention."
+
+#: components/admin/auth-labels.ts
 msgid "Notice emailed"
 msgstr "Avis envoyé par email"
 
@@ -4804,8 +5005,8 @@ msgstr "Rôle proposé : {role}. Invitation adressée à {email}."
 msgid "OIDC settings saved"
 msgstr "Réglages OIDC enregistrés"
 
-#: components/admin/admin-page.tsx
 #: components/admin/sign-in-trail.tsx
+#: components/admin/trails.tsx
 msgid "Older"
 msgstr "Plus anciens"
 
@@ -4850,7 +5051,7 @@ msgstr "Une valeur ou l’autre, selon la condition."
 msgid "Only addresses of the sign-up domains"
 msgstr "Seulement les adresses des domaines d'inscription"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Only addresses of these domains can create an account on their own, by sign-up or SSO. Empty: any address. An owner's invitation still lets anyone in."
 msgstr "Seules les adresses de ces domaines peuvent créer un compte d'elles-mêmes, par inscription ou SSO. Vide : toute adresse. L'invitation d'un propriétaire fait toujours entrer n'importe qui."
 
@@ -4858,7 +5059,7 @@ msgstr "Seules les adresses de ces domaines peuvent créer un compte d'elles-mê
 msgid "Only administrators"
 msgstr "Seulement les administrateurs"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Only administrators can sign in and work"
 msgstr "Seuls les administrateurs peuvent se connecter et travailler"
 
@@ -4900,7 +5101,7 @@ msgstr "Ouvrir la base"
 msgid "Open linked row"
 msgstr "Ouvrir la ligne liée"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Open sessions"
 msgstr "Sessions ouvertes"
 
@@ -4912,7 +5113,7 @@ msgstr "Ouvrir la fiche de la ligne (ou Maj Entrée)"
 msgid "Open the table"
 msgstr "Ouvrir la table"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Open to anyone"
 msgstr "Ouvertes à tous"
 
@@ -4920,9 +5121,13 @@ msgstr "Ouvertes à tous"
 msgid "Open view"
 msgstr "Ouvrir la vue"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Open: anyone can register from the sign-in page. Closed: only administrators create accounts and send a reset link (Accounts). By invitation: a pending base invitation is required. SSO for new accounts follows the same rule. Existing accounts are not affected."
 msgstr "Ouvert : chacun peut s'inscrire depuis la page de connexion. Fermé : seuls les administrateurs créent les comptes et envoient un lien de réinitialisation (Comptes). Sur invitation : une invitation à une base en attente est requise. La connexion SSO pour les nouveaux comptes suit la même règle. Les comptes existants ne sont pas concernés."
+
+#: components/admin/account-page.tsx
+msgid "Opened {opened}, ends {ends}"
+msgstr "Ouverte le {opened}, se termine le {ends}"
 
 #: components/admin/integrations-tab.tsx
 #: components/admin/sign-in-trail.tsx
@@ -4953,6 +5158,10 @@ msgstr "Nom de l'option"
 msgid "Optional HTTPS endpoint that receives selected sign-in and administration events. The body never includes an email, password, or token."
 msgstr "Point HTTPS optionnel qui reçoit certains événements de connexion et d'administration. Le corps ne contient jamais d'email, de mot de passe ni de jeton."
 
+#: components/admin/accounts-tab.tsx
+msgid "Optional: the bases they reach from the start, and their role on each. Any base of the instance; each role is on the change trail under your name."
+msgstr "Facultatif : les bases auxquelles la personne accède dès le départ, et son rôle sur chacune. N'importe quelle base de l'instance ; chaque rôle figure au journal des modifications sous votre nom."
+
 #: components/fields/field-editor.tsx
 msgid "Options"
 msgstr "Options"
@@ -4974,11 +5183,24 @@ msgstr "Ou collez des lignes copiées d'un tableur"
 msgid "Order"
 msgstr "Ordre"
 
+#: components/admin/account-page.tsx
+#: components/admin/accounts-tab.tsx
+msgid "Origin"
+msgstr "Origine"
+
 #: components/table/automations-dialog.tsx
 msgid "Otherwise:"
 msgstr "Sinon :"
 
-#: components/settings/base-settings.tsx
+#: components/admin/admin-sections.ts
+msgid "Overview"
+msgstr "Vue d’ensemble"
+
+#: components/admin/accounts-tab.tsx
+msgid "Owned by {owners}"
+msgstr "Appartient à {owners}"
+
+#: components/settings/role-label.ts
 msgid "Owner"
 msgstr "Propriétaire"
 
@@ -4998,7 +5220,7 @@ msgstr "Paramètres : limit (1000 au plus), offset, view, sort (liste, - pour d�
 msgid "Part of the list, counted from 1; -1 is the last value."
 msgstr "Une partie de la liste, comptée depuis 1 ; -1 est la dernière valeur."
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "Passkey"
 msgstr "Clé d'accès"
 
@@ -5006,7 +5228,7 @@ msgstr "Clé d'accès"
 msgid "Passkey registered"
 msgstr "Clé d'accès enregistrée"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Passkeys are available once this connection is trusted (authority installed or your own certificate)."
 msgstr "Les clés d'accès sont disponibles une fois cette connexion de confiance (autorité installée ou votre propre certificat)."
 
@@ -5018,8 +5240,8 @@ msgstr "Les clés d'accès exigent un nom d'hôte dans PUBLIC_URL (un nom DNS ou
 msgid "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Use a TOTP app, or open AnyGridDB at that hostname."
 msgstr "Les clés d'accès exigent un nom d'hôte dans PUBLIC_URL (un nom DNS ou localhost), pas une adresse IP. Utilisez une application TOTP, ou ouvrez AnyGridDB à ce nom d'hôte."
 
+#: components/admin/auth-labels.ts
 #: components/admin/integrations-tab.tsx
-#: components/admin/sign-in-trail.tsx
 #: components/admin/sources-tab.tsx
 #: components/auth/auth-page.tsx
 #: components/auth/confirm-signup-page.tsx
@@ -5033,7 +5255,7 @@ msgstr "Mot de passe"
 msgid "Password (optional)"
 msgstr "Mot de passe (facultatif)"
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "Password changed"
 msgstr "Mot de passe changé"
 
@@ -5049,7 +5271,7 @@ msgstr "Longueur des mots de passe"
 msgid "Password protected"
 msgstr "Protégé par mot de passe"
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "Password reset"
 msgstr "Mot de passe réinitialisé"
 
@@ -5085,18 +5307,22 @@ msgstr "Données collées"
 msgid "PATCH takes the same shape with an id per row; DELETE takes ?records=id1,id2. 100 rows per call. X-Reason header for fields that require a reason."
 msgstr "PATCH prend la même forme avec un id par ligne ; DELETE prend ?records=id1,id2. 100 lignes par appel. En-tête X-Reason pour les champs qui exigent un motif."
 
-#: components/admin/support-tab.tsx
+#: components/admin/invitations-panel.tsx
 #: components/settings/base-settings.tsx
 msgid "Pending invitations"
 msgstr "Invitations en attente"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Pending webhook deliveries"
 msgstr "Envois de webhooks en attente"
 
 #: components/record/record-panel.tsx
 msgid "Pending: the client's database has not confirmed this change yet."
 msgstr "En attente : la base du client n'a pas encore confirmé cette modification."
+
+#: components/admin/admin-sections.ts
+msgid "People"
+msgstr "Personnes"
 
 #: components/shell/airtable-report.tsx
 msgid "people carried over as text (name and address)"
@@ -5109,6 +5335,10 @@ msgstr "Personnes présentes"
 #: components/record/mention-input.tsx
 msgid "People to mention"
 msgstr "Personnes à mentionner"
+
+#: components/admin/admin-shell.tsx
+msgid "People, security, connections, sources, trails, and the instance itself."
+msgstr "Personnes, sécurité, connexions externes, sources, journaux et l'instance elle-même."
 
 #: components/settings/base-settings.tsx
 msgid "Per-table access"
@@ -5177,8 +5407,8 @@ msgid "Portable file: schema, views, rows, members, and the attachments in a .zi
 msgstr "Fichier portable : schéma, vues, lignes, membres, et les pièces jointes dans une archive .zip quand la base en a. Réimportez-le depuis « Nouvelle base »."
 
 #: components/shell/welcome-page.tsx
-msgid "PostgreSQL, MySQL, MariaDB, or SQL Server, over TLS. Its tables become tables here; the rights stay in the database."
-msgstr "PostgreSQL, MySQL, MariaDB ou SQL Server, en TLS. Ses tables deviennent des tables ici ; les droits restent dans la base de données."
+msgid "PostgreSQL, MySQL, MariaDB, SQL Server, or Oracle, over TLS. Its tables become tables here; the rights stay in the database."
+msgstr "PostgreSQL, MySQL, MariaDB, SQL Server ou Oracle, en TLS. Ses tables deviennent des tables ici ; les droits restent dans la base de données."
 
 #: components/table/import-dialog.tsx
 msgid "Preparing the import…"
@@ -5190,7 +5420,7 @@ msgstr "Préparation de l'import…"
 msgid "Preview: {name}"
 msgstr "Aperçu : {name}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/accounts-tab.tsx
 msgid "Previous"
 msgstr "Précédent"
 
@@ -5247,7 +5477,11 @@ msgstr "Projets et tâches, avec chronologie et tableau par statut."
 msgid "Protect your account"
 msgstr "Protéger votre compte"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+msgid "Provisioned by the identity provider (SCIM), then removed by it"
+msgstr "Provisionné par le fournisseur d'identité (SCIM), puis retiré par lui"
+
+#: components/admin/admin-sections.ts
 msgid "Provisioning"
 msgstr "Provisionnement"
 
@@ -5263,11 +5497,11 @@ msgstr "Les liens publics sont désactivés sur cette instance"
 msgid "Public links to views and forms"
 msgstr "Liens publics vers les vues et les formulaires"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "PUBLIC_URL is an IP address: HTTPS and TOTP work; passkeys need a DNS hostname (or localhost) in PUBLIC_URL that people open. Put the IP in TLS_NAMES if it must stay on the certificate."
 msgstr "PUBLIC_URL est une adresse IP : HTTPS et TOTP fonctionnent ; les clés d'accès exigent un nom d'hôte DNS (ou localhost) dans PUBLIC_URL, que les gens ouvrent. Mettez l'IP dans TLS_NAMES si elle doit rester sur le certificat."
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Publish"
 msgstr "Publier"
 
@@ -5281,7 +5515,7 @@ msgstr "purge le {date}"
 msgid "Queued"
 msgstr "En attente"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Queued events"
 msgstr "Événements en attente"
 
@@ -5313,6 +5547,10 @@ msgstr "Lire une ligne (GET)"
 msgid "Read and write"
 msgstr "Lecture et écriture"
 
+#: components/admin/account-page.tsx
+msgid "read only"
+msgstr "lecture seule"
+
 #: components/settings/account-settings.tsx
 #: components/settings/table-acl-panel.tsx
 msgid "Read only"
@@ -5326,7 +5564,7 @@ msgstr "Hôte de la réplique en lecture (optionnel)"
 msgid "Read rows"
 msgstr "Lire des lignes"
 
-#: components/admin/admin-page.tsx
+#: components/admin/release-banner.tsx
 msgid "Read the release notes before you upgrade."
 msgstr "Lisez les notes de version avant de mettre à jour."
 
@@ -5346,11 +5584,11 @@ msgstr "Lit un texte comme une date, au format donné (YYYY, MM, DD, HH, mm, ss)
 msgid "Reads text as a number."
 msgstr "Lit un texte comme un nombre."
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Realtime"
 msgstr "Temps réel"
 
-#: components/admin/admin-page.tsx
+#: components/admin/trails.tsx
 msgid "Reason"
 msgstr "Motif"
 
@@ -5409,7 +5647,7 @@ msgstr "Référence"
 msgid "Reference a field with {example}. Operators: + - * / % & = != > >= < <=."
 msgstr "Référencez un champ avec {example}. Opérateurs : + - * / % & = != > >= < <=."
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Refresh"
 msgstr "Actualiser"
 
@@ -5445,11 +5683,11 @@ msgstr "Relations"
 msgid "Relative (in 3 days)"
 msgstr "Relatif (dans 3 jours)"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Release check is off"
 msgstr "La vérification des versions est désactivée"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Release check is on"
 msgstr "La vérification des versions est activée"
 
@@ -5457,7 +5695,8 @@ msgstr "La vérification des versions est activée"
 msgid "Reload the page"
 msgstr "Recharger la page"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
+#: components/admin/settings-tab.tsx
 #: components/fields/cell-editor.tsx
 #: components/settings/base-settings.tsx
 #: components/table/automations-dialog.tsx
@@ -5465,13 +5704,25 @@ msgstr "Recharger la page"
 msgid "Remove"
 msgstr "Retirer"
 
-#: components/admin/admin-page.tsx
+#: components/admin/accounts-tab.tsx
+msgid "Remove {base}"
+msgstr "Retirer {base}"
+
+#: components/admin/account-actions.tsx
+msgid "Remove {name}'s administration?"
+msgstr "Retirer l'administration à {name} ?"
+
+#: components/admin/account-actions.tsx
 msgid "Remove {name}'s second factors?"
 msgstr "Retirer les seconds facteurs de {name} ?"
 
 #: components/table/automations-dialog.tsx
 msgid "Remove action"
 msgstr "Retirer l'action"
+
+#: components/admin/account-actions.tsx
+msgid "Remove administration"
+msgstr "Retirer l'administration"
 
 #: components/table/filter-builder.tsx
 msgid "Remove condition"
@@ -5485,13 +5736,13 @@ msgstr "Retirer le filtre"
 msgid "Remove the group {name}"
 msgstr "Retirer le groupe {name}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Remove their second factors"
 msgstr "Retirer ses seconds facteurs"
 
-#: components/admin/admin-page.tsx
-msgid "removed by the identity provider"
-msgstr "retiré par le fournisseur d'identité"
+#: components/admin/accounts-tab.tsx
+msgid "Removed by the identity provider"
+msgstr "Retiré par le fournisseur d'identité"
 
 #: components/settings/account-settings.tsx
 msgid "Removes your sign-in and attributes your audit history and comments to an erased account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave."
@@ -5578,15 +5829,11 @@ msgstr "Exiger un motif à chaque modification"
 msgid "required"
 msgstr "requis"
 
-#: components/admin/admin-page.tsx
-msgid "Reset link"
-msgstr "Lien de réinitialisation"
+#: components/admin/invitations-panel.tsx
+msgid "Resend"
+msgstr "Renvoyer"
 
-#: components/admin/admin-page.tsx
-msgid "Reset link for {name}"
-msgstr "Lien de réinitialisation pour {name}"
-
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "Reset link sent"
 msgstr "Lien de réinitialisation envoyé"
 
@@ -5625,7 +5872,7 @@ msgstr "Résultat"
 msgid "Retry scheduled ({error})"
 msgstr "Nouvel essai prévu ({error})"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 #: components/admin/scim-tab.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/base-settings.tsx
@@ -5638,7 +5885,7 @@ msgstr "Révoquer"
 msgid "Revoke “{name}”?"
 msgstr "Révoquer « {name} » ?"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Revoke {name}'s API tokens?"
 msgstr "Révoquer les jetons d'API de {name} ?"
 
@@ -5646,7 +5893,7 @@ msgstr "Révoquer les jetons d'API de {name} ?"
 msgid "Revoke the token {name}"
 msgstr "Révoquer le jeton {name}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Revoke their API tokens"
 msgstr "Révoquer ses jetons d'API"
 
@@ -5654,7 +5901,7 @@ msgstr "Révoquer ses jetons d'API"
 msgid "revoked"
 msgstr "révoqué"
 
-#: components/admin/support-tab.tsx
+#: components/admin/invitations-panel.tsx
 #: components/settings/base-settings.tsx
 #: components/settings/group-roles.tsx
 msgid "Role"
@@ -5663,6 +5910,10 @@ msgstr "Rôle"
 #: components/settings/group-roles.tsx
 msgid "Role of the group {name}"
 msgstr "Rôle du groupe {name}"
+
+#: components/admin/accounts-tab.tsx
+msgid "Role on {base}"
+msgstr "Rôle sur {base}"
 
 #: components/settings/base-settings.tsx
 msgid "Role on {table}"
@@ -5792,7 +6043,8 @@ msgstr "Réglages SAML enregistrés"
 msgid "Saturday"
 msgstr "Samedi"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
+#: components/admin/settings-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/fields/field-editor.tsx
 #: components/record/record-panel.tsx
@@ -5828,7 +6080,7 @@ msgstr "Enregistrer SAML"
 msgid "Save SIEM webhook"
 msgstr "Enregistrer le webhook SIEM"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 #: components/settings/base-settings.tsx
 msgid "Saved"
 msgstr "Enregistré"
@@ -5862,10 +6114,6 @@ msgstr "Échelle"
 msgid "Schema kept for AnyGridDB (optional)"
 msgstr "Schéma réservé à AnyGridDB (facultatif)"
 
-#: components/admin/admin-page.tsx
-msgid "SCIM"
-msgstr "SCIM"
-
 #: components/admin/scim-tab.tsx
 msgid "SCIM 2.0 provisioning"
 msgstr "Provisionnement SCIM 2.0"
@@ -5874,7 +6122,7 @@ msgstr "Provisionnement SCIM 2.0"
 msgid "SCIM address"
 msgstr "Adresse SCIM"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Scripts and tools using these tokens stop working at once."
 msgstr "Les scripts et outils qui utilisent ces jetons cessent aussitôt de fonctionner."
 
@@ -5893,7 +6141,7 @@ msgstr "Rechercher une ligne liée"
 msgid "Search a person"
 msgstr "Rechercher une personne"
 
-#: components/admin/admin-page.tsx
+#: components/admin/accounts-tab.tsx
 #: components/admin/support-tab.tsx
 msgid "Search accounts"
 msgstr "Rechercher un compte"
@@ -5910,7 +6158,8 @@ msgstr "Chercher une fonction"
 msgid "Search this view"
 msgstr "Rechercher dans la vue"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+#: components/admin/accounts-tab.tsx
 #: components/admin/security-tab.tsx
 #: components/auth/auth-page.tsx
 msgid "Second factor"
@@ -5924,7 +6173,7 @@ msgstr "Second facteur après le SSO"
 msgid "Second factor enabled"
 msgstr "Second facteur actif"
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "Second factors removed"
 msgstr "Seconds facteurs retirés"
 
@@ -5932,9 +6181,25 @@ msgstr "Seconds facteurs retirés"
 msgid "Secret"
 msgstr "Secret"
 
-#: components/admin/admin-page.tsx
+#: components/admin/admin-sections.ts
 msgid "Security"
 msgstr "Sécurité"
+
+#: components/admin/admin-overview.tsx
+msgid "See the invitations"
+msgstr "Voir les invitations"
+
+#: components/admin/admin-overview.tsx
+msgid "See the locked accounts"
+msgstr "Voir les comptes verrouillés"
+
+#: components/admin/admin-overview.tsx
+msgid "See what failed"
+msgstr "Voir ce qui a échoué"
+
+#: components/admin/admin-overview.tsx
+msgid "See who they are"
+msgstr "Voir qui ils sont"
 
 #: components/grid/grid-header.tsx
 msgid "Select {count} loaded rows"
@@ -5964,17 +6229,25 @@ msgstr "Statistiques de la sélection"
 msgid "Selects the {count} rows already loaded"
 msgstr "Sélectionne les {count} lignes déjà chargées"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Send"
 msgstr "Envoyer"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
+msgid "Send {name} a new first link?"
+msgstr "Envoyer un nouveau premier lien à {name} ?"
+
+#: components/admin/account-actions.tsx
 msgid "Send {name} a password reset link?"
 msgstr "Envoyer à {name} un lien de réinitialisation du mot de passe ?"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Send a password reset link"
 msgstr "Envoyer un lien de réinitialisation du mot de passe"
+
+#: components/admin/account-actions.tsx
+msgid "Send a reset link"
+msgstr "Envoyer un lien de réinitialisation"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Send a test"
@@ -6005,6 +6278,10 @@ msgstr "Envoyer un événement de test"
 msgid "Send the comment; @ to mention"
 msgstr "Envoyer le commentaire ; @ pour mentionner"
 
+#: components/admin/account-actions.tsx
+msgid "Send the first link"
+msgstr "Envoyer le premier lien"
+
 #: components/auth/auth-page.tsx
 msgid "Send the link"
 msgstr "Envoyer le lien"
@@ -6017,6 +6294,10 @@ msgstr "Envoyer à {count} comptes ?"
 msgid "Sent ({status})"
 msgstr "Envoyé ({status})"
 
+#: components/admin/admin-overview.tsx
+msgid "Sent to people who have not joined yet. Send one again, or withdraw it."
+msgstr "Envoyées à des personnes qui n'ont pas encore rejoint. Renvoyez-en une, ou retirez-la."
+
 #: components/dashboards/dashboard-board.tsx
 msgid "Series (optional)"
 msgstr "Séries (optionnel)"
@@ -6025,8 +6306,8 @@ msgstr "Séries (optionnel)"
 msgid "Service name"
 msgstr "Nom du service"
 
+#: components/admin/auth-labels.ts
 #: components/admin/sessions-tab.tsx
-#: components/admin/sign-in-trail.tsx
 msgid "Session ended"
 msgstr "Session terminée"
 
@@ -6038,7 +6319,8 @@ msgstr "Expiration des sessions inactives"
 msgid "Session lifetime"
 msgstr "Durée de vie des sessions"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+#: components/admin/admin-sections.ts
 #: components/admin/security-tab.tsx
 msgid "Sessions"
 msgstr "Sessions"
@@ -6052,14 +6334,14 @@ msgid "Set the password"
 msgstr "Enregistrer le mot de passe"
 
 #: components/admin/support-tab.tsx
-msgid "Set up email under Integrations before you can send a notice."
-msgstr "Configurez l'email dans Intégrations avant de pouvoir envoyer un avis."
+msgid "Set up email under Connections before you can send a notice."
+msgstr "Configurez l'envoi d'emails sous Connexions externes avant de pouvoir envoyer un avis."
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "Setting changed"
 msgstr "Réglage modifié"
 
-#: components/admin/admin-page.tsx
+#: components/admin/admin-sections.ts
 msgid "Settings"
 msgstr "Réglages"
 
@@ -6068,8 +6350,8 @@ msgstr "Réglages"
 msgid "Settings and sharing"
 msgstr "Réglages et partage"
 
-#: components/admin/admin-page.tsx
 #: components/admin/security-tab.tsx
+#: components/admin/settings-tab.tsx
 msgid "Settings saved"
 msgstr "Réglages enregistrés"
 
@@ -6133,7 +6415,7 @@ msgstr "Voir le tableau des valeurs"
 msgid "Show this help"
 msgstr "Afficher cette aide"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Shown at the top of the app to everyone signed in"
 msgstr "Affichée en haut de l'application pour toute personne connectée"
 
@@ -6162,7 +6444,7 @@ msgstr "Webhook SIEM enregistré"
 msgid "Sign"
 msgstr "Signer"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Sign {name} out everywhere?"
 msgstr "Déconnecter {name} partout ?"
 
@@ -6192,13 +6474,13 @@ msgstr "Connexion OIDC"
 msgid "Sign in with SAML"
 msgstr "Connexion SAML"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 #: components/admin/sessions-tab.tsx
 #: components/shell/user-menu.tsx
 msgid "Sign out"
 msgstr "Se déconnecter"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Sign out everywhere"
 msgstr "Déconnecter partout"
 
@@ -6214,7 +6496,7 @@ msgstr "Adresses de connexion"
 msgid "Sign-in is not allowed from this network address"
 msgstr "La connexion n'est pas autorisée depuis cette adresse réseau"
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "Sign-in refused"
 msgstr "Connexion refusée"
 
@@ -6230,7 +6512,7 @@ msgstr "Journal des connexions"
 msgid "Sign-in trail retention"
 msgstr "Conservation du journal des connexions"
 
-#: components/admin/admin-page.tsx
+#: components/admin/admin-sections.ts
 msgid "Sign-ins"
 msgstr "Connexions"
 
@@ -6238,11 +6520,11 @@ msgstr "Connexions"
 msgid "Sign-ins, failures, and what administrators changed, with the address. The CNIL recommends keeping such logs six months to a year."
 msgstr "Les connexions, les échecs et ce que les administrateurs ont modifié, avec l'adresse. La CNIL recommande de conserver ces journaux de six mois à un an."
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "Sign-up"
 msgstr "Inscription"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Sign-up domains"
 msgstr "Domaines autorisés à l'inscription"
@@ -6263,12 +6545,12 @@ msgstr "Les inscriptions ne sont pas ouvertes pour cette adresse"
 msgid "Sign-up is open only to your organization's addresses"
 msgstr "L'inscription n'est ouverte qu'aux adresses de votre organisation"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Sign-ups"
 msgstr "Inscriptions"
 
-#: components/admin/admin-page.tsx
+#: components/admin/trails.tsx
 msgid "Signature"
 msgstr "Signature"
 
@@ -6290,12 +6572,12 @@ msgstr "Signée par {name} le {date} : « {meaning} »"
 msgid "Signed HTTPS POST (HMAC-SHA256) or email, on every write."
 msgstr "POST HTTPS signé (HMAC-SHA256) ou email, à chaque écriture."
 
+#: components/admin/auth-labels.ts
 #: components/admin/sessions-tab.tsx
-#: components/admin/sign-in-trail.tsx
 msgid "Signed in"
 msgstr "Connexion"
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "Signed out"
 msgstr "Déconnexion"
 
@@ -6303,15 +6585,28 @@ msgstr "Déconnexion"
 msgid "Signing secret, shown once:"
 msgstr "Secret de signature, affiché une fois :"
 
+#: components/admin/account-page.tsx
+msgid "Signs in"
+msgstr "Se connecte"
+
+#: components/admin/account-actions.tsx
+msgid "Signs in through its identity provider"
+msgstr "Se connecte par son fournisseur d'identité"
+
 #: components/fields/field-meta.tsx
 msgid "Single select"
 msgstr "Choix unique"
+
+#: components/admin/account-page.tsx
+#: components/admin/accounts-tab.tsx
+msgid "Single sign-on"
+msgstr "Authentification unique"
 
 #: components/admin/security-tab.tsx
 msgid "Single sign-on only (administrators keep a password)"
 msgstr "Authentification unique seulement (les administrateurs gardent un mot de passe)"
 
-#: components/admin/sign-in-trail.tsx
+#: components/admin/auth-labels.ts
 msgid "Single sign-on unlinked"
 msgstr "Authentification unique déliée"
 
@@ -6347,7 +6642,7 @@ msgstr "Trier Z → A"
 msgid "Sorted by {count} fields"
 msgstr "Trié par {count} champs"
 
-#: components/admin/admin-page.tsx
+#: components/admin/trails.tsx
 msgid "Source"
 msgstr "Source"
 
@@ -6367,7 +6662,7 @@ msgstr "Type source"
 msgid "Source unreachable: check the host, the port, and the firewall"
 msgstr "Source injoignable : vérifiez l'hôte, le port et le pare-feu"
 
-#: components/admin/admin-page.tsx
+#: components/admin/admin-sections.ts
 #: components/shell/sidebar-sources.tsx
 msgid "Sources"
 msgstr "Sources"
@@ -6436,7 +6731,8 @@ msgstr "Point de départ"
 msgid "starts with"
 msgstr "commence par"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+#: components/admin/accounts-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/shell/new-table-dialog.tsx
 msgid "Status"
@@ -6462,7 +6758,7 @@ msgstr "Arrêtée : boucle d'automatisations"
 msgid "Stopped: too many runs a minute"
 msgstr "Arrêtée : trop d'exécutions par minute"
 
-#: components/admin/admin-page.tsx
+#: components/admin/trails.tsx
 msgid "Structure"
 msgstr "Structure"
 
@@ -6475,7 +6771,7 @@ msgstr "Style"
 msgid "Subject"
 msgstr "Objet"
 
-#: components/admin/admin-page.tsx
+#: components/admin/trails.tsx
 msgid "Submission"
 msgstr "Soumission"
 
@@ -6550,7 +6846,8 @@ msgstr "Dimanche"
 msgid "Suppliers"
 msgstr "Fournisseurs"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+#: components/admin/admin-sections.ts
 msgid "Support"
 msgstr "Support"
 
@@ -6566,8 +6863,8 @@ msgstr "Système"
 msgid "table"
 msgstr "table"
 
-#: components/admin/admin-page.tsx
 #: components/admin/support-tab.tsx
+#: components/admin/trails.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/settings/api-docs.tsx
 #: components/shell/trash-dialog.tsx
@@ -6708,7 +7005,7 @@ msgstr "Merci, votre réponse a été enregistrée."
 msgid "That match (optional):"
 msgstr "Qui remplissent (facultatif) :"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "The account forgets which identity of the provider it belongs to. The next sign-on with its address binds it again. For an account made again at the provider; otherwise someone else with that address there could take it."
 msgstr "Le compte oublie à quelle identité du fournisseur il appartient. La prochaine connexion avec son adresse le lie de nouveau. Pour un compte recréé chez le fournisseur ; sinon, quelqu'un d'autre ayant cette adresse chez lui pourrait le prendre."
 
@@ -6745,10 +7042,10 @@ msgid "The browser refused to copy: select the text and copy it."
 msgstr "Le navigateur a refusé la copie : sélectionnez le texte et copiez-le."
 
 #: components/admin/support-tab.tsx
-msgid "The bundle holds the version, health checks, counts, and which features are set up: no data, no address, no secret. The access export lists every account, its bases and roles, and its last sign-in."
-msgstr "Le dossier contient la version, les contrôles de santé, des comptages et les fonctions configurées : aucune donnée, aucune adresse, aucun secret. L'export des accès liste chaque compte, ses bases et ses rôles, et sa dernière connexion."
+msgid "The bundle holds the version, health checks, counts, and which features are set up: no data, no address, no secret. Who has access is exported from Security."
+msgstr "Le paquet contient la version, les contrôles de santé, des comptages et les fonctions configurées : aucune donnée, aucune adresse, aucun secret. Qui a accès s'exporte depuis Sécurité."
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "The certificate is the one the operator provided."
 msgstr "Le certificat est celui fourni par l'opérateur."
 
@@ -6893,15 +7190,15 @@ msgstr "Les derniers caractères."
 msgid "The link is shown only once. Existing links:"
 msgstr "Le lien n'est affiché qu'une fois. Liens existants :"
 
-#: components/admin/admin-page.tsx
-msgid "The link sets a new password once, within a day; their second factors stay. Email is not set up, so you get the link to pass on: only to them, as it opens their account."
-msgstr "Le lien permet de choisir un nouveau mot de passe une fois, dans la journée ; ses seconds facteurs restent en place. L'envoi d'emails n'est pas configuré : vous recevez donc le lien pour le transmettre, à cette personne seulement, car il ouvre son compte."
+#: components/admin/account-actions.tsx
+msgid "The link sets a password once, within a day; their second factors stay. Email is not set up, so you get the link to pass on: only to them, as it opens their account."
+msgstr "Le lien définit un mot de passe une fois, dans la journée ; ses seconds facteurs restent. L'envoi d'emails n'est pas configuré : vous recevez le lien à transmettre, à cette personne seulement, car il ouvre son compte."
 
-#: components/admin/admin-page.tsx
-msgid "The link sets a new password once, within a day; their second factors stay. It goes to their address and you never see it."
-msgstr "Le lien permet de choisir un nouveau mot de passe une fois, dans la journée ; ses seconds facteurs restent en place. Il part à son adresse et vous ne le voyez jamais."
+#: components/admin/account-actions.tsx
+msgid "The link sets a password once, within a day; their second factors stay. It goes to their address and you never see it."
+msgstr "Le lien définit un mot de passe une fois, dans la journée ; ses seconds facteurs restent. Il part à son adresse et vous ne le voyez jamais."
 
-#: components/admin/support-tab.tsx
+#: components/admin/invitations-panel.tsx
 msgid "The link stops working. The base's owners can invite this person again."
 msgstr "Le lien cesse de fonctionner. Les propriétaires de la base peuvent inviter de nouveau cette personne."
 
@@ -6921,7 +7218,7 @@ msgstr "La liste sans ses doublons."
 msgid "The list's values as one text, separated by a comma by default."
 msgstr "Les valeurs de la liste en un texte, séparées par une virgule par défaut."
 
-#: components/admin/admin-page.tsx
+#: components/admin/trails.tsx
 msgid "The log shows who changed which fields. Values stay in each row's history, behind the table's access rights."
 msgstr "Le journal montre qui a changé quels champs. Les valeurs restent visibles dans l'historique de chaque ligne, selon les droits sur la table."
 
@@ -6937,7 +7234,7 @@ msgstr "Les minutes."
 msgid "The month, from 1 to 12."
 msgstr "Le mois, de 1 à 12."
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "The name others see and the address they sign in with. A new address ends the reset links sent to the old one."
 msgstr "Le nom que les autres voient et l'adresse de connexion. Une nouvelle adresse annule les liens de réinitialisation envoyés à l'ancienne."
 
@@ -6985,11 +7282,11 @@ msgstr "les N derniers jours"
 msgid "the past year"
 msgstr "la dernière année"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "The person can sign in again now, and their count of failed attempts starts over."
 msgstr "La personne peut se reconnecter dès maintenant, et son compteur d'échecs repart de zéro."
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "The person will be able to sign in again."
 msgstr "La personne pourra de nouveau se connecter."
 
@@ -7178,6 +7475,10 @@ msgstr "L’entier juste en dessous, comme INT."
 msgid "The whole number just below: INT(-1.5) is -2."
 msgstr "L’entier juste en dessous : INT(-1.5) vaut -2."
 
+#: components/admin/account-page.tsx
+msgid "The whole sign-in trail"
+msgstr "Tout le journal des connexions"
+
 #: components/fields/formula-docs.ts
 msgid "The working days between two dates, both counted."
 msgstr "Le nombre de jours ouvrés entre deux dates, les deux comprises."
@@ -7190,13 +7491,13 @@ msgstr "L’année."
 msgid "The zone of the dates and times the database stores without one."
 msgstr "Celui des dates et heures que la base enregistre sans fuseau."
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Their authenticator, passkeys, and backup codes are removed, and their sessions end. They sign in with their password and set up a second factor again. For a lost phone or key."
 msgstr "Son application d'authentification, ses clés d'accès et ses codes de secours sont retirés, et ses sessions prennent fin. La personne se connecte avec son mot de passe et configure de nouveau un second facteur. Pour un téléphone ou une clé perdus."
 
-#: components/admin/admin-page.tsx
-msgid "Their sessions end and their API tokens stop working. Their data and audit history are kept. When someone leaves, disable the account; erase only when their identity must leave the instance."
-msgstr "Leurs sessions se terminent et leurs jetons d’API cessent de fonctionner. Leurs données et leur historique d’audit sont conservés. Quand quelqu’un part, désactivez le compte ; n’effacez que lorsque son identité doit quitter l’instance."
+#: components/admin/account-actions.tsx
+msgid "Their sessions end and their API tokens stop working. Their data and audit history are kept. When someone may come back, disable the account; delete it only when their identity must leave the instance."
+msgstr "Ses sessions se terminent et ses jetons d'API cessent de fonctionner. Ses données et son historique d'audit sont conservés. Quand quelqu'un peut revenir, désactivez le compte ; ne le supprimez que lorsque son identité doit quitter l'instance."
 
 #: components/shell/user-menu.tsx
 msgid "Theme"
@@ -7214,9 +7515,21 @@ msgstr "Créez ensuite une automatisation déclenchée par ce bouton, depuis le 
 msgid "Then:"
 msgstr "Alors :"
 
+#: components/admin/accounts-tab.tsx
+msgid "They get a link by email to choose their password, valid a week."
+msgstr "La personne reçoit par email un lien pour choisir son mot de passe, valable une semaine."
+
+#: components/admin/account-actions.tsx
+msgid "They keep their account and their bases, and lose Administration. The instance always keeps one active administrator."
+msgstr "La personne garde son compte et ses bases, et perd l'Administration. L'instance garde toujours un administrateur actif."
+
 #: components/shell/trashed-bases.tsx
 msgid "They stay for 30 days with their data, then are deleted permanently."
 msgstr "Elles restent 30 jours avec leurs données, puis sont supprimées définitivement."
+
+#: components/admin/account-actions.tsx
+msgid "They will manage every account, the instance's settings, and who sees which base. Their next action asks for a second factor."
+msgstr "La personne gérera tous les comptes, les réglages de l'instance, et qui voit quelle base. Sa prochaine action demandera un second facteur."
 
 #: lib/errors.ts
 msgid "This account already exists"
@@ -7233,10 +7546,6 @@ msgstr "Ce compte est désactivé"
 #: lib/errors.ts
 msgid "This account is locked after too many failed attempts. Try again later, or ask an administrator to unlock it."
 msgstr "Ce compte est verrouillé après trop d'échecs. Réessayez plus tard, ou demandez à un administrateur de le déverrouiller."
-
-#: components/admin/admin-page.tsx
-msgid "This account is still managed by the identity provider. Remove it there first, then erase it here."
-msgstr "Ce compte est encore géré par le fournisseur d’identité. Retirez-le là-bas d’abord, puis effacez-le ici."
 
 #: lib/errors.ts
 msgid "This account signs in through your organization's sign-in: it has no password here"
@@ -7262,9 +7571,9 @@ msgstr "Cette base est vide."
 msgid "This cannot be done to this account"
 msgstr "Opération impossible sur ce compte"
 
-#: components/admin/admin-page.tsx
-msgid "This cannot be undone. Their email and factors are removed. Audit history and comments stay under “Erased account”. Row values in bases are not wiped."
-msgstr "Cette action est irréversible. Leur e-mail et leurs facteurs sont retirés. L’historique d’audit et les commentaires restent sous « Erased account ». Les valeurs des lignes dans les bases ne sont pas effacées."
+#: components/admin/account-actions.tsx
+msgid "This cannot be undone. Their email and factors are removed; audit history and comments stay under “Erased account”; row values in bases are kept. An active account is disabled first, in the same step."
+msgstr "Cette action est irréversible. Son email et ses facteurs sont retirés ; l'historique d'audit et les commentaires restent sous « Erased account » ; les valeurs des lignes dans les bases sont conservées. Un compte actif est d'abord désactivé, dans la même étape."
 
 #: components/settings/account-settings.tsx
 msgid "This cannot be undone. Your email and factors are removed. Comments stay under “Erased account”. Row values in bases are not wiped."
@@ -7326,7 +7635,7 @@ msgstr "Ce filtre sur un champ conservé dans AnyGridDB correspond à plus de 1 
 msgid "This host is not allowed: the operator adds it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS"
 msgstr "Cet hôte n'est pas autorisé : l'opérateur l'ajoute à ANYGRIDDB_SOURCES_ALLOWED_HOSTS"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "This instance is up to date"
 msgstr "Cette instance est à jour"
 
@@ -7386,7 +7695,7 @@ msgstr "Cette page n'a pas pu être chargée : {reason}"
 msgid "This page could not be loaded. Check your connection, then try again."
 msgstr "Cette page n'a pas pu être chargée. Vérifiez votre connexion, puis réessayez."
 
-#: components/admin/admin-page.tsx
+#: components/admin/admin-shell.tsx
 msgid "This page is for instance administrators."
 msgstr "Cette page est réservée aux administrateurs de l'instance."
 
@@ -7481,6 +7790,10 @@ msgstr "Via le lien"
 #: components/settings/base-settings.tsx
 msgid "through the group {groups}"
 msgstr "par le groupe {groups}"
+
+#: components/admin/account-page.tsx
+msgid "Through the identity provider only"
+msgstr "Par le fournisseur d'identité seulement"
 
 #: components/fields/field-editor.tsx
 msgid "Thumb"
@@ -7581,6 +7894,10 @@ msgstr "demain"
 msgid "Too long for this instance. Most days allowed"
 msgstr "Trop long pour cette instance. Nombre de jours maximal"
 
+#: components/admin/admin-overview.tsx
+msgid "Too many failed sign-ins. They wait for the lock to end, or for you to unlock them."
+msgstr "Trop de connexions manquées. Ils attendent la fin du verrouillage, ou que vous les déverrouilliez."
+
 #: lib/errors.ts
 msgid "Too many jobs running: wait for one to finish"
 msgstr "Trop de tâches en cours : attendez qu'une se termine"
@@ -7601,9 +7918,9 @@ msgstr "Outils : list_bases, list_tables, get_openapi, list_records, get_record,
 msgid "Total estimated by the client's database: click to count exactly"
 msgstr "Total estimé par la base du client : cliquez pour compter exactement"
 
-#: components/admin/admin-page.tsx
-msgid "Trail"
-msgstr "Journal"
+#: components/admin/admin-sections.ts
+msgid "Trails"
+msgstr "Journaux"
 
 #: components/shell/sidebar.tsx
 msgid "Trash"
@@ -7683,19 +8000,19 @@ msgstr "Essayer"
 msgid "Tuesday"
 msgstr "Mardi"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Turn maintenance off?"
 msgstr "Désactiver la maintenance ?"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Turn maintenance on?"
 msgstr "Activer la maintenance ?"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Turn off"
 msgstr "Désactiver"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Turn on"
 msgstr "Activer"
 
@@ -7726,7 +8043,7 @@ msgstr "Double authentification"
 msgid "Type"
 msgstr "Type"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Type {email} to confirm"
 msgstr "Saisissez {email} pour confirmer"
 
@@ -7734,11 +8051,11 @@ msgstr "Saisissez {email} pour confirmer"
 msgid "Type of {name}"
 msgstr "Type de {name}"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Type the account's email to confirm"
 msgstr "Saisissez l’e-mail du compte pour confirmer"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Type the new owner's email"
 msgstr "Saisissez l’e-mail du nouveau propriétaire"
 
@@ -7824,24 +8141,25 @@ msgstr "Modèle inconnu"
 msgid "Unknown view"
 msgstr "Vue introuvable"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Unlink"
 msgstr "Délier"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Unlink {name} from single sign-on?"
 msgstr "Délier {name} de l'authentification unique ?"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Unlink single sign-on"
 msgstr "Délier l'authentification unique"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
+#: components/admin/trails.tsx
 #: components/record/row-status.tsx
 msgid "Unlock"
 msgstr "Déverrouiller"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-actions.tsx
 msgid "Unlock {name}'s account?"
 msgstr "Déverrouiller le compte de {name} ?"
 
@@ -7856,6 +8174,10 @@ msgstr "Déverrouiller la vue"
 #: components/record/record-panel.tsx
 msgid "unlocked"
 msgstr "a déverrouillé"
+
+#: components/admin/account-actions.tsx
+msgid "Unlocked"
+msgstr "Déverrouillé"
 
 #: components/shell/sidebar.tsx
 msgid "Unpin {name}"
@@ -7935,7 +8257,7 @@ msgstr "Utiliser le code de secours"
 msgid "Use the pasted data"
 msgstr "Utiliser les données collées"
 
-#: components/admin/admin-page.tsx
+#: components/admin/settings-tab.tsx
 msgid "Used until a person picks their own language."
 msgstr "Utilisée tant qu'une personne n'a pas choisi sa langue."
 
@@ -7948,7 +8270,7 @@ msgstr "Compte"
 msgid "Usually the full email address"
 msgstr "En général l'adresse email complète"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Valid until {date}, for: {names}."
 msgstr "Valable jusqu'au {date}, pour : {names}."
 
@@ -7975,7 +8297,7 @@ msgstr "Variance (échantillon)"
 msgid "Verify"
 msgstr "Vérifier"
 
-#: components/admin/admin-page.tsx
+#: components/admin/health-tab.tsx
 #: components/admin/sources-tab.tsx
 msgid "Version"
 msgstr "Version"
@@ -8029,7 +8351,7 @@ msgstr "Vue introuvable"
 msgid "View of {table}"
 msgstr "Vue de {table}"
 
-#: components/settings/base-settings.tsx
+#: components/settings/role-label.ts
 msgid "Viewer"
 msgstr "Lecteur"
 
@@ -8159,6 +8481,10 @@ msgstr "Qui peut créer des bases"
 msgid "Who can start a password reset"
 msgstr "Qui peut lancer une réinitialisation du mot de passe"
 
+#: components/admin/access-report.tsx
+msgid "Who has access"
+msgstr "Qui a accès"
+
 #: components/admin/security-tab.tsx
 msgid "Who may create what, whom owners may invite, and what happens to accounts nobody uses."
 msgstr "Qui peut créer quoi, qui les propriétaires peuvent inviter, et ce que deviennent les comptes inutilisés."
@@ -8185,21 +8511,33 @@ msgstr "Qui les propriétaires peuvent inviter"
 msgid "Widget not found"
 msgstr "Widget introuvable"
 
+#: components/admin/accounts-tab.tsx
+msgid "With"
+msgstr "Avec"
+
 #: components/settings/webhooks-panel.tsx
 msgid "with a condition"
 msgstr "avec condition"
+
+#: components/admin/account-page.tsx
+msgid "With a password"
+msgstr "Avec un mot de passe"
 
 #: lib/limits.ts
 msgid "With an alternative (|) or a lazy repeat (*?), {engine} keeps the first match and PostgreSQL the longest: {fn} may find another text. This is a {engine} limit."
 msgstr "Avec une alternative (|) ou une répétition minimale (*?), {engine} retient la première correspondance, PostgreSQL la plus longue : {fn} peut trouver un autre texte. C'est une limite de {engine}."
 
-#: components/admin/support-tab.tsx
+#: components/admin/invitations-panel.tsx
 msgid "Withdraw"
 msgstr "Retirer"
 
-#: components/admin/support-tab.tsx
+#: components/admin/invitations-panel.tsx
 msgid "Withdraw the invitation to {email}?"
 msgstr "Retirer l'invitation de {email} ?"
+
+#: components/admin/accounts-tab.tsx
+msgid "Without"
+msgstr "Sans"
 
 #: components/admin/sources-tab.tsx
 msgid "Without a primary key, this table stays read-only."
@@ -8241,7 +8579,7 @@ msgstr "Second facteur incorrect"
 msgid "yes"
 msgstr "oui"
 
-#: components/admin/admin-page.tsx
+#: components/admin/accounts-tab.tsx
 #: components/dashboards/chart-view.tsx
 #: components/fields/cell-value.tsx
 #: components/views/form-view.tsx
@@ -8260,7 +8598,8 @@ msgstr "Oui, dans l'application et par email"
 msgid "yesterday"
 msgstr "hier"
 
-#: components/admin/admin-page.tsx
+#: components/admin/account-page.tsx
+#: components/admin/accounts-tab.tsx
 #: components/admin/sessions-tab.tsx
 msgid "You"
 msgstr "Vous"
@@ -8288,6 +8627,10 @@ msgstr "Votre fournisseur d'identité (Okta, Microsoft Entra ID, …) crée, mod
 #: components/settings/account-settings.tsx
 msgid "Your organization asks for a second factor on this account: set one up below to go on."
 msgstr "Votre organisation exige un second facteur sur ce compte : configurez-en un ci-dessous pour continuer."
+
+#: components/admin/account-actions.tsx
+msgid "Your own account: from your settings"
+msgstr "Votre propre compte : depuis vos réglages"
 
 #: components/auth/reset-page.tsx
 msgid "Your password is changed, and every session of the account ended. Sign in with the new one."

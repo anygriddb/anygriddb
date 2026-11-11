@@ -7,7 +7,7 @@ import { useLocale } from "../../lib/i18n";
 import { useCatalog, useSession } from "../../lib/session";
 import { resolveShortcuts } from "../../lib/shortcut-list";
 import { useShortcuts } from "../../lib/shortcuts";
-import { useRoleLabel } from "../settings/base-settings";
+import { useRoleLabel } from "../settings/role-label";
 import { NewBaseDialog } from "./new-base-dialog";
 import { EmptyState } from "./notebook-page";
 import { TrashedBases } from "./trashed-bases";
@@ -118,7 +118,7 @@ export function HomePage() {
                   </Button>
                   {session.data?.isAdmin ? (
                     <Button variant="outline" asChild>
-                      <Link to="/admin">{t`Connect a database`}</Link>
+                      <Link to="/admin/sources">{t`Connect a database`}</Link>
                     </Button>
                   ) : null}
                 </div>

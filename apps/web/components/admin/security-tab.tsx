@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { RuledSection } from "../shell/notebook-page";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { AccessReport } from "./access-report";
 
 /**
  * A choice among values, with the current one kept when it is not among
@@ -220,7 +221,7 @@ export function SecurityTab() {
           onChange={(invitations) => void save({ invitations })}
           hint={
             data.signupDomains.length === 0
-              ? t`No sign-up domains are set (Settings tab): until some are, any address can be invited.`
+              ? t`No sign-up domains are set (Instance, Settings): until some are, any address can be invited.`
               : t`Domains: ${{ domains: data.signupDomains.join(", ") }}. Invitations already sent to other addresses stop working, and so does adding such an account to a base.`
           }
         />
@@ -378,6 +379,16 @@ export function SecurityTab() {
           onChange={(authRetentionDays) => void save({ authRetentionDays })}
         />
       </RuledSection>
+    </div>
+  );
+}
+
+/** The security policy, and who has access beside it (ROADMAP #49). */
+export function SecurityPage() {
+  return (
+    <div className="flex flex-col gap-6">
+      <SecurityTab />
+      <AccessReport />
     </div>
   );
 }

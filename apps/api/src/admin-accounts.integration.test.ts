@@ -208,6 +208,13 @@ describe("accounts in Administration", () => {
         (base) => base.id,
       );
       expect(offered).toEqual(expect.arrayContaining([theirs.id, mine.id]));
+      // Two bases of one name are told apart by their owners.
+      expect(
+        (await admin.call().admin.bases.list({ search: `Theirs ${suffix}` }))
+          .bases,
+      ).toEqual([
+        { id: theirs.id, name: `Theirs ${suffix}`, owners: ["Owner"] },
+      ]);
 
       const email = `joined-${suffix}@example.org`;
       await admin.call().admin.createAccount({

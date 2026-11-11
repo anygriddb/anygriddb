@@ -40,7 +40,7 @@ export function SessionsTab() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           {settings.data
-            ? t`A session ends after ${{ idle: settings.data.sessionIdleMinutes }} minutes without activity, and after ${{ max: settings.data.sessionMaxHours }} hours in any case (Security tab). Ending one signs the person out at once.`
+            ? t`A session ends after ${{ idle: settings.data.sessionIdleMinutes }} minutes without activity, and after ${{ max: settings.data.sessionMaxHours }} hours in any case (set under Security). Ending one signs the person out at once.`
             : null}
         </p>
         <Button

@@ -13,17 +13,17 @@ import {
   LayoutDashboard,
   Moon,
   Settings,
-  Shield,
   Sun,
   Table2,
   Users,
 } from "lucide-react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useCatalog, useSession } from "../../lib/session";
+import { useCatalog } from "../../lib/session";
 import { canManage } from "../../lib/types";
 import { useTheme } from "../../lib/theme";
 import { useLingui } from "@lingui/react/macro";
+import { useAdminSections } from "../admin/admin-sections";
 
 const OPEN_EVENT = "ag:command-palette";
 
@@ -35,7 +35,7 @@ export function CommandPalette() {
   const { t } = useLingui();
   const navigate = useNavigate();
   const catalog = useCatalog();
-  const session = useSession();
+  const adminSections = useAdminSections();
   // The base on screen, for its settings and dashboards.
   const { baseId } = useParams({ strict: false });
   const base = (catalog.data ?? []).find((item) => item.id === baseId);
@@ -160,15 +160,6 @@ export function CommandPalette() {
                   {t`Members and access of ${{ name: base.name }}`}
                 </CommandItem>
               ) : null}
-              {session.data?.isAdmin ? (
-                <CommandItem
-                  value="administration admin instance"
-                  onSelect={() => go(() => navigate({ to: "/admin" }))}
-                >
-                  <Shield className="h-4 w-4 opacity-70" aria-hidden />
-                  {t`Administration`}
-                </CommandItem>
-              ) : null}
               <CommandItem
                 value="theme dark sombre"
                 onSelect={() => {
@@ -190,6 +181,27 @@ export function CommandPalette() {
                 {t`Light theme`}
               </CommandItem>
             </CommandGroup>
+            {adminSections.length > 0 ? (
+              <CommandGroup heading={t`Administration`}>
+                {adminSections.flatMap((section) =>
+                  section.pages.map((page) => (
+                    <CommandItem
+                      key={page.to}
+                      value={`administration admin ${section.label} ${page.label}`}
+                      onSelect={() => go(() => navigate({ to: page.to }))}
+                    >
+                      <section.icon
+                        className="h-4 w-4 opacity-70"
+                        aria-hidden
+                      />
+                      {section.pages.length > 1
+                        ? `${section.label} · ${page.label}`
+                        : section.label}
+                    </CommandItem>
+                  )),
+                )}
+              </CommandGroup>
+            ) : null}
           </CommandList>
         </Command>
       </DialogContent>
