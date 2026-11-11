@@ -81,6 +81,7 @@ import {
   listUsers,
   setUserAdmin,
   setUserDisabled,
+  setUserSupport,
   updateAccount,
   updateAccountInputSchema,
 } from "../admin.js";
@@ -130,6 +131,19 @@ import { procedure, requestNames, requireUser, t } from "./init.js";
 async function requireAdmin(ctx: Context) {
   const user = await requireUser(ctx);
   if (!user.isAdmin || ctx.tokenScope) {
+    throw new AppError("access_denied");
+  }
+  await assertEnrolled(ctx.db, user, []);
+  return user;
+}
+
+/**
+ * Helpdesk: administrators or support (ADR 0054). Same session and factor
+ * rules as requireAdmin; narrower procedures call this instead.
+ */
+async function requireSupport(ctx: Context) {
+  const user = await requireUser(ctx);
+  if ((!user.isAdmin && !user.isSupport) || ctx.tokenScope) {
     throw new AppError("access_denied");
   }
   await assertEnrolled(ctx.db, user, []);
@@ -607,11 +621,15 @@ export const adminRouter = t.router({
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
-        return listUsers(ctx.db, {
-          ...input,
-          search: input.search || undefined,
-        });
+        await requireSupport(ctx);
+        const [page, smtp] = await Promise.all([
+          listUsers(ctx.db, {
+            ...input,
+            search: input.search || undefined,
+          }),
+          resolveSmtp(ctx.db, ctx.env),
+        ]);
+        return { ...page, smtpReady: smtpReady(smtp.config) };
       }),
     ),
   /**
@@ -739,6 +757,19 @@ export const adminRouter = t.router({
         };
       }),
     ),
+  setSupport: procedure
+    .input(z.object({ userId: z.uuid(), support: z.boolean() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await setUserSupport(ctx.db, input.userId, input.support);
+        ctx.req.log.info(
+          { actor: admin.id, target: input.userId, support: input.support },
+          "support role changed",
+        );
+        return { ok: true as const };
+      }),
+    ),
   /** The certificate served, and the authority to install (ADR 0029). */
   tls: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
@@ -785,7 +816,7 @@ export const adminRouter = t.router({
   ),
   audit: procedure.input(auditInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      await requireAdmin(ctx);
+      await requireSupport(ctx);
       return instanceAudit(ctx.db, {
         ...input,
         source: input.source || undefined,
@@ -804,7 +835,7 @@ export const adminRouter = t.router({
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await requireAdmin(ctx);
+        await requireSupport(ctx);
         const [page, total, settings] = await Promise.all([
           instanceAuthAudit(ctx.db, input),
           authEventCount(ctx.db),
@@ -853,7 +884,7 @@ export const adminRouter = t.router({
   ),
   sessions: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireSupport(ctx);
       const sessions = await listSessions(ctx.db);
       return {
         sessions: sessions.map((session) => ({
@@ -867,7 +898,7 @@ export const adminRouter = t.router({
     .input(z.object({ sessionId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireSupport(ctx);
         const { userId } = await endSession(ctx.db, admin.id, input.sessionId);
         ctx.hub.closeUser(userId);
         return { ok: true as const };
@@ -877,7 +908,7 @@ export const adminRouter = t.router({
     .input(z.object({ userId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireSupport(ctx);
         if (input.userId === admin.id) throw new AppError("invalid_account");
         const count = await endUserSessions(ctx.db, admin.id, input.userId);
         ctx.hub.closeUser(input.userId);
@@ -886,7 +917,7 @@ export const adminRouter = t.router({
     ),
   endOtherSessions: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
-      const admin = await requireAdmin(ctx);
+      const admin = await requireSupport(ctx);
       const ended = await endOtherSessions(ctx.db, admin.id, "everyone");
       ctx.hub.closeAllBut(admin.id);
       return { count: ended.length };
@@ -896,7 +927,7 @@ export const adminRouter = t.router({
     .input(z.object({ userId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireSupport(ctx);
         await clearFactors(ctx.db, admin.id, input.userId);
         ctx.hub.closeUser(input.userId);
         void sendSecurityNotice(
@@ -912,7 +943,7 @@ export const adminRouter = t.router({
     .input(z.object({ userId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireSupport(ctx);
         return { count: await unlinkSignOn(ctx.db, admin.id, input.userId) };
       }),
     ),
@@ -921,7 +952,7 @@ export const adminRouter = t.router({
     .input(z.object({ userId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireSupport(ctx);
         await otherAccount(ctx.db, admin.id, input.userId);
         await unlockAccount(ctx.db, admin.id, input.userId);
         return { ok: true as const };
@@ -936,7 +967,7 @@ export const adminRouter = t.router({
     .input(z.object({ userId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireSupport(ctx);
         await otherAccount(ctx.db, admin.id, input.userId);
         const link = await createResetLink(ctx.db, {
           userId: input.userId,
@@ -971,7 +1002,7 @@ export const adminRouter = t.router({
     .input(z.object({ userId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const admin = await requireAdmin(ctx);
+        const admin = await requireSupport(ctx);
         return {
           count: await revokeUserTokens(ctx.db, admin.id, input.userId),
         };

@@ -735,6 +735,7 @@ export interface Users {
   id: Generated<string>;
   inactivityWarnedAt: Timestamp | null;
   isAdmin: Generated<boolean>;
+  isSupport: Generated<boolean>;
   lockedAt: Timestamp | null;
   notifyByEmail: Generated<boolean>;
   scimExternalId: string | null;

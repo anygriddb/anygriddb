@@ -129,14 +129,14 @@ function UsersTab() {
   );
   const copy = useCopy();
   // Without email a reset link is made for the administrator to pass on.
-  const settings = useQuery(api.admin.settings.queryOptions());
-  const mails = settings.data?.smtpReady ?? false;
+  const isAdmin = session.data?.isAdmin === true;
   const options = api.admin.users.queryOptions({
     search: search || undefined,
     offset,
     limit: 50,
   });
   const list = useQuery(options);
+  const mails = list.data?.smtpReady ?? false;
   const refresh = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: api.admin.users.queryKey() }),
@@ -247,7 +247,10 @@ function UsersTab() {
               <th className="px-3 py-2">{t`Last sign-in`}</th>
               <th className="px-3 py-2">{t`Second factor`}</th>
               <th className="px-3 py-2">{t`Bases`}</th>
-              <th className="px-3 py-2">{t`Administrator`}</th>
+              {isAdmin ? (
+                <th className="px-3 py-2">{t`Administrator`}</th>
+              ) : null}
+              {isAdmin ? <th className="px-3 py-2">{t`Support`}</th> : null}
               <th className="px-3 py-2">{t`Status`}</th>
               <th className="px-3 py-2">
                 <span className="sr-only">{t`Actions`}</span>
@@ -286,27 +289,47 @@ function UsersTab() {
                   <td className="px-3 py-2 text-xs tabular-nums">
                     {user.bases}
                   </td>
+                  {isAdmin ? (
+                    <td className="px-3 py-2">
+                      <Checkbox
+                        aria-label={t`Administrator`}
+                        checked={user.isAdmin}
+                        disabled={self}
+                        onChange={(event) =>
+                          void run(() =>
+                            trpc.admin.setAdmin.mutate({
+                              userId: user.id,
+                              admin: event.target.checked,
+                            }),
+                          )
+                        }
+                      />
+                    </td>
+                  ) : null}
+                  {isAdmin ? (
+                    <td className="px-3 py-2">
+                      <Checkbox
+                        aria-label={t`Support`}
+                        checked={user.isSupport}
+                        disabled={self}
+                        onChange={(event) =>
+                          void run(() =>
+                            trpc.admin.setSupport.mutate({
+                              userId: user.id,
+                              support: event.target.checked,
+                            }),
+                          )
+                        }
+                      />
+                    </td>
+                  ) : null}
                   <td className="px-3 py-2">
-                    <Checkbox
-                      aria-label={t`Administrator`}
-                      checked={user.isAdmin}
-                      disabled={self}
-                      onChange={(event) =>
-                        void run(() =>
-                          trpc.admin.setAdmin.mutate({
-                            userId: user.id,
-                            admin: event.target.checked,
-                          }),
-                        )
-                      }
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    {self ? (
+                    {isAdmin && self ? (
                       <span className="text-xs text-muted-foreground">
                         {t`You`}
                       </span>
-                    ) : (
+                    ) : null}
+                    {isAdmin && !self ? (
                       <Button
                         size="sm"
                         variant={user.disabledAt ? "outline" : "ghost"}
@@ -320,8 +343,8 @@ function UsersTab() {
                       >
                         {user.disabledAt ? t`Enable` : t`Disable`}
                       </Button>
-                    )}
-                    {user.disabledAt && !self ? (
+                    ) : null}
+                    {isAdmin && user.disabledAt && !self ? (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -803,6 +826,8 @@ function AuditTab() {
 function ChangesTrail() {
   const { t } = useLingui();
   const errorText = useErrorText();
+  const session = useSession();
+  const isAdmin = session.data?.isAdmin === true;
   const api = useTRPC();
   const [action, setAction] = useState<(typeof ACTIONS)[number] | "">("");
   const [source, setSource] = useState("");
@@ -873,15 +898,17 @@ function ChangesTrail() {
             }}
           />
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          className="ml-auto"
-          onClick={() => void exportCsv()}
-        >
-          <Download className="h-4 w-4" aria-hidden />
-          {t`Export as CSV`}
-        </Button>
+        {isAdmin ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto"
+            onClick={() => void exportCsv()}
+          >
+            <Download className="h-4 w-4" aria-hidden />
+            {t`Export as CSV`}
+          </Button>
+        ) : null}
       </div>
       <p className="text-xs text-muted-foreground">
         {t`The log shows who changed which fields. Values stay in each row's history, behind the table's access rights.`}
@@ -1502,7 +1529,9 @@ export function AdminPage() {
   const session = useSession();
   const [tab, setTab] = useState<Tab>("users");
   if (!session.data) return null;
-  if (!session.data.isAdmin) {
+  const isAdmin = session.data.isAdmin;
+  const isSupport = session.data.isSupport;
+  if (!isAdmin && !isSupport) {
     return (
       <p className="p-6 text-sm text-muted-foreground">
         {t`This page is for instance administrators.`}
@@ -1510,25 +1539,31 @@ export function AdminPage() {
     );
   }
   // Access control first so Sign-ups, security, and SMTP are not scrolled past.
-  const tabs = [
-    { value: "users", label: t`Accounts`, icon: Users },
-    { value: "settings", label: t`Settings`, icon: Settings2 },
-    { value: "security", label: t`Security`, icon: LockKeyhole },
-    { value: "integrations", label: t`Integrations`, icon: Plug },
-    { value: "sessions", label: t`Sessions`, icon: MonitorSmartphone },
-    { value: "provisioning", label: t`Provisioning`, icon: KeyRound },
-    { value: "sources", label: t`Sources`, icon: Database },
-    { value: "audit", label: t`Audit log`, icon: ScrollText },
-    { value: "health", label: t`Health`, icon: Activity },
-    { value: "support", label: t`Support`, icon: LifeBuoy },
-  ] as const;
+  const tabs = isAdmin
+    ? ([
+        { value: "users", label: t`Accounts`, icon: Users },
+        { value: "settings", label: t`Settings`, icon: Settings2 },
+        { value: "security", label: t`Security`, icon: LockKeyhole },
+        { value: "integrations", label: t`Integrations`, icon: Plug },
+        { value: "sessions", label: t`Sessions`, icon: MonitorSmartphone },
+        { value: "provisioning", label: t`Provisioning`, icon: KeyRound },
+        { value: "sources", label: t`Sources`, icon: Database },
+        { value: "audit", label: t`Audit log`, icon: ScrollText },
+        { value: "health", label: t`Health`, icon: Activity },
+        { value: "support", label: t`Support`, icon: LifeBuoy },
+      ] as const)
+    : ([
+        { value: "users", label: t`Accounts`, icon: Users },
+        { value: "sessions", label: t`Sessions`, icon: MonitorSmartphone },
+        { value: "audit", label: t`Audit log`, icon: ScrollText },
+      ] as const);
   return (
     <NotebookPage
       width="xl"
       title={t`Administration`}
       description={t`Accounts, security, sources, and the instance itself.`}
     >
-      <ReleaseBanner />
+      {isAdmin ? <ReleaseBanner /> : null}
       <PageTabs tabs={tabs} value={tab} onChange={setTab} />
       <div role="tabpanel">
         {tab === "users" ? <UsersTab /> : null}

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { datedName, downloadCsv } from "../../lib/download";
 import { useErrorText } from "../../lib/errors";
+import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 
 const ACTIONS = [
@@ -37,6 +38,8 @@ function date(value: string): string {
 export function SignInTrail() {
   const { t } = useLingui();
   const errorText = useErrorText();
+  const session = useSession();
+  const isAdmin = session.data?.isAdmin === true;
   const api = useTRPC();
   const [action, setAction] = useState<AuthAction | "">("");
   const [cursors, setCursors] = useState<string[]>([]);
@@ -163,10 +166,12 @@ export function SignInTrail() {
             ))}
           </Select>
         </div>
-        <Button size="sm" variant="outline" onClick={() => void exportCsv()}>
-          <Download className="h-4 w-4" aria-hidden />
-          {t`Export as CSV`}
-        </Button>
+        {isAdmin ? (
+          <Button size="sm" variant="outline" onClick={() => void exportCsv()}>
+            <Download className="h-4 w-4" aria-hidden />
+            {t`Export as CSV`}
+          </Button>
+        ) : null}
       </div>
       <p className="text-xs text-muted-foreground">
         {trail.data

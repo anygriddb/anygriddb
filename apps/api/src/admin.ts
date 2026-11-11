@@ -126,6 +126,7 @@ export async function listUsers(
       "u.email",
       "u.displayName",
       "u.isAdmin",
+      "u.isSupport",
       "u.disabledAt",
       "u.createdAt",
       "u.scimUserName",
@@ -368,6 +369,24 @@ export async function setUserAdmin(
       .execute();
     if (updated.length === 0) throw new AppError("unknown_account");
   });
+}
+
+/** Grants or revokes the support (helpdesk) flag (ADR 0054). */
+export async function setUserSupport(
+  db: Database,
+  userId: string,
+  support: boolean,
+): Promise<void> {
+  if (userId === ERASED_USER_ID) {
+    throw new AppError("invalid_account");
+  }
+  const updated = await db
+    .updateTable("users")
+    .set({ isSupport: support })
+    .where("id", "=", userId)
+    .returning("id")
+    .execute();
+  if (updated.length === 0) throw new AppError("unknown_account");
 }
 
 /* ------------------------------------------------------------------ */
