@@ -1,5 +1,9 @@
 version: 2
 updates:
+  # The updater runs an older Node than AnyGridDB needs. package.json says
+  # Node 26 in devEngines, where pnpm warns, not in engines, where the
+  # updater stops before resolving anything; mise.toml, CI and the image
+  # pin Node 26 for everything that runs.
   # cooldown: pnpm refuses a release younger than seven days
   # (minimumReleaseAge in pnpm-workspace.yaml). Security updates skip it.
   - package-ecosystem: npm
