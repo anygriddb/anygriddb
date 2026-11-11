@@ -6,6 +6,17 @@ import type { RowItem } from "../../lib/types";
 export const PAGE_SIZE = 100;
 /** A page that failed is asked again no sooner than this. */
 const RETRY_AFTER_MS = 5_000;
+/**
+ * Changes made elsewhere are re-read once per burst: this long after the
+ * first one, plus a random part so the tabs of a table do not all ask at
+ * the same instant.
+ */
+const RELOAD_DELAY_MS = 300;
+const RELOAD_SPREAD_MS = 200;
+/** Rows changed elsewhere are re-read together, this long after the first. */
+const ROWS_DELAY_MS = 150;
+/** More changed rows than one read takes: the loaded pages are re-read. */
+const MAX_ROWS_PER_READ = 500;
 
 type ReadInput = RouterInputs["rows"]["read"];
 
@@ -37,6 +48,11 @@ export type RowsState = Snapshot & {
   /** Loads the index range, then resolves once every row in it is present. */
   waitFor: (start: number, end: number) => Promise<boolean>;
   patchLocal: (rowId: string, values: Record<string, unknown>) => void;
+  /**
+   * Says an edit of these rows is being saved; call what it returns once
+   * the save has answered. Reads made meanwhile do not replace the rows.
+   */
+  holdRows: (rowIds: readonly string[]) => () => void;
   refetchIds: (rowIds: string[]) => Promise<void>;
   /** Counts a large client table's rows exactly. */
   countExactly: () => Promise<void>;
@@ -51,7 +67,15 @@ const TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
  */
 export class RowPages {
   private pages = new Map<number, RowItem[]>();
-  private readonly inflight = new Set<number>();
+  /** The read under way for each page, by its number in `asked`. */
+  private readonly inflight = new Map<number, number>();
+  /** How many times each page was asked: only its last read is kept. */
+  private readonly asked = new Map<number, number>();
+  private reloadTimer: ReturnType<typeof setTimeout> | undefined;
+  private reloading = false;
+  private reloadAgain = false;
+  private rowsTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly changedRows = new Set<string>();
   /** When each page last failed: it is not asked again at once. */
   private readonly failed = new Map<number, number>();
   private readonly listeners = new Set<() => void>();
@@ -70,6 +94,14 @@ export class RowPages {
    */
   private readonly edits = new Map<string, number>();
 
+  /**
+   * Rows whose edit is being saved, with how many saves are under way. A
+   * read made meanwhile may see the row as it was before the save: it is
+   * not taken, or a panel still open would start its next change from the
+   * older value and save over the first.
+   */
+  private readonly saving = new Map<string, number>();
+
   private editsOf(rowIds: Iterable<string>): Map<string, number> {
     return new Map([...rowIds].map((id) => [id, this.edits.get(id) ?? 0]));
   }
@@ -82,7 +114,7 @@ export class RowPages {
   ): RowItem {
     const edited =
       (this.edits.get(fresh.id) ?? 0) !== (before.get(fresh.id) ?? 0);
-    return edited && current ? current : fresh;
+    return (edited || this.saving.has(fresh.id)) && current ? current : fresh;
   }
 
   constructor(
@@ -118,6 +150,12 @@ export class RowPages {
 
   close() {
     this.open = false;
+    clearTimeout(this.reloadTimer);
+    clearTimeout(this.rowsTimer);
+    this.reloadTimer = undefined;
+    this.rowsTimer = undefined;
+    this.reloadAgain = false;
+    this.changedRows.clear();
   }
 
   /** Read after an await: the store may have closed meanwhile. */
@@ -125,9 +163,17 @@ export class RowPages {
     return !this.open;
   }
 
-  private async fetchPage(page: number) {
-    if (!this.open || this.inflight.has(page)) return;
-    this.inflight.add(page);
+  /**
+   * Reads one page. `again` asks for it even while a read of it is under
+   * way, which may have begun before the change that calls for this one;
+   * the answer of the older read is then dropped, whenever it arrives.
+   */
+  private async fetchPage(page: number, again = false) {
+    if (!this.open || (this.inflight.has(page) && !again)) return;
+    const ticket = (this.asked.get(page) ?? 0) + 1;
+    this.asked.set(page, ticket);
+    this.inflight.set(page, ticket);
+    const superseded = () => this.asked.get(page) !== ticket;
     const before = new Map(this.edits);
     try {
       // The first page counts the rows; the next ones need not.
@@ -139,7 +185,7 @@ export class RowPages {
         timeZone: TIME_ZONE,
         withTotal: page === 0,
       });
-      if (this.closed()) return;
+      if (this.closed() || superseded()) return;
       this.failed.delete(page);
       const current = new Map(
         (this.pages.get(page) ?? []).map((row) => [row.id, row]),
@@ -174,13 +220,13 @@ export class RowPages {
     } catch (error) {
       // A client's database may refuse or time out: the view says so and
       // offers to try again, rather than waiting for ever.
-      if (this.closed()) return;
+      if (this.closed() || superseded()) return;
       this.failed.set(page, Date.now());
       if (page === 0 || this.pages.size === 0) {
         this.publish({ loading: false, error });
       }
     } finally {
-      this.inflight.delete(page);
+      if (this.inflight.get(page) === ticket) this.inflight.delete(page);
     }
   }
 
@@ -229,15 +275,88 @@ export class RowPages {
     return false;
   };
 
-  /** Reloads the pages already loaded. */
-  readonly refresh = () => {
+  /** Reads again every page already loaded; resolves when all answered. */
+  private reloadPages(): Promise<unknown> {
     this.failed.clear();
     if (this.snapshot.error) this.publish({ loading: true, error: null });
     const loaded = [...this.pages.keys()];
-    for (const page of loaded.length > 0 ? loaded : [0]) {
-      this.inflight.delete(page);
-      void this.fetchPage(page);
+    return Promise.all(
+      (loaded.length > 0 ? loaded : [0]).map((page) =>
+        this.fetchPage(page, true),
+      ),
+    );
+  }
+
+  /** Reloads the pages already loaded, now: what the person just did. */
+  readonly refresh = () => {
+    void this.reloadPages();
+  };
+
+  /**
+   * Others changed the table: reload, once for a burst of changes. A
+   * script that writes ten rows a second makes each open tab read again
+   * when the burst pauses or its last reload has answered, not ten times
+   * a second; a change that lands during a reload calls for one more.
+   */
+  readonly refreshSoon = () => {
+    if (!this.open) return;
+    if (this.reloading) {
+      this.reloadAgain = true;
+      return;
     }
+    if (this.reloadTimer !== undefined) return;
+    this.reloadTimer = setTimeout(
+      () => {
+        this.reloadTimer = undefined;
+        void this.reload();
+      },
+      RELOAD_DELAY_MS + Math.random() * RELOAD_SPREAD_MS,
+    );
+  };
+
+  private async reload() {
+    if (!this.open) return;
+    this.reloading = true;
+    // The pages read again bring the changed rows with them.
+    clearTimeout(this.rowsTimer);
+    this.rowsTimer = undefined;
+    this.changedRows.clear();
+    try {
+      await this.reloadPages();
+    } finally {
+      this.reloading = false;
+      if (this.reloadAgain) {
+        this.reloadAgain = false;
+        this.refreshSoon();
+      }
+    }
+  }
+
+  /**
+   * Others changed these rows: read them again, together with the ones
+   * that change in the next moment, in one request.
+   */
+  readonly refetchIdsSoon = (rowIds: readonly string[]) => {
+    if (!this.open || rowIds.length === 0) return;
+    // A reload on its way, or under way, reads them too.
+    if (this.reloading || this.reloadTimer !== undefined) {
+      this.refreshSoon();
+      return;
+    }
+    for (const id of rowIds) this.changedRows.add(id);
+    if (this.changedRows.size > MAX_ROWS_PER_READ) {
+      this.changedRows.clear();
+      clearTimeout(this.rowsTimer);
+      this.rowsTimer = undefined;
+      this.refreshSoon();
+      return;
+    }
+    this.rowsTimer ??= setTimeout(() => {
+      this.rowsTimer = undefined;
+      const ids = [...this.changedRows];
+      this.changedRows.clear();
+      void this.refetchIds(ids);
+    }, ROWS_DELAY_MS);
   };
 
   readonly refetchIds = async (rowIds: string[]) => {
@@ -252,7 +371,7 @@ export class RowPages {
     try {
       result = await trpc.rows.get.query({
         tableId: this.tableId,
-        rowIds: rowIds.slice(0, 500),
+        rowIds: rowIds.slice(0, MAX_ROWS_PER_READ),
         timeZone: TIME_ZONE,
       });
     } catch {
@@ -284,6 +403,25 @@ export class RowPages {
       }
     }
     this.publish();
+  };
+
+  readonly holdRows = (rowIds: readonly string[]) => {
+    const held = [...new Set(rowIds)];
+    for (const id of held) {
+      this.saving.set(id, (this.saving.get(id) ?? 0) + 1);
+    }
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      for (const id of held) {
+        const left = (this.saving.get(id) ?? 1) - 1;
+        if (left > 0) this.saving.set(id, left);
+        else this.saving.delete(id);
+        // A read that began during the save is older than its outcome.
+        this.edits.set(id, (this.edits.get(id) ?? 0) + 1);
+      }
+    };
   };
 
   readonly countExactly = async () => {
@@ -340,18 +478,20 @@ export function useRows(
 
   useChannel(tableId, {
     message: (message) => {
+      // What others did is read once per burst, not once per message.
       if (message.type === "rows" && message.op === "update") {
-        void store.refetchIds(message.rowIds);
+        store.refetchIdsSoon(message.rowIds);
       } else if (
         message.type === "rows" ||
         message.type === "refresh" ||
         message.type === "delete"
       ) {
-        store.refresh();
+        store.refreshSoon();
       }
     },
+    // Every tab comes back at once when the server does: spread out.
     resync: () => {
-      store.refresh();
+      store.refreshSoon();
     },
   });
 
@@ -364,6 +504,7 @@ export function useRows(
       refresh: store.refresh,
       loadedRows: store.loadedRows,
       patchLocal: store.patchLocal,
+      holdRows: store.holdRows,
       refetchIds: store.refetchIds,
       countExactly: store.countExactly,
     }),

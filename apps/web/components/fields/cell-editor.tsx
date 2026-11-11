@@ -449,10 +449,12 @@ function SelectEditor({ column, row, onDone }: EditorProps) {
   const pickedOf = (value: typeof current) =>
     Array.isArray(value) ? value.map(String) : value ? [cellText(value)] : [];
   const [picked, setPicked] = useState<string[]>(pickedOf(current));
-  // An undo, or another person, changes the cell under the open panel.
-  const [shown, setShown] = useState(current);
-  if (shown !== current) {
-    setShown(current);
+  // An undo, or another person, changes the cell under the open panel. The
+  // same choices read again are not a change: they leave the picks alone.
+  const held = JSON.stringify(pickedOf(current));
+  const [shown, setShown] = useState(held);
+  if (shown !== held) {
+    setShown(held);
     setPicked(pickedOf(current));
   }
   const selectAppearance = multiple
