@@ -85,20 +85,39 @@ if (files.driver === "s3") {
 }
 await app.listen({ port: env.PORT, host: "0.0.0.0" });
 
-const shutdown = async () => {
-  await app.close();
-  await stopTracing();
-  await bus.close();
-  await close();
+let shuttingDown = false;
+const shutdown = async (reason: string) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  app.log.info({ reason }, "shutting down");
+  // A close that never ends (a request held open, a database that does
+  // not answer) must not keep the process: the supervisor starts another.
+  const force = setTimeout(() => {
+    app.log.error("shutdown timed out; exiting");
+    process.exit(1);
+  }, 20_000);
+  force.unref();
+  try {
+    await app.close();
+    await stopTracing();
+    await bus.close();
+    await close();
+  } finally {
+    clearTimeout(force);
+  }
 };
 
 process.on("SIGINT", () => {
-  void shutdown();
+  void shutdown("SIGINT").finally(() => process.exit(0));
 });
 process.on("SIGTERM", () => {
-  void shutdown();
+  void shutdown("SIGTERM").finally(() => process.exit(0));
 });
 process.on("unhandledRejection", (error) => {
   app.log.error({ err: error }, "unhandled rejection");
-  void shutdown().finally(() => process.exit(1));
+  void shutdown("unhandledRejection").finally(() => process.exit(1));
+});
+process.on("uncaughtException", (error) => {
+  app.log.error({ err: error }, "uncaught exception");
+  void shutdown("uncaughtException").finally(() => process.exit(1));
 });

@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AriaLocaleProvider, UiTextProvider } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { Toaster } from "sonner";
+import { ErrorBoundary } from "../components/shell/error-boundary";
 import { I18nProvider, useLocale } from "../lib/i18n";
 import { ThemeProvider, useTheme } from "../lib/theme";
 import { createClient, TRPCProvider, useTRPC } from "../lib/trpc";
@@ -63,9 +64,11 @@ export function Providers({ children }: { children: ReactNode }) {
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
         <ThemeProvider>
           <I18nProvider>
-            <InstanceLocale />
-            <UiTexts>{children}</UiTexts>
-            <ThemedToaster />
+            <ErrorBoundary>
+              <InstanceLocale />
+              <UiTexts>{children}</UiTexts>
+              <ThemedToaster />
+            </ErrorBoundary>
           </I18nProvider>
         </ThemeProvider>
       </TRPCProvider>

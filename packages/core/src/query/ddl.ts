@@ -224,17 +224,28 @@ export function buildAddForeignKeyColumn(input: {
 }
 
 /** Junction of row ids. Both sides cascade when a row is removed. */
+/**
+ * Many-to-many junction: primary key covers left→right lookups; a second
+ * index on `right_id` covers inverse (right→left) scans used by link
+ * columns that point the other way.
+ */
 export function buildCreateJunction(input: {
   junction: string;
   leftTable: string;
   rightTable: string;
-}): ParameterizedSql {
+}): ParameterizedSql[] {
   assertIdentifier(input.junction, "table name");
   assertIdentifier(input.leftTable, "table name");
   assertIdentifier(input.rightTable, "table name");
-  return statement(
-    `create table ${quoteIdent(input.junction)} ("left_id" uuid not null references ${quoteIdent(input.leftTable)} ("id") on delete cascade, "right_id" uuid not null references ${quoteIdent(input.rightTable)} ("id") on delete cascade, primary key ("left_id", "right_id"))`,
-  );
+  const table = quoteIdent(input.junction);
+  return [
+    statement(
+      `create table ${table} ("left_id" uuid not null references ${quoteIdent(input.leftTable)} ("id") on delete cascade, "right_id" uuid not null references ${quoteIdent(input.rightTable)} ("id") on delete cascade, primary key ("left_id", "right_id"))`,
+    ),
+    statement(
+      `create index ${quoteIdent(indexName(input.junction, "right_id", "ix"))} on ${table} ("right_id")`,
+    ),
+  ];
 }
 
 const TEXT_SQL = new Set(["text"]);

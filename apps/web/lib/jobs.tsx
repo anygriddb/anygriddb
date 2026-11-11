@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
-import { useChannel } from "./realtime";
+import { useChannel, useConnectionDown } from "./realtime";
 import { useSession } from "./session";
 import { trpc, useTRPC, type RouterOutputs } from "./trpc";
 import { useLingui } from "@lingui/react/macro";
@@ -25,8 +25,10 @@ export type JobUpdate = {
 };
 
 const FINISHED = new Set<JobStatus>(["done", "failed", "cancelled"]);
-/** Watched jobs are also polled, in case the socket missed the last report. */
-const POLL_MS = 5_000;
+/** Backup poll while the realtime link is down. */
+const POLL_DOWN_MS = 5_000;
+/** Sparse poll while the socket is up, in case one last report was missed. */
+const POLL_UP_MS = 30_000;
 
 export function isFinished(status: JobStatus): boolean {
   return FINISHED.has(status);
@@ -132,12 +134,16 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  const down = useConnectionDown();
   useEffect(() => {
-    const timer = setInterval(() => {
-      for (const jobId of watchers.current.keys()) void settle(jobId);
-    }, POLL_MS);
+    const timer = setInterval(
+      () => {
+        for (const jobId of watchers.current.keys()) void settle(jobId);
+      },
+      down ? POLL_DOWN_MS : POLL_UP_MS,
+    );
     return () => clearInterval(timer);
-  }, [settle]);
+  }, [settle, down]);
 
   const watch = useCallback(
     (jobId: string, onUpdate?: (update: JobUpdate) => void) =>

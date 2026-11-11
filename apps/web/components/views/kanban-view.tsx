@@ -1,4 +1,5 @@
 import { Checkbox, cn, DragHandle, OptionBadge } from "@anygriddb/ui";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useRef } from "react";
 import { useRowDrag, useRowDrop } from "../../lib/drag";
@@ -102,9 +103,22 @@ function Stack({
   const { t } = useLingui();
   const { locale } = useLocale();
   const ref = useRef<HTMLElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const { dropProps, isDropTarget } = useRowDrop(ref, (rowId) =>
     onMove(rowId, id),
   );
+  // Each card is measured once drawn: its height follows its fields.
+  // TanStack Virtual hands back a mutable instance, so the React Compiler
+  // leaves this component as written; its manual memoization stays.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => 88,
+    overscan: 8,
+    gap: 8,
+    getItemKey: (index) => rows[index]?.id ?? index,
+  });
   const name = label || t`No value`;
   const total =
     count !== undefined && count > rows.length
@@ -164,21 +178,39 @@ function Stack({
           <ChevronLeft className="h-4 w-4" aria-hidden />
         </button>
       </header>
-      <div className="flex min-h-12 flex-col gap-2 overflow-y-auto">
-        {rows.map((row) => (
-          <Card
-            key={row.id}
-            row={row}
-            fields={fields}
-            titleColumn={titleColumn}
-            tint={tintOf?.(row)}
-            draggable={
-              canEdit &&
-              row.ag_status !== "locked" &&
-              row.ag_status !== "signed"
-            }
-          />
-        ))}
+      <div ref={listRef} className="min-h-12 flex-1 overflow-y-auto">
+        <div
+          className="relative w-full"
+          style={{ height: virtualizer.getTotalSize() }}
+        >
+          {virtualizer.getVirtualItems().map((virtual) => {
+            const row = rows[virtual.index];
+            if (!row) return null;
+            return (
+              <div
+                key={row.id}
+                data-index={virtual.index}
+                ref={virtualizer.measureElement}
+                className="absolute top-0 left-0 w-full"
+                style={{
+                  transform: `translateY(${String(virtual.start)}px)`,
+                }}
+              >
+                <Card
+                  row={row}
+                  fields={fields}
+                  titleColumn={titleColumn}
+                  tint={tintOf?.(row)}
+                  draggable={
+                    canEdit &&
+                    row.ag_status !== "locked" &&
+                    row.ag_status !== "signed"
+                  }
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
       {canEdit ? (
         <button
@@ -294,7 +326,7 @@ export function KanbanView(props: ViewProps) {
           columns={props.columns}
           exclude={exclude}
           value={cardFields}
-          onChange={(fields) => props.onPatch({ cardFields: fields })}
+          onChange={(next) => props.onPatch({ cardFields: next })}
         />
         {props.total > props.rows.length ? (
           <span className="text-xs text-muted-foreground">

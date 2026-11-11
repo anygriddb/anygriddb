@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { AppError } from "@anygriddb/core";
 import {
   applyApiSecurityHeaders,
   logFailure,
   publicErrorBody,
   publicErrorStatus,
+  replyFromError,
   stripCrlf,
 } from "./http.js";
 
@@ -82,5 +84,20 @@ describe("API security headers", () => {
       message: "request failed",
     });
     expect(lines).toEqual([["info", { status: 429 }, "request failed"]]);
+  });
+
+  it("keeps AppError codes on the Fastify error path", () => {
+    const refused = replyFromError(new AppError("access_denied"));
+    expect(refused.status).toBe(403);
+    expect(refused.body).toEqual({
+      error: "Access denied",
+      code: "access_denied",
+    });
+    const unknown = replyFromError(new Error("boom"));
+    expect(unknown.status).toBe(500);
+    expect(unknown.body.code).toBe("internal_error");
+    const fastify = replyFromError({ statusCode: 404, message: "missing" });
+    expect(fastify.status).toBe(404);
+    expect(fastify.body.code).toBe("not_found");
   });
 });

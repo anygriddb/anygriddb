@@ -16,12 +16,11 @@ export function smtpReady(config: SmtpConfig): boolean {
 
 /**
  * Encrypted and verified (ADR 0030): TLS from the start on 465, STARTTLS
- * required elsewhere; a relay on this machine may skip it.
+ * required elsewhere; a relay on this machine may skip it. Waits are
+ * bounded, so a relay that stops answering does not hold a worker or the
+ * settings page.
  */
-function transportFor(
-  config: SmtpConfig & { SMTP_HOST: string },
-  timeouts: { connectionTimeout?: number; greetingTimeout?: number } = {},
-) {
+function transportFor(config: SmtpConfig & { SMTP_HOST: string }) {
   const implicit = config.SMTP_PORT === 465;
   return nodemailer.createTransport({
     host: config.SMTP_HOST,
@@ -29,11 +28,13 @@ function transportFor(
     secure: implicit,
     requireTLS: !implicit && !isLoopback(config.SMTP_HOST),
     tls: { minVersion: "TLSv1.2", rejectUnauthorized: true },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 30_000,
     auth:
       config.SMTP_USER && config.SMTP_PASSWORD
         ? { user: config.SMTP_USER, pass: config.SMTP_PASSWORD }
         : undefined,
-    ...timeouts,
   });
 }
 
@@ -45,16 +46,18 @@ export async function sendMail(
   if (!SMTP_HOST || !SMTP_FROM) {
     throw new AppError("invalid_webhook");
   }
-  await transportFor({ ...config, SMTP_HOST }).sendMail({
-    from: SMTP_FROM,
-    to: message.to,
-    subject: message.subject,
-    text: message.text,
-  });
+  const transport = transportFor({ ...config, SMTP_HOST });
+  try {
+    await transport.sendMail({
+      from: SMTP_FROM,
+      to: message.to,
+      subject: message.subject,
+      text: message.text,
+    });
+  } finally {
+    transport.close();
+  }
 }
-
-/** How long the settings page waits for a relay before saying it failed. */
-const VERIFY_TIMEOUT_MS = 10_000;
 
 /**
  * Asks the relay to prove it takes mail with these settings: it answers,
@@ -65,13 +68,7 @@ export async function verifySmtp(config: SmtpConfig): Promise<void> {
   if (!SMTP_HOST || !config.SMTP_FROM) {
     throw new AppError("smtp_not_configured");
   }
-  const transport = transportFor(
-    { ...config, SMTP_HOST },
-    {
-      connectionTimeout: VERIFY_TIMEOUT_MS,
-      greetingTimeout: VERIFY_TIMEOUT_MS,
-    },
-  );
+  const transport = transportFor({ ...config, SMTP_HOST });
   try {
     await transport.verify();
   } catch (error) {

@@ -98,8 +98,31 @@ export async function readTransaction<T>(
 
 export type GroupRow = { keys: unknown[]; depth: number; count: number };
 
-/** Above this many rows by its statistics, a client table's total is estimated. */
+/** Above this many rows by its statistics, a table's total is estimated. */
 export const ESTIMATE_FROM = 10_000;
+
+function parseEstimate(
+  row: Record<string, unknown> | undefined,
+): number | null {
+  const rows = Number(row?.rows ?? Number.NaN);
+  return Number.isFinite(rows) && rows >= 0 ? rows : null;
+}
+
+/**
+ * A native AnyGridDB table's row count from PostgreSQL's statistics:
+ * cheap once the table has been analyzed. Null when the relation is
+ * missing from the catalog (should not happen for a live table).
+ */
+async function estimateNativeRows(
+  db: Database,
+  engine: EngineCatalog,
+): Promise<number | null> {
+  const [row] = await runStatement(db, {
+    text: `select c.reltuples::bigint as "rows" from pg_class c where c.oid = to_regclass($1) and c.relkind in ('r', 'p')`,
+    values: [engine.table.physicalName],
+  });
+  return parseEstimate(row);
+}
 
 /**
  * A client table's row count from its engine's statistics: cheap, and
@@ -111,7 +134,7 @@ async function estimateRows(
   engine: EngineCatalog,
 ): Promise<number | null> {
   const external = engine.table.external;
-  if (!external) return null;
+  if (!external) return estimateNativeRows(db, engine);
   const values = [external.schema, external.name];
   const text =
     external.dialect === "postgres"
@@ -124,8 +147,7 @@ async function estimateRows(
   const [row] = await readTransaction(db, engine, (run) =>
     run({ text, values }),
   );
-  const rows = Number(row?.rows ?? Number.NaN);
-  return Number.isFinite(rows) && rows >= 0 ? rows : null;
+  return parseEstimate(row);
 }
 
 /** True when a read keeps every row of its table: no filter, search, or rule. */
@@ -152,12 +174,10 @@ export async function readPage(
 }> {
   if (engine.table.external) return readExternalPage(db, engine, spec, options);
   const page = buildReadRows(engine, spec);
-  const count = options.total ? buildCountRows(engine, spec) : null;
   const grouped = buildGroupCounts(engine, spec);
-  return readTransaction(db, engine, async (run) => {
-    const rows = (await run(page)) as RowRecord[];
-    const total = count ? Number((await run(count))[0]?.total ?? 0) : null;
-    const groups = grouped
+  const { rows, groups } = await readTransaction(db, engine, async (run) => ({
+    rows: (await run(page)) as RowRecord[],
+    groups: grouped
       ? (await run(grouped)).map((row) => ({
           keys: (spec.groupBy ?? []).map(
             (_, index) => row[`k${index}`] ?? null,
@@ -165,9 +185,49 @@ export async function readPage(
           depth: Number(row.depth),
           count: Number(row.count),
         }))
-      : [];
-    return { rows, total, totalEstimated: false, groups };
-  });
+      : [],
+  }));
+  if (!options.total) {
+    return { rows, total: null, totalEstimated: false, groups };
+  }
+  // Same rule as external tables: an unfiltered large table shows the
+  // planner's estimate instead of paying for COUNT(*) on every first page.
+  const estimate = readsEveryRow(engine, spec)
+    ? await estimateNativeRows(db, engine)
+    : null;
+  if (!options.exact && estimate !== null && estimate >= ESTIMATE_FROM) {
+    return { rows, total: estimate, totalEstimated: true, groups };
+  }
+  try {
+    const [row] = await readTransaction(db, engine, (run) =>
+      run(buildCountRows(engine, spec)),
+    );
+    return {
+      rows,
+      total: Number(row?.total ?? 0),
+      totalEstimated: false,
+      groups,
+    };
+  } catch (error) {
+    // readWithin's statement_timeout surfaces as Postgres 57014; fall
+    // back to the estimate (or at least the rows already seen) rather
+    // than failing the whole page.
+    if (!isStatementTimeout(error)) throw error;
+    const seen = (spec.offset ?? 0) + rows.length;
+    return {
+      rows,
+      total: Math.max(estimate ?? 0, seen),
+      totalEstimated: true,
+      groups,
+    };
+  }
+}
+
+function isStatementTimeout(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const code = "code" in error ? String(error.code) : "";
+  const message = "message" in error ? String(error.message) : "";
+  return code === "57014" || /statement timeout/i.test(message);
 }
 
 /**

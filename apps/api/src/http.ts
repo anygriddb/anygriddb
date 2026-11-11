@@ -66,6 +66,29 @@ export function publicErrorStatus(statusCode: number | undefined): number {
   return 500;
 }
 
+/**
+ * HTTP status and public body for any thrown value on a Fastify route:
+ * AppError keeps its code; Fastify 4xx keep their status; everything else
+ * is an internal error.
+ */
+export function replyFromError(error: unknown): {
+  status: number;
+  body: ReturnType<typeof publicErrorBody>;
+} {
+  if (error instanceof AppError) {
+    return { status: error.status, body: errorBody(publicError(error)) };
+  }
+  const statusCode =
+    typeof error === "object" &&
+    error !== null &&
+    "statusCode" in error &&
+    typeof error.statusCode === "number"
+      ? error.statusCode
+      : undefined;
+  const status = publicErrorStatus(statusCode);
+  return { status, body: publicErrorBody(status) };
+}
+
 function codeFor(status: number): ErrorCode {
   if (status >= 500) return "internal_error";
   if (status === 401) return "unauthenticated";
