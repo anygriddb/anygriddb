@@ -9,6 +9,7 @@ ENV TURBO_TELEMETRY_DISABLED=1
 RUN npm install --global pnpm@11.28.8
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY patches patches
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/db/package.json packages/db/package.json

@@ -1,0 +1,14 @@
+diff --git a/lib/utils/iterate-stream.js b/lib/utils/iterate-stream.js
+index 08b974e9a1425d85a96f30eb7869920ed8644b80..b07d82fec46f11cf7f4804e8361636ede99b0f77 100644
+--- a/lib/utils/iterate-stream.js
++++ b/lib/utils/iterate-stream.js
+@@ -7,6 +7,9 @@ module.exports = async function* iterateStream(stream) {
+ 
+   let ended = false;
+   stream.on('end', () => {
++    // unzipper emits 'end' itself once it has read the whole archive, while
++    // the entries it pushed may still wait to be read: wait for those.
++    if (stream.readableLength > 0) return;
+     ended = true;
+     resolveStreamEndedPromise();
+   });

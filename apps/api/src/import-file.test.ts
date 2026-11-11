@@ -1,5 +1,7 @@
+import fs from "node:fs";
+import { Writable } from "node:stream";
 import ExcelJS from "exceljs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   cleanHeaders,
   detectImportFormat,
@@ -112,6 +114,36 @@ describe("parseImportFile", () => {
       ["Acme", "2026-11-07", "12.5", "true"],
       ["Boréal", "2026-11-07T14:30:00.000Z", "25", "false"],
     ]);
+  });
+
+  it("reads a workbook whose sheet is cached while the rest of it is unzipped", async () => {
+    // The sheet comes before the shared strings and the workbook part, so
+    // the reader writes it to a temporary file first. A slow disk lets the
+    // unzipper reach the end of the archive meanwhile; no part may be lost.
+    const createWriteStream = fs.createWriteStream;
+    const slow = vi
+      .spyOn(fs, "createWriteStream")
+      .mockImplementation((...args: Parameters<typeof createWriteStream>) => {
+        const file = createWriteStream(...args);
+        return new Writable({
+          write: (chunk, encoding, done) => file.write(chunk, encoding, done),
+          final: (done) => {
+            setTimeout(() => file.end(done), 50);
+          },
+        }) as fs.WriteStream;
+      });
+    try {
+      const bytes = await workbookBytes([
+        ["Nom", "Ville"],
+        ["Boréal", "Lyon"],
+      ]);
+      const sheet = await parseImportFile("xlsx", bytes);
+      expect(slow).toHaveBeenCalled();
+      expect(sheet.headers).toEqual(["Nom", "Ville"]);
+      expect(sheet.rows).toEqual([["Boréal", "Lyon"]]);
+    } finally {
+      slow.mockRestore();
+    }
   });
 
   it("rejects bytes that are not a workbook", async () => {
