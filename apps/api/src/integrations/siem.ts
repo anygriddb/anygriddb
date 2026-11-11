@@ -14,6 +14,7 @@ const SIEM_ACTIONS = new Set<AuthAction>([
   "login_failure",
   "account_locked",
   "account_unlocked",
+  "account_updated",
   "settings_changed",
   "account_erased",
   "account_disabled",
@@ -22,7 +23,6 @@ const SIEM_ACTIONS = new Set<AuthAction>([
   "tokens_revoked",
   "sso_unlinked",
 ]);
-
 export type SiemRow = {
   url: string;
   secretCiphertext: Buffer;
