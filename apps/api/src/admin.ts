@@ -587,6 +587,32 @@ export async function getAccountDetail(db: Database, userId: string) {
 }
 
 /**
+ * The account an administrator gives a role on a base, changes it, or
+ * takes it away, and that live base (ROADMAP #68, ADR 0057). Returns the
+ * account's address, which the invitation domains are checked against.
+ */
+export async function assertGrantable(
+  db: Database,
+  input: { userId: string; baseId: string },
+): Promise<{ email: string }> {
+  if (input.userId === ERASED_USER_ID) throw new AppError("invalid_account");
+  const account = await db
+    .selectFrom("users")
+    .select("email")
+    .where("id", "=", input.userId)
+    .executeTakeFirst();
+  if (!account) throw new AppError("unknown_account");
+  const base = await db
+    .selectFrom("bases")
+    .select("id")
+    .where("id", "=", input.baseId)
+    .where(liveBase())
+    .executeTakeFirst();
+  if (!base) throw new AppError("not_found");
+  return account;
+}
+
+/**
  * Live bases to give a person a role on, by name: any base, since
  * Administration decides who sees which (ADR 0057). Each comes with the
  * names of its owners, so two bases of the same name can be told apart.

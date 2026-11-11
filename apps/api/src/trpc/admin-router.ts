@@ -2,6 +2,7 @@ import {
   AppError,
   instanceSettingsPatchSchema,
   JOB_STATUSES,
+  ROLES,
   sourceInputSchema,
   sourceUpdateSchema,
 } from "@anygriddb/core";
@@ -44,7 +45,8 @@ import {
   sendSecurityNotice,
   sendWelcome,
 } from "../auth/security-mail.js";
-import { renewInvitation } from "../data/sharing.js";
+import { revokeMember, setMemberRole } from "../data/members.js";
+import { assertMemberDomain, renewInvitation } from "../data/sharing.js";
 import { cancelAnyJob, listAllJobs } from "../jobs.js";
 import {
   clearOidc,
@@ -95,6 +97,7 @@ import {
   resolveOperatorRecipients,
 } from "../operator-mail.js";
 import {
+  assertGrantable,
   createAccount,
   createAccountInputSchema,
   getAccountDetail,
@@ -816,6 +819,54 @@ export const adminRouter = t.router({
       }),
     ),
   /** The instance's bases, to give a person a role on (ADR 0057). */
+  /**
+   * Gives a person a role on any live base, or changes it, from their
+   * account's page (ROADMAP #68, ADR 0057): on the change trail under the
+   * administrator's name, the invitation domains holding. A base keeps an
+   * owner.
+   */
+  setBaseRole: procedure
+    .input(
+      z.object({ userId: z.uuid(), baseId: z.uuid(), role: z.enum(ROLES) }),
+    )
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const account = await assertGrantable(ctx.db, input);
+        await assertMemberDomain(ctx.db, account.email);
+        await setMemberRole(ctx.db, admin.id, input);
+        ctx.req.log.info(
+          {
+            actor: admin.id,
+            target: input.userId,
+            base: input.baseId,
+            role: input.role,
+          },
+          "base role set by administrator",
+        );
+        return { ok: true as const };
+      }),
+    ),
+  /**
+   * Takes a person's own role on a base away; a role a group gives stays.
+   * A base keeps an owner.
+   */
+  removeBaseRole: procedure
+    .input(z.object({ userId: z.uuid(), baseId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await assertGrantable(ctx.db, input);
+        await revokeMember(ctx.db, admin.id, input);
+        // Their open sockets reconnect, and the base's channels refuse them.
+        ctx.hub.closeUser(input.userId, 4000);
+        ctx.req.log.info(
+          { actor: admin.id, target: input.userId, base: input.baseId },
+          "base role removed by administrator",
+        );
+        return { ok: true as const };
+      }),
+    ),
   bases: t.router({
     list: procedure
       .input(

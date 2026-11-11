@@ -300,7 +300,7 @@ msgstr "{actor} vous a mentionné dans {table}"
 msgid "{actor} replied to your comment in {table}"
 msgstr "{actor} a répondu à votre commentaire dans {table}"
 
-#: components/admin/accounts-tab.tsx
+#: components/admin/base-choices.tsx
 msgid "{base}, owned by {owners}"
 msgstr "{base}, appartenant à {owners}"
 
@@ -490,7 +490,7 @@ msgstr "{pending, plural, one {invitation en attente} other {invitations en atte
 msgid "{position} of {total}"
 msgstr "{position} sur {total}"
 
-#: components/admin/account-page.tsx
+#: components/admin/account-bases.tsx
 msgid "{role}, through the group {group}"
 msgstr "{role}, par le groupe {group}"
 
@@ -1514,10 +1514,11 @@ msgstr "Bases"
 msgid "Bases already made stay with their owners."
 msgstr "Les bases déjà créées restent à leurs propriétaires."
 
-#: components/admin/account-page.tsx
+#: components/admin/account-bases.tsx
 msgid "Bases and roles"
 msgstr "Bases et rôles"
 
+#: components/admin/account-bases.tsx
 #: components/admin/accounts-tab.tsx
 msgid "Bases of the instance"
 msgstr "Bases de l'instance"
@@ -1604,6 +1605,7 @@ msgstr "Adresse du calendrier"
 msgid "Call a URL"
 msgstr "Appeler une URL"
 
+#: components/admin/account-bases.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/support-tab.tsx
@@ -3215,6 +3217,7 @@ msgstr "Filtrer"
 msgid "Filter by this field"
 msgstr "Filtrer sur ce champ"
 
+#: components/admin/account-bases.tsx
 #: components/admin/accounts-tab.tsx
 msgid "Find a base"
 msgstr "Chercher une base"
@@ -3364,6 +3367,14 @@ msgstr "Galerie"
 #: components/settings/group-roles.tsx
 msgid "Give a group a role"
 msgstr "Donner un rôle à un groupe"
+
+#: components/admin/account-bases.tsx
+msgid "Give a role on a base"
+msgstr "Donner un rôle sur une base"
+
+#: components/admin/account-bases.tsx
+msgid "Give the role"
+msgstr "Donner le rôle"
 
 #: components/shell/welcome-page.tsx
 msgid "Go to the home page"
@@ -4760,13 +4771,18 @@ msgstr "Aucun jeton d'API."
 msgid "No automations on this table."
 msgstr "Aucune automatisation sur cette table."
 
+#: components/admin/account-bases.tsx
 #: components/admin/accounts-tab.tsx
 msgid "No base by that name"
 msgstr "Aucune base de ce nom"
 
-#: components/admin/account-page.tsx
-msgid "No base yet. An owner invites them from a base's settings."
-msgstr "Aucune base pour l'instant. Un propriétaire l'invite depuis les réglages d'une base."
+#: components/admin/account-bases.tsx
+msgid "No base yet."
+msgstr "Aucune base pour l'instant."
+
+#: components/admin/account-bases.tsx
+msgid "No base yet. Give them a role on one below."
+msgstr "Aucune base pour l'instant. Donnez-lui un rôle sur l'une d'elles ci-dessous."
 
 #: components/shell/sidebar.tsx
 msgid "No bases yet."
@@ -5196,7 +5212,7 @@ msgstr "Sinon :"
 msgid "Overview"
 msgstr "Vue d’ensemble"
 
-#: components/admin/accounts-tab.tsx
+#: components/admin/base-choices.tsx
 msgid "Owned by {owners}"
 msgstr "Appartient à {owners}"
 
@@ -5696,6 +5712,7 @@ msgid "Reload the page"
 msgstr "Recharger la page"
 
 #: components/admin/account-actions.tsx
+#: components/admin/account-bases.tsx
 #: components/admin/settings-tab.tsx
 #: components/fields/cell-editor.tsx
 #: components/settings/base-settings.tsx
@@ -5707,6 +5724,10 @@ msgstr "Retirer"
 #: components/admin/accounts-tab.tsx
 msgid "Remove {base}"
 msgstr "Retirer {base}"
+
+#: components/admin/account-bases.tsx
+msgid "Remove {name} from {base}?"
+msgstr "Retirer {name} de {base} ?"
 
 #: components/admin/account-actions.tsx
 msgid "Remove {name}'s administration?"
@@ -5732,6 +5753,10 @@ msgstr "Supprimer la condition"
 msgid "Remove filter"
 msgstr "Retirer le filtre"
 
+#: components/admin/account-bases.tsx
+msgid "Remove from {base}"
+msgstr "Retirer de {base}"
+
 #: components/settings/group-roles.tsx
 msgid "Remove the group {name}"
 msgstr "Retirer le groupe {name}"
@@ -5743,6 +5768,10 @@ msgstr "Retirer ses seconds facteurs"
 #: components/admin/accounts-tab.tsx
 msgid "Removed by the identity provider"
 msgstr "Retiré par le fournisseur d'identité"
+
+#: components/admin/account-bases.tsx
+msgid "Removed from {base}"
+msgstr "Retiré de {base}"
 
 #: components/settings/account-settings.tsx
 msgid "Removes your sign-in and attributes your audit history and comments to an erased account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave."
@@ -5907,10 +5936,19 @@ msgstr "révoqué"
 msgid "Role"
 msgstr "Rôle"
 
+#: components/admin/account-bases.tsx
+msgid "Role changed"
+msgstr "Rôle modifié"
+
+#: components/admin/account-bases.tsx
+msgid "Role given on {base}"
+msgstr "Rôle donné sur {base}"
+
 #: components/settings/group-roles.tsx
 msgid "Role of the group {name}"
 msgstr "Rôle du groupe {name}"
 
+#: components/admin/account-bases.tsx
 #: components/admin/accounts-tab.tsx
 msgid "Role on {base}"
 msgstr "Rôle sur {base}"
@@ -7522,6 +7560,10 @@ msgstr "La personne reçoit par email un lien pour choisir son mot de passe, val
 #: components/admin/account-actions.tsx
 msgid "They keep their account and their bases, and lose Administration. The instance always keeps one active administrator."
 msgstr "La personne garde son compte et ses bases, et perd l'Administration. L'instance garde toujours un administrateur actif."
+
+#: components/admin/account-bases.tsx
+msgid "They lose their own role on the base and its tables at once, and their open pages reload. A role a group gives them stays."
+msgstr "La personne perd aussitôt son propre rôle sur la base et ses tables, et ses pages ouvertes se rechargent. Un rôle donné par un groupe reste."
 
 #: components/shell/trashed-bases.tsx
 msgid "They stay for 30 days with their data, then are deleted permanently."

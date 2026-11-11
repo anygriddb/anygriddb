@@ -473,6 +473,163 @@ describe("accounts in Administration", () => {
     });
   });
 
+  describe("an account's bases (ROADMAP #68)", () => {
+    it("gives, changes, and takes a role on any live base, each on the trail", async () => {
+      const owner = await member("Keeper");
+      const person = await member("Mover");
+      const base = await insertBase(db, owner.id, { name: `Moved ${suffix}` });
+      const roleOn = async () =>
+        (await admin.call().admin.account({ userId: person.id })).bases.find(
+          (row) => row.id === base.id,
+        )?.role;
+
+      // A base the administrator is not in.
+      await admin.call().admin.setBaseRole({
+        userId: person.id,
+        baseId: base.id,
+        role: "viewer",
+      });
+      expect(await roleOn()).toBe("viewer");
+      await admin.call().admin.setBaseRole({
+        userId: person.id,
+        baseId: base.id,
+        role: "editor",
+      });
+      expect(await roleOn()).toBe("editor");
+      const trail = await db
+        .selectFrom("auditEvents")
+        .select("userId")
+        .where("action", "=", "catalog")
+        .where(
+          sql<boolean>`new_value ->> 'scope_id' = ${base.id} and new_value ->> 'user_id' = ${person.id}`,
+        )
+        .execute();
+      expect(trail).toEqual([{ userId: adminId }, { userId: adminId }]);
+
+      await admin
+        .call()
+        .admin.removeBaseRole({ userId: person.id, baseId: base.id });
+      expect(await roleOn()).toBeUndefined();
+      // Taking a role away that was not there changes nothing.
+      expect(
+        await code(
+          admin
+            .call()
+            .admin.removeBaseRole({ userId: person.id, baseId: base.id }),
+        ),
+      ).toBe("ok");
+    });
+
+    it("keeps an owner on every base", async () => {
+      const owner = await member("Sole");
+      const base = await insertBase(db, owner.id, { name: `Kept ${suffix}` });
+      expect(
+        await code(
+          admin.call().admin.setBaseRole({
+            userId: owner.id,
+            baseId: base.id,
+            role: "editor",
+          }),
+        ),
+      ).toBe("invalid_owner");
+      expect(
+        await code(
+          admin
+            .call()
+            .admin.removeBaseRole({ userId: owner.id, baseId: base.id }),
+        ),
+      ).toBe("invalid_owner");
+      // With a second owner, the first may step down.
+      const heir = await member("Heir");
+      await admin
+        .call()
+        .admin.setBaseRole({ userId: heir.id, baseId: base.id, role: "owner" });
+      await admin.call().admin.setBaseRole({
+        userId: owner.id,
+        baseId: base.id,
+        role: "viewer",
+      });
+      const roles = await db
+        .selectFrom("roleBindings")
+        .select(["userId", "role"])
+        .where("scope", "=", "base")
+        .where("scopeId", "=", base.id)
+        .orderBy("role")
+        .execute();
+      expect(roles).toEqual([
+        { userId: heir.id, role: "owner" },
+        { userId: owner.id, role: "viewer" },
+      ]);
+    });
+
+    it("refuses a base in the trash, the erased account, an address outside the domains, and anyone but an administrator", async () => {
+      const person = await member("Outsider");
+      const base = await insertBase(db, adminId, { name: `Shut ${suffix}` });
+      const trashed = await insertBase(db, adminId, {
+        name: `Trashed ${suffix}`,
+      });
+      await db
+        .updateTable("bases")
+        .set({ deletedAt: new Date() })
+        .where("id", "=", trashed.id)
+        .execute();
+      expect(
+        await code(
+          admin.call().admin.setBaseRole({
+            userId: person.id,
+            baseId: trashed.id,
+            role: "viewer",
+          }),
+        ),
+      ).toBe("not_found");
+      expect(
+        await code(
+          admin.call().admin.setBaseRole({
+            userId: ERASED_USER_ID,
+            baseId: base.id,
+            role: "viewer",
+          }),
+        ),
+      ).toBe("invalid_account");
+
+      await admin.call().admin.updateSettings({
+        signupDomains: ["example.com"],
+        invitations: "domains",
+      });
+      try {
+        expect(
+          await code(
+            admin.call().admin.setBaseRole({
+              userId: person.id,
+              baseId: base.id,
+              role: "viewer",
+            }),
+          ),
+        ).toBe("invitation_domain_not_allowed");
+      } finally {
+        await admin
+          .call()
+          .admin.updateSettings({ signupDomains: [], invitations: "anyone" });
+      }
+
+      const someone = await member("Bystander");
+      for (const call of [
+        () =>
+          someone.page.call().admin.setBaseRole({
+            userId: person.id,
+            baseId: base.id,
+            role: "owner",
+          }),
+        () =>
+          someone.page
+            .call()
+            .admin.removeBaseRole({ userId: person.id, baseId: base.id }),
+      ]) {
+        expect(await code(call())).toBe("access_denied");
+      }
+    });
+  });
+
   describe("pending invitations", () => {
     it("sends one again with a new link, by mail or by hand, and withdraws it", async () => {
       const owner = await member("Inviter");
