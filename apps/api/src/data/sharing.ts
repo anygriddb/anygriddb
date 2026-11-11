@@ -196,6 +196,49 @@ export async function revokeInvitation(
     .execute();
 }
 
+/**
+ * A pending invitation's new link: a fresh token and expiry, so the one
+ * sent before stops working. For a live base only.
+ */
+export async function renewInvitation(
+  db: Database,
+  invitationId: string,
+): Promise<{
+  token: string;
+  expiresAt: Date;
+  email: string;
+  baseName: string;
+  inviterName: string | null;
+}> {
+  const pending = await db
+    .selectFrom("invitations as i")
+    .innerJoin("bases as b", "b.id", "i.baseId")
+    .leftJoin("users as u", "u.id", "i.invitedBy")
+    .select(["i.id", "i.email", "b.name as baseName", "u.displayName"])
+    .where("i.id", "=", invitationId)
+    .where("i.acceptedAt", "is", null)
+    .where(liveBase("b"))
+    .executeTakeFirst();
+  if (!pending) throw new AppError("invalid_invitation");
+  const token = newToken();
+  const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
+  const renewed = await db
+    .updateTable("invitations")
+    .set({ tokenHash: hashToken(token), expiresAt })
+    .where("id", "=", pending.id)
+    .where("acceptedAt", "is", null)
+    .returning("id")
+    .executeTakeFirst();
+  if (!renewed) throw new AppError("invalid_invitation");
+  return {
+    token,
+    expiresAt,
+    email: pending.email,
+    baseName: pending.baseName,
+    inviterName: pending.displayName,
+  };
+}
+
 /** Turns a pending invitation into a base role for the signed-in user. */
 export async function acceptInvitation(
   db: Database,

@@ -1,11 +1,12 @@
-import { randomBytes } from "node:crypto";
 import {
+  ADMIN_LOCK_MINUTES,
   AppError,
   emailDomainAllowed,
   labelSchema,
   lockState,
   memberDomainAllowed,
   parseAdminEmails,
+  ROLES,
   signupAllowed,
 } from "@anygriddb/core";
 import type { AuditAction, Database } from "@anygriddb/db";
@@ -13,20 +14,38 @@ import { sql as sqlTag } from "kysely";
 import { z } from "zod";
 import type { Bus } from "./realtime/bus.js";
 import { factorMethods } from "./auth/access.js";
-import { hashPassword } from "./auth/argon2.js";
+import { listApiTokens } from "./auth/tokens.js";
+import { withAudit } from "./data/audit-context.js";
 import { ERASED_USER_ID } from "./data/erasure.js";
+import { liveBase } from "./data/live.js";
+import { bindRole } from "./data/members.js";
+import { assertMemberDomain } from "./data/sharing.js";
 import { recordAuthEvent } from "./auth/auth-events.js";
 import { BUILD } from "./build-info.js";
 import { isUniqueViolation } from "./data/schema-ops.js";
 import type { FileStore } from "./files/index.js";
 import { readSettings } from "./settings.js";
 
-/** An administrator creates an account; the person sets their password via reset. */
-export const createUserInputSchema = z.object({
-  email: z.email().max(254),
-  displayName: labelSchema,
-  isAdmin: z.boolean().default(false),
-});
+/**
+ * An account an administrator creates (ROADMAP #67): who, whether they
+ * administer the instance, and the bases they reach from the start, with
+ * their role on each, one base at most once.
+ */
+export const createAccountInputSchema = z
+  .object({
+    email: z.email().max(254),
+    displayName: labelSchema,
+    admin: z.boolean().default(false),
+    memberships: z
+      .array(z.object({ baseId: z.uuid(), role: z.enum(ROLES) }).strict())
+      .max(20)
+      .default([])
+      .refine(
+        (rows) => new Set(rows.map((row) => row.baseId)).size === rows.length,
+        "A base appears once",
+      ),
+  })
+  .strict();
 
 /* ------------------------------------------------------------------ */
 /* Settings and sign-up                                                */
@@ -107,26 +126,100 @@ export async function promoteListedAdmins(
 /* Accounts                                                            */
 /* ------------------------------------------------------------------ */
 
+/** What the accounts list filters and sorts by (ROADMAP #18). */
+export const listUsersInputSchema = z.object({
+  search: z.string().trim().max(100).optional(),
+  status: z.enum(["active", "disabled", "locked"]).optional(),
+  admin: z.boolean().optional(),
+  /** Whether the account has a second factor of AnyGridDB's own. */
+  mfa: z.boolean().optional(),
+  origin: z.enum(["local", "sso", "scim"]).optional(),
+  sort: z.enum(["name", "email", "created", "lastSeen"]).default("created"),
+  direction: z.enum(["asc", "desc"]).default("asc"),
+  offset: z.int().min(0).max(1_000_000).default(0),
+  limit: z.int().min(1).max(100).default(50),
+});
+
+/**
+ * Accounts, filtered and sorted in SQL, a page at a time with the total.
+ * A lock counts while it runs: by the policy's duration, or until an
+ * administrator lifts it when the policy keeps it.
+ */
 export async function listUsers(
   db: Database,
-  input: { search?: string; offset: number; limit: number },
+  input: z.input<typeof listUsersInputSchema>,
 ) {
-  const pattern = input.search
-    ? `%${input.search.replace(/[%_\\]/g, "\\$&")}%`
+  const query = listUsersInputSchema.parse(input);
+  const policy = await readSettings(db);
+  const pattern = query.search
+    ? `%${query.search.replace(/[%_\\]/g, "\\$&")}%`
     : undefined;
-  const matching = () => {
-    const query = db
+  const hasFactor = sqlTag<boolean>`(exists (select 1 from totp_secrets t where t.user_id = u.id and t.confirmed_at is not null) or exists (select 1 from webauthn_credentials w where w.user_id = u.id))`;
+  const signOn = sqlTag<boolean>`exists (select 1 from sso_identities i where i.user_id = u.id)`;
+  const lastSeen = sqlTag<Date | null>`(select max(s.created_at) from sessions s where s.user_id = u.id)`;
+  // As `lockState`: a lock runs for the policy's minutes; with none, it
+  // waits for an administrator, except an administrator's own.
+  const minutesAgo = (minutes: number) =>
+    new Date(Date.now() - minutes * 60_000);
+  const matching = () =>
+    db
       .selectFrom("users as u")
-      .where("u.id", "<>", ERASED_USER_ID);
-    return pattern
-      ? query.where((eb) =>
+      .where("u.id", "<>", ERASED_USER_ID)
+      .$if(pattern !== undefined, (q) =>
+        q.where((eb) =>
           eb.or([
-            eb("u.email", "ilike", pattern),
-            eb("u.displayName", "ilike", pattern),
+            eb("u.email", "ilike", pattern ?? ""),
+            eb("u.displayName", "ilike", pattern ?? ""),
           ]),
-        )
-      : query;
-  };
+        ),
+      )
+      .$if(query.status === "active", (q) =>
+        q.where("u.disabledAt", "is", null),
+      )
+      .$if(query.status === "disabled", (q) =>
+        q.where("u.disabledAt", "is not", null),
+      )
+      .$if(query.status === "locked", (q) =>
+        q.where((eb) =>
+          policy.lockoutMinutes > 0
+            ? eb("u.lockedAt", ">", minutesAgo(policy.lockoutMinutes))
+            : eb.or([
+                eb.and([
+                  eb("u.isAdmin", "=", false),
+                  eb("u.lockedAt", "is not", null),
+                ]),
+                eb.and([
+                  eb("u.isAdmin", "=", true),
+                  eb("u.lockedAt", ">", minutesAgo(ADMIN_LOCK_MINUTES)),
+                ]),
+              ]),
+        ),
+      )
+      .$if(query.admin !== undefined, (q) =>
+        q.where("u.isAdmin", "=", query.admin ?? false),
+      )
+      .$if(query.mfa === true, (q) => q.where(hasFactor))
+      .$if(query.mfa === false, (q) =>
+        q.where(sqlTag<boolean>`not ${hasFactor}`),
+      )
+      .$if(query.origin === "scim", (q) =>
+        q.where("u.scimUserName", "is not", null),
+      )
+      .$if(query.origin === "sso", (q) =>
+        q.where("u.scimUserName", "is", null).where(signOn),
+      )
+      .$if(query.origin === "local", (q) =>
+        q
+          .where("u.scimUserName", "is", null)
+          .where(sqlTag<boolean>`not ${signOn}`),
+      );
+  const order = {
+    name: sqlTag`lower(u.display_name)`,
+    email: sqlTag`u.email`,
+    created: sqlTag`u.created_at`,
+    lastSeen: sqlTag`${lastSeen} nulls first`,
+  }[query.sort];
+  const direction = query.direction === "desc" ? sqlTag`desc` : sqlTag`asc`;
   const rows = await matching()
     .select([
       "u.id",
@@ -144,26 +237,23 @@ export async function listUsers(
         "hasPassword",
       ),
       // Bound to a sign-on provider's subject (OIDC, SAML).
-      sqlTag<boolean>`exists (select 1 from sso_identities i where i.user_id = u.id)`.as(
-        "signOn",
-      ),
-      sqlTag<Date | null>`(select max(s.created_at) from sessions s where s.user_id = u.id)`.as(
-        "lastSeen",
-      ),
+      signOn.as("signOn"),
+      hasFactor.as("mfa"),
+      lastSeen.as("lastSeen"),
       sqlTag<number>`(select count(distinct b.scope_id)::int from role_bindings b where b.user_id = u.id and b.scope = 'base')`.as(
         "bases",
       ),
     ])
-    .orderBy("u.createdAt", "asc")
-    .offset(input.offset)
-    .limit(input.limit)
+    .orderBy(sqlTag`${order} ${direction}`)
+    .orderBy("u.id", "asc")
+    .offset(query.offset)
+    .limit(query.limit)
     .execute();
   const total = await matching()
     .select(sqlTag<number>`count(*)::int`.as("value"))
     .executeTakeFirst();
-  const policy = await readSettings(db);
-  const withFactors = await Promise.all(
-    rows.map(async ({ scimUserName, deprovisionedAt, lockedAt, ...row }) => ({
+  const users = rows.map(
+    ({ scimUserName, deprovisionedAt, lockedAt, ...row }) => ({
       ...row,
       // Locked by failed sign-ins (ADR 0043); `until: null` waits for an
       // administrator.
@@ -176,13 +266,17 @@ export async function listUsers(
       // Kept by an identity provider (SCIM), or removed by it.
       provisioned: scimUserName !== null,
       deprovisioned: deprovisionedAt !== null,
-      mfa: (await factorMethods(db, row.id)).length > 0,
+      origin: (scimUserName !== null
+        ? "scim"
+        : row.signOn
+          ? "sso"
+          : "local") satisfies AccountOrigin,
       createdAt: row.createdAt.toISOString(),
       disabledAt: row.disabledAt?.toISOString() ?? null,
       lastSeen: row.lastSeen ? new Date(row.lastSeen).toISOString() : null,
-    })),
+    }),
   );
-  return { users: withFactors, total: total?.value ?? 0 };
+  return { users, total: total?.value ?? 0 };
 }
 
 /** Disabling an account also ends its sessions; its API tokens stop working. */
@@ -305,42 +399,215 @@ export async function updateAccount(
 }
 
 /**
- * Creates an account for someone else: a random password hash that nobody
- * knows, so the existing reset path can set the first real password. Sign-up
- * policy and domains do not apply; the administrator chose this address.
+ * Creates an account for someone else, with no password: the link its
+ * creator hands over or mails sets the first one. Sign-up policy and
+ * sign-up domains do not apply, the administrator chose this address; the
+ * domains people are invited from do, for the bases it joins. Those may be
+ * any live base: Administration decides who sees which base (ADR 0057),
+ * each role given here on the change trail under the administrator's
+ * name, and the account's creation on the sign-in trail.
  */
-export async function createProvisionedUser(
+export async function createAccount(
   db: Database,
-  input: z.infer<typeof createUserInputSchema>,
+  actorId: string,
+  input: z.infer<typeof createAccountInputSchema>,
 ): Promise<{ id: string; email: string; displayName: string }> {
   const email = input.email.toLowerCase();
-  const secret = randomBytes(32).toString("base64url");
-  const hash = await hashPassword(secret);
+  const { memberships } = input;
+  if (memberships.length > 0) await assertMemberDomain(db, email);
   try {
-    const inserted = await db.transaction().execute(async (tx) => {
-      const row = await tx
-        .insertInto("users")
-        .values({
-          email,
-          displayName: input.displayName,
-          isAdmin: input.isAdmin,
-        })
-        .returning(["id", "email", "displayName"])
-        .executeTakeFirst();
-      if (!row) throw new AppError("no_row");
-      await tx
-        .insertInto("passwordHashes")
-        .values({ userId: row.id, hash })
-        .execute();
-      return row;
-    });
-    return inserted;
+    return await withAudit(
+      db,
+      { userId: actorId, source: "web" },
+      async (tx) => {
+        if (memberships.length > 0) {
+          const live = await tx
+            .selectFrom("bases")
+            .select("id")
+            .where(
+              "id",
+              "in",
+              memberships.map((row) => row.baseId),
+            )
+            .where(liveBase())
+            .execute();
+          if (live.length !== memberships.length) {
+            throw new AppError("not_found");
+          }
+        }
+        const row = await tx
+          .insertInto("users")
+          .values({
+            email,
+            displayName: input.displayName,
+            isAdmin: input.admin,
+          })
+          .returning(["id", "email", "displayName"])
+          .executeTakeFirst();
+        if (!row) throw new AppError("no_row");
+        for (const membership of memberships) {
+          await bindRole(tx, row.id, membership.role, membership.baseId);
+        }
+        await recordAuthEvent(tx, {
+          action: "account_created",
+          userId: row.id,
+          actorId,
+          method: "admin",
+          detail: input.admin ? "as_admin" : null,
+        });
+        return row;
+      },
+    );
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new AppError("account_already_exists");
     }
     throw error;
   }
+}
+
+/** Where an account comes from: made here, bound to a sign-on, or provisioned. */
+export type AccountOrigin = "local" | "sso" | "scim";
+
+/**
+ * One account as Administration opens it (ROADMAP #19): identity, status,
+ * lock, origin, how it signs in, its single sign-on identities, sessions,
+ * API tokens, bases and roles (its own and those its groups give), and its
+ * last sign-in events. Never a secret: no token, no subject a provider keeps.
+ */
+export async function getAccountDetail(db: Database, userId: string) {
+  if (userId === ERASED_USER_ID) throw new AppError("invalid_account");
+  const account = await db
+    .selectFrom("users as u")
+    .select([
+      "u.id",
+      "u.email",
+      "u.displayName",
+      "u.isAdmin",
+      "u.isSupport",
+      "u.disabledAt",
+      "u.disabledReason",
+      "u.createdAt",
+      "u.scimUserName",
+      "u.deprovisionedAt",
+      "u.lockedAt",
+      sqlTag<boolean>`exists (select 1 from password_hashes p where p.user_id = u.id)`.as(
+        "hasPassword",
+      ),
+    ])
+    .where("u.id", "=", userId)
+    .executeTakeFirst();
+  if (!account) throw new AppError("unknown_account");
+  const [policy, factors, identities, sessions, tokens, bases, signIns] =
+    await Promise.all([
+      readSettings(db),
+      factorMethods(db, userId),
+      db
+        .selectFrom("ssoIdentities")
+        .select(["provider", "issuer", "lastSeenAt"])
+        .where("userId", "=", userId)
+        .orderBy("provider")
+        .execute(),
+      db
+        .selectFrom("sessions")
+        .select(["id", "createdAt", "expiresAt"])
+        .where("userId", "=", userId)
+        .where("expiresAt", ">", new Date())
+        .orderBy("createdAt", "desc")
+        .limit(50)
+        .execute(),
+      listApiTokens(db, userId),
+      db
+        .selectFrom("roleBindings as b")
+        .innerJoin("bases as base", "base.id", "b.scopeId")
+        .leftJoin("groups as g", "g.id", "b.groupId")
+        .select(["base.id", "base.name", "b.role", "g.displayName as viaGroup"])
+        .where("b.userId", "=", userId)
+        .where("b.scope", "=", "base")
+        .where(liveBase("base"))
+        .orderBy("base.name", "asc")
+        .orderBy("g.displayName", "asc")
+        .execute(),
+      db
+        .selectFrom("authEvents")
+        .select(["id", "occurredAt", "action", "method", "detail", "ip"])
+        .where("userId", "=", userId)
+        .orderBy("occurredAt", "desc")
+        .limit(20)
+        .execute(),
+    ]);
+  const lock = lockState(account.lockedAt, policy, account.isAdmin);
+  const origin: AccountOrigin =
+    account.scimUserName !== null
+      ? "scim"
+      : identities.length > 0
+        ? "sso"
+        : "local";
+  return {
+    id: account.id,
+    email: account.email,
+    displayName: account.displayName,
+    isAdmin: account.isAdmin,
+    isSupport: account.isSupport,
+    origin,
+    hasPassword: account.hasPassword,
+    provisioned: account.scimUserName !== null,
+    deprovisioned: account.deprovisionedAt !== null,
+    disabledAt: account.disabledAt?.toISOString() ?? null,
+    disabledReason: account.disabledReason,
+    createdAt: account.createdAt.toISOString(),
+    lock: lock.locked ? { until: lock.until?.toISOString() ?? null } : null,
+    factors,
+    identities: identities.map((row) => ({
+      provider: row.provider,
+      issuer: row.issuer,
+      lastSeenAt: row.lastSeenAt.toISOString(),
+    })),
+    sessions: sessions.map((row) => ({
+      id: row.id,
+      createdAt: row.createdAt.toISOString(),
+      expiresAt: row.expiresAt.toISOString(),
+    })),
+    tokens,
+    bases: bases.map((row) => ({
+      id: row.id,
+      name: row.name,
+      role: row.role,
+      viaGroup: row.viaGroup,
+    })),
+    signIns: signIns.map((row) => ({
+      id: row.id,
+      occurredAt: row.occurredAt.toISOString(),
+      action: row.action,
+      method: row.method,
+      detail: row.detail,
+      ip: row.ip,
+    })),
+  };
+}
+
+/**
+ * Live bases to give a person a role on, by name: any base, since
+ * Administration decides who sees which (ADR 0057).
+ */
+export async function listBaseChoices(
+  db: Database,
+  input: { search?: string | undefined; limit: number },
+) {
+  const pattern = input.search
+    ? `%${input.search.replace(/[%_\\]/g, "\\$&")}%`
+    : undefined;
+  return db
+    .selectFrom("bases")
+    .select(["id", "name"])
+    .where(liveBase())
+    .$if(pattern !== undefined, (query) =>
+      query.where("name", "ilike", pattern ?? ""),
+    )
+    .orderBy("name", "asc")
+    .orderBy("id", "asc")
+    .limit(input.limit)
+    .execute();
 }
 
 /** Changes the admin flag; the last active administrator cannot be removed. */

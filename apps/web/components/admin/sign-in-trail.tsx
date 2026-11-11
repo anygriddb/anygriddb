@@ -10,6 +10,7 @@ import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 
 const ACTIONS = [
+  "account_created",
   "login_success",
   "login_failure",
   "logout",
@@ -52,6 +53,7 @@ export function SignInTrail() {
   );
   const actionLabel = (value: AuthAction) =>
     ({
+      account_created: t`Account created`,
       login_success: t`Signed in`,
       login_failure: t`Sign-in refused`,
       logout: t`Signed out`,
@@ -100,6 +102,7 @@ export function SignInTrail() {
             email: t`Email`,
             all_active: t`Every active account`,
             selected: t`Chosen accounts`,
+            as_admin: t`As an administrator`,
             admin_revoke_session: t`One session`,
             admin_revoke_user: t`All their sessions`,
             admin_revoke_all: t`Everyone else`,

@@ -328,3 +328,21 @@ export function accountExistsMailBody(
   }
   return `Someone tried to create an AnyGridDB account with this address, which already has one. Nothing changed.\n\nTo sign in, or to set a new password if you forgot it:\n\n${input.loginUrl}\n\nIf you did not ask for it, ignore this email.`;
 }
+
+/** An account an administrator created (ROADMAP #67): the first password. */
+export function welcomeMailSubject(locale: MailLocale): string {
+  return locale === "fr"
+    ? `${MAIL_PREFIX} : votre compte vous attend`
+    : `${MAIL_PREFIX}: your account is ready`;
+}
+
+export function welcomeMailBody(
+  locale: MailLocale,
+  input: { creatorName: string; link: string; expiresAt: Date },
+): string {
+  const until = moment(locale, input.expiresAt);
+  if (locale === "fr") {
+    return `${input.creatorName} vous a créé un compte AnyGridDB. Choisissez votre mot de passe avec ce lien :\n\n${input.link}\n\nLe lien sert une fois, jusqu'au ${until}. Passé ce délai, demandez-en un nouveau à un administrateur, ou depuis la page de connexion.`;
+  }
+  return `${input.creatorName} created an AnyGridDB account for you. Choose your password with this link:\n\n${input.link}\n\nThe link works once, until ${until}. After that, ask an administrator for a new one, or ask for one from the sign-in page.`;
+}

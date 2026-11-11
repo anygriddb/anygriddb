@@ -16,6 +16,7 @@ export type AuditAction =
   | "update";
 
 export type AuthAction =
+  | "account_created"
   | "account_disabled"
   | "account_erased"
   | "account_locked"

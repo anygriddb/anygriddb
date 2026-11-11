@@ -1,7 +1,9 @@
 /**
  * Changing and resetting passwords (ADR 0043). A reset link sets a new
  * password once: the person asks for it by email, when the instance
- * allows it, or an administrator sends it. Only the link's hash is kept.
+ * allows it, or an administrator sends it. An account an administrator
+ * creates has no password until its first link sets one. Only the link's
+ * hash is kept.
  * A new password ends the account's sessions, its API tokens, and its
  * lock. Its second factors stay, so a reset alone never opens an account
  * that has them.
@@ -9,12 +11,15 @@
 import { createHash, randomBytes } from "node:crypto";
 import { AppError, type InstanceSettings } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
+import { sql } from "kysely";
 import { hashPassword } from "./argon2.js";
 import { clearFailures } from "./lockout.js";
 
 /** Asked by the person: an hour. Sent by an administrator: a day. */
 export const SELF_RESET_TTL_MS = 60 * 60 * 1000;
 export const ADMIN_RESET_TTL_MS = 24 * 60 * 60 * 1000;
+/** The first link of an account an administrator creates: a week. */
+export const ACCOUNT_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const RESET_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 
@@ -46,14 +51,44 @@ export async function hasPassword(
 }
 
 /**
- * A new link for an account, replacing any other it had. An account
- * without a password signs in through its identity provider: no link.
+ * How an account proves who it is: with its password (`set`), with the
+ * password its first link will set (`unset`: an administrator made it),
+ * or through an identity provider that binds or provisions it
+ * (`provider`), which has no password to set.
+ */
+export type PasswordState = "set" | "unset" | "provider";
+
+export async function passwordState(
+  db: Database,
+  userId: string,
+): Promise<PasswordState> {
+  const row = await db
+    .selectFrom("users as u")
+    .select([
+      sql<boolean>`exists (select 1 from password_hashes p where p.user_id = u.id)`.as(
+        "hasPassword",
+      ),
+      sql<boolean>`exists (select 1 from sso_identities i where i.user_id = u.id)`.as(
+        "signOn",
+      ),
+      "u.scimUserName",
+    ])
+    .where("u.id", "=", userId)
+    .executeTakeFirst();
+  if (!row) throw new AppError("unknown_account");
+  if (row.hasPassword) return "set";
+  return row.signOn || row.scimUserName !== null ? "provider" : "unset";
+}
+
+/**
+ * A new link for an account, replacing any other it had. An account that
+ * signs in through its identity provider has no password to set: no link.
  */
 export async function createResetLink(
   db: Database,
   input: { userId: string; createdBy: string | null; ttlMs: number },
 ): Promise<{ token: string; expiresAt: Date }> {
-  if (!(await hasPassword(db, input.userId))) {
+  if ((await passwordState(db, input.userId)) === "provider") {
     throw new AppError("sso_account");
   }
   const token = randomBytes(32).toString("base64url");
@@ -99,8 +134,9 @@ export async function findResetLink(
 
 /**
  * Sets the new password a link allows, once: the link is spent first, so
- * two tabs cannot both use it. Every session and sign-in step of the
- * account ends, and so does its lock.
+ * two tabs cannot both use it. An account's first password is written the
+ * same way. Every session and sign-in step of the account ends, and so
+ * does its lock.
  */
 export async function resetPassword(
   db: Database,
@@ -111,6 +147,10 @@ export async function resetPassword(
   const link = await findResetLink(db, token);
   if (!link) throw new AppError("invalid_reset_link");
   assertPasswordPolicy(password, policy);
+  // Bound to a provider since the link was made: it keeps no password.
+  if ((await passwordState(db, link.userId)) === "provider") {
+    throw new AppError("sso_account");
+  }
   const hash = await hashPassword(password);
   await db.transaction().execute(async (tx) => {
     const spent = await tx
@@ -121,13 +161,13 @@ export async function resetPassword(
       .returning("id")
       .executeTakeFirst();
     if (!spent) throw new AppError("invalid_reset_link");
-    const updated = await tx
-      .updateTable("passwordHashes")
-      .set({ hash, updatedAt: new Date() })
-      .where("userId", "=", link.userId)
-      .returning("userId")
-      .executeTakeFirst();
-    if (!updated) throw new AppError("sso_account");
+    await tx
+      .insertInto("passwordHashes")
+      .values({ userId: link.userId, hash })
+      .onConflict((conflict) =>
+        conflict.column("userId").doUpdateSet({ hash, updatedAt: new Date() }),
+      )
+      .execute();
     await tx.deleteFrom("sessions").where("userId", "=", link.userId).execute();
     await tx
       .deleteFrom("apiTokens")

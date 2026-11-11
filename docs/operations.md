@@ -296,8 +296,8 @@ What to know:
   is not account erasure.
 - When someone leaves: disable the account in Administration. Erase
   only when the identity must leave the instance (Settings for the
-  person, or Administration > Erase on a disabled account, typing the
-  email). Erase refuses an account still managed by SCIM. A base the
+  person, or Delete on the account in Administration, typing the email:
+  an enabled account is disabled first, in the same step). Erase refuses an account still managed by SCIM. A base the
   account alone owns keeps an owner: the person grants one before
   erasing their own account; an administrator types the email of the
   active account that takes those bases, their own if they wish, and

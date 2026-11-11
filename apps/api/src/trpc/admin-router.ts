@@ -32,13 +32,19 @@ import {
 import { assertEnrolled } from "../auth/access.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
 import { unlockAccount } from "../auth/lockout.js";
-import { ADMIN_RESET_TTL_MS, createResetLink } from "../auth/password-reset.js";
+import {
+  ACCOUNT_LINK_TTL_MS,
+  ADMIN_RESET_TTL_MS,
+  createResetLink,
+} from "../auth/password-reset.js";
 import { parseSignInCidr } from "../auth/sign-in-allowlist.js";
 import {
   resetLinkUrl,
   sendResetLink,
   sendSecurityNotice,
+  sendWelcome,
 } from "../auth/security-mail.js";
+import { renewInvitation } from "../data/sharing.js";
 import { cancelAnyJob, listAllJobs } from "../jobs.js";
 import {
   clearOidc,
@@ -75,7 +81,13 @@ import {
   smtpUpdateSchema,
 } from "../integrations/smtp.js";
 import { sendMail, smtpReady } from "../mail.js";
-import { resolveLocale, testMailBody, testMailSubject } from "../mail-i18n.js";
+import {
+  invitationMailBody,
+  invitationMailSubject,
+  resolveLocale,
+  testMailBody,
+  testMailSubject,
+} from "../mail-i18n.js";
 import {
   operatorMailInputSchema,
   operatorMailRecipientsSchema,
@@ -83,11 +95,14 @@ import {
   resolveOperatorRecipients,
 } from "../operator-mail.js";
 import {
-  createProvisionedUser,
-  createUserInputSchema,
+  createAccount,
+  createAccountInputSchema,
+  getAccountDetail,
   instanceAudit,
   instanceHealth,
+  listBaseChoices,
   listUsers,
+  listUsersInputSchema,
   setUserAdmin,
   setUserDisabled,
   setUserSupport,
@@ -192,6 +207,7 @@ const authActionSchema = z.enum([
   "password_reset_requested",
   "password_reset",
   "settings_changed",
+  "account_created",
   "account_disabled",
   "account_erased",
   "account_updated",
@@ -655,27 +671,20 @@ export const adminRouter = t.router({
         return readSettings(ctx.db);
       }),
     ),
-  users: procedure
-    .input(
-      z.object({
-        search: z.string().trim().max(100).optional(),
-        offset: z.int().min(0).max(1_000_000).default(0),
-        limit: z.int().min(1).max(100).default(50),
-      }),
-    )
-    .query(({ ctx, input }) =>
-      handle(ctx, async () => {
-        await requireSupport(ctx);
-        const [page, smtp] = await Promise.all([
-          listUsers(ctx.db, {
-            ...input,
-            search: input.search || undefined,
-          }),
-          resolveSmtp(ctx.db, ctx.env),
-        ]);
-        return { ...page, smtpReady: smtpReady(smtp.config) };
-      }),
-    ),
+  /** Accounts, searched, filtered, and sorted (ROADMAP #18). */
+  users: procedure.input(listUsersInputSchema).query(({ ctx, input }) =>
+    handle(ctx, async () => {
+      await requireSupport(ctx);
+      const [page, smtp] = await Promise.all([
+        listUsers(ctx.db, {
+          ...input,
+          search: input.search || undefined,
+        }),
+        resolveSmtp(ctx.db, ctx.env),
+      ]);
+      return { ...page, smtpReady: smtpReady(smtp.config) };
+    }),
+  ),
   /**
    * Corrects an account's name or address. The trail names what changed,
    * and the log neither value.
@@ -749,49 +758,38 @@ export const adminRouter = t.router({
       }),
     ),
   /**
-   * Creates an account and a reset link so the person can set their
-   * password. Sign-up policy does not apply. With SMTP ready the link is
-   * mailed; otherwise the administrator gets it to pass on.
+   * Adds a person (ROADMAP #67): an account with no password yet, roles on
+   * the bases chosen, and a first link valid a week. With email set up it
+   * goes to the person; without, the administrator gets it to pass on.
    */
-  createUser: procedure
-    .input(createUserInputSchema)
+  createAccount: procedure
+    .input(createAccountInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
-        const created = await createProvisionedUser(ctx.db, input);
+        const created = await createAccount(ctx.db, admin.id, input);
         const link = await createResetLink(ctx.db, {
           userId: created.id,
           createdBy: admin.id,
-          ttlMs: ADMIN_RESET_TTL_MS,
-        });
-        await recordAuthEvent(ctx.db, {
-          action: "password_reset_requested",
-          userId: created.id,
-          actorId: admin.id,
-          method: "admin",
-          detail: "reset_link",
-          ip: ctx.req.ip,
+          ttlMs: ACCOUNT_LINK_TTL_MS,
         });
         ctx.req.log.info(
           {
             actor: admin.id,
             target: created.id,
-            admin: input.isAdmin,
+            admin: input.admin,
+            bases: input.memberships.length,
           },
           "account created by administrator",
         );
         if (smtpReady((await resolveSmtp(ctx.db, ctx.env)).config)) {
-          const to = await sendResetLink(
+          const to = await sendWelcome(
             { db: ctx.db, env: ctx.env, log: ctx.req.log },
             created.id,
-            { ...link, byAdmin: true },
+            { ...link, creatorName: admin.displayName },
           );
           if (!to) throw new AppError("smtp_not_configured");
-          return {
-            userId: created.id,
-            sent: true as const,
-            to,
-          };
+          return { userId: created.id, sent: true as const, to };
         }
         return {
           userId: created.id,
@@ -801,6 +799,39 @@ export const adminRouter = t.router({
         };
       }),
     ),
+  /**
+   * One account's page (ROADMAP #19). Support reads it too: it holds no
+   * secret, and Support already sees the accounts and their sign-ins.
+   */
+  account: procedure
+    .input(z.object({ userId: z.uuid() }))
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireSupport(ctx);
+        return getAccountDetail(ctx.db, input.userId);
+      }),
+    ),
+  /** The instance's bases, to give a person a role on (ADR 0057). */
+  bases: t.router({
+    list: procedure
+      .input(
+        z.object({
+          search: z.string().trim().max(100).optional(),
+          limit: z.int().min(1).max(200).default(100),
+        }),
+      )
+      .query(({ ctx, input }) =>
+        handle(ctx, async () => {
+          await requireAdmin(ctx);
+          return {
+            bases: await listBaseChoices(ctx.db, {
+              search: input.search || undefined,
+              limit: input.limit,
+            }),
+          };
+        }),
+      ),
+  }),
   setSupport: procedure
     .input(z.object({ userId: z.uuid(), support: z.boolean() }))
     .mutation(({ ctx, input }) =>
@@ -1058,6 +1089,46 @@ export const adminRouter = t.router({
       return { invitations: await listPendingInvitations(ctx.db) };
     }),
   ),
+  /**
+   * A pending invitation sent again with a new link (ROADMAP #20): mailed
+   * when email is set up, otherwise handed to the administrator to pass
+   * on. The link sent before stops working.
+   */
+  resendInvitation: procedure
+    .input(z.object({ invitationId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const renewed = await renewInvitation(ctx.db, input.invitationId);
+        const link = `${ctx.env.PUBLIC_URL.replace(/\/+$/, "")}/invite/${renewed.token}`;
+        const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
+        ctx.req.log.info(
+          { actor: admin.id, invitation: input.invitationId },
+          "invitation sent again",
+        );
+        if (!smtpReady(smtp)) {
+          return {
+            mailed: false as const,
+            link,
+            expiresAt: renewed.expiresAt.toISOString(),
+          };
+        }
+        const locale = resolveLocale(
+          null,
+          (await readSettings(ctx.db)).defaultLocale,
+        );
+        await sendMail(smtp, {
+          to: renewed.email,
+          subject: invitationMailSubject(locale, renewed.baseName),
+          text: invitationMailBody(locale, {
+            inviterName: renewed.inviterName ?? admin.displayName,
+            link,
+            expiresDate: renewed.expiresAt.toISOString().slice(0, 10),
+          }),
+        });
+        return { mailed: true as const, to: renewed.email };
+      }),
+    ),
   withdrawInvitation: procedure
     .input(z.object({ invitationId: z.uuid() }))
     .mutation(({ ctx, input }) =>

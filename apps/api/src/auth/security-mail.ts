@@ -19,6 +19,8 @@ import {
   securityMailBody,
   securityMailSubject,
   type SecurityNotice,
+  welcomeMailBody,
+  welcomeMailSubject,
 } from "../mail-i18n.js";
 import { readSettings } from "../settings.js";
 import { signupLinkUrl } from "./signup-requests.js";
@@ -90,6 +92,30 @@ export async function sendResetLink(
       link: resetLinkUrl(deps.env.PUBLIC_URL, input.token),
       expiresAt: input.expiresAt,
       byAdmin: input.byAdmin,
+    }),
+  });
+  return to.to;
+}
+
+/**
+ * Mails the first link of an account an administrator created, in the
+ * instance's language, and returns the address, or null without email set
+ * up. A failed send throws: the caller decides.
+ */
+export async function sendWelcome(
+  deps: SecurityMailDeps,
+  userId: string,
+  input: { token: string; expiresAt: Date; creatorName: string },
+): Promise<string | null> {
+  const to = await recipient(deps, userId);
+  if (!to) return null;
+  await sendMail(to.smtp, {
+    to: to.to,
+    subject: welcomeMailSubject(to.locale),
+    text: welcomeMailBody(to.locale, {
+      creatorName: input.creatorName,
+      link: resetLinkUrl(deps.env.PUBLIC_URL, input.token),
+      expiresAt: input.expiresAt,
     }),
   });
   return to.to;
