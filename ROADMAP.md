@@ -64,6 +64,7 @@ The product is `apps/` and `packages/`.
 - Regular expressions are a portable subset, written in the formula: `\d`, `\w`, and `\s` are ASCII, and back-references and lookbehinds are refused. SQL Server reads none before 2025, so there they are refused.
 - JSON_EXTRACT needs PostgreSQL 16 or later, where a text that is not JSON can be told apart without failing the read. On MySQL it reads JSON numbers as doubles, and the field says so.
 - The opt-in release check stays silent until an administrator turns it on and a GitHub Release exists; merges on `main` alone never raise the notice.
+- An account an administrator creates has no base until a base owner invites them (ROADMAP #67–#69).
 
 ## Next
 
@@ -106,32 +107,37 @@ None of these are started.
 ### Administration
 
 An instance administrator should do everything from Administration, with
-no command line and no access to the database. Accounts, the security
-policy, sources, and the trails are there; the steps below are what is
-not, the most pressing first.
+no command line and no access to the database: bring people in, choose
+which bases each person reaches and with which role, see every base and
+every outbound share, and keep the trails. Accounts, the security policy,
+sources, and the trails are there; the steps below are what is not, the
+most pressing first.
 
 #### Step 1: bring a person in and out without a detour
 
-| #   | What                                                                                                                                           | Effort | Notes                                                   |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------- |
-| 12  | Delete an account from its menu whatever its status, with the typed confirmation and a successor for the bases it alone owns                   | S      | Erase is offered once an account is disabled (ADR 0051) |
-| 13  | Actions named by what they do and always in view: “Delete” rather than “Erase”, no step to take first, nothing everyday behind a “…” menu only | M      |                                                         |
+| #   | What                                                                                                                                           | Effort | Notes                                                                                                                                                            |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 12  | Delete an account from its menu whatever its status, with the typed confirmation and a successor for the bases it alone owns                   | S      | Erase is offered once an account is disabled (ADR 0051)                                                                                                          |
+| 13  | Actions named by what they do and always in view: “Delete” rather than “Erase”, no step to take first, nothing everyday behind a “…” menu only | M      |                                                                                                                                                                  |
+| 67  | Create an account with optional roles on any live base, each grant on the change trail under the administrator's name                          | M      | Creating an account today grants no base. No separate invitation to the instance. Supersedes ADR 0042's ban on administrator grants to others; distinct from #35 |
+| 68  | On an account's Administration page, grant, change, or revoke that person's role on any live base; each change on the trail                    | M      | #67 covers only the first grants. After that, only a base owner can change memberships today. The page that lists bases (#19) stays read-only until this lands   |
 
 #### Step 2: see what the instance holds, and know it is backed up
 
-| #   | What                                                                                                                               | Effort | Notes                                                                      |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------- |
-| 14  | Every base in one list, searched and sorted: owners, members, tables, rows, attachment volume, last activity                       | M      | Health shows counts only                                                   |
-| 15  | Name a new owner on any base, on the trail                                                                                         | S      | Possible today only while erasing the owner's account                      |
-| 16  | Every public link to a view or a form in one list: base, author, password, expiry, last use; revoked from there                    | M      | A link's last use is not recorded yet                                      |
-| 17  | The state of backups in Administration: date, size, and result of the last one; administrators told when none succeeded for N days | M      | `scripts/backup.sh` runs outside the application and reports nothing to it |
+| #   | What                                                                                                                               | Effort | Notes                                                                                   |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
+| 14  | Every base in one list, searched and sorted: owners, members, tables, rows, attachment volume, last activity                       | M      | Health shows counts only                                                                |
+| 15  | Name a new owner on any base, on the trail                                                                                         | S      | Possible today only while erasing the owner's account                                   |
+| 69  | From a base in that list, see its members and grant, change, or revoke their roles without being a member of the base              | M      | Builds on 14 and 68. Today members are managed only in that base's settings by an owner |
+| 16  | Every public link to a view or a form in one list: base, author, password, expiry, last use; revoked from there                    | M      | A link's last use is not recorded yet                                                   |
+| 17  | The state of backups in Administration: date, size, and result of the last one; administrators told when none succeeded for N days | M      | `scripts/backup.sh` runs outside the application and reports nothing to it              |
 
 #### Step 3: everyday administration
 
 | #   | What                                                                                                                                                                 | Effort | Notes                                                                                        |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------- |
 | 18  | Filter and sort accounts: status, administrator, no second factor, origin (local, single sign-on, SCIM), last sign-in                                                | S      | Search by name or email only today                                                           |
-| 19  | An account's page, opened from its row: identity, status, bases and roles, sessions, second factors, tokens, last sign-ins                                           | M      | Accounts are a list with a menu per row today                                                |
+| 19  | An account's page, opened from its row: identity, status, bases and roles, sessions, second factors, tokens, last sign-ins                                           | M      | Accounts are a list with a menu per row today; changing bases and roles is #68               |
 | 20  | Each function where it is looked for: pending invitations beside the accounts, with a resend; the access report beside the trails                                    | S      | Both sit under Support today                                                                 |
 | 21  | Hand a leaving person's bases, automations, webhooks, and tokens to another account, without erasing theirs                                                          | M      |                                                                                              |
 | 22  | Bases without an active owner pointed out; a base archived or deleted from Administration; bases deleted by others seen and restored                                 | M      | Builds on 14                                                                                 |
@@ -143,41 +149,41 @@ not, the most pressing first.
 
 #### Step 4: delegation and compliance
 
-| #   | What                                                                                                                                                             | Effort | Notes                                                                                    |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------- |
-| 27  | Groups made in Administration: name, description, members                                                                                                        | M      | Groups come only from an identity provider today; a base already gives a role to a group |
-| 28  | The password or the second factor asked again before a sensitive action: deleting an account, granting administration, removing factors, changing single sign-on | M      | The check exists for a person's own factors                                              |
-| 29  | An account's effective rights on a base or a table, on screen, group roles included                                                                              | M      | The access report is a file today                                                        |
-| 30  | How long the change trail is kept, set by the administrator, each purge on the trail                                                                             | M      | The trail is append-only and kept without limit: needs a decision record                 |
-| 31  | Reads and exports on the trail: who opened or exported which table                                                                                               | L      | Nothing records a read today, and an export only reaches the server log. Exports first   |
-| 32  | Everything about one person, on screen and as a file for an access request: profile, memberships, sign-ins, what they wrote, what was done to their account      | M      |                                                                                          |
+| #   | What                                                                                                                                                             | Effort | Notes                                                                                                        |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| 27  | Groups made in Administration: name, description, members; a group given a role on a base from Administration as well as from that base's settings               | M      | Groups come only from an identity provider today; a base already gives a role to a group in its own settings |
+| 28  | The password or the second factor asked again before a sensitive action: deleting an account, granting administration, removing factors, changing single sign-on | M      | The check exists for a person's own factors                                                                  |
+| 29  | An account's effective rights on a base or a table, on screen, group roles included                                                                              | M      | The access report is a file today                                                                            |
+| 30  | How long the change trail is kept, set by the administrator, each purge on the trail                                                                             | M      | The trail is append-only and kept without limit: needs a decision record                                     |
+| 31  | Reads and exports on the trail: who opened or exported which table                                                                                               | L      | Nothing records a read today, and an export only reaches the server log. Exports first                       |
+| 32  | Everything about one person, on screen and as a file for an access request: profile, memberships, sign-ins, what they wrote, what was done to their account      | M      |                                                                                                              |
 
 #### Decide before code
 
-| #   | What                                                                                                                                       | Why a decision                                                                                                                                         |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 33  | Inviting a person to the instance, beside creating their account                                                                           | Creating an account with optional bases and roles may be enough, without a pending invitation to the instance itself                                   |
-| 34  | Delegated administration: account manager, source manager, read-only auditor                                                               | A support role covers the helpdesk (ADR 0054). Every other action needs its check on the server and every tab its rule; the next role shapes the model |
-| 35  | Emergency access: an administrator opens a base read-only without being a member, with a reason, a trail entry, and a notice to its owners | Administrators see only the bases they belong to; opening any base, even traced, changes what a base owner can count on                                |
+| #   | What                                                                                                                                       | Why a decision                                                                                                                                                                 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 33  | Inviting a person to the instance, beside creating their account                                                                           | Resolved: create with optional bases and roles (#67) is enough; no separate pending invitation to the instance. Remove this row when #67 lands.                                |
+| 34  | Delegated administration: account manager, source manager, read-only auditor                                                               | A support role covers the helpdesk (ADR 0054). Every other action needs its check on the server and every tab its rule; the next role shapes the model                         |
+| 35  | Emergency access: an administrator opens a base read-only without being a member, with a reason, a trail entry, and a notice to its owners | Granting someone else a role (#67–#69) is not the same as the administrator reading the data. Opening any base themselves, even traced, changes what a base owner can count on |
 
 #### Later
 
-| #   | What                                                                                                            | Effort | Notes                                                      |
-| --- | --------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------- |
-| 36  | Accounts in bulk: several selected and disabled together, invitations from a CSV file, the list exported as CSV | M      |                                                            |
-| 38  | Storage by base and by account, with optional quotas                                                            | L      | One total today                                            |
-| 39  | Attachment types the administrator allows                                                                       | S      | A fixed list today                                         |
-| 40  | Usage figures: accounts active over 30 days, active bases, trend                                                | M      |                                                            |
-| 41  | Load by source: slow queries, errors, and timeouts over the last days                                           | M      |                                                            |
-| 42  | Events sent as they happen to syslog                                                                            | S      | Sign-in events already go to an HTTPS collector (ADR 0056) |
-| 43  | Backups scheduled from Administration instead of cron; the backup of any base started by an administrator       | L      |                                                            |
-| 44  | How long the trash keeps things, set by the administrator                                                       | S      | 30 days, fixed                                             |
-| 45  | The instance's own name, logo, and sign-in message; the sender name, signature, and invitation text of its mail | M      |                                                            |
-| 46  | What the operator fixed (public address, storage, trusted proxies), read-only, secrets masked                   | S      |                                                            |
-| 47  | Retry a failed or interrupted job                                                                               | M      | Its author starts it again today                           |
-| 48  | Each administrator chooses the alerts they receive                                                              | S      | After 25                                                   |
-| 49  | An address for every tab and page of Administration, to share and to come back to                               | S      |                                                            |
-| 50  | A documented administration API (accounts, invitations, settings), to automate without SCIM                     | L      |                                                            |
+| #   | What                                                                                                                              | Effort | Notes                                                      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------- |
+| 36  | Accounts in bulk: several selected and disabled together; a CSV of people with optional bases and roles; the list exported as CSV | M      | Builds on 67                                               |
+| 38  | Storage by base and by account, with optional quotas                                                                              | L      | One total today                                            |
+| 39  | Attachment types the administrator allows                                                                                         | S      | A fixed list today                                         |
+| 40  | Usage figures: accounts active over 30 days, active bases, trend                                                                  | M      |                                                            |
+| 41  | Load by source: slow queries, errors, and timeouts over the last days                                                             | M      |                                                            |
+| 42  | Events sent as they happen to syslog                                                                                              | S      | Sign-in events already go to an HTTPS collector (ADR 0056) |
+| 43  | Backups scheduled from Administration instead of cron; the backup of any base started by an administrator                         | L      |                                                            |
+| 44  | How long the trash keeps things, set by the administrator                                                                         | S      | 30 days, fixed                                             |
+| 45  | The instance's own name, logo, and sign-in message; the sender name, signature, and invitation text of its mail                   | M      |                                                            |
+| 46  | What the operator fixed (public address, storage, trusted proxies), read-only, secrets masked                                     | S      |                                                            |
+| 47  | Retry a failed or interrupted job                                                                                                 | M      | Its author starts it again today                           |
+| 48  | Each administrator chooses the alerts they receive                                                                                | S      | After 25                                                   |
+| 49  | An address for every tab and page of Administration, to share and to come back to                                                 | S      |                                                            |
+| 50  | A documented administration API (accounts, invitations, settings), to automate without SCIM                                       | L      |                                                            |
 
 ### Security and reliability
 
