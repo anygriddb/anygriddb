@@ -2,6 +2,8 @@ name: Commits
 
 on:
   pull_request:
+    # edited: a corrected title is checked again.
+    types: [opened, edited, synchronize, reopened]
 
 permissions:
   contents: read
@@ -18,7 +20,16 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Squash merging makes the title the commit's header on main.
+      - name: Pull request title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -eu
+          printf '%s\n' "$TITLE" > "$RUNNER_TEMP/pr-title"
+          sh scripts/validate-conventional-commit.sh "$RUNNER_TEMP/pr-title"
 
       - name: Conventional Commits
         env:
@@ -56,7 +67,7 @@ jobs:
           failed = False
           for commit in commits:
               sha = commit["sha"]
-              # Dependency bots (Renovate, Dependabot) write their own messages.
+              # Dependabot writes its own messages.
               if (commit.get("author") or {}).get("type") == "Bot":
                   print(f"Skipping bot commit {sha}")
                   continue

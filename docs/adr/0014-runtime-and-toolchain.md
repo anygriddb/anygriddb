@@ -23,9 +23,10 @@
   only hours earlier. They went back to the newest release of the same major
   that is at least a week old, and the lockfile was resolved again from
   scratch.
-- Renovate waits seven days too. It now targets `main` and no longer assigns
-  pull requests to an outside account: its configuration had been copied
-  from another project.
+- The bot that opens dependency updates waits seven days too. It was
+  Renovate, with a configuration copied from another project; Dependabot
+  now does it for every ecosystem, with a seven-day `cooldown`
+  (`.github/dependabot.yml`).
 
 ## Rejected
 
