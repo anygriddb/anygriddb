@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 import pg from "pg";
-import { signUpWithTable, uniqueStamp, watchPolicy } from "./setup";
+import {
+  accessibilityViolations,
+  signUpWithTable,
+  uniqueStamp,
+  watchPolicy,
+} from "./setup";
 
 // The journey's PostgreSQL holds AnyGridDB's catalog and, beside it, a
 // client's database with an account of its own (ADR 0026).
@@ -78,8 +83,18 @@ test("an administrator shows a client's tables in a base, read where they live",
     await expect(dialog.getByLabel("Expose public.invoices")).toBeDisabled();
     await page.keyboard.press("Escape");
 
-    // The base lists them; their rows come from the client's database.
+    // The sidebar names the database they live in, and leads to them.
     await page.goto("/");
+    const sources = page.getByRole("region", { name: "Sources" });
+    await sources
+      .getByRole("button", { name: new RegExp(`ERP ${stamp}`) })
+      .click();
+    await expect(
+      sources.getByRole("link", { name: /^invoices/ }),
+    ).toHaveAttribute("title", "public.invoices");
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // The base lists them; their rows come from the client's database.
     await page.getByRole("link", { name: "Lab" }).first().click();
     await page.getByRole("link", { name: "invoices", exact: true }).click();
     const grid = page.getByRole("grid");

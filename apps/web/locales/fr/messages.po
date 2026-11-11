@@ -5923,6 +5923,7 @@ msgid "Source unreachable: check the host, the port, and the firewall"
 msgstr "Source injoignable : vérifiez l'hôte, le port et le pare-feu"
 
 #: components/admin/admin-page.tsx
+#: components/shell/sidebar-sources.tsx
 msgid "Sources"
 msgstr "Sources"
 

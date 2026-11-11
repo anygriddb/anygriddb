@@ -48,6 +48,7 @@ import { ImportDialog } from "../table/import-dialog";
 import { ConfirmDialog, PromptDialog } from "./dialogs";
 import { NewTableDialog } from "./new-table-dialog";
 import { NewBaseDialog } from "./new-base-dialog";
+import { SidebarSources } from "./sidebar-sources";
 import { openCommandPalette } from "./command-palette";
 import { JobsMenu } from "./jobs-menu";
 import { NotificationBell } from "./notification-bell";
@@ -637,6 +638,7 @@ export function Sidebar({
             );
           })}
         </ul>
+        <SidebarSources bases={bases} />
       </nav>
       <div className="flex items-center gap-1 border-t border-border px-2 py-1.5">
         <UserMenu user={user} />

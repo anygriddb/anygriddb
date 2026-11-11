@@ -12,8 +12,11 @@ import {
   Wait,
   type StartedTestContainer,
 } from "testcontainers";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { loadEngine } from "../data/engine.js";
+import { grantMember } from "../data/members.js";
+import type { Env } from "../env.js";
+import { browserFactory } from "../trpc/caller.test-helpers.js";
 import { readPage } from "../data/rows.js";
 import { addColumn, insertBase } from "../data/schema-ops.js";
 import { loadRowScope, updateRows } from "../services/rows.js";
@@ -662,5 +665,47 @@ describe("PostgreSQL sources", () => {
     expect((await listSources(db)).map((source) => source.id)).not.toContain(
       created.id,
     );
+  });
+
+  it("names a client table's database to its readers, never its address", async () => {
+    const deps = { db, key, settings };
+    const source = await createSource(deps, admin, {
+      name: "Ledger",
+      ...connection(),
+      connectionLimit: 1,
+    });
+    const base = await insertBase(db, admin, { name: "Ledger book" });
+    await exposeTables(deps, admin, {
+      sourceId: source.id,
+      baseId: base.id,
+      tables: [{ schema: "public", name: "customers" }],
+    });
+    const env = {
+      AUTH_ENCRYPTION_KEY: key,
+      PUBLIC_URL: "https://grid.example.org",
+    } as unknown as Env;
+    const reader = browserFactory({
+      db: () => db,
+      env,
+      hub: { closeUser: vi.fn(() => 0), closeAllBut: vi.fn(() => 0) },
+    })();
+    const email = `reader-${randomBytes(4).toString("hex")}@example.org`;
+    await reader.call().auth.signup({
+      email,
+      displayName: "Rita Reader",
+      password: "correct horse battery staple",
+    });
+    // No role yet: neither the base nor the database it reads.
+    expect(JSON.stringify(await reader.call().catalog.list())).not.toContain(
+      "Ledger",
+    );
+    await grantMember(db, admin, { baseId: base.id, email, role: "viewer" });
+    const listed = await reader.call().catalog.list();
+    const external = listed.find((item) => item.id === base.id)?.tables[0]
+      ?.external;
+    expect(external?.source).toEqual({ id: source.id, name: "Ledger" });
+    expect(external).not.toHaveProperty("host");
+    expect(external).not.toHaveProperty("username");
+    expect(JSON.stringify(listed)).not.toContain("readerpass");
   });
 });

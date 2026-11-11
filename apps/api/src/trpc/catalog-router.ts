@@ -492,6 +492,16 @@ export const catalogRouter = t.router({
                         schema: table.externalSchema,
                         name: table.externalName,
                         engine: sourceEngine(rows, table.sourceId),
+                        // Which database it lives in, by the name an
+                        // administrator gave it: never its address or account.
+                        source:
+                          table.sourceId === null
+                            ? null
+                            : {
+                                id: table.sourceId,
+                                name:
+                                  rows.sources.get(table.sourceId)?.name ?? "",
+                              },
                         // What an administrator enabled (ADR 0006); a
                         // copy takes no writes (ADR 0034).
                         writes: {

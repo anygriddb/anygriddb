@@ -22,10 +22,11 @@ export type CatalogRows = {
   tables: TableRow[];
   columns: ColumnRow[];
   relations: RelationRow[];
-  /** Each source the tables come from: its engine and time zone. */
+  /** Each source the tables come from: its name, engine, and time zone. */
   sources: ReadonlyMap<
     string,
     {
+      name: string;
       engine: string;
       timeZone: string;
       sideSchema: string | null;
@@ -411,7 +412,14 @@ export async function loadCatalogRows(
       ? []
       : await db
           .selectFrom("sources")
-          .select(["id", "engine", "timeZone", "sideSchema", "serverVersion"])
+          .select([
+            "id",
+            "name",
+            "engine",
+            "timeZone",
+            "sideSchema",
+            "serverVersion",
+          ])
           .where("id", "in", sourceIds)
           .execute();
   // Tables with a copy are read from it, unless a refresh reads them live.
