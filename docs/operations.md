@@ -316,7 +316,6 @@ keyed by their real address, and enforce an overall limit on the proxy as
 well: N replicas otherwise multiply every bucket. WebSocket presence is
 also per process; fan-out uses PostgreSQL `LISTEN`/`NOTIFY`.
 
-
 ## Supported topology
 
 The supported production shape is **one API process** with the Compose
@@ -339,9 +338,9 @@ Helm charts and multi-region active-active stay outside this repository.
 
 With the nightly cron example under [Backups](#backups):
 
-| Objective | Typical with the scripts |
-| --------- | ------------------------ |
-| **RPO**   | Up to the time since the last successful `scripts/backup.sh` (about 24 hours on the sample cron). Continuous WAL archiving on your PostgreSQL shortens it. |
+| Objective | Typical with the scripts                                                                                                                                       |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RPO**   | Up to the time since the last successful `scripts/backup.sh` (about 24 hours on the sample cron). Continuous WAL archiving on your PostgreSQL shortens it.     |
 | **RTO**   | The time to run `scripts/restore.sh` on a spare host with the same `AUTH_ENCRYPTION_KEY`, plus DNS or load-balancer cutover. Measure it once on a spare stack. |
 
 An untested backup is a hope: restore onto a spare stack after every major
