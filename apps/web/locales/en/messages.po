@@ -743,6 +743,10 @@ msgstr "Access granted"
 msgid "Account"
 msgstr "Account"
 
+#: components/admin/sign-in-trail.tsx
+msgid "Account changed"
+msgstr "Account changed"
+
 #: components/admin/admin-page.tsx
 msgid "Account created"
 msgstr "Account created"
@@ -750,10 +754,6 @@ msgstr "Account created"
 #: components/admin/admin-page.tsx
 msgid "Account created. Link sent to {to}"
 msgstr "Account created. Link sent to {to}"
-
-#: components/admin/sign-in-trail.tsx
-msgid "Account changed"
-msgstr "Account changed"
 
 #: components/admin/sign-in-trail.tsx
 msgid "Account disabled"
