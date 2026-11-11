@@ -13,12 +13,12 @@
     "db:types": "kysely-codegen && prettier --write src/types.generated.ts"
   },
   "dependencies": {
-    "kysely": "0.29.7",
+    "kysely": "0.29.8",
     "pg": "8.23.1"
   },
   "devDependencies": {
     "@anygriddb/tsconfig": "workspace:*",
-    "@types/node": "26.6.5",
+    "@types/node": "26.6.6",
     "@types/pg": "8.23.1",
     "kysely-codegen": "0.20.0",
     "typescript": "6.0.3"
