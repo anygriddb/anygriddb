@@ -57,6 +57,7 @@ export async function findApiToken(
       "u.email",
       "u.displayName",
       "u.isAdmin",
+      "u.isSupport",
       "k.id as tokenId",
       "k.baseIds",
       "k.readOnly",
@@ -90,6 +91,7 @@ export async function findApiToken(
       email: row.email,
       displayName: row.displayName,
       isAdmin: row.isAdmin,
+      isSupport: row.isSupport,
     },
     scope: {
       tokenId: row.tokenId,
