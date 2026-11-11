@@ -35,6 +35,7 @@ export type SessionUser = {
   email: string;
   displayName: string;
   isAdmin: boolean;
+  isSupport: boolean;
 };
 
 export function isSessionToken(token: string | undefined): token is string {
@@ -55,7 +56,7 @@ export async function findSessionUser(
   const user = await db
     .selectFrom("sessions as s")
     .innerJoin("users as u", "u.id", "s.userId")
-    .select(["u.id", "u.email", "u.displayName", "u.isAdmin"])
+    .select(["u.id", "u.email", "u.displayName", "u.isAdmin", "u.isSupport"])
     .where("s.tokenHash", "=", hashSessionToken(token))
     .where("s.expiresAt", ">", new Date())
     .where("u.disabledAt", "is", null)

@@ -65,3 +65,4 @@ asserting: it superseded 0001 and added 0021 to 0026.
 | [0051](0051-admin-account-erasure.md)                | Administrator-initiated account erasure; comments under the tombstone                   | Accepted                           |
 | [0052](0052-operator-mail.md)                        | Operator mail: plain-text notice to all active or chosen accounts                       | Accepted                           |
 | [0053](0053-sso-prove-and-sso-only.md)               | Prove SSO at save; SSO-only sign-in with admin break-glass                              | Accepted                           |
+| [0054](0054-support-role.md)                         | Support role: helpdesk account ops without full admin                                   | Accepted                           |
