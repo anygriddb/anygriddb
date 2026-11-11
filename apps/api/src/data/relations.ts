@@ -203,20 +203,24 @@ export async function addRelation(
             })
             .execute();
         }
-        await runRows(
-          tx,
-          input.kind === "one_to_many"
-            ? buildAddForeignKeyColumn({
-                table: source.physicalName,
-                column: name,
-                targetTable: target.physicalName,
-              })
-            : buildCreateJunction({
-                junction: junction ?? "",
-                leftTable: source.physicalName,
-                rightTable: target.physicalName,
-              }),
-        );
+        if (input.kind === "one_to_many") {
+          await runRows(
+            tx,
+            buildAddForeignKeyColumn({
+              table: source.physicalName,
+              column: name,
+              targetTable: target.physicalName,
+            }),
+          );
+        } else {
+          for (const statement of buildCreateJunction({
+            junction: junction ?? "",
+            leftTable: source.physicalName,
+            rightTable: target.physicalName,
+          })) {
+            await runRows(tx, statement);
+          }
+        }
         return { id: created.id, name, inverseId };
       },
     );

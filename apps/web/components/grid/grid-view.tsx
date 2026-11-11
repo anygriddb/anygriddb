@@ -9,7 +9,6 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-  Spinner,
 } from "@anygriddb/ui";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -51,6 +50,7 @@ import { useTable, type CellValue } from "../table/table-context";
 import { GridFooter } from "./grid-footer";
 import { GridCell } from "./grid-cell";
 import { GridHeader } from "./grid-header";
+import { GridSkeleton } from "./grid-skeleton";
 import { GUTTER, marginColumn } from "./margin-column";
 import { SelectionSummaryBar } from "./selection-summary";
 import {
@@ -795,11 +795,7 @@ export function GridView(props: GridProps) {
     );
   }
   if (rows.loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <Spinner />
-      </div>
-    );
+    return <GridSkeleton />;
   }
 
   return (

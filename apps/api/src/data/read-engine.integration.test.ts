@@ -195,7 +195,7 @@ describe("read engine on PostgreSQL", () => {
         column: "client",
         targetTable: clients.physicalName,
       }),
-      buildCreateJunction({
+      ...buildCreateJunction({
         junction: `j_partners_${suffix}`,
         leftTable: orders.physicalName,
         rightTable: clients.physicalName,

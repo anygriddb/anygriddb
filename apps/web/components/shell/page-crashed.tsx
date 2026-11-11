@@ -1,15 +1,15 @@
 import { Button } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
-import { Link } from "@tanstack/react-router";
 import { TriangleAlert } from "lucide-react";
 
 /**
  * What a page shows when its code fails while drawing: in the person's
  * language, without the error's text, and with a way out. The router
  * puts it in place of the page alone, so the sidebar stays, and draws the
- * page again once the person goes elsewhere.
+ * page again once the person goes elsewhere. The boundary around the whole
+ * app shows it too, outside the router: the way home is a plain link.
  */
-export function PageCrashed() {
+export function PageCrashed({ onReload }: { onReload?: () => void } = {}) {
   const { t } = useLingui();
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-center">
@@ -25,17 +25,18 @@ export function PageCrashed() {
         <Button
           size="sm"
           onClick={() => {
-            window.location.reload();
+            if (onReload) onReload();
+            else window.location.reload();
           }}
         >
           {t`Reload the page`}
         </Button>
-        <Link
-          to="/"
+        <a
+          href="/"
           className="inline-flex items-center px-2 text-sm text-primary underline"
         >
           {t`Back to home`}
-        </Link>
+        </a>
       </div>
     </main>
   );

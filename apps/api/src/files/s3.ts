@@ -10,6 +10,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 import {
   assertFileKey,
   exactBytes,
@@ -26,6 +27,11 @@ export type S3Config = {
   secretKey: string;
   bucket: string;
 };
+
+/** Wall time for one S3 HTTP round-trip (handler + AbortSignal). */
+const REQUEST_TIMEOUT_MS = 60_000;
+/** Time to open a TCP/TLS socket to the endpoint. */
+const CONNECT_TIMEOUT_MS = 10_000;
 
 /**
  * Any S3-compatible service: AWS, Scaleway, OVH, Ceph, Garage, SeaweedFS,
@@ -45,6 +51,11 @@ export class S3Store implements FileStore {
       forcePathStyle: true,
       requestChecksumCalculation: "WHEN_REQUIRED",
       responseChecksumValidation: "WHEN_REQUIRED",
+      maxAttempts: 3,
+      requestHandler: new NodeHttpHandler({
+        connectionTimeout: CONNECT_TIMEOUT_MS,
+        requestTimeout: REQUEST_TIMEOUT_MS,
+      }),
       credentials: {
         accessKeyId: config.accessKey,
         secretAccessKey: config.secretKey,
@@ -61,6 +72,7 @@ export class S3Store implements FileStore {
         Body: body,
         ContentType: contentType,
       }),
+      { abortSignal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
     );
   }
 
@@ -70,6 +82,10 @@ export class S3Store implements FileStore {
     // The SDK pipes the body into the request without watching it: a
     // body that fails would leave the request waiting for its bytes.
     const abort = new AbortController();
+    const wall = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+    wall.addEventListener("abort", () => abort.abort(wall.reason), {
+      once: true,
+    });
     let fail: (error: Error) => void = () => undefined;
     const failed = new Promise<never>((_resolve, reject) => {
       fail = reject;
@@ -105,6 +121,7 @@ export class S3Store implements FileStore {
     try {
       const response = await this.client.send(
         new GetObjectCommand({ Bucket: this.config.bucket, Key: key }),
+        { abortSignal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
       );
       if (!(response.Body instanceof Readable)) return undefined;
       return {
@@ -122,6 +139,7 @@ export class S3Store implements FileStore {
     assertFileKey(key);
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }),
+      { abortSignal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
     );
   }
 
@@ -135,6 +153,7 @@ export class S3Store implements FileStore {
             Bucket: this.config.bucket,
             ContinuationToken: token,
           }),
+          { abortSignal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
         );
       } catch (error) {
         // A bucket not created yet holds no files.
@@ -163,10 +182,12 @@ export class S3Store implements FileStore {
     try {
       await this.client.send(
         new HeadBucketCommand({ Bucket: this.config.bucket }),
+        { abortSignal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
       );
     } catch {
       await this.client.send(
         new CreateBucketCommand({ Bucket: this.config.bucket }),
+        { abortSignal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
       );
     }
   }

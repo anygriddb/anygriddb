@@ -1,7 +1,7 @@
 import cookie from "@fastify/cookie";
 import websocket from "@fastify/websocket";
 import type { Database } from "@anygriddb/db";
-import { ERRORS } from "@anygriddb/core";
+import { AppError, ERRORS } from "@anygriddb/core";
 import { TRPCError } from "@trpc/server";
 import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import {
@@ -33,7 +33,7 @@ import {
   applyApiSecurityHeaders,
   logFailure,
   publicErrorBody,
-  publicErrorStatus,
+  replyFromError,
 } from "./http.js";
 import type { Context } from "./trpc/context.js";
 import { describeTRPCError } from "./trpc/map-error.js";
@@ -319,19 +319,19 @@ export async function createApp(deps: {
   }
 
   app.setErrorHandler((error: unknown, request, reply) => {
-    const statusCode =
-      typeof error === "object" &&
-      error !== null &&
-      "statusCode" in error &&
-      typeof error.statusCode === "number"
-        ? error.statusCode
-        : undefined;
-    const status = publicErrorStatus(statusCode);
-    logFailure(request.log, { error, status, message: "request failed" });
+    // A refusal the server named (an AppError) keeps its code and its
+    // status; so does one Fastify raised. Anything else is a fault.
+    const { status, body } = replyFromError(error);
+    logFailure(request.log, {
+      error,
+      status,
+      message: "request failed",
+      ...(error instanceof AppError ? { context: { code: error.code } } : {}),
+    });
     if (reply.sent) {
       return;
     }
-    reply.code(status).send(publicErrorBody(status));
+    reply.code(status).send(body);
   });
 
   registerDataTransferRoutes(app, {

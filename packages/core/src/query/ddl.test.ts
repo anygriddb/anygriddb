@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAddColumn,
   buildConversionStatements,
+  buildCreateJunction,
   buildCreateTable,
   convertExpression,
   isMetadataConversion,
@@ -73,5 +74,28 @@ describe("DDL", () => {
     expect(() => convertExpression("attachment", "text", `"x"`)).toThrow(
       "Invalid conversion",
     );
+  });
+
+  it("creates a junction with a right_id index for inverse lookups", () => {
+    const statements = buildCreateJunction({
+      junction: "j_links",
+      leftTable: "t_left",
+      rightTable: "t_right",
+    });
+    expect(statements).toHaveLength(2);
+    expect(statements[0]?.text).toContain('create table "j_links"');
+    expect(statements[0]?.text).toContain(
+      'primary key ("left_id", "right_id")',
+    );
+    expect(statements[1]?.text).toMatch(
+      /create index .* on "j_links" \("right_id"\)/,
+    );
+    expect(() =>
+      buildCreateJunction({
+        junction: "Bad-Name",
+        leftTable: "t_left",
+        rightTable: "t_right",
+      }),
+    ).toThrow("Invalid table name");
   });
 });
