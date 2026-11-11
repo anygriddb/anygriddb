@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { SAML, ValidateInResponseTo } from "@node-saml/node-saml";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -31,14 +31,68 @@ type Deps = {
   oidcTesting?: { fetch: oidc.CustomFetch };
 };
 
+/** How long a sign-in started at the provider may take to come back. */
+const STATE_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * The browser that starts a single sign-on gets a random value of its own,
+ * and the state of the sign-in keeps its hash: the provider's answer is
+ * taken only from a browser that shows it. Without it, an answer the
+ * provider gave one browser would sign another in, to the account of the
+ * first. One cookie per protocol: SAML returns by a cross-site POST, which
+ * carries only a cookie marked `SameSite=None`; OIDC by a top-level GET.
+ */
+export const SSO_BROWSER_COOKIES = {
+  oidc: "__Host-ag_sso_oidc",
+  saml: "__Host-ag_sso_saml",
+} as const;
+const BROWSER_VALUE = /^[A-Za-z0-9_-]{43}$/;
+
+/**
+ * The browser's value, kept if it has one: two sign-ins started in two
+ * tabs both come back.
+ */
+function browserValue(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  kind: "oidc" | "saml",
+): string {
+  const name = SSO_BROWSER_COOKIES[kind];
+  const held = request.cookies[name];
+  const value =
+    held && BROWSER_VALUE.test(held)
+      ? held
+      : randomBytes(32).toString("base64url");
+  reply.setCookie(name, value, {
+    httpOnly: true,
+    secure: true,
+    sameSite: kind === "saml" ? "none" : "lax",
+    path: "/",
+    maxAge: STATE_TTL_MS / 1000,
+  });
+  return value;
+}
+
+function sameBrowser(expected: unknown, shown: string | undefined): boolean {
+  if (typeof expected !== "string" || !shown || !BROWSER_VALUE.test(shown)) {
+    return false;
+  }
+  const given = Buffer.from(hashSessionToken(shown));
+  const wanted = Buffer.from(expected);
+  return given.length === wanted.length && timingSafeEqual(given, wanted);
+}
+
 async function saveState(
   db: Database,
   key: Buffer,
   kind: "oidc" | "saml",
-  payload: { verifier: string; nonce: string },
+  payload: { verifier: string; nonce: string; browser: string },
 ): Promise<string> {
   const state = randomBytes(32).toString("base64url");
-  const sealed = encryptSecret(JSON.stringify(payload), key);
+  const sealed = encryptSecret(
+    JSON.stringify({ ...payload, browser: hashSessionToken(payload.browser) }),
+    key,
+  );
   await db
     .insertInto("oauthStates")
     .values({
@@ -46,17 +100,23 @@ async function saveState(
       kind,
       verifierCiphertext: sealed.ciphertext,
       verifierNonce: sealed.nonce,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      expiresAt: new Date(Date.now() + STATE_TTL_MS),
     })
     .execute();
   return state;
 }
 
+/**
+ * Takes the state of a sign-in, once, for the browser that started it. A
+ * state from another browser is spent all the same: it cannot be tried
+ * again from the right one by whoever holds it.
+ */
 async function takeState(
   db: Database,
   key: Buffer,
-  kind: string,
+  kind: "oidc" | "saml",
   state: string,
+  request: FastifyRequest,
 ): Promise<{ verifier: string; nonce: string }> {
   // One statement takes the state: it is used once, even under a race.
   const row = await db
@@ -71,8 +131,12 @@ async function takeState(
   }
   const parsed = JSON.parse(
     decryptSecret(row.verifierCiphertext, row.verifierNonce, key),
-  ) as { verifier?: unknown; nonce?: unknown };
-  if (typeof parsed.verifier !== "string" || typeof parsed.nonce !== "string") {
+  ) as { verifier?: unknown; nonce?: unknown; browser?: unknown };
+  if (
+    typeof parsed.verifier !== "string" ||
+    typeof parsed.nonce !== "string" ||
+    !sameBrowser(parsed.browser, request.cookies[SSO_BROWSER_COOKIES[kind]])
+  ) {
     throw new AppError("challenge_expired");
   }
   return { verifier: parsed.verifier, nonce: parsed.nonce };
@@ -270,7 +334,7 @@ async function signInRefused(
 }
 
 export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
-  app.get("/auth/oidc/start", async (_request, reply) => {
+  app.get("/auth/oidc/start", async (request, reply) => {
     const { config: oidcEnv } = await resolveOidc(deps.db, deps.env);
     if (!oidcEnv) {
       return reply.code(404).send({ error: "Not found" });
@@ -282,7 +346,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       deps.db,
       deps.env.AUTH_ENCRYPTION_KEY,
       "oidc",
-      { verifier, nonce },
+      { verifier, nonce, browser: browserValue(request, reply, "oidc") },
     );
     const authorize = oidc.buildAuthorizationUrl(config, {
       redirect_uri: oidcEnv.OIDC_REDIRECT_URL,
@@ -311,6 +375,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
         deps.env.AUTH_ENCRYPTION_KEY,
         "oidc",
         query.state,
+        request,
       );
       const config = await oidcConfig(deps, oidcEnv);
       // The callback as the provider called it: the registered redirect URL
@@ -355,7 +420,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
     return reply.redirect(next);
   });
 
-  app.get("/auth/saml/start", async (_request, reply) => {
+  app.get("/auth/saml/start", async (request, reply) => {
     const { config: samlEnv } = await resolveSaml(deps.db, deps.env);
     if (!samlEnv) {
       return reply.code(404).send({ error: "Not found" });
@@ -367,6 +432,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       {
         verifier: randomBytes(16).toString("base64url"),
         nonce: randomBytes(16).toString("base64url"),
+        browser: browserValue(request, reply, "saml"),
       },
     );
     const url = await samlClient(deps, samlEnv).getAuthorizeUrlAsync(
@@ -399,6 +465,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
         deps.env.AUTH_ENCRYPTION_KEY,
         "saml",
         body.RelayState,
+        request,
       );
       const result = await samlClient(deps, samlEnv).validatePostResponseAsync({
         SAMLResponse: body.SAMLResponse,

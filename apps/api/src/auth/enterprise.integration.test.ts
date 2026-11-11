@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Env } from "../env.js";
 import { createTestDatabase } from "../test-database.js";
 import { writeSettings } from "../settings.js";
-import { registerEnterpriseAuth } from "./enterprise.js";
+import { registerEnterpriseAuth, SSO_BROWSER_COOKIES } from "./enterprise.js";
 import { saveTotpSecret } from "./totp.js";
 import { generateTotpSecret } from "./totp-code.js";
 
@@ -121,27 +121,43 @@ describe("OIDC sign-in through openid-client", () => {
     await close?.();
   });
 
-  /** Starts a sign-in and returns the state and nonce the app sent. */
-  async function start() {
+  const BROWSER = SSO_BROWSER_COOKIES.oidc;
+
+  /**
+   * Starts a sign-in, in a browser that already holds `browser` if given,
+   * and returns the state and nonce the app sent, and the browser's value.
+   */
+  async function start(browser?: string) {
     const response = await app.inject({
       method: "GET",
       url: "/auth/oidc/start",
+      ...(browser ? { cookies: { [BROWSER]: browser } } : {}),
     });
     expect(response.statusCode).toBe(302);
     const location = new URL(String(response.headers.location));
     expect(location.origin + location.pathname).toBe(`${ISSUER}/authorize`);
     expect(location.searchParams.get("code_challenge_method")).toBe("S256");
     expect(location.searchParams.get("redirect_uri")).toBe(REDIRECT);
+    const held = response.cookies.find((item) => item.name === BROWSER);
+    expect(held).toMatchObject({
+      httpOnly: true,
+      secure: true,
+      sameSite: "Lax",
+      path: "/",
+    });
     return {
       state: location.searchParams.get("state") ?? "",
       nonce: location.searchParams.get("nonce") ?? "",
+      browser: held?.value ?? "",
     };
   }
 
-  async function callback(state: string) {
+  /** The provider sends the browser back, with or without its value. */
+  async function callback(input: { state: string; browser?: string }) {
     return app.inject({
       method: "GET",
-      url: `/auth/oidc/callback?code=c-${randomBytes(4).toString("hex")}&state=${encodeURIComponent(state)}`,
+      url: `/auth/oidc/callback?code=c-${randomBytes(4).toString("hex")}&state=${encodeURIComponent(input.state)}`,
+      ...(input.browser ? { cookies: { [BROWSER]: input.browser } } : {}),
     });
   }
 
@@ -152,14 +168,14 @@ describe("OIDC sign-in through openid-client", () => {
   };
 
   it("signs in a verified address and creates the account", async () => {
-    const { state, nonce } = await start();
+    const { state, nonce, browser } = await start();
     provider.state.nonce = nonce;
     provider.state.claims = {
       email: `ada-${suffix}@example.com`,
       email_verified: true,
       name: "Ada",
     };
-    const response = await callback(state);
+    const response = await callback({ state, browser });
     expect(response.statusCode).toBe(302);
     expect(response.headers.location).toBe("/");
     expect(session(response)).toMatch(/=/);
@@ -173,20 +189,20 @@ describe("OIDC sign-in through openid-client", () => {
 
   it("does not attach an unverified address to an account that exists", async () => {
     const email = `ada-${suffix}@example.com`;
-    const { state, nonce } = await start();
+    const { state, nonce, browser } = await start();
     provider.state.nonce = nonce;
     provider.state.claims = { email, name: "Ada", sub: `other-${suffix}` };
-    const response = await callback(state);
+    const response = await callback({ state, browser });
     expect(response.headers.location).toBe("/");
     expect(session(response)).toBe("");
   });
 
   it("creates an account when the address is new and not marked verified", async () => {
     const email = `new-${suffix}@example.com`;
-    const { state, nonce } = await start();
+    const { state, nonce, browser } = await start();
     provider.state.nonce = nonce;
     provider.state.claims = { email, name: "New" };
-    const response = await callback(state);
+    const response = await callback({ state, browser });
     expect(response.statusCode).toBe(302);
     expect(session(response)).toMatch(/=/);
     const user = await database
@@ -198,36 +214,66 @@ describe("OIDC sign-in through openid-client", () => {
   });
 
   it("refuses an address the provider did not verify", async () => {
-    const { state, nonce } = await start();
+    const { state, nonce, browser } = await start();
     provider.state.nonce = nonce;
     provider.state.claims = {
       email: `ada-${suffix}@example.com`,
       email_verified: false,
     };
-    const response = await callback(state);
+    const response = await callback({ state, browser });
     expect(response.headers.location).toBe("/");
     expect(session(response)).toBe("");
   });
 
   it("refuses a token minted for another sign-in", async () => {
-    const { state } = await start();
+    const { state, browser } = await start();
     provider.state.nonce = "someone-else";
     provider.state.claims = {
       email: `ada-${suffix}@example.com`,
       email_verified: true,
     };
-    expect(session(await callback(state))).toBe("");
+    expect(session(await callback({ state, browser }))).toBe("");
   });
 
   it("uses a state once", async () => {
-    const { state, nonce } = await start();
+    const { state, nonce, browser } = await start();
     provider.state.nonce = nonce;
     provider.state.claims = {
       email: `ada-${suffix}@example.com`,
       email_verified: true,
     };
-    expect(session(await callback(state))).toMatch(/=/);
-    expect(session(await callback(state))).toBe("");
+    expect(session(await callback({ state, browser }))).toMatch(/=/);
+    expect(session(await callback({ state, browser }))).toBe("");
+  });
+
+  it("takes the answer only in the browser that started the sign-in", async () => {
+    const claims = {
+      email: `ada-${suffix}@example.com`,
+      email_verified: true,
+    };
+    // Brought to another browser, or to one with no value: refused, and
+    // the state is spent, so the right browser cannot use it either.
+    const mine = await start();
+    const theirs = await start();
+    expect(theirs.browser).not.toBe(mine.browser);
+    provider.state.nonce = mine.nonce;
+    provider.state.claims = claims;
+    expect(
+      session(await callback({ state: mine.state, browser: theirs.browser })),
+    ).toBe("");
+    expect(session(await callback(mine))).toBe("");
+    const bare = await start();
+    provider.state.nonce = bare.nonce;
+    expect(session(await callback({ state: bare.state }))).toBe("");
+
+    // Two sign-ins started in two tabs of one browser both come back.
+    const first = await start();
+    const second = await start(first.browser);
+    expect(second.browser).toBe(first.browser);
+    provider.state.nonce = second.nonce;
+    expect(session(await callback(second))).toMatch(/__Host-ag_session=/);
+    provider.state.nonce = first.nonce;
+    expect(session(await callback(first))).toMatch(/__Host-ag_session=/);
   });
 
   describe("an account bound to the provider's subject", () => {
@@ -242,10 +288,10 @@ describe("OIDC sign-in through openid-client", () => {
       )?.id;
 
     async function signInAs(claims: Claims) {
-      const { state, nonce } = await start();
+      const { state, nonce, browser } = await start();
       provider.state.nonce = nonce;
       provider.state.claims = { email_verified: true, ...claims };
-      return callback(state);
+      return callback({ state, browser });
     }
 
     it("binds the first sign-in, then finds the account by its subject", async () => {
@@ -284,10 +330,10 @@ describe("OIDC sign-in through openid-client", () => {
     const email = `mfa-${suffix}@example.com`;
 
     async function signIn() {
-      const { state, nonce } = await start();
+      const { state, nonce, browser } = await start();
       provider.state.nonce = nonce;
       provider.state.claims = { email, email_verified: true, name: "Mo" };
-      return callback(state);
+      return callback({ state, browser });
     }
 
     beforeAll(async () => {
