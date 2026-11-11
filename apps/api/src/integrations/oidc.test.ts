@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { oidcRedirectUrl, oidcUpdateSchema, publicOidc } from "./oidc.js";
+import { AppError } from "@anygriddb/core";
+import {
+  oidcRedirectUrl,
+  oidcUpdateSchema,
+  proveOidcIssuer,
+  publicOidc,
+} from "./oidc.js";
 
 describe("operator OIDC", () => {
   it("derives the redirect URL from PUBLIC_URL", () => {
@@ -57,5 +63,36 @@ describe("operator OIDC", () => {
       oidcUpdateSchema.safeParse({ ...input, redirectUrl: "https://x.example" })
         .success,
     ).toBe(false);
+  });
+
+  it("proves discovery over HTTPS and refuses a broken document", async () => {
+    await proveOidcIssuer("https://idp.example.org/", {
+      fetch: async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          authorization_endpoint: "https://idp.example.org/a",
+          token_endpoint: "https://idp.example.org/t",
+        }),
+      }),
+    });
+    await expect(
+      proveOidcIssuer("http://idp.example.org/", {
+        fetch: async () => ({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        }),
+      }),
+    ).rejects.toBeInstanceOf(AppError);
+    await expect(
+      proveOidcIssuer("https://idp.example.org/", {
+        fetch: async () => ({
+          ok: true,
+          status: 200,
+          json: async () => ({ authorization_endpoint: "https://x" }),
+        }),
+      }),
+    ).rejects.toBeInstanceOf(AppError);
   });
 });

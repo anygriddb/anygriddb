@@ -1185,6 +1185,10 @@ msgstr "AnyGridDB travaille sur de vraies tables SQL : celles qu'il garde pour v
 msgid "ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT is on: sources connect without TLS. For development only."
 msgstr "ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT est actif : les sources se connectent sans TLS. Réservé au développement."
 
+#: components/admin/security-tab.tsx
+msgid "Anyone with a password"
+msgstr "Toute personne ayant un mot de passe"
+
 #: components/table/share-dialog.tsx
 msgid "Anyone with the link can submit a response, recorded under your name."
 msgstr "Toute personne qui a le lien peut envoyer une réponse, enregistrée en votre nom."
@@ -1556,6 +1560,10 @@ msgstr "Catégorie"
 #: components/admin/sources-tab.tsx
 msgid "Certificate (optional)"
 msgstr "Certificat (facultatif)"
+
+#: components/admin/integrations-tab.tsx
+msgid "Certificate is valid"
+msgstr "Le certificat est valide"
 
 #: components/admin/admin-page.tsx
 msgid "Certificate served, valid until {date}, for: {names}."
@@ -3667,8 +3675,8 @@ msgid "Invalid number of fields"
 msgstr "Nombre de champs invalide"
 
 #: lib/errors.ts
-msgid "Invalid OpenID Connect settings"
-msgstr "Réglages OpenID Connect invalides"
+msgid "Invalid OpenID Connect settings: the issuer must answer OpenID discovery over HTTPS"
+msgstr "Réglages OpenID Connect invalides : l'émetteur doit répondre à la découverte OpenID en HTTPS"
 
 #: lib/errors.ts
 msgid "Invalid option"
@@ -3703,8 +3711,8 @@ msgid "Invalid row identifier"
 msgstr "Identifiant de ligne invalide"
 
 #: lib/errors.ts
-msgid "Invalid SAML settings: the entry point must be HTTPS"
-msgstr "Réglages SAML invalides : le point d'entrée doit être en HTTPS"
+msgid "Invalid SAML settings: the entry point must be HTTPS and the certificate must be a valid, unexpired PEM"
+msgstr "Réglages SAML invalides : le point d'entrée doit être en HTTPS et le certificat un PEM valide non expiré"
 
 #: lib/errors.ts
 msgid "Invalid table name"
@@ -4873,6 +4881,10 @@ msgstr "OpenID Connect"
 msgid "OpenID Connect is not set up on this instance"
 msgstr "OpenID Connect n'est pas configuré sur cette instance"
 
+#: components/admin/integrations-tab.tsx
+msgid "OpenID discovery answered"
+msgstr "La découverte OpenID a répondu"
+
 #: components/settings/api-console.tsx
 msgid "Operation"
 msgstr "Opération"
@@ -4987,6 +4999,10 @@ msgstr "Mot de passe réinitialisé"
 #: components/admin/sign-in-trail.tsx
 msgid "Password resets"
 msgstr "Réinitialisation des mots de passe"
+
+#: lib/errors.ts
+msgid "Password sign-in is off: use single sign-on, or ask an administrator"
+msgstr "La connexion par mot de passe est fermée : utilisez l'authentification unique, ou demandez à un administrateur"
 
 #: lib/errors.ts
 msgid "Password too short. Minimum length"
@@ -6200,6 +6216,10 @@ msgstr "Secret de signature, affiché une fois :"
 msgid "Single select"
 msgstr "Choix unique"
 
+#: components/admin/security-tab.tsx
+msgid "Single sign-on only (administrators keep a password)"
+msgstr "Authentification unique seulement (les administrateurs gardent un mot de passe)"
+
 #: components/admin/sign-in-trail.tsx
 msgid "Single sign-on unlinked"
 msgstr "Authentification unique déliée"
@@ -6547,6 +6567,10 @@ msgid "Test"
 msgstr "Test"
 
 #: components/admin/integrations-tab.tsx
+msgid "Test certificate"
+msgstr "Tester le certificat"
+
+#: components/admin/integrations-tab.tsx
 #: components/admin/support-tab.tsx
 msgid "Test email sent to {to}"
 msgstr "Email de test envoyé à {to}"
@@ -6554,6 +6578,10 @@ msgstr "Email de test envoyé à {to}"
 #: components/settings/webhooks-panel.tsx
 msgid "Test failed: {error}"
 msgstr "Échec du test : {error}"
+
+#: components/admin/integrations-tab.tsx
+msgid "Test issuer"
+msgstr "Tester l'émetteur"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Test sent ({status})"
@@ -7207,6 +7235,10 @@ msgstr "Cet hôte n'est pas autorisé : l'opérateur l'ajoute à ANYGRIDDB_SOURC
 msgid "This instance is up to date"
 msgstr "Cette instance est à jour"
 
+#: components/auth/auth-page.tsx
+msgid "This instance uses single sign-on. A password works only for administrators."
+msgstr "Cette instance utilise l'authentification unique. Un mot de passe ne fonctionne que pour les administrateurs."
+
 #: lib/errors.ts
 msgid "This invitation does not exist or has expired"
 msgstr "Cette invitation n'existe pas ou a expiré"
@@ -7559,6 +7591,10 @@ msgstr "Activer"
 #: lib/errors.ts
 msgid "Turn on a second factor in your settings"
 msgstr "Activez un second facteur dans vos réglages"
+
+#: lib/errors.ts
+msgid "Turn on single sign-on (OIDC or SAML) before requiring it for everyone"
+msgstr "Activez l'authentification unique (OIDC ou SAML) avant de l'exiger pour tout le monde"
 
 #: lib/errors.ts
 msgid "Turn on the release check in Health first"
@@ -7970,6 +8006,10 @@ msgstr "Quand"
 msgid "when changed: {fields}"
 msgstr "si modifié : {fields}"
 
+#: components/admin/security-tab.tsx
+msgid "When single sign-on only is on, other people use the identity provider. Administrators keep a password so the instance is not locked out if the provider fails."
+msgstr "Quand l'authentification unique seule est active, les autres personnes passent par le fournisseur d'identité. Les administrateurs gardent un mot de passe pour que l'instance ne soit pas bloquée si le fournisseur tombe."
+
 #: components/fields/formula-docs.ts
 msgid "When the row was created."
 msgstr "Quand la ligne a été créée."
@@ -8011,6 +8051,10 @@ msgstr "Qui peut lancer une réinitialisation du mot de passe"
 #: components/admin/security-tab.tsx
 msgid "Who may create what, whom owners may invite, and what happens to accounts nobody uses."
 msgstr "Qui peut créer quoi, qui les propriétaires peuvent inviter, et ce que deviennent les comptes inutilisés."
+
+#: components/admin/security-tab.tsx
+msgid "Who may sign in with a password"
+msgstr "Qui peut se connecter avec un mot de passe"
 
 #: components/admin/security-tab.tsx
 #: components/admin/sign-in-trail.tsx

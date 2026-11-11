@@ -2,10 +2,30 @@
  * Operator SAML stored in the database (ADR 0050). The ACS URL is derived
  * from PUBLIC_URL; the IdP certificate is PEM text (not a sealed secret).
  */
+import { X509Certificate } from "node:crypto";
 import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { recordAuthEvent } from "../auth/auth-events.js";
+
+/**
+ * Parses the IdP signing certificate and refuses an unreadable or expired
+ * PEM (ADR 0053). A not-yet-valid cert is accepted so an administrator can
+ * stage a rotation before its notBefore.
+ */
+export function proveSamlCertificate(pem: string): void {
+  let cert: X509Certificate;
+  try {
+    cert = new X509Certificate(pem);
+  } catch (error) {
+    throw new AppError("invalid_saml", { cause: error });
+  }
+  const now = Date.now();
+  const notAfter = Date.parse(cert.validTo);
+  if (!Number.isFinite(notAfter) || notAfter <= now) {
+    throw new AppError("invalid_saml");
+  }
+}
 
 const CACHE_TTL_MS = 5_000;
 
@@ -163,6 +183,7 @@ export async function saveSaml(
     .executeTakeFirst();
   const idpCert = input.idpCert ?? existing?.idpCert;
   if (!idpCert) throw new AppError("invalid_saml");
+  proveSamlCertificate(idpCert);
 
   const row = {
     id: true as const,

@@ -42,6 +42,7 @@ import { cancelAnyJob, listAllJobs } from "../jobs.js";
 import {
   clearOidc,
   loadOidcRow,
+  proveOidcIssuer,
   publicOidc,
   resolveOidc,
   saveOidc,
@@ -50,6 +51,7 @@ import {
 import {
   clearSaml,
   loadSamlRow,
+  proveSamlCertificate,
   publicSaml,
   resolveSaml,
   saveSaml,
@@ -485,6 +487,16 @@ const oidcRouter = t.router({
       );
     }),
   ),
+  /** Proves discovery without saving (ADR 0053). */
+  test: procedure
+    .input(z.object({ issuer: z.url().max(2048) }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        await proveOidcIssuer(input.issuer);
+        return { ok: true as const };
+      }),
+    ),
   clear: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
@@ -517,6 +529,16 @@ const samlRouter = t.router({
       });
     }),
   ),
+  /** Parses the PEM without saving (ADR 0053). */
+  test: procedure
+    .input(z.object({ idpCert: z.string().trim().min(1).max(16384) }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        proveSamlCertificate(input.idpCert);
+        return { ok: true as const };
+      }),
+    ),
   clear: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
@@ -553,6 +575,15 @@ export const adminRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
+        if (input.ssoOnly === true) {
+          const [oidc, saml] = await Promise.all([
+            resolveOidc(ctx.db, ctx.env),
+            resolveSaml(ctx.db, ctx.env),
+          ]);
+          if (oidc.config === null && saml.config === null) {
+            throw new AppError("sso_required");
+          }
+        }
         await writeSettings(ctx.db, admin.id, input, ctx.req.ip);
         if (input.maintenance === true) {
           // Only administrators stay: the others are signed out now.

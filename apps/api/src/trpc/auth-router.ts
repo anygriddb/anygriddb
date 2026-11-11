@@ -76,6 +76,10 @@ import {
 } from "../auth/signup.js";
 import { assertMayChangeFactor } from "../auth/factor-step-up.js";
 import {
+  assertLocalSignInAllowed,
+  assertPasswordSignupAllowed,
+} from "../auth/sso-only.js";
+import {
   createApiToken,
   listApiTokens,
   revokeApiToken,
@@ -287,7 +291,9 @@ export const authRouter = t.router({
       banner: settings.banner,
       // What the forms need to say (ADR 0043); never the lock's limits.
       passwordMinLength: settings.passwordMinLength,
+      ssoOnly: settings.ssoOnly,
       selfReset:
+        !settings.ssoOnly &&
         settings.passwordReset === "self" &&
         smtpReady((await resolveSmtp(ctx.db, ctx.env)).config),
       publicLinks: settings.publicLinks,
@@ -299,6 +305,8 @@ export const authRouter = t.router({
   signup: procedure
     .input(signupInputSchema)
     .mutation(async ({ ctx, input }) => {
+      const settings = await readSettings(ctx.db);
+      assertPasswordSignupAllowed(settings);
       const email = input.email.toLowerCase();
       const decision = await signupDecision(
         ctx.db,
@@ -309,7 +317,7 @@ export const authRouter = t.router({
         ctx.req.log.warn("signup refused by policy");
         throw new AppError(decision.refusal ?? "signup_closed");
       }
-      assertPasswordPolicy(input.password, await readSettings(ctx.db));
+      assertPasswordPolicy(input.password, settings);
       try {
         const hash = await hashPassword(input.password);
         const userId = await ctx.db.transaction().execute(async (tx) => {
@@ -342,6 +350,7 @@ export const authRouter = t.router({
       }
     }),
   login: procedure.input(loginInputSchema).mutation(async ({ ctx, input }) => {
+    const settings = await readGateSettings(ctx.db);
     const user = await ctx.db
       .selectFrom("users as u")
       .innerJoin("passwordHashes as p", "p.userId", "u.id")
@@ -363,6 +372,7 @@ export const authRouter = t.router({
       if (user) await failedAttempt(ctx, user.id);
       throw new AppError("invalid_credentials");
     }
+    assertLocalSignInAllowed(settings, user);
     if (user.disabledAt) {
       await signInFailed(ctx, "password", user.id, "account_disabled");
       throw new AppError("account_disabled");
@@ -641,6 +651,7 @@ export const authRouter = t.router({
     .mutation(async ({ ctx, input }) => {
       const settings = await readSettings(ctx.db);
       if (
+        settings.ssoOnly ||
         settings.passwordReset !== "self" ||
         !smtpReady((await resolveSmtp(ctx.db, ctx.env)).config)
       ) {

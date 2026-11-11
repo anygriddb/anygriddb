@@ -1,5 +1,6 @@
 /**
  * Operator OIDC and SAML rows (ADR 0050): save, hide secrets, clear, env fallback.
+ * Save proves discovery / certificate shape (ADR 0053).
  */
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
@@ -16,13 +17,60 @@ import { clearSamlCache, resolveSaml } from "./saml.js";
 
 const suffix = randomBytes(6).toString("hex");
 const PASSWORD = "correct horse battery staple";
+/** Self-signed IdP cert for idp.example.org, valid through 2029. */
 const CERT = `-----BEGIN CERTIFICATE-----
-MIIBtjCCAVugAwIBAgIUTest
+MIICsDCCAZgCCQDSM29vSTjITjANBgkqhkiG9w0BAQsFADAaMRgwFgYDVQQDDA9p
+ZHAuZXhhbXBsZS5vcmcwHhcNMjYxMTExMTgzNTM3WhcNMjkwMjEzMTgzNTM3WjAa
+MRgwFgYDVQQDDA9pZHAuZXhhbXBsZS5vcmcwggEiMA0GCSqGSIb3DQEBAQUAA4IB
+DwAwggEKAoIBAQDNMsi7uWLPZLoZhUmM++dVeT3GN+AaK6QkF+/G7S2FX4TEQ4Fa
+irOG/DATGQ0/wo8VXL1mrjGRk64DDlffgOzehl+9grk6uVu3Q4Tqhf0CgKkW28YB
+oQg+ZUjKW7QaKDN0X3AC4hD1Z5/1cFdnTs77M0pF0oHFTcBJqDq6gyFZ/KZkJvCv
+BLg27IWfMtM2hFp0fAgXrvx8Mf0t40jibsieqreVPFYV34bSxjNG+tOIZXoHeyaT
+jSZ332u3SyyuzZmMVZVK5N1E8ObTq5He2fE42dr9R6DMCi1uJhgdoJlKtA+9gCZK
+CY60ABtcSkGNkJNx3O5h16OJdpfUJhP/BihtAgMBAAEwDQYJKoZIhvcNAQELBQAD
+ggEBAIKNO9qfhQTZoLMSkoN0nGigdafVG/ewaT5L73R1VHBOmiI8ZxgRuXflDHRB
+4xgql5ruKeJLoHtX3aG4mZbA1T/j1yNK14kDm7hRy0r6ns+9R31EanG5oek6hXco
+zBxr0nb4SM0pwb5u5qW2nb8oN5mg+3Dj72eSIl9bcP2bZfJR5RZKpEeLB6xK/QTq
+1WZT2atZqqOAC1YBXLp4BnUTj9Zt5p1V6PlRiR+MZHY8NqXZAU9Pgo3WtUpfS2Mv
+EkZDArppZoEDr59zblzByjgGGuAUar+3u+7M28CH14YepWE2p/cJNM7z3d9bbBj8
+yMWKMogCyoWrLW/RY6VH0iwp8/8=
 -----END CERTIFICATE-----`;
+
+function mockOidcDiscovery(): () => void {
+  const previous = globalThis.fetch;
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url;
+    if (!url.includes(".well-known/openid-configuration")) {
+      return {
+        ok: false,
+        status: 404,
+        json: async () => ({}),
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        issuer: "https://idp.example.org/",
+        authorization_endpoint: "https://idp.example.org/authorize",
+        token_endpoint: "https://idp.example.org/token",
+      }),
+    };
+  }) as typeof fetch;
+  return () => {
+    globalThis.fetch = previous;
+  };
+}
 
 describe("operator OIDC and SAML", () => {
   let db: Database;
   let close: (() => Promise<void>) | undefined;
+  let restoreFetch: (() => void) | undefined;
   const env = {
     AUTH_ENCRYPTION_KEY: randomBytes(32),
     PUBLIC_URL: "https://grid.example.org",
@@ -37,6 +85,7 @@ describe("operator OIDC and SAML", () => {
   const admin = browser();
 
   beforeAll(async () => {
+    restoreFetch = mockOidcDiscovery();
     const created = await createTestDatabase("sso_ui");
     db = created.db;
     close = created.close;
@@ -49,6 +98,7 @@ describe("operator OIDC and SAML", () => {
   }, 120_000);
 
   afterAll(async () => {
+    restoreFetch?.();
     await close?.();
   });
 
@@ -119,7 +169,7 @@ describe("operator OIDC and SAML", () => {
     expect((await resolveOidc(db, env)).source).toBe("none");
   });
 
-  it("refuses HTTP SAML entry points", async () => {
+  it("refuses HTTP SAML entry points and a bad certificate", async () => {
     expect(
       await errorCode(
         admin.call().admin.saml.update({
@@ -129,5 +179,29 @@ describe("operator OIDC and SAML", () => {
         }),
       ),
     ).toBe("invalid_saml");
+    expect(
+      await errorCode(
+        admin.call().admin.saml.update({
+          entryPoint: "https://idp.example.org/sso",
+          issuer: "https://idp.example.org",
+          idpCert: "not-a-certificate",
+        }),
+      ),
+    ).toBe("invalid_saml");
+  });
+
+  it("refuses SSO-only without a provider, then allows it once OIDC is saved", async () => {
+    expect(
+      await errorCode(admin.call().admin.updateSettings({ ssoOnly: true })),
+    ).toBe("sso_required");
+    await admin.call().admin.oidc.update({
+      issuer: "https://idp.example.org/",
+      clientId: "anygriddb",
+      clientSecret: "super-secret",
+    });
+    const settings = await admin.call().admin.updateSettings({ ssoOnly: true });
+    expect(settings.ssoOnly).toBe(true);
+    await admin.call().admin.updateSettings({ ssoOnly: false });
+    await admin.call().admin.oidc.clear();
   });
 });

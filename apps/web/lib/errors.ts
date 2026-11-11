@@ -136,9 +136,11 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   too_many_recipients: msg`Too many recipients (500 at most per send)`,
   operator_mail_limited: msg`At most five notices an hour: try again later`,
   oidc_not_configured: msg`OpenID Connect is not set up on this instance`,
-  invalid_oidc: msg`Invalid OpenID Connect settings`,
+  invalid_oidc: msg`Invalid OpenID Connect settings: the issuer must answer OpenID discovery over HTTPS`,
   saml_not_configured: msg`SAML is not set up on this instance`,
-  invalid_saml: msg`Invalid SAML settings: the entry point must be HTTPS`,
+  invalid_saml: msg`Invalid SAML settings: the entry point must be HTTPS and the certificate must be a valid, unexpired PEM`,
+  password_sign_in_disabled: msg`Password sign-in is off: use single sign-on, or ask an administrator`,
+  sso_required: msg`Turn on single sign-on (OIDC or SAML) before requiring it for everyone`,
 
   invalid_webhook: msg`Invalid webhook: a public HTTPS address or an email is required`,
   invalid_delivery: msg`This delivery cannot be sent again`,

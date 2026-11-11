@@ -126,6 +126,19 @@ export function SecurityTab() {
             hint={t`Trust it only if your identity provider requires a second factor of everyone. An account that signs in only through it then needs none here.`}
           />
         ) : null}
+        {data.ssoReady ? (
+          <Choice
+            id="policy-sso-only"
+            label={t`Who may sign in with a password`}
+            value={data.ssoOnly ? "sso" : "password"}
+            options={[
+              ["password", t`Anyone with a password`],
+              ["sso", t`Single sign-on only (administrators keep a password)`],
+            ]}
+            onChange={(value) => void save({ ssoOnly: value === "sso" })}
+            hint={t`When single sign-on only is on, other people use the identity provider. Administrators keep a password so the instance is not locked out if the provider fails.`}
+          />
+        ) : null}
       </RuledSection>
 
       <RuledSection

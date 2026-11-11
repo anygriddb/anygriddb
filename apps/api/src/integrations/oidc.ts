@@ -152,13 +152,85 @@ export async function resolveOidc(
   return { config, source: config ? "env" : "none" };
 }
 
+const DISCOVERY_TIMEOUT_MS = 10_000;
+
+/**
+ * Fetches the issuer's OpenID discovery document over HTTPS and checks it
+ * names authorization and token endpoints (ADR 0053). Inject `fetch` in
+ * tests; production uses the runtime's.
+ */
+export async function proveOidcIssuer(
+  issuer: string,
+  options: {
+    fetch?: (
+      input: string,
+      init?: { signal?: AbortSignal },
+    ) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+    signal?: AbortSignal;
+  } = {},
+): Promise<void> {
+  if (!issuer.startsWith("https://")) {
+    throw new AppError("invalid_oidc");
+  }
+  let base: URL;
+  try {
+    base = new URL(issuer);
+  } catch (error) {
+    throw new AppError("invalid_oidc", { cause: error });
+  }
+  if (base.protocol !== "https:" || base.username || base.password) {
+    throw new AppError("invalid_oidc");
+  }
+  const discovery = new URL(
+    ".well-known/openid-configuration",
+    base.href.endsWith("/") ? base.href : `${base.href}/`,
+  ).href;
+  const fetchFn = options.fetch ?? globalThis.fetch;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DISCOVERY_TIMEOUT_MS);
+  if (options.signal) {
+    if (options.signal.aborted) controller.abort();
+    else
+      options.signal.addEventListener("abort", () => controller.abort(), {
+        once: true,
+      });
+  }
+  let body: unknown;
+  try {
+    const response = await fetchFn(discovery, { signal: controller.signal });
+    if (!response.ok) throw new AppError("invalid_oidc");
+    body = await response.json();
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError("invalid_oidc", { cause: error });
+  } finally {
+    clearTimeout(timer);
+  }
+  if (
+    !body ||
+    typeof body !== "object" ||
+    typeof (body as { authorization_endpoint?: unknown })
+      .authorization_endpoint !== "string" ||
+    typeof (body as { token_endpoint?: unknown }).token_endpoint !== "string"
+  ) {
+    throw new AppError("invalid_oidc");
+  }
+}
+
 export async function saveOidc(
   db: Database,
   key: Buffer,
   userId: string,
   input: OidcUpdate,
   publicUrl: string,
-  options: { ip?: string } = {},
+  options: {
+    ip?: string;
+    /** Test seam for OpenID discovery (ADR 0053). */
+    fetch?: (
+      input: string,
+      init?: { signal?: AbortSignal },
+    ) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+  } = {},
 ): Promise<PublicOidc> {
   const existing = await db
     .selectFrom("instanceOidc")
@@ -170,6 +242,7 @@ export async function saveOidc(
   if (!input.issuer.startsWith("https://")) {
     throw new AppError("invalid_oidc");
   }
+  await proveOidcIssuer(input.issuer, { fetch: options.fetch });
 
   let ciphertext = existing?.clientSecretCiphertext;
   let nonce = existing?.clientSecretNonce;

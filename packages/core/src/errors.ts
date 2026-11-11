@@ -142,6 +142,10 @@ export const ERRORS = {
   invalid_oidc: [BAD, "Invalid OIDC settings"],
   saml_not_configured: [412, "SAML not configured"],
   invalid_saml: [BAD, "Invalid SAML settings"],
+  /** Password sign-in while the instance is SSO-only (non-admin). */
+  password_sign_in_disabled: [403, "Password sign-in is disabled"],
+  /** Turning on SSO-only without a ready identity provider. */
+  sso_required: [BAD, "Single sign-on must be configured first"],
 
   // Integrations.
   invalid_webhook: [BAD, "Invalid webhook"],
