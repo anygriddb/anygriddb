@@ -1035,6 +1035,10 @@ msgstr "Airtable refuses this token: it needs data.records:read and schema.bases
 msgid "All"
 msgstr "All"
 
+#: components/admin/support-tab.tsx
+msgid "All active accounts"
+msgstr "All active accounts"
+
 #: components/settings/account-settings.tsx
 msgid "All bases"
 msgstr "All bases"
@@ -1245,6 +1249,10 @@ msgstr "At least one passkey is registered."
 #: components/table/automations-dialog.tsx
 msgid "at most"
 msgstr "at most"
+
+#: lib/errors.ts
+msgid "At most five notices an hour: try again later"
+msgstr "At most five notices an hour: try again later"
 
 #: components/fields/field-meta.tsx
 msgid "Attachment"
@@ -1632,6 +1640,10 @@ msgstr "Choose a new password"
 #: components/table/import-dialog.tsx
 msgid "Choose another file"
 msgstr "Choose another file"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Chosen accounts"
+msgstr "Chosen accounts"
 
 #: components/table/new-row-dialog.tsx
 msgid "Chosen: {label}"
@@ -2380,6 +2392,10 @@ msgstr "Disable {name}'s account?"
 msgid "Disable accounts nobody uses"
 msgstr "Disable accounts nobody uses"
 
+#: components/admin/support-tab.tsx
+msgid "Disabled"
+msgstr "Disabled"
+
 #: components/admin/admin-page.tsx
 msgid "Disabled on {date}"
 msgstr "Disabled on {date}"
@@ -2491,6 +2507,10 @@ msgstr "Duration"
 msgid "Each choice starts at a value that suits most organizations. Change it to follow your own rules: the limits that protect accounts cannot be turned off."
 msgstr "Each choice starts at a value that suits most organizations. Change it to follow your own rules: the limits that protect accounts cannot be turned off."
 
+#: components/admin/support-tab.tsx
+msgid "Each person receives this plain-text notice by email. The sign-in trail records that you sent it."
+msgstr "Each person receives this plain-text notice by email. The sign-in trail records that you sent it."
+
 #: components/auth/auth-frame.tsx
 msgid "Each row is a real row of your database. Each change is signed, dated, and can be undone."
 msgstr "Each row is a real row of your database. Each change is signed, dated, and can be undone."
@@ -2570,6 +2590,10 @@ msgstr "Email"
 #: components/admin/integrations-tab.tsx
 msgid "Email (SMTP)"
 msgstr "Email (SMTP)"
+
+#: components/admin/support-tab.tsx
+msgid "Email a plain-text notice about maintenance, a policy change, or an incident. This is not a newsletter: it ignores each person's notification preference."
+msgstr "Email a plain-text notice about maintenance, a policy change, or an incident. This is not a newsletter: it ignores each person's notification preference."
 
 #: components/admin/integrations-tab.tsx
 msgid "Email and single sign-on for this instance. You can leave the environment empty at install and set these here; a complete save here overrides the environment."
@@ -2730,6 +2754,10 @@ msgstr "Events are kept {days} days, then deleted. {total} events kept now. An e
 #: components/admin/sources-tab.tsx
 msgid "every"
 msgstr "every"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Every active account"
+msgstr "Every active account"
 
 #: components/table/automations-dialog.tsx
 msgid "Every day"
@@ -4208,9 +4236,14 @@ msgstr "Memory used"
 msgid "Mentions, replies, assignments, and alerts. The email only holds the table name and a link."
 msgstr "Mentions, replies, assignments, and alerts. The email only holds the table name and a link."
 
+#: components/admin/support-tab.tsx
 #: components/table/automations-dialog.tsx
 msgid "Message"
 msgstr "Message"
+
+#: components/admin/support-tab.tsx
+msgid "Message accounts"
+msgstr "Message accounts"
 
 #: components/views/form-view.tsx
 msgid "Message after submit"
@@ -4314,6 +4347,7 @@ msgid "Name"
 msgstr "Name"
 
 #: components/admin/admin-page.tsx
+#: components/admin/support-tab.tsx
 msgid "Name or email"
 msgstr "Name or email"
 
@@ -4479,6 +4513,10 @@ msgstr "No account with this email"
 msgid "No account yet? Sign up"
 msgstr "No account yet? Sign up"
 
+#: lib/errors.ts
+msgid "No accounts match this selection"
+msgstr "No accounts match this selection"
+
 #: components/table/automations-dialog.tsx
 msgid "No automations on this table."
 msgstr "No automations on this table."
@@ -4630,6 +4668,14 @@ msgstr "Notes"
 #: components/shell/home-page.tsx
 msgid "Nothing here yet."
 msgstr "Nothing here yet."
+
+#: components/admin/sign-in-trail.tsx
+msgid "Notice emailed"
+msgstr "Notice emailed"
+
+#: components/admin/support-tab.tsx
+msgid "Notice queued for {count} accounts"
+msgstr "Notice queued for {count} accounts"
 
 #: components/settings/account-settings.tsx
 #: components/shell/notification-bell.tsx
@@ -5228,6 +5274,7 @@ msgstr "Reason: {reason}"
 msgid "Recently opened"
 msgstr "Recently opened"
 
+#: components/admin/support-tab.tsx
 #: components/table/automations-dialog.tsx
 msgid "Recipients"
 msgstr "Recipients"
@@ -5740,6 +5787,7 @@ msgid "Search a person"
 msgstr "Search a person"
 
 #: components/admin/admin-page.tsx
+#: components/admin/support-tab.tsx
 msgid "Search accounts"
 msgstr "Search accounts"
 
@@ -5797,6 +5845,10 @@ msgstr "Select loaded rows"
 msgid "Select row {index}"
 msgstr "Select row {index}"
 
+#: components/admin/support-tab.tsx
+msgid "Selected accounts"
+msgstr "Selected accounts"
+
 #: components/grid/selection-summary.tsx
 msgid "Selection statistics"
 msgstr "Selection statistics"
@@ -5834,6 +5886,10 @@ msgstr "Send an email"
 msgid "Send me a test email"
 msgstr "Send me a test email"
 
+#: components/admin/support-tab.tsx
+msgid "Send notice"
+msgstr "Send notice"
+
 #: components/shell/shortcuts-dialog.tsx
 msgid "Send the comment; @ to mention"
 msgstr "Send the comment; @ to mention"
@@ -5841,6 +5897,10 @@ msgstr "Send the comment; @ to mention"
 #: components/auth/auth-page.tsx
 msgid "Send the link"
 msgstr "Send the link"
+
+#: components/admin/support-tab.tsx
+msgid "Send to {count} accounts?"
+msgstr "Send to {count} accounts?"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Sent ({status})"
@@ -5879,6 +5939,10 @@ msgstr "Set as primary field"
 #: components/auth/reset-page.tsx
 msgid "Set the password"
 msgstr "Set the password"
+
+#: components/admin/support-tab.tsx
+msgid "Set up email under Integrations before you can send a notice."
+msgstr "Set up email under Integrations before you can send a notice."
 
 #: components/admin/sign-in-trail.tsx
 msgid "Setting changed"
@@ -6274,6 +6338,7 @@ msgstr "Structure"
 msgid "Style"
 msgstr "Style"
 
+#: components/admin/support-tab.tsx
 #: components/table/automations-dialog.tsx
 msgid "Subject"
 msgstr "Subject"
@@ -7355,6 +7420,10 @@ msgstr "Too long for this instance. Most days allowed"
 #: lib/errors.ts
 msgid "Too many jobs running: wait for one to finish"
 msgstr "Too many jobs running: wait for one to finish"
+
+#: lib/errors.ts
+msgid "Too many recipients (500 at most per send)"
+msgstr "Too many recipients (500 at most per send)"
 
 #: lib/errors.ts
 msgid "Too many rows (100,000 at most)"

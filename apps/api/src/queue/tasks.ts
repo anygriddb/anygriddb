@@ -63,6 +63,10 @@ import {
 } from "../sources/sync.js";
 import { announceRows } from "../data/announce.js";
 import { resolveSmtp } from "../integrations/smtp.js";
+import {
+  deliverOperatorMail,
+  operatorMailPayloadSchema,
+} from "../operator-mail.js";
 import { runScheduledReleaseCheck } from "../release-status.js";
 import { transactionEvents } from "./row-events.js";
 import type { WorkerGroup } from "./worker.js";
@@ -277,6 +281,17 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
     },
     [TASKS.releaseCheck]: async () => {
       await runScheduledReleaseCheck(deps.db, { log: deps.log });
+    },
+    [TASKS.operatorMail]: async (payload) => {
+      const parsed = operatorMailPayloadSchema.parse(payload);
+      await deliverOperatorMail(
+        {
+          db: deps.db,
+          smtp: await mailSmtp(),
+          log: deps.log,
+        },
+        parsed,
+      );
     },
   };
   const jobs: TaskList = {
