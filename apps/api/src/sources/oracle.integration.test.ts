@@ -32,7 +32,7 @@ import { checkConnection, createSource } from "./sources.js";
 import { introspectOracle } from "./oracle-schema.js";
 import type { SourceConnection, SourceSettings } from "./types.js";
 
-const LOCAL = ["localhost", "127.0.0.1", "127.0.0.2"];
+const LOCAL = ["localhost", "127.0.0.1"];
 const settings: SourceSettings = {
   allows: (host) => LOCAL.includes(host),
   allowedHosts: LOCAL,
@@ -42,9 +42,8 @@ const verified: SourceSettings = { ...settings, allowPlaintext: false };
 
 const SYSTEM_PASSWORD = "Anygrid_Oracle_19";
 
-/** A TLS front on `address`, its certificate for 127.0.0.1 only. */
+/** A TLS front on 127.0.0.1 for the Oracle listener on `upstream`. */
 async function tlsFront(
-  address: string,
   upstream: number,
   identity: { key: string; cert: string },
 ): Promise<{ server: Server; port: number }> {
@@ -54,7 +53,7 @@ async function tlsFront(
     socket.on("error", () => link.destroy());
     link.on("error", () => socket.destroy());
   });
-  server.listen(0, address);
+  server.listen(0, "127.0.0.1");
   await once(server, "listening");
   return { server, port: (server.address() as AddressInfo).port };
 }
@@ -186,7 +185,7 @@ describe("Oracle sources", () => {
   it("connects over verified TLS only, to the name its certificate gives", async () => {
     const authority = issueAuthority({
       commonName: "Test authority",
-      names: ["127.0.0.1", "127.0.0.2"],
+      names: ["127.0.0.1"],
     });
     const other = issueAuthority({
       commonName: "Another authority",
@@ -202,22 +201,18 @@ describe("Oracle sources", () => {
       },
     });
     const identity = { key: server.key, cert: server.cert + authority.cert };
-    const [named, misnamed] = await Promise.all([
-      tlsFront("127.0.0.1", port, identity),
-      tlsFront("127.0.0.2", port, identity),
-    ]);
-    fronts.push(named.server, misnamed.server);
-    const through = (host: string, front: number, tlsCa: string | null) =>
-      outcome(
-        checkConnection(verified, connection({ host, port: front, tlsCa })),
-      );
-    expect(await through("127.0.0.1", named.port, authority.cert)).toBe(
+    const front = await tlsFront(port, identity);
+    fronts.push(front.server);
+    const through = (host: string, at: number, tlsCa: string | null) =>
+      outcome(checkConnection(verified, connection({ host, port: at, tlsCa })));
+    expect(await through("127.0.0.1", front.port, authority.cert)).toBe(
       "connected",
     );
-    expect(await through("127.0.0.1", named.port, other.cert)).toBe(
+    expect(await through("127.0.0.1", front.port, other.cert)).toBe(
       "source_tls_failed",
     );
-    expect(await through("127.0.0.2", misnamed.port, authority.cert)).toBe(
+    // The same front by a name its certificate does not give.
+    expect(await through("localhost", front.port, authority.cert)).toBe(
       "source_tls_failed",
     );
     // No authority, no development flag: no plaintext either.
