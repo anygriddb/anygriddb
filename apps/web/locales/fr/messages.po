@@ -5239,10 +5239,6 @@ msgstr "actualisée toutes les"
 msgid "refreshes"
 msgstr "rafraîchissements"
 
-#: components/settings/account-settings.tsx
-msgid "Refused while an audit row, a signature, or a role refers to you."
-msgstr "Refusé tant qu'une trace d'audit, une signature ou un rôle vous référence."
-
 #: components/settings/second-factor.tsx
 msgid "Register a passkey"
 msgstr "Enregistrer une clé d'accès"
@@ -5302,6 +5298,10 @@ msgstr "Retirer ses seconds facteurs"
 #: components/admin/admin-page.tsx
 msgid "removed by the identity provider"
 msgstr "retiré par le fournisseur d'identité"
+
+#: components/settings/account-settings.tsx
+msgid "Removes your sign-in and attributes your audit history to an erased account. Values you entered in bases stay until a manager deletes those rows."
+msgstr "Supprime votre connexion et attribue votre historique d'audit à un compte effacé. Les valeurs que vous avez saisies dans les bases restent jusqu'à ce qu'un responsable supprime ces lignes."
 
 #: components/shell/sidebar.tsx
 #: components/table/view-tabs.tsx
@@ -6988,8 +6988,8 @@ msgid "This cannot be done to this account"
 msgstr "Opération impossible sur ce compte"
 
 #: components/settings/account-settings.tsx
-msgid "This cannot be undone."
-msgstr "Cette action est irréversible."
+msgid "This cannot be undone. Your email and factors are removed. Row values in bases are not wiped."
+msgstr "Cette action est définitive. Votre adresse et vos seconds facteurs sont retirés. Les valeurs des lignes dans les bases ne sont pas effacées."
 
 #: lib/errors.ts
 msgid "This column does not tell when a row changes: choose a date and time set on every change, or a rowversion"

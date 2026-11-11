@@ -30,7 +30,11 @@ const PASSWORD = "correct horse battery staple";
 describe("instance controls", () => {
   let db: Database;
   let close: (() => Promise<void>) | undefined;
-  const hub = { closeUser: vi.fn(() => 0), closeAllBut: vi.fn(() => 0) };
+  const hub = {
+    closeUser: vi.fn(() => 0),
+    closeAllBut: vi.fn(() => 0),
+    closeSession: vi.fn(() => 0),
+  };
   const env = {
     AUTH_ENCRYPTION_KEY: randomBytes(32),
     PUBLIC_URL: "https://grid.example.org",
@@ -190,11 +194,20 @@ describe("instance controls", () => {
     const token = (await createApiToken(db, memberId, "required")).token;
     const asMember = () =>
       requestActor(db, { authorization: `Bearer ${token}` }, undefined);
+    // What is the person's own asks for the factor too.
+    const own = member.call({ authorization: `Bearer ${token}` });
     expect(await code(asMember())).toBe("ok");
+    expect(await code(own.notifications.unreadCount())).toBe("ok");
+    expect(await code(own.shortcuts.list())).toBe("ok");
     await admin.call().admin.updateSettings({ mfaScope: "everyone" });
     expect(await code(asMember())).toBe("mfa_enrollment_required");
+    expect(await code(own.notifications.unreadCount())).toBe(
+      "mfa_enrollment_required",
+    );
+    expect(await code(own.shortcuts.list())).toBe("mfa_enrollment_required");
     await admin.call().admin.updateSettings({ mfaScope: "owners" });
     expect(await code(asMember())).toBe("ok");
+    expect(await code(own.notifications.unreadCount())).toBe("ok");
   });
 
   it("keeps a setting written as text", async () => {

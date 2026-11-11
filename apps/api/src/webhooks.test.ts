@@ -23,6 +23,13 @@ describe("webhooks", () => {
       /Invalid webhook/,
     );
   });
+
+  it("refuses a name that does not resolve, as an invalid webhook", async () => {
+    // `.invalid` never resolves (RFC 6761), with or without a network.
+    await expect(
+      assertPublicHttps("https://hooks.invalid/hook"),
+    ).rejects.toMatchObject({ code: "invalid_webhook" });
+  });
 });
 
 describe("isBlockedAddress", () => {

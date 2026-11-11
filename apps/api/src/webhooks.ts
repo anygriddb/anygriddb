@@ -143,7 +143,13 @@ export async function assertPublicHttps(target: string): Promise<URL> {
   const url = assertPublicUrl(target);
   const host = url.hostname.replace(/^\[|\]$/g, "");
   if (isIP(host) !== 0) return url;
-  const addresses = await lookup(host, { all: true, order: "verbatim" });
+  // A name that does not resolve is refused like a private one: the
+  // person mistyped it, the server did not fail.
+  const addresses = await lookup(host, { all: true, order: "verbatim" }).catch(
+    (error: unknown) => {
+      throw new AppError("invalid_webhook", { cause: error });
+    },
+  );
   if (
     addresses.length === 0 ||
     addresses.some((entry) => isBlockedAddress(entry.address, entry.family))

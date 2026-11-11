@@ -92,6 +92,8 @@ type SocketState = {
   channels: Set<string>;
   userId: string;
   name: string;
+  /** SHA-256 of the session cookie that opened this socket. */
+  sessionTokenHash: string;
   /** Messages of one socket are handled in order, one at a time. */
   queue: Promise<void>;
   /** Answered the last ping: the link still carries traffic. */
@@ -103,6 +105,8 @@ export type GridAuthorizer = (
   channel: string,
   action: "read" | "write",
 ) => Promise<GridDecision>;
+/** Whether the session that opened the socket is still live. */
+export type SessionAlive = (tokenHash: string) => Promise<boolean>;
 
 export function parseClientMessage(raw: string): ClientMessage | undefined {
   if (raw.length > MAX_MESSAGE_CHARS) {
@@ -166,6 +170,7 @@ export class GridHub {
       error: unknown,
       message: string,
     ) => void,
+    private readonly sessionAlive: SessionAlive = () => Promise.resolve(true),
   ) {
     this.bus.onMessage((channel, payload) => {
       const safe = relayPayload(payload);
@@ -206,11 +211,13 @@ export class GridHub {
     userId: string,
     name = "",
     early: readonly unknown[] = [],
+    sessionTokenHash = "",
   ): void {
     const state: SocketState = {
       channels: new Set(),
       userId,
       name: name.slice(0, 80),
+      sessionTokenHash,
       queue: Promise.resolve(),
       alive: true,
     };
@@ -278,6 +285,23 @@ export class GridHub {
     let closed = 0;
     for (const [socket, state] of this.sockets) {
       if (state.userId !== userId) continue;
+      if (socket.readyState !== socket.OPEN) continue;
+      socket.close(code, code === 4401 ? "Unauthorized" : "Reauthorize");
+      closed += 1;
+    }
+    return closed;
+  }
+
+  /**
+   * Closes sockets opened with one session cookie. Logout ends that
+   * session only: other devices of the same account keep their links.
+   */
+  closeSession(tokenHash: string, code: 4000 | 4401 = 4401): number {
+    if (!tokenHash) return 0;
+    let closed = 0;
+    for (const [socket, state] of this.sockets) {
+      if (state.sessionTokenHash !== tokenHash) continue;
+      if (socket.readyState !== socket.OPEN) continue;
       socket.close(code, code === 4401 ? "Unauthorized" : "Reauthorize");
       closed += 1;
     }
@@ -289,6 +313,7 @@ export class GridHub {
     let closed = 0;
     for (const [socket, state] of this.sockets) {
       if (state.userId === userId) continue;
+      if (socket.readyState !== socket.OPEN) continue;
       socket.close(4401, "Unauthorized");
       closed += 1;
     }
@@ -327,6 +352,18 @@ export class GridHub {
         JSON.stringify({ type: "error", message: "Invalid message" }),
       );
       return;
+    }
+    if (state.sessionTokenHash) {
+      try {
+        if (!(await this.sessionAlive(state.sessionTokenHash))) {
+          socket.close(4401, "Unauthorized");
+          return;
+        }
+      } catch (error) {
+        this.log("error", error, "realtime failed");
+        socket.close(1011, "Internal error");
+        return;
+      }
     }
     let decision: GridDecision;
     try {

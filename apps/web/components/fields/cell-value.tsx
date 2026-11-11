@@ -1,4 +1,4 @@
-import { cellText } from "@anygriddb/core";
+import { cellText, isEmail, isHttpUrl } from "@anygriddb/core";
 
 import { Avatar, cn, OptionBadge } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
@@ -256,6 +256,9 @@ export function CellValueView({
   }
   const text = cellDisplay(value, column, locale, people);
   if (type === "url" && typeof value === "string") {
+    if (!isHttpUrl(value)) {
+      return <span className="truncate">{highlight(text, search)}</span>;
+    }
     return (
       <a
         href={value}
@@ -269,6 +272,9 @@ export function CellValueView({
     );
   }
   if (type === "email" && typeof value === "string") {
+    if (!isEmail(value)) {
+      return <span className="truncate">{highlight(text, search)}</span>;
+    }
     return (
       <a
         href={`mailto:${value}`}

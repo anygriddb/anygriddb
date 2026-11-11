@@ -57,6 +57,15 @@ export async function authorize(
   return { user, bindings: await scopeBindings(ctx.db, raw, ctx.tokenScope) };
 }
 
+/**
+ * Authenticated caller who already satisfies the instance MFA policy.
+ * Use for personal surfaces (notifications, shortcuts) that must not
+ * bypass enrollment the way `requireUser` alone would.
+ */
+export async function requireEnrolledUser(ctx: Context): Promise<SessionUser> {
+  return (await authorize(ctx)).user;
+}
+
 export async function loadTable(
   ctx: Context,
   tableId: string,

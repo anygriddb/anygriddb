@@ -718,7 +718,11 @@ describe("PostgreSQL sources", () => {
     const reader = browserFactory({
       db: () => db,
       env,
-      hub: { closeUser: vi.fn(() => 0), closeAllBut: vi.fn(() => 0) },
+      hub: {
+        closeUser: vi.fn(() => 0),
+        closeAllBut: vi.fn(() => 0),
+        closeSession: vi.fn(() => 0),
+      },
     })();
     const email = `reader-${randomBytes(4).toString("hex")}@example.org`;
     await reader.call().auth.signup({

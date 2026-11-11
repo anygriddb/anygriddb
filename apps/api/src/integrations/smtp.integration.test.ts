@@ -34,7 +34,11 @@ describe("operator SMTP", () => {
     SMTP_FROM?: string;
   };
 
-  const hub = { closeUser: () => 0, closeAllBut: () => 0 };
+  const hub = {
+    closeUser: () => 0,
+    closeAllBut: () => 0,
+    closeSession: () => 0,
+  };
   const browser = browserFactory({ db: () => db, env, hub });
   const admin = browser();
 

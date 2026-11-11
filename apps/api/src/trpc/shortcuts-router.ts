@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { listShortcuts, setPin, touchTable } from "../data/shortcuts.js";
-import { guardBase, guardTable, handle } from "./guard.js";
-import { procedure, requireUser, t } from "./init.js";
+import { guardBase, guardTable, handle, requireEnrolledUser } from "./guard.js";
+import { procedure, t } from "./init.js";
 
 const pinInputSchema = z.union([
   z.object({ baseId: z.uuid(), pinned: z.boolean() }).strict(),
@@ -15,7 +15,7 @@ const pinInputSchema = z.union([
 export const shortcutsRouter = t.router({
   list: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
-      const user = await requireUser(ctx);
+      const user = await requireEnrolledUser(ctx);
       return listShortcuts(ctx.db, user.id);
     }),
   ),

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { listNotifications, markRead, unreadCount } from "../notifications.js";
-import { handle } from "./guard.js";
-import { procedure, requireUser, t } from "./init.js";
+import { handle, requireEnrolledUser } from "./guard.js";
+import { procedure, t } from "./init.js";
 
 export const notificationsRouter = t.router({
   list: procedure
@@ -13,7 +13,7 @@ export const notificationsRouter = t.router({
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const user = await requireUser(ctx);
+        const user = await requireEnrolledUser(ctx);
         return {
           notifications: await listNotifications(ctx.db, user.id, input),
           unread: await unreadCount(ctx.db, user.id),
@@ -22,7 +22,7 @@ export const notificationsRouter = t.router({
     ),
   unreadCount: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
-      const user = await requireUser(ctx);
+      const user = await requireEnrolledUser(ctx);
       return { unread: await unreadCount(ctx.db, user.id) };
     }),
   ),
@@ -30,14 +30,14 @@ export const notificationsRouter = t.router({
     .input(z.object({ ids: z.array(z.uuid()).min(1).max(100).optional() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const user = await requireUser(ctx);
+        const user = await requireEnrolledUser(ctx);
         await markRead(ctx.db, user.id, input.ids);
         return { ok: true as const };
       }),
     ),
   preferences: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
-      const user = await requireUser(ctx);
+      const user = await requireEnrolledUser(ctx);
       const row = await ctx.db
         .selectFrom("users")
         .select("notifyByEmail")
@@ -50,7 +50,7 @@ export const notificationsRouter = t.router({
     .input(z.object({ notifyByEmail: z.boolean() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const user = await requireUser(ctx);
+        const user = await requireEnrolledUser(ctx);
         await ctx.db
           .updateTable("users")
           .set({ notifyByEmail: input.notifyByEmail })

@@ -46,7 +46,11 @@ describe("the security policy", () => {
   let db: Database;
   let close: (() => Promise<void>) | undefined;
   let smtp: Awaited<ReturnType<typeof fakeSmtp>>;
-  const hub = { closeUser: vi.fn(() => 0), closeAllBut: vi.fn(() => 0) };
+  const hub = {
+    closeUser: vi.fn(() => 0),
+    closeAllBut: vi.fn(() => 0),
+    closeSession: vi.fn(() => 0),
+  };
   const env = {
     AUTH_ENCRYPTION_KEY: randomBytes(32),
     PUBLIC_URL: "https://grid.example.org",

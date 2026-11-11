@@ -28,7 +28,11 @@ describe("operator OIDC and SAML", () => {
     PUBLIC_URL: "https://grid.example.org",
   } as unknown as Env;
 
-  const hub = { closeUser: () => 0, closeAllBut: () => 0 };
+  const hub = {
+    closeUser: () => 0,
+    closeAllBut: () => 0,
+    closeSession: () => 0,
+  };
   const browser = browserFactory({ db: () => db, env, hub });
   const admin = browser();
 

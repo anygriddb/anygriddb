@@ -39,7 +39,7 @@ import {
 } from "./data/rows.js";
 import { sendMail, type SmtpConfig } from "./mail.js";
 import { notify, type NotifyDeps } from "./notifications.js";
-import { failureText, postPinned } from "./webhooks.js";
+import { assertPublicHttps, failureText, postPinned } from "./webhooks.js";
 import { madeNamesFor } from "./settings.js";
 import { liveBase, liveTable } from "./data/live.js";
 import { addJob, TASKS } from "./queue/jobs.js";
@@ -319,6 +319,25 @@ export async function queueWebhookRun(
   return true;
 }
 
+async function assertPublicWebhookActions(
+  actions: readonly (AutomationAction | AutomationStep)[],
+): Promise<void> {
+  for (const action of actions) {
+    if (action.type === "call_webhook") {
+      await assertPublicHttps(action.url);
+      continue;
+    }
+    if (action.type === "branch") {
+      await assertPublicWebhookActions(action.then);
+      if (action.otherwise) await assertPublicWebhookActions(action.otherwise);
+      continue;
+    }
+    if (action.type === "for_each") {
+      await assertPublicWebhookActions(action.actions);
+    }
+  }
+}
+
 export async function saveAutomation(
   db: Database,
   input: {
@@ -331,6 +350,9 @@ export async function saveAutomation(
     actions: AutomationAction[];
   },
 ): Promise<{ id: string; webhookToken?: string }> {
+  // Same public-HTTPS check as table webhooks: refuse private targets at
+  // save time, not only when the action runs.
+  await assertPublicWebhookActions(input.actions);
   // A webhook trigger keeps its address; a new one gets one, shown once.
   const hook = input.trigger.type === "webhook";
   const current = input.id

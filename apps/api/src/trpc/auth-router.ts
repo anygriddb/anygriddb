@@ -383,13 +383,17 @@ export const authRouter = t.router({
     return { status: "session" as const, methods };
   }),
   logout: procedure.mutation(async ({ ctx }) => {
-    const ended = await revokeSession(ctx.db, ctx.req.cookies[SESSION_COOKIE]);
+    const token = ctx.req.cookies[SESSION_COOKIE];
+    const ended = await revokeSession(ctx.db, token);
     if (ended) {
       await recordAuthEvent(ctx.db, {
         action: "logout",
         userId: ended.userId,
         ip: ctx.req.ip,
       });
+      if (isSessionToken(token)) {
+        ctx.hub.closeSession(hashSessionToken(token));
+      }
     }
     clearCookie(ctx, SESSION_COOKIE);
     clearCookie(ctx, MFA_COOKIE);
@@ -603,13 +607,17 @@ export const authRouter = t.router({
         }
         assertPasswordPolicy(input.password, await readSettings(ctx.db));
         const token = ctx.req.cookies[SESSION_COOKIE];
+        const keepSessionHash = isSessionToken(token)
+          ? hashSessionToken(token)
+          : undefined;
         await changePassword(ctx.db, {
           userId: user.id,
           password: input.password,
-          keepSessionHash: isSessionToken(token)
-            ? hashSessionToken(token)
-            : undefined,
+          keepSessionHash,
         });
+        // Other devices lost their sessions: cut their sockets. This tab
+        // keeps its cookie, so its socket reconnects and is authorized again.
+        ctx.hub.closeUser(user.id);
         await recordAuthEvent(ctx.db, {
           action: "password_changed",
           userId: user.id,
@@ -697,6 +705,7 @@ export const authRouter = t.router({
           input.password,
           await readSettings(ctx.db),
         );
+        ctx.hub.closeUser(done.userId);
         await recordAuthEvent(ctx.db, {
           action: "password_reset",
           userId: done.userId,
@@ -732,6 +741,7 @@ export const authRouter = t.router({
           throw new AppError("invalid_credentials");
         }
         await eraseAccount(ctx.db, user.id);
+        ctx.hub.closeUser(user.id);
         clearCookie(ctx, SESSION_COOKIE);
         clearCookie(ctx, MFA_COOKIE);
         return { ok: true as const };

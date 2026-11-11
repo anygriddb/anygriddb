@@ -329,8 +329,9 @@ export async function patchScimUserById(
 
 /**
  * The provider removed the account: it is disabled, leaves its groups,
- * and is gone from SCIM. Its history and its own roles stay; creating it
- * again brings it back.
+ * and is gone from SCIM. Its history, email, display name, and roles stay;
+ * creating it again brings it back. This is not account erasure
+ * (`eraseAccount`), which removes the person's identifiers.
  */
 export async function deleteScimUser(context: ScimContext, id: string) {
   await change(context, async (tx) => {
