@@ -31,6 +31,7 @@ import {
 import { ISOLATION_LEVEL, type Connection } from "tedious";
 import type { Connection as OracleConnection } from "oracledb";
 import type { SourceSettings } from "./types.js";
+import { connectionQueue } from "./connection-queue.js";
 import { writeError } from "./write-errors.js";
 import { measureSource } from "../observability.js";
 
@@ -527,43 +528,27 @@ function sqlServerBackend(
   plaintext: boolean,
   log: Log,
 ): Backend {
-  const idle: Connection[] = [];
-  const waiting: Array<(connection: Connection) => void> = [];
-  let open = 0;
-  let ended = false;
   const source = { ...row, engine: "sqlserver" as const };
-  async function acquire(): Promise<Connection> {
-    const ready = idle.pop();
-    if (ready) return ready;
-    if (open >= row.connectionLimit) {
-      return new Promise((resolve) => waiting.push(resolve));
-    }
-    open += 1;
-    try {
+  // tedious reports a connection the server ended by its "end" event.
+  const dropped = new WeakSet<Connection>();
+  const queue = connectionQueue<Connection>(row.connectionLimit, {
+    open: async () => {
       const connection = sqlServerConnection(source, {
         allowPlaintext: plaintext,
       });
       await openSqlServer(connection);
       connection.on("end", () => {
-        open -= 1;
-        const at = idle.indexOf(connection);
-        if (at >= 0) idle.splice(at, 1);
+        dropped.add(connection);
+        queue.drop(connection);
       });
       return connection;
-    } catch (error) {
-      open -= 1;
-      throw error;
-    }
-  }
-  function release(connection: Connection, broken: boolean): void {
-    if (broken || ended) {
+    },
+    usable: (connection) => !dropped.has(connection),
+    close: (connection) => {
       connection.close();
-      return;
-    }
-    const next = waiting.shift();
-    if (next) next(connection);
-    else idle.push(connection);
-  }
+    },
+  });
+  const { acquire, release } = queue;
   return {
     async read(body, readLog) {
       let connection: Connection;
@@ -641,11 +626,7 @@ function sqlServerBackend(
         release(connection, broken);
       }
     },
-    end: () => {
-      ended = true;
-      for (const connection of idle.splice(0)) connection.close();
-      return Promise.resolve();
-    },
+    end: () => queue.end(),
   };
 }
 
@@ -672,51 +653,18 @@ function oracleReadError(raised: unknown, log: Log): AppError {
  * the reads that wait for one, as for SQL Server.
  */
 function oracleBackend(row: SourceRow, plaintext: boolean, log: Log): Backend {
-  const idle: OracleConnection[] = [];
-  const waiting: Array<{
-    resolve: (connection: OracleConnection) => void;
-    reject: (error: unknown) => void;
-  }> = [];
-  let open = 0;
-  let ended = false;
   const source = { ...row, engine: "oracle" as const };
-  async function connect(): Promise<OracleConnection> {
-    open += 1;
-    try {
+  const queue = connectionQueue<OracleConnection>(row.connectionLimit, {
+    open: async () => {
       const { connection } = await connectOracle(source, {
         allowPlaintext: plaintext,
       });
       return connection;
-    } catch (error) {
-      open -= 1;
-      throw error;
-    }
-  }
-  async function acquire(): Promise<OracleConnection> {
-    for (let ready = idle.pop(); ready; ready = idle.pop()) {
-      if (ready.isHealthy()) return ready;
-      open -= 1;
-      void ready.close().catch(() => undefined);
-    }
-    if (open >= row.connectionLimit) {
-      return new Promise((resolve, reject) => {
-        waiting.push({ resolve, reject });
-      });
-    }
-    return connect();
-  }
-  function release(connection: OracleConnection, broken: boolean): void {
-    const next = ended ? undefined : waiting.shift();
-    if (!broken && !ended && connection.isHealthy()) {
-      if (next) next.resolve(connection);
-      else idle.push(connection);
-      return;
-    }
-    open -= 1;
-    void connection.close().catch(() => undefined);
-    // The one waiting gets a connection of its own instead.
-    if (next) connect().then(next.resolve, next.reject);
-  }
+    },
+    usable: (connection) => connection.isHealthy(),
+    close: (connection) => connection.close().catch(() => undefined),
+  });
+  const { acquire, release } = queue;
   const execute = async (
     connection: OracleConnection,
     statement: Statement,
@@ -793,17 +741,7 @@ function oracleBackend(row: SourceRow, plaintext: boolean, log: Log): Backend {
         release(connection, broken);
       }
     },
-    end: async () => {
-      ended = true;
-      for (const waiter of waiting.splice(0)) {
-        waiter.reject(new AppError("source_unreachable"));
-      }
-      await Promise.all(
-        idle
-          .splice(0)
-          .map((connection) => connection.close().catch(() => undefined)),
-      );
-    },
+    end: () => queue.end(),
   };
 }
 

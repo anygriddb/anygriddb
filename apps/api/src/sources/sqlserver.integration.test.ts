@@ -412,4 +412,60 @@ describe("SQL Server sources", () => {
     expect(computed.rows[0]?.[doubled.name]).toBe("1999999999999.98");
     expect(computed.rows[0]?.[third.name]).toBe("333333333333.33");
   });
+
+  it("gives the read waiting for the only connection a new one when that one is killed", async () => {
+    const local = new SourcePools({ db, key, settings, log: () => undefined });
+    try {
+      const source = await createSource({ db, key, settings }, admin, {
+        name: "One connection sqlserver",
+        ...connection(),
+        connectionLimit: 1,
+        timeZone: "UTC",
+      });
+      let holding: () => void = () => undefined;
+      const held = new Promise<void>((resolve) => (holding = resolve));
+      const first = local
+        .read(source.id, async (run) => {
+          const [row] = await run({
+            text: "select @@spid as spid",
+            values: [],
+          });
+          holding();
+          // The second read is queued behind this one by now.
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          await server?.exec([
+            "/opt/mssql-tools18/bin/sqlcmd",
+            "-S",
+            "localhost",
+            "-U",
+            "sa",
+            "-P",
+            SA_PASSWORD,
+            "-C",
+            "-Q",
+            `kill ${String(row?.spid)}`,
+          ]);
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          return run({ text: "select 1 as one", values: [] });
+        })
+        .then(
+          () => "read",
+          () => "failed",
+        );
+      await held;
+      const second = local.read(source.id, (run) =>
+        run({ text: "select 2 as two", values: [] }),
+      );
+      const waited = await Promise.race([
+        second,
+        new Promise((resolve) =>
+          setTimeout(() => resolve("still waiting"), 20_000),
+        ),
+      ]);
+      expect(await first).toBe("failed");
+      expect(waited).toEqual([{ two: 2 }]);
+    } finally {
+      await local.close();
+    }
+  });
 });
