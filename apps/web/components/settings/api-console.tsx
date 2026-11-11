@@ -7,6 +7,7 @@
 import { Button, Input, Label, Select, Textarea } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { useState } from "react";
+import { RuledSection } from "../shell/notebook-page";
 
 export type ApiMethod = "list" | "get" | "create" | "update" | "delete";
 
@@ -95,13 +96,10 @@ export function ApiConsole(props: {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-sm border border-border bg-card p-4">
-      <div>
-        <h2 className="font-semibold">{t`Try it`}</h2>
-        <p className="text-xs text-muted-foreground">
-          {t`The request goes out with your session, under your rights. A write is real, and recorded like any other.`}
-        </p>
-      </div>
+    <RuledSection
+      title={t`Try it`}
+      description={t`The request goes out with your session, under your rights. A write is real, and recorded like any other.`}
+    >
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1">
           <Label htmlFor="api-method">{t`Operation`}</Label>
@@ -186,12 +184,13 @@ export function ApiConsole(props: {
           </p>
           <pre
             data-testid="api-answer"
-            className="max-h-96 overflow-auto rounded-sm bg-foreground/95 p-3 text-xs text-background"
+            tabIndex={0}
+            className="max-h-96 overflow-auto rounded-sm bg-foreground/95 p-3 text-xs text-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             {answer.text}
           </pre>
         </div>
       ) : null}
-    </section>
+    </RuledSection>
   );
 }

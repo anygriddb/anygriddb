@@ -8,6 +8,7 @@ import type { CatalogColumn } from "../../lib/types";
 import { FIELD_LABELS, FieldIcon } from "../fields/field-meta";
 import { useLingui } from "@lingui/react/macro";
 import { raw } from "../../lib/known-text";
+import { NotebookPage, PageTabs, RuledSection } from "../shell/notebook-page";
 import { ApiConsole } from "./api-console";
 
 type Tab = "guide" | "try" | "mcp";
@@ -55,7 +56,11 @@ function Code({ text }: { text: string }) {
   const copy = useCopy();
   return (
     <div className="relative">
-      <pre className="overflow-x-auto rounded-sm bg-foreground/95 p-3 text-xs text-background">
+      {/* Focusable: a line wider than the column scrolls by keyboard too. */}
+      <pre
+        tabIndex={0}
+        className="overflow-x-auto rounded-sm bg-foreground/95 p-3 text-xs text-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
         {text}
       </pre>
       <Button
@@ -99,10 +104,10 @@ export function ApiDocs({ baseId }: { baseId: string }) {
   const [tab, setTab] = useState<Tab>("guide");
   if (!base) return null;
   const origin = window.location.origin;
-  const tabs: Array<{ id: Tab; label: string }> = [
-    { id: "guide", label: t`Guide` },
-    { id: "try", label: t`Try it` },
-    { id: "mcp", label: t`MCP (AI)` },
+  const tabs: Array<{ value: Tab; label: string }> = [
+    { value: "guide", label: t`Guide` },
+    { value: "try", label: t`Try it` },
+    { value: "mcp", label: t`MCP (AI)` },
   ];
   const table =
     base.tables.find((item) => item.id === tableId) ?? base.tables[0];
@@ -112,77 +117,58 @@ export function ApiDocs({ baseId }: { baseId: string }) {
     writable.slice(0, 4).map((column) => [column.name, example(column)]),
   );
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6">
-      <div>
-        <h1 className="text-xl font-semibold">
-          {t`${{ name: base.name }} API`}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+    <NotebookPage
+      width="xl"
+      title={t`${{ name: base.name }} API`}
+      description={
+        <>
           {t`REST at ${{ url: `${origin}/api/v1` }}. Authenticate with a token: Authorization: Bearer ag_…`}{" "}
           <Link to="/settings" className="text-primary underline">
             {t`Create a token`}
           </Link>
-        </p>
+        </>
+      }
+      action={
         <a
-          className="mt-2 inline-flex items-center gap-1 text-sm text-primary underline"
+          className="inline-flex shrink-0 items-center gap-1 text-sm text-primary underline"
           href={`/api/v1/bases/${baseId}/openapi.json`}
           target="_blank"
           rel="noopener noreferrer"
         >
           OpenAPI 3.1 <ExternalLink className="h-3.5 w-3.5" aria-hidden />
         </a>
-      </div>
-      <div
-        className="flex flex-wrap gap-1 border-b border-border pb-2"
-        role="tablist"
-      >
-        {tabs.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={item.id === tab}
-            onClick={() => setTab(item.id)}
-            className={cn(
-              "rounded-md px-2.5 py-1 text-sm",
-              item.id === tab
-                ? "bg-accent text-accent-foreground"
-                : "hover:bg-muted",
-            )}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      }
+    >
+      <PageTabs tabs={tabs} value={tab} onChange={setTab} />
       {tab === "mcp" ? <McpGuide origin={origin} /> : null}
       {tab !== "mcp" ? (
-        <div className="flex flex-wrap gap-1">
-          {base.tables.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setTableId(item.id)}
-              className={cn(
-                "rounded-md px-2.5 py-1 text-sm",
-                item.id === table?.id
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-muted",
-              )}
-            >
-              {item.name}
-            </button>
-          ))}
-        </div>
+        <RuledSection title={t`Table`}>
+          <div className="flex flex-wrap gap-1">
+            {base.tables.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={item.id === table?.id}
+                onClick={() => setTableId(item.id)}
+                className={cn(
+                  "rounded-full border px-2.5 py-0.5 text-sm",
+                  item.id === table?.id
+                    ? "border-primary bg-accent text-accent-foreground"
+                    : "border-border hover:bg-muted",
+                )}
+              >
+                {item.name}
+              </button>
+            ))}
+          </div>
+        </RuledSection>
       ) : null}
       {tab === "try" && table ? (
         <ApiConsole key={table.id} tableId={table.id} sample={sample} />
       ) : null}
       {tab === "guide" && table ? (
         <>
-          <section className="rounded-sm border border-border bg-card p-4">
-            <h2 className="mb-2 font-semibold">
-              {t`${{ name: table.name }} fields`}
-            </h2>
+          <RuledSection title={t`${{ name: table.name }} fields`}>
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-muted-foreground">
                 <tr>
@@ -197,7 +183,7 @@ export function ApiDocs({ baseId }: { baseId: string }) {
                 {table.columns.map((column) => (
                   <tr
                     key={column.name}
-                    className="border-t border-border align-top"
+                    className="border-t border-rule align-top"
                   >
                     <td className="py-1.5 font-mono text-xs">{column.name}</td>
                     <td>{column.label}</td>
@@ -222,29 +208,29 @@ export function ApiDocs({ baseId }: { baseId: string }) {
                 ))}
               </tbody>
             </table>
-          </section>
-          <section className="flex flex-col gap-3 rounded-sm border border-border bg-card p-4">
-            <h2 className="font-semibold">{t`Read rows`}</h2>
+          </RuledSection>
+          <RuledSection
+            title={t`Read rows`}
+            description={t`Parameters: limit (1000 at most), offset, view, sort (list, - for descending), fields, search, fieldKey=label, filter (JSON tree).`}
+          >
             <Code
               text={`curl -H "Authorization: Bearer $AG_TOKEN" \\\n  "${origin}/api/v1/tables/${table.id}/records?limit=50&sort=-${table.columns[0]?.name ?? "id"}"`}
             />
-            <p className="text-xs text-muted-foreground">
-              {t`Parameters: limit (1000 at most), offset, view, sort (list, - for descending), fields, search, fieldKey=label, filter (JSON tree).`}
-            </p>
             <Code
               text={`curl -G -H "Authorization: Bearer $AG_TOKEN" "${origin}/api/v1/tables/${table.id}/records" \\\n  --data-urlencode 'filter={"conjunction":"and","conditions":[{"column":"${table.columns[0]?.name ?? "id"}","op":"is_not_empty"}]}'`}
             />
-            <h2 className="font-semibold">{t`Create or update`}</h2>
+          </RuledSection>
+          <RuledSection
+            title={t`Create or update`}
+            description={t`PATCH takes the same shape with an id per row; DELETE takes ?records=id1,id2. 100 rows per call. X-Reason header for fields that require a reason.`}
+          >
             <Code
               text={`curl -X POST -H "Authorization: Bearer $AG_TOKEN" -H "Content-Type: application/json" \\\n  "${origin}/api/v1/tables/${table.id}/records" \\\n  -d '${JSON.stringify({ records: [{ fields: sample }], typecast: true })}'`}
             />
-            <p className="text-xs text-muted-foreground">
-              {t`PATCH takes the same shape with an id per row; DELETE takes ?records=id1,id2. 100 rows per call. X-Reason header for fields that require a reason.`}
-            </p>
-          </section>
+          </RuledSection>
         </>
       ) : null}
-    </div>
+    </NotebookPage>
   );
 }
 
@@ -253,8 +239,7 @@ function McpGuide({ origin }: { origin: string }) {
   const { t } = useLingui();
   const endpoint = `${origin}/mcp`;
   return (
-    <section className="flex flex-col gap-3 rounded-sm border border-border bg-card p-4">
-      <h2 className="font-semibold">{t`Connect an AI (MCP)`}</h2>
+    <RuledSection title={t`Connect an AI (MCP)`}>
       <p className="text-sm text-muted-foreground">
         {t`AnyGridDB embeds no model: the AI you run (Claude, Cursor, Ollama with an MCP client…) connects to the instance's MCP server. It reads and writes rows with the token's rights, never more than yours; no administration, no schema. A read-only token offers it reading only.`}
       </p>
@@ -288,6 +273,6 @@ function McpGuide({ origin }: { origin: string }) {
       <p className="text-xs text-muted-foreground">
         {t`Tools: list_bases, list_tables, get_openapi, list_records, get_record, create_records, update_records, delete_records.`}
       </p>
-    </section>
+    </RuledSection>
   );
 }

@@ -6126,6 +6126,7 @@ msgstr "table"
 #: components/admin/admin-page.tsx
 #: components/admin/support-tab.tsx
 #: components/dashboards/dashboard-board.tsx
+#: components/settings/api-docs.tsx
 #: components/shell/trash-dialog.tsx
 #: components/table/automations-dialog.tsx
 msgid "Table"

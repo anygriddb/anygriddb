@@ -2,13 +2,14 @@ import { Button, Input, Label, Spinner } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
-import { Copy, KeyRound, Trash2 } from "lucide-react";
+import { Copy, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
+import { RuledSection } from "../shell/notebook-page";
 
 function date(value: string | null): string {
   return value ? new Date(value).toLocaleString() : "—";
@@ -39,12 +40,11 @@ export function ScimTab() {
   if (!settings.data) return <Spinner />;
   const { url, tokens, groups } = settings.data;
   return (
-    <div className="flex max-w-3xl flex-col gap-5 text-sm">
-      <section className="flex flex-col gap-2 rounded-sm border border-border p-4">
-        <h2 className="font-medium">{t`SCIM 2.0 provisioning`}</h2>
-        <p className="text-muted-foreground">
-          {t`Your identity provider (Okta, Microsoft Entra ID, …) creates, changes, and deactivates accounts, and keeps groups. Existing accounts are taken over by their email. Then give groups a role in each base's settings.`}
-        </p>
+    <div className="flex max-w-3xl flex-col gap-4 text-sm">
+      <RuledSection
+        title={t`SCIM 2.0 provisioning`}
+        description={t`Your identity provider (Okta, Microsoft Entra ID, …) creates, changes, and deactivates accounts, and keeps groups. Existing accounts are taken over by their email. Then give groups a role in each base's settings.`}
+      >
         <Label htmlFor="scim-url">{t`SCIM address`}</Label>
         <div className="flex gap-2">
           <Input
@@ -62,16 +62,12 @@ export function ScimTab() {
             <Copy className="h-4 w-4" aria-hidden />
           </Button>
         </div>
-      </section>
+      </RuledSection>
 
-      <section className="flex flex-col gap-3 rounded-sm border border-border p-4">
-        <h2 className="flex items-center gap-2 font-medium">
-          <KeyRound className="h-4 w-4" aria-hidden />
-          {t`Tokens`}
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          {t`A token acts with the rights of the administrator who made it, and stops working if they are no longer an administrator.`}
-        </p>
+      <RuledSection
+        title={t`Tokens`}
+        description={t`A token acts with the rights of the administrator who made it, and stops working if they are no longer an administrator.`}
+      >
         {fresh ? (
           <div className="flex flex-col gap-2 rounded-md border border-primary/40 bg-primary/5 p-3">
             <p>{t`Copy this token now: it will not be shown again.`}</p>
@@ -179,10 +175,9 @@ export function ScimTab() {
             {t`Create a token`}
           </Button>
         </form>
-      </section>
+      </RuledSection>
 
-      <section className="flex flex-col gap-2 rounded-sm border border-border p-4">
-        <h2 className="font-medium">{t`Groups`}</h2>
+      <RuledSection title={t`Groups`}>
         {groups.length === 0 ? (
           <p className="text-muted-foreground">{t`No group received yet.`}</p>
         ) : (
@@ -203,7 +198,7 @@ export function ScimTab() {
             ))}
           </ul>
         )}
-      </section>
+      </RuledSection>
 
       <ConfirmDialog
         open={revoking !== null}

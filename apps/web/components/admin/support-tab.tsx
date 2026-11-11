@@ -9,6 +9,7 @@ import { datedName, downloadCsv, downloadJson } from "../../lib/download";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
+import { RuledSection } from "../shell/notebook-page";
 
 function date(value: string | null): string {
   return value ? new Date(value).toLocaleString() : "—";
@@ -68,9 +69,11 @@ export function SupportTab() {
       cancelled: t`Cancelled`,
     })[value];
   return (
-    <div className="flex flex-col gap-8">
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">{t`For whoever helps you`}</h2>
+    <div className="flex flex-col gap-4">
+      <RuledSection
+        title={t`For whoever helps you`}
+        description={t`The bundle holds the version, health checks, counts, and which features are set up: no data, no address, no secret. The access export lists every account, its bases and roles, and its last sign-in.`}
+      >
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
@@ -112,14 +115,10 @@ export function SupportTab() {
             {t`Send me a test email`}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {t`The bundle holds the version, health checks, counts, and which features are set up: no data, no address, no secret. The access export lists every account, its bases and roles, and its last sign-in.`}
-        </p>
-      </section>
+      </RuledSection>
 
-      <section className="flex flex-col gap-2">
+      <RuledSection title={t`Jobs`}>
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 className="text-sm font-semibold">{t`Jobs`}</h2>
           <div className="flex flex-col gap-1">
             <Label htmlFor="support-job-status">{t`Status`}</Label>
             <Select
@@ -194,10 +193,9 @@ export function SupportTab() {
             </tbody>
           </table>
         </div>
-      </section>
+      </RuledSection>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">{t`Webhook deliveries that failed`}</h2>
+      <RuledSection title={t`Webhook deliveries that failed`}>
         {deliveries.isLoading ? <Spinner /> : null}
         {deliveries.data?.deliveries.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t`None.`}</p>
@@ -238,13 +236,12 @@ export function SupportTab() {
             </table>
           </div>
         )}
-      </section>
+      </RuledSection>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">{t`Pending invitations`}</h2>
-        <p className="text-xs text-muted-foreground">
-          {t`A base's owners invite people. You can withdraw an invitation sent by mistake.`}
-        </p>
+      <RuledSection
+        title={t`Pending invitations`}
+        description={t`A base's owners invite people. You can withdraw an invitation sent by mistake.`}
+      >
         {invitations.isLoading ? <Spinner /> : null}
         {invitations.data?.invitations.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t`None.`}</p>
@@ -295,7 +292,7 @@ export function SupportTab() {
             </table>
           </div>
         )}
-      </section>
+      </RuledSection>
       {withdraw ? (
         <ConfirmDialog
           open

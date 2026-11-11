@@ -1,4 +1,5 @@
 import { cn } from "@anygriddb/ui";
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 /**
@@ -41,6 +42,43 @@ export function NotebookPage({
         {action}
       </header>
       <div className="mt-3 flex flex-col">{children}</div>
+    </div>
+  );
+}
+
+/** The views of a notebook page, as tabs underlined on the page's rule. */
+export function PageTabs<T extends string>({
+  tabs,
+  value,
+  onChange,
+}: {
+  tabs: ReadonlyArray<{ value: T; label: string; icon?: LucideIcon }>;
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      className="mt-4 flex gap-1 overflow-x-auto border-b border-rule"
+    >
+      {tabs.map(({ value: id, label, icon: Icon }) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={value === id}
+          onClick={() => onChange(id)}
+          className={cn(
+            "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm",
+            value === id
+              ? "border-primary font-medium"
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {Icon ? <Icon className="h-4 w-4" aria-hidden /> : null}
+          {label}
+        </button>
+      ))}
     </div>
   );
 }

@@ -28,7 +28,6 @@ import {
   RefreshCw,
   ScrollText,
   Settings2,
-  ShieldCheck,
   Users,
   X,
   XCircle,
@@ -38,7 +37,7 @@ import { toast } from "sonner";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
-import { NotebookPage } from "../shell/notebook-page";
+import { NotebookPage, PageTabs, RuledSection } from "../shell/notebook-page";
 import { ScimTab } from "./scim-tab";
 import { SecurityTab } from "./security-tab";
 import { SessionsTab } from "./sessions-tab";
@@ -934,11 +933,7 @@ function TlsCard() {
   const date = (iso: string) =>
     new Date(iso).toLocaleDateString(i18n.locale, { dateStyle: "long" });
   return (
-    <section className="flex flex-col gap-2 rounded-sm border border-border p-4 text-sm">
-      <h2 className="flex items-center gap-2 font-medium">
-        <ShieldCheck className="h-4 w-4 text-green-600" aria-hidden />
-        {t`Encrypted connection (HTTPS)`}
-      </h2>
+    <RuledSection title={t`Encrypted connection (HTTPS)`} className="text-sm">
       {data.authority ? (
         <>
           <p>
@@ -979,7 +974,7 @@ function TlsCard() {
           {t`PUBLIC_URL is an IP address: HTTPS and TOTP work; passkeys need a DNS hostname (or localhost) in PUBLIC_URL that people open. Put the IP in TLS_NAMES if it must stay on the certificate.`}
         </p>
       )}
-    </section>
+    </RuledSection>
   );
 }
 
@@ -1159,17 +1154,17 @@ export function AdminPage() {
       </p>
     );
   }
-  const tabs: Array<[Tab, string, typeof Users]> = [
-    ["users", t`Accounts`, Users],
-    ["sessions", t`Sessions`, MonitorSmartphone],
-    ["provisioning", t`Provisioning`, KeyRound],
-    ["sources", t`Sources`, Database],
-    ["audit", t`Audit log`, ScrollText],
-    ["health", t`Health`, Activity],
-    ["support", t`Support`, LifeBuoy],
-    ["security", t`Security`, LockKeyhole],
-    ["settings", t`Settings`, Settings2],
-  ];
+  const tabs = [
+    { value: "users", label: t`Accounts`, icon: Users },
+    { value: "sessions", label: t`Sessions`, icon: MonitorSmartphone },
+    { value: "provisioning", label: t`Provisioning`, icon: KeyRound },
+    { value: "sources", label: t`Sources`, icon: Database },
+    { value: "audit", label: t`Audit log`, icon: ScrollText },
+    { value: "health", label: t`Health`, icon: Activity },
+    { value: "support", label: t`Support`, icon: LifeBuoy },
+    { value: "security", label: t`Security`, icon: LockKeyhole },
+    { value: "settings", label: t`Settings`, icon: Settings2 },
+  ] as const;
   return (
     <NotebookPage
       width="xl"
@@ -1177,29 +1172,7 @@ export function AdminPage() {
       description={t`Accounts, security, sources, and the instance itself.`}
     >
       <ReleaseBanner />
-      <div
-        role="tablist"
-        className="mt-4 flex gap-1 overflow-x-auto border-b border-rule"
-      >
-        {tabs.map(([value, label, Icon]) => (
-          <button
-            key={value}
-            type="button"
-            role="tab"
-            aria-selected={tab === value}
-            onClick={() => setTab(value)}
-            className={cn(
-              "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm",
-              tab === value
-                ? "border-primary font-medium"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Icon className="h-4 w-4" aria-hidden />
-            {label}
-          </button>
-        ))}
-      </div>
+      <PageTabs tabs={tabs} value={tab} onChange={setTab} />
       <div role="tabpanel">
         {tab === "users" ? <UsersTab /> : null}
         {tab === "sessions" ? <SessionsTab /> : null}

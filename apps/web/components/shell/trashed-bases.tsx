@@ -49,18 +49,18 @@ export function TrashedBases() {
   }
 
   return (
-    <section className="mt-10">
-      <h2 className="mb-1 text-sm font-semibold text-muted-foreground">
+    <section aria-label={t`Deleted bases`} className="mt-10">
+      <h2 className="border-b border-strong-border pb-2 text-xs font-medium text-muted-foreground">
         {t`Deleted bases`}
       </h2>
-      <p className="mb-3 text-xs text-muted-foreground">
+      <p className="mt-2 text-xs text-muted-foreground">
         {t`They stay for 30 days with their data, then are deleted permanently.`}
       </p>
-      <ul className="divide-y divide-border rounded-sm border border-border bg-card">
+      <ul>
         {items.map((entry) => (
           <li
             key={entry.id}
-            className="flex items-center gap-3 px-4 py-2 text-sm"
+            className="flex items-center gap-3 border-b border-rule py-3 text-sm"
           >
             <Database className="h-4 w-4 shrink-0 opacity-60" aria-hidden />
             <div className="min-w-0 flex-1">
