@@ -201,4 +201,64 @@ describe("reading a client's table", () => {
       JSON.stringify(["0196f0c2-7b8e-7c3a-9f00-000000000001"]),
     );
   });
+
+  describe("an Oracle DATE read as a day", () => {
+    const orders = (type: string): EngineCatalog => {
+      const table: EngineTable = {
+        id: "o",
+        storage: "external",
+        physicalName: "x_o",
+        external: {
+          sourceId: "s",
+          dialect: "oracle",
+          schema: "SALES",
+          name: "ORDERS",
+          key: ["ID"],
+        },
+        columns: [
+          {
+            id: "o1",
+            name: "shipped",
+            label: "Shipped",
+            fieldType: "date",
+            config: {},
+            physical: { name: "SHIPPED", type, zone: "UTC" },
+          },
+        ],
+      };
+      return { table, tables: new Map([["o", table]]), readable: () => true };
+    };
+    const on = (op: "is" | "is_between", value: string | [string, string]) => ({
+      conjunction: "and" as const,
+      conditions: [{ column: "shipped", op, value }],
+    });
+
+    it("filters on the column as stored, so its index serves", () => {
+      const exact = buildReadRows(orders("DATE"), {
+        limit: 10,
+        filter: on("is", "2026-11-07"),
+      }).text;
+      // The page still shows the day alone.
+      expect(exact).toContain(`trunc(r."SHIPPED") as "shipped"`);
+      expect(exact).toContain(`r."SHIPPED" as "ag_d0"`);
+      expect(exact).toMatch(/q\."ag_d0" >= cast\(\S+ as date\)/);
+      expect(exact).not.toMatch(/q\."shipped" >=/);
+      const between = buildReadRows(orders("TIMESTAMP(6)"), {
+        limit: 10,
+        filter: on("is_between", ["2026-11-01", "2026-11-07"]),
+      }).text;
+      // A time on the last day is still within it.
+      expect(between).toMatch(/q\."ag_d0" < \(cast\(\S+ as date\) \+ 1\)/);
+      expect(between).not.toMatch(/q\."ag_d0" <=/);
+    });
+
+    it("keeps comparing the day where the stored value carries a zone", () => {
+      const zoned = buildReadRows(orders("TIMESTAMP(6) WITH TIME ZONE"), {
+        limit: 10,
+        filter: on("is_between", ["2026-11-01", "2026-11-07"]),
+      }).text;
+      expect(zoned).not.toContain(`"ag_d0"`);
+      expect(zoned).toMatch(/q\."shipped" <= cast\(\S+ as date\)/);
+    });
+  });
 });

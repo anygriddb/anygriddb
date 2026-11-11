@@ -28,7 +28,13 @@ import {
 } from "./filter-sql";
 import { quoteIdent, SqlParams, type ParameterizedSql } from "./params";
 import { dialectOf, type JsonKind, type SqlDialect } from "./dialect";
-import { idSql, readTableSql, stableOrderSql, systemSql } from "./storage";
+import {
+  idSql,
+  readTableSql,
+  stableOrderSql,
+  storedColumnSql,
+  systemSql,
+} from "./storage";
 import { AppError, type ErrorCode } from "../errors";
 import type { SourceLimit } from "./limits";
 
@@ -327,6 +333,26 @@ function prepare(catalog: EngineCatalog, spec: ReadSpec): Prepared {
         : [],
     ),
   ];
+  // A date field whose day the dialect reads out of the stored value: its
+  // filters compare that value, which the engine finds by its index.
+  [...columns.values()].forEach((projected, index) => {
+    const physical = projected.column.physical;
+    if (
+      !table.external ||
+      projected.error !== undefined ||
+      projected.kind !== "date" ||
+      physical === undefined ||
+      physical.missing ||
+      physical.controlPlane ||
+      !d.comparesStoredDay?.(projected.column.fieldType, physical)
+    ) {
+      return;
+    }
+    select.push(
+      `${storedColumnSql(table, "r", physical.name)} as ${storedDayColumn(index)}`,
+    );
+    projected.stored = `q.${storedDayColumn(index)}`;
+  });
   const own = ctx.scope?.(table, "r");
   const derived = `(select ${select.join(", ")} from ${readTableSql(table)} r${own ? ` where ${own}` : ""}) q`;
   const filterContext: FilterContext = {
@@ -527,6 +553,10 @@ export function rowError(
 /** The column of `q` that holds the error of the `index`th column. */
 function errorColumn(index: number): string {
   return `"ag_e${String(index)}"`;
+}
+
+function storedDayColumn(index: number): string {
+  return `"ag_d${String(index)}"`;
 }
 
 /**

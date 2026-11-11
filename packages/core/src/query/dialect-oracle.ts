@@ -376,6 +376,11 @@ export const ORACLE: SqlDialect = {
     if (physical.zone === "UTC") return `cast(${ref} as timestamp(6))`;
     return `cast(from_tz(cast(${ref} as timestamp), ${zoneLiteral(physical.zone)}) at time zone 'UTC' as timestamp(6))`;
   },
+  // trunc() would keep a filter off the column's index; a DATE or a
+  // TIMESTAMP without a zone compares with midnight bounds as stored.
+  comparesStoredDay: (fieldType, physical) =>
+    fieldType === "date" &&
+    ["date", "timestamp"].includes(typeName(physical.type)),
   keyId: (columns) =>
     columns.length === 1
       ? `cast(${columns[0] ?? ""} as varchar2(1000))`

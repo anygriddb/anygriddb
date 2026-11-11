@@ -31,6 +31,11 @@ export type ColumnRef = {
    * query cannot filter on them, the caller resolves them first.
    */
   apart?: boolean;
+  /**
+   * The stored value a date field reads its day from, where midnight
+   * bounds compare it as it is (`SqlDialect.comparesStoredDay`).
+   */
+  stored?: string;
 };
 
 export type FilterContext = {
@@ -149,7 +154,8 @@ function betweenSql(
         : d.numberParam(ctx.params.bind(number));
     };
   } else if (ref.kind === "date" || ref.kind === "datetime") {
-    subject = ref.kind === "datetime" ? d.localDate(x, ctx.tz) : x;
+    subject =
+      ref.kind === "datetime" ? d.localDate(x, ctx.tz) : (ref.stored ?? x);
     bound = (end) => {
       const day = end.slice(0, 10);
       return isIsoDate(day) ? dateParam(ctx, day) : undefined;
@@ -158,9 +164,14 @@ function betweenSql(
     throw new AppError("invalid_filter");
   }
   const [from, to] = value.map(bound);
+  // A stored value with a time of day stays on the last day until the next.
+  const upTo = (end: string) =>
+    ref.kind === "date" && ref.stored
+      ? `${subject} < ${d.addDays(end, "1")}`
+      : `${subject} <= ${end}`;
   const parts = [
     ...(from === undefined ? [] : [`${subject} >= ${from}`]),
-    ...(to === undefined ? [] : [`${subject} <= ${to}`]),
+    ...(to === undefined ? [] : [upTo(to)]),
   ];
   return parts.length === 0 ? null : `(${parts.join(" and ")})`;
 }
@@ -386,7 +397,8 @@ export function compileCondition(
       if (!range) {
         return null;
       }
-      const day = ref.kind === "datetime" ? d.localDate(x, ctx.tz) : x;
+      const day =
+        ref.kind === "datetime" ? d.localDate(x, ctx.tz) : (ref.stored ?? x);
       const inside = `(${day} >= ${range.start} and ${day} < ${range.end})`;
       switch (op) {
         case "is":

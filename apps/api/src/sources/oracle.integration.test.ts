@@ -12,7 +12,7 @@ import { createPrivateKey, randomBytes, X509Certificate } from "node:crypto";
 import { once } from "node:events";
 import { connect, type AddressInfo } from "node:net";
 import { createServer, type Server } from "node:tls";
-import { AppError } from "@anygriddb/core";
+import { AppError, buildReadRows } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import oracledb from "oracledb";
 import {
@@ -27,7 +27,7 @@ import { insertBase } from "../data/schema-ops.js";
 import { createTestDatabase } from "../test-database.js";
 import { issueAuthority, issueServer } from "../tls/certificate.js";
 import { exposeTables } from "./expose.js";
-import { setSourcePools, SourcePools } from "./pools.js";
+import { setSourcePools, SourcePools, toOracle } from "./pools.js";
 import { checkConnection, createSource } from "./sources.js";
 import { introspectOracle } from "./oracle-schema.js";
 import type { SourceConnection, SourceSettings } from "./types.js";
@@ -88,10 +88,15 @@ describe("Oracle sources", () => {
       connectString,
     });
     for (const statement of [
-      "create table customers (id number(10) primary key, name varchar2(120) not null, amount number(14,2), active number(1) default 1 not null, notes blob)",
-      "insert into customers (id, name, amount, active) values (1, 'Ada', 120.50, 1)",
-      "insert into customers (id, name, amount, active) values (2, 'Bob', 10, 0)",
+      "create table customers (id number(10) primary key, name varchar2(120) not null, amount number(14,2), active number(1) default 1 not null, notes blob, shipped date)",
+      "insert into customers (id, name, amount, active, shipped) values (1, 'Ada', 120.50, 1, timestamp '2026-11-07 15:30:00')",
+      "insert into customers (id, name, amount, active, shipped) values (2, 'Bob', 10, 0, timestamp '2026-11-08 00:00:00')",
       "create table secrets (id number(10) primary key, code varchar2(20))",
+      // One row an hour, from New Year's Day: 24 a day, by an index.
+      "create table shipments (id number(10) primary key, shipped date not null)",
+      "insert into shipments select level, date '2026-01-01' + (level - 1) / 24 from dual connect by level <= 20000",
+      "create index shipments_shipped on shipments (shipped)",
+      "begin dbms_stats.gather_table_stats('SALES', 'SHIPMENTS'); end;",
     ]) {
       await owner.execute(statement);
     }
@@ -109,6 +114,7 @@ describe("Oracle sources", () => {
       "grant create session to grid",
       "grant select on sales.customers to grid",
       "grant update (name, active) on sales.customers to grid",
+      "grant select on sales.shipments to grid",
     ]) {
       await system.execute(statement);
     }
@@ -227,6 +233,7 @@ describe("Oracle sources", () => {
     });
     expect(tables.map((table) => `${table.schema}.${table.name}`)).toEqual([
       "SALES.CUSTOMERS",
+      "SALES.SHIPMENTS",
     ]);
     const [customers] = tables;
     expect(customers).toMatchObject({
@@ -239,6 +246,7 @@ describe("Oracle sources", () => {
     );
     expect(columns.AMOUNT?.field.fieldType).toBe("number");
     expect(columns.ACTIVE?.field.fieldType).toBe("boolean");
+    expect(columns.SHIPPED?.field.fieldType).toBe("date");
     expect(columns.NOTES?.field).toEqual({ fieldType: "text", readOnly: true });
     expect(
       Object.values(columns)
@@ -292,5 +300,107 @@ describe("Oracle sources", () => {
       ["1", "Ada", "120.5", true],
       ["2", "Bob", "10", false],
     ]);
+  }, 180_000);
+
+  it("filters a DATE by its day, on the column's index", async () => {
+    const deps = { db, key, settings };
+    const local = new SourcePools({ db, key, settings, log: () => undefined });
+    setSourcePools(local);
+    try {
+      const source = await createSource(deps, admin, {
+        name: "Shipping",
+        ...connection(),
+        connectionLimit: 2,
+        timeZone: "UTC",
+      });
+      const base = await insertBase(db, admin, { name: "Shipping" });
+      const {
+        tableIds: [customersId = "", shipmentsId = ""],
+      } = await exposeTables(deps, admin, {
+        sourceId: source.id,
+        baseId: base.id,
+        tables: [
+          { schema: "SALES", name: "CUSTOMERS" },
+          { schema: "SALES", name: "SHIPMENTS" },
+        ],
+      });
+      const { engine } = await loadEngine(db, customersId, () => true);
+      const shipped =
+        engine.table.columns.find(
+          (column) => column.physical?.name === "SHIPPED",
+        )?.name ?? "";
+      const ids = async (
+        op: "is" | "is_between" | "is_before" | "is_after",
+        value: string | [string, string],
+      ) =>
+        (
+          await readPage(
+            db,
+            engine,
+            {
+              filter: {
+                conjunction: "and",
+                conditions: [{ column: shipped, op, value }],
+              },
+              sort: [{ column: shipped, direction: "asc" }],
+              limit: 10,
+              timeZone: "UTC",
+            },
+            { total: false },
+          )
+        ).rows.map((row) => [row.id, row[shipped]]);
+      // Ada shipped at 15:30 on the 7th, Bob at midnight on the 8th.
+      expect(await ids("is", "2026-11-07")).toEqual([["1", "2026-11-07"]]);
+      expect(await ids("is_between", ["2026-11-01", "2026-11-07"])).toEqual([
+        ["1", "2026-11-07"],
+      ]);
+      expect(await ids("is_between", ["2026-11-08", "2026-11-08"])).toEqual([
+        ["2", "2026-11-08"],
+      ]);
+      expect(await ids("is_before", "2026-11-08")).toEqual([
+        ["1", "2026-11-07"],
+      ]);
+      expect(await ids("is_after", "2026-11-07")).toEqual([
+        ["2", "2026-11-08"],
+      ]);
+
+      // The plan Oracle makes for a day of the 20,000 shipments.
+      const shipments = (await loadEngine(db, shipmentsId, () => true)).engine;
+      const day =
+        shipments.table.columns.find(
+          (column) => column.physical?.name === "SHIPPED",
+        )?.name ?? "";
+      const { text, values } = toOracle(
+        buildReadRows(shipments, {
+          filter: {
+            conjunction: "and",
+            conditions: [{ column: day, op: "is", value: "2026-06-01" }],
+          },
+          limit: 50,
+          timeZone: "UTC",
+        }),
+      );
+      const grid = await oracledb.getConnection({
+        user: "grid",
+        password: "Grid_Reader_19",
+        connectString: `localhost:${String(port)}/FREEPDB1`,
+      });
+      try {
+        await grid.execute(`explain plan for ${text}`, [...values]);
+        const plan = await grid.execute<[string]>(
+          "select plan_table_output from table(dbms_xplan.display())",
+          [],
+          { outFormat: oracledb.OUT_FORMAT_ARRAY },
+        );
+        const lines = (plan.rows ?? []).map(([line]) => line).join("\n");
+        expect(lines).toContain("INDEX RANGE SCAN");
+        expect(lines).toContain("SHIPMENTS_SHIPPED");
+      } finally {
+        await grid.close();
+      }
+    } finally {
+      setSourcePools(pools);
+      await local.close();
+    }
   }, 180_000);
 });

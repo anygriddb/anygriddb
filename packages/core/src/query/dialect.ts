@@ -132,6 +132,12 @@ export interface SqlDialect {
     fieldType: FieldType,
     physical: PhysicalColumn,
   ): string;
+  /**
+   * True when `readColumn` reads a date field's day out of a stored value
+   * that midnight bounds compare as it is: a filter then compares the
+   * column itself, and the engine can use its index.
+   */
+  comparesStoredDay?(fieldType: FieldType, physical: PhysicalColumn): boolean;
   /** A client table's id from its key columns. */
   keyId(columns: readonly string[]): string;
   /** A row's id for a table or view without a key: its content. */
