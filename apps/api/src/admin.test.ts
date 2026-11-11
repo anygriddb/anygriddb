@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { changedKeys } from "./admin.js";
+import { changedKeys, updateAccountInputSchema } from "./admin.js";
 
 describe("changedKeys", () => {
   it("lists fields whose values differ, without system noise", () => {
@@ -29,5 +29,36 @@ describe("changedKeys", () => {
     ]);
     expect(changedKeys({ nom: "A" }, null)).toEqual(["nom"]);
     expect(changedKeys("bad", 3)).toEqual([]);
+  });
+});
+
+describe("updateAccountInputSchema", () => {
+  const userId = "00000000-0000-4000-8000-000000000001";
+
+  it("takes a name and an address, and trims the name", () => {
+    expect(
+      updateAccountInputSchema.parse({
+        userId,
+        displayName: "  Ada Lovelace ",
+        email: "ada@example.org",
+      }),
+    ).toEqual({
+      userId,
+      displayName: "Ada Lovelace",
+      email: "ada@example.org",
+    });
+  });
+
+  it("refuses an empty name, a text that is not an address, and a field it does not know", () => {
+    const refused = (input: object) =>
+      updateAccountInputSchema.safeParse({
+        userId,
+        displayName: "Ada",
+        email: "ada@example.org",
+        ...input,
+      }).success;
+    expect(refused({ displayName: "   " })).toBe(false);
+    expect(refused({ email: "ada" })).toBe(false);
+    expect(refused({ isAdmin: true })).toBe(false);
   });
 });

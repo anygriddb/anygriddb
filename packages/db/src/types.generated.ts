@@ -20,6 +20,7 @@ export type AuthAction =
   | "account_erased"
   | "account_locked"
   | "account_unlocked"
+  | "account_updated"
   | "factors_cleared"
   | "login_failure"
   | "login_success"

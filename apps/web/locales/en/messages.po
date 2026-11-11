@@ -744,6 +744,10 @@ msgid "Account"
 msgstr "Account"
 
 #: components/admin/sign-in-trail.tsx
+msgid "Account changed"
+msgstr "Account changed"
+
+#: components/admin/sign-in-trail.tsx
 msgid "Account disabled"
 msgstr "Account disabled"
 
@@ -1885,10 +1889,6 @@ msgstr "Copy"
 msgid "Copy (Ctrl V pastes, even from a spreadsheet)"
 msgstr "Copy (Ctrl V pastes, even from a spreadsheet)"
 
-#: components/admin/admin-page.tsx
-msgid "Copy and close"
-msgstr "Copy and close"
-
 #: components/admin/sources-tab.tsx
 msgid "Copy in AnyGridDB"
 msgstr "Copy in AnyGridDB"
@@ -1914,6 +1914,10 @@ msgstr "Copy row link"
 #: components/views/calendar-feed.tsx
 msgid "Copy the address"
 msgstr "Copy the address"
+
+#: components/admin/admin-page.tsx
+msgid "Copy the link"
+msgstr "Copy the link"
 
 #: components/admin/scim-tab.tsx
 msgid "Copy the SCIM address"
@@ -1975,6 +1979,10 @@ msgstr "Create a base first: exposed tables show there."
 msgid "Create a link"
 msgstr "Create a link"
 
+#: components/admin/admin-page.tsx
+msgid "Create a password reset link"
+msgstr "Create a password reset link"
+
 #: components/table/automations-dialog.tsx
 msgid "Create a row"
 msgstr "Create a row"
@@ -2016,6 +2024,10 @@ msgstr "Create rows (POST)"
 #: components/views/calendar-feed.tsx
 msgid "Create the address"
 msgstr "Create the address"
+
+#: components/admin/admin-page.tsx
+msgid "Create the link"
+msgstr "Create the link"
 
 #: components/admin/admin-page.tsx
 #: components/admin/scim-tab.tsx
@@ -2388,6 +2400,8 @@ msgstr "Display"
 msgid "Display condition of {field}: {count}"
 msgstr "Display condition of {field}: {count}"
 
+#: components/admin/admin-page.tsx
+#: components/admin/sign-in-trail.tsx
 #: components/auth/auth-page.tsx
 #: components/settings/account-settings.tsx
 msgid "Display name"
@@ -2502,6 +2516,10 @@ msgstr "Edit"
 msgid "Edit {field}"
 msgstr "Edit {field}"
 
+#: components/admin/admin-page.tsx
+msgid "Edit {name}'s account"
+msgstr "Edit {name}'s account"
+
 #: components/table/automations-dialog.tsx
 msgid "Edit automation"
 msgstr "Edit automation"
@@ -2514,6 +2532,10 @@ msgstr "Edit colour rules"
 #: components/grid/grid-header.tsx
 msgid "Edit field"
 msgstr "Edit field"
+
+#: components/admin/admin-page.tsx
+msgid "Edit name and email"
+msgstr "Edit name and email"
 
 #: components/admin/sources-tab.tsx
 msgid "Edit rows"
@@ -2535,6 +2557,8 @@ msgstr "edited"
 msgid "Editor"
 msgstr "Editor"
 
+#: components/admin/admin-page.tsx
+#: components/admin/sign-in-trail.tsx
 #: components/admin/support-tab.tsx
 #: components/auth/auth-page.tsx
 #: components/fields/field-meta.tsx
@@ -5410,6 +5434,10 @@ msgid "required"
 msgstr "required"
 
 #: components/admin/admin-page.tsx
+msgid "Reset link"
+msgstr "Reset link"
+
+#: components/admin/admin-page.tsx
 msgid "Reset link for {name}"
 msgstr "Reset link for {name}"
 
@@ -5646,6 +5674,7 @@ msgstr "Save OIDC"
 msgid "Save SAML"
 msgstr "Save SAML"
 
+#: components/admin/admin-page.tsx
 #: components/settings/base-settings.tsx
 msgid "Saved"
 msgstr "Saved"
@@ -6656,8 +6685,12 @@ msgid "The link is shown only once. Existing links:"
 msgstr "The link is shown only once. Existing links:"
 
 #: components/admin/admin-page.tsx
-msgid "The link sets a new password once, within a day; their second factors stay. With email set up, it goes to their address and you never see it. Otherwise you get it to pass on: only to them, as it opens their account."
-msgstr "The link sets a new password once, within a day; their second factors stay. With email set up, it goes to their address and you never see it. Otherwise you get it to pass on: only to them, as it opens their account."
+msgid "The link sets a new password once, within a day; their second factors stay. Email is not set up, so you get the link to pass on: only to them, as it opens their account."
+msgstr "The link sets a new password once, within a day; their second factors stay. Email is not set up, so you get the link to pass on: only to them, as it opens their account."
+
+#: components/admin/admin-page.tsx
+msgid "The link sets a new password once, within a day; their second factors stay. It goes to their address and you never see it."
+msgstr "The link sets a new password once, within a day; their second factors stay. It goes to their address and you never see it."
 
 #: components/admin/support-tab.tsx
 msgid "The link stops working. The base's owners can invite this person again."
@@ -6694,6 +6727,10 @@ msgstr "The minutes."
 #: components/fields/formula-docs.ts
 msgid "The month, from 1 to 12."
 msgstr "The month, from 1 to 12."
+
+#: components/admin/admin-page.tsx
+msgid "The name others see and the address they sign in with. A new address ends the reset links sent to the old one."
+msgstr "The name others see and the address they sign in with. A new address ends the reset links sent to the old one."
 
 #: components/fields/formula-docs.ts
 msgid "The next even number, away from zero."

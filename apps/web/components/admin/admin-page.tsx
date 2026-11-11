@@ -3,6 +3,9 @@ import {
   Button,
   Checkbox,
   cn,
+  Dialog,
+  DialogContent,
+  DialogFooter,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -110,11 +113,20 @@ function UsersTab() {
     typed: string;
     successor: string;
   } | null>(null);
+  const [edit, setEdit] = useState<{
+    id: string;
+    name: string;
+    displayName: string;
+    email: string;
+  } | null>(null);
   // A reset link to pass on, when the instance sends no email.
   const [handed, setHanded] = useState<{ name: string; link: string } | null>(
     null,
   );
   const copy = useCopy();
+  // Without email a reset link is made for the administrator to pass on.
+  const settings = useQuery(api.admin.settings.queryOptions());
+  const mails = settings.data?.smtpReady ?? false;
   const options = api.admin.users.queryOptions({
     search: search || undefined,
     offset,
@@ -122,7 +134,13 @@ function UsersTab() {
   });
   const list = useQuery(options);
   const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: api.admin.users.queryKey() });
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: api.admin.users.queryKey() }),
+      // What was just done to an account shows in the sign-in trail at once.
+      queryClient.invalidateQueries({
+        queryKey: api.admin.authAudit.queryKey(),
+      }),
+    ]);
   async function run(action: () => Promise<unknown>) {
     try {
       await action();
@@ -164,6 +182,8 @@ function UsersTab() {
           <tbody>
             {(list.data?.users ?? []).map((user) => {
               const self = user.id === session.data?.id;
+              // Kept by an identity provider, which writes its values back.
+              const kept = user.provisioned && !user.deprovisioned;
               return (
                 <tr key={user.id} className="border-t border-border">
                   <td className="px-3 py-2">
@@ -271,7 +291,7 @@ function UsersTab() {
                     ) : null}
                   </td>
                   <td className="px-3 py-2 text-right">
-                    {self ? null : (
+                    {self && kept ? null : (
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           aria-label={t`Actions for ${{ name: user.displayName }}`}
@@ -280,7 +300,21 @@ function UsersTab() {
                           <MoreHorizontal className="h-4 w-4" aria-hidden />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                          {user.lock ? (
+                          {kept ? null : (
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                setEdit({
+                                  id: user.id,
+                                  name: user.displayName,
+                                  displayName: user.displayName,
+                                  email: user.email,
+                                })
+                              }
+                            >
+                              {t`Edit name and email`}
+                            </DropdownMenuItem>
+                          )}
+                          {!self && user.lock ? (
                             <DropdownMenuItem
                               onSelect={() =>
                                 setAct({
@@ -293,7 +327,7 @@ function UsersTab() {
                               {t`Unlock`}
                             </DropdownMenuItem>
                           ) : null}
-                          {user.hasPassword ? (
+                          {!self && user.hasPassword ? (
                             <DropdownMenuItem
                               onSelect={() =>
                                 setAct({
@@ -303,32 +337,38 @@ function UsersTab() {
                                 })
                               }
                             >
-                              {t`Send a password reset link`}
+                              {mails
+                                ? t`Send a password reset link`
+                                : t`Create a password reset link`}
                             </DropdownMenuItem>
                           ) : null}
-                          <DropdownMenuItem
-                            onSelect={() =>
-                              setAct({
-                                id: user.id,
-                                name: user.displayName,
-                                action: "sessions",
-                              })
-                            }
-                          >
-                            {t`Sign out everywhere`}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={() =>
-                              setAct({
-                                id: user.id,
-                                name: user.displayName,
-                                action: "factors",
-                              })
-                            }
-                          >
-                            {t`Remove their second factors`}
-                          </DropdownMenuItem>
-                          {user.signOn ? (
+                          {self ? null : (
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                setAct({
+                                  id: user.id,
+                                  name: user.displayName,
+                                  action: "sessions",
+                                })
+                              }
+                            >
+                              {t`Sign out everywhere`}
+                            </DropdownMenuItem>
+                          )}
+                          {self ? null : (
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                setAct({
+                                  id: user.id,
+                                  name: user.displayName,
+                                  action: "factors",
+                                })
+                              }
+                            >
+                              {t`Remove their second factors`}
+                            </DropdownMenuItem>
+                          )}
+                          {!self && user.signOn ? (
                             <DropdownMenuItem
                               onSelect={() =>
                                 setAct({
@@ -341,17 +381,19 @@ function UsersTab() {
                               {t`Unlink single sign-on`}
                             </DropdownMenuItem>
                           ) : null}
-                          <DropdownMenuItem
-                            onSelect={() =>
-                              setAct({
-                                id: user.id,
-                                name: user.displayName,
-                                action: "tokens",
-                              })
-                            }
-                          >
-                            {t`Revoke their API tokens`}
-                          </DropdownMenuItem>
+                          {self ? null : (
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                setAct({
+                                  id: user.id,
+                                  name: user.displayName,
+                                  action: "tokens",
+                                })
+                              }
+                            >
+                              {t`Revoke their API tokens`}
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
@@ -506,7 +548,9 @@ function UsersTab() {
               signOn: t`The account forgets which identity of the provider it belongs to. The next sign-on with its address binds it again. For an account made again at the provider; otherwise someone else with that address there could take it.`,
               tokens: t`Scripts and tools using these tokens stop working at once.`,
               unlock: t`The person can sign in again now, and their count of failed attempts starts over.`,
-              reset: t`The link sets a new password once, within a day; their second factors stay. With email set up, it goes to their address and you never see it. Otherwise you get it to pass on: only to them, as it opens their account.`,
+              reset: mails
+                ? t`The link sets a new password once, within a day; their second factors stay. It goes to their address and you never see it.`
+                : t`The link sets a new password once, within a day; their second factors stay. Email is not set up, so you get the link to pass on: only to them, as it opens their account.`,
             }[act.action]
           }
           confirmLabel={
@@ -516,7 +560,7 @@ function UsersTab() {
               signOn: t`Unlink`,
               tokens: t`Revoke`,
               unlock: t`Unlock`,
-              reset: t`Send`,
+              reset: mails ? t`Send` : t`Create the link`,
             }[act.action]
           }
           onConfirm={() =>
@@ -548,19 +592,84 @@ function UsersTab() {
           }
         />
       ) : null}
-      {handed ? (
+      {edit ? (
         <ConfirmDialog
           open
-          onOpenChange={(open) => !open && setHanded(null)}
-          title={t`Reset link for ${{ name: handed.name }}`}
-          description={t`Email is not set up, so pass this link on yourself, to this person only: it lets whoever has it choose the account's password, once, within a day.`}
-          confirmLabel={t`Copy and close`}
-          onConfirm={() => copy(handed.link, t`Link copied`)}
+          onOpenChange={(open) => !open && setEdit(null)}
+          title={t`Edit ${{ name: edit.name }}'s account`}
+          description={t`The name others see and the address they sign in with. A new address ends the reset links sent to the old one.`}
+          confirmLabel={t`Save`}
+          onConfirm={async () => {
+            try {
+              await trpc.admin.updateAccount.mutate({
+                userId: edit.id,
+                displayName: edit.displayName,
+                email: edit.email.trim(),
+              });
+              await refresh();
+              if (edit.id === session.data?.id) {
+                await queryClient.invalidateQueries({
+                  queryKey: api.session.current.queryKey(),
+                });
+              }
+              toast.success(t`Saved`);
+            } catch (cause) {
+              toast.error(errorText(cause));
+              throw cause;
+            }
+          }}
         >
-          <code className="block rounded bg-muted px-2 py-1 font-mono text-xs break-all">
-            {handed.link}
-          </code>
+          <div className="flex flex-col gap-2 pb-3">
+            <Label htmlFor="edit-name">{t`Display name`}</Label>
+            <Input
+              id="edit-name"
+              autoComplete="off"
+              maxLength={80}
+              value={edit.displayName}
+              onChange={(event) =>
+                setEdit({ ...edit, displayName: event.target.value })
+              }
+            />
+            <Label htmlFor="edit-email">{t`Email`}</Label>
+            <Input
+              id="edit-email"
+              type="email"
+              autoComplete="off"
+              maxLength={254}
+              value={edit.email}
+              onChange={(event) =>
+                setEdit({ ...edit, email: event.target.value })
+              }
+            />
+          </div>
         </ConfirmDialog>
+      ) : null}
+      {handed ? (
+        <Dialog open onOpenChange={(open) => !open && setHanded(null)}>
+          <DialogContent
+            title={t`Reset link for ${{ name: handed.name }}`}
+            description={t`Email is not set up, so pass this link on yourself, to this person only: it lets whoever has it choose the account's password, once, within a day.`}
+          >
+            {/* It stays until closed: a copy the browser refuses is still
+                there to select. */}
+            <textarea
+              readOnly
+              rows={2}
+              aria-label={t`Reset link`}
+              className="w-full resize-none rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs break-all outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={handed.link}
+              onFocus={(event) => event.target.select()}
+            />
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setHanded(null)}>
+                {t`Done`}
+              </Button>
+              <Button onClick={() => copy(handed.link, t`Link copied`)}>
+                {t`Copy the link`}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       ) : null}
     </div>
   );
