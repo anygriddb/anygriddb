@@ -35,7 +35,7 @@
     "@node-saml/node-saml": "5.1.0",
     "@opentelemetry/api": "1.9.1",
     "@opentelemetry/exporter-trace-otlp-http": "0.223.0",
-    "@opentelemetry/resources": "2.12.0",
+    "@opentelemetry/resources": "3.0.0",
     "@opentelemetry/sdk-trace-node": "2.12.0",
     "@simplewebauthn/server": "14.0.3",
     "@smithy/node-http-handler": "4.14.1",
