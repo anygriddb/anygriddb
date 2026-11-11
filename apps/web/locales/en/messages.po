@@ -1079,6 +1079,10 @@ msgstr "Allow several people"
 msgid "Allowed"
 msgstr "Allowed"
 
+#: components/admin/security-tab.tsx
+msgid "Allowed CIDR ranges"
+msgstr "Allowed CIDR ranges"
+
 #: components/admin/sources-tab.tsx
 msgid "Allowed hosts: {hosts}"
 msgstr "Allowed hosts: {hosts}"
@@ -4029,6 +4033,10 @@ msgstr "Light theme"
 msgid "Like FIND, ignoring upper and lower case."
 msgstr "Like FIND, ignoring upper and lower case."
 
+#: components/admin/security-tab.tsx
+msgid "Limit interactive sign-in (password, single sign-on, passkeys) to these client addresses. Empty means any. API tokens, SCIM, and metrics are not gated here. Behind a reverse proxy, set ANYGRIDDB_TRUSTED_PROXIES so the real client address is used."
+msgstr "Limit interactive sign-in (password, single sign-on, passkeys) to these client addresses. Empty means any. API tokens, SCIM, and metrics are not gated here. Behind a reverse proxy, set ANYGRIDDB_TRUSTED_PROXIES so the real client address is used."
+
 #: components/dashboards/dashboard-board.tsx
 msgid "Line"
 msgstr "Line"
@@ -5746,6 +5754,10 @@ msgstr "Saturday"
 msgid "Save"
 msgstr "Save"
 
+#: components/admin/security-tab.tsx
+msgid "Save allowlist"
+msgstr "Save allowlist"
+
 #: components/admin/integrations-tab.tsx
 msgid "Save and verify"
 msgstr "Save and verify"
@@ -6122,6 +6134,14 @@ msgstr "Sign out everywhere"
 #: components/record/row-status.tsx
 msgid "Sign the row"
 msgstr "Sign the row"
+
+#: components/admin/security-tab.tsx
+msgid "Sign-in addresses"
+msgstr "Sign-in addresses"
+
+#: lib/errors.ts
+msgid "Sign-in is not allowed from this network address"
+msgstr "Sign-in is not allowed from this network address"
 
 #: components/admin/sign-in-trail.tsx
 msgid "Sign-in refused"

@@ -20,6 +20,7 @@ import { isUniqueViolation } from "../data/schema-ops.js";
 import type { Env } from "../env.js";
 import { resolveOidc, type OidcConfig } from "../integrations/oidc.js";
 import { resolveSaml, type SamlConfig } from "../integrations/saml.js";
+import { assertSignInAddressAllowed } from "./sign-in-allowlist.js";
 import { readSettings } from "../settings.js";
 import { AppError } from "@anygriddb/core";
 
@@ -212,6 +213,7 @@ async function finishSignIn(
   method: "oidc" | "saml",
 ): Promise<string> {
   const policy = await readSettings(deps.db);
+  assertSignInAddressAllowed(policy.signInAllowlist, request.ip);
   if (
     policy.ssoMfa === "local" &&
     (await factorMethods(deps.db, userId)).length > 0

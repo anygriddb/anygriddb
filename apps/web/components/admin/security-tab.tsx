@@ -1,7 +1,8 @@
 import type { InstanceSettingsPatch } from "@anygriddb/core";
-import { Label, Select, Spinner } from "@anygriddb/ui";
+import { Button, Label, Select, Spinner, Textarea } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { RuledSection } from "../shell/notebook-page";
@@ -59,6 +60,7 @@ export function SecurityTab() {
   const api = useTRPC();
   const queryClient = useQueryClient();
   const settings = useQuery(api.admin.settings.queryOptions());
+  const [allowlistDraft, setAllowlistDraft] = useState<string | null>(null);
   async function save(patch: InstanceSettingsPatch) {
     try {
       await trpc.admin.updateSettings.mutate(patch);
@@ -264,6 +266,41 @@ export function SecurityTab() {
           )}
           onChange={(sessionMaxHours) => void save({ sessionMaxHours })}
         />
+      </RuledSection>
+
+      <RuledSection
+        title={t`Sign-in addresses`}
+        description={t`Limit interactive sign-in (password, single sign-on, passkeys) to these client addresses. Empty means any. API tokens, SCIM, and metrics are not gated here. Behind a reverse proxy, set ANYGRIDDB_TRUSTED_PROXIES so the real client address is used.`}
+      >
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="policy-signin-allowlist">{t`Allowed CIDR ranges`}</Label>
+          <Textarea
+            id="policy-signin-allowlist"
+            rows={4}
+            className="max-w-md font-mono text-xs"
+            placeholder={"192.0.2.0/24\n2001:db8::/32"}
+            value={allowlistDraft ?? data.signInAllowlist.join("\n")}
+            onChange={(event) => setAllowlistDraft(event.target.value)}
+          />
+          <Button
+            type="button"
+            size="sm"
+            className="self-start"
+            onClick={() => {
+              const entries = (
+                allowlistDraft ?? data.signInAllowlist.join("\n")
+              )
+                .split(/[\n,]+/)
+                .map((entry) => entry.trim())
+                .filter((entry) => entry.length > 0);
+              void save({ signInAllowlist: entries }).then(() =>
+                setAllowlistDraft(null),
+              );
+            }}
+          >
+            {t`Save allowlist`}
+          </Button>
+        </div>
       </RuledSection>
 
       <RuledSection
