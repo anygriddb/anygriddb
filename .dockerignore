@@ -1,6 +1,8 @@
-node_modules
-dist
-.turbo
+# Nested package folders too: a root-only `node_modules` lets the host's
+# apps/*/node_modules overwrite the image's install on COPY apps/*.
+**/node_modules
+**/dist
+**/.turbo
 .git
 **/.env
 **/.env.*
