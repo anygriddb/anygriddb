@@ -1,5 +1,34 @@
+import websocket from "@fastify/websocket";
+import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
-import { acceptRelay, parseClientMessage } from "./ws.js";
+import { acceptRelay, parseClientMessage, SOCKET_OPTIONS } from "./ws.js";
+
+describe("the socket server", () => {
+  it("takes a message up to the parser's limit and closes on a longer one", async () => {
+    const app = Fastify();
+    await app.register(websocket, SOCKET_OPTIONS);
+    const received: number[] = [];
+    app.get("/ws", { websocket: true }, (socket) => {
+      socket.on("message", (raw: Buffer) => {
+        received.push(raw.length);
+      });
+    });
+    await app.ready();
+    try {
+      const socket = await app.injectWS("/ws");
+      const closed = new Promise<number>((resolve) => {
+        socket.on("close", resolve);
+      });
+      socket.send("x".repeat(16_384));
+      socket.send("x".repeat(16_385));
+      // Refused as it arrives: the server closes with "message too big".
+      expect(await closed).toBe(1009);
+      expect(received).toEqual([16_384]);
+    } finally {
+      await app.close();
+    }
+  });
+});
 
 describe("websocket messages", () => {
   it("accepts a bounded subscribe and rejects hostile payloads", () => {
