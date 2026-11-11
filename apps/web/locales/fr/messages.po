@@ -1710,6 +1710,14 @@ msgstr "Effacer le SAML enregistré"
 msgid "Clear saved SAML?"
 msgstr "Effacer le SAML enregistré ?"
 
+#: components/admin/integrations-tab.tsx
+msgid "Clear SIEM webhook"
+msgstr "Effacer le webhook SIEM"
+
+#: components/admin/integrations-tab.tsx
+msgid "Clear SIEM webhook?"
+msgstr "Effacer le webhook SIEM ?"
+
 #: components/shell/shortcuts-dialog.tsx
 msgid "Clear the selected cells"
 msgstr "Vider les cellules sélectionnées"
@@ -2617,6 +2625,7 @@ msgid "Email"
 msgstr "Email"
 
 #: components/admin/integrations-tab.tsx
+#: components/admin/sign-in-trail.tsx
 msgid "Email (SMTP)"
 msgstr "Email (SMTP)"
 
@@ -3366,6 +3375,10 @@ msgstr "Masquer les colonnes vides"
 msgid "History"
 msgstr "Historique"
 
+#: components/admin/integrations-tab.tsx
+msgid "HMAC secret"
+msgstr "Secret HMAC"
+
 #: components/dashboards/dashboard-board.tsx
 msgid "Horizontal bars"
 msgstr "Barres horizontales"
@@ -3398,6 +3411,10 @@ msgstr "Combien de valeurs en tout, vides comprises."
 #: components/settings/webhooks-panel.tsx
 msgid "HTTP header"
 msgstr "En-tête HTTP"
+
+#: components/admin/integrations-tab.tsx
+msgid "HTTPS URL"
+msgstr "URL HTTPS"
 
 #: components/settings/second-factor.tsx
 msgid "I saved the codes"
@@ -4594,6 +4611,10 @@ msgstr "Aucun champ"
 msgid "No function"
 msgstr "Aucune fonction"
 
+#: components/admin/integrations-tab.tsx
+msgid "No further auth events are posted until you configure it again."
+msgstr "Aucun autre événement d'authentification n'est envoyé tant que vous ne le configurez pas à nouveau."
+
 #: components/settings/group-roles.tsx
 msgid "No group on this instance. An administrator can receive them from your identity provider (SCIM)."
 msgstr "Aucun groupe sur cette instance. Un administrateur peut en recevoir de votre fournisseur d'identité (SCIM)."
@@ -4882,6 +4903,7 @@ msgid "Open: anyone can register from the sign-in page. Closed: only administrat
 msgstr "Ouvert : chacun peut s'inscrire depuis la page de connexion. Fermé : seuls les administrateurs créent les comptes et envoient un lien de réinitialisation (Comptes). Sur invitation : une invitation à une base en attente est requise. La connexion SSO pour les nouveaux comptes suit la même règle. Les comptes existants ne sont pas concernés."
 
 #: components/admin/integrations-tab.tsx
+#: components/admin/sign-in-trail.tsx
 msgid "OpenID Connect"
 msgstr "OpenID Connect"
 
@@ -4904,6 +4926,10 @@ msgstr "Opérateur"
 #: components/fields/field-editor.tsx
 msgid "Option name"
 msgstr "Nom de l'option"
+
+#: components/admin/integrations-tab.tsx
+msgid "Optional HTTPS endpoint that receives selected sign-in and administration events. The body never includes an email, password, or token."
+msgstr "Point HTTPS optionnel qui reçoit certains événements de connexion et d'administration. Le corps ne contient jamais d'email, de mot de passe ni de jeton."
 
 #: components/fields/field-editor.tsx
 msgid "Options"
@@ -5727,6 +5753,7 @@ msgid "Same as primary when empty"
 msgstr "Identique au primaire si vide"
 
 #: components/admin/integrations-tab.tsx
+#: components/admin/sign-in-trail.tsx
 msgid "SAML"
 msgstr "SAML"
 
@@ -5773,6 +5800,10 @@ msgstr "Enregistrer OIDC"
 #: components/admin/integrations-tab.tsx
 msgid "Save SAML"
 msgstr "Enregistrer SAML"
+
+#: components/admin/integrations-tab.tsx
+msgid "Save SIEM webhook"
+msgstr "Enregistrer le webhook SIEM"
 
 #: components/admin/admin-page.tsx
 #: components/settings/base-settings.tsx
@@ -5943,6 +5974,10 @@ msgstr "M'envoyer un email de test"
 msgid "Send notice"
 msgstr "Envoyer l'avis"
 
+#: components/admin/integrations-tab.tsx
+msgid "Send test event"
+msgstr "Envoyer un événement de test"
+
 #: components/shell/shortcuts-dialog.tsx
 msgid "Send the comment; @ to mention"
 msgstr "Envoyer le commentaire ; @ pour mentionner"
@@ -6086,6 +6121,19 @@ msgstr "Affichés sur les cartes"
 #: components/admin/sources-tab.tsx
 msgid "Side schema"
 msgstr "Schéma latéral"
+
+#: components/admin/integrations-tab.tsx
+#: components/admin/sign-in-trail.tsx
+msgid "SIEM webhook"
+msgstr "Webhook SIEM"
+
+#: components/admin/integrations-tab.tsx
+msgid "SIEM webhook cleared"
+msgstr "Webhook SIEM effacé"
+
+#: components/admin/integrations-tab.tsx
+msgid "SIEM webhook saved"
+msgstr "Webhook SIEM enregistré"
 
 #: components/record/row-status.tsx
 msgid "Sign"
@@ -6594,6 +6642,10 @@ msgstr "Tester le certificat"
 #: components/admin/support-tab.tsx
 msgid "Test email sent to {to}"
 msgstr "Email de test envoyé à {to}"
+
+#: components/admin/integrations-tab.tsx
+msgid "Test event sent"
+msgstr "Événement de test envoyé"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Test failed: {error}"

@@ -59,6 +59,14 @@ import {
   samlUpdateSchema,
 } from "../integrations/saml.js";
 import {
+  clearSiem,
+  loadSiemRow,
+  publicSiem,
+  saveSiem,
+  sendSiemTest,
+  siemUpdateSchema,
+} from "../integrations/siem.js";
+import {
   clearSmtp,
   loadSmtpRow,
   publicSmtp,
@@ -569,6 +577,36 @@ export const adminRouter = t.router({
   smtp: smtpRouter,
   oidc: oidcRouter,
   saml: samlRouter,
+  siem: t.router({
+    get: procedure.query(({ ctx }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        return publicSiem(await loadSiemRow(ctx.db));
+      }),
+    ),
+    update: procedure.input(siemUpdateSchema).mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        return saveSiem(ctx.db, ctx.env.AUTH_ENCRYPTION_KEY, admin.id, input, {
+          ip: ctx.req.ip,
+        });
+      }),
+    ),
+    test: procedure.mutation(({ ctx }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await sendSiemTest(ctx.db, ctx.env.AUTH_ENCRYPTION_KEY, admin.id);
+        return { ok: true as const };
+      }),
+    ),
+    clear: procedure.mutation(({ ctx }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await clearSiem(ctx.db, admin.id, ctx.req.ip);
+        return { ok: true as const };
+      }),
+    ),
+  }),
   settings: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
       await requireAdmin(ctx);

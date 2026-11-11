@@ -32,6 +32,7 @@ export function IntegrationsTab() {
       <SmtpSection />
       <OidcSection />
       <SamlSection />
+      <SiemSection />
     </div>
   );
 }
@@ -566,6 +567,151 @@ function SamlSection() {
               await trpc.admin.saml.clear.mutate();
               await refresh();
               toast.success(t`Saved SAML cleared`);
+            } catch (cause) {
+              toast.error(errorText(cause));
+            }
+          })()
+        }
+      />
+    </RuledSection>
+  );
+}
+
+function SiemSection() {
+  const { t } = useLingui();
+  const errorText = useErrorText();
+  const api = useTRPC();
+  const queryClient = useQueryClient();
+  const siem = useQuery(api.admin.siem.get.queryOptions());
+  const [url, setUrl] = useState<string | null>(null);
+  const [secret, setSecret] = useState("");
+  const [clearAsk, setClearAsk] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function refresh() {
+    await queryClient.invalidateQueries({
+      queryKey: api.admin.siem.get.queryKey(),
+    });
+  }
+
+  if (siem.isError) {
+    return (
+      <LoadFailed error={siem.error} onRetry={() => void siem.refetch()} />
+    );
+  }
+  if (!siem.data) return <Spinner />;
+
+  const urlValue = url ?? siem.data.url ?? "";
+
+  return (
+    <RuledSection
+      title={t`SIEM webhook`}
+      description={t`Optional HTTPS endpoint that receives selected sign-in and administration events. The body never includes an email, password, or token.`}
+    >
+      <form
+        className="flex max-w-lg flex-col gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void (async () => {
+            setBusy(true);
+            try {
+              await trpc.admin.siem.update.mutate({
+                url: urlValue.trim(),
+                ...(secret ? { secret } : {}),
+              });
+              setSecret("");
+              setUrl(null);
+              await refresh();
+              toast.success(t`SIEM webhook saved`);
+            } catch (cause) {
+              toast.error(errorText(cause));
+            } finally {
+              setBusy(false);
+            }
+          })();
+        }}
+      >
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="siem-url">{t`HTTPS URL`}</Label>
+          <Input
+            id="siem-url"
+            required
+            autoComplete="off"
+            placeholder="https://siem.example.org/hooks/anygriddb"
+            value={urlValue}
+            onChange={(event) => setUrl(event.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="siem-secret">{t`HMAC secret`}</Label>
+          <Input
+            id="siem-secret"
+            type="password"
+            autoComplete="new-password"
+            required={!siem.data.hasSecret}
+            minLength={16}
+            placeholder={
+              siem.data.hasSecret
+                ? t`Leave blank to keep the current secret`
+                : undefined
+            }
+            value={secret}
+            onChange={(event) => setSecret(event.target.value)}
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" size="sm" disabled={busy}>
+            <Cable className="h-4 w-4" aria-hidden />
+            {t`Save SIEM webhook`}
+          </Button>
+          {siem.data.configured ? (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() =>
+                  void (async () => {
+                    setBusy(true);
+                    try {
+                      await trpc.admin.siem.test.mutate();
+                      toast.success(t`Test event sent`);
+                    } catch (cause) {
+                      toast.error(errorText(cause));
+                    } finally {
+                      setBusy(false);
+                    }
+                  })()
+                }
+              >
+                {t`Send test event`}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => setClearAsk(true)}
+              >
+                {t`Clear SIEM webhook`}
+              </Button>
+            </>
+          ) : null}
+        </div>
+      </form>
+      <ConfirmDialog
+        open={clearAsk}
+        onOpenChange={setClearAsk}
+        title={t`Clear SIEM webhook?`}
+        description={t`No further auth events are posted until you configure it again.`}
+        confirmLabel={t`Clear`}
+        onConfirm={() =>
+          void (async () => {
+            try {
+              await trpc.admin.siem.clear.mutate();
+              await refresh();
+              toast.success(t`SIEM webhook cleared`);
             } catch (cause) {
               toast.error(errorText(cause));
             }

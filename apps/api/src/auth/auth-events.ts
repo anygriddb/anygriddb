@@ -46,6 +46,7 @@ export type AuthDetail =
   | "smtp"
   | "oidc"
   | "saml"
+  | "siem"
   /** Operator mail recipients (ADR 0052): all active, or a chosen list. */
   | "all_active"
   | "selected";
@@ -70,6 +71,7 @@ export async function recordAuthEvent(
   db: Database,
   event: AuthEvent,
 ): Promise<void> {
+  const ip = clientAddress(event.ip);
   await db
     .insertInto("authEvents")
     .values({
@@ -78,9 +80,16 @@ export async function recordAuthEvent(
       actorId: event.actorId ?? null,
       method: event.method ?? null,
       detail: event.detail ?? null,
-      ip: clientAddress(event.ip),
+      ip,
     })
     .execute();
+  // Best-effort SIEM fan-out (ADR 0056); failures must not break the trail.
+  try {
+    const { queueSiemEvent } = await import("../integrations/siem.js");
+    await queueSiemEvent(db, { ...event, ip });
+  } catch {
+    // The worker or the insert already logged; the trail row stays.
+  }
 }
 
 /**

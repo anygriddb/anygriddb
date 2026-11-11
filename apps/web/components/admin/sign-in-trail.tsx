@@ -131,6 +131,10 @@ export function SignInTrail() {
             inactiveDays: t`Disable accounts nobody uses`,
             lockAlerts: t`Tell administrators`,
             inactive: t`After a time without activity`,
+            smtp: t`Email (SMTP)`,
+            oidc: t`OpenID Connect`,
+            saml: t`SAML`,
+            siem: t`SIEM webhook`,
           } as Record<string, string>
         )[value] ?? value)
       : "";
