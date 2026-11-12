@@ -17,7 +17,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { saveQueue, withoutSaved } from "./view-patch";
+import { readKey, saveQueue, withoutSaved } from "./view-patch";
 import { Database } from "lucide-react";
 import { toast } from "sonner";
 import { toWriteValue } from "../../lib/format";
@@ -53,6 +53,7 @@ import { FormView } from "../views/form-view";
 import { GalleryView } from "../views/gallery-view";
 import { KanbanView } from "../views/kanban-view";
 import { MapView } from "../views/map-view";
+import { placeColumns, placeFilter } from "../views/map-places";
 import { TimelineView } from "../views/timeline-view";
 import { AutomationsDialog } from "./automations-dialog";
 import { DEFAULT_FROZEN, orderColumns, visibleColumns } from "./column-layout";
@@ -262,12 +263,20 @@ export function TableWorkspace({
   const [calendarMonth, setCalendarMonth] = useState(thisMonth);
   const calendarField =
     viewType === "calendar" ? calendarStart(ordered, config) : undefined;
+  // A map reads only the rows that have a place.
+  const place = viewType === "map" ? placeColumns(config, ordered) : undefined;
+  const latitude = place?.latitude;
+  const longitude = place?.longitude;
   const scope = useMemo(
     () =>
-      calendarField ? calendarFilter(calendarField, calendarMonth) : undefined,
-    [calendarField, calendarMonth],
+      calendarField
+        ? calendarFilter(calendarField, calendarMonth)
+        : latitude && longitude
+          ? placeFilter(latitude, longitude)
+          : undefined,
+    [calendarField, calendarMonth, latitude, longitude],
   );
-  const rowsQuery = useMemo(() => {
+  const askedQuery = useMemo(() => {
     const local =
       localPatch.filter !== undefined ||
       localPatch.sort !== undefined ||
@@ -293,10 +302,30 @@ export function TableWorkspace({
       ...(filter ? { filter } : {}),
     };
   }, [activeView?.id, search, localPatch, config, scope]);
+  // A setting is read with its value kept locally, then saved: the rows
+  // read then stay, and the view keeps its place, as long as what the
+  // read asks for is the same.
+  const asked = readKey({
+    viewId: activeView?.id,
+    search,
+    filter: config.filtersDisabled ? undefined : config.filter,
+    sort: config.sort,
+    groupBy: config.groupBy,
+    scope,
+  });
+  const [kept, setKept] = useState({ key: asked, query: askedQuery });
+  if (kept.key !== asked) setKept({ key: asked, query: askedQuery });
+  const rowsQuery = kept.key === asked ? kept.query : askedQuery;
   const rows = useRows(
     tableId,
     rowsQuery,
-    !isGrid ? "onePage" : groupBy.length > 0 ? "grouped" : "pages",
+    isGrid
+      ? groupBy.length > 0
+        ? "grouped"
+        : "pages"
+      : viewType === "gallery"
+        ? "pages"
+        : "onePage",
   );
   // A kanban and a calendar show a page of rows; their columns and days
   // count every row, as the database groups them.
@@ -909,6 +938,8 @@ export function TableWorkspace({
   const viewProps = {
     rows: loadedOrder,
     total: rows.total,
+    rowAt: rows.rowAt,
+    ensure: rows.ensure,
     columns: visible,
     allColumns: ordered,
     config: config as Record<string, unknown>,

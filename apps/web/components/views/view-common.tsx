@@ -17,8 +17,13 @@ import type { ViewPatch } from "../table/view-toolbar";
 import { useLingui } from "@lingui/react/macro";
 
 export type ViewProps = {
+  /** The rows read so far, in the view's order. */
   rows: readonly RowItem[];
   total: number;
+  /** A row by its place in the view, once its page is read. */
+  rowAt: (index: number) => RowItem | undefined;
+  /** Reads the pages that hold these places, if not read yet. */
+  ensure: (start: number, end: number) => void;
   columns: readonly CatalogColumn[];
   allColumns: readonly CatalogColumn[];
   config: Record<string, unknown>;

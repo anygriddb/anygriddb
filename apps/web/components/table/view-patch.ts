@@ -25,3 +25,20 @@ export function saveQueue() {
     return next;
   };
 }
+
+/**
+ * What a read of the rows asks for, written the same whatever the order
+ * of each object's keys: a setting kept locally and the same setting as
+ * the server stored it give one key.
+ */
+export function readKey(settings: Record<string, unknown>): string {
+  return JSON.stringify(settings, (_key, value: unknown) =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(
+          Object.entries(value).sort(([left], [right]) =>
+            left < right ? -1 : left > right ? 1 : 0,
+          ),
+        )
+      : value,
+  );
+}

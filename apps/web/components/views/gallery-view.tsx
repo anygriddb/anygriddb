@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useRef, useState } from "react";
 import { attachmentList } from "../../lib/format";
 import type { RowItem } from "../../lib/types";
+import { cardsOf } from "./gallery-lines";
 import { useTable } from "../table/table-context";
 import { cn, Select } from "@anygriddb/ui";
 import {
@@ -58,9 +59,8 @@ export function GalleryView(props: ViewProps) {
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  const items: Array<RowItem | typeof ADD_CARD> = props.canEdit
-    ? [...props.rows, ADD_CARD]
-    : [...props.rows];
+  // Every row of the view has its place; the card that adds one comes last.
+  const count = props.total + (props.canEdit ? 1 : 0);
   // Rows of cards, each measured once drawn: a card is as tall as its
   // fields make it, and the cards of a row share the tallest one's height,
   // as in a plain grid.
@@ -68,12 +68,20 @@ export function GalleryView(props: ViewProps) {
   // leaves this component as written; its manual memoization stays.
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
-    count: Math.ceil(items.length / lanes),
+    count: Math.ceil(count / lanes),
     getScrollElement: () => scrollRef.current,
     estimateSize: () => (cover ? 280 : 140),
     overscan: 4,
     gap: CARD_GAP,
   });
+  const lines = virtualizer.getVirtualItems();
+  // The rows of the cards drawn are read as they come into view.
+  const firstCard = (lines[0]?.index ?? 0) * lanes;
+  const lastCard = ((lines.at(-1)?.index ?? 0) + 1) * lanes - 1;
+  const { ensure } = props;
+  useEffect(() => {
+    ensure(firstCard, lastCard);
+  }, [ensure, firstCard, lastCard]);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-4 border-b border-border px-4 py-1.5">
@@ -121,7 +129,7 @@ export function GalleryView(props: ViewProps) {
           className="relative w-full"
           style={{ height: virtualizer.getTotalSize() }}
         >
-          {virtualizer.getVirtualItems().map((virtual) => (
+          {lines.map((virtual) => (
             <div
               key={virtual.key}
               data-index={virtual.index}
@@ -132,74 +140,86 @@ export function GalleryView(props: ViewProps) {
                 gridTemplateColumns: `repeat(${String(lanes)}, minmax(0, 1fr))`,
               }}
             >
-              {items
-                .slice(virtual.index * lanes, (virtual.index + 1) * lanes)
-                .map((item) => {
-                  if (item === ADD_CARD) {
-                    return (
-                      <button
-                        key={ADD_CARD}
-                        type="button"
-                        onClick={() =>
-                          void props
-                            .onCreate({})
-                            .then((id) => id && table.openRecord(id))
-                        }
-                        className="flex min-h-32 items-center justify-center gap-1 rounded-sm border border-dashed border-border text-sm text-muted-foreground hover:bg-muted"
-                      >
-                        <Plus className="h-4 w-4" aria-hidden />
-                        {t`Add a card`}
-                      </button>
-                    );
-                  }
-                  const row = item;
-                  const files = attachmentList(
-                    cover ? row[cover as keyof RowItem] : undefined,
+              {cardsOf(virtual.index, lanes, count).map((index) => {
+                const item =
+                  index === props.total ? ADD_CARD : props.rowAt(index);
+                if (item === undefined) {
+                  return (
+                    <div
+                      key={`waiting-${String(index)}`}
+                      aria-hidden
+                      className="flex min-h-32 flex-col gap-2 rounded-sm border border-border p-3"
+                    >
+                      <span className="h-3 w-2/3 animate-pulse rounded-sm bg-muted" />
+                      <span className="h-2.5 w-1/2 animate-pulse rounded-sm bg-muted" />
+                    </div>
                   );
-                  const image = files.find((file) => file.thumb);
-                  const tint = props.tintOf?.(row);
+                }
+                if (item === ADD_CARD) {
                   return (
                     <button
-                      key={row.id}
+                      key={ADD_CARD}
                       type="button"
-                      onClick={() => table.openRecord(row.id)}
-                      className={cn(
-                        "flex flex-col overflow-hidden rounded-sm border border-border bg-card text-left hover:border-strong-border",
-                        tint && `row-tint-${tint}`,
-                      )}
+                      onClick={() =>
+                        void props
+                          .onCreate({})
+                          .then((id) => id && table.openRecord(id))
+                      }
+                      className="flex min-h-32 items-center justify-center gap-1 rounded-sm border border-dashed border-border text-sm text-muted-foreground hover:bg-muted"
                     >
-                      {cover ? (
-                        <div className="flex h-36 shrink-0 items-center justify-center overflow-hidden bg-muted text-muted-foreground">
-                          {image ? (
-                            <img
-                              src={`/api/attachments/${image.key}/thumb`}
-                              alt={image.filename}
-                              loading="lazy"
-                              className={
-                                props.config.coverFit === "contain"
-                                  ? "h-full w-full object-contain"
-                                  : "h-full w-full object-cover"
-                              }
-                            />
-                          ) : (
-                            <>
-                              <Paperclip className="h-5 w-5" aria-hidden />
-                              {files.length > 0 ? (
-                                <span className="ml-1 text-xs">
-                                  {files.length}
-                                </span>
-                              ) : null}
-                            </>
-                          )}
-                        </div>
-                      ) : null}
-                      <div className="p-3">
-                        <p className="truncate font-medium">{title(row)}</p>
-                        <CardFields row={row} columns={fields} />
-                      </div>
+                      <Plus className="h-4 w-4" aria-hidden />
+                      {t`Add a card`}
                     </button>
                   );
-                })}
+                }
+                const row = item;
+                const files = attachmentList(
+                  cover ? row[cover as keyof RowItem] : undefined,
+                );
+                const image = files.find((file) => file.thumb);
+                const tint = props.tintOf?.(row);
+                return (
+                  <button
+                    key={row.id}
+                    type="button"
+                    onClick={() => table.openRecord(row.id)}
+                    className={cn(
+                      "flex flex-col overflow-hidden rounded-sm border border-border bg-card text-left hover:border-strong-border",
+                      tint && `row-tint-${tint}`,
+                    )}
+                  >
+                    {cover ? (
+                      <div className="flex h-36 shrink-0 items-center justify-center overflow-hidden bg-muted text-muted-foreground">
+                        {image ? (
+                          <img
+                            src={`/api/attachments/${image.key}/thumb`}
+                            alt={image.filename}
+                            loading="lazy"
+                            className={
+                              props.config.coverFit === "contain"
+                                ? "h-full w-full object-contain"
+                                : "h-full w-full object-cover"
+                            }
+                          />
+                        ) : (
+                          <>
+                            <Paperclip className="h-5 w-5" aria-hidden />
+                            {files.length > 0 ? (
+                              <span className="ml-1 text-xs">
+                                {files.length}
+                              </span>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
+                    ) : null}
+                    <div className="p-3">
+                      <p className="truncate font-medium">{title(row)}</p>
+                      <CardFields row={row} columns={fields} />
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>
