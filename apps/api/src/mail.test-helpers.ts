@@ -81,11 +81,21 @@ export async function fakeSmtp() {
   return { port, received, next, close };
 }
 
-/** The body of a received mail, quoted-printable soft breaks undone. */
+/**
+ * A received mail as text: the encoded words of its headers and its
+ * quoted-printable body decoded as UTF-8, soft breaks undone. A subject
+ * with any character beyond ASCII travels as an encoded word.
+ */
 export function mailText(mail: ReceivedMail): string {
-  return mail.data
+  const bytes = mail.data
+    // A long subject is folded into several encoded words: one text.
+    .replace(/\?=\r\n[ \t]+=\?UTF-8\?Q\?/gi, "")
+    .replace(/=\?UTF-8\?Q\?([^?]*)\?=/gi, (_match, word: string) =>
+      word.replaceAll("_", " "),
+    )
     .replace(/=\r\n/g, "")
     .replace(/=([0-9A-F]{2})/g, (_match, hex: string) =>
       String.fromCharCode(Number.parseInt(hex, 16)),
     );
+  return Buffer.from(bytes, "latin1").toString("utf8");
 }
