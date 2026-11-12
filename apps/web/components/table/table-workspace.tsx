@@ -346,27 +346,38 @@ export function TableWorkspace({
   const [kept, setKept] = useState({ key: asked, query: askedQuery });
   if (kept.key !== asked) setKept({ key: asked, query: askedQuery });
   const rowsQuery = kept.key === asked ? kept.query : askedQuery;
-  const rows = useRows(
-    tableId,
-    rowsQuery,
-    isGrid
-      ? groupBy.length > 0
-        ? "grouped"
-        : "pages"
-      : viewType === "gallery" || viewType === "timeline"
-        ? "pages"
-        : "onePage",
-  );
-  // A kanban and a calendar show a page of rows; their columns and days
-  // count every row, as the database groups them.
-  const stackName =
+  // A kanban reads its rows grouped by its stack field: each stack is the
+  // rows from where its group starts, read as the stack scrolls.
+  const kanbanStack =
     viewType === "kanban"
       ? typeof config.stackColumn === "string"
         ? config.stackColumn
         : ordered.find((column) => column.fieldType === "single_select")?.name
-      : calendarField?.kind === "date"
-        ? calendarField.name
-        : undefined;
+      : undefined;
+  const readQuery = useMemo(
+    () =>
+      kanbanStack
+        ? {
+            ...rowsQuery,
+            groupBy: [{ column: kanbanStack, direction: "asc" as const }],
+          }
+        : rowsQuery,
+    [rowsQuery, kanbanStack],
+  );
+  const layout = isGrid
+    ? groupBy.length > 0
+      ? "grouped"
+      : "pages"
+    : kanbanStack
+      ? "stacks"
+      : viewType === "gallery" || viewType === "timeline"
+        ? "pages"
+        : "onePage";
+  const rows = useRows(tableId, readQuery, layout);
+  // A calendar shows a page of rows; its days count every row, as the
+  // database groups them.
+  const stackName =
+    calendarField?.kind === "date" ? calendarField.name : undefined;
   const stackCounts = useQuery({
     ...api.rows.read.queryOptions({
       ...rowsQuery,
@@ -537,7 +548,9 @@ export function TableWorkspace({
           });
         }
         release();
-        void rows.refetchIds(updates.map((update) => update.rowId));
+        // A card moved to another stack moves where every stack starts.
+        if (layout === "stacks") rows.refresh();
+        else void rows.refetchIds(updates.map((update) => update.rowId));
         setSavedAt(new Date());
         setSaveStatus("saved");
         settle(true);
@@ -562,6 +575,7 @@ export function TableWorkspace({
       undo,
       errorText,
       external,
+      layout,
     ],
   );
 
@@ -992,6 +1006,7 @@ export function TableWorkspace({
     },
     tintOf: (row: RowItem) =>
       resolveRowTint(row, visible, config.color, tintContext),
+    groups: rows.groups,
     ...(counts ? { counts } : {}),
   };
 

@@ -503,14 +503,6 @@ msgstr "{position} of {total}"
 msgid "{role}, through the group {group}"
 msgstr "{role}, through the group {group}"
 
-#: components/views/kanban-view.tsx
-msgid "{shown} of {count}"
-msgstr "{shown} of {count}"
-
-#: components/views/kanban-view.tsx
-msgid "{shown} of {total} cards"
-msgstr "{shown} of {total} cards"
-
 #: components/admin/accounts-tab.tsx
 msgid "{total, plural, one {# account} other {# accounts}}"
 msgstr "{total, plural, one {# account} other {# accounts}}"

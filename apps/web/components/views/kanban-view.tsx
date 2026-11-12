@@ -1,11 +1,12 @@
 import { Checkbox, cn, DragHandle, OptionBadge } from "@anygriddb/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useRowDrag, useRowDrop } from "../../lib/drag";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { optionsOf } from "../fields/cell-value";
 import { useTable } from "../table/table-context";
+import { kanbanStacks, stackPlaces } from "./kanban-stacks";
 import {
   CardFields,
   CardFieldsPicker,
@@ -61,7 +62,7 @@ function Card({
         <DragHandle
           {...dragButtonProps}
           label={t`Move ${name}`}
-          className="absolute top-2 right-1.5"
+          className="absolute top-1.5 right-1"
         />
       ) : null}
     </div>
@@ -72,8 +73,10 @@ function Stack({
   id,
   label,
   color,
-  rows,
+  start,
   count,
+  rowAt,
+  ensure,
   fields,
   canEdit,
   collapsed,
@@ -86,9 +89,12 @@ function Stack({
   id: string;
   label: string;
   color?: string;
-  rows: readonly RowItem[];
-  /** The stack's rows as the database counts them; the loaded ones otherwise. */
-  count: number | undefined;
+  /** Where the stack's rows start in the view's grouped order. */
+  start: number;
+  /** The stack's rows, as the database counts them. */
+  count: number;
+  rowAt: (index: number) => RowItem | undefined;
+  ensure: (start: number, end: number) => void;
   fields: readonly CatalogColumn[];
   canEdit: boolean;
   /** Folded to a narrow strip; cards can still be dropped on it. */
@@ -107,23 +113,28 @@ function Stack({
   const { dropProps, isDropTarget } = useRowDrop(ref, (rowId) =>
     onMove(rowId, id),
   );
-  // Each card is measured once drawn: its height follows its fields.
+  // Every card of the stack has its place, read as it comes into view, and
+  // is measured once drawn: its height follows its fields.
   // TanStack Virtual hands back a mutable instance, so the React Compiler
   // leaves this component as written; its manual memoization stays.
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
-    count: rows.length,
+    count: collapsed ? 0 : count,
     getScrollElement: () => listRef.current,
     estimateSize: () => 88,
     overscan: 8,
     gap: 8,
-    getItemKey: (index) => rows[index]?.id ?? index,
+    getItemKey: (index) => rowAt(start + index)?.id ?? `waiting-${index}`,
   });
+  const cards = virtualizer.getVirtualItems();
+  const first = start + (cards[0]?.index ?? 0);
+  const last = start + (cards.at(-1)?.index ?? 0);
+  const drawn = cards.length;
+  useEffect(() => {
+    if (drawn > 0) ensure(first, last);
+  }, [ensure, first, last, drawn]);
   const name = label || t`No value`;
-  const total =
-    count !== undefined && count > rows.length
-      ? t`${{ shown: rows.length }} of ${{ count: formatNumber(count, locale) }}`
-      : String(count ?? rows.length);
+  const total = formatNumber(count, locale);
   if (collapsed) {
     return (
       <section
@@ -183,12 +194,11 @@ function Stack({
           className="relative w-full"
           style={{ height: virtualizer.getTotalSize() }}
         >
-          {virtualizer.getVirtualItems().map((virtual) => {
-            const row = rows[virtual.index];
-            if (!row) return null;
+          {cards.map((virtual) => {
+            const row = rowAt(start + virtual.index);
             return (
               <div
-                key={row.id}
+                key={virtual.key}
                 data-index={virtual.index}
                 ref={virtualizer.measureElement}
                 className="absolute top-0 left-0 w-full"
@@ -196,17 +206,27 @@ function Stack({
                   transform: `translateY(${String(virtual.start)}px)`,
                 }}
               >
-                <Card
-                  row={row}
-                  fields={fields}
-                  titleColumn={titleColumn}
-                  tint={tintOf?.(row)}
-                  draggable={
-                    canEdit &&
-                    row.ag_status !== "locked" &&
-                    row.ag_status !== "signed"
-                  }
-                />
+                {row ? (
+                  <Card
+                    row={row}
+                    fields={fields}
+                    titleColumn={titleColumn}
+                    tint={tintOf?.(row)}
+                    draggable={
+                      canEdit &&
+                      row.ag_status !== "locked" &&
+                      row.ag_status !== "signed"
+                    }
+                  />
+                ) : (
+                  <div
+                    aria-hidden
+                    className="flex h-20 flex-col gap-2 rounded-sm border border-border bg-card p-2.5"
+                  >
+                    <span className="h-3 w-2/3 animate-pulse rounded-sm bg-muted" />
+                    <span className="h-2.5 w-1/2 animate-pulse rounded-sm bg-muted" />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -269,24 +289,8 @@ export function KanbanView(props: ViewProps) {
     );
   }
   const options = optionsOf(stack);
-  const stacks = [
-    { id: "", label: "", color: undefined as string | undefined },
-    ...options.map((option) => ({
-      id: option.name,
-      label: option.name,
-      color: option.color,
-    })),
-  ];
-  const byStack = new Map<string, RowItem[]>();
-  for (const row of props.rows) {
-    const value = row[stack.name as keyof RowItem];
-    const key =
-      typeof value === "string" &&
-      options.some((option) => option.name === value)
-        ? value
-        : "";
-    byStack.set(key, [...(byStack.get(key) ?? []), row]);
-  }
+  const placed = stackPlaces(props.groups);
+  const stacks = kanbanStacks(options, placed);
   function move(rowId: string, target: string) {
     if (!stack) return;
     const row = props.rows.find((item) => item.id === rowId);
@@ -328,29 +332,20 @@ export function KanbanView(props: ViewProps) {
           value={cardFields}
           onChange={(next) => props.onPatch({ cardFields: next })}
         />
-        {props.total > props.rows.length ? (
-          <span className="text-xs text-muted-foreground">
-            {t`${{ shown: props.rows.length }} of ${{ total: props.total }} cards`}
-          </span>
-        ) : null}
       </div>
       <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
         {stacks
-          .filter(
-            (item) =>
-              !hideEmpty ||
-              (props.counts?.get(item.id) ??
-                byStack.get(item.id)?.length ??
-                0) > 0,
-          )
+          .filter((item) => !hideEmpty || (placed.get(item.id)?.count ?? 0) > 0)
           .map((item) => (
             <Stack
               key={item.id || "__empty"}
               id={item.id}
               label={item.label}
               color={item.color}
-              rows={byStack.get(item.id) ?? []}
-              count={props.counts?.get(item.id)}
+              start={placed.get(item.id)?.start ?? 0}
+              count={placed.get(item.id)?.count ?? 0}
+              rowAt={props.rowAt}
+              ensure={props.ensure}
               fields={fields}
               canEdit={props.canEdit}
               collapsed={folded.has(item.id)}

@@ -35,10 +35,12 @@ export type Groups = Array<{
 
 /**
  * How a view reads its rows: page after page as it scrolls; the same,
- * with where each group starts (a grouped grid); or one page of up to
- * 1000 rows (the views that lay out what they hold on the client).
+ * with where each group starts (a grouped grid); the same again, read
+ * anew whenever a row changes, since a card moved to another stack moves
+ * where every stack starts (a kanban); or one page of up to 1000 rows
+ * (the views that lay out what they hold on the client).
  */
-export type RowsLayout = "pages" | "grouped" | "onePage";
+export type RowsLayout = "pages" | "grouped" | "stacks" | "onePage";
 
 /** What rendering reads; a new object whenever a loaded row changes. */
 type Snapshot = {
@@ -469,8 +471,8 @@ export class RowPages {
 /**
  * Pages of rows fetched as they scroll into view. A grouped grid's first
  * page also says where each group starts, so its headers are laid out
- * before the rows under them are read. Socket messages re-read changed
- * rows by id, or reload the loaded pages.
+ * before the rows under them are read; a kanban's, where each stack does.
+ * Socket messages re-read changed rows by id, or reload the loaded pages.
  */
 export function useRows(
   tableId: string,
@@ -478,7 +480,8 @@ export function useRows(
   layout: RowsLayout,
 ): RowsState {
   const pageSize = layout === "onePage" ? 1000 : PAGE_SIZE;
-  const groups = layout === "grouped" ? "starts" : "none";
+  const groups =
+    layout === "grouped" || layout === "stacks" ? "starts" : "none";
   const key = JSON.stringify([tableId, query, pageSize, groups]);
   const [store, setStore] = useState(
     () => new RowPages(key, tableId, query, pageSize, groups),
@@ -498,7 +501,11 @@ export function useRows(
   useChannel(tableId, {
     message: (message) => {
       // What others did is read once per burst, not once per message.
-      if (message.type === "rows" && message.op === "update") {
+      if (
+        message.type === "rows" &&
+        message.op === "update" &&
+        layout !== "stacks"
+      ) {
         store.refetchIdsSoon(message.rowIds);
       } else if (
         message.type === "rows" ||

@@ -14,6 +14,7 @@ import type { CatalogColumn, RowItem } from "../../lib/types";
 import { CellValueView } from "../fields/cell-value";
 import { useTable } from "../table/table-context";
 import type { ViewPatch } from "../table/view-toolbar";
+import type { Groups } from "../grid/use-rows";
 import { useLingui } from "@lingui/react/macro";
 
 export type ViewProps = {
@@ -35,6 +36,8 @@ export type ViewProps = {
    * a view shows at most a page of rows, the counts are of them all.
    */
   counts?: ReadonlyMap<string, number>;
+  /** Where each group starts, for a view that reads its rows grouped. */
+  groups?: Groups;
   /** Optional row tint from the view colour settings. */
   tintOf?: (row: RowItem) => string | undefined;
 };

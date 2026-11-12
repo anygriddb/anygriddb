@@ -244,11 +244,11 @@ test.describe("a number field that refuses negatives, then empties", () => {
   });
 });
 
-// A gallery and a timeline read their rows as they scroll, and a map only
-// the rows that have a place: none stops at a first page. A setting saved
-// does not read the rows again. It makes an account, so it takes a client
-// address of its own.
-test.describe("a gallery, a timeline, and a map past their first page", () => {
+// A gallery, a timeline, and a kanban's stacks read their rows as they
+// scroll, and a map only the rows that have a place: none stops at a first
+// page. A setting saved does not read the rows again. It makes an account,
+// so it takes a client address of its own.
+test.describe("a gallery, a timeline, a kanban, and a map past their first page", () => {
   test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.81" } });
 
   test("show every card, and every row that has a place", async ({ page }) => {
@@ -274,12 +274,14 @@ test.describe("a gallery, a timeline, and a map past their first page", () => {
       );
       expect(status).toBe(200);
     }
-    // 1,100 cards, all due this month; only the last 100 have a place.
+    // 1,100 cards, all due this month; the first 1,050 to do, and only the
+    // last 100 have a place.
     const now = new Date();
     const due = `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, "0")}-15`;
     const added = Array.from({ length: 1100 }, (_, index) => ({
       name: `c${String(index + 1).padStart(4, "0")}`,
       due,
+      ...(index < 1050 ? { status: "To do" } : {}),
       ...(index >= 1000
         ? { lat: String(40 + (index - 1000) / 10), lon: "2.35" }
         : {}),
@@ -387,6 +389,60 @@ test.describe("a gallery, a timeline, and a map past their first page", () => {
     await expect(page.getByText("No rows in this period.")).toBeVisible();
     await page.getByRole("button", { name: "Today" }).click();
     await expect(card("c0001").first()).toBeVisible();
+
+    // A kanban's stack reads every card it counts, as it scrolls; a card
+    // changed elsewhere moves to its new stack.
+    await newView("Kanban");
+    const todo = page.getByRole("region", { name: "To do" });
+    await expect(todo.getByText("1,050", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "No value" }).getByText("50", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(todo.getByRole("button", { name: /^c0001/ })).toBeVisible();
+    const stack = todo.locator("div.overflow-y-auto");
+    await expect(async () => {
+      await stack.evaluate((element) => {
+        element.scrollTo(0, element.scrollHeight);
+      });
+      await expect(todo.getByRole("button", { name: /^c1050/ })).toBeVisible({
+        timeout: 2_000,
+      });
+    }).toPass();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    const first = await page.evaluate(
+      async ([tableId]) => {
+        const response = await fetch(
+          `/trpc/rows.read?input=${encodeURIComponent(
+            JSON.stringify({ tableId, limit: 1, search: "c0001" }),
+          )}`,
+        );
+        const body = (await response.json()) as {
+          result: { data: { rows: Array<{ id: string }> } };
+        };
+        return body.result.data.rows[0]?.id ?? "";
+      },
+      [tableId] as const,
+    );
+    const moved = await page.evaluate(
+      async ([tableId, rowId]) =>
+        (
+          await fetch("/trpc/rows.updateMany", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              tableId,
+              updates: [{ rowId, values: { status: "Done" } }],
+            }),
+          })
+        ).status,
+      [tableId, first] as const,
+    );
+    expect(moved).toBe(200);
+    const done = page.getByRole("region", { name: "Done" });
+    await expect(done.getByRole("button", { name: /^c0001/ })).toBeVisible();
+    await expect(todo.getByText("1,049", { exact: true })).toBeVisible();
 
     expect(blocked).toEqual([]);
   });
