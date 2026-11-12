@@ -148,9 +148,9 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
   await grid.evaluate((element) => {
     element.scrollTo(0, 0);
   });
-  await header("To do")
-    .getByRole("button", { name: "Collapse", exact: true })
-    .click();
+  const fold = header("To do").locator("button[aria-expanded]");
+  await fold.click();
+  await expect(fold).toHaveAttribute("aria-expanded", "false");
   await expect(header("Done")).toContainText("500");
   await expect(named("n0601")).toBeVisible();
   await expect(named("n0001")).toHaveCount(0);

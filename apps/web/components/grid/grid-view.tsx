@@ -906,12 +906,10 @@ export function GridView(props: GridProps) {
                         aria-colspan={columns.length + 1}
                         className="contents"
                       >
+                        {/* Named by what it shows; folded or not, it says. */}
                         <button
                           type="button"
                           aria-expanded={!collapsed.has(item.key)}
-                          aria-label={
-                            collapsed.has(item.key) ? t`Expand` : t`Collapse`
-                          }
                           className="sticky left-2 flex items-center gap-2"
                           onClick={() =>
                             setCollapsed((current) => {
@@ -923,9 +921,9 @@ export function GridView(props: GridProps) {
                           }
                         >
                           {collapsed.has(item.key) ? (
-                            <ChevronRight className="h-4 w-4" />
+                            <ChevronRight className="h-4 w-4" aria-hidden />
                           ) : (
-                            <ChevronDown className="h-4 w-4" />
+                            <ChevronDown className="h-4 w-4" aria-hidden />
                           )}
                           {item.color ? (
                             <span
