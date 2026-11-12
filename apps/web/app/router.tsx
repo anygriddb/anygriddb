@@ -83,6 +83,14 @@ const IntegrationsTab = page(() =>
 const SourcesTab = page(() =>
   import("../components/admin/sources-tab").then((module) => module.SourcesTab),
 );
+const BasesTab = page(() =>
+  import("../components/admin/bases-tab").then((module) => module.BasesTab),
+);
+const BaseAdminPage = page(() =>
+  import("../components/admin/base-admin-page").then(
+    (module) => module.BaseAdminPage,
+  ),
+);
 const AccessTab = page(() =>
   import("../components/admin/access-tab").then((module) => module.AccessTab),
 );
@@ -323,6 +331,15 @@ const adminAccountRoute = createRoute({
   },
 });
 
+const adminBaseRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "bases/$baseId",
+  component: function Base() {
+    const { baseId } = adminBaseRoute.useParams();
+    return <BaseAdminPage baseId={baseId} />;
+  },
+});
+
 const adminRoutes = [
   adminIndexRoute,
   adminPeopleRoute,
@@ -333,6 +350,8 @@ const adminRoutes = [
   adminPage("security", SecurityPage),
   adminPage("connections", IntegrationsTab),
   adminPage("sources", SourcesTab),
+  adminPage("bases", BasesTab),
+  adminBaseRoute,
   adminPage("sharing", OutboundTab),
   adminPage("sharing/access", AccessTab),
   adminPage("trails", ChangesTrail),

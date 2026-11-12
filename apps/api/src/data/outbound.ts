@@ -5,6 +5,7 @@
  */
 import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
+import { sql } from "kysely";
 import { withAudit } from "./audit-context.js";
 import { liveBase, liveTable, liveView } from "./live.js";
 
@@ -33,6 +34,8 @@ export type OutboundLink = {
 export async function listOutbound(
   db: Database,
   limit: number,
+  /** Only those of this base. */
+  baseId?: string,
 ): Promise<OutboundLink[]> {
   const now = Date.now();
   const [links, feeds] = await Promise.all([
@@ -57,6 +60,9 @@ export async function listOutbound(
       .where(liveView("v"))
       .where(liveTable("t"))
       .where(liveBase("b"))
+      .$if(baseId !== undefined, (query) =>
+        query.where("b.id", "=", baseId ?? ""),
+      )
       .orderBy("s.createdAt", "desc")
       .limit(limit)
       .execute(),
@@ -79,6 +85,9 @@ export async function listOutbound(
       .where(liveView("v"))
       .where(liveTable("t"))
       .where(liveBase("b"))
+      .$if(baseId !== undefined, (query) =>
+        query.where("b.id", "=", baseId ?? ""),
+      )
       .orderBy("f.createdAt", "desc")
       .limit(limit)
       .execute(),
@@ -318,4 +327,127 @@ export async function listInstanceHooks(
       failures: Number(row.failures ?? 0),
     })),
   ];
+}
+
+export type BaseOverview = {
+  id: string;
+  name: string;
+  createdAt: string;
+  /** Up to three owners with a role of their own, by name. */
+  owners: string[];
+  members: number;
+  tables: number;
+  /** AnyGridDB's own tables, from PostgreSQL's statistics: an estimate. */
+  estimatedRows: number;
+  /** The base's files, in bytes. */
+  fileBytes: number;
+  /** Public links and calendar feeds of its views. */
+  outbound: number;
+};
+
+/**
+ * Every live base of the instance with what an administrator weighs it
+ * by, metadata only. Row counts come from the statistics, never from a
+ * count: the list stays quick with hundreds of bases.
+ */
+export async function listBaseOverview(
+  db: Database,
+  input: { search?: string; limit: number; baseId?: string },
+): Promise<BaseOverview[]> {
+  const pattern = input.search
+    ? `%${input.search.replace(/[%_\\]/g, "\\$&")}%`
+    : undefined;
+  const rows = await db
+    .selectFrom("bases as b")
+    .select([
+      "b.id",
+      "b.name",
+      "b.createdAt",
+      sql<
+        string[]
+      >`array(select u.display_name from role_bindings r join users u on u.id = r.user_id where r.scope = 'base' and r.scope_id = b.id and r.role = 'owner' and r.group_id is null order by u.display_name limit 3)`.as(
+        "owners",
+      ),
+      sql<string>`(select count(distinct r.user_id) from role_bindings r where r.scope = 'base' and r.scope_id = b.id)`.as(
+        "members",
+      ),
+      sql<string>`(select count(*) from data_tables t where t.base_id = b.id and t.deleted_at is null)`.as(
+        "tables",
+      ),
+      sql<string>`(select coalesce(sum(greatest(c.reltuples, 0)), 0)::bigint from data_tables t join pg_class c on c.oid = to_regclass(quote_ident(t.physical_name)) where t.base_id = b.id and t.deleted_at is null and t.source_id is null)`.as(
+        "estimatedRows",
+      ),
+      sql<string>`(select coalesce(sum(a.size), 0) from attachments a join data_tables t on t.id = a.table_id where t.base_id = b.id)`.as(
+        "fileBytes",
+      ),
+      sql<string>`(select count(*) from shares s join views v on v.id = s.view_id join data_tables t on t.id = v.table_id where t.base_id = b.id and s.revoked_at is null and v.deleted_at is null and t.deleted_at is null) + (select count(*) from calendar_feeds f join views v on v.id = f.view_id join data_tables t on t.id = v.table_id where t.base_id = b.id and v.deleted_at is null and t.deleted_at is null)`.as(
+        "outbound",
+      ),
+    ])
+    .where(liveBase("b"))
+    .$if(pattern !== undefined, (query) =>
+      query.where("b.name", "ilike", pattern ?? ""),
+    )
+    .$if(input.baseId !== undefined, (query) =>
+      query.where("b.id", "=", input.baseId ?? ""),
+    )
+    .orderBy("b.name", "asc")
+    .orderBy("b.id", "asc")
+    .limit(input.limit)
+    .execute();
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    createdAt: row.createdAt.toISOString(),
+    owners: row.owners,
+    members: Number(row.members),
+    tables: Number(row.tables),
+    estimatedRows: Number(row.estimatedRows),
+    fileBytes: Number(row.fileBytes),
+    outbound: Number(row.outbound),
+  }));
+}
+
+export type BaseTableOverview = {
+  id: string;
+  name: string;
+  /** Where its rows live: AnyGridDB's database, or a client's. */
+  external: boolean;
+  /** AnyGridDB's own tables only; a client's database counts its own. */
+  estimatedRows: number | null;
+  fileBytes: number;
+};
+
+/** A base's live tables, by their place, with their weight. */
+export async function listBaseTables(
+  db: Database,
+  baseId: string,
+): Promise<BaseTableOverview[]> {
+  const rows = await db
+    .selectFrom("dataTables as t")
+    .select([
+      "t.id",
+      "t.name",
+      "t.sourceId",
+      sql<
+        string | null
+      >`(select greatest(c.reltuples, 0)::bigint from pg_class c where c.oid = to_regclass(quote_ident(t.physical_name)) and t.source_id is null)`.as(
+        "estimatedRows",
+      ),
+      sql<string>`(select coalesce(sum(a.size), 0) from attachments a where a.table_id = t.id)`.as(
+        "fileBytes",
+      ),
+    ])
+    .where("t.baseId", "=", baseId)
+    .where(liveTable("t"))
+    .orderBy("t.position", "asc")
+    .execute();
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    external: row.sourceId !== null,
+    estimatedRows:
+      row.estimatedRows === null ? null : Number(row.estimatedRows),
+    fileBytes: Number(row.fileBytes),
+  }));
 }

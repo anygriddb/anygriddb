@@ -46,7 +46,7 @@ import {
   sendSecurityNotice,
   sendWelcome,
 } from "../auth/security-mail.js";
-import { revokeMember, setMemberRole } from "../data/members.js";
+import { listMembers, revokeMember, setMemberRole } from "../data/members.js";
 import { assertMemberDomain, renewInvitation } from "../data/sharing.js";
 import { cancelAnyJob, listAllJobs } from "../jobs.js";
 import {
@@ -152,6 +152,8 @@ import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { notifyOwnerNamed } from "../notifications.js";
 import {
+  listBaseOverview,
+  listBaseTables,
   listInstanceHooks,
   listInstanceTokens,
   listOutbound,
@@ -969,6 +971,49 @@ export const adminRouter = t.router({
             "switched off by administrator",
           );
           return { ok: true as const };
+        }),
+      ),
+  }),
+  /**
+   * Every base of the instance (ROADMAP #14), with its owners, members,
+   * tables, estimated rows, files, and outbound links, metadata only; and
+   * a page per base.
+   */
+  baseOverview: t.router({
+    list: procedure
+      .input(
+        z.object({
+          search: z.string().trim().max(100).optional(),
+          limit: z.int().min(1).max(1000).default(500),
+        }),
+      )
+      .query(({ ctx, input }) =>
+        handle(ctx, async () => {
+          await requireAdmin(ctx);
+          return {
+            bases: await listBaseOverview(ctx.db, {
+              search: input.search || undefined,
+              limit: input.limit,
+            }),
+          };
+        }),
+      ),
+    get: procedure
+      .input(z.object({ baseId: z.uuid() }))
+      .query(({ ctx, input }) =>
+        handle(ctx, async () => {
+          await requireAdmin(ctx);
+          const [base] = await listBaseOverview(ctx.db, {
+            baseId: input.baseId,
+            limit: 1,
+          });
+          if (!base) throw new AppError("unknown_base");
+          const [members, tables, links] = await Promise.all([
+            listMembers(ctx.db, input.baseId),
+            listBaseTables(ctx.db, input.baseId),
+            listOutbound(ctx.db, 200, input.baseId),
+          ]);
+          return { base, members, tables, links };
         }),
       ),
   }),

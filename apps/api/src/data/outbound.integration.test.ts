@@ -1,13 +1,17 @@
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
+import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApiToken } from "../auth/tokens.js";
 import { setAutomationEnabled } from "../automations.js";
 import { createTestDatabase } from "../test-database.js";
 import { updateWebhook } from "../webhooks.js";
+import { withAudit } from "./audit-context.js";
 import { renewCalendarFeed } from "./calendar-feeds.js";
 import { loadEngine } from "./engine.js";
 import {
+  listBaseOverview,
+  listBaseTables,
   listInstanceHooks,
   listInstanceTokens,
   listOutbound,
@@ -212,5 +216,50 @@ describe("every public link and calendar feed, for an administrator", () => {
       false,
       false,
     ]);
+  });
+
+  it("weighs every base by the database's estimates, and lists its tables", async () => {
+    const physical = await db
+      .selectFrom("dataTables")
+      .select("physicalName")
+      .where("id", "=", tableId)
+      .executeTakeFirstOrThrow();
+    await withAudit(db, { userId: owner, tableId, source: "web" }, (tx) =>
+      sql`insert into ${sql.table(physical.physicalName)} (name) values ('a'), ('b'), ('c')`.execute(
+        tx,
+      ),
+    );
+    await sql`analyze ${sql.table(physical.physicalName)}`.execute(db);
+    const shared = await view("Ouverte");
+    await createShare(db, {
+      viewId: shared.id,
+      createdBy: owner,
+      allowCopy: false,
+    });
+    const [base] = await listBaseOverview(db, { limit: 10 });
+    expect(base).toMatchObject({
+      name: "Ventes",
+      owners: ["Owner"],
+      members: 1,
+      tables: 1,
+      estimatedRows: 3,
+      fileBytes: 0,
+      outbound: 1,
+    });
+    expect(
+      await listBaseOverview(db, { limit: 10, search: "nothing" }),
+    ).toEqual([]);
+    expect(await listBaseTables(db, base?.id ?? "")).toEqual([
+      {
+        id: tableId,
+        name: "Clients",
+        external: false,
+        estimatedRows: 3,
+        fileBytes: 0,
+      },
+    ]);
+    expect(
+      (await listOutbound(db, 10, base?.id ?? "")).map((item) => item.view),
+    ).toEqual(["Ouverte"]);
   });
 });
