@@ -25,6 +25,7 @@ import {
   assertRowsInScope,
   deleteRows,
   insertRows,
+  listTrash,
   readAudit,
   readPage,
   restoreRows,
@@ -495,6 +496,50 @@ describe("field and row rules on PostgreSQL", () => {
         JSON.stringify(event.oldValue ?? {}).includes("__ag_m2m"),
       ),
     ).toBe(false);
+  });
+
+  it("lists and restores, for a collaborator with rules, the rows they deleted", async () => {
+    const owned = await context(projectsId);
+    const editing = { ...owned, userId: editor };
+    const [mine = "", theirs = ""] = await insertRows(
+      database,
+      await ownerEngine(projectsId),
+      owned,
+      [{ label: "Mine" }, { label: "Theirs" }],
+    );
+    await deleteRows(database, editing, [mine]);
+    await deleteRows(database, owned, [theirs]);
+    await setTableAcl(database, owner, {
+      tableId: projectsId,
+      userId: editor,
+      rowFilter: null,
+      columns: [{ column: "label", access: "hide" }],
+    });
+    try {
+      const engine = await editorEngine(projectsId);
+      // Only the row they deleted, named by its number: its label is hidden.
+      const listed = await listTrash(database, engine, owned, 100, editor);
+      expect(listed.map((item) => [item.rowId, item.label])).toEqual([
+        [mine, mine],
+      ]);
+      await expect(
+        restoreRows(database, engine, editing, [theirs], editor),
+      ).rejects.toMatchObject({ code: "unknown_row" });
+      expect(
+        await restoreRows(database, engine, editing, [mine], editor),
+      ).toEqual([mine]);
+      // The owner, without rules, sees every deleted row.
+      const all = await listTrash(
+        database,
+        await ownerEngine(projectsId),
+        owned,
+        100,
+      );
+      expect(all.map((item) => item.label)).toContain("Theirs");
+      expect(all.map((item) => item.rowId)).not.toContain(mine);
+    } finally {
+      await clearTableAcl(database, owner, projectsId, editor);
+    }
   });
 
   it("round-trips a base through a snapshot", async () => {

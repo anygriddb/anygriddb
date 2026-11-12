@@ -7553,6 +7553,10 @@ msgstr "The rows of a shared view"
 msgid "The rows that match a filter"
 msgstr "The rows that match a filter"
 
+#: components/table/table-workspace.tsx
+msgid "The rows you deleted come back as drafts, with their original number. Rows others deleted are not listed here."
+msgstr "The rows you deleted come back as drafts, with their original number. Rows others deleted are not listed here."
+
 #: lib/errors.ts
 msgid "The schema kept for AnyGridDB does not exist in the client's database: its administrator must create it"
 msgstr "The schema kept for AnyGridDB does not exist in the client's database: its administrator must create it"
