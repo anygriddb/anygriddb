@@ -1737,6 +1737,10 @@ msgid "Checked at {time}"
 msgstr "Checked at {time}"
 
 #: components/fields/field-editor.tsx
+msgid "Checked on every change, wherever it comes from. Negative values already in the table stay until they are changed."
+msgstr "Checked on every change, wherever it comes from. Negative values already in the table stay until they are changed."
+
+#: components/fields/field-editor.tsx
 msgid "Checklist"
 msgstr "Checklist"
 
@@ -5719,6 +5723,10 @@ msgstr "refreshed every"
 msgid "refreshes"
 msgstr "refreshes"
 
+#: components/fields/field-editor.tsx
+msgid "Refuse negative numbers"
+msgstr "Refuse negative numbers"
+
 #: components/settings/second-factor.tsx
 msgid "Register a passkey"
 msgstr "Register a passkey"
@@ -7705,6 +7713,10 @@ msgstr "This field is read-only"
 #: components/table/table-workspace.tsx
 msgid "This field needs a reason, kept in the audit trail."
 msgstr "This field needs a reason, kept in the audit trail."
+
+#: lib/errors.ts
+msgid "This field takes no negative number"
+msgstr "This field takes no negative number"
 
 #: lib/errors.ts
 msgid "This filter on a field kept in AnyGridDB matches more than 1,000 rows: narrow it"

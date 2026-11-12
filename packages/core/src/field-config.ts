@@ -186,6 +186,8 @@ export type ColumnConfig = {
   appearance?:
     SingleSelectAppearance | MultiSelectAppearance | BooleanAppearance;
   number?: NumberFormat;
+  /** A number field that takes no value under zero, on every write. */
+  nonNegative?: boolean;
   date?: DateFormat;
   durationFormat?: (typeof DURATION_FORMATS)[number];
   ratingMax?: number;
@@ -243,8 +245,17 @@ const CONFIG_SCHEMAS: Record<FieldType, z.ZodType<ColumnConfig>> = {
     .object({
       number: numberFormatSchema.optional(),
       defaultValue: z.number().optional(),
+      nonNegative: z.boolean().optional(),
     })
-    .strict(),
+    .strict()
+    // A default the field itself would refuse is no default.
+    .refine(
+      (config) =>
+        !config.nonNegative ||
+        config.defaultValue === undefined ||
+        config.defaultValue >= 0,
+      { message: "Negative default", path: ["defaultValue"] },
+    ),
   rating: z
     .object({
       ratingMax: z.int().min(1).max(10).optional(),

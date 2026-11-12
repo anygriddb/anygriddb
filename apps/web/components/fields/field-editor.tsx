@@ -299,6 +299,7 @@ export function FieldEditor({
     number.precision === undefined ? "" : String(number.precision),
   );
   const [numberStyle, setNumberStyle] = useState(number.style ?? "decimal");
+  const [nonNegative, setNonNegative] = useState(config.nonNegative === true);
   const [currency, setCurrency] = useState(number.currency ?? "EUR");
   const date = (config.date ?? {}) as { format?: string; hour12?: boolean };
   const [dateFormat, setDateFormat] = useState(date.format ?? "eu");
@@ -444,6 +445,7 @@ export function FieldEditor({
             style: numberStyle,
             ...(numberStyle === "currency" ? { currency } : {}),
           },
+          ...(nonNegative ? { nonNegative: true } : {}),
         };
       case "date":
       case "datetime":
@@ -486,6 +488,7 @@ export function FieldEditor({
     precision,
     numberStyle,
     currency,
+    nonNegative,
     dateFormat,
     ratingMax,
     ratingIcon,
@@ -873,6 +876,20 @@ export function FieldEditor({
                   />
                 </div>
               ) : null}
+            </div>
+          ) : null}
+          {fieldType === "number" ? (
+            <div className="flex flex-col gap-1">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={nonNegative}
+                  onChange={(event) => setNonNegative(event.target.checked)}
+                />
+                {t`Refuse negative numbers`}
+              </label>
+              <p className="text-xs text-muted-foreground">
+                {t`Checked on every change, wherever it comes from. Negative values already in the table stay until they are changed.`}
+              </p>
             </div>
           ) : null}
 

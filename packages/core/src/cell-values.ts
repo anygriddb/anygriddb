@@ -118,12 +118,22 @@ export function assertCellValue(column: CellColumn, value: unknown): void {
     case "phone":
       if (typeof value === "string" && PHONE.test(value)) return;
       break;
-    case "number":
+    case "number": {
       // Exact as a decimal string (ADR 0023); a finite number is accepted
       // from older clients and converted on typecast.
-      if (isDecimalString(value)) return;
-      if (typeof value === "number" && Number.isFinite(value)) return;
-      break;
+      const decimal = isDecimalString(value);
+      if (!decimal && !(typeof value === "number" && Number.isFinite(value))) {
+        break;
+      }
+      // Under zero: a minus sign before a digit that is not zero.
+      const negative = decimal
+        ? value.startsWith("-") && /[1-9]/.test(value)
+        : value < 0;
+      if (config.nonNegative && negative) {
+        throw new AppError("negative_number");
+      }
+      return;
+    }
     case "duration":
       if (typeof value === "number" && Number.isFinite(value) && value >= 0)
         return;
