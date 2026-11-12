@@ -51,7 +51,6 @@ export function AccountSettings() {
 
   return (
     <NotebookPage
-      width="lg"
       title={t`Account settings`}
       description={t`What only you can change. Rights on a base are set in that base.`}
     >

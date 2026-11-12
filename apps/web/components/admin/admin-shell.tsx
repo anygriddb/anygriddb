@@ -37,7 +37,7 @@ export function AdminShell() {
   const pages = here && here.section.pages.length > 1 ? here.section.pages : [];
   return (
     <NotebookPage
-      width="xl"
+      width="wide"
       title={t`Administration`}
       description={t`People, security, connections, sources, trails, and the instance itself.`}
     >

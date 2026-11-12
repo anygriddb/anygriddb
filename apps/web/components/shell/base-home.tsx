@@ -63,7 +63,6 @@ export function BaseHome({ baseId }: { baseId: string }) {
 
   return (
     <NotebookPage
-      width="lg"
       title={base.name}
       description={
         base.description ||

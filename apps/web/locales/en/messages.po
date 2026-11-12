@@ -1828,6 +1828,10 @@ msgstr "Client secret"
 msgid "Close"
 msgstr "Close"
 
+#: components/shell/app-shell.tsx
+msgid "Close the navigation"
+msgstr "Close the navigation"
+
 #: components/admin/settings-tab.tsx
 msgid "Closed"
 msgstr "Closed"
@@ -5116,6 +5120,10 @@ msgstr "Open linked row"
 #: components/admin/health-tab.tsx
 msgid "Open sessions"
 msgstr "Open sessions"
+
+#: components/shell/app-shell.tsx
+msgid "Open the navigation"
+msgstr "Open the navigation"
 
 #: components/shell/shortcuts-dialog.tsx
 msgid "Open the row (or Shift Enter)"

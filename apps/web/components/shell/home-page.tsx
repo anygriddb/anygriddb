@@ -9,7 +9,7 @@ import { resolveShortcuts } from "../../lib/shortcut-list";
 import { useShortcuts } from "../../lib/shortcuts";
 import { useRoleLabel } from "../settings/role-label";
 import { NewBaseDialog } from "./new-base-dialog";
-import { EmptyState } from "./notebook-page";
+import { EmptyState, NotebookPage } from "./notebook-page";
 import { TrashedBases } from "./trashed-bases";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
@@ -29,19 +29,18 @@ export function HomePage() {
   const shortcuts = useShortcuts();
   const { recent } = resolveShortcuts(bases, shortcuts.data);
   return (
-    <div className="flex-1 overflow-y-auto px-10 py-12">
-      <div className="mx-auto max-w-4xl">
-        <header className="flex items-end justify-between gap-4">
-          <h1 className="text-[28px] leading-tight font-semibold">
-            {t`Hello ${{ name: session.data?.displayName ?? "" }}`}
-          </h1>
-          {session.data?.canCreateBases === false ? null : (
+    <div className="flex-1 overflow-y-auto">
+      <NotebookPage
+        title={t`Hello ${{ name: session.data?.displayName ?? "" }}`}
+        action={
+          session.data?.canCreateBases === false ? null : (
             <Button onClick={() => setCreating(true)}>
               <Plus className="h-4 w-4" aria-hidden />
               {t`New base`}
             </Button>
-          )}
-        </header>
+          )
+        }
+      >
         {session.data?.canCreateBases === false ? (
           <p className="mt-4 max-w-prose text-sm text-muted-foreground">
             {t`On this instance, administrators create the bases: ask one for a base, or to be invited to one.`}
@@ -182,7 +181,7 @@ export function HomePage() {
           </section>
         ) : null}
         <TrashedBases />
-      </div>
+      </NotebookPage>
       <NewBaseDialog
         open={creating}
         onOpenChange={setCreating}

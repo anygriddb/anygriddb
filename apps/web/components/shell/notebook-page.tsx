@@ -3,9 +3,11 @@ import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 /**
- * A page of the notebook (`docs/brand.md`): the desk around a sheet-wide
- * column and a large title. Settings, administration, dashboards, and a
- * base's home share it.
+ * A page of the notebook (`docs/brand.md`): the desk around one column
+ * and a large title. Home, a base's home, settings, and dashboards share
+ * the same column, so a title never moves from one page to the next;
+ * `wide` is for the pages that hold a table of many columns
+ * (administration, the API page).
  */
 export function NotebookPage({
   title,
@@ -13,22 +15,21 @@ export function NotebookPage({
   action,
   children,
   className,
-  width = "md",
+  width = "page",
 }: {
   title: ReactNode;
   description?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
   className?: string;
-  width?: "md" | "lg" | "xl";
+  width?: "page" | "wide";
 }) {
   return (
     <div
       className={cn(
-        "mx-auto flex w-full flex-col px-8 py-10",
-        width === "md" && "max-w-3xl",
-        width === "lg" && "max-w-4xl",
-        width === "xl" && "max-w-6xl",
+        "mx-auto flex w-full flex-col px-4 py-8 md:px-8 md:py-10",
+        width === "page" && "max-w-4xl",
+        width === "wide" && "max-w-6xl",
         className,
       )}
     >
