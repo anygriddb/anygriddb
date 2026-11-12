@@ -35,6 +35,7 @@ import {
   type AuthDetail,
   type AuthMethod,
 } from "../auth/auth-events.js";
+import { proveOwnErasure, sessionStartedAt } from "../auth/erase-proof.js";
 import { alertLock } from "../auth/lock-alerts.js";
 import {
   clearFailures,
@@ -902,18 +903,29 @@ export const authRouter = t.router({
     .mutation(async ({ ctx, input }) => {
       const user = await requireUser(ctx);
       try {
-        const stored = await ctx.db
-          .selectFrom("passwordHashes")
-          .select("hash")
-          .where("userId", "=", user.id)
-          .executeTakeFirst();
-        const verified = await verifyPassword(
-          stored?.hash ?? DUMMY_PASSWORD_HASH,
-          input.password,
-        );
-        if (!stored || !verified) {
-          throw new AppError("invalid_credentials");
+        // A token acts for its holder on rows, never on the account.
+        refuseApiToken(ctx);
+        // Guesses made here count as guesses at sign-in do, and a locked
+        // account takes no more of them.
+        const policy = await readGateSettings(ctx.db);
+        if ((await lockOf(ctx.db, user.id, policy)).locked) {
+          throw new AppError("account_locked");
         }
+        const proved = await proveOwnErasure(
+          ctx.db,
+          ctx.env.AUTH_ENCRYPTION_KEY,
+          {
+            userId: user.id,
+            startedAt: await sessionStartedAt(
+              ctx.db,
+              ctx.req.cookies[SESSION_COOKIE],
+            ),
+            proof: input,
+          },
+        );
+        if (proved === "stale") throw new AppError("fresh_sign_in_required");
+        if (proved === "wrong") await failedAttempt(ctx, user.id);
+        if (proved !== "ok") throw new AppError("invalid_credentials");
         await eraseAccount(ctx.db, user.id);
         ctx.hub.closeUser(user.id);
         clearCookie(ctx, SESSION_COOKIE);

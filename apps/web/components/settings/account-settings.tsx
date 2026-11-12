@@ -36,6 +36,7 @@ export function AccountSettings() {
   const [next, setNext] = useState("");
   const [again, setAgain] = useState("");
   const [erasePassword, setErasePassword] = useState("");
+  const [eraseCode, setEraseCode] = useState("");
   const [confirmErase, setConfirmErase] = useState(false);
   const user = session.data;
 
@@ -48,6 +49,17 @@ export function AccountSettings() {
   }
 
   if (!user) return null;
+
+  // What deleting the account asks, as the server does: the password and
+  // the authenticator's code when the account has them, a recent sign-in
+  // where neither can be asked.
+  const eraseAsksCode = user.mfaMethods.includes("totp");
+  const eraseAsksSignIn =
+    !user.hasPassword ||
+    (user.mfaMethods.includes("webauthn") && !eraseAsksCode);
+  const eraseReady =
+    (!user.hasPassword || erasePassword.length > 0) &&
+    (!eraseAsksCode || eraseCode.length >= 6);
 
   return (
     <NotebookPage
@@ -313,23 +325,41 @@ export function AccountSettings() {
         title={t`Delete account`}
         description={t`Removes your sign-in and attributes your audit history and comments to a deleted account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave.`}
       >
-        <div className="flex gap-2">
-          <Input
-            type="password"
-            aria-label={t`Password`}
-            placeholder={t`Password`}
-            value={erasePassword}
-            onChange={(event) => setErasePassword(event.target.value)}
-          />
+        <div className="flex flex-wrap gap-2">
+          {user.hasPassword ? (
+            <Input
+              type="password"
+              className="w-56"
+              aria-label={t`Password`}
+              placeholder={t`Password`}
+              value={erasePassword}
+              onChange={(event) => setErasePassword(event.target.value)}
+            />
+          ) : null}
+          {eraseAsksCode ? (
+            <Input
+              className="w-56"
+              autoComplete="one-time-code"
+              aria-label={t`Code from your authenticator app, or a backup code`}
+              placeholder={t`Authenticator or backup code`}
+              value={eraseCode}
+              onChange={(event) => setEraseCode(event.target.value)}
+            />
+          ) : null}
           <Button
             variant="danger"
-            disabled={erasePassword.length < 12}
+            disabled={!eraseReady}
             onClick={() => setConfirmErase(true)}
           >
             <Trash2 className="h-4 w-4" aria-hidden />
             {t`Delete`}
           </Button>
         </div>
+        {eraseAsksSignIn ? (
+          <p className="text-xs text-muted-foreground">
+            {t`Your sign-in is the proof here: sign out, sign in again, and delete within ten minutes.`}
+          </p>
+        ) : null}
       </RuledSection>
       <ConfirmDialog
         open={confirmErase}
@@ -340,7 +370,10 @@ export function AccountSettings() {
         confirmLabel={t`Delete`}
         onConfirm={() =>
           run(async () => {
-            await trpc.auth.erase.mutate({ password: erasePassword });
+            await trpc.auth.erase.mutate({
+              ...(user.hasPassword ? { password: erasePassword } : {}),
+              ...(eraseAsksCode ? { factorCode: eraseCode } : {}),
+            });
             queryClient.clear();
             await navigate({ to: "/login", replace: true });
           })

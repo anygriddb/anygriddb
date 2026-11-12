@@ -1367,6 +1367,10 @@ msgstr "Authenticator app (TOTP) is set up."
 msgid "Authenticator code"
 msgstr "Authenticator code"
 
+#: components/settings/account-settings.tsx
+msgid "Authenticator or backup code"
+msgstr "Authenticator or backup code"
+
 #: components/settings/second-factor.tsx
 msgid "Authenticator URL"
 msgstr "Authenticator URL"
@@ -1847,6 +1851,10 @@ msgstr "Closed"
 #: components/settings/second-factor.tsx
 msgid "Code"
 msgstr "Code"
+
+#: components/settings/account-settings.tsx
+msgid "Code from your authenticator app, or a backup code"
+msgstr "Code from your authenticator app, or a backup code"
 
 #: components/fields/field-meta.tsx
 msgid "Collaborator"
@@ -6547,6 +6555,10 @@ msgstr "Sign out"
 msgid "Sign out everywhere"
 msgstr "Sign out everywhere"
 
+#: lib/errors.ts
+msgid "Sign out, sign in again, and do this within ten minutes: your sign-in is the proof it asks for."
+msgstr "Sign out, sign in again, and do this within ten minutes: your sign-in is the proof it asks for."
+
 #: components/record/row-status.tsx
 msgid "Sign the row"
 msgstr "Sign the row"
@@ -8718,6 +8730,10 @@ msgstr "Your password, to confirm a change of second factor"
 #: components/settings/base-settings.tsx
 msgid "Your role: {role}"
 msgstr "Your role: {role}"
+
+#: components/settings/account-settings.tsx
+msgid "Your sign-in is the proof here: sign out, sign in again, and delete within ten minutes."
+msgstr "Your sign-in is the proof here: sign out, sign in again, and delete within ten minutes."
 
 #: components/record/row-status.tsx
 msgid "Your signature commits you: enter your password again."

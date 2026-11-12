@@ -1367,6 +1367,10 @@ msgstr "L’application d’authentification (TOTP) est configurée."
 msgid "Authenticator code"
 msgstr "Code de l’application"
 
+#: components/settings/account-settings.tsx
+msgid "Authenticator or backup code"
+msgstr "Code d’authentification ou de secours"
+
 #: components/settings/second-factor.tsx
 msgid "Authenticator URL"
 msgstr "URL pour l’application"
@@ -1847,6 +1851,10 @@ msgstr "Fermées"
 #: components/settings/second-factor.tsx
 msgid "Code"
 msgstr "Code"
+
+#: components/settings/account-settings.tsx
+msgid "Code from your authenticator app, or a backup code"
+msgstr "Code de votre application d’authentification, ou code de secours"
 
 #: components/fields/field-meta.tsx
 msgid "Collaborator"
@@ -6547,6 +6555,10 @@ msgstr "Se déconnecter"
 msgid "Sign out everywhere"
 msgstr "Déconnecter partout"
 
+#: lib/errors.ts
+msgid "Sign out, sign in again, and do this within ten minutes: your sign-in is the proof it asks for."
+msgstr "Déconnectez-vous, reconnectez-vous, puis recommencez dans les dix minutes : votre connexion est la preuve demandée."
+
 #: components/record/row-status.tsx
 msgid "Sign the row"
 msgstr "Signer la ligne"
@@ -8718,6 +8730,10 @@ msgstr "Votre mot de passe, pour confirmer un changement de second facteur"
 #: components/settings/base-settings.tsx
 msgid "Your role: {role}"
 msgstr "Votre rôle : {role}"
+
+#: components/settings/account-settings.tsx
+msgid "Your sign-in is the proof here: sign out, sign in again, and delete within ten minutes."
+msgstr "Votre connexion sert ici de preuve : déconnectez-vous, reconnectez-vous, puis supprimez dans les dix minutes."
 
 #: components/record/row-status.tsx
 msgid "Your signature commits you: enter your password again."
