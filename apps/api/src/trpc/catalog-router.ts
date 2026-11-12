@@ -258,6 +258,7 @@ export function publicColumns(engine: EngineCatalog, rows: CatalogRows) {
       isPrimary: column.isPrimary,
       isUnique: column.isUnique,
       requireReason: column.requireReason,
+      required: column.required,
       /**
        * `read` when a field rule lets the reader see but not change it, or
        * when a client's column takes no writes: a type AnyGridDB cannot

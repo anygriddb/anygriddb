@@ -97,6 +97,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   no_row: msg`Row not found`,
   row_locked: msg`Row locked`,
   reason_required: msg`A reason is required`,
+  value_required: msg`A value is required`,
   invalid_reason: msg`Invalid reason`,
   invalid_cell: msg`Invalid value`,
   invalid_value: msg`Invalid value for`,

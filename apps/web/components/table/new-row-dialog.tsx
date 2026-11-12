@@ -128,22 +128,44 @@ function LinkInput(props: {
   );
 }
 
+/** What a card or a day already knows of the row, as the inputs hold it. */
+function draftsOf(initial: Readonly<Record<string, unknown>>) {
+  const drafts: Record<string, Draft> = {};
+  for (const [name, value] of Object.entries(initial)) {
+    if (
+      typeof value === "string" ||
+      typeof value === "boolean" ||
+      (Array.isArray(value) && value.every((item) => typeof item === "string"))
+    ) {
+      drafts[name] = value;
+    }
+  }
+  return drafts;
+}
+
 /**
- * A new row of a client's table, filled before it is sent: the client's
- * database checks it as a whole (a required value, a linked row), and an
- * empty row it would refuse is never tried. What it refuses is said in a
- * message, and the values stay for another try.
+ * A new row filled before it is sent: a client's database checks it as a
+ * whole (a required value, a linked row), and a table of AnyGridDB's own
+ * with a required field refuses an empty row. A row either would refuse
+ * is never tried. What is refused is said in a message, and the values
+ * stay for another try.
  */
 export function NewRowDialog(props: {
   open: boolean;
   columns: readonly CatalogColumn[];
+  /** A client's table, whose database decides what a new row needs. */
+  external: boolean;
+  /** Values a card or a day already gives the row. */
+  initial?: Readonly<Record<string, unknown>>;
   onClose: () => void;
   onCreate: (values: Record<string, unknown>) => Promise<string | undefined>;
 }) {
   const { t } = useLingui();
   const { people } = useTable();
   const fields = newRowFields(props.columns);
-  const [values, setValues] = useState<Record<string, Draft>>({});
+  const [values, setValues] = useState<Record<string, Draft>>(() =>
+    draftsOf(props.initial ?? {}),
+  );
   const [busy, setBusy] = useState(false);
 
   async function submit(event: SubmitEvent) {
@@ -156,6 +178,10 @@ export function NewRowDialog(props: {
         raw === "" ||
         (Array.isArray(raw) && raw.length === 0)
       ) {
+        if (column.required) {
+          toast.error(t`“${{ field: column.label }}” is required`);
+          return;
+        }
         continue;
       }
       if (isForwardLink(column)) {
@@ -197,7 +223,11 @@ export function NewRowDialog(props: {
     >
       <DialogContent
         title={t`New row`}
-        description={t`The row is added in the client's database, which checks the values. A field left empty takes the database's default.`}
+        description={
+          props.external
+            ? t`The row is added in the client's database, which checks the values. A field left empty takes the database's default.`
+            : t`Fields marked with an asterisk need a value before the row is added.`
+        }
       >
         <form className="flex flex-col gap-4" onSubmit={submit}>
           {fields.map((column) => (
@@ -207,6 +237,12 @@ export function NewRowDialog(props: {
                 htmlFor={formFieldIds(column.name).id}
               >
                 {column.label}
+                {column.required ? (
+                  <span className="text-danger" aria-hidden>
+                    {" "}
+                    *
+                  </span>
+                ) : null}
               </Label>
               {isForwardLink(column) ? (
                 <LinkInput
@@ -219,6 +255,7 @@ export function NewRowDialog(props: {
               ) : (
                 <FieldInput
                   column={column}
+                  required={column.required}
                   value={
                     values[column.name] ??
                     (column.fieldType === "multi_select"

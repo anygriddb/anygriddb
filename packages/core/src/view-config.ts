@@ -61,6 +61,40 @@ export const formConfigSchema = z
 
 export type FormConfig = z.infer<typeof formConfigSchema>;
 
+export type FormFieldConfig = NonNullable<FormConfig["fields"]>[number];
+
+/**
+ * A form's fields once the table's own rules apply: a field the table
+ * requires is always on the form, always required, and never behind a
+ * condition, wherever the form placed it. A form that lists no fields
+ * shows every one it may (`names`).
+ */
+export function withRequiredFormFields(
+  fields: readonly FormFieldConfig[] | undefined,
+  names: readonly string[],
+  required: readonly string[],
+): FormFieldConfig[] {
+  const listed: FormFieldConfig[] =
+    fields && fields.length > 0
+      ? [...fields]
+      : names.map((column) => ({ column }));
+  if (required.length === 0) return listed;
+  const needed = new Set(required);
+  const out = listed.map((field) => {
+    if (!needed.has(field.column)) return field;
+    const next: FormFieldConfig = { ...field, required: true };
+    delete next.showIf;
+    delete next.hidden;
+    return next;
+  });
+  for (const column of required) {
+    if (!out.some((field) => field.column === column)) {
+      out.push({ column, required: true });
+    }
+  }
+  return out;
+}
+
 const colorRuleSchema = z
   .object({ filter: filterGroupSchema, color: optionColorSchema })
   .strict();

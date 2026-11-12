@@ -162,10 +162,11 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
 
 // A number field can refuse values under zero: the grid's editor marks
 // such a value and does not send it, and the write itself refuses it
-// whatever sends it (`assertCellValue`). It makes an
+// whatever sends it (`assertCellValue`). Made required, it is filled
+// before a row is added and never emptied. It makes an
 // account, so it takes a client address of its own: sign-ups are counted
 // per address, and the other journeys share theirs.
-test.describe("a number field that refuses negatives", () => {
+test.describe("a number field that refuses negatives, then empties", () => {
   test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.80" } });
 
   test("keeps them out of the grid", async ({ page }) => {
@@ -208,6 +209,37 @@ test.describe("a number field that refuses negatives", () => {
     await expect(
       page.locator('[role="gridcell"][data-column="stock"]').first(),
     ).not.toContainText("-");
+
+    // Required: a new row is filled before it is added, and no write
+    // empties the field, the row from before included.
+    await page.getByRole("button", { name: "Stock field menu" }).click();
+    await page.getByRole("menuitem", { name: "Edit field" }).click();
+    await dialog.getByLabel("Require a value in every row").check();
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(
+      page.getByRole("columnheader", { name: /Stock ?, Value required/ }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Add a row", exact: true }).click();
+    const newRow = page.getByRole("dialog", { name: "New row" });
+    await newRow.getByRole("button", { name: "Add the row" }).click();
+    await expect(page.getByText("“Stock” is required")).toBeVisible();
+    await expect(newRow.getByLabel("Stock")).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await newRow.getByLabel("Stock").fill("3");
+    await newRow.getByRole("button", { name: "Add the row" }).click();
+    await expect(newRow).toBeHidden();
+    const cells = page.locator('[role="gridcell"][data-column="stock"]');
+    await expect(cells).toHaveCount(2);
+    await expect(cells.nth(1)).toContainText("3");
+    await cells.first().click();
+    await page.keyboard.press("Delete");
+    await expect(page.getByText("A value is required: Stock")).toBeVisible();
+    await page.reload();
+    await expect(cells.first()).toContainText("5");
     expect(blocked).toEqual([]);
   });
 });

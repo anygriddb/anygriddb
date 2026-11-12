@@ -12,6 +12,7 @@ msgid "-1, 0, or 1, by its sign."
 msgstr "-1, 0 ou 1, selon le signe."
 
 #: components/public/public-view.tsx
+#: components/table/new-row-dialog.tsx
 #: components/views/form-view.tsx
 msgid "“{field}” is required"
 msgstr "« {field} » est obligatoire"
@@ -775,6 +776,10 @@ msgstr "Un jeton agit avec vos droits. Il n’est affiché qu’une fois et vit 
 #: components/settings/account-settings.tsx
 msgid "A TOTP app or a passkey, asked at each sign-in after your password."
 msgstr "Une application TOTP ou une clé d’accès, demandée à chaque connexion après votre mot de passe."
+
+#: lib/errors.ts
+msgid "A value is required"
+msgstr "Une valeur est obligatoire"
 
 #: components/shell/pending-invitations.tsx
 msgid "Accept"
@@ -3204,6 +3209,10 @@ msgstr "Champs"
 #: lib/errors.ts
 msgid "Fields are kept in this side schema: it cannot change while they exist"
 msgstr "Des champs sont conservés dans ce schéma latéral : il ne peut pas changer tant qu’ils existent"
+
+#: components/table/new-row-dialog.tsx
+msgid "Fields marked with an asterisk need a value before the row is added."
+msgstr "Les champs marqués d’un astérisque doivent être remplis avant l’ajout de la ligne."
 
 #: components/admin/sources-tab.tsx
 msgid "Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB, the account's own schema on Oracle). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed."
@@ -5981,6 +5990,10 @@ msgstr "Requête refusée"
 msgid "Require a reason for every change"
 msgstr "Exiger un motif à chaque modification"
 
+#: components/fields/field-editor.tsx
+msgid "Require a value in every row"
+msgstr "Rendre obligatoire dans chaque ligne"
+
 #: components/views/form-view.tsx
 msgid "required"
 msgstr "requis"
@@ -6167,6 +6180,10 @@ msgstr "Corbeille des lignes"
 #: components/table/automations-dialog.tsx
 msgid "rows"
 msgstr "lignes"
+
+#: components/fields/field-editor.tsx
+msgid "Rows already empty here stay so until someone changes this field."
+msgstr "Les lignes déjà vides ici le restent jusqu’à ce que quelqu’un modifie ce champ."
 
 #: components/fields/link-selection.tsx
 msgid "Rows offered"
@@ -8492,6 +8509,10 @@ msgstr "Valable jusqu’au {date}, pour : {names}."
 #: components/table/import-dialog.tsx
 msgid "Value"
 msgstr "Valeur"
+
+#: components/grid/grid-header.tsx
+msgid "Value required"
+msgstr "Valeur obligatoire"
 
 #: components/table/automations-dialog.tsx
 msgid "Values you can use in texts:"

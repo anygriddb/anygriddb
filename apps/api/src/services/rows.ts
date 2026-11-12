@@ -2,12 +2,14 @@
  * Row writes, shared by every transport (ADR 0022): the web app's tRPC
  * routers, the public REST API, automations, and public forms. A transport
  * authenticates, validates the shape of its input, builds a `RowScope`, and
- * calls one of these functions. Field and row rules, link checks, change
- * reasons, attachment ownership, and change announcements live here only.
+ * calls one of these functions. Field and row rules, required values, link
+ * checks, change reasons, attachment ownership, and change announcements
+ * live here only.
  */
 import { randomUUID } from "node:crypto";
 import {
   AppError,
+  assertRequiredValues,
   type AuditRole,
   type Binding,
   type CellValue,
@@ -288,6 +290,11 @@ async function prepare(
   existing: readonly string[],
 ): Promise<Map<string, EngineColumn>> {
   assertFieldsWritable(scope.engine, touchedColumns(rows));
+  assertRequiredValues(
+    scope.catalog.columns.filter((column) => column.tableId === scope.table.id),
+    rows.map((row) => row.values),
+    existing.length > 0 ? "update" : "insert",
+  );
   if (existing.length > 0) {
     await assertRowsInScope(deps.db, scope.engine, existing);
   }

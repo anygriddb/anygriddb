@@ -5,6 +5,7 @@ import {
   type FormulaTypeColumn,
   type FormulaTypeContext,
   isPrimaryType,
+  canBeRequired,
   limitOf,
   type LinkSelection,
   MULTI_SELECT_APPEARANCES,
@@ -282,6 +283,9 @@ export function FieldEditor({
   const [requireReason, setRequireReason] = useState(
     editing?.requireReason ?? false,
   );
+  const [required, setRequired] = useState(editing?.required ?? false);
+  // A client's table says itself what it requires.
+  const requirable = canBeRequired(fieldType as FieldType) && !external;
   const [unique, setUnique] = useState(editing?.isUnique ?? false);
   const [primary, setPrimary] = useState(editing?.isPrimary ?? false);
   const [options, setOptions] = useState<Option[]>(
@@ -586,6 +590,7 @@ export function FieldEditor({
               fieldType: fieldType as never,
               description: description || undefined,
               requireReason,
+              required: requirable ? required : undefined,
               unique:
                 UNIQUE_TYPES.has(fieldType) && !external ? unique : undefined,
               config: fieldType === "formula" ? undefined : builtConfig,
@@ -638,6 +643,7 @@ export function FieldEditor({
           label: name,
           description: description || null,
           requireReason,
+          required: requirable ? required : undefined,
           unique: UNIQUE_TYPES.has(fieldType) && !external ? unique : undefined,
           fieldType: converting ? (fieldType as never) : undefined,
           config:
@@ -1281,6 +1287,22 @@ export function FieldEditor({
               {editing?.isPrimary ? (
                 <p className="text-xs text-muted-foreground">
                   {t`Every table needs a primary field. Choose another field to change it.`}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          {requirable ? (
+            <div className="flex flex-col gap-1">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={required}
+                  onChange={(event) => setRequired(event.target.checked)}
+                />
+                {t`Require a value in every row`}
+              </label>
+              {required && !editing?.required ? (
+                <p className="text-xs text-muted-foreground">
+                  {t`Rows already empty here stay so until someone changes this field.`}
                 </p>
               ) : null}
             </div>
