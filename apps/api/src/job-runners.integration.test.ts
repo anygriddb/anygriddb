@@ -178,3 +178,104 @@ describe("duplicating a base", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("an export job", () => {
+  let db: Database;
+  let close: (() => Promise<void>) | undefined;
+  let owner = "";
+  let tableId = "";
+  let files: DiskStore;
+
+  beforeAll(async () => {
+    const created = await createTestDatabase("export_job");
+    db = created.db;
+    close = created.close;
+    owner = (
+      await db
+        .insertInto("users")
+        .values({ email: `export-${suffix}@example.com`, displayName: "Owner" })
+        .returning("id")
+        .executeTakeFirstOrThrow()
+    ).id;
+    const baseId = (await insertBase(db, owner, { name: "Ventes" })).id;
+    const table = await insertTable(db, owner, {
+      baseId,
+      name: "Clients",
+      columns: [{ name: "name", label: "Nom", fieldType: "text" }],
+    });
+    tableId = table.id;
+    const { engine } = await loadEngine(db, table.id, () => true);
+    const physical = await db
+      .selectFrom("dataTables")
+      .select("physicalName")
+      .where("id", "=", table.id)
+      .executeTakeFirstOrThrow();
+    // Three pages of rows: the file is written page after page.
+    for (let start = 0; start < 2_500; start += 500) {
+      await insertNativeBatch(
+        db,
+        engine,
+        {
+          userId: owner,
+          tableId: table.id,
+          physicalName: physical.physicalName,
+          baseId,
+          reason: null,
+          source: "web",
+        },
+        Array.from({ length: 500 }, (_, index) => ({
+          name: `c${String(start + index + 1).padStart(4, "0")}`,
+        })),
+      );
+    }
+    files = new DiskStore(await mkdtemp(join(tmpdir(), "anygriddb-export-")));
+  });
+
+  afterAll(async () => {
+    await close?.();
+  });
+
+  const exportJob = (format: string): JobRow =>
+    ({
+      id: "00000000-0000-4000-8000-000000000002",
+      userId: owner,
+      input: { tableId, format },
+    }) as never;
+
+  it("writes every row to its file, page after page, then stores it", async () => {
+    const runners = jobRunners({
+      db,
+      bus: { publish: async () => undefined } as never,
+      files,
+      log: () => undefined,
+    });
+    const seen: Array<[number, number | null | undefined]> = [];
+    const done = await runners.export({
+      job: exportJob("csv"),
+      progress: async (count, total) => {
+        seen.push([count, total]);
+      },
+    });
+    expect(done.result).toMatchObject({ rows: 2_500, format: "csv" });
+    const stored = await readFile(files, done.fileKey ?? "", 1_000_000);
+    const lines = stored?.bytes.toString("utf8").split("\n") ?? [];
+    expect(lines).toHaveLength(2_501);
+    expect(lines[0]).toBe("﻿Nom");
+    expect(lines.at(-1)).toBe("c2500");
+    expect(stored?.bytes.length).toBe((done.result as { size: number }).size);
+    expect(seen.at(-1)).toEqual([2_500, 2_500]);
+  });
+
+  it("refuses a view past the instance's ceiling before writing anything", async () => {
+    const runners = jobRunners({
+      db,
+      bus: { publish: async () => undefined } as never,
+      files,
+      log: () => undefined,
+      exportMaxRows: 2_000,
+    });
+    await expect(
+      runners.export({ job: exportJob("json"), progress: async () => {} }),
+    ).rejects.toMatchObject({ code: "export_too_large" });
+  });
+});

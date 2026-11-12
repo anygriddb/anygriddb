@@ -1,4 +1,5 @@
-import { createWriteStream } from "node:fs";
+import { once } from "node:events";
+import { createReadStream, createWriteStream, type WriteStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
@@ -24,6 +25,7 @@ import {
   roleAllows,
   roleFor,
   toCsv,
+  toCsvRows,
   viewFilter,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -58,6 +60,7 @@ import {
 import { parseImportFileIsolated } from "./import-isolated.js";
 import { findLiveTable } from "./services/rows.js";
 import { snapshotFolder, stageSnapshotFile } from "./data/snapshot-stage.js";
+import { localFolder } from "./files/local-folder.js";
 import { loadOwnJob } from "./jobs.js";
 import { readerEngine } from "./data/acl.js";
 import type { FileStore } from "./files/index.js";
@@ -202,60 +205,142 @@ export function sheetName(name: string): string {
   );
 }
 
-export async function renderExport(
+/** What writes an export to its file, one page of rows after another. */
+export type ExportWriter = {
+  /** Writes the next rows, in order. */
+  add(rows: readonly RowRecord[]): Promise<void>;
+  /** Ends the file and says its size in bytes. */
+  finish(): Promise<number>;
+  /** Stops writing after a failure; the caller removes the file. */
+  abandon(): void;
+};
+
+async function writeText(stream: WriteStream, text: string): Promise<void> {
+  if (!stream.write(text)) await once(stream, "drain");
+}
+
+/**
+ * Writes an export to `path` as its rows come: CSV and JSON as text, an
+ * XLSX workbook through the writer that streams. No page is kept once
+ * written.
+ */
+export function exportWriter(
   format: ExportFormat,
+  path: string,
   tableName: string,
   columns: readonly EngineColumn[],
-  rows: readonly RowRecord[],
   people: ReadonlyMap<string, string>,
-): Promise<Buffer> {
-  const values = rows.map((row) =>
-    columns.map((column) => exportValue(column, row[column.name], people)),
-  );
-  if (format === "json") {
-    const records = values.map((cells, index) => ({
-      id: rows[index]?.id,
-      ...Object.fromEntries(
-        columns.map((column, at) => [column.label, cells[at] ?? null]),
-      ),
+): ExportWriter {
+  const valuesOf = (row: RowRecord) =>
+    columns.map((column) => exportValue(column, row[column.name], people));
+  if (format === "xlsx") {
+    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+      filename: path,
+      useStyles: true,
+      useSharedStrings: false,
+    });
+    workbook.creator = "AnyGridDB";
+    const sheet = workbook.addWorksheet(sheetName(tableName), {
+      views: [{ state: "frozen", ySplit: 1 }],
+    });
+    sheet.columns = columns.map((column) => ({
+      header: column.label,
+      key: column.name,
+      width: Math.min(60, Math.max(10, column.label.length + 2)),
+      style: DATE_TYPES.has(column.fieldType)
+        ? { numFmt: "yyyy-mm-dd" }
+        : DATETIME_TYPES.has(column.fieldType)
+          ? { numFmt: "yyyy-mm-dd hh:mm" }
+          : {},
     }));
-    return Buffer.from(JSON.stringify(records, null, 2));
+    sheet.getRow(1).font = { bold: true };
+    return {
+      add(rows) {
+        for (const row of rows) {
+          const cells = valuesOf(row);
+          sheet
+            .addRow(
+              columns.map((column, at) =>
+                excelValue(column, cells[at] ?? null),
+              ),
+            )
+            .commit();
+        }
+        return Promise.resolve();
+      },
+      async finish() {
+        sheet.commit();
+        await workbook.commit();
+        return (await stat(path)).size;
+      },
+      abandon() {
+        // The workbook writes to its own stream; removing the folder ends it.
+      },
+    };
   }
-  if (format === "csv") {
-    const headers = columns.map((column) => column.label);
-    const csv = toCsv(
-      headers,
-      values.map((cells) =>
-        Object.fromEntries(
-          headers.map((header, at) => [header, cells[at] ?? null]),
-        ),
-      ),
-    );
-    // The byte order mark lets spreadsheet programs read UTF-8.
-    return Buffer.from(`\uFEFF${csv}`);
-  }
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = "AnyGridDB";
-  const sheet = workbook.addWorksheet(sheetName(tableName), {
-    views: [{ state: "frozen", ySplit: 1 }],
-  });
-  sheet.columns = columns.map((column) => ({
-    header: column.label,
-    key: column.name,
-    width: Math.min(60, Math.max(10, column.label.length + 2)),
-    style: DATE_TYPES.has(column.fieldType)
-      ? { numFmt: "yyyy-mm-dd" }
-      : DATETIME_TYPES.has(column.fieldType)
-        ? { numFmt: "yyyy-mm-dd hh:mm" }
-        : {},
-  }));
-  sheet.getRow(1).font = { bold: true };
-  for (const cells of values) {
-    sheet.addRow(
-      columns.map((column, at) => excelValue(column, cells[at] ?? null)),
-    );
-  }
-  return Buffer.from(await workbook.xlsx.writeBuffer());
+  const stream = createWriteStream(path, { flags: "wx", mode: 0o600 });
+  const headers = columns.map((column) => column.label);
+  let written = 0;
+  // The byte order mark lets spreadsheet programs read UTF-8.
+  let opening: Promise<void> | undefined = writeText(
+    stream,
+    format === "csv" ? `\uFEFF${toCsv(headers, [])}` : "[",
+  );
+  return {
+    async add(rows) {
+      await opening;
+      opening = undefined;
+      if (rows.length === 0) return;
+      const values = rows.map(valuesOf);
+      if (format === "csv") {
+        await writeText(
+          stream,
+          `\n${toCsvRows(
+            headers,
+            values.map((cells) =>
+              Object.fromEntries(
+                headers.map((header, at) => [header, cells[at] ?? null]),
+              ),
+            ),
+          )}`,
+        );
+      } else {
+        const records = values.map((cells, index) => ({
+          id: rows[index]?.id,
+          ...Object.fromEntries(
+            columns.map((column, at) => [column.label, cells[at] ?? null]),
+          ),
+        }));
+        // As `JSON.stringify(all, null, 2)` would lay it out, one record
+        // after another.
+        await writeText(
+          stream,
+          records
+            .map(
+              (record, index) =>
+                `${written + index === 0 ? "\n" : ",\n"}${JSON.stringify(
+                  record,
+                  null,
+                  2,
+                ).replace(/^/gm, "  ")}`,
+            )
+            .join(""),
+        );
+      }
+      written += rows.length;
+    },
+    async finish() {
+      await opening;
+      if (format === "json")
+        await writeText(stream, written === 0 ? "]" : "\n]");
+      stream.end();
+      await once(stream, "close");
+      return (await stat(path)).size;
+    },
+    abandon() {
+      stream.destroy();
+    },
+  };
 }
 
 const exportParams = z.object({ tableId: z.uuid() });
@@ -281,16 +366,22 @@ const exportQuery = exportJobInputSchema.omit({ tableId: true });
 export const EXPORT_MIME = MIME;
 
 /**
- * Renders a table, or one of its views, with the reader's rights. Shared
- * by the direct download and the export job, which reports its progress.
+ * Writes a table, or one of its views, with the reader's rights, to a
+ * local file, page by page as the rows are read. Shared by the direct
+ * download and the export job, which reports its progress. A view with
+ * more rows than `maxRows` is refused before anything is written.
  */
 export async function exportTable(
   deps: { db: Database },
   actor: { userId: string; bindings: readonly Binding[] },
   table: TableRow,
   query: Omit<ExportJobInput, "tableId">,
-  onProgress?: (done: number, total: number | null) => Promise<void>,
-): Promise<{ body: Buffer; rows: number }> {
+  options: {
+    path: string;
+    maxRows: number;
+    onProgress?: (done: number, total: number | null) => Promise<void>;
+  },
+): Promise<{ rows: number; size: number }> {
   const { engine } = await readerEngine(deps.db, table.id, actor);
   let spec: Omit<ReadSpec, "limit"> = {
     search: query.search,
@@ -320,51 +411,51 @@ export async function exportTable(
   const columns = exportColumns(engine, config).filter(
     (column) => !engine.access?.hidden(engine.table.id, column.name),
   );
-  const collected: RowRecord[] = [];
-  let total: number | null = null;
-  if (onProgress) {
-    const counted = await readPage(
-      deps.db,
-      engine,
-      { ...spec, limit: 1, fields: [] },
-      { total: true },
-    );
-    total = Math.min(counted.total ?? 0, MAX_COPY_ROWS);
-    await onProgress(0, total);
-  }
-  await readAll(
+  const counted = await readPage(
     deps.db,
     engine,
-    columns.map((column) => column.name),
-    async (page) => {
-      collected.push(...page);
-      await onProgress?.(collected.length, total);
-    },
-    spec,
+    { ...spec, limit: 1, fields: [] },
+    { total: true },
   );
-  await enrichAttachments(
-    deps.db,
-    columns
-      .filter((column) => column.fieldType === "attachment")
-      .map((column) => column.name),
-    collected,
-  );
+  const total = counted.total ?? 0;
+  if (total > options.maxRows) throw new AppError("export_too_large");
+  await options.onProgress?.(0, total);
   const people = new Map(
     (await listCollaborators(deps.db, table.baseId)).map((person) => [
       person.id,
       person.displayName,
     ]),
   );
-  return {
-    body: await renderExport(
-      query.format,
-      table.name,
-      columns,
-      collected,
-      people,
-    ),
-    rows: collected.length,
-  };
+  const files = columns
+    .filter((column) => column.fieldType === "attachment")
+    .map((column) => column.name);
+  const writer = exportWriter(
+    query.format,
+    options.path,
+    table.name,
+    columns,
+    people,
+  );
+  let rows = 0;
+  try {
+    await readAll(
+      deps.db,
+      engine,
+      columns.map((column) => column.name),
+      async (page) => {
+        await enrichAttachments(deps.db, files, page);
+        await writer.add(page);
+        rows += page.length;
+        await options.onProgress?.(rows, total);
+      },
+      spec,
+      options.maxRows,
+    );
+    return { rows, size: await writer.finish() };
+  } catch (error) {
+    writer.abandon();
+    throw error;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -444,7 +535,11 @@ export function registerDataTransferRoutes(
     return reply.send(preview);
   });
 
-  /** A table or one of its views as CSV, JSON, or XLSX, up to 100,000 rows. */
+  /**
+   * A table or one of its views as CSV, JSON, or XLSX, up to 100,000 rows:
+   * written to a local file as it is read, then sent from it. A larger
+   * view goes through an export job.
+   */
   app.get("/api/export/:tableId", async (request, reply) => {
     const params = exportParams.safeParse(request.params);
     const query = exportQuery.safeParse(request.query);
@@ -454,33 +549,45 @@ export function registerDataTransferRoutes(
     const table = await loadTable(deps.db, params.data.tableId);
     if (!table || !allowed(actor.bindings, table, "read"))
       return deny(reply, 404);
-    let exported: Buffer;
+    const folder = await localFolder("export");
+    const path = join(folder.path, "export");
+    let size: number;
     try {
-      const { body, rows } = await exportTable(
+      const exported = await exportTable(
         deps,
         { userId: actor.user.id, bindings: actor.bindings },
         table,
         query.data,
+        { path, maxRows: MAX_COPY_ROWS },
       );
-      exported = body;
+      size = exported.size;
       request.log.info(
         {
           tableId: table.id,
           format: query.data.format,
-          rows,
+          rows: exported.rows,
           max: MAX_COPY_ROWS,
         },
         "table exported",
       );
     } catch (error) {
-      if (error instanceof AppError && error.code === "invalid_view") {
+      await folder.remove();
+      if (
+        error instanceof AppError &&
+        (error.code === "invalid_view" || error.code === "export_too_large")
+      ) {
         return deny(reply, 400, error.code);
       }
       request.log.error({ err: error }, "export failed");
       return deny(reply, 500);
     }
+    // The folder goes once the answer has left, or was cut short.
+    reply.raw.once("close", () => {
+      void folder.remove();
+    });
     return reply
       .header("Content-Type", MIME[query.data.format])
+      .header("Content-Length", size)
       .header(
         "Content-Disposition",
         contentDisposition(
@@ -489,7 +596,7 @@ export function registerDataTransferRoutes(
         ),
       )
       .header("Cache-Control", "no-store")
-      .send(exported);
+      .send(createReadStream(path));
   });
 
   /** The file of a finished export or snapshot job, for its author, 24 hours. */

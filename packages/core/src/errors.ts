@@ -131,6 +131,7 @@ export const ERRORS = {
   unknown_snapshot: [BAD, "Unknown snapshot"],
   too_large_snapshot: [BAD, "Too large snapshot"],
   too_many_rows: [BAD, "Too many rows"],
+  export_too_large: [BAD, "Too many rows to export"],
   too_many_jobs: [BAD, "Too many jobs"],
   unknown_job: [BAD, "Unknown job"],
   invalid_job: [BAD, "Invalid job"],

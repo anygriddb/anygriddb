@@ -246,23 +246,30 @@ export async function applyTemplate(
 /* Duplication                                                         */
 /* ------------------------------------------------------------------ */
 
-/** Reads every row in pages of 1000, up to `MAX_COPY_ROWS`. */
+/** Reads every row in pages of 1000, up to `max` (`MAX_COPY_ROWS`). */
 export async function readAll(
   db: Database,
   engine: EngineCatalog,
   fields: string[],
   onPage: (rows: RowRecord[]) => void | Promise<void>,
   base: Omit<ReadSpec, "limit" | "offset" | "fields"> = {},
+  max: number = MAX_COPY_ROWS,
 ): Promise<void> {
-  for (let offset = 0; offset < MAX_COPY_ROWS; offset += PAGE) {
+  for (let offset = 0; offset < max; offset += PAGE) {
     const page = await readPage(
       db,
       engine,
-      { ...base, limit: PAGE, offset, fields, groupBy: undefined },
+      {
+        ...base,
+        limit: Math.min(PAGE, max - offset),
+        offset,
+        fields,
+        groupBy: undefined,
+      },
       { total: false },
     );
     await onPage(page.rows);
-    if (page.rows.length < PAGE) return;
+    if (page.rows.length < Math.min(PAGE, max - offset)) return;
   }
 }
 

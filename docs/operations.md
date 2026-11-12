@@ -148,6 +148,16 @@ docker compose up -d          # no --build: the images are there
 Add `rustfs/rustfs` to the `docker save` command when you use
 `compose.s3.yml`.
 
+### Exports
+
+An export job writes its file to the system's temporary folder as the
+rows are read, a page at a time, then copies it to the files' store,
+where it is kept 24 hours. `EXPORT_MAX_ROWS` (100,000 to 10,000,000,
+1,000,000 by default) is the most rows one export writes: a larger view
+is refused before anything is written, and people are asked to filter
+it. Leave room in the temporary folder for the largest file, once per
+export running at once (`JOB_CONCURRENCY`).
+
 ## Update AnyGridDB
 
 Back up first (below). With the published image, read the release's

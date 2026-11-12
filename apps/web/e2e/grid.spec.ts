@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import {
   accessibilityViolations,
@@ -300,6 +301,19 @@ test.describe("a gallery, a timeline, a kanban, and a map past their first page"
       );
       expect(status).toBe(200);
     }
+
+    // An export job writes every row to its file as it reads them, then
+    // the file downloads.
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Export view as CSV" }).click();
+    const exported = await readFile(
+      (await (await download).path()) ?? "",
+      "utf8",
+    );
+    const lines = exported.split("\n");
+    expect(lines).toHaveLength(1_101);
+    expect(lines.at(-1)).toContain("c1100");
 
     const newView = async (type: string) => {
       await page.getByRole("button", { name: "New view" }).click();

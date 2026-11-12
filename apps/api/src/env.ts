@@ -59,6 +59,8 @@ export type Env = {
   WORKER_CONCURRENCY: number;
   /** Uploads read at once, per process; one more is refused (503). */
   UPLOAD_CONCURRENCY: number;
+  /** The most rows an export job writes to its file. */
+  EXPORT_MAX_ROWS: number;
   /** Imports, exports, copies, and snapshots run at once, per process. */
   JOB_CONCURRENCY: number;
   /** Where sources may be declared (ADR 0006); empty allows none. */
@@ -80,6 +82,25 @@ export type Env = {
   OTEL_EXPORTER_OTLP_ENDPOINT?: string;
   OTEL_SERVICE_NAME: string;
 };
+
+/**
+ * A ceiling on rows, 100,000 to 10,000,000: under that, a job would refuse
+ * what the grid already exports; over it, a file outgrows what a
+ * spreadsheet program opens and what a page read by page reaches in time.
+ */
+function rowCeiling(
+  source: NodeJS.ProcessEnv,
+  name: string,
+  fallback: number,
+): number {
+  const raw = source[name];
+  if (raw === undefined || raw === "") return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 100_000 || value > 10_000_000) {
+    throw new Error(`${name} must be an integer between 100000 and 10000000`);
+  }
+  return value;
+}
 
 function count(
   source: NodeJS.ProcessEnv,
@@ -379,6 +400,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     DATABASE_POOL_MAX: count(source, "DATABASE_POOL_MAX", 10, 4),
     WORKER_CONCURRENCY: count(source, "WORKER_CONCURRENCY", 4),
     UPLOAD_CONCURRENCY: count(source, "UPLOAD_CONCURRENCY", 8),
+    EXPORT_MAX_ROWS: rowCeiling(source, "EXPORT_MAX_ROWS", 1_000_000),
     JOB_CONCURRENCY: count(source, "JOB_CONCURRENCY", 2),
     SOURCES_ALLOWED_HOSTS: source.ANYGRIDDB_SOURCES_ALLOWED_HOSTS ?? "",
     SOURCES_ALLOW_PLAINTEXT: allowPlaintext,
