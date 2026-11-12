@@ -76,6 +76,16 @@ bucket's default key). Check first that the service accepts it: one
 that does not refuses every upload. A bucket that encrypts every object
 by default needs neither.
 
+### Uploads
+
+An attachment, a file to import, or a base snapshot is written to the
+system's temporary folder as it arrives, checked there, then copied to
+the files' store: the process never holds a file whole in memory. Leave
+room in that folder for as many of the largest files as are sent at
+once. `UPLOAD_CONCURRENCY` (1 to 64, 8 by default) caps how many each
+process reads at once; one more is refused with 503 and `Retry-After`,
+and people are told to try again in a moment.
+
 ### Address people open (`PUBLIC_URL`)
 
 `PUBLIC_URL` is the HTTPS origin people type: links in emails, cookies,

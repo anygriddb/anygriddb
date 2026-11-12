@@ -34,8 +34,10 @@ import { z } from "zod";
 import {
   cleanFilename,
   contentDisposition,
+  denyBusy,
   enrichAttachments,
 } from "./attachments.js";
+import type { UploadSlots } from "./upload-slots.js";
 import { requestActor } from "./auth/access.js";
 import { SESSION_COOKIE } from "./auth/session.js";
 import { MAX_COPY_ROWS, readAll } from "./data/data-ops.js";
@@ -65,6 +67,8 @@ type Deps = {
   db: Database;
   bus: Bus;
   files: FileStore;
+  /** Uploads read at once, shared with attachments. */
+  uploads: UploadSlots;
 };
 
 type Actor = NonNullable<Awaited<ReturnType<typeof requestActor>>>;
@@ -396,16 +400,22 @@ export function registerDataTransferRoutes(
         return deny(reply, 403);
       }
     }
-    const file = await request.file({
-      limits: { fileSize: IMPORT_LIMITS.maxBytes, files: 1, fields: 2 },
-    });
-    if (!file) return deny(reply, 400);
+    const release = deps.uploads.take();
+    if (!release) return denyBusy(reply);
     let bytes: Buffer;
+    let file: NonNullable<Awaited<ReturnType<typeof request.file>>>;
     try {
+      const upload = await request.file({
+        limits: { fileSize: IMPORT_LIMITS.maxBytes, files: 1, fields: 2 },
+      });
+      if (!upload) return await deny(reply, 400);
+      file = upload;
       bytes = await file.toBuffer();
     } catch (error) {
       request.log.warn({ err: error }, "import upload too large");
-      return deny(reply, 413);
+      return await deny(reply, 413);
+    } finally {
+      release();
     }
     if (file.file.truncated || bytes.length === 0) return deny(reply, 413);
     const filename = cleanFilename(file.filename);
@@ -538,12 +548,14 @@ export function registerDataTransferRoutes(
   app.post("/api/snapshot/upload", async (request, reply) => {
     const actor = await actorOf(deps.db, request);
     if (!actor) return deny(reply, 401);
-    const upload = await request.file({
-      limits: { fileSize: MAX_SNAPSHOT_ARCHIVE_BYTES, files: 1, fields: 2 },
-    });
-    if (!upload) return deny(reply, 400, "invalid_snapshot");
+    const release = deps.uploads.take();
+    if (!release) return denyBusy(reply);
     const folder = await snapshotFolder();
     try {
+      const upload = await request.file({
+        limits: { fileSize: MAX_SNAPSHOT_ARCHIVE_BYTES, files: 1, fields: 2 },
+      });
+      if (!upload) return await deny(reply, 400, "invalid_snapshot");
       const path = join(folder.path, "upload");
       try {
         await pipeline(
@@ -592,6 +604,7 @@ export function registerDataTransferRoutes(
       });
     } finally {
       await folder.remove();
+      release();
     }
   });
 }

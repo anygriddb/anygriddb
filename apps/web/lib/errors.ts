@@ -33,6 +33,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   base_creation_restricted: msg`On this instance, only administrators create bases`,
   invitation_domain_not_allowed: msg`On this instance, people are invited only with your organization's addresses`,
   instance_maintenance: msg`The instance is under maintenance. Try again later.`,
+  uploads_busy: msg`Too many files are being sent right now. Try again in a moment.`,
   unknown_account: msg`No account with this email`,
   account_already_exists: msg`This account already exists`,
   invalid_account: msg`This cannot be done to this account`,

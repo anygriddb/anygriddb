@@ -8114,6 +8114,11 @@ msgstr "Too long for this instance. Most days allowed"
 msgid "Too many failed sign-ins. They wait for the lock to end, or for you to unlock them."
 msgstr "Too many failed sign-ins. They wait for the lock to end, or for you to unlock them."
 
+#: components/fields/cell-editor.tsx
+#: lib/errors.ts
+msgid "Too many files are being sent right now. Try again in a moment."
+msgstr "Too many files are being sent right now. Try again in a moment."
+
 #: lib/errors.ts
 msgid "Too many jobs running: wait for one to finish"
 msgstr "Too many jobs running: wait for one to finish"

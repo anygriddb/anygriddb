@@ -767,7 +767,11 @@ function AttachmentEditor({ column, row, onDone }: EditorProps) {
         });
         if (!response.ok) {
           toast.error(
-            response.status === 413 ? t`File too large` : t`Upload refused`,
+            response.status === 413
+              ? t`File too large`
+              : response.status === 503
+                ? t`Too many files are being sent right now. Try again in a moment.`
+                : t`Upload refused`,
           );
           continue;
         }

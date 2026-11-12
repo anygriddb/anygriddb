@@ -31,6 +31,7 @@ export const ERRORS = {
   base_creation_restricted: [403, "Base creation restricted to administrators"],
   invitation_domain_not_allowed: [403, "Invitation domain not allowed"],
   instance_maintenance: [503, "Instance under maintenance"],
+  uploads_busy: [503, "Too many uploads at once"],
   unknown_account: [404, "Unknown account"],
   account_already_exists: [409, "Account already exists"],
   invalid_account: [BAD, "Invalid account"],
