@@ -117,6 +117,10 @@ export type GridAuthorizer = (
 ) => Promise<GridDecision>;
 /** Whether the session that opened the socket is still live. */
 export type SessionAlive = (tokenHash: string) => Promise<boolean>;
+/** Of these sessions, the ones still live: one question for a round. */
+export type SessionsAlive = (
+  tokenHashes: readonly string[],
+) => Promise<ReadonlySet<string>>;
 
 export function parseClientMessage(raw: string): ClientMessage | undefined {
   if (raw.length > MAX_MESSAGE_CHARS) {
@@ -170,6 +174,8 @@ function relayPayload(payload: string): string | undefined {
  */
 export class GridHub {
   private readonly sockets = new Map<WebSocket, SocketState>();
+  /** The sockets of each channel: a message goes to these, and no further. */
+  private readonly subscribers = new Map<string, Set<WebSocket>>();
 
   constructor(
     private readonly bus: Bus,
@@ -181,16 +187,17 @@ export class GridHub {
       message: string,
     ) => void,
     private readonly sessionAlive: SessionAlive = () => Promise.resolve(true),
+    private readonly sessionsAlive?: SessionsAlive,
   ) {
     this.bus.onMessage((channel, payload) => {
       const safe = relayPayload(payload);
       if (!safe) {
         return;
       }
-      for (const [socket, state] of this.sockets) {
-        if (!state.channels.has(channel) || socket.readyState !== socket.OPEN) {
-          continue;
-        }
+      // Only the channel's own sockets: a busy table does not cost the
+      // tabs open on every other one.
+      for (const socket of this.subscribers.get(channel) ?? []) {
+        if (socket.readyState !== socket.OPEN) continue;
         socket.send(safe);
       }
     });
@@ -275,10 +282,45 @@ export class GridHub {
     }
   }
 
+  /**
+   * Closes the sockets whose session is over: expired, ended elsewhere, or
+   * of an account since disabled. A socket that sends nothing is checked
+   * here, since nothing else looks at it; one question covers them all.
+   */
+  async endExpiredSessions(): Promise<number> {
+    const hashes = new Set<string>();
+    for (const state of this.sockets.values()) {
+      if (state.sessionTokenHash) hashes.add(state.sessionTokenHash);
+    }
+    if (hashes.size === 0) return 0;
+    const live = this.sessionsAlive
+      ? await this.sessionsAlive([...hashes])
+      : new Set(
+          (
+            await Promise.all(
+              [...hashes].map(async (hash) =>
+                (await this.sessionAlive(hash)) ? hash : null,
+              ),
+            )
+          ).filter((hash) => hash !== null),
+        );
+    let closed = 0;
+    for (const [socket, state] of this.sockets) {
+      if (!state.sessionTokenHash || live.has(state.sessionTokenHash)) continue;
+      if (socket.readyState !== socket.OPEN) continue;
+      socket.close(4401, "Unauthorized");
+      closed += 1;
+    }
+    return closed;
+  }
+
   /** Beats every `everyMs` until the returned function stops it. */
   startHeartbeat(everyMs = BEAT_MS): () => void {
     const timer = setInterval(() => {
       this.beat();
+      this.endExpiredSessions().catch((error: unknown) => {
+        this.log("error", error, "realtime failed");
+      });
     }, everyMs);
     timer.unref();
     return () => {
@@ -330,8 +372,23 @@ export class GridHub {
     return closed;
   }
 
+  private follow(channel: string, socket: WebSocket): void {
+    const sockets = this.subscribers.get(channel) ?? new Set<WebSocket>();
+    sockets.add(socket);
+    this.subscribers.set(channel, sockets);
+  }
+
+  private unfollow(channel: string, socket: WebSocket): void {
+    const sockets = this.subscribers.get(channel);
+    if (!sockets) return;
+    sockets.delete(socket);
+    // A channel nobody follows leaves no entry behind.
+    if (sockets.size === 0) this.subscribers.delete(channel);
+  }
+
   private async remove(socket: WebSocket, state: SocketState): Promise<void> {
     this.sockets.delete(socket);
+    for (const channel of state.channels) this.unfollow(channel, socket);
     for (const channel of state.channels) {
       await this.bus
         .publish(
@@ -404,6 +461,7 @@ export class GridHub {
       const channel = gridChannel(parsed.channel);
       if (parsed.type === "subscribe") {
         state.channels.add(channel);
+        this.follow(channel, socket);
         socket.send(
           JSON.stringify({ type: "subscribed", channel: parsed.channel }),
         );
@@ -411,6 +469,7 @@ export class GridHub {
       }
       if (parsed.type === "unsubscribe") {
         state.channels.delete(channel);
+        this.unfollow(channel, socket);
         return;
       }
       if (parsed.type === "presence") {

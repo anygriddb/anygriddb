@@ -292,3 +292,128 @@ describe("GridHub early messages", () => {
     ]);
   });
 });
+
+describe("GridHub fan-out and silent sockets", () => {
+  async function hub(live: () => ReadonlySet<string> = () => new Set()) {
+    const { EventEmitter } = await import("node:events");
+    const { GridHub } = await import("./ws.js");
+    let deliver: (channel: string, message: string) => void = () => undefined;
+    const bus = {
+      publish: async () => undefined,
+      onMessage: (handler: typeof deliver) => {
+        deliver = handler;
+      },
+      onReconnect: () => undefined,
+      listening: () => true,
+      close: async () => undefined,
+    };
+    const asked: string[][] = [];
+    const grid = new GridHub(
+      bus,
+      {} as never,
+      async () => "ok" as const,
+      () => undefined,
+      async () => true,
+      async (hashes) => {
+        asked.push([...hashes].sort());
+        return live();
+      },
+    );
+    function open(sessionHash = "") {
+      const sent: string[] = [];
+      const closed: string[] = [];
+      let looked = 0;
+      const socket = Object.assign(new EventEmitter(), {
+        OPEN: 1,
+        send: (data: string) => sent.push(data),
+        close: (_code: number, reason: string) => {
+          closed.push(reason);
+        },
+      });
+      // Counts each time the hub looks at the socket to send to it.
+      Object.defineProperty(socket, "readyState", {
+        get: () => {
+          looked += 1;
+          return 1;
+        },
+      });
+      grid.add(socket as never, "user", "Ada", [], sessionHash);
+      return { socket, sent, closed, looked: () => looked };
+    }
+    return {
+      grid,
+      open,
+      asked,
+      deliver: (c: string, m: string) => deliver(c, m),
+    };
+  }
+  const table = "00000000-0000-4000-8000-0000000000a1";
+  const other = "00000000-0000-4000-8000-0000000000b2";
+  const stale = (channel: string) => JSON.stringify({ type: "stale", channel });
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 10));
+
+  it("sends a message to the sockets of its channel and looks at no other", async () => {
+    const { open, deliver } = await hub();
+    const here = open();
+    const elsewhere = open();
+    here.socket.emit(
+      "message",
+      JSON.stringify({ type: "subscribe", channel: table }),
+    );
+    elsewhere.socket.emit(
+      "message",
+      JSON.stringify({ type: "subscribe", channel: other }),
+    );
+    await settle();
+    const before = elsewhere.looked();
+    deliver(`grid:${table}`, stale(table));
+    expect(here.sent.at(-1)).toBe(stale(table));
+    expect(elsewhere.sent).not.toContain(stale(table));
+    expect(elsewhere.looked()).toBe(before);
+  });
+
+  it("stops sending once a socket unsubscribes or closes", async () => {
+    const { open, deliver } = await hub();
+    const left = open();
+    const gone = open();
+    for (const { socket } of [left, gone]) {
+      socket.emit(
+        "message",
+        JSON.stringify({ type: "subscribe", channel: table }),
+      );
+    }
+    await settle();
+    left.socket.emit(
+      "message",
+      JSON.stringify({ type: "unsubscribe", channel: table }),
+    );
+    gone.socket.emit("close");
+    await settle();
+    deliver(`grid:${table}`, stale(table));
+    expect(left.sent).not.toContain(stale(table));
+    expect(gone.sent).not.toContain(stale(table));
+  });
+
+  it("closes a socket that sends nothing once its session is over", async () => {
+    const { grid, open, asked } = await hub(() => new Set(["live-hash"]));
+    const live = open("live-hash");
+    const twin = open("live-hash");
+    const over = open("over-hash");
+    const unsigned = open();
+    expect(await grid.endExpiredSessions()).toBe(1);
+    expect(over.closed).toEqual(["Unauthorized"]);
+    expect(live.closed).toEqual([]);
+    expect(twin.closed).toEqual([]);
+    // A socket with no session to check is left to the other closings.
+    expect(unsigned.closed).toEqual([]);
+    // One question for the round, each session named once.
+    expect(asked).toEqual([["live-hash", "over-hash"]]);
+  });
+
+  it("asks nothing when no socket has a session to check", async () => {
+    const { grid, open, asked } = await hub();
+    open();
+    expect(await grid.endExpiredSessions()).toBe(0);
+    expect(asked).toEqual([]);
+  });
+});

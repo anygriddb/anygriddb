@@ -80,6 +80,23 @@ export async function sessionHashAlive(
   return row !== undefined;
 }
 
+/** Of these session hashes, those of a live, enabled account: one query. */
+export async function sessionHashesAlive(
+  db: Database,
+  tokenHashes: readonly string[],
+): Promise<Set<string>> {
+  if (tokenHashes.length === 0) return new Set();
+  const rows = await db
+    .selectFrom("sessions as s")
+    .innerJoin("users as u", "u.id", "s.userId")
+    .select("s.tokenHash")
+    .where("s.tokenHash", "in", tokenHashes)
+    .where("s.expiresAt", ">", new Date())
+    .where("u.disabledAt", "is", null)
+    .execute();
+  return new Set(rows.map((row) => row.tokenHash));
+}
+
 /**
  * Idle-timeout renewal. Returns the new expiry when less than half of the
  * idle window is left and the absolute lifetime still allows it, else null.

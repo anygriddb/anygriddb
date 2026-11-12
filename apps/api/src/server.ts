@@ -31,11 +31,12 @@ import { trustProxy } from "./trust-proxy.js";
 import { registerScim } from "./scim/routes.js";
 import { registerEnterpriseAuth } from "./auth/enterprise.js";
 import {
-  SESSION_COOKIE,
   findSessionUser,
   hashSessionToken,
   isSessionToken,
+  SESSION_COOKIE,
   sessionHashAlive,
+  sessionHashesAlive,
 } from "./auth/session.js";
 import type { Env } from "./env.js";
 import type { FileStore } from "./files/index.js";
@@ -184,6 +185,7 @@ export async function createApp(deps: {
       app.log.error({ err: error }, message);
     },
     (tokenHash) => sessionHashAlive(deps.db, tokenHash),
+    (tokenHashes) => sessionHashesAlive(deps.db, tokenHashes),
   );
   const stopHeartbeat = hub.startHeartbeat();
   app.addHook("onClose", () => {
