@@ -6,8 +6,13 @@ import { recordAuthEvent } from "../auth/auth-events.js";
 import { bindRole, soleOwnerBases } from "./members.js";
 import { withTransactionRetry } from "./retry.js";
 
+/**
+ * The proof of deleting one's own account: each part is asked when the
+ * account has it (`auth/erase-proof.ts`).
+ */
 export const eraseAccountInputSchema = z.object({
-  password: z.string().min(12).max(128),
+  password: z.string().min(1).max(128).optional(),
+  factorCode: z.string().min(1).max(64).optional(),
 });
 
 /** One account every erased person becomes in the audit trail. */

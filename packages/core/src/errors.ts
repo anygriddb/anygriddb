@@ -17,6 +17,7 @@ export const ERRORS = {
   mfa_enrollment_required: [403, "MFA enrollment required"],
   account_disabled: [403, "Account disabled"],
   account_locked: [403, "Account locked"],
+  fresh_sign_in_required: [403, "A recent sign-in is required"],
   signup_closed: [403, "Signup closed"],
   signup_domain_not_allowed: [403, "Signup domain not allowed"],
   signup_needs_mail: [403, "Signup needs email"],

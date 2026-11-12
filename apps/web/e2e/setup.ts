@@ -104,6 +104,26 @@ export async function signIn(
 }
 
 /**
+ * Sets up an authenticator for the signed-in account, on a page that
+ * offers it (the welcome page, the account page), and returns its secret.
+ */
+export async function enableTotp(page: Page): Promise<string> {
+  await page.getByRole("button", { name: "Enable TOTP" }).click();
+  const secret = await page.getByLabel("Secret").inputValue();
+  await page
+    .getByLabel("Code", { exact: true })
+    .fill(totpCode(decodeBase32(secret), Date.now()));
+  await page.getByRole("button", { name: "Confirm TOTP" }).click();
+  await page.getByRole("button", { name: "I saved the codes" }).click();
+  return secret;
+}
+
+/** A code of the next step: the one that enrolled is spent. */
+export function nextTotp(secret: string): string {
+  return totpCode(decodeBase32(secret), Date.now() + 30_000);
+}
+
+/**
  * A new account with a second factor, a base, and a table, open on its
  * grid. Each journey gets its own account, so journeys run side by side.
  */
@@ -115,13 +135,7 @@ export async function signUpWithTable(
   const email = `e2e-${stamp}@example.com`;
   await signUp(page, { email, name, password: "correct-horse-battery" });
 
-  await page.getByRole("button", { name: "Enable TOTP" }).click();
-  const secret = await page.getByLabel("Secret").inputValue();
-  await page
-    .getByLabel("Code", { exact: true })
-    .fill(totpCode(decodeBase32(secret), Date.now()));
-  await page.getByRole("button", { name: "Confirm TOTP" }).click();
-  await page.getByRole("button", { name: "I saved the codes" }).click();
+  await enableTotp(page);
 
   // A modal leaves the page behind it inert: actions are looked up in it.
   const dialog = page.getByRole("dialog");

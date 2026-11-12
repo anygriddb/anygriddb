@@ -19,6 +19,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   mfa_enrollment_required: msg`Turn on a second factor in your settings`,
   account_disabled: msg`This account is disabled`,
   account_locked: msg`This account is locked after too many failed attempts. Try again later, or ask an administrator to unlock it.`,
+  fresh_sign_in_required: msg`Sign out, sign in again, and do this within ten minutes: your sign-in is the proof it asks for.`,
   signup_closed: msg`Sign-up is not open for this address`,
   signup_domain_not_allowed: msg`Sign-up is open only to your organization's addresses`,
   signup_needs_mail: msg`This instance sends no email, so it cannot confirm your address. Ask an administrator for an account, or use the invitation link you were sent.`,
