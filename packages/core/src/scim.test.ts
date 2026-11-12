@@ -94,7 +94,7 @@ describe("parseScimUser", () => {
     expect(
       parseScimUser({
         schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-        userName: "ada@corp.onmicrosoft.com",
+        userName: "ada@directory.example",
         externalId: "e-1",
         name: { givenName: "Ada", familyName: "Lovelace" },
         emails: [
@@ -105,7 +105,7 @@ describe("parseScimUser", () => {
         title: "Engineer",
       }),
     ).toEqual({
-      userName: "ada@corp.onmicrosoft.com",
+      userName: "ada@directory.example",
       email: "ada@corp.example",
       displayName: "Ada Lovelace",
       externalId: "e-1",

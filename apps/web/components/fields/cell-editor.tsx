@@ -5,11 +5,12 @@ import {
   Checkbox,
   cn,
   DatePicker,
+  type DateValue,
   ListPicker,
   OptionBadge,
-  Spinner,
-  type DateValue,
   type PickerOption,
+  Spinner,
+  Tooltip,
 } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Paperclip, Plus, X } from "lucide-react";
@@ -848,14 +849,15 @@ function AttachmentEditor({ column, row, onDone }: EditorProps) {
             ) : (
               <Paperclip className="h-4 w-4 opacity-60" aria-hidden />
             )}
-            <button
-              type="button"
-              className="min-w-0 flex-1 truncate text-left hover:underline"
-              title={t`Preview: ${{ name: file.filename }}`}
-              onClick={() => setPreview(index)}
-            >
-              {file.filename}
-            </button>
+            <Tooltip content={t`Preview: ${{ name: file.filename }}`}>
+              <button
+                type="button"
+                className="min-w-0 flex-1 truncate text-left hover:underline"
+                onClick={() => setPreview(index)}
+              >
+                {file.filename}
+              </button>
+            </Tooltip>
             <span className="text-xs text-muted-foreground">
               {file.size > 0 ? formatBytes(file.size) : ""}
             </span>

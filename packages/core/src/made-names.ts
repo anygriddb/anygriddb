@@ -42,7 +42,7 @@ const NAMES: Record<NameLocale, MadeNames> = {
     field: "Champ",
     name: "Nom",
     view: "Vue",
-    automation: (name) => `Automatisation « ${name} »`,
+    automation: (name) => `Automatisation «\u00a0${name}\u00a0»`,
   },
 };
 

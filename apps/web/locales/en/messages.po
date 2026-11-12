@@ -349,8 +349,8 @@ msgid "{count} more series are not shown."
 msgstr "{count} more series are not shown."
 
 #: lib/snapshot-report.ts
-msgid "{count} person(s) without access to the base, left out of User fields"
-msgstr "{count} person(s) without access to the base, left out of User fields"
+msgid "{count} person(s) without access to the base, left out of Collaborator fields"
+msgstr "{count} person(s) without access to the base, left out of Collaborator fields"
 
 #: components/shell/airtable-report.tsx
 #: components/shell/jobs-menu.tsx
@@ -792,6 +792,7 @@ msgid "Account created"
 msgstr "Account created"
 
 #: components/admin/account-actions.tsx
+#: components/admin/auth-labels.ts
 msgid "Account deleted"
 msgstr "Account deleted"
 
@@ -799,10 +800,6 @@ msgstr "Account deleted"
 #: components/admin/sign-in-trail.tsx
 msgid "Account disabled"
 msgstr "Account disabled"
-
-#: components/admin/auth-labels.ts
-msgid "Account erased"
-msgstr "Account erased"
 
 #: components/admin/auth-labels.ts
 #: components/admin/sign-in-trail.tsx
@@ -872,6 +869,7 @@ msgstr "Active filters"
 msgid "Add"
 msgstr "Add"
 
+#: components/views/gallery-view.tsx
 #: components/views/kanban-view.tsx
 msgid "Add a card"
 msgstr "Add a card"
@@ -919,10 +917,6 @@ msgstr "Add a metric, a chart, or a view."
 #: components/admin/accounts-tab.tsx
 msgid "Add a person"
 msgstr "Add a person"
-
-#: components/views/gallery-view.tsx
-msgid "Add a record"
-msgstr "Add a record"
 
 #: components/grid/grid-view.tsx
 #: components/table/view-toolbar.tsx
@@ -4404,6 +4398,7 @@ msgstr "Map"
 msgid "Mark all as read"
 msgstr "Mark all as read"
 
+#: components/dashboards/dashboard-board.tsx
 #: components/grid/grid-footer.tsx
 msgid "Max"
 msgstr "Max"
@@ -4498,6 +4493,7 @@ msgstr "MiB"
 msgid "min"
 msgstr "min"
 
+#: components/dashboards/dashboard-board.tsx
 #: components/grid/grid-footer.tsx
 msgid "Min"
 msgstr "Min"
@@ -4756,8 +4752,8 @@ msgid "No account yet besides yours. Add a person to bring them in."
 msgstr "No account yet besides yours. Add a person to bring them in."
 
 #: components/auth/auth-page.tsx
-msgid "No account yet? Sign up"
-msgstr "No account yet? Sign up"
+msgid "No account yet? Create one"
+msgstr "No account yet? Create one"
 
 #: lib/errors.ts
 msgid "No accounts match this selection"
@@ -5138,8 +5134,8 @@ msgid "Open view"
 msgstr "Open view"
 
 #: components/admin/settings-tab.tsx
-msgid "Open: anyone can register from the sign-in page. Closed: only administrators create accounts and send a reset link (Accounts). By invitation: a pending base invitation is required. SSO for new accounts follows the same rule. Existing accounts are not affected."
-msgstr "Open: anyone can register from the sign-in page. Closed: only administrators create accounts and send a reset link (Accounts). By invitation: a pending base invitation is required. SSO for new accounts follows the same rule. Existing accounts are not affected."
+msgid "Open: anyone can create an account from the sign-in page. Closed: only administrators create accounts and send a reset link (Accounts). By invitation: a pending base invitation is required. SSO for new accounts follows the same rule. Existing accounts are not affected."
+msgstr "Open: anyone can create an account from the sign-in page. Closed: only administrators create accounts and send a reset link (Accounts). By invitation: a pending base invitation is required. SSO for new accounts follows the same rule. Existing accounts are not affected."
 
 #: components/admin/account-page.tsx
 msgid "Opened {opened}, ends {ends}"
@@ -5458,8 +5454,8 @@ msgid "Primary field"
 msgstr "Primary field"
 
 #: components/record/record-panel.tsx
-msgid "Print the record"
-msgstr "Print the record"
+msgid "Print the row"
+msgstr "Print the row"
 
 #: components/table/import-dialog.tsx
 msgid "Problem"
@@ -5774,8 +5770,8 @@ msgid "Removed from {base}"
 msgstr "Removed from {base}"
 
 #: components/settings/account-settings.tsx
-msgid "Removes your sign-in and attributes your audit history and comments to an erased account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave."
-msgstr "Removes your sign-in and attributes your audit history and comments to an erased account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave."
+msgid "Removes your sign-in and attributes your audit history and comments to a deleted account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave."
+msgstr "Removes your sign-in and attributes your audit history and comments to a deleted account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave."
 
 #: components/shell/sidebar.tsx
 #: components/table/view-tabs.tsx
@@ -6200,6 +6196,7 @@ msgstr "Search this view"
 #: components/admin/accounts-tab.tsx
 #: components/admin/security-tab.tsx
 #: components/auth/auth-page.tsx
+#: components/settings/account-settings.tsx
 msgid "Second factor"
 msgstr "Second factor"
 
@@ -8077,10 +8074,6 @@ msgstr "Turn on the release check in Health first"
 #: components/settings/webhooks-panel.tsx
 msgid "Turned off after {count} failures in a row."
 msgstr "Turned off after {count} failures in a row."
-
-#: components/settings/account-settings.tsx
-msgid "Two-factor authentication"
-msgstr "Two-factor authentication"
 
 #: components/dashboards/dashboard-board.tsx
 #: components/fields/field-editor.tsx

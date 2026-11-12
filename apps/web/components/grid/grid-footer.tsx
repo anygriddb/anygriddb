@@ -9,6 +9,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Tooltip,
 } from "@anygriddb/ui";
 import { GUTTER, marginColumn } from "./margin-column";
 import { formatDate, formatNumber } from "../../lib/format";
@@ -180,14 +181,17 @@ export function GridFooter(props: {
         style={{ width: GUTTER }}
       >
         {props.estimated ? (
-          <button
-            type="button"
-            className="underline decoration-dotted underline-offset-2 hover:text-foreground"
-            title={t`Total estimated by the client's database: click to count exactly`}
-            onClick={props.estimated.onCount}
+          <Tooltip
+            content={t`Total estimated by the client's database: click to count exactly`}
           >
-            {plural(props.total, { one: `≈ # row`, other: `≈ # rows` })}
-          </button>
+            <button
+              type="button"
+              className="underline decoration-dotted underline-offset-2 hover:text-foreground"
+              onClick={props.estimated.onCount}
+            >
+              {plural(props.total, { one: `≈ # row`, other: `≈ # rows` })}
+            </button>
+          </Tooltip>
         ) : (
           plural(props.total, { one: `# row`, other: `# rows` })
         )}

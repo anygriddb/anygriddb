@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Tooltip,
 } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -153,19 +154,20 @@ function FieldRow({
               }}
             />
           ) : (
-            <button
-              ref={editButton}
-              type="button"
-              aria-label={t`Edit ${{ field: column.label }}`}
-              title={t`Edit ${{ field: column.label }}`}
-              className="absolute top-1 right-1 z-[1] inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground opacity-0 outline-none group-hover:opacity-100 hover:bg-muted focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-ring"
-              onClick={(event) => {
-                event.stopPropagation();
-                setEditing(true);
-              }}
-            >
-              <Pencil className="h-3.5 w-3.5" aria-hidden />
-            </button>
+            <Tooltip content={t`Edit ${{ field: column.label }}`} side="left">
+              <button
+                ref={editButton}
+                type="button"
+                aria-label={t`Edit ${{ field: column.label }}`}
+                className="absolute top-1 right-1 z-[1] inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground opacity-0 outline-none group-hover:opacity-100 hover:bg-muted focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-ring"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setEditing(true);
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </Tooltip>
           )
         ) : null}
         {column.fieldType === "button" ? (
@@ -650,7 +652,7 @@ export function RecordPanel({
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={() => setPrinting(true)}>
               <Printer className="h-4 w-4" aria-hidden />
-              {t`Print the record`}
+              {t`Print the row`}
             </DropdownMenuItem>
             {onDuplicate ? (
               <DropdownMenuItem onSelect={onDuplicate}>

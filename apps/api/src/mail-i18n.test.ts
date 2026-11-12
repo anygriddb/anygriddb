@@ -33,10 +33,10 @@ describe("notificationSubject", () => {
 
   it("formats French subjects with placeholders", () => {
     expect(notificationSubject("fr", "mention", TABLE)).toBe(
-      `Vous avez été mentionné dans « ${TABLE} »`,
+      `Vous avez été mentionné dans «\u00a0${TABLE}\u00a0»`,
     );
     expect(notificationSubject("fr", "webhook_disabled", TABLE)).toContain(
-      "« Sales »",
+      "«\u00a0Sales\u00a0»",
     );
   });
 });
@@ -47,7 +47,7 @@ describe("notificationMailSubject", () => {
       `AnyGridDB: New reply in "${TABLE}"`,
     );
     expect(notificationMailSubject("fr", "reply", TABLE)).toContain(
-      "AnyGridDB : ",
+      "AnyGridDB\u00a0: ",
     );
   });
 });
@@ -58,7 +58,7 @@ describe("invitationMail", () => {
       'AnyGridDB: invitation to "Ops"',
     );
     expect(invitationMailSubject("fr", "Ops")).toBe(
-      "AnyGridDB : invitation à « Ops »",
+      "AnyGridDB\u00a0: invitation à «\u00a0Ops\u00a0»",
     );
   });
 
@@ -80,7 +80,9 @@ describe("webhookDisabledMail", () => {
       "AnyGridDB: webhook disabled",
     );
     expect(webhookDisabledMailBody("en", "CRM hook")).toContain('"CRM hook"');
-    expect(webhookDisabledMailBody("fr", "CRM hook")).toContain("« CRM hook »");
+    expect(webhookDisabledMailBody("fr", "CRM hook")).toContain(
+      "«\u00a0CRM hook\u00a0»",
+    );
   });
 });
 
@@ -97,13 +99,13 @@ describe("security mails", () => {
     );
     expect(securityMailBody("en", notice)).toContain("10:15 UTC");
     expect(securityMailBody("fr", { ...notice, until: null })).toContain(
-      "jusqu'à ce qu'un administrateur le déverrouille",
+      "jusqu’à ce qu’un administrateur le déverrouille",
     );
   });
 
   it("warns of a changed password and removed factors", () => {
     expect(securityMailSubject("fr", { kind: "password_changed" })).toBe(
-      "AnyGridDB : votre mot de passe a changé",
+      "AnyGridDB\u00a0: votre mot de passe a changé",
     );
     expect(securityMailBody("en", { kind: "factors_removed" })).toContain(
       "tell your administrator",
@@ -120,7 +122,7 @@ describe("security mails", () => {
     expect(body).toContain("https://grid.example.org/reset/abc");
     expect(body).toContain("Your second factors stay");
     expect(resetMailSubject("fr")).toBe(
-      "AnyGridDB : choisir un nouveau mot de passe",
+      "AnyGridDB\u00a0: choisir un nouveau mot de passe",
     );
   });
 });

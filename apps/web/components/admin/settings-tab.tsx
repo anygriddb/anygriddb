@@ -117,7 +117,7 @@ export function SettingsTab() {
           <option value="closed">{t`Closed`}</option>
         </Select>
         <p className="text-xs text-muted-foreground">
-          {t`Open: anyone can register from the sign-in page. Closed: only administrators create accounts and send a reset link (Accounts). By invitation: a pending base invitation is required. SSO for new accounts follows the same rule. Existing accounts are not affected.`}
+          {t`Open: anyone can create an account from the sign-in page. Closed: only administrators create accounts and send a reset link (Accounts). By invitation: a pending base invitation is required. SSO for new accounts follows the same rule. Existing accounts are not affected.`}
         </p>
       </div>
       <div className="flex flex-col gap-1">

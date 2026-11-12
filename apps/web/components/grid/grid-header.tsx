@@ -1,11 +1,12 @@
 import {
+  Checkbox,
   cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Checkbox,
+  Tooltip,
 } from "@anygriddb/ui";
 import { GUTTER, marginColumn } from "./margin-column";
 import {
@@ -311,15 +312,16 @@ export function GridHeader(props: {
           aria-colindex={props.columns.length + 2}
           className="flex w-12 shrink-0 border-b border-strong-border bg-head"
         >
-          <button
-            type="button"
-            aria-label={t`Add a field`}
-            title={t`Add a field`}
-            className="flex h-full w-full items-center justify-center hover:bg-card"
-            onClick={props.onAddField}
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-          </button>
+          <Tooltip content={t`Add a field`} side="bottom">
+            <button
+              type="button"
+              aria-label={t`Add a field`}
+              className="flex h-full w-full items-center justify-center hover:bg-card"
+              onClick={props.onAddField}
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+            </button>
+          </Tooltip>
         </div>
       ) : null}
     </div>

@@ -103,7 +103,7 @@ export function RatingControl({
     interactive
       ? "gap-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
       : "",
-    color ? `opt-${color}` : "text-amber-500",
+    color ? `opt-${color}` : "text-warning",
   );
 
   if (!interactive) {

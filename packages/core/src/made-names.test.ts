@@ -9,7 +9,7 @@ describe("made names", () => {
     expect(madeNames("en").copy("Sales", 2)).toBe("Sales (copy 2)");
     expect(madeNames("fr").copy("Ventes", 3)).toBe("Ventes (copie 3)");
     expect(madeNames("fr").automation("Relance")).toBe(
-      "Automatisation « Relance »",
+      "Automatisation «\u00a0Relance\u00a0»",
     );
   });
 

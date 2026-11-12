@@ -437,8 +437,8 @@ function AddWidgetForm(props: {
               <option value="count_filled">{t`Filled`}</option>
               <option value="sum">{t`Sum`}</option>
               <option value="avg">{t`Average`}</option>
-              <option value="min">Min</option>
-              <option value="max">Max</option>
+              <option value="min">{t`Min`}</option>
+              <option value="max">{t`Max`}</option>
             </Select>
           </div>
         </>
@@ -455,8 +455,8 @@ function AddWidgetForm(props: {
               <option value="count_all">{t`Row count`}</option>
               <option value="sum">{t`Sum`}</option>
               <option value="avg">{t`Average`}</option>
-              <option value="min">Min</option>
-              <option value="max">Max</option>
+              <option value="min">{t`Min`}</option>
+              <option value="max">{t`Max`}</option>
               <option value="count_filled">{t`Filled`}</option>
             </Select>
           </div>
