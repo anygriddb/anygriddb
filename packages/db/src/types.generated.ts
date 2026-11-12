@@ -106,6 +106,7 @@ export type NotificationKind =
   | "assigned"
   | "automation"
   | "mention"
+  | "owner_named"
   | "reply"
   | "row_changed"
   | "webhook_disabled";

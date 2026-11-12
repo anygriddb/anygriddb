@@ -11,6 +11,7 @@ import {
   AtSign,
   Bell,
   CornerDownRight,
+  Crown,
   LockKeyhole,
   UserPlus,
   Webhook,
@@ -33,6 +34,7 @@ const ICONS = {
   webhook_disabled: Webhook,
   row_changed: AlertTriangle,
   account_locked: LockKeyhole,
+  owner_named: Crown,
 } as const;
 
 function useDescribe() {
@@ -59,6 +61,8 @@ function useDescribe() {
         return item.data?.many
           ? t`Many accounts locked within an hour: see the sign-in trail`
           : t`${{ name: item.data?.name ?? "—" }}'s account locked after failed sign-ins`;
+      case "owner_named":
+        return t`${actor} made ${{ name: item.data?.name ?? "—" }} an owner of ${{ base: item.data?.base ?? "—" }}`;
     }
   };
 }
@@ -99,6 +103,13 @@ export function NotificationBell() {
       void navigate({
         to: "/admin/people/accounts",
         search: { status: "locked" },
+      });
+      return;
+    }
+    if (item.kind === "owner_named" && item.data?.baseId) {
+      void navigate({
+        to: "/b/$baseId/settings",
+        params: { baseId: item.data.baseId },
       });
       return;
     }

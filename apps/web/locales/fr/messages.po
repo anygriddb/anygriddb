@@ -294,6 +294,10 @@ msgid "{actor} assigned you a row in {table} ({field})"
 msgstr "{actor} vous a assigné une ligne de {table} ({field})"
 
 #: components/shell/notification-bell.tsx
+msgid "{actor} made {name} an owner of {base}"
+msgstr "{actor} a fait de {name} un propriétaire de {base}"
+
+#: components/shell/notification-bell.tsx
 msgid "{actor} mentioned you in {table}"
 msgstr "{actor} vous a mentionné dans {table}"
 

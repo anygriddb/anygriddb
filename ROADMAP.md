@@ -85,7 +85,7 @@ A row moves up only when it unblocks another.
 3. A UUID field type: 6.
 4. Data in and out past 100,000 rows: 81, 82, 83, with 47 (a job retried),
    which matters once jobs run longer.
-5. Administration lot 3: 14, 15, 69, 22, 16, 23.
+5. Administration lot 3: 14, 69, 22, 16, 23.
 6. Keys before backups: 64, then 63, then lot 4 (17, 25). Row 51
    needs no code: a version tag runs the release workflow.
 
@@ -141,7 +141,7 @@ read). Lot 8 is done on request only.
 
 #### Lot 1: accounts
 
-Done: people are added with roles on any base, have a page where their roles are given, changed, and taken away, and are deleted in one step (#67, #68, #12, #13, #18, #19, #20; ADR 0057, 0059).
+Done: people are added with roles on any base, have a page where their roles are given, changed, and taken away, and are deleted in one step (#67, #68, #12, #13, #18, #19, #20; ADR 0057, 0059). An administrator who makes someone an owner of a base tells the owners already there (#15).
 
 #### Lot 2: the panel, by task
 
@@ -154,7 +154,6 @@ Every base, link, token, webhook, and automation of the instance, metadata only:
 | #   | What                                                                                                                                                                      | Effort | Notes                                                                                                                                          |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | 14  | Every base in one list, with a page per base: owners, members, tables (no cell values), estimated rows, attachment volume, last activity, and that base's outbound shares | M      | Health shows counts only. Row totals are estimates (`reltuples`), never a full count. List stays fast with hundreds of bases                   |
-| 15  | Name a new owner on any base, on the trail; existing owners notified                                                                                                      | S      | Possible today only while erasing the owner's account                                                                                          |
 | 69  | From a base in that list, see its members and grant, change, or revoke their roles without being a member of the base                                                     | M      | Builds on 14 and 68. Today a base's members are changed in its settings by an owner, or one person at a time from their page in Administration |
 | 22  | Bases without an active owner pointed out (no live owner, direct or by group); a base archived or deleted from Administration; bases deleted by others seen and restored  | M      | Builds on 14                                                                                                                                   |
 | 16  | Every public link and calendar feed in one list: base, author, password, expiry; revoked from there                                                                       | M      | A link's last use is not recorded; do not invent a column until it is stored                                                                   |

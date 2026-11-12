@@ -539,11 +539,29 @@ describe("accounts in Administration", () => {
             .admin.removeBaseRole({ userId: owner.id, baseId: base.id }),
         ),
       ).toBe("invalid_owner");
-      // With a second owner, the first may step down.
+      // With a second owner, the first may step down. The owner already
+      // there learns who joined them, once.
       const heir = await member("Heir");
       await admin
         .call()
         .admin.setBaseRole({ userId: heir.id, baseId: base.id, role: "owner" });
+      await admin
+        .call()
+        .admin.setBaseRole({ userId: heir.id, baseId: base.id, role: "owner" });
+      const told = await db
+        .selectFrom("notifications")
+        .select(["userId", "kind", "actorId", "data"])
+        .where("kind", "=", "owner_named")
+        .where(sql<boolean>`data ->> 'baseId' = ${base.id}`)
+        .execute();
+      expect(told).toEqual([
+        {
+          userId: owner.id,
+          kind: "owner_named",
+          actorId: adminId,
+          data: { baseId: base.id, base: `Kept ${suffix}`, name: "Heir" },
+        },
+      ]);
       await admin.call().admin.setBaseRole({
         userId: owner.id,
         baseId: base.id,

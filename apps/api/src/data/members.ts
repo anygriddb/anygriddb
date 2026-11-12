@@ -118,14 +118,14 @@ async function lockedOwners(tx: AuditTx, baseId: string): Promise<string[]> {
 /**
  * Gives an account one role on a base, or changes it, in an audited
  * transaction under the actor's name. A base keeps an owner: its last
- * one cannot be given another role.
+ * one cannot be given another role. Says who owned the base before.
  */
 export async function setMemberRole(
   db: Database,
   actorId: string,
   input: { baseId: string; userId: string; role: Role },
-): Promise<void> {
-  await withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
+): Promise<{ owners: string[] }> {
+  return withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
     const owners = await lockedOwners(tx, input.baseId);
     if (
       input.role !== "owner" &&
@@ -135,6 +135,7 @@ export async function setMemberRole(
       throw new AppError("invalid_owner");
     }
     await bindRole(tx, input.userId, input.role, input.baseId);
+    return { owners };
   });
 }
 
