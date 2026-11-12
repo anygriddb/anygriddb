@@ -304,6 +304,10 @@ msgstr "{actor} replied to your comment in {table}"
 msgid "{base}, owned by {owners}"
 msgstr "{base}, owned by {owners}"
 
+#: components/admin/emergency-section.tsx
+msgid "{count, plural, one {# API token revoked} other {# API tokens revoked}}"
+msgstr "{count, plural, one {# API token revoked} other {# API tokens revoked}}"
+
 #: components/admin/sources-tab.tsx
 msgid "{count, plural, one {# table added to {base}} other {# tables added to {base}}}"
 msgstr "{count, plural, one {# table added to {base}} other {# tables added to {base}}}"
@@ -2935,9 +2939,22 @@ msgstr "Every day"
 msgid "Every hour"
 msgstr "Every hour"
 
+#: components/admin/emergency-section.tsx
+msgid "Every link to a view or a form stops opening at once, password or not. Nothing is deleted: they open again when the policy allows them."
+msgstr "Every link to a view or a form stops opening at once, password or not. Nothing is deleted: they open again when the policy allows them."
+
+#: components/admin/emergency-section.tsx
+msgid "Every link to a view or a form stops opening at once. They open again when the policy below allows them."
+msgstr "Every link to a view or a form stops opening at once. They open again when the policy below allows them."
+
+#: components/admin/emergency-section.tsx
 #: components/admin/sessions-tab.tsx
 msgid "Every other session ends now, administrators' too. Your own stays open. API tokens keep working."
 msgstr "Every other session ends now, administrators' too. Your own stays open. API tokens keep working."
+
+#: components/admin/emergency-section.tsx
+msgid "Every other session ends now, administrators' too. Yours stays open."
+msgstr "Every other session ends now, administrators' too. Yours stays open."
 
 #: components/fields/link-selection.tsx
 msgid "Every row of {table}"
@@ -2950,6 +2967,14 @@ msgstr "Every session of this account ends now. The person can sign in again."
 #: components/fields/field-editor.tsx
 msgid "Every table needs a primary field. Choose another field to change it."
 msgstr "Every table needs a primary field. Choose another field to change it."
+
+#: components/admin/emergency-section.tsx
+msgid "Every token of every account stops working now, yours too: scripts, integrations, and AI clients that use one are refused. They cannot be brought back."
+msgstr "Every token of every account stops working now, yours too: scripts, integrations, and AI clients that use one are refused. They cannot be brought back."
+
+#: components/admin/sign-in-trail.tsx
+msgid "Every token of the instance"
+msgstr "Every token of the instance"
 
 #: components/table/automations-dialog.tsx
 msgid "Every week"
@@ -2971,6 +2996,7 @@ msgstr "Everyone can sign in again."
 msgid "Everyone else"
 msgstr "Everyone else"
 
+#: components/admin/emergency-section.tsx
 #: components/admin/sessions-tab.tsx
 msgid "Everyone else is signed out"
 msgstr "Everyone else is signed out"
@@ -3654,6 +3680,10 @@ msgstr "Importing: {done} of {total} rows."
 #: components/table/import-dialog.tsx
 msgid "Importing…"
 msgstr "Importing…"
+
+#: components/admin/emergency-section.tsx
+msgid "In an emergency"
+msgstr "In an emergency"
 
 #: components/table/filter-builder.tsx
 msgid "in N days"
@@ -4789,6 +4819,10 @@ msgstr "No account yet? Create one"
 msgid "No accounts match this selection"
 msgstr "No accounts match this selection"
 
+#: components/admin/emergency-section.tsx
+msgid "No API token to revoke"
+msgstr "No API token to revoke"
+
 #: components/admin/account-page.tsx
 msgid "No API token."
 msgstr "No API token."
@@ -5535,6 +5569,14 @@ msgstr "Provisioning"
 msgid "Public links"
 msgstr "Public links"
 
+#: components/admin/emergency-section.tsx
+msgid "Public links are off"
+msgstr "Public links are off"
+
+#: components/admin/emergency-section.tsx
+msgid "Public links are off: no link to a view or a form opens."
+msgstr "Public links are off: no link to a view or a form opens."
+
 #: lib/errors.ts
 msgid "Public links are turned off on this instance"
 msgstr "Public links are turned off on this instance"
@@ -5936,6 +5978,7 @@ msgid "Retry scheduled ({error})"
 msgstr "Retry scheduled ({error})"
 
 #: components/admin/account-actions.tsx
+#: components/admin/emergency-section.tsx
 #: components/admin/scim-tab.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/base-settings.tsx
@@ -5951,6 +5994,14 @@ msgstr "Revoke “{name}”?"
 #: components/admin/account-actions.tsx
 msgid "Revoke {name}'s API tokens?"
 msgstr "Revoke {name}'s API tokens?"
+
+#: components/admin/emergency-section.tsx
+msgid "Revoke every API token"
+msgstr "Revoke every API token"
+
+#: components/admin/emergency-section.tsx
+msgid "Revoke every API token?"
+msgstr "Revoke every API token?"
 
 #: components/admin/scim-tab.tsx
 msgid "Revoke the token {name}"
@@ -6193,6 +6244,10 @@ msgstr "SCIM 2.0 provisioning"
 #: components/admin/scim-tab.tsx
 msgid "SCIM address"
 msgstr "SCIM address"
+
+#: components/admin/emergency-section.tsx
+msgid "Scripts and AI clients that use one stop at once, yours too. A revoked token cannot be brought back: people make new ones."
+msgstr "Scripts and AI clients that use one stop at once, yours too. A revoked token cannot be brought back: people make new ones."
 
 #: components/admin/account-actions.tsx
 msgid "Scripts and tools using these tokens stop working at once."
@@ -6521,10 +6576,12 @@ msgstr "Sign"
 msgid "Sign {name} out everywhere?"
 msgstr "Sign {name} out everywhere?"
 
+#: components/admin/emergency-section.tsx
 #: components/admin/sessions-tab.tsx
 msgid "Sign everyone else out"
 msgstr "Sign everyone else out"
 
+#: components/admin/emergency-section.tsx
 #: components/admin/sessions-tab.tsx
 msgid "Sign everyone else out?"
 msgstr "Sign everyone else out?"
@@ -6548,6 +6605,7 @@ msgid "Sign in with SAML"
 msgstr "Sign in with SAML"
 
 #: components/admin/account-actions.tsx
+#: components/admin/emergency-section.tsx
 #: components/admin/sessions-tab.tsx
 #: components/shell/user-menu.tsx
 msgid "Sign out"
@@ -8105,6 +8163,7 @@ msgstr "Turn maintenance off?"
 msgid "Turn maintenance on?"
 msgstr "Turn maintenance on?"
 
+#: components/admin/emergency-section.tsx
 #: components/admin/settings-tab.tsx
 msgid "Turn off"
 msgstr "Turn off"
@@ -8124,6 +8183,14 @@ msgstr "Turn on single sign-on (OIDC or SAML) before requiring it for everyone"
 #: lib/errors.ts
 msgid "Turn on the release check in Health first"
 msgstr "Turn on the release check in Health first"
+
+#: components/admin/emergency-section.tsx
+msgid "Turn public links off"
+msgstr "Turn public links off"
+
+#: components/admin/emergency-section.tsx
+msgid "Turn public links off?"
+msgstr "Turn public links off?"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Turned off after {count} failures in a row."
@@ -8531,6 +8598,10 @@ msgstr "What you saved is kept. Reload the page to carry on."
 #: components/table/automations-dialog.tsx
 msgid "When"
 msgstr "When"
+
+#: components/admin/emergency-section.tsx
+msgid "When an account, a link, or a token may be in the wrong hands: act on the whole instance at once."
+msgstr "When an account, a link, or a token may be in the wrong hands: act on the whole instance at once."
 
 #: components/settings/webhooks-panel.tsx
 msgid "when changed: {fields}"

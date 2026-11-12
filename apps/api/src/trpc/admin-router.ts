@@ -26,6 +26,7 @@ import {
   listPendingInvitations,
   listSessions,
   otherAccount,
+  revokeAllTokens,
   revokeUserTokens,
   unlinkSignOn,
   withdrawInvitation,
@@ -1138,6 +1139,15 @@ export const adminRouter = t.router({
         };
       }),
     ),
+  /** Every API token of the instance, revoked at once (ROADMAP #24). */
+  revokeAllTokens: procedure.mutation(({ ctx }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      const count = await revokeAllTokens(ctx.db, admin.id);
+      ctx.req.log.info({ actor: admin.id, count }, "every API token revoked");
+      return { count };
+    }),
+  ),
   invitations: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
       await requireAdmin(ctx);

@@ -304,6 +304,10 @@ msgstr "{actor} a répondu à votre commentaire dans {table}"
 msgid "{base}, owned by {owners}"
 msgstr "{base}, appartenant à {owners}"
 
+#: components/admin/emergency-section.tsx
+msgid "{count, plural, one {# API token revoked} other {# API tokens revoked}}"
+msgstr "{count, plural, one {# jeton d’API révoqué} other {# jetons d’API révoqués}}"
+
 #: components/admin/sources-tab.tsx
 msgid "{count, plural, one {# table added to {base}} other {# tables added to {base}}}"
 msgstr "{count, plural, one {# table ajoutée à {base}} other {# tables ajoutées à {base}}}"
@@ -2935,9 +2939,22 @@ msgstr "Tous les jours"
 msgid "Every hour"
 msgstr "Toutes les heures"
 
+#: components/admin/emergency-section.tsx
+msgid "Every link to a view or a form stops opening at once, password or not. Nothing is deleted: they open again when the policy allows them."
+msgstr "Plus aucun lien vers une vue ou un formulaire ne s’ouvre, avec ou sans mot de passe. Rien n’est supprimé : ils s’ouvrent de nouveau quand la politique les autorise."
+
+#: components/admin/emergency-section.tsx
+msgid "Every link to a view or a form stops opening at once. They open again when the policy below allows them."
+msgstr "Plus aucun lien vers une vue ou un formulaire ne s’ouvre. Ils s’ouvrent de nouveau quand la politique ci-dessous les autorise."
+
+#: components/admin/emergency-section.tsx
 #: components/admin/sessions-tab.tsx
 msgid "Every other session ends now, administrators' too. Your own stays open. API tokens keep working."
 msgstr "Toutes les autres sessions prennent fin maintenant, celles des administrateurs aussi. La vôtre reste ouverte. Les jetons d’API continuent de fonctionner."
+
+#: components/admin/emergency-section.tsx
+msgid "Every other session ends now, administrators' too. Yours stays open."
+msgstr "Toutes les autres sessions prennent fin maintenant, celles des administrateurs aussi. La vôtre reste ouverte."
 
 #: components/fields/link-selection.tsx
 msgid "Every row of {table}"
@@ -2950,6 +2967,14 @@ msgstr "Toutes les sessions de ce compte prennent fin maintenant. La personne pe
 #: components/fields/field-editor.tsx
 msgid "Every table needs a primary field. Choose another field to change it."
 msgstr "Chaque table a besoin d’un champ principal. Choisissez un autre champ pour le changer."
+
+#: components/admin/emergency-section.tsx
+msgid "Every token of every account stops working now, yours too: scripts, integrations, and AI clients that use one are refused. They cannot be brought back."
+msgstr "Tous les jetons de tous les comptes cessent de fonctionner maintenant, les vôtres aussi : les scripts, intégrations et clients d’IA qui en utilisent un sont refusés. Ils ne peuvent pas être rétablis."
+
+#: components/admin/sign-in-trail.tsx
+msgid "Every token of the instance"
+msgstr "Tous les jetons de l’instance"
 
 #: components/table/automations-dialog.tsx
 msgid "Every week"
@@ -2971,6 +2996,7 @@ msgstr "Tout le monde peut de nouveau se connecter."
 msgid "Everyone else"
 msgstr "Tous les autres"
 
+#: components/admin/emergency-section.tsx
 #: components/admin/sessions-tab.tsx
 msgid "Everyone else is signed out"
 msgstr "Tous les autres sont déconnectés"
@@ -3654,6 +3680,10 @@ msgstr "Import en cours : {done} lignes sur {total}."
 #: components/table/import-dialog.tsx
 msgid "Importing…"
 msgstr "Import en cours…"
+
+#: components/admin/emergency-section.tsx
+msgid "In an emergency"
+msgstr "En cas d’urgence"
 
 #: components/table/filter-builder.tsx
 msgid "in N days"
@@ -4789,6 +4819,10 @@ msgstr "Pas encore de compte ? Créez-en un"
 msgid "No accounts match this selection"
 msgstr "Aucun compte ne correspond à cette sélection"
 
+#: components/admin/emergency-section.tsx
+msgid "No API token to revoke"
+msgstr "Aucun jeton d’API à révoquer"
+
 #: components/admin/account-page.tsx
 msgid "No API token."
 msgstr "Aucun jeton d’API."
@@ -5535,6 +5569,14 @@ msgstr "Provisionnement"
 msgid "Public links"
 msgstr "Liens publics"
 
+#: components/admin/emergency-section.tsx
+msgid "Public links are off"
+msgstr "Les liens publics sont désactivés"
+
+#: components/admin/emergency-section.tsx
+msgid "Public links are off: no link to a view or a form opens."
+msgstr "Les liens publics sont désactivés : aucun lien vers une vue ou un formulaire ne s’ouvre."
+
 #: lib/errors.ts
 msgid "Public links are turned off on this instance"
 msgstr "Les liens publics sont désactivés sur cette instance"
@@ -5936,6 +5978,7 @@ msgid "Retry scheduled ({error})"
 msgstr "Nouvel essai prévu ({error})"
 
 #: components/admin/account-actions.tsx
+#: components/admin/emergency-section.tsx
 #: components/admin/scim-tab.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/base-settings.tsx
@@ -5951,6 +5994,14 @@ msgstr "Révoquer « {name} » ?"
 #: components/admin/account-actions.tsx
 msgid "Revoke {name}'s API tokens?"
 msgstr "Révoquer les jetons d’API de {name} ?"
+
+#: components/admin/emergency-section.tsx
+msgid "Revoke every API token"
+msgstr "Révoquer tous les jetons d’API"
+
+#: components/admin/emergency-section.tsx
+msgid "Revoke every API token?"
+msgstr "Révoquer tous les jetons d’API ?"
 
 #: components/admin/scim-tab.tsx
 msgid "Revoke the token {name}"
@@ -6193,6 +6244,10 @@ msgstr "Provisionnement SCIM 2.0"
 #: components/admin/scim-tab.tsx
 msgid "SCIM address"
 msgstr "Adresse SCIM"
+
+#: components/admin/emergency-section.tsx
+msgid "Scripts and AI clients that use one stop at once, yours too. A revoked token cannot be brought back: people make new ones."
+msgstr "Les scripts et les clients d’IA qui en utilisent un s’arrêtent aussitôt, les vôtres aussi. Un jeton révoqué ne peut pas être rétabli : chacun en crée de nouveaux."
 
 #: components/admin/account-actions.tsx
 msgid "Scripts and tools using these tokens stop working at once."
@@ -6521,10 +6576,12 @@ msgstr "Signer"
 msgid "Sign {name} out everywhere?"
 msgstr "Déconnecter {name} partout ?"
 
+#: components/admin/emergency-section.tsx
 #: components/admin/sessions-tab.tsx
 msgid "Sign everyone else out"
 msgstr "Déconnecter tous les autres"
 
+#: components/admin/emergency-section.tsx
 #: components/admin/sessions-tab.tsx
 msgid "Sign everyone else out?"
 msgstr "Déconnecter tous les autres ?"
@@ -6548,6 +6605,7 @@ msgid "Sign in with SAML"
 msgstr "Connexion SAML"
 
 #: components/admin/account-actions.tsx
+#: components/admin/emergency-section.tsx
 #: components/admin/sessions-tab.tsx
 #: components/shell/user-menu.tsx
 msgid "Sign out"
@@ -8105,6 +8163,7 @@ msgstr "Désactiver la maintenance ?"
 msgid "Turn maintenance on?"
 msgstr "Activer la maintenance ?"
 
+#: components/admin/emergency-section.tsx
 #: components/admin/settings-tab.tsx
 msgid "Turn off"
 msgstr "Désactiver"
@@ -8124,6 +8183,14 @@ msgstr "Activez l’authentification unique (OIDC ou SAML) avant de l’exiger p
 #: lib/errors.ts
 msgid "Turn on the release check in Health first"
 msgstr "Activez d’abord la vérification des versions dans Santé"
+
+#: components/admin/emergency-section.tsx
+msgid "Turn public links off"
+msgstr "Désactiver les liens publics"
+
+#: components/admin/emergency-section.tsx
+msgid "Turn public links off?"
+msgstr "Désactiver les liens publics ?"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Turned off after {count} failures in a row."
@@ -8531,6 +8598,10 @@ msgstr "Ce que vous avez enregistré est conservé. Rechargez la page pour conti
 #: components/table/automations-dialog.tsx
 msgid "When"
 msgstr "Quand"
+
+#: components/admin/emergency-section.tsx
+msgid "When an account, a link, or a token may be in the wrong hands: act on the whole instance at once."
+msgstr "Quand un compte, un lien ou un jeton est peut-être entre de mauvaises mains : agir sur toute l’instance d’un coup."
 
 #: components/settings/webhooks-panel.tsx
 msgid "when changed: {fields}"

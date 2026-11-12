@@ -8,6 +8,7 @@ import { useErrorText } from "../../lib/errors";
 import { RuledSection } from "../shell/notebook-page";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { AccessReport } from "./access-report";
+import { EmergencySection } from "./emergency-section";
 
 /**
  * A choice among values, with the current one kept when it is not among
@@ -383,10 +384,16 @@ export function SecurityTab() {
   );
 }
 
-/** The security policy, and who has access beside it (ROADMAP #49). */
+/**
+ * What to do at once in an emergency, the security policy, and who has
+ * access beside it (ROADMAP #24, #49).
+ */
 export function SecurityPage() {
   return (
     <div className="flex flex-col gap-6">
+      <div className="max-w-2xl">
+        <EmergencySection />
+      </div>
       <SecurityTab />
       <AccessReport />
     </div>

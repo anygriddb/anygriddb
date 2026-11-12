@@ -32,6 +32,8 @@ export type AuthDetail =
   | "admin_revoke_session"
   | "admin_revoke_user"
   | "admin_revoke_all"
+  /** Every API token of the instance, revoked in an emergency. */
+  | "every_token"
   | "maintenance"
   | "account_locked"
   | "admin_unlock"
