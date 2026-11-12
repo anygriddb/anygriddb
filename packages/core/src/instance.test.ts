@@ -177,6 +177,11 @@ describe("more policies (ADR 0044)", () => {
     expect(patch({ inactiveDays: 90 })).toBe(true);
     expect(patch({ baseCreation: "owners" })).toBe(false);
     expect(patch({ invitations: "domains" })).toBe(true);
+    // The trash keeps a week at least, a year at most; a month by default.
+    expect(INSTANCE_DEFAULTS.trashDays).toBe(30);
+    expect(patch({ trashDays: 7 })).toBe(true);
+    expect(patch({ trashDays: 6 })).toBe(false);
+    expect(patch({ trashDays: 366 })).toBe(false);
   });
 
   it("keeps roles to the sign-up domains only when asked and when some are set", () => {

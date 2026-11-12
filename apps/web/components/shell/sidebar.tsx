@@ -37,7 +37,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTrackJob } from "../../lib/jobs";
 import type { NavigationMode } from "../../lib/narrow-screen";
-import { useTrashActions } from "../../lib/trash";
+import { useTrashActions, useTrashDays } from "../../lib/trash";
 import { useChannel } from "../../lib/realtime";
 import { useCatalog } from "../../lib/session";
 import { resolveShortcuts } from "../../lib/shortcut-list";
@@ -138,6 +138,7 @@ export function Sidebar({
   };
 }) {
   const { t } = useLingui();
+  const days = useTrashDays();
   const errorText = useErrorText();
   const navigate = useNavigate();
   // The base and table of the page shown, whichever page it is.
@@ -762,7 +763,7 @@ export function Sidebar({
           danger
           onOpenChange={(open) => !open && setDialog(null)}
           title={t`Delete the base “${{ name: dialog.base.name }}”?`}
-          description={t`The base and its tables go to the trash: you can restore it from the home page for 30 days.`}
+          description={t`The base and its tables go to the trash: you can restore it from the home page for ${{ days }} days.`}
           confirmLabel={t`Delete`}
           onConfirm={async () => {
             const base = dialog.base;
@@ -819,7 +820,7 @@ export function Sidebar({
           danger
           onOpenChange={(open) => !open && setDialog(null)}
           title={t`Delete the table “${{ name: dialog.table.name }}”?`}
-          description={t`The table, its views, and the links to it go to the base's trash for 30 days.`}
+          description={t`The table, its views, and the links to it go to the base's trash for ${{ days }} days.`}
           confirmLabel={t`Delete`}
           onConfirm={async () => {
             const table = dialog.table;

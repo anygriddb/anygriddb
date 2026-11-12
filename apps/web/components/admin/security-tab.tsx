@@ -380,6 +380,22 @@ export function SecurityTab() {
           onChange={(authRetentionDays) => void save({ authRetentionDays })}
         />
       </RuledSection>
+
+      <RuledSection
+        title={t`Trash`}
+        description={t`Deleted bases, tables, fields, and views wait there with their data, and so do rows deleted from a source's tables, until they are purged for good.`}
+      >
+        <Choice
+          id="policy-trash-days"
+          label={t`Keep deleted items for`}
+          value={data.trashDays}
+          options={[7, 14, 30, 60, 90, 180, 365].map(
+            (value) => [value, days(value)] as const,
+          )}
+          onChange={(trashDays) => void save({ trashDays })}
+          hint={t`A shorter choice also purges, at the next nightly purge, what was deleted before it.`}
+        />
+      </RuledSection>
     </div>
   );
 }

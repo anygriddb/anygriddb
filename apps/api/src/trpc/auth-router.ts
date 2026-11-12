@@ -390,6 +390,8 @@ export const authRouter = t.router({
       signupNeedsMail: !mailReady && (await hasAccounts(ctx.db)),
       publicLinks: settings.publicLinks,
       tokenMaxDays: settings.tokenMaxDays,
+      // What delete dialogs tell: how long the trash keeps things.
+      trashDays: settings.trashDays,
       // WebAuthn RP ID needs a hostname in PUBLIC_URL (ADR 0029).
       passkeysEligible: passkeysEligible(ctx.env.PUBLIC_URL),
     };

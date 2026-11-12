@@ -265,7 +265,7 @@ const runDuplicate =
 
 /**
  * Empties chosen items, or a whole base's trash, for an author who still
- * manages the base; or, as a system job, purges what is 30 days old.
+ * manages the base; or, as a system job, purges what the trash no longer keeps.
  */
 const runTrashPurge =
   (deps: RunnerDeps): JobRunner =>

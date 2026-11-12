@@ -24,7 +24,7 @@ import { toWriteValue } from "../../lib/format";
 import { ENGINE_NAMES } from "../../lib/limits";
 import { useLocale } from "../../lib/i18n";
 import { downloadJobFile, useTrackJob } from "../../lib/jobs";
-import { useTrashActions } from "../../lib/trash";
+import { useTrashActions, useTrashDays } from "../../lib/trash";
 import { useChannel, usePresence } from "../../lib/realtime";
 import { useCatalog, useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
@@ -133,6 +133,7 @@ export function TableWorkspace({
   rowId?: string;
 }) {
   const { t } = useLingui();
+  const days = useTrashDays();
   const errorText = useErrorText();
   const { locale } = useLocale();
   const navigate = useNavigate();
@@ -1228,8 +1229,8 @@ export function TableWorkspace({
           title={t`Delete the field “${{ name: deleteColumn.label }}”?`}
           description={
             isLinkField(deleteColumn.fieldType)
-              ? t`The field, and its inverse field if any, go to the base's trash for 30 days with their links.`
-              : t`The field goes to the base's trash for 30 days with its values.`
+              ? t`The field, and its inverse field if any, go to the base's trash for ${{ days }} days with their links.`
+              : t`The field goes to the base's trash for ${{ days }} days with its values.`
           }
           confirmLabel={t`Delete`}
           onConfirm={async () => {

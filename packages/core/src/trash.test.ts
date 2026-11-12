@@ -17,6 +17,16 @@ describe("trash dates", () => {
     expect(purgeCutoff(now).getTime()).toBeGreaterThan(deleted.getTime());
     expect(TRASH_DAYS).toBe(30);
   });
+
+  it("follows the days an administrator chose", () => {
+    const deleted = new Date("2026-11-01T10:00:00Z");
+    expect(purgeDate(deleted, 7).toISOString()).toBe(
+      "2026-11-08T10:00:00.000Z",
+    );
+    const now = new Date("2026-11-09T10:00:00Z");
+    expect(purgeCutoff(now, 7).getTime()).toBeGreaterThan(deleted.getTime());
+    expect(purgeCutoff(now).getTime()).toBeLessThan(deleted.getTime());
+  });
 });
 
 describe("restoredName", () => {

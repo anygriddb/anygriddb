@@ -34,7 +34,7 @@ import { trpc } from "../../lib/trpc";
 import type { Role, ViewItem } from "../../lib/types";
 import { ConfirmDialog, PromptDialog } from "../shell/dialogs";
 import { ShareDialog } from "./share-dialog";
-import { useTrashActions } from "../../lib/trash";
+import { useTrashActions, useTrashDays } from "../../lib/trash";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import type { MessageDescriptor } from "@lingui/core";
@@ -76,6 +76,7 @@ export function ViewTabs(props: {
   className?: string;
 }) {
   const { t } = useLingui();
+  const days = useTrashDays();
   const errorText = useErrorText();
   const { trashed } = useTrashActions();
   const [renaming, setRenaming] = useState<ViewItem | null>(null);
@@ -332,7 +333,7 @@ export function ViewTabs(props: {
           danger
           onOpenChange={(open) => !open && setDeleting(null)}
           title={t`Delete the view “${{ name: deleting.name }}”?`}
-          description={t`The view goes to the base's trash for 30 days. The data is not touched.`}
+          description={t`The view goes to the base's trash for ${{ days }} days. The data is not touched.`}
           confirmLabel={t`Delete`}
           onConfirm={async () => {
             const view = deleting;

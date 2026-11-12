@@ -25,12 +25,15 @@ import {
 import { purgeStagedUploads } from "./staged-uploads.js";
 import { insertBase, insertTable } from "./schema-ops.js";
 import {
+  dueTrashItems,
+  listTrash,
   purgeItem,
   restoreColumn,
   trashBase,
   trashColumn,
   trashTable,
 } from "./trash.js";
+import { writeSettings } from "../settings.js";
 import {
   createView,
   listViews,
@@ -532,6 +535,55 @@ describe("jobs, trash, and authors", () => {
         "Pipeline",
         "Échéances",
       ]);
+    });
+  });
+
+  describe("how long the trash keeps things", () => {
+    it("follows the days an administrator chose", async () => {
+      const baseId = (await insertBase(db, owner, { name: "Kept days" })).id;
+      const tableId = (
+        await insertTable(db, owner, {
+          baseId,
+          name: "Items",
+          columns: [{ name: "title", label: "Title", fieldType: "text" }],
+        })
+      ).id;
+      const { engine } = await loadEngine(db, tableId, () => true);
+      const view = await createView(db, engine, {
+        tableId,
+        name: "Old",
+        viewType: "grid",
+        ownerId: null,
+      });
+      await trashView(db, owner, await loadView(db, view.id));
+      // Deleted ten days ago.
+      const deletedAt = new Date(Date.now() - 10 * 86_400_000);
+      await db
+        .updateTable("views")
+        .set({ deletedAt })
+        .where("id", "=", view.id)
+        .execute();
+      const due = async () =>
+        (await dueTrashItems(db, new Date())).some(
+          (item) => item.kind === "view" && item.id === view.id,
+        );
+      const purgeAt = async () =>
+        (await listTrash(db, baseId, owner)).find((item) => item.id === view.id)
+          ?.purgeAt;
+
+      expect(await due()).toBe(false);
+      expect(await purgeAt()).toBe(
+        new Date(deletedAt.getTime() + 30 * 86_400_000).toISOString(),
+      );
+      await writeSettings(db, owner, { trashDays: 7 });
+      try {
+        expect(await due()).toBe(true);
+        expect(await purgeAt()).toBe(
+          new Date(deletedAt.getTime() + 7 * 86_400_000).toISOString(),
+        );
+      } finally {
+        await writeSettings(db, owner, { trashDays: 30 });
+      }
     });
   });
 

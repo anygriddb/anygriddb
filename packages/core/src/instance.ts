@@ -49,6 +49,8 @@ export const POLICY_BOUNDS = {
   authRetentionDays: { min: 180, max: 365 },
   /** 0 never disables an inactive account. */
   inactiveDays: { min: 30, max: 730 },
+  /** How long deleted bases, tables, fields, and views can come back. */
+  trashDays: { min: 7, max: 365 },
 } as const;
 
 /** An administrator is never locked out for good: the instance needs one. */
@@ -143,6 +145,8 @@ const fields = {
     z.null(),
     z.int().min(1024).max(ATTACHMENT_MAX_BYTES_CEILING),
   ]),
+  /** Days the trash keeps what was deleted, before it is purged for good. */
+  trashDays: bounded("trashDays"),
 };
 
 export type InstanceSettings = {
@@ -176,6 +180,7 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   lockAlerts: true,
   releaseCheck: false,
   attachmentMaxBytes: null,
+  trashDays: 30,
 };
 
 const KEYS = Object.keys(fields) as Array<keyof InstanceSettings>;
@@ -223,6 +228,7 @@ export const instanceSettingsSchema = z.object({
   attachmentMaxBytes: fields.attachmentMaxBytes.default(
     INSTANCE_DEFAULTS.attachmentMaxBytes,
   ),
+  trashDays: fields.trashDays.default(INSTANCE_DEFAULTS.trashDays),
 });
 
 export const instanceSettingsPatchSchema = z
@@ -252,6 +258,7 @@ export const instanceSettingsPatchSchema = z
     lockAlerts: fields.lockAlerts.optional(),
     releaseCheck: fields.releaseCheck.optional(),
     attachmentMaxBytes: fields.attachmentMaxBytes.optional(),
+    trashDays: fields.trashDays.optional(),
   })
   .strict();
 

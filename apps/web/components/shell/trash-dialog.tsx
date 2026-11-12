@@ -10,7 +10,7 @@ import { RotateCcw, Sheet, Table2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useTrackJob } from "../../lib/jobs";
-import { useTrashActions } from "../../lib/trash";
+import { useTrashActions, useTrashDays } from "../../lib/trash";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { FieldIcon } from "../fields/field-meta";
 import { VIEW_ICONS } from "../table/view-tabs";
@@ -38,7 +38,7 @@ function EntryIcon({ entry }: { entry: Entry }) {
 
 /**
  * A base's trash: deleted tables, fields, and views, each restorable for
- * 30 days, and purged for good by an owner.
+ * days the instance keeps them, and purged for good by an owner.
  */
 export function TrashDialog(props: {
   baseId: string;
@@ -46,6 +46,7 @@ export function TrashDialog(props: {
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useLingui();
+  const days = useTrashDays();
   const errorText = useErrorText();
   const api = useTRPC();
   const { restore, refresh } = useTrashActions();
@@ -97,7 +98,7 @@ export function TrashDialog(props: {
       <DialogContent
         wide
         title={t`Trash of ${{ name: props.baseName }}`}
-        description={t`Deleted items stay here for 30 days with their data, then are deleted permanently.`}
+        description={t`Deleted items stay here for ${{ days }} days with their data, then are deleted permanently.`}
       >
         {list.isLoading ? <Spinner /> : null}
         {list.isSuccess && items.length === 0 ? (

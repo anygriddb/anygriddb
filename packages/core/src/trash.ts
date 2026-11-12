@@ -3,7 +3,8 @@ import { AppError } from "./errors";
 
 /**
  * Deleted bases, tables, fields, and views wait in the trash this long,
- * with their data, before they are purged for good.
+ * with their data, before they are purged for good, unless an
+ * administrator chose otherwise (`trashDays`).
  */
 export const TRASH_DAYS = 30;
 
@@ -44,13 +45,13 @@ export const trashPurgeJobInputSchema = z
 export type TrashPurgeJobInput = z.infer<typeof trashPurgeJobInputSchema>;
 
 /** When an item deleted at `deletedAt` is purged. */
-export function purgeDate(deletedAt: Date): Date {
-  return new Date(deletedAt.getTime() + TRASH_DAYS * 86_400_000);
+export function purgeDate(deletedAt: Date, days: number = TRASH_DAYS): Date {
+  return new Date(deletedAt.getTime() + days * 86_400_000);
 }
 
 /** Items deleted before this moment are due for purging. */
-export function purgeCutoff(now: Date): Date {
-  return new Date(now.getTime() - TRASH_DAYS * 86_400_000);
+export function purgeCutoff(now: Date, days: number = TRASH_DAYS): Date {
+  return new Date(now.getTime() - days * 86_400_000);
 }
 
 /**

@@ -737,6 +737,10 @@ msgid "A shorter choice also ends the tokens already made that are older."
 msgstr "Un choix plus court met aussi fin aux jetons déjà créés qui sont plus anciens."
 
 #: components/admin/security-tab.tsx
+msgid "A shorter choice also purges, at the next nightly purge, what was deleted before it."
+msgstr "Un choix plus court purge aussi, à la purge de la nuit suivante, ce qui a été supprimé avant."
+
+#: components/admin/security-tab.tsx
 msgid "A sign-in or a token in use counts as activity. Email is not set up: accounts are disabled without warning. Administrators and accounts kept by an identity provider (SCIM) are never disabled; an administrator can enable an account again."
 msgstr "Une connexion ou un jeton utilisé compte comme une activité. L’envoi d’emails n’est pas configuré : les comptes sont désactivés sans avertissement. Les administrateurs et les comptes gérés par un fournisseur d’identité (SCIM) ne sont jamais désactivés ; un administrateur peut réactiver un compte."
 
@@ -2468,9 +2472,13 @@ msgstr "Supprimer la vue"
 msgid "Deleted bases"
 msgstr "Bases supprimées"
 
+#: components/admin/security-tab.tsx
+msgid "Deleted bases, tables, fields, and views wait there with their data, and so do rows deleted from a source's tables, until they are purged for good."
+msgstr "Les bases, tables, champs et vues supprimés y attendent avec leurs données, comme les lignes supprimées des tables d’une source, jusqu’à leur purge définitive."
+
 #: components/shell/trash-dialog.tsx
-msgid "Deleted items stay here for 30 days with their data, then are deleted permanently."
-msgstr "Les éléments supprimés restent ici 30 jours avec leurs données, puis sont supprimés définitivement."
+msgid "Deleted items stay here for {days} days with their data, then are deleted permanently."
+msgstr "Les éléments supprimés restent ici {days} jours avec leurs données, puis sont supprimés définitivement."
 
 #: components/shell/trash-dialog.tsx
 #: components/shell/trashed-bases.tsx
@@ -4108,6 +4116,10 @@ msgstr "Aller au bord de la grille"
 #: components/table/view-tabs.tsx
 msgid "Kanban"
 msgstr "Kanban"
+
+#: components/admin/security-tab.tsx
+msgid "Keep deleted items for"
+msgstr "Garder les éléments supprimés"
 
 #: components/admin/security-tab.tsx
 msgid "Keep events for"
@@ -7188,8 +7200,8 @@ msgid "The automation acts with your access; every write is recorded in the audi
 msgstr "L’automatisation agit avec vos droits ; chaque écriture est tracée dans l’audit."
 
 #: components/shell/sidebar.tsx
-msgid "The base and its tables go to the trash: you can restore it from the home page for 30 days."
-msgstr "La base et ses tables vont dans la corbeille : vous pourrez la restaurer depuis l’accueil pendant 30 jours."
+msgid "The base and its tables go to the trash: you can restore it from the home page for {days} days."
+msgstr "La base et ses tables vont dans la corbeille : vous pourrez la restaurer depuis l’accueil pendant {days} jours."
 
 #: components/fields/formula-docs.ts
 msgid "The base raised to the given power."
@@ -7277,12 +7289,12 @@ msgid "The false value."
 msgstr "La valeur fausse."
 
 #: components/table/table-workspace.tsx
-msgid "The field goes to the base's trash for 30 days with its values."
-msgstr "Le champ va dans la corbeille de la base pendant 30 jours, avec ses valeurs."
+msgid "The field goes to the base's trash for {days} days with its values."
+msgstr "Le champ va dans la corbeille de la base pendant {days} jours, avec ses valeurs."
 
 #: components/table/table-workspace.tsx
-msgid "The field, and its inverse field if any, go to the base's trash for 30 days with their links."
-msgstr "Le champ et son champ inverse éventuel vont dans la corbeille de la base pendant 30 jours, avec leurs liens."
+msgid "The field, and its inverse field if any, go to the base's trash for {days} days with their links."
+msgstr "Le champ et son champ inverse éventuel vont dans la corbeille de la base pendant {days} jours, avec leurs liens."
 
 #: components/admin/refresh-fields.tsx
 msgid "The fields were up to date"
@@ -7569,8 +7581,8 @@ msgid "The table is read from its copy: it can no longer be changed in AnyGridDB
 msgstr "La table est lue dans sa copie : elle n’est plus modifiable dans AnyGridDB, et ses changements arrivent à chaque actualisation, suppressions comprises."
 
 #: components/shell/sidebar.tsx
-msgid "The table, its views, and the links to it go to the base's trash for 30 days."
-msgstr "La table, ses vues et les liens vers elle vont dans la corbeille de la base pendant 30 jours."
+msgid "The table, its views, and the links to it go to the base's trash for {days} days."
+msgstr "La table, ses vues et les liens vers elle vont dans la corbeille de la base pendant {days} jours."
 
 #: components/fields/formula-docs.ts
 msgid "The text in lower case."
@@ -7630,8 +7642,8 @@ msgid "The values of every list, one after the other."
 msgstr "Les valeurs de toutes les listes, l’une après l’autre."
 
 #: components/table/view-tabs.tsx
-msgid "The view goes to the base's trash for 30 days. The data is not touched."
-msgstr "La vue va dans la corbeille de la base pendant 30 jours. Les données ne sont pas touchées."
+msgid "The view goes to the base's trash for {days} days. The data is not touched."
+msgstr "La vue va dans la corbeille de la base pendant {days} jours. Les données ne sont pas touchées."
 
 #: components/fields/formula-docs.ts
 msgid "The whole number just above."
@@ -7698,8 +7710,8 @@ msgid "They lose their own role on the base and its tables at once, and their op
 msgstr "La personne perd aussitôt son propre rôle sur la base et ses tables, et ses pages ouvertes se rechargent. Un rôle donné par un groupe reste."
 
 #: components/shell/trashed-bases.tsx
-msgid "They stay for 30 days with their data, then are deleted permanently."
-msgstr "Elles restent 30 jours avec leurs données, puis sont supprimées définitivement."
+msgid "They stay for {days} days with their data, then are deleted permanently."
+msgstr "Elles restent {days} jours avec leurs données, puis sont supprimées définitivement."
 
 #: components/admin/account-actions.tsx
 msgid "They will manage every account, the instance's settings, and who sees which base. Their next action asks for a second factor."
@@ -8104,6 +8116,7 @@ msgstr "Total estimé par la base du client : cliquez pour compter exactement"
 msgid "Trails"
 msgstr "Journaux"
 
+#: components/admin/security-tab.tsx
 #: components/shell/sidebar.tsx
 msgid "Trash"
 msgstr "Corbeille"
