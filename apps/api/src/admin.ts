@@ -161,7 +161,8 @@ export async function listUsers(
     : undefined;
   const hasFactor = sqlTag<boolean>`(exists (select 1 from totp_secrets t where t.user_id = u.id and t.confirmed_at is not null) or exists (select 1 from webauthn_credentials w where w.user_id = u.id))`;
   const signOn = sqlTag<boolean>`exists (select 1 from sso_identities i where i.user_id = u.id)`;
-  const lastSeen = sqlTag<Date | null>`(select max(s.created_at) from sessions s where s.user_id = u.id)`;
+  // Kept on the account: sessions go once expired, the trail in time.
+  const lastSeen = sqlTag<Date | null>`u.last_sign_in_at`;
   // As `lockState`: a lock runs for the policy's minutes; with none, it
   // waits for an administrator, except an administrator's own.
   const minutesAgo = (minutes: number) =>
