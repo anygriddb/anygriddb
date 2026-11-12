@@ -143,6 +143,37 @@ describe("connections AnyGridDB opens", () => {
       readEnv({ ...base, SAML_ENTRY_POINT: "http://idp.example/sso" }),
     ).toThrow(/SAML_ENTRY_POINT/);
   });
+
+  it("asks S3 for server-side encryption only as the operator says", () => {
+    const s3 = {
+      ...base,
+      S3_ENDPOINT: "https://s3.example.com",
+      S3_ACCESS_KEY: "a",
+      S3_SECRET_KEY: "b",
+      S3_BUCKET: "files",
+    };
+    expect(readEnv(s3).S3_SERVER_SIDE_ENCRYPTION).toBeUndefined();
+    expect(
+      readEnv({ ...s3, S3_SERVER_SIDE_ENCRYPTION: "AES256" })
+        .S3_SERVER_SIDE_ENCRYPTION,
+    ).toBe("AES256");
+    expect(
+      readEnv({
+        ...s3,
+        S3_SERVER_SIDE_ENCRYPTION: "aws:kms",
+        S3_KMS_KEY_ID: "alias/anygriddb",
+      }),
+    ).toMatchObject({
+      S3_SERVER_SIDE_ENCRYPTION: "aws:kms",
+      S3_KMS_KEY_ID: "alias/anygriddb",
+    });
+    expect(() => readEnv({ ...s3, S3_SERVER_SIDE_ENCRYPTION: "yes" })).toThrow(
+      /S3_SERVER_SIDE_ENCRYPTION/,
+    );
+    expect(() => readEnv({ ...s3, S3_KMS_KEY_ID: "alias/anygriddb" })).toThrow(
+      /S3_KMS_KEY_ID/,
+    );
+  });
 });
 
 describe("isLoopback", () => {
