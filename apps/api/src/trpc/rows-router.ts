@@ -93,7 +93,7 @@ import {
   type NotifyDeps,
 } from "../notifications.js";
 import {
-  assertUnrestricted,
+  trashScope,
   changeStatus,
   createRows,
   deleteRows,
@@ -374,17 +374,26 @@ export const rowsRouter = t.router({
     handle(ctx, async () => {
       const access = await guardTable(ctx, input.tableId, "write");
       const { engine } = await engineFor(ctx, access);
-      assertUnrestricted(engine);
+      const deletedBy = trashScope({
+        actorId: access.user.id,
+        table: access.table,
+        engine,
+      });
       // A client's rows: those deleted through AnyGridDB (ADR 0007).
       if (access.table.storage === "external") {
-        return { rows: await listExternalTrash(ctx.db, engine, input.limit) };
+        return {
+          own: false,
+          rows: await listExternalTrash(ctx.db, engine, input.limit),
+        };
       }
       return {
+        own: deletedBy !== undefined,
         rows: await listTrash(
           ctx.db,
           engine,
           { tableId: access.table.id, physicalName: access.table.physicalName },
           input.limit,
+          deletedBy,
         ),
       };
     }),
@@ -392,7 +401,6 @@ export const rowsRouter = t.router({
   restore: procedure.input(restoreRowsInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const scope = await writeScope(ctx, input.tableId);
-      assertUnrestricted(scope.engine);
       const ids = await restoreRows(serviceDeps(ctx), scope, input.rowIds, {
         reason: input.reason,
         source: "restore",

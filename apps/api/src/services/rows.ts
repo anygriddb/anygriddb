@@ -596,9 +596,19 @@ export async function deleteRows(
   return ids;
 }
 
-/** Row trash and restore read whole snapshots: only without rules. */
-export function assertUnrestricted(engine: EngineCatalog): void {
-  if (hasRules(engine)) throw new AppError("access_denied");
+/**
+ * A deleted row is kept whole. A collaborator with field or row rules
+ * sees and restores only the rows they deleted themselves, which were in
+ * their reach; a client's table keeps its trash for those without rules.
+ */
+export function trashScope(scope: {
+  actorId: string;
+  table: TableRow;
+  engine: EngineCatalog;
+}): string | undefined {
+  if (!hasRules(scope.engine)) return undefined;
+  if (scope.table.storage === "external") throw new AppError("access_denied");
+  return scope.actorId;
 }
 
 export async function restoreRows(
@@ -607,6 +617,7 @@ export async function restoreRows(
   rowIds: readonly string[],
   meta: WriteMeta,
 ): Promise<string[]> {
+  const deletedBy = trashScope(scope);
   const reason = resolveReason(scope, "all", meta);
   if (isExternal(scope)) {
     // Added again from what the delete recorded, best effort (ADR 0007).
@@ -626,6 +637,7 @@ export async function restoreRows(
     scope.engine,
     writeContext(scope, reason, meta),
     rowIds,
+    deletedBy,
   );
   await announceRows(deps, scope.table.id, "insert", ids, []);
   return ids;

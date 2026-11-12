@@ -858,6 +858,8 @@ async function deletedSnapshots(
   context: { tableId: string; physicalName: string },
   rowIds: readonly string[] | null,
   limit: number,
+  /** Only the rows this account deleted last. */
+  deletedBy?: string,
 ): Promise<
   Array<{
     recordId: string;
@@ -867,10 +869,31 @@ async function deletedSnapshots(
   }>
 > {
   if (rowIds?.length === 0) return [];
+  if (deletedBy && !rowIds) {
+    // The rows this account deleted; each is kept below only when its
+    // last delete is still theirs.
+    const own = await db
+      .selectFrom("auditEvents")
+      .select("recordId")
+      .where("tableId", "=", context.tableId)
+      .where("action", "=", "delete")
+      .where("userId", "=", deletedBy)
+      .orderBy("occurredAt", "desc")
+      .limit(limit * 4)
+      .execute();
+    const ids = [...new Set(own.flatMap((event) => event.recordId ?? []))];
+    return deletedSnapshots(db, context, ids, limit, deletedBy);
+  }
   let query = db
     .selectFrom("auditEvents as e")
     .innerJoin("users as u", "u.id", "e.userId")
-    .select(["e.recordId", "e.oldValue", "e.occurredAt", "u.displayName"])
+    .select([
+      "e.recordId",
+      "e.oldValue",
+      "e.occurredAt",
+      "e.userId",
+      "u.displayName",
+    ])
     .where("e.tableId", "=", context.tableId)
     .where("e.action", "=", "delete");
   if (rowIds) query = query.where("e.recordId", "in", [...rowIds]);
@@ -901,7 +924,8 @@ async function deletedSnapshots(
     if (
       alive.has(recordId) ||
       !event.oldValue ||
-      typeof event.oldValue !== "object"
+      typeof event.oldValue !== "object" ||
+      (deletedBy !== undefined && event.userId !== deletedBy)
     ) {
       continue;
     }
@@ -923,14 +947,22 @@ export async function listTrash(
   engine: EngineCatalog,
   context: { tableId: string; physicalName: string },
   limit: number,
+  /**
+   * A collaborator with field or row rules: only the rows they deleted,
+   * named by their primary field when they may see it.
+   */
+  deletedBy?: string,
 ) {
   const primary = engine.table.primaryColumn;
-  const deleted = await deletedSnapshots(db, context, null, limit);
+  const named =
+    primary && !engine.access?.hidden(engine.table.id, primary)
+      ? primary
+      : undefined;
+  const deleted = await deletedSnapshots(db, context, null, limit, deletedBy);
   return deleted.map((item) => ({
     rowId: item.recordId,
     label:
-      cellText(primary ? item.snapshot[primary] : item.recordId) ||
-      item.recordId,
+      cellText(named ? item.snapshot[named] : item.recordId) || item.recordId,
     deletedAt: item.deletedAt,
     deletedBy: item.deletedBy,
   }));
@@ -990,8 +1022,16 @@ export async function restoreRows(
   engine: EngineCatalog,
   context: WriteContext,
   rowIds: readonly string[],
+  /** Only rows this account deleted last: a collaborator with rules. */
+  deletedBy?: string,
 ): Promise<string[]> {
-  const snapshots = await deletedSnapshots(db, context, rowIds, rowIds.length);
+  const snapshots = await deletedSnapshots(
+    db,
+    context,
+    rowIds,
+    rowIds.length,
+    deletedBy,
+  );
   if (snapshots.length !== rowIds.length) {
     throw new AppError("unknown_row");
   }

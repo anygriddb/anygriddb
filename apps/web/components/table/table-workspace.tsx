@@ -1390,9 +1390,18 @@ function TrashDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         title={t`Row trash`}
-        description={t`Deleted rows come back as drafts, with their original number.`}
+        description={
+          trash.data?.own
+            ? t`The rows you deleted come back as drafts, with their original number. Rows others deleted are not listed here.`
+            : t`Deleted rows come back as drafts, with their original number.`
+        }
       >
         {trash.isLoading ? <Spinner /> : null}
+        {trash.error ? (
+          <p role="alert" className="text-sm text-danger">
+            {errorText(trash.error)}
+          </p>
+        ) : null}
         <ul className="flex max-h-80 flex-col divide-y divide-border overflow-y-auto">
           {(trash.data?.rows ?? []).map((item) => (
             <li
