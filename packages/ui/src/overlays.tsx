@@ -539,7 +539,8 @@ export function DragHandle({
       {...buttonProps}
       aria-label={label}
       className={cn(
-        "rounded p-0.5 text-muted-foreground outline-none hover:bg-muted data-[focus-visible]:outline-2 data-[focus-visible]:outline-ring",
+        // A target of 24 px at least (WCAG 2.5.8), even over a card.
+        "inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground outline-none hover:bg-muted data-[focus-visible]:outline-2 data-[focus-visible]:outline-ring",
         className,
       )}
     >
