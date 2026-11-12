@@ -168,6 +168,13 @@ export function SignInTrail() {
             </tr>
           </thead>
           <tbody>
+            {trail.data?.events.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-2 py-3 text-muted-foreground">
+                  {t`No event matches. Sign-ins, failures, and what administrators change show here, with the address.`}
+                </td>
+              </tr>
+            ) : null}
             {(trail.data?.events ?? []).map((event) => (
               <tr key={event.id} className="border-t border-border">
                 <td className="px-2 py-1.5 whitespace-nowrap">

@@ -160,7 +160,11 @@ export function ScimTab() {
               ))}
             </tbody>
           </table>
-        ) : null}
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {t`No token yet. Create one below and give it to your identity provider, which adds and updates accounts and groups with it.`}
+          </p>
+        )}
         <form
           className="flex flex-wrap items-end gap-2"
           onSubmit={(event) => {

@@ -46,7 +46,9 @@ export function InvitationsPanel() {
       >
         {invitations.isLoading ? <Spinner /> : null}
         {invitations.data?.invitations.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t`None.`}</p>
+          <p className="text-sm text-muted-foreground">
+            {t`No invitation is waiting. One shows here from the moment someone is invited to a base until they answer it or it expires.`}
+          </p>
         ) : (
           <div className="overflow-x-auto rounded-sm border border-border">
             <table className="w-full text-xs">
