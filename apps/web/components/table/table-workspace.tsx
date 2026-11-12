@@ -17,6 +17,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { saveQueue, withoutSaved } from "./view-patch";
 import { Database } from "lucide-react";
 import { toast } from "sonner";
 import { toWriteValue } from "../../lib/format";
@@ -202,29 +203,28 @@ export function TableWorkspace({
   const canAdd = canWrite(role) && (!external || external.writes.insert);
   const canDelete = canWrite(role) && (!external || external.writes.delete);
 
+  // A view's saves go one after another, and a setting is shown as kept
+  // locally until its own save is stored: a quicker second change of the
+  // same setting is neither undone nor saved first.
+  const [queueSave] = useState(saveQueue);
   const patchView = useCallback(
     async (patch: ViewPatch) => {
       setLocalPatch((current) => ({ ...current, ...patch }));
       if (!activeView || !editableView) return;
-      try {
-        await trpc.catalog.updateView.mutate({
-          viewId: activeView.id,
-          patch: patch,
-        });
-        await queryClient.invalidateQueries({
-          queryKey: api.catalog.views.queryKey({ tableId }),
-        });
-        setLocalPatch((current) => {
-          const next = { ...current };
-          for (const key of Object.keys(patch))
-            Reflect.deleteProperty(next, key);
-          return next;
-        });
-      } catch (cause) {
-        toast.error(errorText(cause));
-      }
+      const viewId = activeView.id;
+      await queueSave(async () => {
+        try {
+          await trpc.catalog.updateView.mutate({ viewId, patch });
+          await queryClient.invalidateQueries({
+            queryKey: api.catalog.views.queryKey({ tableId }),
+          });
+          setLocalPatch((current) => withoutSaved(current, patch));
+        } catch (cause) {
+          toast.error(errorText(cause));
+        }
+      });
     },
-    [activeView, editableView, queryClient, api, tableId, errorText],
+    [activeView, editableView, queryClient, api, tableId, errorText, queueSave],
   );
 
   const [search, setSearch] = useState("");

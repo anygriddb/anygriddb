@@ -98,7 +98,7 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
   // each header where the database says its group starts, the rows under
   // it read as they scroll. 600 rows to do, then 500 done, then "gamma",
   // which has no status.
-  const tableId = new URL(page.url()).pathname.split("/").at(-1) ?? "";
+  const tableId = /\/t\/([^/]+)/.exec(new URL(page.url()).pathname)?.[1] ?? "";
   const added = Array.from({ length: 1100 }, (_, index) => ({
     name: `n${String(index + 1).padStart(4, "0")}`,
     status: index < 600 ? "To do" : "Done",
@@ -130,21 +130,27 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
       .filter({ has: page.locator("button[aria-expanded]") })
       .filter({ hasText: label });
   await expect(header("To do")).toContainText("600");
-  await grid.evaluate((element) => {
-    element.scrollTo(0, element.scrollHeight);
-  });
   const named = (text: string) =>
     page.locator('[role="gridcell"][data-column="name"]').filter({
       hasText: text,
     });
-  await expect(named("n1100")).toBeVisible();
+  // Saving the grouping reads the view once more, from the top: scroll
+  // again until the end stays in view.
+  await expect(async () => {
+    await grid.evaluate((element) => {
+      element.scrollTo(0, element.scrollHeight);
+    });
+    await expect(named("n1100")).toBeVisible({ timeout: 2_000 });
+  }).toPass();
   await expect(named("gamma")).toBeVisible();
   // Folded, a group keeps its header and skips its rows: the next group
   // comes right under it.
   await grid.evaluate((element) => {
     element.scrollTo(0, 0);
   });
-  await header("To do").getByRole("button", { name: "Collapse" }).click();
+  await header("To do")
+    .getByRole("button", { name: "Collapse", exact: true })
+    .click();
   await expect(header("Done")).toContainText("500");
   await expect(named("n0601")).toBeVisible();
   await expect(named("n0001")).toHaveCount(0);

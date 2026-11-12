@@ -79,7 +79,7 @@ tracks, the order of work below decides.
 
 A row moves up only when it unblocks another.
 
-1. Every row in every view: 77, 78, then 79 and 80. A view that stops
+1. Every row in every view: 77, 78, 90, then 79 and 80. A view that stops
    at its first 1,000 rows hides data without saying where.
 2. Rows ordered by hand: 1. It places a card inside a kanban stack, which
    needs 77 first.
@@ -100,6 +100,7 @@ A row moves up only when it unblocks another.
 | --- | --------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 77  | Every card of a kanban stack, read as the stack scrolls                                 | M      | The read says where each stack starts, as for a grouped grid: a stack is the rows from there, as many as it counts. Today a stack can say “40 of 900” and show no more |
 | 78  | A gallery reads its cards as it scrolls                                                 | S      | It draws only the cards on screen already, but reads one page of 1,000                                                                                                 |
+| 90  | A view setting, once saved, does not read the rows a second time                        | S      | Today a change reads the rows with the setting kept locally, then again once saved, and the grid goes back to the top                                                  |
 | 1   | Insert a row above or below another, and reorder rows by hand                           | L      | Touches `ag_seq` on every engine the conformance suite covers; unlocks placing a card in a kanban or gallery stack (after 77)                                          |
 | 3   | Required fields on every write, not only on forms                                       | M      | Reject empty values on the write path (`rows` service), including REST, MCP, and imports                                                                               |
 | 2   | Attachments on public forms                                                             | M      | After 60. Anonymous upload under the share token; a staged file must only be usable by the submit that uploaded it                                                     |
