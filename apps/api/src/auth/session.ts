@@ -182,9 +182,11 @@ export async function createSession(
     .values({ userId, tokenHash: hashSessionToken(token), expiresAt })
     .execute();
   // Active again: an inactive account's count starts over (ADR 0044).
+  // The sign-in's date stays on the account: its session will not.
+  const now = new Date();
   await db
     .updateTable("users")
-    .set({ activeAt: new Date(), inactivityWarnedAt: null })
+    .set({ activeAt: now, lastSignInAt: now, inactivityWarnedAt: null })
     .where("id", "=", userId)
     .execute();
   return { token, expiresAt };

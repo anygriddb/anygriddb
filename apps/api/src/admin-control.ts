@@ -516,13 +516,7 @@ export async function accessReportCsv(db: Database): Promise<string> {
       "u.displayName",
       "u.isAdmin",
       "u.disabledAt",
-      (eb) =>
-        eb
-          .selectFrom("authEvents as e")
-          .select((inner) => inner.fn.max("e.occurredAt").as("at"))
-          .whereRef("e.userId", "=", "u.id")
-          .where("e.action", "=", "login_success")
-          .as("lastSignIn"),
+      "u.lastSignInAt as lastSignIn",
     ])
     .orderBy("u.createdAt", "asc")
     .execute();
