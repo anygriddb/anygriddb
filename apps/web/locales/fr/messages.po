@@ -4848,6 +4848,10 @@ msgstr "Aucune base pour l’instant. Donnez-lui un rôle sur l’une d’elles 
 msgid "No bases yet."
 msgstr "Aucune base pour l’instant."
 
+#: components/admin/trails.tsx
+msgid "No change matches. Every write to a base, its fields, and its roles shows here, with who made it."
+msgstr "Aucune modification ne correspond. Chaque écriture dans une base, ses champs et ses rôles s’affiche ici, avec son auteur."
+
 #: components/admin/sources-tab.tsx
 msgid "No column of this table tells when a row changes (a date and time set on every change, or a rowversion): keep the full copy."
 msgstr "Aucune colonne de cette table ne dit quand une ligne change (une date et heure mise à jour à chaque modification, ou un rowversion) : gardez la copie complète."
@@ -4872,6 +4876,14 @@ msgstr "Aucune colonne de date et heure de modification : les changements faits
 msgid "No deliveries yet."
 msgstr "Aucun envoi pour l’instant."
 
+#: components/admin/support-tab.tsx
+msgid "No delivery has failed. A webhook's delivery shows here once it gives up after its retries, with the error it got."
+msgstr "Aucun envoi n’a échoué. L’envoi d’un webhook s’affiche ici quand il abandonne après ses nouvelles tentatives, avec l’erreur reçue."
+
+#: components/admin/sign-in-trail.tsx
+msgid "No event matches. Sign-ins, failures, and what administrators change show here, with the address."
+msgstr "Aucun événement ne correspond. Les connexions, les échecs et ce que changent les administrateurs s’affichent ici, avec l’adresse."
+
 #: lib/errors.ts
 msgid "No fields"
 msgstr "Aucun champ"
@@ -4895,6 +4907,18 @@ msgstr "Aucun groupe reçu pour l’instant."
 #: components/admin/sources-tab.tsx
 msgid "No host is allowed: the operator sets ANYGRIDDB_SOURCES_ALLOWED_HOSTS."
 msgstr "Aucun hôte autorisé : l’opérateur définit ANYGRIDDB_SOURCES_ALLOWED_HOSTS."
+
+#: components/admin/invitations-panel.tsx
+msgid "No invitation is waiting. One shows here from the moment someone is invited to a base until they answer it or it expires."
+msgstr "Aucune invitation en attente. Une invitation s’affiche ici dès qu’une personne est invitée dans une base, jusqu’à sa réponse ou son expiration."
+
+#: components/admin/support-tab.tsx
+msgid "No job with this status."
+msgstr "Aucune tâche avec ce statut."
+
+#: components/admin/support-tab.tsx
+msgid "No job yet. Imports, exports, and copies of tables and bases show here as people start them."
+msgstr "Aucune tâche pour l’instant. Les imports, les exports et les copies de tables ou de bases s’affichent ici dès qu’ils sont lancés."
 
 #: components/fields/cell-editor.tsx
 msgid "No matching row"
@@ -4956,9 +4980,17 @@ msgstr "Aucun événement de connexion pour l’instant."
 msgid "No sign-up domains are set (Instance, Settings): until some are, any address can be invited."
 msgstr "Aucun domaine d’inscription n’est défini (Instance, Réglages) : tant qu’il n’y en a pas, n’importe quelle adresse peut être invitée."
 
+#: components/admin/sources-tab.tsx
+msgid "No source yet. Declare one to show its tables in a base, read and written where they live."
+msgstr "Aucune source pour l’instant. Déclarez-en une pour afficher ses tables dans une base, lues et écrites là où elles se trouvent."
+
 #: components/shell/home-page.tsx
 msgid "No tables yet"
 msgstr "Aucune table pour l’instant"
+
+#: components/admin/scim-tab.tsx
+msgid "No token yet. Create one below and give it to your identity provider, which adds and updates accounts and groups with it."
+msgstr "Aucun jeton pour l’instant. Créez-en un ci-dessous et donnez-le à votre fournisseur d’identité, qui ajoute et met à jour les comptes et les groupes avec lui."
 
 #: components/views/kanban-view.tsx
 msgid "No value"
@@ -4976,11 +5008,6 @@ msgstr "Node.js, en service depuis"
 #: components/views/view-common.tsx
 msgid "None"
 msgstr "Aucune"
-
-#: components/admin/invitations-panel.tsx
-#: components/admin/support-tab.tsx
-msgid "None."
-msgstr "Aucune."
 
 #: components/admin/accounts-tab.tsx
 msgid "Not administrators"

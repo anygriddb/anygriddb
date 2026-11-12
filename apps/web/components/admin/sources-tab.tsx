@@ -105,6 +105,11 @@ export function SourcesTab() {
         </Button>
       </div>
       {list.isLoading ? <Spinner /> : null}
+      {list.data?.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {t`No source yet. Declare one to show its tables in a base, read and written where they live.`}
+        </p>
+      ) : null}
       {list.data && list.data.length > 0 ? (
         <div className="overflow-x-auto rounded-sm border border-border">
           <table className="w-full text-sm">

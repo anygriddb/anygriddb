@@ -130,6 +130,13 @@ export function ChangesTrail() {
             </tr>
           </thead>
           <tbody>
+            {log.data?.events.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-2 py-3 text-muted-foreground">
+                  {t`No change matches. Every write to a base, its fields, and its roles shows here, with who made it.`}
+                </td>
+              </tr>
+            ) : null}
             {(log.data?.events ?? []).map((event) => (
               <tr key={event.id} className="border-t border-border align-top">
                 <td className="px-2 py-1.5 whitespace-nowrap">

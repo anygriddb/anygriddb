@@ -301,6 +301,15 @@ export function SupportTab() {
               </tr>
             </thead>
             <tbody>
+              {jobs.data?.jobs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-2 py-3 text-muted-foreground">
+                    {status
+                      ? t`No job with this status.`
+                      : t`No job yet. Imports, exports, and copies of tables and bases show here as people start them.`}
+                  </td>
+                </tr>
+              ) : null}
               {(jobs.data?.jobs ?? []).map((job) => (
                 <tr key={job.id} className="border-t border-border">
                   <td className="px-2 py-1.5 whitespace-nowrap">
@@ -345,7 +354,9 @@ export function SupportTab() {
       <RuledSection title={t`Webhook deliveries that failed`}>
         {deliveries.isLoading ? <Spinner /> : null}
         {deliveries.data?.deliveries.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t`None.`}</p>
+          <p className="text-sm text-muted-foreground">
+            {t`No delivery has failed. A webhook's delivery shows here once it gives up after its retries, with the error it got.`}
+          </p>
         ) : (
           <div className="overflow-x-auto rounded-sm border border-border">
             <table className="w-full text-xs">
