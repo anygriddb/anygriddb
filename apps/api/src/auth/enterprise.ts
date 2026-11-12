@@ -15,7 +15,6 @@ import {
 } from "./session.js";
 import { samlRequestCache } from "./saml-cache.js";
 import { stableNameId, userForIdentity } from "./sso.js";
-import { logCause } from "../data/pg-error.js";
 import { isUniqueViolation } from "../data/schema-ops.js";
 import type { Env } from "../env.js";
 import { resolveOidc, type OidcConfig } from "../integrations/oidc.js";
@@ -413,7 +412,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       );
       next = await finishSignIn(deps, request, reply, userId, "oidc");
     } catch (error) {
-      request.log.warn({ err: logCause(error) }, "authentication failed");
+      request.log.warn({ err: error }, "authentication failed");
       await signInRefused(deps.db, request, "oidc", error);
     }
     // Signed in or not, the browser goes back to the app.
@@ -491,7 +490,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       );
       next = await finishSignIn(deps, request, reply, userId, "saml");
     } catch (error) {
-      request.log.warn({ err: logCause(error) }, "authentication failed");
+      request.log.warn({ err: error }, "authentication failed");
       await signInRefused(deps.db, request, "saml", error);
     }
     // Signed in or not, the browser goes back to the app.

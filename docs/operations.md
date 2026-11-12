@@ -359,6 +359,12 @@ Grafana Loki via Promtail or Alloy) at the container's stdout. Do not
 enable a third-party telemetry SDK inside AnyGridDB; metrics and OTEL stay
 opt-in as below.
 
+An error is logged as its kind (`type`), its `code`, the `constraint`
+PostgreSQL names, and its `stack`, with the same of its cause. Its message
+is left out on purpose, since a message quotes the value that failed (an
+address, a row): `message` repeats the kind and the code. To find a
+failure, search by `code` and read the first frame of `stack`.
+
 ## DSI acceptance checklist
 
 Before opening the instance to users:

@@ -54,15 +54,6 @@ export function uniqueViolation(error: unknown): AppError | null {
   return new AppError("duplicate_values", constraintName(error));
 }
 
-/** What a log may keep of an error. A unique violation keeps no row value. */
-export function logCause(error: unknown): unknown {
-  const duplicate = uniqueViolation(error);
-  if (duplicate) {
-    return { code: "23505", constraint: duplicate.detail };
-  }
-  return error;
-}
-
 /** Maps trigger failures to the stable messages the HTTP layer already knows. */
 export function rethrowAuditError(error: unknown): never {
   // A unique violation goes on as PostgreSQL raised it: each caller names

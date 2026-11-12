@@ -1,3 +1,4 @@
+import { loggedFields, quietError } from "../logged-error.js";
 import { measureJob } from "../observability.js";
 import {
   Logger,
@@ -21,7 +22,9 @@ export type QueueLog = {
 /** graphile-worker's logs, in the API's structured log. */
 function queueLogger(log: QueueLog): Logger {
   const factory: LogFunctionFactory = (scope) => (level, message, meta) => {
-    const fields = { queue: scope, ...meta };
+    // The queue's own fields hold the job, payload included, and the
+    // error as it was thrown: a log line keeps neither.
+    const fields = { queue: scope, ...loggedFields(meta) };
     if (level === "error") log.error(fields, message);
     else if (level === "warning") log.warn(fields, message);
     else if (level === "info") log.info(fields, message);
@@ -65,7 +68,13 @@ function measured(tasks: TaskList): TaskList {
     if (!task) continue;
     list[name] = (payload, helpers) =>
       measureJob(name, async () => {
-        await task(payload, helpers);
+        try {
+          await task(payload, helpers);
+        } catch (error) {
+          // The queue writes a failed task's message into its log line
+          // and its `last_error`: it gets the failure without its words.
+          throw quietError(error);
+        }
       });
   }
   return list;
