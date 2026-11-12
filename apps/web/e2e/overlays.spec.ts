@@ -67,31 +67,37 @@ test("menus, submenus, a context menu, and a popover work from the keyboard", as
 });
 
 // A phone, or a narrow window: the navigation folds away, opens over the
-// page from its button, and closes with Escape, giving the page back.
-test("the navigation folds away on a narrow screen", async ({ page }) => {
-  await signUpWithTable(page, "Narrow User");
-  const navigation = page.locator("aside");
-  await expect(navigation).toBeInViewport();
+// page from its button, and closes with Escape, giving the page back. It
+// makes an account, so it takes a client address of its own: sign-ups are
+// counted per address, and the other journeys share theirs.
+test.describe("a narrow screen", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.50" } });
 
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(navigation).not.toBeInViewport();
-  await expect(page.getByRole("grid")).toBeVisible();
+  test("the navigation folds away on a narrow screen", async ({ page }) => {
+    await signUpWithTable(page, "Narrow User");
+    const navigation = page.locator("aside");
+    await expect(navigation).toBeInViewport();
 
-  const open = page.getByRole("button", { name: "Open the navigation" });
-  await open.click();
-  await expect(navigation).toBeInViewport();
-  await expect(
-    navigation.getByRole("link", { name: "AnyGridDB" }),
-  ).toBeFocused();
-  expect(await accessibilityViolations(page)).toEqual([]);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(navigation).not.toBeInViewport();
+    await expect(page.getByRole("grid")).toBeVisible();
 
-  await page.keyboard.press("Escape");
-  await expect(navigation).not.toBeInViewport();
-  await expect(open).toBeFocused();
+    const open = page.getByRole("button", { name: "Open the navigation" });
+    await open.click();
+    await expect(navigation).toBeInViewport();
+    await expect(
+      navigation.getByRole("link", { name: "AnyGridDB" }),
+    ).toBeFocused();
+    expect(await accessibilityViolations(page)).toEqual([]);
 
-  // Going to another page closes it too.
-  await open.click();
-  await navigation.getByRole("link", { name: "AnyGridDB" }).click();
-  await expect(page.getByRole("heading", { name: /Hello/ })).toBeVisible();
-  await expect(navigation).not.toBeInViewport();
+    await page.keyboard.press("Escape");
+    await expect(navigation).not.toBeInViewport();
+    await expect(open).toBeFocused();
+
+    // Going to another page closes it too.
+    await open.click();
+    await navigation.getByRole("link", { name: "AnyGridDB" }).click();
+    await expect(page.getByRole("heading", { name: /Hello/ })).toBeVisible();
+    await expect(navigation).not.toBeInViewport();
+  });
 });
