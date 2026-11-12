@@ -143,7 +143,7 @@ export function localizeTemplate(
           ...(column.formulaSource
             ? {
                 formulaSource: column.formulaSource.replace(
-                  /\{([^}]+)\}/g,
+                  /\{([^{}]+)\}/g,
                   (_, name: string) => `{${label(name)}}`,
                 ),
               }
