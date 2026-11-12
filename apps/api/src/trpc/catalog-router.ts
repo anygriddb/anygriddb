@@ -104,6 +104,7 @@ import {
 import {
   grantInputSchema,
   grantMember,
+  isMember,
   listMembers,
   membersInputSchema,
   revokeInputSchema,
@@ -1316,13 +1317,16 @@ export const catalogRouter = t.router({
       handle(ctx, async () => {
         const { user } = await guardBase(ctx, input.baseId, "manage");
         await assertMemberDomain(ctx.db, input.email);
-        try {
+        // Someone already in the base changes role at once: the list of
+        // members shows them to whoever manages it.
+        if (await isMember(ctx.db, input.baseId, input.email)) {
           await grantMember(ctx.db, user.id, input);
           return { status: "granted" as const, token: null, mailed: false };
-        } catch (error) {
-          if (!(error instanceof Error) || error.message !== "Unknown account")
-            throw error;
         }
+        // Anyone else is invited, with an account or without: the answer
+        // is the same, so that inviting an address does not tell whether
+        // it has an account here. An account's holder finds the
+        // invitation on their home page, and the mail's link works too.
         const created = await createInvitation(ctx.db, {
           ...input,
           invitedBy: user.id,

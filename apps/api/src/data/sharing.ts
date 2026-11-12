@@ -239,28 +239,20 @@ export async function renewInvitation(
   };
 }
 
-/** Turns a pending invitation into a base role for the signed-in user. */
-export async function acceptInvitation(
+type PendingInvitation = {
+  id: string;
+  baseId: string;
+  email: string;
+  role: Role;
+  invitedBy: string;
+};
+
+/** Gives the invited account its role: the invitation is spent with it. */
+async function joinBase(
   db: Database,
-  user: { id: string; email: string },
-  token: string,
+  user: { id: string },
+  invitation: PendingInvitation,
 ): Promise<{ baseId: string }> {
-  if (!isToken(token)) {
-    throw new AppError("invalid_invitation");
-  }
-  const invitation = await db
-    .selectFrom("invitations")
-    .selectAll()
-    .where("tokenHash", "=", hashToken(token))
-    .where("acceptedAt", "is", null)
-    .where("expiresAt", ">", new Date())
-    .executeTakeFirst();
-  if (!invitation) {
-    throw new AppError("invalid_invitation");
-  }
-  if (invitation.email !== user.email.toLowerCase()) {
-    throw new AppError("invalid_invitation");
-  }
   // Sent before invitations kept to the domains: it no longer opens.
   await assertMemberDomain(db, invitation.email);
   await withAudit(
@@ -299,6 +291,89 @@ export async function acceptInvitation(
     },
   );
   return { baseId: invitation.baseId };
+}
+
+/** Turns a pending invitation into a base role for the signed-in user. */
+export async function acceptInvitation(
+  db: Database,
+  user: { id: string; email: string },
+  token: string,
+): Promise<{ baseId: string }> {
+  if (!isToken(token)) {
+    throw new AppError("invalid_invitation");
+  }
+  const invitation = await db
+    .selectFrom("invitations")
+    .selectAll()
+    .where("tokenHash", "=", hashToken(token))
+    .where("acceptedAt", "is", null)
+    .where("expiresAt", ">", new Date())
+    .executeTakeFirst();
+  if (!invitation) {
+    throw new AppError("invalid_invitation");
+  }
+  if (invitation.email !== user.email.toLowerCase()) {
+    throw new AppError("invalid_invitation");
+  }
+  return joinBase(db, user, invitation);
+}
+
+/**
+ * The invitations waiting for an account's address. An account's address
+ * is proved (ADR 0058), so its holder answers them from the home page,
+ * without the link: whoever invites learns nothing until then, not even
+ * whether the address has an account.
+ */
+export async function listInvitationsFor(db: Database, email: string) {
+  return db
+    .selectFrom("invitations as i")
+    .innerJoin("bases as b", "b.id", "i.baseId")
+    .leftJoin("users as u", "u.id", "i.invitedBy")
+    .select([
+      "i.id",
+      "i.role",
+      "i.expiresAt",
+      "b.id as baseId",
+      "b.name as baseName",
+      "u.displayName as invitedBy",
+    ])
+    .where("i.email", "=", email.toLowerCase())
+    .where("i.acceptedAt", "is", null)
+    .where("i.expiresAt", ">", new Date())
+    .where(liveBase("b"))
+    .orderBy("i.createdAt", "desc")
+    .execute();
+}
+
+/**
+ * The account's answer to an invitation sent to its address: accepted, it
+ * gets the role; declined, the invitation is gone. Another address's
+ * invitation is not found.
+ */
+export async function answerInvitation(
+  db: Database,
+  user: { id: string; email: string },
+  invitationId: string,
+  accept: boolean,
+): Promise<{ baseId: string } | null> {
+  const invitation = await db
+    .selectFrom("invitations")
+    .selectAll()
+    .where("id", "=", invitationId)
+    .where("email", "=", user.email.toLowerCase())
+    .where("acceptedAt", "is", null)
+    .where("expiresAt", ">", new Date())
+    .executeTakeFirst();
+  if (!invitation) {
+    throw new AppError("invalid_invitation");
+  }
+  if (accept) return joinBase(db, user, invitation);
+  await db
+    .deleteFrom("invitations")
+    .where("id", "=", invitation.id)
+    .where("acceptedAt", "is", null)
+    .execute();
+  return null;
 }
 
 export async function invitationPreview(db: Database, token: string) {

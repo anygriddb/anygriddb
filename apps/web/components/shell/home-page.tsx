@@ -10,6 +10,7 @@ import { useShortcuts } from "../../lib/shortcuts";
 import { useRoleLabel } from "../settings/role-label";
 import { NewBaseDialog } from "./new-base-dialog";
 import { EmptyState, NotebookPage } from "./notebook-page";
+import { PendingInvitations } from "./pending-invitations";
 import { TrashedBases } from "./trashed-bases";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
@@ -58,6 +59,7 @@ export function HomePage() {
             {t`Enable a second factor to create and manage bases.`}
           </Link>
         ) : null}
+        <PendingInvitations />
         {recent.length > 0 ? (
           <section aria-label={t`Recently opened`} className="mt-10">
             <h2 className="border-b border-strong-border pb-2 text-xs font-medium text-muted-foreground">

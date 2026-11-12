@@ -422,6 +422,10 @@ msgstr "{hours} h"
 msgid "{inserted} rows added, {updated} updated, {failed} rejected."
 msgstr "{inserted} lignes ajoutées, {updated} mises à jour, {failed} rejetées."
 
+#: components/shell/pending-invitations.tsx
+msgid "{inviter} invites you to {base} as {role}"
+msgstr "{inviter} vous invite sur {base} en tant que {role}"
+
 #: lib/jobs.tsx
 msgid "{label} ({percent}%)"
 msgstr "{label} ({percent} %)"
@@ -763,6 +767,10 @@ msgstr "Un jeton agit avec vos droits. Il n’est affiché qu’une fois et vit 
 #: components/settings/account-settings.tsx
 msgid "A TOTP app or a passkey, asked at each sign-in after your password."
 msgstr "Une application TOTP ou une clé d’accès, demandée à chaque connexion après votre mot de passe."
+
+#: components/shell/pending-invitations.tsx
+msgid "Accept"
+msgstr "Accepter"
 
 #: components/public/invitation-page.tsx
 msgid "Accept the invitation"
@@ -2325,6 +2333,10 @@ msgstr "Décimales"
 #: components/admin/sources-tab.tsx
 msgid "Declare a source"
 msgstr "Déclarer une source"
+
+#: components/shell/pending-invitations.tsx
+msgid "Decline"
+msgstr "Refuser"
 
 #: components/fields/field-editor.tsx
 msgid "Default"
@@ -3903,6 +3915,10 @@ msgstr "Inventaire"
 msgid "Invitation created"
 msgstr "Invitation créée"
 
+#: components/shell/pending-invitations.tsx
+msgid "Invitation declined"
+msgstr "Invitation refusée"
+
 #: components/settings/base-settings.tsx
 msgid "Invitation emailed"
 msgstr "Invitation envoyée par email"
@@ -3918,6 +3934,10 @@ msgstr "Invitation à « {name} »"
 #: components/admin/invitations-panel.tsx
 msgid "Invitation withdrawn"
 msgstr "Invitation retirée"
+
+#: components/shell/pending-invitations.tsx
+msgid "Invitations"
+msgstr "Invitations"
 
 #: components/settings/base-settings.tsx
 msgid "Invite"
@@ -8651,6 +8671,10 @@ msgstr "hier"
 msgid "You"
 msgstr "Vous"
 
+#: components/shell/pending-invitations.tsx
+msgid "You are invited to {base} as {role}"
+msgstr "Vous êtes invité sur {base} en tant que {role}"
+
 #: components/table/import-dialog.tsx
 msgid "You can close this window: the import goes on and stays in the jobs menu."
 msgstr "Vous pouvez fermer cette fenêtre : l’import continue et reste suivi dans le menu des tâches."
@@ -8666,6 +8690,10 @@ msgstr "Vous avez une adresse depuis le {date}."
 #: components/views/calendar-feed.tsx
 msgid "You have no address for this view yet."
 msgstr "Vous n’avez pas encore d’adresse pour cette vue."
+
+#: components/shell/pending-invitations.tsx
+msgid "You joined {base}"
+msgstr "Vous avez rejoint {base}"
 
 #: components/admin/scim-tab.tsx
 msgid "Your identity provider (Okta, Microsoft Entra ID, …) creates, changes, and deactivates accounts, and keeps groups. Existing accounts are taken over by their email. Then give groups a role in each base's settings."
