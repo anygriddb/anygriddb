@@ -7207,6 +7207,10 @@ msgstr "Les champs étaient à jour"
 msgid "The first {limit} groups are shown: filter the view to see the others."
 msgstr "Seuls les {limit} premiers groupes sont affichés : filtrez la vue pour voir les autres."
 
+#: components/views/map-view.tsx
+msgid "The first {shown} of {total} places"
+msgstr "Les {shown} premiers lieux sur {total}"
+
 #: components/fields/formula-docs.ts
 msgid "The first characters."
 msgstr "Les premiers caractères."

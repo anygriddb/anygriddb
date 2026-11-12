@@ -7207,6 +7207,10 @@ msgstr "The fields were up to date"
 msgid "The first {limit} groups are shown: filter the view to see the others."
 msgstr "The first {limit} groups are shown: filter the view to see the others."
 
+#: components/views/map-view.tsx
+msgid "The first {shown} of {total} places"
+msgstr "The first {shown} of {total} places"
+
 #: components/fields/formula-docs.ts
 msgid "The first characters."
 msgstr "The first characters."

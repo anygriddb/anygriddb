@@ -134,8 +134,8 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
     page.locator('[role="gridcell"][data-column="name"]').filter({
       hasText: text,
     });
-  // Saving the grouping reads the view once more, from the top: scroll
-  // again until the end stays in view.
+  // The grid measures its rows as they are drawn: scroll again until the
+  // end stays in view.
   await expect(async () => {
     await grid.evaluate((element) => {
       element.scrollTo(0, element.scrollHeight);
@@ -208,6 +208,128 @@ test.describe("a number field that refuses negatives", () => {
     await expect(
       page.locator('[role="gridcell"][data-column="stock"]').first(),
     ).not.toContainText("-");
+    expect(blocked).toEqual([]);
+  });
+});
+
+// A gallery reads its cards as it scrolls, and a map only the rows that
+// have a place: neither stops at a first page. A setting saved does not
+// read the rows again. It makes an account, so it takes a client address
+// of its own.
+test.describe("a gallery and a map past their first page", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.81" } });
+
+  test("show every card, and every row that has a place", async ({ page }) => {
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "Gallery Keeper");
+    const tableId =
+      /\/t\/([^/]+)/.exec(new URL(page.url()).pathname)?.[1] ?? "";
+    for (const name of ["lat", "lon"]) {
+      const status = await page.evaluate(
+        async ([tableId, name]) =>
+          (
+            await fetch("/trpc/catalog.addColumn", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ tableId, name, fieldType: "number" }),
+            })
+          ).status,
+        [tableId, name] as const,
+      );
+      expect(status).toBe(200);
+    }
+    // 1,100 cards; only the last 100 have a place.
+    const added = Array.from({ length: 1100 }, (_, index) => ({
+      name: `c${String(index + 1).padStart(4, "0")}`,
+      ...(index >= 1000
+        ? { lat: String(40 + (index - 1000) / 10), lon: "2.35" }
+        : {}),
+    }));
+    for (let start = 0; start < added.length; start += 500) {
+      const status = await page.evaluate(
+        async ([tableId, rows]) =>
+          (
+            await fetch("/trpc/rows.insertMany", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ tableId, rows }),
+            })
+          ).status,
+        [tableId, added.slice(start, start + 500)] as const,
+      );
+      expect(status).toBe(200);
+    }
+
+    const newView = async (type: string) => {
+      await page.getByRole("button", { name: "New view" }).click();
+      await page.getByRole("menuitem", { name: type }).first().click();
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Create", exact: true })
+        .click();
+    };
+    const card = (name: string) =>
+      page.getByRole("button", { name: new RegExp(`^${name}`) });
+
+    await newView("Gallery");
+    await expect(card("c0001")).toBeVisible();
+    const gallery = card("c0001").locator(
+      "xpath=ancestor::div[contains(@class, 'overflow-y-auto')]",
+    );
+    await expect(async () => {
+      await gallery.evaluate((element) => {
+        element.scrollTo(0, element.scrollHeight);
+      });
+      await expect(card("c1100")).toBeVisible({ timeout: 2_000 });
+    }).toPass();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // Sorted, the cards are read once, with the setting kept locally: its
+    // save reads nothing more.
+    let viewsAfterSave = false;
+    let readsAfterSave = 0;
+    let saving = false;
+    page.on("response", (response) => {
+      if (response.url().includes("catalog.updateView")) saving = true;
+      else if (saving && response.url().includes("catalog.views")) {
+        viewsAfterSave = true;
+      }
+    });
+    page.on("request", (request) => {
+      if (viewsAfterSave && request.url().includes("rows.read")) {
+        readsAfterSave += 1;
+      }
+    });
+    await page.getByRole("button", { name: "Sort", exact: true }).click();
+    const sorted = page.waitForResponse(
+      (response) =>
+        response.url().includes("catalog.updateView") && response.ok(),
+    );
+    await page.getByRole("button", { name: "Add a sort" }).click();
+    await sorted;
+    saving = false;
+    viewsAfterSave = false;
+    const reversed = page.waitForResponse(
+      (response) =>
+        response.url().includes("catalog.updateView") && response.ok(),
+    );
+    await page.getByLabel("Order").selectOption("desc");
+    await reversed;
+    await page.keyboard.press("Escape");
+    await expect(card("c1100")).toBeVisible();
+    await expect.poll(() => viewsAfterSave).toBe(true);
+    await page.waitForTimeout(1_000);
+    expect(readsAfterSave).toBe(0);
+
+    // The map reads the rows that have a place, past the first 1,000.
+    await newView("Map");
+    await expect(page.getByText("100 points")).toBeVisible();
+    await expect(page.getByRole("button", { name: "c1001" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "c1100" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "c0001" })).toHaveCount(0);
+    await expect(page.locator('span[title="c1100"]')).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
     expect(blocked).toEqual([]);
   });
 });

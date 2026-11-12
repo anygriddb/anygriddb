@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { saveQueue, withoutSaved } from "./view-patch";
+import { readKey, saveQueue, withoutSaved } from "./view-patch";
 
 describe("a view's settings saved one after another", () => {
   it("drops a setting once its own save is stored, and keeps a newer one", () => {
@@ -32,5 +32,34 @@ describe("a view's settings saved one after another", () => {
       "status",
     ]);
     expect(stored).toEqual(["name", "status"]);
+  });
+
+  it("gives a read one key whatever the order of its settings' keys", () => {
+    const local = {
+      filter: {
+        conjunction: "and",
+        conditions: [{ op: "is", column: "status", value: "Done" }],
+      },
+      sort: [{ direction: "desc", column: "name" }],
+    };
+    const stored = {
+      sort: [{ column: "name", direction: "desc" }],
+      filter: {
+        conditions: [{ column: "status", op: "is", value: "Done" }],
+        conjunction: "and",
+      },
+    };
+    expect(readKey(local)).toBe(readKey(stored));
+  });
+
+  it("tells reads apart when a setting differs", () => {
+    expect(readKey({ sort: [{ column: "name", direction: "asc" }] })).not.toBe(
+      readKey({ sort: [{ column: "name", direction: "desc" }] }),
+    );
+    // The order of a list is the order of the sort.
+    expect(readKey({ sort: [{ column: "a" }, { column: "b" }] })).not.toBe(
+      readKey({ sort: [{ column: "b" }, { column: "a" }] }),
+    );
+    expect(readKey({ filter: undefined })).toBe(readKey({}));
   });
 });
