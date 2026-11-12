@@ -82,6 +82,34 @@ test.describe("a narrow screen", () => {
     await expect(navigation).not.toBeInViewport();
     await expect(page.getByRole("grid")).toBeVisible();
 
+    // The grid's toolbar keeps one line, within the screen: the view's
+    // settings fold behind one button, the filter and the search stay.
+    const settings = page.getByRole("button", { name: "View settings" });
+    await expect(settings).toHaveAttribute("aria-expanded", "false");
+    const sort = page.getByRole("button", { name: "Sort", exact: true });
+    await expect(sort).toHaveCount(0);
+    const middle = async (name: string) => {
+      const box = await page.getByRole("button", { name }).boundingBox();
+      return box
+        ? { y: box.y + box.height / 2, right: box.x + box.width }
+        : null;
+    };
+    const first = await middle("Add a row and open it");
+    const last = await middle("More actions");
+    expect(last?.y).toBeCloseTo(first?.y ?? 0, 0);
+    expect(last?.right).toBeLessThanOrEqual(390);
+    await settings.click();
+    await expect(settings).toHaveAttribute("aria-expanded", "true");
+    await sort.click();
+    await expect(
+      page.getByRole("button", { name: "Add a sort" }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+
     const open = page.getByRole("button", { name: "Open the navigation" });
     await open.click();
     await expect(navigation).toBeInViewport();

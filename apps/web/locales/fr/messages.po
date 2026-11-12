@@ -8444,6 +8444,10 @@ msgstr "Vue introuvable"
 msgid "View of {table}"
 msgstr "Vue de {table}"
 
+#: components/table/view-toolbar.tsx
+msgid "View settings"
+msgstr "Réglages de la vue"
+
 #: components/settings/role-label.ts
 msgid "Viewer"
 msgstr "Lecteur"
