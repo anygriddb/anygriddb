@@ -1,6 +1,6 @@
 import { AppError, publicError, type ErrorCode } from "@anygriddb/core";
 import { TRPCError } from "@trpc/server";
-import { logCause, uniqueViolation } from "../data/pg-error.js";
+import { uniqueViolation } from "../data/pg-error.js";
 
 type TRPCCode = ConstructorParameters<typeof TRPCError>[0]["code"];
 
@@ -73,7 +73,7 @@ export function mapProcedureError(error: unknown, log: ProcedureLog): never {
   }
   const duplicate = uniqueViolation(error);
   if (duplicate) throw toTRPCError(duplicate);
-  log.error({ err: logCause(error) }, "request failed");
+  log.error({ err: error }, "request failed");
   throw new TRPCError({
     code: "INTERNAL_SERVER_ERROR",
     message: "Internal error",

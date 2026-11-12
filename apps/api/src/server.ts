@@ -54,6 +54,7 @@ import { HostAllowList } from "./sources/allow-list.js";
 import { setSourcePools, SourcePools } from "./sources/pools.js";
 import type { SourceSettings } from "./sources/types.js";
 import { refreshTls, type TlsState } from "./tls/authority.js";
+import { serializeError } from "./logged-error.js";
 import { redirectPlainHttp } from "./tls/listener.js";
 import { registerWebApp } from "./web-app.js";
 import { GridHub, SOCKET_OPTIONS } from "./ws.js";
@@ -138,6 +139,9 @@ export async function createApp(deps: {
           host: request.host,
           remoteAddress: request.ip,
         }),
+        // An error's kind, code and frames: never its message or what it
+        // carried (an address, a row). Every `{ err }` goes through here.
+        err: serializeError,
       },
     },
   });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { logCause, rethrowAuditError, uniqueViolation } from "./pg-error.js";
+import { loggedError } from "../logged-error.js";
+import { rethrowAuditError, uniqueViolation } from "./pg-error.js";
 import { isUniqueViolation } from "./schema-ops.js";
 
 const unique = () =>
@@ -39,12 +40,11 @@ describe("PostgreSQL errors", () => {
       detail: "users_email_unique",
     });
     expect(uniqueViolation(new Error("other"))).toBeNull();
-    expect(logCause(unique())).toEqual({
+    // What the log keeps of it: the code and the constraint, no row value.
+    expect(loggedError(unique())).toMatchObject({
       code: "23505",
       constraint: "users_email_unique",
     });
-    expect(JSON.stringify(logCause(unique()))).not.toContain("ada@");
-    const other = new Error("other");
-    expect(logCause(other)).toBe(other);
+    expect(JSON.stringify(loggedError(unique()))).not.toContain("ada@");
   });
 });

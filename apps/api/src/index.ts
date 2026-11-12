@@ -4,6 +4,7 @@ import { passkeysEligible } from "./auth/relying-party.js";
 import { BUILD, describeBuild } from "./build-info.js";
 import { isLoopback, readEnv } from "./env.js";
 import { createFileStore } from "./files/index.js";
+import { loggedError, loggedFields } from "./logged-error.js";
 import { migrateQueue } from "./queue/worker.js";
 import { PgBus } from "./realtime/bus.js";
 import { createApp } from "./server.js";
@@ -19,14 +20,14 @@ const env = readEnv();
 const { db, pool, close } = createDb(env.DATABASE_URL, {
   max: env.DATABASE_POOL_MAX,
   onError: (error) => {
-    console.error("database connection failed", error);
+    console.error("database connection failed", loggedError(error));
   },
 });
 await migrateDb(pool);
 // Row writes queue their events in graphile-worker: its schema comes first.
 await migrateQueue(env.DATABASE_URL, {
-  error: (meta, message) => console.error(message, meta),
-  warn: (meta, message) => console.warn(message, meta),
+  error: (meta, message) => console.error(message, loggedFields(meta)),
+  warn: (meta, message) => console.warn(message, loggedFields(meta)),
   info: () => undefined,
   debug: () => undefined,
 });
@@ -40,7 +41,7 @@ if (files.driver === "disk") await files.check();
 // Realtime goes through PostgreSQL: the required stack is PostgreSQL and
 // AnyGridDB (ADR 0009).
 const bus = new PgBus(pool, env.DATABASE_URL, (error, message) => {
-  console.error(message, error);
+  console.error(message, loggedError(error));
 });
 await bus.start();
 
