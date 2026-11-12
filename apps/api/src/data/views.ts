@@ -3,6 +3,7 @@ import {
   applyViewConfigPatch,
   buildReadRows,
   type EngineCatalog,
+  keepTrashedParts,
   normalizeViewConfig,
   pruneViewConfig,
   type ViewConfig,
@@ -178,12 +179,16 @@ export async function updateView(
   const base = input.config
     ? normalizeViewConfig(input.config, view.viewType)
     : current;
-  const next = input.patch ? applyViewConfigPatch(base, input.patch) : base;
-  assertViewConfig(
-    engine,
-    next,
-    new Set(await trashedColumnNames(db, view.tableId)),
+  const trashed = new Set(await trashedColumnNames(db, view.tableId));
+  // What was saved was seen without the fields in the trash: their part
+  // of each setting saved stays, for when they come back.
+  const next = keepTrashedParts(
+    current,
+    input.patch ? applyViewConfigPatch(base, input.patch) : base,
+    trashed,
+    input.config ? "all" : Object.keys(input.patch ?? {}),
   );
+  assertViewConfig(engine, next, trashed);
   const updated = await db
     .updateTable("views")
     .set({

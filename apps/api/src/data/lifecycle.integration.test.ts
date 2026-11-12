@@ -24,8 +24,20 @@ import {
 } from "./import-commit.js";
 import { purgeStagedUploads } from "./staged-uploads.js";
 import { insertBase, insertTable } from "./schema-ops.js";
-import { purgeItem, trashBase, trashTable } from "./trash.js";
-import { createView, loadView, trashView } from "./views.js";
+import {
+  purgeItem,
+  restoreColumn,
+  trashBase,
+  trashColumn,
+  trashTable,
+} from "./trash.js";
+import {
+  createView,
+  listViews,
+  loadView,
+  trashView,
+  updateView,
+} from "./views.js";
 import { loadEngine } from "./engine.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -394,6 +406,68 @@ describe("jobs, trash, and authors", () => {
       expect(
         await purgeItem(deps, { kind: "view", id: second.id, actorId: owner }),
       ).toBe(false);
+    });
+  });
+
+  describe("a view and a field in the trash", () => {
+    it("keeps the field's place and settings in a view saved meanwhile", async () => {
+      const baseId = (await insertBase(db, owner, { name: "Kept" })).id;
+      const tableId = (
+        await insertTable(db, owner, {
+          baseId,
+          name: "Items",
+          columns: [
+            { name: "title", label: "Title", fieldType: "text" },
+            { name: "remark", label: "Remark", fieldType: "text" },
+            { name: "size", label: "Size", fieldType: "number" },
+          ],
+        })
+      ).id;
+      const view = await db
+        .selectFrom("views")
+        .selectAll()
+        .where("tableId", "=", tableId)
+        .executeTakeFirstOrThrow();
+      const { engine } = await loadEngine(db, tableId, () => true);
+      await updateView(db, engine, view, {
+        patch: {
+          fieldOrder: ["title", "remark", "size"],
+          hiddenFields: ["remark"],
+          sort: [{ column: "remark", direction: "desc" }],
+        },
+      });
+      const table = await db
+        .selectFrom("dataTables")
+        .selectAll()
+        .where("id", "=", tableId)
+        .executeTakeFirstOrThrow();
+      await trashColumn(db, owner, table, "remark");
+
+      // Saved as the person sees it, without the field.
+      const [seen] = await listViews(db, tableId, owner);
+      expect(seen?.config.fieldOrder).toEqual(["title", "size"]);
+      const live = await loadEngine(db, tableId, () => true);
+      await updateView(db, live.engine, await loadView(db, view.id), {
+        patch: {
+          fieldOrder: ["size", "title"],
+          hiddenFields: null,
+          sort: null,
+        },
+      });
+
+      const remark = await db
+        .selectFrom("dataColumns")
+        .select("id")
+        .where("tableId", "=", tableId)
+        .where("name", "=", "remark")
+        .executeTakeFirstOrThrow();
+      await restoreColumn(db, owner, remark.id);
+      const [back] = await listViews(db, tableId, owner);
+      expect(back?.config.fieldOrder).toEqual(["size", "title", "remark"]);
+      expect(back?.config.hiddenFields).toEqual(["remark"]);
+      expect(back?.config.sort).toEqual([
+        { column: "remark", direction: "desc" },
+      ]);
     });
   });
 
