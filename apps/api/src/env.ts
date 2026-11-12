@@ -32,6 +32,8 @@ export type Env = {
   S3_ACCESS_KEY?: string;
   S3_SECRET_KEY?: string;
   S3_BUCKET?: string;
+  S3_SERVER_SIDE_ENCRYPTION?: "AES256" | "aws:kms";
+  S3_KMS_KEY_ID?: string;
   ATTACHMENT_MAX_BYTES?: number;
   OIDC_ISSUER?: string;
   OIDC_CLIENT_ID?: string;
@@ -257,6 +259,17 @@ export function readFileSettings(
     throw new Error("STORAGE_DRIVER must be disk or s3");
   }
   if (source.S3_ENDPOINT) assertEncryptedUrl(source.S3_ENDPOINT, "S3_ENDPOINT");
+  const encryption = source.S3_SERVER_SIDE_ENCRYPTION || undefined;
+  if (
+    encryption !== undefined &&
+    encryption !== "AES256" &&
+    encryption !== "aws:kms"
+  ) {
+    throw new Error("S3_SERVER_SIDE_ENCRYPTION must be AES256 or aws:kms");
+  }
+  if (source.S3_KMS_KEY_ID && encryption !== "aws:kms") {
+    throw new Error("S3_KMS_KEY_ID needs S3_SERVER_SIDE_ENCRYPTION=aws:kms");
+  }
   return {
     STORAGE_DRIVER: driver,
     STORAGE_PATH: source.STORAGE_PATH || "./data/files",
@@ -265,6 +278,8 @@ export function readFileSettings(
     S3_ACCESS_KEY: source.S3_ACCESS_KEY,
     S3_SECRET_KEY: source.S3_SECRET_KEY,
     S3_BUCKET: source.S3_BUCKET,
+    S3_SERVER_SIDE_ENCRYPTION: encryption,
+    S3_KMS_KEY_ID: source.S3_KMS_KEY_ID || undefined,
   };
 }
 

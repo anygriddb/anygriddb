@@ -26,6 +26,14 @@ export type S3Config = {
   accessKey: string;
   secretKey: string;
   bucket: string;
+  /**
+   * Asks the service to encrypt each object it stores: with its own keys
+   * (`AES256`), or with a key of its key service (`aws:kms`, the key
+   * named or the bucket's default). Off unless the operator asks: not
+   * every S3-compatible service accepts it.
+   */
+  serverSideEncryption?: "AES256" | "aws:kms";
+  kmsKeyId?: string;
 };
 
 /** Wall time for one S3 HTTP round-trip (handler + AbortSignal). */
@@ -63,6 +71,18 @@ export class S3Store implements FileStore {
     });
   }
 
+  /** What every upload asks of the service's encryption. */
+  private get encryption() {
+    const { serverSideEncryption, kmsKeyId } = this.config;
+    if (!serverSideEncryption) return {};
+    return {
+      ServerSideEncryption: serverSideEncryption,
+      ...(serverSideEncryption === "aws:kms" && kmsKeyId
+        ? { SSEKMSKeyId: kmsKeyId }
+        : {}),
+    };
+  }
+
   async put(key: string, body: Buffer, contentType: string): Promise<void> {
     assertFileKey(key);
     await this.client.send(
@@ -71,6 +91,7 @@ export class S3Store implements FileStore {
         Key: key,
         Body: body,
         ContentType: contentType,
+        ...this.encryption,
       }),
       { abortSignal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
     );
@@ -105,6 +126,7 @@ export class S3Store implements FileStore {
             Body: body,
             ContentLength: file.size,
             ContentType: file.contentType,
+            ...this.encryption,
           }),
           { abortSignal: abort.signal },
         ),

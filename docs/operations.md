@@ -60,6 +60,22 @@ install it.
 TLS keys. Lose it and they cannot be read again. Change it and they cannot
 be read either.
 
+### Encryption at rest
+
+What `AUTH_ENCRYPTION_KEY` seals stays sealed wherever it is copied. The
+rows, the change trail, and the files are written as they are: at rest,
+they are as safe as the storage they are on. Put the PostgreSQL volume
+(`postgres_18`) and the files (the `files` volume, or the bucket) on
+encrypted storage, such as an encrypted disk or cloud volume, whose key
+is kept apart from the host and its backups.
+
+With files in an S3 service, ask it to encrypt each object it stores:
+`S3_SERVER_SIDE_ENCRYPTION=AES256` with the service's own keys, or
+`aws:kms` with a key of its key service, `S3_KMS_KEY_ID` (empty: the
+bucket's default key). Check first that the service accepts it: one
+that does not refuses every upload. A bucket that encrypts every object
+by default needs neither.
+
 ### Address people open (`PUBLIC_URL`)
 
 `PUBLIC_URL` is the HTTPS origin people type: links in emails, cookies,
@@ -371,21 +387,23 @@ Before opening the instance to users:
 
 1. Install a release image pinned by digest; set `PUBLIC_URL` and
    `AUTH_ENCRYPTION_KEY`; confirm Health shows a trusted certificate path.
-2. Configure SMTP; send a test email from Support. Without email, people
+2. Put the database and the files on encrypted storage (Encryption at
+   rest).
+3. Configure SMTP; send a test email from Support. Without email, people
    join only by an invitation's link or an account an administrator
    creates: a sign-up proves its address by a mailed link (ADR 0058).
-3. Configure OIDC or SAML; use **Test issuer** / **Test certificate**, then
+4. Configure OIDC or SAML; use **Test issuer** / **Test certificate**, then
    complete one real sign-in.
-4. Optionally turn on **SSO-only** (administrators keep a password).
-5. Optionally set the **sign-in allowlist** and `ANYGRIDDB_TRUSTED_PROXIES`.
-6. Create a SCIM token and push one user and one group from the identity
+5. Optionally turn on **SSO-only** (administrators keep a password).
+6. Optionally set the **sign-in allowlist** and `ANYGRIDDB_TRUSTED_PROXIES`.
+7. Create a SCIM token and push one user and one group from the identity
    provider; assign the group a role on a base.
-7. Set MFA scope to everyone (or your policy); confirm an enrollment gate.
-8. Turn maintenance on briefly; confirm non-admins are signed out.
-9. Run `scripts/backup.sh` and `scripts/restore.sh` on a spare stack.
-10. If you use a SIEM, save the webhook, send a test event, and confirm it
+8. Set MFA scope to everyone (or your policy); confirm an enrollment gate.
+9. Turn maintenance on briefly; confirm non-admins are signed out.
+10. Run `scripts/backup.sh` and `scripts/restore.sh` on a spare stack.
+11. If you use a SIEM, save the webhook, send a test event, and confirm it
     arrives with a valid signature.
-11. Scrape `/metrics` with `METRICS_TOKEN` over HTTPS.
+12. Scrape `/metrics` with `METRICS_TOKEN` over HTTPS.
 
 ## Metrics and traces
 

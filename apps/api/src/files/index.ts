@@ -14,6 +14,8 @@ export type FileSettings = {
   S3_ACCESS_KEY?: string;
   S3_SECRET_KEY?: string;
   S3_BUCKET?: string;
+  S3_SERVER_SIDE_ENCRYPTION?: "AES256" | "aws:kms";
+  S3_KMS_KEY_ID?: string;
 };
 
 export function createFileStore(settings: FileSettings): FileStore {
@@ -36,5 +38,7 @@ export function createFileStore(settings: FileSettings): FileStore {
     accessKey: settings.S3_ACCESS_KEY,
     secretKey: settings.S3_SECRET_KEY,
     bucket: settings.S3_BUCKET,
+    serverSideEncryption: settings.S3_SERVER_SIDE_ENCRYPTION,
+    kmsKeyId: settings.S3_KMS_KEY_ID,
   });
 }
