@@ -98,10 +98,12 @@ None of these are started.
 
 #### Later
 
-| #   | What                                                                                              | Effort | Notes                                                                        |
-| --- | ------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------- |
-| 9   | Richer field and row rules (several row rules per member, per-column conditions, user attributes) | L      | Current model: one row rule per table per member, `me` in filters (ADR 0016) |
-| 10  | Timeline dependencies (Gantt)                                                                     | L      | Timeline view has no dependency edges today                                  |
+| #   | What                                                                                              | Effort | Notes                                                                                                                                                                                                                                                                                            |
+| --- | ------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 9   | Richer field and row rules (several row rules per member, per-column conditions, user attributes) | L      | Current model: one row rule per table per member, `me` in filters (ADR 0016)                                                                                                                                                                                                                     |
+| 10  | Timeline dependencies (Gantt)                                                                     | L      | Timeline view has no dependency edges today                                                                                                                                                                                                                                                      |
+| 74  | An engine mark next to each client-database connection                                            | S      | Today every source uses the same generic icon and a text label. Show a distinct mark on the Administration sources list, the engine picker, and the sidebar: trademark-safe SVGs we ship (or that `NOTICE.md` already allows), monochrome, with the name kept for accessibility                  |
+| 75  | The product mark announced on the published image                                                 | S      | `icon.svg` / favicon already ship in the image and the app serves them. Container lists that honour a logo URL still show a generic icon: set a portable image label to an HTTPS URL of the mark on the public repository (PNG preferred), without tying the install path to one desktop product |
 
 ### Administration
 
@@ -222,6 +224,6 @@ then what the instance keeps, logs, and loads.
 ## Non-goals
 
 - SDK, secrets CLI, and Helm in this tree
-- AnyGridDB's own store on anything but PostgreSQL (ADR 0003). MySQL, MariaDB, and SQL Server come in as external sources (ADR 0006)
+- AnyGridDB's own store on anything but PostgreSQL (ADR 0003). MySQL, MariaDB, SQL Server, and Oracle come in as external sources (ADRs 0006, 0024)
 - A paid or enterprise build
 - MinIO (abandoned upstream), or any non-OSI default

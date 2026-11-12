@@ -43,7 +43,7 @@ are never shipped or recommended as a default.
 | Piece      | Choice                                                                        | License                 |
 | ---------- | ----------------------------------------------------------------------------- | ----------------------- |
 | App        | AnyGridDB                                                                     | AGPL-3.0-or-later       |
-| Database   | PostgreSQL 17 (18 in the target stack)                                        | PostgreSQL License      |
+| Database   | PostgreSQL 18                                                                 | PostgreSQL License      |
 | Files      | Local disk by default; any S3 optional, RustFS in `compose.s3.yml` (ADR 0010) | Apache-2.0 (RustFS)     |
 | Toolchain  | mise                                                                          | MIT                     |
 | Containers | Docker Engine / containerd / Podman + Compose-compatible tooling              | Apache-2.0 / MPL / etc. |
