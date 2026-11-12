@@ -8444,6 +8444,10 @@ msgstr "View not found"
 msgid "View of {table}"
 msgstr "View of {table}"
 
+#: components/table/view-toolbar.tsx
+msgid "View settings"
+msgstr "View settings"
+
 #: components/settings/role-label.ts
 msgid "Viewer"
 msgstr "Viewer"
