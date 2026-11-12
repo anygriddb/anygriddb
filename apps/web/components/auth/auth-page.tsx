@@ -421,7 +421,7 @@ export function AuthPage({
                 to="/signup"
                 search={{ next }}
               >
-                {t`No account yet? Sign up`}
+                {t`No account yet? Create one`}
               </Link>
             ) : (
               <Link

@@ -33,7 +33,7 @@ describe("sign-up links", () => {
     expect(en).toContain("enter the password you chose");
     expect(en).toContain("no account is created");
     const fr = signupMailBody("fr", { link, expiresAt: until });
-    expect(fr).toContain("aucun compte n'est créé");
+    expect(fr).toContain("aucun compte n’est créé");
     expect(signupMailSubject("fr")).toContain("confirmer votre adresse");
     expect(
       accountExistsMailBody("en", {

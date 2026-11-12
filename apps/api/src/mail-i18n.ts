@@ -19,7 +19,7 @@ export function resolveLocale(
 
 function tableQuoted(locale: MailLocale, tableName: string): string {
   if (locale === "fr") {
-    return `« ${tableName} »`;
+    return `«\u00a0${tableName}\u00a0»`;
   }
   return `"${tableName}"`;
 }
@@ -49,7 +49,7 @@ const NOTIFICATION_SUBJECTS: Record<
     webhook_disabled: (table) =>
       `Webhook désactivé sur ${tableQuoted("fr", table)}`,
     row_changed: (table) =>
-      `Une ligne verrouillée de ${tableQuoted("fr", table)} a changé hors d'AnyGridDB`,
+      `Une ligne verrouillée de ${tableQuoted("fr", table)} a changé hors d’AnyGridDB`,
   },
 };
 
@@ -73,7 +73,7 @@ export function notificationMailSubject(
   kind: NotificationKind,
   tableName: string,
 ): string {
-  const separator = locale === "fr" ? " : " : ": ";
+  const separator = locale === "fr" ? "\u00a0: " : ": ";
   return `${MAIL_PREFIX}${separator}${notificationSubject(locale, kind, tableName)}`;
 }
 
@@ -93,7 +93,7 @@ export function invitationMailSubject(
 ): string {
   const quoted = tableQuoted(locale, baseName);
   return locale === "fr"
-    ? `${MAIL_PREFIX} : invitation à ${quoted}`
+    ? `${MAIL_PREFIX}\u00a0: invitation à ${quoted}`
     : `${MAIL_PREFIX}: invitation to ${quoted}`;
 }
 
@@ -113,7 +113,7 @@ export function invitationMailBody(
 
 export function testMailSubject(locale: MailLocale): string {
   return locale === "fr"
-    ? `${MAIL_PREFIX} : message de test`
+    ? `${MAIL_PREFIX}\u00a0: message de test`
     : `${MAIL_PREFIX}: test message`;
 }
 
@@ -136,7 +136,7 @@ export function operatorMailText(locale: MailLocale, body: string): string {
 
 export function webhookDisabledMailSubject(locale: MailLocale): string {
   return locale === "fr"
-    ? `${MAIL_PREFIX}: webhook désactivé`
+    ? `${MAIL_PREFIX}\u00a0: webhook désactivé`
     : `${MAIL_PREFIX}: webhook disabled`;
 }
 
@@ -190,7 +190,7 @@ export function securityMailSubject(
     inactive_disabled: "your account is disabled",
   };
   return locale === "fr"
-    ? `${MAIL_PREFIX} : ${fr[notice.kind]}`
+    ? `${MAIL_PREFIX}\u00a0: ${fr[notice.kind]}`
     : `${MAIL_PREFIX}: ${en[notice.kind]}`;
 }
 
@@ -200,18 +200,18 @@ export function securityMailBody(
 ): string {
   if (locale === "fr") {
     const warn =
-      "Si ce n'était pas vous, prévenez votre administrateur sans attendre.";
+      "Si ce n’était pas vous, prévenez votre administrateur sans attendre.";
     switch (notice.kind) {
       case "locked":
-        return `Après ${String(notice.failures)} essais de connexion manqués, votre compte AnyGridDB est verrouillé ${notice.until ? `jusqu'au ${moment(locale, notice.until)}` : "jusqu'à ce qu'un administrateur le déverrouille"}.\n\nSi ce n'était pas vous, quelqu'un essaie peut-être votre mot de passe : prévenez votre administrateur.`;
+        return `Après ${String(notice.failures)} essais de connexion manqués, votre compte AnyGridDB est verrouillé ${notice.until ? `jusqu’au ${moment(locale, notice.until)}` : "jusqu’à ce qu’un administrateur le déverrouille"}.\n\nSi ce n’était pas vous, quelqu’un essaie peut-être votre mot de passe : prévenez votre administrateur.`;
       case "password_changed":
         return `Le mot de passe de votre compte AnyGridDB vient de changer, et vos autres sessions ont pris fin.\n\n${warn}`;
       case "factors_removed":
-        return `Un administrateur a retiré les seconds facteurs de votre compte AnyGridDB (application d'authentification, clés d'accès, codes de secours). Configurez-en un à votre prochaine connexion.\n\n${warn}`;
+        return `Un administrateur a retiré les seconds facteurs de votre compte AnyGridDB (application d’authentification, clés d’accès, codes de secours). Configurez-en un à votre prochaine connexion.\n\n${warn}`;
       case "inactive_soon":
-        return `Votre compte AnyGridDB n'a pas servi depuis longtemps. Sans connexion d'ici le ${moment(locale, notice.disableAt)}, il sera désactivé, comme tout compte inutilisé pendant ${String(notice.days)} jours sur cette instance.\n\nPour le garder, connectez-vous simplement.`;
+        return `Votre compte AnyGridDB n’a pas servi depuis longtemps. Sans connexion d’ici le ${moment(locale, notice.disableAt)}, il sera désactivé, comme tout compte inutilisé pendant ${String(notice.days)} jours sur cette instance.\n\nPour le garder, connectez-vous simplement.`;
       case "inactive_disabled":
-        return `Votre compte AnyGridDB n'a pas servi depuis ${String(notice.days)} jours : il est désactivé, et ses jetons d'API ne fonctionnent plus. Ses données restent en place.\n\nPour le retrouver, demandez à un administrateur de le réactiver.`;
+        return `Votre compte AnyGridDB n’a pas servi depuis ${String(notice.days)} jours\u00a0: il est désactivé, et ses jetons d’API ne fonctionnent plus. Ses données restent en place.\n\nPour le retrouver, demandez à un administrateur de le réactiver.`;
     }
   }
   const warn = "If it was not you, tell your administrator at once.";
@@ -243,11 +243,11 @@ export type LockAlert =
 export function lockAlertSubject(locale: MailLocale, alert: LockAlert): string {
   if (alert.many) {
     return locale === "fr"
-      ? `${MAIL_PREFIX} : de nombreux comptes se verrouillent`
+      ? `${MAIL_PREFIX}\u00a0: de nombreux comptes se verrouillent`
       : `${MAIL_PREFIX}: many accounts are locking`;
   }
   return locale === "fr"
-    ? `${MAIL_PREFIX} : le compte de ${alert.name} est verrouillé`
+    ? `${MAIL_PREFIX}\u00a0: le compte de ${alert.name} est verrouillé`
     : `${MAIL_PREFIX}: ${alert.name}'s account is locked`;
 }
 
@@ -258,19 +258,19 @@ export function lockAlertBody(
 ): string {
   if (alert.many) {
     return locale === "fr"
-      ? `Plus de 10 comptes se sont verrouillés en une heure : quelqu'un essaie peut-être des mots de passe en masse. Vous ne recevrez plus d'alerte par compte pendant cette heure ; le journal des connexions les garde toutes.\n\n${adminUrl}`
+      ? `Plus de 10 comptes se sont verrouillés en une heure\u00a0: quelqu’un essaie peut-être des mots de passe en masse. Vous ne recevrez plus d’alerte par compte pendant cette heure ; le journal des connexions les garde toutes.\n\n${adminUrl}`
       : `More than 10 accounts locked within an hour: someone may be trying passwords at scale. You will get no more alerts per account for this hour; the sign-in trail keeps them all.\n\n${adminUrl}`;
   }
   const until = alert.until ? moment(locale, alert.until) : null;
   if (locale === "fr") {
-    return `Le compte de ${alert.name} (${alert.email}) est verrouillé après ${String(alert.failures)} essais manqués, ${until ? `jusqu'au ${until}` : "jusqu'à ce qu'un administrateur le déverrouille"}.\n\nSi la personne vous le demande, déverrouillez-le depuis Administration > Comptes. Sinon, quelqu'un essaie peut-être son mot de passe.\n\n${adminUrl}`;
+    return `Le compte de ${alert.name} (${alert.email}) est verrouillé après ${String(alert.failures)} essais manqués, ${until ? `jusqu’au ${until}` : "jusqu’à ce qu’un administrateur le déverrouille"}.\n\nSi la personne vous le demande, déverrouillez-le depuis Administration > Comptes. Sinon, quelqu’un essaie peut-être son mot de passe.\n\n${adminUrl}`;
   }
   return `${alert.name}'s account (${alert.email}) is locked after ${String(alert.failures)} failed attempts, ${until ? `until ${until}` : "until an administrator unlocks it"}.\n\nIf the person asks, unlock it from Administration > Accounts. Otherwise, someone may be trying their password.\n\n${adminUrl}`;
 }
 
 export function resetMailSubject(locale: MailLocale): string {
   return locale === "fr"
-    ? `${MAIL_PREFIX} : choisir un nouveau mot de passe`
+    ? `${MAIL_PREFIX}\u00a0: choisir un nouveau mot de passe`
     : `${MAIL_PREFIX}: set a new password`;
 }
 
@@ -283,7 +283,7 @@ export function resetMailBody(
     const who = input.byAdmin
       ? "Un administrateur vous envoie un lien pour choisir un nouveau mot de passe AnyGridDB."
       : "Vous avez demandé à choisir un nouveau mot de passe AnyGridDB.";
-    return `${who}\n\n${input.link}\n\nLe lien sert une fois, jusqu'au ${until}. Vos seconds facteurs restent en place.\n\nSi vous n'avez rien demandé, ignorez ce message : votre mot de passe ne change pas.`;
+    return `${who}\n\n${input.link}\n\nLe lien sert une fois, jusqu’au ${until}. Vos seconds facteurs restent en place.\n\nSi vous n’avez rien demandé, ignorez ce message\u00a0: votre mot de passe ne change pas.`;
   }
   const who = input.byAdmin
     ? "An administrator sent you a link to set a new AnyGridDB password."
@@ -294,7 +294,7 @@ export function resetMailBody(
 /** The link that proves the address of a sign-up (ADR 0058). */
 export function signupMailSubject(locale: MailLocale): string {
   return locale === "fr"
-    ? `${MAIL_PREFIX} : confirmer votre adresse`
+    ? `${MAIL_PREFIX}\u00a0: confirmer votre adresse`
     : `${MAIL_PREFIX}: confirm your address`;
 }
 
@@ -304,7 +304,7 @@ export function signupMailBody(
 ): string {
   const until = moment(locale, input.expiresAt);
   if (locale === "fr") {
-    return `Pour créer votre compte AnyGridDB, ouvrez ce lien et saisissez le mot de passe choisi à l'inscription :\n\n${input.link}\n\nLe lien sert jusqu'au ${until}.\n\nSi vous n'avez rien demandé, ignorez ce message : aucun compte n'est créé.`;
+    return `Pour créer votre compte AnyGridDB, ouvrez ce lien et saisissez le mot de passe choisi à l’inscription\u00a0:\n\n${input.link}\n\nLe lien sert jusqu’au ${until}.\n\nSi vous n’avez rien demandé, ignorez ce message\u00a0: aucun compte n’est créé.`;
   }
   return `To create your AnyGridDB account, open this link and enter the password you chose when signing up:\n\n${input.link}\n\nThe link works until ${until}.\n\nIf you did not ask for it, ignore this email: no account is created.`;
 }
@@ -315,7 +315,7 @@ export function signupMailBody(
  */
 export function accountExistsMailSubject(locale: MailLocale): string {
   return locale === "fr"
-    ? `${MAIL_PREFIX} : vous avez déjà un compte`
+    ? `${MAIL_PREFIX}\u00a0: vous avez déjà un compte`
     : `${MAIL_PREFIX}: you already have an account`;
 }
 
@@ -324,7 +324,7 @@ export function accountExistsMailBody(
   input: { loginUrl: string },
 ): string {
   if (locale === "fr") {
-    return `Quelqu'un a voulu créer un compte AnyGridDB avec cette adresse, qui en a déjà un. Rien n'a changé.\n\nPour vous connecter, ou choisir un nouveau mot de passe si vous l'avez oublié :\n\n${input.loginUrl}\n\nSi vous n'avez rien demandé, ignorez ce message.`;
+    return `Quelqu’un a voulu créer un compte AnyGridDB avec cette adresse, qui en a déjà un. Rien n’a changé.\n\nPour vous connecter, ou choisir un nouveau mot de passe si vous l’avez oublié :\n\n${input.loginUrl}\n\nSi vous n’avez rien demandé, ignorez ce message.`;
   }
   return `Someone tried to create an AnyGridDB account with this address, which already has one. Nothing changed.\n\nTo sign in, or to set a new password if you forgot it:\n\n${input.loginUrl}\n\nIf you did not ask for it, ignore this email.`;
 }
@@ -332,7 +332,7 @@ export function accountExistsMailBody(
 /** An account an administrator created (ROADMAP #67): the first password. */
 export function welcomeMailSubject(locale: MailLocale): string {
   return locale === "fr"
-    ? `${MAIL_PREFIX} : votre compte vous attend`
+    ? `${MAIL_PREFIX}\u00a0: votre compte vous attend`
     : `${MAIL_PREFIX}: your account is ready`;
 }
 
@@ -342,7 +342,7 @@ export function welcomeMailBody(
 ): string {
   const until = moment(locale, input.expiresAt);
   if (locale === "fr") {
-    return `${input.creatorName} vous a créé un compte AnyGridDB. Choisissez votre mot de passe avec ce lien :\n\n${input.link}\n\nLe lien sert une fois, jusqu'au ${until}. Passé ce délai, demandez-en un nouveau à un administrateur, ou depuis la page de connexion.`;
+    return `${input.creatorName} vous a créé un compte AnyGridDB. Choisissez votre mot de passe avec ce lien\u00a0:\n\n${input.link}\n\nLe lien sert une fois, jusqu’au ${until}. Passé ce délai, demandez-en un nouveau à un administrateur, ou depuis la page de connexion.`;
   }
   return `${input.creatorName} created an AnyGridDB account for you. Choose your password with this link:\n\n${input.link}\n\nThe link works once, until ${until}. After that, ask an administrator for a new one, or ask for one from the sign-in page.`;
 }

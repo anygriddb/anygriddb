@@ -148,7 +148,7 @@ export function GalleryView(props: ViewProps) {
                         className="flex min-h-32 items-center justify-center gap-1 rounded-sm border border-dashed border-border text-sm text-muted-foreground hover:bg-muted"
                       >
                         <Plus className="h-4 w-4" aria-hidden />
-                        {t`Add a record`}
+                        {t`Add a card`}
                       </button>
                     );
                   }

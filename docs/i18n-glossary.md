@@ -21,6 +21,10 @@ French translations live in `apps/web/locales/fr/messages.po`.
 | Locale / language | Language                                                 | User-facing menu label                                                                                              |
 | Account create    | Add a person                                             | Administration accounts; not “Create account” there                                                                 |
 | Account erase     | Delete                                                   | Not “Erase”; confirmation still types the email                                                                     |
+| Second factor     | Second factor                                            | Not “two-factor authentication”, “2FA”, or “MFA”                                                                    |
+| Sign-up           | Create an account                                        | “Sign-up” is the noun (sign-up domains); the action is “create an account”, not “sign up” or “register”             |
+| Card              | Card                                                     | A row drawn as a card in the kanban and the gallery (“Add a card”, “Card fields”); a row everywhere else            |
+| Person field      | Collaborator                                             | The field that holds people of the base; not “user field”                                                           |
 | Invite / grant    | Invite, Add                                              | Prefer the verb people look for                                                                                     |
 | Admin sections    | People, Security, Connections, Sources, Trails, Instance | Named by task (ROADMAP #49); “Connections” are the services the instance talks to, “Sign-ins” are people signing in |
 
@@ -30,3 +34,4 @@ French translations live in `apps/web/locales/fr/messages.po`.
 - Named ICU placeholders only (`{count}`, `{name}`).
 - English plurals with `plural` / ICU `one` / `other` (and `=0` when needed).
 - Do not invent French formula aliases; function names stay `LEN`, `IF`, …
+- French: the typographic apostrophe (’), and a non-breaking space before `:` `;` `?` `!` and inside « ». The catalog check refuses the straight apostrophe and an ordinary space there.

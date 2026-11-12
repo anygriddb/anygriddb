@@ -449,7 +449,7 @@ export function WebhooksPanel(props: {
                 : ""}
             </p>
             {!hook.active && hook.disabledReason ? (
-              <p className="text-xs text-red-600">
+              <p className="text-xs text-danger">
                 {t`Turned off after ${{ count: hook.failureCount }} failures in a row.`}
               </p>
             ) : hook.failureCount > 0 ? (

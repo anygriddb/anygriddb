@@ -155,7 +155,7 @@ export function AccountSettings() {
         </RuledSection>
       ) : null}
       <RuledSection
-        title={t`Two-factor authentication`}
+        title={t`Second factor`}
         description={t`A TOTP app or a passkey, asked at each sign-in after your password.`}
       >
         <p className="flex items-center gap-2 text-sm">
@@ -312,7 +312,7 @@ export function AccountSettings() {
       </RuledSection>
       <RuledSection
         title={t`Delete account`}
-        description={t`Removes your sign-in and attributes your audit history and comments to an erased account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave.`}
+        description={t`Removes your sign-in and attributes your audit history and comments to a deleted account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave.`}
       >
         <div className="flex gap-2">
           <Input

@@ -35,7 +35,7 @@ export function useSnapshotGaps(): (result: unknown) => string[] {
         ? t`${{ count: report.filesMissing }} file(s) missing or damaged`
         : null,
       report.peopleDropped > 0
-        ? t`${{ count: report.peopleDropped }} person(s) without access to the base, left out of User fields`
+        ? t`${{ count: report.peopleDropped }} person(s) without access to the base, left out of Collaborator fields`
         : null,
       report.membersMissing > 0
         ? t`${{ count: report.membersMissing }} member(s) without an active account here`

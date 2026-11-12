@@ -381,7 +381,7 @@ test("an administrator deletes a departed owner and names who takes the base", a
     await openAdmin(page, "Trails", "Sign-ins");
     await expect(
       page
-        .getByRole("row", { name: /Account erased/ })
+        .getByRole("row", { name: /Account deleted/ })
         .filter({ hasText: "Erase Admin" })
         .first(),
     ).toContainText("By an administrator");

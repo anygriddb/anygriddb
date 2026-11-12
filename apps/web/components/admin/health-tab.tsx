@@ -93,9 +93,9 @@ export function HealthTab() {
             className="flex items-center gap-2 rounded-sm border border-border p-3 text-sm"
           >
             {check.ok ? (
-              <CheckCircle2 className="h-5 w-5 text-green-600" aria-hidden />
+              <CheckCircle2 className="h-5 w-5 text-primary" aria-hidden />
             ) : (
-              <XCircle className="h-5 w-5 text-red-600" aria-hidden />
+              <XCircle className="h-5 w-5 text-danger" aria-hidden />
             )}
             <span className="flex-1">{name}</span>
             <span className="text-xs text-muted-foreground">

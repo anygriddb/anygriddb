@@ -34,6 +34,17 @@ let emptyEn = 0;
 let identicalFr = 0;
 let placeholderMismatch = 0;
 const mismatchSamples = [];
+let typography = 0;
+const typographySamples = [];
+
+/**
+ * French typography: a typographic apostrophe, and a non-breaking space
+ * before a colon, a semicolon, a question mark or an exclamation mark that
+ * ends a clause. A mark that opens a piece of code (`?records=`, `!=`) is
+ * not one.
+ */
+const STRAIGHT_APOSTROPHE = /'/;
+const BREAKING_SPACE = / [:;?!](?=\s|$|[»).}])/;
 
 for (const fr of frEntries) {
   if (!fr.msgid) continue;
@@ -43,6 +54,10 @@ for (const fr of frEntries) {
   if (msgstr === fr.msgid) identicalFr++;
   const idPh = extractPlaceholders(fr.msgid);
   const strPh = extractPlaceholders(msgstr);
+  if (STRAIGHT_APOSTROPHE.test(msgstr) || BREAKING_SPACE.test(msgstr)) {
+    typography++;
+    if (typographySamples.length < 10) typographySamples.push(msgstr);
+  }
   if (idPh.join(",") !== strPh.join(",")) {
     placeholderMismatch++;
     if (mismatchSamples.length < 10) {
@@ -67,6 +82,7 @@ console.log(
   `  FR msgstr === msgid:       ${identicalFr} (ok for shared terms)`,
 );
 console.log(`  placeholder mismatches:    ${placeholderMismatch}`);
+console.log(`  French typography:         ${typography}`);
 console.log(`  only in en:                ${onlyEn}`);
 console.log(`  only in fr:                ${onlyFr}`);
 if (mismatchSamples.length) {
@@ -76,7 +92,17 @@ if (mismatchSamples.length) {
   }
 }
 
+if (typographySamples.length) {
+  console.log(
+    "  French: use ’ for the apostrophe and a non-breaking space before : ; ? !",
+  );
+  for (const sample of typographySamples) {
+    console.log(`    ${JSON.stringify(sample.slice(0, 80))}`);
+  }
+}
+
 if (
+  typography > 0 ||
   emptyFr > 0 ||
   emptyEn > 0 ||
   onlyEn > 0 ||
