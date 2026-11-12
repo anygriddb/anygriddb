@@ -83,6 +83,11 @@ const IntegrationsTab = page(() =>
 const SourcesTab = page(() =>
   import("../components/admin/sources-tab").then((module) => module.SourcesTab),
 );
+const OutboundTab = page(() =>
+  import("../components/admin/outbound-tab").then(
+    (module) => module.OutboundTab,
+  ),
+);
 const ChangesTrail = page(() =>
   import("../components/admin/trails").then((module) => module.ChangesTrail),
 );
@@ -325,6 +330,7 @@ const adminRoutes = [
   adminPage("security", SecurityPage),
   adminPage("connections", IntegrationsTab),
   adminPage("sources", SourcesTab),
+  adminPage("sharing", OutboundTab),
   adminPage("trails", ChangesTrail),
   adminPage("trails/sign-ins", SignInTrail),
   adminPage("instance", SettingsTab),
