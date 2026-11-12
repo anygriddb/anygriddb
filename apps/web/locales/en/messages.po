@@ -803,6 +803,7 @@ msgid "Access granted"
 msgstr "Access granted"
 
 #: components/admin/accounts-tab.tsx
+#: components/admin/base-admin-page.tsx
 #: components/admin/sessions-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/sources-tab.tsx
@@ -1466,6 +1467,7 @@ msgstr "Backup code"
 msgid "Backup codes, shown only once."
 msgstr "Backup codes, shown only once."
 
+#: components/admin/bases-tab.tsx
 #: components/admin/invitations-panel.tsx
 #: components/admin/sources-tab.tsx
 #: components/shell/base-home.tsx
@@ -1532,6 +1534,8 @@ msgid "Base not found"
 msgstr "Base not found"
 
 #: components/admin/accounts-tab.tsx
+#: components/admin/admin-sections.ts
+#: components/admin/base-admin-page.tsx
 #: components/shell/command-palette.tsx
 #: components/shell/home-page.tsx
 #: components/shell/sidebar.tsx
@@ -1629,6 +1633,7 @@ msgstr "Calendar"
 msgid "Calendar address"
 msgstr "Calendar address"
 
+#: components/admin/base-admin-page.tsx
 #: components/admin/outbound-tab.tsx
 msgid "Calendar feed"
 msgstr "Calendar feed"
@@ -2218,6 +2223,10 @@ msgstr "Create the link"
 #: components/admin/scim-tab.tsx
 msgid "Created"
 msgstr "Created"
+
+#: components/admin/base-admin-page.tsx
+msgid "Created {when}"
+msgstr "Created {when}"
 
 #: components/admin/scim-tab.tsx
 #: components/fields/field-meta.tsx
@@ -3291,6 +3300,8 @@ msgstr "File too large (2 GiB at most)"
 msgid "File too large (20 MB, 10 MB for Excel)."
 msgstr "File too large (20 MB, 10 MB for Excel)."
 
+#: components/admin/base-admin-page.tsx
+#: components/admin/bases-tab.tsx
 #: components/admin/health-tab.tsx
 msgid "Files"
 msgstr "Files"
@@ -3733,6 +3744,10 @@ msgstr "Importing: {done} of {total} rows."
 #: components/table/import-dialog.tsx
 msgid "Importing…"
 msgstr "Importing…"
+
+#: components/admin/base-admin-page.tsx
+msgid "In a client's database"
+msgstr "In a client's database"
 
 #: components/admin/emergency-section.tsx
 msgid "In an emergency"
@@ -4382,6 +4397,8 @@ msgid "Linked table"
 msgstr "Linked table"
 
 #: components/admin/admin-sections.ts
+#: components/admin/base-admin-page.tsx
+#: components/admin/bases-tab.tsx
 msgid "Links and feeds"
 msgstr "Links and feeds"
 
@@ -4590,6 +4607,8 @@ msgstr "Measured field"
 msgid "Median"
 msgstr "Median"
 
+#: components/admin/base-admin-page.tsx
+#: components/admin/bases-tab.tsx
 #: components/settings/base-settings.tsx
 msgid "Members"
 msgstr "Members"
@@ -4933,7 +4952,12 @@ msgstr "No automations on this table."
 msgid "No base by that name"
 msgstr "No base by that name"
 
+#: components/admin/bases-tab.tsx
+msgid "No base matches."
+msgstr "No base matches."
+
 #: components/admin/account-bases.tsx
+#: components/admin/bases-tab.tsx
 msgid "No base yet."
 msgstr "No base yet."
 
@@ -5097,6 +5121,10 @@ msgstr "No sign-up domains are set (Instance, Settings): until some are, any add
 msgid "No source yet. Declare one to show its tables in a base, read and written where they live."
 msgstr "No source yet. Declare one to show its tables in a base, read and written where they live."
 
+#: components/admin/base-admin-page.tsx
+msgid "No table."
+msgstr "No table."
+
 #: components/shell/home-page.tsx
 msgid "No tables yet"
 msgstr "No tables yet"
@@ -5169,6 +5197,10 @@ msgstr "Nothing here yet."
 #: components/admin/admin-overview.tsx
 msgid "Nothing needs your attention."
 msgstr "Nothing needs your attention."
+
+#: components/admin/base-admin-page.tsx
+msgid "Nothing of this base can be read from outside it."
+msgstr "Nothing of this base can be read from outside it."
 
 #: components/admin/auth-labels.ts
 msgid "Notice emailed"
@@ -5428,6 +5460,10 @@ msgstr "Owned by {owners}"
 #: components/settings/role-label.ts
 msgid "Owner"
 msgstr "Owner"
+
+#: components/admin/bases-tab.tsx
+msgid "Owners"
+msgstr "Owners"
 
 #: components/shell/not-found.tsx
 msgid "Page not found"
@@ -5718,6 +5754,7 @@ msgstr "Provisioned by the identity provider (SCIM), then removed by it"
 msgid "Provisioning"
 msgstr "Provisioning"
 
+#: components/admin/base-admin-page.tsx
 #: components/admin/outbound-tab.tsx
 msgid "Public link"
 msgstr "Public link"
@@ -6187,6 +6224,10 @@ msgstr "Revoke every API token"
 msgid "Revoke every API token?"
 msgstr "Revoke every API token?"
 
+#: components/admin/base-admin-page.tsx
+msgid "Revoke from Sharing"
+msgstr "Revoke from Sharing"
+
 #: components/admin/scim-tab.tsx
 msgid "Revoke the token {name}"
 msgstr "Revoke the token {name}"
@@ -6207,6 +6248,7 @@ msgstr "revoked"
 msgid "Revoked"
 msgstr "Revoked"
 
+#: components/admin/base-admin-page.tsx
 #: components/admin/invitations-panel.tsx
 #: components/settings/base-settings.tsx
 #: components/settings/group-roles.tsx
@@ -6275,6 +6317,10 @@ msgstr "Row condition (creations, updates, statuses)"
 msgid "Row count"
 msgstr "Row count"
 
+#: components/admin/bases-tab.tsx
+msgid "Row counts are the database's estimates: a table gets one once it has been analyzed."
+msgstr "Row counts are the database's estimates: a table gets one once it has been analyzed."
+
 #: components/record/record-panel.tsx
 msgid "Row details"
 msgstr "Row details"
@@ -6316,6 +6362,11 @@ msgstr "Rows already empty here stay so until someone changes this field."
 #: components/fields/link-selection.tsx
 msgid "Rows offered"
 msgstr "Rows offered"
+
+#: components/admin/base-admin-page.tsx
+#: components/admin/bases-tab.tsx
+msgid "Rows, about"
+msgstr "Rows, about"
 
 #: components/fields/field-editor.tsx
 msgid "Run an automation"
@@ -6472,6 +6523,10 @@ msgstr "Search accounts"
 #: components/fields/cell-editor.tsx
 msgid "Search an option"
 msgstr "Search an option"
+
+#: components/admin/bases-tab.tsx
+msgid "Search bases"
+msgstr "Search bases"
 
 #: components/fields/formula-help-panel.tsx
 msgid "Search functions"
@@ -7223,6 +7278,7 @@ msgid "table"
 msgstr "table"
 
 #: components/admin/access-tab.tsx
+#: components/admin/base-admin-page.tsx
 #: components/admin/support-tab.tsx
 #: components/admin/trails.tsx
 #: components/dashboards/dashboard-board.tsx
@@ -7274,6 +7330,8 @@ msgstr "Table to go through"
 msgid "Table, base, or action"
 msgstr "Table, base, or action"
 
+#: components/admin/base-admin-page.tsx
+#: components/admin/bases-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/shell/base-home.tsx
 #: components/shell/command-palette.tsx
@@ -8170,6 +8228,10 @@ msgstr "this week"
 #: components/table/filter-builder.tsx
 msgid "this year"
 msgstr "this year"
+
+#: components/admin/base-admin-page.tsx
+msgid "Through {groups}"
+msgstr "Through {groups}"
 
 #: components/fields/field-editor.tsx
 msgid "Through link"

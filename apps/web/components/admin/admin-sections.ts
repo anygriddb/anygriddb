@@ -1,5 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import {
+  Boxes,
   Database,
   LayoutDashboard,
   LockKeyhole,
@@ -21,6 +22,7 @@ export type AdminPath =
   | "/admin/security"
   | "/admin/connections"
   | "/admin/sources"
+  | "/admin/bases"
   | "/admin/sharing"
   | "/admin/sharing/access"
   | "/admin/trails"
@@ -105,6 +107,12 @@ export function useAdminSections(): AdminSection[] {
       label: t`Sources`,
       icon: Database,
       pages: [{ to: "/admin/sources", label: t`Sources` }],
+    },
+    {
+      id: "bases",
+      label: t`Bases`,
+      icon: Boxes,
+      pages: [{ to: "/admin/bases", label: t`Bases` }],
     },
     {
       id: "sharing",

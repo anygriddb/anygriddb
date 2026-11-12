@@ -85,7 +85,7 @@ A row moves up only when it unblocks another.
 3. A UUID field type: 6.
 4. Data in and out past 100,000 rows: 82, 83, with 47 (a job retried),
    which matters once jobs run longer.
-5. Administration lot 3: 14, 69, 22.
+5. Administration lot 3: 69, 22.
 6. Keys before backups: 64, then lot 4 (17, 25). Row 51
    needs no code: a version tag runs the release workflow.
 
@@ -147,13 +147,12 @@ Done: six sections named by task, every page at an address of its own, a first p
 
 #### Lot 3: bases and what leaves them
 
-Every base, link, token, webhook, and automation of the instance, metadata only: never a cell value. Done: every public link and calendar feed in one list, under Sharing, revoked from there (#16), and every API token, webhook, and automation, revoked or switched off from there (#23).
+Every base, link, token, webhook, and automation of the instance, metadata only: never a cell value. Done: every public link and calendar feed in one list, under Sharing, revoked from there (#16), and every API token, webhook, and automation, revoked or switched off from there (#23). Every base in one list, with a page of its own: owners, members and their roles, tables, estimated rows, files, links and feeds (#14). A base's last activity is not shown: the change trail has no index that finds it quickly.
 
-| #   | What                                                                                                                                                                      | Effort | Notes                                                                                                                                          |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| 14  | Every base in one list, with a page per base: owners, members, tables (no cell values), estimated rows, attachment volume, last activity, and that base's outbound shares | M      | Health shows counts only. Row totals are estimates (`reltuples`), never a full count. List stays fast with hundreds of bases                   |
-| 69  | From a base in that list, see its members and grant, change, or revoke their roles without being a member of the base                                                     | M      | Builds on 14 and 68. Today a base's members are changed in its settings by an owner, or one person at a time from their page in Administration |
-| 22  | Bases without an active owner pointed out (no live owner, direct or by group); a base archived or deleted from Administration; bases deleted by others seen and restored  | M      | Builds on 14                                                                                                                                   |
+| #   | What                                                                                                                                                                     | Effort | Notes                                                                                                                                          |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 69  | From a base in that list, see its members and grant, change, or revoke their roles without being a member of the base                                                    | M      | Builds on 14 and 68. Today a base's members are changed in its settings by an owner, or one person at a time from their page in Administration |
+| 22  | Bases without an active owner pointed out (no live owner, direct or by group); a base archived or deleted from Administration; bases deleted by others seen and restored | M      | Builds on 14                                                                                                                                   |
 
 #### Lot 4: backups and alerts
 

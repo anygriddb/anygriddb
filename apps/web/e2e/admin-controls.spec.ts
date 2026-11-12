@@ -73,6 +73,17 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       page.getByText(/Public links let anyone with the address/),
     ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
+    // Every base, and one base's own page.
+    await openAdmin(page, "Bases");
+    await page.getByLabel("Search bases").fill("Lab");
+    const firstBase = page.getByRole("table").getByRole("link").first();
+    await expect(firstBase).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await firstBase.click();
+    await page.waitForURL(/\/admin\/bases\/[0-9a-f-]{36}$/);
+    await expect(page.getByRole("heading", { name: "Members" })).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
     // And every API token, webhook, and automation.
     await openAdmin(page, "Sharing", "Tokens and automations");
     await expect(
