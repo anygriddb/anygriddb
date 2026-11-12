@@ -4791,6 +4791,10 @@ msgstr "le mois prochain"
 msgid "Next month"
 msgstr "Mois suivant"
 
+#: components/views/timeline-view.tsx
+msgid "Next period"
+msgstr "Période suivante"
+
 #: components/record/record-panel.tsx
 msgid "Next row"
 msgstr "Ligne suivante"
@@ -4971,6 +4975,10 @@ msgstr "Aucun résultat"
 #: lib/errors.ts
 msgid "No row"
 msgstr "Ligne introuvable"
+
+#: components/views/timeline-view.tsx
+msgid "No rows in this period."
+msgstr "Aucune ligne sur cette période."
 
 #: components/table/automations-dialog.tsx
 msgid "No runs yet."
@@ -5550,6 +5558,10 @@ msgstr "Fichier précédent"
 #: components/views/calendar-view.tsx
 msgid "Previous month"
 msgstr "Mois précédent"
+
+#: components/views/timeline-view.tsx
+msgid "Previous period"
+msgstr "Période précédente"
 
 #: components/record/record-panel.tsx
 msgid "Previous row"
@@ -8060,6 +8072,7 @@ msgid "today"
 msgstr "aujourd’hui"
 
 #: components/views/calendar-view.tsx
+#: components/views/timeline-view.tsx
 msgid "Today"
 msgstr "Aujourd’hui"
 
