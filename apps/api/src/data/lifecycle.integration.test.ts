@@ -3,7 +3,7 @@
  * the unit tests used to check through fakes of the query builder.
  */
 import { randomBytes, randomUUID } from "node:crypto";
-import { AppError } from "@anygriddb/core";
+import { AppError, findTemplate, madeNames } from "@anygriddb/core";
 import type { Database, JobRow } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { authorTable } from "../job-runners.js";
@@ -39,6 +39,8 @@ import {
   updateView,
 } from "./views.js";
 import { loadEngine } from "./engine.js";
+import { applyTemplate } from "./data-ops.js";
+import { readPage } from "./rows.js";
 
 const suffix = randomBytes(6).toString("hex");
 
@@ -467,6 +469,68 @@ describe("jobs, trash, and authors", () => {
       expect(back?.config.hiddenFields).toEqual(["remark"]);
       expect(back?.config.sort).toEqual([
         { column: "remark", direction: "desc" },
+      ]);
+    });
+  });
+
+  describe("a template", () => {
+    it("makes a base in the asker's language, its links and formulas working", async () => {
+      const template = findTemplate("crm");
+      if (!template) throw new Error("no CRM template");
+      const baseId = (await insertBase(db, owner, { name: "CRM" })).id;
+      const [companies, , deals] = await applyTemplate(
+        db,
+        owner,
+        baseId,
+        template,
+        madeNames("fr"),
+      );
+      const tables = await db
+        .selectFrom("dataTables")
+        .select("name")
+        .where("baseId", "=", baseId)
+        .orderBy("position")
+        .execute();
+      expect(tables.map((table) => table.name)).toEqual([
+        "Entreprises",
+        "Contacts",
+        "Affaires",
+      ]);
+      const read = async (tableId: string | undefined) => {
+        const { engine } = await loadEngine(db, tableId ?? "", () => true);
+        const page = await readPage(
+          db,
+          engine,
+          { limit: 10 },
+          { total: false },
+        );
+        return { engine, rows: page.rows };
+      };
+      const company = await read(companies);
+      const total = company.engine.table.columns.find(
+        (column) => column.label === "Montant total",
+      );
+      expect(total?.fieldType).toBe("rollup");
+      const acme = company.rows.find((row) => row.nom === "Acme");
+      expect(String(acme?.[total?.name ?? ""])).toBe("48000");
+      expect(company.rows.map((row) => row.secteur)).toContain("Industrie");
+      const deal = await read(deals);
+      const weighted = deal.engine.table.columns.find(
+        (column) => column.label === "Montant pondéré",
+      );
+      const line = deal.rows.find((row) => row.titre === "Ligne de production");
+      expect(String(line?.[weighted?.name ?? ""])).toBe("28800");
+      expect(line?.etape).toBe("Proposition");
+      const views = await db
+        .selectFrom("views")
+        .select("name")
+        .where("tableId", "=", deals ?? "")
+        .orderBy("position")
+        .execute();
+      expect(views.map((view) => view.name)).toEqual([
+        "Grille",
+        "Pipeline",
+        "Échéances",
       ]);
     });
   });

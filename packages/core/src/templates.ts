@@ -2,8 +2,10 @@ import type { ColumnDefinition } from "./schemas";
 
 /**
  * Built-in base templates. Labels are English, the interface's source
- * language. Relations name their target table by key, then lookups and
- * rollups refer to the relation by its derived column name.
+ * language, and are written in the asker's language when a base is made
+ * from one (`localizeTemplate`). Relations name their target table by
+ * key; lookups and rollups name a link's inverse column, which keeps its
+ * name in every language.
  */
 export type TemplateTable = {
   key: string;
@@ -22,6 +24,12 @@ export type TemplateLink = {
   to: string;
   label: string;
   inverseLabel: string;
+  /**
+   * The link's column names, whatever language its labels are written
+   * in: rollups name the inverse one.
+   */
+  name: string;
+  inverseName: string;
   multiple: boolean;
   /** Row links as pairs of row positions in `from` and `to`. */
   rows?: Array<[number, number]>;
@@ -193,6 +201,8 @@ export const BASE_TEMPLATES: readonly BaseTemplate[] = [
         to: "companies",
         label: "Company",
         inverseLabel: "Contacts",
+        name: "company",
+        inverseName: "contacts",
         multiple: false,
         rows: [
           [0, 0],
@@ -204,6 +214,8 @@ export const BASE_TEMPLATES: readonly BaseTemplate[] = [
         to: "companies",
         label: "Company",
         inverseLabel: "Deals",
+        name: "company",
+        inverseName: "deals",
         multiple: false,
         rows: [
           [0, 0],
@@ -321,6 +333,8 @@ export const BASE_TEMPLATES: readonly BaseTemplate[] = [
         to: "projects",
         label: "Project",
         inverseLabel: "Tasks",
+        name: "project",
+        inverseName: "tasks",
         multiple: false,
         rows: [
           [0, 0],
@@ -425,6 +439,8 @@ export const BASE_TEMPLATES: readonly BaseTemplate[] = [
         to: "suppliers",
         label: "Supplier",
         inverseLabel: "Products",
+        name: "supplier",
+        inverseName: "products",
         multiple: false,
         rows: [
           [0, 0],

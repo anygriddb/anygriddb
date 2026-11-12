@@ -364,6 +364,7 @@ export {
   type TemplateLink,
   type TemplateTable,
 } from "./templates";
+export { localizeTemplate } from "./template-words";
 
 export {
   MAX_FROZEN_COLUMNS,
