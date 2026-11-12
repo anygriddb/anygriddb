@@ -22,6 +22,7 @@ export type AdminPath =
   | "/admin/connections"
   | "/admin/sources"
   | "/admin/sharing"
+  | "/admin/sharing/access"
   | "/admin/trails"
   | "/admin/trails/sign-ins"
   | "/admin/instance"
@@ -109,7 +110,10 @@ export function useAdminSections(): AdminSection[] {
       id: "sharing",
       label: t`Sharing`,
       icon: Share2,
-      pages: [{ to: "/admin/sharing", label: t`Links and feeds` }],
+      pages: [
+        { to: "/admin/sharing", label: t`Links and feeds` },
+        { to: "/admin/sharing/access", label: t`Tokens and automations` },
+      ],
     },
     trails,
     {

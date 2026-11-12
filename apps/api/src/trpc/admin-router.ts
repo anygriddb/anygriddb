@@ -151,7 +151,15 @@ import {
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { notifyOwnerNamed } from "../notifications.js";
-import { listOutbound, revokeOutbound } from "../data/outbound.js";
+import {
+  listInstanceHooks,
+  listInstanceTokens,
+  listOutbound,
+  revokeOutbound,
+} from "../data/outbound.js";
+import { revokeApiToken } from "../auth/tokens.js";
+import { setAutomationEnabled } from "../automations.js";
+import { updateWebhook } from "../webhooks.js";
 import { procedure, requestNames, requireUser, t } from "./init.js";
 
 /**
@@ -902,6 +910,63 @@ export const adminRouter = t.router({
           ctx.req.log.info(
             { actor: admin.id, kind: input.kind, id: input.id },
             "outbound link revoked by administrator",
+          );
+          return { ok: true as const };
+        }),
+      ),
+  }),
+  /**
+   * The API tokens, outgoing webhooks, and automations of the whole
+   * instance (ROADMAP #23): each with its owner, state, and last use, and
+   * one revoked or switched off without being in its base.
+   */
+  access: t.router({
+    list: procedure.query(({ ctx }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        const [tokens, hooks] = await Promise.all([
+          listInstanceTokens(ctx.db, 500),
+          listInstanceHooks(ctx.db, 500),
+        ]);
+        return { tokens, hooks };
+      }),
+    ),
+    revokeToken: procedure
+      .input(z.object({ id: z.uuid() }))
+      .mutation(({ ctx, input }) =>
+        handle(ctx, async () => {
+          const admin = await requireAdmin(ctx);
+          const token = await ctx.db
+            .selectFrom("apiTokens")
+            .select("userId")
+            .where("id", "=", input.id)
+            .executeTakeFirst();
+          if (!token) throw new AppError("no_row");
+          await revokeApiToken(ctx.db, token.userId, input.id);
+          ctx.req.log.info(
+            { actor: admin.id, target: token.userId, token: input.id },
+            "api token revoked by administrator",
+          );
+          return { ok: true as const };
+        }),
+      ),
+    switchOff: procedure
+      .input(
+        z.object({ kind: z.enum(["webhook", "automation"]), id: z.uuid() }),
+      )
+      .mutation(({ ctx, input }) =>
+        handle(ctx, async () => {
+          const admin = await requireAdmin(ctx);
+          if (input.kind === "webhook") {
+            await updateWebhook(ctx.db, ctx.env.AUTH_ENCRYPTION_KEY, input.id, {
+              active: false,
+            });
+          } else {
+            await setAutomationEnabled(ctx.db, input.id, false);
+          }
+          ctx.req.log.info(
+            { actor: admin.id, kind: input.kind, id: input.id },
+            "switched off by administrator",
           );
           return { ok: true as const };
         }),

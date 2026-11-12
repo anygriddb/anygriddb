@@ -321,6 +321,10 @@ msgstr "{count, plural, one {# table ajoutée à {base}} other {# tables ajouté
 msgid "{count, plural, one {Expose # table} other {Expose # tables}}"
 msgstr "{count, plural, one {Exposer # table} other {Exposer # tables}}"
 
+#: components/admin/access-tab.tsx
+msgid "{count} bases"
+msgstr "{count} bases"
+
 #: components/grid/grid-view.tsx
 msgid "{count} cells copied"
 msgstr "{count} cellules copiées"
@@ -329,6 +333,11 @@ msgstr "{count} cellules copiées"
 msgid "{count} cells skipped: incompatible value or computed field"
 msgstr "{count} cellules ignorées : valeur incompatible ou champ calculé"
 
+#: components/admin/access-tab.tsx
+msgid "{count} failed runs in 24 hours"
+msgstr "{count} exécutions en échec en 24 heures"
+
+#: components/admin/access-tab.tsx
 #: components/settings/webhooks-panel.tsx
 msgid "{count} failures in a row"
 msgstr "{count} échecs consécutifs"
@@ -856,6 +865,7 @@ msgstr "URL ACS pour le fournisseur d’identité :"
 msgid "Action"
 msgstr "Action"
 
+#: components/admin/access-tab.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/invitations-panel.tsx
 #: components/admin/outbound-tab.tsx
@@ -1297,6 +1307,7 @@ msgstr "Clé d’API"
 msgid "API token lifetime"
 msgstr "Durée de vie des jetons d’API"
 
+#: components/admin/access-tab.tsx
 #: components/admin/account-page.tsx
 #: components/settings/account-settings.tsx
 msgid "API tokens"
@@ -1401,6 +1412,7 @@ msgstr "Automatisation"
 msgid "Automation in {table}"
 msgstr "Automatisation dans {table}"
 
+#: components/admin/access-tab.tsx
 #: components/table/view-toolbar.tsx
 msgid "Automations"
 msgstr "Automatisations"
@@ -2614,6 +2626,7 @@ msgstr "ne contient pas"
 msgid "Domains: {domains}. Invitations already sent to other addresses stop working, and so does adding such an account to a base."
 msgstr "Domaines : {domains}. Les invitations déjà envoyées à d’autres adresses ne fonctionnent plus, pas plus que l’ajout d’un tel compte à une base."
 
+#: components/admin/access-tab.tsx
 #: components/admin/account-actions.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/support-tab.tsx
@@ -2883,9 +2896,14 @@ msgstr "Terminer une session après cette durée sans activité"
 msgid "End it in any case after"
 msgstr "La terminer dans tous les cas après"
 
+#: components/admin/access-tab.tsx
 #: components/admin/outbound-tab.tsx
 msgid "Ended {when}"
 msgstr "Terminé le {when}"
+
+#: components/admin/access-tab.tsx
+msgid "Ends"
+msgstr "Fin"
 
 #: components/admin/outbound-tab.tsx
 msgid "Ends {when}"
@@ -2957,6 +2975,10 @@ msgstr "Chaque compte, ses bases et rôles, et sa dernière connexion, en fichie
 #: components/admin/sign-in-trail.tsx
 msgid "Every active account"
 msgstr "Tous les comptes actifs"
+
+#: components/admin/access-tab.tsx
+msgid "Every base of its owner"
+msgstr "Toutes les bases de son propriétaire"
 
 #: components/table/automations-dialog.tsx
 msgid "Every day"
@@ -4094,6 +4116,10 @@ msgstr "Elle n’a pas encore été lue."
 msgid "It stays in the trash for {days} days."
 msgstr "Il reste {days} jours dans la corbeille."
 
+#: components/admin/access-tab.tsx
+msgid "It stops running now and keeps its settings: someone who manages its base can switch it on again."
+msgstr "Il s’arrête tout de suite et garde ses réglages : une personne qui gère sa base peut le réactiver."
+
 #: components/admin/scim-tab.tsx
 msgid "It's copied"
 msgstr "C’est copié"
@@ -4222,6 +4248,10 @@ msgstr "le mois dernier"
 msgid "Last read on {date}."
 msgstr "Lue pour la dernière fois le {date}."
 
+#: components/admin/access-tab.tsx
+msgid "Last run"
+msgstr "Dernière exécution"
+
 #: components/table/automations-dialog.tsx
 msgid "last run {date}"
 msgstr "dernière exécution {date}"
@@ -4238,6 +4268,7 @@ msgstr "Dernière connexion"
 msgid "Last sign-in events"
 msgstr "Derniers événements de connexion"
 
+#: components/admin/access-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Last used"
 msgstr "Dernier usage"
@@ -4679,6 +4710,7 @@ msgstr "Choix multiple"
 msgid "N days ago"
 msgstr "il y a N jours"
 
+#: components/admin/access-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/settings/webhooks-panel.tsx
@@ -4708,6 +4740,7 @@ msgstr "Erreur réseau"
 msgid "Network failure"
 msgstr "Échec réseau"
 
+#: components/admin/access-tab.tsx
 #: components/admin/security-tab.tsx
 #: components/table/share-dialog.tsx
 msgid "Never"
@@ -4882,9 +4915,14 @@ msgstr "Aucun compte ne correspond à cette sélection"
 msgid "No API token to revoke"
 msgstr "Aucun jeton d’API à révoquer"
 
+#: components/admin/access-tab.tsx
 #: components/admin/account-page.tsx
 msgid "No API token."
 msgstr "Aucun jeton d’API."
+
+#: components/admin/access-tab.tsx
+msgid "No automation."
+msgstr "Aucune automatisation."
 
 #: components/table/automations-dialog.tsx
 msgid "No automations on this table."
@@ -5070,6 +5108,10 @@ msgstr "Aucun jeton pour l’instant. Créez-en un ci-dessous et donnez-le à vo
 #: components/views/kanban-view.tsx
 msgid "No value"
 msgstr "Sans valeur"
+
+#: components/admin/access-tab.tsx
+msgid "No webhook."
+msgstr "Aucun webhook."
 
 #: components/admin/health-tab.tsx
 msgid "Node.js, up for"
@@ -5382,6 +5424,7 @@ msgstr "Vue d’ensemble"
 msgid "Owned by {owners}"
 msgstr "Appartient à {owners}"
 
+#: components/admin/access-tab.tsx
 #: components/settings/role-label.ts
 msgid "Owner"
 msgstr "Propriétaire"
@@ -5741,6 +5784,10 @@ msgstr "Note"
 msgid "Reachable bases"
 msgstr "Bases accessibles"
 
+#: components/admin/access-tab.tsx
+msgid "Reaches"
+msgstr "Portée"
+
 #: components/admin/sources-tab.tsx
 msgid "read"
 msgstr "lecture"
@@ -5761,6 +5808,7 @@ msgstr "Lecture et écriture"
 msgid "read only"
 msgstr "lecture seule"
 
+#: components/admin/access-tab.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/table-acl-panel.tsx
 msgid "Read only"
@@ -6107,6 +6155,7 @@ msgstr "Résultat"
 msgid "Retry scheduled ({error})"
 msgstr "Nouvel essai prévu ({error})"
 
+#: components/admin/access-tab.tsx
 #: components/admin/account-actions.tsx
 #: components/admin/emergency-section.tsx
 #: components/admin/outbound-tab.tsx
@@ -6121,6 +6170,10 @@ msgstr "Révoquer"
 #: components/admin/scim-tab.tsx
 msgid "Revoke “{name}”?"
 msgstr "Révoquer « {name} » ?"
+
+#: components/admin/access-tab.tsx
+msgid "Revoke {name}?"
+msgstr "Révoquer {name} ?"
 
 #: components/admin/account-actions.tsx
 msgid "Revoke {name}'s API tokens?"
@@ -6560,6 +6613,10 @@ msgstr "Envoyer le lien"
 #: components/admin/support-tab.tsx
 msgid "Send to {count} accounts?"
 msgstr "Envoyer à {count} comptes ?"
+
+#: components/admin/access-tab.tsx
+msgid "Sends to"
+msgstr "Envoie à"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Sent ({status})"
@@ -7013,6 +7070,10 @@ msgstr "Point de départ"
 msgid "starts with"
 msgstr "commence par"
 
+#: components/admin/access-tab.tsx
+msgid "State"
+msgstr "État"
+
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/support-tab.tsx
@@ -7137,6 +7198,22 @@ msgstr "Support"
 msgid "Switch"
 msgstr "Interrupteur"
 
+#: components/admin/access-tab.tsx
+msgid "Switch off"
+msgstr "Désactiver"
+
+#: components/admin/access-tab.tsx
+msgid "Switch off {name}?"
+msgstr "Désactiver {name} ?"
+
+#: components/admin/access-tab.tsx
+msgid "Switched off"
+msgstr "Désactivé"
+
+#: components/admin/access-tab.tsx
+msgid "Switched on"
+msgstr "Activé"
+
 #: components/shell/user-menu.tsx
 msgid "System"
 msgstr "Système"
@@ -7145,6 +7222,7 @@ msgstr "Système"
 msgid "table"
 msgstr "table"
 
+#: components/admin/access-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/admin/trails.tsx
 #: components/dashboards/dashboard-board.tsx
@@ -8184,6 +8262,10 @@ msgstr "Aujourd’hui"
 msgid "Today's date, in the reader's time zone."
 msgstr "La date du jour, dans le fuseau de qui lit."
 
+#: components/admin/access-tab.tsx
+msgid "Token"
+msgstr "Jeton"
+
 #: components/admin/scim-tab.tsx
 msgid "Token copied"
 msgstr "Jeton copié"
@@ -8196,6 +8278,10 @@ msgstr "Nom du jeton"
 #: components/admin/scim-tab.tsx
 msgid "Tokens"
 msgstr "Jetons"
+
+#: components/admin/admin-sections.ts
+msgid "Tokens and automations"
+msgstr "Jetons et automatisations"
 
 #: components/table/filter-builder.tsx
 msgid "tomorrow"
@@ -8722,6 +8808,7 @@ msgstr "Envois de webhooks en échec"
 msgid "Webhook disabled after too many failures"
 msgstr "Webhook désactivé après trop d’échecs"
 
+#: components/admin/access-tab.tsx
 #: components/settings/base-settings.tsx
 msgid "Webhooks"
 msgstr "Webhooks"
@@ -8765,6 +8852,10 @@ msgstr "À quoi sert cette vue (vide : aucune description)"
 #: components/shell/page-crashed.tsx
 msgid "What you saved is kept. Reload the page to carry on."
 msgstr "Ce que vous avez enregistré est conservé. Rechargez la page pour continuer."
+
+#: components/admin/access-tab.tsx
+msgid "Whatever uses this token is refused from now on. Its owner can make another."
+msgstr "Tout ce qui utilise ce jeton est refusé désormais. Son propriétaire peut en créer un autre."
 
 #: components/table/automations-dialog.tsx
 msgid "When"

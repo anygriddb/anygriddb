@@ -149,3 +149,173 @@ export async function revokeOutbound(
     (tx) => tx.deleteFrom("calendarFeeds").where("id", "=", feed.id).execute(),
   );
 }
+
+export type InstanceToken = {
+  id: string;
+  name: string;
+  ownerId: string;
+  owner: string;
+  createdAt: string;
+  expiresAt: string;
+  expired: boolean;
+  lastUsedAt: string | null;
+  readOnly: boolean;
+  /** How many bases it is limited to; null when it reaches all of its owner's. */
+  bases: number | null;
+};
+
+export type InstanceHook = {
+  kind: "webhook" | "automation";
+  id: string;
+  name: string;
+  baseId: string;
+  base: string;
+  table: string;
+  owner: string | null;
+  on: boolean;
+  /** Where a webhook sends, its host only: a path may carry a secret. */
+  host: string | null;
+  /** Why a webhook was turned off, when the instance did it. */
+  reason: string | null;
+  lastRunAt: string | null;
+  /** Webhook: failures in a row. Automation: failed runs in 24 hours. */
+  failures: number;
+};
+
+function hostOf(target: string): string | null {
+  if (target.startsWith("mailto:") || target.includes("@")) return null;
+  try {
+    return new URL(target).host;
+  } catch {
+    return null;
+  }
+}
+
+/** Every API token of the instance, with its owner and last use. */
+export async function listInstanceTokens(
+  db: Database,
+  limit: number,
+): Promise<InstanceToken[]> {
+  const now = Date.now();
+  const rows = await db
+    .selectFrom("apiTokens as k")
+    .innerJoin("users as u", "u.id", "k.userId")
+    .select([
+      "k.id",
+      "k.name",
+      "k.userId",
+      "k.createdAt",
+      "k.expiresAt",
+      "k.lastUsedAt",
+      "k.readOnly",
+      "k.baseIds",
+      "u.displayName as owner",
+    ])
+    .orderBy("k.createdAt", "desc")
+    .limit(limit)
+    .execute();
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    ownerId: row.userId,
+    owner: row.owner,
+    createdAt: row.createdAt.toISOString(),
+    expiresAt: row.expiresAt.toISOString(),
+    expired: row.expiresAt.getTime() <= now,
+    lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
+    readOnly: row.readOnly,
+    bases: Array.isArray(row.baseIds) ? row.baseIds.length : null,
+  }));
+}
+
+/**
+ * Every outgoing webhook and automation of a live table of a live base:
+ * whether it is on, where a webhook sends (its host), and how it fails.
+ */
+export async function listInstanceHooks(
+  db: Database,
+  limit: number,
+): Promise<InstanceHook[]> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [webhooks, automations] = await Promise.all([
+    db
+      .selectFrom("webhooks as w")
+      .innerJoin("dataTables as t", "t.id", "w.tableId")
+      .innerJoin("bases as b", "b.id", "t.baseId")
+      .leftJoin("users as u", "u.id", "w.createdBy")
+      .select([
+        "w.id",
+        "w.name",
+        "w.active",
+        "w.target",
+        "w.disabledReason",
+        "w.failureCount",
+        "t.name as table",
+        "b.id as baseId",
+        "b.name as base",
+        "u.displayName as owner",
+      ])
+      .where(liveTable("t"))
+      .where(liveBase("b"))
+      .orderBy("w.createdAt", "desc")
+      .limit(limit)
+      .execute(),
+    db
+      .selectFrom("automations as a")
+      .innerJoin("dataTables as t", "t.id", "a.tableId")
+      .innerJoin("bases as b", "b.id", "t.baseId")
+      .leftJoin("users as u", "u.id", "a.createdBy")
+      .select((eb) => [
+        "a.id",
+        "a.name",
+        "a.enabled",
+        "a.lastRunAt",
+        "t.name as table",
+        "b.id as baseId",
+        "b.name as base",
+        "u.displayName as owner",
+        eb
+          .selectFrom("automationRuns as r")
+          .select((inner) => inner.fn.countAll<string>().as("count"))
+          .whereRef("r.automationId", "=", "a.id")
+          .where("r.status", "=", "failed")
+          .where("r.startedAt", ">=", since)
+          .as("failures"),
+      ])
+      .where(liveTable("t"))
+      .where(liveBase("b"))
+      .orderBy("a.createdAt", "desc")
+      .limit(limit)
+      .execute(),
+  ]);
+  return [
+    ...webhooks.map((row): InstanceHook => ({
+      kind: "webhook",
+      id: row.id,
+      name: row.name,
+      baseId: row.baseId,
+      base: row.base,
+      table: row.table,
+      owner: row.owner,
+      on: row.active,
+      host: hostOf(row.target),
+      reason: row.disabledReason,
+      lastRunAt: null,
+      failures: row.failureCount,
+    })),
+    ...automations.map((row): InstanceHook => ({
+      kind: "automation",
+      id: row.id,
+      name: row.name,
+      baseId: row.baseId,
+      base: row.base,
+      table: row.table,
+      owner: row.owner,
+      on: row.enabled,
+      host: null,
+      reason: null,
+      lastRunAt: row.lastRunAt?.toISOString() ?? null,
+      failures: Number(row.failures ?? 0),
+    })),
+  ];
+}
