@@ -30,6 +30,7 @@ import {
   type EngineCatalog,
   type ExternalValue,
   MAX_READ_LIMIT,
+  purgeCutoff,
   type RowEvent,
   sameCell,
   type StoredColumn,
@@ -58,6 +59,7 @@ import {
   type WriteBody,
 } from "./pools.js";
 import { assertUnsealed, forgetStatuses } from "./statuses.js";
+import { readSettings } from "../settings.js";
 
 export type ExternalWriteContext = {
   userId: string;
@@ -1086,9 +1088,6 @@ export async function readExternalAudit(
     });
 }
 
-/** How long a row deleted through AnyGridDB can be put back (ADR 0007). */
-const TRASH_DAYS = 30;
-
 type DeletedRow = {
   id: string;
   rowId: string;
@@ -1098,8 +1097,9 @@ type DeletedRow = {
 };
 
 /**
- * Rows of a client's table deleted through AnyGridDB in the last 30 days
- * and not put back since: each one's last delete, newest first.
+ * Rows of a client's table deleted through AnyGridDB within the days the
+ * trash keeps things (`trashDays`), and not put back since: each one's
+ * last delete, newest first (ADR 0007).
  */
 async function deletedRows(
   db: Database,
@@ -1107,6 +1107,7 @@ async function deletedRows(
   rowIds: readonly string[] | null,
   limit: number,
 ): Promise<DeletedRow[]> {
+  const since = purgeCutoff(new Date(), (await readSettings(db)).trashDays);
   let query = db
     .selectFrom("externalWrites as w")
     .innerJoin("externalWriteSteps as a", (join) =>
@@ -1117,7 +1118,7 @@ async function deletedRows(
     .where("w.tableId", "=", tableId)
     .where("w.action", "=", "delete")
     .where("w.rowId", "is not", null)
-    .where("w.requestedAt", ">", new Date(Date.now() - TRASH_DAYS * 86_400_000))
+    .where("w.requestedAt", ">", since)
     // Put back from the trash, under any key: no longer in it.
     .where((eb) =>
       eb.not(

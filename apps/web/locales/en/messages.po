@@ -737,6 +737,10 @@ msgid "A shorter choice also ends the tokens already made that are older."
 msgstr "A shorter choice also ends the tokens already made that are older."
 
 #: components/admin/security-tab.tsx
+msgid "A shorter choice also purges, at the next nightly purge, what was deleted before it."
+msgstr "A shorter choice also purges, at the next nightly purge, what was deleted before it."
+
+#: components/admin/security-tab.tsx
 msgid "A sign-in or a token in use counts as activity. Email is not set up: accounts are disabled without warning. Administrators and accounts kept by an identity provider (SCIM) are never disabled; an administrator can enable an account again."
 msgstr "A sign-in or a token in use counts as activity. Email is not set up: accounts are disabled without warning. Administrators and accounts kept by an identity provider (SCIM) are never disabled; an administrator can enable an account again."
 
@@ -2468,9 +2472,13 @@ msgstr "Delete view"
 msgid "Deleted bases"
 msgstr "Deleted bases"
 
+#: components/admin/security-tab.tsx
+msgid "Deleted bases, tables, fields, and views wait there with their data, and so do rows deleted from a source's tables, until they are purged for good."
+msgstr "Deleted bases, tables, fields, and views wait there with their data, and so do rows deleted from a source's tables, until they are purged for good."
+
 #: components/shell/trash-dialog.tsx
-msgid "Deleted items stay here for 30 days with their data, then are deleted permanently."
-msgstr "Deleted items stay here for 30 days with their data, then are deleted permanently."
+msgid "Deleted items stay here for {days} days with their data, then are deleted permanently."
+msgstr "Deleted items stay here for {days} days with their data, then are deleted permanently."
 
 #: components/shell/trash-dialog.tsx
 #: components/shell/trashed-bases.tsx
@@ -4108,6 +4116,10 @@ msgstr "Jump to the edge of the grid"
 #: components/table/view-tabs.tsx
 msgid "Kanban"
 msgstr "Kanban"
+
+#: components/admin/security-tab.tsx
+msgid "Keep deleted items for"
+msgstr "Keep deleted items for"
 
 #: components/admin/security-tab.tsx
 msgid "Keep events for"
@@ -7188,8 +7200,8 @@ msgid "The automation acts with your access; every write is recorded in the audi
 msgstr "The automation acts with your access; every write is recorded in the audit trail."
 
 #: components/shell/sidebar.tsx
-msgid "The base and its tables go to the trash: you can restore it from the home page for 30 days."
-msgstr "The base and its tables go to the trash: you can restore it from the home page for 30 days."
+msgid "The base and its tables go to the trash: you can restore it from the home page for {days} days."
+msgstr "The base and its tables go to the trash: you can restore it from the home page for {days} days."
 
 #: components/fields/formula-docs.ts
 msgid "The base raised to the given power."
@@ -7277,12 +7289,12 @@ msgid "The false value."
 msgstr "The false value."
 
 #: components/table/table-workspace.tsx
-msgid "The field goes to the base's trash for 30 days with its values."
-msgstr "The field goes to the base's trash for 30 days with its values."
+msgid "The field goes to the base's trash for {days} days with its values."
+msgstr "The field goes to the base's trash for {days} days with its values."
 
 #: components/table/table-workspace.tsx
-msgid "The field, and its inverse field if any, go to the base's trash for 30 days with their links."
-msgstr "The field, and its inverse field if any, go to the base's trash for 30 days with their links."
+msgid "The field, and its inverse field if any, go to the base's trash for {days} days with their links."
+msgstr "The field, and its inverse field if any, go to the base's trash for {days} days with their links."
 
 #: components/admin/refresh-fields.tsx
 msgid "The fields were up to date"
@@ -7569,8 +7581,8 @@ msgid "The table is read from its copy: it can no longer be changed in AnyGridDB
 msgstr "The table is read from its copy: it can no longer be changed in AnyGridDB, and its changes arrive with each refresh, deletes included."
 
 #: components/shell/sidebar.tsx
-msgid "The table, its views, and the links to it go to the base's trash for 30 days."
-msgstr "The table, its views, and the links to it go to the base's trash for 30 days."
+msgid "The table, its views, and the links to it go to the base's trash for {days} days."
+msgstr "The table, its views, and the links to it go to the base's trash for {days} days."
 
 #: components/fields/formula-docs.ts
 msgid "The text in lower case."
@@ -7630,8 +7642,8 @@ msgid "The values of every list, one after the other."
 msgstr "The values of every list, one after the other."
 
 #: components/table/view-tabs.tsx
-msgid "The view goes to the base's trash for 30 days. The data is not touched."
-msgstr "The view goes to the base's trash for 30 days. The data is not touched."
+msgid "The view goes to the base's trash for {days} days. The data is not touched."
+msgstr "The view goes to the base's trash for {days} days. The data is not touched."
 
 #: components/fields/formula-docs.ts
 msgid "The whole number just above."
@@ -7698,8 +7710,8 @@ msgid "They lose their own role on the base and its tables at once, and their op
 msgstr "They lose their own role on the base and its tables at once, and their open pages reload. A role a group gives them stays."
 
 #: components/shell/trashed-bases.tsx
-msgid "They stay for 30 days with their data, then are deleted permanently."
-msgstr "They stay for 30 days with their data, then are deleted permanently."
+msgid "They stay for {days} days with their data, then are deleted permanently."
+msgstr "They stay for {days} days with their data, then are deleted permanently."
 
 #: components/admin/account-actions.tsx
 msgid "They will manage every account, the instance's settings, and who sees which base. Their next action asks for a second factor."
@@ -8104,6 +8116,7 @@ msgstr "Total estimated by the client's database: click to count exactly"
 msgid "Trails"
 msgstr "Trails"
 
+#: components/admin/security-tab.tsx
 #: components/shell/sidebar.tsx
 msgid "Trash"
 msgstr "Trash"

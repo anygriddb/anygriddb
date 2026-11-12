@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { trpc, useTRPC } from "./trpc";
@@ -7,8 +7,14 @@ import { useErrorText } from "../lib/errors";
 
 export type TrashKind = "base" | "table" | "column" | "view";
 
-/** Days an item waits in the trash; the API purges it afterwards. */
-export const TRASH_DAYS = 30;
+/**
+ * Days an item waits in the trash before the API purges it: the
+ * instance's choice, a month until it is known.
+ */
+export function useTrashDays(): number {
+  const api = useTRPC();
+  return useQuery(api.auth.instance.queryOptions()).data?.trashDays ?? 30;
+}
 
 /** Restoring from the trash, and the "undo" toast shown after a delete. */
 export function useTrashActions() {
@@ -16,6 +22,7 @@ export function useTrashActions() {
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
+  const days = useTrashDays();
 
   const refresh = useCallback(
     () =>
@@ -56,14 +63,14 @@ export function useTrashActions() {
     (message: string, kind: TrashKind, id: string) => {
       void refresh();
       toast.success(message, {
-        description: t`It stays in the trash for ${{ days: TRASH_DAYS }} days.`,
+        description: t`It stays in the trash for ${{ days }} days.`,
         action: {
           label: t`Cancel`,
           onClick: () => void restore(kind, id),
         },
       });
     },
-    [refresh, restore, t],
+    [refresh, restore, t, days],
   );
 
   return { refresh, restore, trashed };

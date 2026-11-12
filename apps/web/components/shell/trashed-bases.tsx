@@ -5,7 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useTrackJob } from "../../lib/jobs";
-import { useTrashActions } from "../../lib/trash";
+import { useTrashActions, useTrashDays } from "../../lib/trash";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { ConfirmDialog } from "./dialogs";
 import { useLingui } from "@lingui/react/macro";
@@ -13,9 +13,10 @@ import { useErrorText } from "../../lib/errors";
 
 type Entry = RouterOutputs["catalog"]["trashedBases"]["items"][number];
 
-/** Bases the caller deleted or managed, restorable for 30 days. */
+/** Bases the caller deleted or managed, restorable while the trash keeps them. */
 export function TrashedBases() {
   const { t } = useLingui();
+  const days = useTrashDays();
   const errorText = useErrorText();
   const api = useTRPC();
   const navigate = useNavigate();
@@ -54,7 +55,7 @@ export function TrashedBases() {
         {t`Deleted bases`}
       </h2>
       <p className="mt-2 text-xs text-muted-foreground">
-        {t`They stay for 30 days with their data, then are deleted permanently.`}
+        {t`They stay for ${{ days }} days with their data, then are deleted permanently.`}
       </p>
       <ul>
         {items.map((entry) => (

@@ -8,6 +8,7 @@ import {
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { deleteFiles, type FileStore } from "../files/index.js";
+import { readSettings } from "../settings.js";
 import { withAudit } from "./audit-context.js";
 import {
   assembleEngine,
@@ -428,6 +429,7 @@ export type TrashEntry = {
 
 function entry(
   kind: TrashEntry["kind"],
+  days: number,
   row: {
     id: string;
     name: string;
@@ -448,7 +450,7 @@ function entry(
     type: row.type ?? null,
     deletedAt: deletedAt.toISOString(),
     deletedBy: row.deletedBy,
-    purgeAt: purgeDate(deletedAt).toISOString(),
+    purgeAt: purgeDate(deletedAt, days).toISOString(),
   };
 }
 
@@ -462,6 +464,7 @@ export async function listTrash(
   baseId: string,
   userId: string,
 ): Promise<TrashEntry[]> {
+  const days = (await readSettings(db)).trashDays;
   const tableRows = await db
     .selectFrom("dataTables as t")
     .leftJoin("users as u", "u.id", "t.deletedBy")
@@ -508,9 +511,9 @@ export async function listTrash(
     )
     .execute();
   return [
-    ...tableRows.map((row) => entry("table", row)),
-    ...columnRows.map((row) => entry("column", row)),
-    ...viewRows.map((row) => entry("view", row)),
+    ...tableRows.map((row) => entry("table", days, row)),
+    ...columnRows.map((row) => entry("column", days, row)),
+    ...viewRows.map((row) => entry("view", days, row)),
   ].sort((left, right) => right.deletedAt.localeCompare(left.deletedAt));
 }
 
@@ -528,7 +531,8 @@ export async function listTrashedBases(
     .where("b.deletedAt", "is not", null)
     .orderBy("b.deletedAt", "asc")
     .execute();
-  return rows.map((row) => entry("base", row));
+  const days = (await readSettings(db)).trashDays;
+  return rows.map((row) => entry("base", days, row));
 }
 
 /* ------------------------------------------------------------------ */
@@ -647,14 +651,15 @@ export function orderForPurge<T extends TrashItem>(items: readonly T[]): T[] {
 }
 
 /**
- * Items deleted more than 30 days ago, audited under whoever deleted
- * them, or the oldest administrator when that account is gone.
+ * Items deleted longer ago than the trash keeps them (`trashDays`),
+ * audited under whoever deleted them, or the oldest administrator when
+ * that account is gone.
  */
 export async function dueTrashItems(
   db: Database,
   now: Date,
 ): Promise<PurgeTarget[]> {
-  const cutoff = purgeCutoff(now);
+  const cutoff = purgeCutoff(now, (await readSettings(db)).trashDays);
   const admin = await db
     .selectFrom("users")
     .select("id")
