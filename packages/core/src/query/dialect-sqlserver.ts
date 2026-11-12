@@ -352,6 +352,7 @@ export const SQLSERVER: SqlDialect = {
   row: (entries) =>
     `(select ${entries.map(([name, sql]) => `${sql} as "${name}"`).join(", ")} for json path, without_array_wrapper, include_null_values) as "ag_row"`,
   groupKey: json,
+  groupKeyOrder: (sql) => sql,
   emptyLinks: () => "'[]'",
   // T-SQL aggregates no expression holding a subquery (error 130), and a
   // composite key's id or a computed label is one: they are computed in a
@@ -392,7 +393,7 @@ export const SQLSERVER: SqlDialect = {
     }
     return ` offset ${String(offset)} rows fetch next ${String(limit)} rows only`;
   },
-  groupCounts: ({ keys, source, limit }) => {
+  groupCounts: ({ keys, source, limit, starts }) => {
     const names = Array.from(
       { length: keys },
       (_, index) => `"k${String(index)}"`,
@@ -403,10 +404,19 @@ export const SQLSERVER: SqlDialect = {
     const depth = names
       .map((name) => `(case when grouping(${name}) = 0 then 1 else 0 end)`)
       .join(" + ");
-    const row = [...names, `"depth"`, `"count"`]
+    const row = [
+      ...names,
+      `"depth"`,
+      `"count"`,
+      ...(starts ? [`"start"`, `"span"`] : []),
+    ]
       .map((name) => `g2.${name} as ${name}`)
       .join(", ");
-    return `select top (${String(Math.trunc(limit))}) (select ${row} for json path, without_array_wrapper, include_null_values) as "ag_row" from (select ${names.join(", ")}, ${depth} as "depth", count(*) as "count" from (${source}) g group by grouping sets (${sets.join(", ")})) g2`;
+    const placed = starts
+      ? `, min("rn") - 1 as "start", max("rn") - min("rn") + 1 as "span"`
+      : "";
+    const order = starts ? ` order by g2."start", g2."depth"` : "";
+    return `select top (${String(Math.trunc(limit))}) (select ${row} for json path, without_array_wrapper, include_null_values) as "ag_row" from (select ${names.join(", ")}, ${depth} as "depth", count(*) as "count"${placed} from (${source}) g group by grouping sets (${sets.join(", ")})) g2${order}`;
   },
   // The aggregate is computed in a derived table and made JSON outside:
   // FOR JSON's subquery would count its own single row.

@@ -13,6 +13,9 @@ import {
   orders,
 } from "./fixtures.test-helpers";
 import { parseFormula } from "../formula";
+import { MARIADB, MYSQL, POSTGRES } from "./dialect";
+import { ORACLE } from "./dialect-oracle";
+import { SQLSERVER } from "./dialect-sqlserver";
 
 describe("buildReadRows", () => {
   it("compiles formulas, links, lookups, and paging into one bound query", () => {
@@ -285,6 +288,55 @@ describe("search", () => {
 });
 
 describe("count, groups, aggregates", () => {
+  it("says where each group starts, in the order the rows are read", () => {
+    const groupBy = [
+      { column: "status", direction: "asc" as const },
+      { column: "due", direction: "desc" as const },
+    ];
+    const page = buildReadRows(catalogFor(), { limit: 100, groupBy });
+    // Values a sort calls equal but grouping keeps apart follow each other.
+    expect(page.text).toMatch(
+      / order by array_position\(.*q\."status"\) asc nulls last, to_jsonb\(q\."status"\), q\."due" desc nulls last, to_jsonb\(q\."due"\), q\."ag_seq" asc limit /,
+    );
+    const placed = buildGroupCounts(
+      catalogFor(),
+      { groupBy },
+      { starts: true },
+    );
+    // Every row numbered in that same order.
+    expect(placed?.text).toMatch(
+      /row_number\(\) over \(order by array_position\(.*q\."status"\) asc nulls last, to_jsonb\(q\."status"\), q\."due" desc nulls last, to_jsonb\(q\."due"\), q\."ag_seq" asc\) as "rn" from /,
+    );
+    expect(placed?.text).toContain(
+      `(min("rn") - 1)::int as "start", (max("rn") - min("rn") + 1)::int as "span"`,
+    );
+    expect(placed?.text).toMatch(/ order by "start", "depth" limit \$\d+$/);
+    // Counts alone number no row: a kanban's stacks ask only for them.
+    const counted = buildGroupCounts(catalogFor(), { groupBy });
+    expect(counted?.text).not.toContain("row_number");
+    expect(counted?.text).not.toContain(`"start"`);
+  });
+
+  it("places groups on every engine, ordered outside ROLLUP", () => {
+    const input = {
+      keys: 2,
+      source: `select 1`,
+      limit: 2000,
+      bind: () => "$1",
+    };
+    for (const dialect of [POSTGRES, MYSQL, MARIADB, SQLSERVER, ORACLE]) {
+      const placed = dialect.groupCounts({ ...input, starts: true });
+      expect(placed, dialect.name).toContain(`min("rn") - 1`);
+      expect(placed, dialect.name).toMatch(/order by (g2\.|r\.)?"start"/);
+      const counted = dialect.groupCounts({ ...input, starts: false });
+      expect(counted, dialect.name).not.toContain(`"rn"`);
+      expect(counted, dialect.name).not.toContain("order by");
+    }
+    // MySQL orders no JSON array: the key's bytes order it.
+    expect(MYSQL.groupKeyOrder(`k`)).toBe(`cast(cast(k as char) as binary)`);
+    expect(POSTGRES.groupKeyOrder(`k`)).toBe(`k`);
+  });
+
   it("counts, groups with grouping sets, and aggregates", () => {
     expect(buildCountRows(catalogFor(), { search: "x" }).text).toMatch(
       /^select count\(\*\)::int as "total" from \(select/,

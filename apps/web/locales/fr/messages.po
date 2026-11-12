@@ -3442,10 +3442,6 @@ msgstr "Groupe introuvable"
 msgid "Grouped by {count} fields"
 msgstr "Groupé par {count} champs"
 
-#: components/table/view-toolbar.tsx
-msgid "Grouping shows the first 1000 rows."
-msgstr "Le regroupement affiche les 1000 premières lignes."
-
 #: components/admin/scim-tab.tsx
 #: components/settings/base-settings.tsx
 msgid "Groups"
@@ -7208,6 +7204,10 @@ msgstr "Le champ et son champ inverse éventuel vont dans la corbeille de la bas
 #: components/admin/refresh-fields.tsx
 msgid "The fields were up to date"
 msgstr "Les champs étaient à jour"
+
+#: components/grid/grid-view.tsx
+msgid "The first {limit} groups are shown: filter the view to see the others."
+msgstr "Seuls les {limit} premiers groupes sont affichés : filtrez la vue pour voir les autres."
 
 #: components/fields/formula-docs.ts
 msgid "The first characters."

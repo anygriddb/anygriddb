@@ -345,6 +345,7 @@ export const ORACLE: SqlDialect = {
   row: (entries) =>
     `json_object(${entries.map(([name, sql]) => `'${name}' value ${sql}`).join(", ")} returning clob) as "ag_row"`,
   groupKey,
+  groupKeyOrder: (sql) => sql,
   emptyLinks: () => "to_clob('[]')",
   linksAgg: ({ id, label, from, where, order }) =>
     `coalesce((select json_arrayagg(json_object('id' value ${id}, 'label' value ${label}) order by ${order.join(", ")} returning clob) from ${from} where ${where}), to_clob('[]'))`,
@@ -397,7 +398,7 @@ export const ORACLE: SqlDialect = {
     }
     return ` offset ${String(offset)} rows fetch next ${String(limit)} rows only`;
   },
-  groupCounts: ({ keys, source, limit, bind: _bind }) => {
+  groupCounts: ({ keys, source, limit, starts, bind: _bind }) => {
     const names = Array.from(
       { length: keys },
       (_, index) => `"k${String(index)}"`,
@@ -411,11 +412,16 @@ export const ORACLE: SqlDialect = {
       ),
       `'depth' value g2."depth"`,
       `'count' value g2."count"`,
+      ...(starts ? [`'start' value g2."start"`, `'span' value g2."span"`] : []),
     ];
     const sets = names.map(
       (_, index) => `(${names.slice(0, index + 1).join(", ")})`,
     );
-    return `select json_object(${row.join(", ")} returning clob) as "ag_row" from (select ${names.join(", ")}, ${depth} as "depth", count(*) as "count" from (${source}) g group by grouping sets (${sets.join(", ")})) g2 fetch first ${String(Math.trunc(limit))} rows only`;
+    const placed = starts
+      ? `, min("rn") - 1 as "start", max("rn") - min("rn") + 1 as "span"`
+      : "";
+    const order = starts ? ` order by g2."start", g2."depth"` : "";
+    return `select json_object(${row.join(", ")} returning clob) as "ag_row" from (select ${names.join(", ")}, ${depth} as "depth", count(*) as "count"${placed} from (${source}) g group by grouping sets (${sets.join(", ")})) g2${order} fetch first ${String(Math.trunc(limit))} rows only`;
   },
   groupAggregates: ({ keys, source, value, kind, limit, bind: _bind }) => {
     const names = Array.from(

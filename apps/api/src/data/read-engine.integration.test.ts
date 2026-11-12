@@ -350,6 +350,15 @@ describe("read engine on PostgreSQL", () => {
       const grouped = await query(groups.text, groups.values);
       expect(grouped.filter((group) => group.depth === 1)).toHaveLength(2);
     }
+    // Where each group starts: the place of its first row in the read.
+    const groupBy = [{ column: "status", direction: "desc" as const }];
+    const placed = buildGroupCounts(catalog, { groupBy }, { starts: true });
+    const ordered = buildReadRows(catalog, { limit: 10, groupBy });
+    const read = await query(ordered.text, ordered.values);
+    for (const group of await query(placed?.text ?? "", placed?.values ?? [])) {
+      expect(group.span).toBe(group.count);
+      expect(read[Number(group.start)]?.status).toEqual(group.k0);
+    }
     const aggregates = buildAggregates(catalog, {}, [
       { column: "total", fn: "sum" },
       { column: "done", fn: "percent_checked" },

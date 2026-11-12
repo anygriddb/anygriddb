@@ -293,9 +293,11 @@ export function TableWorkspace({
       ...(filter ? { filter } : {}),
     };
   }, [activeView?.id, search, localPatch, config, scope]);
-  const rows = useRows(tableId, rowsQuery, {
-    grouped: !isGrid || groupBy.length > 0,
-  });
+  const rows = useRows(
+    tableId,
+    rowsQuery,
+    !isGrid ? "onePage" : groupBy.length > 0 ? "grouped" : "pages",
+  );
   // A kanban and a calendar show a page of rows; their columns and days
   // count every row, as the database groups them.
   const stackName =

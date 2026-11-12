@@ -215,4 +215,45 @@ describe("rows store", () => {
     store.close();
     await expect(store.waitFor(0, 0)).resolves.toBe(false);
   });
+
+  it("asks where groups start with the first page only, then pages as asked", async () => {
+    const page = (offset: number) =>
+      Array.from({ length: 100 }, (_, index) => ({
+        id: `r${String(offset + index)}`,
+      }));
+    read.mockImplementation((input: { offset: number }) =>
+      Promise.resolve({
+        rows: page(input.offset),
+        total: 250,
+        totalEstimated: false,
+        groups:
+          input.offset === 0
+            ? [{ keys: ["a"], depth: 1, count: 250, start: 0 }]
+            : [],
+      }),
+    );
+    const store = new RowPages("grouped", "table", {}, 100, "starts");
+    store.start();
+    await vi.waitFor(() => {
+      expect(store.getSnapshot().groups).toHaveLength(1);
+    });
+    store.ensure(180, 220);
+    await vi.waitFor(() => {
+      expect(store.rowAt(220)).toBeDefined();
+    });
+    expect(
+      read.mock.calls.map(([input]) => [input.offset, input.withGroups]),
+    ).toEqual([
+      [0, "starts"],
+      [100, "none"],
+      [200, "none"],
+    ]);
+    // A later page leaves the groups the first page said.
+    expect(store.getSnapshot().groups).toHaveLength(1);
+  });
+
+  it("says nothing of groups for a view that does not group", async () => {
+    await loaded();
+    expect(read.mock.calls[0]?.[0]).toMatchObject({ withGroups: "none" });
+  });
 });

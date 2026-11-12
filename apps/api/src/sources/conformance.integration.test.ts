@@ -3578,4 +3578,70 @@ describe("conformance of formulas across engines", () => {
       ]);
     }
   }, 300_000);
+
+  it("says where each group starts, its rows together, where the rows live", async () => {
+    const deps = { db, key, settings };
+    const tops = new Map<Engine, unknown[]>();
+    for (const [engine, { sourceId, schema }] of declared) {
+      // "Ops" sorts with "ops" under a collation blind to case, but groups
+      // apart from it wherever keys compare as bytes or as JSON: the rows
+      // of each must still follow each other.
+      await outside(
+        engine,
+        engine === "sqlserver"
+          ? "insert into staff values (6, N'Fay', N'Ops', 600.00)"
+          : "insert into staff values (6, 'Fay', 'Ops', 600.00)",
+      );
+      const base = await insertBase(db, actorId, { name: `Grouped ${engine}` });
+      const {
+        tableIds: [staffId = ""],
+      } = await exposeTables(deps, actorId, {
+        sourceId,
+        baseId: base.id,
+        tables: [{ schema, name: "staff" }],
+      });
+      const { engine: catalog } = await loadEngine(db, staffId, () => true);
+      const levels = [columnOf(catalog, "dept"), columnOf(catalog, "name")];
+      const page = await readPage(
+        db,
+        catalog,
+        {
+          limit: 100,
+          timeZone: "UTC",
+          groupBy: levels.map((column) => ({ column, direction: "asc" })),
+        },
+        { total: false, groups: "starts" },
+      );
+      await outside(engine, "delete from staff where id = 6");
+      const folded = (value: unknown) => String(value).toLowerCase();
+      expect(page.groups.length, engine).toBeGreaterThan(0);
+      for (const group of page.groups) {
+        expect(group.start, engine).toBeTypeOf("number");
+        const start = group.start ?? 0;
+        const under = page.rows.slice(start, start + group.count);
+        expect(under, engine).toHaveLength(group.count);
+        for (const row of under) {
+          group.keys.slice(0, group.depth).forEach((value, depth) => {
+            expect(folded(row[levels[depth] ?? ""]), engine).toBe(
+              folded(value),
+            );
+          });
+        }
+      }
+      const top = page.groups.filter((group) => group.depth === 1);
+      expect(
+        top.reduce((sum, group) => sum + group.count, 0),
+        engine,
+      ).toBe(page.rows.length);
+      tops.set(
+        engine,
+        top.map((group) => group.keys[0]),
+      );
+    }
+    for (const engine of ["postgres", "mysql", "oracle"] as const) {
+      expect(tops.get(engine), engine).toEqual(
+        expect.arrayContaining(["Ops", "ops"]),
+      );
+    }
+  }, 300_000);
 });
