@@ -11,7 +11,7 @@ services:
   # link it mails (ADR 0058), and the journeys read that mail here. SMTP on
   # 1026, its API on 8026, beside a developer's own ports.
   mail:
-    image: axllent/mailpit:v1.32.0
+    image: axllent/mailpit:v1.32.0@sha256:0790692be935ea4420d085694f7985b1f692ca6a8771ab0e0bd8ba75ac180498
     ports:
       - "127.0.0.1:1026:1025"
       - "127.0.0.1:8026:8025"

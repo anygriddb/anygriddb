@@ -22,7 +22,7 @@ import {
   Gauge,
   Histogram,
   Registry,
-} from "prom-client";
+} from "@prometheus-io/client";
 
 export const registry = new Registry();
 collectDefaultMetrics({ register: registry, prefix: "anygriddb_" });
