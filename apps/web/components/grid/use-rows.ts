@@ -22,10 +22,23 @@ type ReadInput = RouterInputs["rows"]["read"];
 
 export type RowsQuery = Omit<
   ReadInput,
-  "offset" | "limit" | "tableId" | "timeZone"
+  "offset" | "limit" | "tableId" | "timeZone" | "withGroups"
 >;
 
-type Groups = Array<{ keys: unknown[]; depth: number; count: number }>;
+/** Every group of a grouped read, and where its rows start when known. */
+export type Groups = Array<{
+  keys: unknown[];
+  depth: number;
+  count: number;
+  start?: number;
+}>;
+
+/**
+ * How a view reads its rows: page after page as it scrolls; the same,
+ * with where each group starts (a grouped grid); or one page of up to
+ * 1000 rows (the views that lay out what they hold on the client).
+ */
+export type RowsLayout = "pages" | "grouped" | "onePage";
 
 /** What rendering reads; a new object whenever a loaded row changes. */
 type Snapshot = {
@@ -122,6 +135,8 @@ export class RowPages {
     private readonly tableId: string,
     private readonly query: RowsQuery,
     readonly pageSize: number,
+    /** What the first page says of the groups; the next ones say nothing. */
+    private readonly groups: "none" | "starts" = "none",
   ) {}
 
   readonly subscribe = (listener: () => void) => {
@@ -184,6 +199,7 @@ export class RowPages {
         limit: this.pageSize,
         timeZone: TIME_ZONE,
         withTotal: page === 0,
+        withGroups: page === 0 ? this.groups : "none",
       });
       if (this.closed() || superseded()) return;
       this.failed.delete(page);
@@ -432,6 +448,7 @@ export class RowPages {
       limit: 1,
       timeZone: TIME_ZONE,
       exactTotal: true,
+      withGroups: "none",
     });
     if (this.closed() || result.total === null) return;
     this.publish({
@@ -450,23 +467,25 @@ export class RowPages {
 }
 
 /**
- * Pages of rows fetched as they scroll into view. A grouped view loads one
- * page of up to 1000 rows so group headers can be laid out on the client.
- * Socket messages re-read changed rows by id, or reload the loaded pages.
+ * Pages of rows fetched as they scroll into view. A grouped grid's first
+ * page also says where each group starts, so its headers are laid out
+ * before the rows under them are read. Socket messages re-read changed
+ * rows by id, or reload the loaded pages.
  */
 export function useRows(
   tableId: string,
   query: RowsQuery,
-  options: { grouped: boolean },
+  layout: RowsLayout,
 ): RowsState {
-  const pageSize = options.grouped ? 1000 : PAGE_SIZE;
-  const key = JSON.stringify([tableId, query, pageSize]);
+  const pageSize = layout === "onePage" ? 1000 : PAGE_SIZE;
+  const groups = layout === "grouped" ? "starts" : "none";
+  const key = JSON.stringify([tableId, query, pageSize, groups]);
   const [store, setStore] = useState(
-    () => new RowPages(key, tableId, query, pageSize),
+    () => new RowPages(key, tableId, query, pageSize, groups),
   );
   // Another query: start over with a store of its own.
   if (store.key !== key) {
-    setStore(new RowPages(key, tableId, query, pageSize));
+    setStore(new RowPages(key, tableId, query, pageSize, groups));
   }
   useEffect(() => {
     store.start();

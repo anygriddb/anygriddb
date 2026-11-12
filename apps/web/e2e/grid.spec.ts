@@ -92,6 +92,69 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
   await banner.getByRole("button", { name: "Reconnect now" }).click();
   await expect(banner).toBeHidden();
   await expect(nameCell(other)).toContainText("gamma");
+  await other.close();
+
+  // Grouped, the grid shows every row of its view, past the first 1,000:
+  // each header where the database says its group starts, the rows under
+  // it read as they scroll. 600 rows to do, then 500 done, then "gamma",
+  // which has no status.
+  const tableId = /\/t\/([^/]+)/.exec(new URL(page.url()).pathname)?.[1] ?? "";
+  const added = Array.from({ length: 1100 }, (_, index) => ({
+    name: `n${String(index + 1).padStart(4, "0")}`,
+    status: index < 600 ? "To do" : "Done",
+  }));
+  for (let start = 0; start < added.length; start += 500) {
+    const status = await page.evaluate(
+      async ([tableId, rows]) =>
+        (
+          await fetch("/trpc/rows.insertMany", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ tableId, rows }),
+          })
+        ).status,
+      [tableId, added.slice(start, start + 500)] as const,
+    );
+    expect(status).toBe(200);
+  }
+  await page.getByRole("button", { name: "Group", exact: true }).click();
+  await page.getByRole("button", { name: "Add a level" }).click();
+  await page
+    .getByRole("dialog")
+    .getByLabel("Field", { exact: true })
+    .selectOption({ label: "Status" });
+  await page.keyboard.press("Escape");
+  const header = (label: string) =>
+    grid
+      .locator('[role="row"]')
+      .filter({ has: page.locator("button[aria-expanded]") })
+      .filter({ hasText: label });
+  await expect(header("To do")).toContainText("600");
+  const named = (text: string) =>
+    page.locator('[role="gridcell"][data-column="name"]').filter({
+      hasText: text,
+    });
+  // Saving the grouping reads the view once more, from the top: scroll
+  // again until the end stays in view.
+  await expect(async () => {
+    await grid.evaluate((element) => {
+      element.scrollTo(0, element.scrollHeight);
+    });
+    await expect(named("n1100")).toBeVisible({ timeout: 2_000 });
+  }).toPass();
+  await expect(named("gamma")).toBeVisible();
+  // Folded, a group keeps its header and skips its rows: the next group
+  // comes right under it.
+  await grid.evaluate((element) => {
+    element.scrollTo(0, 0);
+  });
+  const fold = header("To do").locator("button[aria-expanded]");
+  await fold.click();
+  await expect(fold).toHaveAttribute("aria-expanded", "false");
+  await expect(header("Done")).toContainText("500");
+  await expect(named("n0601")).toBeVisible();
+  await expect(named("n0001")).toHaveCount(0);
+  expect(await accessibilityViolations(page)).toEqual([]);
 
   expect(blocked).toEqual([]);
   expect(blockedOther).toEqual([]);

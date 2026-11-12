@@ -97,7 +97,46 @@ export async function readTransaction<T>(
   return readWithin(db, READ_TIMEOUT, body);
 }
 
-export type GroupRow = { keys: unknown[]; depth: number; count: number };
+export type GroupRow = {
+  keys: unknown[];
+  depth: number;
+  count: number;
+  /** Where the group's rows start in the read's order, from 0. */
+  start?: number;
+};
+
+export type GroupsWanted = "none" | "counts" | "starts";
+
+/**
+ * The groups as a read returns them. Starts are kept only when every
+ * group's rows follow each other: otherwise a grid could not place its
+ * headers from them, and lays them out from the rows it reads.
+ */
+function groupRows(
+  rows: readonly Record<string, unknown>[],
+  levels: number,
+  starts: boolean,
+): GroupRow[] {
+  const groups = rows.map((row) => ({
+    keys: Array.from(
+      { length: levels },
+      (_, index) => row[`k${index}`] ?? null,
+    ),
+    depth: Number(row.depth),
+    count: Number(row.count),
+    start: Number(row.start),
+    span: Number(row.span),
+  }));
+  const placed =
+    starts &&
+    groups.every(
+      (group) =>
+        Number.isSafeInteger(group.start) && group.span === group.count,
+    );
+  return groups.map(({ keys, depth, count, start }) =>
+    placed ? { keys, depth, count, start } : { keys, depth, count },
+  );
+}
 
 /** Above this many rows by its statistics, a table's total is estimated. */
 export const ESTIMATE_FROM = 10_000;
@@ -166,7 +205,7 @@ export async function readPage(
   db: Database,
   engine: EngineCatalog,
   spec: ReadSpec,
-  options: { total: boolean; exact?: boolean },
+  options: { total: boolean; exact?: boolean; groups?: GroupsWanted },
 ): Promise<{
   rows: RowRecord[];
   total: number | null;
@@ -175,17 +214,14 @@ export async function readPage(
 }> {
   if (engine.table.external) return readExternalPage(db, engine, spec, options);
   const page = buildReadRows(engine, spec);
-  const grouped = buildGroupCounts(engine, spec);
+  const wanted = options.groups ?? "counts";
+  const starts = wanted === "starts";
+  const grouped =
+    wanted === "none" ? null : buildGroupCounts(engine, spec, { starts });
   const { rows, groups } = await readTransaction(db, engine, async (run) => ({
     rows: (await run(page)) as RowRecord[],
     groups: grouped
-      ? (await run(grouped)).map((row) => ({
-          keys: (spec.groupBy ?? []).map(
-            (_, index) => row[`k${index}`] ?? null,
-          ),
-          depth: Number(row.depth),
-          count: Number(row.count),
-        }))
+      ? groupRows(await run(grouped), spec.groupBy?.length ?? 0, starts)
       : [],
   }));
   if (!options.total) {
@@ -278,7 +314,7 @@ async function readExternalPage(
   db: Database,
   engine: EngineCatalog,
   spec: ReadSpec,
-  options: { total: boolean; exact?: boolean },
+  options: { total: boolean; exact?: boolean; groups?: GroupsWanted },
 ): Promise<{
   rows: RowRecord[];
   total: number | null;
@@ -295,17 +331,14 @@ async function readExternalPage(
     };
   }
   const page = buildReadRows(engine, clientSpec);
-  const grouped = buildGroupCounts(engine, clientSpec);
+  const wanted = options.groups ?? "counts";
+  const starts = wanted === "starts";
+  const grouped =
+    wanted === "none" ? null : buildGroupCounts(engine, clientSpec, { starts });
   const { rows, groups } = await readTransaction(db, engine, async (run) => ({
     rows: (await run(page)) as RowRecord[],
     groups: grouped
-      ? (await run(grouped)).map((row) => ({
-          keys: (clientSpec.groupBy ?? []).map(
-            (_, index) => row[`k${index}`] ?? null,
-          ),
-          depth: Number(row.depth),
-          count: Number(row.count),
-        }))
+      ? groupRows(await run(grouped), clientSpec.groupBy?.length ?? 0, starts)
       : [],
   }));
   const merged = await mergeControlPlane(db, engine, rows, clientSpec.fields);

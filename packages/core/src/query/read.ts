@@ -511,12 +511,26 @@ function jsonKind(ref: ProjectedColumn): JsonKind {
   }
 }
 
-function orderClause(prepared: Prepared, spec: ReadSpec): string {
+/**
+ * Groups first, then sorts, then insertion order. Rows whose group values
+ * order alike but group apart (two texts a collation calls equal, lists
+ * that start alike) are told apart by their key, so each group's rows
+ * follow each other and a group starts at one place only.
+ */
+function orderClause(
+  prepared: Prepared,
+  spec: Pick<ReadSpec, "groupBy" | "sort">,
+): string {
   const parts: string[] = [];
   const seen = new Set<string>();
   for (const group of spec.groupBy ?? []) {
     const ref = lookupRef(prepared, group.column, "group");
-    parts.push(prepared.d.orderTerm(orderSql(prepared, ref), group.direction));
+    const order = orderSql(prepared, ref);
+    const key = groupKeySql(prepared, ref);
+    parts.push(prepared.d.orderTerm(order, group.direction));
+    // Where the key is the value itself, it already orders the rows (and
+    // SQL Server refuses a term twice).
+    if (key !== order) parts.push(prepared.d.groupKeyOrder(key));
     seen.add(group.column);
   }
   for (const sort of spec.sort ?? []) {
@@ -675,11 +689,17 @@ export function buildCountRows(
 
 /**
  * Row counts for every level of the grouping, as one grouping-sets query.
- * Each output row carries `k0…kN` (JSON keys), `depth`, and `count`.
+ * Each output row carries `k0…kN` (JSON keys), `depth`, and `count`. With
+ * `starts`, also where the group's rows begin in the read's order
+ * (`start`, from 0) and how far they reach (`span`, equal to `count` when
+ * they follow each other), ordered by `start`: a grid lays its group
+ * headers out from them before it reads the rows. That numbers every row
+ * of the view, so only the grid's first page asks for it.
  */
 export function buildGroupCounts(
   catalog: EngineCatalog,
   spec: Omit<ReadSpec, "limit">,
+  options: { starts?: boolean } = {},
 ): ParameterizedSql | null {
   const groups = spec.groupBy ?? [];
   if (groups.length === 0) {
@@ -695,11 +715,18 @@ export function buildGroupCounts(
     const ref = lookupRef(prepared, group.column, "group");
     keys.push(`${groupKeySql(prepared, ref)} as "k${index}"`);
   }
+  const starts = options.starts === true;
+  if (starts) {
+    keys.push(
+      `row_number() over (${orderClause(prepared, spec).trim()}) as "rn"`,
+    );
+  }
   return {
     text: prepared.d.groupCounts({
       keys: groups.length,
       source: `select ${keys.join(", ")} from ${prepared.derived}${prepared.where}`,
       limit: MAX_GROUPS,
+      starts,
       bind: (value) => prepared.params.bind(value),
     }),
     values: prepared.params.values,

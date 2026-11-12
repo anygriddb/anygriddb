@@ -1864,7 +1864,6 @@ msgstr "Code from your authenticator app, or a backup code"
 msgid "Collaborator"
 msgstr "Collaborator"
 
-#: components/grid/grid-view.tsx
 #: components/shell/sidebar.tsx
 msgid "Collapse"
 msgstr "Collapse"
@@ -2992,7 +2991,6 @@ msgstr "Example:"
 msgid "Existing rows"
 msgstr "Existing rows"
 
-#: components/grid/grid-view.tsx
 #: components/shell/sidebar.tsx
 msgid "Expand"
 msgstr "Expand"
@@ -3441,10 +3439,6 @@ msgstr "Group not found"
 #: components/table/view-toolbar.tsx
 msgid "Grouped by {count} fields"
 msgstr "Grouped by {count} fields"
-
-#: components/table/view-toolbar.tsx
-msgid "Grouping shows the first 1000 rows."
-msgstr "Grouping shows the first 1000 rows."
 
 #: components/admin/scim-tab.tsx
 #: components/settings/base-settings.tsx
@@ -7208,6 +7202,10 @@ msgstr "The field, and its inverse field if any, go to the base's trash for 30 d
 #: components/admin/refresh-fields.tsx
 msgid "The fields were up to date"
 msgstr "The fields were up to date"
+
+#: components/grid/grid-view.tsx
+msgid "The first {limit} groups are shown: filter the view to see the others."
+msgstr "The first {limit} groups are shown: filter the view to see the others."
 
 #: components/fields/formula-docs.ts
 msgid "The first characters."

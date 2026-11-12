@@ -108,6 +108,11 @@ export interface SqlDialect {
   row(entries: ReadonlyArray<readonly [string, string]>): string;
   /** A group key: JSON that is never SQL null, so ROLLUP's nulls stand out. */
   groupKey(sql: string, kind: JsonKind): string;
+  /**
+   * A group key as an ORDER BY term: two keys GROUP BY keeps apart never
+   * order as equal, so ordering by it keeps each group's rows together.
+   */
+  groupKeyOrder(sql: string): string;
   /** An empty link list. */
   emptyLinks(): string;
   /** Links `[{id, label}]` of the rows `from … where …`, in order. */
@@ -148,12 +153,16 @@ export interface SqlDialect {
   limitOffset(limit: number, offset: number, bind: Bind): string;
   /**
    * Counts per group prefix over `source`, a select of keys `k0…`: one
-   * query, with `depth` (how many keys) and `count`.
+   * query, with `depth` (how many keys) and `count`. With `starts`, the
+   * source also holds `rn`, each row's place in the read's order from 1:
+   * every group then says where its rows begin (`start`, from 0) and how
+   * far they reach (`span`), in the order they come.
    */
   groupCounts(input: {
     keys: number;
     source: string;
     limit: number;
+    starts: boolean;
     bind: Bind;
   }): string;
   /**
@@ -535,6 +544,7 @@ export const POSTGRES: SqlDialect = {
       )
       .join(", "),
   groupKey: (sql) => `to_jsonb(${sql})`,
+  groupKeyOrder: (sql) => sql,
   emptyLinks: () => "'[]'::jsonb",
   linksAgg: ({ id, label, from, where, order }) =>
     `coalesce((select jsonb_agg(jsonb_build_object('id', ${id}, 'label', ${label}) order by ${order.join(", ")}) from ${from} where ${where}), '[]'::jsonb)`,
@@ -562,7 +572,7 @@ export const POSTGRES: SqlDialect = {
   keyText: (sql) => `${sql}::text`,
   limitOffset: (limit, offset, bind) =>
     ` limit ${bind(limit)} offset ${bind(offset)}`,
-  groupCounts: ({ keys, source, limit, bind }) => {
+  groupCounts: ({ keys, source, limit, starts, bind }) => {
     const names = Array.from(
       { length: keys },
       (_, index) => `"k${String(index)}"`,
@@ -573,7 +583,11 @@ export const POSTGRES: SqlDialect = {
     const depth = names
       .map((name) => `(case when grouping(${name}) = 0 then 1 else 0 end)`)
       .join(" + ");
-    return `select ${names.join(", ")}, (${depth})::int as "depth", count(*)::int as "count" from (${source}) g group by grouping sets (${sets.join(", ")}) limit ${bind(limit)}`;
+    const placed = starts
+      ? `, (min("rn") - 1)::int as "start", (max("rn") - min("rn") + 1)::int as "span"`
+      : "";
+    const order = starts ? ` order by "start", "depth"` : "";
+    return `select ${names.join(", ")}, (${depth})::int as "depth", count(*)::int as "count"${placed} from (${source}) g group by grouping sets (${sets.join(", ")})${order} limit ${bind(limit)}`;
   },
   groupAggregates: ({ keys, source, value, limit, bind }) => {
     const names = Array.from(
@@ -1083,6 +1097,9 @@ function mysqlDialect(name: "mysql" | "mariadb"): SqlDialect {
     row: (entries) =>
       `json_object(${entries.map(([name, sql]) => `'${name}', ${sql}`).join(", ")}) as "ag_row"`,
     groupKey: (sql, kind) => `json_array(${mysqlJson(sql, kind)})`,
+    // MySQL orders no JSON array, and a collation can call two texts
+    // equal that GROUP BY keeps apart: the key's bytes order it.
+    groupKeyOrder: (sql) => `cast(cast(${sql} as char) as binary)`,
     emptyLinks: () => "'[]'",
     // GROUP_CONCAT keeps the order it is given, which JSON_ARRAYAGG does
     // not. The list is JSON text; `json` reads it back as JSON.
@@ -1140,7 +1157,7 @@ function mysqlDialect(name: "mysql" | "mariadb"): SqlDialect {
     // ROLLUP gives every prefix and a grand total. Keys are JSON, never
     // SQL null, so a rolled-up key is the only null (MariaDB has no
     // GROUPING()).
-    groupCounts: ({ keys, source, limit }) => {
+    groupCounts: ({ keys, source, limit, starts }) => {
       const names = Array.from(
         { length: keys },
         (_, index) => `"k${String(index)}"`,
@@ -1152,8 +1169,14 @@ function mysqlDialect(name: "mysql" | "mariadb"): SqlDialect {
         ),
         `'depth', "depth"`,
         `'count', "count"`,
+        ...(starts ? [`'start', "start"`, `'span', "span"`] : []),
       ];
-      return `select json_object(${row.join(", ")}) as "ag_row" from (select ${names.join(", ")}, ${depth} as "depth", count(*) as "count" from (${source}) g group by ${names.join(", ")} with rollup) r where "k0" is not null limit ${String(Math.trunc(limit))}`;
+      const placed = starts
+        ? `, min("rn") - 1 as "start", max("rn") - min("rn") + 1 as "span"`
+        : "";
+      // ROLLUP takes no ORDER BY beside it in MariaDB: the outer query orders.
+      const order = starts ? ` order by "start", "depth"` : "";
+      return `select json_object(${row.join(", ")}) as "ag_row" from (select ${names.join(", ")}, ${depth} as "depth", count(*) as "count"${placed} from (${source}) g group by ${names.join(", ")} with rollup) r where "k0" is not null${order} limit ${String(Math.trunc(limit))}`;
     },
     groupAggregates: ({ keys, source, value, kind, limit }) => {
       const names = Array.from(

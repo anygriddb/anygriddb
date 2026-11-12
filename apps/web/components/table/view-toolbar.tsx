@@ -486,9 +486,6 @@ export function ViewToolbar(props: {
                   {t`Add a level`}
                 </Button>
               ) : null}
-              <p className="mt-2 text-xs text-muted-foreground">
-                {t`Grouping shows the first 1000 rows.`}
-              </p>
             </PopoverContent>
           </Popover>
         ) : null}

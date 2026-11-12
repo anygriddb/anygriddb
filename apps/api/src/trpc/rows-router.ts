@@ -263,6 +263,7 @@ export const rowsRouter = t.router({
       const page = await readPage(ctx.db, engine, spec, {
         total: input.withTotal,
         exact: input.exactTotal,
+        groups: input.withGroups,
       });
       return {
         rows: await withSignatures(ctx, engine, page.rows),

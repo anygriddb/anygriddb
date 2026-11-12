@@ -1,4 +1,4 @@
-import { cellText } from "@anygriddb/core";
+import { cellText, MAX_GROUPS } from "@anygriddb/core";
 import { RowsError } from "./rows-error";
 
 import {
@@ -42,6 +42,8 @@ import { useCopy } from "../../lib/clipboard";
 import type { Presence } from "../../lib/realtime";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { useErrorText } from "../../lib/errors";
+import { formatNumber } from "../../lib/format";
+import { useLocale } from "../../lib/i18n";
 import { useTRPC } from "../../lib/trpc";
 import { opensPanel } from "../fields/cell-editor";
 import { optionsOf } from "../fields/cell-value";
@@ -69,6 +71,14 @@ import {
   planPaste,
   toTsv,
 } from "./grid-clipboard";
+import {
+  type GridItem,
+  type GroupLevel,
+  hasStarts,
+  layoutFromRows,
+  layoutFromStarts,
+  positionOf,
+} from "./group-layout";
 import type { RowsState } from "./use-rows";
 import { useLingui } from "@lingui/react/macro";
 import { plural } from "@lingui/core/macro";
@@ -81,18 +91,6 @@ export const ROW_HEIGHTS = {
 } as const;
 const HEADER = 32;
 const FOOTER = 32;
-
-type Item =
-  | { type: "row"; index: number }
-  | {
-      type: "group";
-      key: string;
-      label: string;
-      count: number;
-      depth: number;
-      color?: string;
-    }
-  | { type: "add" };
 
 export type GridProps = {
   rows: RowsState;
@@ -128,30 +126,15 @@ export type GridProps = {
   ) => void;
 };
 
-function groupKeyOf(value: unknown): string {
-  if (
-    value === null ||
-    value === undefined ||
-    (Array.isArray(value) && value.length === 0)
-  )
-    return "";
-  if (Array.isArray(value)) {
-    return value
-      .map((item) =>
-        item && typeof item === "object" && "label" in item
-          ? String((item as { label: unknown }).label)
-          : String(item),
-      )
-      .join(", ");
-  }
-  return cellText(value);
-}
+/** No rows read so far: one array, so the layout is not drawn again. */
+const NONE_READ: readonly RowItem[] = [];
 
 /** A row id no table has: a disabled query still needs valid input. */
 const EMPTY_ROW_ID = "00000000-0000-4000-8000-000000000000";
 
 export function GridView(props: GridProps) {
   const { t } = useLingui();
+  const { locale } = useLocale();
   const errorText = useErrorText();
   const copy = useCopy();
   const canAdd = props.canAdd ?? props.canEdit;
@@ -183,65 +166,57 @@ export function GridView(props: GridProps) {
   const frozenCount = Math.min(frozen, columns.length);
   const frozenWidth = (offsets[frozenCount] ?? running) - GUTTER;
 
-  const items: Item[] = useMemo(() => {
-    const list: Item[] = [];
+  // A grouped grid whose read said where each group starts places every
+  // row at once; otherwise it lays out the rows read so far, in order, and
+  // reads the next page as its end comes into view.
+  const placed = grouped && hasStarts(rows.groups);
+  const readSoFar = useMemo(() => {
+    if (!grouped || placed) return NONE_READ;
+    const prefix: RowItem[] = [];
+    for (let row = rows.rowAt(0); row; row = rows.rowAt(prefix.length)) {
+      prefix.push(row);
+    }
+    return prefix;
+  }, [rows, grouped, placed]);
+  const items: GridItem[] = useMemo(() => {
+    let list: GridItem[] = [];
     if (!grouped) {
       for (let index = 0; index < rows.total; index += 1)
         list.push({ type: "row", index });
     } else {
-      const loaded = rows.loadedRows();
-      const levels = props.groupBy.map((group) =>
-        columns.find((column) => column.name === group.column),
-      );
-      let previous: string[] = [];
-      const counts = new Map<string, number>();
-      loaded.forEach((row) => {
-        const keys = levels.map((column) =>
-          column ? groupKeyOf(row[column.name as keyof RowItem]) : "",
-        );
-        keys.forEach((_, depth) => {
-          const path = keys.slice(0, depth + 1).join("\u0000");
-          counts.set(path, (counts.get(path) ?? 0) + 1);
-        });
+      const levels: GroupLevel[] = props.groupBy.map((group) => {
+        const column = columns.find((item) => item.name === group.column);
+        const colored =
+          column?.fieldType === "single_select" ||
+          column?.fieldType === "multi_select";
+        return {
+          column: group.column,
+          ...(colored
+            ? {
+                colorOf: (label: string) =>
+                  optionsOf(column).find((option) => option.name === label)
+                    ?.color,
+              }
+            : {}),
+        };
       });
-      loaded.forEach((row, index) => {
-        const keys = levels.map((column) =>
-          column ? groupKeyOf(row[column.name as keyof RowItem]) : "",
-        );
-        let hidden = false;
-        for (let depth = 0; depth < keys.length; depth += 1) {
-          const path = keys.slice(0, depth + 1).join("\u0000");
-          const changed =
-            keys.slice(0, depth + 1).join("\u0000") !==
-            previous.slice(0, depth + 1).join("\u0000");
-          if (changed && !hidden) {
-            const column = levels[depth];
-            const color =
-              column &&
-              (column.fieldType === "single_select" ||
-                column.fieldType === "multi_select")
-                ? optionsOf(column).find(
-                    (option) => option.name === keys[depth],
-                  )?.color
-                : undefined;
-            list.push({
-              type: "group",
-              key: path,
-              label: keys[depth] ?? "",
-              count: counts.get(path) ?? 0,
-              depth,
-              color,
-            });
-          }
-          if (collapsed.has(path)) hidden = true;
-        }
-        previous = keys;
-        if (!hidden) list.push({ type: "row", index });
-      });
+      list = placed
+        ? layoutFromStarts(rows.groups, levels, collapsed, MAX_GROUPS)
+        : layoutFromRows(readSoFar, levels, collapsed, rows.groups);
     }
     if (canAdd) list.push({ type: "add" });
     return list;
-  }, [rows, grouped, props.groupBy, columns, collapsed, canAdd]);
+  }, [
+    rows.total,
+    rows.groups,
+    grouped,
+    placed,
+    readSoFar,
+    props.groupBy,
+    columns,
+    collapsed,
+    canAdd,
+  ]);
 
   // Collapsing the groups listed folds everything: inner groups of a
   // folded one are not listed.
@@ -264,7 +239,7 @@ export function GridView(props: GridProps) {
     estimateSize: (index) =>
       items[index]?.type === "group"
         ? 36
-        : items[index]?.type === "add"
+        : items[index]?.type === "add" || items[index]?.type === "limit"
           ? 34
           : rowHeight,
     overscan: 10,
@@ -309,14 +284,28 @@ export function GridView(props: GridProps) {
   });
   const counts: Readonly<Record<string, number>> =
     commentCounts.data?.counts ?? {};
-  const firstIndex = virtualRows[0]?.index ?? 0;
+  // The rows on screen, by their place in the view: under group headers,
+  // those of the first and last row lines drawn.
+  let firstRow: number | undefined;
+  let lastRow: number | undefined;
+  for (const virtual of virtualRows) {
+    const item = items[virtual.index];
+    if (item?.type !== "row") continue;
+    firstRow ??= item.index;
+    lastRow = item.index;
+  }
   const lastIndex = virtualRows[virtualRows.length - 1]?.index ?? 0;
+  const endInView = lastIndex >= items.length - 1 - (canAdd ? 1 : 0);
+  const moreToRead =
+    grouped && !placed && readSoFar.length < rows.total && endInView;
   useEffect(() => {
-    if (grouped) return;
-    rows.ensure(firstIndex, lastIndex);
-  }, [firstIndex, lastIndex, rows, grouped]);
+    if (firstRow !== undefined && lastRow !== undefined) {
+      rows.ensure(firstRow, lastRow);
+    }
+    if (moreToRead) rows.ensure(readSoFar.length, readSoFar.length);
+  }, [firstRow, lastRow, moreToRead, readSoFar.length, rows]);
 
-  const rowIndexOfItem = (item: Item | undefined): number | undefined =>
+  const rowIndexOfItem = (item: GridItem | undefined): number | undefined =>
     item?.type === "row" ? item.index : undefined;
   const visibleRowIndexes = useMemo(
     () => items.flatMap((item) => (item.type === "row" ? [item.index] : [])),
@@ -326,7 +315,15 @@ export function GridView(props: GridProps) {
     const index = visibleRowIndexes[position];
     return index === undefined ? undefined : rows.rowAt(index);
   };
-  const positionOfRow = (index: number) => visibleRowIndexes.indexOf(index);
+  const positionOfRow = (index: number) => positionOf(visibleRowIndexes, index);
+  /** Reads the rows shown from one place to another, folded ones aside. */
+  const waitForPositions = (from: number, to: number) => {
+    const first = visibleRowIndexes[from];
+    const last = visibleRowIndexes[Math.min(to, visibleRowIndexes.length - 1)];
+    return first === undefined || last === undefined
+      ? Promise.resolve(true)
+      : rows.waitFor(first, last);
+  };
 
   // Presence and the screen reader's active cell follow the selection
   // without re-rendering the grid.
@@ -412,7 +409,7 @@ export function GridView(props: GridProps) {
   }
 
   async function fillDown(target: Range) {
-    const ready = await rows.waitFor(target.r1, target.r2);
+    const ready = await waitForPositions(target.r1, target.r2);
     if (!ready) {
       toast.error(t`Could not load the rows to fill`);
       return;
@@ -445,7 +442,7 @@ export function GridView(props: GridProps) {
     if (!range) return;
     const count = to - range.r2;
     if (count <= 0) return;
-    const ready = await rows.waitFor(range.r1, range.r2 + count);
+    const ready = await waitForPositions(range.r1, range.r2 + count);
     if (!ready) {
       toast.error(t`Could not load the rows to fill`);
       return;
@@ -640,7 +637,7 @@ export function GridView(props: GridProps) {
       Math.max(visibleRowIndexes.length - 1, 0),
     );
     if (end >= start.r) {
-      const ready = await rows.waitFor(start.r, end);
+      const ready = await waitForPositions(start.r, end);
       if (!ready) {
         toast.error(t`Could not load the rows to paste into`);
         return;
@@ -909,12 +906,10 @@ export function GridView(props: GridProps) {
                         aria-colspan={columns.length + 1}
                         className="contents"
                       >
+                        {/* Named by what it shows; folded or not, it says. */}
                         <button
                           type="button"
                           aria-expanded={!collapsed.has(item.key)}
-                          aria-label={
-                            collapsed.has(item.key) ? t`Expand` : t`Collapse`
-                          }
                           className="sticky left-2 flex items-center gap-2"
                           onClick={() =>
                             setCollapsed((current) => {
@@ -926,9 +921,9 @@ export function GridView(props: GridProps) {
                           }
                         >
                           {collapsed.has(item.key) ? (
-                            <ChevronRight className="h-4 w-4" />
+                            <ChevronRight className="h-4 w-4" aria-hidden />
                           ) : (
-                            <ChevronDown className="h-4 w-4" />
+                            <ChevronDown className="h-4 w-4" aria-hidden />
                           )}
                           {item.color ? (
                             <span
@@ -956,6 +951,25 @@ export function GridView(props: GridProps) {
                             {allCollapsed ? t`Expand all` : t`Collapse all`}
                           </button>
                         ) : null}
+                      </div>
+                    </div>
+                  );
+                }
+                if (item.type === "limit") {
+                  const limit = formatNumber(MAX_GROUPS, locale);
+                  return (
+                    <div
+                      key="group-limit"
+                      role="row"
+                      className="absolute left-0 flex items-center border-b border-rule px-3 text-[13px] text-muted-foreground"
+                      style={{ top, height: virtual.size, width: totalWidth }}
+                    >
+                      <div
+                        role="gridcell"
+                        aria-colspan={columns.length + 1}
+                        className="sticky left-3"
+                      >
+                        {t`The first ${limit} groups are shown: filter the view to see the others.`}
                       </div>
                     </div>
                   );

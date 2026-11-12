@@ -218,6 +218,12 @@ export const rowsReadInputSchema = z.object({
   /** Count the rows: the first page does, the next ones need not. */
   withTotal: z.boolean().default(true),
   /**
+   * What a grouped read says of its groups: each one's row count, also
+   * where its rows start (a grid lays out its headers from them; it numbers
+   * every row of the view, so only a first page asks), or nothing.
+   */
+  withGroups: z.enum(["none", "counts", "starts"]).default("counts"),
+  /**
    * Count exactly, even a large client table whose total the engine's
    * statistics would estimate (ADR 0005).
    */
