@@ -212,11 +212,11 @@ test.describe("a number field that refuses negatives", () => {
   });
 });
 
-// A gallery reads its cards as it scrolls, and a map only the rows that
-// have a place: neither stops at a first page. A setting saved does not
-// read the rows again. It makes an account, so it takes a client address
-// of its own.
-test.describe("a gallery and a map past their first page", () => {
+// A gallery and a timeline read their rows as they scroll, and a map only
+// the rows that have a place: none stops at a first page. A setting saved
+// does not read the rows again. It makes an account, so it takes a client
+// address of its own.
+test.describe("a gallery, a timeline, and a map past their first page", () => {
   test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.81" } });
 
   test("show every card, and every row that has a place", async ({ page }) => {
@@ -224,23 +224,30 @@ test.describe("a gallery and a map past their first page", () => {
     await signUpWithTable(page, "Gallery Keeper");
     const tableId =
       /\/t\/([^/]+)/.exec(new URL(page.url()).pathname)?.[1] ?? "";
-    for (const name of ["lat", "lon"]) {
+    for (const [name, fieldType] of [
+      ["lat", "number"],
+      ["lon", "number"],
+      ["due", "date"],
+    ] as const) {
       const status = await page.evaluate(
-        async ([tableId, name]) =>
+        async ([tableId, name, fieldType]) =>
           (
             await fetch("/trpc/catalog.addColumn", {
               method: "POST",
               headers: { "content-type": "application/json" },
-              body: JSON.stringify({ tableId, name, fieldType: "number" }),
+              body: JSON.stringify({ tableId, name, fieldType }),
             })
           ).status,
-        [tableId, name] as const,
+        [tableId, name, fieldType] as const,
       );
       expect(status).toBe(200);
     }
-    // 1,100 cards; only the last 100 have a place.
+    // 1,100 cards, all due this month; only the last 100 have a place.
+    const now = new Date();
+    const due = `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, "0")}-15`;
     const added = Array.from({ length: 1100 }, (_, index) => ({
       name: `c${String(index + 1).padStart(4, "0")}`,
+      due,
       ...(index >= 1000
         ? { lat: String(40 + (index - 1000) / 10), lon: "2.35" }
         : {}),
@@ -329,6 +336,25 @@ test.describe("a gallery and a map past their first page", () => {
     await expect(page.getByRole("button", { name: "c0001" })).toHaveCount(0);
     await expect(page.locator('span[title="c1100"]')).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
+
+    // The timeline reads every row of the period it shows, as it scrolls,
+    // and none of the period before.
+    await newView("Timeline");
+    await expect(card("c0001").first()).toBeVisible();
+    const timeline = card("c0001")
+      .first()
+      .locator("xpath=ancestor::div[contains(@class, 'overflow-auto')]");
+    await expect(async () => {
+      await timeline.evaluate((element) => {
+        element.scrollTo(0, element.scrollHeight);
+      });
+      await expect(card("c1100").first()).toBeVisible({ timeout: 2_000 });
+    }).toPass();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.getByRole("button", { name: "Previous period" }).click();
+    await expect(page.getByText("No rows in this period.")).toBeVisible();
+    await page.getByRole("button", { name: "Today" }).click();
+    await expect(card("c0001").first()).toBeVisible();
 
     expect(blocked).toEqual([]);
   });

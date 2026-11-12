@@ -78,6 +78,11 @@ import {
   calendarStart,
   thisMonth,
 } from "../views/calendar-view";
+import {
+  timelineFilter,
+  timelinePeriod,
+  timelineScale,
+} from "../views/timeline-period";
 
 function canEditView(
   view: ViewItem | undefined,
@@ -264,6 +269,15 @@ export function TableWorkspace({
   const [calendarMonth, setCalendarMonth] = useState(thisMonth);
   const calendarField =
     viewType === "calendar" ? calendarStart(ordered, config) : undefined;
+  // A timeline reads the rows whose bars cross the period it shows.
+  const [timelineFocus, setTimelineFocus] = useState(thisMonth);
+  const timelineStart =
+    viewType === "timeline" ? calendarStart(ordered, config)?.name : undefined;
+  const timelineEnd =
+    timelineStart && typeof config.endColumn === "string"
+      ? ordered.find((column) => column.name === config.endColumn)?.name
+      : undefined;
+  const timelineAt = timelineScale(config.timelineScale);
   // A map reads only the rows that have a place.
   const place = viewType === "map" ? placeColumns(config, ordered) : undefined;
   const latitude = place?.latitude;
@@ -272,10 +286,25 @@ export function TableWorkspace({
     () =>
       calendarField
         ? calendarFilter(calendarField, calendarMonth)
-        : latitude && longitude
-          ? placeFilter(latitude, longitude)
-          : undefined,
-    [calendarField, calendarMonth, latitude, longitude],
+        : timelineStart
+          ? timelineFilter(
+              timelineStart,
+              timelineEnd,
+              timelinePeriod(timelineFocus, timelineAt),
+            )
+          : latitude && longitude
+            ? placeFilter(latitude, longitude)
+            : undefined,
+    [
+      calendarField,
+      calendarMonth,
+      timelineStart,
+      timelineEnd,
+      timelineFocus,
+      timelineAt,
+      latitude,
+      longitude,
+    ],
   );
   const askedQuery = useMemo(() => {
     const local =
@@ -324,7 +353,7 @@ export function TableWorkspace({
       ? groupBy.length > 0
         ? "grouped"
         : "pages"
-      : viewType === "gallery"
+      : viewType === "gallery" || viewType === "timeline"
         ? "pages"
         : "onePage",
   );
@@ -1172,7 +1201,11 @@ export function TableWorkspace({
                 {...(activeView ? { viewId: activeView.id } : {})}
               />
             ) : viewType === "timeline" ? (
-              <TimelineView {...viewProps} />
+              <TimelineView
+                {...viewProps}
+                focus={timelineFocus}
+                onFocus={setTimelineFocus}
+              />
             ) : viewType === "form" ? (
               <FormView {...viewProps} canEdit={canAdd} />
             ) : (
