@@ -41,5 +41,4 @@ Do not ship a third UI language until each item is done and a maintainer owns it
 ## Related
 
 - ADR [0041](adr/0041-english-source-locale.md)
-- [`i18n-migration.md`](i18n-migration.md)
 - [`i18n-glossary.md`](i18n-glossary.md)
