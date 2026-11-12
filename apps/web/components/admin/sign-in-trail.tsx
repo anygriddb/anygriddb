@@ -74,6 +74,7 @@ export function SignInTrail() {
             admin_revoke_session: t`One session`,
             admin_revoke_user: t`All their sessions`,
             admin_revoke_all: t`Everyone else`,
+            every_token: t`Every token of the instance`,
             maintenance: t`Maintenance`,
             account_locked: t`Account locked`,
             admin_unlock: t`By an administrator`,

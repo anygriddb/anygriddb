@@ -452,6 +452,33 @@ export async function revokeUserTokens(
   });
 }
 
+/**
+ * Revokes every API token of the instance at once, in an emergency (a
+ * leaked token, a compromised script): each account that had one gets
+ * the event on its trail. Tokens made afterwards work.
+ */
+export async function revokeAllTokens(
+  db: Database,
+  actorId: string,
+): Promise<number> {
+  return db.transaction().execute(async (tx) => {
+    const revoked = await tx
+      .deleteFrom("apiTokens")
+      .returning("userId")
+      .execute();
+    for (const userId of new Set(revoked.map((row) => row.userId))) {
+      await recordAuthEvent(tx, {
+        action: "tokens_revoked",
+        userId,
+        actorId,
+        method: "admin",
+        detail: "every_token",
+      });
+    }
+    return revoked.length;
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Invitations                                                         */
 /* ------------------------------------------------------------------ */

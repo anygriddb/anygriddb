@@ -294,6 +294,37 @@ describe("instance controls", () => {
     expect(page.retentionDays).toBe(365);
   });
 
+  it("revokes every API token of the instance at once", async () => {
+    const theirs = (await createApiToken(db, memberId, "script")).token;
+    const mine = (await createApiToken(db, adminId, "mine")).token;
+    // Who a request carrying the token acts as: no one once revoked.
+    const asToken = async (token: string) =>
+      (await requestActor(db, { authorization: `Bearer ${token}` }, undefined))
+        ?.user.id;
+    expect(await asToken(theirs)).toBe(memberId);
+    // An administrator's action alone.
+    await member.call().auth.login({ email: memberEmail, password: PASSWORD });
+    expect(await code(member.call().admin.revokeAllTokens())).toBe(
+      "access_denied",
+    );
+    expect(await asToken(theirs)).toBe(memberId);
+
+    expect(
+      (await admin.call().admin.revokeAllTokens()).count,
+    ).toBeGreaterThanOrEqual(2);
+    expect(await asToken(theirs)).toBeUndefined();
+    expect(await asToken(mine)).toBeUndefined();
+    // Each account that had one is told, with who did it.
+    for (const userId of [memberId, adminId]) {
+      const revoked = (await events(userId)).filter(
+        (event) =>
+          event.action === "tokens_revoked" && event.detail === "every_token",
+      );
+      expect(revoked).toHaveLength(1);
+      expect(revoked[0]?.actorId).toBe(adminId);
+    }
+  });
+
   it("exports the trail and access as CSV a spreadsheet cannot run", async () => {
     const trail = await admin
       .call()

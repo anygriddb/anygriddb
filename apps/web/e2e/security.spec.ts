@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import pg from "pg";
 import {
+  accessibilityViolations,
   findAccount,
   mailedLink,
   openAdmin,
@@ -195,6 +196,95 @@ test("an administrator sets the lock, unlocks an account, and sends a reset link
     // with them, before the next journeys start.
     const left = await control.query(
       "delete from instance_settings where key in ('lockoutThreshold', 'baseCreation') and value not in ('10', '\"everyone\"') returning key",
+    );
+    if (left.rowCount) await new Promise((done) => setTimeout(done, 6_000));
+    await control.end();
+  }
+});
+
+// In an emergency (ROADMAP #24): every API token revoked at once, and
+// every public link turned off, from one place. It changes instance
+// settings: after the other journeys, before maintenance.
+test("an administrator revokes every token and turns public links off", async ({
+  page,
+}) => {
+  const blocked = watchPolicy(page);
+  const control = new pg.Client({ connectionString: controlUrl });
+  await control.connect();
+  try {
+    const { email } = await signUpWithTable(page, "Emergency Admin");
+    await control.query("update users set is_admin = true where email = $1", [
+      email,
+    ]);
+    const made = await page.evaluate(async () => {
+      const answer = await fetch("/trpc/auth.createToken", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "script" }),
+      });
+      return ((await answer.json()) as { result: { data: { token: string } } })
+        .result.data.token;
+    });
+    const asScript = () =>
+      page.evaluate(
+        async (token) =>
+          (
+            await fetch("/api/v1/bases", {
+              // The token alone, without the page's session.
+              credentials: "omit",
+              headers: { authorization: `Bearer ${token}` },
+            })
+          ).status,
+        made,
+      );
+    expect(await asScript()).toBe(200);
+
+    await page.goto("/admin/security");
+    await expect(
+      page.getByRole("heading", { name: "In an emergency" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Revoke every API token" }).click();
+    await page
+      .getByRole("dialog", { name: "Revoke every API token?" })
+      .getByRole("button", { name: "Revoke", exact: true })
+      .click();
+    await expect(page.getByText(/API tokens? revoked/)).toBeVisible();
+    expect(await asScript()).toBe(401);
+
+    const linksOff = page.getByRole("button", {
+      name: "Turn public links off",
+    });
+    await linksOff.click();
+    await page
+      .getByRole("dialog", { name: "Turn public links off?" })
+      .getByRole("button", { name: "Turn off", exact: true })
+      .click();
+    await expect(page.getByText("Public links are off").first()).toBeVisible();
+    await expect(linksOff).toBeDisabled();
+    await expect(
+      page.getByLabel("Public links to views and forms"),
+    ).toHaveValue("off");
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // The trail says who did it, for each account that had a token.
+    await openAdmin(page, "Trails", "Sign-ins");
+    await expect(
+      page
+        .getByRole("row", { name: /API tokens revoked/ })
+        .filter({ hasText: "Every token of the instance" })
+        .first(),
+    ).toContainText("Emergency Admin");
+
+    // Back to the default for the journeys after this one.
+    await openAdmin(page, "Security");
+    await page
+      .getByLabel("Public links to views and forms")
+      .selectOption("allowed");
+    await expect(linksOff).toBeEnabled();
+    expect(blocked).toEqual([]);
+  } finally {
+    const left = await control.query(
+      "delete from instance_settings where key = 'publicLinks' and value <> '\"allowed\"' returning key",
     );
     if (left.rowCount) await new Promise((done) => setTimeout(done, 6_000));
     await control.end();
