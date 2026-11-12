@@ -22,7 +22,7 @@
   "dependencies": {
     "@anygriddb/core": "workspace:*",
     "@anygriddb/db": "workspace:*",
-    "@aws-sdk/client-s3": "3.1161.0",
+    "@aws-sdk/client-s3": "3.1163.0",
     "@fastify/compress": "9.3.0",
     "@fastify/cookie": "11.1.5",
     "@fastify/multipart": "10.1.7",
@@ -40,7 +40,7 @@
     "@opentelemetry/sdk-trace": "3.0.0",
     "@prometheus-io/client": "0.16.1",
     "@simplewebauthn/server": "14.0.3",
-    "@smithy/node-http-handler": "4.14.1",
+    "@smithy/node-http-handler": "4.14.2",
     "@trpc/server": "11.24.0",
     "exceljs": "4.4.0",
     "fastify": "5.12.8",
@@ -52,7 +52,7 @@
     "oracledb": "26.0.0",
     "pg": "8.23.1",
     "sharp": "0.35.5",
-    "tedious": "20.3.8",
+    "tedious": "20.3.9",
     "zod": "4.6.7"
   },
   "devDependencies": {
