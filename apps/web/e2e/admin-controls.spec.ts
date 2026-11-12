@@ -68,9 +68,15 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await member.waitForURL(/\/login/);
 
     // Every public link and calendar feed of the instance, in one list.
-    await openAdmin(page, "Sharing");
+    await openAdmin(page, "Sharing", "Links and feeds");
     await expect(
       page.getByText(/Public links let anyone with the address/),
+    ).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    // And every API token, webhook, and automation.
+    await openAdmin(page, "Sharing", "Tokens and automations");
+    await expect(
+      page.getByRole("heading", { name: "API tokens" }),
     ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
 

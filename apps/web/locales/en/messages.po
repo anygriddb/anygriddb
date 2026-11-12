@@ -321,6 +321,10 @@ msgstr "{count, plural, one {# table added to {base}} other {# tables added to {
 msgid "{count, plural, one {Expose # table} other {Expose # tables}}"
 msgstr "{count, plural, one {Expose # table} other {Expose # tables}}"
 
+#: components/admin/access-tab.tsx
+msgid "{count} bases"
+msgstr "{count} bases"
+
 #: components/grid/grid-view.tsx
 msgid "{count} cells copied"
 msgstr "{count} cells copied"
@@ -329,6 +333,11 @@ msgstr "{count} cells copied"
 msgid "{count} cells skipped: incompatible value or computed field"
 msgstr "{count} cells skipped: incompatible value or computed field"
 
+#: components/admin/access-tab.tsx
+msgid "{count} failed runs in 24 hours"
+msgstr "{count} failed runs in 24 hours"
+
+#: components/admin/access-tab.tsx
 #: components/settings/webhooks-panel.tsx
 msgid "{count} failures in a row"
 msgstr "{count} failures in a row"
@@ -856,6 +865,7 @@ msgstr "ACS URL for the identity provider:"
 msgid "Action"
 msgstr "Action"
 
+#: components/admin/access-tab.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/invitations-panel.tsx
 #: components/admin/outbound-tab.tsx
@@ -1297,6 +1307,7 @@ msgstr "API key"
 msgid "API token lifetime"
 msgstr "API token lifetime"
 
+#: components/admin/access-tab.tsx
 #: components/admin/account-page.tsx
 #: components/settings/account-settings.tsx
 msgid "API tokens"
@@ -1401,6 +1412,7 @@ msgstr "Automation"
 msgid "Automation in {table}"
 msgstr "Automation in {table}"
 
+#: components/admin/access-tab.tsx
 #: components/table/view-toolbar.tsx
 msgid "Automations"
 msgstr "Automations"
@@ -2614,6 +2626,7 @@ msgstr "does not contain"
 msgid "Domains: {domains}. Invitations already sent to other addresses stop working, and so does adding such an account to a base."
 msgstr "Domains: {domains}. Invitations already sent to other addresses stop working, and so does adding such an account to a base."
 
+#: components/admin/access-tab.tsx
 #: components/admin/account-actions.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/support-tab.tsx
@@ -2883,9 +2896,14 @@ msgstr "End a session after this long without activity"
 msgid "End it in any case after"
 msgstr "End it in any case after"
 
+#: components/admin/access-tab.tsx
 #: components/admin/outbound-tab.tsx
 msgid "Ended {when}"
 msgstr "Ended {when}"
+
+#: components/admin/access-tab.tsx
+msgid "Ends"
+msgstr "Ends"
 
 #: components/admin/outbound-tab.tsx
 msgid "Ends {when}"
@@ -2957,6 +2975,10 @@ msgstr "Every account, its bases and roles, and its last sign-in, as a CSV file.
 #: components/admin/sign-in-trail.tsx
 msgid "Every active account"
 msgstr "Every active account"
+
+#: components/admin/access-tab.tsx
+msgid "Every base of its owner"
+msgstr "Every base of its owner"
 
 #: components/table/automations-dialog.tsx
 msgid "Every day"
@@ -4094,6 +4116,10 @@ msgstr "It has not been read yet."
 msgid "It stays in the trash for {days} days."
 msgstr "It stays in the trash for {days} days."
 
+#: components/admin/access-tab.tsx
+msgid "It stops running now and keeps its settings: someone who manages its base can switch it on again."
+msgstr "It stops running now and keeps its settings: someone who manages its base can switch it on again."
+
 #: components/admin/scim-tab.tsx
 msgid "It's copied"
 msgstr "It's copied"
@@ -4222,6 +4248,10 @@ msgstr "last month"
 msgid "Last read on {date}."
 msgstr "Last read on {date}."
 
+#: components/admin/access-tab.tsx
+msgid "Last run"
+msgstr "Last run"
+
 #: components/table/automations-dialog.tsx
 msgid "last run {date}"
 msgstr "last run {date}"
@@ -4238,6 +4268,7 @@ msgstr "Last sign-in"
 msgid "Last sign-in events"
 msgstr "Last sign-in events"
 
+#: components/admin/access-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Last used"
 msgstr "Last used"
@@ -4679,6 +4710,7 @@ msgstr "Multiple select"
 msgid "N days ago"
 msgstr "N days ago"
 
+#: components/admin/access-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/settings/webhooks-panel.tsx
@@ -4708,6 +4740,7 @@ msgstr "Network error"
 msgid "Network failure"
 msgstr "Network failure"
 
+#: components/admin/access-tab.tsx
 #: components/admin/security-tab.tsx
 #: components/table/share-dialog.tsx
 msgid "Never"
@@ -4882,9 +4915,14 @@ msgstr "No accounts match this selection"
 msgid "No API token to revoke"
 msgstr "No API token to revoke"
 
+#: components/admin/access-tab.tsx
 #: components/admin/account-page.tsx
 msgid "No API token."
 msgstr "No API token."
+
+#: components/admin/access-tab.tsx
+msgid "No automation."
+msgstr "No automation."
 
 #: components/table/automations-dialog.tsx
 msgid "No automations on this table."
@@ -5070,6 +5108,10 @@ msgstr "No token yet. Create one below and give it to your identity provider, wh
 #: components/views/kanban-view.tsx
 msgid "No value"
 msgstr "No value"
+
+#: components/admin/access-tab.tsx
+msgid "No webhook."
+msgstr "No webhook."
 
 #: components/admin/health-tab.tsx
 msgid "Node.js, up for"
@@ -5382,6 +5424,7 @@ msgstr "Overview"
 msgid "Owned by {owners}"
 msgstr "Owned by {owners}"
 
+#: components/admin/access-tab.tsx
 #: components/settings/role-label.ts
 msgid "Owner"
 msgstr "Owner"
@@ -5741,6 +5784,10 @@ msgstr "Rating"
 msgid "Reachable bases"
 msgstr "Reachable bases"
 
+#: components/admin/access-tab.tsx
+msgid "Reaches"
+msgstr "Reaches"
+
 #: components/admin/sources-tab.tsx
 msgid "read"
 msgstr "read"
@@ -5761,6 +5808,7 @@ msgstr "Read and write"
 msgid "read only"
 msgstr "read only"
 
+#: components/admin/access-tab.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/table-acl-panel.tsx
 msgid "Read only"
@@ -6107,6 +6155,7 @@ msgstr "Result"
 msgid "Retry scheduled ({error})"
 msgstr "Retry scheduled ({error})"
 
+#: components/admin/access-tab.tsx
 #: components/admin/account-actions.tsx
 #: components/admin/emergency-section.tsx
 #: components/admin/outbound-tab.tsx
@@ -6121,6 +6170,10 @@ msgstr "Revoke"
 #: components/admin/scim-tab.tsx
 msgid "Revoke “{name}”?"
 msgstr "Revoke “{name}”?"
+
+#: components/admin/access-tab.tsx
+msgid "Revoke {name}?"
+msgstr "Revoke {name}?"
 
 #: components/admin/account-actions.tsx
 msgid "Revoke {name}'s API tokens?"
@@ -6560,6 +6613,10 @@ msgstr "Send the link"
 #: components/admin/support-tab.tsx
 msgid "Send to {count} accounts?"
 msgstr "Send to {count} accounts?"
+
+#: components/admin/access-tab.tsx
+msgid "Sends to"
+msgstr "Sends to"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Sent ({status})"
@@ -7013,6 +7070,10 @@ msgstr "Starting point"
 msgid "starts with"
 msgstr "starts with"
 
+#: components/admin/access-tab.tsx
+msgid "State"
+msgstr "State"
+
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/support-tab.tsx
@@ -7137,6 +7198,22 @@ msgstr "Support"
 msgid "Switch"
 msgstr "Switch"
 
+#: components/admin/access-tab.tsx
+msgid "Switch off"
+msgstr "Switch off"
+
+#: components/admin/access-tab.tsx
+msgid "Switch off {name}?"
+msgstr "Switch off {name}?"
+
+#: components/admin/access-tab.tsx
+msgid "Switched off"
+msgstr "Switched off"
+
+#: components/admin/access-tab.tsx
+msgid "Switched on"
+msgstr "Switched on"
+
 #: components/shell/user-menu.tsx
 msgid "System"
 msgstr "System"
@@ -7145,6 +7222,7 @@ msgstr "System"
 msgid "table"
 msgstr "table"
 
+#: components/admin/access-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/admin/trails.tsx
 #: components/dashboards/dashboard-board.tsx
@@ -8184,6 +8262,10 @@ msgstr "Today"
 msgid "Today's date, in the reader's time zone."
 msgstr "Today's date, in the reader's time zone."
 
+#: components/admin/access-tab.tsx
+msgid "Token"
+msgstr "Token"
+
 #: components/admin/scim-tab.tsx
 msgid "Token copied"
 msgstr "Token copied"
@@ -8196,6 +8278,10 @@ msgstr "Token name"
 #: components/admin/scim-tab.tsx
 msgid "Tokens"
 msgstr "Tokens"
+
+#: components/admin/admin-sections.ts
+msgid "Tokens and automations"
+msgstr "Tokens and automations"
 
 #: components/table/filter-builder.tsx
 msgid "tomorrow"
@@ -8722,6 +8808,7 @@ msgstr "Webhook deliveries that failed"
 msgid "Webhook disabled after too many failures"
 msgstr "Webhook disabled after too many failures"
 
+#: components/admin/access-tab.tsx
 #: components/settings/base-settings.tsx
 msgid "Webhooks"
 msgstr "Webhooks"
@@ -8765,6 +8852,10 @@ msgstr "What this view is for (empty: no description)"
 #: components/shell/page-crashed.tsx
 msgid "What you saved is kept. Reload the page to carry on."
 msgstr "What you saved is kept. Reload the page to carry on."
+
+#: components/admin/access-tab.tsx
+msgid "Whatever uses this token is refused from now on. Its owner can make another."
+msgstr "Whatever uses this token is refused from now on. Its owner can make another."
 
 #: components/table/automations-dialog.tsx
 msgid "When"

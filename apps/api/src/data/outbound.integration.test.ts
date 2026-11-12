@@ -1,10 +1,18 @@
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createApiToken } from "../auth/tokens.js";
+import { setAutomationEnabled } from "../automations.js";
 import { createTestDatabase } from "../test-database.js";
+import { updateWebhook } from "../webhooks.js";
 import { renewCalendarFeed } from "./calendar-feeds.js";
 import { loadEngine } from "./engine.js";
-import { listOutbound, revokeOutbound } from "./outbound.js";
+import {
+  listInstanceHooks,
+  listInstanceTokens,
+  listOutbound,
+  revokeOutbound,
+} from "./outbound.js";
 import { insertBase, insertTable } from "./schema-ops.js";
 import { createShare } from "./sharing.js";
 import { createView, trashView } from "./views.js";
@@ -134,5 +142,75 @@ describe("every public link and calendar feed, for an administrator", () => {
         .executeTakeFirstOrThrow(),
     );
     expect(await listOutbound(db, 100)).toEqual([]);
+  });
+
+  it("lists every token, webhook, and automation, a webhook by its host only", async () => {
+    const { token } = await createApiToken(db, owner, "Reporting", {
+      readOnly: true,
+    });
+    await db
+      .insertInto("webhooks")
+      .values({
+        tableId,
+        createdBy: owner,
+        kind: "http",
+        name: "Billing",
+        target: "https://hooks.example.com/in/secret-path?key=hidden",
+        events: ["row.created"],
+        secretCiphertext: Buffer.alloc(16),
+        secretNonce: Buffer.alloc(12),
+      })
+      .execute();
+    const automation = await db
+      .insertInto("automations")
+      .values({
+        tableId,
+        createdBy: owner,
+        name: "Reminder",
+        trigger: { type: "row_created" },
+        actions: [],
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await db
+      .insertInto("automationRuns")
+      .values({
+        automationId: automation.id,
+        status: "failed",
+        trigger: "row_created",
+      })
+      .execute();
+
+    const tokens = await listInstanceTokens(db, 100);
+    expect(tokens).toMatchObject([
+      { name: "Reporting", owner: "Owner", readOnly: true, bases: null },
+    ]);
+    const hooks = await listInstanceHooks(db, 100);
+    expect(
+      hooks.map((hook) => [hook.kind, hook.name, hook.on, hook.failures]),
+    ).toEqual(
+      expect.arrayContaining([
+        ["webhook", "Billing", true, 0],
+        ["automation", "Reminder", true, 1],
+      ]),
+    );
+    expect(hooks.find((hook) => hook.kind === "webhook")?.host).toBe(
+      "hooks.example.com",
+    );
+    const text = JSON.stringify({ tokens, hooks });
+    expect(text).not.toContain(token);
+    expect(text).not.toContain("secret-path");
+    expect(text).not.toContain("hidden");
+
+    // Switched off from there, they stay, off.
+    const webhook = hooks.find((hook) => hook.kind === "webhook");
+    await updateWebhook(db, Buffer.alloc(32), webhook?.id ?? "", {
+      active: false,
+    });
+    await setAutomationEnabled(db, automation.id, false);
+    expect((await listInstanceHooks(db, 100)).map((hook) => hook.on)).toEqual([
+      false,
+      false,
+    ]);
   });
 });
