@@ -10,7 +10,6 @@ pnpm = "11"
 _.path = ["{{config_root}}/node_modules/.bin"]
 # No usage data leaves a developer machine either.
 TURBO_TELEMETRY_DISABLED = "1"
-NEXT_TELEMETRY_DISABLED = "1"
 
 [tasks.install]
 description = "Install JS workspace deps"
