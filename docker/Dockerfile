@@ -3,7 +3,9 @@
 # holds the bundle, the built files, the migrations, and production
 # dependencies only: no compilers, no dev tools.
 
-FROM node:26-bookworm-slim AS base
+# The base is pinned by digest: what is built is what was tested, and a
+# moved tag cannot change it. The weekly dependency update moves the pin.
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS base
 ENV TURBO_TELEMETRY_DISABLED=1
 # Node 25 and later ship without Corepack: pnpm comes from npm.
 RUN npm install --global pnpm@11.28.8
@@ -36,7 +38,7 @@ RUN pnpm --filter @anygriddb/api build && pnpm --filter @anygriddb/web build
 FROM base AS production-dependencies
 RUN pnpm install --frozen-lockfile --prod --filter @anygriddb/api
 
-FROM node:26-bookworm-slim
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1
 ENV NODE_ENV=production
 WORKDIR /app/apps/api
 COPY --from=production-dependencies /app/node_modules /app/node_modules
