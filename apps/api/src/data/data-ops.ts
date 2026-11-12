@@ -10,6 +10,7 @@ import {
   type FormulaExpr,
   isWritableType,
   type MadeNames,
+  localizeTemplate,
   madeNames,
   type ReadSpec,
   ROLLUP_FNS,
@@ -128,6 +129,8 @@ export async function applyTemplate(
   template: BaseTemplate,
   names: MadeNames = madeNames(),
 ): Promise<string[]> {
+  // Written in the asker's language: the base is theirs to read.
+  template = localizeTemplate(template, names.locale);
   const ids = new Map<string, string>();
   for (const table of template.tables) {
     const created = await insertTable(db, userId, {
@@ -172,6 +175,8 @@ export async function applyTemplate(
       targetTableId: to,
       twoWay: true,
       inverseLabel: link.inverseLabel,
+      name: link.name,
+      inverseName: link.inverseName,
     });
     if (!link.rows?.length) continue;
     const fromRows = rowIds.get(link.from) ?? [];

@@ -35,14 +35,17 @@ describe("BASE_TEMPLATES", () => {
       }
       for (const link of template.links ?? []) {
         expect(keys.has(link.from) && keys.has(link.to)).toBe(true);
+        // Names a column can have, kept as they are.
+        for (const name of [link.name, link.inverseName]) {
+          expect(deriveColumnName(name, new Set())).toBe(name);
+        }
       }
       for (const computed of template.computed ?? []) {
         // Rollups run over the inverse column of a link into their table.
         const inverse = (template.links ?? []).find(
           (link) =>
             link.to === computed.table &&
-            deriveColumnName(link.inverseLabel, new Set()) ===
-              computed.relation,
+            link.inverseName === computed.relation,
         );
         expect(inverse).toBeDefined();
         const source = template.tables.find(

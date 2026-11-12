@@ -11,6 +11,8 @@ export const NAME_LOCALES = ["en", "fr"] as const;
 export type NameLocale = (typeof NAME_LOCALES)[number];
 
 export type MadeNames = {
+  /** The language they are written in. */
+  locale: NameLocale;
   /** A new table's first view. */
   grid: string;
   /** A copy's name; `index` from 2 when the first is taken. */
@@ -27,6 +29,7 @@ export type MadeNames = {
 
 const NAMES: Record<NameLocale, MadeNames> = {
   en: {
+    locale: "en",
     grid: "Grid",
     copy: (name, index) =>
       index === undefined ? `${name} (copy)` : `${name} (copy ${index})`,
@@ -36,6 +39,7 @@ const NAMES: Record<NameLocale, MadeNames> = {
     automation: (name) => `Automation “${name}”`,
   },
   fr: {
+    locale: "fr",
     grid: "Grille",
     copy: (name, index) =>
       index === undefined ? `${name} (copie)` : `${name} (copie ${index})`,
