@@ -157,6 +157,18 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
   await expect(named("n0001")).toHaveCount(0);
   expect(await accessibilityViolations(page)).toEqual([]);
 
+  // The home page picks up where the person left off: the table, how many
+  // rows it holds, and who changed it last.
+  await page.goto("/");
+  const pickUp = page.getByRole("region", {
+    name: "Pick up where you left off",
+  });
+  const samples = pickUp.getByRole("link", { name: /Samples/ });
+  await expect(samples).toContainText(/rows/);
+  await expect(samples).toContainText(/Changed .* by you/);
+  await expect(page.getByRole("region", { name: "For you" })).toBeVisible();
+  expect(await accessibilityViolations(page)).toEqual([]);
+
   expect(blocked).toEqual([]);
   expect(blockedOther).toEqual([]);
 });

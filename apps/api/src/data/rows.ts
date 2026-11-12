@@ -227,37 +227,53 @@ export async function readPage(
   if (!options.total) {
     return { rows, total: null, totalEstimated: false, groups };
   }
-  // Same rule as external tables: an unfiltered large table shows the
-  // planner's estimate instead of paying for COUNT(*) on every first page.
+  const { total, estimated } = await nativeTotal(db, engine, spec, {
+    seen: (spec.offset ?? 0) + rows.length,
+    exact: options.exact === true,
+  });
+  return { rows, total, totalEstimated: estimated, groups };
+}
+
+/**
+ * How many rows of a native table a read keeps. Same rule as external
+ * tables: an unfiltered large table gives the planner's estimate instead
+ * of paying for COUNT(*) each time, unless `exact` asks for the count.
+ */
+async function nativeTotal(
+  db: Database,
+  engine: EngineCatalog,
+  spec: ReadSpec,
+  options: { seen: number; exact: boolean },
+): Promise<{ total: number; estimated: boolean }> {
   const estimate = readsEveryRow(engine, spec)
     ? await estimateNativeRows(db, engine)
     : null;
   if (!options.exact && estimate !== null && estimate >= ESTIMATE_FROM) {
-    return { rows, total: estimate, totalEstimated: true, groups };
+    return { total: estimate, estimated: true };
   }
   try {
     const [row] = await readTransaction(db, engine, (run) =>
       run(buildCountRows(engine, spec)),
     );
-    return {
-      rows,
-      total: Number(row?.total ?? 0),
-      totalEstimated: false,
-      groups,
-    };
+    return { total: Number(row?.total ?? 0), estimated: false };
   } catch (error) {
     // readWithin's statement_timeout surfaces as Postgres 57014; fall
     // back to the estimate (or at least the rows already seen) rather
-    // than failing the whole page.
+    // than failing the whole read.
     if (!isStatementTimeout(error)) throw error;
-    const seen = (spec.offset ?? 0) + rows.length;
-    return {
-      rows,
-      total: Math.max(estimate ?? 0, seen),
-      totalEstimated: true,
-      groups,
-    };
+    return { total: Math.max(estimate ?? 0, options.seen), estimated: true };
   }
+}
+
+/**
+ * How many rows of a native table its reader sees, every one of them
+ * (their row rules applied): estimated past `ESTIMATE_FROM`.
+ */
+export function countVisibleRows(
+  db: Database,
+  engine: EngineCatalog,
+): Promise<{ total: number; estimated: boolean }> {
+  return nativeTotal(db, engine, { limit: 1 }, { seen: 0, exact: false });
 }
 
 function isStatementTimeout(error: unknown): boolean {

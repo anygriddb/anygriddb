@@ -104,6 +104,28 @@ export function formatDate(
   ).format(date);
 }
 
+/**
+ * How long ago an instant was, in the largest unit that fits: now, then
+ * minutes, hours, and days ("yesterday" past a day).
+ */
+export function formatAgo(
+  value: string,
+  locale: Locale,
+  now: number = Date.now(),
+): string {
+  const at = new Date(value).getTime();
+  if (Number.isNaN(at)) return value;
+  const seconds = Math.round((at - now) / 1000);
+  const format = new Intl.RelativeTimeFormat(localeTag(locale), {
+    numeric: "auto",
+  });
+  const size = Math.abs(seconds);
+  if (size < 45) return format.format(0, "second");
+  if (size < 3_600) return format.format(Math.round(seconds / 60), "minute");
+  if (size < 86_400) return format.format(Math.round(seconds / 3_600), "hour");
+  return format.format(Math.round(seconds / 86_400), "day");
+}
+
 export function formatDuration(seconds: number, format = "h:mm"): string {
   const total = Math.max(0, Math.round(seconds));
   const days = Math.floor(total / 86_400);
