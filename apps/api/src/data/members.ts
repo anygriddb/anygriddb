@@ -200,6 +200,27 @@ export async function listMembers(db: Database, baseId: string) {
   return [...grouped.values()];
 }
 
+/**
+ * Whether the address holds a role of its own on the base: such a person
+ * is in the list of members, which whoever manages the base reads.
+ */
+export async function isMember(
+  db: Database,
+  baseId: string,
+  email: string,
+): Promise<boolean> {
+  const row = await db
+    .selectFrom("roleBindings as b")
+    .innerJoin("users as u", "u.id", "b.userId")
+    .select("b.id")
+    .where("u.email", "=", email.toLowerCase())
+    .where("b.scope", "=", "base")
+    .where("b.scopeId", "=", baseId)
+    .where("b.groupId", "is", null)
+    .executeTakeFirst();
+  return row !== undefined;
+}
+
 export async function grantMember(
   db: Database,
   actorId: string,

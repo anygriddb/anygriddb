@@ -116,7 +116,12 @@ import { readGateSettings, readSettings } from "../settings.js";
 import { eraseAccount, eraseAccountInputSchema } from "../data/erasure.js";
 import { isUniqueViolation } from "../data/schema-ops.js";
 import type { Context } from "./context.js";
-import { acceptInvitation, invitationPreview } from "../data/sharing.js";
+import {
+  acceptInvitation,
+  answerInvitation,
+  invitationPreview,
+  listInvitationsFor,
+} from "../data/sharing.js";
 import { extendSessionCookie, procedure, requireUser, t } from "./init.js";
 import { mapProcedureError } from "./map-error.js";
 
@@ -958,6 +963,41 @@ export const authRouter = t.router({
     .query(async ({ ctx, input }) => {
       try {
         return await invitationPreview(ctx.db, input.token);
+      } catch (error) {
+        mapProcedureError(error, ctx.req.log);
+      }
+    }),
+  /** The invitations waiting for the signed-in account's address. */
+  pendingInvitations: procedure.query(async ({ ctx }) => {
+    const user = await requireUser(ctx);
+    try {
+      const rows = await listInvitationsFor(ctx.db, user.email);
+      return {
+        invitations: rows.map((row) => ({
+          id: row.id,
+          role: row.role,
+          baseName: row.baseName,
+          invitedBy: row.invitedBy,
+          expiresAt: row.expiresAt.toISOString(),
+        })),
+      };
+    } catch (error) {
+      mapProcedureError(error, ctx.req.log);
+    }
+  }),
+  /** Accepts or declines one of them: no link is needed for one's own. */
+  answerInvitation: procedure
+    .input(z.object({ invitationId: z.uuid(), accept: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await requireUser(ctx);
+      try {
+        const joined = await answerInvitation(
+          ctx.db,
+          user,
+          input.invitationId,
+          input.accept,
+        );
+        return { baseId: joined?.baseId ?? null };
       } catch (error) {
         mapProcedureError(error, ctx.req.log);
       }
