@@ -118,7 +118,7 @@ export function ApiDocs({ baseId }: { baseId: string }) {
   );
   return (
     <NotebookPage
-      width="xl"
+      width="wide"
       title={t`${{ name: base.name }} API`}
       description={
         <>

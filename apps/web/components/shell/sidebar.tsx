@@ -33,9 +33,10 @@ import {
   Trash2,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTrackJob } from "../../lib/jobs";
+import type { NavigationMode } from "../../lib/narrow-screen";
 import { useTrashActions } from "../../lib/trash";
 import { useChannel } from "../../lib/realtime";
 import { useCatalog } from "../../lib/session";
@@ -118,7 +119,12 @@ function PinButton(props: {
 
 export function Sidebar({
   user,
+  mode,
+  onClose,
 }: {
+  /** Beside the page, or on a narrow screen folded away or open over it. */
+  mode: NavigationMode;
+  onClose: () => void;
   user: {
     displayName: string;
     email: string;
@@ -145,6 +151,10 @@ export function Sidebar({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [width, setWidth] = useState(readSidebarWidth);
   const aside = useRef<HTMLElement>(null);
+  useEffect(() => {
+    // Opened over the page: focus moves into it, as into a dialog.
+    if (mode === "open") aside.current?.querySelector("a")?.focus();
+  }, [mode]);
   useChannel(params.baseId, {
     message: (message) => {
       if (message.type === "catalog") void invalidate();
@@ -261,8 +271,17 @@ export function Sidebar({
   return (
     <aside
       ref={aside}
-      className="relative flex shrink-0 flex-col border-r border-border bg-background"
+      inert={mode === "closed"}
+      className={cn(
+        "relative flex shrink-0 flex-col border-r border-border bg-background",
+        mode !== "docked" &&
+          "fixed inset-y-0 left-0 z-40 max-w-[85vw] shadow-xl transition-transform motion-reduce:transition-none",
+        mode === "closed" && "-translate-x-full",
+      )}
       style={{ width }}
+      onKeyDown={(event) => {
+        if (mode === "open" && event.key === "Escape") onClose();
+      }}
     >
       <div className="flex h-11 shrink-0 items-center px-2">
         <Link
@@ -675,25 +694,27 @@ export function Sidebar({
         <JobsMenu />
         <NotificationBell />
       </div>
-      <ResizeHandle
-        width={width}
-        keyboard
-        label={t`Resize the sidebar`}
-        bounds={{
-          min: SIDEBAR_WIDTH_MIN,
-          max: SIDEBAR_WIDTH_MAX,
-          reset: SIDEBAR_WIDTH_DEFAULT,
-        }}
-        onResize={(next, phase) => {
-          // While dragging, the panel alone changes width: the tree of
-          // bases is drawn again once, when the drag ends.
-          if (aside.current) aside.current.style.width = `${String(next)}px`;
-          if (phase === "end") {
-            setWidth(next);
-            writeSidebarWidth(next);
-          }
-        }}
-      />
+      {mode === "docked" ? (
+        <ResizeHandle
+          width={width}
+          keyboard
+          label={t`Resize the sidebar`}
+          bounds={{
+            min: SIDEBAR_WIDTH_MIN,
+            max: SIDEBAR_WIDTH_MAX,
+            reset: SIDEBAR_WIDTH_DEFAULT,
+          }}
+          onResize={(next, phase) => {
+            // While dragging, the panel alone changes width: the tree of
+            // bases is drawn again once, when the drag ends.
+            if (aside.current) aside.current.style.width = `${String(next)}px`;
+            if (phase === "end") {
+              setWidth(next);
+              writeSidebarWidth(next);
+            }
+          }}
+        />
+      ) : null}
 
       <NewBaseDialog
         open={dialog?.kind === "create-base"}

@@ -1,10 +1,11 @@
-import { Button, Spinner } from "@anygriddb/ui";
+import { Button, buttonVariants, Spinner } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import { CloudOff, Megaphone } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { CloudOff, Megaphone, Menu } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { JobsProvider } from "../../lib/jobs";
+import { navigationMode, useNarrowScreen } from "../../lib/narrow-screen";
 import {
   RealtimeProvider,
   useConnectionDown,
@@ -77,8 +78,21 @@ function ConnectionBanner() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const { t } = useLingui();
   const session = useSession();
   const navigate = useNavigate();
+  // On a narrow screen the navigation folds away and opens over the page.
+  const narrow = useNarrowScreen();
+  const page = useLocation({ select: (location) => location.pathname });
+  const [openedOn, setOpenedOn] = useState<string | null>(null);
+  const navigation = navigationMode(narrow, openedOn, page);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    // Closing gives focus back to the button that opened it.
+    if (wasOpen.current && navigation === "closed") menuButton.current?.focus();
+    wasOpen.current = navigation === "open";
+  }, [navigation]);
   // The page asked for, with its search, to come back to after sign-in.
   // While the router leaves for /login, `here` is already the sign-in
   // page: `safeNext` keeps it from nesting into its own `next`.
@@ -122,8 +136,40 @@ export function AppShell({ children }: { children: ReactNode }) {
     <RealtimeProvider enabled>
       <JobsProvider>
         <div className="flex h-screen overflow-hidden">
-          <Sidebar user={session.data} />
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <Sidebar
+            user={session.data}
+            mode={navigation}
+            onClose={() => setOpenedOn(null)}
+          />
+          {navigation === "open" ? (
+            <button
+              type="button"
+              aria-label={t`Close the navigation`}
+              className="fixed inset-0 z-30 bg-foreground/30"
+              onClick={() => setOpenedOn(null)}
+            />
+          ) : null}
+          <div
+            className="flex min-w-0 flex-1 flex-col overflow-hidden"
+            inert={navigation === "open"}
+          >
+            {narrow ? (
+              <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-2">
+                <button
+                  ref={menuButton}
+                  type="button"
+                  className={buttonVariants({ size: "icon", variant: "ghost" })}
+                  aria-label={t`Open the navigation`}
+                  aria-expanded={navigation === "open"}
+                  onClick={() => setOpenedOn(page)}
+                >
+                  <Menu className="h-4 w-4" aria-hidden />
+                </button>
+                <span className="truncate text-sm font-semibold">
+                  AnyGridDB
+                </span>
+              </div>
+            ) : null}
             <InstanceBanner />
             <ConnectionBanner />
             {children}
