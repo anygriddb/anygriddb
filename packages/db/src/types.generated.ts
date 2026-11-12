@@ -301,6 +301,7 @@ export interface DataColumns {
   name: string;
   physicalName: string;
   position: Generated<number>;
+  required: Generated<boolean>;
   requireReason: Generated<boolean>;
   tableId: string;
 }

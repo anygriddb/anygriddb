@@ -8,6 +8,7 @@ import {
   describeColumns,
   effectiveTableRole,
   normalizeViewConfig,
+  withRequiredFormFields,
   roleAllows,
   ROW_ERRORS,
   type ViewConfig,
@@ -96,17 +97,32 @@ async function openShare(
     bindings,
   });
   const engine = loaded.engine;
-  const config = normalizeViewConfig(
+  const names = engine.table.columns
+    .filter((column) => !engine.access?.hidden(engine.table.id, column.name))
+    .map((column) => column.name);
+  const normalized = normalizeViewConfig(
     resolved.view.config,
     resolved.view.viewType,
   );
-  const fields = visibleFields(
-    config,
-    resolved.view.viewType,
-    engine.table.columns
-      .filter((column) => !engine.access?.hidden(engine.table.id, column.name))
-      .map((column) => column.name),
-  );
+  // A field the table requires is on every form, required, unconditioned.
+  const required = loaded.rows.columns
+    .filter((column) => column.tableId === engine.table.id && column.required)
+    .map((column) => column.name);
+  const config =
+    resolved.view.viewType === "form" && required.length > 0
+      ? {
+          ...normalized,
+          form: {
+            ...normalized.form,
+            fields: withRequiredFormFields(
+              normalized.form?.fields,
+              names,
+              required,
+            ),
+          },
+        }
+      : normalized;
+  const fields = visibleFields(config, resolved.view.viewType, names);
   return { ...resolved, engine, rows: loaded.rows, config, fields };
 }
 

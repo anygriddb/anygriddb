@@ -3,6 +3,7 @@ import {
   applyViewConfigPatch,
   keepTrashedParts,
   normalizeViewConfig,
+  withRequiredFormFields,
   pruneViewConfig,
   viewConfigColumns,
 } from "./view-config";
@@ -258,5 +259,40 @@ describe("keepTrashedParts", () => {
     expect(keepTrashedParts(stored, saved, trashed, ["sort"]).sort).toEqual(
       full,
     );
+  });
+});
+
+describe("withRequiredFormFields", () => {
+  it("keeps a form as it is when the table requires nothing", () => {
+    const fields = [{ column: "title", hidden: true }];
+    expect(withRequiredFormFields(fields, ["title"], [])).toEqual(fields);
+  });
+
+  it("puts a field the table requires on the form, required, unconditioned", () => {
+    expect(
+      withRequiredFormFields(
+        [
+          { column: "notes", label: "Anything else?" },
+          {
+            column: "title",
+            hidden: true,
+            showIf: { conjunction: "and", conditions: [] },
+            label: "What is it?",
+          },
+        ],
+        ["title", "notes", "due"],
+        ["title", "due"],
+      ),
+    ).toEqual([
+      { column: "notes", label: "Anything else?" },
+      { column: "title", label: "What is it?", required: true },
+      { column: "due", required: true },
+    ]);
+  });
+
+  it("lists every field of a form that lists none", () => {
+    expect(
+      withRequiredFormFields(undefined, ["title", "due"], ["due"]),
+    ).toEqual([{ column: "title" }, { column: "due", required: true }]);
   });
 });

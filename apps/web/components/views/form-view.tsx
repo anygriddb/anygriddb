@@ -4,6 +4,7 @@ import {
   type FilterKind,
   misplacedConditionFields,
   visibleFormFields,
+  withRequiredFormFields,
 } from "@anygriddb/core";
 import {
   Button,
@@ -384,10 +385,12 @@ export function FormView(props: ViewProps) {
   const candidates = props.allColumns.filter(
     (column) => isEditableColumn(column) && SUPPORTED.has(column.fieldType),
   );
-  const fields: FormField[] =
-    form.fields && form.fields.length > 0
-      ? form.fields
-      : candidates.map((column) => ({ column: column.name }));
+  // A field the table requires is on the form, required, unconditioned.
+  const fields: FormField[] = withRequiredFormFields(
+    form.fields,
+    candidates.map((column) => column.name),
+    candidates.filter((column) => column.required).map((column) => column.name),
+  );
   // A link may fill fields of the form (`?prefill_<field>=`), and hide
   // the ones it fills (`?hide_<field>=true`); they are still sent.
   const [prefill] = useState(() =>
@@ -599,6 +602,8 @@ export function FormView(props: ViewProps) {
             ].map((column) => {
               const field = fields.find((item) => item.column === column.name);
               const included = Boolean(field) && !field?.hidden;
+              // The table requires it: the form cannot leave it out.
+              const byTable = column.required;
               // A condition reads the fields placed before this one.
               const place = fields.findIndex(
                 (item) => item.column === column.name,
@@ -641,6 +646,7 @@ export function FormView(props: ViewProps) {
                   <div className="flex flex-wrap items-center gap-2">
                     <Checkbox
                       checked={included}
+                      disabled={byTable}
                       aria-label={t`Include ${{ field: column.label }}`}
                       onChange={(event) =>
                         update({ hidden: !event.target.checked })
@@ -676,14 +682,14 @@ export function FormView(props: ViewProps) {
                     <label className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Checkbox
                         checked={field?.required === true}
-                        disabled={!included}
+                        disabled={!included || byTable}
                         onChange={(event) =>
                           update({ required: event.target.checked })
                         }
                       />
                       {t`required`}
                     </label>
-                    {included && earlier.length > 0 ? (
+                    {included && !byTable && earlier.length > 0 ? (
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button

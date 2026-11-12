@@ -137,6 +137,14 @@ export function GridHeader(props: {
             <span className="sr-only">, {t`Primary field`}</span>
           ) : null}
         </span>
+        {column.required ? (
+          <>
+            <span className="text-danger" title={t`Value required`} aria-hidden>
+              *
+            </span>
+            <span className="sr-only">, {t`Value required`}</span>
+          </>
+        ) : null}
         {column.requireReason ? (
           <span title={t`Reason required`}>*</span>
         ) : null}

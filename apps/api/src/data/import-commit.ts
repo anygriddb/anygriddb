@@ -6,6 +6,7 @@ import {
   type ColumnDefinition,
   type EngineCatalog,
   type ImportCommitInput,
+  isBlankCell,
   MAX_READ_LIMIT,
   OPTION_COLORS,
   resolveChangeReason,
@@ -487,6 +488,57 @@ export async function importIntoTable(
   } else {
     inserts.push(...valid.map((item) => item.values));
     insertLines.push(...valid.map((item) => item.line));
+  }
+  // A required field: a new row fills it, a change never empties it. The
+  // line is reported and the others are written.
+  const required = own.filter((column) => column.required);
+  if (required.length > 0) {
+    const blank = (
+      values: Readonly<Record<string, CellValue>>,
+      mode: "insert" | "update",
+    ) =>
+      required.find(
+        (column) =>
+          (mode === "insert" || column.name in values) &&
+          isBlankCell(values[column.name]),
+      );
+    const refuse = (line: number, column: { label: string }) => {
+      failed += 1;
+      if (errors.length < MAX_ERRORS) {
+        errors.push({
+          line,
+          column: column.label,
+          value: "",
+          message: "Refused",
+          code: "value_required",
+          detail: column.label,
+        });
+      }
+    };
+    const keptInserts: typeof inserts = [];
+    const keptInsertLines: number[] = [];
+    inserts.forEach((values, index) => {
+      const missing = blank(values, "insert");
+      if (missing) refuse(insertLines[index] ?? 0, missing);
+      else {
+        keptInserts.push(values);
+        keptInsertLines.push(insertLines[index] ?? 0);
+      }
+    });
+    inserts.splice(0, inserts.length, ...keptInserts);
+    insertLines.splice(0, insertLines.length, ...keptInsertLines);
+    const keptUpdates: typeof updates = [];
+    const keptUpdateLines: number[] = [];
+    updates.forEach((update, index) => {
+      const missing = blank(update.values, "update");
+      if (missing) refuse(updateLines[index] ?? 0, missing);
+      else {
+        keptUpdates.push(update);
+        keptUpdateLines.push(updateLines[index] ?? 0);
+      }
+    });
+    updates.splice(0, updates.length, ...keptUpdates);
+    updateLines.splice(0, updateLines.length, ...keptUpdateLines);
   }
 
   const total = inserts.length + updates.length;

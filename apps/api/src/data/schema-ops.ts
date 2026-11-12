@@ -27,6 +27,7 @@ import {
   isMetadataConversion,
   isRelationType,
   isWritableType,
+  canBeRequired,
   madeNames,
   normalizeViewConfig,
   OPTION_COLORS,
@@ -86,6 +87,7 @@ type PlannedColumn = {
   fieldType: FieldType;
   description: string | null;
   requireReason: boolean;
+  required: boolean;
   unique: boolean;
   config: ColumnConfig;
 };
@@ -152,6 +154,8 @@ export function planColumn(
     description: definition.description ?? null,
     requireReason:
       definition.requireReason === true && isWritableType(definition.fieldType),
+    required:
+      definition.required === true && canBeRequired(definition.fieldType),
     unique,
     config,
   };
@@ -200,6 +204,7 @@ function withPlanned(
         externalControlPlane: false,
         fieldType: column.fieldType,
         requireReason: column.requireReason,
+        required: column.required,
         config: column.config,
         label: column.label,
         description: column.description,
@@ -380,6 +385,7 @@ export async function insertTable(
               physicalName: column.name,
               fieldType: column.fieldType,
               requireReason: column.requireReason,
+              required: column.required,
               config: column.config,
               label: column.label,
               description: column.description,
@@ -575,6 +581,7 @@ export async function addColumn(
             physicalName: planned.name,
             fieldType: planned.fieldType,
             requireReason: planned.requireReason,
+            required: planned.required,
             config: planned.config as Record<string, unknown>,
             label: planned.label,
             description: planned.description,
@@ -857,6 +864,7 @@ export type ColumnUpdate = {
   label?: string;
   description?: string | null;
   requireReason?: boolean;
+  required?: boolean;
   unique?: boolean;
   fieldType?: FieldType;
   config?: Record<string, unknown>;
@@ -1115,6 +1123,12 @@ export async function updateColumn(
                 requireReason: input.requireReason && isWritableType(fieldType),
               }
             : {}),
+          // A client's table says itself what it requires; a type that
+          // cannot be required drops the rule.
+          required:
+            (input.required ?? column.required) &&
+            canBeRequired(fieldType) &&
+            table.sourceId === null,
         })
         .where("id", "=", column.id)
         .execute();

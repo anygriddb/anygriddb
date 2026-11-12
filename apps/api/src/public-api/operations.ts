@@ -368,6 +368,8 @@ export async function listTables(
         type: column.fieldType,
         kind: column.kind,
         primary: column.isPrimary,
+        /** A new record fills it; a change never empties it. */
+        required: column.required,
         readOnly:
           !isWritableType(column.fieldType) &&
           !isRelationType(column.fieldType),

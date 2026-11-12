@@ -62,6 +62,7 @@ export const columnDefinitionSchema = z
     fieldType: z.enum(CREATABLE_TYPES),
     description: descriptionSchema.optional(),
     requireReason: z.boolean().optional(),
+    required: z.boolean().optional(),
     unique: z.boolean().optional(),
     config: z.record(z.string(), z.unknown()).optional(),
     formulaSource: z.string().trim().min(1).max(4_000).optional(),
@@ -129,6 +130,7 @@ export const addColumnInputSchema = z.object({
   fieldType: z.enum(CREATABLE_TYPES).optional(),
   description: descriptionSchema.optional(),
   requireReason: z.boolean().optional(),
+  required: z.boolean().optional(),
   unique: z.boolean().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
   formulaSource: z.string().trim().min(1).max(4_000).optional(),
@@ -149,6 +151,7 @@ export function columnFromAddInput(
     fieldType: input.fieldType,
     description: input.description,
     requireReason: input.requireReason,
+    required: input.required,
     unique: input.unique,
     config: input.config,
     formulaSource: input.formulaSource,
@@ -167,6 +170,7 @@ export const updateColumnInputSchema = z.object({
   label: columnLabelSchema.optional(),
   description: descriptionSchema.nullable().optional(),
   requireReason: z.boolean().optional(),
+  required: z.boolean().optional(),
   unique: z.boolean().optional(),
   fieldType: fieldTypeSchema.optional(),
   config: z.record(z.string(), z.unknown()).optional(),
@@ -393,6 +397,38 @@ export function resolveChangeReason(
     throw new AppError("invalid_reason");
   }
   return reason.trim();
+}
+
+/** A cell that holds nothing: no value, blank text, or an empty list. */
+export function isBlankCell(value: unknown): boolean {
+  return (
+    value === undefined ||
+    value === null ||
+    (typeof value === "string" && value.trim() === "") ||
+    (Array.isArray(value) && value.length === 0)
+  );
+}
+
+/**
+ * Refuses a write that leaves a required field empty, naming the field: a
+ * new row fills each one, a change never empties one. A row written before
+ * its field was required keeps what it holds until that field is changed.
+ */
+export function assertRequiredValues(
+  columns: readonly { name: string; label: string; required: boolean }[],
+  rows: ReadonlyArray<Readonly<Record<string, unknown>>>,
+  mode: "insert" | "update",
+): void {
+  const required = columns.filter((column) => column.required);
+  if (required.length === 0) return;
+  for (const values of rows) {
+    for (const column of required) {
+      if (mode === "update" && !(column.name in values)) continue;
+      if (isBlankCell(values[column.name])) {
+        throw new AppError("value_required", column.label);
+      }
+    }
+  }
 }
 
 export function assertStatusTransition(

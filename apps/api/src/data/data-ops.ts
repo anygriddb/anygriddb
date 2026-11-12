@@ -108,6 +108,7 @@ function definitionOf(column: ColumnRow): ColumnDefinition {
     fieldType: creatable(column.fieldType),
     description: column.description ?? undefined,
     requireReason: column.requireReason,
+    required: column.required,
     unique: column.isUnique,
     config,
     formula: column.fieldType === "formula" ? expr : undefined,

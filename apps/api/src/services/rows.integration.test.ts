@@ -10,7 +10,8 @@ import { createApiToken } from "../auth/tokens.js";
 import { withAudit } from "../data/audit-context.js";
 import { insertComputed } from "../data/computed.js";
 import { addRelation } from "../data/relations.js";
-import { insertBase, insertTable } from "../data/schema-ops.js";
+import { importIntoTable } from "../data/import-commit.js";
+import { insertBase, insertTable, updateColumn } from "../data/schema-ops.js";
 import { gridChannel } from "../realtime/channels.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { registerRestApi } from "../rest-api.js";
@@ -28,6 +29,7 @@ describe("row writes through the REST API", () => {
   let token = "";
   let clientsId = "";
   let ordersId = "";
+  let tasksId = "";
   let ownerId = "";
 
   beforeAll(async () => {
@@ -63,6 +65,17 @@ describe("row writes through the REST API", () => {
         baseId,
         name: "Orders",
         columns: [{ name: "title", label: "Title", fieldType: "text" }],
+      })
+    ).id;
+    tasksId = (
+      await insertTable(database, owner, {
+        baseId,
+        name: "Tasks",
+        columns: [
+          { name: "title", label: "Title", fieldType: "text" },
+          { name: "notes", label: "Notes", fieldType: "text" },
+          { name: "due", label: "Due", fieldType: "date", required: true },
+        ],
       })
     ).id;
     await addRelation(database, owner, {
@@ -298,6 +311,94 @@ describe("row writes through the REST API", () => {
     });
     expect(accepted.statusCode).toBe(200);
     expect(await names()).toEqual(["Changed one", "Changed two"]);
+  });
+
+  it("asks a required field for a value on every write", async () => {
+    // A row written before the title was required keeps its empty title.
+    const before = await call("POST", tasksId, {
+      records: [{ fields: { due: "2026-11-20" } }],
+    });
+    expect(before.statusCode).toBe(200);
+    const earlier = before.json<{ records: Array<{ id: string }> }>().records[0]
+      ?.id;
+    const table = await findLiveTable(database, tasksId);
+    if (!table) throw new Error("no table");
+    await updateColumn(database, ownerId, table, {
+      name: "title",
+      required: true,
+    });
+
+    const missing = await call("POST", tasksId, {
+      records: [{ fields: { due: "2026-11-20" } }],
+    });
+    expect(missing.statusCode).toBe(400);
+    expect(missing.json<{ code: string; detail: string }>()).toMatchObject({
+      code: "value_required",
+      detail: "Title",
+    });
+    const blank = await call("POST", tasksId, {
+      records: [{ fields: { title: "  ", due: "2026-11-20" } }],
+    });
+    expect(blank.statusCode).toBe(400);
+    const filled = await call("POST", tasksId, {
+      records: [{ fields: { title: "Pay rent", due: "2026-11-20" } }],
+    });
+    expect(filled.statusCode).toBe(200);
+    const id = filled.json<{ records: Array<{ id: string }> }>().records[0]?.id;
+
+    // A change that leaves the title alone goes through, on the old row too.
+    for (const row of [id, earlier]) {
+      const noted = await call("PATCH", tasksId, {
+        records: [{ id: row, fields: { notes: "Monthly" } }],
+      });
+      expect(noted.statusCode).toBe(200);
+    }
+    const emptied = await call("PATCH", tasksId, {
+      records: [{ id, fields: { title: null } }],
+    });
+    expect(emptied.statusCode).toBe(400);
+
+    // An import writes the lines that fill both, and names the others.
+    const result = await importIntoTable(database, {
+      userId: ownerId,
+      table,
+      staged: {
+        userId: ownerId,
+        filename: "tasks.csv",
+        headers: ["Title", "Due"],
+        rows: [
+          ["Call the bank", "2026-11-21"],
+          ["", "2026-11-22"],
+          ["File taxes", ""],
+        ],
+      },
+      mapping: [
+        { source: 0, column: "title" },
+        { source: 1, column: "due" },
+      ],
+      addOptions: false,
+      canManage: true,
+      eventKey: `import:required-${suffix}`,
+    });
+    expect(result).toMatchObject({ inserted: 1, failed: 2 });
+    expect(result.errors).toEqual([
+      {
+        line: 3,
+        column: "Title",
+        value: "",
+        message: "Refused",
+        code: "value_required",
+        detail: "Title",
+      },
+      {
+        line: 4,
+        column: "Due",
+        value: "",
+        message: "Refused",
+        code: "value_required",
+        detail: "Due",
+      },
+    ]);
   });
 
   it("indexes a link's foreign key, and gives one to a link made before", async () => {

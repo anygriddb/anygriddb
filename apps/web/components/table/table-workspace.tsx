@@ -763,18 +763,24 @@ export function TableWorkspace({
 
   const [recordId, setRecordId] = useState<string | null>(rowId ?? null);
   const openRecord = useCallback((rowId: string) => setRecordId(rowId), []);
-  // A client's table checks a new row as a whole: it is filled first. A
+  // A client's table checks a new row as a whole, and a table with a
+  // required field refuses an empty one: the row is filled first. Any other
   // row of AnyGridDB's own starts empty, in its record panel.
-  const [newRowOpen, setNewRowOpen] = useState(false);
+  const fillFirst =
+    external !== null || allColumns.some((column) => column.required);
+  const [newRowValues, setNewRowValues] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const newRow = useCallback(() => {
-    if (external) {
-      setNewRowOpen(true);
+    if (fillFirst) {
+      setNewRowValues({});
       return;
     }
     void addRow().then((id) => {
       if (id) setRecordId(id);
     });
-  }, [external, addRow]);
+  }, [fillFirst, addRow]);
   const recordQuery = useQuery({
     ...api.rows.get.queryOptions({
       tableId,
@@ -975,7 +981,15 @@ export function TableWorkspace({
     config: config as Record<string, unknown>,
     canEdit: writable,
     onPatch: (patch: ViewPatch) => void patchView(patch),
-    onCreate: (values: Record<string, unknown>) => addRow(values),
+    // A form fills its own fields; a card or a day added elsewhere opens
+    // the new row with what it already knows.
+    onCreate: (values: Record<string, unknown>) => {
+      if (fillFirst && viewType !== "form") {
+        setNewRowValues(values);
+        return Promise.resolve(undefined);
+      }
+      return addRow(values);
+    },
     tintOf: (row: RowItem) =>
       resolveRowTint(row, visible, config.color, tintContext),
     ...(counts ? { counts } : {}),
@@ -1132,8 +1146,8 @@ export function TableWorkspace({
                 )}
                 onActiveCell={onActiveCell}
                 onAddRow={async () => {
-                  if (external) {
-                    setNewRowOpen(true);
+                  if (fillFirst) {
+                    setNewRowValues({});
                     return;
                   }
                   // The new row appears in the grid: that is the confirmation.
@@ -1327,11 +1341,13 @@ export function TableWorkspace({
           onRestored={() => rows.refresh()}
         />
       ) : null}
-      {newRowOpen ? (
+      {newRowValues ? (
         <NewRowDialog
           open
           columns={ordered}
-          onClose={() => setNewRowOpen(false)}
+          external={external !== null}
+          initial={newRowValues}
+          onClose={() => setNewRowValues(null)}
           onCreate={(values) => addRow(values)}
         />
       ) : null}

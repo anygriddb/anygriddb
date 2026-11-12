@@ -176,6 +176,20 @@ export function isWritableType(
   return (WRITABLE_TYPES as readonly string[]).includes(fieldType);
 }
 
+/**
+ * Types a field may require a value in: a value typed or chosen when the
+ * row is written. A checkbox is never empty; people and files are added to
+ * a row once it exists.
+ */
+export function canBeRequired(fieldType: FieldType): boolean {
+  return (
+    isWritableType(fieldType) &&
+    fieldType !== "boolean" &&
+    fieldType !== "user" &&
+    fieldType !== "attachment"
+  );
+}
+
 export function isSystemType(fieldType: FieldType): fieldType is SystemType {
   return (SYSTEM_TYPES as readonly string[]).includes(fieldType);
 }
