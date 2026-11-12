@@ -4,10 +4,11 @@ Each record states one decision, why it was taken, what it costs, and what was
 rejected. A record is never rewritten to say something else: a later record
 supersedes it.
 
-All records below were accepted on 2026-11-07, after a review that challenged
-every piece of the stack on its merits, regardless of the code already
-written. A second review the same day measured the code instead of
-asserting: it superseded 0001 and added 0021 to 0026.
+Records 0001 to 0020 were accepted on 2026-11-07, after a review that
+challenged every piece of the stack on its merits, regardless of the code
+already written. A second review the same day measured the code instead of
+asserting: it superseded 0001 and added 0021 to 0026. The later records were
+accepted as the work they decide was done; each carries its own date.
 [`../migration-plan.md`](../migration-plan.md) records the phases that carried the work; every one is done.
 
 | #                                                    | Decision                                                                                | Status                                      |

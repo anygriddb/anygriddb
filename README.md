@@ -6,7 +6,7 @@ A spreadsheet interface on the databases you already run: open source, **AGPL-3.
 [![OSI](https://img.shields.io/badge/OSI-approved-green.svg)](https://opensource.org/licenses/AGPL-3.0)
 [![Commits](https://img.shields.io/badge/commits-conventional-green.svg)](https://www.conventionalcommits.org/en/v1.0.0/)
 
-Every table is a real SQL table, in AnyGridDB's own PostgreSQL or in your own database: PostgreSQL, MySQL, MariaDB, or SQL Server.
+Every table is a real SQL table, in AnyGridDB's own PostgreSQL or in your own database: PostgreSQL, MySQL, MariaDB, SQL Server, or Oracle.
 
 - **Data stays where it lives.** AnyGridDB reads a client's tables through a dedicated account over verified TLS, and never changes their schema.
 - **One query per page, in the engine that holds the rows.** Formulas, lookups, rollups, filters, sorts, groups, and charts are computed there. They mean the same on every engine, which a conformance suite checks; where an engine computes differently, the field says so.
@@ -16,7 +16,7 @@ Every table is a real SQL table, in AnyGridDB's own PostgreSQL or in your own da
 ## Features
 
 - **Your databases**:
-  - Declare PostgreSQL, MySQL, MariaDB, and SQL Server sources.
+  - Declare PostgreSQL, MySQL, MariaDB, SQL Server, and Oracle sources.
   - Show their tables and views in a base; foreign keys become links.
   - Edit, add, and delete rows where an administrator allows it, compared under lock.
   - Add fields of your own in a schema the DBA grants.
@@ -108,6 +108,8 @@ docker/             one AnyGridDB image, PostgreSQL 18; managed and RustFS varia
 | [`docs/migration-plan.md`](docs/migration-plan.md) | The phases that brought the tree here (historical) |
 | [`docs/sources.md`](docs/sources.md)               | Connecting a client database: accounts and TLS     |
 | [`docs/operations.md`](docs/operations.md)         | Install, offline, upgrade, backup, managed DB      |
+| [`docs/mcp.md`](docs/mcp.md)                       | Connecting the AI you run through the MCP server   |
+| [`SECURITY.md`](SECURITY.md)                       | What is protected, and how to report a weakness    |
 
 ## License
 
