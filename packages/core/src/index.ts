@@ -374,6 +374,7 @@ export {
   applyViewConfigPatch,
   formConfigSchema,
   normalizeViewConfig,
+  keepTrashedParts,
   pruneViewConfig,
   stripColumnFromConfig,
   viewColorSchema,

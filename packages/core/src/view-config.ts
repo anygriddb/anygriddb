@@ -288,6 +288,10 @@ export function stripColumnFromConfig(
   const next: ViewConfig = { ...config };
   next.filter = stripFilter(config.filter, name);
   if (next.filter && next.filter.conditions.length === 0) delete next.filter;
+  // A group that holds one group alone reads as that group.
+  const only =
+    next.filter?.conditions.length === 1 && next.filter.conditions[0];
+  if (only && "conjunction" in only) next.filter = only;
   if (config.sort)
     next.sort = config.sort.filter((sort) => sort.column !== name);
   if (config.groupBy)
@@ -369,4 +373,149 @@ export function pruneViewConfig(
     if (!known.has(name)) next = stripColumnFromConfig(next, name);
   }
   return next;
+}
+
+/**
+ * Puts back, in `next`, what `stored` said of fields in the trash, for
+ * the settings in `keys`. A person sees a view without those fields and
+ * saves what they see: without this, a field restored later would come
+ * back at the end of the view, shown, unsorted, and out of its form.
+ *
+ * Lists keep the place each field had, after the item it followed. A
+ * filter keeps the conditions on such a field that applied to every row
+ * (those of a top-level "and"); a nested condition, a color rule, or a
+ * form field's condition is not put back. A setting that names one field
+ * (the stack, the cover…) is what the person chose.
+ */
+export function keepTrashedParts(
+  stored: ViewConfig,
+  next: ViewConfig,
+  trashed: ReadonlySet<string>,
+  /** The settings saved; "all" when the whole configuration was. */
+  keys: Iterable<string> | "all",
+): ViewConfig {
+  if (trashed.size === 0) return next;
+  const kept: ViewConfig = { ...next };
+  const lists = {
+    fieldOrder: columnList,
+    hiddenFields: columnList,
+    cardFields: columnList,
+  } as const;
+  for (const key of new Set(keys === "all" ? Object.keys(shape) : keys)) {
+    if (
+      key === "fieldOrder" ||
+      key === "hiddenFields" ||
+      key === "cardFields"
+    ) {
+      const list = reinsert(
+        stored[key] ?? [],
+        kept[key] ?? [],
+        (name) => trashed.has(name),
+        (left, right) => left === right,
+      );
+      setChecked(kept, key, list, lists[key]);
+    } else if (key === "sort" || key === "groupBy") {
+      const list = reinsert<{ column: string }>(
+        stored[key] ?? [],
+        kept[key] ?? [],
+        (item) => trashed.has(item.column),
+        (left, right) => left.column === right.column,
+      );
+      setChecked(kept, key, list, shape[key]);
+    } else if (key === "columnWidths" || key === "aggregations") {
+      const entries = Object.entries(stored[key] ?? {}).filter(
+        ([name]) => trashed.has(name) && !(name in (kept[key] ?? {})),
+      );
+      if (entries.length > 0) {
+        setChecked(
+          kept,
+          key,
+          { ...Object.fromEntries(entries), ...kept[key] },
+          shape[key],
+        );
+      }
+    } else if (key === "filter") {
+      const filter = keptFilter(stored.filter, kept.filter, trashed);
+      if (filter) setChecked(kept, "filter", filter, filterGroupSchema);
+    } else if (key === "form" && kept.form) {
+      const fields = reinsert(
+        stored.form?.fields ?? [],
+        kept.form.fields ?? [],
+        (field) => trashed.has(field.column),
+        (left, right) => left.column === right.column,
+      );
+      setChecked(kept, "form", { ...kept.form, fields }, formConfigSchema);
+    }
+  }
+  return kept;
+}
+
+/** Sets a key to a value only if the value is still a valid setting. */
+function setChecked(
+  config: ViewConfig,
+  key: keyof ViewConfig,
+  value: unknown,
+  schema: z.ZodType,
+): void {
+  if (Array.isArray(value) && value.length === 0) return;
+  const parsed = schema.safeParse(value);
+  if (parsed.success) {
+    (config as Record<string, unknown>)[key] = parsed.data;
+  }
+}
+
+/**
+ * `next`, with the items of `stored` that `keep` picks and `next` lacks,
+ * each after the nearest item it followed that `next` still has.
+ */
+function reinsert<T>(
+  stored: readonly T[],
+  next: readonly T[],
+  keep: (item: T) => boolean,
+  same: (left: T, right: T) => boolean,
+): T[] {
+  const result = [...next];
+  stored.forEach((item, index) => {
+    if (!keep(item) || result.some((other) => same(other, item))) return;
+    let at = 0;
+    for (let before = index - 1; before >= 0; before -= 1) {
+      const previous = stored[before];
+      const found =
+        previous === undefined
+          ? -1
+          : result.findIndex((other) => same(other, previous));
+      if (found >= 0) {
+        at = found + 1;
+        break;
+      }
+    }
+    result.splice(at, 0, item);
+  });
+  return result;
+}
+
+/** `next`, still restricted by the trashed fields' top-level conditions. */
+function keptFilter(
+  stored: FilterGroup | undefined,
+  next: FilterGroup | undefined,
+  trashed: ReadonlySet<string>,
+): FilterGroup | undefined {
+  if (stored?.conjunction !== "and") return undefined;
+  const present = new Set(
+    next?.conjunction === "and"
+      ? next.conditions.map((node) => JSON.stringify(node))
+      : [],
+  );
+  const conditions = stored.conditions.filter(
+    (node) =>
+      !("conjunction" in node) &&
+      trashed.has(node.column) &&
+      !present.has(JSON.stringify(node)),
+  );
+  if (conditions.length === 0) return undefined;
+  if (!next) return { conjunction: "and", conditions };
+  if (next.conjunction === "and") {
+    return { ...next, conditions: [...next.conditions, ...conditions] };
+  }
+  return { conjunction: "and", conditions: [next, ...conditions] };
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyViewConfigPatch,
+  keepTrashedParts,
   normalizeViewConfig,
   pruneViewConfig,
   viewConfigColumns,
@@ -137,5 +138,125 @@ describe("pruneViewConfig", () => {
   it("leaves a config that only names known columns as it was", () => {
     const pruned = pruneViewConfig(config, new Set(["nom", "statut", "gone"]));
     expect(pruned).toEqual(config);
+  });
+});
+
+describe("keepTrashedParts", () => {
+  const trashed = new Set(["notes"]);
+  const stored = normalizeViewConfig({
+    fieldOrder: ["name", "notes", "status", "due"],
+    hiddenFields: ["notes"],
+    columnWidths: { name: 200, notes: 320 },
+    aggregations: { notes: "count_filled" },
+    sort: [
+      { column: "notes", direction: "desc" },
+      { column: "name", direction: "asc" },
+    ],
+    filter: {
+      conjunction: "and",
+      conditions: [
+        { column: "status", op: "is", value: "Done" },
+        { column: "notes", op: "is_not_empty" },
+      ],
+    },
+    form: {
+      title: "Ask",
+      fields: [{ column: "name" }, { column: "notes", required: true }],
+    },
+  });
+
+  it("keeps a trashed field's place and settings in what a person saved", () => {
+    // What a person saved, having seen the view without "notes".
+    const saved = applyViewConfigPatch(stored, {
+      fieldOrder: ["due", "name", "status"],
+      hiddenFields: null,
+      columnWidths: { name: 240 },
+      aggregations: null,
+      sort: [{ column: "status", direction: "asc" }],
+      filter: {
+        conjunction: "or",
+        conditions: [{ column: "status", op: "is", value: "To do" }],
+      },
+      form: { title: "Ask again", fields: [{ column: "status" }] },
+    });
+    const kept = keepTrashedParts(stored, saved, trashed, [
+      "fieldOrder",
+      "hiddenFields",
+      "columnWidths",
+      "aggregations",
+      "sort",
+      "filter",
+      "form",
+    ]);
+    expect(kept.fieldOrder).toEqual(["due", "name", "notes", "status"]);
+    expect(kept.hiddenFields).toEqual(["notes"]);
+    expect(kept.columnWidths).toEqual({ name: 240, notes: 320 });
+    expect(kept.aggregations).toEqual({ notes: "count_filled" });
+    expect(kept.sort).toEqual([
+      { column: "notes", direction: "desc" },
+      { column: "status", direction: "asc" },
+    ]);
+    expect(kept.filter).toEqual({
+      conjunction: "and",
+      conditions: [
+        {
+          conjunction: "or",
+          conditions: [{ column: "status", op: "is", value: "To do" }],
+        },
+        { column: "notes", op: "is_not_empty" },
+      ],
+    });
+    expect(kept.form).toEqual({
+      title: "Ask again",
+      fields: [{ column: "notes", required: true }, { column: "status" }],
+    });
+    // Without the field in the trash, the person sees what they saved.
+    const seen = pruneViewConfig(kept, new Set(["name", "status", "due"]));
+    expect(seen.fieldOrder).toEqual(saved.fieldOrder);
+    expect(seen.hiddenFields).toEqual([]);
+    expect(seen.columnWidths).toEqual(saved.columnWidths);
+    expect(seen.sort).toEqual(saved.sort);
+    expect(seen.filter).toEqual(saved.filter);
+    expect(seen.form?.fields?.map((field) => field.column)).toEqual(["status"]);
+  });
+
+  it("leaves what was not saved, and fields that are not in the trash", () => {
+    const saved = applyViewConfigPatch(stored, {
+      fieldOrder: ["status", "name", "due"],
+    });
+    expect(keepTrashedParts(stored, saved, new Set(), ["fieldOrder"])).toBe(
+      saved,
+    );
+    const kept = keepTrashedParts(stored, saved, trashed, ["rowHeight"]);
+    expect(kept.fieldOrder).toEqual(["status", "name", "due"]);
+    // A whole configuration saved keeps them in every setting.
+    const whole = keepTrashedParts(
+      stored,
+      { rowHeight: "tall" },
+      trashed,
+      "all",
+    );
+    expect(whole.hiddenFields).toEqual(["notes"]);
+    expect(whole.columnWidths).toEqual({ notes: 320 });
+    // Saved twice, nothing is put back twice.
+    const twice = keepTrashedParts(
+      stored,
+      keepTrashedParts(stored, saved, trashed, ["fieldOrder", "filter"]),
+      trashed,
+      ["fieldOrder", "filter"],
+    );
+    expect(twice.fieldOrder).toEqual(["status", "name", "notes", "due"]);
+    expect(twice.filter?.conditions).toHaveLength(2);
+  });
+
+  it("drops what no longer fits a setting's limits", () => {
+    const full = Array.from({ length: 10 }, (_, index) => ({
+      column: `f${String(index)}`,
+      direction: "asc" as const,
+    }));
+    const saved = applyViewConfigPatch(stored, { sort: full });
+    expect(keepTrashedParts(stored, saved, trashed, ["sort"]).sort).toEqual(
+      full,
+    );
   });
 });
