@@ -6,6 +6,7 @@ import {
   type ColumnDefinition,
   type EngineCatalog,
   type ImportCommitInput,
+  MAX_READ_LIMIT,
   OPTION_COLORS,
   resolveChangeReason,
   type SelectOption,
@@ -190,6 +191,29 @@ export function newTableColumns(
   });
 }
 
+/** The rows among `rowIds` that a row rule keeps out of `scope`. */
+async function outsideRowRule(
+  db: Database,
+  scope: EngineCatalog | undefined,
+  rowIds: readonly string[],
+): Promise<Set<string>> {
+  if (!scope?.access?.rowFilter(scope.table.id) || rowIds.length === 0) {
+    return new Set();
+  }
+  const inside = new Set<string>();
+  for (let start = 0; start < rowIds.length; start += MAX_READ_LIMIT) {
+    const chunk = rowIds.slice(start, start + MAX_READ_LIMIT);
+    const page = await readPage(
+      db,
+      scope,
+      { rowIds: chunk, limit: chunk.length, fields: [] },
+      { total: false },
+    );
+    for (const row of page.rows) inside.add(row.id);
+  }
+  return new Set(rowIds.filter((id) => !inside.has(id)));
+}
+
 export type ImportError = {
   /** Line in the source file, the header being line 1. */
   line: number;
@@ -235,6 +259,11 @@ export async function importIntoTable(
     onProgress?: (done: number, total: number) => Promise<void>;
     /** Names this import's one event; each batch updates its count. */
     eventKey: string;
+    /**
+     * The importer's reading of the table, with their row rule: a key
+     * that finds a row outside it is refused on its line.
+     */
+    rowScope?: EngineCatalog;
   },
 ): Promise<ImportResult> {
   const { staged, table } = input;
@@ -398,6 +427,7 @@ export async function importIntoTable(
     // A key repeated in the file updates the same row; the last line wins.
     const pending = new Map<string, Record<string, CellValue>>();
     const lineOf = new Map<string, number>();
+    const keyOf = new Map<string, string>();
     for (const item of valid) {
       const text = cellText(item.values[keyName]).trim();
       const match = text === "" ? undefined : existing.get(text);
@@ -429,6 +459,21 @@ export async function importIntoTable(
       }
       pending.set(match.id, { ...pending.get(match.id), ...item.values });
       lineOf.set(match.id, item.line);
+      keyOf.set(match.id, text);
+    }
+    const outside = await outsideRowRule(db, input.rowScope, [...keyOf.keys()]);
+    for (const id of outside) {
+      pending.delete(id);
+      failed += 1;
+      if (errors.length < MAX_ERRORS) {
+        errors.push({
+          line: lineOf.get(id) ?? 0,
+          column: staged.headers[input.upsertSource ?? 0] ?? "",
+          value: (keyOf.get(id) ?? "").slice(0, 80),
+          message: "Refused",
+          code: "access_denied",
+        });
+      }
     }
     for (const [id, values] of pending) {
       if (id.startsWith("new:")) {

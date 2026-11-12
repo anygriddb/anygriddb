@@ -152,12 +152,6 @@ const runImport =
       engine,
       input.mapping.flatMap((entry) => (entry.column ? [entry.column] : [])),
     );
-    if (
-      input.upsertSource !== undefined &&
-      engine.access?.rowFilter(table.id)
-    ) {
-      throw new AppError("access_denied");
-    }
     const people = await listCollaborators(deps.db, table.baseId);
     let written = 0;
     try {
@@ -185,6 +179,7 @@ const runImport =
           await progress(done, total);
         },
         eventKey: `job:${job.id}`,
+        rowScope: engine,
       });
       await dropStagedImport(deps.db, deps.files, input.importId);
       if (input.created || result.createdColumns > 0) {

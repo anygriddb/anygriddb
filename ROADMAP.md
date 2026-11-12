@@ -52,7 +52,7 @@ The product is `apps/` and `packages/`.
 - An interrupted job is not retried: its author starts it again (row 47).
 - A view saved while one of its fields is in the trash keeps that field's place and settings, but not its conditions inside a nested filter group, a colour rule, or a form field's condition.
 - A base snapshot names people by email: a user cell keeps the people who are members of the new base. Roles given by groups stay behind.
-- A collaborator with field or row rules cannot use the row trash, and cannot import with updates by key under a row rule (rows 84, 85).
+- A collaborator with field or row rules cannot use the row trash (row 84).
 - Rows deleted before this release's many-to-many restore fix come back without those links.
 - A SAML provider that sends only transient or address NameIDs matches accounts by address: it must verify them. OIDC, and SAML with a persistent NameID, bind the account to the provider's subject.
 - The map view draws points on a plain SVG projection, without tiles (row 86).
@@ -133,7 +133,6 @@ and writes as it goes, never a whole table in memory.
 | 83  | Table copies and base snapshots past 100,000 rows                                                             | M      | A copy inside the instance's own database never leaves it (`insert … select`); a snapshot streams like an export              |
 | 47  | Retry a failed or interrupted job                                                                             | M      | Its author starts it again today. Each step of a job must be safe to run twice                                                |
 | 84  | The row trash for a collaborator with field or row rules: the rows they deleted, without hidden fields        | M      | Refused whole today, because a deleted row is kept whole                                                                      |
-| 85  | Imports that update by key under a row rule: a key outside the rule is refused on its line                    | S      | Refused whole today                                                                                                           |
 
 ### Administration
 
