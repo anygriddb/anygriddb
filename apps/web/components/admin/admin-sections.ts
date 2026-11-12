@@ -6,6 +6,7 @@ import {
   Plug,
   ScrollText,
   Server,
+  Share2,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -20,6 +21,7 @@ export type AdminPath =
   | "/admin/security"
   | "/admin/connections"
   | "/admin/sources"
+  | "/admin/sharing"
   | "/admin/trails"
   | "/admin/trails/sign-ins"
   | "/admin/instance"
@@ -102,6 +104,12 @@ export function useAdminSections(): AdminSection[] {
       label: t`Sources`,
       icon: Database,
       pages: [{ to: "/admin/sources", label: t`Sources` }],
+    },
+    {
+      id: "sharing",
+      label: t`Sharing`,
+      icon: Share2,
+      pages: [{ to: "/admin/sharing", label: t`Links and feeds` }],
     },
     trails,
     {

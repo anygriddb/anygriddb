@@ -858,6 +858,7 @@ msgstr "Action"
 
 #: components/admin/accounts-tab.tsx
 #: components/admin/invitations-panel.tsx
+#: components/admin/outbound-tab.tsx
 #: components/admin/sessions-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/support-tab.tsx
@@ -1616,6 +1617,10 @@ msgstr "Calendrier"
 msgid "Calendar address"
 msgstr "Adresse du calendrier"
 
+#: components/admin/outbound-tab.tsx
+msgid "Calendar feed"
+msgstr "Flux de calendrier"
+
 #: components/table/automations-dialog.tsx
 msgid "Call a URL"
 msgstr "Appeler une URL"
@@ -2197,6 +2202,7 @@ msgstr "Créer le lien"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
+#: components/admin/outbound-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Created"
 msgstr "Créé le"
@@ -2877,6 +2883,14 @@ msgstr "Terminer une session après cette durée sans activité"
 msgid "End it in any case after"
 msgstr "La terminer dans tous les cas après"
 
+#: components/admin/outbound-tab.tsx
+msgid "Ended {when}"
+msgstr "Terminé le {when}"
+
+#: components/admin/outbound-tab.tsx
+msgid "Ends {when}"
+msgstr "Se termine le {when}"
+
 #: components/admin/sessions-tab.tsx
 msgid "Ends at the latest"
 msgstr "Prend fin au plus tard"
@@ -2884,6 +2898,10 @@ msgstr "Prend fin au plus tard"
 #: components/table/filter-builder.tsx
 msgid "ends with"
 msgstr "finit par"
+
+#: components/admin/outbound-tab.tsx
+msgid "Ends, or last read"
+msgstr "Fin, ou dernière lecture"
 
 #: components/admin/sources-tab.tsx
 msgid "Engine"
@@ -4080,6 +4098,14 @@ msgstr "Il reste {days} jours dans la corbeille."
 msgid "It's copied"
 msgstr "C’est copié"
 
+#: components/admin/outbound-tab.tsx
+msgid "Its address stops working now, for everyone who has it. The view stays as it is."
+msgstr "Son adresse cesse de fonctionner tout de suite, pour tous ceux qui l’ont. La vue reste telle quelle."
+
+#: components/admin/outbound-tab.tsx
+msgid "Its address stops working now; its owner can make a new one. The view stays as it is."
+msgstr "Son adresse cesse de fonctionner tout de suite ; son propriétaire peut en créer une autre. La vue reste telle quelle."
+
 #: components/views/form-view.tsx
 msgid "Its condition reads a field placed after it: it is ignored."
 msgstr "Sa condition porte sur un champ placé après lui : elle est ignorée."
@@ -4324,6 +4350,10 @@ msgstr "Lien vers des lignes"
 msgid "Linked table"
 msgstr "Table liée"
 
+#: components/admin/admin-sections.ts
+msgid "Links and feeds"
+msgstr "Liens et flux"
+
 #: components/admin/security-tab.tsx
 msgid "Links that no longer fit stop opening at once, and open again if you change your mind."
 msgstr "Les liens qui ne conviennent plus cessent aussitôt de s’ouvrir, et s’ouvrent de nouveau si vous changez d’avis."
@@ -4440,6 +4470,10 @@ msgstr "recherche reprise en valeurs"
 #: components/auth/auth-page.tsx
 msgid "Lost your authenticator? Use a backup code"
 msgstr "Authentificateur perdu ? Utilisez un code de secours"
+
+#: components/admin/outbound-tab.tsx
+msgid "Made by"
+msgstr "Créé par"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
@@ -4679,6 +4713,10 @@ msgstr "Échec réseau"
 msgid "Never"
 msgstr "Jamais"
 
+#: components/admin/outbound-tab.tsx
+msgid "Never read"
+msgstr "Jamais lu"
+
 #: components/settings/account-settings.tsx
 msgid "never used"
 msgstr "jamais utilisé"
@@ -4901,6 +4939,10 @@ msgstr "Aucun envoi pour l’instant."
 msgid "No delivery has failed. A webhook's delivery shows here once it gives up after its retries, with the error it got."
 msgstr "Aucun envoi n’a échoué. L’envoi d’un webhook s’affiche ici quand il abandonne après ses nouvelles tentatives, avec l’erreur reçue."
 
+#: components/admin/outbound-tab.tsx
+msgid "No end"
+msgstr "Sans fin"
+
 #: components/admin/sign-in-trail.tsx
 msgid "No event matches. Sign-ins, failures, and what administrators change show here, with the address."
 msgstr "Aucun événement ne correspond. Les connexions, les échecs et ce que changent les administrateurs s’affichent ici, avec l’adresse."
@@ -4961,6 +5003,10 @@ msgstr "Aucune personne trouvée"
 msgid "No options"
 msgstr "Aucune option"
 
+#: components/admin/outbound-tab.tsx
+msgid "No password"
+msgstr "Sans mot de passe"
+
 #: components/admin/account-page.tsx
 msgid "No password yet: the first link sets one"
 msgstr "Pas encore de mot de passe : le premier lien en définit un"
@@ -4972,6 +5018,10 @@ msgstr "Pas d’aperçu pour ce type de fichier : téléchargez-le."
 #: components/admin/sources-tab.tsx
 msgid "no primary key: read-only"
 msgstr "sans clé primaire : lecture seule"
+
+#: components/admin/outbound-tab.tsx
+msgid "No public link or calendar feed on this instance."
+msgstr "Aucun lien public ni flux de calendrier sur cette instance."
 
 #: components/shell/command-palette.tsx
 msgid "No results"
@@ -5387,6 +5437,10 @@ msgstr "Mot de passe"
 msgid "Password (optional)"
 msgstr "Mot de passe (facultatif)"
 
+#: components/admin/outbound-tab.tsx
+msgid "Password asked"
+msgstr "Mot de passe demandé"
+
 #: components/admin/auth-labels.ts
 msgid "Password changed"
 msgstr "Mot de passe changé"
@@ -5621,6 +5675,10 @@ msgstr "Provisionné par le fournisseur d’identité (SCIM), puis retiré par l
 msgid "Provisioning"
 msgstr "Provisionnement"
 
+#: components/admin/outbound-tab.tsx
+msgid "Public link"
+msgstr "Lien public"
+
 #: components/admin/sign-in-trail.tsx
 msgid "Public links"
 msgstr "Liens publics"
@@ -5636,6 +5694,10 @@ msgstr "Les liens publics sont désactivés : aucun lien vers une vue ou un for
 #: lib/errors.ts
 msgid "Public links are turned off on this instance"
 msgstr "Les liens publics sont désactivés sur cette instance"
+
+#: components/admin/outbound-tab.tsx
+msgid "Public links let anyone with the address read a view or fill a form; a calendar feed gives its owner's calendar program the view's dates. Revoking one stops it at once."
+msgstr "Un lien public permet à qui a l’adresse de lire une vue ou de remplir un formulaire ; un flux de calendrier donne les dates de la vue à l’application de calendrier de son propriétaire. Le révoquer l’arrête tout de suite."
 
 #: components/admin/security-tab.tsx
 msgid "Public links to views and forms"
@@ -5682,6 +5744,10 @@ msgstr "Bases accessibles"
 #: components/admin/sources-tab.tsx
 msgid "read"
 msgstr "lecture"
+
+#: components/admin/outbound-tab.tsx
+msgid "Read {when}"
+msgstr "Lu le {when}"
 
 #: components/settings/api-console.tsx
 msgid "Read a row (GET)"
@@ -5897,6 +5963,10 @@ msgstr "Retirer le groupe {name}"
 msgid "Remove their second factors"
 msgstr "Retirer ses seconds facteurs"
 
+#: components/admin/outbound-tab.tsx
+msgid "Remove this calendar feed?"
+msgstr "Supprimer ce flux de calendrier ?"
+
 #: components/admin/accounts-tab.tsx
 msgid "Removed by the identity provider"
 msgstr "Retiré par le fournisseur d’identité"
@@ -6039,6 +6109,7 @@ msgstr "Nouvel essai prévu ({error})"
 
 #: components/admin/account-actions.tsx
 #: components/admin/emergency-section.tsx
+#: components/admin/outbound-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/base-settings.tsx
@@ -6071,9 +6142,17 @@ msgstr "Révoquer le jeton {name}"
 msgid "Revoke their API tokens"
 msgstr "Révoquer ses jetons d’API"
 
+#: components/admin/outbound-tab.tsx
+msgid "Revoke this public link?"
+msgstr "Révoquer ce lien public ?"
+
 #: components/table/share-dialog.tsx
 msgid "revoked"
 msgstr "révoqué"
+
+#: components/admin/outbound-tab.tsx
+msgid "Revoked"
+msgstr "Révoqué"
 
 #: components/admin/invitations-panel.tsx
 #: components/settings/base-settings.tsx
@@ -6570,6 +6649,10 @@ msgstr "Vue partagée"
 #: components/dashboards/dashboard-board.tsx
 msgid "Shares of the total"
 msgstr "Parts du total"
+
+#: components/admin/admin-sections.ts
+msgid "Sharing"
+msgstr "Partage"
 
 #: components/table/view-toolbar.tsx
 msgid "Short"
@@ -8549,6 +8632,7 @@ msgstr "Version"
 msgid "view"
 msgstr "vue"
 
+#: components/admin/outbound-tab.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/fields/link-selection.tsx
 msgid "View"
@@ -8649,6 +8733,10 @@ msgstr "Mercredi"
 #: components/views/timeline-view.tsx
 msgid "Week"
 msgstr "Semaine"
+
+#: components/admin/outbound-tab.tsx
+msgid "What"
+msgstr "Quoi"
 
 #: components/fields/formula-docs.ts
 msgid "What comes after the first delimiter; blank when it is not there."

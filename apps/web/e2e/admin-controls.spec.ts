@@ -67,6 +67,13 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await member.reload();
     await member.waitForURL(/\/login/);
 
+    // Every public link and calendar feed of the instance, in one list.
+    await openAdmin(page, "Sharing");
+    await expect(
+      page.getByText(/Public links let anyone with the address/),
+    ).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
     // The trail names who signed up, and who ended the session.
     await openAdmin(page, "Trails", "Sign-ins");
     const ended = page

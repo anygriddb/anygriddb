@@ -151,6 +151,7 @@ import {
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { notifyOwnerNamed } from "../notifications.js";
+import { listOutbound, revokeOutbound } from "../data/outbound.js";
 import { procedure, requestNames, requireUser, t } from "./init.js";
 
 /**
@@ -881,6 +882,31 @@ export const adminRouter = t.router({
         return { ok: true as const };
       }),
     ),
+  /**
+   * Every public link and calendar feed of the instance (ROADMAP #16),
+   * metadata only, and revoking one without being in its base.
+   */
+  outbound: t.router({
+    list: procedure.query(({ ctx }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        return { links: await listOutbound(ctx.db, 500) };
+      }),
+    ),
+    revoke: procedure
+      .input(z.object({ kind: z.enum(["link", "feed"]), id: z.uuid() }))
+      .mutation(({ ctx, input }) =>
+        handle(ctx, async () => {
+          const admin = await requireAdmin(ctx);
+          await revokeOutbound(ctx.db, admin.id, input);
+          ctx.req.log.info(
+            { actor: admin.id, kind: input.kind, id: input.id },
+            "outbound link revoked by administrator",
+          );
+          return { ok: true as const };
+        }),
+      ),
+  }),
   bases: t.router({
     list: procedure
       .input(

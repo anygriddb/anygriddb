@@ -858,6 +858,7 @@ msgstr "Action"
 
 #: components/admin/accounts-tab.tsx
 #: components/admin/invitations-panel.tsx
+#: components/admin/outbound-tab.tsx
 #: components/admin/sessions-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/support-tab.tsx
@@ -1616,6 +1617,10 @@ msgstr "Calendar"
 msgid "Calendar address"
 msgstr "Calendar address"
 
+#: components/admin/outbound-tab.tsx
+msgid "Calendar feed"
+msgstr "Calendar feed"
+
 #: components/table/automations-dialog.tsx
 msgid "Call a URL"
 msgstr "Call a URL"
@@ -2197,6 +2202,7 @@ msgstr "Create the link"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
+#: components/admin/outbound-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Created"
 msgstr "Created"
@@ -2877,6 +2883,14 @@ msgstr "End a session after this long without activity"
 msgid "End it in any case after"
 msgstr "End it in any case after"
 
+#: components/admin/outbound-tab.tsx
+msgid "Ended {when}"
+msgstr "Ended {when}"
+
+#: components/admin/outbound-tab.tsx
+msgid "Ends {when}"
+msgstr "Ends {when}"
+
 #: components/admin/sessions-tab.tsx
 msgid "Ends at the latest"
 msgstr "Ends at the latest"
@@ -2884,6 +2898,10 @@ msgstr "Ends at the latest"
 #: components/table/filter-builder.tsx
 msgid "ends with"
 msgstr "ends with"
+
+#: components/admin/outbound-tab.tsx
+msgid "Ends, or last read"
+msgstr "Ends, or last read"
 
 #: components/admin/sources-tab.tsx
 msgid "Engine"
@@ -4080,6 +4098,14 @@ msgstr "It stays in the trash for {days} days."
 msgid "It's copied"
 msgstr "It's copied"
 
+#: components/admin/outbound-tab.tsx
+msgid "Its address stops working now, for everyone who has it. The view stays as it is."
+msgstr "Its address stops working now, for everyone who has it. The view stays as it is."
+
+#: components/admin/outbound-tab.tsx
+msgid "Its address stops working now; its owner can make a new one. The view stays as it is."
+msgstr "Its address stops working now; its owner can make a new one. The view stays as it is."
+
 #: components/views/form-view.tsx
 msgid "Its condition reads a field placed after it: it is ignored."
 msgstr "Its condition reads a field placed after it: it is ignored."
@@ -4324,6 +4350,10 @@ msgstr "Link to rows"
 msgid "Linked table"
 msgstr "Linked table"
 
+#: components/admin/admin-sections.ts
+msgid "Links and feeds"
+msgstr "Links and feeds"
+
 #: components/admin/security-tab.tsx
 msgid "Links that no longer fit stop opening at once, and open again if you change your mind."
 msgstr "Links that no longer fit stop opening at once, and open again if you change your mind."
@@ -4440,6 +4470,10 @@ msgstr "lookup carried over as values"
 #: components/auth/auth-page.tsx
 msgid "Lost your authenticator? Use a backup code"
 msgstr "Lost your authenticator? Use a backup code"
+
+#: components/admin/outbound-tab.tsx
+msgid "Made by"
+msgstr "Made by"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
@@ -4679,6 +4713,10 @@ msgstr "Network failure"
 msgid "Never"
 msgstr "Never"
 
+#: components/admin/outbound-tab.tsx
+msgid "Never read"
+msgstr "Never read"
+
 #: components/settings/account-settings.tsx
 msgid "never used"
 msgstr "never used"
@@ -4901,6 +4939,10 @@ msgstr "No deliveries yet."
 msgid "No delivery has failed. A webhook's delivery shows here once it gives up after its retries, with the error it got."
 msgstr "No delivery has failed. A webhook's delivery shows here once it gives up after its retries, with the error it got."
 
+#: components/admin/outbound-tab.tsx
+msgid "No end"
+msgstr "No end"
+
 #: components/admin/sign-in-trail.tsx
 msgid "No event matches. Sign-ins, failures, and what administrators change show here, with the address."
 msgstr "No event matches. Sign-ins, failures, and what administrators change show here, with the address."
@@ -4961,6 +5003,10 @@ msgstr "No one found"
 msgid "No options"
 msgstr "No options"
 
+#: components/admin/outbound-tab.tsx
+msgid "No password"
+msgstr "No password"
+
 #: components/admin/account-page.tsx
 msgid "No password yet: the first link sets one"
 msgstr "No password yet: the first link sets one"
@@ -4972,6 +5018,10 @@ msgstr "No preview for this file type: download it."
 #: components/admin/sources-tab.tsx
 msgid "no primary key: read-only"
 msgstr "no primary key: read-only"
+
+#: components/admin/outbound-tab.tsx
+msgid "No public link or calendar feed on this instance."
+msgstr "No public link or calendar feed on this instance."
 
 #: components/shell/command-palette.tsx
 msgid "No results"
@@ -5387,6 +5437,10 @@ msgstr "Password"
 msgid "Password (optional)"
 msgstr "Password (optional)"
 
+#: components/admin/outbound-tab.tsx
+msgid "Password asked"
+msgstr "Password asked"
+
 #: components/admin/auth-labels.ts
 msgid "Password changed"
 msgstr "Password changed"
@@ -5621,6 +5675,10 @@ msgstr "Provisioned by the identity provider (SCIM), then removed by it"
 msgid "Provisioning"
 msgstr "Provisioning"
 
+#: components/admin/outbound-tab.tsx
+msgid "Public link"
+msgstr "Public link"
+
 #: components/admin/sign-in-trail.tsx
 msgid "Public links"
 msgstr "Public links"
@@ -5636,6 +5694,10 @@ msgstr "Public links are off: no link to a view or a form opens."
 #: lib/errors.ts
 msgid "Public links are turned off on this instance"
 msgstr "Public links are turned off on this instance"
+
+#: components/admin/outbound-tab.tsx
+msgid "Public links let anyone with the address read a view or fill a form; a calendar feed gives its owner's calendar program the view's dates. Revoking one stops it at once."
+msgstr "Public links let anyone with the address read a view or fill a form; a calendar feed gives its owner's calendar program the view's dates. Revoking one stops it at once."
 
 #: components/admin/security-tab.tsx
 msgid "Public links to views and forms"
@@ -5682,6 +5744,10 @@ msgstr "Reachable bases"
 #: components/admin/sources-tab.tsx
 msgid "read"
 msgstr "read"
+
+#: components/admin/outbound-tab.tsx
+msgid "Read {when}"
+msgstr "Read {when}"
 
 #: components/settings/api-console.tsx
 msgid "Read a row (GET)"
@@ -5897,6 +5963,10 @@ msgstr "Remove the group {name}"
 msgid "Remove their second factors"
 msgstr "Remove their second factors"
 
+#: components/admin/outbound-tab.tsx
+msgid "Remove this calendar feed?"
+msgstr "Remove this calendar feed?"
+
 #: components/admin/accounts-tab.tsx
 msgid "Removed by the identity provider"
 msgstr "Removed by the identity provider"
@@ -6039,6 +6109,7 @@ msgstr "Retry scheduled ({error})"
 
 #: components/admin/account-actions.tsx
 #: components/admin/emergency-section.tsx
+#: components/admin/outbound-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/base-settings.tsx
@@ -6071,9 +6142,17 @@ msgstr "Revoke the token {name}"
 msgid "Revoke their API tokens"
 msgstr "Revoke their API tokens"
 
+#: components/admin/outbound-tab.tsx
+msgid "Revoke this public link?"
+msgstr "Revoke this public link?"
+
 #: components/table/share-dialog.tsx
 msgid "revoked"
 msgstr "revoked"
+
+#: components/admin/outbound-tab.tsx
+msgid "Revoked"
+msgstr "Revoked"
 
 #: components/admin/invitations-panel.tsx
 #: components/settings/base-settings.tsx
@@ -6570,6 +6649,10 @@ msgstr "Shared view"
 #: components/dashboards/dashboard-board.tsx
 msgid "Shares of the total"
 msgstr "Shares of the total"
+
+#: components/admin/admin-sections.ts
+msgid "Sharing"
+msgstr "Sharing"
 
 #: components/table/view-toolbar.tsx
 msgid "Short"
@@ -8549,6 +8632,7 @@ msgstr "Version"
 msgid "view"
 msgstr "view"
 
+#: components/admin/outbound-tab.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/fields/link-selection.tsx
 msgid "View"
@@ -8649,6 +8733,10 @@ msgstr "Wednesday"
 #: components/views/timeline-view.tsx
 msgid "Week"
 msgstr "Week"
+
+#: components/admin/outbound-tab.tsx
+msgid "What"
+msgstr "What"
 
 #: components/fields/formula-docs.ts
 msgid "What comes after the first delimiter; blank when it is not there."
