@@ -150,6 +150,7 @@ import {
 } from "../scim/tokens.js";
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
+import { notifyOwnerNamed } from "../notifications.js";
 import { procedure, requestNames, requireUser, t } from "./init.js";
 
 /**
@@ -835,7 +836,19 @@ export const adminRouter = t.router({
         const admin = await requireAdmin(ctx);
         const account = await assertGrantable(ctx.db, input);
         await assertMemberDomain(ctx.db, account.email);
-        await setMemberRole(ctx.db, admin.id, input);
+        const { owners } = await setMemberRole(ctx.db, admin.id, input);
+        // The owners already there learn who joined them, and from whom.
+        if (input.role === "owner" && !owners.includes(input.userId)) {
+          await notifyOwnerNamed(
+            {
+              db: ctx.db,
+              bus: ctx.bus,
+              log: (error, message) =>
+                ctx.req.log.error({ err: error }, message),
+            },
+            { ...input, ownerId: input.userId, actorId: admin.id, owners },
+          );
+        }
         ctx.req.log.info(
           {
             actor: admin.id,
