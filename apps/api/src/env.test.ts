@@ -84,6 +84,18 @@ describe("readEnv", () => {
     }
   });
 
+  it("bounds the rows an export job writes", () => {
+    expect(readEnv(base).EXPORT_MAX_ROWS).toBe(1_000_000);
+    expect(
+      readEnv({ ...base, EXPORT_MAX_ROWS: "250000" }).EXPORT_MAX_ROWS,
+    ).toBe(250_000);
+    for (const refused of ["99999", "10000001", "lots"]) {
+      expect(() => readEnv({ ...base, EXPORT_MAX_ROWS: refused })).toThrow(
+        "EXPORT_MAX_ROWS must be an integer between 100000 and 10000000",
+      );
+    }
+  });
+
   it("refuses plaintext sources in production", () => {
     expect(() =>
       readEnv({

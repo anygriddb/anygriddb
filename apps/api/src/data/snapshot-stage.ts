@@ -4,8 +4,7 @@
  * checked at upload, so a broken file is refused then, not in the job.
  */
 import { createHash } from "node:crypto";
-import { mkdtemp, open, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { open, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   AppError,
@@ -17,6 +16,7 @@ import {
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { FileStore } from "../files/index.js";
+import { localFolder } from "../files/local-folder.js";
 import { parseSnapshotBytes } from "./base-snapshot.js";
 import {
   copyStagedUpload,
@@ -29,15 +29,6 @@ import { isZip, ZipError, ZipReader } from "./zip.js";
 const STAGE_TTL = 30 * 60;
 /** Kept two hours once the import job is queued. */
 const QUEUED_TTL = 2 * 60 * 60;
-
-/** A local folder for one snapshot, removed with everything in it. */
-export async function snapshotFolder(): Promise<{
-  path: string;
-  remove: () => Promise<void>;
-}> {
-  const path = await mkdtemp(join(tmpdir(), "anygriddb-snapshot-"));
-  return { path, remove: () => rm(path, { recursive: true, force: true }) };
-}
 
 async function head(path: string): Promise<Buffer> {
   const handle = await open(path, "r");
@@ -124,7 +115,7 @@ export async function openStagedSnapshot(
   id: string,
   userId: string,
 ): Promise<OpenedSnapshot> {
-  const folder = await snapshotFolder();
+  const folder = await localFolder("snapshot");
   try {
     const path = join(folder.path, "upload");
     const copied = await copyStagedUpload(db, files, {

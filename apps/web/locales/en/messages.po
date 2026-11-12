@@ -7990,6 +7990,10 @@ msgstr "This value changed in the client's database since you read it: the curre
 msgid "This value does not fit the client's database column"
 msgstr "This value does not fit the client's database column"
 
+#: lib/errors.ts
+msgid "This view has more rows than this instance exports at once: filter it first"
+msgstr "This view has more rows than this instance exports at once: filter it first"
+
 #: components/table/filter-builder.tsx
 msgid "this week"
 msgstr "this week"

@@ -152,6 +152,8 @@ services:
       DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-}
       # Uploads read at once (8 by default); see docs/operations.md.
       UPLOAD_CONCURRENCY: ${UPLOAD_CONCURRENCY:-}
+      # Most rows one export writes (1,000,000 by default).
+      EXPORT_MAX_ROWS: ${EXPORT_MAX_ROWS:-}
       # Metrics and traces, off unless set (ADR 0018).
       METRICS_TOKEN: ${METRICS_TOKEN:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}

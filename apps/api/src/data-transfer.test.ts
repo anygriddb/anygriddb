@@ -1,11 +1,19 @@
-import type { EngineCatalog, EngineColumn } from "@anygriddb/core";
-import { describe, expect, it } from "vitest";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type {
+  EngineCatalog,
+  EngineColumn,
+  ExportFormat,
+} from "@anygriddb/core";
+import { afterAll, describe, expect, it } from "vitest";
 import {
   exportColumns,
   exportValue,
-  renderExport,
+  exportWriter,
   sheetName,
 } from "./data-transfer.js";
+import type { RowRecord } from "./data/rows.js";
 import { parseImportFile } from "./import-file.js";
 
 function column(name: string, label: string, fieldType: string): EngineColumn {
@@ -68,7 +76,7 @@ describe("sheetName", () => {
   });
 });
 
-describe("renderExport", () => {
+describe("exportWriter", () => {
   const rows = [
     {
       id: "a",
@@ -84,22 +92,42 @@ describe("renderExport", () => {
       resp: null,
       client: [{ id: "r", label: "Acme" }],
     },
-  ];
+  ] as unknown as RowRecord[];
   const people = new Map([["u1", "Inès"]]);
   const columns = [name, when, owner, client];
+  const folder = mkdtemp(join(tmpdir(), "anygriddb-export-test-"));
+  afterAll(async () => {
+    await rm(await folder, { recursive: true, force: true });
+  });
+
+  /** Writes the rows a page at a time, as a job does, and reads the file. */
+  async function written(
+    format: ExportFormat,
+    pages: readonly (readonly RowRecord[])[],
+  ): Promise<Buffer> {
+    const path = join(await folder, `${String(Math.random())}.${format}`);
+    const writer = exportWriter(format, path, "Clients", columns, people);
+    for (const page of pages) await writer.add(page);
+    const size = await writer.finish();
+    const bytes = await readFile(path);
+    expect(bytes.length).toBe(size);
+    return bytes;
+  }
 
   it("writes CSV with a byte order mark and guarded formulas", async () => {
     const text = (
-      await renderExport("csv", "T", columns, rows, people)
+      await written("csv", [rows.slice(0, 1), [], rows.slice(1)])
     ).toString("utf8");
     expect(text.startsWith("\uFEFFNom,Quand,Responsable,Client\n")).toBe(true);
     expect(text).toContain(`"'=HYPERLINK(""x"")"`);
+    expect(text.split("\n")).toHaveLength(3);
   });
 
-  it("writes JSON keyed by label", async () => {
-    const parsed = JSON.parse(
-      (await renderExport("json", "T", columns, rows, people)).toString("utf8"),
-    );
+  it("writes JSON keyed by label, as one array laid out whole", async () => {
+    const text = (
+      await written("json", [rows.slice(0, 1), rows.slice(1)])
+    ).toString("utf8");
+    const parsed = JSON.parse(text) as unknown[];
     expect(parsed[1]).toEqual({
       id: "b",
       Nom: "Boréal",
@@ -107,10 +135,18 @@ describe("renderExport", () => {
       Responsable: null,
       Client: ["Acme"],
     });
+    expect(text).toBe(JSON.stringify(parsed, null, 2));
+  });
+
+  it("writes an empty file that still reads", async () => {
+    expect((await written("json", [])).toString("utf8")).toBe("[]");
+    expect((await written("csv", [])).toString("utf8")).toBe(
+      "\uFEFFNom,Quand,Responsable,Client",
+    );
   });
 
   it("writes a workbook that imports back", async () => {
-    const bytes = await renderExport("xlsx", "Clients", columns, rows, people);
+    const bytes = await written("xlsx", [rows.slice(0, 1), rows.slice(1)]);
     const sheet = await parseImportFile("xlsx", bytes);
     expect(sheet.headers).toEqual(["Nom", "Quand", "Responsable", "Client"]);
     expect(sheet.rows[0]).toEqual([

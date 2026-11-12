@@ -1,4 +1,5 @@
 import { createReadStream } from "node:fs";
+import { join } from "node:path";
 import {
   type Action,
   airtableToSnapshot,
@@ -31,7 +32,7 @@ import {
   importBaseSnapshot,
   packSnapshot,
 } from "./data/base-snapshot.js";
-import { duplicateTable } from "./data/data-ops.js";
+import { duplicateTable, MAX_COPY_ROWS } from "./data/data-ops.js";
 import type { TableRow } from "./data/engine.js";
 import {
   dropStagedImport,
@@ -44,7 +45,6 @@ import {
   dropStagedSnapshot,
   keepStagedSnapshot,
   openStagedSnapshot,
-  snapshotFolder,
 } from "./data/snapshot-stage.js";
 import { removeBase, removeTable } from "./data/tables.js";
 import {
@@ -59,6 +59,7 @@ import { EXPORT_MIME, exportTable } from "./data-transfer.js";
 import type { JobRow, JobRunner } from "./jobs.js";
 import { publishCatalog } from "./realtime/channels.js";
 import { type FileStore, readFile as readStoredFile } from "./files/index.js";
+import { localFolder } from "./files/local-folder.js";
 import { exportKey } from "./storage.js";
 import { readAirtableBase } from "./data/airtable-import.js";
 import { decryptSecret } from "./auth/crypto.js";
@@ -75,6 +76,8 @@ export type RunnerDeps = {
   airtableFetch?: typeof fetch;
   /** Environment bootstrap for the attachment ceiling (ADR 0050). */
   envAttachmentMaxBytes?: number;
+  /** The most rows an export job writes (`EXPORT_MAX_ROWS`). */
+  exportMaxRows?: number;
 };
 
 async function attachmentCeiling(deps: RunnerDeps): Promise<number> {
@@ -204,24 +207,40 @@ const runExport =
       input.tableId,
       "read",
     );
-    const { body, rows } = await exportTable(
-      deps,
-      { userId, bindings },
-      table,
-      input,
-      progress,
-    );
-    const key = exportKey(job.id);
-    await deps.files.put(key, body, EXPORT_MIME[input.format]);
-    return {
-      fileKey: key,
-      result: {
-        rows,
-        format: input.format,
-        filename: `${cleanFilename(table.name)}.${input.format}`,
-        size: body.length,
-      },
-    };
+    // Written to a local file as the rows are read, then streamed to the
+    // store: no page is held once written.
+    const folder = await localFolder("export");
+    try {
+      const path = join(folder.path, "export");
+      const { rows, size } = await exportTable(
+        deps,
+        { userId, bindings },
+        table,
+        input,
+        {
+          path,
+          maxRows: deps.exportMaxRows ?? MAX_COPY_ROWS,
+          onProgress: progress,
+        },
+      );
+      const key = exportKey(job.id);
+      await deps.files.putFile(key, {
+        body: createReadStream(path),
+        size,
+        contentType: EXPORT_MIME[input.format],
+      });
+      return {
+        fileKey: key,
+        result: {
+          rows,
+          format: input.format,
+          filename: `${cleanFilename(table.name)}.${input.format}`,
+          size,
+        },
+      };
+    } finally {
+      await folder.remove();
+    }
   };
 
 const runDuplicate =
@@ -330,7 +349,7 @@ const runExportSnapshot =
     });
     // There is always a file store now: disk by default (ADR 0010).
     const fileKey = exportKey(job.id);
-    const folder = await snapshotFolder();
+    const folder = await localFolder("snapshot");
     try {
       // With files, an archive written to a local file, then streamed.
       const packed = await packSnapshot(deps.files, exported, folder.path);
