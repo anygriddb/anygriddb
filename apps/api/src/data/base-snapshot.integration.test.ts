@@ -22,11 +22,8 @@ import {
 import { loadEngine } from "./engine.js";
 import { insertRows, readPage } from "./rows.js";
 import { insertBase, insertTable } from "./schema-ops.js";
-import {
-  openStagedSnapshot,
-  snapshotFolder,
-  stageSnapshotFile,
-} from "./snapshot-stage.js";
+import { openStagedSnapshot, stageSnapshotFile } from "./snapshot-stage.js";
+import { localFolder } from "../files/local-folder.js";
 import { isZip, ZipReader } from "./zip.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -132,7 +129,7 @@ describe("snapshots with files and people", () => {
   });
 
   async function exported() {
-    const folder = await snapshotFolder();
+    const folder = await localFolder("snapshot");
     const result = await exportBaseSnapshot(db, baseId, { withData: true });
     const packed = await packSnapshot(files, result, folder.path);
     return { folder, packed, result };

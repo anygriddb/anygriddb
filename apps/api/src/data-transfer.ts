@@ -59,7 +59,7 @@ import {
 } from "./import-file.js";
 import { parseImportFileIsolated } from "./import-isolated.js";
 import { findLiveTable } from "./services/rows.js";
-import { snapshotFolder, stageSnapshotFile } from "./data/snapshot-stage.js";
+import { stageSnapshotFile } from "./data/snapshot-stage.js";
 import { localFolder } from "./files/local-folder.js";
 import { loadOwnJob } from "./jobs.js";
 import { readerEngine } from "./data/acl.js";
@@ -657,7 +657,7 @@ export function registerDataTransferRoutes(
     if (!actor) return deny(reply, 401);
     const release = deps.uploads.take();
     if (!release) return denyBusy(reply);
-    const folder = await snapshotFolder();
+    const folder = await localFolder("snapshot");
     try {
       const upload = await request.file({
         limits: { fileSize: MAX_SNAPSHOT_ARCHIVE_BYTES, files: 1, fields: 2 },

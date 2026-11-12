@@ -1,7 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdtemp, open, rm, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { open, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -26,6 +25,7 @@ import { z } from "zod";
 import { requestActor } from "./auth/access.js";
 import { SESSION_COOKIE } from "./auth/session.js";
 import { readFile, type FileStore } from "./files/index.js";
+import { localFolder } from "./files/local-folder.js";
 import { sniffContentType } from "./storage.js";
 import { readerEngine } from "./data/acl.js";
 import { liveBase, liveTable } from "./data/live.js";
@@ -320,15 +320,6 @@ type HttpDeps = {
   uploads: UploadSlots;
 };
 
-/** A local folder for one upload, removed with what it holds. */
-export async function uploadFolder(): Promise<{
-  path: string;
-  remove: () => Promise<void>;
-}> {
-  const path = await mkdtemp(join(tmpdir(), "anygriddb-upload-"));
-  return { path, remove: () => rm(path, { recursive: true, force: true }) };
-}
-
 /** A small attachment as base64, for the record panel's inline preview. */
 export async function readAttachmentBase64(
   files: FileStore,
@@ -435,7 +426,7 @@ export async function registerAttachmentRoutes(
     );
     const release = deps.uploads.take();
     if (!release) return denyBusy(reply);
-    const folder = await uploadFolder();
+    const folder = await localFolder("upload");
     try {
       const file = await request.file({ limits: { fileSize: maxBytes } });
       if (!file) return await deny(reply, 400);

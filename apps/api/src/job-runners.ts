@@ -45,7 +45,6 @@ import {
   dropStagedSnapshot,
   keepStagedSnapshot,
   openStagedSnapshot,
-  snapshotFolder,
 } from "./data/snapshot-stage.js";
 import { removeBase, removeTable } from "./data/tables.js";
 import {
@@ -350,7 +349,7 @@ const runExportSnapshot =
     });
     // There is always a file store now: disk by default (ADR 0010).
     const fileKey = exportKey(job.id);
-    const folder = await snapshotFolder();
+    const folder = await localFolder("snapshot");
     try {
       // With files, an archive written to a local file, then streamed.
       const packed = await packSnapshot(deps.files, exported, folder.path);
