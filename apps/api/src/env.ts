@@ -57,6 +57,8 @@ export type Env = {
   DATABASE_POOL_MAX: number;
   /** Events, webhooks, automations, and schedules run at once, per process. */
   WORKER_CONCURRENCY: number;
+  /** Uploads read at once, per process; one more is refused (503). */
+  UPLOAD_CONCURRENCY: number;
   /** Imports, exports, copies, and snapshots run at once, per process. */
   JOB_CONCURRENCY: number;
   /** Where sources may be declared (ADR 0006); empty allows none. */
@@ -376,6 +378,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     // than four and requests would wait on each other.
     DATABASE_POOL_MAX: count(source, "DATABASE_POOL_MAX", 10, 4),
     WORKER_CONCURRENCY: count(source, "WORKER_CONCURRENCY", 4),
+    UPLOAD_CONCURRENCY: count(source, "UPLOAD_CONCURRENCY", 8),
     JOB_CONCURRENCY: count(source, "JOB_CONCURRENCY", 2),
     SOURCES_ALLOWED_HOSTS: source.ANYGRIDDB_SOURCES_ALLOWED_HOSTS ?? "",
     SOURCES_ALLOW_PLAINTEXT: allowPlaintext,

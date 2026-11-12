@@ -10,6 +10,7 @@ import { createTestDatabase } from "../test-database.js";
 import cookie from "@fastify/cookie";
 import Fastify from "fastify";
 import { registerAttachmentRoutes, visibleToReader } from "../attachments.js";
+import { uploadSlots } from "../upload-slots.js";
 import { loadBindings } from "../auth/access.js";
 import { createApiToken } from "../auth/tokens.js";
 import { writeSettings } from "../settings.js";
@@ -586,7 +587,11 @@ describe("field and row rules on PostgreSQL", () => {
       userId: editor,
       bindings: await loadBindings(database, editor),
     };
-    const deps = { db: database, files: new DiskStore(filesRoot) };
+    const deps = {
+      db: database,
+      files: new DiskStore(filesRoot),
+      uploads: uploadSlots(1),
+    };
     // Without rules, reading the table is enough.
     expect(await visibleToReader(deps, reader, ordersId, keys[1] ?? "")).toBe(
       true,
@@ -621,10 +626,12 @@ describe("field and row rules on PostgreSQL", () => {
   it("refuses an upload over the limit in force, the setting before the environment", async () => {
     const app = Fastify();
     await app.register(cookie);
+    const uploads = uploadSlots(1);
     await registerAttachmentRoutes(app, {
       db: database,
       files: new DiskStore(filesRoot),
       envMaxBytes: 4096,
+      uploads,
     });
     // The editor: an owner would first have to enroll a second factor.
     const { token } = await createApiToken(database, editor, "upload");
@@ -649,6 +656,27 @@ describe("field and row rules on PostgreSQL", () => {
     };
     try {
       expect(await upload(1024)).toBe(200);
+      // Written as it arrived, then stored whole.
+      const stored = await database
+        .selectFrom("attachments")
+        .select(["key", "size", "mime"])
+        .where("tableId", "=", ordersId)
+        .where("filename", "=", "note.txt")
+        .orderBy("createdAt", "desc")
+        .executeTakeFirstOrThrow();
+      expect([Number(stored.size), stored.mime]).toEqual([1024, "text/plain"]);
+      const file = await new DiskStore(filesRoot).open(stored.key);
+      expect(file?.size).toBe(1024);
+      file?.body.destroy();
+      // Every slot taken: refused at once, and taken again once free.
+      // The answer leaves before the slot is given back.
+      await expect.poll(() => uploads.busy).toBe(0);
+      const held = uploads.take();
+      expect(held).toBeDefined();
+      expect(await upload(1024)).toBe(503);
+      held?.();
+      expect(await upload(1024)).toBe(200);
+      await expect.poll(() => uploads.busy).toBe(0);
       expect(await upload(8192)).toBe(413);
       // The setting wins over the environment, without a restart.
       await writeSettings(database, owner, { attachmentMaxBytes: 2048 });

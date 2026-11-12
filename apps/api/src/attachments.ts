@@ -1,5 +1,10 @@
 import { randomBytes } from "node:crypto";
+import { createReadStream, createWriteStream } from "node:fs";
+import { mkdtemp, open, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import multipart from "@fastify/multipart";
 import {
   type Action,
@@ -8,6 +13,7 @@ import {
   ATTACHMENT_MAX_BYTES_CEILING,
   type Binding,
   effectiveTableRole,
+  type ErrorCode,
   isImageAttachmentMime,
   isInlineAttachmentMime,
   resolveAttachmentMaxBytes,
@@ -26,6 +32,7 @@ import { liveBase, liveTable } from "./data/live.js";
 import { attachmentVisible } from "./data/rows.js";
 import { publicErrorBody } from "./http.js";
 import { readGateSettings } from "./settings.js";
+import type { UploadSlots } from "./upload-slots.js";
 
 const THUMB_EDGE = 320;
 
@@ -99,26 +106,51 @@ export function contentDisposition(filename: string, inline: boolean): string {
   return `${inline ? "inline" : "attachment"}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
+/** What an attachment is stored from: bytes, or a local file and its size. */
+export type AttachmentSource =
+  { bytes: Buffer } | { path: string; size: number };
+
+/** The first bytes, which say what a file is. */
+async function headOf(source: AttachmentSource): Promise<Buffer> {
+  if ("bytes" in source) return source.bytes;
+  const handle = await open(source.path, "r");
+  try {
+    const head = Buffer.alloc(16);
+    const { bytesRead } = await handle.read(head, 0, head.length, 0);
+    return head.subarray(0, bytesRead);
+  } finally {
+    await handle.close();
+  }
+}
+
 /**
- * Stores bytes and their metadata. Images also get a WebP thumbnail.
- * The MIME type comes from the bytes, never from the client.
+ * Stores a file and its metadata. Images also get a WebP thumbnail. The
+ * MIME type comes from the bytes, never from the client. A local file is
+ * streamed to the store, never held in memory whole.
  */
 export async function storeAttachment(
   db: Database,
   files: FileStore,
-  input: { tableId: string; userId: string; filename: string; bytes: Buffer },
+  input: {
+    tableId: string;
+    userId: string;
+    filename: string;
+  } & AttachmentSource,
 ): Promise<AttachmentMeta> {
   const mime = sniffContentType(
-    input.bytes,
+    await headOf(input),
     input.filename.toLowerCase().endsWith(".txt") ? "text/plain" : undefined,
   );
+  const size = "bytes" in input ? input.bytes.length : input.size;
   const key = newKey();
   let width: number | null = null;
   let height: number | null = null;
   let thumbKey: string | null = null;
   if (isImageAttachmentMime(mime)) {
     try {
-      const image = sharp(input.bytes, { limitInputPixels: 50_000_000 });
+      const image = sharp("bytes" in input ? input.bytes : input.path, {
+        limitInputPixels: 50_000_000,
+      });
       const meta = await image.metadata();
       width = meta.width;
       height = meta.height;
@@ -138,7 +170,14 @@ export async function storeAttachment(
       thumbKey = null;
     }
   }
-  await files.put(key, input.bytes, mime);
+  if ("bytes" in input) await files.put(key, input.bytes, mime);
+  else {
+    await files.putFile(key, {
+      body: createReadStream(input.path),
+      size,
+      contentType: mime,
+    });
+  }
   await db
     .insertInto("attachments")
     .values({
@@ -146,7 +185,7 @@ export async function storeAttachment(
       tableId: input.tableId,
       filename: input.filename,
       mime,
-      size: input.bytes.length,
+      size,
       width,
       height,
       thumbKey,
@@ -157,7 +196,7 @@ export async function storeAttachment(
     key,
     filename: input.filename,
     mime,
-    size: input.bytes.length,
+    size,
     width,
     height,
     thumb: thumbKey !== null,
@@ -277,7 +316,18 @@ type HttpDeps = {
   files: FileStore;
   /** Environment bootstrap; the instance setting wins when set (ADR 0050). */
   envMaxBytes?: number;
+  /** Uploads read at once, shared with imports and snapshots. */
+  uploads: UploadSlots;
 };
+
+/** A local folder for one upload, removed with what it holds. */
+export async function uploadFolder(): Promise<{
+  path: string;
+  remove: () => Promise<void>;
+}> {
+  const path = await mkdtemp(join(tmpdir(), "anygriddb-upload-"));
+  return { path, remove: () => rm(path, { recursive: true, force: true }) };
+}
 
 /** A small attachment as base64, for the record panel's inline preview. */
 export async function readAttachmentBase64(
@@ -341,8 +391,16 @@ async function actorOf(db: Database, request: FastifyRequest) {
   }
 }
 
-function deny(reply: FastifyReply, status: number) {
-  return reply.code(status).send(publicErrorBody(status));
+function deny(reply: FastifyReply, status: number, code?: ErrorCode) {
+  return reply.code(status).send(publicErrorBody(status, code));
+}
+
+/** Every upload slot is taken: try again in a moment. */
+export function denyBusy(reply: FastifyReply) {
+  return reply
+    .header("Retry-After", "5")
+    .code(503)
+    .send(publicErrorBody(503, "uploads_busy"));
 }
 
 const uploadQuery = z.object({ tableId: z.uuid() });
@@ -355,7 +413,8 @@ export async function registerAttachmentRoutes(
 ): Promise<void> {
   // The most any instance may allow. Each upload is read under the limit
   // in force when it arrives (the setting, then the environment, then
-  // 20 MiB), so a larger file is refused before it is held in memory.
+  // 20 MiB), and written to local disk as it comes: a larger file is
+  // refused as soon as it passes the limit, and none is held in memory.
   await app.register(multipart, {
     limits: { fileSize: ATTACHMENT_MAX_BYTES_CEILING, files: 1, fields: 4 },
   });
@@ -374,28 +433,42 @@ export async function registerAttachmentRoutes(
       await readGateSettings(deps.db),
       deps.envMaxBytes,
     );
-    const file = await request.file({ limits: { fileSize: maxBytes } });
-    if (!file) return deny(reply, 400);
-    let bytes: Buffer;
+    const release = deps.uploads.take();
+    if (!release) return denyBusy(reply);
+    const folder = await uploadFolder();
     try {
-      bytes = await file.toBuffer();
-    } catch {
-      return deny(reply, 413);
+      const file = await request.file({ limits: { fileSize: maxBytes } });
+      if (!file) return await deny(reply, 400);
+      const path = join(folder.path, "upload");
+      try {
+        await pipeline(
+          file.file,
+          createWriteStream(path, { flags: "wx", mode: 0o600 }),
+        );
+      } catch (error) {
+        request.log.warn({ err: error }, "attachment upload failed");
+        return await deny(reply, 413);
+      }
+      const { size } = await stat(path);
+      if (file.file.truncated || size === 0) return await deny(reply, 413);
+      let meta: Awaited<ReturnType<typeof storeAttachment>>;
+      try {
+        meta = await storeAttachment(deps.db, deps.files, {
+          tableId: query.data.tableId,
+          userId: user.id,
+          filename: cleanFilename(file.filename),
+          path,
+          size,
+        });
+      } catch (error) {
+        request.log.error({ err: error }, "attachment upload failed");
+        return await deny(reply, 500);
+      }
+      return await reply.send(meta);
+    } finally {
+      await folder.remove();
+      release();
     }
-    if (file.file.truncated || bytes.length === 0) return deny(reply, 413);
-    let meta: Awaited<ReturnType<typeof storeAttachment>>;
-    try {
-      meta = await storeAttachment(deps.db, deps.files, {
-        tableId: query.data.tableId,
-        userId: user.id,
-        filename: cleanFilename(file.filename),
-        bytes,
-      });
-    } catch (error) {
-      request.log.error({ err: error }, "attachment upload failed");
-      return deny(reply, 500);
-    }
-    return reply.send(meta);
   });
 
   async function serve(

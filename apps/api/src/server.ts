@@ -15,6 +15,7 @@ import { sql } from "kysely";
 import { createServer as createHttpsServer, type Server } from "node:https";
 import type { Bus } from "./realtime/bus.js";
 import { registerAttachmentRoutes } from "./attachments.js";
+import { uploadSlots } from "./upload-slots.js";
 import { registerClientErrors } from "./client-errors.js";
 import { registerCompression } from "./compression.js";
 import { authorizeGrid } from "./auth/access.js";
@@ -223,10 +224,14 @@ export async function createApp(deps: {
   await registerRateLimit(app);
   await app.register(cookie);
   await app.register(websocket, SOCKET_OPTIONS);
+  // Uploads read at once, whatever they are: each is written to local
+  // disk as it arrives.
+  const uploads = uploadSlots(deps.env.UPLOAD_CONCURRENCY);
   await registerAttachmentRoutes(app, {
     db: deps.db,
     files: deps.files,
     envMaxBytes: deps.env.ATTACHMENT_MAX_BYTES,
+    uploads,
   });
 
   // HSTS only for a certificate browsers trust on their own: with the
@@ -357,6 +362,7 @@ export async function createApp(deps: {
     db: deps.db,
     bus: deps.bus,
     files: deps.files,
+    uploads,
   });
   registerEnterpriseAuth(app, { env: deps.env, db: deps.db });
   registerRestApi(app, {
