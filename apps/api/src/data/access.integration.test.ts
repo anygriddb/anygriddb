@@ -32,6 +32,7 @@ import {
   type WriteContext,
 } from "./rows.js";
 import { exportBaseSnapshot, importBaseSnapshot } from "./base-snapshot.js";
+import { importIntoTable } from "./import-commit.js";
 import { addColumn, insertBase, insertTable } from "./schema-ops.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -387,6 +388,42 @@ describe("field and row rules on PostgreSQL", () => {
       { total: true },
     );
     expect(page.rows.map((row) => row.id)).toEqual([ids.second]);
+  });
+
+  it("updates by key only the rows inside the importer's row rule", async () => {
+    // The editor sees "second" alone (amount over 15) and writes titles.
+    const table = await database
+      .selectFrom("dataTables")
+      .selectAll()
+      .where("id", "=", ordersId)
+      .executeTakeFirstOrThrow();
+    const result = await importIntoTable(db, {
+      userId: editor,
+      table,
+      staged: {
+        userId: editor,
+        filename: "orders.csv",
+        headers: ["Title"],
+        rows: [["second"], ["first"]],
+      },
+      mapping: [{ source: 0, column: "title" }],
+      upsertSource: 0,
+      addOptions: false,
+      canManage: false,
+      eventKey: `import:rule-${suffix}`,
+      rowScope: await editorEngine(ordersId),
+    });
+    expect(result).toMatchObject({ inserted: 0, updated: 1, failed: 1 });
+    // The row outside the rule is refused on its line, and left as it was.
+    expect(result.errors).toEqual([
+      {
+        line: 3,
+        column: "Title",
+        value: "first",
+        message: "Refused",
+        code: "access_denied",
+      },
+    ]);
   });
 
   it("keeps no row when a stored rule no longer compiles", async () => {
