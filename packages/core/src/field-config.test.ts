@@ -45,6 +45,16 @@ describe("parseColumnConfig", () => {
     expect(() =>
       parseColumnConfig("number", { number: { precision: 12 } }),
     ).toThrow("Invalid column");
+    // A number that refuses negatives takes no negative default.
+    expect(
+      parseColumnConfig("number", { nonNegative: true, defaultValue: 0 }),
+    ).toMatchObject({ nonNegative: true });
+    expect(() =>
+      parseColumnConfig("number", { nonNegative: true, defaultValue: -1 }),
+    ).toThrow("Invalid column");
+    expect(() => parseColumnConfig("text", { nonNegative: true })).toThrow(
+      "Invalid column",
+    );
     expect(() =>
       parseColumnConfig("datetime", { date: { timeZone: "Mars/Base" } }),
     ).toThrow("Invalid column");

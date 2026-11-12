@@ -52,6 +52,31 @@ describe("assertCellValue", () => {
   });
 });
 
+describe("a number field that refuses negatives", () => {
+  const stock = { fieldType: "number" as const, config: { nonNegative: true } };
+  const free = { fieldType: "number" as const, config: {} };
+
+  it("takes zero and above, as a decimal text or a number", () => {
+    for (const value of ["0", "12.50", "-0", "-0.00", 0, 3, null]) {
+      expect(() => assertCellValue(stock, value)).not.toThrow();
+    }
+    // Pasted text goes through the same check.
+    expect(coerceCellValue(stock, "7")).toBe("7");
+  });
+
+  it("refuses a value under zero, and only where the field says so", () => {
+    for (const value of ["-1", "-0.01", -3]) {
+      expect(() => assertCellValue(stock, value)).toThrow(
+        "Negative number refused",
+      );
+      expect(() => assertCellValue(free, value)).not.toThrow();
+    }
+    // Loose input never throws: what the field refuses does not fit.
+    expect(coerceCellValue(stock, "-7")).toBeUndefined();
+    expect(coerceCellValue(free, "-7")).toBe("-7");
+  });
+});
+
 describe("coerceCellValue", () => {
   it("parses pasted text per type and refuses what does not fit", () => {
     expect(

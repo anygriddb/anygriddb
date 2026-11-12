@@ -101,6 +101,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   invalid_cell: msg`Invalid value`,
   invalid_value: msg`Invalid value for`,
   invalid_number: msg`Invalid number`,
+  negative_number: msg`This field takes no negative number`,
   invalid_link: msg`Invalid link`,
   invalid_link_count: msg`This link takes only one row`,
   invalid_attachment: msg`Invalid attachment`,

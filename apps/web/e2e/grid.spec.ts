@@ -96,3 +96,55 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
   expect(blocked).toEqual([]);
   expect(blockedOther).toEqual([]);
 });
+
+// A number field can refuse values under zero: the grid's editor marks
+// such a value and does not send it, and the write itself refuses it
+// whatever sends it (`assertCellValue`). It makes an
+// account, so it takes a client address of its own: sign-ups are counted
+// per address, and the other journeys share theirs.
+test.describe("a number field that refuses negatives", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.80" } });
+
+  test("keeps them out of the grid", async ({ page }) => {
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "Stock Keeper");
+
+    await page.getByRole("button", { name: "Add a field" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Field name").fill("Stock");
+    await dialog.getByLabel("Type").selectOption("number");
+    await dialog.getByLabel("Refuse negative numbers").check();
+    await dialog.getByRole("button", { name: "Create field" }).click();
+    await expect(dialog).toBeHidden();
+
+    await page.getByRole("button", { name: "Add a row", exact: true }).click();
+    const stock = page
+      .locator('[role="gridcell"][data-column="stock"]')
+      .first();
+    await stock.click();
+    await page.keyboard.type("-5");
+    await page.keyboard.press("Enter");
+    // The editor marks the value and keeps it out: nothing is written.
+    const editor = page.getByRole("textbox", { name: "Stock" });
+    await expect(editor).toHaveAttribute("aria-invalid", "true");
+    await page.keyboard.press("Escape");
+    await expect(editor).toBeHidden();
+    await expect(stock).not.toContainText("5");
+
+    await stock.click();
+    const saved = page.waitForResponse(
+      (response) => response.url().includes("rows.updateMany") && response.ok(),
+    );
+    await page.keyboard.type("5");
+    await page.keyboard.press("Enter");
+    await saved;
+    await page.reload();
+    await expect(
+      page.locator('[role="gridcell"][data-column="stock"]').first(),
+    ).toContainText("5");
+    await expect(
+      page.locator('[role="gridcell"][data-column="stock"]').first(),
+    ).not.toContainText("-");
+    expect(blocked).toEqual([]);
+  });
+});

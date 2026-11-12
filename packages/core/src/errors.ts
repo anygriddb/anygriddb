@@ -102,6 +102,7 @@ export const ERRORS = {
   invalid_cell: [BAD, "Invalid cell"],
   invalid_value: [BAD, "Invalid value"],
   invalid_number: [BAD, "Invalid number"],
+  negative_number: [BAD, "Negative number refused"],
   invalid_link: [BAD, "Invalid link"],
   invalid_link_count: [BAD, "Invalid link count"],
   invalid_attachment: [BAD, "Invalid attachment"],
