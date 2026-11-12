@@ -1864,7 +1864,6 @@ msgstr "Code de votre application d’authentification, ou code de secours"
 msgid "Collaborator"
 msgstr "Collaborateur"
 
-#: components/grid/grid-view.tsx
 #: components/shell/sidebar.tsx
 msgid "Collapse"
 msgstr "Replier"
@@ -2992,7 +2991,6 @@ msgstr "Exemple :"
 msgid "Existing rows"
 msgstr "Lignes existantes"
 
-#: components/grid/grid-view.tsx
 #: components/shell/sidebar.tsx
 msgid "Expand"
 msgstr "Déplier"
