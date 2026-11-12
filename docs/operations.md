@@ -237,12 +237,31 @@ while the stack keeps serving. The folder holds:
 - `tls_data.tar.gz`, the instance's authorities, whose keys stay sealed;
 - `SHA256SUMS`.
 
-The folder and its files are readable by their owner only. The dump is
-not encrypted: emails, names, and cell values are in it, while secrets
-sealed with `AUTH_ENCRYPTION_KEY` stay ciphertext because the backup
-leaves that key out. Keep the key in another place than the backups,
-and encrypt the disk and the archive (age, gpg, or the volume's own
-encryption) with a key that does not live on the same host.
+The folder and its files are readable by their owner only. Emails,
+names, and cell values are in them, while secrets sealed with
+`AUTH_ENCRYPTION_KEY` stay ciphertext because the backup leaves that key
+out: keep the key in another place than the backups.
+
+Encrypt each backup as it is written with [age](https://age-encryption.org)
+(BSD licence, in most distributions' packages). Make a key pair on a
+machine other than the host, keep its identity (the private key) there,
+and give the host only the public key:
+
+```sh
+age-keygen -o anygriddb-backup.key   # prints "Public key: age1…"
+```
+
+```sh
+# docker/.env on the host
+BACKUP_AGE_RECIPIENT=age1…
+# Optional: remove this stack's backups older than 30 days.
+BACKUP_KEEP_DAYS=30
+```
+
+Each file then ends in `.age` and nothing readable touches the disk: the
+host cannot read its own backups back. `BACKUP_KEEP_DAYS` removes only
+folders this script named for this stack, once the new backup has
+succeeded.
 
 Run it from cron, for example nightly:
 
@@ -254,10 +273,15 @@ To restore one, into a stack with the same `AUTH_ENCRYPTION_KEY`:
 
 ```sh
 scripts/restore.sh data/backups/anygriddb-20261108T021500Z
+# An encrypted backup: the identity, brought for the restore.
+BACKUP_AGE_IDENTITY=/path/to/anygriddb-backup.key \
+  scripts/restore.sh data/backups/anygriddb-20261108T021500Z
 ```
 
-The script checks the sums, stops AnyGridDB, replaces the database, the
-files, and the authorities with the backup's, and starts AnyGridDB again.
+The script checks the sums, decrypts every file once to check it,
+stops AnyGridDB, replaces the database, the files, and the authorities
+with the backup's, and starts AnyGridDB again with service certificates
+issued from the restored authority, so a spare stack serves too.
 Try a restore on a spare stack now and then: an untested backup is a
 hope.
 
