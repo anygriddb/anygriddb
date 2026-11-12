@@ -525,10 +525,12 @@ function orderClause(
   const seen = new Set<string>();
   for (const group of spec.groupBy ?? []) {
     const ref = lookupRef(prepared, group.column, "group");
-    parts.push(
-      prepared.d.orderTerm(orderSql(prepared, ref), group.direction),
-      prepared.d.groupKeyOrder(groupKeySql(prepared, ref)),
-    );
+    const order = orderSql(prepared, ref);
+    const key = groupKeySql(prepared, ref);
+    parts.push(prepared.d.orderTerm(order, group.direction));
+    // Where the key is the value itself, it already orders the rows (and
+    // SQL Server refuses a term twice).
+    if (key !== order) parts.push(prepared.d.groupKeyOrder(key));
     seen.add(group.column);
   }
   for (const sort of spec.sort ?? []) {
