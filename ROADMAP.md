@@ -47,18 +47,18 @@ The product is `apps/` and `packages/`.
 
 ## Known limits
 
-- Grouped grids load at most the first 1,000 rows of the view.
-- Imports, exports, copies, and base snapshots stop at 100,000 rows. Export and snapshot files are kept for 24 hours.
-- An interrupted job is not retried: its author starts it again.
-- A view's settings that were saved again while one of its fields was in the trash lose that field's part; it comes back at the end of the view.
+- A grouped grid, a kanban, a gallery, a timeline, and a map read one page of the first 1,000 rows of their view, and a calendar the first 1,000 of the six weeks it shows (rows 76–80). A kanban's stacks and a calendar's days count every row; a grouped grid's headers count only the rows it read.
+- Imports, exports, copies, and base snapshots stop at 100,000 rows (rows 81–83). Export and snapshot files are kept for 24 hours.
+- An interrupted job is not retried: its author starts it again (row 47).
+- A view's settings that were saved again while one of its fields was in the trash lose that field's part; it comes back at the end of the view (row 88).
 - A base snapshot names people by email: a user cell keeps the people who are members of the new base. Roles given by groups stay behind.
-- A collaborator with field or row rules cannot use the row trash, and cannot import with updates by key under a row rule.
+- A collaborator with field or row rules cannot use the row trash, and cannot import with updates by key under a row rule (rows 84, 85).
 - Rows deleted before this release's many-to-many restore fix come back without those links.
 - A SAML provider that sends only transient or address NameIDs matches accounts by address: it must verify them. OIDC, and SAML with a persistent NameID, bind the account to the provider's subject.
-- The map view draws points on a plain SVG projection, without tiles.
+- The map view draws points on a plain SVG projection, without tiles (row 86).
 - A synced table is as old as its last refresh, is read-only, stops at a million rows, and links to a table read live show empty.
 - A locked client row is protected from AnyGridDB's writes only: a change another application makes is detected (within five minutes, seconds on a watched table) and told, not refused. Its seal covers every stored column, so a row put back still differs by its `updated_at`.
-- Template content (table and field names) is English-authored with stable ids.
+- Template content (table and field names) is English-authored with stable ids (row 87).
 - On SQL Server a page is one query: a table with very many complex computed fields can exceed what SQL Server compiles, and AnyGridDB says so. There, MD5, SHA256, and SHA512 read texts of up to 100,000 characters, and JSON_EXTRACT reads a text value of up to 4,000.
 - On Oracle an empty text is NULL, so a blank text and lists built from it read as nothing; `NUMBER` keeps no scale (`7.50` reads `7.5`); `DATE` reads as a day; regular expressions are refused, as on SQL Server. Only Oracle 23ai is tested; 19c is the floor (docs/sources.md).
 - Regular expressions are a portable subset, written in the formula: `\d`, `\w`, and `\s` are ASCII, and back-references and lookbehinds are refused. SQL Server reads none before 2025, so there they are refused.
@@ -69,40 +69,78 @@ The product is `apps/` and `packages/`.
 
 Phases 0 to 8 of the [migration plan](docs/migration-plan.md) are done;
 the [decision records](docs/adr/README.md) say why each piece is as it
-is. What is still missing comes in three tracks: the spreadsheet gestures
-and organisation choices people miss, what an instance administrator
-cannot yet do from Administration, and what a review of the code found to
-tighten. Inside a table, the order is the priority.
+is. What is still missing comes in four tracks: the views and spreadsheet
+gestures people miss, data in and out at any size, what an instance
+administrator cannot yet do from Administration, and what a review of the
+code found to tighten. Inside a table, the order is the priority; across
+tracks, the order of work below decides.
 
-### Grid and organisation
+### Order of work
 
-None of these are started.
+A row moves up only when it unblocks another.
+
+1. Every row in every view: 76, 77, 78, then 79 and 80. A view that stops
+   at its first 1,000 rows hides data without saying where.
+2. Rows ordered by hand: 1. It places a card inside a kanban stack, which
+   needs 77 first.
+3. Uploads written as they arrive (60), then attachments on public forms
+   (2): an anonymous upload needs the ceiling on uploads at once.
+4. Required fields on every write: 3. Small rows beside it: 6, 66, 87, 88, 89.
+5. Data in and out past 100,000 rows: 81, 82, 83, with 47 (a job retried),
+   which matters once jobs run longer.
+6. Administration lot 3: 14, 15, 69, 22, 16, 23, 24.
+7. Keys before backups: 64, then 63 and 65, then lot 4 (17, 25). Row 51
+   needs no code: a version tag runs the release workflow.
+
+### Views and organisation
 
 #### Ship (priority order)
 
-| #   | What                                                          | Effort | Notes                                                                                                              |
-| --- | ------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
-| 1   | Insert a row above or below another, and reorder rows by hand | L      | Touches `ag_seq` on every engine the conformance suite covers; unlocks placing a card in a kanban or gallery stack |
-| 2   | Attachments on public forms                                   | M      | Anonymous upload under the share token; a staged file must only be usable by the submit that uploaded it           |
-| 3   | Required fields on every write, not only on forms             | M      | Reject empty values on the write path (`rows` service), including REST, MCP, and imports                           |
-| 4   | Folders of tables in the sidebar                              | M      | Organisation only; no new permission surface                                                                       |
-| 6   | A UUID field type                                             | S      | Expose a stable per-row UUID people can read and copy; the row `id` stays internal                                 |
+| #   | What                                                                                                                                               | Effort | Notes                                                                                                                                                                                                                                                               |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 76  | A grouped grid shows every row of its view: each header where the database says its group starts, rows read as they scroll, a folded group skipped | M      | Today one page of 1,000 rows, and headers count only the rows read. The read already counts every group; it also says where each one starts, and orders rows whose group values the sort cannot tell apart by their key, so a group's rows always follow each other |
+| 77  | Every card of a kanban stack, read as the stack scrolls                                                                                            | M      | After 76: a stack is the rows from its start, as many as it counts. Today a stack can say “40 of 900” and show no more                                                                                                                                              |
+| 78  | A gallery reads its cards as it scrolls                                                                                                            | S      | It draws only the cards on screen already, but reads one page of 1,000                                                                                                                                                                                              |
+| 1   | Insert a row above or below another, and reorder rows by hand                                                                                      | L      | Touches `ag_seq` on every engine the conformance suite covers; unlocks placing a card in a kanban or gallery stack (after 77)                                                                                                                                       |
+| 3   | Required fields on every write, not only on forms                                                                                                  | M      | Reject empty values on the write path (`rows` service), including REST, MCP, and imports                                                                                                                                                                            |
+| 2   | Attachments on public forms                                                                                                                        | M      | After 60. Anonymous upload under the share token; a staged file must only be usable by the submit that uploaded it                                                                                                                                                  |
+| 6   | A UUID field type                                                                                                                                  | S      | Expose a stable per-row UUID people can read and copy; the row `id` stays internal                                                                                                                                                                                  |
+| 87  | Templates named in the language of the person who uses them                                                                                        | S      | Table and field names are English today; the names the server writes already follow the asker's language                                                                                                                                                            |
+| 88  | A view keeps its settings for a field in the trash                                                                                                 | S      | Saved again meanwhile, the field's part is lost today, and the field comes back at the end of the view                                                                                                                                                              |
+| 89  | The grid's toolbar folds into a menu on a narrow screen                                                                                            | S      | Under 768 px the navigation folds, but the toolbar wraps onto several lines                                                                                                                                                                                         |
+| 79  | A timeline reads the rows of the period it shows, as a calendar does                                                                               | M      | Today the first 1,000 rows of the view, and the axis spans only those                                                                                                                                                                                               |
+| 80  | A map reads only the rows that have a place, page after page, up to a ceiling it states                                                            | S      | Today the first 1,000 rows, with or without coordinates                                                                                                                                                                                                             |
+| 4   | Folders of tables in the sidebar                                                                                                                   | M      | Organisation only; no new permission surface                                                                                                                                                                                                                        |
 
 #### Decide before code
 
-| #   | What                                     | Why a decision                                                                                                               |
-| --- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 7   | Embed a shared view or form in an iframe | Today every page sets `frame-ancestors 'none'`. Softening that per share needs an ADR (CSP, clickjacking, which share kinds) |
-| 8   | Workspaces (and teams) above bases       | A new level in the membership model; ADR 0017 already notes the cost of cross-base links inside one workspace                |
+| #   | What                                            | Why a decision                                                                                                                                                                      |
+| --- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 7   | Embed a shared view or form in an iframe        | Today every page sets `frame-ancestors 'none'`. Softening that per share needs an ADR (CSP, clickjacking, which share kinds)                                                        |
+| 8   | Workspaces (and teams) above bases              | A new level in the membership model; ADR 0017 already notes the cost of cross-base links inside one workspace                                                                       |
+| 86  | Map tiles from a tile server the operator names | Images from outside the instance widen the CSP (`img-src`), and each tile asked tells that server where people look. Off by default, one origin, an ADR; the plain projection stays |
 
 #### Later
 
 | #   | What                                                                                              | Effort | Notes                                                                                                                                                                                                                                                                                            |
 | --- | ------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 9   | Richer field and row rules (several row rules per member, per-column conditions, user attributes) | L      | Current model: one row rule per table per member, `me` in filters (ADR 0016)                                                                                                                                                                                                                     |
-| 10  | Timeline dependencies (Gantt)                                                                     | L      | Timeline view has no dependency edges today                                                                                                                                                                                                                                                      |
-| 74  | An engine mark next to each client-database connection                                            | S      | Today every source uses the same generic icon and a text label. Show a distinct mark on the Administration sources list, the engine picker, and the sidebar: trademark-safe SVGs we ship (or that `NOTICE.md` already allows), monochrome, with the name kept for accessibility                  |
+| 10  | Timeline dependencies (Gantt)                                                                     | L      | After 79. Timeline view has no dependency edges today                                                                                                                                                                                                                                            |
 | 75  | The product mark announced on the published image                                                 | S      | `icon.svg` / favicon already ship in the image and the app serves them. Container lists that honour a logo URL still show a generic icon: set a portable image label to an HTTPS URL of the mark on the public repository (PNG preferred), without tying the install path to one desktop product |
+
+### Data in and out
+
+Every read stays within 1 to 1,000 rows: a large job reads page after page
+and writes as it goes, never a whole table in memory.
+
+| #   | What                                                                                                          | Effort | Notes                                                                                                                         |
+| --- | ------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| 81  | Exports past 100,000 rows: read in pages, written to the file as they come, up to a ceiling the operator sets | M      | CSV and JSON stream; XLSX through the workbook writer that streams                                                            |
+| 82  | Imports past 100,000 rows: the file parsed as it arrives, rows written in batches                             | L      | Today the file is read whole (20 MB, 10 MB for XLSX) before the first row is written; the error report keeps its line numbers |
+| 83  | Table copies and base snapshots past 100,000 rows                                                             | M      | A copy inside the instance's own database never leaves it (`insert … select`); a snapshot streams like an export              |
+| 47  | Retry a failed or interrupted job                                                                             | M      | Its author starts it again today. Each step of a job must be safe to run twice                                                |
+| 84  | The row trash for a collaborator with field or row rules: the rows they deleted, without hidden fields        | M      | Refused whole today, because a deleted row is kept whole                                                                      |
+| 85  | Imports that update by key under a row rule: a key outside the rule is refused on its line                    | S      | Refused whole today                                                                                                           |
 
 ### Administration
 
@@ -142,7 +180,7 @@ Every base, link, token, webhook, and automation of the instance, metadata only:
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 17  | The state of backups in Administration: date, size, and result of the last ones; age threshold; administrators told when none succeeded for N days                                                                                          | M      | `scripts/backup.sh` runs outside the application and reports nothing to it. Script should write each run into the database; a late backup then gets its card on the first page (#26) |
 | 25  | Alerts to administrators, in the application and by email: late or failed backup, storage nearly full, certificate close to expiry (instance and sources), repeated failures, a source out of reach; each kind on or off with its threshold | M      | Account locks and new releases are the only ones today. At most one reminder a day while open                                                                                        |
-| 51  | A published release the Health check can find, so the update notice can appear when the check is on                                                                                                                                         | S      | Check and banner exist (ADR 0048); no GitHub Release yet, so operators never see one                                                                                                 |
+| 51  | A published release the Health check can find, so the update notice can appear when the check is on                                                                                                                                         | S      | Check and banner exist (ADR 0048); no GitHub Release yet, so operators never see one. No code: pushing a version tag runs the release workflow                                       |
 
 #### Lot 5: groups and delegated roles
 
@@ -156,13 +194,13 @@ Each administration action declares the capability it needs.
 
 #### Lot 6: audit, retention, and personal data
 
-| #   | What                                                                                                                                                                                    | Effort | Notes                                                                    |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------ |
-| 32  | Everything about one person, on screen (author or subject of the event) and as a file: profile, memberships, sign-ins, what they wrote (no cell values), what was done to their account | M      | Background job; file kept like other exports                             |
-| 31  | Exports on the trail first (view CSV/JSON/Excel, base snapshot, access report, log export), then reads: who exported or opened which table                                              | L      | Nothing records a read today, and an export only reaches the server log  |
-| 44  | How long the trash keeps things, set by the administrator                                                                                                                               | S      | 30 days, fixed                                                           |
-| 21  | Hand a leaving person's bases, automations, and webhooks to another account, without erasing theirs; personal tokens are not moved (offer to revoke them)                               | M      |                                                                          |
-| 30  | How long the change trail is kept, set by the administrator, each purge on the trail                                                                                                    | M      | The trail is append-only and kept without limit: needs a decision record |
+| #   | What                                                                                                                                                                                    | Effort | Notes                                                                                                                                                            |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 32  | Everything about one person, on screen (author or subject of the event) and as a file: profile, memberships, sign-ins, what they wrote (no cell values), what was done to their account | M      | Background job; file kept like other exports                                                                                                                     |
+| 31  | Exports on the trail first (view CSV/JSON/Excel, base snapshot, access report, log export), then reads: who exported or opened which table                                              | L      | Nothing records a read today, and an export only reaches the server log                                                                                          |
+| 44  | How long the trash keeps things, set by the administrator                                                                                                                               | S      | 30 days, fixed                                                                                                                                                   |
+| 21  | Hand a leaving person's bases, automations, and webhooks to another account, without erasing theirs; personal tokens are not moved (offer to revoke them)                               | M      |                                                                                                                                                                  |
+| 30  | How long the change trail is kept, set by the administrator, each purge on the trail                                                                                                    | M      | The trail is append-only and kept without limit, in one table: needs a decision record. Partitioned by month, a purge drops a partition instead of deleting rows |
 
 #### Lot 7: words and first launch
 
@@ -196,7 +234,6 @@ Independent of each other, one pull request each.
 | 43  | Backups scheduled from Administration instead of cron; the backup of any base started by an administrator                                           | L      |                                                            |
 | 45  | The instance's own name, logo, and sign-in message; the sender name, signature, and invitation text of its mail                                     | M      | Logo through existing file storage; mail text per language |
 | 46  | What the operator fixed (public address, storage, trusted proxies), read-only; secrets never shown, even partially masked                           | S      |                                                            |
-| 47  | Retry a failed or interrupted job                                                                                                                   | M      | Its author starts it again today                           |
 | 48  | Each administrator chooses the alerts they receive                                                                                                  | S      | After 25                                                   |
 | 50  | A documented administration API (accounts, invitations, settings), to automate without SCIM                                                         | L      | Same capabilities as delegated roles (#34)                 |
 
