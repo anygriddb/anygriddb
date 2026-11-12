@@ -126,6 +126,9 @@ export type GridProps = {
   ) => void;
 };
 
+/** No rows read so far: one array, so the layout is not drawn again. */
+const NONE_READ: readonly RowItem[] = [];
+
 /** A row id no table has: a disabled query still needs valid input. */
 const EMPTY_ROW_ID = "00000000-0000-4000-8000-000000000000";
 
@@ -168,8 +171,8 @@ export function GridView(props: GridProps) {
   // reads the next page as its end comes into view.
   const placed = grouped && hasStarts(rows.groups);
   const readSoFar = useMemo(() => {
+    if (!grouped || placed) return NONE_READ;
     const prefix: RowItem[] = [];
-    if (!grouped || placed) return prefix;
     for (let row = rows.rowAt(0); row; row = rows.rowAt(prefix.length)) {
       prefix.push(row);
     }
@@ -204,7 +207,8 @@ export function GridView(props: GridProps) {
     if (canAdd) list.push({ type: "add" });
     return list;
   }, [
-    rows,
+    rows.total,
+    rows.groups,
     grouped,
     placed,
     readSoFar,
