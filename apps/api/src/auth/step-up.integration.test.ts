@@ -67,6 +67,28 @@ describe("administration step-up", () => {
         admin.call().admin.setAdmin({ userId: personId, admin: true }),
       ),
     ).toBe("step_up_required");
+    // An account made as an administrator is the same gift, by another
+    // door; one that administers nothing asks no proof.
+    expect(
+      await errorCode(
+        admin.call().admin.createAccount({
+          email: `second-${suffix}@example.org`,
+          displayName: "Second",
+          admin: true,
+        }),
+      ),
+    ).toBe("step_up_required");
+    expect(
+      await db
+        .selectFrom("users")
+        .select("id")
+        .where("email", "=", `second-${suffix}@example.org`)
+        .executeTakeFirst(),
+    ).toBeUndefined();
+    await admin.call().admin.createAccount({
+      email: `plain-${suffix}@example.org`,
+      displayName: "Plain",
+    });
 
     expect(await errorCode(admin.call().admin.stepUp({}))).toBe(
       "invalid_credentials",
@@ -87,6 +109,20 @@ describe("administration step-up", () => {
           .selectFrom("users")
           .select("isAdmin")
           .where("id", "=", personId)
+          .executeTakeFirstOrThrow()
+      ).isAdmin,
+    ).toBe(true);
+    await admin.call().admin.createAccount({
+      email: `second-${suffix}@example.org`,
+      displayName: "Second",
+      admin: true,
+    });
+    expect(
+      (
+        await db
+          .selectFrom("users")
+          .select("isAdmin")
+          .where("email", "=", `second-${suffix}@example.org`)
           .executeTakeFirstOrThrow()
       ).isAdmin,
     ).toBe(true);

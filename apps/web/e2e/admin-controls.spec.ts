@@ -342,6 +342,21 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       ),
     ).toBeVisible();
 
+    // A person made an administrator is administration given: the proof
+    // is asked before the account exists (ROADMAP #28).
+    await page.getByRole("button", { name: "Add a person" }).click();
+    const secondEmail = `e2e-second-${stamp}@example.com`;
+    await adding.getByLabel("Display name").fill(`Second ${stamp}`);
+    await adding.getByLabel("Email").fill(secondEmail);
+    await adding.getByLabel("Administrator of the instance").check();
+    await adding.getByRole("button", { name: "Add", exact: true }).click();
+    await proveItIsYou(page);
+    await expect(
+      page.getByText(
+        `Second ${stamp} added. Their link went to ${secondEmail}`,
+      ),
+    ).toBeVisible();
+
     const theirs = await browser.newContext(from("198.51.100.34"));
     const newcomer = await theirs.newPage();
     await newcomer.goto(await mailedLink(newcomerEmail, "reset"));

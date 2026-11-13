@@ -48,6 +48,7 @@ import {
 } from "./accounts-search";
 import { BaseName, useBaseChoices } from "./base-choices";
 import { InvitationsPanel } from "./invitations-panel";
+import { useStepUp } from "./step-up";
 import { useRoleLabel } from "../settings/role-label";
 
 function date(value: string | null | undefined): string {
@@ -486,6 +487,7 @@ function AddPersonDialog({
   const [picking, setPicking] = useState(false);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
+  const stepUp = useStepUp();
   const bases = useBaseChoices(typed, picking);
   const found = bases.found;
   const toggle = (baseId: string) => {
@@ -511,6 +513,8 @@ function AddPersonDialog({
     if (!email.trim() || !displayName || busy) return;
     setBusy(true);
     try {
+      // Making an administrator asks who is asking, again (ROADMAP #28).
+      if (admin && !(await stepUp.ensure())) return;
       const result = await trpc.admin.createAccount.mutate({
         email: email.trim(),
         displayName,
@@ -538,148 +542,151 @@ function AddPersonDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(next) => !next && onClose()}>
-      <DialogContent
-        title={t`Add a person`}
-        description={
-          mails
-            ? t`They get a link by email to choose their password, valid a week.`
-            : t`Email is not set up: you get the link to choose their password, valid a week, to pass on to them.`
-        }
-      >
-        <div className="flex flex-col gap-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="add-person-name">{t`Display name`}</Label>
-              <Input
-                id="add-person-name"
-                autoComplete="off"
-                maxLength={80}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="add-person-email">{t`Email`}</Label>
-              <Input
-                id="add-person-email"
-                type="email"
-                autoComplete="off"
-                maxLength={254}
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-              />
-            </div>
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={admin}
-              onChange={(event) => setAdmin(event.target.checked)}
-            />
-            {t`Administrator of the instance`}
-          </label>
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-sm font-medium">{t`Bases`}</legend>
-            {memberships.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                {t`Optional: the bases they reach from the start, and their role on each. Any base of the instance; each role is on the change trail under your name.`}
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-1.5">
-                {memberships.map((row) => (
-                  <li key={row.baseId} className="flex items-center gap-2">
-                    <span className="min-w-0 flex-1">
-                      <BaseName name={row.name} owners={row.owners} />
-                    </span>
-                    <Select
-                      aria-label={t`Role on ${{ base: row.name }}`}
-                      className="w-36"
-                      value={row.role}
-                      onChange={(event) =>
-                        setMemberships((rows) =>
-                          rows.map((other) =>
-                            other.baseId === row.baseId
-                              ? { ...other, role: event.target.value as Role }
-                              : other,
-                          ),
-                        )
-                      }
-                    >
-                      {ROLES.map((role) => (
-                        <option key={role} value={role}>
-                          {roleLabel(role)}
-                        </option>
-                      ))}
-                    </Select>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={t`Remove ${{ base: row.name }}`}
-                      onClick={() => toggle(row.baseId)}
-                    >
-                      <X className="h-4 w-4" aria-hidden />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {picking ? (
-              <div className="flex flex-col rounded-sm border border-border">
-                <ListPicker
-                  label={t`Find a base`}
-                  listLabel={t`Bases of the instance`}
-                  inputValue={typed}
-                  onInputChange={setTyped}
-                  options={bases.options}
-                  selectionMode="multiple"
-                  selected={memberships.map((row) => row.baseId)}
-                  onToggle={toggle}
-                  className="max-h-48"
-                  empty={
-                    bases.loading ? (
-                      <span className="flex justify-center">
-                        <Spinner />
-                      </span>
-                    ) : (
-                      t`No base by that name`
-                    )
-                  }
+    <>
+      <Dialog open onOpenChange={(next) => !next && onClose()}>
+        <DialogContent
+          title={t`Add a person`}
+          description={
+            mails
+              ? t`They get a link by email to choose their password, valid a week.`
+              : t`Email is not set up: you get the link to choose their password, valid a week, to pass on to them.`
+          }
+        >
+          <div className="flex flex-col gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="add-person-name">{t`Display name`}</Label>
+                <Input
+                  id="add-person-name"
+                  autoComplete="off"
+                  maxLength={80}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
                 />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="add-person-email">{t`Email`}</Label>
+                <Input
+                  id="add-person-email"
+                  type="email"
+                  autoComplete="off"
+                  maxLength={254}
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={admin}
+                onChange={(event) => setAdmin(event.target.checked)}
+              />
+              {t`Administrator of the instance`}
+            </label>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1 text-sm font-medium">{t`Bases`}</legend>
+              {memberships.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  {t`Optional: the bases they reach from the start, and their role on each. Any base of the instance; each role is on the change trail under your name.`}
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1.5">
+                  {memberships.map((row) => (
+                    <li key={row.baseId} className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1">
+                        <BaseName name={row.name} owners={row.owners} />
+                      </span>
+                      <Select
+                        aria-label={t`Role on ${{ base: row.name }}`}
+                        className="w-36"
+                        value={row.role}
+                        onChange={(event) =>
+                          setMemberships((rows) =>
+                            rows.map((other) =>
+                              other.baseId === row.baseId
+                                ? { ...other, role: event.target.value as Role }
+                                : other,
+                            ),
+                          )
+                        }
+                      >
+                        {ROLES.map((role) => (
+                          <option key={role} value={role}>
+                            {roleLabel(role)}
+                          </option>
+                        ))}
+                      </Select>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={t`Remove ${{ base: row.name }}`}
+                        onClick={() => toggle(row.baseId)}
+                      >
+                        <X className="h-4 w-4" aria-hidden />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {picking ? (
+                <div className="flex flex-col rounded-sm border border-border">
+                  <ListPicker
+                    label={t`Find a base`}
+                    listLabel={t`Bases of the instance`}
+                    inputValue={typed}
+                    onInputChange={setTyped}
+                    options={bases.options}
+                    selectionMode="multiple"
+                    selected={memberships.map((row) => row.baseId)}
+                    onToggle={toggle}
+                    className="max-h-48"
+                    empty={
+                      bases.loading ? (
+                        <span className="flex justify-center">
+                          <Spinner />
+                        </span>
+                      ) : (
+                        t`No base by that name`
+                      )
+                    }
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="self-end"
+                    onClick={() => setPicking(false)}
+                  >
+                    {t`Done`}
+                  </Button>
+                </div>
+              ) : (
                 <Button
                   size="sm"
-                  variant="ghost"
-                  className="self-end"
-                  onClick={() => setPicking(false)}
+                  variant="outline"
+                  className="self-start"
+                  disabled={memberships.length >= MAX_BASES}
+                  onClick={() => setPicking(true)}
                 >
-                  {t`Done`}
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  {t`Add bases`}
                 </Button>
-              </div>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="self-start"
-                disabled={memberships.length >= MAX_BASES}
-                onClick={() => setPicking(true)}
-              >
-                <Plus className="h-3.5 w-3.5" aria-hidden />
-                {t`Add bases`}
-              </Button>
-            )}
-          </fieldset>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
-            {t`Cancel`}
-          </Button>
-          <Button
-            disabled={busy || !email.trim() || !name.trim()}
-            onClick={() => void add()}
-          >
-            {t`Add`}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+              )}
+            </fieldset>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={onClose}>
+              {t`Cancel`}
+            </Button>
+            <Button
+              disabled={busy || !email.trim() || !name.trim()}
+              onClick={() => void add()}
+            >
+              {t`Add`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {stepUp.dialog}
+    </>
   );
 }
