@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { importCommitInputSchema } from "./schemas";
+import {
+  importCommitInputSchema,
+  TABLE_ACTIVITY_MAX,
+  tableActivityInputSchema,
+} from "./schemas";
 
 const TABLE = "11111111-1111-4111-8111-111111111111";
 const IMPORT = "abcdefghijklmnopqrstuvwxyz012345";
@@ -55,5 +59,25 @@ describe("importCommitInputSchema", () => {
         ],
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("tableActivityInputSchema", () => {
+  it("accepts the tables a home page lists", () => {
+    const tableIds = Array.from({ length: TABLE_ACTIVITY_MAX }, () => TABLE);
+    expect(tableActivityInputSchema.safeParse({ tableIds }).success).toBe(true);
+  });
+
+  it("refuses more tables than a home page lists, or none", () => {
+    const tableIds = Array.from(
+      { length: TABLE_ACTIVITY_MAX + 1 },
+      () => TABLE,
+    );
+    expect(tableActivityInputSchema.safeParse({ tableIds }).success).toBe(
+      false,
+    );
+    expect(tableActivityInputSchema.safeParse({ tableIds: [] }).success).toBe(
+      false,
+    );
   });
 });

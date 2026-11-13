@@ -40,7 +40,7 @@ export function NotebookPage({
             <p className="mt-2 text-sm text-muted-foreground">{description}</p>
           ) : null}
         </div>
-        {action}
+        {action ? <div className="shrink-0">{action}</div> : null}
       </header>
       <div className="mt-3 flex flex-col">{children}</div>
     </div>

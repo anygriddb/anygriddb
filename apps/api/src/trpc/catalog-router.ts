@@ -50,6 +50,7 @@ import {
   selectOptionNames,
   setPrimaryColumnInputSchema,
   setTableAclInputSchema,
+  tableActivityInputSchema,
   trashListInputSchema,
   updateBaseInputSchema,
   updateColumnInputSchema,
@@ -113,6 +114,7 @@ import {
 import { listGroupRoles, listGroups, setGroupRole } from "../scim/groups.js";
 import { addRelation } from "../data/relations.js";
 import {
+  countVisibleRows,
   listCollaborators,
   readPage,
   safeTimeZone,
@@ -547,6 +549,75 @@ export const catalogRouter = t.router({
               };
             }),
         }));
+    }),
+  ),
+  /**
+   * What the home page says of the tables a person opened: how many rows
+   * they see, and when each last changed and by whom. Only the tables they
+   * can read, and only AnyGridDB's own: a client's rows live in its
+   * database. A table whose rows are filtered for them has no last change:
+   * it could tell of rows they cannot see.
+   */
+  activity: procedure.input(tableActivityInputSchema).query(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const { user, bindings } = await authorize(ctx);
+      const { rows, readableIds } = await visibleCatalog(ctx, bindings);
+      const wanted = new Set(input.tableIds);
+      const tables = rows.tables.filter(
+        (table) =>
+          wanted.has(table.id) &&
+          readableIds.includes(table.id) &&
+          table.storage !== "external",
+      );
+      if (tables.length === 0) return [];
+      const readable = readableTables(bindings, baseIndex(rows));
+      const access = await readerAccess(
+        ctx.db,
+        { userId: user.id, bindings },
+        rows.tables,
+      );
+      const engines = tables.map((table) => ({
+        ...assembleEngine(table.id, rows, readable),
+        ...(access ? { access } : {}),
+      }));
+      const counts: Array<{ total: number; estimated: boolean }> = [];
+      for (const engine of engines) {
+        counts.push(await countVisibleRows(ctx.db, engine));
+      }
+      const open = engines
+        .filter((engine) => !engine.access?.rowFilter(engine.table.id))
+        .map((engine) => engine.table.id);
+      const changes =
+        open.length === 0
+          ? []
+          : await ctx.db
+              .selectFrom("auditEvents")
+              .innerJoin("users", "users.id", "auditEvents.userId")
+              .distinctOn("auditEvents.tableId")
+              .select([
+                "auditEvents.tableId",
+                "auditEvents.occurredAt",
+                "auditEvents.userId",
+                "users.displayName",
+              ])
+              .where("auditEvents.tableId", "in", open)
+              .orderBy("auditEvents.tableId")
+              .orderBy("auditEvents.occurredAt", "desc")
+              .execute();
+      const last = new Map(changes.map((change) => [change.tableId, change]));
+      return tables.map((table, index) => {
+        const change = last.get(table.id);
+        return {
+          tableId: table.id,
+          rows: counts[index] ?? null,
+          changed: change
+            ? {
+                at: change.occurredAt.toISOString(),
+                by: { id: change.userId, name: change.displayName },
+              }
+            : null,
+        };
+      });
     }),
   ),
   collaborators: procedure

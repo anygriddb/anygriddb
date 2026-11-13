@@ -25,12 +25,45 @@ const ENTRIES: ReadonlyArray<{
   { date: [2026, 2, 17], reference: "INV-20415", amount: 540, signed: false },
 ];
 
+/** The columns of the specimen: date, reference, amount, signed. */
+const COLUMNS =
+  "minmax(6.5rem, 8.5rem) minmax(6.5rem, 9rem) minmax(6rem, 8rem) 5rem";
+
 /**
- * The sign-in pages' picture of the product: a ruled sheet with a row
- * gutter, the red margin, and figures set in tabular numerals, in the
- * person's locale. Decorative: the form beside it carries the page.
+ * One line of the page, 32 px like its rules: a number in the margin's
+ * gutter when the line is a row, then what is written after the margin.
  */
-function LedgerSpecimen({ className }: { className?: string }) {
+function Line({
+  number,
+  className,
+  children,
+}: {
+  number?: number;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex h-8">
+      <span className="w-24 shrink-0 pr-4 text-right font-mono text-xs leading-8 text-muted-foreground">
+        {number}
+      </span>
+      <div
+        className={cn("mr-16 ml-0.5 grid max-w-max pl-[18px]", className)}
+        style={{ gridTemplateColumns: COLUMNS }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The sign-in pages' picture of the product, written on the page itself:
+ * each row sits on one of the page's rules, its number in the gutter
+ * before the red margin, its figures in tabular numerals, in the person's
+ * locale. Decorative: the form beside it carries the page.
+ */
+function LedgerSpecimen() {
   const { t } = useLingui();
   const { locale } = useLocale();
   const date = new Intl.DateTimeFormat(locale, {
@@ -42,62 +75,34 @@ function LedgerSpecimen({ className }: { className?: string }) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  const head =
-    "border-b border-strong-border px-3 py-1.5 text-left text-[13px] font-medium";
-  const cell = "border-b border-rule px-3 py-1.5";
+  const cell = "truncate border-r border-rule px-3 leading-8 last:border-r-0";
   return (
-    <div
-      aria-hidden
-      className={cn(
-        "overflow-hidden rounded-sm border border-rule bg-card text-[13px] leading-5",
-        className,
-      )}
-    >
-      <table className="w-full border-collapse">
-        <thead className="bg-head text-muted-foreground">
-          <tr>
-            <th className={cn(head, "w-10 border-r-2 border-margin")} />
-            <th className={cn(head, "border-r border-r-rule")}>{t`Date`}</th>
-            <th className={cn(head, "border-r border-r-rule")}>
-              {t`Reference`}
-            </th>
-            <th className={cn(head, "border-r border-r-rule text-right")}>
-              {t`Amount`}
-            </th>
-            <th className={head}>{t`Signed`}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ENTRIES.map((entry, index) => (
-            <tr key={entry.reference}>
-              <td
-                className={cn(
-                  cell,
-                  "border-r-2 border-margin bg-head px-2 text-right font-mono text-xs text-muted-foreground",
-                )}
-              >
-                {index + 1}
-              </td>
-              <td className={cn(cell, "border-r border-r-rule")}>
-                {date.format(
-                  new Date(entry.date[0], entry.date[1], entry.date[2]),
-                )}
-              </td>
-              <td className={cn(cell, "border-r border-r-rule font-mono")}>
-                {entry.reference}
-              </td>
-              <td className={cn(cell, "border-r border-r-rule text-right")}>
-                {amount.format(entry.amount)}
-              </td>
-              <td className={cell}>
-                {entry.signed ? (
-                  <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />
-                ) : null}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="mt-16 text-[13px]">
+      <Line className="box-border border-b border-strong-border bg-head font-medium text-muted-foreground">
+        <span className={cell}>{t`Date`}</span>
+        <span className={cell}>{t`Reference`}</span>
+        <span className={cn(cell, "text-right")}>{t`Amount`}</span>
+        <span className={cell}>{t`Signed`}</span>
+      </Line>
+      {ENTRIES.map((entry, index) => (
+        <Line key={entry.reference} number={index + 1}>
+          <span className={cell}>
+            {date.format(new Date(entry.date[0], entry.date[1], entry.date[2]))}
+          </span>
+          <span className={cn(cell, "font-mono")}>{entry.reference}</span>
+          <span className={cn(cell, "text-right")}>
+            {amount.format(entry.amount)}
+          </span>
+          <span className={cell}>
+            {entry.signed ? (
+              <Check
+                className="inline h-4 w-4 text-primary"
+                strokeWidth={2.5}
+              />
+            ) : null}
+          </span>
+        </Line>
+      ))}
     </div>
   );
 }
@@ -105,7 +110,8 @@ function LedgerSpecimen({ className }: { className?: string }) {
 /**
  * The frame of the pages outside the app: sign-in, sign-up, and the reset
  * link. The form on the left; on the right, a page of the notebook the
- * product is: ruled, with its margin, and a sheet of figures on it.
+ * product is: ruled every 32 px, with its margin, and everything on it
+ * written on its rules, whatever the width wraps.
  */
 export function AuthFrame({ children }: { children: ReactNode }) {
   const { t } = useLingui();
@@ -123,21 +129,22 @@ export function AuthFrame({ children }: { children: ReactNode }) {
         className="relative hidden min-w-0 flex-1 overflow-hidden bg-card lg:block"
         style={{
           backgroundImage:
-            "linear-gradient(to bottom, var(--color-rule) 1px, transparent 1px)",
+            "linear-gradient(to bottom, transparent 31px, var(--color-rule) 31px)",
           backgroundSize: "100% 32px",
-          backgroundPosition: "0 15px",
         }}
       >
         <div className="absolute inset-y-0 left-24 w-0.5 bg-margin" />
-        <div className="absolute top-[143px] right-16 left-32">
-          <p className="max-w-[22ch] text-[28px] leading-8 font-medium tracking-tight">
-            {t`Your SQL tables, read and written like a page of a notebook.`}
-          </p>
-          <p className="mt-8 max-w-[46ch] text-base leading-8 text-muted-foreground">
-            {t`Each row is a real row of your database. Each change is signed, dated, and can be undone.`}
-          </p>
+        <div className="absolute inset-x-0 top-32">
+          <div className="pr-16 pl-32">
+            <p className="max-w-[26ch] text-[28px] leading-8 font-medium tracking-tight">
+              {t`Your SQL tables, read and written like a page of a notebook.`}
+            </p>
+            <p className="mt-8 max-w-[46ch] text-base leading-8 text-muted-foreground">
+              {t`Each row is a real row of your database. Each change is signed, dated, and can be undone.`}
+            </p>
+          </div>
+          <LedgerSpecimen />
         </div>
-        <LedgerSpecimen className="absolute top-[399px] right-16 left-32" />
       </section>
     </main>
   );

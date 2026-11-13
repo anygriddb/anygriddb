@@ -289,19 +289,19 @@ msgstr "{0, plural, one {≈ # ligne} other {≈ # lignes}}"
 msgid "{0, plural, one {Give the member their role back, if they have an account here} other {Give their role back to the # members who have an account here}}"
 msgstr "{0, plural, one {Redonner son rôle au membre, s’il a un compte ici} other {Redonner leur rôle aux # membres qui ont un compte ici}}"
 
-#: components/shell/notification-bell.tsx
+#: components/shell/notification-items.ts
 msgid "{actor} assigned you a row in {table} ({field})"
 msgstr "{actor} vous a assigné une ligne de {table} ({field})"
 
-#: components/shell/notification-bell.tsx
+#: components/shell/notification-items.ts
 msgid "{actor} made {name} an owner of {base}"
 msgstr "{actor} a fait de {name} un propriétaire de {base}"
 
-#: components/shell/notification-bell.tsx
+#: components/shell/notification-items.ts
 msgid "{actor} mentioned you in {table}"
 msgstr "{actor} vous a mentionné dans {table}"
 
-#: components/shell/notification-bell.tsx
+#: components/shell/notification-items.ts
 msgid "{actor} replied to your comment in {table}"
 msgstr "{actor} a répondu à votre commentaire dans {table}"
 
@@ -460,6 +460,10 @@ msgstr "{lost, plural, one {# valeur sur {total} ne pourra pas être convertie e
 msgid "{message}: {detail}"
 msgstr "{message} : {detail}"
 
+#: components/shell/home-page.tsx
+msgid "{more, plural, one {# more in your notifications} other {# more in your notifications}}"
+msgstr "{more, plural, one {# autre dans vos notifications} other {# autres dans vos notifications}}"
+
 #: components/settings/api-console.tsx
 msgid "{ms} ms"
 msgstr "{ms} ms"
@@ -496,11 +500,11 @@ msgstr "Champs de {name}"
 msgid "{name} settings"
 msgstr "Réglages de {name}"
 
-#: components/shell/notification-bell.tsx
+#: components/shell/notification-items.ts
 msgid "{name}: {message}"
 msgstr "{name} : {message}"
 
-#: components/shell/notification-bell.tsx
+#: components/shell/notification-items.ts
 msgid "{name}'s account locked after failed sign-ins"
 msgstr "Compte de {name} verrouillé après des connexions manquées"
 
@@ -519,6 +523,14 @@ msgstr "{role}, par le groupe {group}"
 #: components/admin/accounts-tab.tsx
 msgid "{total, plural, one {# account} other {# accounts}}"
 msgstr "{total, plural, one {# compte} other {# comptes}}"
+
+#: components/shell/home-page.tsx
+msgid "{total, plural, one {# row} other {# rows}}"
+msgstr "{total, plural, one {# ligne} other {# lignes}}"
+
+#: components/shell/home-page.tsx
+msgid "{total, plural, one {about # row} other {about # rows}}"
+msgstr "{total, plural, one {environ # ligne} other {environ # lignes}}"
 
 #: components/admin/admin-overview.tsx
 msgid "{unprotectedCount, plural, one {administrator without a second factor} other {administrators without a second factor}}"
@@ -1405,11 +1417,11 @@ msgstr "Auteur"
 msgid "Auto"
 msgstr "Auto"
 
-#: components/shell/notification-bell.tsx
+#: components/shell/notification-items.ts
 msgid "Automation"
 msgstr "Automatisation"
 
-#: components/shell/notification-bell.tsx
+#: components/shell/notification-items.ts
 msgid "Automation in {table}"
 msgstr "Automatisation dans {table}"
 
@@ -1714,6 +1726,14 @@ msgstr "Changer le mot de passe"
 #: lib/errors.ts
 msgid "Change Tracking is off on this table, or the account lacks VIEW CHANGE TRACKING"
 msgstr "Change Tracking n’est pas activé sur cette table, ou le compte n’a pas le droit VIEW CHANGE TRACKING"
+
+#: components/shell/home-page.tsx
+msgid "Changed {when} by {name}"
+msgstr "Modifiée {when} par {name}"
+
+#: components/shell/home-page.tsx
+msgid "Changed {when} by you"
+msgstr "Modifiée {when} par vous"
 
 #: components/grid/grid-view.tsx
 msgid "Changed outside AnyGridDB since it was locked"
@@ -2061,6 +2081,7 @@ msgid "Copied"
 msgstr "Copié"
 
 #: components/admin/sources-tab.tsx
+#: components/shell/home-page.tsx
 msgid "Copied on {date}"
 msgstr "Copiée le {date}"
 
@@ -3380,6 +3401,10 @@ msgstr "Par exemple : Approuvé, Vérifié, Relu"
 msgid "For whoever helps you"
 msgstr "Pour qui vous aide"
 
+#: components/shell/home-page.tsx
+msgid "For you"
+msgstr "Pour vous"
+
 #: components/auth/auth-page.tsx
 msgid "Forgot your password?"
 msgstr "Mot de passe oublié ?"
@@ -4418,6 +4443,10 @@ msgstr "À l’écoute"
 msgid "Lists"
 msgstr "Listes"
 
+#: components/shell/home-page.tsx
+msgid "Live in {source}"
+msgstr "En direct dans {source}"
+
 #: components/admin/sources-tab.tsx
 msgid "Live in the client's database"
 msgstr "En direct dans la base du client"
@@ -4457,7 +4486,7 @@ msgstr "a verrouillé"
 msgid "Locked"
 msgstr "Verrouillée"
 
-#: components/shell/notification-bell.tsx
+#: components/shell/notification-items.ts
 msgid "Locked row {row} of {table} changed outside AnyGridDB"
 msgstr "La ligne {row} de {table}, verrouillée, a changé hors d’AnyGridDB"
 
@@ -4545,7 +4574,7 @@ msgstr "Faire de {name} un administrateur ?"
 msgid "Make administrator"
 msgstr "Faire administrateur"
 
-#: components/shell/notification-bell.tsx
+#: components/shell/notification-items.ts
 msgid "Many accounts locked within an hour: see the sign-in trail"
 msgstr "De nombreux comptes verrouillés en une heure : voir le journal des connexions"
 
@@ -5194,6 +5223,10 @@ msgstr "Notes"
 msgid "Nothing here yet."
 msgstr "Rien ici pour l’instant."
 
+#: components/shell/home-page.tsx
+msgid "Nothing is waiting for you."
+msgstr "Rien ne vous attend."
+
 #: components/admin/admin-overview.tsx
 msgid "Nothing needs your attention."
 msgstr "Rien ne demande votre attention."
@@ -5650,6 +5683,10 @@ msgstr "Téléphone"
 msgid "Pick a shared view of the linked table"
 msgstr "Choisissez une vue partagée de la table liée"
 
+#: components/shell/home-page.tsx
+msgid "Pick up where you left off"
+msgstr "Reprendre là où vous en étiez"
+
 #: components/shell/sidebar.tsx
 msgid "Pin {name}"
 msgstr "Épingler {name}"
@@ -5901,7 +5938,6 @@ msgid "Reason: {reason}"
 msgstr "Motif : {reason}"
 
 #: components/shell/base-home.tsx
-#: components/shell/home-page.tsx
 msgid "Recently opened"
 msgstr "Ouvertes récemment"
 
@@ -7016,7 +7052,7 @@ msgstr "Passer pour l’instant"
 msgid "Skipped"
 msgstr "Ignorée"
 
-#: components/shell/notification-bell.tsx
+#: components/shell/notification-items.ts
 msgid "Someone"
 msgstr "Quelqu’un"
 
@@ -8854,7 +8890,7 @@ msgstr "Champs surveillés (aucun : tous)"
 msgid "Webhook"
 msgstr "Webhook"
 
-#: components/shell/notification-bell.tsx
+#: components/shell/notification-items.ts
 msgid "Webhook {name} on {table} was turned off after repeated failures"
 msgstr "Le webhook {name} de {table} a été désactivé après des échecs répétés"
 
@@ -8894,6 +8930,10 @@ msgstr "Ce qui suit le premier délimiteur ; vide s’il n’y est pas."
 #: components/fields/formula-docs.ts
 msgid "What comes before the first delimiter; blank when it is not there."
 msgstr "Ce qui précède le premier délimiteur ; vide s’il n’y est pas."
+
+#: components/shell/home-page.tsx
+msgid "What is waiting for you, and what changed in your tables."
+msgstr "Ce qui vous attend, et ce qui a changé dans vos tables."
 
 #: components/settings/account-settings.tsx
 msgid "What only you can change. Rights on a base are set in that base."

@@ -375,6 +375,13 @@ export const auditReadInputSchema = z.object({
   recordId: rowIdSchema,
 });
 
+/** The tables the home page lists: what each holds, and its last change. */
+export const TABLE_ACTIVITY_MAX = 8;
+
+export const tableActivityInputSchema = z.object({
+  tableIds: z.array(z.uuid()).min(1).max(TABLE_ACTIVITY_MAX),
+});
+
 export type AuditRole = "owner" | "editor" | "commenter" | "viewer";
 
 export function resolveChangeReason(

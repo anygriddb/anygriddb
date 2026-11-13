@@ -73,7 +73,7 @@ export function WelcomePage() {
   const steps = [t`Protect your account`, t`Bring your data`];
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-3xl px-10 py-12">
+      <div className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8 md:py-10">
         <ol
           className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm"
           aria-label={t`Steps`}

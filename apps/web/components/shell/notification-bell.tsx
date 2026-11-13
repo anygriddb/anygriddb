@@ -6,75 +6,27 @@ import {
   PopoverTrigger,
 } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  AlertTriangle,
-  AtSign,
-  Bell,
-  CornerDownRight,
-  Crown,
-  LockKeyhole,
-  UserPlus,
-  Webhook,
-  Zap,
-} from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
+import { Bell } from "lucide-react";
 import { useState } from "react";
 import { useChannel } from "../../lib/realtime";
 import { useSession } from "../../lib/session";
-import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
+import { trpc, useTRPC } from "../../lib/trpc";
 import { useLingui } from "@lingui/react/macro";
-
-type Item = RouterOutputs["notifications"]["list"]["notifications"][number];
-
-const ICONS = {
-  mention: AtSign,
-  reply: CornerDownRight,
-  assigned: UserPlus,
-  automation: Zap,
-  webhook_disabled: Webhook,
-  row_changed: AlertTriangle,
-  account_locked: LockKeyhole,
-  owner_named: Crown,
-} as const;
-
-function useDescribe() {
-  const { t } = useLingui();
-  return (item: Item) => {
-    const actor = item.actorName ?? t`Someone`;
-    const table = item.tableName ?? "—";
-    switch (item.kind) {
-      case "mention":
-        return t`${actor} mentioned you in ${table}`;
-      case "reply":
-        return t`${actor} replied to your comment in ${table}`;
-      case "assigned":
-        return t`${actor} assigned you a row in ${table} (${{ field: item.data?.column ?? "—" }})`;
-      case "automation":
-        return item.data?.message
-          ? t`${{ name: item.data.name ?? t`Automation` }}: ${{ message: item.data.message }}`
-          : t`Automation in ${table}`;
-      case "webhook_disabled":
-        return t`Webhook ${{ name: item.data?.name ?? "" }} on ${table} was turned off after repeated failures`;
-      case "row_changed":
-        return t`Locked row ${{ row: item.data?.row ?? item.rowId ?? "—" }} of ${table} changed outside AnyGridDB`;
-      case "account_locked":
-        return item.data?.many
-          ? t`Many accounts locked within an hour: see the sign-in trail`
-          : t`${{ name: item.data?.name ?? "—" }}'s account locked after failed sign-ins`;
-      case "owner_named":
-        return t`${actor} made ${{ name: item.data?.name ?? "—" }} an owner of ${{ base: item.data?.base ?? "—" }}`;
-    }
-  };
-}
+import {
+  NOTIFICATION_ICONS,
+  useDescribeNotification,
+  useOpenNotification,
+  type NotificationItem,
+} from "./notification-items";
 
 /** Unread count, list, and live updates on the user's own channel. */
 export function NotificationBell() {
   const { t } = useLingui();
   const api = useTRPC();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const session = useSession();
-  const describe = useDescribe();
+  const describe = useDescribeNotification();
+  const openNotification = useOpenNotification();
   const [open, setOpen] = useState(false);
   const options = api.notifications.list.queryOptions({ limit: 30 });
   const list = useQuery({ ...options, enabled: Boolean(session.data) });
@@ -93,39 +45,9 @@ export function NotificationBell() {
   const unread = list.data?.unread ?? 0;
   const items = list.data?.notifications ?? [];
 
-  async function openItem(item: Item) {
+  async function openItem(item: NotificationItem) {
     setOpen(false);
-    if (!item.read) {
-      await trpc.notifications.markRead.mutate({ ids: [item.id] });
-      void refresh();
-    }
-    if (item.kind === "account_locked") {
-      void navigate({
-        to: "/admin/people/accounts",
-        search: { status: "locked" },
-      });
-      return;
-    }
-    if (item.kind === "owner_named" && item.data?.baseId) {
-      void navigate({
-        to: "/b/$baseId/settings",
-        params: { baseId: item.data.baseId },
-      });
-      return;
-    }
-    if (!item.baseId || !item.tableId) return;
-    if (item.kind === "webhook_disabled") {
-      void navigate({
-        to: "/b/$baseId/settings",
-        params: { baseId: item.baseId },
-      });
-      return;
-    }
-    void navigate({
-      to: "/b/$baseId/t/$tableId/{-$viewId}",
-      params: { baseId: item.baseId, tableId: item.tableId },
-      search: { row: item.rowId ?? undefined },
-    });
+    await openNotification(item);
   }
 
   return (
@@ -167,7 +89,7 @@ export function NotificationBell() {
         </div>
         <ul className="max-h-96 overflow-y-auto">
           {items.map((item) => {
-            const Icon = ICONS[item.kind];
+            const Icon = NOTIFICATION_ICONS[item.kind];
             return (
               <li key={item.id}>
                 <button

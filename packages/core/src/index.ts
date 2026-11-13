@@ -279,6 +279,8 @@ export {
   addRollupInputSchema,
   assertStatusTransition,
   auditReadInputSchema,
+  TABLE_ACTIVITY_MAX,
+  tableActivityInputSchema,
   columnDefinitionSchema,
   columnFromAddInput,
   createApiTokenInputSchema,
