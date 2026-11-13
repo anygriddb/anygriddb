@@ -1,11 +1,13 @@
 import { Paperclip, Plus } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useRowDrag, useRowPlaceDrop } from "../../lib/drag";
+import { placeBetween, type RowPlace } from "../../lib/row-place";
 import { attachmentList } from "../../lib/format";
 import type { RowItem } from "../../lib/types";
 import { cardsOf } from "./gallery-lines";
 import { useTable } from "../table/table-context";
-import { cn, Select } from "@anygriddb/ui";
+import { cn, DragHandle, Select } from "@anygriddb/ui";
 import {
   CardFields,
   CardFieldsPicker,
@@ -15,6 +17,74 @@ import {
   type ViewProps,
 } from "./view-common";
 import { useLingui } from "@lingui/react/macro";
+
+/** The gallery's cards, as one list to move rows within. */
+const GALLERY_LIST = "gallery";
+
+/**
+ * A card that can be moved by hand: dragged by its handle, and a place to
+ * drop another, which lands before or after it (a rule at its side).
+ */
+function MovableCard(props: {
+  rowId: string;
+  index: number;
+  label: string;
+  /** Locked and signed rows stay where they are; others can come beside them. */
+  draggable: boolean;
+  onPlace:
+    | ((rowId: string, place: RowPlace, from: number | undefined) => void)
+    | undefined;
+  children: ReactNode;
+}) {
+  const { t } = useLingui();
+  const slot = { list: GALLERY_LIST, index: props.index };
+  const movable = props.onPlace !== undefined;
+  const draggable = movable && props.draggable;
+  const { dragProps, dragButtonProps, isDragging } = useRowDrag(
+    props.rowId,
+    props.label,
+    draggable,
+    slot,
+  );
+  const ref = useRef<HTMLDivElement>(null);
+  const { dropProps, side } = useRowPlaceDrop(
+    ref,
+    { ...slot, rowId: props.rowId },
+    (rowId, place, from) => props.onPlace?.(rowId, place, from),
+    movable,
+  );
+  return (
+    <div
+      ref={ref}
+      {...(movable ? dropProps : {})}
+      className={cn("relative flex", isDragging && "opacity-50")}
+    >
+      {side ? (
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute top-0 bottom-0 w-0.5 rounded-full bg-primary",
+            side === "before" ? "-left-[9px]" : "-right-[9px]",
+          )}
+        />
+      ) : null}
+      {/* The handle sits in what it drags: a pointer on it carries the card. */}
+      <div
+        {...(draggable ? dragProps : {})}
+        className="relative flex min-w-0 flex-1"
+      >
+        {props.children}
+        {draggable ? (
+          <DragHandle
+            {...dragButtonProps}
+            label={t`Move ${{ name: props.label }}`}
+            className="absolute top-1.5 right-1 bg-card/80"
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 const CARD_MIN = 240;
 const CARD_GAP = 16;
@@ -82,6 +152,19 @@ export function GalleryView(props: ViewProps) {
   useEffect(() => {
     ensure(firstCard, lastCard);
   }, [ensure, firstCard, lastCard]);
+  const onMoveRows = props.canEdit ? props.onMoveRows : undefined;
+  const place = onMoveRows
+    ? (rowId: string, to: RowPlace, from: number | undefined) => {
+        const back =
+          from === undefined
+            ? null
+            : placeBetween(
+                props.rowAt(from - 1)?.id,
+                props.rowAt(from + 1)?.id,
+              );
+        void onMoveRows([rowId], to, back);
+      }
+    : undefined;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-4 border-b border-border px-4 py-1.5">
@@ -180,46 +263,56 @@ export function GalleryView(props: ViewProps) {
                 );
                 const image = files.find((file) => file.thumb);
                 const tint = props.tintOf?.(row);
+                const locked =
+                  row.ag_status === "locked" || row.ag_status === "signed";
                 return (
-                  <button
+                  <MovableCard
                     key={row.id}
-                    type="button"
-                    onClick={() => table.openRecord(row.id)}
-                    className={cn(
-                      "flex flex-col overflow-hidden rounded-sm border border-border bg-card text-left hover:border-strong-border",
-                      tint && `row-tint-${tint}`,
-                    )}
+                    rowId={row.id}
+                    index={index}
+                    label={title(row)}
+                    draggable={!locked}
+                    onPlace={place}
                   >
-                    {cover ? (
-                      <div className="flex h-36 shrink-0 items-center justify-center overflow-hidden bg-muted text-muted-foreground">
-                        {image ? (
-                          <img
-                            src={`/api/attachments/${image.key}/thumb`}
-                            alt={image.filename}
-                            loading="lazy"
-                            className={
-                              props.config.coverFit === "contain"
-                                ? "h-full w-full object-contain"
-                                : "h-full w-full object-cover"
-                            }
-                          />
-                        ) : (
-                          <>
-                            <Paperclip className="h-5 w-5" aria-hidden />
-                            {files.length > 0 ? (
-                              <span className="ml-1 text-xs">
-                                {files.length}
-                              </span>
-                            ) : null}
-                          </>
-                        )}
+                    <button
+                      type="button"
+                      onClick={() => table.openRecord(row.id)}
+                      className={cn(
+                        "flex w-full flex-col overflow-hidden rounded-sm border border-border bg-card text-left hover:border-strong-border",
+                        tint && `row-tint-${tint}`,
+                      )}
+                    >
+                      {cover ? (
+                        <div className="flex h-36 shrink-0 items-center justify-center overflow-hidden bg-muted text-muted-foreground">
+                          {image ? (
+                            <img
+                              src={`/api/attachments/${image.key}/thumb`}
+                              alt={image.filename}
+                              loading="lazy"
+                              className={
+                                props.config.coverFit === "contain"
+                                  ? "h-full w-full object-contain"
+                                  : "h-full w-full object-cover"
+                              }
+                            />
+                          ) : (
+                            <>
+                              <Paperclip className="h-5 w-5" aria-hidden />
+                              {files.length > 0 ? (
+                                <span className="ml-1 text-xs">
+                                  {files.length}
+                                </span>
+                              ) : null}
+                            </>
+                          )}
+                        </div>
+                      ) : null}
+                      <div className="p-3">
+                        <p className="truncate font-medium">{title(row)}</p>
+                        <CardFields row={row} columns={fields} />
                       </div>
-                    ) : null}
-                    <div className="p-3">
-                      <p className="truncate font-medium">{title(row)}</p>
-                      <CardFields row={row} columns={fields} />
-                    </div>
-                  </button>
+                    </button>
+                  </MovableCard>
                 );
               })}
             </div>

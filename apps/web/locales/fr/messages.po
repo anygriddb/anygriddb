@@ -726,6 +726,10 @@ msgstr "Une adresse privée pour votre application de calendrier (Outlook, Googl
 msgid "A reason is required"
 msgstr "Un motif est requis"
 
+#: lib/errors.ts
+msgid "A row cannot be placed next to itself"
+msgstr "Une ligne ne peut pas être placée à côté d’elle-même"
+
 #: components/table/automations-dialog.tsx
 msgid "A row is created"
 msgstr "Une ligne est créée"
@@ -3931,6 +3935,14 @@ msgstr "ajout"
 msgid "Insert"
 msgstr "Ajout"
 
+#: components/grid/grid-view.tsx
+msgid "Insert a row above"
+msgstr "Insérer une ligne au-dessus"
+
+#: components/grid/grid-view.tsx
+msgid "Insert a row below"
+msgstr "Insérer une ligne en dessous"
+
 #: components/fields/field-editor.tsx
 msgid "Insert a value with {field} or {id}. Only http and https links open."
 msgstr "Insérez une valeur avec {field} ou {id}. Seuls les liens http et https s’ouvrent."
@@ -4830,6 +4842,10 @@ msgstr "Mois"
 msgid "More actions"
 msgstr "Plus d’actions"
 
+#: components/table/table-workspace.tsx
+msgid "Move"
+msgstr "Déplacement"
+
 #: components/views/form-view.tsx
 msgid "Move {field} down"
 msgstr "Descendre {field}"
@@ -4838,6 +4854,7 @@ msgstr "Descendre {field}"
 msgid "Move {field} up"
 msgstr "Monter {field}"
 
+#: components/views/gallery-view.tsx
 #: components/views/kanban-view.tsx
 msgid "Move {name}"
 msgstr "Déplacer {name}"
@@ -4850,6 +4867,14 @@ msgstr "Changer de cellule"
 msgid "Move down"
 msgstr "Descendre"
 
+#: components/grid/grid-view.tsx
+msgid "Move the row down"
+msgstr "Descendre la ligne"
+
+#: components/grid/grid-view.tsx
+msgid "Move the row up"
+msgstr "Monter la ligne"
+
 #: components/shell/sidebar.tsx
 msgid "Move up"
 msgstr "Monter"
@@ -4857,6 +4882,10 @@ msgstr "Monter"
 #: components/shell/shortcuts-dialog.tsx
 msgid "Move up or down 15 rows"
 msgstr "Monter ou descendre de 15 lignes"
+
+#: components/record/record-panel.tsx
+msgid "moved the row"
+msgstr "a déplacé la ligne"
 
 #: components/fields/field-meta.tsx
 msgid "Multiple select"
@@ -6508,6 +6537,7 @@ msgstr "Arrondit vers zéro, en coupant les décimales."
 msgid "Row"
 msgstr "Ligne"
 
+#: components/grid/grid-view.tsx
 #: components/record/record-panel.tsx
 msgid "Row {number}"
 msgstr "Ligne {number}"
@@ -7990,6 +8020,10 @@ msgstr "L’identifiant de la ligne."
 #: components/fields/formula-docs.ts
 msgid "The row's number, given when it was created."
 msgstr "Le numéro de la ligne, donné à sa création."
+
+#: components/admin/trails.tsx
+msgid "the row's place"
+msgstr "la place de la ligne"
 
 #: components/grid/rows-error.tsx
 msgid "The rows could not be read: {reason}"

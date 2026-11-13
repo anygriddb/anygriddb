@@ -155,7 +155,11 @@ export function ChangesTrail() {
                 </td>
                 <td className="px-2 py-1.5">{actionLabel(event.action)}</td>
                 <td className="px-2 py-1.5">
-                  {event.fields.join(", ") || "—"}
+                  {event.fields
+                    .map((name) =>
+                      name === "ag_position" ? t`the row's place` : name,
+                    )
+                    .join(", ") || "—"}
                 </td>
                 <td className="px-2 py-1.5">{event.reason ?? "—"}</td>
                 <td className="px-2 py-1.5">{event.source ?? "—"}</td>

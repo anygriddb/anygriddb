@@ -119,8 +119,9 @@ so they are not checked.
   columns snake_case; `*_at` timestamps, `*_id` references. TypeScript sees
   camelCase (Kysely `CamelCasePlugin`).
 - **User tables**: physical names from the catalog; system columns `id`,
-  `ag_status`, `ag_seq`, `ag_created_at`, `ag_updated_at`, `ag_created_by`,
-  `ag_updated_by`. They never go through the camelCase mapping.
+  `ag_status`, `ag_seq`, `ag_position`, `ag_created_at`, `ag_updated_at`,
+  `ag_created_by`, `ag_updated_by`. They never go through the camelCase
+  mapping.
 - **Migrations**: a new `packages/db/migrations/NNNN_snake_case.sql` with the
   next free number. Never edit one that has been applied. Then regenerate the
   types; the integration test `db-types.integration.test.ts` fails when they

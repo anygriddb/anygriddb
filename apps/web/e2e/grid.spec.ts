@@ -96,6 +96,26 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
   await expect(nameCell(other)).toContainText("gamma");
   await other.close();
 
+  // Rows keep the order people give them (ADR 0060): a row inserted above
+  // another, a row moved up from its menu, the move undone.
+  const names = page.locator('[role="gridcell"][data-column="name"]');
+  await names.first().click({ button: "right" });
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await page.getByRole("menuitem", { name: "Insert a row above" }).click();
+  await expect(names).toHaveCount(2);
+  await expect(names.nth(1)).toContainText("gamma");
+  await names.nth(1).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Move the row up" }).click();
+  await expect(names.first()).toContainText("gamma");
+  await names.first().click();
+  await page.keyboard.press("Control+z");
+  await expect(names.nth(1)).toContainText("gamma");
+  // The empty row goes, so the grouping below counts what it did before.
+  await names.first().click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Delete rows" }).click();
+  await expect(names).toHaveCount(1);
+  await expect(nameCell(page)).toContainText("gamma");
+
   // Grouped, the grid shows every row of its view, past the first 1,000:
   // each header where the database says its group starts, the rows under
   // it read as they scroll. 600 rows to do, then 500 done, then "gamma",

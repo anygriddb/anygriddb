@@ -726,6 +726,10 @@ msgstr "A private address for your calendar application (Outlook, Google Calenda
 msgid "A reason is required"
 msgstr "A reason is required"
 
+#: lib/errors.ts
+msgid "A row cannot be placed next to itself"
+msgstr "A row cannot be placed next to itself"
+
 #: components/table/automations-dialog.tsx
 msgid "A row is created"
 msgstr "A row is created"
@@ -3931,6 +3935,14 @@ msgstr "insert"
 msgid "Insert"
 msgstr "Insert"
 
+#: components/grid/grid-view.tsx
+msgid "Insert a row above"
+msgstr "Insert a row above"
+
+#: components/grid/grid-view.tsx
+msgid "Insert a row below"
+msgstr "Insert a row below"
+
 #: components/fields/field-editor.tsx
 msgid "Insert a value with {field} or {id}. Only http and https links open."
 msgstr "Insert a value with {field} or {id}. Only http and https links open."
@@ -4830,6 +4842,10 @@ msgstr "Month"
 msgid "More actions"
 msgstr "More actions"
 
+#: components/table/table-workspace.tsx
+msgid "Move"
+msgstr "Move"
+
 #: components/views/form-view.tsx
 msgid "Move {field} down"
 msgstr "Move {field} down"
@@ -4838,6 +4854,7 @@ msgstr "Move {field} down"
 msgid "Move {field} up"
 msgstr "Move {field} up"
 
+#: components/views/gallery-view.tsx
 #: components/views/kanban-view.tsx
 msgid "Move {name}"
 msgstr "Move {name}"
@@ -4850,6 +4867,14 @@ msgstr "Move between cells"
 msgid "Move down"
 msgstr "Move down"
 
+#: components/grid/grid-view.tsx
+msgid "Move the row down"
+msgstr "Move the row down"
+
+#: components/grid/grid-view.tsx
+msgid "Move the row up"
+msgstr "Move the row up"
+
 #: components/shell/sidebar.tsx
 msgid "Move up"
 msgstr "Move up"
@@ -4857,6 +4882,10 @@ msgstr "Move up"
 #: components/shell/shortcuts-dialog.tsx
 msgid "Move up or down 15 rows"
 msgstr "Move up or down 15 rows"
+
+#: components/record/record-panel.tsx
+msgid "moved the row"
+msgstr "moved the row"
 
 #: components/fields/field-meta.tsx
 msgid "Multiple select"
@@ -6508,6 +6537,7 @@ msgstr "Rounds toward zero, cutting the decimals."
 msgid "Row"
 msgstr "Row"
 
+#: components/grid/grid-view.tsx
 #: components/record/record-panel.tsx
 msgid "Row {number}"
 msgstr "Row {number}"
@@ -7990,6 +8020,10 @@ msgstr "The row's id."
 #: components/fields/formula-docs.ts
 msgid "The row's number, given when it was created."
 msgstr "The row's number, given when it was created."
+
+#: components/admin/trails.tsx
+msgid "the row's place"
+msgstr "the row's place"
 
 #: components/grid/rows-error.tsx
 msgid "The rows could not be read: {reason}"

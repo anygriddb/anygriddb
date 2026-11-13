@@ -23,6 +23,17 @@ const ROW_STATUS = new Set(["draft", "submitted", "locked", "signed"]);
 
 export const MAX_BATCH_ROWS = 500;
 
+/** A row's place: a decimal, as PostgreSQL's numeric writes it. */
+const POSITION = /^-?\d{1,19}(?:\.\d{1,16000})?$/;
+
+/** A row's place, bound as the numeric it is. */
+export function bindPosition(params: SqlParams, value: string): string {
+  if (!POSITION.test(value)) {
+    throw new AppError("invalid_place");
+  }
+  return `${params.bind(value)}::numeric`;
+}
+
 export function assertRowId(value: string): void {
   if (!ROW_ID.test(value)) {
     throw new AppError("invalid_row_id");
@@ -95,10 +106,18 @@ export function buildInsert(input: {
   table: string;
   columns: readonly WriteColumn[];
   values: Readonly<Record<string, Cell>>;
+  /** Where the row goes in the table's order (`row-order.ts`). */
+  position?: string | undefined;
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
   const params = new SqlParams();
   const assigned = assignments(params, input.columns, input.values);
+  if (input.position !== undefined) {
+    assigned.push({
+      name: `"ag_position"`,
+      sql: bindPosition(params, input.position),
+    });
+  }
   if (assigned.length === 0) {
     return {
       text: `insert into ${quoteIdent(input.table)} default values returning "id"`,
@@ -127,6 +146,8 @@ export function buildInsertMany(input: {
   table: string;
   columns: readonly WriteColumn[];
   rows: ReadonlyArray<Readonly<Record<string, Cell>>>;
+  /** Where each row goes in the table's order, one per row. */
+  positions?: readonly string[] | undefined;
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
   const first = input.rows[0];
@@ -136,6 +157,10 @@ export function buildInsertMany(input: {
   const names = Object.keys(first);
   if (names.length === 0) {
     throw new AppError("no_columns");
+  }
+  const positions = input.positions;
+  if (positions && positions.length !== input.rows.length) {
+    throw new AppError("invalid_place");
   }
   const params = new SqlParams();
   let fields: string[] = [];
@@ -153,9 +178,16 @@ export function buildInsertMany(input: {
       { typedNulls: true },
     );
     fields = assigned.map((item) => item.name);
-    return `(${[...assigned.map((item) => item.sql), String(index)].join(", ")})`;
+    const position = positions
+      ? [bindPosition(params, positions[index] ?? "")]
+      : [];
+    return `(${[...assigned.map((item) => item.sql), ...position, String(index)].join(", ")})`;
   });
   const aliases = names.map((_, index) => `"c${String(index)}"`);
+  if (positions) {
+    fields.push(`"ag_position"`);
+    aliases.push(`"cp"`);
+  }
   return {
     text: `insert into ${quoteIdent(input.table)} (${fields.join(", ")}) select ${aliases.join(", ")} from (values ${tuples.join(", ")}) as r (${[...aliases, '"n"'].join(", ")}) order by "n" returning "id"`,
     values: params.values,
@@ -177,29 +209,38 @@ export function buildInserts(input: {
   table: string;
   columns: readonly WriteColumn[];
   rows: ReadonlyArray<Readonly<Record<string, Cell>>>;
+  /** Where each row goes in the table's order; the sequence's next by default. */
+  positions?: readonly string[] | undefined;
 }): Array<{ statement: ParameterizedSql; rows: number }> {
+  const { table, columns, positions } = input;
+  if (positions && positions.length !== input.rows.length) {
+    throw new AppError("invalid_place");
+  }
   const statements: Array<{ statement: ParameterizedSql; rows: number }> = [];
   let run: Array<Readonly<Record<string, Cell>>> = [];
+  let start = 0;
   let shape = "";
   let bound = 0;
   const flush = () => {
     if (run.length === 0) return;
+    const placed = positions?.slice(start, start + run.length);
     statements.push({
       statement:
         shape === ""
-          ? // A row that sets nothing takes every default.
-            buildInsert({ ...input, values: {} })
-          : buildInsertMany({ ...input, rows: run }),
+          ? // A row that sets nothing takes every default but its place.
+            buildInsert({ table, columns, values: {}, position: placed?.[0] })
+          : buildInsertMany({ table, columns, rows: run, positions: placed }),
       rows: run.length,
     });
+    start += run.length;
     run = [];
     bound = 0;
   };
   for (const values of input.rows) {
     const next = shapeOf(values);
-    const cells = Object.values(values).filter(
-      (value) => value !== null,
-    ).length;
+    const cells =
+      Object.values(values).filter((value) => value !== null).length +
+      (positions ? 1 : 0);
     if (
       next !== shape ||
       next === "" ||
@@ -296,8 +337,8 @@ export function buildSetStatus(input: {
 
 /**
  * Re-inserts a deleted row from its audit snapshot (`old_value`), keeping
- * its id, sequence number, and creation stamp. It always comes back as a
- * draft. Columns that no longer exist are ignored; new ones stay null.
+ * its id, sequence number, place, and creation stamp. It always comes back
+ * as a draft. Columns that no longer exist are ignored; new ones stay null.
  */
 export function buildRestoreRow(input: {
   table: string;
@@ -320,8 +361,13 @@ export function buildRestoreRow(input: {
   for (const name of names) {
     assertIdentifier(name, "column name");
   }
-  const list = names.map(quoteIdent).join(", ");
-  const source = names.map((name) => `s.${quoteIdent(name)}`).join(", ");
+  const list = [...names, "ag_position"].map(quoteIdent).join(", ");
+  // A row deleted before rows had a place of their own stood at its
+  // sequence number.
+  const source = [
+    ...names.map((name) => `s.${quoteIdent(name)}`),
+    `coalesce(s."ag_position", s."ag_seq")`,
+  ].join(", ");
   return {
     text: `insert into ${quoteIdent(input.table)} (${list}) select ${source} from jsonb_populate_record(null::${quoteIdent(input.table)}, $1::text::jsonb) s returning "id"`,
     values: [JSON.stringify(input.snapshot)],

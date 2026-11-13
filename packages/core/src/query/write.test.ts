@@ -127,6 +127,43 @@ describe("write builders", () => {
     expect(many.map((item) => item.rows)).toEqual([500, 500, 200]);
   });
 
+  it("gives each row the place asked for, and refuses a place that is not a number", () => {
+    const statements = buildInserts({
+      table: "t_orders",
+      columns,
+      rows: [{ title: "A" }, { title: "B" }, {}],
+      positions: ["1.5", "1.75", "-2"],
+    });
+    expect(statements.map((item) => item.rows)).toEqual([2, 1]);
+    expect(statements[0]?.statement.text).toBe(
+      `insert into "t_orders" ("title", "ag_position") select "c0", "cp" from (values ($1::text, $2::numeric, 0), ($3::text, $4::numeric, 1)) as r ("c0", "cp", "n") order by "n" returning "id"`,
+    );
+    expect(statements[0]?.statement.values).toEqual(["A", "1.5", "B", "1.75"]);
+    expect(statements[1]?.statement.text).toBe(
+      `insert into "t_orders" ("ag_position") values ($1::numeric) returning "id"`,
+    );
+    expect(statements[1]?.statement.values).toEqual(["-2"]);
+    expect(() =>
+      buildInserts({
+        table: "t_orders",
+        columns,
+        rows: [{ title: "A" }],
+        positions: ["1); drop table t_orders; --"],
+      }),
+    ).toThrow("Invalid place");
+    expect(() =>
+      buildInserts({
+        table: "t_orders",
+        columns,
+        rows: [{ title: "A" }, { title: "B" }],
+        positions: ["1"],
+      }),
+    ).toThrow("Invalid place");
+    expect(() =>
+      buildInsert({ table: "t_orders", columns, values: {}, position: "1e5" }),
+    ).toThrow("Invalid place");
+  });
+
   it("locks rows together, in the order of their ids", () => {
     const first = "aaaaaaaa-0000-4000-8000-000000000001";
     const second = "aaaaaaaa-0000-4000-8000-000000000002";
@@ -200,8 +237,10 @@ describe("write builders", () => {
       },
     });
     expect(restore.text).toContain(
-      `("id", "ag_seq", "ag_created_at", "ag_created_by", "title")`,
+      `("id", "ag_seq", "ag_created_at", "ag_created_by", "title", "ag_position")`,
     );
+    // A row deleted before rows had a place comes back at its number.
+    expect(restore.text).toContain(`coalesce(s."ag_position", s."ag_seq")`);
     expect(restore.text).not.toContain("ag_status");
     expect(() =>
       buildRestoreRow({ table: "t_orders", columns: [], snapshot: {} }),
