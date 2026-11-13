@@ -75,3 +75,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0060](0060-rows-ordered-by-hand.md)                 | Rows keep the order people give them: a place apart from the sequence                   | Accepted                                    |
 | [0061](0061-release-only-what-was-checked.md)        | A release publishes only what was checked, for amd64 and arm64                          | Accepted                                    |
 | [0062](0062-files-on-public-forms.md)                | Files on public forms: kept for the link, claimed by its answer                         | Accepted                                    |
+| [0063](0063-the-row-id-as-a-field.md)                | The row's id as a field                                                                 | Accepted                                    |

@@ -607,6 +607,16 @@ function compileVisibleColumn(
     case "button":
       // A button holds no value: it acts on the row when clicked.
       return nullOf("text", ctx.d);
+    case "row_id":
+      // The id the API, webhooks and links name the row by: AnyGridDB's
+      // uuid, or a client table's key (ADR 0063).
+      // A client table's id is text already.
+      return {
+        sql: table.external
+          ? idSql(table, alias)
+          : ctx.d.keyText(idSql(table, alias)),
+        kind: "text",
+      };
     case "relation_one_to_many":
     case "relation_many_to_many": {
       const target = linkedTable(ctx, column);

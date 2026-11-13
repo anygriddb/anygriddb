@@ -90,7 +90,13 @@ import { ph, plural } from "@lingui/core/macro";
 type Option = { name: string; color: string; original?: string };
 
 /** What may be added to a client's table: fields that store nothing. */
-const COMPUTED_ON_CLIENT = new Set(["formula", "lookup", "rollup", "button"]);
+const COMPUTED_ON_CLIENT = new Set([
+  "formula",
+  "lookup",
+  "rollup",
+  "button",
+  "row_id",
+]);
 /**
  * Fields AnyGridDB keeps beside a client's table, in its side table, when
  * the source has a side schema (ADR 0032).

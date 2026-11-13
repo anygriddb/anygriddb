@@ -274,6 +274,22 @@ test.describe("a number field that refuses negatives, then empties", () => {
     await expect(page.getByText("A value is required: Stock")).toBeVisible();
     await page.reload();
     await expect(cells.first()).toContainText("5");
+
+    // The row's id as a field (ADR 0063): each row shows the id the API
+    // takes, and no editor opens on it.
+    await page.getByRole("button", { name: "Add a field" }).click();
+    await dialog.getByLabel("Field name").fill("Ref");
+    await pickFieldType(page, dialog, "Row id");
+    await dialog.getByRole("button", { name: "Create field" }).click();
+    await expect(dialog).toBeHidden();
+    const refs = page.locator('[role="gridcell"][data-column="ref"]');
+    await expect(refs).toHaveCount(2);
+    await expect(refs.first()).toContainText(
+      /[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}/,
+    );
+    await refs.first().dblclick();
+    await expect(page.getByRole("textbox", { name: "Ref" })).toHaveCount(0);
+    expect(await accessibilityViolations(page)).toEqual([]);
     expect(blocked).toEqual([]);
   });
 });

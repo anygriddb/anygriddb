@@ -47,6 +47,9 @@ describe("assertCellValue", () => {
       assertCellValue({ fieldType: "autonumber", config: {} }, 1),
     ).toThrow("Column is read-only");
     expect(() =>
+      assertCellValue({ fieldType: "row_id", config: {} }, "r1"),
+    ).toThrow("Column is read-only");
+    expect(() =>
       assertCellValue({ fieldType: "attachment", config: {} }, ["bad"]),
     ).toThrow("Invalid attachment");
   });

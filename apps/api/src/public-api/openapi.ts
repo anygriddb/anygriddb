@@ -64,6 +64,9 @@ function fieldSchema(
     case "created_by":
     case "last_modified_by":
       return { ...base, type: "string", format: "uuid" };
+    case "row_id":
+      // AnyGridDB's uuid, or a client table's key as text.
+      return { ...base, type: "string" };
     case "attachment":
       return {
         ...base,

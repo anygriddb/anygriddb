@@ -336,6 +336,7 @@ const CONFIG_SCHEMAS: Record<FieldType, z.ZodType<ColumnConfig>> = {
   created_by: z.object({}).strict(),
   last_modified_by: z.object({}).strict(),
   autonumber: z.object({}).strict(),
+  row_id: z.object({}).strict(),
   button: z.object({ button: buttonConfigSchema }).strict(),
 };
 

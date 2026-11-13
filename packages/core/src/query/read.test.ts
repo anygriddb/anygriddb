@@ -432,3 +432,75 @@ describe("count, groups, aggregates", () => {
     expect(durations.client_city).toBeUndefined();
   });
 });
+
+describe("the row's id as a field (ADR 0063)", () => {
+  const ref = {
+    id: "o99",
+    name: "ref",
+    label: "Ref",
+    fieldType: "row_id" as const,
+    config: {},
+  };
+
+  it("reads, filters, and sorts by the id every client names the row by", () => {
+    const sql = buildReadRows(
+      {
+        ...catalogFor(),
+        table: { ...orders, columns: [...orders.columns, ref] },
+      },
+      {
+        limit: 5,
+        filter: {
+          conjunction: "and",
+          conditions: [
+            {
+              column: "ref",
+              op: "is",
+              value: "0190a8b0-0000-7000-8000-000000000001",
+            },
+          ],
+        },
+        sort: [{ column: "ref", direction: "asc" }],
+      },
+    );
+    expect(sql.text).toContain(`r."id"::text as "ref"`);
+    expect(sql.values).toContain("0190a8b0-0000-7000-8000-000000000001");
+    expect(sql.text).toMatch(/order by lower\(q\."ref"\) asc nulls last/);
+    expect(sql.columns.find((column) => column.name === "ref")?.kind).toBe(
+      "text",
+    );
+  });
+
+  it("reads a client table's key on its own engine, and never a stored column", () => {
+    const table = {
+      ...clients,
+      storage: "external" as const,
+      external: {
+        sourceId: "s",
+        dialect: "sqlserver" as const,
+        schema: "dbo",
+        name: "clients",
+        key: ["client_no"],
+      },
+      columns: [
+        ...clients.columns.map((column) => ({
+          ...column,
+          physical: { name: column.name, type: "nvarchar(200)", zone: "UTC" },
+        })),
+        ref,
+      ],
+    };
+    const sql = buildReadRows(
+      {
+        ...catalogFor(),
+        table,
+        tables: new Map([[table.id, table]]),
+      },
+      { limit: 5 },
+    );
+    expect(sql.text).toContain(
+      `cast(r."client_no" as nvarchar(1000)) as "ref"`,
+    );
+    expect(sql.text).not.toContain(`r."ref"`);
+  });
+});

@@ -6,6 +6,7 @@ import {
   CheckSquare,
   CircleDot,
   Clock,
+  Fingerprint,
   FunctionSquare,
   Hash,
   Link2,
@@ -54,6 +55,7 @@ export const FIELD_ICONS: Record<string, LucideIcon> = {
   created_by: User,
   last_modified_by: UserCheck,
   autonumber: Binary,
+  row_id: Fingerprint,
   button: MousePointerClick,
 };
 
@@ -100,6 +102,7 @@ export const FIELD_LABELS: Record<string, MessageDescriptor> = {
   created_by: msg`Created by`,
   last_modified_by: msg`Last modified by`,
   autonumber: msg`Autonumber`,
+  row_id: msg`Row id`,
   button: msg`Button`,
 };
 
@@ -129,6 +132,7 @@ export const FIELD_DESCRIPTIONS: Record<string, MessageDescriptor> = {
   created_by: msg`Who created the row`,
   last_modified_by: msg`Who last changed the row`,
   autonumber: msg`A number given to each new row`,
+  row_id: msg`The id the API and links name the row by`,
   button: msg`Opens a link or runs an action for the row`,
 };
 
@@ -153,6 +157,7 @@ export const FIELD_GROUPS: Array<{
       "created_by",
       "last_modified_by",
       "autonumber",
+      "row_id",
       "button",
     ],
   },
@@ -163,6 +168,7 @@ export const DEFAULT_WIDTH: Record<string, number> = {
   rating: 130,
   number: 120,
   autonumber: 90,
+  row_id: 290,
   date: 130,
   datetime: 170,
   long_text: 260,
@@ -179,6 +185,7 @@ export function isComputedField(fieldType: string): boolean {
     fieldType === "created_by" ||
     fieldType === "last_modified_by" ||
     fieldType === "autonumber" ||
+    fieldType === "row_id" ||
     fieldType === "button"
   );
 }
