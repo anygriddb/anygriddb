@@ -49,6 +49,7 @@ import {
 import { listMembers, revokeMember, setMemberRole } from "../data/members.js";
 import { assertMemberDomain, renewInvitation } from "../data/sharing.js";
 import { cancelAnyJob, listAllJobs } from "../jobs.js";
+import { listAllTrashedBases, restoreBase, trashBase } from "../data/trash.js";
 import {
   clearOidc,
   loadOidcRow,
@@ -152,6 +153,7 @@ import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { notifyOwnerNamed } from "../notifications.js";
 import {
+  countOwnerlessBases,
   listBaseOverview,
   listBaseTables,
   listInstanceHooks,
@@ -975,15 +977,17 @@ export const adminRouter = t.router({
       ),
   }),
   /**
-   * Every base of the instance (ROADMAP #14), with its owners, members,
-   * tables, estimated rows, files, and outbound links, metadata only; and
-   * a page per base.
+   * Every base of the instance (ROADMAP #14, #22), with its owners, members,
+   * tables, estimated rows, files, and outbound links, metadata only; a
+   * page per base; the bases no active account owns; and a base put in
+   * the trash or taken out of it without being one of its members.
    */
   baseOverview: t.router({
     list: procedure
       .input(
         z.object({
           search: z.string().trim().max(100).optional(),
+          ownerless: z.boolean().optional(),
           limit: z.int().min(1).max(1000).default(500),
         }),
       )
@@ -993,6 +997,7 @@ export const adminRouter = t.router({
           return {
             bases: await listBaseOverview(ctx.db, {
               search: input.search || undefined,
+              ownerless: input.ownerless,
               limit: input.limit,
             }),
           };
@@ -1014,6 +1019,58 @@ export const adminRouter = t.router({
             listOutbound(ctx.db, 200, input.baseId),
           ]);
           return { base, members, tables, links };
+        }),
+      ),
+    /** How many live bases no active account owns. */
+    ownerlessCount: procedure.query(({ ctx }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        return { count: await countOwnerlessBases(ctx.db) };
+      }),
+    ),
+    /** The bases in the trash, whoever deleted them. */
+    trashed: procedure.query(({ ctx }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        return { items: await listAllTrashedBases(ctx.db, 500) };
+      }),
+    ),
+    /**
+     * Puts a base in the trash, under the administrator's name: its
+     * owners find it there, and it is purged with the rest when its days
+     * are over.
+     */
+    trash: procedure
+      .input(z.object({ baseId: z.uuid() }))
+      .mutation(({ ctx, input }) =>
+        handle(ctx, async () => {
+          const admin = await requireAdmin(ctx);
+          await trashBase(ctx.db, admin.id, input.baseId);
+          await publishCatalog(ctx.bus, input.baseId, (error) => {
+            ctx.req.log.error({ err: error }, "realtime publish failed");
+          });
+          ctx.req.log.info(
+            { actor: admin.id, base: input.baseId },
+            "base trashed by administrator",
+          );
+          return { ok: true as const };
+        }),
+      ),
+    /** Takes a base out of the trash, whoever put it there. */
+    restore: procedure
+      .input(z.object({ baseId: z.uuid() }))
+      .mutation(({ ctx, input }) =>
+        handle(ctx, async () => {
+          const admin = await requireAdmin(ctx);
+          await restoreBase(ctx.db, input.baseId);
+          await publishCatalog(ctx.bus, input.baseId, (error) => {
+            ctx.req.log.error({ err: error }, "realtime publish failed");
+          });
+          ctx.req.log.info(
+            { actor: admin.id, base: input.baseId },
+            "base restored by administrator",
+          );
+          return { ok: true as const };
         }),
       ),
   }),

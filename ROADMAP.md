@@ -80,8 +80,7 @@ tracks, the order of work below decides.
 A row moves up only when it unblocks another.
 
 1. Data in and out past 100,000 rows: 83 (base snapshots).
-2. Administration lot 3: 69, 22.
-3. Keys before backups: 64, then lot 4 (17, 25). Row 51
+2. Keys before backups: 64, then lot 4 (17, 25). Row 51
    needs no code: a version tag runs the release workflow.
 
 ### Views and organisation
@@ -131,12 +130,7 @@ Done: six sections named by task, every page at an address of its own, a first p
 
 #### Lot 3: bases and what leaves them
 
-Every base, link, token, webhook, and automation of the instance, metadata only: never a cell value. Done: every public link and calendar feed in one list, under Sharing, revoked from there (#16), and every API token, webhook, and automation, revoked or switched off from there (#23). Every base in one list, with a page of its own: owners, members and their roles, tables, estimated rows, files, links and feeds (#14). A base's last activity is not shown yet: the trail is indexed by table and time (migration 0068), so it is one probe per table of the base.
-
-| #   | What                                                                                                                                                                     | Effort | Notes                                                                                                                                          |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| 69  | From a base in that list, see its members and grant, change, or revoke their roles without being a member of the base                                                    | M      | Builds on 14 and 68. Today a base's members are changed in its settings by an owner, or one person at a time from their page in Administration |
-| 22  | Bases without an active owner pointed out (no live owner, direct or by group); a base archived or deleted from Administration; bases deleted by others seen and restored | M      | Builds on 14                                                                                                                                   |
+Every base, link, token, webhook, and automation of the instance, metadata only: never a cell value. Done: every public link and calendar feed in one list, under Sharing, revoked from there (#16), and every API token, webhook, and automation, revoked or switched off from there (#23). Every base in one list, with a page of its own: owners, members and their roles, tables, estimated rows, files, links and feeds (#14). From that page its members are given a role, changed, or removed without being one of them (#69), and the base is put in the trash; the bases no active account owns are pointed out, on the first page too, and the bases in the trash, whoever deleted them, are restored (#22). A base's last activity is not shown yet: the trail is indexed by table and time (migration 0068), so it is one probe per table of the base.
 
 #### Lot 4: backups and alerts
 
