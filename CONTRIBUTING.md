@@ -218,9 +218,9 @@ an allowlist; a new third-party action needs a maintainer to add it. Their
 jobs get the permissions they use and no more, and a checkout keeps no
 token. `Workflows` checks them with actionlint and zizmor whenever one
 changes (`scripts/lint-workflows.sh`). A pull request runs the tests of
-the packages it changes, and every test once it changes a file outside
-the packages: the workflows, `scripts/`, `docker/`, or the root's
-configuration (`scripts/ci-turbo.sh`). Trivy scans the image's system
+the packages it changes, and every test, none replayed from the cache,
+once it changes a file outside the packages: the workflows, `scripts/`,
+`docker/`, or the root's configuration (`scripts/ci-turbo.sh`). Trivy scans the image's system
 packages on `main` and weekly. Secrets belong in GitHub Actions secrets or
 `docker/.env`, never in the tree.
 

@@ -45,10 +45,11 @@ that broke showed only after the merge.
 - **Every pull request builds the image and starts it** (CI's `image`
   job).
 - **A pull request runs every test when it changes a file outside the
-  packages** (`scripts/ci-turbo.sh`). Otherwise it runs only the packages
-  it changes, which Turborepo works out from the packages' own files: a
-  change to the workflows, `scripts/`, or `docker/` belongs to none of
-  them, and ran no test at all.
+  packages**, none replayed from the cache (`scripts/ci-turbo.sh`).
+  Otherwise it runs only the packages it changes, which Turborepo works
+  out from the packages' own files, as it keys its cache: a change to the
+  workflows, `scripts/`, or `docker/` belongs to none of them, and ran no
+  test at all.
 
 ## Consequences
 
