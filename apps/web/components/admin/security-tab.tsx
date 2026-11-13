@@ -382,6 +382,27 @@ export function SecurityTab() {
       </RuledSection>
 
       <RuledSection
+        title={t`Change trail`}
+        description={t`Every write to a row, with its values before and after, and every change to a base's structure and roles. Kept for ever unless you choose otherwise: what is older is then deleted once a day, and the trail says so.`}
+      >
+        <Choice
+          id="policy-audit-retention"
+          label={t`Keep changes for`}
+          value={data.auditRetentionDays}
+          options={[
+            [0, t`For ever`],
+            [365, t`1 year`],
+            [730, t`2 years`],
+            [1095, t`3 years`],
+            [1825, t`5 years`],
+            [3650, t`10 years`],
+          ]}
+          onChange={(auditRetentionDays) => void save({ auditRetentionDays })}
+          hint={t`A year at least: the trash restores a deleted row from this trail. What a shorter choice deletes cannot be brought back; signatures are never deleted.`}
+        />
+      </RuledSection>
+
+      <RuledSection
         title={t`Trash`}
         description={t`Deleted bases, tables, fields, and views wait there with their data, and so do rows deleted from a source's tables, until they are purged for good.`}
       >

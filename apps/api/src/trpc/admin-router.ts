@@ -209,6 +209,7 @@ const auditInputSchema = z.object({
       "sign",
       "catalog",
       "export",
+      "purge",
     ])
     .optional(),
   source: z.string().trim().max(100).optional(),

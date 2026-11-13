@@ -3,6 +3,7 @@
  * out into one job per consumer, so each consumer retries on its own and
  * a slow webhook never delays an automation.
  */
+import { purgeAuditEvents } from "../data/audit-purge.js";
 import { checkAlerts } from "../alerts.js";
 import type { RowEvent } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -315,6 +316,10 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
         certificateExpires: deps.certificateExpires ?? (() => null),
       });
     },
+    [TASKS.auditPurge]: async () => {
+      const { auditRetentionDays } = await readSettings(deps.db);
+      await purgeAuditEvents(deps.db, auditRetentionDays);
+    },
     [TASKS.purge]: async () => {
       await purgeDeliveries(deps.db);
       await purgeAuthEvents(
@@ -455,6 +460,14 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
           match: "17 * * * *",
           options: once,
           identifier: "purge",
+        },
+        {
+          // The change trail, once it is kept for a time (ADR 0069): at
+          // night, once a day, so the trail says so once a day at most.
+          task: TASKS.auditPurge,
+          match: "23 3 * * *",
+          options: once,
+          identifier: "audit_purge",
         },
         {
           // What administrators are told about: late backups, storage,

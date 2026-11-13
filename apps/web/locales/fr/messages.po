@@ -346,6 +346,10 @@ msgstr "{count} cellules copiées"
 msgid "{count} cells skipped: incompatible value or computed field"
 msgstr "{count} cellules ignorées : valeur incompatible ou champ calculé"
 
+#: components/admin/trails.tsx
+msgid "{count} events from before {date} deleted: the trail is kept for a time"
+msgstr "{count} événements d’avant le {date} supprimés : le journal est conservé un temps"
+
 #: components/admin/access-tab.tsx
 msgid "{count} failed runs in 24 hours"
 msgstr "{count} exécutions en échec en 24 heures"
@@ -642,6 +646,10 @@ msgstr "1 an"
 msgid "10 times"
 msgstr "10 fois"
 
+#: components/admin/security-tab.tsx
+msgid "10 years"
+msgstr "10 ans"
+
 #: components/admin/alerts-section.tsx
 msgid "12 hours"
 msgstr "12 heures"
@@ -649,6 +657,10 @@ msgstr "12 heures"
 #: components/admin/alerts-section.tsx
 msgid "14 days"
 msgstr "14 jours"
+
+#: components/admin/security-tab.tsx
+msgid "2 years"
+msgstr "2 ans"
 
 #: components/admin/alerts-section.tsx
 msgid "200 times"
@@ -662,6 +674,10 @@ msgstr "24 heures"
 msgid "3 days"
 msgstr "3 jours"
 
+#: components/admin/security-tab.tsx
+msgid "3 years"
+msgstr "3 ans"
+
 #: components/admin/alerts-section.tsx
 #: components/table/share-dialog.tsx
 msgid "30 days"
@@ -674,6 +690,10 @@ msgstr "36 heures"
 #: components/admin/integrations-tab.tsx
 msgid "465 for TLS from the start, or 587 with STARTTLS."
 msgstr "465 pour TLS dès le départ, ou 587 avec STARTTLS."
+
+#: components/admin/security-tab.tsx
+msgid "5 years"
+msgstr "5 ans"
 
 #: components/admin/alerts-section.tsx
 msgid "50 times"
@@ -909,6 +929,10 @@ msgstr "Les lignes d’une vue, en {format}"
 #: components/fields/field-meta.tsx
 msgid "A web address, as a link"
 msgstr "Une adresse web, en lien"
+
+#: components/admin/security-tab.tsx
+msgid "A year at least: the trash restores a deleted row from this trail. What a shorter choice deletes cannot be brought back; signatures are never deleted."
+msgstr "Un an au moins : la corbeille restaure une ligne supprimée depuis ce journal. Ce qu’un choix plus court supprime ne peut pas être récupéré ; les signatures ne sont jamais supprimées."
 
 #: components/shell/pending-invitations.tsx
 msgid "Accept"
@@ -1927,6 +1951,14 @@ msgstr "Changer le mot de passe"
 #: lib/errors.ts
 msgid "Change Tracking is off on this table, or the account lacks VIEW CHANGE TRACKING"
 msgstr "Change Tracking n’est pas activé sur cette table, ou le compte n’a pas le droit VIEW CHANGE TRACKING"
+
+#: components/admin/security-tab.tsx
+msgid "Change trail"
+msgstr "Journal des modifications"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Change trail kept for"
+msgstr "Durée de conservation du journal des modifications"
 
 #: components/shell/home-page.tsx
 msgid "Changed {when} by {name}"
@@ -3320,6 +3352,10 @@ msgid "Every week"
 msgstr "Toutes les semaines"
 
 #: components/admin/security-tab.tsx
+msgid "Every write to a row, with its values before and after, and every change to a base's structure and roles. Kept for ever unless you choose otherwise: what is older is then deleted once a day, and the trail says so."
+msgstr "Chaque écriture dans une ligne, avec ses valeurs avant et après, et chaque changement de la structure et des rôles d’une base. Conservé sans limite sauf choix contraire : ce qui est plus ancien est alors supprimé une fois par jour, et le journal le dit."
+
+#: components/admin/security-tab.tsx
 msgid "Everyone"
 msgstr "Tout le monde"
 
@@ -3687,6 +3723,10 @@ msgstr "Pour chacune :"
 #: components/table/automations-dialog.tsx
 msgid "For each row of…"
 msgstr "Pour chaque ligne de…"
+
+#: components/admin/security-tab.tsx
+msgid "For ever"
+msgstr "Sans limite"
 
 #: components/record/row-status.tsx
 msgid "For example: Approved, Verified, Reviewed"
@@ -4546,6 +4586,10 @@ msgstr "Aller au bord de la grille"
 #: components/table/view-tabs.tsx
 msgid "Kanban"
 msgstr "Kanban"
+
+#: components/admin/security-tab.tsx
+msgid "Keep changes for"
+msgstr "Conserver les modifications"
 
 #: components/admin/security-tab.tsx
 msgid "Keep deleted items for"
@@ -6322,6 +6366,10 @@ msgstr "PUBLIC_URL est une adresse IP : HTTPS et TOTP fonctionnent ; les clés
 #: components/admin/settings-tab.tsx
 msgid "Publish"
 msgstr "Publier"
+
+#: components/admin/trails.tsx
+msgid "Purge"
+msgstr "Purge"
 
 #: components/shell/trash-dialog.tsx
 #: components/shell/trashed-bases.tsx

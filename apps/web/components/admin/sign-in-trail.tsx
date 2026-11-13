@@ -102,6 +102,7 @@ export function SignInTrail() {
             apiTokens: t`Who can create API tokens`,
             inactiveDays: t`Disable accounts nobody uses`,
             lockAlerts: t`Tell administrators`,
+            auditRetentionDays: t`Change trail kept for`,
             alertBackupHours: t`Alert: backup late`,
             alertStoragePercent: t`Alert: storage nearly full`,
             alertCertificateDays: t`Alert: certificate close to expiry`,
