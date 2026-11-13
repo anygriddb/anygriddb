@@ -31,6 +31,7 @@ import {
   unlinkSignOn,
   withdrawInvitation,
 } from "../admin-control.js";
+import { operatorFixedFromEnv } from "../operator-fixed.js";
 import { assertEnrolled } from "../auth/access.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
 import { unlockAccount } from "../auth/lockout.js";
@@ -658,6 +659,16 @@ export const adminRouter = t.router({
         smtpReady: smtpReady(smtp.config),
         ssoReady: oidc.config !== null || saml.config !== null,
       };
+    }),
+  ),
+  /**
+   * What the operator fixed in the environment (public URL, storage,
+   * trusted proxies). Read-only; secrets are never included.
+   */
+  operatorSettings: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return operatorFixedFromEnv(ctx.env);
     }),
   ),
   updateSettings: procedure

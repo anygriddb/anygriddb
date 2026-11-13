@@ -19,6 +19,7 @@ import { resolveSaml } from "./integrations/saml.js";
 import { loadSiemRow } from "./integrations/siem.js";
 import { resolveSmtp } from "./integrations/smtp.js";
 import { smtpReady } from "./mail.js";
+import { operatorFixedFromEnv } from "./operator-fixed.js";
 import type { SourceSettings } from "./sources/types.js";
 import { readSettings } from "./settings.js";
 
@@ -646,9 +647,11 @@ export async function instanceRuntime(deps: {
     resolveSaml(deps.db, env),
     loadSiemRow(deps.db),
   ]);
+  const operator = operatorFixedFromEnv(env);
   return {
-    publicUrl: env.PUBLIC_URL,
+    publicUrl: operator.publicUrl,
     storage: deps.files.driver,
+    trustedProxies: operator.trustedProxies,
     smtp: smtpReady(smtp.config),
     oidc: oidc.config !== null,
     saml: saml.config !== null,

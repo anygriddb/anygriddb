@@ -23,6 +23,7 @@ export function SettingsTab() {
   const api = useTRPC();
   const queryClient = useQueryClient();
   const settings = useQuery(api.admin.settings.queryOptions());
+  const operator = useQuery(api.admin.operatorSettings.queryOptions());
   const [banner, setBanner] = useState<string | null>(null);
   const [domains, setDomains] = useState<string | null>(null);
   const [maintenance, setMaintenance] = useState<boolean | null>(null);
@@ -51,6 +52,20 @@ export function SettingsTab() {
   const bannerText = banner ?? settings.data.banner ?? "";
   const savedDomains = settings.data.signupDomains.join(", ");
   const domainsText = domains ?? savedDomains;
+  const storage = operator.data?.storage;
+  const storageSummary = !storage
+    ? null
+    : storage.driver === "disk"
+      ? `${t`Local folder`} · ${storage.path}`
+      : [
+          t`Object storage (S3)`,
+          storage.endpointHost,
+          storage.region,
+          storage.bucket,
+          storage.encryption,
+        ]
+          .filter(Boolean)
+          .join(" · ");
   return (
     <div className="flex max-w-lg flex-col gap-4">
       <div className="flex flex-col gap-1">
@@ -214,6 +229,41 @@ export function SettingsTab() {
           {t`Empty uses the environment, then 20 MiB. Between 1 and 500.`}
         </p>
       </div>
+      <section
+        className="flex flex-col gap-1"
+        aria-labelledby="setting-operator"
+      >
+        <h3
+          id="setting-operator"
+          className="text-xs font-medium text-muted-foreground"
+        >
+          {t`Set where the instance is installed`}
+        </h3>
+        {operator.isError ? (
+          <LoadFailed
+            error={operator.error}
+            onRetry={() => void operator.refetch()}
+          />
+        ) : !operator.data ? (
+          <Spinner />
+        ) : (
+          <dl className="grid grid-cols-[9rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+            <dt className="text-muted-foreground">{t`Public address`}</dt>
+            <dd className="break-all">{operator.data.publicUrl}</dd>
+            <dt className="text-muted-foreground">{t`File storage`}</dt>
+            <dd className="break-all">{storageSummary}</dd>
+            <dt className="text-muted-foreground">{t`Trusted proxies`}</dt>
+            <dd className="break-all">
+              {operator.data.trustedProxies.length === 0
+                ? t`None: a request's address is its client's`
+                : operator.data.trustedProxies.join(", ")}
+            </dd>
+          </dl>
+        )}
+        <p className="text-xs text-muted-foreground">
+          {t`What the operator fixed in the instance's environment: it changes there, with a restart. Passwords and keys are never shown.`}
+        </p>
+      </section>
       <MapTilesSetting
         key={`${settings.data.mapTileUrl ?? ""}\n${settings.data.mapTileCredit ?? ""}`}
         url={settings.data.mapTileUrl}
