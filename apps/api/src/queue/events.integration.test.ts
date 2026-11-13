@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
-import { runOnce, type TaskList } from "graphile-worker";
+import type { TaskList } from "graphile-worker";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { encryptSecret } from "../auth/crypto.js";
@@ -22,6 +22,7 @@ import { join } from "node:path";
 import { DiskStore } from "../files/index.js";
 import { createTestDatabase } from "../test-database.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
+import { runJobs } from "./run-once.test-helpers.js";
 import { taskGroups } from "./tasks.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -112,7 +113,7 @@ describe("row events in graphile-worker", () => {
   });
 
   async function work(): Promise<void> {
-    await runOnce({ pgPool: pool, taskList: tasks });
+    await runJobs(pool, tasks);
   }
 
   async function scope(id: string = tableId) {
@@ -243,16 +244,10 @@ describe("row events in graphile-worker", () => {
     });
     expect(await queued(TASKS.rowEvents)).toHaveLength(2);
     // The events alone, so the jobs they queue stay to be counted.
-    await runOnce({
-      pgPool: pool,
-      taskList: { [TASKS.rowEvents]: tasks[TASKS.rowEvents] },
-    });
+    await runJobs(pool, { [TASKS.rowEvents]: tasks[TASKS.rowEvents] });
     // No webhook, no automation, no user field on Quiet: nothing for its
     // two rows. The other table has a webhook and nothing else.
-    // (The worker may still be marking its last event done.)
-    const left = (await queued()).filter(
-      (job) => job.task_identifier !== TASKS.rowEvents,
-    );
+    const left = await queued();
     expect(left.map((job) => job.task_identifier)).toEqual([
       TASKS.webhooksEvent,
     ]);
