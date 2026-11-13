@@ -18,6 +18,7 @@ import {
   type EngineCatalog,
   type FilterGroup,
 } from "@anygriddb/core";
+import { keyRing } from "../auth/key-ring.js";
 import { chartSeries } from "../data/dashboards.js";
 import { importIntoTable, rowsSource } from "../data/import-commit.js";
 import type { Database } from "@anygriddb/db";
@@ -948,7 +949,7 @@ describe("conformance of formulas across engines", () => {
   let db: Database;
   let close: (() => Promise<void>) | undefined;
   let pools: SourcePools | undefined;
-  const key = randomBytes(32);
+  const key = keyRing(randomBytes(32));
   /** What the writes test needs: each source, its schema, and the base. */
   const declared = new Map<Engine, { sourceId: string; schema: string }>();
   let actorId = "";

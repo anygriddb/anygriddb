@@ -6,6 +6,7 @@
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { keyRing } from "./key-ring.js";
 import type { Env } from "../env.js";
 import { createTestDatabase } from "../test-database.js";
 import {
@@ -25,7 +26,7 @@ describe("deleting one's own account", () => {
   let db: Database;
   let close: (() => Promise<void>) | undefined;
   const env = {
-    AUTH_ENCRYPTION_KEY: randomBytes(32),
+    AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
     PUBLIC_URL: "https://grid.example.org",
   } as unknown as Env;
   const hub = {

@@ -1,3 +1,4 @@
+import type { KeyRing } from "./auth/key-ring.js";
 import { randomBytes } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { open, stat } from "node:fs/promises";
@@ -342,7 +343,7 @@ type HttpDeps = {
   db: Database;
   files: FileStore;
   /** Opens a public form's link, for the files its answers carry. */
-  encryptionKey: Buffer;
+  encryptionKey: KeyRing;
   /** Environment bootstrap; the instance setting wins when set (ADR 0050). */
   envMaxBytes?: number;
   /** Uploads read at once, shared with imports and snapshots. */

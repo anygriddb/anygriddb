@@ -1,3 +1,4 @@
+import type { KeyRing } from "./auth/key-ring.js";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { lookup as dnsLookup } from "node:dns";
 import { lookup } from "node:dns/promises";
@@ -63,7 +64,7 @@ const STALE_ATTEMPT_MS = 15 * 60_000;
 
 export type HookDeps = {
   db: Database;
-  key: Buffer;
+  key: KeyRing;
   smtp: SmtpConfig;
   log: (error: unknown, message: string) => void;
   /** Tells the creator in the app when their webhook switches itself off. */
@@ -256,19 +257,19 @@ export function failureText(error: unknown): string {
 
 function sealHeaders(
   headers: Record<string, string> | null | undefined,
-  key: Buffer,
+  key: KeyRing,
 ): { headersCiphertext: Buffer | null; headersNonce: Buffer | null } {
   if (!headers || Object.keys(headers).length === 0) {
     return { headersCiphertext: null, headersNonce: null };
   }
-  const sealed = encryptSecret(JSON.stringify(headers), key);
+  const sealed = encryptSecret(JSON.stringify(headers), key, "webhook");
   return { headersCiphertext: sealed.ciphertext, headersNonce: sealed.nonce };
 }
 
-function openHeaders(hook: WebhookRow, key: Buffer): Record<string, string> {
+function openHeaders(hook: WebhookRow, key: KeyRing): Record<string, string> {
   if (!hook.headersCiphertext || !hook.headersNonce) return {};
   const parsed: unknown = JSON.parse(
-    decryptSecret(hook.headersCiphertext, hook.headersNonce, key),
+    decryptSecret(hook.headersCiphertext, hook.headersNonce, key, "webhook"),
   );
   if (!parsed || typeof parsed !== "object") return {};
   return Object.fromEntries(
@@ -280,7 +281,7 @@ function openHeaders(hook: WebhookRow, key: Buffer): Record<string, string> {
 
 export async function createWebhook(
   db: Database,
-  key: Buffer,
+  key: KeyRing,
   input: {
     tableId: string;
     createdBy: string;
@@ -298,7 +299,7 @@ export async function createWebhook(
     await assertPublicHttps(input.target);
   }
   const secret = randomBytes(32).toString("base64url");
-  const sealed = encryptSecret(secret, key);
+  const sealed = encryptSecret(secret, key, "webhook");
   const inserted = await db
     .insertInto("webhooks")
     .values({
@@ -326,7 +327,7 @@ export async function createWebhook(
 
 export async function updateWebhook(
   db: Database,
-  key: Buffer,
+  key: KeyRing,
   webhookId: string,
   input: {
     active?: boolean;
@@ -590,6 +591,7 @@ async function send(
     hook.secretCiphertext,
     hook.secretNonce,
     deps.key,
+    "webhook",
   );
   const deliveryId = (payload as { id?: unknown }).id;
   const status = await postPinned(hook.target, body, {

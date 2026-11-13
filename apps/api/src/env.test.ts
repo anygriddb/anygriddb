@@ -20,9 +20,23 @@ describe("readEnv", () => {
     ).toThrow(/32 bytes/);
   });
 
-  it("accepts a 32-byte key", () => {
+  it("accepts a 32-byte key, alone or named, and the earlier keys kept", () => {
     const env = readEnv(base);
-    expect(env.AUTH_ENCRYPTION_KEY).toHaveLength(32);
+    expect(env.AUTH_ENCRYPTION_KEY.currentId).toBe("0");
+    expect([...env.AUTH_ENCRYPTION_KEY.masters.keys()]).toEqual(["0"]);
+    const changed = readEnv({
+      ...base,
+      AUTH_ENCRYPTION_KEY: `20261113:${randomBytes(32).toString("base64")}`,
+      AUTH_ENCRYPTION_PREVIOUS_KEYS: `0:${base.AUTH_ENCRYPTION_KEY}`,
+    });
+    expect(changed.AUTH_ENCRYPTION_KEY.currentId).toBe("20261113");
+    expect([...changed.AUTH_ENCRYPTION_KEY.masters.keys()]).toEqual([
+      "20261113",
+      "0",
+    ]);
+    expect(() =>
+      readEnv({ ...base, AUTH_ENCRYPTION_PREVIOUS_KEYS: "old:c2hvcnQ=" }),
+    ).toThrow(/AUTH_ENCRYPTION_PREVIOUS_KEYS must be 32 bytes/);
     expect(env.PORT).toBe(4000);
     expect(env.DATABASE_URL).toBe(base.DATABASE_URL);
   });

@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { keyRing } from "../auth/key-ring.js";
 import { encryptSecret } from "../auth/crypto.js";
 import { DiskStore } from "../files/index.js";
 import { jobRunners } from "../job-runners.js";
@@ -129,7 +130,7 @@ describe("an Airtable base imported", () => {
   let db: Database;
   let close: () => Promise<void>;
   let userId = "";
-  const key = randomBytes(32);
+  const key = keyRing(randomBytes(32));
 
   beforeAll(async () => {
     const created = await createTestDatabase("airtable");
@@ -153,7 +154,7 @@ describe("an Airtable base imported", () => {
 
   it("builds tables, links, lookups, formulas, and rows, then forgets the token", async () => {
     const token = "pat" + "test".repeat(8);
-    const sealed = encryptSecret(token, key);
+    const sealed = encryptSecret(token, key, "job-token");
     const job = await db
       .insertInto("jobs")
       .values({

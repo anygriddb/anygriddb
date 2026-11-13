@@ -1,3 +1,4 @@
+import type { KeyRing } from "./key-ring.js";
 import type { Database } from "@anygriddb/db";
 import { factorMethods } from "./access.js";
 import { verifyPassword } from "./argon2.js";
@@ -41,7 +42,7 @@ export async function sessionStartedAt(
  */
 export async function proveOwnErasure(
   db: Database,
-  key: Buffer,
+  key: KeyRing,
   input: {
     userId: string;
     startedAt: Date | null;

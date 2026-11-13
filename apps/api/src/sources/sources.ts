@@ -3,6 +3,7 @@
  * allowed host, signed in with a dedicated account over verified TLS. A
  * source is saved only once a connection to it succeeded.
  */
+import type { KeyRing } from "../auth/key-ring.js";
 import { AppError, type SourceInput, type SourceUpdate } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { decryptSecret, encryptSecret } from "../auth/crypto.js";
@@ -26,7 +27,7 @@ import type {
 
 export type SourceDeps = {
   db: Database;
-  key: Buffer;
+  key: KeyRing;
   settings: SourceSettings;
 };
 
@@ -167,7 +168,7 @@ function replicaSecret(
   typed: string | null | undefined,
 ) {
   if (!replica || !typed) return {};
-  const sealed = encryptSecret(typed, deps.key);
+  const sealed = encryptSecret(typed, deps.key, "source");
   return {
     replicaPasswordCiphertext: sealed.ciphertext,
     replicaPasswordNonce: sealed.nonce,
@@ -197,7 +198,7 @@ export async function createSource(
   input: SourceInput,
 ) {
   const checked = await testSource(deps, input);
-  const sealed = encryptSecret(input.password, deps.key);
+  const sealed = encryptSecret(input.password, deps.key, "source");
   const replica = replicaConnectionOf(input);
   const now = new Date();
   try {
@@ -254,13 +255,19 @@ export async function updateSource(
   const row = await loadSource(deps.db, patch.id);
   const password =
     patch.password ??
-    decryptSecret(row.passwordCiphertext, row.passwordNonce, deps.key);
+    decryptSecret(
+      row.passwordCiphertext,
+      row.passwordNonce,
+      deps.key,
+      "source",
+    );
   const storedReplicaPassword =
     row.replicaPasswordCiphertext && row.replicaPasswordNonce
       ? decryptSecret(
           row.replicaPasswordCiphertext,
           row.replicaPasswordNonce,
           deps.key,
+          "source",
         )
       : null;
   // A replica without a password of its own uses the primary's, the new
@@ -302,7 +309,7 @@ export async function updateSource(
   const checked = await testSource(deps, next);
   const replica = replicaConnectionOf(next);
   const sealed = patch.password
-    ? encryptSecret(patch.password, deps.key)
+    ? encryptSecret(patch.password, deps.key, "source")
     : undefined;
   const now = new Date();
   try {
@@ -370,6 +377,7 @@ function storedConnection(deps: SourceDeps, row: SourceRow): SourceConnection {
       row.passwordCiphertext,
       row.passwordNonce,
       deps.key,
+      "source",
     ),
     tlsCa: row.tlsCa,
     queryTimeoutMs: row.queryTimeoutMs,
@@ -532,6 +540,7 @@ export async function recheckSource(deps: SourceDeps, id: string) {
             row.replicaPasswordCiphertext,
             row.replicaPasswordNonce,
             deps.key,
+            "source",
           )
         : primary.password;
     const replicaChecked = await checkConnection(deps.settings, {

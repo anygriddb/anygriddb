@@ -649,6 +649,7 @@ export const authRouter = t.router({
               row.ciphertext,
               row.nonce,
               ctx.env.AUTH_ENCRYPTION_KEY,
+              "totp",
             );
       const step =
         secret === null

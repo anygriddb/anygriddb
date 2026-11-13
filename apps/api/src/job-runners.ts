@@ -1,3 +1,4 @@
+import type { KeyRing } from "./auth/key-ring.js";
 import { createReadStream } from "node:fs";
 import { join } from "node:path";
 import {
@@ -76,7 +77,7 @@ export type RunnerDeps = {
   files: FileStore;
   log: (error: unknown, message: string) => void;
   /** The instance's key: it unseals a token a job carries (Airtable). */
-  key?: Buffer;
+  key?: KeyRing;
   /** How Airtable is reached: `fetch`, or a stand-in in tests. */
   airtableFetch?: typeof fetch;
   /** Environment bootstrap for the attachment ceiling (ADR 0050). */
@@ -470,6 +471,7 @@ const runImportAirtable =
         Buffer.from(input.token.ciphertext, "base64"),
         Buffer.from(input.token.nonce, "base64"),
         deps.key,
+        "job-token",
       );
       // One scale for both phases, so the bar never steps back: reading
       // fills [0, 500], building [500, 1000], each by its own share done.

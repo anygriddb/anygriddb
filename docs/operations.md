@@ -73,8 +73,9 @@ Administration > Health give the fingerprint to check before people
 install it.
 
 `AUTH_ENCRYPTION_KEY` seals the sources' passwords, second factors, and
-TLS keys. Lose it and they cannot be read again. Change it and they cannot
-be read either.
+TLS keys. Lose it and they cannot be read again. To change it, follow
+"Changing the encryption key" below: changed alone, it opens nothing of
+what the earlier key sealed.
 
 ### Encryption at rest
 
@@ -91,6 +92,56 @@ With files in an S3 service, ask it to encrypt each object it stores:
 bucket's default key). Check first that the service accepts it: one
 that does not refuses every upload. A bucket that encrypts every object
 by default needs neither.
+
+### Changing the encryption key
+
+Change the key when it may have been read by someone who should not hold
+it, or on the schedule your policy sets. Nothing is lost on the way: the
+earlier key stays beside the new one until everything it sealed has been
+sealed again.
+
+1. Make a new key. It comes with an identifier, today's date unless you
+   give one:
+
+   ```bash
+   docker compose exec app anygriddb keys new
+   # 20261113:Jm0…=
+   ```
+
+2. In `docker/.env`, move the key in use to `AUTH_ENCRYPTION_PREVIOUS_KEYS`,
+   with its identifier in front, and put the new one in its place. A key
+   that was given without an identifier is named `0`:
+
+   ```
+   AUTH_ENCRYPTION_KEY=20261113:Jm0…=
+   AUTH_ENCRYPTION_PREVIOUS_KEYS=0:the-key-in-use-until-now=
+   ```
+
+3. Start the stack again (`docker compose up -d`). Everything still opens,
+   and what is sealed from now on is sealed with the new key.
+
+4. Seal again what the earlier key sealed, then check that nothing is left
+   under it:
+
+   ```bash
+   docker compose exec app anygriddb keys rotate
+   docker compose exec app anygriddb keys status
+   ```
+
+   `rotate` can be run again at any time, beside the running instance. If
+   it names values no key opens, a key is missing from
+   `AUTH_ENCRYPTION_PREVIOUS_KEYS`: add it and run the command again.
+
+5. Once `status` shows only the new key, the earlier one can leave
+   `AUTH_ENCRYPTION_PREVIOUS_KEYS`. Keep it with the backups made while it
+   was in use: a backup restored later holds what that key sealed, and
+   needs it beside the current one.
+
+Backup codes are stored as hashes under the key, so they cannot be sealed
+again: the codes people made before the change work while the earlier key
+is kept, and stop once it is removed. Tell people to make new ones first
+(Account > Security). A sign-in under way and a queued import's token,
+which live minutes, are not rewritten either.
 
 ### Uploads
 

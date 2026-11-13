@@ -17,6 +17,7 @@ import {
   it,
   vi,
 } from "vitest";
+import { keyRing } from "./auth/key-ring.js";
 import {
   listUsers,
   setUserAdmin,
@@ -65,7 +66,7 @@ describe("the security policy", () => {
     closeSession: vi.fn(() => 0),
   };
   const env = {
-    AUTH_ENCRYPTION_KEY: randomBytes(32),
+    AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
     PUBLIC_URL: "https://grid.example.org",
     SMTP_FROM: "grid@example.org",
   } as unknown as Env & { SMTP_HOST?: string; SMTP_PORT?: number };

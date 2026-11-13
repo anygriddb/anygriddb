@@ -13,6 +13,7 @@ import type { Database } from "@anygriddb/db";
 import Fastify, { type FastifyInstance } from "fastify";
 import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { keyRing } from "../auth/key-ring.js";
 import {
   assertAttachmentKeys,
   registerAttachmentRoutes,
@@ -49,7 +50,7 @@ describe("files sent to a public form", () => {
   let locked = { id: "", token: "" };
   let grid = { id: "", token: "" };
   const env = {
-    AUTH_ENCRYPTION_KEY: randomBytes(32),
+    AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
     PUBLIC_URL: "https://grid.example.org",
   } as unknown as Env;
   const hub = {

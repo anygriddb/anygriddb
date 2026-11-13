@@ -6,12 +6,18 @@
  *   anygriddb health
  *   anygriddb version
  *   anygriddb tls services --out <dir> [--postgres <name[:uid:gid]>] [--service <name[:uid:gid]>]…
+ *   anygriddb keys new [--id <id>]
+ *   anygriddb keys status
+ *   anygriddb keys rotate
  *
  * They read the API's environment. `migrate` needs only the storage
- * settings; `sweep` also needs DATABASE_URL.
+ * settings; `sweep` also needs DATABASE_URL; `keys status` and `keys
+ * rotate` need DATABASE_URL and the encryption keys.
  */
 import { parseArgs } from "node:util";
 import { createDb } from "@anygriddb/db";
+import { rotateKeys, type KeyRotation } from "./auth/key-rotation.js";
+import { mintKey } from "./auth/key-ring.js";
 import { BUILD, describeBuild } from "./build-info.js";
 import { readEncryptionKey, readFileSettings } from "./env.js";
 import { healthAuthorities, probeHealth, publicHost } from "./health-probe.js";
@@ -36,6 +42,14 @@ const USAGE = `Usage:
       Issues the stack's services their certificates, from the instance's
       internal authority: <dir>/<name>/<name>_cert.pem and _key.pem, owned
       by uid:gid, and <dir>/internal-authority.crt.
+  anygriddb keys new [--id <id>]
+      Prints a new encryption key, named by today's date or by <id>, as
+      AUTH_ENCRYPTION_KEY takes it. Nothing is changed.
+  anygriddb keys status
+      Counts what the instance keeps sealed, by the key that sealed it.
+  anygriddb keys rotate
+      Seals again, under AUTH_ENCRYPTION_KEY, what an earlier key sealed.
+      That earlier key must be in AUTH_ENCRYPTION_PREVIOUS_KEYS.
 `;
 
 class UsageError extends Error {}
@@ -220,6 +234,71 @@ async function tlsServices(args: string[]): Promise<number> {
   return 0;
 }
 
+function keysNew(args: string[]): number {
+  const { values } = parseArgs({
+    args,
+    options: { id: { type: "string" } },
+    strict: true,
+  });
+  const today = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+  try {
+    process.stdout.write(`${mintKey(values.id ?? today)}\n`);
+  } catch (error) {
+    throw new UsageError(message(error));
+  }
+  return 0;
+}
+
+function describeKeys(report: KeyRotation, current: string): string {
+  const lines = Object.entries(report.byKey)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(
+      ([id, count]) =>
+        `${String(count).padStart(8)}  ${id}${id === current ? " (current)" : ""}`,
+    );
+  return [
+    lines.length > 0 ? lines.join("\n") : "nothing sealed yet",
+    ...report.unreadable.map((where) => `no key opens: ${where}`),
+  ].join("\n");
+}
+
+/** Counts sealed values by key and, for `rotate`, seals the old ones again. */
+async function keys(write: boolean): Promise<number> {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new UsageError("DATABASE_URL is required");
+  const ring = readEncryptionKey();
+  const { db, close } = createDb(url, { max: 2 });
+  try {
+    const report = await rotateKeys(db, ring, {
+      write,
+      tlsDir: process.env.TLS_DIR || "./data/tls",
+    });
+    process.stdout.write(`${describeKeys(report, ring.currentId)}\n`);
+    if (write) {
+      process.stdout.write(
+        `sealed ${String(report.rewritten)} again under ${ring.currentId}\n`,
+      );
+    }
+    const earlier = Object.keys(report.byKey).filter(
+      (id) => id !== ring.currentId,
+    );
+    if (report.unreadable.length > 0) {
+      process.stderr.write(
+        "Some values open with no key given: add the key that sealed them to AUTH_ENCRYPTION_PREVIOUS_KEYS and run this again.\n",
+      );
+      return 1;
+    }
+    if (earlier.length === 0 && ring.masters.size > 1) {
+      process.stdout.write(
+        "Nothing is left under an earlier key. Backup codes made before the change stop working once AUTH_ENCRYPTION_PREVIOUS_KEYS is emptied.\n",
+      );
+    }
+    return 0;
+  } finally {
+    await close();
+  }
+}
+
 async function main(argv: string[]): Promise<number> {
   const [group, command, ...rest] = argv;
   try {
@@ -237,6 +316,13 @@ async function main(argv: string[]): Promise<number> {
     }
     if (group === "tls" && command === "services") {
       return await tlsServices(rest);
+    }
+    if (group === "keys" && command === "new") {
+      return keysNew(rest);
+    }
+    if (group === "keys" && (command === "status" || command === "rotate")) {
+      parseArgs({ args: rest, options: {}, strict: true });
+      return await keys(command === "rotate");
     }
     if (group === undefined || group === "help" || group === "--help") {
       process.stdout.write(USAGE);

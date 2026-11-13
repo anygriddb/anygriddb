@@ -4,6 +4,7 @@ import type { Database } from "@anygriddb/db";
 import Fastify, { type FastifyInstance } from "fastify";
 import { SignJWT, exportJWK, generateKeyPair, type JWK } from "jose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { keyRing } from "./key-ring.js";
 import type { Env } from "../env.js";
 import { createTestDatabase } from "../test-database.js";
 import { writeSettings } from "../settings.js";
@@ -91,7 +92,7 @@ describe("OIDC sign-in through openid-client", () => {
   let close: (() => Promise<void>) | undefined;
   let app: FastifyInstance;
   let provider: Awaited<ReturnType<typeof fakeProvider>>;
-  const key = randomBytes(32);
+  const key = keyRing(randomBytes(32));
 
   beforeAll(async () => {
     const created = await createTestDatabase("oidc");

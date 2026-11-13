@@ -30,6 +30,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in docker/.env}
       AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env}
+      AUTH_ENCRYPTION_PREVIOUS_KEYS: ${AUTH_ENCRYPTION_PREVIOUS_KEYS:-}
       PORT: "4000"
       PUBLIC_URL: ${PUBLIC_URL:-https://localhost:3000}
       TLS_NAMES: ${TLS_NAMES:-}

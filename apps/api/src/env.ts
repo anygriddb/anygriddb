@@ -1,10 +1,15 @@
 import { isIP } from "node:net";
 import { ATTACHMENT_MAX_BYTES_CEILING } from "@anygriddb/core";
+import { parseKeyRing, type KeyRing } from "./auth/key-ring.js";
 import type { FileSettings } from "./files/index.js";
 
 export type Env = {
   DATABASE_URL: string;
-  AUTH_ENCRYPTION_KEY: Buffer;
+  /**
+   * The key in use and the earlier ones still kept (ADR 0066):
+   * AUTH_ENCRYPTION_KEY, then AUTH_ENCRYPTION_PREVIOUS_KEYS.
+   */
+  AUTH_ENCRYPTION_KEY: KeyRing;
   PORT: number;
   /**
    * The HTTPS origin people open: links in emails, cookies, API documents,
@@ -308,15 +313,19 @@ export function readFileSettings(
   };
 }
 
-/** AUTH_ENCRYPTION_KEY: 32 bytes, base64. Operator commands read it alone. */
+/**
+ * AUTH_ENCRYPTION_KEY: 32 bytes in base64, alone or as `id:base64`; and
+ * AUTH_ENCRYPTION_PREVIOUS_KEYS, the earlier keys as `id:base64` separated
+ * by commas, kept until `anygriddb keys rotate` has rewritten what they
+ * sealed. Operator commands read them alone.
+ */
 export function readEncryptionKey(
   source: NodeJS.ProcessEnv = process.env,
-): Buffer {
-  const key = Buffer.from(required(source, "AUTH_ENCRYPTION_KEY"), "base64");
-  if (key.length !== 32) {
-    throw new Error("AUTH_ENCRYPTION_KEY must be 32 bytes, base64-encoded");
-  }
-  return key;
+): KeyRing {
+  return parseKeyRing(
+    required(source, "AUTH_ENCRYPTION_KEY"),
+    source.AUTH_ENCRYPTION_PREVIOUS_KEYS,
+  );
 }
 
 export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {

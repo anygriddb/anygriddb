@@ -8,6 +8,7 @@ import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { keyRing } from "./auth/key-ring.js";
 import { withAudit } from "./data/audit-context.js";
 import { ERASED_USER_ID } from "./data/erasure.js";
 import { grantMember } from "./data/members.js";
@@ -37,7 +38,7 @@ describe("accounts in Administration", () => {
   let adminId = "";
   let n = 0;
   const env = {
-    AUTH_ENCRYPTION_KEY: randomBytes(32),
+    AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
     PUBLIC_URL: "https://grid.example.org",
     SMTP_FROM: "grid@example.org",
   } as unknown as Env & { SMTP_HOST?: string; SMTP_PORT?: number };

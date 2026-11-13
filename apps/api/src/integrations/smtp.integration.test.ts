@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import { createServer, type AddressInfo } from "node:net";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { keyRing } from "../auth/key-ring.js";
 import type { Env } from "../env.js";
 import { fakeSmtp, mailText } from "../mail.test-helpers.js";
 import { createTestDatabase } from "../test-database.js";
@@ -26,7 +27,7 @@ describe("operator SMTP", () => {
   let close: (() => Promise<void>) | undefined;
   let smtp: Awaited<ReturnType<typeof fakeSmtp>>;
   const env = {
-    AUTH_ENCRYPTION_KEY: randomBytes(32),
+    AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
     PUBLIC_URL: "https://grid.example.org",
     SMTP_FROM: "env@example.org",
   } as unknown as Env & {

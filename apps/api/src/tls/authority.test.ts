@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { keyRing } from "../auth/key-ring.js";
 import {
   issueServiceCertificates,
   loadTls,
@@ -24,7 +25,7 @@ async function settings(
   dirs.push(dir);
   return {
     PUBLIC_URL: "https://grid.lan:3000",
-    AUTH_ENCRYPTION_KEY: randomBytes(32),
+    AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
     TLS_DIR: join(dir, "tls"),
     TLS_NAMES: [],
     ...patch,
@@ -89,7 +90,7 @@ describe("the certificate AnyGridDB serves", () => {
       {
         ...options,
         TLS_NAMES: ["grid.corp"],
-        AUTH_ENCRYPTION_KEY: randomBytes(32),
+        AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
       },
       quiet,
     );

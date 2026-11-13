@@ -4,6 +4,7 @@
  * locks within an hour, one last alert says so and the rest wait in the
  * sign-in trail: a guessing run over many accounts must not flood anyone.
  */
+import type { KeyRing } from "./key-ring.js";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { resolveSmtp } from "../integrations/smtp.js";
@@ -23,7 +24,7 @@ export const LOCK_ALERTS_PER_HOUR = 10;
 export type LockAlertDeps = {
   db: Database;
   bus: Publisher;
-  env: SmtpConfig & { PUBLIC_URL: string; AUTH_ENCRYPTION_KEY: Buffer };
+  env: SmtpConfig & { PUBLIC_URL: string; AUTH_ENCRYPTION_KEY: KeyRing };
   log: { error: (object: object, message: string) => void };
 };
 

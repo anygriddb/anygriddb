@@ -2,6 +2,7 @@
  * Optional SIEM webhook (ADR 0056): posts selected auth_events to an
  * operator HTTPS URL. Secrets stay sealed; payloads never hold emails.
  */
+import type { KeyRing } from "../auth/key-ring.js";
 import { AppError } from "@anygriddb/core";
 import type { AuthAction, Database } from "@anygriddb/db";
 import { z } from "zod";
@@ -77,7 +78,7 @@ export async function loadSiemRow(db: Database): Promise<SiemRow | null> {
 
 export async function saveSiem(
   db: Database,
-  key: Buffer,
+  key: KeyRing,
   userId: string,
   input: SiemUpdate,
   options: { ip?: string } = {},
@@ -90,7 +91,7 @@ export async function saveSiem(
   let ciphertext = existing?.secretCiphertext;
   let nonce = existing?.secretNonce;
   if (input.secret !== undefined) {
-    const sealed = encryptSecret(input.secret, key);
+    const sealed = encryptSecret(input.secret, key, "siem");
     ciphertext = sealed.ciphertext;
     nonce = sealed.nonce;
   }
@@ -181,12 +182,17 @@ export async function queueSiemEvent(
 
 export async function deliverSiemEvent(
   db: Database,
-  key: Buffer,
+  key: KeyRing,
   payload: SiemPayload,
 ): Promise<void> {
   const row = await loadSiemRow(db);
   if (!row) return;
-  const secret = decryptSecret(row.secretCiphertext, row.secretNonce, key);
+  const secret = decryptSecret(
+    row.secretCiphertext,
+    row.secretNonce,
+    key,
+    "siem",
+  );
   const body = JSON.stringify({
     source: "anygriddb",
     ...payload,
@@ -203,7 +209,7 @@ export async function deliverSiemEvent(
 /** Sends a test event to the saved URL. */
 export async function sendSiemTest(
   db: Database,
-  key: Buffer,
+  key: KeyRing,
   actorId: string,
 ): Promise<void> {
   const row = await loadSiemRow(db);

@@ -32,7 +32,7 @@ The product is `apps/` and `packages/`.
 | Automations    | Row created, updated, deleted, in a filter, form, schedule, button, webhook; write or delete rows, email, HTTPS, notify; branches, loops                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Notifications  | Mentions, replies, assignments, automation and webhook alerts; live bell; optional email                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Audit          | Append-only trail with reason and source, row statuses (a draft submitted from the row's menu; the band shows once its review begins), password-confirmed signatures                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Security       | Argon2id, TOTP enrolled from a code to scan, passkeys, OIDC and SAML bound to the provider's subject and to the browser that started the sign-in, addresses proved by a mailed link before an account exists, sliding sessions, rate limits, per-account locks, password change and reset, one's own display name changed by the person (an identity provider keeps the ones it provisions), SSRF-safe requests, bounded realtime messages, account erasure, expired sessions and unfinished sign-ins purged every hour, one's own account deleted only with the proof a sensitive action asks, a realtime connection closed when its session ends                                                                                                                                                                                                                                |
+| Security       | Argon2id, TOTP enrolled from a code to scan, passkeys, OIDC and SAML bound to the provider's subject and to the browser that started the sign-in, addresses proved by a mailed link before an account exists, sliding sessions, rate limits, per-account locks, password change and reset, one's own display name changed by the person (an identity provider keeps the ones it provisions), SSRF-safe requests, bounded realtime messages, account erasure, expired sessions and unfinished sign-ins purged every hour, one's own account deleted only with the proof a sensitive action asks, a realtime connection closed when its session ends; secrets sealed with a key of their own use, named by an identifier, and the key changed without loss (ADR 0066)                                                                                                               |
 | Policy         | Administrator-set, from simple defaults (ADRs 0043, 0044): second factor, locks and alerts, sessions, passwords, tokens, links, domains, invitations, idle accounts                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Administration | Six sections named by task, every page at an address of its own, after a first page of what needs action; reached from the sidebar and the command palette. Accounts searched, filtered, and sorted in the address, added with roles on any base (ADR 0057), each with its page where those roles change; Delete in one step (ADR 0059); correct, disable, admin, sessions, factors, tokens, invitations resent. A support role for the helpdesk, SCIM 2.0, single sign-on proved when saved and SSO-only sign-in, sign-in limited to address ranges, lists that say what they will hold while empty, sign-in events to an outside collector, sign-up, language, maintenance, announcement, notices by email, 2FA for all, emergency switches (every other session, every public link, every API token), change and sign-in trails and who has access (CSV), opt-in release check |
 | Operations     | `/health` and `/ready`, Prometheus metrics and OpenTelemetry traces, the request pool sized by the operator, encrypted storage in the guide and S3 server-side encryption, backups encrypted with age as they are written and kept as many days as the operator says, compressed answers, failures in browsers reported to the instance, error logs that keep the kind, code, and frames of a failure and never a value, automatic dependency updates, the image's base pinned by digest; a release published only once main's CI passed on its commit, for amd64 and arm64, each image started as an operator starts it and scanned first, its provenance attested and its packages listed (SPDX), and every pull request's image built and started (ADR 0061); workflows checked by actionlint and zizmor                                                                       |
@@ -69,10 +69,9 @@ The product is `apps/` and `packages/`.
 
 Phases 0 to 8 of the [migration plan](docs/migration-plan.md) are done;
 the [decision records](docs/adr/README.md) say why each piece is as it
-is. What is still missing comes in four tracks: the views and spreadsheet
-gestures people miss, data in and out at any size, what an instance
-administrator cannot yet do from Administration, and what a review of the
-code found to tighten. Inside a table, the order is the priority; across
+is. What is still missing comes in three tracks: the views and spreadsheet
+gestures people miss, data in and out at any size, and what an instance
+administrator cannot yet do from Administration. Inside a table, the order is the priority; across
 tracks, the order of work below decides.
 
 ### Order of work
@@ -80,8 +79,8 @@ tracks, the order of work below decides.
 A row moves up only when it unblocks another.
 
 1. Data in and out past 100,000 rows: 83 (base snapshots).
-2. Keys before backups: 64, then lot 4 (17, 25). Row 51
-   needs no code: a version tag runs the release workflow.
+2. Administration lot 4: 17, 25. Row 51 needs no code: a version tag
+   runs the release workflow.
 
 ### Views and organisation
 
@@ -192,17 +191,6 @@ Independent of each other, one pull request each.
 | 46  | What the operator fixed (public address, storage, trusted proxies), read-only; secrets never shown, even partially masked                           | S      |                                                            |
 | 48  | Each administrator chooses the alerts they receive                                                                                                  | S      | After 25                                                   |
 | 50  | A documented administration API (accounts, invitations, settings), to automate without SCIM                                                         | L      | Same capabilities as delegated roles (#34)                 |
-
-### Security and reliability
-
-What a review of the code found to tighten: accounts and sign-in first,
-then what the instance keeps, logs, and loads.
-
-#### Hardening
-
-| #   | What                                                                                       | Effort | Notes                            |
-| --- | ------------------------------------------------------------------------------------------ | ------ | -------------------------------- |
-| 64  | Encryption keys with an identifier, a derived key per use, and a command to change the key | M      | ADR 0015 left rotation for later |
 
 ## Non-goals
 

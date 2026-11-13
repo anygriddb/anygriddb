@@ -4,6 +4,7 @@ import { sql } from "kysely";
 import type { TaskList } from "graphile-worker";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { keyRing } from "../auth/key-ring.js";
 import { encryptSecret } from "../auth/crypto.js";
 import { withAudit } from "../data/audit-context.js";
 import { insertBase, insertTable } from "../data/schema-ops.js";
@@ -75,7 +76,7 @@ describe("row events in graphile-worker", () => {
         columns: [{ name: "title", label: "Title", fieldType: "text" }],
       })
     ).id;
-    const sealed = encryptSecret("secret", key);
+    const sealed = encryptSecret("secret", keyRing(key), "webhook");
     await database
       .insertInto("webhooks")
       .values({

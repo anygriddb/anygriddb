@@ -10,6 +10,7 @@
  * - `*.key.enc`: their private keys, encrypted with AUTH_ENCRYPTION_KEY, so
  *   a copy of the volume alone gives neither away.
  */
+import type { KeyRing } from "../auth/key-ring.js";
 import { createPrivateKey, X509Certificate } from "node:crypto";
 import {
   chown,
@@ -21,12 +22,12 @@ import {
 } from "node:fs/promises";
 import { isIP } from "node:net";
 import { join } from "node:path";
-import { decryptSecret, encryptSecret } from "../auth/crypto.js";
+import { encryptSecret, openSecret } from "../auth/crypto.js";
 import { issueAuthority, issueServer, type Issued } from "./certificate.js";
 
 export type TlsSettings = {
   PUBLIC_URL: string;
-  AUTH_ENCRYPTION_KEY: Buffer;
+  AUTH_ENCRYPTION_KEY: KeyRing;
   TLS_DIR: string;
   TLS_CERT_FILE?: string | undefined;
   TLS_KEY_FILE?: string | undefined;
@@ -101,27 +102,60 @@ async function writeAtomic(path: string, content: string, mode: number) {
   await rename(temporary, path);
 }
 
-function sealed(key: string, secret: Buffer): string {
-  const { ciphertext, nonce } = encryptSecret(key, secret);
+function sealed(key: string, secret: KeyRing): string {
+  const { ciphertext, nonce } = encryptSecret(key, secret, "tls");
   return JSON.stringify({
     nonce: nonce.toString("base64"),
     ciphertext: ciphertext.toString("base64"),
   });
 }
 
-function unsealed(text: string, secret: Buffer): string | undefined {
+/** The private key in a `*.key.enc` file, and the key that sealed it. */
+function opened(
+  text: string,
+  secret: KeyRing,
+): ReturnType<typeof openSecret> | undefined {
   try {
     const parsed = JSON.parse(text) as { nonce?: string; ciphertext?: string };
     if (!parsed.nonce || !parsed.ciphertext) return undefined;
-    return decryptSecret(
+    return openSecret(
       Buffer.from(parsed.ciphertext, "base64"),
       Buffer.from(parsed.nonce, "base64"),
       secret,
+      "tls",
     );
   } catch {
-    // Another key, or a damaged file: issue anew.
+    // Another key, or a damaged file.
     return undefined;
   }
+}
+
+/** The private key, or undefined: it is then issued anew. */
+function unsealed(text: string, secret: KeyRing): string | undefined {
+  return opened(text, secret)?.plaintext;
+}
+
+/**
+ * Seals a private key file of the certificates folder again under the
+ * current key, when an earlier one sealed it (ADR 0066). Answers which
+ * key holds it now, or that no key of the ring opens it: left as it is,
+ * the instance would issue a new authority at its next start.
+ */
+export async function resealTlsKey(
+  dir: string,
+  name: string,
+  secret: KeyRing,
+  write: boolean,
+): Promise<{ keyId: string | null; rewritten: boolean } | "unreadable"> {
+  const path = join(dir, name);
+  const text = await readText(path);
+  const key = text ? opened(text, secret) : undefined;
+  if (!key) return "unreadable";
+  if (key.keyId === secret.currentId || !write) {
+    return { keyId: key.keyId, rewritten: false };
+  }
+  await writeAtomic(path, sealed(key.plaintext, secret), 0o600);
+  return { keyId: secret.currentId, rewritten: true };
 }
 
 type Log = (message: string) => void;

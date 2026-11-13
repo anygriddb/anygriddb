@@ -13,7 +13,7 @@
 | SAML             | `@node-saml/node-saml`, kept and kept up to date                                                                                                                                                                                               |
 | OIDC             | **`openid-client`** (MIT, OpenID Certified) replaces the homemade discovery and `jose` checks in `apps/api/src/auth/enterprise.ts`. It handles PKCE, nonce, issuer checks, and JWKS rotation. The protocol has too many traps to write by hand |
 | Password hashing | **`@node-rs/argon2`** (prebuilt binaries) replaces `argon2`. Argon2id at 64 MiB is unchanged, and stored PHC strings verify as they are. Images no longer need python3, make, or g++                                                           |
-| Secrets at rest  | AES-256-GCM with `node:crypto`, kept. Key rotation through a key id prefix comes later                                                                                                                                                         |
+| Secrets at rest  | AES-256-GCM with `node:crypto`, kept. Key identifiers and rotation: ADR 0066                                                                                                                                                                   |
 
 ## Rejected
 

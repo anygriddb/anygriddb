@@ -8,6 +8,7 @@
  * holds. A change of the source's settings or password opens a new pool
  * and drains the old one.
  */
+import type { KeyRing } from "../auth/key-ring.js";
 import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import mysql from "mysql2/promise";
@@ -751,7 +752,7 @@ export class SourcePools {
   constructor(
     private readonly deps: {
       db: Database;
-      key: Buffer;
+      key: KeyRing;
       settings: SourceSettings;
       log: (error: unknown, message: string) => void;
     },
@@ -785,6 +786,7 @@ export class SourcePools {
         row.passwordCiphertext,
         row.passwordNonce,
         this.deps.key,
+        "source",
       ),
       tlsCa: row.tlsCa,
       connectionLimit: row.connectionLimit,
@@ -820,6 +822,7 @@ export class SourcePools {
               row.replicaPasswordCiphertext,
               row.replicaPasswordNonce,
               this.deps.key,
+              "source",
             )
           : source.password;
       replica = open({
