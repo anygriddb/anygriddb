@@ -1,6 +1,11 @@
 import {
   AppError,
   type BaseTemplate,
+  buildDuplicateJunction,
+  buildDuplicateRows,
+  buildDuplicateSelfLinks,
+  buildSequenceAfter,
+  DUPLICATE_CHUNK,
   type CellValue,
   type ColumnDefinition,
   CREATABLE_TYPES,
@@ -17,6 +22,7 @@ import {
   type RollupFn,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
+import { runRows, withAudit } from "./audit-context.js";
 import { insertComputed } from "./computed.js";
 import {
   loadEngine,
@@ -24,6 +30,7 @@ import {
   type ColumnRow,
   type TableRow,
 } from "./engine.js";
+import { moveTableToFolder } from "./folders.js";
 import { liveView, trashedColumnNames } from "./live.js";
 import { addRelation, setLinks } from "./relations.js";
 import {
@@ -36,7 +43,11 @@ import { insertNativeBatch, updateNativeBatch } from "../services/rows.js";
 import { addColumn, insertTable, setPrimaryColumn } from "./schema-ops.js";
 import { createView } from "./views.js";
 
-/** Rows copied by one duplication; larger tables are refused up front. */
+/**
+ * Rows read whole into memory: a table's keys for an import that updates
+ * by key, a base snapshot's rows, a field copied with its values. A table
+ * copy reads none (ADR 0065).
+ */
 export const MAX_COPY_ROWS = 100_000;
 const PAGE = 1000;
 const BATCH = 500;
@@ -274,6 +285,133 @@ export async function readAll(
 }
 
 /**
+ * Copies a table's rows into its copy in SQL, `DUPLICATE_CHUNK` rows a
+ * transaction, under the audit triggers (ADR 0065). A link to another
+ * table is copied with its row; a link to the table itself, or a
+ * many-to-many one, once every row exists, through the sequence number
+ * each copied row keeps. Files stay with the table they were sent to.
+ */
+async function copyRows(
+  db: Database,
+  userId: string,
+  input: {
+    source: TableRow;
+    engine: EngineCatalog;
+    copyId: string;
+    /** The source's link fields, by the name each has in the copy. */
+    links: ReadonlyMap<string, string>;
+    total: number | null;
+    onProgress?: (done: number, total: number | null) => Promise<void>;
+  },
+): Promise<void> {
+  const target = await loadEngine(db, input.copyId, () => true);
+  const physical = target.rows.tables.find((item) => item.id === input.copyId);
+  if (!physical) {
+    throw new AppError("no_row");
+  }
+  const own = new Set(writeColumns(input.engine).map((column) => column.name));
+  const columns = writeColumns(target.engine)
+    .filter(
+      (column) => column.fieldType !== "attachment" && own.has(column.name),
+    )
+    .map((column) => ({ from: column.name, to: column.name }));
+  const linked = [...input.links].flatMap(([oldName, newName]) => {
+    const from = input.engine.table.columns.find(
+      (column) => column.name === oldName,
+    )?.relation;
+    const to = target.engine.table.columns.find(
+      (column) => column.name === newName,
+    )?.relation;
+    return from && to
+      ? [{ from, to, field: newName, self: to.targetTableId === input.copyId }]
+      : [];
+  });
+  for (const link of linked) {
+    if (
+      link.from.kind === "one_to_many" &&
+      !link.self &&
+      link.from.fkColumn &&
+      link.to.fkColumn
+    ) {
+      columns.push({ from: link.from.fkColumn, to: link.to.fkColumn });
+    }
+  }
+  const audit = { userId, tableId: input.copyId, source: "duplicate" };
+  const ranges: Array<{ after: string; upto: string }> = [];
+  let after = "0";
+  let done = 0;
+  for (;;) {
+    const [chunk] = await withAudit(db, audit, (tx) =>
+      runRows(
+        tx,
+        buildDuplicateRows({
+          from: input.source.physicalName,
+          to: physical.physicalName,
+          columns,
+          after,
+          limit: DUPLICATE_CHUNK,
+        }),
+      ),
+    );
+    const count = Number(chunk?.count ?? 0);
+    const last = typeof chunk?.last === "string" ? chunk.last : undefined;
+    if (count === 0 || !last) break;
+    ranges.push({ after, upto: last });
+    after = last;
+    done += count;
+    await input.onProgress?.(done, input.total);
+  }
+  if (ranges.length === 0) return;
+  // A row added to the copy later takes a number none of its rows has.
+  await withAudit(db, audit, (tx) =>
+    runRows(
+      tx,
+      buildSequenceAfter({ table: physical.physicalName, last: after }),
+    ),
+  );
+  for (const link of linked) {
+    for (const range of ranges) {
+      if (link.from.kind === "one_to_many") {
+        const { fkColumn: fromColumn } = link.from;
+        const { fkColumn: toColumn } = link.to;
+        if (!link.self || !fromColumn || !toColumn) continue;
+        await withAudit(db, audit, (tx) =>
+          runRows(
+            tx,
+            buildDuplicateSelfLinks({
+              from: input.source.physicalName,
+              to: physical.physicalName,
+              fromColumn,
+              toColumn,
+              ...range,
+            }),
+          ),
+        );
+      } else if (link.from.junction && link.to.junction) {
+        const { junction: fromJunction } = link.from;
+        const { junction: toJunction } = link.to;
+        await withAudit(db, audit, (tx) =>
+          runRows(
+            tx,
+            buildDuplicateJunction({
+              from: input.source.physicalName,
+              to: physical.physicalName,
+              fromJunction,
+              toJunction,
+              self: link.self,
+              field: link.field,
+              userId,
+              tableId: input.copyId,
+              ...range,
+            }),
+          ),
+        );
+      }
+    }
+  }
+}
+
+/**
  * Copies a table into the same base: stored and system columns, formulas,
  * outgoing links, and the lookups and rollups over them, plus the first
  * view's settings. With `withData`, rows and their links come too, audited
@@ -300,6 +438,7 @@ export async function duplicateTable(
   const { engine, rows } = await loadEngine(db, source.id, () => true);
   let total: number | null = null;
   if (input.withData) {
+    // The rows never leave the database (ADR 0065): no ceiling but its own.
     const counted = await readPage(
       db,
       engine,
@@ -307,9 +446,6 @@ export async function duplicateTable(
       { total: true },
     );
     total = counted.total ?? 0;
-    if (total > MAX_COPY_ROWS) {
-      throw new AppError("too_many_rows");
-    }
   }
   await input.onProgress?.(0, total);
   const own = sortColumns(
@@ -328,6 +464,13 @@ export async function duplicateTable(
     columns: stored.map(definitionOf),
   });
   input.onCreated?.(created.id);
+  // The copy lands beside its source, at the end of the same folder.
+  if (source.folderId) {
+    await moveTableToFolder(db, userId, {
+      tableId: created.id,
+      folderId: source.folderId,
+    });
+  }
 
   const links = new Map<string, string>();
   for (const column of own.filter((item) => LINK_TYPES.has(item.fieldType))) {
@@ -419,77 +562,14 @@ export async function duplicateTable(
   }
 
   if (input.withData) {
-    const target = await loadEngine(db, created.id, () => true);
-    const physical = target.rows.tables.find((item) => item.id === created.id);
-    if (!physical) {
-      throw new AppError("no_row");
-    }
-    const writable = writeColumns(target.engine)
-      .filter((column) => column.fieldType !== "attachment")
-      .map((column) => column.name);
-    const linkColumns = [...links].flatMap(([oldName, newName]) => {
-      const column = target.engine.table.columns.find(
-        (item) => item.name === newName,
-      );
-      return column ? [{ oldName, column }] : [];
-    });
-    // Links are set once every row exists, so a link from the table to
-    // itself can point at the copied rows.
-    const copied = new Map<string, string>();
-    const pendingLinks: Array<{
-      rowId: string;
-      column: (typeof linkColumns)[number]["column"];
-      targetIds: string[];
-    }> = [];
-    await readAll(
-      db,
+    await copyRows(db, userId, {
+      source,
       engine,
-      [...writable, ...linkColumns.map((item) => item.oldName)],
-      async (page) => {
-        const newIds = await insertNativeBatch(
-          db,
-          target.engine,
-          writeContext(userId, physical, "duplicate"),
-          page.map((row) =>
-            Object.fromEntries(
-              writable.map((name) => [name, toCell(row[name])]),
-            ),
-          ),
-        );
-        await input.onProgress?.(copied.size + newIds.length, total);
-        for (const [index, row] of page.entries()) {
-          const rowId = newIds[index];
-          if (!rowId) continue;
-          copied.set(row.id, rowId);
-          for (const { oldName, column } of linkColumns) {
-            const value = row[oldName];
-            if (!Array.isArray(value) || value.length === 0) continue;
-            pendingLinks.push({
-              rowId,
-              column,
-              targetIds: value.map((link) =>
-                String((link as { id: unknown }).id),
-              ),
-            });
-          }
-        }
-      },
-    );
-    for (const link of pendingLinks) {
-      const self = link.column.relation?.targetTableId === created.id;
-      await setLinks(db, target.engine, {
-        userId,
-        tableId: created.id,
-        physicalName: physical.physicalName,
-        column: link.column,
-        rowId: link.rowId,
-        targetIds: self
-          ? link.targetIds.flatMap((id) => copied.get(id) ?? [])
-          : link.targetIds,
-        reason: null,
-        source: "duplicate",
-      });
-    }
+      copyId: created.id,
+      links,
+      total,
+      onProgress: input.onProgress,
+    });
   }
   return { id: created.id };
 }

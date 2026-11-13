@@ -501,6 +501,14 @@ export {
 } from "./query/external-write";
 
 export {
+  buildDuplicateJunction,
+  buildDuplicateRows,
+  buildDuplicateSelfLinks,
+  buildSequenceAfter,
+  DUPLICATE_CHUNK,
+} from "./query/duplicate";
+
+export {
   buildCopyCreate,
   buildCopyDiff,
   buildCopyDrop,
