@@ -134,6 +134,11 @@ export type WebauthnCeremony = "authenticate" | "register";
 
 export type WebhookKind = "http" | "smtp";
 
+export interface AlertOptouts {
+  kind: string;
+  userId: string;
+}
+
 export interface ApiTokens {
   baseIds: string[] | null;
   createdAt: Generated<Timestamp>;
@@ -872,6 +877,7 @@ export interface Webhooks {
 }
 
 export interface DB {
+  alertOptouts: AlertOptouts;
   apiTokens: ApiTokens;
   attachments: Attachments;
   auditEvents: AuditEvents;

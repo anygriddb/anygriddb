@@ -17,6 +17,13 @@ export const ALERT_KINDS = [
 ] as const;
 export type AlertKind = (typeof ALERT_KINDS)[number];
 
+/**
+ * What an administrator may ask not to be told about (ROADMAP #48): each
+ * alert above, and an account that locks.
+ */
+export const ALERT_CHOICES = [...ALERT_KINDS, "account_locked"] as const;
+export type AlertChoice = (typeof ALERT_CHOICES)[number];
+
 /** Hours between two mails about an alert that stays open. */
 export const ALERT_REMINDER_HOURS = 24;
 

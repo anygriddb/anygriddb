@@ -1,4 +1,5 @@
 import {
+  ALERT_CHOICES,
   AppError,
   instanceSettingsPatchSchema,
   JOB_STATUSES,
@@ -160,7 +161,12 @@ import {
   revokeScimToken,
   revokeScimTokenInputSchema,
 } from "../scim/tokens.js";
-import { listBackups, listOpenAlerts } from "../alerts.js";
+import {
+  alertOptOuts,
+  listBackups,
+  listOpenAlerts,
+  setAlertChoice,
+} from "../alerts.js";
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { notifyOwnerNamed } from "../notifications.js";
@@ -1235,6 +1241,27 @@ export const adminRouter = t.router({
       return { backups, alerts };
     }),
   ),
+  /**
+   * What the administrator asking is told about (ROADMAP #48): theirs to
+   * choose, kind by kind. The alerts stay shown to every administrator.
+   */
+  alertChoices: t.router({
+    get: procedure.query(({ ctx }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        return { spared: await alertOptOuts(ctx.db, admin.id) };
+      }),
+    ),
+    set: procedure
+      .input(z.object({ kind: z.enum(ALERT_CHOICES), receive: z.boolean() }))
+      .mutation(({ ctx, input }) =>
+        handle(ctx, async () => {
+          const admin = await requireAdmin(ctx);
+          await setAlertChoice(ctx.db, admin.id, input.kind, input.receive);
+          return { ok: true as const };
+        }),
+      ),
+  }),
   /**
    * Opt-in check for a newer GitHub Release (ADR 0048). Refused while
    * `releaseCheck` is off so the instance never calls home by default.

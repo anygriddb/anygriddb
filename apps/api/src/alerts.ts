@@ -9,6 +9,7 @@ import { statfs } from "node:fs/promises";
 import {
   alertMailDue,
   dueAlerts,
+  type AlertChoice,
   type AlertFacts,
   type AlertKind,
   type DueAlert,
@@ -265,28 +266,102 @@ export type AlertDeps = AlertProbes & {
   log: (error: unknown, message: string) => void;
 };
 
-/** One mail to every active administrator, naming the alerts given. */
+/**
+ * The active administrators who are told of this kind of alert: all of
+ * them, but those who asked not to be (ROADMAP #48).
+ */
+export async function alertRecipients(
+  db: Database,
+  kind: AlertChoice,
+  exceptUserId?: string,
+): Promise<Array<{ id: string; email: string }>> {
+  return db
+    .selectFrom("users as u")
+    .select(["u.id", "u.email"])
+    .where("u.isAdmin", "=", true)
+    .where("u.disabledAt", "is", null)
+    .where("u.id", "<>", ERASED_USER_ID)
+    .$if(exceptUserId !== undefined, (query) =>
+      query.where("u.id", "<>", exceptUserId ?? ""),
+    )
+    .where((eb) =>
+      eb.not(
+        eb.exists(
+          eb
+            .selectFrom("alertOptouts as o")
+            .select("o.kind")
+            .whereRef("o.userId", "=", "u.id")
+            .where("o.kind", "=", kind),
+        ),
+      ),
+    )
+    .orderBy("u.email", "asc")
+    .execute();
+}
+
+/** The kinds an administrator asked not to be told about. */
+export async function alertOptOuts(
+  db: Database,
+  userId: string,
+): Promise<AlertChoice[]> {
+  const rows = await db
+    .selectFrom("alertOptouts")
+    .select("kind")
+    .where("userId", "=", userId)
+    .orderBy("kind", "asc")
+    .execute();
+  return rows.map((row) => row.kind as AlertChoice);
+}
+
+/** Tells an administrator of a kind of alert again, or no longer. */
+export async function setAlertChoice(
+  db: Database,
+  userId: string,
+  kind: AlertChoice,
+  receive: boolean,
+): Promise<void> {
+  if (receive) {
+    await db
+      .deleteFrom("alertOptouts")
+      .where("userId", "=", userId)
+      .where("kind", "=", kind)
+      .execute();
+    return;
+  }
+  await db
+    .insertInto("alertOptouts")
+    .values({ userId, kind })
+    .onConflict((conflict) => conflict.doNothing())
+    .execute();
+}
+
+/**
+ * One mail to each active administrator, naming the alerts given that
+ * they did not ask to be spared; none to someone spared all of them.
+ */
 async function mailAlerts(
   deps: AlertDeps,
   alerts: readonly OpenAlert[],
 ): Promise<void> {
   const { config: smtp } = await resolveSmtp(deps.db, deps.env);
   if (!smtpReady(smtp)) return;
-  const admins = await deps.db
-    .selectFrom("users")
-    .select("email")
-    .where("isAdmin", "=", true)
-    .where("disabledAt", "is", null)
-    .where("id", "<>", ERASED_USER_ID)
-    .execute();
+  const recipients = new Map<string, OpenAlert[]>();
+  for (const kind of new Set(alerts.map((alert) => alert.kind))) {
+    for (const admin of await alertRecipients(deps.db, kind)) {
+      recipients.set(admin.email, [
+        ...(recipients.get(admin.email) ?? []),
+        ...alerts.filter((alert) => alert.kind === kind),
+      ]);
+    }
+  }
   const settings = await readSettings(deps.db);
   const locale = resolveLocale(null, settings.defaultLocale);
   const url = `${deps.env.PUBLIC_URL.replace(/\/+$/, "")}/admin/instance/health`;
-  for (const admin of admins) {
+  for (const [email, theirs] of recipients) {
     await sendMail(smtp, {
-      to: admin.email,
-      subject: alertMailSubject(locale, alerts),
-      text: alertMailBody(locale, alerts, url),
+      to: email,
+      subject: alertMailSubject(locale, theirs),
+      text: alertMailBody(locale, theirs, url),
     }).catch((error: unknown) => {
       deps.log(error, "alert mail failed");
     });

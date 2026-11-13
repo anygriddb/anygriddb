@@ -520,10 +520,12 @@ export {
 } from "./query/duplicate";
 
 export {
+  ALERT_CHOICES,
   ALERT_KINDS,
   ALERT_REMINDER_HOURS,
   alertMailDue,
   dueAlerts,
+  type AlertChoice,
   type AlertFacts,
   type AlertKind,
   type DueAlert,

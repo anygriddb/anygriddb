@@ -4,6 +4,7 @@
  * locks within an hour, one last alert says so and the rest wait in the
  * sign-in trail: a guessing run over many accounts must not flood anyone.
  */
+import { alertRecipients } from "../alerts.js";
 import type { KeyRing } from "./key-ring.js";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -62,13 +63,9 @@ export async function alertLock(
           failures: input.failures,
           until: input.until,
         };
-  const admins = await deps.db
-    .selectFrom("users")
-    .select(["id", "email"])
-    .where("isAdmin", "=", true)
-    .where("disabledAt", "is", null)
-    .where("id", "!=", input.userId)
-    .execute();
+  // Every other active administrator, but those who asked not to be
+  // told of locks (ROADMAP #48).
+  const admins = await alertRecipients(deps.db, "account_locked", input.userId);
   if (admins.length === 0) return 0;
   const data: Record<string, string> = alert.many
     ? { many: "1" }

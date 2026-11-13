@@ -6,10 +6,13 @@ import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  alertOptOuts,
+  alertRecipients,
   checkAlerts,
   listBackups,
   listOpenAlerts,
   recordBackup,
+  setAlertChoice,
   type AlertDeps,
 } from "./alerts.js";
 import type { FileStore } from "./files/index.js";
@@ -181,6 +184,55 @@ describe("alerts for administrators", () => {
     } finally {
       await writeSettings(db, adminId, { alertCertificateDays: 14 });
     }
+  });
+
+  it("spares an administrator the kinds they asked not to be told about", async () => {
+    const graceId = (
+      await db
+        .selectFrom("users")
+        .select("id")
+        .where("email", "=", grace)
+        .executeTakeFirstOrThrow()
+    ).id;
+    await setAlertChoice(db, graceId, "backup_late", false);
+    await setAlertChoice(db, graceId, "backup_late", false);
+    expect(await alertOptOuts(db, graceId)).toEqual(["backup_late"]);
+    try {
+      // A late backup and a certificate close to its end, at once.
+      await backup(40);
+      certificate = later(24 * 3).toISOString();
+      await checkAlerts(deps, start);
+      expect((await kinds()).sort()).toEqual([
+        "backup_late",
+        "certificate_expiring",
+      ]);
+      const mails = smtp.received.splice(0);
+      const textOf = (to: string) =>
+        mailText(
+          mails.find((mail) => mail.to.includes(to)) ?? {
+            from: "",
+            to: [],
+            data: "",
+          },
+        );
+      // Ada is told of both; Grace of the certificate alone.
+      expect(textOf(ada)).toContain("No backup has succeeded");
+      expect(textOf(ada)).toContain("certificate expires");
+      expect(textOf(grace)).toContain("certificate expires");
+      expect(textOf(grace)).not.toContain("No backup has succeeded");
+      // The lock of an account goes by the same choices.
+      expect(
+        (await alertRecipients(db, "backup_late")).map((admin) => admin.email),
+      ).toEqual([ada]);
+      expect(
+        (await alertRecipients(db, "account_locked", adminId)).map(
+          (admin) => admin.email,
+        ),
+      ).toEqual([grace]);
+    } finally {
+      await setAlertChoice(db, graceId, "backup_late", true);
+    }
+    expect(await alertOptOuts(db, graceId)).toEqual([]);
   });
 
   it("opens each alert once when two processes check at the same time", async () => {
