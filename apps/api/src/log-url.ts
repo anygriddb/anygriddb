@@ -1,10 +1,11 @@
 /**
- * Paths whose last part is a secret: a public share, an invitation, a
- * password reset, a sign-up's link, a calendar feed, a webhook
- * automation's address.
+ * Paths whose last part is a secret: a public share, a file sent to a
+ * public form, an invitation, a password reset, a sign-up's link, a
+ * calendar feed, a webhook automation's address.
  */
 const SECRET_PREFIXES = [
   "/s/",
+  "/api/shares/",
   "/invite/",
   "/reset/",
   "/signup/",

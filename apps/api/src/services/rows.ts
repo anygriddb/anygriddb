@@ -82,6 +82,11 @@ export type WriteMeta = {
   source: string;
   /** How many automations led to this write. */
   depth?: number;
+  /**
+   * A public form's link: the answer may carry only files that link sent,
+   * claimed with the row (ADR 0062).
+   */
+  stagedShareId?: string;
 };
 
 export type LinkWrite = { column: string; targetIds: readonly string[] };
@@ -191,17 +196,12 @@ function linkedTables(
   ];
 }
 
-/** Attachment keys written in these values must belong to the table. */
-async function assertAttachments(
-  db: Database,
-  scope: RowScope,
-  rows: readonly RowInput[],
-): Promise<void> {
+/** The attachment keys these values write. */
+function attachmentKeys(scope: RowScope, rows: readonly RowInput[]): string[] {
   const names = scope.engine.table.columns
     .filter((column) => column.fieldType === "attachment")
     .map((column) => column.name);
-  if (names.length === 0) return;
-  const keys = rows.flatMap((row) =>
+  return rows.flatMap((row) =>
     names.flatMap((name) => {
       const value = row.values[name];
       return Array.isArray(value)
@@ -209,7 +209,24 @@ async function assertAttachments(
         : [];
     }),
   );
-  await assertAttachmentKeys(db, scope.table.id, keys);
+}
+
+/**
+ * Attachment keys written in these values must belong to the table; a
+ * public form's answer may carry only the files its link sent.
+ */
+async function assertAttachments(
+  db: Database,
+  scope: RowScope,
+  rows: readonly RowInput[],
+  stagedShareId: string | undefined,
+): Promise<void> {
+  await assertAttachmentKeys(
+    db,
+    scope.table.id,
+    attachmentKeys(scope, rows),
+    stagedShareId,
+  );
 }
 
 function relationColumn(scope: RowScope, name: string): EngineColumn {
@@ -291,6 +308,7 @@ async function prepare(
   scope: RowScope,
   rows: readonly RowInput[],
   existing: readonly string[],
+  stagedShareId?: string,
 ): Promise<Map<string, EngineColumn>> {
   assertFieldsWritable(scope.engine, touchedColumns(rows));
   assertRequiredValues(
@@ -308,7 +326,7 @@ async function prepare(
     }
   }
   await assertSelections(deps, scope, rows, existing, checked);
-  await assertAttachments(deps.db, scope, rows);
+  await assertAttachments(deps.db, scope, rows, stagedShareId);
   return checked;
 }
 
@@ -491,7 +509,7 @@ export async function createRows(
   place?: RowPlace,
 ): Promise<string[]> {
   if (place) await assertPlace(deps, scope, place);
-  const checked = await prepare(deps, scope, rows, []);
+  const checked = await prepare(deps, scope, rows, [], meta.stagedShareId);
   const reason = resolveReason(scope, touchedColumns(rows), meta);
   if (isExternal(scope)) {
     const ids = await insertExternalRows(
@@ -511,7 +529,17 @@ export async function createRows(
   const ids = await insertRows(
     deps.db,
     scope.engine,
-    writeContext(scope, reason, meta),
+    {
+      ...writeContext(scope, reason, meta),
+      ...(meta.stagedShareId
+        ? {
+            claim: {
+              shareId: meta.stagedShareId,
+              keys: attachmentKeys(scope, rows),
+            },
+          }
+        : {}),
+    },
     rows.map((row) => row.values),
     place,
   );

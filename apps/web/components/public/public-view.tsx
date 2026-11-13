@@ -14,6 +14,8 @@ import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { CellValueView } from "../fields/cell-value";
 import { formPrefill } from "../views/form-prefill";
 import { formRedirectAfterSubmit } from "../views/form-redirect";
+import { FormFiles } from "../views/form-files";
+import { formFileUrl, sendFile, type SentFile } from "../../lib/send-file";
 import {
   FieldInput,
   FORM_TIME_ZONE,
@@ -74,11 +76,19 @@ function PublicForm({
   const [values, setValues] = useState<
     Record<string, string | string[] | boolean>
   >(() => prefill.values);
+  // The files each attachment field sent, shown by name; the answer names
+  // their keys (`values`).
+  const [sent, setSent] = useState<Record<string, SentFile[]>>({});
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const fieldOf = (name: string) =>
     form.fields?.find((field) => field.column === name);
+  // A changed answer clears what the last submit said about the answers.
+  const answer = (name: string, value: string | string[] | boolean) => {
+    setError("");
+    setValues((current) => ({ ...current, [name]: value }));
+  };
   // Fields hidden by their condition are not shown, required, or sent;
   // the server decides the same way.
   const visible = new Set(
@@ -91,10 +101,7 @@ function PublicForm({
     ),
   );
   const usable = columns.filter(
-    (column) =>
-      column.fieldType !== "user" &&
-      column.fieldType !== "attachment" &&
-      visible.has(column.name),
+    (column) => column.fieldType !== "user" && visible.has(column.name),
   );
   async function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -142,6 +149,7 @@ function PublicForm({
       if (formRedirectAfterSubmit(form.redirectUrl)) return;
       setDone(true);
       setValues(prefill.values);
+      setSent({});
     } catch (cause) {
       setError(errorText(cause));
     } finally {
@@ -190,23 +198,52 @@ function PublicForm({
                   {field?.description || column.description}
                 </p>
               ) : null}
-              <FieldInput
-                column={column}
-                required={field?.required === true}
-                described={Boolean(field?.description || column.description)}
-                people={NO_PEOPLE}
-                value={
-                  values[column.name] ??
-                  (column.fieldType === "multi_select"
-                    ? []
-                    : column.fieldType === "boolean"
-                      ? false
-                      : "")
-                }
-                onChange={(value) =>
-                  setValues((current) => ({ ...current, [column.name]: value }))
-                }
-              />
+              {column.fieldType === "attachment" ? (
+                <FormFiles
+                  id={formFieldIds(column.name).id}
+                  labelId={formFieldIds(column.name).label}
+                  descriptionId={
+                    field?.description || column.description
+                      ? formFieldIds(column.name).description
+                      : undefined
+                  }
+                  required={field?.required === true}
+                  files={sent[column.name] ?? []}
+                  onChange={(files) => {
+                    setSent((current) => ({
+                      ...current,
+                      [column.name]: files,
+                    }));
+                    answer(
+                      column.name,
+                      files.map((file) => file.key),
+                    );
+                  }}
+                  send={(file) =>
+                    sendFile(
+                      formFileUrl(token, column.name),
+                      file,
+                      access ? { "x-share-access": access } : undefined,
+                    )
+                  }
+                />
+              ) : (
+                <FieldInput
+                  column={column}
+                  required={field?.required === true}
+                  described={Boolean(field?.description || column.description)}
+                  people={NO_PEOPLE}
+                  value={
+                    values[column.name] ??
+                    (column.fieldType === "multi_select"
+                      ? []
+                      : column.fieldType === "boolean"
+                        ? false
+                        : "")
+                  }
+                  onChange={(value) => answer(column.name, value)}
+                />
+              )}
             </div>
           );
         })}

@@ -6,20 +6,14 @@ import {
   coerceCellValue,
   columnNameSchema,
   describeColumns,
-  effectiveTableRole,
-  normalizeViewConfig,
-  withRequiredFormFields,
-  roleAllows,
   ROW_ERRORS,
   type ViewConfig,
   viewFilter,
   visibleFormFields,
 } from "@anygriddb/core";
 import { z } from "zod";
-import { loadBindings } from "../auth/access.js";
-import { readerEngine } from "../data/acl.js";
+import { openShare as openLink } from "../data/open-share.js";
 import { readPage, safeTimeZone, writeColumns } from "../data/rows.js";
-import { resolveShare } from "../data/sharing.js";
 import { createRows } from "../services/rows.js";
 import { publicColumns } from "./catalog-router.js";
 import type { Context } from "./context.js";
@@ -54,76 +48,16 @@ function publicConfig(config: ViewConfig): Partial<ViewConfig> {
   );
 }
 
-function visibleFields(
-  config: ViewConfig,
-  viewType: string,
-  names: readonly string[],
-): string[] {
-  if (viewType === "form") {
-    const fields = config.form?.fields;
-    if (fields && fields.length > 0) {
-      return fields
-        .filter((field) => !field.hidden && names.includes(field.column))
-        .map((field) => field.column);
-    }
-    return [...names];
-  }
-  const hidden = new Set(config.hiddenFields ?? []);
-  return names.filter((name) => !hidden.has(name));
-}
-
-async function openShare(
+function openShare(
   ctx: Context,
   input: { token: string; password?: string; access?: string },
   action: "read" | "write",
 ) {
-  const resolved = await resolveShare(
-    ctx.db,
-    ctx.env.AUTH_ENCRYPTION_KEY,
+  return openLink(
+    { db: ctx.db, encryptionKey: ctx.env.AUTH_ENCRYPTION_KEY },
     input,
+    action,
   );
-  const bindings = await loadBindings(ctx.db, resolved.share.createdBy);
-  if (
-    !roleAllows(
-      effectiveTableRole(bindings, resolved.table.id, resolved.table.baseId),
-      action,
-    )
-  ) {
-    throw new AppError("unknown_share");
-  }
-  // A share shows what its creator may read, under their field and row rules.
-  const loaded = await readerEngine(ctx.db, resolved.table.id, {
-    userId: resolved.share.createdBy,
-    bindings,
-  });
-  const engine = loaded.engine;
-  const names = engine.table.columns
-    .filter((column) => !engine.access?.hidden(engine.table.id, column.name))
-    .map((column) => column.name);
-  const normalized = normalizeViewConfig(
-    resolved.view.config,
-    resolved.view.viewType,
-  );
-  // A field the table requires is on every form, required, unconditioned.
-  const required = loaded.rows.columns
-    .filter((column) => column.tableId === engine.table.id && column.required)
-    .map((column) => column.name);
-  const config =
-    resolved.view.viewType === "form" && required.length > 0
-      ? {
-          ...normalized,
-          form: {
-            ...normalized.form,
-            fields: withRequiredFormFields(
-              normalized.form?.fields,
-              names,
-              required,
-            ),
-          },
-        }
-      : normalized;
-  const fields = visibleFields(config, resolved.view.viewType, names);
-  return { ...resolved, engine, rows: loaded.rows, config, fields };
 }
 
 export const shareRouter = t.router({
@@ -297,10 +231,15 @@ export const shareRouter = t.router({
             if (required.has(column.name)) throw new AppError("invalid_cell");
             continue;
           }
-          if (column.fieldType === "user" || column.fieldType === "attachment")
-            continue;
+          if (column.fieldType === "user") continue;
           const value = coerceCellValue(column, raw);
-          if (value === undefined) throw new AppError("invalid_cell");
+          if (value === undefined) {
+            throw new AppError(
+              column.fieldType === "attachment"
+                ? "invalid_attachment"
+                : "invalid_cell",
+            );
+          }
           values[column.name] = value;
         }
         await createRows(
@@ -317,8 +256,13 @@ export const shareRouter = t.router({
             catalog: opened.rows,
           },
           [{ values }],
-          // A public form cannot ask for a reason.
-          { fixedReason: null, source: `form:${opened.share.id}` },
+          // A public form cannot ask for a reason. Its files are the ones
+          // this link sent, claimed with the row (ADR 0062).
+          {
+            fixedReason: null,
+            source: `form:${opened.share.id}`,
+            stagedShareId: opened.share.id,
+          },
         );
         return { ok: true as const };
       }),

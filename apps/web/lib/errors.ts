@@ -107,7 +107,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   negative_number: msg`This field takes no negative number`,
   invalid_link: msg`Invalid link`,
   invalid_link_count: msg`This link takes only one row`,
-  invalid_attachment: msg`Invalid attachment`,
+  invalid_attachment: msg`A file could not be attached. Add it again.`,
   invalid_comment: msg`Invalid comment`,
   invalid_status: msg`Status change refused`,
   invalid_row_id: msg`Invalid row identifier`,

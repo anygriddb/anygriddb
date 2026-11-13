@@ -230,6 +230,7 @@ export async function createApp(deps: {
   await registerAttachmentRoutes(app, {
     db: deps.db,
     files: deps.files,
+    encryptionKey: deps.env.AUTH_ENCRYPTION_KEY,
     envMaxBytes: deps.env.ATTACHMENT_MAX_BYTES,
     uploads,
   });

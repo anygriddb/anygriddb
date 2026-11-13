@@ -8,6 +8,9 @@ describe("logUrl", () => {
     );
     expect(logUrl(`/ical/agcal_${"b".repeat(43)}.ics`)).toBe("/ical/…");
     expect(logUrl("/s/share-token")).toBe("/s/…");
+    expect(logUrl("/api/shares/share-token/attachments?field=f")).toBe(
+      "/api/shares/…?…",
+    );
     expect(logUrl("/invite/abc?next=%2F")).toBe("/invite/…?…");
     expect(logUrl(`/reset/${"c".repeat(43)}`)).toBe("/reset/…");
     expect(logUrl(`/signup/${"d".repeat(43)}`)).toBe("/signup/…");

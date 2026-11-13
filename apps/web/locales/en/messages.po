@@ -17,6 +17,14 @@ msgstr "-1, 0, or 1, by its sign."
 msgid "“{field}” is required"
 msgstr "“{field}” is required"
 
+#: components/views/form-files.tsx
+msgid "“{name}” could not be sent"
+msgstr "“{name}” could not be sent"
+
+#: components/views/form-files.tsx
+msgid "“{name}” is too large"
+msgstr "“{name}” is too large"
+
 #: components/fields/formula-docs.ts
 msgid "()"
 msgstr "()"
@@ -686,6 +694,10 @@ msgstr "A field already has this name"
 msgid "A field of the linked rows"
 msgstr "A field of the linked rows"
 
+#: lib/errors.ts
+msgid "A file could not be attached. Add it again."
+msgstr "A file could not be attached. Add it again."
+
 #: components/table/automations-dialog.tsx
 msgid "A form is submitted"
 msgstr "A form is submitted"
@@ -976,6 +988,7 @@ msgid "Add a field"
 msgstr "Add a field"
 
 #: components/fields/cell-editor.tsx
+#: components/views/form-files.tsx
 msgid "Add a file"
 msgstr "Add a file"
 
@@ -3980,10 +3993,6 @@ msgid "Invalid arguments for"
 msgstr "Invalid arguments for"
 
 #: lib/errors.ts
-msgid "Invalid attachment"
-msgstr "Invalid attachment"
-
-#: lib/errors.ts
 msgid "Invalid automation"
 msgstr "Invalid automation"
 
@@ -6240,6 +6249,10 @@ msgstr "Remove"
 msgid "Remove {base}"
 msgstr "Remove {base}"
 
+#: components/views/form-files.tsx
+msgid "Remove {name}"
+msgstr "Remove {name}"
+
 #: components/admin/account-bases.tsx
 msgid "Remove {name} from {base}?"
 msgstr "Remove {name} from {base}?"
@@ -6380,6 +6393,10 @@ msgstr "Require a value in every row"
 #: components/views/form-view.tsx
 msgid "required"
 msgstr "required"
+
+#: components/views/form-files.tsx
+msgid "Required"
+msgstr "Required"
 
 #: components/admin/invitations-panel.tsx
 msgid "Resend"
@@ -8621,9 +8638,14 @@ msgid "Too many failed sign-ins. They wait for the lock to end, or for you to un
 msgstr "Too many failed sign-ins. They wait for the lock to end, or for you to unlock them."
 
 #: components/fields/cell-editor.tsx
+#: components/views/form-files.tsx
 #: lib/errors.ts
 msgid "Too many files are being sent right now. Try again in a moment."
 msgstr "Too many files are being sent right now. Try again in a moment."
+
+#: components/views/form-files.tsx
+msgid "Too many files were sent in a short time. Wait a minute, then try again."
+msgstr "Too many files were sent in a short time. Wait a minute, then try again."
 
 #: lib/errors.ts
 msgid "Too many jobs running: wait for one to finish"

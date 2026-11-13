@@ -675,6 +675,7 @@ describe("field and row rules on PostgreSQL", () => {
     await registerAttachmentRoutes(app, {
       db: database,
       files: new DiskStore(filesRoot),
+      encryptionKey: randomBytes(32),
       envMaxBytes: 4096,
       uploads,
     });
