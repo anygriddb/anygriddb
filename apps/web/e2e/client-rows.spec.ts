@@ -120,8 +120,15 @@ test("a client's rows: locked, signed, told when changed elsewhere, read from a 
       name: "Row details",
     });
     const status = panel.getByRole("region", { name: "Row status" });
-    await expect(status).toContainText("Draft");
-    await status.getByRole("button", { name: "Submit" }).click();
+    // A draft says nothing: it is submitted from the panel's menu.
+    await expect(status).toHaveCount(0);
+    const submit = async () => {
+      await panel.getByRole("button", { name: "More actions" }).click();
+      await page
+        .getByRole("menuitem", { name: "Submit the row for review" })
+        .click();
+    };
+    await submit();
     await expect(status).toContainText("Submitted");
     await status.getByRole("button", { name: "Lock" }).click();
     await expect(status).toContainText("Locked");
@@ -150,8 +157,8 @@ test("a client's rows: locked, signed, told when changed elsewhere, read from a 
       .getByRole("dialog")
       .getByRole("button", { name: "Unlock" })
       .click();
-    await expect(status).toContainText("Draft");
-    await status.getByRole("button", { name: "Submit" }).click();
+    await expect(status).toHaveCount(0);
+    await submit();
     await status.getByRole("button", { name: "Lock" }).click();
     await expect(status).toContainText("Locked");
     await status.getByRole("button", { name: "Sign" }).click();

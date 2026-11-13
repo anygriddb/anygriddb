@@ -1,9 +1,9 @@
 import {
+  Checkbox,
   cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSection,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@anygriddb/ui";
@@ -230,39 +230,20 @@ export function ViewTabs(props: {
           <Plus className="h-4 w-4" aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          {collaborative ? (
-            <>
-              <DropdownMenuSection title={t`Shared view`}>
-                {(Object.keys(VIEW_LABELS) as ViewType[]).map((type) => {
-                  const Icon = VIEW_ICONS[type] ?? Sheet;
-                  return (
-                    <DropdownMenuItem
-                      key={type}
-                      onSelect={() => setCreating({ type, personal: false })}
-                    >
-                      <Icon className="h-4 w-4" aria-hidden />
-                      {t(VIEW_LABELS[type] ?? raw(type))}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuSection>
-              <DropdownMenuSeparator />
-            </>
-          ) : null}
-          <DropdownMenuSection title={t`Personal view`}>
-            {(Object.keys(VIEW_LABELS) as ViewType[]).map((type) => {
-              const Icon = VIEW_ICONS[type] ?? Sheet;
-              return (
-                <DropdownMenuItem
-                  key={`p-${type}`}
-                  onSelect={() => setCreating({ type, personal: true })}
-                >
-                  <Icon className="h-4 w-4" aria-hidden />
-                  {t(VIEW_LABELS[type] ?? raw(type))}
-                </DropdownMenuItem>
-              );
-            })}
-          </DropdownMenuSection>
+          {/* A view is shared unless its author keeps it: asked when it
+              is named, not by listing every type twice. */}
+          {(Object.keys(VIEW_LABELS) as ViewType[]).map((type) => {
+            const Icon = VIEW_ICONS[type] ?? Sheet;
+            return (
+              <DropdownMenuItem
+                key={type}
+                onSelect={() => setCreating({ type, personal: !collaborative })}
+              >
+                <Icon className="h-4 w-4" aria-hidden />
+                {t(VIEW_LABELS[type] ?? raw(type))}
+              </DropdownMenuItem>
+            );
+          })}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -285,7 +266,25 @@ export function ViewTabs(props: {
               props.onCreated(view);
             })
           }
-        />
+        >
+          {collaborative ? (
+            <label className="mt-1 flex items-start gap-2 text-sm">
+              <Checkbox
+                className="mt-0.5"
+                checked={creating.personal}
+                onChange={(event) =>
+                  setCreating({ ...creating, personal: event.target.checked })
+                }
+              />
+              <span className="flex flex-col">
+                {t`Personal view`}
+                <span className="text-xs text-muted-foreground">
+                  {t`Only you see it. Others keep the shared views.`}
+                </span>
+              </span>
+            </label>
+          ) : null}
+        </PromptDialog>
       ) : null}
       {renaming ? (
         <PromptDialog

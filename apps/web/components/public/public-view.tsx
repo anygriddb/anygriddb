@@ -329,6 +329,7 @@ function PublicRows({
                           column={column}
                           locale={locale}
                           people={NO_PEOPLE}
+                          inColumn={false}
                         />
                       </dd>
                     </div>

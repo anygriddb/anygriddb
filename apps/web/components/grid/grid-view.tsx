@@ -49,11 +49,12 @@ import { opensPanel } from "../fields/cell-editor";
 import { optionsOf } from "../fields/cell-value";
 import { DEFAULT_WIDTH } from "../fields/field-meta";
 import { useTable, type CellValue } from "../table/table-context";
+import { createLabelMeasure, defaultColumnWidth } from "./column-width";
 import { GridFooter } from "./grid-footer";
 import { GridCell } from "./grid-cell";
 import { GridHeader } from "./grid-header";
 import { GridSkeleton } from "./grid-skeleton";
-import { GUTTER, marginColumn } from "./margin-column";
+import { ADD_FIELD_WIDTH, GUTTER, marginColumn } from "./margin-column";
 import { SelectionSummaryBar } from "./selection-summary";
 import {
   cellId,
@@ -118,6 +119,8 @@ export type GridProps = {
   onReorder: (from: string, to: string) => void;
   onAggregate: (column: string, fn: string | null) => void;
   onAddField: (position?: number) => void;
+  /** Said under the last line when no row is shown (`empty-table-hint`). */
+  emptyHint?: ReactNode;
   onEditField: (column: CatalogColumn) => void;
   onHeaderAction: (
     action: string,
@@ -125,6 +128,9 @@ export type GridProps = {
     index: number,
   ) => void;
 };
+
+/** Header labels measured once each, for the columns' default widths. */
+const measureLabel = createLabelMeasure();
 
 /** No rows read so far: one array, so the layout is not drawn again. */
 const NONE_READ: readonly RowItem[] = [];
@@ -154,7 +160,12 @@ export function GridView(props: GridProps) {
 
   const widths = columns.map(
     (column) =>
-      props.widths[column.name] ?? DEFAULT_WIDTH[column.fieldType] ?? 180,
+      props.widths[column.name] ??
+      defaultColumnWidth(
+        column.fieldType,
+        measureLabel(column.label),
+        DEFAULT_WIDTH,
+      ),
   );
   const offsets: number[] = [];
   let running = GUTTER;
@@ -162,6 +173,9 @@ export function GridView(props: GridProps) {
     offsets.push(running);
     running += width;
   }
+  // The sheet ends after its last field, and the column that adds one; the
+  // space past it only lets the last field scroll clear of the edge.
+  const sheetWidth = running + (props.canManage ? ADD_FIELD_WIDTH : 0);
   const totalWidth = running + 120;
   const frozenCount = Math.min(frozen, columns.length);
   const frozenWidth = (offsets[frozenCount] ?? running) - GUTTER;
@@ -989,7 +1003,8 @@ export function GridView(props: GridProps) {
                       >
                         <button
                           type="button"
-                          className="group/add flex h-full w-full items-center border-b border-rule text-[13px] text-muted-foreground hover:text-foreground"
+                          className="group/add flex h-full items-center border-b border-rule text-[13px] text-muted-foreground hover:text-foreground"
+                          style={{ width: sheetWidth }}
                           onClick={() => void props.onAddRow()}
                         >
                           {/* The gutter's share of the row: the plus sits where the numbers do. */}
@@ -1161,6 +1176,7 @@ export function GridView(props: GridProps) {
                   frozenWidth
                 }
                 width={totalWidth}
+                trailingWidth={props.canManage ? ADD_FIELD_WIDTH : 0}
                 total={rows.total}
                 {...(rows.totalEstimated
                   ? {
@@ -1202,6 +1218,19 @@ export function GridView(props: GridProps) {
           />
         </ContextMenuContent>
       </ContextMenu>
+      {props.emptyHint && rows.total === 0 ? (
+        // Under the grid's lines, lined up with "Add a row"; outside the
+        // grid itself, whose children are rows only.
+        <div
+          className="absolute right-4 max-w-md"
+          style={{
+            top: HEADER + (canAdd ? 34 : 0) + FOOTER + 24,
+            left: GUTTER + 8,
+          }}
+        >
+          {props.emptyHint}
+        </div>
+      ) : null}
       <SelectionSummaryBar
         selection={selection}
         columns={columns}

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { signUpWithTable, watchPolicy } from "./setup.ts";
+import { pickFieldType, signUpWithTable, watchPolicy } from "./setup.ts";
 
 // The formula editor (ADR 0021): completion of fields and functions,
 // an error placed where the formula fails, and the computed column.
@@ -21,7 +21,7 @@ test("a formula field written with completion computes in the grid", async ({
   await page.getByRole("button", { name: "Add a field" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Field name").fill("Longueur");
-  await dialog.getByLabel("Type").selectOption("formula");
+  await pickFieldType(page, dialog, "Formula");
   const create = dialog.getByRole("button", { name: "Create field" });
   const editor = dialog.getByRole("textbox", { name: "Formula" });
   // An empty formula is not sent.

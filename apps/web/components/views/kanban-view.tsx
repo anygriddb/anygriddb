@@ -309,10 +309,12 @@ export function KanbanView(props: ViewProps) {
           onChange={(value) => props.onPatch({ stackColumn: value })}
         />
         <ColumnPicker
-          label={t`Title`}
+          label={t`Card title`}
           value={titleName}
           columns={titleChoices}
           allowNone
+          // Unset, a card is named by the row's primary field.
+          noneLabel={t`Primary field`}
           onChange={(value) => props.onPatch({ titleColumn: value })}
         />
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">

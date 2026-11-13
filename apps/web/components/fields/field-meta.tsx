@@ -103,6 +103,35 @@ export const FIELD_LABELS: Record<string, MessageDescriptor> = {
   button: msg`Button`,
 };
 
+/** What each type holds, in a few words, under its name in the picker. */
+export const FIELD_DESCRIPTIONS: Record<string, MessageDescriptor> = {
+  text: msg`One line of text`,
+  long_text: msg`Paragraphs and notes`,
+  email: msg`An email address, as a link`,
+  url: msg`A web address, as a link`,
+  phone: msg`A phone number`,
+  number: msg`Amounts, quantities, percentages`,
+  rating: msg`A score drawn as symbols`,
+  duration: msg`Hours and minutes`,
+  boolean: msg`Yes or no`,
+  date: msg`A day`,
+  datetime: msg`A day and a time`,
+  single_select: msg`One option from a list`,
+  multi_select: msg`Several options from a list`,
+  user: msg`People of the base`,
+  attachment: msg`Files and images`,
+  link: msg`Rows of another table`,
+  lookup: msg`A field of the linked rows`,
+  rollup: msg`A total over the linked rows`,
+  formula: msg`Computed from other fields`,
+  created_time: msg`When the row was created`,
+  last_modified_time: msg`When the row last changed`,
+  created_by: msg`Who created the row`,
+  last_modified_by: msg`Who last changed the row`,
+  autonumber: msg`A number given to each new row`,
+  button: msg`Opens a link or runs an action for the row`,
+};
+
 export const FIELD_GROUPS: Array<{
   label: MessageDescriptor;
   types: string[];

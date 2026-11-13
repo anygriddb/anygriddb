@@ -665,6 +665,14 @@ msgstr "A button is clicked"
 msgid "A call to its address (incoming webhook)"
 msgstr "A call to its address (incoming webhook)"
 
+#: components/fields/field-meta.tsx
+msgid "A day"
+msgstr "A day"
+
+#: components/fields/field-meta.tsx
+msgid "A day and a time"
+msgstr "A day and a time"
+
 #: components/shell/trash-dialog.tsx
 #: components/shell/trashed-bases.tsx
 msgid "a deleted account"
@@ -673,6 +681,10 @@ msgstr "a deleted account"
 #: lib/errors.ts
 msgid "A field already has this name"
 msgstr "A field already has this name"
+
+#: components/fields/field-meta.tsx
+msgid "A field of the linked rows"
+msgstr "A field of the linked rows"
 
 #: components/table/automations-dialog.tsx
 msgid "A form is submitted"
@@ -697,6 +709,14 @@ msgstr "A longer password is the strongest rule: AnyGridDB asks for no mix of ch
 #: components/auth/auth-page.tsx
 msgid "A message is on its way to {awaiting}. Open the link it holds to finish: it works for a day."
 msgstr "A message is on its way to {awaiting}. Open the link it holds to finish: it works for a day."
+
+#: components/fields/field-meta.tsx
+msgid "A number given to each new row"
+msgstr "A number given to each new row"
+
+#: components/fields/field-meta.tsx
+msgid "A phone number"
+msgstr "A phone number"
 
 #: components/views/calendar-feed.tsx
 msgid "A private address for your calendar application (Outlook, Google Calendar, Apple Calendar…). It shows what you can read of this view, from six months back to two years ahead. Keep it to yourself: whoever has it reads these rows."
@@ -729,6 +749,10 @@ msgstr "A row outside this selection cannot be linked; links already in place st
 #: lib/errors.ts
 msgid "A rule of the client's database refuses this value"
 msgstr "A rule of the client's database refuses this value"
+
+#: components/fields/field-meta.tsx
+msgid "A score drawn as symbols"
+msgstr "A score drawn as symbols"
 
 #: components/shell/welcome-page.tsx
 msgid "A second factor is asked at each sign-in after your password: an authenticator app, or a passkey."
@@ -790,13 +814,17 @@ msgstr "A token acts with the rights of the administrator who made it, and stops
 msgid "A token acts with your rights. It is shown once and lives the days you choose, {max} at most on this instance."
 msgstr "A token acts with your rights. It is shown once and lives the days you choose, {max} at most on this instance."
 
-#: components/settings/account-settings.tsx
-msgid "A TOTP app or a passkey, asked at each sign-in after your password."
-msgstr "A TOTP app or a passkey, asked at each sign-in after your password."
+#: components/fields/field-meta.tsx
+msgid "A total over the linked rows"
+msgstr "A total over the linked rows"
 
 #: lib/errors.ts
 msgid "A value is required"
 msgstr "A value is required"
+
+#: components/fields/field-meta.tsx
+msgid "A web address, as a link"
+msgstr "A web address, as a link"
 
 #: components/shell/pending-invitations.tsx
 msgid "Accept"
@@ -938,6 +966,14 @@ msgstr "Add a field"
 #: components/fields/cell-editor.tsx
 msgid "Add a file"
 msgstr "Add a file"
+
+#: components/table/table-workspace.tsx
+msgid "Add a first row on the line above, or bring the rows of a CSV, Excel, or JSON file."
+msgstr "Add a first row on the line above, or bring the rows of a CSV, Excel, or JSON file."
+
+#: components/table/table-workspace.tsx
+msgid "Add a first row on the line above."
+msgstr "Add a first row on the line above."
 
 #: components/table/filter-builder.tsx
 msgid "Add a group"
@@ -1209,6 +1245,10 @@ msgstr "Also send my notifications by email"
 msgid "Amount"
 msgstr "Amount"
 
+#: components/fields/field-meta.tsx
+msgid "Amounts, quantities, percentages"
+msgstr "Amounts, quantities, percentages"
+
 #: components/admin/sources-tab.tsx
 msgid "An account dedicated to AnyGridDB, never an administrator. The connection uses TLS, with a verified certificate."
 msgstr "An account dedicated to AnyGridDB, never an administrator. The connection uses TLS, with a verified certificate."
@@ -1224,6 +1264,18 @@ msgstr "An administrator's password alone opens every account and setting of the
 #: components/admin/security-tab.tsx
 msgid "An API token lives at most"
 msgstr "An API token lives at most"
+
+#: components/settings/second-factor.tsx
+msgid "An authenticator app is set up."
+msgstr "An authenticator app is set up."
+
+#: components/settings/account-settings.tsx
+msgid "An authenticator app or a passkey, asked at each sign-in after your password."
+msgstr "An authenticator app or a passkey, asked at each sign-in after your password."
+
+#: components/fields/field-meta.tsx
+msgid "An email address, as a link"
+msgstr "An email address, as a link"
 
 #: components/fields/formula-docs.ts
 msgid "An error, shown in the cell with its message."
@@ -1392,10 +1444,6 @@ msgstr "attachments carried over by name: the files are not copied"
 msgid "Attempts"
 msgstr "Attempts"
 
-#: components/settings/second-factor.tsx
-msgid "Authenticator app (TOTP) is set up."
-msgstr "Authenticator app (TOTP) is set up."
-
 #: components/admin/auth-labels.ts
 #: components/auth/auth-page.tsx
 msgid "Authenticator code"
@@ -1404,10 +1452,6 @@ msgstr "Authenticator code"
 #: components/settings/account-settings.tsx
 msgid "Authenticator or backup code"
 msgstr "Authenticator or backup code"
-
-#: components/settings/second-factor.tsx
-msgid "Authenticator URL"
-msgstr "Authenticator URL"
 
 #: components/admin/trails.tsx
 msgid "Author"
@@ -1461,6 +1505,10 @@ msgstr "Back to home"
 #: components/auth/reset-page.tsx
 msgid "Back to sign-in"
 msgstr "Back to sign-in"
+
+#: components/shell/new-base-dialog.tsx
+msgid "Back to the starting points"
+msgstr "Back to the starting points"
 
 #: components/admin/admin-overview.tsx
 msgid "Background jobs, webhook deliveries, or automation runs that did not go through."
@@ -1596,8 +1644,8 @@ msgid "Bring your data"
 msgstr "Bring your data"
 
 #: components/settings/second-factor.tsx
-msgid "Browsers accept passkeys on an HTTPS address only: use TOTP, or open AnyGridDB over HTTPS."
-msgstr "Browsers accept passkeys on an HTTPS address only: use TOTP, or open AnyGridDB over HTTPS."
+msgid "Browsers accept passkeys on an HTTPS address only: use an authenticator app, or open AnyGridDB over HTTPS."
+msgstr "Browsers accept passkeys on an HTTPS address only: use an authenticator app, or open AnyGridDB over HTTPS."
 
 #: components/admin/health-tab.tsx
 msgid "built {date}"
@@ -1661,6 +1709,7 @@ msgstr "Call a URL"
 #: components/fields/field-editor.tsx
 #: components/record/record-panel.tsx
 #: components/record/row-status.tsx
+#: components/settings/second-factor.tsx
 #: components/shell/dialogs.tsx
 #: components/shell/jobs-menu.tsx
 #: components/shell/new-base-dialog.tsx
@@ -1694,6 +1743,11 @@ msgstr "Cannot restore: restore the table or fields it depends on first"
 #: components/views/view-common.tsx
 msgid "Card fields"
 msgstr "Card fields"
+
+#: components/views/gallery-view.tsx
+#: components/views/kanban-view.tsx
+msgid "Card title"
+msgstr "Card title"
 
 #: components/dashboards/chart-view.tsx
 msgid "Category"
@@ -1903,13 +1957,17 @@ msgstr "Close the navigation"
 msgid "Closed"
 msgstr "Closed"
 
-#: components/settings/second-factor.tsx
-msgid "Code"
-msgstr "Code"
-
 #: components/settings/account-settings.tsx
 msgid "Code from your authenticator app, or a backup code"
 msgstr "Code from your authenticator app, or a backup code"
+
+#: components/settings/second-factor.tsx
+msgid "Code shown by the app"
+msgstr "Code shown by the app"
+
+#: components/settings/second-factor.tsx
+msgid "Code to scan with your authenticator app"
+msgstr "Code to scan with your authenticator app"
 
 #: components/fields/field-meta.tsx
 msgid "Collaborator"
@@ -1999,6 +2057,10 @@ msgstr "computed"
 msgid "Computed and system"
 msgstr "Computed and system"
 
+#: components/fields/field-meta.tsx
+msgid "Computed from other fields"
+msgstr "Computed from other fields"
+
 #: components/fields/field-editor.tsx
 msgid "Concatenate"
 msgstr "Concatenate"
@@ -2008,8 +2070,8 @@ msgid "Confirm"
 msgstr "Confirm"
 
 #: components/settings/second-factor.tsx
-msgid "Confirm TOTP"
-msgstr "Confirm TOTP"
+msgid "Confirm the code"
+msgstr "Confirm the code"
 
 #: components/auth/confirm-signup-page.tsx
 msgid "Confirm your address"
@@ -2123,6 +2185,10 @@ msgstr "Copy row link"
 #: components/views/calendar-feed.tsx
 msgid "Copy the address"
 msgstr "Copy the address"
+
+#: components/settings/second-factor.tsx
+msgid "Copy the key"
+msgstr "Copy the key"
 
 #: components/admin/account-actions.tsx
 msgid "Copy the link"
@@ -2644,7 +2710,7 @@ msgstr "Display condition of {field}: {count}"
 #: components/admin/accounts-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/auth/auth-page.tsx
-#: components/settings/account-settings.tsx
+#: components/settings/profile-form.tsx
 msgid "Display name"
 msgstr "Display name"
 
@@ -2668,6 +2734,7 @@ msgstr "Done"
 
 #: components/fields/attachment-preview.tsx
 #: components/settings/base-settings.tsx
+#: components/settings/second-factor.tsx
 #: components/shell/jobs-menu.tsx
 msgid "Download"
 msgstr "Download"
@@ -2684,6 +2751,10 @@ msgstr "Download the support bundle"
 #: lib/known-text.ts
 msgid "Draft"
 msgstr "Draft"
+
+#: components/shell/new-base-dialog.tsx
+msgid "Drop a backup (.anygriddb.json or .anygriddb.zip) to import a base."
+msgstr "Drop a backup (.anygriddb.json or .anygriddb.zip) to import a base."
 
 #: components/table/import-dialog.tsx
 msgid "Drop a file or click to choose one"
@@ -2733,6 +2804,10 @@ msgstr "Duration"
 #: components/admin/security-tab.tsx
 msgid "Each choice starts at a value that suits most organizations. Change it to follow your own rules: the limits that protect accounts cannot be turned off."
 msgstr "Each choice starts at a value that suits most organizations. Change it to follow your own rules: the limits that protect accounts cannot be turned off."
+
+#: components/settings/second-factor.tsx
+msgid "Each one signs you in once if you lose your authenticator app or your passkey. Keep them somewhere other than this device."
+msgstr "Each one signs you in once if you lose your authenticator app or your passkey. Keep them somewhere other than this device."
 
 #: components/admin/support-tab.tsx
 msgid "Each person receives this plain-text notice by email. The sign-in trail records that you sent it."
@@ -2811,7 +2886,7 @@ msgstr "Editor"
 #: components/admin/sign-in-trail.tsx
 #: components/auth/auth-page.tsx
 #: components/fields/field-meta.tsx
-#: components/settings/account-settings.tsx
+#: components/settings/profile-form.tsx
 #: components/settings/webhooks-panel.tsx
 msgid "Email"
 msgstr "Email"
@@ -2896,10 +2971,6 @@ msgstr "Enable a second factor in your settings before creating a base."
 #: components/shell/home-page.tsx
 msgid "Enable a second factor to create and manage bases."
 msgstr "Enable a second factor to create and manage bases."
-
-#: components/settings/second-factor.tsx
-msgid "Enable TOTP"
-msgstr "Enable TOTP"
 
 #: components/admin/account-actions.tsx
 msgid "Enabled"
@@ -3258,6 +3329,10 @@ msgstr "Field to fill"
 msgid "Field to look up"
 msgstr "Field to look up"
 
+#: components/fields/field-type-picker.tsx
+msgid "Field types"
+msgstr "Field types"
+
 #: lib/errors.ts
 msgid "Field used by"
 msgstr "Field used by"
@@ -3326,6 +3401,10 @@ msgstr "File too large (20 MB, 10 MB for Excel)."
 #: components/admin/health-tab.tsx
 msgid "Files"
 msgstr "Files"
+
+#: components/fields/field-meta.tsx
+msgid "Files and images"
+msgstr "Files and images"
 
 #: components/shell/shortcuts-dialog.tsx
 msgid "Fill down"
@@ -3396,6 +3475,10 @@ msgstr "For each row of…"
 #: components/record/row-status.tsx
 msgid "For example: Approved, Verified, Reviewed"
 msgstr "For example: Approved, Verified, Reviewed"
+
+#: components/admin/settings-tab.tsx
+msgid "For mail, and for people whose browser asks for neither English nor French, until they pick their own language."
+msgstr "For mail, and for people whose browser asks for neither English nor French, until they pick their own language."
 
 #: components/admin/support-tab.tsx
 msgid "For whoever helps you"
@@ -3475,9 +3558,17 @@ msgstr "Friday"
 msgid "From"
 msgstr "From"
 
+#: components/shell/new-base-dialog.tsx
+msgid "from a backup file"
+msgstr "from a backup file"
+
 #: components/admin/integrations-tab.tsx
 msgid "From address"
 msgstr "From address"
+
+#: components/shell/new-base-dialog.tsx
+msgid "from Airtable"
+msgstr "from Airtable"
 
 #: components/admin/health-tab.tsx
 msgid "from sources"
@@ -3641,6 +3732,10 @@ msgstr "Horizontal bars"
 msgid "Host"
 msgstr "Host"
 
+#: components/fields/field-meta.tsx
+msgid "Hours and minutes"
+msgstr "Hours and minutes"
+
 #: components/fields/formula-help-panel.tsx
 msgid "Hover over a function to see what it does."
 msgstr "Hover over a function to see what it does."
@@ -3720,6 +3815,7 @@ msgid "Import {name}"
 msgstr "Import {name}"
 
 #: components/shell/sidebar.tsx
+#: components/table/table-workspace.tsx
 #: components/table/view-toolbar.tsx
 msgid "Import a file"
 msgstr "Import a file"
@@ -3727,10 +3823,6 @@ msgstr "Import a file"
 #: components/table/import-dialog.tsx
 msgid "Import a new table"
 msgstr "Import a new table"
-
-#: components/shell/new-base-dialog.tsx
-msgid "Import an Airtable base"
-msgstr "Import an Airtable base"
 
 #: components/table/import-dialog.tsx
 msgid "Import cancelled: the {count} rows already written are kept."
@@ -4409,7 +4501,7 @@ msgstr "Link sent to {to}"
 msgid "Link to a row"
 msgstr "Link to a row"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-type-picker.tsx
 msgid "Link to another table"
 msgstr "Link to another table"
 
@@ -4772,6 +4864,10 @@ msgstr "Name"
 msgid "Name or email"
 msgstr "Name or email"
 
+#: components/settings/profile-form.tsx
+msgid "Name saved"
+msgstr "Name saved"
+
 #: components/shell/new-table-dialog.tsx
 msgid "Name, Notes, and a Status list."
 msgstr "Name, Notes, and a Status list."
@@ -4998,6 +5094,10 @@ msgstr "No base yet. Give them a role on one below."
 msgid "No bases yet."
 msgstr "No bases yet."
 
+#: components/settings/second-factor.tsx
+msgid "No camera at hand? Type this key in the app instead."
+msgstr "No camera at hand? Type this key in the app instead."
+
 #: components/admin/trails.tsx
 msgid "No change matches. Every write to a base, its fields, and its roles shows here, with who made it."
 msgstr "No change matches. Every write to a base, its fields, and its roles shows here, with who made it."
@@ -5122,9 +5222,17 @@ msgstr "No results"
 msgid "No row"
 msgstr "No row"
 
+#: components/table/table-workspace.tsx
+msgid "No row matches this view's filters or search."
+msgstr "No row matches this view's filters or search."
+
 #: components/views/timeline-view.tsx
 msgid "No rows in this period."
 msgstr "No rows in this period."
+
+#: components/table/table-workspace.tsx
+msgid "No rows yet."
+msgstr "No rows yet."
 
 #: components/table/automations-dialog.tsx
 msgid "No runs yet."
@@ -5162,6 +5270,11 @@ msgstr "No tables yet"
 msgid "No token yet. Create one below and give it to your identity provider, which adds and updates accounts and groups with it."
 msgstr "No token yet. Create one below and give it to your identity provider, which adds and updates accounts and groups with it."
 
+#: components/fields/field-type-picker.tsx
+msgid "No type matches"
+msgstr "No type matches"
+
+#: components/record/record-panel.tsx
 #: components/views/kanban-view.tsx
 msgid "No value"
 msgstr "No value"
@@ -5324,6 +5437,18 @@ msgstr "On this instance, only administrators create bases"
 msgid "On this instance, people are invited only with your organization's addresses"
 msgstr "On this instance, people are invited only with your organization's addresses"
 
+#: components/settings/second-factor.tsx
+msgid "On this phone? Open it in your authenticator app."
+msgstr "On this phone? Open it in your authenticator app."
+
+#: components/fields/field-meta.tsx
+msgid "One line of text"
+msgstr "One line of text"
+
+#: components/fields/field-meta.tsx
+msgid "One option from a list"
+msgstr "One option from a list"
+
 #: components/admin/sign-in-trail.tsx
 msgid "One session"
 msgstr "One session"
@@ -5367,6 +5492,10 @@ msgstr "Only the linked rows that match"
 #: components/admin/security-tab.tsx
 msgid "Only with a password"
 msgstr "Only with a password"
+
+#: components/table/view-tabs.tsx
+msgid "Only you see it. Others keep the shared views."
+msgstr "Only you see it. Others keep the shared views."
 
 #: components/public/public-view.tsx
 #: components/shell/new-base-dialog.tsx
@@ -5431,6 +5560,10 @@ msgstr "OpenID Connect is not set up on this instance"
 msgid "OpenID discovery answered"
 msgstr "OpenID discovery answered"
 
+#: components/fields/field-meta.tsx
+msgid "Opens a link or runs an action for the row"
+msgstr "Opens a link or runs an action for the row"
+
 #: components/settings/api-console.tsx
 msgid "Operation"
 msgstr "Operation"
@@ -5461,8 +5594,8 @@ msgid "or"
 msgstr "or"
 
 #: components/shell/new-base-dialog.tsx
-msgid "Or drop a backup (.anygriddb.json or .anygriddb.zip) to import a base."
-msgstr "Or drop a backup (.anygriddb.json or .anygriddb.zip) to import a base."
+msgid "Or import a base:"
+msgstr "Or import a base:"
 
 #: components/table/import-dialog.tsx
 msgid "Or paste rows copied from a spreadsheet"
@@ -5476,6 +5609,10 @@ msgstr "Order"
 #: components/admin/accounts-tab.tsx
 msgid "Origin"
 msgstr "Origin"
+
+#: components/settings/profile-form.tsx
+msgid "Others see this name in comments, history, and signatures. An administrator changes the address."
+msgstr "Others see this name in comments, history, and signatures. An administrator changes the address."
 
 #: components/table/automations-dialog.tsx
 msgid "Otherwise:"
@@ -5501,6 +5638,10 @@ msgstr "Owners"
 #: components/shell/not-found.tsx
 msgid "Page not found"
 msgstr "Page not found"
+
+#: components/fields/field-meta.tsx
+msgid "Paragraphs and notes"
+msgstr "Paragraphs and notes"
 
 #: components/settings/api-console.tsx
 msgid "Parameters"
@@ -5531,8 +5672,8 @@ msgid "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an 
 msgstr "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Open AnyGridDB at that address, or use a TOTP app."
 
 #: components/settings/second-factor.tsx
-msgid "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Use a TOTP app, or open AnyGridDB at that hostname."
-msgstr "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Use a TOTP app, or open AnyGridDB at that hostname."
+msgid "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Use an authenticator app, or open AnyGridDB at that hostname."
+msgstr "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Use an authenticator app, or open AnyGridDB at that hostname."
 
 #: components/admin/auth-labels.ts
 #: components/admin/integrations-tab.tsx
@@ -5629,6 +5770,10 @@ msgstr "people carried over as text (name and address)"
 #: components/table/table-workspace.tsx
 msgid "People here"
 msgstr "People here"
+
+#: components/fields/field-meta.tsx
+msgid "People of the base"
+msgstr "People of the base"
 
 #: components/record/mention-input.tsx
 msgid "People to mention"
@@ -5744,6 +5889,8 @@ msgstr "Previous row"
 
 #: components/fields/field-editor.tsx
 #: components/grid/grid-header.tsx
+#: components/views/gallery-view.tsx
+#: components/views/kanban-view.tsx
 msgid "Primary field"
 msgstr "Primary field"
 
@@ -6010,6 +6157,10 @@ msgstr "Refuse negative numbers"
 msgid "Register a passkey"
 msgstr "Register a passkey"
 
+#: components/settings/second-factor.tsx
+msgid "Register the passkey"
+msgstr "Register the passkey"
+
 #: components/fields/field-meta.tsx
 msgid "Relations"
 msgstr "Relations"
@@ -6126,8 +6277,8 @@ msgid "Replace and confirm"
 msgstr "Replace and confirm"
 
 #: components/settings/second-factor.tsx
-msgid "Replace TOTP"
-msgstr "Replace TOTP"
+msgid "Replace the authenticator app"
+msgstr "Replace the authenticator app"
 
 #: components/fields/formula-docs.ts
 msgid "Replaces characters from a position."
@@ -6395,6 +6546,10 @@ msgstr "rows"
 msgid "Rows already empty here stay so until someone changes this field."
 msgstr "Rows already empty here stay so until someone changes this field."
 
+#: components/fields/field-meta.tsx
+msgid "Rows of another table"
+msgstr "Rows of another table"
+
 #: components/fields/link-selection.tsx
 msgid "Rows offered"
 msgstr "Rows offered"
@@ -6455,6 +6610,7 @@ msgstr "Saturday"
 #: components/fields/field-editor.tsx
 #: components/record/record-panel.tsx
 #: components/settings/base-settings.tsx
+#: components/settings/profile-form.tsx
 #: components/settings/table-acl-panel.tsx
 #: components/shell/dialogs.tsx
 #: components/table/automations-dialog.tsx
@@ -6516,6 +6672,10 @@ msgstr "Saving…"
 msgid "Scale"
 msgstr "Scale"
 
+#: components/settings/second-factor.tsx
+msgid "Scan this code with your authenticator app."
+msgstr "Scan this code with your authenticator app."
+
 #: components/admin/sources-tab.tsx
 msgid "Schema kept for AnyGridDB (optional)"
 msgstr "Schema kept for AnyGridDB (optional)"
@@ -6550,6 +6710,10 @@ msgstr "Search a linked row"
 #: components/fields/cell-editor.tsx
 msgid "Search a person"
 msgstr "Search a person"
+
+#: components/fields/field-type-picker.tsx
+msgid "Search a type"
+msgstr "Search a type"
 
 #: components/admin/accounts-tab.tsx
 #: components/admin/support-tab.tsx
@@ -6591,10 +6755,6 @@ msgstr "Second factor enabled"
 #: components/admin/auth-labels.ts
 msgid "Second factors removed"
 msgstr "Second factors removed"
-
-#: components/settings/second-factor.tsx
-msgid "Secret"
-msgstr "Secret"
 
 #: components/admin/admin-sections.ts
 msgid "Security"
@@ -6752,6 +6912,10 @@ msgstr "Set as primary field"
 msgid "Set the password"
 msgstr "Set the password"
 
+#: components/settings/second-factor.tsx
+msgid "Set up an authenticator app"
+msgstr "Set up an authenticator app"
+
 #: components/admin/support-tab.tsx
 msgid "Set up email under Connections before you can send a notice."
 msgstr "Set up email under Connections before you can send a notice."
@@ -6774,6 +6938,14 @@ msgstr "Settings and sharing"
 msgid "Settings saved"
 msgstr "Settings saved"
 
+#: components/settings/second-factor.tsx
+msgid "Setup key"
+msgstr "Setup key"
+
+#: components/fields/field-meta.tsx
+msgid "Several options from a list"
+msgstr "Several options from a list"
+
 #: components/record/record-panel.tsx
 msgid "SHA-256 fingerprint: {short}…"
 msgstr "SHA-256 fingerprint: {short}…"
@@ -6789,10 +6961,6 @@ msgstr "Share not found"
 #: components/table/view-tabs.tsx
 msgid "Share view"
 msgstr "Share view"
-
-#: components/table/view-tabs.tsx
-msgid "Shared view"
-msgstr "Shared view"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Shares of the total"
@@ -7210,7 +7378,6 @@ msgid "Submission"
 msgstr "Submission"
 
 #: components/public/public-view.tsx
-#: components/record/row-status.tsx
 #: components/settings/api-console.tsx
 #: components/views/form-view.tsx
 msgid "Submit"
@@ -7224,6 +7391,10 @@ msgstr "Submit another response"
 #: components/views/form-view.tsx
 msgid "Submit button label"
 msgstr "Submit button label"
+
+#: components/record/record-panel.tsx
+msgid "Submit the row for review"
+msgstr "Submit the row for review"
 
 #: components/record/record-panel.tsx
 msgid "submitted"
@@ -8322,8 +8493,6 @@ msgid "Timeout"
 msgstr "Timeout"
 
 #: components/dashboards/dashboard-board.tsx
-#: components/views/gallery-view.tsx
-#: components/views/kanban-view.tsx
 msgid "Title"
 msgstr "Title"
 
@@ -8763,10 +8932,6 @@ msgstr "Use the backup code"
 msgid "Use the pasted data"
 msgstr "Use the pasted data"
 
-#: components/admin/settings-tab.tsx
-msgid "Used until a person picks their own language."
-msgstr "Used until a person picks their own language."
-
 #: components/admin/integrations-tab.tsx
 #: components/admin/sources-tab.tsx
 msgid "Username"
@@ -8975,6 +9140,14 @@ msgstr "when changed: {fields}"
 msgid "When single sign-on only is on, other people use the identity provider. Administrators keep a password so the instance is not locked out if the provider fails."
 msgstr "When single sign-on only is on, other people use the identity provider. Administrators keep a password so the instance is not locked out if the provider fails."
 
+#: components/fields/field-meta.tsx
+msgid "When the row last changed"
+msgstr "When the row last changed"
+
+#: components/fields/field-meta.tsx
+msgid "When the row was created"
+msgstr "When the row was created"
+
 #: components/fields/formula-docs.ts
 msgid "When the row was created."
 msgstr "When the row was created."
@@ -9013,9 +9186,17 @@ msgstr "Who can create bases"
 msgid "Who can start a password reset"
 msgstr "Who can start a password reset"
 
+#: components/fields/field-meta.tsx
+msgid "Who created the row"
+msgstr "Who created the row"
+
 #: components/admin/access-report.tsx
 msgid "Who has access"
 msgstr "Who has access"
+
+#: components/fields/field-meta.tsx
+msgid "Who last changed the row"
+msgstr "Who last changed the row"
 
 #: components/admin/security-tab.tsx
 msgid "Who may create what, whom owners may invite, and what happens to accounts nobody uses."
@@ -9122,6 +9303,10 @@ msgstr "Yes"
 msgid "Yes / No"
 msgstr "Yes / No"
 
+#: components/fields/field-meta.tsx
+msgid "Yes or no"
+msgstr "Yes or no"
+
 #: components/admin/security-tab.tsx
 msgid "Yes, in the app and by email"
 msgstr "Yes, in the app and by email"
@@ -9167,6 +9352,10 @@ msgstr "Your identity provider (Okta, Microsoft Entra ID, …) creates, changes,
 #: components/settings/account-settings.tsx
 msgid "Your organization asks for a second factor on this account: set one up below to go on."
 msgstr "Your organization asks for a second factor on this account: set one up below to go on."
+
+#: components/settings/profile-form.tsx
+msgid "Your organization's directory keeps your name and address: change them there."
+msgstr "Your organization's directory keeps your name and address: change them there."
 
 #: components/admin/account-actions.tsx
 msgid "Your own account: from your settings"

@@ -268,10 +268,7 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
 
   // A form: its date field is named by its label and filled by keyboard.
   await page.getByRole("button", { name: "New view" }).click();
-  await page
-    .getByRole("group", { name: "Shared view" })
-    .getByRole("menuitem", { name: "Form" })
-    .click();
+  await page.getByRole("menuitem", { name: "Form" }).click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Create", exact: true })

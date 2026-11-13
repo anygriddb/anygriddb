@@ -24,3 +24,6 @@ export function nextFrozenColumns(
 
 /** Width of the row gutter: the number, the checkbox, the expand button. */
 export const GUTTER = 56;
+
+/** Width of the column past the last field, the one that adds a field. */
+export const ADD_FIELD_WIDTH = 48;

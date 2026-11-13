@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
   Tooltip,
 } from "@anygriddb/ui";
-import { GUTTER, marginColumn } from "./margin-column";
+import { ADD_FIELD_WIDTH, GUTTER, marginColumn } from "./margin-column";
 import {
   ArrowDownAZ,
   ArrowLeftToLine,
@@ -318,7 +318,8 @@ export function GridHeader(props: {
         <div
           role="columnheader"
           aria-colindex={props.columns.length + 2}
-          className="flex w-12 shrink-0 border-b border-strong-border bg-head"
+          className="flex shrink-0 border-b border-strong-border bg-head"
+          style={{ width: ADD_FIELD_WIDTH }}
         >
           <Tooltip content={t`Add a field`} side="bottom">
             <button

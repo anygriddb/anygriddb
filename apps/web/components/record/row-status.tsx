@@ -10,14 +10,15 @@ import {
 import { useLingui } from "@lingui/react/macro";
 import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
-import { AlertTriangle, Lock, PenLine, Send, Unlock } from "lucide-react";
+import { AlertTriangle, Lock, PenLine, Unlock } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
 import { reasonOf, useErrorText } from "../../lib/errors";
 import { cellDisplay } from "../../lib/format";
 import { trpc } from "../../lib/trpc";
-import { canManage, canWrite, type RowItem } from "../../lib/types";
+import { canManage, type RowItem } from "../../lib/types";
 import { useTable } from "../table/table-context";
+import { statusShown } from "./row-status-model";
 
 const STATUS_LABELS: Record<string, MessageDescriptor> = {
   draft: msg`Draft`,
@@ -28,10 +29,29 @@ const STATUS_LABELS: Record<string, MessageDescriptor> = {
 
 type Status = "submitted" | "locked" | "draft";
 
+/** Submits a draft row: the first step of its review, from its menu. */
+export function useSubmitRow(): (rowId: string) => Promise<void> {
+  const table = useTable();
+  const errorText = useErrorText();
+  return async (rowId) => {
+    try {
+      await trpc.rows.setStatus.mutate({
+        tableId: table.table.id,
+        rowId,
+        status: "submitted",
+      });
+    } catch (error) {
+      toast.error(errorText(error));
+    }
+  };
+}
+
 /**
- * A row's status and what can move it: submit, lock, sign, unlock. On a
- * client's row, a lock seals the values; a change made elsewhere since
- * then shows here, with the values that were sealed (ADR 0033).
+ * A row's status once its review has begun, and what moves it on: lock,
+ * sign, unlock. A draft, where every row starts, says nothing here: it is
+ * submitted from the panel's menu. On a client's row, a lock seals the
+ * values; a change made elsewhere since then shows here, with the values
+ * that were sealed (ADR 0033).
  */
 export function RowStatus({ row }: { row: RowItem }) {
   const { t, i18n } = useLingui();
@@ -41,10 +61,8 @@ export function RowStatus({ row }: { row: RowItem }) {
   const [signing, setSigning] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const status = row.ag_status;
-  // A client's table without a key names no row: it has no status.
-  if (typeof status !== "string") return null;
+  if (!statusShown(row) || typeof status !== "string") return null;
   const external = table.table.external !== null;
-  const write = canWrite(table.role);
   const manage = canManage(table.role);
 
   async function move(next: Status) {
@@ -86,17 +104,6 @@ export function RowStatus({ row }: { row: RowItem }) {
           {i18n._(STATUS_LABELS[status] ?? msg`Draft`)}
         </span>
         <div className="ml-auto flex flex-wrap gap-1">
-          {write && status === "draft" ? (
-            <Button
-              size="xs"
-              variant="outline"
-              disabled={busy}
-              onClick={() => void move("submitted")}
-            >
-              <Send className="h-3.5 w-3.5" aria-hidden />
-              {t`Submit`}
-            </Button>
-          ) : null}
           {manage && status === "submitted" ? (
             <Button
               size="xs"

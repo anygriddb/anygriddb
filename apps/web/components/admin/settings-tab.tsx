@@ -161,7 +161,7 @@ export function SettingsTab() {
           <option value="en">English</option>
         </Select>
         <p className="text-xs text-muted-foreground">
-          {t`Used until a person picks their own language.`}
+          {t`For mail, and for people whose browser asks for neither English nor French, until they pick their own language.`}
         </p>
       </div>
       <div className="flex flex-col gap-1">

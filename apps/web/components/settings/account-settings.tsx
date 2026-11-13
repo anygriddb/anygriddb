@@ -9,6 +9,7 @@ import { useCatalog, useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
 import { NotebookPage, RuledSection } from "../shell/notebook-page";
+import { ProfileForm } from "./profile-form";
 import { SecondFactorSetup } from "./second-factor";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
@@ -75,12 +76,11 @@ export function AccountSettings() {
         </p>
       ) : null}
       <RuledSection title={t`Profile`}>
-        <dl className="grid grid-cols-[8rem_1fr] gap-y-1 text-sm">
-          <dt className="text-muted-foreground">{t`Display name`}</dt>
-          <dd>{user.displayName}</dd>
-          <dt className="text-muted-foreground">{t`Email`}</dt>
-          <dd>{user.email}</dd>
-        </dl>
+        <ProfileForm
+          displayName={user.displayName}
+          email={user.email}
+          nameManaged={user.nameManaged}
+        />
       </RuledSection>
       <RuledSection title={t`Notifications`}>
         <label className="flex items-center gap-2 text-sm">
@@ -167,7 +167,7 @@ export function AccountSettings() {
       ) : null}
       <RuledSection
         title={t`Second factor`}
-        description={t`A TOTP app or a passkey, asked at each sign-in after your password.`}
+        description={t`An authenticator app or a passkey, asked at each sign-in after your password.`}
       >
         <p className="flex items-center gap-2 text-sm">
           <ShieldCheck

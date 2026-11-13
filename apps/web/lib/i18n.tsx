@@ -1,7 +1,7 @@
 /**
  * The person's language (ADR 0041). Messages are Lingui catalogs, one per
- * language; English is the source. A language the person picked wins over
- * the instance's default.
+ * language; English is the source. A language the person picked wins, then
+ * the browser's when the app speaks it, then the instance's default.
  */
 import { i18n } from "@lingui/core";
 import { I18nProvider as LinguiProvider } from "@lingui/react";
@@ -21,7 +21,10 @@ const STORAGE_KEY = "ag_locale";
 const LocaleContext = createContext<{
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  /** The instance's language, used until the person picks one. */
+  /**
+   * The instance's language, used until the person picks one, when their
+   * browser asks for none the app speaks.
+   */
   adoptDefault: (locale: Locale) => void;
 }>({
   locale: "en",
@@ -39,12 +42,25 @@ function storedLocale(): Locale | null {
   }
 }
 
-/** The picked language, or the browser's. */
-export function initialLocale(): Locale {
-  return (
-    storedLocale() ??
-    (navigator.language.toLowerCase().startsWith("fr") ? "fr" : "en")
+/** The first of the browser's languages the app speaks, if any. */
+export function browserLocale(languages: readonly string[]): Locale | null {
+  for (const language of languages) {
+    const tag = language.toLowerCase();
+    if (tag === "fr" || tag.startsWith("fr-")) return "fr";
+    if (tag === "en" || tag.startsWith("en-")) return "en";
+  }
+  return null;
+}
+
+function navigatorLocale(): Locale | null {
+  return browserLocale(
+    navigator.languages.length > 0 ? navigator.languages : [navigator.language],
   );
+}
+
+/** The picked language, or the browser's, or English. */
+export function initialLocale(): Locale {
+  return storedLocale() ?? navigatorLocale() ?? "en";
 }
 
 /** Loads a language's catalog and switches every message to it. */
@@ -61,8 +77,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() =>
     i18n.locale === "fr" ? "fr" : "en",
   );
-  const [picked] = useState(() => storedLocale() !== null);
-  const chosen = useRef(picked);
+  // The instance's default applies only when neither the person nor their
+  // browser named a language the app speaks.
+  const [settled] = useState(
+    () => storedLocale() !== null || navigatorLocale() !== null,
+  );
+  const chosen = useRef(settled);
   const change = useCallback(async (next: Locale) => {
     await activateLocale(next);
     setLocaleState(next);

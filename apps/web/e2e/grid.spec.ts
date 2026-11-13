@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import {
   accessibilityViolations,
+  pickFieldType,
   signUpWithTable,
   watchPolicy,
 } from "./setup.ts";
@@ -189,7 +190,7 @@ test.describe("a number field that refuses negatives, then empties", () => {
     await page.getByRole("button", { name: "Add a field" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Field name").fill("Stock");
-    await dialog.getByLabel("Type").selectOption("number");
+    await pickFieldType(page, dialog, "Number");
     await dialog.getByLabel("Refuse negative numbers").check();
     await dialog.getByRole("button", { name: "Create field" }).click();
     await expect(dialog).toBeHidden();

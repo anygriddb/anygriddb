@@ -64,8 +64,12 @@ function NewBaseForm(props: NewBaseProps) {
   const track = useTrackJob();
   const snapshotGaps = useSnapshotGaps();
   const fileRef = useRef<HTMLInputElement>(null);
-  // An Airtable base, read with a personal access token the person gives.
-  const [airtable, setAirtable] = useState(false);
+  // Where the base comes from: a starting point (empty or a template), a
+  // backup file, or an Airtable base read with a token the person gives.
+  const [source, setSource] = useState<"start" | "backup" | "airtable">(
+    "start",
+  );
+  const airtable = source === "airtable";
   const [airtableBase, setAirtableBase] = useState("");
   const [airtableToken, setAirtableToken] = useState("");
   const templates = useQuery({
@@ -127,6 +131,7 @@ function NewBaseForm(props: NewBaseProps) {
         return;
       }
       const parsed = json as Staged;
+      setSource("backup");
       setStaged(parsed);
       setTemplate("");
       setName(parsed.name);
@@ -237,6 +242,35 @@ function NewBaseForm(props: NewBaseProps) {
     })),
   ];
 
+  function choose(next: "start" | "backup" | "airtable") {
+    setSource(next);
+    if (next !== "backup") setStaged(null);
+  }
+
+  const dropFile = {
+    onDragOver: (event: DragEvent) => {
+      event.preventDefault();
+      setDragging(true);
+    },
+    onDragLeave: () => setDragging(false),
+    onDrop: (event: DragEvent) => {
+      event.preventDefault();
+      setDragging(false);
+      const file = event.dataTransfer.files[0];
+      if (file) void upload(file);
+    },
+  };
+
+  const backToStart = (
+    <button
+      type="button"
+      className="self-start text-sm text-primary underline-offset-2 hover:underline"
+      onClick={() => choose("start")}
+    >
+      {t`Back to the starting points`}
+    </button>
+  );
+
   return (
     <form onSubmit={submit} className="flex min-h-0 flex-col gap-3">
       <div className="flex flex-col gap-1">
@@ -249,153 +283,182 @@ function NewBaseForm(props: NewBaseProps) {
           onChange={(event) => setName(event.target.value)}
         />
       </div>
-      <div
-        className={cn(
-          "flex flex-col items-center gap-2 rounded-sm border border-dashed p-4 text-center text-sm",
-          dragging
-            ? "border-primary bg-accent/40"
-            : "border-border text-muted-foreground",
-        )}
-        onDragOver={(event: DragEvent) => {
-          event.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(event: DragEvent) => {
-          event.preventDefault();
-          setDragging(false);
-          const file = event.dataTransfer.files[0];
+      {source === "start" ? (
+        <>
+          <fieldset className="flex min-h-0 flex-col gap-1">
+            <legend className="mb-1 text-xs font-medium text-muted-foreground">
+              {t`Starting point`}
+            </legend>
+            {templates.isLoading ? <Spinner /> : null}
+            <div
+              role="radiogroup"
+              className="grid max-h-[46vh] grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2"
+            >
+              {choices.map((choice) => (
+                <button
+                  key={choice.id || "empty"}
+                  type="button"
+                  role="radio"
+                  aria-checked={template === choice.id}
+                  onClick={() => pick(choice.id, choice.name)}
+                  className={cn(
+                    "flex flex-col gap-1 rounded-sm border p-3 text-left text-sm hover:bg-muted",
+                    template === choice.id
+                      ? "border-primary ring-1 ring-primary"
+                      : "border-border",
+                  )}
+                >
+                  <span className="font-medium">{choice.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {choice.description}
+                  </span>
+                  {choice.tables.length > 0 ? (
+                    <span className="text-xs text-muted-foreground">
+                      {choice.tables.join(" · ")}
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          {/* A backup dropped here is read at once. */}
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-x-3 gap-y-1 rounded-sm border border-dashed px-3 py-2 text-sm",
+              dragging
+                ? "border-primary bg-accent/40"
+                : "border-border text-muted-foreground",
+            )}
+            {...dropFile}
+          >
+            <FileUp className="h-4 w-4 shrink-0" aria-hidden />
+            <span>{t`Or import a base:`}</span>
+            <button
+              type="button"
+              className="text-primary underline-offset-2 hover:underline"
+              onClick={() => choose("backup")}
+            >
+              {t`from a backup file`}
+            </button>
+            <button
+              type="button"
+              className="text-primary underline-offset-2 hover:underline"
+              onClick={() => choose("airtable")}
+            >
+              {t`from Airtable`}
+            </button>
+          </div>
+        </>
+      ) : null}
+      {source === "backup" ? (
+        <div className="flex flex-col gap-2">
+          <div
+            className={cn(
+              "flex flex-col items-center gap-2 rounded-sm border border-dashed p-4 text-center text-sm",
+              dragging
+                ? "border-primary bg-accent/40"
+                : "border-border text-muted-foreground",
+            )}
+            {...dropFile}
+          >
+            <FileUp className="h-5 w-5" aria-hidden />
+            <p>
+              {staged
+                ? t`File ready: ${{
+                    summary: [
+                      plural(staged.tables, {
+                        one: `# table`,
+                        other: `# tables`,
+                      }),
+                      plural(staged.rows, { one: `# row`, other: `# rows` }),
+                      plural(staged.files, {
+                        one: `# file`,
+                        other: `# files`,
+                      }),
+                    ].join(", "),
+                  }}. You can change the name above.`
+                : t`Drop a backup (.anygriddb.json or .anygriddb.zip) to import a base.`}
+            </p>
+            {staged && staged.members > 0 ? (
+              <label className="flex items-center gap-2 text-left text-xs text-foreground">
+                <input
+                  type="checkbox"
+                  checked={restoreMembers}
+                  onChange={(event) => setRestoreMembers(event.target.checked)}
+                />
+                {plural(staged.members, {
+                  one: "Give the member their role back, if they have an account here",
+                  other: `Give their role back to the # members who have an account here`,
+                })}
+              </label>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => fileRef.current?.click()}
+            >
+              {t`Choose a file`}
+            </Button>
+          </div>
+          {backToStart}
+        </div>
+      ) : null}
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".json,.zip,application/json,application/zip"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
           if (file) void upload(file);
         }}
-      >
-        <FileUp className="h-5 w-5" aria-hidden />
-        <p>
-          {staged
-            ? t`File ready: ${{
-                summary: [
-                  plural(staged.tables, { one: `# table`, other: `# tables` }),
-                  plural(staged.rows, { one: `# row`, other: `# rows` }),
-                  plural(staged.files, { one: `# file`, other: `# files` }),
-                ].join(", "),
-              }}. You can change the name above.`
-            : t`Or drop a backup (.anygriddb.json or .anygriddb.zip) to import a base.`}
-        </p>
-        {staged && staged.members > 0 ? (
-          <label className="flex items-center gap-2 text-left text-xs text-foreground">
-            <input
-              type="checkbox"
-              checked={restoreMembers}
-              onChange={(event) => setRestoreMembers(event.target.checked)}
+      />
+      {airtable ? (
+        <div className="flex flex-col gap-2 text-sm">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="airtable-base">{t`Airtable base (address or app… id)`}</Label>
+            <Input
+              id="airtable-base"
+              value={airtableBase}
+              placeholder="https://airtable.com/app…"
+              onChange={(event) => setAirtableBase(event.target.value)}
             />
-            {plural(staged.members, {
-              one: "Give the member their role back, if they have an account here",
-              other: `Give their role back to the # members who have an account here`,
-            })}
-          </label>
-        ) : null}
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={busy}
-          onClick={() => fileRef.current?.click()}
-        >
-          {t`Choose a file`}
-        </Button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".json,.zip,application/json,application/zip"
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            event.target.value = "";
-            if (file) void upload(file);
-          }}
-        />
-      </div>
-      <div className="flex flex-col gap-2 rounded-sm border border-border p-3 text-sm">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={airtable}
-            onChange={(event) => setAirtable(event.target.checked)}
-          />
-          {t`Import an Airtable base`}
-        </label>
-        {airtable ? (
-          <>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="airtable-base">{t`Airtable base (address or app… id)`}</Label>
-              <Input
-                id="airtable-base"
-                value={airtableBase}
-                placeholder="https://airtable.com/app…"
-                onChange={(event) => setAirtableBase(event.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="airtable-token">{t`Personal access token`}</Label>
-              <Input
-                id="airtable-token"
-                type="password"
-                autoComplete="off"
-                value={airtableToken}
-                placeholder="pat…"
-                onChange={(event) => setAirtableToken(event.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                {t`Create it in Airtable with data.records:read and schema.bases:read on this base. AnyGridDB uses it, encrypted, for the import only, then forgets it. Attachments, view filters, and rollup calculations do not come over: the report will say so.`}
-              </p>
-            </div>
-          </>
-        ) : null}
-      </div>
-      {!staged && !airtable ? (
-        <fieldset className="flex min-h-0 flex-col gap-1">
-          <legend className="mb-1 text-xs font-medium text-muted-foreground">
-            {t`Starting point`}
-          </legend>
-          {templates.isLoading ? <Spinner /> : null}
-          <div
-            role="radiogroup"
-            className="grid max-h-[46vh] grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2"
-          >
-            {choices.map((choice) => (
-              <button
-                key={choice.id || "empty"}
-                type="button"
-                role="radio"
-                aria-checked={template === choice.id}
-                onClick={() => pick(choice.id, choice.name)}
-                className={cn(
-                  "flex flex-col gap-1 rounded-sm border p-3 text-left text-sm hover:bg-muted",
-                  template === choice.id
-                    ? "border-primary ring-1 ring-primary"
-                    : "border-border",
-                )}
-              >
-                <span className="font-medium">{choice.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {choice.description}
-                </span>
-                {choice.tables.length > 0 ? (
-                  <span className="text-xs text-muted-foreground">
-                    {choice.tables.join(" · ")}
-                  </span>
-                ) : null}
-              </button>
-            ))}
           </div>
-        </fieldset>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="airtable-token">{t`Personal access token`}</Label>
+            <Input
+              id="airtable-token"
+              type="password"
+              autoComplete="off"
+              value={airtableToken}
+              placeholder="pat…"
+              onChange={(event) => setAirtableToken(event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t`Create it in Airtable with data.records:read and schema.bases:read on this base. AnyGridDB uses it, encrypted, for the import only, then forgets it. Attachments, view filters, and rollup calculations do not come over: the report will say so.`}
+            </p>
+          </div>
+          {backToStart}
+        </div>
       ) : null}
       <DialogFooter>
         <Button variant="ghost" onClick={() => props.onOpenChange(false)}>
           {t`Cancel`}
         </Button>
-        <Button type="submit" disabled={busy || !name.trim()}>
+        <Button
+          type="submit"
+          disabled={
+            busy ||
+            !name.trim() ||
+            (source === "backup" && !staged) ||
+            (airtable && (!airtableBase.trim() || !airtableToken.trim()))
+          }
+        >
           {busy ? <Spinner /> : null}
-          {staged ? t`Import` : t`Create`}
+          {source === "start" ? t`Create` : t`Import`}
         </Button>
       </DialogFooter>
     </form>

@@ -206,7 +206,9 @@ export function HomePage() {
             : undefined
         }
         action={
-          session.data?.canCreateBases === false ? null : (
+          // An empty desk has its own invitation below: one button, not two.
+          session.data?.canCreateBases === false ||
+          (catalog.isSuccess && bases.length === 0) ? null : (
             <Button onClick={() => setCreating(true)}>
               <Plus className="h-4 w-4" aria-hidden />
               {t`New base`}
