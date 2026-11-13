@@ -29,7 +29,7 @@ jobs:
     timeout-minutes: 75
     permissions:
       contents: read
-      actions: read
+      actions: read # reads main's CI runs on the tagged commit
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
@@ -40,6 +40,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Version from tag
@@ -121,12 +122,14 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
-      packages: write
+      packages: write # pushes the architecture's image by digest
     env:
       SOURCE_DATE_EPOCH: ${{ needs.checks.outputs.epoch }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -236,12 +239,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: write
-      packages: write
+      contents: write # creates the GitHub Release and attaches the pin file
+      packages: write # tags the multi-architecture image, and pushes its attestation
+      id-token: write # signs the provenance attestation with a short-lived identity
+      attestations: write # stores that attestation with the repository
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: The digests of both builds
@@ -303,6 +309,16 @@ jobs:
           } > "$RUNNER_TEMP/image-pin.env"
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
           echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      # Which workflow, commit, and run built the image, signed by GitHub
+      # for that run alone: `gh attestation verify oci://IMAGE@DIGEST
+      # --repo anygriddb/anygriddb` (docs/operations.md).
+      - name: Attest its provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.pin.outputs.digest }}
+          push-to-registry: true
 
       - name: Release notes from annotated tag
         env:

@@ -30,6 +30,11 @@ that broke showed only after the merge.
 - **The image tested is the image pushed:** the push rebuilds from the
   same cache at the commit's time (`SOURCE_DATE_EPOCH`), so the bytes do
   not change between the two.
+- **Its provenance attested:** the published image carries an
+  attestation, signed by GitHub for that run alone, of the workflow,
+  commit, and run that built it; operators check it with
+  `gh attestation verify` before installing. The push itself uses the
+  run's own token, which expires with it: no lasting secret.
 - **A rehearsal:** run by hand on a commit of `main`, the workflow does
   everything but log in and publish.
 - **Every pull request builds the image and starts it** (CI's `image`

@@ -208,14 +208,18 @@ PRs (npm, GitHub Actions, Docker) and writes its own messages.
 The repository's rulesets, set on GitHub rather than in this tree, protect
 `main`: pull request, squash merge only, signed commits, no force-push or
 deletion, and these checks from GitHub Actions (job names as GitHub reports
-them): `unit`, `integration`, `e2e`, `commits`, `codeql`,
-`dependency-review`. CI's `image` job builds the image of every pull
-request and starts it as an operator does (`scripts/smoke-image.sh`).
-Only maintainers create, move, or delete `v*` tags.
+them): `ci-ok`, `commits`, `codeql`, `dependency-review`. `ci-ok` passes
+only when every job of CI passed: `unit`, `integration`, `e2e`, and
+`image`, which builds the image of every pull request and starts it as an
+operator does (`scripts/smoke-image.sh`). A job added to CI joins `ci-ok`,
+not the ruleset. Only maintainers create, move, or delete `v*` tags.
 Workflows pin each action to a commit SHA and may use actions from GitHub and
-an allowlist; a new third-party action needs a maintainer to add it. Trivy
-scans the image's system packages on `main` and weekly. Secrets belong in
-GitHub Actions secrets or `docker/.env`, never in the tree.
+an allowlist; a new third-party action needs a maintainer to add it. Their
+jobs get the permissions they use and no more, and a checkout keeps no
+token. `Workflows` checks them with actionlint and zizmor whenever one
+changes (`scripts/lint-workflows.sh`). Trivy scans the image's system
+packages on `main` and weekly. Secrets belong in GitHub Actions secrets or
+`docker/.env`, never in the tree.
 
 ## Releases
 

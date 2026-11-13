@@ -26,6 +26,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
           filter: blob:none
 
@@ -75,6 +76,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
           filter: blob:none
 
@@ -118,6 +120,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
           filter: blob:none
 
@@ -171,6 +174,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -188,3 +193,25 @@ jobs:
 
       - name: Start it as an operator would
         run: scripts/smoke-image.sh
+
+  # The one check the ruleset needs from this workflow: it passes only when
+  # every job above passed, so a new job never means a new required check.
+  ci-ok:
+    name: ci-ok
+    if: always()
+    needs: [unit, integration, e2e, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          set -eu
+          echo "unit integration e2e image: $RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" != "success" ]; then
+              echo "a job ended $result" >&2
+              exit 1
+            fi
+          done
