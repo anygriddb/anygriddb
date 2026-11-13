@@ -42,6 +42,7 @@ export const ERRORS = {
   // Catalog.
   unknown_base: [BAD, "Unknown base"],
   unknown_table: [BAD, "Unknown table"],
+  unknown_folder: [BAD, "Unknown folder"],
   unknown_view: [BAD, "Unknown view"],
   unknown_column: [BAD, "Unknown column"],
   unknown_dashboard: [BAD, "Unknown dashboard"],
@@ -53,6 +54,8 @@ export const ERRORS = {
   share_password_required: [BAD, "Share password required"],
   unknown_template: [BAD, "Unknown template"],
   table_already_exists: [409, "Table already exists"],
+  folder_already_exists: [409, "Folder already exists"],
+  folder_wrong_base: [BAD, "Folder is not in this base"],
   column_already_exists: [409, "Column already exists"],
   column_in_use: [BAD, "Column in use"],
   column_is_read_only: [BAD, "Column is read-only"],

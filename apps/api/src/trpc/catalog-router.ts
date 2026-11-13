@@ -122,6 +122,21 @@ import {
 } from "../data/rows.js";
 import { liveBase, liveColumnNames, liveTable } from "../data/live.js";
 import {
+  createFolder,
+  createFolderInputSchema,
+  deleteFolder,
+  deleteFolderInputSchema,
+  listFolders,
+  moveTableToFolder,
+  moveTableToFolderInputSchema,
+  reorderFolderTables,
+  reorderFolderTablesInputSchema,
+  reorderFolders,
+  reorderFoldersInputSchema,
+  updateFolder,
+  updateFolderInputSchema,
+} from "../data/folders.js";
+import {
   addColumn,
   insertBase,
   insertTable,
@@ -458,6 +473,10 @@ export const catalogRouter = t.router({
               .execute()
         ).map((sync) => [sync.tableId, sync]),
       );
+      const folders = await listFolders(
+        ctx.db,
+        baseRows.map((base) => base.id),
+      );
       return baseRows
         .sort(
           (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
@@ -467,6 +486,18 @@ export const catalogRouter = t.router({
           name: base.name,
           description: base.description,
           role: roleFor(bindings, "base", base.id),
+          folders: folders
+            .filter((folder) => folder.baseId === base.id)
+            .sort(
+              (left, right) =>
+                left.position - right.position ||
+                left.name.localeCompare(right.name),
+            )
+            .map((folder) => ({
+              id: folder.id,
+              name: folder.name,
+              position: folder.position,
+            })),
           tables: rows.tables
             .filter(
               (table) =>
@@ -487,6 +518,7 @@ export const catalogRouter = t.router({
                 name: table.name,
                 description: table.description,
                 position: table.position,
+                folderId: table.folderId,
                 role: effectiveTableRole(bindings, table.id, table.baseId),
                 // A client's table (ADR 0006): read where it lives.
                 external:
@@ -849,6 +881,86 @@ export const catalogRouter = t.router({
       handle(ctx, async () => {
         const { user } = await guardBase(ctx, input.baseId, "manage");
         await reorderTables(ctx.db, user.id, input.baseId, input.order);
+        await publishCatalog(ctx.bus, input.baseId, logPublish(ctx));
+        return { ok: true as const };
+      }),
+    ),
+  createFolder: procedure
+    .input(createFolderInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const folder = await createFolder(ctx.db, user.id, input);
+        await publishCatalog(ctx.bus, input.baseId, logPublish(ctx));
+        return folder;
+      }),
+    ),
+  updateFolder: procedure
+    .input(updateFolderInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const folder = await ctx.db
+          .selectFrom("tableFolders")
+          .select(["id", "baseId", "deletedAt"])
+          .where("id", "=", input.folderId)
+          .executeTakeFirst();
+        if (!folder || folder.deletedAt) throw new AppError("unknown_folder");
+        const { user } = await guardBase(ctx, folder.baseId, "manage");
+        const updated = await updateFolder(ctx.db, user.id, input);
+        await publishCatalog(ctx.bus, folder.baseId, logPublish(ctx));
+        return updated;
+      }),
+    ),
+  deleteFolder: procedure
+    .input(deleteFolderInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const folder = await ctx.db
+          .selectFrom("tableFolders")
+          .select(["id", "baseId", "deletedAt"])
+          .where("id", "=", input.folderId)
+          .executeTakeFirst();
+        if (!folder || folder.deletedAt) throw new AppError("unknown_folder");
+        const { user } = await guardBase(ctx, folder.baseId, "manage");
+        await deleteFolder(ctx.db, user.id, input.folderId);
+        await publishCatalog(ctx.bus, folder.baseId, logPublish(ctx));
+        return { ok: true as const };
+      }),
+    ),
+  moveTableToFolder: procedure
+    .input(moveTableToFolderInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user, table } = await guardTable(ctx, input.tableId, "manage");
+        await guardBase(ctx, table.baseId, "manage");
+        await moveTableToFolder(ctx.db, user.id, input);
+        await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
+        return { ok: true as const };
+      }),
+    ),
+  reorderFolders: procedure
+    .input(reorderFoldersInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user } = await guardBase(ctx, input.baseId, "manage");
+        await reorderFolders(ctx.db, user.id, input.baseId, input.order);
+        await publishCatalog(ctx.bus, input.baseId, logPublish(ctx));
+        return { ok: true as const };
+      }),
+    ),
+  reorderFolderTables: procedure
+    .input(reorderFolderTablesInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const folder = await ctx.db
+          .selectFrom("tableFolders")
+          .select(["id", "baseId", "deletedAt"])
+          .where("id", "=", input.folderId)
+          .executeTakeFirst();
+        if (!folder || folder.deletedAt) throw new AppError("unknown_folder");
+        const { user } = await guardBase(ctx, folder.baseId, "manage");
+        await reorderFolderTables(ctx.db, user.id, input.folderId, input.order);
+        await publishCatalog(ctx.bus, folder.baseId, logPublish(ctx));
         return { ok: true as const };
       }),
     ),

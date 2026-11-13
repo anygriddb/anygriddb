@@ -43,6 +43,9 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
 
   unknown_base: msg`Base not found`,
   unknown_table: msg`Table not found`,
+  unknown_folder: msg`Folder not found`,
+  folder_already_exists: msg`A folder already has this name`,
+  folder_wrong_base: msg`That folder is not in this base`,
   unknown_view: msg`View not found`,
   unknown_column: msg`Unknown field`,
   unknown_dashboard: msg`Dashboard not found`,
