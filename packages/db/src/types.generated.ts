@@ -323,6 +323,7 @@ export interface DataTables {
   externalSchema: string | null;
   externalSide: string | null;
   externalUpdate: Generated<boolean>;
+  folderId: string | null;
   id: Generated<string>;
   name: string;
   physicalName: string;
@@ -739,6 +740,16 @@ export interface TableAcls {
   userId: string;
 }
 
+export interface TableFolders {
+  baseId: string;
+  createdAt: Generated<Timestamp>;
+  deletedAt: Timestamp | null;
+  deletedBy: string | null;
+  id: Generated<string>;
+  name: string;
+  position: Generated<number>;
+}
+
 export interface TotpSecrets {
   ciphertext: Buffer;
   confirmedAt: Timestamp | null;
@@ -889,6 +900,7 @@ export interface DB {
   ssoIdentities: SsoIdentities;
   stagedUploads: StagedUploads;
   tableAcls: TableAcls;
+  tableFolders: TableFolders;
   totpSecrets: TotpSecrets;
   users: Users;
   views: Views;

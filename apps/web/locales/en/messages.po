@@ -698,6 +698,10 @@ msgstr "A field of the linked rows"
 msgid "A file could not be attached. Add it again."
 msgstr "A file could not be attached. Add it again."
 
+#: lib/errors.ts
+msgid "A folder already has this name"
+msgstr "A folder already has this name"
+
 #: components/table/automations-dialog.tsx
 msgid "A form is submitted"
 msgstr "A form is submitted"
@@ -1000,6 +1004,10 @@ msgstr "Add a first row on the line above, or bring the rows of a CSV, Excel, or
 #: components/table/table-workspace.tsx
 msgid "Add a first row on the line above."
 msgstr "Add a first row on the line above."
+
+#: components/shell/sidebar.tsx
+msgid "Add a folder"
+msgstr "Add a folder"
 
 #: components/table/filter-builder.tsx
 msgid "Add a group"
@@ -2011,6 +2019,10 @@ msgstr "Collaborator"
 msgid "Collapse"
 msgstr "Collapse"
 
+#: components/shell/sidebar.tsx
+msgid "Collapse {name}"
+msgstr "Collapse {name}"
+
 #: components/grid/grid-view.tsx
 msgid "Collapse all"
 msgstr "Collapse all"
@@ -2566,6 +2578,10 @@ msgstr "Delete base"
 msgid "Delete field"
 msgstr "Delete field"
 
+#: components/shell/sidebar.tsx
+msgid "Delete folder"
+msgstr "Delete folder"
+
 #: components/shell/trash-dialog.tsx
 #: components/shell/trashed-bases.tsx
 msgid "Delete permanently"
@@ -2600,6 +2616,10 @@ msgstr "Delete the base “{name}”?"
 #: components/table/table-workspace.tsx
 msgid "Delete the field “{name}”?"
 msgstr "Delete the field “{name}”?"
+
+#: components/shell/sidebar.tsx
+msgid "Delete the folder “{name}”?"
+msgstr "Delete the folder “{name}”?"
 
 #: components/admin/sources-tab.tsx
 msgid "Delete the source {name}?"
@@ -3205,6 +3225,10 @@ msgstr "Existing rows"
 msgid "Expand"
 msgstr "Expand"
 
+#: components/shell/sidebar.tsx
+msgid "Expand {name}"
+msgstr "Expand {name}"
+
 #: components/grid/grid-view.tsx
 msgid "Expand all"
 msgstr "Expand all"
@@ -3489,6 +3513,18 @@ msgstr "Fit"
 #: components/fields/field-editor.tsx
 msgid "Flag"
 msgstr "Flag"
+
+#: components/shell/sidebar.tsx
+msgid "Folder actions"
+msgstr "Folder actions"
+
+#: components/shell/sidebar.tsx
+msgid "Folder name"
+msgstr "Folder name"
+
+#: lib/errors.ts
+msgid "Folder not found"
+msgstr "Folder not found"
 
 #: components/admin/security-tab.tsx
 msgid "For"
@@ -4306,6 +4342,10 @@ msgstr "Its address stops working now; its owner can make a new one. The view st
 msgid "Its condition reads a field placed after it: it is ignored."
 msgstr "Its condition reads a field placed after it: it is ignored."
 
+#: components/shell/sidebar.tsx
+msgid "Its tables stay in the base, back at the root. The folder itself is removed."
+msgstr "Its tables stay in the base, back at the root. The folder itself is removed."
+
 #: components/admin/support-tab.tsx
 #: lib/errors.ts
 #: lib/jobs.tsx
@@ -4877,6 +4917,10 @@ msgstr "Move between cells"
 msgid "Move down"
 msgstr "Move down"
 
+#: components/shell/sidebar.tsx
+msgid "Move out of folder"
+msgstr "Move out of folder"
+
 #: components/grid/grid-view.tsx
 msgid "Move the row down"
 msgstr "Move the row down"
@@ -4884,6 +4928,10 @@ msgstr "Move the row down"
 #: components/grid/grid-view.tsx
 msgid "Move the row up"
 msgstr "Move the row up"
+
+#: components/shell/sidebar.tsx
+msgid "Move to {name}"
+msgstr "Move to {name}"
 
 #: components/shell/sidebar.tsx
 msgid "Move up"
@@ -4988,6 +5036,10 @@ msgstr "New dashboard"
 #: components/table/import-dialog.tsx
 msgid "New field"
 msgstr "New field"
+
+#: components/shell/sidebar.tsx
+msgid "New folder in {name}"
+msgstr "New folder in {name}"
 
 #: components/fields/field-editor.tsx
 msgid "New option"
@@ -6318,6 +6370,10 @@ msgstr "Rename"
 #: components/shell/sidebar.tsx
 msgid "Rename base"
 msgstr "Rename base"
+
+#: components/shell/sidebar.tsx
+msgid "Rename folder"
+msgstr "Rename folder"
 
 #: components/shell/sidebar.tsx
 msgid "Rename table"
@@ -7698,6 +7754,10 @@ msgstr "Texts read the row's id and, for an AnyGridDB table, its values from bef
 #: components/views/form-view.tsx
 msgid "Thank you, your response was saved."
 msgstr "Thank you, your response was saved."
+
+#: lib/errors.ts
+msgid "That folder is not in this base"
+msgstr "That folder is not in this base"
 
 #: components/table/automations-dialog.tsx
 msgid "That match (optional):"

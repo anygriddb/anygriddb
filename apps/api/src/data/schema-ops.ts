@@ -328,6 +328,7 @@ export async function insertTable(
     physicalName,
     description: null,
     position: 0,
+    folderId: null,
     createdAt: new Date(),
     deletedAt: null,
     deletedBy: null,
@@ -360,6 +361,8 @@ export async function insertTable(
         .selectFrom("dataTables")
         .select(sqlTag<number>`count(*)::int`.as("count"))
         .where("baseId", "=", input.baseId)
+        .where("folderId", "is", null)
+        .where(liveTable())
         .executeTakeFirst();
       const table = await tx
         .insertInto("dataTables")
@@ -369,6 +372,7 @@ export async function insertTable(
           physicalName,
           description: input.description ?? null,
           position: counted?.count ?? 0,
+          folderId: null,
         })
         .returningAll()
         .executeTakeFirst();
@@ -453,6 +457,7 @@ export async function updateTable(
   }
 }
 
+/** Reorders tables at the root of the base (not inside a folder). */
 export async function reorderTables(
   db: Database,
   userId: string,
@@ -463,6 +468,7 @@ export async function reorderTables(
     .selectFrom("dataTables")
     .select("id")
     .where("baseId", "=", baseId)
+    .where("folderId", "is", null)
     .where(liveTable())
     .execute();
   const ids = new Set(existing.map((row) => row.id));

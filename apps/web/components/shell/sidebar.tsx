@@ -19,6 +19,7 @@ import {
   CopyPlus,
   FileUp,
   Database,
+  Folder,
   LayoutDashboard,
   MoreHorizontal,
   Pencil,
@@ -68,11 +69,16 @@ import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { useSnapshotGaps } from "../../lib/snapshot-report";
 
+type CatalogFolder = CatalogBase["folders"][number];
+
 type Dialog =
   | { kind: "create-base" }
   | { kind: "rename-base"; base: CatalogBase }
   | { kind: "delete-base"; base: CatalogBase }
   | { kind: "create-table"; base: CatalogBase }
+  | { kind: "create-folder"; base: CatalogBase }
+  | { kind: "rename-folder"; base: CatalogBase; folder: CatalogFolder }
+  | { kind: "delete-folder"; base: CatalogBase; folder: CatalogFolder }
   | { kind: "rename-table"; table: CatalogTable }
   | { kind: "delete-table"; table: CatalogTable; base: CatalogBase }
   | { kind: "import"; base: CatalogBase }
@@ -84,6 +90,126 @@ export function useInvalidateCatalog() {
   const api = useTRPC();
   return () =>
     queryClient.invalidateQueries({ queryKey: api.catalog.list.queryKey() });
+}
+
+/** One table line in the sidebar, at the root or inside a folder. */
+function SidebarTableRow(props: {
+  base: CatalogBase;
+  table: CatalogTable;
+  index: number;
+  siblings: readonly CatalogTable[];
+  manage: boolean;
+  active: boolean;
+  pinned: boolean;
+  onPin: () => void;
+  onRename: () => void;
+  onMove: (delta: number) => void;
+  onDuplicate: (withData: boolean) => void;
+  onDelete: () => void;
+  onMoveToFolder: (folderId: string | null) => void;
+}) {
+  const { t } = useLingui();
+  const {
+    base,
+    table,
+    index,
+    siblings,
+    manage,
+    active,
+    pinned,
+    onPin,
+    onRename,
+    onMove,
+    onDuplicate,
+    onDelete,
+    onMoveToFolder,
+  } = props;
+  return (
+    <li>
+      <div
+        className={cn(
+          "group flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm hover:bg-muted",
+          active && "bg-accent text-accent-foreground",
+        )}
+      >
+        <Table2 className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+        <Link
+          to="/b/$baseId/t/$tableId/{-$viewId}"
+          params={{ baseId: base.id, tableId: table.id }}
+          className="min-w-0 flex-1 truncate"
+        >
+          {table.name}
+        </Link>
+        <PinButton pinned={pinned} name={table.name} onToggle={onPin} />
+        {manage ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
+              aria-label={t`Table actions`}
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onSelect={onRename}>
+                <Pencil className="h-4 w-4" aria-hidden />
+                {t`Rename`}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={index === 0}
+                onSelect={() => onMove(-1)}
+              >
+                <ArrowUp className="h-4 w-4" aria-hidden />
+                {t`Move up`}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={index === siblings.length - 1}
+                onSelect={() => onMove(1)}
+              >
+                <ArrowDown className="h-4 w-4" aria-hidden />
+                {t`Move down`}
+              </DropdownMenuItem>
+              {base.folders.length > 0 || table.folderId ? (
+                <>
+                  <DropdownMenuSeparator />
+                  {table.folderId ? (
+                    <DropdownMenuItem onSelect={() => onMoveToFolder(null)}>
+                      <Folder className="h-4 w-4" aria-hidden />
+                      {t`Move out of folder`}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {base.folders
+                    .filter((folder) => folder.id !== table.folderId)
+                    .map((folder) => (
+                      <DropdownMenuItem
+                        key={folder.id}
+                        onSelect={() => onMoveToFolder(folder.id)}
+                      >
+                        <Folder className="h-4 w-4" aria-hidden />
+                        {t`Move to ${{ name: folder.name }}`}
+                      </DropdownMenuItem>
+                    ))}
+                </>
+              ) : null}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => onDuplicate(false)}>
+                <Copy className="h-4 w-4" aria-hidden />
+                {t`Duplicate structure`}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onDuplicate(true)}>
+                <CopyPlus className="h-4 w-4" aria-hidden />
+                {t`Duplicate with rows`}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem danger onSelect={onDelete}>
+                <Trash2 className="h-4 w-4" aria-hidden />
+                {t`Delete table`}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
+    </li>
+  );
 }
 
 /** Pins or unpins a base or a table for its reader, from the sidebar. */
@@ -256,16 +382,38 @@ export function Sidebar({
   async function moveTable(
     base: CatalogBase,
     table: CatalogTable,
+    siblings: readonly CatalogTable[],
     delta: number,
   ) {
-    const order = base.tables.map((item) => item.id);
+    const order = siblings.map((item) => item.id);
     const index = order.indexOf(table.id);
     const target = index + delta;
     if (index < 0 || target < 0 || target >= order.length) return;
     const [moved] = order.splice(index, 1);
     if (moved) order.splice(target, 0, moved);
     await act(() =>
-      trpc.catalog.reorderTables.mutate({ baseId: base.id, order }),
+      table.folderId
+        ? trpc.catalog.reorderFolderTables.mutate({
+            folderId: table.folderId,
+            order,
+          })
+        : trpc.catalog.reorderTables.mutate({ baseId: base.id, order }),
+    );
+  }
+
+  async function moveFolder(
+    base: CatalogBase,
+    folder: CatalogFolder,
+    delta: number,
+  ) {
+    const order = base.folders.map((item) => item.id);
+    const index = order.indexOf(folder.id);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= order.length) return;
+    const [moved] = order.splice(index, 1);
+    if (moved) order.splice(target, 0, moved);
+    await act(() =>
+      trpc.catalog.reorderFolders.mutate({ baseId: base.id, order }),
     );
   }
 
@@ -552,121 +700,234 @@ export function Sidebar({
                 </div>
                 {open ? (
                   <ul className="ml-5 flex flex-col gap-0.5 border-l border-border pl-2">
-                    {base.tables.map((table, index) => (
-                      <li key={table.id}>
-                        <div
-                          className={cn(
-                            "group flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm hover:bg-muted",
-                            params.tableId === table.id &&
-                              "bg-accent text-accent-foreground",
-                          )}
-                        >
-                          <Table2
-                            className="h-3.5 w-3.5 shrink-0 opacity-70"
-                            aria-hidden
-                          />
-                          <Link
-                            to="/b/$baseId/t/$tableId/{-$viewId}"
-                            params={{ baseId: base.id, tableId: table.id }}
-                            className="min-w-0 flex-1 truncate"
-                          >
-                            {table.name}
-                          </Link>
-                          <PinButton
-                            pinned={shortcuts.pinnedTables.has(table.id)}
-                            name={table.name}
-                            onToggle={() =>
-                              void shortcuts.setPinned(
-                                { tableId: table.id },
-                                !shortcuts.pinnedTables.has(table.id),
-                              )
-                            }
-                          />
-                          {manage ? (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger
-                                className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                aria-label={t`Table actions`}
-                              >
-                                <MoreHorizontal className="h-3.5 w-3.5" />
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent>
-                                <DropdownMenuItem
-                                  onSelect={() =>
+                    {base.folders.map((folder, folderIndex) => {
+                      const inFolder = base.tables.filter(
+                        (table) => table.folderId === folder.id,
+                      );
+                      const folderOpen = !collapsed.has(folder.id);
+                      return (
+                        <li key={folder.id}>
+                          <div className="group flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm hover:bg-muted">
+                            <button
+                              type="button"
+                              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                              aria-expanded={folderOpen}
+                              aria-label={
+                                folderOpen
+                                  ? t`Collapse ${{ name: folder.name }}`
+                                  : t`Expand ${{ name: folder.name }}`
+                              }
+                              onClick={() =>
+                                setCollapsed((current) => {
+                                  const next = new Set(current);
+                                  if (next.has(folder.id))
+                                    next.delete(folder.id);
+                                  else next.add(folder.id);
+                                  return next;
+                                })
+                              }
+                            >
+                              {folderOpen ? (
+                                <ChevronDown
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden
+                                />
+                              ) : (
+                                <ChevronRight
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden
+                                />
+                              )}
+                            </button>
+                            <Folder
+                              className="h-3.5 w-3.5 shrink-0 opacity-70"
+                              aria-hidden
+                            />
+                            <span className="min-w-0 flex-1 truncate font-medium">
+                              {folder.name}
+                            </span>
+                            {manage ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger
+                                  className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                  aria-label={t`Folder actions`}
+                                >
+                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem
+                                    onSelect={() =>
+                                      setDialog({
+                                        kind: "rename-folder",
+                                        base,
+                                        folder,
+                                      })
+                                    }
+                                  >
+                                    <Pencil className="h-4 w-4" aria-hidden />
+                                    {t`Rename`}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={folderIndex === 0}
+                                    onSelect={() =>
+                                      void moveFolder(base, folder, -1)
+                                    }
+                                  >
+                                    <ArrowUp className="h-4 w-4" aria-hidden />
+                                    {t`Move up`}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={
+                                      folderIndex === base.folders.length - 1
+                                    }
+                                    onSelect={() =>
+                                      void moveFolder(base, folder, 1)
+                                    }
+                                  >
+                                    <ArrowDown
+                                      className="h-4 w-4"
+                                      aria-hidden
+                                    />
+                                    {t`Move down`}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    danger
+                                    onSelect={() =>
+                                      setDialog({
+                                        kind: "delete-folder",
+                                        base,
+                                        folder,
+                                      })
+                                    }
+                                  >
+                                    <Trash2 className="h-4 w-4" aria-hidden />
+                                    {t`Delete folder`}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : null}
+                          </div>
+                          {folderOpen ? (
+                            <ul className="ml-4 flex flex-col gap-0.5 border-l border-border pl-2">
+                              {inFolder.map((table, index) => (
+                                <SidebarTableRow
+                                  key={table.id}
+                                  base={base}
+                                  table={table}
+                                  index={index}
+                                  siblings={inFolder}
+                                  manage={manage}
+                                  active={params.tableId === table.id}
+                                  pinned={shortcuts.pinnedTables.has(table.id)}
+                                  onPin={() =>
+                                    void shortcuts.setPinned(
+                                      { tableId: table.id },
+                                      !shortcuts.pinnedTables.has(table.id),
+                                    )
+                                  }
+                                  onRename={() =>
                                     setDialog({ kind: "rename-table", table })
                                   }
-                                >
-                                  <Pencil className="h-4 w-4" aria-hidden />
-                                  {t`Rename`}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  disabled={index === 0}
-                                  onSelect={() =>
-                                    void moveTable(base, table, -1)
+                                  onMove={(delta) =>
+                                    void moveTable(base, table, inFolder, delta)
                                   }
-                                >
-                                  <ArrowUp className="h-4 w-4" aria-hidden />
-                                  {t`Move up`}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  disabled={index === base.tables.length - 1}
-                                  onSelect={() =>
-                                    void moveTable(base, table, 1)
+                                  onDuplicate={(withData) =>
+                                    void duplicate(base, table, withData)
                                   }
-                                >
-                                  <ArrowDown className="h-4 w-4" aria-hidden />
-                                  {t`Move down`}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onSelect={() =>
-                                    void duplicate(base, table, false)
-                                  }
-                                >
-                                  <Copy className="h-4 w-4" aria-hidden />
-                                  {t`Duplicate structure`}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onSelect={() =>
-                                    void duplicate(base, table, true)
-                                  }
-                                >
-                                  <CopyPlus className="h-4 w-4" aria-hidden />
-                                  {t`Duplicate with rows`}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  danger
-                                  onSelect={() =>
+                                  onDelete={() =>
                                     setDialog({
                                       kind: "delete-table",
                                       table,
                                       base,
                                     })
                                   }
-                                >
-                                  <Trash2 className="h-4 w-4" aria-hidden />
-                                  {t`Delete table`}
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                                  onMoveToFolder={(folderId) =>
+                                    void act(() =>
+                                      trpc.catalog.moveTableToFolder.mutate({
+                                        tableId: table.id,
+                                        folderId,
+                                      }),
+                                    )
+                                  }
+                                />
+                              ))}
+                            </ul>
                           ) : null}
-                        </div>
-                      </li>
-                    ))}
-                    {manage ? (
-                      <li>
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-muted-foreground hover:bg-muted"
-                          onClick={() =>
-                            setDialog({ kind: "create-table", base })
+                        </li>
+                      );
+                    })}
+                    {base.tables
+                      .filter((table) => table.folderId === null)
+                      .map((table, index, root) => (
+                        <SidebarTableRow
+                          key={table.id}
+                          base={base}
+                          table={table}
+                          index={index}
+                          siblings={root}
+                          manage={manage}
+                          active={params.tableId === table.id}
+                          pinned={shortcuts.pinnedTables.has(table.id)}
+                          onPin={() =>
+                            void shortcuts.setPinned(
+                              { tableId: table.id },
+                              !shortcuts.pinnedTables.has(table.id),
+                            )
                           }
-                        >
-                          <Plus className="h-3.5 w-3.5" aria-hidden />
-                          {t`Add a table`}
-                        </button>
-                      </li>
+                          onRename={() =>
+                            setDialog({ kind: "rename-table", table })
+                          }
+                          onMove={(delta) =>
+                            void moveTable(base, table, root, delta)
+                          }
+                          onDuplicate={(withData) =>
+                            void duplicate(base, table, withData)
+                          }
+                          onDelete={() =>
+                            setDialog({
+                              kind: "delete-table",
+                              table,
+                              base,
+                            })
+                          }
+                          onMoveToFolder={(folderId) =>
+                            void act(() =>
+                              trpc.catalog.moveTableToFolder.mutate({
+                                tableId: table.id,
+                                folderId,
+                              }),
+                            )
+                          }
+                        />
+                      ))}
+                    {manage ? (
+                      <>
+                        <li>
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-muted-foreground hover:bg-muted"
+                            onClick={() =>
+                              setDialog({ kind: "create-folder", base })
+                            }
+                          >
+                            <Plus className="h-3.5 w-3.5" aria-hidden />
+                            {t`Add a folder`}
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-muted-foreground hover:bg-muted"
+                            onClick={() =>
+                              setDialog({ kind: "create-table", base })
+                            }
+                          >
+                            <Plus className="h-3.5 w-3.5" aria-hidden />
+                            {t`Add a table`}
+                          </button>
+                        </li>
+                      </>
                     ) : null}
                   </ul>
                 ) : null}
@@ -773,6 +1034,57 @@ export function Sidebar({
             trashed(t`Base moved to the trash`, "base", base.id);
             if (params.baseId === base.id) void navigate({ to: "/" });
           }}
+        />
+      ) : null}
+      {dialog?.kind === "create-folder" ? (
+        <PromptDialog
+          open
+          onOpenChange={(open) => !open && setDialog(null)}
+          title={t`New folder in ${{ name: dialog.base.name }}`}
+          label={t`Folder name`}
+          initial=""
+          onSubmit={(name) =>
+            act(() =>
+              trpc.catalog.createFolder.mutate({
+                baseId: dialog.base.id,
+                name,
+              }),
+            )
+          }
+        />
+      ) : null}
+      {dialog?.kind === "rename-folder" ? (
+        <PromptDialog
+          open
+          onOpenChange={(open) => !open && setDialog(null)}
+          title={t`Rename folder`}
+          label={t`Folder name`}
+          initial={dialog.folder.name}
+          onSubmit={(name) =>
+            act(() =>
+              trpc.catalog.updateFolder.mutate({
+                folderId: dialog.folder.id,
+                name,
+              }),
+            )
+          }
+        />
+      ) : null}
+      {dialog?.kind === "delete-folder" ? (
+        <ConfirmDialog
+          open
+          danger
+          onOpenChange={(open) => !open && setDialog(null)}
+          title={t`Delete the folder “${{ name: dialog.folder.name }}”?`}
+          description={t`Its tables stay in the base, back at the root. The folder itself is removed.`}
+          confirmLabel={t`Delete`}
+          onConfirm={() =>
+            act(() =>
+              trpc.catalog.deleteFolder.mutate({
+                folderId: dialog.folder.id,
+              }),
+            )
+          }
         />
       ) : null}
       {dialog?.kind === "create-table" ? (
