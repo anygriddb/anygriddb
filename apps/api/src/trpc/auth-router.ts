@@ -416,6 +416,9 @@ export const authRouter = t.router({
       tokenMaxDays: settings.tokenMaxDays,
       // What delete dialogs tell: how long the trash keeps things.
       trashDays: settings.trashDays,
+      // The basemap of map views, and the credit it asks for (ADR 0068).
+      mapTileUrl: settings.mapTileUrl,
+      mapTileCredit: settings.mapTileCredit,
       // WebAuthn RP ID needs a hostname in PUBLIC_URL (ADR 0029).
       passkeysEligible: passkeysEligible(ctx.env.PUBLIC_URL),
     };

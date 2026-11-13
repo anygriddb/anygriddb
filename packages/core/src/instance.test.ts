@@ -14,6 +14,8 @@ import {
   resolveAttachmentMaxBytes,
   sessionWindows,
   signupAllowed,
+  fillMapTileUrl,
+  mapTileOrigin,
 } from "./instance";
 
 describe("signupAllowed", () => {
@@ -195,6 +197,31 @@ describe("more policies (ADR 0044)", () => {
     expect(patch({ alertStoragePercent: 100 })).toBe(false);
     expect(patch({ alertCertificateDays: 91 })).toBe(false);
     expect(patch({ alertFailures: 1 })).toBe(true);
+  });
+
+  it("takes one tile server over HTTPS, with its three places, or none", () => {
+    expect(INSTANCE_DEFAULTS.mapTileUrl).toBeNull();
+    const template = "https://tiles.example.org/{z}/{x}/{y}.png";
+    expect(patch({ mapTileUrl: template })).toBe(true);
+    expect(patch({ mapTileUrl: null })).toBe(true);
+    for (const refused of [
+      "http://tiles.example.org/{z}/{x}/{y}.png",
+      "https://tiles.example.org/{z}/{x}.png",
+      "https://user:secret@tiles.example.org/{z}/{x}/{y}.png",
+      "tiles.example.org/{z}/{x}/{y}.png",
+      "",
+    ]) {
+      expect(patch({ mapTileUrl: refused }), refused).toBe(false);
+    }
+    expect(fillMapTileUrl(template, 13, 4149, 2818)).toBe(
+      "https://tiles.example.org/13/4149/2818.png",
+    );
+    expect(mapTileOrigin({ mapTileUrl: `${template}?key=abc` })).toBe(
+      "https://tiles.example.org",
+    );
+    expect(mapTileOrigin({ mapTileUrl: null })).toBeNull();
+    expect(patch({ mapTileCredit: "© OpenStreetMap contributors" })).toBe(true);
+    expect(patch({ mapTileCredit: "x".repeat(201) })).toBe(false);
   });
 
   it("keeps roles to the sign-up domains only when asked and when some are set", () => {

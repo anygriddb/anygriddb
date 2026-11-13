@@ -91,6 +91,40 @@ export const DEFAULT_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
 /** The largest ceiling an instance may choose, in the UI or the environment. */
 export const ATTACHMENT_MAX_BYTES_CEILING = 500 * 1024 * 1024;
 
+/** One tile's address, from the template an operator gives. */
+export function fillMapTileUrl(
+  template: string,
+  zoom: number,
+  x: number,
+  y: number,
+): string {
+  return template
+    .replaceAll("{z}", String(zoom))
+    .replaceAll("{x}", String(x))
+    .replaceAll("{y}", String(y));
+}
+
+/**
+ * Where map tiles come from (ADR 0068): an HTTPS address with `{z}`,
+ * `{x}`, and `{y}` where a tile's zoom, column, and row go, and nothing
+ * in it that signs in.
+ */
+const mapTileUrlSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((value) => {
+    if (!["{z}", "{x}", "{y}"].every((part) => value.includes(part))) {
+      return false;
+    }
+    try {
+      const url = new URL(fillMapTileUrl(value, 0, 0, 0));
+      return url.protocol === "https:" && !url.username && !url.password;
+    } catch {
+      return false;
+    }
+  });
+
 const fields = {
   signup: z.enum(SIGNUP_POLICIES),
   defaultLocale: z.enum(["fr", "en"]),
@@ -168,6 +202,13 @@ const fields = {
   alertSources: z.boolean(),
   /** Failed jobs, webhook deliveries, and automation runs in 24 hours. */
   alertFailures: z.union([z.literal(0), bounded("alertFailures")]),
+  /**
+   * The tile server map views draw their basemap from (ADR 0068); null,
+   * the default, keeps the plain projection and asks nothing of anyone.
+   */
+  mapTileUrl: z.union([z.null(), mapTileUrlSchema]),
+  /** The credit that server asks for, shown on every map. */
+  mapTileCredit: z.string().trim().max(200).nullable(),
 };
 
 export type InstanceSettings = {
@@ -207,6 +248,8 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   alertCertificateDays: 14,
   alertSources: true,
   alertFailures: 50,
+  mapTileUrl: null,
+  mapTileCredit: null,
 };
 
 const KEYS = Object.keys(fields) as Array<keyof InstanceSettings>;
@@ -266,6 +309,8 @@ export const instanceSettingsSchema = z.object({
   ),
   alertSources: fields.alertSources.default(INSTANCE_DEFAULTS.alertSources),
   alertFailures: fields.alertFailures.default(INSTANCE_DEFAULTS.alertFailures),
+  mapTileUrl: fields.mapTileUrl.default(INSTANCE_DEFAULTS.mapTileUrl),
+  mapTileCredit: fields.mapTileCredit.default(INSTANCE_DEFAULTS.mapTileCredit),
 });
 
 export const instanceSettingsPatchSchema = z
@@ -301,6 +346,8 @@ export const instanceSettingsPatchSchema = z
     alertCertificateDays: fields.alertCertificateDays.optional(),
     alertSources: fields.alertSources.optional(),
     alertFailures: fields.alertFailures.optional(),
+    mapTileUrl: fields.mapTileUrl.optional(),
+    mapTileCredit: fields.mapTileCredit.optional(),
   })
   .strict();
 
@@ -432,4 +479,19 @@ export function sessionWindows(
 ): { idleMs: number; maxMs: number } {
   const maxMs = policy.sessionMaxHours * 3_600_000;
   return { idleMs: Math.min(policy.sessionIdleMinutes * 60_000, maxMs), maxMs };
+}
+
+/**
+ * The one origin map tiles are images of, for the page's policy; null
+ * while no tile server is set.
+ */
+export function mapTileOrigin(
+  settings: Pick<InstanceSettings, "mapTileUrl">,
+): string | null {
+  if (!settings.mapTileUrl) return null;
+  try {
+    return new URL(fillMapTileUrl(settings.mapTileUrl, 0, 0, 0)).origin;
+  } catch {
+    return null;
+  }
 }

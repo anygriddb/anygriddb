@@ -214,6 +214,12 @@ export function SettingsTab() {
           {t`Empty uses the environment, then 20 MiB. Between 1 and 500.`}
         </p>
       </div>
+      <MapTilesSetting
+        key={`${settings.data.mapTileUrl ?? ""}\n${settings.data.mapTileCredit ?? ""}`}
+        url={settings.data.mapTileUrl}
+        credit={settings.data.mapTileCredit}
+        onSave={save}
+      />
       {maintenance !== null ? (
         <ConfirmDialog
           open
@@ -232,5 +238,68 @@ export function SettingsTab() {
         />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Where map views draw their basemap from (ADR 0068): one tile server an
+ * administrator names, and the credit it asks for. Empty, the default,
+ * keeps the plain projection and asks nothing of any server.
+ */
+function MapTilesSetting(props: {
+  url: string | null;
+  credit: string | null;
+  onSave: (patch: InstanceSettingsPatch) => Promise<void>;
+}) {
+  const { t } = useLingui();
+  const [url, setUrl] = useState(props.url ?? "");
+  const [credit, setCredit] = useState(props.credit ?? "");
+  const changed =
+    url.trim() !== (props.url ?? "") || credit.trim() !== (props.credit ?? "");
+  return (
+    <form
+      className="flex flex-col gap-1"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void props.onSave({
+          mapTileUrl: url.trim() || null,
+          mapTileCredit: credit.trim() || null,
+        });
+      }}
+    >
+      <Label htmlFor="setting-map-tiles">{t`Map tiles`}</Label>
+      <Input
+        id="setting-map-tiles"
+        value={url}
+        placeholder="https://tiles.example.org/{z}/{x}/{y}.png"
+        aria-describedby="setting-map-tiles-hint"
+        onChange={(event) => setUrl(event.target.value)}
+      />
+      <p id="setting-map-tiles-hint" className="text-xs text-muted-foreground">
+        {t`The address of the tile server map views draw their background from: it starts with https:// and holds {z}, {x}, and {y}. Empty, maps keep their plain background. Each tile shown tells that server which places people look at; pages open before the change show it once reloaded.`}
+      </p>
+      <Label htmlFor="setting-map-credit" className="mt-1">
+        {t`Credit shown on maps`}
+      </Label>
+      <Input
+        id="setting-map-credit"
+        value={credit}
+        maxLength={200}
+        placeholder="© OpenStreetMap contributors"
+        aria-describedby="setting-map-credit-hint"
+        onChange={(event) => setCredit(event.target.value)}
+      />
+      <p id="setting-map-credit-hint" className="text-xs text-muted-foreground">
+        {t`What the tile server's terms ask you to show, such as the name of who made the map.`}
+      </p>
+      <Button
+        type="submit"
+        size="sm"
+        className="self-start"
+        disabled={!changed}
+      >
+        {t`Save the map tiles`}
+      </Button>
+    </form>
   );
 }

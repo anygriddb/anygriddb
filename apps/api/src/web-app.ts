@@ -48,13 +48,26 @@ const DOCUMENT_DIRECTIVES = [
 /**
  * The document's policy. Nothing frames the app, but a public share
  * whose link names the sites that may (ADR 0067): those and no other.
+ * Images come from the app, but map tiles from the one server an
+ * administrator named (ADR 0068).
  */
 export function documentPolicy(
-  embedOrigins?: readonly string[] | null,
+  options: {
+    embedOrigins?: readonly string[] | null;
+    tileOrigin?: string | null;
+  } = {},
 ): string {
+  const { embedOrigins, tileOrigin } = options;
   const ancestors =
     embedOrigins && embedOrigins.length > 0 ? embedOrigins.join(" ") : "'none'";
-  return [...DOCUMENT_DIRECTIVES, `frame-ancestors ${ancestors}`].join("; ");
+  return [
+    ...DOCUMENT_DIRECTIVES.map((directive) =>
+      tileOrigin && directive.startsWith("img-src ")
+        ? `${directive} ${tileOrigin}`
+        : directive,
+    ),
+    `frame-ancestors ${ancestors}`,
+  ].join("; ");
 }
 
 export const DOCUMENT_POLICY = documentPolicy();
@@ -82,8 +95,13 @@ async function exists(path: string): Promise<boolean> {
 export async function registerWebApp(
   app: FastifyInstance,
   root: string = DEFAULT_WEB_ROOT,
-  shareEmbedOrigins?: ShareEmbedLookup,
+  lookups: {
+    shareEmbedOrigins?: ShareEmbedLookup;
+    /** The origin map tiles come from, when an administrator set one. */
+    tileOrigin?: () => Promise<string | null>;
+  } = {},
 ): Promise<boolean> {
+  const { shareEmbedOrigins, tileOrigin } = lookups;
   const indexPath = join(root, "index.html");
   const built = await exists(indexPath);
   let page = "";
@@ -136,7 +154,13 @@ export async function registerWebApp(
             return null;
           })
         : null;
-    const policy = documentPolicy(origins);
+    const tiles = tileOrigin
+      ? await tileOrigin().catch((error: unknown) => {
+          request.log.error({ err: error }, "map tile setting lookup failed");
+          return null;
+        })
+      : null;
+    const policy = documentPolicy({ embedOrigins: origins, tileOrigin: tiles });
     // Browsers that know frame-ancestors ignore this header; the others
     // must not be told to refuse what the policy allows.
     if (origins && origins.length > 0) reply.removeHeader("X-Frame-Options");

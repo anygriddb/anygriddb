@@ -328,3 +328,121 @@ test("an administrator revokes every token and turns public links off", async ({
     await control.end();
   }
 });
+
+// Map tiles (ADR 0068): none is asked of anyone until an administrator
+// names a tile server; then maps draw their background from it, with the
+// credit it asks for, and the page's policy lets those images in and no
+// other. It changes an instance setting, and puts it back.
+test("an administrator names a tile server, and maps draw their background from it", async ({
+  page,
+}) => {
+  const blocked = watchPolicy(page);
+  const control = new pg.Client({ connectionString: controlUrl });
+  await control.connect();
+  // A tile server answered here: one pixel for every tile asked.
+  const asked: string[] = [];
+  const pixel = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  await page.route("https://tiles.example.org/**", (route) => {
+    asked.push(new URL(route.request().url()).pathname);
+    return route.fulfill({ contentType: "image/png", body: pixel });
+  });
+  try {
+    const { email } = await signUpWithTable(page, "Tia Tiler");
+    await control.query("update users set is_admin = true where email = $1", [
+      email,
+    ]);
+    const tableId =
+      /\/t\/([^/]+)/.exec(new URL(page.url()).pathname)?.[1] ?? "";
+    const post = (path: string, body: unknown) =>
+      page.evaluate(
+        async ([path, body]) =>
+          (
+            await fetch(`/trpc/${path}`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(body),
+            })
+          ).status,
+        [path, body] as const,
+      );
+    for (const name of ["lat", "lon"]) {
+      expect(
+        await post("catalog.addColumn", { tableId, name, fieldType: "number" }),
+      ).toBe(200);
+    }
+    expect(
+      await post("rows.insertMany", {
+        tableId,
+        rows: [{ name: "Paris", lat: "48.85", lon: "2.35" }],
+      }),
+    ).toBe(200);
+    const openMap = async () => {
+      await page.getByRole("button", { name: "New view" }).click();
+      await page.getByRole("menuitem", { name: "Map" }).first().click();
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Create", exact: true })
+        .click();
+      await expect(page.getByText("1 point")).toBeVisible();
+    };
+
+    // No tile server: the plain background, and nothing asked of anyone.
+    await openMap();
+    const mapUrl = page.url();
+    await expect(
+      page.locator('img[src^="https://tiles.example.org/"]'),
+    ).toHaveCount(0);
+    expect(asked).toEqual([]);
+
+    await page.goto("/admin/instance");
+    const tiles = page.getByLabel("Map tiles", { exact: true });
+    // Not over HTTPS: refused, and nothing changes.
+    await tiles.fill("http://tiles.example.org/{z}/{x}/{y}.png");
+    await page.getByRole("button", { name: "Save the map tiles" }).click();
+    await expect(page.getByText("Invalid input")).toBeVisible();
+    await tiles.fill("https://tiles.example.org/{z}/{x}/{y}.png");
+    await page.getByLabel("Credit shown on maps").fill("© Example Maps");
+    await page.getByRole("button", { name: "Save the map tiles" }).click();
+    await expect(page.getByText("Settings saved")).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // The page's policy is the document's: read again, the map has its
+    // background, Paris among its tiles, under the credit.
+    await page.goto(mapUrl);
+    await expect(page.getByText("1 point")).toBeVisible();
+    const drawn = page.locator('img[src^="https://tiles.example.org/"]');
+    await expect(drawn.first()).toBeVisible();
+    await expect(
+      page.locator('img[src="https://tiles.example.org/13/4149/2818.png"]'),
+    ).toHaveCount(1);
+    expect(
+      await drawn.evaluateAll((images) =>
+        images.every((image) => (image as HTMLImageElement).naturalWidth === 1),
+      ),
+    ).toBe(true);
+    await expect(page.getByText("© Example Maps")).toBeVisible();
+    expect(asked).toContain("/13/4149/2818.png");
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // Taken away: maps go back to their plain background.
+    await page.goto("/admin/instance");
+    await page.getByLabel("Map tiles", { exact: true }).fill("");
+    await page.getByLabel("Credit shown on maps").fill("");
+    await page.getByRole("button", { name: "Save the map tiles" }).click();
+    await expect(page.getByText("Settings saved").first()).toBeVisible();
+    await page.goto(mapUrl);
+    await expect(page.getByText("1 point")).toBeVisible();
+    await expect(
+      page.locator('img[src^="https://tiles.example.org/"]'),
+    ).toHaveCount(0);
+    expect(blocked).toEqual([]);
+  } finally {
+    await control.query(
+      "delete from instance_settings where key in ('mapTileUrl', 'mapTileCredit')",
+    );
+    await control.end();
+  }
+});

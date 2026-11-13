@@ -107,6 +107,8 @@ export function SignInTrail() {
             alertCertificateDays: t`Alert: certificate close to expiry`,
             alertSources: t`Alert: source out of reach`,
             alertFailures: t`Alert: failures piling up`,
+            mapTileUrl: t`Map tiles`,
+            mapTileCredit: t`Map tiles' credit`,
             inactive: t`After a time without activity`,
             smtp: t`Email (SMTP)`,
             oidc: t`OpenID Connect`,
