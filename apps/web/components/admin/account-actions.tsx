@@ -24,6 +24,7 @@ export type AccountTarget = {
   displayName: string;
   email: string;
   isAdmin: boolean;
+  isSupport: boolean;
   disabled: boolean;
   locked: boolean;
   hasPassword: boolean;
@@ -39,6 +40,7 @@ export const ACCOUNT_ACTIONS = [
   "disable",
   "unlock",
   "admin",
+  "support",
   "sessions",
   "factors",
   "signOn",
@@ -105,6 +107,9 @@ export function useAccountActions({
       disable: target.disabled ? t`Enable` : t`Disable`,
       unlock: t`Unlock`,
       admin: target.isAdmin ? t`Remove administration` : t`Make administrator`,
+      support: target.isSupport
+        ? t`Remove the support role`
+        : t`Give the support role`,
       sessions: t`Sign out everywhere`,
       factors: t`Remove their second factors`,
       signOn: t`Unlink single sign-on`,
@@ -136,6 +141,12 @@ export function useAccountActions({
         return target.locked
           ? { ok: true }
           : { ok: false, reason: t`Not locked` };
+      case "support":
+        // Support helps people sign in (ADR 0054): an administrator can
+        // already do all of it.
+        return target.isAdmin && !target.isSupport
+          ? { ok: false, reason: t`An administrator already can` }
+          : { ok: true };
       case "signOn":
         return target.signOn
           ? { ok: true }
@@ -292,6 +303,15 @@ export function useAccountActions({
           await trpc.admin.setAdmin.mutate({ userId, admin: !target.isAdmin });
           toast.success(t`Saved`);
           break;
+        case "support":
+          // As administration: taken away freely, given with the proof.
+          if (!target.isSupport) await prove();
+          await trpc.admin.setSupport.mutate({
+            userId,
+            support: !target.isSupport,
+          });
+          toast.success(t`Saved`);
+          break;
         case "sessions":
           await trpc.admin.endUserSessions.mutate({ userId });
           toast.success(t`Done`);
@@ -400,6 +420,18 @@ export function useAccountActions({
               title: t`Make ${{ name }} an administrator?`,
               description: t`They will manage every account, the instance's settings, and who sees which base. Their next action asks for a second factor.`,
               confirm: t`Make administrator`,
+            };
+      case "support":
+        return target.isSupport
+          ? {
+              title: t`Remove ${{ name }}'s support role?`,
+              description: t`They keep their account and their bases, and no longer open Administration.`,
+              confirm: t`Remove`,
+            }
+          : {
+              title: t`Give ${{ name }} the support role?`,
+              description: t`They open the accounts, the sessions and the trails of Administration to help a person sign in again: send a link, unlock, sign out, remove second factors, unlink single sign-on, revoke tokens. They change no setting, give no role, and open no base they are not a member of.`,
+              confirm: t`Give the role`,
             };
       case "sessions":
         return {

@@ -29,6 +29,11 @@ export type AuthDetail =
   /** What an administrator corrected on an account (`account_updated`). */
   | "display_name"
   | "email"
+  /** Administration or support given or taken away (`account_updated`). */
+  | "admin_granted"
+  | "admin_revoked"
+  | "support_granted"
+  | "support_revoked"
   | "admin_revoke_session"
   | "admin_revoke_user"
   | "admin_revoke_all"

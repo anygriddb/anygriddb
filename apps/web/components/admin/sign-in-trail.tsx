@@ -68,6 +68,10 @@ export function SignInTrail() {
             // What an administrator corrected (account_updated).
             display_name: t`Display name`,
             email: t`Email`,
+            admin_granted: t`Made an administrator`,
+            admin_revoked: t`No longer an administrator`,
+            support_granted: t`Given the support role`,
+            support_revoked: t`Support role taken away`,
             all_active: t`Every active account`,
             selected: t`Chosen accounts`,
             as_admin: t`As an administrator`,

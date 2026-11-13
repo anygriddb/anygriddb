@@ -64,6 +64,7 @@ export function accountTarget(user: {
   displayName: string;
   email: string;
   isAdmin: boolean;
+  isSupport: boolean;
   disabledAt: string | null;
   lock: { until: string | null } | null;
   hasPassword: boolean;
@@ -76,6 +77,7 @@ export function accountTarget(user: {
     displayName: user.displayName,
     email: user.email,
     isAdmin: user.isAdmin,
+    isSupport: user.isSupport,
     disabled: user.disabledAt !== null,
     locked: user.lock !== null,
     hasPassword: user.hasPassword,

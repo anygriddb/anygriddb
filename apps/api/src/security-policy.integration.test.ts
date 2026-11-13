@@ -990,7 +990,7 @@ describe("the security policy", () => {
       expect(
         await code(setUserDisabled(db, adminId, ERASED_USER_ID, false)),
       ).toBe("invalid_account");
-      expect(await code(setUserAdmin(db, ERASED_USER_ID, true))).toBe(
+      expect(await code(setUserAdmin(db, adminId, ERASED_USER_ID, true))).toBe(
         "invalid_account",
       );
       expect(await accessReportCsv(db)).not.toContain("users.invalid");
@@ -1195,7 +1195,7 @@ describe("the security policy", () => {
       try {
         expect(await code(eraseAccount(db, adminId))).toBe("invalid_account");
         const second = await account("Second");
-        await setUserAdmin(db, second.id, true);
+        await setUserAdmin(db, adminId, second.id, true);
         await eraseAccount(db, second.id);
         expect(
           await db

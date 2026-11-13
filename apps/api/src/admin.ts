@@ -653,9 +653,14 @@ export async function listBaseChoices(
     .execute();
 }
 
-/** Changes the admin flag; the last active administrator cannot be removed. */
+/**
+ * Gives or takes away administration. The instance keeps one active
+ * administrator at least. The change is on the sign-in trail under the
+ * name of who made it; one that changes nothing leaves no event.
+ */
 export async function setUserAdmin(
   db: Database,
+  actorId: string,
   userId: string,
   admin: boolean,
 ): Promise<void> {
@@ -682,28 +687,66 @@ export async function setUserAdmin(
       .updateTable("users")
       .set({ isAdmin: admin })
       .where("id", "=", userId)
+      .where("isAdmin", "=", !admin)
       .returning("id")
       .execute();
-    if (updated.length === 0) throw new AppError("unknown_account");
+    if (updated.length === 0) {
+      await assertAccount(tx, userId);
+      return;
+    }
+    await recordAuthEvent(tx, {
+      action: "account_updated",
+      userId,
+      actorId,
+      method: "admin",
+      detail: admin ? "admin_granted" : "admin_revoked",
+    });
   });
 }
 
-/** Grants or revokes the support (helpdesk) flag (ADR 0054). */
+/**
+ * Grants or revokes the support (helpdesk) flag (ADR 0054), on the
+ * sign-in trail as administration is.
+ */
 export async function setUserSupport(
   db: Database,
+  actorId: string,
   userId: string,
   support: boolean,
 ): Promise<void> {
   if (userId === ERASED_USER_ID) {
     throw new AppError("invalid_account");
   }
-  const updated = await db
-    .updateTable("users")
-    .set({ isSupport: support })
+  await db.transaction().execute(async (tx) => {
+    const updated = await tx
+      .updateTable("users")
+      .set({ isSupport: support })
+      .where("id", "=", userId)
+      .where("isSupport", "=", !support)
+      .returning("id")
+      .execute();
+    if (updated.length === 0) {
+      await assertAccount(tx, userId);
+      return;
+    }
+    await recordAuthEvent(tx, {
+      action: "account_updated",
+      userId,
+      actorId,
+      method: "admin",
+      detail: support ? "support_granted" : "support_revoked",
+    });
+  });
+}
+
+/** Refuses an id no account has: an unchanged flag is not an unknown one. */
+async function assertAccount(db: Database, userId: string): Promise<void> {
+  const account = await db
+    .selectFrom("users")
+    .select("id")
     .where("id", "=", userId)
-    .returning("id")
-    .execute();
-  if (updated.length === 0) throw new AppError("unknown_account");
+    .executeTakeFirst();
+  if (!account) throw new AppError("unknown_account");
 }
 
 /* ------------------------------------------------------------------ */
