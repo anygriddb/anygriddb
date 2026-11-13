@@ -1607,6 +1607,7 @@ msgstr "Essais"
 msgid "Authenticator code"
 msgstr "Code de l’application"
 
+#: components/admin/step-up.tsx
 #: components/settings/account-settings.tsx
 msgid "Authenticator or backup code"
 msgstr "Code d’authentification ou de secours"
@@ -1876,6 +1877,7 @@ msgstr "Appeler une URL"
 #: components/admin/accounts-tab.tsx
 #: components/admin/base-admin-members.tsx
 #: components/admin/sources-tab.tsx
+#: components/admin/step-up.tsx
 #: components/admin/support-tab.tsx
 #: components/fields/field-editor.tsx
 #: components/record/record-panel.tsx
@@ -2256,9 +2258,14 @@ msgstr "Calculé à partir d’autres champs"
 msgid "Concatenate"
 msgstr "Concaténer"
 
+#: components/admin/step-up.tsx
 #: components/table/table-workspace.tsx
 msgid "Confirm"
 msgstr "Valider"
+
+#: components/admin/step-up.tsx
+msgid "Confirm it is you"
+msgstr "Confirmez que c’est bien vous"
 
 #: components/settings/second-factor.tsx
 msgid "Confirm the code"
@@ -2267,6 +2274,10 @@ msgstr "Confirmer le code"
 #: components/auth/confirm-signup-page.tsx
 msgid "Confirm your address"
 msgstr "Confirmer votre adresse"
+
+#: lib/errors.ts
+msgid "Confirm your password or second factor again to continue"
+msgstr "Confirmez à nouveau votre mot de passe ou votre second facteur pour continuer"
 
 #: components/settings/second-factor.tsx
 msgid "Confirming replaces your current authenticator and issues new backup codes. The old app stops working."
@@ -6066,6 +6077,7 @@ msgstr "Les clés d’accès exigent un nom d’hôte dans PUBLIC_URL (un nom DN
 #: components/admin/auth-labels.ts
 #: components/admin/integrations-tab.tsx
 #: components/admin/sources-tab.tsx
+#: components/admin/step-up.tsx
 #: components/auth/auth-page.tsx
 #: components/auth/confirm-signup-page.tsx
 #: components/record/row-status.tsx
@@ -7314,6 +7326,10 @@ msgstr "Envoyer à {count} comptes ?"
 msgid "Sends to"
 msgstr "Envoie à"
 
+#: components/admin/step-up.tsx
+msgid "Sensitive Administration actions ask for your password or second factor again. The proof stays valid for five minutes."
+msgstr "Les actions sensibles de l’Administration redemandent votre mot de passe ou votre second facteur. La preuve reste valable cinq minutes."
+
 #: components/settings/webhooks-panel.tsx
 msgid "Sent ({status})"
 msgstr "Envoyé ({status})"
@@ -7526,6 +7542,10 @@ msgstr "Se déconnecter"
 #: components/admin/account-actions.tsx
 msgid "Sign out everywhere"
 msgstr "Déconnecter partout"
+
+#: components/admin/step-up.tsx
+msgid "Sign out, sign in again, and do this within five minutes: your sign-in is the proof it asks for."
+msgstr "Déconnectez-vous, reconnectez-vous, puis faites-le dans les cinq minutes : votre connexion est la preuve demandée."
 
 #: lib/errors.ts
 msgid "Sign out, sign in again, and do this within ten minutes: your sign-in is the proof it asks for."

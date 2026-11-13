@@ -12,6 +12,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
+import { useStepUp } from "./step-up";
 
 function sourceLabel(
   t: ReturnType<typeof useLingui>["t"],
@@ -230,6 +231,7 @@ function OidcSection() {
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
+  const stepUp = useStepUp();
   const oidc = useQuery(api.admin.oidc.get.queryOptions());
   const [issuer, setIssuer] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
@@ -268,6 +270,7 @@ function OidcSection() {
           void (async () => {
             setBusy(true);
             try {
+              if (!(await stepUp.ensure())) return;
               await trpc.admin.oidc.update.mutate({
                 issuer: issuerValue.trim(),
                 clientId: clientIdValue.trim(),
@@ -385,6 +388,7 @@ function OidcSection() {
         onConfirm={() =>
           void (async () => {
             try {
+              if (!(await stepUp.ensure())) return;
               await trpc.admin.oidc.clear.mutate();
               await refresh();
               toast.success(t`Saved OIDC cleared`);
@@ -394,6 +398,7 @@ function OidcSection() {
           })()
         }
       />
+      {stepUp.dialog}
     </RuledSection>
   );
 }
@@ -403,6 +408,7 @@ function SamlSection() {
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
+  const stepUp = useStepUp();
   const saml = useQuery(api.admin.saml.get.queryOptions());
   const [entryPoint, setEntryPoint] = useState<string | null>(null);
   const [issuer, setIssuer] = useState<string | null>(null);
@@ -448,6 +454,7 @@ function SamlSection() {
                 toast.error(t`Paste the identity provider certificate`);
                 return;
               }
+              if (!(await stepUp.ensure())) return;
               await trpc.admin.saml.update.mutate({
                 entryPoint: entryValue.trim(),
                 issuer: issuerValue.trim(),
@@ -564,6 +571,7 @@ function SamlSection() {
         onConfirm={() =>
           void (async () => {
             try {
+              if (!(await stepUp.ensure())) return;
               await trpc.admin.saml.clear.mutate();
               await refresh();
               toast.success(t`Saved SAML cleared`);
@@ -573,6 +581,7 @@ function SamlSection() {
           })()
         }
       />
+      {stepUp.dialog}
     </RuledSection>
   );
 }

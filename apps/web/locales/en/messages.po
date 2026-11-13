@@ -1607,6 +1607,7 @@ msgstr "Attempts"
 msgid "Authenticator code"
 msgstr "Authenticator code"
 
+#: components/admin/step-up.tsx
 #: components/settings/account-settings.tsx
 msgid "Authenticator or backup code"
 msgstr "Authenticator or backup code"
@@ -1876,6 +1877,7 @@ msgstr "Call a URL"
 #: components/admin/accounts-tab.tsx
 #: components/admin/base-admin-members.tsx
 #: components/admin/sources-tab.tsx
+#: components/admin/step-up.tsx
 #: components/admin/support-tab.tsx
 #: components/fields/field-editor.tsx
 #: components/record/record-panel.tsx
@@ -2256,9 +2258,14 @@ msgstr "Computed from other fields"
 msgid "Concatenate"
 msgstr "Concatenate"
 
+#: components/admin/step-up.tsx
 #: components/table/table-workspace.tsx
 msgid "Confirm"
 msgstr "Confirm"
+
+#: components/admin/step-up.tsx
+msgid "Confirm it is you"
+msgstr "Confirm it is you"
 
 #: components/settings/second-factor.tsx
 msgid "Confirm the code"
@@ -2267,6 +2274,10 @@ msgstr "Confirm the code"
 #: components/auth/confirm-signup-page.tsx
 msgid "Confirm your address"
 msgstr "Confirm your address"
+
+#: lib/errors.ts
+msgid "Confirm your password or second factor again to continue"
+msgstr "Confirm your password or second factor again to continue"
 
 #: components/settings/second-factor.tsx
 msgid "Confirming replaces your current authenticator and issues new backup codes. The old app stops working."
@@ -6066,6 +6077,7 @@ msgstr "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an
 #: components/admin/auth-labels.ts
 #: components/admin/integrations-tab.tsx
 #: components/admin/sources-tab.tsx
+#: components/admin/step-up.tsx
 #: components/auth/auth-page.tsx
 #: components/auth/confirm-signup-page.tsx
 #: components/record/row-status.tsx
@@ -7314,6 +7326,10 @@ msgstr "Send to {count} accounts?"
 msgid "Sends to"
 msgstr "Sends to"
 
+#: components/admin/step-up.tsx
+msgid "Sensitive Administration actions ask for your password or second factor again. The proof stays valid for five minutes."
+msgstr "Sensitive Administration actions ask for your password or second factor again. The proof stays valid for five minutes."
+
 #: components/settings/webhooks-panel.tsx
 msgid "Sent ({status})"
 msgstr "Sent ({status})"
@@ -7526,6 +7542,10 @@ msgstr "Sign out"
 #: components/admin/account-actions.tsx
 msgid "Sign out everywhere"
 msgstr "Sign out everywhere"
+
+#: components/admin/step-up.tsx
+msgid "Sign out, sign in again, and do this within five minutes: your sign-in is the proof it asks for."
+msgstr "Sign out, sign in again, and do this within five minutes: your sign-in is the proof it asks for."
 
 #: lib/errors.ts
 msgid "Sign out, sign in again, and do this within ten minutes: your sign-in is the proof it asks for."

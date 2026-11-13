@@ -5,6 +5,7 @@ import {
   findAccount,
   mailedLink,
   openAdmin,
+  proveItIsYou,
   signIn,
   signUp,
   signUpWithTable,
@@ -286,6 +287,8 @@ test("an administrator revokes every token and turns public links off", async ({
       .getByRole("dialog", { name: "Revoke every API token?" })
       .getByRole("button", { name: "Revoke", exact: true })
       .click();
+    // Asked again before it goes: the administrator's password.
+    await proveItIsYou(page);
     await expect(page.getByText(/API tokens? revoked/)).toBeVisible();
     expect(await asScript()).toBe(401);
 

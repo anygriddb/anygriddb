@@ -73,6 +73,9 @@ describe("instance controls", () => {
     });
     // Administration asks for a second factor (ADR 0043).
     await enrollTotp(admin);
+    // A sensitive action asks for a proof again (ROADMAP #28): given
+    // once here, it stands for the five minutes these tests take.
+    await admin.call().admin.stepUp({ password: PASSWORD });
     await signUpProved(member, db, {
       email: memberEmail,
       displayName: "Max Member",

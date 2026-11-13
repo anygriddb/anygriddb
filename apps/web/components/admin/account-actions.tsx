@@ -16,6 +16,7 @@ import { useErrorText } from "../../lib/errors";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
+import { useStepUp } from "./step-up";
 
 /** What an account action needs to know of the account it acts on. */
 export type AccountTarget = {
@@ -79,6 +80,7 @@ export function useAccountActions({
   const queryClient = useQueryClient();
   const session = useSession();
   const copy = useCopy();
+  const stepUp = useStepUp();
   const viewerIsAdmin = session.data?.isAdmin === true;
   const [open, setOpen] = useState<{
     target: AccountTarget;
@@ -241,6 +243,15 @@ export function useAccountActions({
     );
   }
 
+  /**
+   * Asked right before a sensitive action goes to the server (ROADMAP
+   * #28), once what was typed is in order: the password or the second
+   * factor again, unless one was given in the last five minutes.
+   */
+  async function prove(): Promise<void> {
+    if (!(await stepUp.ensure())) throw new Error("step_up_cancelled");
+  }
+
   async function confirm(): Promise<void> {
     if (!open) return;
     const { target, action } = open;
@@ -276,6 +287,8 @@ export function useAccountActions({
           toast.success(t`Unlocked`);
           break;
         case "admin":
+          // Taking administration away asks nothing; giving it does.
+          if (!target.isAdmin) await prove();
           await trpc.admin.setAdmin.mutate({ userId, admin: !target.isAdmin });
           toast.success(t`Saved`);
           break;
@@ -284,10 +297,12 @@ export function useAccountActions({
           toast.success(t`Done`);
           break;
         case "factors":
+          await prove();
           await trpc.admin.clearFactors.mutate({ userId });
           toast.success(t`Done`);
           break;
         case "signOn":
+          await prove();
           await trpc.admin.unlinkSignOn.mutate({ userId });
           toast.success(t`Done`);
           break;
@@ -306,6 +321,7 @@ export function useAccountActions({
             toast.error(t`Type the new owner's email`);
             throw new Error("successor_email");
           }
+          await prove();
           await trpc.admin.erase.mutate({
             userId,
             email: erase.typed.trim(),
@@ -317,7 +333,11 @@ export function useAccountActions({
       }
       await refresh(target, action);
     } catch (cause) {
-      if (cause instanceof Error && cause.message.endsWith("_email")) {
+      if (
+        cause instanceof Error &&
+        (cause.message.endsWith("_email") ||
+          cause.message === "step_up_cancelled")
+      ) {
         throw cause;
       }
       toast.error(errorText(cause));
@@ -495,6 +515,7 @@ export function useAccountActions({
         </ConfirmDialog>
       ) : null}
       <HandedLink handed={handed} onClose={() => setHanded(null)} copy={copy} />
+      {stepUp.dialog}
     </>
   );
 

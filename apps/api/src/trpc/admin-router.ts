@@ -34,7 +34,8 @@ import {
 import { operatorFixedFromEnv } from "../operator-fixed.js";
 import { assertEnrolled } from "../auth/access.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
-import { unlockAccount } from "../auth/lockout.js";
+import { alertLock } from "../auth/lock-alerts.js";
+import { countFailure, lockOf, unlockAccount } from "../auth/lockout.js";
 import {
   ACCOUNT_LINK_TTL_MS,
   ADMIN_RESET_TTL_MS,
@@ -48,6 +49,14 @@ import {
   sendWelcome,
 } from "../auth/security-mail.js";
 import { recordExport } from "../data/export-audit.js";
+import { SESSION_COOKIE } from "../auth/session.js";
+import {
+  confirmStepUp,
+  requireStepUp,
+  stepUpIsFresh,
+  stepUpNeeds,
+} from "../auth/step-up.js";
+import { readGateSettings } from "../settings.js";
 import { listMembers, revokeMember, setMemberRole } from "../data/members.js";
 import { assertMemberDomain, renewInvitation } from "../data/sharing.js";
 import { cancelAnyJob, listAllJobs } from "../jobs.js";
@@ -194,6 +203,36 @@ async function requireSupport(ctx: Context) {
   await assertEnrolled(ctx.db, user, []);
   return user;
 }
+
+/**
+ * A wrong password or code on a step-up counts toward the lock, as one at
+ * sign-in does; a proof left out does not.
+ */
+async function stepUpFailed(ctx: Context, userId: string): Promise<void> {
+  const policy = await readGateSettings(ctx.db);
+  if (await countFailure(ctx.db, userId, policy, ctx.req.ip)) {
+    const lock = await lockOf(ctx.db, userId, policy);
+    const until = lock.locked ? lock.until : null;
+    void sendSecurityNotice(
+      { db: ctx.db, env: ctx.env, log: ctx.req.log },
+      userId,
+      { kind: "locked", failures: policy.lockoutThreshold, until },
+    );
+    await alertLock(
+      { db: ctx.db, bus: ctx.bus, env: ctx.env, log: ctx.req.log },
+      { userId, failures: policy.lockoutThreshold, until },
+    ).catch((error: unknown) => {
+      ctx.req.log.error({ err: error }, "lock alert failed");
+    });
+  }
+}
+
+const stepUpProofInput = z
+  .object({
+    password: z.string().min(1).max(128).optional(),
+    factorCode: z.string().min(1).max(64).optional(),
+  })
+  .strict();
 
 const auditInputSchema = z.object({
   userId: z.uuid().optional(),
@@ -539,6 +578,7 @@ const oidcRouter = t.router({
   update: procedure.input(oidcUpdateSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
+      await requireStepUp(ctx);
       return saveOidc(
         ctx.db,
         ctx.env.AUTH_ENCRYPTION_KEY,
@@ -562,6 +602,7 @@ const oidcRouter = t.router({
   clear: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
+      await requireStepUp(ctx);
       await clearOidc(ctx.db, admin.id, ctx.req.ip);
       return { ok: true as const };
     }),
@@ -586,6 +627,7 @@ const samlRouter = t.router({
   update: procedure.input(samlUpdateSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
+      await requireStepUp(ctx);
       return saveSaml(ctx.db, admin.id, input, ctx.env.PUBLIC_URL, {
         ip: ctx.req.ip,
       });
@@ -604,6 +646,7 @@ const samlRouter = t.router({
   clear: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
+      await requireStepUp(ctx);
       await clearSaml(ctx.db, admin.id, ctx.req.ip);
       return { ok: true as const };
     }),
@@ -616,6 +659,46 @@ export const adminRouter = t.router({
   smtp: smtpRouter,
   oidc: oidcRouter,
   saml: samlRouter,
+  /**
+   * Whether the session's step-up is still fresh, and what proof the page
+   * should ask for (ROADMAP #28).
+   */
+  stepUpStatus: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      const admin = await requireSupport(ctx);
+      const fresh = await stepUpIsFresh(
+        ctx.db,
+        ctx.req.cookies[SESSION_COOKIE],
+      );
+      return {
+        fresh,
+        needs: await stepUpNeeds(ctx.db, admin.id),
+        windowMs: 5 * 60_000,
+      };
+    }),
+  ),
+  /**
+   * Password or second factor for a sensitive Administration action. A
+   * wrong proof counts toward the lock; a missing one does not.
+   */
+  stepUp: procedure.input(stepUpProofInput).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const admin = await requireSupport(ctx);
+      // A locked account takes no more guesses here than at sign-in: a
+      // stolen session must not try passwords without end.
+      const policy = await readGateSettings(ctx.db);
+      if ((await lockOf(ctx.db, admin.id, policy)).locked) {
+        throw new AppError("account_locked");
+      }
+      const proved = await confirmStepUp(ctx, admin.id, input);
+      if (proved === "missing" || proved === "wrong") {
+        if (proved === "wrong") await stepUpFailed(ctx, admin.id);
+        throw new AppError("invalid_credentials");
+      }
+      if (proved === "stale") throw new AppError("fresh_sign_in_required");
+      return { ok: true as const, windowMs: 5 * 60_000 };
+    }),
+  ),
   siem: t.router({
     get: procedure.query(({ ctx }) =>
       handle(ctx, async () => {
@@ -768,6 +851,7 @@ export const adminRouter = t.router({
   erase: procedure.input(adminEraseInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
+      await requireStepUp(ctx);
       await eraseOtherAccount(ctx.db, admin.id, input);
       ctx.hub.closeUser(input.userId);
       ctx.req.log.info(
@@ -782,6 +866,7 @@ export const adminRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
+        if (input.admin) await requireStepUp(ctx);
         await setUserAdmin(ctx.db, input.userId, input.admin);
         ctx.req.log.info(
           { actor: admin.id, target: input.userId, admin: input.admin },
@@ -1114,6 +1199,7 @@ export const adminRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
+        if (input.support) await requireStepUp(ctx);
         await setUserSupport(ctx.db, input.userId, input.support);
         ctx.req.log.info(
           { actor: admin.id, target: input.userId, support: input.support },
@@ -1318,6 +1404,7 @@ export const adminRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireSupport(ctx);
+        await requireStepUp(ctx);
         await clearFactors(ctx.db, admin.id, input.userId);
         ctx.hub.closeUser(input.userId);
         void sendSecurityNotice(
@@ -1334,6 +1421,7 @@ export const adminRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireSupport(ctx);
+        await requireStepUp(ctx);
         return { count: await unlinkSignOn(ctx.db, admin.id, input.userId) };
       }),
     ),
@@ -1402,6 +1490,7 @@ export const adminRouter = t.router({
   revokeAllTokens: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
+      await requireStepUp(ctx);
       const count = await revokeAllTokens(ctx.db, admin.id);
       ctx.req.log.info({ actor: admin.id, count }, "every API token revoked");
       return { count };

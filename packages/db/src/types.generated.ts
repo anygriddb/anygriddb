@@ -675,6 +675,7 @@ export interface Sessions {
   createdAt: Generated<Timestamp>;
   expiresAt: Timestamp;
   id: Generated<string>;
+  steppedUpAt: Timestamp | null;
   tokenHash: string;
   userId: string;
 }
