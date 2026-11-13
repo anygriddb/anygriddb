@@ -1,4 +1,4 @@
-import { cellText, MAX_GROUPS } from "@anygriddb/core";
+import { MAX_GROUPS } from "@anygriddb/core";
 import { RowsError } from "./rows-error";
 
 import {
@@ -1099,7 +1099,7 @@ export function GridView(props: GridProps) {
                   >
                     <RowGutter
                       rowId={row?.id}
-                      label={t`Row ${{ number: cellText(row?.ag_seq ?? item.index + 1) }}`}
+                      label={t`Row ${{ number: String(item.index + 1) }}`}
                       // A locked or signed row stays where it is; others
                       // can still be put beside it.
                       slot={row && isFixed(row) ? undefined : slot}
@@ -1137,7 +1137,10 @@ export function GridView(props: GridProps) {
                             : "group-hover/row:hidden",
                         )}
                       >
-                        {cellText(row?.ag_seq ?? item.index + 1)}
+                        {/* Its rank in the view, as a spreadsheet numbers
+                            its lines: the row's own number, which never
+                            changes, is the record panel's. */}
+                        {item.index + 1}
                       </span>
                       {row ? (
                         <button

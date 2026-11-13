@@ -46,8 +46,10 @@ cannot carry that order: it is the autonumber field's value and the
 
 ## Consequences
 
-- `ag_seq` stays the row's number for ever; the grid's gutter still shows
-  it, so a moved row keeps its number wherever it stands.
+- `ag_seq` stays the row's number for ever: the autonumber field and the
+  record panel's "Row N" show it. The grid's gutter numbers its lines in
+  the view's order instead, as a spreadsheet does, so a row moved up
+  takes the number of the line it lands on.
 - Copies, snapshots and exports read rows in this order, so the order
   travels with them.
 - Lookups list a linked table's values by sequence, not by place: a move
