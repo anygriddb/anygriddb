@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { recordingBus } from "./realtime/recording-bus.test-helpers.js";
 import {
   JobCancelled,
+  jobCanRetry,
   jobError,
   publicJob,
   publishJob,
@@ -49,6 +50,31 @@ describe("job helpers", () => {
     expect(
       publicJob({ ...done, status: "running", fileExpiresAt: later }).download,
     ).toBe(false);
+  });
+
+  it("offers a retry for a failed export or copy, never for an import", () => {
+    for (const kind of [
+      "export",
+      "export_snapshot",
+      "duplicate_table",
+      "duplicate_base",
+    ] as const) {
+      expect(jobCanRetry({ kind, status: "failed" })).toBe(true);
+    }
+    // An import may have written rows before it failed.
+    for (const kind of [
+      "import",
+      "import_snapshot",
+      "import_airtable",
+      "trash_purge",
+    ] as const) {
+      expect(jobCanRetry({ kind, status: "failed" })).toBe(false);
+    }
+    for (const status of ["queued", "running", "done", "cancelled"] as const) {
+      expect(jobCanRetry({ kind: "export", status })).toBe(false);
+    }
+    expect(publicJob({ ...job, status: "failed" }).retryable).toBe(true);
+    expect(publicJob(job).retryable).toBe(false);
   });
 
   it("keeps public errors and hides the rest", () => {

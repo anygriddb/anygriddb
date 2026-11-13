@@ -11,6 +11,7 @@ import {
   listJobs,
   loadOwnJob,
   publicJob,
+  retryJob,
   type QueueDeps,
 } from "../jobs.js";
 import type { Context } from "./context.js";
@@ -49,6 +50,13 @@ export const jobsRouter = t.router({
       const { user } = await authorize(ctx);
       await cancelJob(queueDeps(ctx), user.id, input.jobId);
       return { ok: true as const };
+    }),
+  ),
+  /** Puts a failed or interrupted job back on the queue. */
+  retry: procedure.input(jobIdInputSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const { user } = await authorize(ctx);
+      return publicJob(await retryJob(queueDeps(ctx), user.id, input.jobId));
     }),
   ),
   /** Exports a table or view in the background; the file waits 24 hours. */
