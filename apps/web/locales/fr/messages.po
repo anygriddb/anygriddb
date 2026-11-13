@@ -1673,6 +1673,14 @@ msgstr "pièces jointes reprises par leur nom : les fichiers ne sont pas copié
 msgid "Attempts"
 msgstr "Essais"
 
+#: components/admin/account-page.tsx
+msgid "Auditor"
+msgstr "Auditeur"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Auditor role taken away"
+msgstr "Rôle d’auditeur retiré"
+
 #: components/admin/auth-labels.ts
 #: components/auth/auth-page.tsx
 msgid "Authenticator code"
@@ -3968,6 +3976,10 @@ msgid "Gallery"
 msgstr "Galerie"
 
 #: components/admin/account-actions.tsx
+msgid "Give {name} the auditor role?"
+msgstr "Donner le rôle d’auditeur à {name} ?"
+
+#: components/admin/account-actions.tsx
 msgid "Give {name} the support role?"
 msgstr "Donner le rôle de support à {name} ?"
 
@@ -3985,6 +3997,10 @@ msgid "Give a role to someone"
 msgstr "Donner un rôle à quelqu’un"
 
 #: components/admin/account-actions.tsx
+msgid "Give the auditor role"
+msgstr "Donner le rôle d’auditeur"
+
+#: components/admin/account-actions.tsx
 #: components/admin/account-bases.tsx
 #: components/admin/base-admin-members.tsx
 msgid "Give the role"
@@ -3993,6 +4009,10 @@ msgstr "Donner le rôle"
 #: components/admin/account-actions.tsx
 msgid "Give the support role"
 msgstr "Donner le rôle de support"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Given the auditor role"
+msgstr "Rôle d’auditeur donné"
 
 #: components/admin/sign-in-trail.tsx
 msgid "Given the support role"
@@ -6855,6 +6875,10 @@ msgid "Remove {name}'s administration?"
 msgstr "Retirer l’administration à {name} ?"
 
 #: components/admin/account-actions.tsx
+msgid "Remove {name}'s auditor role?"
+msgstr "Retirer le rôle d’auditeur de {name} ?"
+
+#: components/admin/account-actions.tsx
 msgid "Remove {name}'s second factors?"
 msgstr "Retirer les seconds facteurs de {name} ?"
 
@@ -6882,6 +6906,10 @@ msgstr "Retirer le filtre"
 #: components/admin/group-page.tsx
 msgid "Remove from {base}"
 msgstr "Retirer de {base}"
+
+#: components/admin/account-actions.tsx
+msgid "Remove the auditor role"
+msgstr "Retirer le rôle d’auditeur"
 
 #: components/settings/group-roles.tsx
 msgid "Remove the group {name}"
@@ -9034,6 +9062,10 @@ msgstr "La personne perd aussitôt son propre rôle sur la base et ses tables, e
 msgid "They open the accounts, the sessions and the trails of Administration to help a person sign in again: send a link, unlock, sign out, remove second factors, unlink single sign-on, revoke tokens. They change no setting, give no role, and open no base they are not a member of."
 msgstr "La personne ouvre les comptes, les sessions et les journaux de l’Administration pour aider quelqu’un à se reconnecter : envoyer un lien, déverrouiller, déconnecter, retirer les seconds facteurs, délier l’authentification unique, révoquer les jetons. Elle ne change aucun réglage, ne donne aucun rôle, et n’ouvre aucune base dont elle n’est pas membre."
 
+#: components/admin/account-actions.tsx
+msgid "They read every page of Administration: the accounts and their sign-ins, the groups, the bases and who reaches them, the sources, the settings, the trails. They change nothing there, and open no base they are not a member of. They may export the trails and the access report: each export is on the change trail under their name."
+msgstr "La personne lit toutes les pages de l’Administration : les comptes et leurs connexions, les groupes, les bases et qui y accède, les sources, les réglages, les journaux. Elle n’y change rien, et n’ouvre aucune base dont elle n’est pas membre. Elle peut exporter les journaux et la liste de qui a accès : chaque export figure au journal des modifications sous son nom."
+
 #: components/admin/bases-tab.tsx
 #: components/shell/trashed-bases.tsx
 msgid "They stay for {days} days with their data, then are deleted permanently."
@@ -10272,6 +10304,10 @@ msgstr "Vous n’avez pas encore d’adresse pour cette vue."
 #: components/shell/pending-invitations.tsx
 msgid "You joined {base}"
 msgstr "Vous avez rejoint {base}"
+
+#: components/admin/admin-shell.tsx
+msgid "You read Administration as an auditor: every page is open to you, and nothing in it can be changed. What you export is written to the change trail under your name."
+msgstr "Vous lisez l’Administration en tant qu’auditeur : toutes les pages vous sont ouvertes, et rien ne peut y être modifié. Ce que vous exportez est inscrit au journal des modifications sous votre nom."
 
 #: components/admin/scim-tab.tsx
 msgid "Your identity provider (Okta, Microsoft Entra ID, …) creates, changes, and deactivates accounts, and keeps groups. Existing accounts are taken over by their email. Local groups are made under People → Groups. Then give groups a role in each base's settings or in Administration."

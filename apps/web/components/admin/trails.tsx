@@ -4,11 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { datedName, downloadCsv } from "../../lib/download";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { useReadsAll } from "./admin-access";
 
 function date(value: string | null | undefined): string {
   return value ? new Date(value).toLocaleString() : "—";
@@ -31,8 +31,8 @@ const ACTIONS = [
 export function ChangesTrail() {
   const { t } = useLingui();
   const errorText = useErrorText();
-  const session = useSession();
-  const isAdmin = session.data?.isAdmin === true;
+  // An auditor exports too: the export is on the trail under their name.
+  const readsAll = useReadsAll();
   const api = useTRPC();
   const [action, setAction] = useState<(typeof ACTIONS)[number] | "">("");
   const [source, setSource] = useState("");
@@ -95,6 +95,7 @@ export function ChangesTrail() {
         <div className="flex flex-col gap-1">
           <Label htmlFor="audit-action">{t`Action`}</Label>
           <Select
+            reads
             id="audit-action"
             className="w-44"
             value={action}
@@ -114,6 +115,7 @@ export function ChangesTrail() {
         <div className="flex flex-col gap-1">
           <Label htmlFor="audit-source">{t`Source`}</Label>
           <Input
+            reads
             id="audit-source"
             className="w-44"
             placeholder="web, api, import, automation…"
@@ -124,8 +126,9 @@ export function ChangesTrail() {
             }}
           />
         </div>
-        {isAdmin ? (
+        {readsAll ? (
           <Button
+            reads
             size="sm"
             variant="outline"
             className="ml-auto"
@@ -198,6 +201,7 @@ export function ChangesTrail() {
       </div>
       <div className="flex gap-2">
         <Button
+          reads
           size="sm"
           variant="ghost"
           disabled={cursors.length === 0}
@@ -206,6 +210,7 @@ export function ChangesTrail() {
           {t`Newer`}
         </Button>
         <Button
+          reads
           size="sm"
           variant="ghost"
           disabled={!log.data?.next}

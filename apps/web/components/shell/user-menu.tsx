@@ -37,6 +37,7 @@ export function UserMenu({
     email: string;
     isAdmin?: boolean;
     isSupport?: boolean;
+    isAuditor?: boolean;
   };
 }) {
   const { t } = useLingui();
@@ -61,7 +62,7 @@ export function UserMenu({
             <Settings className="h-4 w-4" aria-hidden />
             {t`Account settings`}
           </DropdownMenuItem>
-          {user.isAdmin || user.isSupport ? (
+          {user.isAdmin || user.isSupport || user.isAuditor ? (
             <DropdownMenuItem onSelect={() => void navigate({ to: "/admin" })}>
               <ShieldCheck className="h-4 w-4" aria-hidden />
               {t`Administration`}

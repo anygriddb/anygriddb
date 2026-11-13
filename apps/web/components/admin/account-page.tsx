@@ -83,6 +83,7 @@ export function AccountAdminPage({ userId }: { userId: string }) {
     email: account.email,
     isAdmin: account.isAdmin,
     isSupport: account.isSupport,
+    isAuditor: account.isAuditor,
     disabled: account.disabledAt !== null,
     locked: account.lock !== null,
     hasPassword: account.hasPassword,
@@ -116,6 +117,7 @@ export function AccountAdminPage({ userId }: { userId: string }) {
           <p className="mt-1 flex flex-wrap gap-1 text-xs">
             {account.isAdmin ? <Badge>{t`Administrator`}</Badge> : null}
             {account.isSupport ? <Badge>{t`Support`}</Badge> : null}
+            {account.isAuditor ? <Badge>{t`Auditor`}</Badge> : null}
             {self ? <Badge>{t`You`}</Badge> : null}
           </p>
         </div>

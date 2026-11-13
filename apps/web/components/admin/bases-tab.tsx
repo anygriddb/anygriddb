@@ -8,9 +8,9 @@ import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { formatBytes, formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
-import { useSession } from "../../lib/session";
 import { useTrashDays } from "../../lib/trash";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
+import { useReadsAll } from "./admin-access";
 
 type Trashed =
   RouterOutputs["admin"]["baseOverview"]["trashed"]["items"][number];
@@ -29,7 +29,7 @@ export function BasesTab() {
   const api = useTRPC();
   const queryClient = useQueryClient();
   const days = useTrashDays();
-  const isAdmin = useSession().data?.isAdmin === true;
+  const readsAll = useReadsAll();
   const [search, setSearch] = useState("");
   const [asked, setAsked] = useState("");
   const [ownerlessOnly, setOwnerlessOnly] = useState(false);
@@ -46,7 +46,7 @@ export function BasesTab() {
   });
   const trashed = useQuery({
     ...api.admin.baseOverview.trashed.queryOptions(),
-    enabled: isAdmin,
+    enabled: readsAll,
   });
   const list = bases.data?.bases ?? [];
   const trashItems = trashed.data?.items ?? [];
@@ -70,6 +70,7 @@ export function BasesTab() {
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <Input
+          reads
           aria-label={t`Search bases`}
           placeholder={t`Search bases`}
           className="h-8 w-full text-sm md:w-72"
@@ -78,6 +79,7 @@ export function BasesTab() {
         />
         <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <Checkbox
+            reads
             checked={ownerlessOnly}
             onChange={(event) => setOwnerlessOnly(event.target.checked)}
           />

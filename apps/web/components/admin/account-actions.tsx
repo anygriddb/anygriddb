@@ -25,6 +25,7 @@ export type AccountTarget = {
   email: string;
   isAdmin: boolean;
   isSupport: boolean;
+  isAuditor: boolean;
   disabled: boolean;
   locked: boolean;
   hasPassword: boolean;
@@ -41,6 +42,7 @@ export const ACCOUNT_ACTIONS = [
   "unlock",
   "admin",
   "support",
+  "auditor",
   "sessions",
   "factors",
   "signOn",
@@ -84,6 +86,7 @@ export function useAccountActions({
   const copy = useCopy();
   const stepUp = useStepUp();
   const viewerIsAdmin = session.data?.isAdmin === true;
+  const viewerIsSupport = session.data?.isSupport === true;
   const [open, setOpen] = useState<{
     target: AccountTarget;
     action: AccountAction;
@@ -110,6 +113,9 @@ export function useAccountActions({
       support: target.isSupport
         ? t`Remove the support role`
         : t`Give the support role`,
+      auditor: target.isAuditor
+        ? t`Remove the auditor role`
+        : t`Give the auditor role`,
       sessions: t`Sign out everywhere`,
       factors: t`Remove their second factors`,
       signOn: t`Unlink single sign-on`,
@@ -122,7 +128,8 @@ export function useAccountActions({
     target: AccountTarget,
   ): Availability => {
     const self = target.id === session.data?.id;
-    if (!viewerIsAdmin && !SUPPORT_ACTIONS.has(action)) {
+    // Support has its own actions; an auditor has none (ADR 0071).
+    if (!viewerIsAdmin && !(viewerIsSupport && SUPPORT_ACTIONS.has(action))) {
       return { ok: false, reason: t`Administrators only` };
     }
     if (self && action !== "edit") {
@@ -145,6 +152,11 @@ export function useAccountActions({
         // Support helps people sign in (ADR 0054): an administrator can
         // already do all of it.
         return target.isAdmin && !target.isSupport
+          ? { ok: false, reason: t`An administrator already can` }
+          : { ok: true };
+      case "auditor":
+        // An auditor reads Administration: an administrator already does.
+        return target.isAdmin && !target.isAuditor
           ? { ok: false, reason: t`An administrator already can` }
           : { ok: true };
       case "signOn":
@@ -312,6 +324,14 @@ export function useAccountActions({
           });
           toast.success(t`Saved`);
           break;
+        case "auditor":
+          if (!target.isAuditor) await prove();
+          await trpc.admin.setAuditor.mutate({
+            userId,
+            auditor: !target.isAuditor,
+          });
+          toast.success(t`Saved`);
+          break;
         case "sessions":
           await trpc.admin.endUserSessions.mutate({ userId });
           toast.success(t`Done`);
@@ -431,6 +451,18 @@ export function useAccountActions({
           : {
               title: t`Give ${{ name }} the support role?`,
               description: t`They open the accounts, the sessions and the trails of Administration to help a person sign in again: send a link, unlock, sign out, remove second factors, unlink single sign-on, revoke tokens. They change no setting, give no role, and open no base they are not a member of.`,
+              confirm: t`Give the role`,
+            };
+      case "auditor":
+        return target.isAuditor
+          ? {
+              title: t`Remove ${{ name }}'s auditor role?`,
+              description: t`They keep their account and their bases, and no longer open Administration.`,
+              confirm: t`Remove`,
+            }
+          : {
+              title: t`Give ${{ name }} the auditor role?`,
+              description: t`They read every page of Administration: the accounts and their sign-ins, the groups, the bases and who reaches them, the sources, the settings, the trails. They change nothing there, and open no base they are not a member of. They may export the trails and the access report: each export is on the change trail under their name.`,
               confirm: t`Give the role`,
             };
       case "sessions":

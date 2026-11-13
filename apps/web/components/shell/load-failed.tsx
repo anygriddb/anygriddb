@@ -30,7 +30,7 @@ export function LoadFailed(props: {
           ? t`This page could not be loaded: ${{ reason: errorText(props.error) }}`
           : t`This page could not be loaded. Check your connection, then try again.`}
       </p>
-      <Button variant="outline" size="sm" onClick={props.onRetry}>
+      <Button reads variant="outline" size="sm" onClick={props.onRetry}>
         <RotateCw className="h-4 w-4" aria-hidden />
         {t`Try again`}
       </Button>

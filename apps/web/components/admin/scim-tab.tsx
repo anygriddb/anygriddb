@@ -63,6 +63,7 @@ export function ScimTab() {
             onFocus={(event) => event.target.select()}
           />
           <Button
+            reads
             size="icon"
             variant="outline"
             aria-label={t`Copy the SCIM address`}

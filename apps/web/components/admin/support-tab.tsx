@@ -6,6 +6,7 @@ import {
   Select,
   Spinner,
   Textarea,
+  useReadOnly,
 } from "@anygriddb/ui";
 import { JOB_STATUSES, type JobKind, type JobStatus } from "@anygriddb/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -32,6 +33,8 @@ type RecipientMode = "all_active" | "ids";
  * access beside the security policy (ROADMAP #49).
  */
 export function SupportTab() {
+  // The two native choices of the notice follow the kit: off for a reader.
+  const readsOnly = useReadOnly();
   const { t } = useLingui();
   const errorText = useErrorText();
   const api = useTRPC();
@@ -114,6 +117,7 @@ export function SupportTab() {
       >
         <div className="flex flex-wrap gap-2">
           <Button
+            reads
             size="sm"
             variant="outline"
             onClick={() =>
@@ -180,7 +184,7 @@ export function SupportTab() {
                 type="radio"
                 name="operator-mail-mode"
                 checked={mode === "all_active"}
-                disabled={!smtp.data?.ready}
+                disabled={!smtp.data?.ready || readsOnly}
                 onChange={() => setMode("all_active")}
               />
               {t`All active accounts`}
@@ -195,7 +199,7 @@ export function SupportTab() {
                 type="radio"
                 name="operator-mail-mode"
                 checked={mode === "ids"}
-                disabled={!smtp.data?.ready}
+                disabled={!smtp.data?.ready || readsOnly}
                 onChange={() => setMode("ids")}
               />
               {t`Selected accounts`}
@@ -269,6 +273,7 @@ export function SupportTab() {
           <div className="flex flex-col gap-1">
             <Label htmlFor="support-job-status">{t`Status`}</Label>
             <Select
+              reads
               id="support-job-status"
               className="w-40"
               value={status}

@@ -261,6 +261,7 @@ export function Sidebar({
     canCreateBases?: boolean;
     isAdmin?: boolean;
     isSupport?: boolean;
+    isAuditor?: boolean;
   };
 }) {
   const { t } = useLingui();
@@ -939,7 +940,7 @@ export function Sidebar({
       </nav>
       <div className="flex items-center gap-1 border-t border-border px-2 py-1.5">
         <UserMenu user={user} />
-        {user.isAdmin || user.isSupport ? (
+        {user.isAdmin || user.isSupport || user.isAuditor ? (
           <Button
             size="icon"
             variant="ghost"

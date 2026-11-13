@@ -47,14 +47,17 @@ export type AdminSection = {
  * they sign in, what the instance connects to, the client databases, the
  * trails, and the instance itself, after a first page of what needs action.
  * Support (ADR 0054) sees the first page, accounts and sessions, and the
- * trails.
+ * trails. An auditor (ADR 0071) sees every page, as an administrator
+ * does, and changes none.
  */
 export function useAdminSections(): AdminSection[] {
   const { t } = useLingui();
   const session = useSession();
-  const isAdmin = session.data?.isAdmin === true;
+  // What an administrator reads, an auditor reads too.
+  const seesAll =
+    session.data?.isAdmin === true || session.data?.isAuditor === true;
   const isSupport = session.data?.isSupport === true;
-  if (!isAdmin && !isSupport) return [];
+  if (!seesAll && !isSupport) return [];
   const overview: AdminSection = {
     id: "overview",
     label: t`Overview`,
@@ -67,11 +70,11 @@ export function useAdminSections(): AdminSection[] {
     icon: Users,
     pages: [
       { to: "/admin/people/accounts", label: t`Accounts` },
-      ...(isAdmin
+      ...(seesAll
         ? ([{ to: "/admin/people/groups", label: t`Groups` }] as const)
         : []),
       { to: "/admin/people/sessions", label: t`Sessions` },
-      ...(isAdmin
+      ...(seesAll
         ? [
             {
               to: "/admin/people/provisioning",
@@ -90,7 +93,7 @@ export function useAdminSections(): AdminSection[] {
       { to: "/admin/trails/sign-ins", label: t`Sign-ins` },
     ],
   };
-  if (!isAdmin) return [overview, people, trails];
+  if (!seesAll) return [overview, people, trails];
   return [
     overview,
     people,

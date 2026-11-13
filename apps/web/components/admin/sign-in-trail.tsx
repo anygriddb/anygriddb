@@ -6,9 +6,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { datedName, downloadCsv } from "../../lib/download";
 import { useErrorText } from "../../lib/errors";
-import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { useAuthLabels } from "./auth-labels";
+import { useReadsAll } from "./admin-access";
 
 const ACTIONS = [
   "account_created",
@@ -40,8 +40,8 @@ function date(value: string): string {
 export function SignInTrail() {
   const { t } = useLingui();
   const errorText = useErrorText();
-  const session = useSession();
-  const isAdmin = session.data?.isAdmin === true;
+  // An auditor exports too: the export is on the trail under their name.
+  const readsAll = useReadsAll();
   const api = useTRPC();
   const [action, setAction] = useState<AuthAction | "">("");
   const [cursors, setCursors] = useState<string[]>([]);
@@ -72,6 +72,8 @@ export function SignInTrail() {
             admin_revoked: t`No longer an administrator`,
             support_granted: t`Given the support role`,
             support_revoked: t`Support role taken away`,
+            auditor_granted: t`Given the auditor role`,
+            auditor_revoked: t`Auditor role taken away`,
             all_active: t`Every active account`,
             selected: t`Chosen accounts`,
             as_admin: t`As an administrator`,
@@ -138,6 +140,7 @@ export function SignInTrail() {
         <div className="flex flex-col gap-1">
           <Label htmlFor="sign-in-action">{t`Event`}</Label>
           <Select
+            reads
             id="sign-in-action"
             className="w-52"
             value={action}
@@ -154,8 +157,13 @@ export function SignInTrail() {
             ))}
           </Select>
         </div>
-        {isAdmin ? (
-          <Button size="sm" variant="outline" onClick={() => void exportCsv()}>
+        {readsAll ? (
+          <Button
+            reads
+            size="sm"
+            variant="outline"
+            onClick={() => void exportCsv()}
+          >
             <Download className="h-4 w-4" aria-hidden />
             {t`Export as CSV`}
           </Button>
@@ -219,6 +227,7 @@ export function SignInTrail() {
       </div>
       <div className="flex gap-2">
         <Button
+          reads
           size="sm"
           variant="ghost"
           disabled={cursors.length === 0}
@@ -227,6 +236,7 @@ export function SignInTrail() {
           {t`Newer`}
         </Button>
         <Button
+          reads
           size="sm"
           variant="ghost"
           disabled={!trail.data?.next}

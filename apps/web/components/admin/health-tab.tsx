@@ -78,7 +78,12 @@ export function HealthTab() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Button size="sm" variant="ghost" onClick={() => void health.refetch()}>
+        <Button
+          reads
+          size="sm"
+          variant="ghost"
+          onClick={() => void health.refetch()}
+        >
           <RefreshCw
             className={cn("h-4 w-4", health.isFetching && "animate-spin")}
             aria-hidden

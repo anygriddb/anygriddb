@@ -1,10 +1,17 @@
-import { cn } from "@anygriddb/ui";
+import { cn, ReadOnly } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useSession } from "../../lib/session";
 import { NotebookPage } from "../shell/notebook-page";
 import { locate, useAdminSections } from "./admin-sections";
 import { ReleaseBanner } from "./release-banner";
+
+/** Where support acts (ADR 0054): accounts, sessions, and the trails. */
+const SUPPORT_PAGES = [
+  "/admin/people/accounts",
+  "/admin/people/sessions",
+  "/admin/trails",
+];
 
 /**
  * Administration: a first page of what needs action, then six sections
@@ -26,6 +33,15 @@ export function AdminShell() {
       </p>
     );
   }
+  // An auditor reads every page and changes none (ADR 0071): each
+  // control of a page is off unless it only reads. One who is support
+  // too keeps what support does, on the pages where support does it.
+  const auditor = session.data.isAuditor && !session.data.isAdmin;
+  const helping =
+    session.data.isSupport &&
+    (pathname === "/admin" ||
+      SUPPORT_PAGES.some((page) => pathname.startsWith(page)));
+  const reading = auditor && !helping;
   const here = locate(sections, pathname);
   // "page" for the page shown, "true" for the section or list it is in.
   const current = (to: string, within: boolean) =>
@@ -42,6 +58,14 @@ export function AdminShell() {
       description={t`People, security, connections, sources, trails, and the instance itself.`}
     >
       {session.data.isAdmin ? <ReleaseBanner /> : null}
+      {auditor && !session.data.isSupport ? (
+        <p
+          role="note"
+          className="mt-3 rounded-sm border border-border bg-muted px-3 py-2 text-sm"
+        >
+          {t`You read Administration as an auditor: every page is open to you, and nothing in it can be changed. What you export is written to the change trail under your name.`}
+        </p>
+      ) : null}
       <nav
         aria-label={t`Administration`}
         className="mt-4 flex gap-1 overflow-x-auto border-b border-rule"
@@ -97,7 +121,9 @@ export function AdminShell() {
         </nav>
       ) : null}
       <div className="mt-4">
-        <Outlet />
+        <ReadOnly when={reading}>
+          <Outlet />
+        </ReadOnly>
       </div>
     </NotebookPage>
   );
