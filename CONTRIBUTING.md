@@ -209,7 +209,9 @@ The repository's rulesets, set on GitHub rather than in this tree, protect
 `main`: pull request, squash merge only, signed commits, no force-push or
 deletion, and these checks from GitHub Actions (job names as GitHub reports
 them): `unit`, `integration`, `e2e`, `commits`, `codeql`,
-`dependency-review`. Only maintainers create, move, or delete `v*` tags.
+`dependency-review`. CI's `image` job builds the image of every pull
+request and starts it as an operator does (`scripts/smoke-image.sh`).
+Only maintainers create, move, or delete `v*` tags.
 Workflows pin each action to a commit SHA and may use actions from GitHub and
 an allowlist; a new third-party action needs a maintainer to add it. Trivy
 scans the image's system packages on `main` and weekly. Secrets belong in
@@ -231,8 +233,15 @@ Until 1.0, a release that breaks something raises the second number
    for operators: what was added, changed, and fixed, and first what
    breaks and what to do about it (environment variables, storage,
    PostgreSQL version).
-4. Push the tag: `git push origin vX.Y.Z`. The Release workflow builds the
-   image, pushes it to `ghcr.io/anygriddb/anygriddb` (version, minor, and
-   `latest`), and opens a GitHub Release with the tag's notes and the
-   digest pin (`image-pin.env`). The first time, make the package public
-   in its GitHub settings: GitHub creates it private.
+4. Push the tag: `git push origin vX.Y.Z`. The Release workflow waits for
+   `CI` on `main` to pass on that commit, builds the image for
+   `linux/amd64` and `linux/arm64`, each on a runner of its own, starts
+   each as an operator does and scans its system packages, and only then
+   pushes them to `ghcr.io/anygriddb/anygriddb` under one name (version,
+   minor, and `latest`) and opens a GitHub Release with the tag's notes
+   and the digest pin (`image-pin.env`). A step that fails publishes
+   nothing: fix, then run the workflow again. The first time, make the
+   package public in its GitHub settings: GitHub creates it private.
+
+To rehearse a release, run the Release workflow by hand on `main`
+(Actions, Release, Run workflow): it does everything but publish.

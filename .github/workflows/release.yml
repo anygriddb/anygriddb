@@ -1,14 +1,17 @@
-# Publish a release image when a version tag is pushed (ADR 0048).
-# The annotated tag's message is the operator release notes.
+# Publish a release image when a version tag is pushed (ADR 0048, 0061).
+# The annotated tag's message is the operator release notes. Nothing is
+# published unless main's CI passed on the tagged commit and each
+# architecture's image started and was scanned first. Run by hand on a
+# commit of main, it does everything but publish: a rehearsal.
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -19,10 +22,20 @@ env:
   IMAGE_NAME: anygriddb/anygriddb
 
 jobs:
-  publish:
-    name: publish
+  checks:
+    name: checks
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Main's CI may still be running when the tag is pushed: it is waited for.
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      major_minor: ${{ steps.version.outputs.major_minor }}
+      created: ${{ steps.version.outputs.created }}
+      epoch: ${{ steps.version.outputs.epoch }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -31,22 +44,30 @@ jobs:
 
       - name: Version from tag
         id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
-          if ! [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "tag must be vMAJOR.MINOR.PATCH, got: $tag" >&2
-            exit 1
-          fi
-          version="${tag#v}"
           root="$(sed -n 's/^  "version": *"\([^"]*\)".*/\1/p' package.json | head -n 1)"
-          if [ "$version" != "$root" ]; then
-            echo "tag v$version does not match package.json version $root" >&2
-            exit 1
+          if [ "$EVENT_NAME" = "push" ]; then
+            tag="${GITHUB_REF_NAME}"
+            if ! [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+              echo "tag must be vMAJOR.MINOR.PATCH, got: $tag" >&2
+              exit 1
+            fi
+            version="${tag#v}"
+            if [ "$version" != "$root" ]; then
+              echo "tag v$version does not match package.json version $root" >&2
+              exit 1
+            fi
+          else
+            # A rehearsal: the version main says, no tag.
+            tag="v$root"
+            version="$root"
           fi
           # Only what main holds was reviewed and checked (the ruleset).
           if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "tag $tag is not on main: release a commit of main" >&2
+            echo "$GITHUB_SHA is not on main: release a commit of main" >&2
             exit 1
           fi
           major_minor="$(printf '%s' "$version" | cut -d. -f1-2)"
@@ -55,7 +76,183 @@ jobs:
             echo "version=$version"
             echo "major_minor=$major_minor"
             echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            # Both architectures' images, and each built twice (tested,
+            # then pushed), carry the commit's time: the same bytes.
+            echo "epoch=$(git log -1 --format=%ct "$GITHUB_SHA")"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Main's CI passed on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          while true; do
+            run="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml \
+              --commit "$GITHUB_SHA" --event push --limit 1 \
+              --json status,conclusion,url --jq '.[0] // empty')"
+            if [ -n "$run" ] && [ "$(jq -r .status <<<"$run")" = "completed" ]; then
+              conclusion="$(jq -r .conclusion <<<"$run")"
+              if [ "$conclusion" != "success" ]; then
+                echo "main's CI on $GITHUB_SHA ended $conclusion: $(jq -r .url <<<"$run")" >&2
+                echo "Run it again until it passes, then run this release again." >&2
+                exit 1
+              fi
+              echo "main's CI passed: $(jq -r .url <<<"$run")"
+              break
+            fi
+            echo "Waiting for main's CI on $GITHUB_SHA."
+            sleep 30
+          done
+
+  # Each architecture on a runner of its own, natively: built, started as
+  # an operator starts it, scanned, then pushed by digest only.
+  build:
+    name: build (${{ matrix.arch }})
+    needs: checks
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    env:
+      SOURCE_DATE_EPOCH: ${{ needs.checks.outputs.epoch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            ANYGRIDDB_VERSION=${{ needs.checks.outputs.version }}
+            ANYGRIDDB_COMMIT=${{ github.sha }}
+            ANYGRIDDB_CREATED=${{ needs.checks.outputs.created }}
+          labels: |
+            org.opencontainers.image.title=AnyGridDB
+            org.opencontainers.image.description=Open-source spreadsheet interface on real SQL tables
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+            org.opencontainers.image.url=https://github.com/anygriddb/anygriddb
+            org.opencontainers.image.source=https://github.com/anygriddb/anygriddb
+            org.opencontainers.image.version=${{ needs.checks.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ needs.checks.outputs.created }}
+          provenance: false
+          load: true
+          tags: anygriddb:local
+
+      - name: Start it as an operator would
+        env:
+          SMOKE_VERSION: ${{ needs.checks.outputs.version }}
+        run: scripts/smoke-image.sh
+
+      - name: Scan its system packages
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: anygriddb:local
+          scanners: vuln
+          vuln-type: os
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # From the build's cache, at the commit's time: the image tested.
+      - name: Push by digest
+        id: push
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            ANYGRIDDB_VERSION=${{ needs.checks.outputs.version }}
+            ANYGRIDDB_COMMIT=${{ github.sha }}
+            ANYGRIDDB_CREATED=${{ needs.checks.outputs.created }}
+          labels: |
+            org.opencontainers.image.title=AnyGridDB
+            org.opencontainers.image.description=Open-source spreadsheet interface on real SQL tables
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+            org.opencontainers.image.url=https://github.com/anygriddb/anygriddb
+            org.opencontainers.image.source=https://github.com/anygriddb/anygriddb
+            org.opencontainers.image.version=${{ needs.checks.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ needs.checks.outputs.created }}
+          provenance: false
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Keep the digest
+        if: github.event_name == 'push'
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          case "$DIGEST" in
+            sha256:*) ;;
+            *)
+              echo "missing image digest from the push" >&2
+              exit 1
+              ;;
+          esac
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+
+      - name: Hand the digest on
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # One name for both architectures, its pin file, and the GitHub Release.
+  publish:
+    name: publish
+    if: github.event_name == 'push'
+    needs: [checks, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: The digests of both builds
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to GHCR
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
@@ -64,53 +261,43 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-
-      - name: Build and push
-        id: build
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: docker/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.major_minor }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          build-args: |
-            ANYGRIDDB_VERSION=${{ steps.version.outputs.version }}
-            ANYGRIDDB_COMMIT=${{ github.sha }}
-            ANYGRIDDB_CREATED=${{ steps.version.outputs.created }}
-          labels: |
-            org.opencontainers.image.title=AnyGridDB
-            org.opencontainers.image.description=Open-source spreadsheet interface on real SQL tables
-            org.opencontainers.image.licenses=AGPL-3.0-or-later
-            org.opencontainers.image.url=https://github.com/anygriddb/anygriddb
-            org.opencontainers.image.source=https://github.com/anygriddb/anygriddb
-            org.opencontainers.image.version=${{ steps.version.outputs.version }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.created=${{ steps.version.outputs.created }}
-          provenance: false
-
-      - name: Digest and pin file
+      - name: One image for both architectures
         id: pin
+        env:
+          VERSION: ${{ needs.checks.outputs.version }}
+          MAJOR_MINOR: ${{ needs.checks.outputs.major_minor }}
         run: |
           set -euo pipefail
-          digest="${{ steps.build.outputs.digest }}"
+          repository="$REGISTRY/$IMAGE_NAME"
+          sources=()
+          for file in "$RUNNER_TEMP"/digests/*; do
+            sources+=("$repository@sha256:$(basename "$file")")
+          done
+          if [ "${#sources[@]}" -ne 2 ]; then
+            echo "expected the digests of two builds, got ${#sources[@]}" >&2
+            exit 1
+          fi
+          docker buildx imagetools create \
+            --tag "$repository:$VERSION" \
+            --tag "$repository:$MAJOR_MINOR" \
+            --tag "$repository:latest" \
+            --annotation "index:org.opencontainers.image.description=Open-source spreadsheet interface on real SQL tables" \
+            --annotation "index:org.opencontainers.image.licenses=AGPL-3.0-or-later" \
+            --annotation "index:org.opencontainers.image.source=https://github.com/anygriddb/anygriddb" \
+            "${sources[@]}"
+          image="$repository:$VERSION"
+          digest="$(docker buildx imagetools inspect "$image" --format '{{json .Manifest}}' | jq -r .digest)"
           case "$digest" in
             sha256:*) ;;
             *)
-              echo "missing image digest from build" >&2
+              echo "missing the digest of $image" >&2
               exit 1
               ;;
           esac
-          version="${{ steps.version.outputs.version }}"
-          image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${version}"
           {
-            echo "# AnyGridDB ${version}, written by the Release workflow (ADR 0048)."
+            echo "# AnyGridDB ${VERSION}, written by the Release workflow (ADR 0048)."
             echo "# docker compose -f compose.yml -f compose.release.yml --env-file .env --env-file image-pin.env up -d"
-            echo "ANYGRIDDB_VERSION=${version}"
+            echo "ANYGRIDDB_VERSION=${VERSION}"
             echo "ANYGRIDDB_IMAGE=${image}"
             echo "ANYGRIDDB_DIGEST=${digest}"
           } > "$RUNNER_TEMP/image-pin.env"
@@ -118,34 +305,38 @@ jobs:
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
       - name: Release notes from annotated tag
+        env:
+          TAG: ${{ needs.checks.outputs.tag }}
+          VERSION: ${{ needs.checks.outputs.version }}
+          IMAGE: ${{ steps.pin.outputs.image }}
+          DIGEST: ${{ steps.pin.outputs.digest }}
         run: |
           set -euo pipefail
-          tag="${{ steps.version.outputs.tag }}"
           # Checkout may leave the tag lightweight: fetch the annotated one.
-          git fetch --force origin "refs/tags/$tag:refs/tags/$tag"
-          body="$(git tag -l --format='%(contents)' "$tag")"
+          git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+          body="$(git tag -l --format='%(contents)' "$TAG")"
           {
             if [ -n "$body" ]; then
               printf '%s\n\n---\n\n' "$body"
             else
-              printf 'AnyGridDB %s\n\n' "${{ steps.version.outputs.version }}"
+              printf 'AnyGridDB %s\n\n' "$VERSION"
             fi
-            printf 'Image: `%s@%s`\n' \
-              "${{ steps.pin.outputs.image }}" \
-              "${{ steps.pin.outputs.digest }}"
+            # shellcheck disable=SC2016 # the backquotes are Markdown's
+            printf 'Image: `%s@%s` (linux/amd64, linux/arm64)\n' "$IMAGE" "$DIGEST"
           } > "$RUNNER_TEMP/release-notes.md"
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.checks.outputs.tag }}
+          VERSION: ${{ needs.checks.outputs.version }}
         run: |
           set -euo pipefail
-          tag="${{ steps.version.outputs.tag }}"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" "$RUNNER_TEMP/image-pin.env" --clobber
-            gh release edit "$tag" --notes-file "$RUNNER_TEMP/release-notes.md"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$RUNNER_TEMP/image-pin.env" --clobber
+            gh release edit "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
           else
-            gh release create "$tag" "$RUNNER_TEMP/image-pin.env" \
-              --title "AnyGridDB ${{ steps.version.outputs.version }}" \
+            gh release create "$TAG" "$RUNNER_TEMP/image-pin.env" \
+              --title "AnyGridDB $VERSION" \
               --notes-file "$RUNNER_TEMP/release-notes.md"
           fi
