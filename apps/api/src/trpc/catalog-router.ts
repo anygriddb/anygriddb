@@ -776,7 +776,11 @@ export const catalogRouter = t.router({
         const { user } = await authorize(ctx, true);
         const airtableBase = airtableBaseId(input.base);
         if (!airtableBase) throw new AppError("airtable_base_not_found");
-        const sealed = encryptSecret(input.token, ctx.env.AUTH_ENCRYPTION_KEY);
+        const sealed = encryptSecret(
+          input.token,
+          ctx.env.AUTH_ENCRYPTION_KEY,
+          "job-token",
+        );
         const job = await enqueueJob(queueDeps(ctx), {
           kind: "import_airtable",
           userId: user.id,

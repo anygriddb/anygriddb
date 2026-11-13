@@ -1,6 +1,8 @@
 /**
  * Shared control-plane + source declaration helpers for sample suites.
  */
+import { keyRing } from "../../auth/key-ring.js";
+import type { KeyRing } from "../../auth/key-ring.js";
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -44,11 +46,11 @@ export const sampleSettings: SourceSettings = {
 export type SampleControl = {
   db: Database;
   close: () => Promise<void>;
-  key: Buffer;
+  key: KeyRing;
   actorId: string;
   baseId: string;
   pools: SourcePools;
-  deps: { db: Database; key: Buffer; settings: SourceSettings };
+  deps: { db: Database; key: KeyRing; settings: SourceSettings };
 };
 
 export type DeclaredSource = {
@@ -61,7 +63,7 @@ export async function openSampleControl(
   prefix = "samples",
 ): Promise<SampleControl> {
   const control = await createTestDatabase(prefix);
-  const key = randomBytes(32);
+  const key = keyRing(randomBytes(32));
   const actorId = (
     await control.db
       .insertInto("users")

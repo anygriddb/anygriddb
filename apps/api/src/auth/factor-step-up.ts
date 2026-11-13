@@ -1,3 +1,4 @@
+import type { KeyRing } from "./key-ring.js";
 import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { verifyPassword } from "./argon2.js";
@@ -12,7 +13,7 @@ import { consumeTotpCode } from "./totp.js";
  */
 export async function assertMayChangeFactor(
   db: Database,
-  key: Buffer,
+  key: KeyRing,
   userId: string,
   kind: "totp" | "passkey",
   proof: { password?: string; factorCode?: string },

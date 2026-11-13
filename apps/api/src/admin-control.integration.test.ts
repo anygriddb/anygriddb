@@ -8,6 +8,7 @@ import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { keyRing } from "./auth/key-ring.js";
 import { csvField } from "./admin-control.js";
 import { requestActor } from "./auth/access.js";
 import { purgeAuthEvents } from "./auth/auth-events.js";
@@ -37,7 +38,7 @@ describe("instance controls", () => {
     closeSession: vi.fn(() => 0),
   };
   const env = {
-    AUTH_ENCRYPTION_KEY: randomBytes(32),
+    AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
     PUBLIC_URL: "https://grid.example.org",
   } as unknown as Env;
 

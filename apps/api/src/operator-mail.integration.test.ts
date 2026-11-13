@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Database } from "@anygriddb/db";
 import type { TaskList } from "graphile-worker";
+import { keyRing } from "./auth/key-ring.js";
 import { runJobs } from "./queue/run-once.test-helpers.js";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -46,7 +47,7 @@ describe("operator mail", () => {
   let activeId = "";
   let disabledId = "";
   const env = {
-    AUTH_ENCRYPTION_KEY: key,
+    AUTH_ENCRYPTION_KEY: keyRing(key),
     PUBLIC_URL: "https://grid.example.org",
     SMTP_FROM: "grid@example.org",
   } as unknown as Env & {

@@ -4,6 +4,7 @@
  * Without email set up, nothing is sent. A failure is logged, never
  * thrown: the action it reports already happened.
  */
+import type { KeyRing } from "./key-ring.js";
 import type { Database } from "@anygriddb/db";
 import { resolveSmtp } from "../integrations/smtp.js";
 import { sendMail, smtpReady, type SmtpConfig } from "../mail.js";
@@ -27,7 +28,7 @@ import { signupLinkUrl } from "./signup-requests.js";
 
 export type SecurityMailDeps = {
   db: Database;
-  env: SmtpConfig & { PUBLIC_URL: string; AUTH_ENCRYPTION_KEY: Buffer };
+  env: SmtpConfig & { PUBLIC_URL: string; AUTH_ENCRYPTION_KEY: KeyRing };
   log: { error: (object: object, message: string) => void };
 };
 

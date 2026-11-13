@@ -1,3 +1,4 @@
+import type { KeyRing } from "./key-ring.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { SAML, ValidateInResponseTo } from "@node-saml/node-saml";
@@ -83,7 +84,7 @@ function sameBrowser(expected: unknown, shown: string | undefined): boolean {
 
 async function saveState(
   db: Database,
-  key: Buffer,
+  key: KeyRing,
   kind: "oidc" | "saml",
   payload: { verifier: string; nonce: string; browser: string },
 ): Promise<string> {
@@ -91,6 +92,7 @@ async function saveState(
   const sealed = encryptSecret(
     JSON.stringify({ ...payload, browser: hashSessionToken(payload.browser) }),
     key,
+    "sso-state",
   );
   await db
     .insertInto("oauthStates")
@@ -112,7 +114,7 @@ async function saveState(
  */
 async function takeState(
   db: Database,
-  key: Buffer,
+  key: KeyRing,
   kind: "oidc" | "saml",
   state: string,
   request: FastifyRequest,
@@ -129,7 +131,7 @@ async function takeState(
     throw new AppError("challenge_expired");
   }
   const parsed = JSON.parse(
-    decryptSecret(row.verifierCiphertext, row.verifierNonce, key),
+    decryptSecret(row.verifierCiphertext, row.verifierNonce, key, "sso-state"),
   ) as { verifier?: unknown; nonce?: unknown; browser?: unknown };
   if (
     typeof parsed.verifier !== "string" ||
@@ -167,7 +169,11 @@ async function spendSamlAssertion(
 ): Promise<void> {
   const assertionId = samlAssertionId(profile.getAssertion?.());
   if (!assertionId) throw new AppError("invalid_credentials");
-  const sealed = encryptSecret("seen", deps.env.AUTH_ENCRYPTION_KEY);
+  const sealed = encryptSecret(
+    "seen",
+    deps.env.AUTH_ENCRYPTION_KEY,
+    "sso-state",
+  );
   try {
     await deps.db
       .insertInto("oauthStates")

@@ -1,5 +1,6 @@
 import type { Database } from "@anygriddb/db";
-import { hashBackupCode, legacyBackupCodeHash } from "./backup-code.js";
+import { backupCodeHashes } from "./backup-code.js";
+import type { KeyRing } from "./key-ring.js";
 
 export async function replaceBackupCodes(
   db: Database,
@@ -37,16 +38,13 @@ export async function consumeBackupCode(
   db: Database,
   userId: string,
   code: string,
-  key: Buffer,
+  key: KeyRing,
 ): Promise<boolean> {
   const used = await db
     .updateTable("backupCodes")
     .set({ usedAt: new Date() })
     .where("userId", "=", userId)
-    .where("codeHash", "in", [
-      hashBackupCode(code, key),
-      legacyBackupCodeHash(code),
-    ])
+    .where("codeHash", "in", backupCodeHashes(code, key))
     .where("usedAt", "is", null)
     .returning("id")
     .executeTakeFirst();

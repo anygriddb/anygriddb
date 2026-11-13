@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { keyRing } from "../auth/key-ring.js";
 import { DiskStore } from "../files/index.js";
 import { createTestDatabase } from "../test-database.js";
 import cookie from "@fastify/cookie";
@@ -670,7 +671,7 @@ describe("field and row rules on PostgreSQL", () => {
     await registerAttachmentRoutes(app, {
       db: database,
       files: new DiskStore(filesRoot),
-      encryptionKey: randomBytes(32),
+      encryptionKey: keyRing(randomBytes(32)),
       envMaxBytes: 4096,
       uploads,
     });

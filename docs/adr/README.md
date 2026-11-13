@@ -78,3 +78,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0063](0063-the-row-id-as-a-field.md)                | The row's id as a field                                                                 | Accepted                                    |
 | [0064](0064-imports-read-as-they-are-written.md)     | Imports read as they are written                                                        | Accepted                                    |
 | [0065](0065-table-copies-in-sql.md)                  | Table copies in SQL                                                                     | Accepted                                    |
+| [0066](0066-encryption-key-ids.md)                   | Encryption keys with an identifier, one per use, and changed without loss               | Accepted                                    |

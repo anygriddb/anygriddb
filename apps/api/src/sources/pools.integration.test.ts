@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { keyRing } from "../auth/key-ring.js";
 import { createTestDatabase } from "../test-database.js";
 import { SourcePools } from "./pools.js";
 import { createSource } from "./sources.js";
@@ -14,7 +15,7 @@ import { createSource } from "./sources.js";
 const settings = { allows: () => true, allowedHosts: [], allowPlaintext: true };
 
 describe("source pools", () => {
-  const key = randomBytes(32);
+  const key = keyRing(randomBytes(32));
   const admin = new pg.Client({ connectionString: inject("adminUrl") });
   let db: Database;
   let close: (() => Promise<void>) | undefined;

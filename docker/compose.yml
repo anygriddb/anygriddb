@@ -57,6 +57,7 @@ services:
       ]
     environment:
       AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env}
+      AUTH_ENCRYPTION_PREVIOUS_KEYS: ${AUTH_ENCRYPTION_PREVIOUS_KEYS:-}
     volumes:
       - tls_data:/data/tls
       - service_certs:/certs
@@ -135,6 +136,7 @@ services:
       # Verified TLS to PostgreSQL, by the internal authority (ADR 0030).
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=verify-full&sslrootcert=/certs/internal-authority.crt
       AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env}
+      AUTH_ENCRYPTION_PREVIOUS_KEYS: ${AUTH_ENCRYPTION_PREVIOUS_KEYS:-}
       PORT: "4000"
       # Canonical HTTPS origin people open: links, cookies, passkeys (RP ID),
       # and the certificate's primary name. Use a hostname for passkeys; an

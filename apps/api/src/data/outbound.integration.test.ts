@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { keyRing } from "../auth/key-ring.js";
 import { createApiToken } from "../auth/tokens.js";
 import { setAutomationEnabled } from "../automations.js";
 import { createTestDatabase } from "../test-database.js";
@@ -208,7 +209,7 @@ describe("every public link and calendar feed, for an administrator", () => {
 
     // Switched off from there, they stay, off.
     const webhook = hooks.find((hook) => hook.kind === "webhook");
-    await updateWebhook(db, Buffer.alloc(32), webhook?.id ?? "", {
+    await updateWebhook(db, keyRing(Buffer.alloc(32)), webhook?.id ?? "", {
       active: false,
     });
     await setAutomationEnabled(db, automation.id, false);

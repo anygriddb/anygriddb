@@ -1,3 +1,4 @@
+import type { KeyRing } from "./key-ring.js";
 import type { Database } from "@anygriddb/db";
 import { decryptSecret, encryptSecret } from "./crypto.js";
 import { acceptedTotpStep } from "./totp-code.js";
@@ -7,10 +8,10 @@ export async function saveTotpSecret(
   db: Database,
   userId: string,
   secret: string,
-  key: Buffer,
+  key: KeyRing,
   lastStep: number,
 ): Promise<void> {
-  const sealed = encryptSecret(secret, key);
+  const sealed = encryptSecret(secret, key, "totp");
   const confirmedAt = new Date();
   await db
     .insertInto("totpSecrets")
@@ -44,13 +45,13 @@ export async function readTotpRow(db: Database, userId: string) {
 export async function readTotpSecret(
   db: Database,
   userId: string,
-  key: Buffer,
+  key: KeyRing,
 ): Promise<string | null> {
   const row = await readTotpRow(db, userId);
   if (!row?.confirmedAt) {
     return null;
   }
-  return decryptSecret(row.ciphertext, row.nonce, key);
+  return decryptSecret(row.ciphertext, row.nonce, key, "totp");
 }
 
 /**
@@ -62,13 +63,13 @@ export async function consumeTotpCode(
   db: Database,
   userId: string,
   code: string,
-  key: Buffer,
+  key: KeyRing,
 ): Promise<boolean> {
   const row = await readTotpRow(db, userId);
   if (!row?.confirmedAt) {
     return false;
   }
-  const secret = decryptSecret(row.ciphertext, row.nonce, key);
+  const secret = decryptSecret(row.ciphertext, row.nonce, key, "totp");
   const step = acceptedTotpStep(secret, code, Date.now(), row.lastStep);
   if (step === null) {
     return false;

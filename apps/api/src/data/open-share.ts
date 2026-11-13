@@ -3,6 +3,7 @@
  * under the creator's role and their field and row rules. Its tRPC
  * procedures and its form's file uploads open it the same way.
  */
+import type { KeyRing } from "../auth/key-ring.js";
 import {
   AppError,
   effectiveTableRole,
@@ -36,7 +37,7 @@ function visibleFields(
 }
 
 export async function openShare(
-  deps: { db: Database; encryptionKey: Buffer },
+  deps: { db: Database; encryptionKey: KeyRing },
   input: { token: string; password?: string; access?: string },
   action: "read" | "write",
 ) {

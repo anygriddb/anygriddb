@@ -12,6 +12,7 @@ import {
   type StartedTestContainer,
 } from "testcontainers";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { keyRing } from "../auth/key-ring.js";
 import { loadEngine } from "../data/engine.js";
 import { aggregateRows, readPage } from "../data/rows.js";
 import { addColumn, insertBase } from "../data/schema-ops.js";
@@ -63,7 +64,7 @@ describe("SQL Server sources", () => {
   let close: (() => Promise<void>) | undefined;
   let admin = "";
   let pools: SourcePools | undefined;
-  const key = randomBytes(32);
+  const key = keyRing(randomBytes(32));
 
   beforeAll(async () => {
     server = await new GenericContainer(

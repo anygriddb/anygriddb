@@ -2,6 +2,7 @@
  * Operator SMTP stored in the database (ADR 0050). The password is sealed
  * with AUTH_ENCRYPTION_KEY and never returned to the client.
  */
+import type { KeyRing } from "../auth/key-ring.js";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { decryptSecret, encryptSecret } from "../auth/crypto.js";
@@ -106,10 +107,10 @@ function envSmtp(env: SmtpConfig): SmtpConfig {
   };
 }
 
-function rowToConfig(row: SmtpRow, key: Buffer): SmtpConfig {
+function rowToConfig(row: SmtpRow, key: KeyRing): SmtpConfig {
   const password =
     row.passwordCiphertext && row.passwordNonce
-      ? decryptSecret(row.passwordCiphertext, row.passwordNonce, key)
+      ? decryptSecret(row.passwordCiphertext, row.passwordNonce, key, "smtp")
       : undefined;
   return {
     SMTP_HOST: row.host,
@@ -126,7 +127,7 @@ function rowToConfig(row: SmtpRow, key: Buffer): SmtpConfig {
  */
 export async function resolveSmtp(
   db: Database,
-  env: SmtpConfig & { AUTH_ENCRYPTION_KEY: Buffer },
+  env: SmtpConfig & { AUTH_ENCRYPTION_KEY: KeyRing },
 ): Promise<{ config: SmtpConfig; source: SmtpSource }> {
   const row = await loadSmtpRow(db);
   if (row) {
@@ -144,7 +145,7 @@ export async function resolveSmtp(
 
 export async function saveSmtp(
   db: Database,
-  key: Buffer,
+  key: KeyRing,
   userId: string,
   input: SmtpUpdate,
   options: { ip?: string } = {},
@@ -167,7 +168,7 @@ export async function saveSmtp(
     passwordCiphertext = null;
     passwordNonce = null;
   } else if (input.password !== undefined) {
-    const sealed = encryptSecret(input.password, key);
+    const sealed = encryptSecret(input.password, key, "smtp");
     passwordCiphertext = sealed.ciphertext;
     passwordNonce = sealed.nonce;
   }
@@ -178,7 +179,7 @@ export async function saveSmtp(
     SMTP_USER: username ?? undefined,
     SMTP_PASSWORD:
       passwordCiphertext && passwordNonce
-        ? decryptSecret(passwordCiphertext, passwordNonce, key)
+        ? decryptSecret(passwordCiphertext, passwordNonce, key, "smtp")
         : undefined,
     SMTP_FROM: input.fromAddress,
   };

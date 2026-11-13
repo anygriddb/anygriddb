@@ -2,6 +2,7 @@
  * Operator OIDC stored in the database (ADR 0050). The client secret is
  * sealed; the redirect URL is derived from PUBLIC_URL.
  */
+import type { KeyRing } from "../auth/key-ring.js";
 import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
@@ -124,7 +125,7 @@ function envOidc(env: {
 export async function resolveOidc(
   db: Database,
   env: {
-    AUTH_ENCRYPTION_KEY: Buffer;
+    AUTH_ENCRYPTION_KEY: KeyRing;
     PUBLIC_URL: string;
     OIDC_ISSUER?: string;
     OIDC_CLIENT_ID?: string;
@@ -142,6 +143,7 @@ export async function resolveOidc(
           row.clientSecretCiphertext,
           row.clientSecretNonce,
           env.AUTH_ENCRYPTION_KEY,
+          "oidc",
         ),
         OIDC_REDIRECT_URL: oidcRedirectUrl(env.PUBLIC_URL),
       },
@@ -219,7 +221,7 @@ export async function proveOidcIssuer(
 
 export async function saveOidc(
   db: Database,
-  key: Buffer,
+  key: KeyRing,
   userId: string,
   input: OidcUpdate,
   publicUrl: string,
@@ -247,7 +249,7 @@ export async function saveOidc(
   let ciphertext = existing?.clientSecretCiphertext;
   let nonce = existing?.clientSecretNonce;
   if (input.clientSecret !== undefined) {
-    const sealed = encryptSecret(input.clientSecret, key);
+    const sealed = encryptSecret(input.clientSecret, key, "oidc");
     ciphertext = sealed.ciphertext;
     nonce = sealed.nonce;
   }

@@ -1,9 +1,5 @@
-import {
-  createHash,
-  createHmac,
-  randomBytes,
-  timingSafeEqual,
-} from "node:crypto";
+import { sign, verify, type KeyRing } from "../auth/key-ring.js";
+import { createHash, randomBytes } from "node:crypto";
 import {
   AppError,
   memberDomainAllowed,
@@ -504,21 +500,19 @@ export async function shareViewId(
   return row.viewId;
 }
 
-/** Short-lived proof that the share password was given: `id.expiry.mac`. */
+/** Short-lived proof that the share password was given: `expiry.mac`. */
 export function issueShareAccess(
-  key: Buffer,
+  key: KeyRing,
   shareId: string,
   now = Date.now(),
 ): string {
   const expiry = now + SHARE_ACCESS_TTL_MS;
-  const mac = createHmac("sha256", key)
-    .update(`${shareId}.${expiry}`)
-    .digest("base64url");
-  return `${expiry}.${mac}`;
+  const mac = sign(key, "share-access", `${shareId}.${expiry}`);
+  return `${expiry}.${mac.toString("base64url")}`;
 }
 
 export function verifyShareAccess(
-  key: Buffer,
+  key: KeyRing,
   shareId: string,
   access: string | undefined,
   now = Date.now(),
@@ -527,11 +521,12 @@ export function verifyShareAccess(
   const [expiryText, mac] = access.split(".");
   const expiry = Number(expiryText);
   if (!mac || !Number.isFinite(expiry) || expiry < now) return false;
-  const expected = createHmac("sha256", key)
-    .update(`${shareId}.${expiry}`)
-    .digest();
-  const given = Buffer.from(mac, "base64url");
-  return given.length === expected.length && timingSafeEqual(given, expected);
+  return verify(
+    key,
+    "share-access",
+    `${shareId}.${expiry}`,
+    Buffer.from(mac, "base64url"),
+  );
 }
 
 export type ResolvedShare = {
@@ -578,7 +573,7 @@ async function findShare(
  */
 export async function resolveShare(
   db: Database,
-  key: Buffer,
+  key: KeyRing,
   input: { token: string; password?: string; access?: string },
 ): Promise<ResolvedShare & { access: string | null; locked: boolean }> {
   if (!isToken(input.token)) {

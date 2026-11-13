@@ -2,6 +2,7 @@
  * Declaring a PostgreSQL source over verified TLS, against a server with a
  * self-signed certificate that the test pastes as an administrator would.
  */
+import { keyRing } from "../auth/key-ring.js";
 import { removeTable } from "../data/tables.js";
 import { addComment, countComments } from "../data/comments.js";
 import { randomBytes } from "node:crypto";
@@ -47,7 +48,7 @@ describe("PostgreSQL sources", () => {
   let db: Database;
   let close: (() => Promise<void>) | undefined;
   let admin = "";
-  const key = randomBytes(32);
+  const key = keyRing(randomBytes(32));
   let pools: SourcePools | undefined;
 
   beforeAll(async () => {
