@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { reasonOf } from "./errors";
+import { browserLocale } from "./i18n";
 
 /** The msgid and msgstr of every message of a PO catalog. */
 function catalog(locale: string): Array<{ id: string; text: string }> {
@@ -47,6 +48,17 @@ describe("i18n", () => {
         placeholderNames(entry.id),
       );
     }
+  });
+
+  it("takes the first browser language the app speaks", () => {
+    expect(browserLocale(["fr-FR", "en-US"])).toBe("fr");
+    expect(browserLocale(["de-DE", "fr-CA", "en"])).toBe("fr");
+    expect(browserLocale(["en-GB"])).toBe("en");
+    // None spoken: the instance's default decides.
+    expect(browserLocale(["de-DE", "es"])).toBeNull();
+    expect(browserLocale([])).toBeNull();
+    // A tag that only begins like a language is not that language.
+    expect(browserLocale(["fry", "enx"])).toBeNull();
   });
 
   it("reads the code of a failure wherever it comes from", () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseColumnConfig } from "./field-config";
 import { parseFormula } from "./formula";
 import { deriveColumnName } from "./names";
 import { columnDefinitionSchema } from "./schemas";
@@ -21,6 +22,13 @@ describe("BASE_TEMPLATES", () => {
             }));
             expect(() =>
               parseFormula(column.formulaSource ?? "", refs),
+            ).not.toThrow();
+            // Its display settings are ones a formula field keeps.
+            expect(() =>
+              parseColumnConfig("formula", {
+                ...column.config,
+                expr: parseFormula(column.formulaSource ?? "", refs),
+              }),
             ).not.toThrow();
           }
         }
@@ -57,6 +65,21 @@ describe("BASE_TEMPLATES", () => {
       }
     },
   );
+
+  it("writes money computed from money as money", () => {
+    const money = (template: string, table: string, column: string) =>
+      findTemplate(template)
+        ?.tables.find((item) => item.key === table)
+        ?.columns.find((item) => item.name === column)?.config;
+    expect(money("crm", "deals", "pondere")).toMatchObject({
+      number: { style: "currency", currency: "EUR" },
+    });
+    expect(money("inventory", "products", "valeur")).toMatchObject({
+      number: { style: "currency", currency: "EUR" },
+    });
+    // A yes/no formula keeps no number format.
+    expect(money("inventory", "products", "a_commander")).toBeUndefined();
+  });
 
   it("finds templates by id and nothing else", () => {
     expect(findTemplate("crm")?.name).toBe("CRM");

@@ -86,10 +86,12 @@ export function GalleryView(props: ViewProps) {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-4 border-b border-border px-4 py-1.5">
         <ColumnPicker
-          label={t`Title`}
+          label={t`Card title`}
           value={titleName}
           columns={titleChoices}
           allowNone
+          // Unset, a card is named by the row's primary field.
+          noneLabel={t`Primary field`}
           onChange={(value) => props.onPatch({ titleColumn: value })}
         />
         <ColumnPicker

@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   AppError,
   createApiTokenInputSchema,
+  labelSchema,
   revokeApiTokenInputSchema,
 } from "@anygriddb/core";
 import { TRPCError } from "@trpc/server";
@@ -45,6 +46,7 @@ import {
   type LockedAccount,
 } from "../auth/lockout.js";
 import { loginInputSchema } from "../auth/login.js";
+import { profileManaged, renameOwnAccount } from "../auth/profile.js";
 import {
   SELF_RESET_TTL_MS,
   assertPasswordPolicy,
@@ -804,6 +806,28 @@ export const authRouter = t.router({
       }
     }),
   /**
+   * The name the signed-in person goes by. Their address stays with an
+   * administrator; an identity provider that provisions the account keeps
+   * both.
+   */
+  rename: procedure
+    .input(z.object({ displayName: labelSchema }).strict())
+    .mutation(async ({ ctx, input }) => {
+      const user = await requireUser(ctx);
+      try {
+        refuseApiToken(ctx);
+        const changed = await renameOwnAccount(ctx.db, {
+          userId: user.id,
+          displayName: input.displayName,
+          ip: ctx.req.ip,
+        });
+        if (changed) ctx.req.log.info({ actor: user.id }, "account renamed");
+        return { ok: true as const };
+      } catch (error) {
+        mapProcedureError(error, ctx.req.log);
+      }
+    }),
+  /**
    * Public: mails a reset link when the instance lets people ask for one.
    * The answer is the same whether the address has an account or not.
    */
@@ -1049,8 +1073,15 @@ export const sessionRouter = t.router({
     const methods = await factorMethods(ctx.db, user.id);
     const bindings = await loadBindings(ctx.db, user.id);
     const policy = await readGateSettings(ctx.db);
+    const provisioning = await ctx.db
+      .selectFrom("users")
+      .select(["scimUserName", "deprovisionedAt"])
+      .where("id", "=", user.id)
+      .executeTakeFirstOrThrow();
     return {
       ...user,
+      /** An identity provider keeps the account's name: not renamed here. */
+      nameManaged: profileManaged(provisioning),
       mfaEnrolled: methods.length > 0,
       /** Which second factors this account has confirmed. */
       mfaMethods: methods,

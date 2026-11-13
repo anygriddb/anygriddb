@@ -18,7 +18,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readKey, saveQueue, withoutSaved } from "./view-patch";
-import { Database } from "lucide-react";
+import { emptyTableHint } from "./empty-table-hint-model";
+import { Database, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { toWriteValue } from "../../lib/format";
 import { ENGINE_NAMES } from "../../lib/limits";
@@ -795,6 +796,53 @@ export function TableWorkspace({
       if (id) setRecordId(id);
     });
   }, [fillFirst, addRow]);
+  const [importOpen, setImportOpen] = useState(false);
+  const addInGrid = useCallback(async () => {
+    if (fillFirst) {
+      setNewRowValues({});
+      return;
+    }
+    // The new row appears in the grid: that is the confirmation.
+    await addRow();
+  }, [fillFirst, addRow]);
+  const canImport = writable && external === null;
+  const hint = emptyTableHint({
+    total: rows.total,
+    loading: rows.loading,
+    grouped: groupBy.length > 0,
+    searched: search.trim() !== "",
+    filtered:
+      !config.filtersDisabled && (config.filter?.conditions.length ?? 0) > 0,
+    canAdd,
+    canImport,
+  });
+  const emptyHint =
+    hint === "nothing-matches" ? (
+      <p className="text-sm text-muted-foreground">
+        {t`No row matches this view's filters or search.`}
+      </p>
+    ) : hint === "start" ? (
+      // The grid's own last line adds a row: the hint points to it rather
+      // than offering a second button that does the same.
+      <div className="flex flex-col items-start gap-3">
+        <p className="text-sm font-medium">{t`No rows yet.`}</p>
+        <p className="text-sm text-muted-foreground">
+          {canImport
+            ? t`Add a first row on the line above, or bring the rows of a CSV, Excel, or JSON file.`
+            : t`Add a first row on the line above.`}
+        </p>
+        {canImport ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+          >
+            <Upload className="h-4 w-4" aria-hidden />
+            {t`Import a file`}
+          </Button>
+        ) : null}
+      </div>
+    ) : null;
   const recordQuery = useQuery({
     ...api.rows.get.queryOptions({
       tableId,
@@ -816,7 +864,6 @@ export function TableWorkspace({
   const [deleteColumn, setDeleteColumn] = useState<CatalogColumn | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   const [automationsOpen, setAutomationsOpen] = useState(false);
 
   const invalidateCatalog = () =>
@@ -1160,14 +1207,8 @@ export function TableWorkspace({
                   (peer) => peer.viewId === activeView?.id,
                 )}
                 onActiveCell={onActiveCell}
-                onAddRow={async () => {
-                  if (fillFirst) {
-                    setNewRowValues({});
-                    return;
-                  }
-                  // The new row appears in the grid: that is the confirmation.
-                  await addRow();
-                }}
+                onAddRow={addInGrid}
+                emptyHint={emptyHint}
                 onInsertRows={async (list) => {
                   await insertRows(list);
                 }}

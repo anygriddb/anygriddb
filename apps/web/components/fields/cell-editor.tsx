@@ -46,6 +46,7 @@ import {
 import { RatingControl } from "./rating-control";
 import { AttachmentPreview } from "./attachment-preview";
 import { linkedRowDraft } from "./link-actions";
+import { panelPlacement, visibleBox, type Placement } from "./panel-placement";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { LIST_PANEL_ATTRIBUTE } from "../../lib/keyboard-undo";
@@ -387,8 +388,9 @@ function RatingEditor({ column, row, initialText, onDone }: EditorProps) {
 }
 
 /**
- * A panel under the cell. Escape closes it; with `tabCloses`, so does
- * Tab, moving to the next cell, since the panel's list takes the arrows.
+ * A panel under the cell, turned toward the inside of the grid near its
+ * right or bottom edge. Escape closes it; with `tabCloses`, so does Tab,
+ * moving to the next cell, since the panel's list takes the arrows.
  */
 function ListPanel({
   children,
@@ -405,6 +407,27 @@ function ListPanel({
   tabCloses?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [placement, setPlacement] = useState<Placement>({
+    x: "start",
+    y: "below",
+  });
+  useLayoutEffect(() => {
+    const panel = ref.current;
+    const cell = panel?.parentElement;
+    if (!panel || !cell) return;
+    // Measured at its tallest: a list that fills in later stays on screen.
+    const style = getComputedStyle(panel);
+    setPlacement(
+      panelPlacement(
+        cell.getBoundingClientRect(),
+        {
+          width: panel.offsetWidth,
+          height: Number.parseFloat(style.maxHeight) || panel.offsetHeight,
+        },
+        visibleBox(panel),
+      ),
+    );
+  }, []);
   useEffect(() => {
     if (paused) return;
     const onPointer = (event: PointerEvent) => {
@@ -417,7 +440,11 @@ function ListPanel({
     <div
       ref={ref}
       {...{ [LIST_PANEL_ATTRIBUTE]: "" }}
-      className="absolute top-0 left-0 z-50 flex max-h-80 w-72 flex-col rounded-sm border border-border bg-card shadow-xl"
+      className={cn(
+        "absolute z-50 flex max-h-80 w-72 flex-col rounded-sm border border-border bg-card shadow-xl",
+        placement.x === "end" ? "right-0" : "left-0",
+        placement.y === "above" ? "bottom-0" : "top-0",
+      )}
       // Clicks in the panel stay in it: the grid keeps its editor open.
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDownCapture={(event) => {

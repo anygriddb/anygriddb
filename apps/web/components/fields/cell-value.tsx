@@ -41,6 +41,7 @@ export function CellValueView({
   people,
   search = "",
   wrap = false,
+  inColumn = true,
   error = null,
   onOpenLink,
   onOpenFile,
@@ -51,6 +52,11 @@ export function CellValueView({
   people: ReadonlyMap<string, Collaborator>;
   search?: string;
   wrap?: boolean;
+  /**
+   * In a column of values (a grid), numbers line up on the right; under a
+   * label (a card), they start where the label does.
+   */
+  inColumn?: boolean;
   /** The error the value is (ERROR in a formula, ADR 0036), with its message. */
   error?: string | null;
   /** Opens a linked row: links become buttons when given. */
@@ -290,7 +296,8 @@ export function CellValueView({
     <span
       className={cn(
         wrap ? "break-words whitespace-pre-wrap" : "truncate",
-        numeric && "ml-auto tabular-nums",
+        numeric && "tabular-nums",
+        numeric && inColumn && "ml-auto",
       )}
     >
       {highlight(text, search)}

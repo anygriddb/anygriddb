@@ -87,6 +87,8 @@ export function GridFooter(props: {
   virtualColumns: readonly number[];
   padStart: number;
   width: number;
+  /** The column past the last field (the one that adds a field), if any. */
+  trailingWidth: number;
   total: number;
   /** The total is a large client table's estimate: it may be counted. */
   estimated?: { onCount: () => void };
@@ -205,7 +207,8 @@ export function GridFooter(props: {
       {props.virtualColumns.map((index) => cell(index))}
       <div
         aria-hidden
-        className="flex-1 border-t border-strong-border bg-head"
+        className="shrink-0 border-t border-strong-border bg-head"
+        style={{ width: props.trailingWidth }}
       />
     </div>
   );

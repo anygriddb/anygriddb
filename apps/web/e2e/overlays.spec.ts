@@ -22,11 +22,7 @@ test("menus, submenus, a context menu, and a popover work from the keyboard", as
   await expect(page.getByRole("menu")).toBeHidden();
 
   await page.getByRole("button", { name: "New view" }).click();
-  await expect(
-    page.getByRole("group", { name: "Shared view" }).getByRole("menuitem", {
-      name: "Kanban",
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Kanban" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toBeHidden();
 

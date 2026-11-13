@@ -37,6 +37,7 @@ cycle and the stack rewrite:
 | `@lingui/core`, `@lingui/react`, `@codemirror/*` (formula editor)                       | MIT        |
 | `@modelcontextprotocol/server`, `@modelcontextprotocol/node` (MCP server)               | Apache-2.0 |
 | `hono`, `@hono/node-server` (used by the MCP server)                                    | MIT        |
+| `uqr` (the code an authenticator app scans)                                             | MIT        |
 
 `packages/core/src/query/windows-zones.ts` is generated from the Unicode
 CLDR file `windowsZones.xml`, Copyright © 1991-2013 Unicode, Inc., under

@@ -69,12 +69,15 @@ export function ColumnPicker({
   columns,
   onChange,
   allowNone,
+  noneLabel,
 }: {
   label: string;
   value: string | undefined;
   columns: readonly CatalogColumn[];
   onChange: (value: string | null) => void;
   allowNone?: boolean;
+  /** What leaving it unset means, when that is not "None". */
+  noneLabel?: string;
 }) {
   const { t } = useLingui();
   return (
@@ -85,7 +88,9 @@ export function ColumnPicker({
         value={value ?? ""}
         onChange={(event) => onChange(event.target.value || null)}
       >
-        {allowNone || !value ? <option value="">{t`None`}</option> : null}
+        {allowNone || !value ? (
+          <option value="">{noneLabel ?? t`None`}</option>
+        ) : null}
         {columns.map((column) => (
           <option key={column.name} value={column.name}>
             {column.label}
@@ -127,6 +132,7 @@ export function CardFields({
                 column={column}
                 locale={table.locale}
                 people={table.people}
+                inColumn={false}
                 error={error}
               />
             </dd>

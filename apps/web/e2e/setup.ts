@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { decodeBase32, totpCode } from "../../api/src/auth/totp-code.ts";
 
 /**
@@ -108,12 +108,17 @@ export async function signIn(
  * offers it (the welcome page, the account page), and returns its secret.
  */
 export async function enableTotp(page: Page): Promise<string> {
-  await page.getByRole("button", { name: "Enable TOTP" }).click();
-  const secret = await page.getByLabel("Secret").inputValue();
   await page
-    .getByLabel("Code", { exact: true })
+    .getByRole("button", { name: "Set up an authenticator app" })
+    .click();
+  await page
+    .getByRole("img", { name: "Code to scan with your authenticator app" })
+    .waitFor();
+  const secret = await page.getByLabel("Setup key").inputValue();
+  await page
+    .getByLabel("Code shown by the app")
     .fill(totpCode(decodeBase32(secret), Date.now()));
-  await page.getByRole("button", { name: "Confirm TOTP" }).click();
+  await page.getByRole("button", { name: "Confirm the code" }).click();
   await page.getByRole("button", { name: "I saved the codes" }).click();
   return secret;
 }
@@ -214,4 +219,21 @@ export async function openAdmin(
 export async function findAccount(page: Page, email: string): Promise<void> {
   await page.getByLabel("Search accounts").fill(email);
   await expect(page.getByText("1 account", { exact: true })).toBeVisible();
+}
+
+/**
+ * Picks a field's type in the field dialog: its "Type" button opens the
+ * list of types, where one is chosen by its name.
+ */
+export async function pickFieldType(
+  page: Page,
+  dialog: Locator,
+  type: string,
+): Promise<void> {
+  await dialog.getByLabel("Type", { exact: true }).click();
+  // An option is read with its description: it is found by its name.
+  await page
+    .getByRole("option")
+    .filter({ has: page.getByText(type, { exact: true }) })
+    .click();
 }

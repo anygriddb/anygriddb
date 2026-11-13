@@ -22,6 +22,13 @@ export type PickerOption = {
   /** What typing matches, and what a screen reader reads. */
   textValue: string;
   children: ReactNode;
+  /** Drawn before the option's name. */
+  icon?: ReactNode;
+  /**
+   * A line under the name. It is part of what the option is called, as
+   * everything written on it is (WCAG 2.5.3, label in name).
+   */
+  description?: ReactNode;
 };
 
 export type ListPickerProps = {
@@ -60,7 +67,12 @@ export function ListPicker(props: ListPickerProps) {
       onInputChange={props.onInputChange}
       filter={props.filter ? contains : undefined}
     >
-      <TextField aria-label={props.label} autoFocus className="flex">
+      {/* Where the whole panel scrolls, the search stays on top of it. */}
+      <TextField
+        aria-label={props.label}
+        autoFocus
+        className="sticky top-0 z-[1] flex bg-card"
+      >
         <AriaInput
           placeholder={props.label}
           className="h-9 w-full border-b border-border bg-transparent px-3 text-sm outline-none"
@@ -92,7 +104,19 @@ export function ListPicker(props: ListPickerProps) {
             {({ isSelected }) => (
               <>
                 <span className="flex min-w-0 flex-1 items-center gap-2">
-                  {option.children}
+                  {option.description === undefined ? (
+                    option.children
+                  ) : (
+                    <>
+                      {option.icon}
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate">{option.children}</span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {option.description}
+                        </span>
+                      </span>
+                    </>
+                  )}
                 </span>
                 {isSelected ? (
                   <Check

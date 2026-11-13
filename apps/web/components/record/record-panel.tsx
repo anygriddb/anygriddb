@@ -1,4 +1,4 @@
-import { cellText, rowError } from "@anygriddb/core";
+import { cellText, isBlankCell, rowError } from "@anygriddb/core";
 import {
   Avatar,
   Button,
@@ -22,6 +22,7 @@ import {
   MessageSquare,
   MoreHorizontal,
   Pencil,
+  Send,
   Trash2,
   X,
 } from "lucide-react";
@@ -50,7 +51,8 @@ import { isEditableColumn, isEditableLink } from "../grid/grid-clipboard";
 import { useTable } from "../table/table-context";
 import { CommentBody, MentionTextarea } from "./mention-input";
 import { printRecord } from "./print-record";
-import { RowStatus } from "./row-status";
+import { RowStatus, useSubmitRow } from "./row-status";
+import { canSubmitRow } from "./row-status-model";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import type { MessageDescriptor } from "@lingui/core";
@@ -67,14 +69,20 @@ const SKIP = new Set([
   "ag_updated_by",
 ]);
 
+/** Fields whose value draws its own empty state: never "Empty". */
+const DRAWS_ITS_EMPTY = new Set(["button", "boolean", "rating"]);
+
 function FieldRow({
   column,
   row,
   editable,
+  asTitle = false,
 }: {
   column: CatalogColumn;
   row: RowItem;
   editable: boolean;
+  /** The primary field, written large as the panel's title. */
+  asTitle?: boolean;
 }) {
   const { t } = useLingui();
   const table = useTable();
@@ -117,15 +125,36 @@ function FieldRow({
     void table.updateCells([
       { rowId: row.id, values: { [column.name]: !value } },
     ]);
+  // An empty value says so, where a click fills it in. A checkbox and a
+  // rating draw their own empty state.
+  const blank =
+    isBlankCell(value) &&
+    !DRAWS_ITS_EMPTY.has(column.fieldType) &&
+    rowError(row, column.name) === null;
   return (
-    <div ref={box} className="group flex flex-col gap-1 py-2.5">
-      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+    <div
+      ref={box}
+      className={cn(
+        "group flex flex-col gap-1",
+        asTitle ? "pt-4 pb-3" : "py-2.5",
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center gap-1.5 text-xs font-medium text-muted-foreground",
+          asTitle && "sr-only",
+        )}
+      >
         <FieldIcon fieldType={column.fieldType} />
         <span className="break-words">{column.label}</span>
       </div>
       <div
+        {...(asTitle ? { role: "heading", "aria-level": 2 } : {})}
         className={cn(
-          "relative -mx-2 min-h-8 rounded-md border border-transparent px-2 py-1 text-sm",
+          "relative -mx-2 min-h-8 rounded-md border border-transparent px-2 py-1",
+          asTitle
+            ? "text-xl leading-tight font-semibold break-words"
+            : "text-sm",
           canEditField && "cursor-text hover:border-border",
           editing && !opensPanel(column.fieldType) && "h-9",
           column.fieldType === "long_text" && editing && "h-40",
@@ -172,6 +201,10 @@ function FieldRow({
         ) : null}
         {column.fieldType === "button" ? (
           <ButtonCell column={column} row={row} />
+        ) : blank ? (
+          <span className="text-muted-foreground">
+            {asTitle ? t`Untitled` : t`No value`}
+          </span>
         ) : (
           <CellValueView
             value={value}
@@ -558,6 +591,7 @@ export function RecordPanel({
   const { t } = useLingui();
   const table = useTable();
   const copy = useCopy();
+  const submitRow = useSubmitRow();
   // While the print dialog is open, the record is rendered under <body>
   // for the print style to show alone.
   const [printing, setPrinting] = useState(false);
@@ -580,6 +614,9 @@ export function RecordPanel({
         table.people,
       )
     : "";
+  const titleColumn = primary
+    ? columns.find((column) => column.name === primary.name)
+    : undefined;
   const visible = new Set(columns.map((column) => column.name));
   const hidden = table.table.columns.filter(
     (column) => !visible.has(column.name),
@@ -660,6 +697,12 @@ export function RecordPanel({
                 {t`Duplicate row`}
               </DropdownMenuItem>
             ) : null}
+            {canSubmitRow(row, table.role) ? (
+              <DropdownMenuItem onSelect={() => void submitRow(row.id)}>
+                <Send className="h-4 w-4" aria-hidden />
+                {t`Submit the row for review`}
+              </DropdownMenuItem>
+            ) : null}
             {onDelete ? (
               <>
                 <DropdownMenuSeparator />
@@ -682,18 +725,31 @@ export function RecordPanel({
       </header>
       <RowStatus row={row} />
       <div className="flex-1 overflow-y-auto px-4">
-        <h2 className="pt-4 pb-3 text-xl leading-tight font-semibold break-words">
-          {title || t`Untitled`}
-        </h2>
+        {/* The primary field is the title, edited where it is read; a
+            view that hides it still names the row. */}
+        {titleColumn ? (
+          <FieldRow
+            column={titleColumn}
+            row={row}
+            editable={editableField(titleColumn)}
+            asTitle
+          />
+        ) : (
+          <h2 className="pt-4 pb-3 text-xl leading-tight font-semibold break-words">
+            {title || t`Untitled`}
+          </h2>
+        )}
         <div className="divide-y divide-rule border-t border-rule">
-          {columns.map((column) => (
-            <FieldRow
-              key={column.name}
-              column={column}
-              row={row}
-              editable={editableField(column)}
-            />
-          ))}
+          {columns
+            .filter((column) => column !== titleColumn)
+            .map((column) => (
+              <FieldRow
+                key={column.name}
+                column={column}
+                row={row}
+                editable={editableField(column)}
+              />
+            ))}
         </div>
         {hidden.length > 0 ? (
           <div className="py-2">

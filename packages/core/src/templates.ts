@@ -156,6 +156,9 @@ export const BASE_TEMPLATES: readonly BaseTemplate[] = [
             label: "Weighted amount",
             fieldType: "formula",
             formulaSource: "ROUND({Amount} * {Probability} / 100, 0)",
+            config: {
+              number: { style: "currency", currency: "EUR", precision: 0 },
+            },
           },
         ],
         rows: [
@@ -413,6 +416,9 @@ export const BASE_TEMPLATES: readonly BaseTemplate[] = [
             label: "Stock value",
             fieldType: "formula",
             formulaSource: "{Stock} * {Unit price}",
+            config: {
+              number: { style: "currency", currency: "EUR", precision: 2 },
+            },
           },
         ],
         rows: [

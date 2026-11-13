@@ -130,7 +130,8 @@ export function WelcomePage() {
             <div className="mt-6">
               <SecondFactorSetup onDone={() => setSecured(true)} />
             </div>
-            {factorNeeded ? null : (
+            {/* Once a factor is set up, there is nothing left to skip. */}
+            {factorNeeded || user.mfaEnrolled ? null : (
               <p className="mt-8 text-sm text-muted-foreground">
                 <button
                   type="button"

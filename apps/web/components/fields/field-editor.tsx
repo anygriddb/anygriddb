@@ -39,7 +39,8 @@ import type {
   CatalogTable,
   Collaborator,
 } from "../../lib/types";
-import { FIELD_GROUPS, FIELD_LABELS, FieldIcon } from "./field-meta";
+import { FIELD_GROUPS, FieldIcon } from "./field-meta";
+import { FieldTypePicker } from "./field-type-picker";
 import { useLingui } from "@lingui/react/macro";
 import type { FormulaEditorHandle } from "./formula-editor";
 import { FormulaHelpPanel } from "./formula-help-panel";
@@ -749,31 +750,12 @@ export function FieldEditor({
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="field-type">{t`Type`}</Label>
-            <div className="flex items-center gap-2">
-              <FieldIcon
-                fieldType={
-                  fieldType === "link" ? "relation_many_to_many" : fieldType
-                }
-                className="h-4 w-4 opacity-70"
-              />
-              <Select
-                id="field-type"
-                value={fieldType}
-                onChange={(event) => setFieldType(event.target.value)}
-              >
-                {typeChoices.map((group) => (
-                  <optgroup key={group.types[0]} label={t(group.label)}>
-                    {group.types.map((type) => (
-                      <option key={type} value={type}>
-                        {type === "link"
-                          ? t`Link to another table`
-                          : t(FIELD_LABELS[type] ?? raw(type))}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </Select>
-            </div>
+            <FieldTypePicker
+              id="field-type"
+              value={fieldType}
+              types={typeChoices.flatMap((group) => group.types)}
+              onChange={setFieldType}
+            />
           </div>
 
           {fieldType === "single_select" || fieldType === "multi_select" ? (
