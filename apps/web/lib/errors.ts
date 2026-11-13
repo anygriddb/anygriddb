@@ -137,6 +137,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   too_many_jobs: msg`Too many jobs running: wait for one to finish`,
   unknown_job: msg`Job not found`,
   invalid_job: msg`Invalid job`,
+  job_not_retryable: msg`This job cannot be retried`,
   job_cancelled: msg`Job cancelled`,
   interrupted: msg`The job was interrupted by a restart. Start it again.`,
   invalid_file: msg`Invalid file`,

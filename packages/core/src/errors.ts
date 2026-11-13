@@ -140,6 +140,7 @@ export const ERRORS = {
   too_many_jobs: [BAD, "Too many jobs"],
   unknown_job: [BAD, "Unknown job"],
   invalid_job: [BAD, "Invalid job"],
+  job_not_retryable: [BAD, "Job cannot be retried"],
   job_cancelled: [409, "Job cancelled"],
   interrupted: [409, "Interrupted"],
   invalid_file: [BAD, "Invalid file"],

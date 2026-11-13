@@ -177,14 +177,20 @@ export async function enqueueSystemJob(
 
 /**
  * Runs a product job in graphile-worker, at most once: its runner writes
- * rows and files, and a person decides whether to start it again.
+ * rows and files, and a person decides whether to start it again. Each
+ * retry takes a key of its own: the queue keeps the entry of a run whose
+ * worker died, and would take a second one under that key for the first.
  */
-function queueProductJob(executor: SqlExecutor, jobId: string) {
+function queueProductJob(executor: SqlExecutor, jobId: string, run = 0) {
   return addJob(
     executor,
     TASKS.productJob,
     { jobId },
-    { maxAttempts: 1, jobKey: `job:${jobId}`, jobKeyMode: "unsafe_dedupe" },
+    {
+      maxAttempts: 1,
+      jobKey: run === 0 ? `job:${jobId}` : `job:${jobId}:${String(run)}`,
+      jobKeyMode: "unsafe_dedupe",
+    },
   );
 }
 
@@ -429,6 +435,7 @@ export function publicJob(job: JobRow & { tableName?: string | null }) {
       job.fileExpiresAt &&
       job.fileExpiresAt.getTime() > Date.now(),
     ),
+    retryable: jobCanRetry(job),
     createdAt: job.createdAt.toISOString(),
     finishedAt: job.finishedAt?.toISOString() ?? null,
   };
@@ -470,6 +477,68 @@ export async function loadOwnJob(
     .executeTakeFirst();
   if (!row) throw new AppError("unknown_job");
   return row;
+}
+
+/**
+ * Kinds whose run is safe to start again from nothing: an export rewrites
+ * its file, and a copy removes the table or base it had begun when it
+ * fails or is stopped. An import is not one of them: the rows it wrote
+ * before failing would be written twice.
+ */
+const RETRYABLE_KINDS: ReadonlySet<JobKind> = new Set([
+  "export",
+  "export_snapshot",
+  "duplicate_table",
+  "duplicate_base",
+]);
+
+/** Whether its author may put this job back on the queue. */
+export function jobCanRetry(job: Pick<JobRow, "kind" | "status">): boolean {
+  return job.status === "failed" && RETRYABLE_KINDS.has(job.kind);
+}
+
+/**
+ * Puts a failed or interrupted job back on the queue, as it was asked.
+ * The runner checks its author's rights again when it starts. A
+ * cancelled job is not retried: its author chose to stop it.
+ */
+export async function retryJob(
+  deps: QueueDeps,
+  userId: string,
+  jobId: string,
+): Promise<JobRow> {
+  const job = await loadOwnJob(deps.db, userId, jobId);
+  if (!jobCanRetry(job)) {
+    throw new AppError("job_not_retryable");
+  }
+  await assertJobCapacity(deps.db, userId);
+  const queued = await deps.db.transaction().execute(async (tx) => {
+    const row = await tx
+      .updateTable("jobs")
+      .set({
+        status: "queued",
+        error: null,
+        errorCode: null,
+        errorDetail: null,
+        result: null,
+        startedAt: null,
+        finishedAt: null,
+        leaseUntil: null,
+        cancelRequested: false,
+        progressDone: 0,
+        progressTotal: null,
+      })
+      .where("id", "=", job.id)
+      .where("status", "=", "failed")
+      .returningAll()
+      .executeTakeFirst();
+    // Asked twice at once: the first one queued it.
+    if (!row) throw new AppError("job_not_retryable");
+    await queueProductJob(tx, row.id, row.attempts);
+    return row;
+  });
+  await publishJob(deps.bus, queued, deps.log);
+  return queued;
 }
 
 /** A queued job stops at once; a running one at its next progress report. */

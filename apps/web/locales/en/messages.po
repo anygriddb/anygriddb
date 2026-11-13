@@ -6494,6 +6494,10 @@ msgstr "Restrictions cleared"
 msgid "Result"
 msgstr "Result"
 
+#: components/shell/jobs-menu.tsx
+msgid "Retry"
+msgstr "Retry"
+
 #: components/settings/webhooks-panel.tsx
 msgid "Retry scheduled ({error})"
 msgstr "Retry scheduled ({error})"
@@ -8452,6 +8456,10 @@ msgstr "This invitation does not exist or has expired"
 #: components/public/invitation-page.tsx
 msgid "This invitation does not exist or has expired."
 msgstr "This invitation does not exist or has expired."
+
+#: lib/errors.ts
+msgid "This job cannot be retried"
+msgstr "This job cannot be retried"
 
 #: components/public/public-view.tsx
 msgid "This link does not exist, has expired, or was revoked."

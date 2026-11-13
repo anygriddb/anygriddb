@@ -161,6 +161,15 @@ export function JobsMenu() {
     }
   }
 
+  async function retry(job: Job) {
+    try {
+      await trpc.jobs.retry.mutate({ jobId: job.id });
+      await list.refetch();
+    } catch (cause) {
+      toast.error(errorText(cause));
+    }
+  }
+
   function openResult(job: Job) {
     if (
       job.kind === "import_snapshot" ||
@@ -266,6 +275,15 @@ export function JobsMenu() {
                         onClick={() => void cancel(job)}
                       >
                         {t`Cancel`}
+                      </button>
+                    ) : null}
+                    {job.retryable ? (
+                      <button
+                        type="button"
+                        className="text-primary hover:underline"
+                        onClick={() => void retry(job)}
+                      >
+                        {t`Retry`}
                       </button>
                     ) : null}
                     {(job.kind === "export" ||
