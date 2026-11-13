@@ -5,6 +5,7 @@
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { recordExport } from "../data/export-audit.js";
 import { keyRing } from "../auth/key-ring.js";
 import type { Env } from "../env.js";
 import { createTestDatabase } from "../test-database.js";
@@ -79,6 +80,25 @@ describe("catalog.activity", () => {
     expect(Date.now() - Date.parse(activity?.changed?.at ?? "")).toBeLessThan(
       60_000,
     );
+  });
+
+  it("does not take an export for a change", async () => {
+    const before = await owner.call().catalog.activity({ tableIds: [tableId] });
+    // Someone else takes the table's rows out, later.
+    const other = await db
+      .insertInto("users")
+      .values({ email: `export-${suffix}@example.org`, displayName: "Eve" })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await recordExport(db, {
+      userId: other.id,
+      tableId,
+      source: "web",
+      export: { kind: "view", format: "csv", rows: 2 },
+    });
+    const after = await owner.call().catalog.activity({ tableIds: [tableId] });
+    expect(after[0]?.changed).toEqual(before[0]?.changed);
+    expect(after[0]?.changed?.by.name).toBe("Olive Owner");
   });
 
   it("says nothing of a table the caller cannot read, or that does not exist", async () => {

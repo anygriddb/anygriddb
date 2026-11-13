@@ -270,10 +270,11 @@ msgstr "{0, plural, one {# point} other {# points}}"
 msgid "{0, plural, one {# row deleted from the client's database} other {# rows deleted from the client's database}}"
 msgstr "{0, plural, one {# row deleted from the client's database} other {# rows deleted from the client's database}}"
 
+#. placeholder {0}: item.rows
 #. placeholder {0}: props.total
 #. placeholder {0}: staged.rows
-#. placeholder {0}: sync.rows ?? 0
 #: components/admin/sources-tab.tsx
+#: components/admin/trails.tsx
 #: components/grid/grid-footer.tsx
 #: components/shell/new-base-dialog.tsx
 msgid "{0, plural, one {# row} other {# rows}}"
@@ -900,6 +901,10 @@ msgstr "A total over the linked rows"
 #: lib/errors.ts
 msgid "A value is required"
 msgstr "A value is required"
+
+#: components/admin/trails.tsx
+msgid "A view's rows, as {format}"
+msgstr "A view's rows, as {format}"
 
 #: components/fields/field-meta.tsx
 msgid "A web address, as a link"
@@ -3390,6 +3395,7 @@ msgid "Exponential: e to the power of the number."
 msgstr "Exponential: e to the power of the number."
 
 #: components/admin/support-tab.tsx
+#: components/admin/trails.tsx
 msgid "Export"
 msgstr "Export"
 
@@ -5415,10 +5421,6 @@ msgstr "No bases yet."
 msgid "No camera at hand? Type this key in the app instead."
 msgstr "No camera at hand? Type this key in the app instead."
 
-#: components/admin/trails.tsx
-msgid "No change matches. Every write to a base, its fields, and its roles shows here, with who made it."
-msgstr "No change matches. Every write to a base, its fields, and its roles shows here, with who made it."
-
 #: components/admin/sources-tab.tsx
 msgid "No column of this table tells when a row changes (a date and time set on every change, or a rowversion): keep the full copy."
 msgstr "No column of this table tells when a row changes (a date and time set on every change, or a rowversion): keep the full copy."
@@ -5660,6 +5662,10 @@ msgstr "Nothing here yet."
 #: components/shell/home-page.tsx
 msgid "Nothing is waiting for you."
 msgstr "Nothing is waiting for you."
+
+#: components/admin/trails.tsx
+msgid "Nothing matches. Every write to a base, its fields, and its roles shows here, and every export, with who made it."
+msgstr "Nothing matches. Every write to a base, its fields, and its roles shows here, and every export, with who made it."
 
 #: components/admin/admin-overview.tsx
 msgid "Nothing needs your attention."
@@ -8069,6 +8075,10 @@ msgstr "The base raised to the given power."
 msgid "The base role applies to all of its tables."
 msgstr "The base role applies to all of its tables."
 
+#: components/admin/trails.tsx
+msgid "The base's file, as {format}"
+msgstr "The base's file, as {format}"
+
 #: lib/clipboard.ts
 msgid "The browser refused to copy: select the text and copy it."
 msgstr "The browser refused to copy: select the text and copy it."
@@ -8084,6 +8094,10 @@ msgstr "The certificate expires within"
 #: components/admin/health-tab.tsx
 msgid "The certificate is the one the operator provided."
 msgstr "The certificate is the one the operator provided."
+
+#: components/admin/trails.tsx
+msgid "The change trail, as {format}"
+msgstr "The change trail, as {format}"
 
 #: components/fields/formula-docs.ts
 msgid "The characters from a position, 1 for the first."
@@ -8437,6 +8451,10 @@ msgstr "The server is not of the chosen engine: MySQL and MariaDB differ"
 #: components/admin/sources-tab.tsx
 msgid "The server's internal certificate authority, or its self-signed certificate. Without one, the system's authorities are trusted."
 msgstr "The server's internal certificate authority, or its self-signed certificate. Without one, the system's authorities are trusted."
+
+#: components/admin/trails.tsx
+msgid "The sign-in trail, as {format}"
+msgstr "The sign-in trail, as {format}"
 
 #: components/fields/formula-docs.ts
 msgid "The smallest value, number or date."
@@ -9663,6 +9681,10 @@ msgstr "Who created the row"
 #: components/admin/access-report.tsx
 msgid "Who has access"
 msgstr "Who has access"
+
+#: components/admin/trails.tsx
+msgid "Who has access, as {format}"
+msgstr "Who has access, as {format}"
 
 #: components/fields/field-meta.tsx
 msgid "Who last changed the row"

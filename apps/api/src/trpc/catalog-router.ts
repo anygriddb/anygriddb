@@ -641,6 +641,8 @@ export const catalogRouter = t.router({
                 "users.displayName",
               ])
               .where("auditEvents.tableId", "in", open)
+              // Taking rows out changes nothing (ROADMAP #31).
+              .where("auditEvents.action", "<>", "export")
               .orderBy("auditEvents.tableId")
               .orderBy("auditEvents.occurredAt", "desc")
               .execute();

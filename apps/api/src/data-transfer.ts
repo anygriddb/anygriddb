@@ -63,6 +63,7 @@ import { stageSnapshotFile } from "./data/snapshot-stage.js";
 import { localFolder } from "./files/local-folder.js";
 import { loadOwnJob } from "./jobs.js";
 import { readerEngine } from "./data/acl.js";
+import { recordExport } from "./data/export-audit.js";
 import type { FileStore } from "./files/index.js";
 import { publicErrorBody } from "./http.js";
 
@@ -583,6 +584,17 @@ export function registerDataTransferRoutes(
         { path, maxRows: MAX_COPY_ROWS },
       );
       size = exported.size;
+      await recordExport(deps.db, {
+        userId: actor.user.id,
+        tableId: table.id,
+        source: actor.scope ? "api" : "web",
+        export: {
+          kind: "view",
+          format: query.data.format,
+          rows: exported.rows,
+          ...(query.data.viewId ? { viewId: query.data.viewId } : {}),
+        },
+      });
       request.log.info(
         {
           tableId: table.id,

@@ -8,6 +8,7 @@ import type { ColumnType } from "kysely";
 export type AuditAction =
   | "catalog"
   | "delete"
+  | "export"
   | "insert"
   | "lock"
   | "sign"

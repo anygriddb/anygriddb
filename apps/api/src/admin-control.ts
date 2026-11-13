@@ -55,6 +55,7 @@ export function auditEventsCsv(
     source: string | null;
     reason: string | null;
     fields: string[];
+    exported: { kind: string; format: string; rows: number | null } | null;
   }[],
 ): string {
   return csv([
@@ -70,6 +71,7 @@ export function auditEventsCsv(
       "source",
       "reason",
       "fields",
+      "exported",
     ],
     ...events.map((event) => [
       event.occurredAt,
@@ -83,6 +85,15 @@ export function auditEventsCsv(
       event.source ?? "",
       event.reason ?? "",
       event.fields.join(";"),
+      event.exported
+        ? [
+            event.exported.kind,
+            event.exported.format,
+            ...(event.exported.rows === null
+              ? []
+              : [`${String(event.exported.rows)} rows`]),
+          ].join(" ")
+        : "",
     ]),
   ]);
 }
