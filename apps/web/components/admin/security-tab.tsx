@@ -240,8 +240,8 @@ export function SecurityTab() {
           onChange={(inactiveDays) => void save({ inactiveDays })}
           hint={
             data.smtpReady
-              ? t`A sign-in or a token in use counts as activity. The person is warned by email a week before. Administrators and accounts kept by an identity provider (SCIM) are never disabled; an administrator can enable an account again.`
-              : t`A sign-in or a token in use counts as activity. Email is not set up: accounts are disabled without warning. Administrators and accounts kept by an identity provider (SCIM) are never disabled; an administrator can enable an account again.`
+              ? t`A sign-in or a token in use counts as activity. The person is warned by email a week before. Administrators and accounts managed by your identity provider (SCIM) are never disabled; an administrator can enable an account again.`
+              : t`A sign-in or a token in use counts as activity. Email is not set up: accounts are disabled without warning. Administrators and accounts managed by your identity provider (SCIM) are never disabled; an administrator can enable an account again.`
           }
         />
       </RuledSection>

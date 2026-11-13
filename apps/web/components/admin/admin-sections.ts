@@ -71,7 +71,7 @@ export function useAdminSections(): AdminSection[] {
         ? [
             {
               to: "/admin/people/provisioning",
-              label: t`Provisioning`,
+              label: t`Provisioning (SCIM)`,
             } as const,
           ]
         : []),

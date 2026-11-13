@@ -439,7 +439,7 @@ export function StatusText({
         <span className="text-muted-foreground">
           {user.deprovisioned
             ? t`Removed by the identity provider`
-            : t`Kept by the identity provider`}
+            : t`Managed by your identity provider`}
         </span>
       ) : null}
     </div>
