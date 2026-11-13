@@ -835,3 +835,14 @@ export {
   scimUserResource,
   type ScimUserState,
 } from "./scim";
+
+export {
+  PEOPLE_FILE_MAX,
+  PEOPLE_FILE_MAX_BASES,
+  PEOPLE_FILE_MAX_BYTES,
+  PEOPLE_FILE_PROBLEMS,
+  PEOPLE_FILE_SAMPLE,
+  readPeopleFile,
+  type PeopleFileLine,
+  type PeopleFileProblem,
+} from "./people-file";

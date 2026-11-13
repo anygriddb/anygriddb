@@ -357,6 +357,63 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       ),
     ).toBeVisible();
 
+    // People from a file (ROADMAP #36): read and shown line by line
+    // before anything is written. The line whose address has an account
+    // says so; the two others are added, and their first link is mailed.
+    await page.getByRole("button", { name: "Add from a file" }).click();
+    const fromFile = page.getByRole("dialog", {
+      name: "Add people from a file",
+    });
+    const filedEmail = `e2e-filed-a-${stamp}@example.com`;
+    await fromFile.locator('input[type="file"]').setInputFiles({
+      name: "people.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(
+        [
+          "email,name,bases",
+          `${filedEmail},Filed A ${stamp},${baseName}:viewer`,
+          `e2e-filed-b-${stamp}@example.com,Filed B ${stamp},`,
+          `${newcomerEmail},Newcomer again,`,
+        ].join("\n"),
+      ),
+    });
+    await expect(
+      fromFile.getByText("people.csv: 2 of 3 lines in order."),
+    ).toBeVisible();
+    await expect(
+      fromFile.getByText("This address already has an account"),
+    ).toBeVisible();
+    await expect(fromFile.getByText(`${baseName}: Viewer`)).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await fromFile.getByRole("button", { name: "Add 2 people" }).click();
+    await expect(
+      page.getByText("2 people added. Their links are on their way by email."),
+    ).toBeVisible();
+    expect(await mailedLink(filedEmail, "reset")).toContain("/reset/");
+
+    // Both ticked and disabled together, as each would be from its row.
+    await page.getByLabel("Search accounts").fill(`Filed`);
+    await expect(page.getByText("2 accounts", { exact: true })).toBeVisible();
+    await page.getByLabel("Select every account of this page").check();
+    await page.getByRole("button", { name: "Disable 2 accounts" }).click();
+    await page
+      .getByRole("dialog", { name: "Disable 2 accounts?" })
+      .getByRole("button", { name: "Disable", exact: true })
+      .click();
+    await expect(page.getByText("2 accounts disabled")).toBeVisible();
+    // The list was on active accounts: they left it, and are among the
+    // disabled, where nothing is left to tick.
+    await page.getByLabel("Status").selectOption("disabled");
+    await expect(page.getByText("2 accounts", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("row", { name: new RegExp(filedEmail) }),
+    ).toContainText("Disabled");
+    await expect(
+      page.getByLabel("Select every account of this page"),
+    ).toBeDisabled();
+    await page.getByLabel("Status").selectOption("active");
+    await page.getByLabel("Search accounts").fill("");
+
     const theirs = await browser.newContext(from("198.51.100.34"));
     const newcomer = await theirs.newPage();
     await newcomer.goto(await mailedLink(newcomerEmail, "reset"));

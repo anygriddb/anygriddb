@@ -59,6 +59,10 @@ import { purgeStagedUploads } from "../data/staged-uploads.js";
 import { purgeStagedAttachments } from "../data/staged-attachments.js";
 import { purgeLocks } from "../realtime/locks.js";
 import { sweepOrphanFiles } from "../files/sweep.js";
+import {
+  accountWelcomePayloadSchema,
+  deliverWelcome,
+} from "../accounts-bulk.js";
 import { settleExternalWrites } from "../sources/writes.js";
 import { checkSeals, type SealDeps } from "../sources/statuses.js";
 import { ensureWatches, queueWatch, runWatch } from "../sources/watch.js";
@@ -404,6 +408,16 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
           log: deps.log,
         },
         parsed,
+      );
+    },
+    [TASKS.accountWelcome]: async (payload) => {
+      await deliverWelcome(
+        {
+          db: deps.db,
+          env: deps.env,
+          log: { error: (object, message) => deps.log(object, message) },
+        },
+        accountWelcomePayloadSchema.parse(payload),
       );
     },
     [TASKS.siemEvent]: async (payload) => {

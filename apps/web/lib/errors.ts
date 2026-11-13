@@ -129,6 +129,8 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   invalid_body: msg`Invalid request body`,
 
   invalid_csv: msg`Invalid CSV file: check the headers and values`,
+  people_file_columns: msg`The first line of the file must name the columns email and name`,
+  people_file_too_long: msg`This file is too long: at most 200 people in one file`,
   invalid_import: msg`Unreadable file: use a CSV, TSV, JSON, or Excel file with a header row`,
   invalid_mapping: msg`Invalid column mapping`,
   unknown_import: msg`Import expired: drop the file again`,

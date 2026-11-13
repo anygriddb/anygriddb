@@ -56,6 +56,8 @@ export const TASKS = {
   operatorMail: "operator_mail",
   /** One SIEM webhook delivery for an auth event (ADR 0056). */
   siemEvent: "siem_event",
+  /** The first link of one account a file of people added, mailed. */
+  accountWelcome: "account_welcome",
 } as const;
 
 export type TaskName = (typeof TASKS)[keyof typeof TASKS];
