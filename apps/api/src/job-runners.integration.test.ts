@@ -264,6 +264,18 @@ describe("an export job", () => {
     expect(lines.at(-1)).toBe("c2500");
     expect(stored?.bytes.length).toBe((done.result as { size: number }).size);
     expect(seen.at(-1)).toEqual([2_500, 2_500]);
+    const trail = await db
+      .selectFrom("auditEvents")
+      .select(["action", "tableId", "userId", "newValue"])
+      .where("action", "=", "export")
+      .where("tableId", "=", tableId)
+      .execute();
+    expect(trail).toHaveLength(1);
+    expect(trail[0]).toMatchObject({
+      userId: owner,
+      tableId,
+      newValue: { kind: "view", format: "csv", rows: 2_500 },
+    });
   });
 
   it("refuses a view past the instance's ceiling before writing anything", async () => {

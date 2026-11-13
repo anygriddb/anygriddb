@@ -1,3 +1,4 @@
+import { exportRecordOf } from "./data/export-audit.js";
 import {
   ADMIN_LOCK_MINUTES,
   AppError,
@@ -902,13 +903,40 @@ export async function instanceAudit(
     .orderBy("e.occurredAt", "desc")
     .limit(input.limit + 1)
     .execute();
-  const page = rows.slice(0, input.limit);
+  const page = rows.slice(0, input.limit).map((row) => ({
+    ...row,
+    // An export changed no field: it says what was taken out.
+    exported: row.action === "export" ? exportRecordOf(row.newValue) : null,
+  }));
+  // A base's file names its base itself, not a table of it.
+  const baseIds = [
+    ...new Set(page.flatMap((row) => row.exported?.baseId ?? [])),
+  ];
+  const baseNames = new Map(
+    baseIds.length === 0
+      ? []
+      : (
+          await db
+            .selectFrom("bases")
+            .select(["id", "name"])
+            .where("id", "in", baseIds)
+            .execute()
+        ).map((base) => [base.id, base.name]),
+  );
   return {
-    events: page.map(({ oldValue, newValue, ...row }) => ({
+    events: page.map(({ oldValue, newValue, exported, ...row }) => ({
       ...row,
+      baseName: row.baseName ?? baseNames.get(exported?.baseId ?? "") ?? null,
       occurredAt: row.occurredAt.toISOString(),
       // Field names only: values stay in the table's own history, behind its rights.
-      fields: changedKeys(oldValue, newValue),
+      fields: exported ? [] : changedKeys(oldValue, newValue),
+      exported: exported
+        ? {
+            kind: exported.kind,
+            format: exported.format,
+            rows: exported.rows ?? null,
+          }
+        : null,
     })),
     next:
       rows.length > input.limit

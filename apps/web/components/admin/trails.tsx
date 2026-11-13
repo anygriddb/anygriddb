@@ -1,3 +1,4 @@
+import { plural } from "@lingui/core/macro";
 import { Button, Input, Label, Select, Spinner } from "@anygriddb/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
@@ -22,6 +23,7 @@ const ACTIONS = [
   "unlock",
   "sign",
   "catalog",
+  "export",
 ] as const;
 
 /** The change trail: what was written, by whom, from where. */
@@ -43,6 +45,25 @@ export function ChangesTrail() {
       limit: 50,
     }),
   );
+  /** What an export took out: never a value, its kind, format, and rows. */
+  const exported = (item: {
+    kind: string;
+    format: string;
+    rows: number | null;
+  }) => {
+    const format = item.format.toUpperCase();
+    const what =
+      {
+        view: t`A view's rows, as ${{ format }}`,
+        base: t`The base's file, as ${{ format }}`,
+        access_report: t`Who has access, as ${{ format }}`,
+        change_trail: t`The change trail, as ${{ format }}`,
+        sign_in_trail: t`The sign-in trail, as ${{ format }}`,
+      }[item.kind] ?? item.kind;
+    return item.rows === null
+      ? what
+      : `${what} · ${plural(item.rows, { one: "# row", other: "# rows" })}`;
+  };
   const actionLabel = (value: string) =>
     ({
       insert: t`Creation`,
@@ -53,6 +74,7 @@ export function ChangesTrail() {
       unlock: t`Unlock`,
       sign: t`Signature`,
       catalog: t`Structure`,
+      export: t`Export`,
     })[value] ?? value;
   async function exportCsv() {
     try {
@@ -133,7 +155,7 @@ export function ChangesTrail() {
             {log.data?.events.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-2 py-3 text-muted-foreground">
-                  {t`No change matches. Every write to a base, its fields, and its roles shows here, with who made it.`}
+                  {t`Nothing matches. Every write to a base, its fields, and its roles shows here, and every export, with who made it.`}
                 </td>
               </tr>
             ) : null}
@@ -155,11 +177,13 @@ export function ChangesTrail() {
                 </td>
                 <td className="px-2 py-1.5">{actionLabel(event.action)}</td>
                 <td className="px-2 py-1.5">
-                  {event.fields
-                    .map((name) =>
-                      name === "ag_position" ? t`the row's place` : name,
-                    )
-                    .join(", ") || "—"}
+                  {event.exported
+                    ? exported(event.exported)
+                    : event.fields
+                        .map((name) =>
+                          name === "ag_position" ? t`the row's place` : name,
+                        )
+                        .join(", ") || "—"}
                 </td>
                 <td className="px-2 py-1.5">{event.reason ?? "—"}</td>
                 <td className="px-2 py-1.5">{event.source ?? "—"}</td>

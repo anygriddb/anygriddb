@@ -46,6 +46,7 @@ import {
   sendSecurityNotice,
   sendWelcome,
 } from "../auth/security-mail.js";
+import { recordExport } from "../data/export-audit.js";
 import { listMembers, revokeMember, setMemberRole } from "../data/members.js";
 import { assertMemberDomain, renewInvitation } from "../data/sharing.js";
 import { cancelAnyJob, listAllJobs } from "../jobs.js";
@@ -206,6 +207,7 @@ const auditInputSchema = z.object({
       "unlock",
       "sign",
       "catalog",
+      "export",
     ])
     .optional(),
   source: z.string().trim().max(100).optional(),
@@ -1206,6 +1208,15 @@ export const adminRouter = t.router({
           ...input,
           source: input.source || undefined,
         });
+        await recordExport(ctx.db, {
+          userId: admin.id,
+          source: "web",
+          export: {
+            kind: "change_trail",
+            format: "csv",
+            rows: page.events.length,
+          },
+        });
         ctx.req.log.info({ actor: admin.id }, "audit exported");
         return { csv: auditEventsCsv(page.events) };
       }),
@@ -1223,6 +1234,15 @@ export const adminRouter = t.router({
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
         const page = await instanceAuthAudit(ctx.db, input);
+        await recordExport(ctx.db, {
+          userId: admin.id,
+          source: "web",
+          export: {
+            kind: "sign_in_trail",
+            format: "csv",
+            rows: page.events.length,
+          },
+        });
         ctx.req.log.info({ actor: admin.id }, "sign-in trail exported");
         return { csv: authEventsCsv(page.events) };
       }),
@@ -1230,8 +1250,14 @@ export const adminRouter = t.router({
   accessReport: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
+      const csv = await accessReportCsv(ctx.db);
+      await recordExport(ctx.db, {
+        userId: admin.id,
+        source: "web",
+        export: { kind: "access_report", format: "csv" },
+      });
       ctx.req.log.info({ actor: admin.id }, "access report exported");
-      return { csv: await accessReportCsv(ctx.db) };
+      return { csv };
     }),
   ),
   sessions: procedure.query(({ ctx }) =>

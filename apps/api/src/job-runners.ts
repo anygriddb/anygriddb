@@ -59,6 +59,7 @@ import {
   purgeItem,
   type PurgeTarget,
 } from "./data/trash.js";
+import { recordExport } from "./data/export-audit.js";
 import { EXPORT_MIME, exportTable } from "./data-transfer.js";
 import type { JobRow, JobRunner } from "./jobs.js";
 import { publishCatalog } from "./realtime/channels.js";
@@ -248,6 +249,17 @@ const runExport =
         size,
         contentType: EXPORT_MIME[input.format],
       });
+      await recordExport(deps.db, {
+        userId,
+        tableId: table.id,
+        source: "web",
+        export: {
+          kind: "view",
+          format: input.format,
+          rows,
+          ...(input.viewId ? { viewId: input.viewId } : {}),
+        },
+      });
       return {
         fileKey: key,
         result: {
@@ -351,7 +363,7 @@ const runExportSnapshot =
   (deps: RunnerDeps): JobRunner =>
   async ({ job, progress }) => {
     const input = exportSnapshotJobInputSchema.parse(job.input);
-    const { bindings } = await activeAuthor(deps.db, job);
+    const { userId, bindings } = await activeAuthor(deps.db, job);
     if (!roleAllows(roleFor(bindings, "base", input.baseId), "manage")) {
       throw new AppError("access_denied");
     }
@@ -388,6 +400,11 @@ const runExportSnapshot =
         });
         size = packed.size;
       }
+      await recordExport(deps.db, {
+        userId,
+        source: "web",
+        export: { kind: "base", format: packed.kind, baseId: base.id },
+      });
       return {
         fileKey,
         result: {
