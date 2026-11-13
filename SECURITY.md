@@ -20,9 +20,51 @@ Administrators can also keep invitations to the organization's domains, keep bas
 
 When someone leaves, an administrator can disable the account: sessions end and tokens stop; email and history stay. Deleting it erases the identity (ADR 0051). The person can do it in Settings > Delete account, with the proof a sensitive action asks: their password, a code from their authenticator when they have one, a sign-in less than ten minutes old where neither can be asked (an account its identity provider signs in, or whose second factor is a passkey), and never with an API token; a wrong password or code counts toward the account's lock. An administrator can do it in one step, after typing the account's email, unless SCIM actively manages it: an enabled account is disabled first, in the same transaction (ADR 0059). A live base keeps an owner: a person who alone owns one grants another owner first, and an administrator names the active account that takes those bases, which the bases' audit records. The only active administrator cannot erase their own account. Erasure removes sign-in, second factors, sessions and tokens, invitations to that address, personal views, and public links the person created. Audit rows, signatures, comments, and the write trails of client tables keep their facts under one placeholder account; addresses in the sign-in trail are cleared. What the person typed into tables, and the files they added, are the tables' content and stay: a manager trashes or edits those rows (or deletes a comment) when the content itself must leave the instance. An identity provider's SCIM DELETE or deactivation is not erasure: the account is disabled (and taken out of its groups on DELETE), but its email, display name, and history stay, so the provider can bring it back; after that, an administrator may erase. Webhook deliveries keep row values for up to 30 days when a webhook was created to include them (off by default); the addresses webhooks call and the mail relay then process personal data.
 
+### Scope (threat model)
+
+In scope: flaws that let an untrusted person break confidentiality,
+integrity, or availability of an AnyGridDB instance or of data it holds —
+for example authentication bypass, privilege escalation across bases or
+roles, injection into bound queries or templates, secret exposure, or
+unsafe defaults that an operator cannot reasonably be expected to catch.
+
+Out of scope (report only if you believe the product makes them worse than
+the platform already allows):
+
+- Weaknesses that need physical access, a compromised workstation, or a
+  malicious browser extension already running as the signed-in person.
+- Issues that need the operator to disable TLS verification, share
+  `AUTH_ENCRYPTION_KEY`, or publish administrator credentials.
+- Denial of service that only exhausts CPU, memory, or disk on a machine
+  the attacker can already reach with the same cost as any HTTP client.
+- Social engineering of instance administrators.
+- Findings that exist only in development mode on loopback.
+
+Client databases connected as sources stay under the operator's control:
+AnyGridDB must not change their schema; a report about rights on a source
+should say what account and grants the operator configured.
+
 ### Reporting a Vulnerability
 
 Please report (suspected) security vulnerabilities to ngsanogo@proton.me, or privately through GitHub: [report a vulnerability](https://github.com/anygriddb/anygriddb/security/advisories/new). Do not open a public issue.
 
 - You will receive an answer within 7 working days.
 - If the issue is confirmed, a fix is released as soon as its complexity allows, and the advisory is published with it.
+
+### Incident response
+
+When a report or an alert looks real:
+
+1. **Triage** — the maintainer listed in [`.github/CODEOWNERS`](.github/CODEOWNERS)
+   opens a private advisory (or replies on the existing one), confirms
+   severity, and decides whether a fix, a workaround, or a documentation
+   change is enough.
+2. **Fix** — work stays in the private advisory fork until a release is
+   ready. Public issues and pull requests must not describe the exploit.
+3. **Disclose** — publish the advisory with the fix, and mention the
+   operator impact in the release notes when a version is cut.
+4. **Notify** — there is no separate mailing list yet; GitHub Security
+   Advisories and the release notes are the channels.
+
+If you believe an issue is already being exploited in the wild, say so in
+the first private message so triage can jump the queue.

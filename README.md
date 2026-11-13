@@ -97,19 +97,21 @@ docker/             one AnyGridDB image, PostgreSQL 18; managed and RustFS varia
 
 ## Docs
 
-| Doc                                                | What                                               |
-| -------------------------------------------------- | -------------------------------------------------- |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md)               | How the pieces fit and their contracts             |
-| [`TECH_STACK.md`](TECH_STACK.md)                   | What this tree uses                                |
-| [`ROADMAP.md`](ROADMAP.md)                         | What is done, known limits, what next              |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md)               | Dev conventions, setup, tests, PR workflow         |
-| [`OPEN_SOURCE_POLICY.md`](OPEN_SOURCE_POLICY.md)   | Legal-safe dependency rules                        |
-| [`docs/adr/`](docs/adr/README.md)                  | Stack decisions, their costs, rejected options     |
-| [`docs/migration-plan.md`](docs/migration-plan.md) | The phases that brought the tree here (historical) |
-| [`docs/sources.md`](docs/sources.md)               | Connecting a client database: accounts and TLS     |
-| [`docs/operations.md`](docs/operations.md)         | Install, offline, upgrade, backup, managed DB      |
-| [`docs/mcp.md`](docs/mcp.md)                       | Connecting the AI you run through the MCP server   |
-| [`SECURITY.md`](SECURITY.md)                       | What is protected, and how to report a weakness    |
+| Doc                                                | What                                                 |
+| -------------------------------------------------- | ---------------------------------------------------- |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md)               | How the pieces fit and their contracts               |
+| [`TECH_STACK.md`](TECH_STACK.md)                   | What this tree uses                                  |
+| [`ROADMAP.md`](ROADMAP.md)                         | What is done, known limits, what next                |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)               | Dev conventions, setup, tests, PR workflow           |
+| [`OPEN_SOURCE_POLICY.md`](OPEN_SOURCE_POLICY.md)   | Legal-safe dependency rules                          |
+| [`docs/adr/`](docs/adr/README.md)                  | Stack decisions, their costs, rejected options       |
+| [`docs/migration-plan.md`](docs/migration-plan.md) | The phases that brought the tree here (historical)   |
+| [`docs/sources.md`](docs/sources.md)               | Connecting a client database: accounts and TLS       |
+| [`docs/operations.md`](docs/operations.md)         | Install, offline, upgrade, backup, managed DB        |
+| [`docs/mcp.md`](docs/mcp.md)                       | Connecting the AI you run through the MCP server     |
+| [`SECURITY.md`](SECURITY.md)                       | What is protected, and how to report a weakness      |
+| [`ACCESSIBILITY.md`](ACCESSIBILITY.md)             | Accessibility commitment and how to report a barrier |
+| [Code of conduct](.github/CODE_OF_CONDUCT.md)      | Expected behaviour in the project's spaces           |
 
 ## License
 
