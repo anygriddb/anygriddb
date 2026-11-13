@@ -28,6 +28,7 @@
       "jobs.input": "unknown",
       "jobs.result": "Record<string, unknown> | null",
       "notifications.data": "Record<string, string> | null",
+      "staged_uploads.meta": "Record<string, unknown> | null",
       "table_acls.row_filter": "Record<string, unknown> | null",
       "views.config": "Record<string, unknown> | null",
       "webhook_deliveries.payload": "unknown",

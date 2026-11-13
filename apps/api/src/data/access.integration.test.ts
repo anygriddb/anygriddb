@@ -34,7 +34,7 @@ import {
   type WriteContext,
 } from "./rows.js";
 import { exportBaseSnapshot, importBaseSnapshot } from "./base-snapshot.js";
-import { importIntoTable } from "./import-commit.js";
+import { importIntoTable, rowsSource } from "./import-commit.js";
 import { addColumn, insertBase, insertTable } from "./schema-ops.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -402,12 +402,7 @@ describe("field and row rules on PostgreSQL", () => {
     const result = await importIntoTable(db, {
       userId: editor,
       table,
-      staged: {
-        userId: editor,
-        filename: "orders.csv",
-        headers: ["Title"],
-        rows: [["second"], ["first"]],
-      },
+      source: rowsSource(["Title"], [["second"], ["first"]]),
       mapping: [{ source: 0, column: "title" }],
       upsertSource: 0,
       addOptions: false,

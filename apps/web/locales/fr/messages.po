@@ -2396,8 +2396,8 @@ msgid "CRM"
 msgstr "CRM"
 
 #: components/table/import-dialog.tsx
-msgid "CSV, TSV, JSON, or Excel (.xlsx), up to 100,000 rows. The first row names the columns."
-msgstr "CSV, TSV, JSON ou Excel (.xlsx), 100 000 lignes au plus. La première ligne donne les noms de colonnes."
+msgid "CSV, TSV, JSON, or Excel (.xlsx). The first row names the columns."
+msgstr "CSV, TSV, JSON ou Excel (.xlsx). La première ligne donne les noms de colonnes."
 
 #: components/shell/sidebar.tsx
 msgid "Ctrl K"
@@ -3451,8 +3451,8 @@ msgid "File too large (2 GiB at most)"
 msgstr "Fichier trop volumineux (2 Gio au maximum)"
 
 #: components/table/import-dialog.tsx
-msgid "File too large (20 MB, 10 MB for Excel)."
-msgstr "Fichier trop volumineux (20 Mo, 10 Mo pour Excel)."
+msgid "File too large (256 MB, 64 MB for Excel, 20 MB for JSON)."
+msgstr "Fichier trop volumineux (256 Mo, 64 Mo pour Excel, 20 Mo pour JSON)."
 
 #: components/admin/base-admin-page.tsx
 #: components/admin/bases-tab.tsx
@@ -8412,6 +8412,10 @@ msgstr "Ce champ exige un motif, conservé dans l’audit."
 #: lib/errors.ts
 msgid "This field takes no negative number"
 msgstr "Ce champ n’accepte aucun nombre négatif"
+
+#: lib/errors.ts
+msgid "This file has more rows than this instance imports at once: split it first"
+msgstr "Ce fichier a plus de lignes que l’instance n’en importe d’un coup : découpez-le d’abord"
 
 #: lib/errors.ts
 msgid "This filter on a field kept in AnyGridDB matches more than 1,000 rows: narrow it"

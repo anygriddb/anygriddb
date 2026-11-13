@@ -5,6 +5,7 @@ import {
   coerceCellValue,
   type ColumnDefinition,
   type EngineCatalog,
+  IMPORT_FORMATS,
   type ImportCommitInput,
   isBlankCell,
   MAX_READ_LIMIT,
@@ -16,7 +17,7 @@ import {
 import type { Database } from "@anygriddb/db";
 import type { FileStore } from "../files/index.js";
 import { z } from "zod";
-import type { ParsedSheet } from "../import-file.js";
+import type { SheetRow, SheetShape } from "../import-file.js";
 import { MAX_COPY_ROWS, readAll } from "./data-ops.js";
 import { loadEngine, type TableRow } from "./engine.js";
 import { readPage, writeColumns, type WriteContext } from "./rows.js";
@@ -29,10 +30,10 @@ import {
   type ExternalWriteContext,
 } from "../sources/writes.js";
 import {
+  copyStagedUpload,
   dropStagedUpload,
   keepStagedUpload,
-  readStagedUpload,
-  stageUpload,
+  stageUploadFile,
 } from "./staged-uploads.js";
 
 export const IMPORT_TTL_SECONDS = 30 * 60;
@@ -40,68 +41,99 @@ const MAX_ERRORS = 200;
 const MAX_OPTIONS = 200;
 /** How long an import's event waits for the next batch to update it. */
 const IMPORT_EVENT_DELAY_MS = 30_000;
-const BATCH = 500;
+/** Rows read, checked, and written together. */
+export const IMPORT_BATCH = 500;
 /** Rows a client's database takes in one transaction during an import. */
 const CLIENT_BATCH = 100;
 
-const stagedSchema = z.object({
-  userId: z.uuid(),
-  filename: z.string().max(255),
-  headers: z.array(z.string()).max(200),
-  rows: z.array(z.array(z.string())),
+const shapeSchema = z.object({
+  format: z.enum(IMPORT_FORMATS),
+  headers: z.array(z.string().max(100)).min(1).max(200),
+  delimiter: z.enum([",", ";", "\t"]).optional(),
+  headerLine: z.int().min(0),
+  total: z.int().min(0),
 });
 
-export type StagedImport = z.infer<typeof stagedSchema>;
+/** A file waiting for its import: whose it is, and how to read it. */
+export type StagedImport = {
+  id: string;
+  userId: string;
+  filename: string;
+  size: number;
+  shape: SheetShape;
+};
 
-/** A parsed file can take this much room in the file store. */
-const MAX_STAGED_IMPORT_BYTES = 256 * 1024 * 1024;
-
-/** Keeps a parsed file until the user confirms the mapping. */
+/**
+ * Keeps an uploaded file until the user confirms the mapping (ADR 0064):
+ * the file as it came, and what its first pass found.
+ */
 export async function stageImport(
   db: Database,
   files: FileStore,
-  userId: string,
-  filename: string,
-  sheet: ParsedSheet,
+  input: {
+    userId: string;
+    filename: string;
+    path: string;
+    size: number;
+    shape: SheetShape;
+  },
 ): Promise<string> {
-  const staged: StagedImport = { userId, filename, ...sheet };
-  return stageUpload(db, files, {
-    userId,
+  return stageUploadFile(db, files, {
+    userId: input.userId,
     kind: "import",
-    filename,
-    body: Buffer.from(JSON.stringify(staged)),
-    contentType: "application/json",
+    filename: input.filename,
+    path: input.path,
+    size: input.size,
+    contentType: "application/octet-stream",
     ttlSeconds: IMPORT_TTL_SECONDS,
+    meta: input.shape,
   });
 }
 
-/** Only the user who uploaded the file can read it back. */
+/** Only the user who uploaded the file can read it back, while it is kept. */
 export async function loadStagedImport(
   db: Database,
-  files: FileStore,
   id: string,
   userId: string,
 ): Promise<StagedImport> {
-  const upload = await readStagedUpload(db, files, {
-    id,
-    userId,
+  const row = /^[0-9a-f-]{36}$/.test(id)
+    ? await db
+        .selectFrom("stagedUploads")
+        .select(["id", "userId", "filename", "size", "meta"])
+        .where("id", "=", id)
+        .where("userId", "=", userId)
+        .where("kind", "=", "import")
+        .where("expiresAt", ">", new Date())
+        .executeTakeFirst()
+    : undefined;
+  const shape = shapeSchema.safeParse(row?.meta);
+  if (!row || !shape.success) {
+    throw new AppError("unknown_import");
+  }
+  return {
+    id: row.id,
+    userId: row.userId,
+    filename: row.filename,
+    size: row.size,
+    shape: shape.data,
+  };
+}
+
+/** Copies the staged file to `path`, for its job to read. */
+export async function copyStagedImport(
+  db: Database,
+  files: FileStore,
+  staged: StagedImport,
+  path: string,
+): Promise<void> {
+  const copied = await copyStagedUpload(db, files, {
+    id: staged.id,
+    userId: staged.userId,
     kind: "import",
-    maxBytes: MAX_STAGED_IMPORT_BYTES,
+    maxBytes: staged.size,
+    path,
   });
-  if (!upload) {
-    throw new AppError("unknown_import");
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(upload.bytes.toString("utf8"));
-  } catch (error) {
-    throw new AppError("unknown_import", { cause: error });
-  }
-  const staged = stagedSchema.safeParse(parsed);
-  if (!staged.success || staged.data.userId !== userId) {
-    throw new AppError("unknown_import");
-  }
-  return staged.data;
+  if (!copied) throw new AppError("unknown_import");
 }
 
 /** A queued import keeps its file for two hours, enough to wait its turn. */
@@ -122,6 +154,37 @@ export async function dropStagedImport(
   await dropStagedUpload(db, files, id);
 }
 
+/** A file's data rows, read in batches, as many times as asked. */
+export type ImportSource = {
+  headers: readonly string[];
+  /** Data rows in the file, for progress. */
+  total: number;
+  /** The rows from the first, `IMPORT_BATCH` at a time. */
+  batches(): AsyncIterable<SheetRow[]>;
+};
+
+/** Rows held in memory, numbered as a file's lines under its header. */
+export function rowsSource(
+  headers: readonly string[],
+  rows: ReadonlyArray<readonly string[]>,
+): ImportSource {
+  const lines = rows.flatMap((cells, index) =>
+    cells.some((cell) => cell.trim() !== "")
+      ? [{ line: index + 2, cells: [...cells] }]
+      : [],
+  );
+  return {
+    headers,
+    total: lines.length,
+    async *batches() {
+      for (let start = 0; start < lines.length; start += IMPORT_BATCH) {
+        await Promise.resolve();
+        yield lines.slice(start, start + IMPORT_BATCH);
+      }
+    },
+  };
+}
+
 function splitValues(text: string, multiple: boolean): string[] {
   const trimmed = text.trim();
   if (trimmed === "") return [];
@@ -134,39 +197,61 @@ function splitValues(text: string, multiple: boolean): string[] {
 }
 
 /**
- * Options to add so every value of a select column is known, with colours
- * continuing after the existing ones. Names compare without case, like the
- * coercion does.
+ * Options to add so every value of a select column is known, found one
+ * value at a time, with colours continuing after the existing ones. Names
+ * compare without case, like the coercion does; past 200 options, the
+ * rest is left out.
  */
+export class OptionFinder {
+  readonly added: SelectOption[] = [];
+  private readonly known: Set<string>;
+
+  constructor(
+    private readonly existing: readonly SelectOption[],
+    private readonly multiple: boolean,
+  ) {
+    this.known = new Set(existing.map((option) => option.name.toLowerCase()));
+  }
+
+  add(value: string): void {
+    for (const name of splitValues(value, this.multiple)) {
+      const clipped = name.slice(0, 80);
+      if (this.known.has(clipped.toLowerCase())) continue;
+      if (this.existing.length + this.added.length >= MAX_OPTIONS) return;
+      this.known.add(clipped.toLowerCase());
+      this.added.push({
+        name: clipped,
+        color:
+          OPTION_COLORS[
+            (this.existing.length + this.added.length) % OPTION_COLORS.length
+          ] ?? "gray",
+      });
+    }
+  }
+}
+
 export function missingOptions(
   existing: readonly SelectOption[],
   values: Iterable<string>,
   multiple: boolean,
 ): SelectOption[] {
-  const known = new Set(existing.map((option) => option.name.toLowerCase()));
-  const added: SelectOption[] = [];
-  for (const value of values) {
-    for (const name of splitValues(value, multiple)) {
-      const clipped = name.slice(0, 80);
-      if (known.has(clipped.toLowerCase())) continue;
-      if (existing.length + added.length >= MAX_OPTIONS) return added;
-      known.add(clipped.toLowerCase());
-      added.push({
-        name: clipped,
-        color:
-          OPTION_COLORS[
-            (existing.length + added.length) % OPTION_COLORS.length
-          ] ?? "gray",
-      });
-    }
-  }
-  return added;
+  const finder = new OptionFinder(existing, multiple);
+  for (const value of values) finder.add(value);
+  return finder.added;
 }
 
-/** Column definitions for a new table built from the mapped source columns. */
+function isSelect(fieldType: string): boolean {
+  return fieldType === "single_select" || fieldType === "multi_select";
+}
+
+/**
+ * Column definitions for the mapped source columns to create. A select
+ * takes the options found in the file, or one to start from: the import
+ * adds the rest when it runs.
+ */
 export function newTableColumns(
-  staged: StagedImport,
   mapping: ImportCommitInput["mapping"],
+  found: ReadonlyMap<number, readonly SelectOption[]> = new Map(),
 ): ColumnDefinition[] {
   return mapping.flatMap((entry) => {
     if (!entry.create) return [];
@@ -174,22 +259,32 @@ export function newTableColumns(
       label: entry.create.label,
       fieldType: entry.create.fieldType,
     };
-    if (
-      entry.create.fieldType === "single_select" ||
-      entry.create.fieldType === "multi_select"
-    ) {
-      const options = missingOptions(
-        [],
-        staged.rows.map((cells) => cells[entry.source] ?? ""),
-        entry.create.fieldType === "multi_select",
-      );
+    if (isSelect(entry.create.fieldType)) {
+      const options = found.get(entry.source) ?? [];
       definition.config = {
         options:
-          options.length > 0 ? options : [{ name: "Option", color: "gray" }],
+          options.length > 0
+            ? [...options]
+            : [{ name: "Option", color: "gray" }],
       };
     }
     return [definition];
   });
+}
+
+/** Reads the file once for the options its select columns need. */
+async function findOptions(
+  source: ImportSource,
+  finders: ReadonlyMap<number, OptionFinder>,
+): Promise<void> {
+  if (finders.size === 0) return;
+  for await (const batch of source.batches()) {
+    for (const row of batch) {
+      for (const [index, finder] of finders) {
+        finder.add(row.cells[index] ?? "");
+      }
+    }
+  }
 }
 
 /** The rows among `rowIds` that a row rule keeps out of `scope`. */
@@ -236,18 +331,20 @@ export type ImportResult = {
 };
 
 /**
- * Writes a staged file into a table. Columns to create are added first,
- * unknown select values become options when `addOptions` is set and the
- * caller may manage the table, then every row is coerced. A row with a
- * bad cell is skipped and reported; the others are inserted, or updated
- * when `upsertSource` finds an existing row with the same value.
+ * Writes a file into a table as it is read (ADR 0064). Columns to create
+ * are added first and select options found when they are needed, which
+ * reads the file once before; then each batch of rows is coerced, checked
+ * and written in its own transaction. A row with a bad cell is skipped and
+ * reported on its line; the others are inserted, or updated when
+ * `upsertSource` finds a row with the same value, in the table or among
+ * the rows this import wrote.
  */
 export async function importIntoTable(
   db: Database,
   input: {
     userId: string;
     table: TableRow;
-    staged: StagedImport;
+    source: ImportSource;
     mapping: ImportCommitInput["mapping"];
     upsertSource?: number;
     addOptions: boolean;
@@ -256,7 +353,7 @@ export async function importIntoTable(
     resolveUser?: (text: string) => string | undefined;
     /** Columns already created with the table, in mapping order. */
     created?: readonly string[];
-    /** Called after each batch with the rows written so far. */
+    /** Called after each batch with the lines read so far. */
     onProgress?: (done: number, total: number) => Promise<void>;
     /** Names this import's one event; each batch updates its count. */
     eventKey: string;
@@ -267,33 +364,10 @@ export async function importIntoTable(
     rowScope?: EngineCatalog;
   },
 ): Promise<ImportResult> {
-  const { staged, table } = input;
-  if (input.mapping.some((entry) => entry.source >= staged.headers.length)) {
+  const { source, table } = input;
+  if (input.mapping.some((entry) => entry.source >= source.headers.length)) {
     throw new AppError("invalid_mapping");
   }
-  const createdNames = [...(input.created ?? [])];
-  const targets = new Map<number, string>();
-  let createdIndex = 0;
-  for (const entry of input.mapping) {
-    if (entry.column) {
-      targets.set(entry.source, entry.column);
-    } else if (entry.create) {
-      if (input.created) {
-        const name = input.created[createdIndex];
-        createdIndex += 1;
-        if (!name) throw new AppError("invalid_mapping");
-        targets.set(entry.source, name);
-      } else {
-        if (!input.canManage) throw new AppError("access_denied");
-        const [definition] = newTableColumns(staged, [entry]);
-        if (!definition) throw new AppError("invalid_mapping");
-        const column = await addColumn(db, input.userId, table.id, definition);
-        createdNames.push(column.name);
-        targets.set(entry.source, column.name);
-      }
-    }
-  }
-
   let { engine, rows: catalog } = await loadEngine(db, table.id, () => true);
   const external = table.storage === "external";
   const importable = () =>
@@ -305,99 +379,125 @@ export async function importIntoTable(
         ...(external ? foreignKeys(engine) : []),
       ].map((column) => [column.name, column]),
     );
+
+  // Which columns take which source, and which options the file must give.
+  const targets = new Map<number, string>();
+  const toCreate: Array<ImportCommitInput["mapping"][number]> = [];
+  const precreated = new Map<number, string>();
+  let createdIndex = 0;
+  for (const entry of input.mapping) {
+    if (entry.column) {
+      targets.set(entry.source, entry.column);
+    } else if (entry.create) {
+      if (input.created) {
+        const name = input.created[createdIndex];
+        createdIndex += 1;
+        if (!name) throw new AppError("invalid_mapping");
+        targets.set(entry.source, name);
+        precreated.set(entry.source, name);
+      } else {
+        if (!input.canManage) throw new AppError("access_denied");
+        toCreate.push(entry);
+      }
+    }
+  }
   const writable = importable();
   for (const name of targets.values()) {
     if (!writable.has(name)) {
       throw new AppError("unknown_column", name);
     }
   }
-
+  const finders = new Map<number, OptionFinder>();
+  for (const entry of toCreate) {
+    if (entry.create && isSelect(entry.create.fieldType)) {
+      finders.set(
+        entry.source,
+        new OptionFinder([], entry.create.fieldType === "multi_select"),
+      );
+    }
+  }
+  // A select made with the table holds a first option only until its
+  // values are known.
+  for (const [index, name] of precreated) {
+    const column = writable.get(name);
+    if (column && isSelect(column.fieldType)) {
+      finders.set(
+        index,
+        new OptionFinder([], column.fieldType === "multi_select"),
+      );
+    }
+  }
   if (input.addOptions && input.canManage) {
-    let changed = false;
-    for (const [source, name] of targets) {
+    for (const [index, name] of targets) {
       const column = writable.get(name);
       if (
         !column ||
-        (column.fieldType !== "single_select" &&
-          column.fieldType !== "multi_select")
-      ) {
-        continue;
-      }
-      if (
+        precreated.has(index) ||
+        !isSelect(column.fieldType) ||
         (column.config as { preventNewOptions?: boolean }).preventNewOptions
       ) {
         continue;
       }
-      const existing = column.config.options ?? [];
-      const added = missingOptions(
-        existing,
-        staged.rows.map((cells) => cells[source] ?? ""),
-        column.fieldType === "multi_select",
+      finders.set(
+        index,
+        new OptionFinder(
+          column.config.options ?? [],
+          column.fieldType === "multi_select",
+        ),
       );
-      if (added.length === 0) continue;
-      await updateColumn(db, input.userId, table, {
-        name,
-        config: { ...column.config, options: [...existing, ...added] },
-      });
-      changed = true;
     }
-    if (changed) {
-      ({ engine, rows: catalog } = await loadEngine(db, table.id, () => true));
-    }
+  }
+  await findOptions(source, finders);
+
+  const createdNames = [...(input.created ?? [])];
+  for (const entry of toCreate) {
+    const [definition] = newTableColumns(
+      [entry],
+      new Map([[entry.source, finders.get(entry.source)?.added ?? []]]),
+    );
+    if (!definition) throw new AppError("invalid_mapping");
+    const column = await addColumn(db, input.userId, table.id, definition);
+    createdNames.push(column.name);
+    targets.set(entry.source, column.name);
+  }
+  let changed = toCreate.length > 0;
+  for (const [index, finder] of finders) {
+    const name = targets.get(index);
+    const column = name ? writable.get(name) : undefined;
+    if (!name || !column || finder.added.length === 0) continue;
+    if (toCreate.some((entry) => entry.source === index)) continue;
+    const options = precreated.has(index)
+      ? finder.added
+      : [...(column.config.options ?? []), ...finder.added];
+    await updateColumn(db, input.userId, table, {
+      name,
+      config: { ...column.config, options },
+    });
+    changed = true;
+  }
+  if (changed) {
+    ({ engine, rows: catalog } = await loadEngine(db, table.id, () => true));
   }
   const columns = importable();
   const own = catalog.columns.filter((column) => column.tableId === table.id);
   const reason = resolveChangeReason(own, [...targets.values()], input.reason);
+  const required = own.filter((column) => column.required);
 
   const errors: ImportError[] = [];
   let failed = 0;
-  const valid: Array<{ line: number; values: Record<string, CellValue> }> = [];
-  staged.rows.forEach((cells, index) => {
-    const values: Record<string, CellValue> = {};
-    let ok = true;
-    for (const [source, name] of targets) {
-      const column = columns.get(name);
-      if (!column) continue;
-      const raw = cells[source] ?? "";
-      const value = coerceCellValue(column, raw, {
-        resolveUser: input.resolveUser,
-      });
-      if (value === undefined) {
-        ok = false;
-        if (errors.length < MAX_ERRORS) {
-          errors.push({
-            line: index + 2,
-            column: staged.headers[source] ?? "",
-            value: raw.slice(0, 80),
-            message: "Invalid value",
-          });
-        }
-        continue;
-      }
-      values[name] = value;
-    }
-    if (ok) valid.push({ line: index + 2, values });
-    else failed += 1;
-  });
-
-  const context: WriteContext = {
-    userId: input.userId,
-    tableId: table.id,
-    physicalName: table.physicalName,
-    baseId: table.baseId,
-    reason,
-    source: "import",
+  const note = (error: ImportError) => {
+    if (errors.length < MAX_ERRORS) errors.push(error);
   };
-  const inserts: Array<Record<string, CellValue>> = [];
-  const updates: Array<{ rowId: string; values: Record<string, CellValue> }> =
-    [];
-  /** The file's line of each insert and update, for what a client refuses. */
-  const insertLines: number[] = [];
-  const updateLines: number[] = [];
   const keyName =
     input.upsertSource === undefined
       ? undefined
       : targets.get(input.upsertSource);
+  const keyHeader = source.headers[input.upsertSource ?? 0] ?? "";
+  /** Rows found by their key: the table's, then the ones this import adds. */
+  const known = new Map<
+    string,
+    { id: string; locked: boolean; existing: boolean }
+  >();
   if (keyName) {
     const counted = await readPage(
       db,
@@ -408,141 +508,53 @@ export async function importIntoTable(
     if ((counted.total ?? 0) > MAX_COPY_ROWS) {
       throw new AppError("too_many_rows");
     }
-    const existing = new Map<string, { id: string; locked: boolean }>();
     // A client's row is locked in AnyGridDB's database (ADR 0033).
     const sealed = external ? await sealedRows(db, table.id) : new Set();
     await readAll(db, engine, [keyName], (page) => {
       for (const row of page) {
         const text = cellText(row[keyName]).trim();
-        if (text !== "" && !existing.has(text)) {
-          existing.set(text, {
+        if (text !== "" && !known.has(text)) {
+          known.set(text, {
             id: row.id,
             locked:
               row.ag_status === "locked" ||
               row.ag_status === "signed" ||
               sealed.has(row.id),
+            existing: true,
           });
         }
       }
     });
-    // A key repeated in the file updates the same row; the last line wins.
-    const pending = new Map<string, Record<string, CellValue>>();
-    const lineOf = new Map<string, number>();
-    const keyOf = new Map<string, string>();
-    for (const item of valid) {
-      const text = cellText(item.values[keyName]).trim();
-      const match = text === "" ? undefined : existing.get(text);
-      if (!match) {
-        if (text === "") {
-          inserts.push(item.values);
-          insertLines.push(item.line);
-        } else {
-          pending.set(`new:${text}`, {
-            ...pending.get(`new:${text}`),
-            ...item.values,
-          });
-          lineOf.set(`new:${text}`, item.line);
-        }
-        continue;
-      }
-      if (match.locked) {
-        failed += 1;
-        if (errors.length < MAX_ERRORS) {
-          errors.push({
-            line: item.line,
-            column: staged.headers[input.upsertSource ?? 0] ?? "",
-            value: text.slice(0, 80),
-            message: "Row locked",
-            code: "row_locked",
-          });
-        }
-        continue;
-      }
-      pending.set(match.id, { ...pending.get(match.id), ...item.values });
-      lineOf.set(match.id, item.line);
-      keyOf.set(match.id, text);
-    }
-    const outside = await outsideRowRule(db, input.rowScope, [...keyOf.keys()]);
-    for (const id of outside) {
-      pending.delete(id);
-      failed += 1;
-      if (errors.length < MAX_ERRORS) {
-        errors.push({
-          line: lineOf.get(id) ?? 0,
-          column: staged.headers[input.upsertSource ?? 0] ?? "",
-          value: (keyOf.get(id) ?? "").slice(0, 80),
-          message: "Refused",
-          code: "access_denied",
-        });
-      }
-    }
-    for (const [id, values] of pending) {
-      if (id.startsWith("new:")) {
-        inserts.push(values);
-        insertLines.push(lineOf.get(id) ?? 0);
-      } else {
-        updates.push({ rowId: id, values });
-        updateLines.push(lineOf.get(id) ?? 0);
-      }
-    }
-  } else {
-    inserts.push(...valid.map((item) => item.values));
-    insertLines.push(...valid.map((item) => item.line));
   }
-  // A required field: a new row fills it, a change never empties it. The
-  // line is reported and the others are written.
-  const required = own.filter((column) => column.required);
-  if (required.length > 0) {
-    const blank = (
-      values: Readonly<Record<string, CellValue>>,
-      mode: "insert" | "update",
-    ) =>
-      required.find(
-        (column) =>
-          (mode === "insert" || column.name in values) &&
-          isBlankCell(values[column.name]),
-      );
-    const refuse = (line: number, column: { label: string }) => {
-      failed += 1;
-      if (errors.length < MAX_ERRORS) {
-        errors.push({
-          line,
-          column: column.label,
-          value: "",
-          message: "Refused",
-          code: "value_required",
-          detail: column.label,
-        });
-      }
-    };
-    const keptInserts: typeof inserts = [];
-    const keptInsertLines: number[] = [];
-    inserts.forEach((values, index) => {
-      const missing = blank(values, "insert");
-      if (missing) refuse(insertLines[index] ?? 0, missing);
-      else {
-        keptInserts.push(values);
-        keptInsertLines.push(insertLines[index] ?? 0);
-      }
+  /** A required field: a new row fills it, a change never empties it. */
+  const missing = (
+    values: Readonly<Record<string, CellValue>>,
+    mode: "insert" | "update",
+  ) =>
+    required.find(
+      (column) =>
+        (mode === "insert" || column.name in values) &&
+        isBlankCell(values[column.name]),
+    );
+  const refuseMissing = (line: number, column: { label: string }) => {
+    failed += 1;
+    note({
+      line,
+      column: column.label,
+      value: "",
+      message: "Refused",
+      code: "value_required",
+      detail: column.label,
     });
-    inserts.splice(0, inserts.length, ...keptInserts);
-    insertLines.splice(0, insertLines.length, ...keptInsertLines);
-    const keptUpdates: typeof updates = [];
-    const keptUpdateLines: number[] = [];
-    updates.forEach((update, index) => {
-      const missing = blank(update.values, "update");
-      if (missing) refuse(updateLines[index] ?? 0, missing);
-      else {
-        keptUpdates.push(update);
-        keptUpdateLines.push(updateLines[index] ?? 0);
-      }
-    });
-    updates.splice(0, updates.length, ...keptUpdates);
-    updateLines.splice(0, updateLines.length, ...keptUpdateLines);
-  }
-
-  const total = inserts.length + updates.length;
-  await input.onProgress?.(0, total);
+  };
+  const context: WriteContext = {
+    userId: input.userId,
+    tableId: table.id,
+    physicalName: table.physicalName,
+    baseId: table.baseId,
+    reason,
+    source: "import",
+  };
   // Each batch commits on its own, with the import's event and its count
   // so far: a cancelled or interrupted import reports what it wrote.
   const batchContext = (count: number): WriteContext => ({
@@ -561,68 +573,193 @@ export async function importIntoTable(
       },
     },
   });
-  if (external) {
-    const written = await importIntoClientTable(db, {
-      context: {
-        userId: input.userId,
-        table,
-        engine,
-        catalog,
-        reason,
-        source: "import",
-        depth: 0,
-      },
-      inserts: inserts.map((values, index) => ({
-        values,
-        line: insertLines[index] ?? 0,
-      })),
-      updates: updates.map((update, index) => ({
-        ...update,
-        line: updateLines[index] ?? 0,
-      })),
-      summary: (count) =>
-        batchContext(count).events as { summary: SummaryEvent },
-      onProgress: input.onProgress,
-      total,
-      report: (error) => {
-        failed += 1;
-        if (errors.length < MAX_ERRORS) errors.push(error);
-      },
-    });
-    return {
-      tableId: table.id,
-      inserted: written.inserted,
-      updated: written.updated,
-      failed,
-      errors,
-      createdColumns: createdNames.length,
-    };
-  }
+
   let inserted = 0;
-  for (let index = 0; index < inserts.length; index += BATCH) {
-    const batch = inserts.slice(index, index + BATCH);
-    inserted += (
-      await insertNativeBatch(
-        db,
-        engine,
-        batchContext(inserted + batch.length),
-        batch,
-      )
-    ).length;
-    await input.onProgress?.(inserted, total);
-  }
   let updated = 0;
-  for (let index = 0; index < updates.length; index += BATCH) {
-    const batch = updates.slice(index, index + BATCH);
-    updated += (
-      await updateNativeBatch(
+  let read = 0;
+  await input.onProgress?.(0, source.total);
+  for await (const batch of source.batches()) {
+    read += batch.length;
+    const valid: Array<{ line: number; values: Record<string, CellValue> }> =
+      [];
+    for (const row of batch) {
+      const values: Record<string, CellValue> = {};
+      let ok = true;
+      for (const [index, name] of targets) {
+        const column = columns.get(name);
+        if (!column) continue;
+        const raw = row.cells[index] ?? "";
+        const value = coerceCellValue(column, raw, {
+          resolveUser: input.resolveUser,
+        });
+        if (value === undefined) {
+          ok = false;
+          note({
+            line: row.line,
+            column: source.headers[index] ?? "",
+            value: raw.slice(0, 80),
+            message: "Invalid value",
+          });
+          continue;
+        }
+        values[name] = value;
+      }
+      if (ok) valid.push({ line: row.line, values });
+      else failed += 1;
+    }
+
+    let inserts: Array<{
+      line: number;
+      values: Record<string, CellValue>;
+      key?: string;
+    }> = [];
+    let updates: Array<{
+      rowId: string;
+      line: number;
+      values: Record<string, CellValue>;
+    }> = [];
+    if (keyName) {
+      // A key repeated in the file updates the same row; the last line wins.
+      const added = new Map<
+        string,
+        { line: number; values: Record<string, CellValue> }
+      >();
+      const changes = new Map<
+        string,
+        {
+          line: number;
+          key: string;
+          existing: boolean;
+          values: Record<string, CellValue>;
+        }
+      >();
+      for (const item of valid) {
+        const text = cellText(item.values[keyName]).trim();
+        if (text === "") {
+          inserts.push(item);
+          continue;
+        }
+        const match = known.get(text);
+        if (!match) {
+          added.set(text, {
+            line: item.line,
+            values: { ...added.get(text)?.values, ...item.values },
+          });
+          continue;
+        }
+        if (match.locked) {
+          failed += 1;
+          note({
+            line: item.line,
+            column: keyHeader,
+            value: text.slice(0, 80),
+            message: "Row locked",
+            code: "row_locked",
+          });
+          continue;
+        }
+        changes.set(match.id, {
+          line: item.line,
+          key: text,
+          existing: match.existing,
+          values: { ...changes.get(match.id)?.values, ...item.values },
+        });
+      }
+      const outside = await outsideRowRule(
         db,
-        engine,
-        batchContext(inserted + updated + batch.length),
-        batch,
-      )
-    ).length;
-    await input.onProgress?.(inserted + updated, total);
+        input.rowScope,
+        [...changes].flatMap(([id, change]) => (change.existing ? [id] : [])),
+      );
+      for (const id of outside) {
+        const change = changes.get(id);
+        changes.delete(id);
+        failed += 1;
+        note({
+          line: change?.line ?? 0,
+          column: keyHeader,
+          value: (change?.key ?? "").slice(0, 80),
+          message: "Refused",
+          code: "access_denied",
+        });
+      }
+      for (const [key, item] of added) inserts.push({ ...item, key });
+      updates = [...changes].map(([rowId, change]) => ({
+        rowId,
+        line: change.line,
+        values: change.values,
+      }));
+    } else {
+      inserts = valid;
+    }
+    if (required.length > 0) {
+      inserts = inserts.filter((item) => {
+        const blank = missing(item.values, "insert");
+        if (blank) refuseMissing(item.line, blank);
+        return !blank;
+      });
+      updates = updates.filter((item) => {
+        const blank = missing(item.values, "update");
+        if (blank) refuseMissing(item.line, blank);
+        return !blank;
+      });
+    }
+
+    let ids: Array<string | undefined>;
+    if (external) {
+      const written = await importIntoClientTable(db, {
+        context: {
+          userId: input.userId,
+          table,
+          engine,
+          catalog,
+          reason,
+          source: "import",
+          depth: 0,
+        },
+        inserts,
+        updates,
+        summary: (count) =>
+          batchContext(inserted + updated + count).events as {
+            summary: SummaryEvent;
+          },
+        report: (error) => {
+          failed += 1;
+          note(error);
+        },
+      });
+      inserted += written.inserted;
+      updated += written.updated;
+      ids = written.ids;
+    } else {
+      ids =
+        inserts.length === 0
+          ? []
+          : await insertNativeBatch(
+              db,
+              engine,
+              batchContext(inserted + updated + inserts.length),
+              inserts.map((item) => item.values),
+            );
+      inserted += ids.length;
+      if (updates.length > 0) {
+        updated += (
+          await updateNativeBatch(
+            db,
+            engine,
+            batchContext(inserted + updated + updates.length),
+            updates.map(({ rowId, values }) => ({ rowId, values })),
+          )
+        ).length;
+      }
+    }
+    // A key this batch added finds its row in the batches after it.
+    inserts.forEach((item, index) => {
+      const id = ids[index];
+      if (item.key !== undefined && id !== undefined) {
+        known.set(item.key, { id, locked: false, existing: false });
+      }
+    });
+    await input.onProgress?.(read, source.total);
   }
   return {
     tableId: table.id,
@@ -662,11 +799,12 @@ const ROW_REFUSALS =
   /^(source_value_|source_write_refused|invalid_cell|row_locked|source_conflict|source_row_missing)/;
 
 /**
- * Writes an import to a client's table (ADR 0028), batch by batch through
- * the compared, recorded write path. A batch the client refuses is written
- * again row by row, so the refused lines are named and the others kept;
- * a refusal that is not about a row (writes off, the source down) stops
- * the import.
+ * Writes a batch of an import to a client's table (ADR 0028), through the
+ * compared, recorded write path, `CLIENT_BATCH` rows a transaction. A
+ * part the client refuses is written again row by row, so the refused
+ * lines are named and the others kept; a refusal that is not about a row
+ * (writes off, the source down) stops the import. Returns the id of each
+ * insert, or undefined where it was refused.
  */
 async function importIntoClientTable(
   db: Database,
@@ -679,13 +817,16 @@ async function importIntoClientTable(
       line: number;
     }>;
     summary: (count: number) => { summary: SummaryEvent };
-    onProgress?: ((done: number, total: number) => Promise<void>) | undefined;
-    total: number;
     report: (error: ImportError) => void;
   },
-): Promise<{ inserted: number; updated: number }> {
+): Promise<{
+  inserted: number;
+  updated: number;
+  ids: Array<string | undefined>;
+}> {
   let inserted = 0;
   let updated = 0;
+  const ids: Array<string | undefined> = [];
   const context = (count: number): ExternalWriteContext => ({
     ...input.context,
     summary: input.summary(count).summary,
@@ -702,45 +843,47 @@ async function importIntoClientTable(
   const rowLevel = (error: unknown): error is AppError =>
     error instanceof AppError && ROW_REFUSALS.test(error.code);
   for (let index = 0; index < input.inserts.length; index += CLIENT_BATCH) {
-    const batch = input.inserts.slice(index, index + CLIENT_BATCH);
+    const part = input.inserts.slice(index, index + CLIENT_BATCH);
     try {
-      inserted += (
-        await insertExternalRows(
-          db,
-          context(inserted + updated + batch.length),
-          batch.map((item) => item.values),
-        )
-      ).length;
+      const written = await insertExternalRows(
+        db,
+        context(inserted + updated + part.length),
+        part.map((item) => item.values),
+      );
+      inserted += written.length;
+      ids.push(...written);
     } catch (error) {
       if (!rowLevel(error)) throw error;
-      for (const item of batch) {
+      for (const item of part) {
         try {
-          inserted += (
-            await insertExternalRows(db, context(inserted + updated + 1), [
-              item.values,
-            ])
-          ).length;
+          const [id] = await insertExternalRows(
+            db,
+            context(inserted + updated + 1),
+            [item.values],
+          );
+          inserted += 1;
+          ids.push(id);
         } catch (cause) {
           if (!rowLevel(cause)) throw cause;
           refused(item.line, cause);
+          ids.push(undefined);
         }
       }
     }
-    await input.onProgress?.(inserted + updated, input.total);
   }
   for (let index = 0; index < input.updates.length; index += CLIENT_BATCH) {
-    const batch = input.updates.slice(index, index + CLIENT_BATCH);
+    const part = input.updates.slice(index, index + CLIENT_BATCH);
     try {
       updated += (
         await updateExternalRows(
           db,
-          context(inserted + updated + batch.length),
-          batch.map(({ rowId, values }) => ({ rowId, values })),
+          context(inserted + updated + part.length),
+          part.map(({ rowId, values }) => ({ rowId, values })),
         )
       ).length;
     } catch (error) {
       if (!rowLevel(error)) throw error;
-      for (const item of batch) {
+      for (const item of part) {
         try {
           updated += (
             await updateExternalRows(db, context(inserted + updated + 1), [
@@ -753,7 +896,6 @@ async function importIntoClientTable(
         }
       }
     }
-    await input.onProgress?.(inserted + updated, input.total);
   }
-  return { inserted, updated };
+  return { inserted, updated, ids };
 }

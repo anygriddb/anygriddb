@@ -215,7 +215,7 @@ export function ImportDialog(props: {
       if (!response.ok) {
         toast.error(
           response.status === 413
-            ? t`File too large (20 MB, 10 MB for Excel).`
+            ? t`File too large (256 MB, 64 MB for Excel, 20 MB for JSON).`
             : errorText(json),
         );
         return;
@@ -423,7 +423,7 @@ export function ImportDialog(props: {
               {t`Drop a file or click to choose one`}
             </span>
             <span className="text-xs text-muted-foreground">
-              {t`CSV, TSV, JSON, or Excel (.xlsx), up to 100,000 rows. The first row names the columns.`}
+              {t`CSV, TSV, JSON, or Excel (.xlsx). The first row names the columns.`}
             </span>
             <input
               type="file"

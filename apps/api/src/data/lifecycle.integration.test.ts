@@ -8,7 +8,7 @@ import type { Database, JobRow } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { authorTable } from "../job-runners.js";
 import { runJob } from "../jobs.js";
-import { mkdtemp, utimes } from "node:fs/promises";
+import { mkdtemp, readFile, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DiskStore } from "../files/index.js";
@@ -18,6 +18,7 @@ import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { createTestDatabase } from "../test-database.js";
 import { runRows, withAudit } from "./audit-context.js";
 import {
+  copyStagedImport,
   dropStagedImport,
   loadStagedImport,
   stageImport,
@@ -229,35 +230,51 @@ describe("jobs, trash, and authors", () => {
     });
   });
 
+  /** Stages a small CSV file, as the preview route does. */
+  async function stageCsv(files: DiskStore, name: string): Promise<string> {
+    const folder = await mkdtemp(join(tmpdir(), "anygriddb-staging-"));
+    const path = join(folder, name);
+    await writeFile(path, "a\n1\n");
+    return stageImport(db, files, {
+      userId: owner,
+      filename: name,
+      path,
+      size: 4,
+      shape: {
+        format: "csv",
+        headers: ["a"],
+        delimiter: ",",
+        headerLine: 1,
+        total: 1,
+      },
+    });
+  }
+
   describe("staged uploads", () => {
     it("returns an upload to its owner only, until it is dropped or expires", async () => {
       const files = new DiskStore(
         await mkdtemp(join(tmpdir(), "anygriddb-files-")),
       );
-      const id = await stageImport(db, files, owner, "a.csv", {
-        headers: ["a"],
-        rows: [["1"]],
-      });
-      expect((await loadStagedImport(db, files, id, owner)).rows).toEqual([
-        ["1"],
-      ]);
-      await expect(loadStagedImport(db, files, id, viewer)).rejects.toThrow(
+      const id = await stageCsv(files, "a.csv");
+      const staged = await loadStagedImport(db, id, owner);
+      expect(staged.shape.headers).toEqual(["a"]);
+      const copy = join(await mkdtemp(join(tmpdir(), "anygriddb-copy-")), "a");
+      await copyStagedImport(db, files, staged, copy);
+      expect(await readFile(copy, "utf8")).toBe("a\n1\n");
+      await expect(loadStagedImport(db, id, viewer)).rejects.toThrow(
         "Unknown import",
       );
       await dropStagedImport(db, files, id);
-      await expect(loadStagedImport(db, files, id, owner)).rejects.toThrow(
+      await expect(loadStagedImport(db, id, owner)).rejects.toThrow(
         "Unknown import",
       );
-      const expired = await stageImport(db, files, owner, "b.csv", {
-        headers: ["b"],
-        rows: [],
-      });
+      const expired = await stageCsv(files, "b.csv");
       await db
         .updateTable("stagedUploads")
         .set({ expiresAt: new Date(Date.now() - 1000) })
         .where("id", "=", expired)
         .execute();
-      await expect(loadStagedImport(db, files, expired, owner)).rejects.toThrow(
+      await expect(loadStagedImport(db, expired, owner)).rejects.toThrow(
         "Unknown import",
       );
       expect(await purgeStagedUploads(db, files, () => undefined)).toBe(1);
@@ -310,10 +327,7 @@ describe("jobs, trash, and authors", () => {
       const lostExport = `exports/${randomUUID()}`;
       await put(lostExport);
 
-      const stagedId = await stageImport(db, files, owner, "a.csv", {
-        headers: ["a"],
-        rows: [],
-      });
+      const stagedId = await stageCsv(files, "a.csv");
       const staged = await db
         .selectFrom("stagedUploads")
         .select("fileKey")

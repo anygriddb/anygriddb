@@ -96,6 +96,16 @@ describe("readEnv", () => {
     }
   });
 
+  it("bounds the rows one imported file may hold", () => {
+    expect(readEnv(base).IMPORT_MAX_ROWS).toBe(1_000_000);
+    expect(
+      readEnv({ ...base, IMPORT_MAX_ROWS: "2000000" }).IMPORT_MAX_ROWS,
+    ).toBe(2_000_000);
+    expect(() => readEnv({ ...base, IMPORT_MAX_ROWS: "5000" })).toThrow(
+      "IMPORT_MAX_ROWS must be an integer between 100000 and 10000000",
+    );
+  });
+
   it("refuses plaintext sources in production", () => {
     expect(() =>
       readEnv({

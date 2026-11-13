@@ -1,7 +1,16 @@
 import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
-import { parseImportFileIsolated, PARSE_LIMITS } from "./import-isolated.js";
-import { assertZipWithinLimits } from "./zip-limits.js";
+import type { SheetRow } from "./import-file.js";
+import { onDisk } from "./import-file.test-helpers.js";
+import {
+  PARSE_LIMITS,
+  readImportFileIsolated,
+  scanImportFileIsolated,
+} from "./import-isolated.js";
+import {
+  assertZipFileWithinLimits,
+  assertZipWithinLimits,
+} from "./zip-limits.js";
 
 async function workbook(rows: string[][]): Promise<Buffer> {
   const book = new ExcelJS.Workbook();
@@ -28,30 +37,47 @@ function declareSize(zip: Buffer, size: number): Buffer {
  */
 const FROM_SOURCE = { heapMb: 512, timeMs: 240_000 };
 
-describe("isolated import parsing", () => {
+describe("isolated import reading", () => {
   it(
-    "parses CSV and XLSX in a worker thread",
+    "scans, then reads in batches, CSV and XLSX in a worker thread",
     { timeout: 600_000 },
     async () => {
-      const csv = await parseImportFileIsolated(
-        "csv",
-        Buffer.from("Name,City\nAcme,Lyon\n"),
-        FROM_SOURCE,
+      const lines = Array.from({ length: 5 }, (_, i) => `Firm ${i},Lyon`);
+      const csv = await onDisk(
+        `Name,City\n${lines.join("\n")}\n`,
+        async (path) => {
+          const scanned = await scanImportFileIsolated(
+            "csv",
+            path,
+            100,
+            FROM_SOURCE,
+          );
+          const batches: SheetRow[][] = [];
+          for await (const batch of readImportFileIsolated(
+            scanned.shape,
+            path,
+            2,
+            100,
+            FROM_SOURCE,
+          )) {
+            batches.push(batch);
+          }
+          return { scanned, batches };
+        },
       );
-      expect(csv).toEqual({
-        headers: ["Name", "City"],
-        rows: [["Acme", "Lyon"]],
-      });
-      const xlsx = await parseImportFileIsolated(
-        "xlsx",
+      expect(csv.scanned.preview.headers).toEqual(["Name", "City"]);
+      expect(csv.scanned.shape.total).toBe(5);
+      expect(csv.batches.map((batch) => batch.length)).toEqual([2, 2, 1]);
+      expect(csv.batches[2]).toEqual([{ line: 6, cells: ["Firm 4", "Lyon"] }]);
+      const xlsx = await onDisk(
         await workbook([
           ["Name", "Amount"],
           ["Initech", "12"],
         ]),
-        FROM_SOURCE,
+        (path) => scanImportFileIsolated("xlsx", path, 100, FROM_SOURCE),
       );
-      expect(xlsx.headers).toEqual(["Name", "Amount"]);
-      expect(xlsx.rows).toEqual([["Initech", "12"]]);
+      expect(xlsx.preview.headers).toEqual(["Name", "Amount"]);
+      expect(xlsx.preview.sample).toEqual([["Initech", "12"]]);
     },
   );
 
@@ -60,33 +86,43 @@ describe("isolated import parsing", () => {
     expect(() => assertZipWithinLimits(bomb, PARSE_LIMITS.zip)).toThrow(
       "Invalid import",
     );
-    await expect(parseImportFileIsolated("xlsx", bomb)).rejects.toThrow(
-      "Invalid import",
-    );
+    await onDisk(bomb, async (path) => {
+      await expect(
+        assertZipFileWithinLimits(path, PARSE_LIMITS.zip),
+      ).rejects.toThrow("Invalid import");
+      await expect(scanImportFileIsolated("xlsx", path, 100)).rejects.toThrow(
+        "Invalid import",
+      );
+    });
     expect(() =>
       assertZipWithinLimits(Buffer.from("not a zip"), PARSE_LIMITS.zip),
     ).toThrow("Invalid import");
   });
 
-  it("stops a parse that runs out of time", async () => {
-    const big = Buffer.from(
-      "a,b\n" + "x,y\n".repeat(400_000).slice(0, 1_600_000),
-    );
-    await expect(
-      parseImportFileIsolated("csv", big, { heapMb: 512, timeMs: 1 }),
-    ).rejects.toThrow("Invalid import");
+  it("stops a pass that runs out of time", async () => {
+    const big = "a,b\n" + "x,y\n".repeat(400_000);
+    await onDisk(big, async (path) => {
+      await expect(
+        scanImportFileIsolated("csv", path, 1_000_000, {
+          heapMb: 512,
+          timeMs: 1,
+        }),
+      ).rejects.toThrow("Invalid import");
+    });
   });
 
   it(
-    "keeps the row limit message for the person who uploaded",
+    "keeps the row ceiling's message for the person who uploaded",
     { timeout: 600_000 },
     async () => {
       const records = JSON.stringify(
-        Array.from({ length: 100_001 }, () => ({ a: 1 })),
+        Array.from({ length: 1_001 }, () => ({ a: 1 })),
       );
-      await expect(
-        parseImportFileIsolated("json", Buffer.from(records), FROM_SOURCE),
-      ).rejects.toThrow("Too many rows");
+      await onDisk(records, async (path) => {
+        await expect(
+          scanImportFileIsolated("json", path, 1_000, FROM_SOURCE),
+        ).rejects.toThrow("Too many rows to import");
+      });
     },
   );
 });
