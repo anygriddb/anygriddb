@@ -11,6 +11,7 @@ import {
   ATTACHMENT_KEY,
   ATTACHMENT_MAX_BYTES_CEILING,
   type Binding,
+  columnNameSchema,
   effectiveTableRole,
   type ErrorCode,
   isImageAttachmentMime,
@@ -33,6 +34,8 @@ import { attachmentVisible } from "./data/rows.js";
 import { publicErrorBody } from "./http.js";
 import { readGateSettings } from "./settings.js";
 import type { UploadSlots } from "./upload-slots.js";
+import { acceptsFormFile, openShare } from "./data/open-share.js";
+import { stagedDeadline } from "./data/staged-attachments.js";
 
 const THUMB_EDGE = 320;
 
@@ -135,6 +138,8 @@ export async function storeAttachment(
     tableId: string;
     userId: string;
     filename: string;
+    /** A public form's link: the file waits for its answer (ADR 0062). */
+    stagedShareId?: string;
   } & AttachmentSource,
 ): Promise<AttachmentMeta> {
   const mime = sniffContentType(
@@ -190,6 +195,9 @@ export async function storeAttachment(
       height,
       thumbKey,
       createdBy: input.userId,
+      ...(input.stagedShareId
+        ? { stagedShareId: input.stagedShareId, stagedUntil: stagedDeadline() }
+        : {}),
     })
     .execute();
   return {
@@ -207,7 +215,14 @@ export async function loadAttachmentMeta(
   db: Database,
   keys: readonly string[],
 ): Promise<
-  Map<string, AttachmentMeta & { tableId: string; thumbKey: string | null }>
+  Map<
+    string,
+    AttachmentMeta & {
+      tableId: string;
+      thumbKey: string | null;
+      staged: boolean;
+    }
+  >
 > {
   const unique = [...new Set(keys)].filter((key) => ATTACHMENT_KEY.test(key));
   if (unique.length === 0) {
@@ -232,16 +247,23 @@ export async function loadAttachmentMeta(
         height: row.height,
         thumb: row.thumbKey !== null,
         thumbKey: row.thumbKey,
+        staged: row.stagedShareId !== null,
       },
     ]),
   );
 }
 
-/** Refuses keys that were not uploaded to this table. */
+/**
+ * Refuses keys that were not uploaded to this table. A file a public form's
+ * link sent, until its answer claims it, belongs to that link alone (ADR
+ * 0062): only that link's answer, `stagedBy`, may name it, and it may name
+ * no other file.
+ */
 export async function assertAttachmentKeys(
   db: Database,
   tableId: string,
   keys: readonly string[],
+  stagedBy?: string,
 ): Promise<void> {
   const unique = [...new Set(keys)];
   if (unique.length === 0) {
@@ -252,6 +274,11 @@ export async function assertAttachmentKeys(
     .select("key")
     .where("tableId", "=", tableId)
     .where("key", "in", unique)
+    .where((eb) =>
+      stagedBy
+        ? eb("stagedShareId", "=", stagedBy)
+        : eb("stagedShareId", "is", null),
+    )
     .execute();
   if (rows.length !== unique.length) {
     throw new AppError("invalid_attachment");
@@ -314,6 +341,8 @@ export async function enrichAttachments(
 type HttpDeps = {
   db: Database;
   files: FileStore;
+  /** Opens a public form's link, for the files its answers carry. */
+  encryptionKey: Buffer;
   /** Environment bootstrap; the instance setting wins when set (ADR 0050). */
   envMaxBytes?: number;
   /** Uploads read at once, shared with imports and snapshots. */
@@ -339,7 +368,7 @@ export async function readAttachmentBase64(
  * may see, on a row they may see: the same check as `attachments.get`.
  */
 export async function visibleToReader(
-  deps: HttpDeps,
+  deps: { db: Database },
   reader: { userId: string; bindings: readonly Binding[] },
   tableId: string,
   key: string,
@@ -395,6 +424,65 @@ export function denyBusy(reply: FastifyReply) {
 }
 
 const uploadQuery = z.object({ tableId: z.uuid() });
+const shareParams = z.object({
+  token: z.string().regex(/^[A-Za-z0-9_-]{32,64}$/),
+});
+const shareQuery = z.object({ field: columnNameSchema });
+const shareAccess = z.string().max(200).optional();
+
+/**
+ * Reads one file to local disk under the limit in force, as it arrives,
+ * then stores it for `owner` and answers with `answer(meta)`. Every slot
+ * taken, a file past the limit, or a store that fails: answered here.
+ */
+async function receiveAttachment(
+  deps: HttpDeps,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  owner: { tableId: string; userId: string; stagedShareId?: string },
+  answer: (meta: AttachmentMeta) => object,
+) {
+  const maxBytes = resolveAttachmentMaxBytes(
+    await readGateSettings(deps.db),
+    deps.envMaxBytes,
+  );
+  const release = deps.uploads.take();
+  if (!release) return denyBusy(reply);
+  const folder = await localFolder("upload");
+  try {
+    const file = await request.file({ limits: { fileSize: maxBytes } });
+    if (!file) return await deny(reply, 400);
+    const path = join(folder.path, "upload");
+    try {
+      await pipeline(
+        file.file,
+        createWriteStream(path, { flags: "wx", mode: 0o600 }),
+      );
+    } catch (error) {
+      request.log.warn({ err: error }, "attachment upload failed");
+      return await deny(reply, 413);
+    }
+    const { size } = await stat(path);
+    if (file.file.truncated || size === 0) return await deny(reply, 413);
+    let meta: AttachmentMeta;
+    try {
+      meta = await storeAttachment(deps.db, deps.files, {
+        ...owner,
+        filename: cleanFilename(file.filename),
+        path,
+        size,
+      });
+    } catch (error) {
+      request.log.error({ err: error }, "attachment upload failed");
+      return await deny(reply, 500);
+    }
+    return await reply.send(answer(meta));
+  } finally {
+    await folder.remove();
+    release();
+  }
+}
+
 const keyParams = z.object({ key: z.string().regex(ATTACHMENT_KEY) });
 const serveQuery = z.object({ download: z.enum(["1"]).optional() });
 
@@ -419,47 +507,49 @@ export async function registerAttachmentRoutes(
       !(await tableAccess(deps.db, actor.bindings, query.data.tableId, "write"))
     )
       return deny(reply, 403);
-    const user = actor.user;
-    const maxBytes = resolveAttachmentMaxBytes(
-      await readGateSettings(deps.db),
-      deps.envMaxBytes,
+    return receiveAttachment(
+      deps,
+      request,
+      reply,
+      { tableId: query.data.tableId, userId: actor.user.id },
+      (meta) => meta,
     );
-    const release = deps.uploads.take();
-    if (!release) return denyBusy(reply);
-    const folder = await localFolder("upload");
+  });
+
+  // A file for a public form's answer, sent before the answer (ADR 0062).
+  // The link is its only credential: it must open a form, as its creator,
+  // that shows this attachment field and lets them write it. The file
+  // waits for that link's answer; nothing serves it until then, and the
+  // answer only gets its name, size, and key back.
+  app.post("/api/shares/:token/attachments", async (request, reply) => {
+    const params = shareParams.safeParse(request.params);
+    const query = shareQuery.safeParse(request.query);
+    const access = shareAccess.safeParse(request.headers["x-share-access"]);
+    if (!params.success || !query.success || !access.success)
+      return deny(reply, 404);
+    let opened: Awaited<ReturnType<typeof openShare>>;
     try {
-      const file = await request.file({ limits: { fileSize: maxBytes } });
-      if (!file) return await deny(reply, 400);
-      const path = join(folder.path, "upload");
-      try {
-        await pipeline(
-          file.file,
-          createWriteStream(path, { flags: "wx", mode: 0o600 }),
-        );
-      } catch (error) {
-        request.log.warn({ err: error }, "attachment upload failed");
-        return await deny(reply, 413);
-      }
-      const { size } = await stat(path);
-      if (file.file.truncated || size === 0) return await deny(reply, 413);
-      let meta: Awaited<ReturnType<typeof storeAttachment>>;
-      try {
-        meta = await storeAttachment(deps.db, deps.files, {
-          tableId: query.data.tableId,
-          userId: user.id,
-          filename: cleanFilename(file.filename),
-          path,
-          size,
-        });
-      } catch (error) {
-        request.log.error({ err: error }, "attachment upload failed");
-        return await deny(reply, 500);
-      }
-      return await reply.send(meta);
-    } finally {
-      await folder.remove();
-      release();
+      opened = await openShare(
+        { db: deps.db, encryptionKey: deps.encryptionKey },
+        { token: params.data.token, access: access.data },
+        "write",
+      );
+    } catch (error) {
+      if (error instanceof AppError) return deny(reply, 404);
+      throw error;
     }
+    if (!acceptsFormFile(opened, query.data.field)) return deny(reply, 404);
+    return receiveAttachment(
+      deps,
+      request,
+      reply,
+      {
+        tableId: opened.table.id,
+        userId: opened.share.createdBy,
+        stagedShareId: opened.share.id,
+      },
+      (meta) => ({ key: meta.key, filename: meta.filename, size: meta.size }),
+    );
   });
 
   async function serve(
@@ -474,7 +564,8 @@ export async function registerAttachmentRoutes(
     const meta = (await loadAttachmentMeta(deps.db, [params.data.key])).get(
       params.data.key,
     );
-    if (!meta) return deny(reply, 404);
+    // A file waiting for a form's answer is no row's yet: nobody reads it.
+    if (!meta || meta.staged) return deny(reply, 404);
     if (!(await tableAccess(deps.db, actor.bindings, meta.tableId, "read")))
       return deny(reply, 404);
     if (

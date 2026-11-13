@@ -17,6 +17,14 @@ msgstr "-1, 0 ou 1, selon le signe."
 msgid "“{field}” is required"
 msgstr "« {field} » est obligatoire"
 
+#: components/views/form-files.tsx
+msgid "“{name}” could not be sent"
+msgstr "« {name} » n’a pas pu être envoyé"
+
+#: components/views/form-files.tsx
+msgid "“{name}” is too large"
+msgstr "« {name} » est trop volumineux"
+
 #: components/fields/formula-docs.ts
 msgid "()"
 msgstr "()"
@@ -686,6 +694,10 @@ msgstr "Un champ porte déjà ce nom"
 msgid "A field of the linked rows"
 msgstr "Un champ des lignes liées"
 
+#: lib/errors.ts
+msgid "A file could not be attached. Add it again."
+msgstr "Un fichier n’a pas pu être joint. Ajoutez-le de nouveau."
+
 #: components/table/automations-dialog.tsx
 msgid "A form is submitted"
 msgstr "Un formulaire est envoyé"
@@ -976,6 +988,7 @@ msgid "Add a field"
 msgstr "Ajouter un champ"
 
 #: components/fields/cell-editor.tsx
+#: components/views/form-files.tsx
 msgid "Add a file"
 msgstr "Ajouter un fichier"
 
@@ -3980,10 +3993,6 @@ msgid "Invalid arguments for"
 msgstr "Arguments invalides pour"
 
 #: lib/errors.ts
-msgid "Invalid attachment"
-msgstr "Pièce jointe invalide"
-
-#: lib/errors.ts
 msgid "Invalid automation"
 msgstr "Automatisation invalide"
 
@@ -6240,6 +6249,10 @@ msgstr "Retirer"
 msgid "Remove {base}"
 msgstr "Retirer {base}"
 
+#: components/views/form-files.tsx
+msgid "Remove {name}"
+msgstr "Retirer {name}"
+
 #: components/admin/account-bases.tsx
 msgid "Remove {name} from {base}?"
 msgstr "Retirer {name} de {base} ?"
@@ -6380,6 +6393,10 @@ msgstr "Rendre obligatoire dans chaque ligne"
 #: components/views/form-view.tsx
 msgid "required"
 msgstr "requis"
+
+#: components/views/form-files.tsx
+msgid "Required"
+msgstr "Obligatoire"
 
 #: components/admin/invitations-panel.tsx
 msgid "Resend"
@@ -8621,9 +8638,14 @@ msgid "Too many failed sign-ins. They wait for the lock to end, or for you to un
 msgstr "Trop de connexions manquées. Ils attendent la fin du verrouillage, ou que vous les déverrouilliez."
 
 #: components/fields/cell-editor.tsx
+#: components/views/form-files.tsx
 #: lib/errors.ts
 msgid "Too many files are being sent right now. Try again in a moment."
 msgstr "Trop de fichiers sont en cours d’envoi. Réessayez dans un instant."
+
+#: components/views/form-files.tsx
+msgid "Too many files were sent in a short time. Wait a minute, then try again."
+msgstr "Trop de fichiers ont été envoyés en peu de temps. Attendez une minute, puis réessayez."
 
 #: lib/errors.ts
 msgid "Too many jobs running: wait for one to finish"

@@ -102,6 +102,11 @@ once. `UPLOAD_CONCURRENCY` (1 to 64, 8 by default) caps how many each
 process reads at once; one more is refused with 503 and `Retry-After`,
 and people are told to try again in a moment.
 
+A public form takes files from people without an account: each counts
+in the files' store as soon as it is sent, 30 a minute at most per
+address. One that no answer claims within a day is removed by the hourly
+purge (ADR 0062).
+
 ### Address people open (`PUBLIC_URL`)
 
 `PUBLIC_URL` is the HTTPS origin people type: links in emails, cookies,

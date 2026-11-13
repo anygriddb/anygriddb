@@ -47,6 +47,7 @@ import {
   type AuditTx,
 } from "./audit-context.js";
 import { sourcePools } from "../sources/pools.js";
+import { claimStagedAttachments } from "./staged-attachments.js";
 
 export const READ_TIMEOUT = "15s";
 
@@ -66,6 +67,11 @@ export type WriteContext = {
    * event per row; false for none at all.
    */
   events?: false | { summary: SummaryEvent };
+  /**
+   * Files a public form's link sent before the answer (ADR 0062), made the
+   * table's own in the transaction that writes the row.
+   */
+  claim?: { shareId: string; keys: readonly string[] };
 };
 
 export function writeColumns(engine: EngineCatalog): WriteColumn[] {
@@ -691,6 +697,13 @@ export async function insertRows(
   const columns = writeColumns(engine);
   await assertUserValues(db, context.baseId, columns, rows);
   return withAudit(db, auditContext(context), async (tx) => {
+    if (context.claim) {
+      await claimStagedAttachments(
+        tx,
+        context.claim.shareId,
+        context.claim.keys,
+      );
+    }
     const positions = place
       ? await placesBeside(tx, context.physicalName, place, rows.length)
       : undefined;

@@ -54,6 +54,7 @@ import { purgeResetLinks } from "../auth/password-reset.js";
 import { purgeSignupRequests } from "../auth/signup-requests.js";
 import { readSettings } from "../settings.js";
 import { purgeStagedUploads } from "../data/staged-uploads.js";
+import { purgeStagedAttachments } from "../data/staged-attachments.js";
 import { purgeLocks } from "../realtime/locks.js";
 import { sweepOrphanFiles } from "../files/sweep.js";
 import { settleExternalWrites } from "../sources/writes.js";
@@ -321,6 +322,9 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
       await purgeLocks(deps.db);
       await purgeStagedUploads(deps.db, deps.files, (error) => {
         deps.log(error, "staged upload delete failed");
+      });
+      await purgeStagedAttachments(deps.db, deps.files, (error) => {
+        deps.log(error, "staged attachment delete failed");
       });
     },
     [TASKS.fileSweep]: async () => {

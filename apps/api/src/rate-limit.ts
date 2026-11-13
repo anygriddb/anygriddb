@@ -1,7 +1,8 @@
 import rateLimit from "@fastify/rate-limit";
 import type { FastifyInstance } from "fastify";
 
-export type RateBucket = "auth" | "share" | "api" | "upload" | "report" | "app";
+export type RateBucket =
+  "auth" | "share" | "api" | "upload" | "formUpload" | "report" | "app";
 
 /** Requests allowed per minute and per client address, by bucket. */
 export const RATE_LIMITS: Record<RateBucket, number> = {
@@ -9,6 +10,9 @@ export const RATE_LIMITS: Record<RateBucket, number> = {
   share: 240,
   api: 600,
   upload: 120,
+  // Files sent to public forms, by people who have no account: an answer
+  // carries a few, and each is held a day if no answer comes (ADR 0062).
+  formUpload: 30,
   // Failures pages report: a page that fails in a loop stops here.
   report: 30,
   app: 3_000,
@@ -37,6 +41,7 @@ export function rateBucket(method: string, url: string): RateBucket {
     path === "/mcp"
   )
     return "api";
+  if (path.startsWith("/api/shares/") && method === "POST") return "formUpload";
   if (
     (path.startsWith("/api/attachments") || path.startsWith("/api/import/")) &&
     method === "POST"

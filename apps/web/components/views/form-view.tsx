@@ -22,6 +22,8 @@ import {
 import { CheckCircle2, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { useMemo, useState, type SubmitEvent } from "react";
 import { formRedirectAfterSubmit } from "./form-redirect";
+import { FormFiles } from "./form-files";
+import { sendFile, tableFileUrl, type SentFile } from "../../lib/send-file";
 import {
   dateFieldLocale,
   dateFormatOf,
@@ -92,6 +94,7 @@ const SUPPORTED = new Set([
   "rating",
   "duration",
   "user",
+  "attachment",
 ]);
 
 /** The ids a form field's label and description carry. */
@@ -423,6 +426,9 @@ export function FormView(props: ViewProps) {
       return column ? [{ field, column }] : [];
     });
   const misplaced = misplacedConditionFields(fields);
+  // The files each attachment field sent, shown by name; the answer names
+  // their keys (`values`).
+  const [sent, setSent] = useState<Record<string, SentFile[]>>({});
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const patchForm = (next: Partial<FormConfig>) =>
@@ -471,6 +477,7 @@ export function FormView(props: ViewProps) {
         if (formRedirectAfterSubmit(form.redirectUrl)) return;
         setDone(true);
         setValues(prefill.values);
+        setSent({});
       }
     } finally {
       setBusy(false);
@@ -550,28 +557,55 @@ export function FormView(props: ViewProps) {
                         {field.description || column.description}
                       </p>
                     ) : null}
-                    <FieldInput
-                      column={column}
-                      required={field.required === true}
-                      described={Boolean(
-                        field.description || column.description,
-                      )}
-                      value={
-                        values[column.name] ??
-                        (column.fieldType === "multi_select"
-                          ? []
-                          : column.fieldType === "boolean"
-                            ? false
-                            : "")
-                      }
-                      onChange={(value) =>
-                        setValues((current) => ({
-                          ...current,
-                          [column.name]: value,
-                        }))
-                      }
-                      people={table.people}
-                    />
+                    {column.fieldType === "attachment" ? (
+                      <FormFiles
+                        id={formFieldIds(column.name).id}
+                        labelId={formFieldIds(column.name).label}
+                        descriptionId={
+                          field.description || column.description
+                            ? formFieldIds(column.name).description
+                            : undefined
+                        }
+                        required={field.required === true}
+                        files={sent[column.name] ?? []}
+                        onChange={(files) => {
+                          setSent((current) => ({
+                            ...current,
+                            [column.name]: files,
+                          }));
+                          setValues((current) => ({
+                            ...current,
+                            [column.name]: files.map((file) => file.key),
+                          }));
+                        }}
+                        send={(file) =>
+                          sendFile(tableFileUrl(table.table.id), file)
+                        }
+                      />
+                    ) : (
+                      <FieldInput
+                        column={column}
+                        required={field.required === true}
+                        described={Boolean(
+                          field.description || column.description,
+                        )}
+                        value={
+                          values[column.name] ??
+                          (column.fieldType === "multi_select"
+                            ? []
+                            : column.fieldType === "boolean"
+                              ? false
+                              : "")
+                        }
+                        onChange={(value) =>
+                          setValues((current) => ({
+                            ...current,
+                            [column.name]: value,
+                          }))
+                        }
+                        people={table.people}
+                      />
+                    )}
                   </div>
                 ))}
               <Button

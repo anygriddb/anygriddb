@@ -151,6 +151,8 @@ export interface Attachments {
   key: string;
   mime: string;
   size: Int8;
+  stagedShareId: string | null;
+  stagedUntil: Timestamp | null;
   tableId: string;
   thumbKey: string | null;
   width: number | null;

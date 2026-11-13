@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rateBucket } from "./rate-limit.js";
+import { RATE_LIMITS, rateBucket } from "./rate-limit.js";
 
 describe("rateBucket", () => {
   it("puts credential checks and public shares in tight buckets", () => {
@@ -25,6 +25,11 @@ describe("rateBucket", () => {
     expect(rateBucket("POST", "/hooks/automations/aghook_x")).toBe("share");
     expect(rateBucket("GET", "/ical/agcal_x.ics")).toBe("share");
     expect(rateBucket("POST", "/api/attachments?tableId=x")).toBe("upload");
+    // A file for a public form: people without an account, a tighter limit.
+    expect(rateBucket("POST", "/api/shares/tok/attachments?field=f")).toBe(
+      "formUpload",
+    );
+    expect(RATE_LIMITS.formUpload).toBeLessThan(RATE_LIMITS.upload);
     expect(rateBucket("POST", "/api/import/preview?baseId=x")).toBe("upload");
     expect(rateBucket("GET", "/api/export/x?format=csv")).toBe("app");
     expect(rateBucket("GET", "/api/v1/tables/x/records")).toBe("api");
@@ -38,6 +43,7 @@ describe("rateBucket", () => {
     expect(rateBucket("GET", "/trpc/catalog.shares?input=x")).toBe("app");
     expect(rateBucket("GET", "/trpc/auth.tokens")).toBe("app");
     expect(rateBucket("GET", "/api/attachments/attabc")).toBe("app");
+    expect(rateBucket("GET", "/api/shares/tok/attachments")).toBe("app");
     expect(rateBucket("POST", "/api/client-errors/x")).toBe("app");
   });
 });
