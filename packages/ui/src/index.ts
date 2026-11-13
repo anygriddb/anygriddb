@@ -10,6 +10,7 @@ export {
   CommandList,
 } from "./command";
 export { Checkbox, Input, Label, Select, Textarea } from "./input";
+export { ReadOnly, useReadOnly, type Reads } from "./read-only";
 export {
   AriaLocaleProvider,
   CalendarDate,

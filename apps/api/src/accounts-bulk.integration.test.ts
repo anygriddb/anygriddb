@@ -317,6 +317,6 @@ describe("accounts by the dozen", () => {
           userIds: Array.from({ length: 101 }, () => crypto.randomUUID()),
         }),
       ),
-    ).not.toBeNull();
+    ).toBe("BAD_REQUEST");
   });
 });

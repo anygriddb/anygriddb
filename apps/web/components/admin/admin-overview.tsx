@@ -5,9 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { CheckCircle2 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useSession } from "../../lib/session";
 import { useTRPC } from "../../lib/trpc";
 import type { AccountsSearch } from "./accounts-search";
+import { useReadsAll } from "./admin-access";
 import { useAlertText } from "./alerts-section";
 
 /** Counting only: the total comes back with the first row. */
@@ -21,8 +21,7 @@ const COUNT = { offset: 0, limit: 1 } as const;
  */
 export function AdminOverview() {
   const { t } = useLingui();
-  const session = useSession();
-  const isAdmin = session.data?.isAdmin === true;
+  const readsAll = useReadsAll();
   const api = useTRPC();
   const alertText = useAlertText();
   const locked = useQuery(
@@ -35,27 +34,27 @@ export function AdminOverview() {
       admin: true,
       mfa: false,
     }),
-    enabled: isAdmin,
+    enabled: readsAll,
   });
   const invitations = useQuery({
     ...api.admin.invitations.queryOptions(),
-    enabled: isAdmin,
+    enabled: readsAll,
   });
   const health = useQuery({
     ...api.admin.health.queryOptions(),
-    enabled: isAdmin,
+    enabled: readsAll,
     refetchInterval: 30_000,
   });
   const ownerless = useQuery({
     ...api.admin.baseOverview.ownerlessCount.queryOptions(),
-    enabled: isAdmin,
+    enabled: readsAll,
   });
   const alerts = useQuery({
     ...api.admin.alerts.queryOptions(),
-    enabled: isAdmin,
+    enabled: readsAll,
     refetchInterval: 60_000,
   });
-  const queries = isAdmin
+  const queries = readsAll
     ? [locked, unprotected, invitations, health, ownerless, alerts]
     : [locked];
   const cards: ReactNode[] = [];
@@ -94,7 +93,7 @@ export function AdminOverview() {
     t`Too many failed sign-ins. They wait for the lock to end, or for you to unlock them.`,
     accounts({ status: "locked" }, t`See the locked accounts`),
   );
-  if (isAdmin) {
+  if (readsAll) {
     const unprotectedCount = unprotected.data?.total ?? 0;
     card(
       unprotectedCount,

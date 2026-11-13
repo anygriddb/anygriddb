@@ -1,6 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "./cn";
+import { useReadOnly, type Reads } from "./read-only";
 import { Slot } from "./slot";
 
 const buttonVariants = cva(
@@ -28,7 +29,8 @@ const buttonVariants = cva(
 );
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> &
-  VariantProps<typeof buttonVariants> & {
+  VariantProps<typeof buttonVariants> &
+  Reads & {
     asChild?: boolean;
   };
 
@@ -38,14 +40,19 @@ export function Button({
   size,
   asChild = false,
   type,
+  reads,
+  disabled,
   ...props
 }: ButtonProps) {
+  // A link drawn as a button goes somewhere and changes nothing.
+  const off = useReadOnly(reads) && !asChild;
   const Comp = asChild ? Slot : "button";
   return (
     <Comp
       type={asChild ? undefined : (type ?? "button")}
       className={cn(buttonVariants({ variant, size }), className)}
       {...props}
+      disabled={disabled || off || undefined}
     />
   );
 }

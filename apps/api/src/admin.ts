@@ -235,6 +235,7 @@ export async function listUsers(
       "u.displayName",
       "u.isAdmin",
       "u.isSupport",
+      "u.isAuditor",
       "u.disabledAt",
       "u.createdAt",
       "u.scimUserName",
@@ -493,6 +494,7 @@ export async function getAccountDetail(db: Database, userId: string) {
       "u.displayName",
       "u.isAdmin",
       "u.isSupport",
+      "u.isAuditor",
       "u.disabledAt",
       "u.disabledReason",
       "u.createdAt",
@@ -557,6 +559,7 @@ export async function getAccountDetail(db: Database, userId: string) {
     displayName: account.displayName,
     isAdmin: account.isAdmin,
     isSupport: account.isSupport,
+    isAuditor: account.isAuditor,
     origin,
     hasPassword: account.hasPassword,
     provisioned: account.scimUserName !== null,
@@ -735,6 +738,42 @@ export async function setUserSupport(
       actorId,
       method: "admin",
       detail: support ? "support_granted" : "support_revoked",
+    });
+  });
+}
+
+/**
+ * Makes an account an auditor, or no longer one (ADR 0071): it reads
+ * Administration and changes nothing. On the sign-in trail as
+ * administration and support are.
+ */
+export async function setUserAuditor(
+  db: Database,
+  actorId: string,
+  userId: string,
+  auditor: boolean,
+): Promise<void> {
+  if (userId === ERASED_USER_ID) {
+    throw new AppError("invalid_account");
+  }
+  await db.transaction().execute(async (tx) => {
+    const updated = await tx
+      .updateTable("users")
+      .set({ isAuditor: auditor })
+      .where("id", "=", userId)
+      .where("isAuditor", "=", !auditor)
+      .returning("id")
+      .execute();
+    if (updated.length === 0) {
+      await assertAccount(tx, userId);
+      return;
+    }
+    await recordAuthEvent(tx, {
+      action: "account_updated",
+      userId,
+      actorId,
+      method: "admin",
+      detail: auditor ? "auditor_granted" : "auditor_revoked",
     });
   });
 }

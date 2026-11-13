@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
   ALERT_CHOICES,
   AppError,
@@ -128,6 +129,7 @@ import {
   listUsers,
   listUsersInputSchema,
   setUserAdmin,
+  setUserAuditor,
   setUserDisabled,
   setUserSupport,
   updateAccount,
@@ -206,7 +208,13 @@ import {
 import { revokeApiToken } from "../auth/tokens.js";
 import { setAutomationEnabled } from "../automations.js";
 import { updateWebhook } from "../webhooks.js";
-import { procedure, requestNames, requireUser, t } from "./init.js";
+import { auditorMayCall } from "./auditor-rule.js";
+import {
+  procedure as baseProcedure,
+  requestNames,
+  requireUser,
+  t,
+} from "./init.js";
 
 /** A gesture that mails people is refused before it starts without mail. */
 async function requireMail(ctx: Context): Promise<void> {
@@ -218,13 +226,39 @@ const peopleFileInputSchema = z
   .object({ file: z.string().min(1).max(PEOPLE_FILE_MAX_BYTES) })
   .strict();
 
+/** Whether the call under way is one an auditor may make. */
+const auditorCall = new AsyncLocalStorage<boolean>();
+
+/**
+ * The base of every procedure of Administration. It says whether the
+ * call is one an auditor may make, and refuses an account that is an
+ * auditor and nothing more before the call's input is even read.
+ */
+const procedure = baseProcedure.use(async ({ ctx, next, type, path }) => {
+  const allowed = auditorMayCall(type, path);
+  if (!allowed) {
+    // Whoever is not signed in is told so by the procedure itself.
+    const user = await requireUser(ctx).catch(() => null);
+    if (user?.isAuditor && !user.isAdmin && !user.isSupport) {
+      throw new AppError("access_denied");
+    }
+  }
+  return auditorCall.run(allowed, () => next());
+});
+
+/** An auditor, on a call an auditor may make. */
+function auditing(user: { isAuditor: boolean }): boolean {
+  return user.isAuditor && auditorCall.getStore() === true;
+}
+
 /**
  * Administration needs an admin's own session, API tokens refused, and a
- * second factor, whatever the policy says of others (ADR 0043).
+ * second factor, whatever the policy says of others (ADR 0043). An
+ * auditor passes where the call reads (ADR 0071).
  */
 async function requireAdmin(ctx: Context) {
   const user = await requireUser(ctx);
-  if (!user.isAdmin || ctx.tokenScope) {
+  if ((!user.isAdmin && !auditing(user)) || ctx.tokenScope) {
     throw new AppError("access_denied");
   }
   await assertEnrolled(ctx.db, user, []);
@@ -237,7 +271,7 @@ async function requireAdmin(ctx: Context) {
  */
 async function requireSupport(ctx: Context) {
   const user = await requireUser(ctx);
-  if ((!user.isAdmin && !user.isSupport) || ctx.tokenScope) {
+  if ((!user.isAdmin && !user.isSupport && !auditing(user)) || ctx.tokenScope) {
     throw new AppError("access_denied");
   }
   await assertEnrolled(ctx.db, user, []);
@@ -1431,6 +1465,24 @@ export const adminRouter = t.router({
         ctx.req.log.info(
           { actor: admin.id, target: input.userId, support: input.support },
           "support role changed",
+        );
+        return { ok: true as const };
+      }),
+    ),
+  /**
+   * Makes an account an auditor, or no longer one (ADR 0071). Given with
+   * the proof, as administration and support are.
+   */
+  setAuditor: procedure
+    .input(z.object({ userId: z.uuid(), auditor: z.boolean() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        if (input.auditor) await requireStepUp(ctx);
+        await setUserAuditor(ctx.db, admin.id, input.userId, input.auditor);
+        ctx.req.log.info(
+          { actor: admin.id, target: input.userId, auditor: input.auditor },
+          "auditor role changed",
         );
         return { ok: true as const };
       }),

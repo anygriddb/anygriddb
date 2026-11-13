@@ -38,7 +38,7 @@ Every table is a real SQL table, in AnyGridDB's own PostgreSQL or in your own da
   - Field and row rules enforced on every engine.
   - HTTPS only, and every connection encrypted and verified.
   - Rate limits and account erasure.
-- **Administration**: accounts and their sessions, second factors, tokens, locks, and reset links, a security policy from simple defaults (who needs a second factor, locks and alerts, sessions, passwords, who creates bases and tokens, public links, sign-up and invitation domains, idle accounts), sign-up policy, maintenance and an announcement, sources, the audit and sign-in trails (CSV export), an access report, jobs and failed deliveries, service health and a support bundle, and Prometheus metrics and OpenTelemetry traces when the operator turns them on.
+- **Administration**: accounts and their sessions, second factors, tokens, locks, and reset links, a security policy from simple defaults (who needs a second factor, locks and alerts, sessions, passwords, who creates bases and tokens, public links, sign-up and invitation domains, idle accounts), sign-up policy, maintenance and an announcement, sources, the audit and sign-in trails (CSV export), an access report, jobs and failed deliveries, service health and a support bundle, and Prometheus metrics and OpenTelemetry traces when the operator turns them on. Two roles stand beside administrators: support, which helps a person sign in again, and an auditor, who reads every page and changes nothing.
 - English-source interface with a complete French locale, light and dark themes.
 
 ## Quick start

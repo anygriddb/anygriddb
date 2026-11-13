@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import pg from "pg";
 import {
   accessibilityViolations,
+  enableTotp,
   findAccount,
   mailedLink,
   openAdmin,
@@ -620,6 +621,136 @@ test("an administrator deletes a departed owner and names who takes the base", a
 
     await theirs.close();
     await other.close();
+    expect(blocked).toEqual([]);
+  } finally {
+    await control.end();
+  }
+});
+
+// The auditor (ADR 0071): a role an administrator gives, with the proof.
+// Whoever has it reads every page of Administration, exports the trail,
+// and changes nothing: the controls are off, and the server refuses.
+test("an auditor reads every page of Administration and changes nothing", async ({
+  page,
+  browser,
+}) => {
+  const blocked = watchPolicy(page);
+  const control = new pg.Client({ connectionString: controlUrl });
+  await control.connect();
+  try {
+    const { email: adminEmail } = await signUpWithTable(page, "Audit Admin");
+    await control.query("update users set is_admin = true where email = $1", [
+      adminEmail,
+    ]);
+
+    // Who will audit, with a second factor of their own: Administration
+    // asks one of whoever opens it.
+    const theirs = await browser.newContext(from("198.51.100.35"));
+    const auditor = await theirs.newPage();
+    const stamp = uniqueStamp();
+    const auditorEmail = `e2e-auditor-${stamp}@example.com`;
+    await signUp(auditor, {
+      email: auditorEmail,
+      name: `Auditor ${stamp}`,
+      password: "correct-horse-battery",
+    });
+    await enableTotp(auditor);
+    await auditor.goto("/admin");
+    await expect(
+      auditor.getByText("This page is for instance administrators."),
+    ).toBeVisible();
+
+    await page.goto("/admin/people/accounts");
+    await findAccount(page, auditorEmail);
+    await page
+      .getByRole("button", { name: `Actions for Auditor ${stamp}` })
+      .click();
+    await page.getByRole("menuitem", { name: "Give the auditor role" }).click();
+    await page
+      .getByRole("dialog", { name: `Give Auditor ${stamp} the auditor role?` })
+      .getByRole("button", { name: "Give the role" })
+      .click();
+    await proveItIsYou(page);
+    await expect(page.getByText("Saved")).toBeVisible();
+
+    // Every section is theirs to read, and the page says what they are.
+    await auditor.goto("/admin");
+    await expect(auditor.getByRole("note")).toContainText(
+      "You read Administration as an auditor",
+    );
+    for (const section of [
+      "People",
+      "Security",
+      "Connections",
+      "Sources",
+      "Bases",
+      "Sharing",
+      "Trails",
+      "Instance",
+    ]) {
+      await expect(
+        auditor
+          .getByRole("navigation", { name: "Administration" })
+          .getByRole("link", { name: section, exact: true }),
+      ).toBeVisible();
+    }
+    expect(await accessibilityViolations(auditor)).toEqual([]);
+
+    // Accounts: searched and read; nobody to add, and no action to take.
+    await openAdmin(auditor, "People", "Accounts");
+    await findAccount(auditor, adminEmail);
+    await expect(
+      auditor.getByRole("button", { name: "Add a person" }),
+    ).toBeHidden();
+    await auditor
+      .getByRole("button", { name: "Actions for Audit Admin" })
+      .click();
+    await expect(
+      auditor.getByRole("menuitem", { name: "Disable" }),
+    ).toBeDisabled();
+    await auditor.keyboard.press("Escape");
+    expect(await accessibilityViolations(auditor)).toEqual([]);
+
+    // A page that changes things shows them, switched off.
+    await openAdmin(auditor, "People", "Groups");
+    await expect(
+      auditor.getByRole("button", { name: "New group" }),
+    ).toBeDisabled();
+    await openAdmin(auditor, "Instance");
+    await expect(auditor.getByLabel("Announcement")).toBeDisabled();
+    expect(await accessibilityViolations(auditor)).toEqual([]);
+
+    // The bases of the instance, found by name.
+    await openAdmin(auditor, "Bases");
+    await auditor.getByLabel("Search bases").fill("Lab");
+    await expect(
+      auditor.getByRole("link", { name: "Lab", exact: true }).first(),
+    ).toBeVisible();
+
+    // The trail is exported, and says who gave them the role.
+    await openAdmin(auditor, "Trails");
+    const download = auditor.waitForEvent("download");
+    await auditor.getByRole("button", { name: "Export as CSV" }).click();
+    expect((await download).suggestedFilename()).toMatch(/\.csv$/);
+    await openAdmin(auditor, "Trails", "Sign-ins");
+    await expect(
+      auditor
+        .getByRole("row", { name: new RegExp(`Auditor ${stamp}`) })
+        .filter({ hasText: "Given the auditor role" }),
+    ).toContainText("Audit Admin");
+
+    // Asked past the page, the server answers the same: no.
+    const refused = await auditor.evaluate(async () => {
+      const answer = await fetch("/trpc/admin.updateSettings", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ banner: "Not theirs to set" }),
+      });
+      return answer.status;
+    });
+    expect(refused).toBe(403);
+
+    await theirs.close();
     expect(blocked).toEqual([]);
   } finally {
     await control.end();

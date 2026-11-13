@@ -11,6 +11,7 @@ import {
   Input,
   Label,
   ListPicker,
+  ReadOnly,
   Select,
   Spinner,
 } from "@anygriddb/ui";
@@ -53,6 +54,7 @@ import { InvitationsPanel } from "./invitations-panel";
 import { PeopleFileDialog } from "./people-file-dialog";
 import { useStepUp } from "./step-up";
 import { useRoleLabel } from "../settings/role-label";
+import { useReadsAll } from "./admin-access";
 
 function date(value: string | null | undefined): string {
   return value ? new Date(value).toLocaleString() : "—";
@@ -65,6 +67,7 @@ export function accountTarget(user: {
   email: string;
   isAdmin: boolean;
   isSupport: boolean;
+  isAuditor: boolean;
   disabledAt: string | null;
   lock: { until: string | null } | null;
   hasPassword: boolean;
@@ -78,6 +81,7 @@ export function accountTarget(user: {
     email: user.email,
     isAdmin: user.isAdmin,
     isSupport: user.isSupport,
+    isAuditor: user.isAuditor,
     disabled: user.disabledAt !== null,
     locked: user.lock !== null,
     hasPassword: user.hasPassword,
@@ -105,6 +109,7 @@ export function AccountsTab({
   const api = useTRPC();
   const session = useSession();
   const isAdmin = session.data?.isAdmin === true;
+  const readsAll = useReadsAll();
   const errorText = useErrorText();
   const [adding, setAdding] = useState(false);
   const [fromFile, setFromFile] = useState(false);
@@ -242,6 +247,7 @@ export function AccountsTab({
         <div className="flex flex-col gap-1">
           <Label htmlFor="accounts-search">{t`Search accounts`}</Label>
           <Input
+            reads
             id="accounts-search"
             type="search"
             placeholder={t`Name or email`}
@@ -254,6 +260,7 @@ export function AccountsTab({
         <div className="flex flex-col gap-1">
           <Label htmlFor="accounts-status">{t`Status`}</Label>
           <Select
+            reads
             id="accounts-status"
             value={search.status ?? ""}
             onChange={(event) =>
@@ -272,6 +279,7 @@ export function AccountsTab({
         <div className="flex flex-col gap-1">
           <Label htmlFor="accounts-admin">{t`Administrator`}</Label>
           <Select
+            reads
             id="accounts-admin"
             value={search.admin ?? ""}
             onChange={(event) =>
@@ -289,6 +297,7 @@ export function AccountsTab({
         <div className="flex flex-col gap-1">
           <Label htmlFor="accounts-mfa">{t`Second factor`}</Label>
           <Select
+            reads
             id="accounts-mfa"
             value={search.mfa ?? ""}
             onChange={(event) =>
@@ -306,6 +315,7 @@ export function AccountsTab({
         <div className="flex flex-col gap-1">
           <Label htmlFor="accounts-origin">{t`Origin`}</Label>
           <Select
+            reads
             id="accounts-origin"
             value={search.origin ?? ""}
             onChange={(event) =>
@@ -455,6 +465,7 @@ export function AccountsTab({
             {t`${{ from: offset + 1 }}–${{ to: Math.min(offset + ACCOUNTS_PAGE, total) }} of ${total}`}
           </span>
           <Button
+            reads
             size="sm"
             variant="ghost"
             disabled={page <= 1}
@@ -463,6 +474,7 @@ export function AccountsTab({
             {t`Previous`}
           </Button>
           <Button
+            reads
             size="sm"
             variant="ghost"
             disabled={offset + ACCOUNTS_PAGE >= total}
@@ -473,9 +485,12 @@ export function AccountsTab({
         </div>
       ) : null}
 
-      {isAdmin ? (
+      {readsAll ? (
         <div id="invitations" className="scroll-mt-4">
-          <InvitationsPanel />
+          {/* Sent again or withdrawn by an administrator alone. */}
+          <ReadOnly when={!isAdmin}>
+            <InvitationsPanel />
+          </ReadOnly>
         </div>
       ) : null}
 

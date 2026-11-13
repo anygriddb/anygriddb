@@ -803,6 +803,7 @@ export interface Users {
   id: Generated<string>;
   inactivityWarnedAt: Timestamp | null;
   isAdmin: Generated<boolean>;
+  isAuditor: Generated<boolean>;
   isSupport: Generated<boolean>;
   lastSignInAt: Timestamp | null;
   lockedAt: Timestamp | null;

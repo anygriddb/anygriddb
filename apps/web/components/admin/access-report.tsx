@@ -20,6 +20,7 @@ export function AccessReport() {
       description={t`Every account, its bases and roles, and its last sign-in, as a CSV file.`}
     >
       <Button
+        reads
         size="sm"
         variant="outline"
         onClick={() =>
