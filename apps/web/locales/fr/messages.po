@@ -3575,6 +3575,7 @@ msgid "File ready: {summary}. You can change the name above."
 msgstr "Fichier prêt : {summary}. Vous pouvez changer le nom ci-dessus."
 
 #: components/admin/health-tab.tsx
+#: components/admin/settings-tab.tsx
 msgid "File storage"
 msgstr "Stockage des fichiers"
 
@@ -4791,6 +4792,10 @@ msgstr "Chargement"
 msgid "Loading preview…"
 msgstr "Chargement de l’aperçu…"
 
+#: components/admin/settings-tab.tsx
+msgid "Local folder"
+msgstr "Dossier local"
+
 #: components/admin/trails.tsx
 #: components/record/row-status.tsx
 msgid "Lock"
@@ -5619,6 +5624,10 @@ msgstr "Node.js, en service depuis"
 msgid "None"
 msgstr "Aucune"
 
+#: components/admin/settings-tab.tsx
+msgid "None: a request's address is its client's"
+msgstr "Aucun : l’adresse d’une requête est celle de son client"
+
 #: components/admin/accounts-tab.tsx
 msgid "Not administrators"
 msgstr "Non administrateurs"
@@ -5713,6 +5722,10 @@ msgstr "Nombre de lignes au plus"
 #: components/fields/formula-docs.ts
 msgid "Numbers"
 msgstr "Nombres"
+
+#: components/admin/settings-tab.tsx
+msgid "Object storage (S3)"
+msgstr "Stockage objet (S3)"
 
 #: components/admin/security-tab.tsx
 msgid "Off"
@@ -6268,6 +6281,10 @@ msgstr "Provisionné par le fournisseur d’identité (SCIM), puis retiré par l
 #: components/admin/admin-sections.ts
 msgid "Provisioning"
 msgstr "Provisionnement"
+
+#: components/admin/settings-tab.tsx
+msgid "Public address"
+msgstr "Adresse publique"
 
 #: components/admin/base-admin-page.tsx
 #: components/admin/outbound-tab.tsx
@@ -7299,6 +7316,10 @@ msgstr "Configurer une application d’authentification"
 #: components/admin/support-tab.tsx
 msgid "Set up email under Connections before you can send a notice."
 msgstr "Configurez l’envoi d’emails sous Connexions externes avant de pouvoir envoyer un avis."
+
+#: components/admin/settings-tab.tsx
+msgid "Set where the instance is installed"
+msgstr "Fixé là où l’instance est installée"
 
 #: components/admin/auth-labels.ts
 msgid "Setting changed"
@@ -9132,6 +9153,10 @@ msgstr "Ne lui faites confiance que si votre fournisseur d’identité exige un 
 msgid "Trust the identity provider's second factor"
 msgstr "Faire confiance au second facteur du fournisseur d’identité"
 
+#: components/admin/settings-tab.tsx
+msgid "Trusted proxies"
+msgstr "Proxys de confiance"
+
 #: components/grid/rows-error.tsx
 #: components/shell/load-failed.tsx
 msgid "Try again"
@@ -9591,6 +9616,10 @@ msgstr "Ce que vous seul pouvez changer. Les droits sur une base se règlent dan
 #: components/admin/security-tab.tsx
 msgid "What people may open to scripts and to anyone with a link."
 msgstr "Ce que chacun peut ouvrir aux scripts et à quiconque a un lien."
+
+#: components/admin/settings-tab.tsx
+msgid "What the operator fixed in the instance's environment: it changes there, with a restart. Passwords and keys are never shown."
+msgstr "Ce que l’opérateur a fixé dans l’environnement de l’instance : cela se change là-bas, avec un redémarrage. Les mots de passe et les clés ne sont jamais affichés."
 
 #: components/admin/sources-tab.tsx
 msgid "What the source's account may read, and how each column will show. Tick the tables to show in a base: their rows stay with the client."
