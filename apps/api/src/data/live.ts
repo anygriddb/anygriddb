@@ -12,6 +12,7 @@ export const liveBase = (alias = "bases") => live(alias);
 export const liveTable = (alias = "dataTables") => live(alias);
 export const liveColumn = (alias = "dataColumns") => live(alias);
 export const liveView = (alias = "views") => live(alias);
+export const liveFolder = (alias = "tableFolders") => live(alias);
 
 /** Names of a table's fields in the trash: new fields must not take them. */
 export async function trashedColumnNames(

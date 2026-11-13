@@ -106,6 +106,26 @@ test.describe("a narrow screen", () => {
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(390);
 
+    // A row opens over the whole page, which waits under it until Escape.
+    await page.getByRole("button", { name: "Add a row and open it" }).click();
+    const row = page.getByRole("dialog", { name: "Row details" });
+    await expect(row).toBeInViewport();
+    expect(
+      await page
+        .getByRole("grid")
+        .evaluate((grid) => grid.closest("[inert]") !== null),
+    ).toBe(true);
+    for (let step = 0; step < 3; step += 1) {
+      await page.keyboard.press("Shift+Tab");
+      expect(
+        await row.evaluate((dialog) => dialog.contains(document.activeElement)),
+      ).toBe(true);
+    }
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await row.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(row).toHaveCount(0);
+    await expect(page.getByRole("grid")).toBeVisible();
+
     const open = page.getByRole("button", { name: "Open the navigation" });
     await open.click();
     await expect(navigation).toBeInViewport();

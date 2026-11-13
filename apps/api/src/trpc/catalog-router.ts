@@ -477,6 +477,13 @@ export const catalogRouter = t.router({
         ctx.db,
         baseRows.map((base) => base.id),
       );
+      // A folder's name is shown to whoever arranges the base, and to
+      // others only when it holds a table they read.
+      const holding = new Set(
+        rows.tables
+          .filter((table) => readableIds.includes(table.id))
+          .map((table) => table.folderId),
+      );
       return baseRows
         .sort(
           (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
@@ -487,11 +494,11 @@ export const catalogRouter = t.router({
           description: base.description,
           role: roleFor(bindings, "base", base.id),
           folders: folders
-            .filter((folder) => folder.baseId === base.id)
-            .sort(
-              (left, right) =>
-                left.position - right.position ||
-                left.name.localeCompare(right.name),
+            .filter(
+              (folder) =>
+                folder.baseId === base.id &&
+                (holding.has(folder.id) ||
+                  roleAllows(roleFor(bindings, "base", base.id), "manage")),
             )
             .map((folder) => ({
               id: folder.id,
