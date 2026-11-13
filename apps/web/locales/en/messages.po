@@ -1072,6 +1072,10 @@ msgstr "Add the group"
 msgid "Add the row"
 msgstr "Add the row"
 
+#: components/views/map-view.tsx
+msgid "Add two number fields, a latitude and a longitude, to place rows on the map."
+msgstr "Add two number fields, a latitude and a longitude, to place rows on the map."
+
 #: components/settings/webhooks-panel.tsx
 msgid "Add webhook"
 msgstr "Add webhook"
@@ -1876,6 +1880,10 @@ msgstr "Choose a new password"
 #: components/table/import-dialog.tsx
 msgid "Choose another file"
 msgstr "Choose another file"
+
+#: components/views/map-view.tsx
+msgid "Choose the fields that hold the latitude and the longitude."
+msgstr "Choose the fields that hold the latitude and the longitude."
 
 #: components/admin/sign-in-trail.tsx
 msgid "Chosen accounts"

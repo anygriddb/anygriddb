@@ -7,7 +7,7 @@ import { useTable } from "../table/table-context";
 import { useEffect } from "react";
 import { formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
-import { MAP_CEILING, placeColumns } from "./map-places";
+import { MAP_CEILING, mapNotice, placeColumns } from "./map-places";
 import { ColumnPicker, useRowTitle, type ViewProps } from "./view-common";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
@@ -21,11 +21,9 @@ export function MapView(props: ViewProps) {
       ? props.config.titleColumn
       : undefined,
   );
-  const {
-    numbers,
-    latitude: lat,
-    longitude: lon,
-  } = placeColumns(props.config, props.allColumns);
+  const place = placeColumns(props.config, props.allColumns);
+  const { numbers, latitude: lat, longitude: lon } = place;
+  const notice = mapNotice(place);
   // The view reads only the rows that have a place, page after page, up
   // to the ceiling.
   const shown = lat && lon ? Math.min(props.total, MAP_CEILING) : 0;
@@ -48,6 +46,15 @@ export function MapView(props: ViewProps) {
       ? [{ row, latitude, longitude }]
       : [];
   });
+  // Nothing to choose from: the map says what it needs, as the kanban and
+  // the calendar do, rather than an empty sheet.
+  if (notice === "add-fields") {
+    return (
+      <p className="p-6 text-sm text-muted-foreground">
+        {t`Add two number fields, a latitude and a longitude, to place rows on the map.`}
+      </p>
+    );
+  }
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-4 border-b border-border px-4 py-1.5">
@@ -64,9 +71,11 @@ export function MapView(props: ViewProps) {
           onChange={(value) => props.onPatch({ longitudeColumn: value })}
         />
         <span className="text-xs text-muted-foreground">
-          {props.total > MAP_CEILING && lat && lon
-            ? t`The first ${{ shown: formatNumber(MAP_CEILING, locale) }} of ${{ total: formatNumber(props.total, locale) }} places`
-            : plural(points.length, { one: `# point`, other: `# points` })}
+          {notice === "choose-fields"
+            ? t`Choose the fields that hold the latitude and the longitude.`
+            : props.total > MAP_CEILING && lat && lon
+              ? t`The first ${{ shown: formatNumber(MAP_CEILING, locale) }} of ${{ total: formatNumber(props.total, locale) }} places`
+              : plural(points.length, { one: `# point`, other: `# points` })}
         </span>
       </div>
       <div className="flex min-h-0 flex-1">

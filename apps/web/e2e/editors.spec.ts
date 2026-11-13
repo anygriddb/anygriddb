@@ -266,6 +266,19 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
 
+  // A map on a table with no number field says what it needs, rather than
+  // an empty sheet.
+  await page.getByRole("button", { name: "New view" }).click();
+  await page.getByRole("menuitem", { name: "Map" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Create", exact: true })
+    .click();
+  await expect(
+    page.getByText("Add two number fields, a latitude and a longitude"),
+  ).toBeVisible();
+  expect(await accessibilityViolations(page)).toEqual([]);
+
   // A form: its date field is named by its label and filled by keyboard.
   await page.getByRole("button", { name: "New view" }).click();
   await page.getByRole("menuitem", { name: "Form" }).click();
