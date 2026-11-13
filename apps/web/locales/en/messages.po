@@ -866,6 +866,10 @@ msgid "A single Name field."
 msgstr "A single Name field."
 
 #: lib/errors.ts
+msgid "A site that embeds a link is an address starting with https://, with no path and no wildcard: 20 at most"
+msgstr "A site that embeds a link is an address starting with https://, with no path and no wildcard: 20 at most"
+
+#: lib/errors.ts
 msgid "A source already has this name"
 msgstr "A source already has this name"
 
@@ -2332,6 +2336,10 @@ msgstr "Copy row link"
 msgid "Copy the address"
 msgstr "Copy the address"
 
+#: components/table/share-dialog.tsx
+msgid "Copy the embed code"
+msgstr "Copy the embed code"
+
 #: components/settings/second-factor.tsx
 msgid "Copy the key"
 msgstr "Copy the key"
@@ -3083,6 +3091,14 @@ msgstr "Email is not set up: you get the link to choose their password, valid a 
 #: components/admin/integrations-tab.tsx
 msgid "Email settings saved"
 msgstr "Email settings saved"
+
+#: components/table/share-dialog.tsx
+msgid "Embed code copied"
+msgstr "Embed code copied"
+
+#: components/table/share-dialog.tsx
+msgid "Embedded in {sites}"
+msgstr "Embedded in {sites}"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Embedded view"
@@ -7553,6 +7569,10 @@ msgstr "Single sign-on only (administrators keep a password)"
 msgid "Single sign-on unlinked"
 msgstr "Single sign-on unlinked"
 
+#: components/table/share-dialog.tsx
+msgid "Sites that may embed it (optional)"
+msgstr "Sites that may embed it (optional)"
+
 #: components/table/import-dialog.tsx
 msgid "Skip"
 msgstr "Skip"
@@ -8007,6 +8027,10 @@ msgstr "The account may read no table: grant it SELECT on the tables to expose."
 #: components/admin/integrations-tab.tsx
 msgid "The ACS URL is derived from PUBLIC_URL after you save."
 msgstr "The ACS URL is derived from PUBLIC_URL after you save."
+
+#: components/table/share-dialog.tsx
+msgid "The addresses of the sites that may show this link in a frame, each starting with https://. Without one, no site can."
+msgstr "The addresses of the sites that may show this link in a frame, each starting with https://. Without one, no site can."
 
 #: components/table/automations-dialog.tsx
 msgid "The automation acts with your access; every write is recorded in the audit trail."

@@ -3,8 +3,10 @@ import { createHash, randomBytes } from "node:crypto";
 import {
   AppError,
   memberDomainAllowed,
+  normalizeEmbedOrigins,
   type Role,
   roleFor,
+  storedEmbedOrigins,
 } from "@anygriddb/core";
 import type { Database, ShareRow, TableRow, ViewRow } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -416,6 +418,7 @@ export async function createShare(
     password?: string;
     expiresAt?: Date;
     allowCopy: boolean;
+    embedOrigins?: string[] | null;
   },
 ): Promise<{ id: string; token: string }> {
   const { publicLinks } = await readGateSettings(db);
@@ -423,6 +426,7 @@ export async function createShare(
   if (publicLinks === "password" && !input.password) {
     throw new AppError("share_password_required");
   }
+  const embedOrigins = normalizeEmbedOrigins(input.embedOrigins);
   const token = newToken();
   const row = await db
     .insertInto("shares")
@@ -433,6 +437,7 @@ export async function createShare(
       allowCopy: input.allowCopy,
       createdBy: input.createdBy,
       expiresAt: input.expiresAt ?? null,
+      embedOrigins,
     })
     .returning("id")
     .executeTakeFirst();
@@ -453,6 +458,7 @@ export async function listShares(db: Database, viewId: string) {
       "s.revokedAt",
       "s.passwordHash",
       "s.allowCopy",
+      "s.embedOrigins",
       "u.displayName as createdBy",
     ])
     .where("s.viewId", "=", viewId)
@@ -465,6 +471,7 @@ export async function listShares(db: Database, viewId: string) {
     revoked: row.revokedAt !== null,
     protected: row.passwordHash !== null,
     allowCopy: row.allowCopy,
+    embedOrigins: storedEmbedOrigins(row.embedOrigins) ?? [],
     createdBy: row.createdBy,
   }));
 }
@@ -483,6 +490,27 @@ export async function revokeShare(
     throw new AppError("no_row");
   }
   return row;
+}
+
+/**
+ * The sites that may show the share behind this link in a frame (ADR
+ * 0067), or null: an unknown, revoked, or expired link is framed nowhere,
+ * as a link that names no site.
+ */
+export async function shareEmbedOriginsForToken(
+  db: Database,
+  token: string,
+): Promise<string[] | null> {
+  if (!isToken(token)) return null;
+  const row = await db
+    .selectFrom("shares")
+    .select(["embedOrigins", "revokedAt", "expiresAt"])
+    .where("tokenHash", "=", hashToken(token))
+    .executeTakeFirst();
+  if (!row || row.revokedAt || (row.expiresAt && row.expiresAt < new Date())) {
+    return null;
+  }
+  return storedEmbedOrigins(row.embedOrigins);
 }
 
 export async function shareViewId(

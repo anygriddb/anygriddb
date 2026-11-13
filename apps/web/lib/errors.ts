@@ -54,6 +54,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   public_links_disabled: msg`Public links are turned off on this instance`,
   share_locked: msg`This link is locked after too many wrong passwords. Try again later.`,
   share_password_required: msg`On this instance, a public link needs a password`,
+  invalid_embed_origin: msg`A site that embeds a link is an address starting with https://, with no path and no wildcard: 20 at most`,
   unknown_share: msg`Share not found`,
   unknown_template: msg`Unknown template`,
   table_already_exists: msg`A table already has this name`,

@@ -866,6 +866,10 @@ msgid "A single Name field."
 msgstr "Un seul champ Nom."
 
 #: lib/errors.ts
+msgid "A site that embeds a link is an address starting with https://, with no path and no wildcard: 20 at most"
+msgstr "Un site qui intègre un lien est une adresse commençant par https://, sans chemin ni joker : 20 au plus"
+
+#: lib/errors.ts
 msgid "A source already has this name"
 msgstr "Une source porte déjà ce nom"
 
@@ -2332,6 +2336,10 @@ msgstr "Copier le lien de la ligne"
 msgid "Copy the address"
 msgstr "Copier l’adresse"
 
+#: components/table/share-dialog.tsx
+msgid "Copy the embed code"
+msgstr "Copier le code d’intégration"
+
 #: components/settings/second-factor.tsx
 msgid "Copy the key"
 msgstr "Copier la clé"
@@ -3083,6 +3091,14 @@ msgstr "L’envoi d’emails n’est pas configuré : vous recevez le lien pour
 #: components/admin/integrations-tab.tsx
 msgid "Email settings saved"
 msgstr "Réglages email enregistrés"
+
+#: components/table/share-dialog.tsx
+msgid "Embed code copied"
+msgstr "Code d’intégration copié"
+
+#: components/table/share-dialog.tsx
+msgid "Embedded in {sites}"
+msgstr "Intégré dans {sites}"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Embedded view"
@@ -7553,6 +7569,10 @@ msgstr "Authentification unique seulement (les administrateurs gardent un mot de
 msgid "Single sign-on unlinked"
 msgstr "Authentification unique déliée"
 
+#: components/table/share-dialog.tsx
+msgid "Sites that may embed it (optional)"
+msgstr "Sites qui peuvent l’intégrer (facultatif)"
+
 #: components/table/import-dialog.tsx
 msgid "Skip"
 msgstr "Ignorer"
@@ -8007,6 +8027,10 @@ msgstr "Le compte ne peut lire aucune table : accordez-lui SELECT sur les table
 #: components/admin/integrations-tab.tsx
 msgid "The ACS URL is derived from PUBLIC_URL after you save."
 msgstr "L’URL ACS est dérivée de PUBLIC_URL après l’enregistrement."
+
+#: components/table/share-dialog.tsx
+msgid "The addresses of the sites that may show this link in a frame, each starting with https://. Without one, no site can."
+msgstr "Les adresses des sites qui peuvent afficher ce lien dans un cadre, chacune commençant par https://. Sans adresse, aucun site ne le peut."
 
 #: components/table/automations-dialog.tsx
 msgid "The automation acts with your access; every write is recorded in the audit trail."

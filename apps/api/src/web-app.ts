@@ -23,13 +23,15 @@ const API_PATH = /^\/(?:api|trpc|auth|ws|health|ready)(?:\/|$)/;
 const FILE_PATH = /\/[^/]*\.[A-Za-z0-9]+$/;
 /** Pages reached by a secret link: search engines must not keep them. */
 const TOKEN_PAGE = /^\/(?:s|invite|reset|signup)\//;
+/** A public share page: may soften frame-ancestors when the share opts in. */
+const SHARE_PAGE = /^\/s\/([A-Za-z0-9_-]{32,64})\/?$/;
 
 /**
  * Scripts come from this origin only, with no inline code. Styles allow
  * inline attributes: the grid positions rows with `style`, and toasts
  * insert their stylesheet.
  */
-export const DOCUMENT_POLICY = [
+const DOCUMENT_DIRECTIVES = [
   "default-src 'self'",
   "script-src 'self'",
   "script-src-attr 'none'",
@@ -41,8 +43,26 @@ export const DOCUMENT_POLICY = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'none'",
-].join("; ");
+] as const;
+
+/**
+ * The document's policy. Nothing frames the app, but a public share
+ * whose link names the sites that may (ADR 0067): those and no other.
+ */
+export function documentPolicy(
+  embedOrigins?: readonly string[] | null,
+): string {
+  const ancestors =
+    embedOrigins && embedOrigins.length > 0 ? embedOrigins.join(" ") : "'none'";
+  return [...DOCUMENT_DIRECTIVES, `frame-ancestors ${ancestors}`].join("; ");
+}
+
+export const DOCUMENT_POLICY = documentPolicy();
+
+/** The sites that may frame the share behind a link; null for none. */
+export type ShareEmbedLookup = (
+  token: string,
+) => Promise<readonly string[] | null>;
 
 const NOINDEX = '<meta name="robots" content="noindex, nofollow" />';
 
@@ -62,6 +82,7 @@ async function exists(path: string): Promise<boolean> {
 export async function registerWebApp(
   app: FastifyInstance,
   root: string = DEFAULT_WEB_ROOT,
+  shareEmbedOrigins?: ShareEmbedLookup,
 ): Promise<boolean> {
   const indexPath = join(root, "index.html");
   const built = await exists(indexPath);
@@ -97,7 +118,7 @@ export async function registerWebApp(
     app.log.info({ root }, "no web build: serving the API only");
   }
 
-  app.setNotFoundHandler((request, reply) => {
+  app.setNotFoundHandler(async (request, reply) => {
     const path = request.url.split("?", 1)[0] ?? "/";
     const isPage =
       built &&
@@ -105,9 +126,23 @@ export async function registerWebApp(
       !API_PATH.test(path) &&
       !FILE_PATH.test(path);
     if (!isPage) return reply.code(404).send(publicErrorBody(404));
+    // A share's page may be framed by the sites its link names. When
+    // they cannot be read, it is framed by none.
+    const token = shareEmbedOrigins ? SHARE_PAGE.exec(path)?.[1] : undefined;
+    const origins =
+      token && shareEmbedOrigins
+        ? await shareEmbedOrigins(token).catch((error: unknown) => {
+            request.log.error({ err: error }, "share embed lookup failed");
+            return null;
+          })
+        : null;
+    const policy = documentPolicy(origins);
+    // Browsers that know frame-ancestors ignore this header; the others
+    // must not be told to refuse what the policy allows.
+    if (origins && origins.length > 0) reply.removeHeader("X-Frame-Options");
     return reply
       .code(200)
-      .header("Content-Security-Policy", DOCUMENT_POLICY)
+      .header("Content-Security-Policy", policy)
       .header("Cache-Control", "no-cache")
       .header("Referrer-Policy", "same-origin")
       .header("Cross-Origin-Opener-Policy", "same-origin")
