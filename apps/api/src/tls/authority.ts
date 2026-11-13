@@ -138,23 +138,41 @@ function unsealed(text: string, secret: KeyRing): string | undefined {
 /**
  * Seals a private key file of the certificates folder again under the
  * current key, when an earlier one sealed it (ADR 0066). Answers which
- * key holds it now, or that no key of the ring opens it: left as it is,
- * the instance would issue a new authority at its next start.
+ * key holds it now; `unreadable` when no key of the ring opens it (left
+ * as it is, the instance would issue a new authority at its next start);
+ * `forbidden` when the file belongs to another account than the one
+ * asking, as the internal authority's does in the compose stack.
+ * A file rewritten keeps its owner, whoever rewrites it.
  */
 export async function resealTlsKey(
   dir: string,
   name: string,
   secret: KeyRing,
   write: boolean,
-): Promise<{ keyId: string | null; rewritten: boolean } | "unreadable"> {
+): Promise<
+  { keyId: string | null; rewritten: boolean } | "unreadable" | "forbidden"
+> {
   const path = join(dir, name);
-  const text = await readText(path);
+  let text: string | undefined;
+  try {
+    text = await readText(path);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "EACCES" || code === "EPERM") return "forbidden";
+    throw error;
+  }
   const key = text ? opened(text, secret) : undefined;
   if (!key) return "unreadable";
   if (key.keyId === secret.currentId || !write) {
     return { keyId: key.keyId, rewritten: false };
   }
+  const owner = await stat(path);
   await writeAtomic(path, sealed(key.plaintext, secret), 0o600);
+  // Rewritten as root, a file of the app's account must stay the app's:
+  // it could not read its own key at its next start.
+  if (owner.uid !== process.getuid?.()) {
+    await chown(path, owner.uid, owner.gid);
+  }
   return { keyId: secret.currentId, rewritten: true };
 }
 

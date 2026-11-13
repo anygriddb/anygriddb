@@ -294,6 +294,13 @@ async function keys(write: boolean): Promise<number> {
       );
       return 1;
     }
+    if (report.forbidden.length > 0) {
+      // In the compose stack the internal authority's key is root's.
+      process.stderr.write(
+        `${report.forbidden.join(", ")}: this account may not read ${report.forbidden.length === 1 ? "this key file" : "these key files"} of the certificates folder. Run the command as the account that owns ${report.forbidden.length === 1 ? "it" : "them"} (docker compose exec -u root app anygriddb keys ${write ? "rotate" : "status"}).\n`,
+      );
+      return 1;
+    }
     if (earlier.length === 0 && ring.masters.size > 1) {
       process.stdout.write(
         "Nothing is left under an earlier key. Backup codes made before the change stop working once AUTH_ENCRYPTION_PREVIOUS_KEYS is emptied.\n",
