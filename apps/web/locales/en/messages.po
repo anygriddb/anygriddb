@@ -2499,6 +2499,10 @@ msgstr "created time, modified time, or number carried over as values"
 msgid "Creation"
 msgstr "Creation"
 
+#: components/admin/settings-tab.tsx
+msgid "Credit shown on maps"
+msgstr "Credit shown on maps"
+
 #: lib/known-text.ts
 msgid "CRM"
 msgstr "CRM"
@@ -4904,6 +4908,15 @@ msgstr "Many accounts locked within an hour: see the sign-in trail"
 msgid "Map"
 msgstr "Map"
 
+#: components/admin/settings-tab.tsx
+#: components/admin/sign-in-trail.tsx
+msgid "Map tiles"
+msgstr "Map tiles"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Map tiles' credit"
+msgstr "Map tiles' credit"
+
 #: components/shell/notification-bell.tsx
 msgid "Mark all as read"
 msgstr "Mark all as read"
@@ -6990,6 +7003,10 @@ msgstr "Save SAML"
 msgid "Save SIEM webhook"
 msgstr "Save SIEM webhook"
 
+#: components/admin/settings-tab.tsx
+msgid "Save the map tiles"
+msgstr "Save the map tiles"
+
 #: components/admin/account-actions.tsx
 #: components/admin/alerts-section.tsx
 #: components/settings/base-settings.tsx
@@ -8027,6 +8044,10 @@ msgstr "The account may read no table: grant it SELECT on the tables to expose."
 #: components/admin/integrations-tab.tsx
 msgid "The ACS URL is derived from PUBLIC_URL after you save."
 msgstr "The ACS URL is derived from PUBLIC_URL after you save."
+
+#: components/admin/settings-tab.tsx
+msgid "The address of the tile server map views draw their background from: it starts with https:// and holds {z}, {x}, and {y}. Empty, maps keep their plain background. Each tile shown tells that server which places people look at; pages open before the change show it once reloaded."
+msgstr "The address of the tile server map views draw their background from: it starts with https:// and holds {z}, {x}, and {y}. Empty, maps keep their plain background. Each tile shown tells that server which places people look at; pages open before the change show it once reloaded."
 
 #: components/table/share-dialog.tsx
 msgid "The addresses of the sites that may show this link in a frame, each starting with https://. Without one, no site can."
@@ -9556,6 +9577,10 @@ msgstr "What people may open to scripts and to anyone with a link."
 #: components/admin/sources-tab.tsx
 msgid "What the source's account may read, and how each column will show. Tick the tables to show in a base: their rows stay with the client."
 msgstr "What the source's account may read, and how each column will show. Tick the tables to show in a base: their rows stay with the client."
+
+#: components/admin/settings-tab.tsx
+msgid "What the tile server's terms ask you to show, such as the name of who made the map."
+msgstr "What the tile server's terms ask you to show, such as the name of who made the map."
 
 #: components/table/view-tabs.tsx
 msgid "What this view is for (empty: no description)"

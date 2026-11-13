@@ -1,7 +1,7 @@
 import cookie from "@fastify/cookie";
 import websocket from "@fastify/websocket";
 import type { Database } from "@anygriddb/db";
-import { AppError, ERRORS } from "@anygriddb/core";
+import { AppError, ERRORS, mapTileOrigin } from "@anygriddb/core";
 import { TRPCError } from "@trpc/server";
 import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import {
@@ -59,6 +59,7 @@ import type { SourceSettings } from "./sources/types.js";
 import { refreshTls, type TlsState } from "./tls/authority.js";
 import { serializeError } from "./logged-error.js";
 import { redirectPlainHttp } from "./tls/listener.js";
+import { readGateSettings } from "./settings.js";
 import { registerWebApp } from "./web-app.js";
 import { GridHub, SOCKET_OPTIONS } from "./ws.js";
 
@@ -481,9 +482,10 @@ export async function createApp(deps: {
     },
   });
 
-  await registerWebApp(app, deps.webRoot, (token) =>
-    shareEmbedOriginsForToken(deps.db, token),
-  );
+  await registerWebApp(app, deps.webRoot, {
+    shareEmbedOrigins: (token) => shareEmbedOriginsForToken(deps.db, token),
+    tileOrigin: async () => mapTileOrigin(await readGateSettings(deps.db)),
+  });
 
   return app;
 }

@@ -2499,6 +2499,10 @@ msgstr "date de création, de modification ou numéro repris en valeurs"
 msgid "Creation"
 msgstr "Création"
 
+#: components/admin/settings-tab.tsx
+msgid "Credit shown on maps"
+msgstr "Crédit affiché sur les cartes"
+
 #: lib/known-text.ts
 msgid "CRM"
 msgstr "CRM"
@@ -4904,6 +4908,15 @@ msgstr "De nombreux comptes verrouillés en une heure : voir le journal des con
 msgid "Map"
 msgstr "Carte"
 
+#: components/admin/settings-tab.tsx
+#: components/admin/sign-in-trail.tsx
+msgid "Map tiles"
+msgstr "Tuiles de carte"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Map tiles' credit"
+msgstr "Crédit des tuiles de carte"
+
 #: components/shell/notification-bell.tsx
 msgid "Mark all as read"
 msgstr "Tout marquer comme lu"
@@ -6990,6 +7003,10 @@ msgstr "Enregistrer SAML"
 msgid "Save SIEM webhook"
 msgstr "Enregistrer le webhook SIEM"
 
+#: components/admin/settings-tab.tsx
+msgid "Save the map tiles"
+msgstr "Enregistrer les tuiles de carte"
+
 #: components/admin/account-actions.tsx
 #: components/admin/alerts-section.tsx
 #: components/settings/base-settings.tsx
@@ -8027,6 +8044,10 @@ msgstr "Le compte ne peut lire aucune table : accordez-lui SELECT sur les table
 #: components/admin/integrations-tab.tsx
 msgid "The ACS URL is derived from PUBLIC_URL after you save."
 msgstr "L’URL ACS est dérivée de PUBLIC_URL après l’enregistrement."
+
+#: components/admin/settings-tab.tsx
+msgid "The address of the tile server map views draw their background from: it starts with https:// and holds {z}, {x}, and {y}. Empty, maps keep their plain background. Each tile shown tells that server which places people look at; pages open before the change show it once reloaded."
+msgstr "L’adresse du serveur de tuiles d’où les vues carte tirent leur fond : elle commence par https:// et contient {z}, {x} et {y}. Vide, les cartes gardent leur fond uni. Chaque tuile affichée dit à ce serveur quels lieux les gens regardent ; les pages ouvertes avant le changement le montrent une fois rechargées."
 
 #: components/table/share-dialog.tsx
 msgid "The addresses of the sites that may show this link in a frame, each starting with https://. Without one, no site can."
@@ -9556,6 +9577,10 @@ msgstr "Ce que chacun peut ouvrir aux scripts et à quiconque a un lien."
 #: components/admin/sources-tab.tsx
 msgid "What the source's account may read, and how each column will show. Tick the tables to show in a base: their rows stay with the client."
 msgstr "Ce que le compte de la source peut lire, et comment chaque colonne s’affichera. Cochez les tables à afficher dans une base : leurs lignes restent chez le client."
+
+#: components/admin/settings-tab.tsx
+msgid "What the tile server's terms ask you to show, such as the name of who made the map."
+msgstr "Ce que les conditions du serveur de tuiles demandent d’afficher, comme le nom de qui a fait la carte."
 
 #: components/table/view-tabs.tsx
 msgid "What this view is for (empty: no description)"

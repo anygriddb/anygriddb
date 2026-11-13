@@ -32,14 +32,18 @@ async function build(): Promise<string> {
   return root;
 }
 
-async function server(root: string, shareEmbedOrigins?: ShareEmbedLookup) {
+async function server(
+  root: string,
+  shareEmbedOrigins?: ShareEmbedLookup,
+  tileOrigin?: () => Promise<string | null>,
+) {
   const app = Fastify();
   // As the server does for every request, before any route answers.
   app.addHook("onRequest", async (_request, reply) => {
     applyApiSecurityHeaders(reply, false);
   });
   app.get("/api/v1/bases", () => ({ bases: [] }));
-  await registerWebApp(app, root, shareEmbedOrigins);
+  await registerWebApp(app, root, { shareEmbedOrigins, tileOrigin });
   await app.ready();
   return app;
 }
@@ -76,7 +80,7 @@ describe("the web app", () => {
     const embeddable = await app.inject({ url: `/s/${SHARE_TOKEN}` });
     expect(embeddable.statusCode).toBe(200);
     expect(embeddable.headers["content-security-policy"]).toBe(
-      documentPolicy(origins),
+      documentPolicy({ embedOrigins: origins }),
     );
     expect(embeddable.headers["content-security-policy"]).toContain(
       "frame-ancestors https://portal.example.com https://wiki.example.org",
@@ -95,6 +99,38 @@ describe("the web app", () => {
 
     const home = await app.inject({ url: "/" });
     expect(home.headers["content-security-policy"]).toBe(DOCUMENT_POLICY);
+  });
+
+  it("lets images come from the tile server an administrator named, and no other", async () => {
+    let origin: string | null = "https://tiles.example.org";
+    const app = await server(
+      await build(),
+      async () => ["https://portal.example.org"],
+      async () => origin,
+    );
+    const page = await app.inject({ url: "/b/1/t/2" });
+    expect(page.headers["content-security-policy"]).toContain(
+      "img-src 'self' blob: data: https://tiles.example.org;",
+    );
+    expect(page.headers["content-security-policy"]).toContain(
+      "frame-ancestors 'none'",
+    );
+    // A shared map embedded in a site has both.
+    const shared = await app.inject({ url: `/s/${SHARE_TOKEN}` });
+    expect(shared.headers["content-security-policy"]).toBe(
+      documentPolicy({
+        embedOrigins: ["https://portal.example.org"],
+        tileOrigin: "https://tiles.example.org",
+      }),
+    );
+    // No server named: images come from the app alone, as before.
+    origin = null;
+    expect(
+      (await app.inject({ url: "/b/1/t/2" })).headers[
+        "content-security-policy"
+      ],
+    ).toBe(DOCUMENT_POLICY);
+    expect(DOCUMENT_POLICY).toContain("img-src 'self' blob: data:;");
   });
 
   it("keeps frame-ancestors none when the embed lookup fails", async () => {
