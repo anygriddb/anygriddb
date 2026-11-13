@@ -4,7 +4,7 @@
  * is sealed again under the current key, and the earlier key can go.
  */
 import { createCipheriv, randomBytes } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Database } from "@anygriddb/db";
@@ -143,8 +143,27 @@ describe("the encryption key changed", () => {
       byKey: { [BEFORE_KEY_IDS]: 4, "0": 2 },
       rewritten: 0,
       unreadable: [],
+      forbidden: [],
     });
     expect(await readTotpSecret(db, ada, before)).toBe("JBSWY3DPEHPK3PXP");
+  });
+
+  it("names a key file of another account, and goes on with the rest", async () => {
+    // As the internal authority's key is root's in the compose stack: a
+    // file this account may not read. Root reads everything: nothing to
+    // see when the tests run as root.
+    if (process.getuid?.() === 0) return;
+    const path = join(tlsDir, "internal.key.enc");
+    await chmod(path, 0o000);
+    try {
+      const report = await rotateKeys(db, during, { write: false, tlsDir });
+      expect(report.forbidden).toEqual(["internal.key.enc"]);
+      expect(report.unreadable).toEqual([]);
+      // What is in the database is still counted.
+      expect(report.byKey).toEqual({ [BEFORE_KEY_IDS]: 3, "0": 2 });
+    } finally {
+      await chmod(path, 0o600);
+    }
   });
 
   it("names what no key opens, without the earlier key, and leaves it", async () => {
@@ -168,6 +187,7 @@ describe("the encryption key changed", () => {
       byKey: { next: 6 },
       rewritten: 6,
       unreadable: [],
+      forbidden: [],
     });
     // The earlier key can go: the new one alone opens everything.
     expect(await readTotpSecret(db, ada, after)).toBe("JBSWY3DPEHPK3PXP");
@@ -207,6 +227,7 @@ describe("the encryption key changed", () => {
       byKey: { next: 6 },
       rewritten: 0,
       unreadable: [],
+      forbidden: [],
     });
   });
 

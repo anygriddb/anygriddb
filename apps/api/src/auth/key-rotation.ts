@@ -96,6 +96,11 @@ export type KeyRotation = {
   rewritten: number;
   /** Values no key of the ring opens, named by where they are, never shown. */
   unreadable: string[];
+  /**
+   * Key files of the certificates folder that belong to another account
+   * than the one asking: neither counted nor rewritten.
+   */
+  forbidden: string[];
 };
 
 function count(report: KeyRotation, keyId: string | null): void {
@@ -165,7 +170,12 @@ export async function rotateKeys(
   ring: KeyRing,
   options: { write: boolean; tlsDir?: string },
 ): Promise<KeyRotation> {
-  const report: KeyRotation = { byKey: {}, rewritten: 0, unreadable: [] };
+  const report: KeyRotation = {
+    byKey: {},
+    rewritten: 0,
+    unreadable: [],
+    forbidden: [],
+  };
   for (const column of SEALED_COLUMNS) {
     await rotateColumn(db, ring, column, options.write, report);
   }
@@ -178,6 +188,10 @@ export async function rotateKeys(
         ring,
         options.write,
       );
+      if (outcome === "forbidden") {
+        report.forbidden.push(name);
+        continue;
+      }
       if (outcome === "unreadable") {
         report.unreadable.push(`${name} in the certificates folder`);
         continue;

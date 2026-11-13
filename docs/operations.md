@@ -124,13 +124,15 @@ sealed again.
    under it:
 
    ```bash
-   docker compose exec app anygriddb keys rotate
-   docker compose exec app anygriddb keys status
+   docker compose exec -u root app anygriddb keys rotate
+   docker compose exec -u root app anygriddb keys status
    ```
 
-   `rotate` can be run again at any time, beside the running instance. If
-   it names values no key opens, a key is missing from
-   `AUTH_ENCRYPTION_PREVIOUS_KEYS`: add it and run the command again.
+   As root, since the key of the stack's internal authority is root's in
+   the certificates volume; each file keeps its owner. `rotate` can be
+   run again at any time, beside the running instance. If it names values
+   no key opens, a key is missing from `AUTH_ENCRYPTION_PREVIOUS_KEYS`:
+   add it and run the command again.
 
 5. Once `status` shows only the new key, the earlier one can leave
    `AUTH_ENCRYPTION_PREVIOUS_KEYS`. Keep it with the backups made while it
