@@ -6,6 +6,7 @@ import {
   findAccount,
   mailedLink,
   openAdmin,
+  proveItIsYou,
   signIn,
   signUp,
   signUpWithTable,
@@ -441,6 +442,13 @@ test("an administrator deletes a departed owner and names who takes the base", a
       .getByLabel("New owner's email")
       .fill(`e2e-nobody-${stamp}@example.com`);
     await erase.click();
+    // What was typed is in order: before it goes, the administrator
+    // proves it is them (ROADMAP #28), once for the minutes that follow.
+    await expect(
+      page.getByRole("dialog", { name: "Confirm it is you" }),
+    ).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await proveItIsYou(page);
     await expect(page.getByText("No account with this email")).toBeVisible();
     await expect(dialog).toBeVisible();
 

@@ -133,13 +133,12 @@ Done: the backup script tells the instance how each run ended, and so can a back
 
 #### Lot 5: groups and delegated roles
 
-Each administration action declares the capability it needs.
+Each administration action declares the capability it needs. Done: before a sensitive action (deleting an account, giving administration or support, removing someone's factors or sign-on link, changing single sign-on, revoking every token), an administrator gives their password or second factor again, unless they did in the last five minutes; a wrong one counts toward the lock, and an account that signs in through its provider with a passkey alone signs in again (#28).
 
-| #   | What                                                                                                                                                                                                                              | Effort | Notes                                                                                                        |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
-| 27  | Groups made in Administration: name, description, members; a group given a role on a base from Administration as well as from that base's settings                                                                                | M      | Groups come only from an identity provider today; a base already gives a role to a group in its own settings |
-| 29  | An account's effective rights on a base or a table, on screen, group roles included                                                                                                                                               | M      | The access report is a file today                                                                            |
-| 28  | The password or the second factor asked again before a sensitive action (fresh within minutes): deleting an account, granting administration or a delegated role, removing factors, changing single sign-on, revoking every token | M      | The check exists for a person's own factors. Accounts that sign in only through a provider need a decision   |
+| #   | What                                                                                                                                               | Effort | Notes                                                                                                        |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| 27  | Groups made in Administration: name, description, members; a group given a role on a base from Administration as well as from that base's settings | M      | Groups come only from an identity provider today; a base already gives a role to a group in its own settings |
+| 29  | An account's effective rights on a base or a table, on screen, group roles included                                                                | M      | The access report is a file today                                                                            |
 
 #### Lot 6: audit, retention, and personal data
 

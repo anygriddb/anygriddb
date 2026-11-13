@@ -8,6 +8,7 @@ import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { RuledSection } from "../shell/notebook-page";
 import { ConfirmDialog } from "../shell/dialogs";
+import { useStepUp } from "./step-up";
 
 type Switch = "sessions" | "links" | "tokens";
 
@@ -21,6 +22,7 @@ export function EmergencySection() {
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
+  const stepUp = useStepUp();
   const settings = useQuery(api.admin.settings.queryOptions());
   const [asked, setAsked] = useState<Switch | null>(null);
   const linksOff = settings.data?.publicLinks === "off";
@@ -133,6 +135,9 @@ export function EmergencySection() {
           confirmLabel={t`Revoke`}
           onConfirm={() =>
             run(async () => {
+              if (!(await stepUp.ensure())) {
+                throw new Error("step_up_cancelled");
+              }
               const { count } = await trpc.admin.revokeAllTokens.mutate();
               return count === 0
                 ? t`No API token to revoke`
@@ -144,6 +149,7 @@ export function EmergencySection() {
           }
         />
       ) : null}
+      {stepUp.dialog}
     </RuledSection>
   );
 }

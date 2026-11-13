@@ -18,6 +18,7 @@ export const ERRORS = {
   account_disabled: [403, "Account disabled"],
   account_locked: [403, "Account locked"],
   fresh_sign_in_required: [403, "A recent sign-in is required"],
+  step_up_required: [403, "Confirm your password or second factor again"],
   signup_closed: [403, "Signup closed"],
   signup_domain_not_allowed: [403, "Signup domain not allowed"],
   signup_needs_mail: [403, "Signup needs email"],

@@ -96,6 +96,9 @@ describe("operator OIDC and SAML", () => {
       password: PASSWORD,
     });
     await enrollTotp(admin);
+    // A sensitive action asks for a proof again (ROADMAP #28): given
+    // once here, it stands for the five minutes these tests take.
+    await admin.call().admin.stepUp({ password: PASSWORD });
   }, 120_000);
 
   afterAll(async () => {

@@ -237,3 +237,17 @@ export async function pickFieldType(
     .filter({ has: page.getByText(type, { exact: true }) })
     .click();
 }
+
+/**
+ * Gives the password a sensitive Administration action asks for again
+ * (ROADMAP #28). Once given, the next five minutes ask nothing.
+ */
+export async function proveItIsYou(
+  page: Page,
+  password = "correct-horse-battery",
+): Promise<void> {
+  const dialog = page.getByRole("dialog", { name: "Confirm it is you" });
+  await dialog.getByLabel("Password").fill(password);
+  await dialog.getByRole("button", { name: "Confirm" }).click();
+  await expect(dialog).toBeHidden();
+}
