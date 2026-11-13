@@ -13,7 +13,7 @@ import {
 } from "../../lib/realtime";
 import { useSession } from "../../lib/session";
 import { useTRPC } from "../../lib/trpc";
-import { safeNext } from "../auth/auth-page";
+import { onSignIn, safeNext } from "../auth/auth-page";
 import { CommandPalette } from "./command-palette";
 import { LoadFailed } from "./load-failed";
 import { ShortcutsDialog } from "./shortcuts-dialog";
@@ -94,14 +94,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     wasOpen.current = navigation === "open";
   }, [navigation]);
   // The page asked for, with its search, to come back to after sign-in.
-  // While the router leaves for /login, `here` is already the sign-in
-  // page: `safeNext` keeps it from nesting into its own `next`.
+  // The shell is still drawn while the router leaves for /login: there,
+  // `here` is the sign-in page itself (`safeNext` makes it "/"), and a
+  // second redirect would write that over the page asked for.
   const here = useLocation({ select: (location) => safeNext(location.href) });
   useEffect(() => {
-    if (session.isSuccess && !session.data) {
+    if (session.isSuccess && !session.data && !onSignIn(page)) {
       void navigate({ to: "/login", search: { next: here }, replace: true });
     }
-  }, [session.isSuccess, session.data, navigate, here]);
+  }, [session.isSuccess, session.data, navigate, here, page]);
   // The policy asks this account for a second factor before anything else
   // (ADR 0043): the account page is where it is set up.
   const mustEnroll = Boolean(

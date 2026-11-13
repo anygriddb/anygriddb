@@ -892,6 +892,14 @@ msgstr "Accounts"
 msgid "Accounts and access"
 msgstr "Accounts and access"
 
+#: components/auth/auth-page.tsx
+msgid "Accounts on this instance come from your organization's sign-in: use it to get in."
+msgstr "Accounts on this instance come from your organization's sign-in: use it to get in."
+
+#: components/auth/confirm-signup-page.tsx
+msgid "Accounts on this instance now come from your organization's sign-in, so this link can no longer create one. Sign in with it."
+msgstr "Accounts on this instance now come from your organization's sign-in, so this link can no longer create one. Sign in with it."
+
 #: components/admin/health-tab.tsx
 msgid "Accounts, bases, tables"
 msgstr "Accounts, bases, tables"
@@ -7127,6 +7135,10 @@ msgstr "Sign-up"
 msgid "Sign-up domains"
 msgstr "Sign-up domains"
 
+#: components/auth/confirm-signup-page.tsx
+msgid "Sign-up has closed on this instance since you asked, so this link can no longer create your account. An administrator can create it for you."
+msgstr "Sign-up has closed on this instance since you asked, so this link can no longer create your account. An administrator can create it for you."
+
 #: components/auth/auth-page.tsx
 msgid "Sign-up is by invitation: use the address that received it."
 msgstr "Sign-up is by invitation: use the address that received it."
@@ -8283,6 +8295,10 @@ msgstr "This host is not allowed: the operator adds it to ANYGRIDDB_SOURCES_ALLO
 #: components/admin/health-tab.tsx
 msgid "This instance is up to date"
 msgstr "This instance is up to date"
+
+#: components/auth/confirm-signup-page.tsx
+msgid "This instance now takes sign-ups only from its organization's addresses, so this link can no longer create your account. An administrator can create it for you."
+msgstr "This instance now takes sign-ups only from its organization's addresses, so this link can no longer create your account. An administrator can create it for you."
 
 #: components/auth/auth-page.tsx
 msgid "This instance sends no email, so it cannot confirm a new address. Open the invitation link you were sent, or ask an administrator to add you."
