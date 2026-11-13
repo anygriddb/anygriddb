@@ -984,6 +984,7 @@ msgid "Add a date field to show the timeline."
 msgstr "Add a date field to show the timeline."
 
 #: components/grid/grid-header.tsx
+#: components/views/view-common.tsx
 msgid "Add a field"
 msgstr "Add a field"
 
@@ -7547,6 +7548,10 @@ msgstr "Switched on"
 #: components/shell/user-menu.tsx
 msgid "System"
 msgstr "System"
+
+#: components/shell/command-palette.tsx
+msgid "System theme"
+msgstr "System theme"
 
 #: components/admin/sources-tab.tsx
 msgid "table"

@@ -485,8 +485,8 @@ export function FormView(props: ViewProps) {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 overflow-hidden">
-      <div className="flex-1 overflow-y-auto bg-muted/40 p-6">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-muted/40 p-6">
         <div className="mx-auto max-w-xl rounded-sm border border-border bg-card p-6">
           {props.canEdit ? (
             <input
@@ -620,7 +620,7 @@ export function FormView(props: ViewProps) {
         </div>
       </div>
       {props.canEdit ? (
-        <aside className="w-72 shrink-0 overflow-y-auto border-l border-border bg-card p-4">
+        <aside className="max-h-[45vh] w-full shrink-0 overflow-y-auto border-t border-border bg-card p-4 md:max-h-none md:w-72 md:border-t-0 md:border-l">
           <h3 className="mb-2 text-sm font-semibold">{t`Form fields`}</h3>
           <ul className="flex flex-col gap-2">
             {[

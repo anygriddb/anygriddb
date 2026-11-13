@@ -10,6 +10,7 @@ import { resolveShortcuts } from "../../lib/shortcut-list";
 import { useShortcuts } from "../../lib/shortcuts";
 import { useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { useRoleLabel } from "../settings/role-label";
+import { LoadFailed } from "./load-failed";
 import { NewBaseDialog } from "./new-base-dialog";
 import { EmptyState, NotebookPage } from "./notebook-page";
 import {
@@ -196,6 +197,21 @@ export function HomePage() {
   const bases = catalog.data ?? [];
   const shortcuts = useShortcuts();
   const { recent } = resolveShortcuts(bases, shortcuts.data);
+  if (!catalog.data) {
+    if (catalog.isError) {
+      return (
+        <LoadFailed
+          error={catalog.error}
+          onRetry={() => void catalog.refetch()}
+        />
+      );
+    }
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
   return (
     <div className="flex-1 overflow-y-auto">
       <NotebookPage
@@ -208,7 +224,7 @@ export function HomePage() {
         action={
           // An empty desk has its own invitation below: one button, not two.
           session.data?.canCreateBases === false ||
-          (catalog.isSuccess && bases.length === 0) ? null : (
+          bases.length === 0 ? null : (
             <Button onClick={() => setCreating(true)}>
               <Plus className="h-4 w-4" aria-hidden />
               {t`New base`}
@@ -236,8 +252,7 @@ export function HomePage() {
         <PendingInvitations />
         {bases.length > 0 ? <ForYou /> : null}
         {recent.length > 0 ? <PickUp recent={recent} /> : null}
-        {catalog.isLoading ? <Spinner className="mt-10" /> : null}
-        {catalog.isSuccess && bases.length === 0 ? (
+        {bases.length === 0 ? (
           // An empty desk invites: a base, or a database to connect.
           <EmptyState
             className="mt-10 border-t border-strong-border border-b-0"

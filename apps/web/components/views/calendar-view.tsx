@@ -6,7 +6,12 @@ import { useLocale } from "../../lib/i18n";
 import type { FilterGroup } from "@anygriddb/core";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { useTable } from "../table/table-context";
-import { ColumnPicker, useRowTitle, type ViewProps } from "./view-common";
+import {
+  ColumnPicker,
+  useRowTitle,
+  ViewSetupPrompt,
+  type ViewProps,
+} from "./view-common";
 import { useLingui } from "@lingui/react/macro";
 import { CalendarFeedButton } from "./calendar-feed";
 
@@ -183,9 +188,10 @@ export function CalendarView(
   const setMonth = props.onMonth;
   if (!start) {
     return (
-      <p className="p-6 text-sm text-muted-foreground">
-        {t`Add a date field to show the calendar.`}
-      </p>
+      <ViewSetupPrompt
+        title={t`Add a date field to show the calendar.`}
+        onAddField={props.onOpenFieldEditor}
+      />
     );
   }
   const withTime = start.kind === "datetime";

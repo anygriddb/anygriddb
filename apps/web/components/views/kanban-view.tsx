@@ -14,6 +14,7 @@ import {
   cardColumns,
   ColumnPicker,
   useRowTitle,
+  ViewSetupPrompt,
   type ViewProps,
 } from "./view-common";
 import { useLingui } from "@lingui/react/macro";
@@ -348,9 +349,10 @@ export function KanbanView(props: ViewProps) {
   }
   if (!stack) {
     return (
-      <p className="p-6 text-sm text-muted-foreground">
-        {t`Add a single select field to arrange cards in columns.`}
-      </p>
+      <ViewSetupPrompt
+        title={t`Add a single select field to arrange cards in columns.`}
+        onAddField={props.onOpenFieldEditor}
+      />
     );
   }
   const options = optionsOf(stack);

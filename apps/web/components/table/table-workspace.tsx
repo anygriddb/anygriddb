@@ -1124,6 +1124,9 @@ export function TableWorkspace({
     ...(byHand ? { onMoveRows: moveRows } : {}),
     groups: rows.groups,
     ...(counts ? { counts } : {}),
+    ...(canManage(role) && !external
+      ? { onOpenFieldEditor: () => setFieldEditor({ mode: "create" }) }
+      : {}),
   };
 
   return (
