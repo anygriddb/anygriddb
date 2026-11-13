@@ -1,5 +1,10 @@
 import { Checkbox, Select, Spinner } from "@anygriddb/ui";
-import type { AlertKind, InstanceSettingsPatch } from "@anygriddb/core";
+import {
+  ALERT_CHOICES,
+  type AlertChoice,
+  type AlertKind,
+  type InstanceSettingsPatch,
+} from "@anygriddb/core";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, XCircle } from "lucide-react";
@@ -63,6 +68,8 @@ export function AlertsSection() {
     refetchInterval: 60_000,
   });
   const settings = useQuery(api.admin.settings.queryOptions());
+  const choices = useQuery(api.admin.alertChoices.get.queryOptions());
+  const spared = new Set<AlertChoice>(choices.data?.spared ?? []);
   const ids = useId();
   const when = (iso: string) =>
     new Date(iso).toLocaleString(i18n.locale, {
@@ -78,6 +85,31 @@ export function AlertsSection() {
       toast.success(t`Saved`);
     } catch (error) {
       toast.error(errorText(error));
+    }
+  };
+  /**
+   * The asker's own choice: told of a kind, or spared it. The box follows
+   * the click at once, and the server's answer after it.
+   */
+  const tell = async (kind: AlertChoice, receive: boolean) => {
+    // The key the list is kept under, whole: a part of it matches for a
+    // reload, not for a write.
+    const key = api.admin.alertChoices.get.queryOptions().queryKey;
+    queryClient.setQueryData(key, (known) =>
+      known
+        ? {
+            spared: receive
+              ? known.spared.filter((item) => item !== kind)
+              : [...known.spared, kind],
+          }
+        : known,
+    );
+    try {
+      await trpc.admin.alertChoices.set.mutate({ kind, receive });
+    } catch (error) {
+      toast.error(errorText(error));
+    } finally {
+      await queryClient.invalidateQueries({ queryKey: key });
     }
   };
   const kinds: Record<AlertKind, string> = {
@@ -204,6 +236,25 @@ export function AlertsSection() {
               </label>
             </li>
           </ul>
+        ) : null}
+        {choices.data ? (
+          <fieldset className="mt-3 flex flex-col gap-1.5">
+            <legend className="font-medium">{t`Tell me about`}</legend>
+            <p className="text-xs text-muted-foreground">
+              {t`Your own choice, by email and in your notifications: the other administrators keep theirs, and every alert still shows here.`}
+            </p>
+            {ALERT_CHOICES.map((kind) => (
+              <label key={kind} className="flex items-center gap-2">
+                <Checkbox
+                  checked={!spared.has(kind)}
+                  onChange={(event) => void tell(kind, event.target.checked)}
+                />
+                {kind === "account_locked"
+                  ? t`An account that locks`
+                  : kinds[kind]}
+              </label>
+            ))}
+          </fieldset>
         ) : null}
       </RuledSection>
 

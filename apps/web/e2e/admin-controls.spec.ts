@@ -274,6 +274,18 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await expect(backupDelay).toHaveValue("24");
     await backupDelay.selectOption("36");
     await expect(backupDelay).toHaveValue("36");
+    // What this administrator is told about is theirs to choose (#48):
+    // spared a kind, the page says so once read again.
+    const locks = page.getByLabel("An account that locks");
+    await expect(locks).toBeChecked();
+    // A click, then the state it leads to: the box follows a frame later.
+    await locks.click();
+    await expect(locks).not.toBeChecked();
+    await page.reload();
+    await expect(locks).not.toBeChecked();
+    await locks.click();
+    await expect(locks).toBeChecked();
+    expect(await accessibilityViolations(page)).toEqual([]);
     expect(await accessibilityViolations(page)).toEqual([]);
 
     // Addresses keep the section, the page, and the list's filters

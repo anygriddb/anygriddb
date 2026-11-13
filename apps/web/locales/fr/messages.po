@@ -1411,6 +1411,10 @@ msgstr "Montants, quantités, pourcentages"
 msgid "An account dedicated to AnyGridDB, never an administrator. The connection uses TLS, with a verified certificate."
 msgstr "Un compte dédié à AnyGridDB, jamais un administrateur. La connexion passe par TLS, certificat vérifié."
 
+#: components/admin/alerts-section.tsx
+msgid "An account that locks"
+msgstr "Un compte qui se verrouille"
+
 #: components/table/share-dialog.tsx
 msgid "An administrator turned public links off on this instance. Links made before no longer open."
 msgstr "Un administrateur a désactivé les liens publics sur cette instance. Les liens créés avant ne s’ouvrent plus."
@@ -8061,6 +8065,10 @@ msgstr "Tâches"
 msgid "Tell administrators"
 msgstr "Prévenir les administrateurs"
 
+#: components/admin/alerts-section.tsx
+msgid "Tell me about"
+msgstr "Me prévenir de"
+
 #: components/table/view-toolbar.tsx
 msgid "Temporarily disable filters"
 msgstr "Désactiver temporairement les filtres"
@@ -9953,6 +9961,10 @@ msgstr "L’annuaire de votre organisation tient votre nom et votre adresse : c
 #: components/admin/account-actions.tsx
 msgid "Your own account: from your settings"
 msgstr "Votre propre compte : depuis vos réglages"
+
+#: components/admin/alerts-section.tsx
+msgid "Your own choice, by email and in your notifications: the other administrators keep theirs, and every alert still shows here."
+msgstr "Votre choix à vous, par e-mail et dans vos notifications : les autres administrateurs gardent le leur, et chaque alerte reste affichée ici."
 
 #: components/auth/reset-page.tsx
 msgid "Your password is changed, and every session of the account ended. Sign in with the new one."
