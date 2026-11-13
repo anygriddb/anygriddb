@@ -1,4 +1,8 @@
-import { WEBHOOK_FAILURE_LIMIT, type InstanceSettings } from "@anygriddb/core";
+import {
+  WEBHOOK_FAILURE_LIMIT,
+  type AlertKind,
+  type InstanceSettings,
+} from "@anygriddb/core";
 import type { NotificationKind } from "./notifications.js";
 
 export type MailLocale = "en" | "fr";
@@ -227,6 +231,91 @@ export function securityMailBody(
     case "inactive_disabled":
       return `Your AnyGridDB account was not used for ${String(notice.days)} days: it is disabled, and its API tokens stop working. Its data stays.\n\nTo get it back, ask an administrator to enable it again.`;
   }
+}
+
+/** An open alert as a mail names it (ROADMAP #25). */
+export type MailedAlert = {
+  kind: AlertKind;
+  detail: Record<string, string | number | null>;
+};
+
+function alertLine(locale: MailLocale, alert: MailedAlert): string {
+  const { detail } = alert;
+  const when = (value: unknown) =>
+    typeof value === "string" ? moment(locale, new Date(value)) : null;
+  const fr = locale === "fr";
+  switch (alert.kind) {
+    case "backup_late": {
+      const last = when(detail.lastGoodAt);
+      return fr
+        ? `Aucune sauvegarde n’a réussi depuis plus de ${String(detail.hours)} heures. La dernière réussie\u00a0: ${last ?? "aucune"}.`
+        : `No backup has succeeded for more than ${String(detail.hours)} hours. The last that did: ${last ?? "none"}.`;
+    }
+    case "backup_failed":
+      return fr
+        ? `La dernière sauvegarde a échoué, le ${when(detail.failedAt) ?? ""}.`
+        : `The last backup failed, on ${when(detail.failedAt) ?? ""}.`;
+    case "storage_full":
+      return fr
+        ? `Le volume où sont les fichiers est plein à ${String(detail.percent)}\u00a0% (alerte à ${String(detail.threshold)}\u00a0%).`
+        : `The volume the files are on is ${String(detail.percent)}% full (alert at ${String(detail.threshold)}%).`;
+    case "certificate_expiring":
+      return fr
+        ? `Le certificat de l’instance expire dans ${String(detail.days)} jours, le ${when(detail.expiresAt) ?? ""}.`
+        : `The instance's certificate expires in ${String(detail.days)} days, on ${when(detail.expiresAt) ?? ""}.`;
+    case "source_unreachable":
+      return fr
+        ? `La source ${String(detail.name)} ne répond pas\u00a0: ses tables surveillées n’ont pas pu être lues.`
+        : `The source ${String(detail.name)} does not answer: its watched tables could not be read.`;
+    case "failures":
+      return fr
+        ? `${String(detail.count)} tâches, envois de webhooks et exécutions d’automatisations ont échoué en 24 heures (alerte à ${String(detail.threshold)}).`
+        : `${String(detail.count)} jobs, webhook deliveries, and automation runs failed in 24 hours (alert at ${String(detail.threshold)}).`;
+  }
+}
+
+const ALERT_TITLES: Record<AlertKind, [en: string, fr: string]> = {
+  backup_late: ["the backup is late", "la sauvegarde est en retard"],
+  backup_failed: ["the last backup failed", "la dernière sauvegarde a échoué"],
+  storage_full: [
+    "file storage is nearly full",
+    "le stockage des fichiers est presque plein",
+  ],
+  certificate_expiring: [
+    "the certificate is close to expiry",
+    "le certificat expire bientôt",
+  ],
+  source_unreachable: ["a source does not answer", "une source ne répond pas"],
+  failures: ["failures are piling up", "les échecs s’accumulent"],
+};
+
+export function alertMailSubject(
+  locale: MailLocale,
+  alerts: readonly MailedAlert[],
+): string {
+  const first = alerts[0];
+  if (alerts.length === 1 && first) {
+    const [en, fr] = ALERT_TITLES[first.kind];
+    return locale === "fr"
+      ? `${MAIL_PREFIX}\u00a0: ${fr}`
+      : `${MAIL_PREFIX}: ${en}`;
+  }
+  return locale === "fr"
+    ? `${MAIL_PREFIX}\u00a0: ${String(alerts.length)} alertes sont ouvertes`
+    : `${MAIL_PREFIX}: ${String(alerts.length)} alerts are open`;
+}
+
+export function alertMailBody(
+  locale: MailLocale,
+  alerts: readonly MailedAlert[],
+  healthUrl: string,
+): string {
+  const lines = alerts.map((alert) => `- ${alertLine(locale, alert)}`);
+  const close =
+    locale === "fr"
+      ? "Une alerte se ferme d’elle-même quand sa cause a disparu. Tant qu’elle reste ouverte, vous êtes prévenu une fois par jour au plus. Les seuils se règlent dans Administration > Santé."
+      : "An alert closes by itself once its cause is gone. While it stays open, you are told once a day at most. Thresholds are set in Administration > Health.";
+  return `${lines.join("\n")}\n\n${close}\n\n${healthUrl}`;
 }
 
 /** What administrators are told when an account locks (ADR 0044). */

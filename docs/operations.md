@@ -354,6 +354,18 @@ Run it from cron, for example nightly:
 15 2 * * * cd /srv/anygriddb && scripts/backup.sh >> data/backups/backup.log 2>&1
 ```
 
+Each run tells the instance how it ended. Administration > Health shows
+the last ones, and administrators are told, there and by email, when the
+last backup failed or when none has succeeded for 36 hours (they choose
+the delay, or turn the alert off). Nothing is said about late backups
+before a first one is reported. A backup made by other means, such as a
+managed PostgreSQL's own, reports itself the same way when it ends:
+
+```sh
+docker compose exec app anygriddb backups record \
+  --name nightly-2026-11-13 --started 2026-11-13T02:15:00Z   # add --failed when it failed
+```
+
 To restore one, into a stack with the same `AUTH_ENCRYPTION_KEY`:
 
 ```sh

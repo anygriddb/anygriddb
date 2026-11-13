@@ -9,15 +9,17 @@
  *   anygriddb keys new [--id <id>]
  *   anygriddb keys status
  *   anygriddb keys rotate
+ *   anygriddb backups record --name <name> --started <time> [--failed] [--bytes <n>] [--encrypted]
  *
  * They read the API's environment. `migrate` needs only the storage
- * settings; `sweep` also needs DATABASE_URL; `keys status` and `keys
- * rotate` need DATABASE_URL and the encryption keys.
+ * settings; `sweep` and `backups record` also need DATABASE_URL; `keys
+ * status` and `keys rotate` need DATABASE_URL and the encryption keys.
  */
 import { parseArgs } from "node:util";
 import { createDb } from "@anygriddb/db";
 import { rotateKeys, type KeyRotation } from "./auth/key-rotation.js";
 import { mintKey } from "./auth/key-ring.js";
+import { recordBackup } from "./alerts.js";
 import { BUILD, describeBuild } from "./build-info.js";
 import { readEncryptionKey, readFileSettings } from "./env.js";
 import { healthAuthorities, probeHealth, publicHost } from "./health-probe.js";
@@ -50,6 +52,10 @@ const USAGE = `Usage:
   anygriddb keys rotate
       Seals again, under AUTH_ENCRYPTION_KEY, what an earlier key sealed.
       That earlier key must be in AUTH_ENCRYPTION_PREVIOUS_KEYS.
+  anygriddb backups record --name <name> --started <time> [--failed] [--bytes <n>] [--encrypted]
+      Tells the instance a backup ended, for Administration to show and
+      to raise an alert when backups stop: scripts/backup.sh runs it, and
+      so can a backup made by other means. <time> is ISO 8601.
 `;
 
 class UsageError extends Error {}
@@ -299,6 +305,50 @@ async function keys(write: boolean): Promise<number> {
   }
 }
 
+async function backupsRecord(args: string[]): Promise<number> {
+  const { values } = parseArgs({
+    args,
+    options: {
+      name: { type: "string" },
+      started: { type: "string" },
+      failed: { type: "boolean", default: false },
+      bytes: { type: "string" },
+      encrypted: { type: "boolean", default: false },
+    },
+    strict: true,
+  });
+  const name = values.name?.trim() ?? "";
+  if (name === "" || name.length > 200) {
+    throw new UsageError("--name is required, 200 characters at most");
+  }
+  const startedAt = new Date(values.started ?? "");
+  if (Number.isNaN(startedAt.getTime()) || startedAt.getTime() > Date.now()) {
+    throw new UsageError("--started must be a past time, as ISO 8601");
+  }
+  const bytes = values.bytes === undefined ? null : Number(values.bytes);
+  if (bytes !== null && (!Number.isSafeInteger(bytes) || bytes < 0)) {
+    throw new UsageError("--bytes must be a whole number");
+  }
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new UsageError("DATABASE_URL is required");
+  const { db, close } = createDb(url, { max: 1 });
+  try {
+    await recordBackup(db, {
+      name,
+      startedAt,
+      succeeded: !values.failed,
+      bytes,
+      encrypted: values.encrypted,
+    });
+  } finally {
+    await close();
+  }
+  process.stdout.write(
+    `recorded ${name} as ${values.failed ? "failed" : "succeeded"}\n`,
+  );
+  return 0;
+}
+
 async function main(argv: string[]): Promise<number> {
   const [group, command, ...rest] = argv;
   try {
@@ -323,6 +373,9 @@ async function main(argv: string[]): Promise<number> {
     if (group === "keys" && (command === "status" || command === "rotate")) {
       parseArgs({ args: rest, options: {}, strict: true });
       return await keys(command === "rotate");
+    }
+    if (group === "backups" && command === "record") {
+      return await backupsRecord(rest);
     }
     if (group === undefined || group === "help" || group === "--help") {
       process.stdout.write(USAGE);

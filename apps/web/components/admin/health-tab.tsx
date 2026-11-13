@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { RuledSection } from "../shell/notebook-page";
+import { AlertsSection } from "./alerts-section";
 import { formatBytes } from "../../lib/format";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
@@ -108,6 +109,7 @@ export function HealthTab() {
           </li>
         ))}
       </ul>
+      <AlertsSection />
       <TlsCard />
       {data ? (
         <dl className="grid grid-cols-[16rem_1fr] gap-y-1 text-sm">

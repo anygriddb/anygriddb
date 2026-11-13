@@ -24,6 +24,7 @@
       "external_write_steps.detail": "unknown",
       "external_writes.new_value": "unknown",
       "external_writes.old_value": "unknown",
+      "instance_alerts.detail": "Generated<Record<string, string | number | null>>",
       "instance_settings.value": "unknown",
       "jobs.input": "unknown",
       "jobs.result": "Record<string, unknown> | null",

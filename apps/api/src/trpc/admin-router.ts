@@ -149,6 +149,7 @@ import {
   revokeScimToken,
   revokeScimTokenInputSchema,
 } from "../scim/tokens.js";
+import { listBackups, listOpenAlerts } from "../alerts.js";
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { notifyOwnerNamed } from "../notifications.js";
@@ -1118,6 +1119,20 @@ export const adminRouter = t.router({
     handle(ctx, async () => {
       await requireAdmin(ctx);
       return instanceHealth({ db: ctx.db, bus: ctx.bus, files: ctx.files });
+    }),
+  ),
+  /**
+   * The backups reported and the alerts open now (ROADMAP #17, #25).
+   * Reading changes nothing: a scheduled task keeps the alerts in step.
+   */
+  alerts: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      const [backups, alerts] = await Promise.all([
+        listBackups(ctx.db, 10),
+        listOpenAlerts(ctx.db),
+      ]);
+      return { backups, alerts };
     }),
   ),
   /**

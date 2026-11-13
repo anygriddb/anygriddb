@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { useSession } from "../../lib/session";
 import { useTRPC } from "../../lib/trpc";
 import type { AccountsSearch } from "./accounts-search";
+import { useAlertText } from "./alerts-section";
 
 /** Counting only: the total comes back with the first row. */
 const COUNT = { offset: 0, limit: 1 } as const;
@@ -23,6 +24,7 @@ export function AdminOverview() {
   const session = useSession();
   const isAdmin = session.data?.isAdmin === true;
   const api = useTRPC();
+  const alertText = useAlertText();
   const locked = useQuery(
     api.admin.users.queryOptions({ ...COUNT, status: "locked" }),
   );
@@ -48,8 +50,13 @@ export function AdminOverview() {
     ...api.admin.baseOverview.ownerlessCount.queryOptions(),
     enabled: isAdmin,
   });
+  const alerts = useQuery({
+    ...api.admin.alerts.queryOptions(),
+    enabled: isAdmin,
+    refetchInterval: 60_000,
+  });
   const queries = isAdmin
-    ? [locked, unprotected, invitations, health, ownerless]
+    ? [locked, unprotected, invitations, health, ownerless, alerts]
     : [locked];
   const cards: ReactNode[] = [];
   const card = (
@@ -129,6 +136,20 @@ export function AdminOverview() {
       t`Background jobs, webhook deliveries, or automation runs that did not go through.`,
       <Link to="/admin/instance/support" className={open}>
         {t`See what failed`}
+      </Link>,
+    );
+    // Failures have their card above, whatever their number.
+    const openAlerts = (alerts.data?.alerts ?? []).filter(
+      (alert) => alert.kind !== "failures",
+    );
+    const firstAlert = openAlerts[0];
+    const alertCount = openAlerts.length;
+    card(
+      alertCount,
+      plural(alertCount, { one: "alert is open", other: "alerts are open" }),
+      firstAlert ? alertText(firstAlert) : "",
+      <Link to="/admin/instance/health" className={open}>
+        {t`See the alerts`}
       </Link>,
     );
     const ownerlessCount = ownerless.data?.count ?? 0;

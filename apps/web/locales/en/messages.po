@@ -313,6 +313,10 @@ msgstr "{actor} mentioned you in {table}"
 msgid "{actor} replied to your comment in {table}"
 msgstr "{actor} replied to your comment in {table}"
 
+#: components/admin/admin-overview.tsx
+msgid "{alertCount, plural, one {alert is open} other {alerts are open}}"
+msgstr "{alertCount, plural, one {alert is open} other {alerts are open}}"
+
 #: components/admin/base-choices.tsx
 msgid "{base}, owned by {owners}"
 msgstr "{base}, owned by {owners}"
@@ -357,6 +361,10 @@ msgstr "{count} file(s) missing or damaged"
 #: components/shell/jobs-menu.tsx
 msgid "{count} items deleted"
 msgstr "{count} items deleted"
+
+#: components/admin/alerts-section.tsx
+msgid "{count} jobs, webhook deliveries, and automation runs failed in the last 24 hours."
+msgstr "{count} jobs, webhook deliveries, and automation runs failed in the last 24 hours."
 
 #: components/table/table-workspace.tsx
 msgid "{count} locked rows were not copied"
@@ -629,18 +637,52 @@ msgstr "1 hour"
 msgid "1 year"
 msgstr "1 year"
 
+#: components/admin/alerts-section.tsx
+msgid "10 times"
+msgstr "10 times"
+
+#: components/admin/alerts-section.tsx
+msgid "12 hours"
+msgstr "12 hours"
+
+#: components/admin/alerts-section.tsx
+msgid "14 days"
+msgstr "14 days"
+
+#: components/admin/alerts-section.tsx
+msgid "200 times"
+msgstr "200 times"
+
+#: components/admin/alerts-section.tsx
+msgid "24 hours"
+msgstr "24 hours"
+
+#: components/admin/alerts-section.tsx
+msgid "3 days"
+msgstr "3 days"
+
+#: components/admin/alerts-section.tsx
 #: components/table/share-dialog.tsx
 msgid "30 days"
 msgstr "30 days"
+
+#: components/admin/alerts-section.tsx
+msgid "36 hours"
+msgstr "36 hours"
 
 #: components/admin/integrations-tab.tsx
 msgid "465 for TLS from the start, or 587 with STARTTLS."
 msgstr "465 for TLS from the start, or 587 with STARTTLS."
 
+#: components/admin/alerts-section.tsx
+msgid "50 times"
+msgstr "50 times"
+
 #: components/admin/security-tab.tsx
 msgid "6 months"
 msgstr "6 months"
 
+#: components/admin/alerts-section.tsx
 #: components/table/share-dialog.tsx
 msgid "7 days"
 msgstr "7 days"
@@ -826,6 +868,10 @@ msgstr "A single Name field."
 #: lib/errors.ts
 msgid "A source already has this name"
 msgstr "A source already has this name"
+
+#: components/admin/alerts-section.tsx
+msgid "A source's watched tables cannot be read"
+msgstr "A source's watched tables cannot be read"
 
 #: lib/errors.ts
 msgid "A table already has this name"
@@ -1221,6 +1267,30 @@ msgstr "Airtable did not answer: try again later"
 msgid "Airtable refuses this token: it needs data.records:read and schema.bases:read on this base"
 msgstr "Airtable refuses this token: it needs data.records:read and schema.bases:read on this base"
 
+#: components/admin/sign-in-trail.tsx
+msgid "Alert: backup late"
+msgstr "Alert: backup late"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Alert: certificate close to expiry"
+msgstr "Alert: certificate close to expiry"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Alert: failures piling up"
+msgstr "Alert: failures piling up"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Alert: source out of reach"
+msgstr "Alert: source out of reach"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Alert: storage nearly full"
+msgstr "Alert: storage nearly full"
+
+#: components/admin/alerts-section.tsx
+msgid "Alerts"
+msgstr "Alerts"
+
 #: components/admin/accounts-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/support-tab.tsx
@@ -1578,6 +1648,18 @@ msgstr "Backup code"
 msgid "Backup codes, shown only once."
 msgstr "Backup codes, shown only once."
 
+#: components/admin/alerts-section.tsx
+msgid "Backup failed"
+msgstr "Backup failed"
+
+#: components/admin/alerts-section.tsx
+msgid "Backup late"
+msgstr "Backup late"
+
+#: components/admin/alerts-section.tsx
+msgid "Backups"
+msgstr "Backups"
+
 #: components/admin/bases-tab.tsx
 #: components/admin/invitations-panel.tsx
 #: components/admin/sources-tab.tsx
@@ -1808,6 +1890,10 @@ msgstr "Category"
 #: components/admin/sources-tab.tsx
 msgid "Certificate (optional)"
 msgstr "Certificate (optional)"
+
+#: components/admin/alerts-section.tsx
+msgid "Certificate close to expiry"
+msgstr "Certificate close to expiry"
 
 #: components/admin/integrations-tab.tsx
 msgid "Certificate is valid"
@@ -3054,6 +3140,10 @@ msgstr "Enabled"
 msgid "Encodes the text to put it in a web address."
 msgstr "Encodes the text to put it in a web address."
 
+#: components/admin/alerts-section.tsx
+msgid "encrypted"
+msgstr "encrypted"
+
 #: components/admin/health-tab.tsx
 msgid "Encrypted connection (HTTPS)"
 msgstr "Encrypted connection (HTTPS)"
@@ -3337,6 +3427,7 @@ msgstr "Extend the selection"
 msgid "Extra tall"
 msgstr "Extra tall"
 
+#: components/admin/alerts-section.tsx
 #: components/admin/support-tab.tsx
 #: components/table/automations-dialog.tsx
 msgid "Failed"
@@ -3370,6 +3461,10 @@ msgstr "Failed sign-ins"
 #: components/table/automations-dialog.tsx
 msgid "Failed: {error}"
 msgstr "Failed: {error}"
+
+#: components/admin/alerts-section.tsx
+msgid "Failures piling up"
+msgstr "Failures piling up"
 
 #: components/table/automations-dialog.tsx
 msgid "field"
@@ -4409,6 +4504,10 @@ msgstr "Jobs ({count} running)"
 msgid "Jobs queued, running"
 msgstr "Jobs queued, running"
 
+#: components/admin/alerts-section.tsx
+msgid "Jobs, webhooks, and automations failed in 24 hours"
+msgstr "Jobs, webhooks, and automations failed in 24 hours"
+
 #: components/fields/formula-docs.ts
 msgid "Joins texts end to end, as the & operator does."
 msgstr "Joins texts end to end, as the & operator does."
@@ -5037,6 +5136,7 @@ msgid "Network failure"
 msgstr "Network failure"
 
 #: components/admin/access-tab.tsx
+#: components/admin/alerts-section.tsx
 #: components/admin/security-tab.tsx
 #: components/table/share-dialog.tsx
 msgid "Never"
@@ -5223,6 +5323,10 @@ msgstr "No active account owns this base, itself or through a group: nobody can 
 msgid "No active owner"
 msgstr "No active owner"
 
+#: components/admin/alerts-section.tsx
+msgid "No alert is open."
+msgstr "No alert is open."
+
 #: components/admin/emergency-section.tsx
 msgid "No API token to revoke"
 msgstr "No API token to revoke"
@@ -5239,6 +5343,22 @@ msgstr "No automation."
 #: components/table/automations-dialog.tsx
 msgid "No automations on this table."
 msgstr "No automations on this table."
+
+#: components/admin/alerts-section.tsx
+msgid "No backup has been reported yet. Until one is, no alert says that backups are late."
+msgstr "No backup has been reported yet. Until one is, no alert says that backups are late."
+
+#: components/admin/alerts-section.tsx
+msgid "No backup has succeeded for"
+msgstr "No backup has succeeded for"
+
+#: components/admin/alerts-section.tsx
+msgid "No backup has succeeded for more than {hours} hours. The last that did: {last}."
+msgstr "No backup has succeeded for more than {hours} hours. The last that did: {last}."
+
+#: components/admin/alerts-section.tsx
+msgid "No backup has succeeded yet: every one reported so far failed."
+msgstr "No backup has succeeded yet: every one reported so far failed."
 
 #: components/admin/account-bases.tsx
 #: components/admin/accounts-tab.tsx
@@ -5690,6 +5810,10 @@ msgstr "Open linked row"
 #: components/admin/health-tab.tsx
 msgid "Open sessions"
 msgstr "Open sessions"
+
+#: components/admin/alerts-section.tsx
+msgid "Open since {when}"
+msgstr "Open since {when}"
 
 #: components/shell/app-shell.tsx
 msgid "Open the navigation"
@@ -6851,6 +6975,7 @@ msgid "Save SIEM webhook"
 msgstr "Save SIEM webhook"
 
 #: components/admin/account-actions.tsx
+#: components/admin/alerts-section.tsx
 #: components/settings/base-settings.tsx
 msgid "Saved"
 msgstr "Saved"
@@ -6967,6 +7092,10 @@ msgstr "Second factors removed"
 #: components/admin/admin-sections.ts
 msgid "Security"
 msgstr "Security"
+
+#: components/admin/admin-overview.tsx
+msgid "See the alerts"
+msgstr "See the alerts"
 
 #: components/admin/admin-overview.tsx
 msgid "See the bases"
@@ -7464,6 +7593,10 @@ msgstr "Source"
 msgid "Source not found"
 msgstr "Source not found"
 
+#: components/admin/alerts-section.tsx
+msgid "Source out of reach"
+msgstr "Source out of reach"
+
 #: components/admin/sources-tab.tsx
 msgid "Source saved"
 msgstr "Source saved"
@@ -7576,6 +7709,10 @@ msgstr "Stopped: automation loop"
 msgid "Stopped: too many runs a minute"
 msgstr "Stopped: too many runs a minute"
 
+#: components/admin/alerts-section.tsx
+msgid "Storage nearly full"
+msgstr "Storage nearly full"
+
 #: components/admin/trails.tsx
 msgid "Structure"
 msgstr "Structure"
@@ -7629,6 +7766,7 @@ msgstr "Subscribe"
 msgid "Subscribe to this calendar"
 msgstr "Subscribe to this calendar"
 
+#: components/admin/alerts-section.tsx
 #: components/table/automations-dialog.tsx
 msgid "Succeeded"
 msgstr "Succeeded"
@@ -7894,6 +8032,10 @@ msgstr "The browser refused to copy: select the text and copy it."
 msgid "The bundle holds the version, health checks, counts, and which features are set up: no data, no address, no secret. Who has access is exported from Security."
 msgstr "The bundle holds the version, health checks, counts, and which features are set up: no data, no address, no secret. Who has access is exported from Security."
 
+#: components/admin/alerts-section.tsx
+msgid "The certificate expires within"
+msgstr "The certificate expires within"
+
 #: components/admin/health-tab.tsx
 msgid "The certificate is the one the operator provided."
 msgstr "The certificate is the one the operator provided."
@@ -8023,6 +8165,10 @@ msgstr "The instance is under maintenance: only administrators can sign in for n
 msgid "The instance is under maintenance. Try again later."
 msgstr "The instance is under maintenance. Try again later."
 
+#: components/admin/alerts-section.tsx
+msgid "The instance's certificate expires on {when}."
+msgstr "The instance's certificate expires on {when}."
+
 #: components/fields/formula-docs.ts
 msgid "The ISO week number."
 msgstr "The ISO week number."
@@ -8042,6 +8188,14 @@ msgstr "The job was interrupted by a restart. Start it again."
 #: components/fields/formula-docs.ts
 msgid "The largest value, number or date."
 msgstr "The largest value, number or date."
+
+#: components/admin/alerts-section.tsx
+msgid "The last backup failed, on {when}."
+msgstr "The last backup failed, on {when}."
+
+#: components/admin/alerts-section.tsx
+msgid "The last backups reported to this instance. The backup script reports each of its runs; a backup made by other means can report itself (see the operations guide)."
+msgstr "The last backups reported to this instance. The backup script reports each of its runs; a backup made by other means can report itself (see the operations guide)."
 
 #: components/fields/formula-docs.ts
 msgid "The last characters."
@@ -8243,6 +8397,10 @@ msgstr "The server's internal certificate authority, or its self-signed certific
 msgid "The smallest value, number or date."
 msgstr "The smallest value, number or date."
 
+#: components/admin/alerts-section.tsx
+msgid "The source {name} does not answer: its watched tables could not be read."
+msgstr "The source {name} does not answer: its watched tables could not be read."
+
 #: lib/errors.ts
 msgid "The source did not answer in time"
 msgstr "The source did not answer in time"
@@ -8331,6 +8489,14 @@ msgstr "The values of every list, one after the other."
 #: components/table/view-tabs.tsx
 msgid "The view goes to the base's trash for {days} days. The data is not touched."
 msgstr "The view goes to the base's trash for {days} days. The data is not touched."
+
+#: components/admin/alerts-section.tsx
+msgid "The volume the files are on is {percent}% full."
+msgstr "The volume the files are on is {percent}% full."
+
+#: components/admin/alerts-section.tsx
+msgid "The volume the files are on is full at"
+msgstr "The volume the files are on is full at"
 
 #: components/fields/formula-docs.ts
 msgid "The whole number just above."
@@ -9338,6 +9504,10 @@ msgstr "Week"
 #: components/admin/outbound-tab.tsx
 msgid "What"
 msgstr "What"
+
+#: components/admin/alerts-section.tsx
+msgid "What administrators are told about: here, on the first page of Administration, and by email when it is set up, once a day at most while an alert stays open. An alert closes by itself once its cause is gone."
+msgstr "What administrators are told about: here, on the first page of Administration, and by email when it is set up, once a day at most while an alert stays open. An alert closes by itself once its cause is gone."
 
 #: components/fields/formula-docs.ts
 msgid "What comes after the first delimiter; blank when it is not there."

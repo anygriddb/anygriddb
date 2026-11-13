@@ -225,6 +225,16 @@ export interface BackupCodes {
   userId: string;
 }
 
+export interface BackupRuns {
+  bytes: Int8 | null;
+  encrypted: Generated<boolean>;
+  finishedAt: Generated<Timestamp>;
+  id: Generated<string>;
+  name: string;
+  startedAt: Timestamp;
+  succeeded: boolean;
+}
+
 export interface Bases {
   createdAt: Generated<Timestamp>;
   deletedAt: Timestamp | null;
@@ -452,6 +462,16 @@ export interface Groups {
   externalId: string | null;
   id: Generated<string>;
   updatedAt: Generated<Timestamp>;
+}
+
+export interface InstanceAlerts {
+  closedAt: Timestamp | null;
+  detail: Generated<Record<string, number | string | null>>;
+  id: Generated<string>;
+  kind: string;
+  notifiedAt: Timestamp | null;
+  openedAt: Generated<Timestamp>;
+  subject: Generated<string>;
 }
 
 export interface InstanceOidc {
@@ -856,6 +876,7 @@ export interface DB {
   automationRuns: AutomationRuns;
   automations: Automations;
   backupCodes: BackupCodes;
+  backupRuns: BackupRuns;
   bases: Bases;
   calendarFeeds: CalendarFeeds;
   columnAcls: ColumnAcls;
@@ -875,6 +896,7 @@ export interface DB {
   groupMembers: GroupMembers;
   groupRoles: GroupRoles;
   groups: Groups;
+  instanceAlerts: InstanceAlerts;
   instanceOidc: InstanceOidc;
   instanceSaml: InstanceSaml;
   instanceSettings: InstanceSettings;
