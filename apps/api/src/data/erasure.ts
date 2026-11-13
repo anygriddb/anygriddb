@@ -206,6 +206,11 @@ export async function eraseAccount(
         .set({ createdBy: null })
         .where("createdBy", "=", userId)
         .execute();
+      await tx
+        .updateTable("tableFolders")
+        .set({ deletedBy: null })
+        .where("deletedBy", "=", userId)
+        .execute();
       if (admin) {
         // Written with the erasure or not at all. The account's id leaves
         // the event when the row below goes.

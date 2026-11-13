@@ -54,6 +54,7 @@ export {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Sheet,
   Tooltip,
 } from "./overlays";
 // Accessible drag and drop, by mouse, touch, keyboard, and screen reader.

@@ -4344,7 +4344,7 @@ msgstr "Sa condition porte sur un champ placé après lui : elle est ignorée."
 
 #: components/shell/sidebar.tsx
 msgid "Its tables stay in the base, back at the root. The folder itself is removed."
-msgstr "Ses tableaux restent dans la base, à la racine. Le dossier lui-même est retiré."
+msgstr "Ses tables restent dans la base, à la racine. Le dossier lui-même est retiré."
 
 #: components/admin/support-tab.tsx
 #: lib/errors.ts

@@ -158,6 +158,38 @@ export function DialogContent({
   );
 }
 
+/**
+ * A panel that covers the whole page, as a narrow screen shows one: focus
+ * moves in and back, the page under it is inert, and Escape closes it.
+ * The panel draws its own header and its own way to close.
+ */
+export function Sheet({
+  label,
+  onClose,
+  children,
+}: {
+  label: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <ModalOverlay
+      isOpen
+      onOpenChange={(open) => !open && onClose()}
+      className="fixed inset-0 z-40"
+    >
+      <Modal className="h-full w-full">
+        <AriaDialog
+          aria-label={label}
+          className="flex h-full flex-col outline-none"
+        >
+          {children}
+        </AriaDialog>
+      </Modal>
+    </ModalOverlay>
+  );
+}
+
 export function DialogFooter({
   className,
   ...props

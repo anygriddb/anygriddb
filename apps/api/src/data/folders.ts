@@ -3,11 +3,7 @@ import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { z } from "zod";
 import { withAudit } from "./audit-context.js";
-import { liveTable } from "./live.js";
-
-/** A folder outside the trash. */
-export const liveFolder = (alias = "tableFolders") =>
-  sql<boolean>`${sql.ref(`${alias}.deletedAt`)} is null`;
+import { liveFolder, liveTable } from "./live.js";
 
 export const createFolderInputSchema = z.object({
   baseId: z.uuid(),
@@ -136,20 +132,32 @@ export async function updateFolder(
 }
 
 /**
- * Soft-deletes the folder and puts its tables back at the root of the base.
+ * Soft-deletes the folder and puts its tables back at the root of the base,
+ * in the folder's order. A table of the folder in the trash comes back at
+ * the root too.
  */
 export async function deleteFolder(
   db: Database,
   userId: string,
   folderId: string,
 ): Promise<void> {
-  const folder = await folderOf(db, folderId);
   await withAudit(db, { userId, source: "web" }, async (tx) => {
+    // Marked first: a table moved into it meanwhile waits, then is refused.
+    const folder = await tx
+      .updateTable("tableFolders")
+      .set({ deletedAt: new Date(), deletedBy: userId })
+      .where("id", "=", folderId)
+      .where(liveFolder())
+      .returning(["id", "baseId"])
+      .executeTakeFirst();
+    if (!folder) throw new AppError("unknown_folder");
     const tables = await tx
       .selectFrom("dataTables")
       .select("id")
       .where("folderId", "=", folder.id)
       .where(liveTable())
+      .orderBy("position", "asc")
+      .orderBy("name", "asc")
       .execute();
     if (tables.length > 0) {
       const rootCount = await tx
@@ -170,9 +178,9 @@ export async function deleteFolder(
       }
     }
     await tx
-      .updateTable("tableFolders")
-      .set({ deletedAt: new Date(), deletedBy: userId })
-      .where("id", "=", folder.id)
+      .updateTable("dataTables")
+      .set({ folderId: null })
+      .where("folderId", "=", folder.id)
       .execute();
   });
 }
@@ -197,6 +205,18 @@ export async function moveTableToFolder(
   }
   if ((table.folderId ?? null) === input.folderId) return;
   await withAudit(db, { userId, source: "web" }, async (tx) => {
+    if (input.folderId) {
+      // Held until the move commits, so a folder deleted meanwhile cannot
+      // keep a table nobody sees.
+      const held = await tx
+        .selectFrom("tableFolders")
+        .select("id")
+        .where("id", "=", input.folderId)
+        .where(liveFolder())
+        .forUpdate()
+        .executeTakeFirst();
+      if (!held) throw new AppError("unknown_folder");
+    }
     const counted = await tx
       .selectFrom("dataTables")
       .select(sql<number>`count(*)::int`.as("count"))

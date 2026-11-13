@@ -16,7 +16,7 @@ import {
   loadCatalogRows,
   type TableRow,
 } from "./engine.js";
-import { liveBase, liveColumn, liveTable } from "./live.js";
+import { liveBase, liveColumn, liveFolder, liveTable } from "./live.js";
 import {
   dependents,
   loadBaseRows,
@@ -247,10 +247,24 @@ export async function restoreTable(
     table.name,
     taken.map((item) => item.name),
   );
+  // Back in its folder, or at the root when the folder is gone.
+  const folder = table.folderId
+    ? await db
+        .selectFrom("tableFolders")
+        .select("id")
+        .where("id", "=", table.folderId)
+        .where(liveFolder())
+        .executeTakeFirst()
+    : undefined;
   await withAudit(db, { userId, tableId, source: "restore" }, (tx) =>
     tx
       .updateTable("dataTables")
-      .set({ deletedAt: null, deletedBy: null, name })
+      .set({
+        deletedAt: null,
+        deletedBy: null,
+        name,
+        folderId: folder?.id ?? null,
+      })
       .where("id", "=", tableId)
       .execute(),
   );

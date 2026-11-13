@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Sheet,
   Tooltip,
 } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -653,7 +654,7 @@ export function RecordPanel({
       className={cn(
         "flex flex-col bg-card",
         narrow
-          ? "fixed inset-0 z-40"
+          ? "h-full w-full"
           : "w-[26rem] max-w-full shrink-0 border-l border-border",
       )}
       aria-label={t`Row details`}
@@ -881,15 +882,10 @@ export function RecordPanel({
     </aside>
   );
   if (!narrow) return panel;
+  // On a narrow screen the row covers the page, and the page waits under it.
   return (
-    <>
-      <button
-        type="button"
-        className="fixed inset-0 z-30 bg-foreground/30"
-        aria-label={t`Close`}
-        onClick={onClose}
-      />
+    <Sheet label={t`Row details`} onClose={onClose}>
       {panel}
-    </>
+    </Sheet>
   );
 }
