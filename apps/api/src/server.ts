@@ -26,6 +26,7 @@ import { registerDataTransferRoutes } from "./data-transfer.js";
 import { registerMcp } from "./mcp/http.js";
 import { registerRestApi } from "./rest-api.js";
 import { calendarFeedDocument } from "./data/calendar-feeds.js";
+import { shareEmbedOriginsForToken } from "./data/sharing.js";
 import { queueWebhookRun } from "./automations.js";
 import { logUrl } from "./log-url.js";
 import { trustProxy } from "./trust-proxy.js";
@@ -480,7 +481,9 @@ export async function createApp(deps: {
     },
   });
 
-  await registerWebApp(app, deps.webRoot);
+  await registerWebApp(app, deps.webRoot, (token) =>
+    shareEmbedOriginsForToken(deps.db, token),
+  );
 
   return app;
 }

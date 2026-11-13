@@ -28,6 +28,7 @@ import {
   duplicateBaseInputSchema,
   duplicateTableInputSchema,
   duplicateViewInputSchema,
+  embedOriginsInputSchema,
   effectiveTableRole,
   type EngineCatalog,
   exportSnapshotJobInputSchema,
@@ -1591,6 +1592,7 @@ export const catalogRouter = t.router({
         password: z.string().min(8).max(128).optional(),
         expiresInDays: z.int().min(1).max(365).optional(),
         allowCopy: z.boolean().optional(),
+        embedOrigins: embedOriginsInputSchema,
       }),
     )
     .mutation(({ ctx, input }) =>
@@ -1608,6 +1610,7 @@ export const catalogRouter = t.router({
             ? new Date(Date.now() + input.expiresInDays * 86_400_000)
             : undefined,
           allowCopy: input.allowCopy === true,
+          embedOrigins: input.embedOrigins,
         });
       }),
     ),

@@ -681,6 +681,7 @@ export interface Shares {
   allowCopy: Generated<boolean>;
   createdAt: Generated<Timestamp>;
   createdBy: string;
+  embedOrigins: string[] | null;
   expiresAt: Timestamp | null;
   id: Generated<string>;
   passwordFailures: Generated<number>;

@@ -52,6 +52,7 @@ export const ERRORS = {
   share_locked: [429, "Share locked"],
   public_links_disabled: [403, "Public links disabled"],
   share_password_required: [BAD, "Share password required"],
+  invalid_embed_origin: [BAD, "Invalid embedding site"],
   unknown_template: [BAD, "Unknown template"],
   table_already_exists: [409, "Table already exists"],
   folder_already_exists: [409, "Folder already exists"],

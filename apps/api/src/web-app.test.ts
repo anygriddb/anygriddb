@@ -4,7 +4,13 @@ import { join } from "node:path";
 import { brotliCompressSync, brotliDecompressSync, gzipSync } from "node:zlib";
 import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
-import { DOCUMENT_POLICY, registerWebApp } from "./web-app.js";
+import { applyApiSecurityHeaders } from "./http.js";
+import {
+  DOCUMENT_POLICY,
+  documentPolicy,
+  registerWebApp,
+  type ShareEmbedLookup,
+} from "./web-app.js";
 
 const PAGE = `<!doctype html>
 <html lang="fr">
@@ -15,6 +21,8 @@ const PAGE = `<!doctype html>
 </html>
 `;
 
+const SHARE_TOKEN = "a".repeat(32);
+
 async function build(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "anygriddb-web-"));
   await mkdir(join(root, "assets"));
@@ -24,10 +32,14 @@ async function build(): Promise<string> {
   return root;
 }
 
-async function server(root: string) {
+async function server(root: string, shareEmbedOrigins?: ShareEmbedLookup) {
   const app = Fastify();
+  // As the server does for every request, before any route answers.
+  app.addHook("onRequest", async (_request, reply) => {
+    applyApiSecurityHeaders(reply, false);
+  });
   app.get("/api/v1/bases", () => ({ bases: [] }));
-  await registerWebApp(app, root);
+  await registerWebApp(app, root, shareEmbedOrigins);
   await app.ready();
   return app;
 }
@@ -54,6 +66,44 @@ describe("the web app", () => {
       );
     }
     expect((await app.inject({ url: "/" })).body).not.toContain("noindex");
+  });
+
+  it("softens frame-ancestors only for a share that opted into embed", async () => {
+    const origins = ["https://portal.example.com", "https://wiki.example.org"];
+    const app = await server(await build(), async (token) =>
+      token === SHARE_TOKEN ? origins : null,
+    );
+    const embeddable = await app.inject({ url: `/s/${SHARE_TOKEN}` });
+    expect(embeddable.statusCode).toBe(200);
+    expect(embeddable.headers["content-security-policy"]).toBe(
+      documentPolicy(origins),
+    );
+    expect(embeddable.headers["content-security-policy"]).toContain(
+      "frame-ancestors https://portal.example.com https://wiki.example.org",
+    );
+    expect(embeddable.headers["content-security-policy"]).not.toContain(
+      "frame-ancestors 'none'",
+    );
+    expect(embeddable.headers["x-frame-options"]).toBeUndefined();
+
+    const plain = await app.inject({ url: `/s/${"b".repeat(32)}` });
+    expect(plain.headers["content-security-policy"]).toBe(DOCUMENT_POLICY);
+    expect(plain.headers["x-frame-options"]).toBe("DENY");
+    expect(plain.headers["content-security-policy"]).toContain(
+      "frame-ancestors 'none'",
+    );
+
+    const home = await app.inject({ url: "/" });
+    expect(home.headers["content-security-policy"]).toBe(DOCUMENT_POLICY);
+  });
+
+  it("keeps frame-ancestors none when the embed lookup fails", async () => {
+    const app = await server(await build(), async () => {
+      throw new Error("db down");
+    });
+    const response = await app.inject({ url: `/s/${SHARE_TOKEN}` });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-security-policy"]).toBe(DOCUMENT_POLICY);
   });
 
   it("caches hashed files for a year and the rest not at all", async () => {

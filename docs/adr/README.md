@@ -79,3 +79,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0064](0064-imports-read-as-they-are-written.md)     | Imports read as they are written                                                        | Accepted                                    |
 | [0065](0065-table-copies-in-sql.md)                  | Table copies in SQL                                                                     | Accepted                                    |
 | [0066](0066-encryption-key-ids.md)                   | Encryption keys with an identifier, one per use, and changed without loss               | Accepted                                    |
+| [0067](0067-embed-shared-views.md)                   | A shared view or form embedded in a site                                                | Accepted                                    |

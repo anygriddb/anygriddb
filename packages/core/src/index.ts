@@ -11,6 +11,15 @@ export {
 } from "./errors";
 
 export {
+  embedOriginsInputSchema,
+  isEmbedOrigin,
+  MAX_EMBED_ORIGINS,
+  normalizeEmbedOrigin,
+  normalizeEmbedOrigins,
+  storedEmbedOrigins,
+} from "./embed-origins";
+
+export {
   ATTACHMENT_TYPES,
   attachmentPreviewKind,
   isImageAttachmentMime,

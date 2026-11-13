@@ -17,6 +17,17 @@ import type { ViewItem } from "../../lib/types";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 
+/** The addresses typed, apart by spaces, commas, or lines. */
+export function parseEmbedSites(text: string): string[] {
+  return text.split(/[\s,]+/).filter(Boolean);
+}
+
+/** What a site pastes to show the link in a frame. */
+export function embedCode(link: string, title: string): string {
+  const escaped = title.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  return `<iframe src="${link}" title="${escaped}" loading="lazy" style="width: 100%; height: 600px; border: 0"></iframe>`;
+}
+
 export function ShareDialog({
   view,
   onClose,
@@ -36,7 +47,9 @@ export function ShareDialog({
   const [password, setPassword] = useState("");
   const [days, setDays] = useState("");
   const [allowCopy, setAllowCopy] = useState(false);
+  const [sites, setSites] = useState("");
   const [link, setLink] = useState("");
+  const [embedded, setEmbedded] = useState(false);
   const refresh = () =>
     queryClient.invalidateQueries({
       queryKey: api.catalog.shares.queryKey({ viewId: view.id }),
@@ -70,9 +83,12 @@ export function ShareDialog({
                 password: password || undefined,
                 expiresInDays: days ? Number(days) : undefined,
                 allowCopy,
+                embedOrigins: parseEmbedSites(sites),
               });
               setLink(`${window.location.origin}/s/${created.token}`);
+              setEmbedded(parseEmbedSites(sites).length > 0);
               setPassword("");
+              setSites("");
               await refresh();
             } catch (cause) {
               toast.error(errorText(cause));
@@ -117,6 +133,21 @@ export function ShareDialog({
               {t`Allow copying the data`}
             </label>
           ) : null}
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="share-sites">
+              {t`Sites that may embed it (optional)`}
+            </Label>
+            <Input
+              id="share-sites"
+              value={sites}
+              placeholder="https://portal.example.com"
+              aria-describedby="share-sites-hint"
+              onChange={(event) => setSites(event.target.value)}
+            />
+            <p id="share-sites-hint" className="text-xs text-muted-foreground">
+              {t`The addresses of the sites that may show this link in a frame, each starting with https://. Without one, no site can.`}
+            </p>
+          </div>
           <Button type="submit" className="self-start">
             <Link2 className="h-4 w-4" aria-hidden />
             {t`Create a link`}
@@ -135,6 +166,23 @@ export function ShareDialog({
             </Button>
           </div>
         ) : null}
+        {link && embedded ? (
+          <div className="mt-2 flex items-center gap-2 rounded-md border border-border p-2">
+            <code className="min-w-0 flex-1 truncate text-xs">
+              {embedCode(link, view.name)}
+            </code>
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() =>
+                copy(embedCode(link, view.name), t`Embed code copied`)
+              }
+            >
+              <Copy className="h-3.5 w-3.5" aria-hidden />
+              {t`Copy the embed code`}
+            </Button>
+          </div>
+        ) : null}
         <p className="mt-4 text-xs text-muted-foreground">
           {t`The link is shown only once. Existing links:`}
         </p>
@@ -147,11 +195,18 @@ export function ShareDialog({
                   aria-label={t`Password protected`}
                 />
               ) : null}
-              <span className="min-w-0 flex-1 truncate">
-                {t`Created by ${{ name: share.createdBy }} on ${{ date: share.createdAt.slice(0, 10) }}`}
-                {share.expiresAt
-                  ? ` · ${t`expires on ${{ date: share.expiresAt.slice(0, 10) }}`}`
-                  : ""}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">
+                  {t`Created by ${{ name: share.createdBy }} on ${{ date: share.createdAt.slice(0, 10) }}`}
+                  {share.expiresAt
+                    ? ` · ${t`expires on ${{ date: share.expiresAt.slice(0, 10) }}`}`
+                    : ""}
+                </span>
+                {share.embedOrigins.length > 0 ? (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {t`Embedded in ${{ sites: share.embedOrigins.join(", ") }}`}
+                  </span>
+                ) : null}
               </span>
               {share.revoked ? (
                 <span className="text-xs text-muted-foreground">
