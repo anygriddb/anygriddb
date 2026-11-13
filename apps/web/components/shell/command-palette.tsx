@@ -11,6 +11,7 @@ import {
 import {
   Database,
   LayoutDashboard,
+  Monitor,
   Moon,
   Settings,
   Sun,
@@ -179,6 +180,16 @@ export function CommandPalette() {
               >
                 <Sun className="h-4 w-4 opacity-70" aria-hidden />
                 {t`Light theme`}
+              </CommandItem>
+              <CommandItem
+                value="theme system système"
+                onSelect={() => {
+                  setTheme("system");
+                  setOpen(false);
+                }}
+              >
+                <Monitor className="h-4 w-4 opacity-70" aria-hidden />
+                {t`System theme`}
               </CommandItem>
             </CommandGroup>
             {adminSections.length > 0 ? (

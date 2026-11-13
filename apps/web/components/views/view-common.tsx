@@ -8,11 +8,13 @@ import {
   PopoverTrigger,
   Select,
 } from "@anygriddb/ui";
-import { LayoutList } from "lucide-react";
+import { LayoutList, Plus } from "lucide-react";
+import type { ReactNode } from "react";
 import { cellDisplay } from "../../lib/format";
 import type { RowPlace } from "../../lib/row-place";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { CellValueView } from "../fields/cell-value";
+import { EmptyState } from "../shell/notebook-page";
 import { useTable } from "../table/table-context";
 import type { ViewPatch } from "../table/view-toolbar";
 import type { Groups } from "../grid/use-rows";
@@ -50,7 +52,43 @@ export type ViewProps = {
     place: RowPlace,
     back: RowPlace | null,
   ) => Promise<void>;
+  /**
+   * Opens the field editor to add a field this view needs. Unset when the
+   * person cannot change the table's schema.
+   */
+  onOpenFieldEditor?: () => void;
 };
+
+/**
+ * What a view says when it still needs a field: the reason, and a way to
+ * add one when the person may.
+ */
+export function ViewSetupPrompt({
+  title,
+  description,
+  onAddField,
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  onAddField?: () => void;
+}) {
+  const { t } = useLingui();
+  return (
+    <EmptyState
+      className="m-6 border-b-0 py-6"
+      title={title}
+      description={description}
+      action={
+        onAddField ? (
+          <Button onClick={onAddField}>
+            <Plus className="h-4 w-4" aria-hidden />
+            {t`Add a field`}
+          </Button>
+        ) : undefined
+      }
+    />
+  );
+}
 
 /** Title text for a card/row: `titleColumn` when set, else the primary field. */
 export function useRowTitle(titleColumn?: string) {

@@ -8,7 +8,12 @@ import { useEffect } from "react";
 import { formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import { MAP_CEILING, mapNotice, placeColumns } from "./map-places";
-import { ColumnPicker, useRowTitle, type ViewProps } from "./view-common";
+import {
+  ColumnPicker,
+  useRowTitle,
+  ViewSetupPrompt,
+  type ViewProps,
+} from "./view-common";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 
@@ -50,9 +55,10 @@ export function MapView(props: ViewProps) {
   // the calendar do, rather than an empty sheet.
   if (notice === "add-fields") {
     return (
-      <p className="p-6 text-sm text-muted-foreground">
-        {t`Add two number fields, a latitude and a longitude, to place rows on the map.`}
-      </p>
+      <ViewSetupPrompt
+        title={t`Add two number fields, a latitude and a longitude, to place rows on the map.`}
+        onAddField={props.onOpenFieldEditor}
+      />
     );
   }
   return (

@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { attachmentList, cellDisplay } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
+import { useNarrowScreen } from "../../lib/narrow-screen";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import {
@@ -617,6 +618,7 @@ export function RecordPanel({
   }, [printing]);
   const [tab, setTab] = useState<"comments" | "history">("comments");
   const [showHidden, setShowHidden] = useState(false);
+  const narrow = useNarrowScreen();
   if (!row) return null;
   const primary = table.table.columns.find((column) => column.isPrimary);
   const title = primary
@@ -646,9 +648,14 @@ export function RecordPanel({
   const editableField = (column: CatalogColumn) =>
     editable ||
     (external && canWrite(table.role) && unlocked && isEditableLink(column));
-  return (
+  const panel = (
     <aside
-      className="flex w-[26rem] max-w-full shrink-0 flex-col border-l border-border bg-card"
+      className={cn(
+        "flex flex-col bg-card",
+        narrow
+          ? "fixed inset-0 z-40"
+          : "w-[26rem] max-w-full shrink-0 border-l border-border",
+      )}
       aria-label={t`Row details`}
       onKeyDown={(event) => {
         if (event.key === "Escape") onClose();
@@ -872,5 +879,17 @@ export function RecordPanel({
           )
         : null}
     </aside>
+  );
+  if (!narrow) return panel;
+  return (
+    <>
+      <button
+        type="button"
+        className="fixed inset-0 z-30 bg-foreground/30"
+        aria-label={t`Close`}
+        onClick={onClose}
+      />
+      {panel}
+    </>
   );
 }
