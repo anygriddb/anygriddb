@@ -77,3 +77,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0062](0062-files-on-public-forms.md)                | Files on public forms: kept for the link, claimed by its answer                         | Accepted                                    |
 | [0063](0063-the-row-id-as-a-field.md)                | The row's id as a field                                                                 | Accepted                                    |
 | [0064](0064-imports-read-as-they-are-written.md)     | Imports read as they are written                                                        | Accepted                                    |
+| [0065](0065-table-copies-in-sql.md)                  | Table copies in SQL                                                                     | Accepted                                    |
