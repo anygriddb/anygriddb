@@ -3,6 +3,7 @@ import {
   AppError,
   instanceSettingsPatchSchema,
   JOB_STATUSES,
+  PEOPLE_FILE_MAX_BYTES,
   ROLES,
   sourceInputSchema,
   sourceUpdateSchema,
@@ -32,6 +33,12 @@ import {
   unlinkSignOn,
   withdrawInvitation,
 } from "../admin-control.js";
+import {
+  addPeople,
+  bulkDisableInputSchema,
+  disableAccounts,
+  previewPeople,
+} from "../accounts-bulk.js";
 import { operatorFixedFromEnv } from "../operator-fixed.js";
 import { assertEnrolled } from "../auth/access.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
@@ -200,6 +207,16 @@ import { revokeApiToken } from "../auth/tokens.js";
 import { setAutomationEnabled } from "../automations.js";
 import { updateWebhook } from "../webhooks.js";
 import { procedure, requestNames, requireUser, t } from "./init.js";
+
+/** A gesture that mails people is refused before it starts without mail. */
+async function requireMail(ctx: Context): Promise<void> {
+  const { config } = await resolveSmtp(ctx.db, ctx.env);
+  if (!smtpReady(config)) throw new AppError("smtp_not_configured");
+}
+
+const peopleFileInputSchema = z
+  .object({ file: z.string().min(1).max(PEOPLE_FILE_MAX_BYTES) })
+  .strict();
 
 /**
  * Administration needs an admin's own session, API tokens refused, and a
@@ -971,6 +988,62 @@ export const adminRouter = t.router({
         return { ok: true as const };
       }),
     ),
+  /**
+   * Several accounts disabled together (ROADMAP #36), each as one is:
+   * sessions ended, tokens stopped, the sign-in trail told.
+   */
+  disableAccounts: procedure
+    .input(bulkDisableInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const result = await disableAccounts(ctx.db, admin.id, input.userIds);
+        for (const userId of result.disabled) ctx.hub.closeUser(userId);
+        ctx.req.log.info(
+          {
+            actor: admin.id,
+            disabled: result.disabled.length,
+            refused: result.refused.length,
+          },
+          "accounts disabled together",
+        );
+        return {
+          disabled: result.disabled.length,
+          refused: result.refused.length,
+        };
+      }),
+    ),
+  /**
+   * The people of a file (ROADMAP #36). `preview` writes nothing; `add`
+   * reads the file again and adds the lines in order, never as
+   * administrators. Each person's first link goes by mail, so both ask
+   * for email to be set up: there is nobody to hand two hundred links to.
+   */
+  people: t.router({
+    preview: procedure.input(peopleFileInputSchema).mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        await requireMail(ctx);
+        return previewPeople(ctx.db, input.file);
+      }),
+    ),
+    add: procedure.input(peopleFileInputSchema).mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await requireMail(ctx);
+        const result = await addPeople(ctx.db, admin, input.file);
+        ctx.req.log.info(
+          {
+            actor: admin.id,
+            added: result.added,
+            refused: result.refused.length,
+          },
+          "people added from a file",
+        );
+        return result;
+      }),
+    ),
+  }),
   /**
    * What the erase dialog needs: whether the account may be erased, and
    * which live bases still name it as their only owner (ADR 0051).

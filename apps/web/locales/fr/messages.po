@@ -320,6 +320,10 @@ msgstr "{actor} vous a mentionné dans {table}"
 msgid "{actor} replied to your comment in {table}"
 msgstr "{actor} a répondu à votre commentaire dans {table}"
 
+#: components/admin/people-file-dialog.tsx
+msgid "{added, plural, one {# person added. Their link is on its way by email.} other {# people added. Their links are on their way by email.}}"
+msgstr "{added, plural, one {# personne ajoutée. Son lien part par email.} other {# personnes ajoutées. Leurs liens partent par email.}}"
+
 #: components/admin/admin-overview.tsx
 msgid "{alertCount, plural, one {alert is open} other {alerts are open}}"
 msgstr "{alertCount, plural, one {alerte ouverte} other {alertes ouvertes}}"
@@ -327,6 +331,18 @@ msgstr "{alertCount, plural, one {alerte ouverte} other {alertes ouvertes}}"
 #: components/admin/base-choices.tsx
 msgid "{base}, owned by {owners}"
 msgstr "{base}, appartenant à {owners}"
+
+#: components/admin/people-file-dialog.tsx
+msgid "{base}: {role}"
+msgstr "{base} : {role}"
+
+#: components/admin/accounts-tab.tsx
+msgid "{chosenCount, plural, one {Disable # account?} other {Disable # accounts?}}"
+msgstr "{chosenCount, plural, one {Désactiver # compte ?} other {Désactiver # comptes ?}}"
+
+#: components/admin/accounts-tab.tsx
+msgid "{chosenCount, plural, one {Disable # account} other {Disable # accounts}}"
+msgstr "{chosenCount, plural, one {Désactiver # compte} other {Désactiver # comptes}}"
 
 #: components/admin/emergency-section.tsx
 msgid "{count, plural, one {# API token revoked} other {# API tokens revoked}}"
@@ -429,6 +445,14 @@ msgstr "{count} lignes visibles"
 #: components/settings/account-settings.tsx
 msgid "{days} days"
 msgstr "{days} jours"
+
+#: components/admin/accounts-tab.tsx
+msgid "{disabled, plural, one {# account disabled} other {# accounts disabled}}"
+msgstr "{disabled, plural, one {# compte désactivé} other {# comptes désactivés}}"
+
+#: components/admin/accounts-tab.tsx
+msgid "{disabled} disabled; {refused} could not be: read the list again."
+msgstr "{disabled} désactivés ; {refused} n’ont pas pu l’être : relisez la liste."
 
 #: components/admin/sources-tab.tsx
 msgid "{engine} (soon)"
@@ -535,6 +559,10 @@ msgstr "Réglages de {name}"
 msgid "{name}: {message}"
 msgstr "{name} : {message}"
 
+#: components/admin/people-file-dialog.tsx
+msgid "{name}: {ready} of {total} lines in order."
+msgstr "{name} : {ready} lignes en ordre sur {total}."
+
 #: components/shell/notification-items.ts
 msgid "{name}'s account locked after failed sign-ins"
 msgstr "Compte de {name} verrouillé après des connexions manquées"
@@ -550,6 +578,10 @@ msgstr "{pending, plural, one {invitation en attente} other {invitations en atte
 #: components/fields/attachment-preview.tsx
 msgid "{position} of {total}"
 msgstr "{position} sur {total}"
+
+#: components/admin/people-file-dialog.tsx
+msgid "{ready, plural, one {Add # person} other {Add # people}}"
+msgstr "{ready, plural, one {Ajouter # personne} other {Ajouter # personnes}}"
 
 #: components/admin/account-bases.tsx
 msgid "{role}, through the group {group}"
@@ -1197,9 +1229,21 @@ msgstr "Ajouter des bases"
 msgid "Add every row"
 msgstr "Ajouter toutes les lignes"
 
+#: components/admin/accounts-tab.tsx
+msgid "Add from a file"
+msgstr "Ajouter depuis un fichier"
+
 #: components/table/import-dialog.tsx
 msgid "Add missing select options"
 msgstr "Ajouter les options de choix manquantes"
+
+#: components/admin/people-file-dialog.tsx
+msgid "Add people"
+msgstr "Ajouter des personnes"
+
+#: components/admin/people-file-dialog.tsx
+msgid "Add people from a file"
+msgstr "Ajouter des personnes depuis un fichier"
 
 #: components/admin/sources-tab.tsx
 msgid "Add rows"
@@ -1790,6 +1834,7 @@ msgstr "Base introuvable"
 #: components/admin/accounts-tab.tsx
 #: components/admin/admin-sections.ts
 #: components/admin/base-admin-page.tsx
+#: components/admin/people-file-dialog.tsx
 #: components/shell/command-palette.tsx
 #: components/shell/home-page.tsx
 #: components/shell/sidebar.tsx
@@ -1803,6 +1848,10 @@ msgstr "Les bases déjà créées restent à leurs propriétaires."
 #: components/admin/account-bases.tsx
 msgid "Bases and roles"
 msgstr "Bases et rôles"
+
+#: components/admin/people-file-dialog.tsx
+msgid "Bases are written \"Base name:role\", with a role among owner, editor, commenter, viewer, each base once"
+msgstr "Les bases s’écrivent « Nom de la base:rôle », le rôle étant propriétaire, éditeur, commentateur ou lecteur, chaque base une seule fois"
 
 #: components/admin/account-bases.tsx
 #: components/admin/accounts-tab.tsx
@@ -1902,6 +1951,7 @@ msgstr "Appeler une URL"
 #: components/admin/base-admin-members.tsx
 #: components/admin/group-page.tsx
 #: components/admin/groups-tab.tsx
+#: components/admin/people-file-dialog.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/step-up.tsx
 #: components/admin/support-tab.tsx
@@ -2068,6 +2118,7 @@ msgstr "Choix et personnes"
 msgid "Choose a column"
 msgstr "Choisir une colonne"
 
+#: components/admin/people-file-dialog.tsx
 #: components/shell/new-base-dialog.tsx
 msgid "Choose a file"
 msgstr "Choisir un fichier"
@@ -2076,6 +2127,7 @@ msgstr "Choisir un fichier"
 msgid "Choose a new password"
 msgstr "Choisir un nouveau mot de passe"
 
+#: components/admin/people-file-dialog.tsx
 #: components/table/import-dialog.tsx
 msgid "Choose another file"
 msgstr "Changer de fichier"
@@ -2924,6 +2976,7 @@ msgid "Destination of {name}"
 msgstr "Destination de {name}"
 
 #: components/admin/account-actions.tsx
+#: components/admin/accounts-tab.tsx
 msgid "Disable"
 msgstr "Désactiver"
 
@@ -2996,6 +3049,10 @@ msgstr "Terminé"
 #: components/shell/jobs-menu.tsx
 msgid "Download"
 msgstr "Télécharger"
+
+#: components/admin/people-file-dialog.tsx
+msgid "Download a sample"
+msgstr "Télécharger un exemple"
 
 #: components/admin/health-tab.tsx
 msgid "Download the authority"
@@ -3166,6 +3223,10 @@ msgstr "Email et authentification unique pour cette instance. Vous pouvez laisse
 #: lib/errors.ts
 msgid "Email is not set up on this instance"
 msgstr "L’envoi d’emails n’est pas configuré sur cette instance"
+
+#: components/admin/people-file-dialog.tsx
+msgid "Email is not set up, and each person gets their link by email: set it up under Connections first."
+msgstr "L’envoi d’emails n’est pas configuré, et chaque personne reçoit son lien par email : configurez-le d’abord dans Connexions externes."
 
 #: components/admin/account-actions.tsx
 msgid "Email is not set up, so pass this link on yourself, to this person only: it lets whoever has it choose the account's password, once."
@@ -3655,6 +3716,10 @@ msgstr "Colonne du fichier"
 #: components/shell/jobs-menu.tsx
 msgid "File expired"
 msgstr "Fichier expiré"
+
+#: components/admin/people-file-dialog.tsx
+msgid "File line"
+msgstr "Ligne"
 
 #: components/shell/new-base-dialog.tsx
 msgid "File ready: {summary}. You can change the name above."
@@ -4210,6 +4275,10 @@ msgstr "En cas d’urgence"
 #: components/table/filter-builder.tsx
 msgid "in N days"
 msgstr "dans N jours"
+
+#: components/admin/people-file-dialog.tsx
+msgid "In order"
+msgstr "En ordre"
 
 #: components/shell/jobs-menu.tsx
 #: components/shell/new-table-dialog.tsx
@@ -5206,6 +5275,10 @@ msgstr "Mois"
 msgid "More actions"
 msgstr "Plus d’actions"
 
+#: components/admin/people-file-dialog.tsx
+msgid "More than 20 bases for one person"
+msgstr "Plus de 20 bases pour une personne"
+
 #: components/table/table-workspace.tsx
 msgid "Move"
 msgstr "Déplacement"
@@ -5559,6 +5632,10 @@ msgstr "Aucune base de ce nom"
 msgid "No base gives this group a role yet."
 msgstr "Aucune base ne donne encore de rôle à ce groupe."
 
+#: components/admin/people-file-dialog.tsx
+msgid "No base is named {base}"
+msgstr "Aucune base ne s’appelle {base}"
+
 #: components/admin/bases-tab.tsx
 msgid "No base matches."
 msgstr "Aucune base ne correspond."
@@ -5803,6 +5880,10 @@ msgstr "Aucun : l’adresse d’une requête est celle de son client"
 msgid "Not administrators"
 msgstr "Non administrateurs"
 
+#: components/admin/people-file-dialog.tsx
+msgid "Not an email address"
+msgstr "Ce n’est pas une adresse email"
+
 #: components/admin/health-tab.tsx
 msgid "Not checked yet"
 msgstr "Pas encore vérifié"
@@ -5959,6 +6040,10 @@ msgstr "Sur ce téléphone ? Ouvrez-le dans votre application d’authentificat
 #: components/fields/field-meta.tsx
 msgid "One line of text"
 msgstr "Une ligne de texte"
+
+#: components/admin/people-file-dialog.tsx
+msgid "One line per person, at most {PEOPLE_FILE_MAX}. Each gets a link by email to choose their password, valid a week. Nobody becomes an administrator this way."
+msgstr "Une ligne par personne, {PEOPLE_FILE_MAX} au plus. Chacune reçoit par email un lien pour choisir son mot de passe, valable une semaine. Personne ne devient administrateur de cette façon."
 
 #: components/fields/field-meta.tsx
 msgid "One option from a list"
@@ -6332,6 +6417,7 @@ msgstr "Supprimer définitivement votre compte ?"
 msgid "Permissions saved"
 msgstr "Droits enregistrés"
 
+#: components/admin/people-file-dialog.tsx
 #: components/admin/support-tab.tsx
 msgid "Person"
 msgstr "Personne"
@@ -7043,6 +7129,10 @@ msgstr "Rôle retiré"
 msgid "Role: {role}"
 msgstr "Rôle : {role}"
 
+#: components/admin/people-file-dialog.tsx
+msgid "Roles are limited to the instance's domains, and this address is outside them"
+msgstr "Les rôles sont réservés aux domaines de l’instance, et cette adresse n’en fait pas partie"
+
 #: components/admin/group-page.tsx
 msgid "Roles on bases"
 msgstr "Rôles sur les bases"
@@ -7376,9 +7466,17 @@ msgstr "Voir qui ils sont"
 msgid "Select {count} loaded rows"
 msgstr "Sélectionner les {count} lignes chargées"
 
+#: components/admin/accounts-tab.tsx
+msgid "Select {name}"
+msgstr "Sélectionner {name}"
+
 #: components/shell/shortcuts-dialog.tsx
 msgid "Select all"
 msgstr "Tout sélectionner"
+
+#: components/admin/accounts-tab.tsx
+msgid "Select every account of this page"
+msgstr "Sélectionner tous les comptes de cette page"
 
 #: components/grid/grid-header.tsx
 msgid "Select loaded rows"
@@ -7545,6 +7643,10 @@ msgstr "Réglages enregistrés"
 #: components/settings/second-factor.tsx
 msgid "Setup key"
 msgstr "Clé de configuration"
+
+#: components/admin/people-file-dialog.tsx
+msgid "Several bases are named {base}: write the id from its address instead"
+msgstr "Plusieurs bases s’appellent {base} : écrivez plutôt l’identifiant qui figure dans son adresse"
 
 #: components/fields/field-meta.tsx
 msgid "Several options from a list"
@@ -7955,6 +8057,7 @@ msgstr "État"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
+#: components/admin/people-file-dialog.tsx
 #: components/admin/support-tab.tsx
 #: components/shell/new-table-dialog.tsx
 msgid "Status"
@@ -8424,9 +8527,17 @@ msgstr "Les {shown} premiers lieux sur {total}"
 msgid "The first characters."
 msgstr "Les premiers caractères."
 
+#: components/admin/people-file-dialog.tsx
+msgid "The first line names the columns: email, name, and bases to give roles from the start, written \"Base name:role; Other base:role\" (owner, editor, commenter, viewer)."
+msgstr "La première ligne nomme les colonnes : email, nom, et bases pour donner des rôles dès le départ, écrites « Nom de la base:rôle; Autre base:rôle » (propriétaire, éditeur, commentateur, lecteur)."
+
 #: components/table/import-dialog.tsx
 msgid "The first line names the columns."
 msgstr "La première ligne donne les noms de colonnes."
+
+#: lib/errors.ts
+msgid "The first line of the file must name the columns email and name"
+msgstr "La première ligne du fichier doit nommer les colonnes email et nom"
 
 #: components/table/color-rules-editor.tsx
 msgid "The first matching rule colours the row."
@@ -8551,6 +8662,10 @@ msgstr "Les minutes."
 #: components/fields/formula-docs.ts
 msgid "The month, from 1 to 12."
 msgstr "Le mois, de 1 à 12."
+
+#: components/admin/people-file-dialog.tsx
+msgid "The name is missing, or holds a sign a name cannot"
+msgstr "Le nom manque, ou contient un signe qu’un nom ne peut pas porter"
 
 #: components/admin/account-actions.tsx
 msgid "The name others see and the address they sign in with. A new address ends the reset links sent to the old one."
@@ -8858,6 +8973,10 @@ msgid "Then:"
 msgstr "Alors :"
 
 #: components/admin/accounts-tab.tsx
+msgid "They are signed out at once and their API tokens stop working, until each is enabled again from its row. Nothing they made is deleted."
+msgstr "Ils sont déconnectés aussitôt et leurs jetons d’API ne fonctionnent plus, jusqu’à ce que chacun soit réactivé depuis sa ligne. Rien de ce qu’ils ont fait n’est supprimé."
+
+#: components/admin/accounts-tab.tsx
 msgid "They get a link by email to choose their password, valid a week."
 msgstr "La personne reçoit par email un lien pour choisir son mot de passe, valable une semaine."
 
@@ -8902,6 +9021,14 @@ msgstr "Ce compte se connecte par l’authentification de votre organisation : 
 #: lib/errors.ts
 msgid "This action is not available on a client's table yet"
 msgstr "Cette action n’est pas encore possible sur la table d’un client"
+
+#: components/admin/people-file-dialog.tsx
+msgid "This address already has an account"
+msgstr "Cette adresse a déjà un compte"
+
+#: components/admin/people-file-dialog.tsx
+msgid "This address is in the file twice"
+msgstr "Cette adresse figure deux fois dans le fichier"
 
 #: components/shell/base-home.tsx
 msgid "This base does not exist or is not shared with you."
@@ -8982,6 +9109,10 @@ msgstr "Ce champ n’accepte aucun nombre négatif"
 #: lib/errors.ts
 msgid "This file has more rows than this instance imports at once: split it first"
 msgstr "Ce fichier a plus de lignes que l’instance n’en importe d’un coup : découpez-le d’abord"
+
+#: lib/errors.ts
+msgid "This file is too long: at most 200 people in one file"
+msgstr "Ce fichier est trop long : 200 personnes au plus par fichier"
 
 #: lib/errors.ts
 msgid "This filter on a field kept in AnyGridDB matches more than 1,000 rows: narrow it"

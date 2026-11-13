@@ -132,6 +132,10 @@ export const ERRORS = {
 
   // Imports, exports, snapshots, jobs, files.
   invalid_csv: [BAD, "Invalid csv"],
+  /** A file of people whose first line does not name `email` and `name`. */
+  people_file_columns: [BAD, "People file columns"],
+  /** A file of people that names more than one file may add. */
+  people_file_too_long: [BAD, "People file too long"],
   invalid_import: [BAD, "Invalid import"],
   invalid_mapping: [BAD, "Invalid mapping"],
   unknown_import: [BAD, "Unknown import"],

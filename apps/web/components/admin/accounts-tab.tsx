@@ -21,6 +21,7 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowDown,
   ArrowUp,
+  FileUp,
   LockKeyhole,
   MoreHorizontal,
   Plus,
@@ -32,6 +33,7 @@ import { useErrorText } from "../../lib/errors";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { Role } from "../../lib/types";
+import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import {
   ACCOUNT_ACTIONS,
@@ -48,6 +50,7 @@ import {
 } from "./accounts-search";
 import { BaseName, useBaseChoices } from "./base-choices";
 import { InvitationsPanel } from "./invitations-panel";
+import { PeopleFileDialog } from "./people-file-dialog";
 import { useStepUp } from "./step-up";
 import { useRoleLabel } from "../settings/role-label";
 
@@ -100,13 +103,57 @@ export function AccountsTab({
   const api = useTRPC();
   const session = useSession();
   const isAdmin = session.data?.isAdmin === true;
+  const errorText = useErrorText();
   const [adding, setAdding] = useState(false);
+  const [fromFile, setFromFile] = useState(false);
   const [text, setText] = useState(search.q ?? "");
   const query = usersQuery(search);
   const list = useQuery({
     ...api.admin.users.queryOptions(query),
     placeholderData: keepPreviousData,
   });
+  // Several accounts ticked, to disable together (ROADMAP #36). Only the
+  // accounts on screen count: a tick does not outlive the page it was on.
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
+  const [disabling, setDisabling] = useState(false);
+  const tickable = (list.data?.users ?? [])
+    .filter((user) => user.id !== session.data?.id && !user.disabledAt)
+    .map((user) => user.id);
+  const chosen = tickable.filter((id) => ticked.has(id));
+  const chosenCount = chosen.length;
+  const tick = (ids: readonly string[], on: boolean) =>
+    setTicked((current) => {
+      const next = new Set(current);
+      for (const id of ids) {
+        if (on) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  async function disableChosen(): Promise<void> {
+    try {
+      const { disabled, refused } = await trpc.admin.disableAccounts.mutate({
+        userIds: chosen,
+      });
+      setTicked(new Set());
+      setDisabling(false);
+      await list.refetch();
+      if (refused > 0) {
+        toast.warning(
+          t`${disabled} disabled; ${refused} could not be: read the list again.`,
+        );
+      } else {
+        toast.success(
+          plural(disabled, {
+            one: "# account disabled",
+            other: "# accounts disabled",
+          }),
+        );
+      }
+    } catch (cause) {
+      toast.error(errorText(cause));
+    }
+  }
   const actions = useAccountActions({ mails: list.data?.smtpReady ?? false });
   const total = list.data?.total ?? 0;
   const offset = query.offset;
@@ -169,10 +216,24 @@ export function AccountsTab({
           {plural(total, { one: "# account", other: "# accounts" })}
         </p>
         {isAdmin ? (
-          <Button onClick={() => setAdding(true)}>
-            <Plus className="h-4 w-4" aria-hidden />
-            {t`Add a person`}
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {chosenCount > 0 ? (
+              <Button variant="danger" onClick={() => setDisabling(true)}>
+                {plural(chosenCount, {
+                  one: "Disable # account",
+                  other: "Disable # accounts",
+                })}
+              </Button>
+            ) : null}
+            <Button variant="outline" onClick={() => setFromFile(true)}>
+              <FileUp className="h-4 w-4" aria-hidden />
+              {t`Add from a file`}
+            </Button>
+            <Button onClick={() => setAdding(true)}>
+              <Plus className="h-4 w-4" aria-hidden />
+              {t`Add a person`}
+            </Button>
+          </div>
         ) : null}
       </div>
       <div className="flex flex-wrap items-end gap-2">
@@ -275,6 +336,18 @@ export function AccountsTab({
           <table className="w-full text-sm">
             <thead className="bg-muted text-left text-xs">
               <tr>
+                {isAdmin ? (
+                  <th className="w-8 py-2 pl-3">
+                    <Checkbox
+                      aria-label={t`Select every account of this page`}
+                      disabled={tickable.length === 0}
+                      checked={
+                        tickable.length > 0 && chosenCount === tickable.length
+                      }
+                      onChange={(event) => tick(tickable, event.target.checked)}
+                    />
+                  </th>
+                ) : null}
                 {header("name", t`Account`)}
                 {header("created", t`Created`)}
                 {header("lastSeen", t`Last sign-in`)}
@@ -292,6 +365,19 @@ export function AccountsTab({
                 const self = user.id === session.data?.id;
                 return (
                   <tr key={user.id} className="border-t border-border">
+                    {isAdmin ? (
+                      <td className="w-8 py-2 pl-3">
+                        {tickable.includes(user.id) ? (
+                          <Checkbox
+                            aria-label={t`Select ${{ name: user.displayName }}`}
+                            checked={ticked.has(user.id)}
+                            onChange={(event) =>
+                              tick([user.id], event.target.checked)
+                            }
+                          />
+                        ) : null}
+                      </td>
+                    ) : null}
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         <Avatar name={user.displayName} />
@@ -399,6 +485,25 @@ export function AccountsTab({
           onAdded={() => void list.refetch()}
         />
       ) : null}
+      {fromFile ? (
+        <PeopleFileDialog
+          mails={list.data?.smtpReady ?? false}
+          onClose={() => setFromFile(false)}
+          onAdded={() => void list.refetch()}
+        />
+      ) : null}
+      <ConfirmDialog
+        open={disabling}
+        onOpenChange={setDisabling}
+        danger
+        title={plural(chosenCount, {
+          one: "Disable # account?",
+          other: "Disable # accounts?",
+        })}
+        description={t`They are signed out at once and their API tokens stop working, until each is enabled again from its row. Nothing they made is deleted.`}
+        confirmLabel={t`Disable`}
+        onConfirm={disableChosen}
+      />
       {actions.dialogs}
     </div>
   );
