@@ -320,7 +320,14 @@ while the stack keeps serving. The folder holds:
 - `database.dump`, from `pg_dump` in custom format;
 - `files_data.tar.gz`, the attachments, imports, and exports;
 - `tls_data.tar.gz`, the instance's authorities, whose keys stay sealed;
+- `rustfs_data.tar.gz`, with `compose.s3.yml`: the object store that
+  runs beside the stack, where the files then are;
 - `SHA256SUMS`.
+
+Files kept in an object store outside the stack (`STORAGE_DRIVER=s3`
+toward a service of your own) are not in the backup, and the script says
+so each time: keep that bucket with its service's own means, versioning
+or replication.
 
 The folder and its files are readable by their owner only. Emails,
 names, and cell values are in them, while secrets sealed with
@@ -384,7 +391,9 @@ hope.
 
 The scripts take `docker compose` options after their arguments
 (`-p name -f compose.yml -f other.yml`) and read `ENV_FILE` instead of
-`docker/.env` when it is set.
+`docker/.env` when it is set. Give both the options the stack runs with:
+a backup made with `-f compose.yml -f compose.s3.yml` is restored with
+them, into a stack that runs the object store.
 
 A base's owner can also save one base, from its settings: a
 `.anygriddb.json` file, or a `.anygriddb.zip` archive with its
