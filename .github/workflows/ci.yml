@@ -58,12 +58,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
-        run: |
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            TURBO_SCM_BASE="origin/${BASE_REF}" pnpm exec turbo run lint typecheck test --affected
-          else
-            pnpm exec turbo run lint typecheck test
-          fi
+        run: scripts/ci-turbo.sh lint typecheck test
 
       - name: Translation catalogs match the sources
         run: pnpm --filter @anygriddb/web i18n:verify
@@ -105,12 +100,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
-        run: |
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            TURBO_SCM_BASE="origin/${BASE_REF}" pnpm exec turbo run test:integration --affected
-          else
-            pnpm exec turbo run test:integration
-          fi
+        run: scripts/ci-turbo.sh test:integration
 
   e2e:
     name: e2e
@@ -149,12 +139,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
-        run: |
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            TURBO_SCM_BASE="origin/${BASE_REF}" pnpm exec turbo run test:e2e --affected
-          else
-            pnpm exec turbo run test:e2e
-          fi
+        run: scripts/ci-turbo.sh test:e2e
 
       - name: Upload Playwright report
         if: failure()

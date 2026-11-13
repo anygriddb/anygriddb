@@ -35,15 +35,27 @@ that broke showed only after the merge.
   commit, and run that built it; operators check it with
   `gh attestation verify` before installing. The push itself uses the
   run's own token, which expires with it: no lasting secret.
+- **What each image holds, listed:** the release carries one SPDX file
+  per architecture (`anygriddb-amd64.spdx.json`,
+  `anygriddb-arm64.spdx.json`), written from the image that was started
+  and scanned: its system and Node.js packages. The libraries compiled
+  into the browser's bundle are not in it.
 - **A rehearsal:** run by hand on a commit of `main`, the workflow does
   everything but log in and publish.
 - **Every pull request builds the image and starts it** (CI's `image`
   job).
+- **A pull request runs every test when it changes a file outside the
+  packages** (`scripts/ci-turbo.sh`). Otherwise it runs only the packages
+  it changes, which Turborepo works out from the packages' own files: a
+  change to the workflows, `scripts/`, or `docker/` belongs to none of
+  them, and ran no test at all.
 
 ## Consequences
 
 - A release takes longer: the wait for `main`'s CI, then two builds in
   parallel, each started and scanned.
+- A pull request that changes the workflows, `scripts/`, or `docker/`
+  takes as long as `main`'s CI.
 - A scan that finds a fixed high or critical flaw in the base image stops
   the release until the base pin moves (Dependabot moves it weekly).
 - `image-pin.env` names the multi-architecture index: the same digest
