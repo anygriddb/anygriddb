@@ -132,6 +132,25 @@ function clearCookie(ctx: Context, name: string): void {
   ctx.res.setCookie(name, "", sessionCookieOptions(new Date(0)));
 }
 
+/**
+ * Why the instance would refuse, now, to make the account a sign-up's link
+ * asks for: what `confirmSignup` checks, said before it is tried.
+ */
+async function signupRefusal(
+  ctx: Context,
+  email: string,
+): Promise<
+  | "password_sign_in_disabled"
+  | "signup_closed"
+  | "signup_domain_not_allowed"
+  | null
+> {
+  const settings = await readSettings(ctx.db);
+  if (settings.ssoOnly) return "password_sign_in_disabled";
+  const decision = await signupDecision(ctx.db, email, ctx.env.ADMIN_EMAILS);
+  return decision.allowed ? null : (decision.refusal ?? "signup_closed");
+}
+
 /** A token acts for its owner. It does not change the account itself. */
 function refuseApiToken(ctx: Context): void {
   if (ctx.tokenScope) throw new AppError("access_denied");
@@ -375,8 +394,11 @@ export const authRouter = t.router({
   instance: procedure.query(async ({ ctx }) => {
     const settings = await readSettings(ctx.db);
     const mailReady = smtpReady((await resolveSmtp(ctx.db, ctx.env)).config);
+    const accounts = await hasAccounts(ctx.db);
     return {
-      signup: settings.signup,
+      // What a sign-up meets: the first account sets the instance up,
+      // whatever the policy says (`signupAllowed`).
+      signup: accounts ? settings.signup : ("open" as const),
       defaultLocale: settings.defaultLocale,
       maintenance: settings.maintenance,
       banner: settings.banner,
@@ -389,7 +411,7 @@ export const authRouter = t.router({
       // mailed to it, or comes from an invitation's link (ADR 0058): with
       // no email, a sign-up of one's own is refused, and the page says so
       // before anything is typed.
-      signupNeedsMail: !mailReady && (await hasAccounts(ctx.db)),
+      signupNeedsMail: !mailReady && accounts,
       publicLinks: settings.publicLinks,
       tokenMaxDays: settings.tokenMaxDays,
       // What delete dialogs tell: how long the trash keeps things.
@@ -468,14 +490,23 @@ export const authRouter = t.router({
       }
       return { status: "verify" as const };
     }),
-  /** Public: whether a sign-up's link still works, and for which address. */
+  /**
+   * Public: whether a sign-up's link still works, and for which address.
+   * The policy holds when the account is made: a link whose sign-up the
+   * instance would now refuse (sign-up closed since, the address's domain
+   * no longer taken, password sign-in off) says why before a password is
+   * asked for nothing. Only the mailbox that got the link reads it.
+   */
   signupLink: procedure
     .input(z.object({ token: z.string().max(100) }))
     .query(async ({ ctx, input }) => {
       const request = await findSignupRequest(ctx.db, input.token);
-      return request
-        ? { valid: true as const, email: request.email }
-        : { valid: false as const };
+      if (!request) return { valid: false as const };
+      return {
+        valid: true as const,
+        email: request.email,
+        refusal: await signupRefusal(ctx, request.email),
+      };
     }),
   /**
    * Public: opens a sign-up's link. The password chosen at sign-up proves

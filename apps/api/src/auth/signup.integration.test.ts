@@ -86,6 +86,13 @@ describe("sign-up", () => {
     const email = `first-${suffix}@example.org`;
     // No email is needed for it, and the page knows.
     expect((await admin.call().auth.instance()).signupNeedsMail).toBe(false);
+    // Whatever the policy says, the first account comes in: the page is
+    // told sign-up is open until it exists.
+    await db
+      .insertInto("instanceSettings")
+      .values({ key: "signup", value: JSON.stringify("closed") })
+      .execute();
+    expect((await admin.call().auth.instance()).signup).toBe("open");
     expect(
       await admin.call().auth.signup({
         email,
@@ -94,6 +101,11 @@ describe("sign-up", () => {
       }),
     ).toEqual({ status: "session" });
     expect((await accountOf(email))?.isAdmin).toBe(true);
+    expect((await admin.call().auth.instance()).signup).toBe("closed");
+    await db
+      .deleteFrom("instanceSettings")
+      .where("key", "=", "signup")
+      .execute();
     await enrollTotp(admin);
   });
 
@@ -136,6 +148,7 @@ describe("sign-up", () => {
     expect(await other.call().auth.signupLink({ token })).toEqual({
       valid: true,
       email,
+      refusal: null,
     });
     expect(
       await errorCode(
@@ -171,6 +184,41 @@ describe("sign-up", () => {
         browser().call().auth.confirmSignup({ token, password: PASSWORD }),
       ),
     ).toBe("invalid_signup_link");
+  });
+
+  it("says at once that a link sign-up has closed since cannot make the account", async () => {
+    mailOn();
+    const email = `closed-since-${suffix}@example.org`;
+    const page = browser();
+    await page
+      .call()
+      .auth.signup({ email, displayName: "Closed", password: PASSWORD });
+    const token = await linkFor(email);
+    await admin.call().admin.updateSettings({ signup: "closed" });
+    try {
+      // The policy holds when the account is made: the link says so before
+      // any password is typed, and the account is still refused.
+      expect(await page.call().auth.signupLink({ token })).toEqual({
+        valid: true,
+        email,
+        refusal: "signup_closed",
+      });
+      expect(
+        await errorCode(
+          page.call().auth.confirmSignup({ token, password: PASSWORD }),
+        ),
+      ).toBe("signup_closed");
+      expect(await accountOf(email)).toBeUndefined();
+    } finally {
+      await admin.call().admin.updateSettings({ signup: "open" });
+    }
+    // Open again, the same link makes the account.
+    expect(await page.call().auth.signupLink({ token })).toMatchObject({
+      refusal: null,
+    });
+    expect(
+      await page.call().auth.confirmSignup({ token, password: PASSWORD }),
+    ).toEqual({ status: "session" });
   });
 
   it("answers the same for an address that has an account, and tells that address", async () => {

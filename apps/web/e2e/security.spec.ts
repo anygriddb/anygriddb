@@ -168,6 +168,44 @@ test("an administrator sets the lock, unlocks an account, and sends a reset link
       "everyone",
     );
 
+    // Sign-up closed: the pages say so before anything is typed, and
+    // nothing offers an account that cannot be made.
+    await openAdmin(page, "Instance");
+    await page.getByLabel("Sign-ups").selectOption("closed");
+    await expect(page.getByText("Settings saved").first()).toBeVisible();
+    const visitor = await (
+      await browser.newContext(from("198.51.100.30"))
+    ).newPage();
+    await visitor.goto("/signup");
+    await expect(
+      visitor.getByText("Sign-up is closed on this instance"),
+    ).toBeVisible();
+    await expect(
+      visitor.getByRole("button", { name: "Create account" }),
+    ).toHaveCount(0);
+    expect(await accessibilityViolations(visitor)).toEqual([]);
+    await visitor.goto("/login");
+    await expect(
+      visitor.getByRole("button", { name: "Sign in", exact: true }),
+    ).toBeVisible();
+    await expect(
+      visitor.getByRole("link", { name: "No account yet? Create one" }),
+    ).toHaveCount(0);
+    await page.getByLabel("Sign-ups").selectOption("open");
+    await expect(page.getByLabel("Sign-ups")).toHaveValue("open");
+    await visitor.reload();
+    await expect(
+      visitor.getByRole("link", { name: "No account yet? Create one" }),
+    ).toBeVisible();
+
+    // A page asked for signed out is the one opened once signed in.
+    await visitor.goto("/settings?from=mail");
+    await visitor.waitForURL(/\/login\?next=%2Fsettings%3Ffrom%3Dmail$/);
+    await visitor.getByLabel("Email").fill(memberEmail);
+    await visitor.getByLabel("Password").fill("another-long-passphrase");
+    await visitor.getByRole("button", { name: "Sign in", exact: true }).click();
+    await visitor.waitForURL(/\/settings\?from=mail$/);
+
     // The trail keeps the lock, the unlock, the link, and the reset.
     await openAdmin(page, "Trails", "Sign-ins");
     const theirs = page.getByRole("row", { name: new RegExp(name) });

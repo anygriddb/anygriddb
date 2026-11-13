@@ -1,4 +1,4 @@
-import { Button, Input, Label } from "@anygriddb/ui";
+import { Button, Input, Label, Spinner } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -25,8 +25,46 @@ export function safeNext(value: string | undefined): string {
   ) {
     return "/";
   }
-  const path = value.split(/[?#]/, 1)[0];
-  return path === "/login" || path === "/signup" ? "/" : value;
+  const path = value.split(/[?#]/, 1)[0] ?? "";
+  return onSignIn(path) ? "/" : value;
+}
+
+/** Whether a path is a sign-in page, where `next` never points. */
+export function onSignIn(pathname: string): boolean {
+  return pathname === "/login" || pathname === "/signup";
+}
+
+type SignupPolicy = "open" | "invite" | "closed";
+
+/**
+ * What the sign-up page shows. Nothing until the instance's policy is
+ * read, so that no form appears and then goes; a closed instance, or one
+ * whose accounts come from single sign-on, a notice and no form, since
+ * nothing typed in it could succeed (an invitation does not open a closed
+ * instance); without email, the notice that says so.
+ */
+export function signupView(input: {
+  policy: SignupPolicy | undefined;
+  ssoOnly: boolean;
+  needsMail: boolean;
+}): "wait" | "closed" | "sso-only" | "needs-mail" | "form" {
+  if (input.policy === undefined) return "wait";
+  if (input.ssoOnly) return "sso-only";
+  if (input.policy === "closed") return "closed";
+  return input.needsMail ? "needs-mail" : "form";
+}
+
+/**
+ * Whether the sign-in page offers to create an account: only once the
+ * policy is read, and only where a sign-up can succeed.
+ */
+export function offersSignup(input: {
+  policy: SignupPolicy | undefined;
+  ssoOnly: boolean;
+}): boolean {
+  return (
+    input.policy !== undefined && input.policy !== "closed" && !input.ssoOnly
+  );
 }
 
 /**
@@ -70,7 +108,10 @@ export function AuthPage({
   const session = useSession();
   const providers = useQuery(api.session.providers.queryOptions());
   const instance = useQuery(api.auth.instance.queryOptions());
-  const policy = instance.data?.signup ?? "open";
+  // Unread, the policy is unknown; if it cannot be read, the forms show
+  // and the server decides, as before.
+  const policy =
+    instance.data?.signup ?? (instance.isError ? "open" : undefined);
   const ssoOnly = instance.data?.ssoOnly === true;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -88,8 +129,15 @@ export function AuthPage({
   const [awaiting, setAwaiting] = useState("");
   const finishing = useRef(false);
   const minLength = instance.data?.passwordMinLength ?? 12;
-  const needsMail =
-    mode === "signup" && signupNeedsMail(instance.data?.signupNeedsMail, next);
+  // The sign-in form never waits on the policy; the sign-up form does.
+  const view =
+    mode === "signup"
+      ? signupView({
+          policy,
+          ssoOnly,
+          needsMail: signupNeedsMail(instance.data?.signupNeedsMail, next),
+        })
+      : "form";
 
   // The second step a single sign-on left to do (ADR 0043).
   useEffect(() => {
@@ -327,12 +375,18 @@ export function AuthPage({
               ) : null}
             </p>
           ) : null}
-          {needsMail ? (
+          {view === "wait" ? (
+            <Spinner />
+          ) : view !== "form" ? (
             <p
               role="status"
               className="rounded-md border border-warning/40 bg-warning-surface p-2 text-sm"
             >
-              {t`This instance sends no email, so it cannot confirm a new address. Open the invitation link you were sent, or ask an administrator to add you.`}
+              {view === "closed"
+                ? t`Sign-up is closed on this instance. Ask an administrator for access.`
+                : view === "sso-only"
+                  ? t`Accounts on this instance come from your organization's sign-in: use it to get in.`
+                  : t`This instance sends no email, so it cannot confirm a new address. Open the invitation link you were sent, or ask an administrator to add you.`}
             </p>
           ) : (
             <>
@@ -391,11 +445,9 @@ export function AuthPage({
                   {t`Forgot your password?`}
                 </button>
               ) : null}
-              {mode === "signup" && policy !== "open" ? (
+              {mode === "signup" && policy === "invite" ? (
                 <p className="rounded-md border border-warning/40 bg-warning-surface p-2 text-xs">
-                  {policy === "invite"
-                    ? t`Sign-up is by invitation: use the address that received it.`
-                    : t`Sign-up is closed on this instance. Ask an administrator for access.`}
+                  {t`Sign-up is by invitation: use the address that received it.`}
                 </p>
               ) : null}
               <Button type="submit" disabled={busy}>
@@ -415,7 +467,7 @@ export function AuthPage({
           ) : null}
           <p className="text-center text-sm text-muted-foreground">
             {mode === "login" &&
-            (policy === "closed" || ssoOnly) ? null : mode === "login" ? (
+            !offersSignup({ policy, ssoOnly }) ? null : mode === "login" ? (
               <Link
                 className="text-primary hover:underline"
                 to="/signup"

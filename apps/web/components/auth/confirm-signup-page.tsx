@@ -11,7 +11,8 @@ import { AuthFrame } from "./auth-frame";
 /**
  * Opening the link a sign-up mailed (ADR 0058). The address is proved by
  * the link, the person by the password chosen at sign-up: the account is
- * made then, and the person signed in.
+ * made then, and the person signed in. A link the instance's policy now
+ * refuses says so at once.
  */
 export function ConfirmSignupPage({ token }: { token: string }) {
   const { t } = useLingui();
@@ -38,6 +39,21 @@ export function ConfirmSignupPage({ token }: { token: string }) {
         <div className="flex flex-col gap-3">
           <p role="alert" className="text-sm">
             {t`This link no longer works: it was used, it expired, or the account exists already. Sign in, or sign up again.`}
+          </p>
+          <Link className="text-sm text-primary hover:underline" to="/login">
+            {t`Back to sign-in`}
+          </Link>
+        </div>
+      ) : link.data?.valid && link.data.refusal ? (
+        // The policy holds when the account is made: the link says why it
+        // would now be refused before a password is asked for nothing.
+        <div className="flex flex-col gap-3">
+          <p role="alert" className="text-sm">
+            {link.data.refusal === "signup_closed"
+              ? t`Sign-up has closed on this instance since you asked, so this link can no longer create your account. An administrator can create it for you.`
+              : link.data.refusal === "signup_domain_not_allowed"
+                ? t`This instance now takes sign-ups only from its organization's addresses, so this link can no longer create your account. An administrator can create it for you.`
+                : t`Accounts on this instance now come from your organization's sign-in, so this link can no longer create one. Sign in with it.`}
           </p>
           <Link className="text-sm text-primary hover:underline" to="/login">
             {t`Back to sign-in`}

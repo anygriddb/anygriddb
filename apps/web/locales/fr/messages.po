@@ -892,6 +892,14 @@ msgstr "Comptes"
 msgid "Accounts and access"
 msgstr "Comptes et accès"
 
+#: components/auth/auth-page.tsx
+msgid "Accounts on this instance come from your organization's sign-in: use it to get in."
+msgstr "Sur cette instance, les comptes viennent de l’authentification de votre organisation : utilisez-la pour entrer."
+
+#: components/auth/confirm-signup-page.tsx
+msgid "Accounts on this instance now come from your organization's sign-in, so this link can no longer create one. Sign in with it."
+msgstr "Sur cette instance, les comptes viennent désormais de l’authentification de votre organisation : ce lien ne peut plus en créer. Connectez-vous avec elle."
+
 #: components/admin/health-tab.tsx
 msgid "Accounts, bases, tables"
 msgstr "Comptes, bases, tables"
@@ -7127,6 +7135,10 @@ msgstr "Inscription"
 msgid "Sign-up domains"
 msgstr "Domaines autorisés à l’inscription"
 
+#: components/auth/confirm-signup-page.tsx
+msgid "Sign-up has closed on this instance since you asked, so this link can no longer create your account. An administrator can create it for you."
+msgstr "Les inscriptions ont été fermées sur cette instance depuis votre demande : ce lien ne peut plus créer votre compte. Un administrateur peut le créer pour vous."
+
 #: components/auth/auth-page.tsx
 msgid "Sign-up is by invitation: use the address that received it."
 msgstr "Les inscriptions se font sur invitation : utilisez l’adresse qui a reçu l’invitation."
@@ -8283,6 +8295,10 @@ msgstr "Cet hôte n’est pas autorisé : l’opérateur l’ajoute à ANYGRIDD
 #: components/admin/health-tab.tsx
 msgid "This instance is up to date"
 msgstr "Cette instance est à jour"
+
+#: components/auth/confirm-signup-page.tsx
+msgid "This instance now takes sign-ups only from its organization's addresses, so this link can no longer create your account. An administrator can create it for you."
+msgstr "Cette instance n’accepte plus que les inscriptions des adresses de son organisation : ce lien ne peut plus créer votre compte. Un administrateur peut le créer pour vous."
 
 #: components/auth/auth-page.tsx
 msgid "This instance sends no email, so it cannot confirm a new address. Open the invitation link you were sent, or ask an administrator to add you."
