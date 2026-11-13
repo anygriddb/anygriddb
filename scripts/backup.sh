@@ -3,6 +3,11 @@
 # files, and the instance's TLS authority, in one dated folder with their
 # SHA-256 sums. The stack keeps serving while it runs.
 #
+# The files are where the stack keeps them: its `files` volume, or the
+# volume of the object store that runs beside it (compose.s3.yml). An
+# object store elsewhere is not this stack's to back up: the script says
+# so, and that service's own means keep its bucket.
+#
 #   scripts/backup.sh                       # the stack in docker/, project "anygriddb"
 #   scripts/backup.sh -p name -f docker/compose.yml
 #
@@ -63,8 +68,18 @@ args=("$@")
 if [ ${#args[@]} -eq 0 ]; then args=(-f compose.yml); fi
 compose=(docker compose "${args[@]}")
 if [ -f "$env_file" ]; then compose=(docker compose --env-file "$env_file" "${args[@]}"); fi
-project="$("${compose[@]}" config --format json | sed -n 's/^ *"name": *"\([^"]*\)".*/\1/p' | head -n 1)"
+config="$("${compose[@]}" config --format json)"
+project="$(printf '%s\n' "$config" | sed -n 's/^ *"name": *"\([^"]*\)".*/\1/p' | head -n 1)"
 : "${project:?could not read the compose project name}"
+
+# Where the files are: the stack's own volumes, as its composition names them.
+volumes=(files_data tls_data)
+elsewhere=""
+if printf '%s\n' "$config" | grep -q '"rustfs_data"'; then
+  volumes+=(rustfs_data)
+elif printf '%s\n' "$config" | grep -Eq '"STORAGE_DRIVER": *"s3"'; then
+  elsewhere=yes
+fi
 
 backups="${BACKUP_DIR:-$root/data/backups}"
 out="$backups/${project}-$(date -u +%Y%m%dT%H%M%SZ)"
@@ -101,15 +116,16 @@ echo "== Database ${POSTGRES_DB}"
 "${compose[@]}" exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   --format=custom | keep "$out/database.dump"
 
-for volume in files_data tls_data; do
+archives=("database.dump$suffix")
+for volume in "${volumes[@]}"; do
   echo "== Volume ${project}_${volume}"
   # The archive comes out on stdout: the file is the operator's, not root's.
   docker run --rm --network none -v "${project}_${volume}:/volume:ro" \
     postgres:18 tar -C /volume -czf - . | keep "$out/${volume}.tar.gz"
+  archives+=("${volume}.tar.gz$suffix")
 done
 
-(cd "$out" && sha256sum "database.dump$suffix" "files_data.tar.gz$suffix" \
-  "tls_data.tar.gz$suffix" >SHA256SUMS)
+(cd "$out" && sha256sum "${archives[@]}" >SHA256SUMS)
 chmod 600 "$out"/*
 echo
 echo "Backup: $out"
@@ -135,5 +151,8 @@ if [ -n "$recipient" ]; then
   echo "Encrypted for ${recipient}: restore it with that key's identity (BACKUP_AGE_IDENTITY)."
 fi
 echo "Keep AUTH_ENCRYPTION_KEY apart from it: without that key, this backup's sealed secrets stay sealed."
+if [ -n "$elsewhere" ]; then
+  echo "The files of this stack are in an object store outside it: this backup does not hold them. Keep that bucket with its service's own means." >&2
+fi
 trap - ERR
 report succeeded
