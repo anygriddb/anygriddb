@@ -51,6 +51,8 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   unknown_column: msg`Unknown field`,
   unknown_dashboard: msg`Dashboard not found`,
   unknown_group: msg`Group not found`,
+  group_already_exists: msg`A group already has this name`,
+  group_provisioned: msg`This group is kept by the identity provider`,
   unknown_widget: msg`Widget not found`,
   public_links_disabled: msg`Public links are turned off on this instance`,
   share_locked: msg`This link is locked after too many wrong passwords. Try again later.`,

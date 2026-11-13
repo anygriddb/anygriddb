@@ -465,9 +465,11 @@ export interface GroupRoles {
 
 export interface Groups {
   createdAt: Generated<Timestamp>;
+  description: string | null;
   displayName: string;
   externalId: string | null;
   id: Generated<string>;
+  provider: string | null;
   updatedAt: Generated<Timestamp>;
 }
 

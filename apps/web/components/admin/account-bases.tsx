@@ -1,7 +1,7 @@
 import { Button, ListPicker, Select, Spinner } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
@@ -10,6 +10,7 @@ import type { Role } from "../../lib/types";
 import { useRoleLabel } from "../settings/role-label";
 import { ConfirmDialog } from "../shell/dialogs";
 import { BaseName, useBaseChoices, type BaseChoice } from "./base-choices";
+import { EffectiveRights } from "./effective-rights";
 
 const ROLES: readonly Role[] = ["owner", "editor", "commenter", "viewer"];
 
@@ -49,6 +50,7 @@ export function AccountBases({
   const [chosen, setChosen] = useState<BaseChoice | null>(null);
   const [role, setRole] = useState<Role>("viewer");
   const [busy, setBusy] = useState(false);
+  const [openRights, setOpenRights] = useState<string | null>(null);
   const choices = useBaseChoices(typed, picking);
   const own = new Set(
     bases.filter((base) => base.viaGroup === null).map((base) => base.id),
@@ -93,52 +95,76 @@ export function AccountBases({
         </p>
       ) : (
         <ul className="divide-y divide-border rounded-sm border border-border">
-          {bases.map((base) => (
-            <li
-              key={`${base.id}:${base.viaGroup ?? ""}`}
-              className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
-            >
-              <span className="min-w-0 flex-1 truncate">{base.name}</span>
-              {base.viaGroup !== null ? (
-                <span className="text-xs text-muted-foreground">
-                  {t`${{ role: roleLabel(base.role) }}, through the group ${{ group: base.viaGroup }}`}
-                </span>
-              ) : canChange ? (
-                <span className="flex items-center gap-1">
-                  <Select
-                    aria-label={t`Role on ${{ base: base.name }}`}
-                    className="w-36"
-                    value={base.role}
-                    disabled={busy}
-                    onChange={(event) => {
-                      const next = event.target.value as Role;
-                      void setOn(base.id, next).then((done) => {
-                        if (done) toast.success(t`Role changed`);
-                      });
-                    }}
+          {bases.map((base) => {
+            const rowKey = `${base.id}:${base.viaGroup ?? ""}`;
+            const rightsOpen = openRights === rowKey;
+            return (
+              <li key={rowKey}>
+                <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-1 text-left hover:underline"
+                    aria-expanded={rightsOpen}
+                    onClick={() => setOpenRights(rightsOpen ? null : rowKey)}
                   >
-                    {ROLES.map((option) => (
-                      <option key={option} value={option}>
-                        {roleLabel(option)}
-                      </option>
-                    ))}
-                  </Select>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label={t`Remove from ${{ base: base.name }}`}
-                    onClick={() => setRemoving(base)}
-                  >
-                    <X className="h-4 w-4" aria-hidden />
-                  </Button>
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground">
-                  {roleLabel(base.role)}
-                </span>
-              )}
-            </li>
-          ))}
+                    {rightsOpen ? (
+                      <ChevronDown
+                        className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                        aria-hidden
+                      />
+                    ) : (
+                      <ChevronRight
+                        className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                        aria-hidden
+                      />
+                    )}
+                    <span className="truncate">{base.name}</span>
+                  </button>
+                  {base.viaGroup !== null ? (
+                    <span className="text-xs text-muted-foreground">
+                      {t`${{ role: roleLabel(base.role) }}, through the group ${{ group: base.viaGroup }}`}
+                    </span>
+                  ) : canChange ? (
+                    <span className="flex items-center gap-1">
+                      <Select
+                        aria-label={t`Role on ${{ base: base.name }}`}
+                        className="w-36"
+                        value={base.role}
+                        disabled={busy}
+                        onChange={(event) => {
+                          const next = event.target.value as Role;
+                          void setOn(base.id, next).then((done) => {
+                            if (done) toast.success(t`Role changed`);
+                          });
+                        }}
+                      >
+                        {ROLES.map((option) => (
+                          <option key={option} value={option}>
+                            {roleLabel(option)}
+                          </option>
+                        ))}
+                      </Select>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={t`Remove from ${{ base: base.name }}`}
+                        onClick={() => setRemoving(base)}
+                      >
+                        <X className="h-4 w-4" aria-hidden />
+                      </Button>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {roleLabel(base.role)}
+                    </span>
+                  )}
+                </div>
+                {rightsOpen ? (
+                  <EffectiveRights userId={userId} baseId={base.id} />
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       )}
 

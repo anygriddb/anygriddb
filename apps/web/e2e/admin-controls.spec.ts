@@ -387,6 +387,43 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       "commenter",
     );
 
+    // Groups made in Administration (ROADMAP #27): a group, its member,
+    // and a role on the administrator's base, which has a name of its own
+    // by now (as the member has: renamed above); then what the member may do there, and through what (#29).
+    await openAdmin(page, "People", "Groups");
+    await page.getByRole("button", { name: "New group" }).click();
+    await page.getByLabel("Name", { exact: true }).fill(`Team ${stamp}`);
+    await page.getByRole("button", { name: "Create", exact: true }).click();
+    await expect(page.getByText("Group created")).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.getByRole("link", { name: new RegExp(`Team ${stamp}`) }).click();
+    await page.waitForURL(/\/admin\/people\/groups\/[0-9a-f-]{36}$/);
+    await page.getByRole("button", { name: "Add a member" }).click();
+    await page.getByLabel("Find an account").fill(`Renamed ${stamp}`);
+    await page.getByRole("option", { name: new RegExp(movedEmail) }).click();
+    await expect(page.getByText("Member added")).toBeVisible();
+    await page.getByRole("button", { name: "Give a role on a base" }).click();
+    await page.getByLabel("Role", { exact: true }).selectOption("editor");
+    await page.getByLabel("Find a base").fill(baseName);
+    await page.getByRole("option", { name: baseName }).click();
+    await expect(page.getByText(`Role given on ${baseName}`)).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // The member's page says the role, and that the group gives it.
+    await openAdmin(page, "People", "Accounts");
+    await findAccount(page, movedEmail);
+    await page
+      .getByRole("row", { name: new RegExp(movedEmail) })
+      .getByRole("link", { name: `Renamed ${stamp}` })
+      .click();
+    await page.waitForURL(/\/admin\/people\/accounts\/[0-9a-f-]{36}$/);
+    await expect(
+      page.getByText(`Editor, through the group Team ${stamp}`),
+    ).toBeVisible();
+    await page.getByRole("button", { name: baseName }).click();
+    await expect(page.getByText(`Group Team ${stamp}`).first()).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
     await other.close();
     expect(blocked).toEqual([]);
   } finally {

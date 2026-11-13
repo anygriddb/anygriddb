@@ -67,6 +67,14 @@ const SessionsTab = page(() =>
     (module) => module.SessionsTab,
   ),
 );
+const GroupsTab = page(() =>
+  import("../components/admin/groups-tab").then((module) => module.GroupsTab),
+);
+const GroupAdminPage = page(() =>
+  import("../components/admin/group-page").then(
+    (module) => module.GroupAdminPage,
+  ),
+);
 const ScimTab = page(() =>
   import("../components/admin/scim-tab").then((module) => module.ScimTab),
 );
@@ -331,6 +339,15 @@ const adminAccountRoute = createRoute({
   },
 });
 
+const adminGroupRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "people/groups/$groupId",
+  component: function Group() {
+    const { groupId } = adminGroupRoute.useParams();
+    return <GroupAdminPage groupId={groupId} />;
+  },
+});
+
 const adminBaseRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "bases/$baseId",
@@ -345,6 +362,8 @@ const adminRoutes = [
   adminPeopleRoute,
   adminAccountsRoute,
   adminAccountRoute,
+  adminPage("people/groups", GroupsTab),
+  adminGroupRoute,
   adminPage("people/sessions", SessionsTab),
   adminPage("people/provisioning", ScimTab),
   adminPage("security", SecurityPage),

@@ -82,3 +82,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0067](0067-embed-shared-views.md)                   | A shared view or form embedded in a site                                                | Accepted                                    |
 | [0068](0068-map-tiles.md)                            | Map tiles from a server the operator names                                              | Accepted                                    |
 | [0069](0069-change-trail-retention.md)               | The change trail kept for a time                                                        | Accepted                                    |
+| [0070](0070-local-groups.md)                         | Local groups in Administration (same table as SCIM, `provider` null)                    | Accepted                                    |

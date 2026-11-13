@@ -153,7 +153,24 @@ import {
   type SourceDeps,
 } from "../sources/sources.js";
 import { publishCatalog } from "../realtime/channels.js";
-import { listGroups } from "../scim/groups.js";
+import {
+  effectiveAccess,
+  effectiveAccessInputSchema,
+} from "../admin-access.js";
+import {
+  addLocalGroupMember,
+  createLocalGroup,
+  createLocalGroupInputSchema,
+  deleteLocalGroup,
+  getGroup,
+  isLocalGroup,
+  listGroups,
+  localGroupMemberInputSchema,
+  removeLocalGroupMember,
+  setGroupRole,
+  updateLocalGroup,
+  updateLocalGroupInputSchema,
+} from "../scim/groups.js";
 import {
   createScimToken,
   createScimTokenInputSchema,
@@ -502,15 +519,130 @@ const sourcesRouter = t.router({
     ),
 });
 
+/**
+ * Local groups and every group's base roles from Administration
+ * (ROADMAP #27, ADR 0070). Membership of a SCIM group stays read-only.
+ */
+const groupsRouter = t.router({
+  list: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return { groups: await listGroups(ctx.db) };
+    }),
+  ),
+  get: procedure
+    .input(z.object({ groupId: z.uuid() }))
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        return getGroup(ctx.db, input.groupId);
+      }),
+    ),
+  create: procedure
+    .input(createLocalGroupInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const created = await createLocalGroup(ctx.db, admin.id, input);
+        ctx.req.log.info(
+          { actor: admin.id, group: created.id },
+          "local group created",
+        );
+        return created;
+      }),
+    ),
+  update: procedure
+    .input(updateLocalGroupInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await updateLocalGroup(ctx.db, admin.id, input);
+        ctx.req.log.info(
+          { actor: admin.id, group: input.groupId },
+          "local group updated",
+        );
+        return { ok: true as const };
+      }),
+    ),
+  delete: procedure
+    .input(z.object({ groupId: z.uuid() }))
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await deleteLocalGroup(ctx.db, admin.id, input.groupId);
+        ctx.req.log.info(
+          { actor: admin.id, group: input.groupId },
+          "local group deleted",
+        );
+        return { ok: true as const };
+      }),
+    ),
+  addMember: procedure
+    .input(localGroupMemberInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await addLocalGroupMember(ctx.db, admin.id, input);
+        ctx.req.log.info(
+          { actor: admin.id, group: input.groupId, target: input.userId },
+          "local group member added",
+        );
+        return { ok: true as const };
+      }),
+    ),
+  removeMember: procedure
+    .input(localGroupMemberInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await removeLocalGroupMember(ctx.db, admin.id, input);
+        ctx.hub.closeUser(input.userId, 4000);
+        ctx.req.log.info(
+          { actor: admin.id, group: input.groupId, target: input.userId },
+          "local group member removed",
+        );
+        return { ok: true as const };
+      }),
+    ),
+  /** Gives any group a role on a live base, or takes it back. */
+  setBaseRole: procedure
+    .input(
+      z.object({
+        groupId: z.uuid(),
+        baseId: z.uuid(),
+        role: z.enum(ROLES).nullable(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await setGroupRole(ctx.db, admin.id, input);
+        ctx.req.log.info(
+          {
+            actor: admin.id,
+            group: input.groupId,
+            base: input.baseId,
+            role: input.role,
+          },
+          "group base role set by administrator",
+        );
+        return { ok: true as const };
+      }),
+    ),
+});
+
 /** Provisioning by an identity provider (SCIM 2.0, ADR 0038). */
 const scimRouter = t.router({
   settings: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
       await requireAdmin(ctx);
+      const groups = (await listGroups(ctx.db)).filter(
+        (group) => !isLocalGroup(group.provider),
+      );
       return {
         url: `${ctx.env.PUBLIC_URL}/scim/v2`,
         tokens: await listScimTokens(ctx.db),
-        groups: await listGroups(ctx.db),
+        groups,
       };
     }),
   ),
@@ -660,6 +792,7 @@ const samlRouter = t.router({
 });
 
 export const adminRouter = t.router({
+  groups: groupsRouter,
   scim: scimRouter,
   sources: sourcesRouter,
   smtp: smtpRouter,
@@ -1041,6 +1174,18 @@ export const adminRouter = t.router({
         return { tokens, hooks };
       }),
     ),
+    /**
+     * One account's resolved role on a base and each of its tables, with
+     * whether it comes from their own binding or a group (ROADMAP #29).
+     */
+    effective: procedure
+      .input(effectiveAccessInputSchema)
+      .query(({ ctx, input }) =>
+        handle(ctx, async () => {
+          await requireAdmin(ctx);
+          return effectiveAccess(ctx.db, input);
+        }),
+      ),
     revokeToken: procedure
       .input(z.object({ id: z.uuid() }))
       .mutation(({ ctx, input }) =>

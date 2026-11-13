@@ -271,7 +271,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
       {manage ? (
         <RuledSection
           title={t`Groups`}
-          description={t`Groups come from your identity provider. Each member gets the group's role, and loses it on leaving the group.`}
+          description={t`Groups come from Administration or your identity provider. Each member gets the group's role, and loses it on leaving the group.`}
         >
           <GroupRoles baseId={baseId} roleLabel={(value) => roleLabel(value)} />
         </RuledSection>
