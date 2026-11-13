@@ -57,6 +57,7 @@ export function auditEventsCsv(
     reason: string | null;
     fields: string[];
     exported: { kind: string; format: string; rows: number | null } | null;
+    purged: { events: number; before: string } | null;
   }[],
 ): string {
   return csv([
@@ -73,6 +74,7 @@ export function auditEventsCsv(
       "reason",
       "fields",
       "exported",
+      "purged",
     ],
     ...events.map((event) => [
       event.occurredAt,
@@ -94,6 +96,9 @@ export function auditEventsCsv(
               ? []
               : [`${String(event.exported.rows)} rows`]),
           ].join(" ")
+        : "",
+      event.purged
+        ? `${String(event.purged.events)} events before ${event.purged.before}`
         : "",
     ]),
   ]);

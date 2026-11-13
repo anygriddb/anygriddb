@@ -11,6 +11,7 @@ export type AuditAction =
   | "export"
   | "insert"
   | "lock"
+  | "purge"
   | "sign"
   | "submit"
   | "unlock"

@@ -32,6 +32,8 @@ export const TASKS = {
   purge: "purge",
   /** The alerts kept in step with what the instance finds. */
   alerts: "alerts",
+  /** The change trail's events older than it is kept for. */
+  auditPurge: "audit_purge",
   trashPurge: "trash_purge",
   fileSweep: "file_sweep",
   /** Reads rows of writes to client tables again, to settle them. */

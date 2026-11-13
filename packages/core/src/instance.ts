@@ -51,6 +51,12 @@ export const POLICY_BOUNDS = {
   inactiveDays: { min: 30, max: 730 },
   /** How long deleted bases, tables, fields, and views can come back. */
   trashDays: { min: 7, max: 365 },
+  /**
+   * How long the change trail is kept, once it is not for ever: a year at
+   * least, the longest the trash keeps a row, which it restores from the
+   * trail.
+   */
+  auditRetentionDays: { min: 365, max: 3650 },
   alertBackupHours: { min: 6, max: 720 },
   alertStoragePercent: { min: 50, max: 99 },
   alertCertificateDays: { min: 1, max: 90 },
@@ -185,6 +191,8 @@ const fields = {
   ]),
   /** Days the trash keeps what was deleted, before it is purged for good. */
   trashDays: bounded("trashDays"),
+  /** Days the change trail is kept; 0, the default, keeps it for ever (ADR 0069). */
+  auditRetentionDays: z.union([z.literal(0), bounded("auditRetentionDays")]),
   /**
    * What administrators are told about (ROADMAP #25), each with its
    * threshold; 0 or false turns one off. Hours without a successful
@@ -243,6 +251,7 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   releaseCheck: false,
   attachmentMaxBytes: null,
   trashDays: 30,
+  auditRetentionDays: 0,
   alertBackupHours: 36,
   alertStoragePercent: 90,
   alertCertificateDays: 14,
@@ -298,6 +307,9 @@ export const instanceSettingsSchema = z.object({
     INSTANCE_DEFAULTS.attachmentMaxBytes,
   ),
   trashDays: fields.trashDays.default(INSTANCE_DEFAULTS.trashDays),
+  auditRetentionDays: fields.auditRetentionDays.default(
+    INSTANCE_DEFAULTS.auditRetentionDays,
+  ),
   alertBackupHours: fields.alertBackupHours.default(
     INSTANCE_DEFAULTS.alertBackupHours,
   ),
@@ -341,6 +353,7 @@ export const instanceSettingsPatchSchema = z
     releaseCheck: fields.releaseCheck.optional(),
     attachmentMaxBytes: fields.attachmentMaxBytes.optional(),
     trashDays: fields.trashDays.optional(),
+    auditRetentionDays: fields.auditRetentionDays.optional(),
     alertBackupHours: fields.alertBackupHours.optional(),
     alertStoragePercent: fields.alertStoragePercent.optional(),
     alertCertificateDays: fields.alertCertificateDays.optional(),

@@ -346,6 +346,10 @@ msgstr "{count} cells copied"
 msgid "{count} cells skipped: incompatible value or computed field"
 msgstr "{count} cells skipped: incompatible value or computed field"
 
+#: components/admin/trails.tsx
+msgid "{count} events from before {date} deleted: the trail is kept for a time"
+msgstr "{count} events from before {date} deleted: the trail is kept for a time"
+
 #: components/admin/access-tab.tsx
 msgid "{count} failed runs in 24 hours"
 msgstr "{count} failed runs in 24 hours"
@@ -642,6 +646,10 @@ msgstr "1 year"
 msgid "10 times"
 msgstr "10 times"
 
+#: components/admin/security-tab.tsx
+msgid "10 years"
+msgstr "10 years"
+
 #: components/admin/alerts-section.tsx
 msgid "12 hours"
 msgstr "12 hours"
@@ -649,6 +657,10 @@ msgstr "12 hours"
 #: components/admin/alerts-section.tsx
 msgid "14 days"
 msgstr "14 days"
+
+#: components/admin/security-tab.tsx
+msgid "2 years"
+msgstr "2 years"
 
 #: components/admin/alerts-section.tsx
 msgid "200 times"
@@ -662,6 +674,10 @@ msgstr "24 hours"
 msgid "3 days"
 msgstr "3 days"
 
+#: components/admin/security-tab.tsx
+msgid "3 years"
+msgstr "3 years"
+
 #: components/admin/alerts-section.tsx
 #: components/table/share-dialog.tsx
 msgid "30 days"
@@ -674,6 +690,10 @@ msgstr "36 hours"
 #: components/admin/integrations-tab.tsx
 msgid "465 for TLS from the start, or 587 with STARTTLS."
 msgstr "465 for TLS from the start, or 587 with STARTTLS."
+
+#: components/admin/security-tab.tsx
+msgid "5 years"
+msgstr "5 years"
 
 #: components/admin/alerts-section.tsx
 msgid "50 times"
@@ -909,6 +929,10 @@ msgstr "A view's rows, as {format}"
 #: components/fields/field-meta.tsx
 msgid "A web address, as a link"
 msgstr "A web address, as a link"
+
+#: components/admin/security-tab.tsx
+msgid "A year at least: the trash restores a deleted row from this trail. What a shorter choice deletes cannot be brought back; signatures are never deleted."
+msgstr "A year at least: the trash restores a deleted row from this trail. What a shorter choice deletes cannot be brought back; signatures are never deleted."
 
 #: components/shell/pending-invitations.tsx
 msgid "Accept"
@@ -1927,6 +1951,14 @@ msgstr "Change the password"
 #: lib/errors.ts
 msgid "Change Tracking is off on this table, or the account lacks VIEW CHANGE TRACKING"
 msgstr "Change Tracking is off on this table, or the account lacks VIEW CHANGE TRACKING"
+
+#: components/admin/security-tab.tsx
+msgid "Change trail"
+msgstr "Change trail"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Change trail kept for"
+msgstr "Change trail kept for"
 
 #: components/shell/home-page.tsx
 msgid "Changed {when} by {name}"
@@ -3320,6 +3352,10 @@ msgid "Every week"
 msgstr "Every week"
 
 #: components/admin/security-tab.tsx
+msgid "Every write to a row, with its values before and after, and every change to a base's structure and roles. Kept for ever unless you choose otherwise: what is older is then deleted once a day, and the trail says so."
+msgstr "Every write to a row, with its values before and after, and every change to a base's structure and roles. Kept for ever unless you choose otherwise: what is older is then deleted once a day, and the trail says so."
+
+#: components/admin/security-tab.tsx
 msgid "Everyone"
 msgstr "Everyone"
 
@@ -3687,6 +3723,10 @@ msgstr "For each one:"
 #: components/table/automations-dialog.tsx
 msgid "For each row of…"
 msgstr "For each row of…"
+
+#: components/admin/security-tab.tsx
+msgid "For ever"
+msgstr "For ever"
 
 #: components/record/row-status.tsx
 msgid "For example: Approved, Verified, Reviewed"
@@ -4546,6 +4586,10 @@ msgstr "Jump to the edge of the grid"
 #: components/table/view-tabs.tsx
 msgid "Kanban"
 msgstr "Kanban"
+
+#: components/admin/security-tab.tsx
+msgid "Keep changes for"
+msgstr "Keep changes for"
 
 #: components/admin/security-tab.tsx
 msgid "Keep deleted items for"
@@ -6322,6 +6366,10 @@ msgstr "PUBLIC_URL is an IP address: HTTPS and TOTP work; passkeys need a DNS ho
 #: components/admin/settings-tab.tsx
 msgid "Publish"
 msgstr "Publish"
+
+#: components/admin/trails.tsx
+msgid "Purge"
+msgstr "Purge"
 
 #: components/shell/trash-dialog.tsx
 #: components/shell/trashed-bases.tsx

@@ -1,3 +1,4 @@
+import { purgeRecordOf } from "./data/audit-purge.js";
 import { exportRecordOf } from "./data/export-audit.js";
 import {
   ADMIN_LOCK_MINUTES,
@@ -907,6 +908,8 @@ export async function instanceAudit(
     ...row,
     // An export changed no field: it says what was taken out.
     exported: row.action === "export" ? exportRecordOf(row.newValue) : null,
+    // Nor did a purge: it says what it removed from the trail.
+    purged: row.action === "purge" ? purgeRecordOf(row.newValue) : null,
   }));
   // A base's file names its base itself, not a table of it.
   const baseIds = [
@@ -924,12 +927,13 @@ export async function instanceAudit(
         ).map((base) => [base.id, base.name]),
   );
   return {
-    events: page.map(({ oldValue, newValue, exported, ...row }) => ({
+    events: page.map(({ oldValue, newValue, exported, purged, ...row }) => ({
       ...row,
       baseName: row.baseName ?? baseNames.get(exported?.baseId ?? "") ?? null,
       occurredAt: row.occurredAt.toISOString(),
       // Field names only: values stay in the table's own history, behind its rights.
-      fields: exported ? [] : changedKeys(oldValue, newValue),
+      fields: exported || purged ? [] : changedKeys(oldValue, newValue),
+      purged: purged ? { events: purged.events, before: purged.before } : null,
       exported: exported
         ? {
             kind: exported.kind,
