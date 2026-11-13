@@ -28,12 +28,15 @@ minimumReleaseAge: 10080
 #   through testcontainers, archiver-utils 5;
 # - minimatch 7 to 11.0.0 (GHSA-g3hv-75wg-m249), asked by those globs and
 #   the lint tooling;
-# - uuid 8 asked by exceljs; 11 keeps `v4`.
+# - uuid 8 asked by exceljs; 11 keeps `v4`;
+# - @hono/node-server 2.0 to 2.1.5 (GHSA-jpvv-r467-5p4w, GHSA-qv5m-9pm6-hqp3),
+#   asked by the MCP transport, which converts /mcp's requests with it.
 # Older lines outside the advisories (glob 7, minimatch 3 and 5) stay.
 overrides:
   "glob@>=9.0.0 <14.0.2": "14.0.3"
   "minimatch@>=7.0.0 <11.0.1": "11.0.4"
   "exceljs>uuid": "11.1.1"
+  "@hono/node-server@>=2.0.0 <2.1.6": "2.1.6"
 
 # exceljs reads an XLSX import as a stream: unzipper ends it before the last
 # parts are read when a sheet is parked in a temporary file first, and the
