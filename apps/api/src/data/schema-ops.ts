@@ -529,12 +529,13 @@ export async function addColumn(
     await trashedColumnNames(db, table.id),
   );
   // AnyGridDB never changes a client's table: on one, a field that stores
-  // something lives in the side table (ADR 0032); a formula or a button
-  // stores nothing.
+  // something lives in the side table (ADR 0032); a formula, a button, or
+  // the row's id stores nothing.
   if (
     table.storage === "external" &&
     planned.fieldType !== "formula" &&
-    planned.fieldType !== "button"
+    planned.fieldType !== "button" &&
+    planned.fieldType !== "row_id"
   ) {
     if (!isSideFieldType(planned.fieldType)) {
       throw new AppError("external_table_schema");

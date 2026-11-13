@@ -73,6 +73,7 @@ export type FieldType =
   | "relation_many_to_many"
   | "relation_one_to_many"
   | "rollup"
+  | "row_id"
   | "single_select"
   | "text"
   | "url"

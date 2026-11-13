@@ -6579,6 +6579,7 @@ msgstr "Fiche de la ligne"
 msgid "Row height"
 msgstr "Hauteur"
 
+#: components/fields/field-meta.tsx
 #: components/settings/api-console.tsx
 msgid "Row id"
 msgstr "Identifiant de la ligne"
@@ -7845,6 +7846,10 @@ msgstr "Le premier passage du texte qui suit l’expression régulière."
 #: components/fields/formula-docs.ts
 msgid "The hour, from 0 to 23."
 msgstr "L’heure, de 0 à 23."
+
+#: components/fields/field-meta.tsx
+msgid "The id the API and links name the row by"
+msgstr "L’identifiant par lequel l’API et les liens désignent la ligne"
 
 #: components/admin/scim-tab.tsx
 msgid "The identity provider will no longer be able to provision anything with this token."

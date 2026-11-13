@@ -298,6 +298,8 @@ export function CellValueView({
         wrap ? "break-words whitespace-pre-wrap" : "truncate",
         numeric && "tabular-nums",
         numeric && inColumn && "ml-auto",
+        // An id is read character by character, and copied whole.
+        type === "row_id" && "font-mono text-xs",
       )}
     >
       {highlight(text, search)}

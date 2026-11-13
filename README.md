@@ -23,7 +23,7 @@ Every table is a real SQL table, in AnyGridDB's own PostgreSQL or in your own da
   - Follow changes other applications make.
   - Read a table from a copy refreshed in AnyGridDB when live queries are not welcome.
 - **Grid**: virtualized rows and columns, keyboard navigation, copy and paste with spreadsheets, fill down, undo and redo, footers, grouping, row colours, and frozen columns.
-- **Fields**: 26 types, including links (one-way or two-way, limited to a view or a filter), lookups and rollups (over the linked rows that match a condition), formulas (94 functions, regular expressions and JSON included), users, attachments with thumbnails, ratings, durations, system fields, and buttons.
+- **Fields**: 27 types, including links (one-way or two-way, limited to a view or a filter), lookups and rollups (over the linked rows that match a condition), formulas (94 functions, regular expressions and JSON included), users, attachments with thumbnails, ratings, durations, system fields, the row's id, and buttons.
 - **Views**: grid, form (fields shown on earlier answers), kanban, gallery, calendar (a private iCal feed per person), timeline, and map; personal and locked views; nested and/or filters with relative dates and ranges.
 - **Collaboration**: live updates and presence, comments with replies and @mentions, notifications (in-app, optionally by email), row history, trash and restore.
 - **Trash**: deleted bases, tables, fields, and views wait 30 days, or as long as an administrator chooses, with their data, links, and view settings, and come back in one click.

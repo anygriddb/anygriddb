@@ -6579,6 +6579,7 @@ msgstr "Row details"
 msgid "Row height"
 msgstr "Row height"
 
+#: components/fields/field-meta.tsx
 #: components/settings/api-console.tsx
 msgid "Row id"
 msgstr "Row id"
@@ -7845,6 +7846,10 @@ msgstr "The first part of the text that matches the regular expression."
 #: components/fields/formula-docs.ts
 msgid "The hour, from 0 to 23."
 msgstr "The hour, from 0 to 23."
+
+#: components/fields/field-meta.tsx
+msgid "The id the API and links name the row by"
+msgstr "The id the API and links name the row by"
 
 #: components/admin/scim-tab.tsx
 msgid "The identity provider will no longer be able to provision anything with this token."

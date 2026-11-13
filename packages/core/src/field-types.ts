@@ -29,6 +29,7 @@ export const FIELD_TYPES = [
   "created_by",
   "last_modified_by",
   "autonumber",
+  "row_id",
   "button",
 ] as const;
 
@@ -61,6 +62,7 @@ export const SYSTEM_TYPES = [
   "created_by",
   "last_modified_by",
   "autonumber",
+  "row_id",
 ] as const;
 
 export type SystemType = (typeof SYSTEM_TYPES)[number];
@@ -75,6 +77,8 @@ export const SYSTEM_COLUMN: Record<SystemType, string> = {
   created_by: "ag_created_by",
   last_modified_by: "ag_updated_by",
   autonumber: "ag_seq",
+  // On a client's table, the row's key: `compileColumn` reads it from there.
+  row_id: "id",
 };
 
 /** Names a user column can never take: row identity and system columns. */
@@ -146,6 +150,7 @@ const VALUE_KIND: Record<Exclude<FieldType, ComputedType>, ValueKind> = {
   created_by: "user",
   last_modified_by: "user",
   autonumber: "number",
+  row_id: "text",
   button: "text",
 };
 
@@ -165,6 +170,7 @@ export const PRIMARY_TYPES: ReadonlySet<FieldType> = new Set([
   "single_select",
   "formula",
   "autonumber",
+  "row_id",
 ]);
 
 export function isPrimaryType(fieldType: FieldType): boolean {
