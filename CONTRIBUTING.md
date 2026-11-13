@@ -208,12 +208,21 @@ PRs (npm, GitHub Actions, Docker) and writes its own messages.
 The repository's rulesets, set on GitHub rather than in this tree, protect
 `main`: pull request, squash merge only, signed commits, no force-push or
 deletion, and these checks from GitHub Actions (job names as GitHub reports
-them): `unit`, `integration`, `e2e`, `commits`, `codeql`,
-`dependency-review`. Only maintainers create, move, or delete `v*` tags.
+them): `ci-ok`, `commits`, `codeql`, `dependency-review`. `ci-ok` passes
+only when every job of CI passed: `unit`, `integration`, `e2e`, and
+`image`, which builds the image of every pull request and starts it as an
+operator does (`scripts/smoke-image.sh`). A job added to CI joins `ci-ok`,
+not the ruleset. Only maintainers create, move, or delete `v*` tags.
 Workflows pin each action to a commit SHA and may use actions from GitHub and
-an allowlist; a new third-party action needs a maintainer to add it. Trivy
-scans the image's system packages on `main` and weekly. Secrets belong in
-GitHub Actions secrets or `docker/.env`, never in the tree.
+an allowlist; a new third-party action needs a maintainer to add it. Their
+jobs get the permissions they use and no more, and a checkout keeps no
+token. `Workflows` checks them with actionlint and zizmor whenever one
+changes (`scripts/lint-workflows.sh`). A pull request runs the tests of
+the packages it changes, and every test, none replayed from the cache,
+once it changes a file outside the packages: the workflows, `scripts/`,
+`docker/`, or the root's configuration (`scripts/ci-turbo.sh`). Trivy scans the image's system
+packages on `main` and weekly. Secrets belong in GitHub Actions secrets or
+`docker/.env`, never in the tree.
 
 ## Releases
 
@@ -231,8 +240,16 @@ Until 1.0, a release that breaks something raises the second number
    for operators: what was added, changed, and fixed, and first what
    breaks and what to do about it (environment variables, storage,
    PostgreSQL version).
-4. Push the tag: `git push origin vX.Y.Z`. The Release workflow builds the
-   image, pushes it to `ghcr.io/anygriddb/anygriddb` (version, minor, and
-   `latest`), and opens a GitHub Release with the tag's notes and the
-   digest pin (`image-pin.env`). The first time, make the package public
-   in its GitHub settings: GitHub creates it private.
+4. Push the tag: `git push origin vX.Y.Z`. The Release workflow waits for
+   `CI` on `main` to pass on that commit, builds the image for
+   `linux/amd64` and `linux/arm64`, each on a runner of its own, starts
+   each as an operator does and scans its system packages, and only then
+   pushes them to `ghcr.io/anygriddb/anygriddb` under one name (version,
+   minor, and `latest`) and opens a GitHub Release with the tag's notes,
+   the digest pin (`image-pin.env`), and the packages each image holds
+   (`anygriddb-amd64.spdx.json`, `anygriddb-arm64.spdx.json`). A step
+   that fails publishes nothing: fix, then run the workflow again. The first time, make the
+   package public in its GitHub settings: GitHub creates it private.
+
+To rehearse a release, run the Release workflow by hand on `main`
+(Actions, Release, Run workflow): it does everything but publish.

@@ -73,3 +73,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0058](0058-signup-proves-address.md)                | A sign-up proves its address before the account exists                                  | Accepted                                    |
 | [0059](0059-delete-account-in-one-step.md)           | An administrator deletes an account in one step                                         | Accepted                                    |
 | [0060](0060-rows-ordered-by-hand.md)                 | Rows keep the order people give them: a place apart from the sequence                   | Accepted                                    |
+| [0061](0061-release-only-what-was-checked.md)        | A release publishes only what was checked, for amd64 and arm64                          | Accepted                                    |

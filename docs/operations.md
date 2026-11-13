@@ -24,6 +24,22 @@ docker compose -f compose.yml -f compose.release.yml \
 
 `image-pin.env`, attached to each release, names the image and its
 digest. Give Compose both files: the second one alone would hide `.env`.
+The image is published for `linux/amd64` and `linux/arm64`: the digest
+names both, and Docker pulls the one of the host. To check that it is the
+one this repository's Release workflow built, from which commit, before
+installing it (GitHub CLI):
+
+```sh
+. ./image-pin.env
+gh attestation verify "oci://$ANYGRIDDB_IMAGE@$ANYGRIDDB_DIGEST" \
+  --repo anygriddb/anygriddb
+```
+
+Each release also lists the packages its images hold, in SPDX, one file
+per architecture (`anygriddb-amd64.spdx.json`,
+`anygriddb-arm64.spdx.json`): the system's and Node.js's, for a scanner
+or an inventory of your own.
+
 On a PostgreSQL of your own (`compose.managed.yml`), build from a
 checkout.
 

@@ -1,0 +1,40 @@
+name: Workflows
+
+# The workflows checked whenever one changes: actionlint and zizmor
+# (scripts/lint-workflows.sh). A pull request runs its contributor's code;
+# these checks are what keep that code from reaching the repository's
+# token, secrets, or releases.
+on:
+  pull_request:
+    paths:
+      - ".github/**"
+      - "scripts/lint-workflows.sh"
+  push:
+    branches: [main]
+    paths:
+      - ".github/**"
+      - "scripts/lint-workflows.sh"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workflows:
+    name: workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: actionlint and zizmor
+        env:
+          # Read-only: zizmor asks GitHub about the actions the workflows pin.
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/lint-workflows.sh
