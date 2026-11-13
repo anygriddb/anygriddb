@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogColumn } from "../../lib/types";
-import { placeColumns, placeFilter } from "./map-places";
+import { mapNotice, placeColumns, placeFilter } from "./map-places";
 
 const column = (name: string, kind: string) =>
   ({ name, kind }) as unknown as CatalogColumn;
@@ -52,5 +52,29 @@ describe("placeFilter", () => {
         { column: "lon", op: "is_between", value: ["-180", "180"] },
       ],
     });
+  });
+});
+
+describe("mapNotice", () => {
+  const numbers = [column("x", "number"), column("y", "number")];
+
+  it("says nothing once both coordinates are known", () => {
+    expect(mapNotice({ numbers, latitude: "x", longitude: "y" })).toBeNull();
+  });
+
+  it("asks for number fields, or for a choice among them", () => {
+    expect(
+      mapNotice({ numbers: [], latitude: undefined, longitude: undefined }),
+    ).toBe("add-fields");
+    expect(
+      mapNotice({
+        numbers: numbers.slice(0, 1),
+        latitude: "x",
+        longitude: undefined,
+      }),
+    ).toBe("add-fields");
+    expect(mapNotice({ numbers, latitude: "x", longitude: undefined })).toBe(
+      "choose-fields",
+    );
   });
 });

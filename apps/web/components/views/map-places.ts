@@ -28,6 +28,20 @@ export function placeColumns(
 }
 
 /**
+ * What a map says instead of an empty sheet, as the kanban and the
+ * calendar do: no notice once both coordinates are known; otherwise, to
+ * add two number fields where the table has fewer, or to choose them.
+ */
+export function mapNotice(place: {
+  numbers: readonly CatalogColumn[];
+  latitude: string | undefined;
+  longitude: string | undefined;
+}): "add-fields" | "choose-fields" | null {
+  if (place.latitude && place.longitude) return null;
+  return place.numbers.length < 2 ? "add-fields" : "choose-fields";
+}
+
+/**
  * The rows that have a place: both coordinates set and on the globe. A
  * map reads only those, so a table of many rows without a place does not
  * hide the ones that have one.
