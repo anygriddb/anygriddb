@@ -335,6 +335,8 @@ export type BaseOverview = {
   createdAt: string;
   /** Up to three owners with a role of their own, by name. */
   owners: string[];
+  /** An account that is not disabled owns it, itself or through a group. */
+  hasLiveOwner: boolean;
   members: number;
   tables: number;
   /** AnyGridDB's own tables, from PostgreSQL's statistics: an estimate. */
@@ -346,13 +348,25 @@ export type BaseOverview = {
 };
 
 /**
+ * An owner of base `b` who can still act: an account that is not
+ * disabled, with the role itself or through a group.
+ */
+const LIVE_OWNER = sql<boolean>`exists (select 1 from role_bindings r join users u on u.id = r.user_id where r.scope = 'base' and r.scope_id = b.id and r.role = 'owner' and u.disabled_at is null)`;
+
+/**
  * Every live base of the instance with what an administrator weighs it
  * by, metadata only. Row counts come from the statistics, never from a
  * count: the list stays quick with hundreds of bases.
  */
 export async function listBaseOverview(
   db: Database,
-  input: { search?: string; limit: number; baseId?: string },
+  input: {
+    search?: string;
+    limit: number;
+    baseId?: string;
+    /** Only the bases no active account owns. */
+    ownerless?: boolean;
+  },
 ): Promise<BaseOverview[]> {
   const pattern = input.search
     ? `%${input.search.replace(/[%_\\]/g, "\\$&")}%`
@@ -368,6 +382,7 @@ export async function listBaseOverview(
       >`array(select u.display_name from role_bindings r join users u on u.id = r.user_id where r.scope = 'base' and r.scope_id = b.id and r.role = 'owner' and r.group_id is null order by u.display_name limit 3)`.as(
         "owners",
       ),
+      LIVE_OWNER.as("hasLiveOwner"),
       sql<string>`(select count(distinct r.user_id) from role_bindings r where r.scope = 'base' and r.scope_id = b.id)`.as(
         "members",
       ),
@@ -391,6 +406,9 @@ export async function listBaseOverview(
     .$if(input.baseId !== undefined, (query) =>
       query.where("b.id", "=", input.baseId ?? ""),
     )
+    .$if(input.ownerless === true, (query) =>
+      query.where(sql<boolean>`not (${LIVE_OWNER})`),
+    )
     .orderBy("b.name", "asc")
     .orderBy("b.id", "asc")
     .limit(input.limit)
@@ -400,12 +418,24 @@ export async function listBaseOverview(
     name: row.name,
     createdAt: row.createdAt.toISOString(),
     owners: row.owners,
+    hasLiveOwner: row.hasLiveOwner,
     members: Number(row.members),
     tables: Number(row.tables),
     estimatedRows: Number(row.estimatedRows),
     fileBytes: Number(row.fileBytes),
     outbound: Number(row.outbound),
   }));
+}
+
+/** How many live bases no active account owns. */
+export async function countOwnerlessBases(db: Database): Promise<number> {
+  const row = await db
+    .selectFrom("bases as b")
+    .select(sql<number>`count(*)::int`.as("value"))
+    .where(liveBase("b"))
+    .where(sql<boolean>`not (${LIVE_OWNER})`)
+    .executeTakeFirst();
+  return row?.value ?? 0;
 }
 
 export type BaseTableOverview = {

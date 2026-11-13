@@ -1,25 +1,38 @@
-import { Input, Spinner } from "@anygriddb/ui";
+import { Button, Checkbox, Input, Spinner } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { formatBytes, formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
-import { useTRPC } from "../../lib/trpc";
+import { useSession } from "../../lib/session";
+import { useTrashDays } from "../../lib/trash";
+import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
+
+type Trashed =
+  RouterOutputs["admin"]["baseOverview"]["trashed"]["items"][number];
 
 /**
- * Every base of the instance (ROADMAP #14): its owners, members, tables,
- * estimated rows, files, and what of it leaves through a link or a feed.
- * Metadata only: never a cell value. A base opens its own page.
+ * Every base of the instance (ROADMAP #14, #22): its owners, members, tables,
+ * estimated rows, files, and what of it leaves through a link or a feed;
+ * the bases no active account owns, pointed out; and the bases in the
+ * trash, whoever deleted them, restored from here. Metadata only: never a
+ * cell value. A base opens its own page.
  */
 export function BasesTab() {
   const { t } = useLingui();
   const { locale } = useLocale();
   const errorText = useErrorText();
   const api = useTRPC();
+  const queryClient = useQueryClient();
+  const days = useTrashDays();
+  const isAdmin = useSession().data?.isAdmin === true;
   const [search, setSearch] = useState("");
   const [asked, setAsked] = useState("");
+  const [ownerlessOnly, setOwnerlessOnly] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => setAsked(search.trim()), 250);
     return () => clearTimeout(timer);
@@ -27,22 +40,50 @@ export function BasesTab() {
   const bases = useQuery({
     ...api.admin.baseOverview.list.queryOptions({
       search: asked || undefined,
+      ownerless: ownerlessOnly || undefined,
     }),
     placeholderData: (previous) => previous,
   });
+  const trashed = useQuery({
+    ...api.admin.baseOverview.trashed.queryOptions(),
+    enabled: isAdmin,
+  });
   const list = bases.data?.bases ?? [];
+  const trashItems = trashed.data?.items ?? [];
+
+  async function restore(entry: Trashed) {
+    try {
+      await trpc.admin.baseOverview.restore.mutate({ baseId: entry.id });
+      await queryClient.invalidateQueries({
+        queryKey: api.admin.baseOverview.pathKey(),
+      });
+      toast.success(t`Restored from the trash`);
+    } catch (cause) {
+      toast.error(errorText(cause));
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">
         {t`Row counts are the database's estimates: a table gets one once it has been analyzed.`}
       </p>
-      <Input
-        aria-label={t`Search bases`}
-        placeholder={t`Search bases`}
-        className="h-8 w-full text-sm md:w-72"
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          aria-label={t`Search bases`}
+          placeholder={t`Search bases`}
+          className="h-8 w-full text-sm md:w-72"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+        <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Checkbox
+            checked={ownerlessOnly}
+            onChange={(event) => setOwnerlessOnly(event.target.checked)}
+          />
+          {t`Without an active owner`}
+        </label>
+      </div>
       {bases.isLoading ? <Spinner /> : null}
       {bases.error ? (
         <p role="alert" className="text-sm text-danger">
@@ -51,7 +92,7 @@ export function BasesTab() {
       ) : null}
       {bases.data && list.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {asked ? t`No base matches.` : t`No base yet.`}
+          {asked || ownerlessOnly ? t`No base matches.` : t`No base yet.`}
         </p>
       ) : null}
       {list.length > 0 ? (
@@ -79,6 +120,11 @@ export function BasesTab() {
                     >
                       {base.name}
                     </Link>
+                    {!base.hasLiveOwner ? (
+                      <span className="mt-0.5 block text-xs text-warning">
+                        {t`No active owner`}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {base.owners.length > 0 ? base.owners.join(", ") : "—"}
@@ -103,6 +149,38 @@ export function BasesTab() {
             </tbody>
           </table>
         </div>
+      ) : null}
+
+      {trashItems.length > 0 ? (
+        <section aria-label={t`Deleted bases`} className="mt-6">
+          <h3 className="text-sm font-semibold">{t`Deleted bases`}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t`They stay for ${{ days }} days with their data, then are deleted permanently.`}
+          </p>
+          <ul className="mt-2 divide-y divide-border rounded-sm border border-border">
+            {trashItems.map((entry) => (
+              <li
+                key={entry.id}
+                className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{entry.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {t`deleted on ${{ date: new Date(entry.deletedAt).toLocaleDateString() }} by ${{ name: entry.deletedBy ?? t`a deleted account` }}`}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void restore(entry)}
+                >
+                  <RotateCcw className="h-4 w-4" aria-hidden />
+                  {t`Restore`}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
     </div>
   );

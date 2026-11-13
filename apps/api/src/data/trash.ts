@@ -549,6 +549,28 @@ export async function listTrashedBases(
   return rows.map((row) => entry("base", days, row));
 }
 
+/**
+ * Every base in the trash of the instance, newest first, for
+ * Administration: whoever deleted it, and whether or not an administrator
+ * is one of its members.
+ */
+export async function listAllTrashedBases(
+  db: Database,
+  limit: number,
+): Promise<TrashEntry[]> {
+  const rows = await db
+    .selectFrom("bases as b")
+    .leftJoin("users as u", "u.id", "b.deletedBy")
+    .select(["b.id", "b.name", "b.deletedAt", "u.displayName as deletedBy"])
+    .where("b.deletedAt", "is not", null)
+    .orderBy("b.deletedAt", "desc")
+    .orderBy("b.id", "asc")
+    .limit(limit)
+    .execute();
+  const days = (await readSettings(db)).trashDays;
+  return rows.map((row) => entry("base", days, row));
+}
+
 /* ------------------------------------------------------------------ */
 /* Purging                                                             */
 /* ------------------------------------------------------------------ */

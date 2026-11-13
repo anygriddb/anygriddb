@@ -73,16 +73,58 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       page.getByText(/Public links let anyone with the address/),
     ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
-    // Every base, and one base's own page.
+    // Every base, and one base's own page: the administrator's, since
+    // another journey's base must not leave under its feet.
     await openAdmin(page, "Bases");
     await page.getByLabel("Search bases").fill("Lab");
-    const firstBase = page.getByRole("table").getByRole("link").first();
-    await expect(firstBase).toBeVisible();
+    const ownBase = page
+      .getByRole("row", { name: /Admin Controls/ })
+      .getByRole("link")
+      .first();
+    await expect(ownBase).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
-    await firstBase.click();
+    await ownBase.click();
     await page.waitForURL(/\/admin\/bases\/[0-9a-f-]{36}$/);
     await expect(page.getByRole("heading", { name: "Members" })).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
+
+    // From that page a role is given to someone, then taken away
+    // (ROADMAP #69).
+    await page.getByRole("button", { name: "Give a role to someone" }).click();
+    await page.getByLabel("Find an account").fill(`Member ${stamp}`);
+    await page.getByRole("option", { name: new RegExp(memberEmail) }).click();
+    await page.getByLabel(`Role for Member ${stamp}`).selectOption("editor");
+    await page.getByRole("button", { name: "Give the role" }).click();
+    await expect(page.getByText(`Role given to Member ${stamp}`)).toBeVisible();
+    const given = page.getByRole("row", { name: new RegExp(memberEmail) });
+    await expect(given.getByLabel(`Role for Member ${stamp}`)).toHaveValue(
+      "editor",
+    );
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await given.getByRole("button", { name: `Remove Member ${stamp}` }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Remove" })
+      .click();
+    await expect(given).toBeHidden();
+
+    // The base goes to the trash from its page, and comes back from the
+    // list of deleted bases (ROADMAP #22).
+    await page.getByRole("button", { name: "Move to the trash" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Move to the trash" })
+      .click();
+    await page.waitForURL(/\/admin\/bases$/);
+    const deleted = page
+      .getByRole("region", { name: "Deleted bases" })
+      .getByRole("listitem")
+      .filter({ hasText: "by Admin Controls" });
+    await expect(deleted).toHaveCount(1);
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await deleted.getByRole("button", { name: "Restore" }).click();
+    await expect(page.getByText("Restored from the trash")).toBeVisible();
+    await expect(deleted).toHaveCount(0);
 
     // And every API token, webhook, and automation.
     await openAdmin(page, "Sharing", "Tokens and automations");

@@ -1,24 +1,36 @@
-import { Spinner } from "@anygriddb/ui";
+import { Button, Spinner } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { ArrowLeft, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { useErrorText } from "../../lib/errors";
 import { formatBytes, formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
-import { useTRPC } from "../../lib/trpc";
-import { useRoleLabel } from "../settings/role-label";
+import { useSession } from "../../lib/session";
+import { useTrashDays } from "../../lib/trash";
+import { trpc, useTRPC } from "../../lib/trpc";
+import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
+import { BaseAdminMembers } from "./base-admin-members";
 
 /**
- * One base in Administration (ROADMAP #14): its owners and members with
- * their roles, its tables with their weight, and its public links and
- * calendar feeds. Metadata only; roles change from each person's page.
+ * One base in Administration (ROADMAP #14, #69, #22): its members, whose
+ * roles are given, changed, and taken away from here; its tables with
+ * their weight; its public links and calendar feeds; and the base itself
+ * put in the trash. Metadata only: never a cell value.
  */
 export function BaseAdminPage({ baseId }: { baseId: string }) {
   const { t } = useLingui();
   const { locale } = useLocale();
   const api = useTRPC();
-  const roleLabel = useRoleLabel();
+  const errorText = useErrorText();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const days = useTrashDays();
+  const isAdmin = useSession().data?.isAdmin === true;
+  const [trashing, setTrashing] = useState(false);
   const detail = useQuery(api.admin.baseOverview.get.queryOptions({ baseId }));
   const back = (
     <Link
@@ -52,49 +64,18 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
           {t`Created ${{ when: new Date(base.createdAt).toLocaleDateString() }}`}{" "}
           · {formatBytes(base.fileBytes)}
         </p>
+        {!base.hasLiveOwner ? (
+          <p className="mt-2 rounded-sm border border-warning/40 bg-warning-surface px-3 py-2 text-sm">
+            {t`No active account owns this base, itself or through a group: nobody can manage it. Give someone the owner role below.`}
+          </p>
+        ) : null}
       </header>
 
-      <section className="flex flex-col gap-2" aria-labelledby="base-members">
-        <h3 id="base-members" className="text-sm font-semibold">
-          {t`Members`}
-        </h3>
-        <div className="overflow-x-auto rounded-sm border border-border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted text-left text-xs">
-              <tr>
-                <th className={head}>{t`Account`}</th>
-                <th className={head}>{t`Role`}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((member) => (
-                <tr key={member.userId} className="border-t border-border">
-                  <td className="px-3 py-2">
-                    <Link
-                      to="/admin/people/accounts/$userId"
-                      params={{ userId: member.userId }}
-                      className="font-medium hover:underline"
-                    >
-                      {member.displayName}
-                    </Link>
-                    <span className="block text-xs text-muted-foreground">
-                      {member.email}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-xs">
-                    {roleLabel(member.role)}
-                    {member.groups.length > 0 ? (
-                      <span className="block text-muted-foreground">
-                        {t`Through ${{ groups: member.groups.join(", ") }}`}
-                      </span>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <BaseAdminMembers
+        baseId={baseId}
+        baseName={base.name}
+        members={members}
+      />
 
       <section className="flex flex-col gap-2" aria-labelledby="base-tables">
         <h3 id="base-tables" className="text-sm font-semibold">
@@ -172,6 +153,49 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
           {t`Revoke from Sharing`}
         </Link>
       </section>
+
+      {isAdmin ? (
+        <section className="flex flex-col gap-2" aria-labelledby="base-trash">
+          <h3 id="base-trash" className="text-sm font-semibold">
+            {t`Delete this base`}
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            {t`It goes to the trash for ${{ days }} days with its data, where its owners and administrators can restore it, then it is deleted permanently.`}
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="self-start"
+            onClick={() => setTrashing(true)}
+          >
+            <Trash2 className="h-3.5 w-3.5 text-danger" aria-hidden />
+            {t`Move to the trash`}
+          </Button>
+        </section>
+      ) : null}
+      {trashing ? (
+        <ConfirmDialog
+          open
+          danger
+          onOpenChange={(open) => !open && setTrashing(false)}
+          title={t`Move “${{ name: base.name }}” to the trash?`}
+          description={t`Its members lose it at once. It stays in the trash for ${{ days }} days with its data, then is deleted permanently.`}
+          confirmLabel={t`Move to the trash`}
+          onConfirm={async () => {
+            try {
+              await trpc.admin.baseOverview.trash.mutate({ baseId });
+              await queryClient.invalidateQueries({
+                queryKey: api.admin.baseOverview.pathKey(),
+              });
+              toast.success(t`Moved to the trash`);
+              await navigate({ to: "/admin/bases" });
+            } catch (cause) {
+              toast.error(errorText(cause));
+              throw cause;
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 }

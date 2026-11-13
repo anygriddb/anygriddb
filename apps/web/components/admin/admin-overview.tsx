@@ -44,8 +44,12 @@ export function AdminOverview() {
     enabled: isAdmin,
     refetchInterval: 30_000,
   });
+  const ownerless = useQuery({
+    ...api.admin.baseOverview.ownerlessCount.queryOptions(),
+    enabled: isAdmin,
+  });
   const queries = isAdmin
-    ? [locked, unprotected, invitations, health]
+    ? [locked, unprotected, invitations, health, ownerless]
     : [locked];
   const cards: ReactNode[] = [];
   const card = (
@@ -125,6 +129,18 @@ export function AdminOverview() {
       t`Background jobs, webhook deliveries, or automation runs that did not go through.`,
       <Link to="/admin/instance/support" className={open}>
         {t`See what failed`}
+      </Link>,
+    );
+    const ownerlessCount = ownerless.data?.count ?? 0;
+    card(
+      ownerlessCount,
+      plural(ownerlessCount, {
+        one: "base without an active owner",
+        other: "bases without an active owner",
+      }),
+      t`Nobody can manage them: every owner's account is disabled, or there is none.`,
+      <Link to="/admin/bases" className={open}>
+        {t`See the bases`}
       </Link>,
     );
   }

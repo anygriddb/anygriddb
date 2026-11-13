@@ -476,6 +476,10 @@ msgstr "{more, plural, one {# more in your notifications} other {# more in your 
 msgid "{ms} ms"
 msgstr "{ms} ms"
 
+#: components/admin/account-choices.tsx
+msgid "{name} ({email})"
+msgstr "{name} ({email})"
+
 #: components/admin/accounts-tab.tsx
 msgid "{name} added"
 msgstr "{name} added"
@@ -515,6 +519,10 @@ msgstr "{name}: {message}"
 #: components/shell/notification-items.ts
 msgid "{name}'s account locked after failed sign-ins"
 msgstr "{name}'s account locked after failed sign-ins"
+
+#: components/admin/admin-overview.tsx
+msgid "{ownerlessCount, plural, one {base without an active owner} other {bases without an active owner}}"
+msgstr "{ownerlessCount, plural, one {base without an active owner} other {bases without an active owner}}"
 
 #: components/admin/admin-overview.tsx
 msgid "{pending, plural, one {invitation waiting} other {invitations waiting}}"
@@ -681,6 +689,7 @@ msgstr "A day"
 msgid "A day and a time"
 msgstr "A day and a time"
 
+#: components/admin/bases-tab.tsx
 #: components/shell/trash-dialog.tsx
 #: components/shell/trashed-bases.tsx
 msgid "a deleted account"
@@ -863,7 +872,7 @@ msgid "Access granted"
 msgstr "Access granted"
 
 #: components/admin/accounts-tab.tsx
-#: components/admin/base-admin-page.tsx
+#: components/admin/base-admin-members.tsx
 #: components/admin/sessions-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/sources-tab.tsx
@@ -911,6 +920,10 @@ msgstr "Accounts"
 #: components/admin/security-tab.tsx
 msgid "Accounts and access"
 msgstr "Accounts and access"
+
+#: components/admin/base-admin-members.tsx
+msgid "Accounts of the instance"
+msgstr "Accounts of the instance"
 
 #: components/auth/auth-page.tsx
 msgid "Accounts on this instance come from your organization's sign-in: use it to get in."
@@ -1742,6 +1755,7 @@ msgstr "Call a URL"
 
 #: components/admin/account-bases.tsx
 #: components/admin/accounts-tab.tsx
+#: components/admin/base-admin-members.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/fields/field-editor.tsx
@@ -2633,10 +2647,15 @@ msgstr "Delete the table “{name}”?"
 msgid "Delete the view “{name}”?"
 msgstr "Delete the view “{name}”?"
 
+#: components/admin/base-admin-page.tsx
+msgid "Delete this base"
+msgstr "Delete this base"
+
 #: components/table/view-tabs.tsx
 msgid "Delete view"
 msgstr "Delete view"
 
+#: components/admin/bases-tab.tsx
 #: components/shell/trashed-bases.tsx
 msgid "Deleted bases"
 msgstr "Deleted bases"
@@ -2649,6 +2668,7 @@ msgstr "Deleted bases, tables, fields, and views wait there with their data, and
 msgid "Deleted items stay here for {days} days with their data, then are deleted permanently."
 msgstr "Deleted items stay here for {days} days with their data, then are deleted permanently."
 
+#: components/admin/bases-tab.tsx
 #: components/shell/trash-dialog.tsx
 #: components/shell/trashed-bases.tsx
 msgid "deleted on {date} by {name}"
@@ -3494,6 +3514,10 @@ msgstr "Find a base"
 msgid "Find a base, a table, or an action"
 msgstr "Find a base, a table, or an action"
 
+#: components/admin/base-admin-members.tsx
+msgid "Find an account"
+msgstr "Find an account"
+
 #: components/fields/field-editor.tsx
 msgid "Fire"
 msgstr "Fire"
@@ -3668,7 +3692,12 @@ msgstr "Give a group a role"
 msgid "Give a role on a base"
 msgstr "Give a role on a base"
 
+#: components/admin/base-admin-members.tsx
+msgid "Give a role to someone"
+msgstr "Give a role to someone"
+
 #: components/admin/account-bases.tsx
+#: components/admin/base-admin-members.tsx
 msgid "Give the role"
 msgstr "Give the role"
 
@@ -4314,6 +4343,10 @@ msgstr "Issuer / Entity ID"
 msgid "Issuer URL"
 msgstr "Issuer URL"
 
+#: components/admin/base-admin-page.tsx
+msgid "It goes to the trash for {days} days with its data, where its owners and administrators can restore it, then it is deleted permanently."
+msgstr "It goes to the trash for {days} days with its data, where its owners and administrators can restore it, then it is deleted permanently."
+
 #: components/views/calendar-feed.tsx
 msgid "It has not been read yet."
 msgstr "It has not been read yet."
@@ -4341,6 +4374,10 @@ msgstr "Its address stops working now; its owner can make a new one. The view st
 #: components/views/form-view.tsx
 msgid "Its condition reads a field placed after it: it is ignored."
 msgstr "Its condition reads a field placed after it: it is ignored."
+
+#: components/admin/base-admin-page.tsx
+msgid "Its members lose it at once. It stays in the trash for {days} days with its data, then is deleted permanently."
+msgstr "Its members lose it at once. It stays in the trash for {days} days with its data, then is deleted permanently."
 
 #: components/shell/sidebar.tsx
 msgid "Its tables stay in the base, back at the root. The folder itself is removed."
@@ -4806,7 +4843,7 @@ msgstr "Measured field"
 msgid "Median"
 msgstr "Median"
 
-#: components/admin/base-admin-page.tsx
+#: components/admin/base-admin-members.tsx
 #: components/admin/bases-tab.tsx
 #: components/settings/base-settings.tsx
 msgid "Members"
@@ -4896,6 +4933,10 @@ msgstr "More actions"
 msgid "Move"
 msgstr "Move"
 
+#: components/admin/base-admin-page.tsx
+msgid "Move “{name}” to the trash?"
+msgstr "Move “{name}” to the trash?"
+
 #: components/views/form-view.tsx
 msgid "Move {field} down"
 msgstr "Move {field} down"
@@ -4933,6 +4974,10 @@ msgstr "Move the row up"
 msgid "Move to {name}"
 msgstr "Move to {name}"
 
+#: components/admin/base-admin-page.tsx
+msgid "Move to the trash"
+msgstr "Move to the trash"
+
 #: components/shell/sidebar.tsx
 msgid "Move up"
 msgstr "Move up"
@@ -4944,6 +4989,10 @@ msgstr "Move up or down 15 rows"
 #: components/record/record-panel.tsx
 msgid "moved the row"
 msgstr "moved the row"
+
+#: components/admin/base-admin-page.tsx
+msgid "Moved to the trash"
+msgstr "Moved to the trash"
 
 #: components/fields/field-meta.tsx
 msgid "Multiple select"
@@ -5142,6 +5191,10 @@ msgstr "next year"
 msgid "No"
 msgstr "No"
 
+#: components/admin/base-admin-members.tsx
+msgid "No account by that name"
+msgstr "No account by that name"
+
 #: components/admin/accounts-tab.tsx
 msgid "No account matches these filters. Clear a filter, or add the person."
 msgstr "No account matches these filters. Clear a filter, or add the person."
@@ -5161,6 +5214,14 @@ msgstr "No account yet? Create one"
 #: lib/errors.ts
 msgid "No accounts match this selection"
 msgstr "No accounts match this selection"
+
+#: components/admin/base-admin-page.tsx
+msgid "No active account owns this base, itself or through a group: nobody can manage it. Give someone the owner role below."
+msgstr "No active account owns this base, itself or through a group: nobody can manage it. Give someone the owner role below."
+
+#: components/admin/bases-tab.tsx
+msgid "No active owner"
+msgstr "No active owner"
 
 #: components/admin/emergency-section.tsx
 msgid "No API token to revoke"
@@ -5389,6 +5450,10 @@ msgstr "No value"
 #: components/admin/access-tab.tsx
 msgid "No webhook."
 msgstr "No webhook."
+
+#: components/admin/admin-overview.tsx
+msgid "Nobody can manage them: every owner's account is disabled, or there is none."
+msgstr "Nobody can manage them: every owner's account is disabled, or there is none."
 
 #: components/admin/health-tab.tsx
 msgid "Node.js, up for"
@@ -6290,6 +6355,7 @@ msgstr "Reload the page"
 
 #: components/admin/account-actions.tsx
 #: components/admin/account-bases.tsx
+#: components/admin/base-admin-members.tsx
 #: components/admin/settings-tab.tsx
 #: components/fields/cell-editor.tsx
 #: components/settings/base-settings.tsx
@@ -6302,11 +6368,13 @@ msgstr "Remove"
 msgid "Remove {base}"
 msgstr "Remove {base}"
 
+#: components/admin/base-admin-members.tsx
 #: components/views/form-files.tsx
 msgid "Remove {name}"
 msgstr "Remove {name}"
 
 #: components/admin/account-bases.tsx
+#: components/admin/base-admin-members.tsx
 msgid "Remove {name} from {base}?"
 msgstr "Remove {name} from {base}?"
 
@@ -6349,6 +6417,10 @@ msgstr "Remove their second factors"
 #: components/admin/outbound-tab.tsx
 msgid "Remove this calendar feed?"
 msgstr "Remove this calendar feed?"
+
+#: components/admin/base-admin-members.tsx
+msgid "Removed {name} from the base"
+msgstr "Removed {name} from the base"
 
 #: components/admin/accounts-tab.tsx
 msgid "Removed by the identity provider"
@@ -6475,12 +6547,14 @@ msgstr "Resize the sidebar"
 msgid "REST at {url}. Authenticate with a token: Authorization: Bearer ag_…"
 msgstr "REST at {url}. Authenticate with a token: Authorization: Bearer ag_…"
 
+#: components/admin/bases-tab.tsx
 #: components/shell/trash-dialog.tsx
 #: components/shell/trashed-bases.tsx
 #: components/table/table-workspace.tsx
 msgid "Restore"
 msgstr "Restore"
 
+#: components/admin/bases-tab.tsx
 #: lib/trash.tsx
 msgid "Restored from the trash"
 msgstr "Restored from the trash"
@@ -6558,7 +6632,7 @@ msgstr "revoked"
 msgid "Revoked"
 msgstr "Revoked"
 
-#: components/admin/base-admin-page.tsx
+#: components/admin/base-admin-members.tsx
 #: components/admin/invitations-panel.tsx
 #: components/settings/base-settings.tsx
 #: components/settings/group-roles.tsx
@@ -6566,12 +6640,21 @@ msgid "Role"
 msgstr "Role"
 
 #: components/admin/account-bases.tsx
+#: components/admin/base-admin-members.tsx
 msgid "Role changed"
 msgstr "Role changed"
+
+#: components/admin/base-admin-members.tsx
+msgid "Role for {name}"
+msgstr "Role for {name}"
 
 #: components/admin/account-bases.tsx
 msgid "Role given on {base}"
 msgstr "Role given on {base}"
+
+#: components/admin/base-admin-members.tsx
+msgid "Role given to {name}"
+msgstr "Role given to {name}"
 
 #: components/settings/group-roles.tsx
 msgid "Role of the group {name}"
@@ -6884,6 +6967,10 @@ msgstr "Second factors removed"
 #: components/admin/admin-sections.ts
 msgid "Security"
 msgstr "Security"
+
+#: components/admin/admin-overview.tsx
+msgid "See the bases"
+msgstr "See the bases"
 
 #: components/admin/admin-overview.tsx
 msgid "See the invitations"
@@ -8306,9 +8393,11 @@ msgid "They keep their account and their bases, and lose Administration. The ins
 msgstr "They keep their account and their bases, and lose Administration. The instance always keeps one active administrator."
 
 #: components/admin/account-bases.tsx
+#: components/admin/base-admin-members.tsx
 msgid "They lose their own role on the base and its tables at once, and their open pages reload. A role a group gives them stays."
 msgstr "They lose their own role on the base and its tables at once, and their open pages reload. A role a group gives them stays."
 
+#: components/admin/bases-tab.tsx
 #: components/shell/trashed-bases.tsx
 msgid "They stay for {days} days with their data, then are deleted permanently."
 msgstr "They stay for {days} days with their data, then are deleted permanently."
@@ -8593,7 +8682,7 @@ msgstr "this week"
 msgid "this year"
 msgstr "this year"
 
-#: components/admin/base-admin-page.tsx
+#: components/admin/base-admin-members.tsx
 msgid "Through {groups}"
 msgstr "Through {groups}"
 
@@ -9417,6 +9506,10 @@ msgstr "Without"
 #: components/admin/sources-tab.tsx
 msgid "Without a primary key, this table stays read-only."
 msgstr "Without a primary key, this table stays read-only."
+
+#: components/admin/bases-tab.tsx
+msgid "Without an active owner"
+msgstr "Without an active owner"
 
 #: components/settings/webhooks-panel.tsx
 msgid "without values"
