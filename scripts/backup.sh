@@ -18,7 +18,10 @@
 #
 # AUTH_ENCRYPTION_KEY is not in the backup, on purpose: it unseals the
 # sources' passwords, second factors, and TLS keys. Keep it apart.
-set -euo pipefail
+#
+# Each run is reported to the instance, which shows the last ones in
+# Administration and tells its administrators when backups fail or stop.
+set -Eeuo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root/docker"
@@ -79,6 +82,21 @@ keep() {
   fi
 }
 
+# Tells the instance how this run ended. A report that cannot be made
+# never fails the backup: the instance then finds, later, that it is late.
+started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+report() {
+  local flags=() bytes
+  if [ "$1" = failed ]; then flags+=(--failed); fi
+  bytes="$(du -sk "$out" 2>/dev/null | cut -f1)" || bytes=""
+  case "$bytes" in '' | *[!0-9]*) ;; *) flags+=(--bytes "$((bytes * 1024))") ;; esac
+  if [ -n "$recipient" ]; then flags+=(--encrypted); fi
+  "${compose[@]}" exec -T app anygriddb backups record \
+    --name "$(basename "$out")" --started "$started" ${flags[@]+"${flags[@]}"} >/dev/null 2>&1 ||
+    echo "The instance could not be told of this run: Administration will not show it." >&2
+}
+trap 'trap - ERR; report failed' ERR
+
 echo "== Database ${POSTGRES_DB}"
 "${compose[@]}" exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   --format=custom | keep "$out/database.dump"
@@ -117,3 +135,5 @@ if [ -n "$recipient" ]; then
   echo "Encrypted for ${recipient}: restore it with that key's identity (BACKUP_AGE_IDENTITY)."
 fi
 echo "Keep AUTH_ENCRYPTION_KEY apart from it: without that key, this backup's sealed secrets stay sealed."
+trap - ERR
+report succeeded

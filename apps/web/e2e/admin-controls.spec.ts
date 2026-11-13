@@ -258,6 +258,22 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
         .locator("dt", { hasText: /^Version$/ })
         .locator("xpath=following-sibling::dd[1]"),
     ).toHaveText(`${version} · from sources`);
+    // Alerts and backups (ROADMAP #17, #25): nothing is open, nothing
+    // was reported, and a threshold is changed from there.
+    await expect(page.getByText("No alert is open.")).toBeVisible();
+    await expect(
+      page.getByText(/No backup has been reported yet/),
+    ).toBeVisible();
+    const backupDelay = page.getByLabel("No backup has succeeded for");
+    await expect(backupDelay).toHaveValue("36");
+    await backupDelay.selectOption("24");
+    await expect(backupDelay).toHaveValue("24");
+    // Kept by the server: the page says the same once read again.
+    await page.reload();
+    await expect(backupDelay).toHaveValue("24");
+    await backupDelay.selectOption("36");
+    await expect(backupDelay).toHaveValue("36");
+    expect(await accessibilityViolations(page)).toEqual([]);
 
     // Addresses keep the section, the page, and the list's filters
     // (ROADMAP #49); a section's own address opens its first page.

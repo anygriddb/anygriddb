@@ -79,8 +79,8 @@ tracks, the order of work below decides.
 A row moves up only when it unblocks another.
 
 1. Data in and out past 100,000 rows: 83 (base snapshots).
-2. Administration lot 4: 17, 25. Row 51 needs no code: a version tag
-   runs the release workflow.
+2. Administration, lot by lot: 5, 6, 7. Row 51 needs no code: a version
+   tag runs the release workflow.
 
 ### Views and organisation
 
@@ -133,11 +133,11 @@ Every base, link, token, webhook, and automation of the instance, metadata only:
 
 #### Lot 4: backups and alerts
 
-| #   | What                                                                                                                                                                                                                                        | Effort | Notes                                                                                                                                                                                |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 17  | The state of backups in Administration: date, size, and result of the last ones; age threshold; administrators told when none succeeded for N days                                                                                          | M      | `scripts/backup.sh` runs outside the application and reports nothing to it. Script should write each run into the database; a late backup then gets its card on the first page (#26) |
-| 25  | Alerts to administrators, in the application and by email: late or failed backup, storage nearly full, certificate close to expiry (instance and sources), repeated failures, a source out of reach; each kind on or off with its threshold | M      | Account locks and new releases are the only ones today. At most one reminder a day while open                                                                                        |
-| 51  | A published release the Health check can find, so the update notice can appear when the check is on                                                                                                                                         | S      | Check and banner exist (ADR 0048); no GitHub Release yet, so operators never see one. No code: pushing a version tag runs the release workflow                                       |
+Done: the backup script tells the instance how each run ended, and so can a backup made by other means; Health shows the last ones (#17). Administrators are told, on the first page of Administration, in Health, and by email, of a backup that failed or is late, storage nearly full, the instance's certificate close to expiry, a source whose watched tables cannot be read, and failures piling up: each with its threshold or turned off, once a day at most while it stays open, closed by itself once its cause is gone (#25). A source's own certificate is not watched: once it expires the source stops answering, and that is told.
+
+| #   | What                                                                                                | Effort | Notes                                                                                                                                          |
+| --- | --------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 51  | A published release the Health check can find, so the update notice can appear when the check is on | S      | Check and banner exist (ADR 0048); no GitHub Release yet, so operators never see one. No code: pushing a version tag runs the release workflow |
 
 #### Lot 5: groups and delegated roles
 

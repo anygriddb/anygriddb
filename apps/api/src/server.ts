@@ -214,6 +214,7 @@ export async function createApp(deps: {
       log: (error, message) => {
         app.log.error({ err: error }, message);
       },
+      certificateExpires: () => tls?.server.expires ?? null,
     }),
     log: app.log.child({ component: "queue" }),
   });

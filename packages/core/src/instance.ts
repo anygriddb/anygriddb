@@ -51,6 +51,10 @@ export const POLICY_BOUNDS = {
   inactiveDays: { min: 30, max: 730 },
   /** How long deleted bases, tables, fields, and views can come back. */
   trashDays: { min: 7, max: 365 },
+  alertBackupHours: { min: 6, max: 720 },
+  alertStoragePercent: { min: 50, max: 99 },
+  alertCertificateDays: { min: 1, max: 90 },
+  alertFailures: { min: 1, max: 10_000 },
 } as const;
 
 /** An administrator is never locked out for good: the instance needs one. */
@@ -147,6 +151,23 @@ const fields = {
   ]),
   /** Days the trash keeps what was deleted, before it is purged for good. */
   trashDays: bounded("trashDays"),
+  /**
+   * What administrators are told about (ROADMAP #25), each with its
+   * threshold; 0 or false turns one off. Hours without a successful
+   * backup, once backups are reported at all.
+   */
+  alertBackupHours: z.union([z.literal(0), bounded("alertBackupHours")]),
+  /** Percent of the volume the files are on that is used. */
+  alertStoragePercent: z.union([z.literal(0), bounded("alertStoragePercent")]),
+  /** Days left before the instance's certificate expires. */
+  alertCertificateDays: z.union([
+    z.literal(0),
+    bounded("alertCertificateDays"),
+  ]),
+  /** A source whose watched tables cannot be read. */
+  alertSources: z.boolean(),
+  /** Failed jobs, webhook deliveries, and automation runs in 24 hours. */
+  alertFailures: z.union([z.literal(0), bounded("alertFailures")]),
 };
 
 export type InstanceSettings = {
@@ -181,6 +202,11 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   releaseCheck: false,
   attachmentMaxBytes: null,
   trashDays: 30,
+  alertBackupHours: 36,
+  alertStoragePercent: 90,
+  alertCertificateDays: 14,
+  alertSources: true,
+  alertFailures: 50,
 };
 
 const KEYS = Object.keys(fields) as Array<keyof InstanceSettings>;
@@ -229,6 +255,17 @@ export const instanceSettingsSchema = z.object({
     INSTANCE_DEFAULTS.attachmentMaxBytes,
   ),
   trashDays: fields.trashDays.default(INSTANCE_DEFAULTS.trashDays),
+  alertBackupHours: fields.alertBackupHours.default(
+    INSTANCE_DEFAULTS.alertBackupHours,
+  ),
+  alertStoragePercent: fields.alertStoragePercent.default(
+    INSTANCE_DEFAULTS.alertStoragePercent,
+  ),
+  alertCertificateDays: fields.alertCertificateDays.default(
+    INSTANCE_DEFAULTS.alertCertificateDays,
+  ),
+  alertSources: fields.alertSources.default(INSTANCE_DEFAULTS.alertSources),
+  alertFailures: fields.alertFailures.default(INSTANCE_DEFAULTS.alertFailures),
 });
 
 export const instanceSettingsPatchSchema = z
@@ -259,6 +296,11 @@ export const instanceSettingsPatchSchema = z
     releaseCheck: fields.releaseCheck.optional(),
     attachmentMaxBytes: fields.attachmentMaxBytes.optional(),
     trashDays: fields.trashDays.optional(),
+    alertBackupHours: fields.alertBackupHours.optional(),
+    alertStoragePercent: fields.alertStoragePercent.optional(),
+    alertCertificateDays: fields.alertCertificateDays.optional(),
+    alertSources: fields.alertSources.optional(),
+    alertFailures: fields.alertFailures.optional(),
   })
   .strict();
 

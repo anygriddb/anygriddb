@@ -30,6 +30,8 @@ export const TASKS = {
   jobsRecover: "jobs_recover",
   webhookSweep: "webhook_sweep",
   purge: "purge",
+  /** The alerts kept in step with what the instance finds. */
+  alerts: "alerts",
   trashPurge: "trash_purge",
   fileSweep: "file_sweep",
   /** Reads rows of writes to client tables again, to settle them. */

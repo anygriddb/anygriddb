@@ -509,6 +509,16 @@ export {
 } from "./query/duplicate";
 
 export {
+  ALERT_KINDS,
+  ALERT_REMINDER_HOURS,
+  alertMailDue,
+  dueAlerts,
+  type AlertFacts,
+  type AlertKind,
+  type DueAlert,
+} from "./alerts";
+
+export {
   buildCopyCreate,
   buildCopyDiff,
   buildCopyDrop,

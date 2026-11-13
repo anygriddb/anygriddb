@@ -3,6 +3,7 @@
  * out into one job per consumer, so each consumer retries on its own and
  * a slow webhook never delays an automation.
  */
+import { checkAlerts } from "../alerts.js";
 import type { RowEvent } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { Task, TaskList } from "graphile-worker";
@@ -84,6 +85,8 @@ export type TaskDeps = {
   env: Env;
   files: FileStore;
   log: (error: unknown, message: string) => void;
+  /** When the certificate people are served expires; none without TLS. */
+  certificateExpires?: () => string | null;
 };
 
 /** Who takes the row events of a table: only those with work to do. */
@@ -303,6 +306,15 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
     [TASKS.webhookSweep]: async () => {
       await sweepDeliveries(deps.db);
     },
+    [TASKS.alerts]: async () => {
+      await checkAlerts({
+        db: deps.db,
+        files: deps.files,
+        env: deps.env,
+        log: deps.log,
+        certificateExpires: deps.certificateExpires ?? (() => null),
+      });
+    },
     [TASKS.purge]: async () => {
       await purgeDeliveries(deps.db);
       await purgeAuthEvents(
@@ -443,6 +455,14 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
           match: "17 * * * *",
           options: once,
           identifier: "purge",
+        },
+        {
+          // What administrators are told about: late backups, storage,
+          // the certificate, sources, failures (ROADMAP #25).
+          task: TASKS.alerts,
+          match: "*/10 * * * *",
+          options: once,
+          identifier: "alerts",
         },
         {
           // Writes to client tables a crash or a lost connection left open.

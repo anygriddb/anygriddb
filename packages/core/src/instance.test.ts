@@ -182,6 +182,19 @@ describe("more policies (ADR 0044)", () => {
     expect(patch({ trashDays: 7 })).toBe(true);
     expect(patch({ trashDays: 6 })).toBe(false);
     expect(patch({ trashDays: 366 })).toBe(false);
+    // Each alert has its threshold; 0 turns it off.
+    expect(INSTANCE_DEFAULTS).toMatchObject({
+      alertBackupHours: 36,
+      alertStoragePercent: 90,
+      alertCertificateDays: 14,
+      alertSources: true,
+      alertFailures: 50,
+    });
+    expect(patch({ alertBackupHours: 0 })).toBe(true);
+    expect(patch({ alertBackupHours: 5 })).toBe(false);
+    expect(patch({ alertStoragePercent: 100 })).toBe(false);
+    expect(patch({ alertCertificateDays: 91 })).toBe(false);
+    expect(patch({ alertFailures: 1 })).toBe(true);
   });
 
   it("keeps roles to the sign-up domains only when asked and when some are set", () => {
