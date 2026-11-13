@@ -170,6 +170,8 @@ describe("accounts in Administration", () => {
       const restore = mailOff();
       try {
         const email = `handed-${suffix}@example.org`;
+        // Made as an administrator: the proof is asked first (ROADMAP #28).
+        await admin.call().admin.stepUp({ password: PASSWORD });
         const handed = await admin.call().admin.createAccount({
           email,
           displayName: "Handed",

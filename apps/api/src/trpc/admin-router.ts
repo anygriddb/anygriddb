@@ -885,12 +885,15 @@ export const adminRouter = t.router({
    * Adds a person (ROADMAP #67): an account with no password yet, roles on
    * the bases chosen, and a first link valid a week. With email set up it
    * goes to the person; without, the administrator gets it to pass on.
+   * An account made as an administrator is administration given: it asks
+   * the proof again, as `setAdmin` does (ROADMAP #28).
    */
   createAccount: procedure
     .input(createAccountInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
+        if (input.admin) await requireStepUp(ctx);
         const created = await createAccount(ctx.db, admin.id, input);
         const link = await createResetLink(ctx.db, {
           userId: created.id,
