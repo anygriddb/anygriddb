@@ -8,7 +8,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AutomationAction, AutomationTrigger } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
-import { runOnce, type TaskList } from "graphile-worker";
+import type { TaskList } from "graphile-worker";
+import { runJobs } from "./queue/run-once.test-helpers.js";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadBindings } from "./auth/access.js";
@@ -101,7 +102,7 @@ describe("automations run by the queue", () => {
 
   /** Runs every job waiting, and those they queue. */
   async function work(): Promise<void> {
-    await runOnce({ pgPool: pool, taskList: tasks });
+    await runJobs(pool, tasks);
   }
 
   async function scope(tableId: string) {

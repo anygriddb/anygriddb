@@ -7,7 +7,8 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Database } from "@anygriddb/db";
-import { runOnce, type TaskList } from "graphile-worker";
+import type { TaskList } from "graphile-worker";
+import { runJobs } from "./queue/run-once.test-helpers.js";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ERASED_USER_ID } from "./data/erasure.js";
@@ -126,7 +127,7 @@ describe("operator mail", () => {
   });
 
   async function work(): Promise<void> {
-    await runOnce({ pgPool: pool, taskList: tasks });
+    await runJobs(pool, tasks);
   }
 
   it("resolves active accounts and chosen ids, never the tombstone", async () => {
