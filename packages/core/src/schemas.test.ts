@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   importCommitInputSchema,
+  moveRowsInputSchema,
   TABLE_ACTIVITY_MAX,
   tableActivityInputSchema,
 } from "./schemas";
@@ -79,5 +80,48 @@ describe("tableActivityInputSchema", () => {
     expect(tableActivityInputSchema.safeParse({ tableIds: [] }).success).toBe(
       false,
     );
+  });
+});
+
+describe("moveRowsInputSchema", () => {
+  const tableId = "11111111-1111-4111-8111-111111111111";
+  const row = "22222222-2222-4222-8222-222222222222";
+  const other = "33333333-3333-4333-8333-333333333333";
+
+  it("takes rows and the one row they go before or after", () => {
+    expect(
+      moveRowsInputSchema.parse({
+        tableId,
+        rowIds: [row],
+        place: { before: other },
+      }).place,
+    ).toEqual({ before: other });
+    expect(
+      moveRowsInputSchema.parse({
+        tableId,
+        rowIds: [row],
+        place: { after: other },
+      }).place,
+    ).toEqual({ after: other });
+  });
+
+  it("refuses a place on both sides, on none, or beside a client's key", () => {
+    for (const place of [
+      { before: other, after: other },
+      {},
+      { before: "42" },
+    ]) {
+      expect(
+        moveRowsInputSchema.safeParse({ tableId, rowIds: [row], place })
+          .success,
+      ).toBe(false);
+    }
+    expect(
+      moveRowsInputSchema.safeParse({
+        tableId,
+        rowIds: [],
+        place: { after: other },
+      }).success,
+    ).toBe(false);
   });
 });

@@ -63,6 +63,7 @@ const SKIP = new Set([
   "id",
   "ag_status",
   "ag_seq",
+  "ag_position",
   "ag_created_at",
   "ag_updated_at",
   "ag_created_by",
@@ -463,6 +464,8 @@ const ACTION_LABELS: Record<string, MessageDescriptor> = {
   restored: msg`found the locked values back`,
 };
 
+const MOVED = msg`moved the row`;
+
 function History({ rowId }: { rowId: string }) {
   const { t } = useLingui();
   const api = useTRPC();
@@ -488,6 +491,12 @@ function History({ rowId }: { rowId: string }) {
             JSON.stringify(before[key] ?? null) !==
               JSON.stringify(after[key] ?? null),
         );
+        // Only its place changed: the row was moved, not edited.
+        const moved =
+          event.action === "update" &&
+          changed.length === 0 &&
+          JSON.stringify(before.ag_position ?? null) !==
+            JSON.stringify(after.ag_position ?? null);
         return (
           <li key={index} className="flex gap-2 text-sm">
             <Avatar name={event.displayName ?? "AnyGridDB"} />
@@ -496,7 +505,11 @@ function History({ rowId }: { rowId: string }) {
                 <span className="font-medium">
                   {event.displayName ?? "AnyGridDB"}
                 </span>{" "}
-                {t(ACTION_LABELS[event.action] ?? raw(event.action))}
+                {t(
+                  moved
+                    ? MOVED
+                    : (ACTION_LABELS[event.action] ?? raw(event.action)),
+                )}
                 <span className="ml-1 text-muted-foreground">
                   {new Date(event.occurredAt).toLocaleString(
                     locale === "fr" ? "fr-FR" : "en-GB",

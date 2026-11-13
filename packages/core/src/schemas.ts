@@ -263,16 +263,34 @@ export const rowsAggregateInputSchema = z.object({
 
 const rowValuesSchema = z.record(columnNameSchema, cellValueSchema);
 
+/**
+ * Just before a row of AnyGridDB's own, or just after it, in the table's
+ * order (`row-order.ts`).
+ */
+export const rowPlaceSchema = z.union([
+  z.strictObject({ before: z.uuid() }),
+  z.strictObject({ after: z.uuid() }),
+]);
+
 export const insertRowInputSchema = z.object({
   tableId: z.uuid(),
   values: rowValuesSchema,
   reason: reasonSchema.optional(),
+  place: rowPlaceSchema.optional(),
 });
 
 export const insertRowsInputSchema = z.object({
   tableId: z.uuid(),
   rows: z.array(rowValuesSchema).min(1).max(MAX_BATCH_ROWS),
   reason: reasonSchema.optional(),
+  place: rowPlaceSchema.optional(),
+});
+
+/** Rows put beside another, keeping the order they had among themselves. */
+export const moveRowsInputSchema = z.object({
+  tableId: z.uuid(),
+  rowIds: z.array(z.uuid()).min(1).max(MAX_BATCH_ROWS),
+  place: rowPlaceSchema,
 });
 
 /**

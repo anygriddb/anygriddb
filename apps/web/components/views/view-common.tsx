@@ -10,6 +10,7 @@ import {
 } from "@anygriddb/ui";
 import { LayoutList } from "lucide-react";
 import { cellDisplay } from "../../lib/format";
+import type { RowPlace } from "../../lib/row-place";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { CellValueView } from "../fields/cell-value";
 import { useTable } from "../table/table-context";
@@ -40,6 +41,15 @@ export type ViewProps = {
   groups?: Groups;
   /** Optional row tint from the view colour settings. */
   tintOf?: (row: RowItem) => string | undefined;
+  /**
+   * Rows put beside another by hand, and where they were (`back`, for
+   * undo); unset where rows keep no order of their own, or the view sorts.
+   */
+  onMoveRows?: (
+    rowIds: string[],
+    place: RowPlace,
+    back: RowPlace | null,
+  ) => Promise<void>;
 };
 
 /** Title text for a card/row: `titleColumn` when set, else the primary field. */

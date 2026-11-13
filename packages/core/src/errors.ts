@@ -98,6 +98,7 @@ export const ERRORS = {
   unknown_row: [BAD, "Unknown row"],
   no_row: [BAD, "No row"],
   row_locked: [409, "Row locked"],
+  invalid_place: [BAD, "Invalid place"],
   reason_required: [BAD, "Reason required"],
   value_required: [BAD, "Value required"],
   invalid_reason: [BAD, "Invalid reason"],

@@ -10,11 +10,14 @@ import {
   buildGroupCounts,
   buildInserts,
   buildInsertLinks,
+  buildMoveRows,
+  buildOrderLock,
   buildReadJunction,
   buildReadRows,
   buildReadStatus,
   buildReadStatuses,
   buildRestoreRow,
+  buildRowPlaces,
   buildSetStatus,
   buildUpdate,
   cellText,
@@ -29,6 +32,8 @@ import {
   parseDelimited,
   quoteIdent,
   type ReadSpec,
+  type RowPlace,
+  placeTarget,
   type WriteColumn,
 } from "@anygriddb/core";
 import { readWithin, runStatement, type Database } from "@anygriddb/db";
@@ -650,21 +655,52 @@ function auditContext(context: WriteContext): AuditContext {
   };
 }
 
+/**
+ * Places for `count` rows beside the row `place` names, the table's order
+ * held until the transaction ends (`row-order.ts`).
+ */
+async function placesBeside(
+  tx: AuditTx,
+  physicalName: string,
+  place: RowPlace,
+  count: number,
+): Promise<string[]> {
+  await runRows(tx, buildOrderLock(physicalName));
+  const [found] = await runRows(
+    tx,
+    buildRowPlaces({ table: physicalName, place, count }),
+  );
+  const positions = found?.positions;
+  if (
+    !Array.isArray(positions) ||
+    positions.length !== count ||
+    positions.some((value) => typeof value !== "string")
+  ) {
+    throw new AppError("no_row");
+  }
+  return positions as string[];
+}
+
 export async function insertRows(
   db: Database,
   engine: EngineCatalog,
   context: WriteContext,
   rows: ReadonlyArray<Readonly<Record<string, CellValue>>>,
+  place?: RowPlace,
 ): Promise<string[]> {
   const columns = writeColumns(engine);
   await assertUserValues(db, context.baseId, columns, rows);
-  // Rows that set the same fields go in one statement, not one each.
-  const statements = buildInserts({
-    table: context.physicalName,
-    columns,
-    rows,
-  });
   return withAudit(db, auditContext(context), async (tx) => {
+    const positions = place
+      ? await placesBeside(tx, context.physicalName, place, rows.length)
+      : undefined;
+    // Rows that set the same fields go in one statement, not one each.
+    const statements = buildInserts({
+      table: context.physicalName,
+      columns,
+      rows,
+      positions,
+    });
     const ids: string[] = [];
     for (const { statement, rows: expected } of statements) {
       const inserted = await runRows(tx, statement);
@@ -726,6 +762,45 @@ export async function updateRows(
     }
   });
   return statements.map((item) => item.rowId);
+}
+
+/**
+ * Puts rows just before or just after another, keeping the order they had
+ * among themselves. Only their place changes: the trail records the move,
+ * their last change stays as it was, and a locked or signed row stays
+ * where it is.
+ */
+export async function moveRows(
+  db: Database,
+  context: WriteContext,
+  rowIds: readonly string[],
+  place: RowPlace,
+): Promise<string[]> {
+  const target = placeTarget(place).rowId.toLowerCase();
+  if (rowIds.some((id) => id.toLowerCase() === target)) {
+    throw new AppError("invalid_place");
+  }
+  return withAudit(db, auditContext(context), async (tx) => {
+    const positions = await placesBeside(
+      tx,
+      context.physicalName,
+      place,
+      rowIds.length,
+    );
+    const statuses = await lockRows(tx, context.physicalName, rowIds);
+    for (const rowId of rowIds) {
+      const status = statuses.get(rowId.toLowerCase());
+      if (status === undefined) {
+        throw new AppError("no_row");
+      }
+      assertWritable(status);
+    }
+    const moved = await runRows(
+      tx,
+      buildMoveRows({ table: context.physicalName, rowIds, positions }),
+    );
+    return moved.map((row) => readId([row]));
+  });
 }
 
 /** Marker in a post-delete audit event that carries many-to-many targets. */

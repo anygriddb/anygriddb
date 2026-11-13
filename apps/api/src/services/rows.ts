@@ -17,8 +17,10 @@ import {
   type EngineCatalog,
   type EngineColumn,
   MAX_BATCH_ROWS,
+  placeTarget,
   resolveChangeReason,
   roleAllows,
+  type RowPlace,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { assertAttachmentKeys } from "../attachments.js";
@@ -34,6 +36,7 @@ import {
   deleteRows as deleteRowRecords,
   hasRules,
   insertRows,
+  moveRows as moveRowRecords,
   restoreRows as restoreRowRecords,
   readByIds,
   setRowStatus,
@@ -465,12 +468,29 @@ async function writeInverseLinks(
   await announceRows(deps, scope.table.id, "update", [rowId], []);
 }
 
+/**
+ * The row a new or moved row is put beside must be one the writer sees,
+ * in a table of AnyGridDB's own: a client's table keeps the order its
+ * database gives it.
+ */
+async function assertPlace(
+  deps: RowServiceDeps,
+  scope: RowScope,
+  place: RowPlace,
+): Promise<void> {
+  if (isExternal(scope)) throw new AppError("external_action_unavailable");
+  await assertRowsInScope(deps.db, scope.engine, [placeTarget(place).rowId]);
+}
+
+/** New rows, at the end of the table, or together beside a row. */
 export async function createRows(
   deps: RowServiceDeps,
   scope: RowScope,
   rows: readonly RowInput[],
   meta: WriteMeta,
+  place?: RowPlace,
 ): Promise<string[]> {
+  if (place) await assertPlace(deps, scope, place);
   const checked = await prepare(deps, scope, rows, []);
   const reason = resolveReason(scope, touchedColumns(rows), meta);
   if (isExternal(scope)) {
@@ -493,6 +513,7 @@ export async function createRows(
     scope.engine,
     writeContext(scope, reason, meta),
     rows.map((row) => row.values),
+    place,
   );
   const extra: string[] = [];
   for (const [index, row] of rows.entries()) {
@@ -565,6 +586,33 @@ export async function updateRows(
     ]),
   ];
   await announceRows(deps, scope.table.id, "update", ids, extra);
+  return ids;
+}
+
+/**
+ * Puts rows just before or just after another, keeping the order they had
+ * among themselves. Nothing in them changes: no webhook, automation, or
+ * notification hears of it, and open tabs read the table again.
+ */
+export async function moveRows(
+  deps: RowServiceDeps,
+  scope: RowScope,
+  rowIds: readonly string[],
+  place: RowPlace,
+  meta: WriteMeta,
+): Promise<string[]> {
+  await assertPlace(deps, scope, place);
+  await assertRowsInScope(deps.db, scope.engine, rowIds);
+  const ids = await moveRowRecords(
+    deps.db,
+    {
+      ...writeContext(scope, resolveReason(scope, [], meta), meta),
+      events: false,
+    },
+    rowIds,
+    place,
+  );
+  await announceRows(deps, scope.table.id, "refresh", ids, []);
   return ids;
 }
 

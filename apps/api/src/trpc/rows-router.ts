@@ -15,6 +15,7 @@ import {
   legacyFiltersToGroup,
   linkCandidatesInputSchema,
   listCommentsInputSchema,
+  moveRowsInputSchema,
   normalizeViewConfig,
   parseMentions,
   pruneViewConfig,
@@ -99,6 +100,7 @@ import {
   deleteRows,
   importRows,
   loadRowScope,
+  moveRows,
   replaceLinks,
   restoreRows,
   signRowAs,
@@ -305,6 +307,7 @@ export const rowsRouter = t.router({
         scope,
         [{ values: input.values }],
         { reason: input.reason, source: "web" },
+        input.place,
       );
       if (!id) throw new AppError("no_row");
       return { id };
@@ -320,10 +323,24 @@ export const rowsRouter = t.router({
           scope,
           input.rows.map((values) => ({ values })),
           { reason: input.reason, source: "web" },
+          input.place,
         );
         return { ids };
       }),
     ),
+  move: procedure.input(moveRowsInputSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const scope = await writeScope(ctx, input.tableId);
+      const ids = await moveRows(
+        serviceDeps(ctx),
+        scope,
+        input.rowIds,
+        input.place,
+        { source: "web" },
+      );
+      return { ids };
+    }),
+  ),
   update: procedure.input(updateRowInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const scope = await writeScope(ctx, input.tableId);

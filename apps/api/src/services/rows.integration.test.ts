@@ -440,8 +440,12 @@ describe("row writes through the REST API", () => {
       select indexname from pg_indexes
       where tablename = ${clients.physicalName} and indexname like 'ix_%'
     `.execute(database);
-    expect(others.rows.map((row) => row.indexname)).toEqual([
-      indexName(clients.physicalName, "ag_seq", "ix"),
-    ]);
+    // Only the sequence's and the order's.
+    expect(others.rows.map((row) => row.indexname).sort()).toEqual(
+      [
+        indexName(clients.physicalName, "ag_seq", "ix"),
+        indexName(clients.physicalName, "ag_position", "ix"),
+      ].sort(),
+    );
   });
 });

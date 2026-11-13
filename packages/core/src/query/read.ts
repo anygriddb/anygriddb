@@ -315,8 +315,11 @@ function prepare(catalog: EngineCatalog, spec: ReadSpec): Prepared {
     columns.set(column.name, projectColumn(ctx, column));
   }
   const table = catalog.table;
-  // AnyGridDB's rows keep their order by `ag_seq`; a client's, by their key.
-  const stable = table.external ? stableOrderSql(table, "r") : [];
+  // A client's rows keep their order by their key; AnyGridDB's, by the
+  // place people gave them, then by when they came (`row-order.ts`).
+  const stable = table.external
+    ? stableOrderSql(table, "r")
+    : [`r."ag_position"`];
   const select = [
     aliased(idSql(table, "r"), "id"),
     aliased(systemSql(table, "r", "ag_status"), "ag_status"),
@@ -421,9 +424,10 @@ function prepare(catalog: EngineCatalog, spec: ReadSpec): Prepared {
   return {
     params,
     d,
-    orderKeys: table.external
-      ? stable.map((_, index) => `ag_order_${String(index)}`)
-      : ["ag_seq"],
+    orderKeys: [
+      ...stable.map((_, index) => `ag_order_${String(index)}`),
+      ...(table.external ? [] : ["ag_seq"]),
+    ],
     derived,
     columns,
     filterContext,

@@ -82,6 +82,7 @@ export const RESERVED_COLUMN_NAMES: ReadonlySet<string> = new Set([
   "id",
   "ag_status",
   "ag_seq",
+  "ag_position",
   "ag_created_at",
   "ag_updated_at",
   "ag_created_by",

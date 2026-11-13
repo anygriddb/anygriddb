@@ -1,4 +1,4 @@
-import { cellText, MAX_GROUPS } from "@anygriddb/core";
+import { MAX_GROUPS } from "@anygriddb/core";
 import { RowsError } from "./rows-error";
 
 import {
@@ -14,6 +14,10 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  BetweenHorizontalEnd,
+  BetweenHorizontalStart,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -39,6 +43,8 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
+import { useRowDrag, useRowPlaceDrop, type ListSlot } from "../../lib/drag";
+import { placeBetween, type RowPlace } from "../../lib/row-place";
 import type { Presence } from "../../lib/realtime";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { useErrorText } from "../../lib/errors";
@@ -115,6 +121,18 @@ export type GridProps = {
   onInsertRows: (rows: Array<Record<string, CellValue>>) => Promise<void>;
   onDeleteRows: (rowIds: string[]) => Promise<void>;
   onDuplicateRows: (rowIds: string[]) => Promise<void>;
+  /** A new row just above or just below another; unset where rows have no order of their own. */
+  onInsertBeside?: (place: RowPlace) => Promise<void>;
+  /**
+   * Rows put beside another by hand, and where they were (`back`, for
+   * undo); unset while the view sorts or groups its rows, or where they
+   * cannot move.
+   */
+  onMoveRows?: (
+    rowIds: string[],
+    place: RowPlace,
+    back: RowPlace | null,
+  ) => Promise<void>;
   onResize: (column: string, width: number) => void;
   onReorder: (from: string, to: string) => void;
   onAggregate: (column: string, fn: string | null) => void;
@@ -157,6 +175,8 @@ export function GridView(props: GridProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const rowHeight = ROW_HEIGHTS[props.rowHeight];
   const grouped = props.groupBy.length > 0;
+  const onMoveRows = grouped ? undefined : props.onMoveRows;
+  const onInsertBeside = grouped ? undefined : props.onInsertBeside;
 
   const widths = columns.map(
     (column) =>
@@ -330,6 +350,19 @@ export function GridView(props: GridProps) {
     return index === undefined ? undefined : rows.rowAt(index);
   };
   const positionOfRow = (index: number) => positionOf(visibleRowIndexes, index);
+  /** Moves a row beside another; it can be put back between its neighbours. */
+  const moveRow = (
+    rowId: string,
+    place: RowPlace,
+    from: number | undefined,
+  ) => {
+    if (!onMoveRows) return;
+    const back =
+      from === undefined
+        ? null
+        : placeBetween(rows.rowAt(from - 1)?.id, rows.rowAt(from + 1)?.id);
+    void onMoveRows([rowId], place, back);
+  };
   /** Reads the rows shown from one place to another, folded ones aside. */
   const waitForPositions = (from: number, to: number) => {
     const first = visibleRowIndexes[from];
@@ -1030,6 +1063,10 @@ export function GridView(props: GridProps) {
                 const row = rows.rowAt(item.index);
                 const tint =
                   row && props.tintOf ? props.tintOf(row) : undefined;
+                const slot: ListSlot | undefined =
+                  onMoveRows && row
+                    ? { list: GRID_LIST, index: item.index }
+                    : undefined;
                 return (
                   <EditingRow
                     key={row?.id ?? `r-${item.index}`}
@@ -1038,6 +1075,11 @@ export function GridView(props: GridProps) {
                     rowIndex={item.index + 2}
                     className="group/row absolute left-0 flex"
                     style={{ top, height: virtual.size, width: totalWidth }}
+                    drop={
+                      slot && row
+                        ? { ...slot, rowId: row.id, onPlace: moveRow }
+                        : undefined
+                    }
                     onContextMenu={() => {
                       const range = selection.getRange();
                       if (
@@ -1055,9 +1097,12 @@ export function GridView(props: GridProps) {
                       }
                     }}
                   >
-                    <div
-                      role="rowheader"
-                      aria-colindex={1}
+                    <RowGutter
+                      rowId={row?.id}
+                      label={t`Row ${{ number: String(item.index + 1) }}`}
+                      // A locked or signed row stays where it is; others
+                      // can still be put beside it.
+                      slot={row && isFixed(row) ? undefined : slot}
                       className={cn(
                         "sticky left-0 z-[6] flex shrink-0 items-center gap-1.5 border-r border-b border-rule bg-head px-1.5 font-mono text-xs text-muted-foreground",
                         marginColumn(frozenCount) === -1 &&
@@ -1092,7 +1137,10 @@ export function GridView(props: GridProps) {
                             : "group-hover/row:hidden",
                         )}
                       >
-                        {cellText(row?.ag_seq ?? item.index + 1)}
+                        {/* Its rank in the view, as a spreadsheet numbers
+                            its lines: the row's own number, which never
+                            changes, is the record panel's. */}
+                        {item.index + 1}
                       </span>
                       {row ? (
                         <button
@@ -1137,7 +1185,7 @@ export function GridView(props: GridProps) {
                           />
                         </span>
                       ) : null}
-                    </div>
+                    </RowGutter>
                     {Array.from({ length: frozenCount }, (_, columnIndex) =>
                       renderCell(row, position, columnIndex),
                     )}
@@ -1202,6 +1250,14 @@ export function GridView(props: GridProps) {
             rowAtPosition={rowAtPosition}
             canAdd={canAdd}
             canDelete={canDelete}
+            onInsertBeside={
+              onInsertBeside ? (place) => void onInsertBeside(place) : undefined
+            }
+            onMove={
+              onMoveRows
+                ? (rowId, place, back) => void onMoveRows([rowId], place, back)
+                : undefined
+            }
             onCopy={() => {
               const range = selection.getRange();
               if (!range) return;
@@ -1251,16 +1307,97 @@ function EditingRow(props: {
   className?: string;
   style?: CSSProperties;
   onContextMenu?: () => void;
+  /** Where a row dropped on this one goes, when rows move by hand. */
+  drop?: ListSlot & {
+    rowId: string;
+    onPlace: (rowId: string, place: RowPlace, from: number | undefined) => void;
+  };
   children: ReactNode;
 }) {
   const editing = useEditingRow(props.selection, props.position);
+  const ref = useRef<HTMLDivElement>(null);
+  const drop = props.drop;
+  const { dropProps, side } = useRowPlaceDrop(
+    ref,
+    {
+      list: drop?.list ?? GRID_LIST,
+      index: drop?.index ?? -1,
+      rowId: drop?.rowId ?? "",
+    },
+    (rowId, place, from) => drop?.onPlace(rowId, place, from),
+    drop !== undefined,
+  );
   return (
     <div
+      {...(drop ? dropProps : {})}
+      ref={ref}
       role="row"
       aria-rowindex={props.rowIndex}
       className={cn(props.className, editing && "z-40")}
       style={props.style}
       onContextMenu={props.onContextMenu}
+    >
+      {props.children}
+      {side ? (
+        // Where the row dropped would land: a rule above or below this one.
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute right-0 left-0 z-[7] h-0.5 bg-primary",
+            side === "before" ? "top-0" : "bottom-0",
+          )}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/** The grid's rows, as one list to move rows within. */
+const GRID_LIST = "grid";
+
+/** A locked or signed row, which keeps its place. */
+function isFixed(row: RowItem): boolean {
+  return row.ag_status === "locked" || row.ag_status === "signed";
+}
+
+/**
+ * A row's gutter. Where rows move by hand, it is what one drags the row by;
+ * the keyboard moves it from the row's menu.
+ */
+function RowGutter(props: {
+  rowId: string | undefined;
+  label: string;
+  slot: ListSlot | undefined;
+  className: string;
+  style: CSSProperties;
+  children: ReactNode;
+}) {
+  const movable = props.slot !== undefined && props.rowId !== undefined;
+  const { dragProps, isDragging } = useRowDrag(
+    props.rowId ?? "",
+    props.label,
+    movable,
+    props.slot,
+  );
+  return (
+    <div
+      role="rowheader"
+      aria-colindex={1}
+      // Only the pointer's drag: the row's menu moves it by keyboard.
+      {...(movable
+        ? {
+            draggable: dragProps.draggable,
+            onDragStart: dragProps.onDragStart,
+            onDrag: dragProps.onDrag,
+            onDragEnd: dragProps.onDragEnd,
+          }
+        : {})}
+      className={cn(
+        props.className,
+        movable && "cursor-grab",
+        isDragging && "opacity-50",
+      )}
+      style={props.style}
     >
       {props.children}
     </div>
@@ -1276,6 +1413,10 @@ function GridMenuItems(props: {
   rowAtPosition: (position: number) => RowItem | undefined;
   canAdd: boolean;
   canDelete: boolean;
+  onInsertBeside: ((place: RowPlace) => void) | undefined;
+  onMove:
+    | ((rowId: string, place: RowPlace, back: RowPlace | null) => void)
+    | undefined;
   onCopy: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -1285,6 +1426,11 @@ function GridMenuItems(props: {
   const table = useTable();
   const { active } = useSelectionState(props.selection);
   const row = active ? props.rowAtPosition(active.r) : undefined;
+  const above = active ? props.rowAtPosition(active.r - 1) : undefined;
+  const below = active ? props.rowAtPosition(active.r + 1) : undefined;
+  const back = placeBetween(above?.id, below?.id);
+  const onInsertBeside = props.canAdd ? props.onInsertBeside : undefined;
+  const onMove = row && !isFixed(row) ? props.onMove : undefined;
   return (
     <>
       {row ? (
@@ -1308,6 +1454,35 @@ function GridMenuItems(props: {
         >
           <LinkIcon className="h-4 w-4" aria-hidden />
           {t`Copy row link`}
+        </ContextMenuItem>
+      ) : null}
+      {row && (onInsertBeside || onMove) ? <ContextMenuSeparator /> : null}
+      {row && onInsertBeside ? (
+        <>
+          <ContextMenuItem onSelect={() => onInsertBeside({ before: row.id })}>
+            <BetweenHorizontalStart className="h-4 w-4" aria-hidden />
+            {t`Insert a row above`}
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={() => onInsertBeside({ after: row.id })}>
+            <BetweenHorizontalEnd className="h-4 w-4" aria-hidden />
+            {t`Insert a row below`}
+          </ContextMenuItem>
+        </>
+      ) : null}
+      {row && onMove && above ? (
+        <ContextMenuItem
+          onSelect={() => onMove(row.id, { before: above.id }, back)}
+        >
+          <ArrowUp className="h-4 w-4" aria-hidden />
+          {t`Move the row up`}
+        </ContextMenuItem>
+      ) : null}
+      {row && onMove && below ? (
+        <ContextMenuItem
+          onSelect={() => onMove(row.id, { after: below.id }, back)}
+        >
+          <ArrowDown className="h-4 w-4" aria-hidden />
+          {t`Move the row down`}
         </ContextMenuItem>
       ) : null}
       {props.canAdd || props.canDelete ? <ContextMenuSeparator /> : null}

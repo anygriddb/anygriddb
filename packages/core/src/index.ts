@@ -310,6 +310,8 @@ export {
   importRowsInputSchema,
   insertRowInputSchema,
   insertRowsInputSchema,
+  moveRowsInputSchema,
+  rowPlaceSchema,
   linkCandidatesInputSchema,
   listCommentsInputSchema,
   listViewsInputSchema,
@@ -629,6 +631,14 @@ export {
   buildUpdate,
   type WriteColumn,
 } from "./query/write";
+
+export {
+  buildMoveRows,
+  buildOrderLock,
+  buildRowPlaces,
+  placeTarget,
+  type RowPlace,
+} from "./query/row-order";
 
 export {
   EXPORT_FILE_HOURS,

@@ -28,6 +28,7 @@ import { downloadJobFile, useTrackJob } from "../../lib/jobs";
 import { useTrashActions, useTrashDays } from "../../lib/trash";
 import { useChannel, usePresence } from "../../lib/realtime";
 import { useCatalog, useSession } from "../../lib/session";
+import type { RowPlace } from "../../lib/row-place";
 import { trpc, useTRPC } from "../../lib/trpc";
 import {
   canManage,
@@ -210,6 +211,10 @@ export function TableWorkspace({
     canWrite(role) && (!external || external.writes.update || hasSide);
   const canAdd = canWrite(role) && (!external || external.writes.insert);
   const canDelete = canWrite(role) && (!external || external.writes.delete);
+  // AnyGridDB's own rows keep the order people give them, which a view
+  // shows when it sorts nothing (ADR 0060); a client's keep its database's.
+  const byHand =
+    external === null && canWrite(role) && (config.sort?.length ?? 0) === 0;
 
   // A view's saves go one after another, and a setting is shown as kept
   // locally until its own save is stored: a quicker second change of the
@@ -649,6 +654,7 @@ export function TableWorkspace({
     async (
       list: Array<Record<string, CellValue>>,
       track = true,
+      place?: RowPlace,
     ): Promise<string[]> => {
       try {
         const reason = await askReason([
@@ -658,6 +664,7 @@ export function TableWorkspace({
           tableId,
           rows: list,
           reason,
+          place,
         });
         rows.refresh();
         setSavedAt(new Date());
@@ -742,6 +749,14 @@ export function TableWorkspace({
 
   const duplicateRows = useCallback(
     async (rowIds: string[]) => {
+      // The copies go under the last row copied, where rows keep an order
+      // of their own; at the end otherwise.
+      const order = new Map(
+        rows.loadedRows().map((row, index) => [row.id, index]),
+      );
+      const last = [...rowIds].sort(
+        (a, b) => (order.get(a) ?? -1) - (order.get(b) ?? -1),
+      )[rowIds.length - 1];
       const list = rowIds.flatMap((id) => {
         const row = rowsById.get(id);
         if (!row) return [];
@@ -756,24 +771,62 @@ export function TableWorkspace({
           ),
         ];
       });
-      if (list.length > 0) await insertRows(list);
+      if (list.length > 0) {
+        await insertRows(
+          list,
+          true,
+          byHand && last ? { after: last } : undefined,
+        );
+      }
     },
-    [rowsById, allColumns, insertRows],
+    [rowsById, rows, allColumns, insertRows, byHand],
   );
 
   const addRow = useCallback(
     async (
       values: Record<string, unknown> = {},
+      place?: RowPlace,
     ): Promise<string | undefined> => {
-      const ids = await insertRows([
-        {
-          ...prefillFromFilter(config.filter, allColumns),
-          ...(values as Record<string, CellValue>),
-        },
-      ]);
+      const ids = await insertRows(
+        [
+          {
+            ...prefillFromFilter(config.filter, allColumns),
+            ...(values as Record<string, CellValue>),
+          },
+        ],
+        true,
+        place,
+      );
       return ids[0];
     },
     [insertRows, config.filter, allColumns],
+  );
+
+  // Rows put beside another by hand; undone by putting them back beside
+  // the row they followed.
+  const moveRows = useCallback(
+    async (rowIds: string[], place: RowPlace, back: RowPlace | null) => {
+      const move = async (to: RowPlace) => {
+        await trpc.rows.move.mutate({ tableId, rowIds, place: to });
+        rows.refresh();
+      };
+      try {
+        await move(place);
+        setSavedAt(new Date());
+        setSaveStatus("saved");
+        if (back) {
+          undo.push({
+            label: t`Move`,
+            undo: () => move(back),
+            redo: () => move(place),
+          });
+        }
+      } catch (cause) {
+        setSaveStatus("error");
+        toast.error(errorText(cause));
+      }
+    },
+    [tableId, rows, undo, t, errorText],
   );
 
   const [recordId, setRecordId] = useState<string | null>(rowId ?? null);
@@ -787,6 +840,9 @@ export function TableWorkspace({
     string,
     unknown
   > | null>(null);
+  // Where the row being filled goes, when it was asked for above or below
+  // another.
+  const [newRowPlace, setNewRowPlace] = useState<RowPlace | undefined>();
   const newRow = useCallback(() => {
     if (fillFirst) {
       setNewRowValues({});
@@ -799,12 +855,24 @@ export function TableWorkspace({
   const [importOpen, setImportOpen] = useState(false);
   const addInGrid = useCallback(async () => {
     if (fillFirst) {
+      setNewRowPlace(undefined);
       setNewRowValues({});
       return;
     }
     // The new row appears in the grid: that is the confirmation.
     await addRow();
   }, [fillFirst, addRow]);
+  const insertBeside = useCallback(
+    async (place: RowPlace) => {
+      if (fillFirst) {
+        setNewRowPlace(place);
+        setNewRowValues({});
+        return;
+      }
+      await addRow({}, place);
+    },
+    [fillFirst, addRow],
+  );
   const canImport = writable && external === null;
   const hint = emptyTableHint({
     total: rows.total,
@@ -1053,6 +1121,7 @@ export function TableWorkspace({
     },
     tintOf: (row: RowItem) =>
       resolveRowTint(row, visible, config.color, tintContext),
+    ...(byHand ? { onMoveRows: moveRows } : {}),
     groups: rows.groups,
     ...(counts ? { counts } : {}),
   };
@@ -1214,6 +1283,8 @@ export function TableWorkspace({
                 }}
                 onDeleteRows={deleteRows}
                 onDuplicateRows={duplicateRows}
+                onInsertBeside={byHand && canAdd ? insertBeside : undefined}
+                onMoveRows={byHand ? moveRows : undefined}
                 onResize={(column, width) =>
                   void patchView({
                     columnWidths: {
@@ -1403,8 +1474,11 @@ export function TableWorkspace({
           columns={ordered}
           external={external !== null}
           initial={newRowValues}
-          onClose={() => setNewRowValues(null)}
-          onCreate={(values) => addRow(values)}
+          onClose={() => {
+            setNewRowValues(null);
+            setNewRowPlace(undefined);
+          }}
+          onCreate={(values) => addRow(values, newRowPlace)}
         />
       ) : null}
     </TableContext.Provider>

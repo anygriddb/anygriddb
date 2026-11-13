@@ -72,3 +72,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0057](0057-administration-grants-bases.md)          | Administration decides who sees which base; every grant on the trail                    | Accepted                                    |
 | [0058](0058-signup-proves-address.md)                | A sign-up proves its address before the account exists                                  | Accepted                                    |
 | [0059](0059-delete-account-in-one-step.md)           | An administrator deletes an account in one step                                         | Accepted                                    |
+| [0060](0060-rows-ordered-by-hand.md)                 | Rows keep the order people give them: a place apart from the sequence                   | Accepted                                    |

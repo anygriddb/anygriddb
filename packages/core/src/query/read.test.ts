@@ -39,8 +39,10 @@ describe("buildReadRows", () => {
     expect(sql.text).toMatch(
       /where \(\(lower\(q\."status"\) = lower\(\$\d+::text\)\) or \(q\."total" > \$\d+::numeric\)\)/,
     );
+    // Rows the sorts tie on keep the order people gave them.
+    expect(sql.text).toContain(`r."ag_position" as "ag_order_0"`);
     expect(sql.text).toMatch(
-      /order by q\."total" desc nulls last, q\."ag_seq" asc limit \$\d+ offset \$\d+$/,
+      /order by q\."total" desc nulls last, q\."ag_order_0" asc, q\."ag_seq" asc limit \$\d+ offset \$\d+$/,
     );
     expect(sql.values).not.toContain("Europe/Paris");
     expect(sql.values).toContain("Open");
@@ -296,7 +298,7 @@ describe("count, groups, aggregates", () => {
     const page = buildReadRows(catalogFor(), { limit: 100, groupBy });
     // Values a sort calls equal but grouping keeps apart follow each other.
     expect(page.text).toMatch(
-      / order by array_position\(.*q\."status"\) asc nulls last, to_jsonb\(q\."status"\), q\."due" desc nulls last, to_jsonb\(q\."due"\), q\."ag_seq" asc limit /,
+      / order by array_position\(.*q\."status"\) asc nulls last, to_jsonb\(q\."status"\), q\."due" desc nulls last, to_jsonb\(q\."due"\), q\."ag_order_0" asc, q\."ag_seq" asc limit /,
     );
     const placed = buildGroupCounts(
       catalogFor(),
@@ -305,7 +307,7 @@ describe("count, groups, aggregates", () => {
     );
     // Every row numbered in that same order.
     expect(placed?.text).toMatch(
-      /row_number\(\) over \(order by array_position\(.*q\."status"\) asc nulls last, to_jsonb\(q\."status"\), q\."due" desc nulls last, to_jsonb\(q\."due"\), q\."ag_seq" asc\) as "rn" from /,
+      /row_number\(\) over \(order by array_position\(.*q\."status"\) asc nulls last, to_jsonb\(q\."status"\), q\."due" desc nulls last, to_jsonb\(q\."due"\), q\."ag_order_0" asc, q\."ag_seq" asc\) as "rn" from /,
     );
     expect(placed?.text).toContain(
       `(min("rn") - 1)::int as "start", (max("rn") - min("rn") + 1)::int as "span"`,

@@ -2,7 +2,8 @@ import { Checkbox, cn, DragHandle, OptionBadge } from "@anygriddb/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { useRowDrag, useRowDrop } from "../../lib/drag";
+import { useRowDrag, useRowDrop, useRowPlaceDrop } from "../../lib/drag";
+import { placeBetween, type RowPlace } from "../../lib/row-place";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { optionsOf } from "../fields/cell-value";
 import { useTable } from "../table/table-context";
@@ -21,50 +22,79 @@ import { useLocale } from "../../lib/i18n";
 
 function Card({
   row,
+  stack,
+  index,
   fields,
   draggable,
   titleColumn,
   tint,
+  onPlace,
 }: {
   row: RowItem;
+  /** The stack the card is in, and its place in the view's order. */
+  stack: string;
+  index: number;
   fields: readonly CatalogColumn[];
   draggable: boolean;
   titleColumn?: string;
   tint?: string;
+  /** A card dropped on this one: where it goes, and where it was. */
+  onPlace?: (rowId: string, place: RowPlace, from: number | undefined) => void;
 }) {
   const { t } = useLingui();
   const table = useTable();
   const title = useRowTitle(titleColumn);
   const name = title(row);
+  const slot = { list: stack, index };
   const { dragProps, dragButtonProps, isDragging } = useRowDrag(
     row.id,
     name,
     draggable,
+    slot,
+  );
+  const ref = useRef<HTMLDivElement>(null);
+  const { dropProps, side } = useRowPlaceDrop(
+    ref,
+    { ...slot, rowId: row.id },
+    (rowId, place, from) => onPlace?.(rowId, place, from),
+    onPlace !== undefined,
   );
   return (
-    <div
-      {...dragProps}
-      className={cn(
-        "relative rounded-sm border border-border bg-card text-sm hover:border-strong-border",
-        isDragging && "opacity-50",
-        tint && `row-tint-${tint}`,
-      )}
-    >
-      <button
-        type="button"
-        onClick={() => table.openRecord(row.id)}
-        className="w-full cursor-pointer rounded-sm p-2.5 pr-7 text-left outline-none focus-visible:outline-2 focus-visible:outline-ring"
-      >
-        <p className="truncate font-medium">{name}</p>
-        <CardFields row={row} columns={fields} />
-      </button>
-      {draggable ? (
-        <DragHandle
-          {...dragButtonProps}
-          label={t`Move ${name}`}
-          className="absolute top-1.5 right-1"
+    <div ref={ref} {...(onPlace ? dropProps : {})} className="relative">
+      {side ? (
+        // Where the card dropped would land: in the gap above or below.
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute right-0 left-0 h-0.5 rounded-full bg-primary",
+            side === "before" ? "-top-[5px]" : "-bottom-[5px]",
+          )}
         />
       ) : null}
+      <div
+        {...dragProps}
+        className={cn(
+          "relative rounded-sm border border-border bg-card text-sm hover:border-strong-border",
+          isDragging && "opacity-50",
+          tint && `row-tint-${tint}`,
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => table.openRecord(row.id)}
+          className="w-full cursor-pointer rounded-sm p-2.5 pr-7 text-left outline-none focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          <p className="truncate font-medium">{name}</p>
+          <CardFields row={row} columns={fields} />
+        </button>
+        {draggable ? (
+          <DragHandle
+            {...dragButtonProps}
+            label={t`Move ${name}`}
+            className="absolute top-1.5 right-1"
+          />
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -85,6 +115,7 @@ function Stack({
   onToggle,
   onAdd,
   onMove,
+  onPlace,
 }: {
   id: string;
   label: string;
@@ -105,6 +136,17 @@ function Stack({
   onAdd: () => void;
   /** A card was dropped here: put row `rowId` in stack `stackId`. */
   onMove: (rowId: string, stackId: string) => void;
+  /**
+   * A card was dropped on another of stack `stackId`: put it there, beside
+   * that card, and say where it was in this stack (`back`, for undo). Unset
+   * where cards keep no order of their own.
+   */
+  onPlace?: (
+    rowId: string,
+    stackId: string,
+    place: RowPlace,
+    back: RowPlace | null,
+  ) => void;
 }) {
   const { t } = useLingui();
   const { locale } = useLocale();
@@ -209,6 +251,29 @@ function Stack({
                 {row ? (
                   <Card
                     row={row}
+                    stack={id}
+                    index={start + virtual.index}
+                    onPlace={
+                      onPlace && canEdit
+                        ? (rowId, place, from) =>
+                            onPlace(
+                              rowId,
+                              id,
+                              place,
+                              from === undefined
+                                ? null
+                                : // Its neighbours in this stack only.
+                                  placeBetween(
+                                    from > start
+                                      ? rowAt(from - 1)?.id
+                                      : undefined,
+                                    from < start + count - 1
+                                      ? rowAt(from + 1)?.id
+                                      : undefined,
+                                  ),
+                            )
+                        : undefined
+                    }
                     fields={fields}
                     titleColumn={titleColumn}
                     tint={tintOf?.(row)}
@@ -299,6 +364,24 @@ export function KanbanView(props: ViewProps) {
       { rowId, values: { [stack.name]: target || null } },
     ]);
   }
+  const onMoveRows = props.onMoveRows;
+  // A card dropped beside another: into that card's stack first, when it
+  // came from another, then at its place there.
+  async function place(
+    rowId: string,
+    target: string,
+    to: RowPlace,
+    back: RowPlace | null,
+  ) {
+    if (!stack || !onMoveRows) return;
+    const row = props.rows.find((item) => item.id === rowId);
+    if (row && (row[stack.name as keyof RowItem] ?? "") !== target) {
+      await table.updateCells([
+        { rowId, values: { [stack.name]: target || null } },
+      ]);
+    }
+    await onMoveRows([rowId], to, back);
+  }
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-4 border-b border-border px-4 py-1.5">
@@ -360,6 +443,16 @@ export function KanbanView(props: ViewProps) {
                   .then((id) => id && table.openRecord(id))
               }
               onMove={move}
+              {...(onMoveRows
+                ? {
+                    onPlace: (
+                      rowId: string,
+                      target: string,
+                      to: RowPlace,
+                      back: RowPlace | null,
+                    ) => void place(rowId, target, to, back),
+                  }
+                : {})}
             />
           ))}
       </div>
