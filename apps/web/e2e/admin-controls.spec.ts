@@ -357,6 +357,27 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       ),
     ).toBeVisible();
 
+    // The support role (ADR 0054), given from an account's menu. The
+    // proof was given a moment ago, so it is not asked again; the trail
+    // says who gave the role, and to whom.
+    await findAccount(page, newcomerEmail);
+    await page
+      .getByRole("button", { name: `Actions for Newcomer ${stamp}` })
+      .click();
+    await page.getByRole("menuitem", { name: "Give the support role" }).click();
+    await page
+      .getByRole("dialog", { name: `Give Newcomer ${stamp} the support role?` })
+      .getByRole("button", { name: "Give the role" })
+      .click();
+    await expect(page.getByText("Saved")).toBeVisible();
+    await openAdmin(page, "Trails", "Sign-ins");
+    await expect(
+      page
+        .getByRole("row", { name: new RegExp(`Newcomer ${stamp}`) })
+        .filter({ hasText: "Given the support role" }),
+    ).toContainText(`Ada ${stamp}`);
+    await openAdmin(page, "People", "Accounts");
+
     // People from a file (ROADMAP #36): read and shown line by line
     // before anything is written. The line whose address has an account
     // says so; the two others are added, and their first link is mailed.

@@ -1478,6 +1478,10 @@ msgstr "An account dedicated to AnyGridDB, never an administrator. The connectio
 msgid "An account that locks"
 msgstr "An account that locks"
 
+#: components/admin/account-actions.tsx
+msgid "An administrator already can"
+msgstr "An administrator already can"
+
 #: components/table/share-dialog.tsx
 msgid "An administrator turned public links off on this instance. Links made before no longer open."
 msgstr "An administrator turned public links off on this instance. Links made before no longer open."
@@ -3963,6 +3967,10 @@ msgstr "Full reconcile every N refreshes"
 msgid "Gallery"
 msgstr "Gallery"
 
+#: components/admin/account-actions.tsx
+msgid "Give {name} the support role?"
+msgstr "Give {name} the support role?"
+
 #: components/settings/group-roles.tsx
 msgid "Give a group a role"
 msgstr "Give a group a role"
@@ -3976,10 +3984,19 @@ msgstr "Give a role on a base"
 msgid "Give a role to someone"
 msgstr "Give a role to someone"
 
+#: components/admin/account-actions.tsx
 #: components/admin/account-bases.tsx
 #: components/admin/base-admin-members.tsx
 msgid "Give the role"
 msgstr "Give the role"
+
+#: components/admin/account-actions.tsx
+msgid "Give the support role"
+msgstr "Give the support role"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Given the support role"
+msgstr "Given the support role"
 
 #: components/shell/welcome-page.tsx
 msgid "Go to the home page"
@@ -5069,6 +5086,10 @@ msgstr "lookup carried over as values"
 msgid "Lost your authenticator? Use a backup code"
 msgstr "Lost your authenticator? Use a backup code"
 
+#: components/admin/sign-in-trail.tsx
+msgid "Made an administrator"
+msgstr "Made an administrator"
+
 #: components/admin/outbound-tab.tsx
 msgid "Made by"
 msgstr "Made by"
@@ -5732,6 +5753,10 @@ msgstr "No job with this status."
 #: components/admin/support-tab.tsx
 msgid "No job yet. Imports, exports, and copies of tables and bases show here as people start them."
 msgstr "No job yet. Imports, exports, and copies of tables and bases show here as people start them."
+
+#: components/admin/sign-in-trail.tsx
+msgid "No longer an administrator"
+msgstr "No longer an administrator"
 
 #: components/fields/cell-editor.tsx
 msgid "No matching row"
@@ -6833,6 +6858,10 @@ msgstr "Remove {name}'s administration?"
 msgid "Remove {name}'s second factors?"
 msgstr "Remove {name}'s second factors?"
 
+#: components/admin/account-actions.tsx
+msgid "Remove {name}'s support role?"
+msgstr "Remove {name}'s support role?"
+
 #: components/table/automations-dialog.tsx
 msgid "Remove action"
 msgstr "Remove action"
@@ -6857,6 +6886,10 @@ msgstr "Remove from {base}"
 #: components/settings/group-roles.tsx
 msgid "Remove the group {name}"
 msgstr "Remove the group {name}"
+
+#: components/admin/account-actions.tsx
+msgid "Remove the support role"
+msgstr "Remove the support role"
 
 #: components/admin/account-actions.tsx
 msgid "Remove their second factors"
@@ -8184,6 +8217,10 @@ msgstr "Suppliers"
 msgid "Support"
 msgstr "Support"
 
+#: components/admin/sign-in-trail.tsx
+msgid "Support role taken away"
+msgstr "Support role taken away"
+
 #: components/fields/field-editor.tsx
 msgid "Switch"
 msgstr "Switch"
@@ -8984,10 +9021,18 @@ msgstr "They get a link by email to choose their password, valid a week."
 msgid "They keep their account and their bases, and lose Administration. The instance always keeps one active administrator."
 msgstr "They keep their account and their bases, and lose Administration. The instance always keeps one active administrator."
 
+#: components/admin/account-actions.tsx
+msgid "They keep their account and their bases, and no longer open Administration."
+msgstr "They keep their account and their bases, and no longer open Administration."
+
 #: components/admin/account-bases.tsx
 #: components/admin/base-admin-members.tsx
 msgid "They lose their own role on the base and its tables at once, and their open pages reload. A role a group gives them stays."
 msgstr "They lose their own role on the base and its tables at once, and their open pages reload. A role a group gives them stays."
+
+#: components/admin/account-actions.tsx
+msgid "They open the accounts, the sessions and the trails of Administration to help a person sign in again: send a link, unlock, sign out, remove second factors, unlink single sign-on, revoke tokens. They change no setting, give no role, and open no base they are not a member of."
+msgstr "They open the accounts, the sessions and the trails of Administration to help a person sign in again: send a link, unlock, sign out, remove second factors, unlink single sign-on, revoke tokens. They change no setting, give no role, and open no base they are not a member of."
 
 #: components/admin/bases-tab.tsx
 #: components/shell/trashed-bases.tsx

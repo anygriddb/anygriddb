@@ -82,6 +82,7 @@ export function AccountAdminPage({ userId }: { userId: string }) {
     displayName: account.displayName,
     email: account.email,
     isAdmin: account.isAdmin,
+    isSupport: account.isSupport,
     disabled: account.disabledAt !== null,
     locked: account.lock !== null,
     hasPassword: account.hasPassword,

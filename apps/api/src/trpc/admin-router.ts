@@ -1079,7 +1079,7 @@ export const adminRouter = t.router({
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
         if (input.admin) await requireStepUp(ctx);
-        await setUserAdmin(ctx.db, input.userId, input.admin);
+        await setUserAdmin(ctx.db, admin.id, input.userId, input.admin);
         ctx.req.log.info(
           { actor: admin.id, target: input.userId, admin: input.admin },
           "admin role changed",
@@ -1427,7 +1427,7 @@ export const adminRouter = t.router({
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
         if (input.support) await requireStepUp(ctx);
-        await setUserSupport(ctx.db, input.userId, input.support);
+        await setUserSupport(ctx.db, admin.id, input.userId, input.support);
         ctx.req.log.info(
           { actor: admin.id, target: input.userId, support: input.support },
           "support role changed",

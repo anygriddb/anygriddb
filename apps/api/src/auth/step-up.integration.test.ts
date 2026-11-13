@@ -187,4 +187,68 @@ describe("administration step-up", () => {
       ),
     ).toBe("access_denied");
   });
+
+  it("writes administration and support, given or taken away, on the sign-in trail", async () => {
+    const adminId = (
+      await db
+        .selectFrom("users")
+        .select("id")
+        .where("email", "=", `admin-${suffix}@example.org`)
+        .executeTakeFirstOrThrow()
+    ).id;
+    const personId = await signUpProved(browser(), db, {
+      email: `trailed-${suffix}@example.org`,
+      displayName: "Trailed",
+      password: PASSWORD,
+    });
+    const told = (detail: string) =>
+      db
+        .selectFrom("authEvents")
+        .select(["actorId", "method"])
+        .where("action", "=", "account_updated")
+        .where("userId", "=", personId)
+        .where("detail", "=", detail)
+        .execute();
+    await admin.call().admin.stepUp({ password: PASSWORD });
+
+    await admin.call().admin.setAdmin({ userId: personId, admin: true });
+    expect(await told("admin_granted")).toEqual([
+      { actorId: adminId, method: "admin" },
+    ]);
+    // Given again, nothing changed: the trail is told once.
+    await admin.call().admin.setAdmin({ userId: personId, admin: true });
+    expect(await told("admin_granted")).toHaveLength(1);
+    await admin.call().admin.setAdmin({ userId: personId, admin: false });
+    expect(await told("admin_revoked")).toEqual([
+      { actorId: adminId, method: "admin" },
+    ]);
+
+    await admin.call().admin.setSupport({ userId: personId, support: true });
+    await admin.call().admin.setSupport({ userId: personId, support: true });
+    expect(await told("support_granted")).toEqual([
+      { actorId: adminId, method: "admin" },
+    ]);
+    await admin.call().admin.setSupport({ userId: personId, support: false });
+    expect(await told("support_revoked")).toHaveLength(1);
+
+    // An id no account has is refused, and leaves nothing.
+    const nobody = crypto.randomUUID();
+    expect(
+      await errorCode(
+        admin.call().admin.setSupport({ userId: nobody, support: true }),
+      ),
+    ).toBe("unknown_account");
+    expect(
+      await errorCode(
+        admin.call().admin.setAdmin({ userId: nobody, admin: true }),
+      ),
+    ).toBe("unknown_account");
+    expect(
+      await db
+        .selectFrom("authEvents")
+        .select("id")
+        .where("userId", "=", nobody)
+        .execute(),
+    ).toEqual([]);
+  });
 });
