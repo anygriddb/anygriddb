@@ -149,11 +149,9 @@ Each administration action declares the capability it needs.
 | 31  | Reads on the trail: who opened which table                                                                                                                                              | L      | Exports are on it (#31): who took out a view's rows, a base's file, the access report, or a trail, in which format and how many rows. Nothing records a read: every page of every table would write an event, so it is chosen per table, off by default |
 | 21  | Hand a leaving person's bases, automations, and webhooks to another account, without erasing theirs; personal tokens are not moved (offer to revoke them)                               | M      |                                                                                                                                                                                                                                                         |
 
-#### Lot 7: words and first launch
+#### Lot 7: words
 
-| #   | What                                                                                                        | Effort | Notes                                                                   |
-| --- | ----------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------- |
-| 73  | Words people look for across Administration (glossary pass): verbs and labels aligned in English and French | S      | Partly covered by 13 for Delete; the rest waits on a before/after table |
+Done: a source is added, an account its provider provisions is managed by your identity provider, and that provisioning's page says SCIM; the glossary keeps the words (#73).
 
 #### Decide before code
 

@@ -875,12 +875,12 @@ msgid "A shorter choice also purges, at the next nightly purge, what was deleted
 msgstr "A shorter choice also purges, at the next nightly purge, what was deleted before it."
 
 #: components/admin/security-tab.tsx
-msgid "A sign-in or a token in use counts as activity. Email is not set up: accounts are disabled without warning. Administrators and accounts kept by an identity provider (SCIM) are never disabled; an administrator can enable an account again."
-msgstr "A sign-in or a token in use counts as activity. Email is not set up: accounts are disabled without warning. Administrators and accounts kept by an identity provider (SCIM) are never disabled; an administrator can enable an account again."
+msgid "A sign-in or a token in use counts as activity. Email is not set up: accounts are disabled without warning. Administrators and accounts managed by your identity provider (SCIM) are never disabled; an administrator can enable an account again."
+msgstr "A sign-in or a token in use counts as activity. Email is not set up: accounts are disabled without warning. Administrators and accounts managed by your identity provider (SCIM) are never disabled; an administrator can enable an account again."
 
 #: components/admin/security-tab.tsx
-msgid "A sign-in or a token in use counts as activity. The person is warned by email a week before. Administrators and accounts kept by an identity provider (SCIM) are never disabled; an administrator can enable an account again."
-msgstr "A sign-in or a token in use counts as activity. The person is warned by email a week before. Administrators and accounts kept by an identity provider (SCIM) are never disabled; an administrator can enable an account again."
+msgid "A sign-in or a token in use counts as activity. The person is warned by email a week before. Administrators and accounts managed by your identity provider (SCIM) are never disabled; an administrator can enable an account again."
+msgstr "A sign-in or a token in use counts as activity. The person is warned by email a week before. Administrators and accounts managed by your identity provider (SCIM) are never disabled; an administrator can enable an account again."
 
 #: components/shell/new-table-dialog.tsx
 msgid "A single Name field."
@@ -1137,6 +1137,10 @@ msgstr "Add a single select field to arrange cards in columns."
 #: components/table/view-toolbar.tsx
 msgid "Add a sort"
 msgstr "Add a sort"
+
+#: components/admin/sources-tab.tsx
+msgid "Add a source"
+msgstr "Add a source"
 
 #: components/shell/sidebar.tsx
 msgid "Add a table"
@@ -2658,10 +2662,6 @@ msgstr "Decimal"
 #: components/fields/field-editor.tsx
 msgid "Decimals"
 msgstr "Decimals"
-
-#: components/admin/sources-tab.tsx
-msgid "Declare a source"
-msgstr "Declare a source"
 
 #: components/shell/pending-invitations.tsx
 msgid "Decline"
@@ -4599,19 +4599,6 @@ msgstr "Keep deleted items for"
 msgid "Keep events for"
 msgstr "Keep events for"
 
-#: components/admin/account-actions.tsx
-#: components/admin/accounts-tab.tsx
-msgid "Kept by the identity provider"
-msgstr "Kept by the identity provider"
-
-#: components/admin/account-page.tsx
-msgid "Kept by the identity provider (SCIM)"
-msgstr "Kept by the identity provider (SCIM)"
-
-#: components/admin/account-actions.tsx
-msgid "Kept by the identity provider: remove it there first"
-msgstr "Kept by the identity provider: remove it there first"
-
 #: components/settings/api-docs.tsx
 msgid "Key"
 msgstr "Key"
@@ -4954,6 +4941,19 @@ msgstr "Make {name} an administrator?"
 #: components/admin/account-actions.tsx
 msgid "Make administrator"
 msgstr "Make administrator"
+
+#: components/admin/account-actions.tsx
+#: components/admin/accounts-tab.tsx
+msgid "Managed by your identity provider"
+msgstr "Managed by your identity provider"
+
+#: components/admin/account-page.tsx
+msgid "Managed by your identity provider (SCIM)"
+msgstr "Managed by your identity provider (SCIM)"
+
+#: components/admin/account-actions.tsx
+msgid "Managed by your identity provider: remove it there first"
+msgstr "Managed by your identity provider: remove it there first"
 
 #: components/shell/notification-items.ts
 msgid "Many accounts locked within an hour: see the sign-in trail"
@@ -5623,8 +5623,8 @@ msgid "No sign-up domains are set (Instance, Settings): until some are, any addr
 msgstr "No sign-up domains are set (Instance, Settings): until some are, any address can be invited."
 
 #: components/admin/sources-tab.tsx
-msgid "No source yet. Declare one to show its tables in a base, read and written where they live."
-msgstr "No source yet. Declare one to show its tables in a base, read and written where they live."
+msgid "No source yet. Add one to show its tables in a base, read and written where they live."
+msgstr "No source yet. Add one to show its tables in a base, read and written where they live."
 
 #: components/admin/base-admin-page.tsx
 msgid "No table."
@@ -6323,8 +6323,8 @@ msgid "Provisioned by the identity provider (SCIM), then removed by it"
 msgstr "Provisioned by the identity provider (SCIM), then removed by it"
 
 #: components/admin/admin-sections.ts
-msgid "Provisioning"
-msgstr "Provisioning"
+msgid "Provisioning (SCIM)"
+msgstr "Provisioning (SCIM)"
 
 #: components/admin/settings-tab.tsx
 msgid "Public address"

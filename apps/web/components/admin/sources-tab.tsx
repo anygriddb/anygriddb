@@ -101,13 +101,13 @@ export function SourcesTab() {
           onClick={() => setEditing("new")}
         >
           <Plus className="h-4 w-4" aria-hidden />
-          {t`Declare a source`}
+          {t`Add a source`}
         </Button>
       </div>
       {list.isLoading ? <Spinner /> : null}
       {list.data?.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {t`No source yet. Declare one to show its tables in a base, read and written where they live.`}
+          {t`No source yet. Add one to show its tables in a base, read and written where they live.`}
         </p>
       ) : null}
       {list.data && list.data.length > 0 ? (
@@ -257,9 +257,7 @@ function SourceDialog(props: {
       onOpenChange={(open) => !open && props.onClose()}
     >
       <DialogContent
-        title={
-          props.target === "new" ? t`Declare a source` : t`Edit the source`
-        }
+        title={props.target === "new" ? t`Add a source` : t`Edit the source`}
         description={t`An account dedicated to AnyGridDB, never an administrator. The connection uses TLS, with a verified certificate.`}
         wide
       >

@@ -26,6 +26,8 @@ French translations live in `apps/web/locales/fr/messages.po`.
 | Card              | Card                                                     | A row drawn as a card in the kanban and the gallery (“Add a card”, “Card fields”); a row everywhere else            |
 | Person field      | Collaborator                                             | The field that holds people of the base; not “user field”                                                           |
 | Invite / grant    | Invite, Add                                              | Prefer the verb people look for                                                                                     |
+| Client database   | Add a source                                             | Not “Declare a source”                                                                                              |
+| SCIM-managed      | Managed by your identity provider                        | Not “Kept by…”; the Provisioning page is labelled “Provisioning (SCIM)”                                             |
 | Admin sections    | People, Security, Connections, Sources, Trails, Instance | Named by task (ROADMAP #49); “Connections” are the services the instance talks to, “Sign-ins” are people signing in |
 
 ## Tone

@@ -92,7 +92,7 @@ export function AccountAdminPage({ userId }: { userId: string }) {
     account.origin === "scim"
       ? account.deprovisioned
         ? t`Provisioned by the identity provider (SCIM), then removed by it`
-        : t`Kept by the identity provider (SCIM)`
+        : t`Managed by your identity provider (SCIM)`
       : account.origin === "sso"
         ? t`Bound to single sign-on`
         : t`Made here`;

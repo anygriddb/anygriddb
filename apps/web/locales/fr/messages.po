@@ -875,12 +875,12 @@ msgid "A shorter choice also purges, at the next nightly purge, what was deleted
 msgstr "Un choix plus court purge aussi, à la purge de la nuit suivante, ce qui a été supprimé avant."
 
 #: components/admin/security-tab.tsx
-msgid "A sign-in or a token in use counts as activity. Email is not set up: accounts are disabled without warning. Administrators and accounts kept by an identity provider (SCIM) are never disabled; an administrator can enable an account again."
-msgstr "Une connexion ou un jeton utilisé compte comme une activité. L’envoi d’emails n’est pas configuré : les comptes sont désactivés sans avertissement. Les administrateurs et les comptes gérés par un fournisseur d’identité (SCIM) ne sont jamais désactivés ; un administrateur peut réactiver un compte."
+msgid "A sign-in or a token in use counts as activity. Email is not set up: accounts are disabled without warning. Administrators and accounts managed by your identity provider (SCIM) are never disabled; an administrator can enable an account again."
+msgstr "Une connexion ou un jeton utilisé compte comme une activité. L’envoi d’emails n’est pas configuré : les comptes sont désactivés sans avertissement. Les administrateurs et les comptes gérés par votre fournisseur d’identité (SCIM) ne sont jamais désactivés ; un administrateur peut réactiver un compte."
 
 #: components/admin/security-tab.tsx
-msgid "A sign-in or a token in use counts as activity. The person is warned by email a week before. Administrators and accounts kept by an identity provider (SCIM) are never disabled; an administrator can enable an account again."
-msgstr "Une connexion ou un jeton utilisé compte comme une activité. La personne est prévenue par email une semaine avant. Les administrateurs et les comptes gérés par un fournisseur d’identité (SCIM) ne sont jamais désactivés ; un administrateur peut réactiver un compte."
+msgid "A sign-in or a token in use counts as activity. The person is warned by email a week before. Administrators and accounts managed by your identity provider (SCIM) are never disabled; an administrator can enable an account again."
+msgstr "Une connexion ou un jeton utilisé compte comme une activité. La personne est prévenue par email une semaine avant. Les administrateurs et les comptes gérés par votre fournisseur d’identité (SCIM) ne sont jamais désactivés ; un administrateur peut réactiver un compte."
 
 #: components/shell/new-table-dialog.tsx
 msgid "A single Name field."
@@ -1137,6 +1137,10 @@ msgstr "Ajoutez un champ « Choix unique » pour organiser les cartes en colon
 #: components/table/view-toolbar.tsx
 msgid "Add a sort"
 msgstr "Ajouter un tri"
+
+#: components/admin/sources-tab.tsx
+msgid "Add a source"
+msgstr "Ajouter une source"
 
 #: components/shell/sidebar.tsx
 msgid "Add a table"
@@ -2658,10 +2662,6 @@ msgstr "Décimal"
 #: components/fields/field-editor.tsx
 msgid "Decimals"
 msgstr "Décimales"
-
-#: components/admin/sources-tab.tsx
-msgid "Declare a source"
-msgstr "Déclarer une source"
 
 #: components/shell/pending-invitations.tsx
 msgid "Decline"
@@ -4599,19 +4599,6 @@ msgstr "Garder les éléments supprimés"
 msgid "Keep events for"
 msgstr "Conserver les événements"
 
-#: components/admin/account-actions.tsx
-#: components/admin/accounts-tab.tsx
-msgid "Kept by the identity provider"
-msgstr "Géré par le fournisseur d’identité"
-
-#: components/admin/account-page.tsx
-msgid "Kept by the identity provider (SCIM)"
-msgstr "Géré par le fournisseur d’identité (SCIM)"
-
-#: components/admin/account-actions.tsx
-msgid "Kept by the identity provider: remove it there first"
-msgstr "Géré par le fournisseur d’identité : retirez-le d’abord là-bas"
-
 #: components/settings/api-docs.tsx
 msgid "Key"
 msgstr "Clé"
@@ -4954,6 +4941,19 @@ msgstr "Faire de {name} un administrateur ?"
 #: components/admin/account-actions.tsx
 msgid "Make administrator"
 msgstr "Faire administrateur"
+
+#: components/admin/account-actions.tsx
+#: components/admin/accounts-tab.tsx
+msgid "Managed by your identity provider"
+msgstr "Géré par votre fournisseur d’identité"
+
+#: components/admin/account-page.tsx
+msgid "Managed by your identity provider (SCIM)"
+msgstr "Géré par votre fournisseur d’identité (SCIM)"
+
+#: components/admin/account-actions.tsx
+msgid "Managed by your identity provider: remove it there first"
+msgstr "Géré par votre fournisseur d’identité : retirez-le d’abord là-bas"
 
 #: components/shell/notification-items.ts
 msgid "Many accounts locked within an hour: see the sign-in trail"
@@ -5623,8 +5623,8 @@ msgid "No sign-up domains are set (Instance, Settings): until some are, any addr
 msgstr "Aucun domaine d’inscription n’est défini (Instance, Réglages) : tant qu’il n’y en a pas, n’importe quelle adresse peut être invitée."
 
 #: components/admin/sources-tab.tsx
-msgid "No source yet. Declare one to show its tables in a base, read and written where they live."
-msgstr "Aucune source pour l’instant. Déclarez-en une pour afficher ses tables dans une base, lues et écrites là où elles se trouvent."
+msgid "No source yet. Add one to show its tables in a base, read and written where they live."
+msgstr "Aucune source pour l’instant. Ajoutez-en une pour afficher ses tables dans une base, lues et écrites là où elles se trouvent."
 
 #: components/admin/base-admin-page.tsx
 msgid "No table."
@@ -6323,8 +6323,8 @@ msgid "Provisioned by the identity provider (SCIM), then removed by it"
 msgstr "Provisionné par le fournisseur d’identité (SCIM), puis retiré par lui"
 
 #: components/admin/admin-sections.ts
-msgid "Provisioning"
-msgstr "Provisionnement"
+msgid "Provisioning (SCIM)"
+msgstr "Provisionnement (SCIM)"
 
 #: components/admin/settings-tab.tsx
 msgid "Public address"

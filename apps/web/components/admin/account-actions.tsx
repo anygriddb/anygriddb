@@ -27,7 +27,7 @@ export type AccountTarget = {
   locked: boolean;
   hasPassword: boolean;
   signOn: boolean;
-  /** Kept by an identity provider through SCIM, and not removed by it. */
+  /** Managed by an identity provider through SCIM, and not removed by it. */
   managed: boolean;
 };
 
@@ -124,7 +124,7 @@ export function useAccountActions({
     switch (action) {
       case "edit":
         return target.managed
-          ? { ok: false, reason: t`Kept by the identity provider` }
+          ? { ok: false, reason: t`Managed by your identity provider` }
           : { ok: true };
       case "reset":
         return !target.hasPassword && (target.signOn || target.managed)
@@ -142,7 +142,7 @@ export function useAccountActions({
         return target.managed
           ? {
               ok: false,
-              reason: t`Kept by the identity provider: remove it there first`,
+              reason: t`Managed by your identity provider: remove it there first`,
             }
           : { ok: true };
       default:

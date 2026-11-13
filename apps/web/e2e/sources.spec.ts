@@ -55,7 +55,7 @@ test("an administrator shows a client's tables in a base, read where they live",
     ]);
 
     await page.goto("/admin/sources");
-    await page.getByRole("button", { name: "Declare a source" }).click();
+    await page.getByRole("button", { name: "Add a source" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Name", { exact: true }).fill(`ERP ${stamp}`);
     // Exact names: the read replica's fields are named after these.

@@ -271,7 +271,7 @@ export async function listUsers(
           ? { until: state.until?.toISOString() ?? null }
           : null;
       })(),
-      // Kept by an identity provider (SCIM), or removed by it.
+      // Managed by an identity provider (SCIM), or removed by it.
       provisioned: scimUserName !== null,
       deprovisioned: deprovisionedAt !== null,
       origin: (scimUserName !== null
