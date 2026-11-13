@@ -1,0 +1,68 @@
+name: Accessibility
+description: A barrier for keyboard, screen reader, or other assistive use
+title: "A11y: "
+labels: [accessibility]
+body:
+  - type: checkboxes
+    attributes:
+      label: Existing report
+      description: Search [open accessibility issues](https://github.com/anygriddb/anygriddb/issues?q=is%3Aissue+is%3Aopen+label%3Aaccessibility) first.
+      options:
+        - label: I could not find an existing report for this.
+          required: true
+
+  - type: textarea
+    attributes:
+      label: What you were trying to do
+      description: The task and where in the app (page or flow).
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: What happened
+      description: Expected versus actual behaviour.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    attributes:
+      label: Severity
+      description: How hard this makes the task.
+      options:
+        - Critical — cannot complete a core task
+        - High — significant difficulty; a workaround exists
+        - Medium — inconsistent or annoying
+        - Low — minor, little impact
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Environment
+      description: OS, browser, and assistive technology help triage.
+      placeholder: |
+        OS:
+        Browser:
+        Assistive technology (and version), if any:
+        How you run the app: pnpm dev | docker compose
+        Commit or version:
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Recording or screenshots
+      description: Optional. Do not include personal data.
+    validations:
+      required: false

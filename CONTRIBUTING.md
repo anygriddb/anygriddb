@@ -3,7 +3,10 @@
 All contributions are **AGPL-3.0-or-later**. Stack and package roles:
 [`ARCHITECTURE.md`](ARCHITECTURE.md), [`TECH_STACK.md`](TECH_STACK.md).
 What works today: [`ROADMAP.md`](ROADMAP.md). Why it is built this way:
-[`docs/adr/`](docs/adr/README.md).
+[`docs/adr/`](docs/adr/README.md). Behaviour in the project's spaces:
+[`.github/CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md). Accessibility
+commitment and how to report a barrier:
+[`ACCESSIBILITY.md`](ACCESSIBILITY.md).
 
 ## Hard rule — OSI only
 
@@ -163,8 +166,10 @@ complete.
 ## From issue to pull request
 
 1. **Pick the work**: a GitHub issue, a [`ROADMAP.md`](ROADMAP.md) item, or a
-   known limit. Report bugs and ideas with the issue templates; report a
-   vulnerability privately ([`SECURITY.md`](SECURITY.md)), never in an issue.
+   known limit. Report bugs and ideas with the issue templates; report an
+   accessibility barrier with the accessibility template
+   ([`ACCESSIBILITY.md`](ACCESSIBILITY.md)); report a vulnerability privately
+   ([`SECURITY.md`](SECURITY.md)), never in an issue.
 2. **Reproduce first**: write the failing test (or journey) before the fix.
 3. **Branch** from `main` in your fork: `fix/short-name` or `feat/short-name`.
 4. **Keep it small**, inside the package that owns the job.
