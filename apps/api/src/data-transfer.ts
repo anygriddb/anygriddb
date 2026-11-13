@@ -55,9 +55,9 @@ import { loadView } from "./data/views.js";
 import {
   detectImportFormat,
   IMPORT_LIMITS,
-  previewSheet,
+  maxImportBytes,
 } from "./import-file.js";
-import { parseImportFileIsolated } from "./import-isolated.js";
+import { scanImportFileIsolated } from "./import-isolated.js";
 import { findLiveTable } from "./services/rows.js";
 import { stageSnapshotFile } from "./data/snapshot-stage.js";
 import { localFolder } from "./files/local-folder.js";
@@ -72,6 +72,8 @@ type Deps = {
   files: FileStore;
   /** Uploads read at once, shared with attachments. */
   uploads: UploadSlots;
+  /** The most rows one imported file may hold (`IMPORT_MAX_ROWS`). */
+  importMaxRows: number;
 };
 
 type Actor = NonNullable<Awaited<ReturnType<typeof requestActor>>>;
@@ -472,9 +474,10 @@ export function registerDataTransferRoutes(
   deps: Deps,
 ): void {
   /**
-   * Parses an uploaded file and keeps it for `rows.importCommit`. Adding
-   * rows needs write access to the table; a new table needs manage access
-   * to the base.
+   * Keeps an uploaded file for `rows.importCommit` (ADR 0064): written to
+   * disk as it arrives, read once in a worker for its columns, its count,
+   * and a sample, then staged as it came. Adding rows needs write access
+   * to the table; a new table needs manage access to the base.
    */
   app.post("/api/import/preview", async (request, reply) => {
     const query = previewQuery.safeParse(request.query);
@@ -493,46 +496,65 @@ export function registerDataTransferRoutes(
     }
     const release = deps.uploads.take();
     if (!release) return denyBusy(reply);
-    let bytes: Buffer;
-    let file: NonNullable<Awaited<ReturnType<typeof request.file>>>;
+    const folder = await localFolder("import");
     try {
-      const upload = await request.file({
-        limits: { fileSize: IMPORT_LIMITS.maxBytes, files: 1, fields: 2 },
-      });
-      if (!upload) return await deny(reply, 400);
-      file = upload;
-      bytes = await file.toBuffer();
-    } catch (error) {
-      request.log.warn({ err: error }, "import upload too large");
-      return await deny(reply, 413);
-    } finally {
-      release();
-    }
-    if (file.file.truncated || bytes.length === 0) return deny(reply, 413);
-    const filename = cleanFilename(file.filename);
-    let preview: Record<string, unknown>;
-    try {
-      const format = detectImportFormat(filename);
-      const sheet = await parseImportFileIsolated(format, bytes);
-      const importId = await stageImport(
-        deps.db,
-        deps.files,
-        actor.user.id,
-        filename,
-        sheet,
-      );
-      preview = { importId, filename, format, ...previewSheet(sheet) };
-    } catch (error) {
-      if (
-        error instanceof AppError &&
-        (error.code === "invalid_import" || error.code === "too_many_rows")
-      ) {
-        return deny(reply, 400, error.code);
+      const path = join(folder.path, "upload");
+      let filename: string;
+      let size: number;
+      try {
+        const file = await request.file({
+          limits: {
+            fileSize: IMPORT_LIMITS.maxTextBytes,
+            files: 1,
+            fields: 2,
+          },
+        });
+        if (!file) return await deny(reply, 400);
+        filename = cleanFilename(file.filename);
+        await pipeline(
+          file.file,
+          createWriteStream(path, { flags: "wx", mode: 0o600 }),
+        );
+        size = (await stat(path)).size;
+        if (file.file.truncated) return await deny(reply, 413);
+      } catch (error) {
+        request.log.warn({ err: error }, "import upload too large");
+        return await deny(reply, 413);
+      } finally {
+        release();
       }
-      request.log.error({ err: error }, "import preview failed");
-      return deny(reply, 500);
+      if (size === 0) return await deny(reply, 413);
+      let preview: Record<string, unknown>;
+      try {
+        const format = detectImportFormat(filename);
+        if (size > maxImportBytes(format)) return await deny(reply, 413);
+        const scanned = await scanImportFileIsolated(
+          format,
+          path,
+          deps.importMaxRows,
+        );
+        const importId = await stageImport(deps.db, deps.files, {
+          userId: actor.user.id,
+          filename,
+          path,
+          size,
+          shape: scanned.shape,
+        });
+        preview = { importId, filename, format, ...scanned.preview };
+      } catch (error) {
+        if (
+          error instanceof AppError &&
+          (error.code === "invalid_import" || error.code === "import_too_large")
+        ) {
+          return await deny(reply, 400, error.code);
+        }
+        request.log.error({ err: error }, "import preview failed");
+        return await deny(reply, 500);
+      }
+      return await reply.send(preview);
+    } finally {
+      await folder.remove();
     }
-    return reply.send(preview);
   });
 
   /**

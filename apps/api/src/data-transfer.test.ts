@@ -14,7 +14,7 @@ import {
   sheetName,
 } from "./data-transfer.js";
 import type { RowRecord } from "./data/rows.js";
-import { parseImportFile } from "./import-file.js";
+import { cellsOf, readImport } from "./import-file.test-helpers.js";
 
 function column(name: string, label: string, fieldType: string): EngineColumn {
   return {
@@ -147,14 +147,15 @@ describe("exportWriter", () => {
 
   it("writes a workbook that imports back", async () => {
     const bytes = await written("xlsx", [rows.slice(0, 1), rows.slice(1)]);
-    const sheet = await parseImportFile("xlsx", bytes);
-    expect(sheet.headers).toEqual(["Nom", "Quand", "Responsable", "Client"]);
-    expect(sheet.rows[0]).toEqual([
-      '=HYPERLINK("x")',
-      "2026-11-07",
-      "Inès",
-      "",
+    const read = await readImport("xlsx", bytes);
+    expect(read.shape.headers).toEqual([
+      "Nom",
+      "Quand",
+      "Responsable",
+      "Client",
     ]);
-    expect(sheet.rows[1]).toEqual(["Boréal", "", "", "Acme"]);
+    const imported = cellsOf(read.rows);
+    expect(imported[0]).toEqual(['=HYPERLINK("x")', "2026-11-07", "Inès", ""]);
+    expect(imported[1]).toEqual(["Boréal", "", "", "Acme"]);
   });
 });

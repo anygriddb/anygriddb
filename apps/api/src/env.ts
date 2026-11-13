@@ -61,6 +61,8 @@ export type Env = {
   UPLOAD_CONCURRENCY: number;
   /** The most rows an export job writes to its file. */
   EXPORT_MAX_ROWS: number;
+  /** The most rows one imported file may hold. */
+  IMPORT_MAX_ROWS: number;
   /** Imports, exports, copies, and snapshots run at once, per process. */
   JOB_CONCURRENCY: number;
   /** Where sources may be declared (ADR 0006); empty allows none. */
@@ -401,6 +403,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     WORKER_CONCURRENCY: count(source, "WORKER_CONCURRENCY", 4),
     UPLOAD_CONCURRENCY: count(source, "UPLOAD_CONCURRENCY", 8),
     EXPORT_MAX_ROWS: rowCeiling(source, "EXPORT_MAX_ROWS", 1_000_000),
+    IMPORT_MAX_ROWS: rowCeiling(source, "IMPORT_MAX_ROWS", 1_000_000),
     JOB_CONCURRENCY: count(source, "JOB_CONCURRENCY", 2),
     SOURCES_ALLOWED_HOSTS: source.ANYGRIDDB_SOURCES_ALLOWED_HOSTS ?? "",
     SOURCES_ALLOW_PLAINTEXT: allowPlaintext,

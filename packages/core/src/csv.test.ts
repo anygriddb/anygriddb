@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { parseCsv, parseDelimited, toCsv, toCsvRows } from "./csv";
+import {
+  DelimitedReader,
+  parseCsv,
+  parseDelimited,
+  toCsv,
+  toCsvRows,
+} from "./csv";
 
 describe("csv", () => {
   it("round-trips quotes and prefixes formula-like cells", () => {
@@ -44,5 +50,50 @@ describe("parseDelimited ragged", () => {
       "Invalid csv",
     );
     expect(() => parseDelimited("a,b\n1\n")).toThrow("Invalid csv");
+  });
+});
+
+describe("DelimitedReader", () => {
+  const tricky =
+    '\uFEFFname;note\r\n"Dupont; Jean";"said ""hi""\r\nthen left"\n' +
+    '"";x"y\n""""quoted;last';
+
+  function readAll(pieces: readonly string[], maxCell?: number): string[][] {
+    const reader = new DelimitedReader({ delimiter: ";", maxCell });
+    return [...pieces.flatMap((piece) => reader.push(piece)), ...reader.end()];
+  }
+
+  it("reads the same records wherever the text is cut", () => {
+    const whole = readAll([tricky]);
+    expect(whole).toEqual([
+      ["name", "note"],
+      ["Dupont; Jean", 'said "hi"\r\nthen left'],
+      ["", 'x"y'],
+      ['"quoted', "last"],
+    ]);
+    expect(whole).toEqual(
+      parseDelimited(tricky, { delimiter: ";", ragged: true }),
+    );
+    for (let cut = 0; cut <= tricky.length; cut += 1) {
+      expect(readAll([tricky.slice(0, cut), tricky.slice(cut)])).toEqual(whole);
+    }
+    // One code unit at a time.
+    expect(
+      readAll(
+        Array.from({ length: tricky.length }, (_, i) => tricky.charAt(i)),
+      ),
+    ).toEqual(whole);
+  });
+
+  it("keeps the start of a long cell, and refuses an open quote or too many cells", () => {
+    expect(readAll(["a;bcdef\n", "ghij;k"], 3)).toEqual([
+      ["a", "bcd"],
+      ["ghi", "k"],
+    ]);
+    const open = new DelimitedReader({ delimiter: "," });
+    open.push('a,"never closed\n');
+    expect(() => open.end()).toThrow(/Invalid csv/);
+    const wide = new DelimitedReader({ delimiter: ",", maxCells: 2 });
+    expect(() => wide.push("a,b,c\n")).toThrow(/Invalid csv/);
   });
 });

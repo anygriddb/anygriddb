@@ -597,16 +597,18 @@ export const rowsRouter = t.router({
           const { user } = await guardBase(ctx, input.target.baseId, "manage");
           const staged = await loadStagedImport(
             ctx.db,
-            ctx.files,
             input.importId,
             user.id,
           );
           if (
-            input.mapping.some((entry) => entry.source >= staged.headers.length)
+            input.mapping.some(
+              (entry) => entry.source >= staged.shape.headers.length,
+            )
           ) {
             throw new AppError("invalid_mapping");
           }
-          const columns = newTableColumns(staged, input.mapping);
+          // A select takes its options from the file when the job reads it.
+          const columns = newTableColumns(input.mapping);
           const table = await insertTable(ctx.db, user.id, {
             baseId: input.target.baseId,
             name: input.target.name,
@@ -656,12 +658,18 @@ export const rowsRouter = t.router({
           }
         }
         // The file must still be staged: fail now rather than in the worker.
-        await loadStagedImport(
+        const staged = await loadStagedImport(
           ctx.db,
-          ctx.files,
           input.importId,
           access.user.id,
         );
+        if (
+          input.mapping.some(
+            (entry) => entry.source >= staged.shape.headers.length,
+          )
+        ) {
+          throw new AppError("invalid_mapping");
+        }
         await keepStagedImport(ctx.db, input.importId);
         if (
           !canManage &&

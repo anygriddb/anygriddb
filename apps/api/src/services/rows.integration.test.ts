@@ -10,7 +10,7 @@ import { createApiToken } from "../auth/tokens.js";
 import { withAudit } from "../data/audit-context.js";
 import { insertComputed } from "../data/computed.js";
 import { addRelation } from "../data/relations.js";
-import { importIntoTable } from "../data/import-commit.js";
+import { importIntoTable, rowsSource } from "../data/import-commit.js";
 import { insertBase, insertTable, updateColumn } from "../data/schema-ops.js";
 import { gridChannel } from "../realtime/channels.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
@@ -362,16 +362,14 @@ describe("row writes through the REST API", () => {
     const result = await importIntoTable(database, {
       userId: ownerId,
       table,
-      staged: {
-        userId: ownerId,
-        filename: "tasks.csv",
-        headers: ["Title", "Due"],
-        rows: [
+      source: rowsSource(
+        ["Title", "Due"],
+        [
           ["Call the bank", "2026-11-21"],
           ["", "2026-11-22"],
           ["File taxes", ""],
         ],
-      },
+      ),
       mapping: [
         { source: 0, column: "title" },
         { source: 1, column: "due" },

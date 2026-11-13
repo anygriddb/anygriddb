@@ -8,7 +8,7 @@ import { join } from "node:path";
  * The file is written there as it comes, never held in memory whole.
  */
 export async function localFolder(
-  purpose: "upload" | "export" | "snapshot",
+  purpose: "upload" | "import" | "export" | "snapshot",
 ): Promise<{ path: string; remove: () => Promise<void> }> {
   const path = await mkdtemp(join(tmpdir(), `anygriddb-${purpose}-`));
   return { path, remove: () => rm(path, { recursive: true, force: true }) };

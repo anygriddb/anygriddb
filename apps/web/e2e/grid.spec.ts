@@ -294,6 +294,53 @@ test.describe("a number field that refuses negatives, then empties", () => {
   });
 });
 
+// A file of more rows than one batch of the import (ADR 0064): read from
+// disk as its rows are written, every line arrives, and a key that comes
+// back in a later batch updates the row an earlier one added. It makes an
+// account, so it takes a client address of its own.
+test.describe("a file of more rows than one batch", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.81" } });
+
+  test("is imported line for line", async ({ page }) => {
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "Ida Importer");
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Import a file" }).click();
+    const dialog = page.getByRole("dialog", { name: "Import rows" });
+    const lines = Array.from(
+      { length: 1_200 },
+      (_, index) => `Item ${index + 1},first`,
+    );
+    lines.push("Item 3,again");
+    await dialog.locator('input[type="file"]').setInputFiles({
+      name: "items.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(`Name,Notes\n${lines.join("\n")}\n`),
+    });
+    await expect(
+      dialog.getByText(/items\.csv: 1,?201 rows found\./),
+    ).toBeVisible();
+    await dialog
+      .getByLabel("Existing rows")
+      .selectOption({ label: "Update when “Name” matches" });
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await dialog.getByRole("button", { name: /Import 1,?201 rows/ }).click();
+    await expect(
+      dialog.getByText(/1,?200 rows added, 1 updated, 0 rejected\./),
+    ).toBeVisible({ timeout: 60_000 });
+    // The button under the report, not the dialog's cross.
+    await dialog
+      .getByRole("button", { name: "Close" })
+      .filter({ hasText: "Close" })
+      .click();
+    await expect(dialog).toBeHidden();
+    await page.getByLabel("Search this view").fill("Item 3");
+    const notes = page.locator('[role="gridcell"][data-column="notes"]');
+    await expect(notes.first()).toContainText("again");
+    expect(blocked).toEqual([]);
+  });
+});
+
 // A gallery, a timeline, and a kanban's stacks read their rows as they
 // scroll, and a map only the rows that have a place: none stops at a first
 // page. A setting saved does not read the rows again. It makes an account,

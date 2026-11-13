@@ -15,6 +15,150 @@ export type DelimitedOptions = {
   ragged?: boolean;
 };
 
+const QUOTE = 0x22;
+const LF = 0x0a;
+const CR = 0x0d;
+
+export type DelimitedReaderOptions = {
+  delimiter: "," | ";" | "\t";
+  /** Characters a cell keeps: the rest of a longer cell is dropped. */
+  maxCell?: number;
+  /** Cells a record may have: one more refuses the text. */
+  maxCells?: number;
+};
+
+/**
+ * Reads RFC 4180 style text a piece at a time, as it arrives, and hands
+ * back each record once its line ends. A quote opens a quoted cell only
+ * at the start of a cell; inside one, two quotes are one. Carriage
+ * returns outside quotes are dropped, and a byte order mark is skipped.
+ */
+export class DelimitedReader {
+  private readonly delimiter: number;
+  private readonly maxCell: number;
+  private readonly maxCells: number;
+  private row: string[] = [];
+  private cell = "";
+  /** Characters read into the cell, kept or not. */
+  private read = 0;
+  private quoted = false;
+  /** A quote ended the last piece inside a quoted cell: closed or doubled. */
+  private quoteAtEnd = false;
+  private started = false;
+
+  constructor(options: DelimitedReaderOptions) {
+    this.delimiter = options.delimiter.charCodeAt(0);
+    this.maxCell = options.maxCell ?? Number.POSITIVE_INFINITY;
+    this.maxCells = options.maxCells ?? Number.POSITIVE_INFINITY;
+  }
+
+  /** Reads the next piece of text; returns the records it completed. */
+  push(piece: string): string[][] {
+    const records: string[][] = [];
+    let text = piece;
+    if (!this.started && text.length > 0) {
+      this.started = true;
+      if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+    }
+    let index = 0;
+    const length = text.length;
+    if (this.quoteAtEnd && length > 0) {
+      this.quoteAtEnd = false;
+      if (text.charCodeAt(0) === QUOTE) {
+        this.append('"');
+        index = 1;
+      } else {
+        this.quoted = false;
+      }
+    }
+    while (index < length) {
+      if (this.quoted) {
+        const quote = text.indexOf('"', index);
+        if (quote < 0) {
+          this.append(text.slice(index));
+          break;
+        }
+        this.append(text.slice(index, quote));
+        if (quote + 1 === length) {
+          this.quoteAtEnd = true;
+          break;
+        }
+        if (text.charCodeAt(quote + 1) === QUOTE) {
+          this.append('"');
+          index = quote + 2;
+        } else {
+          this.quoted = false;
+          index = quote + 1;
+        }
+        continue;
+      }
+      const code = text.charCodeAt(index);
+      if (code === QUOTE && this.read === 0) {
+        this.quoted = true;
+        index += 1;
+      } else if (code === this.delimiter) {
+        this.endCell();
+        index += 1;
+      } else if (code === LF) {
+        this.endCell();
+        records.push(this.row);
+        this.row = [];
+        index += 1;
+      } else if (code === CR) {
+        index += 1;
+      } else {
+        let next = index + 1;
+        while (next < length) {
+          const following = text.charCodeAt(next);
+          if (
+            following === this.delimiter ||
+            following === LF ||
+            following === CR
+          ) {
+            break;
+          }
+          next += 1;
+        }
+        this.append(text.slice(index, next));
+        index = next;
+      }
+    }
+    return records;
+  }
+
+  /** The last record, when the text does not end with a line break. */
+  end(): string[][] {
+    if (this.quoteAtEnd) {
+      this.quoteAtEnd = false;
+      this.quoted = false;
+    }
+    if (this.quoted) {
+      throw new AppError("invalid_csv");
+    }
+    if (this.read === 0 && this.row.length === 0) return [];
+    this.endCell();
+    const last = this.row;
+    this.row = [];
+    return [last];
+  }
+
+  private append(text: string): void {
+    this.read += text.length;
+    const room = this.maxCell - this.cell.length;
+    if (room <= 0) return;
+    this.cell += text.length > room ? text.slice(0, room) : text;
+  }
+
+  private endCell(): void {
+    this.row.push(this.cell);
+    this.cell = "";
+    this.read = 0;
+    if (this.row.length > this.maxCells) {
+      throw new AppError("invalid_csv");
+    }
+  }
+}
+
 /**
  * RFC 4180 style parser for comma, semicolon, or tab separated text.
  * Every record must have the header's width, unless `ragged` is set.
@@ -23,64 +167,16 @@ export function parseDelimited(
   source: string,
   options: DelimitedOptions = {},
 ): string[][] {
-  const delimiter = options.delimiter ?? ",";
   const maxBytes = options.maxBytes ?? 1_000_000;
   const maxRows = options.maxRows ?? 1001;
   const maxColumns = options.maxColumns ?? 40;
   if (source.length === 0 || source.length > maxBytes) {
     throw new AppError("invalid_csv");
   }
-  const text = source.charCodeAt(0) === 0xfeff ? source.slice(1) : source;
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let quoted = false;
-  for (let index = 0; index < text.length; index += 1) {
-    const current = text.charAt(index);
-    if (quoted) {
-      if (current === '"') {
-        if (text[index + 1] === '"') {
-          cell += '"';
-          index += 1;
-          continue;
-        }
-        quoted = false;
-        continue;
-      }
-      cell += current;
-      continue;
-    }
-    if (current === '"' && cell.length === 0) {
-      quoted = true;
-      continue;
-    }
-    if (current === delimiter) {
-      row.push(cell);
-      cell = "";
-      continue;
-    }
-    if (current === "\n") {
-      row.push(cell);
-      rows.push(row);
-      if (rows.length > maxRows) {
-        throw new AppError("invalid_csv");
-      }
-      row = [];
-      cell = "";
-      continue;
-    }
-    if (current === "\r") {
-      continue;
-    }
-    cell += current;
-  }
-  if (quoted) {
-    throw new AppError("invalid_csv");
-  }
-  if (cell.length > 0 || row.length > 0) {
-    row.push(cell);
-    rows.push(row);
-  }
+  const reader = new DelimitedReader({
+    delimiter: options.delimiter ?? ",",
+  });
+  const rows = [...reader.push(source), ...reader.end()];
   if (rows.length < (options.minRows ?? 2) || rows.length > maxRows) {
     throw new AppError("invalid_csv");
   }

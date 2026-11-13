@@ -35,7 +35,10 @@ import {
 import { duplicateTable, MAX_COPY_ROWS } from "./data/data-ops.js";
 import type { TableRow } from "./data/engine.js";
 import {
+  copyStagedImport,
   dropStagedImport,
+  IMPORT_BATCH,
+  type ImportSource,
   importIntoTable,
   loadStagedImport,
 } from "./data/import-commit.js";
@@ -60,6 +63,8 @@ import type { JobRow, JobRunner } from "./jobs.js";
 import { publishCatalog } from "./realtime/channels.js";
 import { type FileStore, readFile as readStoredFile } from "./files/index.js";
 import { localFolder } from "./files/local-folder.js";
+import { DEFAULT_IMPORT_MAX_ROWS } from "./import-file.js";
+import { readImportFileIsolated } from "./import-isolated.js";
 import { exportKey } from "./storage.js";
 import { readAirtableBase } from "./data/airtable-import.js";
 import { decryptSecret } from "./auth/crypto.js";
@@ -78,6 +83,8 @@ export type RunnerDeps = {
   envAttachmentMaxBytes?: number;
   /** The most rows an export job writes (`EXPORT_MAX_ROWS`). */
   exportMaxRows?: number;
+  /** The most rows one imported file may hold (`IMPORT_MAX_ROWS`). */
+  importMaxRows?: number;
 };
 
 async function attachmentCeiling(deps: RunnerDeps): Promise<number> {
@@ -140,12 +147,7 @@ const runImport =
       input.tableId,
       "write",
     );
-    const staged = await loadStagedImport(
-      deps.db,
-      deps.files,
-      input.importId,
-      userId,
-    );
+    const staged = await loadStagedImport(deps.db, input.importId, userId);
     // Field and row rules may have changed since the job was queued.
     const { engine } = await readerEngine(deps.db, table.id, {
       userId,
@@ -156,12 +158,27 @@ const runImport =
       input.mapping.flatMap((entry) => (entry.column ? [entry.column] : [])),
     );
     const people = await listCollaborators(deps.db, table.baseId);
-    let written = 0;
+    const folder = await localFolder("import");
+    let read = 0;
     try {
+      // The file is read from local disk as rows are written (ADR 0064).
+      const path = join(folder.path, "upload");
+      await copyStagedImport(deps.db, deps.files, staged, path);
+      const source: ImportSource = {
+        headers: staged.shape.headers,
+        total: staged.shape.total,
+        batches: () =>
+          readImportFileIsolated(
+            staged.shape,
+            path,
+            IMPORT_BATCH,
+            deps.importMaxRows ?? DEFAULT_IMPORT_MAX_ROWS,
+          ),
+      };
       const result = await importIntoTable(deps.db, {
         userId,
         table,
-        staged,
+        source,
         mapping: input.mapping,
         upsertSource: input.upsertSource,
         addOptions: input.addOptions,
@@ -178,7 +195,7 @@ const runImport =
           )?.id;
         },
         onProgress: async (done, total) => {
-          written = done;
+          read = done;
           await progress(done, total);
         },
         eventKey: `job:${job.id}`,
@@ -190,8 +207,9 @@ const runImport =
       }
       return { result: { ...result } };
     } finally {
+      await folder.remove();
       // A cancelled import keeps the batches it wrote: tabs reload them.
-      if (written > 0) {
+      if (read > 0) {
         await announceRows(deps, table.id, "refresh", []);
       }
     }

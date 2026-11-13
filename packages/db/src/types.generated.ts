@@ -728,6 +728,7 @@ export interface StagedUploads {
   filename: string;
   id: Generated<string>;
   kind: string;
+  meta: Record<string, unknown> | null;
   size: number;
   userId: string;
 }

@@ -36,12 +36,14 @@ export {
 
 export {
   cellText,
+  DelimitedReader,
   detectDelimiter,
   parseCsv,
   parseDelimited,
   toCsv,
   toCsvRows,
   type DelimitedOptions,
+  type DelimitedReaderOptions,
 } from "./csv";
 
 export {

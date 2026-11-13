@@ -19,7 +19,7 @@ import {
   type FilterGroup,
 } from "@anygriddb/core";
 import { chartSeries } from "../data/dashboards.js";
-import { importIntoTable } from "../data/import-commit.js";
+import { importIntoTable, rowsSource } from "../data/import-commit.js";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import oracledb from "oracledb";
@@ -3251,12 +3251,7 @@ describe("conformance of formulas across engines", () => {
         importIntoTable(db, {
           userId: actorId,
           table,
-          staged: {
-            userId: actorId,
-            filename: "ledger.csv",
-            headers: ["label", "amount", "qty", "team"],
-            rows,
-          },
+          source: rowsSource(["label", "amount", "qty", "team"], rows),
           mapping,
           ...(upsertSource === undefined ? {} : { upsertSource }),
           addOptions: false,

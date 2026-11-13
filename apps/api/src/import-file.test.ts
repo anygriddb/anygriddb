@@ -7,9 +7,9 @@ import {
   detectImportFormat,
   excelText,
   IMPORT_LIMITS,
-  parseImportFile,
-  previewSheet,
+  maxImportBytes,
 } from "./import-file.js";
+import { cellsOf, readImport } from "./import-file.test-helpers.js";
 
 async function workbookBytes(rows: unknown[][]): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
@@ -43,76 +43,98 @@ describe("cleanHeaders", () => {
   });
 });
 
-describe("parseImportFile", () => {
-  it("parses CSV with a byte order mark and pads short rows", async () => {
-    const sheet = await parseImportFile(
+describe("reading an import file", () => {
+  it("reads CSV with a byte order mark, pads short rows, and keeps each line", async () => {
+    const read = await readImport(
       "csv",
-      Buffer.from("\uFEFFNom;Ville\nAcme;Lyon\nBoréal\n\n"),
+      '\uFEFFNom;Ville\nAcme;Lyon\n\n"Bor\néal"\nSète;Agde\n',
     );
-    expect(sheet.headers).toEqual(["Nom", "Ville"]);
-    expect(sheet.rows).toEqual([
-      ["Acme", "Lyon"],
-      ["Boréal", ""],
+    expect(read.shape).toMatchObject({
+      headers: ["Nom", "Ville"],
+      delimiter: ";",
+      headerLine: 1,
+      total: 3,
+    });
+    // A blank line counts, a quoted line break does not.
+    expect(read.rows).toEqual([
+      { line: 2, cells: ["Acme", "Lyon"] },
+      { line: 4, cells: ["Bor\néal", ""] },
+      { line: 5, cells: ["Sète", "Agde"] },
     ]);
   });
 
-  it("parses TSV", async () => {
-    const sheet = await parseImportFile("tsv", Buffer.from("a\tb\n1\t2\n"));
-    expect(sheet.rows).toEqual([["1", "2"]]);
+  it("reads TSV, and a file cut anywhere into batches", async () => {
+    const lines = Array.from({ length: 7 }, (_, i) => `${i}\tv${i}`);
+    const read = await readImport("tsv", `a\tb\n${lines.join("\n")}`, {
+      batch: 3,
+    });
+    expect(read.rows).toHaveLength(7);
+    expect(read.rows.at(-1)).toEqual({ line: 8, cells: ["6", "v6"] });
   });
 
-  it("parses JSON arrays, wrapped records, and REST records", async () => {
-    const plain = await parseImportFile(
+  it("reads JSON arrays, wrapped records, and REST records", async () => {
+    const plain = await readImport(
       "json",
-      Buffer.from(
-        JSON.stringify([
-          { nom: "Acme", tags: ["a", "b"], n: 3 },
-          { ville: "Sète" },
-        ]),
-      ),
+      JSON.stringify([
+        { nom: "Acme", tags: ["a", "b"], n: 3 },
+        {},
+        { ville: "Sète" },
+      ]),
     );
-    expect(plain.headers).toEqual(["nom", "tags", "n", "ville"]);
+    expect(plain.shape.headers).toEqual(["nom", "tags", "n", "ville"]);
     expect(plain.rows).toEqual([
-      ["Acme", "a, b", "3", ""],
-      ["", "", "", "Sète"],
+      { line: 2, cells: ["Acme", "a, b", "3", ""] },
+      { line: 4, cells: ["", "", "", "Sète"] },
     ]);
-    const wrapped = await parseImportFile(
+    const wrapped = await readImport(
       "json",
-      Buffer.from(
-        JSON.stringify({ records: [{ id: "x", fields: { nom: "Acme" } }] }),
-      ),
+      JSON.stringify({ records: [{ id: "x", fields: { nom: "Acme" } }] }),
     );
-    expect(wrapped.headers).toEqual(["nom"]);
+    expect(wrapped.shape.headers).toEqual(["nom"]);
   });
 
-  it("rejects malformed JSON and non-object rows", async () => {
-    await expect(parseImportFile("json", Buffer.from("{nope"))).rejects.toThrow(
-      "Invalid import",
-    );
-    await expect(parseImportFile("json", Buffer.from("[1,2]"))).rejects.toThrow(
-      "Invalid import",
-    );
-    await expect(
-      parseImportFile("json", Buffer.from('{"a":1}')),
-    ).rejects.toThrow("Invalid import");
+  it("refuses malformed JSON and non-object rows", async () => {
+    for (const text of ["{nope", "[1,2]", '{"a":1}']) {
+      await expect(readImport("json", text)).rejects.toThrow("Invalid import");
+    }
   });
 
-  it("parses the first worksheet of a workbook", async () => {
+  it("reads the first worksheet of a workbook, numbered as the sheet is", async () => {
     const bytes = await workbookBytes([
+      [],
       ["Nom", "Date", "Montant", "Actif"],
       ["Acme", new Date(Date.UTC(2026, 10, 7)), 12.5, true],
+      [],
       [
         { richText: [{ text: "Bo" }, { text: "réal" }] },
         new Date(Date.UTC(2026, 10, 7, 14, 30)),
         { formula: "C2*2", result: 25 },
         false,
+        "sans titre",
       ],
     ]);
-    const sheet = await parseImportFile("xlsx", bytes);
-    expect(sheet.headers).toEqual(["Nom", "Date", "Montant", "Actif"]);
-    expect(sheet.rows).toEqual([
-      ["Acme", "2026-11-07", "12.5", "true"],
-      ["Boréal", "2026-11-07T14:30:00.000Z", "25", "false"],
+    const read = await readImport("xlsx", bytes);
+    expect(read.shape).toMatchObject({ headerLine: 2, total: 2 });
+    // A value under no header gets a column of its own.
+    expect(read.shape.headers).toEqual([
+      "Nom",
+      "Date",
+      "Montant",
+      "Actif",
+      "Colonne 5",
+    ]);
+    expect(read.rows).toEqual([
+      { line: 3, cells: ["Acme", "2026-11-07", "12.5", "true", ""] },
+      {
+        line: 5,
+        cells: [
+          "Boréal",
+          "2026-11-07T14:30:00.000Z",
+          "25",
+          "false",
+          "sans titre",
+        ],
+      },
     ]);
   });
 
@@ -137,32 +159,51 @@ describe("parseImportFile", () => {
         ["Nom", "Ville"],
         ["Boréal", "Lyon"],
       ]);
-      const sheet = await parseImportFile("xlsx", bytes);
+      const read = await readImport("xlsx", bytes);
       expect(slow).toHaveBeenCalled();
-      expect(sheet.headers).toEqual(["Nom", "Ville"]);
-      expect(sheet.rows).toEqual([["Boréal", "Lyon"]]);
+      expect(read.shape.headers).toEqual(["Nom", "Ville"]);
+      expect(cellsOf(read.rows)).toEqual([["Boréal", "Lyon"]]);
     } finally {
       slow.mockRestore();
     }
   });
 
-  it("rejects bytes that are not a workbook", async () => {
-    await expect(
-      parseImportFile("xlsx", Buffer.from("not a zip")),
-    ).rejects.toThrow("Invalid import");
-  });
-
-  it("rejects empty files and too many columns", async () => {
-    await expect(parseImportFile("csv", Buffer.alloc(0))).rejects.toThrow(
+  it("refuses bytes that are not a workbook, empty files, and too many columns", async () => {
+    await expect(readImport("xlsx", "not a zip")).rejects.toThrow(
       "Invalid import",
     );
+    await expect(readImport("csv", "")).rejects.toThrow("Invalid import");
     const wide = Array.from(
       { length: IMPORT_LIMITS.maxColumns + 1 },
       (_, i) => `c${i}`,
     ).join(",");
-    await expect(
-      parseImportFile("csv", Buffer.from(`${wide}\n`)),
-    ).rejects.toThrow();
+    await expect(readImport("csv", `${wide}\n`)).rejects.toThrow(
+      "Invalid import",
+    );
+    // A row wider than its header, with something in the extra cell.
+    await expect(readImport("csv", "a,b\n1,2,3\n")).rejects.toThrow(
+      "Invalid import",
+    );
+  });
+
+  it("stops at the row ceiling, and keeps a sample and inferred types", async () => {
+    const rows = Array.from({ length: 30 }, (_, i) => `${i},texte ${i}`);
+    const text = `n,t\n${rows.join("\n")}\n`;
+    await expect(readImport("csv", text, { maxRows: 29 })).rejects.toThrow(
+      "Too many rows to import",
+    );
+    const read = await readImport("csv", text, { maxRows: 30 });
+    expect(read.preview.total).toBe(30);
+    expect(read.preview.sample).toHaveLength(20);
+    expect(read.preview.inferred.map((field) => field.fieldType)).toEqual([
+      "number",
+      "text",
+    ]);
+  });
+
+  it("takes larger text files than spreadsheets or JSON", () => {
+    expect(maxImportBytes("csv")).toBeGreaterThan(maxImportBytes("xlsx"));
+    expect(maxImportBytes("xlsx")).toBeGreaterThan(maxImportBytes("json"));
   });
 });
 
@@ -173,20 +214,5 @@ describe("excelText", () => {
     );
     expect(excelText({ error: "#DIV/0!" })).toBe("");
     expect(excelText(null)).toBe("");
-  });
-});
-
-describe("previewSheet", () => {
-  it("returns a sample and inferred types", () => {
-    const preview = previewSheet({
-      headers: ["n", "t"],
-      rows: Array.from({ length: 30 }, (_, i) => [String(i), `texte ${i}`]),
-    });
-    expect(preview.total).toBe(30);
-    expect(preview.sample).toHaveLength(20);
-    expect(preview.inferred.map((field) => field.fieldType)).toEqual([
-      "number",
-      "text",
-    ]);
   });
 });
