@@ -438,9 +438,9 @@ docker compose -f compose.managed.yml up -d --build
 An identity provider can create, change, and deactivate accounts, and
 keep groups, through SCIM 2.0 (ADR 0038).
 
-1. In **Administration → Provisionnement**, create a token. Copy it at
-   once: it is not shown again. It works while its maker is an active
-   administrator.
+1. In **Administration → People → Provisioning (SCIM)**, create a token.
+   Copy it at once: it is not shown again. It works while its maker is an
+   active administrator.
 2. In the provider, add a SCIM 2.0 application:
    - **Base URL**: `https://<your address>/scim/v2`, shown on the same
      page.
@@ -452,12 +452,18 @@ keep groups, through SCIM 2.0 (ADR 0038).
      mode "Automatic", tenant URL the base URL, secret token the token.
      Map `userPrincipalName` or `mail` to `userName`, and `mail` to
      `emails[type eq "work"].value` when they differ.
-3. Give each group a role in the settings of the bases it should reach.
+3. Give each group a role in the settings of the bases it should reach,
+   or on the group's page under **Administration → People → Groups**.
 
 What to know:
 
 - Accounts are keyed by email. A provisioned user whose email already
   has an account takes it over.
+- A group can also be made in Administration, without a provider: its
+  name and members are kept there (ADR 0070). The provider neither sees
+  nor changes it, and a group it sends under the same name is refused
+  until one of the two is renamed. A provider's group shows its members
+  in Administration, where they cannot be changed.
 - Deactivating a user disables the account and ends its sessions;
   deleting it also takes it out of its groups. Its email, display
   name, and history stay, and creating it again brings it back. That

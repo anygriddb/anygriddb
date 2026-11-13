@@ -366,13 +366,19 @@ type GroupRecord = {
   id: string;
   displayName: string;
   externalId: string | null;
+  provider: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
 
 async function findGroup(db: Database | AuditTx, id: string, lock = false) {
   if (!UUID.test(id)) throw notFound();
-  let query = db.selectFrom("groups").selectAll().where("id", "=", id);
+  let query = db
+    .selectFrom("groups")
+    .selectAll()
+    .where("id", "=", id)
+    // Local groups are not SCIM resources (ADR 0070).
+    .where("provider", "=", "scim");
   if (lock) query = query.forUpdate();
   const group = await query.executeTakeFirst();
   if (!group) throw notFound();
@@ -444,10 +450,12 @@ export async function listScimGroups(
   withMembers: boolean,
 ) {
   const where = groupCondition(filter);
+  const scimOnly = sql<SqlBool>`provider = 'scim'`;
   const total = await context.db
     .selectFrom("groups")
     .select(sql<number>`count(*)::int`.as("value"))
     .where(where)
+    .where(scimOnly)
     .executeTakeFirstOrThrow();
   const groups =
     page.limit === 0
@@ -456,6 +464,7 @@ export async function listScimGroups(
           .selectFrom("groups")
           .selectAll()
           .where(where)
+          .where(scimOnly)
           .orderBy("createdAt")
           .orderBy("id")
           .offset(page.offset)
@@ -577,7 +586,11 @@ export async function createScimGroup(context: ScimContext, body: unknown) {
   const id = await change(context, async (tx) => {
     const created = await tx
       .insertInto("groups")
-      .values({ displayName: next.displayName, externalId: next.externalId })
+      .values({
+        displayName: next.displayName,
+        externalId: next.externalId,
+        provider: "scim",
+      })
       .returning("id")
       .executeTakeFirstOrThrow();
     await setMembers(tx, created.id, next.members);

@@ -8,6 +8,7 @@ import type { Database } from "@anygriddb/db";
 import Fastify, { type FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadBindings } from "../auth/access.js";
+import { withAudit } from "../data/audit-context.js";
 import { listMembers, revokeMember } from "../data/members.js";
 import { insertBase } from "../data/schema-ops.js";
 import { createTestDatabase } from "../test-database.js";
@@ -293,6 +294,47 @@ describe("SCIM 2.0", () => {
       userName: `eve-${suffix}@corp.example`,
     });
     expect(back.body).toMatchObject({ id: eve, active: true, groups: [] });
+  });
+
+  it("does not list or change a local group", async () => {
+    const local = await withAudit(
+      db,
+      { userId: admin, source: "web" },
+      async (tx) =>
+        tx
+          .insertInto("groups")
+          .values({
+            displayName: `Local ${suffix}`,
+            provider: null,
+            externalId: null,
+          })
+          .returning("id")
+          .executeTakeFirstOrThrow(),
+    );
+    expect((await call("GET", `/Groups/${local.id}`)).status).toBe(404);
+    expect(
+      (
+        await call("PUT", `/Groups/${local.id}`, {
+          schemas: [GROUP],
+          displayName: `Hijacked ${suffix}`,
+          members: [],
+        })
+      ).status,
+    ).toBe(404);
+    expect((await call("DELETE", `/Groups/${local.id}`)).status).toBe(404);
+    const listed = await call(
+      "GET",
+      `/Groups?filter=${encodeURIComponent(`displayName eq "Local ${suffix}"`)}`,
+    );
+    expect(listed.status).toBe(200);
+    expect(listed.body.totalResults).toBe(0);
+    expect(
+      await db
+        .selectFrom("groups")
+        .select("displayName")
+        .where("id", "=", local.id)
+        .executeTakeFirst(),
+    ).toEqual({ displayName: `Local ${suffix}` });
   });
 
   it("keeps an active administrator, and deletes groups with their access", async () => {

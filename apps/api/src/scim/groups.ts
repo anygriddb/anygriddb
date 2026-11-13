@@ -1,14 +1,69 @@
 /**
- * Groups and the roles bases give them (ADR 0038). A member's access comes
- * as a role binding of the group's: every check that reads bindings sees
- * it, and it follows the group's members and roles here, in the same
- * transaction.
+ * Groups and the roles bases give them (ADR 0038, ADR 0070). A member's
+ * access comes as a role binding of the group's: every check that reads
+ * bindings sees it, and it follows the group's members and roles here, in
+ * the same transaction. A null provider is a local group Administration
+ * keeps; `scim` means an identity provider owns the membership.
  */
-import { AppError, type Role } from "@anygriddb/core";
+import { AppError, labelSchema, type Role } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
+import { z } from "zod";
 import { type AuditTx, withAudit } from "../data/audit-context.js";
+import { ERASED_USER_ID } from "../data/erasure.js";
 import { liveBase } from "../data/live.js";
+import { postgresCode } from "../data/pg-error.js";
+
+/** Value of `groups.provider` when SCIM keeps the group. */
+export const SCIM_PROVIDER = "scim";
+
+const descriptionSchema = z.string().trim().max(500).nullable().optional();
+
+function descriptionOf(
+  value: string | null | undefined,
+): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value.length === 0) return null;
+  return value;
+}
+
+export const createLocalGroupInputSchema = z
+  .object({
+    displayName: labelSchema,
+    description: descriptionSchema,
+  })
+  .strict()
+  .transform((input) => ({
+    ...input,
+    description: descriptionOf(input.description),
+  }));
+
+export const updateLocalGroupInputSchema = z
+  .object({
+    groupId: z.uuid(),
+    displayName: labelSchema,
+    description: descriptionSchema,
+  })
+  .strict()
+  .transform((input) => ({
+    ...input,
+    description: descriptionOf(input.description),
+  }));
+
+export const localGroupMemberInputSchema = z
+  .object({
+    groupId: z.uuid(),
+    userId: z.uuid(),
+  })
+  .strict();
+
+export type CreateLocalGroupInput = z.infer<typeof createLocalGroupInputSchema>;
+export type UpdateLocalGroupInput = z.infer<typeof updateLocalGroupInputSchema>;
+
+/** True when Administration owns the group's membership. */
+export function isLocalGroup(provider: string | null): boolean {
+  return provider === null;
+}
 
 /**
  * Brings the group's bindings in line with its roles and members: adds
@@ -57,7 +112,9 @@ export async function listGroups(db: Database) {
     .select([
       "g.id",
       "g.displayName",
+      "g.description",
       "g.externalId",
+      "g.provider",
       sql<number>`(select count(*)::int from group_members m where m.group_id = g.id)`.as(
         "members",
       ),
@@ -69,6 +126,43 @@ export async function listGroups(db: Database) {
     .limit(1_000)
     .execute();
   return rows;
+}
+
+/** One group with its members and the bases it has a role on. */
+export async function getGroup(db: Database, groupId: string) {
+  const group = await db
+    .selectFrom("groups")
+    .select([
+      "id",
+      "displayName",
+      "description",
+      "externalId",
+      "provider",
+      "createdAt",
+      "updatedAt",
+    ])
+    .where("id", "=", groupId)
+    .executeTakeFirst();
+  if (!group) throw new AppError("unknown_group");
+  const [members, roles] = await Promise.all([
+    db
+      .selectFrom("groupMembers as m")
+      .innerJoin("users as u", "u.id", "m.userId")
+      .select(["u.id as userId", "u.displayName", "u.email"])
+      .where("m.groupId", "=", groupId)
+      .where("u.id", "<>", ERASED_USER_ID)
+      .orderBy(sql`lower(u.display_name)`)
+      .execute(),
+    db
+      .selectFrom("groupRoles as r")
+      .innerJoin("bases as b", "b.id", "r.baseId")
+      .select(["r.baseId", "b.name as baseName", "r.role"])
+      .where("r.groupId", "=", groupId)
+      .where(liveBase("b"))
+      .orderBy(sql`lower(b.name)`)
+      .execute(),
+  ]);
+  return { ...group, members, roles };
 }
 
 /** The groups a base gives a role to, with their member counts. */
@@ -133,6 +227,144 @@ export async function setGroupRole(
         .where("baseId", "=", input.baseId)
         .execute();
     }
+    await syncGroupBindings(tx, input.groupId);
+  });
+}
+
+async function requireLocalGroup(
+  tx: AuditTx | Database,
+  groupId: string,
+): Promise<{ id: string }> {
+  const group = await tx
+    .selectFrom("groups")
+    .select(["id", "provider"])
+    .where("id", "=", groupId)
+    .executeTakeFirst();
+  if (!group) throw new AppError("unknown_group");
+  if (!isLocalGroup(group.provider)) throw new AppError("group_provisioned");
+  return { id: group.id };
+}
+
+function rethrowNameTaken(error: unknown): never {
+  if (postgresCode(error) === "23505") {
+    throw new AppError("group_already_exists");
+  }
+  throw error;
+}
+
+/** Makes a local group; membership starts empty. */
+export async function createLocalGroup(
+  db: Database,
+  actorId: string,
+  input: CreateLocalGroupInput,
+): Promise<{ id: string }> {
+  try {
+    return await withAudit(
+      db,
+      { userId: actorId, source: "web" },
+      async (tx) => {
+        const created = await tx
+          .insertInto("groups")
+          .values({
+            displayName: input.displayName,
+            description: input.description ?? null,
+            provider: null,
+            externalId: null,
+          })
+          .returning("id")
+          .executeTakeFirstOrThrow();
+        return { id: created.id };
+      },
+    );
+  } catch (error) {
+    rethrowNameTaken(error);
+  }
+}
+
+/** Renames or describes a local group. */
+export async function updateLocalGroup(
+  db: Database,
+  actorId: string,
+  input: UpdateLocalGroupInput,
+): Promise<void> {
+  try {
+    await withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
+      await requireLocalGroup(tx, input.groupId);
+      await tx
+        .updateTable("groups")
+        .set({
+          displayName: input.displayName,
+          description: input.description ?? null,
+          updatedAt: new Date(),
+        })
+        .where("id", "=", input.groupId)
+        .execute();
+    });
+  } catch (error) {
+    rethrowNameTaken(error);
+  }
+}
+
+/** Deletes a local group; its roles and bindings go with it. */
+export async function deleteLocalGroup(
+  db: Database,
+  actorId: string,
+  groupId: string,
+): Promise<void> {
+  await withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
+    await requireLocalGroup(tx, groupId);
+    await tx.deleteFrom("groups").where("id", "=", groupId).execute();
+  });
+}
+
+async function requireActiveAccount(
+  tx: AuditTx,
+  userId: string,
+): Promise<void> {
+  const account = await tx
+    .selectFrom("users")
+    .select("id")
+    .where("id", "=", userId)
+    .where("id", "<>", ERASED_USER_ID)
+    .where("deprovisionedAt", "is", null)
+    .where("disabledAt", "is", null)
+    .executeTakeFirst();
+  if (!account) throw new AppError("unknown_account");
+}
+
+/** Adds an active account to a local group; bindings follow at once. */
+export async function addLocalGroupMember(
+  db: Database,
+  actorId: string,
+  input: { groupId: string; userId: string },
+): Promise<void> {
+  await withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
+    await requireLocalGroup(tx, input.groupId);
+    await requireActiveAccount(tx, input.userId);
+    await tx
+      .insertInto("groupMembers")
+      .values({ groupId: input.groupId, userId: input.userId })
+      .onConflict((conflict) =>
+        conflict.columns(["groupId", "userId"]).doNothing(),
+      )
+      .execute();
+    await syncGroupBindings(tx, input.groupId);
+  });
+}
+
+/** Removes a member from a local group; bindings follow at once. */
+export async function removeLocalGroupMember(
+  db: Database,
+  actorId: string,
+  input: { groupId: string; userId: string },
+): Promise<void> {
+  await withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
+    await requireLocalGroup(tx, input.groupId);
+    await tx
+      .deleteFrom("groupMembers")
+      .where("groupId", "=", input.groupId)
+      .where("userId", "=", input.userId)
+      .execute();
     await syncGroupBindings(tx, input.groupId);
   });
 }

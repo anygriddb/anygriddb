@@ -52,7 +52,7 @@ export function ScimTab() {
     <div className="flex max-w-3xl flex-col gap-4 text-sm">
       <RuledSection
         title={t`SCIM 2.0 provisioning`}
-        description={t`Your identity provider (Okta, Microsoft Entra ID, …) creates, changes, and deactivates accounts, and keeps groups. Existing accounts are taken over by their email. Then give groups a role in each base's settings.`}
+        description={t`Your identity provider (Okta, Microsoft Entra ID, …) creates, changes, and deactivates accounts, and keeps groups. Existing accounts are taken over by their email. Local groups are made under People → Groups. Then give groups a role in each base's settings or in Administration.`}
       >
         <Label htmlFor="scim-url">{t`SCIM address`}</Label>
         <div className="flex gap-2">

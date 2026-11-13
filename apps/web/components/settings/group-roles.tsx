@@ -12,8 +12,8 @@ import type { Role } from "../../lib/types";
 const ROLES: Role[] = ["owner", "editor", "commenter", "viewer"];
 
 /**
- * The roles a base gives to groups an identity provider keeps (SCIM): each
- * member gets the group's role, and loses it on leaving the group.
+ * The roles a base gives to groups (local or from an identity provider):
+ * each member gets the group's role, and loses it on leaving the group.
  */
 export function GroupRoles(props: {
   baseId: string;
@@ -55,7 +55,7 @@ export function GroupRoles(props: {
   if (data.data.groups.length === 0) {
     return (
       <p className="text-xs text-muted-foreground">
-        {t`No group on this instance. An administrator can receive them from your identity provider (SCIM).`}
+        {t`No group on this instance. An administrator can make one in Administration, or receive them from your identity provider (SCIM).`}
       </p>
     );
   }

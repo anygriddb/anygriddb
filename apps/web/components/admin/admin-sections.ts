@@ -17,6 +17,7 @@ import { useSession } from "../../lib/session";
 export type AdminPath =
   | "/admin"
   | "/admin/people/accounts"
+  | "/admin/people/groups"
   | "/admin/people/sessions"
   | "/admin/people/provisioning"
   | "/admin/security"
@@ -66,6 +67,9 @@ export function useAdminSections(): AdminSection[] {
     icon: Users,
     pages: [
       { to: "/admin/people/accounts", label: t`Accounts` },
+      ...(isAdmin
+        ? ([{ to: "/admin/people/groups", label: t`Groups` }] as const)
+        : []),
       { to: "/admin/people/sessions", label: t`Sessions` },
       ...(isAdmin
         ? [

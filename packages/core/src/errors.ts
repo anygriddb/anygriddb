@@ -57,6 +57,8 @@ export const ERRORS = {
   unknown_template: [BAD, "Unknown template"],
   table_already_exists: [409, "Table already exists"],
   folder_already_exists: [409, "Folder already exists"],
+  group_already_exists: [409, "Group already exists"],
+  group_provisioned: [403, "Group kept by the identity provider"],
   folder_wrong_base: [BAD, "Folder is not in this base"],
   column_already_exists: [409, "Column already exists"],
   column_in_use: [BAD, "Column in use"],

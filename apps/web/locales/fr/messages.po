@@ -209,6 +209,9 @@ msgid "{0, plural, =0 {no change} one {# row changed} other {# rows changed}}"
 msgstr "{0, plural, =0 {aucun changement} one {# ligne changée} other {# lignes changées}}"
 
 #. placeholder {0}: group.bases
+#. placeholder {0}: group.roles.length
+#: components/admin/group-page.tsx
+#: components/admin/groups-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "{0, plural, one {# base} other {# bases}}"
 msgstr "{0, plural, one {# base} other {# bases}}"
@@ -254,7 +257,10 @@ msgid "{0, plural, one {# hidden field} other {# hidden fields}}"
 msgstr "{0, plural, one {# champ masqué} other {# champs masqués}}"
 
 #. placeholder {0}: group.members
+#. placeholder {0}: group.members.length
 #. placeholder {0}: item.members
+#: components/admin/group-page.tsx
+#: components/admin/groups-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/settings/group-roles.tsx
 msgid "{0, plural, one {# member} other {# members}}"
@@ -778,6 +784,14 @@ msgstr "Un dossier porte déjà ce nom"
 msgid "A form is submitted"
 msgstr "Un formulaire est envoyé"
 
+#: lib/errors.ts
+msgid "A group already has this name"
+msgstr "Un groupe porte déjà ce nom"
+
+#: components/admin/groups-tab.tsx
+msgid "A group gathers accounts so a base can give them one role. Make a group here, or receive them from your identity provider (SCIM)."
+msgstr "Un groupe rassemble des comptes pour qu’une base leur donne un même rôle. Créez-en un ici, ou recevez-les de votre fournisseur d’identité (SCIM)."
+
 #: components/fields/formula-docs.ts
 msgid "A JSON document's value at a path, such as $.client.name or $.lines[0]."
 msgstr "La valeur d’un JSON à un chemin, comme $.client.nom ou $.lignes[0]."
@@ -993,6 +1007,7 @@ msgstr "Compte déverrouillé"
 
 #: components/admin/account-page.tsx
 #: components/admin/admin-sections.ts
+#: components/admin/group-page.tsx
 msgid "Accounts"
 msgstr "Comptes"
 
@@ -1112,6 +1127,10 @@ msgstr "Ajouter un niveau"
 #: components/fields/field-editor.tsx
 msgid "Add a link to another table first."
 msgstr "Ajoutez d’abord un lien vers une autre table."
+
+#: components/admin/group-page.tsx
+msgid "Add a member"
+msgstr "Ajouter un membre"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Add a metric, a chart, or a view."
@@ -1787,6 +1806,7 @@ msgstr "Bases et rôles"
 
 #: components/admin/account-bases.tsx
 #: components/admin/accounts-tab.tsx
+#: components/admin/group-page.tsx
 msgid "Bases of the instance"
 msgstr "Bases de l’instance"
 
@@ -1880,6 +1900,8 @@ msgstr "Appeler une URL"
 #: components/admin/account-bases.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/base-admin-members.tsx
+#: components/admin/group-page.tsx
+#: components/admin/groups-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/step-up.tsx
 #: components/admin/support-tab.tsx
@@ -2444,6 +2466,7 @@ msgstr "Nombre de valeurs"
 msgid "Cover"
 msgstr "Couverture"
 
+#: components/admin/groups-tab.tsx
 #: components/dashboards/dashboard-list.tsx
 #: components/settings/account-settings.tsx
 #: components/shell/new-base-dialog.tsx
@@ -2696,6 +2719,7 @@ msgid "delete"
 msgstr "suppression"
 
 #: components/admin/account-actions.tsx
+#: components/admin/group-page.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/trails.tsx
 #: components/dashboards/dashboard-board.tsx
@@ -2721,6 +2745,10 @@ msgstr "Supprimer « {name} » définitivement ?"
 #: components/shell/trashed-bases.tsx
 msgid "Delete {name} permanently"
 msgstr "Supprimer définitivement {name}"
+
+#: components/admin/group-page.tsx
+msgid "Delete {name}?"
+msgstr "Supprimer {name} ?"
 
 #: components/admin/account-actions.tsx
 msgid "Delete {name}'s account?"
@@ -2805,6 +2833,10 @@ msgstr "Supprimer cette base"
 msgid "Delete view"
 msgstr "Supprimer la vue"
 
+#: components/admin/group-page.tsx
+msgid "Delete…"
+msgstr "Supprimer…"
+
 #: components/admin/bases-tab.tsx
 #: components/shell/trashed-bases.tsx
 msgid "Deleted bases"
@@ -2864,6 +2896,8 @@ msgstr "Envoi replanifié"
 msgid "Describe the view"
 msgstr "Décrire la vue"
 
+#: components/admin/group-page.tsx
+#: components/admin/groups-tab.tsx
 #: components/fields/field-editor.tsx
 #: components/settings/base-settings.tsx
 msgid "Description"
@@ -3050,6 +3084,7 @@ msgid "Earliest date"
 msgstr "Plus ancienne date"
 
 #: components/admin/account-actions.tsx
+#: components/admin/group-page.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/trails.tsx
 #: components/record/record-panel.tsx
@@ -3680,6 +3715,7 @@ msgstr "Filtrer sur ce champ"
 
 #: components/admin/account-bases.tsx
 #: components/admin/accounts-tab.tsx
+#: components/admin/group-page.tsx
 msgid "Find a base"
 msgstr "Chercher une base"
 
@@ -3688,6 +3724,7 @@ msgid "Find a base, a table, or an action"
 msgstr "Rechercher une base, une table ou une action"
 
 #: components/admin/base-admin-members.tsx
+#: components/admin/group-page.tsx
 msgid "Find an account"
 msgstr "Trouver un compte"
 
@@ -3866,6 +3903,7 @@ msgid "Give a group a role"
 msgstr "Donner un rôle à un groupe"
 
 #: components/admin/account-bases.tsx
+#: components/admin/group-page.tsx
 msgid "Give a role on a base"
 msgstr "Donner un rôle sur une base"
 
@@ -3906,6 +3944,10 @@ msgstr "Grille : se déplacer"
 msgid "Group"
 msgstr "Grouper"
 
+#: components/admin/effective-rights.tsx
+msgid "Group {name}"
+msgstr "Groupe {name}"
+
 #: components/dashboards/dashboard-board.tsx
 msgid "Group by"
 msgstr "Grouper par"
@@ -3914,22 +3956,37 @@ msgstr "Grouper par"
 msgid "Group by this field"
 msgstr "Grouper par ce champ"
 
+#: components/admin/groups-tab.tsx
+msgid "Group created"
+msgstr "Groupe créé"
+
+#: components/admin/group-page.tsx
+msgid "Group deleted"
+msgstr "Groupe supprimé"
+
 #: lib/errors.ts
 msgid "Group not found"
 msgstr "Groupe introuvable"
+
+#: components/admin/group-page.tsx
+msgid "Group updated"
+msgstr "Groupe mis à jour"
 
 #: components/table/view-toolbar.tsx
 msgid "Grouped by {count} fields"
 msgstr "Groupé par {count} champs"
 
+#: components/admin/admin-sections.ts
+#: components/admin/group-page.tsx
+#: components/admin/groups-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/settings/base-settings.tsx
 msgid "Groups"
 msgstr "Groupes"
 
 #: components/settings/base-settings.tsx
-msgid "Groups come from your identity provider. Each member gets the group's role, and loses it on leaving the group."
-msgstr "Les groupes viennent de votre fournisseur d’identité. Chaque membre reçoit le rôle du groupe, et le perd en le quittant."
+msgid "Groups come from Administration or your identity provider. Each member gets the group's role, and loses it on leaving the group."
+msgstr "Les groupes viennent de l’Administration ou de votre fournisseur d’identité. Chaque membre reçoit le rôle du groupe, et le perd en quittant le groupe."
 
 #: components/settings/api-docs.tsx
 msgid "Guide"
@@ -4047,6 +4104,10 @@ msgstr "J’ai copié les codes"
 #: components/fields/field-editor.tsx
 msgid "Icon"
 msgstr "Icône"
+
+#: components/admin/groups-tab.tsx
+msgid "Identity provider"
+msgstr "Fournisseur d’identité"
 
 #: components/admin/accounts-tab.tsx
 msgid "Identity provider (SCIM)"
@@ -4838,9 +4899,17 @@ msgstr "Chargement"
 msgid "Loading preview…"
 msgstr "Chargement de l’aperçu…"
 
+#: components/admin/groups-tab.tsx
+msgid "Local"
+msgstr "Local"
+
 #: components/admin/settings-tab.tsx
 msgid "Local folder"
 msgstr "Dossier local"
+
+#: components/admin/group-page.tsx
+msgid "Local group"
+msgstr "Groupe local"
 
 #: components/admin/trails.tsx
 #: components/record/row-status.tsx
@@ -4959,6 +5028,7 @@ msgstr "Faire administrateur"
 
 #: components/admin/account-actions.tsx
 #: components/admin/accounts-tab.tsx
+#: components/admin/group-page.tsx
 msgid "Managed by your identity provider"
 msgstr "Géré par votre fournisseur d’identité"
 
@@ -5041,8 +5111,17 @@ msgstr "Champ mesuré"
 msgid "Median"
 msgstr "Médiane"
 
+#: components/admin/group-page.tsx
+msgid "Member added"
+msgstr "Membre ajouté"
+
+#: components/admin/group-page.tsx
+msgid "Member removed"
+msgstr "Membre retiré"
+
 #: components/admin/base-admin-members.tsx
 #: components/admin/bases-tab.tsx
+#: components/admin/group-page.tsx
 #: components/settings/base-settings.tsx
 msgid "Members"
 msgstr "Membres"
@@ -5201,6 +5280,8 @@ msgid "N days ago"
 msgstr "il y a N jours"
 
 #: components/admin/access-tab.tsx
+#: components/admin/group-page.tsx
+#: components/admin/groups-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/settings/webhooks-panel.tsx
@@ -5288,6 +5369,10 @@ msgstr "Nouveau champ"
 #: components/shell/sidebar.tsx
 msgid "New folder in {name}"
 msgstr "Nouveau dossier dans {name}"
+
+#: components/admin/groups-tab.tsx
+msgid "New group"
+msgstr "Nouveau groupe"
 
 #: components/fields/field-editor.tsx
 msgid "New option"
@@ -5390,7 +5475,12 @@ msgstr "l’année prochaine"
 msgid "No"
 msgstr "Non"
 
+#: components/admin/effective-rights.tsx
+msgid "No access"
+msgstr "Aucun accès"
+
 #: components/admin/base-admin-members.tsx
+#: components/admin/group-page.tsx
 msgid "No account by that name"
 msgstr "Aucun compte de ce nom"
 
@@ -5461,8 +5551,13 @@ msgstr "Aucune sauvegarde n’a encore réussi : toutes celles signalées ont �
 
 #: components/admin/account-bases.tsx
 #: components/admin/accounts-tab.tsx
+#: components/admin/group-page.tsx
 msgid "No base by that name"
 msgstr "Aucune base de ce nom"
+
+#: components/admin/group-page.tsx
+msgid "No base gives this group a role yet."
+msgstr "Aucune base ne donne encore de rôle à ce groupe."
 
 #: components/admin/bases-tab.tsx
 msgid "No base matches."
@@ -5534,12 +5629,16 @@ msgid "No further auth events are posted until you configure it again."
 msgstr "Aucun autre événement d’authentification n’est envoyé tant que vous ne le configurez pas à nouveau."
 
 #: components/settings/group-roles.tsx
-msgid "No group on this instance. An administrator can receive them from your identity provider (SCIM)."
-msgstr "Aucun groupe sur cette instance. Un administrateur peut en recevoir de votre fournisseur d’identité (SCIM)."
+msgid "No group on this instance. An administrator can make one in Administration, or receive them from your identity provider (SCIM)."
+msgstr "Aucun groupe sur cette instance. Un administrateur peut en créer un dans l’Administration, ou les recevoir du fournisseur d’identité (SCIM)."
 
 #: components/admin/scim-tab.tsx
 msgid "No group received yet."
 msgstr "Aucun groupe reçu pour l’instant."
+
+#: components/admin/groups-tab.tsx
+msgid "No group yet. Create one, or connect an identity provider under Provisioning."
+msgstr "Aucun groupe pour l’instant. Créez-en un, ou connectez un fournisseur d’identité sous Provisionnement."
 
 #: components/admin/sources-tab.tsx
 msgid "No host is allowed: the operator sets ANYGRIDDB_SOURCES_ALLOWED_HOSTS."
@@ -5560,6 +5659,14 @@ msgstr "Aucune tâche pour l’instant. Les imports, les exports et les copies d
 #: components/fields/cell-editor.tsx
 msgid "No matching row"
 msgstr "Aucune ligne correspondante"
+
+#: components/admin/group-page.tsx
+msgid "No member in this group."
+msgstr "Aucun membre dans ce groupe."
+
+#: components/admin/group-page.tsx
+msgid "No member yet. Add one below."
+msgstr "Aucun membre pour l’instant. Ajoutez-en un ci-dessous."
 
 #: components/shell/notification-bell.tsx
 msgid "No notifications"
@@ -5641,6 +5748,10 @@ msgstr "Aucun domaine d’inscription n’est défini (Instance, Réglages) : t
 msgid "No source yet. Add one to show its tables in a base, read and written where they live."
 msgstr "Aucune source pour l’instant. Ajoutez-en une pour afficher ses tables dans une base, lues et écrites là où elles se trouvent."
 
+#: components/admin/effective-rights.tsx
+msgid "No table in this base."
+msgstr "Aucune table dans cette base."
+
 #: components/admin/base-admin-page.tsx
 msgid "No table."
 msgstr "Aucune table."
@@ -5675,6 +5786,7 @@ msgid "Node.js, up for"
 msgstr "Node.js, en service depuis"
 
 #: components/admin/account-page.tsx
+#: components/admin/effective-rights.tsx
 #: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/grid/grid-footer.tsx
@@ -5810,6 +5922,10 @@ msgstr "Plus anciens"
 #: components/table/automations-dialog.tsx
 msgid "On a schedule"
 msgstr "À heure fixe"
+
+#: components/admin/effective-rights.tsx
+msgid "On the base"
+msgstr "Sur la base"
 
 #: lib/errors.ts
 msgid "On this instance, a public link needs a password"
@@ -6024,6 +6140,10 @@ msgstr "Sinon :"
 #: components/admin/admin-sections.ts
 msgid "Overview"
 msgstr "Vue d’ensemble"
+
+#: components/admin/effective-rights.tsx
+msgid "Own role"
+msgstr "Rôle direct"
 
 #: components/admin/base-choices.tsx
 msgid "Owned by {owners}"
@@ -6609,6 +6729,7 @@ msgid "Remove {base}"
 msgstr "Retirer {base}"
 
 #: components/admin/base-admin-members.tsx
+#: components/admin/group-page.tsx
 #: components/views/form-files.tsx
 msgid "Remove {name}"
 msgstr "Retirer {name}"
@@ -6643,6 +6764,7 @@ msgid "Remove filter"
 msgstr "Retirer le filtre"
 
 #: components/admin/account-bases.tsx
+#: components/admin/group-page.tsx
 msgid "Remove from {base}"
 msgstr "Retirer de {base}"
 
@@ -6873,6 +6995,7 @@ msgid "Revoked"
 msgstr "Révoqué"
 
 #: components/admin/base-admin-members.tsx
+#: components/admin/group-page.tsx
 #: components/admin/invitations-panel.tsx
 #: components/settings/base-settings.tsx
 #: components/settings/group-roles.tsx
@@ -6881,6 +7004,7 @@ msgstr "Rôle"
 
 #: components/admin/account-bases.tsx
 #: components/admin/base-admin-members.tsx
+#: components/admin/group-page.tsx
 msgid "Role changed"
 msgstr "Rôle modifié"
 
@@ -6889,6 +7013,7 @@ msgid "Role for {name}"
 msgstr "Rôle de {name}"
 
 #: components/admin/account-bases.tsx
+#: components/admin/group-page.tsx
 msgid "Role given on {base}"
 msgstr "Rôle donné sur {base}"
 
@@ -6902,6 +7027,7 @@ msgstr "Rôle du groupe {name}"
 
 #: components/admin/account-bases.tsx
 #: components/admin/accounts-tab.tsx
+#: components/admin/group-page.tsx
 msgid "Role on {base}"
 msgstr "Rôle sur {base}"
 
@@ -6909,9 +7035,17 @@ msgstr "Rôle sur {base}"
 msgid "Role on {table}"
 msgstr "Rôle sur {table}"
 
+#: components/admin/group-page.tsx
+msgid "Role removed"
+msgstr "Rôle retiré"
+
 #: components/settings/table-acl-panel.tsx
 msgid "Role: {role}"
 msgstr "Rôle : {role}"
+
+#: components/admin/group-page.tsx
+msgid "Roles on bases"
+msgstr "Rôles sur les bases"
 
 #: components/fields/field-meta.tsx
 msgid "Rollup"
@@ -7053,6 +7187,7 @@ msgid "Saturday"
 msgstr "Samedi"
 
 #: components/admin/account-actions.tsx
+#: components/admin/group-page.tsx
 #: components/admin/settings-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/fields/field-editor.tsx
@@ -8019,6 +8154,10 @@ msgstr "Nom de la table"
 msgid "Table not found"
 msgstr "Table introuvable"
 
+#: components/admin/effective-rights.tsx
+msgid "Table override"
+msgstr "Exception sur la table"
+
 #: components/grid/grid-view.tsx
 msgid "Table rows"
 msgstr "Lignes de la table"
@@ -8296,6 +8435,14 @@ msgstr "La première règle correspondante colore la ligne."
 #: components/fields/formula-docs.ts
 msgid "The first part of the text that matches the regular expression."
 msgstr "Le premier passage du texte qui suit l’expression régulière."
+
+#: components/admin/group-page.tsx
+msgid "The group and its membership are removed. This cannot be undone."
+msgstr "Le groupe et ses membres sont retirés. Cette action est irréversible."
+
+#: components/admin/group-page.tsx
+msgid "The group leaves these bases, and its members lose the roles it gave them: {bases}. This cannot be undone."
+msgstr "Le groupe quitte ces bases, et ses membres perdent les rôles qu’il leur donnait : {bases}. Cette action est irréversible."
 
 #: components/fields/formula-docs.ts
 msgid "The hour, from 0 to 23."
@@ -8839,6 +8986,10 @@ msgstr "Ce fichier a plus de lignes que l’instance n’en importe d’un coup�
 #: lib/errors.ts
 msgid "This filter on a field kept in AnyGridDB matches more than 1,000 rows: narrow it"
 msgstr "Ce filtre sur un champ conservé dans AnyGridDB correspond à plus de 1 000 lignes : affinez-le"
+
+#: lib/errors.ts
+msgid "This group is kept by the identity provider"
+msgstr "Ce groupe est tenu par le fournisseur d’identité"
 
 #: lib/errors.ts
 msgid "This host is not allowed: the operator adds it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS"
@@ -9947,8 +10098,8 @@ msgid "You joined {base}"
 msgstr "Vous avez rejoint {base}"
 
 #: components/admin/scim-tab.tsx
-msgid "Your identity provider (Okta, Microsoft Entra ID, …) creates, changes, and deactivates accounts, and keeps groups. Existing accounts are taken over by their email. Then give groups a role in each base's settings."
-msgstr "Votre fournisseur d’identité (Okta, Microsoft Entra ID, …) crée, modifie et désactive les comptes, et tient les groupes. Les comptes existants sont repris par leur email. Donnez ensuite un rôle aux groupes dans les réglages de chaque base."
+msgid "Your identity provider (Okta, Microsoft Entra ID, …) creates, changes, and deactivates accounts, and keeps groups. Existing accounts are taken over by their email. Local groups are made under People → Groups. Then give groups a role in each base's settings or in Administration."
+msgstr "Votre fournisseur d’identité (Okta, Microsoft Entra ID, …) crée, modifie et désactive les comptes, et tient les groupes. Les comptes existants sont repris par leur adresse. Les groupes locaux se créent sous Personnes → Groupes. Donnez ensuite un rôle aux groupes dans les paramètres de chaque base ou dans l’Administration."
 
 #: components/settings/account-settings.tsx
 msgid "Your organization asks for a second factor on this account: set one up below to go on."

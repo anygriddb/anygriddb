@@ -15,6 +15,7 @@ const sections: AdminSection[] = [
     icon: Users,
     pages: [
       { to: "/admin/people/accounts", label: "Accounts" },
+      { to: "/admin/people/groups", label: "Groups" },
       { to: "/admin/people/sessions", label: "Sessions" },
     ],
   },
@@ -43,6 +44,11 @@ describe("where an address sits in Administration", () => {
     );
     expect(account?.section.id).toBe("people");
     expect(account?.page.label).toBe("Accounts");
+    const group = locate(
+      sections,
+      "/admin/people/groups/0b9f6c1e-0000-4000-8000-000000000002",
+    );
+    expect(group?.page.label).toBe("Groups");
   });
 
   it("finds nothing for an address it does not hold", () => {
