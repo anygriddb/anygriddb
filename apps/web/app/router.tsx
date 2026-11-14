@@ -144,6 +144,11 @@ const BaseSettings = page(() =>
     (module) => module.BaseSettings,
   ),
 );
+const BaseActivity = page(() =>
+  import("../components/shell/base-activity").then(
+    (module) => module.BaseActivity,
+  ),
+);
 const DashboardList = page(() =>
   import("../components/dashboards/dashboard-list").then(
     (module) => module.DashboardList,
@@ -440,6 +445,19 @@ const baseSettingsRoute = createRoute({
   },
 });
 
+const baseActivityRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/b/$baseId/activity",
+  component: function BaseActivityPage() {
+    const { baseId } = baseActivityRoute.useParams();
+    return (
+      <div className="flex-1 overflow-y-auto">
+        <BaseActivity baseId={baseId} />
+      </div>
+    );
+  },
+});
+
 const dashboardsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/b/$baseId/dashboards",
@@ -501,6 +519,7 @@ const routeTree = rootRoute.addChildren([
     baseRoute,
     baseApiRoute,
     baseSettingsRoute,
+    baseActivityRoute,
     dashboardsRoute,
     dashboardRoute,
     tableRoute,

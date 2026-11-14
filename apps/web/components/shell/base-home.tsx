@@ -1,5 +1,12 @@
 import { Button, Spinner } from "@anygriddb/ui";
-import { Code2, LayoutDashboard, Plus, Settings, Table2 } from "lucide-react";
+import {
+  Code2,
+  History,
+  LayoutDashboard,
+  Plus,
+  Settings,
+  Table2,
+} from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -91,6 +98,14 @@ export function BaseHome({ baseId }: { baseId: string }) {
         >
           <LayoutDashboard className="h-3.5 w-3.5" aria-hidden />
           {t`Dashboards`}
+        </Link>
+        <Link
+          to="/b/$baseId/activity"
+          params={{ baseId }}
+          className="inline-flex items-center gap-1.5 text-primary hover:underline"
+        >
+          <History className="h-3.5 w-3.5" aria-hidden />
+          {t`Activity`}
         </Link>
         <Link
           to="/b/$baseId/api"

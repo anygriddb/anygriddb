@@ -7,6 +7,7 @@ import {
   startAirtableImportInputSchema,
   AppError,
   BASE_TEMPLATES,
+  baseActivityInputSchema,
   type Binding,
   createBaseInputSchema,
   deleteBaseInputSchema,
@@ -45,6 +46,7 @@ import {
   listRestorePoints,
 } from "../data/restore-points.js";
 import { removeBase } from "../data/tables.js";
+import { baseActivity } from "../data/base-activity.js";
 import {
   keepStagedWorkbook,
   loadStagedWorkbook,
@@ -332,6 +334,18 @@ export const catalogBaseProcedures = {
       });
     }),
   ),
+  /**
+   * What was done in a base, newest first, as the caller may read it:
+   * the tables and fields they see, never a value.
+   */
+  baseActivity: procedure
+    .input(baseActivityInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user, bindings } = await guardBase(ctx, input.baseId, "read");
+        return baseActivity(ctx.db, { userId: user.id, bindings }, input);
+      }),
+    ),
   collaborators: procedure
     .input(collaboratorsInputSchema)
     .query(({ ctx, input }) =>

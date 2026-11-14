@@ -598,6 +598,18 @@ msgstr "{name} ({email})"
 msgid "{name} added"
 msgstr "{name} added"
 
+#: components/shell/base-activity.tsx
+msgid "{name} added “{row}” to {table}"
+msgstr "{name} added “{row}” to {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} added a row to {table}"
+msgstr "{name} added a row to {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} added the field {field} to {table}"
+msgstr "{name} added the field {field} to {table}"
+
 #: components/admin/accounts-tab.tsx
 msgid "{name} added. Their link went to {to}"
 msgstr "{name} added. Their link went to {to}"
@@ -614,6 +626,34 @@ msgstr "{name} answers (version {version})"
 msgid "{name} API"
 msgstr "{name} API"
 
+#: components/shell/base-activity.tsx
+msgid "{name} changed {fields} of “{row}” in {table}"
+msgstr "{name} changed {fields} of “{row}” in {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} changed {fields} of a row in {table}"
+msgstr "{name} changed {fields} of a row in {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} changed the field {field} in {table}"
+msgstr "{name} changed the field {field} in {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} created the table {table}"
+msgstr "{name} created the table {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} deleted “{row}” from {table}"
+msgstr "{name} deleted “{row}” from {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} deleted a row from {table}"
+msgstr "{name} deleted a row from {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} deleted the field {field} from {table}"
+msgstr "{name} deleted the field {field} from {table}"
+
 #: components/grid/grid-header.tsx
 msgid "{name} field menu"
 msgstr "{name} field menu"
@@ -622,9 +662,57 @@ msgstr "{name} field menu"
 msgid "{name} fields"
 msgstr "{name} fields"
 
+#: components/shell/base-activity.tsx
+msgid "{name} locked “{row}” in {table}"
+msgstr "{name} locked “{row}” in {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} locked a row in {table}"
+msgstr "{name} locked a row in {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} moved “{row}” in {table}"
+msgstr "{name} moved “{row}” in {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} moved a row in {table}"
+msgstr "{name} moved a row in {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} renamed the field {before} to {field} in {table}"
+msgstr "{name} renamed the field {before} to {field} in {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} renamed the table {before} to {table}"
+msgstr "{name} renamed the table {before} to {table}"
+
 #: components/settings/base-settings.tsx
 msgid "{name} settings"
 msgstr "{name} settings"
+
+#: components/shell/base-activity.tsx
+msgid "{name} signed “{row}” in {table}"
+msgstr "{name} signed “{row}” in {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} signed a row in {table}"
+msgstr "{name} signed a row in {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} submitted “{row}” for review in {table}"
+msgstr "{name} submitted “{row}” for review in {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} submitted a row for review in {table}"
+msgstr "{name} submitted a row for review in {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} unlocked “{row}” in {table}"
+msgstr "{name} unlocked “{row}” in {table}"
+
+#: components/shell/base-activity.tsx
+msgid "{name} unlocked a row in {table}"
+msgstr "{name} unlocked a row in {table}"
 
 #: components/settings/base-settings.tsx
 msgid "{name}, an administrator, is not a member and can read this base until {until}, without changing anything. Their reason: {reason}"
@@ -1228,6 +1316,11 @@ msgstr "Active"
 #: components/table/view-toolbar.tsx
 msgid "Active filters"
 msgstr "Active filters"
+
+#: components/shell/base-activity.tsx
+#: components/shell/base-home.tsx
+msgid "Activity"
+msgstr "Activity"
 
 #: components/admin/accounts-tab.tsx
 #: components/dashboards/dashboard-board.tsx
@@ -5830,6 +5923,7 @@ msgstr "New webhook"
 
 #: components/admin/sign-in-trail.tsx
 #: components/admin/trails.tsx
+#: components/shell/base-activity.tsx
 msgid "Newer"
 msgstr "Newer"
 
@@ -6301,6 +6395,10 @@ msgstr "Nothing of this base can be read from outside it."
 msgid "Nothing to hand over: no base owned alone, no automation, no webhook, no API token."
 msgstr "Nothing to hand over: no base owned alone, no automation, no webhook, no API token."
 
+#: components/shell/base-activity.tsx
+msgid "Nothing yet."
+msgstr "Nothing yet."
+
 #: components/admin/auth-labels.ts
 msgid "Notice emailed"
 msgstr "Notice emailed"
@@ -6362,6 +6460,7 @@ msgstr "OIDC settings saved"
 
 #: components/admin/sign-in-trail.tsx
 #: components/admin/trails.tsx
+#: components/shell/base-activity.tsx
 msgid "Older"
 msgstr "Older"
 
@@ -6468,10 +6567,15 @@ msgstr "Only you see it. Others keep the shared views."
 
 #: components/public/public-view.tsx
 #: components/settings/restore-points.tsx
+#: components/shell/base-activity.tsx
 #: components/shell/new-base-dialog.tsx
 #: components/shell/sidebar.tsx
 msgid "Open"
 msgstr "Open"
+
+#: components/shell/base-activity.tsx
+msgid "Open “{row}”"
+msgstr "Open “{row}”"
 
 #: components/fields/field-editor.tsx
 msgid "Open a URL"
@@ -10506,6 +10610,10 @@ msgstr "What is waiting for you, and what changed in your tables."
 msgid "What only you can change. Rights on a base are set in that base."
 msgstr "What only you can change. Rights on a base are set in that base."
 
+#: components/shell/base-activity.tsx
+msgid "What people add, change, and delete in this base's tables shows here."
+msgstr "What people add, change, and delete in this base's tables shows here."
+
 #: components/admin/security-tab.tsx
 msgid "What people may open to scripts and to anyone with a link."
 msgstr "What people may open to scripts and to anyone with a link."
@@ -10533,6 +10641,10 @@ msgstr "What this member may do with {field}"
 #: components/table/view-tabs.tsx
 msgid "What this view is for (empty: no description)"
 msgstr "What this view is for (empty: no description)"
+
+#: components/shell/base-activity.tsx
+msgid "What was done in {base}, newest first: in the tables and fields you see, without their values. A row's values are in its history."
+msgstr "What was done in {base}, newest first: in the tables and fields you see, without their values. A row's values are in its history."
 
 #: components/shell/page-crashed.tsx
 msgid "What you saved is kept. Reload the page to carry on."

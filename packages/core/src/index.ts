@@ -549,6 +549,12 @@ export {
   type TrashItem,
 } from "./trash";
 export {
+  ACTIVITY_KINDS,
+  type ActivityEvent,
+  type ActivityKind,
+  baseActivityInputSchema,
+} from "./activity";
+export {
   listRestorePointsInputSchema,
   MAX_RESTORE_POINTS,
   restoreBaseJobInputSchema,

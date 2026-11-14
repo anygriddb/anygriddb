@@ -28,6 +28,7 @@ import { BUILD } from "./build-info.js";
 import { isUniqueViolation } from "./data/schema-ops.js";
 import type { FileStore } from "./files/index.js";
 import { readSettings } from "./settings.js";
+import { changedKeys } from "./data/audit-keys.js";
 
 /**
  * An account an administrator creates (ROADMAP #67): who, whether they
@@ -920,27 +921,6 @@ export async function instanceHealth(deps: {
 /* ------------------------------------------------------------------ */
 /* Audit log                                                           */
 /* ------------------------------------------------------------------ */
-
-const IGNORED_KEYS = new Set(["ag_updated_at", "ag_updated_by", "ag_seq"]);
-
-/** Field names a change touched, from the audit snapshots. */
-export function changedKeys(oldValue: unknown, newValue: unknown): string[] {
-  const before = (
-    oldValue && typeof oldValue === "object" ? oldValue : {}
-  ) as Record<string, unknown>;
-  const after = (
-    newValue && typeof newValue === "object" ? newValue : {}
-  ) as Record<string, unknown>;
-  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
-  return [...keys]
-    .filter((key) => key !== "id" && !IGNORED_KEYS.has(key))
-    .filter(
-      (key) =>
-        JSON.stringify(before[key] ?? null) !==
-        JSON.stringify(after[key] ?? null),
-    )
-    .sort();
-}
 
 export async function instanceAudit(
   db: Database,
