@@ -245,6 +245,18 @@ is refused before anything is written, and people are asked to filter
 it. Leave room in the temporary folder for the largest file, once per
 export running at once (`JOB_CONCURRENCY`).
 
+### Base snapshots
+
+A base's snapshot with its rows is an archive written to the temporary
+folder as each table is read, a thousand rows at a time, then copied to
+the files' store, where it is kept 24 hours. `EXPORT_MAX_ROWS` is the
+most rows one snapshot writes and `IMPORT_MAX_ROWS` the most one import
+reads, all tables together; a copy of a base takes the smaller of the
+two. An uploaded snapshot is read through once, to check it, before it is
+kept; its import reads it again a batch at a time as it writes. Leave room
+in the temporary folder for the largest archive, its attachments
+included (2 GiB at most), once per snapshot job running at once.
+
 ## Update AnyGridDB
 
 Back up first (below). With the published image, read the release's

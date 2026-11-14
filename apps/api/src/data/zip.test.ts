@@ -93,4 +93,73 @@ describe("ZIP archives", () => {
       ZipReader.open(join(folder, "plain.json"), { maxEntries: 10 }),
     ).rejects.toThrow("Not a ZIP archive");
   });
+
+  /** Lines written one at a time, as a snapshot writes a table's rows. */
+  async function* rows(count: number): AsyncGenerator<string> {
+    for (let index = 1; index <= count; index += 1) {
+      yield `${JSON.stringify({ __seq: String(index), name: `é${String(index)}` })}\n`;
+    }
+  }
+
+  async function collect(lines: AsyncIterable<string>): Promise<string[]> {
+    const out: string[] = [];
+    for await (const line of lines) out.push(line);
+    return out;
+  }
+
+  it("writes lines deflated as they come and reads them back one at a time", async () => {
+    const path = join(folder, "lines.zip");
+    const writer = new ZipWriter(path);
+    const size = await writer.addDeflatedStream("rows/t.ndjson", rows(20_000));
+    await writer.addDeflatedStream("rows/empty.ndjson", rows(0));
+    await writer.finish();
+    const reader = await ZipReader.open(path, { maxEntries: 10 });
+    const entry = reader.entries.get("rows/t.ndjson");
+    expect(entry?.size).toBe(size);
+    expect(entry?.compressed).toBeLessThan(size / 2);
+    const lines = await collect(
+      reader.lines("rows/t.ndjson", { maxLine: 1000 }),
+    );
+    expect(lines).toHaveLength(20_000);
+    expect(JSON.parse(lines[19_999] ?? "{}")).toEqual({
+      __seq: "20000",
+      name: "é20000",
+    });
+    expect(
+      await collect(reader.lines("rows/empty.ndjson", { maxLine: 10 })),
+    ).toEqual([]);
+    await expect(reader.check("rows/t.ndjson")).resolves.toBeUndefined();
+  });
+
+  it("refuses a missing entry, a line too long, and a changed byte in a deflated entry", async () => {
+    const path = join(folder, "lines-broken.zip");
+    const writer = new ZipWriter(path);
+    await writer.addDeflatedStream("rows/t.ndjson", rows(5_000));
+    await writer.finish();
+    const reader = await ZipReader.open(path, { maxEntries: 10 });
+    await expect(
+      collect(reader.lines("rows/none.ndjson", { maxLine: 1000 })),
+    ).rejects.toThrow("Missing entry");
+    await expect(
+      collect(reader.lines("rows/t.ndjson", { maxLine: 10 })),
+    ).rejects.toThrow("Line too long");
+
+    const entry = reader.entries.get("rows/t.ndjson");
+    if (!entry) throw new Error("no entry");
+    const bytes = await readFile(path);
+    const corrupt = Buffer.from(bytes);
+    const at =
+      entry.offset +
+      30 +
+      "rows/t.ndjson".length +
+      Math.floor(entry.compressed / 2);
+    corrupt[at] = (corrupt[at] ?? 0) ^ 0xff;
+    const damagedPath = join(folder, "lines-corrupt.zip");
+    await writeFile(damagedPath, corrupt);
+    const damaged = await ZipReader.open(damagedPath, { maxEntries: 10 });
+    await expect(
+      collect(damaged.lines("rows/t.ndjson", { maxLine: 1e6 })),
+    ).rejects.toThrow(ZipError);
+    await expect(damaged.check("rows/t.ndjson")).rejects.toThrow(ZipError);
+  });
 });

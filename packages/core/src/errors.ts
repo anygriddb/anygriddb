@@ -144,6 +144,7 @@ export const ERRORS = {
   unknown_snapshot: [BAD, "Unknown snapshot"],
   too_large_snapshot: [BAD, "Too large snapshot"],
   too_many_rows: [BAD, "Too many rows"],
+  snapshot_too_many_rows: [BAD, "Too many rows for one base file"],
   export_too_large: [BAD, "Too many rows to export"],
   import_too_large: [BAD, "Too many rows to import"],
   too_many_jobs: [BAD, "Too many jobs"],

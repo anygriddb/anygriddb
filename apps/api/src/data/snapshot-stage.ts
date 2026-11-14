@@ -1,6 +1,7 @@
 /**
  * Uploaded snapshots, until their import job runs: a JSON file, or a ZIP
- * archive that also holds the attachments' files (ADR 0039). Both are
+ * archive that also holds the attachments' files (ADR 0039) and, in version
+ * 3, each table's rows as lines of their own entry (ADR 0076). Both are
  * checked at upload, so a broken file is refused then, not in the job.
  */
 import { createHash } from "node:crypto";
@@ -12,12 +13,17 @@ import {
   MAX_SNAPSHOT_ARCHIVE_BYTES,
   MAX_SNAPSHOT_BYTES,
   MAX_SNAPSHOT_FILES,
+  MAX_SNAPSHOT_TABLES,
   SNAPSHOT_ENTRY,
+  SNAPSHOT_VERSION,
+  type SnapshotLine,
+  snapshotRowCount,
+  snapshotRowsEntry,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { FileStore } from "../files/index.js";
 import { localFolder } from "../files/local-folder.js";
-import { parseSnapshotBytes } from "./base-snapshot.js";
+import { parseSnapshotBytes, readSnapshotLines } from "./base-snapshot.js";
 import {
   copyStagedUpload,
   dropStagedUpload,
@@ -51,14 +57,22 @@ async function readSnapshotFile(
 ): Promise<{ snapshot: BaseSnapshot; archive?: ZipReader }> {
   if (!isZip(await head(path))) {
     if (size > MAX_SNAPSHOT_BYTES) throw new AppError("too_large_snapshot");
-    return { snapshot: parseSnapshotBytes(await readFile(path)) };
+    const snapshot = parseSnapshotBytes(await readFile(path));
+    // A version 3 snapshot's rows live in an archive's entries.
+    if (
+      snapshot.version === SNAPSHOT_VERSION &&
+      snapshotRowCount(snapshot) > 0
+    ) {
+      throw new AppError("invalid_snapshot");
+    }
+    return { snapshot };
   }
   if (size > MAX_SNAPSHOT_ARCHIVE_BYTES) {
     throw new AppError("too_large_snapshot");
   }
   try {
     const archive = await ZipReader.open(path, {
-      maxEntries: MAX_SNAPSHOT_FILES + 1,
+      maxEntries: MAX_SNAPSHOT_FILES + MAX_SNAPSHOT_TABLES + 1,
     });
     const bytes = await archive.read(SNAPSHOT_ENTRY, MAX_SNAPSHOT_BYTES);
     if (!bytes) throw new AppError("invalid_snapshot");
@@ -67,6 +81,10 @@ async function readSnapshotFile(
       if (archive.entries.get(`files/${file.id}`)?.size !== file.size) {
         throw new AppError("invalid_snapshot");
       }
+    }
+    // Every table's rows are there and whole, read through once.
+    for (const table of snapshot.tables) {
+      if (table.rowCount) await archive.check(snapshotRowsEntry(table.key));
     }
     return { snapshot, archive };
   } catch (error) {
@@ -104,6 +122,8 @@ type OpenedSnapshot = {
    * its SHA-256; undefined when the snapshot does not hold it.
    */
   readFile: (id: string, maxBytes: number) => Promise<Buffer | undefined>;
+  /** Version 3: a table's lines, read from its entry; none otherwise. */
+  readLines: (key: string) => AsyncIterable<SnapshotLine>;
   /** Removes the local copy. */
   close: () => Promise<void>;
 };
@@ -145,12 +165,18 @@ export async function openStagedSnapshot(
         }
         return bytes;
       },
+      readLines: (key) =>
+        archive ? readSnapshotLines(archive, key) : noLines(),
       close: folder.remove,
     };
   } catch (error) {
     await folder.remove();
     throw error;
   }
+}
+
+async function* noLines(): AsyncGenerator<SnapshotLine> {
+  // A JSON snapshot carries its rows inside it.
 }
 
 export async function keepStagedSnapshot(

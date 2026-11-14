@@ -139,6 +139,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   unknown_snapshot: msg`Unknown import`,
   too_large_snapshot: msg`File too large (2 GiB at most)`,
   too_many_rows: msg`Too many rows (100,000 at most)`,
+  snapshot_too_many_rows: msg`This base has more rows than this instance puts in one base file`,
   export_too_large: msg`This view has more rows than this instance exports at once: filter it first`,
   import_too_large: msg`This file has more rows than this instance imports at once: split it first`,
   too_many_jobs: msg`Too many jobs running: wait for one to finish`,

@@ -164,6 +164,41 @@ describe("write builders", () => {
     ).toThrow("Invalid place");
   });
 
+  it("keeps each row's sequence number when asked, and refuses one that is not", () => {
+    const statements = buildInserts({
+      table: "t_orders",
+      columns,
+      rows: [{ title: "A" }, { title: "B" }, {}],
+      positions: ["1.5", "1.75", "-2"],
+      seqs: ["7", "9", "12"],
+    });
+    expect(statements[0]?.statement.text).toBe(
+      `insert into "t_orders" ("title", "ag_position", "ag_seq") select "c0", "cp", "cs" from (values ($1::text, $2::numeric, $3::bigint, 0), ($4::text, $5::numeric, $6::bigint, 1)) as r ("c0", "cp", "cs", "n") order by "n" returning "id"`,
+    );
+    expect(statements[0]?.statement.values).toEqual([
+      "A",
+      "1.5",
+      "7",
+      "B",
+      "1.75",
+      "9",
+    ]);
+    expect(statements[1]?.statement.text).toBe(
+      `insert into "t_orders" ("ag_position", "ag_seq") values ($1::numeric, $2::bigint) returning "id"`,
+    );
+    expect(statements[1]?.statement.values).toEqual(["-2", "12"]);
+    for (const seqs of [["0"], ["-1"], ["1; drop table t_orders"], []]) {
+      expect(() =>
+        buildInserts({
+          table: "t_orders",
+          columns,
+          rows: [{ title: "A" }],
+          seqs,
+        }),
+      ).toThrow("Invalid");
+    }
+  });
+
   it("locks rows together, in the order of their ids", () => {
     const first = "aaaaaaaa-0000-4000-8000-000000000001";
     const second = "aaaaaaaa-0000-4000-8000-000000000002";

@@ -7,8 +7,16 @@
  */
 import { createReadStream, createWriteStream, type WriteStream } from "node:fs";
 import { open } from "node:fs/promises";
-import type { Readable } from "node:stream";
-import { crc32, deflateRawSync, inflateRawSync } from "node:zlib";
+import { Readable, Writable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import { StringDecoder } from "node:string_decoder";
+import {
+  crc32,
+  createDeflateRaw,
+  createInflateRaw,
+  deflateRawSync,
+  inflateRawSync,
+} from "node:zlib";
 
 const LOCAL = 0x04034b50;
 const DESCRIPTOR = 0x08074b50;
@@ -154,6 +162,57 @@ export class ZipWriter {
       method: 0,
       crc,
       compressed: size,
+      size,
+      offset,
+    });
+    return size;
+  }
+
+  /**
+   * A document from a stream, deflated as it comes, so that it never sits
+   * whole in memory; returns its byte count before deflating.
+   */
+  async addDeflatedStream(
+    name: string,
+    body: AsyncIterable<Buffer | string>,
+  ): Promise<number> {
+    const encoded = this.begin(name);
+    const offset = this.offset;
+    await this.write(this.header(encoded, 8));
+    let crc = 0;
+    let size = 0;
+    let compressed = 0;
+    async function* counted(): AsyncGenerator<Buffer> {
+      for await (const piece of body) {
+        const buffer =
+          typeof piece === "string" ? Buffer.from(piece, "utf8") : piece;
+        if (buffer.length === 0) continue;
+        crc = crc32(buffer, crc);
+        size += buffer.length;
+        // Sizes are 32-bit without ZIP64.
+        if (size > LIMIT) throw new ZipError("Entry too large");
+        yield buffer;
+      }
+    }
+    await pipeline(
+      Readable.from(counted()),
+      createDeflateRaw(),
+      new Writable({
+        write: (chunk: Buffer, _encoding, done) => {
+          compressed += chunk.length;
+          this.write(chunk).then(
+            () => done(),
+            (error: unknown) =>
+              done(error instanceof Error ? error : new ZipError("Write")),
+          );
+        },
+      }),
+    );
+    await this.end({
+      name: encoded,
+      method: 8,
+      crc,
+      compressed,
       size,
       offset,
     });
@@ -313,6 +372,85 @@ export class ZipReader {
       return start;
     } finally {
       await handle.close();
+    }
+  }
+
+  /** An entry's bytes as they are read, inflated when deflated. */
+  private async *stream(entry: ZipEntry): AsyncGenerator<Buffer> {
+    if (entry.compressed === 0) return;
+    const start = await this.dataStart(entry);
+    const raw = createReadStream(this.path, {
+      start,
+      end: start + entry.compressed - 1,
+    });
+    if (entry.method === 0) {
+      for await (const chunk of raw) yield chunk as Buffer;
+      return;
+    }
+    const inflate = createInflateRaw();
+    raw.on("error", (error) => inflate.destroy(error));
+    raw.pipe(inflate);
+    try {
+      for await (const chunk of inflate) yield chunk as Buffer;
+    } catch {
+      throw new ZipError("Broken entry");
+    } finally {
+      raw.destroy();
+      inflate.destroy();
+    }
+  }
+
+  /**
+   * An entry's lines, read as the archive is, `maxLine` bytes at most each,
+   * empty lines skipped. The entry's size and CRC are checked once it is
+   * read: a broken entry fails after its last line, never silently.
+   */
+  async *lines(
+    name: string,
+    limits: { maxLine: number },
+  ): AsyncGenerator<string> {
+    const entry = this.entries.get(name);
+    if (!entry) throw new ZipError(`Missing entry: ${name}`);
+    const decoder = new StringDecoder("utf8");
+    let crc = 0;
+    let size = 0;
+    let rest = "";
+    for await (const chunk of this.stream(entry)) {
+      crc = crc32(chunk, crc);
+      size += chunk.length;
+      if (size > entry.size) throw new ZipError("Broken entry");
+      rest += decoder.write(chunk);
+      let at = rest.indexOf("\n");
+      while (at >= 0) {
+        const line = rest.slice(0, at);
+        rest = rest.slice(at + 1);
+        if (line.length > 0) yield line;
+        at = rest.indexOf("\n");
+      }
+      if (Buffer.byteLength(rest, "utf8") > limits.maxLine) {
+        throw new ZipError("Line too long");
+      }
+    }
+    rest += decoder.end();
+    if (size !== entry.size || crc !== entry.crc) {
+      throw new ZipError("Broken entry");
+    }
+    if (rest.length > 0) yield rest;
+  }
+
+  /** Reads an entry through to check its size and CRC, keeping nothing. */
+  async check(name: string): Promise<void> {
+    const entry = this.entries.get(name);
+    if (!entry) throw new ZipError(`Missing entry: ${name}`);
+    let crc = 0;
+    let size = 0;
+    for await (const chunk of this.stream(entry)) {
+      crc = crc32(chunk, crc);
+      size += chunk.length;
+      if (size > entry.size) throw new ZipError("Broken entry");
+    }
+    if (size !== entry.size || crc !== entry.crc) {
+      throw new ZipError("Broken entry");
     }
   }
 

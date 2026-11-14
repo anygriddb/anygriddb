@@ -9372,6 +9372,10 @@ msgstr "Cette adresse figure deux fois dans le fichier"
 msgid "This base does not exist or is not shared with you."
 msgstr "Cette base n’existe pas ou ne vous est pas partagée."
 
+#: lib/errors.ts
+msgid "This base has more rows than this instance puts in one base file"
+msgstr "Cette base a plus de lignes que l’instance n’en met dans un fichier de base"
+
 #: components/shell/base-home.tsx
 msgid "This base has no tables yet."
 msgstr "Cette base ne contient encore aucune table."

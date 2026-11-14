@@ -15,6 +15,7 @@ import {
   importAirtableJobInputSchema,
   importSnapshotJobInputSchema,
   type JobKind,
+  MAX_SNAPSHOT_TABLES,
   resolveAttachmentMaxBytes,
   roleAllows,
   roleFor,
@@ -30,9 +31,9 @@ import { openBaseIds, withOpenBases } from "./data/emergency-access.js";
 import { readerEngine } from "./data/acl.js";
 import { announceRows } from "./data/announce.js";
 import {
-  exportBaseSnapshot,
   importBaseSnapshot,
-  packSnapshot,
+  readSnapshotLines,
+  writeBaseSnapshot,
 } from "./data/base-snapshot.js";
 import { duplicateTable, MAX_COPY_ROWS } from "./data/data-ops.js";
 import type { TableRow } from "./data/engine.js";
@@ -66,6 +67,7 @@ import type { JobRow, JobRunner } from "./jobs.js";
 import { publishCatalog } from "./realtime/channels.js";
 import { type FileStore, readFile as readStoredFile } from "./files/index.js";
 import { localFolder } from "./files/local-folder.js";
+import { ZipReader } from "./data/zip.js";
 import { DEFAULT_IMPORT_MAX_ROWS } from "./import-file.js";
 import { readImportFileIsolated } from "./import-isolated.js";
 import { exportKey } from "./storage.js";
@@ -384,16 +386,24 @@ const runExportSnapshot =
       .where(liveBase())
       .executeTakeFirst();
     if (!base) throw new AppError("unknown_base");
-    const exported = await exportBaseSnapshot(deps.db, input.baseId, {
-      withData: input.withData,
-      onProgress: progress,
-    });
     // There is always a file store now: disk by default (ADR 0010).
     const fileKey = exportKey(job.id);
     const folder = await localFolder("snapshot");
     try {
-      // With files, an archive written to a local file, then streamed.
-      const packed = await packSnapshot(deps.files, exported, folder.path);
+      // With data, an archive written to a local file as the rows are
+      // read, then streamed to the store.
+      const written = await writeBaseSnapshot(
+        deps.db,
+        deps.files,
+        input.baseId,
+        {
+          withData: input.withData,
+          folder: folder.path,
+          maxRows: deps.exportMaxRows ?? MAX_COPY_ROWS,
+          onProgress: progress,
+        },
+      );
+      const packed = written.packed;
       let size: number;
       if (packed.kind === "json") {
         await deps.files.put(
@@ -418,11 +428,11 @@ const runExportSnapshot =
       return {
         fileKey,
         result: {
-          rows: null,
+          rows: written.rows,
           format: packed.kind,
           filename: packed.filename,
           size,
-          files: exported.attachments.size,
+          files: written.files,
           baseId: base.id,
           baseName: base.name,
         },
@@ -459,6 +469,8 @@ const runImportSnapshot =
           onProgress: progress,
           restoreMembers: input.restoreMembers,
           readFile: opened.readFile,
+          readLines: opened.readLines,
+          maxRows: deps.importMaxRows ?? DEFAULT_IMPORT_MAX_ROWS,
           maxFileBytes: await attachmentCeiling(deps),
           names: await madeNamesFor(deps.db),
         },
@@ -531,6 +543,7 @@ const runImportAirtable =
               baseId = id;
             },
             onProgress: (done, total) => share(500, done, total),
+            maxRows: deps.importMaxRows ?? DEFAULT_IMPORT_MAX_ROWS,
             names,
           },
         );
@@ -598,23 +611,48 @@ const runDuplicateBase =
                 ),
               DUPLICATE_SCALE,
             );
-    const { snapshot } = await exportBaseSnapshot(deps.db, input.baseId, {
-      withData: input.withData,
-      onProgress: half(0),
-    });
+    // The copy is a snapshot written to a local file and read back, its
+    // files left in the store, where both bases find them by their key.
+    const maxRows = Math.min(
+      deps.exportMaxRows ?? MAX_COPY_ROWS,
+      deps.importMaxRows ?? DEFAULT_IMPORT_MAX_ROWS,
+    );
+    const folder = await localFolder("snapshot");
     let baseId: string | undefined;
     try {
+      const written = await writeBaseSnapshot(
+        deps.db,
+        deps.files,
+        input.baseId,
+        {
+          withData: input.withData,
+          folder: folder.path,
+          maxRows,
+          embedFiles: false,
+          onProgress: half(0),
+        },
+      );
+      const archive =
+        written.packed.kind === "zip"
+          ? await ZipReader.open(written.packed.path, {
+              maxEntries: MAX_SNAPSHOT_TABLES + 1,
+            })
+          : undefined;
       const created = await importBaseSnapshot(
         deps.db,
         deps.files,
         userId,
-        snapshot,
+        written.snapshot,
         {
           name: input.name,
           onCreated: (id) => {
             baseId = id;
           },
           onProgress: half(DUPLICATE_SCALE / 2),
+          ...(archive
+            ? { readLines: (key: string) => readSnapshotLines(archive, key) }
+            : {}),
+          maxRows,
           // The snapshot names each file by its key in this store.
           readFile: async (key, maxBytes) =>
             (await readStoredFile(deps.files, key, maxBytes))?.bytes,
@@ -633,6 +671,8 @@ const runDuplicateBase =
         );
       }
       throw error;
+    } finally {
+      await folder.remove();
     }
   };
 

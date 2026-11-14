@@ -41,6 +41,7 @@ import {
   signRow,
   updateRows as updateRowRecords,
   visibleFields,
+  type KeptOrder,
   type WriteContext,
   type RowRecord,
 } from "../data/rows.js";
@@ -846,8 +847,9 @@ export async function insertNativeBatch(
   engine: EngineCatalog,
   context: WriteContext,
   rows: ReadonlyArray<Readonly<Record<string, CellValue>>>,
+  kept?: KeptOrder,
 ): Promise<string[]> {
-  return insertRows(db, engine, context, rows);
+  return insertRows(db, engine, context, rows, undefined, kept);
 }
 
 /**

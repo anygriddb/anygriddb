@@ -6,7 +6,7 @@ import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { storeAttachment } from "./attachments.js";
 import { withAudit } from "./data/audit-context.js";
-import { exportBaseSnapshot } from "./data/base-snapshot.js";
+import { snapshotOf } from "./data/snapshot.test-helpers.js";
 import { loadEngine } from "./data/engine.js";
 import { insertNativeBatch } from "./services/rows.js";
 import { insertBase, insertTable } from "./data/schema-ops.js";
@@ -141,20 +141,20 @@ describe("duplicating a base", () => {
       .execute();
     expect(tables.map((table) => table.name)).toEqual(["Clients"]);
     // Its rows came with it.
-    const { snapshot } = await exportBaseSnapshot(db, copyId, {
+    const copied = await snapshotOf(db, files, copyId, {
       withData: true,
+      embedFiles: false,
     });
-    expect(snapshot.tables[0]?.rows?.map((row) => row.name).sort()).toEqual([
-      "Acme",
-      "Globex",
-    ]);
+    const lines = await copied.linesOf(copied.snapshot.tables[0]?.key ?? "");
+    await copied.close();
+    expect(lines.map((row) => row.name).sort()).toEqual(["Acme", "Globex"]);
     // Its files were stored again, under new keys, and the people who
     // are not members of the copy left its user cells.
-    const acme = snapshot.tables[0]?.rows?.find((item) => item.name === "Acme");
-    const copied = acme?.files as Array<{ file: string; name: string }>;
-    expect(copied).toEqual([{ file: expect.any(String), name: "contrat.txt" }]);
-    expect(copied[0]?.file).not.toBe(noteKey);
-    const bytes = await readFile(files, copied[0]?.file ?? "", 1_000);
+    const acme = lines.find((item) => item.name === "Acme");
+    const stored = acme?.files as Array<{ file: string; name: string }>;
+    expect(stored).toEqual([{ file: expect.any(String), name: "contrat.txt" }]);
+    expect(stored[0]?.file).not.toBe(noteKey);
+    const bytes = await readFile(files, stored[0]?.file ?? "", 1_000);
     expect(bytes?.bytes.toString("utf8")).toBe("Contrat signé\n");
     expect(acme?.owner).toEqual([`dup-${suffix}@example.com`]);
     expect(outcome.result?.report).toMatchObject({

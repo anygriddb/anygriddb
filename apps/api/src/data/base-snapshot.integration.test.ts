@@ -14,16 +14,12 @@ import { storeAttachment } from "../attachments.js";
 import { DiskStore, readFile as readStored } from "../files/index.js";
 import { createTestDatabase } from "../test-database.js";
 import { withAudit } from "./audit-context.js";
-import {
-  exportBaseSnapshot,
-  importBaseSnapshot,
-  packSnapshot,
-} from "./base-snapshot.js";
+import { importBaseSnapshot } from "./base-snapshot.js";
+import { snapshotOf } from "./snapshot.test-helpers.js";
 import { loadEngine } from "./engine.js";
 import { insertRows, readPage } from "./rows.js";
 import { insertBase, insertTable } from "./schema-ops.js";
 import { openStagedSnapshot, stageSnapshotFile } from "./snapshot-stage.js";
-import { localFolder } from "../files/local-folder.js";
 import { isZip, ZipReader } from "./zip.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -129,10 +125,8 @@ describe("snapshots with files and people", () => {
   });
 
   async function exported() {
-    const folder = await localFolder("snapshot");
-    const result = await exportBaseSnapshot(db, baseId, { withData: true });
-    const packed = await packSnapshot(files, result, folder.path);
-    return { folder, packed, result };
+    const result = await snapshotOf(db, files, baseId, { withData: true });
+    return { folder: result.folder, packed: result.packed, result };
   }
 
   async function rowsOf(newBaseId: string) {
@@ -158,7 +152,10 @@ describe("snapshots with files and people", () => {
           { email: `ada-${suffix}@example.com`, role: "editor" },
         ]),
       );
-      const row = result.snapshot.tables[0]?.rows?.[0];
+      const table = result.snapshot.tables[0];
+      expect(table?.rows).toBeUndefined();
+      expect(table?.rowCount).toBe(2);
+      const [row] = await result.linesOf(table?.key ?? "");
       expect(row?.who).toEqual([`ada-${suffix}@example.com`]);
       expect(row?.files).toEqual([
         { file: expect.any(String), name: "plan.png" },
@@ -166,8 +163,9 @@ describe("snapshots with files and people", () => {
       ]);
       expect(isZip(await readFile(packed.path))).toBe(true);
       const archive = await ZipReader.open(packed.path, { maxEntries: 10 });
-      // The document and the two files, the shared one once.
-      expect(archive.entries.size).toBe(3);
+      // The document, the table's rows, and the two files, the shared one
+      // once.
+      expect(archive.entries.size).toBe(4);
     } finally {
       await folder.remove();
     }
@@ -204,6 +202,8 @@ describe("snapshots with files and people", () => {
           name: "Restaurée",
           restoreMembers: true,
           readFile: opened.readFile,
+          readLines: opened.readLines,
+          maxRows: 1_000_000,
         },
       );
       await opened.close();
@@ -284,6 +284,8 @@ describe("snapshots with files and people", () => {
         opened.snapshot,
         {
           readFile: opened.readFile,
+          readLines: opened.readLines,
+          maxRows: 1_000_000,
         },
       );
       await opened.close();
@@ -303,9 +305,41 @@ describe("snapshots with files and people", () => {
     const { folder, packed, result } = await exported();
     try {
       if (packed.kind !== "zip") throw new Error("not an archive");
+      const table = result.snapshot.tables[0];
+      if (!table) throw new Error("no table");
+      // Rows written the version 2 way, inside the JSON.
+      const { rowCount: _count, ...schema } = table;
+      const legacy = {
+        ...result.snapshot,
+        version: 2,
+        files: undefined,
+        tables: [
+          {
+            ...schema,
+            rows: (await result.linesOf(table.key)).map(
+              ({ __seq: seq, __position: _place, ...cells }) => ({
+                __id: seq,
+                ...cells,
+              }),
+            ),
+          },
+        ],
+      };
+      const lines = join(folder.path, "lines.json");
+      // Version 3 rows live in an archive's entries: a JSON file cannot
+      // carry them.
+      await writeFile(lines, JSON.stringify(result.snapshot));
+      await expect(
+        stageSnapshotFile(db, files, {
+          userId: owner,
+          path: lines,
+          size: (await readFile(lines)).length,
+          filename: "lines.json",
+        }),
+      ).rejects.toThrow("Invalid snapshot");
       const path = join(folder.path, "lying.json");
       // A JSON snapshot naming files has none to give: cells come back empty.
-      await writeFile(path, JSON.stringify(result.snapshot));
+      await writeFile(path, JSON.stringify(legacy));
       const staged = await stageSnapshotFile(db, files, {
         userId: owner,
         path,
@@ -325,10 +359,13 @@ describe("snapshots with files and people", () => {
         opened.snapshot,
         {
           readFile: opened.readFile,
+          maxRows: 1_000_000,
         },
       );
       await opened.close();
       expect(imported.report.filesMissing).toBe(2);
+      const { rows } = await rowsOf(imported.baseId);
+      expect(rows.map((row) => row.name).sort()).toEqual(["A", "B"]);
 
       const truncated = join(folder.path, "truncated.zip");
       const bytes = await readFile(packed.path);
@@ -347,9 +384,10 @@ describe("snapshots with files and people", () => {
   });
 
   it("keeps the snapshot's views alone, and names a grid where it lists none", async () => {
-    const { snapshot } = await exportBaseSnapshot(db, baseId, {
-      withData: false,
-    });
+    const schema = await snapshotOf(db, files, baseId, { withData: false });
+    await schema.close();
+    expect(schema.packed.kind).toBe("json");
+    const { snapshot } = schema;
     const viewsOf = async (newBaseId: string) =>
       (
         await db
@@ -366,6 +404,7 @@ describe("snapshots with files and people", () => {
     // A French reader's import: the snapshot's grid only, no "Grille".
     const kept = await importBaseSnapshot(db, files, owner, snapshot, {
       names: madeNames("fr"),
+      maxRows: 1_000_000,
     });
     expect(await viewsOf(kept.baseId)).toEqual(["Grid"]);
 
@@ -375,6 +414,7 @@ describe("snapshots with files and people", () => {
     };
     const named = await importBaseSnapshot(db, files, owner, bare, {
       names: madeNames("fr"),
+      maxRows: 1_000_000,
     });
     expect(await viewsOf(named.baseId)).toEqual(["Grille"]);
   });
