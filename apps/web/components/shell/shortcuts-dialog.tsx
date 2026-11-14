@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, Kbd } from "@anygriddb/ui";
 import { useEffect, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { useKeyNames } from "../../lib/key-names";
 
 /** Opens the shortcut help from anywhere, e.g. a menu item. */
 export function openShortcuts(): void {
@@ -18,6 +19,7 @@ function typing(target: EventTarget | null): boolean {
 /** Keyboard help, opened with `?` outside text fields. */
 export function ShortcutsDialog() {
   const { t } = useLingui();
+  const keys = useKeyNames();
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -39,11 +41,12 @@ export function ShortcutsDialog() {
       window.removeEventListener("ag:shortcuts", onOpen);
     };
   }, []);
+  const { mod, shift, enter, escape, space, home, end } = keys;
   const groups: Array<[string, Array<[string[], string]>]> = [
     [
       t`Everywhere`,
       [
-        [["Ctrl", "K"], t`Find a base, a table, or an action`],
+        [[mod, "K"], t`Find a base, a table, or an action`],
         [["?"], t`Show this help`],
       ],
     ],
@@ -51,27 +54,27 @@ export function ShortcutsDialog() {
       t`Grid: moving`,
       [
         [["↑", "↓", "←", "→"], t`Move between cells`],
-        [["Ctrl", "↑ ↓ ← →"], t`Jump to the edge of the grid`],
-        [["Maj", "↑ ↓ ← →"], t`Extend the selection`],
-        [["Tab"], t`Next cell (Shift: previous)`],
-        [["Début", "Fin"], t`Start or end of the row (Ctrl: of the grid)`],
+        [[mod, "↑ ↓ ← →"], t`Jump to the edge of the grid`],
+        [[shift, "↑ ↓ ← →"], t`Extend the selection`],
+        [["Tab"], t`Next cell (${shift}: previous)`],
+        [[home, end], t`Start or end of the row (${mod}: of the grid)`],
         [["Page ↑", "Page ↓"], t`Move up or down 15 rows`],
-        [["Ctrl", "A"], t`Select all`],
+        [[mod, "A"], t`Select all`],
       ],
     ],
     [
       t`Grid: editing`,
       [
-        [["Entrée"], t`Edit the cell (or F2); typing replaces the value`],
-        [["Échap"], t`Cancel editing`],
-        [["Suppr"], t`Clear the selected cells`],
-        [["Ctrl", "C"], t`Copy (Ctrl V pastes, even from a spreadsheet)`],
-        [["Ctrl", "D"], t`Fill down`],
-        [["Ctrl", "Z"], t`Undo (Ctrl Shift Z or Ctrl Y: redo)`],
-        [["Espace"], t`Open the row (or Shift Enter)`],
+        [[enter], t`Edit the cell (or F2); typing replaces the value`],
+        [[escape], t`Cancel editing`],
+        [[keys.delete], t`Clear the selected cells`],
+        [[mod, "C"], t`Copy (${mod} V pastes, even from a spreadsheet)`],
+        [[mod, "D"], t`Fill down`],
+        [[mod, "Z"], t`Undo (${mod} ${shift} Z or ${mod} Y: redo)`],
+        [[space], t`Open the row (or ${shift} ${enter})`],
       ],
     ],
-    [t`Comments`, [[["Ctrl", "Entrée"], t`Send the comment; @ to mention`]]],
+    [t`Comments`, [[[mod, enter], t`Send the comment; @ to mention`]]],
   ];
   return (
     <Dialog open={open} onOpenChange={setOpen}>

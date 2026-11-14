@@ -3,7 +3,13 @@
  * the unit tests used to check through fakes of the query builder.
  */
 import { randomBytes, randomUUID } from "node:crypto";
-import { AppError, findTemplate, madeNames } from "@anygriddb/core";
+import {
+  AppError,
+  BASE_TEMPLATES,
+  findTemplate,
+  localizeTemplate,
+  madeNames,
+} from "@anygriddb/core";
 import type { Database, JobRow } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { authorTable } from "../job-runners.js";
@@ -550,6 +556,87 @@ describe("jobs, trash, and authors", () => {
         "Échéances",
       ]);
     });
+
+    it.each(BASE_TEMPLATES.map((template) => [template.id, template] as const))(
+      "makes %s whole in English and in French: rows, links, fields, views",
+      async (id, template) => {
+        for (const locale of ["en", "fr"] as const) {
+          const baseId = (
+            await insertBase(db, owner, { name: `${id} ${locale}` })
+          ).id;
+          const ids = await applyTemplate(
+            db,
+            owner,
+            baseId,
+            template,
+            madeNames(locale),
+          );
+          expect(ids).toHaveLength(template.tables.length);
+          const tableOf = (key: string) =>
+            ids[template.tables.findIndex((table) => table.key === key)] ?? "";
+          for (const [index, table] of template.tables.entries()) {
+            const tableId = ids[index] ?? "";
+            const { engine } = await loadEngine(db, tableId, () => true);
+            const page = await readPage(
+              db,
+              engine,
+              { limit: 100 },
+              { total: false },
+            );
+            expect(page.rows, `${id} ${table.key}`).toHaveLength(
+              table.rows?.length ?? 0,
+            );
+            const views = await db
+              .selectFrom("views")
+              .select("viewType")
+              .where("tableId", "=", tableId)
+              .orderBy("position")
+              .execute();
+            expect(views.map((view) => view.viewType)).toEqual([
+              "grid",
+              ...(table.views ?? []).map((view) => view.viewType),
+            ]);
+          }
+          for (const link of template.links ?? []) {
+            const { engine } = await loadEngine(
+              db,
+              tableOf(link.from),
+              () => true,
+            );
+            const page = await readPage(
+              db,
+              engine,
+              { limit: 100 },
+              { total: false },
+            );
+            // Each row holds as many links as the template gives it.
+            const held = page.rows
+              .map((row) => (row[link.name] as unknown[] | null)?.length ?? 0)
+              .sort();
+            const given = (
+              template.tables.find((table) => table.key === link.from)?.rows ??
+              []
+            ).map(
+              (_, position) =>
+                (link.rows ?? []).filter(([from]) => from === position).length,
+            );
+            expect(held, `${id} ${link.name}`).toEqual(given.sort());
+          }
+          for (const computed of localizeTemplate(template, locale).computed ??
+            []) {
+            const { engine } = await loadEngine(
+              db,
+              tableOf(computed.table),
+              () => true,
+            );
+            const field = engine.table.columns.find(
+              (column) => column.label === computed.label,
+            );
+            expect(field?.fieldType, `${id} ${computed.label}`).toBe("rollup");
+          }
+        }
+      },
+    );
   });
 
   describe("how long the trash keeps things", () => {

@@ -21,6 +21,10 @@ const KNOWN: Record<string, MessageDescriptor> = {
   "Projects and tasks, with a timeline and a status board.": msg`Projects and tasks, with a timeline and a status board.`,
   "Products, suppliers, and reorder points.": msg`Products, suppliers, and reorder points.`,
   "Tickets with severity, assignee, and a report form.": msg`Tickets with severity, assignee, and a report form.`,
+  Events: msg`Events`,
+  "Sessions on a calendar, their venues, and a form where attendees register.": msg`Sessions on a calendar, their venues, and a form where attendees register.`,
+  Hiring: msg`Hiring`,
+  "Open positions and their candidates, moved through the stages on a board.": msg`Open positions and their candidates, moved through the stages on a board.`,
   Companies: msg`Companies`,
   Contacts: msg`Contacts`,
   Deals: msg`Deals`,
@@ -29,6 +33,11 @@ const KNOWN: Record<string, MessageDescriptor> = {
   Suppliers: msg`Suppliers`,
   Products: msg`Products`,
   Tickets: msg`Tickets`,
+  Sessions: msg`Sessions`,
+  Venues: msg`Venues`,
+  Attendees: msg`Attendees`,
+  Positions: msg`Positions`,
+  Candidates: msg`Candidates`,
 
   // Webhook deliveries and automation steps.
   Timeout: msg`Timeout`,
