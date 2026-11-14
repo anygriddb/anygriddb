@@ -169,9 +169,8 @@ function defaultStep(type: StepType, tableId: string): AutomationStep {
     case "call_webhook":
       return { type, url: "https://" };
     case "send_slack":
-      return { type, url: "https://hooks.slack.com/services/", message: "" };
     case "send_teams":
-      return { type, url: "https://", message: "", title: "" };
+      return { type, url: "https://", message: "" };
     case "notify":
       return { type, users: [], message: "" };
   }
@@ -528,58 +527,38 @@ function ActionEditor(props: {
         </div>
       );
     case "send_slack":
-      return (
-        <div className="flex flex-col gap-1">
-          <Input
-            aria-label={t`Slack Incoming Webhook URL`}
-            className="h-8 text-xs"
-            placeholder="https://hooks.slack.com/services/…"
-            value={action.url}
-            onChange={(event) =>
-              props.onChange({ ...action, url: event.target.value })
-            }
-          />
-          <Textarea
-            aria-label={t`Message`}
-            placeholder={t`Message ({{field}} templates allowed)`}
-            className="min-h-16 text-xs"
-            value={action.message}
-            onChange={(event) =>
-              props.onChange({ ...action, message: event.target.value })
-            }
-          />
-          <p className="text-xs text-muted-foreground">
-            {t`Paste a Slack Incoming Webhook URL from your workspace. The message is sent as Slack's text field.`}
-          </p>
-        </div>
-      );
     case "send_teams":
       return (
         <div className="flex flex-col gap-1">
           <Input
-            aria-label={t`Teams Incoming Webhook URL`}
+            aria-label={t`Webhook address`}
             className="h-8 text-xs"
-            placeholder="https://….webhook.office.com/…"
+            placeholder={
+              action.type === "send_slack"
+                ? "https://hooks.slack.com/services/…"
+                : "https://…"
+            }
             value={action.url}
             onChange={(event) =>
               props.onChange({ ...action, url: event.target.value })
             }
           />
-          <Input
-            aria-label={t`Title`}
-            className="h-8 text-xs"
-            placeholder={t`Card title (optional)`}
-            value={action.title ?? ""}
-            onChange={(event) =>
-              props.onChange({
-                ...action,
-                title: event.target.value || undefined,
-              })
-            }
-          />
+          {action.type === "send_teams" ? (
+            <Input
+              aria-label={t`Title`}
+              className="h-8 text-xs"
+              placeholder={t`Title (optional)`}
+              value={action.title ?? ""}
+              onChange={(event) =>
+                props.onChange({
+                  ...action,
+                  title: event.target.value || undefined,
+                })
+              }
+            />
+          ) : null}
           <Textarea
             aria-label={t`Message`}
-            placeholder={t`Message ({{field}} templates allowed)`}
             className="min-h-16 text-xs"
             value={action.message}
             onChange={(event) =>
@@ -587,7 +566,9 @@ function ActionEditor(props: {
             }
           />
           <p className="text-xs text-muted-foreground">
-            {t`Paste a Microsoft Teams Incoming Webhook or Connector URL. The message is sent as a MessageCard.`}
+            {action.type === "send_slack"
+              ? t`The address of an incoming webhook made in your Slack workspace.`
+              : t`The address of a Teams workflow that posts to a channel when it receives a webhook request.`}
           </p>
         </div>
       );

@@ -66,6 +66,18 @@ export const automationTriggerSchema = z.discriminatedUnion("type", [
 export type AutomationTrigger = z.infer<typeof automationTriggerSchema>;
 
 /** An action that holds no other: what a branch or a loop runs. */
+/** Where an action posts: an HTTPS address, checked again as public when it is saved and when it runs. */
+const postAddressSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((value) => value.startsWith("https://"), {
+    message: "Invalid automation",
+  });
+
+/** A message to a chat channel, before the row's values are put in it. */
+const chatMessageSchema = z.string().trim().min(1).max(3_000);
+
 const automationStepSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("update_record"), values: valuesSchema }).strict(),
   /** Deletes the row the run is about: the triggering one, or a loop's. */
@@ -88,50 +100,26 @@ const automationStepSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("call_webhook"),
-      url: z
-        .string()
-        .trim()
-        .max(500)
-        .refine((value) => value.startsWith("https://"), {
-          message: "Invalid automation",
-        }),
+      url: postAddressSchema,
       /** Sent as is after templating; a JSON summary of the row when absent. */
       body: templateSchema.optional(),
     })
     .strict(),
-  /**
-   * Posts to a Slack Incoming Webhook URL (official Slack mechanism).
-   * Body is `{ text }` after templating; no OAuth app required.
-   */
+  // A message to a channel of Slack or Teams: the address of a webhook
+  // the person made there, and a text with the row's values in it.
   z
     .object({
       type: z.literal("send_slack"),
-      url: z
-        .string()
-        .trim()
-        .max(500)
-        .refine((value) => value.startsWith("https://"), {
-          message: "Invalid automation",
-        }),
-      message: z.string().trim().min(1).max(3_000),
+      url: postAddressSchema,
+      message: chatMessageSchema,
     })
     .strict(),
-  /**
-   * Posts to a Microsoft Teams Incoming Webhook / Connector URL
-   * (MessageCard JSON). No Graph application registration required.
-   */
   z
     .object({
       type: z.literal("send_teams"),
-      url: z
-        .string()
-        .trim()
-        .max(500)
-        .refine((value) => value.startsWith("https://"), {
-          message: "Invalid automation",
-        }),
-      message: z.string().trim().min(1).max(3_000),
-      /** Optional card title; defaults to a short prefix of the message. */
+      url: postAddressSchema,
+      message: chatMessageSchema,
+      /** The card's heading; none shows the message alone. */
       title: z.string().trim().max(200).optional(),
     })
     .strict(),
@@ -391,30 +379,50 @@ export function nextScheduleRun(
   throw new AppError("invalid_automation");
 }
 
-/**
- * Slack Incoming Webhook JSON (`text` only). Official Incoming Webhooks
- * API; not the private Web API chat.postMessage path.
- */
-export function slackIncomingWebhookBody(message: string): string {
-  return JSON.stringify({ text: message.slice(0, 3_000) });
+/** What a chat service shows of one message, however long the row's values make it. */
+const CHAT_TEXT_MAX = 3_000;
+
+/** The body Slack's incoming webhooks take: the text, and nothing else. */
+export function writeSlackMessage(message: string): string {
+  return JSON.stringify({ text: message.slice(0, CHAT_TEXT_MAX) });
 }
 
 /**
- * Microsoft Teams Connector / Incoming Webhook MessageCard. Theme colour
- * matches the product blue (`#1f3fae`).
+ * The body a Teams workflow takes when it posts what a webhook request
+ * brings: a message holding one Adaptive Card. The connectors of before,
+ * and their MessageCard, were retired by Microsoft in 2026.
  */
-export function teamsIncomingWebhookBody(
-  message: string,
-  title?: string,
-): string {
-  const text = message.slice(0, 3_000);
-  const heading = (title?.trim() || text.slice(0, 100)).slice(0, 200);
+export function writeTeamsMessage(message: string, title?: string): string {
+  const heading = title?.trim();
   return JSON.stringify({
-    "@type": "MessageCard",
-    "@context": "https://schema.org/extensions",
-    summary: heading,
-    themeColor: "1F3FAE",
-    title: heading,
-    text,
+    type: "message",
+    attachments: [
+      {
+        contentType: "application/vnd.microsoft.card.adaptive",
+        contentUrl: null,
+        content: {
+          $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+          type: "AdaptiveCard",
+          version: "1.4",
+          body: [
+            ...(heading
+              ? [
+                  {
+                    type: "TextBlock",
+                    text: heading.slice(0, 200),
+                    weight: "Bolder",
+                    wrap: true,
+                  },
+                ]
+              : []),
+            {
+              type: "TextBlock",
+              text: message.slice(0, CHAT_TEXT_MAX),
+              wrap: true,
+            },
+          ],
+        },
+      },
+    ],
   });
 }

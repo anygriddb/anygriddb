@@ -2302,10 +2302,6 @@ msgstr "Champs de carte"
 msgid "Card title"
 msgstr "Titre des cartes"
 
-#: components/table/automations-dialog.tsx
-msgid "Card title (optional)"
-msgstr "Titre de la carte (facultatif)"
-
 #: components/dashboards/chart-view.tsx
 msgid "Category"
 msgstr "Catégorie"
@@ -5736,10 +5732,6 @@ msgstr "Mentions, réponses, assignations et alertes. L’email ne contient que 
 msgid "Message"
 msgstr "Message"
 
-#: components/table/automations-dialog.tsx
-msgid "Message ({{field}} templates allowed)"
-msgstr "Message (modèles {{field}} autorisés)"
-
 #: components/admin/support-tab.tsx
 msgid "Message accounts"
 msgstr "Écrire aux comptes"
@@ -6992,14 +6984,6 @@ msgstr "Mots de passe"
 #: components/admin/security-tab.tsx
 msgid "Past ten locks within an hour, one last alert says so; the sign-in trail keeps them all."
 msgstr "Au-delà de dix verrouillages en une heure, une dernière alerte le signale ; le journal des connexions les garde tous."
-
-#: components/table/automations-dialog.tsx
-msgid "Paste a Microsoft Teams Incoming Webhook or Connector URL. The message is sent as a MessageCard."
-msgstr "Collez l’URL d’un webhook entrant ou d’un connecteur Microsoft Teams. Le message est envoyé en MessageCard."
-
-#: components/table/automations-dialog.tsx
-msgid "Paste a Slack Incoming Webhook URL from your workspace. The message is sent as Slack's text field."
-msgstr "Collez l’URL d’un webhook entrant Slack de votre espace de travail. Le message est envoyé dans le champ text de Slack."
 
 #: components/admin/integrations-tab.tsx
 msgid "Paste the identity provider certificate"
@@ -8717,10 +8701,6 @@ msgstr "Passer pour l’instant"
 msgid "Skipped"
 msgstr "Ignorée"
 
-#: components/table/automations-dialog.tsx
-msgid "Slack Incoming Webhook URL"
-msgstr "URL du webhook entrant Slack"
-
 #: components/shell/notification-items.ts
 msgid "Someone"
 msgstr "Quelqu’un"
@@ -9105,10 +9085,6 @@ msgstr "Cible"
 msgid "Tasks"
 msgstr "Tâches"
 
-#: components/table/automations-dialog.tsx
-msgid "Teams Incoming Webhook URL"
-msgstr "URL du webhook entrant Teams"
-
 #: components/admin/security-tab.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Tell administrators"
@@ -9197,6 +9173,14 @@ msgstr "Le compte ne peut lire aucune table : accordez-lui SELECT sur les table
 #: components/admin/integrations-tab.tsx
 msgid "The ACS URL is derived from PUBLIC_URL after you save."
 msgstr "L’URL ACS est dérivée de PUBLIC_URL après l’enregistrement."
+
+#: components/table/automations-dialog.tsx
+msgid "The address of a Teams workflow that posts to a channel when it receives a webhook request."
+msgstr "L’adresse d’un flux de travail Teams qui publie dans un canal lorsqu’il reçoit une requête de webhook."
+
+#: components/table/automations-dialog.tsx
+msgid "The address of an incoming webhook made in your Slack workspace."
+msgstr "L’adresse d’un webhook entrant créé dans votre espace de travail Slack."
 
 #: components/admin/settings-tab.tsx
 msgid "The address of the tile server map views draw their background from: it starts with https:// and holds {z}, {x}, and {y}. Empty, maps keep their plain background. Each tile shown tells that server which places people look at; pages open before the change show it once reloaded."
@@ -10224,6 +10208,10 @@ msgstr "Délai dépassé"
 #: components/table/automations-dialog.tsx
 msgid "Title"
 msgstr "Titre"
+
+#: components/table/automations-dialog.tsx
+msgid "Title (optional)"
+msgstr "Titre (facultatif)"
 
 #: lib/known-text.ts
 msgid "TLS error"

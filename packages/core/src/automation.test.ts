@@ -4,26 +4,44 @@ import {
   MAX_AUTOMATION_ACTIONS,
   nextScheduleRun,
   renderTemplate,
-  slackIncomingWebhookBody,
-  teamsIncomingWebhookBody,
   templateKeys,
   webhookTemplateValues,
+  writeSlackMessage,
+  writeTeamsMessage,
 } from "./automation";
 
 const TABLE = "11111111-1111-4111-8111-111111111111";
 
-describe("Slack and Teams webhook bodies", () => {
-  it("builds Slack text and a Teams MessageCard", () => {
-    expect(JSON.parse(slackIncomingWebhookBody("Hello {{name}}"))).toEqual({
-      text: "Hello {{name}}",
+describe("a message to Slack or Teams", () => {
+  it("writes the body each service takes, cut to what it shows", () => {
+    expect(JSON.parse(writeSlackMessage("Row ready"))).toEqual({
+      text: "Row ready",
     });
-    const teams = JSON.parse(
-      teamsIncomingWebhookBody("Row ready", "Notice"),
-    ) as Record<string, string>;
-    expect(teams["@type"]).toBe("MessageCard");
-    expect(teams.themeColor).toBe("1F3FAE");
-    expect(teams.title).toBe("Notice");
-    expect(teams.text).toBe("Row ready");
+    expect(
+      (JSON.parse(writeSlackMessage("x".repeat(5_000))) as { text: string })
+        .text,
+    ).toHaveLength(3_000);
+    type Card = {
+      type: string;
+      attachments: Array<{
+        contentType: string;
+        content: { type: string; body: Array<{ text: string }> };
+      }>;
+    };
+    const titled = JSON.parse(writeTeamsMessage("Row ready", "Notice")) as Card;
+    expect(titled.type).toBe("message");
+    expect(titled.attachments[0]?.contentType).toBe(
+      "application/vnd.microsoft.card.adaptive",
+    );
+    expect(titled.attachments[0]?.content.type).toBe("AdaptiveCard");
+    expect(titled.attachments[0]?.content.body.map((b) => b.text)).toEqual([
+      "Notice",
+      "Row ready",
+    ]);
+    const plain = JSON.parse(writeTeamsMessage("Row ready", "  ")) as Card;
+    expect(plain.attachments[0]?.content.body.map((b) => b.text)).toEqual([
+      "Row ready",
+    ]);
   });
 
   it("accepts send_slack and send_teams over https only", () => {
@@ -65,6 +83,18 @@ describe("Slack and Teams webhook bodies", () => {
             type: "send_slack",
             url: "http://hooks.slack.com/services/T/B/x",
             message: "Hi",
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      createAutomationInputSchema.safeParse({
+        ...base,
+        actions: [
+          {
+            type: "send_teams",
+            url: "https://example.webhook.office.com/x",
+            message: " ",
           },
         ],
       }).success,
