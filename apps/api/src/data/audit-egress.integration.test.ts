@@ -232,30 +232,41 @@ describe("access given and data sent out, on the change trail", () => {
       actions: [{ type: "notify", users: [owner], message: "hi" }],
     });
     await setAutomationEnabled(db, owner, automation.id, false);
-    const events = await db
-      .selectFrom("auditEvents")
-      .select(["oldValue", "newValue"])
-      .where("tableId", "=", tableId)
-      .where("action", "=", "catalog")
-      .where("userId", "=", owner)
-      .orderBy("occurredAt", "desc")
-      .limit(30)
-      .execute();
-    const aboutHook = events.filter((event) =>
-      JSON.stringify(event.newValue ?? event.oldValue).includes(
-        "hooks.example.com",
-      ),
+    const eventsOf = (table: string) =>
+      db
+        .selectFrom("auditEvents")
+        .select(["oldValue", "newValue"])
+        .where("tableId", "=", tableId)
+        .where("action", "=", "catalog")
+        .where("catalogTable", "=", table)
+        .where("userId", "=", owner)
+        .orderBy("occurredAt")
+        .orderBy("id")
+        .execute();
+    const targetOf = (value: unknown) =>
+      (value as { target?: string } | null)?.target;
+
+    // Made, then deleted: where it sends, without what follows "?".
+    const aboutHook = await eventsOf("webhooks");
+    expect(aboutHook).toHaveLength(2);
+    expect(targetOf(aboutHook[0]?.newValue)).toBe(
+      "https://hooks.example.com/path",
     );
-    expect(aboutHook.length).toBeGreaterThanOrEqual(1);
+    expect(targetOf(aboutHook[1]?.oldValue)).toBe(
+      "https://hooks.example.com/path",
+    );
     for (const event of aboutHook) {
       expect(secretsIn(event.oldValue)).toBe(false);
       expect(secretsIn(event.newValue)).toBe(false);
-      expect(JSON.stringify(event)).not.toContain("secret=hidden");
+      expect(JSON.stringify(event)).not.toContain("hidden");
     }
-    const aboutAutomation = events.filter((event) =>
-      JSON.stringify(event.newValue ?? event.oldValue).includes('"Ping"'),
-    );
-    expect(aboutAutomation.length).toBeGreaterThanOrEqual(1);
+    // Made, then switched off.
+    const aboutAutomation = await eventsOf("automations");
+    expect(aboutAutomation).toHaveLength(2);
+    expect(aboutAutomation[1]?.newValue).toMatchObject({
+      name: "Ping",
+      enabled: false,
+    });
     for (const event of aboutAutomation) {
       expect(secretsIn(event.oldValue)).toBe(false);
       expect(secretsIn(event.newValue)).toBe(false);
