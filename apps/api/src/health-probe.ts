@@ -19,11 +19,9 @@ type HealthProbe = {
   ca: readonly string[];
 };
 
-/** The host people open, from PUBLIC_URL (or its older name). */
+/** The host people open, from PUBLIC_URL. */
 export function publicHost(env: NodeJS.ProcessEnv, port: number): string {
-  const url = new URL(
-    env.PUBLIC_URL || env.WEB_ORIGIN || `https://localhost:${String(port)}`,
-  );
+  const url = new URL(env.PUBLIC_URL || `https://localhost:${String(port)}`);
   return url.hostname.replace(/^\[|\]$/g, "");
 }
 

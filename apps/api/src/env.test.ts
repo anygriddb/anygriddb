@@ -41,15 +41,22 @@ describe("readEnv", () => {
     expect(env.DATABASE_URL).toBe(base.DATABASE_URL);
   });
 
-  it("keeps the origin of PUBLIC_URL, falling back to WEB_ORIGIN", () => {
+  it("keeps the origin of PUBLIC_URL, and refuses the name it replaced", () => {
     expect(readEnv(base).PUBLIC_URL).toBe("https://localhost:4000");
     expect(
       readEnv({ ...base, PUBLIC_URL: "https://grid.example.org/" }).PUBLIC_URL,
     ).toBe("https://grid.example.org");
+    // Ignored, an instance that still sets it alone would start on localhost.
+    expect(() =>
+      readEnv({ ...base, WEB_ORIGIN: "https://old.example.org:8443" }),
+    ).toThrow(/WEB_ORIGIN is no longer read: set PUBLIC_URL/);
     expect(
-      readEnv({ ...base, WEB_ORIGIN: "https://old.example.org:8443" })
-        .PUBLIC_URL,
-    ).toBe("https://old.example.org:8443");
+      readEnv({
+        ...base,
+        PUBLIC_URL: "https://grid.example.org",
+        WEB_ORIGIN: "https://old.example.org:8443",
+      }).PUBLIC_URL,
+    ).toBe("https://grid.example.org");
     for (const PUBLIC_URL of [
       "grid.example.org",
       "ftp://grid.example.org",
