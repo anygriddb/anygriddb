@@ -77,7 +77,7 @@ export type ExternalWriteContext = {
   summary?: SummaryEvent;
 };
 
-export type ExternalUpdate = {
+type ExternalUpdate = {
   rowId: string;
   values: Readonly<Record<string, CellValue>>;
   /** What the person saw in each field they change; compared under lock. */
@@ -998,7 +998,7 @@ export async function settleExternalWrites(
 }
 
 /** Where a write through AnyGridDB stands, as the row history shows it. */
-export type WriteState = "pending" | "applied" | "confirmed" | "unverified";
+type WriteState = "pending" | "applied" | "confirmed" | "unverified";
 
 /**
  * A client row's history: the writes made through AnyGridDB, newest

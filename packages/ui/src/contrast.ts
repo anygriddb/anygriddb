@@ -1,5 +1,5 @@
 /** WCAG 2.x relative luminance of a `#rrggbb` colour. */
-export function relativeLuminance(hex: string): number {
+function relativeLuminance(hex: string): number {
   const match = /^#([0-9a-f]{6})$/i.exec(hex);
   if (!match) throw new Error(`Not a #rrggbb colour: ${hex}`);
   const value = Number.parseInt(match[1] ?? "", 16);

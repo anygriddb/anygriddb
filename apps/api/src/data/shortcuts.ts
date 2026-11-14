@@ -1,11 +1,11 @@
 import type { Database } from "@anygriddb/db";
 
 /** Tables a person's home lists as opened last. */
-export const RECENT_TABLES_SHOWN = 12;
+const RECENT_TABLES_SHOWN = 12;
 /** Opened tables kept per person; older ones are forgotten. */
 const RECENT_TABLES_KEPT = 50;
 
-export type PinTarget = { baseId: string } | { tableId: string };
+type PinTarget = { baseId: string } | { tableId: string };
 
 /**
  * A person's pins and recently opened tables, as ids. The caller shows

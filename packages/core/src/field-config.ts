@@ -50,12 +50,12 @@ export function isTimeZone(value: string): boolean {
   }
 }
 
-export const timeZoneSchema = z
+const timeZoneSchema = z
   .string()
   .max(64)
   .refine(isTimeZone, { message: "Invalid time zone" });
 
-export const selectOptionSchema = z
+const selectOptionSchema = z
   .object({
     name: z.string().trim().min(1).max(80),
     color: optionColorSchema,
@@ -64,7 +64,7 @@ export const selectOptionSchema = z
 
 export type SelectOption = z.infer<typeof selectOptionSchema>;
 
-export const selectOptionsSchema = z
+const selectOptionsSchema = z
   .array(selectOptionSchema)
   .min(1)
   .max(200)
@@ -75,7 +75,7 @@ export const selectOptionsSchema = z
     }
   });
 
-export const numberFormatSchema = z
+const numberFormatSchema = z
   .object({
     precision: z.int().min(0).max(8).optional(),
     style: z.enum(["decimal", "percent", "currency"]).optional(),
@@ -87,9 +87,9 @@ export const numberFormatSchema = z
   })
   .strict();
 
-export type NumberFormat = z.infer<typeof numberFormatSchema>;
+type NumberFormat = z.infer<typeof numberFormatSchema>;
 
-export const dateFormatSchema = z
+const dateFormatSchema = z
   .object({
     format: z.enum(["iso", "eu", "us", "long", "relative"]).optional(),
     hour12: z.boolean().optional(),
@@ -99,7 +99,7 @@ export const dateFormatSchema = z
 
 export type DateFormat = z.infer<typeof dateFormatSchema>;
 
-export const DURATION_FORMATS = ["h:mm", "h:mm:ss", "d h:mm"] as const;
+const DURATION_FORMATS = ["h:mm", "h:mm:ss", "d h:mm"] as const;
 
 export const RATING_ICONS = ["star", "heart", "thumb", "flag", "fire"] as const;
 
@@ -214,7 +214,7 @@ const textDefault = z.string().max(4_000).optional();
  * A button opens a URL built from a template, or runs the automations
  * whose trigger is this button.
  */
-export const buttonConfigSchema = z
+const buttonConfigSchema = z
   .object({
     label: z.string().trim().min(1).max(40),
     color: optionColorSchema.optional(),

@@ -10,7 +10,7 @@ import {
 import { columnNameSchema } from "./names";
 import { AGGREGATE_FNS, groupSpecSchema, rowSortSchema } from "./query/read";
 
-export const VIEW_TYPES = [
+const VIEW_TYPES = [
   "grid",
   "form",
   "kanban",
@@ -24,7 +24,7 @@ export type ViewType = (typeof VIEW_TYPES)[number];
 
 export const viewTypeSchema = z.enum(VIEW_TYPES);
 
-export const ROW_HEIGHTS = ["short", "medium", "tall", "extra"] as const;
+const ROW_HEIGHTS = ["short", "medium", "tall", "extra"] as const;
 
 /** Soft product ceilings for view chrome (UI + schema stay in lockstep). */
 export const MAX_VIEW_SORTS = 10;
@@ -44,7 +44,7 @@ const formFieldSchema = z
   })
   .strict();
 
-export const formConfigSchema = z
+const formConfigSchema = z
   .object({
     title: z.string().trim().max(200).optional(),
     description: z.string().trim().max(4_000).optional(),
@@ -59,9 +59,9 @@ export const formConfigSchema = z
   })
   .strict();
 
-export type FormConfig = z.infer<typeof formConfigSchema>;
+type FormConfig = z.infer<typeof formConfigSchema>;
 
-export type FormFieldConfig = NonNullable<FormConfig["fields"]>[number];
+type FormFieldConfig = NonNullable<FormConfig["fields"]>[number];
 
 /**
  * A form's fields once the table's own rules apply: a field the table
@@ -99,7 +99,7 @@ const colorRuleSchema = z
   .object({ filter: filterGroupSchema, color: optionColorSchema })
   .strict();
 
-export const viewColorSchema = z
+const viewColorSchema = z
   .object({
     mode: z.enum(["none", "select", "rules"]),
     column: columnNameSchema.optional(),

@@ -67,11 +67,11 @@ export type AuthDetail =
   | "as_admin";
 
 /** Only an address is kept: anything else a proxy sent is dropped. */
-export function clientAddress(raw: string | null | undefined): string | null {
+function clientAddress(raw: string | null | undefined): string | null {
   return raw && isIP(raw) !== 0 ? raw : null;
 }
 
-export type AuthEvent = {
+type AuthEvent = {
   action: AuthAction;
   /** The account concerned, when known. */
   userId?: string | null;

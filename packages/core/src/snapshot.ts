@@ -47,7 +47,7 @@ const cellSchema = z.union([
 ]);
 
 /** A file an archive holds, checked against its size and SHA-256. */
-export const snapshotFileSchema = z
+const snapshotFileSchema = z
   .object({
     id: fileIdSchema,
     name: z.string().min(1).max(255),
@@ -57,16 +57,16 @@ export const snapshotFileSchema = z
   .strict();
 
 /** A member's role on the base, by email: given back on request. */
-export const snapshotMemberSchema = z
+const snapshotMemberSchema = z
   .object({
     email: z.email().max(254),
     role: z.enum(ROLES),
   })
   .strict();
 
-export const snapshotColumnSchema = columnDefinitionSchema;
+const snapshotColumnSchema = columnDefinitionSchema;
 
-export const snapshotViewSchema = z
+const snapshotViewSchema = z
   .object({
     name: labelSchema,
     viewType: viewTypeSchema,
@@ -74,7 +74,7 @@ export const snapshotViewSchema = z
   })
   .strict();
 
-export const snapshotTableSchema = z
+const snapshotTableSchema = z
   .object({
     key: z
       .string()
@@ -93,7 +93,7 @@ export const snapshotTableSchema = z
   })
   .strict();
 
-export const snapshotLinkSchema = z
+const snapshotLinkSchema = z
   .object({
     from: z.string().min(1).max(63),
     to: z.string().min(1).max(63),
@@ -120,7 +120,7 @@ export const snapshotLinkSchema = z
   })
   .strict();
 
-export const snapshotComputedSchema = z
+const snapshotComputedSchema = z
   .object({
     table: z.string().min(1).max(63),
     name: columnNameSchema.optional(),
@@ -164,11 +164,6 @@ export const exportSnapshotJobInputSchema = z
     withData: z.boolean().default(true),
   })
   .strict();
-
-export type ExportSnapshotJobInput = z.infer<
-  typeof exportSnapshotJobInputSchema
->;
-
 /**
  * A copy of a base in one step: its snapshot read into a new base, so the
  * copy carries what a snapshot does (rows, attachments, and user cells by
@@ -181,9 +176,6 @@ export const duplicateBaseJobInputSchema = z
     withData: z.boolean().default(true),
   })
   .strict();
-
-export type DuplicateBaseJobInput = z.infer<typeof duplicateBaseJobInputSchema>;
-
 export const duplicateBaseInputSchema = z
   .object({
     baseId: z.uuid(),
@@ -201,11 +193,6 @@ export const importSnapshotJobInputSchema = z
     restoreMembers: z.boolean().default(false),
   })
   .strict();
-
-export type ImportSnapshotJobInput = z.infer<
-  typeof importSnapshotJobInputSchema
->;
-
 /** Filename for a downloaded snapshot: an archive when it holds files. */
 export function snapshotFilename(baseName: string, archive = false): string {
   const safe = trimRuns(

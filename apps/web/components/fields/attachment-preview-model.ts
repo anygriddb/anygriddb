@@ -1,9 +1,6 @@
 import { attachmentPreviewKind } from "@anygriddb/core";
 
-export {
-  attachmentPreviewKind,
-  type AttachmentPreviewKind,
-} from "@anygriddb/core";
+export { attachmentPreviewKind } from "@anygriddb/core";
 
 export function isPreviewableImage(mime: string): boolean {
   return attachmentPreviewKind(mime) === "image";

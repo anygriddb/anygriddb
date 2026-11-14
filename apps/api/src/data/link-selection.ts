@@ -19,7 +19,7 @@ import {
 import type { Database } from "@anygriddb/db";
 import { readTransaction } from "./rows.js";
 
-export type SelectionFilter = {
+type SelectionFilter = {
   filter: FilterGroup | undefined;
   /** The view it names is gone, personal, or of another table. */
   missing: boolean;

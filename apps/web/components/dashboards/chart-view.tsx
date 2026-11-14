@@ -34,7 +34,7 @@ echarts.use([
   SVGRenderer,
 ]);
 
-export type ChartData = {
+type ChartData = {
   chartType: "bar" | "bar_horizontal" | "line" | "area" | "pie";
   fn: string;
   /** The grouped fields' types: their keys read in the reader's language. */

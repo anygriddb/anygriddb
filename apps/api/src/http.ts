@@ -99,7 +99,7 @@ function codeFor(status: number): ErrorCode {
 }
 
 /** A failure as every HTTP route sends it (ADR 0013). */
-export function errorBody(failure: PublicError): {
+function errorBody(failure: PublicError): {
   error: string;
   code: ErrorCode;
   detail?: string;

@@ -10,7 +10,7 @@ const SCIENTIFIC = /^([-+]?)(\d*)(?:\.(\d*))?[eE]([-+]?\d{1,4})$/;
 const PLAIN = /^([-+]?)(\d*)(?:\.(\d*))?$/;
 
 /** At most this many significant digits: PostgreSQL's numeric allows more. */
-export const MAX_DECIMAL_DIGITS = 60;
+const MAX_DECIMAL_DIGITS = 60;
 
 export function isDecimalString(value: unknown): value is string {
   return (

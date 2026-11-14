@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 
-export function unescapePo(raw) {
+function unescapePo(raw) {
   let out = "";
   for (let i = 0; i < raw.length; i++) {
     const ch = raw[i];

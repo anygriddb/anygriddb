@@ -20,7 +20,7 @@ export const PARSE_LIMITS = {
   },
 } as const;
 
-export type ParseLimits = { heapMb: number; timeMs: number };
+type ParseLimits = { heapMb: number; timeMs: number };
 
 /** What the worker is asked to do. */
 export type WorkerTask =

@@ -39,7 +39,7 @@ import { measureSource } from "../observability.js";
 export type Statement = { text: string; values: readonly unknown[] };
 export type Run = (statement: Statement) => Promise<Record<string, unknown>[]>;
 /** A statement that changes rows: what it returned, and how many it changed. */
-export type Change = (
+type Change = (
   statement: Statement,
 ) => Promise<{ rows: Record<string, unknown>[]; affected: number }>;
 export type WriteBody<T> = (run: Run, change: Change) => Promise<T>;
@@ -286,7 +286,7 @@ export function toPositional(statement: Statement): {
 }
 
 /** SQL Server's placeholders are named: `$3` reads `@p3`, values unchanged. */
-export function toNamed(statement: Statement): string {
+function toNamed(statement: Statement): string {
   return rewritePlaceholders(statement, (position) => `@p${String(position)}`);
 }
 

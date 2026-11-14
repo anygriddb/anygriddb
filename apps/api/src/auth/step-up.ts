@@ -18,7 +18,7 @@ export const FRESH_STEP_UP_MS = 5 * 60_000;
  * account that signs in through its provider alone and has only a passkey
  * needs a sign-in less than five minutes old.
  */
-export type StepUpProof = "ok" | "missing" | "wrong" | "stale";
+type StepUpProof = "ok" | "missing" | "wrong" | "stale";
 
 /**
  * Password or second factor asked again before a sensitive Administration
@@ -82,7 +82,7 @@ export async function proveStepUp(
 }
 
 /** Marks the current session as stepped up just now. */
-export async function stampStepUp(
+async function stampStepUp(
   db: Database,
   token: string | undefined,
   now: Date = new Date(),

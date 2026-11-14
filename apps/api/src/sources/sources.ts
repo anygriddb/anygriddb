@@ -34,7 +34,7 @@ export type SourceDeps = {
 type SourceRow = Awaited<ReturnType<typeof loadSource>>;
 
 /** A source as administrators see it: never its password. */
-export function publicSource(row: SourceRow) {
+function publicSource(row: SourceRow) {
   return {
     id: row.id,
     name: row.name,
@@ -410,7 +410,7 @@ export async function sourceTables(
   }
 }
 
-export type Exposure = {
+type Exposure = {
   baseId: string;
   tableId: string;
   /** The writes an administrator enabled there (ADR 0006). */

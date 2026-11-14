@@ -76,10 +76,7 @@ export async function requireEnrolledUser(ctx: Context): Promise<SessionUser> {
   return (await authorize(ctx)).user;
 }
 
-export async function loadTable(
-  ctx: Context,
-  tableId: string,
-): Promise<TableRow> {
+async function loadTable(ctx: Context, tableId: string): Promise<TableRow> {
   // A table in the trash, or in a base in the trash, reads as missing.
   const table = await findLiveTable(ctx.db, tableId);
   if (!table) {

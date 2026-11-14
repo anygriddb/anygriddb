@@ -57,7 +57,7 @@ function Choice<T extends string | number>(props: {
  * The instance's security policy (ADR 0043): simple defaults an
  * administrator may change, never past the floors the API keeps.
  */
-export function SecurityTab() {
+function SecurityTab() {
   const { t } = useLingui();
   const errorText = useErrorText();
   const api = useTRPC();

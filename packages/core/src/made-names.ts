@@ -6,7 +6,7 @@
  * reads the app in, else the instance's default (ADR 0041).
  */
 
-export const NAME_LOCALES = ["en", "fr"] as const;
+const NAME_LOCALES = ["en", "fr"] as const;
 
 export type NameLocale = (typeof NAME_LOCALES)[number];
 

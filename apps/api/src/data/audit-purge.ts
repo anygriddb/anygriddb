@@ -16,7 +16,7 @@ const BATCH = 5_000;
 const RUN_MS = 5 * 60_000;
 
 /** What a purge writes on the trail, in its event's `new_value`. */
-export type PurgeRecord = {
+type PurgeRecord = {
   /** Events deleted by this run. */
   events: number;
   /** Everything from before this moment went. */

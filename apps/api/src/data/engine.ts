@@ -16,7 +16,7 @@ import type { ColumnRow, Database, RelationRow, TableRow } from "@anygriddb/db";
 import { sql } from "kysely";
 import { liveColumn, liveTable } from "./live.js";
 
-export type { ColumnRow, RelationRow, TableRow };
+export type { ColumnRow, TableRow };
 
 export type CatalogRows = {
   tables: TableRow[];
@@ -154,7 +154,7 @@ export function sourceDialect(
   throw new AppError("source_engine_unsupported", engine);
 }
 
-export function toEngineTable(table: TableRow, rows: CatalogRows): EngineTable {
+function toEngineTable(table: TableRow, rows: CatalogRows): EngineTable {
   const own = sortColumns(
     rows.columns.filter((column) => column.tableId === table.id),
   );

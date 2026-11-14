@@ -1,24 +1,16 @@
 import { z } from "zod";
 import { columnNameSchema } from "./names";
-import { filterGroupSchema } from "./filter";
+import { filterGroupSchema, type FilterGroup } from "./filter";
 
-export const COLUMN_ACCESS = ["hide", "read", "write"] as const;
+const COLUMN_ACCESS = ["hide", "read", "write"] as const;
 export type ColumnAccess = (typeof COLUMN_ACCESS)[number];
 
-export const columnAccessSchema = z.enum(COLUMN_ACCESS);
+const columnAccessSchema = z.enum(COLUMN_ACCESS);
 
-export const columnAclEntrySchema = z
+const columnAclEntrySchema = z
   .object({
     column: columnNameSchema,
     access: columnAccessSchema,
-  })
-  .strict();
-
-export const tableAclSchema = z
-  .object({
-    userId: z.uuid(),
-    rowFilter: filterGroupSchema.nullable(),
-    columns: z.array(columnAclEntrySchema).max(200),
   })
   .strict();
 
@@ -48,5 +40,10 @@ export const viewAsInputSchema = z
   })
   .strict();
 
-export type TableAcl = z.infer<typeof tableAclSchema>;
+/** One member's rules on a table: the rows they see, and each field's access. */
+export type TableAcl = {
+  userId: string;
+  rowFilter: FilterGroup | null;
+  columns: ColumnAclEntry[];
+};
 export type ColumnAclEntry = z.infer<typeof columnAclEntrySchema>;

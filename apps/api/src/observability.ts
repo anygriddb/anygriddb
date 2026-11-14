@@ -118,7 +118,7 @@ export function registerQueueGauge(db: Database): void {
 }
 
 /** What a `pg` pool says of its connections. */
-export type PoolCounts = {
+type PoolCounts = {
   totalCount: number;
   idleCount: number;
   waitingCount: number;

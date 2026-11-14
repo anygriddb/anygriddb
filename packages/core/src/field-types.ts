@@ -56,7 +56,7 @@ export const WRITABLE_TYPES = [
 
 export type WritableType = (typeof WRITABLE_TYPES)[number];
 
-export const SYSTEM_TYPES = [
+const SYSTEM_TYPES = [
   "created_time",
   "last_modified_time",
   "created_by",
@@ -65,11 +65,11 @@ export const SYSTEM_TYPES = [
   "row_id",
 ] as const;
 
-export type SystemType = (typeof SYSTEM_TYPES)[number];
+type SystemType = (typeof SYSTEM_TYPES)[number];
 
-export const COMPUTED_TYPES = ["formula", "lookup", "rollup"] as const;
+const COMPUTED_TYPES = ["formula", "lookup", "rollup"] as const;
 
-export type ComputedType = (typeof COMPUTED_TYPES)[number];
+type ComputedType = (typeof COMPUTED_TYPES)[number];
 
 export const SYSTEM_COLUMN: Record<SystemType, string> = {
   created_time: "ag_created_at",
@@ -236,13 +236,4 @@ export function storedValueKind(
   fieldType: Exclude<FieldType, ComputedType>,
 ): ValueKind {
   return VALUE_KIND[fieldType];
-}
-
-export function isArrayKind(kind: ValueKind): boolean {
-  return (
-    kind === "options" ||
-    kind === "users" ||
-    kind === "files" ||
-    kind === "links"
-  );
 }

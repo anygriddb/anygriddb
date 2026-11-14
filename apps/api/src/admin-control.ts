@@ -39,7 +39,7 @@ export function csvField(value: string): string {
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-export function csv(rows: readonly (readonly string[])[]): string {
+function csv(rows: readonly (readonly string[])[]): string {
   return CSV_BOM + rows.map((row) => row.map(csvField).join(",")).join("\r\n");
 }
 
@@ -111,7 +111,7 @@ export function auditEventsCsv(
 /* Sign-in trail                                                       */
 /* ------------------------------------------------------------------ */
 
-export type AuthEventRow = Awaited<
+type AuthEventRow = Awaited<
   ReturnType<typeof instanceAuthAudit>
 >["events"][number];
 
@@ -336,7 +336,7 @@ export const adminEraseInputSchema = z
   })
   .strict();
 
-export type AdminEraseInput = z.infer<typeof adminEraseInputSchema>;
+type AdminEraseInput = z.infer<typeof adminEraseInputSchema>;
 
 /**
  * What the delete dialog needs before confirming: whether an identity

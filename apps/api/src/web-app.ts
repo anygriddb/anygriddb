@@ -13,7 +13,7 @@ import type { FastifyInstance } from "fastify";
 import { publicErrorBody } from "./http.js";
 
 /** `apps/web/dist`, from the sources and from the bundle alike. */
-export const DEFAULT_WEB_ROOT = fileURLToPath(
+const DEFAULT_WEB_ROOT = fileURLToPath(
   new URL("../../web/dist/", import.meta.url),
 );
 

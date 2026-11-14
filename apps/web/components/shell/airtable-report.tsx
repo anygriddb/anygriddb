@@ -4,7 +4,7 @@ import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 
 /** What did not come over from Airtable as it was, in a sentence each. */
-export const AIRTABLE_NOTE_TEXT: Record<AirtableNote, MessageDescriptor> = {
+const AIRTABLE_NOTE_TEXT: Record<AirtableNote, MessageDescriptor> = {
   attachments_as_names: msg`attachments carried over by name: the files are not copied`,
   people_as_text: msg`people carried over as text (name and address)`,
   rollup_as_values: msg`rollup carried over as values: Airtable's API does not give its calculation`,

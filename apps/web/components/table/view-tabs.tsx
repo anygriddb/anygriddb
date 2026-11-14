@@ -51,7 +51,7 @@ export const VIEW_ICONS: Record<string, LucideIcon> = {
   map: MapIcon,
 };
 
-export const VIEW_LABELS: Record<string, MessageDescriptor> = {
+const VIEW_LABELS: Record<string, MessageDescriptor> = {
   grid: msg`Grid`,
   form: msg`Form`,
   kanban: msg`Kanban`,

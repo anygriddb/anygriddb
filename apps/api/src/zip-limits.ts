@@ -11,7 +11,7 @@ const DIRECTORY_ENTRY = 0x02014b50;
 /** The end record is 22 bytes, plus a comment of up to 65,535. */
 const END_SEARCH = 22 + 0xffff;
 
-export type ZipLimits = {
+type ZipLimits = {
   maxEntries: number;
   maxEntryBytes: number;
   maxTotalBytes: number;

@@ -16,10 +16,10 @@ const MIN_SPAN = TILES_ACROSS / 2 ** 14;
 /** The most tile images one map asks for. */
 const MAX_TILES = 64;
 
-export type MapPoint = { longitude: number; latitude: number };
+type MapPoint = { longitude: number; latitude: number };
 
 /** The part of the world a map shows, in Web Mercator's 0 to 1, and its zoom. */
-export type MapViewport = {
+type MapViewport = {
   minX: number;
   maxX: number;
   minY: number;
@@ -27,7 +27,7 @@ export type MapViewport = {
   zoom: number;
 };
 
-export type MapTile = {
+type MapTile = {
   key: string;
   url: string;
   /** Its place and size, in percent of the map. */

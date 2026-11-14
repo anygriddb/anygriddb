@@ -31,7 +31,7 @@ async function nextViewPosition(db: Database, tableId: string) {
  * A view as clients see it. With `known`, references to fields outside
  * that set (fields in the trash) are left out; the stored config keeps them.
  */
-export function publicView(view: ViewRow, known?: ReadonlySet<string>) {
+function publicView(view: ViewRow, known?: ReadonlySet<string>) {
   const config = normalizeViewConfig(view.config, view.viewType);
   return {
     id: view.id,
@@ -79,7 +79,7 @@ export async function listViews(db: Database, tableId: string, userId: string) {
  * Rejects a configuration that names unknown columns or cannot compile.
  * Names in `reserved`, fields in the trash, may stay: they are skipped.
  */
-export function assertViewConfig(
+function assertViewConfig(
   engine: EngineCatalog,
   stored: ViewConfig,
   reserved: ReadonlySet<string> = new Set(),

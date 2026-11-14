@@ -41,7 +41,7 @@ import type { SourceLimit } from "./limits";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const MAX_READ_LIMIT = 1000;
-export const MAX_READ_OFFSET = 10_000_000;
+const MAX_READ_OFFSET = 10_000_000;
 export const MAX_GROUPS = 2_000;
 
 export const rowSortSchema = z.object({
@@ -53,10 +53,10 @@ export type RowSort = z.infer<typeof rowSortSchema>;
 
 export const groupSpecSchema = rowSortSchema;
 
-export type GroupSpec = RowSort;
+type GroupSpec = RowSort;
 
 /** System columns every read returns alongside the user columns. */
-export const SYSTEM_FIELDS = [
+const SYSTEM_FIELDS = [
   "ag_seq",
   "ag_created_at",
   "ag_updated_at",
@@ -83,7 +83,7 @@ export type ReadSpec = {
   me?: string;
 };
 
-export type ProjectedColumn = ColumnRef & {
+type ProjectedColumn = ColumnRef & {
   column: EngineColumn;
   sql: string;
   /** Set when the column could not compile, e.g. a formula that reads a deleted field. */
@@ -566,7 +566,7 @@ function isComputed(ref: ProjectedColumn): boolean {
   return type === "formula" || type === "lookup" || type === "rollup";
 }
 
-export function isExactNumber(ref: ProjectedColumn): boolean {
+function isExactNumber(ref: ProjectedColumn): boolean {
   return ref.kind === "number" && !FLOAT_SAFE_TYPES.has(ref.column.fieldType);
 }
 

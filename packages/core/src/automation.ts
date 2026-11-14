@@ -66,7 +66,7 @@ export const automationTriggerSchema = z.discriminatedUnion("type", [
 export type AutomationTrigger = z.infer<typeof automationTriggerSchema>;
 
 /** An action that holds no other: what a branch or a loop runs. */
-export const automationStepSchema = z.discriminatedUnion("type", [
+const automationStepSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("update_record"), values: valuesSchema }).strict(),
   /** Deletes the row the run is about: the triggering one, or a loop's. */
   z.object({ type: z.literal("delete_record") }).strict(),

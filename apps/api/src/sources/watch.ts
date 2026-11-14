@@ -42,7 +42,7 @@ import type { SourceTable } from "./types.js";
 /** Rows a check reads past its cursor; more wait for the next check, soon. */
 const PAGE = 1_000;
 /** How far behind a date and time a check reads again, for late commits. */
-export const LOOKBACK_SECONDS = 120;
+const LOOKBACK_SECONDS = 120;
 /** Rows in that window a check compares; past it, the window is skipped. */
 const WINDOW_LIMIT = 2_000;
 /** Row events one check sends; past it, one event per kind with a count. */
@@ -52,9 +52,9 @@ const CATCH_UP_SECONDS = 1;
 /** Rows AnyGridDB wrote this long before a check's start are its own. */
 const OWN_WRITES_MARGIN_MS = 10_000;
 
-export type WatchMethod = ExternalWatchMethod;
+type WatchMethod = ExternalWatchMethod;
 
-export type WatchInput = {
+type WatchInput = {
   tableId: string;
   method: WatchMethod | null;
   column?: string | undefined;
@@ -426,7 +426,7 @@ function eventsOf(tableId: string, changes: readonly Change[]): RowEvent[] {
   }));
 }
 
-export type WatchDeps = {
+type WatchDeps = {
   db: Database;
   bus: Bus;
   log: (error: unknown, message: string) => void;

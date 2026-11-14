@@ -61,7 +61,7 @@ function date(value: string | null | undefined): string {
 }
 
 /** The fields an action needs, from a row of the list. */
-export function accountTarget(user: {
+function accountTarget(user: {
   id: string;
   displayName: string;
   email: string;
@@ -530,7 +530,7 @@ export function AccountsTab({
 }
 
 /** Disabled, locked, kept by the identity provider: what the row says. */
-export function StatusText({
+function StatusText({
   user,
 }: {
   user: {

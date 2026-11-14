@@ -12,7 +12,7 @@ import {
 } from "graphile-worker";
 import pg from "pg";
 
-export type QueueLog = {
+type QueueLog = {
   error: (meta: Record<string, unknown>, message: string) => void;
   warn: (meta: Record<string, unknown>, message: string) => void;
   info: (meta: Record<string, unknown>, message: string) => void;

@@ -39,7 +39,7 @@ function transportFor(config: SmtpConfig & { SMTP_HOST: string }) {
 }
 
 /** Who a mail is from and how it closes: the instance's voice (ADR 0072). */
-export type MailIdentity = {
+type MailIdentity = {
   /** Before the sender's address; null leaves the address alone. */
   sender: string | null;
   signature: string | null;

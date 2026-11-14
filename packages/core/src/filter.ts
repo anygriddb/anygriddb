@@ -3,7 +3,7 @@ import { isIsoDate } from "./cell-values";
 import type { ValueKind } from "./field-types";
 import { columnNameSchema } from "./names";
 
-export const FILTER_OPERATORS = [
+const FILTER_OPERATORS = [
   "is",
   "is_not",
   "contains",
@@ -70,7 +70,7 @@ export const WITHIN_MODES = [
 export type DateMode = (typeof DATE_MODES)[number];
 export type WithinMode = (typeof WITHIN_MODES)[number];
 
-export type CalendarUnit = "week" | "month" | "year";
+type CalendarUnit = "week" | "month" | "year";
 
 /**
  * The calendar periods a date condition names: a unit, and how many of it
@@ -99,7 +99,7 @@ export function calendarPeriod(
   return CALENDAR_PERIODS[mode];
 }
 
-export const dateFilterValueSchema = z
+const dateFilterValueSchema = z
   .object({
     mode: z.enum([...new Set([...DATE_MODES, ...WITHIN_MODES])] as [
       DateMode | WithinMode,
@@ -112,7 +112,7 @@ export const dateFilterValueSchema = z
 
 export type DateFilterValue = z.infer<typeof dateFilterValueSchema>;
 
-export const filterValueSchema = z.union([
+const filterValueSchema = z.union([
   z.string().max(4_000),
   z.number(),
   z.boolean(),
@@ -123,7 +123,7 @@ export const filterValueSchema = z.union([
 
 export type FilterValue = z.infer<typeof filterValueSchema>;
 
-export const filterConditionSchema = z
+const filterConditionSchema = z
   .object({
     column: columnNameSchema,
     op: z.enum(FILTER_OPERATORS),
@@ -189,7 +189,7 @@ export const legacyFilterSchema = z.object({
   value: z.union([z.string().max(20_000), z.number(), z.boolean()]),
 });
 
-export type LegacyFilter = z.infer<typeof legacyFilterSchema>;
+type LegacyFilter = z.infer<typeof legacyFilterSchema>;
 
 const LEGACY_OPS: Record<LegacyFilter["op"], FilterOperator> = {
   eq: "is",

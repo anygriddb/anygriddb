@@ -69,7 +69,7 @@ export type Subscriber = {
   resync: () => void;
 };
 
-export type ConnectionSettings = {
+type ConnectionSettings = {
   url: () => string;
   open: (url: string) => WebSocket;
   /** Without an open link this long, the page says so. */

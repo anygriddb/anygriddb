@@ -1,5 +1,5 @@
 /** A box on screen, as `getBoundingClientRect` gives it. */
-export type Box = {
+type Box = {
   top: number;
   right: number;
   bottom: number;

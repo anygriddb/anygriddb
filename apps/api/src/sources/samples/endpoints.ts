@@ -4,12 +4,12 @@
  */
 import type { SampleEndpoint, SampleEngine } from "./types.js";
 
-export const READER = "anygriddb";
+const READER = "anygriddb";
 
 /** The lab's one password: root, sa, system, and the reader account share it. */
 export const LAB_PASSWORD = process.env.LAB_PASSWORD ?? "Lab!Admin-2026";
 
-export type EnginePorts = Record<SampleEngine, number>;
+type EnginePorts = Record<SampleEngine, number>;
 
 /** The host ports docker/lab/compose.yml publishes. */
 export const LAB_PORTS: EnginePorts = {

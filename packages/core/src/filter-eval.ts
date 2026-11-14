@@ -51,7 +51,7 @@ export function evaluateFilter(
 }
 
 /** One condition: null when it cannot apply, as the compiler leaves it out. */
-export function evaluateCondition(
+function evaluateCondition(
   condition: FilterCondition,
   values: Readonly<Record<string, unknown>>,
   context: FilterEvalContext,

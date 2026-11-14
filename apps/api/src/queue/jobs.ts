@@ -65,7 +65,7 @@ export type TaskName = (typeof TASKS)[keyof typeof TASKS];
 /** The database, or an open transaction the job joins. */
 export type SqlExecutor = Executor;
 
-export type AddJobOptions = {
+type AddJobOptions = {
   runAt?: Date;
   maxAttempts?: number;
   /** Replaces a queued job with the same key instead of adding a second. */

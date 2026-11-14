@@ -27,7 +27,7 @@ export type GroupLevel = {
 const SEPARATOR = "\u0000";
 
 /** A group value as its header shows it; empty for no value. */
-export function groupKeyOf(value: unknown): string {
+function groupKeyOf(value: unknown): string {
   if (
     value === null ||
     value === undefined ||

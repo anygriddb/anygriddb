@@ -19,7 +19,7 @@ import {
   type MfaMethod,
 } from "./second-factor-model";
 
-export function BackupCodes({
+function BackupCodes({
   codes,
   onDone,
 }: {

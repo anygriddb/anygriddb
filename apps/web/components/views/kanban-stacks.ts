@@ -1,8 +1,8 @@
 import type { Groups } from "../grid/use-rows";
 
-export type StackPlace = { start: number; count: number };
+type StackPlace = { start: number; count: number };
 
-export type KanbanStack = { id: string; label: string; color?: string };
+type KanbanStack = { id: string; label: string; color?: string };
 
 /**
  * Where each stack's rows start in the view's grouped order, and how many

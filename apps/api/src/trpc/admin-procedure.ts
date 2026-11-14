@@ -43,7 +43,7 @@ export const procedure = baseProcedure.use(
 );
 
 /** An auditor, on a call an auditor may make. */
-export function auditing(user: { isAuditor: boolean }): boolean {
+function auditing(user: { isAuditor: boolean }): boolean {
   return user.isAuditor && auditorCall.getStore() === true;
 }
 

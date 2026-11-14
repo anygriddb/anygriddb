@@ -37,7 +37,7 @@ export function need<T>(value: T | null | undefined, what: string): T {
   return value;
 }
 
-export const sampleSettings: SourceSettings = {
+const sampleSettings: SourceSettings = {
   allows: () => true,
   allowedHosts: [],
   allowPlaintext: !labTls,
@@ -53,7 +53,7 @@ export type SampleControl = {
   deps: { db: Database; key: KeyRing; settings: SourceSettings };
 };
 
-export type DeclaredSource = {
+type DeclaredSource = {
   engine: SampleEngine;
   sourceId: string;
   endpoint: SampleEndpoint;

@@ -14,7 +14,7 @@ import type { Role } from "./rbac";
 export const PEOPLE_FILE_MAX = 200;
 export const PEOPLE_FILE_MAX_BYTES = 256_000;
 /** Bases one person reaches from the start, as when one person is added. */
-export const PEOPLE_FILE_MAX_BASES = 20;
+const PEOPLE_FILE_MAX_BASES = 20;
 
 /**
  * Why a line adds nobody. The first five are read off the file; the
@@ -22,20 +22,18 @@ export const PEOPLE_FILE_MAX_BASES = 20;
  * base answers to, a name several bases share, an address outside the
  * domains invitations are limited to.
  */
-export const PEOPLE_FILE_PROBLEMS = [
-  "invalid_email",
-  "invalid_name",
-  "twice",
-  "invalid_bases",
-  "too_many_bases",
-  "account_exists",
-  "unknown_base",
-  "ambiguous_base",
-  "domain_not_allowed",
-] as const;
-export type PeopleFileProblem = (typeof PEOPLE_FILE_PROBLEMS)[number];
+export type PeopleFileProblem =
+  | "invalid_email"
+  | "invalid_name"
+  | "twice"
+  | "invalid_bases"
+  | "too_many_bases"
+  | "account_exists"
+  | "unknown_base"
+  | "ambiguous_base"
+  | "domain_not_allowed";
 
-export type PeopleFileLine = {
+type PeopleFileLine = {
   /** As a spreadsheet numbers it: the header is line 1. */
   line: number;
   email: string;

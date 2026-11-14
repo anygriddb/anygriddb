@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useErrorText } from "./errors";
 import { trpc, useTRPC } from "./trpc";
 
-export type PinTarget = { baseId: string } | { tableId: string };
+type PinTarget = { baseId: string } | { tableId: string };
 
 /** The person's pins and recent tables, and a way to pin or unpin. */
 export function useShortcuts() {

@@ -129,7 +129,7 @@ export function thisMonth(): Date {
 }
 
 /** The six weeks a month's page shows, Monday first. */
-export function calendarDays(month: Date): Date[] {
+function calendarDays(month: Date): Date[] {
   const first = new Date(month);
   first.setDate(1 - ((first.getDay() + 6) % 7));
   return Array.from({ length: 42 }, (_, index) => {

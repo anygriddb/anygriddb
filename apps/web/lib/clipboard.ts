@@ -27,7 +27,7 @@ function copyBySelection(text: string): boolean {
 }
 
 /** Whether `text` reached the clipboard. */
-export async function copyText(text: string): Promise<boolean> {
+async function copyText(text: string): Promise<boolean> {
   if (window.isSecureContext && "clipboard" in navigator) {
     try {
       await navigator.clipboard.writeText(text);

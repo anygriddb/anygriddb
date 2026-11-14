@@ -2,7 +2,7 @@ import type { Database } from "@anygriddb/db";
 import type { FileStore } from "./store.js";
 
 /** Writes store a file before the row that names it: a day covers them all. */
-export const SWEEP_GRACE_MS = 24 * 60 * 60 * 1000;
+const SWEEP_GRACE_MS = 24 * 60 * 60 * 1000;
 const BATCH = 500;
 
 const ATTACHMENT = /^att/;
@@ -58,7 +58,7 @@ function checkable(key: string): boolean {
   return ATTACHMENT.test(key) || EXPORT.test(key) || STAGED.test(key);
 }
 
-export type SweepReport = { checked: number; removed: number; tidied: number };
+type SweepReport = { checked: number; removed: number; tidied: number };
 
 /**
  * Deletes files that no row names: an attachment or a thumbnail whose

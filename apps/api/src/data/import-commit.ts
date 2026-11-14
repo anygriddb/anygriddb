@@ -36,7 +36,7 @@ import {
   stageUploadFile,
 } from "./staged-uploads.js";
 
-export const IMPORT_TTL_SECONDS = 30 * 60;
+const IMPORT_TTL_SECONDS = 30 * 60;
 const MAX_ERRORS = 200;
 const MAX_OPTIONS = 200;
 /** How long an import's event waits for the next batch to update it. */
@@ -55,7 +55,7 @@ const shapeSchema = z.object({
 });
 
 /** A file waiting for its import: whose it is, and how to read it. */
-export type StagedImport = {
+type StagedImport = {
   id: string;
   userId: string;
   filename: string;
@@ -137,7 +137,7 @@ export async function copyStagedImport(
 }
 
 /** A queued import keeps its file for two hours, enough to wait its turn. */
-export const IMPORT_JOB_TTL_SECONDS = 2 * 60 * 60;
+const IMPORT_JOB_TTL_SECONDS = 2 * 60 * 60;
 
 export async function keepStagedImport(
   db: Database,
@@ -202,7 +202,7 @@ function splitValues(text: string, multiple: boolean): string[] {
  * compare without case, like the coercion does; past 200 options, the
  * rest is left out.
  */
-export class OptionFinder {
+class OptionFinder {
   readonly added: SelectOption[] = [];
   private readonly known: Set<string>;
 
@@ -310,7 +310,7 @@ async function outsideRowRule(
   return new Set(rowIds.filter((id) => !inside.has(id)));
 }
 
-export type ImportError = {
+type ImportError = {
   /** Line in the source file, the header being line 1. */
   line: number;
   column: string;
@@ -321,7 +321,7 @@ export type ImportError = {
   detail?: string;
 };
 
-export type ImportResult = {
+type ImportResult = {
   tableId: string;
   inserted: number;
   updated: number;

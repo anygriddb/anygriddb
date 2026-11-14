@@ -86,7 +86,7 @@ export async function openShare(
   return { ...resolved, engine, rows: loaded.rows, config, fields };
 }
 
-export type OpenedShare = Awaited<ReturnType<typeof openShare>>;
+type OpenedShare = Awaited<ReturnType<typeof openShare>>;
 
 /**
  * Whether a file may be sent to `field` through this link: a form of a

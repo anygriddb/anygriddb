@@ -11,7 +11,7 @@ export const INSTANCE_LOGO_TYPES = [
   "image/webp",
 ] as const;
 
-export type InstanceLogoType = (typeof INSTANCE_LOGO_TYPES)[number];
+type InstanceLogoType = (typeof INSTANCE_LOGO_TYPES)[number];
 
 /** Largest logo taken: it is drawn 32 px high. */
 export const INSTANCE_LOGO_MAX_BYTES = 262_144;

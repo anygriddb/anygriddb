@@ -20,7 +20,7 @@ import { readMailVoice } from "../settings.js";
 import { liveBase } from "./live.js";
 
 /** What the change trail keeps of an opening (`access`): never a value. */
-export type AccessRecord = { baseId: string; base: string; until: string };
+type AccessRecord = { baseId: string; base: string; until: string };
 
 /** The opening an event keeps, or null for any other event. */
 export function accessRecordOf(value: unknown): AccessRecord | null {
@@ -34,7 +34,7 @@ export function accessRecordOf(value: unknown): AccessRecord | null {
 }
 
 /** How long a base stays open, in minutes. */
-export const EMERGENCY_ACCESS_MINUTES = 60;
+const EMERGENCY_ACCESS_MINUTES = 60;
 
 export type AccessNoticeDeps = {
   db: Database;

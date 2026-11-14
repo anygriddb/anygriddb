@@ -9,7 +9,7 @@ import { useLingui } from "@lingui/react/macro";
 import { useState } from "react";
 import { RuledSection } from "../shell/notebook-page";
 
-export type ApiMethod = "list" | "get" | "create" | "update" | "delete";
+type ApiMethod = "list" | "get" | "create" | "update" | "delete";
 
 /** The request a method makes on a table: verb, path with its query, body. */
 export function apiRequest(

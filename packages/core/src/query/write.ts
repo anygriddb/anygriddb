@@ -50,11 +50,7 @@ export function assertIdList(ids: readonly string[], max = 10_000): void {
 }
 
 /** Bound value for a column, cast to its SQL type. Arrays travel as JSON. */
-export function bindCell(
-  params: SqlParams,
-  column: WriteColumn,
-  value: Cell,
-): string {
+function bindCell(params: SqlParams, column: WriteColumn, value: Cell): string {
   if (value === null) {
     return "null";
   }
@@ -134,7 +130,7 @@ export function buildInsert(input: {
  * The most bound values one INSERT of many rows carries: well under the
  * 65,535 the protocol allows a statement.
  */
-export const MAX_INSERT_PARAMS = 20_000;
+const MAX_INSERT_PARAMS = 20_000;
 
 /**
  * One INSERT for rows that all set the same fields. The rows go in, and

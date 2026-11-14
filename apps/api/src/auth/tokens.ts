@@ -6,7 +6,7 @@ import { readGateSettings } from "../settings.js";
 
 const API_TOKEN = /^ag_[A-Za-z0-9_-]{43,128}$/;
 /** A token's lifetime when its owner names none, within the policy's. */
-export const DEFAULT_TOKEN_DAYS = 30;
+const DEFAULT_TOKEN_DAYS = 30;
 
 /**
  * The days a new token lives (ADR 0043): what its owner asks, up to the
@@ -22,7 +22,7 @@ export function tokenDays(
   return requested ?? Math.min(DEFAULT_TOKEN_DAYS, policy.tokenMaxDays);
 }
 
-export function hashApiToken(token: string): string {
+function hashApiToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 

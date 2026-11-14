@@ -26,7 +26,7 @@ export const INT_DIGITS: Digits = { p: 10, s: 0 };
 export const BIGINT_DIGITS: Digits = { p: 19, s: 0 };
 
 /** What a result reads as, and whether T-SQL kept it whole. */
-export type Sized = { digits: Digits; exact: boolean };
+type Sized = { digits: Digits; exact: boolean };
 
 function integral(digits: Digits): number {
   return digits.p - digits.s;

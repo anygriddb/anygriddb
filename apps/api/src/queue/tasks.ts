@@ -84,7 +84,7 @@ import { runScheduledReleaseCheck } from "../release-status.js";
 import { transactionEvents } from "./row-events.js";
 import type { WorkerGroup } from "./worker.js";
 
-export type TaskDeps = {
+type TaskDeps = {
   db: Database;
   bus: Bus;
   env: Env;

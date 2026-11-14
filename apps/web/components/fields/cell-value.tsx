@@ -20,7 +20,7 @@ export function optionsOf(column: CatalogColumn): Option[] {
   return config.options ?? [];
 }
 
-export function highlight(text: string, search: string): ReactNode {
+function highlight(text: string, search: string): ReactNode {
   if (!search || !text) return text;
   const index = text.toLowerCase().indexOf(search.toLowerCase());
   if (index < 0) return text;

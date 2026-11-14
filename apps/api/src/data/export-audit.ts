@@ -6,17 +6,17 @@
 import type { Database } from "@anygriddb/db";
 
 /** What was exported: a view's rows, a base's file, or a report. */
-export const EXPORT_KINDS = [
+const EXPORT_KINDS = [
   "view",
   "base",
   "access_report",
   "change_trail",
   "sign_in_trail",
 ] as const;
-export type ExportKind = (typeof EXPORT_KINDS)[number];
+type ExportKind = (typeof EXPORT_KINDS)[number];
 
 /** An export as the trail keeps it, in the event's `new_value`. */
-export type ExportRecord = {
+type ExportRecord = {
   kind: ExportKind;
   /** `csv`, `json`, `xlsx`, `zip`. */
   format: string;

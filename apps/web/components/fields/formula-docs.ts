@@ -9,7 +9,7 @@ import type { FormulaFn } from "@anygriddb/core";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 
-export const FORMULA_GROUPS = [
+const FORMULA_GROUPS = [
   "number",
   "text",
   "logic",
@@ -18,7 +18,7 @@ export const FORMULA_GROUPS = [
   "row",
 ] as const;
 
-export type FormulaGroup = (typeof FORMULA_GROUPS)[number];
+type FormulaGroup = (typeof FORMULA_GROUPS)[number];
 
 export const FORMULA_GROUP_LABELS: Record<FormulaGroup, MessageDescriptor> = {
   number: msg`Numbers`,
@@ -29,7 +29,7 @@ export const FORMULA_GROUP_LABELS: Record<FormulaGroup, MessageDescriptor> = {
   row: msg`Row`,
 };
 
-export type FormulaDoc = {
+type FormulaDoc = {
   group: FormulaGroup;
   /** What follows the name: its arguments, in parentheses. */
   args: MessageDescriptor;

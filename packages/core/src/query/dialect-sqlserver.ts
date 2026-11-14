@@ -640,5 +640,3 @@ export const SQLSERVER: SqlDialect = {
   exactTextKey: (sql) => `${sql} collate ${BIN}`,
   unavailable,
 };
-
-export type { Bind };

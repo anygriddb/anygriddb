@@ -10,7 +10,7 @@ import {
  * that joins them. A nested group stays whole, so an OR never reads as an
  * AND.
  */
-export type FilterChip =
+type FilterChip =
   | { kind: "condition"; index: number; condition: FilterCondition }
   | { kind: "group"; index: number; count: number };
 

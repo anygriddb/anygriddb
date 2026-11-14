@@ -68,7 +68,7 @@ export type RowScope = {
   catalog: CatalogRows;
 };
 
-export type WriteMeta = {
+type WriteMeta = {
   /** The reason the person gave, checked against fields that require one. */
   reason?: string;
   /**
@@ -87,14 +87,14 @@ export type WriteMeta = {
   stagedShareId?: string;
 };
 
-export type LinkWrite = { column: string; targetIds: readonly string[] };
+type LinkWrite = { column: string; targetIds: readonly string[] };
 
-export type RowInput = {
+type RowInput = {
   values: Readonly<Record<string, CellValue>>;
   links?: readonly LinkWrite[];
 };
 
-export type RowUpdate = RowInput & {
+type RowUpdate = RowInput & {
   rowId: string;
   /**
    * What the writer saw in the fields they change. A client's table

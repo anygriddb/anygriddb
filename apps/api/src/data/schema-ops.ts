@@ -67,7 +67,7 @@ const UNIQUE_TYPES: ReadonlySet<FieldType> = new Set([
   "single_select",
 ]);
 
-export function physicalTableName(): string {
+function physicalTableName(): string {
   return `t_${randomBytes(16).toString("hex")}`;
 }
 
@@ -103,7 +103,7 @@ function assertUniqueLabel(
 }
 
 /** Resolves a column definition into a validated catalog row, without touching the database. */
-export function planColumn(
+function planColumn(
   definition: ColumnDefinition,
   existing: readonly { name: string; label: string }[],
   /** Names still held by fields in the trash, which keep their storage. */
@@ -688,7 +688,7 @@ export async function loadBaseRows(
   return loadCatalogRows(db, ids);
 }
 
-export async function cleanViews(
+async function cleanViews(
   tx: AuditTx,
   tableId: string,
   name: string,
@@ -866,7 +866,7 @@ export async function setPrimaryColumn(
   });
 }
 
-export type ColumnUpdate = {
+type ColumnUpdate = {
   name: string;
   label?: string;
   description?: string | null;
@@ -1202,17 +1202,4 @@ export async function previewConversion(
       ? (row.samples as Array<{ before: unknown; after: unknown }>)
       : [],
   };
-}
-
-export async function listBaseTables(
-  db: Database,
-  baseId: string,
-): Promise<TableRow[]> {
-  return db
-    .selectFrom("dataTables")
-    .selectAll()
-    .where("baseId", "=", baseId)
-    .where(liveTable())
-    .orderBy("position", "asc")
-    .execute();
 }

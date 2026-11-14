@@ -1,12 +1,10 @@
-export const SCOPES = ["base", "table", "row", "column"] as const;
-export type Scope = (typeof SCOPES)[number];
+export type Scope = "base" | "table" | "row" | "column";
 
 /**
  * `read` rows, `comment` on rows, `write` rows, `manage` the schema,
  * sharing, and integrations.
  */
-export const ACTIONS = ["read", "comment", "write", "manage"] as const;
-export type Action = (typeof ACTIONS)[number];
+export type Action = "read" | "comment" | "write" | "manage";
 
 export const ROLES = ["owner", "editor", "commenter", "viewer"] as const;
 export type Role = (typeof ROLES)[number];

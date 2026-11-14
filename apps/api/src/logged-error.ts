@@ -5,7 +5,7 @@
  * address a mail server refused, the row PostgreSQL would not take), and
  * a log outlives the data it speaks of.
  */
-export type LoggedError = {
+type LoggedError = {
   type: string;
   code?: string;
   constraint?: string;

@@ -126,7 +126,7 @@ export function formatAgo(
   return format.format(Math.round(seconds / 86_400), "day");
 }
 
-export function formatDuration(seconds: number, format = "h:mm"): string {
+function formatDuration(seconds: number, format = "h:mm"): string {
   const total = Math.max(0, Math.round(seconds));
   const days = Math.floor(total / 86_400);
   const hours = Math.floor(
@@ -143,7 +143,7 @@ export function formatDuration(seconds: number, format = "h:mm"): string {
   return `${hours}:${two(minutes)}`;
 }
 
-export type LinkValue = { id: string; label: string };
+type LinkValue = { id: string; label: string };
 
 export function isLinkArray(value: unknown): value is LinkValue[] {
   return (

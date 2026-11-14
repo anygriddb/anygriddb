@@ -46,7 +46,7 @@ import {
 import { sourcePools } from "../sources/pools.js";
 import { claimStagedAttachments } from "./staged-attachments.js";
 
-export const READ_TIMEOUT = "15s";
+const READ_TIMEOUT = "15s";
 
 export type RowRecord = Record<string, unknown> & { id: string };
 
@@ -105,7 +105,7 @@ export async function readTransaction<T>(
   return readWithin(db, READ_TIMEOUT, body);
 }
 
-export type GroupRow = {
+type GroupRow = {
   keys: unknown[];
   depth: number;
   count: number;
@@ -113,7 +113,7 @@ export type GroupRow = {
   start?: number;
 };
 
-export type GroupsWanted = "none" | "counts" | "starts";
+type GroupsWanted = "none" | "counts" | "starts";
 
 /**
  * The groups as a read returns them. Starts are kept only when every
@@ -147,7 +147,7 @@ function groupRows(
 }
 
 /** Above this many rows by its statistics, a table's total is estimated. */
-export const ESTIMATE_FROM = 10_000;
+const ESTIMATE_FROM = 10_000;
 
 function parseEstimate(
   row: Record<string, unknown> | undefined,

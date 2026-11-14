@@ -18,7 +18,7 @@ export const SOCKET_OPTIONS = {
   options: { maxPayload: MAX_MESSAGE_CHARS },
 } as const;
 /** How often each socket is checked and told the link is alive (ADR 0049). */
-export const BEAT_MS = 25_000;
+const BEAT_MS = 25_000;
 const BEAT = JSON.stringify({ type: "beat" });
 const token = z.string().regex(CELL_TOKEN);
 const cellValue = z.union([
@@ -110,15 +110,15 @@ type SocketState = {
   alive: boolean;
 };
 type GridDecision = "ok" | "denied" | "enroll";
-export type GridAuthorizer = (
+type GridAuthorizer = (
   userId: string,
   channel: string,
   action: "read" | "write",
 ) => Promise<GridDecision>;
 /** Whether the session that opened the socket is still live. */
-export type SessionAlive = (tokenHash: string) => Promise<boolean>;
+type SessionAlive = (tokenHash: string) => Promise<boolean>;
 /** Of these sessions, the ones still live: one question for a round. */
-export type SessionsAlive = (
+type SessionsAlive = (
   tokenHashes: readonly string[],
 ) => Promise<ReadonlySet<string>>;
 

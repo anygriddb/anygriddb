@@ -114,7 +114,7 @@ function definitionOf(column: ColumnRow): ColumnDefinition {
 }
 
 /** Stable key from a table name for cross-references inside the file. */
-export function tableKey(name: string, used: Set<string>): string {
+function tableKey(name: string, used: Set<string>): string {
   const base = deriveColumnName(name, new Set()).slice(0, 48) || "table";
   let key = base;
   for (let n = 2; used.has(key); n += 1) {
@@ -135,7 +135,7 @@ function linkIds(value: unknown): string[] {
 }
 
 /** The attachments a snapshot's cells name, by key: what its archive holds. */
-export type SnapshotAttachments = Map<string, { name: string; size: number }>;
+type SnapshotAttachments = Map<string, { name: string; size: number }>;
 
 /**
  * The base's members with a role of their own, by email: a group's roles
@@ -464,7 +464,7 @@ async function describeCells(
 }
 
 /** A snapshot written out: JSON bytes, or an archive in a local file. */
-export type PackedSnapshot =
+type PackedSnapshot =
   | { kind: "json"; bytes: Buffer; filename: string }
   | { kind: "zip"; path: string; size: number; filename: string };
 
@@ -544,7 +544,7 @@ export async function packSnapshot(
 }
 
 /** What an import could not bring as it was. */
-export type SnapshotImportReport = {
+type SnapshotImportReport = {
   /** Files stored again, and those the snapshot lacked or that failed. */
   files: number;
   filesMissing: number;

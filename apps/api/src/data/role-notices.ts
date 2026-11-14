@@ -10,7 +10,7 @@ import type { Publisher } from "../realtime/bus.js";
 import { gridChannel } from "../realtime/channels.js";
 
 /** What was given: to a person, to several at once, to a group, or to a group's new member. */
-export type RoleGift =
+type RoleGift =
   | { to: "person"; userId: string; role: Role }
   | { to: "people"; count: number }
   | { to: "group"; groupId: string; role: Role }

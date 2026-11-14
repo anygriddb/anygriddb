@@ -1,8 +1,5 @@
 import { useState } from "react";
 import { UndoStack, type UndoSizes } from "../../lib/undo-stack";
-
-export type { UndoEntry } from "../../lib/undo-stack";
-
 /** Client-side undo stack for this table session (`UndoStack`). */
 export function useUndo() {
   // What rendering needs from the stack, kept in state so a change shows.

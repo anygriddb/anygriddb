@@ -1,5 +1,5 @@
 /** The keys of a press that undo needs. */
-export type UndoKeys = {
+type UndoKeys = {
   key: string;
   ctrlKey: boolean;
   metaKey: boolean;

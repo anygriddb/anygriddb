@@ -3,7 +3,7 @@ import type { Database } from "@anygriddb/db";
 import { hashSessionToken, isSessionToken } from "./session.js";
 
 export const MFA_COOKIE = "__Host-ag_mfa";
-export const MFA_TTL_MS = 5 * 60 * 1000;
+const MFA_TTL_MS = 5 * 60 * 1000;
 export const MFA_ATTEMPT_LIMIT = 5;
 
 export async function createLoginChallenge(

@@ -15,7 +15,7 @@ const PHONE = /^\+?[0-9 ().-]{3,32}$/;
 const ISO_DATETIME =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})$/;
 
-export const MAX_ARRAY_ITEMS = 100;
+const MAX_ARRAY_ITEMS = 100;
 
 /** Wire shape of a cell. Arrays hold option names, user ids, or file keys. */
 export const cellValueSchema = z.union([
@@ -284,7 +284,7 @@ function splitList(raw: string): string[] {
     .filter((item) => item.length > 0);
 }
 
-export type CoerceContext = {
+type CoerceContext = {
   /** Resolves a pasted user name or email to a user id. */
   resolveUser?: (text: string) => string | undefined;
 };

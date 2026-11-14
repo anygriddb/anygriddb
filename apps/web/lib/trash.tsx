@@ -5,7 +5,7 @@ import { trpc, useTRPC } from "./trpc";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../lib/errors";
 
-export type TrashKind = "base" | "table" | "column" | "view";
+type TrashKind = "base" | "table" | "column" | "view";
 
 /**
  * Days an item waits in the trash before the API purges it: the

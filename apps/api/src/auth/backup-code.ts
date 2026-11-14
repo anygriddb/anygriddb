@@ -19,7 +19,7 @@ export function generateBackupCode(): string {
   return code;
 }
 
-export function normalizeBackupCode(code: string): string {
+function normalizeBackupCode(code: string): string {
   return code.trim().replace(/-/g, "").toUpperCase();
 }
 

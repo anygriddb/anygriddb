@@ -14,7 +14,7 @@ import {
 import { useSession } from "../../lib/session";
 
 /** Every page of Administration that has an address of its own. */
-export type AdminPath =
+type AdminPath =
   | "/admin"
   | "/admin/people/accounts"
   | "/admin/people/groups"

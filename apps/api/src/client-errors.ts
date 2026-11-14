@@ -15,7 +15,7 @@ import { publicErrorBody, stripCrlf } from "./http.js";
 import { logUrl } from "./log-url.js";
 import { clientErrorReported } from "./observability.js";
 
-export const CLIENT_ERROR_KINDS = ["render", "error", "rejection"] as const;
+const CLIENT_ERROR_KINDS = ["render", "error", "rejection"] as const;
 
 const MAX_STACK_LINES = 30;
 const MAX_LINE_CHARS = 300;

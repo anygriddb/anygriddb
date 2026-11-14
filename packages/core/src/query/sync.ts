@@ -19,7 +19,7 @@ import { sealedFields } from "./seal";
 export const SYNC_SCHEMA = "ag_sync";
 
 /** Where a copy column's value comes from in a row the read engine read. */
-export type CopySource =
+type CopySource =
   | { kind: "id" }
   | { kind: "key"; index: number }
   | { kind: "field"; name: string; link: boolean };

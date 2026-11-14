@@ -62,7 +62,7 @@ export function booleanAppearance(column: CatalogColumn): BooleanAppearance {
   return asEnum(raw, BOOLEAN_APPEARANCES) ?? "check";
 }
 
-export type RatingVisual = {
+type RatingVisual = {
   max: number;
   icon: (typeof RATING_ICONS)[number];
   color: OptionColor | null;

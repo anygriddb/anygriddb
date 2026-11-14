@@ -166,7 +166,7 @@ export function stableOrderSql(table: EngineTable, alias: string): string[] {
     : [idSql(table, alias)];
 }
 
-export type SystemField =
+type SystemField =
   | "ag_status"
   | "ag_seq"
   | "ag_created_at"

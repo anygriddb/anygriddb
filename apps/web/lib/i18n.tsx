@@ -14,7 +14,7 @@ import {
   type ReactNode,
 } from "react";
 
-export type Locale = "fr" | "en";
+type Locale = "fr" | "en";
 
 const STORAGE_KEY = "ag_locale";
 

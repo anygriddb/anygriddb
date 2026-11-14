@@ -15,7 +15,7 @@
 import pg from "pg";
 
 const CHANNEL = "anygriddb_realtime";
-export const MAX_PAYLOAD_BYTES = 7_900;
+const MAX_PAYLOAD_BYTES = 7_900;
 
 export type Publisher = {
   publish: (channel: string, message: string) => Promise<unknown>;

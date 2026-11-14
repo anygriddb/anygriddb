@@ -1,7 +1,7 @@
 import rateLimit from "@fastify/rate-limit";
 import type { FastifyInstance } from "fastify";
 
-export type RateBucket =
+type RateBucket =
   "auth" | "share" | "api" | "upload" | "formUpload" | "report" | "app";
 
 /** Requests allowed per minute and per client address, by bucket. */

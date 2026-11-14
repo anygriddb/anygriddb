@@ -56,7 +56,7 @@ export async function hasPassword(
  * or through an identity provider that binds or provisions it
  * (`provider`), which has no password to set.
  */
-export type PasswordState = "set" | "unset" | "provider";
+type PasswordState = "set" | "unset" | "provider";
 
 export async function passwordState(
   db: Database,

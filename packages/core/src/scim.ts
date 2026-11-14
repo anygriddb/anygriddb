@@ -7,22 +7,22 @@ import { z } from "zod";
 import { isEmail } from "./cell-values";
 import { labelSchema } from "./names";
 
-export const SCIM_USER = "urn:ietf:params:scim:schemas:core:2.0:User";
-export const SCIM_GROUP = "urn:ietf:params:scim:schemas:core:2.0:Group";
-export const SCIM_LIST = "urn:ietf:params:scim:api:messages:2.0:ListResponse";
+const SCIM_USER = "urn:ietf:params:scim:schemas:core:2.0:User";
+const SCIM_GROUP = "urn:ietf:params:scim:schemas:core:2.0:Group";
+const SCIM_LIST = "urn:ietf:params:scim:api:messages:2.0:ListResponse";
 export const SCIM_PATCH = "urn:ietf:params:scim:api:messages:2.0:PatchOp";
-export const SCIM_ERROR = "urn:ietf:params:scim:api:messages:2.0:Error";
+const SCIM_ERROR = "urn:ietf:params:scim:api:messages:2.0:Error";
 const SCIM_CONFIG =
   "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig";
 const SCIM_RESOURCE_TYPE = "urn:ietf:params:scim:schemas:core:2.0:ResourceType";
 const SCIM_SCHEMA = "urn:ietf:params:scim:schemas:core:2.0:Schema";
 
 /** Results one page of a list holds, at most. */
-export const SCIM_MAX_PAGE = 200;
+const SCIM_MAX_PAGE = 200;
 /** Members one group holds, at most. */
-export const SCIM_MAX_MEMBERS = 10_000;
+const SCIM_MAX_MEMBERS = 10_000;
 
-export type ScimErrorType =
+type ScimErrorType =
   | "invalidFilter"
   | "invalidPath"
   | "invalidSyntax"
@@ -253,7 +253,7 @@ export function parseScimUser(
   };
 }
 
-export const scimPatchSchema = z
+const scimPatchSchema = z
   .object({
     schemas: z.array(z.string()).refine((list) => list.includes(SCIM_PATCH)),
     Operations: z

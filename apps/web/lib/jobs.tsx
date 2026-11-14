@@ -43,7 +43,7 @@ export function jobPercent(update: {
   return Math.min(100, Math.floor((update.done / update.total) * 100));
 }
 
-export function jobFileUrl(jobId: string): string {
+function jobFileUrl(jobId: string): string {
   return `/api/jobs/${jobId}/file`;
 }
 

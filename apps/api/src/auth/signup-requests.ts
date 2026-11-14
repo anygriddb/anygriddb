@@ -11,7 +11,7 @@ import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 
 /** A link works for a day. */
-export const SIGNUP_LINK_TTL_MS = 24 * 60 * 60 * 1000;
+const SIGNUP_LINK_TTL_MS = 24 * 60 * 60 * 1000;
 /**
  * Live requests one address may have: past this, a sign-up gets the same
  * answer and mails nothing, so nobody can flood a mailbox with links.
@@ -24,7 +24,7 @@ function hashSignupToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-export type SignupRequest = {
+type SignupRequest = {
   id: string;
   email: string;
   displayName: string;

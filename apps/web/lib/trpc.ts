@@ -59,16 +59,3 @@ export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
 
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
 export type RouterInputs = inferRouterInputs<AppRouter>;
-
-/** Stable message of a failed call, never a stack or SQL text. */
-export function errorMessage(cause: unknown): string {
-  if (
-    cause &&
-    typeof cause === "object" &&
-    "message" in cause &&
-    typeof cause.message === "string"
-  ) {
-    return cause.message;
-  }
-  return "Request rejected";
-}

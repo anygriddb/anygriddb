@@ -10,7 +10,7 @@ export const SESSION_COOKIE = "__Host-ag_session";
  * absolute lifetime in any case. Both are the instance's (ADR 0043): 15
  * minutes and 12 hours by default.
  */
-export type SessionWindows = { idleMs: number; maxMs: number };
+type SessionWindows = { idleMs: number; maxMs: number };
 
 /**
  * Session cookies are HttpOnly, SameSite=Strict, and always Secure: the

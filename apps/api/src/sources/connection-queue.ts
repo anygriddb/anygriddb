@@ -1,14 +1,14 @@
 import { AppError } from "@anygriddb/core";
 
 /** How a queue opens, checks, and closes one engine's connections. */
-export type ConnectionHooks<C> = {
+type ConnectionHooks<C> = {
   open: () => Promise<C>;
   /** False once the server or the driver has dropped the connection. */
   usable: (connection: C) => boolean;
   close: (connection: C) => Promise<void> | void;
 };
 
-export type ConnectionQueue<C> = {
+type ConnectionQueue<C> = {
   acquire: () => Promise<C>;
   /** Gives a connection back; a broken one is closed and its place handed on. */
   release: (connection: C, broken: boolean) => void;
@@ -22,7 +22,7 @@ export type ConnectionQueue<C> = {
  * How long a read waits for a free connection, as a PostgreSQL source's
  * pool does (`connectionTimeoutMillis`): past it, the source is busy.
  */
-export const QUEUE_WAIT_MS = 10_000;
+const QUEUE_WAIT_MS = 10_000;
 
 /**
  * At most `limit` connections to one source, kept idle between uses, for

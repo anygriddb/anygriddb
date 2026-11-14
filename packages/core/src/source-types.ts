@@ -6,7 +6,7 @@
 import type { FieldType } from "./field-types";
 import { cutAt, cutAtSpace, withoutOuterGroup } from "./plain-text";
 
-export type SourceColumnType = {
+type SourceColumnType = {
   /** The engine's own name of the type, such as `numeric(12,2)`. */
   type: string;
   /** PostgreSQL's type category, or the engine's family of types. */

@@ -1,6 +1,6 @@
 import { toDecimalString } from "@anygriddb/core";
 
-export type SelectionSummary = {
+type SelectionSummary = {
   /** Cells the range covers among the loaded rows. */
   cells: number;
   /** Cells holding a value. */

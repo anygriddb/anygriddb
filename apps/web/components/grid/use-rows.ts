@@ -3,7 +3,7 @@ import { useChannel } from "../../lib/realtime";
 import { trpc, type RouterInputs } from "../../lib/trpc";
 import type { RowItem } from "../../lib/types";
 
-export const PAGE_SIZE = 100;
+const PAGE_SIZE = 100;
 /** A page that failed is asked again no sooner than this. */
 const RETRY_AFTER_MS = 5_000;
 /**
@@ -20,7 +20,7 @@ const MAX_ROWS_PER_READ = 500;
 
 type ReadInput = RouterInputs["rows"]["read"];
 
-export type RowsQuery = Omit<
+type RowsQuery = Omit<
   ReadInput,
   "offset" | "limit" | "tableId" | "timeZone" | "withGroups"
 >;
@@ -40,7 +40,7 @@ export type Groups = Array<{
  * where every stack starts (a kanban); or one page of up to 1000 rows
  * (the views that lay out what they hold on the client).
  */
-export type RowsLayout = "pages" | "grouped" | "stacks" | "onePage";
+type RowsLayout = "pages" | "grouped" | "stacks" | "onePage";
 
 /** What rendering reads; a new object whenever a loaded row changes. */
 type Snapshot = {

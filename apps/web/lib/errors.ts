@@ -10,7 +10,7 @@ import { useLingui } from "@lingui/react";
 import { useCallback } from "react";
 import { knownText } from "./known-text";
 
-export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
+const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   invalid_credentials: msg`Invalid email or password`,
   invalid_code: msg`Invalid code`,
   webauthn_rejected: msg`The passkey was not accepted`,
@@ -231,7 +231,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
 /** A message and what it is about, such as a field: `Champ inconnu : prix`. */
 const WITH_DETAIL = msg`${{ message: "" }}: ${{ detail: "" }}`;
 
-export type Reason = { code: ErrorCode; detail?: string };
+type Reason = { code: ErrorCode; detail?: string };
 
 function asReason(value: unknown): Reason | undefined {
   if (!value || typeof value !== "object" || !("code" in value)) return;

@@ -38,7 +38,7 @@ const READ_RETENTION_DAYS = 90;
 const UNREAD_RETENTION_DAYS = 180;
 
 /** Who among `userIds` can still read the table: nobody is told about rows they cannot see. */
-export async function readersOf(
+async function readersOf(
   db: Database,
   table: { id: string; baseId: string },
   userIds: readonly string[],

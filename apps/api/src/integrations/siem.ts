@@ -33,7 +33,7 @@ export type SiemRow = {
   updatedBy: string | null;
 };
 
-export type PublicSiem = {
+type PublicSiem = {
   configured: boolean;
   url: string | null;
   hasSecret: boolean;
@@ -48,7 +48,7 @@ export const siemUpdateSchema = z
   })
   .strict();
 
-export type SiemUpdate = z.infer<typeof siemUpdateSchema>;
+type SiemUpdate = z.infer<typeof siemUpdateSchema>;
 
 export function publicSiem(row: SiemRow | null): PublicSiem {
   if (!row) {
@@ -143,7 +143,7 @@ export async function clearSiem(
   });
 }
 
-export type SiemPayload = {
+type SiemPayload = {
   action: AuthAction;
   userId: string | null;
   actorId: string | null;

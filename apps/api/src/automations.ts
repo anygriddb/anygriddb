@@ -63,7 +63,7 @@ export type AutomationDeps = {
 };
 
 /** Runs one automation may start per minute, whatever triggers it. */
-export const RUNS_PER_MINUTE = 300;
+const RUNS_PER_MINUTE = 300;
 const RUN_RETENTION_DAYS = 30;
 const MAX_EMAIL_RECIPIENTS = 10;
 

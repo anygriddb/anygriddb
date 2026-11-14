@@ -34,7 +34,7 @@ export type KeyRing = {
 };
 
 /** The identifier of a key given without one. */
-export const DEFAULT_KEY_ID = "0";
+const DEFAULT_KEY_ID = "0";
 
 const KEY_BYTES = 32;
 const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;

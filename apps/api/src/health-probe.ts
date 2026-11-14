@@ -11,7 +11,7 @@ import { isIP } from "node:net";
 import { join } from "node:path";
 import { checkServerIdentity, rootCertificates } from "node:tls";
 
-export type HealthProbe = {
+type HealthProbe = {
   port: number;
   /** The name the certificate must cover: PUBLIC_URL's host. */
   host: string;
