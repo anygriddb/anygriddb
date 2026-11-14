@@ -51,8 +51,8 @@ jobs:
             turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-unit-
             turbo-${{ runner.os }}-
 
-      - name: Formatting and conventions
-        run: pnpm format:check && pnpm check:conventions
+      - name: Formatting, conventions, and the scripts' own tests
+        run: pnpm format:check && pnpm check:conventions && pnpm test:scripts
 
       - name: Lint, typecheck, test
         env:

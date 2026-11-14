@@ -31,10 +31,11 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
-    "format": "prettier --write . --ignore-path .gitignore --ignore-path .prettierignore --ignore-path .git/info/exclude",
-    "format:check": "prettier --check . --ignore-path .gitignore --ignore-path .prettierignore --ignore-path .git/info/exclude",
+    "format": "prettier --write . --ignore-path .gitignore --ignore-path .prettierignore --ignore-path \"$(git rev-parse --git-path info/exclude)\"",
+    "format:check": "prettier --check . --ignore-path .gitignore --ignore-path .prettierignore --ignore-path \"$(git rev-parse --git-path info/exclude)\"",
     "check:conventions": "node scripts/check-conventions.mjs",
-    "check": "pnpm format:check && pnpm check:conventions && turbo run lint typecheck test",
+    "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
+    "check": "pnpm format:check && pnpm check:conventions && pnpm test:scripts && turbo run lint typecheck test",
     "test:integration": "turbo test:integration",
     "test:samples": "pnpm --filter @anygriddb/api test:samples",
     "test:e2e": "turbo test:e2e",
@@ -45,7 +46,7 @@
     "vps:down": "./scripts/vps/down.sh",
     "vps:run": "./scripts/vps/run.sh",
     "prepare": "husky",
-    "preinstall": "npx only-allow pnpm"
+    "preinstall": "node -e \"if (!(process.env.npm_config_user_agent ?? '').startsWith('pnpm/')) { console.error('Install with pnpm: see CONTRIBUTING.md.'); process.exit(1); }\""
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
