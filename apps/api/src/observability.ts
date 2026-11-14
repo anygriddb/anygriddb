@@ -174,8 +174,25 @@ let tracer: Tracer = trace.getTracer("anygriddb");
  * Starts sending spans to the operator's OTLP endpoint, or does nothing.
  * The SDK loads only then. Returns what flushes and stops it.
  */
+/** `k=v,k2=v2` as the OpenTelemetry env convention spells headers. */
+function otlpHeaders(
+  raw: string | undefined,
+): Record<string, string> | undefined {
+  if (!raw) return undefined;
+  const headers: Record<string, string> = {};
+  for (const part of raw.split(",")) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq <= 0) continue;
+    headers[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1).trim();
+  }
+  return Object.keys(headers).length > 0 ? headers : undefined;
+}
+
 export async function startTracing(settings: {
   endpoint?: string | undefined;
+  headers?: string | undefined;
   serviceName: string;
   version: string;
 }): Promise<() => Promise<void>> {
@@ -187,6 +204,7 @@ export async function startTracing(settings: {
       import("@opentelemetry/exporter-trace-otlp-http"),
       import("@opentelemetry/resources"),
     ]);
+  const headers = otlpHeaders(settings.headers);
   const provider = new TracerProvider({
     resource: resources.resourceFromAttributes({
       "service.name": settings.serviceName,
@@ -196,6 +214,7 @@ export async function startTracing(settings: {
       new BatchSpanProcessor({
         exporter: new otlp.OTLPTraceExporter({
           url: `${settings.endpoint.replace(/\/$/, "")}/v1/traces`,
+          ...(headers ? { headers } : {}),
         }),
       }),
     ],

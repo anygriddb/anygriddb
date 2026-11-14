@@ -21,7 +21,7 @@ import { rotateKeys, type KeyRotation } from "./auth/key-rotation.js";
 import { mintKey } from "./auth/key-ring.js";
 import { recordBackup } from "./alerts.js";
 import { BUILD, describeBuild } from "./build-info.js";
-import { readEncryptionKey, readFileSettings } from "./env.js";
+import { readEncryptionKey, readFileSettings, secretFromEnv } from "./env.js";
 import { healthAuthorities, probeHealth, publicHost } from "./health-probe.js";
 import {
   issueServiceCertificates,
@@ -138,14 +138,22 @@ async function migrate(args: string[], settings: FileSettings) {
   return report.failed === 0 ? 0 : 1;
 }
 
+/** The database's address, from DATABASE_URL or the file DATABASE_URL_FILE names. */
+function databaseUrl(): string {
+  const url = secretFromEnv(process.env, "DATABASE_URL");
+  if (!url) {
+    throw new UsageError("DATABASE_URL or DATABASE_URL_FILE is required");
+  }
+  return url;
+}
+
 async function sweep(args: string[], settings: FileSettings) {
   const { values } = parseArgs({
     args,
     options: { "dry-run": { type: "boolean", default: false } },
     strict: true,
   });
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new UsageError("DATABASE_URL is required");
+  const url = databaseUrl();
   const files = createFileStore(settings);
   const { db, close } = createDb(url, { max: 2 });
   let failed = 0;
@@ -270,8 +278,7 @@ function describeKeys(report: KeyRotation, current: string): string {
 
 /** Counts sealed values by key and, for `rotate`, seals the old ones again. */
 async function keys(write: boolean): Promise<number> {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new UsageError("DATABASE_URL is required");
+  const url = databaseUrl();
   const ring = readEncryptionKey();
   const { db, close } = createDb(url, { max: 2 });
   try {
@@ -336,8 +343,7 @@ async function backupsRecord(args: string[]): Promise<number> {
   if (bytes !== null && (!Number.isSafeInteger(bytes) || bytes < 0)) {
     throw new UsageError("--bytes must be a whole number");
   }
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new UsageError("DATABASE_URL is required");
+  const url = databaseUrl();
   const { db, close } = createDb(url, { max: 1 });
   try {
     await recordBackup(db, {

@@ -100,6 +100,21 @@ TLS keys. Lose it and they cannot be read again. To change it, follow
 "Changing the encryption key" below: changed alone, it opens nothing of
 what the earlier key sealed.
 
+### Secrets from files
+
+Each secret AnyGridDB reads from its environment can come from a file
+instead: set `NAME_FILE` to the file's path in the container, and leave
+`NAME` unset. That is how a container's secret store hands a value over
+(Docker and Podman secrets under `/run/secrets`, a Kubernetes secret
+mounted as a volume), and it keeps the value out of `docker inspect`
+and of the process's environment. It holds for `DATABASE_URL`,
+`AUTH_ENCRYPTION_KEY`, `AUTH_ENCRYPTION_PREVIOUS_KEYS`, `S3_ACCESS_KEY`,
+`S3_SECRET_KEY`, `SMTP_PASSWORD`, `OIDC_CLIENT_SECRET`, `METRICS_TOKEN`,
+and `OTEL_EXPORTER_OTLP_HEADERS`, for the application and for the
+`anygriddb` commands alike. A line break at the file's end is ignored.
+Setting both `NAME` and `NAME_FILE` is refused at start: one of them
+would be ignored without a word.
+
 ### Encryption at rest
 
 What `AUTH_ENCRYPTION_KEY` seals stays sealed wherever it is copied. The

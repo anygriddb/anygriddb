@@ -1,16 +1,35 @@
 import { randomBytes } from "node:crypto";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { isLoopback, readEnv } from "./env.js";
+import { isLoopback, readEnv, secretFromEnv } from "./env.js";
 
 const base = {
   DATABASE_URL: "postgres://anygriddb:secret@localhost:5432/anygriddb",
   AUTH_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
 };
 
+describe("secretFromEnv", () => {
+  it("reads NAME, or NAME_FILE, and refuses both", () => {
+    const dir = mkdtempSync(join(tmpdir(), "anygriddb-secret-"));
+    const path = join(dir, "token");
+    writeFileSync(path, "from-file-value\n", "utf8");
+    expect(secretFromEnv({ TOKEN: "from-env" }, "TOKEN")).toBe("from-env");
+    expect(secretFromEnv({ TOKEN_FILE: path }, "TOKEN")).toBe(
+      "from-file-value",
+    );
+    expect(() =>
+      secretFromEnv({ TOKEN: "from-env", TOKEN_FILE: path }, "TOKEN"),
+    ).toThrow(/TOKEN and TOKEN_FILE cannot both be set/);
+    expect(secretFromEnv({}, "TOKEN")).toBeUndefined();
+  });
+});
+
 describe("readEnv", () => {
   it("rejects a missing or short encryption key", () => {
     expect(() => readEnv({ ...base, AUTH_ENCRYPTION_KEY: "" })).toThrow(
-      /AUTH_ENCRYPTION_KEY is required/,
+      /AUTH_ENCRYPTION_KEY or AUTH_ENCRYPTION_KEY_FILE is required/,
     );
     expect(() =>
       readEnv({
@@ -39,6 +58,28 @@ describe("readEnv", () => {
     ).toThrow(/AUTH_ENCRYPTION_PREVIOUS_KEYS must be 32 bytes/);
     expect(env.PORT).toBe(4000);
     expect(env.DATABASE_URL).toBe(base.DATABASE_URL);
+  });
+
+  it("reads DATABASE_URL and AUTH_ENCRYPTION_KEY from files", () => {
+    const dir = mkdtempSync(join(tmpdir(), "anygriddb-env-"));
+    const key = randomBytes(32).toString("base64");
+    const url = "postgres://anygriddb:secret@localhost:5432/anygriddb";
+    const keyPath = join(dir, "key");
+    const urlPath = join(dir, "url");
+    writeFileSync(keyPath, `${key}\n`, "utf8");
+    writeFileSync(urlPath, `${url}\n`, "utf8");
+    const env = readEnv({
+      DATABASE_URL_FILE: urlPath,
+      AUTH_ENCRYPTION_KEY_FILE: keyPath,
+    });
+    expect(env.DATABASE_URL).toBe(url);
+    expect(env.AUTH_ENCRYPTION_KEY.currentId).toBe("0");
+    expect(() =>
+      readEnv({
+        ...base,
+        DATABASE_URL_FILE: urlPath,
+      }),
+    ).toThrow(/DATABASE_URL and DATABASE_URL_FILE cannot both be set/);
   });
 
   it("keeps the origin of PUBLIC_URL, and refuses the name it replaced", () => {
