@@ -132,6 +132,30 @@ and `OTEL_EXPORTER_OTLP_HEADERS`, for the application and for the
 Setting both `NAME` and `NAME_FILE` is refused at start: one of them
 would be ignored without a word.
 
+The Compose files of this repository hand each value over themselves,
+and do not start without `POSTGRES_PASSWORD` and `AUTH_ENCRYPTION_KEY`
+in `.env` (`DATABASE_URL` and `AUTH_ENCRYPTION_KEY`, on a PostgreSQL of
+your own): with these files, those two stay in `.env`. The other secrets
+they pass (`S3_ACCESS_KEY` and `S3_SECRET_KEY` of a store of your own,
+`METRICS_TOKEN`, `OTEL_EXPORTER_OTLP_HEADERS`) can come from a file,
+through a Compose file of your own, given after the others, that mounts
+the file and names it. The application runs as user 1000, who must be
+able to read it:
+
+```yaml
+# compose.secrets.yml
+services:
+  app:
+    environment:
+      METRICS_TOKEN_FILE: /run/secrets/metrics_token
+    secrets:
+      - metrics_token
+
+secrets:
+  metrics_token:
+    file: ./metrics_token
+```
+
 ### Encryption at rest
 
 What `AUTH_ENCRYPTION_KEY` seals stays sealed wherever it is copied. The
@@ -499,9 +523,27 @@ The scripts take `docker compose` options after their arguments
 a backup made with `-f compose.yml -f compose.s3.yml` is restored with
 them, into a stack that runs the object store.
 
+An install from the published image holds no script: they are in the
+repository, at the release's tag. Take a checkout of it beside the
+install's folder, and name the files the stack runs with, by their full
+paths:
+
+```sh
+git clone --depth 1 --branch "v$version" \
+  https://github.com/anygriddb/anygriddb.git checkout
+cd anygriddb   # the folder of compose.yml and .env
+ENV_FILE="$PWD/.env" BACKUP_DIR="$PWD/backups" \
+  ../checkout/scripts/backup.sh \
+  -f "$PWD/compose.yml" -f "$PWD/compose.release.yml" \
+  --env-file "$PWD/image-pin.env"
+```
+
+`scripts/restore.sh` takes the backup's folder, then the same options,
+with the same `ENV_FILE`.
+
 A base's owner can also save one base, from its settings: a
 `.anygriddb.json` file, or a `.anygriddb.zip` archive with its
-attachments (ADR 0039), imported again from "Nouvelle base", on this
+attachments (ADR 0039), imported again from "New base", on this
 instance or another. While an archive is written or read, the API keeps
 a copy in the system's temporary folder: allow for the largest base's
 files there.
