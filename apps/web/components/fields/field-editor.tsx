@@ -15,6 +15,7 @@ import {
   ROLLUP_FNS,
   rollupFitsTarget,
   SINGLE_SELECT_APPEARANCES,
+  TEXT_APPEARANCES,
   type FieldType,
 } from "@anygriddb/core";
 import {
@@ -39,6 +40,7 @@ import type {
   CatalogTable,
   Collaborator,
 } from "../../lib/types";
+import { CODE_FIELD_TYPES } from "./field-appearance";
 import { FIELD_GROUPS, FieldIcon } from "./field-meta";
 import { FieldTypePicker } from "./field-type-picker";
 import { useLingui } from "@lingui/react/macro";
@@ -420,6 +422,24 @@ export function FieldEditor({
     fieldType !== editing.fieldType &&
     !editing.fieldType.startsWith("relation");
 
+  // The code a short text is drawn as, where the field holds one.
+  const drawnAs =
+    CODE_FIELD_TYPES.has(fieldType) &&
+    (appearance === "qr" || appearance === "barcode")
+      ? appearance
+      : null;
+  // A formula's settings are the server's to keep (its expression, its
+  // formats): only how its text is drawn is sent, with the formats it had,
+  // and nothing at all when no code is asked for or taken away.
+  const formulaConfig =
+    drawnAs || TEXT_APPEARANCES.some((value) => value === config.appearance)
+      ? {
+          ...(config.number ? { number: config.number } : {}),
+          ...(config.date ? { date: config.date } : {}),
+          ...(drawnAs ? { appearance: drawnAs } : {}),
+        }
+      : undefined;
+
   const builtConfig = useMemo(() => {
     switch (fieldType) {
       case "single_select":
@@ -448,6 +468,17 @@ export function FieldEditor({
           (BOOLEAN_APPEARANCES as readonly string[]).includes(appearance)
             ? { appearance }
             : {}),
+        };
+      case "text":
+      case "url":
+      case "autonumber":
+      case "row_id":
+        return {
+          // A default given through the API stays: no control here sets it.
+          ...(fieldType === "text" && typeof config.defaultValue === "string"
+            ? { defaultValue: config.defaultValue }
+            : {}),
+          ...(drawnAs ? { appearance: drawnAs } : {}),
         };
       case "number":
         return {
@@ -489,6 +520,8 @@ export function FieldEditor({
         return {};
     }
   }, [
+    config.defaultValue,
+    drawnAs,
     buttonLabel,
     buttonAction,
     buttonUrl,
@@ -600,7 +633,7 @@ export function FieldEditor({
               required: requirable ? required : undefined,
               unique:
                 UNIQUE_TYPES.has(fieldType) && !external ? unique : undefined,
-              config: fieldType === "formula" ? undefined : builtConfig,
+              config: fieldType === "formula" ? formulaConfig : builtConfig,
               formulaSource: fieldType === "formula" ? formula : undefined,
             },
           });
@@ -662,7 +695,7 @@ export function FieldEditor({
                   ? { filter: linkedCondition }
                   : {}
                 : fieldType === "formula"
-                  ? undefined
+                  ? formulaConfig
                   : builtConfig,
           formulaSource: fieldType === "formula" ? formula : undefined,
           optionRenames: renames.length > 0 ? renames : undefined,
@@ -801,6 +834,30 @@ export function FieldEditor({
                 </Select>
               </div>
             </>
+          ) : null}
+
+          {CODE_FIELD_TYPES.has(fieldType) ? (
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="field-appearance">{t`Display`}</Label>
+              <Select
+                id="field-appearance"
+                value={drawnAs ?? "text"}
+                onChange={(event) =>
+                  setAppearance(
+                    event.target.value === "text" ? "" : event.target.value,
+                  )
+                }
+              >
+                <option value="text">{t`Text`}</option>
+                <option value="qr">{t`QR code`}</option>
+                <option value="barcode">{t`Barcode`}</option>
+              </Select>
+              {drawnAs ? (
+                <p className="text-xs text-muted-foreground">
+                  {t`An expanded row draws this field's text as a code, for a scanner to read.`}
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           {fieldType === "boolean" ? (

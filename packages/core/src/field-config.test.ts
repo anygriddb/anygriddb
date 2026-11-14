@@ -97,6 +97,34 @@ describe("parseColumnConfig", () => {
       "Invalid column",
     );
   });
+
+  it("draws a short text as a code, where a field holds one", () => {
+    // The field's own value, a link, a number the table gives, the row's
+    // id, or what a formula makes of another field.
+    for (const fieldType of ["text", "url", "autonumber", "row_id"] as const) {
+      expect(parseColumnConfig(fieldType, { appearance: "qr" })).toEqual({
+        appearance: "qr",
+      });
+    }
+    expect(
+      parseColumnConfig("formula", {
+        expr: { op: "col", name: "reference" },
+        appearance: "barcode",
+      }),
+    ).toMatchObject({ appearance: "barcode" });
+    expect(parseColumnConfig("text", {})).toEqual({});
+    // A code is one of the two, and a field that holds no short text
+    // takes none.
+    expect(() =>
+      parseColumnConfig("text", { appearance: "datamatrix" }),
+    ).toThrow("Invalid column");
+    expect(() => parseColumnConfig("long_text", { appearance: "qr" })).toThrow(
+      "Invalid column",
+    );
+    expect(() =>
+      parseColumnConfig("number", { appearance: "barcode" }),
+    ).toThrow("Invalid column");
+  });
 });
 
 describe("rollupFitsTarget", () => {

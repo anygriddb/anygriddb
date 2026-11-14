@@ -177,6 +177,11 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
   await signUpWithTable(page, "Panel User");
   const tableId = /\/t\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
   await addField(page, tableId, {
+    name: "tag",
+    label: "Tag",
+    fieldType: "text",
+  });
+  await addField(page, tableId, {
     name: "due",
     label: "Due",
     fieldType: "date",
@@ -192,7 +197,26 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
     fieldType: "single_select",
     options: ["Lead", "Won"],
   });
+  // A link drawn as a QR code, and a row whose texts the codes hold.
+  await addField(page, tableId, {
+    name: "page",
+    label: "Page",
+    fieldType: "url",
+    config: { appearance: "qr" },
+  });
+  await send(page, "rows.insert", {
+    tableId,
+    values: { tag: "LOT-0042", page: "https://example.org/s/42" },
+  });
   await page.reload();
+
+  // A text is set to be drawn as a barcode from its field's settings.
+  await page.getByRole("button", { name: "Tag field menu" }).click();
+  await page.getByRole("menuitem", { name: "Edit field" }).click();
+  const settings = page.getByRole("dialog");
+  await settings.getByLabel("Display").selectOption("Barcode");
+  await settings.getByRole("button", { name: "Save" }).click();
+  await expect(settings).toBeHidden();
 
   // The sidebar is resized by keyboard and keeps its width; by a drag too.
   const resize = page.getByRole("separator", { name: "Resize the sidebar" });
@@ -254,6 +278,13 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
   await page.keyboard.press(" ");
   const panel = page.getByRole("complementary", { name: "Row details" });
   await expect(panel).toBeVisible();
+  // The row's codes are drawn there, each named by the text it holds.
+  await expect(
+    panel.getByRole("img", { name: "Barcode of LOT-0042" }),
+  ).toBeVisible();
+  await expect(
+    panel.getByRole("img", { name: "QR code of https://example.org/s/42" }),
+  ).toBeVisible();
   expect(await accessibilityViolations(page)).toEqual([]);
   const editDue = panel.getByRole("button", { name: "Edit Due" });
   await editDue.focus();
