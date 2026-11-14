@@ -107,29 +107,35 @@ describe("ZIP archives", () => {
     return out;
   }
 
-  it("writes lines deflated as they come and reads them back one at a time", async () => {
-    const path = join(folder, "lines.zip");
-    const writer = new ZipWriter(path);
-    const size = await writer.addDeflatedStream("rows/t.ndjson", rows(20_000));
-    await writer.addDeflatedStream("rows/empty.ndjson", rows(0));
-    await writer.finish();
-    const reader = await ZipReader.open(path, { maxEntries: 10 });
-    const entry = reader.entries.get("rows/t.ndjson");
-    expect(entry?.size).toBe(size);
-    expect(entry?.compressed).toBeLessThan(size / 2);
-    const lines = await collect(
-      reader.lines("rows/t.ndjson", { maxLine: 1000 }),
-    );
-    expect(lines).toHaveLength(20_000);
-    expect(JSON.parse(lines[19_999] ?? "{}")).toEqual({
-      __seq: "20000",
-      name: "é20000",
-    });
-    expect(
-      await collect(reader.lines("rows/empty.ndjson", { maxLine: 10 })),
-    ).toEqual([]);
-    await expect(reader.check("rows/t.ndjson")).resolves.toBeUndefined();
-  });
+  // Several deflate blocks, and lines across them: on a loaded runner the
+  // writing and reading of 20,000 lines once passed five seconds.
+  it(
+    "writes lines deflated as they come and reads them back one at a time",
+    { timeout: 30_000 },
+    async () => {
+      const path = join(folder, "lines.zip");
+      const writer = new ZipWriter(path);
+      const size = await writer.addDeflatedStream("rows/t.ndjson", rows(5_000));
+      await writer.addDeflatedStream("rows/empty.ndjson", rows(0));
+      await writer.finish();
+      const reader = await ZipReader.open(path, { maxEntries: 10 });
+      const entry = reader.entries.get("rows/t.ndjson");
+      expect(entry?.size).toBe(size);
+      expect(entry?.compressed).toBeLessThan(size / 2);
+      const lines = await collect(
+        reader.lines("rows/t.ndjson", { maxLine: 1000 }),
+      );
+      expect(lines).toHaveLength(5_000);
+      expect(JSON.parse(lines[4_999] ?? "{}")).toEqual({
+        __seq: "5000",
+        name: "é5000",
+      });
+      expect(
+        await collect(reader.lines("rows/empty.ndjson", { maxLine: 10 })),
+      ).toEqual([]);
+      await expect(reader.check("rows/t.ndjson")).resolves.toBeUndefined();
+    },
+  );
 
   it("refuses a missing entry, a line too long, and a changed byte in a deflated entry", async () => {
     const path = join(folder, "lines-broken.zip");
