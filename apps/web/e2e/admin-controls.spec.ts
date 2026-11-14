@@ -860,6 +860,34 @@ test("an administrator opens a base to read it, and its owner is told why", asyn
         .filter({ hasText: "is not a member and can read this base until" }),
     ).toHaveCount(0);
 
+    // A role the administrator gives someone on that base is told to its
+    // owner too (ROADMAP #91): who received which role, and from whom.
+    const guestStamp = uniqueStamp();
+    const guestEmail = `e2e-guest-${guestStamp}@example.com`;
+    await control.query(
+      "insert into users (email, display_name) values ($1, $2)",
+      [guestEmail, `Guest ${guestStamp}`],
+    );
+    await page.getByRole("button", { name: "Give a role to someone" }).click();
+    await page.getByLabel("Find an account").fill(`Guest ${guestStamp}`);
+    await page.getByRole("option", { name: new RegExp(guestEmail) }).click();
+    await page.getByRole("button", { name: "Give the role" }).click();
+    await expect(
+      page.getByText(`Role given to Guest ${guestStamp}`),
+    ).toBeVisible();
+    await owner.reload();
+    await owner
+      .getByRole("button", { name: /^Notifications \(\d+ unread\)$/ })
+      .click();
+    await expect(
+      owner.getByRole("button", {
+        name: new RegExp(
+          `^Opening Admin, an administrator, gave Guest ${guestStamp} a role on Lab \\(Viewer\\)`,
+        ),
+      }),
+    ).toBeVisible();
+    expect(await accessibilityViolations(owner)).toEqual([]);
+
     await theirs.close();
     expect(blocked).toEqual([]);
   } finally {

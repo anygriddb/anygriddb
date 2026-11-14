@@ -193,8 +193,11 @@ export async function addPeople(
 ): Promise<{
   added: number;
   refused: { line: number; email: string; problem: PeopleFileProblem }[];
+  /** The roles given, for the notice to each base's owners. */
+  given: { baseId: string; userId: string; role: Role }[];
 }> {
   const { lines } = await previewPeople(db, text);
+  const given: { baseId: string; userId: string; role: Role }[] = [];
   const refused: {
     line: number;
     email: string;
@@ -224,6 +227,9 @@ export async function addPeople(
       };
       await addJob(db, TASKS.accountWelcome, payload, { maxAttempts: 3 });
       added += 1;
+      for (const { baseId, role } of line.bases) {
+        given.push({ baseId, userId: account.id, role });
+      }
     } catch (error) {
       // Changed since the file was read: an address taken, a base deleted.
       const problem =
@@ -232,7 +238,7 @@ export async function addPeople(
       refused.push({ line: line.line, email: line.email, problem });
     }
   }
-  return { added, refused };
+  return { added, refused, given };
 }
 
 export const accountWelcomePayloadSchema = z.object({

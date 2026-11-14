@@ -8,6 +8,7 @@ import {
   DoorOpen,
   LockKeyhole,
   UserPlus,
+  Users,
   Webhook,
   Zap,
 } from "lucide-react";
@@ -30,6 +31,7 @@ export const NOTIFICATION_ICONS = {
   account_locked: LockKeyhole,
   owner_named: Crown,
   admin_access: DoorOpen,
+  role_given: Users,
 } as const;
 
 /** What a notification says, in one sentence. */
@@ -75,6 +77,24 @@ export function useDescribeNotification() {
         const role = roleLabel((item.data?.role ?? "viewer") as Role);
         return t`${actor}, an administrator, gave themselves a role on ${base} (${role}). Their reason: ${reason}`;
       }
+      case "role_given": {
+        // An administrator gave a role on a base this person owns
+        // (ROADMAP #91): to someone, to several, or through a group.
+        const base = item.data?.base ?? "—";
+        const name = item.data?.name ?? "—";
+        const group = item.data?.group;
+        const role = roleLabel(item.data?.role as Role | undefined);
+        if (item.data?.count) {
+          return t`${actor}, an administrator, gave ${{ count: item.data.count }} people a role on ${base}`;
+        }
+        if (group && item.data?.name) {
+          return t`${actor}, an administrator, added ${name} to the group ${group}, which has a role on ${base} (${role})`;
+        }
+        if (group) {
+          return t`${actor}, an administrator, gave the group ${group} a role on ${base} (${role})`;
+        }
+        return t`${actor}, an administrator, gave ${name} a role on ${base} (${role})`;
+      }
     }
   };
 }
@@ -102,7 +122,9 @@ export function useOpenNotification() {
       return;
     }
     if (
-      (item.kind === "owner_named" || item.kind === "admin_access") &&
+      (item.kind === "owner_named" ||
+        item.kind === "admin_access" ||
+        item.kind === "role_given") &&
       item.data?.baseId
     ) {
       void navigate({

@@ -321,6 +321,22 @@ msgid "{actor} replied to your comment in {table}"
 msgstr "{actor} replied to your comment in {table}"
 
 #: components/shell/notification-items.ts
+msgid "{actor}, an administrator, added {name} to the group {group}, which has a role on {base} ({role})"
+msgstr "{actor}, an administrator, added {name} to the group {group}, which has a role on {base} ({role})"
+
+#: components/shell/notification-items.ts
+msgid "{actor}, an administrator, gave {count} people a role on {base}"
+msgstr "{actor}, an administrator, gave {count} people a role on {base}"
+
+#: components/shell/notification-items.ts
+msgid "{actor}, an administrator, gave {name} a role on {base} ({role})"
+msgstr "{actor}, an administrator, gave {name} a role on {base} ({role})"
+
+#: components/shell/notification-items.ts
+msgid "{actor}, an administrator, gave the group {group} a role on {base} ({role})"
+msgstr "{actor}, an administrator, gave the group {group} a role on {base} ({role})"
+
+#: components/shell/notification-items.ts
 msgid "{actor}, an administrator, gave themselves a role on {base} ({role}). Their reason: {reason}"
 msgstr "{actor}, an administrator, gave themselves a role on {base} ({role}). Their reason: {reason}"
 

@@ -203,7 +203,7 @@ import {
 } from "../alerts.js";
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
-import { notifyOwnerNamed } from "../notifications.js";
+import { tellOwnersOfRole, type RoleNoticeDeps } from "../data/role-notices.js";
 import {
   countOwnerlessBases,
   listBaseOverview,
@@ -280,6 +280,15 @@ async function requireAdmin(ctx: Context) {
   }
   await assertEnrolled(ctx.db, user, []);
   return user;
+}
+
+/** What telling a base's owners of a role given needs: the app. */
+function roleNoticeDeps(ctx: Context): RoleNoticeDeps {
+  return {
+    db: ctx.db,
+    bus: ctx.bus,
+    log: (error, message) => ctx.req.log.error({ err: error }, message),
+  };
 }
 
 /** What telling a base's owners needs: the app, and mail when it is set up. */
@@ -663,7 +672,16 @@ const groupsRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
-        await addLocalGroupMember(ctx.db, admin.id, input);
+        const { roles } = await addLocalGroupMember(ctx.db, admin.id, input);
+        // The member now holds the group's roles: each base's owners
+        // learn of it (ROADMAP #91).
+        for (const { baseId, role } of roles) {
+          await tellOwnersOfRole(roleNoticeDeps(ctx), {
+            baseId,
+            actorId: admin.id,
+            gift: { to: "member", ...input, role },
+          });
+        }
         ctx.req.log.info(
           { actor: admin.id, group: input.groupId, target: input.userId },
           "local group member added",
@@ -697,7 +715,14 @@ const groupsRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
-        await setGroupRole(ctx.db, admin.id, input);
+        const { previous } = await setGroupRole(ctx.db, admin.id, input);
+        if (input.role && input.role !== previous) {
+          await tellOwnersOfRole(roleNoticeDeps(ctx), {
+            baseId: input.baseId,
+            actorId: admin.id,
+            gift: { to: "group", groupId: input.groupId, role: input.role },
+          });
+        }
         ctx.req.log.info(
           {
             actor: admin.id,
@@ -1115,7 +1140,24 @@ export const adminRouter = t.router({
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
         await requireMail(ctx);
-        const result = await addPeople(ctx.db, admin, input.file);
+        const { given, ...result } = await addPeople(ctx.db, admin, input.file);
+        // One notice per base, however many people the file gave a role
+        // on it (ROADMAP #91).
+        const byBase = new Map<string, typeof given>();
+        for (const gift of given) {
+          byBase.set(gift.baseId, [...(byBase.get(gift.baseId) ?? []), gift]);
+        }
+        for (const [baseId, gifts] of byBase) {
+          const [only] = gifts;
+          await tellOwnersOfRole(roleNoticeDeps(ctx), {
+            baseId,
+            actorId: admin.id,
+            gift:
+              gifts.length === 1 && only
+                ? { to: "person", userId: only.userId, role: only.role }
+                : { to: "people", count: gifts.length },
+          });
+        }
         ctx.req.log.info(
           {
             actor: admin.id,
@@ -1180,6 +1222,13 @@ export const adminRouter = t.router({
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
         const created = await createAccount(ctx.db, admin.id, input);
+        for (const { baseId, role } of input.memberships) {
+          await tellOwnersOfRole(roleNoticeDeps(ctx), {
+            baseId,
+            actorId: admin.id,
+            gift: { to: "person", userId: created.id, role },
+          });
+        }
         const link = await createResetLink(ctx.db, {
           userId: created.id,
           createdBy: admin.id,
@@ -1253,7 +1302,7 @@ export const adminRouter = t.router({
         if (own && !input.reason) throw new AppError("reason_required");
         const account = await assertGrantable(ctx.db, input);
         await assertMemberDomain(ctx.db, account.email);
-        const { owners } = await setMemberRole(
+        const { owners, previous } = await setMemberRole(
           ctx.db,
           admin.id,
           input,
@@ -1277,17 +1326,17 @@ export const adminRouter = t.router({
               role: input.role,
             },
           });
-        } else if (input.role === "owner" && !owners.includes(input.userId)) {
-          // The owners already there learn who joined them, and from whom.
-          await notifyOwnerNamed(
-            {
-              db: ctx.db,
-              bus: ctx.bus,
-              log: (error, message) =>
-                ctx.req.log.error({ err: error }, message),
-            },
-            { ...input, ownerId: input.userId, actorId: admin.id, owners },
-          );
+        } else if (
+          previous !== input.role &&
+          !(input.role === "owner" && owners.includes(input.userId))
+        ) {
+          // The owners already there learn who was given which role, and
+          // by whom (ROADMAP #15, #91): once, not when it is set again.
+          await tellOwnersOfRole(roleNoticeDeps(ctx), {
+            baseId: input.baseId,
+            actorId: admin.id,
+            gift: { to: "person", userId: input.userId, role: input.role },
+          });
         }
         ctx.req.log.info(
           {

@@ -126,7 +126,7 @@ export async function setMemberRole(
   input: { baseId: string; userId: string; role: Role },
   /** Kept on the change trail with the role given. */
   reason?: string,
-): Promise<{ owners: string[] }> {
+): Promise<{ owners: string[]; previous: Role | null }> {
   return withAudit(
     db,
     { userId: actorId, source: "web", reason },
@@ -139,8 +139,17 @@ export async function setMemberRole(
       ) {
         throw new AppError("invalid_owner");
       }
+      // The role of their own they had before: a role set again is no news.
+      const before = await tx
+        .selectFrom("roleBindings")
+        .select("role")
+        .where("userId", "=", input.userId)
+        .where("scope", "=", "base")
+        .where("scopeId", "=", input.baseId)
+        .where("groupId", "is", null)
+        .executeTakeFirst();
       await bindRole(tx, input.userId, input.role, input.baseId);
-      return { owners };
+      return { owners, previous: before?.role ?? null };
     },
   );
 }

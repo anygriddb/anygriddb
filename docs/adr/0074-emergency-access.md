@@ -59,9 +59,11 @@ and none of them should happen behind the owners' back.
 - A base's owners count on being told, not on a wall: an administrator
   of the instance can read any base, and now never without a word.
 - Roles an administrator gives to someone else, or through a group,
-  reach the owners through the member list and the change trail, as
-  before, except the owner role, which they are told of (ROADMAP #15).
-  Telling them of every such role is ROADMAP #91.
+  are told to the owners in the app (ROADMAP #91): who received which
+  role, and from whom. They ask no reason and send no mail: an
+  administrator decides who sees which base (ADR 0057), and an
+  administrator who joins a group that holds a role is named in the
+  notice as anyone is.
 - `rows.export`, a read that returned a table's rows as a file and
   wrote nothing to the trail, is removed: the app never called it, and
   the export that is traced runs as a job.

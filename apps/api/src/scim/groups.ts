@@ -191,7 +191,7 @@ export async function setGroupRole(
   db: Database,
   actorId: string,
   input: { baseId: string; groupId: string; role: Role | null },
-): Promise<void> {
+): Promise<{ previous: Role | null }> {
   const base = await db
     .selectFrom("bases")
     .select("id")
@@ -205,7 +205,13 @@ export async function setGroupRole(
     .executeTakeFirst();
   if (!base || !group)
     throw new AppError(base ? "unknown_group" : "unknown_base");
-  await withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
+  return withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
+    const before = await tx
+      .selectFrom("groupRoles")
+      .select("role")
+      .where("groupId", "=", input.groupId)
+      .where("baseId", "=", input.baseId)
+      .executeTakeFirst();
     if (input.role) {
       await tx
         .insertInto("groupRoles")
@@ -228,6 +234,7 @@ export async function setGroupRole(
         .execute();
     }
     await syncGroupBindings(tx, input.groupId);
+    return { previous: before?.role ?? null };
   });
 }
 
@@ -337,18 +344,29 @@ export async function addLocalGroupMember(
   db: Database,
   actorId: string,
   input: { groupId: string; userId: string },
-): Promise<void> {
-  await withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
+): Promise<{ roles: { baseId: string; role: Role }[] }> {
+  return withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
     await requireLocalGroup(tx, input.groupId);
     await requireActiveAccount(tx, input.userId);
-    await tx
+    const added = await tx
       .insertInto("groupMembers")
       .values({ groupId: input.groupId, userId: input.userId })
       .onConflict((conflict) =>
         conflict.columns(["groupId", "userId"]).doNothing(),
       )
-      .execute();
+      .returning("userId")
+      .executeTakeFirst();
     await syncGroupBindings(tx, input.groupId);
+    // The roles the group holds, which the new member now has; none for
+    // someone who was a member already.
+    if (!added) return { roles: [] };
+    return {
+      roles: await tx
+        .selectFrom("groupRoles")
+        .select(["baseId", "role"])
+        .where("groupId", "=", input.groupId)
+        .execute(),
+    };
   });
 }
 
