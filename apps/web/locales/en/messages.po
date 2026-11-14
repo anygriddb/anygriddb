@@ -5828,6 +5828,10 @@ msgstr "Move down"
 msgid "Move earlier"
 msgstr "Move earlier"
 
+#: components/views/map-view.tsx
+msgid "Move east"
+msgstr "Move east"
+
 #: components/dashboards/dashboard-board.tsx
 msgid "Move later"
 msgstr "Move later"
@@ -5836,6 +5840,10 @@ msgstr "Move later"
 msgid "Move left"
 msgstr "Move left"
 
+#: components/views/map-view.tsx
+msgid "Move north"
+msgstr "Move north"
+
 #: components/shell/sidebar.tsx
 msgid "Move out of folder"
 msgstr "Move out of folder"
@@ -5843,6 +5851,14 @@ msgstr "Move out of folder"
 #: components/table/view-tabs.tsx
 msgid "Move right"
 msgstr "Move right"
+
+#: components/views/map-view.tsx
+msgid "Move south"
+msgstr "Move south"
+
+#: components/views/map-view.tsx
+msgid "Move the map"
+msgstr "Move the map"
 
 #: components/grid/grid-view.tsx
 msgid "Move the row down"
@@ -5867,6 +5883,10 @@ msgstr "Move up"
 #: components/shell/shortcuts-dialog.tsx
 msgid "Move up or down 15 rows"
 msgstr "Move up or down 15 rows"
+
+#: components/views/map-view.tsx
+msgid "Move west"
+msgstr "Move west"
 
 #: components/record/record-panel.tsx
 msgid "moved the row"
@@ -7635,6 +7655,10 @@ msgstr "Resend"
 #: components/admin/auth-labels.ts
 msgid "Reset link sent"
 msgstr "Reset link sent"
+
+#: components/views/map-view.tsx
+msgid "Reset the map"
+msgstr "Reset the map"
 
 #: components/grid/grid-header.tsx
 msgid "Resize"
@@ -11130,3 +11154,11 @@ msgstr "Your SQL tables, read and written like a page of a notebook."
 #: components/table/table-workspace.tsx
 msgid "Your view settings stay local."
 msgstr "Your view settings stay local."
+
+#: components/views/map-view.tsx
+msgid "Zoom in"
+msgstr "Zoom in"
+
+#: components/views/map-view.tsx
+msgid "Zoom out"
+msgstr "Zoom out"

@@ -57,7 +57,7 @@ The product is `apps/` and `packages/`.
 - A collaborator with field or row rules finds in the row trash only the rows they deleted, named by their primary field when they may see it; on a client's table they have no row trash.
 - Rows deleted before this release's many-to-many restore fix come back without those links.
 - A SAML provider that sends only transient or address NameIDs matches accounts by address: it must verify them. OIDC, and SAML with a persistent NameID, bind the account to the provider's subject.
-- The map view shows the rows of its view over a plain background, or over the tiles of the server an administrator names (ADR 0068); it does not pan or zoom.
+- The map view shows the rows of its view over a plain background, or over the tiles of the server an administrator names (ADR 0068). Over tiles it pans and zooms; over the plain background it stays fitted to its rows.
 - A synced table is as old as its last refresh, is read-only, stops at a million rows, and links to a table read live show empty.
 - A locked client row is protected from AnyGridDB's writes only: a change another application makes is detected (within five minutes, seconds on a watched table) and told, not refused. Its seal covers every stored column, so a row put back still differs by its `updated_at`.
 - On SQL Server a page is one query: a table with very many complex computed fields can exceed what SQL Server compiles, and AnyGridDB says so. There, MD5, SHA256, and SHA512 read texts of up to 100,000 characters, and JSON_EXTRACT reads a text value of up to 4,000.

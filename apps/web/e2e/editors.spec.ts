@@ -1,9 +1,21 @@
 import { expect, test, type Page } from "@playwright/test";
+import pg from "pg";
 import {
   accessibilityViolations,
   signUpWithTable,
   watchPolicy,
 } from "./setup.ts";
+
+// Where the journeys' own PostgreSQL listens (`scripts/e2e.sh`).
+const controlUrl =
+  process.env.DATABASE_URL ??
+  "postgres://anygriddb:anygriddb@127.0.0.1:5433/anygriddb";
+
+/** Sends a change to the API with the page's session, as the app does. */
+async function send(page: Page, path: string, data: unknown): Promise<void> {
+  const response = await page.request.post(`/trpc/${path}`, { data });
+  expect(response.ok(), await response.text()).toBe(true);
+}
 
 /** Adds a field to the open table through the API, as the app does. */
 async function addField(
@@ -11,10 +23,7 @@ async function addField(
   tableId: string,
   field: Record<string, unknown>,
 ): Promise<void> {
-  const response = await page.request.post("/trpc/catalog.addColumn", {
-    data: { tableId, ...field },
-  });
-  expect(response.ok(), await response.text()).toBe(true);
+  await send(page, "catalog.addColumn", { tableId, ...field });
 }
 
 /** The values a cell edit sends, once the API has taken them. */
@@ -394,4 +403,121 @@ test("a choice and a link are undone from the keyboard, the panel open", async (
   await page.keyboard.press("Escape");
   await expect(cell(page, "related")).toContainText("Bob");
   expect(blocked).toEqual([]);
+});
+
+// A map over the tiles of the server an administrator names (ADR 0068):
+// moved by its buttons, by dragging, and by the wheel, brought back to
+// its rows by one button; and a pin still opens its row. It makes an
+// account, so it takes a client address of its own: sign-ups are counted
+// per address, and the other journeys share theirs.
+test.describe("a map over tiles", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.90" } });
+
+  test("moves by its buttons, by dragging, and by the wheel", async ({
+    page,
+  }) => {
+    const blocked = watchPolicy(page);
+    const { email } = await signUpWithTable(page, "Map User");
+    const tableId = /\/t\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
+    // Naming a tile server is an administrator's setting, and the journeys'
+    // first account alone is one: this one is made one in the database.
+    const control = new pg.Client({ connectionString: controlUrl });
+    await control.connect();
+    try {
+      await control.query("update users set is_admin = true where email = $1", [
+        email,
+      ]);
+    } finally {
+      await control.end();
+    }
+    await send(page, "admin.stepUp", { password: "correct-horse-battery" });
+    await send(page, "admin.updateSettings", {
+      mapTileUrl: "https://tiles.example.org/{z}/{x}/{y}.png",
+      mapTileCredit: "Example tiles",
+    });
+    try {
+      await addField(page, tableId, {
+        name: "latitude",
+        label: "Latitude",
+        fieldType: "number",
+      });
+      await addField(page, tableId, {
+        name: "longitude",
+        label: "Longitude",
+        fieldType: "number",
+      });
+      await send(page, "rows.insertMany", {
+        tableId,
+        rows: [
+          { name: "Paris", latitude: "48.85", longitude: "2.35" },
+          { name: "Tokyo", latitude: "35.68", longitude: "139.69" },
+        ],
+      });
+      // The page's policy names the tile server once it is read again.
+      await page.reload();
+      await page.getByRole("button", { name: "New view" }).click();
+      await page.getByRole("menuitem", { name: "Map" }).click();
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Create", exact: true })
+        .click();
+
+      const controls = page.getByRole("group", { name: "Move the map" });
+      const reset = controls.getByRole("button", { name: "Reset the map" });
+      const paris = page.getByTitle("Paris", { exact: true });
+      await expect(controls).toBeVisible();
+      await expect(paris).toBeVisible();
+      await expect(reset).toBeDisabled();
+      const place = async () => (await paris.boundingBox())?.x ?? 0;
+      const fitted = await place();
+
+      // By its buttons, which a keyboard reaches: east, and the pin goes west.
+      await controls.getByRole("button", { name: "Move east" }).focus();
+      await page.keyboard.press("Enter");
+      await expect(reset).toBeEnabled();
+      expect(await place()).toBeLessThan(fitted);
+      await reset.click();
+      await expect(reset).toBeDisabled();
+      expect(await place()).toBeCloseTo(fitted, 0);
+
+      // By dragging: the map follows the pointer.
+      const sheet = page.locator(
+        "div:has(> [role='group'][aria-label='Move the map'])",
+      );
+      const box = (await sheet.boundingBox()) ?? {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+      };
+      const middle = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      await page.mouse.move(middle.x, middle.y);
+      await page.mouse.down();
+      await page.mouse.move(middle.x - 60, middle.y, { steps: 4 });
+      await page.mouse.up();
+      await expect(reset).toBeEnabled();
+      expect(await place()).toBeLessThan(fitted);
+      await reset.click();
+
+      // By the wheel: closer, and the page itself does not scroll.
+      await page.mouse.move(middle.x, middle.y);
+      await page.mouse.wheel(0, -120);
+      await expect(reset).toBeEnabled();
+      await reset.click();
+      await expect(reset).toBeDisabled();
+
+      // A press that does not drag is still a click: the pin opens its row.
+      await paris.click();
+      await expect(
+        page.getByRole("complementary", { name: "Row details" }),
+      ).toBeVisible();
+      expect(await accessibilityViolations(page)).toEqual([]);
+    } finally {
+      await send(page, "admin.updateSettings", {
+        mapTileUrl: null,
+        mapTileCredit: null,
+      });
+    }
+    expect(blocked).toEqual([]);
+  });
 });

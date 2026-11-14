@@ -34,7 +34,8 @@ people look at, and a tile server's terms ask that its maps be credited.
   tell where they look. The setting's own text says so.
 - The policy is the page's: a page open before the setting changed shows
   the map once reloaded.
-- The map does not pan or zoom: it shows the rows of the view, as before.
+- The map pans and zooms in the browser (drag, wheel, and zoom buttons)
+  around the rows it fitted; no new tile server or library is involved.
 - A wrong address shows no background; the pins still place.
 
 ## Rejected
