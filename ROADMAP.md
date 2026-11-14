@@ -70,8 +70,9 @@ The product is `apps/` and `packages/`.
 
 Phases 0 to 8 of the [migration plan](docs/migration-plan.md) are done;
 the [decision records](docs/adr/README.md) say why each piece is as it
-is. What is still missing comes in three tracks: the views and spreadsheet
-gestures people miss, data in and out at any size, and what an instance
+is. What is still missing comes in four tracks: the views and spreadsheet
+gestures people miss, data in and out at any size, the applications,
+sign-ins, and languages around an instance, and what an instance
 administrator cannot yet do from Administration. Inside a table, the order is the priority; across
 tracks, the order of work below decides.
 
@@ -79,11 +80,27 @@ tracks, the order of work below decides.
 
 A row moves up only when it unblocks another.
 
-1. Data in and out past 100,000 rows: 83 (base snapshots).
-2. Administration, lot by lot: 6, 7. Row 51 needs no code: a version
-   tag runs the release workflow.
+1. A published release: 51. It needs no code, only a version tag, and
+   comes first: no operator installs a version before it, and the update
+   notice has nothing to find.
+2. Data in and out past 100,000 rows: 83 (base snapshots), then 99, which
+   keeps them as restore points.
+3. Administration, lot 6: 32 once its wording is confirmed, then 31.
+4. Views and organisation, in the order of their table: 92 to 98.
+5. Applications, sign-in, and languages: 101, then 106, which needs it,
+   once decided; 102 to 104; 105 once its languages are chosen.
 
 ### Views and organisation
+
+| #   | What                                                                                                                    | Effort | Notes                                                                                                                                                                                          |
+| --- | ----------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 92  | A base's activity, read by its members: who changed what, and when, in the tables, fields, and rows each member may see | M      | The change trail holds it; today it is read in Administration and, row by row, in the record panel. A hidden field's values and the rows a rule hides stay out, as on every surface (ADR 0016) |
+| 93  | A whole base shared read-only by one link, with the password, expiry, and audit of view links                           | M      | Views and forms are shared one at a time today. The link shows each table as a viewer of the base sees it                                                                                      |
+| 94  | Screens that work on a phone: a table read as a list of cards, the record panel and forms full screen                   | M      | On a narrow screen the navigation and the grid's toolbar fold today, and a wide table scrolls sideways                                                                                         |
+| 95  | Field types: a colour, a place that a map reads, and a barcode or QR code drawn from another field                      | M      | The map reads two number fields today. Each type is read and written on the five engines, or says where it cannot be                                                                           |
+| 96  | A list view whose rows nest under their parent, by a link to the same table                                             | M      |                                                                                                                                                                                                |
+| 97  | A JSON field: stored in the engine's JSON type, shown folded, read by JSON_EXTRACT                                      | S      | JSON_EXTRACT reads JSON kept in a text field today                                                                                                                                             |
+| 98  | A first visit that shows the grid's gestures, and more templates                                                        | S      | Four templates today, written in the language of the person who makes the base                                                                                                                 |
 
 #### Later
 
@@ -98,9 +115,27 @@ A row moves up only when it unblocks another.
 Every read stays within 1 to 1,000 rows: a large job reads page after page
 and writes as it goes, never a whole table in memory.
 
-| #   | What                             | Effort | Notes                                                                                                                                                                                                                                                         |
-| --- | -------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 83  | Base snapshots past 100,000 rows | M      | Table copies are done (ADR 0065). A snapshot's rows travel in one JSON document, read whole when it is imported: writing it as a stream is not enough. The rows need a form read a line at a time, in the archive, and the import must write them as it reads |
+| #   | What                                                                                     | Effort | Notes                                                                                                                                                                                                                                                         |
+| --- | ---------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 83  | Base snapshots past 100,000 rows                                                         | M      | Table copies are done (ADR 0065). A snapshot's rows travel in one JSON document, read whole when it is imported: writing it as a stream is not enough. The rows need a form read a line at a time, in the archive, and the import must write them as it reads |
+| 99  | Restore points: a base's snapshot kept in the instance, listed, and restored in one step | M      | Needs 83. Today a snapshot is a file to download and import again; restore points are kept as long as an administrator says                                                                                                                                   |
+| 100 | Google Sheets import: a spreadsheet's sheets as tables, with a report of what differs    | M      | Like the Airtable import (ADR 0037): through the provider's API, as a snapshot                                                                                                                                                                                |
+
+### Applications, sign-in, and languages
+
+| #   | What                                                                                                                          | Effort | Notes                                                                                                                       |
+| --- | ----------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------- |
+| 101 | OAuth for applications: a person allows an application, an MCP client among them, on the bases they choose, and takes it back | M      | The MCP server and the REST API take bearer tokens only (ADR 0040): a client that signs a person in by OAuth cannot connect |
+| 102 | Sign-in with Google and Microsoft, ready to turn on                                                                           | S      | OIDC does it today once an administrator types the provider's addresses (ADR 0050)                                          |
+| 103 | Messages to Slack and Teams as automation actions                                                                             | S      | The HTTPS action reaches them today, with a body written by hand                                                            |
+| 104 | Scripts in automations                                                                                                        | L      | Run apart from the API process, under a time and memory ceiling, with the rights of the automation's author                 |
+
+#### Decide before code
+
+| #   | What                                          | Why a decision                                                                                                                                                              |
+| --- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 105 | Interface languages beyond English and French | French stays complete in every pull request; another language does too, or shows English where it lags (ADR 0041): which languages, and who keeps each one, is the decision |
+| 106 | Connectors for n8n, Zapier, and Make          | They live outside this tree and are published apart from it, on OAuth (101): where they live and who publishes them is the decision                                         |
 
 ### Administration
 
