@@ -125,6 +125,9 @@ owns is the table of [`CONTRIBUTING.md`](CONTRIBUTING.md#where-to-change-what).
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | How the pieces fit and their contracts         |
 | [`docs/adr/`](docs/adr/README.md)    | Stack decisions, their costs, rejected options |
 
+The phases that brought the tree here are history:
+[`docs/history/migration-plan.md`](docs/history/migration-plan.md).
+
 ## License
 
 [AGPL-3.0-or-later](LICENSE)

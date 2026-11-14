@@ -148,4 +148,4 @@ Operator commands run in the API image as `anygriddb`:
 - `anygriddb storage migrate --from disk --to s3` (or back) streams every file the target lacks and deletes nothing. Run it, switch `STORAGE_DRIVER` and restart, then run it again for the files written meanwhile. `--dry-run` counts first.
 - `anygriddb storage sweep --dry-run` lists the orphaned files the daily sweep would delete; without the flag it deletes them now.
 
-See also the [decision records](docs/adr/README.md), the [migration plan](docs/migration-plan.md), which is history, and [`OPEN_SOURCE_POLICY.md`](OPEN_SOURCE_POLICY.md).
+See also the [decision records](docs/adr/README.md), the [migration plan](docs/history/migration-plan.md), which is history, and [`OPEN_SOURCE_POLICY.md`](OPEN_SOURCE_POLICY.md).

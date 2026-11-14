@@ -267,3 +267,6 @@ Until 1.0, a release that breaks something raises the second number
 
 To rehearse a release, run the Release workflow by hand on `main`
 (Actions, Release, Run workflow): it does everything but publish.
+
+How an operator installs and runs a release:
+[`docs/operations.md`](docs/operations.md#install).
