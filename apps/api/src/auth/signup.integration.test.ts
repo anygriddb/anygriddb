@@ -108,6 +108,8 @@ describe("sign-up", () => {
       .where("key", "=", "signup")
       .execute();
     await enrollTotp(admin);
+    // Changing sign-up settings asks for a proof again (ROADMAP #28).
+    await admin.call().admin.stepUp({ password: PASSWORD });
   });
 
   it("refuses any other sign-up while the instance cannot send email", async () => {

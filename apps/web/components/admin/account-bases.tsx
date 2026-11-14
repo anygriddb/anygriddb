@@ -11,6 +11,7 @@ import { useRoleLabel } from "../settings/role-label";
 import { ConfirmDialog } from "../shell/dialogs";
 import { BaseName, useBaseChoices, type BaseChoice } from "./base-choices";
 import { EffectiveRights } from "./effective-rights";
+import { useStepUp } from "./step-up";
 
 const ROLES: readonly Role[] = ["owner", "editor", "commenter", "viewer"];
 
@@ -43,6 +44,7 @@ export function AccountBases({
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
+  const stepUp = useStepUp();
   const roleLabel = useRoleLabel();
   const [removing, setRemoving] = useState<Membership | null>(null);
   const [picking, setPicking] = useState(false);
@@ -65,6 +67,7 @@ export function AccountBases({
   async function setOn(baseId: string, next: Role): Promise<boolean> {
     setBusy(true);
     try {
+      if (!(await stepUp.ensure())) return false;
       await trpc.admin.setBaseRole.mutate({ userId, baseId, role: next });
       await refresh();
       return true;
@@ -259,6 +262,7 @@ export function AccountBases({
           confirmLabel={t`Remove`}
           onConfirm={async () => {
             try {
+              if (!(await stepUp.ensure())) return;
               await trpc.admin.removeBaseRole.mutate({
                 userId,
                 baseId: removing.id,
@@ -272,6 +276,7 @@ export function AccountBases({
           }}
         />
       ) : null}
+      {stepUp.dialog}
     </section>
   );
 }

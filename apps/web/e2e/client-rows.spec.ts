@@ -86,6 +86,9 @@ test("a client's rows: locked, signed, told when changed elsewhere, read from a 
         [email],
       )
     ).rows[0]?.id;
+    // A change made in Administration asks for the proof (ADR 0073): the
+    // journey calls the server itself, so it gives it itself.
+    ok(await call(page, "admin.stepUp", { password: "correct-horse-battery" }));
     const source = ok(
       await call(page, "admin.sources.create", {
         name: `Rows ${stamp}`,

@@ -74,6 +74,9 @@ describe("bases in Administration", () => {
       password: PASSWORD,
     });
     await enrollTotp(admin);
+    // Naming an owner from Administration asks for a proof again
+    // (ROADMAP #28): given once here, it stands for these tests.
+    await admin.call().admin.stepUp({ password: PASSWORD });
   }, 120_000);
 
   afterAll(async () => {

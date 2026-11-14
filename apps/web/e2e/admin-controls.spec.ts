@@ -97,6 +97,9 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await page.getByRole("option", { name: new RegExp(memberEmail) }).click();
     await page.getByLabel(`Role for Member ${stamp}`).selectOption("editor");
     await page.getByRole("button", { name: "Give the role" }).click();
+    // The first change of this journey: Administration asks for the proof
+    // (ADR 0073), once for the five minutes that follow.
+    await proveItIsYou(page);
     await expect(page.getByText(`Role given to Member ${stamp}`)).toBeVisible();
     const given = page.getByRole("row", { name: new RegExp(memberEmail) });
     await expect(given.getByLabel(`Role for Member ${stamp}`)).toHaveValue(
@@ -343,15 +346,14 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       ),
     ).toBeVisible();
 
-    // A person made an administrator is administration given: the proof
-    // is asked before the account exists (ROADMAP #28).
+    // A person made an administrator is administration given. The proof
+    // is still fresh from the role above, so it is not asked again.
     await page.getByRole("button", { name: "Add a person" }).click();
     const secondEmail = `e2e-second-${stamp}@example.com`;
     await adding.getByLabel("Display name").fill(`Second ${stamp}`);
     await adding.getByLabel("Email").fill(secondEmail);
     await adding.getByLabel("Administrator of the instance").check();
     await adding.getByRole("button", { name: "Add", exact: true }).click();
-    await proveItIsYou(page);
     await expect(
       page.getByText(
         `Second ${stamp} added. Their link went to ${secondEmail}`,

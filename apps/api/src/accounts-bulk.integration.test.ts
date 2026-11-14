@@ -84,6 +84,9 @@ describe("accounts by the dozen", () => {
       password: PASSWORD,
     });
     await enrollTotp(admin);
+    // Adding people and disabling accounts ask for a proof again
+    // (ROADMAP #28): given once here, it stands for these tests.
+    await admin.call().admin.stepUp({ password: PASSWORD });
     adminId = (await account(at("admin")))?.id ?? "";
     const { bus } = recordingBus();
     const groups = taskGroups({

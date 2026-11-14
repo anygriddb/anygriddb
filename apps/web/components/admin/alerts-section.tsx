@@ -15,6 +15,7 @@ import { formatBytes } from "../../lib/format";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
+import { useStepUp } from "./step-up";
 
 type Alert = RouterOutputs["admin"]["alerts"]["alerts"][number];
 
@@ -62,6 +63,7 @@ export function AlertsSection() {
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
+  const stepUp = useStepUp();
   const alertText = useAlertText();
   const state = useQuery({
     ...api.admin.alerts.queryOptions(),
@@ -78,6 +80,7 @@ export function AlertsSection() {
     });
   const save = async (patch: InstanceSettingsPatch) => {
     try {
+      if (!(await stepUp.ensure())) return;
       await trpc.admin.updateSettings.mutate(patch);
       await queryClient.invalidateQueries({
         queryKey: api.admin.settings.queryKey(),
@@ -162,6 +165,7 @@ export function AlertsSection() {
   const alerts = state.data?.alerts ?? [];
   return (
     <>
+      {stepUp.dialog}
       <RuledSection
         title={t`Alerts`}
         description={t`What administrators are told about: here, on the first page of Administration, and by email when it is set up, once a day at most while an alert stays open. An alert closes by itself once its cause is gone.`}

@@ -119,6 +119,9 @@ export function EmergencySection() {
           confirmLabel={t`Turn off`}
           onConfirm={() =>
             run(async () => {
+              if (!(await stepUp.ensure())) {
+                throw new Error("step_up_cancelled");
+              }
               await trpc.admin.updateSettings.mutate({ publicLinks: "off" });
               return t`Public links are off`;
             })

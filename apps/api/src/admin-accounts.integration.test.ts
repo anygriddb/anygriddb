@@ -93,6 +93,9 @@ describe("accounts in Administration", () => {
       password: PASSWORD,
     });
     await enrollTotp(admin);
+    // Sensitive Administration asks for a proof again (ROADMAP #28): given
+    // once here, it stands for the five minutes these tests take.
+    await admin.call().admin.stepUp({ password: PASSWORD });
     adminId = (await idOf(`admin-${suffix}@example.org`)) ?? "";
   }, 120_000);
 

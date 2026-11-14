@@ -79,6 +79,9 @@ describe("operator mail", () => {
       password: PASSWORD,
     });
     await enrollTotp(admin);
+    // A mail to everyone is a change made in Administration: it asks for
+    // the proof (ADR 0073), given once for the minutes these tests take.
+    await admin.call().admin.stepUp({ password: PASSWORD });
     adminId = (
       await db
         .selectFrom("users")

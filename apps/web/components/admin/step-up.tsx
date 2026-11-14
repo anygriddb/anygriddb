@@ -7,9 +7,10 @@ import {
   Label,
 } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { setProofAsker } from "../../lib/proof";
 import { trpc } from "../../lib/trpc";
 import { stepUpFields, type StepUpNeed } from "./step-up-model";
 
@@ -78,7 +79,7 @@ export function useStepUp() {
       >
         <DialogContent
           title={t`Confirm it is you`}
-          description={t`Sensitive Administration actions ask for your password or second factor again. The proof stays valid for five minutes.`}
+          description={t`A change made in Administration asks for your password or second factor again. The proof stays valid for five minutes.`}
         >
           <div className="flex flex-col gap-2">
             {fields.password ? (
@@ -127,4 +128,18 @@ export function useStepUp() {
     ) : null;
 
   return { ensure, dialog };
+}
+
+/**
+ * Asks for the proof whenever the server refuses a change for want of it
+ * (`lib/proof.ts`), for every page of Administration: mounted once, in
+ * its shell.
+ */
+export function ProofGate() {
+  const { ensure, dialog } = useStepUp();
+  useEffect(() => {
+    setProofAsker(ensure);
+    return () => setProofAsker(null);
+  }, [ensure]);
+  return dialog;
 }

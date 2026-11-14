@@ -83,6 +83,8 @@ describe("the instance's name, logo and mail", () => {
       password: PASSWORD,
     });
     await enrollTotp(admin);
+    // A change made in Administration asks for the proof (ADR 0073).
+    await admin.call().admin.stepUp({ password: PASSWORD });
     adminId = (
       await db
         .selectFrom("users")

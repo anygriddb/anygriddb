@@ -16,6 +16,7 @@ import {
   useAccountChoices,
   type AccountChoice,
 } from "./account-choices";
+import { useStepUp } from "./step-up";
 
 const ROLES: readonly Role[] = ["owner", "editor", "commenter", "viewer"];
 
@@ -47,6 +48,7 @@ export function BaseAdminMembers({
   const api = useTRPC();
   const queryClient = useQueryClient();
   const session = useSession();
+  const stepUp = useStepUp();
   const roleLabel = useRoleLabel();
   const canChange = session.data?.isAdmin === true;
   const [removing, setRemoving] = useState<Member | null>(null);
@@ -69,6 +71,7 @@ export function BaseAdminMembers({
   async function setOn(userId: string, next: Role): Promise<boolean> {
     setBusy(true);
     try {
+      if (!(await stepUp.ensure())) return false;
       await trpc.admin.setBaseRole.mutate({ userId, baseId, role: next });
       await refresh();
       return true;
@@ -257,6 +260,7 @@ export function BaseAdminMembers({
           confirmLabel={t`Remove`}
           onConfirm={async () => {
             try {
+              if (!(await stepUp.ensure())) return;
               await trpc.admin.removeBaseRole.mutate({
                 userId: removing.userId,
                 baseId,
@@ -272,6 +276,7 @@ export function BaseAdminMembers({
           }}
         />
       ) : null}
+      {stepUp.dialog}
     </section>
   );
 }

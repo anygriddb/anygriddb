@@ -22,6 +22,7 @@ import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { AccountName, useAccountChoices } from "./account-choices";
 import { useBaseChoices } from "./base-choices";
+import { useStepUp } from "./step-up";
 
 const ROLES: readonly Role[] = ["owner", "editor", "commenter", "viewer"];
 
@@ -35,6 +36,7 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
   const api = useTRPC();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const stepUp = useStepUp();
   const roleLabel = useRoleLabel();
   const detail = useQuery(api.admin.groups.get.queryOptions({ groupId }));
   const [busy, setBusy] = useState(false);
@@ -94,9 +96,14 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
       }),
     ]);
 
-  async function run(action: () => Promise<unknown>, done?: string) {
+  async function run(
+    action: () => Promise<unknown>,
+    done?: string,
+    prove = false,
+  ) {
     setBusy(true);
     try {
+      if (prove && !(await stepUp.ensure())) return false;
       await action();
       await refresh();
       if (done) toast.success(done);
@@ -111,6 +118,7 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
 
   return (
     <div className="flex max-w-3xl flex-col gap-5">
+      {stepUp.dialog}
       {back}
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -346,6 +354,7 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
                             role: next,
                           }),
                         t`Role changed`,
+                        true,
                       );
                     }}
                   >
@@ -369,6 +378,7 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
                             role: null,
                           }),
                         t`Role removed`,
+                        true,
                       )
                     }
                   >
@@ -410,6 +420,7 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
                       role: baseRole,
                     }),
                   t`Role given on ${{ base: chosen.name }}`,
+                  true,
                 ).then((ok) => {
                   if (!ok) return;
                   setPickingBase(false);

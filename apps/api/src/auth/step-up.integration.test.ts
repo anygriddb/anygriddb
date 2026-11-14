@@ -68,7 +68,7 @@ describe("administration step-up", () => {
       ),
     ).toBe("step_up_required");
     // An account made as an administrator is the same gift, by another
-    // door; one that administers nothing asks no proof.
+    // door; so is any account: every change asks (ADR 0073).
     expect(
       await errorCode(
         admin.call().admin.createAccount({
@@ -85,10 +85,14 @@ describe("administration step-up", () => {
         .where("email", "=", `second-${suffix}@example.org`)
         .executeTakeFirst(),
     ).toBeUndefined();
-    await admin.call().admin.createAccount({
-      email: `plain-${suffix}@example.org`,
-      displayName: "Plain",
-    });
+    expect(
+      await errorCode(
+        admin.call().admin.createAccount({
+          email: `plain-${suffix}@example.org`,
+          displayName: "Plain",
+        }),
+      ),
+    ).toBe("step_up_required");
 
     expect(await errorCode(admin.call().admin.stepUp({}))).toBe(
       "invalid_credentials",
@@ -143,10 +147,31 @@ describe("administration step-up", () => {
         admin.call().admin.setAdmin({ userId: personId, admin: true }),
       ),
     ).toBe("step_up_required");
+    // Taking administration away asks the same proof once the stamp ages.
+    expect(
+      await errorCode(
+        admin.call().admin.setAdmin({ userId: personId, admin: false }),
+      ),
+    ).toBe("step_up_required");
+    expect(
+      await errorCode(
+        admin.call().admin.updateSettings({ maintenance: false }),
+      ),
+    ).toBe("step_up_required");
 
     // Authenticator code also proves the step-up for this account.
     await admin.call().admin.stepUp({ factorCode: nextTotp(adminSecret) });
     expect((await admin.call().admin.stepUpStatus()).fresh).toBe(true);
+    await admin.call().admin.setAdmin({ userId: personId, admin: false });
+    expect(
+      (
+        await db
+          .selectFrom("users")
+          .select("isAdmin")
+          .where("id", "=", personId)
+          .executeTakeFirstOrThrow()
+      ).isAdmin,
+    ).toBe(false);
   });
 
   it("takes no more guesses once wrong proofs locked the account", async () => {
