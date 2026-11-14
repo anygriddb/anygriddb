@@ -390,6 +390,23 @@ test.describe("a restore point", () => {
 
     await page.goto(table);
     await expect(nameCell(page)).toContainText("After");
+
+    // The first base's activity says who changed the cell, not to what.
+    await page.goto(base);
+    await page
+      .getByRole("navigation", { name: "Base" })
+      .getByRole("link", { name: "Activity" })
+      .click();
+    // Typed twice: both edits name the row as it reads now.
+    await expect(
+      page
+        .getByText("Rhea Restorer changed Name of “After” in Samples")
+        .first(),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Rhea Restorer created the table Samples"),
+    ).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
     expect(blocked).toEqual([]);
   });
 });
