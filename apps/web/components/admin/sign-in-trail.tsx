@@ -30,6 +30,7 @@ const ACTIONS = [
   "account_disabled",
   "account_erased",
   "account_updated",
+  "account_data_exported",
   "sso_unlinked",
   "operator_mail_sent",
 ] as const;

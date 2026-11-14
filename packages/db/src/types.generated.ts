@@ -20,6 +20,7 @@ export type AuditAction =
 
 export type AuthAction =
   | "account_created"
+  | "account_data_exported"
   | "account_disabled"
   | "account_erased"
   | "account_locked"
@@ -97,6 +98,7 @@ export type Int8 = ColumnType<
 >;
 
 export type JobKind =
+  | "account_export"
   | "duplicate_base"
   | "duplicate_table"
   | "export"

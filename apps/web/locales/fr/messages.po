@@ -827,6 +827,10 @@ msgstr "{value} heures"
 msgid "{value} minutes"
 msgstr "{value} minutes"
 
+#: components/admin/account-export.tsx
+msgid "{writes} writes, {comments} comments, {events} account events. Cell values and comment texts stay out of the file."
+msgstr "{writes} écritures, {comments} commentaires, {events} événements de compte. Les valeurs des cellules et le texte des commentaires restent hors du fichier."
+
 #: components/grid/grid-footer.tsx
 msgid "% checked"
 msgstr "% cochés"
@@ -1257,6 +1261,31 @@ msgstr "Compte modifié"
 msgid "Account created"
 msgstr "Compte créé"
 
+#: components/admin/account-export.tsx
+msgid "Account data"
+msgstr "Données du compte"
+
+#: components/admin/support-tab.tsx
+#: components/shell/jobs-menu.tsx
+msgid "Account data export"
+msgstr "Export des données du compte"
+
+#: components/admin/account-export.tsx
+msgid "Account data export failed"
+msgstr "L’export des données du compte a échoué"
+
+#: components/admin/account-export.tsx
+msgid "Account data export started"
+msgstr "Export des données du compte lancé"
+
+#: components/admin/auth-labels.ts
+msgid "Account data exported"
+msgstr "Données du compte exportées"
+
+#: components/admin/account-export.tsx
+msgid "Account data ready to download from Tasks"
+msgstr "Données du compte prêtes à télécharger depuis Tâches"
+
 #: components/admin/account-actions.tsx
 #: components/admin/auth-labels.ts
 msgid "Account deleted"
@@ -1266,6 +1295,10 @@ msgstr "Compte supprimé"
 #: components/admin/sign-in-trail.tsx
 msgid "Account disabled"
 msgstr "Ce compte est désactivé"
+
+#: components/admin/account-export.tsx
+msgid "Account events"
+msgstr "Événements de compte"
 
 #: components/admin/auth-labels.ts
 #: components/admin/sign-in-trail.tsx
@@ -1912,6 +1945,10 @@ msgstr "Appliquer"
 msgid "Area"
 msgstr "Aire"
 
+#: components/admin/account-export.tsx
+msgid "as actor"
+msgstr "comme auteur"
+
 #: components/admin/sign-in-trail.tsx
 msgid "As an administrator"
 msgstr "En tant qu’administrateur"
@@ -2151,7 +2188,7 @@ msgstr "Nom de la base"
 msgid "Base not found"
 msgstr "Base introuvable"
 
-#: components/admin/trails.tsx
+#: components/admin/change-labels.ts
 msgid "Base opened"
 msgstr "Base ouverte"
 
@@ -2870,6 +2907,10 @@ msgstr "Copiez cette adresse maintenant : elle ne sera plus affichée."
 msgid "Copy this token now: it will not be shown again."
 msgstr "Copiez ce jeton maintenant : il ne sera plus affiché."
 
+#: components/admin/account-export.tsx
+msgid "Could not load the account data."
+msgstr "Impossible de charger les données du compte."
+
 #: components/grid/grid-view.tsx
 msgid "Could not load the rows to fill"
 msgstr "Impossible de charger les lignes à remplir"
@@ -3002,7 +3043,7 @@ msgstr "Date de création"
 msgid "created time, modified time, or number carried over as values"
 msgstr "date de création, de modification ou numéro repris en valeurs"
 
-#: components/admin/trails.tsx
+#: components/admin/change-labels.ts
 #: components/settings/webhooks-panel.tsx
 msgid "Creation"
 msgstr "Création"
@@ -3157,9 +3198,9 @@ msgid "delete"
 msgstr "suppression"
 
 #: components/admin/account-actions.tsx
+#: components/admin/change-labels.ts
 #: components/admin/group-page.tsx
 #: components/admin/sources-tab.tsx
-#: components/admin/trails.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/dashboards/dashboard-list.tsx
 #: components/fields/field-editor.tsx
@@ -3550,9 +3591,9 @@ msgid "Earliest date"
 msgstr "Plus ancienne date"
 
 #: components/admin/account-actions.tsx
+#: components/admin/change-labels.ts
 #: components/admin/group-page.tsx
 #: components/admin/sources-tab.tsx
-#: components/admin/trails.tsx
 #: components/record/record-panel.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/table/automations-dialog.tsx
@@ -3972,10 +4013,14 @@ msgstr "Expiration"
 msgid "Exponential: e to the power of the number."
 msgstr "Exponentielle : e à la puissance du nombre."
 
+#: components/admin/change-labels.ts
 #: components/admin/support-tab.tsx
-#: components/admin/trails.tsx
 msgid "Export"
 msgstr "Export"
+
+#: components/admin/account-export.tsx
+msgid "Export account data"
+msgstr "Exporter les données du compte"
 
 #: components/admin/sign-in-trail.tsx
 #: components/admin/trails.tsx
@@ -5552,7 +5597,7 @@ msgstr "Dossier local"
 msgid "Local group"
 msgstr "Groupe local"
 
-#: components/admin/trails.tsx
+#: components/admin/change-labels.ts
 #: components/record/row-status.tsx
 msgid "Lock"
 msgstr "Verrouiller"
@@ -6219,6 +6264,10 @@ msgstr "Aucun accès"
 msgid "No account by that name"
 msgstr "Aucun compte de ce nom"
 
+#: components/admin/account-export.tsx
+msgid "No account event yet."
+msgstr "Aucun événement de compte pour l’instant."
+
 #: components/admin/accounts-tab.tsx
 msgid "No account matches these filters. Clear a filter, or add the person."
 msgstr "Aucun compte ne correspond à ces filtres. Retirez un filtre, ou ajoutez la personne."
@@ -6527,6 +6576,10 @@ msgstr "Sans valeur"
 #: components/admin/access-tab.tsx
 msgid "No webhook."
 msgstr "Aucun webhook."
+
+#: components/admin/account-export.tsx
+msgid "No write yet."
+msgstr "Aucune écriture pour l’instant."
 
 #: components/admin/admin-overview.tsx
 msgid "Nobody can manage them: every owner's account is disabled, or there is none."
@@ -7323,7 +7376,7 @@ msgstr "PUBLIC_URL est une adresse IP : HTTPS et TOTP fonctionnent ; les clés
 msgid "Publish"
 msgstr "Publier"
 
-#: components/admin/trails.tsx
+#: components/admin/change-labels.ts
 msgid "Purge"
 msgstr "Purge"
 
@@ -7457,6 +7510,10 @@ msgstr "Un motif est requis"
 #: components/record/record-panel.tsx
 msgid "Reason: {reason}"
 msgstr "Motif : {reason}"
+
+#: components/admin/account-export.tsx
+msgid "Recent writes"
+msgstr "Écritures récentes"
 
 #: components/shell/base-home.tsx
 msgid "Recently opened"
@@ -8727,7 +8784,7 @@ msgstr "L’inscription n’est ouverte qu’aux adresses de votre organisation"
 msgid "Sign-ups"
 msgstr "Inscriptions"
 
-#: components/admin/trails.tsx
+#: components/admin/change-labels.ts
 msgid "Signature"
 msgstr "Signature"
 
@@ -8978,6 +9035,7 @@ msgstr "Arrêtée : trop d’exécutions par minute"
 msgid "Storage nearly full"
 msgstr "Stockage presque plein"
 
+#: components/admin/change-labels.ts
 #: components/admin/trails.tsx
 msgid "Structure"
 msgstr "Structure"
@@ -8991,7 +9049,7 @@ msgstr "Style"
 msgid "Subject"
 msgstr "Objet"
 
-#: components/admin/trails.tsx
+#: components/admin/change-labels.ts
 msgid "Submission"
 msgstr "Soumission"
 
@@ -10701,7 +10759,7 @@ msgid "Unlink single sign-on"
 msgstr "Délier l’authentification unique"
 
 #: components/admin/account-actions.tsx
-#: components/admin/trails.tsx
+#: components/admin/change-labels.ts
 #: components/record/row-status.tsx
 msgid "Unlock"
 msgstr "Déverrouiller"

@@ -973,6 +973,24 @@ test("an administrator hands a leaving person's base to someone who stays", asyn
     await expect(
       page.getByText(/Nothing to hand over: no base owned alone/),
     ).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    // What the instance holds about the person, as a file: asked for on
+    // their page, written by a job, fetched from the tasks.
+    await page.getByRole("link", { name: "Leaving Lea", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Account data" }),
+    ).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.getByRole("button", { name: "Export account data" }).click();
+    await expect(
+      page.getByText("Account data ready to download from Tasks"),
+    ).toBeVisible({ timeout: 60_000 });
+    const exported = await control.query<{ actor: string }>(
+      "select a.email as actor from auth_events e join users a on a.id = e.actor_id join users u on u.id = e.user_id where e.action = 'account_data_exported' and u.email = $1",
+      [leavingEmail],
+    );
+    expect(exported.rows).toEqual([{ actor: email }]);
     expect(blocked).toEqual([]);
   } finally {
     await control.end();

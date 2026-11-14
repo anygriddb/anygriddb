@@ -74,6 +74,7 @@ describe("job inputs", () => {
   it("accepts snapshot export and import inputs", () => {
     expect(JOB_KINDS).toContain("export_snapshot");
     expect(JOB_KINDS).toContain("import_snapshot");
+    expect(JOB_KINDS).toContain("account_export");
     expect(
       exportSnapshotJobInputSchema.parse({ baseId: id, withData: false })
         .withData,

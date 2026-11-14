@@ -56,6 +56,12 @@ import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { tellOwnersOfRole } from "../data/role-notices.js";
 import { handOver, handOverInputSchema, handoffInfo } from "../data/handoff.js";
+import {
+  accountDataSummary,
+  accountExportInputSchema,
+} from "../data/account-export.js";
+import { enqueueJob } from "../jobs.js";
+import { queueDeps } from "./jobs-router.js";
 import { t } from "./init.js";
 import {
   procedure,
@@ -230,6 +236,43 @@ export const adminAccountProcedures = {
       return result;
     }),
   ),
+  /**
+   * What the account's page shows of an account's data (ROADMAP #32): its
+   * recent writes and account events, as author or as subject, and how
+   * many lines the file would hold.
+   */
+  accountData: procedure
+    .input(z.object({ userId: z.uuid() }))
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        return accountDataSummary(ctx.db, input.userId);
+      }),
+    ),
+  /**
+   * Starts the job that writes an account's data to a file (ROADMAP #32).
+   * The file is kept a day, as every export is, for the administrator who
+   * asked, and the sign-in trail says who exported whose data.
+   */
+  exportAccountData: procedure
+    .input(accountExportInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        // Refuse an unknown account before the job runs.
+        await accountDataSummary(ctx.db, input.userId);
+        const job = await enqueueJob(queueDeps(ctx), {
+          kind: "account_export",
+          userId: admin.id,
+          input: { userId: input.userId },
+        });
+        ctx.req.log.info(
+          { actor: admin.id, target: input.userId, jobId: job.id },
+          "account data export queued",
+        );
+        return { jobId: job.id };
+      }),
+    ),
   /**
    * What the erase dialog needs: whether the account may be erased, and
    * which live bases still name it as their only owner (ADR 0051).

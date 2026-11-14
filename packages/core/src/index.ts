@@ -482,10 +482,12 @@ export {
   jobIdInputSchema,
   jobInputSchemas,
   listJobsInputSchema,
+  accountExportJobInputSchema,
   progressDue,
   type ExportJobInput,
   type JobKind,
   type JobStatus,
+  type AccountExportJobInput,
 } from "./jobs";
 
 export {

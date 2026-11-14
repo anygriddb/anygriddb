@@ -26,6 +26,7 @@ export function useAuthLabels() {
     account_disabled: t`Account disabled`,
     account_erased: t`Account deleted`,
     account_updated: t`Account changed`,
+    account_data_exported: t`Account data exported`,
     sso_unlinked: t`Single sign-on unlinked`,
     operator_mail_sent: t`Notice emailed`,
   };

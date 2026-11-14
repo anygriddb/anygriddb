@@ -9,6 +9,7 @@ import { datedName, downloadCsv } from "../../lib/download";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { useReadsAll } from "./admin-access";
+import { useChangeActionLabel } from "./change-labels";
 
 function date(value: string | null | undefined): string {
   return value ? new Date(value).toLocaleString() : "—";
@@ -75,20 +76,7 @@ export function ChangesTrail() {
       ? what
       : `${what} · ${plural(item.rows, { one: "# row", other: "# rows" })}`;
   };
-  const actionLabel = (value: string) =>
-    ({
-      insert: t`Creation`,
-      update: t`Edit`,
-      delete: t`Delete`,
-      submit: t`Submission`,
-      lock: t`Lock`,
-      unlock: t`Unlock`,
-      sign: t`Signature`,
-      catalog: t`Structure`,
-      export: t`Export`,
-      purge: t`Purge`,
-      access: t`Base opened`,
-    })[value] ?? value;
+  const actionLabel = useChangeActionLabel();
   // What an event of the catalog changed, by the table it wrote. Events
   // from before the trail kept that say "Structure", as they did.
   const catalogLabel = (table: string | null) =>
