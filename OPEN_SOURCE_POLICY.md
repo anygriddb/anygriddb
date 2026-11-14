@@ -24,6 +24,10 @@ This is a **hard product rule**, not a slogan.
 6. **Refuse to guess** — if a license is unclear, treat it as **blocked** until
    verified against https://opensource.org/licenses.
 
+`pnpm check` holds every package pnpm installs to rules 3 and 6: a package
+that states no license, or one outside the list in
+`scripts/check-licenses.mjs`, fails it.
+
 ## Allowed exception — interoperability
 
 Connecting **to** a proprietary system the operator already runs (e.g. Microsoft
@@ -64,6 +68,12 @@ desktop product as a **requirement**. Documented alternatives are fine.
 ## Known inherited debt (honest)
 
 The optional S3 driver talks to RustFS or any S3 service with `@aws-sdk/client-s3`. It does not ship a MinIO server. Spreadsheets go through `exceljs` (MIT). Do not add SheetJS Community Edition, a MinIO client, or Sentry.
+
+One package of the build tools is not under an OSI-approved license:
+`caniuse-lite`, the browser support data that Babel reads through
+`browserslist`, is under CC-BY-4.0, a license for data, which the OSI does
+not review. It is read when the app is built and is in nothing AnyGridDB
+ships. `scripts/check-licenses.mjs` names it as its only exception.
 
 Two older rules were based on facts that changed:
 
