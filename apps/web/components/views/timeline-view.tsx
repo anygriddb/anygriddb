@@ -12,7 +12,12 @@ import {
   timelineScale,
   type TimelineScale,
 } from "./timeline-period";
-import { ColumnPicker, useRowTitle, type ViewProps } from "./view-common";
+import {
+  ColumnPicker,
+  useRowTitle,
+  ViewSetupPrompt,
+  type ViewProps,
+} from "./view-common";
 import { useLingui } from "@lingui/react/macro";
 
 const DAY = 86_400_000;
@@ -79,11 +84,14 @@ export function TimelineView(
   useEffect(() => {
     if (lines.length > 0) ensure(first, last);
   }, [ensure, first, last, lines.length]);
+  // Same setup prompt as the calendar and the kanban: the reason, and a
+  // way to add the field when the person may change the schema.
   if (!startName) {
     return (
-      <p className="p-6 text-sm text-muted-foreground">
-        {t`Add a date field to show the timeline.`}
-      </p>
+      <ViewSetupPrompt
+        title={t`Add a date field to show the timeline.`}
+        onAddField={props.onOpenFieldEditor}
+      />
     );
   }
   const intl = locale === "fr" ? "fr-FR" : "en-GB";
