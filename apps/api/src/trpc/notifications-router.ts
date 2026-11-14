@@ -20,12 +20,6 @@ export const notificationsRouter = t.router({
         };
       }),
     ),
-  unreadCount: procedure.query(({ ctx }) =>
-    handle(ctx, async () => {
-      const user = await requireEnrolledUser(ctx);
-      return { unread: await unreadCount(ctx.db, user.id) };
-    }),
-  ),
   markRead: procedure
     .input(z.object({ ids: z.array(z.uuid()).min(1).max(100).optional() }))
     .mutation(({ ctx, input }) =>

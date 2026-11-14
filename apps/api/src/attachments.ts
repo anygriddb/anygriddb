@@ -26,7 +26,7 @@ import sharp from "sharp";
 import { z } from "zod";
 import { requestActor } from "./auth/access.js";
 import { SESSION_COOKIE } from "./auth/session.js";
-import { readFile, type FileStore } from "./files/index.js";
+import { type FileStore } from "./files/index.js";
 import { localFolder } from "./files/local-folder.js";
 import { sniffContentType } from "./storage.js";
 import { readerEngine } from "./data/acl.js";
@@ -349,21 +349,6 @@ type HttpDeps = {
   /** Uploads read at once, shared with imports and snapshots. */
   uploads: UploadSlots;
 };
-
-/** A small attachment as base64, for the record panel's inline preview. */
-export async function readAttachmentBase64(
-  files: FileStore,
-  key: string,
-): Promise<{ contentType: string; contentBase64: string }> {
-  if (!ATTACHMENT_KEY.test(key)) throw new AppError("invalid_attachment");
-  const file = await readFile(files, key, 1_048_576).catch(() => undefined);
-  if (!file || file.bytes.length < 1) throw new AppError("invalid_attachment");
-  return {
-    contentType: sniffContentType(file.bytes, file.contentType),
-    contentBase64: file.bytes.toString("base64"),
-  };
-}
-
 /**
  * Under field or row rules, a file is served only from a field the reader
  * may see, on a row they may see: the same check as `attachments.get`.

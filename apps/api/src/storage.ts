@@ -4,46 +4,9 @@
  * bytes live is the file store's business (`files/`).
  */
 import { randomUUID } from "node:crypto";
-import {
-  AppError,
-  ATTACHMENT_KEY,
-  ATTACHMENT_TYPES,
-  COLUMN_NAME,
-} from "@anygriddb/core";
-import { z } from "zod";
+import { AppError, ATTACHMENT_TYPES } from "@anygriddb/core";
 
 export { ATTACHMENT_TYPES };
-
-export const attachmentInputSchema = z.object({
-  tableId: z.uuid(),
-  contentBase64: z
-    .string()
-    .regex(/^[A-Za-z0-9+/]+={0,2}$/)
-    .max(1_400_000),
-  contentType: z.enum(ATTACHMENT_TYPES).optional(),
-  filename: z.string().max(255).optional(),
-});
-
-export const attachmentReadSchema = z.object({
-  tableId: z.uuid(),
-  column: z.string().regex(COLUMN_NAME).max(63),
-  key: z.string().regex(ATTACHMENT_KEY),
-});
-
-export function decodeAttachment(contentBase64: string): Buffer {
-  if (
-    !/^[A-Za-z0-9+/]+={0,2}$/.test(contentBase64) ||
-    contentBase64.length > 1_400_000
-  ) {
-    throw new AppError("invalid_attachment");
-  }
-  const bytes = Buffer.from(contentBase64, "base64");
-  if (bytes.length < 1 || bytes.length > 1_048_576) {
-    throw new AppError("invalid_attachment");
-  }
-  return bytes;
-}
-
 export function sniffContentType(bytes: Buffer, stored?: string): string {
   if (
     bytes.length >= 8 &&

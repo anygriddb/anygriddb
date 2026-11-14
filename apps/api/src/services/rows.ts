@@ -6,7 +6,6 @@
  * checks, change reasons, attachment ownership, and change announcements
  * live here only.
  */
-import { randomUUID } from "node:crypto";
 import {
   AppError,
   assertRequiredValues,
@@ -16,7 +15,6 @@ import {
   effectiveTableRole,
   type EngineCatalog,
   type EngineColumn,
-  MAX_BATCH_ROWS,
   placeTarget,
   resolveChangeReason,
   roleAllows,
@@ -865,65 +863,4 @@ export async function updateNativeBatch(
   }>,
 ): Promise<string[]> {
   return updateRowRecords(db, engine, context, updates);
-}
-
-/** Inserts parsed import records in batches and announces one import. */
-export async function importRows(
-  deps: RowServiceDeps,
-  scope: RowScope,
-  records: ReadonlyArray<Readonly<Record<string, CellValue>>>,
-  meta: WriteMeta,
-): Promise<string[]> {
-  const rows = records.map((values) => ({ values }));
-  await prepare(deps, scope, rows, []);
-  const reason = resolveReason(scope, touchedColumns(rows), meta);
-  const ids: string[] = [];
-  const key = randomUUID();
-  const summary = (count: number) => ({
-    event: {
-      tableId: scope.table.id,
-      event: "import" as const,
-      count,
-      actorId: scope.actorId,
-      source: meta.source,
-    },
-    key,
-    delayMs: 5_000,
-  });
-  if (isExternal(scope)) {
-    // A client's table: the compared, recorded write path (ADR 0028),
-    // with one import event.
-    for (let start = 0; start < records.length; start += MAX_BATCH_ROWS) {
-      const batch = records.slice(start, start + MAX_BATCH_ROWS);
-      ids.push(
-        ...(await insertExternalRows(
-          deps.db,
-          {
-            ...externalContext(scope, reason, meta),
-            summary: summary(ids.length + batch.length),
-          },
-          batch,
-        )),
-      );
-    }
-    await announceRows(deps, scope.table.id, "refresh", [], []);
-    return ids;
-  }
-  for (let start = 0; start < records.length; start += MAX_BATCH_ROWS) {
-    const batch = records.slice(start, start + MAX_BATCH_ROWS);
-    ids.push(
-      ...(await insertRows(
-        deps.db,
-        scope.engine,
-        {
-          ...writeContext(scope, reason, meta),
-          // One import event, whose count each batch brings up to date.
-          events: { summary: summary(ids.length + batch.length) },
-        },
-        batch,
-      )),
-    );
-  }
-  await announceRows(deps, scope.table.id, "refresh", [], []);
-  return ids;
 }

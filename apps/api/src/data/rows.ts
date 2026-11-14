@@ -22,14 +22,11 @@ import {
   buildUpdate,
   cellText,
   type CellValue,
-  coerceCellValue,
-  detectDelimiter,
   type EngineCatalog,
   isTimeZone,
   isWritableType,
   MAX_READ_LIMIT,
   type ParameterizedSql,
-  parseDelimited,
   quoteIdent,
   type ReadSpec,
   type RowPlace,
@@ -1387,56 +1384,4 @@ export async function attachSignatures(
     }
   }
   return rows.map((row) => ({ ...row, signature: latest.get(row.id) ?? null }));
-}
-
-/**
- * Parses delimited text whose header names columns by name or label, and
- * coerces every cell. Returns the rows ready to insert, or throws
- * `Invalid csv` naming nothing beyond the stable message.
- */
-export function parseImport(
-  engine: EngineCatalog,
-  text: string,
-  resolveUser?: (value: string) => string | undefined,
-): Array<Record<string, CellValue>> {
-  const records = parseDelimited(text, {
-    delimiter: detectDelimiter(text),
-    maxBytes: 1_000_000,
-    maxRows: 10_001,
-    maxColumns: 200,
-  });
-  const [headers, ...body] = records;
-  if (!headers) {
-    throw new AppError("invalid_csv");
-  }
-  const columns = writeColumns(engine);
-  const labels = new Map(
-    engine.table.columns.map((column) => [
-      column.label.toLowerCase(),
-      column.name,
-    ]),
-  );
-  const selected = headers.map((header) => {
-    const trimmed = header.trim();
-    const name = columns.some((column) => column.name === trimmed)
-      ? trimmed
-      : labels.get(trimmed.toLowerCase());
-    const column = columns.find((item) => item.name === name);
-    if (!column) {
-      throw new AppError("invalid_csv");
-    }
-    return column;
-  });
-  return body.map((cells) => {
-    const values: Record<string, CellValue> = {};
-    selected.forEach((column, index) => {
-      const raw = cells[index] ?? "";
-      const value = coerceCellValue(column, raw, { resolveUser });
-      if (value === undefined) {
-        throw new AppError("invalid_cell");
-      }
-      values[column.name] = value;
-    });
-    return values;
-  });
 }

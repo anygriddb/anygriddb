@@ -1,4 +1,4 @@
-import { attachmentsRouter, rowsRouter } from "./rows-router.js";
+import { rowsRouter } from "./rows-router.js";
 import { authRouter, sessionRouter } from "./auth-router.js";
 import { catalogRouter } from "./catalog-router.js";
 import { adminRouter } from "./admin-router.js";
@@ -15,7 +15,6 @@ export const appRouter = t.router({
   auth: authRouter,
   catalog: catalogRouter,
   rows: rowsRouter,
-  attachments: attachmentsRouter,
   share: shareRouter,
   notifications: notificationsRouter,
   automations: automationsRouter,

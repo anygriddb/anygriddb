@@ -306,24 +306,11 @@ const rowUpdateSchema = z.object({
   values: rowValuesSchema,
   expected: rowValuesSchema.optional(),
 });
-
-export const updateRowInputSchema = rowUpdateSchema.extend({
-  tableId: z.uuid(),
-  reason: reasonSchema.optional(),
-});
-
 export const updateRowsInputSchema = z.object({
   tableId: z.uuid(),
   updates: z.array(rowUpdateSchema).min(1).max(MAX_BATCH_ROWS),
   reason: reasonSchema.optional(),
 });
-
-export const deleteRowInputSchema = z.object({
-  tableId: z.uuid(),
-  rowId: rowIdSchema,
-  reason: reasonSchema.optional(),
-});
-
 export const deleteRowsInputSchema = z.object({
   tableId: z.uuid(),
   rowIds: z.array(rowIdSchema).min(1).max(MAX_BATCH_ROWS),
@@ -342,8 +329,6 @@ export const trashInputSchema = z.object({
 });
 
 export type InsertRowInput = z.infer<typeof insertRowInputSchema>;
-export type UpdateRowInput = z.infer<typeof updateRowInputSchema>;
-
 export const relationKindSchema = z.enum(["one_to_many", "many_to_many"]);
 
 export const addRelationInputSchema = z.object({
@@ -534,13 +519,6 @@ export const updateCommentInputSchema = z.object({
 });
 
 export const deleteCommentInputSchema = z.object({ commentId: z.uuid() });
-
-export const importRowsInputSchema = z.object({
-  tableId: z.uuid(),
-  csv: z.string().max(1_000_000),
-  reason: reasonSchema.optional(),
-});
-
 export const addLookupInputSchema = z.object({
   tableId: z.uuid(),
   name: userColumnName.optional(),
