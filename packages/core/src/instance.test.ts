@@ -184,6 +184,10 @@ describe("more policies (ADR 0044)", () => {
     expect(patch({ trashDays: 7 })).toBe(true);
     expect(patch({ trashDays: 6 })).toBe(false);
     expect(patch({ trashDays: 366 })).toBe(false);
+    expect(INSTANCE_DEFAULTS.restorePointDays).toBe(30);
+    expect(patch({ restorePointDays: 1 })).toBe(true);
+    expect(patch({ restorePointDays: 0 })).toBe(false);
+    expect(patch({ restorePointDays: 366 })).toBe(false);
     // The change trail is kept for ever, or a year at least: the trash,
     // which restores a row from the trail, keeps one a year at most.
     expect(INSTANCE_DEFAULTS.auditRetentionDays).toBe(0);

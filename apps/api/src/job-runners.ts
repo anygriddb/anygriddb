@@ -17,6 +17,8 @@ import {
   type JobKind,
   MAX_SNAPSHOT_TABLES,
   resolveAttachmentMaxBytes,
+  restoreBaseJobInputSchema,
+  restorePointJobInputSchema,
   roleAllows,
   roleFor,
   trashPurgeJobInputSchema,
@@ -52,6 +54,12 @@ import {
   keepStagedSnapshot,
   openStagedSnapshot,
 } from "./data/snapshot-stage.js";
+import {
+  findRestorePoint,
+  makeRestorePoint,
+  purgeRestorePoints,
+  restoreFromPoint,
+} from "./data/restore-points.js";
 import { removeBase, removeTable } from "./data/tables.js";
 import {
   baseTrashItems,
@@ -368,7 +376,96 @@ const runTrashPurge =
       await progress(index + 1, targets.length);
     }
     for (const baseId of bases) await catalogChanged(deps, baseId);
+    // The nightly purge also removes the restore points past their date.
+    if (input.due) {
+      await purgeRestorePoints(deps.db, deps.files, (cause) =>
+        deps.log(cause, "restore point file delete failed"),
+      );
+    }
     return { result: { purged } };
+  };
+
+/**
+ * A restore point of a base (ADR 0077): its snapshot with its data and
+ * files, kept in the store and listed on the base until its date passes.
+ */
+const runRestorePoint =
+  (deps: RunnerDeps): JobRunner =>
+  async ({ job, progress }) => {
+    const input = restorePointJobInputSchema.parse(job.input);
+    const { userId, bindings } = await activeAuthor(deps.db, job);
+    if (!roleAllows(roleFor(bindings, "base", input.baseId), "manage")) {
+      throw new AppError("access_denied");
+    }
+    const made = await makeRestorePoint(
+      {
+        db: deps.db,
+        files: deps.files,
+        maxRows: deps.exportMaxRows ?? MAX_COPY_ROWS,
+      },
+      {
+        userId,
+        baseId: input.baseId,
+        ...(input.note ? { note: input.note } : {}),
+        onProgress: progress,
+      },
+    );
+    return {
+      result: {
+        restorePointId: made.id,
+        baseId: input.baseId,
+        rows: made.rows,
+        size: made.size,
+        files: made.files,
+      },
+    };
+  };
+
+/**
+ * A base read back from one of its restore points, as a new base: the
+ * person who asks manages the base it was made of.
+ */
+const runRestoreBase =
+  (deps: RunnerDeps): JobRunner =>
+  async ({ job, progress }) => {
+    const input = restoreBaseJobInputSchema.parse(job.input);
+    const { userId, bindings } = await activeAuthor(deps.db, job);
+    const point = await findRestorePoint(deps.db, input.restorePointId);
+    if (!roleAllows(roleFor(bindings, "base", point.baseId), "manage")) {
+      throw new AppError("access_denied");
+    }
+    let baseId: string | undefined;
+    try {
+      const created = await restoreFromPoint(
+        {
+          db: deps.db,
+          files: deps.files,
+          maxRows: deps.importMaxRows ?? DEFAULT_IMPORT_MAX_ROWS,
+          maxFileBytes: await attachmentCeiling(deps),
+          names: await madeNamesFor(deps.db),
+        },
+        {
+          userId,
+          restorePointId: input.restorePointId,
+          ...(input.name ? { name: input.name } : {}),
+          onCreated: (id) => {
+            baseId = id;
+          },
+          onProgress: progress,
+        },
+      );
+      await catalogChanged(deps, created.baseId);
+      return { result: { baseId: created.baseId, report: created.report } };
+    } catch (error) {
+      if (baseId) {
+        await removeBase(deps.db, deps.files, userId, baseId, (cause) =>
+          deps.log(cause, "restore cleanup failed"),
+        ).catch((cause: unknown) =>
+          deps.log(cause, "partial restore cleanup failed"),
+        );
+      }
+      throw error;
+    }
   };
 
 const runExportSnapshot =
@@ -686,5 +783,7 @@ export function jobRunners(deps: RunnerDeps): Record<JobKind, JobRunner> {
     import_snapshot: runImportSnapshot(deps),
     import_airtable: runImportAirtable(deps),
     duplicate_base: runDuplicateBase(deps),
+    restore_point: runRestorePoint(deps),
+    restore_base: runRestoreBase(deps),
   };
 }

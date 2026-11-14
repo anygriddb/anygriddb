@@ -42,6 +42,8 @@ const POLICY_BOUNDS = {
   inactiveDays: { min: 30, max: 730 },
   /** How long deleted bases, tables, fields, and views can come back. */
   trashDays: { min: 7, max: 365 },
+  /** How long a base's restore point is kept (ADR 0077). */
+  restorePointDays: { min: 1, max: 365 },
   /**
    * How long the change trail is kept, once it is not for ever: a year at
    * least, the longest the trash keeps a row, which it restores from the
@@ -205,6 +207,8 @@ const fields = {
   ]),
   /** Days the trash keeps what was deleted, before it is purged for good. */
   trashDays: bounded("trashDays"),
+  /** Days a restore point is kept, then removed with its file. */
+  restorePointDays: bounded("restorePointDays"),
   /** Days the change trail is kept; 0, the default, keeps it for ever (ADR 0069). */
   auditRetentionDays: z.union([z.literal(0), bounded("auditRetentionDays")]),
   /**
@@ -287,6 +291,7 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   releaseCheck: false,
   attachmentMaxBytes: null,
   trashDays: 30,
+  restorePointDays: 30,
   auditRetentionDays: 0,
   alertBackupHours: 36,
   alertStoragePercent: 90,
@@ -350,6 +355,9 @@ export const instanceSettingsSchema = z.object({
     INSTANCE_DEFAULTS.attachmentMaxBytes,
   ),
   trashDays: fields.trashDays.default(INSTANCE_DEFAULTS.trashDays),
+  restorePointDays: fields.restorePointDays.default(
+    INSTANCE_DEFAULTS.restorePointDays,
+  ),
   auditRetentionDays: fields.auditRetentionDays.default(
     INSTANCE_DEFAULTS.auditRetentionDays,
   ),
@@ -413,6 +421,7 @@ export const instanceSettingsPatchSchema = z
     releaseCheck: fields.releaseCheck.optional(),
     attachmentMaxBytes: fields.attachmentMaxBytes.optional(),
     trashDays: fields.trashDays.optional(),
+    restorePointDays: fields.restorePointDays.optional(),
     auditRetentionDays: fields.auditRetentionDays.optional(),
     alertBackupHours: fields.alertBackupHours.optional(),
     alertStoragePercent: fields.alertStoragePercent.optional(),

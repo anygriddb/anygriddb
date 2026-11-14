@@ -15,6 +15,10 @@ import {
   exportSnapshotJobInputSchema,
   findTemplate,
   importSnapshotJobInputSchema,
+  listRestorePointsInputSchema,
+  restoreBaseJobInputSchema,
+  restorePointIdInputSchema,
+  restorePointJobInputSchema,
   roleAllows,
   roleFor,
   tableActivityInputSchema,
@@ -34,7 +38,13 @@ import { countVisibleRows, listCollaborators } from "../data/rows.js";
 import { liveBase, liveTable } from "../data/live.js";
 import { listFolders } from "../data/folders.js";
 import { insertBase, updateBase } from "../data/schema-ops.js";
+import {
+  deleteRestorePoint,
+  findRestorePoint,
+  listRestorePoints,
+} from "../data/restore-points.js";
 import { removeBase } from "../data/tables.js";
+import { readSettings } from "../settings.js";
 import { trashBase } from "../data/trash.js";
 import { publishCatalog } from "../realtime/channels.js";
 import type { Context } from "./context.js";
@@ -495,6 +505,79 @@ export const catalogBaseProcedures = {
           },
         });
         return { jobId: job.id };
+      }),
+    ),
+  /**
+   * A base's restore points (ADR 0077), newest first, and how long the
+   * instance keeps each one.
+   */
+  restorePoints: procedure
+    .input(listRestorePointsInputSchema)
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await guardBase(ctx, input.baseId, "manage");
+        return {
+          points: await listRestorePoints(ctx.db, input.baseId),
+          keepDays: (await readSettings(ctx.db)).restorePointDays,
+        };
+      }),
+    ),
+  /** Makes a restore point of the base, in the background. */
+  makeRestorePoint: procedure
+    .input(restorePointJobInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user } = await guardBase(ctx, input.baseId, "manage");
+        const job = await enqueueJob(queueDeps(ctx), {
+          kind: "restore_point",
+          userId: user.id,
+          baseId: input.baseId,
+          input,
+        });
+        return { jobId: job.id };
+      }),
+    ),
+  /**
+   * Reads a restore point back into a new base, in the background: the
+   * job's result names it. Making a base needs a second factor.
+   */
+  restoreBase: procedure
+    .input(restoreBaseJobInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const point = await findRestorePoint(ctx.db, input.restorePointId);
+        const { user } = await guardBase(ctx, point.baseId, "manage");
+        await authorize(ctx, true);
+        const base = await ctx.db
+          .selectFrom("bases")
+          .select("name")
+          .where("id", "=", point.baseId)
+          .executeTakeFirstOrThrow();
+        const job = await enqueueJob(queueDeps(ctx), {
+          kind: "restore_base",
+          userId: user.id,
+          baseId: point.baseId,
+          input: {
+            restorePointId: point.id,
+            name:
+              input.name ??
+              (await requestNames(ctx)).restored(base.name).slice(0, 100),
+          },
+        });
+        return { jobId: job.id };
+      }),
+    ),
+  /** Deletes a restore point and its file. */
+  deleteRestorePoint: procedure
+    .input(restorePointIdInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const point = await findRestorePoint(ctx.db, input.restorePointId);
+        await guardBase(ctx, point.baseId, "manage");
+        await deleteRestorePoint(ctx.db, ctx.files, point.id, (error) =>
+          ctx.req.log.error({ err: error }, "restore point file delete failed"),
+        );
+        return { ok: true as const };
       }),
     ),
 };

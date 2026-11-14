@@ -5,10 +5,14 @@
  */
 import type { Database } from "@anygriddb/db";
 
-/** What was exported: a view's rows, a base's file, or a report. */
+/**
+ * What was exported: a view's rows, a base's file, a copy of the base kept
+ * as a restore point, or a report.
+ */
 const EXPORT_KINDS = [
   "view",
   "base",
+  "restore_point",
   "access_report",
   "change_trail",
   "sign_in_trail",

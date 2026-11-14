@@ -11,6 +11,7 @@ import { canManage, type CatalogBase, type Role } from "../../lib/types";
 import { NotebookPage, RuledSection } from "../shell/notebook-page";
 import { useInvalidateCatalog } from "../shell/sidebar";
 import { GroupRoles } from "./group-roles";
+import { RestorePoints } from "./restore-points";
 import { useRoleLabel } from "./role-label";
 import { TableAclPanel } from "./table-acl-panel";
 import { WebhooksPanel } from "./webhooks-panel";
@@ -292,7 +293,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
       {manage ? (
         <RuledSection
           title={t`Backup`}
-          description={t`Portable file: schema, views, rows, members, and the attachments in a .zip archive when the base has some. Import it again from “New base”.`}
+          description={t`A file to keep elsewhere: schema, views, rows, members, and attachments, in a .zip archive. Import it again from “New base”.`}
         >
           <div className="flex flex-wrap gap-2">
             <Button
@@ -319,6 +320,9 @@ export function BaseSettings({ baseId }: { baseId: string }) {
             </p>
           ) : null}
         </RuledSection>
+      ) : null}
+      {manage ? (
+        <RestorePoints baseId={baseId} hasTables={base.tables.length > 0} />
       ) : null}
       {manage ? (
         <RuledSection

@@ -100,6 +100,8 @@ export function SupportTab() {
       import_snapshot: t`Base import`,
       import_airtable: t`Import from Airtable`,
       duplicate_base: t`Base copy`,
+      restore_point: t`Restore point`,
+      restore_base: t`Base restore`,
     })[value];
   const statusLabel = (value: JobStatus) =>
     ({

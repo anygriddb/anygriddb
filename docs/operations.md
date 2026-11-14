@@ -257,6 +257,17 @@ kept; its import reads it again a batch at a time as it writes. Leave room
 in the temporary folder for the largest archive, its attachments
 included (2 GiB at most), once per snapshot job running at once.
 
+### Restore points
+
+A base's manager keeps the whole base on the instance before a risky
+change, and restores it as a new base if it goes wrong. Each point is a
+snapshot archive in the files' store, under `restore-points/`, kept for
+the days set on Administration's Security page (30 by default, 365 at
+most), 20 per base at most; a shorter length ends the points already made
+sooner, and the nightly purge deletes those that have ended. They count in the store's size and in its backups: a point lives
+and ends with the instance, and a file to keep elsewhere is still the
+base's export.
+
 ## Update AnyGridDB
 
 Back up first (below). With the published image, read the release's

@@ -12,7 +12,7 @@ import { AppError } from "@anygriddb/core";
  * reference check in `sweep.ts`; until then the orphan sweep keeps it.
  */
 export const FILE_KEY =
-  /^(?:att[A-Za-z0-9_-]{20,80}|(?:exports|staged)\/[0-9a-f-]{36})$/;
+  /^(?:att[A-Za-z0-9_-]{20,80}|(?:exports|staged|restore-points)\/[0-9a-f-]{36})$/;
 
 export function assertFileKey(key: string): void {
   if (!FILE_KEY.test(key)) throw new AppError("invalid_file");

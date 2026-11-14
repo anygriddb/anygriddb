@@ -89,3 +89,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0074](0074-emergency-access.md)                     | An administrator's way into a base is told to its owners                                | Accepted (extends 0057)                     |
 | [0075](0075-handing-over.md)                         | Handing a leaving person's work to someone who stays                                    | Accepted                                    |
 | [0076](0076-snapshot-rows-as-lines.md)               | Base snapshots carry their rows line by line, keeping their sequence numbers            | Accepted (extends 0039)                     |
+| [0077](0077-restore-points.md)                       | Restore points: a base kept on the instance, restored beside it                         | Accepted (extends 0076)                     |

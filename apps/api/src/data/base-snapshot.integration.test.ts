@@ -13,6 +13,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { storeAttachment } from "../attachments.js";
 import { DiskStore, readFile as readStored } from "../files/index.js";
 import { createTestDatabase } from "../test-database.js";
+import { listTableAcls, setTableAcl } from "./acl.js";
 import { withAudit } from "./audit-context.js";
 import { importBaseSnapshot } from "./base-snapshot.js";
 import { snapshotOf } from "./snapshot.test-helpers.js";
@@ -80,6 +81,16 @@ describe("snapshots with files and people", () => {
         ],
       })
     ).id;
+    // Ada edits, but not the files, and only the rows with a name.
+    await setTableAcl(db, owner, {
+      tableId,
+      userId: ada,
+      rowFilter: {
+        conjunction: "and",
+        conditions: [{ column: "name", op: "is_not_empty" }],
+      },
+      columns: [{ column: "files", access: "hide" }],
+    });
     image = await sharp({
       create: { width: 40, height: 30, channels: 3, background: "#c00" },
     })
@@ -155,6 +166,16 @@ describe("snapshots with files and people", () => {
       const table = result.snapshot.tables[0];
       expect(table?.rows).toBeUndefined();
       expect(table?.rowCount).toBe(2);
+      expect(table?.access).toEqual([
+        {
+          email: `ada-${suffix}@example.com`,
+          rowFilter: {
+            conjunction: "and",
+            conditions: [{ column: "name", op: "is_not_empty" }],
+          },
+          columns: [{ column: "files", access: "hide" }],
+        },
+      ]);
       const [row] = await result.linesOf(table?.key ?? "");
       expect(row?.who).toEqual([`ada-${suffix}@example.com`]);
       expect(row?.files).toEqual([
@@ -214,6 +235,7 @@ describe("snapshots with files and people", () => {
         peopleDropped: 1,
         members: 1,
         membersMissing: 1,
+        membersLeft: 0,
       });
       const role = await db
         .selectFrom("roleBindings")
@@ -224,6 +246,17 @@ describe("snapshots with files and people", () => {
       expect(role?.role).toBe("editor");
 
       const { tableId, rows } = await rowsOf(imported.baseId);
+      // Her rules come with her role: the new base hides what the old did.
+      expect(await listTableAcls(db, tableId)).toEqual([
+        {
+          userId: ada,
+          rowFilter: {
+            conjunction: "and",
+            conditions: [{ column: "name", op: "is_not_empty" }],
+          },
+          columns: [{ column: "files", access: "hide" }],
+        },
+      ]);
       const a = rows.find((row) => row.name === "A");
       const b = rows.find((row) => row.name === "B");
       expect(a?.who).toEqual([ada]);

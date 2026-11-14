@@ -289,11 +289,12 @@ msgid "{0, plural, one {# row deleted from the client's database} other {# rows 
 msgstr "{0, plural, one {# row deleted from the client's database} other {# rows deleted from the client's database}}"
 
 #. placeholder {0}: item.rows
+#. placeholder {0}: point.rows
 #. placeholder {0}: props.total
-#. placeholder {0}: staged.rows
 #: components/admin/sources-tab.tsx
 #: components/admin/trails.tsx
 #: components/grid/grid-footer.tsx
+#: components/settings/restore-points.tsx
 #: components/shell/new-base-dialog.tsx
 msgid "{0, plural, one {# row} other {# rows}}"
 msgstr "{0, plural, one {# row} other {# rows}}"
@@ -320,6 +321,11 @@ msgstr "{0, plural, one {≈ # row} other {≈ # rows}}"
 #: components/shell/new-base-dialog.tsx
 msgid "{0, plural, one {Give the member their role back, if they have an account here} other {Give their role back to the # members who have an account here}}"
 msgstr "{0, plural, one {Give the member their role back, if they have an account here} other {Give their role back to the # members who have an account here}}"
+
+#. placeholder {0}: resultNumber(job, "rows")
+#: components/shell/jobs-menu.tsx
+msgid "{0, plural, one {Restore point made: # row} other {Restore point made: # rows}}"
+msgstr "{0, plural, one {Restore point made: # row} other {Restore point made: # rows}}"
 
 #. placeholder {0}: data.tokens
 #: components/admin/account-handoff.tsx
@@ -446,6 +452,10 @@ msgstr "{count} jobs, webhook deliveries, and automation runs failed in the last
 #: components/table/table-workspace.tsx
 msgid "{count} locked rows were not copied"
 msgstr "{count} locked rows were not copied"
+
+#: lib/snapshot-report.ts
+msgid "{count} member(s) who have left the base since, left out"
+msgstr "{count} member(s) who have left the base since, left out"
 
 #: lib/snapshot-report.ts
 msgid "{count} member(s) without an active account here"
@@ -812,6 +822,10 @@ msgstr "90 days"
 msgid "A base holds tables. A table is a real SQL table: one AnyGridDB keeps in PostgreSQL, or one of a database an administrator connected."
 msgstr "A base holds tables. A table is a real SQL table: one AnyGridDB keeps in PostgreSQL, or one of a database an administrator connected."
 
+#: components/settings/restore-points.tsx
+msgid "A base keeps {count} restore points at most: delete one to make another."
+msgstr "A base keeps {count} restore points at most: delete one to make another."
+
 #: lib/errors.ts
 msgid "A base must keep at least one owner"
 msgstr "A base must keep at least one owner"
@@ -819,6 +833,10 @@ msgstr "A base must keep at least one owner"
 #: components/shell/welcome-page.tsx
 msgid "A base, a first table, three fields. Kept in PostgreSQL from the first row."
 msgstr "A base, a first table, three fields. Kept in PostgreSQL from the first row."
+
+#: components/admin/security-tab.tsx
+msgid "A base's manager keeps the whole base on the instance before a risky change, and restores it as a new base if it goes wrong. Each one takes room in the files' store."
+msgstr "A base's manager keeps the whole base on the instance before a risky change, and restores it as a new base if it goes wrong. Each one takes room in the files' store."
 
 #: components/admin/invitations-panel.tsx
 msgid "A base's owners invite people. You can withdraw an invitation sent by mistake, or send the link again."
@@ -865,6 +883,10 @@ msgstr "A field of the linked rows"
 #: lib/errors.ts
 msgid "A file could not be attached. Add it again."
 msgstr "A file could not be attached. Add it again."
+
+#: components/settings/base-settings.tsx
+msgid "A file to keep elsewhere: schema, views, rows, members, and attachments, in a .zip archive. Import it again from “New base”."
+msgstr "A file to keep elsewhere: schema, views, rows, members, and attachments, in a .zip archive. Import it again from “New base”."
 
 #: lib/errors.ts
 msgid "A folder already has this name"
@@ -927,6 +949,10 @@ msgstr "A private address for your calendar application (Outlook, Google Calenda
 msgid "A reason is required"
 msgstr "A reason is required"
 
+#: components/admin/trails.tsx
+msgid "A restore point of the base, kept on the instance"
+msgstr "A restore point of the base, kept on the instance"
+
 #: lib/errors.ts
 msgid "A row cannot be placed next to itself"
 msgstr "A row cannot be placed next to itself"
@@ -986,6 +1012,10 @@ msgstr "A shorter choice also ends the tokens already made that are older."
 #: components/admin/security-tab.tsx
 msgid "A shorter choice also purges, at the next nightly purge, what was deleted before it."
 msgstr "A shorter choice also purges, at the next nightly purge, what was deleted before it."
+
+#: components/admin/security-tab.tsx
+msgid "A shorter length also brings forward the end of the points already made; a longer one applies to those made after it. Points that have ended are deleted at the nightly purge."
+msgstr "A shorter length also brings forward the end of the points already made; a longer one applies to those made after it. Points that have ended are deleted at the nightly purge."
 
 #: components/admin/security-tab.tsx
 msgid "A sign-in or a token in use counts as activity. Email is not set up: accounts are disabled without warning. Administrators and accounts managed by your identity provider (SCIM) are never disabled; an administrator can enable an account again."
@@ -1288,6 +1318,10 @@ msgstr "Add at least one table before exporting"
 #: components/settings/base-settings.tsx
 msgid "Add at least one table before exporting."
 msgstr "Add at least one table before exporting."
+
+#: components/settings/restore-points.tsx
+msgid "Add at least one table before making a restore point."
+msgstr "Add at least one table before making a restore point."
 
 #: components/admin/accounts-tab.tsx
 msgid "Add bases"
@@ -1924,6 +1958,15 @@ msgstr "Base not found"
 msgid "Base opened"
 msgstr "Base opened"
 
+#: components/admin/support-tab.tsx
+#: components/shell/jobs-menu.tsx
+msgid "Base restore"
+msgstr "Base restore"
+
+#: components/settings/restore-points.tsx
+msgid "Base restored, beside this one"
+msgstr "Base restored, beside this one"
+
 #: components/admin/accounts-tab.tsx
 #: components/admin/admin-sections.ts
 #: components/admin/base-admin-page.tsx
@@ -1959,6 +2002,10 @@ msgstr "Bases owned alone"
 #: components/admin/health-tab.tsx
 msgid "Before installing it, check that its SHA-256 fingerprint is this one:"
 msgstr "Before installing it, check that its SHA-256 fingerprint is this one:"
+
+#: components/settings/restore-points.tsx
+msgid "Before the yearly import"
+msgstr "Before the yearly import"
 
 #: components/shell/new-table-dialog.tsx
 msgid "Blank table"
@@ -2898,6 +2945,7 @@ msgstr "delete"
 #: components/grid/grid-view.tsx
 #: components/record/record-panel.tsx
 #: components/settings/account-settings.tsx
+#: components/settings/restore-points.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/shell/sidebar.tsx
 #: components/table/automations-dialog.tsx
@@ -2983,6 +3031,10 @@ msgstr "Delete the field “{name}”?"
 msgid "Delete the folder “{name}”?"
 msgstr "Delete the folder “{name}”?"
 
+#: components/settings/restore-points.tsx
+msgid "Delete the restore point of {date}"
+msgstr "Delete the restore point of {date}"
+
 #: components/admin/sources-tab.tsx
 msgid "Delete the source {name}?"
 msgstr "Delete the source {name}?"
@@ -2998,6 +3050,10 @@ msgstr "Delete the view “{name}”?"
 #: components/admin/base-admin-page.tsx
 msgid "Delete this base"
 msgstr "Delete this base"
+
+#: components/settings/restore-points.tsx
+msgid "Delete this restore point?"
+msgstr "Delete this restore point?"
 
 #: components/table/view-tabs.tsx
 msgid "Delete view"
@@ -4920,6 +4976,14 @@ msgstr "Keep deleted items for"
 msgid "Keep events for"
 msgstr "Keep events for"
 
+#: components/admin/security-tab.tsx
+msgid "Keep restore points for"
+msgstr "Keep restore points for"
+
+#: components/settings/restore-points.tsx
+msgid "kept until {date}"
+msgstr "kept until {date}"
+
 #: components/settings/api-docs.tsx
 msgid "Key"
 msgstr "Key"
@@ -5284,9 +5348,17 @@ msgstr "Maintenance is on: only administrators can sign in."
 msgid "Make {name} an administrator?"
 msgstr "Make {name} an administrator?"
 
+#: components/settings/restore-points.tsx
+msgid "Make a restore point"
+msgstr "Make a restore point"
+
 #: components/admin/account-actions.tsx
 msgid "Make administrator"
 msgstr "Make administrator"
+
+#: components/settings/restore-points.tsx
+msgid "Making a restore point…"
+msgstr "Making a restore point…"
 
 #: components/admin/account-actions.tsx
 #: components/admin/accounts-tab.tsx
@@ -5992,6 +6064,10 @@ msgstr "no primary key: read-only"
 msgid "No public link or calendar feed on this instance."
 msgstr "No public link or calendar feed on this instance."
 
+#: components/settings/restore-points.tsx
+msgid "No restore point yet."
+msgstr "No restore point yet."
+
 #: components/shell/command-palette.tsx
 msgid "No results"
 msgstr "No results"
@@ -6122,6 +6198,10 @@ msgstr "Not set"
 #: components/admin/sources-tab.tsx
 msgid "Not watched"
 msgstr "Not watched"
+
+#: components/settings/restore-points.tsx
+msgid "Note (optional)"
+msgstr "Note (optional)"
 
 #: components/admin/identity-tab.tsx
 #: components/admin/sign-in-trail.tsx
@@ -6332,6 +6412,7 @@ msgid "Only you see it. Others keep the shared views."
 msgstr "Only you see it. Others keep the shared views."
 
 #: components/public/public-view.tsx
+#: components/settings/restore-points.tsx
 #: components/shell/new-base-dialog.tsx
 #: components/shell/sidebar.tsx
 msgid "Open"
@@ -6700,10 +6781,6 @@ msgstr "Plain text"
 #: components/admin/sources-tab.tsx
 msgid "Port"
 msgstr "Port"
-
-#: components/settings/base-settings.tsx
-msgid "Portable file: schema, views, rows, members, and the attachments in a .zip archive when the base has some. Import it again from “New base”."
-msgstr "Portable file: schema, views, rows, members, and the attachments in a .zip archive when the base has some. Import it again from “New base”."
 
 #: components/shell/welcome-page.tsx
 msgid "PostgreSQL, MySQL, MariaDB, SQL Server, or Oracle, over TLS. Its tables become tables here; the rights stay in the database."
@@ -7274,10 +7351,36 @@ msgstr "REST at {url}. Authenticate with a token: Authorization: Bearer ag_…"
 msgid "Restore"
 msgstr "Restore"
 
+#: components/settings/restore-points.tsx
+msgid "Restore as a new base"
+msgstr "Restore as a new base"
+
+#: components/admin/support-tab.tsx
+#: components/shell/jobs-menu.tsx
+msgid "Restore point"
+msgstr "Restore point"
+
+#: components/settings/restore-points.tsx
+msgid "Restore point made"
+msgstr "Restore point made"
+
+#: components/admin/security-tab.tsx
+#: components/settings/restore-points.tsx
+msgid "Restore points"
+msgstr "Restore points"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Restore points kept for"
+msgstr "Restore points kept for"
+
 #: components/admin/bases-tab.tsx
 #: lib/trash.tsx
 msgid "Restored from the trash"
 msgstr "Restored from the trash"
+
+#: components/settings/restore-points.tsx
+msgid "Restoring the base as it was on {date}…"
+msgstr "Restoring the base as it was on {date}…"
 
 #: components/settings/table-acl-panel.tsx
 msgid "Restrictions cleared"
@@ -8708,6 +8811,10 @@ msgstr "The automation acts with your access; every write is recorded in the aud
 msgid "The base and its tables go to the trash: you can restore it from the home page for {days} days."
 msgstr "The base and its tables go to the trash: you can restore it from the home page for {days} days."
 
+#: components/settings/restore-points.tsx
+msgid "The base as it was on {date} can no longer be restored. The base itself is not changed."
+msgstr "The base as it was on {date} can no longer be restored. The base itself is not changed."
+
 #: components/admin/open-base.tsx
 msgid "The base is closed to you again"
 msgstr "The base is closed to you again"
@@ -9242,6 +9349,10 @@ msgstr "The volume the files are on is {percent}% full."
 msgid "The volume the files are on is full at"
 msgstr "The volume the files are on is full at"
 
+#: components/settings/restore-points.tsx
+msgid "The whole base, its rows, files, views, and members, kept on this instance for {days} days. Restoring one makes a new base beside this one: this base is not changed."
+msgstr "The whole base, its rows, files, views, and members, kept on this instance for {days} days. Restoring one makes a new base beside this one: this base is not changed."
+
 #: components/fields/formula-docs.ts
 msgid "The whole number just above."
 msgstr "The whole number just above."
@@ -9383,6 +9494,10 @@ msgstr "This base has no tables yet."
 #: components/shell/base-home.tsx
 msgid "This base is empty."
 msgstr "This base is empty."
+
+#: lib/errors.ts
+msgid "This base keeps as many restore points as it may: delete one to make another"
+msgstr "This base keeps as many restore points as it may: delete one to make another"
 
 #: lib/errors.ts
 msgid "This cannot be done to this account"
@@ -9547,6 +9662,10 @@ msgstr "This page is for instance administrators."
 #: components/shell/page-crashed.tsx
 msgid "This page stopped working"
 msgstr "This page stopped working"
+
+#: lib/errors.ts
+msgid "This restore point no longer exists"
+msgstr "This restore point no longer exists"
 
 #: components/record/row-status.tsx
 msgid "This row has disappeared from the client's database since it was locked."
@@ -9792,6 +9911,10 @@ msgstr "Trails"
 #: components/shell/sidebar.tsx
 msgid "Trash"
 msgstr "Trash"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Trash kept for"
+msgstr "Trash kept for"
 
 #: components/shell/trash-dialog.tsx
 msgid "Trash of {name}"

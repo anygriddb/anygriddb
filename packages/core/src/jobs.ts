@@ -11,6 +11,10 @@ import {
   exportSnapshotJobInputSchema,
   importSnapshotJobInputSchema,
 } from "./snapshot";
+import {
+  restoreBaseJobInputSchema,
+  restorePointJobInputSchema,
+} from "./restore-points";
 import { trashPurgeJobInputSchema } from "./trash";
 
 /**
@@ -26,6 +30,8 @@ export const JOB_KINDS = [
   "import_snapshot",
   "import_airtable",
   "duplicate_base",
+  "restore_point",
+  "restore_base",
 ] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
@@ -161,6 +167,8 @@ export const jobInputSchemas = {
   import_snapshot: importSnapshotJobInputSchema,
   import_airtable: importAirtableJobInputSchema,
   duplicate_base: duplicateBaseJobInputSchema,
+  restore_point: restorePointJobInputSchema,
+  restore_base: restoreBaseJobInputSchema,
 } as const satisfies Record<JobKind, z.ZodType>;
 
 export const jobIdInputSchema = z.object({ jobId: z.uuid() }).strict();

@@ -7,7 +7,7 @@ export type ColumnAccess = (typeof COLUMN_ACCESS)[number];
 
 const columnAccessSchema = z.enum(COLUMN_ACCESS);
 
-const columnAclEntrySchema = z
+export const columnAclEntrySchema = z
   .object({
     column: columnNameSchema,
     access: columnAccessSchema,

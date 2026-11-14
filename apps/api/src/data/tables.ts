@@ -153,6 +153,13 @@ export async function removeBase(
   for (const table of tableRows) {
     await removeTable(db, files, userId, table.id, onAttachmentError);
   }
+  // Its restore points' lines go with the base, then their files: one the
+  // store fails to delete is the orphan sweep's.
+  const points = await db
+    .selectFrom("restorePoints")
+    .select("fileKey")
+    .where("baseId", "=", baseId)
+    .execute();
   await withAudit(db, { userId }, async (tx) => {
     await tx
       .deleteFrom("roleBindings")
@@ -161,4 +168,9 @@ export async function removeBase(
       .execute();
     await tx.deleteFrom("bases").where("id", "=", baseId).execute();
   });
+  await deleteFiles(
+    files,
+    points.map((point) => point.fileKey),
+    onAttachmentError,
+  );
 }

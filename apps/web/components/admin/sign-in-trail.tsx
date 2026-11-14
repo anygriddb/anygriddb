@@ -110,6 +110,8 @@ export function SignInTrail() {
             inactiveDays: t`Disable accounts nobody uses`,
             lockAlerts: t`Tell administrators`,
             auditRetentionDays: t`Change trail kept for`,
+            trashDays: t`Trash kept for`,
+            restorePointDays: t`Restore points kept for`,
             alertBackupHours: t`Alert: backup late`,
             alertStoragePercent: t`Alert: storage nearly full`,
             alertCertificateDays: t`Alert: certificate close to expiry`,

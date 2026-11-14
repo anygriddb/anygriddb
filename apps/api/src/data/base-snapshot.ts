@@ -15,6 +15,7 @@ import {
   deriveColumnName,
   type EngineCatalog,
   type FieldType,
+  filterGroupSchema,
   type FormulaExpr,
   type MadeNames,
   madeNames,
@@ -192,6 +193,80 @@ async function baseMembers(db: Database, baseId: string) {
     );
   }
   return [...best].map(([email, role]) => ({ email, role }));
+}
+
+type TableAccess = NonNullable<SnapshotTable["access"]>;
+
+/**
+ * Each person's own access to the base's tables, by email: a role that
+ * replaces the base's on a table, and their row and field rules. A rule
+ * that no longer reads hides every row, as it does in the grid.
+ */
+async function tablesAccess(
+  db: Database,
+  tableIds: readonly string[],
+): Promise<Map<string, TableAccess>> {
+  const found = new Map<string, Map<string, TableAccess[number]>>();
+  if (tableIds.length === 0) return new Map();
+  const entry = (tableId: string, email: string) => {
+    const byEmail =
+      found.get(tableId) ?? new Map<string, TableAccess[number]>();
+    found.set(tableId, byEmail);
+    const current = byEmail.get(email) ?? { email };
+    byEmail.set(email, current);
+    return current;
+  };
+  const roles = await db
+    .selectFrom("roleBindings as b")
+    .innerJoin("users as u", "u.id", "b.userId")
+    .select(["b.scopeId as tableId", "u.email", "b.role"])
+    .where("b.scope", "=", "table")
+    .where("b.scopeId", "in", tableIds)
+    .where("b.groupId", "is", null)
+    .execute();
+  for (const row of roles) {
+    const current = entry(row.tableId, row.email);
+    current.role = current.role
+      ? (roleFor(
+          [
+            { role: current.role, scope: "table", scopeId: row.tableId },
+            { role: row.role, scope: "table", scopeId: row.tableId },
+          ],
+          "table",
+          row.tableId,
+        ) ?? current.role)
+      : row.role;
+  }
+  const rules = await db
+    .selectFrom("tableAcls as a")
+    .innerJoin("users as u", "u.id", "a.userId")
+    .select(["a.tableId", "u.email", "a.rowFilter"])
+    .where("a.tableId", "in", tableIds)
+    .execute();
+  for (const row of rules) {
+    if (!row.rowFilter) continue;
+    const parsed = filterGroupSchema.safeParse(row.rowFilter);
+    entry(row.tableId, row.email).rowFilter = parsed.success
+      ? parsed.data
+      : { conjunction: "or", conditions: [] };
+  }
+  const columns = await db
+    .selectFrom("columnAcls as c")
+    .innerJoin("users as u", "u.id", "c.userId")
+    .select(["c.tableId", "u.email", "c.columnName", "c.access"])
+    .where("c.tableId", "in", tableIds)
+    .orderBy("c.columnName")
+    .execute();
+  for (const row of columns) {
+    const current = entry(row.tableId, row.email);
+    current.columns = [
+      ...(current.columns ?? []),
+      { column: row.columnName, access: row.access },
+    ];
+  }
+  return new Map(
+    [...found].map(([tableId, byEmail]) => [tableId, [...byEmail.values()]]),
+  );
 }
 
 /** A table as a snapshot reads it: its schema, and what its lines need. */
@@ -567,6 +642,10 @@ export async function writeBaseSnapshot(
   let written = 0;
   await input.onProgress?.(0, total);
   try {
+    const access = await tablesAccess(
+      db,
+      described.tables.map((table) => table.id),
+    );
     const tables: SnapshotTable[] = [];
     for (const table of described.tables) {
       let rowCount = 0;
@@ -582,7 +661,12 @@ export async function writeBaseSnapshot(
           await input.onProgress?.(Math.min(written, total), total);
         }),
       );
-      tables.push({ ...table.snapshot, rowCount });
+      const people = access.get(table.id);
+      tables.push({
+        ...table.snapshot,
+        rowCount,
+        ...(people?.length ? { access: people } : {}),
+      });
     }
     if (attachments.size > MAX_SNAPSHOT_FILES) {
       throw new AppError("too_large_snapshot");
@@ -711,22 +795,19 @@ type SnapshotImportReport = {
   /** Members given their role back, and those without an account here. */
   members: number;
   membersMissing: number;
+  /** Members left out because they have left the base since. */
+  membersLeft: number;
 };
 
-/**
- * Gives the snapshot's members with an active account here their role on
- * the new base. Its importer keeps theirs.
- */
-async function restoreMembers(
+/** Rows of access a statement writes at a time. */
+const ACCESS_BATCH = 1_000;
+
+/** The active accounts of some addresses, by their address in lower case. */
+async function activeAccounts(
   db: Database,
-  userId: string,
-  baseId: string,
-  members: NonNullable<BaseSnapshot["members"]>,
-  report: SnapshotImportReport,
-): Promise<void> {
-  const emails = [
-    ...new Set(members.map((member) => member.email.toLowerCase())),
-  ];
+  addresses: Iterable<string>,
+): Promise<Map<string, string>> {
+  const emails = [...new Set([...addresses].map((item) => item.toLowerCase()))];
   const accounts = new Map<string, string>();
   for (let start = 0; start < emails.length; start += 1_000) {
     const found = await db
@@ -735,30 +816,134 @@ async function restoreMembers(
       .where("email", "in", emails.slice(start, start + 1_000))
       .where("disabledAt", "is", null)
       .execute();
-    for (const user of found) accounts.set(user.email, user.id);
+    for (const user of found) accounts.set(user.email.toLowerCase(), user.id);
   }
-  const grants = members.flatMap((member) => {
-    const id = accounts.get(member.email.toLowerCase());
-    if (!id) {
-      report.membersMissing += 1;
-      return [];
-    }
-    return id === userId ? [] : [{ userId: id, role: member.role }];
-  });
-  if (grants.length === 0) return;
-  await withAudit(db, { userId, source: "snapshot" }, (tx) =>
+  return accounts;
+}
+
+/** Who gets their access back on the new base: its importer has it all. */
+type Restoring = {
+  userId: string;
+  accounts: ReadonlyMap<string, string>;
+  /** Only these accounts, when given: the others are counted as left. */
+  keep?: ReadonlySet<string>;
+};
+
+/**
+ * Gives the snapshot's members with an active account here their role on
+ * the new base. Its importer keeps theirs.
+ */
+async function restoreMembers(
+  db: Database,
+  baseId: string,
+  members: NonNullable<BaseSnapshot["members"]>,
+  restoring: Restoring,
+  report: SnapshotImportReport,
+): Promise<void> {
+  const grants = new Map<string, Role>();
+  for (const member of members) {
+    const id = restoring.accounts.get(member.email.toLowerCase());
+    if (!id) report.membersMissing += 1;
+    else if (restoring.keep && !restoring.keep.has(id)) report.membersLeft += 1;
+    else if (id !== restoring.userId) grants.set(id, member.role);
+  }
+  if (grants.size === 0) return;
+  await withAudit(db, { userId: restoring.userId, source: "snapshot" }, (tx) =>
     tx
       .insertInto("roleBindings")
       .values(
-        grants.map((grant) => ({
-          ...grant,
+        [...grants].map(([userId, role]) => ({
+          userId,
+          role,
           scope: "base" as const,
           scopeId: baseId,
         })),
       )
       .execute(),
   );
-  report.members += grants.length;
+  report.members += grants.size;
+}
+
+/**
+ * Gives each person their own role and rules on the new tables, as the
+ * snapshot keeps them: nobody sees more of the new base than they saw of
+ * the base it was made of.
+ */
+async function restoreTableAccess(
+  db: Database,
+  tables: readonly SnapshotTable[],
+  ids: ReadonlyMap<string, string>,
+  restoring: Restoring,
+): Promise<void> {
+  for (const table of tables) {
+    const tableId = ids.get(table.key);
+    if (!tableId || !table.access?.length) continue;
+    const granted = new Map<string, TableAccess[number]>();
+    for (const item of table.access) {
+      const id = restoring.accounts.get(item.email.toLowerCase());
+      if (!id || id === restoring.userId) continue;
+      if (restoring.keep && !restoring.keep.has(id)) continue;
+      granted.set(id, item);
+    }
+    if (granted.size === 0) continue;
+    const entries = [...granted];
+    const roles = entries.flatMap(([userId, item]) =>
+      item.role
+        ? [
+            {
+              userId,
+              role: item.role,
+              scope: "table" as const,
+              scopeId: tableId,
+            },
+          ]
+        : [],
+    );
+    const rules = entries.flatMap(([userId, item]) =>
+      item.rowFilter || item.columns?.length
+        ? [
+            {
+              tableId,
+              userId,
+              rowFilter: item.rowFilter ?? null,
+              updatedAt: new Date(),
+            },
+          ]
+        : [],
+    );
+    const columns = entries.flatMap(([userId, item]) =>
+      (item.columns ?? []).map((column) => ({
+        tableId,
+        userId,
+        columnName: column.column,
+        access: column.access,
+      })),
+    );
+    await withAudit(
+      db,
+      { userId: restoring.userId, tableId, source: "snapshot" },
+      async (tx) => {
+        for (let start = 0; start < roles.length; start += ACCESS_BATCH) {
+          await tx
+            .insertInto("roleBindings")
+            .values(roles.slice(start, start + ACCESS_BATCH))
+            .execute();
+        }
+        for (let start = 0; start < rules.length; start += ACCESS_BATCH) {
+          await tx
+            .insertInto("tableAcls")
+            .values(rules.slice(start, start + ACCESS_BATCH))
+            .execute();
+        }
+        for (let start = 0; start < columns.length; start += ACCESS_BATCH) {
+          await tx
+            .insertInto("columnAcls")
+            .values(columns.slice(start, start + ACCESS_BATCH))
+            .execute();
+        }
+      },
+    );
+  }
 }
 
 /** Where a snapshot's rows go: a new table's fields, and its files so far. */
@@ -926,8 +1111,15 @@ export async function importBaseSnapshot(
     name?: string;
     onCreated?: (baseId: string) => void;
     onProgress?: (done: number, total: number | null) => Promise<void>;
-    /** Gives members with an account here their role back. */
+    /**
+     * Gives members with an account here their role back, and their own
+     * role and rules on each table.
+     */
     restoreMembers?: boolean;
+    /** Only these accounts get theirs back; the others are counted as left. */
+    keepAccounts?: ReadonlySet<string>;
+    /** Runs once the base and its tables exist, before their first row. */
+    beforeRows?: (baseId: string) => Promise<void>;
     /** An archive's file by its id, checked; none for a JSON snapshot. */
     readFile?: (id: string, maxBytes: number) => Promise<Buffer | undefined>;
     /** Version 3: a table's lines, read from its entry in their order. */
@@ -990,28 +1182,26 @@ export async function importBaseSnapshot(
     peopleDropped: 0,
     members: 0,
     membersMissing: 0,
+    membersLeft: 0,
   };
   try {
     const ids = new Map<string, string>();
     const rowMaps = new Map<string, Map<string, string>>();
-    if (input.restoreMembers && parsed.members?.length) {
-      await restoreMembers(db, userId, created.id, parsed.members, report);
+    const restoring: Restoring | undefined = input.restoreMembers
+      ? {
+          userId,
+          accounts: await activeAccounts(db, [
+            ...(parsed.members ?? []).map((member) => member.email),
+            ...parsed.tables.flatMap((table) =>
+              (table.access ?? []).map((item) => item.email),
+            ),
+          ]),
+          ...(input.keepAccounts ? { keep: input.keepAccounts } : {}),
+        }
+      : undefined;
+    if (restoring && parsed.members?.length) {
+      await restoreMembers(db, created.id, parsed.members, restoring, report);
     }
-    // People in user cells: members of the new base, found by email. A
-    // version 1 file names them by ids of another instance: none.
-    const people = new Map<string, string>();
-    if (parsed.version >= 2) {
-      const members = [...(await baseCollaboratorIds(db, created.id))];
-      if (members.length > 0) {
-        const found = await db
-          .selectFrom("users")
-          .select(["id", "email"])
-          .where("id", "in", members)
-          .execute();
-        for (const user of found) people.set(user.email, user.id);
-      }
-    }
-
     // Formulas may read lookups and rollups, which need the links first:
     // tables start with their stored fields, formulas come at the end.
     const formulas = new Map<string, ColumnDefinition[]>();
@@ -1041,6 +1231,23 @@ export async function importBaseSnapshot(
       });
       ids.set(table.key, made.id);
       await step();
+    }
+    if (restoring) await restoreTableAccess(db, parsed.tables, ids, restoring);
+    await input.beforeRows?.(created.id);
+
+    // People in user cells: members of the new base, found by email. A
+    // version 1 file names them by ids of another instance: none.
+    const people = new Map<string, string>();
+    if (parsed.version >= 2) {
+      const members = [...(await baseCollaboratorIds(db, created.id))];
+      if (members.length > 0) {
+        const found = await db
+          .selectFrom("users")
+          .select(["id", "email"])
+          .where("id", "in", members)
+          .execute();
+        for (const user of found) people.set(user.email, user.id);
+      }
     }
 
     for (const table of parsed.tables) {

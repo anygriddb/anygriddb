@@ -549,6 +549,15 @@ export {
   type TrashItem,
 } from "./trash";
 export {
+  listRestorePointsInputSchema,
+  MAX_RESTORE_POINTS,
+  restoreBaseJobInputSchema,
+  restorePointIdInputSchema,
+  restorePointJobInputSchema,
+  restorePointNoteSchema,
+  type RestorePoint,
+} from "./restore-points";
+export {
   decimalSeries,
   decimalToNumber,
   isDecimalString,
