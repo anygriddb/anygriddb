@@ -12,6 +12,7 @@ import {
   openApiDocument,
   type PublicApiDeps,
   updateRecords,
+  writeBodySchema,
 } from "../public-api/index.js";
 
 function toolError(error: unknown): {
@@ -43,20 +44,10 @@ function ok(data: unknown) {
   };
 }
 
+/** A write's body as REST takes it, with the table and a reason beside it. */
 const writeRecordsSchema = z.object({
   tableId: z.uuid(),
-  records: z
-    .array(
-      z.object({
-        id: rowIdSchema.optional(),
-        fields: z.record(z.string().max(100), z.unknown()),
-        expected: z.record(z.string().max(100), z.unknown()).optional(),
-      }),
-    )
-    .min(1)
-    .max(100),
-  typecast: z.boolean().optional(),
-  fieldKey: z.enum(["name", "label"]).optional(),
+  ...writeBodySchema.shape,
   reason: z.string().max(500).optional(),
 });
 

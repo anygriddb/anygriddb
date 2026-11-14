@@ -70,6 +70,35 @@ export const WITHIN_MODES = [
 export type DateMode = (typeof DATE_MODES)[number];
 export type WithinMode = (typeof WITHIN_MODES)[number];
 
+export type CalendarUnit = "week" | "month" | "year";
+
+/**
+ * The calendar periods a date condition names: a unit, and how many of it
+ * away from the present one. A filter is read in two places, the database
+ * (`query/filter-sql.ts`) and the application (`filter-eval.ts`): both
+ * take a name's meaning from here.
+ */
+const CALENDAR_PERIODS: Partial<
+  Record<DateMode | WithinMode, readonly [CalendarUnit, number]>
+> = {
+  this_week: ["week", 0],
+  last_week: ["week", -1],
+  next_week: ["week", 1],
+  this_month: ["month", 0],
+  last_month: ["month", -1],
+  next_month: ["month", 1],
+  this_year: ["year", 0],
+  last_year: ["year", -1],
+  next_year: ["year", 1],
+};
+
+/** The calendar period `mode` names, when it names one. */
+export function calendarPeriod(
+  mode: DateMode | WithinMode,
+): readonly [CalendarUnit, number] | undefined {
+  return CALENDAR_PERIODS[mode];
+}
+
 export const dateFilterValueSchema = z
   .object({
     mode: z.enum([...new Set([...DATE_MODES, ...WITHIN_MODES])] as [

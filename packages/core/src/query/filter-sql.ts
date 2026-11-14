@@ -1,6 +1,7 @@
 import { numberToDecimal, toDecimalString } from "../decimal";
 import {
   OPERATORS_BY_KIND,
+  calendarPeriod,
   isFilterGroup,
   type DateFilterValue,
   type FilterCondition,
@@ -219,6 +220,7 @@ function dateRange(
     const end = unit === "week" ? plus(start, "7") : months(start, 1, unit);
     return { start, end };
   };
+  const named = calendarPeriod(spec.mode);
   if (within) {
     switch (spec.mode) {
       case "past_week":
@@ -254,15 +256,14 @@ function dateRange(
         return { start: today(), end: plus(plus(today(), n), "1") };
       }
       case "this_week":
-        return period("week", 0);
       case "this_month":
-        return period("month", 0);
       case "this_year":
-        return period("year", 0);
+        return named && period(...named);
       default:
         return undefined;
     }
   }
+  if (named) return period(...named);
   switch (spec.mode) {
     case "today":
       return { start: today(), end: plus(today(), "1") };
@@ -280,24 +281,6 @@ function dateRange(
       const start = plus(today(), n);
       return { start, end: plus(start, "1") };
     }
-    case "this_week":
-      return period("week", 0);
-    case "last_week":
-      return period("week", -1);
-    case "next_week":
-      return period("week", 1);
-    case "this_month":
-      return period("month", 0);
-    case "last_month":
-      return period("month", -1);
-    case "next_month":
-      return period("month", 1);
-    case "this_year":
-      return period("year", 0);
-    case "last_year":
-      return period("year", -1);
-    case "next_year":
-      return period("year", 1);
     case "exact": {
       if (!spec.date) {
         return undefined;
