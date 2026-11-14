@@ -532,6 +532,12 @@ export const createApiTokenInputSchema = z.object({
   /** Limit the token to these bases. Absent means every base of its owner. */
   baseIds: z.array(z.uuid()).max(50).optional(),
   readOnly: z.boolean().optional(),
+  /**
+   * When false on a write token, create and update stay, delete is refused
+   * (ADR 0079). Ignored when read-only. Omitted means true (scripts keep
+   * deleting as before).
+   */
+  allowDelete: z.boolean().optional(),
   days: z.int().min(1).max(365).optional(),
 });
 

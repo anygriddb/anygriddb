@@ -26,7 +26,10 @@ export function AccountSettings() {
   const preferences = useQuery(api.notifications.preferences.queryOptions());
   const [tokenName, setTokenName] = useState("");
   const [tokenBases, setTokenBases] = useState<string[]>([]);
-  const [tokenReadOnly, setTokenReadOnly] = useState(false);
+  // A new token reads only unless asked, and one that writes does not
+  // delete unless asked (ADR 0079).
+  const [tokenReadOnly, setTokenReadOnly] = useState(true);
+  const [tokenAllowDelete, setTokenAllowDelete] = useState(false);
   const catalog = useCatalog();
   const [newToken, setNewToken] = useState("");
   const [tokenDays, setTokenDays] = useState("");
@@ -184,7 +187,7 @@ export function AccountSettings() {
       </RuledSection>
       <RuledSection
         title={t`API tokens`}
-        description={t`A token acts with your rights. It is shown once and lives the days you choose, ${{ max: tokenMaxDays }} at most on this instance.`}
+        description={t`A token acts with your rights, on the REST API and on MCP. It is shown once and lives the days you choose, ${{ max: tokenMaxDays }} at most on this instance. A read-only token is enough to explore; one that writes deletes rows only if you allow it.`}
       >
         {user.canCreateTokens ? (
           <form
@@ -196,13 +199,15 @@ export function AccountSettings() {
                   name: tokenName,
                   baseIds: tokenBases.length > 0 ? tokenBases : undefined,
                   readOnly: tokenReadOnly,
+                  allowDelete: tokenReadOnly ? undefined : tokenAllowDelete,
                   days: tokenDays ? Number(tokenDays) : undefined,
                 });
                 setNewToken(created.token);
                 setTokenName("");
                 setTokenDays("");
                 setTokenBases([]);
-                setTokenReadOnly(false);
+                setTokenReadOnly(true);
+                setTokenAllowDelete(false);
                 await queryClient.invalidateQueries({
                   queryKey: api.auth.tokens.queryKey(),
                 });
@@ -253,10 +258,25 @@ export function AccountSettings() {
                 <input
                   type="checkbox"
                   checked={tokenReadOnly}
-                  onChange={(event) => setTokenReadOnly(event.target.checked)}
+                  onChange={(event) => {
+                    setTokenReadOnly(event.target.checked);
+                    if (event.target.checked) setTokenAllowDelete(false);
+                  }}
                 />
                 {t`Read only`}
               </label>
+              {tokenReadOnly ? null : (
+                <label className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={tokenAllowDelete}
+                    onChange={(event) =>
+                      setTokenAllowDelete(event.target.checked)
+                    }
+                  />
+                  {t`Allow deleting rows`}
+                </label>
+              )}
             </div>
           </form>
         ) : (
@@ -296,6 +316,9 @@ export function AccountSettings() {
                       : t`All bases`}
                   </span>
                   {token.readOnly ? <span>{t`Read only`}</span> : null}
+                  {!token.readOnly && !token.allowDelete ? (
+                    <span>{t`No deletes`}</span>
+                  ) : null}
                   <span>
                     {token.lastUsedAt
                       ? t`last used ${{ date: token.lastUsedAt.slice(0, 10) }}`

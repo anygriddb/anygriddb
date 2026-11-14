@@ -91,3 +91,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0076](0076-snapshot-rows-as-lines.md)               | Base snapshots carry their rows line by line, keeping their sequence numbers            | Accepted (extends 0039)                     |
 | [0077](0077-restore-points.md)                       | Restore points: a base kept on the instance, restored beside it                         | Accepted (extends 0076)                     |
 | [0078](0078-workbook-as-a-base.md)                   | A workbook made a base, each sheet a table, its fields typed from every row             | Accepted (extends 0064)                     |
+| [0079](0079-api-token-allow-delete.md)               | API tokens that write without deleting                                                  | Accepted                                    |

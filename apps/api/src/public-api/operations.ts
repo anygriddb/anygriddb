@@ -519,7 +519,11 @@ async function scopeFor(
 ): Promise<RowScope> {
   return loadRowScope(
     deps.db,
-    { userId: actor.user.id, bindings: actor.bindings },
+    {
+      userId: actor.user.id,
+      bindings: actor.bindings,
+      noDelete: actor.scope?.allowDelete === false,
+    },
     table,
   );
 }

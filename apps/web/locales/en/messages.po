@@ -1178,8 +1178,8 @@ msgid "A token acts with the rights of the administrator who made it, and stops 
 msgstr "A token acts with the rights of the administrator who made it, and stops working if they are no longer an administrator."
 
 #: components/settings/account-settings.tsx
-msgid "A token acts with your rights. It is shown once and lives the days you choose, {max} at most on this instance."
-msgstr "A token acts with your rights. It is shown once and lives the days you choose, {max} at most on this instance."
+msgid "A token acts with your rights, on the REST API and on MCP. It is shown once and lives the days you choose, {max} at most on this instance. A read-only token is enough to explore; one that writes deletes rows only if you allow it."
+msgstr "A token acts with your rights, on the REST API and on MCP. It is shown once and lives the days you choose, {max} at most on this instance. A read-only token is enough to explore; one that writes deletes rows only if you allow it."
 
 #: components/fields/field-meta.tsx
 msgid "A total over the linked rows"
@@ -1669,6 +1669,10 @@ msgstr "Allow checking GitHub for a newer release (off by default)"
 #: components/table/share-dialog.tsx
 msgid "Allow copying the data"
 msgstr "Allow copying the data"
+
+#: components/settings/account-settings.tsx
+msgid "Allow deleting rows"
+msgstr "Allow deleting rows"
 
 #: components/fields/field-editor.tsx
 msgid "Allow several linked rows"
@@ -6218,6 +6222,10 @@ msgstr "No dashboards yet."
 msgid "No date and time column of the last change: changes other applications make show at the next read."
 msgstr "No date and time column of the last change: changes other applications make show at the next read."
 
+#: components/settings/account-settings.tsx
+msgid "No deletes"
+msgstr "No deletes"
+
 #: components/settings/webhooks-panel.tsx
 msgid "No deliveries yet."
 msgstr "No deliveries yet."
@@ -9806,6 +9814,10 @@ msgstr "This address already has an account"
 #: components/admin/people-file-dialog.tsx
 msgid "This address is in the file twice"
 msgstr "This address is in the file twice"
+
+#: lib/errors.ts
+msgid "This API token may not delete rows"
+msgstr "This API token may not delete rows"
 
 #: components/shell/base-home.tsx
 msgid "This base does not exist or is not shared with you."

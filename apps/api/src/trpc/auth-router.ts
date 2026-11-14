@@ -1019,6 +1019,7 @@ export const authRouter = t.router({
         return await createApiToken(ctx.db, user.id, input.name, {
           baseIds: input.baseIds,
           readOnly: input.readOnly,
+          allowDelete: input.allowDelete,
           days: tokenDays(input.days, policy),
         });
       } catch (error) {

@@ -67,6 +67,8 @@ export type RowScope = {
   table: TableRow;
   engine: EngineCatalog;
   catalog: CatalogRows;
+  /** The caller's API token writes without deleting (ADR 0079). */
+  noDelete?: boolean;
 };
 
 type WriteMeta = {
@@ -123,7 +125,11 @@ export async function findLiveTable(
 /** The table as `actor` sees it: their roles, and their field and row rules. */
 export async function loadRowScope(
   db: Database,
-  actor: { userId: string; bindings: readonly Binding[] },
+  actor: {
+    userId: string;
+    bindings: readonly Binding[];
+    noDelete?: boolean;
+  },
   table: TableRow,
 ): Promise<RowScope> {
   const { engine, rows } = await readerEngine(db, table.id, {
@@ -136,6 +142,7 @@ export async function loadRowScope(
     table,
     engine,
     catalog: rows,
+    ...(actor.noDelete ? { noDelete: true } : {}),
   };
 }
 
@@ -649,6 +656,9 @@ export async function deleteRows(
   rowIds: readonly string[],
   meta: WriteMeta,
 ): Promise<string[]> {
+  // Here and nowhere else: every door a token has (REST, MCP, the app's
+  // own API) deletes rows through this function.
+  if (scope.noDelete) throw new AppError("token_cannot_delete");
   await assertRowsInScope(deps.db, scope.engine, rowIds);
   const reason = resolveReason(scope, "all", meta);
   if (isExternal(scope)) {
