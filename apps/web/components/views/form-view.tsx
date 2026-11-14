@@ -11,6 +11,8 @@ import {
   Checkbox,
   cn,
   DatePicker,
+  Dialog,
+  DialogContent,
   Input,
   Label,
   Popover,
@@ -19,8 +21,15 @@ import {
   Select,
   Textarea,
 } from "@anygriddb/ui";
-import { CheckCircle2, ChevronDown, ChevronUp, Filter } from "lucide-react";
-import { useMemo, useState, type SubmitEvent } from "react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Filter,
+  SlidersHorizontal,
+} from "lucide-react";
+import { useMemo, useState, type ReactNode, type SubmitEvent } from "react";
+import { useNarrowScreen } from "../../lib/narrow-screen";
 import { formRedirectAfterSubmit } from "./form-redirect";
 import { FormField, formFieldIds } from "./form-field";
 import { FormFiles } from "./form-files";
@@ -428,6 +437,9 @@ export function FormView(props: ViewProps) {
   const [busy, setBusy] = useState(false);
   const patchForm = (next: Partial<FormConfig>) =>
     props.onPatch({ form: { ...form, ...next } });
+  // On a phone the fields are set over the form, from a button above it.
+  const narrow = useNarrowScreen();
+  const [fieldsOpen, setFieldsOpen] = useState(false);
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -481,8 +493,21 @@ export function FormView(props: ViewProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
-      <div className="min-h-0 flex-1 overflow-y-auto bg-muted/40 p-6">
-        <div className="mx-auto max-w-xl rounded-sm border border-border bg-card p-6">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-muted/40 p-6 max-md:p-3">
+        {props.canEdit && narrow ? (
+          <div className="mx-auto mb-3 flex max-w-xl justify-end">
+            <Button
+              size="sm"
+              variant="outline"
+              aria-haspopup="dialog"
+              onClick={() => setFieldsOpen(true)}
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden />
+              {t`Form fields`}
+            </Button>
+          </div>
+        ) : null}
+        <div className="mx-auto max-w-xl rounded-sm border border-border bg-card p-6 max-md:p-4">
           {props.canEdit ? (
             <input
               aria-label={t`Form title`}
@@ -601,8 +626,11 @@ export function FormView(props: ViewProps) {
         </div>
       </div>
       {props.canEdit ? (
-        <aside className="max-h-[45vh] w-full shrink-0 overflow-y-auto border-t border-border bg-card p-4 md:max-h-none md:w-72 md:border-t-0 md:border-l">
-          <h3 className="mb-2 text-sm font-semibold">{t`Form fields`}</h3>
+        <FormFieldsPanel
+          narrow={narrow}
+          open={fieldsOpen}
+          onOpenChange={setFieldsOpen}
+        >
           <ul className="flex flex-col gap-2">
             {[
               ...fields.flatMap((item) => {
@@ -824,8 +852,37 @@ export function FormView(props: ViewProps) {
               {t`A link can fill fields: add ?prefill_field_name=value to its address, and &hide_field_name=true to hide a filled field.`}
             </p>
           </div>
-        </aside>
+        </FormFieldsPanel>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Where a form's builder sets its fields and what it says once sent:
+ * beside the form, or, on a phone, over the whole screen, opened from a
+ * button above the form.
+ */
+function FormFieldsPanel(props: {
+  narrow: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: ReactNode;
+}) {
+  const { t } = useLingui();
+  if (props.narrow) {
+    return (
+      <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+        <DialogContent title={t`Form fields`} fullOnPhone>
+          {props.children}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+  return (
+    <aside className="w-72 shrink-0 overflow-y-auto border-l border-border bg-card p-4">
+      <h3 className="mb-2 text-sm font-semibold">{t`Form fields`}</h3>
+      {props.children}
+    </aside>
   );
 }

@@ -1,5 +1,6 @@
-import { cellText } from "@anygriddb/core";
-import type { RowItem } from "../../lib/types";
+import { cellText, MAX_GROUPS } from "@anygriddb/core";
+import type { CatalogColumn, RowItem } from "../../lib/types";
+import { optionsOf } from "../fields/cell-value";
 import type { Groups } from "./use-rows";
 
 /** What the grid draws, one line each. */
@@ -48,6 +49,78 @@ function groupKeyOf(value: unknown): string {
 
 function pathOf(labels: readonly string[]): string {
   return labels.join(SEPARATOR);
+}
+
+/**
+ * The levels a view groups by, each read from its field; a choice field
+ * colours its headers as its options are coloured.
+ */
+export function groupLevels(
+  groupBy: ReadonlyArray<{ column: string }>,
+  columns: readonly CatalogColumn[],
+): GroupLevel[] {
+  return groupBy.map((group) => {
+    const column = columns.find((item) => item.name === group.column);
+    const colored =
+      column?.fieldType === "single_select" ||
+      column?.fieldType === "multi_select";
+    return {
+      column: group.column,
+      ...(colored
+        ? {
+            colorOf: (label: string) =>
+              optionsOf(column).find((option) => option.name === label)?.color,
+          }
+        : {}),
+    };
+  });
+}
+
+/** The rows read from the first one on, until the first not read yet. */
+export function readPrefix(
+  rowAt: (index: number) => RowItem | undefined,
+): RowItem[] {
+  const prefix: RowItem[] = [];
+  for (let row = rowAt(0); row; row = rowAt(prefix.length)) prefix.push(row);
+  return prefix;
+}
+
+/**
+ * What a view of rows draws, in order, on the grid as on a phone's cards:
+ * every row, or, grouped, each header and the rows of the groups left
+ * open; then the line that adds a row, for those who may. A read that
+ * says where its groups start places them all at once; otherwise the
+ * groups are laid out from the rows read so far (`readSoFar`).
+ */
+export function viewItems(input: {
+  total: number;
+  levels: readonly GroupLevel[];
+  groups: Groups;
+  readSoFar: readonly RowItem[];
+  collapsed: ReadonlySet<string>;
+  canAdd: boolean;
+}): GridItem[] {
+  let list: GridItem[] = [];
+  if (input.levels.length === 0) {
+    for (let index = 0; index < input.total; index += 1)
+      list.push({ type: "row", index });
+  } else {
+    list = hasStarts(input.groups)
+      ? layoutFromStarts(
+          input.groups,
+          input.levels,
+          input.collapsed,
+          MAX_GROUPS,
+        )
+      : layoutFromRows(
+          input.readSoFar,
+          input.levels,
+          input.collapsed,
+          input.groups,
+        );
+  }
+  if (input.canAdd) list.push({ type: "add" });
+  return list;
 }
 
 /** True when the read said where every one of its groups starts. */

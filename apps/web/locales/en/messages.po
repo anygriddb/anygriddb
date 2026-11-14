@@ -75,6 +75,7 @@ msgstr "(date1, date2)"
 
 #: components/dashboards/chart-view.tsx
 #: components/grid/grid-view.tsx
+#: components/views/row-cards.tsx
 msgid "(empty)"
 msgstr "(empty)"
 
@@ -1404,6 +1405,7 @@ msgstr "Add a person"
 
 #: components/grid/grid-view.tsx
 #: components/table/view-toolbar.tsx
+#: components/views/row-cards.tsx
 msgid "Add a row"
 msgstr "Add a row"
 
@@ -7888,6 +7890,10 @@ msgstr "Row trash"
 msgid "rows"
 msgstr "rows"
 
+#: components/views/row-cards.tsx
+msgid "Rows"
+msgstr "Rows"
+
 #: components/fields/field-editor.tsx
 msgid "Rows already empty here stay so until someone changes this field."
 msgstr "Rows already empty here stay so until someone changes this field."
@@ -9258,6 +9264,7 @@ msgid "The fields were up to date"
 msgstr "The fields were up to date"
 
 #: components/grid/grid-view.tsx
+#: components/views/row-cards.tsx
 msgid "The first {limit} groups are shown: filter the view to see the others."
 msgstr "The first {limit} groups are shown: filter the view to see the others."
 

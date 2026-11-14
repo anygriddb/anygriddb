@@ -76,7 +76,10 @@ test.describe("a narrow screen", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(navigation).not.toBeInViewport();
-    await expect(page.getByRole("grid")).toBeVisible();
+    // A phone has no room for a grid's columns: its rows are cards.
+    const cards = page.getByRole("list", { name: "Rows" });
+    await expect(cards).toBeVisible();
+    await expect(page.getByRole("grid")).toHaveCount(0);
 
     // The grid's toolbar keeps one line, within the screen: the view's
     // settings fold behind one button, the filter and the search stay.
@@ -111,9 +114,7 @@ test.describe("a narrow screen", () => {
     const row = page.getByRole("dialog", { name: "Row details" });
     await expect(row).toBeInViewport();
     expect(
-      await page
-        .getByRole("grid")
-        .evaluate((grid) => grid.closest("[inert]") !== null),
+      await cards.evaluate((list) => list.closest("[inert]") !== null),
     ).toBe(true);
     for (let step = 0; step < 3; step += 1) {
       await page.keyboard.press("Shift+Tab");
@@ -124,7 +125,59 @@ test.describe("a narrow screen", () => {
     expect(await accessibilityViolations(page)).toEqual([]);
     await row.getByRole("button", { name: "Close", exact: true }).click();
     await expect(row).toHaveCount(0);
-    await expect(page.getByRole("grid")).toBeVisible();
+
+    // The row is a card, which opens it; the last card adds one.
+    const items = cards.getByRole("listitem");
+    await expect(items).toHaveCount(2);
+    await items.first().getByRole("button").click();
+    await expect(row).toBeInViewport();
+    await page.keyboard.press("Escape");
+    await expect(row).toHaveCount(0);
+    await cards.getByRole("button", { name: "Add a row", exact: true }).click();
+    await expect(row).toBeInViewport();
+    await row.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(items).toHaveCount(3);
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // A new row asked for first, and a form's fields, cover the screen.
+    const baseId = /\/b\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
+    const made = await page.request.post("/trpc/catalog.createTable", {
+      data: {
+        baseId,
+        name: "Requests",
+        columns: [
+          { name: "title", label: "Title", fieldType: "text", required: true },
+        ],
+      },
+    });
+    expect(made.ok(), await made.text()).toBe(true);
+    const tableId = (
+      (await made.json()) as { result: { data: { id: string } } }
+    ).result.data.id;
+    const formView = await page.request.post("/trpc/catalog.createView", {
+      data: { tableId, name: "Request form", viewType: "form" },
+    });
+    expect(formView.ok(), await formView.text()).toBe(true);
+    const viewId = (
+      (await formView.json()) as { result: { data: { id: string } } }
+    ).result.data.id;
+    const whole = { x: 0, y: 0, width: 390, height: 844 };
+    await page.goto(`/b/${baseId}/t/${tableId}`);
+    await cards.getByRole("button", { name: "Add a row", exact: true }).click();
+    const newRow = page.getByRole("dialog", { name: "New row" });
+    await expect(newRow.getByLabel("Title")).toBeVisible();
+    expect(await newRow.boundingBox()).toEqual(whole);
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(newRow).toHaveCount(0);
+    await page.goto(`/b/${baseId}/t/${tableId}/${viewId}`);
+    await page.getByRole("button", { name: "Form fields" }).click();
+    const fields = page.getByRole("dialog", { name: "Form fields" });
+    await expect(fields.getByLabel("Submit button label")).toBeVisible();
+    expect(await fields.boundingBox()).toEqual(whole);
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(fields).toHaveCount(0);
 
     const open = page.getByRole("button", { name: "Open the navigation" });
     await open.click();

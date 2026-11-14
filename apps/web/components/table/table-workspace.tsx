@@ -51,11 +51,13 @@ import { tableTakesUndo, undoShortcut } from "../../lib/keyboard-undo";
 import { RecordPanel } from "../record/record-panel";
 import { ConfirmDialog, PromptDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
+import { useNarrowScreen } from "../../lib/narrow-screen";
 import { CalendarView } from "../views/calendar-view";
 import { FormView } from "../views/form-view";
 import { GalleryView } from "../views/gallery-view";
 import { KanbanView } from "../views/kanban-view";
 import { MapView } from "../views/map-view";
+import { RowCards } from "../views/row-cards";
 import { placeColumns, placeFilter } from "../views/map-places";
 import { TimelineView } from "../views/timeline-view";
 import { AutomationsDialog } from "./automations-dialog";
@@ -249,6 +251,8 @@ export function TableWorkspace({
   >("idle");
   const viewType = activeView?.viewType ?? "grid";
   const isGrid = viewType === "grid";
+  // A phone has no room for a grid's columns: its rows are cards.
+  const narrow = useNarrowScreen();
   const allColumns = useMemo(() => table?.columns ?? [], [table]);
   const ordered = useMemo(
     () => orderColumns(allColumns, config.fieldOrder),
@@ -1260,7 +1264,9 @@ export function TableWorkspace({
         {isGrid && rows.total > 0 ? <GridTips canEdit={writable} /> : null}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            {isGrid ? (
+            {isGrid && narrow ? (
+              <RowCards {...viewProps} groupBy={groupBy} canAdd={canAdd} />
+            ) : isGrid ? (
               <GridView
                 rows={rows}
                 columns={visible}

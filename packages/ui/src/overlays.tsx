@@ -96,18 +96,27 @@ export function Dialog(props: {
 }
 
 /** The dialog's frame. Its content mounts on open and unmounts on close. */
+/**
+ * Where a phone's screen is too small for a dialog in a frame, one that
+ * holds a long form covers it, as the record panel does (`fullOnPhone`).
+ */
+const FULL_ON_PHONE =
+  "max-md:inset-0 max-md:h-full max-md:max-h-none max-md:w-full max-md:max-w-none max-md:translate-x-0 max-md:rounded-none max-md:border-0";
+
 export function DialogContent({
   className,
   children,
   title,
   description,
   wide,
+  fullOnPhone,
 }: {
   className?: string;
   children?: ReactNode;
   title: ReactNode;
   description?: ReactNode;
   wide?: boolean;
+  fullOnPhone?: boolean;
 }) {
   const state = use(DialogState);
   const text = useUiText();
@@ -125,6 +134,7 @@ export function DialogContent({
           surface,
           "fixed top-[8vh] left-1/2 flex max-h-[84vh] w-[calc(100vw-2rem)] -translate-x-1/2 flex-col",
           wide ? "max-w-3xl" : "max-w-lg",
+          fullOnPhone && FULL_ON_PHONE,
           className,
         )}
       >
