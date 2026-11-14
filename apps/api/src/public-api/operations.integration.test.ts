@@ -16,7 +16,7 @@ import { insertComputed } from "../data/computed.js";
 import { addRelation } from "../data/relations.js";
 import { insertBase, insertTable } from "../data/schema-ops.js";
 import { createTestDatabase } from "../test-database.js";
-import { publicColumns } from "../trpc/catalog-router.js";
+import { publicColumns } from "../trpc/catalog-shared.js";
 import { listTables, openApiDocument } from "./operations.js";
 import type { Actor, PublicApiDeps } from "./types.js";
 

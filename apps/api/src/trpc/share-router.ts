@@ -15,7 +15,7 @@ import { z } from "zod";
 import { openShare as openLink } from "../data/open-share.js";
 import { readPage, safeTimeZone, writeColumns } from "../data/rows.js";
 import { createRows } from "../services/rows.js";
-import { publicColumns } from "./catalog-router.js";
+import { publicColumns } from "./catalog-shared.js";
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { procedure, t } from "./init.js";
