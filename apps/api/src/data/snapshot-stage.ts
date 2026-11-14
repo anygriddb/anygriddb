@@ -45,7 +45,7 @@ async function head(path: string): Promise<Buffer> {
  * Reads a snapshot from a local file: JSON, or an archive whose every
  * listed file is there, at its size.
  */
-export async function readSnapshotFile(
+async function readSnapshotFile(
   path: string,
   size: number,
 ): Promise<{ snapshot: BaseSnapshot; archive?: ZipReader }> {
@@ -96,7 +96,7 @@ export async function stageSnapshotFile(
   return { snapshotId, snapshot };
 }
 
-export type OpenedSnapshot = {
+type OpenedSnapshot = {
   snapshot: BaseSnapshot;
   filename: string;
   /**

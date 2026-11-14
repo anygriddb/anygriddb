@@ -34,7 +34,7 @@ const samlCache = new WeakMap<
   { at: number; value: Promise<SamlRow | null> }
 >();
 
-export type SamlRow = {
+type SamlRow = {
   entryPoint: string;
   issuer: string;
   idpCert: string;
@@ -42,7 +42,7 @@ export type SamlRow = {
   updatedBy: string | null;
 };
 
-export type PublicSaml = {
+type PublicSaml = {
   configured: boolean;
   entryPoint: string | null;
   issuer: string | null;
@@ -58,7 +58,7 @@ export type SamlConfig = {
   SAML_CALLBACK_URL: string;
 };
 
-export type SamlSource = "database" | "env" | "none";
+type SamlSource = "database" | "env" | "none";
 
 export const samlUpdateSchema = z
   .object({
@@ -69,7 +69,7 @@ export const samlUpdateSchema = z
   })
   .strict();
 
-export type SamlUpdate = z.infer<typeof samlUpdateSchema>;
+type SamlUpdate = z.infer<typeof samlUpdateSchema>;
 
 export function clearSamlCache(db: Database): void {
   samlCache.delete(db);

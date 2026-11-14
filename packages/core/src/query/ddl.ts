@@ -52,7 +52,7 @@ export function indexName(
   return `${kind}_${table.slice(2, 18)}_${fnv(column)}`;
 }
 
-export type DdlColumn = { name: string; fieldType: FieldType };
+type DdlColumn = { name: string; fieldType: FieldType };
 
 function assertUserColumn(name: string): void {
   assertIdentifier(name, "column name");
@@ -115,14 +115,14 @@ export function buildCreateTable(input: {
   ];
 }
 
-export function buildAuditTrigger(table: string): ParameterizedSql {
+function buildAuditTrigger(table: string): ParameterizedSql {
   assertIdentifier(table, "table name");
   return statement(
     `create trigger audit_record after insert or update or delete on ${quoteIdent(table)} for each row execute function audit_record()`,
   );
 }
 
-export function buildStampTrigger(table: string): ParameterizedSql {
+function buildStampTrigger(table: string): ParameterizedSql {
   assertIdentifier(table, "table name");
   return statement(
     `create trigger ag_stamp before insert or update on ${quoteIdent(table)} for each row execute function ag_stamp()`,
@@ -174,20 +174,6 @@ export function buildDropColumn(input: {
     `alter table ${quoteIdent(input.table)} drop column if exists ${quoteIdent(input.column)}`,
   );
 }
-
-export function buildRenameColumn(input: {
-  table: string;
-  from: string;
-  to: string;
-}): ParameterizedSql {
-  assertIdentifier(input.table, "table name");
-  assertIdentifier(input.from, "column name");
-  assertIdentifier(input.to, "column name");
-  return statement(
-    `alter table ${quoteIdent(input.table)} rename column ${quoteIdent(input.from)} to ${quoteIdent(input.to)}`,
-  );
-}
-
 export function buildDropTable(table: string): ParameterizedSql {
   assertIdentifier(table, "table name");
   return statement(`drop table if exists ${quoteIdent(table)}`);

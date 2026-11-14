@@ -50,7 +50,7 @@ import { checkSeals, type SealDeps } from "./statuses.js";
 /** Rows read from the client's table at a time. */
 const PAGE = Math.min(1_000, MAX_READ_LIMIT);
 /** A copy stops here: past it, the table is better read live. */
-export const SYNC_ROW_LIMIT = 1_000_000;
+const SYNC_ROW_LIMIT = 1_000_000;
 /** Changes one refresh tells row by row; past it, one event per kind. */
 const EVENT_LIMIT = 200;
 /** A refresh that failed is tried again this soon, at most. */
@@ -58,7 +58,7 @@ const RETRY_SECONDS = 300;
 /** A copy no longer read is dropped this long after: reads under way end. */
 const DROP_AFTER_MS = 60_000;
 
-export type SyncInput = {
+type SyncInput = {
   tableId: string;
   /** Null reads the table live again, and drops its copy. */
   intervalMinutes: number | null;
@@ -240,7 +240,7 @@ export async function syncNow(db: Database, tableId: string): Promise<void> {
   await queueSync(db, tableId, 0);
 }
 
-export type SyncDeps = {
+type SyncDeps = {
   db: Database;
   bus: Bus;
   log: (error: unknown, message: string) => void;

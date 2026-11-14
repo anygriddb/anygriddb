@@ -9,7 +9,7 @@ import { sql } from "kysely";
 import { withAudit } from "./audit-context.js";
 import { liveBase, liveTable, liveView } from "./live.js";
 
-export type OutboundLink = {
+type OutboundLink = {
   kind: "link" | "feed";
   id: string;
   baseId: string;
@@ -159,7 +159,7 @@ export async function revokeOutbound(
   );
 }
 
-export type InstanceToken = {
+type InstanceToken = {
   id: string;
   name: string;
   ownerId: string;
@@ -173,7 +173,7 @@ export type InstanceToken = {
   bases: number | null;
 };
 
-export type InstanceHook = {
+type InstanceHook = {
   kind: "webhook" | "automation";
   id: string;
   name: string;
@@ -329,7 +329,7 @@ export async function listInstanceHooks(
   ];
 }
 
-export type BaseOverview = {
+type BaseOverview = {
   id: string;
   name: string;
   createdAt: string;
@@ -529,7 +529,7 @@ export async function countOwnerlessBases(db: Database): Promise<number> {
   return row?.value ?? 0;
 }
 
-export type BaseTableOverview = {
+type BaseTableOverview = {
   id: string;
   name: string;
   /** Where its rows live: AnyGridDB's database, or a client's. */

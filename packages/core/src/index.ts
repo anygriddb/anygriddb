@@ -12,9 +12,6 @@ export {
 
 export {
   embedOriginsInputSchema,
-  isEmbedOrigin,
-  MAX_EMBED_ORIGINS,
-  normalizeEmbedOrigin,
   normalizeEmbedOrigins,
   storedEmbedOrigins,
 } from "./embed-origins";
@@ -24,64 +21,44 @@ export {
   attachmentPreviewKind,
   isImageAttachmentMime,
   isInlineAttachmentMime,
-  type AttachmentPreviewKind,
-  type AttachmentType,
 } from "./attachment-types";
 
 export {
   ATTACHMENT_KEY,
-  MAX_ARRAY_ITEMS,
   assertCellValue,
   cellValueSchema,
   coerceCellValue,
   isEmail,
   isHttpUrl,
-  isIsoDate,
-  isIsoDateTime,
-  type CellColumn,
   type CellValue,
-  type CoerceContext,
 } from "./cell-values";
 
 export {
   cellText,
   DelimitedReader,
   detectDelimiter,
-  parseCsv,
   parseDelimited,
   toCsv,
   toCsvRows,
-  type DelimitedOptions,
-  type DelimitedReaderOptions,
 } from "./csv";
 
 export {
-  buttonConfigSchema,
   type ButtonConfig,
   BOOLEAN_APPEARANCES,
-  DURATION_FORMATS,
   MULTI_SELECT_APPEARANCES,
   OPTION_COLORS,
   RATING_ICONS,
   ROLLUP_FNS,
   SINGLE_SELECT_APPEARANCES,
-  dateFormatSchema,
   isTimeZone,
-  numberFormatSchema,
-  optionColorSchema,
   parseColumnConfig,
   rollupFitsTarget,
-  rollupFnSchema,
   selectOptionNames,
-  selectOptionSchema,
-  selectOptionsSchema,
-  timeZoneSchema,
   type BooleanAppearance,
   type ColumnConfig,
   type LinkSelection,
   type DateFormat,
   type MultiSelectAppearance,
-  type NumberFormat,
   type OptionColor,
   type RollupFn,
   type SelectOption,
@@ -89,87 +66,50 @@ export {
 } from "./field-config";
 
 export {
-  COMPUTED_TYPES,
-  FIELD_TYPES,
   PRIMARY_TYPES,
-  RESERVED_COLUMN_NAMES,
-  SYSTEM_COLUMN,
-  SYSTEM_TYPES,
   WRITABLE_TYPES,
   hasPhysicalColumn,
-  isArrayKind,
   isComputedType,
   isPrimaryType,
   isRelationType,
-  isSystemType,
   isWritableType,
   canBeRequired,
-  physicalSqlType,
-  storedValueKind,
-  type ComputedType,
   type FieldType,
-  type SystemType,
-  type ValueKind,
-  type WritableType,
 } from "./field-types";
 
 export {
   DATE_MODES,
-  FILTER_OPERATORS,
   MAX_FILTER_CONDITIONS,
   MAX_FILTER_DEPTH,
-  OPERATORS_BY_KIND,
   WITHIN_MODES,
   andFilters,
-  dateFilterValueSchema,
-  filterConditionSchema,
   filterGroupSchema,
   filterOperatorsFor,
-  filterValueSchema,
   isFilterGroup,
-  legacyFilterSchema,
   legacyFiltersToGroup,
-  type DateFilterValue,
-  type DateMode,
   type FilterCondition,
   type FilterGroup,
   type FilterKind,
   type FilterOperator,
   type FilterValue,
-  type LegacyFilter,
-  type WithinMode,
 } from "./filter";
 
 export {
-  catalogForFormulaTypes,
   checkFormulaTyped,
   type FormulaTypeColumn,
   type FormulaTypeContext,
-  type FormulaTyped,
   typeFormula,
 } from "./formula-type";
 
 export {
-  assertFormulaShape,
-  type BinaryOp,
   checkFormula,
   formatFormula,
-  formulaFunction,
-  FORMULA_FN_SPECS,
   FORMULA_FNS,
-  formulaChildren,
-  FormulaError,
   type FormulaExpr,
-  formulaExprSchema,
   type FormulaFn,
-  type FormulaProblem,
   type FormulaRef,
   formulaReferences,
-  type FormulaToken,
   formulaTokens,
-  MAX_FORMULA_DEPTH,
-  MAX_FORMULA_NODES,
-  MAX_FORMULA_SOURCE,
   parseFormula,
 } from "./formula";
 
@@ -177,23 +117,14 @@ export { inferFieldType, type InferredField } from "./import-infer";
 
 export {
   ADMIN_LOCK_MINUTES,
-  CREATOR_MODES,
   INSTANCE_DEFAULTS,
-  INVITATION_MODES,
-  MFA_SCOPES,
-  PASSWORD_RESET_MODES,
-  POLICY_BOUNDS,
   PRODUCT_NAME,
-  PUBLIC_LINK_MODES,
-  SIGNUP_POLICIES,
-  SSO_MFA_MODES,
   ATTACHMENT_MAX_BYTES_CEILING,
   DEFAULT_ATTACHMENT_MAX_BYTES,
   emailDomainAllowed,
   inactivityDates,
   instanceSettingsPatchSchema,
   fillMapTileUrl,
-  instanceSettingsSchema,
   lockState,
   mapTileOrigin,
   memberDomainAllowed,
@@ -202,15 +133,8 @@ export {
   resolveAttachmentMaxBytes,
   sessionWindows,
   signupAllowed,
-  type CreatorMode,
   type InstanceSettings,
   type InstanceSettingsPatch,
-  type InvitationMode,
-  type MfaScope,
-  type PasswordResetMode,
-  type PublicLinkMode,
-  type SignupPolicy,
-  type SsoMfaMode,
 } from "./instance";
 
 export {
@@ -218,16 +142,9 @@ export {
   INSTANCE_LOGO_TYPES,
   instanceLogoInputSchema,
   instanceLogoType,
-  type InstanceLogoType,
 } from "./instance-logo";
 
-export {
-  NAME_LOCALES,
-  acceptedLocale,
-  madeNames,
-  type MadeNames,
-  type NameLocale,
-} from "./made-names";
+export { acceptedLocale, madeNames, type MadeNames } from "./made-names";
 
 export {
   MAX_AUTOMATION_ACTIONS,
@@ -235,12 +152,10 @@ export {
   MAX_NESTED_ACTIONS,
   TEMPLATE_KEYS,
   automationActionSchema,
-  automationStepSchema,
   automationTriggerSchema,
   createAutomationInputSchema,
   nextScheduleRun,
   renderTemplate,
-  templateKeys,
   updateAutomationInputSchema,
   webhookTemplateValues,
   type AutomationAction,
@@ -248,18 +163,10 @@ export {
   type AutomationTrigger,
 } from "./automation";
 
-export {
-  MAX_MENTIONS,
-  mentionMarkup,
-  mentionSegments,
-  parseMentions,
-  plainMentions,
-  type MentionSegment,
-} from "./mentions";
+export { mentionMarkup, mentionSegments, parseMentions } from "./mentions";
 
 export {
   MAX_EVENT_DEPTH,
-  RETRY_DELAYS_SECONDS,
   WEBHOOK_FAILURE_LIMIT,
   nextRetryDelay,
   rowEventSchema,
@@ -268,8 +175,6 @@ export {
 } from "./events";
 
 export {
-  COLUMN_NAME,
-  columnLabelSchema,
   columnNameSchema,
   deriveColumnName,
   isReservedColumnName,
@@ -277,9 +182,7 @@ export {
 } from "./names";
 
 export {
-  ACTIONS,
   ROLES,
-  SCOPES,
   can,
   effectiveTableRole,
   enrollmentGate,
@@ -289,7 +192,6 @@ export {
   type Action,
   type Binding,
   type Role,
-  type Scope,
 } from "./rbac";
 
 export {
@@ -301,9 +203,7 @@ export {
   addRollupInputSchema,
   assertStatusTransition,
   auditReadInputSchema,
-  TABLE_ACTIVITY_MAX,
   tableActivityInputSchema,
-  columnDefinitionSchema,
   columnFromAddInput,
   createApiTokenInputSchema,
   createBaseInputSchema,
@@ -317,27 +217,20 @@ export {
   deleteTableInputSchema,
   deleteViewInputSchema,
   deleteWebhookInputSchema,
-  descriptionSchema,
   duplicateColumnInputSchema,
   duplicateTableInputSchema,
   duplicateViewInputSchema,
   EXPORT_FORMATS,
-  fieldTypeSchema,
   IMPORT_FORMATS,
   importCommitInputSchema,
-  importIdSchema,
-  importMappingSchema,
   insertRowInputSchema,
   insertRowsInputSchema,
   moveRowsInputSchema,
-  rowPlaceSchema,
   linkCandidatesInputSchema,
   listCommentsInputSchema,
   listViewsInputSchema,
   listWebhooksInputSchema,
   previewConversionInputSchema,
-  reasonSchema,
-  relationKindSchema,
   reorderColumnsInputSchema,
   reorderTablesInputSchema,
   reorderViewsInputSchema,
@@ -354,7 +247,6 @@ export {
   setPrimaryColumnInputSchema,
   setStatusInputSchema,
   signRowInputSchema,
-  timeZoneInputSchema,
   trashInputSchema,
   updateBaseInputSchema,
   updateColumnInputSchema,
@@ -363,94 +255,56 @@ export {
   updateTableInputSchema,
   updateViewInputSchema,
   updateWebhookInputSchema,
-  WEBHOOK_EVENTS,
-  isAllowedWebhookHeader,
   retryDeliveryInputSchema,
   webhookDeliveriesInputSchema,
-  webhookEventSchema,
   webhookIdInputSchema,
-  type AddLookupInput,
-  type AddRollupInput,
   type AuditRole,
   type ColumnDefinition,
   type ExportFormat,
   type ImportCommitInput,
   type ImportFormat,
-  type InsertRowInput,
-  type RowsReadInput,
 } from "./schemas";
 
-export {
-  BASE_TEMPLATES,
-  findTemplate,
-  type BaseTemplate,
-  type TemplateComputed,
-  type TemplateLink,
-  type TemplateTable,
-} from "./templates";
+export { BASE_TEMPLATES, findTemplate, type BaseTemplate } from "./templates";
 export { localizeTemplate } from "./template-words";
 
 export {
   MAX_FROZEN_COLUMNS,
   MAX_VIEW_GROUPS,
   MAX_VIEW_SORTS,
-  ROW_HEIGHTS,
-  VIEW_TYPES,
   applyViewConfigPatch,
-  formConfigSchema,
   normalizeViewConfig,
   withRequiredFormFields,
-  type FormFieldConfig,
   keepTrashedParts,
   pruneViewConfig,
   stripColumnFromConfig,
-  viewColorSchema,
   viewConfigColumns,
-  viewConfigPatchSchema,
-  viewConfigSchema,
   viewFilter,
-  viewTypeSchema,
-  type FormConfig,
   type ViewConfig,
   type ViewConfigPatch,
   type ViewType,
 } from "./view-config";
 
-export {
-  evaluateCondition,
-  evaluateFilter,
-  type FilterEvalContext,
-} from "./filter-eval";
+export { evaluateFilter, type FilterEvalContext } from "./filter-eval";
 
-export {
-  misplacedConditionFields,
-  visibleFormFields,
-  type FormFieldRule,
-} from "./form-visibility";
+export { misplacedConditionFields, visibleFormFields } from "./form-visibility";
 
 export {
   buildICalendar,
-  escapeICalText,
-  foldICalLine,
   type CalendarEvent,
   type CalendarMoment,
 } from "./ical";
 
 export {
-  AIRTABLE_NOTES,
   airtableToSnapshot,
-  type AirtableField,
   type AirtableNote,
   type AirtableRecord,
-  type AirtableReportItem,
   type AirtableTable,
-  type AirtableView,
 } from "./airtable";
 
 export {
   buildAddColumn,
   buildAddForeignKeyColumn,
-  buildAuditTrigger,
   buildConversionPreview,
   buildConversionStatements,
   buildCreateJunction,
@@ -459,39 +313,23 @@ export {
   buildDropTable,
   buildDropUniqueIndex,
   buildForeignKeyIndex,
-  buildRenameColumn,
   buildSetDefault,
-  buildStampTrigger,
   buildUniqueIndex,
-  convertExpression,
   indexName,
   isConvertible,
   isMetadataConversion,
-  sqlLiteral,
-  type DdlColumn,
 } from "./query/ddl";
 
 export {
-  findColumn,
   type EngineAccess,
   type EngineCatalog,
   type EngineColumn,
   type EngineRelation,
   type EngineTable,
   type ExternalRelation,
-  type PhysicalColumn,
-  type TableStorage,
 } from "./query/engine";
 
-export {
-  dialectOf,
-  MARIADB,
-  MYSQL,
-  parseServerVersion,
-  POSTGRES,
-  type DialectName,
-  type SqlDialect,
-} from "./query/dialect";
+export { parseServerVersion, type DialectName } from "./query/dialect";
 
 export {
   buildExternalDelete,
@@ -507,7 +345,6 @@ export {
   isSideFieldType,
   SIDE_FIELD_TYPES,
   sideColumnType,
-  type SideFieldType,
   buildInsertedId,
   keyValues,
   sameCell,
@@ -525,8 +362,6 @@ export {
 
 export {
   ALERT_CHOICES,
-  ALERT_KINDS,
-  ALERT_REMINDER_HOURS,
   alertMailDue,
   dueAlerts,
   type AlertChoice,
@@ -549,13 +384,7 @@ export {
   type CopyColumn,
 } from "./query/sync";
 
-export {
-  sealDrift,
-  sealedFields,
-  sealRow,
-  sealText,
-  sealValue,
-} from "./query/seal";
+export { sealDrift, sealedFields, sealRow, sealText } from "./query/seal";
 
 export {
   buildChangeTracking,
@@ -564,65 +393,21 @@ export {
   buildWatchStart,
   buildWatchWindow,
   watchKind,
-  type ColumnMark,
-  type VersionMark,
   type WatchColumn,
-  type WatchKind,
 } from "./query/watch";
 
 export {
   formulaLimits,
   limitKey,
   limitOf,
-  type LimitCode,
   type SourceLimit,
 } from "./query/limits";
+export { quoteIdent, type ParameterizedSql } from "./query/params";
 
 export {
-  asBool,
-  asDate,
-  asDatetime,
-  asNumber,
-  asText,
-  compileColumn,
-  compileFormula,
-  formulaKind,
-  labelSql,
-  linkSource,
-  linksJsonSql,
-  nextAlias,
-  parseEngineConfig,
-  toCharPattern,
-  type ExprContext,
-  type ScalarKind,
-  type Typed,
-} from "./query/expressions";
-
-export {
-  compileCondition,
-  compileFilter,
-  compileSearch,
-  emptySql,
-  refSql,
-  type ColumnRef,
-  type FilterContext,
-} from "./query/filter-sql";
-
-export {
-  SqlParams,
-  assertIdentifier,
-  quoteIdent,
-  type ParameterizedSql,
-} from "./query/params";
-
-export {
-  AGGREGATE_FNS,
   MAX_GROUPS,
   MAX_READ_LIMIT,
-  MAX_READ_OFFSET,
-  SYSTEM_FIELDS,
   aggregateFunctionsFor,
-  aggregateItemSchema,
   buildAggregates,
   buildGroupAggregates,
   buildCountRows,
@@ -631,21 +416,13 @@ export {
   ROW_ERRORS,
   rowError,
   describeColumns,
-  groupSpecSchema,
-  rowSortSchema,
   type AggregateFn,
   type AggregateItem,
-  type GroupSpec,
-  type ProjectedColumn,
   type ReadSpec,
   type RowSort,
 } from "./query/read";
 
 export {
-  MAX_BATCH_ROWS,
-  assertIdList,
-  assertRowId,
-  bindCell,
   buildClearLinks,
   buildCountDuplicates,
   buildCountLocked,
@@ -654,7 +431,6 @@ export {
   buildExistingIds,
   buildInsert,
   buildInsertLinks,
-  buildInsertMany,
   buildInserts,
   buildNonNullValues,
   buildReadJunction,
@@ -682,7 +458,6 @@ export {
   JOB_HEARTBEAT_MS,
   JOB_KINDS,
   JOB_LEASE_MS,
-  JOB_PROGRESS_INTERVAL_MS,
   JOB_RETENTION_DAYS,
   JOB_STATUSES,
   MAX_ACTIVE_JOBS,
@@ -690,19 +465,13 @@ export {
   duplicateJobInputSchema,
   importAirtableJobInputSchema,
   startAirtableImportInputSchema,
-  type ImportAirtableJobInput,
-  type StartAirtableImportInput,
   exportJobInputSchema,
   importJobInputSchema,
-  isActiveJob,
-  jobFraction,
   jobIdInputSchema,
   jobInputSchemas,
   listJobsInputSchema,
   progressDue,
-  type DuplicateJobInput,
   type ExportJobInput,
-  type ImportJobInput,
   type JobKind,
   type JobStatus,
 } from "./jobs";
@@ -712,7 +481,6 @@ export {
   MAX_SNAPSHOT_BYTES,
   MAX_SNAPSHOT_FILES,
   MAX_SNAPSHOT_ROWS,
-  MAX_SNAPSHOT_TABLES,
   SNAPSHOT_ENTRY,
   SNAPSHOT_KIND,
   SNAPSHOT_VERSION,
@@ -722,11 +490,8 @@ export {
   snapshotFileRefSchema,
   duplicateBaseInputSchema,
   duplicateBaseJobInputSchema,
-  type DuplicateBaseJobInput,
   snapshotFilename,
   type BaseSnapshot,
-  type ExportSnapshotJobInput,
-  type ImportSnapshotJobInput,
   type SnapshotFile,
   type SnapshotFileRef,
   type SnapshotLink,
@@ -734,13 +499,9 @@ export {
 } from "./snapshot";
 
 export {
-  COLUMN_ACCESS,
   clearTableAclInputSchema,
-  columnAccessSchema,
-  columnAclEntrySchema,
   getTableAclInputSchema,
   setTableAclInputSchema,
-  tableAclSchema,
   viewAsInputSchema,
   type ColumnAccess,
   type ColumnAclEntry,
@@ -748,8 +509,6 @@ export {
 } from "./acl";
 
 export {
-  CHART_TYPES,
-  DASHBOARD_WIDGET_KINDS,
   createDashboardInputSchema,
   dashboardWidgetConfigSchema,
   deleteDashboardInputSchema,
@@ -762,37 +521,28 @@ export {
   widgetDataInputSchema,
   type ChartType,
   type CreateDashboardInput,
-  type DashboardWidgetKind,
   type UpsertWidgetInput,
 } from "./dashboards";
 
 export {
-  TRASH_DAYS,
-  TRASH_KINDS,
   purgeCutoff,
   purgeDate,
   purgeTrashInputSchema,
   restoreInputSchema,
   restoredName,
-  trashItemSchema,
   trashListInputSchema,
   trashPurgeJobInputSchema,
   type TrashItem,
-  type TrashKind,
-  type TrashPurgeJobInput,
 } from "./trash";
 export {
   decimalSeries,
   decimalToNumber,
   isDecimalString,
-  MAX_DECIMAL_DIGITS,
-  numberToDecimal,
   toDecimalString,
 } from "./decimal";
 
 export {
   DEFAULT_SOURCE_PORTS,
-  SOURCE_ENGINES,
   sourceInputSchema,
   sourceUpdateSchema,
   type SourceEngine,
@@ -807,9 +557,7 @@ export {
   mapOracleType,
   mapSqlServerType,
   withChoices,
-  mysqlEnumValues,
   type MappedField,
-  type SourceColumnType,
 } from "./source-types";
 export {
   parseScimFilter,
@@ -818,15 +566,8 @@ export {
   parseScimUser,
   patchScimGroup,
   patchScimUser,
-  SCIM_GROUP,
-  SCIM_MAX_MEMBERS,
-  SCIM_MAX_PAGE,
-  SCIM_PATCH,
-  SCIM_USER,
-  scimDisplayName,
   ScimError,
   scimErrorBody,
-  type ScimErrorType,
   type ScimFilter,
   scimGroupResource,
   type ScimGroupState,
@@ -842,11 +583,8 @@ export {
 
 export {
   PEOPLE_FILE_MAX,
-  PEOPLE_FILE_MAX_BASES,
   PEOPLE_FILE_MAX_BYTES,
-  PEOPLE_FILE_PROBLEMS,
   PEOPLE_FILE_SAMPLE,
   readPeopleFile,
-  type PeopleFileLine,
   type PeopleFileProblem,
 } from "./people-file";

@@ -27,7 +27,7 @@ import { addJob, TASKS } from "./queue/jobs.js";
 import { readGateSettings } from "./settings.js";
 
 /** Accounts one gesture may disable. */
-export const BULK_ACCOUNTS_MAX = 100;
+const BULK_ACCOUNTS_MAX = 100;
 
 export const bulkDisableInputSchema = z
   .object({ userIds: z.array(z.uuid()).min(1).max(BULK_ACCOUNTS_MAX) })
@@ -59,7 +59,7 @@ export async function disableAccounts(
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export type PeopleLine = {
+type PeopleLine = {
   line: number;
   email: string;
   displayName: string;
@@ -246,7 +246,7 @@ export const accountWelcomePayloadSchema = z.object({
   actorId: z.uuid(),
   creatorName: z.string(),
 });
-export type AccountWelcomePayload = z.infer<typeof accountWelcomePayloadSchema>;
+type AccountWelcomePayload = z.infer<typeof accountWelcomePayloadSchema>;
 
 /**
  * Mails the first link of an account a file added. The link is made

@@ -27,7 +27,7 @@ function errorBody(error: AppError) {
 }
 
 /** The caller of a request, from its bearer token alone. */
-export async function mcpActor(
+async function mcpActor(
   db: Database,
   authorization: string | string[] | undefined,
 ): Promise<Actor | null> {
@@ -41,10 +41,7 @@ export async function mcpActor(
 }
 
 /** True when a browser sent the request from another origin than ours. */
-export function foreignOrigin(
-  origin: string | undefined,
-  publicUrl: string,
-): boolean {
+function foreignOrigin(origin: string | undefined, publicUrl: string): boolean {
   return origin !== undefined && origin !== new URL(publicUrl).origin;
 }
 

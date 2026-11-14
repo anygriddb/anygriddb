@@ -11,7 +11,7 @@ import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 
-export type NewTableStyle = "starter" | "blank";
+type NewTableStyle = "starter" | "blank";
 
 /**
  * The first fields' names, in the reader's language. Declared here, not

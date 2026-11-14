@@ -22,7 +22,7 @@ export const effectiveAccessInputSchema = z
   })
   .strict();
 
-export type AccessOrigin =
+type AccessOrigin =
   | { kind: "direct" }
   | { kind: "group"; groupId: string; groupName: string }
   | { kind: "none" };

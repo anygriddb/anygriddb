@@ -77,7 +77,7 @@ export function attachmentResponseMode(
   };
 }
 
-export type AttachmentMeta = {
+type AttachmentMeta = {
   key: string;
   filename: string;
   mime: string;
@@ -111,8 +111,7 @@ export function contentDisposition(filename: string, inline: boolean): string {
 }
 
 /** What an attachment is stored from: bytes, or a local file and its size. */
-export type AttachmentSource =
-  { bytes: Buffer } | { path: string; size: number };
+type AttachmentSource = { bytes: Buffer } | { path: string; size: number };
 
 /** The first bytes, which say what a file is. */
 async function headOf(source: AttachmentSource): Promise<Buffer> {

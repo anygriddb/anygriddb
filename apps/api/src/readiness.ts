@@ -7,11 +7,11 @@
  */
 
 /** How long the database has to answer before the process is not ready. */
-export const READY_WITHIN_MS = 2_000;
+const READY_WITHIN_MS = 2_000;
 /** An answer is kept this long: probes cost one query a second at most. */
 const KEEP_MS = 1_000;
 
-export type Readiness = {
+type Readiness = {
   ok: boolean;
   database: boolean;
   /** The listening connection of realtime; down, pages re-read on their own. */

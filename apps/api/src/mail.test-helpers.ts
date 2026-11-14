@@ -9,7 +9,7 @@ import { mailVoice } from "./mail-i18n.js";
 export const EN = mailVoice(INSTANCE_DEFAULTS, "en");
 export const FR = mailVoice(INSTANCE_DEFAULTS, "fr");
 
-export type ReceivedMail = { from: string; to: string[]; data: string };
+type ReceivedMail = { from: string; to: string[]; data: string };
 
 /**
  * A mail server on the loopback, for tests: it speaks just enough SMTP for

@@ -15,7 +15,7 @@ export const clients: EngineTable = {
   ],
 };
 
-export const secret: EngineTable = {
+const secret: EngineTable = {
   id: SECRET_ID,
   storage: "native",
   physicalName: "t_secret",

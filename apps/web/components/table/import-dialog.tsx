@@ -71,7 +71,7 @@ function importReport(result: Record<string, unknown> | null): ImportReport {
   };
 }
 
-export type ImportTarget =
+type ImportTarget =
   | { kind: "new"; baseId: string }
   | {
       kind: "existing";

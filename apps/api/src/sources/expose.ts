@@ -19,7 +19,7 @@ import { isUniqueViolation } from "../data/schema-ops.js";
 import { sourceTables, type SourceDeps } from "./sources.js";
 import type { SourceTable } from "./types.js";
 
-export type ExposeInput = {
+type ExposeInput = {
   sourceId: string;
   baseId: string;
   tables: ReadonlyArray<{ schema: string; name: string }>;
@@ -262,7 +262,7 @@ function linksOf(
   return links;
 }
 
-export type TableWrites = { update: boolean; insert: boolean; delete: boolean };
+type TableWrites = { update: boolean; insert: boolean; delete: boolean };
 
 /**
  * Enables or disables writes to an exposed table (ADR 0006): editing,
@@ -494,7 +494,7 @@ export async function exposeTables(
   }
 }
 
-export type RefreshResult = {
+type RefreshResult = {
   baseId: string;
   /** Client columns that became fields. */
   added: string[];

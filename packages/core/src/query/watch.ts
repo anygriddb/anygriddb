@@ -24,7 +24,7 @@ import { tableSql } from "./storage";
 import { withoutGroups } from "../plain-text";
 
 /** How a column tells changes: by a date and time, or SQL Server's rowversion. */
-export type WatchKind = "time" | "version";
+type WatchKind = "time" | "version";
 
 /** A client column a check reads: its name and declared type. */
 export type WatchColumn = { name: string; type: string };
@@ -217,7 +217,7 @@ function limitClause(
 }
 
 /** Where a check stands in the column's order: a value, and the key at it. */
-export type ColumnMark = { value: string; key: readonly string[] | null };
+type ColumnMark = { value: string; key: readonly string[] | null };
 
 /**
  * Where a first check starts: the column's highest value, and the highest
@@ -327,7 +327,7 @@ export function buildChangeVersion(table: EngineTable): ParameterizedSql {
 }
 
 /** Where a Change Tracking check stands inside the changes it reads. */
-export type VersionMark = { version: string; key: readonly string[] };
+type VersionMark = { version: string; key: readonly string[] };
 
 /**
  * The rows changed since version `since` up to `upTo`, in version then key

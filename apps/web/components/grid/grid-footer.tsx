@@ -20,7 +20,7 @@ import type { MessageDescriptor } from "@lingui/core";
 import { msg, plural } from "@lingui/core/macro";
 import { raw } from "../../lib/known-text";
 
-export const AGGREGATE_LABELS: Record<string, MessageDescriptor> = {
+const AGGREGATE_LABELS: Record<string, MessageDescriptor> = {
   count_all: msg`Number`,
   count_empty: msg`Empty`,
   count_filled: msg`Filled`,

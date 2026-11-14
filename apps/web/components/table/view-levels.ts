@@ -1,6 +1,6 @@
 /** Upsert a column as the first sort/group level without dropping the rest. */
 
-export type LevelSpec = { column: string; direction: "asc" | "desc" };
+type LevelSpec = { column: string; direction: "asc" | "desc" };
 
 export function upsertFirstLevel(
   levels: readonly LevelSpec[],

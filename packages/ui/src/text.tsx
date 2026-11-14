@@ -5,7 +5,7 @@ import { createContext, use, useMemo, type ReactNode } from "react";
  * button. The app passes them in its people's language; English is only
  * the fallback of a component used outside it.
  */
-export type UiText = { close: string; loading: string };
+type UiText = { close: string; loading: string };
 
 const UiTextContext = createContext<UiText>({
   close: "Close",

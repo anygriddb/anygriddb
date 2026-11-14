@@ -20,9 +20,9 @@ import type { Publisher } from "../realtime/bus.js";
 import { gridChannel } from "../realtime/channels.js";
 import { readSettings } from "../settings.js";
 
-export const LOCK_ALERTS_PER_HOUR = 10;
+const LOCK_ALERTS_PER_HOUR = 10;
 
-export type LockAlertDeps = {
+type LockAlertDeps = {
   db: Database;
   bus: Publisher;
   env: SmtpConfig & { PUBLIC_URL: string; AUTH_ENCRYPTION_KEY: KeyRing };

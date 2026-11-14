@@ -338,7 +338,7 @@ export const updateAccountInputSchema = z
   })
   .strict();
 
-export type UpdateAccountInput = z.infer<typeof updateAccountInputSchema>;
+type UpdateAccountInput = z.infer<typeof updateAccountInputSchema>;
 
 /**
  * Corrects an account's name or address, the administrator's own included.
@@ -477,7 +477,7 @@ export async function createAccount(
 }
 
 /** Where an account comes from: made here, bound to a sign-on, or provisioned. */
-export type AccountOrigin = "local" | "sso" | "scim";
+type AccountOrigin = "local" | "sso" | "scim";
 
 /**
  * One account as Administration opens it (ROADMAP #19): identity, status,

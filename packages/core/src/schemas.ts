@@ -25,7 +25,7 @@ import {
 } from "./view-config";
 import { AppError } from "./errors";
 
-export const fieldTypeSchema = z.enum(FIELD_TYPES);
+const fieldTypeSchema = z.enum(FIELD_TYPES);
 
 export const descriptionSchema = z.string().trim().max(2_000);
 
@@ -37,7 +37,7 @@ export const reasonSchema = z.string().trim().min(1).max(500);
  * refusing it here would refuse every read of that browser: one that
  * cannot tell its zone reports "Etc/Unknown".
  */
-export const timeZoneInputSchema = z.string().max(64);
+const timeZoneInputSchema = z.string().max(64);
 
 const userColumnName = columnNameSchema.refine(
   (name) => !isReservedColumnName(name),
@@ -236,9 +236,6 @@ export const rowsReadInputSchema = z.object({
    */
   exactTotal: z.boolean().optional(),
 });
-
-export type RowsReadInput = z.infer<typeof rowsReadInputSchema>;
-
 /**
  * A row's id: AnyGridDB's uuid, or a client table's key as text (ADR
  * 0006). A text that names no row of a table finds none.
@@ -270,7 +267,7 @@ const rowValuesSchema = z.record(columnNameSchema, cellValueSchema);
  * Just before a row of AnyGridDB's own, or just after it, in the table's
  * order (`row-order.ts`).
  */
-export const rowPlaceSchema = z.union([
+const rowPlaceSchema = z.union([
   z.strictObject({ before: z.uuid() }),
   z.strictObject({ after: z.uuid() }),
 ]);
@@ -327,9 +324,7 @@ export const trashInputSchema = z.object({
   tableId: z.uuid(),
   limit: z.int().min(1).max(200).default(50),
 });
-
-export type InsertRowInput = z.infer<typeof insertRowInputSchema>;
-export const relationKindSchema = z.enum(["one_to_many", "many_to_many"]);
+const relationKindSchema = z.enum(["one_to_many", "many_to_many"]);
 
 export const addRelationInputSchema = z.object({
   tableId: z.uuid(),
@@ -532,10 +527,6 @@ export const addLookupInputSchema = z.object({
 export const addRollupInputSchema = addLookupInputSchema.extend({
   fn: rollupFnSchema,
 });
-
-export type AddLookupInput = z.infer<typeof addLookupInputSchema>;
-export type AddRollupInput = z.infer<typeof addRollupInputSchema>;
-
 export const createApiTokenInputSchema = z.object({
   name: labelSchema,
   /** Limit the token to these bases. Absent means every base of its owner. */
@@ -554,13 +545,13 @@ export const WEBHOOK_EVENTS = [
   "import",
 ] as const;
 
-export const webhookEventSchema = z.enum(WEBHOOK_EVENTS);
+const webhookEventSchema = z.enum(WEBHOOK_EVENTS);
 
 /** Headers a webhook may not set: transport, framing, and our signature. */
 const RESERVED_HEADERS =
   /^(host|content-length|content-type|connection|transfer-encoding|te|upgrade|expect|proxy-.*|x-anygrid-.*)$/i;
 
-export function isAllowedWebhookHeader(name: string): boolean {
+function isAllowedWebhookHeader(name: string): boolean {
   return /^[A-Za-z0-9-]{1,64}$/.test(name) && !RESERVED_HEADERS.test(name);
 }
 

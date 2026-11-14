@@ -133,7 +133,7 @@ async function writeScope(ctx: Context, tableId: string): Promise<RowScope> {
   return scopeOf(ctx, await guardTable(ctx, tableId, "write"));
 }
 
-export async function notifyDeps(ctx: Context): Promise<NotifyDeps> {
+async function notifyDeps(ctx: Context): Promise<NotifyDeps> {
   const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
   return {
     db: ctx.db,

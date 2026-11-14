@@ -1,12 +1,12 @@
 import type { CatalogBase, CatalogTable } from "./types";
 
-export type ShortcutIds = {
+type ShortcutIds = {
   pinnedBases: readonly string[];
   pinnedTables: readonly string[];
   recentTables: ReadonlyArray<{ tableId: string; openedAt: string }>;
 };
 
-export type ResolvedShortcuts = {
+type ResolvedShortcuts = {
   pinned: Array<
     | { kind: "base"; base: CatalogBase }
     | { kind: "table"; base: CatalogBase; table: CatalogTable }

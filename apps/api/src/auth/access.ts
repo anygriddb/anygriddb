@@ -13,8 +13,8 @@ import { findApiToken, type TokenScope } from "./tokens.js";
 import { sessionBindings } from "../data/emergency-access.js";
 import { liveBase, liveTable } from "../data/live.js";
 
-export type FactorMethod = "totp" | "webauthn";
-export type GridDecision = "ok" | "denied" | "enroll";
+type FactorMethod = "totp" | "webauthn";
+type GridDecision = "ok" | "denied" | "enroll";
 
 export async function loadBindings(
   db: Database,

@@ -470,7 +470,7 @@ export async function listDeliveries(
 /* Delivery                                                            */
 /* ------------------------------------------------------------------ */
 
-export type WebhookPayload = {
+type WebhookPayload = {
   id: string;
   event: string;
   occurredAt: string;
@@ -614,7 +614,7 @@ async function send(
   return status;
 }
 
-export type AttemptPlan =
+type AttemptPlan =
   | { status: "success"; clearPayload: true }
   | { status: "pending"; retryInSeconds: number }
   | { status: "failed" };
@@ -671,7 +671,7 @@ async function recordFailure(deps: HookDeps, hook: WebhookRow): Promise<void> {
 }
 
 /** Makes one attempt and records its outcome on the delivery. */
-export async function attemptDelivery(
+async function attemptDelivery(
   deps: HookDeps,
   hook: WebhookRow,
   delivery: Pick<DeliveryRow, "id" | "attempts" | "payload">,

@@ -63,7 +63,7 @@ export type FormulaTypeContext = {
   excludeColumn?: string;
 };
 
-export type FormulaTyped = {
+type FormulaTyped = {
   kind: Typed["kind"];
   elem?: ScalarKind;
   limits: SourceLimit[];
@@ -138,7 +138,7 @@ function engineTable(
 }
 
 /** Builds the catalog compileFormula needs from the editor's snapshot. */
-export function catalogForFormulaTypes(ctx: FormulaTypeContext): EngineCatalog {
+function catalogForFormulaTypes(ctx: FormulaTypeContext): EngineCatalog {
   const table = engineTable(
     ctx.tableId,
     ctx.columns,

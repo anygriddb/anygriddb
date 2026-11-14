@@ -29,7 +29,7 @@ import {
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 
-export const FIELD_ICONS: Record<string, LucideIcon> = {
+const FIELD_ICONS: Record<string, LucideIcon> = {
   text: Type,
   long_text: Text,
   number: Hash,

@@ -6,7 +6,7 @@
  */
 import type { Env } from "./env.js";
 
-export type OperatorFixedStorage =
+type OperatorFixedStorage =
   | { driver: "disk"; path: string }
   | {
       driver: "s3";
@@ -16,7 +16,7 @@ export type OperatorFixedStorage =
       encryption: "AES256" | "aws:kms" | null;
     };
 
-export type OperatorFixed = {
+type OperatorFixed = {
   publicUrl: string;
   storage: OperatorFixedStorage;
   trustedProxies: readonly string[];

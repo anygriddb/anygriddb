@@ -30,7 +30,7 @@ export const IMPORT_LIMITS = {
 /** Rows one file may hold when the operator sets nothing (`IMPORT_MAX_ROWS`). */
 export const DEFAULT_IMPORT_MAX_ROWS = 1_000_000;
 
-export const PREVIEW_ROWS = 20;
+const PREVIEW_ROWS = 20;
 const INFER_SAMPLE = 1_000;
 /** How much of a text file is read to find its delimiter. */
 const DELIMITER_PROBE = 64 * 1024;

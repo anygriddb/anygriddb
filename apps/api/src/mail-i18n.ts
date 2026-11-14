@@ -341,7 +341,7 @@ export function securityMailBody(
 }
 
 /** An open alert as a mail names it (ROADMAP #25). */
-export type MailedAlert = {
+type MailedAlert = {
   kind: AlertKind;
   detail: Record<string, string | number | null>;
 };

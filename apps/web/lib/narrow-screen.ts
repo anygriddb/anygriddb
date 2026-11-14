@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 /** Under this width the navigation folds away: a phone, a narrow window. */
-export const NARROW_SCREEN = "(max-width: 767px)";
+const NARROW_SCREEN = "(max-width: 767px)";
 
 /**
  * Where the navigation stands: beside the page on a wide screen; on a

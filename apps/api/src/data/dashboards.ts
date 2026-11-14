@@ -21,9 +21,6 @@ import { liveColumnNames, liveTable, liveView } from "./live.js";
 import { aggregateRows, readTransaction, safeTimeZone } from "./rows.js";
 import { applyControlPlaneReadSpec } from "../sources/control-plane-read-filter.js";
 import { loadView } from "./views.js";
-
-export type { DashboardRow, WidgetRow };
-
 export async function listDashboards(db: Database, baseId: string) {
   return db
     .selectFrom("dashboards")

@@ -14,7 +14,7 @@ export type AnnounceDeps = {
 };
 
 /** Tables whose links read `tableId`, so their lookups may have moved. */
-export async function dependentTables(
+async function dependentTables(
   db: Database,
   tableId: string,
 ): Promise<string[]> {

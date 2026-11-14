@@ -14,7 +14,7 @@ type CatalogSlice = ReadonlyArray<{
   }>;
 }>;
 
-export type SourceTable = {
+type SourceTable = {
   baseId: string;
   baseName: string;
   tableId: string;
@@ -23,7 +23,7 @@ export type SourceTable = {
   stored: string;
 };
 
-export type SourceGroup = {
+type SourceGroup = {
   id: string;
   name: string;
   engine: string;

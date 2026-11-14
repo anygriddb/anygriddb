@@ -13,7 +13,7 @@ import { AppError } from "@anygriddb/core";
 
 const CEREMONY_TTL_MS = 5 * 60 * 1000;
 
-export type StoredWebAuthnCredential = {
+type StoredWebAuthnCredential = {
   userId: string;
   credentialId: string;
   publicKey: Buffer;
@@ -63,7 +63,7 @@ async function takeChallenge(
   return row.challenge;
 }
 
-export async function saveWebAuthnCredential(
+async function saveWebAuthnCredential(
   db: Database,
   credential: StoredWebAuthnCredential,
 ): Promise<void> {

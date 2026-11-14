@@ -20,7 +20,7 @@ const buildInfoSchema = z.strictObject({
   builtAt: z.iso.datetime().nullable(),
 });
 
-export type BuildInfo = z.infer<typeof buildInfoSchema>;
+type BuildInfo = z.infer<typeof buildInfoSchema>;
 
 declare const __ANYGRID_BUILD__: unknown;
 

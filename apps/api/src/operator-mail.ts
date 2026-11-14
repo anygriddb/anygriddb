@@ -17,8 +17,8 @@ import { readMailVoice, readSettings } from "./settings.js";
 import type { Env } from "./env.js";
 
 export const MAX_OPERATOR_MAIL_RECIPIENTS = 500;
-export const MAX_OPERATOR_MAIL_SUBJECT = 200;
-export const MAX_OPERATOR_MAIL_BODY = 5_000;
+const MAX_OPERATOR_MAIL_SUBJECT = 200;
+const MAX_OPERATOR_MAIL_BODY = 5_000;
 /** At most this many operator sends per rolling hour on the instance. */
 export const MAX_OPERATOR_MAIL_PER_HOUR = 5;
 
@@ -41,12 +41,10 @@ export const operatorMailInputSchema = z.object({
   recipients: operatorMailRecipientsSchema,
 });
 
-export type OperatorMailInput = z.infer<typeof operatorMailInputSchema>;
-export type OperatorMailRecipients = z.infer<
-  typeof operatorMailRecipientsSchema
->;
+type OperatorMailInput = z.infer<typeof operatorMailInputSchema>;
+type OperatorMailRecipients = z.infer<typeof operatorMailRecipientsSchema>;
 
-export type OperatorRecipient = { id: string; email: string };
+type OperatorRecipient = { id: string; email: string };
 
 export const operatorMailPayloadSchema = z.object({
   actorId: z.uuid(),
@@ -56,7 +54,7 @@ export const operatorMailPayloadSchema = z.object({
   locale: z.enum(["en", "fr"]),
 });
 
-export type OperatorMailPayload = z.infer<typeof operatorMailPayloadSchema>;
+type OperatorMailPayload = z.infer<typeof operatorMailPayloadSchema>;
 
 /** Active accounts, or the chosen ids that still exist (never the tombstone). */
 export async function resolveOperatorRecipients(
@@ -89,7 +87,7 @@ export async function resolveOperatorRecipients(
 }
 
 /** Refuses a sixth send within the last hour. */
-export async function assertOperatorMailQuota(db: Database): Promise<void> {
+async function assertOperatorMailQuota(db: Database): Promise<void> {
   const since = new Date(Date.now() - 60 * 60 * 1000);
   const row = await db
     .selectFrom("authEvents")
@@ -103,7 +101,7 @@ export async function assertOperatorMailQuota(db: Database): Promise<void> {
   }
 }
 
-export type QueueOperatorMailDeps = {
+type QueueOperatorMailDeps = {
   db: Database;
   env: Env;
   actorId: string;
@@ -156,7 +154,7 @@ export async function queueOperatorMail(
   return { recipientCount: people.length };
 }
 
-export type DeliverOperatorMailDeps = {
+type DeliverOperatorMailDeps = {
   db: Database;
   smtp: SmtpConfig;
   log: (error: unknown, message: string) => void;

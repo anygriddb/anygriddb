@@ -1,4 +1,4 @@
-import { parseColumnConfig, type RollupFn } from "../field-config";
+import { type RollupFn } from "../field-config";
 import {
   SYSTEM_COLUMN,
   isRelationType,
@@ -29,7 +29,6 @@ import {
   readTableSql,
 } from "./storage";
 import {
-  dialectOf,
   POSTGRES,
   serverAtLeast,
   type DatePart,
@@ -163,7 +162,7 @@ const ARRAY_SQL_TYPE: Record<ScalarKind, string> = {
   datetime: "timestamptz[]",
 };
 
-export function nextAlias(ctx: ExprContext): string {
+function nextAlias(ctx: ExprContext): string {
   ctx.aliases.next += 1;
   return `t${ctx.aliases.next}`;
 }
@@ -210,7 +209,7 @@ function nullOf(kind: ScalarKind, d: SqlDialect = POSTGRES): Typed {
 /* Coercions                                                           */
 /* ------------------------------------------------------------------ */
 
-export function asText(ctx: ExprContext, typed: Typed): string {
+function asText(ctx: ExprContext, typed: Typed): string {
   switch (typed.kind) {
     case "text":
       return typed.sql;
@@ -250,7 +249,7 @@ function listText(
   return d.listJoin(list.sql, alias, text, separator);
 }
 
-export function asNumber(ctx: ExprContext, typed: Typed): string {
+function asNumber(ctx: ExprContext, typed: Typed): string {
   switch (typed.kind) {
     case "number":
       return typed.sql;
@@ -272,7 +271,7 @@ export function asNumber(ctx: ExprContext, typed: Typed): string {
 }
 
 /** A value as a condition, never unknown: a blank is false. */
-export function asBool(typed: Typed, d: SqlDialect = POSTGRES): string {
+function asBool(typed: Typed, d: SqlDialect = POSTGRES): string {
   switch (typed.kind) {
     case "boolean":
       return d.cond(`coalesce(${typed.sql}, ${d.boolLiteral(false)})`);
@@ -289,7 +288,7 @@ export function asBool(typed: Typed, d: SqlDialect = POSTGRES): string {
   }
 }
 
-export function asDate(ctx: ExprContext, typed: Typed): string {
+function asDate(ctx: ExprContext, typed: Typed): string {
   switch (typed.kind) {
     case "date":
       return typed.sql;
@@ -302,7 +301,7 @@ export function asDate(ctx: ExprContext, typed: Typed): string {
   }
 }
 
-export function asDatetime(ctx: ExprContext, typed: Typed): string {
+function asDatetime(ctx: ExprContext, typed: Typed): string {
   switch (typed.kind) {
     case "datetime":
       return typed.sql;
@@ -369,7 +368,7 @@ function unify(ctx: ExprContext, branches: readonly Typed[]): Typed[] {
 /* ------------------------------------------------------------------ */
 
 /** FROM and WHERE that list the rows a link column points to. */
-export function linkSource(
+function linkSource(
   relation: EngineRelation,
   own: EngineTable,
   ownAlias: string,
@@ -425,7 +424,7 @@ function linkedTable(
 }
 
 /** Text that labels a row of `table`: its primary column, else its id. */
-export function labelSql(
+function labelSql(
   ctx: ExprContext,
   table: EngineTable,
   alias: string,
@@ -1616,7 +1615,7 @@ function canFail(
  * error of the branch it takes. Undefined when no error can arise, which
  * costs nothing. A field the reader may not see carries none.
  */
-export function formulaError(
+function formulaError(
   ctx: ExprContext,
   table: EngineTable,
   alias: string,
@@ -2909,29 +2908,4 @@ function compileCall(
       };
     }
   }
-}
-
-/** Result kind of a formula column, for typing filters and renderers. */
-export function formulaKind(
-  catalog: EngineCatalog,
-  table: EngineTable,
-  expr: FormulaExpr,
-  params: SqlParams,
-): Typed["kind"] | `array:${ScalarKind}` {
-  const ctx: ExprContext = {
-    catalog,
-    d: dialectOf(catalog.table),
-    params,
-    tz: "'UTC'::text",
-    aliases: { next: 0 },
-  };
-  const typed = compileFormula(ctx, table, "r", expr, []);
-  return typed.kind === "array" ? `array:${typed.elem}` : typed.kind;
-}
-
-export function parseEngineConfig(column: {
-  fieldType: EngineColumn["fieldType"];
-  config: unknown;
-}) {
-  return parseColumnConfig(column.fieldType, column.config);
 }

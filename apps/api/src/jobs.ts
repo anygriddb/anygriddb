@@ -34,18 +34,15 @@ export class JobCancelled extends AppError {
   }
 }
 
-export type JobProgress = (
-  done: number,
-  total?: number | null,
-) => Promise<void>;
+type JobProgress = (done: number, total?: number | null) => Promise<void>;
 
-export type JobRun = {
+type JobRun = {
   job: JobRow;
   /** Records progress; throws `JobCancelled` when the job should stop. */
   progress: JobProgress;
 };
 
-export type JobOutcome = {
+type JobOutcome = {
   result?: Record<string, unknown>;
   fileKey?: string;
 };
@@ -441,7 +438,7 @@ export function publicJob(job: JobRow & { tableName?: string | null }) {
   };
 }
 
-export type PublicJob = ReturnType<typeof publicJob>;
+type PublicJob = ReturnType<typeof publicJob>;
 
 /** A person's jobs, with the name of the table each one is about. */
 function jobsWithTable(db: Database) {

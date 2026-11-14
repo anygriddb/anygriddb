@@ -400,7 +400,7 @@ export interface SqlDialect {
 }
 
 /** The rows a list aggregates, and their order. */
-export type ListInput = {
+type ListInput = {
   element: string;
   from: string;
   where: string;
@@ -443,7 +443,7 @@ export function parseServerVersion(
 export type WallClockShape = "date" | "minute" | "second";
 
 /** A value `boundRow` names: its SQL and its type. */
-export type BoundValue = { name: string; sql: string; type: "date" | "int" };
+type BoundValue = { name: string; sql: string; type: "date" | "int" };
 
 /** The values of `boundRow` as the columns of a one-row derived table. */
 function boundSelect(values: readonly BoundValue[], alias: string): string {
@@ -933,7 +933,7 @@ const MYSQL_FORMAT_TOKENS: Array<[string, string | null]> = [
  * A `YYYY-MM-DD HH:mm` style pattern as MySQL `date_format` patterns, a
  * null where the lower-case am/pm goes: MySQL has only `%p`, upper case.
  */
-export function mysqlDatePattern(pattern: string): Array<string | null> {
+function mysqlDatePattern(pattern: string): Array<string | null> {
   if (pattern.length === 0 || pattern.length > 64) {
     throw new AppError("invalid_formula");
   }

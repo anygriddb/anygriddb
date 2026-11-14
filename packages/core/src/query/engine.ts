@@ -62,7 +62,7 @@ export type PhysicalColumn = {
  * Where a table's rows live (ADR 0002): a physical table in AnyGridDB's
  * database, or a table or view in a client's database.
  */
-export type TableStorage = "native" | "external";
+type TableStorage = "native" | "external";
 
 /** A table or view of a client's database (ADR 0006). */
 export type ExternalRelation = {

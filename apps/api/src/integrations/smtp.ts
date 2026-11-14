@@ -28,7 +28,7 @@ export type SmtpRow = {
   updatedBy: string | null;
 };
 
-export type PublicSmtp = {
+type PublicSmtp = {
   configured: boolean;
   host: string | null;
   port: number | null;
@@ -38,7 +38,7 @@ export type PublicSmtp = {
   updatedAt: string | null;
 };
 
-export type SmtpSource = "database" | "env" | "none";
+type SmtpSource = "database" | "env" | "none";
 
 export const smtpUpdateSchema = z
   .object({
@@ -51,7 +51,7 @@ export const smtpUpdateSchema = z
   })
   .strict();
 
-export type SmtpUpdate = z.infer<typeof smtpUpdateSchema>;
+type SmtpUpdate = z.infer<typeof smtpUpdateSchema>;
 
 export function clearSmtpCache(db: Database): void {
   smtpCache.delete(db);

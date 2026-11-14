@@ -10,7 +10,7 @@ import { useLingui } from "@lingui/react/macro";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { FilterBuilder, newCondition } from "./filter-builder";
 
-export type ColorRule = { filter: FilterGroup; color: OptionColor };
+type ColorRule = { filter: FilterGroup; color: OptionColor };
 
 export function ColorRulesEditor(props: {
   open: boolean;

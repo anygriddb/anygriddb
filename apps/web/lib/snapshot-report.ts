@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 
 /** What a snapshot's import, or a base's copy, could not bring as it was. */
-export type SnapshotReport = {
+type SnapshotReport = {
   files: number;
   filesMissing: number;
   people: number;
@@ -11,7 +11,7 @@ export type SnapshotReport = {
 };
 
 /** The report in a finished job's result, when it has one. */
-export function snapshotReport(result: unknown): SnapshotReport | null {
+function snapshotReport(result: unknown): SnapshotReport | null {
   if (!result || typeof result !== "object" || !("report" in result)) {
     return null;
   }

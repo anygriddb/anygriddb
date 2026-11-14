@@ -48,7 +48,7 @@ function isForwardLink(column: CatalogColumn): boolean {
 }
 
 /** The fields a new row of a client's table may fill, in grid order. */
-export function newRowFields(columns: readonly CatalogColumn[]) {
+function newRowFields(columns: readonly CatalogColumn[]) {
   return columns.filter(
     (column) =>
       column.insertable &&

@@ -15,7 +15,7 @@ export const FRESH_SIGN_IN_MS = 10 * 60_000;
  * and is not the account's (it counts toward the lock), `stale` when the
  * sign-in is too old to stand for a proof.
  */
-export type ErasureProof = "ok" | "missing" | "wrong" | "stale";
+type ErasureProof = "ok" | "missing" | "wrong" | "stale";
 
 /** When the session of this cookie began: its sign-in, not its last use. */
 export async function sessionStartedAt(

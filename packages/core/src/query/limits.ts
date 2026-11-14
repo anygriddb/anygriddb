@@ -17,7 +17,7 @@
 import { formulaFunction, formulaTokens } from "../formula";
 import type { DialectName } from "./dialect";
 
-export type LimitCode = "approximate" | "precision" | "regex";
+type LimitCode = "approximate" | "precision" | "regex";
 
 export type SourceLimit = {
   code: LimitCode;

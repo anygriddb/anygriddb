@@ -5,7 +5,7 @@
 const MENTION =
   /@\[([^\]\n]{1,100})\]\(([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\)/gi;
 
-export const MAX_MENTIONS = 20;
+const MAX_MENTIONS = 20;
 
 /** Distinct mentioned user ids, in order, at most 20. */
 export function parseMentions(body: string): string[] {
@@ -18,7 +18,7 @@ export function parseMentions(body: string): string[] {
   return ids;
 }
 
-export type MentionSegment =
+type MentionSegment =
   | { kind: "text"; text: string }
   | { kind: "mention"; name: string; userId: string };
 

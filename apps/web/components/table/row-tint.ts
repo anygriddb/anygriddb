@@ -6,7 +6,7 @@ import {
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { optionsOf } from "../fields/cell-value";
 
-export type ViewColor = NonNullable<ViewConfig["color"]>;
+type ViewColor = NonNullable<ViewConfig["color"]>;
 
 /** Option colour for a row under the view's colour settings, if any. */
 export function resolveRowTint(

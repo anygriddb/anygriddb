@@ -9,7 +9,7 @@ import type { Database } from "@anygriddb/db";
 import { deleteFiles, type FileStore } from "../files/index.js";
 import { newStagedKey } from "../storage.js";
 
-export type StagedKind = "import" | "snapshot";
+type StagedKind = "import" | "snapshot";
 
 /** Keeps a local file, streamed to the store: an archive too large to hold. */
 export async function stageUploadFile(

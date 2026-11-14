@@ -54,8 +54,8 @@ export const localGroupMemberInputSchema = z
   })
   .strict();
 
-export type CreateLocalGroupInput = z.infer<typeof createLocalGroupInputSchema>;
-export type UpdateLocalGroupInput = z.infer<typeof updateLocalGroupInputSchema>;
+type CreateLocalGroupInput = z.infer<typeof createLocalGroupInputSchema>;
+type UpdateLocalGroupInput = z.infer<typeof updateLocalGroupInputSchema>;
 
 /** True when Administration owns the group's membership. */
 export function isLocalGroup(provider: string | null): boolean {

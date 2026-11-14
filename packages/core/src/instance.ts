@@ -3,45 +3,33 @@ import { z } from "zod";
 /** The product's name: what an instance is called until it names itself. */
 export const PRODUCT_NAME = "AnyGridDB";
 
-export const SIGNUP_POLICIES = ["open", "invite", "closed"] as const;
-export type SignupPolicy = (typeof SIGNUP_POLICIES)[number];
+const SIGNUP_POLICIES = ["open", "invite", "closed"] as const;
+type SignupPolicy = (typeof SIGNUP_POLICIES)[number];
 
 /**
  * Who needs a second factor (ADR 0043). Administrators always do; the
  * default adds owners and anyone creating a base, as before.
  */
-export const MFA_SCOPES = ["admins", "owners", "everyone"] as const;
-export type MfaScope = (typeof MFA_SCOPES)[number];
-
+const MFA_SCOPES = ["admins", "owners", "everyone"] as const;
 /**
  * After single sign-on: AnyGridDB asks for its own second factor, or
  * trusts the identity provider's.
  */
-export const SSO_MFA_MODES = ["local", "provider"] as const;
-export type SsoMfaMode = (typeof SSO_MFA_MODES)[number];
-
+const SSO_MFA_MODES = ["local", "provider"] as const;
 /** Who may start a password reset: the person by email, or only an administrator. */
-export const PASSWORD_RESET_MODES = ["self", "admin"] as const;
-export type PasswordResetMode = (typeof PASSWORD_RESET_MODES)[number];
-
+const PASSWORD_RESET_MODES = ["self", "admin"] as const;
 /** Public links to views and forms: allowed, only with a password, or off. */
-export const PUBLIC_LINK_MODES = ["allowed", "password", "off"] as const;
-export type PublicLinkMode = (typeof PUBLIC_LINK_MODES)[number];
-
+const PUBLIC_LINK_MODES = ["allowed", "password", "off"] as const;
 /** Who may do something only some may (create a base, an API token). */
-export const CREATOR_MODES = ["everyone", "admins"] as const;
-export type CreatorMode = (typeof CREATOR_MODES)[number];
-
+const CREATOR_MODES = ["everyone", "admins"] as const;
 /** Whom owners may invite: any address, or only the sign-up domains'. */
-export const INVITATION_MODES = ["anyone", "domains"] as const;
-export type InvitationMode = (typeof INVITATION_MODES)[number];
-
+const INVITATION_MODES = ["anyone", "domains"] as const;
 /**
  * The bounds of each number an administrator sets. The lower bounds are
  * floors no setting crosses: brute force always meets a limit, a password
  * keeps 12 characters, the sign-in trail six months (CNIL).
  */
-export const POLICY_BOUNDS = {
+const POLICY_BOUNDS = {
   lockoutThreshold: { min: 3, max: 20 },
   /** 0 keeps the account locked until an administrator unlocks it. */
   lockoutMinutes: { min: 5, max: 1440 },

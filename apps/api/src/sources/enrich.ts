@@ -99,7 +99,7 @@ export function sideError(error: unknown, schema: string): unknown {
   return error;
 }
 
-export type SideField = {
+type SideField = {
   name: string;
   label: string;
   description: string | null;

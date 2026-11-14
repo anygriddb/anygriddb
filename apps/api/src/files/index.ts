@@ -3,7 +3,6 @@ import { S3Store } from "./s3.js";
 import type { FileStore } from "./store.js";
 
 export { DiskStore } from "./disk.js";
-export { S3Store } from "./s3.js";
 export * from "./store.js";
 
 export type FileSettings = {

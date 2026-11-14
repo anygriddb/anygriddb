@@ -7,7 +7,7 @@
  */
 import type { InstanceSettings } from "./instance";
 
-export const ALERT_KINDS = [
+const ALERT_KINDS = [
   "backup_late",
   "backup_failed",
   "storage_full",
@@ -25,7 +25,7 @@ export const ALERT_CHOICES = [...ALERT_KINDS, "account_locked"] as const;
 export type AlertChoice = (typeof ALERT_CHOICES)[number];
 
 /** Hours between two mails about an alert that stays open. */
-export const ALERT_REMINDER_HOURS = 24;
+const ALERT_REMINDER_HOURS = 24;
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;

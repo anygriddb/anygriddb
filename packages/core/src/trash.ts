@@ -8,10 +8,8 @@ import { AppError } from "./errors";
  */
 export const TRASH_DAYS = 30;
 
-export const TRASH_KINDS = ["base", "table", "column", "view"] as const;
-export type TrashKind = (typeof TRASH_KINDS)[number];
-
-export const trashItemSchema = z
+const TRASH_KINDS = ["base", "table", "column", "view"] as const;
+const trashItemSchema = z
   .object({ kind: z.enum(TRASH_KINDS), id: z.uuid() })
   .strict();
 
@@ -41,9 +39,6 @@ export const trashPurgeJobInputSchema = z
     (input) => Boolean(input.due) !== Boolean(input.baseId),
     "Invalid job",
   );
-
-export type TrashPurgeJobInput = z.infer<typeof trashPurgeJobInputSchema>;
-
 /** When an item deleted at `deletedAt` is purged. */
 export function purgeDate(deletedAt: Date, days: number = TRASH_DAYS): Date {
   return new Date(deletedAt.getTime() + days * 86_400_000);

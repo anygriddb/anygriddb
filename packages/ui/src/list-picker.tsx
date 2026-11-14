@@ -31,7 +31,7 @@ export type PickerOption = {
   description?: ReactNode;
 };
 
-export type ListPickerProps = {
+type ListPickerProps = {
   /** The search field's name, also its placeholder. */
   label: string;
   /** The list's name. */

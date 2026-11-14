@@ -429,7 +429,7 @@ export async function loadTrashedTable(
 /* Listing                                                             */
 /* ------------------------------------------------------------------ */
 
-export type TrashEntry = {
+type TrashEntry = {
   kind: TrashItem["kind"];
   id: string;
   name: string;
@@ -575,7 +575,7 @@ export async function listAllTrashedBases(
 /* Purging                                                             */
 /* ------------------------------------------------------------------ */
 
-export type PurgeDeps = {
+type PurgeDeps = {
   db: Database;
   files: FileStore;
   log: (error: unknown, message: string) => void;

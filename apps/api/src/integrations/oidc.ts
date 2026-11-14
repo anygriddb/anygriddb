@@ -16,7 +16,7 @@ const oidcCache = new WeakMap<
   { at: number; value: Promise<OidcRow | null> }
 >();
 
-export type OidcRow = {
+type OidcRow = {
   issuer: string;
   clientId: string;
   clientSecretCiphertext: Buffer;
@@ -25,7 +25,7 @@ export type OidcRow = {
   updatedBy: string | null;
 };
 
-export type PublicOidc = {
+type PublicOidc = {
   configured: boolean;
   issuer: string | null;
   clientId: string | null;
@@ -41,7 +41,7 @@ export type OidcConfig = {
   OIDC_REDIRECT_URL: string;
 };
 
-export type OidcSource = "database" | "env" | "none";
+type OidcSource = "database" | "env" | "none";
 
 export const oidcUpdateSchema = z
   .object({
@@ -52,7 +52,7 @@ export const oidcUpdateSchema = z
   })
   .strict();
 
-export type OidcUpdate = z.infer<typeof oidcUpdateSchema>;
+type OidcUpdate = z.infer<typeof oidcUpdateSchema>;
 
 export function clearOidcCache(db: Database): void {
   oidcCache.delete(db);

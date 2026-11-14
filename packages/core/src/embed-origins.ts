@@ -6,7 +6,7 @@ import { z } from "zod";
 import { AppError } from "./errors.js";
 
 /** Cap on origins stored per share (matches the migration check). */
-export const MAX_EMBED_ORIGINS = 20;
+const MAX_EMBED_ORIGINS = 20;
 
 /**
  * One HTTPS origin: scheme, host, optional port; no path, query, hash, or

@@ -9,7 +9,7 @@ import { useSyncExternalStore } from "react";
 export type Cell = { r: number; c: number };
 export type Range = { r1: number; c1: number; r2: number; c2: number };
 
-export function normalize(a: Cell, b: Cell): Range {
+function normalize(a: Cell, b: Cell): Range {
   return {
     r1: Math.min(a.r, b.r),
     c1: Math.min(a.c, b.c),
@@ -18,7 +18,7 @@ export function normalize(a: Cell, b: Cell): Range {
   };
 }
 
-export type SelectionState = {
+type SelectionState = {
   active: Cell | null;
   anchor: Cell | null;
   editing: { cell: Cell; text?: string } | null;

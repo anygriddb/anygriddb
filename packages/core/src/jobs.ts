@@ -94,9 +94,6 @@ export const duplicateJobInputSchema = z
     withData: z.boolean(),
   })
   .strict();
-
-export type DuplicateJobInput = z.infer<typeof duplicateJobInputSchema>;
-
 /**
  * An import as the worker runs it: the target table already exists, and
  * `created` names the columns made with it, in mapping order.
@@ -112,9 +109,6 @@ export const importJobInputSchema = z
     created: z.array(columnNameSchema).max(200).optional(),
   })
   .strict();
-
-export type ImportJobInput = z.infer<typeof importJobInputSchema>;
-
 /** An Airtable base's id, as its address or the API writes it. */
 const AIRTABLE_BASE = /\bapp[A-Za-z0-9]{14}\b/;
 
@@ -141,11 +135,6 @@ export const startAirtableImportInputSchema = z
     name: labelSchema.optional(),
   })
   .strict();
-
-export type StartAirtableImportInput = z.infer<
-  typeof startAirtableImportInputSchema
->;
-
 /**
  * An Airtable import as the worker runs it. The token is sealed with the
  * instance's key, and the job drops it when it ends.
@@ -163,11 +152,6 @@ export const importAirtableJobInputSchema = z
       .optional(),
   })
   .strict();
-
-export type ImportAirtableJobInput = z.infer<
-  typeof importAirtableJobInputSchema
->;
-
 export const jobInputSchemas = {
   import: importJobInputSchema,
   export: exportJobInputSchema,

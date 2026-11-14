@@ -209,7 +209,7 @@ export function sheetName(name: string): string {
 }
 
 /** What writes an export to its file, one page of rows after another. */
-export type ExportWriter = {
+type ExportWriter = {
   /** Writes the next rows, in order. */
   add(rows: readonly RowRecord[]): Promise<void>;
   /** Ends the file and says its size in bytes. */

@@ -2,7 +2,7 @@
 export type SentFile = { key: string; filename: string; size: number };
 
 /** Why the server refused a file, from its answer's status. */
-export type FileRefusal = "too_large" | "busy" | "too_many" | "refused";
+type FileRefusal = "too_large" | "busy" | "too_many" | "refused";
 
 export class FileRefused extends Error {
   constructor(readonly reason: FileRefusal) {

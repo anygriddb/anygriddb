@@ -171,7 +171,7 @@ function publicUrl(source: NodeJS.ProcessEnv, port: number): string {
  * `sslmode=verify-full`, or a mode node-postgres verifies the same way.
  * A Unix socket or the loopback stays on the machine.
  */
-export function assertEncryptedDatabase(raw: string, name: string): void {
+function assertEncryptedDatabase(raw: string, name: string): void {
   // `postgres://user@host:port/db?…`; the host may be empty, for a socket
   // named in `?host=`. Read by hand: an empty host is not a WHATWG URL.
   const match =

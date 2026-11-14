@@ -26,7 +26,7 @@ export const rowEventSchema = z.object({
 export type RowEvent = z.infer<typeof rowEventSchema>;
 
 /** Delays before the 2nd, 3rd, and 4th attempts; then the delivery fails. */
-export const RETRY_DELAYS_SECONDS = [60, 300, 1_800] as const;
+const RETRY_DELAYS_SECONDS = [60, 300, 1_800] as const;
 
 export function nextRetryDelay(attempts: number): number | null {
   return RETRY_DELAYS_SECONDS[attempts - 1] ?? null;

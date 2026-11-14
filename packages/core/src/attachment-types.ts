@@ -12,10 +12,7 @@ export const ATTACHMENT_TYPES = [
   "application/pdf",
   "text/plain",
 ] as const;
-
-export type AttachmentType = (typeof ATTACHMENT_TYPES)[number];
-
-export type AttachmentPreviewKind = "image" | "pdf" | "text";
+type AttachmentPreviewKind = "image" | "pdf" | "text";
 
 const IMAGE_TYPES = new Set<string>([
   "image/png",

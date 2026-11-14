@@ -29,7 +29,7 @@ export const handOverInputSchema = z
   .strict();
 
 /** An automation or a webhook, as the dialog and the result name it. */
-export type HandoffItem = {
+type HandoffItem = {
   id: string;
   name: string;
   table: string;

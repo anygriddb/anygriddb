@@ -8,7 +8,7 @@ import { signupDecision } from "../admin.js";
  * gives none that lasts (a transient or address-shaped SAML NameID): the
  * address alone then finds the account, as the provider must verify it.
  */
-export type SsoIdentity = {
+type SsoIdentity = {
   provider: "oidc" | "saml";
   issuer: string;
   subject: string | null;

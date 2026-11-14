@@ -140,7 +140,7 @@ const FN_ALIASES: Record<string, FormulaFn> = {
   encode_url: "encode_url_component",
 };
 
-export type BinaryOp =
+type BinaryOp =
   | "add"
   | "sub"
   | "mul"
@@ -181,9 +181,9 @@ const BINARY_OPS = [
 
 const COLUMN_REF = /^[a-z_][a-z0-9_]*$/;
 
-export const MAX_FORMULA_NODES = 500;
-export const MAX_FORMULA_DEPTH = 40;
-export const MAX_FORMULA_SOURCE = 4_000;
+const MAX_FORMULA_NODES = 500;
+const MAX_FORMULA_DEPTH = 40;
+const MAX_FORMULA_SOURCE = 4_000;
 
 const nodeSchema: z.ZodType<FormulaExpr> = z.lazy(() =>
   z.union([
@@ -255,7 +255,7 @@ export function formulaChildren(expr: FormulaExpr): FormulaExpr[] {
 }
 
 /** Rejects ASTs that are too large, too deep, or call a function with the wrong arity. */
-export function assertFormulaShape(expr: FormulaExpr): void {
+function assertFormulaShape(expr: FormulaExpr): void {
   let nodes = 0;
   const visit = (node: FormulaExpr, depth: number): void => {
     nodes += 1;
@@ -311,7 +311,7 @@ type Token = Span &
  * A formula error with the stretch of text it is about, so an editor can
  * underline it. To the API it is the AppError it extends.
  */
-export class FormulaError extends AppError {
+class FormulaError extends AppError {
   constructor(
     code: ErrorCode,
     readonly span: Span,
@@ -762,7 +762,7 @@ export function formatFormula(
 }
 
 /** A token of formula text, for an editor's highlighting. */
-export type FormulaToken = {
+type FormulaToken = {
   kind:
     | "number"
     | "string"

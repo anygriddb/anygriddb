@@ -1,6 +1,6 @@
 import type { CatalogColumn } from "../../lib/types";
 
-export type FormValue = string | string[] | boolean;
+type FormValue = string | string[] | boolean;
 
 type Option = { name: string };
 

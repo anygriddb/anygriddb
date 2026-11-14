@@ -19,15 +19,15 @@ const INVITATION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 const SHARE_ACCESS_TTL_MS = 12 * 60 * 60 * 1000;
 const TOKEN = /^[A-Za-z0-9_-]{32,64}$/;
 
-export function newToken(): string {
+function newToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
-export function hashToken(token: string): string {
+function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-export function isToken(value: string): boolean {
+function isToken(value: string): boolean {
   return TOKEN.test(value);
 }
 
@@ -539,7 +539,7 @@ export function issueShareAccess(
   return `${expiry}.${mac.toString("base64url")}`;
 }
 
-export function verifyShareAccess(
+function verifyShareAccess(
   key: KeyRing,
   shareId: string,
   access: string | undefined,
@@ -557,7 +557,7 @@ export function verifyShareAccess(
   );
 }
 
-export type ResolvedShare = {
+type ResolvedShare = {
   share: ShareRow;
   view: ViewRow;
   table: TableRow;

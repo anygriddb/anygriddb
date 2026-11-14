@@ -124,7 +124,7 @@ export async function clearTableAcl(
 }
 
 /** Who reads: the account and its roles, which decide the rules that apply. */
-export type Reader = { userId: string; bindings: readonly Binding[] };
+type Reader = { userId: string; bindings: readonly Binding[] };
 
 /**
  * The reader's field and row rules over `tables`, or undefined when none

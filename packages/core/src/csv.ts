@@ -1,7 +1,7 @@
 import { AppError } from "./errors";
 const FORMULA_PREFIX = /^[=+\-@\t\r]/;
 
-export type DelimitedOptions = {
+type DelimitedOptions = {
   delimiter?: "," | ";" | "\t";
   maxBytes?: number;
   maxRows?: number;
@@ -19,7 +19,7 @@ const QUOTE = 0x22;
 const LF = 0x0a;
 const CR = 0x0d;
 
-export type DelimitedReaderOptions = {
+type DelimitedReaderOptions = {
   delimiter: "," | ";" | "\t";
   /** Characters a cell keeps: the rest of a longer cell is dropped. */
   maxCell?: number;

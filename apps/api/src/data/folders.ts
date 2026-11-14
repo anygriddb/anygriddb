@@ -35,7 +35,7 @@ export const reorderFolderTablesInputSchema = z.object({
   order: z.array(z.uuid()).min(1).max(500),
 });
 
-export type FolderRow = {
+type FolderRow = {
   id: string;
   baseId: string;
   name: string;

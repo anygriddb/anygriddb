@@ -199,7 +199,7 @@ export class ZipWriter {
   }
 }
 
-export type ZipEntry = {
+type ZipEntry = {
   name: string;
   method: 0 | 8;
   crc: number;

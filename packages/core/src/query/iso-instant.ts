@@ -10,7 +10,7 @@ import { trimRuns } from "../plain-text";
 const ISO =
   /^([0-9]{4})-([0-9]{2})-([0-9]{2})(?:[T ]([0-9]{2}):([0-9]{2})(?::([0-9]{2})(\.[0-9]{1,6})?)?)?\s*(Z|([+-])([0-9]{2})(?::?([0-9]{2}))?)?$/;
 
-export type IsoInstant = {
+type IsoInstant = {
   /** `YYYY-MM-DD HH:MM:SS[.ffffff]`: the wall clock, or UTC when zoned. */
   timestamp: string;
   /** Whether the text named its zone, so `timestamp` is in UTC. */

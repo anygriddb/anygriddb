@@ -48,7 +48,7 @@ const CHECK_BATCH = 2_000;
 const CHUNK = 100;
 
 /** The fingerprint of sealed values: the SHA-256 of their canonical text. */
-export function fingerprintOf(values: Readonly<Record<string, unknown>>) {
+function fingerprintOf(values: Readonly<Record<string, unknown>>) {
   return createHash("sha256")
     .update(`anygriddb-seal-1\n${sealText(values)}`)
     .digest("hex");
@@ -476,7 +476,7 @@ export async function forgetStatuses(
 }
 
 /** Queues a check of these rows, when some of them are sealed. */
-export async function queueSealCheck(
+async function queueSealCheck(
   db: Database,
   tableId: string,
   rowIds: readonly string[],

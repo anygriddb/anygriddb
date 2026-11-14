@@ -53,7 +53,7 @@ import { LIST_PANEL_ATTRIBUTE } from "../../lib/keyboard-undo";
 
 type Move = "down" | "right" | "left";
 
-export type EditorProps = {
+type EditorProps = {
   column: CatalogColumn;
   row: RowItem;
   /** Text typed to start editing; replaces the current value. */
@@ -66,7 +66,7 @@ function toCellColumn(column: CatalogColumn) {
 }
 
 /** Text shown in an input when editing an existing value. */
-export function editableText(value: unknown, column: CatalogColumn): string {
+function editableText(value: unknown, column: CatalogColumn): string {
   if (value === null || value === undefined) return "";
   if (column.fieldType === "duration" && typeof value === "number") {
     const hours = Math.floor(value / 3600);

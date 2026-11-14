@@ -25,7 +25,6 @@ import { cn } from "./cn";
 
 export type { DateValue };
 export {
-  CalendarDate,
   getLocalTimeZone,
   now,
   parseAbsolute,
@@ -33,11 +32,9 @@ export {
   parseDateTime,
   toCalendarDate,
   toZoned,
-  today,
-  ZonedDateTime,
 } from "@internationalized/date";
 
-export type DatePickerProps = {
+type DatePickerProps = {
   value: DateValue | null;
   onChange: (value: DateValue | null) => void;
   /** `day` for a date; `minute` adds the time. */

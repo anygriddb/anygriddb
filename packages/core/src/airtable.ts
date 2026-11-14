@@ -17,7 +17,7 @@ import { OPTION_COLORS, type OptionColor } from "./field-config";
 import { parseFormula } from "./formula";
 import type { ViewType } from "./view-config";
 
-export type AirtableField = {
+type AirtableField = {
   id: string;
   name: string;
   type: string;
@@ -25,7 +25,7 @@ export type AirtableField = {
   options?: Record<string, unknown>;
 };
 
-export type AirtableView = { id: string; name: string; type: string };
+type AirtableView = { id: string; name: string; type: string };
 
 export type AirtableTable = {
   id: string;
@@ -44,21 +44,19 @@ export type AirtableRecord = {
 };
 
 /** Why a field or a view did not come over as it was. */
-export const AIRTABLE_NOTES = [
-  "attachments_as_names",
-  "people_as_text",
-  "rollup_as_values",
-  "formula_as_values",
-  "lookup_as_values",
-  "system_as_values",
-  "unknown_as_text",
-  "button_skipped",
-  "view_settings",
-  "view_skipped",
-] as const;
-export type AirtableNote = (typeof AIRTABLE_NOTES)[number];
+export type AirtableNote =
+  | "attachments_as_names"
+  | "people_as_text"
+  | "rollup_as_values"
+  | "formula_as_values"
+  | "lookup_as_values"
+  | "system_as_values"
+  | "unknown_as_text"
+  | "button_skipped"
+  | "view_settings"
+  | "view_skipped";
 
-export type AirtableReportItem = {
+type AirtableReportItem = {
   table: string;
   field?: string;
   view?: string;

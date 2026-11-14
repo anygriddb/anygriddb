@@ -109,7 +109,7 @@ function clipboardCells(text: string): string[][] {
   }
 }
 
-export type PastePlan = {
+type PastePlan = {
   updates: Array<{ rowId: string; values: Record<string, CellValue> }>;
   inserts: Array<Record<string, CellValue>>;
   skipped: number;

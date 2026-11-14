@@ -28,7 +28,7 @@ export type Tx = Transaction<DB>;
 /** The database, or an open transaction on it. */
 export type Executor = Kysely<DB>;
 
-export type Statement = { text: string; values: readonly unknown[] };
+type Statement = { text: string; values: readonly unknown[] };
 
 /**
  * How long a query waits for a connection: to open one, or for one of the

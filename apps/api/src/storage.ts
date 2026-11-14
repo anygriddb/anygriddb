@@ -5,8 +5,6 @@
  */
 import { randomUUID } from "node:crypto";
 import { AppError, ATTACHMENT_TYPES } from "@anygriddb/core";
-
-export { ATTACHMENT_TYPES };
 export function sniffContentType(bytes: Buffer, stored?: string): string {
   if (
     bytes.length >= 8 &&
@@ -48,7 +46,7 @@ export function sniffContentType(bytes: Buffer, stored?: string): string {
 }
 
 /** Key of an export job's file: one per job. */
-export const EXPORT_KEY = /^exports\/[0-9a-f-]{36}$/;
+const EXPORT_KEY = /^exports\/[0-9a-f-]{36}$/;
 
 export function exportKey(jobId: string): string {
   const key = `exports/${jobId}`;

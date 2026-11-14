@@ -10,7 +10,7 @@ import { sql } from "kysely";
 import { deleteFiles, type FileStore } from "../files/index.js";
 
 /** How long a file waits for its answer: a form left open for the day. */
-export const STAGED_ATTACHMENT_HOURS = 24;
+const STAGED_ATTACHMENT_HOURS = 24;
 
 /** The deadline of a file staged now, in the database's own clock. */
 export function stagedDeadline() {

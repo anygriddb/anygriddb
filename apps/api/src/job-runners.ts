@@ -73,7 +73,7 @@ import { readAirtableBase } from "./data/airtable-import.js";
 import { decryptSecret } from "./auth/crypto.js";
 import { madeNamesFor, readGateSettings } from "./settings.js";
 
-export type RunnerDeps = {
+type RunnerDeps = {
   db: Database;
   bus: Bus;
   files: FileStore;
@@ -102,7 +102,7 @@ async function attachmentCeiling(deps: RunnerDeps): Promise<number> {
  * someone who has since lost access, or whose account was disabled,
  * stops here.
  */
-export async function activeAuthor(
+async function activeAuthor(
   db: Database,
   job: Pick<JobRow, "userId">,
 ): Promise<{ userId: string; bindings: Binding[] }> {

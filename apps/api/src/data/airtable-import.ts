@@ -64,7 +64,7 @@ const pageSchema = z.object({
   offset: z.string().max(200).optional(),
 });
 
-export type AirtableBase = {
+type AirtableBase = {
   tables: AirtableTable[];
   records: Map<string, AirtableRecord[]>;
 };

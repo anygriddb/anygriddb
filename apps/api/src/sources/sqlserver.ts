@@ -5,7 +5,7 @@ import type { SourceCheck, SourceConnection } from "./types.js";
 /** SQL Server 2017 (14) or later: STRING_AGG, TRIM, and CONCAT_WS. */
 const MINIMUM_MAJOR = 14;
 
-export type SqlServerRow = Record<string, unknown>;
+type SqlServerRow = Record<string, unknown>;
 
 /**
  * Runs one statement and returns its rows by column name. Parameters are

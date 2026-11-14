@@ -22,7 +22,7 @@ function isoDay(date: Date): string {
   return `${String(date.getFullYear())}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export type TimelinePeriod = {
+type TimelinePeriod = {
   /** The first day shown. */
   first: Date;
   /** The day after the last one shown. */

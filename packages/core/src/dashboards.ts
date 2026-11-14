@@ -3,25 +3,13 @@ import { columnNameSchema, labelSchema } from "./names";
 import { AGGREGATE_FNS } from "./query/read";
 import { descriptionSchema } from "./schemas";
 
-export const DASHBOARD_WIDGET_KINDS = [
-  "metric",
-  "chart",
-  "view_embed",
-] as const;
-export type DashboardWidgetKind = (typeof DASHBOARD_WIDGET_KINDS)[number];
-
+const DASHBOARD_WIDGET_KINDS = ["metric", "chart", "view_embed"] as const;
 /**
  * Columns, bars, a line, an area, or each group's share of the total
  * (`pie`, kept for saved charts: drawn as bars of shares, which compare
  * better than slices).
  */
-export const CHART_TYPES = [
-  "bar",
-  "bar_horizontal",
-  "line",
-  "area",
-  "pie",
-] as const;
+const CHART_TYPES = ["bar", "bar_horizontal", "line", "area", "pie"] as const;
 export type ChartType = (typeof CHART_TYPES)[number];
 
 const gridInt = (max: number) => z.int().min(0).max(max);

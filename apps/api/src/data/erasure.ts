@@ -23,7 +23,7 @@ export const ERASED_USER_ID = "00000000-0000-0000-0000-000000000000";
  * typed to confirm, and the account that takes the bases the erased one
  * alone owns.
  */
-export type AdminErasure = {
+type AdminErasure = {
   actorId: string;
   email: string;
   successorEmail?: string;

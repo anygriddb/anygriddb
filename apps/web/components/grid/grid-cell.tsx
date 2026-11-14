@@ -22,7 +22,7 @@ import {
   type GridSelection,
 } from "./selection";
 
-export type EditDirection = "down" | "right" | "left" | undefined;
+type EditDirection = "down" | "right" | "left" | undefined;
 
 /**
  * One cell of the ARIA grid. It reads its own selection flags, so a move

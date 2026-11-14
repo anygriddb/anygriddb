@@ -16,9 +16,6 @@ import {
   type Subscriber,
 } from "./realtime-connection";
 import { socketUrl, useTRPC } from "./trpc";
-
-export type { ServerMessage } from "./realtime-connection";
-
 const ConnectionContext = createContext<Connection | null>(null);
 
 /**
@@ -105,7 +102,7 @@ export function useChannel(
   }, [connection, channel]);
 }
 
-export function useSocketSend(): (message: Record<string, unknown>) => void {
+function useSocketSend(): (message: Record<string, unknown>) => void {
   const connection = useContext(ConnectionContext);
   return useMemo(() => (message) => connection?.send(message), [connection]);
 }

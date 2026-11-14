@@ -28,7 +28,7 @@ const statusSchema = z.object({
 export type ReleaseStatus = z.infer<typeof statusSchema>;
 
 /** What Administration needs: the stored check, and whether to show a banner. */
-export type ReleaseNotice = {
+type ReleaseNotice = {
   status: ReleaseStatus | null;
   /** True when releaseCheck is on, a newer release exists, and it was not dismissed. */
   notify: boolean;
@@ -67,7 +67,7 @@ export function asRunning(
   };
 }
 
-export async function readReleaseStatus(
+async function readReleaseStatus(
   db: Database,
   running = BUILD.version,
 ): Promise<ReleaseStatus | null> {
@@ -96,7 +96,7 @@ export function retainedDismissal(
  * Writes a successful check. Keeps a previous dismissal only when it still
  * names this exact latest; a yet-newer release opens the banner again.
  */
-export async function writeReleaseStatus(
+async function writeReleaseStatus(
   db: Database,
   result: ReleaseCheckResult,
   previous: ReleaseStatus | null,

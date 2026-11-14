@@ -90,7 +90,7 @@ import type { RowsState } from "./use-rows";
 import { useLingui } from "@lingui/react/macro";
 import { plural } from "@lingui/core/macro";
 
-export const ROW_HEIGHTS = {
+const ROW_HEIGHTS = {
   short: 32,
   medium: 56,
   tall: 88,
@@ -99,7 +99,7 @@ export const ROW_HEIGHTS = {
 const HEADER = 32;
 const FOOTER = 32;
 
-export type GridProps = {
+type GridProps = {
   rows: RowsState;
   columns: readonly CatalogColumn[];
   widths: Readonly<Record<string, number>>;

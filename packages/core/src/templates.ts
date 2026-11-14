@@ -7,7 +7,7 @@ import type { ColumnDefinition } from "./schemas";
  * key; lookups and rollups name a link's inverse column, which keeps its
  * name in every language.
  */
-export type TemplateTable = {
+type TemplateTable = {
   key: string;
   name: string;
   columns: ColumnDefinition[];
@@ -19,7 +19,7 @@ export type TemplateTable = {
   }>;
 };
 
-export type TemplateLink = {
+type TemplateLink = {
   from: string;
   to: string;
   label: string;
@@ -35,7 +35,7 @@ export type TemplateLink = {
   rows?: Array<[number, number]>;
 };
 
-export type TemplateComputed = {
+type TemplateComputed = {
   table: string;
   label: string;
   relation: string;

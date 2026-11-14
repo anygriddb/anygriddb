@@ -52,7 +52,7 @@ const DRIZZLE_WHEN: Readonly<Record<string, number>> = {
   "0019_row_events": 1794056000000,
 };
 
-export function migrationsFolder(): string {
+function migrationsFolder(): string {
   const bundled =
     typeof __ANYGRID_MIGRATIONS__ === "string"
       ? __ANYGRID_MIGRATIONS__

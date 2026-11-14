@@ -30,7 +30,7 @@ const DAY_MS = 86_400_000;
 const CLOSED_ALERT_DAYS = 90;
 const BACKUP_RUN_DAYS = 400;
 
-export type BackupRun = {
+type BackupRun = {
   id: string;
   startedAt: string;
   finishedAt: string;
@@ -40,7 +40,7 @@ export type BackupRun = {
   name: string;
 };
 
-export type OpenAlert = {
+type OpenAlert = {
   id: string;
   kind: AlertKind;
   subject: string;
@@ -116,7 +116,7 @@ async function storagePercent(files: FileStore): Promise<number | null> {
   }
 }
 
-export type AlertProbes = {
+type AlertProbes = {
   db: Database;
   files: FileStore;
   /** When the certificate people are served expires; null without TLS. */
@@ -124,10 +124,7 @@ export type AlertProbes = {
 };
 
 /** What the alerts are decided from, read now. */
-export async function alertFacts(
-  deps: AlertProbes,
-  now: Date,
-): Promise<AlertFacts> {
+async function alertFacts(deps: AlertProbes, now: Date): Promise<AlertFacts> {
   const since = new Date(now.getTime() - DAY_MS);
   const [last, lastGood] = await Promise.all(
     [false, true].map((onlyGood) =>
@@ -193,7 +190,7 @@ export async function alertFacts(
  * alerts whose mail is due, marked as mailed now: two processes running
  * this at once mail each alert once.
  */
-export async function syncAlerts(
+async function syncAlerts(
   db: Database,
   due: readonly DueAlert[],
   now: Date,
