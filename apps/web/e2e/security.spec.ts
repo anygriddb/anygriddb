@@ -50,6 +50,8 @@ test("an administrator sets the lock, unlocks an account, and sends a reset link
 
     await page.goto("/admin/security");
     await page.getByLabel("Lock an account after").selectOption("3");
+    // A change made in Administration asks for the proof (ADR 0073).
+    await proveItIsYou(page);
     await expect(page.getByText("Settings saved")).toBeVisible();
 
     // Someone signs up in their own browser.
@@ -406,6 +408,8 @@ test("an administrator names a tile server, and maps draw their background from 
     // Not over HTTPS: refused, and nothing changes.
     await tiles.fill("http://tiles.example.org/{z}/{x}/{y}.png");
     await page.getByRole("button", { name: "Save the map tiles" }).click();
+    // A change made in Administration asks for the proof (ADR 0073).
+    await proveItIsYou(page);
     await expect(page.getByText("Invalid input")).toBeVisible();
     await tiles.fill("https://tiles.example.org/{z}/{x}/{y}.png");
     await page.getByLabel("Credit shown on maps").fill("© Example Maps");
@@ -483,6 +487,9 @@ test("an administrator names the instance, and the sign-in page and its mail car
     await page
       .getByRole("button", { name: "Save the name and the note" })
       .click();
+    // The page said nothing of the proof: the server asked, and the change
+    // went through once it was given (ADR 0073).
+    await proveItIsYou(page);
     await expect(page.getByText("Settings saved")).toBeVisible();
     // The browser's tab carries the name at once.
     await expect(page).toHaveTitle("Trial Register");

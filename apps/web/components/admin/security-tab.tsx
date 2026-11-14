@@ -9,6 +9,7 @@ import { RuledSection } from "../shell/notebook-page";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { AccessReport } from "./access-report";
 import { EmergencySection } from "./emergency-section";
+import { useStepUp } from "./step-up";
 
 /**
  * A choice among values, with the current one kept when it is not among
@@ -61,10 +62,12 @@ export function SecurityTab() {
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
+  const stepUp = useStepUp();
   const settings = useQuery(api.admin.settings.queryOptions());
   const [allowlistDraft, setAllowlistDraft] = useState<string | null>(null);
   async function save(patch: InstanceSettingsPatch) {
     try {
+      if (!(await stepUp.ensure())) return;
       await trpc.admin.updateSettings.mutate(patch);
       await Promise.all(
         [api.admin.settings, api.auth.instance, api.session.current].map(
@@ -98,6 +101,7 @@ export function SecurityTab() {
   const days = (value: number) => t`${{ value }} days`;
   return (
     <div className="flex max-w-2xl flex-col gap-4">
+      {stepUp.dialog}
       <p className="text-sm text-muted-foreground">
         {t`Each choice starts at a value that suits most organizations. Change it to follow your own rules: the limits that protect accounts cannot be turned off.`}
       </p>

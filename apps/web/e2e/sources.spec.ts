@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import pg from "pg";
 import {
   accessibilityViolations,
+  proveItIsYou,
   signUpWithTable,
   uniqueStamp,
   watchPolicy,
@@ -65,6 +66,9 @@ test("an administrator shows a client's tables in a base, read where they live",
     await dialog.getByLabel("Account", { exact: true }).fill(account);
     await dialog.getByLabel("Password", { exact: true }).fill(password);
     await dialog.getByRole("button", { name: "Save" }).click();
+    // A change made in Administration asks for the proof (ADR 0073): the
+    // source is saved once it is given.
+    await proveItIsYou(page);
     await expect(dialog).toBeHidden();
     await expect(
       page.getByRole("cell", { name: `ERP ${stamp}`, exact: true }),

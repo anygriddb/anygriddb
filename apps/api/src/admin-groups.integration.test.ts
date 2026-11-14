@@ -64,6 +64,8 @@ describe("local groups and effective rights", () => {
       password: PASSWORD,
     });
     await enrollTotp(admin);
+    // Giving a group a base role asks for a proof again (ROADMAP #28).
+    await admin.call().admin.stepUp({ password: PASSWORD });
     adminId =
       (
         await db

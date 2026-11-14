@@ -782,6 +782,10 @@ msgstr "Clic sur un bouton"
 msgid "A call to its address (incoming webhook)"
 msgstr "Appel de son adresse (webhook entrant)"
 
+#: components/admin/step-up.tsx
+msgid "A change made in Administration asks for your password or second factor again. The proof stays valid for five minutes."
+msgstr "Une modification faite dans l’Administration redemande votre mot de passe ou votre second facteur. La preuve reste valable cinq minutes."
+
 #: components/fields/field-meta.tsx
 msgid "A day"
 msgstr "Un jour"
@@ -7711,10 +7715,6 @@ msgstr "Nom de l’expéditeur"
 #: components/admin/access-tab.tsx
 msgid "Sends to"
 msgstr "Envoie à"
-
-#: components/admin/step-up.tsx
-msgid "Sensitive Administration actions ask for your password or second factor again. The proof stays valid for five minutes."
-msgstr "Les actions sensibles de l’Administration redemandent votre mot de passe ou votre second facteur. La preuve reste valable cinq minutes."
 
 #: components/settings/webhooks-panel.tsx
 msgid "Sent ({status})"

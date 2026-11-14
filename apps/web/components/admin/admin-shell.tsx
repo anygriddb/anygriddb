@@ -5,6 +5,7 @@ import { useSession } from "../../lib/session";
 import { NotebookPage } from "../shell/notebook-page";
 import { locate, useAdminSections } from "./admin-sections";
 import { ReleaseBanner } from "./release-banner";
+import { ProofGate } from "./step-up";
 
 /** Where support acts (ADR 0054): accounts, sessions, and the trails. */
 const SUPPORT_PAGES = [
@@ -58,6 +59,7 @@ export function AdminShell() {
       description={t`People, security, connections, sources, trails, and the instance itself.`}
     >
       {session.data.isAdmin ? <ReleaseBanner /> : null}
+      <ProofGate />
       {auditor && !session.data.isSupport ? (
         <p
           role="note"

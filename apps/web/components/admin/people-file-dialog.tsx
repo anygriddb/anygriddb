@@ -20,6 +20,7 @@ import { downloadCsv } from "../../lib/download";
 import { useErrorText } from "../../lib/errors";
 import { trpc, type RouterOutputs } from "../../lib/trpc";
 import { useRoleLabel } from "../settings/role-label";
+import { useStepUp } from "./step-up";
 
 type Preview = RouterOutputs["admin"]["people"]["preview"];
 type Line = Preview["lines"][number];
@@ -70,6 +71,7 @@ export function PeopleFileDialog({
   const errorText = useErrorText();
   const roleLabel = useRoleLabel();
   const problemText = useProblemText();
+  const stepUp = useStepUp();
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
@@ -95,6 +97,7 @@ export function PeopleFileDialog({
     if (!file || busy) return;
     setBusy(true);
     try {
+      if (!(await stepUp.ensure())) return;
       const { added } = await trpc.admin.people.add.mutate({
         file: file.text,
       });
@@ -116,6 +119,7 @@ export function PeopleFileDialog({
   const ready = preview?.ready ?? 0;
   return (
     <Dialog open onOpenChange={(next) => !next && onClose()}>
+      {stepUp.dialog}
       <DialogContent
         title={t`Add people from a file`}
         description={t`One line per person, at most ${PEOPLE_FILE_MAX}. Each gets a link by email to choose their password, valid a week. Nobody becomes an administrator this way.`}

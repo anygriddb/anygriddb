@@ -16,12 +16,14 @@ import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { useStepUp } from "./step-up";
 
 export function SettingsTab() {
   const { t } = useLingui();
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
+  const stepUp = useStepUp();
   const settings = useQuery(api.admin.settings.queryOptions());
   const operator = useQuery(api.admin.operatorSettings.queryOptions());
   const [banner, setBanner] = useState<string | null>(null);
@@ -29,6 +31,7 @@ export function SettingsTab() {
   const [maintenance, setMaintenance] = useState<boolean | null>(null);
   async function save(patch: InstanceSettingsPatch) {
     try {
+      if (!(await stepUp.ensure())) return;
       await trpc.admin.updateSettings.mutate(patch);
       await Promise.all(
         [api.admin.settings, api.auth.instance].map((procedure) =>
@@ -68,6 +71,7 @@ export function SettingsTab() {
           .join(" · ");
   return (
     <div className="flex max-w-lg flex-col gap-4">
+      {stepUp.dialog}
       <div className="flex flex-col gap-1">
         <Label htmlFor="setting-maintenance">{t`Maintenance`}</Label>
         <label className="flex items-center gap-2 text-sm">

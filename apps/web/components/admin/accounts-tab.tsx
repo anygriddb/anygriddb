@@ -123,6 +123,7 @@ export function AccountsTab({
   // accounts on screen count: a tick does not outlive the page it was on.
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
   const [disabling, setDisabling] = useState(false);
+  const stepUp = useStepUp();
   const tickable = (list.data?.users ?? [])
     .filter((user) => user.id !== session.data?.id && !user.disabledAt)
     .map((user) => user.id);
@@ -139,6 +140,7 @@ export function AccountsTab({
     });
   async function disableChosen(): Promise<void> {
     try {
+      if (!(await stepUp.ensure())) return;
       const { disabled, refused } = await trpc.admin.disableAccounts.mutate({
         userIds: chosen,
       });
@@ -218,6 +220,7 @@ export function AccountsTab({
 
   return (
     <div className="flex flex-col gap-3">
+      {stepUp.dialog}
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground" aria-live="polite">
           {plural(total, { one: "# account", other: "# accounts" })}
@@ -636,7 +639,9 @@ function AddPersonDialog({
     setBusy(true);
     try {
       // Making an administrator asks who is asking, again (ROADMAP #28).
-      if (admin && !(await stepUp.ensure())) return;
+      if ((admin || memberships.length > 0) && !(await stepUp.ensure())) {
+        return;
+      }
       const result = await trpc.admin.createAccount.mutate({
         email: email.trim(),
         displayName,

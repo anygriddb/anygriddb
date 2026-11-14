@@ -299,6 +299,7 @@ export function useAccountActions({
           break;
         }
         case "disable":
+          await prove();
           await trpc.admin.setDisabled.mutate({
             userId,
             disabled: !target.disabled,
@@ -310,14 +311,13 @@ export function useAccountActions({
           toast.success(t`Unlocked`);
           break;
         case "admin":
-          // Taking administration away asks nothing; giving it does.
-          if (!target.isAdmin) await prove();
+          // Giving or taking away administration asks for the proof.
+          await prove();
           await trpc.admin.setAdmin.mutate({ userId, admin: !target.isAdmin });
           toast.success(t`Saved`);
           break;
         case "support":
-          // As administration: taken away freely, given with the proof.
-          if (!target.isSupport) await prove();
+          await prove();
           await trpc.admin.setSupport.mutate({
             userId,
             support: !target.isSupport,
@@ -325,7 +325,7 @@ export function useAccountActions({
           toast.success(t`Saved`);
           break;
         case "auditor":
-          if (!target.isAuditor) await prove();
+          await prove();
           await trpc.admin.setAuditor.mutate({
             userId,
             auditor: !target.isAuditor,
@@ -347,6 +347,7 @@ export function useAccountActions({
           toast.success(t`Done`);
           break;
         case "tokens":
+          await prove();
           await trpc.admin.revokeTokens.mutate({ userId });
           toast.success(t`Done`);
           break;

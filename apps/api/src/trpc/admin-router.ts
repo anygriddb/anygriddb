@@ -210,6 +210,7 @@ import { revokeApiToken } from "../auth/tokens.js";
 import { setAutomationEnabled } from "../automations.js";
 import { updateWebhook } from "../webhooks.js";
 import { auditorMayCall } from "./auditor-rule.js";
+import { asksProof } from "./proof-rule.js";
 import {
   procedure as baseProcedure,
   requestNames,
@@ -231,17 +232,25 @@ const peopleFileInputSchema = z
 const auditorCall = new AsyncLocalStorage<boolean>();
 
 /**
- * The base of every procedure of Administration. It says whether the
- * call is one an auditor may make, and refuses an account that is an
- * auditor and nothing more before the call's input is even read.
+ * The base of every procedure of Administration, before the call's input
+ * is even read. It says whether the call is one an auditor may make, and
+ * refuses an account that is an auditor and nothing more. Then it asks
+ * for the proof (ROADMAP #28): every change does, but the few named in
+ * `proof-rule.ts`, so a change added later asks without a word.
  */
 const procedure = baseProcedure.use(async ({ ctx, next, type, path }) => {
   const allowed = auditorMayCall(type, path);
-  if (!allowed) {
+  const proof = asksProof(type, path);
+  if (!allowed || proof) {
     // Whoever is not signed in is told so by the procedure itself.
     const user = await requireUser(ctx).catch(() => null);
-    if (user?.isAuditor && !user.isAdmin && !user.isSupport) {
+    if (!allowed && user?.isAuditor && !user.isAdmin && !user.isSupport) {
       throw new AppError("access_denied");
+    }
+    // Asked of those who may change something here; anyone else, and an
+    // API token, is refused by the procedure itself.
+    if (proof && (user?.isAdmin || user?.isSupport) && !ctx.tokenScope) {
+      await requireStepUp(ctx);
     }
   }
   return auditorCall.run(allowed, () => next());
@@ -768,7 +777,6 @@ const oidcRouter = t.router({
   update: procedure.input(oidcUpdateSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
-      await requireStepUp(ctx);
       return saveOidc(
         ctx.db,
         ctx.env.AUTH_ENCRYPTION_KEY,
@@ -792,7 +800,6 @@ const oidcRouter = t.router({
   clear: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
-      await requireStepUp(ctx);
       await clearOidc(ctx.db, admin.id, ctx.req.ip);
       return { ok: true as const };
     }),
@@ -817,7 +824,6 @@ const samlRouter = t.router({
   update: procedure.input(samlUpdateSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
-      await requireStepUp(ctx);
       return saveSaml(ctx.db, admin.id, input, ctx.env.PUBLIC_URL, {
         ip: ctx.req.ip,
       });
@@ -836,7 +842,6 @@ const samlRouter = t.router({
   clear: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
-      await requireStepUp(ctx);
       await clearSaml(ctx.db, admin.id, ctx.req.ip);
       return { ok: true as const };
     }),
@@ -1122,7 +1127,6 @@ export const adminRouter = t.router({
   erase: procedure.input(adminEraseInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
-      await requireStepUp(ctx);
       await eraseOtherAccount(ctx.db, admin.id, input);
       ctx.hub.closeUser(input.userId);
       ctx.req.log.info(
@@ -1137,7 +1141,6 @@ export const adminRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
-        if (input.admin) await requireStepUp(ctx);
         await setUserAdmin(ctx.db, admin.id, input.userId, input.admin);
         ctx.req.log.info(
           { actor: admin.id, target: input.userId, admin: input.admin },
@@ -1150,15 +1153,12 @@ export const adminRouter = t.router({
    * Adds a person (ROADMAP #67): an account with no password yet, roles on
    * the bases chosen, and a first link valid a week. With email set up it
    * goes to the person; without, the administrator gets it to pass on.
-   * An account made as an administrator is administration given: it asks
-   * the proof again, as `setAdmin` does (ROADMAP #28).
    */
   createAccount: procedure
     .input(createAccountInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
-        if (input.admin) await requireStepUp(ctx);
         const created = await createAccount(ctx.db, admin.id, input);
         const link = await createResetLink(ctx.db, {
           userId: created.id,
@@ -1485,7 +1485,6 @@ export const adminRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
-        if (input.support) await requireStepUp(ctx);
         await setUserSupport(ctx.db, admin.id, input.userId, input.support);
         ctx.req.log.info(
           { actor: admin.id, target: input.userId, support: input.support },
@@ -1495,15 +1494,13 @@ export const adminRouter = t.router({
       }),
     ),
   /**
-   * Makes an account an auditor, or no longer one (ADR 0071). Given with
-   * the proof, as administration and support are.
+   * Makes an account an auditor, or no longer one (ADR 0071).
    */
   setAuditor: procedure
     .input(z.object({ userId: z.uuid(), auditor: z.boolean() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
-        if (input.auditor) await requireStepUp(ctx);
         await setUserAuditor(ctx.db, admin.id, input.userId, input.auditor);
         ctx.req.log.info(
           { actor: admin.id, target: input.userId, auditor: input.auditor },
@@ -1729,7 +1726,6 @@ export const adminRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireSupport(ctx);
-        await requireStepUp(ctx);
         await clearFactors(ctx.db, admin.id, input.userId);
         ctx.hub.closeUser(input.userId);
         void sendSecurityNotice(
@@ -1746,7 +1742,6 @@ export const adminRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireSupport(ctx);
-        await requireStepUp(ctx);
         return { count: await unlinkSignOn(ctx.db, admin.id, input.userId) };
       }),
     ),
@@ -1815,7 +1810,6 @@ export const adminRouter = t.router({
   revokeAllTokens: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
-      await requireStepUp(ctx);
       const count = await revokeAllTokens(ctx.db, admin.id);
       ctx.req.log.info({ actor: admin.id, count }, "every API token revoked");
       return { count };

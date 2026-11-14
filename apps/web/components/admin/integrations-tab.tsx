@@ -43,6 +43,7 @@ function SmtpSection() {
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
+  const stepUp = useStepUp();
   const smtp = useQuery(api.admin.smtp.get.queryOptions());
   const [host, setHost] = useState<string | null>(null);
   const [port, setPort] = useState<string | null>(null);
@@ -76,6 +77,7 @@ function SmtpSection() {
     event.preventDefault();
     setBusy(true);
     try {
+      if (!(await stepUp.ensure())) return;
       await trpc.admin.smtp.update.mutate({
         host: hostValue.trim(),
         port: Number(portValue) || 587,
@@ -213,6 +215,7 @@ function SmtpSection() {
         onConfirm={() =>
           void (async () => {
             try {
+              if (!(await stepUp.ensure())) return;
               await trpc.admin.smtp.clear.mutate();
               await refresh();
               toast.success(t`Saved email cleared`);
@@ -222,6 +225,7 @@ function SmtpSection() {
           })()
         }
       />
+      {stepUp.dialog}
     </RuledSection>
   );
 }

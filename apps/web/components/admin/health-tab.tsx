@@ -10,6 +10,7 @@ import { formatBytes } from "../../lib/format";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { known } from "../../lib/known-text";
+import { useStepUp } from "./step-up";
 
 type ReleaseStatusView = {
   current: string;
@@ -25,6 +26,7 @@ export function HealthTab() {
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
+  const stepUp = useStepUp();
   const health = useQuery({
     ...api.admin.health.queryOptions(),
     refetchInterval: 30_000,
@@ -48,6 +50,7 @@ export function HealthTab() {
     : [];
   const saveReleaseCheck = async (releaseCheck: boolean) => {
     try {
+      if (!(await stepUp.ensure())) return;
       await trpc.admin.updateSettings.mutate({ releaseCheck });
       await queryClient.invalidateQueries({
         queryKey: api.admin.settings.queryKey(),
@@ -77,6 +80,7 @@ export function HealthTab() {
   };
   return (
     <div className="flex flex-col gap-4">
+      {stepUp.dialog}
       <div>
         <Button
           reads

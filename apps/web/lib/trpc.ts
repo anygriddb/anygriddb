@@ -8,6 +8,7 @@ import {
 import { createTRPCContext } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "@anygriddb/api/router";
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
+import { proofLink } from "./proof";
 
 /**
  * The API serves this app on its own origin (ADR 0011): every call is a
@@ -35,6 +36,7 @@ export function goesAlone(call: { type: string; path: string }): boolean {
 export function createClient() {
   return createTRPCClient<AppRouter>({
     links: [
+      proofLink(),
       splitLink({
         condition: goesAlone,
         true: httpLink({ url: "/trpc", headers }),

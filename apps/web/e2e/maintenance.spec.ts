@@ -1,6 +1,12 @@
 import { expect, test } from "@playwright/test";
 import pg from "pg";
-import { signUp, signUpWithTable, uniqueStamp, watchPolicy } from "./setup";
+import {
+  proveItIsYou,
+  signUp,
+  signUpWithTable,
+  uniqueStamp,
+  watchPolicy,
+} from "./setup";
 
 const controlUrl =
   process.env.DATABASE_URL ??
@@ -50,6 +56,8 @@ test("maintenance keeps everyone but administrators out, and an announcement sho
       .getByRole("dialog")
       .getByRole("button", { name: "Turn on" })
       .click();
+    // A change made in Administration asks for the proof (ADR 0073).
+    await proveItIsYou(page);
     await expect(maintenance).toBeChecked();
     await page
       .getByLabel("Announcement")

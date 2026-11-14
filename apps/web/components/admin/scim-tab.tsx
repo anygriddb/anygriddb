@@ -11,6 +11,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
+import { useStepUp } from "./step-up";
 
 function date(value: string | null): string {
   return value ? new Date(value).toLocaleString() : "—";
@@ -26,6 +27,7 @@ export function ScimTab() {
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
+  const stepUp = useStepUp();
   const settings = useQuery(api.admin.scim.settings.queryOptions());
   const [name, setName] = useState("");
   const [fresh, setFresh] = useState<string | null>(null);
@@ -172,6 +174,7 @@ export function ScimTab() {
             event.preventDefault();
             void (async () => {
               try {
+                if (!(await stepUp.ensure())) return;
                 const created = await trpc.admin.scim.createToken.mutate({
                   name,
                 });
@@ -235,6 +238,7 @@ export function ScimTab() {
         onConfirm={async () => {
           if (!revoking) return;
           try {
+            if (!(await stepUp.ensure())) return;
             await trpc.admin.scim.revokeToken.mutate({ tokenId: revoking.id });
             setRevoking(null);
             await refresh();
@@ -243,6 +247,7 @@ export function ScimTab() {
           }
         }}
       />
+      {stepUp.dialog}
     </div>
   );
 }
