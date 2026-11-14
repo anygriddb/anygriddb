@@ -1306,6 +1306,10 @@ msgstr "Actions"
 msgid "Actions for {name}"
 msgstr "Actions for {name}"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Actions for {widget}"
+msgstr "Actions for {widget}"
+
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
 #: components/settings/webhooks-panel.tsx
@@ -5729,9 +5733,25 @@ msgstr "Move between cells"
 msgid "Move down"
 msgstr "Move down"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Move earlier"
+msgstr "Move earlier"
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Move later"
+msgstr "Move later"
+
+#: components/table/view-tabs.tsx
+msgid "Move left"
+msgstr "Move left"
+
 #: components/shell/sidebar.tsx
 msgid "Move out of folder"
 msgstr "Move out of folder"
+
+#: components/table/view-tabs.tsx
+msgid "Move right"
+msgstr "Move right"
 
 #: components/grid/grid-view.tsx
 msgid "Move the row down"
@@ -5779,6 +5799,7 @@ msgstr "N days ago"
 #: components/admin/identity-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/admin/sources-tab.tsx
+#: components/dashboards/dashboard-board.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/shell/new-table-dialog.tsx
 #: components/table/automations-dialog.tsx
@@ -6417,8 +6438,8 @@ msgid "Notifications"
 msgstr "Notifications"
 
 #: components/shell/notification-bell.tsx
-msgid "Notifications ({count} unread)"
-msgstr "Notifications ({count} unread)"
+msgid "Notifications, {count} unread"
+msgstr "Notifications, {count} unread"
 
 #: components/table/automations-dialog.tsx
 msgid "Notify collaborators"
@@ -7394,6 +7415,7 @@ msgstr "Removed from {base}"
 msgid "Removes your sign-in and attributes your audit history and comments to a deleted account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave."
 msgstr "Removes your sign-in and attributes your audit history and comments to a deleted account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave."
 
+#: components/dashboards/dashboard-board.tsx
 #: components/shell/sidebar.tsx
 #: components/table/view-tabs.tsx
 msgid "Rename"
@@ -7410,6 +7432,10 @@ msgstr "Rename folder"
 #: components/shell/sidebar.tsx
 msgid "Rename table"
 msgstr "Rename table"
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Rename the dashboard"
+msgstr "Rename the dashboard"
 
 #: components/table/view-tabs.tsx
 msgid "Rename view"

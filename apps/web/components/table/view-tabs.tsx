@@ -9,6 +9,8 @@ import {
 } from "@anygriddb/ui";
 import {
   AlignLeft,
+  ArrowLeft,
+  ArrowRight,
   CalendarDays,
   ChevronDown,
   Copy,
@@ -98,6 +100,19 @@ export function ViewTabs(props: {
     }
   }
 
+  /** A view a place left or right among the tabs the person sees. */
+  function move(view: ViewItem, by: -1 | 1) {
+    const order = props.views.map((item) => item.id);
+    const at = order.indexOf(view.id);
+    const other = order[at + by];
+    if (at < 0 || other === undefined) return;
+    order[at + by] = view.id;
+    order[at] = other;
+    void run(() =>
+      trpc.catalog.reorderViews.mutate({ tableId: props.tableId, order }),
+    );
+  }
+
   return (
     // Each view is a page of its own: links, the open one marked current.
     <nav
@@ -107,7 +122,7 @@ export function ViewTabs(props: {
       )}
       aria-label={t`Views`}
     >
-      {props.views.map((view) => {
+      {props.views.map((view, index) => {
         const Icon = VIEW_ICONS[view.viewType] ?? Sheet;
         const active = view.id === props.activeId;
         const editable = props.userCanEditView(view);
@@ -169,6 +184,24 @@ export function ViewTabs(props: {
                     <AlignLeft className="h-4 w-4" aria-hidden />
                     {t`Describe the view`}
                   </DropdownMenuItem>
+                  {collaborative ? (
+                    <>
+                      <DropdownMenuItem
+                        disabled={index === 0}
+                        onSelect={() => move(view, -1)}
+                      >
+                        <ArrowLeft className="h-4 w-4" aria-hidden />
+                        {t`Move left`}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={index === props.views.length - 1}
+                        onSelect={() => move(view, 1)}
+                      >
+                        <ArrowRight className="h-4 w-4" aria-hidden />
+                        {t`Move right`}
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
                   <DropdownMenuItem
                     onSelect={() =>
                       void run(async () => {

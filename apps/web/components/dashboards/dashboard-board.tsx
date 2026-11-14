@@ -1,11 +1,26 @@
 import { cellText, isDecimalString } from "@anygriddb/core";
 
-import { Button, Input, Label, Select, Spinner } from "@anygriddb/ui";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Input,
+  Label,
+  Select,
+  Spinner,
+} from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   BarChart3,
   LayoutDashboard,
+  MoreHorizontal,
+  Pencil,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -16,6 +31,8 @@ import { useCatalog } from "../../lib/session";
 import { LoadFailed } from "../shell/load-failed";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { canManage } from "../../lib/types";
+import { PromptDialog } from "../shell/dialogs";
+import { moveWidget, readingOrder } from "./widget-layout";
 // ECharts loads with the dashboards only (ADR 0035).
 const ChartView = lazy(() =>
   import("./chart-view").then((module) => ({ default: module.ChartView })),
@@ -37,7 +54,9 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
   const board = useQuery(
     api.dashboards.get.queryOptions({ dashboardId: props.dashboardId }),
   );
+  const errorText = useErrorText();
   const [adding, setAdding] = useState(false);
+  const [renaming, setRenaming] = useState(false);
 
   if (!base) return null;
   if (board.isLoading) {
@@ -61,6 +80,28 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
   }
 
   const { dashboard, widgets } = board.data;
+  const ordered = readingOrder(widgets);
+  const refresh = () =>
+    queryClient.invalidateQueries({
+      queryKey: api.dashboards.get.queryKey({
+        dashboardId: props.dashboardId,
+      }),
+    });
+
+  /** One widget a place earlier or later, the others packed around it. */
+  async function move(widgetId: string, by: -1 | 1) {
+    const layout = moveWidget(widgets, widgetId, by);
+    if (!layout) return;
+    try {
+      await trpc.dashboards.layout.mutate({
+        dashboardId: props.dashboardId,
+        widgets: layout.map(({ id, x, y, w, h }) => ({ id, x, y, w, h })),
+      });
+      await refresh();
+    } catch (cause) {
+      toast.error(errorText(cause));
+    }
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-6">
@@ -78,6 +119,16 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
         <h1 className="min-w-0 flex-1 truncate text-xl font-semibold">
           {dashboard.name}
         </h1>
+        {manage ? (
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={t`Rename the dashboard`}
+            onClick={() => setRenaming(true)}
+          >
+            <Pencil className="h-4 w-4" aria-hidden />
+          </Button>
+        ) : null}
         {manage ? (
           <Button size="sm" onClick={() => setAdding((value) => !value)}>
             <Plus className="h-4 w-4" aria-hidden />
@@ -111,20 +162,17 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
           gridAutoRows: "4.5rem",
         }}
       >
-        {widgets.map((widget) => (
+        {ordered.map((widget, index) => (
           <WidgetCard
             key={widget.id}
             baseId={props.baseId}
             dashboardId={props.dashboardId}
             widget={widget}
             manage={manage}
-            onChanged={() =>
-              queryClient.invalidateQueries({
-                queryKey: api.dashboards.get.queryKey({
-                  dashboardId: props.dashboardId,
-                }),
-              })
-            }
+            first={index === 0}
+            last={index === ordered.length - 1}
+            onMove={(by) => void move(widget.id, by)}
+            onChanged={() => void refresh()}
           />
         ))}
       </div>
@@ -133,6 +181,32 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
           {t`Add a metric, a chart, or a view.`}
         </p>
       ) : null}
+      <PromptDialog
+        open={renaming}
+        onOpenChange={setRenaming}
+        title={t`Rename the dashboard`}
+        label={t`Name`}
+        initial={dashboard.name}
+        submitLabel={t`Rename`}
+        onSubmit={async (name) => {
+          try {
+            await trpc.dashboards.update.mutate({
+              dashboardId: props.dashboardId,
+              name: name.trim(),
+            });
+            await Promise.all([
+              refresh(),
+              queryClient.invalidateQueries({
+                queryKey: api.dashboards.list.queryKey({
+                  baseId: props.baseId,
+                }),
+              }),
+            ]);
+          } catch (cause) {
+            toast.error(errorText(cause));
+          }
+        }}
+      />
     </div>
   );
 }
@@ -141,6 +215,10 @@ function WidgetCard(props: {
   baseId: string;
   dashboardId: string;
   manage: boolean;
+  /** The first or last in reading order: it moves no further that way. */
+  first: boolean;
+  last: boolean;
+  onMove: (by: -1 | 1) => void;
   widget: {
     id: string;
     kind: string;
@@ -177,27 +255,54 @@ function WidgetCard(props: {
           {props.widget.title}
         </h2>
         {props.manage ? (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7"
-            aria-label={t`Delete`}
-            onClick={() => {
-              void (async () => {
-                try {
-                  await trpc.dashboards.deleteWidget.mutate({
-                    dashboardId: props.dashboardId,
-                    widgetId: props.widget.id,
-                  });
-                  props.onChanged();
-                } catch (cause) {
-                  toast.error(errorText(cause));
-                }
-              })();
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                aria-label={t`Actions for ${{ widget: props.widget.title }}`}
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                disabled={props.first}
+                onSelect={() => props.onMove(-1)}
+              >
+                <ArrowUp className="h-4 w-4" aria-hidden />
+                {t`Move earlier`}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={props.last}
+                onSelect={() => props.onMove(1)}
+              >
+                <ArrowDown className="h-4 w-4" aria-hidden />
+                {t`Move later`}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                danger
+                onSelect={() => {
+                  void (async () => {
+                    try {
+                      await trpc.dashboards.deleteWidget.mutate({
+                        dashboardId: props.dashboardId,
+                        widgetId: props.widget.id,
+                      });
+                      props.onChanged();
+                    } catch (cause) {
+                      toast.error(errorText(cause));
+                    }
+                  })();
+                }}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
+                {t`Delete`}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </header>
       <div className="min-h-0 flex-1 p-3">

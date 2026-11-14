@@ -831,7 +831,7 @@ test("an administrator opens a base to read it, and its owner is told why", asyn
     // The owner is told in the app, with the reason, and by email.
     await owner.reload();
     await owner
-      .getByRole("button", { name: /^Notifications \(\d+ unread\)$/ })
+      .getByRole("button", { name: /^Notifications, \d+ unread$/ })
       .click();
     await owner
       .getByRole("button", {
@@ -881,7 +881,7 @@ test("an administrator opens a base to read it, and its owner is told why", asyn
     ).toBeVisible();
     await owner.reload();
     await owner
-      .getByRole("button", { name: /^Notifications \(\d+ unread\)$/ })
+      .getByRole("button", { name: /^Notifications, \d+ unread$/ })
       .click();
     await expect(
       owner.getByRole("button", {

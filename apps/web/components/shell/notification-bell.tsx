@@ -43,6 +43,7 @@ export function NotificationBell() {
     },
   });
   const unread = list.data?.unread ?? 0;
+  const shown = unread > 99 ? "99+" : String(unread);
   const items = list.data?.notifications ?? [];
 
   async function openItem(item: NotificationItem) {
@@ -57,16 +58,18 @@ export function NotificationBell() {
           size="icon"
           variant="ghost"
           className="relative shrink-0"
+          // The name says the count the badge shows, as a word of its own
+          // (WCAG 2.5.3, label in name): "(1" is not "1" to a reader.
           aria-label={
             unread > 0
-              ? t`Notifications (${{ count: unread }} unread)`
+              ? t`Notifications, ${{ count: shown }} unread`
               : t`Notifications`
           }
         >
           <Bell className="h-4 w-4" aria-hidden />
           {unread > 0 ? (
             <span className="absolute -top-0.5 -right-0.5 min-w-4 rounded-full bg-primary px-1 text-[10px] leading-4 font-semibold text-primary-foreground">
-              {unread > 99 ? "99+" : unread}
+              {shown}
             </span>
           ) : null}
         </Button>

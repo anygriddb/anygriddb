@@ -1306,6 +1306,10 @@ msgstr "Actions"
 msgid "Actions for {name}"
 msgstr "Actions pour {name}"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Actions for {widget}"
+msgstr "Actions pour {widget}"
+
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
 #: components/settings/webhooks-panel.tsx
@@ -5729,9 +5733,25 @@ msgstr "Changer de cellule"
 msgid "Move down"
 msgstr "Descendre"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Move earlier"
+msgstr "Placer avant"
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Move later"
+msgstr "Placer après"
+
+#: components/table/view-tabs.tsx
+msgid "Move left"
+msgstr "Déplacer à gauche"
+
 #: components/shell/sidebar.tsx
 msgid "Move out of folder"
 msgstr "Retirer du dossier"
+
+#: components/table/view-tabs.tsx
+msgid "Move right"
+msgstr "Déplacer à droite"
 
 #: components/grid/grid-view.tsx
 msgid "Move the row down"
@@ -5779,6 +5799,7 @@ msgstr "il y a N jours"
 #: components/admin/identity-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/admin/sources-tab.tsx
+#: components/dashboards/dashboard-board.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/shell/new-table-dialog.tsx
 #: components/table/automations-dialog.tsx
@@ -6417,8 +6438,8 @@ msgid "Notifications"
 msgstr "Notifications"
 
 #: components/shell/notification-bell.tsx
-msgid "Notifications ({count} unread)"
-msgstr "Notifications ({count} non lues)"
+msgid "Notifications, {count} unread"
+msgstr "Notifications, {count} non lues"
 
 #: components/table/automations-dialog.tsx
 msgid "Notify collaborators"
@@ -7394,6 +7415,7 @@ msgstr "Retiré de {base}"
 msgid "Removes your sign-in and attributes your audit history and comments to a deleted account. Values you entered in bases stay until a manager deletes those rows. A base you alone own needs another owner first, and the only administrator cannot leave."
 msgstr "Supprime votre connexion et attribue votre historique d’audit et vos commentaires à un compte supprimé. Les valeurs saisies dans les bases restent jusqu’à ce qu’un responsable supprime ces lignes. Une base dont vous êtes le seul propriétaire doit d’abord en recevoir un autre, et le seul administrateur ne peut pas partir."
 
+#: components/dashboards/dashboard-board.tsx
 #: components/shell/sidebar.tsx
 #: components/table/view-tabs.tsx
 msgid "Rename"
@@ -7410,6 +7432,10 @@ msgstr "Renommer le dossier"
 #: components/shell/sidebar.tsx
 msgid "Rename table"
 msgstr "Renommer la table"
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Rename the dashboard"
+msgstr "Renommer le tableau de bord"
 
 #: components/table/view-tabs.tsx
 msgid "Rename view"

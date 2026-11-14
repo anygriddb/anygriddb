@@ -84,7 +84,7 @@ test("an administrator sets the lock, unlocks an account, and sends a reset link
     // The administrator hears of it in the app (ADR 0044).
     await page.reload();
     await page
-      .getByRole("button", { name: /^Notifications \(\d+ unread\)$/ })
+      .getByRole("button", { name: /^Notifications, \d+ unread$/ })
       .click();
     await page
       .getByRole("button", {
