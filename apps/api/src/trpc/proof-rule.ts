@@ -22,6 +22,8 @@ export const NO_PROOF: ReadonlySet<string> = new Set([
   "admin.access.switchOff",
   "admin.outbound.revoke",
   "admin.withdrawInvitation",
+  // Ends the administrator's own reading of a base before its hour is up.
+  "admin.baseOverview.close",
   // Lets a locked account try its own password again.
   "admin.unlock",
   // Stops a job; reads the update notice, or puts it away.

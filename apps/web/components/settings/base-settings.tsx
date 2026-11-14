@@ -38,6 +38,10 @@ export function BaseSettings({ baseId }: { baseId: string }) {
     ...api.catalog.collaborators.queryOptions({ baseId }),
     enabled: manage,
   });
+  const openAccess = useQuery({
+    ...api.catalog.openAccess.queryOptions({ baseId }),
+    enabled: manage,
+  });
   const people = useMemo(
     () =>
       new Map(
@@ -130,6 +134,15 @@ export function BaseSettings({ baseId }: { baseId: string }) {
       >
         {manage ? (
           <>
+            {(openAccess.data ?? []).map((open) => (
+              <p
+                key={open.userId}
+                role="status"
+                className="mb-2 rounded-sm border border-warning/40 bg-warning-surface px-3 py-2 text-sm"
+              >
+                {t`${{ name: open.displayName }}, an administrator, is not a member and can read this base until ${{ until: new Date(open.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }}, without changing anything. Their reason: ${{ reason: open.reason }}`}
+              </p>
+            ))}
             <ul className="divide-y divide-border">
               {(members.data ?? []).map((member) => (
                 <li

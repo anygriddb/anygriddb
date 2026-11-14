@@ -124,19 +124,25 @@ export async function setMemberRole(
   db: Database,
   actorId: string,
   input: { baseId: string; userId: string; role: Role },
+  /** Kept on the change trail with the role given. */
+  reason?: string,
 ): Promise<{ owners: string[] }> {
-  return withAudit(db, { userId: actorId, source: "web" }, async (tx) => {
-    const owners = await lockedOwners(tx, input.baseId);
-    if (
-      input.role !== "owner" &&
-      owners.includes(input.userId) &&
-      owners.length < 2
-    ) {
-      throw new AppError("invalid_owner");
-    }
-    await bindRole(tx, input.userId, input.role, input.baseId);
-    return { owners };
-  });
+  return withAudit(
+    db,
+    { userId: actorId, source: "web", reason },
+    async (tx) => {
+      const owners = await lockedOwners(tx, input.baseId);
+      if (
+        input.role !== "owner" &&
+        owners.includes(input.userId) &&
+        owners.length < 2
+      ) {
+        throw new AppError("invalid_owner");
+      }
+      await bindRole(tx, input.userId, input.role, input.baseId);
+      return { owners };
+    },
+  );
 }
 
 /**

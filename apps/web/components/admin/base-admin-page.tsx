@@ -14,6 +14,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { BaseAdminMembers } from "./base-admin-members";
+import { OpenBase } from "./open-base";
 
 /**
  * One base in Administration (ROADMAP #14, #69, #22): its members, whose
@@ -53,7 +54,7 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
     );
   }
   if (!detail.data) return <Spinner />;
-  const { base, members, tables, links } = detail.data;
+  const { base, members, tables, links, open } = detail.data;
   const head = "px-3 py-2";
   return (
     <div className="flex flex-col gap-5">
@@ -76,6 +77,8 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
         baseName={base.name}
         members={members}
       />
+
+      <OpenBase baseId={baseId} members={members} open={open} />
 
       <section className="flex flex-col gap-2" aria-labelledby="base-tables">
         <h3 id="base-tables" className="text-sm font-semibold">

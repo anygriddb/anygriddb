@@ -5,6 +5,7 @@ import {
   AtSign,
   CornerDownRight,
   Crown,
+  DoorOpen,
   LockKeyhole,
   UserPlus,
   Webhook,
@@ -12,6 +13,8 @@ import {
 } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
+import type { Role } from "../../lib/types";
+import { useRoleLabel } from "../settings/role-label";
 
 export type NotificationItem =
   RouterOutputs["notifications"]["list"]["notifications"][number];
@@ -26,11 +29,13 @@ export const NOTIFICATION_ICONS = {
   row_changed: AlertTriangle,
   account_locked: LockKeyhole,
   owner_named: Crown,
+  admin_access: DoorOpen,
 } as const;
 
 /** What a notification says, in one sentence. */
 export function useDescribeNotification() {
   const { t } = useLingui();
+  const roleLabel = useRoleLabel();
   return (item: NotificationItem) => {
     const actor = item.actorName ?? t`Someone`;
     const table = item.tableName ?? "—";
@@ -55,6 +60,21 @@ export function useDescribeNotification() {
           : t`${{ name: item.data?.name ?? "—" }}'s account locked after failed sign-ins`;
       case "owner_named":
         return t`${actor} made ${{ name: item.data?.name ?? "—" }} an owner of ${{ base: item.data?.base ?? "—" }}`;
+      case "admin_access": {
+        // An administrator let themselves into a base this person owns
+        // (ADR 0074): for an hour to read it, or with a role.
+        const base = item.data?.base ?? "—";
+        const reason = item.data?.reason ?? "—";
+        if (item.data?.until) {
+          const until = new Date(item.data.until).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          return t`${actor}, an administrator, opened ${base} to read it until ${until}. Their reason: ${reason}`;
+        }
+        const role = roleLabel((item.data?.role ?? "viewer") as Role);
+        return t`${actor}, an administrator, gave themselves a role on ${base} (${role}). Their reason: ${reason}`;
+      }
     }
   };
 }
@@ -81,7 +101,10 @@ export function useOpenNotification() {
       });
       return;
     }
-    if (item.kind === "owner_named" && item.data?.baseId) {
+    if (
+      (item.kind === "owner_named" || item.kind === "admin_access") &&
+      item.data?.baseId
+    ) {
       void navigate({
         to: "/b/$baseId/settings",
         params: { baseId: item.data.baseId },

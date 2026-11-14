@@ -11,6 +11,7 @@ import type { Database } from "@anygriddb/db";
 import { readGateSettings } from "../settings.js";
 import { findSessionUser, type SessionUser } from "./session.js";
 import { findApiToken, type TokenScope } from "./tokens.js";
+import { sessionBindings } from "../data/emergency-access.js";
 import { liveBase, liveTable } from "../data/live.js";
 
 export type FactorMethod = "totp" | "webauthn";
@@ -148,16 +149,19 @@ export async function authorizeGrid(
   channel: string,
   action: Action,
 ): Promise<GridDecision> {
-  const bindings = await loadBindings(db, userId);
+  const raw = await loadBindings(db, userId);
   const account = await db
     .selectFrom("users")
     .select(["id", "isAdmin"])
     .where("id", "=", userId)
     .executeTakeFirst();
   if (!account) return "denied";
-  if ((await mfaGate(db, account, bindings)) === "enroll") {
+  if ((await mfaGate(db, account, raw)) === "enroll") {
     return "enroll";
   }
+  // A socket is a person's own session: it follows the bases they have
+  // open as an administrator, as their pages do.
+  const bindings = await sessionBindings(db, account, raw);
   if (!/^[0-9a-f-]{36}$/i.test(channel)) {
     return "denied";
   }
@@ -255,9 +259,12 @@ export async function requestActor(
   await assertNotInMaintenance(db, user);
   const raw = await loadBindings(db, user.id);
   await assertEnrolled(db, user, raw);
+  // As in `authorize`: the session reads the bases its administrator has
+  // open, a token does not.
+  const own = bearer ? raw : await sessionBindings(db, user, raw);
   return {
     user,
-    bindings: await scopeBindings(db, raw, bearer?.scope),
+    bindings: await scopeBindings(db, own, bearer?.scope),
     scope: bearer?.scope,
   };
 }

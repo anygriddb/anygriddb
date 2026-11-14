@@ -87,6 +87,7 @@ import {
   shareViewId,
 } from "../data/sharing.js";
 import { readMailVoice } from "../settings.js";
+import { listOpenAccess } from "../data/emergency-access.js";
 import { invitationMailBody, invitationMailSubject } from "../mail-i18n.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 import { sendMail, smtpReady } from "../mail.js";
@@ -1130,6 +1131,22 @@ export const catalogRouter = t.router({
     handle(ctx, async () => {
       await guardBase(ctx, input.baseId, "manage");
       return listMembers(ctx.db, input.baseId);
+    }),
+  ),
+  /**
+   * The administrators who have this base open now without being members
+   * of it (ADR 0074): who, why, until when. For those who manage the
+   * base, beside its members.
+   */
+  openAccess: procedure.input(membersInputSchema).query(({ ctx, input }) =>
+    handle(ctx, async () => {
+      await guardBase(ctx, input.baseId, "manage");
+      return (await listOpenAccess(ctx.db, input.baseId)).map((open) => ({
+        userId: open.userId,
+        displayName: open.displayName,
+        reason: open.reason,
+        expiresAt: open.expiresAt.toISOString(),
+      }));
     }),
   ),
   grant: procedure.input(grantInputSchema).mutation(({ ctx, input }) =>

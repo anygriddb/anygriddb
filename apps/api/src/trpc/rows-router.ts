@@ -55,7 +55,6 @@ import {
   loadStagedImport,
   newTableColumns,
 } from "../data/import-commit.js";
-import { exportCsv } from "../data/export-csv.js";
 import { insertTable } from "../data/schema-ops.js";
 import { linkCandidates } from "../data/relations.js";
 import {
@@ -540,29 +539,6 @@ export const rowsRouter = t.router({
           missing: false,
         })),
       };
-    }),
-  ),
-  export: procedure.input(rowsReadInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "read");
-      const { engine } = await engineFor(ctx, access);
-      const spec = await readSpec(ctx, access, input, engine);
-      const attachments = attachmentColumns(engine);
-      const csv = await exportCsv(
-        engine,
-        spec.fields,
-        async (offset, limit) => {
-          const page = await readPage(
-            ctx.db,
-            engine,
-            { ...spec, offset, limit, groupBy: undefined },
-            { total: false },
-          );
-          await enrichAttachments(ctx.db, attachments, page.rows);
-          return page.rows;
-        },
-      );
-      return { csv };
     }),
   ),
   import: procedure.input(importRowsInputSchema).mutation(({ ctx, input }) =>

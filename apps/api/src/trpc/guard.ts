@@ -12,6 +12,7 @@ import { assertEnrolled, loadBindings, scopeBindings } from "../auth/access.js";
 import type { SessionUser } from "../auth/session.js";
 import { readGateSettings } from "../settings.js";
 import type { TableRow } from "../data/engine.js";
+import { sessionBindings } from "../data/emergency-access.js";
 import { liveBase } from "../data/live.js";
 import { findLiveTable } from "../services/rows.js";
 import type { Context } from "./context.js";
@@ -60,7 +61,10 @@ async function findActor(ctx: Context, creatingBase: boolean): Promise<Actor> {
   ) {
     throw new AppError("access_denied");
   }
-  return { user, bindings: await scopeBindings(ctx.db, raw, ctx.tokenScope) };
+  // A person's own session also reads the bases they have open as an
+  // administrator (ADR 0074); a token keeps to the account's roles.
+  const own = ctx.tokenScope ? raw : await sessionBindings(ctx.db, user, raw);
+  return { user, bindings: await scopeBindings(ctx.db, own, ctx.tokenScope) };
 }
 
 /**

@@ -107,6 +107,7 @@ export const ERRORS = {
   row_locked: [409, "Row locked"],
   invalid_place: [BAD, "Invalid place"],
   reason_required: [BAD, "Reason required"],
+  already_member: [409, "Already a member of this base"],
   value_required: [BAD, "Value required"],
   invalid_reason: [BAD, "Invalid reason"],
   invalid_cell: [BAD, "Invalid cell"],

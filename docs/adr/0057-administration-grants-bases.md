@@ -41,8 +41,8 @@ not want to chase each base's owner to do it.
 
 - An administrator can reach any base's content: by giving a role to an
   account they hold. Base owners count on the trail, not on a wall: each
-  grant names its author. Opening a base without a role (ROADMAP #35)
-  stays a separate decision.
+  grant names its author. Opening a base without a role, and the reason an
+  administrator gives for a role of their own, are ADR 0074.
 - An account an administrator creates has no password until its first
   link sets one (a week); an account that signs in through its identity
   provider gets no link.

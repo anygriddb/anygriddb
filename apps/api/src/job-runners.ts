@@ -26,6 +26,7 @@ import type { Bus } from "./realtime/bus.js";
 import { cleanFilename } from "./attachments.js";
 import { findLiveTable } from "./services/rows.js";
 import { loadBindings } from "./auth/access.js";
+import { openBaseIds, withOpenBases } from "./data/emergency-access.js";
 import { readerEngine } from "./data/acl.js";
 import { announceRows } from "./data/announce.js";
 import {
@@ -112,7 +113,16 @@ export async function activeAuthor(
     .where("id", "=", job.userId)
     .executeTakeFirst();
   if (!author || author.disabledAt) throw new AppError("access_denied");
-  return { userId: job.userId, bindings: await loadBindings(db, job.userId) };
+  // A job is what its author asked for from their own session: it reads
+  // the bases they have open as an administrator, as their pages do, and
+  // only while the opening lasts (ADR 0074).
+  return {
+    userId: job.userId,
+    bindings: withOpenBases(
+      await loadBindings(db, job.userId),
+      await openBaseIds(db, job.userId),
+    ),
+  };
 }
 
 export async function authorTable(

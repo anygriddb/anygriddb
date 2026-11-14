@@ -106,6 +106,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   row_locked: msg`Row locked`,
   invalid_place: msg`A row cannot be placed next to itself`,
   reason_required: msg`A reason is required`,
+  already_member: msg`You already have a role on this base: open it as its member`,
   value_required: msg`A value is required`,
   invalid_reason: msg`Invalid reason`,
   invalid_cell: msg`Invalid value`,

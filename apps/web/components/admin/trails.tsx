@@ -25,6 +25,7 @@ const ACTIONS = [
   "catalog",
   "export",
   "purge",
+  "access",
 ] as const;
 
 /** The change trail: what was written, by whom, from where. */
@@ -77,6 +78,7 @@ export function ChangesTrail() {
       catalog: t`Structure`,
       export: t`Export`,
       purge: t`Purge`,
+      access: t`Base opened`,
     })[value] ?? value;
   async function exportCsv() {
     try {
@@ -184,13 +186,17 @@ export function ChangesTrail() {
                 <td className="px-2 py-1.5">
                   {event.exported
                     ? exported(event.exported)
-                    : event.purged
-                      ? t`${{ count: event.purged.events.toLocaleString() }} events from before ${{ date: date(event.purged.before) }} deleted: the trail is kept for a time`
-                      : event.fields
-                          .map((name) =>
-                            name === "ag_position" ? t`the row's place` : name,
-                          )
-                          .join(", ") || "—"}
+                    : event.opened
+                      ? t`${{ base: event.baseName ?? "—" }}, opened by an administrator to read it, until ${{ date: date(event.opened.until) }}`
+                      : event.purged
+                        ? t`${{ count: event.purged.events.toLocaleString() }} events from before ${{ date: date(event.purged.before) }} deleted: the trail is kept for a time`
+                        : event.fields
+                            .map((name) =>
+                              name === "ag_position"
+                                ? t`the row's place`
+                                : name,
+                            )
+                            .join(", ") || "—"}
                 </td>
                 <td className="px-2 py-1.5">{event.reason ?? "—"}</td>
                 <td className="px-2 py-1.5">{event.source ?? "—"}</td>
