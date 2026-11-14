@@ -371,9 +371,7 @@ async function backupsRecord(args: string[]): Promise<number> {
 
 /** Prints the token of an instance that has no account yet. */
 async function installToken(): Promise<number> {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new UsageError("DATABASE_URL is required");
-  const { db, close } = createDb(url, { max: 1 });
+  const { db, close } = createDb(databaseUrl(), { max: 1 });
   try {
     const made = await mintInstallToken(db);
     if (!made) {
