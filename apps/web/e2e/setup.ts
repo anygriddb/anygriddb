@@ -4,6 +4,21 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { decodeBase32, totpCode } from "../../api/src/auth/totp-code.ts";
 
 /**
+ * The journeys' PostgreSQL as the cluster's own first role. A journey
+ * that plays a client's administrator (a role and a database of the
+ * client's) signs in as it: AnyGridDB's role may create neither role nor
+ * anything in a database it does not own (ADR 0003).
+ */
+export function clusterUrl(): string {
+  const url = new URL(
+    process.env.DATABASE_URL ??
+      "postgres://anygriddb:anygriddb@127.0.0.1:5433/anygriddb",
+  );
+  url.username = "postgres";
+  return url.toString();
+}
+
+/**
  * Collects what the page's security policy blocks. The app is served under
  * `script-src 'self'` and `connect-src 'self'`: a journey ends with this
  * list empty.

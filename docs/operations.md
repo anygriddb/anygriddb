@@ -3,20 +3,21 @@
 This guide covers running AnyGridDB with Docker Compose. Every procedure
 here was tried on a stack of its own before it was written down.
 
-| Task                       | Section                                                                                   |
-| -------------------------- | ----------------------------------------------------------------------------------------- |
-| Install a release          | [Install](#install)                                                                       |
-| Change the encryption key  | [Changing the encryption key](#changing-the-encryption-key)                               |
-| Set `PUBLIC_URL` / TLS     | [Address people open](#address-people-open-public_url)                                    |
-| Run behind a reverse proxy | [Behind a reverse proxy](#behind-a-reverse-proxy)                                         |
-| Upgrade AnyGridDB          | [Update AnyGridDB](#update-anygriddb)                                                     |
-| Move PostgreSQL 17 → 18    | [PostgreSQL 17 to 18](#postgresql-17-to-18)                                               |
-| Back up and restore        | [Backups](#backups)                                                                       |
-| Use a managed PostgreSQL   | [A PostgreSQL of your own](#a-postgresql-of-your-own)                                     |
-| Provision accounts (SCIM)  | [Provisioning with SCIM](#provisioning-with-scim)                                         |
-| Run several API processes  | [Several API processes](#several-api-processes)                                           |
-| Ship logs / metrics        | [Shipping logs](#shipping-logs-to-a-collector), [Metrics and traces](#metrics-and-traces) |
-| Acceptance checklist       | [DSI acceptance checklist](#dsi-acceptance-checklist)                                     |
+| Task                                     | Section                                                                                   |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Install a release                        | [Install](#install)                                                                       |
+| Change the encryption key                | [Changing the encryption key](#changing-the-encryption-key)                               |
+| Set `PUBLIC_URL` / TLS                   | [Address people open](#address-people-open-public_url)                                    |
+| Run behind a reverse proxy               | [Behind a reverse proxy](#behind-a-reverse-proxy)                                         |
+| Upgrade AnyGridDB                        | [Update AnyGridDB](#update-anygriddb)                                                     |
+| Move PostgreSQL 17 → 18                  | [PostgreSQL 17 to 18](#postgresql-17-to-18)                                               |
+| Limit an earlier stack's PostgreSQL role | [A stack made before the role was limited](#a-stack-made-before-the-role-was-limited)     |
+| Back up and restore                      | [Backups](#backups)                                                                       |
+| Use a managed PostgreSQL                 | [A PostgreSQL of your own](#a-postgresql-of-your-own)                                     |
+| Provision accounts (SCIM)                | [Provisioning with SCIM](#provisioning-with-scim)                                         |
+| Run several API processes                | [Several API processes](#several-api-processes)                                           |
+| Ship logs / metrics                      | [Shipping logs](#shipping-logs-to-a-collector), [Metrics and traces](#metrics-and-traces) |
+| Acceptance checklist                     | [DSI acceptance checklist](#dsi-acceptance-checklist)                                     |
 
 ## Install
 
@@ -80,6 +81,9 @@ The stack has four services:
 - `postgres-upgrade-check` runs once and refuses to start an empty
   PostgreSQL 18 on top of 17's data.
 - `db` is PostgreSQL 18, which only takes connections over TLS.
+  AnyGridDB signs in as `POSTGRES_USER`, a role that owns its database
+  and is no superuser; the cluster's superuser is `postgres`, which
+  nothing uses once the volume is made.
 - `app` is AnyGridDB itself.
 
 Each container takes no new privilege, drops every Linux capability but
@@ -353,6 +357,22 @@ dismissed or the instance is upgraded.
 `docker compose exec app anygriddb version` says the same, and so do the
 image's labels: `docker compose images app`, then `docker image inspect`
 on that image.
+
+## A stack made before the role was limited
+
+A stack whose PostgreSQL volume was made by an earlier file has
+`POSTGRES_USER` as the cluster's first role, which PostgreSQL keeps a
+superuser. It works as before. To see which you have:
+
+```sh
+docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+  "select rolsuper from pg_roles where rolname = current_user"
+```
+
+`f` is the limited role. `t` is the earlier one; to change it, the data
+moves to a new volume: back up (`scripts/backup.sh`), stop the stack,
+remove the volume `<project>_postgres_18` alone, start the stack, which
+makes the volume and the role anew, and restore (`scripts/restore.sh`).
 
 ## PostgreSQL 17 to 18
 

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import pg from "pg";
 import {
   accessibilityViolations,
+  clusterUrl,
   proveItIsYou,
   signUpWithTable,
   uniqueStamp,
@@ -10,9 +11,7 @@ import {
 
 // The journey's PostgreSQL holds AnyGridDB's catalog and, beside it, a
 // client's database with an account of its own (ADR 0026).
-const controlUrl =
-  process.env.DATABASE_URL ??
-  "postgres://anygriddb:anygriddb@127.0.0.1:5433/anygriddb";
+const controlUrl = clusterUrl();
 
 test("an administrator shows a client's tables in a base, read where they live", async ({
   page,

@@ -31,6 +31,12 @@ MariaDB, or SQL Server. The control plane relies on PostgreSQL:
   RDS, Google Cloud SQL, Scaleway, OVH, and others).
 - The database needs one role that owns one database. No superuser and no
   extension are needed: the migrations and graphile-worker create neither.
+  The stack's own PostgreSQL follows the same rule: its first role stays
+  `postgres`, the image's, which PostgreSQL keeps a superuser whatever is
+  asked, and AnyGridDB signs in as a role made beside it on an empty
+  volume, which owns the database and may create one (a restore does),
+  and nothing more. A volume made before keeps its first role for
+  AnyGridDB: it is moved by a backup and a restore into a new volume.
 - AnyGridDB needs a direct (session) connection. Transaction-mode poolers
   (PgBouncer, Supabase's or Neon's pooled endpoints) break `LISTEN/NOTIFY`
   and the session locks of migrations. The API checks the connection at
