@@ -16,12 +16,8 @@ import { formPrefill } from "../views/form-prefill";
 import { formRedirectAfterSubmit } from "../views/form-redirect";
 import { FormFiles } from "../views/form-files";
 import { formFileUrl, sendFile, type SentFile } from "../../lib/send-file";
-import {
-  FieldInput,
-  FORM_TIME_ZONE,
-  formFieldIds,
-  formKinds,
-} from "../views/form-view";
+import { FormField, formFieldIds } from "../views/form-field";
+import { FieldInput, FORM_TIME_ZONE, formKinds } from "../views/form-view";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { InstanceMark } from "../brand/instance-mark";
@@ -176,28 +172,14 @@ function PublicForm({
         .map((column) => {
           const field = fieldOf(column.name);
           return (
-            <div key={column.name} className="flex flex-col gap-1">
-              <Label
-                id={formFieldIds(column.name).label}
-                htmlFor={formFieldIds(column.name).id}
-                className="text-sm text-foreground"
-              >
-                {field?.label || column.label}
-                {field?.required ? (
-                  <span className="text-danger" aria-hidden>
-                    {" "}
-                    *
-                  </span>
-                ) : null}
-              </Label>
-              {field?.description || column.description ? (
-                <p
-                  id={formFieldIds(column.name).description}
-                  className="text-xs text-muted-foreground"
-                >
-                  {field?.description || column.description}
-                </p>
-              ) : null}
+            <FormField
+              key={column.name}
+              name={column.name}
+              label={field?.label || column.label}
+              description={field?.description || column.description}
+              required={Boolean(field?.required)}
+              labelClassName="text-sm text-foreground"
+            >
               {column.fieldType === "attachment" ? (
                 <FormFiles
                   id={formFieldIds(column.name).id}
@@ -244,7 +226,7 @@ function PublicForm({
                   onChange={(value) => answer(column.name, value)}
                 />
               )}
-            </div>
+            </FormField>
           );
         })}
       {error ? (
