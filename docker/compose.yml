@@ -98,6 +98,11 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    # A cluster's folder opens to its own account alone: to read the two
+    # files that say what the volumes hold, the check keeps the one
+    # capability that reads past that, and no other.
+    cap_add:
+      - DAC_READ_SEARCH
     logging: *default-logging
     environment:
       ANYGRIDDB_PG_UPGRADE: ${ANYGRIDDB_PG_UPGRADE:-}
