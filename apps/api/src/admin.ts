@@ -1,4 +1,5 @@
 import { purgeRecordOf } from "./data/audit-purge.js";
+import { accessRecordOf } from "./data/emergency-access.js";
 import { exportRecordOf } from "./data/export-audit.js";
 import {
   ADMIN_LOCK_MINUTES,
@@ -992,10 +993,14 @@ export async function instanceAudit(
     exported: row.action === "export" ? exportRecordOf(row.newValue) : null,
     // Nor did a purge: it says what it removed from the trail.
     purged: row.action === "purge" ? purgeRecordOf(row.newValue) : null,
+    // Nor did an administrator opening a base: it says which, until when.
+    opened: row.action === "access" ? accessRecordOf(row.newValue) : null,
   }));
-  // A base's file names its base itself, not a table of it.
+  // A base's file and an opening name their base itself, not a table of it.
   const baseIds = [
-    ...new Set(page.flatMap((row) => row.exported?.baseId ?? [])),
+    ...new Set(
+      page.flatMap((row) => row.exported?.baseId ?? row.opened?.baseId ?? []),
+    ),
   ];
   const baseNames = new Map(
     baseIds.length === 0
@@ -1009,21 +1014,32 @@ export async function instanceAudit(
         ).map((base) => [base.id, base.name]),
   );
   return {
-    events: page.map(({ oldValue, newValue, exported, purged, ...row }) => ({
-      ...row,
-      baseName: row.baseName ?? baseNames.get(exported?.baseId ?? "") ?? null,
-      occurredAt: row.occurredAt.toISOString(),
-      // Field names only: values stay in the table's own history, behind its rights.
-      fields: exported || purged ? [] : changedKeys(oldValue, newValue),
-      purged: purged ? { events: purged.events, before: purged.before } : null,
-      exported: exported
-        ? {
-            kind: exported.kind,
-            format: exported.format,
-            rows: exported.rows ?? null,
-          }
-        : null,
-    })),
+    events: page.map(
+      ({ oldValue, newValue, exported, purged, opened, ...row }) => ({
+        ...row,
+        // A base since deleted keeps the name it had when it was opened.
+        baseName:
+          row.baseName ??
+          baseNames.get(exported?.baseId ?? opened?.baseId ?? "") ??
+          opened?.base ??
+          null,
+        occurredAt: row.occurredAt.toISOString(),
+        // Field names only: values stay in the table's own history, behind its rights.
+        fields:
+          exported || purged || opened ? [] : changedKeys(oldValue, newValue),
+        purged: purged
+          ? { events: purged.events, before: purged.before }
+          : null,
+        opened: opened ? { until: opened.until } : null,
+        exported: exported
+          ? {
+              kind: exported.kind,
+              format: exported.format,
+              rows: exported.rows ?? null,
+            }
+          : null,
+      }),
+    ),
     next:
       rows.length > input.limit
         ? (page.at(-1)?.occurredAt.toISOString() ?? null)

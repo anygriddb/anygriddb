@@ -2,6 +2,8 @@ import { INSTANCE_DEFAULTS } from "@anygriddb/core";
 import { describe, expect, it } from "vitest";
 import { EN, FR } from "./mail.test-helpers.js";
 import {
+  adminAccessMailBody,
+  adminAccessMailSubject,
   mailVoice,
   invitationMailBody,
   invitationMailSubject,
@@ -193,5 +195,47 @@ describe("the instance's voice (ADR 0072)", () => {
     expect(body).toBe(
       "Ada vous invite sur Registre.\n\nRéservé au personnel de l’étude.\n\nhttps://app.example/invite/token\n\nLe lien expire le 2026-12-01.",
     );
+  });
+});
+
+describe("an administrator's way into a base (ADR 0074)", () => {
+  const until = new Date("2026-11-14T10:15:00Z");
+  const link = "https://grid.example.org/b/1/settings";
+
+  it("tells an owner who opened their base, why, and until when", () => {
+    const notice = {
+      mode: "emergency",
+      adminName: "Ada",
+      baseName: "Ventes",
+      reason: "Une facture bloque la clôture.",
+      until,
+    } as const;
+    expect(adminAccessMailSubject(FR, notice)).toBe(
+      "AnyGridDB\u00a0: un administrateur a ouvert «\u00a0Ventes\u00a0»",
+    );
+    const body = adminAccessMailBody(FR, notice, link);
+    expect(body).toContain(
+      "Ada, qui administre AnyGridDB, a ouvert votre base",
+    );
+    expect(body).toContain("sans rien y modifier");
+    expect(body).toContain("10:15 UTC");
+    expect(body).toContain("Une facture bloque la clôture.");
+    expect(body).toContain(link);
+  });
+
+  it("tells an owner of a role an administrator gave themselves", () => {
+    const notice = {
+      mode: "role",
+      adminName: "Ada",
+      baseName: "Sales",
+      reason: "Its only owner left.",
+      role: "owner",
+    } as const;
+    expect(adminAccessMailSubject(EN, notice)).toBe(
+      'AnyGridDB: an administrator gave themselves a role on "Sales"',
+    );
+    const body = adminAccessMailBody(EN, notice, link);
+    expect(body).toContain("gave themselves the role of owner");
+    expect(body).toContain("Its only owner left.");
   });
 });

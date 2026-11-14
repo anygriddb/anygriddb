@@ -11,6 +11,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import type { Role } from "../../lib/types";
 import { useRoleLabel } from "../settings/role-label";
 import { ConfirmDialog } from "../shell/dialogs";
+import { useGiveBaseRole } from "./give-base-role";
 import {
   AccountName,
   useAccountChoices,
@@ -58,6 +59,7 @@ export function BaseAdminMembers({
   const [role, setRole] = useState<Role>("viewer");
   const [busy, setBusy] = useState(false);
   const choices = useAccountChoices(typed, picking);
+  const giving = useGiveBaseRole();
   const already = new Set(
     members.filter((member) => member.direct).map((member) => member.userId),
   );
@@ -72,7 +74,7 @@ export function BaseAdminMembers({
     setBusy(true);
     try {
       if (!(await stepUp.ensure())) return false;
-      await trpc.admin.setBaseRole.mutate({ userId, baseId, role: next });
+      if (!(await giving.give({ userId, baseId, role: next }))) return false;
       await refresh();
       return true;
     } catch (cause) {
@@ -277,6 +279,7 @@ export function BaseAdminMembers({
         />
       ) : null}
       {stepUp.dialog}
+      {giving.dialogs}
     </section>
   );
 }

@@ -6,6 +6,7 @@ import {
   enableTotp,
   findAccount,
   mailedLink,
+  mailedMessage,
   openAdmin,
   proveItIsYou,
   signIn,
@@ -751,6 +752,113 @@ test("an auditor reads every page of Administration and changes nothing", async 
       return answer.status;
     });
     expect(refused).toBe(403);
+
+    await theirs.close();
+    expect(blocked).toEqual([]);
+  } finally {
+    await control.end();
+  }
+});
+
+// An administrator's way into a base (ADR 0074): Administration shows what
+// a base is made of, never its rows. To read them, an administrator opens
+// the base for an hour and says why; they read and change nothing, and the
+// base's owner is told at once, in the app and by email.
+test("an administrator opens a base to read it, and its owner is told why", async ({
+  page,
+  browser,
+}) => {
+  const blocked = watchPolicy(page);
+  const control = new pg.Client({ connectionString: controlUrl });
+  await control.connect();
+  try {
+    // Someone's base, made in their own browser.
+    const theirs = await browser.newContext(from("198.51.100.36"));
+    const owner = await theirs.newPage();
+    const { email: ownerEmail } = await signUpWithTable(owner, "Opened Owner");
+    await owner.getByRole("button", { name: "Add a row", exact: true }).click();
+    const baseId = (
+      await control.query<{ id: string }>(
+        "select r.scope_id as id from role_bindings r join users u on u.id = r.user_id where u.email = $1 and r.scope = 'base' and r.role = 'owner'",
+        [ownerEmail],
+      )
+    ).rows[0]?.id;
+    expect(baseId).toBeTruthy();
+
+    const { email } = await signUpWithTable(page, "Opening Admin");
+    await control.query("update users set is_admin = true where email = $1", [
+      email,
+    ]);
+
+    // Not a member: the base's address answers that there is no such base.
+    await page.goto(`/admin/bases/${String(baseId)}`);
+    const reading = page.getByRole("region", { name: "Reading the base" });
+    await expect(
+      reading.getByText(/Administration shows what a base is made of/),
+    ).toBeVisible();
+    await reading
+      .getByRole("button", { name: "Open it to read, for an hour" })
+      .click();
+    // A change made in Administration asks for the proof (ADR 0073).
+    await proveItIsYou(page);
+    const asking = page.getByRole("dialog", {
+      name: "Open this base to read it?",
+    });
+    await asking.getByLabel("Reason").fill("An invoice blocks the closing.");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await asking.getByRole("button", { name: "Open for an hour" }).click();
+    await expect(
+      page.getByText("The base is open to you for an hour"),
+    ).toBeVisible();
+    await expect(reading.getByText(/reads it until/)).toBeVisible();
+    await expect(
+      reading.getByText("An invoice blocks the closing."),
+    ).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // They read the table, and nothing in it can be changed.
+    await reading.getByRole("link", { name: "Go to the base" }).click();
+    await page.getByRole("link", { name: "Samples" }).first().click();
+    await expect(page.getByRole("grid")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Add a row", exact: true }),
+    ).toHaveCount(0);
+
+    // The owner is told in the app, with the reason, and by email.
+    await owner.reload();
+    await owner
+      .getByRole("button", { name: /^Notifications \(\d+ unread\)$/ })
+      .click();
+    await owner
+      .getByRole("button", {
+        name: /^Opening Admin, an administrator, opened Lab to read it until .*An invoice blocks the closing\./,
+      })
+      .click();
+    // It opens the base's members, where the opening is written too.
+    await owner.waitForURL(new RegExp(`/b/${String(baseId)}/settings$`));
+    await expect(
+      owner
+        .getByRole("status")
+        .filter({ hasText: "is not a member and can read this base until" }),
+    ).toContainText("An invoice blocks the closing.");
+    expect(await accessibilityViolations(owner)).toEqual([]);
+    const mail = await mailedMessage(ownerEmail, "an administrator opened");
+    expect(mail.text).toContain("An invoice blocks the closing.");
+    expect(mail.text).toContain("Opening Admin");
+
+    // Closed by hand: the base is closed to the administrator again.
+    await page.goto(`/admin/bases/${String(baseId)}`);
+    await reading.getByRole("button", { name: "Close it now" }).click();
+    await expect(
+      page.getByText("The base is closed to you again"),
+    ).toBeVisible();
+    await expect(reading.getByText(/reads it until/)).toHaveCount(0);
+    await owner.reload();
+    await expect(
+      owner
+        .getByRole("status")
+        .filter({ hasText: "is not a member and can read this base until" }),
+    ).toHaveCount(0);
 
     await theirs.close();
     expect(blocked).toEqual([]);

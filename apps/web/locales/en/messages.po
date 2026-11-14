@@ -320,6 +320,14 @@ msgstr "{actor} mentioned you in {table}"
 msgid "{actor} replied to your comment in {table}"
 msgstr "{actor} replied to your comment in {table}"
 
+#: components/shell/notification-items.ts
+msgid "{actor}, an administrator, gave themselves a role on {base} ({role}). Their reason: {reason}"
+msgstr "{actor}, an administrator, gave themselves a role on {base} ({role}). Their reason: {reason}"
+
+#: components/shell/notification-items.ts
+msgid "{actor}, an administrator, opened {base} to read it until {until}. Their reason: {reason}"
+msgstr "{actor}, an administrator, opened {base} to read it until {until}. Their reason: {reason}"
+
 #: components/admin/people-file-dialog.tsx
 msgid "{added, plural, one {# person added. Their link is on its way by email.} other {# people added. Their links are on their way by email.}}"
 msgstr "{added, plural, one {# person added. Their link is on its way by email.} other {# people added. Their links are on their way by email.}}"
@@ -327,6 +335,10 @@ msgstr "{added, plural, one {# person added. Their link is on its way by email.}
 #: components/admin/admin-overview.tsx
 msgid "{alertCount, plural, one {alert is open} other {alerts are open}}"
 msgstr "{alertCount, plural, one {alert is open} other {alerts are open}}"
+
+#: components/admin/trails.tsx
+msgid "{base}, opened by an administrator to read it, until {date}"
+msgstr "{base}, opened by an administrator to read it, until {date}"
 
 #: components/admin/base-choices.tsx
 msgid "{base}, owned by {owners}"
@@ -554,6 +566,10 @@ msgstr "{name} fields"
 #: components/settings/base-settings.tsx
 msgid "{name} settings"
 msgstr "{name} settings"
+
+#: components/settings/base-settings.tsx
+msgid "{name}, an administrator, is not a member and can read this base until {until}, without changing anything. Their reason: {reason}"
+msgstr "{name}, an administrator, is not a member and can read this base until {until}, without changing anything. Their reason: {reason}"
 
 #: components/shell/notification-items.ts
 msgid "{name}: {message}"
@@ -1320,6 +1336,10 @@ msgstr "Adds up the numbers and lists of numbers."
 msgid "Administration"
 msgstr "Administration"
 
+#: components/admin/open-base.tsx
+msgid "Administration shows what a base is made of, never its rows. To read them without being a member, an administrator opens the base for an hour and says why: its owners are told at once, in the app and by email, and it is written to the change trail. Nothing can be changed meanwhile; rows taken out as a file are on the trail too."
+msgstr "Administration shows what a base is made of, never its rows. To read them without being a member, an administrator opens the base for an hour and says why: its owners are told at once, in the app and by email, and it is written to the change trail. Nothing can be changed meanwhile; rows taken out as a file are on the trail too."
+
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/auth-labels.ts
@@ -1860,6 +1880,10 @@ msgstr "Base name"
 msgid "Base not found"
 msgstr "Base not found"
 
+#: components/admin/trails.tsx
+msgid "Base opened"
+msgstr "Base opened"
+
 #: components/admin/accounts-tab.tsx
 #: components/admin/admin-sections.ts
 #: components/admin/base-admin-page.tsx
@@ -2252,6 +2276,10 @@ msgstr "Client secret"
 #: components/table/table-workspace.tsx
 msgid "Close"
 msgstr "Close"
+
+#: components/admin/open-base.tsx
+msgid "Close it now"
+msgstr "Close it now"
 
 #: components/shell/app-shell.tsx
 msgid "Close the navigation"
@@ -4025,6 +4053,10 @@ msgstr "Give a role on a base"
 msgid "Give a role to someone"
 msgstr "Give a role to someone"
 
+#: components/admin/give-base-role.tsx
+msgid "Give myself the role"
+msgstr "Give myself the role"
+
 #: components/admin/account-actions.tsx
 msgid "Give the auditor role"
 msgstr "Give the auditor role"
@@ -4039,6 +4071,10 @@ msgstr "Give the role"
 msgid "Give the support role"
 msgstr "Give the support role"
 
+#: components/admin/give-base-role.tsx
+msgid "Give yourself this role?"
+msgstr "Give yourself this role?"
+
 #: components/admin/sign-in-trail.tsx
 msgid "Given the auditor role"
 msgstr "Given the auditor role"
@@ -4046,6 +4082,10 @@ msgstr "Given the auditor role"
 #: components/admin/sign-in-trail.tsx
 msgid "Given the support role"
 msgstr "Given the support role"
+
+#: components/admin/open-base.tsx
+msgid "Go to the base"
+msgstr "Go to the base"
 
 #: components/shell/welcome-page.tsx
 msgid "Go to the home page"
@@ -4756,6 +4796,10 @@ msgstr "Its condition reads a field placed after it: it is ignored."
 msgid "Its members lose it at once. It stays in the trash for {days} days with its data, then is deleted permanently."
 msgstr "Its members lose it at once. It stays in the trash for {days} days with its data, then is deleted permanently."
 
+#: components/admin/open-base.tsx
+msgid "Its owners are told now, with your name and this reason. You will read every table of the base and change nothing."
+msgstr "Its owners are told now, with your name and this reason. You will read every table of the base and change nothing."
+
 #: components/shell/sidebar.tsx
 msgid "Its tables stay in the base, back at the root. The folder itself is removed."
 msgstr "Its tables stay in the base, back at the root. The folder itself is removed."
@@ -5274,6 +5318,10 @@ msgstr "Member added"
 #: components/admin/group-page.tsx
 msgid "Member removed"
 msgstr "Member removed"
+
+#: components/settings/table-acl-panel.tsx
+msgid "Member whose field permissions are set"
+msgstr "Member whose field permissions are set"
 
 #: components/admin/base-admin-members.tsx
 #: components/admin/bases-tab.tsx
@@ -6230,6 +6278,14 @@ msgstr "Open a URL"
 msgid "Open base"
 msgstr "Open base"
 
+#: components/admin/open-base.tsx
+msgid "Open for an hour"
+msgstr "Open for an hour"
+
+#: components/admin/open-base.tsx
+msgid "Open it to read, for an hour"
+msgstr "Open it to read, for an hour"
+
 #: components/fields/cell-value.tsx
 msgid "Open linked row"
 msgstr "Open linked row"
@@ -6253,6 +6309,10 @@ msgstr "Open the row (or Shift Enter)"
 #: components/shell/jobs-menu.tsx
 msgid "Open the table"
 msgstr "Open the table"
+
+#: components/admin/open-base.tsx
+msgid "Open this base to read it?"
+msgstr "Open this base to read it?"
 
 #: components/admin/settings-tab.tsx
 msgid "Open to anyone"
@@ -6792,6 +6852,14 @@ msgstr "read-only"
 msgid "Reading"
 msgstr "Reading"
 
+#: components/admin/open-base.tsx
+msgid "Reading the base"
+msgstr "Reading the base"
+
+#: components/admin/open-base.tsx
+msgid "reads it until {until}"
+msgstr "reads it until {until}"
+
 #: components/fields/formula-docs.ts
 msgid "Reads text as a date, in the given format (YYYY, MM, DD, HH, mm, ss)."
 msgstr "Reads text as a date, in the given format (YYYY, MM, DD, HH, mm, ss)."
@@ -6804,6 +6872,8 @@ msgstr "Reads text as a number."
 msgid "Realtime"
 msgstr "Realtime"
 
+#: components/admin/give-base-role.tsx
+#: components/admin/open-base.tsx
 #: components/admin/trails.tsx
 msgid "Reason"
 msgstr "Reason"
@@ -8575,6 +8645,14 @@ msgstr "The automation acts with your access; every write is recorded in the aud
 msgid "The base and its tables go to the trash: you can restore it from the home page for {days} days."
 msgstr "The base and its tables go to the trash: you can restore it from the home page for {days} days."
 
+#: components/admin/open-base.tsx
+msgid "The base is closed to you again"
+msgstr "The base is closed to you again"
+
+#: components/admin/open-base.tsx
+msgid "The base is open to you for an hour"
+msgstr "The base is open to you for an hour"
+
 #: components/fields/formula-docs.ts
 msgid "The base raised to the given power."
 msgstr "The base raised to the given power."
@@ -10184,6 +10262,10 @@ msgstr "What the source's account may read, and how each column will show. Tick 
 msgid "What the tile server's terms ask you to show, such as the name of who made the map."
 msgstr "What the tile server's terms ask you to show, such as the name of who made the map."
 
+#: components/settings/table-acl-panel.tsx
+msgid "What this member may do with {field}"
+msgstr "What this member may do with {field}"
+
 #: components/table/view-tabs.tsx
 msgid "What this view is for (empty: no description)"
 msgstr "What this view is for (empty: no description)"
@@ -10400,6 +10482,18 @@ msgstr "yesterday"
 #: components/admin/sessions-tab.tsx
 msgid "You"
 msgstr "You"
+
+#: components/admin/give-base-role.tsx
+msgid "You administer the instance, and this role lets you into the base. Its owners are told, in the app and by email, with your name and this reason, and it is written to the change trail."
+msgstr "You administer the instance, and this role lets you into the base. Its owners are told, in the app and by email, with your name and this reason, and it is written to the change trail."
+
+#: lib/errors.ts
+msgid "You already have a role on this base: open it as its member"
+msgstr "You already have a role on this base: open it as its member"
+
+#: components/admin/open-base.tsx
+msgid "You are a member of this base: open it as its members do."
+msgstr "You are a member of this base: open it as its members do."
 
 #: components/shell/pending-invitations.tsx
 msgid "You are invited to {base} as {role}"

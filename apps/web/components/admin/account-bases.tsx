@@ -9,6 +9,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import type { Role } from "../../lib/types";
 import { useRoleLabel } from "../settings/role-label";
 import { ConfirmDialog } from "../shell/dialogs";
+import { useGiveBaseRole } from "./give-base-role";
 import { BaseName, useBaseChoices, type BaseChoice } from "./base-choices";
 import { EffectiveRights } from "./effective-rights";
 import { useStepUp } from "./step-up";
@@ -54,6 +55,7 @@ export function AccountBases({
   const [busy, setBusy] = useState(false);
   const [openRights, setOpenRights] = useState<string | null>(null);
   const choices = useBaseChoices(typed, picking);
+  const giving = useGiveBaseRole();
   const own = new Set(
     bases.filter((base) => base.viaGroup === null).map((base) => base.id),
   );
@@ -68,7 +70,7 @@ export function AccountBases({
     setBusy(true);
     try {
       if (!(await stepUp.ensure())) return false;
-      await trpc.admin.setBaseRole.mutate({ userId, baseId, role: next });
+      if (!(await giving.give({ userId, baseId, role: next }))) return false;
       await refresh();
       return true;
     } catch (cause) {
@@ -277,6 +279,7 @@ export function AccountBases({
         />
       ) : null}
       {stepUp.dialog}
+      {giving.dialogs}
     </section>
   );
 }

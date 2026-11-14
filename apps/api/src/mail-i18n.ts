@@ -1,5 +1,6 @@
 import {
   PRODUCT_NAME,
+  type Role,
   WEBHOOK_FAILURE_LIMIT,
   type AlertKind,
   type InstanceSettings,
@@ -158,6 +159,67 @@ export function invitationMailBody(
     return `${input.inviterName} vous invite sur ${voice.name}.\n\n${note}${input.link}\n\nLe lien expire le ${input.expiresDate}.`;
   }
   return `${input.inviterName} invited you to ${voice.name}.\n\n${note}${input.link}\n\nThe link expires on ${input.expiresDate}.`;
+}
+
+/**
+ * What a base's owners are told when an administrator lets themselves in
+ * (ADR 0074): for an hour, reading only, or with a role they gave
+ * themselves. Always who, and the reason they gave.
+ */
+export type AdminAccessNotice = {
+  adminName: string;
+  baseName: string;
+  reason: string;
+} & ({ mode: "emergency"; until: Date } | { mode: "role"; role: Role });
+
+const ROLE_NAMES: Record<MailLocale, Record<Role, string>> = {
+  en: {
+    owner: "owner",
+    editor: "editor",
+    commenter: "commenter",
+    viewer: "viewer",
+  },
+  fr: {
+    owner: "propriétaire",
+    editor: "éditeur",
+    commenter: "commentateur",
+    viewer: "lecteur",
+  },
+};
+
+export function adminAccessMailSubject(
+  voice: MailVoice,
+  notice: AdminAccessNotice,
+): string {
+  const quoted = tableQuoted(voice.locale, notice.baseName);
+  if (voice.locale === "fr") {
+    return notice.mode === "emergency"
+      ? `${voice.name}\u00a0: un administrateur a ouvert ${quoted}`
+      : `${voice.name}\u00a0: un administrateur s’est donné un rôle sur ${quoted}`;
+  }
+  return notice.mode === "emergency"
+    ? `${voice.name}: an administrator opened ${quoted}`
+    : `${voice.name}: an administrator gave themselves a role on ${quoted}`;
+}
+
+export function adminAccessMailBody(
+  voice: MailVoice,
+  notice: AdminAccessNotice,
+  link: string,
+): string {
+  const quoted = tableQuoted(voice.locale, notice.baseName);
+  if (voice.locale === "fr") {
+    const what =
+      notice.mode === "emergency"
+        ? `${notice.adminName}, qui administre ${voice.name}, a ouvert votre base ${quoted} sans en être membre. Cette personne peut la lire, sans rien y modifier, jusqu’au ${moment("fr", notice.until)}.`
+        : `${notice.adminName}, qui administre ${voice.name}, s’est donné le rôle ${ROLE_NAMES.fr[notice.role]} sur votre base ${quoted}. Vous pouvez changer ce rôle ou le retirer, comme pour tout membre.`;
+    return `${what}\n\nLa raison donnée\u00a0:\n${notice.reason}\n\nC’est inscrit au journal des modifications de l’instance. Les membres de la base\u00a0:\n${link}`;
+  }
+  const what =
+    notice.mode === "emergency"
+      ? `${notice.adminName}, an administrator of ${voice.name}, opened your base ${quoted} without being a member of it. They can read it, and change nothing, until ${moment("en", notice.until)}.`
+      : `${notice.adminName}, an administrator of ${voice.name}, gave themselves the role of ${ROLE_NAMES.en[notice.role]} on your base ${quoted}. You can change this role or take it away, as for any member.`;
+  return `${what}\n\nThe reason they gave:\n${notice.reason}\n\nIt is written to the instance's change trail. The members of the base:\n${link}`;
 }
 
 export function testMailSubject(voice: MailVoice): string {

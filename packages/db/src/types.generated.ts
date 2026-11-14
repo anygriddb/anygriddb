@@ -6,6 +6,7 @@
 import type { ColumnType } from "kysely";
 
 export type AuditAction =
+  | "access"
   | "catalog"
   | "delete"
   | "export"
@@ -106,6 +107,7 @@ export type JobStatus = "cancelled" | "done" | "failed" | "queued" | "running";
 
 export type NotificationKind =
   | "account_locked"
+  | "admin_access"
   | "assigned"
   | "automation"
   | "mention"
@@ -347,6 +349,16 @@ export interface DataTables {
   position: Generated<number>;
   sourceId: string | null;
   storage: Generated<TableStorage>;
+}
+
+export interface EmergencyAccess {
+  baseId: string;
+  endedAt: Timestamp | null;
+  expiresAt: Timestamp;
+  id: Generated<string>;
+  openedAt: Generated<Timestamp>;
+  reason: string;
+  userId: string;
 }
 
 export interface EphemeralLocks {
@@ -906,6 +918,7 @@ export interface DB {
   dashboardWidgets: DashboardWidgets;
   dataColumns: DataColumns;
   dataTables: DataTables;
+  emergencyAccess: EmergencyAccess;
   ephemeralLocks: EphemeralLocks;
   externalEnrichmentValues: ExternalEnrichmentValues;
   externalStatuses: ExternalStatuses;

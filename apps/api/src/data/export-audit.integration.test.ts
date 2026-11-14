@@ -101,10 +101,11 @@ describe("exports on the change trail", () => {
       },
     ]);
     const lines = auditEventsCsv(events).trim().split(/\r?\n/);
-    // Then the column of what a purge removed, empty for an export.
-    expect(lines[0]).toMatch(/,fields,exported,purged$/);
-    expect(lines[3]).toMatch(/,view xlsx 1200 rows,$/);
-    expect(lines[1]).toMatch(/,access_report csv,$/);
+    // Then the columns of what a purge removed and of a base opened by an
+    // administrator, both empty for an export.
+    expect(lines[0]).toMatch(/,fields,exported,purged,opened$/);
+    expect(lines[3]).toMatch(/,view xlsx 1200 rows,,$/);
+    expect(lines[1]).toMatch(/,access_report csv,,$/);
   });
 
   it("leaves the other events as they were: fields changed, nothing exported", async () => {

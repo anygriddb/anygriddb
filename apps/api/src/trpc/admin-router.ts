@@ -43,6 +43,13 @@ import {
 } from "../accounts-bulk.js";
 import { operatorFixedFromEnv } from "../operator-fixed.js";
 import { assertEnrolled } from "../auth/access.js";
+import {
+  endEmergencyAccess,
+  listOpenAccess,
+  openEmergencyAccess,
+  tellOwners,
+  type AccessNoticeDeps,
+} from "../data/emergency-access.js";
 import { readLogoVersion, removeLogo, saveLogo } from "../instance-logo.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
 import { alertLock } from "../auth/lock-alerts.js";
@@ -275,6 +282,18 @@ async function requireAdmin(ctx: Context) {
   return user;
 }
 
+/** What telling a base's owners needs: the app, and mail when it is set up. */
+async function accessNoticeDeps(ctx: Context): Promise<AccessNoticeDeps> {
+  const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
+  return {
+    db: ctx.db,
+    bus: ctx.bus,
+    smtp,
+    publicUrl: ctx.env.PUBLIC_URL,
+    log: (error, message) => ctx.req.log.error({ err: error }, message),
+  };
+}
+
 /**
  * Helpdesk: administrators or support (ADR 0054). Same session and factor
  * rules as requireAdmin; narrower procedures call this instead.
@@ -333,6 +352,7 @@ const auditInputSchema = z.object({
       "catalog",
       "export",
       "purge",
+      "access",
     ])
     .optional(),
   source: z.string().trim().max(100).optional(),
@@ -1216,16 +1236,49 @@ export const adminRouter = t.router({
    */
   setBaseRole: procedure
     .input(
-      z.object({ userId: z.uuid(), baseId: z.uuid(), role: z.enum(ROLES) }),
+      z.object({
+        userId: z.uuid(),
+        baseId: z.uuid(),
+        role: z.enum(ROLES),
+        /** Why, when the role is the administrator's own (ADR 0074). */
+        reason: z.string().trim().min(1).max(500).optional(),
+      }),
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
+        // A role an administrator gives themselves lets them into a base:
+        // it asks a reason, and the owners are told.
+        const own = input.userId === admin.id;
+        if (own && !input.reason) throw new AppError("reason_required");
         const account = await assertGrantable(ctx.db, input);
         await assertMemberDomain(ctx.db, account.email);
-        const { owners } = await setMemberRole(ctx.db, admin.id, input);
-        // The owners already there learn who joined them, and from whom.
-        if (input.role === "owner" && !owners.includes(input.userId)) {
+        const { owners } = await setMemberRole(
+          ctx.db,
+          admin.id,
+          input,
+          own ? input.reason : undefined,
+        );
+        if (own && input.reason) {
+          const base = await ctx.db
+            .selectFrom("bases")
+            .select("name")
+            .where("id", "=", input.baseId)
+            .executeTakeFirst();
+          await tellOwners(await accessNoticeDeps(ctx), {
+            baseId: input.baseId,
+            actorId: admin.id,
+            owners,
+            notice: {
+              mode: "role",
+              adminName: admin.displayName,
+              baseName: base?.name ?? "",
+              reason: input.reason,
+              role: input.role,
+            },
+          });
+        } else if (input.role === "owner" && !owners.includes(input.userId)) {
+          // The owners already there learn who joined them, and from whom.
           await notifyOwnerNamed(
             {
               db: ctx.db,
@@ -1399,12 +1452,54 @@ export const adminRouter = t.router({
             limit: 1,
           });
           if (!base) throw new AppError("unknown_base");
-          const [members, tables, links] = await Promise.all([
+          const [members, tables, links, open] = await Promise.all([
             listMembers(ctx.db, input.baseId),
             listBaseTables(ctx.db, input.baseId),
             listOutbound(ctx.db, 200, input.baseId),
+            listOpenAccess(ctx.db, input.baseId),
           ]);
-          return { base, members, tables, links };
+          return { base, members, tables, links, open };
+        }),
+      ),
+    /**
+     * Opens a base the administrator is not a member of, to read it for
+     * an hour (ADR 0074): with a reason, written to the change trail and
+     * told to the base's owners. Asking again starts the hour again.
+     */
+    open: procedure
+      .input(
+        z.object({
+          baseId: z.uuid(),
+          reason: z.string().trim().min(1).max(500),
+        }),
+      )
+      .mutation(({ ctx, input }) =>
+        handle(ctx, async () => {
+          const admin = await requireAdmin(ctx);
+          const { expiresAt } = await openEmergencyAccess(
+            await accessNoticeDeps(ctx),
+            { admin, baseId: input.baseId, reason: input.reason },
+          );
+          ctx.req.log.info(
+            { actor: admin.id, base: input.baseId },
+            "base opened by administrator",
+          );
+          return { expiresAt: expiresAt.toISOString() };
+        }),
+      ),
+    /** Ends the administrator's own opening before its hour is up. */
+    close: procedure
+      .input(z.object({ baseId: z.uuid() }))
+      .mutation(({ ctx, input }) =>
+        handle(ctx, async () => {
+          const admin = await requireAdmin(ctx);
+          const closed = await endEmergencyAccess(ctx.db, {
+            userId: admin.id,
+            baseId: input.baseId,
+          });
+          // Their open sockets reconnect, and the base's channels refuse them.
+          if (closed) ctx.hub.closeUser(admin.id, 4000);
+          return { closed };
         }),
       ),
     /** How many live bases no active account owns. */

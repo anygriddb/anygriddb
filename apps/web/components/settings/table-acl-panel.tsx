@@ -98,6 +98,7 @@ export function TableAclPanel(props: {
         <Shield className="h-4 w-4 text-muted-foreground" aria-hidden />
         <span className="text-sm font-medium">{t`Field permissions`}</span>
         <Select
+          aria-label={t`Member whose field permissions are set`}
           className="ml-auto w-56"
           value={userId}
           onChange={(event) => {
@@ -123,6 +124,7 @@ export function TableAclPanel(props: {
           <li key={column.name} className="flex items-center gap-2 py-1.5">
             <span className="min-w-0 flex-1 truncate">{column.label}</span>
             <Select
+              aria-label={t`What this member may do with ${{ field: column.label }}`}
               className="h-8 w-36"
               value={map[column.name] ?? "write"}
               onChange={(event) =>
