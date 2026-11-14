@@ -1043,16 +1043,6 @@ export const catalogRouter = t.router({
         return { ok: true as const };
       }),
     ),
-  dropColumn: procedure
-    .input(deleteColumnInputSchema)
-    .mutation(({ ctx, input }) =>
-      handle(ctx, async () => {
-        const { user, table } = await guardTable(ctx, input.tableId, "manage");
-        await trashColumn(ctx.db, user.id, table, input.name);
-        await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
-        return { ok: true as const };
-      }),
-    ),
   reorderColumns: procedure
     .input(reorderColumnsInputSchema)
     .mutation(({ ctx, input }) =>

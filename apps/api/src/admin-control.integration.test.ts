@@ -202,17 +202,17 @@ describe("instance controls", () => {
     // What is the person's own asks for the factor too.
     const own = member.call({ authorization: `Bearer ${token}` });
     expect(await code(asMember())).toBe("ok");
-    expect(await code(own.notifications.unreadCount())).toBe("ok");
+    expect(await code(own.notifications.list({}))).toBe("ok");
     expect(await code(own.shortcuts.list())).toBe("ok");
     await admin.call().admin.updateSettings({ mfaScope: "everyone" });
     expect(await code(asMember())).toBe("mfa_enrollment_required");
-    expect(await code(own.notifications.unreadCount())).toBe(
+    expect(await code(own.notifications.list({}))).toBe(
       "mfa_enrollment_required",
     );
     expect(await code(own.shortcuts.list())).toBe("mfa_enrollment_required");
     await admin.call().admin.updateSettings({ mfaScope: "owners" });
     expect(await code(asMember())).toBe("ok");
-    expect(await code(own.notifications.unreadCount())).toBe("ok");
+    expect(await code(own.notifications.list({}))).toBe("ok");
   });
 
   it("keeps a setting written as text", async () => {

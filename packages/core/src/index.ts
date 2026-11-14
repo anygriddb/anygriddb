@@ -313,7 +313,6 @@ export {
   deleteBaseInputSchema,
   deleteColumnInputSchema,
   deleteCommentInputSchema,
-  deleteRowInputSchema,
   deleteRowsInputSchema,
   deleteTableInputSchema,
   deleteViewInputSchema,
@@ -328,7 +327,6 @@ export {
   importCommitInputSchema,
   importIdSchema,
   importMappingSchema,
-  importRowsInputSchema,
   insertRowInputSchema,
   insertRowsInputSchema,
   moveRowsInputSchema,
@@ -361,7 +359,6 @@ export {
   updateBaseInputSchema,
   updateColumnInputSchema,
   updateCommentInputSchema,
-  updateRowInputSchema,
   updateRowsInputSchema,
   updateTableInputSchema,
   updateViewInputSchema,
@@ -381,7 +378,6 @@ export {
   type ImportFormat,
   type InsertRowInput,
   type RowsReadInput,
-  type UpdateRowInput,
 } from "./schemas";
 
 export {

@@ -4,12 +4,10 @@ import {
   AppError,
   auditReadInputSchema,
   deleteCommentInputSchema,
-  deleteRowInputSchema,
   deleteRowsInputSchema,
   effectiveTableRole,
   type EngineCatalog,
   importCommitInputSchema,
-  importRowsInputSchema,
   insertRowInputSchema,
   insertRowsInputSchema,
   legacyFiltersToGroup,
@@ -30,7 +28,6 @@ import {
   signRowInputSchema,
   trashInputSchema,
   updateCommentInputSchema,
-  updateRowInputSchema,
   updateRowsInputSchema,
   viewFilter,
 } from "@anygriddb/core";
@@ -62,10 +59,7 @@ import {
   assertFieldsWritable,
   assertRowsInScope,
   attachSignatures,
-  attachmentVisible,
-  listCollaborators,
   listTrash,
-  parseImport,
   readAudit,
   readByIds,
   readPage,
@@ -76,17 +70,7 @@ import {
 } from "../data/rows.js";
 import { loadView } from "../data/views.js";
 import { publishCatalog } from "../realtime/channels.js";
-import {
-  attachmentInputSchema,
-  attachmentReadSchema,
-  decodeAttachment,
-} from "../storage.js";
-import {
-  cleanFilename,
-  enrichAttachments,
-  readAttachmentBase64,
-  storeAttachment,
-} from "../attachments.js";
+import { enrichAttachments } from "../attachments.js";
 import {
   commentNotifications,
   notify,
@@ -97,7 +81,6 @@ import {
   changeStatus,
   createRows,
   deleteRows,
-  importRows,
   loadRowScope,
   moveRows,
   replaceLinks,
@@ -245,16 +228,6 @@ async function withSignatures(
     }),
   );
 }
-
-async function resolveUserLookup(ctx: Context, baseId: string) {
-  const people = await listCollaborators(ctx.db, baseId);
-  return (text: string): string | undefined => {
-    const folded = text.trim().toLowerCase();
-    return people.find((person) => person.displayName.toLowerCase() === folded)
-      ?.id;
-  };
-}
-
 export const rowsRouter = t.router({
   read: procedure.input(rowsReadInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
@@ -340,18 +313,6 @@ export const rowsRouter = t.router({
       return { ids };
     }),
   ),
-  update: procedure.input(updateRowInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const scope = await writeScope(ctx, input.tableId);
-      await updateRows(
-        serviceDeps(ctx),
-        scope,
-        [{ rowId: input.rowId, values: input.values }],
-        { reason: input.reason, source: "web" },
-      );
-      return { ok: true as const };
-    }),
-  ),
   updateMany: procedure
     .input(updateRowsInputSchema)
     .mutation(({ ctx, input }) =>
@@ -364,16 +325,6 @@ export const rowsRouter = t.router({
         return { ids };
       }),
     ),
-  delete: procedure.input(deleteRowInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const scope = await writeScope(ctx, input.tableId);
-      await deleteRows(serviceDeps(ctx), scope, [input.rowId], {
-        reason: input.reason,
-        source: "web",
-      });
-      return { ok: true as const };
-    }),
-  ),
   deleteMany: procedure
     .input(deleteRowsInputSchema)
     .mutation(({ ctx, input }) =>
@@ -539,21 +490,6 @@ export const rowsRouter = t.router({
           missing: false,
         })),
       };
-    }),
-  ),
-  import: procedure.input(importRowsInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const scope = await writeScope(ctx, input.tableId);
-      const records = parseImport(
-        scope.engine,
-        input.csv,
-        await resolveUserLookup(ctx, scope.table.baseId),
-      );
-      const ids = await importRows(serviceDeps(ctx), scope, records, {
-        reason: input.reason,
-        source: "import",
-      });
-      return { inserted: ids.length };
     }),
   ),
   /**
@@ -786,36 +722,4 @@ export const rowsRouter = t.router({
         return { ok: true as const };
       }),
     ),
-});
-
-export const attachmentsRouter = t.router({
-  get: procedure.input(attachmentReadSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "read");
-      const { engine } = await engineFor(ctx, access);
-      const column = engine.table.columns.find(
-        (item) => item.name === input.column && item.fieldType === "attachment",
-      );
-      if (
-        !column ||
-        !(await attachmentVisible(ctx.db, engine, input.key, column.name))
-      ) {
-        throw new AppError("invalid_attachment");
-      }
-      return readAttachmentBase64(ctx.files, input.key);
-    }),
-  ),
-  put: procedure.input(attachmentInputSchema).mutation(({ ctx, input }) =>
-    handle(ctx, async () => {
-      const access = await guardTable(ctx, input.tableId, "write");
-      const body = decodeAttachment(input.contentBase64);
-      const stored = await storeAttachment(ctx.db, ctx.files, {
-        tableId: input.tableId,
-        userId: access.user.id,
-        filename: cleanFilename(input.filename),
-        bytes: body,
-      });
-      return { key: stored.key };
-    }),
-  ),
 });

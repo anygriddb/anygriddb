@@ -98,10 +98,14 @@ describe("a row id field", () => {
     const rowId = ids[0] ?? "";
     expect(
       await errorCode(
-        owner.call().rows.update({
+        owner.call().rows.updateMany({
           tableId,
-          rowId,
-          values: { [field]: "00000000-0000-4000-8000-000000000000" },
+          updates: [
+            {
+              rowId,
+              values: { [field]: "00000000-0000-4000-8000-000000000000" },
+            },
+          ],
         }),
       ),
     ).toBe("unknown_column");
