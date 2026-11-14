@@ -81,4 +81,26 @@ if [ -n "${SMOKE_VERSION:-}" ] && ! grep -Fq "$SMOKE_VERSION" <<<"$reported"; th
   echo "The image reports another version than $SMOKE_VERSION." >&2
   exit 1
 fi
+
+# A stack that ran PostgreSQL 17 keeps its data in `postgres_data`. This
+# one must stop in front of it and say how to move it, never start on an
+# empty database. Tried on a folder closed as PostgreSQL closes its own:
+# to its account alone.
+"${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1
+docker volume create --label "com.docker.compose.project=$project" \
+  --label com.docker.compose.volume=postgres_data "${project}_postgres_data" >/dev/null
+docker run --rm --network none --volume "${project}_postgres_data:/old" \
+  --entrypoint sh postgres:18 -c \
+  'echo 17 > /old/PG_VERSION && chown -R postgres:postgres /old && chmod 700 /old'
+if said="$("${compose[@]}" run --rm --no-deps postgres-upgrade-check 2>&1)"; then
+  echo "The stack would start on an empty database in front of PostgreSQL 17 data." >&2
+  exit 1
+fi
+if ! grep -Fq "scripts/upgrade-postgres.sh" <<<"$said"; then
+  echo "The check stopped without saying how to move the data: $said" >&2
+  exit 1
+fi
+# And the script that moves it is let through.
+ANYGRIDDB_PG_UPGRADE=1 "${compose[@]}" run --rm --no-deps postgres-upgrade-check
+
 echo "The image started, reached PostgreSQL, and answers."

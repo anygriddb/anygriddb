@@ -49,7 +49,10 @@ if [ "$version" != "17" ]; then
   echo "Volume $old holds PostgreSQL '${version:-nothing}', not 17: nothing done." >&2
   exit 1
 fi
-if docker run --rm -v "$new:/new:ro" --network none postgres:18 test -f /new/18/docker/PG_VERSION 2>/dev/null; then
+# Only a volume that exists is looked into: naming one that does not would
+# make it, outside the stack, and `docker compose` would say so ever after.
+if docker volume inspect "$new" >/dev/null 2>&1 \
+  && docker run --rm -v "$new:/new:ro" --network none postgres:18 test -f /new/18/docker/PG_VERSION 2>/dev/null; then
   echo "Volume $new already holds a PostgreSQL 18 cluster: nothing done." >&2
   echo "Drop it (docker volume rm $new) to start the move again." >&2
   exit 1
