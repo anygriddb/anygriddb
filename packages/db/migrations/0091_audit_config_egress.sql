@@ -1,8 +1,15 @@
--- Lot 1 of the audit-coverage inventory: rights and data-egress writes
--- that had no trail (public shares, invitations, webhooks, automations,
--- group membership) go through audit_catalog. Secrets stay out of the
--- payloads. API token create is a new sign-in trail action.
+-- What gives access to a base or sends its data out leaves an event on
+-- the change trail: public links, invitations, webhooks, automations, and
+-- the members of a group. No secret enters it, hashed or sealed, and no
+-- address of a person: the trail outlives an account's erasure. Making an
+-- API token is a new action of the sign-in trail.
 SELECT set_config('anygrid.migrate', 'on', true);--> statement-breakpoint
+-- An event of the catalog says which table it changed: a link, an
+-- invitation, and a webhook cannot be told apart by their fields alone.
+-- Events written before keep none. It also says where the write came
+-- from, as a row's event does: a webhook switched off by the worker is
+-- written under its maker's name, and its source tells it from their own.
+ALTER TABLE "audit_events" ADD COLUMN "catalog_table" text;--> statement-breakpoint
 ALTER TYPE "public"."auth_action" ADD VALUE IF NOT EXISTS 'token_created';--> statement-breakpoint
 CREATE OR REPLACE FUNCTION audit_catalog()
 RETURNS trigger
@@ -12,6 +19,7 @@ AS $$
 DECLARE
   actor uuid;
   reason text;
+  origin text;
   subject uuid;
   payload jsonb;
   old_payload jsonb;
@@ -36,6 +44,7 @@ BEGIN
   END IF;
 
   reason := nullif(current_setting('anygrid.reason', true), '');
+  origin := left(nullif(current_setting('anygrid.source', true), ''), 80);
 
   IF TG_OP = 'DELETE' THEN
     payload := to_jsonb(OLD);
@@ -68,10 +77,12 @@ BEGIN
     old_payload := old_payload - 'token_hash' - 'password_hash';
     new_payload := new_payload - 'token_hash' - 'password_hash';
   END IF;
-  -- Invitations: never the link token.
+  -- Invitations: never the link token, nor the address invited. The
+  -- trail names people by their account, and is kept when one is erased;
+  -- an invitation taken becomes a role, which names its account.
   IF TG_TABLE_NAME = 'invitations' THEN
-    old_payload := old_payload - 'token_hash';
-    new_payload := new_payload - 'token_hash';
+    old_payload := old_payload - 'token_hash' - 'email';
+    new_payload := new_payload - 'token_hash' - 'email';
   END IF;
   -- Webhooks: never sealed secrets or headers; target without its query.
   IF TG_TABLE_NAME = 'webhooks' THEN
@@ -120,8 +131,8 @@ BEGIN
     subject := NULL;
   END IF;
 
-  INSERT INTO audit_events (user_id, action, table_id, record_id, old_value, new_value, reason)
-  VALUES (actor, 'catalog', subject, NULL, old_payload, new_payload, reason);
+  INSERT INTO audit_events (user_id, action, table_id, record_id, old_value, new_value, reason, source, catalog_table)
+  VALUES (actor, 'catalog', subject, NULL, old_payload, new_payload, reason, origin, TG_TABLE_NAME);
 
   IF TG_OP = 'DELETE' THEN
     RETURN OLD;
@@ -149,15 +160,17 @@ CREATE TRIGGER audit_catalog_settings
   ON invitations
   FOR EACH ROW
   EXECUTE FUNCTION audit_catalog();--> statement-breakpoint
--- Webhooks: create, delete, and config; not delivery failure counters.
+-- Webhooks: create, delete, and what they send where; not the counters of
+-- failed deliveries, nor the sealed secret and headers, which a change of
+-- the encryption key rewrites without changing anything a person set (as
+-- a source's password is, migration 0047).
 CREATE TRIGGER audit_catalog
   AFTER INSERT OR DELETE ON webhooks
   FOR EACH ROW
   EXECUTE FUNCTION audit_catalog();--> statement-breakpoint
 CREATE TRIGGER audit_catalog_settings
   AFTER UPDATE OF "active", "events", "name", "filter", "watch_columns",
-    "include_values", "target", "kind", "secret_ciphertext", "secret_nonce",
-    "headers_ciphertext", "headers_nonce", "created_by", "disabled_reason"
+    "include_values", "target", "kind", "created_by", "disabled_reason"
   ON webhooks
   FOR EACH ROW
   EXECUTE FUNCTION audit_catalog();--> statement-breakpoint

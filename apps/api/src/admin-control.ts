@@ -48,6 +48,8 @@ export function auditEventsCsv(
   events: readonly {
     occurredAt: string;
     action: AuditAction;
+    /** The catalog table a `catalog` event changed, when the trail kept it. */
+    catalogTable?: string | null;
     userId: string | null;
     userName: string | null;
     baseName: string | null;
@@ -66,6 +68,7 @@ export function auditEventsCsv(
     [
       "occurredAt",
       "action",
+      "catalogTable",
       "userId",
       "userName",
       "baseName",
@@ -82,6 +85,7 @@ export function auditEventsCsv(
     ...events.map((event) => [
       event.occurredAt,
       event.action,
+      event.catalogTable ?? "",
       event.userId ?? "",
       event.userName ?? "",
       event.baseName ?? "",

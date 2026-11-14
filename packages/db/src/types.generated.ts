@@ -176,6 +176,7 @@ export interface Attachments {
 
 export interface AuditEvents {
   action: AuditAction;
+  catalogTable: string | null;
   id: Generated<string>;
   newValue: unknown;
   occurredAt: Generated<Timestamp>;

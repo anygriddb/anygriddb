@@ -1,6 +1,7 @@
 /**
- * Lot 1 of the audit-coverage inventory: rights and data-egress writes
- * leave a trail with the author and no secret material.
+ * What gives access to a base or sends its data out leaves an event on
+ * the change trail, under its author's name, which says what it changed,
+ * and holds no secret and no address of a person.
  */
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
@@ -31,7 +32,7 @@ function secretsIn(value: unknown): boolean {
   );
 }
 
-describe("audit lot 1: rights and data egress on the trail", () => {
+describe("access given and data sent out, on the change trail", () => {
   let db: Database;
   let close: (() => Promise<void>) | undefined;
   let owner = "";
@@ -42,7 +43,7 @@ describe("audit lot 1: rights and data egress on the trail", () => {
   let viewId = "";
 
   beforeAll(async () => {
-    const created = await createTestDatabase("audit_lot1");
+    const created = await createTestDatabase("audit_egress");
     db = created.db;
     close = created.close;
     const people = await db
@@ -141,10 +142,11 @@ describe("audit lot 1: rights and data egress on the trail", () => {
     }
   });
 
-  it("records an invitation create and revoke without the link token", async () => {
+  it("records an invitation made and withdrawn, without its link or the address invited", async () => {
+    const address = `guest-${suffix}@example.org`;
     const invite = await createInvitation(db, {
       baseId,
-      email: `guest-${suffix}@example.org`,
+      email: address,
       role: "editor",
       invitedBy: owner,
     });
@@ -152,28 +154,52 @@ describe("audit lot 1: rights and data egress on the trail", () => {
       .selectFrom("invitations")
       .select("id")
       .where("baseId", "=", baseId)
-      .where("email", "=", `guest-${suffix}@example.org`)
+      .where("email", "=", address)
       .executeTakeFirstOrThrow();
     await revokeInvitation(db, owner, baseId, pending.id);
     const events = await db
       .selectFrom("auditEvents")
       .select(["userId", "oldValue", "newValue"])
       .where("action", "=", "catalog")
-      .where("userId", "=", owner)
-      .orderBy("occurredAt", "desc")
-      .limit(20)
+      .where("catalogTable", "=", "invitations")
+      .orderBy("occurredAt")
       .execute();
-    const aboutInvite = events.filter((event) =>
-      JSON.stringify(event.newValue ?? event.oldValue).includes(
-        `guest-${suffix}@example.org`,
-      ),
-    );
-    expect(aboutInvite.length).toBeGreaterThanOrEqual(2);
-    for (const event of aboutInvite) {
+    // Made, then withdrawn: by the owner, on this base, as an editor.
+    expect(events.map((event) => event.userId)).toEqual([owner, owner]);
+    expect(events[0]?.oldValue).toBeNull();
+    expect(events[0]?.newValue).toMatchObject({
+      base_id: baseId,
+      role: "editor",
+    });
+    expect(events[1]?.newValue).toBeNull();
+    for (const event of events) {
+      const text = JSON.stringify(event);
       expect(secretsIn(event.oldValue)).toBe(false);
       expect(secretsIn(event.newValue)).toBe(false);
-      expect(JSON.stringify(event)).not.toContain(invite.token);
+      expect(text).not.toContain(invite.token);
+      // The trail outlives an account's erasure: it names no address.
+      expect(text).not.toContain(address);
+      expect(text).not.toContain('"email"');
     }
+  });
+
+  it("says which table each event changed, and where the write came from", async () => {
+    const tables = await db
+      .selectFrom("auditEvents")
+      .select(["catalogTable", "source"])
+      .distinct()
+      .where("action", "=", "catalog")
+      .where("userId", "=", owner)
+      .execute();
+    expect(tables.map((row) => row.catalogTable)).toEqual(
+      expect.arrayContaining(["shares", "invitations", "data_tables"]),
+    );
+    expect(tables.some((row) => row.catalogTable === null)).toBe(false);
+    expect(
+      tables
+        .filter((row) => row.catalogTable === "shares")
+        .map((row) => row.source),
+    ).toEqual(["web"]);
   });
 
   it("records webhook and automation changes without sealed secrets", async () => {

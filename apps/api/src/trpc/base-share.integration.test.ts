@@ -193,15 +193,18 @@ describe("a base shared by one link", () => {
 
   it("stops when revoked, expired, off, its creator gone, or its base trashed", async () => {
     const revoked = await createBaseShare(db, { baseId, createdBy: owner });
-    await revokeShare(db, revoked.id);
+    await revokeShare(db, owner, revoked.id);
     expect(await errorCode(open(revoked.token))).toBe("unknown_share");
 
     const expired = await createBaseShare(db, { baseId, createdBy: owner });
-    await db
-      .updateTable("shares")
-      .set({ expiresAt: new Date(Date.now() - 1000) })
-      .where("id", "=", expired.id)
-      .execute();
+    // A link's expiry is on the change trail: the write names its author.
+    await withAudit(db, { userId: owner }, (tx) =>
+      tx
+        .updateTable("shares")
+        .set({ expiresAt: new Date(Date.now() - 1000) })
+        .where("id", "=", expired.id)
+        .execute(),
+    );
     expect(await errorCode(open(expired.token))).toBe("unknown_share");
 
     // A table of another base is not this link's to read.

@@ -945,6 +945,7 @@ export async function instanceAudit(
       "e.recordId",
       "e.reason",
       "e.source",
+      "e.catalogTable",
       "e.oldValue",
       "e.newValue",
       "e.userId",
