@@ -319,7 +319,6 @@ export {
   deleteViewInputSchema,
   deleteWebhookInputSchema,
   descriptionSchema,
-  dropColumnInputSchema,
   duplicateColumnInputSchema,
   duplicateTableInputSchema,
   duplicateViewInputSchema,

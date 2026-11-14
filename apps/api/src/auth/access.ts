@@ -5,7 +5,6 @@ import {
   can,
   enrollmentGate,
   roleFor,
-  type Scope,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { readGateSettings } from "../settings.js";
@@ -62,27 +61,6 @@ export async function factorMethods(
     methods.push("webauthn");
   }
   return methods;
-}
-
-export function assertOwner(
-  bindings: readonly Binding[],
-  scope: Scope,
-  scopeId: string,
-): void {
-  if (roleFor(bindings, scope, scopeId) !== "owner") {
-    throw new AppError("access_denied");
-  }
-}
-
-export function assertCan(
-  bindings: readonly Binding[],
-  action: Action,
-  scope: Scope,
-  scopeId: string,
-): void {
-  if (!can(bindings, action, scope, scopeId)) {
-    throw new AppError("access_denied");
-  }
 }
 
 /**

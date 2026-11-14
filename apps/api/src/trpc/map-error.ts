@@ -27,11 +27,6 @@ const REFUSALS = new Set<ErrorCode>([
   "row_locked",
 ]);
 
-/** The message of an error meant for people, or undefined for an internal one. */
-export function publicErrorMessage(error: unknown): string | undefined {
-  return error instanceof AppError ? error.message : undefined;
-}
-
 /** A public error as tRPC sends it; the error itself rides along as cause. */
 export function toTRPCError(error: AppError): TRPCError {
   return new TRPCError({

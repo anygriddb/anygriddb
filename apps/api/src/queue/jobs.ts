@@ -133,8 +133,6 @@ export const rowEventsPayloadSchema = z.union([
   z.object({ event: rowEventSchema }),
 ]);
 
-export type RowEventsPayload = z.infer<typeof rowEventsPayloadSchema>;
-
 /**
  * Queues the row events of the current transaction. Call it inside the
  * write's transaction, after the writes; the task reads them once the

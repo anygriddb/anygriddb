@@ -58,14 +58,6 @@ export async function loadView(db: Database, viewId: string): Promise<ViewRow> {
   return view;
 }
 
-/** Kept for callers that only need the table of a view. */
-export async function viewTableId(
-  db: Database,
-  viewId: string,
-): Promise<string> {
-  return (await loadView(db, viewId)).tableId;
-}
-
 /** Collaborative views plus the caller's personal ones, in tab order. */
 export async function listViews(db: Database, tableId: string, userId: string) {
   const rows = await db

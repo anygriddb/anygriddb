@@ -349,14 +349,6 @@ export function exportWriter(
 const exportParams = z.object({ tableId: z.uuid() });
 const jobFileParams = z.object({ jobId: z.uuid() });
 
-/** What an export job records about its file. */
-export const exportResultSchema = z.object({
-  rows: z.int().min(0),
-  format: z.enum(EXPORT_FORMATS),
-  filename: z.string().min(1).max(255),
-  size: z.int().min(0),
-});
-
 /** Table export or base snapshot file metadata on a finished job. */
 const jobFileResultSchema = z.object({
   rows: z.int().min(0).nullable().optional(),
