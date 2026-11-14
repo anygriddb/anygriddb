@@ -1,0 +1,14 @@
+# Publish HTTPS on the loopback only, for a reverse proxy on the same host.
+# Pair with compose.yml (and compose.release.yml / compose.s3.yml as needed):
+#
+#   docker compose -f compose.yml -f compose.proxy.yml up -d
+#
+# Set ANYGRIDDB_TRUSTED_PROXIES to the proxy's address or Docker network
+# (docs/operations.md). The proxy must forward to HTTPS (ADR 0029): either
+# https://127.0.0.1:3000 on the host, or https://app:4000 on the stack
+# network, trusting the instance's authority or the operator's certificate.
+
+services:
+  app:
+    ports: !override
+      - "127.0.0.1:3000:4000"
