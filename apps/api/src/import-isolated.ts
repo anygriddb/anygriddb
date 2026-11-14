@@ -1,6 +1,11 @@
 import { Worker } from "node:worker_threads";
 import { AppError, type ImportFormat } from "@anygriddb/core";
-import type { ImportPreview, SheetRow, SheetShape } from "./import-file.js";
+import type {
+  ImportPreview,
+  SheetRow,
+  SheetShape,
+  WorkbookSheet,
+} from "./import-file.js";
 import { assertZipFileWithinLimits } from "./zip-limits.js";
 
 /**
@@ -25,6 +30,7 @@ type ParseLimits = { heapMb: number; timeMs: number };
 /** What the worker is asked to do. */
 export type WorkerTask =
   | { mode: "scan"; format: ImportFormat; path: string; maxRows: number }
+  | { mode: "workbook"; path: string; maxRows: number }
   | {
       mode: "read";
       shape: SheetShape;
@@ -36,6 +42,7 @@ export type WorkerTask =
 /** What it answers. Only the refusals a person can act on cross over. */
 export type WorkerReply =
   | { kind: "scan"; shape: SheetShape; preview: ImportPreview }
+  | { kind: "workbook"; sheets: WorkbookSheet[] }
   | { kind: "batch"; rows: SheetRow[] }
   | { kind: "done" }
   | { kind: "error"; code: "invalid_import" | "import_too_large" };
@@ -156,6 +163,33 @@ export async function scanImportFileIsolated(
     const reply = await worker.next(limits.timeMs);
     if (reply.kind !== "scan") refused(reply);
     return { shape: reply.shape, preview: reply.preview };
+  } finally {
+    await worker.stop();
+  }
+}
+
+/**
+ * The first pass over an uploaded workbook, in a worker thread: each of
+ * its worksheets that holds a header (ADR 0078). Its zip directory is
+ * checked first, before anything is inflated.
+ */
+export async function scanWorkbookIsolated(
+  path: string,
+  maxRows: number,
+  limits: ParseLimits = {
+    heapMb: PARSE_LIMITS.heapMb,
+    timeMs: PARSE_LIMITS.scanMs,
+  },
+): Promise<WorkbookSheet[]> {
+  await assertZipFileWithinLimits(path, PARSE_LIMITS.zip);
+  const worker = new ParseWorker(
+    { mode: "workbook", path, maxRows },
+    limits.heapMb,
+  );
+  try {
+    const reply = await worker.next(limits.timeMs);
+    if (reply.kind !== "workbook") refused(reply);
+    return reply.sheets;
   } finally {
     await worker.stop();
   }

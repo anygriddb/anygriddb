@@ -101,6 +101,7 @@ export type JobKind =
   | "import"
   | "import_airtable"
   | "import_snapshot"
+  | "import_workbook"
   | "restore_base"
   | "restore_point"
   | "trash_purge";

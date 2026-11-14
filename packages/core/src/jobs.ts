@@ -16,6 +16,7 @@ import {
   restorePointJobInputSchema,
 } from "./restore-points";
 import { trashPurgeJobInputSchema } from "./trash";
+import { importWorkbookJobInputSchema } from "./workbook";
 
 /**
  * Background jobs: long imports, exports, and copies run in a worker
@@ -32,6 +33,7 @@ export const JOB_KINDS = [
   "duplicate_base",
   "restore_point",
   "restore_base",
+  "import_workbook",
 ] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
@@ -169,6 +171,7 @@ export const jobInputSchemas = {
   duplicate_base: duplicateBaseJobInputSchema,
   restore_point: restorePointJobInputSchema,
   restore_base: restoreBaseJobInputSchema,
+  import_workbook: importWorkbookJobInputSchema,
 } as const satisfies Record<JobKind, z.ZodType>;
 
 export const jobIdInputSchema = z.object({ jobId: z.uuid() }).strict();

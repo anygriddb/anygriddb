@@ -113,7 +113,7 @@ export {
   parseFormula,
 } from "./formula";
 
-export { inferFieldType, type InferredField } from "./import-infer";
+export { FieldGuess, inferFieldType, type InferredField } from "./import-infer";
 
 export {
   ADMIN_LOCK_MINUTES,
@@ -554,9 +554,13 @@ export {
   restoreBaseJobInputSchema,
   restorePointIdInputSchema,
   restorePointJobInputSchema,
-  restorePointNoteSchema,
   type RestorePoint,
 } from "./restore-points";
+export {
+  importWorkbookInputSchema,
+  importWorkbookJobInputSchema,
+  MAX_WORKBOOK_SHEETS,
+} from "./workbook";
 export {
   decimalSeries,
   decimalToNumber,

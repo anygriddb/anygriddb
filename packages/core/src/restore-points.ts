@@ -12,7 +12,7 @@ import { labelSchema } from "./names";
 export const MAX_RESTORE_POINTS = 20;
 
 /** What the person who made it says about a restore point. */
-export const restorePointNoteSchema = z.string().trim().min(1).max(200);
+const restorePointNoteSchema = z.string().trim().min(1).max(200);
 
 export const restorePointJobInputSchema = z
   .object({ baseId: z.uuid(), note: restorePointNoteSchema.optional() })

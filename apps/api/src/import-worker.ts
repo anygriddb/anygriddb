@@ -6,7 +6,7 @@
  */
 import { parentPort, workerData } from "node:worker_threads";
 import { AppError } from "@anygriddb/core";
-import { readImportFile, scanImportFile } from "./import-file.js";
+import { readImportFile, scanImportFile, scanWorkbook } from "./import-file.js";
 import type { WorkerReply, WorkerTask } from "./import-isolated.js";
 
 const port = parentPort;
@@ -35,6 +35,13 @@ function asked(): Promise<void> {
 }
 
 async function run(): Promise<void> {
+  if (task.mode === "workbook") {
+    post({
+      kind: "workbook",
+      sheets: await scanWorkbook(task.path, task.maxRows),
+    });
+    return;
+  }
   if (task.mode === "scan") {
     const { shape, preview } = await scanImportFile(
       task.format,

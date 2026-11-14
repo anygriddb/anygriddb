@@ -8,8 +8,11 @@ import {
   excelText,
   IMPORT_LIMITS,
   maxImportBytes,
+  readImportFile,
+  scanWorkbook,
+  type SheetRow,
 } from "./import-file.js";
-import { cellsOf, readImport } from "./import-file.test-helpers.js";
+import { cellsOf, onDisk, readImport } from "./import-file.test-helpers.js";
 
 async function workbookBytes(rows: unknown[][]): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
@@ -204,6 +207,88 @@ describe("reading an import file", () => {
   it("takes larger text files than spreadsheets or JSON", () => {
     expect(maxImportBytes("csv")).toBeGreaterThan(maxImportBytes("xlsx"));
     expect(maxImportBytes("xlsx")).toBeGreaterThan(maxImportBytes("json"));
+  });
+});
+
+describe("a workbook made a base", () => {
+  async function bookBytes(
+    sheets: ReadonlyArray<{ name: string; rows: unknown[][]; hidden?: true }>,
+  ): Promise<Buffer> {
+    const workbook = new ExcelJS.Workbook();
+    for (const sheet of sheets) {
+      const added = workbook.addWorksheet(
+        sheet.name,
+        sheet.hidden ? { state: "hidden" } : {},
+      );
+      for (const row of sheet.rows) added.addRow(row);
+    }
+    return Buffer.from(await workbook.xlsx.writeBuffer());
+  }
+
+  it("finds each sheet that holds a header, and the types all its rows fit", async () => {
+    const clients: unknown[][] = Array.from({ length: 300 }, (_, index) => [
+      `Client ${index}`,
+      index,
+      index % 2 === 0 ? "Open" : "Done",
+    ]);
+    // Past the rows a sample keeps: the amounts are not all numbers.
+    clients.push(["Last", "not a number", "Open"]);
+    const bytes = await bookBytes([
+      { name: "Clients", rows: [["Name", "Amount", "Status"], ...clients] },
+      { name: "Empty", rows: [] },
+      {
+        name: "Notes",
+        rows: [
+          ["Text", "Twice"],
+          ["ab", { formula: "A2&A2", result: "abab" }],
+        ],
+        hidden: true,
+      },
+    ]);
+    await onDisk(bytes, async (path) => {
+      const sheets = await scanWorkbook(path, 1_000_000);
+      expect(
+        sheets.map((sheet) => [
+          sheet.sheet,
+          sheet.name,
+          sheet.hidden,
+          sheet.shape.total,
+          sheet.formulas,
+        ]),
+      ).toEqual([
+        [0, "Clients", false, 301, 0],
+        [2, "Notes", true, 1, 1],
+      ]);
+      expect(
+        sheets[0]?.preview.inferred.map((field) => field.fieldType),
+      ).toEqual(["text", "text", "single_select"]);
+      // The second pass reads a sheet by its place in the file.
+      const notes = sheets[1];
+      if (!notes) throw new Error("no sheet");
+      const rows: SheetRow[] = [];
+      for await (const batch of readImportFile(notes.shape, path, 10, 10)) {
+        rows.push(...batch);
+      }
+      expect(rows).toEqual([{ line: 2, cells: ["ab", "abab"] }]);
+    });
+  });
+
+  it("refuses a workbook past its rows, one without a header, and other bytes", async () => {
+    const bytes = await bookBytes([
+      { name: "One", rows: [["A"], ["1"], ["2"]] },
+      { name: "Two", rows: [["B"], ["3"]] },
+    ]);
+    // Three rows in all, past two.
+    await expect(
+      onDisk(bytes, (path) => scanWorkbook(path, 2)),
+    ).rejects.toThrow("Too many rows to import");
+    const empty = await bookBytes([{ name: "Blank", rows: [] }]);
+    await expect(
+      onDisk(empty, (path) => scanWorkbook(path, 10)),
+    ).rejects.toThrow("Invalid import");
+    await expect(
+      onDisk("not a workbook", (path) => scanWorkbook(path, 10)),
+    ).rejects.toThrow("Invalid import");
   });
 });
 

@@ -17,6 +17,7 @@ import {
   type JobKind,
   MAX_SNAPSHOT_TABLES,
   resolveAttachmentMaxBytes,
+  importWorkbookJobInputSchema,
   restoreBaseJobInputSchema,
   restorePointJobInputSchema,
   roleAllows,
@@ -61,6 +62,7 @@ import {
   restoreFromPoint,
 } from "./data/restore-points.js";
 import { removeBase, removeTable } from "./data/tables.js";
+import { dropStagedWorkbook, importWorkbook } from "./data/workbook-import.js";
 import {
   baseTrashItems,
   dueTrashItems,
@@ -590,6 +592,53 @@ const runImportSnapshot =
   };
 
 /**
+ * A workbook as a new base (ADR 0078): a table for each chosen sheet,
+ * its rows written as they are read. A failure, or a cancel, removes the
+ * base begun; the staged file goes however the job ends.
+ */
+const runImportWorkbook =
+  (deps: RunnerDeps): JobRunner =>
+  async ({ job, progress }) => {
+    const input = importWorkbookJobInputSchema.parse(job.input);
+    const { userId } = await activeAuthor(deps.db, job);
+    let baseId: string | undefined;
+    try {
+      const made = await importWorkbook(
+        {
+          db: deps.db,
+          files: deps.files,
+          maxRows: deps.importMaxRows ?? DEFAULT_IMPORT_MAX_ROWS,
+          names: await madeNamesFor(deps.db),
+        },
+        {
+          userId,
+          importId: input.importId,
+          name: input.name,
+          sheets: input.sheets,
+          eventKey: `job:${job.id}`,
+          onCreated: (id) => {
+            baseId = id;
+          },
+          onProgress: progress,
+        },
+      );
+      await catalogChanged(deps, made.baseId);
+      return { result: { baseId: made.baseId, report: made.report } };
+    } catch (error) {
+      if (baseId) {
+        await removeBase(deps.db, deps.files, userId, baseId, (cause) =>
+          deps.log(cause, "workbook cleanup failed"),
+        ).catch((cause: unknown) =>
+          deps.log(cause, "partial workbook cleanup failed"),
+        );
+      }
+      throw error;
+    } finally {
+      await dropStagedWorkbook(deps.db, deps.files, input.importId);
+    }
+  };
+
+/**
  * An Airtable base as a new base: read through Airtable's Web API with
  * the token its author gave, converted to a snapshot, built by the
  * snapshot import. The report names what did not come over as it was.
@@ -785,5 +834,6 @@ export function jobRunners(deps: RunnerDeps): Record<JobKind, JobRunner> {
     duplicate_base: runDuplicateBase(deps),
     restore_point: runRestorePoint(deps),
     restore_base: runRestoreBase(deps),
+    import_workbook: runImportWorkbook(deps),
   };
 }
