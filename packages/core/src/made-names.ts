@@ -27,6 +27,8 @@ export type MadeNames = {
   view: string;
   /** The reason written on the rows an automation changes. */
   automation: (name: string) => string;
+  /** An account whose provider sent no name it could keep. */
+  account: string;
 };
 
 const NAMES: Record<NameLocale, MadeNames> = {
@@ -40,6 +42,7 @@ const NAMES: Record<NameLocale, MadeNames> = {
     name: "Name",
     view: "View",
     automation: (name) => `Automation “${name}”`,
+    account: "Account",
   },
   fr: {
     locale: "fr",
@@ -51,6 +54,7 @@ const NAMES: Record<NameLocale, MadeNames> = {
     name: "Nom",
     view: "Vue",
     automation: (name) => `Automatisation «\u00a0${name}\u00a0»`,
+    account: "Compte",
   },
 };
 

@@ -1,6 +1,7 @@
-import { AppError, labelSchema } from "@anygriddb/core";
+import { AppError, labelSchema, madeNames } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { signupDecision } from "../admin.js";
+import { readGateSettings } from "../settings.js";
 
 /**
  * Who a sign-on provider says signed in: the provider, its issuer, and the
@@ -79,9 +80,11 @@ export async function userForIdentity(
       if (!decision.allowed) {
         throw new AppError(decision.refusal ?? "signup_closed");
       }
+      // A provider that sends no name the instance can keep: the word
+      // for it, in the instance's language, which the person may change.
       const displayName = labelSchema.safeParse(name).success
         ? name.trim()
-        : "Utilisateur";
+        : madeNames((await readGateSettings(db)).defaultLocale).account;
       const inserted = await tx
         .insertInto("users")
         .values({ email: normalized, displayName, isAdmin: decision.isAdmin })

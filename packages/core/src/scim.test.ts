@@ -130,7 +130,8 @@ describe("parseScimUser", () => {
   it("makes a display name AnyGridDB accepts", () => {
     expect(scimDisplayName("José O’Neil", "j@x.y")).toBe("José O Neil");
     expect(scimDisplayName("  ", "jean.dupont@x.y")).toBe("jean.dupont");
-    expect(scimDisplayName("***", "***@x.y")).toBe("Utilisateur");
+    expect(scimDisplayName("***", "***@x.y")).toBe("Account");
+    expect(scimDisplayName("***", "***@x.y", "Compte")).toBe("Compte");
   });
 });
 
