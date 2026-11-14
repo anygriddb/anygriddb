@@ -218,6 +218,41 @@ function publicUrl(source: NodeJS.ProcessEnv, port: number): string {
 }
 
 /**
+ * A user or a password written with a `/`, a `?` or a `#` as it is typed
+ * cuts the address short: the driver then reads another host, or says
+ * "Invalid URL" and nothing else. Refused here instead, at start, with
+ * what to change and not a word of the address itself. The stack's own
+ * address is made of POSTGRES_USER and POSTGRES_PASSWORD as `.env` has
+ * them, and a password generated in base64 holds a `/` every other time.
+ */
+function assertReadableDatabaseUrl(raw: string, name: string): void {
+  const refuse = (): never => {
+    throw new Error(
+      `${name} cannot be read as an address: a "/", "?" or "#" in its user or password must be percent-encoded (%2F, %3F, %23). With the Compose stack, choose a POSTGRES_PASSWORD without them`,
+    );
+  };
+  // No address has a fragment: a `#` is one that was meant as text.
+  if (raw.includes("#")) refuse();
+  const rest = raw.replace(/^[a-z]+:\/\//i, "");
+  const end = rest.search(/[/?]/);
+  const after = end === -1 ? "" : rest.slice(end);
+  // `…:pass/word@host:5432/db`: the path would hold the host.
+  const path = after.startsWith("/") ? (after.split("?")[0] ?? "") : "";
+  if (/@[^/]*\//.test(path)) refuse();
+  // `…:pass?word@host/db?sslmode=…`: the first setting's name would.
+  const query = after.includes("?") ? after.slice(after.indexOf("?") + 1) : "";
+  if ((query.split("=")[0] ?? "").includes("@")) refuse();
+  // What is left, read as the driver reads it: an empty host, for a
+  // socket named in `?host=`, is tried with a made-up one.
+  if (
+    !URL.canParse(raw, "postgres://base") &&
+    !URL.canParse(raw.replace("@/", "@host/"), "postgres://base")
+  ) {
+    refuse();
+  }
+}
+
+/**
  * A PostgreSQL URL beyond this machine must verify TLS (ADR 0030):
  * `sslmode=verify-full`, or a mode node-postgres verifies the same way.
  * A Unix socket or the loopback stays on the machine.
@@ -225,10 +260,10 @@ function publicUrl(source: NodeJS.ProcessEnv, port: number): string {
 function assertEncryptedDatabase(raw: string, name: string): void {
   // `postgres://user@host:port/db?…`; the host may be empty, for a socket
   // named in `?host=`. Read by hand: an empty host is not a WHATWG URL.
+  // The host follows the last `@`, as the driver reads it: an earlier one
+  // is the password's, and what follows it must not be taken for a host.
   const match =
-    /^(postgres(?:ql)?|socket):\/\/(?:[^@/?]*@)?(\[[^\]]*\]|[^/:?]*)/i.exec(
-      raw,
-    );
+    /^(postgres(?:ql)?|socket):\/\/(?:[^/?]*@)?(\[[^\]]*\]|[^/:?]*)/i.exec(raw);
   if (!match) throw new Error(`${name} must be a postgres:// URL`);
   if (match[1]?.toLowerCase() === "socket") return;
   const params = new URLSearchParams(raw.split("?").slice(1).join("?"));
@@ -398,6 +433,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
   }
 
   const databaseUrl = requiredSecret(source, "DATABASE_URL");
+  assertReadableDatabaseUrl(databaseUrl, "DATABASE_URL");
   assertEncryptedDatabase(databaseUrl, "DATABASE_URL");
   if (source.SAML_ENTRY_POINT) {
     assertEncryptedUrl(source.SAML_ENTRY_POINT, "SAML_ENTRY_POINT");
