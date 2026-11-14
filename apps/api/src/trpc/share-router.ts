@@ -12,8 +12,13 @@ import {
   visibleFormFields,
 } from "@anygriddb/core";
 import { z } from "zod";
-import { openShare as openLink } from "../data/open-share.js";
-import { readPage, safeTimeZone, writeColumns } from "../data/rows.js";
+import { openBaseShare, openShare as openLink } from "../data/open-share.js";
+import {
+  readPage,
+  type RowRecord,
+  safeTimeZone,
+  writeColumns,
+} from "../data/rows.js";
 import { createRows } from "../services/rows.js";
 import { publicColumns } from "./catalog-shared.js";
 import type { Context } from "./context.js";
@@ -48,6 +53,44 @@ function publicConfig(config: ViewConfig): Partial<ViewConfig> {
   );
 }
 
+/**
+ * A page of rows as a link shows them: the fields it shows, the row's id
+ * and number, and their formula errors. Public links have no file route:
+ * an attachment's keys stay behind.
+ */
+function publicRows(
+  rows: readonly RowRecord[],
+  fields: readonly string[],
+  columns: ReadonlyArray<{ name: string; fieldType: string }>,
+) {
+  const attachmentFields = new Set(
+    columns
+      .filter((column) => column.fieldType === "attachment")
+      .map((column) => column.name),
+  );
+  return rows.map((row) =>
+    Object.fromEntries(
+      Object.entries(row).flatMap(([key, value]) => {
+        if (key === "id" || key === "ag_seq" || fields.includes(key)) {
+          if (attachmentFields.has(key)) return [[key, []]];
+          return [[key, value]];
+        }
+        // Formula errors (ADR 0036), of the fields shown only.
+        if (key === ROW_ERRORS && value && typeof value === "object")
+          return [
+            [
+              key,
+              Object.fromEntries(
+                Object.entries(value).filter(([name]) => fields.includes(name)),
+              ),
+            ],
+          ];
+        return [];
+      }),
+    ),
+  );
+}
+
 function openShare(
   ctx: Context,
   input: { token: string; password?: string; access?: string },
@@ -61,6 +104,95 @@ function openShare(
 }
 
 export const shareRouter = t.router({
+  /**
+   * A link to a whole base (ROADMAP row 93): its name, and each of its
+   * tables the link's creator reads, with the fields they see. Locked
+   * until the password, when it has one.
+   */
+  openBase: procedure
+    .input(
+      z.object({
+        token: tokenSchema,
+        password: z.string().max(200).optional(),
+        access: accessSchema,
+      }),
+    )
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const opened = await openBaseShare(
+          { db: ctx.db, encryptionKey: ctx.env.AUTH_ENCRYPTION_KEY },
+          input,
+        );
+        if (opened.locked) {
+          return {
+            locked: true as const,
+            access: null,
+            base: null,
+            tables: [],
+          };
+        }
+        const tables = [];
+        for (const table of opened.tables) {
+          const { engine, rows, fields } = await opened.read(table.id);
+          tables.push({
+            id: table.id,
+            name: table.name,
+            columns: publicColumns(engine, rows)
+              .filter((column) => fields.includes(column.name))
+              .map((column) => ({
+                ...column,
+                formulaSource: null,
+                formula: null,
+              })),
+          });
+        }
+        return {
+          locked: false as const,
+          access: opened.access,
+          base: { name: opened.base.name },
+          tables,
+        };
+      }),
+    ),
+  /** A page of one table's rows through a base's link, read-only. */
+  baseRows: procedure
+    .input(
+      z.object({
+        token: tokenSchema,
+        access: accessSchema,
+        tableId: z.uuid(),
+        offset: z.int().min(0).max(1_000_000).default(0),
+        limit: z.int().min(1).max(1000).default(100),
+        search: z.string().trim().min(1).max(200).optional(),
+        timeZone: z.string().max(64).optional(),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const opened = await openBaseShare(
+          { db: ctx.db, encryptionKey: ctx.env.AUTH_ENCRYPTION_KEY },
+          input,
+        );
+        if (opened.locked) throw new AppError("unknown_share");
+        const { engine, fields } = await opened.read(input.tableId);
+        const page = await readPage(
+          ctx.db,
+          engine,
+          {
+            search: input.search,
+            fields,
+            offset: input.offset,
+            limit: input.limit,
+            timeZone: safeTimeZone(input.timeZone),
+          },
+          { total: true },
+        );
+        return {
+          rows: publicRows(page.rows, fields, engine.table.columns),
+          total: page.total ?? 0,
+        };
+      }),
+    ),
   open: procedure
     .input(
       z.object({
@@ -135,40 +267,14 @@ export const shareRouter = t.router({
           },
           { total: true },
         );
-        // Public shares have no file route: do not leak raw attachment keys.
-        const attachmentFields = new Set(
-          opened.engine.table.columns
-            .filter((column) => column.fieldType === "attachment")
-            .map((column) => column.name),
-        );
-        const rows = page.rows.map((row) =>
-          Object.fromEntries(
-            Object.entries(row).flatMap(([key, value]) => {
-              if (
-                key === "id" ||
-                key === "ag_seq" ||
-                opened.fields.includes(key)
-              ) {
-                if (attachmentFields.has(key)) return [[key, []]];
-                return [[key, value]];
-              }
-              // Formula errors (ADR 0036), of the fields shown only.
-              if (key === ROW_ERRORS && value && typeof value === "object")
-                return [
-                  [
-                    key,
-                    Object.fromEntries(
-                      Object.entries(value).filter(([name]) =>
-                        opened.fields.includes(name),
-                      ),
-                    ),
-                  ],
-                ];
-              return [];
-            }),
+        return {
+          rows: publicRows(
+            page.rows,
+            opened.fields,
+            opened.engine.table.columns,
           ),
-        );
-        return { rows, total: page.total ?? 0 };
+          total: page.total ?? 0,
+        };
       }),
     ),
   submit: procedure

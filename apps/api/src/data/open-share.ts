@@ -9,14 +9,16 @@ import {
   effectiveTableRole,
   normalizeViewConfig,
   roleAllows,
+  roleFor,
   type ViewConfig,
   withRequiredFormFields,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { loadBindings } from "../auth/access.js";
 import { readerEngine } from "./acl.js";
+import { liveTable } from "./live.js";
 import { writeColumns } from "./rows.js";
-import { resolveShare } from "./sharing.js";
+import { resolveBaseShare, resolveShare } from "./sharing.js";
 
 function visibleFields(
   config: ViewConfig,
@@ -109,4 +111,53 @@ export function acceptsFormFile(opened: OpenedShare, field: string): boolean {
     column?.fieldType === "attachment" &&
     !opened.engine.access?.readOnly(opened.engine.table.id, field)
   );
+}
+
+/**
+ * A link to a whole base, opened as its creator (ROADMAP row 93): it
+ * stops when they no longer read the base. `tables` are the base's own
+ * tables they may read, in the sidebar's order; `read` gives one of them
+ * as they read it, under their field and row rules, and the fields they
+ * see of it.
+ */
+export async function openBaseShare(
+  deps: { db: Database; encryptionKey: KeyRing },
+  input: { token: string; password?: string; access?: string },
+) {
+  const resolved = await resolveBaseShare(deps.db, deps.encryptionKey, input);
+  const reader = {
+    userId: resolved.share.createdBy,
+    bindings: await loadBindings(deps.db, resolved.share.createdBy),
+  };
+  if (!roleAllows(roleFor(reader.bindings, "base", resolved.base.id), "read")) {
+    throw new AppError("unknown_share");
+  }
+  const tables = (
+    await deps.db
+      .selectFrom("dataTables")
+      .select(["id", "name", "baseId"])
+      .where("baseId", "=", resolved.base.id)
+      .where("storage", "=", "native")
+      .where(liveTable())
+      .orderBy("position", "asc")
+      .orderBy("createdAt", "asc")
+      .execute()
+  ).filter((table) =>
+    roleAllows(
+      effectiveTableRole(reader.bindings, table.id, table.baseId),
+      "read",
+    ),
+  );
+  const read = async (tableId: string) => {
+    if (!tables.some((table) => table.id === tableId)) {
+      throw new AppError("unknown_share");
+    }
+    const loaded = await readerEngine(deps.db, tableId, reader);
+    const engine = loaded.engine;
+    const fields = engine.table.columns
+      .filter((column) => !engine.access?.hidden(tableId, column.name))
+      .map((column) => column.name);
+    return { engine, rows: loaded.rows, fields };
+  };
+  return { ...resolved, tables, read };
 }

@@ -79,6 +79,54 @@ test("an owner invites an address, and its account accepts from its home page", 
   expect(blocked).toEqual([]);
 });
 
+// A whole base read-only by one link (ROADMAP row 93): made from the
+// base's settings, opened with no account, each table read; revoked, it
+// opens no more.
+test("an owner shares a whole base read-only, and anyone with the link reads it", async ({
+  page,
+  browser,
+}) => {
+  const blocked = watchPolicy(page);
+  await signUpWithTable(page, "Bea Baseshare");
+  await page.getByRole("button", { name: "Add a row", exact: true }).click();
+  await page.locator('[role="gridcell"][data-column="name"]').first().click();
+  const saved = page.waitForResponse(
+    (response) => response.url().includes("rows.updateMany") && response.ok(),
+  );
+  await page.keyboard.type("Beatrix");
+  await page.keyboard.press("Enter");
+  await saved;
+
+  const base = /\/b\/[^/]+/.exec(page.url())?.[0] ?? "";
+  await page.goto(`${base}/settings`);
+  await page.getByRole("button", { name: "Make a read-only link" }).click();
+  const shown = page.locator("code").filter({ hasText: "/s/b/" });
+  await expect(shown).toBeVisible();
+  const link = (await shown.textContent()) ?? "";
+  expect(await accessibilityViolations(page)).toEqual([]);
+
+  const someone = await browser.newContext(from("198.51.100.64"));
+  const reader = await someone.newPage();
+  await reader.goto(link);
+  await expect(reader.getByRole("heading", { name: "Lab" })).toBeVisible();
+  await expect(
+    reader
+      .getByRole("navigation", { name: "Tables" })
+      .getByRole("button", { name: "Samples" }),
+  ).toBeVisible();
+  await expect(reader.getByRole("cell", { name: "Beatrix" })).toBeVisible();
+  expect(await accessibilityViolations(reader)).toEqual([]);
+
+  await page.getByRole("button", { name: "Revoke" }).click();
+  await expect(page.getByRole("button", { name: "Revoke" })).toHaveCount(0);
+  await reader.reload();
+  await expect(
+    reader.getByText("This link does not exist, has expired, or was revoked."),
+  ).toBeVisible();
+  await someone.close();
+  expect(blocked).toEqual([]);
+});
+
 // A public form takes files: each is sent as it is chosen, by someone with
 // no account, and the row the answer writes holds it.
 test("a public form takes a file, and the row it writes holds it", async ({

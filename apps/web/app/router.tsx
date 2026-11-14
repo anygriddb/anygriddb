@@ -184,6 +184,11 @@ const PublicView = page(() =>
     (module) => module.PublicView,
   ),
 );
+const PublicBase = page(() =>
+  import("../components/public/public-base").then(
+    (module) => module.PublicBase,
+  ),
+);
 
 function Pending() {
   return (
@@ -260,6 +265,15 @@ const shareRoute = createRoute({
   component: function Share() {
     const { token } = shareRoute.useParams();
     return <PublicView key={token} token={token} />;
+  },
+});
+
+const baseShareRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/s/b/$token",
+  component: function BaseShare() {
+    const { token } = baseShareRoute.useParams();
+    return <PublicBase key={token} token={token} />;
   },
 });
 
@@ -511,6 +525,7 @@ const routeTree = rootRoute.addChildren([
   confirmSignupRoute,
   resetRoute,
   shareRoute,
+  baseShareRoute,
   appRoute.addChildren([
     homeRoute,
     adminRoute.addChildren(adminRoutes),

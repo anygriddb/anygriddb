@@ -479,17 +479,16 @@ export async function listShares(db: Database, viewId: string) {
 export async function revokeShare(
   db: Database,
   shareId: string,
-): Promise<{ viewId: string }> {
+): Promise<void> {
   const row = await db
     .updateTable("shares")
     .set({ revokedAt: new Date() })
     .where("id", "=", shareId)
-    .returning("viewId")
+    .returning("id")
     .executeTakeFirst();
   if (!row) {
     throw new AppError("no_row");
   }
-  return row;
 }
 
 /**
@@ -513,19 +512,85 @@ export async function shareEmbedOriginsForToken(
   return storedEmbedOrigins(row.embedOrigins);
 }
 
-export async function shareViewId(
+/** What a link shows: a view, or a whole base. */
+export async function shareTarget(
   db: Database,
   shareId: string,
-): Promise<string> {
+): Promise<{ viewId: string } | { baseId: string }> {
   const row = await db
     .selectFrom("shares")
-    .select("viewId")
+    .select(["viewId", "baseId"])
     .where("id", "=", shareId)
+    .executeTakeFirst();
+  if (row?.viewId) return { viewId: row.viewId };
+  if (row?.baseId) return { baseId: row.baseId };
+  throw new AppError("no_row");
+}
+
+/**
+ * A link to a whole base, read-only (ROADMAP row 93): what its creator
+ * may read of each of its tables, with the password, expiry, and lock of
+ * a view's link. It writes nothing, so it lets nothing be copied in or
+ * framed.
+ */
+export async function createBaseShare(
+  db: Database,
+  input: {
+    baseId: string;
+    createdBy: string;
+    password?: string;
+    expiresAt?: Date;
+  },
+): Promise<{ id: string; token: string }> {
+  const { publicLinks } = await readGateSettings(db);
+  if (publicLinks === "off") throw new AppError("public_links_disabled");
+  if (publicLinks === "password" && !input.password) {
+    throw new AppError("share_password_required");
+  }
+  const token = newToken();
+  const row = await db
+    .insertInto("shares")
+    .values({
+      baseId: input.baseId,
+      tokenHash: hashToken(token),
+      passwordHash: input.password ? await hashPassword(input.password) : null,
+      allowCopy: false,
+      createdBy: input.createdBy,
+      expiresAt: input.expiresAt ?? null,
+      embedOrigins: null,
+    })
+    .returning("id")
     .executeTakeFirst();
   if (!row) {
     throw new AppError("no_row");
   }
-  return row.viewId;
+  return { id: row.id, token };
+}
+
+/** A base's links, newest first, revoked ones too. */
+export async function listBaseShares(db: Database, baseId: string) {
+  const rows = await db
+    .selectFrom("shares as s")
+    .innerJoin("users as u", "u.id", "s.createdBy")
+    .select([
+      "s.id",
+      "s.createdAt",
+      "s.expiresAt",
+      "s.revokedAt",
+      "s.passwordHash",
+      "u.displayName as createdBy",
+    ])
+    .where("s.baseId", "=", baseId)
+    .orderBy("s.createdAt", "desc")
+    .execute();
+  return rows.map((row) => ({
+    id: row.id,
+    createdAt: row.createdAt.toISOString(),
+    expiresAt: row.expiresAt?.toISOString() ?? null,
+    revoked: row.revokedAt !== null,
+    protected: row.passwordHash !== null,
+    createdBy: row.createdBy,
+  }));
 }
 
 /** Short-lived proof that the share password was given: `expiry.mac`. */
@@ -576,7 +641,7 @@ async function findShare(
     .selectAll()
     .where("tokenHash", "=", tokenHash)
     .executeTakeFirst();
-  if (!share) return undefined;
+  if (!share?.viewId) return undefined;
   const view = await db
     .selectFrom("views")
     .selectAll()
@@ -620,41 +685,86 @@ export async function resolveShare(
   ) {
     throw new AppError("unknown_share");
   }
-  if (!row.share.passwordHash) {
-    return { ...row, access: null, locked: false };
-  }
+  return { ...row, ...(await unlockShare(db, key, row.share, input)) };
+}
+
+/**
+ * Whether a link opens for this visit: at once without a password; with
+ * one, for its access proof or the right password, which issues a proof.
+ * Wrong passwords count toward its lock.
+ */
+async function unlockShare(
+  db: Database,
+  key: KeyRing,
+  share: ShareRow,
+  input: { password?: string; access?: string },
+): Promise<{ access: string | null; locked: boolean }> {
+  if (!share.passwordHash) return { access: null, locked: false };
   // Someone who already gave the password keeps reading: the lock stops
   // guesses, not the people the link was sent to.
-  if (verifyShareAccess(key, row.share.id, input.access)) {
-    return { ...row, access: input.access ?? null, locked: false };
+  if (verifyShareAccess(key, share.id, input.access)) {
+    return { access: input.access ?? null, locked: false };
   }
-  if (
-    row.share.passwordLockedUntil &&
-    row.share.passwordLockedUntil > new Date()
-  ) {
+  if (share.passwordLockedUntil && share.passwordLockedUntil > new Date()) {
     throw new AppError("share_locked");
   }
-  if (!input.password) {
-    return { ...row, access: null, locked: true };
-  }
-  if (await verifyPassword(row.share.passwordHash, input.password)) {
-    if (row.share.passwordFailures > 0 || row.share.passwordLockedUntil) {
+  if (!input.password) return { access: null, locked: true };
+  if (await verifyPassword(share.passwordHash, input.password)) {
+    if (share.passwordFailures > 0 || share.passwordLockedUntil) {
       await db
         .updateTable("shares")
         .set({ passwordFailures: 0, passwordLockedUntil: null })
-        .where("id", "=", row.share.id)
+        .where("id", "=", share.id)
         .execute();
     }
-    return {
-      ...row,
-      access: issueShareAccess(key, row.share.id),
-      locked: false,
-    };
+    return { access: issueShareAccess(key, share.id), locked: false };
   }
-  if (await countSharePasswordFailure(db, row.share.id)) {
+  if (await countSharePasswordFailure(db, share.id)) {
     throw new AppError("share_locked");
   }
-  return { ...row, access: null, locked: true };
+  return { access: null, locked: true };
+}
+
+/**
+ * A live link to a whole base, by token, and the base it shows. It stops
+ * while its base is in the trash, as a view's link does.
+ */
+export async function resolveBaseShare(
+  db: Database,
+  key: KeyRing,
+  input: { token: string; password?: string; access?: string },
+): Promise<{
+  share: ShareRow;
+  base: { id: string; name: string };
+  access: string | null;
+  locked: boolean;
+}> {
+  if (!isToken(input.token)) throw new AppError("unknown_share");
+  const share = await db
+    .selectFrom("shares")
+    .selectAll()
+    .where("tokenHash", "=", hashToken(input.token))
+    .executeTakeFirst();
+  const base = share?.baseId
+    ? await db
+        .selectFrom("bases")
+        .select(["id", "name"])
+        .where("id", "=", share.baseId)
+        .where(liveBase())
+        .executeTakeFirst()
+    : undefined;
+  const { publicLinks } = await readGateSettings(db);
+  if (
+    !share ||
+    !base ||
+    share.revokedAt ||
+    (share.expiresAt && share.expiresAt < new Date()) ||
+    publicLinks === "off" ||
+    (publicLinks === "password" && !share.passwordHash)
+  ) {
+    throw new AppError("unknown_share");
+  }
+  return { share, base, ...(await unlockShare(db, key, share, input)) };
 }
 
 const SHARE_PASSWORD_ATTEMPTS = 10;
