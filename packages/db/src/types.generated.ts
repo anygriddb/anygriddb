@@ -36,6 +36,7 @@ export type AuthAction =
   | "session_revoked"
   | "settings_changed"
   | "sso_unlinked"
+  | "token_created"
   | "tokens_revoked";
 
 export type AutomationRunStatus = "failed" | "skipped" | "success";

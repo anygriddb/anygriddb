@@ -147,12 +147,13 @@ export const catalogSharingProcedures = {
       handle(ctx, async () => {
         const target = await shareTarget(ctx.db, input.shareId);
         if ("baseId" in target) {
-          await guardBase(ctx, target.baseId, "manage");
+          const { user } = await guardBase(ctx, target.baseId, "manage");
+          await revokeShare(ctx.db, user.id, input.shareId);
         } else {
           const view = await loadView(ctx.db, target.viewId);
-          await guardTable(ctx, view.tableId, "write");
+          const { user } = await guardTable(ctx, view.tableId, "write");
+          await revokeShare(ctx.db, user.id, input.shareId);
         }
-        await revokeShare(ctx.db, input.shareId);
         return { ok: true as const };
       }),
     ),
@@ -213,7 +214,7 @@ export const catalogSharingProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const tableId = await webhookTableId(ctx.db, input.webhookId);
-        await guardTable(ctx, tableId, "manage");
+        const { user } = await guardTable(ctx, tableId, "manage");
         await assertWebhookColumns(ctx, tableId, {
           filter: input.filter ?? undefined,
           watchColumns: input.watchColumns ?? undefined,
@@ -221,6 +222,7 @@ export const catalogSharingProcedures = {
         await updateWebhook(
           ctx.db,
           ctx.env.AUTH_ENCRYPTION_KEY,
+          user.id,
           input.webhookId,
           input,
         );
@@ -284,12 +286,12 @@ export const catalogSharingProcedures = {
     .input(deleteWebhookInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        await guardTable(
+        const { user } = await guardTable(
           ctx,
           await webhookTableId(ctx.db, input.webhookId),
           "manage",
         );
-        await deleteWebhook(ctx.db, input.webhookId);
+        await deleteWebhook(ctx.db, user.id, input.webhookId);
         return { ok: true as const };
       }),
     ),

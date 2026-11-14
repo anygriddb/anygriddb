@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { withAudit } from "../data/audit-context.js";
 import { insertBase, insertTable } from "../data/schema-ops.js";
 import { createTestDatabase } from "../test-database.js";
 import { resealTlsKey } from "../tls/authority.js";
@@ -100,21 +101,23 @@ describe("the encryption key changed", () => {
     const secret = encryptSecret("hook-secret", before, "webhook");
     const headers = sealedBeforeIds('{"x-token":"abc"}', oldMaster);
     hookId = (
-      await db
-        .insertInto("webhooks")
-        .values({
-          tableId,
-          kind: "http",
-          target: "https://hooks.example.org/in",
-          secretCiphertext: secret.ciphertext,
-          secretNonce: secret.nonce,
-          headersCiphertext: headers.ciphertext,
-          headersNonce: headers.nonce,
-          events: ["insert"],
-          createdBy: ada,
-        })
-        .returning("id")
-        .executeTakeFirstOrThrow()
+      await withAudit(db, { userId: ada, tableId, source: "web" }, (tx) =>
+        tx
+          .insertInto("webhooks")
+          .values({
+            tableId,
+            kind: "http",
+            target: "https://hooks.example.org/in",
+            secretCiphertext: secret.ciphertext,
+            secretNonce: secret.nonce,
+            headersCiphertext: headers.ciphertext,
+            headersNonce: headers.nonce,
+            events: ["insert"],
+            createdBy: ada,
+          })
+          .returning("id")
+          .executeTakeFirstOrThrow(),
+      )
     ).id;
 
     const tls = sealedBeforeIds("-----BEGIN PRIVATE KEY-----", oldMaster);

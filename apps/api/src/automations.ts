@@ -31,7 +31,7 @@ import type { Bus } from "./realtime/bus.js";
 import { sql } from "kysely";
 import { z } from "zod";
 import { loadBindings } from "./auth/access.js";
-import type { AuditTx } from "./data/audit-context.js";
+import { withAudit, type AuditTx } from "./data/audit-context.js";
 import { loadEngine, type TableRow } from "./data/engine.js";
 import {
   listCollaborators,
@@ -270,23 +270,29 @@ export function writtenTables(actions: readonly AutomationAction[]): string[] {
  */
 export async function renewAutomationWebhook(
   db: Database,
+  actorId: string,
   automationId: string,
 ): Promise<string> {
   const row = await db
     .selectFrom("automations")
-    .select("trigger")
+    .select(["trigger", "tableId"])
     .where("id", "=", automationId)
     .executeTakeFirst();
   const trigger = automationTriggerSchema.safeParse(row?.trigger);
-  if (!trigger.success || trigger.data.type !== "webhook") {
+  if (!row || !trigger.success || trigger.data.type !== "webhook") {
     throw new AppError("invalid_automation");
   }
   const token = newHookToken();
-  await db
-    .updateTable("automations")
-    .set({ webhookTokenHash: hookHash(token), updatedAt: new Date() })
-    .where("id", "=", automationId)
-    .execute();
+  await withAudit(
+    db,
+    { userId: actorId, tableId: row.tableId, source: "web" },
+    (tx) =>
+      tx
+        .updateTable("automations")
+        .set({ webhookTokenHash: hookHash(token), updatedAt: new Date() })
+        .where("id", "=", automationId)
+        .execute(),
+  );
   return token;
 }
 
@@ -387,32 +393,46 @@ export async function saveAutomation(
     const id = input.id;
     // A changed automation starts over: rows already inside its filter
     // will trigger it again when they enter anew.
-    await db.transaction().execute(async (tx) => {
-      const updated = await tx
-        .updateTable("automations")
-        .set({ ...values, createdBy: input.createdBy })
-        .where("id", "=", id)
-        .returning("id")
-        .execute();
-      if (updated.length === 0) throw new AppError("no_row");
-      await tx
-        .deleteFrom("automationMatches")
-        .where("automationId", "=", id)
-        .execute();
-    });
+    await withAudit(
+      db,
+      { userId: input.createdBy, tableId: input.tableId, source: "web" },
+      async (tx) => {
+        const updated = await tx
+          .updateTable("automations")
+          .set({ ...values, createdBy: input.createdBy })
+          .where("id", "=", id)
+          .returning("id")
+          .execute();
+        if (updated.length === 0) throw new AppError("no_row");
+        await tx
+          .deleteFrom("automationMatches")
+          .where("automationId", "=", id)
+          .execute();
+      },
+    );
     return { id, ...(token ? { webhookToken: token } : {}) };
   }
-  const created = await db
-    .insertInto("automations")
-    .values({ ...values, tableId: input.tableId, createdBy: input.createdBy })
-    .returning("id")
-    .executeTakeFirst();
+  const created = await withAudit(
+    db,
+    { userId: input.createdBy, tableId: input.tableId, source: "web" },
+    (tx) =>
+      tx
+        .insertInto("automations")
+        .values({
+          ...values,
+          tableId: input.tableId,
+          createdBy: input.createdBy,
+        })
+        .returning("id")
+        .executeTakeFirst(),
+  );
   if (!created) throw new AppError("no_row");
   return { id: created.id, ...(token ? { webhookToken: token } : {}) };
 }
 
 export async function setAutomationEnabled(
   db: Database,
+  actorId: string,
   automationId: string,
   enabled: boolean,
 ): Promise<void> {
@@ -423,26 +443,43 @@ export async function setAutomationEnabled(
     .executeTakeFirst();
   if (!row) throw new AppError("no_row");
   const parsed = parseStored(row);
-  await db
-    .updateTable("automations")
-    .set({
-      enabled,
-      nextRunAt: parsed ? scheduleFor(parsed.trigger, enabled) : null,
-      updatedAt: new Date(),
-    })
-    .where("id", "=", automationId)
-    .execute();
+  await withAudit(
+    db,
+    { userId: actorId, tableId: row.tableId, source: "web" },
+    (tx) =>
+      tx
+        .updateTable("automations")
+        .set({
+          enabled,
+          nextRunAt: parsed ? scheduleFor(parsed.trigger, enabled) : null,
+          updatedAt: new Date(),
+        })
+        .where("id", "=", automationId)
+        .execute(),
+  );
 }
 
 export async function deleteAutomation(
   db: Database,
+  actorId: string,
   automationId: string,
 ): Promise<void> {
-  const deleted = await db
-    .deleteFrom("automations")
+  const row = await db
+    .selectFrom("automations")
+    .select("tableId")
     .where("id", "=", automationId)
-    .returning("id")
-    .execute();
+    .executeTakeFirst();
+  if (!row) throw new AppError("no_row");
+  const deleted = await withAudit(
+    db,
+    { userId: actorId, tableId: row.tableId, source: "web" },
+    (tx) =>
+      tx
+        .deleteFrom("automations")
+        .where("id", "=", automationId)
+        .returning("id")
+        .execute(),
+  );
   if (deleted.length === 0) throw new AppError("no_row");
 }
 

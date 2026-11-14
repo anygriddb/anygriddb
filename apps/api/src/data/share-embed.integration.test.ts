@@ -85,7 +85,7 @@ describe("a public link embedded in a site", () => {
     ).toBeNull();
 
     const revoked = await share(["https://portal.example.org"]);
-    await revokeShare(db, revoked.id);
+    await revokeShare(db, owner, revoked.id);
     expect(await shareEmbedOriginsForToken(db, revoked.token)).toBeNull();
 
     const expired = await share(

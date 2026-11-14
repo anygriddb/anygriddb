@@ -12,6 +12,8 @@
 import { readdir } from "node:fs/promises";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
+import { withAudit } from "../data/audit-context.js";
+import { ERASED_USER_ID } from "../data/erasure.js";
 import { resealTlsKey } from "../tls/authority.js";
 import { encryptSecret, openSecret } from "./crypto.js";
 import type { KeyRing, KeyUse } from "./key-ring.js";
@@ -145,12 +147,18 @@ async function rotateColumn(
       }
       const sealed = encryptSecret(opened.plaintext, ring, column.use);
       // Only if it is still the value that was read: one changed since by
-      // the running instance is already under the current key.
-      await sql`
-        update ${table}
-           set ${ciphertext} = ${sealed.ciphertext}, ${nonce} = ${sealed.nonce}
-         where ${id}::text = ${row.id} and ${ciphertext} = ${row.ciphertext}
-      `.execute(db);
+      // the running instance is already under the current key. Webhooks
+      // (and any sealed catalog row) need the audit context for that update.
+      await withAudit(
+        db,
+        { userId: ERASED_USER_ID, source: "key_rotation" },
+        (tx) =>
+          sql`
+            update ${table}
+               set ${ciphertext} = ${sealed.ciphertext}, ${nonce} = ${sealed.nonce}
+             where ${id}::text = ${row.id} and ${ciphertext} = ${row.ciphertext}
+          `.execute(tx),
+      );
       count(report, ring.currentId);
       report.rewritten += 1;
     }

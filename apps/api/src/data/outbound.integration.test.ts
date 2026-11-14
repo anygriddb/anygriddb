@@ -107,7 +107,7 @@ describe("every public link and calendar feed, for an administrator", () => {
     expect(text).not.toMatch(/argon2|passwordHash|tokenHash/i);
   });
 
-  it("revokes a link and removes a feed, the feed on the trail", async () => {
+  it("revokes a link and removes a feed, both on the trail", async () => {
     const before = await listOutbound(db, 100);
     for (const item of before) {
       await revokeOutbound(db, admin, { kind: item.kind, id: item.id });
@@ -120,7 +120,8 @@ describe("every public link and calendar feed, for an administrator", () => {
       .where("action", "=", "catalog")
       .where("userId", "=", admin)
       .execute();
-    expect(trail).toHaveLength(1);
+    // One event per revoke: the link and the feed.
+    expect(trail.length).toBeGreaterThanOrEqual(2);
     // Revoked already: nothing left to revoke.
     const link = before.find((item) => item.kind === "link");
     await expect(
@@ -154,30 +155,41 @@ describe("every public link and calendar feed, for an administrator", () => {
     const { token } = await createApiToken(db, owner, "Reporting", {
       readOnly: true,
     });
-    await db
-      .insertInto("webhooks")
-      .values({
-        tableId,
-        createdBy: owner,
-        kind: "http",
-        name: "Billing",
-        target: "https://hooks.example.com/in/secret-path?key=hidden",
-        events: ["row.created"],
-        secretCiphertext: Buffer.alloc(16),
-        secretNonce: Buffer.alloc(12),
-      })
-      .execute();
-    const automation = await db
-      .insertInto("automations")
-      .values({
-        tableId,
-        createdBy: owner,
-        name: "Reminder",
-        trigger: { type: "row_created" },
-        actions: [],
-      })
-      .returning("id")
-      .executeTakeFirstOrThrow();
+    await withAudit(
+      db,
+      { userId: owner, tableId, source: "web" },
+      async (tx) => {
+        await tx
+          .insertInto("webhooks")
+          .values({
+            tableId,
+            createdBy: owner,
+            kind: "http",
+            name: "Billing",
+            target: "https://hooks.example.com/in/secret-path?key=hidden",
+            events: ["row.created"],
+            secretCiphertext: Buffer.alloc(16),
+            secretNonce: Buffer.alloc(12),
+          })
+          .execute();
+      },
+    );
+    const automation = await withAudit(
+      db,
+      { userId: owner, tableId, source: "web" },
+      (tx) =>
+        tx
+          .insertInto("automations")
+          .values({
+            tableId,
+            createdBy: owner,
+            name: "Reminder",
+            trigger: { type: "row_created" },
+            actions: [],
+          })
+          .returning("id")
+          .executeTakeFirstOrThrow(),
+    );
     await db
       .insertInto("automationRuns")
       .values({
@@ -210,10 +222,14 @@ describe("every public link and calendar feed, for an administrator", () => {
 
     // Switched off from there, they stay, off.
     const webhook = hooks.find((hook) => hook.kind === "webhook");
-    await updateWebhook(db, keyRing(Buffer.alloc(32)), webhook?.id ?? "", {
-      active: false,
-    });
-    await setAutomationEnabled(db, automation.id, false);
+    await updateWebhook(
+      db,
+      keyRing(Buffer.alloc(32)),
+      owner,
+      webhook?.id ?? "",
+      { active: false },
+    );
+    await setAutomationEnabled(db, owner, automation.id, false);
     expect((await listInstanceHooks(db, 100)).map((hook) => hook.on)).toEqual([
       false,
       false,

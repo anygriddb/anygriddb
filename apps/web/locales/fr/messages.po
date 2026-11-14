@@ -389,6 +389,10 @@ msgid "{alertCount, plural, one {alert is open} other {alerts are open}}"
 msgstr "{alertCount, plural, one {alerte ouverte} other {alertes ouvertes}}"
 
 #: components/admin/trails.tsx
+msgid "{base}, administrator closed emergency access at {date}"
+msgstr "{base}, accès d’urgence fermé par l’administrateur à {date}"
+
+#: components/admin/trails.tsx
 msgid "{base}, opened by an administrator to read it, until {date}"
 msgstr "{base}, ouverte par un administrateur pour la lire, jusqu’au {date}"
 
@@ -1853,6 +1857,10 @@ msgstr "API et documentation"
 #: components/fields/field-editor.tsx
 msgid "API key"
 msgstr "Clé d’API"
+
+#: components/admin/auth-labels.ts
+msgid "API token created"
+msgstr "Jeton API créé"
 
 #: components/admin/sign-in-trail.tsx
 msgid "API token lifetime"
@@ -9772,6 +9780,10 @@ msgstr "Celui des dates et heures que la base enregistre sans fuseau."
 #: components/admin/account-actions.tsx
 msgid "Their authenticator, passkeys, and backup codes are removed, and their sessions end. They sign in with their password and set up a second factor again. For a lost phone or key."
 msgstr "Son application d’authentification, ses clés d’accès et ses codes de secours sont retirés, et ses sessions prennent fin. La personne se connecte avec son mot de passe et configure de nouveau un second facteur. Pour un téléphone ou une clé perdus."
+
+#: components/admin/sign-in-trail.tsx
+msgid "Their own API token"
+msgstr "Son propre jeton API"
 
 #: components/admin/account-actions.tsx
 msgid "Their sessions end and their API tokens stop working. Their data and audit history are kept. When someone may come back, disable the account; delete it only when their identity must leave the instance."

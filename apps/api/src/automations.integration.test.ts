@@ -190,7 +190,7 @@ describe("automations run by the queue", () => {
         "1.1.update_record",
       ]),
     );
-    await setAutomationEnabled(db, saved.id, false);
+    await setAutomationEnabled(db, owner, saved.id, false);
   });
 
   it("deletes a row, and a deleted row's trigger reads its values", async () => {
@@ -233,8 +233,8 @@ describe("automations run by the queue", () => {
     expect((await stepsOf(mourner.id)).map((run) => run.status)).toEqual([
       "success",
     ]);
-    await setAutomationEnabled(db, remover.id, false);
-    await setAutomationEnabled(db, mourner.id, false);
+    await setAutomationEnabled(db, owner, remover.id, false);
+    await setAutomationEnabled(db, owner, mourner.id, false);
   });
 
   it("loops over the rows a filter keeps, from a webhook call", async () => {
@@ -311,11 +311,11 @@ describe("automations run by the queue", () => {
       actions: [{ type: "notify", users: [owner], message: "hi" }],
     });
     expect(again.webhookToken).toBeUndefined();
-    const renewed = await renewAutomationWebhook(db, saved.id);
+    const renewed = await renewAutomationWebhook(db, owner, saved.id);
     expect(await queueWebhookRun(db, token, {})).toBe(false);
     expect(await queueWebhookRun(db, renewed, {})).toBe(true);
     // A disabled automation answers as an unknown address does.
-    await setAutomationEnabled(db, saved.id, false);
+    await setAutomationEnabled(db, owner, saved.id, false);
     expect(await queueWebhookRun(db, renewed, {})).toBe(false);
   });
 });

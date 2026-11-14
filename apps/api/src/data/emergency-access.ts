@@ -19,18 +19,32 @@ import { gridChannel } from "../realtime/channels.js";
 import { readMailVoice } from "../settings.js";
 import { liveBase } from "./live.js";
 
-/** What the change trail keeps of an opening (`access`): never a value. */
-type AccessRecord = { baseId: string; base: string; until: string };
+/** What the change trail keeps of an opening or its end (`access`). */
+type AccessRecord = {
+  baseId: string;
+  base: string;
+  until: string;
+  /** Set when the administrator ends the hour early. */
+  endedAt?: string;
+};
 
 /** The opening an event keeps, or null for any other event. */
 export function accessRecordOf(value: unknown): AccessRecord | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Partial<AccessRecord>;
-  return typeof record.baseId === "string" &&
-    typeof record.base === "string" &&
-    typeof record.until === "string"
-    ? { baseId: record.baseId, base: record.base, until: record.until }
-    : null;
+  if (
+    typeof record.baseId !== "string" ||
+    typeof record.base !== "string" ||
+    typeof record.until !== "string"
+  ) {
+    return null;
+  }
+  return {
+    baseId: record.baseId,
+    base: record.base,
+    until: record.until,
+    ...(typeof record.endedAt === "string" ? { endedAt: record.endedAt } : {}),
+  };
 }
 
 /** How long a base stays open, in minutes. */
@@ -221,16 +235,48 @@ export async function endEmergencyAccess(
   db: Database,
   input: { userId: string; baseId: string },
 ): Promise<boolean> {
-  const ended = await db
-    .updateTable("emergencyAccess")
-    .set({ endedAt: sql<Date>`now()` })
-    .where("userId", "=", input.userId)
-    .where("baseId", "=", input.baseId)
-    .where("endedAt", "is", null)
-    .where("expiresAt", ">", sql<Date>`now()`)
-    .returning("id")
-    .execute();
-  return ended.length > 0;
+  return db.transaction().execute(async (tx) => {
+    const open = await tx
+      .selectFrom("emergencyAccess as e")
+      .innerJoin("bases as b", "b.id", "e.baseId")
+      .select(["e.id", "e.expiresAt", "b.name as base"])
+      .where("e.userId", "=", input.userId)
+      .where("e.baseId", "=", input.baseId)
+      .where("e.endedAt", "is", null)
+      .where("e.expiresAt", ">", sql<Date>`now()`)
+      .forUpdate()
+      .executeTakeFirst();
+    if (!open) return false;
+    const endedAt = new Date();
+    await tx
+      .updateTable("emergencyAccess")
+      .set({ endedAt })
+      .where("id", "=", open.id)
+      .execute();
+    await tx
+      .insertInto("auditEvents")
+      .values({
+        userId: input.userId,
+        action: "access",
+        tableId: null,
+        recordId: null,
+        oldValue: {
+          baseId: input.baseId,
+          base: open.base,
+          until: open.expiresAt.toISOString(),
+        } satisfies AccessRecord,
+        newValue: {
+          baseId: input.baseId,
+          base: open.base,
+          until: open.expiresAt.toISOString(),
+          endedAt: endedAt.toISOString(),
+        } satisfies AccessRecord,
+        reason: null,
+        source: "web",
+      })
+      .execute();
+    return true;
+  });
 }
 
 /**

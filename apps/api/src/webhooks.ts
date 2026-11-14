@@ -19,6 +19,8 @@ import type { Database, DeliveryRow, NewRow, WebhookRow } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
 import { loadBindings } from "./auth/access.js";
 import { readerEngine } from "./data/acl.js";
+import { withAudit } from "./data/audit-context.js";
+import { ERASED_USER_ID } from "./data/erasure.js";
 import { decryptSecret, encryptSecret } from "./auth/crypto.js";
 import { loadEngine } from "./data/engine.js";
 import { readPage, type RowRecord } from "./data/rows.js";
@@ -299,24 +301,29 @@ export async function createWebhook(
   }
   const secret = randomBytes(32).toString("base64url");
   const sealed = encryptSecret(secret, key, "webhook");
-  const inserted = await db
-    .insertInto("webhooks")
-    .values({
-      tableId: input.tableId,
-      kind: input.kind,
-      target: input.target,
-      secretCiphertext: sealed.ciphertext,
-      secretNonce: sealed.nonce,
-      events: input.events,
-      name: input.name ?? "",
-      createdBy: input.createdBy,
-      filter: input.filter ?? null,
-      watchColumns: input.watchColumns?.length ? input.watchColumns : null,
-      includeValues: input.includeValues ?? false,
-      ...sealHeaders(input.headers, key),
-    })
-    .returning("id")
-    .executeTakeFirst();
+  const inserted = await withAudit(
+    db,
+    { userId: input.createdBy, tableId: input.tableId, source: "web" },
+    (tx) =>
+      tx
+        .insertInto("webhooks")
+        .values({
+          tableId: input.tableId,
+          kind: input.kind,
+          target: input.target,
+          secretCiphertext: sealed.ciphertext,
+          secretNonce: sealed.nonce,
+          events: input.events,
+          name: input.name ?? "",
+          createdBy: input.createdBy,
+          filter: input.filter ?? null,
+          watchColumns: input.watchColumns?.length ? input.watchColumns : null,
+          includeValues: input.includeValues ?? false,
+          ...sealHeaders(input.headers, key),
+        })
+        .returning("id")
+        .executeTakeFirst(),
+  );
   const id = inserted?.id;
   if (!id) {
     throw new AppError("no_row");
@@ -327,6 +334,7 @@ export async function createWebhook(
 export async function updateWebhook(
   db: Database,
   key: KeyRing,
+  actorId: string,
   webhookId: string,
   input: {
     active?: boolean;
@@ -357,11 +365,22 @@ export async function updateWebhook(
   if (input.includeValues !== undefined)
     patch.includeValues = input.includeValues;
   if (Object.keys(patch).length === 0) return;
-  await db
-    .updateTable("webhooks")
-    .set(patch)
+  const hook = await db
+    .selectFrom("webhooks")
+    .select("tableId")
     .where("id", "=", webhookId)
-    .execute();
+    .executeTakeFirst();
+  if (!hook) throw new AppError("no_row");
+  await withAudit(
+    db,
+    { userId: actorId, tableId: hook.tableId, source: "web" },
+    (tx) =>
+      tx
+        .updateTable("webhooks")
+        .set(patch)
+        .where("id", "=", webhookId)
+        .execute(),
+  );
 }
 
 export async function listWebhooks(db: Database, tableId: string) {
@@ -423,12 +442,27 @@ export async function deliveryWebhookId(
   return row.webhookId;
 }
 
-export async function deleteWebhook(db: Database, webhookId: string) {
-  const deleted = await db
-    .deleteFrom("webhooks")
+export async function deleteWebhook(
+  db: Database,
+  actorId: string,
+  webhookId: string,
+) {
+  const hook = await db
+    .selectFrom("webhooks")
+    .select("tableId")
     .where("id", "=", webhookId)
-    .returning("id")
-    .execute();
+    .executeTakeFirst();
+  if (!hook) throw new AppError("no_row");
+  const deleted = await withAudit(
+    db,
+    { userId: actorId, tableId: hook.tableId, source: "web" },
+    (tx) =>
+      tx
+        .deleteFrom("webhooks")
+        .where("id", "=", webhookId)
+        .returning("id")
+        .execute(),
+  );
   if (deleted.length === 0) {
     throw new AppError("no_row");
   }
@@ -636,12 +670,22 @@ async function recordFailure(deps: HookDeps, hook: WebhookRow): Promise<void> {
     .returning("failureCount")
     .executeTakeFirst();
   if (!updated || updated.failureCount < WEBHOOK_FAILURE_LIMIT) return;
-  await deps.db
-    .updateTable("webhooks")
-    .set({ active: false, disabledReason: "Too many failed deliveries" })
-    .where("id", "=", hook.id)
-    .where("active", "=", true)
-    .execute();
+  // The worker disables it under the maker's name, or the tombstone.
+  await withAudit(
+    deps.db,
+    {
+      userId: hook.createdBy ?? ERASED_USER_ID,
+      tableId: hook.tableId,
+      source: "worker",
+    },
+    (tx) =>
+      tx
+        .updateTable("webhooks")
+        .set({ active: false, disabledReason: "Too many failed deliveries" })
+        .where("id", "=", hook.id)
+        .where("active", "=", true)
+        .execute(),
+  );
   if (hook.createdBy && deps.notify) {
     // The notification also goes by email to creators who chose that.
     await deps.notify([

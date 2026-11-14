@@ -13,6 +13,7 @@ export function useAuthLabels() {
     logout: t`Signed out`,
     session_revoked: t`Session ended`,
     factors_cleared: t`Second factors removed`,
+    token_created: t`API token created`,
     tokens_revoked: t`API tokens revoked`,
     account_locked: t`Account locked`,
     account_unlocked: t`Account unlocked`,

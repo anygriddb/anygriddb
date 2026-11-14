@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import type { SessionUser } from "./session.js";
 import { AppError, type InstanceSettings } from "@anygriddb/core";
+import { recordAuthEvent } from "./auth-events.js";
 import { readGateSettings } from "../settings.js";
 
 const API_TOKEN = /^ag_[A-Za-z0-9_-]{43,128}$/;
@@ -123,25 +124,32 @@ export async function createApiToken(
     Date.now() + (scope.days ?? DEFAULT_TOKEN_DAYS) * 86_400_000,
   );
   const readOnly = scope.readOnly === true;
-  const inserted = await db
-    .insertInto("apiTokens")
-    .values({
+  const id = await db.transaction().execute(async (tx) => {
+    const inserted = await tx
+      .insertInto("apiTokens")
+      .values({
+        userId,
+        name,
+        tokenHash: hashApiToken(token),
+        expiresAt,
+        baseIds:
+          scope.baseIds && scope.baseIds.length > 0 ? scope.baseIds : null,
+        readOnly,
+        // Omitted means true (scripts keep deleting). A read-only token never
+        // deletes; store true so the column stays meaningful only for writers.
+        allowDelete: readOnly ? true : scope.allowDelete !== false,
+      })
+      .returning("id")
+      .executeTakeFirst();
+    if (!inserted) throw new AppError("no_row");
+    // Who made it, never the token: the sign-in trail's contract.
+    await recordAuthEvent(tx, {
+      action: "token_created",
       userId,
-      name,
-      tokenHash: hashApiToken(token),
-      expiresAt,
-      baseIds: scope.baseIds && scope.baseIds.length > 0 ? scope.baseIds : null,
-      readOnly,
-      // Omitted means true (scripts keep deleting). A read-only token never
-      // deletes; store true so the column stays meaningful only for writers.
-      allowDelete: readOnly ? true : scope.allowDelete !== false,
-    })
-    .returning("id")
-    .executeTakeFirst();
-  const id = inserted?.id;
-  if (!id) {
-    throw new AppError("no_row");
-  }
+      detail: "self_service_token",
+    });
+    return inserted.id;
+  });
   return { id, token, expiresAt: expiresAt.toISOString() };
 }
 
@@ -178,18 +186,32 @@ export async function listApiTokens(db: Database, userId: string) {
   }));
 }
 
+/**
+ * Revokes one API token. The owner or an administrator may ask; the
+ * sign-in trail records who, never the token itself.
+ */
 export async function revokeApiToken(
   db: Database,
   userId: string,
   tokenId: string,
+  actor?: { actorId: string; admin: boolean },
 ): Promise<void> {
-  const deleted = await db
-    .deleteFrom("apiTokens")
-    .where("id", "=", tokenId)
-    .where("userId", "=", userId)
-    .returning("id")
-    .execute();
-  if (deleted.length === 0) {
-    throw new AppError("no_row");
-  }
+  await db.transaction().execute(async (tx) => {
+    const deleted = await tx
+      .deleteFrom("apiTokens")
+      .where("id", "=", tokenId)
+      .where("userId", "=", userId)
+      .returning("id")
+      .execute();
+    if (deleted.length === 0) {
+      throw new AppError("no_row");
+    }
+    await recordAuthEvent(tx, {
+      action: "tokens_revoked",
+      userId,
+      actorId: actor?.actorId ?? userId,
+      method: actor?.admin ? "admin" : undefined,
+      detail: actor?.admin ? "admin_revoke_user" : "self_service_token",
+    });
+  });
 }

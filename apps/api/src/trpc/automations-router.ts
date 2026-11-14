@@ -119,12 +119,16 @@ export const automationsRouter = t.router({
     .input(z.object({ automationId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        await guardTable(
+        const { user } = await guardTable(
           ctx,
           await automationTableId(ctx.db, input.automationId),
           "manage",
         );
-        const token = await renewAutomationWebhook(ctx.db, input.automationId);
+        const token = await renewAutomationWebhook(
+          ctx.db,
+          user.id,
+          input.automationId,
+        );
         return {
           webhookUrl: `${ctx.env.PUBLIC_URL}/hooks/automations/${token}`,
         };
@@ -134,12 +138,17 @@ export const automationsRouter = t.router({
     .input(z.object({ automationId: z.uuid(), enabled: z.boolean() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        await guardTable(
+        const { user } = await guardTable(
           ctx,
           await automationTableId(ctx.db, input.automationId),
           "manage",
         );
-        await setAutomationEnabled(ctx.db, input.automationId, input.enabled);
+        await setAutomationEnabled(
+          ctx.db,
+          user.id,
+          input.automationId,
+          input.enabled,
+        );
         return { ok: true as const };
       }),
     ),
@@ -147,12 +156,12 @@ export const automationsRouter = t.router({
     .input(z.object({ automationId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        await guardTable(
+        const { user } = await guardTable(
           ctx,
           await automationTableId(ctx.db, input.automationId),
           "manage",
         );
-        await deleteAutomation(ctx.db, input.automationId);
+        await deleteAutomation(ctx.db, user.id, input.automationId);
         return { ok: true as const };
       }),
     ),

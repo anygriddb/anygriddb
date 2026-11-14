@@ -17,6 +17,7 @@ const ACTIONS = [
   "logout",
   "session_revoked",
   "factors_cleared",
+  "token_created",
   "tokens_revoked",
   "account_locked",
   "account_unlocked",
@@ -86,6 +87,7 @@ export function SignInTrail() {
             account_locked: t`Account locked`,
             admin_unlock: t`By an administrator`,
             self_service: t`Asked by the person`,
+            self_service_token: t`Their own API token`,
             admin_reset: t`Link from an administrator`,
             reset_link: t`By an administrator`,
             // Settings that changed (settings_changed).

@@ -47,6 +47,8 @@ export type AuthDetail =
   | "account_locked"
   | "admin_unlock"
   | "self_service"
+  /** One API token created or revoked by its owner. */
+  | "self_service_token"
   | "admin_reset"
   | "reset_link"
   /** Disabled after the instance's delay without activity (ADR 0044). */

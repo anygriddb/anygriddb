@@ -142,26 +142,30 @@ export async function createInvitation(
   const token = newToken();
   const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
   const email = input.email.toLowerCase();
-  await db.transaction().execute(async (tx) => {
-    // Inviting again replaces the pending invitation: one live link.
-    await tx
-      .deleteFrom("invitations")
-      .where("baseId", "=", input.baseId)
-      .where("email", "=", email)
-      .where("acceptedAt", "is", null)
-      .execute();
-    await tx
-      .insertInto("invitations")
-      .values({
-        baseId: input.baseId,
-        email,
-        role: input.role,
-        tokenHash: hashToken(token),
-        invitedBy: input.invitedBy,
-        expiresAt,
-      })
-      .execute();
-  });
+  await withAudit(
+    db,
+    { userId: input.invitedBy, source: "web" },
+    async (tx) => {
+      // Inviting again replaces the pending invitation: one live link.
+      await tx
+        .deleteFrom("invitations")
+        .where("baseId", "=", input.baseId)
+        .where("email", "=", email)
+        .where("acceptedAt", "is", null)
+        .execute();
+      await tx
+        .insertInto("invitations")
+        .values({
+          baseId: input.baseId,
+          email,
+          role: input.role,
+          tokenHash: hashToken(token),
+          invitedBy: input.invitedBy,
+          expiresAt,
+        })
+        .execute();
+    },
+  );
   return { token, expiresAt };
 }
 
@@ -184,14 +188,17 @@ export async function listInvitations(db: Database, baseId: string) {
 
 export async function revokeInvitation(
   db: Database,
+  actorId: string,
   baseId: string,
   invitationId: string,
 ): Promise<void> {
-  await db
-    .deleteFrom("invitations")
-    .where("id", "=", invitationId)
-    .where("baseId", "=", baseId)
-    .execute();
+  await withAudit(db, { userId: actorId, source: "web" }, (tx) =>
+    tx
+      .deleteFrom("invitations")
+      .where("id", "=", invitationId)
+      .where("baseId", "=", baseId)
+      .execute(),
+  );
 }
 
 /**
@@ -200,6 +207,7 @@ export async function revokeInvitation(
  */
 export async function renewInvitation(
   db: Database,
+  actorId: string,
   invitationId: string,
 ): Promise<{
   token: string;
@@ -220,13 +228,18 @@ export async function renewInvitation(
   if (!pending) throw new AppError("invalid_invitation");
   const token = newToken();
   const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
-  const renewed = await db
-    .updateTable("invitations")
-    .set({ tokenHash: hashToken(token), expiresAt })
-    .where("id", "=", pending.id)
-    .where("acceptedAt", "is", null)
-    .returning("id")
-    .executeTakeFirst();
+  const renewed = await withAudit(
+    db,
+    { userId: actorId, source: "web" },
+    (tx) =>
+      tx
+        .updateTable("invitations")
+        .set({ tokenHash: hashToken(token), expiresAt })
+        .where("id", "=", pending.id)
+        .where("acceptedAt", "is", null)
+        .returning("id")
+        .executeTakeFirst(),
+  );
   if (!renewed) throw new AppError("invalid_invitation");
   return {
     token,
@@ -366,11 +379,13 @@ export async function answerInvitation(
     throw new AppError("invalid_invitation");
   }
   if (accept) return joinBase(db, user, invitation);
-  await db
-    .deleteFrom("invitations")
-    .where("id", "=", invitation.id)
-    .where("acceptedAt", "is", null)
-    .execute();
+  await withAudit(db, { userId: user.id, source: "web" }, (tx) =>
+    tx
+      .deleteFrom("invitations")
+      .where("id", "=", invitation.id)
+      .where("acceptedAt", "is", null)
+      .execute(),
+  );
   return null;
 }
 
@@ -428,19 +443,33 @@ export async function createShare(
   }
   const embedOrigins = normalizeEmbedOrigins(input.embedOrigins);
   const token = newToken();
-  const row = await db
-    .insertInto("shares")
-    .values({
-      viewId: input.viewId,
-      tokenHash: hashToken(token),
-      passwordHash: input.password ? await hashPassword(input.password) : null,
-      allowCopy: input.allowCopy,
-      createdBy: input.createdBy,
-      expiresAt: input.expiresAt ?? null,
-      embedOrigins,
-    })
-    .returning("id")
+  const passwordHash = input.password
+    ? await hashPassword(input.password)
+    : null;
+  const view = await db
+    .selectFrom("views")
+    .select("tableId")
+    .where("id", "=", input.viewId)
     .executeTakeFirst();
+  if (!view) throw new AppError("invalid_view");
+  const row = await withAudit(
+    db,
+    { userId: input.createdBy, tableId: view.tableId, source: "web" },
+    (tx) =>
+      tx
+        .insertInto("shares")
+        .values({
+          viewId: input.viewId,
+          tokenHash: hashToken(token),
+          passwordHash,
+          allowCopy: input.allowCopy,
+          createdBy: input.createdBy,
+          expiresAt: input.expiresAt ?? null,
+          embedOrigins,
+        })
+        .returning("id")
+        .executeTakeFirst(),
+  );
   if (!row) {
     throw new AppError("no_row");
   }
@@ -478,14 +507,29 @@ export async function listShares(db: Database, viewId: string) {
 
 export async function revokeShare(
   db: Database,
+  actorId: string,
   shareId: string,
 ): Promise<void> {
-  const row = await db
-    .updateTable("shares")
-    .set({ revokedAt: new Date() })
-    .where("id", "=", shareId)
-    .returning("id")
+  const share = await db
+    .selectFrom("shares as s")
+    .leftJoin("views as v", "v.id", "s.viewId")
+    .select(["s.viewId", "s.baseId", "v.tableId"])
+    .where("s.id", "=", shareId)
     .executeTakeFirst();
+  if (!share || (!share.viewId && !share.baseId)) {
+    throw new AppError("no_row");
+  }
+  const row = await withAudit(
+    db,
+    { userId: actorId, tableId: share.tableId ?? undefined, source: "web" },
+    (tx) =>
+      tx
+        .updateTable("shares")
+        .set({ revokedAt: new Date() })
+        .where("id", "=", shareId)
+        .returning("id")
+        .executeTakeFirst(),
+  );
   if (!row) {
     throw new AppError("no_row");
   }
@@ -548,19 +592,27 @@ export async function createBaseShare(
     throw new AppError("share_password_required");
   }
   const token = newToken();
-  const row = await db
-    .insertInto("shares")
-    .values({
-      baseId: input.baseId,
-      tokenHash: hashToken(token),
-      passwordHash: input.password ? await hashPassword(input.password) : null,
-      allowCopy: false,
-      createdBy: input.createdBy,
-      expiresAt: input.expiresAt ?? null,
-      embedOrigins: null,
-    })
-    .returning("id")
-    .executeTakeFirst();
+  const passwordHash = input.password
+    ? await hashPassword(input.password)
+    : null;
+  const row = await withAudit(
+    db,
+    { userId: input.createdBy, source: "web" },
+    (tx) =>
+      tx
+        .insertInto("shares")
+        .values({
+          baseId: input.baseId,
+          tokenHash: hashToken(token),
+          passwordHash,
+          allowCopy: false,
+          createdBy: input.createdBy,
+          expiresAt: input.expiresAt ?? null,
+          embedOrigins: null,
+        })
+        .returning("id")
+        .executeTakeFirst(),
+  );
   if (!row) {
     throw new AppError("no_row");
   }

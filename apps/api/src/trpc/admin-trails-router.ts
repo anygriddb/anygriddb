@@ -45,6 +45,7 @@ const authActionSchema = z.enum([
   "logout",
   "session_revoked",
   "factors_cleared",
+  "token_created",
   "tokens_revoked",
   "account_locked",
   "account_unlocked",
