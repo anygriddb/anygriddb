@@ -20,6 +20,7 @@ import {
 } from "./outbound.js";
 import { insertBase, insertTable } from "./schema-ops.js";
 import { createShare } from "./sharing.js";
+import { trashTable } from "./trash.js";
 import { createView, trashView } from "./views.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -262,5 +263,107 @@ describe("every public link and calendar feed, for an administrator", () => {
     expect(
       (await listOutbound(db, 10, base?.id ?? "")).map((item) => item.view),
     ).toEqual(["Ouverte"]);
+  });
+
+  it("keeps each base's weights to itself, and names three owners at most", async () => {
+    const [ventes] = await listBaseOverview(db, { limit: 10 });
+    const people = await db
+      .insertInto("users")
+      .values(
+        ["Ada", "Bob", "Cléo", "Dan", "Eve", "Zoé"].map((displayName) => ({
+          email: `${displayName.toLowerCase()}-${suffix}@example.org`,
+          displayName,
+        })),
+      )
+      .returning("id")
+      .execute();
+    const [ada, bob, cleo, dan, eve, zoe] = people.map((person) => person.id);
+    const achats = (await insertBase(db, ada ?? "", { name: "Achats" })).id;
+    await insertBase(db, zoe ?? "", { name: "Vide" });
+    await withAudit(db, { userId: ada ?? "", source: "web" }, async (tx) => {
+      const group = await tx
+        .insertInto("groups")
+        .values({ displayName: "Acheteurs" })
+        .returning("id")
+        .executeTakeFirstOrThrow();
+      await tx
+        .insertInto("roleBindings")
+        .values([
+          ...[dan, cleo, bob].map((userId) => ({
+            userId: userId ?? "",
+            role: "owner" as const,
+            scope: "base" as const,
+            scopeId: achats,
+          })),
+          // An owner through a group counts as a member, not by name.
+          {
+            userId: eve ?? "",
+            role: "owner" as const,
+            scope: "base" as const,
+            scopeId: achats,
+            groupId: group.id,
+          },
+        ])
+        .execute();
+    });
+    const columns = [
+      { name: "name", label: "Nom", fieldType: "text" as const },
+    ];
+    const kept = await insertTable(db, ada ?? "", {
+      baseId: achats,
+      name: "Commandes",
+      columns,
+    });
+    const gone = await insertTable(db, ada ?? "", {
+      baseId: achats,
+      name: "Brouillon",
+      columns,
+    });
+    await trashTable(
+      db,
+      ada ?? "",
+      await db
+        .selectFrom("dataTables")
+        .selectAll()
+        .where("id", "=", gone.id)
+        .executeTakeFirstOrThrow(),
+    );
+    await db
+      .insertInto("attachments")
+      .values({
+        key: `files/${suffix}`,
+        tableId: kept.id,
+        filename: "devis.pdf",
+        mime: "application/pdf",
+        size: "1234",
+      })
+      .execute();
+
+    const bases = await listBaseOverview(db, { limit: 10 });
+    expect(bases.map((base) => base.name)).toEqual([
+      "Achats",
+      "Ventes",
+      "Vide",
+    ]);
+    expect(bases[0]).toMatchObject({
+      owners: ["Ada", "Bob", "Cléo"],
+      hasLiveOwner: true,
+      members: 5,
+      tables: 1,
+      estimatedRows: 0,
+      fileBytes: 1234,
+      outbound: 0,
+    });
+    // What another base holds changed nothing of this one.
+    expect(bases[1]).toEqual(ventes);
+    expect(bases[2]).toMatchObject({
+      owners: ["Zoé"],
+      members: 1,
+      tables: 0,
+      estimatedRows: 0,
+      fileBytes: 0,
+      outbound: 0,
+    });
+    expect(await listBaseOverview(db, { limit: 2 })).toEqual(bases.slice(0, 2));
   });
 });

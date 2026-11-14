@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   importCommitInputSchema,
   moveRowsInputSchema,
+  rowsReadInputSchema,
   TABLE_ACTIVITY_MAX,
   tableActivityInputSchema,
 } from "./schemas";
@@ -121,6 +122,25 @@ describe("moveRowsInputSchema", () => {
         tableId,
         rowIds: [],
         place: { after: other },
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("the time zone of a read", () => {
+  it("takes what a browser reports, even a zone the server does not know", () => {
+    for (const timeZone of ["Europe/Paris", "Etc/Unknown", "EST5EDT"]) {
+      expect(
+        rowsReadInputSchema.safeParse({ tableId: TABLE, timeZone }).success,
+      ).toBe(true);
+    }
+  });
+
+  it("refuses a text longer than a zone's name", () => {
+    expect(
+      rowsReadInputSchema.safeParse({
+        tableId: TABLE,
+        timeZone: "x".repeat(65),
       }).success,
     ).toBe(false);
   });
