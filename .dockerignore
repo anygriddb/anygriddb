@@ -8,8 +8,15 @@
 **/.env.*
 !**/.env.example
 # Local material that must never reach an image or its build cache.
+# The build context is the repository: what git ignores stays out too,
+# an instance's data and backups first.
+data
+apps/*/data
 docker/lab/certs
+docker/lab/seeds
+coverage
 **/test-results
 **/playwright-report
+**/blob-report
 *.log
 *.tsbuildinfo
