@@ -49,7 +49,7 @@ export function panViewport(
 }
 
 /**
- * Zoom in (`delta` &gt; 0) or out around the centre, keeping the map's
+ * Zoom in (`delta` above 0) or out around the centre, keeping the map's
  * aspect and the tile budget.
  */
 export function zoomViewport(

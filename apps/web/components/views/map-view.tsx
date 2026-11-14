@@ -1,10 +1,25 @@
 import { decimalToNumber } from "@anygriddb/core";
 
-import { Button, cn } from "@anygriddb/ui";
-import { MapPin, Minus, Plus, RotateCcw } from "lucide-react";
+import { Button, cn, Tooltip } from "@anygriddb/ui";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  MapPin,
+  Minus,
+  Plus,
+  RotateCcw,
+} from "lucide-react";
 import type { RowItem } from "../../lib/types";
 import { useTable } from "../table/table-context";
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import { MAP_CEILING, mapNotice, placeColumns } from "./map-places";
@@ -26,6 +41,43 @@ import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "../../lib/trpc";
+
+/** A press that moves less than this, in pixels, is a click, not a drag. */
+const DRAG_START = 4;
+/** What one notch of a mouse wheel scrolls, in pixels: a zoom step. */
+const WHEEL_NOTCH = 100;
+/** The share of the view one press of an arrow button moves it by. */
+const PAN_STEP = 0.25;
+
+/** One of the map's own buttons: an icon, named for everyone. */
+function MapButton({
+  label,
+  disabled,
+  onPress,
+  className,
+  children,
+}: {
+  label: string;
+  disabled?: boolean;
+  onPress: () => void;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip content={label} side="left">
+      <Button
+        size="icon"
+        variant="outline"
+        className={className}
+        aria-label={label}
+        disabled={disabled}
+        onClick={onPress}
+      >
+        {children}
+      </Button>
+    </Tooltip>
+  );
+}
 
 export function MapView(props: ViewProps) {
   const { t } = useLingui();
@@ -73,7 +125,11 @@ export function MapView(props: ViewProps) {
     key: string;
     viewport: MapViewport;
   } | null>(null);
-  const drag = useRef<{ x: number; y: number } | null>(null);
+  const drag = useRef<{ x: number; y: number; moving: boolean } | null>(null);
+  const wheel = useRef(0);
+  // The sheet is drawn only once the table has fields to place rows by:
+  // what watches it starts again when that changes.
+  const drawn = notice !== "add-fields";
   useEffect(() => {
     const sheet = sheetRef.current;
     if (!sheet || !tileUrl) return;
@@ -83,7 +139,7 @@ export function MapView(props: ViewProps) {
     });
     observer.observe(sheet);
     return () => observer.disconnect();
-  }, [tileUrl]);
+  }, [tileUrl, drawn]);
   const fitted = tileUrl
     ? mapViewport(
         points.map(({ latitude, longitude }) => ({ latitude, longitude })),
@@ -93,12 +149,38 @@ export function MapView(props: ViewProps) {
   const fittedKey = fitted
     ? `${fitted.minX}:${fitted.maxX}:${fitted.minY}:${fitted.maxY}:${fitted.zoom}`
     : "";
-  const setView = (next: MapViewport) =>
-    setManual({ key: fittedKey, viewport: next });
   // A pan or zoom sticks until the person resets, or the fitted view moves
   // (its key changes and the manual offset no longer applies).
-  const viewport =
-    manual && manual.key === fittedKey ? manual.viewport : fitted;
+  const moved = manual && manual.key === fittedKey ? manual.viewport : null;
+  const viewport = moved ?? fitted;
+  const setView = (next: MapViewport) =>
+    setManual({ key: fittedKey, viewport: next });
+  const zoom = (delta: 1 | -1) => {
+    if (viewport) setView(zoomViewport(viewport, delta, aspect));
+  };
+  const pan = (dx: number, dy: number) => {
+    if (viewport) setView(panViewport(viewport, dx, dy));
+  };
+  // A trackpad sends many small scrolls where a mouse sends one notch:
+  // they add up to a step, so that a swipe does not cross every zoom.
+  const onWheel = useEffectEvent((event: WheelEvent) => {
+    event.preventDefault();
+    wheel.current +=
+      event.deltaMode === WheelEvent.DOM_DELTA_PIXEL
+        ? event.deltaY
+        : event.deltaY * WHEEL_NOTCH;
+    if (Math.abs(wheel.current) < WHEEL_NOTCH) return;
+    zoom(wheel.current < 0 ? 1 : -1);
+    wheel.current = 0;
+  });
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet || !tileUrl) return;
+    // React listens to the wheel passively, and a passive listener cannot
+    // keep the page from scrolling under the map.
+    sheet.addEventListener("wheel", onWheel, { passive: false });
+    return () => sheet.removeEventListener("wheel", onWheel);
+  }, [tileUrl, drawn]);
   const tiles = tileUrl && viewport ? mapTiles(tileUrl, viewport) : [];
   // Nothing to choose from: the map says what it needs, as the kanban and
   // the calendar do, rather than an empty sheet.
@@ -139,42 +221,40 @@ export function MapView(props: ViewProps) {
           className={cn(
             "relative m-4 flex-1 overflow-hidden rounded-sm border border-border",
             tileUrl
-              ? "bg-muted"
+              ? "cursor-grab touch-none bg-muted select-none"
               : "bg-[linear-gradient(transparent_49.5%,var(--ag-border)_50%,transparent_50.5%),linear-gradient(90deg,transparent_49.5%,var(--ag-border)_50%,transparent_50.5%)] bg-[size:12.5%_16.66%]",
           )}
-          onWheel={
-            tileUrl && viewport
-              ? (event) => {
-                  event.preventDefault();
-                  setView(
-                    zoomViewport(viewport, event.deltaY < 0 ? 1 : -1, aspect),
-                  );
-                }
-              : undefined
-          }
           onPointerDown={
             tileUrl
               ? (event) => {
                   if (event.button !== 0) return;
-                  drag.current = { x: event.clientX, y: event.clientY };
-                  (event.currentTarget as HTMLElement).setPointerCapture(
-                    event.pointerId,
-                  );
+                  drag.current = {
+                    x: event.clientX,
+                    y: event.clientY,
+                    moving: false,
+                  };
                 }
               : undefined
           }
           onPointerMove={
-            tileUrl && viewport
+            tileUrl
               ? (event) => {
-                  if (!drag.current) return;
-                  const sheet = sheetRef.current;
-                  if (!sheet || sheet.clientWidth === 0) return;
-                  const dx =
-                    (drag.current.x - event.clientX) / sheet.clientWidth;
-                  const dy =
-                    (drag.current.y - event.clientY) / sheet.clientHeight;
-                  drag.current = { x: event.clientX, y: event.clientY };
-                  setView(panViewport(viewport, dx, dy));
+                  const from = drag.current;
+                  const sheet = event.currentTarget;
+                  if (!from || sheet.clientWidth === 0) return;
+                  const dx = from.x - event.clientX;
+                  const dy = from.y - event.clientY;
+                  // A press that barely moves stays a click, on a pin or
+                  // on a button. Once it drags, the sheet keeps the
+                  // pointer, and its release opens no pin.
+                  if (!from.moving && Math.hypot(dx, dy) < DRAG_START) return;
+                  if (!from.moving) sheet.setPointerCapture(event.pointerId);
+                  drag.current = {
+                    x: event.clientX,
+                    y: event.clientY,
+                    moving: true,
+                  };
+                  pan(dx / sheet.clientWidth, dy / sheet.clientHeight);
                 }
               : undefined
           }
@@ -186,36 +266,45 @@ export function MapView(props: ViewProps) {
           }}
         >
           {tileUrl && viewport ? (
-            <div className="absolute top-2 right-2 z-20 flex flex-col gap-1">
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-8 w-8 bg-card"
-                aria-label={t`Zoom in`}
-                onClick={() => setView(zoomViewport(viewport, 1, aspect))}
-              >
+            // Every move the pointer makes has a button: the keyboard
+            // reaches them, and a pointer that cannot drag presses them.
+            <div
+              role="group"
+              aria-label={t`Move the map`}
+              className="absolute top-2 right-2 z-20 grid grid-cols-3 gap-1"
+            >
+              <MapButton label={t`Zoom in`} onPress={() => zoom(1)}>
                 <Plus className="h-4 w-4" aria-hidden />
-              </Button>
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-8 w-8 bg-card"
-                aria-label={t`Zoom out`}
-                onClick={() => setView(zoomViewport(viewport, -1, aspect))}
+              </MapButton>
+              <MapButton
+                label={t`Move north`}
+                onPress={() => pan(0, -PAN_STEP)}
               >
+                <ArrowUp className="h-4 w-4" aria-hidden />
+              </MapButton>
+              <MapButton label={t`Zoom out`} onPress={() => zoom(-1)}>
                 <Minus className="h-4 w-4" aria-hidden />
-              </Button>
-              {manual ? (
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="h-8 w-8 bg-card"
-                  aria-label={t`Reset the map`}
-                  onClick={() => setManual(null)}
-                >
-                  <RotateCcw className="h-4 w-4" aria-hidden />
-                </Button>
-              ) : null}
+              </MapButton>
+              <MapButton label={t`Move west`} onPress={() => pan(-PAN_STEP, 0)}>
+                <ArrowLeft className="h-4 w-4" aria-hidden />
+              </MapButton>
+              <MapButton
+                label={t`Reset the map`}
+                disabled={!moved}
+                onPress={() => setManual(null)}
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden />
+              </MapButton>
+              <MapButton label={t`Move east`} onPress={() => pan(PAN_STEP, 0)}>
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </MapButton>
+              <MapButton
+                label={t`Move south`}
+                className="col-start-2"
+                onPress={() => pan(0, PAN_STEP)}
+              >
+                <ArrowDown className="h-4 w-4" aria-hidden />
+              </MapButton>
             </div>
           ) : null}
           {tiles.map((tile) => (

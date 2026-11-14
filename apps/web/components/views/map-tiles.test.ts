@@ -107,4 +107,17 @@ describe("the view of a map and its tiles", () => {
     const wider = zoomViewport(base, -1, 1.5);
     expect(wider.maxX - wider.minX).toBeGreaterThan(base.maxX - base.minX);
   });
+
+  it("stops at the world's edge, and at the closest and widest zoom", () => {
+    const west = panViewport(mapViewport([paris], 1.5), -1000, 0);
+    expect(west.minX).toBe(0);
+    expect(panViewport(west, -1, 0)).toEqual(west);
+    let view = mapViewport([paris, tokyo], 1.5);
+    for (let step = 0; step < 40; step += 1) view = zoomViewport(view, 1, 1.5);
+    expect(zoomViewport(view, 1, 1.5)).toEqual(view);
+    for (let step = 0; step < 40; step += 1) view = zoomViewport(view, -1, 1.5);
+    expect(view.maxX - view.minX).toBeLessThanOrEqual(1);
+    expect(view.maxY - view.minY).toBeLessThanOrEqual(1);
+    expect(zoomViewport(view, -1, 1.5)).toEqual(view);
+  });
 });
