@@ -102,6 +102,7 @@ export function SupportTab() {
       duplicate_base: t`Base copy`,
       restore_point: t`Restore point`,
       restore_base: t`Base restore`,
+      import_workbook: t`Spreadsheet import`,
     })[value];
   const statusLabel = (value: JobStatus) =>
     ({

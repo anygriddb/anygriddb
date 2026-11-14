@@ -21,7 +21,7 @@ The product is `apps/` and `packages/`.
 | Public sharing | Read-only views and insert-only forms, fields shown on earlier answers or filled by the link, files sent with an answer and kept a day for it (ADR 0062), password, expiry, audited as `form:<share>`; a link shown in a frame by the sites it names, and by no other (ADR 0067)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | REST API       | `/api/v1`, OpenAPI 3.1 per base, requests tried from the API page, scoped tokens, typecast, field keys by name or label                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | MCP            | Streamable HTTP `/mcp` for the AI you run: the record tools of the REST API, bearer tokens only, read-only tokens offered reading tools; no embedded model                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Import, export | CSV, TSV, JSON, XLSX, or pasted rows: type detection, mapping, new fields, upsert by key, an error report by the file's lines; a file read as its rows are written, up to a million rows by default (ADR 0064); CSV, JSON, XLSX export of a view                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Import, export | CSV, TSV, JSON, XLSX, or pasted rows: type detection, mapping, new fields, upsert by key, an error report by the file's lines; a file read as its rows are written, up to a million rows by default (ADR 0064); CSV, JSON, XLSX export of a view; a workbook (`.xlsx`, as Google Sheets, Excel, or LibreOffice save one) made a base, a table of each sheet kept, its fields typed from every row (ADR 0078)                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | Jobs           | Imports, exports, table copies, and base snapshots in a background queue: live progress, cancel, 24-hour files, interrupted-job recovery, and a failed export or copy retried by its author; an export written to its file as it is read, up to a ceiling the operator sets; a table copied with its rows inside the database, whatever their number                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | Trash          | Bases, tables, fields, and views restorable for 30 days, or as long as an administrator chooses, with their data, links, and view settings, kept by views saved meanwhile; undo toast; purge job; a collaborator with rules restores the rows they deleted                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | Base snapshots | Export/import a base: its schema as `.anygriddb.json`, or, with its data, a `.zip` whose tables' rows are read and written a page at a time, with their numbers, places, links, and files (ADR 0076); people by email; copy it in one step; Airtable bases (Web API); restore points kept on the instance as long as an administrator says, each restored beside the base with its members' access (ADR 0077)                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -53,6 +53,7 @@ The product is `apps/` and `packages/`.
 - A field can require a value in AnyGridDB's own tables only (a client's database says itself what it requires), and not on a checkbox, a person, a file, or a link. Rows already empty when it becomes required stay so until that field is changed.
 - A view saved while one of its fields is in the trash keeps that field's place and settings, but not its conditions inside a nested filter group, a colour rule, or a form field's condition.
 - A base snapshot names people by email: a user cell keeps the people who are members of the new base. Roles given by groups stay behind.
+- A workbook made a base brings its sheets' values: a formula comes as the value the file kept, and its formatting, charts, comments, merged cells, and the links between its sheets do not come (ADR 0078). Its fields take the types every row of their sheet fits, and can be converted afterwards.
 - A collaborator with field or row rules finds in the row trash only the rows they deleted, named by their primary field when they may see it; on a client's table they have no row trash.
 - Rows deleted before this release's many-to-many restore fix come back without those links.
 - A SAML provider that sends only transient or address NameIDs matches accounts by address: it must verify them. OIDC, and SAML with a persistent NameID, bind the account to the provider's subject.
@@ -70,11 +71,12 @@ The product is `apps/` and `packages/`.
 
 Phases 0 to 8 of the [migration plan](docs/migration-plan.md) are done;
 the [decision records](docs/adr/README.md) say why each piece is as it
-is. What is still missing comes in four tracks: the views and spreadsheet
-gestures people miss, data in and out at any size, the applications,
-sign-ins, and languages around an instance, and what an instance
-administrator cannot yet do from Administration. Inside a table, the order is the priority; across
-tracks, the order of work below decides.
+is. What is still missing comes in three tracks: the views and
+spreadsheet gestures people miss, the applications, sign-ins, and
+languages around an instance, and what an instance administrator cannot
+yet do from Administration. Data in and out, at any size, has nothing
+open since rows 83, 99, and 100. Inside a table, the order is the
+priority; across tracks, the order of work below decides.
 
 ### Order of work
 
@@ -83,10 +85,9 @@ A row moves up only when it unblocks another.
 1. A published release: 51. It needs no code, only a version tag, and
    comes first: no operator installs a version before it, and the update
    notice has nothing to find.
-2. Data in and out: 100.
-3. Administration, lot 6: 32 once its wording is confirmed, then 31.
-4. Views and organisation, in the order of their table: 92 to 98.
-5. Applications, sign-in, and languages: 101, then 106, which needs it,
+2. Administration, lot 6: 32 once its wording is confirmed, then 31.
+3. Views and organisation, in the order of their table: 92 to 98.
+4. Applications, sign-in, and languages: 101, then 106, which needs it,
    once decided; 102 to 104; 105 once its languages are chosen.
 
 ### Views and organisation
@@ -108,15 +109,6 @@ A row moves up only when it unblocks another.
 | 8   | Workspaces (and teams) above bases                                                                | L      | Bases stay the top level of membership until someone needs more: a new level in the model is to be decided first (ADR 0017 notes the cost of cross-base links inside one workspace) |
 | 9   | Richer field and row rules (several row rules per member, per-column conditions, user attributes) | L      | Current model: one row rule per table per member, `me` in filters (ADR 0016)                                                                                                        |
 | 10  | Timeline dependencies (Gantt)                                                                     | L      | The timeline has no dependency edges today                                                                                                                                          |
-
-### Data in and out
-
-Every read stays within 1 to 1,000 rows: a large job reads page after page
-and writes as it goes, never a whole table in memory.
-
-| #   | What                                                                                  | Effort | Notes                                                                          |
-| --- | ------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------ |
-| 100 | Google Sheets import: a spreadsheet's sheets as tables, with a report of what differs | M      | Like the Airtable import (ADR 0037): through the provider's API, as a snapshot |
 
 ### Applications, sign-in, and languages
 

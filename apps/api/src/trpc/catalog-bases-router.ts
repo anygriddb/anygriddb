@@ -15,6 +15,7 @@ import {
   exportSnapshotJobInputSchema,
   findTemplate,
   importSnapshotJobInputSchema,
+  importWorkbookInputSchema,
   listRestorePointsInputSchema,
   restoreBaseJobInputSchema,
   restorePointIdInputSchema,
@@ -44,6 +45,11 @@ import {
   listRestorePoints,
 } from "../data/restore-points.js";
 import { removeBase } from "../data/tables.js";
+import {
+  keepStagedWorkbook,
+  loadStagedWorkbook,
+  workbookBaseName,
+} from "../data/workbook-import.js";
 import { readSettings } from "../settings.js";
 import { trashBase } from "../data/trash.js";
 import { publishCatalog } from "../realtime/channels.js";
@@ -473,6 +479,38 @@ export const catalogBaseProcedures = {
           kind: "import_snapshot",
           userId: user.id,
           input,
+        });
+        return { jobId: job.id };
+      }),
+    ),
+  /**
+   * Makes a base of a staged workbook's chosen sheets, in the background
+   * (ADR 0078): the job's result names the base. Making a base needs a
+   * second factor.
+   */
+  importWorkbook: procedure
+    .input(importWorkbookInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user } = await authorize(ctx, true);
+        const staged = await loadStagedWorkbook(
+          ctx.db,
+          input.importId,
+          user.id,
+        );
+        const found = new Set(staged.sheets.map((sheet) => sheet.sheet));
+        if (input.sheets.some((sheet) => !found.has(sheet))) {
+          throw new AppError("invalid_mapping");
+        }
+        await keepStagedWorkbook(ctx.db, input.importId);
+        const job = await enqueueJob(queueDeps(ctx), {
+          kind: "import_workbook",
+          userId: user.id,
+          input: {
+            importId: input.importId,
+            name: input.name ?? workbookBaseName(staged.filename),
+            sheets: input.sheets,
+          },
         });
         return { jobId: job.id };
       }),

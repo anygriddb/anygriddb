@@ -15,6 +15,7 @@ import {
   Copy,
   Download,
   FileDown,
+  FileSpreadsheet,
   FileUp,
   ListChecks,
   Trash2,
@@ -49,11 +50,33 @@ const ICONS = {
   duplicate_base: Copy,
   restore_point: ArchiveArrowDown,
   restore_base: ArchiveArrowUp,
+  import_workbook: FileSpreadsheet,
 } as const;
 
 function resultNumber(job: Job, key: string): number {
   const value = job.result?.[key];
   return typeof value === "number" ? value : 0;
+}
+
+/** A finished workbook import's sheets: their rows written and left out. */
+function workbookSheets(job: Job): Array<{ rows: number; failed: number }> {
+  const report = job.result?.report;
+  if (!report || typeof report !== "object" || !("sheets" in report)) {
+    return [];
+  }
+  const { sheets } = report;
+  return Array.isArray(sheets)
+    ? sheets.map((sheet: unknown) => {
+        const values =
+          sheet && typeof sheet === "object"
+            ? (sheet as { rows?: unknown; failed?: unknown })
+            : {};
+        return {
+          rows: typeof values.rows === "number" ? values.rows : 0,
+          failed: typeof values.failed === "number" ? values.failed : 0,
+        };
+      })
+    : [];
 }
 
 function resultText(job: Job, key: string): string | undefined {
@@ -125,6 +148,8 @@ export function JobsMenu() {
         return t`Restore point`;
       case "restore_base":
         return t`Base restore`;
+      case "import_workbook":
+        return t`Spreadsheet import`;
     }
   }
 
@@ -160,6 +185,14 @@ export function JobsMenu() {
         return snapshotGaps(job.result).length > 0
           ? t`Base created, with gaps`
           : t`Base created`;
+      case "import_workbook": {
+        const sheets = workbookSheets(job);
+        const rows = sheets.reduce((sum, sheet) => sum + sheet.rows, 0);
+        const failed = sheets.reduce((sum, sheet) => sum + sheet.failed, 0);
+        return failed > 0
+          ? t`Base created: ${{ tables: sheets.length }} tables, ${{ rows }} rows, ${{ failed }} left out.`
+          : t`Base created: ${{ tables: sheets.length }} tables, ${{ rows }} rows.`;
+      }
       case "restore_point":
         return plural(resultNumber(job, "rows"), {
           one: "Restore point made: # row",
@@ -190,7 +223,8 @@ export function JobsMenu() {
       job.kind === "import_snapshot" ||
       job.kind === "import_airtable" ||
       job.kind === "duplicate_base" ||
-      job.kind === "restore_base"
+      job.kind === "restore_base" ||
+      job.kind === "import_workbook"
     ) {
       const baseId = resultText(job, "baseId");
       if (!baseId) return;
@@ -329,7 +363,8 @@ export function JobsMenu() {
                     (job.kind === "import_snapshot" ||
                       job.kind === "import_airtable" ||
                       job.kind === "duplicate_base" ||
-                      job.kind === "restore_base") ? (
+                      job.kind === "restore_base" ||
+                      job.kind === "import_workbook") ? (
                       <button
                         type="button"
                         className="text-primary hover:underline"

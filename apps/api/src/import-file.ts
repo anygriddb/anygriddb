@@ -6,13 +6,16 @@
  */
 import { createReadStream } from "node:fs";
 import { readFile } from "node:fs/promises";
+import type { Readable } from "node:stream";
 import {
   AppError,
   DelimitedReader,
   detectDelimiter,
+  FieldGuess,
   type ImportFormat,
   inferFieldType,
   type InferredField,
+  MAX_WORKBOOK_SHEETS,
 } from "@anygriddb/core";
 import ExcelJS from "exceljs";
 
@@ -52,6 +55,8 @@ export type SheetShape = {
   headerLine: number;
   /** Data rows, blank ones left out. */
   total: number;
+  /** A workbook's worksheet, by its place in the file: the first if none. */
+  sheet?: number;
 };
 
 export type ImportPreview = {
@@ -131,7 +136,12 @@ function usedWidth(cells: readonly string[]): number {
 /* Records as each format gives them                                  */
 /* ------------------------------------------------------------------ */
 
-type RawRecord = { line: number; cells: string[] };
+type RawRecord = {
+  line: number;
+  cells: string[];
+  /** A worksheet's cells that hold a formula: their values come. */
+  formulas?: number;
+};
 
 /**
  * Every record of a text file, the header first, numbered from 1. The
@@ -290,32 +300,75 @@ export function excelText(value: unknown): string {
   return "";
 }
 
+/** A workbook read as it goes, its strings and styles kept for its cells. */
+function workbookReader(stream: Readable): ExcelJS.stream.xlsx.WorkbookReader {
+  return new ExcelJS.stream.xlsx.WorkbookReader(stream, {
+    sharedStrings: "cache",
+    styles: "cache",
+    hyperlinks: "ignore",
+    worksheets: "emit",
+    entries: "emit",
+  });
+}
+
+/** A cell that holds a formula, whose value is what an import takes. */
+function isFormula(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    ("formula" in value || "sharedFormula" in value)
+  );
+}
+
+/** The rows of one worksheet, numbered as the sheet numbers them. */
+async function* sheetRecords(
+  sheet: AsyncIterable<ExcelJS.Row>,
+): AsyncGenerator<RawRecord> {
+  for await (const row of sheet) {
+    const values = Array.isArray(row.values) ? row.values.slice(1) : [];
+    if (values.length > IMPORT_LIMITS.maxColumns + SPARE_CELLS) {
+      throw new AppError("invalid_import");
+    }
+    yield {
+      line: row.number,
+      cells: Array.from(values, (value) => clip(excelText(value))),
+      formulas: values.filter(isFormula).length,
+    };
+  }
+}
+
+/** A worksheet's name and whether its workbook hides it, as the file says. */
+function aboutSheet(sheet: object): { name: string; hidden: boolean } {
+  const about = sheet as { name?: unknown; state?: unknown };
+  return {
+    name: typeof about.name === "string" ? about.name : "",
+    hidden: about.state === "hidden" || about.state === "veryHidden",
+  };
+}
+
 /**
- * The rows of a workbook's first worksheet that hold something, numbered
- * as the sheet numbers them.
+ * The rows of one worksheet of a workbook, by its place in the file (the
+ * first when none is named), numbered as the sheet numbers them. The
+ * worksheets before it are read through.
  */
-async function* workbookRecords(path: string): AsyncGenerator<RawRecord> {
+async function* workbookRecords(
+  path: string,
+  sheet = 0,
+): AsyncGenerator<RawRecord> {
   const stream = createReadStream(path);
   try {
-    const reader = new ExcelJS.stream.xlsx.WorkbookReader(stream, {
-      sharedStrings: "cache",
-      styles: "cache",
-      hyperlinks: "ignore",
-      worksheets: "emit",
-      entries: "emit",
-    });
-    for await (const sheet of reader) {
-      for await (const row of sheet) {
-        const values = Array.isArray(row.values) ? row.values.slice(1) : [];
-        if (values.length > IMPORT_LIMITS.maxColumns + SPARE_CELLS) {
-          throw new AppError("invalid_import");
-        }
-        yield {
-          line: row.number,
-          cells: Array.from(values, (value) => clip(excelText(value))),
-        };
+    let index = 0;
+    for await (const worksheet of workbookReader(stream)) {
+      const records = sheetRecords(worksheet);
+      if (index === sheet) {
+        yield* records;
+        return;
       }
-      break;
+      // A sheet before the one asked is read through, and nothing kept.
+      while (!(await records.next()).done) {
+        // The reader moves on to the next sheet once this one is read.
+      }
+      index += 1;
     }
   } catch (error) {
     if (error instanceof AppError) throw error;
@@ -329,6 +382,115 @@ async function* workbookRecords(path: string): AsyncGenerator<RawRecord> {
 /* First pass: columns, count, sample                                 */
 /* ------------------------------------------------------------------ */
 
+/** What a first pass gathers: the header, the width, the count, a sample. */
+type Found = {
+  rawHeader: string[] | undefined;
+  headerLine: number;
+  width: number;
+  total: number;
+  sample: string[][];
+  delimiter?: "," | ";" | "\t";
+};
+
+function nothingFound(): Found {
+  return {
+    rawHeader: undefined,
+    headerLine: 0,
+    width: 0,
+    total: 0,
+    sample: [],
+  };
+}
+
+/** A data row found: counted toward the ceiling, and kept while sampling. */
+function keepRow(
+  found: Found,
+  cells: string[],
+  count: () => void,
+  sampleSize: number,
+): void {
+  count();
+  found.total += 1;
+  if (found.sample.length < sampleSize) found.sample.push(cells);
+}
+
+/**
+ * What a first pass found, as the shape the second reads the file by and
+ * a preview. Nothing that reads as columns is refused.
+ */
+function scanResult(
+  format: ImportFormat,
+  found: Found,
+): { shape: SheetShape; preview: ImportPreview } {
+  if (
+    !found.rawHeader ||
+    found.width === 0 ||
+    found.width > IMPORT_LIMITS.maxColumns
+  ) {
+    throw new AppError("invalid_import");
+  }
+  const headers = cleanHeaders(fit(found.rawHeader, found.width));
+  const rows = found.sample.map((cells) => fit(cells, found.width));
+  return {
+    shape: {
+      format,
+      headers,
+      ...(found.delimiter ? { delimiter: found.delimiter } : {}),
+      headerLine: found.headerLine,
+      total: found.total,
+    },
+    preview: {
+      headers,
+      sample: rows.slice(0, PREVIEW_ROWS),
+      total: found.total,
+      inferred: headers.map((_, index) =>
+        inferFieldType(rows.map((cells) => cells[index] ?? "")),
+      ),
+    },
+  };
+}
+
+/**
+ * One worksheet's first pass: its first row that holds something is its
+ * header, the rows after it that hold something are its data. With
+ * `guesses`, every data cell goes to its column's guess.
+ */
+async function scanSheet(
+  records: AsyncIterable<RawRecord>,
+  count: () => void,
+  sampleSize: number,
+  guesses?: FieldGuess[],
+): Promise<Found & { formulas: number }> {
+  const found = { ...nothingFound(), formulas: 0 };
+  for await (const record of records) {
+    found.formulas += record.formulas ?? 0;
+    if (isBlank(record.cells)) continue;
+    if (!found.rawHeader) {
+      found.rawHeader = record.cells;
+      found.headerLine = record.line;
+      found.width = usedWidth(record.cells);
+      continue;
+    }
+    found.width = Math.max(found.width, usedWidth(record.cells));
+    keepRow(found, record.cells, count, sampleSize);
+    if (guesses) {
+      for (const [index, cell] of record.cells.entries()) {
+        (guesses[index] ??= new FieldGuess()).add(cell);
+      }
+    }
+  }
+  return found;
+}
+
+/** Counts the rows read, and refuses past `maxRows`. */
+function rowCounter(maxRows: number): () => void {
+  let counted = 0;
+  return () => {
+    counted += 1;
+    if (counted > maxRows) throw new AppError("import_too_large");
+  };
+}
+
 /**
  * Reads the whole file once: its columns, how many rows it holds, and its
  * first rows. Refuses a file past `maxRows` as soon as it gets there.
@@ -338,83 +500,118 @@ export async function scanImportFile(
   path: string,
   maxRows: number,
 ): Promise<{ shape: SheetShape; preview: ImportPreview }> {
-  let rawHeader: string[] | undefined;
-  let headerLine = 0;
-  let width = 0;
-  let total = 0;
-  let delimiter: "," | ";" | "\t" | undefined;
-  const sample: string[][] = [];
-  const keep = (cells: string[]) => {
-    total += 1;
-    if (total > maxRows) throw new AppError("import_too_large");
-    if (sample.length < INFER_SAMPLE) sample.push(cells);
-  };
+  const count = rowCounter(maxRows);
   switch (format) {
     case "csv":
-    case "tsv":
+    case "tsv": {
+      const found = nothingFound();
       for await (const record of textRecords(path, format)) {
-        delimiter = record.delimiter;
-        if (!rawHeader) {
-          rawHeader = record.cells;
-          headerLine = record.line;
-          width = rawHeader.length;
+        found.delimiter = record.delimiter;
+        if (!found.rawHeader) {
+          found.rawHeader = record.cells;
+          found.headerLine = record.line;
+          found.width = record.cells.length;
           continue;
         }
-        if (usedWidth(record.cells) > width) {
+        if (usedWidth(record.cells) > found.width) {
           throw new AppError("invalid_import");
         }
-        if (!isBlank(record.cells)) keep(record.cells);
-      }
-      break;
-    case "xlsx":
-      for await (const record of workbookRecords(path)) {
-        if (!rawHeader) {
-          if (isBlank(record.cells)) continue;
-          rawHeader = record.cells;
-          headerLine = record.line;
-          width = usedWidth(rawHeader);
-          continue;
+        if (!isBlank(record.cells)) {
+          keepRow(found, record.cells, count, INFER_SAMPLE);
         }
-        if (isBlank(record.cells)) continue;
-        width = Math.max(width, usedWidth(record.cells));
-        keep(record.cells);
       }
-      break;
+      return scanResult(format, found);
+    }
+    case "xlsx":
+      return scanResult(
+        format,
+        await scanSheet(workbookRecords(path), count, INFER_SAMPLE),
+      );
     case "json": {
       const records = await jsonRecords(path, maxRows);
       const keys = jsonKeys(records);
+      const found = { ...nothingFound(), rawHeader: keys, headerLine: 1 };
+      found.width = keys.length;
       for (const record of records) {
         const cells = keys.map((key) => jsonText(record[key]));
-        if (!isBlank(cells)) keep(cells);
+        if (!isBlank(cells)) keepRow(found, cells, count, INFER_SAMPLE);
       }
-      rawHeader = keys;
-      headerLine = 1;
-      width = keys.length;
-      break;
+      return scanResult(format, found);
     }
   }
-  if (!rawHeader || width === 0 || width > IMPORT_LIMITS.maxColumns) {
-    throw new AppError("invalid_import");
+}
+
+/** One worksheet of a workbook that holds a header, as the first pass found it. */
+export type WorkbookSheet = {
+  /** Its place in the file, from 0: what the second pass reads it by. */
+  sheet: number;
+  name: string;
+  hidden: boolean;
+  /** Its cells that hold a formula: their values come, not the formulas. */
+  formulas: number;
+  shape: SheetShape;
+  preview: ImportPreview;
+};
+
+/** Rows of each worksheet kept to infer its fields: a workbook has many. */
+const WORKBOOK_SAMPLE = 200;
+
+/**
+ * Reads a workbook once, each worksheet in turn (ADR 0078): for each one
+ * that holds a header, its name, its columns, how many rows and formulas
+ * it holds, and a sample. Each field's type is guessed from every row of
+ * its sheet, not from the sample: the rows of a new base must all fit it.
+ * Refuses a workbook past `maxRows` rows in all, one with more sheets
+ * than a base takes tables, or one with none.
+ */
+export async function scanWorkbook(
+  path: string,
+  maxRows: number,
+): Promise<WorkbookSheet[]> {
+  const count = rowCounter(maxRows);
+  const sheets: WorkbookSheet[] = [];
+  const stream = createReadStream(path);
+  try {
+    let index = 0;
+    for await (const worksheet of workbookReader(stream)) {
+      const about = aboutSheet(worksheet);
+      const guesses: FieldGuess[] = [];
+      const found = await scanSheet(
+        sheetRecords(worksheet),
+        count,
+        WORKBOOK_SAMPLE,
+        guesses,
+      );
+      if (found.rawHeader) {
+        if (sheets.length >= MAX_WORKBOOK_SHEETS) {
+          throw new AppError("invalid_import");
+        }
+        const { shape, preview } = scanResult("xlsx", found);
+        sheets.push({
+          sheet: index,
+          name: about.name.trim().slice(0, 100) || `#${index + 1}`,
+          hidden: about.hidden,
+          formulas: found.formulas,
+          shape: { ...shape, sheet: index },
+          preview: {
+            ...preview,
+            inferred: shape.headers.map(
+              (_, column) =>
+                guesses[column]?.result() ?? { fieldType: "text" as const },
+            ),
+          },
+        });
+      }
+      index += 1;
+    }
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError("invalid_import", { cause: error });
+  } finally {
+    stream.destroy();
   }
-  const headers = cleanHeaders(fit(rawHeader, width));
-  const rows = sample.map((cells) => fit(cells, width));
-  return {
-    shape: {
-      format,
-      headers,
-      ...(delimiter ? { delimiter } : {}),
-      headerLine,
-      total,
-    },
-    preview: {
-      headers,
-      sample: rows.slice(0, PREVIEW_ROWS),
-      total,
-      inferred: headers.map((_, index) =>
-        inferFieldType(rows.map((cells) => cells[index] ?? "")),
-      ),
-    },
-  };
+  if (sheets.length === 0) throw new AppError("invalid_import");
+  return sheets;
 }
 
 /* ------------------------------------------------------------------ */
@@ -461,7 +658,7 @@ export async function* readImportFile(
       }
       break;
     case "xlsx":
-      for await (const record of workbookRecords(path)) {
+      for await (const record of workbookRecords(path, shape.sheet ?? 0)) {
         if (record.line <= shape.headerLine) continue;
         if (usedWidth(record.cells) > width) {
           throw new AppError("invalid_import");

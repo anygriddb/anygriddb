@@ -394,6 +394,55 @@ test.describe("a restore point", () => {
   });
 });
 
+// A workbook made a base (ADR 0078): a table exported as .xlsx comes back
+// as a new base, its sheet a table with the same rows. It makes an
+// account, so it takes a client address of its own.
+test.describe("a workbook", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.83" } });
+
+  test("becomes a base, each sheet kept a table", async ({ page }) => {
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "Wendy Workbook");
+    await page.getByRole("button", { name: "Add a row", exact: true }).click();
+    await typeName(page, "Alpha");
+    const tableId = /\/t\/([^/]+)/.exec(page.url())?.[1] ?? "";
+    const bytes = await page.evaluate(async (id) => {
+      const response = await fetch(
+        `/api/export/${id}?format=xlsx&timeZone=UTC`,
+      );
+      return [...new Uint8Array(await response.arrayBuffer())];
+    }, tableId);
+
+    await page.getByRole("button", { name: "New base" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "New base" });
+    await dialog
+      .getByRole("button", { name: "from a spreadsheet (.xlsx)" })
+      .click();
+    await dialog.locator('input[type="file"]').setInputFiles({
+      name: "Samples.xlsx",
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      buffer: Buffer.from(bytes),
+    });
+    await expect(
+      dialog.getByRole("checkbox", { name: /Samples/ }),
+    ).toBeChecked();
+    await expect(dialog.getByLabel("Base name")).toHaveValue("Samples");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await dialog.getByRole("button", { name: "Import" }).click();
+
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Samples", exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
+    await page
+      .getByRole("region", { name: "Tables" })
+      .getByRole("link", { name: /Samples/ })
+      .click();
+    await expect(nameCell(page)).toContainText("Alpha");
+    expect(blocked).toEqual([]);
+  });
+});
+
 // A gallery, a timeline, and a kanban's stacks read their rows as they
 // scroll, and a map only the rows that have a place: none stops at a first
 // page. A setting saved does not read the rows again. It makes an account,

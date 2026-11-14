@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inferFieldType } from "./import-infer";
+import { FieldGuess, inferFieldType } from "./import-infer";
 
 describe("inferFieldType", () => {
   it("recognises numbers, dates, booleans, emails, and repeated choices", () => {
@@ -33,5 +33,34 @@ describe("inferFieldType", () => {
     expect(inferFieldType(["alpha", "beta", "gamma"]).fieldType).toBe("text");
     expect(inferFieldType(["line one\nline two"]).fieldType).toBe("long_text");
     expect(inferFieldType(["12", "douze"]).fieldType).toBe("text");
+  });
+});
+
+describe("FieldGuess", () => {
+  it("guesses from every value it is given, past the first 2,000", () => {
+    const values = [
+      ...Array.from({ length: 2_500 }, (_, index) => String(index)),
+      "not a number",
+    ];
+    const guess = new FieldGuess();
+    for (const value of values) guess.add(value);
+    expect(guess.result().fieldType).toBe("text");
+    // The sample stops before the text.
+    expect(inferFieldType(values).fieldType).toBe("number");
+  });
+
+  it("keeps a select only while its values repeat, and stays text otherwise", () => {
+    const repeated = new FieldGuess();
+    for (let index = 0; index < 1_000; index += 1) {
+      repeated.add(index % 2 === 0 ? "Open" : "Done");
+    }
+    expect(repeated.result()).toMatchObject({
+      fieldType: "single_select",
+      options: [{ name: "Open" }, { name: "Done" }],
+    });
+    const varied = new FieldGuess();
+    for (let index = 0; index < 1_000; index += 1) varied.add(`Item ${index}`);
+    expect(varied.result().fieldType).toBe("text");
+    expect(new FieldGuess().result().fieldType).toBe("text");
   });
 });

@@ -17,6 +17,7 @@ French translations live in `apps/web/locales/fr/messages.po`.
 | Sync / copy       | Sync, copy                                               | ADR 0034                                                                                                                         |
 | Trash             | Trash                                                    | Soft-delete                                                                                                                      |
 | Restore point     | Restore point                                            | A whole base kept on the instance for a time; restoring one makes a new base and changes nothing (French: point de restauration) |
+| Workbook, sheet   | Workbook, sheet                                          | A spreadsheet file (`.xlsx`) and its pages; each sheet kept becomes a table (French: classeur, feuille)                          |
 | Role              | Role                                                     | Owner, editor, …                                                                                                                 |
 | Instance          | Instance                                                 | The deployment                                                                                                                   |
 | Locale / language | Language                                                 | User-facing menu label                                                                                                           |

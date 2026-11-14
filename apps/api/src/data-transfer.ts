@@ -58,7 +58,12 @@ import {
   IMPORT_LIMITS,
   maxImportBytes,
 } from "./import-file.js";
-import { scanImportFileIsolated } from "./import-isolated.js";
+import {
+  scanImportFileIsolated,
+  scanWorkbookIsolated,
+} from "./import-isolated.js";
+import { stageWorkbook } from "./data/workbook-import.js";
+import { readGateSettings } from "./settings.js";
 import { findLiveTable } from "./services/rows.js";
 import { stageSnapshotFile } from "./data/snapshot-stage.js";
 import { localFolder } from "./files/local-folder.js";
@@ -546,6 +551,89 @@ export function registerDataTransferRoutes(
         return await deny(reply, 500);
       }
       return await reply.send(preview);
+    } finally {
+      await folder.remove();
+    }
+  });
+
+  /**
+   * Keeps an uploaded workbook for `catalog.importWorkbook` (ADR 0078):
+   * written to disk as it arrives, read once in a worker for each of its
+   * worksheets, then staged as it came. Making a base needs the right to
+   * make one, which the import asks again with its second factor.
+   */
+  app.post("/api/import/workbook", async (request, reply) => {
+    const actor = await actorOf(deps.db, request);
+    if (!actor) return deny(reply, 401);
+    if (
+      !actor.user.isAdmin &&
+      (await readGateSettings(deps.db)).baseCreation === "admins"
+    ) {
+      return deny(reply, 403, "base_creation_restricted");
+    }
+    const release = deps.uploads.take();
+    if (!release) return denyBusy(reply);
+    const folder = await localFolder("import");
+    try {
+      const path = join(folder.path, "upload");
+      let filename: string;
+      let size: number;
+      try {
+        const file = await request.file({
+          limits: {
+            fileSize: IMPORT_LIMITS.maxXlsxBytes,
+            files: 1,
+            fields: 2,
+          },
+        });
+        if (!file) return await deny(reply, 400);
+        filename = cleanFilename(file.filename);
+        await pipeline(
+          file.file,
+          createWriteStream(path, { flags: "wx", mode: 0o600 }),
+        );
+        size = (await stat(path)).size;
+        if (file.file.truncated) return await deny(reply, 413);
+      } catch (error) {
+        request.log.warn({ err: error }, "workbook upload too large");
+        return await deny(reply, 413);
+      } finally {
+        release();
+      }
+      if (size === 0) return await deny(reply, 413);
+      try {
+        if (detectImportFormat(filename) !== "xlsx") {
+          return await deny(reply, 400, "invalid_import");
+        }
+        const staged = await stageWorkbook(deps.db, deps.files, {
+          userId: actor.user.id,
+          filename,
+          path,
+          size,
+          sheets: await scanWorkbookIsolated(path, deps.importMaxRows),
+        });
+        return await reply.send({
+          importId: staged.importId,
+          filename,
+          sheets: staged.sheets.map((sheet) => ({
+            sheet: sheet.sheet,
+            name: sheet.name,
+            hidden: sheet.hidden,
+            rows: sheet.total,
+            fields: sheet.headers.length,
+            formulas: sheet.formulas,
+          })),
+        });
+      } catch (error) {
+        if (
+          error instanceof AppError &&
+          (error.code === "invalid_import" || error.code === "import_too_large")
+        ) {
+          return await deny(reply, 400, error.code);
+        }
+        request.log.error({ err: error }, "workbook preview failed");
+        return await deny(reply, 500);
+      }
     } finally {
       await folder.remove();
     }

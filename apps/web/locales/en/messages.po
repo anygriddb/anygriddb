@@ -248,8 +248,10 @@ msgstr "{0, plural, one {# field removed (in the trash)} other {# fields removed
 msgid "{0, plural, one {# field updated} other {# fields updated}}"
 msgstr "{0, plural, one {# field updated} other {# fields updated}}"
 
+#. placeholder {0}: sheet.fields
 #. placeholder {0}: table.columns.length
 #: components/shell/base-home.tsx
+#: components/shell/new-base-dialog.tsx
 msgid "{0, plural, one {# field} other {# fields}}"
 msgstr "{0, plural, one {# field} other {# fields}}"
 
@@ -257,6 +259,11 @@ msgstr "{0, plural, one {# field} other {# fields}}"
 #: components/shell/new-base-dialog.tsx
 msgid "{0, plural, one {# file} other {# files}}"
 msgstr "{0, plural, one {# file} other {# files}}"
+
+#. placeholder {0}: sheet.formulas
+#: components/shell/new-base-dialog.tsx
+msgid "{0, plural, one {# formula, imported as its value} other {# formulas, imported as their values}}"
+msgstr "{0, plural, one {# formula, imported as its value} other {# formulas, imported as their values}}"
 
 #. placeholder {0}: chip.count
 #: components/table/view-toolbar.tsx
@@ -525,6 +532,10 @@ msgstr "{engine} computes {fn} approximately: the result is right to 15 digits. 
 #: lib/limits.ts
 msgid "{engine} keeps at most 38 digits in a number: this calculation may be rounded. This is a limit of {engine}."
 msgstr "{engine} keeps at most 38 digits in a number: this calculation may be rounded. This is a limit of {engine}."
+
+#: components/shell/new-base-dialog.tsx
+msgid "{failed, plural, one {# row did not fit its field and was left out} other {# rows did not fit their fields and were left out}}"
+msgstr "{failed, plural, one {# row did not fit its field and was left out} other {# rows did not fit their fields and were left out}}"
 
 #: components/admin/admin-overview.tsx
 msgid "{failures, plural, one {failure in the last 24 hours} other {failures in the last 24 hours}}"
@@ -1938,6 +1949,10 @@ msgid "Base created, with gaps"
 msgstr "Base created, with gaps"
 
 #: components/shell/jobs-menu.tsx
+msgid "Base created: {tables} tables, {rows} rows, {failed} left out."
+msgstr "Base created: {tables} tables, {rows} rows, {failed} left out."
+
+#: components/shell/jobs-menu.tsx
 msgid "Base created: {tables} tables, {rows} rows."
 msgstr "Base created: {tables} tables, {rows} rows."
 
@@ -3270,6 +3285,10 @@ msgstr "Drop a backup (.anygriddb.json or .anygriddb.zip) to import a base."
 msgid "Drop a file or click to choose one"
 msgstr "Drop a file or click to choose one"
 
+#: components/shell/new-base-dialog.tsx
+msgid "Drop a workbook (.xlsx) to make a base of its sheets. From Google Sheets: File, Download, Microsoft Excel."
+msgstr "Drop a workbook (.xlsx) to make a base of its sheets. From Google Sheets: File, Download, Microsoft Excel."
+
 #: components/fields/cell-editor.tsx
 msgid "Drop files here"
 msgstr "Drop files here"
@@ -3326,6 +3345,10 @@ msgstr "Each person receives this plain-text notice by email. The sign-in trail 
 #: components/auth/auth-frame.tsx
 msgid "Each row is a real row of your database. Each change is signed, dated, and can be undone."
 msgstr "Each row is a real row of your database. Each change is signed, dated, and can be undone."
+
+#: components/shell/new-base-dialog.tsx
+msgid "Each sheet you keep becomes a table, its first row that holds something naming its fields. You can change the name above."
+msgstr "Each sheet you keep becomes a table, its first row that holds something naming its fields. You can change the name above."
 
 #: components/grid/grid-footer.tsx
 msgid "Earliest"
@@ -3938,6 +3961,10 @@ msgstr "File too large (2 GiB at most)"
 msgid "File too large (256 MB, 64 MB for Excel, 20 MB for JSON)."
 msgstr "File too large (256 MB, 64 MB for Excel, 20 MB for JSON)."
 
+#: components/shell/new-base-dialog.tsx
+msgid "File too large: a spreadsheet takes 64 MB at most."
+msgstr "File too large: a spreadsheet takes 64 MB at most."
+
 #: components/admin/base-admin-page.tsx
 #: components/admin/bases-tab.tsx
 #: components/admin/health-tab.tsx
@@ -4125,6 +4152,10 @@ msgstr "From"
 #: components/shell/new-base-dialog.tsx
 msgid "from a backup file"
 msgstr "from a backup file"
+
+#: components/shell/new-base-dialog.tsx
+msgid "from a spreadsheet (.xlsx)"
+msgstr "from a spreadsheet (.xlsx)"
 
 #: components/admin/integrations-tab.tsx
 msgid "From address"
@@ -4340,6 +4371,10 @@ msgstr "Here is this webhook's address. Copy it now: it will not be shown again.
 #: components/settings/table-acl-panel.tsx
 msgid "Hidden"
 msgstr "Hidden"
+
+#: components/shell/new-base-dialog.tsx
+msgid "hidden in the workbook"
+msgstr "hidden in the workbook"
 
 #: components/grid/grid-header.tsx
 msgid "Hide"
@@ -8078,6 +8113,10 @@ msgstr "Shares of the total"
 msgid "Sharing"
 msgstr "Sharing"
 
+#: components/shell/new-base-dialog.tsx
+msgid "Sheets to keep"
+msgstr "Sheets to keep"
+
 #: components/table/view-toolbar.tsx
 msgid "Short"
 msgstr "Short"
@@ -8410,6 +8449,12 @@ msgstr "Sources"
 #: components/fields/formula-docs.ts
 msgid "Splits the text into a list."
 msgstr "Splits the text into a list."
+
+#: components/admin/support-tab.tsx
+#: components/shell/jobs-menu.tsx
+#: components/shell/new-base-dialog.tsx
+msgid "Spreadsheet import"
+msgstr "Spreadsheet import"
 
 #: components/admin/sources-tab.tsx
 msgid "SQL Server Change Tracking"
