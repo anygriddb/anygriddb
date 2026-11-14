@@ -266,6 +266,24 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
 
+  // Tab moves along a row; past its last field it leaves the grid, and
+  // Shift Tab before its first leaves it backward, past the controls the
+  // grid holds: the keyboard is never held in it (WCAG 2.1.2).
+  const grid = page.getByRole("grid");
+  const focusInGrid = () =>
+    grid.evaluate((element) => element.contains(document.activeElement));
+  await cell(page, "due").click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Tab");
+  expect(await focusInGrid()).toBe(false);
+  await cell(page, "due").click();
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Shift+Tab");
+  expect(await focusInGrid()).toBe(false);
+  await cell(page, "due").click();
+  await page.keyboard.press("Tab");
+  await expect(grid).toBeFocused();
+
   // A map on a table with no number field says what it needs, rather than
   // an empty sheet.
   await page.getByRole("button", { name: "New view" }).click();

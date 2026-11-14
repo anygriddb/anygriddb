@@ -56,7 +56,10 @@ export function ShortcutsDialog() {
         [["↑", "↓", "←", "→"], t`Move between cells`],
         [[mod, "↑ ↓ ← →"], t`Jump to the edge of the grid`],
         [[shift, "↑ ↓ ← →"], t`Extend the selection`],
-        [["Tab"], t`Next cell (${shift}: previous)`],
+        [
+          ["Tab"],
+          t`Next cell (${shift}: previous); past the row's last, out of the grid`,
+        ],
         [[home, end], t`Start or end of the row (${mod}: of the grid)`],
         [["Page ↑", "Page ↓"], t`Move up or down 15 rows`],
         [[mod, "A"], t`Select all`],

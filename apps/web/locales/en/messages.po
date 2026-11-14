@@ -2973,10 +2973,6 @@ msgctxt "keyboard key"
 msgid "Ctrl"
 msgstr "Ctrl"
 
-#: components/shell/sidebar.tsx
-msgid "Ctrl K"
-msgstr "Ctrl K"
-
 #: components/fields/field-editor.tsx
 msgid "Currency"
 msgstr "Currency"
@@ -6053,8 +6049,8 @@ msgid "Next"
 msgstr "Next"
 
 #: components/shell/shortcuts-dialog.tsx
-msgid "Next cell ({shift}: previous)"
-msgstr "Next cell ({shift}: previous)"
+msgid "Next cell ({shift}: previous); past the row's last, out of the grid"
+msgstr "Next cell ({shift}: previous); past the row's last, out of the grid"
 
 #: components/fields/attachment-preview.tsx
 msgid "Next file"
