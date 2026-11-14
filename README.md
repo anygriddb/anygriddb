@@ -78,15 +78,9 @@ The first account you create administers the instance. Creating a base requires 
 
 ## Layout
 
-```text
-apps/web            Vite single-page app: grid, views, settings, admin
-apps/api            Fastify: serves the app, tRPC, REST /api/v1, WebSocket, files, jobs
-packages/db         Kysely client, SQL migrations, generated catalog types
-packages/core       field types, SQL builders, formulas, filters, RBAC, schemas
-packages/ui         Tailwind tokens and shared components
-packages/tsconfig   shared TypeScript configs
-docker/             one AnyGridDB image, PostgreSQL 18; managed and RustFS variants
-```
+Two apps (`apps/web`, `apps/api`), three packages (`packages/core`,
+`packages/db`, `packages/ui`), and the install path (`docker/`): what each
+owns is the table of [`CONTRIBUTING.md`](CONTRIBUTING.md#where-to-change-what).
 
 ## Principles
 

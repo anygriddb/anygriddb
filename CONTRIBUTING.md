@@ -1,7 +1,7 @@
 # Contributing to AnyGridDB
 
-All contributions are **AGPL-3.0-or-later**. Stack and package roles:
-[`ARCHITECTURE.md`](ARCHITECTURE.md), [`TECH_STACK.md`](TECH_STACK.md).
+All contributions are **AGPL-3.0-or-later**. How it is built and what it
+runs on: [`ARCHITECTURE.md`](ARCHITECTURE.md), [`TECH_STACK.md`](TECH_STACK.md).
 What works today: [`ROADMAP.md`](ROADMAP.md). Why it is built this way:
 [`docs/adr/`](docs/adr/README.md). Behaviour in the project's spaces:
 [`.github/CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md). Accessibility
@@ -75,6 +75,7 @@ The first account you create administers the instance. Full stack in Docker:
 | `pnpm test:integration`                     | PostgreSQL and client engines in Testcontainers                                   |
 | `pnpm test:e2e`                             | Playwright journeys in Chromium, with axe accessibility checks                    |
 | `pnpm test:samples`                         | sample databases on five engines ([`docker/lab/README.md`](docker/lab/README.md)) |
+| `pnpm vps:up`, `vps:run`, `vps:down`        | the stack under a small server's limits, and its load report (`scripts/vps/`)     |
 | `pnpm --filter @anygriddb/web i18n:extract` | refresh the Lingui catalogs                                                       |
 | `pnpm --filter @anygriddb/db db:types`      | regenerate the Kysely types from `DATABASE_URL`, freshly migrated                 |
 
@@ -112,7 +113,11 @@ so they are not checked.
   `write`, or `manage`. The actor comes from the session, never from an id the
   client sends.
 - **Row writes**: always `apps/api/src/services/rows.ts` (tRPC, REST, MCP,
-  automations, forms). There is no second write path.
+  automations, forms). There is no second write path. A job that writes
+  in batches (an import, a copy, a snapshot) uses the service's batch
+  entries (`insertNativeBatch`, `updateNativeBatch`); an import into a
+  client's table writes through `apps/api/src/sources/writes.ts`, as the
+  service does.
 - **Product SQL**: bound parameters, built in `packages/core` only.
   `packages/db` does not grow query builders.
 - **Errors**: `AppError` with a snake_case code registered in

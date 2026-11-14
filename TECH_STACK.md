@@ -1,8 +1,8 @@
 # Tech stack
 
-Audit date: **2026-11-12**. This page lists what the tree runs today. The
-target stack, and why, is in the [decision records](docs/adr/README.md); the
-order of work is in the [migration plan](docs/migration-plan.md).
+Audit date: **2026-11-14**. This page lists what the tree runs today. Why
+each piece was chosen is in the [decision records](docs/adr/README.md);
+what comes next is in the [roadmap](ROADMAP.md#next).
 
 ## Runtime
 
