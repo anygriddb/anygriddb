@@ -34,7 +34,13 @@ import {
   Trash2,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import { useTrackJob } from "../../lib/jobs";
 import type { NavigationMode } from "../../lib/narrow-screen";
@@ -550,393 +556,21 @@ export function Sidebar({
           </div>
         ) : null}
         <ul className="flex flex-col gap-0.5">
-          {bases.map((base) => {
-            const open = !collapsed.has(base.id);
-            const manage = canManage(base.role);
-            return (
-              <li key={base.id}>
-                <div
-                  className={cn(
-                    "group flex items-center gap-1 rounded-md px-1 py-1 text-sm hover:bg-muted",
-                    params.baseId === base.id && "font-medium",
-                  )}
-                >
-                  <button
-                    type="button"
-                    aria-label={open ? t`Collapse` : t`Expand`}
-                    className="rounded p-0.5 text-muted-foreground"
-                    onClick={() =>
-                      setCollapsed((current) => {
-                        const next = new Set(current);
-                        if (next.has(base.id)) next.delete(base.id);
-                        else next.add(base.id);
-                        return next;
-                      })
-                    }
-                  >
-                    {open ? (
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    ) : (
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    )}
-                  </button>
-                  <Database
-                    className="h-4 w-4 shrink-0 text-primary"
-                    aria-hidden
-                  />
-                  <Link
-                    to="/b/$baseId"
-                    params={{ baseId: base.id }}
-                    className="min-w-0 flex-1 truncate"
-                  >
-                    {base.name}
-                  </Link>
-                  <PinButton
-                    pinned={shortcuts.pinnedBases.has(base.id)}
-                    name={base.name}
-                    onToggle={() =>
-                      void shortcuts.setPinned(
-                        { baseId: base.id },
-                        !shortcuts.pinnedBases.has(base.id),
-                      )
-                    }
-                  />
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
-                      aria-label={t`Base actions`}
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      {manage ? (
-                        <DropdownMenuItem
-                          onSelect={() =>
-                            setDialog({ kind: "create-table", base })
-                          }
-                        >
-                          <Plus className="h-4 w-4" aria-hidden />
-                          {t`New table`}
-                        </DropdownMenuItem>
-                      ) : null}
-                      {manage ? (
-                        <DropdownMenuItem
-                          onSelect={() => setDialog({ kind: "import", base })}
-                        >
-                          <FileUp className="h-4 w-4" aria-hidden />
-                          {t`Import a file`}
-                        </DropdownMenuItem>
-                      ) : null}
-                      {manage ? (
-                        <DropdownMenuItem
-                          onSelect={() =>
-                            setDialog({ kind: "rename-base", base })
-                          }
-                        >
-                          <Pencil className="h-4 w-4" aria-hidden />
-                          {t`Rename`}
-                        </DropdownMenuItem>
-                      ) : null}
-                      {manage ? (
-                        <DropdownMenuItem
-                          onSelect={() => void duplicateBase(base)}
-                        >
-                          <CopyPlus className="h-4 w-4" aria-hidden />
-                          {t`Duplicate base`}
-                        </DropdownMenuItem>
-                      ) : null}
-                      <DropdownMenuItem
-                        onSelect={() =>
-                          void navigate({
-                            to: "/b/$baseId/dashboards",
-                            params: { baseId: base.id },
-                          })
-                        }
-                      >
-                        <LayoutDashboard className="h-4 w-4" aria-hidden />
-                        {t`Dashboards`}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() =>
-                          void navigate({
-                            to: "/b/$baseId/api",
-                            params: { baseId: base.id },
-                          })
-                        }
-                      >
-                        <Code2 className="h-4 w-4" aria-hidden />
-                        {t`API and documentation`}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() =>
-                          void navigate({
-                            to: "/b/$baseId/settings",
-                            params: { baseId: base.id },
-                          })
-                        }
-                      >
-                        <Settings className="h-4 w-4" aria-hidden />
-                        {t`Settings and sharing`}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => setDialog({ kind: "trash", base })}
-                      >
-                        <Trash className="h-4 w-4" aria-hidden />
-                        {t`Trash`}
-                      </DropdownMenuItem>
-                      {manage ? (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            danger
-                            onSelect={() =>
-                              setDialog({ kind: "delete-base", base })
-                            }
-                          >
-                            <Trash2 className="h-4 w-4" aria-hidden />
-                            {t`Delete base`}
-                          </DropdownMenuItem>
-                        </>
-                      ) : null}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                {open ? (
-                  <ul className="ml-5 flex flex-col gap-0.5 border-l border-border pl-2">
-                    {base.folders.map((folder, folderIndex) => {
-                      const inFolder = base.tables.filter(
-                        (table) => table.folderId === folder.id,
-                      );
-                      const folderOpen = !collapsed.has(folder.id);
-                      return (
-                        <li key={folder.id}>
-                          <div className="group flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm hover:bg-muted">
-                            <button
-                              type="button"
-                              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
-                              aria-expanded={folderOpen}
-                              aria-label={
-                                folderOpen
-                                  ? t`Collapse ${{ name: folder.name }}`
-                                  : t`Expand ${{ name: folder.name }}`
-                              }
-                              onClick={() =>
-                                setCollapsed((current) => {
-                                  const next = new Set(current);
-                                  if (next.has(folder.id))
-                                    next.delete(folder.id);
-                                  else next.add(folder.id);
-                                  return next;
-                                })
-                              }
-                            >
-                              {folderOpen ? (
-                                <ChevronDown
-                                  className="h-3.5 w-3.5"
-                                  aria-hidden
-                                />
-                              ) : (
-                                <ChevronRight
-                                  className="h-3.5 w-3.5"
-                                  aria-hidden
-                                />
-                              )}
-                            </button>
-                            <Folder
-                              className="h-3.5 w-3.5 shrink-0 opacity-70"
-                              aria-hidden
-                            />
-                            <span className="min-w-0 flex-1 truncate font-medium">
-                              {folder.name}
-                            </span>
-                            {manage ? (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger
-                                  className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                  aria-label={t`Folder actions`}
-                                >
-                                  <MoreHorizontal className="h-3.5 w-3.5" />
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                  <DropdownMenuItem
-                                    onSelect={() =>
-                                      setDialog({
-                                        kind: "rename-folder",
-                                        base,
-                                        folder,
-                                      })
-                                    }
-                                  >
-                                    <Pencil className="h-4 w-4" aria-hidden />
-                                    {t`Rename`}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    disabled={folderIndex === 0}
-                                    onSelect={() =>
-                                      void moveFolder(base, folder, -1)
-                                    }
-                                  >
-                                    <ArrowUp className="h-4 w-4" aria-hidden />
-                                    {t`Move up`}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    disabled={
-                                      folderIndex === base.folders.length - 1
-                                    }
-                                    onSelect={() =>
-                                      void moveFolder(base, folder, 1)
-                                    }
-                                  >
-                                    <ArrowDown
-                                      className="h-4 w-4"
-                                      aria-hidden
-                                    />
-                                    {t`Move down`}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    danger
-                                    onSelect={() =>
-                                      setDialog({
-                                        kind: "delete-folder",
-                                        base,
-                                        folder,
-                                      })
-                                    }
-                                  >
-                                    <Trash2 className="h-4 w-4" aria-hidden />
-                                    {t`Delete folder`}
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : null}
-                          </div>
-                          {folderOpen ? (
-                            <ul className="ml-4 flex flex-col gap-0.5 border-l border-border pl-2">
-                              {inFolder.map((table, index) => (
-                                <SidebarTableRow
-                                  key={table.id}
-                                  base={base}
-                                  table={table}
-                                  index={index}
-                                  siblings={inFolder}
-                                  manage={manage}
-                                  active={params.tableId === table.id}
-                                  pinned={shortcuts.pinnedTables.has(table.id)}
-                                  onPin={() =>
-                                    void shortcuts.setPinned(
-                                      { tableId: table.id },
-                                      !shortcuts.pinnedTables.has(table.id),
-                                    )
-                                  }
-                                  onRename={() =>
-                                    setDialog({ kind: "rename-table", table })
-                                  }
-                                  onMove={(delta) =>
-                                    void moveTable(base, table, inFolder, delta)
-                                  }
-                                  onDuplicate={(withData) =>
-                                    void duplicate(base, table, withData)
-                                  }
-                                  onDelete={() =>
-                                    setDialog({
-                                      kind: "delete-table",
-                                      table,
-                                      base,
-                                    })
-                                  }
-                                  onMoveToFolder={(folderId) =>
-                                    void act(() =>
-                                      trpc.catalog.moveTableToFolder.mutate({
-                                        tableId: table.id,
-                                        folderId,
-                                      }),
-                                    )
-                                  }
-                                />
-                              ))}
-                            </ul>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                    {base.tables
-                      .filter((table) => table.folderId === null)
-                      .map((table, index, root) => (
-                        <SidebarTableRow
-                          key={table.id}
-                          base={base}
-                          table={table}
-                          index={index}
-                          siblings={root}
-                          manage={manage}
-                          active={params.tableId === table.id}
-                          pinned={shortcuts.pinnedTables.has(table.id)}
-                          onPin={() =>
-                            void shortcuts.setPinned(
-                              { tableId: table.id },
-                              !shortcuts.pinnedTables.has(table.id),
-                            )
-                          }
-                          onRename={() =>
-                            setDialog({ kind: "rename-table", table })
-                          }
-                          onMove={(delta) =>
-                            void moveTable(base, table, root, delta)
-                          }
-                          onDuplicate={(withData) =>
-                            void duplicate(base, table, withData)
-                          }
-                          onDelete={() =>
-                            setDialog({
-                              kind: "delete-table",
-                              table,
-                              base,
-                            })
-                          }
-                          onMoveToFolder={(folderId) =>
-                            void act(() =>
-                              trpc.catalog.moveTableToFolder.mutate({
-                                tableId: table.id,
-                                folderId,
-                              }),
-                            )
-                          }
-                        />
-                      ))}
-                    {manage ? (
-                      <>
-                        <li>
-                          <button
-                            type="button"
-                            className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-muted-foreground hover:bg-muted"
-                            onClick={() =>
-                              setDialog({ kind: "create-folder", base })
-                            }
-                          >
-                            <Plus className="h-3.5 w-3.5" aria-hidden />
-                            {t`Add a folder`}
-                          </button>
-                        </li>
-                        <li>
-                          <button
-                            type="button"
-                            className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-muted-foreground hover:bg-muted"
-                            onClick={() =>
-                              setDialog({ kind: "create-table", base })
-                            }
-                          >
-                            <Plus className="h-3.5 w-3.5" aria-hidden />
-                            {t`Add a table`}
-                          </button>
-                        </li>
-                      </>
-                    ) : null}
-                  </ul>
-                ) : null}
-              </li>
-            );
-          })}
+          {bases.map((base) => (
+            <SidebarBase
+              key={base.id}
+              base={base}
+              collapsed={collapsed}
+              setCollapsed={setCollapsed}
+              shortcuts={shortcuts}
+              setDialog={setDialog}
+              duplicateBase={duplicateBase}
+              duplicate={duplicate}
+              moveTable={moveTable}
+              moveFolder={moveFolder}
+              act={act}
+            />
+          ))}
         </ul>
         <SidebarSources bases={bases} />
       </nav>
@@ -1152,5 +786,403 @@ export function Sidebar({
         />
       ) : null}
     </aside>
+  );
+}
+
+/**
+ * One base of the sidebar: its line and its menu, and under it its folders
+ * and its tables. What changes the catalog goes through the sidebar, which
+ * holds the dialogs and reads the catalog again.
+ */
+function SidebarBase({
+  base,
+  collapsed,
+  setCollapsed,
+  shortcuts,
+  setDialog,
+  duplicateBase,
+  duplicate,
+  moveTable,
+  moveFolder,
+  act,
+}: {
+  base: CatalogBase;
+  /** The bases and folders folded shut, by id. */
+  collapsed: ReadonlySet<string>;
+  setCollapsed: Dispatch<SetStateAction<Set<string>>>;
+  shortcuts: ReturnType<typeof useShortcuts>;
+  setDialog: (dialog: Dialog) => void;
+  duplicateBase: (base: CatalogBase) => Promise<unknown>;
+  duplicate: (
+    base: CatalogBase,
+    table: CatalogTable,
+    withData: boolean,
+  ) => Promise<unknown>;
+  moveTable: (
+    base: CatalogBase,
+    table: CatalogTable,
+    siblings: readonly CatalogTable[],
+    delta: number,
+  ) => Promise<unknown>;
+  moveFolder: (
+    base: CatalogBase,
+    folder: CatalogFolder,
+    delta: number,
+  ) => Promise<unknown>;
+  act: (action: () => Promise<unknown>, success?: string) => Promise<unknown>;
+}) {
+  const { t } = useLingui();
+  const navigate = useNavigate();
+  // The base and table of the page shown, whichever page it is.
+  const params = useParams({ strict: false });
+  const open = !collapsed.has(base.id);
+  const manage = canManage(base.role);
+  return (
+    <li>
+      <div
+        className={cn(
+          "group flex items-center gap-1 rounded-md px-1 py-1 text-sm hover:bg-muted",
+          params.baseId === base.id && "font-medium",
+        )}
+      >
+        <button
+          type="button"
+          aria-label={open ? t`Collapse` : t`Expand`}
+          className="rounded p-0.5 text-muted-foreground"
+          onClick={() =>
+            setCollapsed((current) => {
+              const next = new Set(current);
+              if (next.has(base.id)) next.delete(base.id);
+              else next.add(base.id);
+              return next;
+            })
+          }
+        >
+          {open ? (
+            <ChevronDown className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5" />
+          )}
+        </button>
+        <Database className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+        <Link
+          to="/b/$baseId"
+          params={{ baseId: base.id }}
+          className="min-w-0 flex-1 truncate"
+        >
+          {base.name}
+        </Link>
+        <PinButton
+          pinned={shortcuts.pinnedBases.has(base.id)}
+          name={base.name}
+          onToggle={() =>
+            void shortcuts.setPinned(
+              { baseId: base.id },
+              !shortcuts.pinnedBases.has(base.id),
+            )
+          }
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
+            aria-label={t`Base actions`}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            {manage ? (
+              <DropdownMenuItem
+                onSelect={() => setDialog({ kind: "create-table", base })}
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+                {t`New table`}
+              </DropdownMenuItem>
+            ) : null}
+            {manage ? (
+              <DropdownMenuItem
+                onSelect={() => setDialog({ kind: "import", base })}
+              >
+                <FileUp className="h-4 w-4" aria-hidden />
+                {t`Import a file`}
+              </DropdownMenuItem>
+            ) : null}
+            {manage ? (
+              <DropdownMenuItem
+                onSelect={() => setDialog({ kind: "rename-base", base })}
+              >
+                <Pencil className="h-4 w-4" aria-hidden />
+                {t`Rename`}
+              </DropdownMenuItem>
+            ) : null}
+            {manage ? (
+              <DropdownMenuItem onSelect={() => void duplicateBase(base)}>
+                <CopyPlus className="h-4 w-4" aria-hidden />
+                {t`Duplicate base`}
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem
+              onSelect={() =>
+                void navigate({
+                  to: "/b/$baseId/dashboards",
+                  params: { baseId: base.id },
+                })
+              }
+            >
+              <LayoutDashboard className="h-4 w-4" aria-hidden />
+              {t`Dashboards`}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() =>
+                void navigate({
+                  to: "/b/$baseId/api",
+                  params: { baseId: base.id },
+                })
+              }
+            >
+              <Code2 className="h-4 w-4" aria-hidden />
+              {t`API and documentation`}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() =>
+                void navigate({
+                  to: "/b/$baseId/settings",
+                  params: { baseId: base.id },
+                })
+              }
+            >
+              <Settings className="h-4 w-4" aria-hidden />
+              {t`Settings and sharing`}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => setDialog({ kind: "trash", base })}
+            >
+              <Trash className="h-4 w-4" aria-hidden />
+              {t`Trash`}
+            </DropdownMenuItem>
+            {manage ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  danger
+                  onSelect={() => setDialog({ kind: "delete-base", base })}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                  {t`Delete base`}
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      {open ? (
+        <ul className="ml-5 flex flex-col gap-0.5 border-l border-border pl-2">
+          {base.folders.map((folder, folderIndex) => {
+            const inFolder = base.tables.filter(
+              (table) => table.folderId === folder.id,
+            );
+            const folderOpen = !collapsed.has(folder.id);
+            return (
+              <li key={folder.id}>
+                <div className="group flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm hover:bg-muted">
+                  <button
+                    type="button"
+                    className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                    aria-expanded={folderOpen}
+                    aria-label={
+                      folderOpen
+                        ? t`Collapse ${{ name: folder.name }}`
+                        : t`Expand ${{ name: folder.name }}`
+                    }
+                    onClick={() =>
+                      setCollapsed((current) => {
+                        const next = new Set(current);
+                        if (next.has(folder.id)) next.delete(folder.id);
+                        else next.add(folder.id);
+                        return next;
+                      })
+                    }
+                  >
+                    {folderOpen ? (
+                      <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                    ) : (
+                      <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                    )}
+                  </button>
+                  <Folder
+                    className="h-3.5 w-3.5 shrink-0 opacity-70"
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {folder.name}
+                  </span>
+                  {manage ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        aria-label={t`Folder actions`}
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem
+                          onSelect={() =>
+                            setDialog({
+                              kind: "rename-folder",
+                              base,
+                              folder,
+                            })
+                          }
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden />
+                          {t`Rename`}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={folderIndex === 0}
+                          onSelect={() => void moveFolder(base, folder, -1)}
+                        >
+                          <ArrowUp className="h-4 w-4" aria-hidden />
+                          {t`Move up`}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={folderIndex === base.folders.length - 1}
+                          onSelect={() => void moveFolder(base, folder, 1)}
+                        >
+                          <ArrowDown className="h-4 w-4" aria-hidden />
+                          {t`Move down`}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          danger
+                          onSelect={() =>
+                            setDialog({
+                              kind: "delete-folder",
+                              base,
+                              folder,
+                            })
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden />
+                          {t`Delete folder`}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : null}
+                </div>
+                {folderOpen ? (
+                  <ul className="ml-4 flex flex-col gap-0.5 border-l border-border pl-2">
+                    {inFolder.map((table, index) => (
+                      <SidebarTableRow
+                        key={table.id}
+                        base={base}
+                        table={table}
+                        index={index}
+                        siblings={inFolder}
+                        manage={manage}
+                        active={params.tableId === table.id}
+                        pinned={shortcuts.pinnedTables.has(table.id)}
+                        onPin={() =>
+                          void shortcuts.setPinned(
+                            { tableId: table.id },
+                            !shortcuts.pinnedTables.has(table.id),
+                          )
+                        }
+                        onRename={() =>
+                          setDialog({ kind: "rename-table", table })
+                        }
+                        onMove={(delta) =>
+                          void moveTable(base, table, inFolder, delta)
+                        }
+                        onDuplicate={(withData) =>
+                          void duplicate(base, table, withData)
+                        }
+                        onDelete={() =>
+                          setDialog({
+                            kind: "delete-table",
+                            table,
+                            base,
+                          })
+                        }
+                        onMoveToFolder={(folderId) =>
+                          void act(() =>
+                            trpc.catalog.moveTableToFolder.mutate({
+                              tableId: table.id,
+                              folderId,
+                            }),
+                          )
+                        }
+                      />
+                    ))}
+                  </ul>
+                ) : null}
+              </li>
+            );
+          })}
+          {base.tables
+            .filter((table) => table.folderId === null)
+            .map((table, index, root) => (
+              <SidebarTableRow
+                key={table.id}
+                base={base}
+                table={table}
+                index={index}
+                siblings={root}
+                manage={manage}
+                active={params.tableId === table.id}
+                pinned={shortcuts.pinnedTables.has(table.id)}
+                onPin={() =>
+                  void shortcuts.setPinned(
+                    { tableId: table.id },
+                    !shortcuts.pinnedTables.has(table.id),
+                  )
+                }
+                onRename={() => setDialog({ kind: "rename-table", table })}
+                onMove={(delta) => void moveTable(base, table, root, delta)}
+                onDuplicate={(withData) =>
+                  void duplicate(base, table, withData)
+                }
+                onDelete={() =>
+                  setDialog({
+                    kind: "delete-table",
+                    table,
+                    base,
+                  })
+                }
+                onMoveToFolder={(folderId) =>
+                  void act(() =>
+                    trpc.catalog.moveTableToFolder.mutate({
+                      tableId: table.id,
+                      folderId,
+                    }),
+                  )
+                }
+              />
+            ))}
+          {manage ? (
+            <>
+              <li>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-muted-foreground hover:bg-muted"
+                  onClick={() => setDialog({ kind: "create-folder", base })}
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  {t`Add a folder`}
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-muted-foreground hover:bg-muted"
+                  onClick={() => setDialog({ kind: "create-table", base })}
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  {t`Add a table`}
+                </button>
+              </li>
+            </>
+          ) : null}
+        </ul>
+      ) : null}
+    </li>
   );
 }
