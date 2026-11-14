@@ -77,19 +77,21 @@ describe("row events in graphile-worker", () => {
       })
     ).id;
     const sealed = encryptSecret("secret", keyRing(key), "webhook");
-    await database
-      .insertInto("webhooks")
-      .values({
-        tableId,
-        kind: "http",
-        // A private address: every attempt fails, and is scheduled again.
-        target: "https://127.0.0.1/hook",
-        secretCiphertext: sealed.ciphertext,
-        secretNonce: sealed.nonce,
-        events: ["insert", "update", "delete", "import"],
-        createdBy: owner,
-      })
-      .execute();
+    await withAudit(database, { userId: owner, tableId, source: "web" }, (tx) =>
+      tx
+        .insertInto("webhooks")
+        .values({
+          tableId,
+          kind: "http",
+          // A private address: every attempt fails, and is scheduled again.
+          target: "https://127.0.0.1/hook",
+          secretCiphertext: sealed.ciphertext,
+          secretNonce: sealed.nonce,
+          events: ["insert", "update", "delete", "import"],
+          createdBy: owner,
+        })
+        .execute(),
+    );
 
     const env = readEnv({
       DATABASE_URL: url,

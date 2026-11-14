@@ -10,6 +10,7 @@ import { AppError } from "@anygriddb/core";
 import { sql as sqlTag } from "kysely";
 import { z } from "zod";
 import { recordAuthEvent } from "./auth/auth-events.js";
+import { withAudit } from "./data/audit-context.js";
 import { eraseAccount, ERASED_USER_ID } from "./data/erasure.js";
 import { soleOwnerBases } from "./data/members.js";
 import type { Env } from "./env.js";
@@ -47,6 +48,8 @@ export function auditEventsCsv(
   events: readonly {
     occurredAt: string;
     action: AuditAction;
+    /** The catalog table a `catalog` event changed, when the trail kept it. */
+    catalogTable?: string | null;
     userId: string | null;
     userName: string | null;
     baseName: string | null;
@@ -65,6 +68,7 @@ export function auditEventsCsv(
     [
       "occurredAt",
       "action",
+      "catalogTable",
       "userId",
       "userName",
       "baseName",
@@ -81,6 +85,7 @@ export function auditEventsCsv(
     ...events.map((event) => [
       event.occurredAt,
       event.action,
+      event.catalogTable ?? "",
       event.userId ?? "",
       event.userName ?? "",
       event.baseName ?? "",
@@ -537,14 +542,20 @@ export async function listPendingInvitations(db: Database) {
 
 export async function withdrawInvitation(
   db: Database,
+  actorId: string,
   invitationId: string,
 ): Promise<void> {
-  const withdrawn = await db
-    .deleteFrom("invitations")
-    .where("id", "=", invitationId)
-    .where("acceptedAt", "is", null)
-    .returning("id")
-    .executeTakeFirst();
+  const withdrawn = await withAudit(
+    db,
+    { userId: actorId, source: "web" },
+    (tx) =>
+      tx
+        .deleteFrom("invitations")
+        .where("id", "=", invitationId)
+        .where("acceptedAt", "is", null)
+        .returning("id")
+        .executeTakeFirst(),
+  );
   if (!withdrawn) throw new AppError("invalid_invitation");
 }
 

@@ -945,6 +945,7 @@ export async function instanceAudit(
       "e.recordId",
       "e.reason",
       "e.source",
+      "e.catalogTable",
       "e.oldValue",
       "e.newValue",
       "e.userId",
@@ -1010,7 +1011,9 @@ export async function instanceAudit(
         purged: purged
           ? { events: purged.events, before: purged.before }
           : null,
-        opened: opened ? { until: opened.until } : null,
+        opened: opened
+          ? { until: opened.until, endedAt: opened.endedAt ?? null }
+          : null,
         exported: exported
           ? {
               kind: exported.kind,

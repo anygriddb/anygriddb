@@ -38,7 +38,7 @@ export async function listOutbound(
   baseId?: string,
 ): Promise<OutboundLink[]> {
   const now = Date.now();
-  const [links, feeds] = await Promise.all([
+  const [viewLinks, baseLinks, feeds] = await Promise.all([
     db
       .selectFrom("shares as s")
       .innerJoin("users as u", "u.id", "s.createdBy")
@@ -59,6 +59,28 @@ export async function listOutbound(
       .where("s.revokedAt", "is", null)
       .where(liveView("v"))
       .where(liveTable("t"))
+      .where(liveBase("b"))
+      .$if(baseId !== undefined, (query) =>
+        query.where("b.id", "=", baseId ?? ""),
+      )
+      .orderBy("s.createdAt", "desc")
+      .limit(limit)
+      .execute(),
+    db
+      .selectFrom("shares as s")
+      .innerJoin("users as u", "u.id", "s.createdBy")
+      .innerJoin("bases as b", "b.id", "s.baseId")
+      .select([
+        "s.id",
+        "s.createdAt",
+        "s.expiresAt",
+        "s.passwordHash",
+        "u.displayName as author",
+        "b.id as baseId",
+        "b.name as base",
+      ])
+      .where("s.revokedAt", "is", null)
+      .where("s.baseId", "is not", null)
       .where(liveBase("b"))
       .$if(baseId !== undefined, (query) =>
         query.where("b.id", "=", baseId ?? ""),
@@ -93,13 +115,28 @@ export async function listOutbound(
       .execute(),
   ]);
   return [
-    ...links.map((row): OutboundLink => ({
+    ...viewLinks.map((row): OutboundLink => ({
       kind: "link",
       id: row.id,
       baseId: row.baseId,
       base: row.base,
       table: row.table,
       view: row.view,
+      author: row.author,
+      createdAt: row.createdAt.toISOString(),
+      expiresAt: row.expiresAt?.toISOString() ?? null,
+      expired: row.expiresAt !== null && row.expiresAt.getTime() <= now,
+      protected: row.passwordHash !== null,
+      lastUsedAt: null,
+    })),
+    ...baseLinks.map((row): OutboundLink => ({
+      kind: "link",
+      id: row.id,
+      baseId: row.baseId,
+      base: row.base,
+      // Whole-base link: no single table or view.
+      table: "",
+      view: "",
       author: row.author,
       createdAt: row.createdAt.toISOString(),
       expiresAt: row.expiresAt?.toISOString() ?? null,
@@ -126,8 +163,8 @@ export async function listOutbound(
 
 /**
  * Revokes a public link, or removes a calendar feed, for an administrator
- * who need not be a member of its base. A feed's removal is on the change
- * trail under their name, as its owner's would be.
+ * who need not be a member of its base. Both are on the change trail under
+ * their name, as the owner's revoke would be.
  */
 export async function revokeOutbound(
   db: Database,
@@ -135,14 +172,29 @@ export async function revokeOutbound(
   target: { kind: "link" | "feed"; id: string },
 ): Promise<void> {
   if (target.kind === "link") {
-    const row = await db
-      .updateTable("shares")
-      .set({ revokedAt: new Date() })
-      .where("id", "=", target.id)
-      .where("revokedAt", "is", null)
-      .returning("id")
+    const share = await db
+      .selectFrom("shares as s")
+      .leftJoin("views as v", "v.id", "s.viewId")
+      .select(["s.id", "v.tableId"])
+      .where("s.id", "=", target.id)
+      .where("s.revokedAt", "is", null)
       .executeTakeFirst();
-    if (!row) throw new AppError("no_row");
+    if (!share) throw new AppError("no_row");
+    await withAudit(
+      db,
+      {
+        userId: adminId,
+        tableId: share.tableId ?? undefined,
+        source: "web",
+      },
+      (tx) =>
+        tx
+          .updateTable("shares")
+          .set({ revokedAt: new Date() })
+          .where("id", "=", share.id)
+          .where("revokedAt", "is", null)
+          .execute(),
+    );
     return;
   }
   const feed = await db

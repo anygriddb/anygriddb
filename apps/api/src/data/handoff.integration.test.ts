@@ -15,6 +15,7 @@ import {
   errorCode as code,
   signUpProved,
 } from "../trpc/caller.test-helpers.js";
+import { withAudit } from "./audit-context.js";
 import { ERASED_USER_ID } from "./erasure.js";
 import { setMemberRole } from "./members.js";
 
@@ -74,30 +75,34 @@ describe("handing a leaving person's work over", () => {
       .map((row) => row.userId)
       .sort();
   const automation = (tableId: string, name: string) =>
-    db
-      .insertInto("automations")
-      .values({
-        tableId,
-        name,
-        trigger: JSON.stringify({ type: "manual" }),
-        actions: JSON.stringify([]),
-        createdBy: leaId,
-      })
-      .execute();
+    withAudit(db, { userId: leaId, tableId, source: "web" }, (tx) =>
+      tx
+        .insertInto("automations")
+        .values({
+          tableId,
+          name,
+          trigger: JSON.stringify({ type: "manual" }),
+          actions: JSON.stringify([]),
+          createdBy: leaId,
+        })
+        .execute(),
+    );
   const webhook = (tableId: string, name: string) =>
-    db
-      .insertInto("webhooks")
-      .values({
-        tableId,
-        name,
-        kind: "http",
-        target: "https://hooks.example.org/in",
-        events: ["row.created"],
-        secretCiphertext: Buffer.alloc(1),
-        secretNonce: Buffer.alloc(1),
-        createdBy: leaId,
-      })
-      .execute();
+    withAudit(db, { userId: leaId, tableId, source: "web" }, (tx) =>
+      tx
+        .insertInto("webhooks")
+        .values({
+          tableId,
+          name,
+          kind: "http",
+          target: "https://hooks.example.org/in",
+          events: ["row.created"],
+          secretCiphertext: Buffer.alloc(1),
+          secretNonce: Buffer.alloc(1),
+          createdBy: leaId,
+        })
+        .execute(),
+    );
   const baseWithTable = async (
     page: ReturnType<typeof browser>,
     name: string,

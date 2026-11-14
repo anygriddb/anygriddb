@@ -81,6 +81,31 @@ export function ChangesTrail() {
       purge: t`Purge`,
       access: t`Base opened`,
     })[value] ?? value;
+  // What an event of the catalog changed, by the table it wrote. Events
+  // from before the trail kept that say "Structure", as they did.
+  const catalogLabel = (table: string | null) =>
+    (table
+      ? {
+          data_tables: t`Table`,
+          data_columns: t`Field`,
+          relations: t`Link`,
+          role_bindings: t`Role`,
+          table_acls: t`Row and field rules`,
+          column_acls: t`Row and field rules`,
+          shares: t`Public link`,
+          invitations: t`Invitation`,
+          webhooks: t`Webhook`,
+          automations: t`Automation`,
+          groups: t`Group of accounts`,
+          group_members: t`Member of a group`,
+          group_roles: t`Role of a group`,
+          calendar_feeds: t`Calendar feed`,
+          scim_tokens: t`Provisioning (SCIM)`,
+          sources: t`Source`,
+          external_watches: t`Watched table`,
+          external_syncs: t`Synced table`,
+        }[table]
+      : undefined) ?? t`Structure`;
   async function exportCsv() {
     try {
       const file = await trpc.admin.exportAudit.mutate({
@@ -183,21 +208,27 @@ export function ChangesTrail() {
                     </span>
                   ) : null}
                 </td>
-                <td className="px-2 py-1.5">{actionLabel(event.action)}</td>
+                <td className="px-2 py-1.5">
+                  {event.action === "catalog"
+                    ? catalogLabel(event.catalogTable)
+                    : actionLabel(event.action)}
+                </td>
                 <td className="px-2 py-1.5">
                   {event.exported
                     ? exported(event.exported)
-                    : event.opened
-                      ? t`${{ base: event.baseName ?? "—" }}, opened by an administrator to read it, until ${{ date: date(event.opened.until) }}`
-                      : event.purged
-                        ? t`${{ count: event.purged.events.toLocaleString() }} events from before ${{ date: date(event.purged.before) }} deleted: the trail is kept for a time`
-                        : event.fields
-                            .map((name) =>
-                              name === "ag_position"
-                                ? t`the row's place`
-                                : name,
-                            )
-                            .join(", ") || "—"}
+                    : event.opened?.endedAt
+                      ? t`${{ base: event.baseName ?? "—" }}, closed by the administrator who had opened it, on ${{ date: date(event.opened.endedAt) }}`
+                      : event.opened
+                        ? t`${{ base: event.baseName ?? "—" }}, opened by an administrator to read it, until ${{ date: date(event.opened.until) }}`
+                        : event.purged
+                          ? t`${{ count: event.purged.events.toLocaleString() }} events from before ${{ date: date(event.purged.before) }} deleted: the trail is kept for a time`
+                          : event.fields
+                              .map((name) =>
+                                name === "ag_position"
+                                  ? t`the row's place`
+                                  : name,
+                              )
+                              .join(", ") || "—"}
                 </td>
                 <td className="px-2 py-1.5">{event.reason ?? "—"}</td>
                 <td className="px-2 py-1.5">{event.source ?? "—"}</td>

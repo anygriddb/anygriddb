@@ -389,6 +389,10 @@ msgid "{alertCount, plural, one {alert is open} other {alerts are open}}"
 msgstr "{alertCount, plural, one {alerte ouverte} other {alertes ouvertes}}"
 
 #: components/admin/trails.tsx
+msgid "{base}, closed by the administrator who had opened it, on {date}"
+msgstr "{base}, refermée par l’administrateur qui l’avait ouverte, le {date}"
+
+#: components/admin/trails.tsx
 msgid "{base}, opened by an administrator to read it, until {date}"
 msgstr "{base}, ouverte par un administrateur pour la lire, jusqu’au {date}"
 
@@ -1854,6 +1858,10 @@ msgstr "API et documentation"
 msgid "API key"
 msgstr "Clé d’API"
 
+#: components/admin/auth-labels.ts
+msgid "API token created"
+msgstr "Jeton d’API créé"
+
 #: components/admin/sign-in-trail.tsx
 msgid "API token lifetime"
 msgstr "Durée de vie des jetons d’API"
@@ -1960,6 +1968,7 @@ msgstr "Auteur"
 msgid "Auto"
 msgstr "Auto"
 
+#: components/admin/trails.tsx
 #: components/shell/notification-items.ts
 msgid "Automation"
 msgstr "Automatisation"
@@ -2238,6 +2247,7 @@ msgstr "Adresse du calendrier"
 
 #: components/admin/base-admin-page.tsx
 #: components/admin/outbound-tab.tsx
+#: components/admin/trails.tsx
 msgid "Calendar feed"
 msgstr "Flux de calendrier"
 
@@ -4020,6 +4030,7 @@ msgid "field"
 msgstr "champ"
 
 #: components/admin/sources-tab.tsx
+#: components/admin/trails.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/table/filter-builder.tsx
 #: components/table/view-toolbar.tsx
@@ -4469,6 +4480,10 @@ msgstr "Groupe supprimé"
 #: lib/errors.ts
 msgid "Group not found"
 msgstr "Groupe introuvable"
+
+#: components/admin/trails.tsx
+msgid "Group of accounts"
+msgstr "Groupe de comptes"
 
 #: components/admin/group-page.tsx
 msgid "Group updated"
@@ -5016,6 +5031,10 @@ msgstr "Webhook invalide : HTTPS public ou email requis"
 msgid "Inventory"
 msgstr "Inventaire"
 
+#: components/admin/trails.tsx
+msgid "Invitation"
+msgstr "Invitation"
+
 #: components/settings/base-settings.tsx
 msgid "Invitation created"
 msgstr "Invitation créée"
@@ -5373,6 +5392,7 @@ msgid "Line"
 msgstr "Courbe"
 
 #: components/admin/account-actions.tsx
+#: components/admin/trails.tsx
 msgid "Link"
 msgstr "Lien"
 
@@ -5699,6 +5719,10 @@ msgstr "Médiane"
 #: components/admin/group-page.tsx
 msgid "Member added"
 msgstr "Membre ajouté"
+
+#: components/admin/trails.tsx
+msgid "Member of a group"
+msgstr "Membre d’un groupe"
 
 #: components/admin/group-page.tsx
 msgid "Member removed"
@@ -7187,6 +7211,7 @@ msgid "Provisioned by the identity provider (SCIM), then removed by it"
 msgstr "Provisionné par le fournisseur d’identité (SCIM), puis retiré par lui"
 
 #: components/admin/admin-sections.ts
+#: components/admin/trails.tsx
 msgid "Provisioning (SCIM)"
 msgstr "Provisionnement (SCIM)"
 
@@ -7196,6 +7221,7 @@ msgstr "Adresse publique"
 
 #: components/admin/base-admin-page.tsx
 #: components/admin/outbound-tab.tsx
+#: components/admin/trails.tsx
 msgid "Public link"
 msgstr "Lien public"
 
@@ -7799,6 +7825,7 @@ msgstr "Révoqué"
 #: components/admin/base-admin-members.tsx
 #: components/admin/group-page.tsx
 #: components/admin/invitations-panel.tsx
+#: components/admin/trails.tsx
 #: components/settings/base-settings.tsx
 #: components/settings/group-roles.tsx
 msgid "Role"
@@ -7822,6 +7849,10 @@ msgstr "Rôle donné sur {base}"
 #: components/admin/base-admin-members.tsx
 msgid "Role given to {name}"
 msgstr "Rôle donné à {name}"
+
+#: components/admin/trails.tsx
+msgid "Role of a group"
+msgstr "Rôle d’un groupe"
 
 #: components/settings/group-roles.tsx
 msgid "Role of the group {name}"
@@ -7882,6 +7913,10 @@ msgstr "Ligne"
 #: components/record/record-panel.tsx
 msgid "Row {number}"
 msgstr "Ligne {number}"
+
+#: components/admin/trails.tsx
+msgid "Row and field rules"
+msgstr "Règles de lignes et de champs"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Row condition (creations, updates, statuses)"
@@ -8986,6 +9021,10 @@ msgstr "Désactivé"
 msgid "Switched on"
 msgstr "Activé"
 
+#: components/admin/trails.tsx
+msgid "Synced table"
+msgstr "Table synchronisée"
+
 #: components/shell/user-menu.tsx
 msgid "System"
 msgstr "Système"
@@ -9772,6 +9811,10 @@ msgstr "Celui des dates et heures que la base enregistre sans fuseau."
 #: components/admin/account-actions.tsx
 msgid "Their authenticator, passkeys, and backup codes are removed, and their sessions end. They sign in with their password and set up a second factor again. For a lost phone or key."
 msgstr "Son application d’authentification, ses clés d’accès et ses codes de secours sont retirés, et ses sessions prennent fin. La personne se connecte avec son mot de passe et configure de nouveau un second facteur. Pour un téléphone ou une clé perdus."
+
+#: components/admin/sign-in-trail.tsx
+msgid "Their own API token"
+msgstr "Son propre jeton d’API"
 
 #: components/admin/account-actions.tsx
 msgid "Their sessions end and their API tokens stop working. Their data and audit history are kept. When someone may come back, disable the account; delete it only when their identity must leave the instance."
@@ -10789,7 +10832,12 @@ msgstr "Modifications surveillées (aucune case : toutes)"
 msgid "Watched fields (none: all)"
 msgstr "Champs surveillés (aucun : tous)"
 
+#: components/admin/trails.tsx
+msgid "Watched table"
+msgstr "Table surveillée"
+
 #: components/admin/support-tab.tsx
+#: components/admin/trails.tsx
 msgid "Webhook"
 msgstr "Webhook"
 

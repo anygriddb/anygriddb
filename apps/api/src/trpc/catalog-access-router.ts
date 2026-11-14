@@ -211,8 +211,13 @@ export const catalogAccessProcedures = {
     .input(z.object({ baseId: z.uuid(), invitationId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        await guardBase(ctx, input.baseId, "manage");
-        await revokeInvitation(ctx.db, input.baseId, input.invitationId);
+        const { user } = await guardBase(ctx, input.baseId, "manage");
+        await revokeInvitation(
+          ctx.db,
+          user.id,
+          input.baseId,
+          input.invitationId,
+        );
         return { ok: true as const };
       }),
     ),

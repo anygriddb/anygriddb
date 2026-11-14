@@ -22,6 +22,7 @@ const SIEM_ACTIONS = new Set<AuthAction>([
   "account_disabled",
   "session_revoked",
   "factors_cleared",
+  "token_created",
   "tokens_revoked",
   "sso_unlinked",
 ]);

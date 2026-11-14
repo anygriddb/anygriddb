@@ -217,7 +217,10 @@ export const adminBaseProcedures = {
             .where("id", "=", input.id)
             .executeTakeFirst();
           if (!token) throw new AppError("no_row");
-          await revokeApiToken(ctx.db, token.userId, input.id);
+          await revokeApiToken(ctx.db, token.userId, input.id, {
+            actorId: admin.id,
+            admin: true,
+          });
           ctx.req.log.info(
             { actor: admin.id, target: token.userId, token: input.id },
             "api token revoked by administrator",
@@ -233,11 +236,15 @@ export const adminBaseProcedures = {
         handle(ctx, async () => {
           const admin = await requireAdmin(ctx);
           if (input.kind === "webhook") {
-            await updateWebhook(ctx.db, ctx.env.AUTH_ENCRYPTION_KEY, input.id, {
-              active: false,
-            });
+            await updateWebhook(
+              ctx.db,
+              ctx.env.AUTH_ENCRYPTION_KEY,
+              admin.id,
+              input.id,
+              { active: false },
+            );
           } else {
-            await setAutomationEnabled(ctx.db, input.id, false);
+            await setAutomationEnabled(ctx.db, admin.id, input.id, false);
           }
           ctx.req.log.info(
             { actor: admin.id, kind: input.kind, id: input.id },
@@ -423,7 +430,11 @@ export const adminBaseProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
-        const renewed = await renewInvitation(ctx.db, input.invitationId);
+        const renewed = await renewInvitation(
+          ctx.db,
+          admin.id,
+          input.invitationId,
+        );
         const link = `${ctx.env.PUBLIC_URL.replace(/\/+$/, "")}/invite/${renewed.token}`;
         const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
         ctx.req.log.info(
@@ -455,7 +466,7 @@ export const adminBaseProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
-        await withdrawInvitation(ctx.db, input.invitationId);
+        await withdrawInvitation(ctx.db, admin.id, input.invitationId);
         ctx.req.log.info(
           { actor: admin.id, invitation: input.invitationId },
           "invitation withdrawn",

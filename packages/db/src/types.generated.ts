@@ -36,6 +36,7 @@ export type AuthAction =
   | "session_revoked"
   | "settings_changed"
   | "sso_unlinked"
+  | "token_created"
   | "tokens_revoked";
 
 export type AutomationRunStatus = "failed" | "skipped" | "success";
@@ -175,6 +176,7 @@ export interface Attachments {
 
 export interface AuditEvents {
   action: AuditAction;
+  catalogTable: string | null;
   id: Generated<string>;
   newValue: unknown;
   occurredAt: Generated<Timestamp>;
