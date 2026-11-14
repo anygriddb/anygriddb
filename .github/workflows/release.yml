@@ -355,7 +355,9 @@ jobs:
           set -euo pipefail
           # Checkout may leave the tag lightweight: fetch the annotated one.
           git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
-          body="$(git tag -l --format='%(contents)' "$TAG")"
+          # Its message alone: the contents of a signed tag end with its
+          # signature, which is no part of the notes.
+          body="$(git tag -l --format='%(contents:subject)%0a%0a%(contents:body)' "$TAG")"
           {
             if [ -n "$body" ]; then
               printf '%s\n\n---\n\n' "$body"
