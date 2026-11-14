@@ -2,7 +2,10 @@
  * A list to pick from, filtered by typing (React Aria's Autocomplete over
  * a ListBox, ADR 0012). Focus stays in the search field while the arrows
  * move through the options (`aria-activedescendant`); Enter or a click
- * picks one, and each option says whether it is chosen.
+ * picks one, and each option says whether it is chosen. The search and
+ * the list scroll together, the search on top: a keyboard reaches the
+ * region it scrolls in through its field, so the list needs no tab stop
+ * of its own (axe's scrollable-region-focusable).
  */
 import { Check } from "lucide-react";
 import type { ReactNode } from "react";
@@ -47,6 +50,7 @@ type ListPickerProps = {
   onToggle: (id: string) => void;
   /** Shown when no option is listed. */
   empty: ReactNode;
+  /** The region's, where the search and the list scroll: its height. */
   className?: string;
 };
 
@@ -67,68 +71,69 @@ export function ListPicker(props: ListPickerProps) {
       onInputChange={props.onInputChange}
       filter={props.filter ? contains : undefined}
     >
-      {/* Where the whole panel scrolls, the search stays on top of it. */}
-      <TextField
-        aria-label={props.label}
-        autoFocus
-        className="sticky top-0 z-[1] flex bg-card"
+      {/* An option brought into view stops under the search, not behind it. */}
+      <div
+        className={cn("min-h-0 scroll-pt-9 overflow-y-auto", props.className)}
       >
-        <AriaInput
-          placeholder={props.label}
-          className="h-9 w-full border-b border-border bg-transparent px-3 text-sm outline-none"
-        />
-      </TextField>
-      <ListBox
-        aria-label={props.listLabel}
-        items={props.options}
-        selectionMode={props.selectionMode}
-        selectedKeys={new Set(selected)}
-        onSelectionChange={change}
-        escapeKeyBehavior="none"
-        renderEmptyState={() => (
-          <div className="px-2 py-2 text-sm text-muted-foreground">
-            {props.empty}
-          </div>
-        )}
-        className={cn(
-          "min-h-0 overflow-y-auto p-1 outline-none",
-          props.className,
-        )}
-      >
-        {(option) => (
-          <ListBoxItem
-            id={option.id}
-            textValue={option.textValue}
-            className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm outline-none data-[focused]:bg-muted data-[hovered]:bg-muted"
-          >
-            {({ isSelected }) => (
-              <>
-                <span className="flex min-w-0 flex-1 items-center gap-2">
-                  {option.description === undefined ? (
-                    option.children
-                  ) : (
-                    <>
-                      {option.icon}
-                      <span className="flex min-w-0 flex-col">
-                        <span className="truncate">{option.children}</span>
-                        <span className="truncate text-xs text-muted-foreground">
-                          {option.description}
+        <TextField
+          aria-label={props.label}
+          autoFocus
+          className="sticky top-0 z-[1] flex bg-card"
+        >
+          <AriaInput
+            placeholder={props.label}
+            className="h-9 w-full border-b border-border bg-transparent px-3 text-sm outline-none"
+          />
+        </TextField>
+        <ListBox
+          aria-label={props.listLabel}
+          items={props.options}
+          selectionMode={props.selectionMode}
+          selectedKeys={new Set(selected)}
+          onSelectionChange={change}
+          escapeKeyBehavior="none"
+          renderEmptyState={() => (
+            <div className="px-2 py-2 text-sm text-muted-foreground">
+              {props.empty}
+            </div>
+          )}
+          className="p-1 outline-none"
+        >
+          {(option) => (
+            <ListBoxItem
+              id={option.id}
+              textValue={option.textValue}
+              className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm outline-none data-[focused]:bg-muted data-[hovered]:bg-muted"
+            >
+              {({ isSelected }) => (
+                <>
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    {option.description === undefined ? (
+                      option.children
+                    ) : (
+                      <>
+                        {option.icon}
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate">{option.children}</span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {option.description}
+                          </span>
                         </span>
-                      </span>
-                    </>
-                  )}
-                </span>
-                {isSelected ? (
-                  <Check
-                    className="h-4 w-4 shrink-0 text-primary"
-                    aria-hidden
-                  />
-                ) : null}
-              </>
-            )}
-          </ListBoxItem>
-        )}
-      </ListBox>
+                      </>
+                    )}
+                  </span>
+                  {isSelected ? (
+                    <Check
+                      className="h-4 w-4 shrink-0 text-primary"
+                      aria-hidden
+                    />
+                  ) : null}
+                </>
+              )}
+            </ListBoxItem>
+          )}
+        </ListBox>
+      </div>
     </Autocomplete>
   );
 }
