@@ -12,7 +12,12 @@ import {
 import type { Database } from "@anygriddb/db";
 import { readableTables } from "../trpc/guard.js";
 import { withAudit } from "./audit-context.js";
-import { loadEngine, type CatalogRows } from "./engine.js";
+import {
+  assembleEngine,
+  loadCatalogRows,
+  loadEngine,
+  type CatalogRows,
+} from "./engine.js";
 
 export async function listTableAcls(
   db: Database,
@@ -206,5 +211,33 @@ export async function readerEngine(
       ...(access ? { access } : {}),
     },
     rows: loaded.rows,
+  };
+}
+
+/**
+ * The read engines of several tables for one reader, from one read of the
+ * catalog and of the reader's rules: what `readerEngine` gives for each
+ * table, without the reads it makes for each. For a page that describes
+ * many tables at once; a read of rows asks for its own table.
+ */
+export async function readerEngines(
+  db: Database,
+  tableIds: readonly string[],
+  reader: Reader,
+): Promise<{
+  engineOf: (tableId: string) => EngineCatalog;
+  rows: CatalogRows;
+}> {
+  const rows = await loadCatalogRows(db, tableIds);
+  const baseOf = new Map(rows.tables.map((table) => [table.id, table.baseId]));
+  const access = await readerAccess(db, reader, rows.tables);
+  const readable = readableTables(reader.bindings, baseOf);
+  return {
+    engineOf: (tableId) => ({
+      ...assembleEngine(tableId, rows, () => true),
+      readable,
+      ...(access ? { access } : {}),
+    }),
+    rows,
   };
 }
