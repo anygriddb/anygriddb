@@ -19,13 +19,74 @@ const MAX_TILES = 64;
 type MapPoint = { longitude: number; latitude: number };
 
 /** The part of the world a map shows, in Web Mercator's 0 to 1, and its zoom. */
-type MapViewport = {
+export type MapViewport = {
   minX: number;
   maxX: number;
   minY: number;
   maxY: number;
   zoom: number;
 };
+
+/** Shift the view by a fraction of its width and height, kept inside 0 to 1. */
+export function panViewport(
+  viewport: MapViewport,
+  dx: number,
+  dy: number,
+): MapViewport {
+  const spanX = viewport.maxX - viewport.minX;
+  const spanY = viewport.maxY - viewport.minY;
+  let minX = viewport.minX + dx * spanX;
+  let minY = viewport.minY + dy * spanY;
+  minX = Math.max(0, Math.min(1 - spanX, minX));
+  minY = Math.max(0, Math.min(1 - spanY, minY));
+  return {
+    ...viewport,
+    minX,
+    maxX: minX + spanX,
+    minY,
+    maxY: minY + spanY,
+  };
+}
+
+/**
+ * Zoom in (`delta` &gt; 0) or out around the centre, keeping the map's
+ * aspect and the tile budget.
+ */
+export function zoomViewport(
+  viewport: MapViewport,
+  delta: number,
+  aspect: number,
+): MapViewport {
+  const shape = Number.isFinite(aspect) && aspect > 0 ? aspect : 1.5;
+  const midX = (viewport.minX + viewport.maxX) / 2;
+  const midY = (viewport.minY + viewport.maxY) / 2;
+  const factor = delta > 0 ? 0.7 : 1 / 0.7;
+  let spanX = (viewport.maxX - viewport.minX) * factor;
+  let spanY = (viewport.maxY - viewport.minY) * factor;
+  spanX = Math.min(1, Math.max(MIN_SPAN, spanX));
+  spanY = Math.min(1, Math.max(MIN_SPAN, spanY));
+  if (spanX / spanY < shape) spanX = Math.min(1, spanY * shape);
+  else spanY = Math.min(1, spanX / shape);
+  const over = Math.max(spanX, spanY, 1);
+  spanX /= over;
+  spanY /= over;
+  const [left, right] = around(midX, midX, spanX);
+  const [top, bottom] = around(midY, midY, spanY);
+  let zoom = Math.max(
+    0,
+    Math.min(
+      MAX_ZOOM,
+      Math.floor(Math.log2(TILES_ACROSS / Math.max(spanX, spanY))),
+    ),
+  );
+  const count = (level: number) => {
+    const [x0, x1] = tileRange(left, right, level);
+    const [y0, y1] = tileRange(top, bottom, level);
+    return (x1 - x0 + 1) * (y1 - y0 + 1);
+  };
+  while (zoom > 0 && count(zoom) > MAX_TILES) zoom -= 1;
+  return { minX: left, maxX: right, minY: top, maxY: bottom, zoom };
+}
 
 type MapTile = {
   key: string;

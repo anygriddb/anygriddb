@@ -7628,6 +7628,10 @@ msgstr "Resend"
 msgid "Reset link sent"
 msgstr "Reset link sent"
 
+#: components/views/map-view.tsx
+msgid "Reset the map"
+msgstr "Reset the map"
+
 #: components/grid/grid-header.tsx
 msgid "Resize"
 msgstr "Resize"
@@ -11118,3 +11122,11 @@ msgstr "Your SQL tables, read and written like a page of a notebook."
 #: components/table/table-workspace.tsx
 msgid "Your view settings stay local."
 msgstr "Your view settings stay local."
+
+#: components/views/map-view.tsx
+msgid "Zoom in"
+msgstr "Zoom in"
+
+#: components/views/map-view.tsx
+msgid "Zoom out"
+msgstr "Zoom out"

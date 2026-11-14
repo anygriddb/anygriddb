@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { mapTiles, mapViewport, mercator, pinPlace } from "./map-tiles";
+import {
+  mapTiles,
+  mapViewport,
+  mercator,
+  panViewport,
+  pinPlace,
+  zoomViewport,
+} from "./map-tiles";
 
 const template = "https://tiles.example.org/{z}/{x}/{y}.png";
 const paris = { longitude: 2.35, latitude: 48.85 };
@@ -85,5 +92,19 @@ describe("the view of a map and its tiles", () => {
       expect(x).toBeLessThanOrEqual(last);
       expect(y).toBeLessThanOrEqual(last);
     }
+  });
+
+  it("pans and zooms without leaving the world", () => {
+    const base = mapViewport([paris, tokyo], 1.5);
+    const panned = panViewport(base, 0.2, -0.1);
+    expect(panned.minX).toBeGreaterThanOrEqual(0);
+    expect(panned.maxX).toBeLessThanOrEqual(1);
+    expect(panned.minY).toBeGreaterThanOrEqual(0);
+    expect(panned.maxY).toBeLessThanOrEqual(1);
+    expect(panned.maxX - panned.minX).toBeCloseTo(base.maxX - base.minX, 9);
+    const closer = zoomViewport(base, 1, 1.5);
+    expect(closer.maxX - closer.minX).toBeLessThan(base.maxX - base.minX);
+    const wider = zoomViewport(base, -1, 1.5);
+    expect(wider.maxX - wider.minX).toBeGreaterThan(base.maxX - base.minX);
   });
 });

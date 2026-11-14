@@ -1,14 +1,21 @@
 import { decimalToNumber } from "@anygriddb/core";
 
-import { cn } from "@anygriddb/ui";
-import { MapPin } from "lucide-react";
+import { Button, cn } from "@anygriddb/ui";
+import { MapPin, Minus, Plus, RotateCcw } from "lucide-react";
 import type { RowItem } from "../../lib/types";
 import { useTable } from "../table/table-context";
 import { useEffect, useRef, useState } from "react";
 import { formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import { MAP_CEILING, mapNotice, placeColumns } from "./map-places";
-import { mapTiles, mapViewport, pinPlace } from "./map-tiles";
+import {
+  mapTiles,
+  mapViewport,
+  panViewport,
+  pinPlace,
+  zoomViewport,
+  type MapViewport,
+} from "./map-tiles";
 import {
   ColumnPicker,
   useRowTitle,
@@ -62,6 +69,11 @@ export function MapView(props: ViewProps) {
   });
   const sheetRef = useRef<HTMLDivElement>(null);
   const [aspect, setAspect] = useState(1.5);
+  const [manual, setManual] = useState<{
+    key: string;
+    viewport: MapViewport;
+  } | null>(null);
+  const drag = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
     const sheet = sheetRef.current;
     if (!sheet || !tileUrl) return;
@@ -72,12 +84,21 @@ export function MapView(props: ViewProps) {
     observer.observe(sheet);
     return () => observer.disconnect();
   }, [tileUrl]);
-  const viewport = tileUrl
+  const fitted = tileUrl
     ? mapViewport(
         points.map(({ latitude, longitude }) => ({ latitude, longitude })),
         aspect,
       )
     : null;
+  const fittedKey = fitted
+    ? `${fitted.minX}:${fitted.maxX}:${fitted.minY}:${fitted.maxY}:${fitted.zoom}`
+    : "";
+  const setView = (next: MapViewport) =>
+    setManual({ key: fittedKey, viewport: next });
+  // A pan or zoom sticks until the person resets, or the fitted view moves
+  // (its key changes and the manual offset no longer applies).
+  const viewport =
+    manual && manual.key === fittedKey ? manual.viewport : fitted;
   const tiles = tileUrl && viewport ? mapTiles(tileUrl, viewport) : [];
   // Nothing to choose from: the map says what it needs, as the kanban and
   // the calendar do, rather than an empty sheet.
@@ -121,7 +142,82 @@ export function MapView(props: ViewProps) {
               ? "bg-muted"
               : "bg-[linear-gradient(transparent_49.5%,var(--ag-border)_50%,transparent_50.5%),linear-gradient(90deg,transparent_49.5%,var(--ag-border)_50%,transparent_50.5%)] bg-[size:12.5%_16.66%]",
           )}
+          onWheel={
+            tileUrl && viewport
+              ? (event) => {
+                  event.preventDefault();
+                  setView(
+                    zoomViewport(viewport, event.deltaY < 0 ? 1 : -1, aspect),
+                  );
+                }
+              : undefined
+          }
+          onPointerDown={
+            tileUrl
+              ? (event) => {
+                  if (event.button !== 0) return;
+                  drag.current = { x: event.clientX, y: event.clientY };
+                  (event.currentTarget as HTMLElement).setPointerCapture(
+                    event.pointerId,
+                  );
+                }
+              : undefined
+          }
+          onPointerMove={
+            tileUrl && viewport
+              ? (event) => {
+                  if (!drag.current) return;
+                  const sheet = sheetRef.current;
+                  if (!sheet || sheet.clientWidth === 0) return;
+                  const dx =
+                    (drag.current.x - event.clientX) / sheet.clientWidth;
+                  const dy =
+                    (drag.current.y - event.clientY) / sheet.clientHeight;
+                  drag.current = { x: event.clientX, y: event.clientY };
+                  setView(panViewport(viewport, dx, dy));
+                }
+              : undefined
+          }
+          onPointerUp={() => {
+            drag.current = null;
+          }}
+          onPointerCancel={() => {
+            drag.current = null;
+          }}
         >
+          {tileUrl && viewport ? (
+            <div className="absolute top-2 right-2 z-20 flex flex-col gap-1">
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 bg-card"
+                aria-label={t`Zoom in`}
+                onClick={() => setView(zoomViewport(viewport, 1, aspect))}
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 bg-card"
+                aria-label={t`Zoom out`}
+                onClick={() => setView(zoomViewport(viewport, -1, aspect))}
+              >
+                <Minus className="h-4 w-4" aria-hidden />
+              </Button>
+              {manual ? (
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8 bg-card"
+                  aria-label={t`Reset the map`}
+                  onClick={() => setManual(null)}
+                >
+                  <RotateCcw className="h-4 w-4" aria-hidden />
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           {tiles.map((tile) => (
             <img
               key={tile.key}
