@@ -34,6 +34,18 @@ describe("i18n", () => {
     expect(french.filter((entry) => entry.text === "")).toEqual([]);
   });
 
+  it("counts one thing in the singular", () => {
+    // "1 rows deleted": a sentence that opens with a count is written
+    // with plural(), which gives it its form for one.
+    const bare = catalog("en").filter((entry) => /^\{count\} /.test(entry.id));
+    expect(bare.map((entry) => entry.id)).toEqual([]);
+    // And French gives each form of its own.
+    for (const entry of catalog("fr")) {
+      if (!entry.id.includes(", plural,")) continue;
+      expect(entry.text, entry.id).toMatch(/\bone \{.*\bother \{/);
+    }
+  });
+
   it("keeps every placeholder in the French text", () => {
     for (const entry of catalog("fr")) {
       expect(placeholderNames(entry.text), entry.id).toEqual(

@@ -28,6 +28,14 @@ const ACTIONS = [
   "access",
 ] as const;
 
+/** A retention purge, as the trail tells it. */
+function purgedText(events: number, before: string): string {
+  return plural(events, {
+    one: `# event from before ${before} deleted: the trail is kept for a time`,
+    other: `# events from before ${before} deleted: the trail is kept for a time`,
+  });
+}
+
 /** The change trail: what was written, by whom, from where. */
 export function ChangesTrail() {
   const { t } = useLingui();
@@ -226,7 +234,10 @@ export function ChangesTrail() {
                       : event.opened
                         ? t`${{ base: event.baseName ?? "—" }}, opened by an administrator to read it, until ${{ date: date(event.opened.until) }}`
                         : event.purged
-                          ? t`${{ count: event.purged.events.toLocaleString() }} events from before ${{ date: date(event.purged.before) }} deleted: the trail is kept for a time`
+                          ? purgedText(
+                              event.purged.events,
+                              date(event.purged.before),
+                            )
                           : event.fields
                               .map((name) =>
                                 name === "ag_position"

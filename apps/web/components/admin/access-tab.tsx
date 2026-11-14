@@ -1,5 +1,6 @@
 import { Button, Spinner } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -86,7 +87,10 @@ export function AccessTab() {
                     <td className={cell}>
                       {token.bases === null
                         ? t`Every base of its owner`
-                        : t`${{ count: token.bases }} bases`}
+                        : plural(token.bases, {
+                            one: "# base",
+                            other: "# bases",
+                          })}
                       {token.readOnly ? ` · ${t`Read only`}` : ""}
                     </td>
                     <td className={cell}>
@@ -163,8 +167,14 @@ export function AccessTab() {
                         {hook.failures > 0 ? (
                           <span className="block text-warning">
                             {kind === "webhook"
-                              ? t`${{ count: hook.failures }} failures in a row`
-                              : t`${{ count: hook.failures }} failed runs in 24 hours`}
+                              ? plural(hook.failures, {
+                                  one: "# failure",
+                                  other: "# failures in a row",
+                                })
+                              : plural(hook.failures, {
+                                  one: "# failed run in 24 hours",
+                                  other: "# failed runs in 24 hours",
+                                })}
                           </span>
                         ) : null}
                       </td>

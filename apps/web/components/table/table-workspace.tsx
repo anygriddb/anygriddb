@@ -724,15 +724,21 @@ export function TableWorkspace({
           );
           return;
         }
-        toast.success(t`${{ count: rowIds.length }} rows deleted`, {
-          action: {
-            label: t`Cancel`,
-            onClick: () =>
-              void trpc.rows.restore
-                .mutate({ tableId, rowIds })
-                .then(() => rows.refresh()),
+        toast.success(
+          plural(rowIds.length, {
+            one: "# row deleted",
+            other: "# rows deleted",
+          }),
+          {
+            action: {
+              label: t`Cancel`,
+              onClick: () =>
+                void trpc.rows.restore
+                  .mutate({ tableId, rowIds })
+                  .then(() => rows.refresh()),
+            },
           },
-        });
+        );
         undo.push({
           label: t`Delete`,
           undo: async () => {
@@ -1014,7 +1020,10 @@ export function TableWorkspace({
             rows.refresh();
             if (created.skipped > 0) {
               toast.warning(
-                t`${{ count: created.skipped }} locked rows were not copied`,
+                plural(created.skipped, {
+                  one: "# locked row was not copied",
+                  other: "# locked rows were not copied",
+                }),
               );
             }
           })
@@ -1571,7 +1580,12 @@ function TrashDialog({
                   tableId,
                   rowIds: [...picked],
                 });
-                toast.success(t`${{ count: picked.size }} rows restored`);
+                toast.success(
+                  plural(picked.size, {
+                    one: "# row restored",
+                    other: "# rows restored",
+                  }),
+                );
                 setPicked(new Set());
                 onRestored();
                 await queryClient.invalidateQueries({

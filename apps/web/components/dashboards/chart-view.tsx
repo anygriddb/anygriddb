@@ -15,6 +15,7 @@ import {
 import * as echarts from "echarts/core";
 import { SVGRenderer } from "echarts/renderers";
 import type { EChartsCoreOption } from "echarts/core";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import {
   useEffect,
@@ -262,12 +263,18 @@ export function ChartView(props: { data: ChartData; title: string }) {
         </button>
         {props.data.omitted.categories > 0 ? (
           <span>
-            {t`${{ count: props.data.omitted.categories }} more categories are not shown.`}
+            {plural(props.data.omitted.categories, {
+              one: "# more category is not shown.",
+              other: "# more categories are not shown.",
+            })}
           </span>
         ) : null}
         {props.data.omitted.series > 0 ? (
           <span>
-            {t`${{ count: props.data.omitted.series }} more series are not shown.`}
+            {plural(props.data.omitted.series, {
+              one: "# more series is not shown.",
+              other: "# more series are not shown.",
+            })}
           </span>
         ) : null}
       </div>

@@ -18,6 +18,7 @@ import { FormFiles } from "../views/form-files";
 import { formFileUrl, sendFile, type SentFile } from "../../lib/send-file";
 import { FormField, formFieldIds } from "../views/form-field";
 import { FieldInput, FORM_TIME_ZONE, formKinds } from "../views/form-view";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { InstanceMark } from "../brand/instance-mark";
@@ -332,7 +333,7 @@ export function PublicRows({
           />
         </div>
         <span className="text-xs text-muted-foreground">
-          {t`${{ count: rows.data?.total ?? 0 }} rows`}
+          {plural(rows.data?.total ?? 0, { one: "# row", other: "# rows" })}
         </span>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">

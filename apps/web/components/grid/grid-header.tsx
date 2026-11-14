@@ -33,6 +33,7 @@ import type { CatalogColumn } from "../../lib/types";
 import { FieldIcon } from "../fields/field-meta";
 import { ResizeHandle } from "../shell/resize-handle";
 import { distinctLimits, useLimitText } from "../../lib/limits";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 
 /**
@@ -298,12 +299,12 @@ export function GridHeader(props: {
         <Checkbox
           aria-label={
             props.loadedCount > 0
-              ? t`Select ${{ count: props.loadedCount }} loaded rows`
+              ? t`Select ${plural(props.loadedCount, { one: "# loaded row", other: "# loaded rows" })}`
               : t`Select loaded rows`
           }
           title={
             props.loadedCount > 0
-              ? t`Selects the ${{ count: props.loadedCount }} rows already loaded`
+              ? t`Selects ${plural(props.loadedCount, { one: "the row already loaded", other: "the # rows already loaded" })}`
               : t`Select loaded rows`
           }
           className="h-3.5 w-3.5"

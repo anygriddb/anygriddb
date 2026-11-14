@@ -10,6 +10,7 @@ import {
 } from "@anygriddb/ui";
 import { JOB_STATUSES, type JobKind, type JobStatus } from "@anygriddb/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { Download, Mail } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -408,7 +409,7 @@ export function SupportTab() {
         <ConfirmDialog
           open
           onOpenChange={(open) => !open && setConfirmSend(false)}
-          title={t`Send to ${{ count: recipientCount }} accounts?`}
+          title={t`Send to ${plural(recipientCount, { one: "# account", other: "# accounts" })}?`}
           description={t`Each person receives this plain-text notice by email. The sign-in trail records that you sent it.`}
           confirmLabel={t`Send notice`}
           onConfirm={async () => {
@@ -426,7 +427,7 @@ export function SupportTab() {
                       },
               });
               toast.success(
-                t`Notice queued for ${{ count: result.recipientCount }} accounts`,
+                t`Notice queued for ${plural(result.recipientCount, { one: "# account", other: "# accounts" })}`,
               );
               setSubject("");
               setBody("");

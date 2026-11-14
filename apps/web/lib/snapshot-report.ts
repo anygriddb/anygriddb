@@ -1,3 +1,4 @@
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 
 /** What a snapshot's import, or a base's copy, could not bring as it was. */
@@ -34,16 +35,29 @@ export function useSnapshotGaps(): (result: unknown) => string[] {
     if (!report) return [];
     return [
       report.filesMissing > 0
-        ? t`${{ count: report.filesMissing }} file(s) missing or damaged`
+        ? t`${plural(report.filesMissing, {
+            one: "# file missing or damaged",
+            other: "# files missing or damaged",
+          })}`
         : null,
       report.peopleDropped > 0
-        ? t`${{ count: report.peopleDropped }} person(s) without access to the base, left out of Collaborator fields`
+        ? t`${plural(report.peopleDropped, {
+            one: "# person without access to the base, left out of Collaborator fields",
+            other:
+              "# people without access to the base, left out of Collaborator fields",
+          })}`
         : null,
       report.membersMissing > 0
-        ? t`${{ count: report.membersMissing }} member(s) without an active account here`
+        ? t`${plural(report.membersMissing, {
+            one: "# member without an active account here",
+            other: "# members without an active account here",
+          })}`
         : null,
       (report.membersLeft ?? 0) > 0
-        ? t`${{ count: report.membersLeft }} member(s) who have left the base since, left out`
+        ? t`${plural(report.membersLeft ?? 0, {
+            one: "# member who has left the base since, left out",
+            other: "# members who have left the base since, left out",
+          })}`
         : null,
     ].filter((item): item is string => item !== null);
   };

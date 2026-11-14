@@ -24,6 +24,7 @@ import {
 import { trpc, type RouterOutputs } from "../../lib/trpc";
 import type { CatalogColumn } from "../../lib/types";
 import { FIELD_LABELS } from "../fields/field-meta";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { raw } from "../../lib/known-text";
@@ -69,6 +70,14 @@ function importReport(result: Record<string, unknown> | null): ImportReport {
     failed: number("failed"),
     errors,
   };
+}
+
+/** What an import did, in one sentence. */
+function importSentence({ inserted, updated, failed }: ImportReport): string {
+  return plural(inserted, {
+    one: `# row added, ${updated} updated, ${failed} rejected.`,
+    other: `# rows added, ${updated} updated, ${failed} rejected.`,
+  });
 }
 
 type ImportTarget =
@@ -181,9 +190,8 @@ export function ImportDialog(props: {
   function close(open: boolean) {
     if (!open && running) {
       const report = (job: Job) => {
-        const counts = importReport(job.result);
         return {
-          message: t`${{ inserted: counts.inserted }} rows added, ${{ updated: counts.updated }} updated, ${{ failed: counts.failed }} rejected.`,
+          message: importSentence(importReport(job.result)),
         };
       };
       void trackJob(running.jobId, {
@@ -290,7 +298,7 @@ export function ImportDialog(props: {
         props.onDone?.();
       } else if (job.status === "cancelled") {
         toast.message(
-          t`Import cancelled: the ${{ count: job.done }} rows already written are kept.`,
+          t`Import cancelled: ${plural(job.done, { one: "the # row already written is kept", other: "the # rows already written are kept" })}.`,
         );
         props.onDone?.();
         close(false);
@@ -359,9 +367,7 @@ export function ImportDialog(props: {
           </div>
         ) : result ? (
           <div className="flex flex-col gap-3 text-sm">
-            <p>
-              {t`${{ inserted: result.inserted }} rows added, ${{ updated: result.updated }} updated, ${{ failed: result.failed }} rejected.`}
-            </p>
+            <p>{importSentence(result)}</p>
             {result.errors.length > 0 ? (
               <div className="max-h-64 overflow-auto rounded border border-border">
                 <table className="w-full text-xs">
@@ -468,7 +474,7 @@ export function ImportDialog(props: {
         {running || result || !preview ? null : (
           <div className="flex min-h-0 flex-col gap-3 text-sm">
             <p className="text-muted-foreground">
-              {t`${{ file: preview.filename }}: ${{ count: preview.total }} rows found.`}
+              {t`${{ file: preview.filename }}: ${plural(preview.total, { one: "# row found", other: "# rows found" })}.`}
             </p>
             {target.kind === "new" ? (
               <div className="flex flex-col gap-1">
@@ -652,7 +658,7 @@ export function ImportDialog(props: {
                 }
               >
                 {busy ? <Spinner /> : null}
-                {t`Import ${{ count: preview.total }} rows`}
+                {t`Import ${plural(preview.total, { one: "# row", other: "# rows" })}`}
               </Button>
             </DialogFooter>
           </div>
