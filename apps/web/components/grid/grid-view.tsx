@@ -52,7 +52,6 @@ import { formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import { useTRPC } from "../../lib/trpc";
 import { opensPanel } from "../fields/cell-editor";
-import { optionsOf } from "../fields/cell-value";
 import { DEFAULT_WIDTH } from "../fields/field-meta";
 import { useTable, type CellValue } from "../table/table-context";
 import { createLabelMeasure, defaultColumnWidth } from "./column-width";
@@ -80,11 +79,11 @@ import {
 } from "./grid-clipboard";
 import {
   type GridItem,
-  type GroupLevel,
+  groupLevels,
   hasStarts,
-  layoutFromRows,
-  layoutFromStarts,
   positionOf,
+  readPrefix,
+  viewItems,
 } from "./group-layout";
 import type { RowsState } from "./use-rows";
 import { useLingui } from "@lingui/react/macro";
@@ -204,53 +203,31 @@ export function GridView(props: GridProps) {
   // row at once; otherwise it lays out the rows read so far, in order, and
   // reads the next page as its end comes into view.
   const placed = grouped && hasStarts(rows.groups);
-  const readSoFar = useMemo(() => {
-    if (!grouped || placed) return NONE_READ;
-    const prefix: RowItem[] = [];
-    for (let row = rows.rowAt(0); row; row = rows.rowAt(prefix.length)) {
-      prefix.push(row);
-    }
-    return prefix;
-  }, [rows, grouped, placed]);
-  const items: GridItem[] = useMemo(() => {
-    let list: GridItem[] = [];
-    if (!grouped) {
-      for (let index = 0; index < rows.total; index += 1)
-        list.push({ type: "row", index });
-    } else {
-      const levels: GroupLevel[] = props.groupBy.map((group) => {
-        const column = columns.find((item) => item.name === group.column);
-        const colored =
-          column?.fieldType === "single_select" ||
-          column?.fieldType === "multi_select";
-        return {
-          column: group.column,
-          ...(colored
-            ? {
-                colorOf: (label: string) =>
-                  optionsOf(column).find((option) => option.name === label)
-                    ?.color,
-              }
-            : {}),
-        };
-      });
-      list = placed
-        ? layoutFromStarts(rows.groups, levels, collapsed, MAX_GROUPS)
-        : layoutFromRows(readSoFar, levels, collapsed, rows.groups);
-    }
-    if (canAdd) list.push({ type: "add" });
-    return list;
-  }, [
-    rows.total,
-    rows.groups,
-    grouped,
-    placed,
-    readSoFar,
-    props.groupBy,
-    columns,
-    collapsed,
-    canAdd,
-  ]);
+  const readSoFar = useMemo(
+    () => (grouped && !placed ? readPrefix(rows.rowAt) : NONE_READ),
+    [rows, grouped, placed],
+  );
+  const items: GridItem[] = useMemo(
+    () =>
+      viewItems({
+        total: rows.total,
+        levels: grouped ? groupLevels(props.groupBy, columns) : [],
+        groups: rows.groups,
+        readSoFar,
+        collapsed,
+        canAdd,
+      }),
+    [
+      rows.total,
+      rows.groups,
+      grouped,
+      readSoFar,
+      props.groupBy,
+      columns,
+      collapsed,
+      canAdd,
+    ],
+  );
 
   // Collapsing the groups listed folds everything: inner groups of a
   // folded one are not listed.

@@ -222,6 +222,7 @@ export function NewRowDialog(props: {
       }}
     >
       <DialogContent
+        fullOnPhone
         title={t`New row`}
         description={
           props.external
