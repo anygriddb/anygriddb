@@ -17,6 +17,10 @@
 # PostgreSQL 17 stack: scripts/upgrade-postgres.sh. Backups:
 # scripts/backup.sh and scripts/restore.sh. See docs/operations.md.
 #
+# Behind a reverse proxy on the same host (HTTPS on loopback only):
+#
+#   docker compose -f compose.yml -f compose.proxy.yml up -d
+#
 # To keep files in an S3-compatible store instead, add the RustFS overlay:
 #
 #   docker compose -f compose.yml -f compose.s3.yml up -d --build
@@ -33,6 +37,14 @@ x-anygriddb-image: &anygriddb-image
       ANYGRIDDB_CREATED: ${ANYGRIDDB_CREATED:-}
   image: anygriddb:local
 
+# A container's log is kept to three files of 10 MB, so that a process
+# that says much cannot fill the host's disk.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   # One-shot, before the services it serves: certificates for the stack's
   # services from the instance's internal authority (keys owned by each
@@ -45,6 +57,18 @@ services:
     network_mode: none
     security_opt:
       - no-new-privileges:true
+    # Root, with what it takes to give each key to its service and to read
+    # the authority, which is the application's own (mode 0700), and
+    # nothing more.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    logging: *default-logging
     command:
       [
         "anygriddb",
@@ -72,6 +96,9 @@ services:
     network_mode: none
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging: *default-logging
     environment:
       ANYGRIDDB_PG_UPGRADE: ${ANYGRIDDB_PG_UPGRADE:-}
     entrypoint:
@@ -92,6 +119,15 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    logging: *default-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in docker/.env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in docker/.env}
@@ -132,6 +168,12 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    # Nothing is written to the image: what the instance keeps is on its
+    # volumes, and /tmp is one too (below).
+    read_only: true
+    cap_drop:
+      - ALL
+    logging: *default-logging
     environment:
       # Verified TLS to PostgreSQL, by the internal authority (ADR 0030).
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=verify-full&sslrootcert=/certs/internal-authority.crt
@@ -148,6 +190,7 @@ services:
       TLS_CERT_FILE: ${TLS_CERT_FILE:-}
       TLS_KEY_FILE: ${TLS_KEY_FILE:-}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      ANYGRIDDB_TRUSTED_PROXIES: ${ANYGRIDDB_TRUSTED_PROXIES:-}
       ANYGRIDDB_SOURCES_ALLOWED_HOSTS: ${ANYGRIDDB_SOURCES_ALLOWED_HOSTS:-}
       ATTACHMENT_MAX_BYTES: ${ATTACHMENT_MAX_BYTES:-}
       # Connections requests share (10 by default); see docs/operations.md.
@@ -165,6 +208,10 @@ services:
       - files_data:/data/files
       - tls_data:/data/tls
       - service_certs:/certs:ro
+      # What comes in or goes out (an upload, an import, an export, a
+      # snapshot) is written whole to /tmp on its way: on disk, never in
+      # memory, in a volume that goes with the container.
+      - /tmp
       # The operator's certificate, if any: set TLS_CERT_FILE and
       # TLS_KEY_FILE to /own-tls/... and mount its folder here.
       # - ./own-tls:/own-tls:ro

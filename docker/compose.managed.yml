@@ -11,8 +11,18 @@
 # &sslrootcert=/managed-ca/ca.pem.
 #
 #   docker compose -f compose.managed.yml up -d --build
+#
+# Behind a reverse proxy on the same host:
+#
+#   docker compose -f compose.managed.yml -f compose.proxy.yml up -d
 
 name: anygriddb
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   app:
@@ -27,6 +37,12 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    # Nothing is written to the image: what the instance keeps is on its
+    # volumes, and /tmp is one too (below).
+    read_only: true
+    cap_drop:
+      - ALL
+    logging: *default-logging
     environment:
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in docker/.env}
       AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env}
@@ -37,6 +53,7 @@ services:
       TLS_CERT_FILE: ${TLS_CERT_FILE:-}
       TLS_KEY_FILE: ${TLS_KEY_FILE:-}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      ANYGRIDDB_TRUSTED_PROXIES: ${ANYGRIDDB_TRUSTED_PROXIES:-}
       ANYGRIDDB_SOURCES_ALLOWED_HOSTS: ${ANYGRIDDB_SOURCES_ALLOWED_HOSTS:-}
       ATTACHMENT_MAX_BYTES: ${ATTACHMENT_MAX_BYTES:-}
       METRICS_TOKEN: ${METRICS_TOKEN:-}
@@ -46,6 +63,10 @@ services:
       - files_data:/data/files
       - tls_data:/data/tls
       - ./managed-ca:/managed-ca:ro
+      # What comes in or goes out (an upload, an import, an export, a
+      # snapshot) is written whole to /tmp on its way: on disk, never in
+      # memory, in a volume that goes with the container.
+      - /tmp
     ports:
       - "3000:4000"
     healthcheck:

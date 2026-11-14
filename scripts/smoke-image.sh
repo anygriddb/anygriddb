@@ -52,6 +52,22 @@ echo
 # PostgreSQL reached, the schema migrated.
 curl --fail --silent --show-error --insecure "https://localhost:${port}/ready"
 echo
+# Nothing is written to the image, and what comes in or goes out (an
+# import, an export, a snapshot) is written whole to /tmp on its way: it
+# must take a large file, on disk rather than in memory.
+"${compose[@]}" exec -T app sh -c '
+  set -e
+  if touch /written 2>/dev/null; then
+    echo "The image can be written to." >&2
+    exit 1
+  fi
+  if grep -q " /tmp tmpfs " /proc/mounts; then
+    echo "/tmp is kept in memory." >&2
+    exit 1
+  fi
+  dd if=/dev/zero of=/tmp/large bs=1M count=128 2>/dev/null
+  rm /tmp/large
+'
 reported="$("${compose[@]}" exec -T app anygriddb version)"
 echo "$reported"
 if [ -n "${SMOKE_VERSION:-}" ] && ! grep -Fq "$SMOKE_VERSION" <<<"$reported"; then

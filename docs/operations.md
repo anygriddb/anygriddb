@@ -82,6 +82,14 @@ The stack has four services:
 - `db` is PostgreSQL 18, which only takes connections over TLS.
 - `app` is AnyGridDB itself.
 
+Each container takes no new privilege, drops every Linux capability but
+the few its start needs, and keeps its log to three files of 10 MB.
+AnyGridDB's image is read-only: what the instance keeps is on its
+volumes, and what comes in or goes out (an upload, an import, an export,
+a snapshot) is written whole to `/tmp` on its way, a volume of its own
+on the host's disk, emptied when the container is replaced. Leave the
+disk room for the largest file the instance takes in or gives out.
+
 AnyGridDB serves HTTPS only on `PUBLIC_URL` (ADR 0029). Without a
 certificate of yours, it makes its own authority; its log and
 Administration > Health give the fingerprint to check before people
@@ -197,20 +205,28 @@ passkey. Until then, or with an IP-only `PUBLIC_URL`, use a TOTP app.
 
 ### Behind a reverse proxy
 
-AnyGridDB serves HTTPS itself. A proxy in front of it must pass the
-WebSocket upgrade on `/ws`, and keep an idle connection open for at least
-30 seconds (AnyGridDB sends something every 25). Otherwise the app still
-works, but changes made by others do not show until a page is read again,
-and it says "Connection lost" after 10 seconds.
+AnyGridDB serves HTTPS itself. A proxy in front of it must forward to
+HTTPS (to `https://app:4000` on the stack network, or
+`https://127.0.0.1:3000` on the host), pass the WebSocket upgrade on
+`/ws`, and keep an idle connection open for at least 30 seconds
+(AnyGridDB sends something every 25). Otherwise the app still works, but
+changes made by others do not show until a page is read again, and it
+says "Connection lost" after 10 seconds.
 
-The client address is the TCP peer. `X-Forwarded-For` is used only when
-`ANYGRIDDB_TRUSTED_PROXIES` names that peer: a comma-separated list of IP
-addresses or CIDR ranges, such as the Docker network the proxy runs on
-(`172.18.0.0/16`). Leave it empty when the API is published directly: a
-client cannot choose the address stored in the sign-in trail or used for
-rate limits. Behind a proxy that is not named there, every request
-carries the proxy's address, and the sign-in rate limit counts everyone
-together.
+On the same host, publish only the loopback so the proxy alone is
+reachable from other machines:
+
+```sh
+docker compose -f compose.yml -f compose.proxy.yml up -d
+```
+
+Set `ANYGRIDDB_TRUSTED_PROXIES` in `.env` to the proxy's address or its
+Docker network (for example `172.18.0.0/16`). The client address is the
+TCP peer; `X-Forwarded-For` is used only when that peer is named there.
+Leave it empty when the API is published directly: a client cannot
+choose the address stored in the sign-in trail or used for rate limits.
+Behind a proxy that is not named there, every request carries the
+proxy's address, and the sign-in rate limit counts everyone together.
 
 ### Offline
 
