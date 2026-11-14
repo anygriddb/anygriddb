@@ -1,5 +1,5 @@
 import { createDb, migrateDb } from "@anygriddb/db";
-import { promoteListedAdmins } from "./admin.js";
+import { hasAccounts, promoteListedAdmins } from "./admin.js";
 import { passkeysEligible } from "./auth/relying-party.js";
 import { BUILD, describeBuild } from "./build-info.js";
 import { isLoopback, readEnv } from "./env.js";
@@ -84,6 +84,12 @@ if (!passkeysEligible(env.PUBLIC_URL)) {
       publicUrl: env.PUBLIC_URL,
     },
     "PUBLIC_URL is an IP address: HTTPS and TOTP work; passkeys need a DNS hostname (or localhost) in PUBLIC_URL that people open. Put the IP in TLS_NAMES if it must stay on the certificate (ADR 0029).",
+  );
+}
+if (!(await hasAccounts(db))) {
+  // The command prints the token; this line never does.
+  app.log.info(
+    "No account yet. The first one administers the instance and takes a token: run `anygriddb install-token` where the instance runs.",
   );
 }
 if (files.driver === "s3") {

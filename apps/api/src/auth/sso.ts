@@ -80,6 +80,12 @@ export async function userForIdentity(
       if (!decision.allowed) {
         throw new AppError(decision.refusal ?? "signup_closed");
       }
+      // The first account takes the operator's token (ADR 0080), which a
+      // sign-on through a provider has no place to give: it is made from
+      // the password form.
+      if (decision.firstAccount) {
+        throw new AppError("install_token_required");
+      }
       // A provider that sends no name the instance can keep: the word
       // for it, in the instance's language, which the person may change.
       const displayName = labelSchema.safeParse(name).success

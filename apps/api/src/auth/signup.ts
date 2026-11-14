@@ -10,6 +10,12 @@ export const signupInputSchema = z.object({
    * which is then proved, and the account is made at once (ADR 0058).
    */
   invitation: z.string().max(100).optional(),
+  /**
+   * The token the instance's first account is made with, which its
+   * operator asks for from the command line (ADR 0080). Read for that
+   * account alone.
+   */
+  installToken: z.string().max(200).optional(),
 });
 
 /** Opening a sign-up's link: the password chosen at sign-up, again. */

@@ -67,7 +67,7 @@ describe("orders and places the API takes", () => {
     const created = await createTestDatabase("arranging");
     db = created.db;
     close = created.close;
-    await owner.call().auth.signup({
+    await owner.signUpFirst({
       email: `owner-${suffix}@example.org`,
       displayName: "Olive Owner",
       password: PASSWORD,

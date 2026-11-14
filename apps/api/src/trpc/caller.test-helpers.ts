@@ -8,6 +8,7 @@ import type { Database } from "@anygriddb/db";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { vi } from "vitest";
 import { hashPassword } from "../auth/argon2.js";
+import { mintInstallToken } from "../auth/installation-token.js";
 import { decodeBase32, totpCode } from "../auth/totp-code.js";
 import type { Env } from "../env.js";
 import type { FileStore } from "../files/index.js";
@@ -56,7 +57,24 @@ export function browserFactory(deps: {
       };
       return appRouter.createCaller(ctx);
     };
-    return { jar, call, log };
+    /**
+     * The instance's first account, made as its operator makes it: the
+     * token asked for as `anygriddb install-token` does, then the sign-up
+     * with it (ADR 0080). On an instance that has an account already, a
+     * plain sign-up.
+     */
+    const signUpFirst = async (input: {
+      email: string;
+      displayName: string;
+      password: string;
+    }) => {
+      const made = await mintInstallToken(deps.db());
+      return call().auth.signup({
+        ...input,
+        ...(made ? { installToken: made.token } : {}),
+      });
+    };
+    return { jar, call, log, signUpFirst };
   };
 }
 

@@ -115,7 +115,7 @@ describe("the security policy", () => {
     smtp = await fakeSmtp();
     env.SMTP_HOST = "127.0.0.1";
     env.SMTP_PORT = smtp.port;
-    await admin.call().auth.signup({
+    await admin.signUpFirst({
       email: `admin-${suffix}@example.org`,
       displayName: "Ada Admin",
       password: PASSWORD,

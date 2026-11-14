@@ -26,6 +26,8 @@ export type AuthAction =
   | "account_unlocked"
   | "account_updated"
   | "factors_cleared"
+  | "install_token_issued"
+  | "install_token_used"
   | "login_failure"
   | "login_success"
   | "logout"
@@ -492,6 +494,14 @@ export interface Groups {
   updatedAt: Generated<Timestamp>;
 }
 
+export interface InstallationTokens {
+  createdAt: Generated<Timestamp>;
+  expiresAt: Timestamp;
+  id: Generated<string>;
+  tokenHash: string;
+  usedAt: Timestamp | null;
+}
+
 export interface InstanceAlerts {
   closedAt: Timestamp | null;
   detail: Generated<Record<string, number | string | null>>;
@@ -951,6 +961,7 @@ export interface DB {
   groupMembers: GroupMembers;
   groupRoles: GroupRoles;
   groups: Groups;
+  installationTokens: InstallationTokens;
   instanceAlerts: InstanceAlerts;
   instanceLogo: InstanceLogo;
   instanceOidc: InstanceOidc;

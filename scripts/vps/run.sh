@@ -106,7 +106,11 @@ run_case() {
   echo "==> $profile / $case_name" >&2
   local load_rc=0
   fetch_authority || echo "warning: no authority copied from the app" >&2
-  NODE_EXTRA_CA_CERTS="$AUTHORITY" node "$SCRIPT_DIR/load.mjs" \
+  # The first account of the instance takes its operator's token; the
+  # command prints none once the instance has an account.
+  local install_token
+  install_token="$(compose exec -T app anygriddb install-token 2>/dev/null | head -n 1 || true)"
+  VPS_INSTALL_TOKEN="$install_token" NODE_EXTRA_CA_CERTS="$AUTHORITY" node "$SCRIPT_DIR/load.mjs" \
     --base "$BASE_URL" \
     --seconds "$SECONDS_LOAD" \
     --concurrency "$CONCURRENCY" \

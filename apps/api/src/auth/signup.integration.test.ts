@@ -95,7 +95,7 @@ describe("sign-up", () => {
       .execute();
     expect((await admin.call().auth.instance()).signup).toBe("open");
     expect(
-      await admin.call().auth.signup({
+      await admin.signUpFirst({
         email,
         displayName: "First",
         password: PASSWORD,

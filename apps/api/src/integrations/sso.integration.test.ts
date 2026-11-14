@@ -90,7 +90,7 @@ describe("operator OIDC and SAML", () => {
     const created = await createTestDatabase("sso_ui");
     db = created.db;
     close = created.close;
-    await admin.call().auth.signup({
+    await admin.signUpFirst({
       email: `admin-${suffix}@example.org`,
       displayName: "Ada Admin",
       password: PASSWORD,

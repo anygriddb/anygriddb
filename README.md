@@ -78,7 +78,7 @@ Inside the stack too, every connection is encrypted and verified (ADR 0030): Pos
 
 Files live on the `files` volume. To keep them in an S3-compatible store, start with `docker compose -f compose.yml -f compose.s3.yml up -d --build` (RustFS), or point `STORAGE_DRIVER=s3` and `S3_*` at your own service.
 
-The first account you create administers the instance. Creating a base requires a second factor (TOTP or a passkey).
+The first account you create administers the instance, and takes a token only its operator can ask for: `docker compose exec app anygriddb install-token`. Creating a base requires a second factor (TOTP or a passkey).
 
 ## Layout
 

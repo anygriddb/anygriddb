@@ -77,7 +77,7 @@ describe("the auditor", () => {
     const created = await createTestDatabase("auditor");
     db = created.db;
     close = created.close;
-    await admin.call().auth.signup({
+    await admin.signUpFirst({
       email: at("admin"),
       displayName: "Ada Admin",
       password: PASSWORD,

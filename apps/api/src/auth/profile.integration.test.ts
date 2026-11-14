@@ -35,13 +35,11 @@ describe("renaming one's own account", () => {
     const created = await createTestDatabase("profile");
     db = created.db;
     close = created.close;
-    await browser()
-      .call()
-      .auth.signup({
-        email: `admin-${suffix}@example.org`,
-        displayName: "Admin",
-        password: PASSWORD,
-      });
+    await browser().signUpFirst({
+      email: `admin-${suffix}@example.org`,
+      displayName: "Admin",
+      password: PASSWORD,
+    });
   }, 120_000);
 
   afterAll(async () => {

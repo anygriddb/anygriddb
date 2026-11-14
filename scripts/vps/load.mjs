@@ -169,10 +169,14 @@ async function bootstrap(base) {
   const email = `vps-${stamp}@example.com`;
   const password = "correct-horse-battery";
 
+  // The harness's account is its instance's first: it takes the token
+  // run.sh asked the instance for (`anygriddb install-token`).
+  const installToken = process.env.VPS_INSTALL_TOKEN;
   await trpc(base, jar, "auth.signup", {
     email,
     displayName: "VPS Load",
     password,
+    ...(installToken ? { installToken } : {}),
   });
 
   const begun = await trpc(base, jar, "auth.totp.begin", {});

@@ -27,9 +27,16 @@ export default defineConfig({
     launchOptions: { args: ["--ignore-certificate-errors"] },
   },
   projects: [
+    // The instance's first account, made with its operator's token
+    // (ADR 0080): once, before anything else signs up.
+    {
+      name: "first-account",
+      testMatch: /first-account\.setup\.ts/,
+    },
     {
       name: "journeys",
       testIgnore: /(maintenance|security)\.spec\.ts/,
+      dependencies: ["first-account"],
     },
     // The security policy changes instance settings (ADR 0043): alone,
     // after the journeys.

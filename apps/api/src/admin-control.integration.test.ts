@@ -66,7 +66,7 @@ describe("instance controls", () => {
     db = created.db;
     close = created.close;
     // The first account administers the instance.
-    await admin.call().auth.signup({
+    await admin.signUpFirst({
       email: `admin-${suffix}@example.org`,
       displayName: "Ada Admin",
       password: PASSWORD,

@@ -39,7 +39,7 @@ describe("a row id field", () => {
     const created = await createTestDatabase("row-id-field");
     db = created.db;
     close = created.close;
-    await owner.call().auth.signup({
+    await owner.signUpFirst({
       email: `owner-${suffix}@example.org`,
       displayName: "Olive Owner",
       password: "correct horse battery staple",

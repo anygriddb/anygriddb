@@ -57,7 +57,7 @@ describe("an API token that writes without deleting", () => {
     const created = await createTestDatabase("tokens");
     db = created.db;
     close = created.close;
-    await owner.call().auth.signup({
+    await owner.signUpFirst({
       email: `owner-${suffix}@example.org`,
       displayName: "Olive Owner",
       password: "correct horse battery staple",

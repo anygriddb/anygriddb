@@ -18,7 +18,9 @@ export type AuthMethod =
   | "saml"
   | "signup"
   | "admin"
-  | "scim";
+  | "scim"
+  /** What the operator ran on the instance's own command line. */
+  | "command";
 
 export type AuthDetail =
   | "invalid_credentials"
