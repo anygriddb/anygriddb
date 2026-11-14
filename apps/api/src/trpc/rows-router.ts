@@ -123,7 +123,11 @@ function serviceDeps(ctx: Context): RowServiceDeps {
 function scopeOf(ctx: Context, access: TableAccess): Promise<RowScope> {
   return loadRowScope(
     ctx.db,
-    { userId: access.user.id, bindings: access.bindings },
+    {
+      userId: access.user.id,
+      bindings: access.bindings,
+      noDelete: ctx.tokenScope?.allowDelete === false,
+    },
     access.table,
   );
 }

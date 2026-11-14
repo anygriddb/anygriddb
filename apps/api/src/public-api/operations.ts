@@ -519,7 +519,11 @@ async function scopeFor(
 ): Promise<RowScope> {
   return loadRowScope(
     deps.db,
-    { userId: actor.user.id, bindings: actor.bindings },
+    {
+      userId: actor.user.id,
+      bindings: actor.bindings,
+      noDelete: actor.scope?.allowDelete === false,
+    },
     table,
   );
 }
@@ -584,9 +588,6 @@ export async function deleteRecords(
   ids: string[],
   reason?: string,
 ) {
-  if (actor.scope && !actor.scope.allowDelete) {
-    throw new AppError("token_cannot_delete");
-  }
   const table = await tableFor(deps, actor, tableId, "write");
   const deleted = await deleteRows(
     serviceDeps(deps),

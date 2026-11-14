@@ -19,7 +19,10 @@ and still cannot delete.
   and scripts keep deleting when they already could.
 - A write token with `allow_delete` false:
   - is not offered `delete_records` on `/mcp`;
-  - is answered `token_cannot_delete` on REST `DELETE …/records`.
+  - is answered `token_cannot_delete` wherever it asks to delete rows:
+    REST `DELETE …/records`, and the app's own API, which takes a token
+    too. The refusal sits in the one function every door deletes rows
+    through (`apps/api/src/services/rows.ts`).
     Create and update stay as for any write token.
 - A read-only token still collapses to viewer rights (ADR 0044); it
   never deletes, whether or not `allow_delete` is set.
