@@ -1,6 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import pg from "pg";
-import { signUpWithTable, uniqueStamp, watchPolicy } from "./setup";
+import {
+  accessibilityViolations,
+  signUpWithTable,
+  uniqueStamp,
+  watchPolicy,
+} from "./setup";
 
 // The journey's PostgreSQL holds AnyGridDB's catalog and, beside it, a
 // client's database with an account of its own (ADR 0026).
@@ -227,6 +232,37 @@ test("a client's rows: locked, signed, told when changed elsewhere, read from a 
       /1[\s ,]?500[,.]5/,
     );
     await expect(table.getByRole("row", { name: /lost/ })).toContainText("80");
+
+    // Renamed from its page, and a second widget put before the chart
+    // from its menu: the server took both, and now a screen asks.
+    await page.getByRole("button", { name: "Rename the dashboard" }).click();
+    const rename = page.getByRole("dialog", { name: "Rename the dashboard" });
+    await rename.getByLabel("Name").fill("Ventes 2026");
+    await rename.getByRole("button", { name: "Rename" }).click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Ventes 2026" }),
+    ).toBeVisible();
+    ok(
+      await call(page, "dashboards.upsertWidget", {
+        dashboardId: dashboard.id,
+        title: "Total amount",
+        kind: "metric",
+        x: 0,
+        y: 4,
+        w: 3,
+        h: 2,
+        config: { tableId, column: field("amount"), fn: "sum" },
+      }),
+    );
+    await page.reload();
+    const titles = page.locator("article h2");
+    await expect(titles).toHaveText(["Amount by stage", "Total amount"]);
+    await page
+      .getByRole("button", { name: "Actions for Total amount" })
+      .click();
+    await page.getByRole("menuitem", { name: "Move earlier" }).click();
+    await expect(titles).toHaveText(["Total amount", "Amount by stage"]);
+    expect(await accessibilityViolations(page)).toEqual([]);
 
     expect(blocked).toEqual([]);
   } finally {

@@ -673,6 +673,19 @@ test.describe("a gallery, a timeline, a kanban, and a map past their first page"
     await expect(done.getByRole("button", { name: /^c0001/ })).toBeVisible();
     await expect(todo.getByText("1,049", { exact: true })).toBeVisible();
 
+    // The kanban, made last, moved a place left from its menu.
+    const tabs = page
+      .getByRole("navigation", { name: "Views" })
+      .getByRole("link");
+    const before = await tabs.allTextContents();
+    await page.getByRole("button", { name: "View actions" }).click();
+    await page.getByRole("menuitem", { name: "Move left" }).click();
+    await expect(tabs).toHaveText([
+      ...before.slice(0, -2),
+      before.at(-1) ?? "",
+      before.at(-2) ?? "",
+    ]);
+
     expect(blocked).toEqual([]);
   });
 });
