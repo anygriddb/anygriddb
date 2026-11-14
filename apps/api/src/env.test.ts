@@ -198,6 +198,16 @@ describe("readEnv", () => {
   });
 });
 
+/** What a refused DATABASE_URL is answered, or nothing when it is taken. */
+function saidBy(address: string): string {
+  try {
+    readEnv({ ...base, DATABASE_URL: address });
+    return "";
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
 describe("connections AnyGridDB opens", () => {
   it("reaches its PostgreSQL over verified TLS beyond this machine", () => {
     const remote = "postgres://anygriddb:secret@db:5432/anygriddb";
@@ -224,6 +234,58 @@ describe("connections AnyGridDB opens", () => {
         DATABASE_URL,
       );
     }
+  });
+
+  it("says so when a password cuts its PostgreSQL's address short", () => {
+    const address = (password: string) =>
+      `postgres://anygriddb:${password}@db:5432/anygriddb?sslmode=verify-full&sslrootcert=/certs/internal-authority.crt`;
+    // As typed in `.env`: a `/` (every other password in base64), a `?`
+    // or a `#`, wherever it stands, digits before it or nothing at all.
+    for (const password of [
+      "abc/def",
+      "/abc",
+      "5432/abc",
+      "abc?def",
+      "?abc",
+      "abc#def",
+      "abc#",
+    ]) {
+      expect(
+        () => readEnv({ ...base, DATABASE_URL: address(password) }),
+        password,
+      ).toThrow(/^DATABASE_URL cannot be read as an address/);
+    }
+    // Never a word of the address in what is said.
+    expect(saidBy(address("s3cret/part"))).not.toMatch(
+      /s3cret|part|db:5432|anygriddb/,
+    );
+    // Every other character, and the three once percent-encoded.
+    for (const password of [
+      "0123456789abcdef",
+      "p@ss:w&rd;+=!$'",
+      "abc%2Fdef%3Fghi%23",
+    ]) {
+      expect(
+        readEnv({ ...base, DATABASE_URL: address(password) }).DATABASE_URL,
+      ).toBe(address(password));
+    }
+    // A database whose name holds an `@` is one, not a host.
+    expect(
+      readEnv({
+        ...base,
+        DATABASE_URL: "postgres://anygriddb:secret@localhost/team@work",
+      }).DATABASE_URL,
+    ).toBe("postgres://anygriddb:secret@localhost/team@work");
+  });
+
+  it("reads the host after the last @, never a piece of the password", () => {
+    // On this machine, the address needs no TLS whatever its password.
+    const local = "postgres://anygriddb:p@s3cret@127.0.0.1:5432/anygriddb";
+    expect(readEnv({ ...base, DATABASE_URL: local }).DATABASE_URL).toBe(local);
+    // Beyond it, the refusal names the host, which is no secret.
+    const said = saidBy("postgres://anygriddb:p@s3cret@db:5432/anygriddb");
+    expect(said).toMatch(/^DATABASE_URL reaches db over the network/);
+    expect(said).not.toMatch(/s3cret/);
   });
 
   it("calls S3 and SAML over https://, but on the loopback", () => {

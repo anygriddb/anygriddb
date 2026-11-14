@@ -38,6 +38,14 @@ docker compose -f compose.yml -f compose.release.yml \
   --env-file .env --env-file image-pin.env up -d
 ```
 
+Choose `POSTGRES_PASSWORD` before the first start, of letters and
+digits (`openssl rand -hex 24`). It is written into the database's
+address, where a `/`, `?`, `#` or `%` would be read as part of the
+address: AnyGridDB then says so and does not start. The database keeps
+the password it was made with, so on an install that holds nothing yet,
+start again on empty volumes: the same command with `down -v`, then
+`up -d`.
+
 The instance has no account yet. Its first account administers it, and
 is made with a token that only this command gives, to this terminal and
 nowhere else (ADR 0080). It works once, for an hour; asking again
