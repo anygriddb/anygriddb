@@ -31,6 +31,12 @@ export const descriptionSchema = z.string().trim().max(2_000);
 
 export const reasonSchema = z.string().trim().min(1).max(500);
 
+/**
+ * The zone a browser says it is in: a hint, never refused. A read falls
+ * back on UTC for a zone the server does not know (`safeTimeZone`), where
+ * refusing it here would refuse every read of that browser: one that
+ * cannot tell its zone reports "Etc/Unknown".
+ */
 export const timeZoneInputSchema = z.string().max(64);
 
 const userColumnName = columnNameSchema.refine(

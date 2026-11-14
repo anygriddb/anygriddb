@@ -356,7 +356,8 @@ const LIVE_OWNER = sql<boolean>`exists (select 1 from role_bindings r join users
 /**
  * Every live base of the instance with what an administrator weighs it
  * by, metadata only. Row counts come from the statistics, never from a
- * count: the list stays quick with hundreds of bases.
+ * count. The page of bases is read first; their weights are aggregated
+ * once for those ids, not with a subquery per base.
  */
 export async function listBaseOverview(
   db: Database,
@@ -371,34 +372,9 @@ export async function listBaseOverview(
   const pattern = input.search
     ? `%${input.search.replace(/[%_\\]/g, "\\$&")}%`
     : undefined;
-  const rows = await db
+  const page = await db
     .selectFrom("bases as b")
-    .select([
-      "b.id",
-      "b.name",
-      "b.createdAt",
-      sql<
-        string[]
-      >`array(select u.display_name from role_bindings r join users u on u.id = r.user_id where r.scope = 'base' and r.scope_id = b.id and r.role = 'owner' and r.group_id is null order by u.display_name limit 3)`.as(
-        "owners",
-      ),
-      LIVE_OWNER.as("hasLiveOwner"),
-      sql<string>`(select count(distinct r.user_id) from role_bindings r where r.scope = 'base' and r.scope_id = b.id)`.as(
-        "members",
-      ),
-      sql<string>`(select count(*) from data_tables t where t.base_id = b.id and t.deleted_at is null)`.as(
-        "tables",
-      ),
-      sql<string>`(select coalesce(sum(greatest(c.reltuples, 0)), 0)::bigint from data_tables t join pg_class c on c.oid = to_regclass(quote_ident(t.physical_name)) where t.base_id = b.id and t.deleted_at is null and t.source_id is null)`.as(
-        "estimatedRows",
-      ),
-      sql<string>`(select coalesce(sum(a.size), 0) from attachments a join data_tables t on t.id = a.table_id where t.base_id = b.id)`.as(
-        "fileBytes",
-      ),
-      sql<string>`(select count(*) from shares s join views v on v.id = s.view_id join data_tables t on t.id = v.table_id where t.base_id = b.id and s.revoked_at is null and v.deleted_at is null and t.deleted_at is null) + (select count(*) from calendar_feeds f join views v on v.id = f.view_id join data_tables t on t.id = v.table_id where t.base_id = b.id and v.deleted_at is null and t.deleted_at is null)`.as(
-        "outbound",
-      ),
-    ])
+    .select(["b.id", "b.name", "b.createdAt", LIVE_OWNER.as("hasLiveOwner")])
     .where(liveBase("b"))
     .$if(pattern !== undefined, (query) =>
       query.where("b.name", "ilike", pattern ?? ""),
@@ -413,18 +389,133 @@ export async function listBaseOverview(
     .orderBy("b.id", "asc")
     .limit(input.limit)
     .execute();
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    createdAt: row.createdAt.toISOString(),
-    owners: row.owners,
-    hasLiveOwner: row.hasLiveOwner,
-    members: Number(row.members),
-    tables: Number(row.tables),
-    estimatedRows: Number(row.estimatedRows),
-    fileBytes: Number(row.fileBytes),
-    outbound: Number(row.outbound),
-  }));
+  if (page.length === 0) return [];
+  const ids = page.map((row) => row.id);
+
+  const [ownerRows, memberRows, tableRows, fileRows, shareRows, feedRows] =
+    await Promise.all([
+      db
+        .selectFrom("roleBindings as r")
+        .innerJoin("users as u", "u.id", "r.userId")
+        .select(["r.scopeId as baseId", "u.displayName"])
+        .where("r.scope", "=", "base")
+        .where("r.scopeId", "in", ids)
+        .where("r.role", "=", "owner")
+        .where("r.groupId", "is", null)
+        .orderBy("u.displayName", "asc")
+        .execute(),
+      db
+        .selectFrom("roleBindings as r")
+        .select([
+          "r.scopeId as baseId",
+          sql<string>`count(distinct r.user_id)`.as("members"),
+        ])
+        .where("r.scope", "=", "base")
+        .where("r.scopeId", "in", ids)
+        .groupBy("r.scopeId")
+        .execute(),
+      sql<{
+        baseId: string;
+        tables: string;
+        estimatedRows: string;
+      }>`
+        select t.base_id as "baseId",
+               count(*)::text as tables,
+               coalesce(
+                 sum(
+                   case
+                     when t.source_id is null then greatest(c.reltuples, 0)
+                     else 0
+                   end
+                 ),
+                 0
+               )::bigint::text as "estimatedRows"
+          from data_tables t
+          left join pg_class c
+            on c.oid = to_regclass(quote_ident(t.physical_name))
+         where t.base_id in (${sql.join(ids.map((id) => sql`${id}::uuid`))})
+           and t.deleted_at is null
+         group by t.base_id
+      `
+        .execute(db)
+        .then((result) => result.rows),
+      db
+        .selectFrom("attachments as a")
+        .innerJoin("dataTables as t", "t.id", "a.tableId")
+        .select([
+          "t.baseId",
+          sql<string>`coalesce(sum(a.size), 0)`.as("fileBytes"),
+        ])
+        .where("t.baseId", "in", ids)
+        .groupBy("t.baseId")
+        .execute(),
+      db
+        .selectFrom("shares as s")
+        .innerJoin("views as v", "v.id", "s.viewId")
+        .innerJoin("dataTables as t", "t.id", "v.tableId")
+        .select(["t.baseId", sql<string>`count(*)`.as("value")])
+        .where("t.baseId", "in", ids)
+        .where("s.revokedAt", "is", null)
+        .where(liveView("v"))
+        .where(liveTable("t"))
+        .groupBy("t.baseId")
+        .execute(),
+      db
+        .selectFrom("calendarFeeds as f")
+        .innerJoin("views as v", "v.id", "f.viewId")
+        .innerJoin("dataTables as t", "t.id", "v.tableId")
+        .select(["t.baseId", sql<string>`count(*)`.as("value")])
+        .where("t.baseId", "in", ids)
+        .where(liveView("v"))
+        .where(liveTable("t"))
+        .groupBy("t.baseId")
+        .execute(),
+    ]);
+
+  const ownersByBase = new Map<string, string[]>();
+  for (const row of ownerRows) {
+    const names = ownersByBase.get(row.baseId) ?? [];
+    if (names.length < 3) names.push(row.displayName);
+    ownersByBase.set(row.baseId, names);
+  }
+  const membersByBase = new Map(
+    memberRows.map((row) => [row.baseId, Number(row.members)]),
+  );
+  const tablesByBase = new Map(
+    tableRows.map((row) => [
+      row.baseId,
+      {
+        tables: Number(row.tables),
+        estimatedRows: Number(row.estimatedRows),
+      },
+    ]),
+  );
+  const filesByBase = new Map(
+    fileRows.map((row) => [row.baseId, Number(row.fileBytes)]),
+  );
+  const outboundByBase = new Map<string, number>();
+  for (const row of [...shareRows, ...feedRows]) {
+    outboundByBase.set(
+      row.baseId,
+      (outboundByBase.get(row.baseId) ?? 0) + Number(row.value),
+    );
+  }
+
+  return page.map((row) => {
+    const tables = tablesByBase.get(row.id);
+    return {
+      id: row.id,
+      name: row.name,
+      createdAt: row.createdAt.toISOString(),
+      owners: ownersByBase.get(row.id) ?? [],
+      hasLiveOwner: row.hasLiveOwner,
+      members: membersByBase.get(row.id) ?? 0,
+      tables: tables?.tables ?? 0,
+      estimatedRows: tables?.estimatedRows ?? 0,
+      fileBytes: filesByBase.get(row.id) ?? 0,
+      outbound: outboundByBase.get(row.id) ?? 0,
+    };
+  });
 }
 
 /** How many live bases no active account owns. */
