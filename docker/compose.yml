@@ -161,6 +161,9 @@ services:
         SQL
         ROLE
         chmod +x /docker-entrypoint-initdb.d/10-application-role.sh
+        # An overlay that gives no command (development, the journeys)
+        # starts PostgreSQL as the image does.
+        if [ "$$#" -eq 0 ]; then set -- postgres; fi
         exec docker-entrypoint.sh "$$@"
       - --
     # TLS only over the network (pg_hba.conf from `certs`); the socket
