@@ -22,6 +22,7 @@ import {
 import { CheckCircle2, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { useMemo, useState, type SubmitEvent } from "react";
 import { formRedirectAfterSubmit } from "./form-redirect";
+import { FormField, formFieldIds } from "./form-field";
 import { FormFiles } from "./form-files";
 import { sendFile, tableFileUrl, type SentFile } from "../../lib/send-file";
 import {
@@ -96,12 +97,6 @@ const SUPPORTED = new Set([
   "user",
   "attachment",
 ]);
-
-/** The ids a form field's label and description carry. */
-export function formFieldIds(name: string) {
-  const id = `form-${name}`;
-  return { id, label: `${id}-label`, description: `${id}-description` };
-}
 
 /**
  * One answer of a form. It is named by its label and described by its
@@ -535,28 +530,14 @@ export function FormView(props: ViewProps) {
               {shown
                 .filter(({ column }) => !prefill.hidden.has(column.name))
                 .map(({ field, column }) => (
-                  <div key={column.name} className="flex flex-col gap-1">
-                    <Label
-                      id={formFieldIds(column.name).label}
-                      htmlFor={formFieldIds(column.name).id}
-                      className="text-sm text-foreground"
-                    >
-                      {field.label || column.label}
-                      {field.required ? (
-                        <span className="text-danger" aria-hidden>
-                          {" "}
-                          *
-                        </span>
-                      ) : null}
-                    </Label>
-                    {field.description || column.description ? (
-                      <p
-                        id={formFieldIds(column.name).description}
-                        className="text-xs text-muted-foreground"
-                      >
-                        {field.description || column.description}
-                      </p>
-                    ) : null}
+                  <FormField
+                    key={column.name}
+                    name={column.name}
+                    label={field.label || column.label}
+                    description={field.description || column.description}
+                    required={Boolean(field.required)}
+                    labelClassName="text-sm text-foreground"
+                  >
                     {column.fieldType === "attachment" ? (
                       <FormFiles
                         id={formFieldIds(column.name).id}
@@ -606,7 +587,7 @@ export function FormView(props: ViewProps) {
                         people={table.people}
                       />
                     )}
-                  </div>
+                  </FormField>
                 ))}
               <Button
                 type="submit"

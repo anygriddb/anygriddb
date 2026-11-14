@@ -4,7 +4,6 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
-  Label,
   Spinner,
 } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
@@ -15,7 +14,8 @@ import { toast } from "sonner";
 import { useTRPC } from "../../lib/trpc";
 import type { CatalogColumn } from "../../lib/types";
 import { isComputedField, isLinkField } from "../fields/field-meta";
-import { FieldInput, formFieldIds } from "../views/form-view";
+import { FormField } from "../views/form-field";
+import { FieldInput } from "../views/form-view";
 import { dateFormatOf, editZone, formInstant } from "../../lib/dates";
 import { useTable } from "./table-context";
 
@@ -231,19 +231,12 @@ export function NewRowDialog(props: {
       >
         <form className="flex flex-col gap-4" onSubmit={submit}>
           {fields.map((column) => (
-            <div key={column.name} className="flex flex-col gap-1">
-              <Label
-                id={formFieldIds(column.name).label}
-                htmlFor={formFieldIds(column.name).id}
-              >
-                {column.label}
-                {column.required ? (
-                  <span className="text-danger" aria-hidden>
-                    {" "}
-                    *
-                  </span>
-                ) : null}
-              </Label>
+            <FormField
+              key={column.name}
+              name={column.name}
+              label={column.label}
+              required={column.required}
+            >
               {isForwardLink(column) ? (
                 <LinkInput
                   column={column}
@@ -273,7 +266,7 @@ export function NewRowDialog(props: {
                   people={people}
                 />
               )}
-            </div>
+            </FormField>
           ))}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={props.onClose}>
