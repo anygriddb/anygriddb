@@ -92,6 +92,42 @@ describe("baseSnapshotSchema", () => {
     ).toBe(false);
   });
 
+  it("keeps the folders a base holds its tables in", () => {
+    const [table] = minimal.tables;
+    const inFolder = (folder: string) => ({
+      ...minimal,
+      tables: [{ ...table, folder }],
+    });
+    const parsed = baseSnapshotSchema.parse({
+      ...inFolder("Clients"),
+      // In their order, an empty one included.
+      folders: [{ name: "Archive" }, { name: "Clients" }],
+    });
+    expect(parsed.folders?.map((folder) => folder.name)).toEqual([
+      "Archive",
+      "Clients",
+    ]);
+    expect(parsed.tables[0]?.folder).toBe("Clients");
+    // A base without folders says nothing of them.
+    expect(baseSnapshotSchema.parse(minimal).folders).toBeUndefined();
+    // A table sits in a folder the snapshot lists, each named once.
+    expect(baseSnapshotSchema.safeParse(inFolder("Clients")).success).toBe(
+      false,
+    );
+    expect(
+      baseSnapshotSchema.safeParse({
+        ...inFolder("Clients"),
+        folders: [{ name: "Archive" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      baseSnapshotSchema.safeParse({
+        ...minimal,
+        folders: [{ name: "Clients" }, { name: "Clients" }],
+      }).success,
+    ).toBe(false);
+  });
+
   it("refuses unknown keys and empty tables", () => {
     expect(
       baseSnapshotSchema.safeParse({ ...minimal, extra: true }).success,

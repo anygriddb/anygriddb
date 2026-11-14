@@ -30,6 +30,8 @@ export const MAX_SNAPSHOT_ROWS = 100_000;
 /** One row's line in a version 3 entry. */
 export const MAX_SNAPSHOT_LINE_BYTES = 4 * 1024 * 1024;
 export const MAX_SNAPSHOT_TABLES = 100;
+/** Past these, a snapshot keeps the folders that hold a table. */
+export const MAX_SNAPSHOT_FOLDERS = 500;
 export const MAX_SNAPSHOT_BYTES = 40 * 1024 * 1024;
 /** An archive with files: under ZIP's 4 GiB without ZIP64. */
 export const MAX_SNAPSHOT_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024;
@@ -119,8 +121,13 @@ const snapshotTableSchema = z
     rowCount: z.int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
     /** Version 3, with the members: each person's own access to the table. */
     access: z.array(snapshotTableAccessSchema).max(5_000).optional(),
+    /** The folder the table is kept in, by its name; none: the base's root. */
+    folder: labelSchema.optional(),
   })
   .strict();
+
+/** A folder of tables: a name, and its place by its rank in the list. */
+const snapshotFolderSchema = z.object({ name: labelSchema }).strict();
 
 const snapshotLinkSchema = z
   .object({
@@ -181,9 +188,26 @@ export const baseSnapshotSchema = z
     members: z.array(snapshotMemberSchema).max(5_000).optional(),
     /** Version 2, with an archive: the files attachment cells name. */
     files: z.array(snapshotFileSchema).max(MAX_SNAPSHOT_FILES).optional(),
+    /**
+     * The folders the base keeps its tables in, in their order. Written
+     * only for a base that has some: a base without folders gives the
+     * snapshot it always gave.
+     */
+    folders: z.array(snapshotFolderSchema).max(MAX_SNAPSHOT_FOLDERS).optional(),
   })
   .strict()
   .superRefine((snapshot, context) => {
+    // A table sits in a folder the snapshot lists, and a base names each
+    // folder once.
+    const folders = new Set(snapshot.folders?.map((folder) => folder.name));
+    if (
+      folders.size !== (snapshot.folders?.length ?? 0) ||
+      snapshot.tables.some(
+        (table) => table.folder !== undefined && !folders.has(table.folder),
+      )
+    ) {
+      context.addIssue({ code: "custom", message: "folders" });
+    }
     // Version 3 keeps its rows in their entries, versions 1 and 2 in the
     // JSON: one place each, never both.
     const lines = snapshot.version === SNAPSHOT_VERSION;

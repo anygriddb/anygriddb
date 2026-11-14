@@ -18,6 +18,12 @@ import { withAudit } from "./audit-context.js";
 import { importBaseSnapshot } from "./base-snapshot.js";
 import { snapshotOf } from "./snapshot.test-helpers.js";
 import { loadEngine } from "./engine.js";
+import {
+  createFolder,
+  deleteFolder,
+  listFolders,
+  moveTableToFolder,
+} from "./folders.js";
 import { insertRows, readPage } from "./rows.js";
 import { insertBase, insertTable } from "./schema-ops.js";
 import { openStagedSnapshot, stageSnapshotFile } from "./snapshot-stage.js";
@@ -450,5 +456,122 @@ describe("snapshots with files and people", () => {
       maxRows: 1_000_000,
     });
     expect(await viewsOf(named.baseId)).toEqual(["Grille"]);
+  });
+  it("keeps the folders its tables are in, and their order", async () => {
+    const arranged = (await insertBase(db, owner, { name: "Rangement" })).id;
+    const table = async (name: string) =>
+      (
+        await insertTable(db, owner, {
+          baseId: arranged,
+          name,
+          columns: [{ name: "name", label: "Name", fieldType: "text" }],
+        })
+      ).id;
+    const loose = await table("Loose");
+    const invoices = await table("Invoices");
+    const quotes = await table("Quotes");
+    const old = await table("Old");
+    const folder = async (name: string) =>
+      (await createFolder(db, owner, { baseId: arranged, name })).id;
+    const sales = await folder("Sales");
+    await folder("Empty");
+    const archive = await folder("Archive");
+    const gone = await folder("Gone");
+    // In Sales, Quotes comes before Invoices, against the order they
+    // were made in.
+    await moveTableToFolder(db, owner, { tableId: quotes, folderId: sales });
+    await moveTableToFolder(db, owner, { tableId: invoices, folderId: sales });
+    await moveTableToFolder(db, owner, { tableId: old, folderId: archive });
+    await deleteFolder(db, owner, gone);
+    expect(loose).not.toBe("");
+
+    /** Each folder's tables in their order, the root's under "". */
+    const arrangement = async (ofBase: string) => {
+      const placed = await db
+        .selectFrom("dataTables")
+        .leftJoin("tableFolders", "tableFolders.id", "dataTables.folderId")
+        .select(["dataTables.name as name", "tableFolders.name as folder"])
+        .where("dataTables.baseId", "=", ofBase)
+        .orderBy("dataTables.position")
+        .orderBy("dataTables.createdAt")
+        .execute();
+      const byFolder: Record<string, string[]> = {};
+      for (const row of placed) {
+        (byFolder[row.folder ?? ""] ??= []).push(row.name);
+      }
+      return {
+        folders: (await listFolders(db, [ofBase])).map((item) => item.name),
+        tables: byFolder,
+      };
+    };
+    const before = await arrangement(arranged);
+    expect(before).toEqual({
+      folders: ["Sales", "Empty", "Archive"],
+      tables: {
+        "": ["Loose"],
+        Sales: ["Quotes", "Invoices"],
+        Archive: ["Old"],
+      },
+    });
+
+    // The schema alone, then the archive with its rows: both name them.
+    const schema = await snapshotOf(db, files, arranged, { withData: false });
+    await schema.close();
+    expect(schema.snapshot.folders).toEqual([
+      { name: "Sales" },
+      { name: "Empty" },
+      { name: "Archive" },
+    ]);
+    expect(
+      Object.fromEntries(
+        schema.snapshot.tables.map((item) => [item.name, item.folder]),
+      ),
+    ).toEqual({
+      Loose: undefined,
+      Invoices: "Sales",
+      Quotes: "Sales",
+      Old: "Archive",
+    });
+    const copy = await importBaseSnapshot(db, files, owner, schema.snapshot, {
+      maxRows: 1_000_000,
+    });
+    expect(await arrangement(copy.baseId)).toEqual(before);
+
+    const archived = await snapshotOf(db, files, arranged, { withData: true });
+    try {
+      expect(archived.snapshot.folders).toEqual(schema.snapshot.folders);
+      const restored = await importBaseSnapshot(
+        db,
+        files,
+        owner,
+        archived.snapshot,
+        { maxRows: 1_000_000, readLines: archived.readLines },
+      );
+      expect(await arrangement(restored.baseId)).toEqual(before);
+    } finally {
+      await archived.close();
+    }
+
+    // A base without folders gives the snapshot it always gave, and one
+    // written before folders were kept still makes its base.
+    const plain = await snapshotOf(db, files, baseId, { withData: false });
+    await plain.close();
+    if (plain.packed.kind !== "json") throw new Error("not a JSON snapshot");
+    expect(plain.packed.bytes.toString("utf8")).not.toMatch(/"folders?":/);
+    const { folders: _folders, ...earlier } = schema.snapshot;
+    const flat = await importBaseSnapshot(
+      db,
+      files,
+      owner,
+      {
+        ...earlier,
+        tables: earlier.tables.map(({ folder: _folder, ...item }) => item),
+      },
+      { maxRows: 1_000_000 },
+    );
+    expect(await arrangement(flat.baseId)).toEqual({
+      folders: [],
+      tables: { "": ["Loose", "Quotes", "Old", "Invoices"] },
+    });
   });
 });
