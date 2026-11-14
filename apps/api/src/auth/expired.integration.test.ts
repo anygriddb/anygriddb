@@ -49,7 +49,7 @@ describe("expired sign-ins", () => {
 
   it("deletes what has expired, and the last sign-in stays on the account", async () => {
     // The instance's first account: signed in at once.
-    await browser().call().auth.signup({
+    await browser().signUpFirst({
       email,
       displayName: "Ada",
       password: PASSWORD,

@@ -58,7 +58,7 @@ describe("local groups and effective rights", () => {
     const created = await createTestDatabase("admin-groups");
     db = created.db;
     close = created.close;
-    await admin.call().auth.signup({
+    await admin.signUpFirst({
       email: `admin-${suffix}@example.org`,
       displayName: "Ada Admin",
       password: PASSWORD,

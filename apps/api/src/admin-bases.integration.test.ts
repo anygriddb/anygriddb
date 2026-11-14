@@ -68,7 +68,7 @@ describe("bases in Administration", () => {
     const created = await createTestDatabase("admin_bases");
     db = created.db;
     close = created.close;
-    await admin.call().auth.signup({
+    await admin.signUpFirst({
       email: `admin-${suffix}@example.org`,
       displayName: "Ada Admin",
       password: PASSWORD,

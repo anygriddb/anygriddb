@@ -98,6 +98,17 @@ describe("OIDC sign-in through openid-client", () => {
     const created = await createTestDatabase("oidc");
     database = created.db;
     close = created.close;
+    // An instance that is set up: its first account, which only a token
+    // of its operator makes (ADR 0080), is there before anyone signs on
+    // through the provider.
+    await database
+      .insertInto("users")
+      .values({
+        email: "operator@example.org",
+        displayName: "Olga Operator",
+        isAdmin: true,
+      })
+      .execute();
     provider = await fakeProvider();
     const env = {
       AUTH_ENCRYPTION_KEY: key,

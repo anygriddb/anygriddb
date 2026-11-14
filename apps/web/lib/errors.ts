@@ -31,6 +31,8 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   sso_account: msg`This account signs in through your organization's sign-in: it has no password here`,
   token_lifetime_too_long: msg`Too long for this instance. Most days allowed`,
   api_tokens_restricted: msg`On this instance, only administrators create API tokens`,
+  install_token_required: msg`The first account needs the install token: whoever runs this instance asks for it with the command anygriddb install-token`,
+  install_token_invalid: msg`This install token is wrong, was used already, or is more than an hour old`,
   token_cannot_delete: msg`This API token may not delete rows`,
   base_creation_restricted: msg`On this instance, only administrators create bases`,
   invitation_domain_not_allowed: msg`On this instance, people are invited only with your organization's addresses`,

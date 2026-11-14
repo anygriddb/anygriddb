@@ -77,7 +77,7 @@ describe("the instance's name, logo and mail", () => {
     env.SMTP_PORT = smtp.port;
     app = Fastify();
     registerLogoRoute(app, { db });
-    await admin.call().auth.signup({
+    await admin.signUpFirst({
       email: at("admin"),
       displayName: "Ada Admin",
       password: PASSWORD,

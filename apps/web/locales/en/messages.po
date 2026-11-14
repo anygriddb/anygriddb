@@ -2629,6 +2629,10 @@ msgstr "Columns"
 msgid "Columns by"
 msgstr "Columns by"
 
+#: components/admin/auth-labels.ts
+msgid "Command line"
+msgstr "Command line"
+
 #: components/record/record-panel.tsx
 #: components/settings/role-label.ts
 msgid "Comment"
@@ -4842,6 +4846,18 @@ msgstr "Insert left"
 #: components/grid/grid-header.tsx
 msgid "Insert right"
 msgstr "Insert right"
+
+#: components/auth/auth-page.tsx
+msgid "Install token"
+msgstr "Install token"
+
+#: components/admin/auth-labels.ts
+msgid "Install token asked for"
+msgstr "Install token asked for"
+
+#: components/admin/auth-labels.ts
+msgid "Install token used"
+msgstr "Install token used"
 
 #: components/admin/admin-sections.ts
 msgid "Instance"
@@ -9380,6 +9396,10 @@ msgstr "The first {limit} groups are shown: filter the view to see the others."
 msgid "The first {shown} of {total} places"
 msgstr "The first {shown} of {total} places"
 
+#: lib/errors.ts
+msgid "The first account needs the install token: whoever runs this instance asks for it with the command anygriddb install-token"
+msgstr "The first account needs the install token: whoever runs this instance asks for it with the command anygriddb install-token"
+
 #: components/fields/formula-docs.ts
 msgid "The first characters."
 msgstr "The first characters."
@@ -10027,6 +10047,10 @@ msgstr "This file is too long: at most 200 people in one file"
 msgid "This filter on a field kept in AnyGridDB matches more than 1,000 rows: narrow it"
 msgstr "This filter on a field kept in AnyGridDB matches more than 1,000 rows: narrow it"
 
+#: components/auth/auth-page.tsx
+msgid "This first account will administer the instance. Whoever runs it asks for the token where it runs, with the command anygriddb install-token: it works once, for an hour."
+msgstr "This first account will administer the instance. Whoever runs it asks for the token where it runs, with the command anygriddb install-token: it works once, for an hour."
+
 #: lib/errors.ts
 msgid "This group is kept by the identity provider"
 msgstr "This group is kept by the identity provider"
@@ -10034,6 +10058,10 @@ msgstr "This group is kept by the identity provider"
 #: lib/errors.ts
 msgid "This host is not allowed: the operator adds it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS"
 msgstr "This host is not allowed: the operator adds it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS"
+
+#: lib/errors.ts
+msgid "This install token is wrong, was used already, or is more than an hour old"
+msgstr "This install token is wrong, was used already, or is more than an hour old"
 
 #: components/admin/health-tab.tsx
 msgid "This instance is up to date"

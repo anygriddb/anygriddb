@@ -67,7 +67,9 @@ cd docker && docker compose -f compose.yml -f compose.dev.yml up -d db && cd ..
 pnpm install && pnpm dev             # http://localhost:3000
 ```
 
-The first account you create administers the instance. Full stack in Docker:
+The first account you create administers the instance, and takes a
+token: `pnpm --filter @anygriddb/api cli install-token` prints it. Full
+stack in Docker:
 `cd docker && docker compose up -d --build` (see [`README.md`](README.md)).
 
 | Command                                     | What                                                                              |

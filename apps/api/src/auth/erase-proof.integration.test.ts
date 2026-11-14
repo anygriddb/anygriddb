@@ -48,13 +48,11 @@ describe("deleting one's own account", () => {
     db = created.db;
     close = created.close;
     // The instance's administrator: the accounts below are ordinary ones.
-    await browser()
-      .call()
-      .auth.signup({
-        email: `admin-${suffix}@example.org`,
-        displayName: "Admin",
-        password: PASSWORD,
-      });
+    await browser().signUpFirst({
+      email: `admin-${suffix}@example.org`,
+      displayName: "Admin",
+      password: PASSWORD,
+    });
   }, 120_000);
 
   afterAll(async () => {

@@ -43,7 +43,7 @@ describe("administration step-up", () => {
     db = created.db;
     close = created.close;
     admin = browser();
-    await admin.call().auth.signup({
+    await admin.signUpFirst({
       email: `admin-${suffix}@example.org`,
       displayName: "Admin",
       password: PASSWORD,

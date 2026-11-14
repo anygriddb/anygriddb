@@ -39,7 +39,7 @@ describe("catalog.activity", () => {
     const created = await createTestDatabase("catalog-activity");
     db = created.db;
     close = created.close;
-    await owner.call().auth.signup({
+    await owner.signUpFirst({
       email: `owner-${suffix}@example.org`,
       displayName: "Olive Owner",
       password: PASSWORD,

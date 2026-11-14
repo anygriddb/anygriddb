@@ -18,6 +18,8 @@ const ACTIONS = [
   "session_revoked",
   "factors_cleared",
   "token_created",
+  "install_token_issued",
+  "install_token_used",
   "tokens_revoked",
   "account_locked",
   "account_unlocked",

@@ -68,7 +68,7 @@ describe("table folders", () => {
     const created = await createTestDatabase("table-folders");
     db = created.db;
     close = created.close;
-    await owner.call().auth.signup({
+    await owner.signUpFirst({
       email: `owner-${suffix}@example.org`,
       displayName: "Olive Owner",
       password: PASSWORD,

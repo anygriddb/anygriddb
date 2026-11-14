@@ -74,7 +74,7 @@ describe("emergency access to a base", () => {
     smtp = await fakeSmtp();
     env.SMTP_HOST = "127.0.0.1";
     env.SMTP_PORT = smtp.port;
-    await admin.call().auth.signup({
+    await admin.signUpFirst({
       email: at("admin"),
       displayName: "Ada Admin",
       password: PASSWORD,

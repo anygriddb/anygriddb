@@ -10,14 +10,17 @@
  *   anygriddb keys status
  *   anygriddb keys rotate
  *   anygriddb backups record --name <name> --started <time> [--failed] [--bytes <n>] [--encrypted]
+ *   anygriddb install-token
  *
  * They read the API's environment. `migrate` needs only the storage
- * settings; `sweep` and `backups record` also need DATABASE_URL; `keys
- * status` and `keys rotate` need DATABASE_URL and the encryption keys.
+ * settings; `sweep`, `backups record`, and `install-token` also need
+ * DATABASE_URL; `keys status` and `keys rotate` need DATABASE_URL and the
+ * encryption keys.
  */
 import { parseArgs } from "node:util";
 import { createDb } from "@anygriddb/db";
 import { rotateKeys, type KeyRotation } from "./auth/key-rotation.js";
+import { mintInstallToken } from "./auth/installation-token.js";
 import { mintKey } from "./auth/key-ring.js";
 import { recordBackup } from "./alerts.js";
 import { BUILD, describeBuild } from "./build-info.js";
@@ -52,6 +55,10 @@ const USAGE = `Usage:
   anygriddb keys rotate
       Seals again, under AUTH_ENCRYPTION_KEY, what an earlier key sealed.
       That earlier key must be in AUTH_ENCRYPTION_PREVIOUS_KEYS.
+  anygriddb install-token
+      Prints the token the instance's first account is made with. It works
+      once, for an hour; asking again replaces it. Nothing is printed
+      once the instance has an account.
   anygriddb backups record --name <name> --started <time> [--failed] [--bytes <n>] [--encrypted]
       Tells the instance a backup ended, for Administration to show and
       to raise an alert when backups stop: scripts/backup.sh runs it, and
@@ -362,6 +369,29 @@ async function backupsRecord(args: string[]): Promise<number> {
   return 0;
 }
 
+/** Prints the token of an instance that has no account yet. */
+async function installToken(): Promise<number> {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new UsageError("DATABASE_URL is required");
+  const { db, close } = createDb(url, { max: 1 });
+  try {
+    const made = await mintInstallToken(db);
+    if (!made) {
+      process.stderr.write(
+        "This instance already has an account: its administrators add the others.\n",
+      );
+      return 1;
+    }
+    // To the terminal that asked, and nowhere else.
+    process.stdout.write(
+      `${made.token}\nWorks once, until ${made.expiresAt.toISOString()}.\n`,
+    );
+    return 0;
+  } finally {
+    await close();
+  }
+}
+
 async function main(argv: string[]): Promise<number> {
   const [group, command, ...rest] = argv;
   try {
@@ -389,6 +419,9 @@ async function main(argv: string[]): Promise<number> {
     }
     if (group === "backups" && command === "record") {
       return await backupsRecord(rest);
+    }
+    if (group === "install-token" && command === undefined) {
+      return await installToken();
     }
     if (group === undefined || group === "help" || group === "--help") {
       process.stdout.write(USAGE);

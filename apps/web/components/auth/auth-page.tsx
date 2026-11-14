@@ -113,9 +113,13 @@ export function AuthPage({
   const policy =
     instance.data?.signup ?? (instance.isError ? "open" : undefined);
   const ssoOnly = instance.data?.ssoOnly === true;
+  // No account yet: this sign-up makes the instance's administrator, and
+  // takes the token its operator asks for (ADR 0080).
+  const firstAccount = instance.data?.firstAccount === true;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [installToken, setInstallToken] = useState("");
   const [methods, setMethods] = useState<Array<"totp" | "webauthn">>([]);
   const [code, setCode] = useState("");
   const [backup, setBackup] = useState("");
@@ -186,6 +190,7 @@ export function AuthPage({
           password,
           displayName,
           ...(invitation ? { invitation } : {}),
+          ...(firstAccount ? { installToken } : {}),
         });
         if (result.status === "verify") {
           setAwaiting(email);
@@ -427,6 +432,26 @@ export function AuthPage({
                 <p className="text-xs text-muted-foreground">
                   {t`At least ${{ minLength }} characters.`}
                 </p>
+              ) : null}
+              {mode === "signup" && firstAccount ? (
+                <>
+                  <Label htmlFor="install-token">{t`Install token`}</Label>
+                  <Input
+                    id="install-token"
+                    required
+                    autoComplete="off"
+                    spellCheck={false}
+                    aria-describedby="install-token-help"
+                    value={installToken}
+                    onChange={(event) => setInstallToken(event.target.value)}
+                  />
+                  <p
+                    id="install-token-help"
+                    className="text-xs text-muted-foreground"
+                  >
+                    {t`This first account will administer the instance. Whoever runs it asks for the token where it runs, with the command anygriddb install-token: it works once, for an hour.`}
+                  </p>
+                </>
               ) : null}
               {mode === "login" && ssoOnly ? (
                 <p className="text-xs text-muted-foreground">

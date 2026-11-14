@@ -54,7 +54,7 @@ describe("invitations", () => {
     const created = await createTestDatabase("invitations");
     db = created.db;
     close = created.close;
-    await owner.call().auth.signup({
+    await owner.signUpFirst({
       email: `owner-${suffix}@example.org`,
       displayName: "Olive Owner",
       password: PASSWORD,

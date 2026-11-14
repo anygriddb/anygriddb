@@ -38,6 +38,19 @@ docker compose -f compose.yml -f compose.release.yml \
   --env-file .env --env-file image-pin.env up -d
 ```
 
+The instance has no account yet. Its first account administers it, and
+is made with a token that only this command gives, to this terminal and
+nowhere else (ADR 0080). It works once, for an hour; asking again
+replaces it:
+
+```sh
+docker compose -f compose.yml -f compose.release.yml \
+  --env-file .env --env-file image-pin.env exec app anygriddb install-token
+```
+
+Open `PUBLIC_URL`, create the account, and type the token where the form
+asks for it.
+
 `image-pin.env`, attached to each release, names the image and its
 digest. Give Compose both files: the second one alone would hide `.env`.
 The image is published for `linux/amd64` and `linux/arm64`: the digest

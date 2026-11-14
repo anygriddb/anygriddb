@@ -119,6 +119,7 @@ import { resolveSaml } from "../integrations/saml.js";
 import { readGateSettings, readSettings } from "../settings.js";
 import { eraseAccount, eraseAccountInputSchema } from "../data/erasure.js";
 import { isUniqueViolation } from "../data/schema-ops.js";
+import { useInstallToken } from "../auth/installation-token.js";
 import type { Context } from "./context.js";
 import {
   acceptInvitation,
@@ -400,6 +401,8 @@ export const authRouter = t.router({
       // What a sign-up meets: the first account sets the instance up,
       // whatever the policy says (`signupAllowed`).
       signup: accounts ? settings.signup : ("open" as const),
+      // No account yet: the form asks for the operator's token (ADR 0080).
+      firstAccount: !accounts,
       defaultLocale: settings.defaultLocale,
       maintenance: settings.maintenance,
       banner: settings.banner,
@@ -453,6 +456,12 @@ export const authRouter = t.router({
       }
       assertPasswordPolicy(input.password, settings);
       const passwordHash = await hashPassword(input.password);
+      // The first account administers the instance: it takes the token
+      // only its operator can ask for (ADR 0080), once everything else
+      // about the sign-up holds, so that a mistyped password costs none.
+      if (decision.firstAccount) {
+        await useInstallToken(ctx.db, input.installToken);
+      }
       if (
         decision.firstAccount ||
         (input.invitation !== undefined &&

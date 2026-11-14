@@ -64,7 +64,7 @@ describe("the proof Administration asks for", () => {
     const created = await createTestDatabase("proof");
     db = created.db;
     close = created.close;
-    await admin.call().auth.signup({
+    await admin.signUpFirst({
       email: at("admin"),
       displayName: "Ada Admin",
       password: PASSWORD,
