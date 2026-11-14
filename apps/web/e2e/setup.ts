@@ -94,6 +94,16 @@ export async function mailedMessage(
 }
 
 /**
+ * The journeys meet the grid as a person who has hidden its tips, on every
+ * page of their browser; the first journey shows them (`gridTips`).
+ */
+async function hideGridTips(page: Page): Promise<void> {
+  await page.context().addInitScript(() => {
+    window.localStorage.setItem("ag_grid_tips", "hidden");
+  });
+}
+
+/**
  * A new account, made as a person makes one, on the first-run page. Past
  * the instance's first account, the sign-up mails a link to the address,
  * opened here with the same password (ADR 0058).
@@ -101,7 +111,9 @@ export async function mailedMessage(
 export async function signUp(
   page: Page,
   input: { email: string; name: string; password: string },
+  options: { gridTips?: boolean } = {},
 ): Promise<void> {
+  if (!options.gridTips) await hideGridTips(page);
   await page.goto("/signup");
   await page.getByLabel("Email").fill(input.email);
   await page.getByLabel("Display name").fill(input.name);
@@ -134,6 +146,7 @@ export async function signIn(
   email: string,
   password: string,
 ): Promise<void> {
+  await hideGridTips(page);
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
@@ -172,10 +185,15 @@ export function nextTotp(secret: string): string {
 export async function signUpWithTable(
   page: Page,
   name: string,
+  options: { gridTips?: boolean } = {},
 ): Promise<{ email: string }> {
   const stamp = uniqueStamp();
   const email = `e2e-${stamp}@example.com`;
-  await signUp(page, { email, name, password: "correct-horse-battery" });
+  await signUp(
+    page,
+    { email, name, password: "correct-horse-battery" },
+    options,
+  );
 
   await enableTotp(page);
 

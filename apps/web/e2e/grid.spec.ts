@@ -25,9 +25,24 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
   page,
 }) => {
   const blocked = watchPolicy(page);
-  await signUpWithTable(page, "E2E User");
+  await signUpWithTable(page, "E2E User", { gridTips: true });
 
+  // A first visit: once the table holds a row, tips over the grid say its
+  // gestures, the keys named in the reader's language, until hidden.
+  const tips = page.getByRole("region", { name: "Getting around the grid" });
+  await expect(tips).toHaveCount(0);
   await page.getByRole("button", { name: "Add a row", exact: true }).click();
+  await expect(tips.getByRole("listitem")).toHaveCount(4);
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await tips.getByRole("button", { name: "All shortcuts" }).click();
+  const help = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  await expect(help).toContainText("Esc");
+  await expect(help).not.toContainText("Entrée");
+  await page.keyboard.press("Escape");
+  await expect(help).toHaveCount(0);
+  await tips.getByRole("button", { name: "Hide the tips" }).click();
+  await expect(tips).toHaveCount(0);
+
   const cell = page.locator('[role="gridcell"][data-column="name"]').first();
   await cell.click();
 
@@ -54,6 +69,7 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
 
   await page.reload();
   await expect(nameCell(page)).toContainText("alpha");
+  await expect(tips).toHaveCount(0);
 
   // Realtime (ADR 0049). A second tab on the table: its link to the
   // server goes through this route, which the journey can cut.
@@ -189,6 +205,35 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
   await expect(samples).toContainText(/Changed .* by you/);
   await expect(page.getByRole("region", { name: "For you" })).toBeVisible();
   expect(await accessibilityViolations(page)).toEqual([]);
+
+  // A base made from a template: its tables, their rows and links, a
+  // calendar and a form; the tips, hidden once, stay hidden on its grids.
+  const dialog = page.getByRole("dialog");
+  await page.getByRole("button", { name: "New base" }).first().click();
+  await dialog.getByRole("radio", { name: /^Events/ }).click();
+  await expect(dialog.getByLabel("Base name")).toHaveValue("Events");
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await dialog.getByRole("button", { name: "Create", exact: true }).click();
+  const tables = page.getByRole("region", { name: "Tables" });
+  await expect(tables.getByRole("link")).toHaveText([
+    /Sessions/,
+    /Venues/,
+    /Attendees/,
+  ]);
+  await tables.getByRole("link", { name: /Sessions/ }).click();
+  const titles = page.locator('[role="gridcell"][data-column="titre"]');
+  await expect(titles).toHaveText([
+    "Opening keynote",
+    "Hands-on lab",
+    "Closing panel",
+  ]);
+  await expect(
+    page.locator('[role="gridcell"][data-column="lieu"]').first(),
+  ).toContainText("Main hall");
+  await expect(tips).toHaveCount(0);
+  await expect(
+    page.getByRole("navigation", { name: "Views" }).getByRole("link"),
+  ).toHaveText(["Grid", "Calendar"]);
 
   expect(blocked).toEqual([]);
   expect(blockedOther).toEqual([]);

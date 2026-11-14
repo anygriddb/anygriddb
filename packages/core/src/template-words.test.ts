@@ -52,10 +52,18 @@ const SAME_IN_FRENCH = new Set([
   "Sète",
   "Inès Martin",
   "Paul Durand",
+  "Sessions",
+  "Format",
+  "Standard",
+  "Léa Bernard",
+  "Hugo Petit",
+  "Chloé Moreau",
 ]);
 const kept = (word: string) =>
   SAME_IN_FRENCH.has(word) ||
-  /^(https:\/\/|\d{4}-\d{2}-\d{2}$)|@|^[A-Z]{3}-[A-Z0-9]{2}$/.test(word);
+  /^(https:\/\/|\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}\.\d{3}Z)?$)|@|^[A-Z]{3}-[A-Z0-9]{2}$/.test(
+    word,
+  );
 
 describe("localizeTemplate", () => {
   it.each(BASE_TEMPLATES.map((template) => [template.id, template] as const))(

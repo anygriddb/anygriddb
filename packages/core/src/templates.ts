@@ -522,6 +522,251 @@ export const BASE_TEMPLATES: readonly BaseTemplate[] = [
       },
     ],
   },
+  {
+    id: "events",
+    name: "Events",
+    description:
+      "Sessions on a calendar, their venues, and a form where attendees register.",
+    tables: [
+      {
+        key: "sessions",
+        name: "Sessions",
+        columns: [
+          { name: "titre", label: "Title", fieldType: "text" },
+          { name: "debut", label: "Start", fieldType: "datetime" },
+          { name: "fin", label: "End", fieldType: "datetime" },
+          {
+            name: "format",
+            label: "Format",
+            fieldType: "single_select",
+            config: STATUS(["Talk", "Workshop", "Panel"]),
+          },
+        ],
+        rows: [
+          {
+            titre: "Opening keynote",
+            debut: "2027-03-16T08:30:00.000Z",
+            fin: "2027-03-16T09:30:00.000Z",
+            format: "Talk",
+          },
+          {
+            titre: "Hands-on lab",
+            debut: "2027-03-16T13:00:00.000Z",
+            fin: "2027-03-16T16:00:00.000Z",
+            format: "Workshop",
+          },
+          {
+            titre: "Closing panel",
+            debut: "2027-03-17T15:00:00.000Z",
+            fin: "2027-03-17T16:00:00.000Z",
+            format: "Panel",
+          },
+        ],
+        views: [
+          {
+            name: "Calendar",
+            viewType: "calendar",
+            config: { startColumn: "debut", endColumn: "fin" },
+          },
+        ],
+      },
+      {
+        key: "venues",
+        name: "Venues",
+        columns: [
+          { name: "nom", label: "Name", fieldType: "text" },
+          { name: "ville", label: "City", fieldType: "text" },
+          { name: "capacite", label: "Capacity", fieldType: "number" },
+        ],
+        rows: [
+          { nom: "Main hall", ville: "Lyon", capacite: 300 },
+          { nom: "Workshop room", ville: "Lyon", capacite: 40 },
+        ],
+      },
+      {
+        key: "attendees",
+        name: "Attendees",
+        columns: [
+          { name: "nom", label: "Name", fieldType: "text" },
+          { name: "email", label: "Email", fieldType: "email" },
+          {
+            name: "billet",
+            label: "Ticket",
+            fieldType: "single_select",
+            config: STATUS(["Standard", "Student", "Speaker"]),
+          },
+        ],
+        rows: [
+          {
+            nom: "Inès Martin",
+            email: "ines.martin@example.org",
+            billet: "Speaker",
+          },
+          {
+            nom: "Paul Durand",
+            email: "paul.durand@example.org",
+            billet: "Standard",
+          },
+        ],
+        views: [
+          {
+            name: "Register",
+            viewType: "form",
+            config: {
+              form: {
+                title: "Register",
+                fields: [
+                  { column: "nom", required: true },
+                  { column: "email", required: true },
+                  { column: "billet" },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    ],
+    links: [
+      {
+        from: "sessions",
+        to: "venues",
+        label: "Venue",
+        inverseLabel: "Sessions",
+        name: "lieu",
+        inverseName: "sessions",
+        multiple: false,
+        rows: [
+          [0, 0],
+          [1, 1],
+          [2, 0],
+        ],
+      },
+      {
+        from: "attendees",
+        to: "sessions",
+        label: "Sessions",
+        inverseLabel: "Attendees",
+        name: "sessions",
+        inverseName: "participants",
+        multiple: true,
+        rows: [
+          [0, 0],
+          [0, 2],
+          [1, 0],
+          [1, 1],
+        ],
+      },
+    ],
+    computed: [
+      {
+        table: "sessions",
+        label: "Attendee count",
+        relation: "participants",
+        target: "nom",
+        fn: "count",
+      },
+    ],
+  },
+  {
+    id: "hiring",
+    name: "Hiring",
+    description:
+      "Open positions and their candidates, moved through the stages on a board.",
+    tables: [
+      {
+        key: "positions",
+        name: "Positions",
+        columns: [
+          { name: "intitule", label: "Position", fieldType: "text" },
+          {
+            name: "equipe",
+            label: "Team",
+            fieldType: "single_select",
+            config: STATUS(["Product", "Engineering", "Operations"]),
+          },
+          { name: "ouvert", label: "Open", fieldType: "boolean" },
+        ],
+        rows: [
+          { intitule: "Product designer", equipe: "Product", ouvert: true },
+          { intitule: "Backend engineer", equipe: "Engineering", ouvert: true },
+        ],
+      },
+      {
+        key: "candidates",
+        name: "Candidates",
+        columns: [
+          { name: "nom", label: "Name", fieldType: "text" },
+          { name: "email", label: "Email", fieldType: "email" },
+          {
+            name: "etape",
+            label: "Stage",
+            fieldType: "single_select",
+            config: STATUS([
+              "Applied",
+              "Screening",
+              "Interview",
+              "Offer",
+              "Hired",
+              "Declined",
+            ]),
+          },
+          { name: "candidature", label: "Applied on", fieldType: "date" },
+        ],
+        rows: [
+          {
+            nom: "Léa Bernard",
+            email: "lea.bernard@example.org",
+            etape: "Interview",
+            candidature: "2027-02-01",
+          },
+          {
+            nom: "Hugo Petit",
+            email: "hugo.petit@example.org",
+            etape: "Screening",
+            candidature: "2027-02-08",
+          },
+          {
+            nom: "Chloé Moreau",
+            email: "chloe.moreau@example.org",
+            etape: "Applied",
+            candidature: "2027-02-12",
+          },
+        ],
+        views: [
+          {
+            name: "Pipeline",
+            viewType: "kanban",
+            config: { stackColumn: "etape" },
+          },
+        ],
+      },
+    ],
+    links: [
+      {
+        from: "candidates",
+        to: "positions",
+        label: "Position",
+        inverseLabel: "Candidates",
+        name: "poste",
+        inverseName: "candidats",
+        multiple: false,
+        rows: [
+          [0, 0],
+          [1, 1],
+          [2, 1],
+        ],
+      },
+    ],
+    computed: [
+      {
+        table: "positions",
+        label: "Candidate count",
+        relation: "candidats",
+        target: "nom",
+        fn: "count",
+      },
+    ],
+  },
 ];
 
 export function findTemplate(id: string): BaseTemplate | undefined {

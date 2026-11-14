@@ -1648,6 +1648,10 @@ msgstr "Tous les comptes actifs"
 msgid "All bases"
 msgstr "Toutes les bases"
 
+#: components/grid/grid-tips.tsx
+msgid "All shortcuts"
+msgstr "Tous les raccourcis"
+
 #: components/admin/sign-in-trail.tsx
 msgid "All their sessions"
 msgstr "Toutes ses sessions"
@@ -1919,6 +1923,10 @@ msgstr "pièces jointes reprises par leur nom : les fichiers ne sont pas copié
 #: components/settings/webhooks-panel.tsx
 msgid "Attempts"
 msgstr "Essais"
+
+#: lib/known-text.ts
+msgid "Attendees"
+msgstr "Participants"
 
 #: components/admin/account-page.tsx
 msgid "Auditor"
@@ -2270,6 +2278,10 @@ msgstr "Annuler l’import"
 #: components/shell/jobs-menu.tsx
 msgid "Cancelled"
 msgstr "Annulée"
+
+#: lib/known-text.ts
+msgid "Candidates"
+msgstr "Candidats"
 
 #: lib/errors.ts
 msgid "Cannot restore: restore the table or fields it depends on first"
@@ -2744,8 +2756,8 @@ msgid "Copy"
 msgstr "Copier"
 
 #: components/shell/shortcuts-dialog.tsx
-msgid "Copy (Ctrl V pastes, even from a spreadsheet)"
-msgstr "Copier (Ctrl V pour coller, même depuis un tableur)"
+msgid "Copy ({mod} V pastes, even from a spreadsheet)"
+msgstr "Copier ({mod} V pour coller, même depuis un tableur)"
 
 #: components/admin/sources-tab.tsx
 msgid "Copy in AnyGridDB"
@@ -2788,6 +2800,10 @@ msgstr "Copier le lien"
 #: components/admin/scim-tab.tsx
 msgid "Copy the SCIM address"
 msgstr "Copier l’adresse SCIM"
+
+#: components/grid/grid-tips.tsx
+msgid "Copy the selection, to paste it into any spreadsheet."
+msgstr "Copier la sélection, pour la coller dans n’importe quel tableur."
 
 #: components/admin/scim-tab.tsx
 msgid "Copy the token"
@@ -2950,6 +2966,11 @@ msgstr "CRM"
 msgid "CSV, TSV, JSON, or Excel (.xlsx). The first row names the columns."
 msgstr "CSV, TSV, JSON ou Excel (.xlsx). La première ligne donne les noms de colonnes."
 
+#: lib/key-names.ts
+msgctxt "keyboard key"
+msgid "Ctrl"
+msgstr "Ctrl"
+
 #: components/shell/sidebar.tsx
 msgid "Ctrl K"
 msgstr "Ctrl K"
@@ -3096,6 +3117,11 @@ msgstr "suppression"
 #: components/table/view-tabs.tsx
 msgid "Delete"
 msgstr "Supprimer"
+
+#: lib/key-names.ts
+msgctxt "keyboard key"
+msgid "Delete"
+msgstr "Suppr"
 
 #: components/shell/trash-dialog.tsx
 #: components/shell/trashed-bases.tsx
@@ -3485,6 +3511,10 @@ msgstr "Modifier {field}"
 msgid "Edit {name}'s account"
 msgstr "Modifier le compte de {name}"
 
+#: components/grid/grid-tips.tsx
+msgid "Edit a cell, or just type in it; a double-click edits too. Esc cancels."
+msgstr "Modifier une cellule, ou y taper directement ; un double-clic la modifie aussi. Échap annule."
+
 #: components/table/automations-dialog.tsx
 msgid "Edit automation"
 msgstr "Modifier l’automatisation"
@@ -3647,6 +3677,11 @@ msgstr "Connexion chiffrée (HTTPS)"
 msgid "End"
 msgstr "Fin"
 
+#: lib/key-names.ts
+msgctxt "keyboard key"
+msgid "End"
+msgstr "Fin"
+
 #: components/admin/security-tab.tsx
 msgid "End a session after this long without activity"
 msgstr "Terminer une session après cette durée sans activité"
@@ -3684,6 +3719,11 @@ msgstr "Fin, ou dernière lecture"
 msgid "Engine"
 msgstr "Moteur"
 
+#: lib/key-names.ts
+msgctxt "keyboard key"
+msgid "Enter"
+msgstr "Entrée"
+
 #: components/auth/auth-page.tsx
 msgid "Enter your address: we send a link to choose a new password. Your second factor stays as it is."
 msgstr "Saisissez votre adresse : nous envoyons un lien pour choisir un nouveau mot de passe. Votre second facteur reste en place."
@@ -3705,6 +3745,11 @@ msgstr "ERREUR"
 msgid "error, {error}"
 msgstr "erreur, {error}"
 
+#: lib/key-names.ts
+msgctxt "keyboard key"
+msgid "Esc"
+msgstr "Échap"
+
 #: components/fields/field-editor.tsx
 msgid "European (31/12/2026)"
 msgstr "Européen (31/12/2026)"
@@ -3716,6 +3761,7 @@ msgid "Event"
 msgstr "Événement"
 
 #: components/settings/webhooks-panel.tsx
+#: lib/known-text.ts
 msgid "Events"
 msgstr "Événements"
 
@@ -4093,6 +4139,10 @@ msgstr "Fichiers et images"
 msgid "Fill down"
 msgstr "Recopier vers le bas"
 
+#: components/grid/grid-tips.tsx
+msgid "Fill down, or drag the corner of the selection. Copy and paste work with any spreadsheet."
+msgstr "Recopier vers le bas, ou tirer le coin de la sélection. Copier et coller fonctionnent avec n’importe quel tableur."
+
 #: components/dashboards/dashboard-board.tsx
 #: components/grid/grid-footer.tsx
 msgid "Filled"
@@ -4298,6 +4348,10 @@ msgstr "Réconciliation complète tous les N rafraîchissements"
 #: components/table/view-tabs.tsx
 msgid "Gallery"
 msgstr "Galerie"
+
+#: components/grid/grid-tips.tsx
+msgid "Getting around the grid"
+msgstr "Se repérer dans la grille"
 
 #: components/admin/account-actions.tsx
 msgid "Give {name} the auditor role?"
@@ -4506,6 +4560,14 @@ msgstr "Tout masquer"
 msgid "Hide empty columns"
 msgstr "Masquer les colonnes vides"
 
+#: components/grid/grid-tips.tsx
+msgid "Hide the tips"
+msgstr "Masquer les astuces"
+
+#: lib/known-text.ts
+msgid "Hiring"
+msgstr "Recrutement"
+
 #: components/record/record-panel.tsx
 msgid "History"
 msgstr "Historique"
@@ -4513,6 +4575,11 @@ msgstr "Historique"
 #: components/admin/integrations-tab.tsx
 msgid "HMAC secret"
 msgstr "Secret HMAC"
+
+#: lib/key-names.ts
+msgctxt "keyboard key"
+msgid "Home"
+msgstr "Début"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Horizontal bars"
@@ -5747,6 +5814,10 @@ msgstr "Déplacer {name}"
 msgid "Move between cells"
 msgstr "Changer de cellule"
 
+#: components/grid/grid-tips.tsx
+msgid "Move between cells. With Shift, or by dragging, select several."
+msgstr "Passer d’une cellule à l’autre. Avec Maj, ou en faisant glisser, en sélectionner plusieurs."
+
 #: components/shell/sidebar.tsx
 msgid "Move down"
 msgstr "Descendre"
@@ -5980,8 +6051,8 @@ msgid "Next"
 msgstr "Suivant"
 
 #: components/shell/shortcuts-dialog.tsx
-msgid "Next cell (Shift: previous)"
-msgstr "Cellule suivante (Maj : précédente)"
+msgid "Next cell ({shift}: previous)"
+msgstr "Cellule suivante ({shift} : précédente)"
 
 #: components/fields/attachment-preview.tsx
 msgid "Next file"
@@ -6641,6 +6712,10 @@ msgstr "L’ouvrir en lecture, pour une heure"
 msgid "Open linked row"
 msgstr "Ouvrir la ligne liée"
 
+#: lib/known-text.ts
+msgid "Open positions and their candidates, moved through the stages on a board."
+msgstr "Les postes ouverts et leurs candidats, menés d’étape en étape sur un tableau."
+
 #: components/admin/health-tab.tsx
 msgid "Open sessions"
 msgstr "Sessions ouvertes"
@@ -6654,8 +6729,12 @@ msgid "Open the navigation"
 msgstr "Ouvrir la navigation"
 
 #: components/shell/shortcuts-dialog.tsx
-msgid "Open the row (or Shift Enter)"
-msgstr "Ouvrir la fiche de la ligne (ou Maj Entrée)"
+msgid "Open the row (or {shift} {enter})"
+msgstr "Ouvrir la fiche de la ligne (ou {shift} {enter})"
+
+#: components/grid/grid-tips.tsx
+msgid "Open the row, with its comments and history. A right-click shows a cell's actions."
+msgstr "Ouvrir la fiche de la ligne, avec ses commentaires et son historique. Un clic droit montre les actions d’une cellule."
 
 #: components/shell/jobs-menu.tsx
 msgid "Open the table"
@@ -6987,6 +7066,10 @@ msgstr "Texte simple"
 #: components/admin/sources-tab.tsx
 msgid "Port"
 msgstr "Port"
+
+#: lib/known-text.ts
+msgid "Positions"
+msgstr "Postes"
 
 #: components/shell/welcome-page.tsx
 msgid "PostgreSQL, MySQL, MariaDB, SQL Server, or Oracle, over TLS. Its tables become tables here; the rights stay in the database."
@@ -8196,8 +8279,13 @@ msgstr "Durée de vie des sessions"
 #: components/admin/account-page.tsx
 #: components/admin/admin-sections.ts
 #: components/admin/security-tab.tsx
+#: lib/known-text.ts
 msgid "Sessions"
 msgstr "Sessions"
+
+#: lib/known-text.ts
+msgid "Sessions on a calendar, their venues, and a form where attendees register."
+msgstr "Des sessions sur un calendrier, leurs lieux, et un formulaire où les participants s’inscrivent."
 
 #: components/grid/grid-header.tsx
 msgid "Set as primary field"
@@ -8277,6 +8365,11 @@ msgstr "Partage"
 #: components/shell/new-base-dialog.tsx
 msgid "Sheets to keep"
 msgstr "Feuilles à garder"
+
+#: lib/key-names.ts
+msgctxt "keyboard key"
+msgid "Shift"
+msgstr "Maj"
 
 #: components/table/view-toolbar.tsx
 msgid "Short"
@@ -8607,6 +8700,11 @@ msgstr "Source injoignable : vérifiez l’hôte, le port et le pare-feu"
 msgid "Sources"
 msgstr "Sources"
 
+#: lib/key-names.ts
+msgctxt "keyboard key"
+msgid "Space"
+msgstr "Espace"
+
 #: components/fields/formula-docs.ts
 msgid "Splits the text into a list."
 msgstr "Découpe le texte en une liste."
@@ -8654,8 +8752,8 @@ msgid "Start"
 msgstr "Début"
 
 #: components/shell/shortcuts-dialog.tsx
-msgid "Start or end of the row (Ctrl: of the grid)"
-msgstr "Début ou fin de la ligne (Ctrl : de la grille)"
+msgid "Start or end of the row ({mod}: of the grid)"
+msgstr "Début ou fin de la ligne ({mod} : de la grille)"
 
 #: components/shell/new-base-dialog.tsx
 msgid "Start with no table, or import a file."
@@ -10329,8 +10427,8 @@ msgid "Undo"
 msgstr "Annuler"
 
 #: components/shell/shortcuts-dialog.tsx
-msgid "Undo (Ctrl Shift Z or Ctrl Y: redo)"
-msgstr "Annuler (Ctrl Maj Z ou Ctrl Y : rétablir)"
+msgid "Undo ({mod} {shift} Z or {mod} Y: redo)"
+msgstr "Annuler ({mod} {shift} Z ou {mod} Y : rétablir)"
 
 #: lib/errors.ts
 msgid "Unexpected character"
@@ -10530,6 +10628,10 @@ msgstr "Variance (population)"
 #: components/fields/field-editor.tsx
 msgid "Variance (sample)"
 msgstr "Variance (échantillon)"
+
+#: lib/known-text.ts
+msgid "Venues"
+msgstr "Lieux"
 
 #: components/admin/sources-tab.tsx
 #: components/auth/auth-page.tsx

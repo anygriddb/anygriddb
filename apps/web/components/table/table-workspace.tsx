@@ -43,6 +43,7 @@ import { FieldEditor, type FieldEditorTarget } from "../fields/field-editor";
 import { isLinkField } from "../fields/field-meta";
 import { isEditableColumn } from "../grid/grid-clipboard";
 import { nextFrozenColumns } from "../grid/margin-column";
+import { GridTips } from "../grid/grid-tips";
 import { GridView } from "../grid/grid-view";
 import { useRows } from "../grid/use-rows";
 import { useUndo } from "../grid/use-undo";
@@ -1256,6 +1257,7 @@ export function TableWorkspace({
               : t`Your view settings stay local.`}
           </p>
         ) : null}
+        {isGrid && rows.total > 0 ? <GridTips canEdit={writable} /> : null}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {isGrid ? (
