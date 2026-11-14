@@ -53,6 +53,7 @@ const tls = await loadTls(env, (message) => {
 // Spans go to the operator's collector, when one is named (ADR 0018).
 const stopTracing = await startTracing({
   endpoint: env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  headers: env.OTEL_EXPORTER_OTLP_HEADERS,
   serviceName: env.OTEL_SERVICE_NAME,
   version: BUILD.version,
 });

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { isIP } from "node:net";
 import { ATTACHMENT_MAX_BYTES_CEILING } from "@anygriddb/core";
 import { parseKeyRing, type KeyRing } from "./auth/key-ring.js";
@@ -87,8 +88,56 @@ export type Env = {
   METRICS_TOKEN?: string;
   /** Where spans go (OTLP over HTTPS); without one, nothing is traced. */
   OTEL_EXPORTER_OTLP_ENDPOINT?: string;
+  /**
+   * Headers the OTLP exporter sends (for example Authorization). From
+   * `OTEL_EXPORTER_OTLP_HEADERS` or `OTEL_EXPORTER_OTLP_HEADERS_FILE`.
+   */
+  OTEL_EXPORTER_OTLP_HEADERS?: string;
   OTEL_SERVICE_NAME: string;
 };
+
+/**
+ * A secret from `NAME`, or from the file `NAME_FILE` names, less its last
+ * line break: what a container's secret store mounts. Both set is
+ * refused at start, since one of them would be silently ignored.
+ */
+export function secretFromEnv(
+  source: NodeJS.ProcessEnv,
+  name: string,
+): string | undefined {
+  const fileName = `${name}_FILE`;
+  const direct = source[name];
+  const filePath = source[fileName];
+  const hasDirect = direct !== undefined && direct !== "";
+  const hasFile = filePath !== undefined && filePath !== "";
+  if (hasDirect && hasFile) {
+    throw new Error(`${name} and ${fileName} cannot both be set`);
+  }
+  if (hasFile) {
+    let raw: string;
+    try {
+      raw = readFileSync(filePath, "utf8");
+    } catch (error) {
+      // The variable's name, never the path or what the file holds.
+      throw new Error(`${fileName} could not be read`, { cause: error });
+    }
+    return raw.replace(/\r?\n$/, "");
+  }
+  if (hasDirect) return direct;
+  return undefined;
+}
+
+/** Like `secretFromEnv`, but required. */
+export function requiredSecret(
+  source: NodeJS.ProcessEnv,
+  name: string,
+): string {
+  const value = secretFromEnv(source, name);
+  if (value === undefined || value === "") {
+    throw new Error(`${name} or ${name}_FILE is required`);
+  }
+  return value;
+}
 
 /**
  * A ceiling on rows, 100,000 to 10,000,000: under that, a job would refuse
@@ -266,14 +315,6 @@ function trustedProxies(source: NodeJS.ProcessEnv): string[] {
   return list;
 }
 
-function required(source: NodeJS.ProcessEnv, name: string): string {
-  const value = source[name];
-  if (!value) {
-    throw new Error(`${name} is required`);
-  }
-  return value;
-}
-
 /**
  * Where files live. The operator commands read this alone, so moving files
  * needs no database or key.
@@ -281,11 +322,10 @@ function required(source: NodeJS.ProcessEnv, name: string): string {
 export function readFileSettings(
   source: NodeJS.ProcessEnv = process.env,
 ): FileSettings {
+  const accessKey = secretFromEnv(source, "S3_ACCESS_KEY");
+  const secretKey = secretFromEnv(source, "S3_SECRET_KEY");
   const s3Configured = Boolean(
-    source.S3_ENDPOINT &&
-    source.S3_ACCESS_KEY &&
-    source.S3_SECRET_KEY &&
-    source.S3_BUCKET,
+    source.S3_ENDPOINT && accessKey && secretKey && source.S3_BUCKET,
   );
   // An instance that already keeps its files in S3 stays there unless
   // told otherwise; a new one keeps them on disk.
@@ -310,8 +350,8 @@ export function readFileSettings(
     STORAGE_PATH: source.STORAGE_PATH || "./data/files",
     S3_ENDPOINT: source.S3_ENDPOINT,
     S3_REGION: source.S3_REGION,
-    S3_ACCESS_KEY: source.S3_ACCESS_KEY,
-    S3_SECRET_KEY: source.S3_SECRET_KEY,
+    S3_ACCESS_KEY: accessKey,
+    S3_SECRET_KEY: secretKey,
     S3_BUCKET: source.S3_BUCKET,
     S3_SERVER_SIDE_ENCRYPTION: encryption,
     S3_KMS_KEY_ID: source.S3_KMS_KEY_ID || undefined,
@@ -322,14 +362,14 @@ export function readFileSettings(
  * AUTH_ENCRYPTION_KEY: 32 bytes in base64, alone or as `id:base64`; and
  * AUTH_ENCRYPTION_PREVIOUS_KEYS, the earlier keys as `id:base64` separated
  * by commas, kept until `anygriddb keys rotate` has rewritten what they
- * sealed. Operator commands read them alone.
+ * sealed. Operator commands read them alone. Each accepts `_FILE`.
  */
 export function readEncryptionKey(
   source: NodeJS.ProcessEnv = process.env,
 ): KeyRing {
   return parseKeyRing(
-    required(source, "AUTH_ENCRYPTION_KEY"),
-    source.AUTH_ENCRYPTION_PREVIOUS_KEYS,
+    requiredSecret(source, "AUTH_ENCRYPTION_KEY"),
+    secretFromEnv(source, "AUTH_ENCRYPTION_PREVIOUS_KEYS"),
   );
 }
 
@@ -360,7 +400,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     );
   }
 
-  const databaseUrl = required(source, "DATABASE_URL");
+  const databaseUrl = requiredSecret(source, "DATABASE_URL");
   assertEncryptedDatabase(databaseUrl, "DATABASE_URL");
   if (source.SAML_ENTRY_POINT) {
     assertEncryptedUrl(source.SAML_ENTRY_POINT, "SAML_ENTRY_POINT");
@@ -372,10 +412,11 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
       "OTEL_EXPORTER_OTLP_ENDPOINT",
     );
   }
-  const metricsToken = source.METRICS_TOKEN || undefined;
+  const metricsToken = secretFromEnv(source, "METRICS_TOKEN");
   if (metricsToken !== undefined && metricsToken.length < 32) {
     throw new Error("METRICS_TOKEN must be 32 characters or more");
   }
+  const otelHeaders = secretFromEnv(source, "OTEL_EXPORTER_OTLP_HEADERS");
 
   return {
     DATABASE_URL: databaseUrl,
@@ -399,7 +440,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
       : undefined,
     OIDC_ISSUER: source.OIDC_ISSUER,
     OIDC_CLIENT_ID: source.OIDC_CLIENT_ID,
-    OIDC_CLIENT_SECRET: source.OIDC_CLIENT_SECRET,
+    OIDC_CLIENT_SECRET: secretFromEnv(source, "OIDC_CLIENT_SECRET"),
     OIDC_REDIRECT_URL: source.OIDC_REDIRECT_URL,
     SAML_ENTRY_POINT: source.SAML_ENTRY_POINT,
     SAML_ISSUER: source.SAML_ISSUER,
@@ -408,7 +449,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     SMTP_HOST: source.SMTP_HOST,
     SMTP_PORT: smtpPort,
     SMTP_USER: source.SMTP_USER,
-    SMTP_PASSWORD: source.SMTP_PASSWORD,
+    SMTP_PASSWORD: secretFromEnv(source, "SMTP_PASSWORD"),
     SMTP_FROM: source.SMTP_FROM,
     ADMIN_EMAILS: source.ADMIN_EMAILS,
     // A read holds one connection and asks for others meanwhile: fewer
@@ -426,6 +467,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     ...(source.OTEL_EXPORTER_OTLP_ENDPOINT
       ? { OTEL_EXPORTER_OTLP_ENDPOINT: source.OTEL_EXPORTER_OTLP_ENDPOINT }
       : {}),
+    ...(otelHeaders ? { OTEL_EXPORTER_OTLP_HEADERS: otelHeaders } : {}),
     OTEL_SERVICE_NAME: source.OTEL_SERVICE_NAME || "anygriddb",
   };
 }
