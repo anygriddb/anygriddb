@@ -19,6 +19,7 @@ import {
   type AccountTarget,
 } from "./account-actions";
 import { AccountBases } from "./account-bases";
+import { AccountExport } from "./account-export";
 import { useAuthLabels } from "./auth-labels";
 
 /** The everyday actions, in view at the top of the page (ROADMAP #13). */
@@ -175,6 +176,8 @@ export function AccountAdminPage({ userId }: { userId: string }) {
         bases={account.bases}
         canChange={session.data?.isAdmin === true}
       />
+
+      <AccountExport userId={account.id} />
 
       {account.identities.length > 0 ? (
         <Part title={t`Single sign-on`} empty={null}>

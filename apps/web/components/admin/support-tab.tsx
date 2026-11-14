@@ -104,6 +104,7 @@ export function SupportTab() {
       restore_point: t`Restore point`,
       restore_base: t`Base restore`,
       import_workbook: t`Spreadsheet import`,
+      account_export: t`Account data export`,
     })[value];
   const statusLabel = (value: JobStatus) =>
     ({

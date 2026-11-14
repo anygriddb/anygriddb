@@ -35,7 +35,13 @@ export type ServerMessage =
         | "duplicate_table"
         | "trash_purge"
         | "export_snapshot"
-        | "import_snapshot";
+        | "import_snapshot"
+        | "import_airtable"
+        | "duplicate_base"
+        | "restore_point"
+        | "restore_base"
+        | "import_workbook"
+        | "account_export";
       status: "queued" | "running" | "done" | "failed" | "cancelled";
       done: number;
       total: number | null;

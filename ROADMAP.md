@@ -84,7 +84,7 @@ A row moves up only when it unblocks another.
 1. A published release: 51. It needs no code, only a version tag, and
    comes first: no operator installs a version before it, and the update
    notice has nothing to find.
-2. Administration, lot 6: 32 once its wording is confirmed, then 31.
+2. Administration, lot 6: 31.
 3. Views and organisation, in the order of their table: 95 to 97.
 4. Applications, sign-in, and languages: 101, then 106, which needs it,
    once decided; 104; 105 once its languages are chosen.
@@ -155,12 +155,11 @@ Each administration action declares the capability it needs. Done: before a chan
 
 #### Lot 6: audit, retention, and personal data
 
-Done: what a leaving person alone owns is handed to someone who stays, from their account's page: the bases they alone own get the successor as an owner, the automations and webhooks they made move where the successor may manage them and are named where they cannot, their API tokens are revoked when asked, and their account is left as it is (#21, ADR 0075).
+Done: what a leaving person alone owns is handed to someone who stays, from their account's page: the bases they alone own get the successor as an owner, the automations and webhooks they made move where the successor may manage them and are named where they cannot, their API tokens are revoked when asked, and their account is left as it is (#21, ADR 0075). An account's data as a file, written a page at a time: its profile, its memberships, its sign-ins, what it wrote (field names, never a cell's value), and what was done to it, with a summary on the account's page (#32, ADR 0081).
 
-| #   | What                                                                                                                                                                                    | Effort | Notes                                                                                                                                                                                                                                                   |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 32  | Everything about one person, on screen (author or subject of the event) and as a file: profile, memberships, sign-ins, what they wrote (no cell values), what was done to their account | M      | Background job; file kept like other exports                                                                                                                                                                                                            |
-| 31  | Reads on the trail: who opened which table                                                                                                                                              | L      | Exports are on it (#31): who took out a view's rows, a base's file, the access report, or a trail, in which format and how many rows. Nothing records a read: every page of every table would write an event, so it is chosen per table, off by default |
+| #   | What                                       | Effort | Notes                                                                                                                                                                                                                                                   |
+| --- | ------------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 31  | Reads on the trail: who opened which table | L      | Exports are on it (#31): who took out a view's rows, a base's file, the access report, or a trail, in which format and how many rows. Nothing records a read: every page of every table would write an event, so it is chosen per table, off by default |
 
 #### Lot 7: words
 

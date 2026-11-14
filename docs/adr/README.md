@@ -93,3 +93,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0078](0078-workbook-as-a-base.md)                   | A workbook made a base, each sheet a table, its fields typed from every row             | Accepted (extends 0064)                     |
 | [0079](0079-api-token-allow-delete.md)               | API tokens that write without deleting                                                  | Accepted                                    |
 | [0080](0080-install-token.md)                        | The first account takes a token from the command line                                   | Accepted                                    |
+| [0081](0081-account-data-export.md)                  | An account's data exported as a file, written a page at a time                          | Accepted                                    |

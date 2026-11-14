@@ -736,7 +736,9 @@ export function registerDataTransferRoutes(
     }
     const result = jobFileResultSchema.safeParse(job.result);
     if (
-      (job.kind !== "export" && job.kind !== "export_snapshot") ||
+      (job.kind !== "export" &&
+        job.kind !== "export_snapshot" &&
+        job.kind !== "account_export") ||
       job.status !== "done" ||
       !job.fileKey ||
       !job.fileExpiresAt ||

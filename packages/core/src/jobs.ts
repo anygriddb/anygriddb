@@ -34,6 +34,7 @@ export const JOB_KINDS = [
   "restore_point",
   "restore_base",
   "import_workbook",
+  "account_export",
 ] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
@@ -94,6 +95,18 @@ export const exportJobInputSchema = z
   .strict();
 
 export type ExportJobInput = z.infer<typeof exportJobInputSchema>;
+
+/**
+ * An administrator's person-data archive for one account (ROADMAP #32).
+ * The job writes the file under the administrator who asked.
+ */
+export const accountExportJobInputSchema = z
+  .object({
+    userId: z.uuid(),
+  })
+  .strict();
+
+export type AccountExportJobInput = z.infer<typeof accountExportJobInputSchema>;
 
 export const duplicateJobInputSchema = z
   .object({
@@ -172,6 +185,7 @@ export const jobInputSchemas = {
   restore_point: restorePointJobInputSchema,
   restore_base: restoreBaseJobInputSchema,
   import_workbook: importWorkbookJobInputSchema,
+  account_export: accountExportJobInputSchema,
 } as const satisfies Record<JobKind, z.ZodType>;
 
 export const jobIdInputSchema = z.object({ jobId: z.uuid() }).strict();

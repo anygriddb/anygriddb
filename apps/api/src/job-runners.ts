@@ -18,6 +18,7 @@ import {
   MAX_SNAPSHOT_TABLES,
   resolveAttachmentMaxBytes,
   importWorkbookJobInputSchema,
+  accountExportJobInputSchema,
   restoreBaseJobInputSchema,
   restorePointJobInputSchema,
   roleAllows,
@@ -84,6 +85,8 @@ import { exportKey } from "./storage.js";
 import { readAirtableBase } from "./data/airtable-import.js";
 import { decryptSecret } from "./auth/crypto.js";
 import { madeNamesFor, readGateSettings } from "./settings.js";
+import { writeAccountDataFile } from "./data/account-export.js";
+import { recordAuthEvent } from "./auth/auth-events.js";
 
 type RunnerDeps = {
   db: Database;
@@ -822,6 +825,58 @@ const runDuplicateBase =
     }
   };
 
+const runAccountExport =
+  (deps: RunnerDeps): JobRunner =>
+  async ({ job, progress }) => {
+    const input = accountExportJobInputSchema.parse(job.input);
+    const { userId: actorId } = await activeAuthor(deps.db, job);
+    const admin = await deps.db
+      .selectFrom("users")
+      .select(["id", "isAdmin", "disabledAt"])
+      .where("id", "=", actorId)
+      .executeTakeFirst();
+    if (!admin?.isAdmin || admin.disabledAt !== null) {
+      throw new AppError("access_denied");
+    }
+    const folder = await localFolder("export");
+    try {
+      const path = join(folder.path, "account.json");
+      const written = await writeAccountDataFile(
+        deps.db,
+        input.userId,
+        path,
+        progress,
+      );
+      const fileKey = exportKey(job.id);
+      await deps.files.putFile(fileKey, {
+        body: createReadStream(path),
+        size: written.size,
+        contentType: "application/json; charset=utf-8",
+      });
+      await recordAuthEvent(deps.db, {
+        action: "account_data_exported",
+        userId: input.userId,
+        actorId,
+        method: "admin",
+      });
+      const filename = `account-export-${cleanFilename(written.displayName)}.json`;
+      return {
+        fileKey,
+        result: {
+          format: "json",
+          filename,
+          size: written.size,
+          userId: input.userId,
+          writes: written.counts.writes,
+          comments: written.counts.comments,
+          accountEvents: written.counts.signIns,
+        },
+      };
+    } finally {
+      await folder.remove();
+    }
+  };
+
 export function jobRunners(deps: RunnerDeps): Record<JobKind, JobRunner> {
   return {
     import: runImport(deps),
@@ -835,5 +890,6 @@ export function jobRunners(deps: RunnerDeps): Record<JobKind, JobRunner> {
     restore_point: runRestorePoint(deps),
     restore_base: runRestoreBase(deps),
     import_workbook: runImportWorkbook(deps),
+    account_export: runAccountExport(deps),
   };
 }

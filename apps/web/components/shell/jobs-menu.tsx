@@ -51,6 +51,7 @@ const ICONS = {
   restore_point: ArchiveArrowDown,
   restore_base: ArchiveArrowUp,
   import_workbook: FileSpreadsheet,
+  account_export: FileDown,
 } as const;
 
 function resultNumber(job: Job, key: string): number {
@@ -152,6 +153,8 @@ export function JobsMenu() {
         return t`Base restore`;
       case "import_workbook":
         return t`Spreadsheet import`;
+      case "account_export":
+        return t`Account data export`;
     }
   }
 
@@ -217,6 +220,8 @@ export function JobsMenu() {
           one: "Restore point made: # row",
           other: "Restore point made: # rows",
         });
+      case "account_export":
+        return job.download ? t`File available for 24 h` : t`File expired`;
     }
   }
 
@@ -356,7 +361,8 @@ export function JobsMenu() {
                       </button>
                     ) : null}
                     {(job.kind === "export" ||
-                      job.kind === "export_snapshot") &&
+                      job.kind === "export_snapshot" ||
+                      job.kind === "account_export") &&
                     job.download ? (
                       <button
                         type="button"
