@@ -71,6 +71,7 @@ describe("operator OIDC", () => {
         ok: true,
         status: 200,
         json: async () => ({
+          issuer: "https://idp.example.org",
           authorization_endpoint: "https://idp.example.org/a",
           token_endpoint: "https://idp.example.org/t",
         }),
@@ -94,5 +95,28 @@ describe("operator OIDC", () => {
         }),
       }),
     ).rejects.toBeInstanceOf(AppError);
+  });
+
+  it("refuses a document that names another issuer than the address asked", async () => {
+    // A provider's shared address answers discovery, with an issuer no
+    // sign-in will accept for it.
+    const shared = (issuer?: string) =>
+      proveOidcIssuer("https://login.example.org/common/v2.0", {
+        fetch: async () => ({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ...(issuer ? { issuer } : {}),
+            authorization_endpoint: "https://login.example.org/a",
+            token_endpoint: "https://login.example.org/t",
+          }),
+        }),
+      });
+    await expect(
+      shared("https://login.example.org/{tenantid}/v2.0"),
+    ).rejects.toBeInstanceOf(AppError);
+    await expect(shared()).rejects.toBeInstanceOf(AppError);
+    await expect(shared("not an address")).rejects.toBeInstanceOf(AppError);
+    await shared("https://login.example.org/common/v2.0");
   });
 });

@@ -158,8 +158,10 @@ const DISCOVERY_TIMEOUT_MS = 10_000;
 
 /**
  * Fetches the issuer's OpenID discovery document over HTTPS and checks it
- * names authorization and token endpoints (ADR 0053). Inject `fetch` in
- * tests; production uses the runtime's.
+ * names authorization and token endpoints, and itself by the address
+ * asked (ADR 0053): a sign-in refuses a document that names another
+ * issuer, as a provider's shared address does, and the save says so
+ * first. Inject `fetch` in tests; production uses the runtime's.
  */
 export async function proveOidcIssuer(
   issuer: string,
@@ -213,9 +215,21 @@ export async function proveOidcIssuer(
     typeof body !== "object" ||
     typeof (body as { authorization_endpoint?: unknown })
       .authorization_endpoint !== "string" ||
-    typeof (body as { token_endpoint?: unknown }).token_endpoint !== "string"
+    typeof (body as { token_endpoint?: unknown }).token_endpoint !== "string" ||
+    !namesIssuer(body, base)
   ) {
     throw new AppError("invalid_oidc");
+  }
+}
+
+/** Whether a discovery document names `issuer` as its own, as sign-in checks. */
+function namesIssuer(document: object, issuer: URL): boolean {
+  const named = (document as { issuer?: unknown }).issuer;
+  if (typeof named !== "string") return false;
+  try {
+    return new URL(named).href === issuer.href;
+  } catch {
+    return false;
   }
 }
 
