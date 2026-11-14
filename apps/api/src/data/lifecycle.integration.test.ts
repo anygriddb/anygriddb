@@ -412,7 +412,7 @@ describe("jobs, trash, and authors", () => {
       if (!first) throw new Error("no default view");
       await expect(trashView(db, owner, first)).rejects.toThrow("Invalid view");
       const { engine } = await loadEngine(db, tableId, () => true);
-      const second = await createView(db, engine, {
+      const second = await createView(db, engine, owner, {
         tableId,
         name: "Second",
         viewType: "grid",
@@ -454,7 +454,7 @@ describe("jobs, trash, and authors", () => {
         .where("tableId", "=", tableId)
         .executeTakeFirstOrThrow();
       const { engine } = await loadEngine(db, tableId, () => true);
-      await updateView(db, engine, view, {
+      await updateView(db, engine, owner, view, {
         patch: {
           fieldOrder: ["title", "remark", "size"],
           hiddenFields: ["remark"],
@@ -472,7 +472,7 @@ describe("jobs, trash, and authors", () => {
       const [seen] = await listViews(db, tableId, owner);
       expect(seen?.config.fieldOrder).toEqual(["title", "size"]);
       const live = await loadEngine(db, tableId, () => true);
-      await updateView(db, live.engine, await loadView(db, view.id), {
+      await updateView(db, live.engine, owner, await loadView(db, view.id), {
         patch: {
           fieldOrder: ["size", "title"],
           hiddenFields: null,
@@ -650,7 +650,7 @@ describe("jobs, trash, and authors", () => {
         })
       ).id;
       const { engine } = await loadEngine(db, tableId, () => true);
-      const view = await createView(db, engine, {
+      const view = await createView(db, engine, owner, {
         tableId,
         name: "Old",
         viewType: "grid",
@@ -659,11 +659,15 @@ describe("jobs, trash, and authors", () => {
       await trashView(db, owner, await loadView(db, view.id));
       // Deleted ten days ago.
       const deletedAt = new Date(Date.now() - 10 * 86_400_000);
-      await db
-        .updateTable("views")
-        .set({ deletedAt })
-        .where("id", "=", view.id)
-        .execute();
+      // A shared view's trash is on the change trail: the write names
+      // its author.
+      await withAudit(db, { userId: owner, tableId }, (tx) =>
+        tx
+          .updateTable("views")
+          .set({ deletedAt })
+          .where("id", "=", view.id)
+          .execute(),
+      );
       const due = async () =>
         (await dueTrashItems(db, new Date())).some(
           (item) => item.kind === "view" && item.id === view.id,

@@ -17,6 +17,7 @@ import {
 } from "@anygriddb/core";
 import type { Database, DashboardRow, WidgetRow } from "@anygriddb/db";
 import { readerEngine } from "./acl.js";
+import { withAudit } from "./audit-context.js";
 import { liveColumnNames, liveTable, liveView } from "./live.js";
 import { aggregateRows, readTransaction, safeTimeZone } from "./rows.js";
 import { applyControlPlaneReadSpec } from "../sources/control-plane-read-filter.js";
@@ -58,6 +59,7 @@ export async function loadDashboard(
 
 export async function createDashboard(
   db: Database,
+  userId: string,
   input: CreateDashboardInput,
 ) {
   const existing = await db
@@ -69,50 +71,61 @@ export async function createDashboard(
     existing.length === 0
       ? 0
       : Math.max(...existing.map((row) => row.position)) + 1;
-  const created = await db
-    .insertInto("dashboards")
-    .values({
-      baseId: input.baseId,
-      name: input.name,
-      description: input.description,
-      position,
-    })
-    .returningAll()
-    .executeTakeFirst();
+  const created = await withAudit(db, { userId, source: "web" }, (tx) =>
+    tx
+      .insertInto("dashboards")
+      .values({
+        baseId: input.baseId,
+        name: input.name,
+        description: input.description,
+        position,
+      })
+      .returningAll()
+      .executeTakeFirst(),
+  );
   if (!created) throw new Error("Internal error");
   return created;
 }
 
 export async function updateDashboard(
   db: Database,
+  userId: string,
   input: {
     dashboardId: string;
     name?: string;
     description?: string | null;
   },
 ) {
-  const updated = await db
-    .updateTable("dashboards")
-    .set({
-      ...(input.name !== undefined ? { name: input.name } : {}),
-      ...(input.description !== undefined
-        ? { description: input.description }
-        : {}),
-      updatedAt: new Date(),
-    })
-    .where("id", "=", input.dashboardId)
-    .returningAll()
-    .executeTakeFirst();
+  const updated = await withAudit(db, { userId, source: "web" }, (tx) =>
+    tx
+      .updateTable("dashboards")
+      .set({
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.description !== undefined
+          ? { description: input.description }
+          : {}),
+        updatedAt: new Date(),
+      })
+      .where("id", "=", input.dashboardId)
+      .returningAll()
+      .executeTakeFirst(),
+  );
   if (!updated) throw new AppError("unknown_dashboard");
   return updated;
 }
 
-export async function deleteDashboard(db: Database, dashboardId: string) {
-  const deleted = await db
-    .deleteFrom("dashboards")
-    .where("id", "=", dashboardId)
-    .returning("id")
-    .execute();
+export async function deleteDashboard(
+  db: Database,
+  userId: string,
+  dashboardId: string,
+) {
+  const deleted = await withAudit(db, { userId, source: "web" }, (tx) =>
+    tx
+      .deleteFrom("dashboards")
+      .where("id", "=", dashboardId)
+      .returning("id")
+      .execute(),
+  );
   if (deleted.length === 0) throw new AppError("unknown_dashboard");
 }
 
@@ -149,6 +162,7 @@ async function assertViewInTable(
 
 export async function upsertWidget(
   db: Database,
+  userId: string,
   baseId: string,
   input: UpsertWidgetInput,
 ) {
@@ -173,45 +187,72 @@ export async function upsertWidget(
   };
 
   if (input.widgetId) {
-    const updated = await db
-      .updateTable("dashboardWidgets")
-      .set(fields)
-      .where("id", "=", input.widgetId)
-      .where("dashboardId", "=", input.dashboardId)
-      .returningAll()
-      .executeTakeFirst();
-    if (!updated) throw new AppError("unknown_widget");
-    await touchDashboard(db, input.dashboardId);
+    const widgetId = input.widgetId;
+    const updated = await withAudit(
+      db,
+      { userId, source: "web" },
+      async (tx) => {
+        const row = await tx
+          .updateTable("dashboardWidgets")
+          .set(fields)
+          .where("id", "=", widgetId)
+          .where("dashboardId", "=", input.dashboardId)
+          .returningAll()
+          .executeTakeFirst();
+        if (!row) throw new AppError("unknown_widget");
+        await tx
+          .updateTable("dashboards")
+          .set({ updatedAt: new Date() })
+          .where("id", "=", input.dashboardId)
+          .execute();
+        return row;
+      },
+    );
     return updated;
   }
 
-  const created = await db
-    .insertInto("dashboardWidgets")
-    .values({ dashboardId: input.dashboardId, ...fields })
-    .returningAll()
-    .executeTakeFirst();
-  if (!created) throw new Error("Internal error");
-  await touchDashboard(db, input.dashboardId);
+  const created = await withAudit(db, { userId, source: "web" }, async (tx) => {
+    const row = await tx
+      .insertInto("dashboardWidgets")
+      .values({ dashboardId: input.dashboardId, ...fields })
+      .returningAll()
+      .executeTakeFirst();
+    if (!row) throw new Error("Internal error");
+    await tx
+      .updateTable("dashboards")
+      .set({ updatedAt: new Date() })
+      .where("id", "=", input.dashboardId)
+      .execute();
+    return row;
+  });
   return created;
 }
 
 export async function deleteWidget(
   db: Database,
+  userId: string,
   dashboardId: string,
   widgetId: string,
 ) {
-  const deleted = await db
-    .deleteFrom("dashboardWidgets")
-    .where("id", "=", widgetId)
-    .where("dashboardId", "=", dashboardId)
-    .returning("id")
-    .execute();
-  if (deleted.length === 0) throw new AppError("unknown_widget");
-  await touchDashboard(db, dashboardId);
+  await withAudit(db, { userId, source: "web" }, async (tx) => {
+    const deleted = await tx
+      .deleteFrom("dashboardWidgets")
+      .where("id", "=", widgetId)
+      .where("dashboardId", "=", dashboardId)
+      .returning("id")
+      .execute();
+    if (deleted.length === 0) throw new AppError("unknown_widget");
+    await tx
+      .updateTable("dashboards")
+      .set({ updatedAt: new Date() })
+      .where("id", "=", dashboardId)
+      .execute();
+  });
 }
 
 export async function layoutWidgets(
   db: Database,
+  userId: string,
   dashboardId: string,
   widgets: ReadonlyArray<{
     id: string;
@@ -223,7 +264,7 @@ export async function layoutWidgets(
 ) {
   if (widgets.length === 0) return;
   // A layout is applied whole, or not at all.
-  await db.transaction().execute(async (tx) => {
+  await withAudit(db, { userId, source: "web" }, async (tx) => {
     for (const widget of widgets) {
       const moved = await tx
         .updateTable("dashboardWidgets")
@@ -234,16 +275,12 @@ export async function layoutWidgets(
         .executeTakeFirst();
       if (!moved) throw new AppError("unknown_widget");
     }
+    await tx
+      .updateTable("dashboards")
+      .set({ updatedAt: new Date() })
+      .where("id", "=", dashboardId)
+      .execute();
   });
-  await touchDashboard(db, dashboardId);
-}
-
-async function touchDashboard(db: Database, dashboardId: string) {
-  await db
-    .updateTable("dashboards")
-    .set({ updatedAt: new Date() })
-    .where("id", "=", dashboardId)
-    .execute();
 }
 
 async function viewFilterSpec(

@@ -69,7 +69,7 @@ describe("every public link and calendar feed, for an administrator", () => {
 
   async function view(name: string) {
     const { engine } = await loadEngine(db, tableId, () => true);
-    return createView(db, engine, {
+    return createView(db, engine, owner, {
       tableId,
       name,
       viewType: "calendar",

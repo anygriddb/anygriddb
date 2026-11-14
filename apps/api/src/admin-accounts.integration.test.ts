@@ -255,11 +255,13 @@ describe("accounts in Administration", () => {
       ).toEqual([{ userId: adminId }]);
 
       // A base in the trash: refused, and no account is made.
-      await db
-        .updateTable("bases")
-        .set({ deletedAt: new Date() })
-        .where("id", "=", theirs.id)
-        .execute();
+      await withAudit(db, { userId: adminId }, (tx) =>
+        tx
+          .updateTable("bases")
+          .set({ deletedAt: new Date() })
+          .where("id", "=", theirs.id)
+          .execute(),
+      );
       const refused = `refused-${suffix}@example.org`;
       expect(
         await code(
@@ -592,11 +594,13 @@ describe("accounts in Administration", () => {
       const trashed = await insertBase(db, adminId, {
         name: `Trashed ${suffix}`,
       });
-      await db
-        .updateTable("bases")
-        .set({ deletedAt: new Date() })
-        .where("id", "=", trashed.id)
-        .execute();
+      await withAudit(db, { userId: adminId }, (tx) =>
+        tx
+          .updateTable("bases")
+          .set({ deletedAt: new Date() })
+          .where("id", "=", trashed.id)
+          .execute(),
+      );
       expect(
         await code(
           admin.call().admin.setBaseRole({

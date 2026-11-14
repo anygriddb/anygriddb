@@ -241,7 +241,7 @@ export async function applyTemplate(
     if (!tableId || !table.views?.length) continue;
     const { engine } = await loadEngine(db, tableId, () => true);
     for (const view of table.views) {
-      await createView(db, engine, {
+      await createView(db, engine, userId, {
         tableId,
         name: view.name,
         viewType: view.viewType,
@@ -554,11 +554,13 @@ export async function duplicateTable(
     .limit(1)
     .executeTakeFirst();
   if (firstView && copyView) {
-    await db
-      .updateTable("views")
-      .set({ config: firstView.config, name: firstView.name })
-      .where("id", "=", copyView.id)
-      .execute();
+    await withAudit(db, { userId, tableId: created.id, source: "web" }, (tx) =>
+      tx
+        .updateTable("views")
+        .set({ config: firstView.config, name: firstView.name })
+        .where("id", "=", copyView.id)
+        .execute(),
+    );
   }
 
   if (input.withData) {

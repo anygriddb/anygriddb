@@ -1469,10 +1469,12 @@ export async function importBaseSnapshot(
       // The snapshot's collaborative views replace the grid made with the
       // table; a table that lists none keeps it.
       if (table.views.length > 0) {
-        await db.deleteFrom("views").where("tableId", "=", tableId).execute();
+        await withAudit(db, { userId, tableId, source: "snapshot" }, (tx) =>
+          tx.deleteFrom("views").where("tableId", "=", tableId).execute(),
+        );
       }
       for (const view of table.views) {
-        await createView(db, engine, {
+        await createView(db, engine, userId, {
           tableId,
           name: view.name,
           viewType: view.viewType,

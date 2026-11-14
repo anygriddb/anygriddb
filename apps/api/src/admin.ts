@@ -922,6 +922,14 @@ export async function instanceHealth(deps: {
 /* Audit log                                                           */
 /* ------------------------------------------------------------------ */
 
+/** The base an event of the catalog belongs to, read from the row it kept. */
+function catalogBaseOf(table: string | null, value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  const id = table === "bases" ? row.id : row.base_id;
+  return typeof id === "string" ? id : null;
+}
+
 export async function instanceAudit(
   db: Database,
   input: {
@@ -976,11 +984,20 @@ export async function instanceAudit(
     purged: row.action === "purge" ? purgeRecordOf(row.newValue) : null,
     // Nor did an administrator opening a base: it says which, until when.
     opened: row.action === "access" ? accessRecordOf(row.newValue) : null,
+    // A base, a dashboard, a folder, a link to a whole base, an invitation:
+    // an event of the catalog that is no table's still belongs to a base.
+    catalogBaseId:
+      row.action === "catalog" && row.tableId === null
+        ? catalogBaseOf(row.catalogTable, row.newValue ?? row.oldValue)
+        : null,
   }));
   // A base's file and an opening name their base itself, not a table of it.
   const baseIds = [
     ...new Set(
-      page.flatMap((row) => row.exported?.baseId ?? row.opened?.baseId ?? []),
+      page.flatMap(
+        (row) =>
+          row.exported?.baseId ?? row.opened?.baseId ?? row.catalogBaseId ?? [],
+      ),
     ),
   ];
   const baseNames = new Map(
@@ -996,12 +1013,22 @@ export async function instanceAudit(
   );
   return {
     events: page.map(
-      ({ oldValue, newValue, exported, purged, opened, ...row }) => ({
+      ({
+        oldValue,
+        newValue,
+        exported,
+        purged,
+        opened,
+        catalogBaseId,
+        ...row
+      }) => ({
         ...row,
         // A base since deleted keeps the name it had when it was opened.
         baseName:
           row.baseName ??
-          baseNames.get(exported?.baseId ?? opened?.baseId ?? "") ??
+          baseNames.get(
+            exported?.baseId ?? opened?.baseId ?? catalogBaseId ?? "",
+          ) ??
           opened?.base ??
           null,
         occurredAt: row.occurredAt.toISOString(),

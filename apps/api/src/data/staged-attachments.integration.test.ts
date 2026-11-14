@@ -146,7 +146,7 @@ describe("files sent to a public form", () => {
     const { engine } = await loadEngine(db, tableId, () => true);
     physical = engine.table.physicalName;
     const view = (name: string, viewType: "form" | "grid") =>
-      createView(db, engine, { tableId, name, viewType, ownerId: null });
+      createView(db, engine, owner, { tableId, name, viewType, ownerId: null });
     const formView = await view("Dépôt", "form");
     form = await createShare(db, {
       viewId: formView.id,

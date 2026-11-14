@@ -49,7 +49,7 @@ export const catalogViewProcedures = {
           input.tableId,
           readableTables(bindings, new Map()),
         );
-        return createView(ctx.db, engine, {
+        return createView(ctx.db, engine, user.id, {
           tableId: input.tableId,
           name: input.name,
           viewType: input.viewType,
@@ -71,7 +71,7 @@ export const catalogViewProcedures = {
           throw new AppError("access_denied");
         }
         const { engine } = await loadEngine(ctx.db, view.tableId, () => true);
-        return updateView(ctx.db, engine, view, input);
+        return updateView(ctx.db, engine, user.id, view, input);
       }),
     ),
   duplicateView: procedure
@@ -86,6 +86,7 @@ export const catalogViewProcedures = {
         }
         return duplicateView(
           ctx.db,
+          user.id,
           view,
           input.name ?? (await requestNames(ctx)).copy(view.name).slice(0, 80),
           personal || view.ownerId ? user.id : null,
@@ -96,8 +97,8 @@ export const catalogViewProcedures = {
     .input(reorderViewsInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        await guardTable(ctx, input.tableId, "write");
-        await reorderViews(ctx.db, input.tableId, input.order);
+        const { user } = await guardTable(ctx, input.tableId, "write");
+        await reorderViews(ctx.db, user.id, input.tableId, input.order);
         return { ok: true as const };
       }),
     ),

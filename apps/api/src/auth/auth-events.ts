@@ -17,7 +17,8 @@ export type AuthMethod =
   | "oidc"
   | "saml"
   | "signup"
-  | "admin";
+  | "admin"
+  | "scim";
 
 export type AuthDetail =
   | "invalid_credentials"
@@ -49,6 +50,8 @@ export type AuthDetail =
   | "self_service"
   /** One API token created or revoked by its owner. */
   | "self_service_token"
+  /** Sessions or tokens ended because the identity provider changed the account. */
+  | "scim"
   | "admin_reset"
   | "reset_link"
   /** Disabled after the instance's delay without activity (ADR 0044). */

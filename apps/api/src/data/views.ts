@@ -13,6 +13,7 @@ import {
 } from "@anygriddb/core";
 import type { Database, ViewRow } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
+import { withAudit } from "./audit-context.js";
 import { liveColumnNames, liveView, trashedColumnNames } from "./live.js";
 import { clientFilter } from "../sources/control-plane-read-filter.js";
 
@@ -127,6 +128,7 @@ export function canEditView(
 export async function createView(
   db: Database,
   engine: EngineCatalog,
+  userId: string,
   input: {
     tableId: string;
     name: string;
@@ -138,18 +140,24 @@ export async function createView(
   const config = normalizeViewConfig(input.config ?? {}, input.viewType);
   assertViewConfig(engine, config);
   const known = new Set(engine.table.columns.map((column) => column.name));
-  const inserted = await db
-    .insertInto("views")
-    .values({
-      tableId: input.tableId,
-      name: input.name,
-      viewType: input.viewType,
-      config: config as Record<string, unknown>,
-      position: await nextViewPosition(db, input.tableId),
-      ownerId: input.ownerId,
-    })
-    .returningAll()
-    .executeTakeFirst();
+  const position = await nextViewPosition(db, input.tableId);
+  const inserted = await withAudit(
+    db,
+    { userId, tableId: input.tableId, source: "web" },
+    (tx) =>
+      tx
+        .insertInto("views")
+        .values({
+          tableId: input.tableId,
+          name: input.name,
+          viewType: input.viewType,
+          config: config as Record<string, unknown>,
+          position,
+          ownerId: input.ownerId,
+        })
+        .returningAll()
+        .executeTakeFirst(),
+  );
   if (!inserted) {
     throw new AppError("no_row");
   }
@@ -159,6 +167,7 @@ export async function createView(
 export async function updateView(
   db: Database,
   engine: EngineCatalog,
+  userId: string,
   view: ViewRow,
   input: {
     name?: string;
@@ -181,16 +190,21 @@ export async function updateView(
     input.config ? "all" : Object.keys(input.patch ?? {}),
   );
   assertViewConfig(engine, next, trashed);
-  const updated = await db
-    .updateTable("views")
-    .set({
-      name: input.name ?? view.name,
-      config: next as Record<string, unknown>,
-      ...(input.locked !== undefined ? { locked: input.locked } : {}),
-    })
-    .where("id", "=", view.id)
-    .returningAll()
-    .executeTakeFirst();
+  const updated = await withAudit(
+    db,
+    { userId, tableId: view.tableId, source: "web" },
+    (tx) =>
+      tx
+        .updateTable("views")
+        .set({
+          name: input.name ?? view.name,
+          config: next as Record<string, unknown>,
+          ...(input.locked !== undefined ? { locked: input.locked } : {}),
+        })
+        .where("id", "=", view.id)
+        .returningAll()
+        .executeTakeFirst(),
+  );
   if (!updated) {
     throw new AppError("no_row");
   }
@@ -202,22 +216,29 @@ export async function updateView(
 
 export async function duplicateView(
   db: Database,
+  userId: string,
   view: ViewRow,
   name: string,
   ownerId: string | null,
 ) {
-  const inserted = await db
-    .insertInto("views")
-    .values({
-      tableId: view.tableId,
-      name,
-      viewType: view.viewType,
-      config: view.config,
-      position: await nextViewPosition(db, view.tableId),
-      ownerId,
-    })
-    .returningAll()
-    .executeTakeFirst();
+  const position = await nextViewPosition(db, view.tableId);
+  const inserted = await withAudit(
+    db,
+    { userId, tableId: view.tableId, source: "web" },
+    (tx) =>
+      tx
+        .insertInto("views")
+        .values({
+          tableId: view.tableId,
+          name,
+          viewType: view.viewType,
+          config: view.config,
+          position,
+          ownerId,
+        })
+        .returningAll()
+        .executeTakeFirst(),
+  );
   if (!inserted) {
     throw new AppError("no_row");
   }
@@ -226,6 +247,7 @@ export async function duplicateView(
 
 export async function reorderViews(
   db: Database,
+  userId: string,
   tableId: string,
   order: readonly string[],
 ): Promise<void> {
@@ -239,7 +261,7 @@ export async function reorderViews(
   if (order.some((id) => !ids.has(id))) {
     throw new AppError("invalid_order");
   }
-  await db.transaction().execute(async (tx) => {
+  await withAudit(db, { userId, tableId, source: "web" }, async (tx) => {
     for (const [index, id] of order.entries()) {
       await tx
         .updateTable("views")
@@ -268,10 +290,12 @@ export async function trashView(
       throw new AppError("invalid_view");
     }
   }
-  await db
-    .updateTable("views")
-    .set({ deletedAt: new Date(), deletedBy: userId })
-    .where("id", "=", view.id)
-    .where(liveView())
-    .execute();
+  await withAudit(db, { userId, tableId: view.tableId, source: "web" }, (tx) =>
+    tx
+      .updateTable("views")
+      .set({ deletedAt: new Date(), deletedBy: userId })
+      .where("id", "=", view.id)
+      .where(liveView())
+      .execute(),
+  );
 }
