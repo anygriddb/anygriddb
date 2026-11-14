@@ -16,6 +16,8 @@
     "lint": "eslint src",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:integration:app": "vitest run --config vitest.integration.config.ts --exclude 'src/sources/**'",
+    "test:integration:engines": "vitest run --config vitest.integration.config.ts src/sources/",
     "test:samples": "../../scripts/lab/fetch-seeds.sh && vitest run --config vitest.samples.config.ts",
     "build": "node build.mjs"
   },

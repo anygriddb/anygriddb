@@ -214,9 +214,10 @@ The repository's rulesets, set on GitHub rather than in this tree, protect
 `main`: pull request, squash merge only, signed commits, no force-push or
 deletion, and these checks from GitHub Actions (job names as GitHub reports
 them): `ci-ok`, `commits`, `codeql`, `dependency-review`. `ci-ok` passes
-only when every job of CI passed: `unit`, `integration`, `e2e`, and
-`image`, which builds the image of every pull request and starts it as an
-operator does (`scripts/smoke-image.sh`). A job added to CI joins `ci-ok`,
+only when every job of CI passed: `unit`, `integration`, `engines` (the
+integration suites that start a client's engine, in a job of their own),
+`e2e`, and `image`, which builds the image of every pull request and
+starts it as an operator does (`scripts/smoke-image.sh`). A job added to CI joins `ci-ok`,
 not the ruleset. Only maintainers create, move, or delete `v*` tags.
 Workflows pin each action to a commit SHA and may use actions from GitHub and
 an allowlist; a new third-party action needs a maintainer to add it. Their

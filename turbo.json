@@ -24,6 +24,16 @@
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/db/migrations/**"],
       "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*"]
     },
+    "test:integration:app": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/db/migrations/**"],
+      "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*"]
+    },
+    "test:integration:engines": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/db/migrations/**"],
+      "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*"]
+    },
     "test:e2e": {
       "dependsOn": ["^typecheck"],
       "inputs": ["$TURBO_DEFAULT$", "!**/*.md"],
