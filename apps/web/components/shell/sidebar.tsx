@@ -73,6 +73,7 @@ import { TrashDialog } from "./trash-dialog";
 import { UserMenu } from "./user-menu";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { useKeyNames } from "../../lib/key-names";
 import { useSnapshotGaps } from "../../lib/snapshot-report";
 
 type CatalogFolder = CatalogBase["folders"][number];
@@ -271,6 +272,7 @@ export function Sidebar({
   };
 }) {
   const { t } = useLingui();
+  const keys = useKeyNames();
   const days = useTrashDays();
   const errorText = useErrorText();
   const navigate = useNavigate();
@@ -457,7 +459,7 @@ export function Sidebar({
       >
         <Search className="h-4 w-4" aria-hidden />
         <span className="flex-1 text-left">{t`Search`}</span>
-        <Kbd>{t`Ctrl K`}</Kbd>
+        <Kbd>{`${keys.mod} K`}</Kbd>
       </button>
       <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label={t`Bases`}>
         {pinned.length > 0 ? (

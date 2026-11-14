@@ -49,6 +49,7 @@ import type { Presence } from "../../lib/realtime";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { useErrorText } from "../../lib/errors";
 import { formatNumber } from "../../lib/format";
+import { focusOutside } from "../../lib/tab-out";
 import { useLocale } from "../../lib/i18n";
 import { useTRPC } from "../../lib/trpc";
 import { opensPanel } from "../fields/cell-editor";
@@ -537,6 +538,9 @@ export function GridView(props: GridProps) {
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    // Keys pressed on a control the grid holds (a field's menu, the line
+    // that adds a row) are that control's: only the grid's own drive it.
+    if (event.target !== event.currentTarget) return;
     const { active, editing } = selection.getState();
     const range = selection.getRange();
     if (editing) return;
@@ -570,10 +574,21 @@ export function GridView(props: GridProps) {
           event.shiftKey,
         );
         return;
-      case "Tab":
+      case "Tab": {
+        // Past the row's last field, or before its first, Tab leaves the
+        // grid for the page's next control, as from any other: the
+        // keyboard is never held in it.
+        const next = active.c + (event.shiftKey ? -1 : 1);
+        if (next < 0 || next >= columns.length) {
+          if (focusOutside(event.currentTarget, event.shiftKey)) {
+            event.preventDefault();
+          }
+          return;
+        }
         event.preventDefault();
-        move({ r: active.r, c: active.c + (event.shiftKey ? -1 : 1) }, false);
+        move({ r: active.r, c: next }, false);
         return;
+      }
       case "Home":
         event.preventDefault();
         move({ r: mod ? 0 : active.r, c: 0 }, event.shiftKey);
