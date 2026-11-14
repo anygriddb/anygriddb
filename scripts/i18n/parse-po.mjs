@@ -27,15 +27,6 @@ export function unescapePo(raw) {
   return out;
 }
 
-export function escapePo(text) {
-  return text
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/\t/g, "\\t")
-    .replace(/\r/g, "\\r")
-    .replace(/\n/g, "\\n");
-}
-
 function readContinuedString(lines, start) {
   const m = lines[start].match(/^"(.*)"\s*$/);
   if (!m) return { text: "", next: start + 1 };
@@ -177,13 +168,4 @@ export function parsePoFile(filePath) {
   }
 
   return entries;
-}
-
-export function entriesToMap(entries) {
-  const map = new Map();
-  for (const e of entries) {
-    if (!e.msgid) continue;
-    map.set(e.msgid, e.msgstr);
-  }
-  return map;
 }

@@ -5,7 +5,7 @@
  * and until when. The same notice goes out when an administrator gives
  * themselves a role on a base, which is the other way in.
  */
-import { AppError, type Binding, type Role } from "@anygriddb/core";
+import { AppError, type Binding } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import {
@@ -309,14 +309,4 @@ export async function tellOwners(
     }).catch((error: unknown) => deps.log(error, "access notice mail failed"));
   }
   return owners.length;
-}
-
-/** The role an administrator gave themselves, as the notice names it. */
-export function selfGrantNotice(input: {
-  adminName: string;
-  baseName: string;
-  reason: string;
-  role: Role;
-}): AdminAccessNotice {
-  return { mode: "role", ...input };
 }

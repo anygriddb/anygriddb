@@ -55,8 +55,7 @@ export function socketUrl(): string {
 /** Imperative client, for event handlers that do not need React Query. */
 export const trpc = createClient();
 
-export const { TRPCProvider, useTRPC, useTRPCClient } =
-  createTRPCContext<AppRouter>();
+export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
 
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
 export type RouterInputs = inferRouterInputs<AppRouter>;

@@ -3849,10 +3849,6 @@ msgstr "File ready: {summary}. You can change the name above."
 msgid "File storage"
 msgstr "File storage"
 
-#: lib/errors.ts
-msgid "File storage is not set up"
-msgstr "File storage is not set up"
-
 #: components/fields/cell-editor.tsx
 #: lib/errors.ts
 msgid "File too large"
@@ -6406,10 +6402,6 @@ msgstr "Opened {opened}, ends {ends}"
 msgid "OpenID Connect"
 msgstr "OpenID Connect"
 
-#: lib/errors.ts
-msgid "OpenID Connect is not set up on this instance"
-msgstr "OpenID Connect is not set up on this instance"
-
 #: components/admin/integrations-tab.tsx
 msgid "OpenID discovery answered"
 msgstr "OpenID discovery answered"
@@ -7543,10 +7535,6 @@ msgstr "Same as primary when empty"
 #: components/admin/sign-in-trail.tsx
 msgid "SAML"
 msgstr "SAML"
-
-#: lib/errors.ts
-msgid "SAML is not set up on this instance"
-msgstr "SAML is not set up on this instance"
 
 #: components/admin/integrations-tab.tsx
 msgid "SAML settings saved"
@@ -9707,10 +9695,6 @@ msgstr "TLS error"
 #: components/table/filter-builder.tsx
 msgid "To"
 msgstr "To"
-
-#: lib/errors.ts
-msgid "To add this field, an administrator names in the source a schema of the client's database kept for AnyGridDB: the client's tables are never changed"
-msgstr "To add this field, an administrator names in the source a schema of the client's database kept for AnyGridDB: the client's tables are never changed"
 
 #: components/auth/confirm-signup-page.tsx
 msgid "To create the account of {email}, enter the password you chose when signing up."

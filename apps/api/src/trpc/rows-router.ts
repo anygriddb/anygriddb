@@ -111,7 +111,7 @@ import type { Context } from "./context.js";
 import { queueDeps } from "./jobs-router.js";
 import { guardBase, guardTable, handle, type TableAccess } from "./guard.js";
 import { procedure, requestNames, requireUser, t } from "./init.js";
-import { liveColumnNames, liveTable } from "../data/live.js";
+import { liveColumnNames } from "../data/live.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 
 /** AnyGridDB's own rows are named by a uuid. */
@@ -819,14 +819,3 @@ export const attachmentsRouter = t.router({
     }),
   ),
 });
-
-export async function tablesById(ctx: Context, ids: readonly string[]) {
-  return ids.length === 0
-    ? []
-    : ctx.db
-        .selectFrom("dataTables")
-        .selectAll()
-        .where("id", "in", [...ids])
-        .where(liveTable())
-        .execute();
-}

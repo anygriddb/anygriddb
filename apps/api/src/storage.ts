@@ -95,9 +95,6 @@ export function exportKey(jobId: string): string {
   return key;
 }
 
-/** Key of a staged upload (an import or a snapshot) waiting for its job. */
-export const STAGED_KEY = /^staged\/[0-9a-f-]{36}$/;
-
 export function newStagedKey(): string {
   return `staged/${randomUUID()}`;
 }

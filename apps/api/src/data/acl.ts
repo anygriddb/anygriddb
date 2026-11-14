@@ -14,43 +14,6 @@ import { readableTables } from "../trpc/guard.js";
 import { withAudit } from "./audit-context.js";
 import { loadEngine, type CatalogRows } from "./engine.js";
 
-export type LoadedAcl = {
-  rowFilter: FilterGroup | null;
-  columns: ColumnAclEntry[];
-  /** True when at least one ACL row exists for this person on the table. */
-  configured: boolean;
-};
-
-export async function loadTableAcl(
-  db: Database,
-  tableId: string,
-  userId: string,
-): Promise<LoadedAcl> {
-  const row = await db
-    .selectFrom("tableAcls")
-    .selectAll()
-    .where("tableId", "=", tableId)
-    .where("userId", "=", userId)
-    .executeTakeFirst();
-  const columns = await db
-    .selectFrom("columnAcls")
-    .select(["columnName as column", "access"])
-    .where("tableId", "=", tableId)
-    .where("userId", "=", userId)
-    .execute();
-  const parsed = row?.rowFilter
-    ? filterGroupSchema.safeParse(row.rowFilter)
-    : null;
-  return {
-    rowFilter: parsed?.success ? parsed.data : null,
-    columns: columns.map((item) => ({
-      column: item.column,
-      access: item.access,
-    })),
-    configured: Boolean(row) || columns.length > 0,
-  };
-}
-
 export async function listTableAcls(
   db: Database,
   tableId: string,

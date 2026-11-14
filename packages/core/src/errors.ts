@@ -155,15 +155,12 @@ export const ERRORS = {
   invalid_file: [BAD, "Invalid file"],
   invalid_logo: [BAD, "Invalid logo"],
   file_too_large: [413, "File too large"],
-  storage_not_configured: [412, "Storage not configured"],
   smtp_not_configured: [412, "SMTP not configured"],
   invalid_smtp: [BAD, "Invalid email settings"],
   no_recipients: [BAD, "No recipients"],
   too_many_recipients: [BAD, "Too many recipients"],
   operator_mail_limited: [429, "Operator mail rate limited"],
-  oidc_not_configured: [412, "OIDC not configured"],
   invalid_oidc: [BAD, "Invalid OIDC settings"],
-  saml_not_configured: [412, "SAML not configured"],
   invalid_saml: [BAD, "Invalid SAML settings"],
   /** Password sign-in while the instance is SSO-only (non-admin). */
   password_sign_in_disabled: [403, "Password sign-in is disabled"],
@@ -232,10 +229,6 @@ export const ERRORS = {
   source_watch_unavailable: [
     BAD,
     "Change Tracking is off for this table, or the account may not read it",
-  ],
-  source_side_none: [
-    BAD,
-    "This source has no side schema for the fields AnyGridDB adds",
   ],
   source_side_missing: [BAD, "The source's side schema does not exist"],
   source_side_denied: [

@@ -6,7 +6,3 @@ export const loginInputSchema = z.object({
 });
 
 export { signupInputSchema } from "./signup.js";
-
-export const secondFactorSchema = z.object({
-  code: z.string().trim().min(6).max(32),
-});

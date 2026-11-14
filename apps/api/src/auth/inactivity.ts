@@ -114,12 +114,3 @@ export async function sweepInactiveAccounts(
   }
   return { warned: warned.length, disabled: disabled.length };
 }
-
-/** A sign-in, a token used, or enabled again: the count starts over. */
-export async function markActive(db: Database, userId: string): Promise<void> {
-  await db
-    .updateTable("users")
-    .set({ activeAt: new Date(), inactivityWarnedAt: null })
-    .where("id", "=", userId)
-    .execute();
-}

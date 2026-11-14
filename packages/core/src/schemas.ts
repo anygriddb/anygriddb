@@ -189,9 +189,6 @@ export const deleteColumnInputSchema = z.object({
   name: columnNameSchema,
 });
 
-/** Kept for clients written before `deleteColumn`. */
-export const dropColumnInputSchema = deleteColumnInputSchema;
-
 export const reorderColumnsInputSchema = z.object({
   tableId: z.uuid(),
   order: z.array(columnNameSchema).min(1).max(500),

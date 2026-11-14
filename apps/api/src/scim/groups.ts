@@ -14,9 +14,6 @@ import { ERASED_USER_ID } from "../data/erasure.js";
 import { liveBase } from "../data/live.js";
 import { postgresCode } from "../data/pg-error.js";
 
-/** Value of `groups.provider` when SCIM keeps the group. */
-export const SCIM_PROVIDER = "scim";
-
 const descriptionSchema = z.string().trim().max(500).nullable().optional();
 
 function descriptionOf(

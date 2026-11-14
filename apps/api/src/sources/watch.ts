@@ -205,26 +205,6 @@ export async function setTableWatch(
   );
 }
 
-/** What administrators see of a table's watch. */
-export async function readWatches(db: Database, tableIds: readonly string[]) {
-  if (tableIds.length === 0) return [];
-  return db
-    .selectFrom("externalWatches")
-    .select([
-      "tableId",
-      "method",
-      "columnName",
-      "intervalSeconds",
-      "checkedAt",
-      "changedAt",
-      "changes",
-      "errorCode",
-      "errorAt",
-    ])
-    .where("tableId", "in", tableIds)
-    .execute();
-}
-
 /** A value an engine gave as text, or a number. */
 function text(value: unknown): string | null {
   if (typeof value === "string") return value;

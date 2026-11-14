@@ -103,13 +103,6 @@ export async function findApiToken(
   };
 }
 
-export async function findApiTokenUser(
-  db: Database,
-  header: string | undefined,
-): Promise<SessionUser | null> {
-  return (await findApiToken(db, header))?.user ?? null;
-}
-
 export async function createApiToken(
   db: Database,
   userId: string,

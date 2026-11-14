@@ -1216,19 +1216,3 @@ export async function listBaseTables(
     .orderBy("position", "asc")
     .execute();
 }
-
-export async function tablesOfBases(
-  db: Database,
-  baseIds: readonly string[],
-): Promise<TableRow[]> {
-  if (baseIds.length === 0) {
-    return [];
-  }
-  return db
-    .selectFrom("dataTables")
-    .selectAll()
-    .where("baseId", "in", [...baseIds])
-    .where(liveTable())
-    .orderBy("position", "asc")
-    .execute();
-}

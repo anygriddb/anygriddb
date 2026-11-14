@@ -9,7 +9,7 @@ import { join } from "node:path";
 import type { Database } from "@anygriddb/db";
 import { insertBase } from "../../data/schema-ops.js";
 import { createTestDatabase } from "../../test-database.js";
-import { exposeTables, setTableWrites } from "../expose.js";
+import { exposeTables } from "../expose.js";
 import { setSourcePools, SourcePools } from "../pools.js";
 import { createSource, sourceTables } from "../sources.js";
 import type { SourceSettings } from "../types.js";
@@ -231,18 +231,6 @@ export async function exposeNorthwind(
     if (id) map[table.name.toLowerCase()] = id;
   }
   return map;
-}
-
-export async function enablePlaylistWrites(
-  control: SampleControl,
-  tableId: string,
-): Promise<void> {
-  await setTableWrites(control.deps, control.actorId, {
-    tableId,
-    update: true,
-    insert: true,
-    delete: true,
-  });
 }
 
 export { sourceTables };
