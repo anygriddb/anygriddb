@@ -365,6 +365,8 @@ test.describe("a restore point", () => {
       .getByRole("listitem")
       .filter({ hasText: "Before the change" });
     await expect(point).toContainText("1 row");
+    // Its size, in the binary units of the reader's language.
+    await expect(point).toContainText(/ \d+(\.\d)? (B|KiB) · kept until /);
     expect(await accessibilityViolations(page)).toEqual([]);
 
     // Written after the point: the restore does not take it away.

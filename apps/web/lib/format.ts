@@ -283,12 +283,6 @@ export function attachmentList(value: unknown): AttachmentValue[] {
   });
 }
 
-export function formatBytes(size: number): string {
-  if (size < 1024) return `${size} o`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} Kio`;
-  return `${(size / 1024 / 1024).toFixed(1)} Mio`;
-}
-
 /** Shape a value for writing: attachment objects become keys, links stay with setLinks. */
 export function toWriteValue(
   fieldType: string,

@@ -11,7 +11,7 @@ import { CheckCircle2, XCircle } from "lucide-react";
 import { useId } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
-import { formatBytes } from "../../lib/format";
+import { useFormatBytes } from "../../lib/format-bytes";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
@@ -60,6 +60,7 @@ export function useAlertText(): (
  */
 export function AlertsSection() {
   const { t, i18n } = useLingui();
+  const formatBytes = useFormatBytes();
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();

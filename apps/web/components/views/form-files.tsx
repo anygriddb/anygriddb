@@ -2,7 +2,7 @@ import { Button, Spinner } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { Paperclip, Plus, X } from "lucide-react";
 import { useRef, useState } from "react";
-import { formatBytes } from "../../lib/format";
+import { useFormatBytes } from "../../lib/format-bytes";
 import { FileRefused, type SentFile } from "../../lib/send-file";
 
 /** The most files an attachment field holds. */
@@ -31,6 +31,7 @@ export function FormFiles({
   send: (file: File) => Promise<SentFile>;
 }) {
   const { t } = useLingui();
+  const formatBytes = useFormatBytes();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");

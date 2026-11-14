@@ -6,7 +6,8 @@ import { RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
-import { formatBytes, formatNumber } from "../../lib/format";
+import { formatNumber } from "../../lib/format";
+import { useFormatBytes } from "../../lib/format-bytes";
 import { useLocale } from "../../lib/i18n";
 import { useTrashDays } from "../../lib/trash";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
@@ -24,6 +25,7 @@ type Trashed =
  */
 export function BasesTab() {
   const { t } = useLingui();
+  const formatBytes = useFormatBytes();
   const { locale } = useLocale();
   const errorText = useErrorText();
   const api = useTRPC();

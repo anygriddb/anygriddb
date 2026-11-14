@@ -8,7 +8,8 @@ import { ArchiveArrowDown, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
-import { formatBytes, formatDate } from "../../lib/format";
+import { formatDate } from "../../lib/format";
+import { useFormatBytes } from "../../lib/format-bytes";
 import { useLocale } from "../../lib/i18n";
 import { useTrackJob } from "../../lib/jobs";
 import { useSnapshotGaps } from "../../lib/snapshot-report";
@@ -29,6 +30,7 @@ export function RestorePoints({
   hasTables: boolean;
 }) {
   const { t } = useLingui();
+  const formatBytes = useFormatBytes();
   const { locale } = useLocale();
   const errorText = useErrorText();
   const snapshotGaps = useSnapshotGaps();

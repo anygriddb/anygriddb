@@ -3,7 +3,8 @@ import { Button, Dialog, DialogContent } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { ChevronLeft, ChevronRight, Download, Paperclip } from "lucide-react";
 import { useEffect, useState } from "react";
-import { formatBytes, type AttachmentValue } from "../../lib/format";
+import { type AttachmentValue } from "../../lib/format";
+import { useFormatBytes } from "../../lib/format-bytes";
 import { stepFile } from "./attachment-preview-model";
 
 /** Above this, the text preview asks for a download instead of loading. */
@@ -25,6 +26,7 @@ export function AttachmentPreview({
   onClose: () => void;
 }) {
   const { t } = useLingui();
+  const formatBytes = useFormatBytes();
   const file = files[index];
   const many = files.length > 1;
   useEffect(() => {
