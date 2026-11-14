@@ -660,7 +660,9 @@ export function GridView(props: GridProps) {
     );
     event.clipboardData.setData("text/plain", text);
     const cells = (range.r2 - range.r1 + 1) * (range.c2 - range.c1 + 1);
-    toast.success(t`${{ count: cells }} cells copied`);
+    toast.success(
+      plural(cells, { one: "# cell copied", other: "# cells copied" }),
+    );
   }
 
   async function onPaste(event: ClipboardEvent<HTMLDivElement>) {
@@ -714,7 +716,10 @@ export function GridView(props: GridProps) {
     }
     if (plan.skipped > 0) {
       toast.warning(
-        t`${{ count: plan.skipped }} cells skipped: incompatible value or computed field`,
+        plural(plan.skipped, {
+          one: "# cell skipped: incompatible value or computed field",
+          other: "# cells skipped: incompatible value or computed field",
+        }),
       );
     }
     selection.update({
@@ -838,7 +843,12 @@ export function GridView(props: GridProps) {
     <div className="relative flex min-h-0 flex-1 flex-col">
       {checked.size > 0 ? (
         <div className="absolute top-1 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-sm border border-border bg-card px-3 py-1.5 text-sm shadow-lg">
-          <span>{t`${{ count: checked.size }} rows selected`}</span>
+          <span>
+            {plural(checked.size, {
+              one: "# row selected",
+              other: "# rows selected",
+            })}
+          </span>
           <button
             type="button"
             className="rounded px-2 py-0.5 hover:bg-muted"

@@ -5,6 +5,7 @@ import {
   type AlertKind,
   type InstanceSettingsPatch,
 } from "@anygriddb/core";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, XCircle } from "lucide-react";
@@ -48,7 +49,11 @@ export function useAlertText(): (
       case "source_unreachable":
         return t`The source ${{ name: detail.name }} does not answer: its watched tables could not be read.`;
       case "failures":
-        return t`${{ count: detail.count }} jobs, webhook deliveries, and automation runs failed in the last 24 hours.`;
+        return plural(Number(detail.count ?? 0), {
+          one: "# job, webhook delivery, or automation run failed in the last 24 hours.",
+          other:
+            "# jobs, webhook deliveries, and automation runs failed in the last 24 hours.",
+        });
     }
   };
 }

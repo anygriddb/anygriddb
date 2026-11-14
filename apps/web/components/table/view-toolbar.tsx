@@ -292,7 +292,7 @@ export function ViewToolbar(props: {
         <ToolButton active={sorts.length > 0}>
           <ArrowDownUp className="h-3.5 w-3.5" aria-hidden />
           {sorts.length > 0
-            ? t`Sorted by ${{ count: sorts.length }} fields`
+            ? t`Sorted by ${plural(sorts.length, { one: "# field", other: "# fields" })}`
             : t`Sort`}
         </ToolButton>
       </PopoverTrigger>
@@ -384,7 +384,7 @@ export function ViewToolbar(props: {
         <ToolButton active={groups.length > 0}>
           <Group className="h-3.5 w-3.5" aria-hidden />
           {groups.length > 0
-            ? t`Grouped by ${{ count: groups.length }} fields`
+            ? t`Grouped by ${plural(groups.length, { one: "# field", other: "# fields" })}`
             : t`Group`}
         </ToolButton>
       </PopoverTrigger>

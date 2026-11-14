@@ -1,6 +1,7 @@
 import type { AirtableNote } from "@anygriddb/core";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 
 /** What did not come over from Airtable as it was, in a sentence each. */
@@ -32,7 +33,10 @@ export function AirtableReport({ report }: { report: unknown }) {
   return (
     <details className="mt-1 text-xs">
       <summary className="cursor-pointer text-muted-foreground">
-        {t`${{ count: items.length }} points to check`}
+        {plural(items.length, {
+          one: "# point to check",
+          other: "# points to check",
+        })}
       </summary>
       <ul className="mt-1 max-h-48 list-disc overflow-y-auto pl-4">
         {items.map((item, index) => {

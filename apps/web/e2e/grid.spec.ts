@@ -130,6 +130,7 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
   await names.first().click({ button: "right" });
   await page.getByRole("menuitem", { name: "Delete rows" }).click();
   await expect(names).toHaveCount(1);
+  await expect(page.getByText("1 row deleted", { exact: true })).toBeVisible();
   await expect(nameCell(page)).toContainText("gamma");
 
   // Grouped, the grid shows every row of its view, past the first 1,000:

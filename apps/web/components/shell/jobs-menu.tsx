@@ -86,12 +86,14 @@ function resultText(job: Job, key: string): string | undefined {
 
 /** Gaps from a finished snapshot import or base copy. */
 function SnapshotGapsReport({ gaps }: { gaps: string[] }) {
-  const { t } = useLingui();
   if (gaps.length === 0) return null;
   return (
     <details className="mt-1 text-xs">
       <summary className="cursor-pointer text-muted-foreground">
-        {t`${{ count: gaps.length }} points to check`}
+        {plural(gaps.length, {
+          one: "# point to check",
+          other: "# points to check",
+        })}
       </summary>
       <ul className="mt-1 max-h-48 list-disc overflow-y-auto pl-4">
         {gaps.map((gap) => (
@@ -162,24 +164,40 @@ export function JobsMenu() {
       return percent === null ? t`In progress` : t`In progress (${percent}%)`;
     }
     switch (job.kind) {
-      case "import":
-        return t`${{ inserted: resultNumber(job, "inserted") }} rows added, ${{ updated: resultNumber(job, "updated") }} updated, ${{ failed: resultNumber(job, "failed") }} rejected.`;
+      case "import": {
+        const inserted = resultNumber(job, "inserted");
+        const updated = resultNumber(job, "updated");
+        const failed = resultNumber(job, "failed");
+        return plural(inserted, {
+          one: `# row added, ${updated} updated, ${failed} rejected.`,
+          other: `# rows added, ${updated} updated, ${failed} rejected.`,
+        });
+      }
       case "export":
         return job.download
-          ? t`${{ count: resultNumber(job, "rows") }} rows, file available for 24 h`
+          ? plural(resultNumber(job, "rows"), {
+              one: "# row, file available for 24 h",
+              other: "# rows, file available for 24 h",
+            })
           : t`File expired`;
       case "duplicate_table":
         return t`Table created`;
       case "trash_purge":
-        return t`${{ count: resultNumber(job, "purged") }} items deleted`;
+        return plural(resultNumber(job, "purged"), {
+          one: "# item deleted",
+          other: "# items deleted",
+        });
       case "export_snapshot":
         return job.download ? t`File available for 24 h` : t`File expired`;
       case "import_snapshot":
         return snapshotGaps(job.result).length > 0
           ? t`Base created, with gaps`
           : t`Base created`;
-      case "import_airtable":
-        return t`Base created: ${{ tables: resultNumber(job, "tables") }} tables, ${{ rows: resultNumber(job, "rows") }} rows.`;
+      case "import_airtable": {
+        const tables = resultNumber(job, "tables");
+        const rows = resultNumber(job, "rows");
+        return t`Base created: ${plural(tables, { one: "# table", other: "# tables" })}, ${plural(rows, { one: "# row", other: "# rows" })}.`;
+      }
       case "duplicate_base":
       case "restore_base":
         return snapshotGaps(job.result).length > 0
@@ -187,11 +205,12 @@ export function JobsMenu() {
           : t`Base created`;
       case "import_workbook": {
         const sheets = workbookSheets(job);
+        const tables = sheets.length;
         const rows = sheets.reduce((sum, sheet) => sum + sheet.rows, 0);
         const failed = sheets.reduce((sum, sheet) => sum + sheet.failed, 0);
         return failed > 0
-          ? t`Base created: ${{ tables: sheets.length }} tables, ${{ rows }} rows, ${{ failed }} left out.`
-          : t`Base created: ${{ tables: sheets.length }} tables, ${{ rows }} rows.`;
+          ? t`Base created: ${plural(tables, { one: "# table", other: "# tables" })}, ${plural(rows, { one: "# row", other: "# rows" })}, ${plural(failed, { one: "# left out", other: "# left out" })}.`
+          : t`Base created: ${plural(tables, { one: "# table", other: "# tables" })}, ${plural(rows, { one: "# row", other: "# rows" })}.`;
       }
       case "restore_point":
         return plural(resultNumber(job, "rows"), {

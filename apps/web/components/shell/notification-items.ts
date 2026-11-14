@@ -12,6 +12,7 @@ import {
   Webhook,
   Zap,
 } from "lucide-react";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import type { Role } from "../../lib/types";
@@ -85,7 +86,7 @@ export function useDescribeNotification() {
         const group = item.data?.group;
         const role = roleLabel(item.data?.role as Role | undefined);
         if (item.data?.count) {
-          return t`${actor}, an administrator, gave ${{ count: item.data.count }} people a role on ${base}`;
+          return t`${actor}, an administrator, gave ${plural(item.data.count, { one: "# person", other: "# people" })} a role on ${base}`;
         }
         if (group && item.data?.name) {
           return t`${actor}, an administrator, added ${name} to the group ${group}, which has a role on ${base} (${role})`;

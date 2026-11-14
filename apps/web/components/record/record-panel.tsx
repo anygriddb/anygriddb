@@ -58,7 +58,7 @@ import { canSubmitRow } from "./row-status-model";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import type { MessageDescriptor } from "@lingui/core";
-import { msg } from "@lingui/core/macro";
+import { msg, plural } from "@lingui/core/macro";
 import { raw } from "../../lib/known-text";
 
 const SKIP = new Set([
@@ -780,8 +780,8 @@ export function RecordPanel({
               onClick={() => setShowHidden(!showHidden)}
             >
               {showHidden
-                ? t`Hide ${{ count: hidden.length }} hidden fields`
-                : t`Show ${{ count: hidden.length }} hidden fields`}
+                ? t`Hide ${plural(hidden.length, { one: "# hidden field", other: "# hidden fields" })}`
+                : t`Show ${plural(hidden.length, { one: "# hidden field", other: "# hidden fields" })}`}
             </button>
             {showHidden ? (
               <div className="divide-y divide-border">

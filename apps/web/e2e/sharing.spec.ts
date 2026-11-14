@@ -115,6 +115,8 @@ test("an owner shares a whole base read-only, and anyone with the link reads it"
       .getByRole("button", { name: "Samples" }),
   ).toBeVisible();
   await expect(reader.getByRole("cell", { name: "Beatrix" })).toBeVisible();
+  // One row is counted as one.
+  await expect(reader.getByText("1 row", { exact: true })).toBeVisible();
   expect(await accessibilityViolations(reader)).toEqual([]);
 
   await page.getByRole("button", { name: "Revoke" }).click();

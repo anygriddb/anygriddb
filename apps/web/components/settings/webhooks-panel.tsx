@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { countConditions, FilterBuilder } from "../table/filter-builder";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 
@@ -454,7 +455,10 @@ export function WebhooksPanel(props: {
               </p>
             ) : hook.failureCount > 0 ? (
               <p className="text-xs text-warning">
-                {t`${{ count: hook.failureCount }} failures in a row`}
+                {plural(hook.failureCount, {
+                  one: "# failure",
+                  other: "# failures in a row",
+                })}
               </p>
             ) : null}
           </li>

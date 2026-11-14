@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogColumn } from "../../lib/types";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 
@@ -164,7 +165,10 @@ export function TableAclPanel(props: {
             <div className="flex flex-col gap-1 text-xs text-muted-foreground">
               <p>
                 {t`Role: ${{ role: preview.data.role }}`} ·{" "}
-                {t`${{ count: preview.data.sample.total }} visible rows`}
+                {plural(preview.data.sample.total, {
+                  one: "# visible row",
+                  other: "# visible rows",
+                })}
               </p>
               <p>
                 {t`Visible fields: ${{
