@@ -84,3 +84,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0069](0069-change-trail-retention.md)               | The change trail kept for a time                                                        | Accepted                                    |
 | [0070](0070-local-groups.md)                         | Local groups in Administration (same table as SCIM, `provider` null)                    | Accepted                                    |
 | [0071](0071-auditor.md)                              | An auditor reads Administration and changes nothing                                     | Accepted (extends 0054)                     |
+| [0072](0072-instance-identity.md)                    | The instance's own name, logo, and mail voice                                           | Accepted                                    |

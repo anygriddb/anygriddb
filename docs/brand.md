@@ -6,6 +6,12 @@ in the app, `BrandMark` (`apps/web/components/brand/brand-mark.tsx`) draws
 it in the theme's primary colour, its cells in the colour written on the
 primary, so it keeps its contrast in the light and dark themes.
 
+An instance may put its own logo and name where the mark and the
+product's name stand (`InstanceMark`, ADR 0072): on the sign-in pages, in
+the navigation, on an invitation, on a shared view. Nothing else changes
+with it: the page, its type, and its colours stay the product's, and so
+does the browser tab's icon.
+
 | File                                   | Use                     |
 | -------------------------------------- | ----------------------- |
 | `apps/web/public/favicon.ico`          | Browser tab (16, 32 px) |

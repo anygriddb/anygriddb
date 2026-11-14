@@ -29,6 +29,7 @@ export type AdminPath =
   | "/admin/trails"
   | "/admin/trails/sign-ins"
   | "/admin/instance"
+  | "/admin/instance/identity"
   | "/admin/instance/health"
   | "/admin/instance/support";
 
@@ -137,6 +138,7 @@ export function useAdminSections(): AdminSection[] {
       icon: Server,
       pages: [
         { to: "/admin/instance", label: t`Settings` },
+        { to: "/admin/instance/identity", label: t`Name and logo` },
         { to: "/admin/instance/health", label: t`Health` },
         { to: "/admin/instance/support", label: t`Support` },
       ],

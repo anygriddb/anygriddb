@@ -51,6 +51,8 @@ export type AuthDetail =
   | "inactive"
   /** A setting that changed (`settings_changed`): its key. */
   | keyof InstanceSettings
+  /** The instance's logo, set or removed (ADR 0072). */
+  | "logo"
   /** An integration saved or cleared from Administration (ADR 0050). */
   | "smtp"
   | "oidc"

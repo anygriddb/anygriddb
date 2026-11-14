@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import {
   ALERT_CHOICES,
   AppError,
+  instanceLogoInputSchema,
   instanceSettingsPatchSchema,
   JOB_STATUSES,
   PEOPLE_FILE_MAX_BYTES,
@@ -42,6 +43,7 @@ import {
 } from "../accounts-bulk.js";
 import { operatorFixedFromEnv } from "../operator-fixed.js";
 import { assertEnrolled } from "../auth/access.js";
+import { readLogoVersion, removeLogo, saveLogo } from "../instance-logo.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
 import { alertLock } from "../auth/lock-alerts.js";
 import { countFailure, lockOf, unlockAccount } from "../auth/lockout.js";
@@ -108,7 +110,6 @@ import { sendMail, smtpReady } from "../mail.js";
 import {
   invitationMailBody,
   invitationMailSubject,
-  resolveLocale,
   testMailBody,
   testMailSubject,
 } from "../mail-i18n.js";
@@ -142,7 +143,7 @@ import {
   runReleaseCheck,
   type ReleaseStatus,
 } from "../release-status.js";
-import { readSettings, writeSettings } from "../settings.js";
+import { readMailVoice, readSettings, writeSettings } from "../settings.js";
 import {
   exposeTables,
   refreshExposedTable,
@@ -929,10 +930,34 @@ export const adminRouter = t.router({
       ]);
       return {
         ...(await readSettings(ctx.db)),
+        // The logo's version, or null: the image itself has its address.
+        logo: await readLogoVersion(ctx.db),
         // What some choices depend on: email for resets, SSO for its factor.
         smtpReady: smtpReady(smtp.config),
         ssoReady: oidc.config !== null || saml.config !== null,
       };
+    }),
+  ),
+  /**
+   * The instance's logo (ADR 0072), shown wherever the product's mark is.
+   * It comes through Administration as any setting does, so that every
+   * guard here holds for it; the image is read at its own address.
+   */
+  setLogo: procedure.input(instanceLogoInputSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      const version = await saveLogo(ctx.db, admin.id, input.data, ctx.req.ip);
+      ctx.req.log.info({ actor: admin.id }, "instance logo set");
+      return { logo: version };
+    }),
+  ),
+  removeLogo: procedure.mutation(({ ctx }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      if (await removeLogo(ctx.db, admin.id, ctx.req.ip)) {
+        ctx.req.log.info({ actor: admin.id }, "instance logo removed");
+      }
+      return { logo: null };
     }),
   ),
   /**
@@ -1826,14 +1851,11 @@ export const adminRouter = t.router({
             expiresAt: renewed.expiresAt.toISOString(),
           };
         }
-        const locale = resolveLocale(
-          null,
-          (await readSettings(ctx.db)).defaultLocale,
-        );
-        await sendMail(smtp, {
+        const voice = await readMailVoice(ctx.db);
+        await sendMail(smtp, voice, {
           to: renewed.email,
-          subject: invitationMailSubject(locale, renewed.baseName),
-          text: invitationMailBody(locale, {
+          subject: invitationMailSubject(voice, renewed.baseName),
+          text: invitationMailBody(voice, {
             inviterName: renewed.inviterName ?? admin.displayName,
             link,
             expiresDate: renewed.expiresAt.toISOString().slice(0, 10),
@@ -1902,12 +1924,13 @@ export const adminRouter = t.router({
       const admin = await requireAdmin(ctx);
       const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
       if (!smtpReady(smtp)) throw new AppError("smtp_not_configured");
-      const settings = await readSettings(ctx.db);
-      const locale = resolveLocale(null, settings.defaultLocale);
-      await sendMail(smtp, {
+      // Sent as every mail is: the test shows the sender name and the
+      // signature as people will receive them.
+      const voice = await readMailVoice(ctx.db);
+      await sendMail(smtp, voice, {
         to: admin.email,
-        subject: testMailSubject(locale),
-        text: testMailBody(locale),
+        subject: testMailSubject(voice),
+        text: testMailBody(voice),
       });
       return { to: admin.email };
     }),

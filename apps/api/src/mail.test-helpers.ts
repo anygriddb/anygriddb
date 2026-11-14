@@ -1,4 +1,13 @@
+import { INSTANCE_DEFAULTS } from "@anygriddb/core";
 import { createServer, type Socket } from "node:net";
+import { mailVoice } from "./mail-i18n.js";
+
+/**
+ * The voice of an instance that set nothing: the product's name, no
+ * sender name, no signature, in each language.
+ */
+export const EN = mailVoice(INSTANCE_DEFAULTS, "en");
+export const FR = mailVoice(INSTANCE_DEFAULTS, "fr");
 
 export type ReceivedMail = { from: string; to: string[]; data: string };
 

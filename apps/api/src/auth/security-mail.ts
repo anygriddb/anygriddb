@@ -12,9 +12,10 @@ import {
   accountExistsMailBody,
   accountExistsMailSubject,
   type MailLocale,
+  type MailVoice,
+  mailVoice,
   resetMailBody,
   resetMailSubject,
-  resolveLocale,
   signupMailBody,
   signupMailSubject,
   securityMailBody,
@@ -23,7 +24,7 @@ import {
   welcomeMailBody,
   welcomeMailSubject,
 } from "../mail-i18n.js";
-import { readSettings } from "../settings.js";
+import { readMailVoice, readSettings } from "../settings.js";
 import { signupLinkUrl } from "./signup-requests.js";
 
 export type SecurityMailDeps = {
@@ -35,7 +36,7 @@ export type SecurityMailDeps = {
 async function recipient(
   deps: SecurityMailDeps,
   userId: string,
-): Promise<{ to: string; locale: "en" | "fr"; smtp: SmtpConfig } | null> {
+): Promise<{ to: string; voice: MailVoice; smtp: SmtpConfig } | null> {
   const { config: smtp } = await resolveSmtp(deps.db, deps.env);
   if (!smtpReady(smtp)) return null;
   const [user, settings] = await Promise.all([
@@ -49,7 +50,7 @@ async function recipient(
   if (!user) return null;
   return {
     to: user.email,
-    locale: resolveLocale(null, settings.defaultLocale),
+    voice: mailVoice(settings),
     smtp,
   };
 }
@@ -63,10 +64,10 @@ export async function sendSecurityNotice(
   try {
     const to = await recipient(deps, userId);
     if (!to) return false;
-    await sendMail(to.smtp, {
+    await sendMail(to.smtp, to.voice, {
       to: to.to,
-      subject: securityMailSubject(to.locale, notice),
-      text: securityMailBody(to.locale, notice),
+      subject: securityMailSubject(to.voice, notice),
+      text: securityMailBody(to.voice, notice),
     });
     return true;
   } catch (error) {
@@ -86,10 +87,10 @@ export async function sendResetLink(
 ): Promise<string | null> {
   const to = await recipient(deps, userId);
   if (!to) return null;
-  await sendMail(to.smtp, {
+  await sendMail(to.smtp, to.voice, {
     to: to.to,
-    subject: resetMailSubject(to.locale),
-    text: resetMailBody(to.locale, {
+    subject: resetMailSubject(to.voice),
+    text: resetMailBody(to.voice, {
       link: resetLinkUrl(deps.env.PUBLIC_URL, input.token),
       expiresAt: input.expiresAt,
       byAdmin: input.byAdmin,
@@ -110,10 +111,10 @@ export async function sendWelcome(
 ): Promise<string | null> {
   const to = await recipient(deps, userId);
   if (!to) return null;
-  await sendMail(to.smtp, {
+  await sendMail(to.smtp, to.voice, {
     to: to.to,
-    subject: welcomeMailSubject(to.locale),
-    text: welcomeMailBody(to.locale, {
+    subject: welcomeMailSubject(to.voice),
+    text: welcomeMailBody(to.voice, {
       creatorName: input.creatorName,
       link: resetLinkUrl(deps.env.PUBLIC_URL, input.token),
       expiresAt: input.expiresAt,
@@ -141,21 +142,23 @@ export async function sendSignupMail(
   const { config: smtp } = await resolveSmtp(deps.db, deps.env);
   if (!smtpReady(smtp)) return false;
   const publicUrl = deps.env.PUBLIC_URL.replace(/\/+$/, "");
+  const voice = await readMailVoice(deps.db, input.locale);
   await sendMail(
     smtp,
+    voice,
     input.kind === "link"
       ? {
           to: input.to,
-          subject: signupMailSubject(input.locale),
-          text: signupMailBody(input.locale, {
+          subject: signupMailSubject(voice),
+          text: signupMailBody(voice, {
             link: signupLinkUrl(publicUrl, input.token),
             expiresAt: input.expiresAt,
           }),
         }
       : {
           to: input.to,
-          subject: accountExistsMailSubject(input.locale),
-          text: accountExistsMailBody(input.locale, {
+          subject: accountExistsMailSubject(voice),
+          text: accountExistsMailBody(voice, {
             loginUrl: `${publicUrl}/login`,
           }),
         },

@@ -285,3 +285,61 @@ describe("resolveAttachmentMaxBytes", () => {
     );
   });
 });
+
+describe("how the instance presents itself (ADR 0072)", () => {
+  it("names itself nothing until an administrator says so", () => {
+    expect(INSTANCE_DEFAULTS.instanceName).toBeNull();
+    expect(INSTANCE_DEFAULTS.mailSenderName).toBeNull();
+    expect(INSTANCE_DEFAULTS.mailSignatureFr).toBeNull();
+  });
+
+  it("takes a name, a message of several lines, and mail text", () => {
+    const patch = instanceSettingsPatchSchema.parse({
+      instanceName: "  Registre des essais  ",
+      signInMessage: "Réservé au personnel.\r\nUn souci ? Écrivez au support.",
+      mailSenderName: "Registre",
+      mailSignatureFr: "L’équipe données",
+      mailInvitationEn: "Ask your team lead before sharing a link.",
+    });
+    expect(patch.instanceName).toBe("Registre des essais");
+    expect(patch.signInMessage).toBe(
+      "Réservé au personnel.\nUn souci ? Écrivez au support.",
+    );
+    expect(instanceSettingsPatchSchema.parse({ instanceName: null })).toEqual({
+      instanceName: null,
+    });
+  });
+
+  it("refuses a name that would start another header line", () => {
+    for (const name of ["Acme\r\nBcc: all@example.org", "Acme\nData", ""]) {
+      expect(
+        instanceSettingsPatchSchema.safeParse({ instanceName: name }).success,
+      ).toBe(false);
+      expect(
+        instanceSettingsPatchSchema.safeParse({ mailSenderName: name }).success,
+      ).toBe(false);
+    }
+    expect(
+      instanceSettingsPatchSchema.safeParse({ instanceName: "x".repeat(81) })
+        .success,
+    ).toBe(false);
+  });
+
+  it("refuses control characters in text of several lines, and too much", () => {
+    expect(
+      instanceSettingsPatchSchema.safeParse({ signInMessage: "a\u0000b" })
+        .success,
+    ).toBe(false);
+    expect(
+      instanceSettingsPatchSchema.safeParse({
+        mailSignatureEn: "x".repeat(1_001),
+      }).success,
+    ).toBe(false);
+  });
+
+  it("falls back to no name when the stored one no longer fits", () => {
+    expect(
+      parseInstanceSettings({ instanceName: "x".repeat(200), banner: "Hello" }),
+    ).toMatchObject({ instanceName: null, banner: "Hello" });
+  });
+});

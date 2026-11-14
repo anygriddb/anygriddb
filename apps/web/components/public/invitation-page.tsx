@@ -7,7 +7,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { useRoleLabel } from "../settings/role-label";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
-import { BrandMark } from "../brand/brand-mark";
+import { InstanceMark } from "../brand/instance-mark";
 
 export function InvitationPage({ token }: { token: string }) {
   const { t } = useLingui();
@@ -26,7 +26,7 @@ export function InvitationPage({ token }: { token: string }) {
   return (
     <main className="flex h-screen items-center justify-center p-6">
       <div className="flex w-full max-w-md flex-col gap-4 rounded-sm border border-border bg-card p-6">
-        <BrandMark className="h-7 w-7" title="AnyGridDB" />
+        <InstanceMark className="h-7 w-7" named />
         {preview.isLoading ? <Spinner /> : null}
         {preview.isError ? (
           <p>{t`This invitation does not exist or has expired.`}</p>

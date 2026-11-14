@@ -183,6 +183,7 @@ export {
   MFA_SCOPES,
   PASSWORD_RESET_MODES,
   POLICY_BOUNDS,
+  PRODUCT_NAME,
   PUBLIC_LINK_MODES,
   SIGNUP_POLICIES,
   SSO_MFA_MODES,
@@ -211,6 +212,14 @@ export {
   type SignupPolicy,
   type SsoMfaMode,
 } from "./instance";
+
+export {
+  INSTANCE_LOGO_MAX_BYTES,
+  INSTANCE_LOGO_TYPES,
+  instanceLogoInputSchema,
+  instanceLogoType,
+  type InstanceLogoType,
+} from "./instance-logo";
 
 export {
   NAME_LOCALES,

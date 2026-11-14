@@ -3,13 +3,9 @@ import type { Database } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
 import type { Publisher } from "./realtime/bus.js";
 import { gridChannel } from "./realtime/channels.js";
-import { readSettings } from "./settings.js";
+import { readMailVoice } from "./settings.js";
 import { liveColumn, liveTable } from "./data/live.js";
-import {
-  notificationMailBody,
-  notificationMailSubject,
-  resolveLocale,
-} from "./mail-i18n.js";
+import { notificationMailBody, notificationMailSubject } from "./mail-i18n.js";
 import { sendMail, smtpReady, type SmtpConfig } from "./mail.js";
 
 export type NotificationKind =
@@ -131,7 +127,7 @@ export async function notify(
     }
   }
   if (!smtpReady(deps.smtp)) return allowed.length;
-  const settings = await readSettings(deps.db);
+  const voice = await readMailVoice(deps.db);
   const emails = await deps.db
     .selectFrom("users")
     .select(["id", "email"])
@@ -143,11 +139,10 @@ export async function notify(
     const table = first?.tableId ? byId.get(first.tableId) : undefined;
     if (!first || !table) continue;
     const link = `${deps.webOrigin}/b/${table.baseId}/t/${table.id}${first.rowId ? `?row=${encodeURIComponent(first.rowId)}` : ""}`;
-    const locale = resolveLocale(null, settings.defaultLocale);
-    await sendMail(deps.smtp, {
+    await sendMail(deps.smtp, voice, {
       to: recipient.email,
-      subject: notificationMailSubject(locale, first.kind, table.name),
-      text: notificationMailBody(locale, first.kind, table.name, link),
+      subject: notificationMailSubject(voice, first.kind, table.name),
+      text: notificationMailBody(voice, first.kind, table.name, link),
     }).catch((error: unknown) => deps.log(error, "notification email failed"));
   }
   return allowed.length;

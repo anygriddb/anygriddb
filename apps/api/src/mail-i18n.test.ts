@@ -1,5 +1,8 @@
+import { INSTANCE_DEFAULTS } from "@anygriddb/core";
 import { describe, expect, it } from "vitest";
+import { EN, FR } from "./mail.test-helpers.js";
 import {
+  mailVoice,
   invitationMailBody,
   invitationMailSubject,
   notificationMailSubject,
@@ -25,17 +28,17 @@ describe("resolveLocale", () => {
 
 describe("notificationSubject", () => {
   it("formats English subjects with placeholders", () => {
-    expect(notificationSubject("en", "mention", TABLE)).toBe(
+    expect(notificationSubject(EN, "mention", TABLE)).toBe(
       `You were mentioned in "${TABLE}"`,
     );
-    expect(notificationSubject("en", "assigned", TABLE)).toContain(TABLE);
+    expect(notificationSubject(EN, "assigned", TABLE)).toContain(TABLE);
   });
 
   it("formats French subjects with placeholders", () => {
-    expect(notificationSubject("fr", "mention", TABLE)).toBe(
+    expect(notificationSubject(FR, "mention", TABLE)).toBe(
       `Vous avez été mentionné dans «\u00a0${TABLE}\u00a0»`,
     );
-    expect(notificationSubject("fr", "webhook_disabled", TABLE)).toContain(
+    expect(notificationSubject(FR, "webhook_disabled", TABLE)).toContain(
       "«\u00a0Sales\u00a0»",
     );
   });
@@ -43,10 +46,10 @@ describe("notificationSubject", () => {
 
 describe("notificationMailSubject", () => {
   it("prefixes the product name", () => {
-    expect(notificationMailSubject("en", "reply", TABLE)).toBe(
+    expect(notificationMailSubject(EN, "reply", TABLE)).toBe(
       `AnyGridDB: New reply in "${TABLE}"`,
     );
-    expect(notificationMailSubject("fr", "reply", TABLE)).toContain(
+    expect(notificationMailSubject(FR, "reply", TABLE)).toContain(
       "AnyGridDB\u00a0: ",
     );
   });
@@ -54,16 +57,16 @@ describe("notificationMailSubject", () => {
 
 describe("invitationMail", () => {
   it("includes the base name in the subject", () => {
-    expect(invitationMailSubject("en", "Ops")).toBe(
+    expect(invitationMailSubject(EN, "Ops")).toBe(
       'AnyGridDB: invitation to "Ops"',
     );
-    expect(invitationMailSubject("fr", "Ops")).toBe(
+    expect(invitationMailSubject(FR, "Ops")).toBe(
       "AnyGridDB\u00a0: invitation à «\u00a0Ops\u00a0»",
     );
   });
 
   it("builds a body with link and expiry", () => {
-    const body = invitationMailBody("en", {
+    const body = invitationMailBody(EN, {
       inviterName: "Ada",
       link: "https://app.example/invite/token",
       expiresDate: "2026-12-01",
@@ -76,11 +79,9 @@ describe("invitationMail", () => {
 
 describe("webhookDisabledMail", () => {
   it("names the webhook in the body", () => {
-    expect(webhookDisabledMailSubject("en")).toBe(
-      "AnyGridDB: webhook disabled",
-    );
-    expect(webhookDisabledMailBody("en", "CRM hook")).toContain('"CRM hook"');
-    expect(webhookDisabledMailBody("fr", "CRM hook")).toContain(
+    expect(webhookDisabledMailSubject(EN)).toBe("AnyGridDB: webhook disabled");
+    expect(webhookDisabledMailBody(EN, "CRM hook")).toContain('"CRM hook"');
+    expect(webhookDisabledMailBody(FR, "CRM hook")).toContain(
       "«\u00a0CRM hook\u00a0»",
     );
   });
@@ -91,29 +92,29 @@ describe("security mails", () => {
 
   it("says why an account is locked, and until when", () => {
     const notice = { kind: "locked", failures: 10, until } as const;
-    expect(securityMailSubject("en", notice)).toBe(
+    expect(securityMailSubject(EN, notice)).toBe(
       "AnyGridDB: your account is locked",
     );
-    expect(securityMailBody("en", notice)).toContain(
+    expect(securityMailBody(EN, notice)).toContain(
       "After 10 failed sign-in attempts",
     );
-    expect(securityMailBody("en", notice)).toContain("10:15 UTC");
-    expect(securityMailBody("fr", { ...notice, until: null })).toContain(
+    expect(securityMailBody(EN, notice)).toContain("10:15 UTC");
+    expect(securityMailBody(FR, { ...notice, until: null })).toContain(
       "jusqu’à ce qu’un administrateur le déverrouille",
     );
   });
 
   it("warns of a changed password and removed factors", () => {
-    expect(securityMailSubject("fr", { kind: "password_changed" })).toBe(
+    expect(securityMailSubject(FR, { kind: "password_changed" })).toBe(
       "AnyGridDB\u00a0: votre mot de passe a changé",
     );
-    expect(securityMailBody("en", { kind: "factors_removed" })).toContain(
+    expect(securityMailBody(EN, { kind: "factors_removed" })).toContain(
       "tell your administrator",
     );
   });
 
   it("sends a reset link that works once, and leaves factors alone", () => {
-    const body = resetMailBody("en", {
+    const body = resetMailBody(EN, {
       link: "https://grid.example.org/reset/abc",
       expiresAt: until,
       byAdmin: true,
@@ -121,8 +122,76 @@ describe("security mails", () => {
     expect(body).toContain("An administrator sent you");
     expect(body).toContain("https://grid.example.org/reset/abc");
     expect(body).toContain("Your second factors stay");
-    expect(resetMailSubject("fr")).toBe(
+    expect(resetMailSubject(FR)).toBe(
       "AnyGridDB\u00a0: choisir un nouveau mot de passe",
+    );
+  });
+});
+
+describe("the instance's voice (ADR 0072)", () => {
+  const settings = {
+    ...INSTANCE_DEFAULTS,
+    defaultLocale: "fr" as const,
+    instanceName: "Registre",
+    mailSignatureEn: "The data team",
+    mailSignatureFr: "L’équipe données",
+    mailInvitationFr: "Réservé au personnel de l’étude.",
+  };
+
+  it("is the product's until the instance says otherwise", () => {
+    expect(EN).toEqual({
+      locale: "en",
+      name: "AnyGridDB",
+      sender: null,
+      signature: null,
+      invitationNote: null,
+    });
+  });
+
+  it("speaks the reader's language, else the instance's", () => {
+    expect(mailVoice(settings)).toMatchObject({
+      locale: "fr",
+      signature: "L’équipe données",
+      invitationNote: "Réservé au personnel de l’étude.",
+    });
+    expect(mailVoice(settings, "en")).toMatchObject({
+      locale: "en",
+      signature: "The data team",
+      invitationNote: null,
+    });
+  });
+
+  it("sends under the instance's name unless a sender name is set", () => {
+    expect(mailVoice(settings).sender).toBe("Registre");
+    expect(
+      mailVoice({ ...settings, mailSenderName: "Support Registre" }).sender,
+    ).toBe("Support Registre");
+  });
+
+  it("puts the instance's name where the product's was", () => {
+    const voice = mailVoice(settings);
+    expect(resetMailSubject(voice)).toBe(
+      "Registre\u00a0: choisir un nouveau mot de passe",
+    );
+    expect(securityMailBody(voice, { kind: "password_changed" })).toContain(
+      "votre compte Registre",
+    );
+    expect(notificationSubject(voice, "row_changed", TABLE)).toBe(
+      "Une ligne verrouillée de «\u00a0Sales\u00a0» a changé sans passer par Registre",
+    );
+    expect(securityMailBody(voice, { kind: "password_changed" })).not.toContain(
+      "AnyGridDB",
+    );
+  });
+
+  it("adds the instance's note to an invitation, and keeps the link", () => {
+    const body = invitationMailBody(mailVoice(settings), {
+      inviterName: "Ada",
+      link: "https://app.example/invite/token",
+      expiresDate: "2026-12-01",
+    });
+    expect(body).toBe(
+      "Ada vous invite sur Registre.\n\nRéservé au personnel de l’étude.\n\nhttps://app.example/invite/token\n\nLe lien expire le 2026-12-01.",
     );
   });
 });

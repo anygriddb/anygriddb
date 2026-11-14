@@ -53,7 +53,7 @@ import {
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogBase, CatalogTable } from "../../lib/types";
 import { canManage } from "../../lib/types";
-import { BrandMark } from "../brand/brand-mark";
+import { InstanceMark, InstanceName } from "../brand/instance-mark";
 import { ImportDialog } from "../table/import-dialog";
 import { ConfirmDialog, PromptDialog } from "./dialogs";
 import { NewTableDialog } from "./new-table-dialog";
@@ -438,8 +438,10 @@ export function Sidebar({
           to="/"
           className="flex min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-1.5 hover:bg-muted"
         >
-          <BrandMark className="h-5 w-5" />
-          <span className="truncate text-sm font-semibold">AnyGridDB</span>
+          <InstanceMark className="h-5 w-5" />
+          <span className="truncate text-sm font-semibold">
+            <InstanceName />
+          </span>
         </Link>
       </div>
       <button

@@ -836,6 +836,11 @@ msgstr "A link can fill fields: add ?prefill_field_name=value to its address, an
 msgid "A link works once: an hour when the person asks, a day when an administrator sends it. Second factors stay in place."
 msgstr "A link works once: an hour when the person asks, a day when an administrator sends it. Second factors stay in place."
 
+#: components/admin/identity-tab.tsx
+#: lib/errors.ts
+msgid "A logo is a PNG, JPEG, or WebP image of 256 KiB at most"
+msgstr "A logo is a PNG, JPEG, or WebP image of 256 KiB at most"
+
 #: components/admin/security-tab.tsx
 msgid "A longer password is the strongest rule: AnyGridDB asks for no mix of characters, and never for a change on a schedule."
 msgstr "A longer password is the strongest rule: AnyGridDB asks for no mix of characters, and never for a change on a schedule."
@@ -851,6 +856,10 @@ msgstr "A number given to each new row"
 #: components/fields/field-meta.tsx
 msgid "A phone number"
 msgstr "A phone number"
+
+#: components/admin/identity-tab.tsx
+msgid "A PNG, JPEG, or WebP image of 256 KiB at most. It is drawn small, in a square, wherever the mark above is: a symbol reads better than a name written out."
+msgstr "A PNG, JPEG, or WebP image of 256 KiB at most. It is drawn small, in a square, wherever the mark above is: a symbol reads better than a name written out."
 
 #: components/views/calendar-feed.tsx
 msgid "A private address for your calendar application (Outlook, Google Calendar, Apple Calendar…). It shows what you can read of this view, from six months back to two years ahead. Keep it to yourself: whoever has it reads these rows."
@@ -1264,6 +1273,10 @@ msgstr "Add two number fields, a latitude and a longitude, to place rows on the 
 #: components/settings/webhooks-panel.tsx
 msgid "Add webhook"
 msgstr "Add webhook"
+
+#: components/admin/identity-tab.tsx
+msgid "Added to an invitation to a base, between the name of who invites and the link. The link and the day it expires are always there."
+msgstr "Added to an invitation to a base, between the name of who invites and the link. The link and the day it expires are always there."
 
 #: lib/errors.ts
 msgid "Adding rows is not allowed on this table: an administrator can enable it in its source"
@@ -2139,10 +2152,18 @@ msgstr "Choose a file"
 msgid "Choose a new password"
 msgstr "Choose a new password"
 
+#: components/admin/identity-tab.tsx
+msgid "Choose an image"
+msgstr "Choose an image"
+
 #: components/admin/people-file-dialog.tsx
 #: components/table/import-dialog.tsx
 msgid "Choose another file"
 msgstr "Choose another file"
+
+#: components/admin/identity-tab.tsx
+msgid "Choose another image"
+msgstr "Choose another image"
 
 #: components/views/map-view.tsx
 msgid "Choose the fields that hold the latitude and the longitude."
@@ -2235,6 +2256,10 @@ msgstr "Close the navigation"
 #: components/admin/settings-tab.tsx
 msgid "Closed"
 msgstr "Closed"
+
+#: components/admin/identity-tab.tsx
+msgid "Closes every mail the instance writes, in the language of the mail: who sends it, how to reach them. Mail an automation or a webhook sends keeps the text its author wrote."
+msgstr "Closes every mail the instance writes, in the language of the mail: who sends it, how to reach them. Mail an automation or a webhook sends keeps the text its author wrote."
 
 #: components/settings/account-settings.tsx
 msgid "Code from your authenticator app, or a backup code"
@@ -4309,6 +4334,10 @@ msgstr "In a client's database"
 msgid "In an emergency"
 msgstr "In an emergency"
 
+#: components/admin/identity-tab.tsx
+msgid "In mail"
+msgstr "In mail"
+
 #: components/table/filter-builder.tsx
 msgid "in N days"
 msgstr "in N days"
@@ -5082,6 +5111,19 @@ msgstr "Logarithm, in base 10 by default."
 msgid "Logic"
 msgstr "Logic"
 
+#: components/admin/identity-tab.tsx
+#: components/admin/sign-in-trail.tsx
+msgid "Logo"
+msgstr "Logo"
+
+#: components/admin/identity-tab.tsx
+msgid "Logo removed"
+msgstr "Logo removed"
+
+#: components/admin/identity-tab.tsx
+msgid "Logo saved"
+msgstr "Logo saved"
+
 #: components/fields/field-editor.tsx
 msgid "Long (December 31, 2026)"
 msgstr "Long (December 31, 2026)"
@@ -5396,6 +5438,7 @@ msgstr "N days ago"
 #: components/admin/access-tab.tsx
 #: components/admin/group-page.tsx
 #: components/admin/groups-tab.tsx
+#: components/admin/identity-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/settings/webhooks-panel.tsx
@@ -5403,6 +5446,14 @@ msgstr "N days ago"
 #: components/table/automations-dialog.tsx
 msgid "Name"
 msgstr "Name"
+
+#: components/admin/admin-sections.ts
+msgid "Name and logo"
+msgstr "Name and logo"
+
+#: components/admin/sign-in-trail.tsx
+msgid "Name of the instance"
+msgstr "Name of the instance"
 
 #: components/admin/accounts-tab.tsx
 #: components/admin/support-tab.tsx
@@ -5957,6 +6008,21 @@ msgstr "Not set"
 msgid "Not watched"
 msgstr "Not watched"
 
+#: components/admin/identity-tab.tsx
+#: components/admin/sign-in-trail.tsx
+msgid "Note in invitations, in English"
+msgstr "Note in invitations, in English"
+
+#: components/admin/identity-tab.tsx
+#: components/admin/sign-in-trail.tsx
+msgid "Note in invitations, in French"
+msgstr "Note in invitations, in French"
+
+#: components/admin/identity-tab.tsx
+#: components/admin/sign-in-trail.tsx
+msgid "Note on the sign-in pages"
+msgstr "Note on the sign-in pages"
+
 #: components/shell/new-table-dialog.tsx
 msgid "Notes"
 msgstr "Notes"
@@ -6052,6 +6118,10 @@ msgstr "On a schedule"
 #: components/admin/effective-rights.tsx
 msgid "On the base"
 msgstr "On the base"
+
+#: components/admin/identity-tab.tsx
+msgid "On the screens"
+msgstr "On the screens"
 
 #: lib/errors.ts
 msgid "On this instance, a public link needs a password"
@@ -6915,6 +6985,10 @@ msgstr "Remove the auditor role"
 msgid "Remove the group {name}"
 msgstr "Remove the group {name}"
 
+#: components/admin/identity-tab.tsx
+msgid "Remove the logo"
+msgstr "Remove the logo"
+
 #: components/admin/account-actions.tsx
 msgid "Remove the support role"
 msgstr "Remove the support role"
@@ -7376,9 +7450,17 @@ msgstr "Save SAML"
 msgid "Save SIEM webhook"
 msgstr "Save SIEM webhook"
 
+#: components/admin/identity-tab.tsx
+msgid "Save the mail settings"
+msgstr "Save the mail settings"
+
 #: components/admin/settings-tab.tsx
 msgid "Save the map tiles"
 msgstr "Save the map tiles"
+
+#: components/admin/identity-tab.tsx
+msgid "Save the name and the note"
+msgstr "Save the name and the note"
 
 #: components/admin/account-actions.tsx
 #: components/admin/alerts-section.tsx
@@ -7591,6 +7673,7 @@ msgstr "Send again"
 msgid "Send an email"
 msgstr "Send an email"
 
+#: components/admin/identity-tab.tsx
 #: components/admin/integrations-tab.tsx
 #: components/admin/support-tab.tsx
 msgid "Send me a test email"
@@ -7619,6 +7702,11 @@ msgstr "Send the link"
 #: components/admin/support-tab.tsx
 msgid "Send to {count} accounts?"
 msgstr "Send to {count} accounts?"
+
+#: components/admin/identity-tab.tsx
+#: components/admin/sign-in-trail.tsx
+msgid "Sender name"
+msgstr "Sender name"
 
 #: components/admin/access-tab.tsx
 msgid "Sends to"
@@ -7696,6 +7784,7 @@ msgstr "Settings"
 msgid "Settings and sharing"
 msgstr "Settings and sharing"
 
+#: components/admin/identity-tab.tsx
 #: components/admin/security-tab.tsx
 #: components/admin/settings-tab.tsx
 msgid "Settings saved"
@@ -7780,6 +7869,10 @@ msgstr "Shown at the top of the app to everyone signed in"
 #: components/views/view-common.tsx
 msgid "Shown on cards"
 msgstr "Shown on cards"
+
+#: components/admin/identity-tab.tsx
+msgid "Shown on the sign-in pages, at the top of the app, in the browser's tab, and in mail. Empty: {PRODUCT_NAME}."
+msgstr "Shown on the sign-in pages, at the top of the app, in the browser's tab, and in mail. Empty: {PRODUCT_NAME}."
 
 #: components/admin/sources-tab.tsx
 msgid "Side schema"
@@ -7926,6 +8019,16 @@ msgstr "Sign-ups"
 #: components/admin/trails.tsx
 msgid "Signature"
 msgstr "Signature"
+
+#: components/admin/identity-tab.tsx
+#: components/admin/sign-in-trail.tsx
+msgid "Signature, in English"
+msgstr "Signature, in English"
+
+#: components/admin/identity-tab.tsx
+#: components/admin/sign-in-trail.tsx
+msgid "Signature, in French"
+msgstr "Signature, in French"
 
 #: components/record/record-panel.tsx
 msgid "signed"
@@ -8388,6 +8491,7 @@ msgstr "Test"
 msgid "Test certificate"
 msgstr "Test certificate"
 
+#: components/admin/identity-tab.tsx
 #: components/admin/integrations-tab.tsx
 #: components/admin/support-tab.tsx
 msgid "Test email sent to {to}"
@@ -8644,6 +8748,10 @@ msgstr "The instance is under maintenance: only administrators can sign in for n
 msgid "The instance is under maintenance. Try again later."
 msgstr "The instance is under maintenance. Try again later."
 
+#: components/admin/identity-tab.tsx
+msgid "The instance sends no email yet: set it up under Connections."
+msgstr "The instance sends no email yet: set it up under Connections."
+
 #: components/admin/alerts-section.tsx
 msgid "The instance's certificate expires on {when}."
 msgstr "The instance's certificate expires on {when}."
@@ -8716,6 +8824,10 @@ msgstr "The list's values as one text, separated by a comma by default."
 msgid "The log shows who changed which fields. Values stay in each row's history, behind the table's access rights."
 msgstr "The log shows who changed which fields. Values stay in each row's history, behind the table's access rights."
 
+#: components/admin/identity-tab.tsx
+msgid "The logo in use"
+msgstr "The logo in use"
+
 #: components/fields/formula-docs.ts
 msgid "The mean of the numbers given."
 msgstr "The mean of the numbers given."
@@ -8727,6 +8839,10 @@ msgstr "The minutes."
 #: components/fields/formula-docs.ts
 msgid "The month, from 1 to 12."
 msgstr "The month, from 1 to 12."
+
+#: components/admin/identity-tab.tsx
+msgid "The name before the sender's address. Empty: the instance's name, and without one the address alone."
+msgstr "The name before the sender's address. Empty: the instance's name, and without one the address alone."
 
 #: components/admin/people-file-dialog.tsx
 msgid "The name is missing, or holds a sign a name cannot"
@@ -9699,6 +9815,10 @@ msgstr "Unclosed field reference"
 #: lib/errors.ts
 msgid "Unclosed text: a quote is missing"
 msgstr "Unclosed text: a quote is missing"
+
+#: components/admin/identity-tab.tsx
+msgid "Under the name, for everyone who opens the sign-in pages, before they sign in: who the instance is for, whom to ask for an account."
+msgstr "Under the name, for everyone who opens the sign-in pages, before they sign in: who the instance is for, whom to ask for an account."
 
 #: components/table/view-toolbar.tsx
 msgid "Undo"

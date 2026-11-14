@@ -4,6 +4,7 @@ import {
   accessibilityViolations,
   findAccount,
   mailedLink,
+  mailedMessage,
   openAdmin,
   proveItIsYou,
   signIn,
@@ -446,6 +447,113 @@ test("an administrator names a tile server, and maps draw their background from 
     await control.query(
       "delete from instance_settings where key in ('mapTileUrl', 'mapTileCredit')",
     );
+    await control.end();
+  }
+});
+
+/** One pixel, as a PNG. */
+const PIXEL = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+// How the instance presents itself (ADR 0072): an administrator gives it
+// a name, a logo and a note; anyone who opens the sign-in page then sees
+// them, and its mail goes out under that name, signed. It changes
+// instance settings, and puts them back.
+test("an administrator names the instance, and the sign-in page and its mail carry the name", async ({
+  page,
+  browser,
+}) => {
+  const blocked = watchPolicy(page);
+  const control = new pg.Client({ connectionString: controlUrl });
+  await control.connect();
+  try {
+    const { email } = await signUpWithTable(page, "Identity Admin");
+    await control.query("update users set is_admin = true where email = $1", [
+      email,
+    ]);
+
+    await page.goto("/admin");
+    await openAdmin(page, "Instance", "Name and logo");
+    await page.getByLabel("Name", { exact: true }).fill("Trial Register");
+    await page
+      .getByLabel("Note on the sign-in pages")
+      .fill("For the staff of the study.\nAsk the data team for an account.");
+    await page
+      .getByRole("button", { name: "Save the name and the note" })
+      .click();
+    await expect(page.getByText("Settings saved")).toBeVisible();
+    // The browser's tab carries the name at once.
+    await expect(page).toHaveTitle("Trial Register");
+
+    // What is called an image and is not one is refused where it arrives.
+    await page.getByLabel("Choose an image").setInputFiles({
+      name: "logo.png",
+      mimeType: "image/png",
+      buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
+    });
+    await expect(
+      page.getByText("A logo is a PNG, JPEG, or WebP image of 256 KiB at most"),
+    ).toBeVisible();
+    await page.getByLabel("Choose an image").setInputFiles({
+      name: "logo.png",
+      mimeType: "image/png",
+      buffer: PIXEL,
+    });
+    await expect(page.getByText("Logo saved")).toBeVisible();
+    await expect(
+      page.getByRole("img", { name: "The logo in use" }),
+    ).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // Its mail: under its name, closed by its signature.
+    await page.getByLabel("Signature, in English").fill("The data team");
+    await page.getByRole("button", { name: "Save the mail settings" }).click();
+    await expect(page.getByText("Settings saved").first()).toBeVisible();
+    await page.getByRole("button", { name: "Send me a test email" }).click();
+    const mail = await mailedMessage(email, "Trial Register: test message");
+    expect(mail.fromName).toBe("Trial Register");
+    expect(mail.text).toMatch(/-- \r?\nThe data team/);
+
+    // Someone who has no account opens the sign-in page.
+    const own = await browser.newContext(from("198.51.100.22"));
+    const visitor = await own.newPage();
+    const visitorBlocked = watchPolicy(visitor);
+    await visitor.goto("/login");
+    await expect(visitor.getByText("Trial Register")).toBeVisible();
+    await expect(
+      visitor.getByText("Ask the data team for an account."),
+    ).toBeVisible();
+    await expect(visitor).toHaveTitle("Trial Register");
+    const logo = visitor.locator('img[src^="/api/instance/logo?v="]');
+    await expect(logo).toBeVisible();
+    expect(
+      await logo.evaluate((image: HTMLImageElement) => image.naturalWidth),
+    ).toBe(1);
+    expect(await accessibilityViolations(visitor)).toEqual([]);
+    // On a phone, the name and the note still stand above the form.
+    await visitor.setViewportSize({ width: 390, height: 800 });
+    await expect(visitor.getByText("Trial Register")).toBeVisible();
+    await expect(visitor.getByLabel("Email")).toBeVisible();
+    expect(visitorBlocked).toEqual([]);
+    await own.close();
+
+    // Taken away: the product's mark and name are back.
+    await page.getByRole("button", { name: "Remove the logo" }).click();
+    await expect(page.getByText("Logo removed")).toBeVisible();
+    await page.getByLabel("Name", { exact: true }).fill("");
+    await page.getByLabel("Note on the sign-in pages").fill("");
+    await page
+      .getByRole("button", { name: "Save the name and the note" })
+      .click();
+    await expect(page).toHaveTitle("AnyGridDB");
+    expect(blocked).toEqual([]);
+  } finally {
+    await control.query(
+      "delete from instance_settings where key in ('instanceName', 'signInMessage', 'mailSignatureEn')",
+    );
+    await control.query("delete from instance_logo");
     await control.end();
   }
 });

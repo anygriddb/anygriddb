@@ -38,8 +38,42 @@ function transportFor(config: SmtpConfig & { SMTP_HOST: string }) {
   });
 }
 
+/** Who a mail is from and how it closes: the instance's voice (ADR 0072). */
+export type MailIdentity = {
+  /** Before the sender's address; null leaves the address alone. */
+  sender: string | null;
+  signature: string | null;
+};
+
+/** The address of a sender that may already carry a name: "Name <a@b>". */
+function addressOf(from: string): string {
+  return /<([^<>]+)>\s*$/.exec(from)?.[1] ?? from.trim();
+}
+
+/** The sender as the mailer takes it: it encodes the name for the header. */
+export function mailFrom(
+  from: string,
+  identity: MailIdentity,
+): string | { name: string; address: string } {
+  return identity.sender
+    ? { name: identity.sender, address: addressOf(from) }
+    : from;
+}
+
+/** The text with the instance's signature under it, after "-- " alone. */
+export function signedText(text: string, identity: MailIdentity): string {
+  return identity.signature
+    ? `${text.trimEnd()}\n\n-- \n${identity.signature}`
+    : text;
+}
+
+/**
+ * Every mail leaves here, under the instance's voice: its sender name and
+ * its signature are added once, for all of them.
+ */
 export async function sendMail(
   config: SmtpConfig,
+  identity: MailIdentity,
   message: { to: string; subject: string; text: string },
 ): Promise<void> {
   const { SMTP_HOST, SMTP_FROM } = config;
@@ -49,10 +83,10 @@ export async function sendMail(
   const transport = transportFor({ ...config, SMTP_HOST });
   try {
     await transport.sendMail({
-      from: SMTP_FROM,
+      from: mailFrom(SMTP_FROM, identity),
       to: message.to,
       subject: message.subject,
-      text: message.text,
+      text: signedText(message.text, identity),
     });
   } finally {
     transport.close();

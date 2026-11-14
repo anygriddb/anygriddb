@@ -483,6 +483,14 @@ export interface InstanceAlerts {
   subject: Generated<string>;
 }
 
+export interface InstanceLogo {
+  bytes: Buffer;
+  contentType: string;
+  id: Generated<boolean>;
+  updatedAt: Generated<Timestamp>;
+  version: string;
+}
+
 export interface InstanceOidc {
   clientId: string;
   clientSecretCiphertext: Buffer;
@@ -910,6 +918,7 @@ export interface DB {
   groupRoles: GroupRoles;
   groups: Groups;
   instanceAlerts: InstanceAlerts;
+  instanceLogo: InstanceLogo;
   instanceOidc: InstanceOidc;
   instanceSaml: InstanceSaml;
   instanceSettings: InstanceSettings;

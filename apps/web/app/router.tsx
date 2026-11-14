@@ -120,6 +120,11 @@ const SettingsTab = page(() =>
     (module) => module.SettingsTab,
   ),
 );
+const IdentityTab = page(() =>
+  import("../components/admin/identity-tab").then(
+    (module) => module.IdentityTab,
+  ),
+);
 const HealthTab = page(() =>
   import("../components/admin/health-tab").then((module) => module.HealthTab),
 );
@@ -376,6 +381,7 @@ const adminRoutes = [
   adminPage("trails", ChangesTrail),
   adminPage("trails/sign-ins", SignInTrail),
   adminPage("instance", SettingsTab),
+  adminPage("instance/identity", IdentityTab),
   adminPage("instance/health", HealthTab),
   adminPage("instance/support", SupportTab),
 ];

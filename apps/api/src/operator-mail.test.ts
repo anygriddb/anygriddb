@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { EN, FR } from "./mail.test-helpers.js";
 import {
   MAX_OPERATOR_MAIL_RECIPIENTS,
   operatorMailInputSchema,
@@ -57,16 +58,16 @@ describe("operatorMailPayloadSchema", () => {
 
 describe("operatorMailText", () => {
   it("appends the English administrator footer", () => {
-    expect(operatorMailText("en", "Please sign in once.")).toContain(
-      operatorMailFooter("en"),
+    expect(operatorMailText(EN, "Please sign in once.")).toContain(
+      operatorMailFooter(EN),
     );
-    expect(operatorMailFooter("en")).toMatch(/administrator/i);
+    expect(operatorMailFooter(EN)).toMatch(/administrator/i);
   });
 
   it("appends the French administrator footer", () => {
-    expect(operatorMailText("fr", "Merci de vous connecter.")).toContain(
-      operatorMailFooter("fr"),
+    expect(operatorMailText(FR, "Merci de vous connecter.")).toContain(
+      operatorMailFooter(FR),
     );
-    expect(operatorMailFooter("fr")).toMatch(/administrateur/i);
+    expect(operatorMailFooter(FR)).toMatch(/administrateur/i);
   });
 });

@@ -147,6 +147,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   job_cancelled: msg`Job cancelled`,
   interrupted: msg`The job was interrupted by a restart. Start it again.`,
   invalid_file: msg`Invalid file`,
+  invalid_logo: msg`A logo is a PNG, JPEG, or WebP image of 256 KiB at most`,
   file_too_large: msg`File too large`,
   storage_not_configured: msg`File storage is not set up`,
   smtp_not_configured: msg`Email is not set up on this instance`,

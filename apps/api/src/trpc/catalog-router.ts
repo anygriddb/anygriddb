@@ -86,12 +86,8 @@ import {
   setTableRole,
   shareViewId,
 } from "../data/sharing.js";
-import { readSettings } from "../settings.js";
-import {
-  invitationMailBody,
-  invitationMailSubject,
-  resolveLocale,
-} from "../mail-i18n.js";
+import { readMailVoice } from "../settings.js";
+import { invitationMailBody, invitationMailSubject } from "../mail-i18n.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 import { sendMail, smtpReady } from "../mail.js";
 import {
@@ -1532,22 +1528,21 @@ export const catalogRouter = t.router({
         let mailed = false;
         const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
         if (smtpReady(smtp)) {
-          const [base, settings] = await Promise.all([
+          const [base, voice] = await Promise.all([
             ctx.db
               .selectFrom("bases")
               .select("name")
               .where("id", "=", input.baseId)
               .executeTakeFirst(),
-            readSettings(ctx.db),
+            readMailVoice(ctx.db),
           ]);
-          const locale = resolveLocale(null, settings.defaultLocale);
           const link = `${ctx.env.PUBLIC_URL}/invite/${created.token}`;
           const expiresDate = created.expiresAt.toISOString().slice(0, 10);
           try {
-            await sendMail(smtp, {
+            await sendMail(smtp, voice, {
               to: input.email,
-              subject: invitationMailSubject(locale, base?.name ?? ""),
-              text: invitationMailBody(locale, {
+              subject: invitationMailSubject(voice, base?.name ?? ""),
+              text: invitationMailBody(voice, {
                 inviterName: user.displayName,
                 link,
                 expiresDate,
