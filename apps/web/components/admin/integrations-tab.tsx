@@ -12,6 +12,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
+import { needsTenant, OIDC_PRESETS, TENANT_PLACEHOLDER } from "./oidc-presets";
 import { useStepUp } from "./step-up";
 
 function sourceLabel(
@@ -261,6 +262,7 @@ function OidcSection() {
 
   const issuerValue = issuer ?? oidc.data.issuer ?? "";
   const clientIdValue = clientId ?? oidc.data.clientId ?? "";
+  const tenantMissing = needsTenant(issuerValue);
 
   return (
     <RuledSection
@@ -300,9 +302,34 @@ function OidcSection() {
             required
             autoComplete="off"
             placeholder="https://login.example.org/"
+            aria-describedby="oidc-issuer-help"
             value={issuerValue}
             onChange={(event) => setIssuer(event.target.value)}
           />
+          <div
+            role="group"
+            aria-label={t`Fill the issuer of a provider`}
+            className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+          >
+            {t`Fill it for`}
+            {OIDC_PRESETS.map((preset) => (
+              <Button
+                key={preset.id}
+                type="button"
+                size="xs"
+                variant="outline"
+                disabled={busy}
+                onClick={() => setIssuer(preset.issuer)}
+              >
+                {preset.name}
+              </Button>
+            ))}
+          </div>
+          <p id="oidc-issuer-help" className="text-xs text-muted-foreground">
+            {tenantMissing
+              ? t`Replace ${{ placeholder: TENANT_PLACEHOLDER }} with your directory (tenant) ID: Microsoft has one issuer per directory.`
+              : t`You register an application with the provider, and type its client ID and secret below.`}
+          </p>
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="oidc-client-id">{t`Client ID`}</Label>
@@ -343,7 +370,7 @@ function OidcSection() {
           </p>
         )}
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" size="sm" disabled={busy}>
+          <Button type="submit" size="sm" disabled={busy || tenantMissing}>
             <Cable className="h-4 w-4" aria-hidden />
             {t`Save OIDC`}
           </Button>
@@ -351,7 +378,7 @@ function OidcSection() {
             type="button"
             size="sm"
             variant="outline"
-            disabled={busy || !issuerValue.trim()}
+            disabled={busy || tenantMissing || !issuerValue.trim()}
             onClick={() =>
               void (async () => {
                 setBusy(true);
