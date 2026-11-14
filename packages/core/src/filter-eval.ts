@@ -6,6 +6,7 @@
  */
 import {
   OPERATORS_BY_KIND,
+  calendarPeriod,
   isFilterGroup,
   type DateFilterValue,
   type FilterCondition,
@@ -283,6 +284,7 @@ function dayRange(
         : plusMonths(start, unit === "year" ? 12 : 1);
     return { start, end };
   };
+  const named = calendarPeriod(spec.mode);
   if (within) {
     switch (spec.mode) {
       case "past_week":
@@ -302,15 +304,14 @@ function dayRange(
       case "next_days":
         return { start: today, end: plusDays(today, days + 1) };
       case "this_week":
-        return period("week", 0);
       case "this_month":
-        return period("month", 0);
       case "this_year":
-        return period("year", 0);
+        return named && period(...named);
       default:
         return undefined;
     }
   }
+  if (named) return period(...named);
   switch (spec.mode) {
     case "today":
       return { start: today, end: plusDays(today, 1) };
@@ -326,24 +327,6 @@ function dayRange(
       const start = plusDays(today, days);
       return { start, end: plusDays(start, 1) };
     }
-    case "this_week":
-      return period("week", 0);
-    case "last_week":
-      return period("week", -1);
-    case "next_week":
-      return period("week", 1);
-    case "this_month":
-      return period("month", 0);
-    case "last_month":
-      return period("month", -1);
-    case "next_month":
-      return period("month", 1);
-    case "this_year":
-      return period("year", 0);
-    case "last_year":
-      return period("year", -1);
-    case "next_year":
-      return period("year", 1);
     case "exact":
       return spec.date && isIsoDate(spec.date)
         ? { start: spec.date, end: plusDays(spec.date, 1) }
