@@ -37,13 +37,15 @@ export async function trashBase(
   userId: string,
   baseId: string,
 ): Promise<void> {
-  const done = await db
-    .updateTable("bases")
-    .set({ deletedAt: new Date(), deletedBy: userId })
-    .where("id", "=", baseId)
-    .where(liveBase())
-    .returning("id")
-    .executeTakeFirst();
+  const done = await withAudit(db, { userId, source: "web" }, (tx) =>
+    tx
+      .updateTable("bases")
+      .set({ deletedAt: new Date(), deletedBy: userId })
+      .where("id", "=", baseId)
+      .where(liveBase())
+      .returning("id")
+      .executeTakeFirst(),
+  );
   if (!done) throw new AppError("no_row");
 }
 
@@ -210,14 +212,20 @@ async function restoreCompanions(
   return [...new Set(companions.map((column) => column.tableId))];
 }
 
-export async function restoreBase(db: Database, baseId: string): Promise<void> {
-  const done = await db
-    .updateTable("bases")
-    .set({ deletedAt: null, deletedBy: null })
-    .where("id", "=", baseId)
-    .where("deletedAt", "is not", null)
-    .returning("id")
-    .executeTakeFirst();
+export async function restoreBase(
+  db: Database,
+  userId: string,
+  baseId: string,
+): Promise<void> {
+  const done = await withAudit(db, { userId, source: "web" }, (tx) =>
+    tx
+      .updateTable("bases")
+      .set({ deletedAt: null, deletedBy: null })
+      .where("id", "=", baseId)
+      .where("deletedAt", "is not", null)
+      .returning("id")
+      .executeTakeFirst(),
+  );
   if (!done) throw new AppError("no_row");
 }
 
@@ -364,7 +372,11 @@ export async function restoreColumn(
 }
 
 /** A view comes back unless its table is in the trash. */
-export async function restoreView(db: Database, view: ViewRow): Promise<void> {
+export async function restoreView(
+  db: Database,
+  userId: string,
+  view: ViewRow,
+): Promise<void> {
   const table = await db
     .selectFrom("dataTables")
     .select("id")
@@ -372,11 +384,13 @@ export async function restoreView(db: Database, view: ViewRow): Promise<void> {
     .where(liveTable())
     .executeTakeFirst();
   if (!table) throw new AppError("invalid_restore");
-  await db
-    .updateTable("views")
-    .set({ deletedAt: null, deletedBy: null })
-    .where("id", "=", view.id)
-    .execute();
+  await withAudit(db, { userId, tableId: view.tableId, source: "web" }, (tx) =>
+    tx
+      .updateTable("views")
+      .set({ deletedAt: null, deletedBy: null })
+      .where("id", "=", view.id)
+      .execute(),
+  );
 }
 
 /** A view in the trash, for the restore and purge checks. */

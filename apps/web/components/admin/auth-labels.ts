@@ -36,6 +36,7 @@ export function useAuthLabels() {
     saml: "SAML",
     signup: t`Sign-up`,
     admin: t`Administrator`,
+    scim: "SCIM",
   };
   return {
     action: (value: string) => actions[value] ?? value,

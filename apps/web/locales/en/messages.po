@@ -2051,6 +2051,7 @@ msgstr "Backups"
 #: components/admin/bases-tab.tsx
 #: components/admin/invitations-panel.tsx
 #: components/admin/sources-tab.tsx
+#: components/admin/trails.tsx
 #: components/shell/base-home.tsx
 msgid "Base"
 msgstr "Base"
@@ -3015,6 +3016,10 @@ msgstr "Dark"
 msgid "Dark theme"
 msgstr "Dark theme"
 
+#: components/admin/trails.tsx
+msgid "Dashboard"
+msgstr "Dashboard"
+
 #: components/dashboards/dashboard-list.tsx
 msgid "Dashboard deleted"
 msgstr "Dashboard deleted"
@@ -3023,6 +3028,10 @@ msgstr "Dashboard deleted"
 #: lib/errors.ts
 msgid "Dashboard not found"
 msgstr "Dashboard not found"
+
+#: components/admin/trails.tsx
+msgid "Dashboard widget"
+msgstr "Dashboard widget"
 
 #: components/shell/base-home.tsx
 #: components/shell/sidebar-dashboards.tsx
@@ -4215,6 +4224,10 @@ msgstr "Fit"
 #: components/fields/field-editor.tsx
 msgid "Flag"
 msgstr "Flag"
+
+#: components/admin/trails.tsx
+msgid "Folder"
+msgstr "Folder"
 
 #: components/shell/sidebar.tsx
 msgid "Folder actions"
@@ -10763,6 +10776,7 @@ msgid "view"
 msgstr "view"
 
 #: components/admin/outbound-tab.tsx
+#: components/admin/trails.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/fields/link-selection.tsx
 msgid "View"

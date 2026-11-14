@@ -104,6 +104,11 @@ export function ChangesTrail() {
           sources: t`Source`,
           external_watches: t`Watched table`,
           external_syncs: t`Synced table`,
+          bases: t`Base`,
+          views: t`View`,
+          dashboards: t`Dashboard`,
+          dashboard_widgets: t`Dashboard widget`,
+          table_folders: t`Folder`,
         }[table]
       : undefined) ?? t`Structure`;
   async function exportCsv() {
@@ -201,7 +206,7 @@ export function ChangesTrail() {
                 <td className="px-2 py-1.5">
                   {event.tableName
                     ? `${event.baseName ?? ""} / ${event.tableName}`
-                    : "—"}
+                    : (event.baseName ?? "—")}
                   {event.recordId ? (
                     <span className="block font-mono text-[10px] text-muted-foreground">
                       {event.recordId.slice(0, 8)}

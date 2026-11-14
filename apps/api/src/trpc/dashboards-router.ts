@@ -45,8 +45,8 @@ export const dashboardsRouter = t.router({
     .input(createDashboardInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        await guardBase(ctx, input.baseId, "manage");
-        return createDashboard(ctx.db, input);
+        const { user } = await guardBase(ctx, input.baseId, "manage");
+        return createDashboard(ctx.db, user.id, input);
       }),
     ),
   update: procedure
@@ -54,8 +54,8 @@ export const dashboardsRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const dashboard = await loadDashboard(ctx.db, input.dashboardId);
-        await guardBase(ctx, dashboard.baseId, "manage");
-        return updateDashboard(ctx.db, input);
+        const { user } = await guardBase(ctx, dashboard.baseId, "manage");
+        return updateDashboard(ctx.db, user.id, input);
       }),
     ),
   delete: procedure
@@ -63,8 +63,8 @@ export const dashboardsRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const dashboard = await loadDashboard(ctx.db, input.dashboardId);
-        await guardBase(ctx, dashboard.baseId, "manage");
-        await deleteDashboard(ctx.db, input.dashboardId);
+        const { user } = await guardBase(ctx, dashboard.baseId, "manage");
+        await deleteDashboard(ctx.db, user.id, input.dashboardId);
         return { ok: true as const };
       }),
     ),
@@ -73,8 +73,8 @@ export const dashboardsRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const dashboard = await loadDashboard(ctx.db, input.dashboardId);
-        await guardBase(ctx, dashboard.baseId, "manage");
-        return upsertWidget(ctx.db, dashboard.baseId, input);
+        const { user } = await guardBase(ctx, dashboard.baseId, "manage");
+        return upsertWidget(ctx.db, user.id, dashboard.baseId, input);
       }),
     ),
   deleteWidget: procedure
@@ -82,16 +82,16 @@ export const dashboardsRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const dashboard = await loadDashboard(ctx.db, input.dashboardId);
-        await guardBase(ctx, dashboard.baseId, "manage");
-        await deleteWidget(ctx.db, input.dashboardId, input.widgetId);
+        const { user } = await guardBase(ctx, dashboard.baseId, "manage");
+        await deleteWidget(ctx.db, user.id, input.dashboardId, input.widgetId);
         return { ok: true as const };
       }),
     ),
   layout: procedure.input(layoutWidgetsInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const dashboard = await loadDashboard(ctx.db, input.dashboardId);
-      await guardBase(ctx, dashboard.baseId, "manage");
-      await layoutWidgets(ctx.db, input.dashboardId, input.widgets);
+      const { user } = await guardBase(ctx, dashboard.baseId, "manage");
+      await layoutWidgets(ctx.db, user.id, input.dashboardId, input.widgets);
       return { ok: true as const };
     }),
   ),

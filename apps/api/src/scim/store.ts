@@ -17,6 +17,7 @@ import {
 } from "@anygriddb/core";
 import type { Database, UserRow } from "@anygriddb/db";
 import { type Expression, type SqlBool, sql } from "kysely";
+import { recordAuthEvent } from "../auth/auth-events.js";
 import { type AuditTx, withAudit } from "../data/audit-context.js";
 import { ERASED_USER_ID } from "../data/erasure.js";
 import { postgresCode } from "../data/pg-error.js";
@@ -226,7 +227,12 @@ async function assertNotLastAdmin(tx: AuditTx, account: Account) {
 }
 
 /** Writes what the provider says the account is. */
-async function saveAccount(tx: AuditTx, account: Account, next: ScimUserState) {
+async function saveAccount(
+  tx: AuditTx,
+  actorId: string,
+  account: Account,
+  next: ScimUserState,
+) {
   if (!next.active) await assertNotLastAdmin(tx, account);
   if (next.email !== account.email) {
     const other = await tx
@@ -257,6 +263,20 @@ async function saveAccount(tx: AuditTx, account: Account, next: ScimUserState) {
   if (next.email !== account.email || !next.active) {
     await tx.deleteFrom("sessions").where("userId", "=", account.id).execute();
     await tx.deleteFrom("apiTokens").where("userId", "=", account.id).execute();
+    await recordAuthEvent(tx, {
+      action: "session_revoked",
+      userId: account.id,
+      actorId,
+      method: "scim",
+      detail: "scim",
+    });
+    await recordAuthEvent(tx, {
+      action: "tokens_revoked",
+      userId: account.id,
+      actorId,
+      method: "scim",
+      detail: "scim",
+    });
   }
 }
 
@@ -284,7 +304,7 @@ export async function createScimUser(context: ScimContext, body: unknown) {
       if (account.scimUserName !== null && account.deprovisionedAt === null) {
         throw taken("This user name");
       }
-      await saveAccount(tx, account, next);
+      await saveAccount(tx, context.actorId, account, next);
       return account.id;
     }
     const created = await tx
@@ -310,7 +330,12 @@ export async function replaceScimUser(
 ) {
   await change(context, async (tx) => {
     const account = await findAccount(tx, id, true);
-    await saveAccount(tx, account, parseScimUser(body, stateOf(account)));
+    await saveAccount(
+      tx,
+      context.actorId,
+      account,
+      parseScimUser(body, stateOf(account)),
+    );
   });
   return getScimUser(context, id);
 }
@@ -322,7 +347,12 @@ export async function patchScimUserById(
 ) {
   await change(context, async (tx) => {
     const account = await findAccount(tx, id, true);
-    await saveAccount(tx, account, patchScimUser(stateOf(account), operations));
+    await saveAccount(
+      tx,
+      context.actorId,
+      account,
+      patchScimUser(stateOf(account), operations),
+    );
   });
   return getScimUser(context, id);
 }
@@ -355,6 +385,13 @@ export async function deleteScimUser(context: ScimContext, id: string) {
       .where("id", "=", account.id)
       .execute();
     await tx.deleteFrom("sessions").where("userId", "=", account.id).execute();
+    await recordAuthEvent(tx, {
+      action: "session_revoked",
+      userId: account.id,
+      actorId: context.actorId,
+      method: "scim",
+      detail: "scim",
+    });
   });
 }
 

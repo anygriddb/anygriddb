@@ -382,7 +382,7 @@ export const adminBaseProcedures = {
       .mutation(({ ctx, input }) =>
         handle(ctx, async () => {
           const admin = await requireAdmin(ctx);
-          await restoreBase(ctx.db, input.baseId);
+          await restoreBase(ctx.db, admin.id, input.baseId);
           await publishCatalog(ctx.bus, input.baseId, (error) => {
             ctx.req.log.error({ err: error }, "realtime publish failed");
           });

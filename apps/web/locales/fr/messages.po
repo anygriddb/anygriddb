@@ -2051,6 +2051,7 @@ msgstr "Sauvegardes"
 #: components/admin/bases-tab.tsx
 #: components/admin/invitations-panel.tsx
 #: components/admin/sources-tab.tsx
+#: components/admin/trails.tsx
 #: components/shell/base-home.tsx
 msgid "Base"
 msgstr "Base"
@@ -3015,6 +3016,10 @@ msgstr "Sombre"
 msgid "Dark theme"
 msgstr "Thème sombre"
 
+#: components/admin/trails.tsx
+msgid "Dashboard"
+msgstr "Tableau de bord"
+
 #: components/dashboards/dashboard-list.tsx
 msgid "Dashboard deleted"
 msgstr "Tableau de bord supprimé"
@@ -3023,6 +3028,10 @@ msgstr "Tableau de bord supprimé"
 #: lib/errors.ts
 msgid "Dashboard not found"
 msgstr "Tableau de bord introuvable"
+
+#: components/admin/trails.tsx
+msgid "Dashboard widget"
+msgstr "Widget de tableau de bord"
 
 #: components/shell/base-home.tsx
 #: components/shell/sidebar-dashboards.tsx
@@ -4215,6 +4224,10 @@ msgstr "Ajustement"
 #: components/fields/field-editor.tsx
 msgid "Flag"
 msgstr "Drapeau"
+
+#: components/admin/trails.tsx
+msgid "Folder"
+msgstr "Dossier"
 
 #: components/shell/sidebar.tsx
 msgid "Folder actions"
@@ -10763,6 +10776,7 @@ msgid "view"
 msgstr "vue"
 
 #: components/admin/outbound-tab.tsx
+#: components/admin/trails.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/fields/link-selection.tsx
 msgid "View"

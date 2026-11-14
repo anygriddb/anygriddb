@@ -73,11 +73,11 @@ export const catalogTrashProcedures = {
     handle(ctx, async () => {
       switch (input.kind) {
         case "base": {
-          const { bindings } = await authorize(ctx);
+          const { user, bindings } = await authorize(ctx);
           if (!roleAllows(roleFor(bindings, "base", input.id), "manage")) {
             throw new AppError("access_denied");
           }
-          await restoreBase(ctx.db, input.id);
+          await restoreBase(ctx.db, user.id, input.id);
           await publishCatalog(ctx.bus, input.id, logPublish(ctx));
           return { baseId: input.id, tableId: null };
         }
@@ -105,7 +105,7 @@ export const catalogTrashProcedures = {
           if (!canEditView(view, user.id, role)) {
             throw new AppError("access_denied");
           }
-          await restoreView(ctx.db, view);
+          await restoreView(ctx.db, user.id, view);
           return { baseId: table.baseId, tableId: table.id };
         }
       }
