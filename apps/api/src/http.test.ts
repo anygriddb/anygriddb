@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AppError } from "@anygriddb/core";
 import {
   applyApiSecurityHeaders,
+  foreignSessionWrite,
   logFailure,
   publicErrorBody,
   publicErrorStatus,
@@ -99,5 +100,87 @@ describe("API security headers", () => {
     const fastify = replyFromError({ statusCode: 404, message: "missing" });
     expect(fastify.status).toBe(404);
     expect(fastify.body.code).toBe("not_found");
+  });
+});
+
+describe("a session's write from another origin", () => {
+  const input = {
+    sessionCookie: "__Host-ag_session",
+    publicUrl: "https://grid.example.org",
+    exempt: ["/auth/saml/acs"],
+  };
+  const session = "theme=dark; __Host-ag_session=abc";
+  const write = (
+    headers: Record<string, string | string[]>,
+    more: { method?: string; url?: string } = {},
+  ) =>
+    foreignSessionWrite(
+      {
+        method: more.method ?? "POST",
+        url: more.url ?? "/trpc/rows.insert",
+        headers: { host: "grid.example.org", cookie: session, ...headers },
+      },
+      input,
+    );
+
+  it("lets the app's own pages write, by either of its addresses", () => {
+    // The address people are told to open, and the one the request was
+    // sent to: another name of the certificate, or a port.
+    expect(write({ origin: "https://grid.example.org" })).toBe(false);
+    expect(
+      write({ origin: "https://10.0.0.5:3000", host: "10.0.0.5:3000" }),
+    ).toBe(false);
+    // Behind a proxy that names its own upstream as the host.
+    expect(
+      write({ origin: "https://grid.example.org", host: "app:4000" }),
+    ).toBe(false);
+  });
+
+  it("lets the development server's pages write, by any of its names", () => {
+    const development = { ...input, publicUrl: "http://localhost:3000" };
+    const from = (origin: string) =>
+      foreignSessionWrite(
+        {
+          method: "POST",
+          url: "/trpc/rows.insert",
+          headers: { host: "localhost:4000", cookie: session, origin },
+        },
+        development,
+      );
+    expect(from("http://localhost:3000")).toBe(false);
+    expect(from("http://127.0.0.1:3000")).toBe(false);
+    expect(from("http://wiki.example.org")).toBe(true);
+    // Not where the instance is served over HTTPS.
+    expect(write({ origin: "http://localhost:3000" })).toBe(true);
+  });
+
+  it("refuses a page of the same site on another name or port", () => {
+    expect(write({ origin: "https://wiki.example.org" })).toBe(true);
+    expect(write({ origin: "https://grid.example.org:8443" })).toBe(true);
+    expect(write({ origin: "http://grid.example.org" })).toBe(true);
+    expect(write({ origin: "null" })).toBe(true);
+    expect(write({ origin: ["https://a.example", "https://b.example"] })).toBe(
+      true,
+    );
+    // A socket is opened with a GET.
+    expect(
+      write(
+        { origin: "https://wiki.example.org", upgrade: "WebSocket" },
+        { method: "GET", url: "/ws" },
+      ),
+    ).toBe(true);
+  });
+
+  it("leaves alone what is no write of a session from a page", () => {
+    const foreign = { origin: "https://wiki.example.org" };
+    // A read: its answer is not for a page of another origin to see.
+    expect(write(foreign, { method: "GET" })).toBe(false);
+    // No session: a token, a public link, a sign-in.
+    expect(write({ ...foreign, cookie: "theme=dark" })).toBe(false);
+    expect(write({ ...foreign, cookie: "x__Host-ag_session=abc" })).toBe(false);
+    // No page: a script, a command.
+    expect(write({})).toBe(false);
+    // The identity provider's answer, which may come from the same site.
+    expect(write(foreign, { url: "/auth/saml/acs?x=1" })).toBe(false);
   });
 });

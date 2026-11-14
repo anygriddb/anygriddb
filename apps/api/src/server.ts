@@ -45,6 +45,7 @@ import type { Env } from "./env.js";
 import type { FileStore } from "./files/index.js";
 import {
   applyApiSecurityHeaders,
+  foreignSessionWrite,
   logFailure,
   publicErrorBody,
   replyFromError,
@@ -245,6 +246,20 @@ export async function createApp(deps: {
   app.addHook("onRequest", async (request, reply) => {
     applyApiSecurityHeaders(reply, tls?.mode === "operator");
     requestStarted(request, request.method, logUrl(request.url));
+  });
+  // A write or a socket that carries a session comes from the app's own
+  // pages, or is refused before anything reads it.
+  app.addHook("onRequest", async (request, reply) => {
+    if (
+      foreignSessionWrite(request, {
+        sessionCookie: SESSION_COOKIE,
+        publicUrl: deps.env.PUBLIC_URL,
+        exempt: ["/auth/saml/acs"],
+      })
+    ) {
+      request.log.warn("a session's write from another origin refused");
+      return reply.code(403).send(publicErrorBody(403));
+    }
   });
   // Requests by route pattern, never by path: ids would explode the series.
   app.addHook("onResponse", async (request, reply) => {

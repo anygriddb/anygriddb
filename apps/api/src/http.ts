@@ -4,6 +4,7 @@ import {
   type ErrorCode,
   type PublicError,
 } from "@anygriddb/core";
+import { isLoopback } from "./env.js";
 
 type HeaderReply = {
   header: (name: string, value: string) => void;
@@ -57,6 +58,66 @@ export function applyApiSecurityHeaders(
       "max-age=31536000; includeSubDomains",
     );
   }
+}
+
+type OriginRequest = {
+  method: string;
+  url: string;
+  headers: {
+    origin?: string | string[];
+    host?: string;
+    cookie?: string;
+    upgrade?: string;
+  };
+};
+
+/**
+ * Whether a request rides a person's session from a page that is not the
+ * app's own. A browser names the page a write or a socket comes from
+ * (`Origin`), and no page can change what it says. The session cookie is
+ * kept to this host and to requests of its own site (`__Host-`,
+ * `SameSite=Strict`), which stops another site; a page of the same site,
+ * on another name or another port, still sends it. So a write, or a
+ * socket, that carries the session must come from the address it was sent
+ * to, or from the one people are told to open (`PUBLIC_URL`).
+ *
+ * Left alone: a read, which answers nothing a page of another origin can
+ * see; a request with no `Origin`, which is no browser's page and is asked
+ * who it is by what follows; one without the session; and the answer an
+ * identity provider posts back (`exempt`), which is checked by its
+ * signature.
+ */
+export function foreignSessionWrite(
+  request: OriginRequest,
+  input: {
+    sessionCookie: string;
+    publicUrl: string;
+    exempt: readonly string[];
+  },
+): boolean {
+  const socket = request.headers.upgrade?.toLowerCase() === "websocket";
+  if (!socket && ["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+    return false;
+  }
+  const origin = request.headers.origin;
+  if (origin === undefined) return false;
+  const carried = (request.headers.cookie ?? "")
+    .split(";")
+    .some((part) => part.trim().startsWith(`${input.sessionCookie}=`));
+  if (!carried) return false;
+  const path = request.url.split("?")[0] ?? "";
+  if (input.exempt.includes(path)) return false;
+  // Sent twice, or as `null` (a sandboxed page): not the app's own.
+  if (typeof origin !== "string" || !URL.canParse(origin)) return true;
+  const from = new URL(origin);
+  const told = new URL(input.publicUrl);
+  if (from.origin === told.origin) return false;
+  // The development server, plain HTTP on this machine: by any of its
+  // names. Anywhere else `PUBLIC_URL` is https (`readEnv`).
+  if (told.protocol === "http:" && isLoopback(from.hostname)) return false;
+  // The address the request was sent to names no scheme: AnyGridDB itself
+  // serves HTTPS only (ADR 0029), so a page it served is an https one.
+  return from.protocol !== "https:" || from.host !== request.headers.host;
 }
 
 export function publicErrorStatus(statusCode: number | undefined): number {
