@@ -3015,7 +3015,7 @@ msgid "Dashboard not found"
 msgstr "Dashboard not found"
 
 #: components/shell/base-home.tsx
-#: components/shell/sidebar.tsx
+#: components/shell/sidebar-dashboards.tsx
 msgid "Dashboards"
 msgstr "Dashboards"
 
