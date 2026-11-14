@@ -26,7 +26,9 @@ export function AccountSettings() {
   const preferences = useQuery(api.notifications.preferences.queryOptions());
   const [tokenName, setTokenName] = useState("");
   const [tokenBases, setTokenBases] = useState<string[]>([]);
-  const [tokenReadOnly, setTokenReadOnly] = useState(false);
+  // Prefer read-only for MCP / AI explore; writes default without delete (ADR 0079).
+  const [tokenReadOnly, setTokenReadOnly] = useState(true);
+  const [tokenAllowDelete, setTokenAllowDelete] = useState(false);
   const catalog = useCatalog();
   const [newToken, setNewToken] = useState("");
   const [tokenDays, setTokenDays] = useState("");
@@ -184,7 +186,7 @@ export function AccountSettings() {
       </RuledSection>
       <RuledSection
         title={t`API tokens`}
-        description={t`A token acts with your rights. It is shown once and lives the days you choose, ${{ max: tokenMaxDays }} at most on this instance.`}
+        description={t`A token acts with your rights on REST and MCP. It is shown once and lives the days you choose, ${{ max: tokenMaxDays }} at most on this instance. Prefer read-only to explore; for an AI that must write, leave deletes off.`}
       >
         {user.canCreateTokens ? (
           <form
@@ -196,13 +198,15 @@ export function AccountSettings() {
                   name: tokenName,
                   baseIds: tokenBases.length > 0 ? tokenBases : undefined,
                   readOnly: tokenReadOnly,
+                  allowDelete: tokenReadOnly ? undefined : tokenAllowDelete,
                   days: tokenDays ? Number(tokenDays) : undefined,
                 });
                 setNewToken(created.token);
                 setTokenName("");
                 setTokenDays("");
                 setTokenBases([]);
-                setTokenReadOnly(false);
+                setTokenReadOnly(true);
+                setTokenAllowDelete(false);
                 await queryClient.invalidateQueries({
                   queryKey: api.auth.tokens.queryKey(),
                 });
@@ -253,18 +257,36 @@ export function AccountSettings() {
                 <input
                   type="checkbox"
                   checked={tokenReadOnly}
-                  onChange={(event) => setTokenReadOnly(event.target.checked)}
+                  onChange={(event) => {
+                    setTokenReadOnly(event.target.checked);
+                    if (event.target.checked) setTokenAllowDelete(false);
+                  }}
                 />
                 {t`Read only`}
               </label>
+              {tokenReadOnly ? null : (
+                <label className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={tokenAllowDelete}
+                    onChange={(event) =>
+                      setTokenAllowDelete(event.target.checked)
+                    }
+                  />
+                  {t`Allow deleting records`}
+                </label>
+              )}
             </div>
+            <p className="w-full text-xs text-muted-foreground">
+              {t`Bearer token for REST and for MCP at /mcp (Claude, Cursor, or a local model). Prefer read-only to explore; for writes, leave deletes off unless you need them.`}
+            </p>
           </form>
         ) : (
           <p
             role="status"
             className="rounded-md border border-warning/40 bg-warning-surface p-2 text-sm"
           >
-            {t`On this instance, only administrators create API tokens. The tokens below stop working while it is so.`}
+            {t`On this instance, only administrators create API tokens. Non-administrator tokens stop working while it is so, including for MCP.`}
           </p>
         )}
         {newToken ? (
@@ -296,6 +318,9 @@ export function AccountSettings() {
                       : t`All bases`}
                   </span>
                   {token.readOnly ? <span>{t`Read only`}</span> : null}
+                  {!token.readOnly && !token.allowDelete ? (
+                    <span>{t`No deletes`}</span>
+                  ) : null}
                   <span>
                     {token.lastUsedAt
                       ? t`last used ${{ date: token.lastUsedAt.slice(0, 10) }}`

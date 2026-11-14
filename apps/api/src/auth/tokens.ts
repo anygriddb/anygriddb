@@ -31,6 +31,8 @@ export type TokenScope = {
   /** Bases the token may reach; null means all of its owner's bases. */
   baseIds: string[] | null;
   readOnly: boolean;
+  /** When false, create/update stay; delete is refused (ADR 0079). */
+  allowDelete: boolean;
 };
 
 /** Resolves a bearer token to its owner and scope. Refreshes `last_used_at` at most once a minute. */
@@ -62,6 +64,7 @@ export async function findApiToken(
       "k.id as tokenId",
       "k.baseIds",
       "k.readOnly",
+      "k.allowDelete",
       "k.lastUsedAt",
     ])
     .where("k.tokenHash", "=", hashApiToken(token))
@@ -99,6 +102,7 @@ export async function findApiToken(
       tokenId: row.tokenId,
       baseIds: Array.isArray(row.baseIds) ? row.baseIds : null,
       readOnly: row.readOnly,
+      allowDelete: row.allowDelete,
     },
   };
 }
@@ -107,12 +111,18 @@ export async function createApiToken(
   db: Database,
   userId: string,
   name: string,
-  scope: { baseIds?: string[]; readOnly?: boolean; days?: number } = {},
+  scope: {
+    baseIds?: string[];
+    readOnly?: boolean;
+    allowDelete?: boolean;
+    days?: number;
+  } = {},
 ): Promise<{ id: string; token: string; expiresAt: string }> {
   const token = `ag_${randomBytes(32).toString("base64url")}`;
   const expiresAt = new Date(
     Date.now() + (scope.days ?? DEFAULT_TOKEN_DAYS) * 86_400_000,
   );
+  const readOnly = scope.readOnly === true;
   const inserted = await db
     .insertInto("apiTokens")
     .values({
@@ -121,7 +131,10 @@ export async function createApiToken(
       tokenHash: hashApiToken(token),
       expiresAt,
       baseIds: scope.baseIds && scope.baseIds.length > 0 ? scope.baseIds : null,
-      readOnly: scope.readOnly === true,
+      readOnly,
+      // Omitted means true (scripts keep deleting). A read-only token never
+      // deletes; store true so the column stays meaningful only for writers.
+      allowDelete: readOnly ? true : scope.allowDelete !== false,
     })
     .returning("id")
     .executeTakeFirst();
@@ -144,6 +157,7 @@ export async function listApiTokens(db: Database, userId: string) {
       "expiresAt",
       "baseIds",
       "readOnly",
+      "allowDelete",
       "lastUsedAt",
     ])
     .where("userId", "=", userId)
@@ -159,6 +173,7 @@ export async function listApiTokens(db: Database, userId: string) {
     ).toISOString(),
     baseIds: Array.isArray(row.baseIds) ? row.baseIds : null,
     readOnly: row.readOnly,
+    allowDelete: row.allowDelete,
     lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
   }));
 }

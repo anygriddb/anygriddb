@@ -1178,8 +1178,8 @@ msgid "A token acts with the rights of the administrator who made it, and stops 
 msgstr "Un jeton agit avec les droits de l’administrateur qui l’a créé, et cesse de marcher s’il n’est plus administrateur."
 
 #: components/settings/account-settings.tsx
-msgid "A token acts with your rights. It is shown once and lives the days you choose, {max} at most on this instance."
-msgstr "Un jeton agit avec vos droits. Il n’est affiché qu’une fois et vit le nombre de jours choisi, {max} au plus sur cette instance."
+msgid "A token acts with your rights on REST and MCP. It is shown once and lives the days you choose, {max} at most on this instance. Prefer read-only to explore; for an AI that must write, leave deletes off."
+msgstr "Un jeton agit avec vos droits sur REST et MCP. Il n’est montré qu’une fois et vit le nombre de jours que vous choisissez, {max} au plus sur cette instance. Préférez la lecture seule pour explorer ; pour une IA qui doit écrire, laissez les suppressions désactivées."
 
 #: components/fields/field-meta.tsx
 msgid "A total over the linked rows"
@@ -1670,6 +1670,10 @@ msgstr "Autoriser la vérification d’une version plus récente sur GitHub (dé
 msgid "Allow copying the data"
 msgstr "Autoriser la copie des données"
 
+#: components/settings/account-settings.tsx
+msgid "Allow deleting records"
+msgstr "Autoriser la suppression d’enregistrements"
+
 #: components/fields/field-editor.tsx
 msgid "Allow several linked rows"
 msgstr "Autoriser plusieurs lignes liées"
@@ -2149,6 +2153,10 @@ msgstr "Bases de l’instance"
 #: components/admin/account-handoff.tsx
 msgid "Bases owned alone"
 msgstr "Bases dont la personne est seule propriétaire"
+
+#: components/settings/account-settings.tsx
+msgid "Bearer token for REST and for MCP at /mcp (Claude, Cursor, or a local model). Prefer read-only to explore; for writes, leave deletes off unless you need them."
+msgstr "Jeton Bearer pour REST et pour MCP sur /mcp (Claude, Cursor ou un modèle local). Préférez la lecture seule pour explorer ; pour écrire, laissez les suppressions désactivées sauf si vous en avez besoin."
 
 #: components/admin/health-tab.tsx
 msgid "Before installing it, check that its SHA-256 fingerprint is this one:"
@@ -6218,6 +6226,10 @@ msgstr "Aucun tableau de bord pour l’instant."
 msgid "No date and time column of the last change: changes other applications make show at the next read."
 msgstr "Aucune colonne de date et heure de modification : les changements faits par d’autres applications s’affichent à la prochaine lecture."
 
+#: components/settings/account-settings.tsx
+msgid "No deletes"
+msgstr "Sans suppression"
+
 #: components/settings/webhooks-panel.tsx
 msgid "No deliveries yet."
 msgstr "Aucun envoi pour l’instant."
@@ -6603,8 +6615,8 @@ msgid "On this instance, only administrators create API tokens"
 msgstr "Sur cette instance, seuls les administrateurs créent des jetons d’API"
 
 #: components/settings/account-settings.tsx
-msgid "On this instance, only administrators create API tokens. The tokens below stop working while it is so."
-msgstr "Sur cette instance, seuls les administrateurs créent des jetons d’API. Les jetons ci-dessous ne fonctionnent pas tant que c’est le cas."
+msgid "On this instance, only administrators create API tokens. Non-administrator tokens stop working while it is so, including for MCP."
+msgstr "Sur cette instance, seuls les administrateurs créent des jetons d’API. Les jetons des non-administrateurs cessent de fonctionner tant que c’est le cas, y compris pour MCP."
 
 #: lib/errors.ts
 msgid "On this instance, only administrators create bases"
@@ -9806,6 +9818,10 @@ msgstr "Cette adresse a déjà un compte"
 #: components/admin/people-file-dialog.tsx
 msgid "This address is in the file twice"
 msgstr "Cette adresse figure deux fois dans le fichier"
+
+#: lib/errors.ts
+msgid "This API token cannot delete records"
+msgstr "Ce jeton d’API ne peut pas supprimer d’enregistrements"
 
 #: components/shell/base-home.tsx
 msgid "This base does not exist or is not shared with you."

@@ -34,6 +34,7 @@ describe("the MCP server", () => {
   let url = "";
   let writer = "";
   let reader = "";
+  let noDelete = "";
   let baseId = "";
   let tableId = "";
 
@@ -78,6 +79,11 @@ describe("the MCP server", () => {
     writer = (await createApiToken(database, editor, "agent")).token;
     reader = (
       await createApiToken(database, editor, "lecture", { readOnly: true })
+    ).token;
+    noDelete = (
+      await createApiToken(database, editor, "agent-safe", {
+        allowDelete: false,
+      })
     ).token;
     app = Fastify();
     await app.register(cookie);
@@ -171,6 +177,24 @@ describe("the MCP server", () => {
     const refused = await rpc(reader, "tools/call", {
       name: "create_records",
       arguments: { tableId, records: [{ fields: { name: "Globex" } }] },
+    });
+    expect(refused.body.result?.isError ?? refused.body.error).toBeTruthy();
+  });
+
+  it("offers a no-delete write token create and update, not delete", async () => {
+    const listed = await rpc(noDelete, "tools/list");
+    const names = (listed.body.result?.tools ?? []).map((tool) => tool.name);
+    expect(names).toContain("create_records");
+    expect(names).toContain("update_records");
+    expect(names).not.toContain("delete_records");
+    const created = await rpc(noDelete, "tools/call", {
+      name: "create_records",
+      arguments: { tableId, records: [{ fields: { name: "Keep" } }] },
+    });
+    expect(created.body.result?.isError).toBeFalsy();
+    const refused = await rpc(noDelete, "tools/call", {
+      name: "delete_records",
+      arguments: { tableId, recordIds: ["1"] },
     });
     expect(refused.body.result?.isError ?? refused.body.error).toBeTruthy();
   });

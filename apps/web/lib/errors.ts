@@ -31,6 +31,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   sso_account: msg`This account signs in through your organization's sign-in: it has no password here`,
   token_lifetime_too_long: msg`Too long for this instance. Most days allowed`,
   api_tokens_restricted: msg`On this instance, only administrators create API tokens`,
+  token_cannot_delete: msg`This API token cannot delete records`,
   base_creation_restricted: msg`On this instance, only administrators create bases`,
   invitation_domain_not_allowed: msg`On this instance, people are invited only with your organization's addresses`,
   instance_maintenance: msg`The instance is under maintenance. Try again later.`,

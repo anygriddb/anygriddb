@@ -146,6 +146,7 @@ export interface AlertOptouts {
 }
 
 export interface ApiTokens {
+  allowDelete: Generated<boolean>;
   baseIds: string[] | null;
   createdAt: Generated<Timestamp>;
   expiresAt: Timestamp;

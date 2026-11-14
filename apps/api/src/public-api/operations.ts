@@ -584,6 +584,9 @@ export async function deleteRecords(
   ids: string[],
   reason?: string,
 ) {
+  if (actor.scope && !actor.scope.allowDelete) {
+    throw new AppError("token_cannot_delete");
+  }
   const table = await tableFor(deps, actor, tableId, "write");
   const deleted = await deleteRows(
     serviceDeps(deps),

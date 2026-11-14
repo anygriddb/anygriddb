@@ -184,6 +184,9 @@ export function registerPublicApiTools(
       run((actor) => updateRecords(deps, actor, tableId, body, reason)),
   );
 
+  // A write token may still refuse deletes (ADR 0079): do not offer the tool.
+  if (actor.scope && !actor.scope.allowDelete) return;
+
   server.registerTool(
     "delete_records",
     {
