@@ -3,9 +3,9 @@
 All contributions are **AGPL-3.0-or-later**. How it is built and what it
 runs on: [`ARCHITECTURE.md`](ARCHITECTURE.md), [`TECH_STACK.md`](TECH_STACK.md).
 What works today: [`ROADMAP.md`](ROADMAP.md). Why it is built this way:
-[`docs/adr/`](docs/adr/README.md). Notebook identity:
-[`docs/brand.md`](docs/brand.md). Interface English source, French via PO,
-glossary and Weblate: [`docs/i18n-glossary.md`](docs/i18n-glossary.md),
+[`docs/adr/`](docs/adr/README.md). How it looks:
+[`docs/brand.md`](docs/brand.md). The words of the interface and how
+they are translated: [`docs/i18n-glossary.md`](docs/i18n-glossary.md),
 [`docs/weblate.md`](docs/weblate.md). Behaviour in the project's spaces:
 [`.github/CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md). Accessibility
 commitment and how to report a barrier:

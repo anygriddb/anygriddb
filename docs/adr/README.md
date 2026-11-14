@@ -44,7 +44,7 @@ accepted as the work they decide was done; each carries its own date.
 | [0029](0029-https-only.md)                           | HTTPS only, with the instance's own authority when no certificate is given              | Accepted                                    |
 | [0030](0030-every-connection-encrypted.md)           | Every connection AnyGridDB opens is encrypted and verified                              | Accepted                                    |
 | [0031](0031-changes-made-elsewhere.md)               | Changes made elsewhere: told by a column or by Change Tracking                          | Accepted                                    |
-| [0032](0032-fields-added-to-client-tables.md)        | Fields added to client tables live in a side table of the client's database             | Amended by 0046                             |
+| [0032](0032-fields-added-to-client-tables.md)        | Fields added to client tables live in a side table of the client's database             | Accepted                                    |
 | [0033](0033-statuses-on-client-rows.md)              | Statuses and signatures on client rows: kept by AnyGridDB, sealed by a fingerprint      | Accepted                                    |
 | [0034](0034-synced-tables.md)                        | Synced tables: a copy in AnyGridDB, refreshed and compared                              | Accepted                                    |
 | [0035](0035-dashboard-charts.md)                     | Dashboard charts: aggregates by the source, drawn with ECharts                          | Accepted                                    |
