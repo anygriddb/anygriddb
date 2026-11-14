@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AriaLocaleProvider, UiTextProvider } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { Toaster } from "sonner";
+import { useInstanceIdentity } from "../components/brand/instance-mark";
 import { ErrorBoundary } from "../components/shell/error-boundary";
 import { I18nProvider, useLocale } from "../lib/i18n";
 import { ThemeProvider, useTheme } from "../lib/theme";
@@ -41,6 +42,15 @@ function InstanceLocale() {
   return null;
 }
 
+/** The browser's tab carries the instance's name (ADR 0072). */
+function InstanceTitle() {
+  const { name } = useInstanceIdentity();
+  useEffect(() => {
+    document.title = name;
+  }, [name]);
+  return null;
+}
+
 /** Toasts in the app's theme, which may differ from the system's. */
 function ThemedToaster() {
   const { theme } = useTheme();
@@ -66,6 +76,7 @@ export function Providers({ children }: { children: ReactNode }) {
           <I18nProvider>
             <ErrorBoundary>
               <InstanceLocale />
+              <InstanceTitle />
               <UiTexts>{children}</UiTexts>
               <ThemedToaster />
             </ErrorBoundary>

@@ -40,7 +40,7 @@ import {
 import { sendMail, type SmtpConfig } from "./mail.js";
 import { notify, type NotifyDeps } from "./notifications.js";
 import { assertPublicHttps, failureText, postPinned } from "./webhooks.js";
-import { madeNamesFor } from "./settings.js";
+import { madeNamesFor, readMailVoice } from "./settings.js";
 import { liveBase, liveTable } from "./data/live.js";
 import { addJob, TASKS } from "./queue/jobs.js";
 import { acquireLock } from "./realtime/locks.js";
@@ -753,13 +753,20 @@ export async function runAutomation(
         ) {
           throw new AppError("invalid_value", "to");
         }
-        await sendMail(deps.smtp, {
-          to: recipients.join(", "),
-          subject: renderTemplate(action.subject, frame.values)
-            .replace(/[\r\n]+/g, " ")
-            .slice(0, 200),
-          text: renderTemplate(action.body, frame.values),
-        });
+        // The author's own text: sent under the instance's name, and left
+        // as written, without its signature.
+        const { sender } = await readMailVoice(deps.db);
+        await sendMail(
+          deps.smtp,
+          { sender, signature: null },
+          {
+            to: recipients.join(", "),
+            subject: renderTemplate(action.subject, frame.values)
+              .replace(/[\r\n]+/g, " ")
+              .slice(0, 200),
+            text: renderTemplate(action.body, frame.values),
+          },
+        );
         break;
       }
       case "call_webhook": {

@@ -17,6 +17,7 @@ import type { Bus } from "./realtime/bus.js";
 import { registerAttachmentRoutes } from "./attachments.js";
 import { uploadSlots } from "./upload-slots.js";
 import { registerClientErrors } from "./client-errors.js";
+import { registerLogoRoute } from "./instance-logo.js";
 import { registerCompression } from "./compression.js";
 import { authorizeGrid } from "./auth/access.js";
 import { passkeysEligible } from "./auth/relying-party.js";
@@ -237,6 +238,7 @@ export async function createApp(deps: {
     envMaxBytes: deps.env.ATTACHMENT_MAX_BYTES,
     uploads,
   });
+  registerLogoRoute(app, { db: deps.db });
 
   // HSTS only for a certificate browsers trust on their own: with the
   // instance's authority not yet installed, it would lock people out.

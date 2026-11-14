@@ -13,7 +13,7 @@ import { sendMail, smtpReady, type SmtpConfig } from "../mail.js";
 import {
   lockAlertBody,
   lockAlertSubject,
-  resolveLocale,
+  mailVoice,
   type LockAlert,
 } from "../mail-i18n.js";
 import type { Publisher } from "../realtime/bus.js";
@@ -92,13 +92,13 @@ export async function alertLock(
   }
   const { config: smtp } = await resolveSmtp(deps.db, deps.env);
   if (smtpReady(smtp)) {
-    const locale = resolveLocale(null, settings.defaultLocale);
+    const voice = mailVoice(settings);
     const adminUrl = `${deps.env.PUBLIC_URL.replace(/\/+$/, "")}/admin`;
     for (const admin of admins) {
-      await sendMail(smtp, {
+      await sendMail(smtp, voice, {
         to: admin.email,
-        subject: lockAlertSubject(locale, alert),
-        text: lockAlertBody(locale, alert, adminUrl),
+        subject: lockAlertSubject(voice, alert),
+        text: lockAlertBody(voice, alert, adminUrl),
       }).catch((error: unknown) => {
         deps.log.error({ err: error }, "lock alert mail failed");
       });

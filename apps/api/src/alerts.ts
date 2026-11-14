@@ -22,8 +22,8 @@ import { DiskStore } from "./files/disk.js";
 import type { FileStore } from "./files/index.js";
 import { resolveSmtp } from "./integrations/smtp.js";
 import { sendMail, smtpReady } from "./mail.js";
-import { alertMailBody, alertMailSubject, resolveLocale } from "./mail-i18n.js";
-import { readSettings } from "./settings.js";
+import { alertMailBody, alertMailSubject } from "./mail-i18n.js";
+import { readMailVoice, readSettings } from "./settings.js";
 
 const DAY_MS = 86_400_000;
 /** How long a closed alert and a backup's report are kept. */
@@ -354,14 +354,13 @@ async function mailAlerts(
       ]);
     }
   }
-  const settings = await readSettings(deps.db);
-  const locale = resolveLocale(null, settings.defaultLocale);
+  const voice = await readMailVoice(deps.db);
   const url = `${deps.env.PUBLIC_URL.replace(/\/+$/, "")}/admin/instance/health`;
   for (const [email, theirs] of recipients) {
-    await sendMail(smtp, {
+    await sendMail(smtp, voice, {
       to: email,
-      subject: alertMailSubject(locale, theirs),
-      text: alertMailBody(locale, theirs, url),
+      subject: alertMailSubject(voice, theirs),
+      text: alertMailBody(voice, theirs, url),
     }).catch((error: unknown) => {
       deps.log(error, "alert mail failed");
     });

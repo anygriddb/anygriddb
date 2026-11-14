@@ -24,7 +24,7 @@ import {
 } from "../views/form-view";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
-import { BrandMark } from "../brand/brand-mark";
+import { InstanceMark } from "../brand/instance-mark";
 import { useLocale } from "../../lib/i18n";
 
 const NO_PEOPLE: ReadonlyMap<string, Collaborator> = new Map();
@@ -545,7 +545,7 @@ export function PublicView({ token }: { token: string }) {
   return (
     <main className="flex h-screen flex-col">
       <header className="flex items-center gap-2 border-b border-border bg-card px-4 py-3">
-        <BrandMark className="h-6 w-6" title="AnyGridDB" />
+        <InstanceMark className="h-6 w-6" named />
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground">{data.table.name}</p>
           <h1 className="truncate font-semibold">{data.view.name}</h1>

@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/** The product's name: what an instance is called until it names itself. */
+export const PRODUCT_NAME = "AnyGridDB";
+
 export const SIGNUP_POLICIES = ["open", "invite", "closed"] as const;
 export type SignupPolicy = (typeof SIGNUP_POLICIES)[number];
 
@@ -131,6 +134,29 @@ const mapTileUrlSchema = z
     }
   });
 
+/**
+ * Text an administrator writes that goes on one line: a name in a page's
+ * heading, a mail's subject, or its From header. No control character, so
+ * that nothing written here can start a new header line.
+ */
+const oneLine = (max: number) =>
+  z
+    .string()
+    .trim()
+    .min(1)
+    .max(max)
+    .regex(/^\P{Cc}*$/u);
+
+/** Text of several lines: line breaks and tabs, no other control character. */
+const lines = (max: number) =>
+  z
+    .string()
+    .trim()
+    .min(1)
+    .max(max)
+    .regex(/^[\P{Cc}\n\r\t]*$/u)
+    .transform((text) => text.replace(/\r\n?/g, "\n"));
+
 const fields = {
   signup: z.enum(SIGNUP_POLICIES),
   defaultLocale: z.enum(["fr", "en"]),
@@ -217,6 +243,28 @@ const fields = {
   mapTileUrl: z.union([z.null(), mapTileUrlSchema]),
   /** The credit that server asks for, shown on every map. */
   mapTileCredit: z.string().trim().max(200).nullable(),
+  /**
+   * What the instance calls itself (ADR 0072): on the pages outside the
+   * app, beside its logo in the app, and in its mail. Null keeps the
+   * product's name.
+   */
+  instanceName: oneLine(80).nullable(),
+  /** A note under the name on the sign-in pages; null shows none. */
+  signInMessage: lines(500).nullable(),
+  /**
+   * The name mail is sent under, before the sender's address. Null takes
+   * the instance's name, and without one the address stands alone.
+   */
+  mailSenderName: oneLine(80).nullable(),
+  /** What closes every mail, in each language mail is written in. */
+  mailSignatureEn: lines(1_000).nullable(),
+  mailSignatureFr: lines(1_000).nullable(),
+  /**
+   * A note of the instance's own in an invitation to a base, between who
+   * invites and the link. The link and its expiry are always there.
+   */
+  mailInvitationEn: lines(2_000).nullable(),
+  mailInvitationFr: lines(2_000).nullable(),
 };
 
 export type InstanceSettings = {
@@ -259,6 +307,13 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   alertFailures: 50,
   mapTileUrl: null,
   mapTileCredit: null,
+  instanceName: null,
+  signInMessage: null,
+  mailSenderName: null,
+  mailSignatureEn: null,
+  mailSignatureFr: null,
+  mailInvitationEn: null,
+  mailInvitationFr: null,
 };
 
 const KEYS = Object.keys(fields) as Array<keyof InstanceSettings>;
@@ -323,6 +378,23 @@ export const instanceSettingsSchema = z.object({
   alertFailures: fields.alertFailures.default(INSTANCE_DEFAULTS.alertFailures),
   mapTileUrl: fields.mapTileUrl.default(INSTANCE_DEFAULTS.mapTileUrl),
   mapTileCredit: fields.mapTileCredit.default(INSTANCE_DEFAULTS.mapTileCredit),
+  instanceName: fields.instanceName.default(INSTANCE_DEFAULTS.instanceName),
+  signInMessage: fields.signInMessage.default(INSTANCE_DEFAULTS.signInMessage),
+  mailSenderName: fields.mailSenderName.default(
+    INSTANCE_DEFAULTS.mailSenderName,
+  ),
+  mailSignatureEn: fields.mailSignatureEn.default(
+    INSTANCE_DEFAULTS.mailSignatureEn,
+  ),
+  mailSignatureFr: fields.mailSignatureFr.default(
+    INSTANCE_DEFAULTS.mailSignatureFr,
+  ),
+  mailInvitationEn: fields.mailInvitationEn.default(
+    INSTANCE_DEFAULTS.mailInvitationEn,
+  ),
+  mailInvitationFr: fields.mailInvitationFr.default(
+    INSTANCE_DEFAULTS.mailInvitationFr,
+  ),
 });
 
 export const instanceSettingsPatchSchema = z
@@ -361,6 +433,13 @@ export const instanceSettingsPatchSchema = z
     alertFailures: fields.alertFailures.optional(),
     mapTileUrl: fields.mapTileUrl.optional(),
     mapTileCredit: fields.mapTileCredit.optional(),
+    instanceName: fields.instanceName.optional(),
+    signInMessage: fields.signInMessage.optional(),
+    mailSenderName: fields.mailSenderName.optional(),
+    mailSignatureEn: fields.mailSignatureEn.optional(),
+    mailSignatureFr: fields.mailSignatureFr.optional(),
+    mailInvitationEn: fields.mailInvitationEn.optional(),
+    mailInvitationFr: fields.mailInvitationFr.optional(),
   })
   .strict();
 

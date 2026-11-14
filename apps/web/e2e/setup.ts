@@ -57,6 +57,43 @@ export async function mailedLink(
 }
 
 /**
+ * The newest mail to `to` whose subject holds `subject`, waiting for it to
+ * arrive: who it says it is from, its subject, and its text.
+ */
+export async function mailedMessage(
+  to: string,
+  subject: string,
+): Promise<{ fromName: string; subject: string; text: string }> {
+  const deadline = Date.now() + 20_000;
+  for (;;) {
+    const search = await fetch(
+      `${MAIL_API}/search?query=${encodeURIComponent(`to:"${to}" subject:"${subject}"`)}`,
+    );
+    const { messages } = (await search.json()) as {
+      messages: Array<{ ID: string }>;
+    };
+    const newest = messages[0];
+    if (newest) {
+      const read = await fetch(`${MAIL_API}/message/${newest.ID}`);
+      const message = (await read.json()) as {
+        From: { Name: string };
+        Subject: string;
+        Text: string;
+      };
+      return {
+        fromName: message.From.Name,
+        subject: message.Subject,
+        text: message.Text,
+      };
+    }
+    if (Date.now() > deadline) {
+      throw new Error(`no mail "${subject}" to ${to}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
+
+/**
  * A new account, made as a person makes one, on the first-run page. Past
  * the instance's first account, the sign-up mails a link to the address,
  * opened here with the same password (ADR 0058).

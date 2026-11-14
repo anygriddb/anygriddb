@@ -1,5 +1,6 @@
 import type { Database } from "@anygriddb/db";
 import { describe, expect, it } from "vitest";
+import { EN, FR } from "../mail.test-helpers.js";
 import { findSignupRequest, signupLinkUrl } from "./signup-requests.js";
 import {
   accountExistsMailBody,
@@ -28,15 +29,15 @@ describe("sign-up links", () => {
   it("says what the link does, and that ignoring it creates nothing", () => {
     const until = new Date("2026-11-12T10:00:00Z");
     const link = `https://grid.example.org/signup/${"a".repeat(43)}`;
-    const en = signupMailBody("en", { link, expiresAt: until });
+    const en = signupMailBody(EN, { link, expiresAt: until });
     expect(en).toContain(link);
     expect(en).toContain("enter the password you chose");
     expect(en).toContain("no account is created");
-    const fr = signupMailBody("fr", { link, expiresAt: until });
+    const fr = signupMailBody(FR, { link, expiresAt: until });
     expect(fr).toContain("aucun compte n’est créé");
-    expect(signupMailSubject("fr")).toContain("confirmer votre adresse");
+    expect(signupMailSubject(FR)).toContain("confirmer votre adresse");
     expect(
-      accountExistsMailBody("en", {
+      accountExistsMailBody(EN, {
         loginUrl: "https://grid.example.org/login",
       }),
     ).toContain("already has one");

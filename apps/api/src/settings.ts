@@ -12,12 +12,24 @@ import {
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { recordAuthEvent } from "./auth/auth-events.js";
+import { mailVoice, type MailLocale, type MailVoice } from "./mail-i18n.js";
 
 export async function readSettings(db: Database): Promise<InstanceSettings> {
   const rows = await db.selectFrom("instanceSettings").selectAll().execute();
   return parseInstanceSettings(
     Object.fromEntries(rows.map((row) => [row.key, row.value])),
   );
+}
+
+/**
+ * The instance's voice in a mail, from its settings as they are now: for a
+ * reader whose language is known, or in the instance's default.
+ */
+export async function readMailVoice(
+  db: Database,
+  preference?: MailLocale | null,
+): Promise<MailVoice> {
+  return mailVoice(await readSettings(db), preference);
 }
 
 /**

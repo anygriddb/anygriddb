@@ -1,4 +1,5 @@
 import {
+  PRODUCT_NAME,
   WEBHOOK_FAILURE_LIMIT,
   type AlertKind,
   type InstanceSettings,
@@ -21,6 +22,49 @@ export function resolveLocale(
   return "en";
 }
 
+/**
+ * How the instance speaks in a mail (ADR 0072): the reader's language,
+ * the name it goes by, the name its mail is sent under, what closes each
+ * mail, and its own note in an invitation. Every mail is written and sent
+ * with one, so that none leaves under another name than the others.
+ */
+export type MailVoice = {
+  locale: MailLocale;
+  /** The instance's name, or the product's until it has one. */
+  name: string;
+  /** Before the sender's address; null leaves the address alone. */
+  sender: string | null;
+  signature: string | null;
+  invitationNote: string | null;
+};
+
+/** The voice for a reader: their language when known, else the instance's. */
+export function mailVoice(
+  settings: Pick<
+    InstanceSettings,
+    | "defaultLocale"
+    | "instanceName"
+    | "mailSenderName"
+    | "mailSignatureEn"
+    | "mailSignatureFr"
+    | "mailInvitationEn"
+    | "mailInvitationFr"
+  >,
+  preference?: MailLocale | null,
+): MailVoice {
+  const locale = resolveLocale(preference, settings.defaultLocale);
+  const french = locale === "fr";
+  return {
+    locale,
+    name: settings.instanceName ?? PRODUCT_NAME,
+    sender: settings.mailSenderName ?? settings.instanceName,
+    signature: french ? settings.mailSignatureFr : settings.mailSignatureEn,
+    invitationNote: french
+      ? settings.mailInvitationFr
+      : settings.mailInvitationEn,
+  };
+}
+
 function tableQuoted(locale: MailLocale, tableName: string): string {
   if (locale === "fr") {
     return `«\u00a0${tableName}\u00a0»`;
@@ -30,7 +74,7 @@ function tableQuoted(locale: MailLocale, tableName: string): string {
 
 const NOTIFICATION_SUBJECTS: Record<
   MailLocale,
-  Record<NotificationKind, (tableName: string) => string>
+  Record<NotificationKind, (tableName: string, name: string) => string>
 > = {
   en: {
     mention: (table) => `You were mentioned in ${tableQuoted("en", table)}`,
@@ -40,8 +84,8 @@ const NOTIFICATION_SUBJECTS: Record<
     automation: (table) => `Automation in ${tableQuoted("en", table)}`,
     webhook_disabled: (table) =>
       `Webhook disabled on ${tableQuoted("en", table)}`,
-    row_changed: (table) =>
-      `A locked row in ${tableQuoted("en", table)} changed outside AnyGridDB`,
+    row_changed: (table, name) =>
+      `A locked row in ${tableQuoted("en", table)} changed outside ${name}`,
   },
   fr: {
     mention: (table) =>
@@ -52,8 +96,8 @@ const NOTIFICATION_SUBJECTS: Record<
     automation: (table) => `Automatisation dans ${tableQuoted("fr", table)}`,
     webhook_disabled: (table) =>
       `Webhook désactivé sur ${tableQuoted("fr", table)}`,
-    row_changed: (table) =>
-      `Une ligne verrouillée de ${tableQuoted("fr", table)} a changé hors d’AnyGridDB`,
+    row_changed: (table, name) =>
+      `Une ligne verrouillée de ${tableQuoted("fr", table)} a changé sans passer par ${name}`,
   },
 };
 
@@ -62,94 +106,95 @@ const NOTIFICATION_FOOTER: Record<MailLocale, string> = {
   fr: "Vous recevez cet email car les notifications par email sont activées dans vos réglages.",
 };
 
-const MAIL_PREFIX = "AnyGridDB";
-
 export function notificationSubject(
-  locale: MailLocale,
+  voice: MailVoice,
   kind: NotificationKind,
   tableName: string,
 ): string {
-  return NOTIFICATION_SUBJECTS[locale][kind](tableName);
+  return NOTIFICATION_SUBJECTS[voice.locale][kind](tableName, voice.name);
 }
 
 export function notificationMailSubject(
-  locale: MailLocale,
+  voice: MailVoice,
   kind: NotificationKind,
   tableName: string,
 ): string {
-  const separator = locale === "fr" ? "\u00a0: " : ": ";
-  return `${MAIL_PREFIX}${separator}${notificationSubject(locale, kind, tableName)}`;
+  const separator = voice.locale === "fr" ? "\u00a0: " : ": ";
+  return `${voice.name}${separator}${notificationSubject(voice, kind, tableName)}`;
 }
 
 export function notificationMailBody(
-  locale: MailLocale,
+  voice: MailVoice,
   kind: NotificationKind,
   tableName: string,
   link: string,
 ): string {
-  const subject = notificationSubject(locale, kind, tableName);
-  return `${subject}.\n\n${link}\n\n${NOTIFICATION_FOOTER[locale]}`;
+  const subject = notificationSubject(voice, kind, tableName);
+  return `${subject}.\n\n${link}\n\n${NOTIFICATION_FOOTER[voice.locale]}`;
 }
 
 export function invitationMailSubject(
-  locale: MailLocale,
+  voice: MailVoice,
   baseName: string,
 ): string {
-  const quoted = tableQuoted(locale, baseName);
-  return locale === "fr"
-    ? `${MAIL_PREFIX}\u00a0: invitation à ${quoted}`
-    : `${MAIL_PREFIX}: invitation to ${quoted}`;
+  const quoted = tableQuoted(voice.locale, baseName);
+  return voice.locale === "fr"
+    ? `${voice.name}\u00a0: invitation à ${quoted}`
+    : `${voice.name}: invitation to ${quoted}`;
 }
 
 export function invitationMailBody(
-  locale: MailLocale,
+  voice: MailVoice,
   input: {
     inviterName: string;
     link: string;
     expiresDate: string;
   },
 ): string {
-  if (locale === "fr") {
-    return `${input.inviterName} vous invite sur AnyGridDB.\n\n${input.link}\n\nLe lien expire le ${input.expiresDate}.`;
+  // The instance's own note sits between who invites and the link: the
+  // link and its expiry are there whatever the note says.
+  const note = voice.invitationNote ? `${voice.invitationNote}\n\n` : "";
+  if (voice.locale === "fr") {
+    return `${input.inviterName} vous invite sur ${voice.name}.\n\n${note}${input.link}\n\nLe lien expire le ${input.expiresDate}.`;
   }
-  return `${input.inviterName} invited you to AnyGridDB.\n\n${input.link}\n\nThe link expires on ${input.expiresDate}.`;
+  return `${input.inviterName} invited you to ${voice.name}.\n\n${note}${input.link}\n\nThe link expires on ${input.expiresDate}.`;
 }
 
-export function testMailSubject(locale: MailLocale): string {
-  return locale === "fr"
-    ? `${MAIL_PREFIX}\u00a0: message de test`
-    : `${MAIL_PREFIX}: test message`;
+export function testMailSubject(voice: MailVoice): string {
+  return voice.locale === "fr"
+    ? `${voice.name}\u00a0: message de test`
+    : `${voice.name}: test message`;
 }
 
-export function testMailBody(locale: MailLocale): string {
-  return locale === "fr"
+export function testMailBody(voice: MailVoice): string {
+  return voice.locale === "fr"
     ? "Ce message confirme que cette instance envoie bien ses emails."
     : "This message confirms that this instance can send email.";
 }
 
 /** Fixed footer on an administrator's notice to accounts (ADR 0052). */
-export function operatorMailFooter(locale: MailLocale): string {
-  return locale === "fr"
-    ? "Ce message a été envoyé par un administrateur de votre instance AnyGridDB."
-    : "This message was sent by an administrator of your AnyGridDB instance.";
+export function operatorMailFooter(voice: MailVoice): string {
+  return voice.locale === "fr"
+    ? `Ce message a été envoyé par un administrateur de votre instance ${voice.name}.`
+    : `This message was sent by an administrator of your ${voice.name} instance.`;
 }
 
-export function operatorMailText(locale: MailLocale, body: string): string {
-  return `${body.trimEnd()}\n\n—\n${operatorMailFooter(locale)}`;
+export function operatorMailText(voice: MailVoice, body: string): string {
+  return `${body.trimEnd()}\n\n—\n${operatorMailFooter(voice)}`;
 }
 
-export function webhookDisabledMailSubject(locale: MailLocale): string {
-  return locale === "fr"
-    ? `${MAIL_PREFIX}\u00a0: webhook désactivé`
-    : `${MAIL_PREFIX}: webhook disabled`;
+export function webhookDisabledMailSubject(voice: MailVoice): string {
+  return voice.locale === "fr"
+    ? `${voice.name}\u00a0: webhook désactivé`
+    : `${voice.name}: webhook disabled`;
 }
 
 export function webhookDisabledMailBody(
-  locale: MailLocale,
+  voice: MailVoice,
   webhookName: string,
 ): string {
   const limit = WEBHOOK_FAILURE_LIMIT;
-  if (locale === "fr") {
+  if (voice.locale === "fr") {
     const quoted = tableQuoted("fr", webhookName);
     return `Le webhook ${quoted} a échoué ${String(limit)} fois de suite et a été désactivé. Réactivez-le depuis les réglages de la base.`;
   }
@@ -176,7 +221,7 @@ function moment(locale: MailLocale, date: Date): string {
 }
 
 export function securityMailSubject(
-  locale: MailLocale,
+  voice: MailVoice,
   notice: SecurityNotice,
 ): string {
   const fr = {
@@ -193,43 +238,43 @@ export function securityMailSubject(
     inactive_soon: "your account will soon be disabled",
     inactive_disabled: "your account is disabled",
   };
-  return locale === "fr"
-    ? `${MAIL_PREFIX}\u00a0: ${fr[notice.kind]}`
-    : `${MAIL_PREFIX}: ${en[notice.kind]}`;
+  return voice.locale === "fr"
+    ? `${voice.name}\u00a0: ${fr[notice.kind]}`
+    : `${voice.name}: ${en[notice.kind]}`;
 }
 
 export function securityMailBody(
-  locale: MailLocale,
+  voice: MailVoice,
   notice: SecurityNotice,
 ): string {
-  if (locale === "fr") {
+  if (voice.locale === "fr") {
     const warn =
       "Si ce n’était pas vous, prévenez votre administrateur sans attendre.";
     switch (notice.kind) {
       case "locked":
-        return `Après ${String(notice.failures)} essais de connexion manqués, votre compte AnyGridDB est verrouillé ${notice.until ? `jusqu’au ${moment(locale, notice.until)}` : "jusqu’à ce qu’un administrateur le déverrouille"}.\n\nSi ce n’était pas vous, quelqu’un essaie peut-être votre mot de passe : prévenez votre administrateur.`;
+        return `Après ${String(notice.failures)} essais de connexion manqués, votre compte ${voice.name} est verrouillé ${notice.until ? `jusqu’au ${moment(voice.locale, notice.until)}` : "jusqu’à ce qu’un administrateur le déverrouille"}.\n\nSi ce n’était pas vous, quelqu’un essaie peut-être votre mot de passe : prévenez votre administrateur.`;
       case "password_changed":
-        return `Le mot de passe de votre compte AnyGridDB vient de changer, et vos autres sessions ont pris fin.\n\n${warn}`;
+        return `Le mot de passe de votre compte ${voice.name} vient de changer, et vos autres sessions ont pris fin.\n\n${warn}`;
       case "factors_removed":
-        return `Un administrateur a retiré les seconds facteurs de votre compte AnyGridDB (application d’authentification, clés d’accès, codes de secours). Configurez-en un à votre prochaine connexion.\n\n${warn}`;
+        return `Un administrateur a retiré les seconds facteurs de votre compte ${voice.name} (application d’authentification, clés d’accès, codes de secours). Configurez-en un à votre prochaine connexion.\n\n${warn}`;
       case "inactive_soon":
-        return `Votre compte AnyGridDB n’a pas servi depuis longtemps. Sans connexion d’ici le ${moment(locale, notice.disableAt)}, il sera désactivé, comme tout compte inutilisé pendant ${String(notice.days)} jours sur cette instance.\n\nPour le garder, connectez-vous simplement.`;
+        return `Votre compte ${voice.name} n’a pas servi depuis longtemps. Sans connexion d’ici le ${moment(voice.locale, notice.disableAt)}, il sera désactivé, comme tout compte inutilisé pendant ${String(notice.days)} jours sur cette instance.\n\nPour le garder, connectez-vous simplement.`;
       case "inactive_disabled":
-        return `Votre compte AnyGridDB n’a pas servi depuis ${String(notice.days)} jours\u00a0: il est désactivé, et ses jetons d’API ne fonctionnent plus. Ses données restent en place.\n\nPour le retrouver, demandez à un administrateur de le réactiver.`;
+        return `Votre compte ${voice.name} n’a pas servi depuis ${String(notice.days)} jours\u00a0: il est désactivé, et ses jetons d’API ne fonctionnent plus. Ses données restent en place.\n\nPour le retrouver, demandez à un administrateur de le réactiver.`;
     }
   }
   const warn = "If it was not you, tell your administrator at once.";
   switch (notice.kind) {
     case "locked":
-      return `After ${String(notice.failures)} failed sign-in attempts, your AnyGridDB account is locked ${notice.until ? `until ${moment(locale, notice.until)}` : "until an administrator unlocks it"}.\n\nIf it was not you, someone may be trying your password: tell your administrator.`;
+      return `After ${String(notice.failures)} failed sign-in attempts, your ${voice.name} account is locked ${notice.until ? `until ${moment(voice.locale, notice.until)}` : "until an administrator unlocks it"}.\n\nIf it was not you, someone may be trying your password: tell your administrator.`;
     case "password_changed":
-      return `The password of your AnyGridDB account was just changed, and your other sessions ended.\n\n${warn}`;
+      return `The password of your ${voice.name} account was just changed, and your other sessions ended.\n\n${warn}`;
     case "factors_removed":
-      return `An administrator removed the second factors of your AnyGridDB account (authenticator app, passkeys, backup codes). Set one up again at your next sign-in.\n\n${warn}`;
+      return `An administrator removed the second factors of your ${voice.name} account (authenticator app, passkeys, backup codes). Set one up again at your next sign-in.\n\n${warn}`;
     case "inactive_soon":
-      return `Your AnyGridDB account has not been used for a long time. Unless you sign in by ${moment(locale, notice.disableAt)}, it will be disabled, as any account unused for ${String(notice.days)} days is on this instance.\n\nTo keep it, just sign in.`;
+      return `Your ${voice.name} account has not been used for a long time. Unless you sign in by ${moment(voice.locale, notice.disableAt)}, it will be disabled, as any account unused for ${String(notice.days)} days is on this instance.\n\nTo keep it, just sign in.`;
     case "inactive_disabled":
-      return `Your AnyGridDB account was not used for ${String(notice.days)} days: it is disabled, and its API tokens stop working. Its data stays.\n\nTo get it back, ask an administrator to enable it again.`;
+      return `Your ${voice.name} account was not used for ${String(notice.days)} days: it is disabled, and its API tokens stop working. Its data stays.\n\nTo get it back, ask an administrator to enable it again.`;
   }
 }
 
@@ -290,29 +335,29 @@ const ALERT_TITLES: Record<AlertKind, [en: string, fr: string]> = {
 };
 
 export function alertMailSubject(
-  locale: MailLocale,
+  voice: MailVoice,
   alerts: readonly MailedAlert[],
 ): string {
   const first = alerts[0];
   if (alerts.length === 1 && first) {
     const [en, fr] = ALERT_TITLES[first.kind];
-    return locale === "fr"
-      ? `${MAIL_PREFIX}\u00a0: ${fr}`
-      : `${MAIL_PREFIX}: ${en}`;
+    return voice.locale === "fr"
+      ? `${voice.name}\u00a0: ${fr}`
+      : `${voice.name}: ${en}`;
   }
-  return locale === "fr"
-    ? `${MAIL_PREFIX}\u00a0: ${String(alerts.length)} alertes sont ouvertes`
-    : `${MAIL_PREFIX}: ${String(alerts.length)} alerts are open`;
+  return voice.locale === "fr"
+    ? `${voice.name}\u00a0: ${String(alerts.length)} alertes sont ouvertes`
+    : `${voice.name}: ${String(alerts.length)} alerts are open`;
 }
 
 export function alertMailBody(
-  locale: MailLocale,
+  voice: MailVoice,
   alerts: readonly MailedAlert[],
   healthUrl: string,
 ): string {
-  const lines = alerts.map((alert) => `- ${alertLine(locale, alert)}`);
+  const lines = alerts.map((alert) => `- ${alertLine(voice.locale, alert)}`);
   const close =
-    locale === "fr"
+    voice.locale === "fr"
       ? "Une alerte se ferme d’elle-même quand sa cause a disparu. Tant qu’elle reste ouverte, vous êtes prévenu une fois par jour au plus. Les seuils se règlent dans Administration > Santé."
       : "An alert closes by itself once its cause is gone. While it stays open, you are told once a day at most. Thresholds are set in Administration > Health.";
   return `${lines.join("\n")}\n\n${close}\n\n${healthUrl}`;
@@ -329,109 +374,109 @@ export type LockAlert =
     }
   | { many: true };
 
-export function lockAlertSubject(locale: MailLocale, alert: LockAlert): string {
+export function lockAlertSubject(voice: MailVoice, alert: LockAlert): string {
   if (alert.many) {
-    return locale === "fr"
-      ? `${MAIL_PREFIX}\u00a0: de nombreux comptes se verrouillent`
-      : `${MAIL_PREFIX}: many accounts are locking`;
+    return voice.locale === "fr"
+      ? `${voice.name}\u00a0: de nombreux comptes se verrouillent`
+      : `${voice.name}: many accounts are locking`;
   }
-  return locale === "fr"
-    ? `${MAIL_PREFIX}\u00a0: le compte de ${alert.name} est verrouillé`
-    : `${MAIL_PREFIX}: ${alert.name}'s account is locked`;
+  return voice.locale === "fr"
+    ? `${voice.name}\u00a0: le compte de ${alert.name} est verrouillé`
+    : `${voice.name}: ${alert.name}'s account is locked`;
 }
 
 export function lockAlertBody(
-  locale: MailLocale,
+  voice: MailVoice,
   alert: LockAlert,
   adminUrl: string,
 ): string {
   if (alert.many) {
-    return locale === "fr"
+    return voice.locale === "fr"
       ? `Plus de 10 comptes se sont verrouillés en une heure\u00a0: quelqu’un essaie peut-être des mots de passe en masse. Vous ne recevrez plus d’alerte par compte pendant cette heure ; le journal des connexions les garde toutes.\n\n${adminUrl}`
       : `More than 10 accounts locked within an hour: someone may be trying passwords at scale. You will get no more alerts per account for this hour; the sign-in trail keeps them all.\n\n${adminUrl}`;
   }
-  const until = alert.until ? moment(locale, alert.until) : null;
-  if (locale === "fr") {
+  const until = alert.until ? moment(voice.locale, alert.until) : null;
+  if (voice.locale === "fr") {
     return `Le compte de ${alert.name} (${alert.email}) est verrouillé après ${String(alert.failures)} essais manqués, ${until ? `jusqu’au ${until}` : "jusqu’à ce qu’un administrateur le déverrouille"}.\n\nSi la personne vous le demande, déverrouillez-le depuis Administration > Comptes. Sinon, quelqu’un essaie peut-être son mot de passe.\n\n${adminUrl}`;
   }
   return `${alert.name}'s account (${alert.email}) is locked after ${String(alert.failures)} failed attempts, ${until ? `until ${until}` : "until an administrator unlocks it"}.\n\nIf the person asks, unlock it from Administration > Accounts. Otherwise, someone may be trying their password.\n\n${adminUrl}`;
 }
 
-export function resetMailSubject(locale: MailLocale): string {
-  return locale === "fr"
-    ? `${MAIL_PREFIX}\u00a0: choisir un nouveau mot de passe`
-    : `${MAIL_PREFIX}: set a new password`;
+export function resetMailSubject(voice: MailVoice): string {
+  return voice.locale === "fr"
+    ? `${voice.name}\u00a0: choisir un nouveau mot de passe`
+    : `${voice.name}: set a new password`;
 }
 
 export function resetMailBody(
-  locale: MailLocale,
+  voice: MailVoice,
   input: { link: string; expiresAt: Date; byAdmin: boolean },
 ): string {
-  const until = moment(locale, input.expiresAt);
-  if (locale === "fr") {
+  const until = moment(voice.locale, input.expiresAt);
+  if (voice.locale === "fr") {
     const who = input.byAdmin
-      ? "Un administrateur vous envoie un lien pour choisir un nouveau mot de passe AnyGridDB."
-      : "Vous avez demandé à choisir un nouveau mot de passe AnyGridDB.";
+      ? `Un administrateur vous envoie un lien pour choisir un nouveau mot de passe ${voice.name}.`
+      : `Vous avez demandé à choisir un nouveau mot de passe ${voice.name}.`;
     return `${who}\n\n${input.link}\n\nLe lien sert une fois, jusqu’au ${until}. Vos seconds facteurs restent en place.\n\nSi vous n’avez rien demandé, ignorez ce message\u00a0: votre mot de passe ne change pas.`;
   }
   const who = input.byAdmin
-    ? "An administrator sent you a link to set a new AnyGridDB password."
-    : "You asked to set a new AnyGridDB password.";
+    ? `An administrator sent you a link to set a new ${voice.name} password.`
+    : `You asked to set a new ${voice.name} password.`;
   return `${who}\n\n${input.link}\n\nThe link works once, until ${until}. Your second factors stay as they are.\n\nIf you did not ask for it, ignore this email: your password does not change.`;
 }
 
 /** The link that proves the address of a sign-up (ADR 0058). */
-export function signupMailSubject(locale: MailLocale): string {
-  return locale === "fr"
-    ? `${MAIL_PREFIX}\u00a0: confirmer votre adresse`
-    : `${MAIL_PREFIX}: confirm your address`;
+export function signupMailSubject(voice: MailVoice): string {
+  return voice.locale === "fr"
+    ? `${voice.name}\u00a0: confirmer votre adresse`
+    : `${voice.name}: confirm your address`;
 }
 
 export function signupMailBody(
-  locale: MailLocale,
+  voice: MailVoice,
   input: { link: string; expiresAt: Date },
 ): string {
-  const until = moment(locale, input.expiresAt);
-  if (locale === "fr") {
-    return `Pour créer votre compte AnyGridDB, ouvrez ce lien et saisissez le mot de passe choisi à l’inscription\u00a0:\n\n${input.link}\n\nLe lien sert jusqu’au ${until}.\n\nSi vous n’avez rien demandé, ignorez ce message\u00a0: aucun compte n’est créé.`;
+  const until = moment(voice.locale, input.expiresAt);
+  if (voice.locale === "fr") {
+    return `Pour créer votre compte ${voice.name}, ouvrez ce lien et saisissez le mot de passe choisi à l’inscription\u00a0:\n\n${input.link}\n\nLe lien sert jusqu’au ${until}.\n\nSi vous n’avez rien demandé, ignorez ce message\u00a0: aucun compte n’est créé.`;
   }
-  return `To create your AnyGridDB account, open this link and enter the password you chose when signing up:\n\n${input.link}\n\nThe link works until ${until}.\n\nIf you did not ask for it, ignore this email: no account is created.`;
+  return `To create your ${voice.name} account, open this link and enter the password you chose when signing up:\n\n${input.link}\n\nThe link works until ${until}.\n\nIf you did not ask for it, ignore this email: no account is created.`;
 }
 
 /**
  * A sign-up for an address that has an account already: the person learns
  * it here, never on the page, which answers the same for every address.
  */
-export function accountExistsMailSubject(locale: MailLocale): string {
-  return locale === "fr"
-    ? `${MAIL_PREFIX}\u00a0: vous avez déjà un compte`
-    : `${MAIL_PREFIX}: you already have an account`;
+export function accountExistsMailSubject(voice: MailVoice): string {
+  return voice.locale === "fr"
+    ? `${voice.name}\u00a0: vous avez déjà un compte`
+    : `${voice.name}: you already have an account`;
 }
 
 export function accountExistsMailBody(
-  locale: MailLocale,
+  voice: MailVoice,
   input: { loginUrl: string },
 ): string {
-  if (locale === "fr") {
-    return `Quelqu’un a voulu créer un compte AnyGridDB avec cette adresse, qui en a déjà un. Rien n’a changé.\n\nPour vous connecter, ou choisir un nouveau mot de passe si vous l’avez oublié :\n\n${input.loginUrl}\n\nSi vous n’avez rien demandé, ignorez ce message.`;
+  if (voice.locale === "fr") {
+    return `Quelqu’un a voulu créer un compte ${voice.name} avec cette adresse, qui en a déjà un. Rien n’a changé.\n\nPour vous connecter, ou choisir un nouveau mot de passe si vous l’avez oublié :\n\n${input.loginUrl}\n\nSi vous n’avez rien demandé, ignorez ce message.`;
   }
-  return `Someone tried to create an AnyGridDB account with this address, which already has one. Nothing changed.\n\nTo sign in, or to set a new password if you forgot it:\n\n${input.loginUrl}\n\nIf you did not ask for it, ignore this email.`;
+  return `Someone tried to create an ${voice.name} account with this address, which already has one. Nothing changed.\n\nTo sign in, or to set a new password if you forgot it:\n\n${input.loginUrl}\n\nIf you did not ask for it, ignore this email.`;
 }
 
 /** An account an administrator created (ROADMAP #67): the first password. */
-export function welcomeMailSubject(locale: MailLocale): string {
-  return locale === "fr"
-    ? `${MAIL_PREFIX}\u00a0: votre compte vous attend`
-    : `${MAIL_PREFIX}: your account is ready`;
+export function welcomeMailSubject(voice: MailVoice): string {
+  return voice.locale === "fr"
+    ? `${voice.name}\u00a0: votre compte vous attend`
+    : `${voice.name}: your account is ready`;
 }
 
 export function welcomeMailBody(
-  locale: MailLocale,
+  voice: MailVoice,
   input: { creatorName: string; link: string; expiresAt: Date },
 ): string {
-  const until = moment(locale, input.expiresAt);
-  if (locale === "fr") {
-    return `${input.creatorName} vous a créé un compte AnyGridDB. Choisissez votre mot de passe avec ce lien\u00a0:\n\n${input.link}\n\nLe lien sert une fois, jusqu’au ${until}. Passé ce délai, demandez-en un nouveau à un administrateur, ou depuis la page de connexion.`;
+  const until = moment(voice.locale, input.expiresAt);
+  if (voice.locale === "fr") {
+    return `${input.creatorName} vous a créé un compte ${voice.name}. Choisissez votre mot de passe avec ce lien\u00a0:\n\n${input.link}\n\nLe lien sert une fois, jusqu’au ${until}. Passé ce délai, demandez-en un nouveau à un administrateur, ou depuis la page de connexion.`;
   }
-  return `${input.creatorName} created an AnyGridDB account for you. Choose your password with this link:\n\n${input.link}\n\nThe link works once, until ${until}. After that, ask an administrator for a new one, or ask for one from the sign-in page.`;
+  return `${input.creatorName} created an ${voice.name} account for you. Choose your password with this link:\n\n${input.link}\n\nThe link works once, until ${until}. After that, ask an administrator for a new one, or ask for one from the sign-in page.`;
 }

@@ -110,6 +110,7 @@ import {
   finishRegistration,
 } from "../auth/webauthn.js";
 import { hasAccounts, signupDecision } from "../admin.js";
+import { readLogoVersion } from "../instance-logo.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 import { smtpReady } from "../mail.js";
 import { resolveLocale } from "../mail-i18n.js";
@@ -402,6 +403,11 @@ export const authRouter = t.router({
       defaultLocale: settings.defaultLocale,
       maintenance: settings.maintenance,
       banner: settings.banner,
+      // How the instance presents itself (ADR 0072): its name and logo
+      // wherever the product's would be, its note on the sign-in pages.
+      instanceName: settings.instanceName,
+      signInMessage: settings.signInMessage,
+      logo: await readLogoVersion(ctx.db),
       // What the forms need to say (ADR 0043); never the lock's limits.
       passwordMinLength: settings.passwordMinLength,
       ssoOnly: settings.ssoOnly,

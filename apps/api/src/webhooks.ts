@@ -22,9 +22,8 @@ import { readerEngine } from "./data/acl.js";
 import { decryptSecret, encryptSecret } from "./auth/crypto.js";
 import { loadEngine } from "./data/engine.js";
 import { readPage, type RowRecord } from "./data/rows.js";
-import { readSettings } from "./settings.js";
+import { readMailVoice } from "./settings.js";
 import {
-  resolveLocale,
   webhookDisabledMailBody,
   webhookDisabledMailSubject,
 } from "./mail-i18n.js";
@@ -573,18 +572,25 @@ async function payloadFor(
 }
 
 async function send(
-  deps: Pick<HookDeps, "key" | "smtp">,
+  deps: Pick<HookDeps, "db" | "key" | "smtp">,
   hook: WebhookRow,
   payload: unknown,
 ): Promise<number> {
   const body = JSON.stringify(payload);
   if (hook.kind === "smtp") {
     const event = (payload as { event?: unknown }).event;
-    await sendMail(deps.smtp, {
-      to: hook.target,
-      subject: `AnyGridDB ${String(event)}${hook.name ? ` · ${hook.name}` : ""}`,
-      text: JSON.stringify(payload, null, 2),
-    });
+    // A payload for a program to read: under the instance's name, and
+    // nothing after it, so no signature.
+    const voice = await readMailVoice(deps.db);
+    await sendMail(
+      deps.smtp,
+      { sender: voice.sender, signature: null },
+      {
+        to: hook.target,
+        subject: `${voice.name} ${String(event)}${hook.name ? ` · ${hook.name}` : ""}`,
+        text: JSON.stringify(payload, null, 2),
+      },
+    );
     return 250;
   }
   const secret = decryptSecret(
@@ -655,13 +661,12 @@ async function recordFailure(deps: HookDeps, hook: WebhookRow): Promise<void> {
     .where("id", "=", hook.createdBy)
     .executeTakeFirst();
   if (!creator) return;
-  const settings = await readSettings(deps.db);
-  const locale = resolveLocale(null, settings.defaultLocale);
+  const voice = await readMailVoice(deps.db);
   const webhookName = hook.name || hook.target;
-  await sendMail(deps.smtp, {
+  await sendMail(deps.smtp, voice, {
     to: creator.email,
-    subject: webhookDisabledMailSubject(locale),
-    text: webhookDisabledMailBody(locale, webhookName),
+    subject: webhookDisabledMailSubject(voice),
+    text: webhookDisabledMailBody(voice, webhookName),
   }).catch((error: unknown) => deps.log(error, "webhook notice failed"));
 }
 

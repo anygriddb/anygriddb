@@ -152,6 +152,7 @@ export const ERRORS = {
   job_cancelled: [409, "Job cancelled"],
   interrupted: [409, "Interrupted"],
   invalid_file: [BAD, "Invalid file"],
+  invalid_logo: [BAD, "Invalid logo"],
   file_too_large: [413, "File too large"],
   storage_not_configured: [412, "Storage not configured"],
   smtp_not_configured: [412, "SMTP not configured"],

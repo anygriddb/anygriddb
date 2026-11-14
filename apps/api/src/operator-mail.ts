@@ -13,7 +13,7 @@ import { resolveSmtp } from "./integrations/smtp.js";
 import { sendMail, smtpReady, type SmtpConfig } from "./mail.js";
 import { operatorMailText, resolveLocale } from "./mail-i18n.js";
 import { addJob, TASKS } from "./queue/jobs.js";
-import { readSettings } from "./settings.js";
+import { readMailVoice, readSettings } from "./settings.js";
 import type { Env } from "./env.js";
 
 export const MAX_OPERATOR_MAIL_RECIPIENTS = 500;
@@ -176,12 +176,13 @@ export async function deliverOperatorMail(
     .where("id", "<>", ERASED_USER_ID)
     .where("id", "in", payload.userIds)
     .execute();
-  const text = operatorMailText(payload.locale, payload.body);
+  const voice = await readMailVoice(deps.db, payload.locale);
+  const text = operatorMailText(voice, payload.body);
   let sent = 0;
   let failed = 0;
   for (const person of people) {
     try {
-      await sendMail(deps.smtp, {
+      await sendMail(deps.smtp, voice, {
         to: person.email,
         subject: payload.subject,
         text,

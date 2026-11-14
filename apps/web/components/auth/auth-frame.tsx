@@ -3,7 +3,9 @@ import { useLingui } from "@lingui/react/macro";
 import { Check } from "lucide-react";
 import type { ReactNode } from "react";
 import { useLocale } from "../../lib/i18n";
-import { BrandMark } from "../brand/brand-mark";
+import { InstanceMark, useInstanceIdentity } from "../brand/instance-mark";
+import { useQuery } from "@tanstack/react-query";
+import { useTRPC } from "../../lib/trpc";
 
 /** A page of the register, as the product draws one: figures the person can trust. */
 const ENTRIES: ReadonlyArray<{
@@ -115,13 +117,24 @@ function LedgerSpecimen() {
  */
 export function AuthFrame({ children }: { children: ReactNode }) {
   const { t } = useLingui();
+  const api = useTRPC();
+  const { name } = useInstanceIdentity();
+  const message = useQuery(api.auth.instance.queryOptions()).data
+    ?.signInMessage;
   return (
     <main className="flex h-screen overflow-hidden">
       <section className="flex w-full shrink-0 flex-col overflow-y-auto border-r border-border bg-background px-8 py-10 lg:w-[34rem] lg:px-16">
         <div className="flex items-center gap-2">
-          <BrandMark className="h-6 w-6" />
-          <span className="text-base font-semibold">AnyGridDB</span>
+          <InstanceMark className="h-6 w-6" />
+          <span className="min-w-0 text-base font-semibold break-words">
+            {name}
+          </span>
         </div>
+        {message ? (
+          <p className="mt-3 max-w-sm text-sm whitespace-pre-line text-muted-foreground">
+            {message}
+          </p>
+        ) : null}
         <div className="my-auto w-full max-w-sm py-10">{children}</div>
       </section>
       <section
