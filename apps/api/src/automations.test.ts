@@ -85,10 +85,22 @@ describe("saveAutomation", () => {
       actions: actions as never,
     });
   const hook = { type: "call_webhook", url: "https://127.0.0.1/hook" };
+  const slack = {
+    type: "send_slack",
+    url: "https://127.0.0.1/services/T/B/x",
+    message: "hi",
+  };
+  const teams = {
+    type: "send_teams",
+    url: "https://10.0.0.1/webhook",
+    message: "hi",
+  };
 
   it("refuses a webhook to a private address, wherever the action sits", async () => {
     for (const actions of [
       [hook],
+      [slack],
+      [teams],
       [{ type: "branch", then: [hook] }],
       [{ type: "branch", then: [], otherwise: [hook] }],
       [{ type: "for_each", actions: [hook] }],

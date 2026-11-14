@@ -4,11 +4,73 @@ import {
   MAX_AUTOMATION_ACTIONS,
   nextScheduleRun,
   renderTemplate,
+  slackIncomingWebhookBody,
+  teamsIncomingWebhookBody,
   templateKeys,
   webhookTemplateValues,
 } from "./automation";
 
 const TABLE = "11111111-1111-4111-8111-111111111111";
+
+describe("Slack and Teams webhook bodies", () => {
+  it("builds Slack text and a Teams MessageCard", () => {
+    expect(JSON.parse(slackIncomingWebhookBody("Hello {{name}}"))).toEqual({
+      text: "Hello {{name}}",
+    });
+    const teams = JSON.parse(
+      teamsIncomingWebhookBody("Row ready", "Notice"),
+    ) as Record<string, string>;
+    expect(teams["@type"]).toBe("MessageCard");
+    expect(teams.themeColor).toBe("1F3FAE");
+    expect(teams.title).toBe("Notice");
+    expect(teams.text).toBe("Row ready");
+  });
+
+  it("accepts send_slack and send_teams over https only", () => {
+    const base = {
+      tableId: TABLE,
+      name: "Alert",
+      trigger: { type: "row_created" as const },
+    };
+    expect(
+      createAutomationInputSchema.safeParse({
+        ...base,
+        actions: [
+          {
+            type: "send_slack",
+            url: "https://hooks.slack.com/services/T/B/x",
+            message: "Hi {{name}}",
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      createAutomationInputSchema.safeParse({
+        ...base,
+        actions: [
+          {
+            type: "send_teams",
+            url: "https://example.webhook.office.com/webhookb2/x",
+            message: "Hi",
+            title: "Update",
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      createAutomationInputSchema.safeParse({
+        ...base,
+        actions: [
+          {
+            type: "send_slack",
+            url: "http://hooks.slack.com/services/T/B/x",
+            message: "Hi",
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+});
 
 describe("renderTemplate", () => {
   it("substitutes known keys as plain text", () => {

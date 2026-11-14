@@ -99,6 +99,42 @@ const automationStepSchema = z.discriminatedUnion("type", [
       body: templateSchema.optional(),
     })
     .strict(),
+  /**
+   * Posts to a Slack Incoming Webhook URL (official Slack mechanism).
+   * Body is `{ text }` after templating; no OAuth app required.
+   */
+  z
+    .object({
+      type: z.literal("send_slack"),
+      url: z
+        .string()
+        .trim()
+        .max(500)
+        .refine((value) => value.startsWith("https://"), {
+          message: "Invalid automation",
+        }),
+      message: z.string().trim().min(1).max(3_000),
+    })
+    .strict(),
+  /**
+   * Posts to a Microsoft Teams Incoming Webhook / Connector URL
+   * (MessageCard JSON). No Graph application registration required.
+   */
+  z
+    .object({
+      type: z.literal("send_teams"),
+      url: z
+        .string()
+        .trim()
+        .max(500)
+        .refine((value) => value.startsWith("https://"), {
+          message: "Invalid automation",
+        }),
+      message: z.string().trim().min(1).max(3_000),
+      /** Optional card title; defaults to a short prefix of the message. */
+      title: z.string().trim().max(200).optional(),
+    })
+    .strict(),
   z
     .object({
       type: z.literal("notify"),
@@ -353,4 +389,32 @@ export function nextScheduleRun(
     if (candidate.getTime() > after.getTime()) return candidate;
   }
   throw new AppError("invalid_automation");
+}
+
+/**
+ * Slack Incoming Webhook JSON (`text` only). Official Incoming Webhooks
+ * API; not the private Web API chat.postMessage path.
+ */
+export function slackIncomingWebhookBody(message: string): string {
+  return JSON.stringify({ text: message.slice(0, 3_000) });
+}
+
+/**
+ * Microsoft Teams Connector / Incoming Webhook MessageCard. Theme colour
+ * matches the product blue (`#1f3fae`).
+ */
+export function teamsIncomingWebhookBody(
+  message: string,
+  title?: string,
+): string {
+  const text = message.slice(0, 3_000);
+  const heading = (title?.trim() || text.slice(0, 100)).slice(0, 200);
+  return JSON.stringify({
+    "@type": "MessageCard",
+    "@context": "https://schema.org/extensions",
+    summary: heading,
+    themeColor: "1F3FAE",
+    title: heading,
+    text,
+  });
 }

@@ -54,6 +54,8 @@ const STEPS: StepType[] = [
   "create_record",
   "send_email",
   "call_webhook",
+  "send_slack",
+  "send_teams",
   "notify",
 ];
 const ACTIONS: ActionType[] = [...STEPS, "branch", "for_each"];
@@ -86,6 +88,8 @@ function useLabels() {
       create_record: t`Create a row`,
       send_email: t`Send an email`,
       call_webhook: t`Call a URL`,
+      send_slack: t`Send to Slack`,
+      send_teams: t`Send to Teams`,
       notify: t`Notify collaborators`,
       branch: t`If… then… otherwise…`,
       for_each: t`For each row of…`,
@@ -164,6 +168,10 @@ function defaultStep(type: StepType, tableId: string): AutomationStep {
       return { type, to: "", subject: "", body: "" };
     case "call_webhook":
       return { type, url: "https://" };
+    case "send_slack":
+      return { type, url: "https://hooks.slack.com/services/", message: "" };
+    case "send_teams":
+      return { type, url: "https://", message: "", title: "" };
     case "notify":
       return { type, users: [], message: "" };
   }
@@ -517,6 +525,70 @@ function ActionEditor(props: {
               })
             }
           />
+        </div>
+      );
+    case "send_slack":
+      return (
+        <div className="flex flex-col gap-1">
+          <Input
+            aria-label={t`Slack Incoming Webhook URL`}
+            className="h-8 text-xs"
+            placeholder="https://hooks.slack.com/services/…"
+            value={action.url}
+            onChange={(event) =>
+              props.onChange({ ...action, url: event.target.value })
+            }
+          />
+          <Textarea
+            aria-label={t`Message`}
+            placeholder={t`Message ({{field}} templates allowed)`}
+            className="min-h-16 text-xs"
+            value={action.message}
+            onChange={(event) =>
+              props.onChange({ ...action, message: event.target.value })
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            {t`Paste a Slack Incoming Webhook URL from your workspace. The message is sent as Slack's text field.`}
+          </p>
+        </div>
+      );
+    case "send_teams":
+      return (
+        <div className="flex flex-col gap-1">
+          <Input
+            aria-label={t`Teams Incoming Webhook URL`}
+            className="h-8 text-xs"
+            placeholder="https://….webhook.office.com/…"
+            value={action.url}
+            onChange={(event) =>
+              props.onChange({ ...action, url: event.target.value })
+            }
+          />
+          <Input
+            aria-label={t`Title`}
+            className="h-8 text-xs"
+            placeholder={t`Card title (optional)`}
+            value={action.title ?? ""}
+            onChange={(event) =>
+              props.onChange({
+                ...action,
+                title: event.target.value || undefined,
+              })
+            }
+          />
+          <Textarea
+            aria-label={t`Message`}
+            placeholder={t`Message ({{field}} templates allowed)`}
+            className="min-h-16 text-xs"
+            value={action.message}
+            onChange={(event) =>
+              props.onChange({ ...action, message: event.target.value })
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            {t`Paste a Microsoft Teams Incoming Webhook or Connector URL. The message is sent as a MessageCard.`}
+          </p>
         </div>
       );
     case "notify":

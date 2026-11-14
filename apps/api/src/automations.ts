@@ -21,6 +21,8 @@ import {
   renderTemplate,
   roleAllows,
   type RowEvent,
+  slackIncomingWebhookBody,
+  teamsIncomingWebhookBody,
   touchesWatched,
   webhookTemplateValues,
 } from "@anygriddb/core";
@@ -323,7 +325,11 @@ async function assertPublicWebhookActions(
   actions: readonly (AutomationAction | AutomationStep)[],
 ): Promise<void> {
   for (const action of actions) {
-    if (action.type === "call_webhook") {
+    if (
+      action.type === "call_webhook" ||
+      action.type === "send_slack" ||
+      action.type === "send_teams"
+    ) {
       await assertPublicHttps(action.url);
       continue;
     }
@@ -795,6 +801,31 @@ export async function runAutomation(
           "content-type": json
             ? "application/json"
             : "text/plain; charset=utf-8",
+          "user-agent": "AnyGridDB-Automation/1",
+          "x-anygrid-automation": automation.id,
+        });
+        if (status < 200 || status >= 300) throw new Error(`HTTP ${status}`);
+        break;
+      }
+      case "send_slack": {
+        const body = slackIncomingWebhookBody(
+          renderTemplate(action.message, frame.values),
+        );
+        const status = await postPinned(action.url, body, {
+          "content-type": "application/json",
+          "user-agent": "AnyGridDB-Automation/1",
+          "x-anygrid-automation": automation.id,
+        });
+        if (status < 200 || status >= 300) throw new Error(`HTTP ${status}`);
+        break;
+      }
+      case "send_teams": {
+        const body = teamsIncomingWebhookBody(
+          renderTemplate(action.message, frame.values),
+          action.title ? renderTemplate(action.title, frame.values) : undefined,
+        );
+        const status = await postPinned(action.url, body, {
+          "content-type": "application/json",
           "user-agent": "AnyGridDB-Automation/1",
           "x-anygrid-automation": automation.id,
         });

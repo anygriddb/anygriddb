@@ -2302,6 +2302,10 @@ msgstr "Card fields"
 msgid "Card title"
 msgstr "Card title"
 
+#: components/table/automations-dialog.tsx
+msgid "Card title (optional)"
+msgstr "Card title (optional)"
+
 #: components/dashboards/chart-view.tsx
 msgid "Category"
 msgstr "Category"
@@ -5732,6 +5736,10 @@ msgstr "Mentions, replies, assignments, and alerts. The email only holds the tab
 msgid "Message"
 msgstr "Message"
 
+#: components/table/automations-dialog.tsx
+msgid "Message ({{field}} templates allowed)"
+msgstr "Message ({{field}} templates allowed)"
+
 #: components/admin/support-tab.tsx
 msgid "Message accounts"
 msgstr "Message accounts"
@@ -6984,6 +6992,14 @@ msgstr "Passwords"
 #: components/admin/security-tab.tsx
 msgid "Past ten locks within an hour, one last alert says so; the sign-in trail keeps them all."
 msgstr "Past ten locks within an hour, one last alert says so; the sign-in trail keeps them all."
+
+#: components/table/automations-dialog.tsx
+msgid "Paste a Microsoft Teams Incoming Webhook or Connector URL. The message is sent as a MessageCard."
+msgstr "Paste a Microsoft Teams Incoming Webhook or Connector URL. The message is sent as a MessageCard."
+
+#: components/table/automations-dialog.tsx
+msgid "Paste a Slack Incoming Webhook URL from your workspace. The message is sent as Slack's text field."
+msgstr "Paste a Slack Incoming Webhook URL from your workspace. The message is sent as Slack's text field."
 
 #: components/admin/integrations-tab.tsx
 msgid "Paste the identity provider certificate"
@@ -8284,6 +8300,14 @@ msgstr "Send the link"
 msgid "Send to {count} accounts?"
 msgstr "Send to {count} accounts?"
 
+#: components/table/automations-dialog.tsx
+msgid "Send to Slack"
+msgstr "Send to Slack"
+
+#: components/table/automations-dialog.tsx
+msgid "Send to Teams"
+msgstr "Send to Teams"
+
 #: components/admin/identity-tab.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Sender name"
@@ -8693,6 +8717,10 @@ msgstr "Skip for now"
 msgid "Skipped"
 msgstr "Skipped"
 
+#: components/table/automations-dialog.tsx
+msgid "Slack Incoming Webhook URL"
+msgstr "Slack Incoming Webhook URL"
+
 #: components/shell/notification-items.ts
 msgid "Someone"
 msgstr "Someone"
@@ -9076,6 +9104,10 @@ msgstr "Target"
 #: lib/known-text.ts
 msgid "Tasks"
 msgstr "Tasks"
+
+#: components/table/automations-dialog.tsx
+msgid "Teams Incoming Webhook URL"
+msgstr "Teams Incoming Webhook URL"
 
 #: components/admin/security-tab.tsx
 #: components/admin/sign-in-trail.tsx
@@ -10189,6 +10221,7 @@ msgid "Timeout"
 msgstr "Timeout"
 
 #: components/dashboards/dashboard-board.tsx
+#: components/table/automations-dialog.tsx
 msgid "Title"
 msgstr "Title"
 

@@ -156,6 +156,8 @@ export {
   createAutomationInputSchema,
   nextScheduleRun,
   renderTemplate,
+  slackIncomingWebhookBody,
+  teamsIncomingWebhookBody,
   updateAutomationInputSchema,
   webhookTemplateValues,
   type AutomationAction,
