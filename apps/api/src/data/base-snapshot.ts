@@ -1,5 +1,11 @@
 import {
   AppError,
+  buildPositionsAfter,
+  buildRowSeqs,
+  buildSequenceAfter,
+  buildSnapshotForeignKeys,
+  buildSnapshotJunction,
+  buildSnapshotKeys,
   DEFAULT_ATTACHMENT_MAX_BYTES,
   type BaseSnapshot,
   baseSnapshotSchema,
@@ -7,6 +13,7 @@ import {
   type ColumnDefinition,
   CREATABLE_TYPES,
   deriveColumnName,
+  type EngineCatalog,
   type FieldType,
   type FormulaExpr,
   type MadeNames,
@@ -14,6 +21,8 @@ import {
   MAX_SNAPSHOT_ARCHIVE_BYTES,
   MAX_SNAPSHOT_BYTES,
   MAX_SNAPSHOT_FILES,
+  MAX_SNAPSHOT_LINE_BYTES,
+  MAX_SNAPSHOT_LINK_PAIRS,
   MAX_SNAPSHOT_ROWS,
   normalizeViewConfig,
   ROLLUP_FNS,
@@ -27,26 +36,32 @@ import {
   type SnapshotFileRef,
   snapshotFileRefSchema,
   snapshotFilename,
+  type SnapshotLine,
+  snapshotLineSchema,
   type SnapshotLink,
+  snapshotRowCount,
+  snapshotRowsEntry,
   type SnapshotTable,
 } from "@anygriddb/core";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
-import type { Database } from "@anygriddb/db";
+import { runStatement, type Database } from "@anygriddb/db";
 import {
   cleanFilename,
   loadAttachmentMeta,
   storeAttachment,
 } from "../attachments.js";
-import { withAudit } from "./audit-context.js";
+import { runRows, withAudit } from "./audit-context.js";
 import { insertComputed } from "./computed.js";
-import { MAX_COPY_ROWS, readAll, toCell } from "./data-ops.js";
+import { MAX_COPY_ROWS, toCell } from "./data-ops.js";
 import { loadEngine, sortColumns, type ColumnRow } from "./engine.js";
 import { liveBase, liveTable, liveView } from "./live.js";
+import { postgresCode } from "./pg-error.js";
 import { addRelation, setLinks } from "./relations.js";
 import {
   baseCollaboratorIds,
   readPage,
+  type RowRecord,
   writeColumns,
   type WriteContext,
 } from "./rows.js";
@@ -60,13 +75,22 @@ import {
 import { removeBase } from "./tables.js";
 import type { FileStore } from "../files/index.js";
 import { createView } from "./views.js";
-import { ZipError, ZipWriter } from "./zip.js";
+import { ZipError, type ZipReader, ZipWriter } from "./zip.js";
 
 const LINK_TYPES = new Set<FieldType>([
   "relation_one_to_many",
   "relation_many_to_many",
 ]);
 const COMPUTED_TYPES = new Set<FieldType>(["lookup", "rollup"]);
+
+/** Rows a snapshot reads, or links, at a time. */
+const SNAPSHOT_PAGE = 1_000;
+/** Rows a snapshot writes into a new table at a time. */
+const IMPORT_BATCH = 500;
+/** The targets one row of a version 3 line links to at most. */
+const ROW_TARGETS = 500;
+/** A sequence number as a line names it. */
+const SEQ = /^[1-9]\d{0,18}$/;
 
 function writeContext(
   userId: string,
@@ -170,22 +194,33 @@ async function baseMembers(db: Database, baseId: string) {
   return [...best].map(([email, role]) => ({ email, role }));
 }
 
+/** A table as a snapshot reads it: its schema, and what its lines need. */
+type SourceTable = {
+  key: string;
+  id: string;
+  physicalName: string;
+  engine: EngineCatalog;
+  snapshot: SnapshotTable;
+  /** Stored fields, written as a line's cells. */
+  writable: string[];
+  fileColumns: ReadonlySet<string>;
+  userColumns: ReadonlySet<string>;
+  /** Links from this table to a table of the snapshot, by field name. */
+  links: Array<{ name: string; targetPhysical: string }>;
+};
+
 /**
- * Builds a portable snapshot of a base: its schema and views and, with
- * data, its rows, its members, people by email, and the attachments its
- * cells name, which `packSnapshot` puts in an archive.
+ * What a base is made of: its own tables with their stored fields and
+ * views, the links between them, and their lookups and rollups.
  */
-export async function exportBaseSnapshot(
+async function describeBase(
   db: Database,
   baseId: string,
-  input: {
-    withData: boolean;
-    onProgress?: (done: number, total: number | null) => Promise<void>;
-  },
 ): Promise<{
-  snapshot: BaseSnapshot;
-  attachments: SnapshotAttachments;
-  baseName: string;
+  base: { name: string; description: string | null };
+  tables: SourceTable[];
+  links: SnapshotLink[];
+  computed: BaseSnapshot["computed"];
 }> {
   const base = await db
     .selectFrom("bases")
@@ -210,20 +245,16 @@ export async function exportBaseSnapshot(
 
   const keys = new Set<string>();
   const idToKey = new Map<string, string>();
+  const physicalOf = new Map<string, string>();
   for (const table of tableRows) {
     idToKey.set(table.id, tableKey(table.name, keys));
+    physicalOf.set(table.id, table.physicalName);
   }
 
-  let rowBudget = 0;
-  const attachments: SnapshotAttachments = new Map();
-  const snapshotTables: SnapshotTable[] = [];
+  const tables: SourceTable[] = [];
   const snapshotLinks: SnapshotLink[] = [];
   const computed: BaseSnapshot["computed"] = [];
   const emittedLinks = new Set<string>();
-
-  const totalSteps = tableRows.length * (input.withData ? 2 : 1) + 1;
-  let step = 0;
-  await input.onProgress?.(0, totalSteps);
 
   for (const table of tableRows) {
     const key = idToKey.get(table.id) ?? tableKey(table.name, keys);
@@ -247,21 +278,7 @@ export async function exportBaseSnapshot(
       .orderBy("createdAt", "asc")
       .execute();
 
-    const snapshotTable: SnapshotTable = {
-      key,
-      name: table.name,
-      description: table.description ?? undefined,
-      columns: stored.map(definitionOf),
-      primary,
-      views: viewRows
-        .filter((view) => !view.ownerId)
-        .map((view) => ({
-          name: view.name,
-          viewType: view.viewType,
-          config: normalizeViewConfig(view.config, view.viewType),
-        })),
-    };
-
+    const links: SourceTable["links"] = [];
     for (const column of own.filter((item) => LINK_TYPES.has(item.fieldType))) {
       const engineColumn = engine.table.columns.find(
         (item) => item.id === column.id,
@@ -269,15 +286,16 @@ export async function exportBaseSnapshot(
       const relation = engineColumn?.relation;
       if (!relation || relation.direction !== "forward") continue;
       const toKey = idToKey.get(relation.targetTableId);
-      if (!toKey) continue;
+      const targetPhysical = physicalOf.get(relation.targetTableId);
+      if (!toKey || !targetPhysical) continue;
       const mark = `${key}:${column.name}`;
       if (emittedLinks.has(mark)) continue;
       emittedLinks.add(mark);
-      const stored = rows.relations.find(
+      const saved = rows.relations.find(
         (item) => item.fromColumnId === column.id,
       );
-      const inverse = stored?.inverseColumnId
-        ? rows.columns.find((item) => item.id === stored.inverseColumnId)
+      const inverse = saved?.inverseColumnId
+        ? rows.columns.find((item) => item.id === saved.inverseColumnId)
         : undefined;
       snapshotLinks.push({
         from: key,
@@ -289,6 +307,7 @@ export async function exportBaseSnapshot(
         twoWay: inverse !== undefined,
         multiple: relation.kind === "many_to_many",
       });
+      links.push({ name: column.name, targetPhysical });
     }
 
     for (const column of own.filter((item) =>
@@ -311,94 +330,312 @@ export async function exportBaseSnapshot(
       });
     }
 
-    step += 1;
-    await input.onProgress?.(step, totalSteps);
-
-    if (input.withData) {
-      const counted = await readPage(
-        db,
-        engine,
-        { limit: 1, fields: [] },
-        { total: true },
+    const write = writeColumns(engine);
+    const typed = (type: FieldType) =>
+      new Set(
+        write
+          .filter((column) => column.fieldType === type)
+          .map((column) => column.name),
       );
-      const total = counted.total ?? 0;
-      if (rowBudget + total > MAX_SNAPSHOT_ROWS) {
-        throw new AppError("too_many_rows");
-      }
-      rowBudget += total;
-      const writable = writeColumns(engine).map((column) => column.name);
-      const typed = (type: FieldType) =>
-        new Set(
-          writeColumns(engine)
-            .filter((column) => column.fieldType === type)
-            .map((column) => column.name),
-        );
-      const fileColumns = typed("attachment");
-      const userColumns = typed("user");
-      const linkNames = own
-        .filter((column) => LINK_TYPES.has(column.fieldType))
-        .map((column) => column.name);
-      const rowsOut: NonNullable<SnapshotTable["rows"]> = [];
-      const linkBuckets = new Map<string, Map<string, string[]>>();
+    tables.push({
+      key,
+      id: table.id,
+      physicalName: table.physicalName,
+      engine,
+      snapshot: {
+        key,
+        name: table.name,
+        description: table.description ?? undefined,
+        columns: stored.map(definitionOf),
+        primary,
+        views: viewRows
+          .filter((view) => !view.ownerId)
+          .map((view) => ({
+            name: view.name,
+            viewType: view.viewType,
+            config: normalizeViewConfig(view.config, view.viewType),
+          })),
+      },
+      writable: write.map((column) => column.name),
+      fileColumns: typed("attachment"),
+      userColumns: typed("user"),
+      links,
+    });
+  }
+  return {
+    base: { name: base.name, description: base.description },
+    tables,
+    links: snapshotLinks,
+    computed,
+  };
+}
 
-      await readAll(db, engine, [...writable, ...linkNames], (page) => {
-        for (const row of page) {
-          const cells: Record<string, CellValue | string | undefined> = {
-            __id: row.id,
-          };
-          for (const name of writable) {
-            cells[name] = toCell(row[name]);
-          }
-          rowsOut.push(cells as NonNullable<SnapshotTable["rows"]>[number]);
-          for (const name of linkNames) {
-            const targets = linkIds(row[name]);
-            if (targets.length === 0) continue;
-            let bucket = linkBuckets.get(name);
-            if (!bucket) {
-              bucket = new Map();
-              linkBuckets.set(name, bucket);
-            }
-            bucket.set(row.id, targets);
-          }
-        }
-      });
-      await describeCells(db, table.id, rowsOut, {
-        fileColumns,
-        userColumns,
+/** The sequence numbers of some rows of a table, by their ids. */
+async function seqsOf(
+  db: Database,
+  table: string,
+  ids: readonly string[],
+): Promise<Map<string, string>> {
+  const seqs = new Map<string, string>();
+  for (let start = 0; start < ids.length; start += MAX_SNAPSHOT_LINK_PAIRS) {
+    const found = await runStatement(
+      db,
+      buildRowSeqs({
+        table,
+        ids: ids.slice(start, start + MAX_SNAPSHOT_LINK_PAIRS),
+      }),
+    );
+    for (const row of found) seqs.set(String(row.id), String(row.seq));
+  }
+  return seqs;
+}
+
+/**
+ * A table's rows as the lines of its entry, read a range of sequence
+ * numbers at a time: each row's cells, its number and place, and the
+ * numbers of the rows its links name. A row added or removed while it
+ * reads is written once or not at all, never twice.
+ */
+async function* tableLines(
+  db: Database,
+  table: SourceTable,
+  attachments: SnapshotAttachments,
+  onRows: (count: number) => Promise<void>,
+): AsyncGenerator<string> {
+  const fields = [...table.writable, ...table.links.map((link) => link.name)];
+  let after = "0";
+  for (;;) {
+    const keys = await runStatement(
+      db,
+      buildSnapshotKeys({
+        table: table.physicalName,
+        after,
+        limit: SNAPSHOT_PAGE,
+      }),
+    );
+    const last = keys.at(-1);
+    if (!last) return;
+    after = String(last.seq);
+    const page = await readPage(
+      db,
+      table.engine,
+      {
+        rowIds: keys.map((key) => String(key.id)),
+        fields,
+        limit: keys.length,
+      },
+      { total: false },
+    );
+    const byId = new Map(page.rows.map((row) => [row.id, row]));
+    const rows: Array<{
+      source: RowRecord;
+      cells: Record<string, CellValue | string | undefined>;
+    }> = [];
+    for (const key of keys) {
+      const source = byId.get(String(key.id));
+      // Removed between the two reads.
+      if (!source) continue;
+      const cells: Record<string, CellValue | string | undefined> = {
+        __seq: String(key.seq),
+        __position: String(key.position),
+      };
+      for (const name of table.writable) cells[name] = toCell(source[name]);
+      rows.push({ source, cells });
+    }
+    await describeCells(
+      db,
+      table.id,
+      rows.map((row) => row.cells) as NonNullable<SnapshotTable["rows"]>,
+      {
+        fileColumns: table.fileColumns,
+        userColumns: table.userColumns,
         attachments,
-      });
-      snapshotTable.rows = rowsOut;
-
-      for (const link of snapshotLinks) {
-        if (link.from !== key) continue;
-        const name = link.name;
-        if (!name) continue;
-        const bucket = linkBuckets.get(name);
-        if (!bucket) continue;
-        link.links = [...bucket.entries()].map(([from, to]) => ({ from, to }));
+      },
+    );
+    for (const link of table.links) {
+      const targets = [
+        ...new Set(rows.flatMap((row) => linkIds(row.source[link.name]))),
+      ];
+      const seqs =
+        targets.length > 0
+          ? await seqsOf(db, link.targetPhysical, targets)
+          : new Map<string, string>();
+      for (const row of rows) {
+        const named = linkIds(row.source[link.name]).flatMap((id) => {
+          const seq = seqs.get(id);
+          return seq ? [seq] : [];
+        });
+        if (named.length > 0) row.cells[link.name] = named;
       }
     }
-
-    snapshotTables.push(snapshotTable);
-    step += 1;
-    await input.onProgress?.(step, totalSteps);
+    for (const row of rows) yield `${JSON.stringify(row.cells)}\n`;
+    await onRows(rows.length);
   }
+}
 
-  const snapshot = baseSnapshotSchema.parse({
+/** A snapshot's JSON, refused past its size. */
+function snapshotBytes(snapshot: BaseSnapshot): Buffer {
+  const bytes = Buffer.from(`${JSON.stringify(snapshot)}\n`, "utf8");
+  if (bytes.length > MAX_SNAPSHOT_BYTES) {
+    throw new AppError("too_large_snapshot");
+  }
+  return bytes;
+}
+
+/** A snapshot written out: JSON bytes, or an archive in a local file. */
+export type PackedSnapshot =
+  | { kind: "json"; bytes: Buffer; filename: string }
+  | { kind: "zip"; path: string; size: number; filename: string };
+
+export type WrittenSnapshot = {
+  /** What the snapshot holds, its rows counted but read from its entries. */
+  snapshot: BaseSnapshot;
+  packed: PackedSnapshot;
+  /** Rows written, all tables together. */
+  rows: number;
+  /** Files the snapshot's cells name. */
+  files: number;
+};
+
+/**
+ * Writes a portable snapshot of a base (version 3, ADR 0076): without data,
+ * its schema and views as JSON; with data, a ZIP archive in `folder` whose
+ * every table's rows are the lines of their own entry, deflated as they are
+ * read, beside its members, the files its cells name, and `snapshot.json`.
+ * Nothing but a page of rows is held in memory: a snapshot holds as many
+ * rows as `maxRows` allows. `embedFiles: false` leaves the files out, for a
+ * copy made inside the instance, which reads them from its store.
+ */
+export async function writeBaseSnapshot(
+  db: Database,
+  files: FileStore,
+  baseId: string,
+  input: {
+    withData: boolean;
+    folder: string;
+    /** The most rows the snapshot holds, all tables together. */
+    maxRows: number;
+    embedFiles?: boolean;
+    onProgress?: (done: number, total: number | null) => Promise<void>;
+  },
+): Promise<WrittenSnapshot> {
+  const described = await describeBase(db, baseId);
+  const head = {
     kind: SNAPSHOT_KIND,
     version: SNAPSHOT_VERSION,
     exportedAt: new Date().toISOString(),
     base: {
-      name: base.name,
-      description: base.description ?? undefined,
+      name: described.base.name,
+      description: described.base.description ?? undefined,
     },
-    tables: snapshotTables,
-    links: snapshotLinks,
-    computed,
-    ...(input.withData ? { members: await baseMembers(db, baseId) } : {}),
-  });
-  await input.onProgress?.(totalSteps, totalSteps);
-  return { snapshot, attachments, baseName: base.name };
+    links: described.links,
+    computed: described.computed,
+  };
+  if (!input.withData) {
+    const snapshot = baseSnapshotSchema.parse({
+      ...head,
+      tables: described.tables.map((table) => table.snapshot),
+    });
+    await input.onProgress?.(1, 1);
+    return {
+      snapshot,
+      packed: {
+        kind: "json",
+        bytes: snapshotBytes(snapshot),
+        filename: snapshotFilename(described.base.name),
+      },
+      rows: 0,
+      files: 0,
+    };
+  }
+
+  let total = 0;
+  for (const table of described.tables) {
+    const counted = await readPage(
+      db,
+      table.engine,
+      { limit: 1, fields: [] },
+      { total: true },
+    );
+    total += counted.total ?? 0;
+  }
+  if (total > input.maxRows) throw new AppError("snapshot_too_many_rows");
+
+  const path = join(input.folder, "snapshot.zip");
+  const writer = new ZipWriter(path);
+  const attachments: SnapshotAttachments = new Map();
+  let written = 0;
+  await input.onProgress?.(0, total);
+  try {
+    const tables: SnapshotTable[] = [];
+    for (const table of described.tables) {
+      let rowCount = 0;
+      await writer.addDeflatedStream(
+        snapshotRowsEntry(table.key),
+        tableLines(db, table, attachments, async (count) => {
+          rowCount += count;
+          written += count;
+          // Rows added while it reads count too.
+          if (written > input.maxRows) {
+            throw new AppError("snapshot_too_many_rows");
+          }
+          await input.onProgress?.(Math.min(written, total), total);
+        }),
+      );
+      tables.push({ ...table.snapshot, rowCount });
+    }
+    if (attachments.size > MAX_SNAPSHOT_FILES) {
+      throw new AppError("too_large_snapshot");
+    }
+    const listed: SnapshotFile[] = [];
+    if (input.embedFiles ?? true) {
+      // A file the store no longer has is left out, and import reports it.
+      for (const [key, file] of attachments) {
+        const stored = await files.open(key);
+        if (!stored) continue;
+        const hash = createHash("sha256");
+        const size = await writer.addStream(
+          `files/${key}`,
+          stored.body,
+          (chunk) => hash.update(chunk),
+        );
+        listed.push({
+          id: key,
+          name: file.name,
+          size,
+          sha256: hash.digest("hex"),
+        });
+      }
+    }
+    const snapshot = baseSnapshotSchema.parse({
+      ...head,
+      tables,
+      members: await baseMembers(db, baseId),
+      ...(listed.length > 0 ? { files: listed } : {}),
+    });
+    await writer.addBuffer(SNAPSHOT_ENTRY, snapshotBytes(snapshot));
+    const size = await writer.finish();
+    if (size > MAX_SNAPSHOT_ARCHIVE_BYTES) {
+      throw new AppError("too_large_snapshot");
+    }
+    return {
+      snapshot,
+      packed: {
+        kind: "zip",
+        path,
+        size,
+        filename: snapshotFilename(described.base.name, true),
+      },
+      rows: written,
+      files: attachments.size,
+    };
+  } catch (error) {
+    writer.abort();
+    if (error instanceof ZipError) {
+      throw new AppError("too_large_snapshot", { cause: error });
+    }
+    throw error;
+  }
 }
 
 /**
@@ -463,86 +700,6 @@ async function describeCells(
   }
 }
 
-/** A snapshot written out: JSON bytes, or an archive in a local file. */
-type PackedSnapshot =
-  | { kind: "json"; bytes: Buffer; filename: string }
-  | { kind: "zip"; path: string; size: number; filename: string };
-
-/**
- * Writes a snapshot: JSON alone, or, when its cells name files, a ZIP
- * archive in `folder` with `snapshot.json` and each file under
- * `files/<key>`, listed with its size and SHA-256. A file the store no
- * longer has is left out, and import reports it.
- */
-export async function packSnapshot(
-  files: FileStore,
-  exported: {
-    snapshot: BaseSnapshot;
-    attachments: SnapshotAttachments;
-    baseName: string;
-  },
-  folder: string,
-): Promise<PackedSnapshot> {
-  const json = (snapshot: BaseSnapshot) => {
-    const bytes = Buffer.from(`${JSON.stringify(snapshot)}\n`, "utf8");
-    if (bytes.length > MAX_SNAPSHOT_BYTES) {
-      throw new AppError("too_large_snapshot");
-    }
-    return bytes;
-  };
-  if (exported.attachments.size === 0) {
-    return {
-      kind: "json",
-      bytes: json(exported.snapshot),
-      filename: snapshotFilename(exported.baseName),
-    };
-  }
-  if (exported.attachments.size > MAX_SNAPSHOT_FILES) {
-    throw new AppError("too_large_snapshot");
-  }
-  const path = join(folder, "snapshot.zip");
-  const writer = new ZipWriter(path);
-  try {
-    const listed: SnapshotFile[] = [];
-    for (const [key, file] of exported.attachments) {
-      const stored = await files.open(key);
-      if (!stored) continue;
-      const hash = createHash("sha256");
-      const size = await writer.addStream(
-        `files/${key}`,
-        stored.body,
-        (chunk) => hash.update(chunk),
-      );
-      listed.push({
-        id: key,
-        name: file.name,
-        size,
-        sha256: hash.digest("hex"),
-      });
-    }
-    await writer.addBuffer(
-      SNAPSHOT_ENTRY,
-      json({ ...exported.snapshot, files: listed }),
-    );
-    const size = await writer.finish();
-    if (size > MAX_SNAPSHOT_ARCHIVE_BYTES) {
-      throw new AppError("too_large_snapshot");
-    }
-    return {
-      kind: "zip",
-      path,
-      size,
-      filename: snapshotFilename(exported.baseName, true),
-    };
-  } catch (error) {
-    writer.abort();
-    if (error instanceof ZipError) {
-      throw new AppError("too_large_snapshot", { cause: error });
-    }
-    throw error;
-  }
-}
-
 /** What an import could not bring as it was. */
 type SnapshotImportReport = {
   /** Files stored again, and those the snapshot lacked or that failed. */
@@ -604,10 +761,161 @@ async function restoreMembers(
   report.members += grants.length;
 }
 
+/** Where a snapshot's rows go: a new table's fields, and its files so far. */
+type RowTarget = {
+  writable: ReadonlySet<string>;
+  fileColumns: ReadonlySet<string>;
+  userColumns: ReadonlySet<string>;
+  /** Files stored again for this table, by their id in the snapshot. */
+  stored: ReadonlyMap<string, string | null>;
+};
+
+/**
+ * A snapshot row's cells as the new table takes them: its files by their
+ * new keys, its people by their accounts here, its other cells as they
+ * are. What the table has no field for, and the row's number and place,
+ * are left out.
+ */
+function cellsFor(
+  row: Readonly<Record<string, unknown>>,
+  target: RowTarget,
+  people: ReadonlyMap<string, string>,
+  report: SnapshotImportReport,
+): Record<string, CellValue> {
+  return Object.fromEntries(
+    Object.entries(row).flatMap(([key, value]): Array<[string, CellValue]> => {
+      if (key === "__id" || !target.writable.has(key)) return [];
+      if (target.fileColumns.has(key)) {
+        const keys = fileRefs(value).flatMap((ref) => {
+          const found = target.stored.get(ref.file);
+          return found ? [found] : [];
+        });
+        return [[key, keys.length > 0 ? keys : null]];
+      }
+      if (target.userColumns.has(key)) {
+        const listed = Array.isArray(value)
+          ? value.filter((item): item is string => typeof item === "string")
+          : [];
+        const found = listed.flatMap((email) => {
+          const id = people.get(email.toLowerCase());
+          return id ? [id] : [];
+        });
+        report.people += found.length;
+        report.peopleDropped += listed.length - found.length;
+        return [[key, found.length > 0 ? found : null]];
+      }
+      return Array.isArray(value) &&
+        value.some((item) => typeof item !== "string")
+        ? []
+        : [[key, value as CellValue]];
+    }),
+  );
+}
+
+/**
+ * Makes one link of a version 3 snapshot: its table's lines read again, a
+ * batch at a time, each row pointed at the rows its line names, all of them
+ * found by the sequence number they kept. One statement a batch, under the
+ * trail; nothing is held but the batch.
+ */
+async function linkLines(
+  db: Database,
+  userId: string,
+  input: {
+    lines: AsyncIterable<SnapshotLine>;
+    /** The link's field as the lines name it. */
+    field: string;
+    /** The link's field in the new base. */
+    name: string;
+    from: string;
+    to: string;
+    multiple: boolean;
+    onRows: (count: number) => Promise<void>;
+  },
+): Promise<void> {
+  const tables = await db
+    .selectFrom("dataTables")
+    .select(["id", "physicalName"])
+    .where("id", "in", [input.from, input.to])
+    .execute();
+  const fromPhysical = tables.find((table) => table.id === input.from);
+  const toPhysical = tables.find((table) => table.id === input.to);
+  const { engine } = await loadEngine(db, input.from, () => true);
+  const relation = engine.table.columns.find(
+    (column) => column.name === input.name,
+  )?.relation;
+  if (!fromPhysical || !toPhysical || !relation) {
+    throw new AppError("invalid_relation");
+  }
+  let fromSeqs: string[] = [];
+  let toSeqs: string[] = [];
+  let seen = 0;
+  const flush = async () => {
+    if (fromSeqs.length > 0) {
+      let statement;
+      if (relation.kind === "one_to_many" && relation.fkColumn) {
+        statement = buildSnapshotForeignKeys({
+          from: fromPhysical.physicalName,
+          to: toPhysical.physicalName,
+          column: relation.fkColumn,
+          fromSeqs,
+          toSeqs,
+        });
+      } else if (relation.kind === "many_to_many" && relation.junction) {
+        statement = buildSnapshotJunction({
+          from: fromPhysical.physicalName,
+          to: toPhysical.physicalName,
+          junction: relation.junction,
+          field: input.name,
+          userId,
+          tableId: input.from,
+          fromSeqs,
+          toSeqs,
+        });
+      } else {
+        throw new AppError("invalid_relation");
+      }
+      await withAudit(
+        db,
+        { userId, tableId: input.from, source: "snapshot" },
+        (tx) => runRows(tx, statement),
+      );
+    }
+    await input.onRows(seen);
+    fromSeqs = [];
+    toSeqs = [];
+    seen = 0;
+  };
+  for await (const line of input.lines) {
+    seen += 1;
+    const named = line[input.field];
+    if (Array.isArray(named)) {
+      const targets = named.filter(
+        (item): item is string => typeof item === "string" && SEQ.test(item),
+      );
+      for (const seq of targets.slice(0, input.multiple ? ROW_TARGETS : 1)) {
+        fromSeqs.push(line.__seq);
+        toSeqs.push(seq);
+      }
+    }
+    if (
+      fromSeqs.length > MAX_SNAPSHOT_LINK_PAIRS - ROW_TARGETS ||
+      seen >= SNAPSHOT_PAGE
+    ) {
+      await flush();
+    }
+  }
+  await flush();
+}
+
 /**
  * Creates a new base from a snapshot. On failure the half-built base is
  * removed. Attachment cells get their files back from the archive, user
- * cells their people by email when they are members of the new base.
+ * cells their people by email when they are members of the new base. A
+ * version 3 snapshot's rows are read from their entries a batch at a time
+ * and keep their sequence number and place, through which their links are
+ * made (ADR 0076): only the batch is held in memory, and `maxRows` bounds
+ * the whole. Versions 1 and 2 carry their rows inside the JSON.
  */
 export async function importBaseSnapshot(
   db: Database,
@@ -622,6 +930,10 @@ export async function importBaseSnapshot(
     restoreMembers?: boolean;
     /** An archive's file by its id, checked; none for a JSON snapshot. */
     readFile?: (id: string, maxBytes: number) => Promise<Buffer | undefined>;
+    /** Version 3: a table's lines, read from its entry in their order. */
+    readLines?: (key: string) => AsyncIterable<SnapshotLine>;
+    /** The most rows a version 3 snapshot brings, all tables together. */
+    maxRows: number;
     /** The instance's limit for one attachment. */
     maxFileBytes?: number;
     /** Names made up where the snapshot gives none; English otherwise. */
@@ -629,14 +941,22 @@ export async function importBaseSnapshot(
   },
 ): Promise<{ baseId: string; report: SnapshotImportReport }> {
   const parsed = baseSnapshotSchema.parse(snapshot);
-  const names = input.names ?? madeNames();
-  const totalRows = parsed.tables.reduce(
-    (sum, table) => sum + (table.rows?.length ?? 0),
-    0,
-  );
-  if (totalRows > MAX_SNAPSHOT_ROWS || totalRows > MAX_COPY_ROWS) {
+  const lines = parsed.version === SNAPSHOT_VERSION;
+  const totalRows = snapshotRowCount(parsed);
+  if (lines) {
+    if (totalRows > input.maxRows) {
+      throw new AppError("snapshot_too_many_rows");
+    }
+  } else if (totalRows > MAX_SNAPSHOT_ROWS || totalRows > MAX_COPY_ROWS) {
     throw new AppError("too_many_rows");
   }
+  const readLines = input.readLines;
+  if (lines && totalRows > 0 && !readLines) {
+    throw new AppError("invalid_snapshot");
+  }
+  const names = input.names ?? madeNames();
+  const rowCountOf = (key: string) =>
+    parsed.tables.find((table) => table.key === key)?.rowCount ?? 0;
 
   const created = await insertBase(db, userId, {
     name: input.name ?? parsed.base.name,
@@ -644,9 +964,23 @@ export async function importBaseSnapshot(
   });
   input.onCreated?.(created.id);
 
+  const linkedRows = lines
+    ? parsed.links.reduce(
+        (sum, link) => sum + (link.name ? rowCountOf(link.from) : 0),
+        0,
+      )
+    : 0;
   const total =
-    parsed.tables.length + parsed.links.length + parsed.computed.length + 1;
+    parsed.tables.length +
+    parsed.links.length +
+    parsed.computed.length +
+    1 +
+    (lines ? totalRows + linkedRows : 0);
   let done = 0;
+  const step = async (count = 1) => {
+    done += count;
+    await input.onProgress?.(Math.min(done, total), total);
+  };
   await input.onProgress?.(0, total);
 
   const report: SnapshotImportReport = {
@@ -706,83 +1040,116 @@ export async function importBaseSnapshot(
         viewName: names.grid,
       });
       ids.set(table.key, made.id);
-      done += 1;
-      await input.onProgress?.(done, total);
+      await step();
     }
 
     for (const table of parsed.tables) {
       const tableId = ids.get(table.key);
-      if (!tableId || !table.rows?.length) continue;
+      if (!tableId) continue;
+      if (lines ? !table.rowCount : !table.rows?.length) continue;
       const { engine, rows } = await loadEngine(db, tableId, () => true);
       const physical = rows.tables.find((item) => item.id === tableId);
       if (!physical) continue;
       const columns = writeColumns(engine).filter(
         (column) => parsed.version >= 2 || column.fieldType !== "user",
       );
-      const writable = new Set(columns.map((column) => column.name));
       const typed = (type: FieldType) =>
         new Set(
           columns
             .filter((column) => column.fieldType === type)
             .map((column) => column.name),
         );
-      const fileColumns = typed("attachment");
-      const userColumns = typed("user");
-      const stored = await restoreFiles(db, files, userId, {
-        tableId,
-        rows: table.rows,
-        fileColumns,
-        readFile: input.readFile,
-        maxBytes: input.maxFileBytes ?? DEFAULT_ATTACHMENT_MAX_BYTES,
-        report,
-      });
-      const values = table.rows.map((row) =>
-        Object.fromEntries(
-          Object.entries(row).flatMap(
-            ([key, value]): Array<[string, CellValue]> => {
-              if (key === "__id" || !writable.has(key)) return [];
-              if (fileColumns.has(key)) {
-                const keys = fileRefs(value).flatMap((ref) => {
-                  const found = stored.get(ref.file);
-                  return found ? [found] : [];
-                });
-                return [[key, keys.length > 0 ? keys : null]];
-              }
-              if (userColumns.has(key)) {
-                const listed = Array.isArray(value)
-                  ? value.filter(
-                      (item): item is string => typeof item === "string",
-                    )
-                  : [];
-                const found = listed.flatMap((email) => {
-                  const id = people.get(email.toLowerCase());
-                  return id ? [id] : [];
-                });
-                report.people += found.length;
-                report.peopleDropped += listed.length - found.length;
-                return [[key, found.length > 0 ? found : null]];
-              }
-              return Array.isArray(value) &&
-                value.some((item) => typeof item !== "string")
-                ? []
-                : [[key, value as CellValue]];
-            },
-          ),
-        ),
-      );
-      const newIds = await insertNativeBatch(
-        db,
-        engine,
-        writeContext(userId, physical),
-        values,
-      );
-      const map = new Map<string, string>();
-      table.rows.forEach((row, index) => {
-        const oldId = typeof row.__id === "string" ? row.__id : undefined;
-        const newId = newIds[index];
-        if (oldId && newId) map.set(oldId, newId);
-      });
-      rowMaps.set(table.key, map);
+      const stored = new Map<string, string | null>();
+      const target: RowTarget = {
+        writable: new Set(columns.map((column) => column.name)),
+        fileColumns: typed("attachment"),
+        userColumns: typed("user"),
+        stored,
+      };
+      const restore = (
+        batch: ReadonlyArray<Readonly<Record<string, unknown>>>,
+      ) =>
+        restoreFiles(db, files, userId, {
+          tableId,
+          rows: batch,
+          fileColumns: target.fileColumns,
+          readFile: input.readFile,
+          maxBytes: input.maxFileBytes ?? DEFAULT_ATTACHMENT_MAX_BYTES,
+          report,
+          stored,
+        });
+      const context = writeContext(userId, physical);
+
+      if (lines && readLines) {
+        let batch: SnapshotLine[] = [];
+        let count = 0;
+        let last = 0n;
+        const flush = async () => {
+          if (batch.length === 0) return;
+          await restore(batch);
+          const values = batch.map((line) =>
+            cellsFor(line, target, people, report),
+          );
+          try {
+            await insertNativeBatch(db, engine, context, values, {
+              seqs: batch.map((line) => line.__seq),
+              positions: batch.map((line) => line.__position),
+            });
+          } catch (error) {
+            // Two lines with one number, or a value twice in a field that
+            // takes each once: the file does not hold together.
+            if (postgresCode(error) === "23505") {
+              throw new AppError("invalid_snapshot", { cause: error });
+            }
+            throw error;
+          }
+          await step(batch.length);
+          batch = [];
+        };
+        for await (const line of readLines(table.key)) {
+          count += 1;
+          if (count > (table.rowCount ?? 0)) {
+            throw new AppError("invalid_snapshot");
+          }
+          const seq = BigInt(line.__seq);
+          if (seq > last) last = seq;
+          batch.push(line);
+          if (batch.length >= IMPORT_BATCH) await flush();
+        }
+        await flush();
+        if (count !== table.rowCount) throw new AppError("invalid_snapshot");
+        // A row added later takes a number and a place after these.
+        await withAudit(
+          db,
+          { userId, tableId, source: "snapshot" },
+          async (tx) => {
+            await runRows(
+              tx,
+              buildSequenceAfter({
+                table: physical.physicalName,
+                last: String(last),
+              }),
+            );
+            await runRows(
+              tx,
+              buildPositionsAfter({ table: physical.physicalName }),
+            );
+          },
+        );
+      } else if (table.rows) {
+        await restore(table.rows);
+        const values = table.rows.map((row) =>
+          cellsFor(row, target, people, report),
+        );
+        const newIds = await insertNativeBatch(db, engine, context, values);
+        const map = new Map<string, string>();
+        table.rows.forEach((row, index) => {
+          const oldId = typeof row.__id === "string" ? row.__id : undefined;
+          const newId = newIds[index];
+          if (oldId && newId) map.set(oldId, newId);
+        });
+        rowMaps.set(table.key, map);
+      }
     }
 
     for (const link of parsed.links) {
@@ -799,7 +1166,19 @@ export async function importBaseSnapshot(
         inverseLabel: link.inverseLabel,
         inverseName: link.inverseName,
       });
-      if (link.links?.length) {
+      if (lines) {
+        if (readLines && link.name && rowCountOf(link.from) > 0) {
+          await linkLines(db, userId, {
+            lines: readLines(link.from),
+            field: link.name,
+            name: relation.name,
+            from,
+            to,
+            multiple: link.multiple,
+            onRows: (count) => step(count),
+          });
+        }
+      } else if (link.links?.length) {
         const fromMap = rowMaps.get(link.from) ?? new Map<string, string>();
         const toMap = rowMaps.get(link.to) ?? new Map<string, string>();
         const { engine, rows } = await loadEngine(db, from, () => true);
@@ -829,8 +1208,7 @@ export async function importBaseSnapshot(
           }
         }
       }
-      done += 1;
-      await input.onProgress?.(done, total);
+      await step();
     }
 
     for (const item of parsed.computed) {
@@ -849,8 +1227,7 @@ export async function importBaseSnapshot(
         },
         () => true,
       );
-      done += 1;
-      await input.onProgress?.(done, total);
+      await step();
     }
 
     // A formula may read another formula: add them until none is left, or
@@ -919,8 +1296,10 @@ function fileRefs(value: unknown): SnapshotFileRef[] {
 
 /**
  * Stores again, for one new table, the files its attachment cells name:
- * each once, checked by the archive, thumbnails made as on upload.
- * Returns their new keys by snapshot id.
+ * each once, checked by the archive, thumbnails made as on upload. Their
+ * new keys go into `stored` by snapshot id, beside those of the table's
+ * earlier rows; a file the snapshot lacks is kept there as null, counted
+ * once.
  */
 async function restoreFiles(
   db: Database,
@@ -928,24 +1307,26 @@ async function restoreFiles(
   userId: string,
   input: {
     tableId: string;
-    rows: NonNullable<SnapshotTable["rows"]>;
+    rows: ReadonlyArray<Readonly<Record<string, unknown>>>;
     fileColumns: ReadonlySet<string>;
     readFile:
       | ((id: string, maxBytes: number) => Promise<Buffer | undefined>)
       | undefined;
     maxBytes: number;
     report: SnapshotImportReport;
+    stored: Map<string, string | null>;
   },
-): Promise<Map<string, string>> {
+): Promise<void> {
   const wanted = new Map<string, string>();
   for (const row of input.rows) {
     for (const name of input.fileColumns) {
       for (const ref of fileRefs(row[name])) {
-        if (!wanted.has(ref.file)) wanted.set(ref.file, ref.name);
+        if (!input.stored.has(ref.file) && !wanted.has(ref.file)) {
+          wanted.set(ref.file, ref.name);
+        }
       }
     }
   }
-  const stored = new Map<string, string>();
   for (const [id, name] of wanted) {
     let bytes: Buffer | undefined;
     try {
@@ -954,6 +1335,7 @@ async function restoreFiles(
       bytes = undefined;
     }
     if (!bytes) {
+      input.stored.set(id, null);
       input.report.filesMissing += 1;
       continue;
     }
@@ -963,10 +1345,39 @@ async function restoreFiles(
       filename: cleanFilename(name),
       bytes,
     });
-    stored.set(id, meta.key);
+    input.stored.set(id, meta.key);
     input.report.files += 1;
   }
-  return stored;
+}
+
+/**
+ * A version 3 table's lines, read from its entry as the archive is, each
+ * checked; a broken line or entry refuses the snapshot.
+ */
+export async function* readSnapshotLines(
+  archive: ZipReader,
+  key: string,
+): AsyncGenerator<SnapshotLine> {
+  try {
+    for await (const text of archive.lines(snapshotRowsEntry(key), {
+      maxLine: MAX_SNAPSHOT_LINE_BYTES,
+    })) {
+      let raw: unknown;
+      try {
+        raw = JSON.parse(text);
+      } catch {
+        throw new AppError("invalid_snapshot");
+      }
+      const parsed = snapshotLineSchema.safeParse(raw);
+      if (!parsed.success) throw new AppError("invalid_snapshot");
+      yield parsed.data;
+    }
+  } catch (error) {
+    if (error instanceof ZipError) {
+      throw new AppError("invalid_snapshot", { cause: error });
+    }
+    throw error;
+  }
 }
 
 export function parseSnapshotBytes(bytes: Buffer): BaseSnapshot {

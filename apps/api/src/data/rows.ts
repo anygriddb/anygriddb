@@ -50,6 +50,15 @@ const READ_TIMEOUT = "15s";
 
 export type RowRecord = Record<string, unknown> & { id: string };
 
+/**
+ * The sequence number and the place rows keep from where they came from (a
+ * snapshot): one each per row, in the rows' order.
+ */
+export type KeptOrder = {
+  seqs?: readonly string[];
+  positions?: readonly string[];
+};
+
 export type WriteContext = {
   userId: string;
   tableId: string;
@@ -690,6 +699,7 @@ export async function insertRows(
   context: WriteContext,
   rows: ReadonlyArray<Readonly<Record<string, CellValue>>>,
   place?: RowPlace,
+  kept?: KeptOrder,
 ): Promise<string[]> {
   const columns = writeColumns(engine);
   await assertUserValues(db, context.baseId, columns, rows);
@@ -701,15 +711,18 @@ export async function insertRows(
         context.claim.keys,
       );
     }
-    const positions = place
-      ? await placesBeside(tx, context.physicalName, place, rows.length)
-      : undefined;
+    const positions =
+      kept?.positions ??
+      (place
+        ? await placesBeside(tx, context.physicalName, place, rows.length)
+        : undefined);
     // Rows that set the same fields go in one statement, not one each.
     const statements = buildInserts({
       table: context.physicalName,
       columns,
       rows,
       positions,
+      seqs: kept?.seqs,
     });
     const ids: string[] = [];
     for (const { statement, rows: expected } of statements) {

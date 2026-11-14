@@ -359,6 +359,14 @@ export {
   buildSequenceAfter,
   DUPLICATE_CHUNK,
 } from "./query/duplicate";
+export {
+  buildPositionsAfter,
+  buildRowSeqs,
+  buildSnapshotForeignKeys,
+  buildSnapshotJunction,
+  buildSnapshotKeys,
+  MAX_SNAPSHOT_LINK_PAIRS,
+} from "./query/snapshot-rows";
 
 export {
   ALERT_CHOICES,
@@ -480,7 +488,9 @@ export {
   MAX_SNAPSHOT_ARCHIVE_BYTES,
   MAX_SNAPSHOT_BYTES,
   MAX_SNAPSHOT_FILES,
+  MAX_SNAPSHOT_LINE_BYTES,
   MAX_SNAPSHOT_ROWS,
+  MAX_SNAPSHOT_TABLES,
   SNAPSHOT_ENTRY,
   SNAPSHOT_KIND,
   SNAPSHOT_VERSION,
@@ -491,9 +501,13 @@ export {
   duplicateBaseInputSchema,
   duplicateBaseJobInputSchema,
   snapshotFilename,
+  snapshotLineSchema,
+  snapshotRowCount,
+  snapshotRowsEntry,
   type BaseSnapshot,
   type SnapshotFile,
   type SnapshotFileRef,
+  type SnapshotLine,
   type SnapshotLink,
   type SnapshotTable,
 } from "./snapshot";

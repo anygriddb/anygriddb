@@ -34,6 +34,20 @@ export function bindPosition(params: SqlParams, value: string): string {
   return `${params.bind(value)}::numeric`;
 }
 
+/** A row's sequence number, as `ag_seq` keeps it. */
+const SEQ = /^[1-9]\d{0,18}$/;
+
+/**
+ * A sequence number a row keeps from where it came from (a snapshot), bound
+ * as the bigint it is.
+ */
+function bindSeq(params: SqlParams, value: string): string {
+  if (!SEQ.test(value)) {
+    throw new AppError("invalid_body");
+  }
+  return `${params.bind(value)}::bigint`;
+}
+
 export function assertRowId(value: string): void {
   if (!ROW_ID.test(value)) {
     throw new AppError("invalid_row_id");
@@ -104,6 +118,8 @@ export function buildInsert(input: {
   values: Readonly<Record<string, Cell>>;
   /** Where the row goes in the table's order (`row-order.ts`). */
   position?: string | undefined;
+  /** The sequence number the row keeps; the sequence's next by default. */
+  seq?: string | undefined;
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
   const params = new SqlParams();
@@ -113,6 +129,9 @@ export function buildInsert(input: {
       name: `"ag_position"`,
       sql: bindPosition(params, input.position),
     });
+  }
+  if (input.seq !== undefined) {
+    assigned.push({ name: `"ag_seq"`, sql: bindSeq(params, input.seq) });
   }
   if (assigned.length === 0) {
     return {
@@ -144,6 +163,8 @@ export function buildInsertMany(input: {
   rows: ReadonlyArray<Readonly<Record<string, Cell>>>;
   /** Where each row goes in the table's order, one per row. */
   positions?: readonly string[] | undefined;
+  /** The sequence number each row keeps, one per row. */
+  seqs?: readonly string[] | undefined;
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
   const first = input.rows[0];
@@ -154,9 +175,12 @@ export function buildInsertMany(input: {
   if (names.length === 0) {
     throw new AppError("no_columns");
   }
-  const positions = input.positions;
+  const { positions, seqs } = input;
   if (positions && positions.length !== input.rows.length) {
     throw new AppError("invalid_place");
+  }
+  if (seqs && seqs.length !== input.rows.length) {
+    throw new AppError("invalid_body");
   }
   const params = new SqlParams();
   let fields: string[] = [];
@@ -177,12 +201,17 @@ export function buildInsertMany(input: {
     const position = positions
       ? [bindPosition(params, positions[index] ?? "")]
       : [];
-    return `(${[...assigned.map((item) => item.sql), ...position, String(index)].join(", ")})`;
+    const seq = seqs ? [bindSeq(params, seqs[index] ?? "")] : [];
+    return `(${[...assigned.map((item) => item.sql), ...position, ...seq, String(index)].join(", ")})`;
   });
   const aliases = names.map((_, index) => `"c${String(index)}"`);
   if (positions) {
     fields.push(`"ag_position"`);
     aliases.push(`"cp"`);
+  }
+  if (seqs) {
+    fields.push(`"ag_seq"`);
+    aliases.push(`"cs"`);
   }
   return {
     text: `insert into ${quoteIdent(input.table)} (${fields.join(", ")}) select ${aliases.join(", ")} from (values ${tuples.join(", ")}) as r (${[...aliases, '"n"'].join(", ")}) order by "n" returning "id"`,
@@ -207,10 +236,15 @@ export function buildInserts(input: {
   rows: ReadonlyArray<Readonly<Record<string, Cell>>>;
   /** Where each row goes in the table's order; the sequence's next by default. */
   positions?: readonly string[] | undefined;
+  /** The sequence number each row keeps; the sequence's next by default. */
+  seqs?: readonly string[] | undefined;
 }): Array<{ statement: ParameterizedSql; rows: number }> {
-  const { table, columns, positions } = input;
+  const { table, columns, positions, seqs } = input;
   if (positions && positions.length !== input.rows.length) {
     throw new AppError("invalid_place");
+  }
+  if (seqs && seqs.length !== input.rows.length) {
+    throw new AppError("invalid_body");
   }
   const statements: Array<{ statement: ParameterizedSql; rows: number }> = [];
   let run: Array<Readonly<Record<string, Cell>>> = [];
@@ -220,12 +254,25 @@ export function buildInserts(input: {
   const flush = () => {
     if (run.length === 0) return;
     const placed = positions?.slice(start, start + run.length);
+    const numbered = seqs?.slice(start, start + run.length);
     statements.push({
       statement:
         shape === ""
           ? // A row that sets nothing takes every default but its place.
-            buildInsert({ table, columns, values: {}, position: placed?.[0] })
-          : buildInsertMany({ table, columns, rows: run, positions: placed }),
+            buildInsert({
+              table,
+              columns,
+              values: {},
+              position: placed?.[0],
+              seq: numbered?.[0],
+            })
+          : buildInsertMany({
+              table,
+              columns,
+              rows: run,
+              positions: placed,
+              seqs: numbered,
+            }),
       rows: run.length,
     });
     start += run.length;
@@ -236,7 +283,8 @@ export function buildInserts(input: {
     const next = shapeOf(values);
     const cells =
       Object.values(values).filter((value) => value !== null).length +
-      (positions ? 1 : 0);
+      (positions ? 1 : 0) +
+      (seqs ? 1 : 0);
     if (
       next !== shape ||
       next === "" ||

@@ -6,13 +6,17 @@ import {
   exportSnapshotJobInputSchema,
   importSnapshotJobInputSchema,
   snapshotFilename,
+  snapshotLineSchema,
+  snapshotRowCount,
+  snapshotRowsEntry,
 } from "./snapshot";
 
 const id = "0b5c4f3e-8a5e-4c43-9f61-2d4b8d1c7a10";
 
+/** A version 2 snapshot: its rows inside the JSON. */
 const minimal = {
   kind: SNAPSHOT_KIND,
-  version: SNAPSHOT_VERSION,
+  version: 2,
   base: { name: "Demo" },
   tables: [
     {
@@ -42,7 +46,7 @@ describe("baseSnapshotSchema", () => {
       baseSnapshotSchema.safeParse({ ...minimal, kind: "other" }).success,
     ).toBe(false);
     expect(
-      baseSnapshotSchema.safeParse({ ...minimal, version: 3 }).success,
+      baseSnapshotSchema.safeParse({ ...minimal, version: 4 }).success,
     ).toBe(false);
     // Files written before members and attachments still import.
     expect(
@@ -94,6 +98,90 @@ describe("baseSnapshotSchema", () => {
     ).toBe(false);
     expect(
       baseSnapshotSchema.safeParse({ ...minimal, tables: [] }).success,
+    ).toBe(false);
+  });
+});
+
+describe("version 3: rows as lines of their own entry", () => {
+  const lines = {
+    ...minimal,
+    version: SNAPSHOT_VERSION,
+    tables: minimal.tables.map(({ rows: _rows, ...table }) => ({
+      ...table,
+      rowCount: 2,
+    })),
+    links: [
+      {
+        from: "contacts",
+        to: "contacts",
+        name: "manager",
+        label: "Manager",
+        inverseLabel: "Reports",
+        multiple: false,
+      },
+    ],
+  };
+
+  it("counts the rows its entries hold, and names each entry", () => {
+    const parsed = baseSnapshotSchema.parse(lines);
+    expect(snapshotRowCount(parsed)).toBe(2);
+    expect(snapshotRowCount(minimal)).toBe(1);
+    expect(snapshotRowsEntry("contacts")).toBe("rows/contacts.ndjson");
+  });
+
+  it("refuses rows or link pairs inside its JSON, and a count in version 2", () => {
+    const table = lines.tables[0];
+    if (!table) throw new Error("no table");
+    expect(
+      baseSnapshotSchema.safeParse({
+        ...lines,
+        tables: [{ ...table, rows: [{ __id: "r1" }] }],
+      }).success,
+    ).toBe(false);
+    expect(
+      baseSnapshotSchema.safeParse({
+        ...lines,
+        links: lines.links.map((link) => ({
+          ...link,
+          links: [{ from: "r1", to: ["r2"] }],
+        })),
+      }).success,
+    ).toBe(false);
+    expect(
+      baseSnapshotSchema.safeParse({
+        ...minimal,
+        tables: [{ ...table, rowCount: 2 }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("reads a line with its number, its place, its cells, and its links", () => {
+    const line = snapshotLineSchema.parse({
+      __seq: "12",
+      __position: "-3.5",
+      nom: "Ada",
+      manager: ["7"],
+      docs: [{ file: "attA", name: "plan.pdf" }],
+    });
+    expect(line.__seq).toBe("12");
+  });
+
+  it("refuses a line without a number or a place, or with a bad one", () => {
+    expect(snapshotLineSchema.safeParse({ __position: "1" }).success).toBe(
+      false,
+    );
+    expect(
+      snapshotLineSchema.safeParse({ __seq: "0", __position: "1" }).success,
+    ).toBe(false);
+    expect(
+      snapshotLineSchema.safeParse({ __seq: "1", __position: "one" }).success,
+    ).toBe(false);
+    expect(
+      snapshotLineSchema.safeParse({
+        __seq: "1",
+        __position: "1",
+        nom: { nested: true },
+      }).success,
     ).toBe(false);
   });
 });

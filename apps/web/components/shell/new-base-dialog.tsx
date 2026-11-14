@@ -34,8 +34,9 @@ type Staged = {
 /**
  * Creates a base, empty or from a built-in template, then opens it. A user
  * without a second factor is sent to the settings first, as the API would
- * refuse. A snapshot (`.anygriddb.json`, or `.anygriddb.zip` with its
- * files) can also be imported as a new base.
+ * refuse. A snapshot (`.anygriddb.json`, its schema alone or an older
+ * file, or `.anygriddb.zip` with its rows and files) can also be imported
+ * as a new base.
  */
 type NewBaseProps = {
   open: boolean;

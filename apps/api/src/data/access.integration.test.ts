@@ -34,7 +34,8 @@ import {
   visibleFields,
   type WriteContext,
 } from "./rows.js";
-import { exportBaseSnapshot, importBaseSnapshot } from "./base-snapshot.js";
+import { importBaseSnapshot } from "./base-snapshot.js";
+import { snapshotOf } from "./snapshot.test-helpers.js";
 import { importIntoTable, rowsSource } from "./import-commit.js";
 import { addColumn, insertBase, insertTable } from "./schema-ops.js";
 
@@ -539,18 +540,21 @@ describe("field and row rules on PostgreSQL", () => {
   });
 
   it("round-trips a base through a snapshot", async () => {
-    const { snapshot } = await exportBaseSnapshot(database, baseId, {
+    const store = new DiskStore(filesRoot);
+    const written = await snapshotOf(database, store, baseId, {
       withData: true,
     });
     const restored = await importBaseSnapshot(
       database,
-      new DiskStore(filesRoot),
+      store,
       owner,
-      snapshot,
+      written.snapshot,
       {
         name: "Restored",
+        readLines: written.readLines,
+        maxRows: 1_000_000,
       },
-    );
+    ).finally(written.close);
     const shape = async (id: string) => {
       const rows = await database
         .selectFrom("dataTables")

@@ -6,11 +6,7 @@
  * silently.
  */
 import type { BaseSnapshot, SnapshotLink, SnapshotTable } from "./snapshot";
-import {
-  MAX_SNAPSHOT_TABLES,
-  SNAPSHOT_KIND,
-  SNAPSHOT_VERSION,
-} from "./snapshot";
+import { MAX_SNAPSHOT_TABLES, SNAPSHOT_KIND } from "./snapshot";
 import { madeNames, type MadeNames } from "./made-names";
 import { deriveColumnName } from "./names";
 import { OPTION_COLORS, type OptionColor } from "./field-config";
@@ -710,7 +706,9 @@ export function airtableToSnapshot(input: {
   return {
     snapshot: {
       kind: SNAPSHOT_KIND,
-      version: SNAPSHOT_VERSION,
+      // Read whole through Airtable's API, its rows travel inside the JSON,
+      // as a version 2 snapshot carries them.
+      version: 2,
       base: { name: plainLabel(input.name, "Airtable") },
       tables: snapshotTables,
       links,
