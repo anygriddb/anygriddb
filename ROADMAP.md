@@ -83,8 +83,8 @@ A row moves up only when it unblocks another.
 1. A published release: 51. It needs no code, only a version tag, and
    comes first: no operator installs a version before it, and the update
    notice has nothing to find.
-2. Data in and out past 100,000 rows: 83 (base snapshots), then 99, which
-   keeps them as restore points.
+2. Data in and out: 83 (base snapshots past 100,000 rows), then 99, which
+   keeps them as restore points, then 100.
 3. Administration, lot 6: 32 once its wording is confirmed, then 31.
 4. Views and organisation, in the order of their table: 92 to 98.
 5. Applications, sign-in, and languages: 101, then 106, which needs it,
