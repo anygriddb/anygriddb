@@ -26,7 +26,8 @@ export function AccountSettings() {
   const preferences = useQuery(api.notifications.preferences.queryOptions());
   const [tokenName, setTokenName] = useState("");
   const [tokenBases, setTokenBases] = useState<string[]>([]);
-  // Prefer read-only for MCP / AI explore; writes default without delete (ADR 0079).
+  // A new token reads only unless asked, and one that writes does not
+  // delete unless asked (ADR 0079).
   const [tokenReadOnly, setTokenReadOnly] = useState(true);
   const [tokenAllowDelete, setTokenAllowDelete] = useState(false);
   const catalog = useCatalog();
@@ -186,7 +187,7 @@ export function AccountSettings() {
       </RuledSection>
       <RuledSection
         title={t`API tokens`}
-        description={t`A token acts with your rights on REST and MCP. It is shown once and lives the days you choose, ${{ max: tokenMaxDays }} at most on this instance. Prefer read-only to explore; for an AI that must write, leave deletes off.`}
+        description={t`A token acts with your rights, on the REST API and on MCP. It is shown once and lives the days you choose, ${{ max: tokenMaxDays }} at most on this instance. A read-only token is enough to explore; one that writes deletes rows only if you allow it.`}
       >
         {user.canCreateTokens ? (
           <form
@@ -273,20 +274,17 @@ export function AccountSettings() {
                       setTokenAllowDelete(event.target.checked)
                     }
                   />
-                  {t`Allow deleting records`}
+                  {t`Allow deleting rows`}
                 </label>
               )}
             </div>
-            <p className="w-full text-xs text-muted-foreground">
-              {t`Bearer token for REST and for MCP at /mcp (Claude, Cursor, or a local model). Prefer read-only to explore; for writes, leave deletes off unless you need them.`}
-            </p>
           </form>
         ) : (
           <p
             role="status"
             className="rounded-md border border-warning/40 bg-warning-surface p-2 text-sm"
           >
-            {t`On this instance, only administrators create API tokens. Non-administrator tokens stop working while it is so, including for MCP.`}
+            {t`On this instance, only administrators create API tokens. The tokens below stop working while it is so.`}
           </p>
         )}
         {newToken ? (

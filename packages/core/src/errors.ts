@@ -29,7 +29,7 @@ export const ERRORS = {
   sso_account: [BAD, "Account signs in through single sign-on"],
   token_lifetime_too_long: [BAD, "Token lifetime too long"],
   api_tokens_restricted: [403, "API tokens restricted to administrators"],
-  token_cannot_delete: [403, "This API token cannot delete records"],
+  token_cannot_delete: [403, "API token may not delete records"],
   base_creation_restricted: [403, "Base creation restricted to administrators"],
   invitation_domain_not_allowed: [403, "Invitation domain not allowed"],
   instance_maintenance: [503, "Instance under maintenance"],
