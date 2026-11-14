@@ -321,6 +321,22 @@ msgid "{actor} replied to your comment in {table}"
 msgstr "{actor} a répondu à votre commentaire dans {table}"
 
 #: components/shell/notification-items.ts
+msgid "{actor}, an administrator, added {name} to the group {group}, which has a role on {base} ({role})"
+msgstr "{actor}, qui administre l’instance, a ajouté {name} au groupe {group}, qui a un rôle sur {base} ({role})"
+
+#: components/shell/notification-items.ts
+msgid "{actor}, an administrator, gave {count} people a role on {base}"
+msgstr "{actor}, qui administre l’instance, a donné un rôle sur {base} à {count} personnes"
+
+#: components/shell/notification-items.ts
+msgid "{actor}, an administrator, gave {name} a role on {base} ({role})"
+msgstr "{actor}, qui administre l’instance, a donné à {name} un rôle sur {base} ({role})"
+
+#: components/shell/notification-items.ts
+msgid "{actor}, an administrator, gave the group {group} a role on {base} ({role})"
+msgstr "{actor}, qui administre l’instance, a donné au groupe {group} un rôle sur {base} ({role})"
+
+#: components/shell/notification-items.ts
 msgid "{actor}, an administrator, gave themselves a role on {base} ({role}). Their reason: {reason}"
 msgstr "{actor}, qui administre l’instance, s’est donné un rôle sur {base} ({role}). Sa raison : {reason}"
 

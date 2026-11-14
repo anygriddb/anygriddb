@@ -113,6 +113,7 @@ export type NotificationKind =
   | "mention"
   | "owner_named"
   | "reply"
+  | "role_given"
   | "row_changed"
   | "webhook_disabled";
 
