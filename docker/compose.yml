@@ -129,9 +129,40 @@ services:
       - SETUID
     logging: *default-logging
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in docker/.env}
+      # The cluster's first role is `postgres`, the image's own: PostgreSQL
+      # keeps it a superuser whatever is asked. AnyGridDB signs in as
+      # POSTGRES_USER, a role made beside it with no such power (ADR 0003).
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in docker/.env}
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in docker/.env}
+      ANYGRIDDB_DB_USER: ${POSTGRES_USER:?set POSTGRES_USER in docker/.env}
+    # Before PostgreSQL starts, the step that makes AnyGridDB's role is put
+    # where the image runs it: once, on an empty volume, never on a
+    # database that exists. It is written here rather than mounted from a
+    # file, so that this file alone installs a release. A volume made
+    # before this keeps POSTGRES_USER as its first role, a superuser:
+    # docs/operations.md says how to check, and how to change it.
+    entrypoint:
+      - sh
+      - -c
+      - |
+        cat > /docker-entrypoint-initdb.d/10-application-role.sh <<'ROLE'
+        #!/bin/sh
+        set -eu
+        psql -v ON_ERROR_STOP=1 --username postgres --dbname "$$POSTGRES_DB" \
+          --set=role="$$ANYGRIDDB_DB_USER" --set=pass="$$POSTGRES_PASSWORD" \
+          --set=db="$$POSTGRES_DB" <<'SQL'
+        SELECT NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'role') AS absent \gset
+        \if :absent
+          CREATE ROLE :"role" LOGIN PASSWORD :'pass'
+            NOSUPERUSER NOCREATEROLE NOREPLICATION NOBYPASSRLS CREATEDB;
+        \endif
+        ALTER DATABASE :"db" OWNER TO :"role";
+        ALTER SCHEMA public OWNER TO :"role";
+        SQL
+        ROLE
+        chmod +x /docker-entrypoint-initdb.d/10-application-role.sh
+        exec docker-entrypoint.sh "$$@"
+      - --
     # TLS only over the network (pg_hba.conf from `certs`); the socket
     # inside the container stays for the image's own setup and checks.
     command:
@@ -156,7 +187,8 @@ services:
       postgres-upgrade-check:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      test:
+        ["CMD-SHELL", 'pg_isready -U "$$ANYGRIDDB_DB_USER" -d "$$POSTGRES_DB"']
       interval: 5s
       timeout: 5s
       retries: 10

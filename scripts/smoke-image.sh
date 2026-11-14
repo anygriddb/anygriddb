@@ -52,6 +52,13 @@ echo
 # PostgreSQL reached, the schema migrated.
 curl --fail --silent --show-error --insecure "https://localhost:${port}/ready"
 echo
+# AnyGridDB's role owns its database and is no superuser (ADR 0003).
+role="$("${compose[@]}" exec -T db psql -U anygriddb -d anygriddb -tAc \
+  "select rolsuper::text || ' ' || pg_get_userbyid(datdba) from pg_roles, pg_database where rolname = current_user and datname = current_database()")"
+if [ "$role" != "false anygriddb" ]; then
+  echo "AnyGridDB's PostgreSQL role is a superuser, or does not own its database: $role" >&2
+  exit 1
+fi
 # Nothing is written to the image, and what comes in or goes out (an
 # import, an export, a snapshot) is written whole to /tmp on its way: it
 # must take a large file, on disk rather than in memory.
