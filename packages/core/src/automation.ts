@@ -66,6 +66,18 @@ export const automationTriggerSchema = z.discriminatedUnion("type", [
 export type AutomationTrigger = z.infer<typeof automationTriggerSchema>;
 
 /** An action that holds no other: what a branch or a loop runs. */
+/** Where an action posts: an HTTPS address, checked again as public when it is saved and when it runs. */
+const postAddressSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((value) => value.startsWith("https://"), {
+    message: "Invalid automation",
+  });
+
+/** A message to a chat channel, before the row's values are put in it. */
+const chatMessageSchema = z.string().trim().min(1).max(3_000);
+
 const automationStepSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("update_record"), values: valuesSchema }).strict(),
   /** Deletes the row the run is about: the triggering one, or a loop's. */
@@ -88,15 +100,27 @@ const automationStepSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("call_webhook"),
-      url: z
-        .string()
-        .trim()
-        .max(500)
-        .refine((value) => value.startsWith("https://"), {
-          message: "Invalid automation",
-        }),
+      url: postAddressSchema,
       /** Sent as is after templating; a JSON summary of the row when absent. */
       body: templateSchema.optional(),
+    })
+    .strict(),
+  // A message to a channel of Slack or Teams: the address of a webhook
+  // the person made there, and a text with the row's values in it.
+  z
+    .object({
+      type: z.literal("send_slack"),
+      url: postAddressSchema,
+      message: chatMessageSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("send_teams"),
+      url: postAddressSchema,
+      message: chatMessageSchema,
+      /** The card's heading; none shows the message alone. */
+      title: z.string().trim().max(200).optional(),
     })
     .strict(),
   z
@@ -353,4 +377,52 @@ export function nextScheduleRun(
     if (candidate.getTime() > after.getTime()) return candidate;
   }
   throw new AppError("invalid_automation");
+}
+
+/** What a chat service shows of one message, however long the row's values make it. */
+const CHAT_TEXT_MAX = 3_000;
+
+/** The body Slack's incoming webhooks take: the text, and nothing else. */
+export function writeSlackMessage(message: string): string {
+  return JSON.stringify({ text: message.slice(0, CHAT_TEXT_MAX) });
+}
+
+/**
+ * The body a Teams workflow takes when it posts what a webhook request
+ * brings: a message holding one Adaptive Card. The connectors of before,
+ * and their MessageCard, were retired by Microsoft in 2026.
+ */
+export function writeTeamsMessage(message: string, title?: string): string {
+  const heading = title?.trim();
+  return JSON.stringify({
+    type: "message",
+    attachments: [
+      {
+        contentType: "application/vnd.microsoft.card.adaptive",
+        contentUrl: null,
+        content: {
+          $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+          type: "AdaptiveCard",
+          version: "1.4",
+          body: [
+            ...(heading
+              ? [
+                  {
+                    type: "TextBlock",
+                    text: heading.slice(0, 200),
+                    weight: "Bolder",
+                    wrap: true,
+                  },
+                ]
+              : []),
+            {
+              type: "TextBlock",
+              text: message.slice(0, CHAT_TEXT_MAX),
+              wrap: true,
+            },
+          ],
+        },
+      },
+    ],
+  });
 }

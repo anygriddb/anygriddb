@@ -54,6 +54,8 @@ const STEPS: StepType[] = [
   "create_record",
   "send_email",
   "call_webhook",
+  "send_slack",
+  "send_teams",
   "notify",
 ];
 const ACTIONS: ActionType[] = [...STEPS, "branch", "for_each"];
@@ -86,6 +88,8 @@ function useLabels() {
       create_record: t`Create a row`,
       send_email: t`Send an email`,
       call_webhook: t`Call a URL`,
+      send_slack: t`Send to Slack`,
+      send_teams: t`Send to Teams`,
       notify: t`Notify collaborators`,
       branch: t`If… then… otherwise…`,
       for_each: t`For each row of…`,
@@ -164,6 +168,9 @@ function defaultStep(type: StepType, tableId: string): AutomationStep {
       return { type, to: "", subject: "", body: "" };
     case "call_webhook":
       return { type, url: "https://" };
+    case "send_slack":
+    case "send_teams":
+      return { type, url: "https://", message: "" };
     case "notify":
       return { type, users: [], message: "" };
   }
@@ -517,6 +524,52 @@ function ActionEditor(props: {
               })
             }
           />
+        </div>
+      );
+    case "send_slack":
+    case "send_teams":
+      return (
+        <div className="flex flex-col gap-1">
+          <Input
+            aria-label={t`Webhook address`}
+            className="h-8 text-xs"
+            placeholder={
+              action.type === "send_slack"
+                ? "https://hooks.slack.com/services/…"
+                : "https://…"
+            }
+            value={action.url}
+            onChange={(event) =>
+              props.onChange({ ...action, url: event.target.value })
+            }
+          />
+          {action.type === "send_teams" ? (
+            <Input
+              aria-label={t`Title`}
+              className="h-8 text-xs"
+              placeholder={t`Title (optional)`}
+              value={action.title ?? ""}
+              onChange={(event) =>
+                props.onChange({
+                  ...action,
+                  title: event.target.value || undefined,
+                })
+              }
+            />
+          ) : null}
+          <Textarea
+            aria-label={t`Message`}
+            className="min-h-16 text-xs"
+            value={action.message}
+            onChange={(event) =>
+              props.onChange({ ...action, message: event.target.value })
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            {action.type === "send_slack"
+              ? t`The address of an incoming webhook made in your Slack workspace.`
+              : t`The address of a Teams workflow that posts to a channel when it receives a webhook request.`}
+          </p>
         </div>
       );
     case "notify":

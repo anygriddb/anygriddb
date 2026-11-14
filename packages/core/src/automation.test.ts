@@ -6,9 +6,101 @@ import {
   renderTemplate,
   templateKeys,
   webhookTemplateValues,
+  writeSlackMessage,
+  writeTeamsMessage,
 } from "./automation";
 
 const TABLE = "11111111-1111-4111-8111-111111111111";
+
+describe("a message to Slack or Teams", () => {
+  it("writes the body each service takes, cut to what it shows", () => {
+    expect(JSON.parse(writeSlackMessage("Row ready"))).toEqual({
+      text: "Row ready",
+    });
+    expect(
+      (JSON.parse(writeSlackMessage("x".repeat(5_000))) as { text: string })
+        .text,
+    ).toHaveLength(3_000);
+    type Card = {
+      type: string;
+      attachments: Array<{
+        contentType: string;
+        content: { type: string; body: Array<{ text: string }> };
+      }>;
+    };
+    const titled = JSON.parse(writeTeamsMessage("Row ready", "Notice")) as Card;
+    expect(titled.type).toBe("message");
+    expect(titled.attachments[0]?.contentType).toBe(
+      "application/vnd.microsoft.card.adaptive",
+    );
+    expect(titled.attachments[0]?.content.type).toBe("AdaptiveCard");
+    expect(titled.attachments[0]?.content.body.map((b) => b.text)).toEqual([
+      "Notice",
+      "Row ready",
+    ]);
+    const plain = JSON.parse(writeTeamsMessage("Row ready", "  ")) as Card;
+    expect(plain.attachments[0]?.content.body.map((b) => b.text)).toEqual([
+      "Row ready",
+    ]);
+  });
+
+  it("accepts send_slack and send_teams over https only", () => {
+    const base = {
+      tableId: TABLE,
+      name: "Alert",
+      trigger: { type: "row_created" as const },
+    };
+    expect(
+      createAutomationInputSchema.safeParse({
+        ...base,
+        actions: [
+          {
+            type: "send_slack",
+            url: "https://hooks.slack.com/services/T/B/x",
+            message: "Hi {{name}}",
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      createAutomationInputSchema.safeParse({
+        ...base,
+        actions: [
+          {
+            type: "send_teams",
+            url: "https://example.webhook.office.com/webhookb2/x",
+            message: "Hi",
+            title: "Update",
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      createAutomationInputSchema.safeParse({
+        ...base,
+        actions: [
+          {
+            type: "send_slack",
+            url: "http://hooks.slack.com/services/T/B/x",
+            message: "Hi",
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      createAutomationInputSchema.safeParse({
+        ...base,
+        actions: [
+          {
+            type: "send_teams",
+            url: "https://example.webhook.office.com/x",
+            message: " ",
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+});
 
 describe("renderTemplate", () => {
   it("substitutes known keys as plain text", () => {

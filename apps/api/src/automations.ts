@@ -23,6 +23,8 @@ import {
   type RowEvent,
   touchesWatched,
   webhookTemplateValues,
+  writeSlackMessage,
+  writeTeamsMessage,
 } from "@anygriddb/core";
 import type { AutomationRow, Database } from "@anygriddb/db";
 import type { Bus } from "./realtime/bus.js";
@@ -323,7 +325,11 @@ async function assertPublicWebhookActions(
   actions: readonly (AutomationAction | AutomationStep)[],
 ): Promise<void> {
   for (const action of actions) {
-    if (action.type === "call_webhook") {
+    if (
+      action.type === "call_webhook" ||
+      action.type === "send_slack" ||
+      action.type === "send_teams"
+    ) {
       await assertPublicHttps(action.url);
       continue;
     }
@@ -592,6 +598,24 @@ export function stepError(error: unknown): string {
 }
 
 /**
+ * Posts what an action sends, to a public address only (`postPinned`),
+ * and fails the action on any answer that is not a success.
+ */
+async function postFromAutomation(
+  automationId: string,
+  url: string,
+  body: string,
+  json: boolean,
+): Promise<void> {
+  const status = await postPinned(url, body, {
+    "content-type": json ? "application/json" : "text/plain; charset=utf-8",
+    "user-agent": "AnyGridDB-Automation/1",
+    "x-anygrid-automation": automationId,
+  });
+  if (status < 200 || status >= 300) throw new Error(`HTTP ${status}`);
+}
+
+/**
  * Runs the actions of one automation in order, as its creator, and logs
  * the run. The first failing action stops the run. Writes it makes are
  * audited with source `automation:<id>` and may trigger other automations,
@@ -791,14 +815,22 @@ export async function runAutomation(
             return false;
           }
         })();
-        const status = await postPinned(action.url, body, {
-          "content-type": json
-            ? "application/json"
-            : "text/plain; charset=utf-8",
-          "user-agent": "AnyGridDB-Automation/1",
-          "x-anygrid-automation": automation.id,
-        });
-        if (status < 200 || status >= 300) throw new Error(`HTTP ${status}`);
+        await postFromAutomation(automation.id, action.url, body, json);
+        break;
+      }
+      case "send_slack":
+      case "send_teams": {
+        const message = renderTemplate(action.message, frame.values);
+        const body =
+          action.type === "send_slack"
+            ? writeSlackMessage(message)
+            : writeTeamsMessage(
+                message,
+                action.title
+                  ? renderTemplate(action.title, frame.values)
+                  : undefined,
+              );
+        await postFromAutomation(automation.id, action.url, body, true);
         break;
       }
       case "notify": {

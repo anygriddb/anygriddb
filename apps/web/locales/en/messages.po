@@ -8284,6 +8284,14 @@ msgstr "Send the link"
 msgid "Send to {count} accounts?"
 msgstr "Send to {count} accounts?"
 
+#: components/table/automations-dialog.tsx
+msgid "Send to Slack"
+msgstr "Send to Slack"
+
+#: components/table/automations-dialog.tsx
+msgid "Send to Teams"
+msgstr "Send to Teams"
+
 #: components/admin/identity-tab.tsx
 #: components/admin/sign-in-trail.tsx
 msgid "Sender name"
@@ -9165,6 +9173,14 @@ msgstr "The account may read no table: grant it SELECT on the tables to expose."
 #: components/admin/integrations-tab.tsx
 msgid "The ACS URL is derived from PUBLIC_URL after you save."
 msgstr "The ACS URL is derived from PUBLIC_URL after you save."
+
+#: components/table/automations-dialog.tsx
+msgid "The address of a Teams workflow that posts to a channel when it receives a webhook request."
+msgstr "The address of a Teams workflow that posts to a channel when it receives a webhook request."
+
+#: components/table/automations-dialog.tsx
+msgid "The address of an incoming webhook made in your Slack workspace."
+msgstr "The address of an incoming webhook made in your Slack workspace."
 
 #: components/admin/settings-tab.tsx
 msgid "The address of the tile server map views draw their background from: it starts with https:// and holds {z}, {x}, and {y}. Empty, maps keep their plain background. Each tile shown tells that server which places people look at; pages open before the change show it once reloaded."
@@ -10189,8 +10205,13 @@ msgid "Timeout"
 msgstr "Timeout"
 
 #: components/dashboards/dashboard-board.tsx
+#: components/table/automations-dialog.tsx
 msgid "Title"
 msgstr "Title"
+
+#: components/table/automations-dialog.tsx
+msgid "Title (optional)"
+msgstr "Title (optional)"
 
 #: lib/known-text.ts
 msgid "TLS error"

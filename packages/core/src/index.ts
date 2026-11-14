@@ -158,6 +158,8 @@ export {
   renderTemplate,
   updateAutomationInputSchema,
   webhookTemplateValues,
+  writeSlackMessage,
+  writeTeamsMessage,
   type AutomationAction,
   type AutomationStep,
   type AutomationTrigger,
