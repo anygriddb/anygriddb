@@ -40,6 +40,10 @@ RUN pnpm install --frozen-lockfile --prod --filter @anygriddb/api
 
 FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1
 ENV NODE_ENV=production
+# The process needs node alone. The base image's package manager, which
+# nothing here runs, stays out: it would bring its own dependencies, and
+# their advisories, into what an operator runs.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /app/apps/api
 COPY --from=production-dependencies /app/node_modules /app/node_modules
 COPY --from=production-dependencies /app/apps/api/node_modules /app/apps/api/node_modules
