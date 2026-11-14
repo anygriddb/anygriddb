@@ -400,6 +400,14 @@ test.describe("a restore point", () => {
     const base = /\/b\/[^/]+/.exec(table)?.[0] ?? "";
     await page.getByRole("button", { name: "Add a row", exact: true }).click();
     await typeName(page, "Before");
+    // The table goes into a folder, which the point keeps too.
+    await page.getByRole("button", { name: "Add a folder" }).click();
+    await page.getByLabel("Folder name").fill("Field work");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: "Table actions" }).click();
+    await page.getByRole("menuitem", { name: "Move to Field work" }).click();
+    const folders = page.getByRole("button", { name: "Collapse Field work" });
+    await expect(folders).toHaveCount(1);
 
     await page.goto(`${base}/settings`);
     await page.getByLabel("Note (optional)").fill("Before the change");
@@ -428,6 +436,8 @@ test.describe("a restore point", () => {
     await expect(
       page.getByRole("heading", { name: "Lab (restored)" }),
     ).toBeVisible();
+    // Each base has the folder now: the first, and the one restored.
+    await expect(folders).toHaveCount(2);
     await page
       .getByRole("region", { name: "Tables" })
       .getByRole("link", { name: /Samples/ })

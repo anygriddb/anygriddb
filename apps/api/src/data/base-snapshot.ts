@@ -22,6 +22,7 @@ import {
   MAX_SNAPSHOT_ARCHIVE_BYTES,
   MAX_SNAPSHOT_BYTES,
   MAX_SNAPSHOT_FILES,
+  MAX_SNAPSHOT_FOLDERS,
   MAX_SNAPSHOT_LINE_BYTES,
   MAX_SNAPSHOT_LINK_PAIRS,
   MAX_SNAPSHOT_ROWS,
@@ -56,6 +57,7 @@ import { runRows, withAudit } from "./audit-context.js";
 import { insertComputed } from "./computed.js";
 import { MAX_COPY_ROWS, toCell } from "./data-ops.js";
 import { loadEngine, sortColumns, type ColumnRow } from "./engine.js";
+import { createFolder, listFolders, moveTableToFolder } from "./folders.js";
 import { liveBase, liveTable, liveView } from "./live.js";
 import { postgresCode } from "./pg-error.js";
 import { addRelation, setLinks } from "./relations.js";
@@ -296,6 +298,7 @@ async function describeBase(
   tables: SourceTable[];
   links: SnapshotLink[];
   computed: BaseSnapshot["computed"];
+  folders: Array<{ name: string }>;
 }> {
   const base = await db
     .selectFrom("bases")
@@ -317,6 +320,16 @@ async function describeBase(
     .orderBy("createdAt", "asc")
     .execute();
   if (tableRows.length === 0) throw new AppError("no_tables");
+
+  // The folders the tables are kept in, in their order: every one of
+  // them, or past what a snapshot lists, those that hold a table.
+  const held = new Set(tableRows.map((table) => table.folderId));
+  const everyFolder = await listFolders(db, [baseId]);
+  const folders =
+    everyFolder.length > MAX_SNAPSHOT_FOLDERS
+      ? everyFolder.filter((folder) => held.has(folder.id))
+      : everyFolder;
+  const folderName = new Map(folders.map((folder) => [folder.id, folder.name]));
 
   const keys = new Set<string>();
   const idToKey = new Map<string, string>();
@@ -421,6 +434,9 @@ async function describeBase(
         key,
         name: table.name,
         description: table.description ?? undefined,
+        // A folder in the trash holds no table: its tables went back to
+        // the root when it was deleted.
+        folder: table.folderId ? folderName.get(table.folderId) : undefined,
         columns: stored.map(definitionOf),
         primary,
         views: viewRows
@@ -442,6 +458,7 @@ async function describeBase(
     tables,
     links: snapshotLinks,
     computed,
+    folders: folders.map((folder) => ({ name: folder.name })),
   };
 }
 
@@ -605,6 +622,9 @@ export async function writeBaseSnapshot(
     },
     links: described.links,
     computed: described.computed,
+    // Named only when the base has some: without folders, the snapshot
+    // is the one an instance that knows none reads.
+    ...(described.folders.length > 0 ? { folders: described.folders } : {}),
   };
   if (!input.withData) {
     const snapshot = baseSnapshotSchema.parse({
@@ -1231,6 +1251,23 @@ export async function importBaseSnapshot(
       });
       ids.set(table.key, made.id);
       await step();
+    }
+    // The folders in the snapshot's order, then each table into its own:
+    // made in the order the base listed them, they keep it there.
+    const folderIds = new Map<string, string>();
+    for (const folder of parsed.folders ?? []) {
+      const made = await createFolder(db, userId, {
+        baseId: created.id,
+        name: folder.name,
+      });
+      folderIds.set(folder.name, made.id);
+    }
+    for (const table of parsed.tables) {
+      const tableId = ids.get(table.key);
+      const folderId = table.folder ? folderIds.get(table.folder) : undefined;
+      if (tableId && folderId) {
+        await moveTableToFolder(db, userId, { tableId, folderId });
+      }
     }
     if (restoring) await restoreTableAccess(db, parsed.tables, ids, restoring);
     await input.beforeRows?.(created.id);
