@@ -21,7 +21,7 @@ import {
 } from "@anygriddb/core";
 import { z } from "zod";
 import { enrichAttachments } from "../attachments.js";
-import { readerEngine } from "../data/acl.js";
+import { readerEngine, readerEngines } from "../data/acl.js";
 import type { CatalogRows, TableRow } from "../data/engine.js";
 import {
   listCollaborators,
@@ -124,6 +124,19 @@ async function engineFor(
     userId: actor.user.id,
     bindings: actor.bindings,
   });
+}
+
+/** The engines of a base's tables, from one read of its catalog. */
+function enginesFor(
+  deps: PublicApiDeps,
+  actor: Actor,
+  tables: readonly TableRow[],
+) {
+  return readerEngines(
+    deps.db,
+    tables.map((table) => table.id),
+    { userId: actor.user.id, bindings: actor.bindings },
+  );
 }
 
 function keyMap(engine: EngineCatalog, mode: "name" | "label") {
@@ -354,11 +367,12 @@ export async function listTables(
   const list = await readableBaseTables(deps, actor, baseId);
   if (list.length === 0 && !roleFor(actor.bindings, "base", baseId))
     throw new AppError("not_found");
+  const { engineOf, rows } = await enginesFor(deps, actor, list);
   const out = [];
   for (const table of list.sort(
     (left, right) => left.position - right.position,
   )) {
-    const { engine, rows } = await engineFor(deps, actor, table);
+    const engine = engineOf(table.id);
     out.push({
       id: table.id,
       name: table.name,
@@ -394,9 +408,10 @@ export async function openApiDocument(
   const list = await readableBaseTables(deps, actor, baseId);
   if (!base || (list.length === 0 && !roleFor(actor.bindings, "base", baseId)))
     throw new AppError("not_found");
+  const { engineOf, rows } = await enginesFor(deps, actor, list);
   const described = [];
   for (const table of list) {
-    const { engine, rows } = await engineFor(deps, actor, table);
+    const engine = engineOf(table.id);
     described.push({
       id: table.id,
       name: table.name,
