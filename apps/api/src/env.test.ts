@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { isLoopback, readEnv, secretFromEnv } from "./env.js";
+import { isLoopback, readEnv, readFileSettings, secretFromEnv } from "./env.js";
 
 const base = {
   DATABASE_URL: "postgres://anygriddb:secret@localhost:5432/anygriddb",
@@ -312,5 +312,41 @@ describe("isLoopback", () => {
         readEnv({ ...base, ANYGRIDDB_TRUSTED_PROXIES: refused }),
       ).toThrow(/ANYGRIDDB_TRUSTED_PROXIES/);
     }
+  });
+});
+
+describe("readFileSettings", () => {
+  // A Compose file passes every setting it names, empty when unset.
+  const unset = {
+    STORAGE_DRIVER: "",
+    S3_ENDPOINT: "",
+    S3_REGION: "",
+    S3_ACCESS_KEY: "",
+    S3_SECRET_KEY: "",
+    S3_BUCKET: "",
+    S3_SERVER_SIDE_ENCRYPTION: "",
+    S3_KMS_KEY_ID: "",
+  };
+
+  it("keeps files on disk when every storage setting is empty", () => {
+    const settings = readFileSettings(unset);
+    expect(settings.STORAGE_DRIVER).toBe("disk");
+    expect(settings.S3_ENDPOINT).toBeUndefined();
+    expect(settings.S3_REGION).toBeUndefined();
+    expect(settings.S3_BUCKET).toBeUndefined();
+  });
+
+  it("keeps them in the operator's store once its four settings are given", () => {
+    const settings = readFileSettings({
+      ...unset,
+      S3_ENDPOINT: "https://objects.example.org",
+      S3_ACCESS_KEY: "access",
+      S3_SECRET_KEY: "secret",
+      S3_BUCKET: "files",
+    });
+    expect(settings.STORAGE_DRIVER).toBe("s3");
+    expect(() =>
+      readFileSettings({ ...unset, S3_ENDPOINT: "http://objects.example.org" }),
+    ).toThrow(/S3_ENDPOINT/);
   });
 });

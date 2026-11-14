@@ -348,11 +348,11 @@ export function readFileSettings(
   return {
     STORAGE_DRIVER: driver,
     STORAGE_PATH: source.STORAGE_PATH || "./data/files",
-    S3_ENDPOINT: source.S3_ENDPOINT,
-    S3_REGION: source.S3_REGION,
+    S3_ENDPOINT: source.S3_ENDPOINT || undefined,
+    S3_REGION: source.S3_REGION || undefined,
     S3_ACCESS_KEY: accessKey,
     S3_SECRET_KEY: secretKey,
-    S3_BUCKET: source.S3_BUCKET,
+    S3_BUCKET: source.S3_BUCKET || undefined,
     S3_SERVER_SIDE_ENCRYPTION: encryption,
     S3_KMS_KEY_ID: source.S3_KMS_KEY_ID || undefined,
   };
