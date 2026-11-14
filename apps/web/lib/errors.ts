@@ -159,7 +159,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   no_recipients: msg`No accounts match this selection`,
   too_many_recipients: msg`Too many recipients (500 at most per send)`,
   operator_mail_limited: msg`At most five notices an hour: try again later`,
-  invalid_oidc: msg`Invalid OpenID Connect settings: the issuer must answer OpenID discovery over HTTPS`,
+  invalid_oidc: msg`Invalid OpenID Connect settings: the issuer must answer OpenID discovery over HTTPS, and name itself by this address`,
   invalid_saml: msg`Invalid SAML settings: the entry point must be HTTPS and the certificate must be a valid, unexpired PEM`,
   password_sign_in_disabled: msg`Password sign-in is off: use single sign-on, or ask an administrator`,
   sso_required: msg`Turn on single sign-on (OIDC or SAML) before requiring it for everyone`,

@@ -4145,6 +4145,14 @@ msgstr "Fill down"
 msgid "Fill down, or drag the corner of the selection. Copy and paste work with any spreadsheet."
 msgstr "Fill down, or drag the corner of the selection. Copy and paste work with any spreadsheet."
 
+#: components/admin/integrations-tab.tsx
+msgid "Fill it for"
+msgstr "Fill it for"
+
+#: components/admin/integrations-tab.tsx
+msgid "Fill the issuer of a provider"
+msgstr "Fill the issuer of a provider"
+
 #: components/dashboards/dashboard-board.tsx
 #: components/grid/grid-footer.tsx
 msgid "Filled"
@@ -4925,8 +4933,8 @@ msgid "Invalid number of fields"
 msgstr "Invalid number of fields"
 
 #: lib/errors.ts
-msgid "Invalid OpenID Connect settings: the issuer must answer OpenID discovery over HTTPS"
-msgstr "Invalid OpenID Connect settings: the issuer must answer OpenID discovery over HTTPS"
+msgid "Invalid OpenID Connect settings: the issuer must answer OpenID discovery over HTTPS, and name itself by this address"
+msgstr "Invalid OpenID Connect settings: the issuer must answer OpenID discovery over HTTPS, and name itself by this address"
 
 #: lib/errors.ts
 msgid "Invalid option"
@@ -7579,6 +7587,10 @@ msgstr "Rename view"
 #: components/fields/formula-docs.ts
 msgid "Repeats a text, up to 10,000 characters."
 msgstr "Repeats a text, up to 10,000 characters."
+
+#: components/admin/integrations-tab.tsx
+msgid "Replace {placeholder} with your directory (tenant) ID: Microsoft has one issuer per directory."
+msgstr "Replace {placeholder} with your directory (tenant) ID: Microsoft has one issuer per directory."
 
 #: components/settings/second-factor.tsx
 msgid "Replace and confirm"
@@ -11106,6 +11118,10 @@ msgstr "You joined {base}"
 #: components/admin/admin-shell.tsx
 msgid "You read Administration as an auditor: every page is open to you, and nothing in it can be changed. What you export is written to the change trail under your name."
 msgstr "You read Administration as an auditor: every page is open to you, and nothing in it can be changed. What you export is written to the change trail under your name."
+
+#: components/admin/integrations-tab.tsx
+msgid "You register an application with the provider, and type its client ID and secret below."
+msgstr "You register an application with the provider, and type its client ID and secret below."
 
 #: components/admin/scim-tab.tsx
 msgid "Your identity provider (Okta, Microsoft Entra ID, …) creates, changes, and deactivates accounts, and keeps groups. Existing accounts are taken over by their email. Local groups are made under People → Groups. Then give groups a role in each base's settings or in Administration."
