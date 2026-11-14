@@ -44,6 +44,12 @@ Client databases connected as sources stay under the operator's control:
 AnyGridDB must not change their schema; a report about rights on a source
 should say what account and grants the operator configured.
 
+### Supported versions
+
+Security fixes go into the next release, and the latest release is the
+only one supported: until 1.0 no earlier version receives a fix. Each
+release's notes say first what an operator must do before installing it.
+
 ### Reporting a Vulnerability
 
 Please report (suspected) security vulnerabilities to ngsanogo@proton.me, or privately through GitHub: [report a vulnerability](https://github.com/anygriddb/anygriddb/security/advisories/new). Do not open a public issue.

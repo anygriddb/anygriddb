@@ -45,7 +45,9 @@ Intended for:
 
 - **Web (desktop):** current Chrome, Edge, Firefox, and Safari.
 - **Web (narrow):** usable at about 390 px width (navigation folds away).
-- **Assistive technology (spot-checked):** VoiceOver on macOS, NVDA on Windows.
+- **Assistive technology:** meant to work with VoiceOver on macOS and NVDA on
+  Windows, through the patterns above. No screen reader runs in the automated
+  journeys: tell us where one stumbles.
 
 The automated journeys run in Chromium. Other browsers and assistive tools are
 supported on a best-effort basis; please report gaps.
