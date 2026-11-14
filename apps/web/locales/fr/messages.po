@@ -208,8 +208,20 @@ msgstr "(valeur)"
 msgid "{0, plural, =0 {no change} one {# row changed} other {# rows changed}}"
 msgstr "{0, plural, =0 {aucun changement} one {# ligne changée} other {# lignes changées}}"
 
+#. placeholder {0}: result.tokensRevoked
+#: components/admin/account-handoff.tsx
+msgid "{0, plural, one {# API token revoked} other {# API tokens revoked}}"
+msgstr "{0, plural, one {# jeton d’API révoqué} other {# jetons d’API révoqués}}"
+
+#. placeholder {0}: result.automations.moved
+#: components/admin/account-handoff.tsx
+msgid "{0, plural, one {# automation} other {# automations}}"
+msgstr "{0, plural, one {# automatisation} other {# automatisations}}"
+
 #. placeholder {0}: group.bases
 #. placeholder {0}: group.roles.length
+#. placeholder {0}: result.bases
+#: components/admin/account-handoff.tsx
 #: components/admin/group-page.tsx
 #: components/admin/groups-tab.tsx
 #: components/admin/scim-tab.tsx
@@ -294,6 +306,11 @@ msgstr "{0, plural, one {# ligne} other {# lignes}}"
 msgid "{0, plural, one {# table} other {# tables}}"
 msgstr "{0, plural, one {# table} other {# tables}}"
 
+#. placeholder {0}: result.webhooks.moved
+#: components/admin/account-handoff.tsx
+msgid "{0, plural, one {# webhook} other {# webhooks}}"
+msgstr "{0, plural, one {# webhook} other {# webhooks}}"
+
 #. placeholder {0}: props.total
 #: components/grid/grid-footer.tsx
 msgid "{0, plural, one {≈ # row} other {≈ # rows}}"
@@ -303,6 +320,11 @@ msgstr "{0, plural, one {≈ # ligne} other {≈ # lignes}}"
 #: components/shell/new-base-dialog.tsx
 msgid "{0, plural, one {Give the member their role back, if they have an account here} other {Give their role back to the # members who have an account here}}"
 msgstr "{0, plural, one {Redonner son rôle au membre, s’il a un compte ici} other {Redonner leur rôle aux # membres qui ont un compte ici}}"
+
+#. placeholder {0}: data.tokens
+#: components/admin/account-handoff.tsx
+msgid "{0, plural, one {Revoke their API token too: a token is never handed over} other {Revoke their # API tokens too: a token is never handed over}}"
+msgstr "{0, plural, one {Révoquer aussi son jeton d’API : un jeton n’est jamais transmis} other {Révoquer aussi ses # jetons d’API : un jeton n’est jamais transmis}}"
 
 #: components/shell/notification-items.ts
 msgid "{actor} assigned you a row in {table} ({field})"
@@ -1092,6 +1114,7 @@ msgstr "Comptes"
 msgid "Accounts and access"
 msgstr "Comptes et accès"
 
+#: components/admin/account-handoff.tsx
 #: components/admin/base-admin-members.tsx
 msgid "Accounts of the instance"
 msgstr "Comptes de l’instance"
@@ -1761,6 +1784,7 @@ msgid "Automation in {table}"
 msgstr "Automatisation dans {table}"
 
 #: components/admin/access-tab.tsx
+#: components/admin/account-handoff.tsx
 #: components/table/view-toolbar.tsx
 msgid "Automations"
 msgstr "Automatisations"
@@ -1928,6 +1952,10 @@ msgstr "Les bases s’écrivent « Nom de la base:rôle », le rôle étant pr
 msgid "Bases of the instance"
 msgstr "Bases de l’instance"
 
+#: components/admin/account-handoff.tsx
+msgid "Bases owned alone"
+msgstr "Bases dont la personne est seule propriétaire"
+
 #: components/admin/health-tab.tsx
 msgid "Before installing it, check that its SHA-256 fingerprint is this one:"
 msgstr "Avant de l’installer, vérifiez que son empreinte SHA-256 est bien celle-ci :"
@@ -2016,6 +2044,7 @@ msgid "Call a URL"
 msgstr "Appeler une URL"
 
 #: components/admin/account-bases.tsx
+#: components/admin/account-handoff.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/base-admin-members.tsx
 #: components/admin/group-page.tsx
@@ -2086,6 +2115,10 @@ msgstr "Le certificat est valide"
 #: components/admin/health-tab.tsx
 msgid "Certificate served, valid until {date}, for: {names}."
 msgstr "Certificat servi, valable jusqu’au {date}, pour : {names}."
+
+#: components/admin/account-handoff.tsx
+msgid "Change"
+msgstr "Changer"
 
 #: components/admin/sources-tab.tsx
 msgid "change column"
@@ -3120,6 +3153,7 @@ msgstr "Domaines : {domains}. Les invitations déjà envoyées à d’autres ad
 
 #: components/admin/access-tab.tsx
 #: components/admin/account-actions.tsx
+#: components/admin/account-handoff.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/fields/button-cell.tsx
@@ -4178,6 +4212,22 @@ msgstr "Les groupes viennent de l’Administration ou de votre fournisseur d’i
 #: components/settings/api-docs.tsx
 msgid "Guide"
 msgstr "Guide"
+
+#: components/admin/account-handoff.tsx
+msgid "Hand over"
+msgstr "Transmettre"
+
+#: components/admin/account-handoff.tsx
+msgid "Hand over what {name} owns?"
+msgstr "Transmettre ce que possède {name} ?"
+
+#: components/admin/account-actions.tsx
+msgid "Hand over what they own…"
+msgstr "Transmettre ce qu’il possède…"
+
+#: components/admin/account-handoff.tsx
+msgid "Handed over to {successor}"
+msgstr "Transmis à {successor}"
 
 #: components/table/filter-builder.tsx
 msgid "has all of"
@@ -5712,6 +5762,7 @@ msgstr "Non"
 msgid "No access"
 msgstr "Aucun accès"
 
+#: components/admin/account-handoff.tsx
 #: components/admin/base-admin-members.tsx
 #: components/admin/group-page.tsx
 msgid "No account by that name"
@@ -6114,6 +6165,10 @@ msgstr "Rien ne demande votre attention."
 #: components/admin/base-admin-page.tsx
 msgid "Nothing of this base can be read from outside it."
 msgstr "Rien de cette base ne se lit de l’extérieur."
+
+#: components/admin/account-handoff.tsx
+msgid "Nothing to hand over: no base owned alone, no automation, no webhook, no API token."
+msgstr "Rien à transmettre : aucune base possédée seul, aucune automatisation, aucun webhook, aucun jeton d’API."
 
 #: components/admin/auth-labels.ts
 msgid "Notice emailed"
@@ -8192,6 +8247,10 @@ msgstr "Ignorée"
 msgid "Someone"
 msgstr "Quelqu’un"
 
+#: components/admin/account-handoff.tsx
+msgid "Someone who stays becomes an owner of the bases {name} alone owns, and the author of the automations and webhooks {name} made, where they may manage them. {name}'s account and roles are left as they are."
+msgstr "Une personne qui reste devient propriétaire des bases dont {name} est seul propriétaire, et l’auteur des automatisations et des webhooks créés par {name}, là où elle peut les gérer. Le compte et les rôles de {name} restent tels quels."
+
 #: components/table/view-toolbar.tsx
 msgid "Sort"
 msgstr "Trier"
@@ -9247,6 +9306,10 @@ msgstr "Créez ensuite une automatisation déclenchée par ce bouton, depuis le 
 msgid "Then:"
 msgstr "Alors :"
 
+#: components/admin/account-handoff.tsx
+msgid "These stay with {name}: {successor} has no role to manage their tables. They stop working when {name}'s account is disabled. Give {successor} a role on those bases, then hand over again."
+msgstr "Ceux-ci restent à {name} : {successor} n’a pas de rôle pour gérer leurs tables. Ils cesseront de fonctionner quand le compte de {name} sera désactivé. Donnez à {successor} un rôle sur ces bases, puis transmettez de nouveau."
+
 #: components/admin/accounts-tab.tsx
 msgid "They are signed out at once and their API tokens stop working, until each is enabled again from its row. Nothing they made is deleted."
 msgstr "Ils sont déconnectés aussitôt et leurs jetons d’API ne fonctionnent plus, jusqu’à ce que chacun soit réactivé depuis sa ligne. Rien de ce qu’ils ont fait n’est supprimé."
@@ -9872,6 +9935,10 @@ msgstr "Type"
 msgid "Type {email} to confirm"
 msgstr "Saisissez {email} pour confirmer"
 
+#: components/admin/account-handoff.tsx
+msgid "Type a name or an address"
+msgstr "Saisissez un nom ou une adresse"
+
 #: components/table/import-dialog.tsx
 msgid "Type of {name}"
 msgstr "Type de {name}"
@@ -10226,6 +10293,7 @@ msgid "Webhook disabled after too many failures"
 msgstr "Webhook désactivé après trop d’échecs"
 
 #: components/admin/access-tab.tsx
+#: components/admin/account-handoff.tsx
 #: components/settings/base-settings.tsx
 msgid "Webhooks"
 msgstr "Webhooks"
@@ -10277,6 +10345,10 @@ msgstr "Ce que le compte de la source peut lire, et comment chaque colonne s’a
 #: components/admin/settings-tab.tsx
 msgid "What the tile server's terms ask you to show, such as the name of who made the map."
 msgstr "Ce que les conditions du serveur de tuiles demandent d’afficher, comme le nom de qui a fait la carte."
+
+#: components/admin/sign-in-trail.tsx
+msgid "What they owned handed to someone who stays"
+msgstr "Ce qu’il possédait transmis à une personne qui reste"
 
 #: components/settings/table-acl-panel.tsx
 msgid "What this member may do with {field}"
@@ -10384,6 +10456,10 @@ msgstr "Qui peut se connecter avec un mot de passe"
 #: components/admin/sign-in-trail.tsx
 msgid "Who needs a second factor"
 msgstr "Qui doit avoir un second facteur"
+
+#: components/admin/account-handoff.tsx
+msgid "Who takes over"
+msgstr "Qui prend la suite"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Whole table"

@@ -32,6 +32,8 @@ export type AuthDetail =
   /** A role of Administration given or taken away (`account_updated`). */
   | "admin_granted"
   | "admin_revoked"
+  /** What a leaving person owned and made, handed to another (ROADMAP #21). */
+  | "handed_over"
   | "support_granted"
   | "support_revoked"
   | "auditor_granted"

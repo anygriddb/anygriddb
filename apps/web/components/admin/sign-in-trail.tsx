@@ -70,6 +70,7 @@ export function SignInTrail() {
             email: t`Email`,
             admin_granted: t`Made an administrator`,
             admin_revoked: t`No longer an administrator`,
+            handed_over: t`What they owned handed to someone who stays`,
             support_granted: t`Given the support role`,
             support_revoked: t`Support role taken away`,
             auditor_granted: t`Given the auditor role`,

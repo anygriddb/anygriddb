@@ -204,6 +204,7 @@ import {
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { tellOwnersOfRole, type RoleNoticeDeps } from "../data/role-notices.js";
+import { handOver, handOverInputSchema, handoffInfo } from "../data/handoff.js";
 import {
   countOwnerlessBases,
   listBaseOverview,
@@ -1170,6 +1171,43 @@ export const adminRouter = t.router({
       }),
     ),
   }),
+  /**
+   * What there is to hand over of a leaving person's (ROADMAP #21): the
+   * bases they alone own, the automations and webhooks they made, and
+   * how many API tokens they hold. Names only.
+   */
+  handoffInfo: procedure
+    .input(z.object({ userId: z.uuid() }))
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        return handoffInfo(ctx.db, admin.id, input.userId);
+      }),
+    ),
+  /**
+   * Hands them to an account that stays. The person's account is left as
+   * it is; what the successor may not manage stays with the person, and
+   * the answer names it.
+   */
+  handOver: procedure.input(handOverInputSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      const result = await handOver(ctx.db, admin.id, input);
+      ctx.req.log.info(
+        {
+          actor: admin.id,
+          target: input.fromUserId,
+          successor: input.toUserId,
+          bases: result.bases,
+          automations: result.automations.moved,
+          webhooks: result.webhooks.moved,
+          tokensRevoked: result.tokensRevoked,
+        },
+        "account handed over",
+      );
+      return result;
+    }),
+  ),
   /**
    * What the erase dialog needs: whether the account may be erased, and
    * which live bases still name it as their only owner (ADR 0051).
