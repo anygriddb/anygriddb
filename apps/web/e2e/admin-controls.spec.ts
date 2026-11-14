@@ -474,6 +474,10 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await expect(page.getByText(`Removed from ${baseName}`)).toBeVisible();
     await expect(roleOn).toBeHidden();
     await page.getByRole("button", { name: "Give a role on a base" }).click();
+    // Every base of the instance listed: a list long enough to scroll is
+    // reached by keyboard through its search (axe's scrollable regions).
+    await expect(page.getByLabel("Find a base")).toBeFocused();
+    expect(await accessibilityViolations(page)).toEqual([]);
     await page.getByLabel("Find a base").fill(baseName);
     await page.getByRole("option", { name: baseName }).click();
     await page.getByLabel(`Role on ${baseName}`).selectOption("commenter");
