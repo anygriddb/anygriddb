@@ -5,6 +5,7 @@
  */
 import { z } from "zod";
 import { isEmail } from "./cell-values";
+import { madeNames } from "./made-names";
 import { labelSchema } from "./names";
 
 const SCIM_USER = "urn:ietf:params:scim:schemas:core:2.0:User";
@@ -194,10 +195,14 @@ export type ScimUserState = {
   active: boolean;
 };
 
-/** A display name AnyGridDB accepts, from the provider's words. */
+/**
+ * A display name AnyGridDB accepts, from the provider's words, then from
+ * the address; `unnamed` when neither gives one.
+ */
 export function scimDisplayName(
   raw: string | null | undefined,
   email: string,
+  unnamed: string = madeNames().account,
 ): string {
   const tidy = (text: string) =>
     text
@@ -211,7 +216,7 @@ export function scimDisplayName(
     const name = tidy(candidate);
     if (labelSchema.safeParse(name).success) return name;
   }
-  return "Utilisateur";
+  return unnamed;
 }
 
 /** The email of a user body: its primary email, else its user name. */
