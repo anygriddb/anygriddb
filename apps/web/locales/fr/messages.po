@@ -851,6 +851,7 @@ msgid "≥"
 msgstr "≥"
 
 #: components/admin/security-tab.tsx
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "1 day"
 msgstr "1 jour"
@@ -900,6 +901,7 @@ msgid "3 years"
 msgstr "3 ans"
 
 #: components/admin/alerts-section.tsx
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "30 days"
 msgstr "30 jours"
@@ -925,6 +927,7 @@ msgid "6 months"
 msgstr "6 mois"
 
 #: components/admin/alerts-section.tsx
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "7 days"
 msgstr "7 jours"
@@ -933,6 +936,7 @@ msgstr "7 jours"
 msgid "9 months"
 msgstr "9 mois"
 
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "90 days"
 msgstr "90 jours"
@@ -1720,6 +1724,7 @@ msgstr "Un compte qui se verrouille"
 msgid "An administrator already can"
 msgstr "Un administrateur le peut déjà"
 
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "An administrator turned public links off on this instance. Links made before no longer open."
 msgstr "Un administrateur a désactivé les liens publics sur cette instance. Les liens créés avant ne s’ouvrent plus."
@@ -1818,6 +1823,10 @@ msgstr "Toute personne ayant un mot de passe"
 #: components/table/share-dialog.tsx
 msgid "Anyone with the link can submit a response, recorded under your name."
 msgstr "Toute personne qui a le lien peut envoyer une réponse, enregistrée en votre nom."
+
+#: components/settings/base-links.tsx
+msgid "Anyone with the link reads every table of the base, as you read them, and changes nothing. Files stay out."
+msgstr "Quiconque a le lien lit chaque table de la base, comme vous les lisez, et ne change rien. Les fichiers restent à l’écart."
 
 #: components/table/share-dialog.tsx
 msgid "Anyone with the link sees this view read-only, with your rights."
@@ -2727,6 +2736,7 @@ msgstr "Copiée le {date}"
 #: components/grid/grid-view.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/api-docs.tsx
+#: components/settings/base-links.tsx
 #: components/settings/base-settings.tsx
 #: components/settings/second-factor.tsx
 #: components/table/share-dialog.tsx
@@ -2906,6 +2916,7 @@ msgstr "Créé par"
 msgid "created by {name}"
 msgstr "créé par {name}"
 
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "Created by {name} on {date}"
 msgstr "Créé par {name} le {date}"
@@ -3844,10 +3855,12 @@ msgid "Expires"
 msgstr "Expire"
 
 #: components/settings/account-settings.tsx
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "expires on {date}"
 msgstr "expire le {date}"
 
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "Expiry"
 msgstr "Expiration"
@@ -5289,6 +5302,7 @@ msgstr "Lien"
 #: components/admin/account-actions.tsx
 #: components/grid/grid-view.tsx
 #: components/record/record-panel.tsx
+#: components/settings/base-links.tsx
 #: components/settings/base-settings.tsx
 #: components/table/share-dialog.tsx
 msgid "Link copied"
@@ -5503,6 +5517,10 @@ msgstr "La maintenance est active : seuls les administrateurs peuvent se connec
 #: components/admin/account-actions.tsx
 msgid "Make {name} an administrator?"
 msgstr "Faire de {name} un administrateur ?"
+
+#: components/settings/base-links.tsx
+msgid "Make a read-only link"
+msgstr "Créer un lien en lecture seule"
 
 #: components/settings/restore-points.tsx
 msgid "Make a restore point"
@@ -5842,6 +5860,7 @@ msgstr "Échec réseau"
 #: components/admin/access-tab.tsx
 #: components/admin/alerts-section.tsx
 #: components/admin/security-tab.tsx
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "Never"
 msgstr "Jamais"
@@ -6798,10 +6817,12 @@ msgstr "Les clés d’accès exigent un nom d’hôte dans PUBLIC_URL (un nom DN
 #: components/auth/confirm-signup-page.tsx
 #: components/record/row-status.tsx
 #: components/settings/account-settings.tsx
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "Password"
 msgstr "Mot de passe"
 
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "Password (optional)"
 msgstr "Mot de passe (facultatif)"
@@ -6822,6 +6843,7 @@ msgstr "Mot de passe changé. Vos autres sessions ont pris fin."
 msgid "Password length"
 msgstr "Longueur des mots de passe"
 
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "Password protected"
 msgstr "Protégé par mot de passe"
@@ -7171,6 +7193,10 @@ msgstr "Lisez les notes de version avant de mettre à jour."
 #: components/admin/sources-tab.tsx
 msgid "read-only"
 msgstr "lecture seule"
+
+#: components/settings/base-links.tsx
+msgid "Read-only link"
+msgstr "Lien en lecture seule"
 
 #: components/admin/sources-tab.tsx
 msgid "Reading"
@@ -7594,6 +7620,7 @@ msgstr "Nouvel essai prévu ({error})"
 #: components/admin/outbound-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/settings/account-settings.tsx
+#: components/settings/base-links.tsx
 #: components/settings/base-settings.tsx
 #: components/table/share-dialog.tsx
 #: components/views/calendar-feed.tsx
@@ -8879,6 +8906,7 @@ msgstr "Table, base ou action"
 #: components/admin/base-admin-page.tsx
 #: components/admin/bases-tab.tsx
 #: components/admin/sources-tab.tsx
+#: components/public/public-base.tsx
 #: components/shell/base-home.tsx
 #: components/shell/command-palette.tsx
 msgid "Tables"
@@ -9686,6 +9714,10 @@ msgstr "Cette base n’existe pas ou ne vous est pas partagée."
 msgid "This base has more rows than this instance puts in one base file"
 msgstr "Cette base a plus de lignes que l’instance n’en met dans un fichier de base"
 
+#: components/public/public-base.tsx
+msgid "This base has no table to show."
+msgstr "Cette base n’a aucune table à montrer."
+
 #: components/shell/base-home.tsx
 msgid "This base has no tables yet."
 msgstr "Cette base ne contient encore aucune table."
@@ -9814,6 +9846,7 @@ msgstr "Cette invitation n’existe pas ou a expiré."
 msgid "This job cannot be retried"
 msgstr "Cette tâche ne peut pas être relancée"
 
+#: components/public/public-base.tsx
 #: components/public/public-view.tsx
 msgid "This link does not exist, has expired, or was revoked."
 msgstr "Ce lien n’existe pas, a expiré ou a été révoqué."

@@ -851,6 +851,7 @@ msgid "≥"
 msgstr "≥"
 
 #: components/admin/security-tab.tsx
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "1 day"
 msgstr "1 day"
@@ -900,6 +901,7 @@ msgid "3 years"
 msgstr "3 years"
 
 #: components/admin/alerts-section.tsx
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "30 days"
 msgstr "30 days"
@@ -925,6 +927,7 @@ msgid "6 months"
 msgstr "6 months"
 
 #: components/admin/alerts-section.tsx
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "7 days"
 msgstr "7 days"
@@ -933,6 +936,7 @@ msgstr "7 days"
 msgid "9 months"
 msgstr "9 months"
 
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "90 days"
 msgstr "90 days"
@@ -1720,6 +1724,7 @@ msgstr "An account that locks"
 msgid "An administrator already can"
 msgstr "An administrator already can"
 
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "An administrator turned public links off on this instance. Links made before no longer open."
 msgstr "An administrator turned public links off on this instance. Links made before no longer open."
@@ -1818,6 +1823,10 @@ msgstr "Anyone with a password"
 #: components/table/share-dialog.tsx
 msgid "Anyone with the link can submit a response, recorded under your name."
 msgstr "Anyone with the link can submit a response, recorded under your name."
+
+#: components/settings/base-links.tsx
+msgid "Anyone with the link reads every table of the base, as you read them, and changes nothing. Files stay out."
+msgstr "Anyone with the link reads every table of the base, as you read them, and changes nothing. Files stay out."
 
 #: components/table/share-dialog.tsx
 msgid "Anyone with the link sees this view read-only, with your rights."
@@ -2727,6 +2736,7 @@ msgstr "Copied on {date}"
 #: components/grid/grid-view.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/api-docs.tsx
+#: components/settings/base-links.tsx
 #: components/settings/base-settings.tsx
 #: components/settings/second-factor.tsx
 #: components/table/share-dialog.tsx
@@ -2906,6 +2916,7 @@ msgstr "Created by"
 msgid "created by {name}"
 msgstr "created by {name}"
 
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "Created by {name} on {date}"
 msgstr "Created by {name} on {date}"
@@ -3844,10 +3855,12 @@ msgid "Expires"
 msgstr "Expires"
 
 #: components/settings/account-settings.tsx
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "expires on {date}"
 msgstr "expires on {date}"
 
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "Expiry"
 msgstr "Expiry"
@@ -5289,6 +5302,7 @@ msgstr "Link"
 #: components/admin/account-actions.tsx
 #: components/grid/grid-view.tsx
 #: components/record/record-panel.tsx
+#: components/settings/base-links.tsx
 #: components/settings/base-settings.tsx
 #: components/table/share-dialog.tsx
 msgid "Link copied"
@@ -5503,6 +5517,10 @@ msgstr "Maintenance is on: only administrators can sign in."
 #: components/admin/account-actions.tsx
 msgid "Make {name} an administrator?"
 msgstr "Make {name} an administrator?"
+
+#: components/settings/base-links.tsx
+msgid "Make a read-only link"
+msgstr "Make a read-only link"
 
 #: components/settings/restore-points.tsx
 msgid "Make a restore point"
@@ -5842,6 +5860,7 @@ msgstr "Network failure"
 #: components/admin/access-tab.tsx
 #: components/admin/alerts-section.tsx
 #: components/admin/security-tab.tsx
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "Never"
 msgstr "Never"
@@ -6798,10 +6817,12 @@ msgstr "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an
 #: components/auth/confirm-signup-page.tsx
 #: components/record/row-status.tsx
 #: components/settings/account-settings.tsx
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "Password"
 msgstr "Password"
 
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "Password (optional)"
 msgstr "Password (optional)"
@@ -6822,6 +6843,7 @@ msgstr "Password changed. Your other sessions ended."
 msgid "Password length"
 msgstr "Password length"
 
+#: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "Password protected"
 msgstr "Password protected"
@@ -7171,6 +7193,10 @@ msgstr "Read the release notes before you upgrade."
 #: components/admin/sources-tab.tsx
 msgid "read-only"
 msgstr "read-only"
+
+#: components/settings/base-links.tsx
+msgid "Read-only link"
+msgstr "Read-only link"
 
 #: components/admin/sources-tab.tsx
 msgid "Reading"
@@ -7594,6 +7620,7 @@ msgstr "Retry scheduled ({error})"
 #: components/admin/outbound-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/settings/account-settings.tsx
+#: components/settings/base-links.tsx
 #: components/settings/base-settings.tsx
 #: components/table/share-dialog.tsx
 #: components/views/calendar-feed.tsx
@@ -8879,6 +8906,7 @@ msgstr "Table, base, or action"
 #: components/admin/base-admin-page.tsx
 #: components/admin/bases-tab.tsx
 #: components/admin/sources-tab.tsx
+#: components/public/public-base.tsx
 #: components/shell/base-home.tsx
 #: components/shell/command-palette.tsx
 msgid "Tables"
@@ -9686,6 +9714,10 @@ msgstr "This base does not exist or is not shared with you."
 msgid "This base has more rows than this instance puts in one base file"
 msgstr "This base has more rows than this instance puts in one base file"
 
+#: components/public/public-base.tsx
+msgid "This base has no table to show."
+msgstr "This base has no table to show."
+
 #: components/shell/base-home.tsx
 msgid "This base has no tables yet."
 msgstr "This base has no tables yet."
@@ -9814,6 +9846,7 @@ msgstr "This invitation does not exist or has expired."
 msgid "This job cannot be retried"
 msgstr "This job cannot be retried"
 
+#: components/public/public-base.tsx
 #: components/public/public-view.tsx
 msgid "This link does not exist, has expired, or was revoked."
 msgstr "This link does not exist, has expired, or was revoked."

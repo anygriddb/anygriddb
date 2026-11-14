@@ -726,6 +726,7 @@ export interface Sessions {
 
 export interface Shares {
   allowCopy: Generated<boolean>;
+  baseId: string | null;
   createdAt: Generated<Timestamp>;
   createdBy: string;
   embedOrigins: string[] | null;
@@ -736,7 +737,7 @@ export interface Shares {
   passwordLockedUntil: Timestamp | null;
   revokedAt: Timestamp | null;
   tokenHash: string;
-  viewId: string;
+  viewId: string | null;
 }
 
 export interface SignupRequests {

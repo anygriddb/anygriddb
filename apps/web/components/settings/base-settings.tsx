@@ -11,6 +11,7 @@ import { canManage, type CatalogBase, type Role } from "../../lib/types";
 import { NotebookPage, RuledSection } from "../shell/notebook-page";
 import { useInvalidateCatalog } from "../shell/sidebar";
 import { GroupRoles } from "./group-roles";
+import { BaseLinks } from "./base-links";
 import { RestorePoints } from "./restore-points";
 import { useRoleLabel } from "./role-label";
 import { TableAclPanel } from "./table-acl-panel";
@@ -282,6 +283,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
           </p>
         )}
       </RuledSection>
+      {manage ? <BaseLinks baseId={baseId} /> : null}
       {manage ? (
         <RuledSection
           title={t`Groups`}

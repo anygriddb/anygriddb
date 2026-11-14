@@ -241,9 +241,17 @@ function PublicForm({
   );
 }
 
-function PublicRows({
+/** No table: the disabled query of a view's link names none. */
+const NO_TABLE = "00000000-0000-0000-0000-000000000000";
+
+/**
+ * A link's rows, read-only: a view's, or, with `tableId`, one table of a
+ * base's link (ROADMAP row 93).
+ */
+export function PublicRows({
   token,
   access,
+  tableId,
   columns,
   allowCopy,
   cards,
@@ -252,6 +260,7 @@ function PublicRows({
 }: {
   token: string;
   access: string | undefined;
+  tableId?: string;
   columns: CatalogColumn[];
   allowCopy: boolean;
   cards: boolean;
@@ -268,16 +277,26 @@ function PublicRows({
     const timer = setTimeout(() => setDebounced(search.trim()), 250);
     return () => clearTimeout(timer);
   }, [search]);
-  const rows = useQuery(
-    api.share.rows.queryOptions({
-      token,
-      access,
-      limit,
-      offset: 0,
-      search: debounced || undefined,
-      timeZone: TIME_ZONE,
+  const page = {
+    token,
+    access,
+    limit,
+    offset: 0,
+    search: debounced || undefined,
+    timeZone: TIME_ZONE,
+  };
+  const viewRows = useQuery({
+    ...api.share.rows.queryOptions(page),
+    enabled: !tableId,
+  });
+  const baseRows = useQuery({
+    ...api.share.baseRows.queryOptions({
+      ...page,
+      tableId: tableId ?? NO_TABLE,
     }),
-  );
+    enabled: Boolean(tableId),
+  });
+  const rows = tableId ? baseRows : viewRows;
   const primary = columns.find((column) => column.isPrimary) ?? columns[0];
   const titleField =
     (titleColumn
@@ -424,7 +443,8 @@ function PublicRows({
   );
 }
 
-function readProof(key: string): string | undefined {
+/** The proof that a link's password was given, kept for the tab. */
+export function readProof(key: string): string | undefined {
   try {
     return window.sessionStorage.getItem(key) ?? undefined;
   } catch {
@@ -486,35 +506,13 @@ export function PublicView({ token }: { token: string }) {
   const data = opened.data;
   if (data.locked) {
     return (
-      <main className="flex h-screen items-center justify-center p-6">
-        <form
-          className="flex w-full max-w-sm flex-col gap-3 rounded-sm border border-border bg-card p-6"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void unlock();
-          }}
-        >
-          <Lock className="h-6 w-6 text-primary" aria-hidden />
-          <Label htmlFor="share-password">
-            {t`This share is password protected.`}
-          </Label>
-          <Input
-            id="share-password"
-            type="password"
-            autoFocus
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-          {wrong ? (
-            <p role="alert" className="text-sm text-danger">
-              {t`Wrong password`}
-            </p>
-          ) : null}
-          <Button type="submit" disabled={checking || !password}>
-            {t`Open`}
-          </Button>
-        </form>
-      </main>
+      <ShareLocked
+        password={password}
+        onPassword={setPassword}
+        wrong={wrong}
+        checking={checking}
+        onSubmit={() => void unlock()}
+      />
     );
   }
   const columns = data.columns as unknown as CatalogColumn[];
@@ -563,6 +561,48 @@ export function PublicView({ token }: { token: string }) {
           cardFields={config.cardFields}
         />
       )}
+    </main>
+  );
+}
+
+/** A link's password asked, before anything it shows. */
+export function ShareLocked(props: {
+  password: string;
+  onPassword: (password: string) => void;
+  wrong: boolean;
+  checking: boolean;
+  onSubmit: () => void;
+}) {
+  const { t } = useLingui();
+  return (
+    <main className="flex h-screen items-center justify-center p-6">
+      <form
+        className="flex w-full max-w-sm flex-col gap-3 rounded-sm border border-border bg-card p-6"
+        onSubmit={(event) => {
+          event.preventDefault();
+          props.onSubmit();
+        }}
+      >
+        <Lock className="h-6 w-6 text-primary" aria-hidden />
+        <Label htmlFor="share-password">
+          {t`This share is password protected.`}
+        </Label>
+        <Input
+          id="share-password"
+          type="password"
+          autoFocus
+          value={props.password}
+          onChange={(event) => props.onPassword(event.target.value)}
+        />
+        {props.wrong ? (
+          <p role="alert" className="text-sm text-danger">
+            {t`Wrong password`}
+          </p>
+        ) : null}
+        <Button type="submit" disabled={props.checking || !props.password}>
+          {t`Open`}
+        </Button>
+      </form>
     </main>
   );
 }

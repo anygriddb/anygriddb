@@ -16,10 +16,12 @@ import {
 } from "@anygriddb/core";
 import { z } from "zod";
 import {
+  createBaseShare,
   createShare,
+  listBaseShares,
   listShares,
   revokeShare,
-  shareViewId,
+  shareTarget,
 } from "../data/sharing.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 import { loadEngine } from "../data/engine.js";
@@ -36,7 +38,7 @@ import {
   webhookTableId,
 } from "../webhooks.js";
 import type { Context } from "./context.js";
-import { guardTable, handle } from "./guard.js";
+import { guardBase, guardTable, handle } from "./guard.js";
 import { procedure } from "./init.js";
 import {
   calendarFeedOf,
@@ -135,17 +137,57 @@ export const catalogSharingProcedures = {
         return { ok: true as const };
       }),
     ),
+  /**
+   * Revokes a link: a view's by those who may write in its table, a whole
+   * base's by those who manage the base.
+   */
   revokeShare: procedure
     .input(z.object({ shareId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const view = await loadView(
-          ctx.db,
-          await shareViewId(ctx.db, input.shareId),
-        );
-        await guardTable(ctx, view.tableId, "write");
+        const target = await shareTarget(ctx.db, input.shareId);
+        if ("baseId" in target) {
+          await guardBase(ctx, target.baseId, "manage");
+        } else {
+          const view = await loadView(ctx.db, target.viewId);
+          await guardTable(ctx, view.tableId, "write");
+        }
         await revokeShare(ctx.db, input.shareId);
         return { ok: true as const };
+      }),
+    ),
+  /** A base's read-only links (ROADMAP row 93), for its managers. */
+  baseShares: procedure
+    .input(z.object({ baseId: z.uuid() }))
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await guardBase(ctx, input.baseId, "manage");
+        return { shares: await listBaseShares(ctx.db, input.baseId) };
+      }),
+    ),
+  /**
+   * A link that shows the whole base, read-only, as its creator reads it.
+   * Its token is shown once.
+   */
+  createBaseShare: procedure
+    .input(
+      z.object({
+        baseId: z.uuid(),
+        password: z.string().min(8).max(128).optional(),
+        expiresInDays: z.int().min(1).max(365).optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const { user } = await guardBase(ctx, input.baseId, "manage");
+        return createBaseShare(ctx.db, {
+          baseId: input.baseId,
+          createdBy: user.id,
+          password: input.password,
+          expiresAt: input.expiresInDays
+            ? new Date(Date.now() + input.expiresInDays * 86_400_000)
+            : undefined,
+        });
       }),
     ),
   webhooks: procedure.input(listWebhooksInputSchema).query(({ ctx, input }) =>
