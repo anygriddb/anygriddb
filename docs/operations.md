@@ -3,6 +3,21 @@
 This guide covers running AnyGridDB with Docker Compose. Every procedure
 here was tried on a stack of its own before it was written down.
 
+| Task                       | Section                                                                                   |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
+| Install a release          | [Install](#install)                                                                       |
+| Change the encryption key  | [Changing the encryption key](#changing-the-encryption-key)                               |
+| Set `PUBLIC_URL` / TLS     | [Address people open](#address-people-open-public_url)                                    |
+| Run behind a reverse proxy | [Behind a reverse proxy](#behind-a-reverse-proxy)                                         |
+| Upgrade AnyGridDB          | [Update AnyGridDB](#update-anygriddb)                                                     |
+| Move PostgreSQL 17 → 18    | [PostgreSQL 17 to 18](#postgresql-17-to-18)                                               |
+| Back up and restore        | [Backups](#backups)                                                                       |
+| Use a managed PostgreSQL   | [A PostgreSQL of your own](#a-postgresql-of-your-own)                                     |
+| Provision accounts (SCIM)  | [Provisioning with SCIM](#provisioning-with-scim)                                         |
+| Run several API processes  | [Several API processes](#several-api-processes)                                           |
+| Ship logs / metrics        | [Shipping logs](#shipping-logs-to-a-collector), [Metrics and traces](#metrics-and-traces) |
+| Acceptance checklist       | [DSI acceptance checklist](#dsi-acceptance-checklist)                                     |
+
 ## Install
 
 Install a release, never `main`: each release is a Git tag `vX.Y.Z`

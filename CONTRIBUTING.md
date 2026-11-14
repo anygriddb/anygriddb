@@ -3,7 +3,10 @@
 All contributions are **AGPL-3.0-or-later**. How it is built and what it
 runs on: [`ARCHITECTURE.md`](ARCHITECTURE.md), [`TECH_STACK.md`](TECH_STACK.md).
 What works today: [`ROADMAP.md`](ROADMAP.md). Why it is built this way:
-[`docs/adr/`](docs/adr/README.md). Behaviour in the project's spaces:
+[`docs/adr/`](docs/adr/README.md). How it looks:
+[`docs/brand.md`](docs/brand.md). The words of the interface and how
+they are translated: [`docs/i18n-glossary.md`](docs/i18n-glossary.md),
+[`docs/weblate.md`](docs/weblate.md). Behaviour in the project's spaces:
 [`.github/CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md). Accessibility
 commitment and how to report a barrier:
 [`ACCESSIBILITY.md`](ACCESSIBILITY.md).
@@ -264,3 +267,6 @@ Until 1.0, a release that breaks something raises the second number
 
 To rehearse a release, run the Release workflow by hand on `main`
 (Actions, Release, Run workflow): it does everything but publish.
+
+How an operator installs and runs a release:
+[`docs/operations.md`](docs/operations.md#install).

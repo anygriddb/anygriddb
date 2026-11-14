@@ -68,7 +68,7 @@ The product is `apps/` and `packages/`.
 
 ## Next
 
-Phases 0 to 8 of the [migration plan](docs/migration-plan.md) are done;
+Phases 0 to 8 of the [migration plan](docs/history/migration-plan.md) are done;
 the [decision records](docs/adr/README.md) say why each piece is as it
 is. What is still missing comes in three tracks: the views and
 spreadsheet gestures people miss, the applications, sign-ins, and

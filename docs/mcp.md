@@ -9,7 +9,7 @@ service (ADR 0040).
 
 - Address: `https://<instance>/mcp` (Streamable HTTP).
 - Authentication: `Authorization: Bearer ag_…`, a token created in
-  **Settings → Jetons d'API**. A session cookie is not accepted.
+  **Settings → API tokens**. A session cookie is not accepted.
 - Rights: the lower of the token's scope (its bases, read-only or not) and
   its owner's roles, field and row rules included. A read-only token is
   offered the reading tools only; prefer one to explore.
