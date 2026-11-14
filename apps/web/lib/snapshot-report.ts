@@ -8,6 +8,8 @@ type SnapshotReport = {
   peopleDropped: number;
   members: number;
   membersMissing: number;
+  /** Absent from a report written before restore points. */
+  membersLeft?: number;
 };
 
 /** The report in a finished job's result, when it has one. */
@@ -39,6 +41,9 @@ export function useSnapshotGaps(): (result: unknown) => string[] {
         : null,
       report.membersMissing > 0
         ? t`${{ count: report.membersMissing }} member(s) without an active account here`
+        : null,
+      (report.membersLeft ?? 0) > 0
+        ? t`${{ count: report.membersLeft }} member(s) who have left the base since, left out`
         : null,
     ].filter((item): item is string => item !== null);
   };

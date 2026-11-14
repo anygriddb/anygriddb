@@ -5,8 +5,11 @@ import {
   PopoverTrigger,
   Spinner,
 } from "@anygriddb/ui";
+import { plural } from "@lingui/core/macro";
 import { useQuery } from "@tanstack/react-query";
 import {
+  ArchiveArrowDown,
+  ArchiveArrowUp,
   CheckCircle2,
   CircleSlash,
   Copy,
@@ -44,6 +47,8 @@ const ICONS = {
   import_snapshot: FileUp,
   import_airtable: FileUp,
   duplicate_base: Copy,
+  restore_point: ArchiveArrowDown,
+  restore_base: ArchiveArrowUp,
 } as const;
 
 function resultNumber(job: Job, key: string): number {
@@ -116,6 +121,10 @@ export function JobsMenu() {
         return t`Import from Airtable`;
       case "duplicate_base":
         return t`Base copy`;
+      case "restore_point":
+        return t`Restore point`;
+      case "restore_base":
+        return t`Base restore`;
     }
   }
 
@@ -147,9 +156,15 @@ export function JobsMenu() {
       case "import_airtable":
         return t`Base created: ${{ tables: resultNumber(job, "tables") }} tables, ${{ rows: resultNumber(job, "rows") }} rows.`;
       case "duplicate_base":
+      case "restore_base":
         return snapshotGaps(job.result).length > 0
           ? t`Base created, with gaps`
           : t`Base created`;
+      case "restore_point":
+        return plural(resultNumber(job, "rows"), {
+          one: "Restore point made: # row",
+          other: "Restore point made: # rows",
+        });
     }
   }
 
@@ -174,7 +189,8 @@ export function JobsMenu() {
     if (
       job.kind === "import_snapshot" ||
       job.kind === "import_airtable" ||
-      job.kind === "duplicate_base"
+      job.kind === "duplicate_base" ||
+      job.kind === "restore_base"
     ) {
       const baseId = resultText(job, "baseId");
       if (!baseId) return;
@@ -312,7 +328,8 @@ export function JobsMenu() {
                     {job.status === "done" &&
                     (job.kind === "import_snapshot" ||
                       job.kind === "import_airtable" ||
-                      job.kind === "duplicate_base") ? (
+                      job.kind === "duplicate_base" ||
+                      job.kind === "restore_base") ? (
                       <button
                         type="button"
                         className="text-primary hover:underline"
@@ -330,7 +347,8 @@ export function JobsMenu() {
                   ) : null}
                   {job.status === "done" &&
                   (job.kind === "import_snapshot" ||
-                    job.kind === "duplicate_base") ? (
+                    job.kind === "duplicate_base" ||
+                    job.kind === "restore_base") ? (
                     <SnapshotGapsReport gaps={snapshotGaps(job.result)} />
                   ) : null}
                 </div>

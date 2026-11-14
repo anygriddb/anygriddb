@@ -61,6 +61,7 @@ export function ChangesTrail() {
         access_report: t`Who has access, as ${{ format }}`,
         change_trail: t`The change trail, as ${{ format }}`,
         sign_in_trail: t`The sign-in trail, as ${{ format }}`,
+        restore_point: t`A restore point of the base, kept on the instance`,
       }[item.kind] ?? item.kind;
     return item.rows === null
       ? what

@@ -8,6 +8,7 @@ const BATCH = 500;
 const ATTACHMENT = /^att/;
 const EXPORT = /^exports\//;
 const STAGED = /^staged\//;
+const RESTORE_POINT = /^restore-points\//;
 
 /** The keys of `keys` that a row still names. */
 async function referenced(
@@ -50,20 +51,34 @@ async function referenced(
       .execute();
     for (const row of rows) found.add(row.fileKey);
   }
+  const points = keys.filter((key) => RESTORE_POINT.test(key));
+  if (points.length > 0) {
+    const rows = await db
+      .selectFrom("restorePoints")
+      .select("fileKey")
+      .where("fileKey", "in", points)
+      .execute();
+    for (const row of rows) found.add(row.fileKey);
+  }
   return found;
 }
 
 /** A key the sweep knows how to check. Any other kind is always kept. */
 function checkable(key: string): boolean {
-  return ATTACHMENT.test(key) || EXPORT.test(key) || STAGED.test(key);
+  return (
+    ATTACHMENT.test(key) ||
+    EXPORT.test(key) ||
+    STAGED.test(key) ||
+    RESTORE_POINT.test(key)
+  );
 }
 
 type SweepReport = { checked: number; removed: number; tidied: number };
 
 /**
  * Deletes files that no row names: an attachment or a thumbnail whose
- * upload never reached its row, an export or a staged upload whose row is
- * gone. Only files older than `before` are considered, so a write in
+ * upload never reached its row, an export, a staged upload or a restore
+ * point whose row is gone. Only files older than `before` are considered, so a write in
  * progress is never swept. A store belongs to one instance: another
  * instance's files in the same folder or bucket would look orphaned.
  */

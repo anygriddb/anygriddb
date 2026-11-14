@@ -155,6 +155,39 @@ describe("version 3: rows as lines of their own entry", () => {
     ).toBe(false);
   });
 
+  it("carries each person's own role and rules on a table", () => {
+    const table = lines.tables[0];
+    if (!table) throw new Error("no table");
+    const access = [
+      {
+        email: "ada@example.com",
+        role: "viewer",
+        rowFilter: {
+          conjunction: "and",
+          conditions: [{ column: "nom", op: "is_not_empty" }],
+        },
+        columns: [{ column: "email", access: "hide" }],
+      },
+    ];
+    const parsed = baseSnapshotSchema.parse({
+      ...lines,
+      tables: [{ ...table, access }],
+    });
+    expect(parsed.tables[0]?.access).toEqual(access);
+    for (const wrong of [
+      { ...access[0], email: "not an address" },
+      { ...access[0], columns: [{ column: "email", access: "erase" }] },
+      { ...access[0], role: "admin" },
+    ]) {
+      expect(
+        baseSnapshotSchema.safeParse({
+          ...lines,
+          tables: [{ ...table, access: [wrong] }],
+        }).success,
+      ).toBe(false);
+    }
+  });
+
   it("reads a line with its number, its place, its cells, and its links", () => {
     const line = snapshotLineSchema.parse({
       __seq: "12",

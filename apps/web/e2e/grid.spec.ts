@@ -341,6 +341,57 @@ test.describe("a file of more rows than one batch", () => {
   });
 });
 
+// A restore point keeps the base as it was (ADR 0077): restored, it comes
+// back as a new base beside the first, which keeps what was written since.
+// It makes an account, so it takes a client address of its own.
+test.describe("a restore point", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.82" } });
+
+  test("brings the base back as it was, beside it", async ({ page }) => {
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "Rhea Restorer");
+    const table = page.url();
+    const base = /\/b\/[^/]+/.exec(table)?.[0] ?? "";
+    await page.getByRole("button", { name: "Add a row", exact: true }).click();
+    await typeName(page, "Before");
+
+    await page.goto(`${base}/settings`);
+    await page.getByLabel("Note (optional)").fill("Before the change");
+    await page.getByRole("button", { name: "Make a restore point" }).click();
+    await expect(
+      page.getByText("Restore point made", { exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
+    const point = page
+      .getByRole("listitem")
+      .filter({ hasText: "Before the change" });
+    await expect(point).toContainText("1 row");
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // Written after the point: the restore does not take it away.
+    await page.goto(table);
+    await typeName(page, "After");
+
+    await page.goto(`${base}/settings`);
+    await point.getByRole("button", { name: "Restore as a new base" }).click();
+    await expect(page.getByText("Base restored, beside this one")).toBeVisible({
+      timeout: 60_000,
+    });
+    await page.getByRole("button", { name: "Open", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Lab (restored)" }),
+    ).toBeVisible();
+    await page
+      .getByRole("region", { name: "Tables" })
+      .getByRole("link", { name: /Samples/ })
+      .click();
+    await expect(nameCell(page)).toContainText("Before");
+
+    await page.goto(table);
+    await expect(nameCell(page)).toContainText("After");
+    expect(blocked).toEqual([]);
+  });
+});
+
 // A gallery, a timeline, and a kanban's stacks read their rows as they
 // scroll, and a map only the rows that have a place: none stops at a first
 // page. A setting saved does not read the rows again. It makes an account,

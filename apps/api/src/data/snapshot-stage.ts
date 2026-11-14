@@ -128,6 +128,34 @@ type OpenedSnapshot = {
   close: () => Promise<void>;
 };
 
+/**
+ * A snapshot in a local file, checked as an upload is: its JSON, and
+ * readers for its files and its lines (an archive's; none for JSON).
+ */
+export async function openLocalSnapshot(
+  path: string,
+  size: number,
+): Promise<Pick<OpenedSnapshot, "snapshot" | "readFile" | "readLines">> {
+  const { snapshot, archive } = await readSnapshotFile(path, size);
+  const listed = new Map((snapshot.files ?? []).map((file) => [file.id, file]));
+  return {
+    snapshot,
+    readFile: async (fileId, maxBytes) => {
+      const file = listed.get(fileId);
+      if (!archive || !file) return undefined;
+      const bytes = await archive.read(`files/${fileId}`, maxBytes);
+      if (
+        !bytes ||
+        createHash("sha256").update(bytes).digest("hex") !== file.sha256
+      ) {
+        throw new ZipError("Broken entry");
+      }
+      return bytes;
+    },
+    readLines: (key) => (archive ? readSnapshotLines(archive, key) : noLines()),
+  };
+}
+
 /** The staged snapshot, copied to a local file for its import. */
 export async function openStagedSnapshot(
   db: Database,
@@ -146,27 +174,10 @@ export async function openStagedSnapshot(
       path,
     });
     if (!copied) throw new AppError("unknown_snapshot");
-    const { snapshot, archive } = await readSnapshotFile(path, copied.size);
-    const listed = new Map(
-      (snapshot.files ?? []).map((file) => [file.id, file]),
-    );
+    const opened = await openLocalSnapshot(path, copied.size);
     return {
-      snapshot,
+      ...opened,
       filename: copied.filename || "base.anygriddb.json",
-      readFile: async (fileId, maxBytes) => {
-        const file = listed.get(fileId);
-        if (!archive || !file) return undefined;
-        const bytes = await archive.read(`files/${fileId}`, maxBytes);
-        if (
-          !bytes ||
-          createHash("sha256").update(bytes).digest("hex") !== file.sha256
-        ) {
-          throw new ZipError("Broken entry");
-        }
-        return bytes;
-      },
-      readLines: (key) =>
-        archive ? readSnapshotLines(archive, key) : noLines(),
       close: folder.remove,
     };
   } catch (error) {

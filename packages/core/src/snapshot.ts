@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { columnAclEntrySchema } from "./acl";
 import { rollupFnSchema } from "./field-config";
+import { filterGroupSchema } from "./filter";
 import { columnNameSchema, labelSchema } from "./names";
 import {
   columnDefinitionSchema,
@@ -70,6 +72,20 @@ const snapshotMemberSchema = z
   })
   .strict();
 
+/**
+ * A person's own access to one table: the role that replaces the base's
+ * there, and the rows and fields their rules leave them. Given back with
+ * the members, so that nobody sees more of the new base than of the old.
+ */
+const snapshotTableAccessSchema = z
+  .object({
+    email: z.email().max(254),
+    role: z.enum(ROLES).optional(),
+    rowFilter: filterGroupSchema.optional(),
+    columns: z.array(columnAclEntrySchema).max(200).optional(),
+  })
+  .strict();
+
 const snapshotColumnSchema = columnDefinitionSchema;
 
 const snapshotViewSchema = z
@@ -101,6 +117,8 @@ const snapshotTableSchema = z
       .optional(),
     /** Version 3: how many lines the table's entry holds. */
     rowCount: z.int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
+    /** Version 3, with the members: each person's own access to the table. */
+    access: z.array(snapshotTableAccessSchema).max(5_000).optional(),
   })
   .strict();
 

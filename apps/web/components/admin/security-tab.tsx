@@ -98,7 +98,8 @@ function SecurityTab() {
         : value % 24 === 0
           ? t`${{ value: value / 24 }} days`
           : t`${{ value }} hours`;
-  const days = (value: number) => t`${{ value }} days`;
+  const days = (value: number) =>
+    value === 1 ? t`1 day` : t`${{ value }} days`;
   return (
     <div className="flex max-w-2xl flex-col gap-4">
       {stepUp.dialog}
@@ -419,6 +420,22 @@ function SecurityTab() {
           )}
           onChange={(trashDays) => void save({ trashDays })}
           hint={t`A shorter choice also purges, at the next nightly purge, what was deleted before it.`}
+        />
+      </RuledSection>
+
+      <RuledSection
+        title={t`Restore points`}
+        description={t`A base's manager keeps the whole base on the instance before a risky change, and restores it as a new base if it goes wrong. Each one takes room in the files' store.`}
+      >
+        <Choice
+          id="policy-restore-point-days"
+          label={t`Keep restore points for`}
+          value={data.restorePointDays}
+          options={[1, 7, 14, 30, 60, 90, 180, 365].map(
+            (value) => [value, days(value)] as const,
+          )}
+          onChange={(restorePointDays) => void save({ restorePointDays })}
+          hint={t`A shorter length also brings forward the end of the points already made; a longer one applies to those made after it. Points that have ended are deleted at the nightly purge.`}
         />
       </RuledSection>
     </div>

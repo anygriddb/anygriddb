@@ -101,6 +101,8 @@ export type JobKind =
   | "import"
   | "import_airtable"
   | "import_snapshot"
+  | "restore_base"
+  | "restore_point"
   | "trash_purge";
 
 export type JobStatus = "cancelled" | "done" | "failed" | "queued" | "running";
@@ -668,6 +670,19 @@ export interface ReleaseStatus {
   url: string;
 }
 
+export interface RestorePoints {
+  baseId: string;
+  createdAt: Generated<Timestamp>;
+  createdBy: string | null;
+  expiresAt: Timestamp;
+  fileKey: string;
+  files: number;
+  id: Generated<string>;
+  note: string | null;
+  rows: Int8;
+  size: Int8;
+}
+
 export interface RoleBindings {
   createdAt: Generated<Timestamp>;
   groupId: string | null;
@@ -949,6 +964,7 @@ export interface DB {
   recentTables: RecentTables;
   relations: Relations;
   releaseStatus: ReleaseStatus;
+  restorePoints: RestorePoints;
   roleBindings: RoleBindings;
   rowSignatures: RowSignatures;
   scimTokens: ScimTokens;

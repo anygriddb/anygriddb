@@ -17,6 +17,8 @@ export type MadeNames = {
   grid: string;
   /** A copy's name; `index` from 2 when the first is taken. */
   copy: (name: string, index?: number) => string;
+  /** A base read back from one of its restore points. */
+  restored: (name: string) => string;
   /** A field an import found without a name. */
   field: string;
   /** The text field of a table that came without one. */
@@ -33,6 +35,7 @@ const NAMES: Record<NameLocale, MadeNames> = {
     grid: "Grid",
     copy: (name, index) =>
       index === undefined ? `${name} (copy)` : `${name} (copy ${index})`,
+    restored: (name) => `${name} (restored)`,
     field: "Field",
     name: "Name",
     view: "View",
@@ -43,6 +46,7 @@ const NAMES: Record<NameLocale, MadeNames> = {
     grid: "Grille",
     copy: (name, index) =>
       index === undefined ? `${name} (copie)` : `${name} (copie ${index})`,
+    restored: (name) => `${name} (restaurée)`,
     field: "Champ",
     name: "Nom",
     view: "Vue",

@@ -145,6 +145,8 @@ export const ERRORS = {
   too_large_snapshot: [BAD, "Too large snapshot"],
   too_many_rows: [BAD, "Too many rows"],
   snapshot_too_many_rows: [BAD, "Too many rows for one base file"],
+  restore_points_full: [BAD, "Too many restore points"],
+  unknown_restore_point: [BAD, "Unknown restore point"],
   export_too_large: [BAD, "Too many rows to export"],
   import_too_large: [BAD, "Too many rows to import"],
   too_many_jobs: [BAD, "Too many jobs"],
