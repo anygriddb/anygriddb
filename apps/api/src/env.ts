@@ -128,10 +128,7 @@ export function secretFromEnv(
 }
 
 /** Like `secretFromEnv`, but required. */
-export function requiredSecret(
-  source: NodeJS.ProcessEnv,
-  name: string,
-): string {
+function requiredSecret(source: NodeJS.ProcessEnv, name: string): string {
   const value = secretFromEnv(source, name);
   if (value === undefined || value === "") {
     throw new Error(`${name} or ${name}_FILE is required`);
