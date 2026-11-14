@@ -255,7 +255,8 @@ export function ImportDialog(props: {
           ? {
               source,
               create: {
-                label: choice.label.trim() || `Colonne ${source + 1}`,
+                label:
+                  choice.label.trim() || t`Field ${{ position: source + 1 }}`,
                 fieldType: choice.fieldType as (typeof CREATE_TYPES)[number],
               },
             }

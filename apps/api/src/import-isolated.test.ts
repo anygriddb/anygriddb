@@ -50,6 +50,7 @@ describe("isolated import reading", () => {
             "csv",
             path,
             100,
+            "Field",
             FROM_SOURCE,
           );
           const batches: SheetRow[][] = [];
@@ -74,7 +75,8 @@ describe("isolated import reading", () => {
           ["Name", "Amount"],
           ["Initech", "12"],
         ]),
-        (path) => scanImportFileIsolated("xlsx", path, 100, FROM_SOURCE),
+        (path) =>
+          scanImportFileIsolated("xlsx", path, 100, "Field", FROM_SOURCE),
       );
       expect(xlsx.preview.headers).toEqual(["Name", "Amount"]);
       expect(xlsx.preview.sample).toEqual([["Initech", "12"]]);
@@ -90,9 +92,9 @@ describe("isolated import reading", () => {
       await expect(
         assertZipFileWithinLimits(path, PARSE_LIMITS.zip),
       ).rejects.toThrow("Invalid import");
-      await expect(scanImportFileIsolated("xlsx", path, 100)).rejects.toThrow(
-        "Invalid import",
-      );
+      await expect(
+        scanImportFileIsolated("xlsx", path, 100, "Field"),
+      ).rejects.toThrow("Invalid import");
     });
     expect(() =>
       assertZipWithinLimits(Buffer.from("not a zip"), PARSE_LIMITS.zip),
@@ -103,7 +105,7 @@ describe("isolated import reading", () => {
     const big = "a,b\n" + "x,y\n".repeat(400_000);
     await onDisk(big, async (path) => {
       await expect(
-        scanImportFileIsolated("csv", path, 1_000_000, {
+        scanImportFileIsolated("csv", path, 1_000_000, "Field", {
           heapMb: 512,
           timeMs: 1,
         }),
@@ -120,7 +122,7 @@ describe("isolated import reading", () => {
       );
       await onDisk(records, async (path) => {
         await expect(
-          scanImportFileIsolated("json", path, 1_000, FROM_SOURCE),
+          scanImportFileIsolated("json", path, 1_000, "Field", FROM_SOURCE),
         ).rejects.toThrow("Too many rows to import");
       });
     },

@@ -38,7 +38,7 @@ async function run(): Promise<void> {
   if (task.mode === "workbook") {
     post({
       kind: "workbook",
-      sheets: await scanWorkbook(task.path, task.maxRows),
+      sheets: await scanWorkbook(task.path, task.maxRows, task.blank),
     });
     return;
   }
@@ -47,6 +47,7 @@ async function run(): Promise<void> {
       task.format,
       task.path,
       task.maxRows,
+      task.blank,
     );
     post({ kind: "scan", shape, preview });
     return;

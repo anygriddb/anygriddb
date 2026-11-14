@@ -3961,6 +3961,10 @@ msgstr "champ"
 msgid "Field"
 msgstr "Champ"
 
+#: components/table/import-dialog.tsx
+msgid "Field {position}"
+msgstr "Champ {position}"
+
 #: components/table/table-workspace.tsx
 msgid "Field moved to the trash"
 msgstr "Champ placé dans la corbeille"

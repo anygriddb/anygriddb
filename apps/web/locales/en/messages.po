@@ -3961,6 +3961,10 @@ msgstr "field"
 msgid "Field"
 msgstr "Field"
 
+#: components/table/import-dialog.tsx
+msgid "Field {position}"
+msgstr "Field {position}"
+
 #: components/table/table-workspace.tsx
 msgid "Field moved to the trash"
 msgstr "Field moved to the trash"
