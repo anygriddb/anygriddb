@@ -16,6 +16,7 @@ import { useErrorText } from "../../lib/errors";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
+import { AccountHandoff } from "./account-handoff";
 import { useStepUp } from "./step-up";
 
 /** What an account action needs to know of the account it acts on. */
@@ -47,6 +48,7 @@ export const ACCOUNT_ACTIONS = [
   "factors",
   "signOn",
   "tokens",
+  "handoff",
   "delete",
 ] as const;
 export type AccountAction = (typeof ACCOUNT_ACTIONS)[number];
@@ -95,6 +97,7 @@ export function useAccountActions({
     null,
   );
   const [edit, setEdit] = useState({ displayName: "", email: "" });
+  const [handoff, setHandoff] = useState<AccountTarget | null>(null);
   const [erase, setErase] = useState<{
     soleOwnerBases: Array<{ id: string; name: string }>;
     typed: string;
@@ -120,6 +123,7 @@ export function useAccountActions({
       factors: t`Remove their second factors`,
       signOn: t`Unlink single sign-on`,
       tokens: t`Revoke their API tokens`,
+      handoff: t`Hand over what they own…`,
       delete: t`Delete account…`,
     })[action];
 
@@ -194,6 +198,11 @@ export function useAccountActions({
 
   async function start(target: AccountTarget, action: AccountAction) {
     if (!availability(action, target).ok) return;
+    if (action === "handoff") {
+      // Its own dialog: it reads what there is before anything is asked.
+      setHandoff(target);
+      return;
+    }
     if (action === "edit") {
       setEdit({ displayName: target.displayName, email: target.email });
     }
@@ -580,6 +589,7 @@ export function useAccountActions({
         </ConfirmDialog>
       ) : null}
       <HandedLink handed={handed} onClose={() => setHanded(null)} copy={copy} />
+      <AccountHandoff target={handoff} onClose={() => setHandoff(null)} />
       {stepUp.dialog}
     </>
   );

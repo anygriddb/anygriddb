@@ -894,3 +894,75 @@ test("an administrator opens a base to read it, and its owner is told why", asyn
     await control.end();
   }
 });
+
+// Handing a leaving person's work over (ROADMAP #21): the base they alone
+// own gets an owner who stays, their account is left as it is, and the
+// page says what moved.
+test("an administrator hands a leaving person's base to someone who stays", async ({
+  page,
+  browser,
+}) => {
+  const blocked = watchPolicy(page);
+  const control = new pg.Client({ connectionString: controlUrl });
+  await control.connect();
+  try {
+    const theirs = await browser.newContext(from("198.51.100.37"));
+    const leaving = await theirs.newPage();
+    const { email: leavingEmail } = await signUpWithTable(
+      leaving,
+      "Leaving Lea",
+    );
+    await theirs.close();
+    const { email } = await signUpWithTable(page, "Staying Admin");
+    await control.query("update users set is_admin = true where email = $1", [
+      email,
+    ]);
+
+    await page.goto("/admin/people/accounts");
+    await findAccount(page, leavingEmail);
+    await page.getByRole("button", { name: "Actions for Leaving Lea" }).click();
+    await page
+      .getByRole("menuitem", { name: "Hand over what they own…" })
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: "Hand over what Leaving Lea owns?",
+    });
+    // What there is, before anything is asked: the base they alone own.
+    await expect(dialog.getByText("Bases owned alone")).toBeVisible();
+    await expect(dialog.getByText("Lab", { exact: true })).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await dialog.getByLabel("Who takes over").fill("Staying Admin");
+    await dialog.getByRole("option", { name: new RegExp(email) }).click();
+    await dialog.getByRole("button", { name: "Hand over" }).click();
+    // A change made in Administration asks for the proof (ADR 0073).
+    await proveItIsYou(page);
+    const done = page.getByRole("dialog", {
+      name: "Handed over to Staying Admin",
+    });
+    await expect(
+      done.getByText(/1 base, 0 automations, 0 webhooks/),
+    ).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await done.getByRole("button", { name: "Done" }).click();
+
+    // The base has two owners now, the person who leaves still among them.
+    const owners = await control.query<{ email: string }>(
+      "select u.email from role_bindings r join users u on u.id = r.user_id where r.scope = 'base' and r.role = 'owner' and r.scope_id = (select r2.scope_id from role_bindings r2 join users u2 on u2.id = r2.user_id where u2.email = $1 and r2.scope = 'base' and r2.role = 'owner') order by u.email",
+      [leavingEmail],
+    );
+    expect(owners.rows.map((row) => row.email).sort()).toEqual(
+      [email, leavingEmail].sort(),
+    );
+    // Nothing is left to hand over: the dialog says so.
+    await page.getByRole("button", { name: "Actions for Leaving Lea" }).click();
+    await page
+      .getByRole("menuitem", { name: "Hand over what they own…" })
+      .click();
+    await expect(
+      page.getByText(/Nothing to hand over: no base owned alone/),
+    ).toBeVisible();
+    expect(blocked).toEqual([]);
+  } finally {
+    await control.end();
+  }
+});

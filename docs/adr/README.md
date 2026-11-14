@@ -87,3 +87,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0072](0072-instance-identity.md)                    | The instance's own name, logo, and mail voice                                           | Accepted                                    |
 | [0073](0073-proof-before-a-change.md)                | Every change made in Administration asks for the proof                                  | Accepted                                    |
 | [0074](0074-emergency-access.md)                     | An administrator's way into a base is told to its owners                                | Accepted (extends 0057)                     |
+| [0075](0075-handing-over.md)                         | Handing a leaving person's work to someone who stays                                    | Accepted                                    |

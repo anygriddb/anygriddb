@@ -208,8 +208,20 @@ msgstr "(value)"
 msgid "{0, plural, =0 {no change} one {# row changed} other {# rows changed}}"
 msgstr "{0, plural, =0 {no change} one {# row changed} other {# rows changed}}"
 
+#. placeholder {0}: result.tokensRevoked
+#: components/admin/account-handoff.tsx
+msgid "{0, plural, one {# API token revoked} other {# API tokens revoked}}"
+msgstr "{0, plural, one {# API token revoked} other {# API tokens revoked}}"
+
+#. placeholder {0}: result.automations.moved
+#: components/admin/account-handoff.tsx
+msgid "{0, plural, one {# automation} other {# automations}}"
+msgstr "{0, plural, one {# automation} other {# automations}}"
+
 #. placeholder {0}: group.bases
 #. placeholder {0}: group.roles.length
+#. placeholder {0}: result.bases
+#: components/admin/account-handoff.tsx
 #: components/admin/group-page.tsx
 #: components/admin/groups-tab.tsx
 #: components/admin/scim-tab.tsx
@@ -294,6 +306,11 @@ msgstr "{0, plural, one {# row} other {# rows}}"
 msgid "{0, plural, one {# table} other {# tables}}"
 msgstr "{0, plural, one {# table} other {# tables}}"
 
+#. placeholder {0}: result.webhooks.moved
+#: components/admin/account-handoff.tsx
+msgid "{0, plural, one {# webhook} other {# webhooks}}"
+msgstr "{0, plural, one {# webhook} other {# webhooks}}"
+
 #. placeholder {0}: props.total
 #: components/grid/grid-footer.tsx
 msgid "{0, plural, one {≈ # row} other {≈ # rows}}"
@@ -303,6 +320,11 @@ msgstr "{0, plural, one {≈ # row} other {≈ # rows}}"
 #: components/shell/new-base-dialog.tsx
 msgid "{0, plural, one {Give the member their role back, if they have an account here} other {Give their role back to the # members who have an account here}}"
 msgstr "{0, plural, one {Give the member their role back, if they have an account here} other {Give their role back to the # members who have an account here}}"
+
+#. placeholder {0}: data.tokens
+#: components/admin/account-handoff.tsx
+msgid "{0, plural, one {Revoke their API token too: a token is never handed over} other {Revoke their # API tokens too: a token is never handed over}}"
+msgstr "{0, plural, one {Revoke their API token too: a token is never handed over} other {Revoke their # API tokens too: a token is never handed over}}"
 
 #: components/shell/notification-items.ts
 msgid "{actor} assigned you a row in {table} ({field})"
@@ -1092,6 +1114,7 @@ msgstr "Accounts"
 msgid "Accounts and access"
 msgstr "Accounts and access"
 
+#: components/admin/account-handoff.tsx
 #: components/admin/base-admin-members.tsx
 msgid "Accounts of the instance"
 msgstr "Accounts of the instance"
@@ -1761,6 +1784,7 @@ msgid "Automation in {table}"
 msgstr "Automation in {table}"
 
 #: components/admin/access-tab.tsx
+#: components/admin/account-handoff.tsx
 #: components/table/view-toolbar.tsx
 msgid "Automations"
 msgstr "Automations"
@@ -1928,6 +1952,10 @@ msgstr "Bases are written \"Base name:role\", with a role among owner, editor, c
 msgid "Bases of the instance"
 msgstr "Bases of the instance"
 
+#: components/admin/account-handoff.tsx
+msgid "Bases owned alone"
+msgstr "Bases owned alone"
+
 #: components/admin/health-tab.tsx
 msgid "Before installing it, check that its SHA-256 fingerprint is this one:"
 msgstr "Before installing it, check that its SHA-256 fingerprint is this one:"
@@ -2016,6 +2044,7 @@ msgid "Call a URL"
 msgstr "Call a URL"
 
 #: components/admin/account-bases.tsx
+#: components/admin/account-handoff.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/base-admin-members.tsx
 #: components/admin/group-page.tsx
@@ -2086,6 +2115,10 @@ msgstr "Certificate is valid"
 #: components/admin/health-tab.tsx
 msgid "Certificate served, valid until {date}, for: {names}."
 msgstr "Certificate served, valid until {date}, for: {names}."
+
+#: components/admin/account-handoff.tsx
+msgid "Change"
+msgstr "Change"
 
 #: components/admin/sources-tab.tsx
 msgid "change column"
@@ -3120,6 +3153,7 @@ msgstr "Domains: {domains}. Invitations already sent to other addresses stop wor
 
 #: components/admin/access-tab.tsx
 #: components/admin/account-actions.tsx
+#: components/admin/account-handoff.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/fields/button-cell.tsx
@@ -4178,6 +4212,22 @@ msgstr "Groups come from Administration or your identity provider. Each member g
 #: components/settings/api-docs.tsx
 msgid "Guide"
 msgstr "Guide"
+
+#: components/admin/account-handoff.tsx
+msgid "Hand over"
+msgstr "Hand over"
+
+#: components/admin/account-handoff.tsx
+msgid "Hand over what {name} owns?"
+msgstr "Hand over what {name} owns?"
+
+#: components/admin/account-actions.tsx
+msgid "Hand over what they own…"
+msgstr "Hand over what they own…"
+
+#: components/admin/account-handoff.tsx
+msgid "Handed over to {successor}"
+msgstr "Handed over to {successor}"
 
 #: components/table/filter-builder.tsx
 msgid "has all of"
@@ -5712,6 +5762,7 @@ msgstr "No"
 msgid "No access"
 msgstr "No access"
 
+#: components/admin/account-handoff.tsx
 #: components/admin/base-admin-members.tsx
 #: components/admin/group-page.tsx
 msgid "No account by that name"
@@ -6114,6 +6165,10 @@ msgstr "Nothing needs your attention."
 #: components/admin/base-admin-page.tsx
 msgid "Nothing of this base can be read from outside it."
 msgstr "Nothing of this base can be read from outside it."
+
+#: components/admin/account-handoff.tsx
+msgid "Nothing to hand over: no base owned alone, no automation, no webhook, no API token."
+msgstr "Nothing to hand over: no base owned alone, no automation, no webhook, no API token."
 
 #: components/admin/auth-labels.ts
 msgid "Notice emailed"
@@ -8192,6 +8247,10 @@ msgstr "Skipped"
 msgid "Someone"
 msgstr "Someone"
 
+#: components/admin/account-handoff.tsx
+msgid "Someone who stays becomes an owner of the bases {name} alone owns, and the author of the automations and webhooks {name} made, where they may manage them. {name}'s account and roles are left as they are."
+msgstr "Someone who stays becomes an owner of the bases {name} alone owns, and the author of the automations and webhooks {name} made, where they may manage them. {name}'s account and roles are left as they are."
+
 #: components/table/view-toolbar.tsx
 msgid "Sort"
 msgstr "Sort"
@@ -9247,6 +9306,10 @@ msgstr "Then create an automation triggered by this button, from the view menu."
 msgid "Then:"
 msgstr "Then:"
 
+#: components/admin/account-handoff.tsx
+msgid "These stay with {name}: {successor} has no role to manage their tables. They stop working when {name}'s account is disabled. Give {successor} a role on those bases, then hand over again."
+msgstr "These stay with {name}: {successor} has no role to manage their tables. They stop working when {name}'s account is disabled. Give {successor} a role on those bases, then hand over again."
+
 #: components/admin/accounts-tab.tsx
 msgid "They are signed out at once and their API tokens stop working, until each is enabled again from its row. Nothing they made is deleted."
 msgstr "They are signed out at once and their API tokens stop working, until each is enabled again from its row. Nothing they made is deleted."
@@ -9872,6 +9935,10 @@ msgstr "Type"
 msgid "Type {email} to confirm"
 msgstr "Type {email} to confirm"
 
+#: components/admin/account-handoff.tsx
+msgid "Type a name or an address"
+msgstr "Type a name or an address"
+
 #: components/table/import-dialog.tsx
 msgid "Type of {name}"
 msgstr "Type of {name}"
@@ -10226,6 +10293,7 @@ msgid "Webhook disabled after too many failures"
 msgstr "Webhook disabled after too many failures"
 
 #: components/admin/access-tab.tsx
+#: components/admin/account-handoff.tsx
 #: components/settings/base-settings.tsx
 msgid "Webhooks"
 msgstr "Webhooks"
@@ -10277,6 +10345,10 @@ msgstr "What the source's account may read, and how each column will show. Tick 
 #: components/admin/settings-tab.tsx
 msgid "What the tile server's terms ask you to show, such as the name of who made the map."
 msgstr "What the tile server's terms ask you to show, such as the name of who made the map."
+
+#: components/admin/sign-in-trail.tsx
+msgid "What they owned handed to someone who stays"
+msgstr "What they owned handed to someone who stays"
 
 #: components/settings/table-acl-panel.tsx
 msgid "What this member may do with {field}"
@@ -10384,6 +10456,10 @@ msgstr "Who may sign in with a password"
 #: components/admin/sign-in-trail.tsx
 msgid "Who needs a second factor"
 msgstr "Who needs a second factor"
+
+#: components/admin/account-handoff.tsx
+msgid "Who takes over"
+msgstr "Who takes over"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Whole table"
