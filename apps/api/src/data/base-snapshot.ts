@@ -558,7 +558,7 @@ function snapshotBytes(snapshot: BaseSnapshot): Buffer {
 }
 
 /** A snapshot written out: JSON bytes, or an archive in a local file. */
-export type PackedSnapshot =
+type PackedSnapshot =
   | { kind: "json"; bytes: Buffer; filename: string }
   | { kind: "zip"; path: string; size: number; filename: string };
 
