@@ -138,14 +138,19 @@ export function isLoopback(hostname: string): boolean {
 }
 
 /**
- * `PUBLIC_URL`, or `WEB_ORIGIN` from before the app and the API shared an
- * origin. Only the origin is kept: the app is served at the root. It is
- * HTTPS (ADR 0029); plain HTTP names only the development server on this
- * machine, which forwards to the API's HTTPS.
+ * `PUBLIC_URL`. Only the origin is kept: the app is served at the root. It
+ * is HTTPS (ADR 0029); plain HTTP names only the development server on this
+ * machine, which forwards to the API's HTTPS. `WEB_ORIGIN`, its name before
+ * the first release, is refused rather than ignored: an instance that still
+ * sets it alone would start on localhost, with every link it mails wrong.
  */
 function publicUrl(source: NodeJS.ProcessEnv, port: number): string {
-  const raw =
-    source.PUBLIC_URL || source.WEB_ORIGIN || `https://localhost:${port}`;
+  if (!source.PUBLIC_URL && source.WEB_ORIGIN) {
+    throw new Error(
+      "WEB_ORIGIN is no longer read: set PUBLIC_URL to the same address",
+    );
+  }
+  const raw = source.PUBLIC_URL || `https://localhost:${port}`;
   let url: URL;
   try {
     url = new URL(raw);
