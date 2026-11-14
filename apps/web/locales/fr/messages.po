@@ -651,6 +651,26 @@ msgstr "{ready, plural, one {Ajouter # personne} other {Ajouter # personnes}}"
 msgid "{role}, through the group {group}"
 msgstr "{role}, par le groupe {group}"
 
+#: lib/format-bytes.ts
+msgid "{size} B"
+msgstr "{size} o"
+
+#: lib/format-bytes.ts
+msgid "{size} GiB"
+msgstr "{size} Gio"
+
+#: lib/format-bytes.ts
+msgid "{size} KiB"
+msgstr "{size} Kio"
+
+#: lib/format-bytes.ts
+msgid "{size} MiB"
+msgstr "{size} Mio"
+
+#: lib/format-bytes.ts
+msgid "{size} TiB"
+msgstr "{size} Tio"
+
 #: components/admin/accounts-tab.tsx
 msgid "{total, plural, one {# account} other {# accounts}}"
 msgstr "{total, plural, one {# compte} other {# comptes}}"

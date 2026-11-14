@@ -6,7 +6,8 @@ import { ArrowLeft, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
-import { formatBytes, formatNumber } from "../../lib/format";
+import { formatNumber } from "../../lib/format";
+import { useFormatBytes } from "../../lib/format-bytes";
 import { useLocale } from "../../lib/i18n";
 import { useSession } from "../../lib/session";
 import { useTrashDays } from "../../lib/trash";
@@ -24,6 +25,7 @@ import { OpenBase } from "./open-base";
  */
 export function BaseAdminPage({ baseId }: { baseId: string }) {
   const { t } = useLingui();
+  const formatBytes = useFormatBytes();
   const { locale } = useLocale();
   const api = useTRPC();
   const errorText = useErrorText();

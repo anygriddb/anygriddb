@@ -33,7 +33,8 @@ import {
   startingPoint,
   toDateValue,
 } from "../../lib/dates";
-import { attachmentList, formatBytes, isLinkArray } from "../../lib/format";
+import { attachmentList, isLinkArray } from "../../lib/format";
+import { useFormatBytes } from "../../lib/format-bytes";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { useTable, type CellValue } from "../table/table-context";
@@ -774,6 +775,7 @@ function LinkEditor({ column, row, onDone }: EditorProps) {
 }
 function AttachmentEditor({ column, row, onDone }: EditorProps) {
   const { t } = useLingui();
+  const formatBytes = useFormatBytes();
   const errorText = useErrorText();
   const { updateCells, table } = useTable();
   const current = row[column.name as keyof RowItem];

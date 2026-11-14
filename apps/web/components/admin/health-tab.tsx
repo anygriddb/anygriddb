@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { RuledSection } from "../shell/notebook-page";
 import { AlertsSection } from "./alerts-section";
-import { formatBytes } from "../../lib/format";
+import { useFormatBytes } from "../../lib/format-bytes";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { known } from "../../lib/known-text";
@@ -23,6 +23,7 @@ type ReleaseStatusView = {
 
 export function HealthTab() {
   const { t, i18n } = useLingui();
+  const formatBytes = useFormatBytes();
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
