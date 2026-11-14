@@ -60,9 +60,10 @@ Needs **Node ≥ 26**, **pnpm 11** ([`mise.toml`](mise.toml): `mise install`),
 and Docker for PostgreSQL and the heavier tests.
 
 ```bash
-cp docker/.env.example docker/.env   # fill POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
-cp .env.example .env                 # DATABASE_URL to that database on 127.0.0.1:5432,
+cp docker/.env.example docker/.env   # fill POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, and
                                      # AUTH_ENCRYPTION_KEY from `openssl rand -base64 32`
+cp .env.example .env                 # DATABASE_URL to that database on 127.0.0.1:5432,
+                                     # and the same AUTH_ENCRYPTION_KEY
 cd docker && docker compose -f compose.yml -f compose.dev.yml up -d db && cd ..
 pnpm install && pnpm dev             # http://localhost:3000
 ```

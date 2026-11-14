@@ -50,8 +50,8 @@ shows. The two ways below run this checkout instead.
 Host development (AnyGridDB on the machine, PostgreSQL in Docker):
 
 ```bash
-cp docker/.env.example docker/.env   # fill POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
-cp .env.example .env                 # fill DATABASE_URL and AUTH_ENCRYPTION_KEY
+cp docker/.env.example docker/.env   # fill POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, AUTH_ENCRYPTION_KEY
+cp .env.example .env                 # fill DATABASE_URL and the same AUTH_ENCRYPTION_KEY
 cd docker && docker compose -f compose.yml -f compose.dev.yml up -d db
 cd .. && pnpm install && pnpm dev
 ```
