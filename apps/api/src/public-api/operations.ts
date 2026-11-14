@@ -33,7 +33,7 @@ import {
 import { loadView } from "../data/views.js";
 import { liveBase, liveTable } from "../data/live.js";
 import { attachExternalStatuses } from "../sources/statuses.js";
-import { publicColumns } from "../trpc/catalog-router.js";
+import { publicColumns } from "../trpc/catalog-shared.js";
 import {
   createRows,
   deleteRows,

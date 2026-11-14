@@ -1,5 +1,5 @@
 import { ERROR_CODES, isRelationType, isWritableType } from "@anygriddb/core";
-import { publicColumns } from "../trpc/catalog-router.js";
+import { publicColumns } from "../trpc/catalog-shared.js";
 import { MAX_RECORDS } from "./types.js";
 
 /**
