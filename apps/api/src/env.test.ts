@@ -19,6 +19,11 @@ describe("secretFromEnv", () => {
     expect(secretFromEnv({ TOKEN_FILE: path }, "TOKEN")).toBe(
       "from-file-value",
     );
+    // A Compose file passes a name it lists empty when nothing sets it:
+    // empty is unset, and the file is read.
+    expect(secretFromEnv({ TOKEN: "", TOKEN_FILE: path }, "TOKEN")).toBe(
+      "from-file-value",
+    );
     expect(() =>
       secretFromEnv({ TOKEN: "from-env", TOKEN_FILE: path }, "TOKEN"),
     ).toThrow(/TOKEN and TOKEN_FILE cannot both be set/);
@@ -132,6 +137,20 @@ describe("readEnv", () => {
     expect(env.TLS_CERT_FILE).toBe("/tls/grid.crt");
     expect(env.TLS_NAMES).toEqual(["grid.corp", "10.0.0.5"]);
     expect(() => readEnv({ ...base, TLS_NAMES: "a/b" })).toThrow(/TLS_NAMES/);
+  });
+
+  it("names the port it refuses: its own, or the mail relay's", () => {
+    expect(readEnv({ ...base, PORT: "4100", SMTP_PORT: "587" })).toMatchObject({
+      PORT: 4100,
+      SMTP_PORT: 587,
+    });
+    expect(() => readEnv({ ...base, PORT: "70000" })).toThrow(/^PORT must be/);
+    expect(() => readEnv({ ...base, SMTP_PORT: "smtp" })).toThrow(
+      /^SMTP_PORT must be/,
+    );
+    expect(() => readEnv({ ...base, SMTP_PORT: "70000" })).toThrow(
+      /^SMTP_PORT must be/,
+    );
   });
 
   it("sizes the request pool within bounds", () => {

@@ -382,7 +382,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     smtpPort !== undefined &&
     (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535)
   ) {
-    throw new Error("PORT must be an integer between 1 and 65535");
+    throw new Error("SMTP_PORT must be an integer between 1 and 65535");
   }
 
   const certFile = source.TLS_CERT_FILE || undefined;
