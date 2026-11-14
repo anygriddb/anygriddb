@@ -3,6 +3,7 @@ import type {
   MultiSelectAppearance,
   OptionColor,
   SingleSelectAppearance,
+  TextAppearance,
 } from "@anygriddb/core";
 import {
   BOOLEAN_APPEARANCES,
@@ -10,6 +11,7 @@ import {
   OPTION_COLORS,
   RATING_ICONS,
   SINGLE_SELECT_APPEARANCES,
+  TEXT_APPEARANCES,
 } from "@anygriddb/core";
 import {
   Flag,
@@ -60,6 +62,22 @@ export function multiSelectAppearance(
 export function booleanAppearance(column: CatalogColumn): BooleanAppearance {
   const raw = (column.config as { appearance?: unknown }).appearance;
   return asEnum(raw, BOOLEAN_APPEARANCES) ?? "check";
+}
+
+/** The fields whose text can be drawn as a code (`TEXT_APPEARANCES`). */
+export const CODE_FIELD_TYPES: ReadonlySet<string> = new Set([
+  "text",
+  "url",
+  "formula",
+  "autonumber",
+  "row_id",
+]);
+
+/** How a short text is shown; omitted config, or another field → its text. */
+export function textAppearance(column: CatalogColumn): TextAppearance {
+  if (!CODE_FIELD_TYPES.has(column.fieldType)) return "text";
+  const raw = (column.config as { appearance?: unknown }).appearance;
+  return asEnum(raw, TEXT_APPEARANCES) ?? "text";
 }
 
 type RatingVisual = {

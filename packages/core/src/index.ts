@@ -50,6 +50,7 @@ export {
   RATING_ICONS,
   ROLLUP_FNS,
   SINGLE_SELECT_APPEARANCES,
+  TEXT_APPEARANCES,
   isTimeZone,
   parseColumnConfig,
   rollupFitsTarget,
@@ -63,6 +64,7 @@ export {
   type RollupFn,
   type SelectOption,
   type SingleSelectAppearance,
+  type TextAppearance,
 } from "./field-config";
 
 export {

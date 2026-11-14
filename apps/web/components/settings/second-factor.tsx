@@ -11,7 +11,7 @@ import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { registerPasskey } from "../../lib/webauthn";
 import { useLingui } from "@lingui/react/macro";
-import { qrPath } from "./qr-path";
+import { qrPath } from "../../lib/qr-path";
 import {
   backupCodesFile,
   proofNeeded,

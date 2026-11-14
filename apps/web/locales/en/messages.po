@@ -962,6 +962,10 @@ msgstr "9 months"
 msgid "90 days"
 msgstr "90 days"
 
+#: components/fields/code-image.tsx
+msgid "A barcode draws up to 80 letters, digits, and signs, without accents"
+msgstr "A barcode draws up to 80 letters, digits, and signs, without accents"
+
 #: components/shell/home-page.tsx
 msgid "A base holds tables. A table is a real SQL table: one AnyGridDB keeps in PostgreSQL, or one of a database an administrator connected."
 msgstr "A base holds tables. A table is a real SQL table: one AnyGridDB keeps in PostgreSQL, or one of a database an administrator connected."
@@ -1787,6 +1791,10 @@ msgstr "An error, shown in the cell with its message."
 msgid "an exact date"
 msgstr "an exact date"
 
+#: components/fields/field-editor.tsx
+msgid "An expanded row draws this field's text as a code, for a scanner to read."
+msgstr "An expanded row draws this field's text as a code, for a scanner to read."
+
 #: components/table/filter-builder.tsx
 #: components/table/view-toolbar.tsx
 msgid "and"
@@ -2063,6 +2071,14 @@ msgstr "Backup late"
 #: components/admin/alerts-section.tsx
 msgid "Backups"
 msgstr "Backups"
+
+#: components/fields/field-editor.tsx
+msgid "Barcode"
+msgstr "Barcode"
+
+#: components/fields/code-image.tsx
+msgid "Barcode of {value}"
+msgstr "Barcode of {value}"
 
 #: components/admin/bases-tab.tsx
 #: components/admin/invitations-panel.tsx
@@ -7316,6 +7332,14 @@ msgstr "Purge"
 msgid "purged on {date}"
 msgstr "purged on {date}"
 
+#: components/fields/field-editor.tsx
+msgid "QR code"
+msgstr "QR code"
+
+#: components/fields/code-image.tsx
+msgid "QR code of {value}"
+msgstr "QR code of {value}"
+
 #: components/admin/support-tab.tsx
 #: components/shell/jobs-menu.tsx
 msgid "Queued"
@@ -9225,6 +9249,7 @@ msgstr "Test sent ({status})"
 msgid "Test the connection"
 msgstr "Test the connection"
 
+#: components/fields/field-editor.tsx
 #: components/fields/field-meta.tsx
 #: components/fields/formula-docs.ts
 msgid "Text"
@@ -10379,6 +10404,10 @@ msgstr "tomorrow"
 #: lib/errors.ts
 msgid "Too long for this instance. Most days allowed"
 msgstr "Too long for this instance. Most days allowed"
+
+#: components/fields/code-image.tsx
+msgid "Too long to draw as a QR code"
+msgstr "Too long to draw as a QR code"
 
 #: components/admin/admin-overview.tsx
 msgid "Too many failed sign-ins. They wait for the lock to end, or for you to unlock them."

@@ -111,6 +111,15 @@ export type SingleSelectAppearance = (typeof SINGLE_SELECT_APPEARANCES)[number];
 export const MULTI_SELECT_APPEARANCES = ["badge", "text", "checklist"] as const;
 export type MultiSelectAppearance = (typeof MULTI_SELECT_APPEARANCES)[number];
 
+/**
+ * How a short text is shown (default: its text): drawn as a QR code or as
+ * a barcode, which a scanner reads back as the same text. The value is
+ * the field's own, so a formula draws the code of another field.
+ */
+export const TEXT_APPEARANCES = ["text", "qr", "barcode"] as const;
+export type TextAppearance = (typeof TEXT_APPEARANCES)[number];
+const textAppearanceSchema = z.enum(TEXT_APPEARANCES).optional();
+
 /** How a boolean is shown (default: check glyph). */
 export const BOOLEAN_APPEARANCES = ["check", "switch", "yes_no"] as const;
 export type BooleanAppearance = (typeof BOOLEAN_APPEARANCES)[number];
@@ -182,9 +191,12 @@ export const rollupFnSchema = z.enum(ROLLUP_FNS);
 export type ColumnConfig = {
   options?: SelectOption[];
   preventNewOptions?: boolean;
-  /** Select / boolean presentation (read and edit); omitted = current default. */
+  /** How the value is shown (and a select edited); omitted = the default. */
   appearance?:
-    SingleSelectAppearance | MultiSelectAppearance | BooleanAppearance;
+    | SingleSelectAppearance
+    | MultiSelectAppearance
+    | BooleanAppearance
+    | TextAppearance;
   number?: NumberFormat;
   /** A number field that takes no value under zero, on every write. */
   nonNegative?: boolean;
@@ -234,12 +246,14 @@ const buttonConfigSchema = z
 export type ButtonConfig = z.infer<typeof buttonConfigSchema>;
 
 const CONFIG_SCHEMAS: Record<FieldType, z.ZodType<ColumnConfig>> = {
-  text: z.object({ defaultValue: textDefault }).strict(),
+  text: z
+    .object({ defaultValue: textDefault, appearance: textAppearanceSchema })
+    .strict(),
   long_text: z
     .object({ richText: z.boolean().optional(), defaultValue: textDefault })
     .strict(),
   email: z.object({}).strict(),
-  url: z.object({}).strict(),
+  url: z.object({ appearance: textAppearanceSchema }).strict(),
   phone: z.object({}).strict(),
   number: z
     .object({
@@ -313,6 +327,7 @@ const CONFIG_SCHEMAS: Record<FieldType, z.ZodType<ColumnConfig>> = {
       expr: formulaExprSchema,
       number: numberFormatSchema.optional(),
       date: dateFormatSchema.optional(),
+      appearance: textAppearanceSchema,
     })
     .strict(),
   lookup: z
@@ -335,8 +350,8 @@ const CONFIG_SCHEMAS: Record<FieldType, z.ZodType<ColumnConfig>> = {
   last_modified_time: z.object({ date: dateFormatSchema.optional() }).strict(),
   created_by: z.object({}).strict(),
   last_modified_by: z.object({}).strict(),
-  autonumber: z.object({}).strict(),
-  row_id: z.object({}).strict(),
+  autonumber: z.object({ appearance: textAppearanceSchema }).strict(),
+  row_id: z.object({ appearance: textAppearanceSchema }).strict(),
   button: z.object({ button: buttonConfigSchema }).strict(),
 };
 

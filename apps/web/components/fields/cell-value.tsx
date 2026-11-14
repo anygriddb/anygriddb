@@ -6,10 +6,12 @@ import { Check, Paperclip } from "lucide-react";
 import type { ReactNode } from "react";
 import { attachmentList, cellDisplay, isLinkArray } from "../../lib/format";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
+import { CodeImage } from "./code-image";
 import {
   booleanAppearance,
   multiSelectAppearance,
   singleSelectAppearance,
+  textAppearance,
 } from "./field-appearance";
 import { RatingControl } from "./rating-control";
 
@@ -42,6 +44,7 @@ export function CellValueView({
   search = "",
   wrap = false,
   inColumn = true,
+  codes = false,
   error = null,
   onOpenLink,
   onOpenFile,
@@ -57,6 +60,11 @@ export function CellValueView({
    * label (a card), they start where the label does.
    */
   inColumn?: boolean;
+  /**
+   * Draws the code of a field shown as one, above its text: where there is
+   * room for a scanner to read it (a row's panel), not in a grid's line.
+   */
+  codes?: boolean;
   /** The error the value is (ERROR in a formula, ADR 0036), with its message. */
   error?: string | null;
   /** Opens a linked row: links become buttons when given. */
@@ -261,11 +269,29 @@ export function CellValueView({
     );
   }
   const text = cellDisplay(value, column, locale, people);
+  // The code holds the value itself, not the way a number is written here.
+  const appearance = codes ? textAppearance(column) : "text";
+  const code =
+    appearance !== "text" &&
+    (typeof value === "string" || typeof value === "number") ? (
+      <CodeImage kind={appearance} text={String(value)} />
+    ) : null;
+  const withCode = (shown: ReactNode) =>
+    code ? (
+      <span className="flex min-w-0 flex-col items-start gap-1.5">
+        {code}
+        {shown}
+      </span>
+    ) : (
+      shown
+    );
   if (type === "url" && typeof value === "string") {
     if (!isHttpUrl(value)) {
-      return <span className="truncate">{highlight(text, search)}</span>;
+      return withCode(
+        <span className="truncate">{highlight(text, search)}</span>,
+      );
     }
-    return (
+    return withCode(
       <a
         href={value}
         target="_blank"
@@ -274,7 +300,7 @@ export function CellValueView({
         onClick={(event) => event.stopPropagation()}
       >
         {highlight(text, search)}
-      </a>
+      </a>,
     );
   }
   if (type === "email" && typeof value === "string") {
@@ -292,17 +318,17 @@ export function CellValueView({
     );
   }
   const numeric = column.kind === "number" && !Array.isArray(value);
-  return (
+  return withCode(
     <span
       className={cn(
         wrap ? "break-words whitespace-pre-wrap" : "truncate",
         numeric && "tabular-nums",
-        numeric && inColumn && "ml-auto",
+        numeric && inColumn && !code && "ml-auto",
         // An id is read character by character, and copied whole.
         type === "row_id" && "font-mono text-xs",
       )}
     >
       {highlight(text, search)}
-    </span>
+    </span>,
   );
 }

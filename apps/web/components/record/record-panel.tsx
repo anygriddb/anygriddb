@@ -215,6 +215,7 @@ function FieldRow({
             locale={table.locale}
             people={table.people}
             wrap
+            codes
             error={rowError(row, column.name)}
             onOpenLink={openLink}
             onOpenFile={files.length > 0 ? setPreview : undefined}
