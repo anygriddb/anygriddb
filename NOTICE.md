@@ -18,7 +18,11 @@ License v3.0 or later** (AGPL-3.0-or-later), an
 
 ## Dependencies
 
-Every dependency is under an OSI-approved license. Those added in the v2
+Every dependency AnyGridDB ships, in its image and in the app's bundle,
+is under an OSI-approved license, and `pnpm check` refuses one that is not
+(`scripts/check-licenses.mjs`). The one exception, data that a build tool
+reads and that is not shipped, is named in
+[`OPEN_SOURCE_POLICY.md`](OPEN_SOURCE_POLICY.md). Those added in the v2
 cycle and the stack rewrite:
 
 | Package                                                                                 | License    |
