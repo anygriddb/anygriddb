@@ -20,7 +20,6 @@ import {
   FileUp,
   Database,
   Folder,
-  LayoutDashboard,
   MoreHorizontal,
   Pencil,
   Pin,
@@ -64,6 +63,7 @@ import { ImportDialog } from "../table/import-dialog";
 import { ConfirmDialog, PromptDialog } from "./dialogs";
 import { NewTableDialog } from "./new-table-dialog";
 import { NewBaseDialog } from "./new-base-dialog";
+import { SidebarDashboards } from "./sidebar-dashboards";
 import { SidebarSources } from "./sidebar-sources";
 import { ResizeHandle } from "./resize-handle";
 import { openCommandPalette } from "./command-palette";
@@ -925,17 +925,6 @@ function SidebarBase({
             <DropdownMenuItem
               onSelect={() =>
                 void navigate({
-                  to: "/b/$baseId/dashboards",
-                  params: { baseId: base.id },
-                })
-              }
-            >
-              <LayoutDashboard className="h-4 w-4" aria-hidden />
-              {t`Dashboards`}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() =>
-                void navigate({
                   to: "/b/$baseId/api",
                   params: { baseId: base.id },
                 })
@@ -978,6 +967,10 @@ function SidebarBase({
       </div>
       {open ? (
         <ul className="ml-5 flex flex-col gap-0.5 border-l border-border pl-2">
+          <SidebarDashboards
+            baseId={base.id}
+            current={params.baseId === base.id}
+          />
           {base.folders.map((folder, folderIndex) => {
             const inFolder = base.tables.filter(
               (table) => table.folderId === folder.id,

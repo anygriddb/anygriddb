@@ -223,7 +223,14 @@ test("a client's rows: locked, signed, told when changed elsewhere, read from a 
       }),
     );
     await page.goto(`/b/${baseId ?? ""}/dashboards`);
-    await page.getByText("Ventes", { exact: true }).click();
+    // The sidebar holds a line for the base's dashboards, beside its
+    // tables, and names those of the base on screen under it.
+    const navigation = page.getByRole("navigation", { name: "Bases" });
+    await expect(
+      navigation.getByRole("link", { name: "Dashboards", exact: true }),
+    ).toBeVisible();
+    const named = navigation.getByRole("list", { name: "Dashboards" });
+    await named.getByRole("link", { name: "Ventes", exact: true }).click();
     await page
       .getByRole("button", { name: "Show the table of values" })
       .click();
@@ -241,6 +248,9 @@ test("a client's rows: locked, signed, told when changed elsewhere, read from a 
     await rename.getByRole("button", { name: "Rename" }).click();
     await expect(
       page.getByRole("heading", { level: 1, name: "Ventes 2026" }),
+    ).toBeVisible();
+    await expect(
+      named.getByRole("link", { name: "Ventes 2026", exact: true }),
     ).toBeVisible();
     ok(
       await call(page, "dashboards.upsertWidget", {
