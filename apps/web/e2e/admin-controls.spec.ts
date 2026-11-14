@@ -323,10 +323,18 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     // base is found by name among the instance's, the first link is
     // mailed, and the person lands in the base once their password is set.
     const baseName = `Field ${stamp}`;
+    // A base's name is on the change trail: a write to it names its
+    // author, here its owner, for the transaction that makes it.
+    await control.query("begin");
+    await control.query(
+      "select set_config('anygrid.user_id', (select id::text from users where email = $1), true)",
+      [email],
+    );
     await control.query(
       "update bases set name = $1 where id in (select r.scope_id from role_bindings r join users u on u.id = r.user_id where r.scope = 'base' and r.role = 'owner' and u.email = $2)",
       [baseName, email],
     );
+    await control.query("commit");
     await page.getByRole("button", { name: "Add a person" }).click();
     const adding = page.getByRole("dialog", { name: "Add a person" });
     const newcomerEmail = `e2e-newcomer-${stamp}@example.com`;
