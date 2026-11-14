@@ -63,7 +63,7 @@ import {
   scanWorkbookIsolated,
 } from "./import-isolated.js";
 import { stageWorkbook } from "./data/workbook-import.js";
-import { readGateSettings } from "./settings.js";
+import { madeNamesFor, readGateSettings } from "./settings.js";
 import { findLiveTable } from "./services/rows.js";
 import { stageSnapshotFile } from "./data/snapshot-stage.js";
 import { localFolder } from "./files/local-folder.js";
@@ -531,6 +531,8 @@ export function registerDataTransferRoutes(
           format,
           path,
           deps.importMaxRows,
+          (await madeNamesFor(deps.db, request.headers["accept-language"]))
+            .field,
         );
         const importId = await stageImport(deps.db, deps.files, {
           userId: actor.user.id,
@@ -610,7 +612,12 @@ export function registerDataTransferRoutes(
           filename,
           path,
           size,
-          sheets: await scanWorkbookIsolated(path, deps.importMaxRows),
+          sheets: await scanWorkbookIsolated(
+            path,
+            deps.importMaxRows,
+            (await madeNamesFor(deps.db, request.headers["accept-language"]))
+              .field,
+          ),
         });
         return await reply.send({
           importId: staged.importId,

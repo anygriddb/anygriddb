@@ -61,7 +61,7 @@ describe("an import read as it is written", () => {
   /** The file read from disk in batches of `batch`, as the job reads it. */
   function fileSource(path: string, batch: number) {
     return async (): Promise<ImportSource> => {
-      const { shape } = await scanImportFile("csv", path, 1_000_000);
+      const { shape } = await scanImportFile("csv", path, 1_000_000, "Field");
       return {
         headers: shape.headers,
         total: shape.total,

@@ -104,12 +104,16 @@ function clip(text: string): string {
     : text;
 }
 
-/** Blank headers get a position name; repeated ones a counter. */
-export function cleanHeaders(raw: readonly string[]): string[] {
+/**
+ * Blank headers get a name and their position, the name in the language of
+ * the person who imports (`MadeNames.field`); repeated ones a counter.
+ */
+export function cleanHeaders(raw: readonly string[], blank: string): string[] {
   const seen = new Map<string, number>();
   return raw.map((value, index) => {
     const base =
-      value.replace(/\s+/g, " ").trim().slice(0, 100) || `Colonne ${index + 1}`;
+      value.replace(/\s+/g, " ").trim().slice(0, 100) ||
+      `${blank} ${index + 1}`.slice(0, 100);
     const count = (seen.get(base.toLowerCase()) ?? 0) + 1;
     seen.set(base.toLowerCase(), count);
     return count === 1 ? base : `${base} (${count})`.slice(0, 100);
@@ -421,6 +425,7 @@ function keepRow(
 function scanResult(
   format: ImportFormat,
   found: Found,
+  blank: string,
 ): { shape: SheetShape; preview: ImportPreview } {
   if (
     !found.rawHeader ||
@@ -429,7 +434,7 @@ function scanResult(
   ) {
     throw new AppError("invalid_import");
   }
-  const headers = cleanHeaders(fit(found.rawHeader, found.width));
+  const headers = cleanHeaders(fit(found.rawHeader, found.width), blank);
   const rows = found.sample.map((cells) => fit(cells, found.width));
   return {
     shape: {
@@ -493,12 +498,14 @@ function rowCounter(maxRows: number): () => void {
 
 /**
  * Reads the whole file once: its columns, how many rows it holds, and its
- * first rows. Refuses a file past `maxRows` as soon as it gets there.
+ * first rows. Refuses a file past `maxRows` as soon as it gets there. A
+ * blank header is named `blank` and its position.
  */
 export async function scanImportFile(
   format: ImportFormat,
   path: string,
   maxRows: number,
+  blank: string,
 ): Promise<{ shape: SheetShape; preview: ImportPreview }> {
   const count = rowCounter(maxRows);
   switch (format) {
@@ -520,12 +527,13 @@ export async function scanImportFile(
           keepRow(found, record.cells, count, INFER_SAMPLE);
         }
       }
-      return scanResult(format, found);
+      return scanResult(format, found, blank);
     }
     case "xlsx":
       return scanResult(
         format,
         await scanSheet(workbookRecords(path), count, INFER_SAMPLE),
+        blank,
       );
     case "json": {
       const records = await jsonRecords(path, maxRows);
@@ -536,7 +544,7 @@ export async function scanImportFile(
         const cells = keys.map((key) => jsonText(record[key]));
         if (!isBlank(cells)) keepRow(found, cells, count, INFER_SAMPLE);
       }
-      return scanResult(format, found);
+      return scanResult(format, found, blank);
     }
   }
 }
@@ -567,6 +575,7 @@ const WORKBOOK_SAMPLE = 200;
 export async function scanWorkbook(
   path: string,
   maxRows: number,
+  blank: string,
 ): Promise<WorkbookSheet[]> {
   const count = rowCounter(maxRows);
   const sheets: WorkbookSheet[] = [];
@@ -586,7 +595,7 @@ export async function scanWorkbook(
         if (sheets.length >= MAX_WORKBOOK_SHEETS) {
           throw new AppError("invalid_import");
         }
-        const { shape, preview } = scanResult("xlsx", found);
+        const { shape, preview } = scanResult("xlsx", found, blank);
         sheets.push({
           sheet: index,
           name: about.name.trim().slice(0, 100) || `#${index + 1}`,

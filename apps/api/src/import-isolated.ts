@@ -29,8 +29,14 @@ type ParseLimits = { heapMb: number; timeMs: number };
 
 /** What the worker is asked to do. */
 export type WorkerTask =
-  | { mode: "scan"; format: ImportFormat; path: string; maxRows: number }
-  | { mode: "workbook"; path: string; maxRows: number }
+  | {
+      mode: "scan";
+      format: ImportFormat;
+      path: string;
+      maxRows: number;
+      blank: string;
+    }
+  | { mode: "workbook"; path: string; maxRows: number; blank: string }
   | {
       mode: "read";
       shape: SheetShape;
@@ -147,6 +153,7 @@ export async function scanImportFileIsolated(
   format: ImportFormat,
   path: string,
   maxRows: number,
+  blank: string,
   limits: ParseLimits = {
     heapMb: PARSE_LIMITS.heapMb,
     timeMs: PARSE_LIMITS.scanMs,
@@ -156,7 +163,7 @@ export async function scanImportFileIsolated(
     await assertZipFileWithinLimits(path, PARSE_LIMITS.zip);
   }
   const worker = new ParseWorker(
-    { mode: "scan", format, path, maxRows },
+    { mode: "scan", format, path, maxRows, blank },
     limits.heapMb,
   );
   try {
@@ -176,6 +183,7 @@ export async function scanImportFileIsolated(
 export async function scanWorkbookIsolated(
   path: string,
   maxRows: number,
+  blank: string,
   limits: ParseLimits = {
     heapMb: PARSE_LIMITS.heapMb,
     timeMs: PARSE_LIMITS.scanMs,
@@ -183,7 +191,7 @@ export async function scanWorkbookIsolated(
 ): Promise<WorkbookSheet[]> {
   await assertZipFileWithinLimits(path, PARSE_LIMITS.zip);
   const worker = new ParseWorker(
-    { mode: "workbook", path, maxRows },
+    { mode: "workbook", path, maxRows, blank },
     limits.heapMb,
   );
   try {

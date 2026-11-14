@@ -86,7 +86,7 @@ describe("a workbook made a base", () => {
       filename: "Ventes 2026.xlsx",
       path,
       size: (await stat(path)).size,
-      sheets: await scanWorkbook(path, 1_000_000),
+      sheets: await scanWorkbook(path, 1_000_000, "Field"),
     });
   }
 

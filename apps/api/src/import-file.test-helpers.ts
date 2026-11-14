@@ -33,7 +33,12 @@ export function readImport(
 ): Promise<{ shape: SheetShape; preview: ImportPreview; rows: SheetRow[] }> {
   const maxRows = options.maxRows ?? 1_000_000;
   return onDisk(bytes, async (path) => {
-    const { shape, preview } = await scanImportFile(format, path, maxRows);
+    const { shape, preview } = await scanImportFile(
+      format,
+      path,
+      maxRows,
+      "Field",
+    );
     const rows: SheetRow[] = [];
     for await (const batch of readImportFile(
       shape,

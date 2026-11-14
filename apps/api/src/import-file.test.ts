@@ -36,12 +36,16 @@ describe("detectImportFormat", () => {
 });
 
 describe("cleanHeaders", () => {
-  it("names blank headers and numbers repeats", () => {
-    expect(cleanHeaders(["Nom", "", "nom", "  Ville  "])).toEqual([
+  it("names blank headers in the importer's language, and numbers repeats", () => {
+    expect(cleanHeaders(["Nom", "", "nom", "  Ville  "], "Champ")).toEqual([
       "Nom",
-      "Colonne 2",
+      "Champ 2",
       "nom (2)",
       "Ville",
+    ]);
+    expect(cleanHeaders(["", "Field 1"], "Field")).toEqual([
+      "Field 1",
+      "Field 1 (2)",
     ]);
   });
 });
@@ -124,7 +128,7 @@ describe("reading an import file", () => {
       "Date",
       "Montant",
       "Actif",
-      "Colonne 5",
+      "Field 5",
     ]);
     expect(read.rows).toEqual([
       { line: 3, cells: ["Acme", "2026-11-07", "12.5", "true", ""] },
@@ -246,7 +250,7 @@ describe("a workbook made a base", () => {
       },
     ]);
     await onDisk(bytes, async (path) => {
-      const sheets = await scanWorkbook(path, 1_000_000);
+      const sheets = await scanWorkbook(path, 1_000_000, "Field");
       expect(
         sheets.map((sheet) => [
           sheet.sheet,
@@ -280,14 +284,14 @@ describe("a workbook made a base", () => {
     ]);
     // Three rows in all, past two.
     await expect(
-      onDisk(bytes, (path) => scanWorkbook(path, 2)),
+      onDisk(bytes, (path) => scanWorkbook(path, 2, "Field")),
     ).rejects.toThrow("Too many rows to import");
     const empty = await bookBytes([{ name: "Blank", rows: [] }]);
     await expect(
-      onDisk(empty, (path) => scanWorkbook(path, 10)),
+      onDisk(empty, (path) => scanWorkbook(path, 10, "Field")),
     ).rejects.toThrow("Invalid import");
     await expect(
-      onDisk("not a workbook", (path) => scanWorkbook(path, 10)),
+      onDisk("not a workbook", (path) => scanWorkbook(path, 10, "Field")),
     ).rejects.toThrow("Invalid import");
   });
 });
