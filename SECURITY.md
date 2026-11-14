@@ -6,7 +6,7 @@ AnyGridDB serves HTTPS only (ADR 0029): the operator's certificate, or one signe
 
 Every connection AnyGridDB opens beyond the machine's loopback is TLS with the certificate verified, and it refuses to start on a setting that breaks this (ADR 0030): its PostgreSQL (`sslmode=verify-full`), S3, SMTP (implicit TLS or required STARTTLS), SAML, clients' databases, and webhooks. In the compose stack, PostgreSQL takes TLS connections only, and RustFS serves HTTPS, both with certificates from the instance's internal authority, which only AnyGridDB trusts, name-constrained to the services.
 
-Sign-in sets a `__Host-` session cookie, `HttpOnly`, `Secure`, and `SameSite=Strict`, only after the password check succeeds. When TOTP or a passkey is enrolled, that factor must succeed before the cookie is set.
+Sign-in sets a `__Host-` session cookie, `HttpOnly`, `Secure`, and `SameSite=Strict`, only after the password check succeeds. A change or a live connection made with that cookie is taken only from the app's own pages: the browser says which page sent it, and one of another origin is refused. When TOTP or a passkey is enrolled, that factor must succeed before the cookie is set.
 
 Passwords are hashed with Argon2id (64 MiB). TOTP secrets are encrypted at rest with AES-256-GCM under `AUTH_ENCRYPTION_KEY`. Backup codes are stored as hashes. The server keeps a WebAuthn public key and signature counter only; biometrics stay on the device.
 

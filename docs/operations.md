@@ -221,7 +221,10 @@ purge (ADR 0062).
 API documents, the certificate's primary name, and passkeys. Set it to
 that address and open AnyGridDB there. `TLS_NAMES` only adds other names
 or IP addresses to the certificate; it does not change the passkey
-identity.
+identity. A change made from a page at another address than `PUBLIC_URL`
+is taken only when that address is the one the request reached AnyGridDB
+under: behind a proxy that forwards under another name, people open
+`PUBLIC_URL`.
 
 | How people reach the instance                                                                               | What works                                                                                                 |
 | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
