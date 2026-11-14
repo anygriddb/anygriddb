@@ -46,7 +46,8 @@ function reachable(element: HTMLElement): boolean {
 
 /**
  * Moves the focus out of `widget`, forward or back. Says false when the
- * page has no other control, for the browser to take the focus itself.
+ * page has no other control, or when the one picked would not take the
+ * focus (it is drawn but hidden), for the browser to move it itself.
  */
 export function focusOutside(widget: HTMLElement, backward: boolean): boolean {
   const controls = [
@@ -65,5 +66,5 @@ export function focusOutside(widget: HTMLElement, backward: boolean): boolean {
   );
   if (!target) return false;
   target.focus();
-  return true;
+  return widget.ownerDocument.activeElement === target;
 }

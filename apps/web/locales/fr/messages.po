@@ -6049,8 +6049,8 @@ msgid "Next"
 msgstr "Suivant"
 
 #: components/shell/shortcuts-dialog.tsx
-msgid "Next cell ({shift}: previous); past the row's last, out of the grid"
-msgstr "Cellule suivante ({shift} : précédente) ; après la dernière de la ligne, hors de la grille"
+msgid "Next cell ({shift}: previous); at either end of the row, leaves the grid"
+msgstr "Cellule suivante ({shift} : précédente) ; au bout de la ligne, sort de la grille"
 
 #: components/fields/attachment-preview.tsx
 msgid "Next file"

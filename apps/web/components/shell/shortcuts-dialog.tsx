@@ -58,7 +58,7 @@ export function ShortcutsDialog() {
         [[shift, "↑ ↓ ← →"], t`Extend the selection`],
         [
           ["Tab"],
-          t`Next cell (${shift}: previous); past the row's last, out of the grid`,
+          t`Next cell (${shift}: previous); at either end of the row, leaves the grid`,
         ],
         [[home, end], t`Start or end of the row (${mod}: of the grid)`],
         [["Page ↑", "Page ↓"], t`Move up or down 15 rows`],
