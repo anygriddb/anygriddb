@@ -32,7 +32,8 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
   const tips = page.getByRole("region", { name: "Getting around the grid" });
   await expect(tips).toHaveCount(0);
   await page.getByRole("button", { name: "Add a row", exact: true }).click();
-  await expect(tips.getByRole("listitem")).toHaveCount(4);
+  await expect(tips.getByRole("listitem")).toHaveCount(5);
+  await expect(tips).toContainText("Undo a change.");
   expect(await accessibilityViolations(page)).toEqual([]);
   await tips.getByRole("button", { name: "All shortcuts" }).click();
   const help = page.getByRole("dialog", { name: "Keyboard shortcuts" });

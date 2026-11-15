@@ -9573,6 +9573,10 @@ msgstr "Des tables de cette source sont dans une base, ou dans sa corbeille : s
 msgid "Tall"
 msgstr "Haute"
 
+#: components/grid/grid-tips.tsx
+msgid "Tap a card to open the row."
+msgstr "Toucher une carte pour ouvrir la ligne."
+
 #: components/settings/webhooks-panel.tsx
 msgid "Target"
 msgstr "Cible"
@@ -11111,6 +11115,10 @@ msgstr "Annuler"
 #: components/shell/shortcuts-dialog.tsx
 msgid "Undo ({mod} {shift} Z or {mod} Y: redo)"
 msgstr "Annuler ({mod} {shift} Z ou {mod} Y : rétablir)"
+
+#: components/grid/grid-tips.tsx
+msgid "Undo a change."
+msgstr "Annuler une modification."
 
 #: lib/errors.ts
 msgid "Unexpected character"

@@ -10,8 +10,8 @@ import { openShortcuts } from "../shell/shortcuts-dialog";
  * A first visit's tips over the grid: the gestures a spreadsheet's user
  * looks for first, each with its keys, until the person hides them. The
  * page stays usable while they show, so each one can be tried at once;
- * every other shortcut is one key away (?). A phone has none of these
- * keys: they do not show there.
+ * every other shortcut is one key away (?). A phone has no keyboard
+ * shortcuts: it is told to tap a card.
  */
 export function GridTips(props: { canEdit: boolean }) {
   const { t } = useLingui();
@@ -19,7 +19,26 @@ export function GridTips(props: { canEdit: boolean }) {
   const title = useId();
   const narrow = useNarrowScreen();
   const [shown, setShown] = useState(() => !gridTipsHidden());
-  if (!shown || narrow) return null;
+  if (!shown) return null;
+  function hide() {
+    hideGridTips();
+    setShown(false);
+  }
+  if (narrow) {
+    return (
+      <section
+        aria-labelledby={title}
+        className="flex items-center justify-between gap-2 border-b border-border bg-accent/40 px-4 py-2.5"
+      >
+        <p id={title} className="text-sm">
+          {t`Tap a card to open the row.`}
+        </p>
+        <Button size="sm" variant="outline" onClick={hide}>
+          {t`Hide the tips`}
+        </Button>
+      </section>
+    );
+  }
   const tips: Array<{ id: string; keys: string[]; text: string }> = [
     {
       id: "move",
@@ -37,6 +56,11 @@ export function GridTips(props: { canEdit: boolean }) {
             id: "fill",
             keys: [keys.mod, "D"],
             text: t`Fill down, or drag the corner of the selection. Copy and paste work with any spreadsheet.`,
+          },
+          {
+            id: "undo",
+            keys: [keys.mod, "Z"],
+            text: t`Undo a change.`,
           },
         ]
       : [
@@ -65,14 +89,7 @@ export function GridTips(props: { canEdit: boolean }) {
           <Button size="sm" variant="ghost" onClick={openShortcuts}>
             {t`All shortcuts`}
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              hideGridTips();
-              setShown(false);
-            }}
-          >
+          <Button size="sm" variant="outline" onClick={hide}>
             {t`Hide the tips`}
           </Button>
         </div>

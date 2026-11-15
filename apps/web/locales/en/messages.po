@@ -9573,6 +9573,10 @@ msgstr "Tables of this source are in a base, or in its trash: delete them first"
 msgid "Tall"
 msgstr "Tall"
 
+#: components/grid/grid-tips.tsx
+msgid "Tap a card to open the row."
+msgstr "Tap a card to open the row."
+
 #: components/settings/webhooks-panel.tsx
 msgid "Target"
 msgstr "Target"
@@ -11111,6 +11115,10 @@ msgstr "Undo"
 #: components/shell/shortcuts-dialog.tsx
 msgid "Undo ({mod} {shift} Z or {mod} Y: redo)"
 msgstr "Undo ({mod} {shift} Z or {mod} Y: redo)"
+
+#: components/grid/grid-tips.tsx
+msgid "Undo a change."
+msgstr "Undo a change."
 
 #: lib/errors.ts
 msgid "Unexpected character"
