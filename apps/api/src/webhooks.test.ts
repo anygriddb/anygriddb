@@ -33,12 +33,13 @@ describe("webhooks", () => {
 });
 
 describe("isBlockedAddress", () => {
-  it("blocks private, loopback, link-local, and mapped addresses", () => {
+  it("blocks private, loopback, link-local, reserved, and mapped addresses", () => {
     for (const [address, family] of [
       ["10.1.2.3", 4],
       ["100.64.0.1", 4],
       ["169.254.169.254", 4],
       ["192.168.1.1", 4],
+      ["240.1.2.3", 4],
       ["::1", 6],
       ["fd00::1", 6],
       ["fec0::1", 6],

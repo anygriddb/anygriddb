@@ -54,7 +54,7 @@ export function jobEventType(
   return "job.failed";
 }
 
-export const instanceEventFieldsSchema = z
+const instanceEventFieldsSchema = z
   .record(
     z.string().regex(/^[a-z0-9_]{1,40}$/),
     z.union([z.string().max(200), z.number(), z.boolean()]),

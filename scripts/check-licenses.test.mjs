@@ -60,6 +60,15 @@ describe("refusals", () => {
     );
   });
 
+  // exceljs once pulled unzipper 0.10 → binary → buffers (no license field).
+  // The pnpm override keeps unzipper 0.12; this asserts the policy still
+  // refuses that package if it ever returns under Unknown.
+  it("refuses a package that states no license, as buffers once did", () => {
+    assert.deepEqual(refusals({ Unknown: packages("buffers") }), [
+      "buffers: states no license",
+    ]);
+  });
+
   it("keeps an exception to the license it was made for", () => {
     assert.deepEqual(refusals({ "CC-BY-4.0": packages("other-data") }), [
       "other-data: CC-BY-4.0 is not a license the project takes",

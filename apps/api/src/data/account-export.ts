@@ -22,11 +22,11 @@ import { ERASED_USER_ID } from "./erasure.js";
 import { liveBase, liveTable } from "./live.js";
 
 /** The most rows of each long list the file holds; it says when one is cut. */
-export const ACCOUNT_LIST_LIMIT = 10_000;
+const ACCOUNT_LIST_LIMIT = 10_000;
 /** Rows read at a time while the file is written: never a list whole. */
-export const ACCOUNT_DATA_PAGE = 500;
+const ACCOUNT_DATA_PAGE = 500;
 /** Recent rows shown on the account's page. */
-export const ACCOUNT_SUMMARY_RECENT = 20;
+const ACCOUNT_SUMMARY_RECENT = 20;
 
 export const accountExportInputSchema = z.object({ userId: z.uuid() }).strict();
 

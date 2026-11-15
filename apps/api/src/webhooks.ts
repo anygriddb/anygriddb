@@ -85,7 +85,10 @@ blocked.addSubnet("169.254.0.0", 16, "ipv4");
 blocked.addSubnet("172.16.0.0", 12, "ipv4");
 blocked.addSubnet("192.168.0.0", 16, "ipv4");
 blocked.addSubnet("224.0.0.0", 4, "ipv4");
+// Class E (reserved), same bound as notify targets.
+blocked.addSubnet("240.0.0.0", 4, "ipv4");
 blocked.addAddress("::", "ipv6");
+
 blocked.addAddress("::1", "ipv6");
 blocked.addSubnet("64:ff9b::", 96, "ipv6");
 blocked.addSubnet("64:ff9b:1::", 48, "ipv6");

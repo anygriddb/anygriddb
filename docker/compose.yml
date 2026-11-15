@@ -253,6 +253,8 @@ services:
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       ANYGRIDDB_TRUSTED_PROXIES: ${ANYGRIDDB_TRUSTED_PROXIES:-}
       ANYGRIDDB_SOURCES_ALLOWED_HOSTS: ${ANYGRIDDB_SOURCES_ALLOWED_HOSTS:-}
+      # Absolute directory prefixes for SQLite source files (empty: none).
+      ANYGRIDDB_SOURCES_ALLOWED_PATHS: ${ANYGRIDDB_SOURCES_ALLOWED_PATHS:-}
       ATTACHMENT_MAX_BYTES: ${ATTACHMENT_MAX_BYTES:-}
       # Connections requests share (10 by default); see docs/operations.md.
       DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-}
@@ -260,6 +262,8 @@ services:
       UPLOAD_CONCURRENCY: ${UPLOAD_CONCURRENCY:-}
       # Imports, exports, and snapshots run at once (2 by default).
       JOB_CONCURRENCY: ${JOB_CONCURRENCY:-}
+      # Event, webhook, and automation workers at once (4 by default).
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-}
       # Most rows one export writes (1,000,000 by default).
       EXPORT_MAX_ROWS: ${EXPORT_MAX_ROWS:-}
       IMPORT_MAX_ROWS: ${IMPORT_MAX_ROWS:-}

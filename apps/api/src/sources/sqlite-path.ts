@@ -1,6 +1,7 @@
 import path from "node:path";
 import { AppError } from "@anygriddb/core";
 import type { PathAllowList } from "./path-allow-list.js";
+import { physicalPath } from "./physical-path.js";
 
 export type SqlitePathAccess = {
   paths: PathAllowList;
@@ -30,7 +31,9 @@ export function resolveSqliteDatabase(
   if (segments.some((segment) => segment === "..")) {
     throw new AppError("source_path_not_allowed", database);
   }
-  const resolved = path.resolve(database);
+  // Follow symlinks so a link under an allowed prefix cannot open a file
+  // the operator did not name (path.resolve alone is not enough).
+  const resolved = physicalPath(database);
   if (!access.paths.allows(resolved)) {
     throw new AppError("source_path_not_allowed", resolved);
   }

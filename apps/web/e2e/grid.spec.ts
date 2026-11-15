@@ -794,76 +794,81 @@ test.describe("a gallery, a timeline, a kanban, and a map past their first page"
   });
 });
 
-test("an earlier cell, base name, and widget title go back", async ({
-  page,
-}) => {
-  test.setTimeout(180_000);
-  const blocked = watchPolicy(page);
-  await signUpWithTable(page, "Earlier User");
-  await page.getByRole("button", { name: "Add a row", exact: true }).click();
-  await typeName(page, "alpha");
-  await typeName(page, "beta");
-  await expect(nameCell(page)).toContainText("beta");
-  await page.keyboard.press(" ");
-  await page.getByRole("tab", { name: "History" }).click();
-  await page
-    .getByRole("button", { name: "Put this value back" })
-    .first()
-    .click();
-  await page.getByRole("button", { name: "Close" }).click();
-  await expect(nameCell(page)).toContainText("alpha");
+// Puts earlier values back (ADR 0089). Its own address so parallel journeys
+// do not share the auth rate-limit bucket.
+test.describe("putting a value back", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.84" } });
+  test("an earlier cell, base name, and widget title go back", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "Earlier User");
+    await page.getByRole("button", { name: "Add a row", exact: true }).click();
+    await typeName(page, "alpha");
+    await typeName(page, "beta");
+    await expect(nameCell(page)).toContainText("beta");
+    await page.keyboard.press(" ");
+    await page.getByRole("tab", { name: "History" }).click();
+    await page
+      .getByRole("button", { name: "Put this value back" })
+      .first()
+      .click();
+    await page.getByRole("button", { name: "Close" }).click();
+    await expect(nameCell(page)).toContainText("alpha");
 
-  await page.getByRole("button", { name: "Base actions" }).click();
-  await page.getByRole("menuitem", { name: "Rename" }).click();
-  const rename = page.getByRole("dialog", { name: "Rename base" });
-  await rename.getByLabel("Base name").fill("Lab 2");
-  await rename.getByRole("button", { name: "Save" }).click();
-  await expect(rename).toHaveCount(0);
-  await page.getByRole("button", { name: "Base actions" }).click();
-  await page.getByRole("menuitem", { name: "Rename" }).click();
-  const again = page.getByRole("dialog", { name: "Rename base" });
-  await again
-    .getByRole("button", { name: "Put this value back" })
-    .first()
-    .click();
-  await expect(again.getByText("Lab 2 → Lab")).toBeVisible();
-  await again.getByRole("button", { name: "Close" }).click();
-  await expect(
-    page.getByRole("link", { name: "Lab", exact: true }),
-  ).toBeVisible();
+    await page.getByRole("button", { name: "Base actions" }).click();
+    await page.getByRole("menuitem", { name: "Rename" }).click();
+    const rename = page.getByRole("dialog", { name: "Rename base" });
+    await rename.getByLabel("Base name").fill("Lab 2");
+    await rename.getByRole("button", { name: "Save" }).click();
+    await expect(rename).toHaveCount(0);
+    await page.getByRole("button", { name: "Base actions" }).click();
+    await page.getByRole("menuitem", { name: "Rename" }).click();
+    const again = page.getByRole("dialog", { name: "Rename base" });
+    await again
+      .getByRole("button", { name: "Put this value back" })
+      .first()
+      .click();
+    await expect(again.getByText("Lab 2 → Lab")).toBeVisible();
+    await again.getByRole("button", { name: "Close" }).click();
+    await expect(
+      page.getByRole("link", { name: "Lab", exact: true }),
+    ).toBeVisible();
 
-  await page.getByRole("link", { name: "Dashboards" }).click();
-  await page.getByLabel("New dashboard").fill("Board");
-  await page.getByRole("button", { name: "Create", exact: true }).click();
-  // A widget is changed while the dashboard is being edited.
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await page.getByRole("button", { name: "Add a widget" }).click();
-  const added = page.getByRole("dialog", { name: "Add a widget" });
-  await added.getByLabel("Title", { exact: true }).fill("Orders");
-  await added.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Orders" })).toBeVisible();
-  await page.getByRole("button", { name: "Actions for Orders" }).click();
-  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
-  const widget = page.getByRole("dialog", { name: "Edit the widget" });
-  await widget.getByLabel("Title", { exact: true }).fill("Orders 2");
-  await widget.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Orders 2" })).toBeVisible();
-  await page.getByRole("button", { name: "Actions for Orders 2" }).click();
-  await page.getByRole("menuitem", { name: "Earlier", exact: true }).click();
-  const earlier = page.getByRole("dialog", { name: "Earlier" });
-  await earlier.getByRole("button", { name: "Put this value back" }).click();
-  await expect(earlier.getByText("Orders 2 → Orders")).toBeVisible();
-  await earlier.getByRole("button", { name: "Close" }).click();
-  await expect(page.getByRole("heading", { name: "Orders" })).toBeVisible();
+    await page.getByRole("link", { name: "Dashboards" }).click();
+    await page.getByLabel("New dashboard").fill("Board");
+    await page.getByRole("button", { name: "Create", exact: true }).click();
+    // A widget is changed while the dashboard is being edited.
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.getByRole("button", { name: "Add a widget" }).click();
+    const added = page.getByRole("dialog", { name: "Add a widget" });
+    await added.getByLabel("Title", { exact: true }).fill("Orders");
+    await added.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Orders" })).toBeVisible();
+    await page.getByRole("button", { name: "Actions for Orders" }).click();
+    await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+    const widget = page.getByRole("dialog", { name: "Edit the widget" });
+    await widget.getByLabel("Title", { exact: true }).fill("Orders 2");
+    await widget.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Orders 2" })).toBeVisible();
+    await page.getByRole("button", { name: "Actions for Orders 2" }).click();
+    await page.getByRole("menuitem", { name: "Earlier", exact: true }).click();
+    const earlier = page.getByRole("dialog", { name: "Earlier" });
+    await earlier.getByRole("button", { name: "Put this value back" }).click();
+    await expect(earlier.getByText("Orders 2 → Orders")).toBeVisible();
+    await earlier.getByRole("button", { name: "Close" }).click();
+    await expect(page.getByRole("heading", { name: "Orders" })).toBeVisible();
 
-  // A window shorter than the page: the board, the list of dashboards,
-  // and the base's home each scroll with the wheel.
-  await page.getByRole("button", { name: "Done editing" }).click();
-  await page.setViewportSize({ width: 1280, height: 240 });
-  await expectWheelScrolls(page, "Orders");
-  await page.getByRole("link", { name: "Back" }).click();
-  await expectWheelScrolls(page, "Dashboards of Lab");
-  await page.getByRole("link", { name: "Lab", exact: true }).click();
-  await expectWheelScrolls(page, "Lab");
-  expect(blocked).toEqual([]);
+    // A window shorter than the page: the board, the list of dashboards,
+    // and the base's home each scroll with the wheel.
+    await page.getByRole("button", { name: "Done editing" }).click();
+    await page.setViewportSize({ width: 1280, height: 240 });
+    await expectWheelScrolls(page, "Orders");
+    await page.getByRole("link", { name: "Back" }).click();
+    await expectWheelScrolls(page, "Dashboards of Lab");
+    await page.getByRole("link", { name: "Lab", exact: true }).click();
+    await expectWheelScrolls(page, "Lab");
+    expect(blocked).toEqual([]);
+  });
 });

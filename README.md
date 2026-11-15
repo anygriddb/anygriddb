@@ -107,17 +107,20 @@ owns is the table of [`CONTRIBUTING.md`](CONTRIBUTING.md#where-to-change-what).
 
 ### Contributor
 
-| Doc                                              | What                                                 |
-| ------------------------------------------------ | ---------------------------------------------------- |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md)             | Dev conventions, setup, tests, PR workflow           |
-| [`TECH_STACK.md`](TECH_STACK.md)                 | What this tree uses                                  |
-| [`ROADMAP.md`](ROADMAP.md)                       | What is done, known limits, what next                |
-| [`docs/brand.md`](docs/brand.md)                 | Notebook identity: type, colour, BrandMark           |
-| [`docs/weblate.md`](docs/weblate.md)             | Weblate and a third locale                           |
-| [`OPEN_SOURCE_POLICY.md`](OPEN_SOURCE_POLICY.md) | Legal-safe dependency rules                          |
-| [`NOTICE.md`](NOTICE.md)                         | Copyright notice and selected dependency licenses    |
-| [`ACCESSIBILITY.md`](ACCESSIBILITY.md)           | Accessibility commitment and how to report a barrier |
-| [Code of conduct](.github/CODE_OF_CONDUCT.md)    | Expected behaviour in the project's spaces           |
+| Doc                                                                | What                                                 |
+| ------------------------------------------------------------------ | ---------------------------------------------------- |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)                               | Dev conventions, setup, tests, PR workflow           |
+| [`TECH_STACK.md`](TECH_STACK.md)                                   | What this tree uses                                  |
+| [`ROADMAP.md`](ROADMAP.md)                                         | What is done, known limits, what next                |
+| [`docs/brand.md`](docs/brand.md)                                   | Notebook identity: type, colour, BrandMark           |
+| [`docs/weblate.md`](docs/weblate.md)                               | Weblate and a third locale                           |
+| [`OPEN_SOURCE_POLICY.md`](OPEN_SOURCE_POLICY.md)                   | Legal-safe dependency rules                          |
+| [`NOTICE.md`](NOTICE.md)                                           | Copyright notice and selected dependency licenses    |
+| [`ACCESSIBILITY.md`](ACCESSIBILITY.md)                             | Accessibility commitment and how to report a barrier |
+| [`SECURITY.md`](SECURITY.md)                                       | How to report a vulnerability                        |
+| [`docs/operations.md`](docs/operations.md)                         | Install, upgrade, backup, and restore for operators  |
+| [Code of conduct](.github/CODE_OF_CONDUCT.md)                      | Expected behaviour in the project's spaces           |
+| [GitHub Releases](https://github.com/anygriddb/anygriddb/releases) | Version notes (no `CHANGELOG.md` in the tree)        |
 
 ### Architecture
 

@@ -19,7 +19,7 @@ export const RATE_LIMITS: Record<RateBucket, number> = {
 };
 
 const AUTH_PROCEDURES =
-  /(^|[,/])(auth\.(login|signup|totp\.verify|backup\.verify|webauthn\.authenticate\w*|invitation|acceptInvitation|erase|changePassword|requestPasswordReset|resetLink|resetPassword|confirmSignup)|rows\.sign)(?=[,?]|$)/;
+  /(^|[,/])(auth\.(login|signup|totp\.verify|backup\.verify|email\.(send|verify)|webauthn\.authenticate\w*|invitation|acceptInvitation|erase|changePassword|requestPasswordReset|resetLink|resetPassword|confirmSignup)|rows\.sign)(?=[,?]|$)/;
 
 export function rateBucket(method: string, url: string): RateBucket {
   const path = url.split("?")[0] ?? url;

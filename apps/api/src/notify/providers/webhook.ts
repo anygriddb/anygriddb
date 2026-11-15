@@ -21,7 +21,7 @@ export function webhookBody(event: NotifyPayload): string {
   });
 }
 
-export function signWebhook(secret: string, body: string): string {
+function signWebhook(secret: string, body: string): string {
   return createHmac("sha256", secret).update(body).digest("hex");
 }
 

@@ -9,12 +9,12 @@ import { sql } from "kysely";
 
 const DAY_MS = 86_400_000;
 /** Keep minute buckets this long; Health shows up to the same window. */
-export const SOURCE_LOAD_KEEP_DAYS = 30;
+const SOURCE_LOAD_KEEP_DAYS = 30;
 /** An operation at or above this duration counts as slow (1 s). */
 export const SOURCE_LOAD_SLOW_MS = 1_000;
 
-export type SourceLoadKind = "read" | "write";
-export type SourceLoadOutcome = "ok" | "error" | "timeout";
+type SourceLoadKind = "read" | "write";
+type SourceLoadOutcome = "ok" | "error" | "timeout";
 
 export type SourceLoadSample = {
   sourceId: string;
@@ -23,7 +23,7 @@ export type SourceLoadSample = {
   durationMs: number;
 };
 
-export type SourceLoadRow = {
+type SourceLoadRow = {
   sourceId: string;
   name: string;
   engine: string;

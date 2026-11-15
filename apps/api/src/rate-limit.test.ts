@@ -14,9 +14,12 @@ describe("rateBucket", () => {
       "auth.resetLink",
       "auth.resetPassword",
       "auth.confirmSignup",
+      "auth.email.send",
+      "auth.email.verify",
     ]) {
       expect(rateBucket("POST", `/trpc/${procedure}`)).toBe("auth");
     }
+
     expect(rateBucket("GET", "/trpc/share.rows?input=x")).toBe("share");
     // A sign-up's link only names its address: opened as a share is.
     expect(

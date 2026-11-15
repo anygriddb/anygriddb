@@ -25,9 +25,9 @@ const ADDRESS = /^[0-9a-fA-F:.]+$/;
 const INCOMING = "incoming request";
 const COMPLETED = "request completed";
 
-export type ProcessLogLevel = "info" | "warn" | "error";
+type ProcessLogLevel = "info" | "warn" | "error";
 
-export type ProcessLogFailure = {
+type ProcessLogFailure = {
   type: string;
   code?: string;
   constraint?: string;
@@ -64,10 +64,9 @@ type Stored = {
   line: ProcessLogLine;
 };
 
-export type ProcessLogSort =
-  "time" | "level" | "message" | "request" | "address";
+type ProcessLogSort = "time" | "level" | "message" | "request" | "address";
 
-export type ProcessLogPage = {
+type ProcessLogPage = {
   lines: ProcessLogLine[];
   /** How many lines match the level, the word, and the range. */
   total: number;

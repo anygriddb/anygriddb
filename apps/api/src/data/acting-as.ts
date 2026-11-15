@@ -13,7 +13,7 @@ import { gridChannel } from "../realtime/channels.js";
 import { readMailVoice } from "../settings.js";
 import { ERASED_USER_ID } from "./erasure.js";
 
-export const ACTING_MS = 30 * 60 * 1000;
+const ACTING_MS = 30 * 60 * 1000;
 const REASON_MAX = 200;
 
 export function cleanActingReason(raw: string): string {
