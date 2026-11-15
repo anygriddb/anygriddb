@@ -181,6 +181,10 @@ export const ERRORS = {
   sso_required: [BAD, "Single sign-on must be configured first"],
   /** A change to what the instance's environment sets (ADR 0083). */
   set_by_environment: [409, "Set by the instance's environment"],
+  /** A token of the administration API without the scope a request asks. */
+  admin_token_scope: [403, "Administration token scope"],
+  /** A setting no token changes: it asks for the proof, on screen. */
+  admin_token_setting: [403, "Setting not changed with a token"],
   /** A list of sign-in addresses that leaves out the one it is saved from. */
   sign_in_address_left_out: [BAD, "The list leaves out your own address"],
   /** Interactive sign-in from an address outside the allowlist. */

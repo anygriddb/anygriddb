@@ -33,6 +33,9 @@ describe("rateBucket", () => {
     expect(rateBucket("POST", "/api/import/preview?baseId=x")).toBe("upload");
     expect(rateBucket("GET", "/api/export/x?format=csv")).toBe("app");
     expect(rateBucket("GET", "/api/v1/tables/x/records")).toBe("api");
+    // The administration API counts with the others (ADR 0086).
+    expect(rateBucket("PATCH", "/api/v1/admin/settings")).toBe("api");
+    expect(rateBucket("GET", "/api/v1/admin/openapi.json")).toBe("api");
     expect(rateBucket("POST", "/mcp")).toBe("api");
     expect(rateBucket("POST", "/api/client-errors")).toBe("report");
     expect(rateBucket("PATCH", "/scim/v2/Users/x")).toBe("api");

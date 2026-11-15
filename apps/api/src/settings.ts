@@ -81,6 +81,8 @@ export async function writeSettings(
   userId: string,
   patch: InstanceSettingsPatch,
   ip?: string,
+  /** From Administration's page, or with a token of its API (ADR 0086). */
+  method: "admin" | "admin_token" = "admin",
 ): Promise<Array<keyof InstanceSettings>> {
   const current = await readSettings(db);
   const changed: Array<keyof InstanceSettings> = [];
@@ -116,7 +118,7 @@ export async function writeSettings(
     await recordAuthEvent(db, {
       action: "settings_changed",
       actorId: userId,
-      method: "admin",
+      method,
       detail: key,
       ip,
     });

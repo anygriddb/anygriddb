@@ -40,6 +40,7 @@ export function useAuthLabels() {
     saml: "SAML",
     signup: t`Sign-up`,
     admin: t`Administrator`,
+    admin_token: t`Administration token`,
     scim: "SCIM",
     command: t`Command line`,
   };

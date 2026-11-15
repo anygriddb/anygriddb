@@ -25,6 +25,7 @@ import { registerRateLimit } from "./rate-limit.js";
 import { readinessProbe } from "./readiness.js";
 import { registerDataTransferRoutes } from "./data-transfer.js";
 import { registerMcp } from "./mcp/http.js";
+import { registerAdminApi } from "./admin-api.js";
 import { registerRestApi } from "./rest-api.js";
 import { calendarFeedDocument } from "./data/calendar-feeds.js";
 import { shareEmbedOriginsForToken } from "./data/sharing.js";
@@ -398,6 +399,11 @@ export async function createApp(deps: {
     publicUrl: deps.env.PUBLIC_URL,
   });
   registerScim(app, { db: deps.db, publicUrl: deps.env.PUBLIC_URL });
+  registerAdminApi(app, {
+    db: deps.db,
+    env: deps.env,
+    closeUser: (userId) => hub.closeUser(userId),
+  });
 
   app.get("/health", () => ({ ok: true }));
   // Up is not ready: a balancer or a monitor asks whether the database

@@ -118,6 +118,18 @@ export type JobKind =
 
 export type JobStatus = "cancelled" | "done" | "failed" | "queued" | "running";
 
+export type Json = JsonValue;
+
+export type JsonArray = JsonValue[];
+
+export type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+
+export type JsonPrimitive = boolean | number | string | null;
+
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
 export type NotificationKind =
   | "account_locked"
   | "admin_access"
@@ -156,6 +168,17 @@ export type ViewType =
 export type WebauthnCeremony = "authenticate" | "register";
 
 export type WebhookKind = "http" | "smtp";
+
+export interface AdminTokens {
+  createdAt: Generated<Timestamp>;
+  createdBy: string;
+  expiresAt: Timestamp;
+  id: Generated<string>;
+  lastUsedAt: Timestamp | null;
+  name: string;
+  scopes: Json;
+  tokenHash: string;
+}
 
 export interface AlertOptouts {
   kind: string;
@@ -963,6 +986,7 @@ export interface Webhooks {
 }
 
 export interface DB {
+  adminTokens: AdminTokens;
   alertOptouts: AlertOptouts;
   apiTokens: ApiTokens;
   attachments: Attachments;

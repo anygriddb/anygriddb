@@ -424,6 +424,8 @@ export async function createAccount(
   db: Database,
   actorId: string,
   input: z.infer<typeof createAccountInputSchema>,
+  /** From Administration's page, or with a token of its API (ADR 0086). */
+  method: "admin" | "admin_token" = "admin",
 ): Promise<{ id: string; email: string; displayName: string }> {
   const email = input.email.toLowerCase();
   const { memberships } = input;
@@ -465,7 +467,7 @@ export async function createAccount(
           action: "account_created",
           userId: row.id,
           actorId,
-          method: "admin",
+          method,
           detail: input.admin ? "as_admin" : null,
         });
         return row;

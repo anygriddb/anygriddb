@@ -79,10 +79,12 @@ msgstr "(date1, date2)"
 msgid "(empty)"
 msgstr "(empty)"
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "(expired)"
 msgstr "(expired)"
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "(inactive: no longer an administrator)"
 msgstr "(inactive: no longer an administrator)"
@@ -1180,6 +1182,10 @@ msgstr "A rule of the client's database refuses this value"
 msgid "A score drawn as symbols"
 msgstr "A score drawn as symbols"
 
+#: components/admin/api-tokens-tab.tsx
+msgid "A script that calls the API with this token will be refused at once."
+msgstr "A script that calls the API with this token will be refused at once."
+
 #: components/shell/welcome-page.tsx
 msgid "A second factor is asked at each sign-in after your password: an authenticator app, or a passkey."
 msgstr "A second factor is asked at each sign-in after your password: an authenticator app, or a passkey."
@@ -1244,6 +1250,7 @@ msgstr "A table already has this name"
 msgid "A table override replaces the base role either way. Field rights further restrict reading and writing."
 msgstr "A table override replaces the base role either way. Field rights further restrict reading and writing."
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "A token acts with the rights of the administrator who made it, and stops working if they are no longer an administrator."
 msgstr "A token acts with the rights of the administrator who made it, and stops working if they are no longer an administrator."
@@ -1360,6 +1367,7 @@ msgstr "Account unlocked"
 
 #: components/admin/account-page.tsx
 #: components/admin/admin-sections.ts
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/group-page.tsx
 msgid "Accounts"
 msgstr "Accounts"
@@ -1401,6 +1409,7 @@ msgstr "Action"
 
 #: components/admin/access-tab.tsx
 #: components/admin/accounts-tab.tsx
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/invitations-panel.tsx
 #: components/admin/outbound-tab.tsx
 #: components/admin/sessions-tab.tsx
@@ -1623,11 +1632,16 @@ msgstr "Address"
 msgid "Address (Streamable HTTP)"
 msgstr "Address (Streamable HTTP)"
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/table/automations-dialog.tsx
 #: components/views/calendar-feed.tsx
 msgid "Address copied"
 msgstr "Address copied"
+
+#: components/admin/api-tokens-tab.tsx
+msgid "Address of the API"
+msgstr "Address of the API"
 
 #: components/views/calendar-feed.tsx
 msgid "Address revoked"
@@ -1648,9 +1662,18 @@ msgstr "Adds up the numbers and lists of numbers."
 msgid "Administration"
 msgstr "Administration"
 
+#: components/admin/admin-sections.ts
+#: components/admin/api-tokens-tab.tsx
+msgid "Administration API"
+msgstr "Administration API"
+
 #: components/admin/open-base.tsx
 msgid "Administration shows what a base is made of, never its rows. To read them without being a member, an administrator opens the base for an hour and says why: its owners are told at once, in the app and by email, and it is written to the change trail. Nothing can be changed meanwhile; rows taken out as a file are on the trail too."
 msgstr "Administration shows what a base is made of, never its rows. To read them without being a member, an administrator opens the base for an hour and says why: its owners are told at once, in the app and by email, and it is written to the change trail. Nothing can be changed meanwhile; rows taken out as a file are on the trail too."
+
+#: components/admin/auth-labels.ts
+msgid "Administration token"
+msgstr "Administration token"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
@@ -2962,6 +2985,10 @@ msgstr "Copy row link"
 msgid "Copy the address"
 msgstr "Copy the address"
 
+#: components/admin/api-tokens-tab.tsx
+msgid "Copy the address of the API"
+msgstr "Copy the address of the API"
+
 #: components/table/share-dialog.tsx
 msgid "Copy the embed code"
 msgstr "Copy the embed code"
@@ -2982,6 +3009,7 @@ msgstr "Copy the SCIM address"
 msgid "Copy the selection, to paste it into any spreadsheet."
 msgstr "Copy the selection, to paste it into any spreadsheet."
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Copy the token"
 msgstr "Copy the token"
@@ -2990,6 +3018,7 @@ msgstr "Copy the token"
 msgid "Copy this address now: it will not be shown again."
 msgstr "Copy this address now: it will not be shown again."
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Copy this token now: it will not be shown again."
 msgstr "Copy this token now: it will not be shown again."
@@ -3104,6 +3133,7 @@ msgstr "Created"
 msgid "Created {when}"
 msgstr "Created {when}"
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/fields/field-meta.tsx
 msgid "Created by"
@@ -3254,6 +3284,10 @@ msgstr "Day"
 #: components/table/filter-builder.tsx
 msgid "Days"
 msgstr "Days"
+
+#: components/admin/api-tokens-tab.tsx
+msgid "Days it lives"
+msgstr "Days it lives"
 
 #: lib/known-text.ts
 msgid "Deals"
@@ -4085,6 +4119,7 @@ msgstr "Expand all"
 msgid "Expand row"
 msgstr "Expand row"
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/invitations-panel.tsx
 #: components/admin/scim-tab.tsx
 msgid "Expires"
@@ -5265,6 +5300,7 @@ msgstr "Invitation to “{name}”"
 msgid "Invitation withdrawn"
 msgstr "Invitation withdrawn"
 
+#: components/admin/api-tokens-tab.tsx
 #: components/shell/pending-invitations.tsx
 msgid "Invitations"
 msgstr "Invitations"
@@ -5365,6 +5401,7 @@ msgstr "It stays in the trash for {days} days."
 msgid "It stops running now and keeps its settings: someone who manages its base can switch it on again."
 msgstr "It stops running now and keeps its settings: someone who manages its base can switch it on again."
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "It's copied"
 msgstr "It's copied"
@@ -5404,6 +5441,10 @@ msgstr "Its operator changes it where the instance is installed. What was saved 
 #: components/admin/open-base.tsx
 msgid "Its owners are told now, with your name and this reason. You will read every table of the base and change nothing."
 msgstr "Its owners are told now, with your name and this reason. You will read every table of the base and change nothing."
+
+#: components/admin/api-tokens-tab.tsx
+msgid "Its requests are described, in OpenAPI 3.1, at:"
+msgstr "Its requests are described, in OpenAPI 3.1, at:"
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Its rows are counted in equal bins, from the least value to the greatest."
@@ -5553,6 +5594,7 @@ msgid "Last sign-in events"
 msgstr "Last sign-in events"
 
 #: components/admin/access-tab.tsx
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Last used"
 msgstr "Last used"
@@ -5692,6 +5734,14 @@ msgstr "Listening"
 #: components/fields/formula-docs.ts
 msgid "Lists"
 msgstr "Lists"
+
+#: components/admin/api-tokens-tab.tsx
+msgid "Lists the accounts, and makes one. An account made with a token is never an administrator and has no role on a base."
+msgstr "Lists the accounts, and makes one. An account made with a token is never an administrator and has no role on a base."
+
+#: components/admin/api-tokens-tab.tsx
+msgid "Lists the invitations that wait for an answer."
+msgstr "Lists the invitations that wait for an answer."
 
 #: components/shell/home-page.tsx
 msgid "Live in {source}"
@@ -5857,6 +5907,10 @@ msgstr "Make a read-only link"
 msgid "Make a restore point"
 msgstr "Make a restore point"
 
+#: components/admin/api-tokens-tab.tsx
+msgid "Make a token"
+msgstr "Make a token"
+
 #: components/admin/account-actions.tsx
 msgid "Make administrator"
 msgstr "Make administrator"
@@ -5916,6 +5970,10 @@ msgstr "Maximum"
 #: components/fields/field-editor.tsx
 msgid "Maximum rating"
 msgstr "Maximum rating"
+
+#: components/admin/api-tokens-tab.tsx
+msgid "May"
+msgstr "May"
 
 #: components/settings/api-docs.tsx
 msgid "MCP (AI)"
@@ -6171,6 +6229,7 @@ msgid "N days ago"
 msgstr "N days ago"
 
 #: components/admin/access-tab.tsx
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/group-page.tsx
 #: components/admin/groups-tab.tsx
 #: components/admin/identity-tab.tsx
@@ -6312,6 +6371,7 @@ msgstr "New table"
 msgid "New table in {name}"
 msgstr "New table in {name}"
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "New token"
 msgstr "New token"
@@ -6687,6 +6747,10 @@ msgstr "No tables yet"
 #: components/admin/scim-tab.tsx
 msgid "No token yet. Create one below and give it to your identity provider, which adds and updates accounts and groups with it."
 msgstr "No token yet. Create one below and give it to your identity provider, which adds and updates accounts and groups with it."
+
+#: components/admin/api-tokens-tab.tsx
+msgid "No token yet. Make one below, for what your script has to do and nothing more."
+msgstr "No token yet. Make one below, for what your script has to do and nothing more."
 
 #: components/fields/field-type-picker.tsx
 msgid "No type matches"
@@ -7631,6 +7695,10 @@ msgstr "Reads text as a date, in the given format (YYYY, MM, DD, HH, mm, ss)."
 msgid "Reads text as a number."
 msgstr "Reads text as a number."
 
+#: components/admin/api-tokens-tab.tsx
+msgid "Reads the settings, and changes those of the instance's running: maintenance, the banner, alerts, map tiles. Security is changed here only."
+msgstr "Reads the settings, and changes those of the instance's running: maintenance, the banner, alerts, map tiles. Security is changed here only."
+
 #: components/admin/health-tab.tsx
 msgid "Realtime"
 msgstr "Realtime"
@@ -8061,6 +8129,7 @@ msgstr "Retry scheduled ({error})"
 
 #: components/admin/access-tab.tsx
 #: components/admin/account-actions.tsx
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/emergency-section.tsx
 #: components/admin/outbound-tab.tsx
 #: components/admin/scim-tab.tsx
@@ -8072,6 +8141,7 @@ msgstr "Retry scheduled ({error})"
 msgid "Revoke"
 msgstr "Revoke"
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Revoke “{name}”?"
 msgstr "Revoke “{name}”?"
@@ -8096,6 +8166,7 @@ msgstr "Revoke every API token?"
 msgid "Revoke from Sharing"
 msgstr "Revoke from Sharing"
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Revoke the token {name}"
 msgstr "Revoke the token {name}"
@@ -8731,6 +8802,7 @@ msgid "Setting changed"
 msgstr "Setting changed"
 
 #: components/admin/admin-sections.ts
+#: components/admin/api-tokens-tab.tsx
 msgid "Settings"
 msgstr "Settings"
 
@@ -10550,6 +10622,10 @@ msgstr "This row was changed outside AnyGridDB since it was locked."
 msgid "This server version is not supported: PostgreSQL 13, MySQL 8.0, MariaDB 10.6, SQL Server 2017 or later"
 msgstr "This server version is not supported: PostgreSQL 13, MySQL 8.0, MariaDB 10.6, SQL Server 2017 or later"
 
+#: lib/errors.ts
+msgid "This setting is changed in Administration, not with a token"
+msgstr "This setting is changed in Administration, not with a token"
+
 #: components/public/public-view.tsx
 msgid "This share is password protected."
 msgstr "This share is password protected."
@@ -10589,6 +10665,10 @@ msgstr "This table is a synced copy: only formulas, lookups, rollups, and button
 #: components/fields/attachment-preview.tsx
 msgid "This text file cannot be previewed: download it."
 msgstr "This text file cannot be previewed: download it."
+
+#: lib/errors.ts
+msgid "This token does not have the scope the request asks for"
+msgstr "This token does not have the scope the request asks for"
 
 #: lib/errors.ts
 msgid "This value already exists in the client's database"
@@ -10716,15 +10796,18 @@ msgstr "Today's date, in the reader's time zone."
 msgid "Token"
 msgstr "Token"
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Token copied"
 msgstr "Token copied"
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/settings/account-settings.tsx
 msgid "Token name"
 msgstr "Token name"
 
+#: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Tokens"
 msgstr "Tokens"
@@ -11315,6 +11398,10 @@ msgstr "Week"
 msgid "What"
 msgstr "What"
 
+#: components/admin/api-tokens-tab.tsx
+msgid "What a script of yours asks of Administration: list and make accounts, list invitations, read the settings and change those of the instance's running. A token gives no proof that it is you, so it does nothing that asks for one here."
+msgstr "What a script of yours asks of Administration: list and make accounts, list invitations, read the settings and change those of the instance's running. A token gives no proof that it is you, so it does nothing that asks for one here."
+
 #: components/admin/alerts-section.tsx
 msgid "What administrators are told about: here, on the first page of Administration, and by email when it is set up, once a day at most while an alert stays open. An alert closes by itself once its cause is gone."
 msgstr "What administrators are told about: here, on the first page of Administration, and by email when it is set up, once a day at most while an alert stays open. An alert closes by itself once its cause is gone."
@@ -11354,6 +11441,10 @@ msgstr "What the source's account may read, and how each column will show. Tick 
 #: components/admin/settings-tab.tsx
 msgid "What the tile server's terms ask you to show, such as the name of who made the map."
 msgstr "What the tile server's terms ask you to show, such as the name of who made the map."
+
+#: components/admin/api-tokens-tab.tsx
+msgid "What the token may do"
+msgstr "What the token may do"
 
 #: components/admin/sign-in-trail.tsx
 msgid "What they owned handed to someone who stays"

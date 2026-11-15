@@ -443,6 +443,38 @@ export const instanceSettingsPatchSchema = z
 export type InstanceSettingsPatch = z.infer<typeof instanceSettingsPatchSchema>;
 
 /**
+ * The settings a token of the administration API may change (ADR 0086):
+ * what an operator's script has cause to, and nothing that decides who
+ * gets in, what an account may do, or what the instance says of itself.
+ * Those ask their author for the proof on screen, which a token cannot
+ * give. A list of what is allowed, so that a setting added later is not a
+ * token's until someone decides it is.
+ */
+export const API_SETTING_KEYS = [
+  "maintenance",
+  "banner",
+  "defaultLocale",
+  "attachmentMaxBytes",
+  "releaseCheck",
+  "alertBackupHours",
+  "alertStoragePercent",
+  "alertCertificateDays",
+  "alertSources",
+  "alertFailures",
+  "mapTileUrl",
+  "mapTileCredit",
+] as const satisfies ReadonlyArray<keyof InstanceSettingsPatch>;
+
+export const apiSettingsPatchSchema = instanceSettingsPatchSchema
+  .pick(
+    Object.fromEntries(API_SETTING_KEYS.map((key) => [key, true])) as Record<
+      (typeof API_SETTING_KEYS)[number],
+      true
+    >,
+  )
+  .strict();
+
+/**
  * The stored settings, key by key: a value that no longer fits (a bound
  * moved) falls back to its own default, never the others. An instance
  * that required a second factor of everyone (`requireMfa`) keeps it.

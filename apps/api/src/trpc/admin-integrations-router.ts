@@ -53,6 +53,13 @@ import {
 } from "../scim/tokens.js";
 import { handle } from "./guard.js";
 import { t } from "./init.js";
+import {
+  createAdminToken,
+  createAdminTokenInputSchema,
+  listAdminTokens,
+  revokeAdminToken,
+  revokeAdminTokenInputSchema,
+} from "../auth/admin-tokens.js";
 import { procedure, requireAdmin } from "./admin-procedure.js";
 
 /** Provisioning by an identity provider (SCIM 2.0, ADR 0038). */
@@ -85,6 +92,50 @@ export const scimRouter = t.router({
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
         await revokeScimToken(ctx.db, admin.id, input.tokenId);
+        return { ok: true as const };
+      }),
+    ),
+});
+
+/**
+ * The tokens of the administration API (ADR 0086). Making and revoking
+ * one are changes of Administration: each asks for the proof, by the rule
+ * every change here has.
+ */
+export const apiTokensRouter = t.router({
+  list: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return {
+        url: `${ctx.env.PUBLIC_URL}/api/v1/admin`,
+        tokens: await listAdminTokens(ctx.db),
+      };
+    }),
+  ),
+  /** A new token, shown once. */
+  create: procedure
+    .input(createAdminTokenInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        const made = await createAdminToken(ctx.db, admin.id, input);
+        ctx.req.log.info(
+          { actor: admin.id, token: made.id, scopes: input.scopes },
+          "administration token made",
+        );
+        return made;
+      }),
+    ),
+  revoke: procedure
+    .input(revokeAdminTokenInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        await revokeAdminToken(ctx.db, admin.id, input.tokenId);
+        ctx.req.log.info(
+          { actor: admin.id, token: input.tokenId },
+          "administration token revoked",
+        );
         return { ok: true as const };
       }),
     ),

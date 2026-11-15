@@ -44,6 +44,8 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   invalid_invitation: msg`This invitation does not exist or has expired`,
   invalid_origin: msg`Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Open AnyGridDB at that address, or use a TOTP app.`,
   invalid_totp_secret: msg`Invalid TOTP secret`,
+  admin_token_scope: msg`This token does not have the scope the request asks for`,
+  admin_token_setting: msg`This setting is changed in Administration, not with a token`,
   email_otp_invalid: msg`This code is wrong, or works no longer`,
   email_otp_rate_limited: msg`A code was sent a moment ago: wait a minute before asking for another`,
   email_otp_not_sent: msg`The code could not be sent: try again in a minute, or use a backup code`,
