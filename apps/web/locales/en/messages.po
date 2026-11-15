@@ -11836,3 +11836,16 @@ msgstr "Zoom in"
 #: components/views/map-view.tsx
 msgid "Zoom out"
 msgstr "Zoom out"
+
+#: components/shell/jobs-menu.tsx
+msgid "Hide finished"
+msgstr "Hide finished"
+
+#: components/shell/jobs-menu.tsx
+msgid "Show finished"
+msgstr "Show finished"
+
+#: components/shell/jobs-menu.tsx
+msgid "No running tasks"
+msgstr "No running tasks"
+
