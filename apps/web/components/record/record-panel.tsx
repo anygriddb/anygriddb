@@ -13,10 +13,12 @@ import {
 } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Check,
   ChevronDown,
   ChevronUp,
   CopyPlus,
   Printer,
+  RotateCcw,
   CornerDownRight,
   Link as LinkIcon,
   History as HistoryIcon,
@@ -284,7 +286,14 @@ function Comments({ rowId }: { rowId: string }) {
   }
   const list = comments.data?.comments ?? [];
   const roots = list.filter((comment) => !comment.parentId);
-  const render = (comment: (typeof list)[number], reply: boolean) => (
+  // A resolved thread stays where it was, said so and written in the
+  // quieter ink: what was settled is still read, and anyone may open it
+  // again. Never by fading the whole of it: faded text is hard to read.
+  const render = (
+    comment: (typeof list)[number],
+    reply: boolean,
+    resolved: boolean,
+  ) => (
     <li key={comment.id} className={cn("flex gap-2", reply && "ml-8")}>
       <Avatar name={comment.displayName} />
       <div className="min-w-0 flex-1">
@@ -295,6 +304,13 @@ function Comments({ rowId }: { rowId: string }) {
               table.locale === "fr" ? "fr-FR" : "en-GB",
             )}
             {comment.updatedAt ? ` · ${t`edited`}` : ""}
+            {!reply && comment.resolvedAt
+              ? ` · ${
+                  comment.resolvedByName
+                    ? t`resolved by ${{ name: comment.resolvedByName }}`
+                    : t`resolved`
+                }`
+              : ""}
           </span>
         </p>
         {editing?.id === comment.id ? (
@@ -335,6 +351,7 @@ function Comments({ rowId }: { rowId: string }) {
             className={cn(
               "text-sm break-words whitespace-pre-wrap",
               comment.deleted && "text-muted-foreground italic",
+              resolved && "text-muted-foreground",
             )}
           >
             {comment.deleted ? (
@@ -353,6 +370,32 @@ function Comments({ rowId }: { rowId: string }) {
                 onClick={() => setReplyTo(comment.id)}
               >
                 {t`Reply`}
+              </button>
+            ) : null}
+            {!reply && canComment(table.role) ? (
+              <button
+                type="button"
+                className="hover:text-foreground"
+                onClick={() =>
+                  void run(() =>
+                    trpc.rows.resolveComment.mutate({
+                      commentId: comment.id,
+                      resolved: !comment.resolvedAt,
+                    }),
+                  )
+                }
+              >
+                {comment.resolvedAt ? (
+                  <>
+                    <RotateCcw className="inline h-3 w-3" aria-hidden />{" "}
+                    {t`Reopen`}
+                  </>
+                ) : (
+                  <>
+                    <Check className="inline h-3 w-3" aria-hidden />{" "}
+                    {t`Resolve`}
+                  </>
+                )}
               </button>
             ) : null}
             {comment.authorId === session.data?.id ? (
@@ -387,12 +430,15 @@ function Comments({ rowId }: { rowId: string }) {
   return (
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-3">
-        {roots.map((comment) => [
-          render(comment, false),
-          ...list
-            .filter((reply) => reply.parentId === comment.id)
-            .map((reply) => render(reply, true)),
-        ])}
+        {roots.map((comment) => {
+          const resolved = comment.resolvedAt !== null && !comment.deleted;
+          return [
+            render(comment, false, resolved),
+            ...list
+              .filter((reply) => reply.parentId === comment.id)
+              .map((reply) => render(reply, true, resolved)),
+          ];
+        })}
         {list.length === 0 ? (
           <li className="text-sm text-muted-foreground">{t`No comments`}</li>
         ) : null}

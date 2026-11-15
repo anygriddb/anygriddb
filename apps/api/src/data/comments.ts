@@ -10,6 +10,7 @@ export async function listComments(
   const rows = await db
     .selectFrom("comments as c")
     .innerJoin("users as u", "u.id", "c.authorId")
+    .leftJoin("users as r", "r.id", "c.resolvedBy")
     .select([
       "c.id",
       "c.body",
@@ -18,7 +19,9 @@ export async function listComments(
       "c.createdAt",
       "c.updatedAt",
       "c.deletedAt",
+      "c.resolvedAt",
       "u.displayName",
+      "r.displayName as resolvedByName",
     ])
     .where("c.tableId", "=", tableId)
     .where("c.rowId", "=", rowId)
@@ -34,6 +37,9 @@ export async function listComments(
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt?.toISOString() ?? null,
     deleted: row.deletedAt !== null,
+    // A thread is resolved on its first comment; who did may be gone.
+    resolvedAt: row.resolvedAt?.toISOString() ?? null,
+    resolvedByName: row.resolvedAt ? row.resolvedByName : null,
   }));
 }
 
@@ -69,6 +75,53 @@ export async function commentTableId(
     throw new AppError("no_row");
   }
   return row.tableId;
+}
+
+/** The table and the row a comment is on. */
+export async function commentPlace(
+  db: Database,
+  commentId: string,
+): Promise<{ tableId: string; rowId: string }> {
+  const row = await db
+    .selectFrom("comments")
+    .select(["tableId", "rowId"])
+    .where("id", "=", commentId)
+    .executeTakeFirst();
+  if (!row) {
+    throw new AppError("no_row");
+  }
+  return row;
+}
+
+/**
+ * Resolves a thread, or opens it again: said of its first comment, by
+ * anyone who may comment on the row. A reply is no thread, and a deleted
+ * comment keeps none. Resolving what is resolved, or opening what is
+ * open, changes nothing: the first to do it stays the one who did.
+ */
+export async function resolveComment(
+  db: Database,
+  input: { commentId: string; userId: string; resolved: boolean },
+): Promise<void> {
+  const thread = await db
+    .selectFrom("comments")
+    .select(["parentId", "deletedAt"])
+    .where("id", "=", input.commentId)
+    .executeTakeFirst();
+  if (!thread || thread.parentId !== null || thread.deletedAt !== null) {
+    throw new AppError("invalid_comment");
+  }
+  await db
+    .updateTable("comments")
+    .set(
+      input.resolved
+        ? { resolvedAt: new Date(), resolvedBy: input.userId }
+        : { resolvedAt: null, resolvedBy: null },
+    )
+    .where("id", "=", input.commentId)
+    .where("deletedAt", "is", null)
+    .where("resolvedAt", input.resolved ? "is" : "is not", null)
+    .execute();
 }
 
 export async function addComment(
@@ -109,6 +162,15 @@ export async function addComment(
     .executeTakeFirst();
   if (!inserted) {
     throw new AppError("no_row");
+  }
+  // Someone has more to say: a reply opens a resolved thread again.
+  if (input.parentId) {
+    await db
+      .updateTable("comments")
+      .set({ resolvedAt: null, resolvedBy: null })
+      .where("id", "=", input.parentId)
+      .where("resolvedAt", "is not", null)
+      .execute();
   }
   return { id: inserted.id };
 }

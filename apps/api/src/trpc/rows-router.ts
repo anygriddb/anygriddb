@@ -18,6 +18,7 @@ import {
   parseMentions,
   pruneViewConfig,
   type ReadSpec,
+  resolveCommentInputSchema,
   restoreRowsInputSchema,
   roleAllows,
   rowsAggregateInputSchema,
@@ -33,9 +34,11 @@ import {
 } from "@anygriddb/core";
 import {
   addComment,
+  commentPlace,
   commentTableId,
   deleteComment,
   listComments,
+  resolveComment,
   updateComment,
 } from "../data/comments.js";
 import { assertJobCapacity, enqueueJob } from "../jobs.js";
@@ -705,6 +708,26 @@ export const rowsRouter = t.router({
             }),
           );
         }
+        return { ok: true as const };
+      }),
+    ),
+  /**
+   * A thread resolved, or opened again, by anyone who may comment on its
+   * row: a row the person's rules keep from them is not theirs to close.
+   */
+  resolveComment: procedure
+    .input(resolveCommentInputSchema)
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const place = await commentPlace(ctx.db, input.commentId);
+        const access = await guardTable(ctx, place.tableId, "comment");
+        const { engine } = await engineFor(ctx, access);
+        await assertRowsInScope(ctx.db, engine, [place.rowId]);
+        await resolveComment(ctx.db, {
+          commentId: input.commentId,
+          userId: access.user.id,
+          resolved: input.resolved,
+        });
         return { ok: true as const };
       }),
     ),
