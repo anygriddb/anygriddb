@@ -40,7 +40,7 @@ import { FIELD_LABELS } from "../fields/field-meta";
 import { ConfirmDialog } from "../shell/dialogs";
 import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
 import { useAdminPage, useAdminPageSize } from "./admin-page-size";
-import { ENGINE_MARKS, EngineMark } from "./engine-mark";
+import { EngineMark } from "./engine-mark";
 import { RefreshFields } from "./refresh-fields";
 
 type Source = RouterOutputs["admin"]["sources"]["list"][number];
@@ -162,11 +162,7 @@ export function SourcesTab() {
                 <tr key={source.id} className="border-t border-border">
                   <td className="px-3 py-2 font-medium">
                     <span className="flex items-center gap-1.5">
-                      <EngineMark
-                        engine={source.engine}
-                        className="h-4 w-4"
-                        title={ENGINE_MARKS[source.engine].label}
-                      />
+                      <EngineMark engine={source.engine} className="h-4 w-4" />
                       {source.name}
                     </span>
                   </td>
