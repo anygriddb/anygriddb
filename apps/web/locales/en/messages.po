@@ -469,7 +469,6 @@ msgstr "{0, plural, one {Revoke their API token too: a token is never handed ove
 msgid "{0} of {1} lines"
 msgstr "{0} of {1} lines"
 
-
 #. placeholder {0}: event.displayName ?? "AnyGridDB"
 #. placeholder {0}: event.userName ?? "—"
 #. placeholder {1}: event.actingName
@@ -515,6 +514,11 @@ msgstr "{actor}, an administrator, gave the group {group} a role on {base} ({rol
 #: components/shell/notification-items.ts
 msgid "{actor}, an administrator, gave themselves a role on {base} ({role}). Their reason: {reason}"
 msgstr "{actor}, an administrator, gave themselves a role on {base} ({role}). Their reason: {reason}"
+
+#. placeholder {0}: item.data?.reason ?? "—"
+#: components/shell/notification-items.ts
+msgid "{actor}, an administrator, is acting as you until {until}. Their reason: {0}"
+msgstr "{actor}, an administrator, is acting as you until {until}. Their reason: {0}"
 
 #: components/shell/notification-items.ts
 msgid "{actor}, an administrator, opened {base} to read it until {until}. Their reason: {reason}"
@@ -1460,6 +1464,15 @@ msgstr "ACS URL"
 msgid "ACS URL for the identity provider:"
 msgstr "ACS URL for the identity provider:"
 
+#. placeholder {0}: account.displayName
+#: components/admin/account-page.tsx
+msgid "Act as {0}"
+msgstr "Act as {0}"
+
+#: components/admin/account-page.tsx
+msgid "Act as this person"
+msgstr "Act as this person"
+
 #: components/admin/trails.tsx
 #: components/fields/field-editor.tsx
 #: components/table/automations-dialog.tsx
@@ -1729,6 +1742,11 @@ msgstr "Administration"
 #: components/admin/api-tokens-tab.tsx
 msgid "Administration API"
 msgstr "Administration API"
+
+#. placeholder {0}: session.data.actingAs.displayName
+#: components/admin/admin-shell.tsx
+msgid "Administration is closed while you are acting as {0}. Stop from the banner to come back."
+msgstr "Administration is closed while you are acting as {0}. Stop from the banner to come back."
 
 #: components/admin/open-base.tsx
 msgid "Administration shows what a base is made of, never its rows. To read them without being a member, an administrator opens the base for an hour and says why: its owners are told at once, in the app and by email, and it is written to the change trail. Nothing can be changed meanwhile; rows taken out as a file are on the trail too."
@@ -2486,6 +2504,7 @@ msgstr "Call a URL"
 
 #: components/admin/account-bases.tsx
 #: components/admin/account-handoff.tsx
+#: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/base-admin-members.tsx
 #: components/admin/group-page.tsx
@@ -4601,6 +4620,10 @@ msgstr "Folder not found"
 #: components/admin/security-tab.tsx
 msgid "For"
 msgstr "For"
+
+#: components/admin/account-page.tsx
+msgid "For 30 minutes you see and do what they can. Every change is recorded under your name, as you acting as them. They are told."
+msgstr "For 30 minutes you see and do what they can. Every change is recorded under your name, as you acting as them. They are told."
 
 #: components/admin/settings-tab.tsx
 msgid "For an upgrade or a restore. Turning it on signs everyone else out; their API tokens stop working until it is off."
@@ -7947,6 +7970,7 @@ msgstr "Reads the settings, and changes those of the instance's running: mainten
 msgid "Realtime"
 msgstr "Realtime"
 
+#: components/admin/account-page.tsx
 #: components/admin/give-base-role.tsx
 #: components/admin/open-base.tsx
 #: components/admin/trails.tsx
@@ -9561,6 +9585,10 @@ msgstr "Start with no table, or import a file."
 msgid "Started"
 msgstr "Started"
 
+#: components/admin/auth-labels.ts
+msgid "Started acting as this person"
+msgstr "Started acting as this person"
+
 #: components/shell/new-table-dialog.tsx
 msgid "Starter fields"
 msgstr "Starter fields"
@@ -9596,6 +9624,22 @@ msgstr "Status change refused"
 #: components/shell/welcome-page.tsx
 msgid "Steps"
 msgstr "Steps"
+
+#: components/shell/app-shell.tsx
+msgid "Stop"
+msgstr "Stop"
+
+#: lib/errors.ts
+msgid "Stop acting as the other person first"
+msgstr "Stop acting as the other person first"
+
+#: lib/errors.ts
+msgid "Stop acting as this person before using Administration"
+msgstr "Stop acting as this person before using Administration"
+
+#: components/admin/auth-labels.ts
+msgid "Stopped acting as this person"
+msgstr "Stopped acting as this person"
 
 #: lib/known-text.ts
 msgid "Stopped: automation loop"
@@ -12107,6 +12151,11 @@ msgstr "You already have a role on this base: open it as its member"
 msgid "You are a member of this base: open it as its members do."
 msgstr "You are a member of this base: open it as its members do."
 
+#. placeholder {0}: acting.displayName
+#: components/shell/app-shell.tsx
+msgid "You are acting as {0} until {until}."
+msgstr "You are acting as {0} until {until}."
+
 #: components/shell/pending-invitations.tsx
 msgid "You are invited to {base} as {role}"
 msgstr "You are invited to {base} as {role}"
@@ -12118,6 +12167,10 @@ msgstr "You can close this window: the import goes on and stays in the jobs menu
 #: components/shell/welcome-page.tsx
 msgid "You can enable it later from your account settings."
 msgstr "You can enable it later from your account settings."
+
+#: lib/errors.ts
+msgid "You cannot act as this person"
+msgstr "You cannot act as this person"
 
 #: components/views/calendar-feed.tsx
 msgid "You have had an address since {date}."
