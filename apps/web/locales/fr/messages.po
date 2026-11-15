@@ -11836,3 +11836,8 @@ msgstr "Zoom avant"
 #: components/views/map-view.tsx
 msgid "Zoom out"
 msgstr "Zoom arrière"
+
+#: components/shell/sidebar.tsx
+msgid "Copy link"
+msgstr "Copier le lien"
+

@@ -12,6 +12,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
   ArrowUp,
+  ChevronsDownUp,
+  ChevronsUpDown,
   ChevronDown,
   ChevronRight,
   Code2,
@@ -20,6 +22,7 @@ import {
   FileUp,
   Database,
   Folder,
+  Link2,
   MoreHorizontal,
   Pencil,
   Pin,
@@ -45,7 +48,13 @@ import { useTrackJob } from "../../lib/jobs";
 import type { NavigationMode } from "../../lib/narrow-screen";
 import { useTrashActions, useTrashDays } from "../../lib/trash";
 import { useChannel } from "../../lib/realtime";
+import { useCopy } from "../../lib/clipboard";
 import { useCatalog } from "../../lib/session";
+import {
+  readSidebarCollapsed,
+  toggleSidebarFold,
+  writeSidebarCollapsed,
+} from "../../lib/sidebar-collapsed";
 import { resolveShortcuts } from "../../lib/shortcut-list";
 import { useShortcuts } from "../../lib/shortcuts";
 import {
@@ -284,7 +293,15 @@ export function Sidebar({
   const snapshotGaps = useSnapshotGaps();
   const { trashed } = useTrashActions();
   const [dialog, setDialog] = useState<Dialog>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsedState] =
+    useState<Set<string>>(readSidebarCollapsed);
+  const setCollapsed: Dispatch<SetStateAction<Set<string>>> = (update) => {
+    setCollapsedState((current) => {
+      const next = typeof update === "function" ? update(current) : update;
+      writeSidebarCollapsed(next);
+      return next;
+    });
+  };
   const [width, setWidth] = useState(readSidebarWidth);
   const aside = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -527,21 +544,44 @@ export function Sidebar({
             </ul>
           </section>
         ) : null}
-        <div className="mb-1 flex items-center justify-between px-1">
+        <div className="mb-1 flex items-center justify-between gap-1 px-1">
           <span className="text-xs font-medium text-muted-foreground">
             {t`Bases`}
           </span>
-          {user.canCreateBases === false ? null : (
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-6 w-6"
-              aria-label={t`New base`}
-              onClick={() => setDialog({ kind: "create-base" })}
-            >
-              <Plus className="h-4 w-4" aria-hidden />
-            </Button>
-          )}
+          <div className="flex items-center">
+            {bases.length > 0 ? (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                aria-label={
+                  bases.every((base) => collapsed.has(base.id))
+                    ? t`Expand all`
+                    : t`Collapse all`
+                }
+                onClick={() => {
+                  setCollapsed((current) => toggleSidebarFold(current, bases));
+                }}
+              >
+                {bases.every((base) => collapsed.has(base.id)) ? (
+                  <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden />
+                ) : (
+                  <ChevronsDownUp className="h-3.5 w-3.5" aria-hidden />
+                )}
+              </Button>
+            ) : null}
+            {user.canCreateBases === false ? null : (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                aria-label={t`New base`}
+                onClick={() => setDialog({ kind: "create-base" })}
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+              </Button>
+            )}
+          </div>
         </div>
         {bases.length === 0 && catalog.isSuccess ? (
           <div className="px-1 py-2 text-sm">
@@ -835,6 +875,7 @@ function SidebarBase({
 }) {
   const { t } = useLingui();
   const navigate = useNavigate();
+  const copy = useCopy();
   // The base and table of the page shown, whichever page it is.
   const params = useParams({ strict: false });
   const open = !collapsed.has(base.id);
@@ -922,6 +963,14 @@ function SidebarBase({
                 {t`Duplicate base`}
               </DropdownMenuItem>
             ) : null}
+            <DropdownMenuItem
+              onSelect={() =>
+                copy(`${window.location.origin}/b/${base.id}`, t`Link copied`)
+              }
+            >
+              <Link2 className="h-4 w-4" aria-hidden />
+              {t`Copy link`}
+            </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() =>
                 void navigate({
