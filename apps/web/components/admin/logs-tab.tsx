@@ -38,7 +38,12 @@ export function LogsTab({
   const api = useTRPC();
   const invalid = logsRangeInvalid(search);
   const [pageSize, setPageSize] = useAdminPageSize();
-  const { page: pageNum, setPage, offset, limit } = useAdminPage(
+  const {
+    page: pageNum,
+    setPage,
+    offset,
+    limit,
+  } = useAdminPage(
     pageSize,
     `${search.level ?? "info"}:${search.q ?? ""}:${search.from ?? ""}:${search.to ?? ""}:${search.sort ?? "time"}:${search.dir ?? "desc"}`,
   );

@@ -35,13 +35,19 @@ describe("the process log's address", () => {
     expect(logsQuery({}, { limit: 200, offset: 0 })).toEqual({
       level: "info",
       limit: 200,
+      offset: 0,
       query: undefined,
       from: undefined,
       to: undefined,
       sort: "time",
       direction: "desc",
     });
-    expect(logsQuery({ level: "error", q: "pool", dir: "asc" }, { limit: 200, offset: 0 })).toMatchObject({
+    expect(
+      logsQuery(
+        { level: "error", q: "pool", dir: "asc" },
+        { limit: 200, offset: 0 },
+      ),
+    ).toMatchObject({
       level: "error",
       query: "pool",
       direction: "asc",
