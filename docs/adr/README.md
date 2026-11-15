@@ -94,3 +94,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0079](0079-api-token-allow-delete.md)               | API tokens that write without deleting                                                  | Accepted                                    |
 | [0080](0080-install-token.md)                        | The first account takes a token from the command line                                   | Accepted                                    |
 | [0081](0081-account-data-export.md)                  | An account's data exported as a file, written a page at a time                          | Accepted                                    |
+| [0082](0082-operator-way-back-in.md)                 | An operator's way back in when no administrator can sign in                             | Accepted                                    |

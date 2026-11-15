@@ -3758,6 +3758,10 @@ msgstr "Enable a second factor to create and manage bases."
 msgid "Enabled"
 msgstr "Enabled"
 
+#: components/admin/sign-in-trail.tsx
+msgid "Enabled again"
+msgstr "Enabled again"
+
 #: components/fields/formula-docs.ts
 msgid "Encodes the text to put it in a web address."
 msgstr "Encodes the text to put it in a web address."
@@ -8719,6 +8723,7 @@ msgid "Sign the row"
 msgstr "Sign the row"
 
 #: components/admin/security-tab.tsx
+#: components/admin/sign-in-trail.tsx
 msgid "Sign-in addresses"
 msgstr "Sign-in addresses"
 
@@ -11176,6 +11181,7 @@ msgid "Who may create what, whom owners may invite, and what happens to accounts
 msgstr "Who may create what, whom owners may invite, and what happens to accounts nobody uses."
 
 #: components/admin/security-tab.tsx
+#: components/admin/sign-in-trail.tsx
 msgid "Who may sign in with a password"
 msgstr "Who may sign in with a password"
 

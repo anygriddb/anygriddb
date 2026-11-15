@@ -366,6 +366,33 @@ sooner, and the nightly purge deletes those that have ended. They count in the s
 and ends with the instance, and a file to keep elsewhere is still the
 base's export.
 
+## When no administrator can sign in
+
+A password forgotten where no email goes out, a second factor lost with
+its backup codes, an identity provider out of reach, a list of sign-in
+addresses that leaves your network out: Administration cannot help, since
+nobody can open it. Run this where the instance runs (ADR 0082):
+
+```sh
+docker compose -f compose.yml -f compose.release.yml \
+  --env-file .env --env-file image-pin.env exec app \
+  anygriddb admin recover --email ada@example.org
+```
+
+The account of that address becomes an active administrator, and the
+command prints a link that sets its password, once, within the hour, to
+this terminal and nowhere else. Add what the case calls for:
+
+| Flag                      | When                                                                                                                                                                                                                              |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--clear-factors`         | The second factor is lost too. The account's factors and sessions are removed, and it enrols a factor again. Without the flag they stay: the link alone does not open an account that has one.                                    |
+| `--create "Ada Lovelace"` | The address has no account, or its account signs in through the identity provider and keeps no password: name another address, and an account is made for it under that name. Without the flag, an address nobody has is refused. |
+| `--any-address`           | The list of sign-in addresses (Administration, Security) leaves you out. It is emptied: set it again once signed in.                                                                                                              |
+
+Each change is on the sign-in trail as made from the command line, and
+reaches your collector if the trail is shipped to one. Running the command
+again changes nothing more and replaces the link.
+
 ## Update AnyGridDB
 
 Back up first (below). With the published image, read the release's

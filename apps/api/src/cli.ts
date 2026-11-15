@@ -11,20 +11,27 @@
  *   anygriddb keys rotate
  *   anygriddb backups record --name <name> --started <time> [--failed] [--bytes <n>] [--encrypted]
  *   anygriddb install-token
+ *   anygriddb admin recover --email <address> [--create <name>] [--clear-factors] [--any-address]
  *
  * They read the API's environment. `migrate` needs only the storage
- * settings; `sweep`, `backups record`, and `install-token` also need
- * DATABASE_URL; `keys status` and `keys rotate` need DATABASE_URL and the
- * encryption keys.
+ * settings; `sweep`, `backups record`, `install-token`, and `admin
+ * recover` also need DATABASE_URL; `keys status` and `keys rotate` need
+ * DATABASE_URL and the encryption keys.
  */
 import { parseArgs } from "node:util";
 import { createDb } from "@anygriddb/db";
+import type { RecoveryChange, RecoveryRefusal } from "./auth/admin-recovery.js";
 import { rotateKeys, type KeyRotation } from "./auth/key-rotation.js";
 import { mintInstallToken } from "./auth/installation-token.js";
 import { mintKey } from "./auth/key-ring.js";
 import { recordBackup } from "./alerts.js";
 import { BUILD, describeBuild } from "./build-info.js";
-import { readEncryptionKey, readFileSettings, secretFromEnv } from "./env.js";
+import {
+  publicUrl,
+  readEncryptionKey,
+  readFileSettings,
+  secretFromEnv,
+} from "./env.js";
 import { healthAuthorities, probeHealth, publicHost } from "./health-probe.js";
 import {
   issueServiceCertificates,
@@ -59,6 +66,13 @@ const USAGE = `Usage:
       Prints the token the instance's first account is made with. It works
       once, for an hour; asking again replaces it. Nothing is printed
       once the instance has an account.
+  anygriddb admin recover --email <address> [--create <name>] [--clear-factors] [--any-address]
+      When no administrator can sign in. Makes the account of that address
+      an active administrator and prints a link that sets its password,
+      once, within the hour. --create makes the account, under that name,
+      when the address has none; --clear-factors removes its second
+      factors; --any-address empties the list of addresses sign-in is
+      allowed from. What it changed is on the sign-in trail.
   anygriddb backups record --name <name> --started <time> [--failed] [--bytes <n>] [--encrypted]
       Tells the instance a backup ended, for Administration to show and
       to raise an alert when backups stop: scripts/backup.sh runs it, and
@@ -390,6 +404,85 @@ async function installToken(): Promise<number> {
   }
 }
 
+const RECOVERY_REFUSALS: Record<RecoveryRefusal, string> = {
+  no_accounts:
+    "This instance has no account yet: its first is made with the token of anygriddb install-token.",
+  unknown_address:
+    "No account has this address. Check it, or add --create <name> to make an administrator's account for it.",
+  reserved_address:
+    "This address is the one erased accounts take: name a person's address.",
+  provider_account:
+    "The account of this address has no password: its identity provider signs it in. Name another address with --create <name>; the administrator made can put the provider right.",
+};
+
+const RECOVERY_CHANGES: Record<RecoveryChange, string> = {
+  created: "The account was made, as an administrator.",
+  admin: "The account is now an administrator.",
+  enabled: "The account is enabled again.",
+  factors: "Its second factors were removed: it enrols one again.",
+  addresses: "Sign-in is allowed from any address again.",
+};
+
+/** One account made an active administrator, with a link to its password. */
+async function adminRecover(args: string[]): Promise<number> {
+  const { values } = parseArgs({
+    args,
+    options: {
+      email: { type: "string" },
+      create: { type: "string" },
+      "clear-factors": { type: "boolean", default: false },
+      "any-address": { type: "boolean", default: false },
+    },
+    strict: true,
+  });
+  // Loaded here: the health check runs this file every few seconds, and
+  // has no use for passwords and mail.
+  const { recoverAdministrator, RecoveryRefused, recoveryInputSchema } =
+    await import("./auth/admin-recovery.js");
+  const { resetLinkUrl } = await import("./auth/security-mail.js");
+  const input = recoveryInputSchema.safeParse({
+    email: values.email?.trim(),
+    create: values.create,
+    clearFactors: values["clear-factors"],
+    anyAddress: values["any-address"],
+  });
+  if (!input.success) {
+    throw new UsageError(
+      input.error.issues[0]?.path[0] === "create"
+        ? "--create takes the account's name: letters and digits first, 80 characters at most"
+        : "--email takes the account's address",
+    );
+  }
+  // Read before anything is changed: the link is of no use without it.
+  const address = publicUrl(process.env, Number(process.env.PORT ?? "4000"));
+  const { db, close } = createDb(databaseUrl(), { max: 1 });
+  try {
+    const done = await recoverAdministrator(db, input.data);
+    const lines = done.changed.map((change) => RECOVERY_CHANGES[change]);
+    if (lines.length === 0) {
+      lines.push("The account already was an active administrator.");
+    }
+    if (done.addressRanges > 0) {
+      lines.push(
+        `Sign-in is allowed from ${String(done.addressRanges)} address ${done.addressRanges === 1 ? "range" : "ranges"} only: run this again with --any-address if yours is outside.`,
+      );
+    }
+    // To the terminal that asked, and nowhere else.
+    process.stdout.write(
+      `${lines.join("\n")}\nSet its password, once, before ${done.link.expiresAt.toISOString()}:\n${resetLinkUrl(address, done.link.token)}\n`,
+    );
+    return 0;
+  } catch (error) {
+    if (error instanceof RecoveryRefused) {
+      process.stderr.write(`${RECOVERY_REFUSALS[error.reason]}\n`);
+      return 1;
+    }
+    throw error;
+  } finally {
+    await close();
+  }
+}
+
 async function main(argv: string[]): Promise<number> {
   const [group, command, ...rest] = argv;
   try {
@@ -420,6 +513,9 @@ async function main(argv: string[]): Promise<number> {
     }
     if (group === "install-token" && command === undefined) {
       return await installToken();
+    }
+    if (group === "admin" && command === "recover") {
+      return await adminRecover(rest);
     }
     if (group === undefined || group === "help" || group === "--help") {
       process.stdout.write(USAGE);
