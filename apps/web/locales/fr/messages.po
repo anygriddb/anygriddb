@@ -7808,6 +7808,10 @@ msgstr "Renommer le tableau de bord"
 msgid "Rename view"
 msgstr "Renommer la vue"
 
+#: components/record/record-panel.tsx
+msgid "Reopen"
+msgstr "Rouvrir"
+
 #: components/fields/formula-docs.ts
 msgid "Repeats a text, up to 10,000 characters."
 msgstr "Répète un texte, jusqu’à 10 000 caractères."
@@ -7903,6 +7907,18 @@ msgstr "Redimensionner"
 #: components/shell/sidebar.tsx
 msgid "Resize the sidebar"
 msgstr "Redimensionner la barre latérale"
+
+#: components/record/record-panel.tsx
+msgid "Resolve"
+msgstr "Résoudre"
+
+#: components/record/record-panel.tsx
+msgid "resolved"
+msgstr "résolu"
+
+#: components/record/record-panel.tsx
+msgid "resolved by {name}"
+msgstr "résolu par {name}"
 
 #: components/settings/api-docs.tsx
 msgid "REST at {url}. Authenticate with a token: Authorization: Bearer ag_…"

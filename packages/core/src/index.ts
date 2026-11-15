@@ -247,6 +247,7 @@ export {
   resolveChangeReason,
   assertRequiredValues,
   isBlankCell,
+  resolveCommentInputSchema,
   restoreRowsInputSchema,
   revokeApiTokenInputSchema,
   rowIdSchema,

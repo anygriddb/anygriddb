@@ -514,6 +514,11 @@ export const updateCommentInputSchema = z.object({
 });
 
 export const deleteCommentInputSchema = z.object({ commentId: z.uuid() });
+
+/** A thread resolved, or opened again: named by its first comment. */
+export const resolveCommentInputSchema = z
+  .object({ commentId: z.uuid(), resolved: z.boolean() })
+  .strict();
 export const addLookupInputSchema = z.object({
   tableId: z.uuid(),
   name: userColumnName.optional(),

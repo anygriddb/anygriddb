@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   importCommitInputSchema,
   moveRowsInputSchema,
+  resolveCommentInputSchema,
   rowsReadInputSchema,
   TABLE_ACTIVITY_MAX,
   tableActivityInputSchema,
@@ -61,6 +62,30 @@ describe("importCommitInputSchema", () => {
         ],
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("resolveCommentInputSchema", () => {
+  const commentId = "11111111-1111-4111-8111-111111111111";
+
+  it("takes a thread and whether it is resolved", () => {
+    expect(
+      resolveCommentInputSchema.parse({ commentId, resolved: true }),
+    ).toEqual({ commentId, resolved: true });
+    expect(
+      resolveCommentInputSchema.parse({ commentId, resolved: false }).resolved,
+    ).toBe(false);
+  });
+
+  it("refuses what names no comment, says nothing, or says more", () => {
+    for (const input of [
+      { commentId: "not-an-id", resolved: true },
+      { commentId },
+      { commentId, resolved: "yes" },
+      { commentId, resolved: true, by: commentId },
+    ]) {
+      expect(resolveCommentInputSchema.safeParse(input).success).toBe(false);
+    }
   });
 });
 

@@ -7808,6 +7808,10 @@ msgstr "Rename the dashboard"
 msgid "Rename view"
 msgstr "Rename view"
 
+#: components/record/record-panel.tsx
+msgid "Reopen"
+msgstr "Reopen"
+
 #: components/fields/formula-docs.ts
 msgid "Repeats a text, up to 10,000 characters."
 msgstr "Repeats a text, up to 10,000 characters."
@@ -7903,6 +7907,18 @@ msgstr "Resize"
 #: components/shell/sidebar.tsx
 msgid "Resize the sidebar"
 msgstr "Resize the sidebar"
+
+#: components/record/record-panel.tsx
+msgid "Resolve"
+msgstr "Resolve"
+
+#: components/record/record-panel.tsx
+msgid "resolved"
+msgstr "resolved"
+
+#: components/record/record-panel.tsx
+msgid "resolved by {name}"
+msgstr "resolved by {name}"
 
 #: components/settings/api-docs.tsx
 msgid "REST at {url}. Authenticate with a token: Authorization: Bearer ag_…"

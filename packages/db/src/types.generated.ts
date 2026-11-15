@@ -297,6 +297,8 @@ export interface Comments {
   deletedAt: Timestamp | null;
   id: Generated<string>;
   parentId: string | null;
+  resolvedAt: Timestamp | null;
+  resolvedBy: string | null;
   rowId: string;
   tableId: string;
   updatedAt: Timestamp | null;

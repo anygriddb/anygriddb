@@ -297,6 +297,24 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
   expect(await saved).toContain('"due":"2026-03-14"');
   await expect(editDue).toBeFocused();
 
+  // A thread of comments is resolved, said with who did it, and opened
+  // again: by its own action, or by a reply.
+  await panel.getByLabel("Comment", { exact: true }).fill("Check the label");
+  await panel.getByRole("button", { name: "Comment", exact: true }).click();
+  await expect(panel.getByText("Check the label")).toBeVisible();
+  await panel.getByRole("button", { name: "Resolve" }).click();
+  await expect(panel.getByText("resolved by Panel User")).toBeVisible();
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await panel.getByRole("button", { name: "Reopen" }).click();
+  await expect(panel.getByText("resolved by Panel User")).toBeHidden();
+  await panel.getByRole("button", { name: "Resolve" }).click();
+  await panel.getByRole("button", { name: "Reply" }).click();
+  await panel.getByLabel("Comment", { exact: true }).fill("One more thing");
+  await panel.getByRole("button", { name: "Comment", exact: true }).click();
+  await expect(panel.getByText("One more thing")).toBeVisible();
+  await expect(panel.getByText("resolved by Panel User")).toBeHidden();
+  await expect(panel.getByRole("button", { name: "Resolve" })).toBeVisible();
+
   const done = panel.getByRole("checkbox", { name: "Done" });
   await done.focus();
   saved = savedValues(page);
