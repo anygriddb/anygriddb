@@ -387,7 +387,11 @@ describe("the administration API", () => {
     // The link goes to the address, never back to the caller.
     expect(made.body).not.toContain("/reset/");
     const mail = mailText(await smtp.next(address("new")));
-    expect(mail).toMatch(/https:\/\/grid\.example\.org\/reset\/[\w-]{43}/);
+    // The mail holds the link on a line of its own: read as that line, it
+    // is this instance's address and nothing before or after it.
+    const mailed =
+      mail.split(/\r?\n/).find((line) => line.startsWith("https://")) ?? "";
+    expect(mailed).toMatch(/^https:\/\/grid\.example\.org\/reset\/[\w-]{43}$/);
     expect(mail).toContain("Ada Admin");
     const account = await db
       .selectFrom("users")
@@ -461,7 +465,9 @@ describe("the administration API", () => {
       })
     ).json<{ sent: boolean; link?: string; expiresAt?: string }>();
     expect(handed.sent).toBe(false);
-    expect(handed.link).toMatch(/^https:\/\/grid\.example\.org\/reset\//);
+    expect(handed.link).toMatch(
+      /^https:\/\/grid\.example\.org\/reset\/[\w-]{43}$/,
+    );
     env.SMTP_HOST = "127.0.0.1";
     clearSmtpCache(db);
   });

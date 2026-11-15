@@ -628,7 +628,7 @@ test("an administrator makes a token for a script, which changes a setting, and 
     await openAdmin(page, "Connections", "Administration API");
     await expect(
       page.getByLabel("Address of the API", { exact: true }),
-    ).toHaveValue(/\/api\/v1\/admin$/);
+    ).toHaveValue(/^https:\/\/[^/]+\/api\/v1\/admin$/);
     await page.getByLabel("Token name", { exact: true }).fill("Nightly");
     await page.getByRole("checkbox", { name: /^Settings/ }).check();
     expect(await accessibilityViolations(page)).toEqual([]);
