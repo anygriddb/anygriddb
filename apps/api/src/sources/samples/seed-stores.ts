@@ -168,7 +168,8 @@ function search(
         port: 59243,
         method,
         path,
-        ca: CA,
+        // The lab's authority is trusted through NODE_EXTRA_CA_CERTS, which
+        // scripts/lab/seed.sh sets: Node reads it once, at start.
         timeout: 60_000,
         auth: `admin:${SEARCH_ADMIN_PASSWORD}`,
         headers: body === undefined ? {} : { "content-type": type },
