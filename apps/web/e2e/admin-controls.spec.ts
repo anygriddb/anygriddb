@@ -329,6 +329,7 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await openAdmin(page, "Instance", "Logs");
     await expect(page.getByLabel("Show")).toHaveValue("error");
     await page.getByLabel("Show").selectOption("info");
+    await expect(page.getByLabel("Show")).toHaveValue("info");
     await expect(
       page.getByText("instance settings changed").first(),
     ).toBeVisible();

@@ -78,7 +78,9 @@ export function visitSearch<T extends object>(
 
 /**
  * The filters a page shows. A link with parameters opens as written. A
- * bare address opens what this tab last chose.
+ * bare address opens what this tab last chose. Clearing the filters
+ * (navigating to a bare address after the page had parameters) drops
+ * the memory: it must not put the old choice back.
  */
 export function useRememberedSearch<T extends object>(
   key: string,
@@ -92,21 +94,33 @@ export function useRememberedSearch<T extends object>(
   );
   const serial = JSON.stringify(url);
   const bare = Object.keys(url).length === 0;
-  const sent = useRef("");
+  /** Null until this mount has synced once; then the last address serial. */
+  const sent = useRef<string | null>(null);
   useEffect(() => {
     if (!bare) {
       store.write(url);
       sent.current = serial;
       return;
     }
-    const stored = store.read();
-    const next = JSON.stringify(stored);
-    if (next !== "{}" && sent.current !== next) {
-      sent.current = next;
-      navigate(stored);
+    if (sent.current === null) {
+      const stored = store.read();
+      const next = JSON.stringify(stored);
+      if (next !== "{}") {
+        sent.current = next;
+        navigate(stored);
+      } else {
+        sent.current = "{}";
+      }
+      return;
     }
+    // Bare after we had parameters: the reader cleared the filters.
+    store.write({} as T);
+    sent.current = "{}";
   }, [bare, navigate, serial, store, url]);
   if (!bare) return url;
-  const stored = store.read();
-  return Object.keys(stored).length > 0 ? stored : url;
+  if (sent.current === null) {
+    const stored = store.read();
+    return Object.keys(stored).length > 0 ? stored : url;
+  }
+  return url;
 }

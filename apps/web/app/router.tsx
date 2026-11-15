@@ -30,11 +30,7 @@ import {
   type ChangesSearch,
   type SignInSearch,
 } from "../components/admin/trail-search";
-import {
-  browserSession,
-  rememberSearch,
-  useRememberedSearch,
-} from "../lib/remembered-search";
+import { useRememberedSearch } from "../lib/remembered-search";
 import { AuthPage } from "../components/auth/auth-page";
 import { NotFound } from "../components/shell/not-found";
 import { PageCrashed } from "../components/shell/page-crashed";
@@ -430,13 +426,7 @@ const adminChangesRoute = createRoute({
       <ChangesTrail
         search={search}
         onSearch={(update) => {
-          const next = update(search);
-          rememberSearch(
-            "ag.admin.changes",
-            parseChangesSearch,
-            browserSession(),
-          ).write(next);
-          go(next);
+          go(update(search));
         }}
       />
     );
@@ -466,13 +456,7 @@ const adminSignInsRoute = createRoute({
       <SignInTrail
         search={search}
         onSearch={(update) => {
-          const next = update(search);
-          rememberSearch(
-            "ag.admin.sign-ins",
-            parseSignInSearch,
-            browserSession(),
-          ).write(next);
-          go(next);
+          go(update(search));
         }}
       />
     );
@@ -502,13 +486,7 @@ const adminLogsRoute = createRoute({
       <LogsTab
         search={search}
         onSearch={(update) => {
-          const next = update(search);
-          rememberSearch(
-            "ag.admin.logs",
-            parseLogsSearch,
-            browserSession(),
-          ).write(next);
-          go(next);
+          go(update(search));
         }}
       />
     );
