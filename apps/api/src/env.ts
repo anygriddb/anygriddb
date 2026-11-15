@@ -190,7 +190,7 @@ export function isLoopback(hostname: string): boolean {
  * the first release, is refused rather than ignored: an instance that still
  * sets it alone would start on localhost, with every link it mails wrong.
  */
-function publicUrl(source: NodeJS.ProcessEnv, port: number): string {
+export function publicUrl(source: NodeJS.ProcessEnv, port: number): string {
   if (!source.PUBLIC_URL && source.WEB_ORIGIN) {
     throw new Error(
       "WEB_ORIGIN is no longer read: set PUBLIC_URL to the same address",

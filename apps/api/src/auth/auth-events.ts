@@ -35,6 +35,8 @@ export type AuthDetail =
   /** A role of Administration given or taken away (`account_updated`). */
   | "admin_granted"
   | "admin_revoked"
+  /** A disabled account enabled again from the command line (ADR 0082). */
+  | "enabled"
   /** What a leaving person owned and made, handed to another (ROADMAP #21). */
   | "handed_over"
   | "support_granted"

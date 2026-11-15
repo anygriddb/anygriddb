@@ -1,10 +1,14 @@
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import pg from "pg";
 import {
   accessibilityViolations,
+  enableTotp,
   findAccount,
   mailedLink,
   mailedMessage,
+  nextTotp,
   openAdmin,
   proveItIsYou,
   signIn,
@@ -29,6 +33,33 @@ const from = (address: string) => ({
   extraHTTPHeaders: { "x-forwarded-for": address },
 });
 test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.10" } });
+
+const root = fileURLToPath(new URL("../../../", import.meta.url));
+
+/** `anygriddb admin recover`, run as the operator does, where the instance runs. */
+function recover(...args: string[]) {
+  return spawnSync(
+    "pnpm",
+    [
+      "--silent",
+      "--filter",
+      "@anygriddb/api",
+      "cli",
+      "admin",
+      "recover",
+      ...args,
+    ],
+    {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        DATABASE_URL: controlUrl,
+        PUBLIC_URL: process.env.PUBLIC_URL ?? "https://localhost:4010",
+      },
+    },
+  );
+}
 
 // The security policy (ADR 0043): an administrator sets the lock, the
 // account locks after failed passwords, the administrator unlocks it and
@@ -563,4 +594,73 @@ test("an administrator names the instance, and the sign-in page and its mail car
     await control.query("delete from instance_logo");
     await control.end();
   }
+});
+
+// When no administrator can sign in (ADR 0082), the operator runs a
+// command where the instance runs: one account becomes an administrator
+// and gets a link that sets its password. Its second factor stays, so the
+// link alone opens nothing. It makes an administrator: after the journeys
+// that count them.
+test("the operator's command brings an administrator back in", async ({
+  browser,
+}) => {
+  const own = await browser.newContext(from("198.51.100.40"));
+  const page = await own.newPage();
+  const blocked = watchPolicy(page);
+  const stamp = uniqueStamp();
+  const email = `e2e-recovered-${stamp}@example.com`;
+  const name = `Recovered ${stamp}`;
+  await signUp(page, { email, name, password: "correct-horse-battery" });
+  const secret = await enableTotp(page);
+
+  // An address nobody has: nothing is done, and the command says why.
+  const unknown = recover("--email", `e2e-nobody-${stamp}@example.com`);
+  expect(unknown.status).toBe(1);
+  expect(unknown.stderr).toContain("No account has this address");
+  expect(unknown.stdout).toBe("");
+
+  const done = recover("--email", email);
+  expect(done.status, done.stderr).toBe(0);
+  expect(done.stdout).toContain("The account is now an administrator.");
+  const link = /https:\/\/\S+\/reset\/\S+/.exec(done.stdout)?.[0] ?? "";
+  expect(link).not.toBe("");
+
+  // The link sets the password, in a browser that holds no session.
+  const elsewhere = await browser.newContext(from("198.51.100.41"));
+  const fresh = await elsewhere.newPage();
+  await fresh.goto(new URL(link).pathname);
+  await fresh
+    .getByLabel("New password", { exact: true })
+    .fill("a-recovered-passphrase");
+  await fresh.getByLabel("New password, again").fill("a-recovered-passphrase");
+  await fresh.getByRole("button", { name: "Set the password" }).click();
+  await expect(fresh.getByText("Your password is changed")).toBeVisible();
+  // Once: the link is spent, and the session of before ended.
+  await fresh.reload();
+  await expect(fresh.getByRole("alert")).toContainText(
+    "This link no longer works",
+  );
+  await page.reload();
+  await page.waitForURL(/\/login/);
+
+  // The second factor stayed: the new password is asked for it.
+  await signIn(fresh, email, "a-recovered-passphrase");
+  await fresh.getByLabel("Authenticator code").fill(nextTotp(secret));
+  await fresh.getByRole("button", { name: "Verify" }).click();
+  await fresh.waitForURL((url) => !url.pathname.startsWith("/login"));
+
+  // Administration is theirs, and its trail says where the role came from.
+  await fresh.goto("/admin");
+  await openAdmin(fresh, "Trails", "Sign-ins");
+  const theirs = fresh.getByRole("row", { name: new RegExp(name) });
+  await expect(
+    theirs.filter({ hasText: "Made an administrator" }),
+  ).toContainText("Command line");
+  await expect(
+    theirs.filter({ hasText: "Reset link sent" }).first(),
+  ).toContainText("Command line");
+
+  await own.close();
+  await elsewhere.close();
+  expect(blocked).toEqual([]);
 });
