@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readinessProbe } from "./readiness.js";
+import { migrationsCurrent, readinessProbe } from "./readiness.js";
 
 describe("readiness", () => {
   it("is ready when the database answers, whatever realtime does", async () => {
@@ -31,6 +31,38 @@ describe("readiness", () => {
       withinMs: 10,
     });
     expect((await waiting()).ok).toBe(false);
+  });
+
+  it("stays ready without a migration check, and not ready when one is behind", async () => {
+    const current = readinessProbe({
+      ping: () => Promise.resolve(1),
+      listening: () => true,
+      migrations: () => Promise.resolve(true),
+    });
+    expect(await current()).toEqual({
+      ok: true,
+      database: true,
+      realtime: true,
+      migrations: true,
+    });
+    const behind = readinessProbe({
+      ping: () => Promise.resolve(1),
+      listening: () => true,
+      migrations: () => Promise.resolve(false),
+    });
+    expect(await behind()).toMatchObject({ ok: false, migrations: false });
+    expect(
+      migrationsCurrent(
+        ["0000_identity_catalog"],
+        ["0000_identity_catalog", "0109_instance_integrations"],
+      ),
+    ).toBe(false);
+    expect(
+      migrationsCurrent(
+        ["0000_identity_catalog", "0109_instance_integrations"],
+        ["0109_instance_integrations"],
+      ),
+    ).toBe(true);
   });
 
   it("asks the database once a second at most", async () => {

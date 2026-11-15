@@ -1,6 +1,6 @@
 import cookie from "@fastify/cookie";
 import websocket from "@fastify/websocket";
-import type { Database } from "@anygriddb/db";
+import { migrationNames, type Database } from "@anygriddb/db";
 import { AppError, ERRORS, mapTileOrigin } from "@anygriddb/core";
 import { TRPCError } from "@trpc/server";
 import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
@@ -22,7 +22,9 @@ import { registerCompression } from "./compression.js";
 import { authorizeGrid } from "./auth/access.js";
 import { passkeysEligible } from "./auth/relying-party.js";
 import { registerRateLimit } from "./rate-limit.js";
-import { readinessProbe } from "./readiness.js";
+import { metricsBearer } from "./notify/metrics-token.js";
+import { registerWebsocketGauge } from "./observability.js";
+import { migrationsCurrent, readinessProbe } from "./readiness.js";
 import { registerDataTransferRoutes } from "./data-transfer.js";
 import { registerMcp } from "./mcp/http.js";
 import { registerAdminApi } from "./admin-api.js";
@@ -197,6 +199,7 @@ export async function createApp(deps: {
     (tokenHash) => sessionHashAlive(deps.db, tokenHash),
     (tokenHashes) => sessionHashesAlive(deps.db, tokenHashes),
   );
+  registerWebsocketGauge(() => hub.connections());
   const stopHeartbeat = hub.startHeartbeat();
   app.addHook("onClose", () => {
     stopHeartbeat();
@@ -278,10 +281,9 @@ export async function createApp(deps: {
   // Prometheus text for the operator's token only (ADR 0018); without a
   // token, there is nothing here.
   app.get("/metrics", async (request, reply) => {
-    if (
-      !metricsAllowed(deps.env.METRICS_TOKEN, request.headers.authorization)
-    ) {
-      return reply.code(deps.env.METRICS_TOKEN ? 401 : 404).send();
+    const token = await metricsBearer(deps.db, deps.env);
+    if (!metricsAllowed(token, request.headers.authorization)) {
+      return reply.code(token ? 401 : 404).send();
     }
     return reply
       .header("content-type", registry.contentType)
@@ -377,6 +379,15 @@ export async function createApp(deps: {
       message: "request failed",
       ...(error instanceof AppError ? { context: { code: error.code } } : {}),
     });
+    if (status >= 500) {
+      void import("./notify/sentry.js")
+        .then(({ captureServerError }) =>
+          captureServerError(deps.db, deps.env.AUTH_ENCRYPTION_KEY),
+        )
+        .catch((reportError: unknown) => {
+          request.log.error({ err: reportError }, "error report failed");
+        });
+    }
     if (reply.sent) {
       return;
     }
@@ -410,19 +421,41 @@ export async function createApp(deps: {
   });
 
   app.get("/health", () => ({ ok: true }));
+  app.get("/healthz", () => ({ ok: true }));
   // Up is not ready: a balancer or a monitor asks whether the database
-  // answers, and gets 503 while it does not.
-  const ready = readinessProbe({
-    ping: () => sql`select 1`.execute(deps.db),
-    listening: () => deps.bus.listening(),
+  // answers, and gets 503 while it does not. `/ready` stays that check.
+  // `/readyz` also requires every migration this process knows.
+  const ping = () => sql`select 1`.execute(deps.db);
+  const listening = () => deps.bus.listening();
+  const ready = readinessProbe({ ping, listening });
+  const readyWithMigrations = readinessProbe({
+    ping,
+    listening,
+    migrations: async () => {
+      const expected = await migrationNames();
+      const applied = await sql<{ name: string }>`
+        select name from schema_migrations
+      `.execute(deps.db);
+      return migrationsCurrent(
+        applied.rows.map((row) => row.name),
+        expected,
+      );
+    },
   });
-  app.get("/ready", async (_request, reply) => {
-    const state = await ready();
+  const sendReady = async (
+    probe: () => Promise<{ ok: boolean }>,
+    reply: FastifyReply,
+  ) => {
+    const state = await probe();
     return reply
       .code(state.ok ? 200 : 503)
       .header("cache-control", "no-store")
       .send(state);
-  });
+  };
+  app.get("/ready", async (_request, reply) => sendReady(ready, reply));
+  app.get("/readyz", async (_request, reply) =>
+    sendReady(readyWithMigrations, reply),
+  );
 
   app.get("/ws", { websocket: true }, (socket, request) => {
     // The page subscribes as soon as the link opens, before its session is

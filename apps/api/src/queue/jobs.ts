@@ -62,6 +62,8 @@ export const TASKS = {
   accountWelcome: "account_welcome",
   /** Daily usage snapshot and load-bucket purge (ROADMAP #40, #41). */
   usageSnapshot: "usage_snapshot",
+  /** One attempt to deliver one notification (ADR 0092). */
+  integrationDelivery: "integration_delivery",
 } as const;
 
 export type TaskName = (typeof TASKS)[keyof typeof TASKS];

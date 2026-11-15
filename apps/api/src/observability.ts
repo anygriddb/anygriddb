@@ -1,11 +1,12 @@
 /**
- * Metrics and traces (ADR 0018). Metrics are Prometheus text on `/metrics`,
- * served only when the operator sets METRICS_TOKEN and only to a request
- * that carries it. Traces are OpenTelemetry spans, made only when the
- * operator names an OTLP endpoint: without one, the tracer does nothing
+ * Metrics and traces (ADR 0018, ADR 0092). `/metrics` is Prometheus text,
+ * served when a token is set in the environment or saved by an
+ * administrator. The environment wins. Traces are OpenTelemetry spans,
+ * made when an endpoint is named: without one, the tracer does nothing
  * and its SDK is never loaded. Nothing leaves the instance by default.
  */
 import { timingSafeEqual } from "node:crypto";
+import type pg from "pg";
 import {
   context,
   type Span,
@@ -176,6 +177,75 @@ export function registerPoolGauge(
   return () => {
     clearInterval(sampler);
   };
+}
+
+const queryDuration = new Histogram({
+  name: "anygriddb_db_query_duration_seconds",
+  help: "Time of one query on AnyGridDB's own database. The statement is not a label.",
+  buckets: SECONDS,
+  registers: [registry],
+});
+
+/** Records one query against the product database. The text is not kept. */
+export function observeDbQuery(seconds: number): void {
+  queryDuration.observe(seconds);
+}
+
+function isPromise(value: unknown): value is Promise<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof value.then === "function"
+  );
+}
+
+/** Times every query the pool runs. A callback form is left to the driver. */
+export function watchQueries(pool: pg.Pool): void {
+  const original = pool.query.bind(pool);
+  const timed = (...args: unknown[]): unknown => {
+    const started = performance.now();
+    const result = (original as (...inner: unknown[]) => unknown)(...args);
+    if (!isPromise(result)) return result;
+    return result.then(
+      (value: unknown) => {
+        observeDbQuery((performance.now() - started) / 1000);
+        return value;
+      },
+      (error: unknown) => {
+        observeDbQuery((performance.now() - started) / 1000);
+        throw error;
+      },
+    );
+  };
+  pool.query = timed as pg.Pool["query"];
+}
+
+/** The size of AnyGridDB's own database, read when Prometheus scrapes. */
+export function registerDatabaseSizeGauge(db: Database): void {
+  new Gauge({
+    name: "anygriddb_database_size_bytes",
+    help: "Size of AnyGridDB's own database, in bytes.",
+    registers: [registry],
+    async collect() {
+      const result = await sql<{ bytes: string }>`
+        select pg_database_size(current_database())::text as bytes
+      `.execute(db);
+      this.set(Number(result.rows[0]?.bytes ?? 0));
+    },
+  });
+}
+
+/** Open browser sockets on this process. */
+export function registerWebsocketGauge(count: () => number): void {
+  new Gauge({
+    name: "anygriddb_websocket_connections",
+    help: "Browser sockets open on this process.",
+    registers: [registry],
+    collect() {
+      this.set(count());
+    },
+  });
 }
 
 /* ------------------------------------------------------------------ */

@@ -63,6 +63,8 @@ export type AutomationDeps = {
   smtp: SmtpConfig;
   webOrigin: string;
   log: (error: unknown, message: string) => void;
+  /** Present when a scheduled run should ping a monitor. */
+  key?: import("./auth/key-ring.js").KeyRing;
 };
 
 /** Runs one automation may start per minute, whatever triggers it. */
@@ -1126,16 +1128,46 @@ export async function runQueuedAutomation(
   if (!automation) return;
   const parsed = parseStored(automation);
   const event = input.event;
-  await runAutomation(deps, automation, {
-    ...(event?.rowId ? { rowId: event.rowId } : {}),
-    depth: event?.depth ?? 0,
-    trigger: parsed?.trigger.type ?? "row",
-    ...(event?.actorId ? { triggeredBy: event.actorId } : {}),
-    ...(parsed?.trigger.type === "row_deleted"
-      ? { deleted: event?.auditId ? { auditId: event.auditId } : {} }
-      : {}),
-    ...(input.values ? { extra: input.values } : {}),
-  });
+  const watched =
+    parsed?.trigger.type === "schedule" ? `automation:${automation.id}` : null;
+  if (watched && deps.key) {
+    const { pulse } = await import("./notify/pulse.js");
+    await pulse(
+      { db: deps.db, key: deps.key, log: deps.log },
+      watched,
+      "start",
+    );
+  }
+  try {
+    await runAutomation(deps, automation, {
+      ...(event?.rowId ? { rowId: event.rowId } : {}),
+      depth: event?.depth ?? 0,
+      trigger: parsed?.trigger.type ?? "row",
+      ...(event?.actorId ? { triggeredBy: event.actorId } : {}),
+      ...(parsed?.trigger.type === "row_deleted"
+        ? { deleted: event?.auditId ? { auditId: event.auditId } : {} }
+        : {}),
+      ...(input.values ? { extra: input.values } : {}),
+    });
+    if (watched && deps.key) {
+      const { pulse } = await import("./notify/pulse.js");
+      await pulse(
+        { db: deps.db, key: deps.key, log: deps.log },
+        watched,
+        "success",
+      );
+    }
+  } catch (error) {
+    if (watched && deps.key) {
+      const { pulse } = await import("./notify/pulse.js");
+      await pulse(
+        { db: deps.db, key: deps.key, log: deps.log },
+        watched,
+        "fail",
+      );
+    }
+    throw error;
+  }
 }
 
 /** The enabled automations of the event's table that it triggers. */

@@ -11,11 +11,17 @@ import { migrateQueue } from "./queue/worker.js";
 import { PgBus } from "./realtime/bus.js";
 import { createApp } from "./server.js";
 import {
+  registerDatabaseSizeGauge,
   registerPoolGauge,
   registerQueueGauge,
-  startTracing,
+  watchQueries,
 } from "./observability.js";
 import { registerSourceLoadWriter } from "./source-load.js";
+import {
+  applyTracing,
+  savedTracing,
+  stopCurrentTracing,
+} from "./notify/tracing.js";
 import { loadTls } from "./tls/authority.js";
 
 console.info(`${describeBuild(BUILD)}: starting`);
@@ -27,7 +33,13 @@ const { db, pool, close } = createDb(env.DATABASE_URL, {
     processLog.rememberFailure("database connection failed", error);
   },
 });
-await migrateDb(pool);
+try {
+  await migrateDb(pool);
+} catch (error) {
+  const { notifyMigrationFailure } = await import("./notify/migrate.js");
+  await notifyMigrationFailure(db, error);
+  throw error;
+}
 // Row writes queue their events in graphile-worker: its schema comes first.
 await migrateQueue(env.DATABASE_URL, {
   error: (meta, message) => console.error(message, loggedFields(meta)),
@@ -58,16 +70,21 @@ await bus.start();
 const tls = await loadTls(env, (message) => {
   console.warn(message);
 });
-// Spans go to the operator's collector, when one is named (ADR 0018).
-const stopTracing = await startTracing({
-  endpoint: env.OTEL_EXPORTER_OTLP_ENDPOINT,
-  headers: env.OTEL_EXPORTER_OTLP_HEADERS,
+// Spans go to the operator's collector, when one is named (ADR 0018, 0092).
+const savedTraces = env.OTEL_EXPORTER_OTLP_ENDPOINT
+  ? undefined
+  : await savedTracing(db, env.AUTH_ENCRYPTION_KEY).catch(() => undefined);
+await applyTracing({
+  endpoint: env.OTEL_EXPORTER_OTLP_ENDPOINT ?? savedTraces?.endpoint,
+  headers: env.OTEL_EXPORTER_OTLP_HEADERS ?? savedTraces?.headers,
   serviceName: env.OTEL_SERVICE_NAME,
   version: BUILD.version,
 });
 registerQueueGauge(db);
 registerPoolGauge(pool);
 registerSourceLoadWriter(db);
+registerDatabaseSizeGauge(db);
+watchQueries(pool);
 const app = await createApp({ env, db, files, bus, tls });
 if (tls.authority) {
   app.log.info(
@@ -122,7 +139,7 @@ const shutdown = async (reason: string) => {
   force.unref();
   try {
     await app.close();
-    await stopTracing();
+    await stopCurrentTracing();
     await bus.close();
     await close();
   } finally {

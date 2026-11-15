@@ -72,6 +72,8 @@ export type AuthDetail =
   | "oidc"
   | "saml"
   | "siem"
+  /** A notification channel saved, changed, or removed (ADR 0092). */
+  | "notify"
   /** Operator mail recipients (ADR 0052): all active, or a chosen list. */
   | "all_active"
   | "selected"
@@ -111,6 +113,18 @@ export async function recordAuthEvent(
       ip,
     })
     .execute();
+  if (
+    (event.action === "account_created" || event.action === "account_erased") &&
+    event.userId
+  ) {
+    const { emitInstanceEvent } = await import("../notify/dispatch.js");
+    await emitInstanceEvent(db, () => undefined, {
+      type:
+        event.action === "account_created" ? "user.created" : "user.deleted",
+      subject: event.userId,
+      fields: {},
+    });
+  }
   // Best-effort fan-out to the collectors (ADR 0056, 0084); failures must
   // not break the trail.
   try {

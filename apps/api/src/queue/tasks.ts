@@ -78,6 +78,10 @@ import { announceRows } from "../data/announce.js";
 import { liveColumn } from "../data/live.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 import {
+  purgeIntegrationDeliveries,
+  runIntegrationDelivery,
+} from "../notify/dispatch.js";
+import {
   deliverOperatorMail,
   operatorMailPayloadSchema,
 } from "../operator-mail.js";
@@ -229,6 +233,32 @@ async function fanOut(db: Database, events: readonly RowEvent[]) {
   );
 }
 
+async function withPulse(
+  deps: TaskDeps,
+  schedule: string,
+  body: () => Promise<void>,
+): Promise<void> {
+  const { pulse } = await import("../notify/pulse.js");
+  const beat = (phase: "start" | "success" | "fail") =>
+    pulse(
+      {
+        db: deps.db,
+        key: deps.env.AUTH_ENCRYPTION_KEY,
+        log: deps.log,
+      },
+      schedule,
+      phase,
+    );
+  await beat("start");
+  try {
+    await body();
+    await beat("success");
+  } catch (error) {
+    await beat("fail");
+    throw error;
+  }
+}
+
 export function taskGroups(deps: TaskDeps): WorkerGroup[] {
   async function mailSmtp() {
     return (await resolveSmtp(deps.db, deps.env)).config;
@@ -260,6 +290,7 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
       smtp: await mailSmtp(),
       webOrigin: deps.env.PUBLIC_URL,
       log: deps.log,
+      key: deps.env.AUTH_ENCRYPTION_KEY,
     };
   }
   const sealDeps: SealDeps = {
@@ -278,6 +309,7 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
     db: deps.db,
     bus: deps.bus,
     log: deps.log,
+    key: deps.env.AUTH_ENCRYPTION_KEY,
   };
   const runners = jobRunners({
     db: deps.db,
@@ -313,6 +345,18 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
       const { deliveryId } = deliveryPayloadSchema.parse(payload);
       await runDeliveryAttempt(await hookDeps(), deliveryId);
     },
+    [TASKS.integrationDelivery]: async (payload) => {
+      const { deliveryId } = deliveryPayloadSchema.parse(payload);
+      await runIntegrationDelivery(
+        {
+          db: deps.db,
+          key: deps.env.AUTH_ENCRYPTION_KEY,
+          log: deps.log,
+          env: deps.env,
+        },
+        deliveryId,
+      );
+    },
     [TASKS.assignmentsEvent]: consumer(async (event) =>
       handleAssignments(await notifyDeps(), event),
     ),
@@ -341,42 +385,46 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
         certificateExpires: deps.certificateExpires ?? (() => null),
       });
     },
-    [TASKS.auditPurge]: async () => {
-      const { auditRetentionDays } = await readSettings(deps.db);
-      await purgeAuditEvents(deps.db, auditRetentionDays);
-    },
-    [TASKS.purge]: async () => {
-      await purgeDeliveries(deps.db);
-      await purgeAuthEvents(
-        deps.db,
-        (await readSettings(deps.db)).authRetentionDays,
-      );
-      await purgeResetLinks(deps.db);
-      await purgeSignupRequests(deps.db);
-      await purgeExpiredSignIns(deps.db);
-      await sweepInactiveAccounts({
-        db: deps.db,
-        env: deps.env,
-        log: { error: (object, message) => deps.log(object, message) },
-      });
-      await purgeNotifications(deps.db);
-      await purgeRuns(deps.db);
-      await purgeJobs({ db: deps.db, files: deps.files, log: deps.log });
-      await purgeLocks(deps.db);
-      await purgeStagedUploads(deps.db, deps.files, (error) => {
-        deps.log(error, "staged upload delete failed");
-      });
-      await purgeStagedAttachments(deps.db, deps.files, (error) => {
-        deps.log(error, "staged attachment delete failed");
-      });
-    },
-    [TASKS.fileSweep]: async () => {
-      await sweepOrphanFiles(deps, {
-        onError: (_key, error) => {
-          deps.log(error, "orphan file delete failed");
-        },
-      });
-    },
+    [TASKS.auditPurge]: () =>
+      withPulse(deps, "audit_purge", async () => {
+        const { auditRetentionDays } = await readSettings(deps.db);
+        await purgeAuditEvents(deps.db, auditRetentionDays);
+      }),
+    [TASKS.purge]: () =>
+      withPulse(deps, "purge", async () => {
+        await purgeDeliveries(deps.db);
+        await purgeIntegrationDeliveries(deps.db);
+        await purgeAuthEvents(
+          deps.db,
+          (await readSettings(deps.db)).authRetentionDays,
+        );
+        await purgeResetLinks(deps.db);
+        await purgeSignupRequests(deps.db);
+        await purgeExpiredSignIns(deps.db);
+        await sweepInactiveAccounts({
+          db: deps.db,
+          env: deps.env,
+          log: { error: (object, message) => deps.log(object, message) },
+        });
+        await purgeNotifications(deps.db);
+        await purgeRuns(deps.db);
+        await purgeJobs({ db: deps.db, files: deps.files, log: deps.log });
+        await purgeLocks(deps.db);
+        await purgeStagedUploads(deps.db, deps.files, (error) => {
+          deps.log(error, "staged upload delete failed");
+        });
+        await purgeStagedAttachments(deps.db, deps.files, (error) => {
+          deps.log(error, "staged attachment delete failed");
+        });
+      }),
+    [TASKS.fileSweep]: () =>
+      withPulse(deps, "file_sweep", async () => {
+        await sweepOrphanFiles(deps, {
+          onError: (_key, error) => {
+            deps.log(error, "orphan file delete failed");
+          },
+        });
+      }),
     [TASKS.externalSettle]: async () => {
       await settleExternalWrites(deps.db, deps.log);
     },
@@ -408,15 +456,16 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
         tableId && rowIds ? { tableId, rowIds } : undefined,
       );
     },
-    [TASKS.trashPurge]: async () => {
-      // The purge itself is a product job: it is logged like the others.
-      await enqueueSystemJob(
-        queueDeps,
-        "trash_purge",
-        { due: true },
-        3_600_000,
-      );
-    },
+    [TASKS.trashPurge]: () =>
+      withPulse(deps, "trash_purge", async () => {
+        // The purge itself is a product job: it is logged like the others.
+        await enqueueSystemJob(
+          queueDeps,
+          "trash_purge",
+          { due: true },
+          3_600_000,
+        );
+      }),
     [TASKS.releaseCheck]: async () => {
       await runScheduledReleaseCheck(deps.db, { log: deps.log });
     },

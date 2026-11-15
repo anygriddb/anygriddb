@@ -177,6 +177,11 @@ export class GridHub {
   /** The sockets of each channel: a message goes to these, and no further. */
   private readonly subscribers = new Map<string, Set<WebSocket>>();
 
+  /** Open browser sockets on this process. */
+  connections(): number {
+    return this.sockets.size;
+  }
+
   constructor(
     private readonly bus: Bus,
     private readonly db: Database,

@@ -198,6 +198,12 @@ export const ERRORS = {
 
   // Integrations.
   invalid_webhook: [BAD, "Invalid webhook"],
+  invalid_integration: [BAD, "Invalid integration"],
+  unknown_integration: [404, "Unknown integration"],
+  integration_limit: [BAD, "Too many integrations"],
+  /** An https address the notification rules refuse (ADR 0092). */
+  invalid_notify_target: [BAD, "Invalid notification target"],
+  notify_needs_mail: [BAD, "Mail is not configured"],
   invalid_delivery: [BAD, "Invalid delivery"],
   /** The syslog collector refused, or did not answer, a test event. */
   syslog_unreachable: [BAD, "Syslog collector unreachable"],

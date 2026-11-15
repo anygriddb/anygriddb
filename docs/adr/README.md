@@ -30,7 +30,7 @@ accepted as the work they decide was done; each carries its own date.
 | [0015](0015-authentication-libraries.md)             | Authentication libraries                                                                | Accepted                                    |
 | [0016](0016-field-and-row-rules-in-the-engine.md)    | Field and row rules are enforced by the read engine                                     | Implemented                                 |
 | [0017](0017-schema-per-base.md)                      | One PostgreSQL schema per base; links across bases deferred                             | Accepted                                    |
-| [0018](0018-observability.md)                        | Logs, Prometheus metrics, OpenTelemetry off by default                                  | Implemented                                 |
+| [0018](0018-observability.md)                        | Logs, Prometheus metrics, OpenTelemetry off by default                                  | Implemented; amended by 0092                |
 | [0019](0019-deployment.md)                           | One image, offline install, no telemetry                                                | Accepted                                    |
 | [0020](0020-kept-as-is.md)                           | Pieces kept as they are                                                                 | Accepted                                    |
 | [0021](0021-typescript-end-to-end-measured.md)       | TypeScript end to end, argued from what is actually shared; CodeMirror 6 formula editor | Accepted                                    |
@@ -62,7 +62,7 @@ accepted as the work they decide was done; each carries its own date.
 | [0047](0047-oracle-dialect-spike.md)                 | Oracle dialect: thin mode, shipped on the five-engine conformance suite                 | Accepted                                    |
 | [0048](0048-versions-and-releases.md)                | Versions and releases: SemVer in the root package.json, tags, labelled image            | Accepted                                    |
 | [0049](0049-realtime-gaps.md)                        | Realtime gaps: every page re-reads what it may have missed; heartbeat                   | Accepted (completes 0009)                   |
-| [0050](0050-operator-integrations-ui.md)             | Operator integrations (SMTP, OIDC, SAML) in the UI; env as optional bootstrap           | Accepted (amended by 0083)                  |
+| [0050](0050-operator-integrations-ui.md)             | Operator integrations (SMTP, OIDC, SAML) in the UI; env as optional bootstrap           | Accepted (amended by 0083 and 0092)         |
 | [0051](0051-admin-account-erasure.md)                | Administrator-initiated account erasure; comments under the tombstone                   | Erase-when-disabled part superseded by 0059 |
 | [0052](0052-operator-mail.md)                        | Operator mail: plain-text notice to all active or chosen accounts                       | Accepted                                    |
 | [0053](0053-sso-prove-and-sso-only.md)               | Prove SSO at save; SSO-only sign-in with admin break-glass                              | Accepted                                    |
@@ -104,3 +104,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0089](0089-putting-a-value-back.md)                 | Putting a value back writes a new change from the trail                                 | Accepted                                    |
 | [0090](0090-a-base-held-in-a-source.md)              | A new base can keep its tables in a schema of a SQL source                              | Accepted (extends 0006)                     |
 | [0091](0091-acting-as.md)                            | An administrator acts with another person's rights, and signs the change                | Accepted                                    |
+| [0092](0092-notifications-from-administration.md)    | Notification channels configured in Administration, off until an administrator adds one | Accepted (amends 0018 and 0050)             |

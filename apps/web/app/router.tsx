@@ -107,6 +107,11 @@ const IntegrationsTab = page(() =>
     (module) => module.IntegrationsTab,
   ),
 );
+const NotificationsTab = page(() =>
+  import("../components/admin/notifications-tab").then(
+    (module) => module.NotificationsTab,
+  ),
+);
 const SourcesTab = page(() =>
   import("../components/admin/sources-tab").then((module) => module.SourcesTab),
 );
@@ -504,6 +509,7 @@ const adminRoutes = [
   adminPage("people/provisioning", ScimTab),
   adminPage("security", SecurityPage),
   adminPage("connections", IntegrationsTab),
+  adminPage("connections/notifications", NotificationsTab),
   adminPage("connections/api", ApiTokensTab),
   adminPage("sources", SourcesTab),
   adminPage("bases", BasesTab),

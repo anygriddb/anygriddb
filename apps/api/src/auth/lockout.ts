@@ -85,6 +85,12 @@ export async function countFailure(
   });
   if (locked) {
     await recordAuthEvent(db, { action: "account_locked", userId, ip });
+    const { emitInstanceEvent } = await import("../notify/dispatch.js");
+    await emitInstanceEvent(db, () => undefined, {
+      type: "auth.login_failed_burst",
+      subject: userId,
+      fields: {},
+    });
   }
   return locked;
 }

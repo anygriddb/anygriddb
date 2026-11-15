@@ -58,8 +58,27 @@ export async function recordBackup(
     encrypted: boolean;
     name: string;
   },
+  notify?: { key: import("./auth/key-ring.js").KeyRing },
 ): Promise<void> {
-  await db.insertInto("backupRuns").values(input).execute();
+  const row = await db
+    .insertInto("backupRuns")
+    .values(input)
+    .returning("id")
+    .executeTakeFirstOrThrow();
+  const { emitInstanceEvent } = await import("./notify/dispatch.js");
+  await emitInstanceEvent(db, () => undefined, {
+    type: input.succeeded ? "backup.succeeded" : "backup.failed",
+    subject: row.id,
+    fields: {},
+  });
+  if (notify) {
+    const { pulse } = await import("./notify/pulse.js");
+    await pulse(
+      { db, key: notify.key, log: () => undefined },
+      "backup",
+      input.succeeded ? "success" : "fail",
+    );
+  }
 }
 
 /** The last backups reported, newest first. */
@@ -103,17 +122,34 @@ export async function listOpenAlerts(db: Database): Promise<OpenAlert[]> {
   }));
 }
 
-/** Percent used of the volume a disk store is on; null for any other. */
-async function storagePercent(files: FileStore): Promise<number | null> {
+export type DiskSpace = {
+  usedPercent: number;
+  availableBytes: number;
+  totalBytes: number;
+};
+
+/** The volume a disk store is on; null for any other store, or if it cannot be read. */
+export async function diskSpace(files: FileStore): Promise<DiskSpace | null> {
   if (!(files instanceof DiskStore)) return null;
   try {
     const volume = await statfs(files.root);
-    if (volume.blocks <= 0) return null;
-    return Math.round(100 - (volume.bavail / volume.blocks) * 100);
+    if (volume.blocks <= 0 || volume.bsize <= 0) return null;
+    const totalBytes = volume.blocks * volume.bsize;
+    const availableBytes = volume.bavail * volume.bsize;
+    return {
+      usedPercent: Math.round(100 - (volume.bavail / volume.blocks) * 100),
+      availableBytes,
+      totalBytes,
+    };
   } catch {
     // The folder is away: the storage check of Health already says so.
     return null;
   }
+}
+
+/** Percent used of the volume a disk store is on; null for any other. */
+async function storagePercent(files: FileStore): Promise<number | null> {
+  return (await diskSpace(files))?.usedPercent ?? null;
 }
 
 type AlertProbes = {
@@ -194,7 +230,7 @@ async function syncAlerts(
   db: Database,
   due: readonly DueAlert[],
   now: Date,
-): Promise<OpenAlert[]> {
+): Promise<{ toMail: OpenAlert[]; opened: DueAlert[]; closed: OpenAlert[] }> {
   return db.transaction().execute(async (tx) => {
     // One process at a time: the comparison below must see the other's.
     await sql`select pg_advisory_xact_lock(hashtext('instance_alerts'))`.execute(
@@ -222,8 +258,10 @@ async function syncAlerts(
     }
     const known = new Map(open.map((alert) => [key(alert), alert]));
     const toMail: OpenAlert[] = [];
+    const opened: DueAlert[] = [];
     for (const alert of due) {
       const existing = known.get(key(alert));
+      if (!existing) opened.push(alert);
       const mail = alertMailDue(existing?.notifiedAt ?? null, now);
       const row = existing
         ? await tx
@@ -254,8 +292,53 @@ async function syncAlerts(
         });
       }
     }
-    return toMail;
+    return {
+      toMail,
+      opened,
+      closed: gone.map((alert) => ({
+        id: alert.id,
+        kind: alert.kind as AlertKind,
+        subject: alert.subject,
+        detail: {},
+        openedAt: now.toISOString(),
+      })),
+    };
   });
+}
+
+async function notifyAlertChanges(
+  db: Database,
+  log: (error: unknown, message: string) => void,
+  opened: readonly DueAlert[],
+  closed: readonly { kind: string; subject: string }[],
+): Promise<void> {
+  const { emitInstanceEvent } = await import("./notify/dispatch.js");
+  for (const alert of opened) {
+    if (alert.kind === "source_unreachable") {
+      await emitInstanceEvent(db, log, {
+        type: "datasource.unreachable",
+        subject: alert.subject || "source",
+        fields: {},
+      });
+    }
+    if (alert.kind === "storage_full") {
+      const percent = alert.detail.percent;
+      await emitInstanceEvent(db, log, {
+        type: "disk.low",
+        subject: "disk",
+        fields: typeof percent === "number" ? { percent } : {},
+      });
+    }
+  }
+  for (const alert of closed) {
+    if (alert.kind === "source_unreachable" && alert.subject) {
+      await emitInstanceEvent(db, log, {
+        type: "datasource.recovered",
+        subject: alert.subject,
+        fields: {},
+      });
+    }
+  }
 }
 
 export type AlertDeps = AlertProbes & {
@@ -374,8 +457,9 @@ export async function checkAlerts(
 ): Promise<number> {
   const settings = await readSettings(deps.db);
   const due = dueAlerts(settings, await alertFacts(deps, now), now);
-  const toMail = await syncAlerts(deps.db, due, now);
-  if (toMail.length > 0) await mailAlerts(deps, toMail);
+  const synced = await syncAlerts(deps.db, due, now);
+  if (synced.toMail.length > 0) await mailAlerts(deps, synced.toMail);
+  await notifyAlertChanges(deps.db, deps.log, synced.opened, synced.closed);
   await deps.db
     .deleteFrom("instanceAlerts")
     .where(

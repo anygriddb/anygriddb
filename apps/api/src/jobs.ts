@@ -13,10 +13,12 @@ import {
   publicError,
 } from "@anygriddb/core";
 import type { Database, JobRow } from "@anygriddb/db";
+import type { KeyRing } from "./auth/key-ring.js";
 import { sql as sqlTag } from "kysely";
 import type { Bus } from "./realtime/bus.js";
 import { gridChannel } from "./realtime/channels.js";
 import { deleteFiles, type FileStore } from "./files/index.js";
+import { notifyJobOutcome } from "./notify/dispatch.js";
 import { addJob, TASKS, type SqlExecutor } from "./queue/jobs.js";
 
 export type { JobRow };
@@ -83,7 +85,12 @@ export async function publishJob(
 /* Queue                                                               */
 /* ------------------------------------------------------------------ */
 
-export type QueueDeps = { db: Database; bus: Bus; log: Log };
+export type QueueDeps = {
+  db: Database;
+  bus: Bus;
+  log: Log;
+  key?: KeyRing;
+};
 
 /** Refuses a sixth queued or running job for the same person. */
 export async function assertJobCapacity(
@@ -338,7 +345,22 @@ export async function runJob(
   } finally {
     clearInterval(heartbeat);
   }
-  if (finished) await publishJob(deps.bus, finished, deps.log);
+  if (finished) {
+    await publishJob(deps.bus, finished, deps.log);
+    if (finished.status === "failed" || finished.status === "done") {
+      await notifyJobOutcome(
+        deps.db,
+        deps.log,
+        {
+          id: finished.id,
+          kind: finished.kind,
+          status: finished.status,
+          errorCode: finished.errorCode,
+        },
+        deps.key,
+      );
+    }
+  }
   return finished;
 }
 
@@ -357,7 +379,20 @@ export async function recoverJobs(deps: QueueDeps): Promise<number> {
     .where("leaseUntil", "<", new Date())
     .returningAll()
     .execute();
-  for (const job of lapsed) await publishJob(deps.bus, job, deps.log);
+  for (const job of lapsed) {
+    await publishJob(deps.bus, job, deps.log);
+    await notifyJobOutcome(
+      deps.db,
+      deps.log,
+      {
+        id: job.id,
+        kind: job.kind,
+        status: "failed",
+        errorCode: job.errorCode,
+      },
+      deps.key,
+    );
+  }
   return lapsed.length;
 }
 

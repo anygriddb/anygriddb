@@ -16,7 +16,22 @@ type Readiness = {
   database: boolean;
   /** The listening connection of realtime; down, pages re-read on their own. */
   realtime: boolean;
+  /**
+   * Present when the caller asks: every migration this process knows is
+   * recorded. Absent on `/ready`, which stays the database check Compose uses.
+   */
+  migrations?: boolean;
 };
+
+/** True when every expected migration name has been applied. */
+export function migrationsCurrent(
+  applied: readonly string[],
+  expected: readonly string[],
+): boolean {
+  if (expected.length === 0) return false;
+  const have = new Set(applied);
+  return expected.every((name) => have.has(name));
+}
 
 async function answers(
   ping: () => Promise<unknown>,
@@ -49,6 +64,8 @@ async function answers(
 export function readinessProbe(deps: {
   ping: () => Promise<unknown>;
   listening: () => boolean;
+  /** When set, readiness also requires these migrations to be applied. */
+  migrations?: () => Promise<boolean>;
   withinMs?: number;
   now?: () => number;
 }): () => Promise<Readiness> {
@@ -56,13 +73,20 @@ export function readinessProbe(deps: {
   let last: { at: number; value: Promise<Readiness> } | undefined;
   return () => {
     if (last && now() - last.at < KEEP_MS) return last.value;
-    const value = answers(deps.ping, deps.withinMs ?? READY_WITHIN_MS).then(
-      (database) => ({
-        ok: database,
-        database,
-        realtime: deps.listening(),
-      }),
-    );
+    const value = Promise.all([
+      answers(deps.ping, deps.withinMs ?? READY_WITHIN_MS),
+      deps.migrations
+        ? deps.migrations().then(
+            (current) => current,
+            () => false,
+          )
+        : undefined,
+    ]).then(([database, migrations]) => ({
+      ok: database && migrations !== false,
+      database,
+      realtime: deps.listening(),
+      ...(migrations === undefined ? {} : { migrations }),
+    }));
     last = { at: now(), value };
     return value;
   };

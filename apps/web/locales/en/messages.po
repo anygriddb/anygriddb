@@ -568,6 +568,10 @@ msgstr "{count, plural, one {# API token revoked} other {# API tokens revoked}}"
 msgid "{count, plural, one {# table added to {base}} other {# tables added to {base}}}"
 msgstr "{count, plural, one {# table added to {base}} other {# tables added to {base}}}"
 
+#: components/admin/notifications-banner.tsx
+msgid "{count, plural, one {An integration is failing and has stopped receiving events.} other {# integrations are failing and have stopped receiving events.}}"
+msgstr "{count, plural, one {An integration is failing and has stopped receiving events.} other {# integrations are failing and have stopped receiving events.}}"
+
 #: components/admin/sources-tab.tsx
 msgid "{count, plural, one {Expose # table} other {Expose # tables}}"
 msgstr "{count, plural, one {Expose # table} other {Expose # tables}}"
@@ -850,6 +854,10 @@ msgstr "{total, plural, one {about # row} other {about # rows}}"
 msgid "{unprotectedCount, plural, one {administrator without a second factor} other {administrators without a second factor}}"
 msgstr "{unprotectedCount, plural, one {administrator without a second factor} other {administrators without a second factor}}"
 
+#: components/admin/health-tab.tsx
+msgid "{usedPercent}% used, {freeSpace} free"
+msgstr "{usedPercent}% used, {freeSpace} free"
+
 #: components/admin/security-tab.tsx
 msgid "{value} characters"
 msgstr "{value} characters"
@@ -1016,6 +1024,22 @@ msgstr "9 months"
 msgid "90 days"
 msgstr "90 days"
 
+#: components/admin/notifications-tab.tsx
+msgid "A background job failed"
+msgstr "A background job failed"
+
+#: components/admin/notifications-tab.tsx
+msgid "A background job finished"
+msgstr "A background job finished"
+
+#: components/admin/notifications-tab.tsx
+msgid "A backup failed"
+msgstr "A backup failed"
+
+#: components/admin/notifications-tab.tsx
+msgid "A backup finished"
+msgstr "A backup finished"
+
 #: components/fields/code-image.tsx
 msgid "A barcode draws up to 80 letters, digits, and signs, without accents"
 msgstr "A barcode draws up to 80 letters, digits, and signs, without accents"
@@ -1088,6 +1112,10 @@ msgstr "A code was sent to your address. It works once, for ten minutes."
 #: components/fields/field-meta.tsx
 msgid "A colour, shown with its swatch"
 msgstr "A colour, shown with its swatch"
+
+#: components/admin/notifications-tab.tsx
+msgid "A database migration failed"
+msgstr "A database migration failed"
 
 #: components/fields/field-meta.tsx
 msgid "A day"
@@ -1288,6 +1316,14 @@ msgstr "A site that embeds a link is an address starting with https://, with no 
 msgid "A source already has this name"
 msgstr "A source already has this name"
 
+#: components/admin/notifications-tab.tsx
+msgid "A source is reachable again"
+msgstr "A source is reachable again"
+
+#: components/admin/notifications-tab.tsx
+msgid "A source is unreachable"
+msgstr "A source is unreachable"
+
 #: components/admin/alerts-section.tsx
 msgid "A source's watched tables cannot be read"
 msgstr "A source's watched tables cannot be read"
@@ -1360,6 +1396,10 @@ msgstr "Access denied"
 #: components/settings/base-settings.tsx
 msgid "Access granted"
 msgstr "Access granted"
+
+#: components/admin/notifications-tab.tsx
+msgid "Access token"
+msgstr "Access token"
 
 #: components/admin/accounts-tab.tsx
 #: components/admin/base-admin-members.tsx
@@ -1495,6 +1535,7 @@ msgstr "Action"
 #: components/admin/accounts-tab.tsx
 #: components/admin/api-tokens-tab.tsx
 #: components/admin/invitations-panel.tsx
+#: components/admin/notifications-tab.tsx
 #: components/admin/outbound-tab.tsx
 #: components/admin/sessions-tab.tsx
 #: components/admin/sources-tab.tsx
@@ -1673,6 +1714,10 @@ msgstr "Add every row"
 msgid "Add from a file"
 msgstr "Add from a file"
 
+#: components/admin/notifications-tab.tsx
+msgid "Add integration"
+msgstr "Add integration"
+
 #: components/table/import-dialog.tsx
 msgid "Add missing select options"
 msgstr "Add missing select options"
@@ -1710,6 +1755,7 @@ msgid "Adding rows is not allowed on this table: an administrator can enable it 
 msgstr "Adding rows is not allowed on this table: an administrator can enable it in its source"
 
 #: components/admin/logs-tab.tsx
+#: components/admin/notifications-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/sources-tab.tsx
 #: components/history/earlier.tsx
@@ -1899,6 +1945,10 @@ msgstr "Allow copying the data"
 msgid "Allow deleting rows"
 msgstr "Allow deleting rows"
 
+#: components/admin/notifications-tab.tsx
+msgid "Allow private networks"
+msgstr "Allow private networks"
+
 #: components/fields/field-editor.tsx
 msgid "Allow several linked rows"
 msgstr "Allow several linked rows"
@@ -1955,6 +2005,18 @@ msgstr "An account dedicated to AnyGridDB, never an administrator. The connectio
 msgid "An account that locks"
 msgstr "An account that locks"
 
+#: components/admin/notifications-tab.tsx
+msgid "An account was created"
+msgstr "An account was created"
+
+#: components/admin/notifications-tab.tsx
+msgid "An account was deleted"
+msgstr "An account was deleted"
+
+#: components/admin/notifications-tab.tsx
+msgid "An account was locked after failed sign-ins"
+msgstr "An account was locked after failed sign-ins"
+
 #: components/admin/account-actions.tsx
 msgid "An administrator already can"
 msgstr "An administrator already can"
@@ -1999,6 +2061,14 @@ msgstr "an exact date"
 #: components/fields/field-editor.tsx
 msgid "An expanded row draws this field's text as a code, for a scanner to read."
 msgstr "An expanded row draws this field's text as a code, for a scanner to read."
+
+#: components/admin/notifications-tab.tsx
+msgid "An import failed"
+msgstr "An import failed"
+
+#: components/admin/notifications-tab.tsx
+msgid "An integration is failing"
+msgstr "An integration is failing"
 
 #: components/fields/field-meta.tsx
 msgid "An object or a list, which a formula reads into"
@@ -2050,6 +2120,10 @@ msgstr "AnyGridDB embeds no model: the AI you run (Claude, Cursor, Ollama with a
 #: components/admin/sources-tab.tsx
 msgid "AnyGridDB forgets this source and its password. The client's database is not touched."
 msgstr "AnyGridDB forgets this source and its password. The client's database is not touched."
+
+#: components/admin/notifications-tab.tsx
+msgid "AnyGridDB POSTs the event as JSON and signs those bytes with HMAC-SHA256. The signature is the x-anygrid-signature header."
+msgstr "AnyGridDB POSTs the event as JSON and signs those bytes with HMAC-SHA256. The signature is the x-anygrid-signature header."
 
 #: components/admin/sources-tab.tsx
 msgid "AnyGridDB reads this source from a copy: each table you expose is read whole, once per interval, and people read the copy. Nothing is ever written to the source. Give the account the right to read its database, and nothing more."
@@ -2178,6 +2252,7 @@ msgstr "Attachment"
 msgid "attachments carried over by name: the files are not copied"
 msgstr "attachments carried over by name: the files are not copied"
 
+#: components/admin/notifications-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/settings/webhooks-panel.tsx
 msgid "Attempts"
@@ -2292,6 +2367,10 @@ msgstr "Backup failed"
 #: components/admin/alerts-section.tsx
 msgid "Backup late"
 msgstr "Backup late"
+
+#: components/admin/notifications-tab.tsx
+msgid "Backup report"
+msgstr "Backup report"
 
 #: components/admin/alerts-section.tsx
 msgid "Backups"
@@ -2527,6 +2606,14 @@ msgstr "Calendar feed"
 msgid "Call a URL"
 msgstr "Call a URL"
 
+#: components/admin/notifications-tab.tsx
+msgid "Calls one address when a job starts, one when it succeeds, and one when it fails."
+msgstr "Calls one address when a job starts, one when it succeeds, and one when it fails."
+
+#: components/admin/notifications-tab.tsx
+msgid "Calls the push address of an Uptime Kuma monitor, with status up or down."
+msgstr "Calls the push address of an Uptime Kuma monitor, with status up or down."
+
 #: components/admin/account-bases.tsx
 #: components/admin/account-handoff.tsx
 #: components/admin/account-page.tsx
@@ -2534,6 +2621,7 @@ msgstr "Call a URL"
 #: components/admin/base-admin-members.tsx
 #: components/admin/group-page.tsx
 #: components/admin/groups-tab.tsx
+#: components/admin/notifications-tab.tsx
 #: components/admin/people-file-dialog.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/step-up.tsx
@@ -2641,6 +2729,10 @@ msgstr "Change trail"
 msgid "Change trail kept for"
 msgstr "Change trail kept for"
 
+#: components/admin/notifications-tab.tsx
+msgid "Change trail purge"
+msgstr "Change trail purge"
+
 #: components/shell/home-page.tsx
 msgid "Changed {when} by {name}"
 msgstr "Changed {when} by {name}"
@@ -2668,6 +2760,14 @@ msgstr "Changes made elsewhere"
 #: components/settings/webhooks-panel.tsx
 msgid "Channel"
 msgstr "Channel"
+
+#: components/admin/notifications-tab.tsx
+msgid "Channels"
+msgstr "Channels"
+
+#: components/admin/notifications-tab.tsx
+msgid "Channels that hear when something on this instance fails. A secret is stored encrypted and is not shown again."
+msgstr "Channels that hear when something on this instance fails. A secret is stored encrypted and is not shown again."
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Chart"
@@ -2890,6 +2990,10 @@ msgstr "Collapse all bases"
 msgid "Collapse column {name}"
 msgstr "Collapse column {name}"
 
+#: components/admin/notifications-tab.tsx
+msgid "Collector address"
+msgstr "Collector address"
+
 #: components/fields/field-editor.tsx
 #: components/table/view-toolbar.tsx
 msgid "Color"
@@ -2978,6 +3082,10 @@ msgstr "Concatenate"
 #: components/history/earlier.tsx
 msgid "Configuration"
 msgstr "Configuration"
+
+#: lib/errors.ts
+msgid "Configure the mail relay under Connections before this channel can send."
+msgstr "Configure the mail relay under Connections before this channel can send."
 
 #: components/admin/integrations-tab.tsx
 msgid "Configured in this page"
@@ -3393,6 +3501,10 @@ msgstr "Database"
 msgid "Database not found on the source"
 msgstr "Database not found on the source"
 
+#: components/admin/health-tab.tsx
+msgid "Database size"
+msgstr "Database size"
+
 #: components/admin/sign-in-trail.tsx
 #: components/admin/support-tab.tsx
 #: components/admin/trails.tsx
@@ -3685,8 +3797,13 @@ msgstr "Destination"
 msgid "Destination of {name}"
 msgstr "Destination of {name}"
 
+#: components/admin/notifications-tab.tsx
+msgid "Destination URLs"
+msgstr "Destination URLs"
+
 #: components/admin/account-actions.tsx
 #: components/admin/accounts-tab.tsx
+#: components/admin/notifications-tab.tsx
 msgid "Disable"
 msgstr "Disable"
 
@@ -3715,6 +3832,14 @@ msgstr "Disabled on {date}"
 msgid "Disabled on {date}, unused"
 msgstr "Disabled on {date}, unused"
 
+#: components/admin/health-tab.tsx
+msgid "Disk"
+msgstr "Disk"
+
+#: components/admin/notifications-tab.tsx
+msgid "Disk space is low"
+msgstr "Disk space is low"
+
 #: components/admin/release-banner.tsx
 msgid "Dismiss"
 msgstr "Dismiss"
@@ -3734,6 +3859,10 @@ msgstr "Display condition of {field}: {count}"
 #: components/settings/profile-form.tsx
 msgid "Display name"
 msgstr "Display name"
+
+#: components/admin/notifications-tab.tsx
+msgid "Documentation"
+msgstr "Documentation"
 
 #: components/table/filter-builder.tsx
 msgid "does not contain"
@@ -3797,6 +3926,10 @@ msgstr "Drop a workbook (.xlsx) to make a base of its sheets. From Google Sheets
 #: components/fields/cell-editor.tsx
 msgid "Drop files here"
 msgstr "Drop files here"
+
+#: components/admin/notifications-tab.tsx
+msgid "DSN"
+msgstr "DSN"
 
 #: components/grid/grid-view.tsx
 #: components/table/view-tabs.tsx
@@ -3873,6 +4006,7 @@ msgstr "Earliest date"
 #: components/admin/account-actions.tsx
 #: components/admin/change-labels.ts
 #: components/admin/group-page.tsx
+#: components/admin/notifications-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/record/record-panel.tsx
@@ -3943,6 +4077,7 @@ msgstr "Editor"
 #: components/admin/account-actions.tsx
 #: components/admin/accounts-tab.tsx
 #: components/admin/invitations-panel.tsx
+#: components/admin/notifications-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/auth/auth-page.tsx
 #: components/fields/field-meta.tsx
@@ -4033,6 +4168,7 @@ msgid "Empty: the row as JSON"
 msgstr "Empty: the row as JSON"
 
 #: components/admin/account-actions.tsx
+#: components/admin/notifications-tab.tsx
 msgid "Enable"
 msgstr "Enable"
 
@@ -4130,6 +4266,7 @@ msgstr "Entry point (SSO URL)"
 
 #: components/admin/health-tab.tsx
 #: components/admin/logs-tab.tsx
+#: components/admin/notifications-tab.tsx
 #: components/admin/support-tab.tsx
 msgid "Error"
 msgstr "Error"
@@ -4144,6 +4281,7 @@ msgstr "error, {error}"
 
 #: components/admin/health-tab.tsx
 #: components/admin/logs-tab.tsx
+#: components/admin/notifications-tab.tsx
 msgid "Errors"
 msgstr "Errors"
 
@@ -4156,12 +4294,14 @@ msgstr "Esc"
 msgid "European (31/12/2026)"
 msgstr "European (31/12/2026)"
 
+#: components/admin/notifications-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/support-tab.tsx
 #: components/settings/webhooks-panel.tsx
 msgid "Event"
 msgstr "Event"
 
+#: components/admin/notifications-tab.tsx
 #: components/history/earlier.tsx
 #: components/settings/webhooks-panel.tsx
 #: lib/known-text.ts
@@ -4423,6 +4563,14 @@ msgstr "Failed sign-ins"
 msgid "Failed: {error}"
 msgstr "Failed: {error}"
 
+#: components/admin/notifications-tab.tsx
+msgid "Failing"
+msgstr "Failing"
+
+#: components/admin/notifications-tab.tsx
+msgid "Failure address"
+msgstr "Failure address"
+
 #: components/admin/alerts-section.tsx
 msgid "Failures piling up"
 msgstr "Failures piling up"
@@ -4530,6 +4678,10 @@ msgstr "File ready: {summary}. You can change the name above."
 #: components/admin/settings-tab.tsx
 msgid "File storage"
 msgstr "File storage"
+
+#: components/admin/notifications-tab.tsx
+msgid "File sweep"
+msgstr "File sweep"
 
 #: components/fields/cell-editor.tsx
 #: lib/errors.ts
@@ -4966,6 +5118,10 @@ msgstr "has none of"
 msgid "Header value"
 msgstr "Header value"
 
+#: components/admin/notifications-tab.tsx
+msgid "Headers"
+msgstr "Headers"
+
 #: components/admin/admin-sections.ts
 msgid "Health"
 msgstr "Health"
@@ -4973,6 +5129,14 @@ msgstr "Health"
 #: components/fields/field-editor.tsx
 msgid "Heart"
 msgstr "Heart"
+
+#: components/admin/notifications-tab.tsx
+msgid "Heartbeat URL"
+msgstr "Heartbeat URL"
+
+#: components/admin/notifications-tab.tsx
+msgid "Held back"
+msgstr "Held back"
 
 #: components/shell/home-page.tsx
 msgid "Hello {name}"
@@ -5027,6 +5191,7 @@ msgstr "Hiring"
 msgid "Histogram"
 msgstr "Histogram"
 
+#: components/admin/notifications-tab.tsx
 #: components/record/record-panel.tsx
 msgid "History"
 msgstr "History"
@@ -5040,6 +5205,10 @@ msgctxt "keyboard key"
 msgid "Home"
 msgstr "Home"
 
+#: components/admin/notifications-tab.tsx
+msgid "Homeserver"
+msgstr "Homeserver"
+
 #: components/dashboards/dashboard-board.tsx
 msgid "Horizontal bars"
 msgstr "Horizontal bars"
@@ -5048,6 +5217,10 @@ msgstr "Horizontal bars"
 #: components/admin/sources-tab.tsx
 msgid "Host"
 msgstr "Host"
+
+#: components/admin/notifications-tab.tsx
+msgid "Hourly purge"
+msgstr "Hourly purge"
 
 #: components/fields/field-meta.tsx
 msgid "Hours and minutes"
@@ -5076,6 +5249,10 @@ msgstr "How many values in all, blanks included."
 #: components/settings/webhooks-panel.tsx
 msgid "HTTP header"
 msgstr "HTTP header"
+
+#: components/admin/notifications-tab.tsx
+msgid "HTTPS only. Example: https://hooks.example.com/anygriddb"
+msgstr "HTTPS only. Example: https://hooks.example.com/anygriddb"
 
 #: components/admin/integrations-tab.tsx
 msgid "HTTPS URL"
@@ -5289,6 +5466,18 @@ msgstr "Install token used"
 #: components/admin/admin-sections.ts
 msgid "Instance"
 msgstr "Instance"
+
+#: components/admin/health-tab.tsx
+msgid "Integration errors"
+msgstr "Integration errors"
+
+#: components/admin/notifications-tab.tsx
+msgid "Integration saved"
+msgstr "Integration saved"
+
+#: components/admin/notifications-tab.tsx
+msgid "Integration updated"
+msgstr "Integration updated"
 
 #: lib/errors.ts
 msgid "Internal error"
@@ -5612,6 +5801,10 @@ msgstr "It has not been read yet."
 msgid "It stays in the trash for {days} days."
 msgstr "It stays in the trash for {days} days."
 
+#: components/admin/notifications-tab.tsx
+msgid "It stops receiving events. Past deliveries are kept until they expire."
+msgstr "It stops receiving events. Past deliveries are kept until they expire."
+
 #: components/admin/access-tab.tsx
 msgid "It stops running now and keeps its settings: someone who manages its base can switch it on again."
 msgstr "It stops running now and keeps its settings: someone who manages its base can switch it on again."
@@ -5646,10 +5839,12 @@ msgid "Its members lose it at once. It stays in the trash for {days} days with i
 msgstr "Its members lose it at once. It stays in the trash for {days} days with its data, then is deleted permanently."
 
 #: components/admin/integrations-tab.tsx
+#: components/admin/notifications-tab.tsx
 msgid "Its operator changes it where the instance is installed."
 msgstr "Its operator changes it where the instance is installed."
 
 #: components/admin/integrations-tab.tsx
+#: components/admin/notifications-tab.tsx
 msgid "Its operator changes it where the instance is installed. What was saved on this page before is not used."
 msgstr "Its operator changes it where the instance is installed. What was saved on this page before is not used."
 
@@ -5782,6 +5977,14 @@ msgstr "Largest attachment"
 msgid "Last checked {date}"
 msgstr "Last checked {date}"
 
+#: components/admin/notifications-tab.tsx
+msgid "Last delivery"
+msgstr "Last delivery"
+
+#: components/admin/notifications-tab.tsx
+msgid "Last error"
+msgstr "Last error"
+
 #: components/fields/field-meta.tsx
 msgid "Last modified by"
 msgstr "Last modified by"
@@ -5863,6 +6066,10 @@ msgstr "Leave blank to keep the current password"
 #: components/admin/integrations-tab.tsx
 msgid "Leave blank to keep the current secret"
 msgstr "Leave blank to keep the current secret"
+
+#: components/admin/notifications-tab.tsx
+msgid "Leave blank to keep the current value"
+msgstr "Leave blank to keep the current value"
 
 #: components/admin/sources-tab.tsx
 msgid "Leave blank to keep the stored password"
@@ -6303,6 +6510,10 @@ msgstr "Message after submit"
 msgid "Metric"
 msgstr "Metric"
 
+#: components/admin/notifications-tab.tsx
+msgid "Metrics"
+msgstr "Metrics"
+
 #: components/dashboards/dashboard-list.tsx
 msgid "Metrics, charts, and embedded views over this base’s tables."
 msgstr "Metrics, charts, and embedded views over this base’s tables."
@@ -6478,6 +6689,7 @@ msgstr "N days ago"
 #: components/admin/group-page.tsx
 #: components/admin/groups-tab.tsx
 #: components/admin/identity-tab.tsx
+#: components/admin/notifications-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
@@ -6509,6 +6721,10 @@ msgstr "Name saved"
 msgid "Name, Notes, and a Status list."
 msgstr "Name, Notes, and a Status list."
 
+#: components/admin/notifications-tab.tsx
+msgid "Name: value"
+msgstr "Name: value"
+
 #: components/fields/formula-docs.ts
 msgid "Natural logarithm; blank for 0 or less."
 msgstr "Natural logarithm; blank for 0 or less."
@@ -6523,6 +6739,7 @@ msgstr "Network failure"
 
 #: components/admin/access-tab.tsx
 #: components/admin/alerts-section.tsx
+#: components/admin/notifications-tab.tsx
 #: components/admin/security-tab.tsx
 #: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
@@ -6830,6 +7047,10 @@ msgstr "No deliveries yet."
 msgid "No delivery has failed. A webhook's delivery shows here once it gives up after its retries, with the error it got."
 msgstr "No delivery has failed. A webhook's delivery shows here once it gives up after its retries, with the error it got."
 
+#: components/admin/notifications-tab.tsx
+msgid "No delivery yet."
+msgstr "No delivery yet."
+
 #: components/admin/outbound-tab.tsx
 msgid "No end"
 msgstr "No end"
@@ -6865,6 +7086,10 @@ msgstr "No group yet. Create one, or connect an identity provider under Provisio
 #: components/admin/sources-tab.tsx
 msgid "No host is allowed: the operator sets ANYGRIDDB_SOURCES_ALLOWED_HOSTS."
 msgstr "No host is allowed: the operator sets ANYGRIDDB_SOURCES_ALLOWED_HOSTS."
+
+#: components/admin/notifications-tab.tsx
+msgid "No integration yet. Add one above and send a test."
+msgstr "No integration yet. Add one above and send a test."
 
 #: components/admin/invitations-panel.tsx
 msgid "No invitation is waiting. One shows here from the moment someone is invited to a base until they answer it or it expires."
@@ -7045,6 +7270,7 @@ msgstr "Node.js, up for"
 
 #: components/admin/account-page.tsx
 #: components/admin/effective-rights.tsx
+#: components/admin/health-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/grid/grid-footer.tsx
@@ -7089,6 +7315,10 @@ msgstr "Not linked to single sign-on"
 #: components/admin/account-actions.tsx
 msgid "Not locked"
 msgstr "Not locked"
+
+#: components/admin/health-tab.tsx
+msgid "Not measured for this file store"
+msgstr "Not measured for this file store"
 
 #: components/admin/sources-tab.tsx
 msgid "Not set"
@@ -7166,6 +7396,8 @@ msgstr "Notice emailed"
 msgid "Notice queued for {0, plural, one {# account} other {# accounts}}"
 msgstr "Notice queued for {0, plural, one {# account} other {# accounts}}"
 
+#: components/admin/admin-sections.ts
+#: components/admin/notifications-tab.tsx
 #: components/settings/account-settings.tsx
 #: components/shell/notification-bell.tsx
 msgid "Notifications"
@@ -7205,9 +7437,14 @@ msgstr "Numbers"
 msgid "Object storage (S3)"
 msgstr "Object storage (S3)"
 
+#: components/admin/notifications-tab.tsx
 #: components/admin/security-tab.tsx
 msgid "Off"
 msgstr "Off"
+
+#: components/admin/notifications-tab.tsx
+msgid "Off, a channel can only call a public HTTPS address. On, it may also call a private address, still over HTTPS. Loopback and cloud metadata stay blocked."
+msgstr "Off, a channel can only call a public HTTPS address. On, it may also call a private address, still over HTTPS. Loopback and cloud metadata stay blocked."
 
 #: components/views/form-view.tsx
 msgid "Offer to submit another response"
@@ -7226,6 +7463,10 @@ msgstr "OIDC settings saved"
 #: components/shell/base-activity.tsx
 msgid "Older"
 msgstr "Older"
+
+#: components/admin/notifications-tab.tsx
+msgid "On"
+msgstr "On"
 
 #: components/table/automations-dialog.tsx
 msgid "On a schedule"
@@ -7421,6 +7662,10 @@ msgstr "OpenID Connect"
 msgid "OpenID discovery answered"
 msgstr "OpenID discovery answered"
 
+#: components/admin/notifications-tab.tsx
+msgid "Opens /metrics for a bearer token. The environment token wins when it is set."
+msgstr "Opens /metrics for a bearer token. The environment token wins when it is set."
+
 #: components/fields/field-meta.tsx
 msgid "Opens a link or runs an action for the row"
 msgstr "Opens a link or runs an action for the row"
@@ -7546,6 +7791,7 @@ msgstr "Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an
 
 #: components/admin/auth-labels.ts
 #: components/admin/integrations-tab.tsx
+#: components/admin/notifications-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/step-up.tsx
 #: components/auth/auth-page.tsx
@@ -7714,6 +7960,14 @@ msgstr "Pick up where you left off"
 msgid "Pin {name}"
 msgstr "Pin {name}"
 
+#: components/admin/notifications-tab.tsx
+msgid "Ping address"
+msgstr "Ping address"
+
+#: components/admin/notifications-tab.tsx
+msgid "Pings a Healthchecks address: /start when a job starts, the address itself when it succeeds, /fail when it fails."
+msgstr "Pings a Healthchecks address: /start when a job starts, the address itself when it succeeds, /fail when it fails."
+
 #: components/shell/sidebar.tsx
 msgid "Pinned"
 msgstr "Pinned"
@@ -7739,6 +7993,26 @@ msgstr "Positions"
 #: components/shell/welcome-page.tsx
 msgid "PostgreSQL, MySQL, MariaDB, SQL Server, or Oracle, over TLS. Its tables become tables here; the rights stay in the database."
 msgstr "PostgreSQL, MySQL, MariaDB, SQL Server, or Oracle, over TLS. Its tables become tables here; the rights stay in the database."
+
+#: components/admin/notifications-tab.tsx
+msgid "Posts a message to your Gotify server with the application token."
+msgstr "Posts a message to your Gotify server with the application token."
+
+#: components/admin/notifications-tab.tsx
+msgid "Posts an alert to the Alertmanager API."
+msgstr "Posts an alert to the Alertmanager API."
+
+#: components/admin/notifications-tab.tsx
+msgid "Posts the message to a generic incoming webhook. The address contains the key and is a secret."
+msgstr "Posts the message to a generic incoming webhook. The address contains the key and is a secret."
+
+#: components/admin/notifications-tab.tsx
+msgid "Posts the message to an incoming webhook. The address is a secret."
+msgstr "Posts the message to an incoming webhook. The address is a secret."
+
+#: components/admin/notifications-tab.tsx
+msgid "Posts to an Apprise API. The destination URLs are a secret and are sent in the body."
+msgstr "Posts to an Apprise API. The destination URLs are a secret and are sent in the body."
 
 #: components/table/import-dialog.tsx
 msgid "Preparing the import…"
@@ -7782,6 +8056,10 @@ msgstr "Primary field"
 msgid "Print the row"
 msgstr "Print the row"
 
+#: components/admin/notifications-tab.tsx
+msgid "Private networks"
+msgstr "Private networks"
+
 #: components/table/import-dialog.tsx
 msgid "Problem"
 msgstr "Problem"
@@ -7817,6 +8095,10 @@ msgstr "Projects and tasks, with a timeline and a status board."
 #: components/shell/welcome-page.tsx
 msgid "Protect your account"
 msgstr "Protect your account"
+
+#: components/admin/notifications-tab.tsx
+msgid "Provider"
+msgstr "Provider"
 
 #: components/admin/account-page.tsx
 msgid "Provisioned by the identity provider (SCIM), then removed by it"
@@ -7869,6 +8151,10 @@ msgstr "PUBLIC_URL is an IP address: HTTPS and TOTP work; passkeys need a DNS ho
 msgid "Publish"
 msgstr "Publish"
 
+#: components/admin/notifications-tab.tsx
+msgid "Publishes the message to a topic. The topic is a secret. An optional token is sent as a bearer."
+msgstr "Publishes the message to a topic. The topic is a secret. An optional token is sent as a bearer."
+
 #: components/admin/change-labels.ts
 msgid "Purge"
 msgstr "Purge"
@@ -7877,6 +8163,10 @@ msgstr "Purge"
 #: components/shell/trashed-bases.tsx
 msgid "purged on {date}"
 msgstr "purged on {date}"
+
+#: components/admin/notifications-tab.tsx
+msgid "Push address"
+msgstr "Push address"
 
 #: components/history/earlier.tsx
 #: components/record/record-panel.tsx
@@ -8044,6 +8334,7 @@ msgstr "Recent writes"
 msgid "Recently opened"
 msgstr "Recently opened"
 
+#: components/admin/notifications-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/table/automations-dialog.tsx
 msgid "Recipients"
@@ -8154,6 +8445,7 @@ msgstr "Reload the page"
 #: components/admin/account-actions.tsx
 #: components/admin/account-bases.tsx
 #: components/admin/base-admin-members.tsx
+#: components/admin/notifications-tab.tsx
 #: components/admin/settings-tab.tsx
 #: components/fields/cell-editor.tsx
 #: components/settings/base-settings.tsx
@@ -8237,6 +8529,10 @@ msgstr "Remove their second factors"
 #: components/admin/outbound-tab.tsx
 msgid "Remove this calendar feed?"
 msgstr "Remove this calendar feed?"
+
+#: components/admin/notifications-tab.tsx
+msgid "Remove this integration?"
+msgstr "Remove this integration?"
 
 #: components/history/earlier.tsx
 msgid "removed"
@@ -8456,6 +8752,10 @@ msgstr "Restrictions cleared"
 msgid "Result"
 msgstr "Result"
 
+#: components/admin/notifications-tab.tsx
+msgid "Resume"
+msgstr "Resume"
+
 #: components/shell/jobs-menu.tsx
 msgid "Retry"
 msgstr "Retry"
@@ -8463,6 +8763,10 @@ msgstr "Retry"
 #: components/settings/webhooks-panel.tsx
 msgid "Retry scheduled ({error})"
 msgstr "Retry scheduled ({error})"
+
+#: components/admin/notifications-banner.tsx
+msgid "Review integrations"
+msgstr "Review integrations"
 
 #: components/admin/access-tab.tsx
 #: components/admin/account-actions.tsx
@@ -8597,6 +8901,10 @@ msgstr "Rollup"
 #: components/shell/airtable-report.tsx
 msgid "rollup carried over as values: Airtable's API does not give its calculation"
 msgstr "rollup carried over as values: Airtable's API does not give its calculation"
+
+#: components/admin/notifications-tab.tsx
+msgid "Room"
+msgstr "Room"
 
 #: components/fields/formula-docs.ts
 msgid "Rounds away from zero."
@@ -8774,6 +9082,10 @@ msgstr "Save allowlist"
 msgid "Save and verify"
 msgstr "Save and verify"
 
+#: components/admin/notifications-tab.tsx
+msgid "Save changes"
+msgstr "Save changes"
+
 #: components/table/view-toolbar.tsx
 msgid "Save failed"
 msgstr "Save failed"
@@ -8824,6 +9136,10 @@ msgstr "Saved OIDC cleared"
 msgid "Saved SAML cleared"
 msgstr "Saved SAML cleared"
 
+#: components/admin/notifications-tab.tsx
+msgid "Saved. Restart the process before traces use this endpoint."
+msgstr "Saved. Restart the process before traces use this endpoint."
+
 #: components/grid/grid-cell.tsx
 #: components/table/view-toolbar.tsx
 msgid "Saving…"
@@ -8836,6 +9152,10 @@ msgstr "Scale"
 #: components/settings/second-factor.tsx
 msgid "Scan this code with your authenticator app."
 msgstr "Scan this code with your authenticator app."
+
+#: components/admin/notifications-tab.tsx
+msgid "Schedules"
+msgstr "Schedules"
 
 #: components/admin/sources-tab.tsx
 msgid "Schema kept for AnyGridDB (optional)"
@@ -9023,6 +9343,7 @@ msgstr "Send a password reset link"
 msgid "Send a reset link"
 msgstr "Send a reset link"
 
+#: components/admin/notifications-tab.tsx
 #: components/settings/webhooks-panel.tsx
 msgid "Send a test"
 msgstr "Send a test"
@@ -9087,9 +9408,25 @@ msgstr "Send to Teams"
 msgid "Sender name"
 msgstr "Sender name"
 
+#: components/admin/notifications-tab.tsx
+msgid "Sends a text message to a room with an access token."
+msgstr "Sends a text message to a room with an access token."
+
+#: components/admin/notifications-tab.tsx
+msgid "Sends internal errors to a Sentry-compatible DSN. No restart is required."
+msgstr "Sends internal errors to a Sentry-compatible DSN. No restart is required."
+
 #: components/admin/access-tab.tsx
 msgid "Sends to"
 msgstr "Sends to"
+
+#: components/admin/notifications-tab.tsx
+msgid "Sends to these addresses through the mail relay configured under Connections."
+msgstr "Sends to these addresses through the mail relay configured under Connections."
+
+#: components/admin/notifications-tab.tsx
+msgid "Sends traces to an OTLP HTTP collector. A restart is asked for only when a live reload fails."
+msgstr "Sends traces to an OTLP HTTP collector. A restart is asked for only when a live reload fails."
 
 #: components/settings/webhooks-panel.tsx
 msgid "Sent ({status})"
@@ -9102,6 +9439,10 @@ msgstr "Sent to people who have not joined yet. Send one again, or withdraw it."
 #: components/dashboards/dashboard-board.tsx
 msgid "Series (optional)"
 msgstr "Series (optional)"
+
+#: components/admin/notifications-tab.tsx
+msgid "Server"
+msgstr "Server"
 
 #: components/admin/sources-tab.tsx
 msgid "Service name"
@@ -9469,6 +9810,10 @@ msgstr "Signed in"
 msgid "Signed out"
 msgstr "Signed out"
 
+#: components/admin/notifications-tab.tsx
+msgid "Signing secret"
+msgstr "Signing secret"
+
 #: components/settings/webhooks-panel.tsx
 msgid "Signing secret, shown once:"
 msgstr "Signing secret, shown once:"
@@ -9628,6 +9973,10 @@ msgstr "Star"
 msgid "Start"
 msgstr "Start"
 
+#: components/admin/notifications-tab.tsx
+msgid "Start address"
+msgstr "Start address"
+
 #: components/shell/shortcuts-dialog.tsx
 msgid "Start or end of the row ({mod}: of the grid)"
 msgstr "Start or end of the row ({mod}: of the grid)"
@@ -9657,6 +10006,7 @@ msgid "starts with"
 msgstr "starts with"
 
 #: components/admin/access-tab.tsx
+#: components/admin/notifications-tab.tsx
 msgid "State"
 msgstr "State"
 
@@ -9766,6 +10116,10 @@ msgstr "Subscribe to this calendar"
 #: components/table/automations-dialog.tsx
 msgid "Succeeded"
 msgstr "Succeeded"
+
+#: components/admin/notifications-tab.tsx
+msgid "Success address"
+msgstr "Success address"
 
 #: components/table/new-row-dialog.tsx
 msgid "Suggested rows for {field}"
@@ -9985,6 +10339,10 @@ msgstr "Test event sent"
 msgid "Test failed: {error}"
 msgstr "Test failed: {error}"
 
+#: components/admin/notifications-tab.tsx
+msgid "Test failed. {failure} {detail}"
+msgstr "Test failed. {failure} {detail}"
+
 #: components/admin/integrations-tab.tsx
 msgid "Test issuer"
 msgstr "Test issuer"
@@ -9992,6 +10350,10 @@ msgstr "Test issuer"
 #: components/settings/webhooks-panel.tsx
 msgid "Test sent ({status})"
 msgstr "Test sent ({status})"
+
+#: components/admin/notifications-tab.tsx
+msgid "Test sent. {status} {detail}"
+msgstr "Test sent. {status} {detail}"
 
 #: components/admin/sources-tab.tsx
 msgid "Test the connection"
@@ -10337,6 +10699,10 @@ msgstr "The last backups reported to this instance. The backup script reports ea
 #: components/fields/formula-docs.ts
 msgid "The last characters."
 msgstr "The last characters."
+
+#: components/admin/notifications-tab.tsx
+msgid "The last error is a short reason, never a secret."
+msgstr "The last error is a short reason, never a secret."
 
 #: components/table/share-dialog.tsx
 msgid "The link is shown only once. Existing links:"
@@ -10818,6 +11184,10 @@ msgid "This address is in the file twice"
 msgstr "This address is in the file twice"
 
 #: lib/errors.ts
+msgid "This address is not allowed. Use HTTPS. A private network stays blocked unless you allow it on this page."
+msgstr "This address is not allowed. Use HTTPS. A private network stays blocked unless you allow it on this page."
+
+#: lib/errors.ts
 msgid "This API token may not delete rows"
 msgstr "This API token may not delete rows"
 
@@ -10969,6 +11339,10 @@ msgstr "This host is not allowed: the operator adds it to ANYGRIDDB_SOURCES_ALLO
 msgid "This install token is wrong, was used already, or is more than an hour old"
 msgstr "This install token is wrong, was used already, or is more than an hour old"
 
+#: lib/errors.ts
+msgid "This instance already has as many integrations as it can"
+msgstr "This instance already has as many integrations as it can"
+
 #: components/admin/health-tab.tsx
 msgid "This instance is up to date"
 msgstr "This instance is up to date"
@@ -10988,6 +11362,14 @@ msgstr "This instance sends no email, so it cannot confirm your address. Ask an 
 #: components/auth/auth-page.tsx
 msgid "This instance uses single sign-on. A password works only for administrators."
 msgstr "This instance uses single sign-on. A password works only for administrators."
+
+#: lib/errors.ts
+msgid "This integration is not valid. Check the address, the secret, and the events."
+msgstr "This integration is not valid. Check the address, the secret, and the events."
+
+#: lib/errors.ts
+msgid "This integration no longer exists"
+msgstr "This integration no longer exists"
 
 #: lib/errors.ts
 msgid "This invitation does not exist or has expired"
@@ -11280,6 +11662,7 @@ msgid "Today's date, in the reader's time zone."
 msgstr "Today's date, in the reader's time zone."
 
 #: components/admin/access-tab.tsx
+#: components/admin/notifications-tab.tsx
 msgid "Token"
 msgstr "Token"
 
@@ -11349,9 +11732,21 @@ msgstr "Too many rows (100,000 at most)"
 msgid "Tools: list_bases, list_tables, get_openapi, list_records, get_record, create_records, update_records, delete_records."
 msgstr "Tools: list_bases, list_tables, get_openapi, list_records, get_record, create_records, update_records, delete_records."
 
+#: components/admin/notifications-tab.tsx
+msgid "Topic"
+msgstr "Topic"
+
 #: components/grid/grid-footer.tsx
 msgid "Total estimated by the client's database: click to count exactly"
 msgstr "Total estimated by the client's database: click to count exactly"
+
+#: components/admin/notifications-tab.tsx
+msgid "Traces"
+msgstr "Traces"
+
+#: components/admin/notifications-tab.tsx
+msgid "Traces are being sent."
+msgstr "Traces are being sent."
 
 #: components/admin/admin-sections.ts
 msgid "Trails"
@@ -11369,6 +11764,10 @@ msgstr "Trash kept for"
 #: components/shell/trash-dialog.tsx
 msgid "Trash of {name}"
 msgstr "Trash of {name}"
+
+#: components/admin/notifications-tab.tsx
+msgid "Trash purge"
+msgstr "Trash purge"
 
 #: components/history/earlier.tsx
 #: components/table/automations-dialog.tsx
@@ -11581,6 +11980,10 @@ msgstr "Unique list"
 msgid "Unique values"
 msgstr "Unique values"
 
+#: components/admin/health-tab.tsx
+msgid "Unknown"
+msgstr "Unknown"
+
 #: lib/errors.ts
 msgid "Unknown column"
 msgstr "Unknown column"
@@ -11730,6 +12133,7 @@ msgid "Use the pasted data"
 msgstr "Use the pasted data"
 
 #: components/admin/integrations-tab.tsx
+#: components/admin/notifications-tab.tsx
 #: components/admin/sources-tab.tsx
 msgid "Username"
 msgstr "Username"
@@ -11877,6 +12281,7 @@ msgstr "Watched table"
 msgid "Web pages and SVG images"
 msgstr "Web pages and SVG images"
 
+#: components/admin/notifications-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/admin/trails.tsx
 msgid "Webhook"
@@ -11886,6 +12291,7 @@ msgstr "Webhook"
 msgid "Webhook {name} on {table} was turned off after repeated failures"
 msgstr "Webhook {name} on {table} was turned off after repeated failures"
 
+#: components/admin/notifications-tab.tsx
 #: components/table/automations-dialog.tsx
 msgid "Webhook address"
 msgstr "Webhook address"
@@ -11988,6 +12394,7 @@ msgstr "What you saved is kept. Reload the page to carry on."
 msgid "Whatever uses this token is refused from now on. Its owner can make another."
 msgstr "Whatever uses this token is refused from now on. Its owner can make another."
 
+#: components/admin/notifications-tab.tsx
 #: components/table/automations-dialog.tsx
 msgid "When"
 msgstr "When"

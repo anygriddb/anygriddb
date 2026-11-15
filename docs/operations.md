@@ -20,6 +20,12 @@ here was tried on a stack of its own before it was written down.
 | Run several API processes                | [Several API processes](#several-api-processes)                                           |
 | Ship logs / metrics                      | [Shipping logs](#shipping-logs-to-a-collector), [Metrics and traces](#metrics-and-traces) |
 | Send sign-in events to a collector       | [Sign-in events to a collector](#sign-in-events-to-a-collector)                           |
+| Notify when something fails              | [Notifications](integrations/notifications.md)                                            |
+| Ping a monitor when a job runs           | [Heartbeats](integrations/heartbeats.md)                                                  |
+| Post into a room or Alertmanager         | [Rooms and alerts](integrations/rooms.md)                                                 |
+| Scrape Prometheus                        | [Metrics](integrations/metrics.md)                                                        |
+| Send errors and traces                   | [Errors and traces](integrations/errors.md)                                               |
+| See whether the instance can serve       | [Health](integrations/health.md)                                                          |
 | Acceptance checklist                     | [DSI acceptance checklist](#dsi-acceptance-checklist)                                     |
 
 ## Install
@@ -750,6 +756,9 @@ What to know:
 A load balancer asks each process `/ready`: it answers 200 while
 PostgreSQL answers within two seconds, and 503 otherwise, so requests go
 to a process that can serve them. `/health` only says the process is up.
+`/healthz` answers the same as `/health`. `/readyz` answers the same as
+`/ready`, and also 503 when a migration this process knows is not applied.
+See [Health](integrations/health.md).
 
 Rate limits are counted in each process's memory. Behind a load balancer,
 put the balancer's addresses in `ANYGRIDDB_TRUSTED_PROXIES` so clients are
@@ -869,8 +878,10 @@ Before opening the instance to users:
 
 Both are off until you turn them on (ADR 0018).
 
-- **Metrics.** Set `METRICS_TOKEN` (32 characters or more). Prometheus
-  reads `/metrics` on AnyGridDB's HTTPS port with that token:
+- **Metrics.** Set `METRICS_TOKEN` (32 characters or more), or save a
+  token under Administration, Connections, Notifications. The
+  environment wins when it is set. Without either, `/metrics` answers 404. Prometheus reads `/metrics` on AnyGridDB's HTTPS port with that
+  token:
 
   ```yaml
   scrape_configs:
@@ -887,7 +898,12 @@ Both are off until you turn them on (ADR 0018).
   Series cover requests by route, tRPC procedures, the pool requests go
   through, transactions and connections in use per client database,
   background tasks, the job queue, failures pages report from browsers,
-  and the process. Rules to start from:
+  and the process. Three more:
+  `anygriddb_db_query_duration_seconds` (how long a query on
+  AnyGridDB's own database took; the statement is not a label),
+  `anygriddb_database_size_bytes`, and
+  `anygriddb_websocket_connections` (browser sockets on this process).
+  Rules to start from:
 
   ```yaml
   groups:
@@ -916,5 +932,9 @@ Both are off until you turn them on (ADR 0018).
 - **Traces.** Set `OTEL_EXPORTER_OTLP_ENDPOINT` to your OTLP/HTTP
   collector, over HTTPS. Set `OTEL_EXPORTER_OTLP_HEADERS` for its
   credentials, and `OTEL_SERVICE_NAME` if `anygriddb` does not suit.
-  Spans cover requests, the procedures under them, transactions in
-  client databases, and background tasks.
+  When the environment does not name a collector, an administrator can
+  save one under Notifications; saving it replaces the exporter that is
+  running. Spans cover requests, the procedures under them, transactions
+  in client databases, and background tasks. Errors can go to a
+  Sentry-compatible store from that same page. See
+  [Errors and traces](integrations/errors.md).

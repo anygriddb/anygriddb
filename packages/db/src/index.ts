@@ -7,6 +7,6 @@ export {
   type Executor,
   type Tx,
 } from "./client.js";
-export { migrateDb } from "./migrate.js";
+export { migrateDb, migrationNames } from "./migrate.js";
 export type * from "./types.generated.js";
 export type * from "./rows.js";
