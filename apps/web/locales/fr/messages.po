@@ -320,7 +320,7 @@ msgstr "{0, plural, one {# élément supprimé} other {# éléments supprimés}}
 msgid "{0, plural, one {# job, webhook delivery, or automation run failed in the last 24 hours.} other {# jobs, webhook deliveries, and automation runs failed in the last 24 hours.}}"
 msgstr "{0, plural, one {# tâche, envoi de webhook ou exécution d’automatisation a échoué ces dernières 24 heures.} other {# tâches, envois de webhooks et exécutions d’automatisations ont échoué ces dernières 24 heures.}}"
 
-#. placeholder {0}: page.matched
+#. placeholder {0}: page.total
 #: components/admin/logs-tab.tsx
 msgid "{0, plural, one {# line} other {# lines}}"
 msgstr "{0, plural, one {# ligne} other {# lignes}}"
@@ -464,7 +464,7 @@ msgid "{0, plural, one {Revoke their API token too: a token is never handed over
 msgstr "{0, plural, one {Révoquer aussi son jeton d’API : un jeton n’est jamais transmis} other {Révoquer aussi ses # jetons d’API : un jeton n’est jamais transmis}}"
 
 #. placeholder {0}: page.lines.length
-#. placeholder {1}: page.matched
+#. placeholder {1}: page.total
 #: components/admin/logs-tab.tsx
 msgid "{0} of {1} lines"
 msgstr "{0} sur {1} lignes"
