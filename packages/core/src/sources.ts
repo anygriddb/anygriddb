@@ -7,12 +7,13 @@ import { z } from "zod";
 import { isTimeZone } from "./field-config";
 
 /** The engines whose SQL the read engine compiles to: read where they live. */
-const SQL_SOURCE_ENGINES = [
+export const SQL_SOURCE_ENGINES = [
   "postgres",
   "mysql",
   "mariadb",
   "sqlserver",
   "oracle",
+  "sqlite",
 ] as const;
 
 /**
@@ -59,6 +60,12 @@ export function isCopySourceEngine(
   return (COPY_SOURCE_ENGINES as readonly string[]).includes(engine ?? "");
 }
 
+export function isSqlSourceEngine(
+  engine: string | null | undefined,
+): engine is SqlSourceEngine {
+  return (SQL_SOURCE_ENGINES as readonly string[]).includes(engine ?? "");
+}
+
 export const DEFAULT_SOURCE_PORTS: Record<SourceEngine, number> = {
   postgres: 5432,
   mysql: 3306,
@@ -67,6 +74,8 @@ export const DEFAULT_SOURCE_PORTS: Record<SourceEngine, number> = {
   // TCPS: AnyGridDB reaches Oracle over verified TLS, which a listener of
   // its own serves, by convention here (1521 is the plaintext one).
   oracle: 2484,
+  // SQLite is a file; the port is unused and kept at 1 for the schema.
+  sqlite: 1,
   mongodb: 27017,
   opensearch: 9200,
   redis: 6379,
@@ -90,15 +99,20 @@ const hostSchema = z
 
 const nameSchema = z.string().trim().min(1).max(100);
 
-export const sourceInputSchema = z
+function allowsEmptySecret(engine: SourceEngine): boolean {
+  return engine === "sqlite";
+}
+
+const sourceFields = z
   .object({
     name: nameSchema,
     engine: z.enum(SOURCE_ENGINES),
     host: hostSchema,
     port: z.number().int().min(1).max(65_535),
-    database: z.string().trim().min(1).max(128),
-    username: z.string().trim().min(1).max(128),
-    password: z.string().min(1).max(1_024),
+    /** Database name, file path, index list, or keyspace. */
+    database: z.string().trim().min(1).max(4_096),
+    username: z.string().trim().max(128),
+    password: z.string().max(1_024),
     /** A certificate authority, or the server's self-signed certificate. */
     tlsCa: z.string().trim().max(65_536).regex(PEM).nullable().optional(),
     connectionLimit: z.number().int().min(1).max(50).default(5),
@@ -118,19 +132,84 @@ export const sourceInputSchema = z
     /** Optional read replica: grid/API reads; writes stay on the primary. */
     replicaHost: hostSchema.nullable().optional(),
     replicaPort: z.number().int().min(1).max(65_535).nullable().optional(),
-    replicaDatabase: z.string().trim().min(1).max(128).nullable().optional(),
+    replicaDatabase: z.string().trim().min(1).max(4_096).nullable().optional(),
     replicaUsername: z.string().trim().min(1).max(128).nullable().optional(),
     /** Empty keeps the primary password when a replica host is set. */
     replicaPassword: z.string().max(1_024).nullable().optional(),
   })
   .strict();
 
+function refineSourceSecrets(
+  input: z.infer<typeof sourceFields>,
+  ctx: z.RefinementCtx,
+): void {
+  if (!allowsEmptySecret(input.engine) && input.username.trim() === "") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["username"],
+      message: "Username required",
+    });
+  }
+  if (!allowsEmptySecret(input.engine) && input.password === "") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["password"],
+      message: "Password required",
+    });
+  }
+  if (input.engine === "sqlite" && input.database.includes("\0")) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["database"],
+      message: "Invalid database path",
+    });
+  }
+}
+
+export const sourceInputSchema = sourceFields.superRefine(refineSourceSecrets);
+
 export type SourceInput = z.infer<typeof sourceInputSchema>;
 
 /** A change to a source; a missing password keeps the stored one. */
-export const sourceUpdateSchema = sourceInputSchema
+export const sourceUpdateSchema = sourceFields
   .partial()
   .extend({ id: z.uuid() })
-  .strict();
+  .strict()
+  .superRefine((input, ctx) => {
+    if (input.engine === undefined) return;
+    if (
+      !allowsEmptySecret(input.engine) &&
+      input.username !== undefined &&
+      input.username.trim() === ""
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["username"],
+        message: "Username required",
+      });
+    }
+    if (
+      !allowsEmptySecret(input.engine) &&
+      input.password !== undefined &&
+      input.password === ""
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["password"],
+        message: "Password required",
+      });
+    }
+    if (
+      input.engine === "sqlite" &&
+      input.database !== undefined &&
+      input.database.includes("\0")
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["database"],
+        message: "Invalid database path",
+      });
+    }
+  });
 
 export type SourceUpdate = z.infer<typeof sourceUpdateSchema>;

@@ -1,8 +1,8 @@
 # Connecting a client database
 
 AnyGridDB reads a client's database where it lives (ADRs 0006, 0026): a
-PostgreSQL, MySQL, MariaDB, SQL Server, or Oracle database. A store that
-speaks no SQL is read from a copy instead: see
+PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, or SQLite database. A store
+that speaks no SQL is read from a copy instead: see
 [Stores that speak no SQL](#stores-that-speak-no-sql). An instance
 administrator declares the source; the database's own administrator (the
 DBA) prepares two things first:
@@ -23,6 +23,16 @@ The operator of the AnyGridDB instance lists the hosts sources may live on
 in `ANYGRIDDB_SOURCES_ALLOWED_HOSTS` (names, `*.` domains, addresses,
 ranges). `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT=true` connects without TLS: for
 development only, and the administration page says so.
+
+**SQLite** is a file on the API host, not a network service: the source's
+form names an absolute path to the database file. TLS does not apply. The
+operator allow-lists the directories that may hold those files in
+`ANYGRIDDB_SOURCES_ALLOWED_PATHS`, as absolute path prefixes separated by
+commas or colons (for example `/var/lib/anygriddb/clients` or
+`/data/databases:/srv/erp`). Relative paths, `..` traversal, and paths
+outside the allow-list are refused. `:memory:` databases are refused in
+production; set `ANYGRIDDB_SOURCES_SQLITE_ALLOW_MEMORY=true` in development
+or tests only if you need them.
 
 Every read runs under the source's time limit, with at most its number of
 connections, in a read-only transaction where the engine has one. Dates

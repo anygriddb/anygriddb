@@ -1,4 +1,6 @@
 import type { MappedField, SourceEngine } from "@anygriddb/core";
+import { PathAllowList } from "./path-allow-list.js";
+import { resolveSqliteDatabase } from "./sqlite-path.js";
 
 /** What it takes to sign in to a source, the password in clear. */
 export type SourceConnection = {
@@ -26,6 +28,13 @@ export type SourceSettings = {
   allowedHosts: readonly string[];
   /** Development only: connect without TLS. */
   allowPlaintext: boolean;
+  /** Whether a SQLite file path sits under an allowed directory prefix. */
+  allowsPath: (database: string) => boolean;
+  /** The operator's directory prefixes, for administrators to read. */
+  allowedPaths: readonly string[];
+  paths: PathAllowList;
+  /** Development and tests only: allow SQLite `:memory:` databases. */
+  sqliteAllowMemory: boolean;
 };
 
 /** A table or view of a source, as its account sees it. */
@@ -62,3 +71,36 @@ export type SourceTable = {
     targetColumns: string[];
   }>;
 };
+
+/** Default operator rules for integration tests and local callers. */
+export function testSourceSettings(
+  partial: Partial<SourceSettings> = {},
+): SourceSettings {
+  const paths = partial.paths ?? new PathAllowList("/");
+  const sqliteAllowMemory = partial.sqliteAllowMemory ?? true;
+  const base: SourceSettings = {
+    allows: () => true,
+    allowedHosts: ["localhost", "127.0.0.1"],
+    allowPlaintext: true,
+    paths,
+    allowedPaths: paths.entries,
+    allowsPath: (database) => {
+      try {
+        resolveSqliteDatabase(database, {
+          paths,
+          allowMemory: sqliteAllowMemory,
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    sqliteAllowMemory,
+  };
+  return {
+    ...base,
+    ...partial,
+    paths,
+    allowedPaths: partial.allowedPaths ?? paths.entries,
+  };
+}

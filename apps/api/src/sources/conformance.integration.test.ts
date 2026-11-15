@@ -59,7 +59,7 @@ import { dropUnusedCopy, runSync, setTableSync } from "./sync.js";
 import { readerEngine, setTableAcl } from "../data/acl.js";
 import { withAudit } from "../data/audit-context.js";
 import { createSource, updateSource } from "./sources.js";
-import type { SourceSettings } from "./types.js";
+import { testSourceSettings } from "./types.js";
 import { listExternalTrash, settleExternalWrites } from "./writes.js";
 import {
   attachExternalStatuses,
@@ -72,11 +72,11 @@ import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 
 // The client servers run on this machine, without TLS: plaintext is the
 // operator's development flag, which the suite turns on.
-const settings: SourceSettings = {
+const settings = testSourceSettings({
   allows: () => true,
   allowedHosts: [],
   allowPlaintext: true,
-};
+});
 
 type Engine = "postgres" | "mysql" | "mariadb" | "sqlserver" | "oracle";
 

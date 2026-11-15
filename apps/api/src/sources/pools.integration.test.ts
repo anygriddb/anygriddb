@@ -12,7 +12,9 @@ import { createTestDatabase } from "../test-database.js";
 import { SourcePools } from "./pools.js";
 import { createSource } from "./sources.js";
 
-const settings = { allows: () => true, allowedHosts: [], allowPlaintext: true };
+import { testSourceSettings } from "./types.js";
+
+const settings = testSourceSettings();
 
 describe("source pools", () => {
   const key = keyRing(randomBytes(32));

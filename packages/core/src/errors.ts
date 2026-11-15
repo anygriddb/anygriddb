@@ -214,6 +214,7 @@ export const ERRORS = {
   unknown_source: [BAD, "Unknown source"],
   source_already_exists: [409, "Source already exists"],
   source_host_not_allowed: [403, "Source host not allowed"],
+  source_path_not_allowed: [403, "Source path not allowed"],
   source_engine_unsupported: [BAD, "Source engine not supported yet"],
   source_version_unsupported: [BAD, "Source version not supported"],
   source_engine_mismatch: [BAD, "Source engine differs from the server"],

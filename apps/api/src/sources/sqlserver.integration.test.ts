@@ -22,13 +22,14 @@ import { exerciseHostedBase } from "./host-table.test-helpers.js";
 import { setSourcePools, SourcePools } from "./pools.js";
 import { checkConnection, createSource } from "./sources.js";
 import { introspectSqlServer } from "./sqlserver-schema.js";
-import type { SourceConnection, SourceSettings } from "./types.js";
+import type { SourceConnection } from "./types.js";
+import { testSourceSettings } from "./types.js";
 
-const settings: SourceSettings = {
+const settings = testSourceSettings({
   allows: (host) => host === "localhost" || host === "127.0.0.1",
   allowedHosts: ["localhost", "127.0.0.1"],
   allowPlaintext: false,
-};
+});
 
 const SA_PASSWORD = "Admin!Passw0rd-2026";
 const READER_PASSWORD = "Reader!Passw0rd-2026";

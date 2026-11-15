@@ -161,6 +161,7 @@ export type SourceEngine =
   | "oracle"
   | "postgres"
   | "redis"
+  | "sqlite"
   | "sqlserver";
 
 export type TableStorage = "external" | "native";

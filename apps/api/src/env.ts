@@ -73,6 +73,8 @@ export type Env = {
   JOB_CONCURRENCY: number;
   /** Where sources may be declared (ADR 0006); empty allows none. */
   SOURCES_ALLOWED_HOSTS: string;
+  /** Directories where SQLite source files may live; empty allows none. */
+  SOURCES_ALLOWED_PATHS: string;
   /**
    * Reverse proxies whose `X-Forwarded-For` is the client address, as IP
    * addresses or CIDR ranges. Empty: the TCP peer is the client, and a
@@ -81,6 +83,8 @@ export type Env = {
   TRUSTED_PROXIES: readonly string[];
   /** Development only: connect to sources without TLS (ADR 0026). */
   SOURCES_ALLOW_PLAINTEXT: boolean;
+  /** Development and tests only: allow SQLite `:memory:` sources. */
+  SOURCES_SQLITE_ALLOW_MEMORY: boolean;
   /**
    * The bearer token `/metrics` asks for (ADR 0018); without one, there are
    * no metrics to read.
@@ -485,6 +489,15 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
       "ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT is for development: a production instance reaches sources over verified TLS only",
     );
   }
+  const sqliteAllowMemory = flag(
+    source,
+    "ANYGRIDDB_SOURCES_SQLITE_ALLOW_MEMORY",
+  );
+  if (sqliteAllowMemory && source.NODE_ENV === "production") {
+    throw new Error(
+      "ANYGRIDDB_SOURCES_SQLITE_ALLOW_MEMORY is for development: a production instance opens SQLite files on disk only",
+    );
+  }
 
   const databaseUrl = requiredSecret(source, "DATABASE_URL");
   assertReadableDatabaseUrl(databaseUrl, "DATABASE_URL");
@@ -549,7 +562,9 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     IMPORT_MAX_ROWS: rowCeiling(source, "IMPORT_MAX_ROWS", 1_000_000),
     JOB_CONCURRENCY: count(source, "JOB_CONCURRENCY", 2),
     SOURCES_ALLOWED_HOSTS: source.ANYGRIDDB_SOURCES_ALLOWED_HOSTS ?? "",
+    SOURCES_ALLOWED_PATHS: source.ANYGRIDDB_SOURCES_ALLOWED_PATHS ?? "",
     SOURCES_ALLOW_PLAINTEXT: allowPlaintext,
+    SOURCES_SQLITE_ALLOW_MEMORY: sqliteAllowMemory,
     TRUSTED_PROXIES: trustedProxies(source),
     ...(metricsToken ? { METRICS_TOKEN: metricsToken } : {}),
     ...(source.OTEL_EXPORTER_OTLP_ENDPOINT
