@@ -121,6 +121,8 @@ const CONVERTIBLE = new Set([
   "email",
   "url",
   "phone",
+  "color",
+  "place",
   "single_select",
   "multi_select",
   "number",

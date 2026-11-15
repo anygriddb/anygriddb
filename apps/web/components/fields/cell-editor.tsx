@@ -1,4 +1,4 @@
-import { cellText, coerceCellValue } from "@anygriddb/core";
+import { cellText, coerceCellValue, parseColor } from "@anygriddb/core";
 import {
   Avatar,
   Button,
@@ -107,6 +107,7 @@ function InlineEditor({ column, row, initialText, onDone }: EditorProps) {
   const { t } = useLingui();
   const { updateCells } = useTable();
   const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
+  const pickerRef = useRef<HTMLInputElement>(null);
   const current = row[column.name as keyof RowItem];
   const [text, setText] = useState(
     initialText ?? editableText(current, column),
@@ -201,6 +202,41 @@ function InlineEditor({ column, row, initialText, onDone }: EditorProps) {
         {...shared}
         className={cn(INLINE_EDITOR_CLASS, "bottom-auto h-40 py-1.5")}
       />
+    );
+  }
+  if (column.fieldType === "color") {
+    // A colour is typed, or picked: the picker writes what is typed, and
+    // going from one to the other does not end the edit.
+    return (
+      <>
+        <input
+          ref={ref}
+          {...shared}
+          onBlur={(event) => {
+            if (event.relatedTarget !== pickerRef.current) void commit();
+          }}
+          className={cn(
+            INLINE_EDITOR_CLASS,
+            "pr-10 font-mono",
+            invalid && "border-danger",
+          )}
+          type="text"
+          placeholder="#1f3fae"
+        />
+        <input
+          ref={pickerRef}
+          type="color"
+          aria-label={t`Pick a colour`}
+          className="absolute top-1/2 right-1.5 z-30 h-5 w-7 -translate-y-1/2 cursor-pointer rounded-sm border border-border bg-card p-0"
+          value={parseColor(text) ?? "#000000"}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={onKeyDown}
+          onBlur={(event) => {
+            if (event.relatedTarget !== ref.current) void commit();
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+        />
+      </>
     );
   }
   return (

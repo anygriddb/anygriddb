@@ -333,7 +333,7 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
     .getByRole("button", { name: "Create", exact: true })
     .click();
   await expect(
-    page.getByText("Add two number fields, a latitude and a longitude"),
+    page.getByText("Add a place field, or two number fields"),
   ).toBeVisible();
   expect(await accessibilityViolations(page)).toEqual([]);
 
@@ -356,6 +356,96 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
   expect((await inserted).postData() ?? "").toContain('"due":"2026-03-15"');
 
   expect(blocked).toEqual([]);
+});
+
+// A colour and a place (ROADMAP #95): each typed as a person types it and
+// kept in its one spelling. The grid draws the colour with its swatch, its
+// picker writes the same cell, and a map reads the place with no field to
+// choose.
+// It makes an account, so it takes a client address of its own: sign-ups
+// are counted per address, and the other journeys share theirs.
+test.describe("a colour and a place", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.91" } });
+
+  test("a colour is typed or picked, and a map reads a place", async ({
+    page,
+  }) => {
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "Place User");
+    const tableId = /\/t\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
+    await addField(page, tableId, {
+      name: "tint",
+      label: "Tint",
+      fieldType: "color",
+    });
+    await addField(page, tableId, {
+      name: "spot",
+      label: "Spot",
+      fieldType: "place",
+    });
+    await send(page, "rows.insertMany", {
+      tableId,
+      rows: [{ name: "Paris" }, { name: "Nowhere" }],
+    });
+    await page.reload();
+    await page.getByRole("grid").waitFor();
+
+    // Three digits and capitals: kept as six, in lower case.
+    let saved = savedValues(page);
+    await cell(page, "tint").click();
+    await page.keyboard.type("#ABC");
+    await page.keyboard.press("Enter");
+    expect(await saved).toContain('"tint":"#aabbcc"');
+    await expect(cell(page, "tint")).toContainText("#aabbcc");
+    // What is no colour is refused, and the cell keeps what it had.
+    await cell(page, "tint").click();
+    await page.keyboard.type("blue");
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Invalid value for Tint")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(cell(page, "tint")).toContainText("#aabbcc");
+    // The picker writes the same cell, and going to it does not end the edit.
+    saved = savedValues(page);
+    await cell(page, "tint").click();
+    await page.keyboard.press("Enter");
+    const picker = page.getByLabel("Pick a colour");
+    await expect(picker).toHaveValue("#aabbcc");
+    await picker.fill("#1f3fae");
+    await picker.press("Enter");
+    expect(await saved).toContain('"tint":"#1f3fae"');
+    await expect(cell(page, "tint")).toContainText("#1f3fae");
+
+    // A decimal comma and a semicolon, as some type it: one spelling kept.
+    saved = savedValues(page);
+    await cell(page, "spot").click();
+    await page.keyboard.type("48,8566; 2,3522");
+    await page.keyboard.press("Enter");
+    expect(await saved).toContain('"spot":"48.8566,2.3522"');
+    await expect(cell(page, "spot")).toContainText("48.8566, 2.3522");
+    // A place off the globe is none.
+    await cell(page, "spot").click();
+    await page.keyboard.type("95, 2");
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Invalid value for Spot")).toBeVisible();
+    await page.keyboard.press("Escape");
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // A map has nothing to ask: it reads the place field, and leaves out
+    // the row that has none.
+    await page.getByRole("button", { name: "New view" }).click();
+    await page.getByRole("menuitem", { name: "Map" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Create", exact: true })
+      .click();
+    await expect(page.getByTitle("Paris", { exact: true })).toBeVisible();
+    await expect(page.getByText("1 point", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Place")).toHaveValue("spot");
+    await expect(page.getByLabel("Latitude")).toHaveCount(0);
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    expect(blocked).toEqual([]);
+  });
 });
 
 // Ctrl Z and Ctrl Y take back a list's last choice and a link while their

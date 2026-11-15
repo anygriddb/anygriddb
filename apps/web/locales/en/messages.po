@@ -1011,6 +1011,10 @@ msgid "A change made in Administration asks for your password or second factor a
 msgstr "A change made in Administration asks for your password or second factor again. The proof stays valid for five minutes."
 
 #: components/fields/field-meta.tsx
+msgid "A colour, shown with its swatch"
+msgstr "A colour, shown with its swatch"
+
+#: components/fields/field-meta.tsx
 msgid "A day"
 msgstr "A day"
 
@@ -1060,6 +1064,10 @@ msgstr "A group gathers accounts so a base can give them one role. Make a group 
 msgid "A JSON document's value at a path, such as $.client.name or $.lines[0]."
 msgstr "A JSON document's value at a path, such as $.client.name or $.lines[0]."
 
+#: components/views/map-view.tsx
+msgid "A latitude and a longitude"
+msgstr "A latitude and a longitude"
+
 #: components/views/form-view.tsx
 msgid "A link can fill fields: add ?prefill_field_name=value to its address, and &hide_field_name=true to hide a filled field."
 msgstr "A link can fill fields: add ?prefill_field_name=value to its address, and &hide_field_name=true to hide a filled field."
@@ -1092,6 +1100,10 @@ msgstr "A phone number"
 #: components/admin/identity-tab.tsx
 msgid "A PNG, JPEG, or WebP image of 256 KiB at most. It is drawn small, in a square, wherever the mark above is: a symbol reads better than a name written out."
 msgstr "A PNG, JPEG, or WebP image of 256 KiB at most. It is drawn small, in a square, wherever the mark above is: a symbol reads better than a name written out."
+
+#: components/fields/field-meta.tsx
+msgid "A point on the globe, which a map shows"
+msgstr "A point on the globe, which a map shows"
 
 #: components/views/calendar-feed.tsx
 msgid "A private address for your calendar application (Outlook, Google Calendar, Apple Calendar…). It shows what you can read of this view, from six months back to two years ahead. Keep it to yourself: whoever has it reads these rows."
@@ -1464,6 +1476,10 @@ msgstr "Add a metric, a chart, or a view."
 msgid "Add a person"
 msgstr "Add a person"
 
+#: components/views/map-view.tsx
+msgid "Add a place field, or two number fields for a latitude and a longitude, to place rows on the map."
+msgstr "Add a place field, or two number fields for a latitude and a longitude, to place rows on the map."
+
 #: components/grid/grid-view.tsx
 #: components/table/view-toolbar.tsx
 #: components/views/row-cards.tsx
@@ -1553,10 +1569,6 @@ msgstr "Add the group"
 #: components/table/new-row-dialog.tsx
 msgid "Add the row"
 msgstr "Add the row"
-
-#: components/views/map-view.tsx
-msgid "Add two number fields, a latitude and a longitude, to place rows on the map."
-msgstr "Add two number fields, a latitude and a longitude, to place rows on the map."
 
 #: components/settings/webhooks-panel.tsx
 msgid "Add webhook"
@@ -2674,6 +2686,7 @@ msgid "Color"
 msgstr "Color"
 
 #: components/fields/field-editor.tsx
+#: components/fields/field-meta.tsx
 msgid "Colour"
 msgstr "Colour"
 
@@ -7248,6 +7261,10 @@ msgstr "Personal view"
 msgid "Phone"
 msgstr "Phone"
 
+#: components/fields/cell-editor.tsx
+msgid "Pick a colour"
+msgstr "Pick a colour"
+
 #: lib/errors.ts
 msgid "Pick a shared view of the linked table"
 msgstr "Pick a shared view of the linked table"
@@ -7263,6 +7280,11 @@ msgstr "Pin {name}"
 #: components/shell/sidebar.tsx
 msgid "Pinned"
 msgstr "Pinned"
+
+#: components/fields/field-meta.tsx
+#: components/views/map-view.tsx
+msgid "Place"
+msgstr "Place"
 
 #: components/fields/field-editor.tsx
 msgid "Plain text"

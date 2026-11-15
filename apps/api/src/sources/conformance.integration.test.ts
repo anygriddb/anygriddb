@@ -2210,6 +2210,70 @@ describe("conformance of formulas across engines", () => {
           ),
         ),
       );
+      // A colour and a place are kept beside the client's rows too, each
+      // in its one spelling, and found again by the filter a map uses.
+      const tint = await addColumn(db, actorId, teamsTable.id, {
+        label: "Teinte",
+        fieldType: "color",
+      });
+      const spot = await addColumn(db, actorId, teamsTable.id, {
+        label: "Lieu",
+        fieldType: "place",
+      });
+      // The table as it is now: a scope read before knows neither field.
+      const widened = await loadRowScope(
+        db,
+        {
+          userId: actorId,
+          bindings: [{ role: "owner", scope: "base", scopeId: baseId }],
+        },
+        await db
+          .selectFrom("dataTables")
+          .selectAll()
+          .where("id", "=", teamsTable.id)
+          .executeTakeFirstOrThrow(),
+      );
+      trace.push(
+        await failure(
+          updateRows(
+            services,
+            widened,
+            [
+              {
+                rowId: "2",
+                values: {
+                  [tint.name]: "#1f3fae",
+                  [spot.name]: "48.8566,2.3522",
+                },
+              },
+            ],
+            { source: "web" },
+          ),
+        ),
+        await failure(
+          updateRows(
+            services,
+            widened,
+            [{ rowId: "3", values: { [spot.name]: "48.8566, 2.3522" } }],
+            { source: "web" },
+          ),
+        ),
+        (
+          await readPage(
+            db,
+            (await loadEngine(db, teamsTable.id, () => true)).engine,
+            {
+              limit: 10,
+              timeZone: "UTC",
+              filter: {
+                conjunction: "and",
+                conditions: [{ column: spot.name, op: "is_not_empty" }],
+              },
+            },
+            { total: true },
+          )
+        ).rows.map((row) => [row.id, row[tint.name], row[spot.name]]),
+      );
       // A lookup from the cases reads it through their link.
       const casesId = (
         await db
@@ -2255,7 +2319,7 @@ describe("conformance of formulas across engines", () => {
       ["2", null],
       ["3", "Revue"],
     ];
-    expect(reference?.slice(0, 11)).toEqual([
+    expect(reference?.slice(0, 14)).toEqual([
       "ok",
       remarked,
       [["1", "Vue"]],
@@ -2271,6 +2335,9 @@ describe("conformance of formulas across engines", () => {
       ],
       [["1", "Actif", "12.5"]],
       "source_conflict",
+      "ok",
+      "invalid_cell",
+      [["2", "#1f3fae", "48.8566,2.3522"]],
     ]);
     for (const engine of ["mysql", "mariadb", "sqlserver", "oracle"] as const) {
       expect(asRead(engine, traces.get(engine)), engine).toEqual(

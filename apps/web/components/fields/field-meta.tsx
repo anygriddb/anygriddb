@@ -12,6 +12,8 @@ import {
   Link2,
   List,
   ListChecks,
+  MapPin,
+  Palette,
   Paperclip,
   Phone,
   Search,
@@ -41,6 +43,8 @@ const FIELD_ICONS: Record<string, LucideIcon> = {
   email: AtSign,
   url: Link2,
   phone: Phone,
+  color: Palette,
+  place: MapPin,
   rating: Star,
   duration: Timer,
   user: Users,
@@ -88,6 +92,8 @@ export const FIELD_LABELS: Record<string, MessageDescriptor> = {
   email: msg`Email`,
   url: msg`URL`,
   phone: msg`Phone`,
+  color: msg`Colour`,
+  place: msg`Place`,
   rating: msg`Rating`,
   duration: msg`Duration`,
   user: msg`Collaborator`,
@@ -113,6 +119,8 @@ export const FIELD_DESCRIPTIONS: Record<string, MessageDescriptor> = {
   email: msg`An email address, as a link`,
   url: msg`A web address, as a link`,
   phone: msg`A phone number`,
+  color: msg`A colour, shown with its swatch`,
+  place: msg`A point on the globe, which a map shows`,
   number: msg`Amounts, quantities, percentages`,
   rating: msg`A score drawn as symbols`,
   duration: msg`Hours and minutes`,
@@ -140,7 +148,10 @@ export const FIELD_GROUPS: Array<{
   label: MessageDescriptor;
   types: string[];
 }> = [
-  { label: msg`Text`, types: ["text", "long_text", "email", "url", "phone"] },
+  {
+    label: msg`Text`,
+    types: ["text", "long_text", "email", "url", "phone", "color", "place"],
+  },
   { label: msg`Numbers`, types: ["number", "rating", "duration", "boolean"] },
   { label: msg`Dates`, types: ["date", "datetime"] },
   {

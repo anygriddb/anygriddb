@@ -290,9 +290,11 @@ export function TableWorkspace({
       : undefined;
   const timelineAt = timelineScale(config.timelineScale);
   // A map reads only the rows that have a place.
-  const place = viewType === "map" ? placeColumns(config, ordered) : undefined;
-  const latitude = place?.latitude;
-  const longitude = place?.longitude;
+  const mapPlaces =
+    viewType === "map" ? placeColumns(config, ordered) : undefined;
+  const place = mapPlaces?.place;
+  const latitude = mapPlaces?.latitude;
+  const longitude = mapPlaces?.longitude;
   const scope = useMemo(
     () =>
       calendarField
@@ -303,9 +305,7 @@ export function TableWorkspace({
               timelineEnd,
               timelinePeriod(timelineFocus, timelineAt),
             )
-          : latitude && longitude
-            ? placeFilter(latitude, longitude)
-            : undefined,
+          : placeFilter({ place, latitude, longitude }),
     [
       calendarField,
       calendarMonth,
@@ -313,6 +313,7 @@ export function TableWorkspace({
       timelineEnd,
       timelineFocus,
       timelineAt,
+      place,
       latitude,
       longitude,
     ],

@@ -134,6 +134,8 @@ const shape = {
   collapsedStacks: z.array(z.string().max(80)).max(201),
   /** What the view is for, shown above it. */
   description: z.string().trim().min(1).max(1_000),
+  /** A map's place field; or two numbers, a latitude and a longitude. */
+  placeColumn: columnNameSchema,
   latitudeColumn: columnNameSchema,
   longitudeColumn: columnNameSchema,
   form: formConfigSchema,
@@ -280,6 +282,7 @@ export function viewConfigColumns(config: ViewConfig): string[] {
     config.startColumn,
     config.endColumn,
     config.colorColumn,
+    config.placeColumn,
     config.latitudeColumn,
     config.longitudeColumn,
   ]) {
@@ -367,6 +370,7 @@ export function stripColumnFromConfig(
     "startColumn",
     "endColumn",
     "colorColumn",
+    "placeColumn",
     "latitudeColumn",
     "longitudeColumn",
   ] as const) {

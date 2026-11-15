@@ -255,6 +255,8 @@ const CONFIG_SCHEMAS: Record<FieldType, z.ZodType<ColumnConfig>> = {
   email: z.object({}).strict(),
   url: z.object({ appearance: textAppearanceSchema }).strict(),
   phone: z.object({}).strict(),
+  color: z.object({}).strict(),
+  place: z.object({}).strict(),
   number: z
     .object({
       number: numberFormatSchema.optional(),

@@ -1,8 +1,14 @@
-import { cellText, isEmail, isHttpUrl } from "@anygriddb/core";
+import {
+  cellText,
+  isColor,
+  isEmail,
+  isHttpUrl,
+  isPlace,
+} from "@anygriddb/core";
 
 import { Avatar, cn, OptionBadge } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
-import { Check, Paperclip } from "lucide-react";
+import { Check, MapPin, Paperclip } from "lucide-react";
 import type { ReactNode } from "react";
 import { attachmentList, cellDisplay, isLinkArray } from "../../lib/format";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
@@ -315,6 +321,31 @@ export function CellValueView({
       >
         {highlight(text, search)}
       </a>
+    );
+  }
+  if (type === "color" && typeof value === "string" && isColor(value)) {
+    return (
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span
+          aria-hidden
+          className="h-3.5 w-3.5 shrink-0 rounded-sm border border-border"
+          style={{ backgroundColor: value }}
+        />
+        <span className="truncate font-mono text-xs">
+          {highlight(text, search)}
+        </span>
+      </span>
+    );
+  }
+  if (type === "place" && typeof value === "string" && isPlace(value)) {
+    return (
+      <span className="flex min-w-0 items-center gap-1 tabular-nums">
+        <MapPin
+          aria-hidden
+          className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+        />
+        <span className="truncate">{highlight(text, search)}</span>
+      </span>
     );
   }
   const numeric = column.kind === "number" && !Array.isArray(value);
