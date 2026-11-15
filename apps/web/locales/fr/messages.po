@@ -4822,6 +4822,10 @@ msgstr "Tout masquer"
 msgid "Hide empty columns"
 msgstr "Masquer les colonnes vides"
 
+#: components/shell/jobs-menu.tsx
+msgid "Hide finished"
+msgstr "Masquer les terminées"
+
 #: components/grid/grid-tips.tsx
 msgid "Hide the tips"
 msgstr "Masquer les astuces"
@@ -6734,6 +6738,10 @@ msgstr "Aucune ligne sur cette période."
 #: components/table/table-workspace.tsx
 msgid "No rows yet."
 msgstr "Aucune ligne pour l’instant."
+
+#: components/shell/jobs-menu.tsx
+msgid "No running tasks"
+msgstr "Aucune tâche en cours"
 
 #: components/table/automations-dialog.tsx
 msgid "No runs yet."
@@ -11836,16 +11844,3 @@ msgstr "Zoom avant"
 #: components/views/map-view.tsx
 msgid "Zoom out"
 msgstr "Zoom arrière"
-
-#: components/shell/jobs-menu.tsx
-msgid "Hide finished"
-msgstr "Masquer les terminées"
-
-#: components/shell/jobs-menu.tsx
-msgid "Show finished"
-msgstr "Afficher les terminées"
-
-#: components/shell/jobs-menu.tsx
-msgid "No running tasks"
-msgstr "Aucune tâche en cours"
-

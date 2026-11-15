@@ -1,5 +1,6 @@
 import {
   Button,
+  cn,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -297,11 +298,16 @@ export function JobsMenu() {
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 shrink-0 px-2 text-xs text-muted-foreground"
+              className={cn(
+                "h-7 shrink-0 px-2 text-xs",
+                hideFinished
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground",
+              )}
               aria-pressed={hideFinished}
               onClick={() => setHideFinished((current) => !current)}
             >
-              {hideFinished ? t`Show finished` : t`Hide finished`}
+              {t`Hide finished`}
             </Button>
           ) : null}
         </div>
