@@ -4,6 +4,8 @@ import { EN, FR } from "./mail.test-helpers.js";
 import {
   adminAccessMailBody,
   adminAccessMailSubject,
+  emailOtpMailBody,
+  emailOtpMailSubject,
   mailVoice,
   invitationMailBody,
   invitationMailSubject,
@@ -113,6 +115,39 @@ describe("security mails", () => {
     expect(securityMailBody(EN, { kind: "factors_removed" })).toContain(
       "tell your administrator",
     );
+  });
+
+  it("mails a second factor's code alone on its line, with no link, and says what a sign-in code means", () => {
+    const login = {
+      code: "042137",
+      expiresAt: until,
+      purpose: "login",
+    } as const;
+    const enroll = { ...login, purpose: "enroll" } as const;
+    for (const voice of [EN, FR]) {
+      for (const input of [login, enroll]) {
+        const body = emailOtpMailBody(voice, input);
+        expect(body.split("\n")).toContain("042137");
+        expect(body).not.toMatch(/https?:\/\//);
+        expect(body).toContain("10:15 UTC");
+      }
+    }
+    expect(emailOtpMailSubject(EN, "login")).toBe(
+      "AnyGridDB: your sign-in code",
+    );
+    expect(emailOtpMailSubject(FR, "enroll")).toBe(
+      "AnyGridDB\u00a0: votre code de confirmation",
+    );
+    // A sign-in code is asked for with the right password: whoever did
+    // not ask is told to change it.
+    expect(emailOtpMailBody(EN, login)).toContain(
+      "someone else knows your password: change it",
+    );
+    expect(emailOtpMailBody(FR, login)).toContain(
+      "connu de quelqu’un d’autre\u00a0: changez-le",
+    );
+    expect(emailOtpMailBody(EN, enroll)).toContain("nothing changes");
+    expect(emailOtpMailBody(EN, enroll)).not.toContain("password");
   });
 
   it("sends a reset link that works once, and leaves factors alone", () => {

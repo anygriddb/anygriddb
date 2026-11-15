@@ -46,6 +46,38 @@ describe("proofNeeded", () => {
       proofNeeded("passkey", { methods: [], hasPassword: false }),
     ).toBeNull();
   });
+
+  it("asks nothing for a code by email as a first factor, and a proof beside another", () => {
+    expect(proofNeeded("email", { methods: [], hasPassword: true })).toBeNull();
+    expect(
+      proofNeeded("email", { methods: [], hasPassword: false }),
+    ).toBeNull();
+    // Beside an authenticator or a passkey, it is one more way in.
+    expect(proofNeeded("email", { methods: ["totp"], hasPassword: true })).toBe(
+      "password",
+    );
+    expect(
+      proofNeeded("email", { methods: ["totp"], hasPassword: false }),
+    ).toBe("code");
+    expect(
+      proofNeeded("email", { methods: ["webauthn"], hasPassword: true }),
+    ).toBe("password");
+  });
+
+  it("asks a proof to turn a code by email off, when there is one to give", () => {
+    expect(
+      proofNeeded("email_off", { methods: ["email"], hasPassword: true }),
+    ).toBe("password");
+    expect(
+      proofNeeded("email_off", {
+        methods: ["email", "totp"],
+        hasPassword: false,
+      }),
+    ).toBe("code");
+    expect(
+      proofNeeded("email_off", { methods: ["email"], hasPassword: false }),
+    ).toBeNull();
+  });
 });
 
 describe("backupCodesFile", () => {

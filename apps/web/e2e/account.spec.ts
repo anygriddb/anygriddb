@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import {
+  accessibilityViolations,
   enableTotp,
+  mailedCode,
   nextTotp,
   signIn,
   signUp,
@@ -46,5 +48,62 @@ test("a person deletes their own account with their password and a code", async 
   // The account is gone: its address and password open nothing.
   await signIn(page, email, password);
   await expect(page.getByRole("alert")).toHaveText("Invalid email or password");
+  expect(blocked).toEqual([]);
+});
+
+// A code by email as a second factor (ADR 0085): a member chooses it from
+// their account, proves their mailbox with a first code, saves the backup
+// codes, then signs in with a code that nothing sends until they ask.
+test("a member chooses a code by email, and signs in with one", async ({
+  page,
+}) => {
+  const blocked = watchPolicy(page);
+  const stamp = uniqueStamp();
+  const email = `e2e-mailcode-${stamp}@example.com`;
+  const password = "correct-horse-battery";
+  await signUp(page, { email, name: `Mailcode ${stamp}`, password });
+
+  await page.goto("/settings");
+  await page.getByRole("button", { name: "Set up a code by email" }).click();
+  await expect(
+    page.getByText("A code was sent to your address. It works once"),
+  ).toBeVisible();
+  expect(await accessibilityViolations(page)).toEqual([]);
+  const code = await mailedCode(email, "confirmation code");
+  // A wrong code is refused, and the right one still works after it.
+  const field = page.getByLabel("Code received by email");
+  await field.fill(code === "000000" ? "111111" : "000000");
+  await page.getByRole("button", { name: "Confirm the code" }).click();
+  await expect(
+    page.getByText("This code is wrong, or works no longer"),
+  ).toBeVisible();
+  await field.fill(code);
+  await page.getByRole("button", { name: "Confirm the code" }).click();
+  // A first factor: the account is given its backup codes.
+  await page.getByRole("button", { name: "I saved the codes" }).click();
+  await expect(page.getByText("A code by email is set up.")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Turn off the code by email" }),
+  ).toBeVisible();
+
+  // Another browser session: the password, then the second step. No code
+  // leaves, and no field asks for one, until the person asks.
+  await page.context().clearCookies();
+  await signIn(page, email, password);
+  await expect(
+    page.getByRole("heading", { name: "Second factor" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Code received by email")).toHaveCount(0);
+  await page.getByRole("button", { name: "Send a code to my address" }).click();
+  await expect(page.getByLabel("Code received by email")).toBeVisible();
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await page
+    .getByLabel("Code received by email")
+    .fill(await mailedCode(email, "sign-in code"));
+  await page.getByRole("button", { name: "Verify", exact: true }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+  // In: the account's own page opens.
+  await page.goto("/settings");
+  await expect(page.getByText("A code by email is set up.")).toBeVisible();
   expect(blocked).toEqual([]);
 });

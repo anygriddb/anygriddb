@@ -11,6 +11,8 @@ import { sendMail, smtpReady, type SmtpConfig } from "../mail.js";
 import {
   accountExistsMailBody,
   accountExistsMailSubject,
+  emailOtpMailBody,
+  emailOtpMailSubject,
   type MailLocale,
   type MailVoice,
   mailVoice,
@@ -125,6 +127,26 @@ export async function sendWelcome(
 
 export function resetLinkUrl(publicUrl: string, token: string): string {
   return `${publicUrl.replace(/\/+$/, "")}/reset/${token}`;
+}
+
+/**
+ * Mails the account a code for its second factor (ADR 0085). False where
+ * mail is not set up or the account is gone; a send the mail server
+ * refuses throws.
+ */
+export async function sendEmailOtpMail(
+  deps: SecurityMailDeps,
+  userId: string,
+  input: { code: string; expiresAt: Date; purpose: "enroll" | "login" },
+): Promise<boolean> {
+  const to = await recipient(deps, userId);
+  if (!to) return false;
+  await sendMail(to.smtp, to.voice, {
+    to: to.to,
+    subject: emailOtpMailSubject(to.voice, input.purpose),
+    text: emailOtpMailBody(to.voice, input),
+  });
+  return true;
 }
 
 /**

@@ -37,8 +37,8 @@ export async function sessionStartedAt(
  * the password, when the account has one; a code from its authenticator
  * (or a backup code), when it has one; and a sign-in less than ten
  * minutes old where neither can be asked: an account that signs in
- * through its provider only, or whose second factor is a passkey, which
- * a sign-in alone checks.
+ * through its provider only, or whose second factor is a passkey or a
+ * code by email, which a sign-in alone checks.
  */
 export async function proveOwnErasure(
   db: Database,
@@ -61,8 +61,13 @@ export async function proveOwnErasure(
   if (stored && proof.password === undefined) return "missing";
   if (code && proof.factorCode === undefined) return "missing";
 
-  // No password to ask, or a passkey for only factor: the sign-in itself.
-  if (!stored || (methods.includes("webauthn") && !code)) {
+  // No password to ask, or a second factor that a sign-in alone checks
+  // (a passkey, a code by email, which has to be sent first): the sign-in
+  // itself, when it is recent.
+  if (
+    !stored ||
+    ((methods.includes("webauthn") || methods.includes("email")) && !code)
+  ) {
     const age =
       input.startedAt === null
         ? Number.POSITIVE_INFINITY

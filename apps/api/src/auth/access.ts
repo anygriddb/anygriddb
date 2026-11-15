@@ -13,7 +13,7 @@ import { findApiToken, type TokenScope } from "./tokens.js";
 import { sessionBindings } from "../data/emergency-access.js";
 import { liveBase, liveTable } from "../data/live.js";
 
-type FactorMethod = "totp" | "webauthn";
+export type FactorMethod = "totp" | "webauthn" | "email";
 type GridDecision = "ok" | "denied" | "enroll";
 
 export async function loadBindings(
@@ -27,7 +27,15 @@ export async function loadBindings(
     .execute();
 }
 
-/** The second factors an account has set up, read in one query. */
+/**
+ * The second factors an account has, read in one query: what its sign-in
+ * asks for, and what the policy counts. A code by email (ADR 0085) is one
+ * for anyone but an administrator: the mailbox it reaches is the one a
+ * password is reset from, and an administrator's second factor has to be
+ * something that mailbox does not hold. An administrator who chose it
+ * before becoming one keeps it, unused, until they are one no longer.
+ * It stays listed while mail is down: the second step is never skipped.
+ */
 export async function factorMethods(
   db: Database,
   userId: string,
@@ -51,6 +59,16 @@ export async function factorMethods(
             .where("userId", "=", userId),
         )
         .as("webauthn"),
+      eb
+        .exists(
+          eb
+            .selectFrom("emailFactors")
+            .innerJoin("users", "users.id", "emailFactors.userId")
+            .select("emailFactors.userId")
+            .where("emailFactors.userId", "=", userId)
+            .where("users.isAdmin", "=", false),
+        )
+        .as("email"),
     ])
     .executeTakeFirst();
   const methods: FactorMethod[] = [];
@@ -59,6 +77,9 @@ export async function factorMethods(
   }
   if (found?.webauthn) {
     methods.push("webauthn");
+  }
+  if (found?.email) {
+    methods.push("email");
   }
   return methods;
 }

@@ -50,6 +50,8 @@ export type DashboardWidgetKind = "chart" | "metric" | "view_embed";
 
 export type DeliveryStatus = "failed" | "pending" | "success";
 
+export type EmailOtpPurpose = "enroll" | "login";
+
 export type ExternalStatus = "locked" | "signed" | "submitted";
 
 export type ExternalWatchMethod = "change_tracking" | "column";
@@ -372,6 +374,22 @@ export interface DataTables {
   position: Generated<number>;
   sourceId: string | null;
   storage: Generated<TableStorage>;
+}
+
+export interface EmailFactors {
+  confirmedAt: Generated<Timestamp>;
+  userId: string;
+}
+
+export interface EmailOtpCodes {
+  attempts: Generated<number>;
+  codeHash: string;
+  expiresAt: Timestamp;
+  purpose: EmailOtpPurpose;
+  sendCount: Generated<number>;
+  sentAt: Generated<Timestamp>;
+  userId: string;
+  windowStart: Generated<Timestamp>;
 }
 
 export interface EmergencyAccess {
@@ -963,6 +981,8 @@ export interface DB {
   dashboardWidgets: DashboardWidgets;
   dataColumns: DataColumns;
   dataTables: DataTables;
+  emailFactors: EmailFactors;
+  emailOtpCodes: EmailOtpCodes;
   emergencyAccess: EmergencyAccess;
   ephemeralLocks: EphemeralLocks;
   externalEnrichmentValues: ExternalEnrichmentValues;

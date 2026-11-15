@@ -24,6 +24,7 @@ export type KeyUse =
   | "tls"
   | "job-token"
   | "backup-code"
+  | "email-otp"
   | "share-access";
 
 export type KeyRing = {

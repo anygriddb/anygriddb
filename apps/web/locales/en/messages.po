@@ -1016,6 +1016,31 @@ msgstr "A call to its address (incoming webhook)"
 msgid "A change made in Administration asks for your password or second factor again. The proof stays valid for five minutes."
 msgstr "A change made in Administration asks for your password or second factor again. The proof stays valid for five minutes."
 
+#: components/settings/second-factor.tsx
+msgid "A code by email is not offered to an administrator: it reaches the mailbox a password is reset from."
+msgstr "A code by email is not offered to an administrator: it reaches the mailbox a password is reset from."
+
+#: components/settings/second-factor.tsx
+msgid "A code by email is one more way into this account: confirm it is you before it is added."
+msgstr "A code by email is one more way into this account: confirm it is you before it is added."
+
+#: components/settings/second-factor.tsx
+msgid "A code by email is set up"
+msgstr "A code by email is set up"
+
+#: components/settings/second-factor.tsx
+msgid "A code by email is set up."
+msgstr "A code by email is set up."
+
+#: lib/errors.ts
+msgid "A code was sent a moment ago: wait a minute before asking for another"
+msgstr "A code was sent a moment ago: wait a minute before asking for another"
+
+#: components/auth/auth-page.tsx
+#: components/settings/second-factor.tsx
+msgid "A code was sent to your address. It works once, for ten minutes."
+msgstr "A code was sent to your address. It works once, for ten minutes."
+
 #: components/fields/field-meta.tsx
 msgid "A colour, shown with its swatch"
 msgstr "A colour, shown with its swatch"
@@ -1823,6 +1848,10 @@ msgstr "An administrator turned public links off on this instance. Links made be
 msgid "An administrator's password alone opens every account and setting of the instance."
 msgstr "An administrator's password alone opens every account and setting of the instance."
 
+#: lib/errors.ts
+msgid "An administrator's second factor is an authenticator app or a passkey, not a code by email"
+msgstr "An administrator's second factor is an authenticator app or a passkey, not a code by email"
+
 #: components/admin/security-tab.tsx
 msgid "An API token lives at most"
 msgstr "An API token lives at most"
@@ -2400,6 +2429,10 @@ msgstr "Cancelled"
 msgid "Candidates"
 msgstr "Candidates"
 
+#: components/auth/auth-page.tsx
+msgid "Cannot get a code? Use a backup code"
+msgstr "Cannot get a code? Use a backup code"
+
 #: lib/errors.ts
 msgid "Cannot restore: restore the table or fields it depends on first"
 msgstr "Cannot restore: restore the table or fields it depends on first"
@@ -2667,9 +2700,18 @@ msgstr "Closed"
 msgid "Closes every mail the instance writes, in the language of the mail: who sends it, how to reach them. Mail an automation or a webhook sends keeps the text its author wrote."
 msgstr "Closes every mail the instance writes, in the language of the mail: who sends it, how to reach them. Mail an automation or a webhook sends keeps the text its author wrote."
 
+#: components/admin/auth-labels.ts
+msgid "Code by email"
+msgstr "Code by email"
+
 #: components/settings/account-settings.tsx
 msgid "Code from your authenticator app, or a backup code"
 msgstr "Code from your authenticator app, or a backup code"
+
+#: components/auth/auth-page.tsx
+#: components/settings/second-factor.tsx
+msgid "Code received by email"
+msgstr "Code received by email"
 
 #: components/settings/second-factor.tsx
 msgid "Code shown by the app"
@@ -8534,6 +8576,10 @@ msgstr "Send {name} a new first link?"
 msgid "Send {name} a password reset link?"
 msgstr "Send {name} a password reset link?"
 
+#: components/auth/auth-page.tsx
+msgid "Send a code to my address"
+msgstr "Send a code to my address"
+
 #: components/admin/account-actions.tsx
 msgid "Send a password reset link"
 msgstr "Send a password reset link"
@@ -8554,6 +8600,11 @@ msgstr "Send again"
 msgid "Send an email"
 msgstr "Send an email"
 
+#: components/auth/auth-page.tsx
+#: components/settings/second-factor.tsx
+msgid "Send another code"
+msgstr "Send another code"
+
 #: components/admin/identity-tab.tsx
 #: components/admin/integrations-tab.tsx
 #: components/admin/support-tab.tsx
@@ -8567,6 +8618,10 @@ msgstr "Send notice"
 #: components/admin/integrations-tab.tsx
 msgid "Send test event"
 msgstr "Send test event"
+
+#: components/settings/second-factor.tsx
+msgid "Send the code"
+msgstr "Send the code"
 
 #: components/shell/shortcuts-dialog.tsx
 msgid "Send the comment; @ to mention"
@@ -8656,6 +8711,10 @@ msgstr "Set in the instance's environment: its operator changes it where the ins
 #: components/auth/reset-page.tsx
 msgid "Set the password"
 msgstr "Set the password"
+
+#: components/settings/second-factor.tsx
+msgid "Set up a code by email"
+msgstr "Set up a code by email"
 
 #: components/settings/second-factor.tsx
 msgid "Set up an authenticator app"
@@ -8886,6 +8945,10 @@ msgstr "Sign-in trail retention"
 #: components/admin/admin-sections.ts
 msgid "Sign-ins"
 msgstr "Sign-ins"
+
+#: components/settings/second-factor.tsx
+msgid "Sign-ins to this account will no longer ask for a code by email."
+msgstr "Sign-ins to this account will no longer ask for a code by email."
 
 #: components/admin/security-tab.tsx
 msgid "Sign-ins, failures, and what administrators changed, with the address. The CNIL recommends keeping such logs six months to a year."
@@ -9595,6 +9658,14 @@ msgstr "The client's database requires a value"
 msgid "The client's table changed: refresh its fields"
 msgstr "The client's table changed: refresh its fields"
 
+#: components/settings/second-factor.tsx
+msgid "The code by email is off"
+msgstr "The code by email is off"
+
+#: lib/errors.ts
+msgid "The code could not be sent: try again in a minute, or use a backup code"
+msgstr "The code could not be sent: try again in a minute, or use a backup code"
+
 #: components/shell/trash-dialog.tsx
 #: components/shell/trashed-bases.tsx
 msgid "The data and attached files will be erased. The audit history is kept."
@@ -10265,6 +10336,10 @@ msgid "This cannot be undone. Your email and factors are removed. Comments stay 
 msgstr "This cannot be undone. Your email and factors are removed. Comments stay under “Erased account”. Row values in bases are not wiped."
 
 #: lib/errors.ts
+msgid "This code is wrong, or works no longer"
+msgstr "This code is wrong, or works no longer"
+
+#: lib/errors.ts
 msgid "This column does not tell when a row changes: choose a date and time set on every change, or a rowversion"
 msgstr "This column does not tell when a row changes: choose a date and time set on every change, or a rowversion"
 
@@ -10809,6 +10884,10 @@ msgstr "Turn maintenance on?"
 #: components/admin/settings-tab.tsx
 msgid "Turn off"
 msgstr "Turn off"
+
+#: components/settings/second-factor.tsx
+msgid "Turn off the code by email"
+msgstr "Turn off the code by email"
 
 #: components/admin/settings-tab.tsx
 msgid "Turn on"

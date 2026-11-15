@@ -177,6 +177,17 @@ describe("an operator's way back in", () => {
       .insertInto("backupCodes")
       .values({ userId, codeHash: `code-${suffix}` })
       .execute();
+    // A code by email chosen before the account was an administrator.
+    await db.insertInto("emailFactors").values({ userId }).execute();
+    await db
+      .insertInto("emailOtpCodes")
+      .values({
+        userId,
+        purpose: "login",
+        codeHash: `mailed-${suffix}`,
+        expiresAt: new Date(Date.now() + 60_000),
+      })
+      .execute();
     await db
       .insertInto("sessions")
       .values({
@@ -190,7 +201,13 @@ describe("an operator's way back in", () => {
       clearFactors: true,
     });
     expect(done.changed).toEqual(["factors"]);
-    for (const table of ["totpSecrets", "backupCodes", "sessions"] as const) {
+    for (const table of [
+      "totpSecrets",
+      "backupCodes",
+      "emailFactors",
+      "emailOtpCodes",
+      "sessions",
+    ] as const) {
       const left = await db
         .selectFrom(table)
         .select("userId")

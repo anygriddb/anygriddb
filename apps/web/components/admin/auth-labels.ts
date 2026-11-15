@@ -35,6 +35,7 @@ export function useAuthLabels() {
     totp: t`Authenticator code`,
     backup: t`Backup code`,
     webauthn: t`Passkey`,
+    email: t`Code by email`,
     oidc: "OIDC",
     saml: "SAML",
     signup: t`Sign-up`,

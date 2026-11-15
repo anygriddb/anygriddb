@@ -46,6 +46,10 @@ export const totpCodeSchema = z.object({
   code: z.string().regex(/^\d{6}$/),
 });
 
+export const emailOtpCodeSchema = z.object({
+  code: z.string().regex(/^\d{6}$/),
+});
+
 export const backupCodeSchema = z.object({
   code: z
     .string()

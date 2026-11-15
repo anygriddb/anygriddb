@@ -163,7 +163,9 @@ export async function listUsers(
   const pattern = query.search
     ? `%${query.search.replace(/[%_\\]/g, "\\$&")}%`
     : undefined;
-  const hasFactor = sqlTag<boolean>`(exists (select 1 from totp_secrets t where t.user_id = u.id and t.confirmed_at is not null) or exists (select 1 from webauthn_credentials w where w.user_id = u.id))`;
+  // As `factorMethods` counts them: a code by email is one for anyone but
+  // an administrator (ADR 0085).
+  const hasFactor = sqlTag<boolean>`(exists (select 1 from totp_secrets t where t.user_id = u.id and t.confirmed_at is not null) or exists (select 1 from webauthn_credentials w where w.user_id = u.id) or (not u.is_admin and exists (select 1 from email_factors e where e.user_id = u.id)))`;
   const signOn = sqlTag<boolean>`exists (select 1 from sso_identities i where i.user_id = u.id)`;
   // Kept on the account: sessions go once expired, the trail in time.
   const lastSeen = sqlTag<Date | null>`u.last_sign_in_at`;

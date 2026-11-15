@@ -525,6 +525,43 @@ export function accountExistsMailBody(
   return `Someone tried to create an ${voice.name} account with this address, which already has one. Nothing changed.\n\nTo sign in, or to set a new password if you forgot it:\n\n${input.loginUrl}\n\nIf you did not ask for it, ignore this email.`;
 }
 
+/**
+ * A second factor's code (ADR 0085), asked for at a sign-in or to choose
+ * the factor. The code stands alone on its line, and the mail holds no
+ * link. A code asked for at a sign-in came after the right password: the
+ * mail says what that means for whoever did not ask.
+ */
+export function emailOtpMailSubject(
+  voice: MailVoice,
+  purpose: "enroll" | "login",
+): string {
+  if (voice.locale === "fr") {
+    return purpose === "login"
+      ? `${voice.name}\u00a0: votre code de connexion`
+      : `${voice.name}\u00a0: votre code de confirmation`;
+  }
+  return purpose === "login"
+    ? `${voice.name}: your sign-in code`
+    : `${voice.name}: your confirmation code`;
+}
+
+export function emailOtpMailBody(
+  voice: MailVoice,
+  input: { code: string; expiresAt: Date; purpose: "enroll" | "login" },
+): string {
+  const until = moment(voice.locale, input.expiresAt);
+  if (voice.locale === "fr") {
+    const use = `Il sert une fois, jusqu’au ${until}. Ne le donnez à personne.`;
+    return input.purpose === "login"
+      ? `Quelqu’un se connecte à ${voice.name} avec votre mot de passe et a demandé ce code\u00a0:\n\n${input.code}\n\n${use}\n\nSi ce n’est pas vous, votre mot de passe est connu de quelqu’un d’autre\u00a0: changez-le.`
+      : `Ce code confirme votre adresse comme second facteur de votre compte ${voice.name}\u00a0:\n\n${input.code}\n\n${use}\n\nSi vous n’avez rien demandé, ignorez ce message\u00a0: rien ne change.`;
+  }
+  const use = `It works once, until ${until}. Give it to no one.`;
+  return input.purpose === "login"
+    ? `Someone is signing in to ${voice.name} with your password, and asked for this code:\n\n${input.code}\n\n${use}\n\nIf it is not you, someone else knows your password: change it.`
+    : `This code confirms your address as the second factor of your ${voice.name} account:\n\n${input.code}\n\n${use}\n\nIf you did not ask for it, ignore this email: nothing changes.`;
+}
+
 /** An account an administrator created (ROADMAP #67): the first password. */
 export function welcomeMailSubject(voice: MailVoice): string {
   return voice.locale === "fr"

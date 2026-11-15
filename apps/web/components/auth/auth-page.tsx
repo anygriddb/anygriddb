@@ -1,6 +1,6 @@
 import { Button, Input, Label, Spinner } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound } from "lucide-react";
+import { KeyRound, Mail } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { useSession } from "../../lib/session";
@@ -120,9 +120,14 @@ export function AuthPage({
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [installToken, setInstallToken] = useState("");
-  const [methods, setMethods] = useState<Array<"totp" | "webauthn">>([]);
+  const [methods, setMethods] = useState<Array<"totp" | "webauthn" | "email">>(
+    [],
+  );
   const [code, setCode] = useState("");
   const [backup, setBackup] = useState("");
+  /** A code by email: whether one was asked for, and what is typed. */
+  const [emailSent, setEmailSent] = useState(false);
+  const [mailCode, setMailCode] = useState("");
   /** Recovery path: hide TOTP/passkey and show the backup-code form alone. */
   const [useBackup, setUseBackup] = useState(false);
   const [error, setError] = useState("");
@@ -334,6 +339,59 @@ export function AuthPage({
                 </Button>
               </form>
             ) : null}
+            {methods.includes("email") ? (
+              // Nothing is mailed until the person asks: the field for
+              // the code comes with the code.
+              <form
+                className="flex flex-col gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void run(async () => {
+                    await trpc.auth.email.verify.mutate({ code: mailCode });
+                    await finish();
+                  });
+                }}
+              >
+                {emailSent ? (
+                  <>
+                    <p role="status" className="text-sm text-muted-foreground">
+                      {t`A code was sent to your address. It works once, for ten minutes.`}
+                    </p>
+                    <Label htmlFor="email-otp">{t`Code received by email`}</Label>
+                    <Input
+                      id="email-otp"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      autoFocus
+                      value={mailCode}
+                      onChange={(event) => setMailCode(event.target.value)}
+                    />
+                    <Button type="submit" disabled={busy}>
+                      {t`Verify`}
+                    </Button>
+                  </>
+                ) : null}
+                <Button
+                  type="button"
+                  variant={
+                    emailSent || methods.length > 1 ? "outline" : "default"
+                  }
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      await trpc.auth.email.send.mutate();
+                      setEmailSent(true);
+                      setMailCode("");
+                    })
+                  }
+                >
+                  <Mail className="h-4 w-4" aria-hidden />
+                  {emailSent
+                    ? t`Send another code`
+                    : t`Send a code to my address`}
+                </Button>
+              </form>
+            ) : null}
             {methods.includes("webauthn") ? (
               <Button
                 variant="outline"
@@ -358,7 +416,9 @@ export function AuthPage({
                 setError("");
               }}
             >
-              {t`Lost your authenticator? Use a backup code`}
+              {methods.includes("totp")
+                ? t`Lost your authenticator? Use a backup code`
+                : t`Cannot get a code? Use a backup code`}
             </button>
           </div>
         )

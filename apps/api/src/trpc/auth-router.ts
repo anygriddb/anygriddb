@@ -19,6 +19,13 @@ import {
   replaceBackupCodes,
 } from "../auth/backup-store.js";
 import {
+  clearEmailFactor,
+  confirmEmailFactor,
+  consumeEmailOtp,
+  hasEmailFactor,
+  issueEmailOtp,
+} from "../auth/email-otp.js";
+import {
   authenticationResponseSchema,
   registrationResponseSchema,
 } from "../auth/ceremony.js";
@@ -58,6 +65,7 @@ import {
   resetPassword,
 } from "../auth/password-reset.js";
 import {
+  sendEmailOtpMail,
   sendResetLink,
   sendSecurityNotice,
   sendSignupMail,
@@ -79,6 +87,7 @@ import {
 import {
   backupCodeSchema,
   confirmSignupSchema,
+  emailOtpCodeSchema,
   signupInputSchema,
   factorProofSchema,
   totpCodeSchema,
@@ -166,7 +175,7 @@ function refuseApiToken(ctx: Context): void {
 async function proveFactorChange(
   ctx: Context,
   userId: string,
-  kind: "totp" | "passkey",
+  kind: "totp" | "passkey" | "email",
   proof: { password?: string; factorCode?: string },
 ): Promise<void> {
   refuseApiToken(ctx);
@@ -207,6 +216,38 @@ async function signInFailed(
     detail,
     ip: ctx.req.ip,
   });
+}
+
+/**
+ * Mails the account a code for its second factor, and says until when it
+ * works. Refused where mail is not set up, and when the mailbox was sent
+ * a code in the last minute or five in the last hour.
+ */
+async function sendFactorCode(
+  ctx: Context,
+  userId: string,
+  purpose: "enroll" | "login",
+): Promise<{ expiresAt: string }> {
+  if (!smtpReady((await resolveSmtp(ctx.db, ctx.env)).config)) {
+    throw new AppError("smtp_not_configured");
+  }
+  const issued = await issueEmailOtp(
+    ctx.db,
+    userId,
+    purpose,
+    ctx.env.AUTH_ENCRYPTION_KEY,
+  );
+  let sent = false;
+  try {
+    sent = await sendEmailOtpMail(mailDeps(ctx), userId, {
+      ...issued,
+      purpose,
+    });
+  } catch (error) {
+    ctx.req.log.warn({ err: error }, "second factor code not sent");
+  }
+  if (!sent) throw new AppError("email_otp_not_sent");
+  return { expiresAt: issued.expiresAt.toISOString() };
 }
 
 function mailDeps(ctx: Context): SecurityMailDeps {
@@ -421,6 +462,8 @@ export const authRouter = t.router({
       // no email, a sign-up of one's own is refused, and the page says so
       // before anything is typed.
       signupNeedsMail: !mailReady && accounts,
+      /** Whether mail is set up: a code by email can be chosen (ADR 0085). */
+      mailReady,
       publicLinks: settings.publicLinks,
       tokenMaxDays: settings.tokenMaxDays,
       // What delete dialogs tell: how long the trash keeps things.
@@ -722,6 +765,103 @@ export const authRouter = t.router({
         }
         await deleteLoginChallenge(ctx.db, challenge.id);
         await issueSession(ctx, challenge.userId, "backup");
+        return { status: "session" as const };
+      }),
+  }),
+  /**
+   * A code by email as a second factor (ADR 0085): chosen from the
+   * account's settings, then sent and taken at sign-in. Never an
+   * administrator's: `factorMethods` leaves it out for one.
+   */
+  email: t.router({
+    // The proof a change of factor asks is given here, where the code
+    // leaves: only an enrolment begun with it has a code to confirm.
+    begin: procedure
+      .input(factorProofSchema.optional())
+      .mutation(async ({ ctx, input }) => {
+        const user = await requireUser(ctx);
+        refuseApiToken(ctx);
+        if (user.isAdmin) throw new AppError("email_factor_administrator");
+        await proveFactorChange(ctx, user.id, "email", input ?? {});
+        return sendFactorCode(ctx, user.id, "enroll");
+      }),
+    confirm: procedure
+      .input(emailOtpCodeSchema)
+      .mutation(async ({ ctx, input }) => {
+        const user = await requireUser(ctx);
+        refuseApiToken(ctx);
+        if (user.isAdmin) throw new AppError("email_factor_administrator");
+        if (
+          !(await consumeEmailOtp(
+            ctx.db,
+            user.id,
+            "enroll",
+            input.code,
+            ctx.env.AUTH_ENCRYPTION_KEY,
+          ))
+        ) {
+          throw new AppError("email_otp_invalid");
+        }
+        await confirmEmailFactor(ctx.db, user.id);
+        // The codes an account already saved stay good: new ones only
+        // for an account that has none, as with a first passkey.
+        if (await hasBackupCodes(ctx.db, user.id)) {
+          return { backupCodes: [] as string[] };
+        }
+        const backupCodes = Array.from({ length: 8 }, () =>
+          generateBackupCode(),
+        );
+        await replaceBackupCodes(
+          ctx.db,
+          user.id,
+          backupCodes.map((code) =>
+            hashBackupCode(code, ctx.env.AUTH_ENCRYPTION_KEY),
+          ),
+        );
+        return { backupCodes };
+      }),
+    disable: procedure
+      .input(factorProofSchema)
+      .mutation(async ({ ctx, input }) => {
+        const user = await requireUser(ctx);
+        refuseApiToken(ctx);
+        if (!(await hasEmailFactor(ctx.db, user.id))) {
+          return { ok: true as const };
+        }
+        await proveFactorChange(ctx, user.id, "email", input);
+        await clearEmailFactor(ctx.db, user.id);
+        return { ok: true as const };
+      }),
+    send: procedure.mutation(async ({ ctx }) => {
+      const challenge = await requireChallenge(ctx);
+      const methods = await factorMethods(ctx.db, challenge.userId);
+      if (!methods.includes("email")) {
+        throw new TRPCError({ code: "UNAUTHORIZED" });
+      }
+      return sendFactorCode(ctx, challenge.userId, "login");
+    }),
+    verify: procedure
+      .input(emailOtpCodeSchema)
+      .mutation(async ({ ctx, input }) => {
+        const challenge = await requireChallenge(ctx);
+        const methods = await factorMethods(ctx.db, challenge.userId);
+        const ok =
+          methods.includes("email") &&
+          (await consumeEmailOtp(
+            ctx.db,
+            challenge.userId,
+            "login",
+            input.code,
+            ctx.env.AUTH_ENCRYPTION_KEY,
+          ));
+        if (!ok) {
+          await failLoginChallenge(ctx.db, challenge.id, challenge.attempts);
+          await signInFailed(ctx, "email", challenge.userId, "mfa_failed");
+          await failedAttempt(ctx, challenge.userId);
+          throw new TRPCError({ code: "UNAUTHORIZED" });
+        }
+        await deleteLoginChallenge(ctx.db, challenge.id);
+        await issueSession(ctx, challenge.userId, "email");
         return { status: "session" as const };
       }),
   }),
