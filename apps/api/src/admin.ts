@@ -962,6 +962,7 @@ export async function instanceAudit(
   let query = db
     .selectFrom("auditEvents as e")
     .leftJoin("users as u", "u.id", "e.userId")
+    .leftJoin("users as p", "p.id", "e.impersonatedUserId")
     .leftJoin("dataTables as t", "t.id", "e.tableId")
     .leftJoin("bases as b", "b.id", "t.baseId")
     .select([
@@ -976,6 +977,7 @@ export async function instanceAudit(
       "e.newValue",
       "e.userId",
       "u.displayName as userName",
+      "p.displayName as actingName",
       "e.tableId",
       "t.name as tableName",
       "b.name as baseName",

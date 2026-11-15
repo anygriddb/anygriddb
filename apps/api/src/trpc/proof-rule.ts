@@ -16,6 +16,9 @@ export const NO_PROOF: ReadonlySet<string> = new Set([
   "admin.stepUp",
   // Takes access away, at once: a session, a token, a link, an invitation.
   "admin.endSession",
+  // Leaves the other person's rights. It must work without the proof,
+  // or an administrator could not get back to their own account.
+  "admin.stopActing",
   "admin.endUserSessions",
   "admin.endOtherSessions",
   "admin.access.revokeToken",

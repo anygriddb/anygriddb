@@ -27,6 +27,15 @@ export function AdminShell() {
     select: (state) => state.location.pathname,
   });
   if (!session.data) return null;
+  if (session.data.actingAs) {
+    return (
+      <NotebookPage title={t`Administration`}>
+        <p className="text-sm">
+          {t`Administration is closed while you are acting as ${session.data.actingAs.displayName}. Stop from the banner to come back.`}
+        </p>
+      </NotebookPage>
+    );
+  }
   if (sections.length === 0) {
     return (
       <p className="p-6 text-sm text-muted-foreground">

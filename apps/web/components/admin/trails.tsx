@@ -234,7 +234,11 @@ export function ChangesTrail({
                   <td className="px-2 py-1.5 whitespace-nowrap">
                     {date(event.occurredAt)}
                   </td>
-                  <td className="px-2 py-1.5">{event.userName ?? "—"}</td>
+                  <td className="px-2 py-1.5">
+                    {event.actingName
+                      ? t`${event.userName ?? "—"}, acting as ${event.actingName}`
+                      : (event.userName ?? "—")}
+                  </td>
                   <td className="px-2 py-1.5">
                     {event.tableName
                       ? `${event.baseName ?? ""} / ${event.tableName}`

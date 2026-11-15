@@ -6,6 +6,7 @@ import {
   CornerDownRight,
   Crown,
   DoorOpen,
+  UserRound,
   LockKeyhole,
   UserPlus,
   Users,
@@ -32,6 +33,7 @@ export const NOTIFICATION_ICONS = {
   account_locked: LockKeyhole,
   owner_named: Crown,
   admin_access: DoorOpen,
+  acting_as: UserRound,
   role_given: Users,
 } as const;
 
@@ -63,6 +65,15 @@ export function useDescribeNotification() {
           : t`${{ name: item.data?.name ?? "—" }}'s account locked after failed sign-ins`;
       case "owner_named":
         return t`${actor} made ${{ name: item.data?.name ?? "—" }} an owner of ${{ base: item.data?.base ?? "—" }}`;
+      case "acting_as": {
+        const until = item.data?.until
+          ? new Date(item.data.until).toLocaleString([], {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })
+          : "—";
+        return t`${actor}, an administrator, is acting as you until ${until}. Their reason: ${item.data?.reason ?? "—"}`;
+      }
       case "admin_access": {
         // An administrator let themselves into a base this person owns
         // (ADR 0074): for an hour to read it, or with a role.

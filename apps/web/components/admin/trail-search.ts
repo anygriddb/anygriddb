@@ -34,6 +34,8 @@ export const SIGN_IN_ACTIONS = [
   "account_disabled",
   "account_erased",
   "account_updated",
+  "acting_as_started",
+  "acting_as_ended",
   "account_data_exported",
   "sso_unlinked",
   "operator_mail_sent",

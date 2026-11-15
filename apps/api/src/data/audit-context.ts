@@ -6,6 +6,7 @@ import {
   queueTransactionEvents,
   type SummaryEvent,
 } from "../queue/jobs.js";
+import { actingUserId } from "./acting-context.js";
 import { rethrowAuditError } from "./pg-error.js";
 import { withTransactionRetry } from "./retry.js";
 
@@ -55,7 +56,8 @@ export async function withAudit<T>(
             set_config('anygrid.reason', ${context.reason ?? ""}, true),
             set_config('anygrid.action', ${context.action ?? ""}, true),
             set_config('anygrid.unlock', ${context.unlock ? "on" : ""}, true),
-            set_config('anygrid.source', ${context.source ?? ""}, true)
+            set_config('anygrid.source', ${context.source ?? ""}, true),
+            set_config('anygrid.impersonated_user_id', ${actingUserId() ?? ""}, true)
         `.execute(tx);
         const result = await fn(tx);
         if (context.events && "summary" in context.events) {

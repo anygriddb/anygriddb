@@ -26,6 +26,8 @@ export type AuthAction =
   | "account_locked"
   | "account_unlocked"
   | "account_updated"
+  | "acting_as_ended"
+  | "acting_as_started"
   | "factors_cleared"
   | "install_token_issued"
   | "install_token_used"
@@ -132,6 +134,7 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
 export type NotificationKind =
   | "account_locked"
+  | "acting_as"
   | "admin_access"
   | "assigned"
   | "automation"
@@ -226,6 +229,7 @@ export interface AuditEvents {
   action: AuditAction;
   catalogTable: string | null;
   id: Generated<string>;
+  impersonatedUserId: string | null;
   newValue: unknown;
   occurredAt: Generated<Timestamp>;
   oldValue: unknown;
@@ -799,6 +803,8 @@ export interface Sessions {
   createdAt: Generated<Timestamp>;
   expiresAt: Timestamp;
   id: Generated<string>;
+  impersonatedUserId: string | null;
+  impersonateUntil: Timestamp | null;
   steppedUpAt: Timestamp | null;
   tokenHash: string;
   userId: string;

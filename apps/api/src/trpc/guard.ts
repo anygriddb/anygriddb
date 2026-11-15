@@ -52,7 +52,7 @@ async function findActor(ctx: Context, creatingBase: boolean): Promise<Actor> {
   ) {
     throw new AppError("base_creation_restricted");
   }
-  const raw = await loadBindings(ctx.db, user.id);
+  const raw = await loadBindings(ctx.db, user.actingAs?.id ?? user.id);
   await assertEnrolled(ctx.db, user, raw, creatingBase);
   if (
     creatingBase &&
@@ -63,7 +63,13 @@ async function findActor(ctx: Context, creatingBase: boolean): Promise<Actor> {
   }
   // A person's own session also reads the bases they have open as an
   // administrator (ADR 0074); a token keeps to the account's roles.
-  const own = ctx.tokenScope ? raw : await sessionBindings(ctx.db, user, raw);
+  const own = ctx.tokenScope
+    ? raw
+    : await sessionBindings(
+        ctx.db,
+        user.actingAs ? { id: user.actingAs.id, isAdmin: false } : user,
+        raw,
+      );
   return { user, bindings: await scopeBindings(ctx.db, own, ctx.tokenScope) };
 }
 

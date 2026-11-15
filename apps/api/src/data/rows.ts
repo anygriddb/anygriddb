@@ -1375,11 +1375,13 @@ export async function readAudit(
   const rows = await db
     .selectFrom("auditEvents as e")
     .innerJoin("users as u", "u.id", "e.userId")
+    .leftJoin("users as p", "p.id", "e.impersonatedUserId")
     .select([
       "e.id",
       "e.occurredAt",
       "e.userId",
       "u.displayName",
+      "p.displayName as actingName",
       "e.action",
       "e.oldValue",
       "e.newValue",
@@ -1406,6 +1408,7 @@ export async function readAudit(
       occurredAt: row.occurredAt.toISOString(),
       userId: row.userId,
       displayName: row.displayName,
+      actingName: row.actingName,
       action: row.action,
       oldValue: visible(row.oldValue),
       newValue: visible(row.newValue),

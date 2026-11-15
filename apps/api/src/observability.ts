@@ -90,6 +90,18 @@ export function clientErrorReported(kind: string): void {
   clientErrors.inc({ kind });
 }
 
+const actingAs = new Counter({
+  name: "anygriddb_acting_as_total",
+  help: "An administrator started or stopped acting as someone, or was refused.",
+  labelNames: ["result"] as const,
+  registers: [registry],
+});
+
+/** `started`, `ended`, or `refused`. No account id: the label stays small. */
+export function actingAsCounted(result: "started" | "ended" | "refused"): void {
+  actingAs.inc({ result });
+}
+
 /** Jobs waiting, scheduled, running, and failed for good, read at scrape. */
 export function registerQueueGauge(db: Database): void {
   new Gauge({

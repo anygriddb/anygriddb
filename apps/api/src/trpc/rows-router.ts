@@ -484,10 +484,14 @@ export const rowsRouter = t.router({
           events: [
             ...writes.map((event) => ({
               ...event,
+              actingName: null as string | null,
               fingerprint: null as string | null,
               missing: false,
             })),
-            ...statuses,
+            ...statuses.map((event) => ({
+              ...event,
+              actingName: null as string | null,
+            })),
           ]
             .sort((left, right) =>
               right.occurredAt.localeCompare(left.occurredAt),
@@ -501,6 +505,7 @@ export const rowsRouter = t.router({
           await readAudit(ctx.db, input.tableId, input.recordId, hidden)
         ).map((event) => ({
           ...event,
+          actingName: event.actingName,
           state: null,
           fingerprint: null as string | null,
           missing: false,

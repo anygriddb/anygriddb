@@ -26,9 +26,12 @@ export const procedure = baseProcedure.use(
   async ({ ctx, next, type, path }) => {
     const allowed = auditorMayCall(type, path);
     const proof = asksProof(type, path);
+    const user = await requireUser(ctx).catch(() => null);
+    if (user?.actingAs && path !== "admin.stopActing") {
+      throw new AppError("acting_as");
+    }
     if (!allowed || proof) {
       // Whoever is not signed in is told so by the procedure itself.
-      const user = await requireUser(ctx).catch(() => null);
       if (!allowed && user?.isAuditor && !user.isAdmin && !user.isSupport) {
         throw new AppError("access_denied");
       }

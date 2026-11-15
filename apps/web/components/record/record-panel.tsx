@@ -580,7 +580,9 @@ function History({ row }: { row: RowItem }) {
             <div className="min-w-0 flex-1">
               <p className="text-xs">
                 <span className="font-medium">
-                  {event.displayName ?? "AnyGridDB"}
+                  {event.actingName
+                    ? t`${event.displayName ?? "AnyGridDB"}, acting as ${event.actingName}`
+                    : (event.displayName ?? "AnyGridDB")}
                 </span>{" "}
                 {t(
                   moved

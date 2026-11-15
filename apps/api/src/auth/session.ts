@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { AppError, sessionWindows } from "@anygriddb/core";
+import { recordAuthEvent } from "./auth-events.js";
+import { ERASED_USER_ID } from "../data/erasure.js";
 import { readGateSettings, readSettings } from "../settings.js";
 
 export const SESSION_COOKIE = "__Host-ag_session";
@@ -38,6 +40,17 @@ export type SessionUser = {
   isSupport: boolean;
   /** Reads Administration and changes nothing (ADR 0071). */
   isAuditor: boolean;
+  /** This cookie's session, when the lookup has one. */
+  sessionId?: string;
+  /**
+   * Set while this administrator uses another person's rights (ADR 0091).
+   * The id above stays the administrator.
+   */
+  actingAs?: {
+    id: string;
+    displayName: string;
+    until: string;
+  } | null;
 };
 
 export function isSessionToken(token: string | undefined): token is string {
@@ -55,22 +68,73 @@ export async function findSessionUser(
   if (!isSessionToken(token)) {
     return null;
   }
-  const user = await db
+  const row = await db
     .selectFrom("sessions as s")
     .innerJoin("users as u", "u.id", "s.userId")
+    .leftJoin("users as p", "p.id", "s.impersonatedUserId")
     .select([
+      "s.id as sessionId",
+      "s.impersonatedUserId",
+      "s.impersonateUntil",
       "u.id",
       "u.email",
       "u.displayName",
       "u.isAdmin",
       "u.isSupport",
       "u.isAuditor",
+      "p.displayName as personName",
+      "p.disabledAt as personDisabled",
+      "p.isAdmin as personAdmin",
+      "p.isSupport as personSupport",
+      "p.isAuditor as personAuditor",
     ])
     .where("s.tokenHash", "=", hashSessionToken(token))
     .where("s.expiresAt", ">", new Date())
     .where("u.disabledAt", "is", null)
     .executeTakeFirst();
-  return user ?? null;
+  if (!row) return null;
+  const until = row.impersonateUntil;
+  const personId = row.impersonatedUserId;
+  const allowed =
+    personId !== null &&
+    until !== null &&
+    until.getTime() > Date.now() &&
+    row.personDisabled === null &&
+    row.personAdmin !== true &&
+    row.personSupport !== true &&
+    row.personAuditor !== true &&
+    personId !== ERASED_USER_ID;
+  if (personId !== null && !allowed) {
+    await db
+      .updateTable("sessions")
+      .set({ impersonatedUserId: null, impersonateUntil: null })
+      .where("id", "=", row.sessionId)
+      .execute();
+    await recordAuthEvent(db, {
+      action: "acting_as_ended",
+      userId: personId,
+      actorId: row.id,
+      method: "admin",
+      detail: "expired",
+    });
+  }
+  return {
+    id: row.id,
+    email: row.email,
+    displayName: row.displayName,
+    isAdmin: row.isAdmin,
+    isSupport: row.isSupport,
+    isAuditor: row.isAuditor,
+    sessionId: row.sessionId,
+    actingAs:
+      personId !== null && until !== null && allowed
+        ? {
+            id: personId,
+            displayName: row.personName ?? "",
+            until: until.toISOString(),
+          }
+        : null,
+  };
 }
 
 /** True while this session hash still belongs to a live, enabled account. */

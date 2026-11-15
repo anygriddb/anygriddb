@@ -12,7 +12,7 @@ import {
   useReconnect,
 } from "../../lib/realtime";
 import { useSession } from "../../lib/session";
-import { useTRPC } from "../../lib/trpc";
+import { trpc, useTRPC } from "../../lib/trpc";
 import { onSignIn, safeNext } from "../auth/auth-page";
 import { CommandPalette } from "./command-palette";
 import { LoadFailed } from "./load-failed";
@@ -23,6 +23,45 @@ import { Sidebar } from "./sidebar";
  * What administrators tell everyone (ADR 0042): their announcement, and,
  * to the administrators still in, that maintenance is on.
  */
+/** Shown on every page while an administrator uses someone else's rights. */
+function ActingBanner() {
+  const { t } = useLingui();
+  const session = useSession();
+  const navigate = useNavigate();
+  const acting = session.data?.actingAs;
+  const [busy, setBusy] = useState(false);
+  if (!acting) return null;
+  const until = new Date(acting.until).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return (
+    <div
+      role="status"
+      className="flex flex-wrap items-center gap-2 border-b border-warning/40 bg-warning-surface px-4 py-2 text-sm"
+    >
+      <span>{t`You are acting as ${acting.displayName} until ${until}.`}</span>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          void trpc.admin.stopActing
+            .mutate()
+            .then(async () => {
+              await session.refetch();
+              await navigate({ to: "/" });
+            })
+            .finally(() => setBusy(false));
+        }}
+      >
+        {t`Stop`}
+      </Button>
+    </div>
+  );
+}
+
 function InstanceBanner() {
   const { t } = useLingui();
   const api = useTRPC();
@@ -172,6 +211,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             ) : null}
             <InstanceBanner />
+            <ActingBanner />
             <ConnectionBanner />
             {children}
           </div>
