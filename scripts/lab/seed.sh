@@ -55,11 +55,13 @@ for arg in "$@"; do
 done
 
 if [[ "$DO_STORES" -eq 1 ]]; then
-  echo "==> Made-up orders, products and events on FerretDB"
-  if ! docker inspect -f '{{.State.Running}}' aglab-ferretdb 2>/dev/null | grep -q true; then
-    echo "Container aglab-ferretdb is not running. Start with: ./scripts/lab/up.sh --stores" >&2
-    exit 1
-  fi
+  echo "==> Made-up orders, products and events on FerretDB and OpenSearch"
+  for container in aglab-ferretdb aglab-opensearch-tls; do
+    if ! docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null | grep -q true; then
+      echo "Container $container is not running. Start with: ./scripts/lab/up.sh --stores" >&2
+      exit 1
+    fi
+  done
   (cd "$ROOT/apps/api" &&
     LAB_PASSWORD="$PASSWORD" ANYGRIDDB_LAB_TLS_CA="$LAB/certs/ca.crt" \
       pnpm exec tsx src/sources/samples/seed-stores.ts)

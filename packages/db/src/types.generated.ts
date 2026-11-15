@@ -149,7 +149,13 @@ export type Role = "commenter" | "editor" | "owner" | "viewer";
 export type Scope = "base" | "column" | "row" | "table";
 
 export type SourceEngine =
-  "mariadb" | "mongodb" | "mysql" | "oracle" | "postgres" | "sqlserver";
+  | "mariadb"
+  | "mongodb"
+  | "mysql"
+  | "opensearch"
+  | "oracle"
+  | "postgres"
+  | "sqlserver";
 
 export type TableStorage = "external" | "native";
 

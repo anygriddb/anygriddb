@@ -200,6 +200,48 @@ services:
     volumes:
       - ./certs:/certs:ro
 
+  # OpenSearch (Apache-2.0) with its accounts on. Its HTTP stays inside the
+  # lab's network; the front below serves it over TLS.
+  opensearch:
+    profiles: ["stores"]
+    image: opensearchproject/opensearch:2.19.7
+    container_name: aglab-opensearch
+    environment:
+      discovery.type: single-node
+      # The cluster refuses a password like its admin's name, which the
+      # lab's own is: this one is the cluster administrator's alone. The
+      # account AnyGridDB reads with keeps LAB_PASSWORD.
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${LAB_OPENSEARCH_ADMIN_PASSWORD:-Harbor-Ledger-Kiwi-58!}
+      # The transport keeps the image's own certificates; HTTP is served
+      # in clear inside, behind the front.
+      plugins.security.ssl.http.enabled: "false"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    volumes:
+      - aglab-opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS -u admin:$$OPENSEARCH_INITIAL_ADMIN_PASSWORD http://127.0.0.1:9200/ >/dev/null",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  opensearch-tls:
+    profiles: ["stores"]
+    image: nginx:1.30-alpine
+    container_name: aglab-opensearch-tls
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:59243:9243"
+    volumes:
+      - ./certs:/certs:ro
+      - ./opensearch-tls/nginx.conf:/etc/nginx/nginx.conf:ro
+
 volumes:
   aglab-pg-data:
   aglab-mysql-data:
@@ -208,3 +250,4 @@ volumes:
   aglab-mssql-backup:
   aglab-oracle-data:
   aglab-ferretdb-pg-data:
+  aglab-opensearch-data:

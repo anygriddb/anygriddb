@@ -63,6 +63,10 @@ changed.
   column. It is tested against FerretDB, which speaks that protocol
   under an OSI license; MongoDB's own server speaks it too, and is not
   part of the tests, its license not being one AnyGridDB's tools take.
+- **OpenSearch.** An index is a table, a document a row named by its
+  `_id`, a top-level field of the mapping a column. The mapping says
+  each field's type. It is tested against OpenSearch 2. A cluster that
+  does not say it is OpenSearch is refused.
 
 ## Rejected
 

@@ -156,6 +156,29 @@ protocol; it is not part of AnyGridDB's tests.
   control character, the fields past the first 300 of a collection, and
   the collections past the first 1,000.
 
+### OpenSearch
+
+Tested against OpenSearch 2. The port is 9200 unless you set another.
+**Indices** is a pattern of the indices to read (`orders-*`); empty
+reads every open index. Hidden indices, whose name starts with a dot,
+are left out.
+
+- Give the account the right to read those indices, and nothing that
+  administers the cluster. Where the security plugin tells the
+  account's roles, AnyGridDB refuses `all_access` and
+  `security_manager`. A cluster without the plugin has no roles to
+  tell of.
+- AnyGridDB connects to the host you name and follows no redirect, so
+  each address it reaches is one the operator allowed.
+- An index is a table, a document a row named by its `_id`, a
+  top-level field of the mapping a column. The mapping says the type:
+  a text, a number, a checkbox, a date and time. A field that holds an
+  object, or several values, is one JSON field, kept whole. A text
+  longer than 255 characters, or on several lines, is a long text.
+- Left out: a field whose name is longer than 63 bytes or holds a
+  control character, an alias, the fields past the first 300 of an
+  index, and the indices past the first 1,000.
+
 ## Statuses and signatures
 
 A client's rows go from draft to submitted, locked, and signed, as

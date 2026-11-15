@@ -11,4 +11,8 @@ describe("sourceDatabaseField", () => {
     expect(sourceDatabaseField("mongodb")).toBe("database");
     expect(sourceDatabaseField("sqlserver")).not.toBe("service");
   });
+
+  it("calls a search cluster's field indices", () => {
+    expect(sourceDatabaseField("opensearch")).toBe("indices");
+  });
 });
