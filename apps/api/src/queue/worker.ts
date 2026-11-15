@@ -93,10 +93,15 @@ export async function startQueue(options: {
     (sum, group) => sum + group.concurrency,
     0,
   );
-  // One connection per job, plus one to listen per runner.
+  // One connection per job, plus one to listen per runner. The same
+  // statement and lock ceilings as the request pool (packages/db client).
   const pool = new pg.Pool({
     connectionString: options.connectionString,
     max: total + options.groups.length + 2,
+    application_name: "anygriddb-worker",
+    options: "-c idle_in_transaction_session_timeout=60s",
+    statement_timeout: 60_000,
+    lock_timeout: 15_000,
   });
   const failed = (error: Error) => {
     options.log.error({ err: error }, "queue connection failed");

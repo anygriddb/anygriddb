@@ -1,4 +1,5 @@
 import path from "node:path";
+import { physicalPath } from "./physical-path.js";
 
 /**
  * Directory prefixes where a SQLite source may point (ADR 0026). Set by the
@@ -42,7 +43,7 @@ export class PathAllowList {
   }
 
   allows(databasePath: string): boolean {
-    const resolved = path.resolve(databasePath);
+    const resolved = physicalPath(databasePath);
     return this.prefixes.some(
       (prefix) =>
         resolved === prefix || resolved.startsWith(`${prefix}${path.sep}`),
@@ -51,7 +52,7 @@ export class PathAllowList {
 }
 
 function normalizePrefix(entry: string): string {
-  const resolved = path.resolve(entry);
-  if (resolved === path.parse(resolved).root) return resolved;
-  return resolved.replace(/[/\\]+$/, "");
+  const physical = physicalPath(entry);
+  if (physical === path.parse(physical).root) return physical;
+  return physical.replace(/[/\\]+$/, "");
 }
