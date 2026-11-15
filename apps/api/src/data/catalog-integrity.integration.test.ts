@@ -4,9 +4,14 @@
  * account that touched them, and the pool's own limits.
  */
 import { randomBytes } from "node:crypto";
-import type { Database } from "@anygriddb/db";
+import { copyFile, mkdtemp, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createDb, migrateDb, type Database } from "@anygriddb/db";
 import { sql } from "kysely";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import pg from "pg";
+import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createTestDatabase } from "../test-database.js";
 import { withAudit } from "./audit-context.js";
 import { insertBase, isUniqueViolation } from "./schema-ops.js";
@@ -218,5 +223,131 @@ describe("catalog integrity", () => {
       .returning("id")
       .executeTakeFirstOrThrow();
     expect(row.id[14]).toBe("7");
+  });
+});
+
+const MIGRATIONS = fileURLToPath(
+  new URL("../../../../packages/db/migrations/", import.meta.url),
+);
+
+/** An empty database, migrated up to the file before `upTo`. */
+async function catalogBefore(upTo: string) {
+  const adminUrl = inject("adminUrl");
+  const name = `catalog_upgrade_${randomBytes(6).toString("hex")}`;
+  const admin = new pg.Client({ connectionString: adminUrl });
+  await admin.connect();
+  try {
+    await admin.query(`CREATE DATABASE "${name}"`);
+  } finally {
+    await admin.end();
+  }
+  const url = new URL(adminUrl);
+  url.pathname = `/${name}`;
+  const created = createDb(url.toString());
+  const earlier = await mkdtemp(join(tmpdir(), "migrations-"));
+  try {
+    for (const file of await readdir(MIGRATIONS)) {
+      if (file.endsWith(".sql") && file < upTo) {
+        await copyFile(join(MIGRATIONS, file), join(earlier, file));
+      }
+    }
+    await migrateDb(created.pool, earlier);
+  } finally {
+    await rm(earlier, { recursive: true, force: true });
+  }
+  return created;
+}
+
+describe("catalog integrity on a catalog that already holds a role twice", () => {
+  it("keeps the highest role of each grant, and every other grant", async () => {
+    const { db, pool, close } = await catalogBefore("0104");
+    try {
+      const people = await db
+        .insertInto("users")
+        .values(
+          ["owner", "twice", "member"].map((name) => ({
+            email: `${name}-${suffix}@example.com`,
+            displayName: name,
+          })),
+        )
+        .returning(["id", "displayName"])
+        .execute();
+      const id = (name: string) =>
+        people.find((person) => person.displayName === name)?.id ?? "";
+      const { id: baseId } = await insertBase(db, id("owner"), {
+        name: "Before",
+      });
+      await withAudit(
+        db,
+        { userId: id("owner"), source: "web" },
+        async (tx) => {
+          const group = await tx
+            .insertInto("groups")
+            .values({ displayName: `Crew ${suffix}` })
+            .returning("id")
+            .executeTakeFirstOrThrow();
+          const base = { scope: "base" as const, scopeId: baseId };
+          await tx
+            .insertInto("roleBindings")
+            .values([
+              // What two grants at once could leave behind.
+              { ...base, userId: id("owner"), role: "viewer" },
+              { ...base, userId: id("twice"), role: "viewer" },
+              { ...base, userId: id("twice"), role: "editor" },
+              { ...base, userId: id("twice"), role: "commenter" },
+              {
+                ...base,
+                userId: id("member"),
+                groupId: group.id,
+                role: "editor",
+              },
+              {
+                ...base,
+                userId: id("member"),
+                groupId: group.id,
+                role: "editor",
+              },
+              // A person's own role beside the one a group gives: both stay.
+              { ...base, userId: id("member"), role: "viewer" },
+            ])
+            .execute();
+        },
+      );
+
+      const ran = await migrateDb(pool);
+      expect(ran[0]).toBe("0104_catalog_integrity");
+      const left = await db
+        .selectFrom("roleBindings")
+        .innerJoin("users", "users.id", "roleBindings.userId")
+        .select(["users.displayName as name", "role", "groupId"])
+        .where("scopeId", "=", baseId)
+        .orderBy("users.displayName")
+        .orderBy("role")
+        .execute();
+      expect(
+        left.map((row) => [row.name, row.role, row.groupId !== null]),
+      ).toEqual([
+        ["member", "editor", true],
+        ["member", "viewer", false],
+        ["owner", "owner", false],
+        ["twice", "editor", false],
+      ]);
+      // And from now on, the database refuses what was cleaned up.
+      await expect(
+        withAudit(db, { userId: id("owner"), source: "web" }, (tx) =>
+          tx
+            .insertInto("roleBindings")
+            .values({
+              userId: id("twice"),
+              role: "viewer",
+              scope: "base",
+              scopeId: baseId,
+            })
+            .execute(),
+        ),
+      ).rejects.toSatisfy(isUniqueViolation);
+    } finally {
+      await close();
+    }
   });
 });

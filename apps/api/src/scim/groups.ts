@@ -99,6 +99,8 @@ export async function syncGroupBindings(
           and b.scope_id = r.base_id
           and b.role = r.role
       )
+    -- Two changes to the group at once may both find a binding missing.
+    on conflict do nothing
   `.execute(tx);
 }
 

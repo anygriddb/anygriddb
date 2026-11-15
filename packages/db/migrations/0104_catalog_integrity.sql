@@ -9,9 +9,28 @@ CREATE INDEX "attachments_created_by" ON "attachments" ("created_by");
 CREATE INDEX "webhooks_table_idx" ON "webhooks" ("table_id");
 
 -- One role for a person on one object, and one role a group gives them.
--- Two grants at once could insert both; a read then kept whichever came
--- first. scope_id names a base, a table, a row, or a column, so it is
+-- Two grants at once could insert both. A read takes the highest of
+-- them, so that one stays and the others go: nobody's access changes,
+-- and the migration's flag keeps the trail out of a cleanup that changes
+-- no right. scope_id names a base, a table, a row, or a column, so it is
 -- not a foreign key.
+SELECT set_config('anygrid.migrate', 'on', true);
+DELETE FROM "role_bindings"
+WHERE "id" IN (
+  SELECT "id" FROM (
+    SELECT "id", row_number() OVER (
+      PARTITION BY "user_id", "scope", "scope_id", "group_id"
+      ORDER BY CASE "role"
+        WHEN 'owner' THEN 4
+        WHEN 'editor' THEN 3
+        WHEN 'commenter' THEN 2
+        ELSE 1
+      END DESC, "id"
+    ) AS "place"
+    FROM "role_bindings"
+  ) AS "ranked"
+  WHERE "place" > 1
+);
 CREATE UNIQUE INDEX "role_bindings_direct"
   ON "role_bindings" ("user_id", "scope", "scope_id")
   WHERE "group_id" IS NULL;
