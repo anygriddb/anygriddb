@@ -9,8 +9,10 @@ import multipart from "@fastify/multipart";
 import {
   type Action,
   AppError,
+  ATTACHMENT_HEAD_BYTES,
   ATTACHMENT_KEY,
   ATTACHMENT_MAX_BYTES_CEILING,
+  attachmentIsRefused,
   type Binding,
   columnNameSchema,
   effectiveTableRole,
@@ -115,10 +117,10 @@ type AttachmentSource = { bytes: Buffer } | { path: string; size: number };
 
 /** The first bytes, which say what a file is. */
 async function headOf(source: AttachmentSource): Promise<Buffer> {
-  if ("bytes" in source) return source.bytes;
+  if ("bytes" in source) return source.bytes.subarray(0, ATTACHMENT_HEAD_BYTES);
   const handle = await open(source.path, "r");
   try {
-    const head = Buffer.alloc(16);
+    const head = Buffer.alloc(ATTACHMENT_HEAD_BYTES);
     const { bytesRead } = await handle.read(head, 0, head.length, 0);
     return head.subarray(0, bytesRead);
   } finally {
@@ -142,10 +144,22 @@ export async function storeAttachment(
     stagedShareId?: string;
   } & AttachmentSource,
 ): Promise<AttachmentMeta> {
+  const head = await headOf(input);
   const mime = sniffContentType(
-    await headOf(input),
+    head,
     input.filename.toLowerCase().endsWith(".txt") ? "text/plain" : undefined,
   );
+  const policy = await readGateSettings(db);
+  if (
+    attachmentIsRefused({
+      filename: input.filename,
+      head,
+      refusedExtensions: policy.attachmentRefusedExtensions,
+      refusedKinds: policy.attachmentRefusedKinds,
+    })
+  ) {
+    throw new AppError("attachment_type_refused");
+  }
   const size = "bytes" in input ? input.bytes.length : input.size;
   const key = newKey();
   let width: number | null = null;
@@ -400,6 +414,20 @@ function deny(reply: FastifyReply, status: number, code?: ErrorCode) {
   return reply.code(status).send(publicErrorBody(status, code));
 }
 
+/**
+ * A rule the administrator set (a refused type) keeps its own status.
+ * Anything else is a store that failed.
+ */
+export function attachmentUploadStatus(error: unknown): {
+  status: number;
+  code?: ErrorCode;
+} {
+  if (error instanceof AppError) {
+    return { status: error.status, code: error.code };
+  }
+  return { status: 500 };
+}
+
 /** Every upload slot is taken: try again in a moment. */
 export function denyBusy(reply: FastifyReply) {
   return reply
@@ -458,6 +486,11 @@ async function receiveAttachment(
         size,
       });
     } catch (error) {
+      // A refused type is the administrator's rule, not a broken store.
+      const failure = attachmentUploadStatus(error);
+      if (failure.status !== 500) {
+        return await deny(reply, failure.status, failure.code);
+      }
       request.log.error({ err: error }, "attachment upload failed");
       return await deny(reply, 500);
     }

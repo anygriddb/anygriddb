@@ -281,6 +281,11 @@ msgstr "{0, plural, one {# field} other {# fields}}"
 msgid "{0, plural, one {# file missing or damaged} other {# files missing or damaged}}"
 msgstr "{0, plural, one {# file missing or damaged} other {# files missing or damaged}}"
 
+#. placeholder {0}: report.filesRefused ?? 0
+#: lib/snapshot-report.ts
+msgid "{0, plural, one {# file of a type this instance refuses, left out} other {# files of a type this instance refuses, left out}}"
+msgstr "{0, plural, one {# file of a type this instance refuses, left out} other {# files of a type this instance refuses, left out}}"
+
 #. placeholder {0}: staged.files
 #: components/shell/new-base-dialog.tsx
 msgid "{0, plural, one {# file} other {# files}}"
@@ -7072,6 +7077,10 @@ msgstr "One line per person, at most {PEOPLE_FILE_MAX}. Each gets a link by emai
 msgid "One option from a list"
 msgstr "One option from a list"
 
+#: components/admin/settings-tab.tsx
+msgid "One per line (for example .exe). Empty: every extension is taken. Checked with the file name."
+msgstr "One per line (for example .exe). Empty: every extension is taken. Checked with the file name."
+
 #: components/admin/sign-in-trail.tsx
 msgid "One session"
 msgstr "One session"
@@ -7582,6 +7591,10 @@ msgstr "Products, suppliers, and reorder points."
 msgid "Profile"
 msgstr "Profile"
 
+#: components/admin/settings-tab.tsx
+msgid "Programs (Windows, Linux, macOS)"
+msgstr "Programs (Windows, Linux, macOS)"
+
 #: lib/known-text.ts
 msgid "Project management"
 msgstr "Project management"
@@ -7869,6 +7882,14 @@ msgstr "refreshes"
 #: components/fields/field-editor.tsx
 msgid "Refuse negative numbers"
 msgstr "Refuse negative numbers"
+
+#: components/admin/settings-tab.tsx
+msgid "Refused file extensions"
+msgstr "Refused file extensions"
+
+#: components/admin/settings-tab.tsx
+msgid "Refused whatever their name"
+msgstr "Refused whatever their name"
 
 #: components/settings/second-factor.tsx
 msgid "Register a passkey"
@@ -8585,6 +8606,10 @@ msgstr "Scripts and AI clients that use one stop at once, yours too. A revoked t
 #: components/admin/account-actions.tsx
 msgid "Scripts and tools using these tokens stop working at once."
 msgstr "Scripts and tools using these tokens stop working at once."
+
+#: components/admin/settings-tab.tsx
+msgid "Scripts that start with #!"
+msgstr "Scripts that start with #!"
 
 #: components/public/public-view.tsx
 #: components/shell/sidebar.tsx
@@ -9695,6 +9720,10 @@ msgstr "Texts read the row's id and, for an AnyGridDB table, its values from bef
 #: components/views/form-view.tsx
 msgid "Thank you, your response was saved."
 msgstr "Thank you, your response was saved."
+
+#: lib/errors.ts
+msgid "That file type is not allowed on this instance."
+msgstr "That file type is not allowed on this instance."
 
 #: lib/errors.ts
 msgid "That folder is not in this base"
@@ -10925,6 +10954,10 @@ msgstr "Tokens"
 msgid "Tokens and automations"
 msgstr "Tokens and automations"
 
+#: components/admin/settings-tab.tsx
+msgid "Told by the file's first bytes, so renaming it does not help. Nothing ticked: every kind is taken."
+msgstr "Told by the file's first bytes, so renaming it does not help. Nothing ticked: every kind is taken."
+
 #: components/table/filter-builder.tsx
 msgid "tomorrow"
 msgstr "tomorrow"
@@ -11479,6 +11512,10 @@ msgstr "Watched fields (none: all)"
 #: components/admin/trails.tsx
 msgid "Watched table"
 msgstr "Watched table"
+
+#: components/admin/settings-tab.tsx
+msgid "Web pages and SVG images"
+msgstr "Web pages and SVG images"
 
 #: components/admin/support-tab.tsx
 #: components/admin/trails.tsx

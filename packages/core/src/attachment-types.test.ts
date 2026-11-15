@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   ATTACHMENT_TYPES,
+  attachmentExtensionOf,
+  attachmentIsRefused,
+  attachmentKindOf,
   attachmentPreviewKind,
   isImageAttachmentMime,
   isInlineAttachmentMime,
+  normalizeAttachmentExtension,
 } from "./attachment-types";
+
+const bytes = (text: string) => new TextEncoder().encode(text);
 
 describe("attachment MIME policy", () => {
   it("gives every accepted type an inline preview kind", () => {
@@ -24,5 +30,110 @@ describe("attachment MIME policy", () => {
     expect(attachmentPreviewKind("application/octet-stream")).toBeNull();
     expect(attachmentPreviewKind("text/html")).toBeNull();
     expect(isInlineAttachmentMime("image/svg+xml")).toBe(false);
+  });
+});
+
+describe("attachment extensions", () => {
+  it("normalises an extension with a leading dot", () => {
+    expect(normalizeAttachmentExtension("EXE")).toBe(".exe");
+    expect(normalizeAttachmentExtension(".bat")).toBe(".bat");
+  });
+
+  it("refuses an extension that is not one", () => {
+    expect(normalizeAttachmentExtension("../x")).toBeNull();
+    expect(normalizeAttachmentExtension("")).toBeNull();
+  });
+
+  it("reads the extension of a file name", () => {
+    expect(attachmentExtensionOf("report.PDF")).toBe(".pdf");
+    expect(attachmentExtensionOf("notes.tar.gz")).toBe(".gz");
+    expect(attachmentExtensionOf("folder/setup.EXE")).toBe(".exe");
+    expect(attachmentExtensionOf("noext")).toBeNull();
+    expect(attachmentExtensionOf(".hidden")).toBeNull();
+  });
+});
+
+describe("a file's kind, from its first bytes", () => {
+  it("tells a program on each system", () => {
+    expect(attachmentKindOf(new Uint8Array([0x4d, 0x5a, 0x90, 0]))).toBe(
+      "program",
+    );
+    expect(attachmentKindOf(new Uint8Array([0x7f, 0x45, 0x4c, 0x46]))).toBe(
+      "program",
+    );
+    expect(attachmentKindOf(new Uint8Array([0xcf, 0xfa, 0xed, 0xfe]))).toBe(
+      "program",
+    );
+  });
+
+  it("tells a script and a page, after a byte order mark or spaces", () => {
+    expect(attachmentKindOf(bytes("#!/bin/sh\necho hi"))).toBe("script");
+    expect(attachmentKindOf(bytes("﻿#!/usr/bin/env node"))).toBe("script");
+    expect(attachmentKindOf(bytes("\n  <!DOCTYPE html><html>"))).toBe("page");
+    expect(
+      attachmentKindOf(bytes("<svg xmlns='http://www.w3.org/2000/svg'>")),
+    ).toBe("page");
+    expect(
+      attachmentKindOf(bytes('<?xml version="1.0"?>\n<svg width="1">')),
+    ).toBe("page");
+  });
+
+  it("gives no kind to a document, an image, or text", () => {
+    expect(attachmentKindOf(bytes("%PDF-1.7"))).toBeNull();
+    expect(
+      attachmentKindOf(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a])),
+    ).toBeNull();
+    // A zip is also every office document: never refused for what it is.
+    expect(attachmentKindOf(new Uint8Array([0x50, 0x4b, 0x03, 0x04]))).toBe(
+      null,
+    );
+    expect(attachmentKindOf(bytes("Name,Amount\nA,1"))).toBeNull();
+    expect(attachmentKindOf(bytes("<p>not a page on its own</p>"))).toBeNull();
+    expect(attachmentKindOf(new Uint8Array())).toBeNull();
+  });
+});
+
+describe("what an administrator refuses", () => {
+  const program = new Uint8Array([0x4d, 0x5a, 0x90, 0]);
+
+  it("accepts every file when nothing is refused", () => {
+    expect(
+      attachmentIsRefused({
+        filename: "setup.exe",
+        head: program,
+        refusedExtensions: [],
+        refusedKinds: [],
+      }),
+    ).toBe(false);
+  });
+
+  it("refuses by extension, and by kind whatever the name", () => {
+    expect(
+      attachmentIsRefused({
+        filename: "setup.EXE",
+        head: bytes("text"),
+        refusedExtensions: [".exe"],
+        refusedKinds: [],
+      }),
+    ).toBe(true);
+    expect(
+      attachmentIsRefused({
+        filename: "holiday.jpg",
+        head: program,
+        refusedExtensions: [],
+        refusedKinds: ["program"],
+      }),
+    ).toBe(true);
+  });
+
+  it("takes a file that matches neither rule", () => {
+    expect(
+      attachmentIsRefused({
+        filename: "photo.jpg",
+        head: new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
+        refusedExtensions: [".exe"],
+        refusedKinds: ["program", "script", "page"],
+      }),
+    ).toBe(false);
   });
 });
