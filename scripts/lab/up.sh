@@ -22,5 +22,6 @@ for arg in "$@"; do
       ;;
   esac
 done
-docker compose "${PROFILE_ARGS[@]}" up -d
-docker compose "${PROFILE_ARGS[@]}" ps
+# An empty array is unbound to the bash 3.2 that macOS ships.
+docker compose ${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"} up -d
+docker compose ${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"} ps

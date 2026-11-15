@@ -32,7 +32,12 @@ BEGIN
 END
 \$\$;
 SQL
-  for db in chinook northwind pagila; do
+  # DVD Rental is there only where the lab loaded it (seed.sh --lab).
+  databases=(chinook northwind pagila)
+  if docker exec "$PG" psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'dvdrental'" | grep -q 1; then
+    databases+=(dvdrental)
+  fi
+  for db in "${databases[@]}"; do
     docker exec -i "$PG" psql -U postgres -d "$db" <<SQL
 GRANT CONNECT ON DATABASE ${db} TO ${READER};
 GRANT USAGE ON SCHEMA public TO ${READER};
@@ -68,6 +73,8 @@ GRANT CREATE, ALTER, SELECT, INSERT, UPDATE, DELETE ON ag_side.* TO '${READER}'@
 GRANT SELECT ON Chinook.* TO '${READER}'@'%';
 GRANT SELECT ON northwind.* TO '${READER}'@'%';
 GRANT SELECT ON sakila.* TO '${READER}'@'%';
+GRANT SELECT ON world.* TO '${READER}'@'%';
+GRANT SELECT ON employees.* TO '${READER}'@'%';
 GRANT INSERT, UPDATE, DELETE ON Chinook.Playlist TO '${READER}'@'%';
 GRANT INSERT, UPDATE, DELETE ON Chinook.PlaylistTrack TO '${READER}'@'%';
 GRANT UPDATE (Name) ON Chinook.Genre TO '${READER}'@'%';
@@ -86,6 +93,8 @@ GRANT CREATE, ALTER, SELECT, INSERT, UPDATE, DELETE ON ag_side.* TO '${READER}'@
 GRANT SELECT ON Chinook.* TO '${READER}'@'%';
 GRANT SELECT ON northwind.* TO '${READER}'@'%';
 GRANT SELECT ON sakila.* TO '${READER}'@'%';
+GRANT SELECT ON world.* TO '${READER}'@'%';
+GRANT SELECT ON employees.* TO '${READER}'@'%';
 GRANT INSERT, UPDATE, DELETE ON Chinook.Playlist TO '${READER}'@'%';
 GRANT INSERT, UPDATE, DELETE ON Chinook.PlaylistTrack TO '${READER}'@'%';
 GRANT UPDATE (Name) ON Chinook.Genre TO '${READER}'@'%';
@@ -135,6 +144,19 @@ GRANT CREATE TABLE TO [anygriddb];
 GRANT ALTER, SELECT, INSERT, UPDATE, DELETE ON SCHEMA::anygriddb_side TO [anygriddb];
 SQL
   fi
+  for wwi in WideWorldImporters WideWorldImportersDW; do
+    if docker exec "$MSSQL" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$PASSWORD" -C -h -1 -Q "SET NOCOUNT ON; SELECT name FROM sys.databases WHERE name=N'$wwi';" 2>/dev/null | grep -q "$wwi"; then
+      docker exec -i "$MSSQL" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$PASSWORD" -C -d "$wwi" <<SQL
+IF NOT EXISTS (SELECT name FROM sys.database_principals WHERE name = N'anygriddb')
+  CREATE USER [anygriddb] FOR LOGIN [anygriddb];
+GRANT SELECT TO [anygriddb];
+IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = N'anygriddb_side')
+  EXEC('CREATE SCHEMA anygriddb_side');
+GRANT CREATE TABLE TO [anygriddb];
+GRANT ALTER, SELECT, INSERT, UPDATE, DELETE ON SCHEMA::anygriddb_side TO [anygriddb];
+SQL
+    fi
+  done
   echo "  sqlserver: grants ok"
 fi
 

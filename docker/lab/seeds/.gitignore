@@ -2,3 +2,5 @@
 *.sql
 *.bak
 *.part
+*.zip
+*.gz
