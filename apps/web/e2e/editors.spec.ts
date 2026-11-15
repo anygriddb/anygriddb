@@ -541,81 +541,85 @@ test.describe("a JSON field", () => {
 });
 
 // Ctrl Z and Ctrl Y take back a list's last choice and a link while their
-// panel is still open, as the toolbar's Undo and Redo do.
-test("a choice and a link are undone from the keyboard, the panel open", async ({
-  page,
-}) => {
-  const blocked = watchPolicy(page);
-  await signUpWithTable(page, "Undo User");
-  const tableId = /\/t\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
-  await addField(page, tableId, {
-    name: "tags",
-    label: "Tags",
-    fieldType: "multi_select",
-    options: ["Red", "Green"],
-  });
-  const relation = await page.request.post("/trpc/catalog.addRelation", {
-    data: {
-      tableId,
-      name: "related",
-      label: "Related",
-      kind: "many_to_many",
-      targetTableId: tableId,
-    },
-  });
-  expect(relation.ok(), await relation.text()).toBe(true);
-  for (const name of ["Ada", "Bob"]) {
-    const inserted = await page.request.post("/trpc/rows.insert", {
-      data: { tableId, values: { name } },
+// panel is still open, as the toolbar's Undo and Redo do. Its own address
+// so parallel journeys do not share the auth rate-limit bucket.
+test.describe("undo with the panel open", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.94" } });
+  test("a choice and a link are undone from the keyboard, the panel open", async ({
+    page,
+  }) => {
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "Undo User");
+    const tableId = /\/t\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
+    await addField(page, tableId, {
+      name: "tags",
+      label: "Tags",
+      fieldType: "multi_select",
+      options: ["Red", "Green"],
     });
-    expect(inserted.ok(), await inserted.text()).toBe(true);
-  }
-  await page.reload();
+    const relation = await page.request.post("/trpc/catalog.addRelation", {
+      data: {
+        tableId,
+        name: "related",
+        label: "Related",
+        kind: "many_to_many",
+        targetTableId: tableId,
+      },
+    });
+    expect(relation.ok(), await relation.text()).toBe(true);
+    for (const name of ["Ada", "Bob"]) {
+      const inserted = await page.request.post("/trpc/rows.insert", {
+        data: { tableId, values: { name } },
+      });
+      expect(inserted.ok(), await inserted.text()).toBe(true);
+    }
+    await page.reload();
 
-  await cell(page, "tags").click();
-  await page.keyboard.press("Enter");
-  await page.keyboard.press("ArrowDown");
-  let saved = savedValues(page);
-  await page.keyboard.press("Enter");
-  expect(await saved).toContain('"tags":["Red"]');
-  await page.keyboard.press("ArrowDown");
-  saved = savedValues(page);
-  await page.keyboard.press("Enter");
-  expect(await saved).toContain('"tags":["Red","Green"]');
-  saved = savedValues(page);
-  await page.keyboard.press("Control+z");
-  expect(await saved).toContain('"tags":["Red"]');
-  await expect(page.getByRole("option", { name: "Green" })).toHaveAttribute(
-    "aria-selected",
-    "false",
-  );
-  saved = savedValues(page);
-  await page.keyboard.press("Control+y");
-  expect(await saved).toContain('"tags":["Red","Green"]');
-  await page.keyboard.press("Escape");
-  await expect(cell(page, "tags")).toContainText("Green");
+    await cell(page, "tags").click();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("ArrowDown");
+    let saved = savedValues(page);
+    await page.keyboard.press("Enter");
+    expect(await saved).toContain('"tags":["Red"]');
+    await page.keyboard.press("ArrowDown");
+    saved = savedValues(page);
+    await page.keyboard.press("Enter");
+    expect(await saved).toContain('"tags":["Red","Green"]');
+    saved = savedValues(page);
+    await page.keyboard.press("Control+z");
+    expect(await saved).toContain('"tags":["Red"]');
+    await expect(page.getByRole("option", { name: "Green" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    saved = savedValues(page);
+    await page.keyboard.press("Control+y");
+    expect(await saved).toContain('"tags":["Red","Green"]');
+    await page.keyboard.press("Escape");
+    await expect(cell(page, "tags")).toContainText("Green");
 
-  const links = () =>
-    page
-      .waitForRequest((request) => request.url().includes("rows.setLinks"))
-      .then((request) => request.postData() ?? "");
-  await cell(page, "related").click();
-  await page.keyboard.press("Enter");
-  const bob = page.getByRole("option", { name: "Bob" });
-  let sent = links();
-  await bob.click();
-  expect(await sent).toMatch(/"targetIds":\["[^"]+"\]/);
-  sent = links();
-  await page.keyboard.press("Control+z");
-  expect(await sent).toContain('"targetIds":[]');
-  await expect(bob).toHaveAttribute("aria-selected", "false");
-  sent = links();
-  await page.keyboard.press("Control+y");
-  expect(await sent).toMatch(/"targetIds":\["[^"]+"\]/);
-  await expect(bob).toHaveAttribute("aria-selected", "true");
-  await page.keyboard.press("Escape");
-  await expect(cell(page, "related")).toContainText("Bob");
-  expect(blocked).toEqual([]);
+    const links = () =>
+      page
+        .waitForRequest((request) => request.url().includes("rows.setLinks"))
+        .then((request) => request.postData() ?? "");
+    await cell(page, "related").click();
+    await page.keyboard.press("Enter");
+    const bob = page.getByRole("option", { name: "Bob" });
+    let sent = links();
+    await bob.click();
+    expect(await sent).toMatch(/"targetIds":\["[^"]+"\]/);
+    sent = links();
+    await page.keyboard.press("Control+z");
+    expect(await sent).toContain('"targetIds":[]');
+    await expect(bob).toHaveAttribute("aria-selected", "false");
+    sent = links();
+    await page.keyboard.press("Control+y");
+    expect(await sent).toMatch(/"targetIds":\["[^"]+"\]/);
+    await expect(bob).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("Escape");
+    await expect(cell(page, "related")).toContainText("Bob");
+    expect(blocked).toEqual([]);
+  });
 });
 
 // A list (ROADMAP #96): each row under the row its link to the same table
