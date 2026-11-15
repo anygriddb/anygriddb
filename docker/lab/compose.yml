@@ -208,7 +208,10 @@ services:
     container_name: aglab-opensearch
     environment:
       discovery.type: single-node
-      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${LAB_PASSWORD}
+      # The cluster refuses a password like its admin's name, which the
+      # lab's own is: this one is the cluster administrator's alone. The
+      # account AnyGridDB reads with keeps LAB_PASSWORD.
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${LAB_OPENSEARCH_ADMIN_PASSWORD:-Harbor-Ledger-Kiwi-58!}
       # The transport keeps the image's own certificates; HTTP is served
       # in clear inside, behind the front.
       plugins.security.ssl.http.enabled: "false"

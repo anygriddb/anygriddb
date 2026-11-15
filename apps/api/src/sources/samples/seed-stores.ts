@@ -18,6 +18,9 @@ const CA = readFileSync(
   "utf8",
 );
 const ORDERS = Number(process.env.LAB_STORE_ROWS ?? 50_000);
+/** The lab OpenSearch's own administrator (docker/lab/compose.yml). */
+const SEARCH_ADMIN_PASSWORD =
+  process.env.LAB_OPENSEARCH_ADMIN_PASSWORD ?? "Harbor-Ledger-Kiwi-58!";
 const BATCH = 5_000;
 
 /** The same numbers at every run. */
@@ -167,7 +170,7 @@ function search(
         path,
         ca: CA,
         timeout: 60_000,
-        auth: `admin:${PASSWORD}`,
+        auth: `admin:${SEARCH_ADMIN_PASSWORD}`,
         headers: body === undefined ? {} : { "content-type": type },
       },
       (response) => {
