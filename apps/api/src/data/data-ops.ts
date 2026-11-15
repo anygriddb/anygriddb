@@ -1,5 +1,6 @@
 import {
   AppError,
+  isHomeTable,
   type BaseTemplate,
   buildDuplicateJunction,
   buildDuplicateRows,
@@ -40,6 +41,7 @@ import {
   type WriteContext,
 } from "./rows.js";
 import { insertNativeBatch, updateNativeBatch } from "../services/rows.js";
+import { updateExternalRows } from "../sources/writes.js";
 import { addColumn, insertTable, setPrimaryColumn } from "./schema-ops.js";
 import { createView } from "./views.js";
 
@@ -432,8 +434,15 @@ export async function duplicateTable(
   },
 ): Promise<{ id: string }> {
   // Copying a client's table into AnyGridDB is the synced mode, not yet.
+  // A table this product created in a source is writable, and still not
+  // duplicated: its links are the source's own columns, which are not
+  // added from here.
   if (source.storage === "external") {
-    throw new AppError("external_table_read_only");
+    throw new AppError(
+      isHomeTable(source)
+        ? "source_home_not_duplicated"
+        : "external_table_read_only",
+    );
   }
   const { engine, rows } = await loadEngine(db, source.id, () => true);
   let total: number | null = null;
@@ -639,12 +648,33 @@ export async function duplicateColumn(
       return [{ rowId: row.id, values: { [created.name]: cell } }];
     });
     for (let index = 0; index < updates.length; index += BATCH) {
-      await updateNativeBatch(
-        db,
-        target.engine,
-        writeContext(userId, table, "duplicate"),
-        updates.slice(index, index + BATCH),
-      );
+      const slice = updates.slice(index, index + BATCH);
+      if (isHomeTable(table)) {
+        // The new column is empty, so that is what the comparison expects.
+        await updateExternalRows(
+          db,
+          {
+            userId,
+            table,
+            engine: target.engine,
+            catalog: target.rows,
+            reason: null,
+            source: "duplicate",
+            depth: 0,
+          },
+          slice.map((update) => ({
+            ...update,
+            expected: { [created.name]: null },
+          })),
+        );
+      } else {
+        await updateNativeBatch(
+          db,
+          target.engine,
+          writeContext(userId, table, "duplicate"),
+          slice,
+        );
+      }
     }
   });
   return { name: created.name, skipped };

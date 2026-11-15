@@ -96,6 +96,12 @@ export const createBaseInputSchema = z.object({
     .string()
     .regex(/^[a-z_]{1,40}$/)
     .optional(),
+  /**
+   * A SQL source whose schema will hold the tables this base creates.
+   * Absent: the tables live in AnyGridDB. A store read from a copy cannot
+   * be chosen.
+   */
+  sourceId: z.uuid().optional(),
 });
 
 export const updateBaseInputSchema = z.object({

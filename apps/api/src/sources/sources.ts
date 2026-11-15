@@ -418,9 +418,18 @@ function storedConnection(deps: SourceDeps, row: SourceRow): SourceConnection {
 export async function sourceTables(
   deps: SourceDeps,
   id: string,
+  /**
+   * The schema of a base held in the source (ADR 0090). MySQL and MariaDB
+   * read the tables of one database at a time, and that schema is one.
+   */
+  home?: string,
 ): Promise<SourceTable[]> {
   const row = await loadSource(deps.db, id);
-  const connection = storedConnection(deps, row);
+  const stored = storedConnection(deps, row);
+  const connection =
+    home && (stored.engine === "mysql" || stored.engine === "mariadb")
+      ? { ...stored, database: home }
+      : stored;
   if (!deps.settings.allows(connection.host)) {
     throw new AppError("source_host_not_allowed", connection.host);
   }

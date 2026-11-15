@@ -364,9 +364,20 @@ const runTrashPurge =
           throw new AppError("invalid_job");
         }
       }
+      if (input.dropSchema) {
+        const admin = await deps.db
+          .selectFrom("users")
+          .select("isAdmin")
+          .where("id", "=", userId)
+          .executeTakeFirst();
+        if (!admin?.isAdmin) throw new AppError("access_denied");
+      }
       targets = orderForPurge(items).map((item) => ({
         ...item,
         actorId: userId,
+        ...(input.dropSchema && item.kind === "base" && item.id === baseId
+          ? { dropSchema: input.dropSchema }
+          : {}),
       }));
     }
     await progress(0, targets.length);

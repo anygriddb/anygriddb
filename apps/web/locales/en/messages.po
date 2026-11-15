@@ -1107,6 +1107,10 @@ msgstr "A group gathers accounts so a base can give them one role. Make a group 
 msgid "A JSON document's value at a path, such as $.client.name or $.lines[0]."
 msgstr "A JSON document's value at a path, such as $.client.name or $.lines[0]."
 
+#: components/admin/sources-tab.tsx
+msgid "A label is a table of nodes. Relationships are not links."
+msgstr "A label is a table of nodes. Relationships are not links."
+
 #: components/views/map-view.tsx
 msgid "A latitude and a longitude"
 msgstr "A latitude and a longitude"
@@ -1253,12 +1257,24 @@ msgid "A source's watched tables cannot be read"
 msgstr "A source's watched tables cannot be read"
 
 #: lib/errors.ts
+msgid "A starting point is not applied when the tables live in a source. Create the base empty, then add its tables."
+msgstr "A starting point is not applied when the tables live in a source. Create the base empty, then add its tables."
+
+#: lib/errors.ts
 msgid "A table already has this name"
 msgstr "A table already has this name"
 
 #: components/settings/base-settings.tsx
 msgid "A table override replaces the base role either way. Field rights further restrict reading and writing."
 msgstr "A table override replaces the base role either way. Field rights further restrict reading and writing."
+
+#: lib/errors.ts
+msgid "A table that lives in an external source is not duplicated. Add another table there."
+msgstr "A table that lives in an external source is not duplicated. Add another table there."
+
+#: components/admin/sources-tab.tsx
+msgid "A table without a partition key is left out."
+msgstr "A table without a partition key is left out."
 
 #: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
@@ -1954,6 +1970,10 @@ msgstr "Any form of the table"
 #: components/fields/field-editor.tsx
 msgid "Any true"
 msgstr "Any true"
+
+#: components/shell/new-base-dialog.tsx
+msgid "AnyGridDB"
+msgstr "AnyGridDB"
 
 #: components/admin/health-tab.tsx
 #: components/admin/release-banner.tsx
@@ -4169,6 +4189,10 @@ msgstr "Example"
 msgid "Example:"
 msgstr "Example:"
 
+#: components/admin/sources-tab.tsx
+msgid "Example: shop: reads the keys shop:1 and shop:2, and no other."
+msgstr "Example: shop: reads the keys shop:1 and shop:2, and no other."
+
 #: components/table/import-dialog.tsx
 msgid "Existing rows"
 msgstr "Existing rows"
@@ -4392,6 +4416,10 @@ msgstr "Fields marked with an asterisk need a value before the row is added."
 #: components/admin/sources-tab.tsx
 msgid "Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB, the account's own schema on Oracle). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed."
 msgstr "Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB, the account's own schema on Oracle). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed."
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Figures follow the copy of {date}"
+msgstr "Figures follow the copy of {date}"
 
 #: components/shell/jobs-menu.tsx
 msgid "File available for 24 h"
@@ -5625,10 +5653,18 @@ msgstr "Key"
 msgid "key {key}"
 msgstr "key {key}"
 
+#: components/admin/sources-tab.tsx
+msgid "Key prefix"
+msgstr "Key prefix"
+
 #: components/shell/shortcuts-dialog.tsx
 #: components/shell/user-menu.tsx
 msgid "Keyboard shortcuts"
 msgstr "Keyboard shortcuts"
+
+#: components/admin/sources-tab.tsx
+msgid "Keyspace"
+msgstr "Keyspace"
 
 #: components/admin/support-tab.tsx
 #: components/history/earlier.tsx
@@ -8694,6 +8730,10 @@ msgstr "Scan this code with your authenticator app."
 msgid "Schema kept for AnyGridDB (optional)"
 msgstr "Schema kept for AnyGridDB (optional)"
 
+#: components/shell/trashed-bases.tsx
+msgid "Schema name, to remove it there too"
+msgstr "Schema name, to remove it there too"
+
 #: components/admin/scim-tab.tsx
 msgid "SCIM 2.0 provisioning"
 msgstr "SCIM 2.0 provisioning"
@@ -9741,6 +9781,14 @@ msgstr "Tables of {name}"
 msgid "Tables of this source are in a base, or in its trash: delete them first"
 msgstr "Tables of this source are in a base, or in its trash: delete them first"
 
+#: components/shell/new-base-dialog.tsx
+msgid "Tables stay in AnyGridDB. A source without SQL is not listed: it is read from a copy and cannot hold a new base."
+msgstr "Tables stay in AnyGridDB. A source without SQL is not listed: it is read from a copy and cannot hold a new base."
+
+#: components/shell/new-base-dialog.tsx
+msgid "Tables you create, and the columns you add to them, are written in a schema of this source. Members, views, dashboards, files, and history stay in AnyGridDB."
+msgstr "Tables you create, and the columns you add to them, are written in a schema of this source. Members, views, dashboards, files, and history stay in AnyGridDB."
+
 #: components/table/view-toolbar.tsx
 msgid "Tall"
 msgstr "Tall"
@@ -9832,6 +9880,10 @@ msgstr "That file type is not allowed on this instance."
 msgid "That folder is not in this base"
 msgstr "That folder is not in this base"
 
+#: components/shell/trashed-bases.tsx
+msgid "That is not the schema's name, so the base was not deleted."
+msgstr "That is not the schema's name, so the base was not deleted."
+
 #: components/table/automations-dialog.tsx
 msgid "That match (optional):"
 msgstr "That match (optional):"
@@ -9876,6 +9928,10 @@ msgstr "The automation acts with your access; every write is recorded in the aud
 msgid "The base and its tables go to the trash: you can restore it from the home page for {days} days."
 msgstr "The base and its tables go to the trash: you can restore it from the home page for {days} days."
 
+#: components/shell/sidebar.tsx
+msgid "The base and its tables go to the trash: you can restore it from the home page for {days} days. The schema {schema} stays in the external source."
+msgstr "The base and its tables go to the trash: you can restore it from the home page for {days} days. The schema {schema} stays in the external source."
+
 #: components/settings/restore-points.tsx
 msgid "The base as it was on {date} can no longer be restored. The base itself is not changed."
 msgstr "The base as it was on {date} can no longer be restored. The base itself is not changed."
@@ -9883,6 +9939,10 @@ msgstr "The base as it was on {date} can no longer be restored. The base itself 
 #: components/admin/open-base.tsx
 msgid "The base is closed to you again"
 msgstr "The base is closed to you again"
+
+#: components/shell/trashed-bases.tsx
+msgid "The base is erased here. The audit history is kept. The schema {schema} stays in the external source."
+msgstr "The base is erased here. The audit history is kept. The schema {schema} stays in the external source."
 
 #: components/admin/open-base.tsx
 msgid "The base is open to you for an hour"
@@ -9963,6 +10023,10 @@ msgstr "The code by email is off"
 #: lib/errors.ts
 msgid "The code could not be sent: try again in a minute, or use a backup code"
 msgstr "The code could not be sent: try again in a minute, or use a backup code"
+
+#: components/table/table-workspace.tsx
+msgid "The copy has not arrived. The table stays empty until then."
+msgstr "The copy has not arrived. The table stays empty until then."
 
 #: components/shell/trash-dialog.tsx
 #: components/shell/trashed-bases.tsx
@@ -10789,6 +10853,10 @@ msgstr "This invitation does not exist or has expired."
 msgid "This job cannot be retried"
 msgstr "This job cannot be retried"
 
+#: lib/errors.ts
+msgid "This kind of field is not a column of a table that lives in an external source. Multiple select, duration, collaborator, attachment, links, lookups, rollups, and the row's own times, authors, and number stay out."
+msgstr "This kind of field is not a column of a table that lives in an external source. Multiple select, duration, collaborator, attachment, links, lookups, rollups, and the row's own times, authors, and number stay out."
+
 #: components/public/public-base.tsx
 #: components/public/public-view.tsx
 msgid "This link does not exist, has expired, or was revoked."
@@ -10917,6 +10985,10 @@ msgstr "This table is a copy refreshed on a schedule: change it in the client's 
 #: components/fields/field-editor.tsx
 msgid "This table is a synced copy: only formulas, lookups, rollups, and buttons can be added. Storage fields need a live table."
 msgstr "This table is a synced copy: only formulas, lookups, rollups, and buttons can be added. Storage fields need a live table."
+
+#: components/fields/field-editor.tsx
+msgid "This table was created in the external source. The field is a column of that table, and the values you type are written there."
+msgstr "This table was created in the external source. The field is a column of that table, and the values you type are written there."
 
 #: components/fields/attachment-preview.tsx
 msgid "This text file cannot be previewed: download it."
@@ -11802,6 +11874,10 @@ msgstr "Where do you want to start?"
 #: components/fields/formula-docs.ts
 msgid "Where the sought text starts, case included; 0 when it is not there."
 msgstr "Where the sought text starts, case included; 0 when it is not there."
+
+#: components/shell/new-base-dialog.tsx
+msgid "Where the tables live"
+msgstr "Where the tables live"
 
 #: components/admin/security-tab.tsx
 msgid "While only administrators may, the tokens others made stop working, and work again if you change your mind."

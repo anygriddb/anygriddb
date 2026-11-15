@@ -102,3 +102,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0087](0087-process-log.md)                          | Recent lines of the process, read in Administration                                     | Accepted (extends 0018)                     |
 | [0088](0088-stores-read-from-a-copy.md)              | Stores that speak no SQL are read from a copy                                           | Accepted (extends 0034)                     |
 | [0089](0089-putting-a-value-back.md)                 | Putting a value back writes a new change from the trail                                 | Accepted                                    |
+| [0090](0090-a-base-held-in-a-source.md)              | A new base can keep its tables in a schema of a SQL source                              | Accepted (extends 0006)                     |

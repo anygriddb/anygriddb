@@ -759,6 +759,14 @@ export function FieldEditor({
         wide={fieldType === "formula"}
       >
         <div className="flex flex-col gap-3">
+          {isNew && external && table.external?.hosted ? (
+            <p
+              role="status"
+              className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground"
+            >
+              {t`This table was created in the external source. The field is a column of that table, and the values you type are written there.`}
+            </p>
+          ) : null}
           {isNew && external && !enrichable ? (
             <p
               role="status"

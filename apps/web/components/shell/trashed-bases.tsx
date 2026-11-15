@@ -1,11 +1,12 @@
-import { Button } from "@anygriddb/ui";
+import { Button, Input, Label } from "@anygriddb/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Database, RotateCcw, Trash2 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTrackJob } from "../../lib/jobs";
 import { useTrashActions, useTrashDays } from "../../lib/trash";
+import { useSession } from "../../lib/session";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { ConfirmDialog } from "./dialogs";
 import { useLingui } from "@lingui/react/macro";
@@ -26,16 +27,20 @@ export function TrashedBases() {
     ...api.catalog.trashedBases.queryOptions(),
     refetchOnMount: "always",
   });
+  const session = useSession();
   const [purging, setPurging] = useState<Entry | null>(null);
+  const [schemaName, setSchemaName] = useState("");
+  const holdPurge = useRef(false);
   const items = list.data?.items ?? [];
   if (items.length === 0) return null;
 
-  async function purge(entry: Entry) {
+  async function purge(entry: Entry, dropSchema?: string) {
     let jobId: string | null;
     try {
       ({ jobId } = await trpc.catalog.purgeTrash.mutate({
         baseId: entry.id,
         items: [{ kind: "base", id: entry.id }],
+        ...(dropSchema ? { dropSchema } : {}),
       }));
     } catch (cause) {
       toast.error(errorText(cause));
@@ -91,7 +96,11 @@ export function TrashedBases() {
               size="icon"
               variant="ghost"
               aria-label={t`Delete ${{ name: entry.name }} permanently`}
-              onClick={() => setPurging(entry)}
+              onClick={() => {
+                holdPurge.current = false;
+                setSchemaName("");
+                setPurging(entry);
+              }}
             >
               <Trash2 className="h-4 w-4 text-danger" aria-hidden />
             </Button>
@@ -104,12 +113,43 @@ export function TrashedBases() {
           danger
           onOpenChange={(open) => !open && setPurging(null)}
           title={t`Delete “${{ name: purging.name }}” permanently?`}
-          description={t`The data and attached files will be erased. The audit history is kept.`}
+          description={
+            purging.homeSchema
+              ? t`The base is erased here. The audit history is kept. The schema ${{ schema: purging.homeSchema }} stays in the external source.`
+              : t`The data and attached files will be erased. The audit history is kept.`
+          }
           confirmLabel={t`Delete permanently`}
+          holdOpen={() => holdPurge.current}
           onConfirm={() => {
-            void purge(purging);
+            const typed = schemaName.trim();
+            holdPurge.current = Boolean(typed && typed !== purging.homeSchema);
+            if (holdPurge.current) {
+              toast.error(
+                t`That is not the schema's name, so the base was not deleted.`,
+              );
+              return;
+            }
+            void purge(
+              purging,
+              typed && typed === purging.homeSchema ? typed : undefined,
+            );
           }}
-        />
+        >
+          {session.data?.isAdmin && purging.homeSchema ? (
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="drop-home-schema">
+                {t`Schema name, to remove it there too`}
+              </Label>
+              <Input
+                id="drop-home-schema"
+                value={schemaName}
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(event) => setSchemaName(event.target.value)}
+              />
+            </div>
+          ) : null}
+        </ConfirmDialog>
       ) : null}
     </section>
   );

@@ -11,8 +11,8 @@ This is **not** the official product stack. SQL Server uses Compose profile
 (`OPEN_SOURCE_POLICY.md`).
 
 Profile `stores` adds the stores that speak no SQL, which AnyGridDB reads
-from a copy (ADR 0088): FerretDB, which speaks the MongoDB wire protocol,
-and OpenSearch.
+from a copy (ADR 0088): FerretDB (the MongoDB wire protocol), OpenSearch,
+Valkey (the Redis wire protocol), Cassandra, and Neo4j Community.
 
 ## Quick start
 
@@ -25,7 +25,7 @@ docker compose --profile mssql --profile oracle up -d   # optional engines
 ../../scripts/lab/seed.sh --lab              # and DVD Rental, World, Employees
 ../../scripts/lab/seed.sh --adventureworks   # SQL Server only, ~210 MB download
 ../../scripts/lab/seed.sh --wideworldimporters   # SQL Server only, ~120 MB
-docker compose --profile stores up -d        # FerretDB and OpenSearch
+docker compose --profile stores up -d        # FerretDB, OpenSearch, Valkey, Cassandra, Neo4j
 ../../scripts/lab/seed.sh --stores           # made-up orders, products, events
 ```
 
@@ -56,6 +56,9 @@ Or from the repo root:
 |                 | `aglab-oracle-tls`   | `127.0.0.1:52484` (TCPS) |
 | FerretDB 2.7    | `aglab-ferretdb`     | `127.0.0.1:57017` (TLS)  |
 | OpenSearch 2.19 | `aglab-opensearch`   | `127.0.0.1:59243` (TLS)  |
+| Valkey 8.1      | `aglab-valkey`       | `127.0.0.1:56379` (TLS)  |
+| Cassandra 5     | `aglab-cassandra`    | `127.0.0.1:59042` (TLS)  |
+| Neo4j 5.26      | `aglab-neo4j`        | `127.0.0.1:57687` (TLS)  |
 
 Password: `LAB_PASSWORD` from `.env` (default in `.env.example`).
 
@@ -73,6 +76,9 @@ plus side schema `anygriddb_side` (Postgres/SQL Server), database `ag_side`
 | Oracle          | service `FREEPDB1`, schema `CHINOOK`                                                                                                                                          |
 | FerretDB        | `shop` with `--stores`: `orders` (50,000 unless `LAB_STORE_ROWS` says otherwise), `products`, `events`; account `anygriddb`                                                   |
 | OpenSearch      | `orders` with `--stores` (20,000 at most); account `anygriddb`, which reads that index alone                                                                                  |
+| Valkey          | key prefix `shop:` with `--stores` (20,000 hashes at most); account `anygriddb`, which reads that prefix. The default account administers the server and is refused           |
+| Cassandra       | keyspace `shop`, table `orders`, with `--stores` (20,000 rows at most). Authentication is off on this image                                                                   |
+| Neo4j           | database `neo4j`, label `Order`, with `--stores` (20,000 nodes at most); account `anygriddb`. The built-in account `neo4j` is refused                                         |
 
 ## TLS
 

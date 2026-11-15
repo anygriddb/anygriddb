@@ -8,6 +8,7 @@ import {
   AppError,
   deriveColumnName,
   isCopySourceEngine,
+  isHomeTable,
   madeNames,
   OPTION_COLORS,
   PRIMARY_TYPES,
@@ -17,6 +18,7 @@ import { randomBytes } from "node:crypto";
 import { sql } from "kysely";
 import { withAudit, type AuditTx } from "../data/audit-context.js";
 import { isUniqueViolation } from "../data/schema-ops.js";
+import { followedField } from "./follow-field.js";
 import { sourceTables, type SourceDeps } from "./sources.js";
 import { refreshCopy, startCopy } from "./sync.js";
 import type { SourceTable } from "./types.js";
@@ -539,6 +541,8 @@ export async function refreshExposedTable(
     .select([
       "id",
       "baseId",
+      "storage",
+      "physicalName",
       "sourceId",
       "externalSchema",
       "externalName",
@@ -553,7 +557,13 @@ export async function refreshExposedTable(
   }
   const sourceId = table.sourceId;
   const found = new Map(
-    (await sourceTables(deps, sourceId)).map((item) => [keyOf(item), item]),
+    (
+      await sourceTables(
+        deps,
+        sourceId,
+        isHomeTable(table) ? table.externalSchema : undefined,
+      )
+    ).map((item) => [keyOf(item), item]),
   );
   const client = found.get(
     keyOf({ schema: table.externalSchema, name: table.externalName }),
@@ -621,6 +631,9 @@ export async function refreshExposedTable(
           .map((column) => column.position),
       );
       const now = new Date();
+      const homeKey = new Set(
+        isHomeTable(table) ? (table.externalKey ?? []) : [],
+      );
       for (const column of client.columns) {
         const field = byPhysical.get(column.name);
         if (!field) {
@@ -637,15 +650,22 @@ export async function refreshExposedTable(
           result.added.push(column.name);
           continue;
         }
+        // A table held in a source draws its own id, which nobody
+        // writes: that field stays as AnyGridDB made it.
+        if (homeKey.has(column.name)) continue;
         // A field an administrator put in the trash stays there.
         if (field.deletedAt !== null) continue;
-        const isLink = field.fieldType === "relation_one_to_many";
-        const fieldType: FieldType = isLink
-          ? field.fieldType
-          : column.field.fieldType;
+        const followed = followedField({
+          link: field.fieldType === "relation_one_to_many",
+          currentType: field.fieldType,
+          currentExternal: field.externalType,
+          clientType: column.field.fieldType,
+          clientExternal: column.type,
+        });
+        const fieldType: FieldType = followed.fieldType;
         const previous = (field.config as { options?: unknown } | null)
           ?.options;
-        const config = isLink
+        const config = followed.keepConfig
           ? field.config
           : clientConfig(
               client,

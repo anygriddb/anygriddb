@@ -221,6 +221,18 @@ export const ERRORS = {
   source_query_failed: [BAD, "Source query failed"],
   source_query_too_complex: [BAD, "Source query too complex"],
   external_table_read_only: [BAD, "External table is read-only"],
+  source_home_template: [
+    BAD,
+    "A template is not applied to a base held in a source",
+  ],
+  source_home_not_duplicated: [
+    BAD,
+    "A table held in a source is not duplicated",
+  ],
+  source_home_field_type: [
+    BAD,
+    "This field type is not a column of a table held in a source",
+  ],
   external_insert_off: [BAD, "Adding rows is off for this external table"],
   external_delete_off: [BAD, "Deleting rows is off for this external table"],
   external_table_no_key: [BAD, "External table has no primary key"],

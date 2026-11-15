@@ -24,6 +24,7 @@ import { loadRowScope, updateRows } from "../services/rows.js";
 import { revertRow } from "../services/revert-row.js";
 import { createTestDatabase } from "../test-database.js";
 import { exposeTables, refreshExposedTable } from "./expose.js";
+import { exerciseHostedBase } from "./host-table.test-helpers.js";
 import { readExternalAudit } from "./writes.js";
 import { setSourcePools, SourcePools } from "./pools.js";
 import {
@@ -770,5 +771,44 @@ describe("PostgreSQL sources", () => {
     expect(external).not.toHaveProperty("host");
     expect(external).not.toHaveProperty("username");
     expect(JSON.stringify(listed)).not.toContain("readerpass");
+  });
+
+  it("holds a base's tables in a schema it owns, then drops what it made", async () => {
+    const granted = await server?.exec([
+      "psql",
+      "-U",
+      "postgres",
+      "-d",
+      "erp",
+      "-c",
+      "grant create on database erp to anygriddb",
+    ]);
+    expect(granted?.exitCode).toBe(0);
+    const deps = { db, key, settings };
+    pools ??= new SourcePools({ db, key, settings, log: () => undefined });
+    setSourcePools(pools);
+    const source = await createSource(deps, admin, {
+      name: "Home",
+      ...connection(),
+      connectionLimit: 2,
+    });
+    await exerciseHostedBase({
+      deps,
+      admin,
+      sourceId: source.id,
+      dialect: "postgres",
+      scalar: async (query) =>
+        (
+          await server?.exec([
+            "psql",
+            "-U",
+            "postgres",
+            "-d",
+            "erp",
+            "-tAc",
+            query,
+          ])
+        )?.output.trim() ?? "",
+    });
   });
 });

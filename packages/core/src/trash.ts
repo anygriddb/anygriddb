@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AppError } from "./errors";
+import { isHomeSchemaName } from "./query/home";
 
 /**
  * Deleted bases, tables, fields, and views wait in the trash this long,
@@ -19,11 +20,19 @@ export const trashListInputSchema = z.object({ baseId: z.uuid() }).strict();
 
 export const restoreInputSchema = trashItemSchema;
 
+/** A schema name AnyGridDB minted for a base (ADR 0090), and no other. */
+const homeSchema = z.string().refine(isHomeSchemaName);
+
 /** Deletes items of a base's trash for good; without items, all of them. */
 export const purgeTrashInputSchema = z
   .object({
     baseId: z.uuid(),
     items: z.array(trashItemSchema).min(1).max(100).optional(),
+    /**
+     * Also drop this schema in the external source. Only when it is the
+     * base's own, and only an administrator may ask.
+     */
+    dropSchema: homeSchema.optional(),
   })
   .strict();
 
@@ -33,10 +42,13 @@ export const trashPurgeJobInputSchema = z
     baseId: z.uuid().optional(),
     items: z.array(trashItemSchema).min(1).max(100).optional(),
     due: z.boolean().optional(),
+    dropSchema: homeSchema.optional(),
   })
   .strict()
   .refine(
-    (input) => Boolean(input.due) !== Boolean(input.baseId),
+    (input) =>
+      Boolean(input.due) !== Boolean(input.baseId) &&
+      !(input.due && input.dropSchema),
     "Invalid job",
   );
 /** When an item deleted at `deletedAt` is purged. */

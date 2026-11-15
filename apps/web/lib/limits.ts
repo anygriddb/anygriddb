@@ -22,6 +22,9 @@ export const ENGINE_NAMES: Record<SourceEngine, string> = {
   oracle: "Oracle",
   mongodb: "MongoDB",
   opensearch: "OpenSearch",
+  redis: "Redis",
+  cassandra: "Cassandra",
+  neo4j: "Neo4j",
 };
 
 /**

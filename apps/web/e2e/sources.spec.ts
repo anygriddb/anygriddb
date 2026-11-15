@@ -207,3 +207,153 @@ test("an administrator shows a client's tables in a base, read where they live",
     await control.end();
   }
 });
+
+test("an administrator keeps a new base's tables in a client's database", async ({
+  page,
+}) => {
+  const blocked = watchPolicy(page);
+  const stamp = uniqueStamp();
+  const database = `e2e_home_${stamp}`;
+  const account = `e2e_holder_${stamp}`;
+  const password = "holder-password-e2e";
+  const server = new URL(controlUrl);
+  const control = new pg.Client({ connectionString: controlUrl });
+  await control.connect();
+  const homeUrl = new URL(controlUrl);
+  homeUrl.pathname = `/${database}`;
+  // Whether a schema is in the client's database, read by its owner.
+  const schemas = async (name: string) => {
+    const client = new pg.Client({ connectionString: homeUrl.toString() });
+    await client.connect();
+    try {
+      const found = await client.query(
+        "select count(*)::int as n from information_schema.schemata where schema_name = $1",
+        [name],
+      );
+      return (found.rows[0] as { n: number }).n;
+    } finally {
+      await client.end();
+    }
+  };
+  try {
+    // The account may create a schema there, and is no superuser.
+    await control.query(`create role ${account} login password '${password}'`);
+    await control.query(`create database ${database}`);
+    await control.query(`grant create on database ${database} to ${account}`);
+    const { email } = await signUpWithTable(page, "Admin Home");
+    await control.query("update users set is_admin = true where email = $1", [
+      email,
+    ]);
+
+    await page.goto("/admin/sources");
+    await page.getByRole("button", { name: "Add a source" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog
+      .getByRole("group", { name: "Engine" })
+      .getByText("PostgreSQL", { exact: true })
+      .click();
+    await dialog.getByLabel("Name", { exact: true }).fill(`Home ${stamp}`);
+    await dialog.getByLabel("Database", { exact: true }).fill(database);
+    await dialog.getByLabel("Host", { exact: true }).fill(server.hostname);
+    await dialog.getByLabel("Port", { exact: true }).fill(server.port);
+    await dialog.getByLabel("Account", { exact: true }).fill(account);
+    await dialog.getByLabel("Password", { exact: true }).fill(password);
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await proveItIsYou(page);
+    await expect(dialog).toBeHidden();
+
+    // A new base whose tables live in that source: no starting point.
+    await page.goto("/");
+    await page.getByRole("button", { name: "New base" }).first().click();
+    await dialog.getByLabel("Base name").fill("Held");
+    await dialog
+      .getByLabel("Where the tables live")
+      .selectOption({ label: `Home ${stamp}` });
+    await expect(dialog.getByText("Starting point")).toHaveCount(0);
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await dialog.getByRole("button", { name: "Create", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Held", level: 1 }),
+    ).toBeVisible();
+    await page
+      .getByRole("listitem")
+      .filter({ has: page.getByRole("link", { name: "Held", exact: true }) })
+      .getByRole("button", { name: "Add a table" })
+      .click();
+    await dialog.getByLabel("Table name").fill("Lines");
+    await dialog.getByRole("button", { name: "Create", exact: true }).click();
+    const grid = page.getByRole("grid");
+    await grid.waitFor();
+
+    // A row added from its form, then typed over in the grid: both land
+    // in the client's table.
+    await page.getByRole("button", { name: "Add a row", exact: true }).click();
+    const form = page.getByRole("dialog", { name: "New row" });
+    await form.getByLabel("Name", { exact: true }).fill("first line");
+    await form.getByRole("button", { name: "Add the row" }).click();
+    await expect(form).toBeHidden();
+    const cell = grid.locator('[role="gridcell"][data-column="name"]').first();
+    await expect(cell).toContainText("first line");
+    await cell.click();
+    const saved = page.waitForResponse(
+      (response) => response.url().includes("rows.updateMany") && response.ok(),
+    );
+    await page.keyboard.type("edited line");
+    await page.keyboard.press("Enter");
+    await saved;
+    const held = await control.query<{
+      schema: string;
+      table: string;
+    }>(
+      `select b.home_schema as schema, t.external_name as table
+       from bases b join data_tables t on t.base_id = b.id
+       where b.name = 'Held' and t.name = 'Lines'
+       order by b.created_at desc limit 1`,
+    );
+    const { schema, table } = held.rows[0] ?? { schema: "", table: "" };
+    await expect
+      .poll(async () => {
+        const client = new pg.Client({ connectionString: homeUrl.toString() });
+        await client.connect();
+        try {
+          const rows = await client.query(
+            `select name from "${schema}"."${table}"`,
+          );
+          return rows.rows.map((row: { name: string }) => row.name);
+        } finally {
+          await client.end();
+        }
+      })
+      .toEqual(["edited line"]);
+
+    // Deleted, the base leaves its schema; deleted for good with the
+    // schema's name typed, the schema goes too.
+    await page
+      .getByRole("listitem")
+      .filter({ has: page.getByRole("link", { name: "Held", exact: true }) })
+      .getByRole("button", { name: "Base actions" })
+      .click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
+    const confirm = page.getByRole("alertdialog").or(page.getByRole("dialog"));
+    await expect(confirm).toContainText(schema);
+    await confirm.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(confirm).toBeHidden();
+    expect(await schemas(schema)).toBe(1);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Delete Held permanently" }).click();
+    const purge = page.getByRole("alertdialog").or(page.getByRole("dialog"));
+    const typed = purge.getByLabel("Schema name, to remove it there too");
+    await typed.fill("agnotthisone");
+    await purge.getByRole("button", { name: "Delete permanently" }).click();
+    await expect(purge).toBeVisible();
+    expect(await schemas(schema)).toBe(1);
+    await typed.fill(schema);
+    await purge.getByRole("button", { name: "Delete permanently" }).click();
+    await expect.poll(() => schemas(schema), { timeout: 30_000 }).toBe(0);
+    expect(blocked).toEqual([]);
+  } finally {
+    await control.query(`drop database if exists ${database} with (force)`);
+    await control.query(`drop role if exists ${account}`);
+    await control.end();
+  }
+});

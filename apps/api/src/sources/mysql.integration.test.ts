@@ -18,6 +18,7 @@ import { aggregateRows, readPage } from "../data/rows.js";
 import { addColumn, insertBase } from "../data/schema-ops.js";
 import { createTestDatabase } from "../test-database.js";
 import { exposeTables } from "./expose.js";
+import { exerciseHostedBase } from "./host-table.test-helpers.js";
 import { isAdministrator } from "./mysql.js";
 import { introspectMysql } from "./mysql-schema.js";
 import { setSourcePools, SourcePools, toPositional } from "./pools.js";
@@ -405,6 +406,49 @@ describe.each(FLAVORS)("$engine sources", (flavor) => {
     );
     // To 15 significant digits, what a double holds.
     expect(roots.rows[0]?.[root.name]).toBe("999999.999999995");
+  });
+  it("holds a base's tables in a database of its own, then drops what it made", async () => {
+    // The account reads the client's database, and may create its own
+    // beside it: a global CREATE would be refused as an administrator's.
+    const granted = await server?.exec([
+      flavor.client,
+      "-uroot",
+      "-prootpass",
+      "-e",
+      "create user 'holder'@'%' identified by 'holderpass'; grant select on erp.customers to 'holder'@'%'; grant all on `ag%`.* to 'holder'@'%'",
+    ]);
+    expect(granted?.exitCode, granted?.output).toBe(0);
+    const deps = { db, key, settings };
+    pools ??= new SourcePools({ db, key, settings, log: () => undefined });
+    setSourcePools(pools);
+    const source = await createSource(deps, admin, {
+      name: "Home",
+      ...connection({ username: "holder", password: "holderpass" }),
+      connectionLimit: 2,
+      timeZone: "UTC",
+    });
+    await exerciseHostedBase({
+      deps,
+      admin,
+      sourceId: source.id,
+      dialect: flavor.engine,
+      scalar: async (query) =>
+        (
+          await server?.exec([
+            flavor.client,
+            "-uroot",
+            "-prootpass",
+            "-N",
+            "-B",
+            "-e",
+            query,
+          ])
+        )?.output
+          .trim()
+          .split("\n")
+          // The client warns about the password on the line before.
+          .at(-1) ?? "",
+    });
   });
 });
 

@@ -9,7 +9,10 @@
  */
 import { readFileSync } from "node:fs";
 import https from "node:https";
+import { Client as CassandraClient } from "cassandra-driver";
+import Redis from "ioredis";
 import { Decimal128, Long, MongoClient, ObjectId } from "mongodb";
+import neo4j from "neo4j-driver";
 
 const HOST = process.env.LAB_HOST ?? "127.0.0.1";
 const PASSWORD = process.env.LAB_PASSWORD ?? "Lab!Admin-2026";
@@ -286,5 +289,191 @@ async function seedSearch(): Promise<void> {
   console.log(`orders index: ${String(count)} orders`);
 }
 
-await seedDocuments();
-await seedSearch();
+const STORE_ROWS = Math.min(ORDERS, 20_000);
+const CA_PATH =
+  process.env.ANYGRIDDB_LAB_TLS_CA ?? "../../docker/lab/certs/ca.crt";
+
+function orderRow(index: number, random: () => number) {
+  return {
+    id: `O-${String(index + 1)}`,
+    number: index + 1,
+    status: STATUSES[Math.floor(random() * STATUSES.length)] ?? "new",
+    city: CITIES[index % CITIES.length] ?? "Lyon",
+    total: Math.round((10 + random() * 990) * 100) / 100,
+    paid: random() < 0.8,
+    placedAt: new Date(1_735_689_600_000 + index * 20_000).toISOString(),
+  };
+}
+
+async function seedValkey(): Promise<void> {
+  const admin = new Redis({
+    host: HOST,
+    port: Number(process.env.LAB_VALKEY_PORT ?? 56379),
+    password: PASSWORD,
+    tls: { ca: CA, servername: "localhost" },
+    maxRetriesPerRequest: 1,
+    lazyConnect: true,
+    retryStrategy: () => null,
+  });
+  try {
+    await admin.connect();
+    await admin.flushdb();
+    const random = generator(2028);
+    for (let start = 0; start < STORE_ROWS; start += BATCH) {
+      const pipe = admin.pipeline();
+      const end = Math.min(start + BATCH, STORE_ROWS);
+      for (let index = start; index < end; index += 1) {
+        const row = orderRow(index, random);
+        pipe.hset(`shop:${row.id}`, {
+          number: String(row.number),
+          status: row.status,
+          city: row.city,
+          total: String(row.total),
+          paid: String(row.paid),
+          placedAt: row.placedAt,
+        });
+      }
+      await pipe.exec();
+    }
+    await admin.call(
+      "ACL",
+      "SETUSER",
+      "anygriddb",
+      "reset",
+      "on",
+      `>${PASSWORD}`,
+      "~shop:*",
+      "+scan",
+      "+type",
+      "+get",
+      "+hgetall",
+      "+info",
+      "+ping",
+      "+hello",
+      "+select",
+      "+command",
+    );
+    console.log(`valkey shop:: ${String(STORE_ROWS)} hashes`);
+  } finally {
+    admin.disconnect();
+  }
+}
+
+async function seedCassandra(): Promise<void> {
+  const client = new CassandraClient({
+    contactPoints: [`${HOST}:${process.env.LAB_CASSANDRA_PORT ?? "59042"}`],
+    localDataCenter: "datacenter1",
+    protocolOptions: {
+      port: Number(process.env.LAB_CASSANDRA_PORT ?? 59042),
+    },
+    socketOptions: { connectTimeout: 20_000, readTimeout: 60_000 },
+    sslOptions: {
+      rejectUnauthorized: true,
+      ca: [CA],
+      servername: "localhost",
+    },
+  });
+  await client.connect();
+  try {
+    await client.execute("DROP KEYSPACE IF EXISTS shop");
+    await client.execute(
+      "CREATE KEYSPACE shop WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}",
+    );
+    await client.execute(
+      "CREATE TABLE shop.orders (id text PRIMARY KEY, number int, status text, city text, total double, paid boolean, placed_at timestamp)",
+    );
+    const random = generator(2029);
+    const query =
+      "INSERT INTO shop.orders (id, number, status, city, total, paid, placed_at) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    const pending: Promise<unknown>[] = [];
+    for (let index = 0; index < STORE_ROWS; index += 1) {
+      const row = orderRow(index, random);
+      pending.push(
+        client.execute(
+          query,
+          [
+            row.id,
+            row.number,
+            row.status,
+            row.city,
+            row.total,
+            row.paid,
+            new Date(row.placedAt),
+          ],
+          { prepare: true },
+        ),
+      );
+      if (pending.length === 40) {
+        await Promise.all(pending);
+        pending.length = 0;
+      }
+    }
+    await Promise.all(pending);
+    console.log(`cassandra shop.orders: ${String(STORE_ROWS)} rows`);
+  } finally {
+    await client.shutdown();
+  }
+}
+
+async function seedNeo4j(): Promise<void> {
+  const driver = neo4j.driver(
+    `bolt://localhost:${process.env.LAB_NEO4J_PORT ?? "57687"}`,
+    neo4j.auth.basic("neo4j", PASSWORD),
+    {
+      encrypted: "ENCRYPTION_ON",
+      trust: "TRUST_CUSTOM_CA_SIGNED_CERTIFICATES",
+      trustedCertificates: [CA_PATH],
+      connectionTimeout: 20_000,
+    },
+  );
+  const session = driver.session({ database: "neo4j" });
+  try {
+    await session.run("MATCH (n) DETACH DELETE n");
+    await session.run("DROP USER anygriddb IF EXISTS").catch(() => undefined);
+    const random = generator(2030);
+    for (let start = 0; start < STORE_ROWS; start += 1_000) {
+      const end = Math.min(start + 1_000, STORE_ROWS);
+      const rows = Array.from({ length: end - start }, (_, at) =>
+        orderRow(start + at, random),
+      );
+      await session.run(
+        `UNWIND $rows AS row
+         CREATE (:Order {
+           id: row.id,
+           number: row.number,
+           status: row.status,
+           city: row.city,
+           total: row.total,
+           paid: row.paid,
+           placedAt: row.placedAt
+         })`,
+        { rows },
+      );
+    }
+    await session.run(
+      "CREATE (:Supplier {name: 'North Mill'})-[:SUPPLIES]->(:Order {id: 'sample', status: 'new'})",
+    );
+    await session.run(
+      "CREATE USER anygriddb SET PASSWORD $password CHANGE NOT REQUIRED",
+      { password: PASSWORD },
+    );
+    console.log(`neo4j Order: ${String(STORE_ROWS)} nodes`);
+  } finally {
+    await session.close();
+    await driver.close();
+  }
+}
+
+const only = new Set(
+  (process.env.LAB_SEED_ONLY ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0),
+);
+const wanted = (name: string) => only.size === 0 || only.has(name);
+
+if (wanted("documents")) await seedDocuments();
+if (wanted("opensearch")) await seedSearch();
+if (wanted("valkey")) await seedValkey();
+if (wanted("cassandra")) await seedCassandra();
+if (wanted("neo4j")) await seedNeo4j();

@@ -1,6 +1,7 @@
 import {
   AppError,
   describeColumns,
+  isHomeTable,
   purgeCutoff,
   purgeDate,
   restoredName,
@@ -453,6 +454,8 @@ type TrashEntry = {
   deletedAt: string;
   deletedBy: string | null;
   purgeAt: string;
+  /** Set for a base whose tables live in a schema it owns. */
+  homeSchema?: string | null;
 };
 
 function entry(
@@ -554,13 +557,22 @@ export async function listTrashedBases(
   const rows = await db
     .selectFrom("bases as b")
     .leftJoin("users as u", "u.id", "b.deletedBy")
-    .select(["b.id", "b.name", "b.deletedAt", "u.displayName as deletedBy"])
+    .select([
+      "b.id",
+      "b.name",
+      "b.deletedAt",
+      "b.homeSchema",
+      "u.displayName as deletedBy",
+    ])
     .where("b.id", "in", [...baseIds])
     .where("b.deletedAt", "is not", null)
     .orderBy("b.deletedAt", "asc")
     .execute();
   const days = (await readSettings(db)).trashDays;
-  return rows.map((row) => entry("base", days, row));
+  return rows.map((row) => ({
+    ...entry("base", days, row),
+    homeSchema: row.homeSchema,
+  }));
 }
 
 /**
@@ -596,7 +608,11 @@ type PurgeDeps = {
 };
 
 /** An item to purge and the account its catalog changes are audited under. */
-export type PurgeTarget = TrashItem & { actorId: string };
+export type PurgeTarget = TrashItem & {
+  actorId: string;
+  /** The external schema to drop with this base, when the name matches. */
+  dropSchema?: string;
+};
 
 /** Drops one item of the trash for good. An item no longer there is skipped. */
 export async function purgeItem(
@@ -622,6 +638,30 @@ export async function purgeItem(
       return removed.length > 0;
     }
     case "column": {
+      // A field of a table held in a source: its column goes first.
+      const hosted = await deps.db
+        .selectFrom("dataColumns as c")
+        .innerJoin("dataTables as t", "t.id", "c.tableId")
+        .select([
+          "t.id",
+          "t.storage",
+          "t.physicalName",
+          "t.sourceId",
+          "t.externalSchema",
+          "t.externalName",
+          "c.physicalName as column",
+          "c.externalType",
+        ])
+        .where("c.id", "=", target.id)
+        .where("c.deletedAt", "is not", null)
+        .executeTakeFirst();
+      if (hosted && isHomeTable(hosted)) {
+        const { purgeHostedColumn } = await import("../sources/host-table.js");
+        await purgeHostedColumn(deps.db, hosted, {
+          physicalName: hosted.column,
+          externalType: hosted.externalType,
+        });
+      }
       try {
         const { attachmentKeys } = await purgeColumn(
           deps.db,
@@ -638,11 +678,24 @@ export async function purgeItem(
     case "table": {
       const table = await deps.db
         .selectFrom("dataTables")
-        .select("id")
+        .select([
+          "id",
+          "storage",
+          "physicalName",
+          "sourceId",
+          "externalSchema",
+          "externalName",
+        ])
         .where("id", "=", target.id)
         .where("deletedAt", "is not", null)
         .executeTakeFirst();
       if (!table) return false;
+      // A table held in a source is dropped there first. A base's own
+      // purge leaves its schema, and what is in it, to the typed name.
+      if (isHomeTable(table)) {
+        const { purgeHostedTable } = await import("../sources/host-table.js");
+        await purgeHostedTable(table);
+      }
       await removeTable(
         deps.db,
         deps.files,
@@ -655,11 +708,18 @@ export async function purgeItem(
     case "base": {
       const base = await deps.db
         .selectFrom("bases")
-        .select("id")
+        .select(["id", "homeSchema"])
         .where("id", "=", target.id)
         .where("deletedAt", "is not", null)
         .executeTakeFirst();
       if (!base) return false;
+      if (target.dropSchema) {
+        if (target.dropSchema !== base.homeSchema) {
+          throw new AppError("invalid_arguments");
+        }
+        const { dropHostedSchema } = await import("../sources/host-table.js");
+        await dropHostedSchema(deps.db, target.id, target.dropSchema);
+      }
       await removeBase(
         deps.db,
         deps.files,

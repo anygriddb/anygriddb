@@ -2,6 +2,7 @@
  * Bases: what a person sees of theirs, and making, copying, importing,
  * and exporting one.
  */
+import { isHomeDialect, isHomeTable } from "@anygriddb/core";
 import {
   airtableBaseId,
   startAirtableImportInputSchema,
@@ -165,6 +166,7 @@ export const catalogBaseProcedures = {
           id: base.id,
           name: base.name,
           description: base.description,
+          homeSchema: base.homeSchema,
           role: roleFor(bindings, "base", base.id),
           folders: folders
             .filter(
@@ -219,6 +221,7 @@ export const catalogBaseProcedures = {
                                 name:
                                   rows.sources.get(table.sourceId)?.name ?? "",
                               },
+                        hosted: isHomeTable(table),
                         // What an administrator enabled (ADR 0006); a
                         // copy takes no writes (ADR 0034).
                         writes: {
@@ -380,6 +383,19 @@ export const catalogBaseProcedures = {
       tables: template.tables.map((table) => table.name),
     })),
   ),
+  sourceHomes: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      const { user } = await authorize(ctx, true);
+      if (!user.isAdmin) return [];
+      const rows = await ctx.db
+        .selectFrom("sources")
+        .select(["id", "name", "engine"])
+        .execute();
+      return rows
+        .filter((row) => isHomeDialect(row.engine))
+        .map((row) => ({ id: row.id, name: row.name, engine: row.engine }));
+    }),
+  ),
   createBase: procedure
     .input(createBaseInputSchema)
     .mutation(({ ctx, input }) =>
@@ -389,7 +405,30 @@ export const catalogBaseProcedures = {
         if (input.template && !template) {
           throw new AppError("unknown_template");
         }
+        if (input.sourceId && !user.isAdmin) {
+          throw new AppError("access_denied");
+        }
+        // A template's sample rows and links are written as AnyGridDB's
+        // own tables. A base held in a source starts empty instead.
+        if (input.sourceId && input.template) {
+          throw new AppError("source_home_template");
+        }
         const created = await insertBase(ctx.db, user.id, input);
+        if (input.sourceId) {
+          const { attachHome } = await import("../sources/host-table.js");
+          try {
+            await attachHome(ctx.db, user.id, created.id, input.sourceId);
+          } catch (error) {
+            await removeBase(
+              ctx.db,
+              ctx.files,
+              user.id,
+              created.id,
+              () => undefined,
+            ).catch(() => undefined);
+            throw error;
+          }
+        }
         if (!template) {
           return created;
         }
