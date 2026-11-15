@@ -19,7 +19,7 @@ import { operatorFixedFromEnv } from "../operator-fixed.js";
 import { readLogoVersion, removeLogo, saveLogo } from "../instance-logo.js";
 import { alertLock } from "../auth/lock-alerts.js";
 import { countFailure, lockOf } from "../auth/lockout.js";
-import { parseSignInCidr } from "../auth/sign-in-allowlist.js";
+import { parseSignInCidr, SignInAllowList } from "../auth/sign-in-allowlist.js";
 import { sendSecurityNotice } from "../auth/security-mail.js";
 import { SESSION_COOKIE } from "../auth/session.js";
 import { confirmStepUp, stepUpIsFresh, stepUpNeeds } from "../auth/step-up.js";
@@ -206,6 +206,15 @@ export const adminInstanceProcedures = {
         if (input.signInAllowlist) {
           for (const entry of input.signInAllowlist) {
             parseSignInCidr(entry);
+          }
+          // A list that leaves out the address it is saved from would
+          // refuse its author's next sign-in, and everyone's behind the
+          // same proxy: refused, naming the address this server sees.
+          if (
+            input.signInAllowlist.length > 0 &&
+            !new SignInAllowList(input.signInAllowlist).allows(ctx.req.ip)
+          ) {
+            throw new AppError("sign_in_address_left_out", ctx.req.ip);
           }
         }
         await writeSettings(ctx.db, admin.id, input, ctx.req.ip);

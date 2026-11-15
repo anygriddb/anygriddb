@@ -10270,6 +10270,10 @@ msgstr "Ce lien ne fonctionne plus : inscrivez-vous de nouveau"
 msgid "This link takes only one row"
 msgstr "Ce lien n’accepte qu’une ligne"
 
+#: lib/errors.ts
+msgid "This list leaves out the address you are saving it from, and would refuse your next sign-in. Add it, or check the trusted proxies if it is not yours"
+msgstr "Cette liste exclut l’adresse depuis laquelle vous l’enregistrez, et refuserait votre prochaine connexion. Ajoutez-la, ou vérifiez les proxys de confiance si ce n’est pas la vôtre"
+
 #: components/table/filter-builder.tsx
 msgid "this month"
 msgstr "ce mois-ci"
