@@ -256,6 +256,12 @@ const fields = {
   ]),
   /** A source whose watched tables cannot be read. */
   alertSources: z.boolean(),
+  /**
+   * Whether a notification may call an HTTPS address on a private
+   * network (ADR 0092). Loopback, link-local, and cloud metadata stay
+   * blocked. Off: an address must be public, as a table webhook is.
+   */
+  notifyAllowPrivate: z.boolean(),
   /** Failed jobs, webhook deliveries, and automation runs in 24 hours. */
   alertFailures: z.union([z.literal(0), bounded("alertFailures")]),
   /**
@@ -329,6 +335,7 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   alertStoragePercent: 90,
   alertCertificateDays: 14,
   alertSources: true,
+  notifyAllowPrivate: false,
   alertFailures: 50,
   mapTileUrl: null,
   mapTileCredit: null,
@@ -409,6 +416,9 @@ export const instanceSettingsSchema = z.object({
     INSTANCE_DEFAULTS.alertCertificateDays,
   ),
   alertSources: fields.alertSources.default(INSTANCE_DEFAULTS.alertSources),
+  notifyAllowPrivate: fields.notifyAllowPrivate.default(
+    INSTANCE_DEFAULTS.notifyAllowPrivate,
+  ),
   alertFailures: fields.alertFailures.default(INSTANCE_DEFAULTS.alertFailures),
   mapTileUrl: fields.mapTileUrl.default(INSTANCE_DEFAULTS.mapTileUrl),
   mapTileCredit: fields.mapTileCredit.default(INSTANCE_DEFAULTS.mapTileCredit),
@@ -467,6 +477,7 @@ export const instanceSettingsPatchSchema = z
     alertStoragePercent: fields.alertStoragePercent.optional(),
     alertCertificateDays: fields.alertCertificateDays.optional(),
     alertSources: fields.alertSources.optional(),
+    notifyAllowPrivate: fields.notifyAllowPrivate.optional(),
     alertFailures: fields.alertFailures.optional(),
     mapTileUrl: fields.mapTileUrl.optional(),
     mapTileCredit: fields.mapTileCredit.optional(),

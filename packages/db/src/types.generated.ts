@@ -583,6 +583,27 @@ export interface InstanceAlerts {
   subject: Generated<string>;
 }
 
+export interface InstanceIntegrations {
+  config: Generated<Json>;
+  consecutiveFailures: Generated<number>;
+  createdAt: Generated<Timestamp>;
+  enabled: Generated<boolean>;
+  events: Generated<Json>;
+  id: Generated<string>;
+  lastDeliveryAt: Timestamp | null;
+  lastError: string | null;
+  name: string;
+  provider: string;
+  rateSent: Generated<number>;
+  rateWindowStartedAt: Timestamp | null;
+  secretsCiphertext: Buffer | null;
+  secretsNonce: Buffer | null;
+  status: Generated<string>;
+  suppressedCount: Generated<number>;
+  updatedAt: Generated<Timestamp>;
+  updatedBy: string | null;
+}
+
 export interface InstanceLogo {
   bytes: Buffer;
   contentType: string;
@@ -636,6 +657,27 @@ export interface InstanceSmtp {
   updatedAt: Generated<Timestamp>;
   updatedBy: string | null;
   username: string | null;
+}
+
+export interface IntegrationDeliveries {
+  attempts: Generated<number>;
+  createdAt: Generated<Timestamp>;
+  error: string | null;
+  event: string;
+  eventId: string;
+  fields: Generated<Json>;
+  finishedAt: Timestamp | null;
+  id: Generated<string>;
+  integrationId: string;
+  responseStatus: number | null;
+  status: Generated<string>;
+  subject: Generated<string>;
+}
+
+export interface IntegrationSchedules {
+  createdAt: Generated<Timestamp>;
+  integrationId: string;
+  schedule: string;
 }
 
 export interface Invitations {
@@ -1058,12 +1100,15 @@ export interface DB {
   groups: Groups;
   installationTokens: InstallationTokens;
   instanceAlerts: InstanceAlerts;
+  instanceIntegrations: InstanceIntegrations;
   instanceLogo: InstanceLogo;
   instanceOidc: InstanceOidc;
   instanceSaml: InstanceSaml;
   instanceSettings: InstanceSettings;
   instanceSiem: InstanceSiem;
   instanceSmtp: InstanceSmtp;
+  integrationDeliveries: IntegrationDeliveries;
+  integrationSchedules: IntegrationSchedules;
   invitations: Invitations;
   jobs: Jobs;
   loginChallenges: LoginChallenges;

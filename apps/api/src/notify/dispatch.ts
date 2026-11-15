@@ -1,0 +1,533 @@
+import { randomUUID } from "node:crypto";
+import {
+  AppError,
+  nextRetryDelay,
+  NOTIFY_DEDUPE_MS,
+  NOTIFY_FAILURE_LIMIT,
+  jobEventType,
+  notifyProvider,
+  rateDecision,
+  type InstanceEventType,
+} from "@anygriddb/core";
+import type { Database, Json } from "@anygriddb/db";
+import { sql } from "kysely";
+import type { KeyRing } from "../auth/key-ring.js";
+import { decryptSecret } from "../auth/crypto.js";
+import { addJob, type SqlExecutor } from "../queue/jobs.js";
+import { TASKS } from "../queue/jobs.js";
+import type { Env } from "../env.js";
+import { resolveSmtp } from "../integrations/smtp.js";
+import { sendMail, smtpReady } from "../mail.js";
+import { readMailVoice, readSettings } from "../settings.js";
+import {
+  notifyFailureText,
+  redactSecrets,
+  requestOutbound,
+  secretStrings,
+  type Outbound,
+  type OutboundResponse,
+} from "./outbound.js";
+import { sendApprise } from "./providers/apprise.js";
+import { sendGotify } from "./providers/gotify.js";
+import { sendNtfy } from "./providers/ntfy.js";
+import {
+  sendAlertmanager,
+  sendMattermost,
+  sendMatrix,
+  sendRocketChat,
+  sendZulip,
+} from "./providers/rooms.js";
+import { sendSmtpChannel } from "./providers/smtp.js";
+import { sendWebhook, type NotifyPayload } from "./providers/webhook.js";
+import { captureServerError, sendSentry } from "./sentry.js";
+import { asFields } from "./store.js";
+
+type Log = (error: unknown, message: string) => void;
+
+export type NotifyRuntime = {
+  db: Database;
+  key: KeyRing;
+  log: Log;
+  send?: Outbound;
+  env?: Env;
+};
+
+type StoredEvent = {
+  id: string;
+  type: InstanceEventType;
+  at: string;
+  subject: string;
+  fields: Record<string, string | number | boolean>;
+};
+
+type MailSender = (message: {
+  to: string;
+  subject: string;
+  text: string;
+}) => Promise<void>;
+
+const SENDERS = {
+  webhook: sendWebhook,
+  ntfy: sendNtfy,
+  gotify: sendGotify,
+  apprise: sendApprise,
+  smtp: sendSmtpChannel,
+  matrix: sendMatrix,
+  mattermost: sendMattermost,
+  rocketchat: sendRocketChat,
+  zulip: sendZulip,
+  alertmanager: sendAlertmanager,
+  sentry: sendSentry,
+} as const;
+
+async function mailFor(deps: NotifyRuntime): Promise<MailSender | undefined> {
+  if (!deps.env) return undefined;
+  const { config } = await resolveSmtp(deps.db, deps.env);
+  if (!smtpReady(config)) return undefined;
+  const voice = await readMailVoice(deps.db);
+  return (message) => sendMail(config, voice, message);
+}
+
+function senderFor(provider: string) {
+  if (provider === "webhook") return SENDERS.webhook;
+  if (provider === "ntfy") return SENDERS.ntfy;
+  if (provider === "gotify") return SENDERS.gotify;
+  if (provider === "apprise") return SENDERS.apprise;
+  if (provider === "smtp") return SENDERS.smtp;
+  if (provider === "matrix") return SENDERS.matrix;
+  if (provider === "mattermost") return SENDERS.mattermost;
+  if (provider === "rocketchat") return SENDERS.rocketchat;
+  if (provider === "zulip") return SENDERS.zulip;
+  if (provider === "alertmanager") return SENDERS.alertmanager;
+  if (provider === "sentry") return SENDERS.sentry;
+  return undefined;
+}
+
+/**
+ * Tells every active channel subscribed to this event. A failure here is
+ * logged and swallowed: the operation that emitted the event already
+ * succeeded, and must not fail because a channel is down.
+ */
+export async function emitInstanceEvent(
+  db: Database,
+  log: Log,
+  event: Omit<StoredEvent, "id" | "at"> & { id?: string; at?: string },
+): Promise<void> {
+  const stored: StoredEvent = {
+    id: event.id ?? randomUUID(),
+    type: event.type,
+    at: event.at ?? new Date().toISOString(),
+    subject: event.subject,
+    fields: event.fields,
+  };
+  try {
+    await db.transaction().execute((tx) => queueEvent(tx, stored));
+  } catch (error) {
+    log(error, "notification was not queued");
+  }
+}
+
+async function queueEvent(tx: SqlExecutor, event: StoredEvent): Promise<void> {
+  const channels = await tx
+    .selectFrom("instanceIntegrations")
+    .select("id")
+    .where("enabled", "=", true)
+    .where("status", "=", "active")
+    .orderBy("id", "asc")
+    .execute();
+  const now = Date.now();
+  for (const channel of channels) {
+    const row = await tx
+      .selectFrom("instanceIntegrations")
+      .selectAll()
+      .where("id", "=", channel.id)
+      .where("enabled", "=", true)
+      .where("status", "=", "active")
+      .forUpdate()
+      .executeTakeFirst();
+    if (!row) continue;
+    const provider = notifyProvider(row.provider);
+    if (!provider?.subscribes) continue;
+    const events = Array.isArray(row.events) ? row.events : [];
+    if (!events.includes(event.type)) continue;
+    if (event.type === "integration.failing" && event.subject === row.id) {
+      continue;
+    }
+    const recent = await tx
+      .selectFrom("integrationDeliveries")
+      .select("createdAt")
+      .where("integrationId", "=", row.id)
+      .where("event", "=", event.type)
+      .where("subject", "=", event.subject)
+      .where("createdAt", ">", new Date(now - NOTIFY_DEDUPE_MS))
+      .orderBy("createdAt", "desc")
+      .limit(1)
+      .executeTakeFirst();
+    const decision = rateDecision(
+      {
+        now,
+        windowStartedAt: row.rateWindowStartedAt?.getTime() ?? null,
+        sent: row.rateSent,
+        lastSameAt: recent?.createdAt.getTime() ?? null,
+      },
+      row.suppressedCount,
+    );
+    await tx
+      .updateTable("instanceIntegrations")
+      .set({
+        rateWindowStartedAt: new Date(decision.windowStartedAt),
+        rateSent: decision.sent,
+        suppressedCount: decision.suppressed,
+      })
+      .where("id", "=", row.id)
+      .execute();
+    if (decision.action === "suppress") continue;
+    const delivery = await tx
+      .insertInto("integrationDeliveries")
+      .values({
+        integrationId: row.id,
+        eventId: event.id,
+        event: event.type,
+        subject: event.subject,
+        fields: event.fields as unknown as Json,
+      })
+      .onConflict((conflict) =>
+        conflict.columns(["integrationId", "eventId"]).doNothing(),
+      )
+      .returning("id")
+      .executeTakeFirst();
+    if (!delivery) continue;
+    await addJob(
+      tx,
+      TASKS.integrationDelivery,
+      { deliveryId: delivery.id },
+      {
+        maxAttempts: 3,
+        jobKey: `integration:${delivery.id}:0`,
+        jobKeyMode: "unsafe_dedupe",
+      },
+    );
+  }
+}
+
+type AttemptRow = {
+  id: string;
+  integrationId: string;
+  event: string;
+  eventId: string;
+  subject: string;
+  fields: unknown;
+  attempts: number;
+  status: string;
+  createdAt: Date;
+  provider: string;
+  config: unknown;
+  secretsCiphertext: Buffer | null;
+  secretsNonce: Buffer | null;
+  name: string;
+};
+
+async function loadAttempt(
+  db: Database,
+  deliveryId: string,
+): Promise<AttemptRow | undefined> {
+  return db
+    .selectFrom("integrationDeliveries as d")
+    .innerJoin("instanceIntegrations as i", "i.id", "d.integrationId")
+    .select([
+      "d.id",
+      "d.integrationId",
+      "d.event",
+      "d.eventId",
+      "d.subject",
+      "d.fields",
+      "d.attempts",
+      "d.status",
+      "d.createdAt",
+      "i.provider",
+      "i.config",
+      "i.secretsCiphertext",
+      "i.secretsNonce",
+      "i.name",
+    ])
+    .where("d.id", "=", deliveryId)
+    .executeTakeFirst();
+}
+
+function payloadOf(row: AttemptRow): NotifyPayload {
+  return {
+    id: row.eventId,
+    type: row.event,
+    at: row.createdAt.toISOString(),
+    subject: row.subject,
+    fields: asFields(row.fields),
+  };
+}
+
+function openedSecrets(
+  sealed: { secretsCiphertext: Buffer | null; secretsNonce: Buffer | null },
+  key: KeyRing,
+): unknown {
+  if (!sealed.secretsCiphertext || !sealed.secretsNonce) return {};
+  return JSON.parse(
+    decryptSecret(sealed.secretsCiphertext, sealed.secretsNonce, key, "notify"),
+  ) as unknown;
+}
+
+/**
+ * One attempt. HTTP failures are recorded and retried on our schedule;
+ * the queue's own retries only cover the database being unreachable, so
+ * this returns instead of throwing once the attempt itself is stored.
+ */
+export async function runIntegrationDelivery(
+  deps: NotifyRuntime,
+  deliveryId: string,
+): Promise<void> {
+  const row = await loadAttempt(deps.db, deliveryId);
+  if (!row || row.status !== "pending") return;
+  const send = senderFor(row.provider);
+  const outbound = deps.send ?? requestOutbound;
+  let response: OutboundResponse | undefined;
+  let failure: string | undefined;
+  try {
+    if (!send) throw new Error("Unknown provider");
+    const allowPrivate = (await readSettings(deps.db)).notifyAllowPrivate;
+    response = await send({
+      config: row.config,
+      secrets: openedSecrets(row, deps.key),
+      event: payloadOf(row),
+      send: outbound,
+      allowPrivate,
+      mail: await mailFor(deps),
+    });
+    if (response.status < 200 || response.status >= 300) {
+      failure = `HTTP ${String(response.status)}`;
+    }
+  } catch (error) {
+    failure = notifyFailureText(error);
+    if (failure === "Network error") {
+      deps.log(error, "notification delivery failed");
+    }
+  }
+  if (!failure) {
+    await deps.db
+      .updateTable("integrationDeliveries")
+      .set({
+        status: "success",
+        attempts: row.attempts + 1,
+        responseStatus: response?.status ?? null,
+        error: null,
+        finishedAt: new Date(),
+      })
+      .where("id", "=", row.id)
+      .where("status", "=", "pending")
+      .execute();
+    await noteSuccess(deps.db, row.integrationId);
+    return;
+  }
+  const attempts = row.attempts + 1;
+  const delay = nextRetryDelay(attempts);
+  const errorText = failure.slice(0, 200);
+  if (delay !== null) {
+    await deps.db
+      .updateTable("integrationDeliveries")
+      .set({
+        attempts,
+        responseStatus: response?.status ?? null,
+        error: errorText,
+      })
+      .where("id", "=", row.id)
+      .where("status", "=", "pending")
+      .execute();
+    await deps.db
+      .updateTable("instanceIntegrations")
+      .set({ lastError: errorText, updatedAt: new Date() })
+      .where("id", "=", row.integrationId)
+      .execute();
+    await addJob(
+      deps.db,
+      TASKS.integrationDelivery,
+      { deliveryId: row.id },
+      {
+        runAt: new Date(Date.now() + delay * 1000),
+        maxAttempts: 3,
+        jobKey: `integration:${row.id}:${String(attempts)}`,
+        jobKeyMode: "unsafe_dedupe",
+      },
+    );
+    return;
+  }
+  await deps.db
+    .updateTable("integrationDeliveries")
+    .set({
+      status: "failed",
+      attempts,
+      responseStatus: response?.status ?? null,
+      error: errorText,
+      finishedAt: new Date(),
+    })
+    .where("id", "=", row.id)
+    .where("status", "=", "pending")
+    .execute();
+  const paused = await noteFailure(deps.db, row.integrationId, errorText);
+  if (paused) {
+    await emitInstanceEvent(deps.db, deps.log, {
+      type: "integration.failing",
+      subject: row.integrationId,
+      fields: { provider: row.provider },
+    });
+  }
+}
+
+async function noteSuccess(db: Database, integrationId: string): Promise<void> {
+  await db
+    .updateTable("instanceIntegrations")
+    .set({
+      consecutiveFailures: 0,
+      status: sql`case when status = 'disabled' then status else 'active' end`,
+      lastError: null,
+      lastDeliveryAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where("id", "=", integrationId)
+    .execute();
+}
+
+/** True when this failure is the one that pauses the channel. */
+async function noteFailure(
+  db: Database,
+  integrationId: string,
+  errorText: string,
+): Promise<boolean> {
+  const updated = await db
+    .updateTable("instanceIntegrations")
+    .set({
+      consecutiveFailures: sql`consecutive_failures + 1`,
+      status: sql`case when status = 'disabled' then status when consecutive_failures + 1 >= ${NOTIFY_FAILURE_LIMIT} then 'error' else status end`,
+      lastError: errorText,
+      lastDeliveryAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where("id", "=", integrationId)
+    .returning("consecutiveFailures")
+    .executeTakeFirst();
+  return Number(updated?.consecutiveFailures) === NOTIFY_FAILURE_LIMIT;
+}
+
+export type TestResult = {
+  ok: boolean;
+  status: number | null;
+  error: string | null;
+  body: string;
+};
+
+/** Sends once, in the request, so the screen can show what came back. */
+export async function testIntegration(
+  deps: NotifyRuntime,
+  integrationId: string,
+): Promise<TestResult> {
+  const row = await deps.db
+    .selectFrom("instanceIntegrations")
+    .selectAll()
+    .where("id", "=", integrationId)
+    .executeTakeFirst();
+  if (!row) throw new AppError("unknown_integration");
+  const send = senderFor(row.provider);
+  const outbound = deps.send ?? requestOutbound;
+  const event: NotifyPayload = {
+    id: randomUUID(),
+    type: "test",
+    at: new Date().toISOString(),
+    subject: "test",
+    fields: {},
+  };
+  let secrets: unknown = {};
+  let response: OutboundResponse | undefined;
+  let failure: string | undefined;
+  try {
+    if (!send) throw new Error("Unknown provider");
+    secrets = openedSecrets(row, deps.key);
+    const allowPrivate = (await readSettings(deps.db)).notifyAllowPrivate;
+    response = await send({
+      config: row.config,
+      secrets,
+      mail: await mailFor(deps),
+      event,
+      send: outbound,
+      allowPrivate,
+    });
+    if (response.status < 200 || response.status >= 300) {
+      failure = `HTTP ${String(response.status)}`;
+    }
+  } catch (error) {
+    failure = notifyFailureText(error);
+  }
+  const errorText = failure?.slice(0, 200) ?? null;
+  await deps.db
+    .insertInto("integrationDeliveries")
+    .values({
+      integrationId: row.id,
+      eventId: event.id,
+      event: "test",
+      subject: "test",
+      fields: {},
+      status: failure ? "failed" : "success",
+      attempts: 1,
+      responseStatus: response?.status ?? null,
+      error: errorText,
+      finishedAt: new Date(),
+    })
+    .execute();
+  if (!failure) await noteSuccess(deps.db, row.id);
+  else if (await noteFailure(deps.db, row.id, errorText ?? "Network error")) {
+    await emitInstanceEvent(deps.db, deps.log, {
+      type: "integration.failing",
+      subject: row.id,
+      fields: { provider: row.provider },
+    });
+  }
+  const body = redactSecrets(response?.body ?? "", secretStrings(secrets));
+  return {
+    ok: !failure,
+    status: response?.status ?? null,
+    error: errorText,
+    body,
+  };
+}
+
+export async function purgeIntegrationDeliveries(db: Database): Promise<void> {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  await db
+    .deleteFrom("integrationDeliveries")
+    .where("createdAt", "<", cutoff)
+    .where("status", "!=", "pending")
+    .execute();
+}
+
+/** A finished product job. An import failure is `import.failed`, not both. */
+export async function notifyJobOutcome(
+  db: Database,
+  log: Log,
+  job: {
+    id: string;
+    kind: string;
+    status: "done" | "failed";
+    errorCode: string | null;
+  },
+  key?: KeyRing,
+): Promise<void> {
+  const type = jobEventType(job.kind, job.status);
+  if (!type) return;
+  await emitInstanceEvent(db, log, {
+    type,
+    subject: job.id,
+    fields: {
+      kind: job.kind,
+      ...(job.errorCode ? { code: job.errorCode } : {}),
+    },
+  });
+  if (job.status !== "failed" || !key) return;
+  await captureServerError(db, key).catch((error: unknown) => {
+    log(error, "error report failed");
+  });
+}

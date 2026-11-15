@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import type pg from "pg";
 import { describe, expect, it, vi } from "vitest";
 import {
   routeLabel,
@@ -7,9 +8,11 @@ import {
   measureSource,
   metricsAllowed,
   registerPoolGauge,
+  registerWebsocketGauge,
   registry,
   requestAnswered,
   startTracing,
+  watchQueries,
 } from "./observability.js";
 
 type OtlpSpan = {
@@ -191,5 +194,26 @@ describe("metrics", () => {
     expect(text).toMatch(
       /^anygriddb_build_info\{version="\d+\.\d+\.\d+[^"]*",commit=""\} 1$/m,
     );
+  });
+
+  it("times a query on the product pool without keeping the statement", async () => {
+    const pool = {
+      query: (text: string) => Promise.resolve(text),
+    } as unknown as pg.Pool;
+    watchQueries(pool);
+    await pool.query("select secret_value");
+    const text = await registry.getSingleMetricAsString(
+      "anygriddb_db_query_duration_seconds",
+    );
+    expect(text).toContain("anygriddb_db_query_duration_seconds");
+    expect(text).not.toContain("secret_value");
+  });
+
+  it("counts open browser sockets", async () => {
+    registerWebsocketGauge(() => 2);
+    const text = await registry.getSingleMetricAsString(
+      "anygriddb_websocket_connections",
+    );
+    expect(text).toContain("anygriddb_websocket_connections 2");
   });
 });

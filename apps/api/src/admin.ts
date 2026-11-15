@@ -24,6 +24,7 @@ import { liveBase } from "./data/live.js";
 import { bindRole } from "./data/members.js";
 import { assertMemberDomain } from "./data/sharing.js";
 import { recordAuthEvent } from "./auth/auth-events.js";
+import { diskSpace } from "./alerts.js";
 import { BUILD } from "./build-info.js";
 import { isUniqueViolation } from "./data/schema-ops.js";
 import type { FileStore } from "./files/index.js";
@@ -905,6 +906,22 @@ export async function instanceHealth(deps: {
     .select([value, sqlTag<string>`coalesce(sum(size), 0)::text`.as("bytes")])
     .executeTakeFirst();
   const memory = process.memoryUsage();
+  const databaseBytes = await sqlTag<{ bytes: string }>`
+    select pg_database_size(current_database())::text as bytes
+  `
+    .execute(deps.db)
+    .then((result) => Number(result.rows[0]?.bytes ?? 0))
+    .catch(() => null);
+  const disk = await diskSpace(deps.files);
+  const integrationErrors = await deps.db
+    .selectFrom("instanceIntegrations")
+    .select(["id", "name", "provider", "lastError", "lastDeliveryAt"])
+    .where((eb) =>
+      eb.or([eb("status", "=", "error"), eb("lastError", "is not", null)]),
+    )
+    .orderBy("updatedAt", "desc")
+    .limit(10)
+    .execute();
   return {
     build: BUILD,
     checks: { database, realtime, storage },
@@ -926,6 +943,15 @@ export async function instanceHealth(deps: {
       fileBytes: Number(files?.bytes ?? 0),
     },
     memory: { rssBytes: memory.rss, heapUsedBytes: memory.heapUsed },
+    databaseBytes,
+    disk,
+    integrationErrors: integrationErrors.map((row) => ({
+      id: row.id,
+      name: row.name,
+      provider: row.provider,
+      lastError: row.lastError,
+      lastDeliveryAt: row.lastDeliveryAt?.toISOString() ?? null,
+    })),
     node: process.version,
     uptimeSeconds: Math.round(process.uptime()),
   };

@@ -51,6 +51,8 @@ export function HealthTab() {
       dateStyle: "long",
       timeStyle: "short",
     });
+  const usedPercent = data?.disk?.usedPercent ?? 0;
+  const freeSpace = data?.disk ? formatBytes(data.disk.availableBytes) : "";
   const checks = data
     ? ([
         [t`Database`, data.checks.database],
@@ -246,6 +248,33 @@ export function HealthTab() {
           <dt className="text-muted-foreground">{t`Files`}</dt>
           <dd className="tabular-nums">
             {data.counts.files} · {formatBytes(data.counts.fileBytes)}
+          </dd>
+          <dt className="text-muted-foreground">{t`Database size`}</dt>
+          <dd className="tabular-nums">
+            {data.databaseBytes === null
+              ? t`Unknown`
+              : formatBytes(data.databaseBytes)}
+          </dd>
+          <dt className="text-muted-foreground">{t`Disk`}</dt>
+          <dd className="tabular-nums">
+            {data.disk
+              ? t`${usedPercent}% used, ${freeSpace} free`
+              : t`Not measured for this file store`}
+          </dd>
+          <dt className="text-muted-foreground">{t`Integration errors`}</dt>
+          <dd>
+            {data.integrationErrors.length === 0 ? (
+              t`None`
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {data.integrationErrors.map((row) => (
+                  <li key={row.id}>
+                    {row.name} ({row.provider})
+                    {row.lastError ? `: ${row.lastError}` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
           </dd>
           <dt className="text-muted-foreground">{t`Memory used`}</dt>
           <dd className="tabular-nums">{formatBytes(data.memory.rssBytes)}</dd>

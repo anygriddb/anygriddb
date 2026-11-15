@@ -11,6 +11,7 @@ import {
   syslogRouter,
   smtpRouter,
 } from "./admin-integrations-router.js";
+import { notifyRouter } from "./admin-notify-router.js";
 import { sourcesRouter } from "./admin-sources-router.js";
 import { adminTrailProcedures } from "./admin-trails-router.js";
 import { t } from "./init.js";
@@ -25,6 +26,7 @@ export const adminRouter = t.router({
   apiTokens: apiTokensRouter,
   sources: sourcesRouter,
   smtp: smtpRouter,
+  notify: notifyRouter,
   oidc: oidcRouter,
   saml: samlRouter,
   siem: siemRouter,

@@ -368,13 +368,17 @@ async function backupsRecord(args: string[]): Promise<number> {
   const url = databaseUrl();
   const { db, close } = createDb(url, { max: 1 });
   try {
-    await recordBackup(db, {
-      name,
-      startedAt,
-      succeeded: !values.failed,
-      bytes,
-      encrypted: values.encrypted,
-    });
+    await recordBackup(
+      db,
+      {
+        name,
+        startedAt,
+        succeeded: !values.failed,
+        bytes,
+        encrypted: values.encrypted,
+      },
+      { key: readEncryptionKey() },
+    );
   } finally {
     await close();
   }

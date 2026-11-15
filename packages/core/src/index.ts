@@ -211,6 +211,70 @@ export {
 } from "./events";
 
 export {
+  DEFAULT_CHANNEL_EVENTS,
+  INSTANCE_EVENT_TYPES,
+  instanceEventSchema,
+  instanceEventText,
+  jobEventType,
+  type InstanceEvent,
+  type InstanceEventFields,
+  type InstanceEventType,
+} from "./notify/events";
+export {
+  MAX_INTEGRATIONS,
+  NOTIFY_DEDUPE_MS,
+  NOTIFY_FAILURE_LIMIT,
+  NOTIFY_RATE_MAX,
+  NOTIFY_RATE_WINDOW_MS,
+  rateDecision,
+  type RateDecision,
+  type RateState,
+} from "./notify/rate";
+export {
+  NOTIFY_PROVIDERS,
+  notifyProvider,
+  notifyProviderView,
+  parseProviderConfig,
+} from "./notify/registry";
+export type {
+  NotifyFamily,
+  NotifyProvider,
+  ProviderField,
+  ProviderFieldKind,
+} from "./notify/provider";
+export {
+  webhookConfigSchema,
+  webhookSecretsSchema,
+  type WebhookConfig,
+  type WebhookSecrets,
+} from "./notify/providers/webhook";
+export { ntfyConfigSchema, ntfySecretsSchema } from "./notify/providers/ntfy";
+export {
+  gotifyConfigSchema,
+  gotifySecretsSchema,
+} from "./notify/providers/gotify";
+export {
+  appriseConfigSchema,
+  appriseSecretsSchema,
+} from "./notify/providers/apprise";
+export { smtpChannelConfigSchema } from "./notify/providers/smtp";
+export { heartbeatSecretsSchema } from "./notify/providers/heartbeat";
+export {
+  alertmanagerConfigSchema,
+  alertmanagerSecretsSchema,
+  incomingUrlSecretsSchema,
+  matrixConfigSchema,
+  matrixSecretsSchema,
+} from "./notify/providers/rooms";
+export {
+  metricsSecretsSchema,
+  otlpConfigSchema,
+  otlpSecretsSchema,
+  sentryDsnSchema,
+  sentrySecretsSchema,
+} from "./notify/providers/probes";
+
+export {
   columnNameSchema,
   deriveColumnName,
   isReservedColumnName,

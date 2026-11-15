@@ -113,6 +113,12 @@ async function adoptDrizzle(
   }
 }
 
+/** The migration names this process knows, in the order it applies them. */
+export async function migrationNames(): Promise<string[]> {
+  const files = await readMigrations(migrationsFolder());
+  return files.map((file) => file.name);
+}
+
 /** Applies the pending migrations; returns the names it applied. */
 export async function migrateDb(
   pool: pg.Pool,
