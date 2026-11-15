@@ -5,6 +5,9 @@
  */
 import {
   DEFAULT_SOURCE_PORTS,
+  SOURCE_ENGINES,
+  isCopySourceEngine,
+  sourceDatabaseField,
   type SourceEngine,
   type SourceInput,
 } from "@anygriddb/core";
@@ -27,6 +30,7 @@ import { Database, Plus, RefreshCw, ShieldAlert, Table2 } from "lucide-react";
 import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { ENGINE_NAMES } from "../../lib/limits";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { raw } from "../../lib/known-text";
 import { FIELD_LABELS } from "../fields/field-meta";
@@ -39,14 +43,6 @@ type Exposure = SourceTableItem["exposedIn"][number];
 type Right = keyof Exposure["writes"];
 
 const TIME_ZONES = ["UTC", ...Intl.supportedValuesOf("timeZone")];
-
-const ENGINES: Array<[SourceEngine, string, boolean]> = [
-  ["postgres", "PostgreSQL", true],
-  ["mysql", "MySQL", true],
-  ["mariadb", "MariaDB", true],
-  ["sqlserver", "SQL Server", true],
-  ["oracle", "Oracle", true],
-];
 
 export function SourcesTab() {
   const { t } = useLingui();
@@ -313,9 +309,13 @@ function SourceForm(props: {
   const [replicaPassword, setReplicaPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // A store read from a copy (ADR 0088): no field of AnyGridDB's is kept
+  // there, no replica is read, and its dates carry their zone.
+  const copyOnly = isCopySourceEngine(engine);
+
   function input(): SourceInput {
     const primaryPort = Number(port);
-    const replica = replicaHost.trim();
+    const replica = copyOnly ? "" : replicaHost.trim();
     return {
       name: name.trim(),
       engine,
@@ -327,8 +327,8 @@ function SourceForm(props: {
       tlsCa: certificate.trim() || null,
       connectionLimit: Number(limit),
       queryTimeoutMs: Math.round(Number(timeout) * 1000),
-      timeZone: timeZone.trim() || "UTC",
-      sideSchema: sideSchema.trim() || null,
+      timeZone: copyOnly ? "UTC" : timeZone.trim() || "UTC",
+      sideSchema: copyOnly ? null : sideSchema.trim() || null,
       replicaHost: replica || null,
       replicaPort: replica
         ? replicaPort.trim()
@@ -414,6 +414,7 @@ function SourceForm(props: {
     database.trim() &&
     username.trim() &&
     (password || existing);
+  const databaseField = sourceDatabaseField(engine);
   return (
     <form onSubmit={submit} className="grid grid-cols-2 gap-3">
       <div className="col-span-2 flex flex-col gap-1">
@@ -436,16 +437,20 @@ function SourceForm(props: {
             setPort(String(DEFAULT_SOURCE_PORTS[next]));
           }}
         >
-          {ENGINES.map(([value, label, ready]) => (
-            <option key={value} value={value} disabled={!ready}>
-              {ready ? label : t`${{ engine: label }} (soon)`}
+          {SOURCE_ENGINES.map((value) => (
+            <option key={value} value={value}>
+              {ENGINE_NAMES[value]}
             </option>
           ))}
         </Select>
       </div>
       <div className="flex flex-col gap-1">
         <Label htmlFor="source-database">
-          {engine === "oracle" ? t`Service name` : t`Database`}
+          {databaseField === "service"
+            ? t`Service name`
+            : databaseField === "indices"
+              ? t`Indices`
+              : t`Database`}
         </Label>
         <Input
           id="source-database"
@@ -526,86 +531,97 @@ function SourceForm(props: {
           onChange={(event) => setLimit(event.target.value)}
         />
       </div>
-      <div className="col-span-2 flex flex-col gap-1">
-        <Label htmlFor="source-time-zone">{t`Time zone`}</Label>
-        <Input
-          id="source-time-zone"
-          list="source-time-zones"
-          aria-describedby="source-time-zone-help"
-          value={timeZone}
-          onChange={(event) => setTimeZone(event.target.value)}
-        />
-        <datalist id="source-time-zones">
-          {TIME_ZONES.map((zone) => (
-            <option key={zone} value={zone} />
-          ))}
-        </datalist>
-        <p id="source-time-zone-help" className="text-xs text-muted-foreground">
-          {t`The zone of the dates and times the database stores without one.`}
+      {copyOnly ? (
+        <p className="col-span-2 text-xs text-muted-foreground">
+          {t`AnyGridDB reads this source from a copy: each table you expose is read whole, once per interval, and people read the copy. Nothing is ever written to the source. Give the account the right to read its database, and nothing more.`}
         </p>
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="source-side-schema">{t`Schema kept for AnyGridDB (optional)`}</Label>
-        <Input
-          id="source-side-schema"
-          value={sideSchema}
-          placeholder="anygriddb"
-          aria-describedby="source-side-schema-help"
-          onChange={(event) => setSideSchema(event.target.value)}
-        />
-        <p
-          id="source-side-schema-help"
-          className="text-xs text-muted-foreground"
-        >
-          {t`Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB, the account's own schema on Oracle). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed.`}
-        </p>
-      </div>
-      <div className="col-span-2 flex flex-col gap-1">
-        <Label htmlFor="source-replica-host">{t`Read replica host (optional)`}</Label>
-        <div className="grid grid-cols-[1fr_6rem_1fr] gap-2">
-          <Input
-            id="source-replica-host"
-            value={replicaHost}
-            placeholder={t`Same as primary when empty`}
-            onChange={(event) => setReplicaHost(event.target.value)}
-          />
-          <Input
-            aria-label={t`Replica port`}
-            value={replicaPort}
-            placeholder={port}
-            onChange={(event) => setReplicaPort(event.target.value)}
-          />
-          <Input
-            aria-label={t`Replica database`}
-            value={replicaDatabase}
-            placeholder={database || t`Database`}
-            onChange={(event) => setReplicaDatabase(event.target.value)}
-          />
-        </div>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <Input
-            aria-label={t`Replica username`}
-            value={replicaUsername}
-            placeholder={username || t`Username`}
-            onChange={(event) => setReplicaUsername(event.target.value)}
-          />
-          <Input
-            type="password"
-            aria-label={t`Replica password`}
-            value={replicaPassword}
-            placeholder={
-              existing?.replicaHost
-                ? t`Leave blank to keep the stored password`
-                : t`Same as primary when empty`
-            }
-            onChange={(event) => setReplicaPassword(event.target.value)}
-            autoComplete="new-password"
-          />
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {t`Grid and API reads use the replica when set; writes stay on the primary. If the replica is unreachable, reads fall back to the primary.`}
-        </p>
-      </div>
+      ) : (
+        <>
+          <div className="col-span-2 flex flex-col gap-1">
+            <Label htmlFor="source-time-zone">{t`Time zone`}</Label>
+            <Input
+              id="source-time-zone"
+              list="source-time-zones"
+              aria-describedby="source-time-zone-help"
+              value={timeZone}
+              onChange={(event) => setTimeZone(event.target.value)}
+            />
+            <datalist id="source-time-zones">
+              {TIME_ZONES.map((zone) => (
+                <option key={zone} value={zone} />
+              ))}
+            </datalist>
+            <p
+              id="source-time-zone-help"
+              className="text-xs text-muted-foreground"
+            >
+              {t`The zone of the dates and times the database stores without one.`}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="source-side-schema">{t`Schema kept for AnyGridDB (optional)`}</Label>
+            <Input
+              id="source-side-schema"
+              value={sideSchema}
+              placeholder="anygriddb"
+              aria-describedby="source-side-schema-help"
+              onChange={(event) => setSideSchema(event.target.value)}
+            />
+            <p
+              id="source-side-schema-help"
+              className="text-xs text-muted-foreground"
+            >
+              {t`Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB, the account's own schema on Oracle). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed.`}
+            </p>
+          </div>
+          <div className="col-span-2 flex flex-col gap-1">
+            <Label htmlFor="source-replica-host">{t`Read replica host (optional)`}</Label>
+            <div className="grid grid-cols-[1fr_6rem_1fr] gap-2">
+              <Input
+                id="source-replica-host"
+                value={replicaHost}
+                placeholder={t`Same as primary when empty`}
+                onChange={(event) => setReplicaHost(event.target.value)}
+              />
+              <Input
+                aria-label={t`Replica port`}
+                value={replicaPort}
+                placeholder={port}
+                onChange={(event) => setReplicaPort(event.target.value)}
+              />
+              <Input
+                aria-label={t`Replica database`}
+                value={replicaDatabase}
+                placeholder={database || t`Database`}
+                onChange={(event) => setReplicaDatabase(event.target.value)}
+              />
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Input
+                aria-label={t`Replica username`}
+                value={replicaUsername}
+                placeholder={username || t`Username`}
+                onChange={(event) => setReplicaUsername(event.target.value)}
+              />
+              <Input
+                type="password"
+                aria-label={t`Replica password`}
+                value={replicaPassword}
+                placeholder={
+                  existing?.replicaHost
+                    ? t`Leave blank to keep the stored password`
+                    : t`Same as primary when empty`
+                }
+                onChange={(event) => setReplicaPassword(event.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t`Grid and API reads use the replica when set; writes stay on the primary. If the replica is unreachable, reads fall back to the primary.`}
+            </p>
+          </div>
+        </>
+      )}
       <DialogFooter className="col-span-2">
         <Button variant="ghost" onClick={props.onClose}>
           {t`Cancel`}
@@ -629,6 +645,7 @@ function SourceForm(props: {
 /** What the source's account may read, as introspection found it. */
 function SourceTables(props: { source: Source }) {
   const { t, i18n } = useLingui();
+  const copyOnly = isCopySourceEngine(props.source.engine);
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
@@ -806,7 +823,7 @@ function SourceTables(props: { source: Source }) {
                   </tbody>
                 </table>
               </details>
-              {exposure ? (
+              {exposure && !copyOnly ? (
                 <TableWrites
                   table={table}
                   exposure={exposure}
@@ -823,6 +840,7 @@ function SourceTables(props: { source: Source }) {
                   exposure={exposure}
                   sourceId={props.source.id}
                   changeColumns={table.watchColumns}
+                  copyOnly={copyOnly}
                 />
               ) : null}
               {exposure && !exposure.sync && table.primaryKey.length > 0 ? (
@@ -990,6 +1008,8 @@ function TableSync(props: {
   sourceId: string;
   /** Client columns that tell changes: the incremental mode reads them. */
   changeColumns: ReadonlyArray<{ name: string }>;
+  /** A store read from a copy only (ADR 0088): whole, never live. */
+  copyOnly: boolean;
 }) {
   const { t, i18n } = useLingui();
   const errorText = useErrorText();
@@ -1052,26 +1072,34 @@ function TableSync(props: {
   const id = `sync-${exposure.tableId}`;
   return (
     <div className="flex basis-full flex-wrap items-center gap-x-3 gap-y-1 pr-3 pb-2 text-sm">
-      <Label htmlFor={id} className="text-sm">
-        {t`Reading`}
-      </Label>
-      <Select
-        id={id}
-        value={sync ? "copy" : "live"}
-        disabled={busy}
-        onChange={(event) =>
-          void save(
-            event.target.value === "copy"
-              ? Number.isFinite(wanted)
-                ? wanted
-                : 15
-              : null,
-          )
-        }
-      >
-        <option value="live">{t`Live in the client's database`}</option>
-        <option value="copy">{t`Copy in AnyGridDB`}</option>
-      </Select>
+      {props.copyOnly ? (
+        <span>
+          {t`Reading`} · {t`Copy in AnyGridDB`}
+        </span>
+      ) : (
+        <>
+          <Label htmlFor={id} className="text-sm">
+            {t`Reading`}
+          </Label>
+          <Select
+            id={id}
+            value={sync ? "copy" : "live"}
+            disabled={busy}
+            onChange={(event) =>
+              void save(
+                event.target.value === "copy"
+                  ? Number.isFinite(wanted)
+                    ? wanted
+                    : 15
+                  : null,
+              )
+            }
+          >
+            <option value="live">{t`Live in the client's database`}</option>
+            <option value="copy">{t`Copy in AnyGridDB`}</option>
+          </Select>
+        </>
+      )}
       {sync ? (
         <>
           <label className="flex items-center gap-1.5">
@@ -1090,26 +1118,28 @@ function TableSync(props: {
             />
             {t`min`}
           </label>
-          <label className="flex items-center gap-1.5">
-            {t`mode`}
-            <Select
-              aria-label={t`Refresh mode`}
-              className="h-8"
-              value={mode}
-              disabled={busy}
-              onChange={(event) => {
-                const next = event.target.value as "full" | "incremental";
-                setMode(next);
-                // Incremental waits for its column: saved once it is chosen.
-                if (next === "full" || changeColumn) {
-                  void save(wanted, { syncMode: next });
-                }
-              }}
-            >
-              <option value="full">{t`Full copy`}</option>
-              <option value="incremental">{t`Incremental`}</option>
-            </Select>
-          </label>
+          {props.copyOnly ? null : (
+            <label className="flex items-center gap-1.5">
+              {t`mode`}
+              <Select
+                aria-label={t`Refresh mode`}
+                className="h-8"
+                value={mode}
+                disabled={busy}
+                onChange={(event) => {
+                  const next = event.target.value as "full" | "incremental";
+                  setMode(next);
+                  // Incremental waits for its column: saved once it is chosen.
+                  if (next === "full" || changeColumn) {
+                    void save(wanted, { syncMode: next });
+                  }
+                }}
+              >
+                <option value="full">{t`Full copy`}</option>
+                <option value="incremental">{t`Incremental`}</option>
+              </Select>
+            </label>
+          )}
           {mode === "incremental" ? (
             <>
               <label className="flex items-center gap-1.5">
@@ -1180,14 +1210,26 @@ function TableSync(props: {
               ? errorText({ data: { reason: { code: sync.errorCode } } })
               : sync.syncedAt
                 ? `${t`Copied on ${{ date: new Date(sync.syncedAt).toLocaleString(i18n.locale) }}`} · ${plural(sync.rows ?? 0, { one: `# row`, other: `# rows` })} · ${plural(sync.changes, { 0: "no change", one: `# row changed`, other: `# rows changed` })}`
-                : t`First copy in progress: the table is read live until then`}
+                : props.copyOnly
+                  ? t`First copy in progress: the table shows empty until then`
+                  : t`First copy in progress: the table is read live until then`}
           </span>
+          {sync.leftOut > 0 && !sync.errorCode ? (
+            <span role="status" className="text-xs text-warning">
+              {plural(sync.leftOut, {
+                one: `# value is not of its field's type and reads empty. Refresh fields to follow the source.`,
+                other: `# values are not of their field's type and read empty. Refresh fields to follow the source.`,
+              })}
+            </span>
+          ) : null}
           <p className="basis-full text-xs text-muted-foreground">
             {mode === "incremental" && props.changeColumns.length === 0
               ? t`No column of this table tells when a row changes (a date and time set on every change, or a rowversion): keep the full copy.`
               : mode === "incremental"
                 ? t`Incremental upserts rows that moved since the last pass; a full reconcile (deletes included) runs every ${{ count: sync.fullEvery }} refreshes.`
-                : t`The table is read from its copy: it can no longer be changed in AnyGridDB, and its changes arrive with each refresh, deletes included.`}
+                : props.copyOnly
+                  ? t`The table is read from its copy, a million rows at most; its changes arrive with each refresh, deletes included.`
+                  : t`The table is read from its copy: it can no longer be changed in AnyGridDB, and its changes arrive with each refresh, deletes included.`}
           </p>
         </>
       ) : null}

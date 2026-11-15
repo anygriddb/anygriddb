@@ -100,3 +100,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0086](0086-administration-api.md)                   | An administration API, with tokens of its own that give no proof                        | Accepted                                    |
 | [0085](0085-code-by-email-second-factor.md)          | A code by email as a second factor, for anyone but an administrator                     | Accepted                                    |
 | [0087](0087-process-log.md)                          | Recent lines of the process, read in Administration                                     | Accepted (extends 0018)                     |
+| [0088](0088-stores-read-from-a-copy.md)              | Stores that speak no SQL are read from a copy                                           | Accepted (extends 0034)                     |

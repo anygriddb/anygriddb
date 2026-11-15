@@ -22,6 +22,7 @@ import {
   buildWatchPage,
   buildWatchStart,
   buildWatchWindow,
+  isCopySourceEngine,
   type EngineCatalog,
   type RowEvent,
   watchKind,
@@ -30,7 +31,7 @@ import {
 import type { Database, ExternalWatchMethod } from "@anygriddb/db";
 import { withAudit } from "../data/audit-context.js";
 import { announceRows } from "../data/announce.js";
-import { loadEngine } from "../data/engine.js";
+import { loadEngine, sourceDialect } from "../data/engine.js";
 import { addJob, TASKS, type SqlExecutor } from "../queue/jobs.js";
 import type { Bus } from "../realtime/bus.js";
 import { publishRows } from "../realtime/channels.js";
@@ -111,6 +112,8 @@ export function watchColumns(
   engine: string,
   table: SourceTable,
 ): Array<{ name: string; type: string }> {
+  // A store read from a copy tells its changes at each refresh (ADR 0088).
+  if (isCopySourceEngine(engine)) return [];
   const dialect = engine as Parameters<typeof watchKind>[0];
   return table.columns
     .filter((column) => watchKind(dialect, column.type) !== null)
@@ -161,7 +164,10 @@ export async function setTableWatch(
     }
     if (input.method === "column") {
       const column = found.columns.find((item) => item.name === input.column);
-      if (!column || watchKind(table.engine, column.type) === null) {
+      if (
+        !column ||
+        watchKind(sourceDialect(table.engine), column.type) === null
+      ) {
         throw new AppError("source_watch_column", input.column);
       }
     } else if (table.engine !== "sqlserver" || !found.changeTracking) {

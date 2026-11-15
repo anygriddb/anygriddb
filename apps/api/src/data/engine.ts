@@ -7,7 +7,9 @@ import {
   type EngineRelation,
   type EngineTable,
   type ExternalRelation,
+  type SourceEngine,
   type FieldType,
+  isCopySourceEngine,
   parseColumnConfig,
   parseServerVersion,
   SYNC_SCHEMA,
@@ -128,14 +130,14 @@ export function sortColumns(rows: readonly ColumnRow[]): ColumnRow[] {
   );
 }
 
-/** The engine of the source a client's table lives in. */
+/** The engine of the source a client's table lives in, as people know it. */
 export function sourceEngine(
   rows: CatalogRows,
   sourceId: string | null,
-): ExternalRelation["dialect"] {
-  return sourceDialect(
-    sourceId === null ? undefined : rows.sources.get(sourceId)?.engine,
-  );
+): SourceEngine {
+  const engine =
+    sourceId === null ? undefined : rows.sources.get(sourceId)?.engine;
+  return isCopySourceEngine(engine) ? engine : sourceDialect(engine);
 }
 
 /** The SQL a source's engine reads; SQL Server comes with its driver. */
@@ -159,6 +161,13 @@ function toEngineTable(table: TableRow, rows: CatalogRows): EngineTable {
     rows.columns.filter((column) => column.tableId === table.id),
   );
   const copy = rows.syncs?.get(table.id);
+  const engine =
+    table.sourceId === null
+      ? undefined
+      : rows.sources.get(table.sourceId)?.engine;
+  // A store that speaks no SQL has only its copy (ADR 0088): a refresh
+  // reads the store itself, and everything else what the copy holds.
+  const copyOnly = isCopySourceEngine(engine);
   const live =
     table.storage === "external" &&
     table.sourceId &&
@@ -167,7 +176,7 @@ function toEngineTable(table: TableRow, rows: CatalogRows): EngineTable {
     table.externalKey
       ? {
           sourceId: table.sourceId,
-          dialect: sourceDialect(rows.sources.get(table.sourceId)?.engine),
+          dialect: copyOnly ? ("postgres" as const) : sourceDialect(engine),
           schema: table.externalSchema,
           name: table.externalName,
           key: table.externalKey,
@@ -187,7 +196,7 @@ function toEngineTable(table: TableRow, rows: CatalogRows): EngineTable {
     ? new Map(copy.map((item) => [item.name, item.type]))
     : null;
   const external =
-    live && copied
+    live && (copied || copyOnly)
       ? {
           sourceId: live.sourceId,
           dialect: "postgres" as const,
@@ -249,7 +258,7 @@ function toEngineTable(table: TableRow, rows: CatalogRows): EngineTable {
   // The server that reads the rows: the client's for a live table,
   // AnyGridDB's for its own tables and for copies.
   const serverVersion =
-    live && !copied
+    live && !copied && !copyOnly
       ? parseServerVersion(rows.sources.get(live.sourceId)?.serverVersion)
       : rows.controlVersion;
   return {

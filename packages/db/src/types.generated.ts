@@ -149,7 +149,7 @@ export type Role = "commenter" | "editor" | "owner" | "viewer";
 export type Scope = "base" | "column" | "row" | "table";
 
 export type SourceEngine =
-  "mariadb" | "mysql" | "oracle" | "postgres" | "sqlserver";
+  "mariadb" | "mongodb" | "mysql" | "oracle" | "postgres" | "sqlserver";
 
 export type TableStorage = "external" | "native";
 
@@ -477,6 +477,7 @@ export interface ExternalSyncs {
   fullEvery: Generated<number>;
   intervalMinutes: Generated<number>;
   lastFullAt: Timestamp | null;
+  leftOut: Generated<number>;
   refreshCount: Generated<number>;
   rowCount: Int8 | null;
   syncedAt: Timestamp | null;

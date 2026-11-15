@@ -7,6 +7,7 @@
 import {
   AppError,
   deriveColumnName,
+  isCopySourceEngine,
   madeNames,
   OPTION_COLORS,
   PRIMARY_TYPES,
@@ -17,6 +18,7 @@ import { sql } from "kysely";
 import { withAudit, type AuditTx } from "../data/audit-context.js";
 import { isUniqueViolation } from "../data/schema-ops.js";
 import { sourceTables, type SourceDeps } from "./sources.js";
+import { refreshCopy, startCopy } from "./sync.js";
 import type { SourceTable } from "./types.js";
 
 type ExposeInput = {
@@ -292,12 +294,21 @@ export async function setTableWrites(
   if (!table?.sourceId || !table.externalSchema || !table.externalName) {
     throw new AppError("unknown_table");
   }
+  const wanted = input.update || input.insert || input.delete;
+  const source = await deps.db
+    .selectFrom("sources")
+    .select("engine")
+    .where("id", "=", table.sourceId)
+    .executeTakeFirst();
+  // Nothing is ever written to a store read from a copy (ADR 0088).
+  if (wanted && isCopySourceEngine(source?.engine)) {
+    throw new AppError("source_copy_only");
+  }
   const found = (await sourceTables(deps, table.sourceId)).find(
     (item) =>
       item.schema === table.externalSchema && item.name === table.externalName,
   );
   if (!found) throw new AppError("source_schema_changed");
-  const wanted = input.update || input.insert || input.delete;
   if (wanted && found.primaryKey.length === 0) {
     throw new AppError("external_table_no_key");
   }
@@ -482,6 +493,11 @@ export async function exposeTables(
               position: 0,
             })
             .execute();
+          // A store that speaks no SQL is read from its copy from the
+          // first moment (ADR 0088): an empty one, filled at once.
+          if (isCopySourceEngine(source.engine)) {
+            await startCopy(tx, id, actorId);
+          }
         }
         return { tableIds: created.map((item) => item.id) };
       },
@@ -736,5 +752,10 @@ export async function refreshExposedTable(
       }
     },
   );
+  // A copy lacks a field that was just added, or holds a changed one in
+  // its old type: it is made again at once rather than at its next turn.
+  if (result.added.length > 0 || result.changed.length > 0) {
+    await refreshCopy(deps.db, table.id);
+  }
   return result;
 }

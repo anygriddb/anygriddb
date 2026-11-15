@@ -3,18 +3,39 @@
  * builds the field (ADR 0027): in one sentence, naming the engine, since
  * the limit is the engine's and the formula runs anyway.
  */
-import { limitKey, type DialectName, type SourceLimit } from "@anygriddb/core";
+import {
+  isCopySourceEngine,
+  limitKey,
+  type DialectName,
+  type SourceEngine,
+  type SourceLimit,
+} from "@anygriddb/core";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react";
 import { useCallback } from "react";
 
-export const ENGINE_NAMES: Record<DialectName, string> = {
+export const ENGINE_NAMES: Record<SourceEngine, string> = {
   postgres: "PostgreSQL",
   mysql: "MySQL",
   mariadb: "MariaDB",
   sqlserver: "SQL Server",
   oracle: "Oracle",
+  mongodb: "MongoDB",
 };
+
+/**
+ * The engine whose SQL computes a table's formulas: the client's for a
+ * table read where it lives, none for a store read from its copy
+ * (ADR 0088), which AnyGridDB's own PostgreSQL computes like its tables.
+ */
+export function formulaEngine(
+  external: { engine: SourceEngine } | null | undefined,
+): DialectName | undefined {
+  const engine = external?.engine;
+  return engine === undefined || isCopySourceEngine(engine)
+    ? undefined
+    : engine;
+}
 
 const APPROXIMATE = msg`${{ engine: "" }} computes ${{ fn: "" }} approximately: the result is right to 15 digits. This is a limit of ${{ engine: "" }}.`;
 const PRECISION = msg`${{ engine: "" }} keeps at most 38 digits in a number: this calculation may be rounded. This is a limit of ${{ engine: "" }}.`;

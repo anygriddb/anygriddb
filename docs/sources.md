@@ -1,8 +1,11 @@
 # Connecting a client database
 
-AnyGridDB reads a client's database where it lives (ADRs 0006, 0026). An
-instance administrator declares the source; the database's own
-administrator (the DBA) prepares two things first:
+AnyGridDB reads a client's database where it lives (ADRs 0006, 0026): a
+PostgreSQL, MySQL, MariaDB, SQL Server, or Oracle database. A store that
+speaks no SQL is read from a copy instead: see
+[Stores that speak no SQL](#stores-that-speak-no-sql). An instance
+administrator declares the source; the database's own administrator (the
+DBA) prepares two things first:
 
 - **A dedicated account** for AnyGridDB, never an administrator. AnyGridDB
   refuses a PostgreSQL superuser, a MySQL or MariaDB account with a global
@@ -87,6 +90,71 @@ minutes.
   or a SQL Server `rowversion`, as for [changes made elsewhere](#changes-made-elsewhere).
   A delete is not seen that way: every N refreshes (24 by default) the
   table is copied whole again.
+
+## Stores that speak no SQL
+
+A document database has no SQL for AnyGridDB to read it with. Such a
+store is read from a copy, and only from a copy (ADR 0088): each table
+you expose is read whole, a thousand rows at a time, into AnyGridDB's
+own database, once an hour unless you set another interval in the
+source's page. Everyone reads the copy, with all a table of AnyGridDB's
+has: filters, sorts, search, groups, formulas, charts, exports.
+
+- Nothing is ever written to the store: no row, no field, no table of
+  AnyGridDB's. Such a source has no schema kept for AnyGridDB and no
+  read replica, and its tables take no write. People still add formulas.
+- Each refresh compares the new copy with the one before, and tells
+  grids, webhooks, and automations which rows were added, changed, or
+  deleted.
+- A copy stops at a million rows. A larger table is not read: its
+  refresh fails, and the source's page says why.
+- The source's page says when each table was last copied; **Refresh
+  now** copies it at once. Until its first copy is ready, a table shows
+  empty.
+- A store without a schema tells its fields by its rows. A field's type
+  is the type its values have in the rows read when the table is listed.
+  A value met later that is not of that type reads empty; the source's
+  page counts such values, and **Refresh fields** reads the store's
+  rows again, follows them, and copies the table again at once.
+
+The rest is as for any source: an administrator declares it, on a host
+the operator allows, over TLS with a certificate AnyGridDB can verify.
+
+### The MongoDB wire protocol
+
+Tested against FerretDB 2. MongoDB's own server speaks the same
+protocol; it is not part of AnyGridDB's tests.
+
+- **Database** is the database to read, and the one the account belongs
+  to. The port is 27017 unless you set another.
+- AnyGridDB connects to the host you name and to no other: the other
+  members of a replica set are not followed, so each address it reaches
+  is one the operator allowed. Name a secondary to spare the primary.
+- Give the account the right to read its database, and nothing more:
+
+  ```js
+  db.getSiblingDB("erp").createUser({
+    user: "anygriddb",
+    pwd: passwordPrompt(),
+    roles: [{ role: "read", db: "erp" }],
+  });
+  ```
+
+  Where the server tells an account's roles, AnyGridDB refuses one that
+  administers the deployment or its accounts (`root`, `dbOwner`,
+  `userAdmin`, `clusterAdmin`, and the like). FerretDB 2 tells none, and
+  gives every account the same rights.
+
+- A collection is a table, a document a row named by its `_id`, a
+  top-level field a column. A view and a time series are read too, each
+  row named by its content.
+- A field's type is told from the collection's 200 newest documents: a
+  text, a number, a checkbox, a date and time. A field that holds a
+  document or a list is one JSON field, kept whole. A field whose
+  values are of several types reads as text.
+- Left out: a field whose name is longer than 63 bytes or holds a
+  control character, the fields past the first 300 of a collection, and
+  the collections past the first 1,000.
 
 ## Statuses and signatures
 

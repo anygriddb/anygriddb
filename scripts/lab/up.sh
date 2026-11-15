@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Start the sample-database lab (Postgres, MySQL, MariaDB; SQL Server with
-# --mssql; Oracle Free with --oracle; both with --all).
+# --mssql; Oracle Free with --oracle; both with --all; the stores that
+# speak no SQL with --stores).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 LAB="$ROOT/docker/lab"
@@ -17,6 +18,7 @@ for arg in "$@"; do
   case "$arg" in
     --mssql) PROFILE_ARGS+=(--profile mssql) ;;
     --oracle) PROFILE_ARGS+=(--profile oracle) ;;
+    --stores) PROFILE_ARGS+=(--profile stores) ;;
     --all)
       PROFILE_ARGS+=(--profile mssql --profile oracle)
       ;;

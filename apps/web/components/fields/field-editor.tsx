@@ -50,7 +50,7 @@ import { FormulaHelpPanel } from "./formula-help-panel";
 // CodeMirror loads with the first formula, not with the grid.
 const FormulaEditor = lazy(() => import("./formula-editor"));
 import { useErrorText } from "../../lib/errors";
-import { distinctLimits, useLimitText } from "../../lib/limits";
+import { distinctLimits, formulaEngine, useLimitText } from "../../lib/limits";
 import { LimitNotice } from "./limit-notice";
 import { LinkSelectionEditor } from "./link-selection";
 import { countConditions, FilterBuilder } from "../table/filter-builder";
@@ -401,7 +401,7 @@ export function FieldEditor({
   // What the client's engine computes differently in a lookup or rollup:
   // the field it reads, and the rollup's own computation.
   const limitText = useLimitText();
-  const engine = table.external?.engine;
+  const engine = formulaEngine(table.external);
   const computedLimits =
     fieldType === "lookup" || fieldType === "rollup"
       ? distinctLimits([
@@ -578,7 +578,7 @@ export function FieldEditor({
         id: item.id,
         columns: item.columns.map(asTypeColumn),
       })),
-      engine: table.external?.engine,
+      engine: formulaEngine(table.external),
       excludeColumn: editing?.name,
     };
   }, [table, tables, editing?.name]);
@@ -1278,7 +1278,7 @@ export function FieldEditor({
                     refs={formulaRefs}
                     label={t`Formula`}
                     describedBy="formula-help"
-                    engine={table.external?.engine}
+                    engine={engine}
                     typeContext={formulaTypeContext}
                     saved={
                       editing?.formulaSource

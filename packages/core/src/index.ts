@@ -409,9 +409,12 @@ export {
   buildCopyUpsert,
   copyColumns,
   copyRow,
+  copyStoredRow,
   copyTable,
+  fitCopyValue,
   SYNC_SCHEMA,
   type CopyColumn,
+  type StoredValue,
 } from "./query/sync";
 
 export { sealDrift, sealedFields, sealRow, sealText } from "./query/seal";
@@ -603,10 +606,17 @@ export {
 } from "./decimal";
 
 export {
+  DEFAULT_COPY_INTERVAL_MINUTES,
   DEFAULT_SOURCE_PORTS,
+  SOURCE_ENGINES,
+  isCopySourceEngine,
+  sourceDatabaseField,
   sourceInputSchema,
   sourceUpdateSchema,
+  type CopySourceEngine,
+  type SourceDatabaseField,
   type SourceEngine,
+  type SqlSourceEngine,
   type SourceInput,
   type SourceUpdate,
 } from "./sources";
