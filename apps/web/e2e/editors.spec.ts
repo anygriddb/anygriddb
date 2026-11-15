@@ -466,6 +466,80 @@ test.describe("a colour and a place", () => {
   });
 });
 
+// A JSON field (ROADMAP #97): a document typed however it is spaced and
+// kept in one spelling, folded on the grid's line and laid out to be
+// edited, and read into by a formula. What is no document is refused.
+// It makes an account, so it takes a client address of its own.
+test.describe("a JSON field", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.93" } });
+
+  test("a document is typed, folded, laid out to be edited, and read by a formula", async ({
+    page,
+  }) => {
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "Document User");
+    const tableId = /\/t\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
+    await addField(page, tableId, {
+      name: "meta",
+      label: "Meta",
+      fieldType: "json",
+    });
+    await addField(page, tableId, {
+      name: "city",
+      label: "City",
+      fieldType: "formula",
+      formulaSource: 'JSON_EXTRACT({Meta}, "$.address.city")',
+    });
+    await send(page, "rows.insertMany", { tableId, rows: [{ name: "Order" }] });
+    await page.reload();
+    await page.getByRole("grid").waitFor();
+
+    // Typed without a care for spaces: one spelling kept, as the database
+    // gives it, and the formula reads into it.
+    const saved = savedValues(page);
+    await cell(page, "meta").click();
+    await page.keyboard.type('{"tags":["a","b"],"address":{"city":"Paris"}}');
+    // Enter is a new line in a document: Ctrl+Enter ends the edit.
+    await page.keyboard.press("Control+Enter");
+    expect(await saved).toContain(
+      String.raw`"meta":"{\"tags\": [\"a\", \"b\"], \"address\": {\"city\": \"Paris\"}}"`,
+    );
+    await expect(cell(page, "meta")).toContainText(
+      '{"tags": ["a", "b"], "address": {"city": "Paris"}}',
+    );
+    await expect(cell(page, "city")).toContainText("Paris");
+
+    // Opened again, it is laid out, a member a line.
+    await cell(page, "meta").click();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("textbox", { name: "Meta" })).toHaveValue(
+      [
+        "{",
+        '  "tags": [',
+        '    "a",',
+        '    "b"',
+        "  ],",
+        '  "address": {',
+        '    "city": "Paris"',
+        "  }",
+        "}",
+      ].join("\n"),
+    );
+    await page.keyboard.press("Escape");
+
+    // A bare value is no document: refused, and the cell keeps its own.
+    await cell(page, "meta").click();
+    await page.keyboard.type("12");
+    await page.keyboard.press("Control+Enter");
+    await expect(page.getByText("Invalid value for Meta")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(cell(page, "meta")).toContainText('"city": "Paris"');
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    expect(blocked).toEqual([]);
+  });
+});
+
 // Ctrl Z and Ctrl Y take back a list's last choice and a link while their
 // panel is still open, as the toolbar's Undo and Redo do.
 test("a choice and a link are undone from the keyboard, the panel open", async ({

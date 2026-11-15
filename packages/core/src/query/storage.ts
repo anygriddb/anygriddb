@@ -74,14 +74,19 @@ export function readTableSql(table: EngineTable): string {
   return `(select ${select.join(", ")} from ${tableSql(table)} t left join ${quoteExternalIdent(external.side.schema)}.${quoteExternalIdent(external.side.name)} s on ${on})`;
 }
 
-/** A column as its table stores it, in its field's SQL type. */
+/**
+ * A column as its table stores it, in its field's SQL type; a JSON
+ * document as its text, which is what every part of a read takes it for.
+ */
 export function columnSql(
   alias: string,
   column: Pick<EngineColumn, "name" | "physical" | "fieldType">,
   dialect: SqlDialect = POSTGRES,
 ): string {
-  if (column.physical === undefined)
-    return `${alias}.${quoteIdent(column.name)}`;
+  if (column.physical === undefined) {
+    const ref = `${alias}.${quoteIdent(column.name)}`;
+    return column.fieldType === "json" ? `${ref}::text` : ref;
+  }
   // A field added since a synced table's last refresh (ADR 0034), or a
   // control-plane enrichment field merged after the client read (ADR 0046).
   if (column.physical.missing || column.physical.controlPlane) {
@@ -99,7 +104,7 @@ export function columnSql(
           : "text",
       );
     }
-    return isWritableType(column.fieldType)
+    return isWritableType(column.fieldType) && column.fieldType !== "json"
       ? `null::${physicalSqlType(column.fieldType)}`
       : "null::text";
   }

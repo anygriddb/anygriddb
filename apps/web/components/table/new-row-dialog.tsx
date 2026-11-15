@@ -36,6 +36,7 @@ const INPUTS = new Set([
   "phone",
   "color",
   "place",
+  "json",
   "rating",
   "duration",
 ]);

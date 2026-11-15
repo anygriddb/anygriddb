@@ -1,4 +1,9 @@
-import { cellText, coerceCellValue, parseColor } from "@anygriddb/core";
+import {
+  cellText,
+  coerceCellValue,
+  parseColor,
+  prettyJson,
+} from "@anygriddb/core";
 import {
   Avatar,
   Button,
@@ -74,6 +79,8 @@ function editableText(value: unknown, column: CatalogColumn): string {
     const minutes = Math.floor((value % 3600) / 60);
     return `${hours}:${String(minutes).padStart(2, "0")}`;
   }
+  // A document is edited laid out, a member a line.
+  if (column.fieldType === "json") return prettyJson(cellText(value));
   return cellText(value);
 }
 
@@ -113,7 +120,8 @@ function InlineEditor({ column, row, initialText, onDone }: EditorProps) {
     initialText ?? editableText(current, column),
   );
   const committed = useRef(false);
-  const multiline = column.fieldType === "long_text";
+  const multiline =
+    column.fieldType === "long_text" || column.fieldType === "json";
   const invalid =
     text.trim() !== "" &&
     coerceCellValue(toCellColumn(column), text) === undefined;
@@ -157,7 +165,8 @@ function InlineEditor({ column, row, initialText, onDone }: EditorProps) {
 
   function onKeyDown(event: KeyboardEvent) {
     event.stopPropagation();
-    // A long text takes Enter as a new line; Ctrl+Enter ends it.
+    // A long text and a document take Enter as a new line; Ctrl+Enter
+    // ends them.
     if (
       event.key === "Enter" &&
       multiline &&
@@ -200,7 +209,12 @@ function InlineEditor({ column, row, initialText, onDone }: EditorProps) {
       <textarea
         ref={ref}
         {...shared}
-        className={cn(INLINE_EDITOR_CLASS, "bottom-auto h-40 py-1.5")}
+        className={cn(
+          INLINE_EDITOR_CLASS,
+          "bottom-auto h-40 py-1.5",
+          column.fieldType === "json" && "font-mono text-xs",
+        )}
+        spellCheck={column.fieldType === "json" ? false : undefined}
       />
     );
   }

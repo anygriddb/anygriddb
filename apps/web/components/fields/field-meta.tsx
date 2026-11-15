@@ -1,5 +1,6 @@
 import {
   AtSign,
+  Braces,
   Binary,
   Calendar,
   CalendarClock,
@@ -45,6 +46,7 @@ const FIELD_ICONS: Record<string, LucideIcon> = {
   phone: Phone,
   color: Palette,
   place: MapPin,
+  json: Braces,
   rating: Star,
   duration: Timer,
   user: Users,
@@ -94,6 +96,7 @@ export const FIELD_LABELS: Record<string, MessageDescriptor> = {
   phone: msg`Phone`,
   color: msg`Colour`,
   place: msg`Place`,
+  json: msg`JSON`,
   rating: msg`Rating`,
   duration: msg`Duration`,
   user: msg`Collaborator`,
@@ -121,6 +124,7 @@ export const FIELD_DESCRIPTIONS: Record<string, MessageDescriptor> = {
   phone: msg`A phone number`,
   color: msg`A colour, shown with its swatch`,
   place: msg`A point on the globe, which a map shows`,
+  json: msg`An object or a list, which a formula reads into`,
   number: msg`Amounts, quantities, percentages`,
   rating: msg`A score drawn as symbols`,
   duration: msg`Hours and minutes`,
@@ -150,7 +154,16 @@ export const FIELD_GROUPS: Array<{
 }> = [
   {
     label: msg`Text`,
-    types: ["text", "long_text", "email", "url", "phone", "color", "place"],
+    types: [
+      "text",
+      "long_text",
+      "email",
+      "url",
+      "phone",
+      "color",
+      "place",
+      "json",
+    ],
   },
   { label: msg`Numbers`, types: ["number", "rating", "duration", "boolean"] },
   { label: msg`Dates`, types: ["date", "datetime"] },
@@ -183,6 +196,7 @@ export const DEFAULT_WIDTH: Record<string, number> = {
   date: 130,
   datetime: 170,
   long_text: 260,
+  json: 260,
   duration: 110,
 };
 

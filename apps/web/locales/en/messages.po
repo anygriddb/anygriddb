@@ -1851,6 +1851,10 @@ msgstr "an exact date"
 msgid "An expanded row draws this field's text as a code, for a scanner to read."
 msgstr "An expanded row draws this field's text as a code, for a scanner to read."
 
+#: components/fields/field-meta.tsx
+msgid "An object or a list, which a formula reads into"
+msgstr "An object or a list, which a formula reads into"
+
 #: components/table/filter-builder.tsx
 #: components/table/view-toolbar.tsx
 msgid "and"
@@ -5390,6 +5394,10 @@ msgstr "Jobs, webhooks, and automations failed in 24 hours"
 #: components/fields/formula-docs.ts
 msgid "Joins texts end to end, as the & operator does."
 msgstr "Joins texts end to end, as the & operator does."
+
+#: components/fields/field-meta.tsx
+msgid "JSON"
+msgstr "JSON"
 
 #: components/shell/shortcuts-dialog.tsx
 msgid "Jump to the edge of the grid"

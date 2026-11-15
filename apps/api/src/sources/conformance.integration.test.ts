@@ -2274,6 +2274,82 @@ describe("conformance of formulas across engines", () => {
           )
         ).rows.map((row) => [row.id, row[tint.name], row[spot.name]]),
       );
+      // A document is kept beside the client's rows too, in the engine's
+      // JSON type where it has one, and a formula reads into it where
+      // the rows live. Its names are in the order jsonb and MySQL's JSON
+      // give them, so every engine reads the same text.
+      const sheet = await addColumn(db, actorId, teamsTable.id, {
+        label: "Fiche",
+        fieldType: "json",
+      });
+      const town = await addColumn(db, actorId, teamsTable.id, {
+        label: "Ville",
+        fieldType: "formula",
+        formulaSource: 'JSON_EXTRACT({Fiche}, "$.adresse.ville")',
+      });
+      const documented = await loadRowScope(
+        db,
+        {
+          userId: actorId,
+          bindings: [{ role: "owner", scope: "base", scopeId: baseId }],
+        },
+        await db
+          .selectFrom("dataTables")
+          .selectAll()
+          .where("id", "=", teamsTable.id)
+          .executeTakeFirstOrThrow(),
+      );
+      const document = '{"n": [1, 2], "adresse": {"ville": "Lyon"}}';
+      trace.push(
+        await failure(
+          updateRows(
+            services,
+            documented,
+            [{ rowId: "2", values: { [sheet.name]: document } }],
+            { source: "web" },
+          ),
+        ),
+        await failure(
+          updateRows(
+            services,
+            documented,
+            [{ rowId: "3", values: { [sheet.name]: "12" } }],
+            { source: "web" },
+          ),
+        ),
+        (
+          await readPage(
+            db,
+            (await loadEngine(db, teamsTable.id, () => true)).engine,
+            {
+              limit: 10,
+              timeZone: "UTC",
+              filter: {
+                conjunction: "and",
+                conditions: [
+                  { column: sheet.name, op: "contains", value: "Lyon" },
+                ],
+              },
+            },
+            { total: true },
+          )
+        ).rows.map((row) => [row.id, row[sheet.name], row[town.name]]),
+        // Written again over what was read, it is still the row's.
+        await failure(
+          updateRows(
+            services,
+            documented,
+            [
+              {
+                rowId: "2",
+                values: { [sheet.name]: '{"n": []}' },
+                expected: { [sheet.name]: document },
+              },
+            ],
+            { source: "web" },
+          ),
+        ),
+      );
       // A lookup from the cases reads it through their link.
       const casesId = (
         await db
@@ -2319,7 +2395,7 @@ describe("conformance of formulas across engines", () => {
       ["2", null],
       ["3", "Revue"],
     ];
-    expect(reference?.slice(0, 14)).toEqual([
+    expect(reference?.slice(0, 18)).toEqual([
       "ok",
       remarked,
       [["1", "Vue"]],
@@ -2338,6 +2414,10 @@ describe("conformance of formulas across engines", () => {
       "ok",
       "invalid_cell",
       [["2", "#1f3fae", "48.8566,2.3522"]],
+      "ok",
+      "invalid_cell",
+      [["2", '{"n": [1, 2], "adresse": {"ville": "Lyon"}}', "Lyon"]],
+      "ok",
     ]);
     for (const engine of ["mysql", "mariadb", "sqlserver", "oracle"] as const) {
       expect(asRead(engine, traces.get(engine)), engine).toEqual(

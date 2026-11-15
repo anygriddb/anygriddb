@@ -142,7 +142,10 @@ alter user anygriddb quota 100m on users;
 ```
 
 These fields are edited even when the client's table is read-only, and
-filter, sort, and group like the client's own columns.
+filter, sort, and group like the client's own columns. A JSON field is
+kept there in the engine's JSON type (`jsonb` on PostgreSQL, `JSON` on
+MySQL and MariaDB) and as a long text AnyGridDB has checked on SQL Server
+and Oracle, where not every version has such a type.
 
 Without a side schema, the fields are kept in AnyGridDB's own database,
 by the row's key (ADR 0046). A view still filters on them, by value or
