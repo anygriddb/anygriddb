@@ -28,6 +28,10 @@ if [ -f "$env_file" ]; then
   . "$env_file"
   set +a
 fi
+# An install that keeps its secrets in files (scripts/install.sh).
+# shellcheck source=scripts/secret-files.sh
+. "$root/scripts/secret-files.sh"
+load_secret_files "$(cd "$(dirname "$env_file")" && pwd)"
 : "${POSTGRES_USER:?set POSTGRES_USER in docker/.env}"
 : "${POSTGRES_DB:?set POSTGRES_DB in docker/.env}"
 

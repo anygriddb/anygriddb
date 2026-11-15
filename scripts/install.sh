@@ -1,75 +1,104 @@
 #!/usr/bin/env bash
-# Prepares a Docker install directory: secret files (owner-only), a .env
-# without secrets, and (for the bundled Postgres stack) a database URL file.
-# Re-run is safe: existing secret files are left alone; missing ones are made.
+# Keeps an install's two secrets in files instead of .env: the database's
+# password and AUTH_ENCRYPTION_KEY, each in secrets/ beside .env, with the
+# database's address made from the password for the application. The
+# folder is the owner's alone (0700). Its files are 0644: Compose mounts
+# each one as it is, and PostgreSQL and the application read theirs as
+# accounts of their own, inside their containers. Start the stack with scripts/compose.sh,
+# which adds compose.secrets.yml.
 #
-# Run from the directory that holds compose.yml (usually docker/), or pass
-# that directory as the first argument.
+#   scripts/install.sh                 # docker/ of this checkout
+#   scripts/install.sh /srv/anygriddb  # the folder of compose.yml and .env
 #
-#   ./scripts/install.sh
-#   ./scripts/install.sh /path/to/docker
-#
-# Never prints a secret. Requires openssl.
+# A first install gets new random values. An install that already runs
+# keeps its own: a value in .env is moved into its file, never replaced,
+# since a new key would leave everything sealed with the old one unread.
+# Run again, it changes nothing. It is for the database this stack runs;
+# with a PostgreSQL of your own, docs/operations.md says how. Never prints
+# a secret. Requires openssl.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-target="${1:-$root/docker}"
-target="$(cd "$target" && pwd)"
-
-secrets_dir="$target/secrets"
+target="$(cd "${1:-$root/docker}" && pwd)"
 env_file="$target/.env"
-example="$target/.env.example"
+secrets="$target/secrets"
+
+if [ ! -f "$target/compose.yml" ]; then
+  echo "install.sh: no compose.yml in $target" >&2
+  exit 1
+fi
 
 umask 077
-mkdir -p "$secrets_dir"
-chmod 700 "$secrets_dir"
-
-write_secret() {
-  local path="$1"
-  local value="$2"
-  if [ -e "$path" ]; then
-    return 0
+if [ ! -f "$env_file" ]; then
+  if [ -f "$target/.env.example" ]; then
+    cp "$target/.env.example" "$env_file"
+  else
+    : >"$env_file"
   fi
-  printf '%s\n' "$value" >"$path"
-  chmod 600 "$path"
+fi
+chmod 600 "$env_file"
+
+# The value .env gives a variable, as Compose reads it: the last line wins.
+env_value() {
+  sed -n "s/^$1=//p" "$env_file" | tail -n 1
 }
 
-pg_pass_file="$secrets_dir/postgres_password"
-if [ ! -e "$pg_pass_file" ]; then
-  write_secret "$pg_pass_file" "$(openssl rand -hex 32)"
+if [ -n "$(env_value DATABASE_URL)" ]; then
+  echo "install.sh: .env sets DATABASE_URL, a PostgreSQL of your own." >&2
+  echo "compose.secrets.yml is for the database this stack runs." >&2
+  exit 1
 fi
 
-key_file="$secrets_dir/auth_encryption_key"
-if [ ! -e "$key_file" ]; then
-  write_secret "$key_file" "$(openssl rand -base64 32)"
+mkdir -p "$secrets"
+chmod 700 "$secrets"
+
+# Moves NAME from .env into its file, or makes the file with a new value.
+keep_secret() {
+  local name="$1" file="$2" fresh="$3" value
+  value="$(env_value "$name")"
+  if [ ! -e "$file" ]; then
+    if [ -z "$value" ]; then value="$fresh"; fi
+    printf '%s\n' "$value" >"$file"
+  elif [ -n "$value" ] && [ "$value" != "$(tr -d '\r\n' <"$file")" ]; then
+    echo "install.sh: $name in .env differs from $file. Keep one, then run again." >&2
+    exit 1
+  fi
+  chmod 644 "$file"
+}
+
+keep_secret POSTGRES_PASSWORD "$secrets/postgres_password" \
+  "$(openssl rand -hex 32)"
+keep_secret AUTH_ENCRYPTION_KEY "$secrets/auth_encryption_key" \
+  "$(openssl rand -base64 32)"
+
+# Sets KEY=value in .env, in place of every line for KEY.
+set_env() {
+  local tmp
+  tmp="$(mktemp "$target/.env.XXXXXX")"
+  grep -v "^$1=" "$env_file" >"$tmp" || true
+  if [ "$#" -gt 1 ]; then printf '%s=%s\n' "$1" "$2" >>"$tmp"; fi
+  chmod 600 "$tmp"
+  mv "$tmp" "$env_file"
+}
+
+user="$(env_value POSTGRES_USER)"
+database="$(env_value POSTGRES_DB)"
+if [ -z "$user" ]; then user=anygriddb && set_env POSTGRES_USER "$user"; fi
+if [ -z "$database" ]; then
+  database=anygriddb && set_env POSTGRES_DB "$database"
 fi
+set_env POSTGRES_PASSWORD
+set_env AUTH_ENCRYPTION_KEY
+set_env POSTGRES_PASSWORD_FILE ./secrets/postgres_password
+set_env AUTH_ENCRYPTION_KEY_FILE ./secrets/auth_encryption_key
 
-pg_user="anygriddb"
-pg_db="anygriddb"
-public_url="https://localhost:3000"
-have_database_url=""
-have_database_url_file=""
-
-if [ -f "$env_file" ]; then
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in
-      \#* | "") continue ;;
-      POSTGRES_USER=*) pg_user="${line#POSTGRES_USER=}" ;;
-      POSTGRES_DB=*) pg_db="${line#POSTGRES_DB=}" ;;
-      PUBLIC_URL=*) public_url="${line#PUBLIC_URL=}" ;;
-      DATABASE_URL=*) have_database_url=1 ;;
-      DATABASE_URL_FILE=*) have_database_url_file=1 ;;
-    esac
-  done <"$env_file"
-fi
-
-# Percent-encode a URL part. A password from openssl is hex; one an
-# operator put in the file may hold @, :, / or #, which would break the URL.
+# Percent-encodes a part of the address: a password typed by hand may hold
+# @, :, / or #, which would cut it.
 url_encode() {
   local raw="$1" out="" i c hex
   local LC_ALL=C
   for ((i = 0; i < ${#raw}; i++)); do
-    c=${raw:i:1}
+    c="${raw:i:1}"
     case "$c" in
       [a-zA-Z0-9._~-]) out+="$c" ;;
       *)
@@ -81,83 +110,14 @@ url_encode() {
   printf '%s' "$out"
 }
 
-pg_password="$(tr -d '\r\n' <"$pg_pass_file")"
-database_url="postgres://$(url_encode "$pg_user"):$(url_encode "$pg_password")@db:5432/$(url_encode "$pg_db")?sslmode=verify-full&sslrootcert=/certs/internal-authority.crt"
-url_file="$secrets_dir/database_url"
+password="$(tr -d '\r\n' <"$secrets/postgres_password")"
+printf 'postgres://%s:%s@db:5432/%s?sslmode=verify-full&sslrootcert=/certs/internal-authority.crt\n' \
+  "$(url_encode "$user")" "$(url_encode "$password")" \
+  "$(url_encode "$database")" >"$secrets/database_url"
+chmod 644 "$secrets/database_url"
 
-# Bundled stack: keep database_url in sync with the password and role names
-# unless the operator already supplies DATABASE_URL for a managed Postgres.
-if [ -z "$have_database_url" ]; then
-  printf '%s\n' "$database_url" >"$url_file"
-  chmod 600 "$url_file"
-fi
-
-if [ ! -f "$env_file" ]; then
-  if [ -f "$example" ]; then
-    cp "$example" "$env_file"
-  else
-    : >"$env_file"
-  fi
-  chmod 600 "$env_file"
-fi
-
-set_kv() {
-  local key="$1"
-  local value="$2"
-  local tmp
-  tmp="$(mktemp)"
-  if grep -q "^${key}=" "$env_file" 2>/dev/null; then
-    awk -v k="$key" -v v="$value" '
-      BEGIN { done = 0 }
-      index($0, k "=") == 1 {
-        print k "=" v
-        done = 1
-        next
-      }
-      { print }
-      END { if (!done) print k "=" v }
-    ' "$env_file" >"$tmp"
-  else
-    cat "$env_file" >"$tmp"
-    printf '%s=%s\n' "$key" "$value" >>"$tmp"
-  fi
-  mv "$tmp" "$env_file"
-  chmod 600 "$env_file"
-}
-
-clear_kv() {
-  local key="$1"
-  local tmp
-  tmp="$(mktemp)"
-  grep -v "^${key}=" "$env_file" >"$tmp" || true
-  mv "$tmp" "$env_file"
-  chmod 600 "$env_file"
-}
-
-set_kv "POSTGRES_USER" "$pg_user"
-set_kv "POSTGRES_DB" "$pg_db"
-set_kv "PUBLIC_URL" "$public_url"
-set_kv "POSTGRES_PASSWORD_FILE" "./secrets/postgres_password"
-set_kv "AUTH_ENCRYPTION_KEY_FILE" "./secrets/auth_encryption_key"
-if [ -z "$have_database_url" ]; then
-  set_kv "DATABASE_URL_FILE" "./secrets/database_url"
-fi
-
-for key in POSTGRES_PASSWORD AUTH_ENCRYPTION_KEY \
-  AUTH_ENCRYPTION_PREVIOUS_KEYS METRICS_TOKEN SMTP_PASSWORD OIDC_CLIENT_SECRET \
-  S3_SECRET_KEY S3_ACCESS_KEY OTEL_EXPORTER_OTLP_HEADERS; do
-  clear_kv "$key"
-done
-if [ -z "$have_database_url" ]; then
-  clear_kv "DATABASE_URL"
-fi
-
-# Silence unused when managed URL was already set.
-: "${have_database_url_file:=}"
-
-echo "Install ready in $target"
-echo "  secrets/  owner-only secret files (left unchanged if they already existed)"
-echo "  .env      non-secret settings; secrets referenced as *_FILE"
-echo "Start with:"
-echo "  ${root}/scripts/compose.sh --dir ${target} up -d"
-echo "Then open PUBLIC_URL and create the first account with the install token from the app log."
+echo "Secrets kept in $secrets; .env no longer holds them."
+echo "Start, and run every compose command, with:"
+echo "  $root/scripts/compose.sh --dir $target up -d"
+echo "Back up and restore with the same files:"
+echo "  ENV_FILE=$env_file $root/scripts/backup.sh -f $target/compose.yml -f $target/compose.secrets.yml"

@@ -80,7 +80,7 @@ services:
         "db:999:999",
       ]
     environment:
-      AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env}
+      AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env, or run scripts/compose.sh}
       AUTH_ENCRYPTION_PREVIOUS_KEYS: ${AUTH_ENCRYPTION_PREVIOUS_KEYS:-}
     volumes:
       - tls_data:/data/tls
@@ -137,7 +137,7 @@ services:
       # The cluster's first role is `postgres`, the image's own: PostgreSQL
       # keeps it a superuser whatever is asked. AnyGridDB signs in as
       # POSTGRES_USER, a role made beside it with no such power (ADR 0003).
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in docker/.env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in docker/.env, or run scripts/compose.sh}
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in docker/.env}
       ANYGRIDDB_DB_USER: ${POSTGRES_USER:?set POSTGRES_USER in docker/.env}
     # Before PostgreSQL starts, the step that makes AnyGridDB's role is put
@@ -217,7 +217,7 @@ services:
     environment:
       # Verified TLS to PostgreSQL, by the internal authority (ADR 0030).
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=verify-full&sslrootcert=/certs/internal-authority.crt
-      AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env}
+      AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env, or run scripts/compose.sh}
       AUTH_ENCRYPTION_PREVIOUS_KEYS: ${AUTH_ENCRYPTION_PREVIOUS_KEYS:-}
       PORT: "4000"
       # Canonical HTTPS origin people open: links, cookies, passkeys (RP ID),
