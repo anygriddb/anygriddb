@@ -7753,6 +7753,10 @@ msgstr "Reason required"
 msgid "Reason: {reason}"
 msgstr "Reason: {reason}"
 
+#: components/admin/logs-tab.tsx
+msgid "Recent lines"
+msgstr "Recent lines"
+
 #: components/admin/account-export.tsx
 msgid "Recent writes"
 msgstr "Recent writes"

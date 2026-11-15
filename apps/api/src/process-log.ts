@@ -94,27 +94,34 @@ export function logDestination(log: ProcessLog = processLog): Writable {
   });
 }
 
+/** Lines kept apart from the others, each set under its own limits. */
+type Ring = { stored: Stored[]; bytes: number };
+
 export function createProcessLog(limits?: {
   maxLines?: number;
   maxBytes?: number;
 }): ProcessLog {
   const maxLines = limits?.maxLines ?? DEFAULT_MAX_LINES;
   const maxBytes = limits?.maxBytes ?? DEFAULT_MAX_BYTES;
-  const stored: Stored[] = [];
-  let bytes = 0;
+  // Warnings and failures are kept apart from the process's ordinary
+  // messages and refused requests: a burst of 404s from a scanner must not
+  // push out the failure the page exists to show.
+  const failures: Ring = { stored: [], bytes: 0 };
+  const ordinary: Ring = { stored: [], bytes: 0 };
   let seq = 0;
   let pending = "";
 
   const push = (level: number, line: ProcessLogLine) => {
+    const ring = level >= 40 ? failures : ordinary;
     const size = JSON.stringify(line).length;
-    stored.push({ bytes: size, level, line });
-    bytes += size;
+    ring.stored.push({ bytes: size, level, line });
+    ring.bytes += size;
     while (
-      (stored.length > maxLines || bytes > maxBytes) &&
-      stored.length > 1
+      (ring.stored.length > maxLines || ring.bytes > maxBytes) &&
+      ring.stored.length > 1
     ) {
-      const oldest = stored.shift();
-      if (oldest) bytes -= oldest.bytes;
+      const oldest = ring.stored.shift();
+      if (oldest) ring.bytes -= oldest.bytes;
     }
   };
 
@@ -161,13 +168,38 @@ export function createProcessLog(limits?: {
     list(options) {
       const min =
         options.level === "error" ? 50 : options.level === "warn" ? 40 : 30;
-      const matched = stored.filter((item) => item.level >= min);
+      const matched =
+        min >= 40
+          ? failures.stored.filter((item) => item.level >= min)
+          : mergeBySeq(failures.stored, ordinary.stored);
       return matched
         .slice(-options.limit)
         .reverse()
         .map((item) => item.line);
     },
   };
+}
+
+/** Two sets of lines, each oldest first, as one, oldest first. */
+function mergeBySeq(
+  left: readonly Stored[],
+  right: readonly Stored[],
+): Stored[] {
+  const merged: Stored[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < left.length || j < right.length) {
+    const a = left[i];
+    const b = right[j];
+    if (a && (!b || a.line.seq < b.line.seq)) {
+      merged.push(a);
+      i += 1;
+    } else if (b) {
+      merged.push(b);
+      j += 1;
+    }
+  }
+  return merged;
 }
 
 /** The one ring of this process. */

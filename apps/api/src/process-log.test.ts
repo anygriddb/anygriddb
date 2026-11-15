@@ -123,6 +123,34 @@ describe("the process log", () => {
     expect(kept[0]?.startsWith("b")).toBe(true);
   });
 
+  it("keeps a failure when refused requests fill the ordinary lines", () => {
+    const log = createProcessLog({ maxLines: 3, maxBytes: 1_000_000 });
+    log.capture(line({ level: 50, msg: "database connection failed" }));
+    for (let index = 0; index < 10; index += 1) {
+      log.capture(
+        line({
+          level: 30,
+          msg: "request completed",
+          res: { statusCode: 404 },
+          req: { method: "GET", url: `/probe/${index}` },
+        }),
+      );
+    }
+    expect(messages(log, "warn")).toEqual(["database connection failed"]);
+    const all = log.list({ level: "info", limit: 10 });
+    expect(all).toHaveLength(4);
+    expect(all.at(-1)?.message).toBe("database connection failed");
+    expect(all[0]?.request?.url).toBe("/probe/9");
+  });
+
+  it("lists every line newest first across both sets", () => {
+    const log = createProcessLog();
+    log.capture(line({ level: 30, msg: "first" }));
+    log.capture(line({ level: 40, msg: "second" }));
+    log.capture(line({ level: 30, msg: "third" }));
+    expect(messages(log, "info")).toEqual(["third", "second", "first"]);
+  });
+
   it("assembles a line that arrives in two chunks", () => {
     const log = createProcessLog();
     const text = line({ level: 40, msg: "split" });
