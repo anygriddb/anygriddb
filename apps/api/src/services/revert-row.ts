@@ -2,7 +2,12 @@
  * Puts a row, or one of its fields, back to an earlier write (ADR 0089).
  * The earlier value is read from the trail. The write is the ordinary one.
  */
-import { AppError, cellFromAudit, isWritableType } from "@anygriddb/core";
+import {
+  AppError,
+  type CellValue,
+  cellFromAudit,
+  isWritableType,
+} from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { assertAttachmentKeys } from "../attachments.js";
 import { readByIds } from "../data/rows.js";
@@ -64,19 +69,30 @@ export async function revertRow(
     ...(input.reason ? { reason: input.reason } : {}),
   };
   if (Object.keys(values).length > 0) {
-    const expected: Record<string, unknown> = {};
+    // What the screen showed, for the fields written here alone: none of
+    // them is hidden from this writer (`fieldsOf`).
+    const seen: Record<string, unknown> = {};
     if (external || input.field) {
       for (const field of Object.keys(values)) {
-        expected[field] = input.seen[field];
+        seen[field] = input.seen[field];
       }
     } else {
-      expected.ag_updated_at = input.seen.ag_updated_at;
+      seen.ag_updated_at = input.seen.ag_updated_at;
     }
     try {
       await updateRows(
         deps,
         scope,
-        [{ rowId: input.recordId, values, expected }],
+        [
+          external
+            ? {
+                rowId: input.recordId,
+                values,
+                // Compared by the client's table as any of its writes is.
+                expected: seen as Readonly<Record<string, CellValue>>,
+              }
+            : { rowId: input.recordId, values, storedNow: seen },
+        ],
         meta,
       );
     } catch (error) {

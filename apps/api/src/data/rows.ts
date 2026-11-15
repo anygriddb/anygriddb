@@ -774,10 +774,10 @@ export async function updateRows(
     rowId: string;
     values: Readonly<Record<string, CellValue>>;
     /**
-     * What the writer still sees. Set when putting a value back: the
-     * locked row must still match, or nothing is written (ADR 0089).
+     * What the row must still hold, set by the server when a value is put
+     * back: the locked row must match, or nothing is written (ADR 0089).
      */
-    expected?: Readonly<Record<string, unknown>>;
+    storedNow?: Readonly<Record<string, unknown>>;
   }>,
 ): Promise<string[]> {
   const columns = writeColumns(engine);
@@ -814,8 +814,8 @@ export async function updateRows(
       assertWritable(status);
     }
     for (const update of updates) {
-      if (!update.expected) continue;
-      const names = Object.keys(update.expected);
+      if (!update.storedNow) continue;
+      const names = Object.keys(update.storedNow);
       if (names.length === 0) continue;
       const [row] = await runRows(
         tx,
@@ -827,7 +827,7 @@ export async function updateRows(
       );
       if (!row) throw new AppError("no_row");
       for (const name of names) {
-        if (!sameStored(row[name], update.expected[name])) {
+        if (!sameStored(row[name], update.storedNow[name])) {
           throw new AppError("revert_stale");
         }
       }

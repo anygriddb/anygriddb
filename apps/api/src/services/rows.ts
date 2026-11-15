@@ -100,10 +100,19 @@ type RowInput = {
 type RowUpdate = RowInput & {
   rowId: string;
   /**
-   * What the writer saw. A client's table compares each field under lock.
-   * AnyGridDB's own tables compare it when a value is put back (ADR 0089).
+   * What the writer saw in the fields they change. A client's table
+   * compares it under lock and refuses the write when it moved; AnyGridDB's
+   * own tables do not read it.
    */
-  expected?: Readonly<Record<string, unknown>> | undefined;
+  expected?: Readonly<Record<string, CellValue>> | undefined;
+  /**
+   * What the row must still hold for an AnyGridDB table, compared under
+   * lock (ADR 0089). Only the server sets it, from fields it already
+   * checked the writer may see: it is in no request's schema, since a
+   * comparison the caller chose would answer whether a hidden field holds
+   * a guess.
+   */
+  storedNow?: Readonly<Record<string, unknown>> | undefined;
 };
 
 /** A live table, or undefined when it or its base is in the trash. */
@@ -577,8 +586,7 @@ export async function updateRows(
       updates.map((update) => ({
         rowId: update.rowId,
         values: withLinks(scope, update),
-        expected: update.expected as
-          Readonly<Record<string, CellValue>> | undefined,
+        expected: update.expected,
       })),
     );
     await announceRows(
@@ -597,7 +605,7 @@ export async function updateRows(
     updates.map((update) => ({
       rowId: update.rowId,
       values: update.values,
-      ...(update.expected ? { expected: update.expected } : {}),
+      ...(update.storedNow ? { storedNow: update.storedNow } : {}),
     })),
   );
   const extra: string[] = [];

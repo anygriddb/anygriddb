@@ -161,6 +161,23 @@ describe("putting a value back", () => {
       ),
     ).toBe("access_denied");
 
+    // An ordinary write's `expected` is not read on AnyGridDB's own
+    // tables: compared with a field the editor cannot see, the answer
+    // would tell whether a guess at it is right.
+    for (const guess of ["hidden", "a wrong guess"]) {
+      await editor.call().rows.updateMany({
+        tableId,
+        updates: [
+          {
+            rowId,
+            values: { title: `after ${guess}` },
+            expected: { [added.name]: guess },
+          },
+        ],
+      });
+    }
+    expect((await row()).title).toBe("after a wrong guess");
+
     await owner.call().rows.setStatus({
       tableId,
       rowId,
