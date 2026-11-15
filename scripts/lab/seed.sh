@@ -64,6 +64,7 @@ if [[ "$DO_STORES" -eq 1 ]]; then
   done
   (cd "$ROOT/apps/api" &&
     LAB_PASSWORD="$PASSWORD" ANYGRIDDB_LAB_TLS_CA="$LAB/certs/ca.crt" \
+      NODE_EXTRA_CA_CERTS="$LAB/certs/ca.crt" \
       pnpm exec tsx src/sources/samples/seed-stores.ts)
   echo "==> Seed complete"
   echo "    TLS CA for AnyGridDB: $LAB/certs/ca.crt"
