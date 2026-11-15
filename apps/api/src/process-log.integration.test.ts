@@ -114,7 +114,7 @@ describe("the process log in Administration", () => {
     const outside = await admin.call().admin.logs({
       level: "warn",
       from: future,
-      limit: 200,
+      limit: 100,
     });
     expect(outside.lines.some((item) => item.message === MARK)).toBe(false);
     expect(outside.total).toBe(0);
@@ -123,7 +123,7 @@ describe("the process log in Administration", () => {
       to: new Date().toISOString(),
       sort: "message",
       direction: "asc",
-      limit: 200,
+      limit: 100,
     });
     expect(inside.lines.some((item) => item.message === MARK)).toBe(true);
     expect(inside.oldest).toEqual(expect.any(String));
