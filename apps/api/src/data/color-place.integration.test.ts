@@ -167,7 +167,14 @@ describe("a colour and a place", () => {
   });
 
   it("keeps the values that read as a colour or a place when a text field becomes one", async () => {
-    const tints = ["#ABC", "1f3fae", " #1F3FAE ", "not a colour", "#12345"];
+    const tints = [
+      "#ABC",
+      "1f3fae",
+      " #1F3FAE ",
+      "not a colour",
+      "#12345",
+      "\t#1f3fae\n",
+    ];
     const spots = [
       "48.8566, 2.3522",
       "48.8566;2.3522",
@@ -178,6 +185,9 @@ describe("a colour and a place", () => {
       "0, 180.5",
       "abc",
       "1,2,3",
+      "48.8566,\u00a02.3522",
+      "48.8566\t2.3522",
+      `48.${"8".repeat(70)},2`,
     ];
     const count = Math.max(tints.length, spots.length);
     for (let index = 0; index < count; index += 1) {
@@ -236,6 +246,9 @@ describe("a colour and a place", () => {
       null,
       null,
       null,
+      null,
+      "48.8566,2.3522",
+      "48.8566,2.3522",
       null,
     ]);
   });

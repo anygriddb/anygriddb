@@ -124,6 +124,35 @@ describe("a place", () => {
     expect(coerceCellValue(place, "95, 2")).toBeUndefined();
     expect(coerceCellValue(place, " ")).toBeNull();
   });
+
+  it("reads tabs, line breaks and unbreakable spaces as spaces", () => {
+    const paris = { latitude: 48.8566, longitude: 2.3522 };
+    for (const typed of [
+      "48.8566\t2.3522",
+      "48.8566,\u00a02.3522",
+      "48,8566\u202f;\n2,3522",
+      "\n48.8566   ,   2.3522\t",
+    ]) {
+      expect([typed, parsePlace(typed)]).toEqual([typed, paris]);
+    }
+  });
+
+  it("gives up at once on a long text, however it is made", () => {
+    // Longer than any place a person types.
+    expect(parsePlace(`48.${"8".repeat(70)},2`)).toBeUndefined();
+    // A run of spaces is read once: ten thousand of them cost no more.
+    const started = Date.now();
+    for (const filler of [" ", "\t", " ,", "; "]) {
+      expect(parsePlace(`1${filler.repeat(10_000)}`)).toBeUndefined();
+      expect(parsePlace(`1${filler.repeat(10_000)}x`)).toBeUndefined();
+      expect(parsePlace(`${filler.repeat(10_000)}1 2!`)).toBeUndefined();
+    }
+    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(parsePlace(`48.8566${" ".repeat(10_000)}2.3522`)).toEqual({
+      latitude: 48.8566,
+      longitude: 2.3522,
+    });
+  });
 });
 
 describe("both, as field types", () => {

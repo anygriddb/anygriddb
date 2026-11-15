@@ -36,12 +36,16 @@ export function parseColor(text: string): string | undefined {
 
 /** Decimal degrees keep six decimals: a tenth of a metre. */
 const PLACE_DECIMALS = 6;
+/** What a person types for a place is short: anything longer is no place. */
+const PLACE_MAX_CHARS = 64;
+// Read once every run of spaces is one space, so that no part of either
+// pattern can take the same characters as its neighbour: a long run of
+// spaces is then read once, not once per way of sharing it out.
 /** Decimal points; a comma, a semicolon or a space between the two. */
 const PLACE_POINTS =
-  /^([+-]?\d{1,3}(?:\.\d+)?)\s*[,;\s]\s*([+-]?\d{1,3}(?:\.\d+)?)$/;
+  /^([+-]?\d{1,3}(?:\.\d+)?) ?[,; ] ?([+-]?\d{1,3}(?:\.\d+)?)$/;
 /** Decimal commas: the comma is taken, so a semicolon or a space between. */
-const PLACE_COMMAS =
-  /^([+-]?\d{1,3}(?:,\d+)?)\s*[;\s]\s*([+-]?\d{1,3}(?:,\d+)?)$/;
+const PLACE_COMMAS = /^([+-]?\d{1,3}(?:,\d+)?) ?[; ] ?([+-]?\d{1,3}(?:,\d+)?)$/;
 
 export type Place = { latitude: number; longitude: number };
 
@@ -74,8 +78,9 @@ export function formatPlace(place: Place): string | undefined {
  * anything else, a place off the globe included.
  */
 export function parsePlace(text: string): Place | undefined {
-  const trimmed = text.trim();
-  const match = PLACE_POINTS.exec(trimmed) ?? PLACE_COMMAS.exec(trimmed);
+  const typed = text.trim().replace(/\s+/g, " ");
+  if (typed.length > PLACE_MAX_CHARS) return undefined;
+  const match = PLACE_POINTS.exec(typed) ?? PLACE_COMMAS.exec(typed);
   if (!match) return undefined;
   const place = {
     latitude: Number(match[1]?.replace(",", ".")),
