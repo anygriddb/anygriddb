@@ -518,7 +518,7 @@ msgstr "{actor}, qui administre l’instance, s’est donné un rôle sur {base}
 #. placeholder {0}: item.data?.reason ?? "—"
 #: components/shell/notification-items.ts
 msgid "{actor}, an administrator, is acting as you until {until}. Their reason: {0}"
-msgstr "{actor}, un administrateur, agit en votre nom jusqu’à {until}. Motif : {0}"
+msgstr "{actor}, un administrateur, agit en votre nom jusqu’à {until}. Motif : {0}"
 
 #: components/shell/notification-items.ts
 msgid "{actor}, an administrator, opened {base} to read it until {until}. Their reason: {reason}"
