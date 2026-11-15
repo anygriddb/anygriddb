@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ATTACHMENT_REFUSABLE_KINDS } from "./attachment-types";
 
 /** The product's name: what an instance is called until it names itself. */
 export const PRODUCT_NAME = "AnyGridDB";
@@ -207,9 +208,9 @@ const fields = {
   ]),
   /**
    * File extensions an administrator refuses (ROADMAP #39), each with a
-   * leading dot. Empty means every extension is taken. Checked with the
-   * name the person uploads, never alone as a security gate: the sniffed
-   * type is checked too.
+   * leading dot. Empty means every extension is taken. A name is the
+   * uploader's to choose: what a file is, whatever its name, is the kinds
+   * below.
    */
   attachmentRefusedExtensions: z
     .array(
@@ -225,20 +226,14 @@ const fields = {
     .max(100)
     .transform((entries) => [...new Set(entries)]),
   /**
-   * MIME types refused after the bytes are sniffed. Empty means every
-   * sniffed type is taken. Together with the extensions, this is a refuse
-   * list: the product never turns the six previewed types into the only
-   * ones allowed.
+   * Kinds of file refused whatever their name (ROADMAP #39), each told by
+   * its first bytes: a program, a script, a page a browser would run.
+   * Empty refuses none. The six previewed types are never the only ones
+   * allowed: this is a refuse list.
    */
-  attachmentRefusedMimes: z
-    .array(
-      z
-        .string()
-        .trim()
-        .toLowerCase()
-        .regex(/^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/),
-    )
-    .max(100)
+  attachmentRefusedKinds: z
+    .array(z.enum(ATTACHMENT_REFUSABLE_KINDS))
+    .max(ATTACHMENT_REFUSABLE_KINDS.length)
     .transform((entries) => [...new Set(entries)]),
   /** Days the trash keeps what was deleted, before it is purged for good. */
   trashDays: bounded("trashDays"),
@@ -326,7 +321,7 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   releaseCheck: false,
   attachmentMaxBytes: null,
   attachmentRefusedExtensions: [],
-  attachmentRefusedMimes: [],
+  attachmentRefusedKinds: [],
   trashDays: 30,
   restorePointDays: 30,
   auditRetentionDays: 0,
@@ -394,8 +389,8 @@ export const instanceSettingsSchema = z.object({
   attachmentRefusedExtensions: fields.attachmentRefusedExtensions.default(
     INSTANCE_DEFAULTS.attachmentRefusedExtensions,
   ),
-  attachmentRefusedMimes: fields.attachmentRefusedMimes.default(
-    INSTANCE_DEFAULTS.attachmentRefusedMimes,
+  attachmentRefusedKinds: fields.attachmentRefusedKinds.default(
+    INSTANCE_DEFAULTS.attachmentRefusedKinds,
   ),
   trashDays: fields.trashDays.default(INSTANCE_DEFAULTS.trashDays),
   restorePointDays: fields.restorePointDays.default(
@@ -464,7 +459,7 @@ export const instanceSettingsPatchSchema = z
     releaseCheck: fields.releaseCheck.optional(),
     attachmentMaxBytes: fields.attachmentMaxBytes.optional(),
     attachmentRefusedExtensions: fields.attachmentRefusedExtensions.optional(),
-    attachmentRefusedMimes: fields.attachmentRefusedMimes.optional(),
+    attachmentRefusedKinds: fields.attachmentRefusedKinds.optional(),
     trashDays: fields.trashDays.optional(),
     restorePointDays: fields.restorePointDays.optional(),
     auditRetentionDays: fields.auditRetentionDays.optional(),

@@ -17,13 +17,14 @@ export {
 } from "./embed-origins";
 
 export {
+  ATTACHMENT_HEAD_BYTES,
+  ATTACHMENT_REFUSABLE_KINDS,
   ATTACHMENT_TYPES,
-  attachmentExtensionOf,
+  type AttachmentRefusableKind,
   attachmentIsRefused,
   attachmentPreviewKind,
   isImageAttachmentMime,
   isInlineAttachmentMime,
-  normalizeAttachmentExtension,
 } from "./attachment-types";
 
 export {

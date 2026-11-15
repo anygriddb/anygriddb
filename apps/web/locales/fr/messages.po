@@ -281,6 +281,11 @@ msgstr "{0, plural, one {# champ} other {# champs}}"
 msgid "{0, plural, one {# file missing or damaged} other {# files missing or damaged}}"
 msgstr "{0, plural, one {# fichier absent ou abîmé} other {# fichiers absents ou abîmés}}"
 
+#. placeholder {0}: report.filesRefused ?? 0
+#: lib/snapshot-report.ts
+msgid "{0, plural, one {# file of a type this instance refuses, left out} other {# files of a type this instance refuses, left out}}"
+msgstr "{0, plural, one {# fichier d’un type que cette instance refuse, laissé de côté} other {# fichiers d’un type que cette instance refuse, laissés de côté}}"
+
 #. placeholder {0}: staged.files
 #: components/shell/new-base-dialog.tsx
 msgid "{0, plural, one {# file} other {# files}}"
@@ -7058,6 +7063,10 @@ msgstr "Une ligne par personne, {PEOPLE_FILE_MAX} au plus. Chacune reçoit par e
 msgid "One option from a list"
 msgstr "Une option d’une liste"
 
+#: components/admin/settings-tab.tsx
+msgid "One per line (for example .exe). Empty: every extension is taken. Checked with the file name."
+msgstr "Une par ligne (par exemple .exe). Vide : toutes les extensions sont acceptées. Vérifié avec le nom du fichier."
+
 #: components/admin/sign-in-trail.tsx
 msgid "One session"
 msgstr "Une session"
@@ -7568,6 +7577,10 @@ msgstr "Produits, fournisseurs et seuils de réapprovisionnement."
 msgid "Profile"
 msgstr "Profil"
 
+#: components/admin/settings-tab.tsx
+msgid "Programs (Windows, Linux, macOS)"
+msgstr "Programmes (Windows, Linux, macOS)"
+
 #: lib/known-text.ts
 msgid "Project management"
 msgstr "Gestion de projet"
@@ -7855,6 +7868,14 @@ msgstr "rafraîchissements"
 #: components/fields/field-editor.tsx
 msgid "Refuse negative numbers"
 msgstr "Refuser les nombres négatifs"
+
+#: components/admin/settings-tab.tsx
+msgid "Refused file extensions"
+msgstr "Extensions de fichier refusées"
+
+#: components/admin/settings-tab.tsx
+msgid "Refused whatever their name"
+msgstr "Refusés quel que soit leur nom"
 
 #: components/settings/second-factor.tsx
 msgid "Register a passkey"
@@ -8567,6 +8588,10 @@ msgstr "Les scripts et les clients d’IA qui en utilisent un s’arrêtent auss
 #: components/admin/account-actions.tsx
 msgid "Scripts and tools using these tokens stop working at once."
 msgstr "Les scripts et outils qui utilisent ces jetons cessent aussitôt de fonctionner."
+
+#: components/admin/settings-tab.tsx
+msgid "Scripts that start with #!"
+msgstr "Scripts qui commencent par #!"
 
 #: components/public/public-view.tsx
 #: components/shell/sidebar.tsx
@@ -9672,6 +9697,10 @@ msgstr "Les textes lisent l’identifiant de la ligne et, pour une table d’Any
 #: components/views/form-view.tsx
 msgid "Thank you, your response was saved."
 msgstr "Merci, votre réponse a été enregistrée."
+
+#: lib/errors.ts
+msgid "That file type is not allowed on this instance."
+msgstr "Ce type de fichier n’est pas autorisé sur cette instance."
 
 #: lib/errors.ts
 msgid "That folder is not in this base"
@@ -10890,6 +10919,10 @@ msgstr "Jetons"
 msgid "Tokens and automations"
 msgstr "Jetons et automatisations"
 
+#: components/admin/settings-tab.tsx
+msgid "Told by the file's first bytes, so renaming it does not help. Nothing ticked: every kind is taken."
+msgstr "Reconnus aux premiers octets du fichier : le renommer n’y change rien. Rien de coché : tous les genres sont acceptés."
+
 #: components/table/filter-builder.tsx
 msgid "tomorrow"
 msgstr "demain"
@@ -11445,6 +11478,10 @@ msgstr "Champs surveillés (aucun : tous)"
 msgid "Watched table"
 msgstr "Table surveillée"
 
+#: components/admin/settings-tab.tsx
+msgid "Web pages and SVG images"
+msgstr "Pages web et images SVG"
+
 #: components/admin/support-tab.tsx
 #: components/admin/trails.tsx
 msgid "Webhook"
@@ -11865,24 +11902,3 @@ msgstr "Zoom avant"
 #: components/views/map-view.tsx
 msgid "Zoom out"
 msgstr "Zoom arrière"
-
-#: components/admin/settings-tab.tsx
-msgid "One MIME type per line, as read from the file's bytes. Empty: every type is taken."
-msgstr "Un type MIME par ligne, tel que lu dans les octets du fichier. Vide : tous les types sont acceptés."
-
-#: components/admin/settings-tab.tsx
-msgid "One per line (for example .exe). Empty: every extension is taken. Checked with the file name."
-msgstr "Une par ligne (par exemple .exe). Vide : toutes les extensions sont acceptées. Vérifié avec le nom du fichier."
-
-#: components/admin/settings-tab.tsx
-msgid "Refused content types"
-msgstr "Types de contenu refusés"
-
-#: components/admin/settings-tab.tsx
-msgid "Refused file extensions"
-msgstr "Extensions de fichier refusées"
-
-#: lib/errors.ts
-msgid "That file type is not allowed on this instance."
-msgstr "Ce type de fichier n’est pas autorisé sur cette instance."
-

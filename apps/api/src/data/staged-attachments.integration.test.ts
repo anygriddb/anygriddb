@@ -21,6 +21,7 @@ import {
 import { createApiToken } from "../auth/tokens.js";
 import type { Env } from "../env.js";
 import { DiskStore } from "../files/index.js";
+import { writeSettings } from "../settings.js";
 import { createTestDatabase } from "../test-database.js";
 import { browserFactory, errorCode } from "../trpc/caller.test-helpers.js";
 import { uploadSlots } from "../upload-slots.js";
@@ -207,6 +208,21 @@ describe("files sent to a public form", () => {
       headers: { authorization: `Bearer ${editorToken}` },
     });
     expect(read.statusCode).toBe(404);
+  });
+
+  it("answers a file of a refused extension with that rule, not a failure", async () => {
+    await writeSettings(db, owner, { attachmentRefusedExtensions: [".txt"] });
+    try {
+      const refused = await send(form.token, "files");
+      expect(refused.statusCode).toBe(400);
+      expect(refused.json<{ code?: string }>().code).toBe(
+        "attachment_type_refused",
+      );
+      const taken = await send(form.token, "files", {}, "devis.pdf.bin");
+      expect(taken.statusCode).toBe(200);
+    } finally {
+      await writeSettings(db, owner, { attachmentRefusedExtensions: [] });
+    }
   });
 
   it("refuses a field the form does not take, another kind of link, and a locked one", async () => {

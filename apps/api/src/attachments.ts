@@ -9,6 +9,7 @@ import multipart from "@fastify/multipart";
 import {
   type Action,
   AppError,
+  ATTACHMENT_HEAD_BYTES,
   ATTACHMENT_KEY,
   ATTACHMENT_MAX_BYTES_CEILING,
   attachmentIsRefused,
@@ -116,10 +117,10 @@ type AttachmentSource = { bytes: Buffer } | { path: string; size: number };
 
 /** The first bytes, which say what a file is. */
 async function headOf(source: AttachmentSource): Promise<Buffer> {
-  if ("bytes" in source) return source.bytes;
+  if ("bytes" in source) return source.bytes.subarray(0, ATTACHMENT_HEAD_BYTES);
   const handle = await open(source.path, "r");
   try {
-    const head = Buffer.alloc(16);
+    const head = Buffer.alloc(ATTACHMENT_HEAD_BYTES);
     const { bytesRead } = await handle.read(head, 0, head.length, 0);
     return head.subarray(0, bytesRead);
   } finally {
@@ -143,17 +144,18 @@ export async function storeAttachment(
     stagedShareId?: string;
   } & AttachmentSource,
 ): Promise<AttachmentMeta> {
+  const head = await headOf(input);
   const mime = sniffContentType(
-    await headOf(input),
+    head,
     input.filename.toLowerCase().endsWith(".txt") ? "text/plain" : undefined,
   );
   const policy = await readGateSettings(db);
   if (
     attachmentIsRefused({
       filename: input.filename,
-      mime,
+      head,
       refusedExtensions: policy.attachmentRefusedExtensions,
-      refusedMimes: policy.attachmentRefusedMimes,
+      refusedKinds: policy.attachmentRefusedKinds,
     })
   ) {
     throw new AppError("attachment_type_refused");

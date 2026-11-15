@@ -12,6 +12,7 @@ import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { storeAttachment } from "../attachments.js";
 import { DiskStore, readFile as readStored } from "../files/index.js";
+import { writeSettings } from "../settings.js";
 import { createTestDatabase } from "../test-database.js";
 import { listTableAcls, setTableAcl } from "./acl.js";
 import { withAudit } from "./audit-context.js";
@@ -237,6 +238,7 @@ describe("snapshots with files and people", () => {
       expect(imported.report).toEqual({
         files: 2,
         filesMissing: 0,
+        filesRefused: 0,
         people: 2,
         peopleDropped: 1,
         members: 1,
@@ -336,6 +338,47 @@ describe("snapshots with files and people", () => {
         members: 0,
       });
     } finally {
+      await folder.remove();
+    }
+  });
+
+  it("leaves out a file of an extension refused since, and says so", async () => {
+    const { folder, packed } = await exported();
+    try {
+      if (packed.kind !== "zip") throw new Error("not an archive");
+      await writeSettings(db, owner, { attachmentRefusedExtensions: [".txt"] });
+      const staged = await stageSnapshotFile(db, files, {
+        userId: owner,
+        path: packed.path,
+        size: packed.size,
+        filename: packed.filename,
+      });
+      const opened = await openStagedSnapshot(
+        db,
+        files,
+        staged.snapshotId,
+        owner,
+      );
+      const imported = await importBaseSnapshot(
+        db,
+        files,
+        owner,
+        opened.snapshot,
+        {
+          readFile: opened.readFile,
+          readLines: opened.readLines,
+          maxRows: 1_000_000,
+        },
+      );
+      await opened.close();
+      // The picture comes back; the note is of a refused extension.
+      expect(imported.report).toMatchObject({
+        files: 1,
+        filesMissing: 0,
+        filesRefused: 1,
+      });
+    } finally {
+      await writeSettings(db, owner, { attachmentRefusedExtensions: [] });
       await folder.remove();
     }
   });

@@ -269,39 +269,42 @@ export function SettingsTab() {
           {t`One per line (for example .exe). Empty: every extension is taken. Checked with the file name.`}
         </p>
       </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="setting-attachment-refused-mime">
-          {t`Refused content types`}
-        </Label>
-        <Textarea
-          id="setting-attachment-refused-mime"
-          rows={3}
-          className="font-mono text-sm"
-          aria-describedby="setting-attachment-refused-mime-hint"
-          defaultValue={settings.data.attachmentRefusedMimes.join("\n")}
-          key={settings.data.attachmentRefusedMimes.join(",")}
-          onBlur={(event) => {
-            const next = event.target.value
-              .split(/[\n,]+/)
-              .map((entry) => entry.trim())
-              .filter(Boolean);
-            const current = settings.data.attachmentRefusedMimes;
-            if (
-              next.length === current.length &&
-              next.every((entry, index) => entry === current[index])
-            ) {
-              return;
-            }
-            void save({ attachmentRefusedMimes: next });
-          }}
-        />
+      <fieldset
+        className="flex flex-col gap-1"
+        aria-describedby="setting-attachment-refused-kinds-hint"
+      >
+        <legend className="text-sm font-medium">
+          {t`Refused whatever their name`}
+        </legend>
+        {(
+          [
+            ["program", t`Programs (Windows, Linux, macOS)`],
+            ["script", t`Scripts that start with #!`],
+            ["page", t`Web pages and SVG images`],
+          ] as const
+        ).map(([kind, label]) => (
+          <label key={kind} className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={settings.data.attachmentRefusedKinds.includes(kind)}
+              onChange={(event) => {
+                const current = settings.data.attachmentRefusedKinds;
+                void save({
+                  attachmentRefusedKinds: event.target.checked
+                    ? [...current, kind]
+                    : current.filter((item) => item !== kind),
+                });
+              }}
+            />
+            {label}
+          </label>
+        ))}
         <p
-          id="setting-attachment-refused-mime-hint"
+          id="setting-attachment-refused-kinds-hint"
           className="text-xs text-muted-foreground"
         >
-          {t`One MIME type per line, as read from the file's bytes. Empty: every type is taken.`}
+          {t`Told by the file's first bytes, so renaming it does not help. Nothing ticked: every kind is taken.`}
         </p>
-      </div>
+      </fieldset>
       <section
         className="flex flex-col gap-1"
         aria-labelledby="setting-operator"

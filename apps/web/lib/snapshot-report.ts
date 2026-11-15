@@ -5,6 +5,8 @@ import { useLingui } from "@lingui/react/macro";
 type SnapshotReport = {
   files: number;
   filesMissing: number;
+  /** Absent from a report written before refused file types. */
+  filesRefused?: number;
   people: number;
   peopleDropped: number;
   members: number;
@@ -38,6 +40,12 @@ export function useSnapshotGaps(): (result: unknown) => string[] {
         ? t`${plural(report.filesMissing, {
             one: "# file missing or damaged",
             other: "# files missing or damaged",
+          })}`
+        : null,
+      (report.filesRefused ?? 0) > 0
+        ? t`${plural(report.filesRefused ?? 0, {
+            one: "# file of a type this instance refuses, left out",
+            other: "# files of a type this instance refuses, left out",
           })}`
         : null,
       report.peopleDropped > 0

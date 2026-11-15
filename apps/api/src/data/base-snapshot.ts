@@ -809,6 +809,8 @@ type SnapshotImportReport = {
   /** Files stored again, and those the snapshot lacked or that failed. */
   files: number;
   filesMissing: number;
+  /** Files of a kind or an extension this instance refuses, left out. */
+  filesRefused: number;
   /** People in user cells found here, and those left out. */
   people: number;
   peopleDropped: number;
@@ -1198,6 +1200,7 @@ export async function importBaseSnapshot(
   const report: SnapshotImportReport = {
     files: 0,
     filesMissing: 0,
+    filesRefused: 0,
     people: 0,
     peopleDropped: 0,
     members: 0,
@@ -1585,12 +1588,27 @@ async function restoreFiles(
       input.report.filesMissing += 1;
       continue;
     }
-    const meta = await storeAttachment(db, files, {
-      tableId: input.tableId,
-      userId,
-      filename: cleanFilename(name),
-      bytes,
-    });
+    let meta: Awaited<ReturnType<typeof storeAttachment>>;
+    try {
+      meta = await storeAttachment(db, files, {
+        tableId: input.tableId,
+        userId,
+        filename: cleanFilename(name),
+        bytes,
+      });
+    } catch (error) {
+      // A rule set here after the snapshot was made: the base still comes
+      // back, without that file, and the report says so.
+      if (
+        error instanceof AppError &&
+        error.code === "attachment_type_refused"
+      ) {
+        input.stored.set(id, null);
+        input.report.filesRefused += 1;
+        continue;
+      }
+      throw error;
+    }
     input.stored.set(id, meta.key);
     input.report.files += 1;
   }
