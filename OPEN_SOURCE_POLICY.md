@@ -48,6 +48,14 @@ which the OSI does not approve: it is neither shipped nor run by the
 tests, which read FerretDB (Apache-2.0) over a PostgreSQL with the
 DocumentDB extension (MIT).
 
+The other stores read from a copy use OSI clients too: `ioredis` (MIT)
+for the Redis wire protocol, `cassandra-driver` (Apache-2.0) for
+Cassandra, and `neo4j-driver` (Apache-2.0) for Neo4j. The tests read
+Valkey (BSD-3-Clause), Apache Cassandra (Apache-2.0), and Neo4j Community
+Edition (GPL-3.0): Redis's own server and Neo4j's Enterprise Edition are
+neither shipped nor run by them. `cassandra-driver` brings `adm-zip` for
+a cloud bundle AnyGridDB never opens.
+
 ## Official default stack (OSI)
 
 | Piece      | Choice                                                                        | License                 |
