@@ -1275,6 +1275,10 @@ msgstr "A view's rows, as {format}"
 msgid "A web address, as a link"
 msgstr "A web address, as a link"
 
+#: components/admin/logs-tab.tsx
+msgid "A word in a message, a path, or a code"
+msgstr "A word in a message, a path, or a code"
+
 #: components/admin/security-tab.tsx
 msgid "A year at least: the trash restores a deleted row from this trail. What a shorter choice deletes cannot be brought back; signatures are never deleted."
 msgstr "A year at least: the trash restores a deleted row from this trail. What a shorter choice deletes cannot be brought back; signatures are never deleted."
@@ -6659,6 +6663,10 @@ msgstr "No job with this status."
 msgid "No job yet. Imports, exports, and copies of tables and bases show here as people start them."
 msgstr "No job yet. Imports, exports, and copies of tables and bases show here as people start them."
 
+#: components/admin/logs-tab.tsx
+msgid "No line matches this search."
+msgstr "No line matches this search."
+
 #: components/admin/sign-in-trail.tsx
 msgid "No longer an administrator"
 msgstr "No longer an administrator"
@@ -8547,6 +8555,7 @@ msgstr "Scripts and AI clients that use one stop at once, yours too. A revoked t
 msgid "Scripts and tools using these tokens stop working at once."
 msgstr "Scripts and tools using these tokens stop working at once."
 
+#: components/admin/logs-tab.tsx
 #: components/public/public-view.tsx
 #: components/shell/sidebar.tsx
 #: components/table/view-toolbar.tsx

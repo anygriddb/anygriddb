@@ -780,7 +780,9 @@ address, a row): `message` repeats the kind and the code. To find a
 failure, search by `code` and read the first frame of `stack`.
 
 Administration shows the recent warnings, failures, and the process's own
-messages under Instance, Logs (ADR 0087). Successful requests stay on the
+messages under Instance, Logs (ADR 0087). A word typed there keeps the
+lines of the chosen level that contain it: the message, the path, the
+code, the address. Successful requests stay on the
 container's output. The page keeps a line's time, level, message, the
 request's method, path and address, and a failure's kind, code and frames.
 The lines live in the process's memory and disappear when it stops. The

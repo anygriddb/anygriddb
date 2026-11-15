@@ -178,6 +178,41 @@ describe("the process log", () => {
     expect(dropped?.error).toBeUndefined();
   });
 
+  it("finds a word and leaves out a line that does not have it", () => {
+    const log = createProcessLog();
+    log.capture(
+      line({
+        level: 40,
+        msg: "page failed in a browser",
+        client: {
+          kind: "render",
+          path: "/admin/instance/logs",
+          message: "missing title",
+        },
+      }),
+    );
+    log.capture(
+      line({ level: 50, msg: "unhandled rejection", code: "internal_error" }),
+    );
+    const found = log.list({
+      level: "warn",
+      limit: 20,
+      query: "Missing Title",
+    });
+    expect(found.map((item) => item.message)).toEqual([
+      "page failed in a browser",
+    ]);
+    expect(
+      log.list({ level: "warn", limit: 20, query: "internal_error" }),
+    ).toHaveLength(1);
+    expect(
+      log.list({ level: "warn", limit: 20, query: "zzzz-not-here" }),
+    ).toEqual([]);
+    expect(log.list({ level: "warn", limit: 20, query: "   " })).toHaveLength(
+      2,
+    );
+  });
+
   it("filters by level", () => {
     const log = createProcessLog();
     log.capture(line({ level: 30, msg: "instance settings changed" }));
