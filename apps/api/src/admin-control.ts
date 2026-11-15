@@ -412,6 +412,8 @@ export async function clearFactors(
       .deleteFrom("webauthnCredentials")
       .where("userId", "=", userId)
       .execute();
+    await tx.deleteFrom("emailFactors").where("userId", "=", userId).execute();
+    await tx.deleteFrom("emailOtpCodes").where("userId", "=", userId).execute();
     await tx.deleteFrom("backupCodes").where("userId", "=", userId).execute();
     await tx.deleteFrom("sessions").where("userId", "=", userId).execute();
     await recordAuthEvent(tx, {

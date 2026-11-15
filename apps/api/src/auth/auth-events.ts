@@ -14,6 +14,7 @@ export type AuthMethod =
   | "totp"
   | "backup"
   | "webauthn"
+  | "email"
   | "oidc"
   | "saml"
   | "signup"

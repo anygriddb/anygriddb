@@ -188,6 +188,8 @@ async function removeFactors(db: Database, userId: string): Promise<boolean> {
   for (const table of [
     "totpSecrets",
     "webauthnCredentials",
+    "emailFactors",
+    "emailOtpCodes",
     "backupCodes",
   ] as const) {
     const result = await db

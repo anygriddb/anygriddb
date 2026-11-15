@@ -56,11 +56,14 @@ export function AccountSettings() {
 
   // What deleting the account asks, as the server does: the password and
   // the authenticator's code when the account has them, a recent sign-in
-  // where neither can be asked.
+  // where neither can be asked (a passkey, a code by email, which a
+  // sign-in alone checks).
   const eraseAsksCode = user.mfaMethods.includes("totp");
   const eraseAsksSignIn =
     !user.hasPassword ||
-    (user.mfaMethods.includes("webauthn") && !eraseAsksCode);
+    ((user.mfaMethods.includes("webauthn") ||
+      user.mfaMethods.includes("email")) &&
+      !eraseAsksCode);
   const eraseReady =
     (!user.hasPassword || erasePassword.length > 0) &&
     (!eraseAsksCode || eraseCode.length >= 6);

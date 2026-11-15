@@ -42,6 +42,11 @@ export const ERRORS = {
   invalid_invitation: [BAD, "Invalid invitation"],
   invalid_origin: [BAD, "Invalid origin"],
   invalid_totp_secret: [BAD, "Invalid totp secret"],
+  email_otp_invalid: [401, "Invalid email code"],
+  email_otp_rate_limited: [429, "Email code rate limited"],
+  email_otp_not_sent: [503, "Email code not sent"],
+  /** A code by email is no second factor for an administrator (ADR 0085). */
+  email_factor_administrator: [403, "Email factor not for an administrator"],
 
   // Catalog.
   unknown_base: [BAD, "Unknown base"],

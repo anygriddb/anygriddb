@@ -144,3 +144,10 @@ export async function enrollTotp(browser: TestBrowser): Promise<string> {
 export function nextTotp(secret: string): string {
   return totpCode(decodeBase32(secret), Date.now() + 30_000);
 }
+
+/** The six-digit code a second-factor mail holds, alone on its line. */
+export function emailOtpFromMail(text: string): string {
+  const match = /^(\d{6})$/m.exec(text.replace(/\r/g, ""));
+  if (!match?.[1]) throw new Error("no code in the mail");
+  return match[1];
+}

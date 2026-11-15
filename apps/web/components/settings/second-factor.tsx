@@ -1,6 +1,6 @@
 import { Button, Input, Label } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Download, KeyRound, Smartphone } from "lucide-react";
+import { Copy, Download, KeyRound, Mail, Smartphone } from "lucide-react";
 import { useMemo, useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
 import { encode } from "uqr";
@@ -163,17 +163,26 @@ export function SecondFactorSetup({
     hasPassword: session.data?.hasPassword ?? false,
   };
   const totp = totpAction(methods);
+  const mailReady = instance.data?.mailReady === true;
   const passkeysOk =
     window.isSecureContext && (instance.data?.passkeysEligible ?? true);
   const [secret, setSecret] = useState<{ secret: string; url: string } | null>(
     null,
   );
   const [passkeyProof, setPasskeyProof] = useState(false);
+  // A code by email: the proof asked before one is sent, the code to
+  // type once it is, or the proof asked to turn it off.
+  const [emailStep, setEmailStep] = useState<
+    "proof" | "code" | "disable" | null
+  >(null);
+  const administrator = session.data?.isAdmin === true;
   const [code, setCode] = useState("");
   const [proofValue, setProofValue] = useState("");
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const totpProof = proofNeeded("totp", account);
   const passkeyProofKind = proofNeeded("passkey", account);
+  const emailProof = proofNeeded("email", account);
+  const emailOffProof = proofNeeded("email_off", account);
 
   function proofOf(kind: "password" | "code" | null) {
     if (kind === "password") return { password: proofValue };
@@ -198,8 +207,18 @@ export function SecondFactorSetup({
   function close() {
     setSecret(null);
     setPasskeyProof(false);
+    setEmailStep(null);
     setCode("");
     setProofValue("");
+  }
+
+  /** Asks for a code at the account's address, with the proof if one is due. */
+  async function sendEmailCode() {
+    await run(async () => {
+      await trpc.auth.email.begin.mutate(proofOf(emailProof));
+      setCode("");
+      setEmailStep("code");
+    });
   }
 
   async function addPasskey() {
@@ -233,9 +252,12 @@ export function SecondFactorSetup({
           {methods.includes("webauthn") ? (
             <li>{t`At least one passkey is registered.`}</li>
           ) : null}
+          {methods.includes("email") ? (
+            <li>{t`A code by email is set up.`}</li>
+          ) : null}
         </ul>
       ) : null}
-      {secret === null && !passkeyProof ? (
+      {secret === null && !passkeyProof && emailStep === null ? (
         <>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -265,6 +287,28 @@ export function SecondFactorSetup({
                 ? t`Add another passkey`
                 : t`Register a passkey`}
             </Button>
+            {mailReady && !administrator && !methods.includes("email") ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  // Beside another factor, the proof is asked first.
+                  if (emailProof) {
+                    setEmailStep("proof");
+                    return;
+                  }
+                  void sendEmailCode();
+                }}
+              >
+                <Mail className="h-4 w-4" aria-hidden />
+                {t`Set up a code by email`}
+              </Button>
+            ) : null}
+            {methods.includes("email") ? (
+              <Button variant="outline" onClick={() => setEmailStep("disable")}>
+                <Mail className="h-4 w-4" aria-hidden />
+                {t`Turn off the code by email`}
+              </Button>
+            ) : null}
           </div>
           {!window.isSecureContext ? (
             <p className="text-sm text-muted-foreground">
@@ -273,6 +317,11 @@ export function SecondFactorSetup({
           ) : instance.data && !instance.data.passkeysEligible ? (
             <p className="text-sm text-muted-foreground">
               {t`Passkeys need a hostname in PUBLIC_URL (a DNS name or localhost), not an IP address. Use an authenticator app, or open AnyGridDB at that hostname.`}
+            </p>
+          ) : null}
+          {mailReady && administrator ? (
+            <p className="text-sm text-muted-foreground">
+              {t`A code by email is not offered to an administrator: it reaches the mailbox a password is reset from.`}
             </p>
           ) : null}
         </>
@@ -389,6 +438,116 @@ export function SecondFactorSetup({
               <KeyRound className="h-4 w-4" aria-hidden />
               {t`Register the passkey`}
             </Button>
+            <Button type="button" variant="ghost" onClick={close}>
+              {t`Cancel`}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+      {emailStep === "proof" && emailProof ? (
+        <form
+          className="flex max-w-md flex-col gap-3"
+          onSubmit={(event: SubmitEvent) => {
+            event.preventDefault();
+            void sendEmailCode();
+          }}
+        >
+          <p className="text-sm text-muted-foreground">
+            {t`A code by email is one more way into this account: confirm it is you before it is added.`}
+          </p>
+          <ProofField
+            kind={emailProof}
+            value={proofValue}
+            onChange={setProofValue}
+          />
+          <div className="flex gap-2">
+            <Button type="submit">{t`Send the code`}</Button>
+            <Button type="button" variant="ghost" onClick={close}>
+              {t`Cancel`}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+      {emailStep === "code" ? (
+        <form
+          className="flex max-w-md flex-col gap-3"
+          onSubmit={(event: SubmitEvent) => {
+            event.preventDefault();
+            void run(async () => {
+              const result = await trpc.auth.email.confirm.mutate({ code });
+              toast.success(t`A code by email is set up`);
+              if (result.backupCodes.length > 0) {
+                setBackupCodes(result.backupCodes);
+              }
+              close();
+              await refresh();
+              if (result.backupCodes.length === 0) onDone?.();
+            });
+          }}
+        >
+          <p role="status" className="text-sm text-muted-foreground">
+            {t`A code was sent to your address. It works once, for ten minutes.`}
+          </p>
+          <Label htmlFor="email-otp-enroll">{t`Code received by email`}</Label>
+          <Input
+            id="email-otp-enroll"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            required
+            autoFocus
+            className="max-w-40 font-mono"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit">{t`Confirm the code`}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                // An authenticator's code proves once: it is asked again.
+                if (emailProof === "code") {
+                  setProofValue("");
+                  setEmailStep("proof");
+                  return;
+                }
+                void sendEmailCode();
+              }}
+            >
+              {t`Send another code`}
+            </Button>
+            <Button type="button" variant="ghost" onClick={close}>
+              {t`Cancel`}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+      {emailStep === "disable" ? (
+        <form
+          className="flex max-w-md flex-col gap-3"
+          onSubmit={(event: SubmitEvent) => {
+            event.preventDefault();
+            void run(async () => {
+              await trpc.auth.email.disable.mutate(proofOf(emailOffProof));
+              toast.success(t`The code by email is off`);
+              close();
+              await refresh();
+            });
+          }}
+        >
+          {emailOffProof ? (
+            <ProofField
+              kind={emailOffProof}
+              value={proofValue}
+              onChange={setProofValue}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t`Sign-ins to this account will no longer ask for a code by email.`}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button type="submit">{t`Turn off the code by email`}</Button>
             <Button type="button" variant="ghost" onClick={close}>
               {t`Cancel`}
             </Button>

@@ -109,6 +109,17 @@ export async function mailedMessage(
 }
 
 /**
+ * The six-digit code of the newest mail to `to` whose subject holds
+ * `subject`, alone on its line.
+ */
+export async function mailedCode(to: string, subject: string): Promise<string> {
+  const { text } = await mailedMessage(to, subject);
+  const code = /^(\d{6})$/m.exec(text.replace(/\r/g, ""))?.[1];
+  if (!code) throw new Error(`no code in the mail "${subject}" to ${to}`);
+  return code;
+}
+
+/**
  * The journeys meet the grid as a person who has hidden its tips, on every
  * page of their browser; the first journey shows them (`gridTips`).
  */
