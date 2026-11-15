@@ -31,6 +31,7 @@ French translations live in `apps/web/locales/fr/messages.po`.
 | Client database   | Add a source                                             | Not “Declare a source”                                                                                                           |
 | SCIM-managed      | Managed by your identity provider                        | Not “Kept by…”; the Provisioning page is labelled “Provisioning (SCIM)”                                                          |
 | Admin sections    | People, Security, Connections, Sources, Trails, Instance | Named by task (ROADMAP #49); “Connections” are the services the instance talks to, “Sign-ins” are people signing in              |
+| Act as            | Act as this person                                       | An administrator uses another person's rights for a short time. The screen never says “impersonate”                              |
 
 ## Tone
 

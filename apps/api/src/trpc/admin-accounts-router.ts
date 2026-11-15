@@ -25,6 +25,7 @@ import {
   previewPeople,
 } from "../accounts-bulk.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
+import { startActing, stopActing } from "../data/acting-as.js";
 import { unlockAccount } from "../auth/lockout.js";
 import { welcomeAccount } from "../auth/account-welcome.js";
 import { ADMIN_RESET_TTL_MS, createResetLink } from "../auth/password-reset.js";
@@ -524,6 +525,50 @@ export const adminAccountProcedures = {
         };
       }),
     ),
+  /** Act with this person's rights for thirty minutes (ADR 0091). */
+  startActing: procedure
+    .input(
+      z.object({
+        userId: z.uuid(),
+        reason: z.string().trim().min(1).max(200),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireAdmin(ctx);
+        if (!admin.sessionId) throw new AppError("cannot_act_as");
+        const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
+        return startActing(
+          ctx.db,
+          {
+            actorId: admin.id,
+            actorName: admin.displayName,
+            sessionId: admin.sessionId,
+            targetId: input.userId,
+            reason: input.reason,
+            ip: ctx.req.ip,
+          },
+          {
+            bus: ctx.bus,
+            smtp,
+            publicUrl: ctx.env.PUBLIC_URL,
+            log: (error, message) => ctx.req.log.error({ err: error }, message),
+          },
+        );
+      }),
+    ),
+  /** Leave the other person's rights. Asks for no proof. */
+  stopActing: procedure.mutation(({ ctx }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      if (!admin.sessionId) return { stopped: false };
+      return stopActing(ctx.db, {
+        actorId: admin.id,
+        sessionId: admin.sessionId,
+        ip: ctx.req.ip,
+      });
+    }),
+  ),
   /** Every API token of the instance, revoked at once (ROADMAP #24). */
   revokeAllTokens: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {

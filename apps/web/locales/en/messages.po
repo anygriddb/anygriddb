@@ -469,6 +469,16 @@ msgstr "{0, plural, one {Revoke their API token too: a token is never handed ove
 msgid "{0} of {1} lines"
 msgstr "{0} of {1} lines"
 
+
+#. placeholder {0}: event.displayName ?? "AnyGridDB"
+#. placeholder {0}: event.userName ?? "—"
+#. placeholder {1}: event.actingName
+#: components/admin/trails.tsx
+#: components/history/earlier.tsx
+#: components/record/record-panel.tsx
+msgid "{0}, acting as {1}"
+msgstr "{0}, acting as {1}"
+
 #: components/shell/notification-items.ts
 msgid "{actor} assigned you a row in {table} ({field})"
 msgstr "{actor} assigned you a row in {table} ({field})"

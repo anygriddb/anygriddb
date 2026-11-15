@@ -1,16 +1,24 @@
 import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
+  Label,
   Spinner,
+  Textarea,
 } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, LockKeyhole, MoreHorizontal } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import { useErrorText } from "../../lib/errors";
 import { useSession } from "../../lib/session";
-import { useTRPC } from "../../lib/trpc";
+import { trpc, useTRPC } from "../../lib/trpc";
 import { LoadFailed } from "../shell/load-failed";
 import {
   ACCOUNT_ACTIONS,
@@ -47,6 +55,10 @@ export function AccountAdminPage({ userId }: { userId: string }) {
   const session = useSession();
   const navigate = useNavigate();
   const labels = useAuthLabels();
+  const errorText = useErrorText();
+  const [opening, setOpening] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
   const detail = useQuery(api.admin.account.queryOptions({ userId }));
   const actions = useAccountActions({
     mails: detail.data?.smtpReady ?? false,
@@ -124,6 +136,20 @@ export function AccountAdminPage({ userId }: { userId: string }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1">
+          {session.data?.isAdmin &&
+          !self &&
+          !account.isAdmin &&
+          !account.isSupport &&
+          !account.isAuditor &&
+          !account.disabledAt ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setOpening(true)}
+            >
+              {t`Act as this person`}
+            </Button>
+          ) : null}
           {IN_VIEW.map((action) => actions.button(action, target))}
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -255,6 +281,45 @@ export function AccountAdminPage({ userId }: { userId: string }) {
       </Part>
 
       {actions.dialogs}
+      {opening ? (
+        <Dialog open onOpenChange={(open) => !open && setOpening(false)}>
+          <DialogContent
+            title={t`Act as ${account.displayName}`}
+            description={t`For 30 minutes you see and do what they can. Every change is recorded under your name, as you acting as them. They are told.`}
+          >
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="act-as-reason">{t`Reason`}</Label>
+              <Textarea
+                id="act-as-reason"
+                maxLength={200}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setOpening(false)}>
+                {t`Cancel`}
+              </Button>
+              <Button
+                disabled={busy || reason.trim().length === 0}
+                onClick={() => {
+                  setBusy(true);
+                  void trpc.admin.startActing
+                    .mutate({ userId: account.id, reason })
+                    .then(async () => {
+                      await session.refetch();
+                      await navigate({ to: "/" });
+                    })
+                    .catch((cause: unknown) => toast.error(errorText(cause)))
+                    .finally(() => setBusy(false));
+                }}
+              >
+                {t`Act as this person`}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </div>
   );
 }

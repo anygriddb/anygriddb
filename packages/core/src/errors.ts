@@ -14,6 +14,10 @@ export const ERRORS = {
   webauthn_rejected: [401, "WebAuthn rejected"],
   challenge_expired: [401, "Challenge expired"],
   access_denied: [403, "Access denied"],
+  /** Administration is closed while the administrator acts as someone. */
+  acting_as: [403, "Acting as someone"],
+  cannot_act_as: [403, "Cannot act as this person"],
+  already_acting: [409, "Already acting as someone"],
   mfa_enrollment_required: [403, "MFA enrollment required"],
   account_disabled: [403, "Account disabled"],
   account_locked: [403, "Account locked"],

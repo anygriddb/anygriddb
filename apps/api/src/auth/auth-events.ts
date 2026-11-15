@@ -90,7 +90,8 @@ type AuthEvent = {
   /** The administrator who acted on it. */
   actorId?: string | null;
   method?: AuthMethod | null;
-  detail?: AuthDetail | null;
+  /** A stable code, or the reason an administrator typed while acting as someone. */
+  detail?: string | null;
   ip?: string | null;
 };
 

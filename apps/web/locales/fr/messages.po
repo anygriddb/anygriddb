@@ -469,6 +469,16 @@ msgstr "{0, plural, one {Révoquer aussi son jeton d’API : un jeton n’est j
 msgid "{0} of {1} lines"
 msgstr "{0} sur {1} lignes"
 
+
+#. placeholder {0}: event.displayName ?? "AnyGridDB"
+#. placeholder {0}: event.userName ?? "—"
+#. placeholder {1}: event.actingName
+#: components/admin/trails.tsx
+#: components/history/earlier.tsx
+#: components/record/record-panel.tsx
+msgid "{0}, acting as {1}"
+msgstr "{0}, agissant en tant que {1}"
+
 #: components/shell/notification-items.ts
 msgid "{actor} assigned you a row in {table} ({field})"
 msgstr "{actor} vous a assigné une ligne de {table} ({field})"

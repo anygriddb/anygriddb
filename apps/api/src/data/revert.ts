@@ -279,6 +279,7 @@ export async function listEarlier(
   const rows = await db
     .selectFrom("auditEvents as e")
     .innerJoin("users as u", "u.id", "e.userId")
+    .leftJoin("users as p", "p.id", "e.impersonatedUserId")
     .select([
       "e.id",
       "e.occurredAt",
@@ -286,6 +287,7 @@ export async function listEarlier(
       "e.newValue",
       "e.source",
       "u.displayName",
+      "p.displayName as actingName",
     ])
     .where("e.action", "=", "catalog")
     .where("e.catalogTable", "=", REVERT_CATALOG_TABLE[kind])
@@ -310,6 +312,7 @@ export async function listEarlier(
       id: row.id,
       occurredAt: row.occurredAt.toISOString(),
       displayName: row.displayName,
+      actingName: row.actingName,
       verb: !oldPayload ? "created" : !nextPayload ? "removed" : "edited",
       source: row.source,
       changes: listed.changes,

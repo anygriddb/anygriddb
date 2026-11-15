@@ -9,6 +9,7 @@ import {
   renewSession,
   sessionCookieOptions,
 } from "../auth/session.js";
+import { runActing } from "../data/acting-context.js";
 import type { SessionUser } from "../auth/session.js";
 import type { Context } from "./context.js";
 import { describeTRPCError, toTRPCError } from "./map-error.js";
@@ -37,8 +38,18 @@ export const t = initTRPC.context<Context>().create({
  * reaches the client with its status and code, never as an internal one.
  */
 export const procedure = t.procedure.use(async ({ ctx, next, path }) => {
+  // A token never acts as someone. A session does, for this call only.
+  // A caller built without a request (a test of error mapping) is no one.
+  const request = ctx.req as typeof ctx.req | undefined;
+  const acting =
+    request && !request.headers.authorization
+      ? ((await findSessionUser(ctx.db, request.cookies[SESSION_COOKIE]))
+          ?.actingAs?.id ?? null)
+      : null;
   // Timed and traced per procedure, under its HTTP request (ADR 0018).
-  const result = await measureProcedure(path, ctx.req, () => next());
+  const result = await measureProcedure(path, ctx.req, () =>
+    runActing(acting, () => next()),
+  );
   if (
     !result.ok &&
     result.error.code === "INTERNAL_SERVER_ERROR" &&

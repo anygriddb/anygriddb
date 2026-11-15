@@ -449,8 +449,8 @@ export async function createApp(deps: {
         if (socket.readyState !== socket.OPEN) return;
         hub.add(
           socket,
-          user.id,
-          user.displayName,
+          user.actingAs?.id ?? user.id,
+          user.actingAs?.displayName || user.displayName,
           early,
           hashSessionToken(sessionToken),
         );

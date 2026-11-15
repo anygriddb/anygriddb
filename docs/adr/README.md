@@ -103,3 +103,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0088](0088-stores-read-from-a-copy.md)              | Stores that speak no SQL are read from a copy                                           | Accepted (extends 0034)                     |
 | [0089](0089-putting-a-value-back.md)                 | Putting a value back writes a new change from the trail                                 | Accepted                                    |
 | [0090](0090-a-base-held-in-a-source.md)              | A new base can keep its tables in a schema of a SQL source                              | Accepted (extends 0006)                     |
+| [0091](0091-acting-as.md)                            | An administrator acts with another person's rights, and signs the change                | Accepted                                    |

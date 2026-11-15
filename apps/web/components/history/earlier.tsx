@@ -18,6 +18,7 @@ export type EarlierEvent = {
   id: string;
   occurredAt: string;
   displayName: string | null;
+  actingName?: string | null;
   verb: "created" | "edited" | "removed";
   source: string | null;
   changes: Change[];
@@ -54,7 +55,9 @@ export function EarlierList(props: {
         <li key={event.id} className="text-sm">
           <p className="text-xs">
             <span className="font-medium">
-              {event.displayName ?? "AnyGridDB"}
+              {event.actingName
+                ? t`${event.displayName ?? "AnyGridDB"}, acting as ${event.actingName}`
+                : (event.displayName ?? "AnyGridDB")}
             </span>{" "}
             {event.verb === "created"
               ? t`created`

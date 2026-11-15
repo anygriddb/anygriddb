@@ -166,6 +166,11 @@ export async function eraseAccount(
         .where("userId", "=", userId)
         .execute();
       await tx
+        .updateTable("auditEvents")
+        .set({ impersonatedUserId: ERASED_USER_ID })
+        .where("impersonatedUserId", "=", userId)
+        .execute();
+      await tx
         .updateTable("rowSignatures")
         .set({ userId: ERASED_USER_ID, displayName: "Erased account" })
         .where("userId", "=", userId)

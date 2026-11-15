@@ -256,11 +256,17 @@ export async function requestActor(
     return null;
   }
   await assertNotInMaintenance(db, user);
-  const raw = await loadBindings(db, user.id);
+  const raw = await loadBindings(db, user.actingAs?.id ?? user.id);
   await assertEnrolled(db, user, raw);
   // As in `authorize`: the session reads the bases its administrator has
   // open, a token does not.
-  const own = bearer ? raw : await sessionBindings(db, user, raw);
+  const own = bearer
+    ? raw
+    : await sessionBindings(
+        db,
+        user.actingAs ? { id: user.actingAs.id, isAdmin: false } : user,
+        raw,
+      );
   return {
     user,
     bindings: await scopeBindings(db, own, bearer?.scope),

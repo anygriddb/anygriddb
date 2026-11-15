@@ -222,6 +222,23 @@ export function adminAccessMailBody(
   return `${what}\n\nThe reason they gave:\n${notice.reason}\n\nIt is written to the instance's change trail. The members of the base:\n${link}`;
 }
 
+export function actingAsMailSubject(voice: MailVoice): string {
+  return voice.locale === "fr"
+    ? `${voice.name}\u00a0: un administrateur agit en tant que vous`
+    : `${voice.name}: an administrator is acting as you`;
+}
+
+export function actingAsMailBody(
+  voice: MailVoice,
+  notice: { adminName: string; reason: string; until: Date },
+): string {
+  const when = moment(voice.locale, notice.until);
+  if (voice.locale === "fr") {
+    return `${notice.adminName}, qui administre ${voice.name}, agit en tant que vous jusqu’au ${when}. Les modifications porteront son nom.\n\nLa raison donnée\u00a0:\n${notice.reason}`;
+  }
+  return `${notice.adminName}, an administrator of ${voice.name}, is acting as you until ${when}. Changes will carry their name.\n\nThe reason they gave:\n${notice.reason}`;
+}
+
 export function testMailSubject(voice: MailVoice): string {
   return voice.locale === "fr"
     ? `${voice.name}\u00a0: message de test`
