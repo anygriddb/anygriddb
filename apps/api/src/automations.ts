@@ -25,6 +25,7 @@ import {
   webhookTemplateValues,
   writeSlackMessage,
   writeTeamsMessage,
+  jsonCellText,
 } from "@anygriddb/core";
 import type { AutomationRow, Database } from "@anygriddb/db";
 import type { Bus } from "./realtime/bus.js";
@@ -1035,8 +1036,11 @@ async function deletedValues(
   const before = old as Record<string, unknown>;
   const values: Record<string, string> = {};
   for (const column of engine.table.columns) {
-    if (column.name in before)
-      values[column.name] = cellText(before[column.name]);
+    if (!(column.name in before)) continue;
+    const value = before[column.name];
+    // The trail holds a document as the object or the list it is.
+    values[column.name] =
+      column.fieldType === "json" ? jsonCellText(value) : cellText(value);
   }
   return values;
 }

@@ -257,6 +257,7 @@ const CONFIG_SCHEMAS: Record<FieldType, z.ZodType<ColumnConfig>> = {
   phone: z.object({}).strict(),
   color: z.object({}).strict(),
   place: z.object({}).strict(),
+  json: z.object({}).strict(),
   number: z
     .object({
       number: numberFormatSchema.optional(),

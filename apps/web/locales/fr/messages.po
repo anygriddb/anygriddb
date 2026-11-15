@@ -1851,6 +1851,10 @@ msgstr "une date précise"
 msgid "An expanded row draws this field's text as a code, for a scanner to read."
 msgstr "Une ligne développée dessine le texte de ce champ sous forme de code, lisible par un lecteur de codes."
 
+#: components/fields/field-meta.tsx
+msgid "An object or a list, which a formula reads into"
+msgstr "Un objet ou une liste, dans lesquels une formule lit"
+
 #: components/table/filter-builder.tsx
 #: components/table/view-toolbar.tsx
 msgid "and"
@@ -5390,6 +5394,10 @@ msgstr "Tâches, webhooks et automatisations en échec en 24 heures"
 #: components/fields/formula-docs.ts
 msgid "Joins texts end to end, as the & operator does."
 msgstr "Met les textes bout à bout, comme l’opérateur &."
+
+#: components/fields/field-meta.tsx
+msgid "JSON"
+msgstr "JSON"
 
 #: components/shell/shortcuts-dialog.tsx
 msgid "Jump to the edge of the grid"

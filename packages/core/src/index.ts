@@ -39,6 +39,8 @@ export {
   type Place,
 } from "./cell-values";
 
+export { jsonCellText, prettyJson } from "./json-text";
+
 export {
   cellText,
   DelimitedReader,

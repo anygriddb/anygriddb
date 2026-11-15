@@ -70,6 +70,7 @@ export type FieldType =
   | "duration"
   | "email"
   | "formula"
+  | "json"
   | "last_modified_by"
   | "last_modified_time"
   | "long_text"

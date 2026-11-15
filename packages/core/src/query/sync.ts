@@ -73,7 +73,8 @@ export function copyColumns(
       name: physical.name,
       type: link
         ? keyType(declared.get(physical.name))
-        : isWritableType(column.fieldType)
+        : // A document arrives as its text, and is kept and read as such.
+          isWritableType(column.fieldType) && column.fieldType !== "json"
           ? physicalSqlType(column.fieldType)
           : "text",
       source: { kind: "field", name: column.name, link },

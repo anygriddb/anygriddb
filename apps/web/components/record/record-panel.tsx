@@ -162,7 +162,9 @@ function FieldRow({
             : "text-sm",
           canEditField && "cursor-text hover:border-border",
           editing && !opensPanel(column.fieldType) && "h-9",
-          column.fieldType === "long_text" && editing && "h-40",
+          (column.fieldType === "long_text" || column.fieldType === "json") &&
+            editing &&
+            "h-40",
         )}
         onClick={() => {
           if (!canEditField || editing) return;

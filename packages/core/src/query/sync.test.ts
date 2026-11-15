@@ -82,6 +82,25 @@ describe("copies of synced tables", () => {
     ]);
   });
 
+  it("keeps a JSON document as the text it arrives as", () => {
+    // A document reaches the copy as its text: kept as jsonb, the copy
+    // would hold a JSON string of it, and read it back in quotes.
+    const documented = {
+      ...table,
+      columns: [
+        ...table.columns,
+        column("details", "json", {
+          physical: { name: "details", type: "json", zone: "UTC" },
+        }),
+      ],
+    } as unknown as EngineTable;
+    expect(
+      copyColumns(documented, declared)
+        .map((item) => [item.name, item.type])
+        .at(-1),
+    ).toEqual(["details", "text"]);
+  });
+
   it("takes the key from the id and a link's key from its cell", () => {
     const columns = copyColumns(table, declared);
     expect(

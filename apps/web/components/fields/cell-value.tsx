@@ -4,6 +4,7 @@ import {
   isEmail,
   isHttpUrl,
   isPlace,
+  prettyJson,
 } from "@anygriddb/core";
 
 import { Avatar, cn, OptionBadge } from "@anygriddb/ui";
@@ -345,6 +346,19 @@ export function CellValueView({
           className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
         />
         <span className="truncate">{highlight(text, search)}</span>
+      </span>
+    );
+  }
+  if (type === "json" && typeof value === "string") {
+    // Folded on a grid's line; laid out, a member a line, where it wraps.
+    return (
+      <span
+        className={cn(
+          "font-mono text-xs",
+          wrap ? "break-words whitespace-pre-wrap" : "truncate",
+        )}
+      >
+        {highlight(wrap ? prettyJson(value) : value, search)}
       </span>
     );
   }

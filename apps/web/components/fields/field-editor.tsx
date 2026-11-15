@@ -123,6 +123,7 @@ const CONVERTIBLE = new Set([
   "phone",
   "color",
   "place",
+  "json",
   "single_select",
   "multi_select",
   "number",

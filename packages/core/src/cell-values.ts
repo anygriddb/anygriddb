@@ -8,6 +8,7 @@ import {
   type FieldType,
 } from "./field-types";
 import { AppError } from "./errors";
+import { isJsonDocument, parseJsonDocument } from "./json-text";
 
 export const ATTACHMENT_KEY = /^att[A-Za-z0-9_-]{20,80}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -203,6 +204,9 @@ export function assertCellValue(column: CellColumn, value: unknown): void {
       break;
     case "place":
       if (typeof value === "string" && isPlace(value)) return;
+      break;
+    case "json":
+      if (isJsonDocument(value)) return;
       break;
     case "number": {
       // Exact as a decimal string (ADR 0023); a finite number is accepted
@@ -406,6 +410,10 @@ function coerceRaw(
   }
   const { fieldType, config } = column;
   if (Array.isArray(raw)) {
+    // A list sent as such is the document itself.
+    if (fieldType === "json") {
+      return parseJsonDocument(JSON.stringify(raw));
+    }
     if (
       fieldType === "multi_select" ||
       fieldType === "user" ||
@@ -453,6 +461,8 @@ function coerceRaw(
       const place = parsePlace(trimmed);
       return place ? formatPlace(place) : undefined;
     }
+    case "json":
+      return parseJsonDocument(trimmed);
     case "number":
       return parseLooseDecimal(trimmed);
     case "rating": {

@@ -1,4 +1,4 @@
-import { cellText, isDecimalString } from "@anygriddb/core";
+import { cellText, isDecimalString, jsonCellText } from "@anygriddb/core";
 import type { CatalogColumn, Collaborator } from "./types";
 
 type Locale = "fr" | "en";
@@ -186,6 +186,10 @@ export function cellDisplay(
   }
   if (column.fieldType === "duration" && typeof value === "number") {
     return formatDuration(value, config.durationFormat);
+  }
+  // A row's history holds a document as the object or the list it is.
+  if (column.fieldType === "json") {
+    return jsonCellText(value);
   }
   // A place is kept without a space; it is read more easily with one.
   if (column.fieldType === "place" && typeof value === "string") {

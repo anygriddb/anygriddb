@@ -265,6 +265,13 @@ function writeValue(
     case "place":
       if (typeof value !== "string") throw new AppError("invalid_cell");
       return params.bind(value);
+    case "json":
+      if (typeof value !== "string") throw new AppError("invalid_cell");
+      // PostgreSQL takes a bound text for text; the other engines read a
+      // document out of the text they are given.
+      return dialect === "postgres"
+        ? `cast(${params.bind(value)} as ${type === "json" ? "json" : "jsonb"})`
+        : params.bind(value);
     case "date":
       if (typeof value !== "string") throw new AppError("invalid_cell");
       // Oracle reads a bound text by the session's format, which has a time.
@@ -554,6 +561,7 @@ export const SIDE_FIELD_TYPES = [
   "phone",
   "color",
   "place",
+  "json",
   "rating",
 ] as const;
 
@@ -563,6 +571,11 @@ export function isSideFieldType(type: string): type is SideFieldType {
   return (SIDE_FIELD_TYPES as readonly string[]).includes(type);
 }
 
+/**
+ * A document is kept in the engine's JSON type where every version
+ * AnyGridDB reaches has one (MariaDB's is a long text it checks), and as
+ * the long text AnyGridDB checked itself on SQL Server and Oracle.
+ */
 const SIDE_TYPES: Record<DialectName, Record<SideFieldType, string>> = {
   postgres: {
     text: "text",
@@ -577,6 +590,7 @@ const SIDE_TYPES: Record<DialectName, Record<SideFieldType, string>> = {
     phone: "text",
     color: "text",
     place: "text",
+    json: "jsonb",
     rating: "integer",
   },
   mysql: {
@@ -592,6 +606,7 @@ const SIDE_TYPES: Record<DialectName, Record<SideFieldType, string>> = {
     phone: "varchar(100)",
     color: "varchar(7)",
     place: "varchar(40)",
+    json: "json",
     rating: "int",
   },
   mariadb: {
@@ -607,6 +622,7 @@ const SIDE_TYPES: Record<DialectName, Record<SideFieldType, string>> = {
     phone: "varchar(100)",
     color: "varchar(7)",
     place: "varchar(40)",
+    json: "json",
     rating: "int",
   },
   sqlserver: {
@@ -622,6 +638,7 @@ const SIDE_TYPES: Record<DialectName, Record<SideFieldType, string>> = {
     phone: "nvarchar(100)",
     color: "varchar(7)",
     place: "varchar(40)",
+    json: "nvarchar(max)",
     rating: "int",
   },
   oracle: {
@@ -637,6 +654,7 @@ const SIDE_TYPES: Record<DialectName, Record<SideFieldType, string>> = {
     phone: "varchar2(100)",
     color: "varchar2(7)",
     place: "varchar2(40)",
+    json: "clob",
     rating: "number(10)",
   },
 };

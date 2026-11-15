@@ -556,6 +556,8 @@ export const POSTGRES: SqlDialect = {
     `exists (select 1 from jsonb_array_elements(${sql}) e where e->>'id' = any(${list}))`,
   readColumn: (ref, fieldType, physical) => {
     if (!isWritableType(fieldType)) return ref;
+    // A document is read as its text, as a table of AnyGridDB's own is.
+    if (fieldType === "json") return `(${ref})::text`;
     const wanted = physicalSqlType(fieldType);
     const stored = typeName(physical.type);
     if (stored === wanted || stored === SAME_TYPE[wanted]) return ref;
@@ -1126,7 +1128,9 @@ function mysqlDialect(name: "mysql" | "mariadb"): SqlDialect {
       // A JSON document (MySQL's JSON, MariaDB's LONGTEXT alias) shows as
       // its text: JSON_OBJECT would nest it as an object otherwise.
       if (
-        (fieldType === "text" || fieldType === "long_text") &&
+        (fieldType === "text" ||
+          fieldType === "long_text" ||
+          fieldType === "json") &&
         (type === "json" || type === "longtext")
       ) {
         return `cast(${ref} as char)`;

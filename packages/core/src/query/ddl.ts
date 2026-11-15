@@ -4,6 +4,7 @@ import {
   physicalSqlType,
   type FieldType,
 } from "../field-types";
+import { JSON_MAX_CHARS } from "../json-text";
 import { isReservedColumnName } from "../names";
 import { assertIdentifier, quoteIdent, type ParameterizedSql } from "./params";
 import { AppError } from "../errors";
@@ -283,6 +284,7 @@ const CONVERTIBLE: ReadonlySet<FieldType> = new Set([
   "phone",
   "color",
   "place",
+  "json",
   "single_select",
   "multi_select",
   "number",
@@ -326,6 +328,15 @@ function placeExpression(text: string): string {
 }
 
 /**
+ * A text read as a document, as `parseJsonDocument` reads it: JSON, an
+ * object or a list, no longer than a write takes once jsonb has spelled
+ * it. How deep it nests is left to PostgreSQL.
+ */
+function jsonExpression(text: string): string {
+  return `(select case when jsonb_typeof(d.doc) in ('object', 'array') and char_length(d.doc::text) <= ${String(JSON_MAX_CHARS)} then d.doc end from (select case when pg_input_is_valid(${text}, 'jsonb') then (${text})::jsonb end as doc) d)`;
+}
+
+/**
  * Expression that converts `source` (a column reference) from one type to
  * another without raising: values that do not fit become null.
  */
@@ -353,6 +364,7 @@ export function convertExpression(
               : `${source}::text`;
   if (to === "color") return colorExpression(asText);
   if (to === "place") return placeExpression(asText);
+  if (to === "json") return jsonExpression(asText);
   switch (toSql) {
     case "text":
       return TEXT_SQL.has(fromSql) ? source : asText;

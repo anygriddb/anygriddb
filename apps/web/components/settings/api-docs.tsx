@@ -43,6 +43,8 @@ function example(column: CatalogColumn): unknown {
       return "#1f3fae";
     case "place":
       return "48.8566,2.3522";
+    case "json":
+      return '{"key": "value"}';
     case "user":
       return ["<user id>"];
     case "attachment":
@@ -94,6 +96,7 @@ const WRITABLE = new Set([
   "phone",
   "color",
   "place",
+  "json",
   "rating",
   "duration",
   "user",

@@ -107,6 +107,7 @@ const SUPPORTED = new Set([
   "phone",
   "color",
   "place",
+  "json",
   "rating",
   "duration",
   "user",
@@ -143,12 +144,17 @@ export function FieldInput({
   };
   switch (column.fieldType) {
     case "long_text":
+    case "json":
       return (
         <Textarea
           id={id}
           {...aria}
           value={String(value)}
           onChange={(event) => onChange(event.target.value)}
+          className={
+            column.fieldType === "json" ? "font-mono text-xs" : undefined
+          }
+          spellCheck={column.fieldType === "json" ? false : undefined}
         />
       );
     case "boolean": {
