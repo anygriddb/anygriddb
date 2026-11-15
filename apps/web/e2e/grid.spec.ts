@@ -812,15 +812,18 @@ test("an earlier cell, base name, and widget title go back", async ({
   await page.getByRole("link", { name: "Dashboards" }).click();
   await page.getByLabel("New dashboard").fill("Board");
   await page.getByRole("button", { name: "Create", exact: true }).click();
+  // A widget is changed while the dashboard is being edited.
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByRole("button", { name: "Add a widget" }).click();
-  await page.getByLabel("Title").fill("Orders");
-  await page.getByRole("button", { name: "Add", exact: true }).click();
+  const added = page.getByRole("dialog", { name: "Add a widget" });
+  await added.getByLabel("Title", { exact: true }).fill("Orders");
+  await added.getByRole("button", { name: "Add", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Orders" })).toBeVisible();
   await page.getByRole("button", { name: "Actions for Orders" }).click();
-  await page.getByRole("menuitem", { name: "Rename" }).click();
-  const widget = page.getByRole("dialog", { name: "Rename" });
-  await widget.getByLabel("Title").fill("Orders 2");
-  await widget.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  const widget = page.getByRole("dialog", { name: "Edit the widget" });
+  await widget.getByLabel("Title", { exact: true }).fill("Orders 2");
+  await widget.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Orders 2" })).toBeVisible();
   await page.getByRole("button", { name: "Actions for Orders 2" }).click();
   await page.getByRole("menuitem", { name: "Earlier", exact: true }).click();
