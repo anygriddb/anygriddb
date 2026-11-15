@@ -395,6 +395,7 @@ function NewBaseForm(props: NewBaseProps) {
           <Label htmlFor="new-base-home">{t`Where the tables live`}</Label>
           <Select
             id="new-base-home"
+            aria-describedby="new-base-home-hint"
             value={home}
             onChange={(event) => {
               const next = event.target.value;
@@ -409,7 +410,7 @@ function NewBaseForm(props: NewBaseProps) {
               </option>
             ))}
           </Select>
-          <p className="text-xs text-muted-foreground">
+          <p id="new-base-home-hint" className="text-xs text-muted-foreground">
             {home
               ? t`Tables you create, and the columns you add to them, are written in a schema of this source. Members, views, dashboards, files, and history stay in AnyGridDB.`
               : t`Tables stay in AnyGridDB. A source without SQL is not listed: it is read from a copy and cannot hold a new base.`}
