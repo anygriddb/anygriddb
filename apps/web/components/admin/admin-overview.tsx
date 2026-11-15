@@ -45,6 +45,11 @@ export function AdminOverview() {
     enabled: readsAll,
     refetchInterval: 30_000,
   });
+  const usage = useQuery({
+    ...api.admin.usage.queryOptions(),
+    enabled: readsAll,
+    refetchInterval: 60_000,
+  });
   const ownerless = useQuery({
     ...api.admin.baseOverview.ownerlessCount.queryOptions(),
     enabled: readsAll,
@@ -55,7 +60,7 @@ export function AdminOverview() {
     refetchInterval: 60_000,
   });
   const queries = readsAll
-    ? [locked, unprotected, invitations, health, ownerless, alerts]
+    ? [locked, unprotected, invitations, health, usage, ownerless, alerts]
     : [locked];
   const cards: ReactNode[] = [];
   const card = (
@@ -166,12 +171,57 @@ export function AdminOverview() {
   }
 
   if (queries.some((query) => query.isLoading)) return <Spinner />;
-  return cards.length > 0 ? (
-    <ul className="grid gap-3 sm:grid-cols-2">{cards}</ul>
-  ) : (
-    <p className="flex items-center gap-2 rounded-sm border border-border px-4 py-3 text-sm">
-      <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
-      {t`Nothing needs your attention.`}
-    </p>
+  const usageNow = usage.data?.current;
+  return (
+    <div className="flex flex-col gap-4">
+      {readsAll && usageNow ? (
+        <ul className="grid gap-3 sm:grid-cols-2">
+          <li className="rounded-sm border border-border px-4 py-3 text-sm">
+            <span className="tabular-nums font-medium">
+              {usageNow.accountsActive30d}
+            </span>
+            <span className="text-muted-foreground">
+              {" "}
+              / {usageNow.accountsTotal}
+            </span>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t`Accounts active in the last 30 days`}
+            </p>
+            <Link
+              to="/admin/instance/health"
+              className="mt-1 inline-block text-xs font-medium text-primary hover:underline"
+            >
+              {t`See usage and load`}
+            </Link>
+          </li>
+          <li className="rounded-sm border border-border px-4 py-3 text-sm">
+            <span className="tabular-nums font-medium">
+              {usageNow.basesActive30d}
+            </span>
+            <span className="text-muted-foreground">
+              {" "}
+              / {usageNow.basesTotal}
+            </span>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t`Bases active in the last 30 days`}
+            </p>
+            <Link
+              to="/admin/instance/health"
+              className="mt-1 inline-block text-xs font-medium text-primary hover:underline"
+            >
+              {t`See usage and load`}
+            </Link>
+          </li>
+        </ul>
+      ) : null}
+      {cards.length > 0 ? (
+        <ul className="grid gap-3 sm:grid-cols-2">{cards}</ul>
+      ) : (
+        <p className="flex items-center gap-2 rounded-sm border border-border px-4 py-3 text-sm">
+          <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
+          {t`Nothing needs your attention.`}
+        </p>
+      )}
+    </div>
   );
 }

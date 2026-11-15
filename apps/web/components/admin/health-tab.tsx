@@ -32,6 +32,15 @@ export function HealthTab() {
     ...api.admin.health.queryOptions(),
     refetchInterval: 30_000,
   });
+  const usage = useQuery({
+    ...api.admin.usage.queryOptions(),
+    refetchInterval: 60_000,
+  });
+  const [loadDays, setLoadDays] = useState<1 | 7 | 30>(7);
+  const sourceLoad = useQuery({
+    ...api.admin.sourceLoad.queryOptions({ sinceDays: loadDays }),
+    refetchInterval: 60_000,
+  });
   const settings = useQuery(api.admin.settings.queryOptions());
   const release = useQuery(api.admin.releaseStatus.queryOptions());
   const [checkingRelease, setCheckingRelease] = useState(false);
@@ -120,6 +129,17 @@ export function HealthTab() {
         ))}
       </ul>
       <AlertsSection />
+      <UsageSection
+        usage={usage.data}
+        loading={usage.isLoading}
+        locale={i18n.locale}
+      />
+      <SourceLoadSection
+        load={sourceLoad.data}
+        loading={sourceLoad.isLoading}
+        days={loadDays}
+        onDays={setLoadDays}
+      />
       <TlsCard />
       {data ? (
         <dl className="grid grid-cols-[16rem_1fr] gap-y-1 text-sm">
@@ -237,6 +257,223 @@ export function HealthTab() {
         </dl>
       ) : null}
     </div>
+  );
+}
+
+type UsageView = {
+  current: {
+    accountsActive30d: number;
+    basesActive30d: number;
+    accountsTotal: number;
+    basesTotal: number;
+    asOf: string;
+  };
+  trend: Array<{
+    day: string;
+    accountsActive30d: number;
+    basesActive30d: number;
+  }>;
+};
+
+type SourceLoadView = {
+  sinceDays: number;
+  sources: Array<{
+    sourceId: string;
+    name: string;
+    engine: string;
+    ops: number;
+    errors: number;
+    timeouts: number;
+    slow: number;
+    totalMs: number;
+  }>;
+};
+
+/** Accounts and bases active over 30 days, with a short trend (ROADMAP #40). */
+function UsageSection({
+  usage,
+  loading,
+  locale,
+}: {
+  usage: UsageView | undefined;
+  loading: boolean;
+  locale: string;
+}) {
+  const { t } = useLingui();
+  if (loading && !usage) return <Spinner />;
+  if (!usage) return null;
+  const { current, trend } = usage;
+  const last = trend.slice(-14);
+  const maxAccounts = Math.max(
+    1,
+    ...last.map((point) => point.accountsActive30d),
+  );
+  const maxBases = Math.max(1, ...last.map((point) => point.basesActive30d));
+  const dayLabel = (day: string) =>
+    new Date(`${day}T00:00:00Z`).toLocaleDateString(locale, {
+      month: "short",
+      day: "numeric",
+    });
+  return (
+    <RuledSection title={t`Usage`} className="text-sm">
+      <dl className="grid grid-cols-[16rem_1fr] gap-y-1">
+        <dt className="text-muted-foreground">
+          {t`Accounts active (30 days)`}
+        </dt>
+        <dd className="tabular-nums">
+          {current.accountsActive30d}
+          <span className="text-muted-foreground">
+            {" "}
+            / {current.accountsTotal}
+          </span>
+        </dd>
+        <dt className="text-muted-foreground">{t`Bases active (30 days)`}</dt>
+        <dd className="tabular-nums">
+          {current.basesActive30d}
+          <span className="text-muted-foreground"> / {current.basesTotal}</span>
+        </dd>
+      </dl>
+      {last.length > 1 ? (
+        <div className="mt-3 flex flex-col gap-3">
+          <p className="text-xs text-muted-foreground">
+            {t`Daily snapshot, last ${{ days: last.length }} days`}
+          </p>
+          <Sparkline
+            label={t`Accounts`}
+            points={last.map((point) => ({
+              day: dayLabel(point.day),
+              value: point.accountsActive30d,
+            }))}
+            max={maxAccounts}
+          />
+          <Sparkline
+            label={t`Bases`}
+            points={last.map((point) => ({
+              day: dayLabel(point.day),
+              value: point.basesActive30d,
+            }))}
+            max={maxBases}
+          />
+        </div>
+      ) : null}
+    </RuledSection>
+  );
+}
+
+function Sparkline({
+  label,
+  points,
+  max,
+}: {
+  label: string;
+  points: Array<{ day: string; value: number }>;
+  max: number;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs font-medium">{label}</span>
+      <ul className="flex h-16 items-end gap-0.5" aria-label={label}>
+        {points.map((point) => (
+          <li
+            key={point.day}
+            className="flex min-w-0 flex-1 flex-col items-center justify-end gap-0.5"
+            title={`${point.day}: ${String(point.value)}`}
+          >
+            <span
+              className="w-full rounded-sm bg-primary/70"
+              style={{
+                height: `${Math.max(4, Math.round((point.value / max) * 100))}%`,
+              }}
+            />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Slow queries, errors, and timeouts by source (ROADMAP #41). */
+function SourceLoadSection({
+  load,
+  loading,
+  days,
+  onDays,
+}: {
+  load: SourceLoadView | undefined;
+  loading: boolean;
+  days: 1 | 7 | 30;
+  onDays: (days: 1 | 7 | 30) => void;
+}) {
+  const { t } = useLingui();
+  const choices = [
+    [1, t`1 day`],
+    [7, t`7 days`],
+    [30, t`30 days`],
+  ] as const;
+  return (
+    <RuledSection title={t`Load by source`} className="text-sm">
+      <div className="mb-2 flex flex-wrap gap-1">
+        {choices.map(([value, label]) => (
+          <Button
+            key={value}
+            reads
+            size="sm"
+            variant={days === value ? "outline" : "ghost"}
+            onClick={() => onDays(value)}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+      {loading && !load ? <Spinner /> : null}
+      {load && load.sources.length === 0 ? (
+        <p className="text-muted-foreground">
+          {t`No source operations recorded in this period.`}
+        </p>
+      ) : null}
+      {load && load.sources.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[32rem] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-border text-xs text-muted-foreground">
+                <th className="py-1 pr-3 font-medium">{t`Source`}</th>
+                <th className="py-1 pr-3 font-medium tabular-nums">{t`Ops`}</th>
+                <th className="py-1 pr-3 font-medium tabular-nums">
+                  {t`Errors`}
+                </th>
+                <th className="py-1 pr-3 font-medium tabular-nums">
+                  {t`Timeouts`}
+                </th>
+                <th className="py-1 pr-3 font-medium tabular-nums">{t`Slow`}</th>
+                <th className="py-1 font-medium tabular-nums">{t`Avg ms`}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {load.sources.map((row) => (
+                <tr key={row.sourceId} className="border-b border-border/60">
+                  <td className="py-1.5 pr-3">
+                    <span className="font-medium">{row.name}</span>
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      {row.engine}
+                    </span>
+                  </td>
+                  <td className="py-1.5 pr-3 tabular-nums">{row.ops}</td>
+                  <td className="py-1.5 pr-3 tabular-nums">{row.errors}</td>
+                  <td className="py-1.5 pr-3 tabular-nums">{row.timeouts}</td>
+                  <td className="py-1.5 pr-3 tabular-nums">{row.slow}</td>
+                  <td className="py-1.5 tabular-nums">
+                    {row.ops > 0 ? Math.round(row.totalMs / row.ops) : 0}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+      <p className="mt-2 text-xs text-muted-foreground">
+        {t`Slow means one second or more. Figures come from every process writing to the database, not from Prometheus.`}
+      </p>
+    </RuledSection>
   );
 }
 

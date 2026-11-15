@@ -33,6 +33,8 @@ import {
 } from "../operator-mail.js";
 import { instanceHealth } from "../admin.js";
 import { processLog } from "../process-log.js";
+import { readSourceLoad } from "../source-load.js";
+import { readUsage } from "../usage-stats.js";
 import {
   dismissReleaseNotice,
   releaseNotice,
@@ -213,6 +215,36 @@ export const adminInstanceProcedures = {
       return instanceHealth({ db: ctx.db, bus: ctx.bus, files: ctx.files });
     }),
   ),
+  /**
+   * Accounts and bases active over 30 days, with a daily trend
+   * (ROADMAP #40). Reading also refreshes today's snapshot.
+   */
+  usage: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      return readUsage(ctx.db);
+    }),
+  ),
+  /**
+   * Load by source from persisted minute buckets (ROADMAP #41), never
+   * from in-memory Prometheus counters.
+   */
+  sourceLoad: procedure
+    .input(
+      z
+        .object({
+          sinceDays: z
+            .union([z.literal(1), z.literal(7), z.literal(30)])
+            .default(7),
+        })
+        .default({ sinceDays: 7 }),
+    )
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        return readSourceLoad(ctx.db, input.sinceDays);
+      }),
+    ),
   /**
    * Recent lines of this process (ADR 0087). A read: administrators and
    * auditors, the same as health. The ring already dropped what a line
