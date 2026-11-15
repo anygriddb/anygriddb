@@ -313,6 +313,20 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     expect(await accessibilityViolations(page)).toEqual([]);
     expect(await accessibilityViolations(page)).toEqual([]);
 
+    // Recent lines of this process (ADR 0087). Warnings by default; the
+    // setting just saved is an ordinary message of the process.
+    await openAdmin(page, "Instance", "Logs");
+    await expect(
+      page.getByText(
+        "They are kept in memory and disappear when the process stops.",
+      ),
+    ).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.getByLabel("Show").selectOption("info");
+    await expect(
+      page.getByText("instance settings changed").first(),
+    ).toBeVisible();
+
     // Addresses keep the section, the page, and the list's filters
     // (ROADMAP #49); a section's own address opens its first page.
     await page.goto("/admin/people");

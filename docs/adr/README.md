@@ -99,3 +99,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0084](0084-syslog-over-tls.md)                      | Sign-in events to a syslog collector, over TLS                                          | Accepted (extends 0056)                     |
 | [0086](0086-administration-api.md)                   | An administration API, with tokens of its own that give no proof                        | Accepted                                    |
 | [0085](0085-code-by-email-second-factor.md)          | A code by email as a second factor, for anyone but an administrator                     | Accepted                                    |
+| [0087](0087-process-log.md)                          | Recent lines of the process, read in Administration                                     | Accepted (extends 0018)                     |

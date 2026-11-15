@@ -1623,6 +1623,7 @@ msgstr "Added to an invitation to a base, between the name of who invites and th
 msgid "Adding rows is not allowed on this table: an administrator can enable it in its source"
 msgstr "Adding rows is not allowed on this table: an administrator can enable it in its source"
 
+#: components/admin/logs-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/sources-tab.tsx
 msgid "Address"
@@ -1777,6 +1778,10 @@ msgstr "All active accounts"
 #: components/settings/account-settings.tsx
 msgid "All bases"
 msgstr "All bases"
+
+#: components/admin/logs-tab.tsx
+msgid "All kept lines"
+msgstr "All kept lines"
 
 #: components/grid/grid-tips.tsx
 msgid "All shortcuts"
@@ -3960,6 +3965,7 @@ msgid "Entry point (SSO URL)"
 msgstr "Entry point (SSO URL)"
 
 #: components/admin/health-tab.tsx
+#: components/admin/logs-tab.tsx
 #: components/admin/support-tab.tsx
 msgid "Error"
 msgstr "Error"
@@ -3971,6 +3977,10 @@ msgstr "ERROR"
 #: components/grid/grid-cell.tsx
 msgid "error, {error}"
 msgstr "error, {error}"
+
+#: components/admin/logs-tab.tsx
+msgid "Errors"
+msgstr "Errors"
 
 #: lib/key-names.ts
 msgctxt "keyboard key"
@@ -4241,6 +4251,10 @@ msgstr "Failed: {error}"
 #: components/admin/alerts-section.tsx
 msgid "Failures piling up"
 msgstr "Failures piling up"
+
+#: components/admin/logs-tab.tsx
+msgid "Fatal"
+msgstr "Fatal"
 
 #: components/table/automations-dialog.tsx
 msgid "field"
@@ -5027,6 +5041,10 @@ msgstr "Incremental"
 msgid "Incremental upserts rows that moved since the last pass; a full reconcile (deletes included) runs every {count} refreshes."
 msgstr "Incremental upserts rows that moved since the last pass; a full reconcile (deletes included) runs every {count} refreshes."
 
+#: components/admin/logs-tab.tsx
+msgid "Info"
+msgstr "Info"
+
 #: components/settings/base-settings.tsx
 msgid "Inherited ({role})"
 msgstr "Inherited ({role})"
@@ -5643,6 +5661,10 @@ msgstr "Leave blank to keep the current secret"
 msgid "Leave blank to keep the stored password"
 msgstr "Leave blank to keep the stored password"
 
+#: components/admin/logs-tab.tsx
+msgid "Level"
+msgstr "Level"
+
 #: components/shell/user-menu.tsx
 msgid "Light"
 msgstr "Light"
@@ -5849,6 +5871,10 @@ msgstr "Logo removed"
 msgid "Logo saved"
 msgstr "Logo saved"
 
+#: components/admin/admin-sections.ts
+msgid "Logs"
+msgstr "Logs"
+
 #: components/fields/field-editor.tsx
 msgid "Long (December 31, 2026)"
 msgstr "Long (December 31, 2026)"
@@ -6043,6 +6069,7 @@ msgstr "Memory used"
 msgid "Mentions, replies, assignments, and alerts. The email only holds the table name and a link."
 msgstr "Mentions, replies, assignments, and alerts. The email only holds the table name and a link."
 
+#: components/admin/logs-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/table/automations-dialog.tsx
 msgid "Message"
@@ -6854,6 +6881,10 @@ msgstr "Note on the sign-in pages"
 #: components/shell/new-table-dialog.tsx
 msgid "Notes"
 msgstr "Notes"
+
+#: components/admin/logs-tab.tsx
+msgid "Nothing at this level since the process started."
+msgstr "Nothing at this level since the process started."
 
 #: components/shell/home-page.tsx
 msgid "Nothing here yet."
@@ -7772,6 +7803,7 @@ msgid "Reference a field with {example}. Operators: + - * / % & = != > >= < <=."
 msgstr "Reference a field with {example}. Operators: + - * / % & = != > >= < <=."
 
 #: components/admin/health-tab.tsx
+#: components/admin/logs-tab.tsx
 msgid "Refresh"
 msgstr "Refresh"
 
@@ -8011,6 +8043,10 @@ msgstr "Replica username"
 #: components/record/record-panel.tsx
 msgid "Reply"
 msgstr "Reply"
+
+#: components/admin/logs-tab.tsx
+msgid "Request"
+msgstr "Request"
 
 #: components/table/automations-dialog.tsx
 msgid "Request body"
@@ -8865,6 +8901,10 @@ msgstr "Shift"
 #: components/table/view-toolbar.tsx
 msgid "Short"
 msgstr "Short"
+
+#: components/admin/logs-tab.tsx
+msgid "Show"
+msgstr "Show"
 
 #: components/views/form-view.tsx
 msgid "Show “{field}” only when earlier answers match:"
@@ -10291,6 +10331,10 @@ msgstr "Then create an automation triggered by this button, from the view menu."
 msgid "Then:"
 msgstr "Then:"
 
+#: components/admin/logs-tab.tsx
+msgid "These are the recent lines of this process, newest first. They are kept in memory and disappear when the process stops. The database and the file store keep their own logs where they run."
+msgstr "These are the recent lines of this process, newest first. They are kept in memory and disappear when the process stops. The database and the file store keep their own logs where they run."
+
 #: components/admin/account-handoff.tsx
 msgid "These stay with {name}: {successor} has no role to manage their tables. They stop working when {name}'s account is disabled. Give {successor} a role on those bases, then hand over again."
 msgstr "These stay with {name}: {successor} has no role to manage their tables. They stop working when {name}'s account is disabled. Give {successor} a role on those bases, then hand over again."
@@ -10726,6 +10770,7 @@ msgstr "Tickets"
 msgid "Tickets with severity, assignee, and a report form."
 msgstr "Tickets with severity, assignee, and a report form."
 
+#: components/admin/logs-tab.tsx
 #: components/table/automations-dialog.tsx
 msgid "Time"
 msgstr "Time"
@@ -11346,6 +11391,14 @@ msgstr "Views"
 #: components/settings/table-acl-panel.tsx
 msgid "Visible fields: {fields}"
 msgstr "Visible fields: {fields}"
+
+#: components/admin/logs-tab.tsx
+msgid "Warning"
+msgstr "Warning"
+
+#: components/admin/logs-tab.tsx
+msgid "Warnings"
+msgstr "Warnings"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Watched fields (none checked: all)"

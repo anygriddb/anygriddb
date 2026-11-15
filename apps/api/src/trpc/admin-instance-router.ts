@@ -32,6 +32,7 @@ import {
   resolveOperatorRecipients,
 } from "../operator-mail.js";
 import { instanceHealth } from "../admin.js";
+import { processLog } from "../process-log.js";
 import {
   dismissReleaseNotice,
   releaseNotice,
@@ -212,6 +213,24 @@ export const adminInstanceProcedures = {
       return instanceHealth({ db: ctx.db, bus: ctx.bus, files: ctx.files });
     }),
   ),
+  /**
+   * Recent lines of this process (ADR 0087). A read: administrators and
+   * auditors, the same as health. The ring already dropped what a line
+   * must not show.
+   */
+  logs: procedure
+    .input(
+      z.object({
+        level: z.enum(["info", "warn", "error"]).default("warn"),
+        limit: z.int().min(1).max(200).default(100),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        return { lines: processLog.list(input) };
+      }),
+    ),
   /**
    * The backups reported and the alerts open now (ROADMAP #17, #25).
    * Reading changes nothing: a scheduled task keeps the alerts in step.
