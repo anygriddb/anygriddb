@@ -141,7 +141,14 @@ export type TableStorage = "external" | "native";
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
 export type ViewType =
-  "calendar" | "form" | "gallery" | "grid" | "kanban" | "map" | "timeline";
+  | "calendar"
+  | "form"
+  | "gallery"
+  | "grid"
+  | "kanban"
+  | "list"
+  | "map"
+  | "timeline";
 
 export type WebauthnCeremony = "authenticate" | "register";
 

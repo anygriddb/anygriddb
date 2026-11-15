@@ -110,6 +110,37 @@ describe("stripColumnFromConfig", () => {
   });
 });
 
+describe("a list's link to nest by", () => {
+  it("is kept by a list view, named among its fields, and dropped with its field", async () => {
+    const { stripColumnFromConfig, viewTypeSchema } =
+      await import("./view-config");
+    expect(viewTypeSchema.parse("list")).toBe("list");
+    const config = normalizeViewConfig(
+      { parentColumn: "parent", titleColumn: "name" },
+      "list",
+    );
+    expect(config).toEqual({ parentColumn: "parent", titleColumn: "name" });
+    expect(viewConfigColumns(config).sort()).toEqual(["name", "parent"]);
+    expect(stripColumnFromConfig(config, "parent")).toEqual({
+      titleColumn: "name",
+    });
+    // Chosen again, or left to the table's first such link.
+    expect(applyViewConfigPatch(config, { parentColumn: "manager" })).toEqual({
+      parentColumn: "manager",
+      titleColumn: "name",
+    });
+    expect(applyViewConfigPatch(config, { parentColumn: null })).toEqual({
+      titleColumn: "name",
+    });
+  });
+
+  it("is no field's name unless it is one", () => {
+    expect(normalizeViewConfig({ parentColumn: "not a name" }, "list")).toEqual(
+      {},
+    );
+  });
+});
+
 describe("pruneViewConfig", () => {
   const config = normalizeViewConfig({
     filter: {

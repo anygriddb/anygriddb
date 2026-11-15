@@ -18,6 +18,7 @@ import {
   GanttChart,
   Images,
   Kanban,
+  ListTree,
   Lock,
   LockOpen,
   Map as MapIcon,
@@ -48,6 +49,7 @@ export const VIEW_ICONS: Record<string, LucideIcon> = {
   form: FileText,
   kanban: Kanban,
   gallery: Images,
+  list: ListTree,
   calendar: CalendarDays,
   timeline: GanttChart,
   map: MapIcon,
@@ -58,13 +60,21 @@ const VIEW_LABELS: Record<string, MessageDescriptor> = {
   form: msg`Form`,
   kanban: msg`Kanban`,
   gallery: msg`Gallery`,
+  list: msg`List`,
   calendar: msg`Calendar`,
   timeline: msg`Timeline`,
   map: msg`Map`,
 };
 
 type ViewType =
-  "grid" | "form" | "kanban" | "gallery" | "calendar" | "timeline" | "map";
+  | "grid"
+  | "form"
+  | "kanban"
+  | "gallery"
+  | "list"
+  | "calendar"
+  | "timeline"
+  | "map";
 
 export function ViewTabs(props: {
   baseId: string;

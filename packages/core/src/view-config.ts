@@ -15,6 +15,7 @@ const VIEW_TYPES = [
   "form",
   "kanban",
   "gallery",
+  "list",
   "calendar",
   "timeline",
   "map",
@@ -138,6 +139,8 @@ const shape = {
   placeColumn: columnNameSchema,
   latitudeColumn: columnNameSchema,
   longitudeColumn: columnNameSchema,
+  /** A list's link to the same table: the row each row is drawn under. */
+  parentColumn: columnNameSchema,
   form: formConfigSchema,
 };
 
@@ -285,6 +288,7 @@ export function viewConfigColumns(config: ViewConfig): string[] {
     config.placeColumn,
     config.latitudeColumn,
     config.longitudeColumn,
+    config.parentColumn,
   ]) {
     add(name);
   }
@@ -373,6 +377,7 @@ export function stripColumnFromConfig(
     "placeColumn",
     "latitudeColumn",
     "longitudeColumn",
+    "parentColumn",
   ] as const) {
     if (next[key] === name) Reflect.deleteProperty(next, key);
   }

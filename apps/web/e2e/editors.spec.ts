@@ -526,6 +526,97 @@ test("a choice and a link are undone from the keyboard, the panel open", async (
   expect(blocked).toEqual([]);
 });
 
+// A list (ROADMAP #96): each row under the row its link to the same table
+// names, with nothing to choose, folded and walked from the keyboard as a
+// tree is. It makes an account, so it takes a client address of its own.
+test.describe("a list", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.92" } });
+
+  test("nests rows under their parent, and folds from the keyboard", async ({
+    page,
+  }) => {
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "List User");
+    const tableId = /\/t\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
+    await send(page, "catalog.addRelation", {
+      tableId,
+      name: "parent",
+      label: "Parent",
+      kind: "one_to_many",
+      targetTableId: tableId,
+    });
+    const ids: Record<string, string> = {};
+    for (const name of ["Fruit", "Apple", "Gala", "Leek"]) {
+      const inserted = await page.request.post("/trpc/rows.insert", {
+        data: { tableId, values: { name } },
+      });
+      expect(inserted.ok(), await inserted.text()).toBe(true);
+      ids[name] = (
+        (await inserted.json()) as { result: { data: { id: string } } }
+      ).result.data.id;
+    }
+    for (const [child, parent] of [
+      ["Apple", "Fruit"],
+      ["Gala", "Apple"],
+    ] as const) {
+      await send(page, "rows.setLinks", {
+        tableId,
+        rowId: ids[child],
+        column: "parent",
+        targetIds: [ids[parent]],
+      });
+    }
+    await page.reload();
+    await page.getByRole("button", { name: "New view" }).click();
+    await page.getByRole("menuitem", { name: "List" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Create", exact: true })
+      .click();
+
+    const tree = page.getByRole("tree", { name: "Rows" });
+    const line = (name: string) =>
+      tree.getByRole("treeitem", { name: new RegExp(`^${name}`) });
+    await expect(page.getByLabel("Rows under")).toHaveValue("parent");
+    await expect(line("Fruit")).toHaveAttribute("aria-level", "1");
+    await expect(line("Apple")).toHaveAttribute("aria-level", "2");
+    await expect(line("Gala")).toHaveAttribute("aria-level", "3");
+    await expect(line("Leek")).toHaveAttribute("aria-level", "1");
+    await expect(line("Fruit")).toHaveAttribute("aria-expanded", "true");
+    await expect(line("Leek")).not.toHaveAttribute("aria-expanded");
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // Left folds a row, and says how many it holds; Right unfolds it, then
+    // goes to its first row; Left on a row with nothing to fold goes up.
+    await line("Fruit").focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect(line("Fruit")).toHaveAttribute("aria-expanded", "false");
+    await expect(line("Fruit")).toContainText("1 row under it");
+    await expect(line("Apple")).toHaveCount(0);
+    await expect(line("Gala")).toHaveCount(0);
+    await page.keyboard.press("ArrowRight");
+    await expect(line("Apple")).toBeVisible();
+    await page.keyboard.press("ArrowRight");
+    await expect(line("Apple")).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(line("Gala")).toBeFocused();
+    await page.keyboard.press("ArrowLeft");
+    await expect(line("Apple")).toBeFocused();
+    await page.keyboard.press("End");
+    await expect(line("Leek")).toBeFocused();
+
+    // The pointer folds by the arrow, and a row opens from the keyboard.
+    await line("Apple").locator("svg").first().click();
+    await expect(line("Apple")).toHaveAttribute("aria-expanded", "false");
+    await expect(line("Gala")).toHaveCount(0);
+    await line("Leek").focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByLabel("Row details")).toContainText("Leek");
+
+    expect(blocked).toEqual([]);
+  });
+});
+
 // A map over the tiles of the server an administrator names (ADR 0068):
 // moved by its buttons, by dragging, and by the wheel, brought back to
 // its rows by one button; and a pin still opens its row. It makes an
