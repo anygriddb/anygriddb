@@ -1079,6 +1079,10 @@ msgstr "A field of the linked rows"
 msgid "A file could not be attached. Add it again."
 msgstr "A file could not be attached. Add it again."
 
+#: lib/errors.ts
+msgid "A file from that version is no longer stored"
+msgstr "A file from that version is no longer stored"
+
 #: components/settings/base-settings.tsx
 msgid "A file to keep elsewhere: schema, views, rows, members, and attachments, in a .zip archive. Import it again from “New base”."
 msgstr "A file to keep elsewhere: schema, views, rows, members, and attachments, in a .zip archive. Import it again from “New base”."
@@ -1426,6 +1430,7 @@ msgstr "Action"
 #: components/admin/sources-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/grid/grid-view.tsx
+#: components/history/earlier.tsx
 #: components/shell/command-palette.tsx
 msgid "Actions"
 msgstr "Actions"
@@ -1440,6 +1445,7 @@ msgstr "Actions for {widget}"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
+#: components/history/earlier.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/table/automations-dialog.tsx
 msgid "Active"
@@ -1636,6 +1642,7 @@ msgstr "Adding rows is not allowed on this table: an administrator can enable it
 #: components/admin/logs-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/sources-tab.tsx
+#: components/history/earlier.tsx
 msgid "Address"
 msgstr "Address"
 
@@ -2874,6 +2881,10 @@ msgstr "Computed from other fields"
 msgid "Concatenate"
 msgstr "Concatenate"
 
+#: components/history/earlier.tsx
+msgid "Configuration"
+msgstr "Configuration"
+
 #: components/admin/integrations-tab.tsx
 msgid "Configured in this page"
 msgstr "Configured in this page"
@@ -3149,6 +3160,10 @@ msgstr "Create the address"
 #: components/admin/account-actions.tsx
 msgid "Create the link"
 msgstr "Create the link"
+
+#: components/history/earlier.tsx
+msgid "created"
+msgstr "created"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
@@ -3541,6 +3556,7 @@ msgstr "Describe the view"
 #: components/admin/group-page.tsx
 #: components/admin/groups-tab.tsx
 #: components/fields/field-editor.tsx
+#: components/history/earlier.tsx
 #: components/settings/base-settings.tsx
 msgid "Description"
 msgstr "Description"
@@ -3735,6 +3751,13 @@ msgstr "Each row is a real row of your database. Each change is signed, dated, a
 msgid "Each sheet you keep becomes a table, its first row that holds something naming its fields. You can change the name above."
 msgstr "Each sheet you keep becomes a table, its first row that holds something naming its fields. You can change the name above."
 
+#: components/dashboards/dashboard-board.tsx
+#: components/history/earlier.tsx
+#: components/settings/webhooks-panel.tsx
+#: components/table/view-tabs.tsx
+msgid "Earlier"
+msgstr "Earlier"
+
 #: components/grid/grid-footer.tsx
 msgid "Earliest"
 msgstr "Earliest"
@@ -3800,6 +3823,7 @@ msgstr "Edit the source"
 msgid "Edit the widget"
 msgstr "Edit the widget"
 
+#: components/history/earlier.tsx
 #: components/record/record-panel.tsx
 msgid "edited"
 msgstr "edited"
@@ -4033,6 +4057,7 @@ msgstr "European (31/12/2026)"
 msgid "Event"
 msgstr "Event"
 
+#: components/history/earlier.tsx
 #: components/settings/webhooks-panel.tsx
 #: lib/known-text.ts
 msgid "Events"
@@ -4445,6 +4470,7 @@ msgstr "Filled"
 msgid "Filled: {filled} of {cells}"
 msgstr "Filled: {filled} of {cells}"
 
+#: components/history/earlier.tsx
 #: components/table/view-toolbar.tsx
 msgid "Filter"
 msgstr "Filter"
@@ -5605,9 +5631,11 @@ msgid "Keyboard shortcuts"
 msgstr "Keyboard shortcuts"
 
 #: components/admin/support-tab.tsx
+#: components/history/earlier.tsx
 msgid "Kind"
 msgstr "Kind"
 
+#: components/history/earlier.tsx
 #: components/settings/api-docs.tsx
 msgid "Label"
 msgstr "Label"
@@ -5834,6 +5862,10 @@ msgstr "Loading"
 #: components/fields/attachment-preview.tsx
 msgid "Loading preview…"
 msgstr "Loading preview…"
+
+#: components/history/earlier.tsx
+msgid "Loading…"
+msgstr "Loading…"
 
 #: components/admin/groups-tab.tsx
 msgid "Local"
@@ -6319,6 +6351,7 @@ msgstr "N days ago"
 #: components/admin/scim-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
+#: components/history/earlier.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/shell/new-table-dialog.tsx
 #: components/table/automations-dialog.tsx
@@ -6953,6 +6986,10 @@ msgstr "Notes"
 #: components/admin/logs-tab.tsx
 msgid "Nothing at this level since the process started."
 msgstr "Nothing at this level since the process started."
+
+#: components/history/earlier.tsx
+msgid "Nothing earlier yet."
+msgstr "Nothing earlier yet."
 
 #: components/shell/home-page.tsx
 msgid "Nothing here yet."
@@ -7699,6 +7736,29 @@ msgstr "Purge"
 msgid "purged on {date}"
 msgstr "purged on {date}"
 
+#: components/history/earlier.tsx
+#: components/record/record-panel.tsx
+msgid "put back"
+msgstr "put back"
+
+#: components/history/earlier.tsx
+#: components/record/record-panel.tsx
+msgid "Put back"
+msgstr "Put back"
+
+#: components/record/record-panel.tsx
+msgid "Put the row back"
+msgstr "Put the row back"
+
+#: components/history/earlier.tsx
+msgid "Put this back"
+msgstr "Put this back"
+
+#: components/history/earlier.tsx
+#: components/record/record-panel.tsx
+msgid "Put this value back"
+msgstr "Put this value back"
+
 #: components/fields/field-editor.tsx
 msgid "QR code"
 msgstr "QR code"
@@ -8035,6 +8095,10 @@ msgstr "Remove their second factors"
 msgid "Remove this calendar feed?"
 msgstr "Remove this calendar feed?"
 
+#: components/history/earlier.tsx
+msgid "removed"
+msgstr "removed"
+
 #: components/admin/base-admin-members.tsx
 msgid "Removed {name} from the base"
 msgstr "Removed {name} from the base"
@@ -8145,6 +8209,10 @@ msgstr "Request body"
 msgid "Request refused"
 msgstr "Request refused"
 
+#: components/history/earlier.tsx
+msgid "Require a reason"
+msgstr "Require a reason"
+
 #: components/fields/field-editor.tsx
 msgid "Require a reason for every change"
 msgstr "Require a reason for every change"
@@ -8157,6 +8225,7 @@ msgstr "Require a value in every row"
 msgid "required"
 msgstr "required"
 
+#: components/history/earlier.tsx
 #: components/views/form-files.tsx
 msgid "Required"
 msgstr "Required"
@@ -8458,6 +8527,10 @@ msgstr "Row title"
 #: components/table/view-toolbar.tsx
 msgid "Row trash"
 msgstr "Row trash"
+
+#: components/history/earlier.tsx
+msgid "Row values"
+msgstr "Row values"
 
 #: components/table/automations-dialog.tsx
 msgid "rows"
@@ -10564,6 +10637,10 @@ msgstr "This base keeps as many restore points as it may: delete one to make ano
 msgid "This cannot be done to this account"
 msgstr "This cannot be done to this account"
 
+#: lib/errors.ts
+msgid "This cannot be put back"
+msgstr "This cannot be put back"
+
 #: components/admin/account-actions.tsx
 msgid "This cannot be undone. Their email and factors are removed; audit history and comments stay under “Erased account”; row values in bases are kept. An active account is disabled first, in the same step."
 msgstr "This cannot be undone. Their email and factors are removed; audit history and comments stay under “Erased account”; row values in bases are kept. An active account is disabled first, in the same step."
@@ -10571,6 +10648,10 @@ msgstr "This cannot be undone. Their email and factors are removed; audit histor
 #: components/settings/account-settings.tsx
 msgid "This cannot be undone. Your email and factors are removed. Comments stay under “Erased account”. Row values in bases are not wiped."
 msgstr "This cannot be undone. Your email and factors are removed. Comments stay under “Erased account”. Row values in bases are not wiped."
+
+#: lib/errors.ts
+msgid "This changed since you opened it. The history has been read again."
+msgstr "This changed since you opened it. The history has been read again."
 
 #: lib/errors.ts
 msgid "This code is wrong, or works no longer"
@@ -10931,6 +11012,7 @@ msgid "Timeout"
 msgstr "Timeout"
 
 #: components/dashboards/dashboard-board.tsx
+#: components/history/earlier.tsx
 #: components/table/automations-dialog.tsx
 msgid "Title"
 msgstr "Title"
@@ -11063,6 +11145,7 @@ msgstr "Trash kept for"
 msgid "Trash of {name}"
 msgstr "Trash of {name}"
 
+#: components/history/earlier.tsx
 #: components/table/automations-dialog.tsx
 msgid "Trigger"
 msgstr "Trigger"
@@ -11269,6 +11352,7 @@ msgid "Unique list"
 msgstr "Unique list"
 
 #: components/fields/field-editor.tsx
+#: components/history/earlier.tsx
 msgid "Unique values"
 msgstr "Unique values"
 
@@ -11543,6 +11627,10 @@ msgstr "Warning"
 #: components/admin/logs-tab.tsx
 msgid "Warnings"
 msgstr "Warnings"
+
+#: components/history/earlier.tsx
+msgid "Watched fields"
+msgstr "Watched fields"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Watched fields (none checked: all)"

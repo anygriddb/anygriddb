@@ -1075,6 +1075,7 @@ export async function readExternalAudit(
             ? "applied"
             : "pending";
       return {
+        id: write.id,
         occurredAt: write.requestedAt.toISOString(),
         userId: write.userId,
         displayName: write.displayName,

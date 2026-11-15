@@ -30,6 +30,7 @@ import type { CatalogColumn } from "../../lib/types";
 import { FilterBuilder } from "./filter-builder";
 import { useTable } from "./table-context";
 import { useLingui } from "@lingui/react/macro";
+import { Earlier } from "../history/earlier";
 import { useErrorText } from "../../lib/errors";
 
 type Automation = RouterOutputs["automations"]["list"]["automations"][number];
@@ -883,6 +884,19 @@ function AutomationEditor(props: {
           onChange={(event) => setName(event.target.value)}
         />
       </div>
+      {props.initial ? (
+        <Earlier
+          kind="automation"
+          id={props.initial.id}
+          seen={() => ({
+            name: props.initial?.name,
+            enabled: props.initial?.enabled,
+            trigger: props.initial?.trigger,
+            actions: props.initial?.actions,
+          })}
+          onReverted={props.onDone}
+        />
+      ) : null}
       <section className="flex flex-col gap-2 rounded-sm border border-border p-3">
         <Label htmlFor="automation-trigger">{t`When`}</Label>
         <Select

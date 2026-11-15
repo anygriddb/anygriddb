@@ -321,6 +321,27 @@ export function buildUpdate(input: {
   };
 }
 
+/** The locked row's columns, to compare with what the person still sees. */
+export function buildReadCells(input: {
+  table: string;
+  id: string;
+  columns: readonly string[];
+}): ParameterizedSql {
+  assertIdentifier(input.table, "table name");
+  assertRowId(input.id);
+  if (input.columns.length < 1 || input.columns.length > 200) {
+    throw new AppError("invalid_limit");
+  }
+  for (const column of input.columns) {
+    assertIdentifier(column, "column name");
+  }
+  const params = new SqlParams();
+  return {
+    text: `select ${input.columns.map((column) => quoteIdent(column)).join(", ")} from ${quoteIdent(input.table)} where "id" = ${params.bind(input.id)}::uuid`,
+    values: params.values,
+  };
+}
+
 export function buildDelete(input: {
   table: string;
   id: string;

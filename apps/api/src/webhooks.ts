@@ -344,6 +344,8 @@ export async function updateWebhook(
     watchColumns?: string[] | null;
     headers?: Record<string, string> | null;
     includeValues?: boolean;
+    target?: string;
+    source?: string;
   },
 ): Promise<void> {
   const patch: Partial<NewRow<"webhooks">> = {};
@@ -364,6 +366,7 @@ export async function updateWebhook(
     Object.assign(patch, sealHeaders(input.headers, key));
   if (input.includeValues !== undefined)
     patch.includeValues = input.includeValues;
+  if (input.target !== undefined) patch.target = input.target;
   if (Object.keys(patch).length === 0) return;
   const hook = await db
     .selectFrom("webhooks")
@@ -373,7 +376,7 @@ export async function updateWebhook(
   if (!hook) throw new AppError("no_row");
   await withAudit(
     db,
-    { userId: actorId, tableId: hook.tableId, source: "web" },
+    { userId: actorId, tableId: hook.tableId, source: input.source ?? "web" },
     (tx) =>
       tx
         .updateTable("webhooks")

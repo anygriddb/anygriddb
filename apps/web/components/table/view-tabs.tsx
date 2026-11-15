@@ -1,6 +1,8 @@
 import {
   Checkbox,
   cn,
+  Dialog,
+  DialogContent,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -16,6 +18,7 @@ import {
   Copy,
   FileText,
   GanttChart,
+  History,
   Images,
   Kanban,
   ListTree,
@@ -32,6 +35,7 @@ import {
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { Earlier } from "../history/earlier";
 import { toast } from "sonner";
 import { trpc } from "../../lib/trpc";
 import type { Role, ViewItem } from "../../lib/types";
@@ -92,6 +96,7 @@ export function ViewTabs(props: {
   const errorText = useErrorText();
   const { trashed } = useTrashActions();
   const [renaming, setRenaming] = useState<ViewItem | null>(null);
+  const [earlier, setEarlier] = useState<ViewItem | null>(null);
   const [describing, setDescribing] = useState<ViewItem | null>(null);
   const [deleting, setDeleting] = useState<ViewItem | null>(null);
   const [sharing, setSharing] = useState<ViewItem | null>(null);
@@ -187,6 +192,15 @@ export function ViewTabs(props: {
                     <Pencil className="h-4 w-4" aria-hidden />
                     {t`Rename`}
                   </DropdownMenuItem>
+                  {view.personal ? null : (
+                    <DropdownMenuItem
+                      disabled={!editable}
+                      onSelect={() => setEarlier(view)}
+                    >
+                      <History className="h-4 w-4" aria-hidden />
+                      {t`Earlier`}
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     disabled={!editable}
                     onSelect={() => setDescribing(view)}
@@ -341,7 +355,26 @@ export function ViewTabs(props: {
               trpc.catalog.updateView.mutate({ viewId: renaming.id, name }),
             )
           }
-        />
+        >
+          {renaming.personal ? null : (
+            <Earlier
+              kind="view"
+              id={renaming.id}
+              seen={() => ({ name: renaming.name, config: renaming.config })}
+            />
+          )}
+        </PromptDialog>
+      ) : null}
+      {earlier ? (
+        <Dialog open onOpenChange={(open) => !open && setEarlier(null)}>
+          <DialogContent title={t`Earlier`}>
+            <Earlier
+              kind="view"
+              id={earlier.id}
+              seen={() => ({ name: earlier.name, config: earlier.config })}
+            />
+          </DialogContent>
+        </Dialog>
       ) : null}
       {describing ? (
         <PromptDialog

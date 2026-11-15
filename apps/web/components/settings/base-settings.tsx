@@ -18,6 +18,7 @@ import { TableAclPanel } from "./table-acl-panel";
 import { WebhooksPanel } from "./webhooks-panel";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { Earlier } from "../history/earlier";
 
 const ROLES: Role[] = ["owner", "editor", "commenter", "viewer"];
 
@@ -128,6 +129,17 @@ export function BaseSettings({ baseId }: { baseId: string }) {
           >
             {t`Save`}
           </Button>
+        ) : null}
+        {manage ? (
+          <Earlier
+            kind="base"
+            id={baseId}
+            seen={() => ({
+              name: base.name,
+              description: base.description,
+            })}
+            onReverted={() => invalidate()}
+          />
         ) : null}
       </RuledSection>
       <RuledSection

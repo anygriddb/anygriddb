@@ -13,6 +13,7 @@ import {
   buildMoveRows,
   buildOrderLock,
   buildReadJunction,
+  buildReadCells,
   buildReadRows,
   buildReadStatus,
   buildReadStatuses,
@@ -30,6 +31,7 @@ import {
   quoteIdent,
   type ReadSpec,
   type RowPlace,
+  sameCell,
   placeTarget,
   type WriteColumn,
 } from "@anygriddb/core";
@@ -641,6 +643,32 @@ async function lockRows(
   return statuses;
 }
 
+/** A stored cell against the value the screen still shows. */
+function sameStored(current: unknown, seen: unknown): boolean {
+  if (sameCell(current, seen)) return true;
+  const left = epoch(current);
+  const right = epoch(seen);
+  if (left !== null && right !== null && left === right) return true;
+  if (
+    typeof seen === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(seen) &&
+    current instanceof Date
+  ) {
+    return current.toISOString().slice(0, 10) === seen;
+  }
+  return false;
+}
+
+function epoch(value: unknown): number | null {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value !== "string") return null;
+  if (!/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value)) return null;
+  const parsed = Date.parse(
+    value.length === 10 ? `${value}T00:00:00.000Z` : value,
+  );
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function assertWritable(status: string): void {
   if (status === "locked" || status === "signed") {
     throw new AppError("row_locked");
@@ -745,6 +773,11 @@ export async function updateRows(
   updates: ReadonlyArray<{
     rowId: string;
     values: Readonly<Record<string, CellValue>>;
+    /**
+     * What the row must still hold, set by the server when a value is put
+     * back: the locked row must match, or nothing is written (ADR 0089).
+     */
+    storedNow?: Readonly<Record<string, unknown>>;
   }>,
 ): Promise<string[]> {
   const columns = writeColumns(engine);
@@ -779,6 +812,25 @@ export async function updateRows(
         throw new AppError("no_row");
       }
       assertWritable(status);
+    }
+    for (const update of updates) {
+      if (!update.storedNow) continue;
+      const names = Object.keys(update.storedNow);
+      if (names.length === 0) continue;
+      const [row] = await runRows(
+        tx,
+        buildReadCells({
+          table: context.physicalName,
+          id: update.rowId,
+          columns: names,
+        }),
+      );
+      if (!row) throw new AppError("no_row");
+      for (const name of names) {
+        if (!sameStored(row[name], update.storedNow[name])) {
+          throw new AppError("revert_stale");
+        }
+      }
     }
     for (const item of statements) {
       readId(await runRows(tx, item.statement));
@@ -1324,6 +1376,7 @@ export async function readAudit(
     .selectFrom("auditEvents as e")
     .innerJoin("users as u", "u.id", "e.userId")
     .select([
+      "e.id",
       "e.occurredAt",
       "e.userId",
       "u.displayName",
@@ -1349,6 +1402,7 @@ export async function readAudit(
   return rows
     .filter((row) => !isLinkMarker(row.oldValue))
     .map((row) => ({
+      id: row.id,
       occurredAt: row.occurredAt.toISOString(),
       userId: row.userId,
       displayName: row.displayName,

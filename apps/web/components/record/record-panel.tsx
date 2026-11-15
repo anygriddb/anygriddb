@@ -517,14 +517,40 @@ const ACTION_LABELS: Record<string, MessageDescriptor> = {
 
 const MOVED = msg`moved the row`;
 
-function History({ rowId }: { rowId: string }) {
+function History({ row }: { row: RowItem }) {
   const { t } = useLingui();
   const api = useTRPC();
+  const queryClient = useQueryClient();
+  const errorText = useErrorText();
   const table = useTable();
   const { locale } = useLocale();
   const audit = useQuery(
-    api.rows.audit.queryOptions({ tableId: table.table.id, recordId: rowId }),
+    api.rows.audit.queryOptions({
+      tableId: table.table.id,
+      recordId: row.id,
+    }),
   );
+  async function putBack(eventId: string, field?: string) {
+    try {
+      await trpc.rows.revert.mutate({
+        tableId: table.table.id,
+        recordId: row.id,
+        eventId,
+        ...(field ? { field } : {}),
+        seen: row,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: api.rows.audit.queryKey({
+          tableId: table.table.id,
+          recordId: row.id,
+        }),
+      });
+      toast.success(t`Put back`);
+    } catch (cause) {
+      toast.error(errorText(cause));
+      await audit.refetch();
+    }
+  }
   const byName = new Map(
     table.table.columns.map((column) => [column.name, column]),
   );
@@ -565,11 +591,13 @@ function History({ rowId }: { rowId: string }) {
                   {new Date(event.occurredAt).toLocaleString(
                     locale === "fr" ? "fr-FR" : "en-GB",
                   )}
-                  {event.source &&
-                  event.source !== "web" &&
-                  event.source !== "check"
-                    ? ` · ${event.source}`
-                    : ""}
+                  {event.source === "revert"
+                    ? ` · ${t`put back`}`
+                    : event.source &&
+                        event.source !== "web" &&
+                        event.source !== "check"
+                      ? ` · ${event.source}`
+                      : ""}
                 </span>
               </p>
               {event.state === "pending" || event.state === "unverified" ? (
@@ -601,11 +629,29 @@ function History({ rowId }: { rowId: string }) {
                 <ul className="mt-1 flex flex-col gap-1">
                   {changed.map((key) => {
                     const column = byName.get(key);
-                    const show = (value: unknown) =>
-                      column
+                    const show = (value: unknown) => {
+                      const text = column
                         ? cellDisplay(value, column, locale, table.people) ||
                           "∅"
                         : JSON.stringify(value ?? null);
+                      return text.length > 280
+                        ? `${text.slice(0, 280)}…`
+                        : text;
+                    };
+                    const eventId =
+                      "id" in event && typeof event.id === "string"
+                        ? event.id
+                        : null;
+                    const puttable =
+                      eventId !== null &&
+                      event.action === "update" &&
+                      canWrite(table.role) &&
+                      column !== undefined &&
+                      column.access !== "read" &&
+                      column.fieldType !== "formula" &&
+                      column.fieldType !== "lookup" &&
+                      column.fieldType !== "rollup" &&
+                      column.fieldType !== "relation_many_to_many";
                     return (
                       <li
                         key={key}
@@ -620,10 +666,36 @@ function History({ rowId }: { rowId: string }) {
                         </span>{" "}
                         →{" "}
                         <span className="text-primary">{show(after[key])}</span>
+                        {puttable ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="ml-1 h-6 px-1 text-xs"
+                            onClick={() => void putBack(eventId, key)}
+                          >
+                            {t`Put this value back`}
+                          </Button>
+                        ) : null}
                       </li>
                     );
                   })}
                 </ul>
+              ) : null}
+              {"id" in event &&
+              typeof event.id === "string" &&
+              event.action === "update" &&
+              canWrite(table.role) ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="mt-1 h-6 px-1 text-xs"
+                  onClick={() => {
+                    const eventId = event.id;
+                    if (typeof eventId === "string") void putBack(eventId);
+                  }}
+                >
+                  {t`Put the row back`}
+                </Button>
               ) : null}
             </div>
           </li>
@@ -888,7 +960,7 @@ export function RecordPanel({
                   {t`Only changes made in AnyGridDB show here: those of other applications stay in the client's database.`}
                 </p>
               ) : null}
-              <History rowId={row.id} />
+              <History row={row} />
             </>
           )}
         </div>

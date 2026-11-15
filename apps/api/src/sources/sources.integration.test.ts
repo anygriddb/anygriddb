@@ -21,8 +21,10 @@ import { browserFactory, signUpProved } from "../trpc/caller.test-helpers.js";
 import { readPage } from "../data/rows.js";
 import { addColumn, insertBase } from "../data/schema-ops.js";
 import { loadRowScope, updateRows } from "../services/rows.js";
+import { revertRow } from "../services/revert-row.js";
 import { createTestDatabase } from "../test-database.js";
 import { exposeTables, refreshExposedTable } from "./expose.js";
+import { readExternalAudit } from "./writes.js";
 import { setSourcePools, SourcePools } from "./pools.js";
 import {
   checkConnection,
@@ -410,6 +412,31 @@ describe("PostgreSQL sources", () => {
       ["1003", "Paid"],
     ]);
     expect(noted.total).toBe(1);
+    await updateRows(
+      services,
+      scope,
+      [{ rowId: "1003", values: { [note.name]: "Late" } }],
+      { source: "web" },
+    );
+    const trail = await readExternalAudit(db, invoicesId, "1003");
+    const prior = trail.find((event) => {
+      const old = event.oldValue as Record<string, unknown> | null;
+      return event.action === "update" && old?.[note.name] === "Paid";
+    });
+    expect(prior?.id).toEqual(expect.any(String));
+    await revertRow(services, scope, {
+      recordId: "1003",
+      eventId: prior?.id ?? "",
+      field: note.name,
+      seen: { [note.name]: "Late" },
+    });
+    const restored = await readPage(
+      db,
+      invoices,
+      { rowIds: ["1003"], limit: 1, timeZone: "UTC" },
+      { total: false },
+    );
+    expect(restored.rows[0]?.[note.name]).toBe("Paid");
     // A field rule that hides it hides its value too.
     const hidden = await readPage(
       db,

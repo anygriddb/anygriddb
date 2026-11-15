@@ -361,6 +361,7 @@ export async function saveAutomation(
     enabled: boolean;
     trigger: AutomationTrigger;
     actions: AutomationAction[];
+    source?: string;
   },
 ): Promise<{ id: string; webhookToken?: string }> {
   // Same public-HTTPS check as table webhooks: refuse private targets at
@@ -396,7 +397,11 @@ export async function saveAutomation(
     // will trigger it again when they enter anew.
     await withAudit(
       db,
-      { userId: input.createdBy, tableId: input.tableId, source: "web" },
+      {
+        userId: input.createdBy,
+        tableId: input.tableId,
+        source: input.source ?? "web",
+      },
       async (tx) => {
         const updated = await tx
           .updateTable("automations")

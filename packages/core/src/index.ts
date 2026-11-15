@@ -28,6 +28,24 @@ export {
 } from "./attachment-types";
 
 export {
+  asPayload,
+  auditValue,
+  cellFromAudit,
+  earlierChanges,
+  earlierInputSchema,
+  payloadId,
+  previewValue,
+  REVERT_CATALOG_TABLE,
+  REVERT_FIELDS,
+  REVERT_KINDS,
+  revertCatalogInputSchema,
+  revertRowInputSchema,
+  sameDocument,
+  type EarlierChange,
+  type RevertKind,
+} from "./revert";
+
+export {
   assertCellValue,
   ATTACHMENT_KEY,
   type CellValue,
@@ -470,6 +488,7 @@ export {
   buildNonNullValues,
   buildReadJunction,
   buildReadReferencing,
+  buildReadCells,
   buildReadStatus,
   buildReadStatuses,
   buildRenameOption,

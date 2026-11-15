@@ -818,6 +818,7 @@ export async function readStatusEvents(
     const fields = changed ? (detail.fields ?? []) : [];
     const before = sealedBefore.get(index) ?? {};
     return {
+      id: null as string | null,
       occurredAt: event.at.toISOString(),
       userId: event.userId,
       displayName: event.displayName,
