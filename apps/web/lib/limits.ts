@@ -21,6 +21,7 @@ export const ENGINE_NAMES: Record<SourceEngine, string> = {
   sqlserver: "SQL Server",
   oracle: "Oracle",
   mongodb: "MongoDB",
+  opensearch: "OpenSearch",
 };
 
 /**

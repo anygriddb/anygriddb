@@ -20,7 +20,7 @@ const SQL_SOURCE_ENGINES = [
  * may read and copies it on a schedule; every read goes to the copy, in
  * AnyGridDB's own database, and nothing is ever written to the store.
  */
-const COPY_SOURCE_ENGINES = ["mongodb"] as const;
+const COPY_SOURCE_ENGINES = ["mongodb", "opensearch"] as const;
 
 export const SOURCE_ENGINES = [
   ...SQL_SOURCE_ENGINES,
@@ -39,6 +39,7 @@ export type SourceDatabaseField = "database" | "service" | "indices";
  */
 export function sourceDatabaseField(engine: SourceEngine): SourceDatabaseField {
   if (engine === "oracle") return "service";
+  if (engine === "opensearch") return "indices";
   return "database";
 }
 
@@ -58,6 +59,7 @@ export const DEFAULT_SOURCE_PORTS: Record<SourceEngine, number> = {
   // its own serves, by convention here (1521 is the plaintext one).
   oracle: 2484,
   mongodb: 27017,
+  opensearch: 9200,
 };
 
 /** A copy is refreshed this often unless an administrator says otherwise. */
