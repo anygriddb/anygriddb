@@ -280,20 +280,23 @@ export { BASE_TEMPLATES, findTemplate, type BaseTemplate } from "./templates";
 export { localizeTemplate } from "./template-words";
 
 export {
+  applyViewConfigPatch,
+  type FormWindow,
+  formWindow,
+  formWindowNeverOpens,
+  keepTrashedParts,
   MAX_FROZEN_COLUMNS,
   MAX_VIEW_GROUPS,
   MAX_VIEW_SORTS,
-  applyViewConfigPatch,
   normalizeViewConfig,
-  withRequiredFormFields,
-  keepTrashedParts,
   pruneViewConfig,
   stripColumnFromConfig,
-  viewConfigColumns,
-  viewFilter,
   type ViewConfig,
+  viewConfigColumns,
   type ViewConfigPatch,
+  viewFilter,
   type ViewType,
+  withRequiredFormFields,
 } from "./view-config";
 
 export { evaluateFilter, type FilterEvalContext } from "./filter-eval";

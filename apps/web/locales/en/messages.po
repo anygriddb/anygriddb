@@ -2620,6 +2620,10 @@ msgstr "Clear SIEM webhook?"
 msgid "Clear the selected cells"
 msgstr "Clear the selected cells"
 
+#: components/views/form-view.tsx
+msgid "Clear: {name}"
+msgstr "Clear: {name}"
+
 #: components/admin/integrations-tab.tsx
 msgid "Client ID"
 msgstr "Client ID"
@@ -3765,6 +3769,10 @@ msgstr "Empty the trash?"
 #: components/admin/settings-tab.tsx
 msgid "Empty uses 20 MiB. Between 1 and 500."
 msgstr "Empty uses 20 MiB. Between 1 and 500."
+
+#: components/views/form-view.tsx
+msgid "Empty, the link takes answers at any time. The people of the base add rows whenever they may."
+msgstr "Empty, the link takes answers at any time. The people of the base add rows whenever they may."
 
 #: components/table/automations-dialog.tsx
 msgid "Empty: the row as JSON"
@@ -5320,6 +5328,14 @@ msgstr "Its address stops working now; its owner can make a new one. The view st
 #: components/views/form-view.tsx
 msgid "Its condition reads a field placed after it: it is ignored."
 msgstr "Its condition reads a field placed after it: it is ignored."
+
+#: components/views/form-view.tsx
+msgid "Its link takes answers from"
+msgstr "Its link takes answers from"
+
+#: components/views/form-view.tsx
+msgid "Its link takes answers until"
+msgstr "Its link takes answers until"
 
 #: components/admin/base-admin-page.tsx
 msgid "Its members lose it at once. It stays in the trash for {days} days with its data, then is deleted permanently."
@@ -9641,6 +9657,10 @@ msgstr "The first matching rule colours the row."
 msgid "The first part of the text that matches the regular expression."
 msgstr "The first part of the text that matches the regular expression."
 
+#: components/views/form-view.tsx
+msgid "The form closes before it opens: its link takes no answer."
+msgstr "The form closes before it opens: its link takes no answer."
+
 #: components/admin/group-page.tsx
 msgid "The group and its membership are removed. This cannot be undone."
 msgstr "The group and its membership are removed. This cannot be undone."
@@ -10287,6 +10307,26 @@ msgstr "This filter on a field kept in AnyGridDB matches more than 1,000 rows: n
 #: components/auth/auth-page.tsx
 msgid "This first account will administer the instance. Whoever runs it asks for the token where it runs, with the command anygriddb install-token: it works once, for an hour."
 msgstr "This first account will administer the instance. Whoever runs it asks for the token where it runs, with the command anygriddb install-token: it works once, for an hour."
+
+#: components/public/public-view.tsx
+msgid "This form does not take answers yet."
+msgstr "This form does not take answers yet."
+
+#: components/public/public-view.tsx
+msgid "This form is closed."
+msgstr "This form is closed."
+
+#: components/public/public-view.tsx
+msgid "This form takes answers from {when}."
+msgstr "This form takes answers from {when}."
+
+#: lib/errors.ts
+msgid "This form takes no answers at this time"
+msgstr "This form takes no answers at this time"
+
+#: components/public/public-view.tsx
+msgid "This form took answers until {when}. It is closed."
+msgstr "This form took answers until {when}. It is closed."
 
 #: lib/errors.ts
 msgid "This group is kept by the identity provider"

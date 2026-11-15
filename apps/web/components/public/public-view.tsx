@@ -1,6 +1,7 @@
 import {
   coerceCellValue,
   type FilterGroup,
+  formWindowNeverOpens,
   rowError,
   visibleFormFields,
 } from "@anygriddb/core";
@@ -42,8 +43,50 @@ type FormConfig = {
   successMessage?: string;
   redirectUrl?: string;
   allowAnother?: boolean;
+  openFrom?: string;
+  openUntil?: string;
   fields?: FormField[];
 };
+
+/**
+ * What a form says in place of its fields outside the time it takes
+ * answers: when it opens, or that it has closed, in the reader's own
+ * words for a date.
+ */
+function FormClosed({
+  window,
+  form,
+}: {
+  window: "not_yet" | "ended";
+  form: FormConfig;
+}) {
+  const { t } = useLingui();
+  const { locale } = useLocale();
+  const said = (instant: string | undefined) =>
+    instant === undefined
+      ? undefined
+      : new Date(instant).toLocaleString(locale === "fr" ? "fr-FR" : "en-GB", {
+          dateStyle: "long",
+          timeStyle: "short",
+        });
+  const opens = said(form.openFrom);
+  // A window that never opens has no day it closed on.
+  const closed = formWindowNeverOpens(form) ? undefined : said(form.openUntil);
+  return (
+    <p
+      role="status"
+      className="mt-6 rounded-sm border border-border bg-muted/40 p-4 text-sm"
+    >
+      {window === "not_yet"
+        ? opens
+          ? t`This form takes answers from ${{ when: opens }}.`
+          : t`This form does not take answers yet.`
+        : closed
+          ? t`This form took answers until ${{ when: closed }}. It is closed.`
+          : t`This form is closed.`}
+    </p>
+  );
+}
 
 function PublicForm({
   token,
@@ -543,12 +586,16 @@ export function PublicView({ token }: { token: string }) {
                 {config.form.description}
               </p>
             ) : null}
-            <PublicForm
-              token={token}
-              access={access}
-              columns={columns}
-              form={config.form ?? {}}
-            />
+            {data.view.window === "open" ? (
+              <PublicForm
+                token={token}
+                access={access}
+                columns={columns}
+                form={config.form ?? {}}
+              />
+            ) : (
+              <FormClosed window={data.view.window} form={config.form ?? {}} />
+            )}
           </div>
         </div>
       ) : (

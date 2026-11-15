@@ -184,6 +184,32 @@ test("a public form takes a file, and the row it writes holds it", async ({
   ).toBeVisible();
   await anonymous.close();
 
+  // The form's maker sets when its link takes answers. Once that time is
+  // over, the link says so in place of the fields, and offers nothing to
+  // send.
+  await expect(page.getByText("Its link takes answers until")).toBeVisible();
+  const viewId =
+    /\/t\/[0-9a-f-]{36}\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
+  const closed = await page.request.post("/trpc/catalog.updateView", {
+    data: {
+      viewId,
+      patch: {
+        form: { openUntil: new Date(Date.now() - 60_000).toISOString() },
+      },
+    },
+  });
+  expect(closed.ok(), await closed.text()).toBe(true);
+  const later = await browser.newContext(from("198.51.100.63"));
+  const late = await later.newPage();
+  await late.goto(link);
+  await expect(late.getByRole("status")).toContainText(
+    /This form took answers until .+\. It is closed\./,
+  );
+  await expect(late.getByRole("button", { name: "Submit" })).toHaveCount(0);
+  await expect(late.getByRole("group", { name: "Pièces" })).toHaveCount(0);
+  expect(await accessibilityViolations(late)).toEqual([]);
+  await later.close();
+
   await page.getByRole("link", { name: "Grid", exact: true }).click();
   await expect(
     page.locator('[role="gridcell"][data-column="files"]').first(),

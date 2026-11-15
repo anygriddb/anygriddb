@@ -7,6 +7,7 @@ import {
   legacyFiltersToGroup,
   type FilterGroup,
 } from "./filter";
+import { isIsoDateTime } from "./cell-values";
 import { columnNameSchema } from "./names";
 import { AGGREGATE_FNS, groupSpecSchema, rowSortSchema } from "./query/read";
 
@@ -45,6 +46,9 @@ const formFieldSchema = z
   })
   .strict();
 
+/** An instant, as an ISO date and time with its offset. */
+const instantSchema = z.string().max(40).refine(isIsoDateTime);
+
 const formConfigSchema = z
   .object({
     title: z.string().trim().max(200).optional(),
@@ -56,11 +60,56 @@ const formConfigSchema = z
       .max(2_000)
       .optional(),
     allowAnother: z.boolean().optional(),
+    /**
+     * When its public link takes answers: from an instant, until another,
+     * or both. Without either, always.
+     */
+    openFrom: instantSchema.optional(),
+    openUntil: instantSchema.optional(),
     fields: z.array(formFieldSchema).max(200).optional(),
   })
   .strict();
 
 type FormConfig = z.infer<typeof formConfigSchema>;
+
+/** Where a form's public link stands in its window. */
+export type FormWindow = "open" | "not_yet" | "ended";
+
+/**
+ * True for a window that ends before it starts, or as it starts: such a
+ * form never takes an answer. Nothing of the form is lost to it, and the
+ * form's settings say so.
+ */
+export function formWindowNeverOpens(
+  form: Pick<FormConfig, "openFrom" | "openUntil"> | undefined,
+): boolean {
+  return (
+    form?.openFrom !== undefined &&
+    form.openUntil !== undefined &&
+    Date.parse(form.openFrom) >= Date.parse(form.openUntil)
+  );
+}
+
+/**
+ * Whether a form's public link takes answers at `now`: open from its
+ * first instant, that one included, until its last, that one excluded.
+ * A window that never opens has ended at any time: its link never says
+ * the form opens on a day when it will not.
+ */
+export function formWindow(
+  form: Pick<FormConfig, "openFrom" | "openUntil"> | undefined,
+  now: Date = new Date(),
+): FormWindow {
+  if (formWindowNeverOpens(form)) return "ended";
+  const at = now.getTime();
+  if (form?.openFrom !== undefined && at < Date.parse(form.openFrom)) {
+    return "not_yet";
+  }
+  if (form?.openUntil !== undefined && at >= Date.parse(form.openUntil)) {
+    return "ended";
+  }
+  return "open";
+}
 
 type FormFieldConfig = NonNullable<FormConfig["fields"]>[number];
 
