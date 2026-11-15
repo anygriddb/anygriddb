@@ -1,6 +1,7 @@
 import {
   AppError,
   describeColumns,
+  isHomeTable,
   purgeCutoff,
   purgeDate,
   restoredName,
@@ -637,6 +638,30 @@ export async function purgeItem(
       return removed.length > 0;
     }
     case "column": {
+      // A field of a table held in a source: its column goes first.
+      const hosted = await deps.db
+        .selectFrom("dataColumns as c")
+        .innerJoin("dataTables as t", "t.id", "c.tableId")
+        .select([
+          "t.id",
+          "t.storage",
+          "t.physicalName",
+          "t.sourceId",
+          "t.externalSchema",
+          "t.externalName",
+          "c.physicalName as column",
+          "c.externalType",
+        ])
+        .where("c.id", "=", target.id)
+        .where("c.deletedAt", "is not", null)
+        .executeTakeFirst();
+      if (hosted && isHomeTable(hosted)) {
+        const { purgeHostedColumn } = await import("../sources/host-table.js");
+        await purgeHostedColumn(deps.db, hosted, {
+          physicalName: hosted.column,
+          externalType: hosted.externalType,
+        });
+      }
       try {
         const { attachmentKeys } = await purgeColumn(
           deps.db,
@@ -653,11 +678,24 @@ export async function purgeItem(
     case "table": {
       const table = await deps.db
         .selectFrom("dataTables")
-        .select("id")
+        .select([
+          "id",
+          "storage",
+          "physicalName",
+          "sourceId",
+          "externalSchema",
+          "externalName",
+        ])
         .where("id", "=", target.id)
         .where("deletedAt", "is not", null)
         .executeTakeFirst();
       if (!table) return false;
+      // A table held in a source is dropped there first. A base's own
+      // purge leaves its schema, and what is in it, to the typed name.
+      if (isHomeTable(table)) {
+        const { purgeHostedTable } = await import("../sources/host-table.js");
+        await purgeHostedTable(table);
+      }
       await removeTable(
         deps.db,
         deps.files,

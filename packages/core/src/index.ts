@@ -389,8 +389,28 @@ export {
   keyValues,
   sameCell,
   type ExternalValue,
+  type SideFieldType,
   type StoredColumn,
 } from "./query/external-write";
+
+export {
+  buildCreateHome,
+  buildDropHome,
+  buildDropHomeColumn,
+  buildDropHomeTable,
+  buildHomeColumn,
+  buildHomeColumnExists,
+  buildHomeTable,
+  homeColumnType,
+  homePhysicalName,
+  homeSchemaName,
+  homeTableName,
+  isHomeDialect,
+  isHomeSchemaName,
+  isHomeTable,
+  type HomeColumn,
+  type HomeDialect,
+} from "./query/home";
 
 export {
   buildDuplicateJunction,

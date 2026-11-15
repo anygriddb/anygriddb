@@ -8,6 +8,7 @@ import {
   AppError,
   deriveColumnName,
   isCopySourceEngine,
+  isHomeTable,
   madeNames,
   OPTION_COLORS,
   PRIMARY_TYPES,
@@ -540,6 +541,8 @@ export async function refreshExposedTable(
     .select([
       "id",
       "baseId",
+      "storage",
+      "physicalName",
       "sourceId",
       "externalSchema",
       "externalName",
@@ -554,7 +557,13 @@ export async function refreshExposedTable(
   }
   const sourceId = table.sourceId;
   const found = new Map(
-    (await sourceTables(deps, sourceId)).map((item) => [keyOf(item), item]),
+    (
+      await sourceTables(
+        deps,
+        sourceId,
+        isHomeTable(table) ? table.externalSchema : undefined,
+      )
+    ).map((item) => [keyOf(item), item]),
   );
   const client = found.get(
     keyOf({ schema: table.externalSchema, name: table.externalName }),
@@ -622,6 +631,9 @@ export async function refreshExposedTable(
           .map((column) => column.position),
       );
       const now = new Date();
+      const homeKey = new Set(
+        isHomeTable(table) ? (table.externalKey ?? []) : [],
+      );
       for (const column of client.columns) {
         const field = byPhysical.get(column.name);
         if (!field) {
@@ -638,6 +650,9 @@ export async function refreshExposedTable(
           result.added.push(column.name);
           continue;
         }
+        // A table held in a source draws its own id, which nobody
+        // writes: that field stays as AnyGridDB made it.
+        if (homeKey.has(column.name)) continue;
         // A field an administrator put in the trash stays there.
         if (field.deletedAt !== null) continue;
         const followed = followedField({

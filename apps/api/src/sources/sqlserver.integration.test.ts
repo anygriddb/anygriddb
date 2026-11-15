@@ -18,6 +18,7 @@ import { aggregateRows, readPage } from "../data/rows.js";
 import { addColumn, insertBase } from "../data/schema-ops.js";
 import { createTestDatabase } from "../test-database.js";
 import { exposeTables } from "./expose.js";
+import { exerciseHostedBase } from "./host-table.test-helpers.js";
 import { setSourcePools, SourcePools } from "./pools.js";
 import { checkConnection, createSource } from "./sources.js";
 import { introspectSqlServer } from "./sqlserver-schema.js";
@@ -468,5 +469,47 @@ describe("SQL Server sources", () => {
     } finally {
       await local.close();
     }
+  });
+
+  it("holds a base's tables in a schema it owns, then drops what it made", async () => {
+    const sqlcmd = async (query: string) =>
+      server?.exec([
+        "/opt/mssql-tools18/bin/sqlcmd",
+        "-S",
+        "localhost",
+        "-U",
+        "sa",
+        "-P",
+        SA_PASSWORD,
+        "-C",
+        "-b",
+        "-d",
+        "erp",
+        "-h",
+        "-1",
+        "-W",
+        "-Q",
+        `set nocount on; ${query}`,
+      ]);
+    const granted = await sqlcmd(
+      `create login holder with password = '${READER_PASSWORD}'; create user holder for login holder; grant create schema, create table to holder`,
+    );
+    expect(granted?.exitCode, granted?.output).toBe(0);
+    const deps = { db, key, settings };
+    pools ??= new SourcePools({ db, key, settings, log: () => undefined });
+    setSourcePools(pools);
+    const source = await createSource(deps, admin, {
+      name: "Home",
+      ...connection({ username: "holder" }),
+      connectionLimit: 2,
+      timeZone: "UTC",
+    });
+    await exerciseHostedBase({
+      deps,
+      admin,
+      sourceId: source.id,
+      dialect: "sqlserver",
+      scalar: async (query) => (await sqlcmd(query))?.output.trim() ?? "",
+    });
   });
 });

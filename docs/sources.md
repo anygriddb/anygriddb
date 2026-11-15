@@ -78,17 +78,38 @@ hold a base: it has no tables for AnyGridDB to create. Oracle is not
 offered here.
 
 The schema's name is fixed from the base (`ag` and part of its id). The
-account must be allowed to create that schema and the tables in it. If it
-cannot, nothing is created, neither the base nor the schema. Tables added
-later, and columns added to them, are columns of those tables. Members,
+account must be allowed to create that schema and the tables in it,
+beside what it reads:
+
+| Engine         | What the account needs                                                         |
+| -------------- | ------------------------------------------------------------------------------ |
+| PostgreSQL     | `CREATE` on the database                                                       |
+| MySQL, MariaDB | every right on its own databases, ``GRANT ALL ON `ag%`.*``; not a global grant |
+| SQL Server     | `CREATE SCHEMA` and `CREATE TABLE` in the database                             |
+
+If it cannot, nothing is created, neither the base nor the schema.
+
+Each table has an `id` the source draws, which the grid shows and nobody
+writes. A field that stores one value is a column of that table, typed as
+a field of a client's table is in AnyGridDB's side table: text, long text,
+number (38 digits, 10 of them decimals, outside PostgreSQL), checkbox,
+date, date and time (in UTC), single select, email, URL, phone, colour,
+place, JSON, rating. A formula and a button stay in AnyGridDB. Multiple
+select, duration, collaborator, attachment, links, lookups, rollups, and
+the row's own times, authors and number are not offered there. Members,
 views, dashboards, files, comments, and history stay in AnyGridDB.
 
 Renaming the base does not rename the schema. Two bases need two schemas.
 A starting point is not applied: its sample rows and links are written
 as AnyGridDB's own tables, so the base starts empty. Duplicating one of
-its tables is not offered. Deleting the base leaves the schema. Deleting
-the base for good can also drop it, and only then, when an administrator
-types the schema's name.
+its tables is not offered.
+
+A field or a table deleted for good, from the trash or when its time
+there ends, is dropped from the schema too, as AnyGridDB drops its own.
+Deleting the base, even for good, leaves the schema and what is in it.
+Deleting the base for good drops the schema only when an administrator
+types its name: then it goes with everything in it, tables someone added
+there included.
 A table that already existed at the client is never one of these: exposing
 it does not change its schema.
 
@@ -191,16 +212,20 @@ is not part of AnyGridDB's tests.
 - A key is a row, named by the key. A hash's fields are columns. A
   string that is a JSON object is a row of its keys. Anything else is
   one column, `value`.
-- Where the server tells the account's commands, AnyGridDB refuses one
-  that can administer the server (`+@all`, `+@admin`, `+@dangerous`,
-  or every command). A key the scan meets twice is copied once.
+- An account that can administer the server is refused: one that may
+  read the server's configuration (`CONFIG GET`), or whose rules, where
+  it may read them, grant `+@all`, `+@admin` or `+@dangerous`. Give the
+  account the commands a copy uses (`SCAN`, `TYPE`, `GET`, `HGETALL`,
+  `INFO`, `PING`, `HELLO`) on its prefix, and nothing else. A key the
+  scan meets twice is copied once.
 
 ### Cassandra
 
 Tested against Cassandra 5.
 
 - **Keyspace** is the keyspace to read. The port is 9042 unless you set
-  another. The data center is the one the server reports for itself.
+  another. AnyGridDB connects to the host the source names, and to no
+  other node of the cluster, whatever the server says of them.
 - A table is read from first row to last, by pages. A table whose name
   is not a plain identifier, or which has no partition key, is left out.
 - A superuser, when `system_auth.roles` says so, is refused. A server
@@ -242,6 +267,10 @@ Tested against Neo4j Community.
   roles, so create another user: it can read, and the server cannot say
   it administers. Where roles are reported, `admin` and `architect` are
   refused too.
+- Each query, and during a copy the wait for the next node, ends after
+  the source's time limit. A date and time is copied as an instant in
+  UTC, a date as written; a local date and time, a time, a duration and
+  a point are copied as text.
 
 ## Statuses and signatures
 
@@ -356,8 +385,9 @@ in the source's page (or under the message a grid shows when a read
 fails because the table changed). New columns become fields, links when
 they are foreign keys to an exposed table; a field follows its column's
 type when that type changed, under the same name, so views and formulas
-keep it. A type chosen in AnyGridDB stays while the column's type is
-the same. A field whose column is gone goes to the trash. The table's
+keep it. While the column's type is the same, the field keeps the type
+and settings chosen in AnyGridDB, unless the client's database lists the
+column's values (an enum, a check): that list is followed. A field whose column is gone goes to the trash. The table's
 primary key follows too: without one, writes stop.
 
 A text column a check limits to a list of values reads as a single

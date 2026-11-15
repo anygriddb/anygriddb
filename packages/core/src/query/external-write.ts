@@ -565,7 +565,7 @@ export const SIDE_FIELD_TYPES = [
   "rating",
 ] as const;
 
-type SideFieldType = (typeof SIDE_FIELD_TYPES)[number];
+export type SideFieldType = (typeof SIDE_FIELD_TYPES)[number];
 
 export function isSideFieldType(type: string): type is SideFieldType {
   return (SIDE_FIELD_TYPES as readonly string[]).includes(type);

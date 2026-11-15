@@ -10853,6 +10853,10 @@ msgstr "This invitation does not exist or has expired."
 msgid "This job cannot be retried"
 msgstr "This job cannot be retried"
 
+#: lib/errors.ts
+msgid "This kind of field is not a column of a table that lives in an external source. Multiple select, duration, collaborator, attachment, links, lookups, rollups, and the row's own times, authors, and number stay out."
+msgstr "This kind of field is not a column of a table that lives in an external source. Multiple select, duration, collaborator, attachment, links, lookups, rollups, and the row's own times, authors, and number stay out."
+
 #: components/public/public-base.tsx
 #: components/public/public-view.tsx
 msgid "This link does not exist, has expired, or was revoked."

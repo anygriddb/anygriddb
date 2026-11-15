@@ -19,12 +19,12 @@ import { grantMember } from "../data/members.js";
 import type { Env } from "../env.js";
 import { browserFactory, signUpProved } from "../trpc/caller.test-helpers.js";
 import { readPage } from "../data/rows.js";
-import { addColumn, insertBase, insertTable } from "../data/schema-ops.js";
-import { createRows, loadRowScope, updateRows } from "../services/rows.js";
+import { addColumn, insertBase } from "../data/schema-ops.js";
+import { loadRowScope, updateRows } from "../services/rows.js";
 import { revertRow } from "../services/revert-row.js";
 import { createTestDatabase } from "../test-database.js";
 import { exposeTables, refreshExposedTable } from "./expose.js";
-import { attachHome, dropHostedSchema } from "./host-table.js";
+import { exerciseHostedBase } from "./host-table.test-helpers.js";
 import { readExternalAudit } from "./writes.js";
 import { setSourcePools, SourcePools } from "./pools.js";
 import {
@@ -773,7 +773,7 @@ describe("PostgreSQL sources", () => {
     expect(JSON.stringify(listed)).not.toContain("readerpass");
   });
 
-  it("creates a base's tables in a schema it owns and writes the rows there", async () => {
+  it("holds a base's tables in a schema it owns, then drops what it made", async () => {
     const granted = await server?.exec([
       "psql",
       "-U",
@@ -792,101 +792,23 @@ describe("PostgreSQL sources", () => {
       ...connection(),
       connectionLimit: 2,
     });
-    const base = await insertBase(db, admin, { name: "Held" });
-    await attachHome(db, admin, base.id, source.id);
-    const created = await insertTable(db, admin, {
-      baseId: base.id,
-      name: "Lines",
-      columns: [{ label: "Note", fieldType: "text" }],
+    await exerciseHostedBase({
+      deps,
+      admin,
+      sourceId: source.id,
+      dialect: "postgres",
+      scalar: async (query) =>
+        (
+          await server?.exec([
+            "psql",
+            "-U",
+            "postgres",
+            "-d",
+            "erp",
+            "-tAc",
+            query,
+          ])
+        )?.output.trim() ?? "",
     });
-    const stored = await db
-      .selectFrom("dataTables")
-      .selectAll()
-      .where("id", "=", created.id)
-      .executeTakeFirstOrThrow();
-    expect(stored.storage).toBe("external");
-    expect(stored.physicalName.startsWith("h_")).toBe(true);
-    const note = await db
-      .selectFrom("dataColumns")
-      .select("name")
-      .where("tableId", "=", created.id)
-      .where("label", "=", "Note")
-      .executeTakeFirstOrThrow();
-    const actor = {
-      userId: admin,
-      bindings: [
-        { role: "owner" as const, scope: "base" as const, scopeId: base.id },
-      ],
-    };
-    const services = {
-      db,
-      bus: { publish: () => Promise.resolve() } as never,
-      log: () => undefined,
-    };
-    const scope = await loadRowScope(db, actor, stored);
-    const [rowId] = await createRows(
-      services,
-      scope,
-      [{ values: { [note.name]: "first" } }],
-      { source: "web" },
-    );
-    expect(rowId).toBeTruthy();
-    const read = await readPage(
-      db,
-      (await loadEngine(db, created.id, () => true)).engine,
-      { limit: 10, timeZone: "UTC" },
-      { total: true },
-    );
-    expect(read.total).toBe(1);
-    expect(read.rows[0]?.id).toBe(rowId);
-    expect(read.rows[0]?.[note.name]).toBe("first");
-    const added = await addColumn(db, admin, created.id, {
-      label: "Qty",
-      fieldType: "number",
-    });
-    const again = await loadRowScope(db, actor, stored);
-    await updateRows(
-      services,
-      again,
-      [{ rowId: rowId ?? "", values: { [added.name]: "4" } }],
-      { source: "web" },
-    );
-    const after = await readPage(
-      db,
-      (await loadEngine(db, created.id, () => true)).engine,
-      { limit: 10, timeZone: "UTC" },
-      { total: false },
-    );
-    expect(after.rows[0]?.[added.name]).toBe("4");
-    const home = await db
-      .selectFrom("bases")
-      .select("homeSchema")
-      .where("id", "=", base.id)
-      .executeTakeFirstOrThrow();
-    expect(home.homeSchema).toMatch(/^ag[0-9a-f]{26}$/);
-    const remote = await server?.exec([
-      "psql",
-      "-U",
-      "postgres",
-      "-d",
-      "erp",
-      "-tAc",
-      `select count(*) from "${home.homeSchema ?? ""}"."${stored.externalName ?? ""}"`,
-    ]);
-    expect(remote?.output.trim()).toBe("1");
-    await expect(dropHostedSchema(db, base.id, "public")).rejects.toMatchObject(
-      { code: "invalid_arguments" },
-    );
-    await dropHostedSchema(db, base.id, home.homeSchema ?? "");
-    const gone = await server?.exec([
-      "psql",
-      "-U",
-      "postgres",
-      "-d",
-      "erp",
-      "-tAc",
-      `select count(*) from pg_namespace where nspname = '${home.homeSchema ?? ""}'`,
-    ]);
-    expect(gone?.output.trim()).toBe("0");
   });
 });

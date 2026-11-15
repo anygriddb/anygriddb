@@ -1,111 +1,118 @@
 /**
- * Tables a base creates in the SQL schema it owns. They are external
- * tables whose schema AnyGridDB made, so a column added later is a
- * column of that table. A table that already existed at the client is
- * never created here.
+ * Tables a base creates in the SQL schema it owns (ADR 0090). They are
+ * external tables whose schema AnyGridDB made: a field that stores a
+ * value is a column there, typed as a side column is (ADR 0032), and the
+ * rows are read and written as a client's rows are. A table that already
+ * existed at the client is never created, changed, or dropped here.
+ *
+ * The source is changed outside the catalog's transaction, so a network
+ * call never holds that transaction open; when the catalog then refuses
+ * the change, what was made in the source is taken back.
  */
 import { randomBytes } from "node:crypto";
 import {
   AppError,
-  deriveColumnName,
-  hasPhysicalColumn,
-  isCopySourceEngine,
-  type ColumnDefinition,
-  type FieldType,
-  type SqlSourceEngine,
-} from "@anygriddb/core";
-import type { Database } from "@anygriddb/db";
-import { withAudit } from "../data/audit-context.js";
-import {
-  addHomeColumnSql,
-  createHomeSql,
-  dropHomeColumnSql,
-  createHomeTableSql,
-  dropHomeSql,
-  dropHomeTableSql,
+  buildCreateHome,
+  buildDropHome,
+  buildDropHomeColumn,
+  buildDropHomeTable,
+  buildHomeColumn,
+  buildHomeColumnExists,
+  buildHomeTable,
+  homeColumnType,
+  homePhysicalName,
   homeSchemaName,
   homeTableName,
-} from "./host-sql.js";
+  isHomeDialect,
+  isSideFieldType,
+  madeNames,
+  type ColumnConfig,
+  type FieldType,
+  type HomeColumn,
+  type HomeDialect,
+} from "@anygriddb/core";
+import type { Database } from "@anygriddb/db";
+import { sql } from "kysely";
+import { withAudit, type AuditTx } from "../data/audit-context.js";
 import { sourcePools } from "./pools.js";
 
-const HOSTED = new Set<SqlSourceEngine>([
-  "postgres",
-  "mysql",
-  "mariadb",
-  "sqlserver",
-]);
-
-function storedColumns(columns: readonly ColumnDefinition[]): Array<{
+/** A field as `planColumn` made it. */
+export type HostedField = {
   name: string;
   label: string;
   fieldType: FieldType;
-  config: Record<string, unknown>;
-}> {
-  // `id` is the row's key, projected under that name. The field that shows
-  // it takes another name, as a client's own `id` column does.
-  const taken = new Set<string>(["id", "f_id"]);
-  const stored: Array<{
-    name: string;
-    label: string;
-    fieldType: FieldType;
-    config: Record<string, unknown>;
-  }> = [];
-  for (const column of columns) {
-    if (!hasPhysicalColumn(column.fieldType)) continue;
-    const label = column.label ?? column.name ?? "Field";
-    const name = deriveColumnName(column.name ?? label, taken);
-    taken.add(name);
-    stored.push({
-      name,
-      label,
-      fieldType: column.fieldType,
-      config: column.config ?? {},
-    });
+  description: string | null;
+  requireReason: boolean;
+  config: ColumnConfig;
+};
+
+/** Fields the catalog computes: they have no column anywhere. */
+const CATALOG_ONLY = new Set<FieldType>(["formula", "button", "row_id"]);
+
+/** The column a field gets in the source, or none; refused when it cannot. */
+function homeColumn(field: HostedField): HomeColumn | null {
+  if (CATALOG_ONLY.has(field.fieldType)) return null;
+  if (!isSideFieldType(field.fieldType)) {
+    throw new AppError("source_home_field_type", field.fieldType);
   }
-  return stored;
+  return { name: field.name, fieldType: field.fieldType };
 }
 
-/** Creates the schema and records it on the base. Oracle is refused. */
+async function homeDialect(
+  db: Database,
+  sourceId: string,
+): Promise<HomeDialect> {
+  const source = await db
+    .selectFrom("sources")
+    .select("engine")
+    .where("id", "=", sourceId)
+    .executeTakeFirst();
+  if (!source || !isHomeDialect(source.engine)) {
+    throw new AppError("invalid_arguments");
+  }
+  return source.engine;
+}
+
+async function inSource(
+  sourceId: string,
+  statements: ReadonlyArray<{ text: string; values: unknown[] }>,
+): Promise<void> {
+  await sourcePools().write(sourceId, async (run) => {
+    for (const statement of statements) await run(statement);
+    return [];
+  });
+}
+
+/** Creates the schema and records it on the base. */
 export async function attachHome(
   db: Database,
   userId: string,
   baseId: string,
   sourceId: string,
 ): Promise<void> {
-  const source = await db
-    .selectFrom("sources")
-    .select(["id", "engine"])
-    .where("id", "=", sourceId)
-    .executeTakeFirst();
-  if (
-    !source ||
-    isCopySourceEngine(source.engine) ||
-    !HOSTED.has(source.engine)
-  ) {
-    throw new AppError("invalid_arguments");
-  }
+  const dialect = await homeDialect(db, sourceId);
   const schema = homeSchemaName(baseId);
-  const statement = createHomeSql(source.engine, schema);
-  if (!statement) throw new AppError("invalid_arguments");
-  await sourcePools().write(source.id, async (run) => {
-    await run({ text: statement, values: [] });
-    return [];
-  });
+  await inSource(sourceId, [buildCreateHome(dialect, schema)]);
   try {
     await withAudit(db, { userId, source: "web" }, async (tx) => {
       await tx
         .updateTable("bases")
-        .set({ homeSourceId: source.id, homeSchema: schema })
+        .set({ homeSourceId: sourceId, homeSchema: schema })
         .where("id", "=", baseId)
         .execute();
     });
   } catch (error) {
-    await dropSchema(source.id, source.engine, schema).catch(() => undefined);
+    await inSource(sourceId, [buildDropHome(dialect, schema)]).catch(
+      () => undefined,
+    );
     throw error;
   }
 }
 
-/** Removes the schema a base owns. A schema already gone is success. */
+/**
+ * Drops the schema a base owns, with whatever is in it, once an
+ * administrator typed its name. A schema already gone is success.
+ */
 export async function dropHostedSchema(
   db: Database,
   baseId: string,
@@ -119,50 +126,8 @@ export async function dropHostedSchema(
   if (!base?.homeSourceId || base.homeSchema !== schemaName) {
     throw new AppError("invalid_arguments");
   }
-  const source = await db
-    .selectFrom("sources")
-    .select(["id", "engine"])
-    .where("id", "=", base.homeSourceId)
-    .executeTakeFirst();
-  if (!source || !HOSTED.has(source.engine as SqlSourceEngine)) {
-    throw new AppError("invalid_arguments");
-  }
-  const tables = await db
-    .selectFrom("dataTables")
-    .select("externalName")
-    .where("baseId", "=", baseId)
-    .where("externalSchema", "=", schemaName)
-    .execute();
-  await dropSchema(
-    source.id,
-    source.engine as SqlSourceEngine,
-    schemaName,
-    tables.flatMap((table) =>
-      table.externalName && /^t[0-9a-f]{26}$/.test(table.externalName)
-        ? [table.externalName]
-        : [],
-    ),
-  );
-}
-
-async function dropSchema(
-  sourceId: string,
-  engine: SqlSourceEngine,
-  schema: string,
-  tables: readonly string[] = [],
-): Promise<void> {
-  const statement = dropHomeSql(engine, schema);
-  if (!statement) return;
-  await sourcePools().write(sourceId, async (run) => {
-    for (const table of tables) {
-      await run({
-        text: dropHomeTableSql(engine, schema, table),
-        values: [],
-      });
-    }
-    await run({ text: statement, values: [] });
-    return [];
-  });
+  const dialect = await homeDialect(db, base.homeSourceId);
+  await inSource(base.homeSourceId, [buildDropHome(dialect, schemaName)]);
 }
 
 /** Creates the table in the base's schema and registers it. */
@@ -173,39 +138,31 @@ export async function createHostedTable(
     baseId: string;
     name: string;
     description?: string;
-    columns: readonly ColumnDefinition[];
+    fields: readonly HostedField[];
+    primaryIndex: number;
     viewName?: string;
     sourceId: string;
     schema: string;
   },
 ): Promise<{ id: string }> {
-  const source = await db
-    .selectFrom("sources")
-    .select(["id", "engine"])
-    .where("id", "=", input.sourceId)
-    .executeTakeFirst();
-  if (!source || !HOSTED.has(source.engine as SqlSourceEngine)) {
-    throw new AppError("invalid_arguments");
-  }
-  const engine = source.engine as SqlSourceEngine;
-  const columns = storedColumns(input.columns);
-  const externalName = homeTableName();
-  const statement = createHomeTableSql(
-    engine,
-    input.schema,
-    externalName,
-    columns,
-  );
-  await sourcePools().write(source.id, async (run) => {
-    await run({ text: statement, values: [] });
-    return [];
-  });
+  const dialect = await homeDialect(db, input.sourceId);
+  const columns = input.fields.map(homeColumn);
+  const externalName = homeTableName(randomBytes(13).toString("hex"));
+  await inSource(input.sourceId, [
+    buildHomeTable(
+      dialect,
+      input.schema,
+      externalName,
+      columns.filter((column) => column !== null),
+    ),
+  ]);
   try {
     return await withAudit(db, { userId, source: "web" }, async (tx) => {
       const counted = await tx
         .selectFrom("dataTables")
-        .select((eb) => eb.fn.countAll<string>().as("count"))
+        .select(sql<number>`count(*)::int`.as("count"))
         .where("baseId", "=", input.baseId)
+        .where("folderId", "is", null)
         .where("deletedAt", "is", null)
         .executeTakeFirst();
       const table = await tx
@@ -214,19 +171,20 @@ export async function createHostedTable(
           baseId: input.baseId,
           name: input.name,
           description: input.description ?? null,
-          physicalName: `h_${randomBytes(16).toString("hex")}`,
+          physicalName: homePhysicalName(randomBytes(16).toString("hex")),
           storage: "external",
-          sourceId: source.id,
+          sourceId: input.sourceId,
           externalSchema: input.schema,
           externalName,
           externalKey: ["id"],
           externalUpdate: true,
           externalInsert: true,
           externalDelete: true,
-          position: Number(counted?.count ?? 0),
+          position: counted?.count ?? 0,
         })
         .returning("id")
         .executeTakeFirstOrThrow();
+      // The identity the source draws: shown, never written.
       await tx
         .insertInto("dataColumns")
         .values({
@@ -240,31 +198,27 @@ export async function createHostedTable(
           fieldType: "number",
           config: {},
           position: 0,
-          isPrimary: true,
+          isPrimary: input.primaryIndex < 0,
         })
         .execute();
-      for (const [index, column] of columns.entries()) {
-        await tx
-          .insertInto("dataColumns")
-          .values({
-            tableId: table.id,
-            name: column.name,
-            label: column.label,
-            physicalName: column.name,
-            externalType: column.fieldType,
-            externalWritable: true,
-            externalInsertable: true,
-            fieldType: column.fieldType,
-            config: column.config,
+      for (const [index, field] of input.fields.entries()) {
+        await insertField(
+          tx,
+          table.id,
+          dialect,
+          field,
+          columns[index] ?? null,
+          {
             position: index + 1,
-          })
-          .execute();
+            isPrimary: index === input.primaryIndex,
+          },
+        );
       }
       await tx
         .insertInto("views")
         .values({
           tableId: table.id,
-          name: input.viewName ?? "Grid",
+          name: input.viewName ?? madeNames().grid,
           viewType: "grid",
           config: {},
           position: 0,
@@ -273,92 +227,148 @@ export async function createHostedTable(
       return { id: table.id };
     });
   } catch (error) {
-    await sourcePools()
-      .write(source.id, async (run) => {
-        await run({
-          text: dropHomeTableSql(engine, input.schema, externalName),
-          values: [],
-        });
-        return [];
-      })
-      .catch(() => undefined);
+    await inSource(input.sourceId, [
+      buildDropHomeTable(input.schema, externalName),
+    ]).catch(() => undefined);
     throw error;
   }
 }
 
-/** A column on a table this product created in the source. */
-export async function addHostedColumn(
-  db: Database,
-  userId: string,
-  table: {
-    id: string;
-    sourceId: string | null;
-    externalSchema: string | null;
-    externalName: string | null;
-  },
-  column: {
-    name: string;
-    label: string;
-    fieldType: FieldType;
-    config: Record<string, unknown>;
-  },
-  position: number,
+async function insertField(
+  tx: AuditTx,
+  tableId: string,
+  dialect: HomeDialect,
+  field: HostedField,
+  column: HomeColumn | null,
+  place: { position: number; isPrimary: boolean },
 ): Promise<{ id: string; name: string }> {
+  return tx
+    .insertInto("dataColumns")
+    .values({
+      tableId,
+      name: field.name,
+      label: field.label,
+      description: field.description,
+      requireReason: field.requireReason,
+      physicalName: field.name,
+      fieldType: field.fieldType,
+      config: field.config,
+      position: place.position,
+      isPrimary: place.isPrimary,
+      ...(column
+        ? {
+            externalType: homeColumnType(dialect, column.fieldType),
+            externalWritable: true,
+            externalInsertable: true,
+          }
+        : {}),
+    })
+    .returning(["id", "name"])
+    .executeTakeFirstOrThrow();
+}
+
+/** A table this product created in the source, as the catalog has it. */
+type HostedTable = {
+  id: string;
+  sourceId: string | null;
+  externalSchema: string | null;
+  externalName: string | null;
+};
+
+function located(table: HostedTable): {
+  sourceId: string;
+  schema: string;
+  name: string;
+} {
   if (!table.sourceId || !table.externalSchema || !table.externalName) {
     throw new AppError("unknown_table");
   }
-  const source = await db
-    .selectFrom("sources")
-    .select("engine")
-    .where("id", "=", table.sourceId)
-    .executeTakeFirst();
-  if (!source || !HOSTED.has(source.engine as SqlSourceEngine)) {
-    throw new AppError("invalid_arguments");
+  return {
+    sourceId: table.sourceId,
+    schema: table.externalSchema,
+    name: table.externalName,
+  };
+}
+
+/** A field added to such a table: a column of it, unless it computes. */
+export async function addHostedColumn(
+  db: Database,
+  userId: string,
+  table: HostedTable,
+  field: HostedField,
+  position: number,
+): Promise<{ id: string; name: string }> {
+  const { sourceId, schema, name } = located(table);
+  const dialect = await homeDialect(db, sourceId);
+  const column = homeColumn(field);
+  if (column) {
+    await inSource(sourceId, [buildHomeColumn(dialect, schema, name, column)]);
   }
-  const engine = source.engine as SqlSourceEngine;
-  const schema = table.externalSchema;
-  const externalName = table.externalName;
-  const sourceId = table.sourceId;
-  const statement = addHomeColumnSql(engine, schema, externalName, column);
-  // The source is changed outside the catalog's transaction: a network
-  // call must not hold that transaction open. If the catalog then
-  // refuses the column, the source column is removed again.
-  await sourcePools().write(sourceId, async (run) => {
-    await run({ text: statement, values: [] });
-    return [];
-  });
   try {
     return await withAudit(
       db,
       { userId, tableId: table.id, source: "web" },
-      async (tx) =>
-        tx
-          .insertInto("dataColumns")
-          .values({
-            tableId: table.id,
-            name: column.name,
-            label: column.label,
-            physicalName: column.name,
-            externalType: column.fieldType,
-            externalWritable: true,
-            externalInsertable: true,
-            fieldType: column.fieldType,
-            config: column.config,
-            position,
-          })
-          .returning(["id", "name"])
-          .executeTakeFirstOrThrow(),
+      async (tx) => {
+        await tx
+          .updateTable("dataColumns")
+          .set((eb) => ({ position: eb("position", "+", 1) }))
+          .where("tableId", "=", table.id)
+          .where("position", ">=", position)
+          // Lists of linking rows sit at 10,000 and past.
+          .where("position", "<", 10_000)
+          .execute();
+        return insertField(tx, table.id, dialect, field, column, {
+          position,
+          isPrimary: false,
+        });
+      },
     );
   } catch (error) {
-    await sourcePools()
-      .write(sourceId, async (run) => {
-        await run({
-          text: dropHomeColumnSql(engine, schema, externalName, column.name),
-          values: [],
-        });
-        return [];
-      })
-      .catch(() => undefined);
+    if (column) {
+      await dropColumn(sourceId, dialect, schema, name, column.name).catch(
+        () => undefined,
+      );
+    }
     throw error;
   }
+}
+
+async function dropColumn(
+  sourceId: string,
+  dialect: HomeDialect,
+  schema: string,
+  table: string,
+  column: string,
+): Promise<void> {
+  await sourcePools().write(sourceId, async (run) => {
+    // MySQL has no `if exists` for a column.
+    if (dialect === "mysql") {
+      const found = await run(buildHomeColumnExists(schema, table, column));
+      if (found.length === 0) return [];
+    }
+    await run(buildDropHomeColumn(dialect, schema, table, column));
+    return [];
+  });
+}
+
+/**
+ * A field of such a table, deleted for good: its column goes too. Done
+ * before the catalog forgets the field, so a purge that fails leaves
+ * both, and the next purge tries again.
+ */
+export async function purgeHostedColumn(
+  db: Database,
+  table: HostedTable,
+  column: { physicalName: string; externalType: string | null },
+): Promise<void> {
+  if (column.externalType === null) return;
+  const { sourceId, schema, name } = located(table);
+  const dialect = await homeDialect(db, sourceId);
+  await dropColumn(sourceId, dialect, schema, name, column.physicalName);
+}
+
+/** Such a table, deleted for good: dropped from the schema too. */
+export async function purgeHostedTable(table: HostedTable): Promise<void> {
+  const { sourceId, schema, name } = located(table);
+  await inSource(sourceId, [buildDropHomeTable(schema, name)]);
 }

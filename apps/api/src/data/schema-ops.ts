@@ -24,6 +24,7 @@ import {
   formulaReferences,
   hasPhysicalColumn,
   isConvertible,
+  isHomeTable,
   isMetadataConversion,
   isRelationType,
   isWritableType,
@@ -356,20 +357,33 @@ export async function insertTable(
   const primaryIndex = planned.findIndex((column) =>
     PRIMARY_TYPES.has(column.fieldType),
   );
+  // A base held in a source creates its tables there (ADR 0090).
   const home = await db
     .selectFrom("bases")
     .select(["homeSourceId", "homeSchema"])
     .where("id", "=", input.baseId)
-    .where("deletedAt", "is", null)
     .executeTakeFirst();
-  if (!home) throw new AppError("unknown_base");
-  if (home.homeSourceId && home.homeSchema) {
+  if (home?.homeSourceId && home.homeSchema) {
     const { createHostedTable } = await import("../sources/host-table.js");
-    return createHostedTable(db, userId, {
-      ...input,
-      sourceId: home.homeSourceId,
-      schema: home.homeSchema,
-    });
+    try {
+      return await createHostedTable(db, userId, {
+        baseId: input.baseId,
+        name: input.name,
+        ...(input.description === undefined
+          ? {}
+          : { description: input.description }),
+        ...(input.viewName === undefined ? {} : { viewName: input.viewName }),
+        fields: planned,
+        primaryIndex,
+        sourceId: home.homeSourceId,
+        schema: home.homeSchema,
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new AppError("table_already_exists", { cause: error });
+      }
+      throw error;
+    }
   }
   try {
     return await withAudit(db, { userId, source: "web" }, async (tx) => {
@@ -555,24 +569,20 @@ export async function addColumn(
   // something lives in the side table (ADR 0032); a formula, a button, or
   // the row's id stores nothing. A table this product created in a schema
   // it owns is the exception: the new column is a column of that table.
-  if (
-    table.storage === "external" &&
-    table.physicalName.startsWith("h_") &&
-    planned.fieldType !== "formula" &&
-    planned.fieldType !== "button" &&
-    planned.fieldType !== "row_id"
-  ) {
+  if (isHomeTable(table)) {
+    if (planned.fieldType === "formula") {
+      assertCompiles(
+        withPlanned(rows, table, [planned], existing.length),
+        table.id,
+        planned.name,
+      );
+    }
     const { addHostedColumn } = await import("../sources/host-table.js");
     return addHostedColumn(
       db,
       userId,
       table,
-      {
-        name: planned.name,
-        label: planned.label,
-        fieldType: planned.fieldType,
-        config: planned.config,
-      },
+      planned,
       position === undefined
         ? existing.length
         : Math.min(position, existing.length),

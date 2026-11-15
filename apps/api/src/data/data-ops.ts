@@ -1,5 +1,6 @@
 import {
   AppError,
+  isHomeTable,
   type BaseTemplate,
   buildDuplicateJunction,
   buildDuplicateRows,
@@ -438,7 +439,7 @@ export async function duplicateTable(
   // added from here.
   if (source.storage === "external") {
     throw new AppError(
-      source.physicalName.startsWith("h_")
+      isHomeTable(source)
         ? "source_home_not_duplicated"
         : "external_table_read_only",
     );
@@ -648,7 +649,7 @@ export async function duplicateColumn(
     });
     for (let index = 0; index < updates.length; index += BATCH) {
       const slice = updates.slice(index, index + BATCH);
-      if (table.storage === "external" && table.physicalName.startsWith("h_")) {
+      if (isHomeTable(table)) {
         // The new column is empty, so that is what the comparison expects.
         await updateExternalRows(
           db,

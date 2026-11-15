@@ -26,16 +26,22 @@ grid, the members and the history stay here.
   by this path.
 - **What is created there is the table and its stored columns.** A
   row's values are written there, through the same comparison a
-  client's table gets. Members, views, dashboards, files, comments
-  and history stay in AnyGridDB. A formula, a button and a row id
-  stay fields of the catalog.
+  client's table gets. A column takes the type a side table gives its
+  field (ADR 0032), so a value reads back as it was written, and a
+  field that is no such value (a list, a person, a file, a link, the
+  row's own history) is not offered. Members, views, dashboards,
+  files, comments and history stay in AnyGridDB. A formula, a button
+  and a row id stay fields of the catalog.
 - **A starting point is not applied.** Its sample rows and its links
   are written as AnyGridDB's own tables. The base starts empty.
   Duplicating one of its tables is not offered. Duplicating a column
   copies the values through the same write as the grid.
-- **Deleting the base leaves the schema.** Deleting it for good can
-  also drop the schema, and only then, when an administrator types
-  the schema's name. A wrong name deletes nothing.
+- **A field or a table deleted for good is dropped there,** as
+  AnyGridDB drops its own: the trash keeps it until then.
+- **Deleting the base leaves the schema** and what is in it. Deleting
+  it for good can also drop the schema, with everything in it, and
+  only then, when an administrator types the schema's name. A wrong
+  name deletes nothing.
 
 ## Rejected
 
@@ -47,6 +53,7 @@ grid, the members and the history stay here.
 ## Consequences
 
 - The account declared on the source must be allowed to create that
-  schema and the tables in it. If it cannot, neither the base nor the
+  schema and the tables in it: on MySQL and MariaDB, its own databases
+  (`ag%`), never a global grant. If it cannot, neither the base nor the
   schema remains.
 - The schema outlives the base until an administrator types its name.

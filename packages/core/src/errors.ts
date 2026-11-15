@@ -229,6 +229,10 @@ export const ERRORS = {
     BAD,
     "A table held in a source is not duplicated",
   ],
+  source_home_field_type: [
+    BAD,
+    "This field type is not a column of a table held in a source",
+  ],
   external_insert_off: [BAD, "Adding rows is off for this external table"],
   external_delete_off: [BAD, "Deleting rows is off for this external table"],
   external_table_no_key: [BAD, "External table has no primary key"],

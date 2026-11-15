@@ -2,7 +2,7 @@
  * Bases: what a person sees of theirs, and making, copying, importing,
  * and exporting one.
  */
-import { isCopySourceEngine } from "@anygriddb/core";
+import { isHomeDialect, isHomeTable } from "@anygriddb/core";
 import {
   airtableBaseId,
   startAirtableImportInputSchema,
@@ -221,7 +221,7 @@ export const catalogBaseProcedures = {
                                 name:
                                   rows.sources.get(table.sourceId)?.name ?? "",
                               },
-                        hosted: table.physicalName.startsWith("h_"),
+                        hosted: isHomeTable(table),
                         // What an administrator enabled (ADR 0006); a
                         // copy takes no writes (ADR 0034).
                         writes: {
@@ -392,9 +392,7 @@ export const catalogBaseProcedures = {
         .select(["id", "name", "engine"])
         .execute();
       return rows
-        .filter(
-          (row) => !isCopySourceEngine(row.engine) && row.engine !== "oracle",
-        )
+        .filter((row) => isHomeDialect(row.engine))
         .map((row) => ({ id: row.id, name: row.name, engine: row.engine }));
     }),
   ),
