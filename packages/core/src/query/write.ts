@@ -380,21 +380,24 @@ export function buildSetStatus(input: {
 }
 
 /**
- * Re-inserts a deleted row from its audit snapshot (`old_value`), keeping
- * its id, sequence number, place, and creation stamp. It always comes back
- * as a draft. Columns that no longer exist are ignored; new ones stay null.
+ * Re-inserts a deleted row from the `delete` event of the trail that kept
+ * it (`old_value`), keeping its id, sequence number, place, and creation
+ * stamp. It always comes back as a draft. Columns that no longer exist are
+ * ignored; new ones stay null. The database reads the event where it is:
+ * read out and written back, a number past sixteen digits would come back
+ * rounded.
  */
 export function buildRestoreRow(input: {
   table: string;
   columns: readonly string[];
-  snapshot: Record<string, unknown>;
+  /** The row. */
+  id: string;
+  /** The event of the trail that holds it as it was deleted. */
+  event: string;
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
-  const id = input.snapshot.id;
-  if (typeof id !== "string") {
-    throw new AppError("invalid_row_id");
-  }
-  assertRowId(id);
+  assertRowId(input.id);
+  assertRowId(input.event);
   const names = [
     "id",
     "ag_seq",
@@ -413,8 +416,8 @@ export function buildRestoreRow(input: {
     `coalesce(s."ag_position", s."ag_seq")`,
   ].join(", ");
   return {
-    text: `insert into ${quoteIdent(input.table)} (${list}) select ${source} from jsonb_populate_record(null::${quoteIdent(input.table)}, $1::text::jsonb) s returning "id"`,
-    values: [JSON.stringify(input.snapshot)],
+    text: `insert into ${quoteIdent(input.table)} (${list}) select ${source} from "audit_events" e cross join lateral jsonb_populate_record(null::${quoteIdent(input.table)}, e."old_value") s where e."id" = $1::uuid and e."record_id" = $2::uuid and e."action" = 'delete' returning "id"`,
+    values: [input.event, input.id],
   };
 }
 

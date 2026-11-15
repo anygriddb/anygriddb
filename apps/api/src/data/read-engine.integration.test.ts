@@ -389,8 +389,8 @@ describe("read engine on PostgreSQL", () => {
         values: [firstOrder],
       }),
     );
-    const [event] = await query<{ old_value: Record<string, unknown> }>(
-      `select old_value from audit_events where record_id = $1::uuid and action = 'delete'`,
+    const [event] = await query<{ id: string }>(
+      `select id from audit_events where record_id = $1::uuid and action = 'delete'`,
       [firstOrder],
     );
     expect(event).toBeTruthy();
@@ -406,7 +406,8 @@ describe("read engine on PostgreSQL", () => {
           buildRestoreRow({
             table: orders.physicalName,
             columns: writable,
-            snapshot: event.old_value,
+            id: firstOrder,
+            event: event.id,
           }),
         ),
     );
@@ -421,11 +422,29 @@ describe("read engine on PostgreSQL", () => {
       ag_seq: 1,
       total: "12",
     });
+    // The event of another row brings nothing back.
+    await expect(
+      withAudit(
+        database,
+        { userId, tableId: ordersId, source: "restore" },
+        (tx) =>
+          runRows(
+            tx,
+            buildRestoreRow({
+              table: orders.physicalName,
+              columns: writable,
+              id: "11111111-1111-4111-8111-111111111111",
+              event: event.id,
+            }),
+          ),
+      ),
+    ).resolves.toEqual([]);
     expect(() =>
       buildRestoreRow({
         table: orders.physicalName,
         columns: writable,
-        snapshot: { title: "no id" },
+        id: "no id",
+        event: event.id,
       }),
     ).toThrow("Invalid row id");
   });
