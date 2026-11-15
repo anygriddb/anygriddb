@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import { datedName, downloadJson } from "../../lib/download";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { sortRows } from "../../lib/sort-rows";
+import { useColumnSort } from "../sort-header";
 import { ConfirmDialog } from "../shell/dialogs";
 import { RuledSection } from "../shell/notebook-page";
 import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
@@ -70,6 +72,36 @@ export function SupportTab() {
     }),
     placeholderData: (previous) => previous,
   });
+  const jobSort = useColumnSort<
+    "started" | "person" | "kind" | "table" | "status"
+  >();
+  const deliverySort = useColumnSort<
+    "date" | "webhook" | "event" | "attempts" | "error"
+  >();
+  const jobRows = sortRows(
+    jobs.data?.jobs ?? [],
+    jobSort.sort,
+    (job, key) => {
+      if (key === "started") return job.createdAt;
+      if (key === "person") return job.userName;
+      if (key === "kind") return job.kind;
+      if (key === "table") return job.tableName;
+      return job.status;
+    },
+    (job) => job.id,
+  );
+  const deliveryRows = sortRows(
+    deliveries.data?.deliveries ?? [],
+    deliverySort.sort,
+    (delivery, key) => {
+      if (key === "date") return delivery.createdAt;
+      if (key === "webhook") return delivery.webhookName;
+      if (key === "event") return delivery.event;
+      if (key === "attempts") return delivery.attempts;
+      return delivery.error;
+    },
+    (delivery) => delivery.id,
+  );
   const smtp = useQuery(api.admin.smtp.get.queryOptions());
   const accounts = useQuery({
     ...api.admin.users.queryOptions({
@@ -314,11 +346,11 @@ export function SupportTab() {
         <AdminTable tableClassName="text-xs">
           <AdminTableHead>
             <tr>
-              <th className="px-2 py-1.5">{t`Started`}</th>
-              <th className="px-2 py-1.5">{t`Person`}</th>
-              <th className="px-2 py-1.5">{t`Kind`}</th>
-              <th className="px-2 py-1.5">{t`Table`}</th>
-              <th className="px-2 py-1.5">{t`Status`}</th>
+              {jobSort.header("started", t`Started`, "px-2 py-1.5")}
+              {jobSort.header("person", t`Person`, "px-2 py-1.5")}
+              {jobSort.header("kind", t`Kind`, "px-2 py-1.5")}
+              {jobSort.header("table", t`Table`, "px-2 py-1.5")}
+              {jobSort.header("status", t`Status`, "px-2 py-1.5")}
               <th className="px-2 py-1.5">
                 <span className="sr-only">{t`Actions`}</span>
               </th>
@@ -334,7 +366,7 @@ export function SupportTab() {
                 </td>
               </tr>
             ) : null}
-            {(jobs.data?.jobs ?? []).map((job) => (
+            {jobRows.map((job) => (
               <tr key={job.id} className="border-t border-border">
                 <td className="px-2 py-1.5 whitespace-nowrap">
                   {date(job.createdAt)}
@@ -394,15 +426,15 @@ export function SupportTab() {
             <AdminTable tableClassName="text-xs">
               <AdminTableHead>
                 <tr>
-                  <th className="px-2 py-1.5">{t`Date`}</th>
-                  <th className="px-2 py-1.5">{t`Webhook`}</th>
-                  <th className="px-2 py-1.5">{t`Event`}</th>
-                  <th className="px-2 py-1.5">{t`Attempts`}</th>
-                  <th className="px-2 py-1.5">{t`Error`}</th>
+                  {deliverySort.header("date", t`Date`, "px-2 py-1.5")}
+                  {deliverySort.header("webhook", t`Webhook`, "px-2 py-1.5")}
+                  {deliverySort.header("event", t`Event`, "px-2 py-1.5")}
+                  {deliverySort.header("attempts", t`Attempts`, "px-2 py-1.5")}
+                  {deliverySort.header("error", t`Error`, "px-2 py-1.5")}
                 </tr>
               </AdminTableHead>
               <tbody>
-                {(deliveries.data?.deliveries ?? []).map((delivery) => (
+                {deliveryRows.map((delivery) => (
                   <tr key={delivery.id} className="border-t border-border">
                     <td className="px-2 py-1.5 whitespace-nowrap">
                       {date(delivery.createdAt)}

@@ -17,6 +17,8 @@ import { SVGRenderer } from "echarts/renderers";
 import type { EChartsCoreOption } from "echarts/core";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
+import { sortRows } from "../../lib/sort-rows";
+import { SortHeader, useColumnSort } from "../sort-header";
 import { binLabels } from "./histogram-bins";
 import {
   useEffect,
@@ -224,6 +226,22 @@ export function ChartView(props: { data: ChartData; title: string }) {
     );
   }, [data, format, compact, pie, props.title, theme]);
 
+  const tableSort = useColumnSort<string>();
+  const tableRows = sortRows(
+    data.categories.map((category, index) => ({
+      id: `${String(index)}:${category}`,
+      index,
+      category,
+    })),
+    tableSort.sort,
+    (row, key) => {
+      if (key === "category") return row.category;
+      return (
+        data.series.find((item) => item.name === key)?.values[row.index] ?? null
+      );
+    },
+    (row) => row.id,
+  );
   const single = data.series.length === 1;
   return (
     <div className="flex h-full min-h-0 flex-col gap-1">
@@ -233,31 +251,38 @@ export function ChartView(props: { data: ChartData; title: string }) {
           <table className="w-full text-left tabular-nums">
             <thead className="sticky top-0 bg-card">
               <tr>
-                <th scope="col" className="py-1 pr-2 font-medium">
-                  {props.data.chartType === "histogram"
+                {tableSort.header(
+                  "category",
+                  props.data.chartType === "histogram"
                     ? t`Values`
-                    : t`Category`}
-                </th>
+                    : t`Category`,
+                  "py-1 pr-2 font-medium",
+                )}
                 {data.series.map((item) => (
-                  <th
+                  <SortHeader
                     key={item.name}
-                    scope="col"
+                    label={single ? props.title : item.name}
+                    active={tableSort.sort?.key === item.name}
+                    descending={
+                      tableSort.sort?.key === item.name &&
+                      tableSort.sort.dir === "desc"
+                    }
+                    align="right"
                     className="py-1 pr-2 text-right font-medium"
-                  >
-                    {single ? props.title : item.name}
-                  </th>
+                    onSort={() => tableSort.toggle(item.name)}
+                  />
                 ))}
               </tr>
             </thead>
             <tbody>
-              {data.categories.map((category, index) => (
-                <tr key={category} className="border-t border-border">
+              {tableRows.map((row) => (
+                <tr key={row.id} className="border-t border-border">
                   <th scope="row" className="py-1 pr-2 font-normal">
-                    {category}
+                    {row.category}
                   </th>
                   {data.series.map((item) => (
                     <td key={item.name} className="py-1 pr-2 text-right">
-                      {format(item.values[index] ?? null)}
+                      {format(item.values[row.index] ?? null)}
                     </td>
                   ))}
                 </tr>

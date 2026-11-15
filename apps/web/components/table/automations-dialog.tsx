@@ -9,6 +9,8 @@ import {
   type AutomationTrigger,
   type FilterGroup,
 } from "@anygriddb/core";
+import { sortRows } from "../../lib/sort-rows";
+import { useColumnSort } from "../sort-header";
 import {
   Button,
   Checkbox,
@@ -1055,6 +1057,18 @@ function RunsList({ automationId }: { automationId: string }) {
   const runs = useQuery(
     api.automations.runs.queryOptions({ automationId, limit: 50 }),
   );
+  const columns = useColumnSort<"date" | "trigger" | "result" | "by">();
+  const rows = sortRows(
+    runs.data?.runs ?? [],
+    columns.sort,
+    (run, key) => {
+      if (key === "date") return run.startedAt;
+      if (key === "trigger") return run.trigger;
+      if (key === "result") return run.status;
+      return run.triggeredBy;
+    },
+    (run) => run.id,
+  );
   const status = (value: string) =>
     value === "success"
       ? t`Succeeded`
@@ -1067,14 +1081,14 @@ function RunsList({ automationId }: { automationId: string }) {
       <table className="w-full text-xs">
         <thead className="sticky top-0 bg-muted text-left">
           <tr>
-            <th className="px-2 py-1">{t`Date`}</th>
-            <th className="px-2 py-1">{t`Trigger`}</th>
-            <th className="px-2 py-1">{t`Result`}</th>
-            <th className="px-2 py-1">{t`By`}</th>
+            {columns.header("date", t`Date`, "px-2 py-1")}
+            {columns.header("trigger", t`Trigger`, "px-2 py-1")}
+            {columns.header("result", t`Result`, "px-2 py-1")}
+            {columns.header("by", t`By`, "px-2 py-1")}
           </tr>
         </thead>
         <tbody>
-          {(runs.data?.runs ?? []).map((run) => (
+          {rows.map((run) => (
             <tr key={run.id} className="border-t border-border">
               <td className="px-2 py-1 whitespace-nowrap">
                 {new Date(run.startedAt).toLocaleString()}

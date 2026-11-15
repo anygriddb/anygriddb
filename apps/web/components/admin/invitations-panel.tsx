@@ -5,6 +5,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { sortRows } from "../../lib/sort-rows";
+import { useColumnSort } from "../sort-header";
 import { ConfirmDialog } from "../shell/dialogs";
 import { RuledSection } from "../shell/notebook-page";
 import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
@@ -31,8 +33,20 @@ export function InvitationsPanel() {
   const invitations = useQuery(api.admin.invitations.queryOptions());
   const [pageSize, setPageSize] = useAdminPageSize();
   const { page, setPage, offset, limit } = useAdminPage(pageSize);
+  const columns = useColumnSort<"email" | "base" | "role" | "by" | "expires">();
   const all = invitations.data?.invitations ?? [];
-  const pageItems = all.slice(offset, offset + limit);
+  const pageItems = sortRows(
+    all.slice(offset, offset + limit),
+    columns.sort,
+    (invitation, key) => {
+      if (key === "email") return invitation.email;
+      if (key === "base") return invitation.baseName;
+      if (key === "role") return invitation.role;
+      if (key === "by") return invitation.invitedByName;
+      return invitation.expiresAt;
+    },
+    (invitation) => invitation.id,
+  );
   async function run(action: () => Promise<unknown>, done?: string) {
     try {
       await action();
@@ -60,11 +74,11 @@ export function InvitationsPanel() {
             <AdminTable tableClassName="text-xs">
               <AdminTableHead>
                 <tr>
-                  <th className="px-2 py-1.5">{t`Email`}</th>
-                  <th className="px-2 py-1.5">{t`Base`}</th>
-                  <th className="px-2 py-1.5">{t`Role`}</th>
-                  <th className="px-2 py-1.5">{t`Invited by`}</th>
-                  <th className="px-2 py-1.5">{t`Expires`}</th>
+                  {columns.header("email", t`Email`, "px-2 py-1.5")}
+                  {columns.header("base", t`Base`, "px-2 py-1.5")}
+                  {columns.header("role", t`Role`, "px-2 py-1.5")}
+                  {columns.header("by", t`Invited by`, "px-2 py-1.5")}
+                  {columns.header("expires", t`Expires`, "px-2 py-1.5")}
                   <th className="px-2 py-1.5">
                     <span className="sr-only">{t`Actions`}</span>
                   </th>

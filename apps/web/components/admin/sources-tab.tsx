@@ -28,6 +28,8 @@ import { ph, plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Database, Plus, RefreshCw, ShieldAlert, Table2 } from "lucide-react";
+import { sortRows } from "../../lib/sort-rows";
+import { useColumnSort } from "../sort-header";
 import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
@@ -56,11 +58,35 @@ export function SourcesTab() {
   const list = useQuery(api.admin.sources.list.queryOptions());
   const [pageSize, setPageSize] = useAdminPageSize();
   const { page, setPage, offset, limit } = useAdminPage(pageSize);
+  const columns = useColumnSort<
+    | "name"
+    | "address"
+    | "account"
+    | "schema"
+    | "version"
+    | "replica"
+    | "checked"
+  >();
   const [editing, setEditing] = useState<Source | "new" | null>(null);
   const [removing, setRemoving] = useState<Source | null>(null);
   const [browsing, setBrowsing] = useState<Source | null>(null);
   const allSources = list.data ?? [];
-  const pageSources = allSources.slice(offset, offset + limit);
+  const pageSources = sortRows(
+    allSources.slice(offset, offset + limit),
+    columns.sort,
+    (source, key) => {
+      if (key === "name") return source.name;
+      if (key === "address") {
+        return `${source.host}:${String(source.port)}/${source.database}`;
+      }
+      if (key === "account") return source.username;
+      if (key === "schema") return source.sideSchema;
+      if (key === "version") return source.serverVersion;
+      if (key === "replica") return source.replicaHost;
+      return source.checkedAt;
+    },
+    (source) => source.id,
+  );
   const refresh = () =>
     queryClient.invalidateQueries({
       queryKey: api.admin.sources.list.queryKey(),
@@ -118,13 +144,13 @@ export function SourcesTab() {
           <AdminTable>
             <AdminTableHead className="text-muted-foreground">
               <tr>
-                <th className="px-3 py-2">{t`Name`}</th>
-                <th className="px-3 py-2">{t`Address`}</th>
-                <th className="px-3 py-2">{t`Account`}</th>
-                <th className="px-3 py-2">{t`Side schema`}</th>
-                <th className="px-3 py-2">{t`Version`}</th>
-                <th className="px-3 py-2">{t`Replica`}</th>
-                <th className="px-3 py-2">{t`Checked`}</th>
+                {columns.header("name", t`Name`, "px-3 py-2")}
+                {columns.header("address", t`Address`, "px-3 py-2")}
+                {columns.header("account", t`Account`, "px-3 py-2")}
+                {columns.header("schema", t`Side schema`, "px-3 py-2")}
+                {columns.header("version", t`Version`, "px-3 py-2")}
+                {columns.header("replica", t`Replica`, "px-3 py-2")}
+                {columns.header("checked", t`Checked`, "px-3 py-2")}
                 <th className="px-3 py-2">
                   <span className="sr-only">{t`Actions`}</span>
                 </th>
@@ -848,32 +874,7 @@ function SourceTables(props: { source: Source }) {
                     {already ? ` · ${t`already in this base`}` : ""}
                   </span>
                 </summary>
-                <table className="w-full border-t border-border text-xs">
-                  <thead className="bg-muted text-left text-muted-foreground">
-                    <tr>
-                      <th className="px-3 py-1">{t`Column`}</th>
-                      <th className="px-3 py-1">{t`Source type`}</th>
-                      <th className="px-3 py-1">{t`Field`}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {table.columns.map((column) => (
-                      <tr key={column.name} className="border-t border-border">
-                        <td className="px-3 py-1 font-mono">{column.name}</td>
-                        <td className="px-3 py-1 font-mono text-muted-foreground">
-                          {column.type}
-                        </td>
-                        <td className="px-3 py-1">
-                          {t(
-                            FIELD_LABELS[column.field.fieldType] ??
-                              raw(column.field.fieldType),
-                          )}
-                          {column.field.readOnly ? ` · ${t`read-only`}` : ""}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <SourceColumns columns={table.columns} />
               </details>
               {exposure && !copyOnly ? (
                 <TableWrites
@@ -1418,5 +1419,49 @@ function TableWatch(props: {
         </span>
       ) : null}
     </div>
+  );
+}
+
+/** The columns of one table a source can read, sorted while the page is open. */
+function SourceColumns({ columns }: { columns: SourceTableItem["columns"] }) {
+  const { t } = useLingui();
+  const sorting = useColumnSort<"name" | "type" | "field">();
+  const rows = sortRows(
+    columns,
+    sorting.sort,
+    (column, key) => {
+      if (key === "name") return column.name;
+      if (key === "type") return column.type;
+      return column.field.fieldType;
+    },
+    (column) => column.name,
+  );
+  return (
+    <table className="w-full border-t border-border text-xs">
+      <thead className="bg-muted text-left text-muted-foreground">
+        <tr>
+          {sorting.header("name", t`Column`, "px-3 py-1")}
+          {sorting.header("type", t`Source type`, "px-3 py-1")}
+          {sorting.header("field", t`Field`, "px-3 py-1")}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((column) => (
+          <tr key={column.name} className="border-t border-border">
+            <td className="px-3 py-1 font-mono">{column.name}</td>
+            <td className="px-3 py-1 font-mono text-muted-foreground">
+              {column.type}
+            </td>
+            <td className="px-3 py-1">
+              {t(
+                FIELD_LABELS[column.field.fieldType] ??
+                  raw(column.field.fieldType),
+              )}
+              {column.field.readOnly ? ` · ${t`read-only`}` : ""}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

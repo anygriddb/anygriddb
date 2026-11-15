@@ -126,9 +126,14 @@ export async function instanceAuthAudit(
     userId?: string;
     action?: AuthAction;
     before?: string;
+    from?: string;
+    to?: string;
+    /** `asc` is oldest first. The cursor walks the same way. */
+    direction?: "asc" | "desc";
     limit: number;
   },
 ) {
+  const asc = input.direction === "asc";
   const rows = await db
     .selectFrom("authEvents as e")
     .leftJoin("users as u", "u.id", "e.userId")
@@ -144,6 +149,9 @@ export async function instanceAuthAudit(
       "u.displayName as userName",
       "e.actorId",
       "a.displayName as actorName",
+      sqlTag<string>`to_char(e.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`.as(
+        "occurredExact",
+      ),
     ])
     .$if(input.userId !== undefined, (query) =>
       query.where("e.userId", "=", input.userId ?? ""),
@@ -151,21 +159,33 @@ export async function instanceAuthAudit(
     .$if(input.action !== undefined, (query) =>
       query.where("e.action", "=", input.action ?? "login_success"),
     )
-    .$if(input.before !== undefined, (query) =>
-      query.where("e.occurredAt", "<", new Date(input.before ?? 0)),
+    .$if(input.from !== undefined, (query) =>
+      query.where("e.occurredAt", ">=", new Date(input.from ?? 0)),
     )
-    .orderBy("e.occurredAt", "desc")
+    .$if(input.to !== undefined, (query) =>
+      query.where("e.occurredAt", "<=", new Date(input.to ?? 0)),
+    )
+    .$if(input.before !== undefined, (query) =>
+      asc
+        ? query.where(
+            sqlTag<boolean>`e.occurred_at > ${input.before ?? ""}::timestamptz`,
+          )
+        : query.where("e.occurredAt", "<", new Date(input.before ?? 0)),
+    )
+    .orderBy("e.occurredAt", asc ? "asc" : "desc")
     .limit(input.limit + 1)
     .execute();
   const page = rows.slice(0, input.limit);
   return {
-    events: page.map((row) => ({
+    events: page.map(({ occurredExact: _exact, ...row }) => ({
       ...row,
       occurredAt: row.occurredAt.toISOString(),
     })),
     next:
       rows.length > input.limit
-        ? (page.at(-1)?.occurredAt.toISOString() ?? null)
+        ? asc
+          ? (page.at(-1)?.occurredExact ?? null)
+          : (page.at(-1)?.occurredAt.toISOString() ?? null)
         : null,
   };
 }

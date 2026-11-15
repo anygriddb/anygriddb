@@ -17,6 +17,8 @@ import {
   useAccountChoices,
   type AccountChoice,
 } from "./account-choices";
+import { sortRows } from "../../lib/sort-rows";
+import { useColumnSort } from "../sort-header";
 import { useStepUp } from "./step-up";
 
 const ROLES: readonly Role[] = ["owner", "editor", "commenter", "viewer"];
@@ -60,6 +62,13 @@ export function BaseAdminMembers({
   const [busy, setBusy] = useState(false);
   const choices = useAccountChoices(typed, picking);
   const giving = useGiveBaseRole();
+  const columns = useColumnSort<"account" | "role">();
+  const ordered = sortRows(
+    members,
+    columns.sort,
+    (member, key) => (key === "account" ? member.displayName : member.role),
+    (member) => member.userId,
+  );
   const already = new Set(
     members.filter((member) => member.direct).map((member) => member.userId),
   );
@@ -101,13 +110,13 @@ export function BaseAdminMembers({
         <table className="w-full text-sm">
           <thead className="bg-muted text-left text-xs">
             <tr>
-              <th className="px-3 py-2">{t`Account`}</th>
-              <th className="px-3 py-2">{t`Role`}</th>
+              {columns.header("account", t`Account`, "px-3 py-2")}
+              {columns.header("role", t`Role`, "px-3 py-2")}
               {canChange ? <th className="w-10 px-3 py-2" /> : null}
             </tr>
           </thead>
           <tbody>
-            {members.map((member) => (
+            {ordered.map((member) => (
               <tr key={member.userId} className="border-t border-border">
                 <td className="px-3 py-2">
                   <Link

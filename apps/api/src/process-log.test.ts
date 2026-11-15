@@ -226,6 +226,69 @@ describe("the process log", () => {
     expect(messages(log, "error")).toEqual(["unhandled rejection"]);
   });
 
+  it("applies a time range before the limit, and sorts with empties last", () => {
+    const log = createProcessLog();
+    const at = (minute: number, msg: string, extra?: Record<string, unknown>) =>
+      log.capture(
+        line({
+          level: 30,
+          time: Date.parse(
+            `2026-01-01T00:${String(minute).padStart(2, "0")}:00.000Z`,
+          ),
+          msg,
+          ...extra,
+        }),
+      );
+    at(1, "first");
+    at(2, "second");
+    at(3, "third", {
+      req: { method: "GET", url: "/health", remoteAddress: "127.0.0.1" },
+    });
+    at(4, "fourth");
+    const ranged = log.list({
+      level: "info",
+      limit: 1,
+      from: "2026-01-01T00:02:00.000Z",
+      to: "2026-01-01T00:03:00.000Z",
+    });
+    expect(ranged.total).toBe(2);
+    expect(ranged.lines.map((item) => item.message)).toEqual(["third"]);
+    expect(ranged.oldest).toBe("2026-01-01T00:01:00.000Z");
+    const byMessage = log.list({
+      level: "info",
+      limit: 10,
+      sort: "message",
+      direction: "asc",
+    });
+    expect(byMessage.lines.map((item) => item.message)).toEqual([
+      "first",
+      "fourth",
+      "second",
+      "third",
+    ]);
+    const byAddress = log.list({
+      level: "info",
+      limit: 10,
+      sort: "address",
+      direction: "asc",
+    });
+    expect(byAddress.lines.map((item) => item.message)).toEqual([
+      "third",
+      "first",
+      "second",
+      "fourth",
+    ]);
+    const tied = log.list({
+      level: "info",
+      limit: 10,
+      from: "2026-01-01T00:02:00.000Z",
+      to: "2026-01-01T00:02:00.000Z",
+      sort: "time",
+      direction: "asc",
+    });
+    expect(tied.lines.map((item) => item.message)).toEqual(["second"]);
+  });
+
   it("keeps a browser failure's kind and path, and masks a secret path", () => {
     const log = createProcessLog();
     log.capture(

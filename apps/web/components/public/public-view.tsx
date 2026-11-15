@@ -23,6 +23,7 @@ import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { InstanceMark } from "../brand/instance-mark";
+import { SortHeader } from "../sort-header";
 import { useLocale } from "../../lib/i18n";
 
 const NO_PEOPLE: ReadonlyMap<string, Collaborator> = new Map();
@@ -315,6 +316,10 @@ export function PublicRows({
   const { locale } = useLocale();
   const api = useTRPC();
   const [limit, setLimit] = useState(100);
+  const [order, setOrder] = useState<{
+    column: string;
+    direction: "asc" | "desc";
+  } | null>(null);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   useEffect(() => {
@@ -328,6 +333,7 @@ export function PublicRows({
     offset: 0,
     search: debounced || undefined,
     timeZone: TIME_ZONE,
+    sort: order ? [order] : undefined,
   };
   const viewRows = useQuery({
     ...api.share.rows.queryOptions(page),
@@ -425,12 +431,28 @@ export function PublicRows({
             <thead className="sticky top-0 bg-muted">
               <tr>
                 {columns.map((column) => (
-                  <th
+                  <SortHeader
                     key={column.name}
+                    label={column.label}
+                    active={order?.column === column.name}
+                    descending={
+                      order?.column === column.name &&
+                      order.direction === "desc"
+                    }
+                    align={column.kind === "number" ? "right" : "left"}
                     className="border-r border-b border-border px-3 py-2 text-left text-xs font-medium whitespace-nowrap"
-                  >
-                    {column.label}
-                  </th>
+                    onSort={() =>
+                      setOrder((current) =>
+                        current?.column === column.name
+                          ? {
+                              column: column.name,
+                              direction:
+                                current.direction === "asc" ? "desc" : "asc",
+                            }
+                          : { column: column.name, direction: "asc" },
+                      )
+                    }
+                  />
                 ))}
               </tr>
             </thead>

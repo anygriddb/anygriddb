@@ -14,9 +14,27 @@ import {
   useRouter,
   type RouteComponent,
 } from "@tanstack/react-router";
-import { lazy, type ComponentType } from "react";
+import { lazy, useCallback, type ComponentType } from "react";
 import { z } from "zod";
 import { accountsSearchSchema } from "../components/admin/accounts-search";
+import {
+  logsSearchSchema,
+  parseLogsSearch,
+  type LogsSearch,
+} from "../components/admin/logs-search";
+import {
+  changesSearchSchema,
+  parseChangesSearch,
+  parseSignInSearch,
+  signInSearchSchema,
+  type ChangesSearch,
+  type SignInSearch,
+} from "../components/admin/trail-search";
+import {
+  browserSession,
+  rememberSearch,
+  useRememberedSearch,
+} from "../lib/remembered-search";
 import { AuthPage } from "../components/auth/auth-page";
 import { NotFound } from "../components/shell/not-found";
 import { PageCrashed } from "../components/shell/page-crashed";
@@ -389,6 +407,114 @@ const adminBaseRoute = createRoute({
   },
 });
 
+const adminChangesRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "trails",
+  validateSearch: changesSearchSchema,
+  component: function Changes() {
+    const url = adminChangesRoute.useSearch();
+    const navigate = adminChangesRoute.useNavigate();
+    const go = useCallback(
+      (next: ChangesSearch) => {
+        void navigate({ search: next, replace: true });
+      },
+      [navigate],
+    );
+    const search = useRememberedSearch(
+      "ag.admin.changes",
+      parseChangesSearch,
+      url,
+      go,
+    );
+    return (
+      <ChangesTrail
+        search={search}
+        onSearch={(update) => {
+          const next = update(search);
+          rememberSearch(
+            "ag.admin.changes",
+            parseChangesSearch,
+            browserSession(),
+          ).write(next);
+          go(next);
+        }}
+      />
+    );
+  },
+});
+
+const adminSignInsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "trails/sign-ins",
+  validateSearch: signInSearchSchema,
+  component: function SignIns() {
+    const url = adminSignInsRoute.useSearch();
+    const navigate = adminSignInsRoute.useNavigate();
+    const go = useCallback(
+      (next: SignInSearch) => {
+        void navigate({ search: next, replace: true });
+      },
+      [navigate],
+    );
+    const search = useRememberedSearch(
+      "ag.admin.sign-ins",
+      parseSignInSearch,
+      url,
+      go,
+    );
+    return (
+      <SignInTrail
+        search={search}
+        onSearch={(update) => {
+          const next = update(search);
+          rememberSearch(
+            "ag.admin.sign-ins",
+            parseSignInSearch,
+            browserSession(),
+          ).write(next);
+          go(next);
+        }}
+      />
+    );
+  },
+});
+
+const adminLogsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "instance/logs",
+  validateSearch: logsSearchSchema,
+  component: function Logs() {
+    const url = adminLogsRoute.useSearch();
+    const navigate = adminLogsRoute.useNavigate();
+    const go = useCallback(
+      (next: LogsSearch) => {
+        void navigate({ search: next, replace: true });
+      },
+      [navigate],
+    );
+    const search = useRememberedSearch(
+      "ag.admin.logs",
+      parseLogsSearch,
+      url,
+      go,
+    );
+    return (
+      <LogsTab
+        search={search}
+        onSearch={(update) => {
+          const next = update(search);
+          rememberSearch(
+            "ag.admin.logs",
+            parseLogsSearch,
+            browserSession(),
+          ).write(next);
+          go(next);
+        }}
+      />
+    );
+  },
+});
+
 const adminRoutes = [
   adminIndexRoute,
   adminPeopleRoute,
@@ -406,12 +532,12 @@ const adminRoutes = [
   adminBaseRoute,
   adminPage("sharing", OutboundTab),
   adminPage("sharing/access", AccessTab),
-  adminPage("trails", ChangesTrail),
-  adminPage("trails/sign-ins", SignInTrail),
+  adminChangesRoute,
+  adminSignInsRoute,
   adminPage("instance", SettingsTab),
   adminPage("instance/identity", IdentityTab),
   adminPage("instance/health", HealthTab),
-  adminPage("instance/logs", LogsTab),
+  adminLogsRoute,
   adminPage("instance/support", SupportTab),
 ];
 

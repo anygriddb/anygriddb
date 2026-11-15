@@ -8,6 +8,8 @@ import type { CatalogColumn } from "../../lib/types";
 import { FIELD_LABELS, FieldIcon } from "../fields/field-meta";
 import { useLingui } from "@lingui/react/macro";
 import { raw } from "../../lib/known-text";
+import { sortRows } from "../../lib/sort-rows";
+import { useColumnSort } from "../sort-header";
 import { NotebookPage, PageTabs, RuledSection } from "../shell/notebook-page";
 import { ApiConsole } from "./api-console";
 
@@ -111,6 +113,9 @@ export function ApiDocs({ baseId }: { baseId: string }) {
   const base = catalog.data?.find((item) => item.id === baseId);
   const [tableId, setTableId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("guide");
+  const fieldSort = useColumnSort<
+    "key" | "label" | "type" | "write" | "example"
+  >();
   if (!base) return null;
   const origin = window.location.origin;
   const tabs: Array<{ value: Tab; label: string }> = [
@@ -120,6 +125,28 @@ export function ApiDocs({ baseId }: { baseId: string }) {
   ];
   const table =
     base.tables.find((item) => item.id === tableId) ?? base.tables[0];
+  const fields = sortRows(
+    table?.columns ?? [],
+    fieldSort.sort,
+    (column, key) => {
+      if (key === "key") return column.name;
+      if (key === "label") return column.label;
+      if (key === "type") return column.fieldType;
+      if (key === "write") return WRITABLE.has(column.fieldType) ? 1 : 0;
+      const sample = example(column);
+      if (
+        sample === null ||
+        sample === undefined ||
+        typeof sample === "string" ||
+        typeof sample === "number" ||
+        typeof sample === "boolean"
+      ) {
+        return sample === null || sample === undefined ? "" : String(sample);
+      }
+      return JSON.stringify(sample);
+    },
+    (column) => column.name,
+  );
   const writable =
     table?.columns.filter((column) => WRITABLE.has(column.fieldType)) ?? [];
   const sample = Object.fromEntries(
@@ -181,15 +208,15 @@ export function ApiDocs({ baseId }: { baseId: string }) {
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-muted-foreground">
                 <tr>
-                  <th className="py-1">{t`Key`}</th>
-                  <th>{t`Label`}</th>
-                  <th>{t`Type`}</th>
-                  <th>{t`Write`}</th>
-                  <th>{t`Example`}</th>
+                  {fieldSort.header("key", t`Key`, "py-1")}
+                  {fieldSort.header("label", t`Label`)}
+                  {fieldSort.header("type", t`Type`)}
+                  {fieldSort.header("write", t`Write`)}
+                  {fieldSort.header("example", t`Example`)}
                 </tr>
               </thead>
               <tbody>
-                {table.columns.map((column) => (
+                {fields.map((column) => (
                   <tr
                     key={column.name}
                     className="border-t border-rule align-top"

@@ -19,21 +19,15 @@ import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import {
-  ArrowDown,
-  ArrowUp,
-  FileUp,
-  LockKeyhole,
-  MoreHorizontal,
-  Plus,
-  X,
-} from "lucide-react";
+import { FileUp, LockKeyhole, MoreHorizontal, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { sortRows } from "../../lib/sort-rows";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { Role } from "../../lib/types";
+import { useColumnSort } from "../sort-header";
 import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import {
@@ -44,7 +38,6 @@ import {
 import {
   filtered,
   nextSearch,
-  sortSearch,
   usersQuery,
   type AccountsSearch,
 } from "./accounts-search";
@@ -91,6 +84,18 @@ function accountTarget(user: {
   };
 }
 
+function statusSortValue(user: {
+  disabledAt: string | null;
+  lock: { until: string | null } | null;
+  provisioned: boolean;
+  deprovisioned: boolean;
+}): string {
+  if (user.disabledAt) return "disabled";
+  if (user.lock) return "locked";
+  if (user.provisioned) return user.deprovisioned ? "removed" : "managed";
+  return "active";
+}
+
 /**
  * Accounts (ROADMAP #18, #67): add a person, find anyone by name, status,
  * administration, second factor, or origin, sort by a column, open an
@@ -125,6 +130,23 @@ export function AccountsTab({
     ...api.admin.users.queryOptions(query),
     placeholderData: keepPreviousData,
   });
+  const columns = useColumnSort<
+    "name" | "email" | "created" | "lastSeen" | "mfa" | "bases" | "status"
+  >();
+  const users = sortRows(
+    list.data?.users ?? [],
+    columns.sort,
+    (user, key) => {
+      if (key === "name") return user.displayName;
+      if (key === "email") return user.email;
+      if (key === "created") return user.createdAt;
+      if (key === "lastSeen") return user.lastSeen;
+      if (key === "mfa") return user.mfa;
+      if (key === "bases") return user.bases;
+      return statusSortValue(user);
+    },
+    (user) => user.id,
+  );
   // Several accounts ticked, to disable together (ROADMAP #36). Only the
   // accounts on screen count: a tick does not outlive the page it was on.
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
@@ -197,32 +219,6 @@ export function AccountsTab({
   };
   const filter = (patch: Partial<AccountsSearch>) =>
     onSearch((current) => nextSearch(current, patch));
-
-  const header = (sort: NonNullable<AccountsSearch["sort"]>, label: string) => {
-    const active = (search.sort ?? "created") === sort;
-    const descending = (search.dir ?? "asc") === "desc";
-    return (
-      <th
-        className="px-3 py-2"
-        aria-sort={active ? (descending ? "descending" : "ascending") : "none"}
-      >
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 hover:underline"
-          onClick={() => onSearch((current) => sortSearch(current, sort))}
-        >
-          {label}
-          {active ? (
-            descending ? (
-              <ArrowDown className="h-3 w-3" aria-hidden />
-            ) : (
-              <ArrowUp className="h-3 w-3" aria-hidden />
-            )
-          ) : null}
-        </button>
-      </th>
-    );
-  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -352,7 +348,7 @@ export function AccountsTab({
             : t`No account yet besides yours. Add a person to bring them in.`}
         </p>
       ) : null}
-      {list.data && list.data.users.length > 0 ? (
+      {users.length > 0 ? (
         <AdminTable>
           <AdminTableHead>
             <tr>
@@ -368,19 +364,20 @@ export function AccountsTab({
                   />
                 </th>
               ) : null}
-              {header("name", t`Account`)}
-              {header("created", t`Created`)}
-              {header("lastSeen", t`Last sign-in`)}
-              <th className="px-3 py-2">{t`Second factor`}</th>
-              <th className="px-3 py-2">{t`Bases`}</th>
-              <th className="px-3 py-2">{t`Status`}</th>
+              {columns.header("name", t`Account`, "px-3 py-2")}
+              {columns.header("email", t`Email`, "px-3 py-2")}
+              {columns.header("created", t`Created`, "px-3 py-2")}
+              {columns.header("lastSeen", t`Last sign-in`, "px-3 py-2")}
+              {columns.header("mfa", t`Second factor`, "px-3 py-2")}
+              {columns.header("bases", t`Bases`, "px-3 py-2", "right")}
+              {columns.header("status", t`Status`, "px-3 py-2")}
               <th className="px-3 py-2">
                 <span className="sr-only">{t`Actions`}</span>
               </th>
             </tr>
           </AdminTableHead>
           <tbody>
-            {list.data.users.map((user) => {
+            {users.map((user) => {
               const target = accountTarget(user);
               const self = user.id === session.data?.id;
               return (
@@ -409,9 +406,6 @@ export function AccountsTab({
                         >
                           {user.displayName}
                         </Link>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {user.email}
-                        </p>
                       </div>
                       {user.isAdmin ? (
                         <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
@@ -420,12 +414,13 @@ export function AccountsTab({
                       ) : null}
                     </div>
                   </td>
+                  <td className="px-3 py-2 text-xs">{user.email}</td>
                   <td className="px-3 py-2 text-xs">{date(user.createdAt)}</td>
                   <td className="px-3 py-2 text-xs">{date(user.lastSeen)}</td>
                   <td className="px-3 py-2 text-xs">
                     {user.mfa ? t`Yes` : t`No`}
                   </td>
-                  <td className="px-3 py-2 text-xs tabular-nums">
+                  <td className="px-3 py-2 text-right text-xs tabular-nums">
                     {user.bases}
                   </td>
                   <td className="px-3 py-2 text-xs">

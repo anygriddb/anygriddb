@@ -9,8 +9,10 @@ import { useErrorText } from "../../lib/errors";
 import { formatNumber } from "../../lib/format";
 import { useFormatBytes } from "../../lib/format-bytes";
 import { useLocale } from "../../lib/i18n";
+import { sortRows } from "../../lib/sort-rows";
 import { useTrashDays } from "../../lib/trash";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
+import { useColumnSort } from "../sort-header";
 import { useReadsAll } from "./admin-access";
 import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
 import { useAdminPage, useAdminPageSize } from "./admin-page-size";
@@ -38,6 +40,9 @@ export function BasesTab() {
   const [asked, setAsked] = useState("");
   const [ownerlessOnly, setOwnerlessOnly] = useState(false);
   const [pageSize, setPageSize] = useAdminPageSize();
+  const columns = useColumnSort<
+    "name" | "owners" | "members" | "tables" | "rows" | "files" | "outbound"
+  >();
   useEffect(() => {
     const timer = setTimeout(() => setAsked(search.trim()), 250);
     return () => clearTimeout(timer);
@@ -59,7 +64,20 @@ export function BasesTab() {
     ...api.admin.baseOverview.trashed.queryOptions(),
     enabled: readsAll,
   });
-  const list = bases.data?.bases ?? [];
+  const list = sortRows(
+    bases.data?.bases ?? [],
+    columns.sort,
+    (base, key) => {
+      if (key === "name") return base.name;
+      if (key === "owners") return base.owners.join(", ");
+      if (key === "members") return base.members;
+      if (key === "tables") return base.tables;
+      if (key === "rows") return base.estimatedRows;
+      if (key === "files") return base.fileBytes;
+      return base.outbound;
+    },
+    (base) => base.id,
+  );
   const total = bases.data?.total ?? 0;
   const trashItems = trashed.data?.items ?? [];
 
@@ -114,13 +132,18 @@ export function BasesTab() {
           <AdminTable>
             <AdminTableHead>
               <tr>
-                <th className="px-3 py-2">{t`Base`}</th>
-                <th className="px-3 py-2">{t`Owners`}</th>
-                <th className="px-3 py-2 text-right">{t`Members`}</th>
-                <th className="px-3 py-2 text-right">{t`Tables`}</th>
-                <th className="px-3 py-2 text-right">{t`Rows, about`}</th>
-                <th className="px-3 py-2 text-right">{t`Files`}</th>
-                <th className="px-3 py-2 text-right">{t`Links and feeds`}</th>
+                {columns.header("name", t`Base`, "px-3 py-2")}
+                {columns.header("owners", t`Owners`, "px-3 py-2")}
+                {columns.header("members", t`Members`, "px-3 py-2", "right")}
+                {columns.header("tables", t`Tables`, "px-3 py-2", "right")}
+                {columns.header("rows", t`Rows, about`, "px-3 py-2", "right")}
+                {columns.header("files", t`Files`, "px-3 py-2", "right")}
+                {columns.header(
+                  "outbound",
+                  t`Links and feeds`,
+                  "px-3 py-2",
+                  "right",
+                )}
               </tr>
             </AdminTableHead>
             <tbody>

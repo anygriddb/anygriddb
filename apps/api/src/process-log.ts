@@ -64,22 +64,37 @@ type Stored = {
   line: ProcessLogLine;
 };
 
+export type ProcessLogSort =
+  "time" | "level" | "message" | "request" | "address";
+
+export type ProcessLogPage = {
+  lines: ProcessLogLine[];
+  /** How many lines match the level, the word, and the range. */
+  total: number;
+  /** The oldest line still kept at this level, before the word and the range. */
+  oldest: string | null;
+};
+
 export type ProcessLog = {
   /** One chunk of the serialized log, which may hold part of a line. */
   capture(chunk: string | Buffer): void;
   /** A failure that is written beside the logger (the pool, the bus). */
   rememberFailure(message: string, error: unknown): void;
   /**
-   * Newest first, at this level and above. A word keeps the lines that
-   * contain it, among those of the level. `offset` skips the newest
-   * lines already shown on an earlier page.
+   * Lines at this level and above. A word and a time range narrow them
+   * before the limit, so an old range is not hidden by newer lines.
+   * Time, newest first, when no sort is asked.
    */
   list(options: {
     level: ProcessLogLevel;
     limit: number;
     offset?: number;
     query?: string;
-  }): { lines: ProcessLogLine[]; total: number };
+    from?: string;
+    to?: string;
+    sort?: ProcessLogSort;
+    direction?: "asc" | "desc";
+  }): ProcessLogPage;
 };
 
 /**
@@ -178,24 +193,76 @@ export function createProcessLog(limits?: {
       const min =
         options.level === "error" ? 50 : options.level === "warn" ? 40 : 30;
       const needle = searchNeedle(options.query);
-      const offset = options.offset ?? 0;
       const levelled =
         min >= 40
           ? failures.stored.filter((item) => item.level >= min)
           : mergeBySeq(failures.stored, ordinary.stored);
-      const matched =
-        needle === ""
-          ? levelled
-          : levelled.filter((item) => lineText(item.line).includes(needle));
-      const newestFirst = matched.slice().reverse();
+      const oldest = levelled[0]?.line.time ?? null;
+      const ranged = levelled.filter((item) => {
+        if (needle !== "" && !lineText(item.line).includes(needle)) {
+          return false;
+        }
+        if (options.from && item.line.time < options.from) return false;
+        if (options.to && item.line.time > options.to) return false;
+        return true;
+      });
+      const sort = options.sort ?? "time";
+      const direction = options.direction ?? "desc";
+      const ordered = ranged
+        .slice()
+        .sort((left, right) =>
+          compareLines(left.line, right.line, sort, direction),
+        );
+      const offset = options.offset ?? 0;
       return {
-        total: newestFirst.length,
-        lines: newestFirst
+        lines: ordered
           .slice(offset, offset + options.limit)
           .map((item) => item.line),
+        total: ranged.length,
+        oldest,
       };
     },
   };
+}
+
+const LEVEL_RANK: Record<ProcessLogLine["level"], number> = {
+  info: 0,
+  warn: 1,
+  error: 2,
+  fatal: 3,
+};
+
+/** Empty values stay last whichever way the column is read. */
+function compareLines(
+  left: ProcessLogLine,
+  right: ProcessLogLine,
+  sort: ProcessLogSort,
+  direction: "asc" | "desc",
+): number {
+  const value = (line: ProcessLogLine): string | number | null => {
+    if (sort === "level") return LEVEL_RANK[line.level];
+    if (sort === "message") return line.message;
+    if (sort === "request") {
+      return line.request ? `${line.request.method} ${line.request.url}` : null;
+    }
+    if (sort === "address") return line.request?.remoteAddress ?? null;
+    return line.time;
+  };
+  const a = value(left);
+  const b = value(right);
+  const aEmpty = a === null || a === "";
+  const bEmpty = b === null || b === "";
+  if (aEmpty || bEmpty) {
+    if (aEmpty && bEmpty) return left.seq - right.seq;
+    return aEmpty ? 1 : -1;
+  }
+  const compared =
+    typeof a === "number" && typeof b === "number"
+      ? a - b
+      : String(a).localeCompare(String(b));
+  if (compared === 0)
+    return (left.seq - right.seq) * (direction === "desc" ? -1 : 1);
+  return compared * (direction === "desc" ? -1 : 1);
 }
 
 /** Two sets of lines, each oldest first, as one, oldest first. */

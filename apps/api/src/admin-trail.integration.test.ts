@@ -151,4 +151,65 @@ describe("the change trail, read through its indexes", () => {
     const times = events.map((event) => new Date(event.occurredAt).getTime());
     expect([...times].sort((a, b) => b - a)).toEqual(times);
   });
+
+  it("stays inside a range and can walk it oldest first", async () => {
+    const { events: newest } = await instanceAudit(db, {
+      userId: bob,
+      limit: 1,
+    });
+    const { events: oldest } = await instanceAudit(db, {
+      userId: bob,
+      limit: 1,
+      direction: "asc",
+    });
+    const early = oldest[0]?.occurredAt;
+    const late = newest[0]?.occurredAt;
+    expect(early).toBeTruthy();
+    expect(late).toBeTruthy();
+    expect(new Date(early ?? 0).getTime()).toBeLessThan(
+      new Date(late ?? 0).getTime(),
+    );
+    const windowEnd = new Date(
+      new Date(early ?? 0).getTime() + 60_000,
+    ).toISOString();
+    const { events: one } = await instanceAudit(db, {
+      userId: bob,
+      limit: 50,
+      from: early,
+      to: windowEnd,
+    });
+    expect(one.length).toBeGreaterThan(0);
+    expect(
+      one.every((event) => {
+        const at = new Date(event.occurredAt).getTime();
+        return (
+          at >= new Date(early ?? 0).getTime() &&
+          at <= new Date(windowEnd).getTime()
+        );
+      }),
+    ).toBe(true);
+    const first = await instanceAudit(db, {
+      userId: bob,
+      limit: 2,
+      direction: "asc",
+      from: early,
+      to: late,
+    });
+    const next = await instanceAudit(db, {
+      userId: bob,
+      limit: 2,
+      direction: "asc",
+      from: early,
+      to: late,
+      before: first.next ?? undefined,
+    });
+    const edge = new Date(first.events.at(-1)?.occurredAt ?? 0).getTime();
+    expect(next.events.length).toBeGreaterThan(0);
+    expect(next.events[0]?.id).not.toBe(first.events.at(-1)?.id);
+    expect(
+      next.events.every(
+        (event) => new Date(event.occurredAt).getTime() >= edge,
+      ),
+    ).toBe(true);
+  });
 });
