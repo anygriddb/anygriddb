@@ -922,6 +922,7 @@ msgstr "≤"
 msgid "≥"
 msgstr "≥"
 
+#: components/admin/health-tab.tsx
 #: components/admin/security-tab.tsx
 #: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
@@ -973,6 +974,7 @@ msgid "3 years"
 msgstr "3 ans"
 
 #: components/admin/alerts-section.tsx
+#: components/admin/health-tab.tsx
 #: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "30 days"
@@ -999,6 +1001,7 @@ msgid "6 months"
 msgstr "6 mois"
 
 #: components/admin/alerts-section.tsx
+#: components/admin/health-tab.tsx
 #: components/settings/base-links.tsx
 #: components/table/share-dialog.tsx
 msgid "7 days"
@@ -1432,8 +1435,17 @@ msgstr "Compte déverrouillé"
 #: components/admin/admin-sections.ts
 #: components/admin/api-tokens-tab.tsx
 #: components/admin/group-page.tsx
+#: components/admin/health-tab.tsx
 msgid "Accounts"
 msgstr "Comptes"
+
+#: components/admin/health-tab.tsx
+msgid "Accounts active (30 days)"
+msgstr "Comptes actifs (30 jours)"
+
+#: components/admin/admin-overview.tsx
+msgid "Accounts active in the last 30 days"
+msgstr "Comptes actifs au cours des 30 derniers jours"
 
 #: components/admin/security-tab.tsx
 msgid "Accounts and access"
@@ -2231,6 +2243,10 @@ msgstr "Numéro auto"
 msgid "Average"
 msgstr "Moyenne"
 
+#: components/admin/health-tab.tsx
+msgid "Avg ms"
+msgstr "ms moy."
+
 #: components/auth/auth-page.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/table/automations-dialog.tsx
@@ -2377,12 +2393,21 @@ msgstr "Base restaurée, à côté de celle-ci"
 #: components/admin/accounts-tab.tsx
 #: components/admin/admin-sections.ts
 #: components/admin/base-admin-page.tsx
+#: components/admin/health-tab.tsx
 #: components/admin/people-file-dialog.tsx
 #: components/shell/command-palette.tsx
 #: components/shell/home-page.tsx
 #: components/shell/sidebar.tsx
 msgid "Bases"
 msgstr "Bases"
+
+#: components/admin/health-tab.tsx
+msgid "Bases active (30 days)"
+msgstr "Bases actives (30 jours)"
+
+#: components/admin/admin-overview.tsx
+msgid "Bases active in the last 30 days"
+msgstr "Bases actives au cours des 30 derniers jours"
 
 #: components/admin/security-tab.tsx
 msgid "Bases already made stay with their owners."
@@ -3320,6 +3345,10 @@ msgstr "Cursor, Claude Desktop et autres clients"
 msgid "custom headers"
 msgstr "en-têtes personnalisés"
 
+#: components/admin/health-tab.tsx
+msgid "Daily snapshot, last {days} days"
+msgstr "Instantané quotidien, {days} derniers jours"
+
 #: components/shell/user-menu.tsx
 msgid "Dark"
 msgstr "Sombre"
@@ -4113,6 +4142,7 @@ msgstr "ERREUR"
 msgid "error, {error}"
 msgstr "erreur, {error}"
 
+#: components/admin/health-tab.tsx
 #: components/admin/logs-tab.tsx
 msgid "Errors"
 msgstr "Erreurs"
@@ -5951,6 +5981,10 @@ msgstr "En direct dans {source}"
 msgid "Live in the client's database"
 msgstr "En direct dans la base du client"
 
+#: components/admin/health-tab.tsx
+msgid "Load by source"
+msgstr "Charge par source"
+
 #: app/providers.tsx
 msgid "Loading"
 msgstr "Chargement"
@@ -6956,6 +6990,10 @@ msgstr "Aucun événement de connexion pour l’instant."
 msgid "No sign-up domains are set (Instance, Settings): until some are, any address can be invited."
 msgstr "Aucun domaine d’inscription n’est défini (Instance, Réglages) : tant qu’il n’y en a pas, n’importe quelle adresse peut être invitée."
 
+#: components/admin/health-tab.tsx
+msgid "No source operations recorded in this period."
+msgstr "Aucune opération de source enregistrée sur cette période."
+
 #: components/admin/sources-tab.tsx
 msgid "No source yet. Add one to show its tables in a base, read and written where they live."
 msgstr "Aucune source pour l’instant. Ajoutez-en une pour afficher ses tables dans une base, lues et écrites là où elles se trouvent."
@@ -7394,6 +7432,10 @@ msgstr "Opération"
 #: components/table/filter-builder.tsx
 msgid "Operator"
 msgstr "Opérateur"
+
+#: components/admin/health-tab.tsx
+msgid "Ops"
+msgstr "Opérations"
 
 #: components/fields/field-editor.tsx
 msgid "Option name"
@@ -8908,6 +8950,10 @@ msgid "See the locked accounts"
 msgstr "Voir les comptes verrouillés"
 
 #: components/admin/admin-overview.tsx
+msgid "See usage and load"
+msgstr "Voir l’usage et la charge"
+
+#: components/admin/admin-overview.tsx
 msgid "See what failed"
 msgstr "Voir ce qui a échoué"
 
@@ -9468,6 +9514,14 @@ msgstr "Passer pour l’instant"
 msgid "Skipped"
 msgstr "Ignorée"
 
+#: components/admin/health-tab.tsx
+msgid "Slow"
+msgstr "Lentes"
+
+#: components/admin/health-tab.tsx
+msgid "Slow means one second or more. Figures come from every process writing to the database, not from Prometheus."
+msgstr "Lente : une seconde ou plus. Les chiffres viennent de chaque processus qui écrit en base, pas de Prometheus."
+
 #: components/shell/notification-items.ts
 msgid "Someone"
 msgstr "Quelqu’un"
@@ -9493,6 +9547,7 @@ msgstr "Trier Z → A"
 msgid "Sorted by {0, plural, one {# field} other {# fields}}"
 msgstr "Trié par {0, plural, one {# champ} other {# champs}}"
 
+#: components/admin/health-tab.tsx
 #: components/admin/trails.tsx
 msgid "Source"
 msgstr "Source"
@@ -11176,6 +11231,10 @@ msgstr "Chronologie"
 msgid "Timeout"
 msgstr "Délai dépassé"
 
+#: components/admin/health-tab.tsx
+msgid "Timeouts"
+msgstr "Délais dépassés"
+
 #: components/dashboards/dashboard-board.tsx
 #: components/history/earlier.tsx
 #: components/table/automations-dialog.tsx
@@ -11645,6 +11704,10 @@ msgstr "URL"
 #: components/fields/field-editor.tsx
 msgid "US (12/31/2026)"
 msgstr "Américain (12/31/2026)"
+
+#: components/admin/health-tab.tsx
+msgid "Usage"
+msgstr "Usage"
 
 #: components/auth/auth-page.tsx
 msgid "Use a passkey"

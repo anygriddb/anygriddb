@@ -836,6 +836,17 @@ export interface SignupRequests {
   tokenHash: string;
 }
 
+export interface SourceLoadMinute {
+  errors: Generated<number>;
+  kind: string;
+  minute: Timestamp;
+  ops: Generated<number>;
+  slow: Generated<number>;
+  sourceId: string;
+  timeouts: Generated<number>;
+  totalMs: Generated<Int8>;
+}
+
 export interface Sources {
   checkedAt: Timestamp | null;
   connectionLimit: Generated<number>;
@@ -913,6 +924,14 @@ export interface TotpSecrets {
   lastStep: number | null;
   nonce: Buffer;
   userId: string;
+}
+
+export interface UsageDaily {
+  accountsActive30d: number;
+  accountsTotal: number;
+  basesActive30d: number;
+  basesTotal: number;
+  day: Timestamp;
 }
 
 export interface Users {
@@ -1063,12 +1082,14 @@ export interface DB {
   sessions: Sessions;
   shares: Shares;
   signupRequests: SignupRequests;
+  sourceLoadMinute: SourceLoadMinute;
   sources: Sources;
   ssoIdentities: SsoIdentities;
   stagedUploads: StagedUploads;
   tableAcls: TableAcls;
   tableFolders: TableFolders;
   totpSecrets: TotpSecrets;
+  usageDaily: UsageDaily;
   users: Users;
   views: Views;
   webauthnChallenges: WebauthnChallenges;

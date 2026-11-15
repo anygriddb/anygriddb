@@ -13,6 +13,7 @@ import {
   trace,
   type Tracer,
 } from "@opentelemetry/api";
+import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { BUILD } from "./build-info.js";
@@ -23,6 +24,7 @@ import {
   Histogram,
   Registry,
 } from "@prometheus-io/client";
+import { recordSourceLoad } from "./source-load.js";
 
 export const registry = new Registry();
 collectDefaultMetrics({ register: registry, prefix: "anygriddb_" });
@@ -350,7 +352,7 @@ export async function measureSource<T>(
   const labels = { source: source.id, engine: source.engine };
   const started = performance.now();
   sourceInFlight.inc(labels);
-  let outcome = "ok";
+  let outcome: "ok" | "error" | "timeout" = "ok";
   try {
     return await traced(
       `source ${kind}`,
@@ -358,14 +360,22 @@ export async function measureSource<T>(
       body,
     );
   } catch (error) {
-    outcome = "error";
+    outcome =
+      error instanceof AppError && error.code === "source_timeout"
+        ? "timeout"
+        : "error";
     throw error;
   } finally {
+    const durationMs = performance.now() - started;
     sourceInFlight.dec(labels);
-    sourceDuration.observe(
-      { ...labels, kind, outcome },
-      (performance.now() - started) / 1000,
-    );
+    sourceDuration.observe({ ...labels, kind, outcome }, durationMs / 1000);
+    // Persisted for Administration (ROADMAP #41); Prometheus stays in memory.
+    void recordSourceLoad({
+      sourceId: source.id,
+      kind,
+      outcome,
+      durationMs,
+    });
   }
 }
 

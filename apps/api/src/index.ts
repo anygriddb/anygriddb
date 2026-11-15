@@ -15,6 +15,7 @@ import {
   registerQueueGauge,
   startTracing,
 } from "./observability.js";
+import { registerSourceLoadWriter } from "./source-load.js";
 import { loadTls } from "./tls/authority.js";
 
 console.info(`${describeBuild(BUILD)}: starting`);
@@ -66,6 +67,7 @@ const stopTracing = await startTracing({
 });
 registerQueueGauge(db);
 registerPoolGauge(pool);
+registerSourceLoadWriter(db);
 const app = await createApp({ env, db, files, bus, tls });
 if (tls.authority) {
   app.log.info(

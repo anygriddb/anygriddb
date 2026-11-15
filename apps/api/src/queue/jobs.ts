@@ -60,6 +60,8 @@ export const TASKS = {
   syslogEvent: "syslog_event",
   /** The first link of one account a file of people added, mailed. */
   accountWelcome: "account_welcome",
+  /** Daily usage snapshot and load-bucket purge (ROADMAP #40, #41). */
+  usageSnapshot: "usage_snapshot",
 } as const;
 
 export type TaskName = (typeof TASKS)[keyof typeof TASKS];

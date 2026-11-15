@@ -5,6 +5,8 @@
  */
 import { purgeAuditEvents } from "../data/audit-purge.js";
 import { checkAlerts } from "../alerts.js";
+import { purgeSourceLoad } from "../source-load.js";
+import { purgeUsageDaily, snapshotUsage } from "../usage-stats.js";
 import type { RowEvent } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { Task, TaskList } from "graphile-worker";
@@ -418,6 +420,11 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
     [TASKS.releaseCheck]: async () => {
       await runScheduledReleaseCheck(deps.db, { log: deps.log });
     },
+    [TASKS.usageSnapshot]: async () => {
+      await snapshotUsage(deps.db);
+      await purgeUsageDaily(deps.db);
+      await purgeSourceLoad(deps.db);
+    },
     [TASKS.operatorMail]: async (payload) => {
       const parsed = operatorMailPayloadSchema.parse(payload);
       await deliverOperatorMail(
@@ -552,6 +559,13 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
           match: "12 5 * * *",
           options: once,
           identifier: "release_check",
+        },
+        {
+          // Usage trend and source-load retention (ROADMAP #40, #41).
+          task: TASKS.usageSnapshot,
+          match: "5 4 * * *",
+          options: { maxAttempts: 1, backfillPeriod: 86_400_000 },
+          identifier: "usage_snapshot",
         },
       ],
     },
