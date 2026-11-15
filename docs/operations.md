@@ -16,6 +16,7 @@ here was tried on a stack of its own before it was written down.
 | Back up and restore                      | [Backups](#backups)                                                                       |
 | Use a managed PostgreSQL                 | [A PostgreSQL of your own](#a-postgresql-of-your-own)                                     |
 | Provision accounts (SCIM)                | [Provisioning with SCIM](#provisioning-with-scim)                                         |
+| Script Administration                    | [The administration API](#the-administration-api)                                         |
 | Run several API processes                | [Several API processes](#several-api-processes)                                           |
 | Ship logs / metrics                      | [Shipping logs](#shipping-logs-to-a-collector), [Metrics and traces](#metrics-and-traces) |
 | Send sign-in events to a collector       | [Sign-in events to a collector](#sign-in-events-to-a-collector)                           |
@@ -678,6 +679,49 @@ What to know:
 - The last active administrator cannot be deactivated through SCIM.
 - Provisioned people sign in through OIDC or SAML: SCIM sets no
   password.
+- Requests count in the API's rate limit, 600 a minute per address.
+
+## The administration API
+
+What a script of yours asks of Administration, without a browser
+(ADR 0086): list and make accounts, list the invitations that wait,
+read the settings, and change the ones of the instance's running.
+
+1. In **Administration → Connections → Administration API**, make a
+   token: a name, how many days it lives, and what it may do
+   (`accounts`, `invitations`, `settings`). Making one asks for your
+   password or second factor. The token is shown once.
+2. Call the API with it:
+
+   ```bash
+   # Maintenance on before an upgrade, with a word for those who open the app.
+   curl -sS -X PATCH https://<your address>/api/v1/admin/settings \
+     -H "Authorization: Bearer $ANYGRIDDB_ADMIN_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"maintenance": true, "banner": "Back at noon"}'
+   ```
+
+   `https://<your address>/api/v1/admin/openapi.json` describes every
+   request in OpenAPI 3.1, and needs no token.
+
+What to know:
+
+- A token works while the administrator who made it is one. What it
+  does is on the trails under their name, as done with a token. Any
+  administrator revokes it from the same page, at once.
+- A token cannot give the proof Administration asks for a change, so it
+  does nothing that proof guards. An account it makes is never an
+  administrator and has no role on a base. The settings it changes are
+  those of the instance's running: `maintenance`, `banner`,
+  `defaultLocale`, `attachmentMaxBytes`, `releaseCheck`, the alerts'
+  thresholds, and the map's tiles. Security, who may sign up, and the
+  instance's name and mail are changed in Administration.
+- A new account gets a link that sets its first password: mailed to
+  its address where mail is set up, handed back in the answer where it
+  is not.
+- A setting the instance's environment holds is refused, as on screen.
+- The tokens people hold for their bases, provisioning tokens and
+  sessions do not open this API.
 - Requests count in the API's rate limit, 600 a minute per address.
 
 ## Several API processes

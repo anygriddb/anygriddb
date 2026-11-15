@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   ADMIN_LOCK_MINUTES,
+  API_SETTING_KEYS,
+  apiSettingsPatchSchema,
   DEFAULT_ATTACHMENT_MAX_BYTES,
   INSTANCE_DEFAULTS,
   emailDomainAllowed,
@@ -348,5 +350,66 @@ describe("how the instance presents itself (ADR 0072)", () => {
     expect(
       parseInstanceSettings({ instanceName: "x".repeat(200), banner: "Hello" }),
     ).toMatchObject({ instanceName: null, banner: "Hello" });
+  });
+});
+
+describe("the settings a token of the administration API may change", () => {
+  it("are settings the product has, and none that decides who gets in", () => {
+    const known = Object.keys(instanceSettingsPatchSchema.shape);
+    for (const key of API_SETTING_KEYS) {
+      expect(known).toContain(key);
+    }
+    // What Administration's Security page holds, who may sign up, and
+    // what the instance says of itself: changed on screen, with the proof.
+    for (const key of [
+      "signup",
+      "signupDomains",
+      "mfaScope",
+      "ssoMfa",
+      "ssoOnly",
+      "signInAllowlist",
+      "lockoutThreshold",
+      "lockoutMinutes",
+      "sessionIdleMinutes",
+      "sessionMaxHours",
+      "passwordMinLength",
+      "passwordReset",
+      "tokenMaxDays",
+      "publicLinks",
+      "authRetentionDays",
+      "auditRetentionDays",
+      "invitations",
+      "baseCreation",
+      "apiTokens",
+      "inactiveDays",
+      "lockAlerts",
+      "trashDays",
+      "restorePointDays",
+      "instanceName",
+      "signInMessage",
+      "mailSenderName",
+      "mailSignatureEn",
+      "mailInvitationEn",
+    ]) {
+      expect(known).toContain(key);
+      expect(API_SETTING_KEYS as readonly string[]).not.toContain(key);
+    }
+  });
+
+  it("are taken by their own rules, and every other key is refused", () => {
+    expect(
+      apiSettingsPatchSchema.safeParse({ maintenance: true, banner: "Soon" })
+        .success,
+    ).toBe(true);
+    expect(apiSettingsPatchSchema.safeParse({}).success).toBe(true);
+    expect(
+      apiSettingsPatchSchema.safeParse({ maintenance: "yes" }).success,
+    ).toBe(false);
+    expect(
+      apiSettingsPatchSchema.safeParse({ mfaScope: "admins" }).success,
+    ).toBe(false);
+    expect(apiSettingsPatchSchema.safeParse({ unknown: 1 }).success).toBe(
+      false,
+    );
   });
 });

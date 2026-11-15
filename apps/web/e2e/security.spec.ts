@@ -608,6 +608,102 @@ test("an administrator names the instance, and the sign-in page and its mail car
   }
 });
 
+// The administration API (ADR 0086): an administrator makes a token for
+// one scope, with the proof; a script calls the API with the token alone
+// and changes a setting of the instance's running; it is refused a
+// setting that decides who gets in, and what its scope does not name; once
+// the token is revoked it is refused everything.
+test("an administrator makes a token for a script, which changes a setting, and revokes it", async ({
+  page,
+}) => {
+  const blocked = watchPolicy(page);
+  const control = new pg.Client({ connectionString: controlUrl });
+  await control.connect();
+  try {
+    const { email } = await signUpWithTable(page, "Tess Token");
+    await control.query("update users set is_admin = true where email = $1", [
+      email,
+    ]);
+    await page.goto("/admin");
+    await openAdmin(page, "Connections", "Administration API");
+    await expect(
+      page.getByLabel("Address of the API", { exact: true }),
+    ).toHaveValue(/^https:\/\/[^/]+\/api\/v1\/admin$/);
+    await page.getByLabel("Token name", { exact: true }).fill("Nightly");
+    await page.getByRole("checkbox", { name: /^Settings/ }).check();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.getByRole("button", { name: "Make a token" }).click();
+    await proveItIsYou(page);
+    const token = await page
+      .getByLabel("New token", { exact: true })
+      .inputValue();
+    expect(token).toMatch(/^aga_[\w-]{43}$/);
+
+    // A script: the token alone, no session.
+    const script = (method: string, path: string, body?: unknown) =>
+      page.evaluate(
+        async ([method, path, body, token]) => {
+          const response = await fetch(`/api/v1/admin${path}`, {
+            method,
+            credentials: "omit",
+            headers: {
+              authorization: `Bearer ${token}`,
+              ...(body === undefined
+                ? {}
+                : { "content-type": "application/json" }),
+            },
+            ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+          });
+          return {
+            status: response.status,
+            body: (await response.json()) as { code?: string; banner?: string },
+          };
+        },
+        [method, path, body, token] as const,
+      );
+    const changed = await script("PATCH", "/settings", {
+      banner: "Upgrade tonight at ten",
+    });
+    expect(changed.status).toBe(200);
+    expect(changed.body.banner).toBe("Upgrade tonight at ten");
+    // Who gets in is changed on screen, with the proof; and the token's
+    // scope is settings alone.
+    const refused = await script("PATCH", "/settings", { mfaScope: "admins" });
+    expect([refused.status, refused.body.code]).toEqual([
+      403,
+      "admin_token_setting",
+    ]);
+    const outside = await script("GET", "/accounts");
+    expect([outside.status, outside.body.code]).toEqual([
+      403,
+      "admin_token_scope",
+    ]);
+    // Everyone reads the banner the script set.
+    await page.reload();
+    await expect(page.getByText("Upgrade tonight at ten")).toBeVisible();
+    expect((await script("PATCH", "/settings", { banner: null })).status).toBe(
+      200,
+    );
+
+    // The token is listed with what it may do, and revoked at once.
+    const line = page.getByRole("row", { name: /Nightly/ });
+    await expect(line).toContainText("Settings");
+    await page
+      .getByRole("button", { name: "Revoke the token Nightly" })
+      .click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Revoke", exact: true })
+      .click();
+    await expect(line).toHaveCount(0);
+    expect((await script("GET", "/settings")).status).toBe(401);
+    expect(await accessibilityViolations(page)).toEqual([]);
+    expect(blocked).toEqual([]);
+  } finally {
+    await control.end();
+  }
+});
+
 // When no administrator can sign in (ADR 0082), the operator runs a
 // command where the instance runs: one account becomes an administrator
 // and gets a link that sets its password. Its second factor stays, so the

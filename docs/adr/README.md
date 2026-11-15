@@ -97,4 +97,5 @@ accepted as the work they decide was done; each carries its own date.
 | [0082](0082-operator-way-back-in.md)                 | An operator's way back in when no administrator can sign in                             | Accepted                                    |
 | [0083](0083-environment-holds-what-it-sets.md)       | What the environment sets, Administration shows and cannot change                       | Accepted (amends 0050)                      |
 | [0084](0084-syslog-over-tls.md)                      | Sign-in events to a syslog collector, over TLS                                          | Accepted (extends 0056)                     |
+| [0086](0086-administration-api.md)                   | An administration API, with tokens of its own that give no proof                        | Accepted                                    |
 | [0085](0085-code-by-email-second-factor.md)          | A code by email as a second factor, for anyone but an administrator                     | Accepted                                    |

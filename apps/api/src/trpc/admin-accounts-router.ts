@@ -26,16 +26,12 @@ import {
 } from "../accounts-bulk.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
 import { unlockAccount } from "../auth/lockout.js";
-import {
-  ACCOUNT_LINK_TTL_MS,
-  ADMIN_RESET_TTL_MS,
-  createResetLink,
-} from "../auth/password-reset.js";
+import { welcomeAccount } from "../auth/account-welcome.js";
+import { ADMIN_RESET_TTL_MS, createResetLink } from "../auth/password-reset.js";
 import {
   resetLinkUrl,
   sendResetLink,
   sendSecurityNotice,
-  sendWelcome,
 } from "../auth/security-mail.js";
 import { resolveSmtp } from "../integrations/smtp.js";
 import { smtpReady } from "../mail.js";
@@ -332,11 +328,6 @@ export const adminAccountProcedures = {
             gift: { to: "person", userId: created.id, role },
           });
         }
-        const link = await createResetLink(ctx.db, {
-          userId: created.id,
-          createdBy: admin.id,
-          ttlMs: ACCOUNT_LINK_TTL_MS,
-        });
         ctx.req.log.info(
           {
             actor: admin.id,
@@ -346,21 +337,12 @@ export const adminAccountProcedures = {
           },
           "account created by administrator",
         );
-        if (smtpReady((await resolveSmtp(ctx.db, ctx.env)).config)) {
-          const to = await sendWelcome(
-            { db: ctx.db, env: ctx.env, log: ctx.req.log },
-            created.id,
-            { ...link, creatorName: admin.displayName },
-          );
-          if (!to) throw new AppError("smtp_not_configured");
-          return { userId: created.id, sent: true as const, to };
-        }
-        return {
-          userId: created.id,
-          sent: false as const,
-          link: resetLinkUrl(ctx.env.PUBLIC_URL, link.token),
-          expiresAt: link.expiresAt.toISOString(),
-        };
+        const welcome = await welcomeAccount(
+          { db: ctx.db, env: ctx.env, log: ctx.req.log },
+          created.id,
+          admin,
+        );
+        return { userId: created.id, ...welcome };
       }),
     ),
   /**

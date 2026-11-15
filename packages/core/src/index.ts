@@ -133,6 +133,8 @@ export {
   DEFAULT_ATTACHMENT_MAX_BYTES,
   emailDomainAllowed,
   inactivityDates,
+  API_SETTING_KEYS,
+  apiSettingsPatchSchema,
   instanceSettingsPatchSchema,
   fillMapTileUrl,
   lockState,

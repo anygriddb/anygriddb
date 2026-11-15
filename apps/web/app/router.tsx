@@ -78,6 +78,11 @@ const GroupAdminPage = page(() =>
 const ScimTab = page(() =>
   import("../components/admin/scim-tab").then((module) => module.ScimTab),
 );
+const ApiTokensTab = page(() =>
+  import("../components/admin/api-tokens-tab").then(
+    (module) => module.ApiTokensTab,
+  ),
+);
 const SecurityPage = page(() =>
   import("../components/admin/security-tab").then(
     (module) => module.SecurityPage,
@@ -392,6 +397,7 @@ const adminRoutes = [
   adminPage("people/provisioning", ScimTab),
   adminPage("security", SecurityPage),
   adminPage("connections", IntegrationsTab),
+  adminPage("connections/api", ApiTokensTab),
   adminPage("sources", SourcesTab),
   adminPage("bases", BasesTab),
   adminBaseRoute,

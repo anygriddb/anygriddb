@@ -19,6 +19,8 @@ export type AuthMethod =
   | "saml"
   | "signup"
   | "admin"
+  /** With a token of the administration API (ADR 0086). */
+  | "admin_token"
   | "scim"
   /** What the operator ran on the instance's own command line. */
   | "command";

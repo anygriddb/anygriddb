@@ -22,6 +22,7 @@ type AdminPath =
   | "/admin/people/provisioning"
   | "/admin/security"
   | "/admin/connections"
+  | "/admin/connections/api"
   | "/admin/sources"
   | "/admin/bases"
   | "/admin/sharing"
@@ -108,7 +109,10 @@ export function useAdminSections(): AdminSection[] {
       id: "connections",
       label: t`Connections`,
       icon: Plug,
-      pages: [{ to: "/admin/connections", label: t`Connections` }],
+      pages: [
+        { to: "/admin/connections", label: t`Connections` },
+        { to: "/admin/connections/api", label: t`Administration API` },
+      ],
     },
     {
       id: "sources",

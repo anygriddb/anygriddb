@@ -10,16 +10,11 @@ import {
   JOB_STATUSES,
 } from "@anygriddb/core";
 import { z } from "zod";
-import {
-  endOtherSessions,
-  instanceRuntime,
-  listFailedDeliveries,
-} from "../admin-control.js";
+import { instanceRuntime, listFailedDeliveries } from "../admin-control.js";
 import { operatorFixedFromEnv } from "../operator-fixed.js";
 import { readLogoVersion, removeLogo, saveLogo } from "../instance-logo.js";
 import { alertLock } from "../auth/lock-alerts.js";
 import { countFailure, lockOf } from "../auth/lockout.js";
-import { parseSignInCidr, SignInAllowList } from "../auth/sign-in-allowlist.js";
 import { sendSecurityNotice } from "../auth/security-mail.js";
 import { SESSION_COOKIE } from "../auth/session.js";
 import { confirmStepUp, stepUpIsFresh, stepUpNeeds } from "../auth/step-up.js";
@@ -44,7 +39,8 @@ import {
   runReleaseCheck,
   type ReleaseStatus,
 } from "../release-status.js";
-import { readMailVoice, readSettings, writeSettings } from "../settings.js";
+import { saveInstanceSettings } from "../instance-settings.js";
+import { readMailVoice, readSettings } from "../settings.js";
 import {
   alertOptOuts,
   listBackups,
@@ -187,47 +183,20 @@ export const adminInstanceProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
-        // What the environment sets is its operator's to change (ADR 0083).
-        if (
-          input.attachmentMaxBytes !== undefined &&
-          ctx.env.ATTACHMENT_MAX_BYTES !== undefined
-        ) {
-          throw new AppError("set_by_environment");
-        }
-        if (input.ssoOnly === true) {
-          const [oidc, saml] = await Promise.all([
-            resolveOidc(ctx.db, ctx.env),
-            resolveSaml(ctx.db, ctx.env),
-          ]);
-          if (oidc.config === null && saml.config === null) {
-            throw new AppError("sso_required");
-          }
-        }
-        if (input.signInAllowlist) {
-          for (const entry of input.signInAllowlist) {
-            parseSignInCidr(entry);
-          }
-          // A list that leaves out the address it is saved from would
-          // refuse its author's next sign-in, and everyone's behind the
-          // same proxy: refused, naming the address this server sees.
-          if (
-            input.signInAllowlist.length > 0 &&
-            !new SignInAllowList(input.signInAllowlist).allows(ctx.req.ip)
-          ) {
-            throw new AppError("sign_in_address_left_out", ctx.req.ip);
-          }
-        }
-        await writeSettings(ctx.db, admin.id, input, ctx.req.ip);
-        if (input.maintenance === true) {
-          // Only administrators stay: the others are signed out now.
-          const ended = await endOtherSessions(ctx.db, admin.id, "non_admins");
-          for (const userId of ended) ctx.hub.closeUser(userId);
-        }
+        const saved = await saveInstanceSettings(
+          {
+            db: ctx.db,
+            env: ctx.env,
+            closeUser: (userId) => ctx.hub.closeUser(userId),
+          },
+          { id: admin.id, ip: ctx.req.ip, method: "admin" },
+          input,
+        );
         ctx.req.log.info(
           { actor: admin.id, keys: Object.keys(input) },
           "instance settings changed",
         );
-        return readSettings(ctx.db);
+        return saved;
       }),
     ),
   /** The certificate served, and the authority to install (ADR 0029). */
