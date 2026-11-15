@@ -42,6 +42,12 @@ in the image. The CI runs SQL Server from Microsoft's Developer image and
 Oracle Free from `gvenzl/oracle-free` to test the connectors; those images
 are never shipped or recommended as a default.
 
+A store that speaks the MongoDB wire protocol (ADR 0088) is read with the
+`mongodb` client, under Apache-2.0. MongoDB's own server is under the SSPL,
+which the OSI does not approve: it is neither shipped nor run by the
+tests, which read FerretDB (Apache-2.0) over a PostgreSQL with the
+DocumentDB extension (MIT).
+
 ## Official default stack (OSI)
 
 | Piece      | Choice                                                                        | License                 |

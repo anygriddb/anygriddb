@@ -9,7 +9,7 @@
  * and drains the old one.
  */
 import type { KeyRing } from "../auth/key-ring.js";
-import { AppError } from "@anygriddb/core";
+import { AppError, isCopySourceEngine } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import mysql from "mysql2/promise";
 import pg from "pg";
@@ -32,6 +32,7 @@ import {
 import { ISOLATION_LEVEL, type Connection } from "tedious";
 import type { Connection as OracleConnection } from "oracledb";
 import type { SourceSettings } from "./types.js";
+import { copyConnector, type CopyRequest, type CopyRow } from "./copy/index.js";
 import { connectionQueue } from "./connection-queue.js";
 import { writeError } from "./write-errors.js";
 import { measureSource } from "../observability.js";
@@ -874,6 +875,68 @@ export class SourcePools {
         this.deps.log(cause, "source write failed"),
       ),
     );
+  }
+
+  /**
+   * The rows of a table of a store that speaks no SQL (ADR 0088), a page
+   * at a time, over a connection of its own that closes with the last
+   * page, or when the reader stops.
+   */
+  async *copyRows(
+    sourceId: string,
+    request: CopyRequest,
+  ): AsyncGenerator<CopyRow[], void, void> {
+    const row = await this.deps.db
+      .selectFrom("sources")
+      .selectAll()
+      .where("id", "=", sourceId)
+      .executeTakeFirst();
+    if (!row) throw new AppError("unknown_source");
+    if (!isCopySourceEngine(row.engine)) {
+      throw new AppError("source_engine_unsupported", row.engine);
+    }
+    if (!this.deps.settings.allows(row.host)) {
+      throw new AppError("source_host_not_allowed", row.host);
+    }
+    const pages = copyConnector(row.engine).rows(
+      {
+        engine: row.engine,
+        host: row.host,
+        port: row.port,
+        database: row.database,
+        username: row.username,
+        password: decryptSecret(
+          row.passwordCiphertext,
+          row.passwordNonce,
+          this.deps.key,
+          "source",
+        ),
+        tlsCa: row.tlsCa,
+        queryTimeoutMs: row.queryTimeoutMs,
+      },
+      { allowPlaintext: this.deps.settings.allowPlaintext },
+      request,
+    );
+    try {
+      for (;;) {
+        const next = await measureSource(
+          { id: sourceId, engine: row.engine },
+          "read",
+          () => pages.next(),
+        );
+        if (next.done) return;
+        yield next.value;
+      }
+    } catch (error) {
+      // The driver's own error, when the connector kept it as the cause.
+      this.deps.log(
+        error instanceof AppError && error.cause ? error.cause : error,
+        "source copy failed",
+      );
+      throw error;
+    } finally {
+      await pages.return();
+    }
   }
 
   /** Closes a source's pool, as when it is deleted. */

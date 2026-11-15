@@ -210,6 +210,8 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   external_action_unavailable: msg`This action is not available on a client's table yet`,
   external_table_synced: msg`This table is a copy refreshed on a schedule: change it in the client's database`,
   source_sync_too_large: msg`This table has over a million rows: read it live rather than from a copy`,
+  source_copy_too_large: msg`This table has over a million rows: AnyGridDB copies a million at most`,
+  source_copy_only: msg`This source is read from a copy only: it takes no write, no field of AnyGridDB's and no read replica`,
   source_conflict: msg`This value changed in the client's database since you read it: the current value now shows, make your change again if needed`,
   row_changed_elsewhere: msg`This row was changed outside AnyGridDB since it was locked: unlock it, check it, then lock it again`,
   source_row_missing: msg`This row no longer exists in the client's database`,

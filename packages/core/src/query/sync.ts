@@ -215,6 +215,117 @@ export function copyRow(
 }
 
 /**
+ * A row a store without SQL gave (ADR 0088), as the copy stores it: its
+ * values come under the names the store gives its fields, which are the
+ * copy's columns, and `keys` from its id.
+ */
+/** A value of a row a store without SQL gave: what JSON carries. */
+export type StoredValue = string | number | boolean | null;
+
+const DECIMAL = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE]([+-]?\d+))?$/;
+const WHOLE = /^-?\d{1,19}$/;
+const INT8_MAX = 2n ** 63n;
+const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+const INSTANT =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:?\d{2})$/;
+
+/** A day of the calendar, in the years PostgreSQL and ISO 8601 both write. */
+function isDay(year: string, month: string, day: string): boolean {
+  const at = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  return (
+    Number(year) >= 1 &&
+    at.getUTCFullYear() === Number(year) &&
+    at.getUTCMonth() === Number(month) - 1 &&
+    at.getUTCDate() === Number(day)
+  );
+}
+
+/**
+ * A value as a copy's column of `type` takes it, or undefined when it does
+ * not fit: a store without a schema may hold a text where a field's other
+ * rows hold a number. Checked here, one such value reads empty; left to
+ * PostgreSQL, it would refuse the whole page.
+ */
+export function fitCopyValue(
+  type: string,
+  value: StoredValue,
+): StoredValue | undefined {
+  if (value === null) return null;
+  switch (type) {
+    case "text":
+      // PostgreSQL's text holds no NUL character.
+      return typeof value === "string"
+        ? value.replaceAll("\u0000", "")
+        : String(value);
+    case "numeric": {
+      if (typeof value === "number") {
+        return Number.isFinite(value) ? value : undefined;
+      }
+      const parts = typeof value === "string" ? DECIMAL.exec(value) : null;
+      return parts !== null &&
+        value.toString().length <= 1_000 &&
+        Math.abs(Number(parts[1] ?? 0)) <= 10_000
+        ? value
+        : undefined;
+    }
+    case "bigint": {
+      if (typeof value === "number") {
+        return Number.isSafeInteger(value) ? value : undefined;
+      }
+      if (typeof value !== "string" || !WHOLE.test(value)) return undefined;
+      const whole = BigInt(value);
+      return whole >= -INT8_MAX && whole < INT8_MAX ? value : undefined;
+    }
+    case "boolean":
+      return typeof value === "boolean" ? value : undefined;
+    case "date": {
+      const parts = typeof value === "string" ? DAY.exec(value) : null;
+      return parts !== null &&
+        isDay(parts[1] ?? "", parts[2] ?? "", parts[3] ?? "")
+        ? value
+        : undefined;
+    }
+    case "timestamptz": {
+      const parts = typeof value === "string" ? INSTANT.exec(value) : null;
+      return parts !== null &&
+        isDay(parts[1] ?? "", parts[2] ?? "", parts[3] ?? "") &&
+        Number(parts[4]) < 24 &&
+        Number(parts[5]) < 60 &&
+        Number(parts[6] ?? 0) < 60
+        ? value
+        : undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * A row a store without SQL gave (ADR 0088), as the copy stores it. Its
+ * values come under the names the store gives its fields, which are the
+ * copy's columns. `misfits` counts the values that did not fit their
+ * column and read empty.
+ */
+export function copyStoredRow(
+  columns: readonly CopyColumn[],
+  id: string,
+  values: Readonly<Record<string, StoredValue | undefined>>,
+): { row: Record<string, unknown>; misfits: number } {
+  const row: Record<string, unknown> = {};
+  let misfits = 0;
+  for (const column of columns) {
+    if (column.source.kind === "id") {
+      row[column.name] = id;
+      continue;
+    }
+    const fitted = fitCopyValue(column.type, values[column.name] ?? null);
+    if (fitted === undefined) misfits += 1;
+    row[column.name] = fitted ?? null;
+  }
+  return { row, misfits };
+}
+
+/**
  * The rows that differ between the current copy and the next, compared on
  * the columns both have: `op` is insert, update, or delete. At most
  * `limit` rows, and the count of each kind.

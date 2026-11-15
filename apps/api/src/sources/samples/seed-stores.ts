@@ -1,0 +1,152 @@
+/**
+ * Fills the lab's stores that speak no SQL (ADR 0088) with made-up data:
+ * a shop's orders, products and events, the same at every run. Started by
+ * `scripts/lab/seed.sh --stores`.
+ *
+ * LAB_STORE_ROWS sets how many orders (50,000 by default); the events are
+ * twice as many, so a million orders also tries what a copy refuses.
+ */
+import { readFileSync } from "node:fs";
+import { Decimal128, Long, MongoClient, ObjectId } from "mongodb";
+
+const HOST = process.env.LAB_HOST ?? "127.0.0.1";
+const PASSWORD = process.env.LAB_PASSWORD ?? "Lab!Admin-2026";
+const CA = readFileSync(
+  process.env.ANYGRIDDB_LAB_TLS_CA ?? "../../docker/lab/certs/ca.crt",
+  "utf8",
+);
+const ORDERS = Number(process.env.LAB_STORE_ROWS ?? 50_000);
+const BATCH = 5_000;
+
+/** The same numbers at every run. */
+function generator(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
+    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4_294_967_296;
+  };
+}
+
+const CITIES = ["Lyon", "Nantes", "Lille", "Turin", "Porto", "Gand", "Graz"];
+const STATUSES = ["new", "paid", "packed", "sent", "returned"];
+const TAGS = ["gift", "fragile", "express", "export", "bulk"];
+
+/** An id that grows with the order, as MongoDB's own do. */
+function orderId(index: number): ObjectId {
+  const seconds = 1_735_689_600 + index * 20;
+  return new ObjectId(
+    seconds.toString(16).padStart(8, "0") +
+      index.toString(16).padStart(16, "0"),
+  );
+}
+
+async function fill<T>(
+  count: number,
+  make: (index: number) => T,
+  insert: (batch: T[]) => Promise<unknown>,
+): Promise<void> {
+  for (let start = 0; start < count; start += BATCH) {
+    const size = Math.min(BATCH, count - start);
+    await insert(Array.from({ length: size }, (_, at) => make(start + at)));
+  }
+}
+
+async function seedDocuments(): Promise<void> {
+  const client = new MongoClient(`mongodb://${HOST}:57017/`, {
+    auth: { username: "ferretdb", password: PASSWORD },
+    directConnection: true,
+    tls: true,
+    ca: CA,
+    serverSelectionTimeoutMS: 30_000,
+  });
+  await client.connect();
+  try {
+    const shop = client.db("shop");
+    await shop.dropDatabase();
+    const random = generator(2026);
+    await fill(
+      500,
+      (index) => ({
+        _id: `SKU-${String(index).padStart(4, "0")}`,
+        name: `Product ${String(index)}`,
+        price: Decimal128.fromString((5 + random() * 495).toFixed(2)),
+        stock: Math.floor(random() * 1_000),
+        tags: TAGS.filter(() => random() < 0.3),
+        discontinued: random() < 0.1,
+      }),
+      (batch) => shop.collection<{ _id: string }>("products").insertMany(batch),
+    );
+    await fill(
+      ORDERS,
+      (index) => {
+        const customer = Math.floor(random() * 5_000);
+        const lines = Array.from(
+          { length: 1 + Math.floor(random() * 4) },
+          () => ({
+            sku: `SKU-${String(Math.floor(random() * 500)).padStart(4, "0")}`,
+            quantity: 1 + Math.floor(random() * 5),
+          }),
+        );
+        return {
+          _id: orderId(index),
+          number: index + 1,
+          status: STATUSES[Math.floor(random() * STATUSES.length)],
+          placedAt: new Date(1_735_689_600_000 + index * 20_000),
+          total: Decimal128.fromString((10 + random() * 990).toFixed(2)),
+          paid: random() < 0.8,
+          weight: Math.round(random() * 20_000) / 1_000,
+          ledger: Long.fromNumber(9_000_000_000_000 + index),
+          customer: {
+            name: `Customer ${String(customer)}`,
+            email: `customer${String(customer)}@example.org`,
+            city: CITIES[customer % CITIES.length],
+          },
+          lines,
+          ...(random() < 0.05
+            ? {
+                note: `Leave with the neighbour.\nCall first: order ${String(index + 1)}.`,
+              }
+            : {}),
+          // Older orders say nothing of their channel; a few say it badly.
+          ...(index > ORDERS / 2
+            ? {
+                channel:
+                  index % 997 === 0 ? 3 : random() < 0.5 ? "web" : "shop",
+              }
+            : {}),
+        };
+      },
+      (batch) =>
+        shop.collection("orders").insertMany(batch, { ordered: false }),
+    );
+    await fill(
+      ORDERS * 2,
+      (index) => ({
+        _id: Long.fromNumber(index + 1),
+        order: Math.floor(random() * ORDERS) + 1,
+        kind: random() < 0.5 ? "viewed" : "changed",
+        at: new Date(1_735_689_600_000 + index * 7_000),
+      }),
+      (batch) =>
+        shop
+          .collection<{ _id: Long }>("events")
+          .insertMany(batch, { ordered: false }),
+    );
+    // The account AnyGridDB reads with.
+    await shop.command({ dropUser: "anygriddb" }).catch(() => undefined);
+    await shop.command({
+      createUser: "anygriddb",
+      pwd: PASSWORD,
+      roles: [{ role: "read", db: "shop" }],
+    });
+    console.log(
+      `shop: 500 products, ${String(ORDERS)} orders, ${String(ORDERS * 2)} events`,
+    );
+  } finally {
+    await client.close();
+  }
+}
+
+await seedDocuments();

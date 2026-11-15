@@ -57,6 +57,28 @@ test("an administrator shows a client's tables in a base, read where they live",
     await page.goto("/admin/sources");
     await page.getByRole("button", { name: "Add a source" }).click();
     const dialog = page.getByRole("dialog");
+    // A store that speaks no SQL is read from a copy (ADR 0088): its form
+    // says so, and asks for nothing a copy has no use for.
+    const engine = dialog.getByLabel("Engine", { exact: true });
+    await engine.selectOption({ label: "MongoDB" });
+    await expect(dialog.getByLabel("Port", { exact: true })).toHaveValue(
+      "27017",
+    );
+    await expect(
+      dialog.getByText(/AnyGridDB reads this source from a copy/),
+    ).toBeVisible();
+    await expect(dialog.getByLabel("Time zone", { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(dialog.getByLabel(/Schema kept for AnyGridDB/)).toHaveCount(0);
+    await expect(dialog.getByLabel(/Read replica host/)).toHaveCount(0);
+    expect(await accessibilityViolations(page)).toEqual([]);
+    // A SQL engine's form has them back.
+    await engine.selectOption({ label: "PostgreSQL" });
+    await expect(dialog.getByLabel(/Schema kept for AnyGridDB/)).toBeVisible();
+    await expect(dialog.getByLabel("Port", { exact: true })).toHaveValue(
+      "5432",
+    );
     await dialog.getByLabel("Name", { exact: true }).fill(`ERP ${stamp}`);
     // Exact names: the read replica's fields are named after these.
     await dialog.getByLabel("Database", { exact: true }).fill(database);

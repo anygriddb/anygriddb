@@ -10,6 +10,9 @@ This is **not** the official product stack. SQL Server uses Compose profile
 `mssql` and Oracle Free profile `oracle` — interoperability images only
 (`OPEN_SOURCE_POLICY.md`).
 
+Profile `stores` adds the stores that speak no SQL, which AnyGridDB reads
+from a copy (ADR 0088): FerretDB, which speaks the MongoDB wire protocol.
+
 ## Quick start
 
 ```bash
@@ -21,6 +24,8 @@ docker compose --profile mssql --profile oracle up -d   # optional engines
 ../../scripts/lab/seed.sh --lab              # and DVD Rental, World, Employees
 ../../scripts/lab/seed.sh --adventureworks   # SQL Server only, ~210 MB download
 ../../scripts/lab/seed.sh --wideworldimporters   # SQL Server only, ~120 MB
+docker compose --profile stores up -d        # FerretDB
+../../scripts/lab/seed.sh --stores           # made-up orders, products, events
 ```
 
 Restore one SQL Server backup at a time (`--adventureworks`,
@@ -48,6 +53,7 @@ Or from the repo root:
 | SQL Server 2022 | `aglab-mssql`        | `127.0.0.1:51433`        |
 | Oracle Free 23  | `aglab-oracle` (TCP) | `127.0.0.1:51521`        |
 |                 | `aglab-oracle-tls`   | `127.0.0.1:52484` (TCPS) |
+| FerretDB 2.7    | `aglab-ferretdb`     | `127.0.0.1:57017` (TLS)  |
 
 Password: `LAB_PASSWORD` from `.env` (default in `.env.example`).
 
@@ -63,6 +69,7 @@ plus side schema `anygriddb_side` (Postgres/SQL Server), database `ag_side`
 | MySQL / MariaDB | `Chinook`, `northwind`, `sakila`; `world` and `employees` with `--lab`                                                                                                        |
 | SQL Server      | `Chinook`, `northwind`; `AdventureWorks2022` with `--adventureworks`; `WideWorldImporters` with `--wideworldimporters`; `WideWorldImportersDW` with `--wideworldimporters-dw` |
 | Oracle          | service `FREEPDB1`, schema `CHINOOK`                                                                                                                                          |
+| FerretDB        | `shop` with `--stores`: `orders` (50,000 unless `LAB_STORE_ROWS` says otherwise), `products`, `events`; account `anygriddb`                                                   |
 
 ## TLS
 

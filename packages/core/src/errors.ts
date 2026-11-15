@@ -230,6 +230,8 @@ export const ERRORS = {
     "External table is a synced copy: change it in its source",
   ],
   source_sync_too_large: [BAD, "Table too large to copy: read it live"],
+  source_copy_too_large: [BAD, "Table too large to copy"],
+  source_copy_only: [BAD, "This source is read from a copy only"],
   source_conflict: [409, "Row changed in the source since it was read"],
   row_changed_elsewhere: [
     409,

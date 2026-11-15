@@ -2,9 +2,12 @@
 # stack. Engines speak TLS with the lab CA in ./certs (scripts/lab/gen-certs.sh).
 # SQL Server is profile `mssql` only; Oracle Free is profile `oracle` only
 # (OPEN_SOURCE_POLICY.md — interoperability images, never the default stack).
+# Profile `stores` starts the stores that speak no SQL, which AnyGridDB reads
+# from a copy (ADR 0088): FerretDB, which speaks the MongoDB wire protocol.
 #
-#   ./scripts/lab/up.sh --mssql --oracle
+#   ./scripts/lab/up.sh --mssql --oracle --stores
 #   ./scripts/lab/seed.sh --all
+#   ./scripts/lab/seed.sh --stores
 
 name: anygriddb-lab
 
@@ -155,6 +158,48 @@ services:
       - ./certs:/certs:ro
       - ./oracle-tls/nginx.conf:/etc/nginx/nginx.conf:ro
 
+  # FerretDB keeps its documents in a PostgreSQL with the DocumentDB
+  # extension (MIT); FerretDB itself is Apache-2.0.
+  ferretdb-pg:
+    profiles: ["stores"]
+    image: ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0
+    container_name: aglab-ferretdb-pg
+    environment:
+      # The extension's scheduler works in the database `postgres` only.
+      POSTGRES_USER: ferretdb
+      POSTGRES_PASSWORD: ${LAB_PASSWORD}
+      POSTGRES_DB: postgres
+    volumes:
+      - aglab-ferretdb-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ferretdb -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  ferretdb:
+    profiles: ["stores"]
+    image: ghcr.io/ferretdb/ferretdb:2.7.0
+    container_name: aglab-ferretdb
+    # The lab's key is readable by its owner alone, and this image has no
+    # shell to copy it with: root reads it where it is.
+    user: "0:0"
+    depends_on:
+      ferretdb-pg:
+        condition: service_healthy
+    environment:
+      FERRETDB_POSTGRESQL_URL: postgres://ferretdb:${LAB_PASSWORD}@ferretdb-pg:5432/postgres
+      # TLS on the published port; the listener in clear stays inside.
+      FERRETDB_LISTEN_ADDR: 127.0.0.1:27017
+      FERRETDB_LISTEN_TLS: 0.0.0.0:27018
+      FERRETDB_LISTEN_TLS_CERT_FILE: /certs/server.crt
+      FERRETDB_LISTEN_TLS_KEY_FILE: /certs/server.key
+      FERRETDB_TELEMETRY: disable
+    ports:
+      - "127.0.0.1:57017:27018"
+    volumes:
+      - ./certs:/certs:ro
+
 volumes:
   aglab-pg-data:
   aglab-mysql-data:
@@ -162,3 +207,4 @@ volumes:
   aglab-mssql-data:
   aglab-mssql-backup:
   aglab-oracle-data:
+  aglab-ferretdb-pg-data:

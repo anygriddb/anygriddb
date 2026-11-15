@@ -23,9 +23,12 @@ import {
   buildWatchStart,
   copyColumns,
   copyRow,
+  copyStoredRow,
   type CopyColumn,
+  DEFAULT_COPY_INTERVAL_MINUTES,
   type EngineCatalog,
   type EngineTable,
+  isCopySourceEngine,
   keyValues,
   MAX_READ_LIMIT,
   type RowEvent,
@@ -36,7 +39,7 @@ import {
 } from "@anygriddb/core";
 import { runStatement, type Database } from "@anygriddb/db";
 import { sql } from "kysely";
-import { withAudit } from "../data/audit-context.js";
+import { withAudit, type AuditTx } from "../data/audit-context.js";
 import { announceRows } from "../data/announce.js";
 import { loadEngine, sourceDialect } from "../data/engine.js";
 import { readTransaction } from "../data/rows.js";
@@ -138,6 +141,14 @@ export async function setTableSync(
     throw new AppError("unknown_table");
   }
   const sourceId = table.sourceId;
+  // A store that speaks no SQL has only its copy, read whole each time:
+  // it tells no change column, and cannot be read live (ADR 0088).
+  if (
+    (await copyOnlySource(db, sourceId)) &&
+    (input.intervalMinutes === null || input.syncMode === "incremental")
+  ) {
+    throw new AppError("source_copy_only");
+  }
   await withAudit(
     db,
     { userId: actorId, tableId: table.id, source: "web" },
@@ -201,6 +212,51 @@ export async function setTableSync(
   return { baseId: table.baseId };
 }
 
+/** True when the source is a store read from a copy only (ADR 0088). */
+async function copyOnlySource(
+  db: Pick<Database, "selectFrom">,
+  sourceId: string,
+): Promise<boolean> {
+  const source = await db
+    .selectFrom("sources")
+    .select("engine")
+    .where("id", "=", sourceId)
+    .executeTakeFirst();
+  return isCopySourceEngine(source?.engine);
+}
+
+/**
+ * Gives a table of a store that speaks no SQL its copy as it is exposed
+ * (ADR 0088): an empty one with every column, so the table is read from
+ * the first moment, and a refresh queued at once to fill it. Runs in the
+ * transaction that makes the table, once its fields are there.
+ */
+export async function startCopy(
+  tx: AuditTx,
+  tableId: string,
+  actorId: string,
+): Promise<void> {
+  const { engine, declared } = await liveTable({ db: tx }, tableId);
+  const columns = copyColumns(engine.table, declared);
+  for (const statement of [
+    ...buildCopyCreate(tableId, columns),
+    ...buildCopySwap(tableId, columns),
+  ]) {
+    await runStatement(tx, statement);
+  }
+  await tx
+    .insertInto("externalSyncs")
+    .values({
+      tableId,
+      intervalMinutes: DEFAULT_COPY_INTERVAL_MINUTES,
+      syncMode: "full",
+      columns: columns.map(({ name, type }) => ({ name, type })),
+      updatedBy: actorId,
+    })
+    .execute();
+  await queueSync(tx, tableId, 0);
+}
+
 /**
  * An incremental refresh needs a client column the database moves on every
  * change, as a watch does (ADR 0031): a date and time, or a rowversion.
@@ -227,6 +283,19 @@ async function assertChangeColumn(
   ) {
     throw new AppError("source_watch_column");
   }
+}
+
+/** Refreshes a table's copy now, when it is read from one. */
+export async function refreshCopy(
+  db: Database,
+  tableId: string,
+): Promise<void> {
+  const found = await db
+    .selectFrom("externalSyncs")
+    .select("tableId")
+    .where("tableId", "=", tableId)
+    .executeTakeFirst();
+  if (found) await queueSync(db, tableId, 0);
 }
 
 /** Refreshes a synced table now, whatever its interval. */
@@ -316,7 +385,7 @@ function parseMark(text: string | null): SyncMark | null {
 }
 
 /** A synced table read live, its links as the keys they hold. */
-async function liveTable(deps: SyncDeps, tableId: string) {
+async function liveTable(deps: Pick<SyncDeps, "db">, tableId: string) {
   const { engine, rows: catalog } = await loadEngine(
     deps.db,
     tableId,
@@ -349,7 +418,21 @@ async function liveTable(deps: SyncDeps, tableId: string) {
       ),
     },
   };
-  return { engine, plain, declared };
+  const row = catalog.tables.find((item) => item.id === tableId);
+  const sourceId = engine.table.external?.sourceId;
+  return {
+    engine,
+    plain,
+    declared,
+    /** Set for a store that speaks no SQL: where its connector reads it. */
+    store:
+      sourceId !== undefined &&
+      isCopySourceEngine(catalog.sources.get(sourceId)?.engine) &&
+      row?.externalSchema &&
+      row.externalName
+        ? { sourceId, schema: row.externalSchema, name: row.externalName }
+        : null,
+  };
 }
 
 /** The client column that tells changes, as the watch builders read it. */
@@ -492,16 +575,62 @@ async function loadIncremental(
   };
 }
 
+/**
+ * Copies a table of a store that speaks no SQL into the next copy
+ * (ADR 0088): its connector reads it from first row to last. A value that
+ * does not fit its field's type reads empty, and is counted.
+ */
+async function loadStored(
+  deps: SyncDeps,
+  tableId: string,
+  store: { sourceId: string; schema: string; name: string },
+  key: readonly string[],
+  columns: readonly CopyColumn[],
+): Promise<{ rows: number; leftOut: number }> {
+  let read = 0;
+  let leftOut = 0;
+  const pages = sourcePools().copyRows(store.sourceId, {
+    schema: store.schema,
+    name: store.name,
+    key,
+    fields: columns
+      .filter((column) => column.source.kind !== "id")
+      .map((column) => column.name),
+    pageSize: PAGE,
+  });
+  for await (const page of pages) {
+    read += page.length;
+    if (read > SYNC_ROW_LIMIT) throw new AppError("source_copy_too_large");
+    const rows = page.map((item) => {
+      const { row, misfits } = copyStoredRow(columns, item.id, item.values);
+      leftOut += misfits;
+      return row;
+    });
+    await runStatement(deps.db, buildCopyInsert(tableId, columns, rows));
+  }
+  return { rows: read, leftOut };
+}
+
 async function loadNext(
   deps: SyncDeps,
   tableId: string,
-): Promise<{ columns: CopyColumn[]; rows: number }> {
-  const { engine, plain, declared } = await liveTable(deps, tableId);
+): Promise<{ columns: CopyColumn[]; rows: number; leftOut: number }> {
+  const { engine, plain, declared, store } = await liveTable(deps, tableId);
   const columns = copyColumns(engine.table, declared);
   const fields = sealedFields(engine.table).map((column) => column.name);
   const keyed = (engine.table.external?.key.length ?? 0) > 0;
   for (const statement of buildCopyCreate(tableId, columns)) {
     await runStatement(deps.db, statement);
+  }
+  if (store) {
+    const loaded = await loadStored(
+      deps,
+      tableId,
+      store,
+      engine.table.external?.key ?? [],
+      columns,
+    );
+    return { columns, ...loaded };
   }
   let read = 0;
   for (let offset = 0; ; offset += PAGE) {
@@ -530,7 +659,7 @@ async function loadNext(
     );
     if (page.length < PAGE) break;
   }
-  return { columns, rows: read };
+  return { columns, rows: read, leftOut: 0 };
 }
 
 /** What differs between the current copy and the next, on their common columns. */
@@ -595,6 +724,7 @@ async function refresh(
     .select([
       "s.intervalMinutes",
       "s.columns",
+      "s.syncedAt",
       "s.version",
       "s.syncMode",
       "s.changeColumn",
@@ -682,11 +812,14 @@ async function refresh(
       deps.log(error, "external sync mark failed");
     }
   }
-  let loaded: { columns: CopyColumn[]; rows: number };
+  // A first copy has nothing to compare with: none yet, or the empty one
+  // a store without SQL is given as it is exposed (ADR 0088).
+  const first = !sync.columns || sync.syncedAt === null;
+  let loaded: { columns: CopyColumn[]; rows: number; leftOut: number };
   let diff: Diff | null = null;
   try {
     loaded = await loadNext(deps, tableId);
-    if (sync.columns) {
+    if (sync.columns && !first) {
       diff = await diffCopies(deps.db, tableId, sync.columns, loaded.columns);
     }
   } catch (error) {
@@ -709,6 +842,7 @@ async function refresh(
         columns: loaded.columns.map(({ name, type }) => ({ name, type })),
         syncedAt: new Date(),
         rowCount: String(loaded.rows),
+        leftOut: loaded.leftOut,
         durationMs: Date.now() - started,
         changes: count,
         errorCode: null,
@@ -739,9 +873,9 @@ async function refresh(
     return interval;
   }
   const log = (error: unknown) => deps.log(error, "realtime publish failed");
-  if (!sync.columns || count > EVENT_LIMIT) {
+  if (first || count > EVENT_LIMIT) {
     // A first copy changes where the table is read: grids read it again.
-    if (!sync.columns) await publishCatalog(deps.bus, sync.baseId, log);
+    if (first) await publishCatalog(deps.bus, sync.baseId, log);
     await publishRows(deps.bus, tableId, "refresh", [], log);
   } else {
     for (const op of ["insert", "update", "delete"] as const) {

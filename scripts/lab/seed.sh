@@ -6,8 +6,10 @@
 # and Employees (some four million rows) on MySQL and MariaDB. The SQL
 # Server backups come one flag each: restore one large sample at a time,
 # since the three together exhaust the lab's SQL Server.
+# --stores fills the stores that speak no SQL instead (up.sh --stores),
+# with made-up data written by the API package's own clients, and stops.
 # Usage: ./scripts/lab/seed.sh [--lab] [--adventureworks]
-#   [--wideworldimporters] [--wideworldimporters-dw] [--all]
+#   [--wideworldimporters] [--wideworldimporters-dw] [--all] | --stores
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -31,8 +33,10 @@ DO_LAB=0
 DO_AW=0
 DO_WWI=0
 DO_WWI_DW=0
+DO_STORES=0
 for arg in "$@"; do
   case "$arg" in
+    --stores) DO_STORES=1 ;;
     --lab) DO_LAB=1 ;;
     --adventureworks) DO_AW=1 ;;
     --wideworldimporters) DO_WWI=1 ;;
@@ -49,6 +53,20 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+if [[ "$DO_STORES" -eq 1 ]]; then
+  echo "==> Made-up orders, products and events on FerretDB"
+  if ! docker inspect -f '{{.State.Running}}' aglab-ferretdb 2>/dev/null | grep -q true; then
+    echo "Container aglab-ferretdb is not running. Start with: ./scripts/lab/up.sh --stores" >&2
+    exit 1
+  fi
+  (cd "$ROOT/apps/api" &&
+    LAB_PASSWORD="$PASSWORD" ANYGRIDDB_LAB_TLS_CA="$LAB/certs/ca.crt" \
+      pnpm exec tsx src/sources/samples/seed-stores.ts)
+  echo "==> Seed complete"
+  echo "    TLS CA for AnyGridDB: $LAB/certs/ca.crt"
+  exit 0
+fi
 
 FETCH_ARGS=()
 [[ "$DO_LAB" -eq 1 ]] && FETCH_ARGS+=(--lab)

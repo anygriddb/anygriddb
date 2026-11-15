@@ -22,6 +22,7 @@ Every table is a real SQL table, in AnyGridDB's own PostgreSQL or in your own da
   - Add fields of your own in a schema the DBA grants.
   - Follow changes other applications make.
   - Read a table from a copy refreshed in AnyGridDB when live queries are not welcome.
+  - Read a store that speaks no SQL from such a copy: a database that speaks the MongoDB wire protocol, a collection as a table.
 - **Grid**: virtualized rows and columns, keyboard navigation, copy and paste with spreadsheets, fill down, undo and redo, footers, grouping, row colours, and frozen columns.
 - **Fields**: 30 types, including links (one-way or two-way, limited to a view or a filter), lookups and rollups (over the linked rows that match a condition), formulas (94 functions, regular expressions and JSON included), users, attachments with thumbnails, ratings, durations, system fields, the row's id, buttons, a colour, a place a map reads, and a JSON document a formula reads into; a text, a link, a formula, or a row's number or id drawn as a QR code or a barcode.
 - **Views**: grid, form (fields shown on earlier answers), kanban, gallery, list (rows nested under their parent), calendar (a private iCal feed per person), timeline, and map; personal and locked views; nested and/or filters with relative dates and ranges.

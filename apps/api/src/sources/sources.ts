@@ -4,7 +4,12 @@
  * source is saved only once a connection to it succeeded.
  */
 import type { KeyRing } from "../auth/key-ring.js";
-import { AppError, type SourceInput, type SourceUpdate } from "@anygriddb/core";
+import {
+  AppError,
+  isCopySourceEngine,
+  type SourceInput,
+  type SourceUpdate,
+} from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { decryptSecret, encryptSecret } from "../auth/crypto.js";
 import { withAudit } from "../data/audit-context.js";
@@ -18,6 +23,7 @@ import { checkOracle } from "./oracle.js";
 import { introspectOracle } from "./oracle-schema.js";
 import { introspectMysql } from "./mysql-schema.js";
 import { introspectPostgres } from "./postgres-schema.js";
+import { copyConnector } from "./copy/index.js";
 import type {
   SourceCheck,
   SourceConnection,
@@ -100,7 +106,7 @@ export async function checkConnection(
     case "oracle":
       return checkOracle(source, options);
     default:
-      throw new AppError("source_engine_unsupported", source.engine);
+      return copyConnector(source.engine).check(source, options);
   }
 }
 
@@ -143,11 +149,24 @@ export function replicaConnectionOf(
   };
 }
 
+/**
+ * A store read from a copy (ADR 0088) takes no field of AnyGridDB's and no
+ * write, so it has no side schema; and its copy already spares it the
+ * reads a replica would take.
+ */
+function assertCopySource(input: SourceInput): void {
+  if (!isCopySourceEngine(input.engine)) return;
+  if (input.sideSchema || input.replicaHost) {
+    throw new AppError("source_copy_only");
+  }
+}
+
 /** Tries the primary, and the read replica when one is declared. */
 export async function testSource(
   deps: SourceDeps,
   input: SourceInput,
 ): Promise<SourceCheck> {
+  assertCopySource(input);
   const checked = await checkConnection(deps.settings, connectionOf(input));
   const replica = replicaConnectionOf(input);
   if (!replica) return checked;
@@ -306,6 +325,17 @@ export async function updateSource(
   if ((next.sideSchema ?? null) !== row.sideSchema) {
     await assertSideSchemaFree(deps.db, row.id);
   }
+  // Tables read where they live cannot become copies by a change of
+  // engine, nor copies tables read live: such a source starts anew.
+  if (isCopySourceEngine(next.engine) !== isCopySourceEngine(row.engine)) {
+    const exposed = await deps.db
+      .selectFrom("dataTables")
+      .select("id")
+      .where("sourceId", "=", row.id)
+      .limit(1)
+      .executeTakeFirst();
+    if (exposed) throw new AppError("source_in_use");
+  }
   const checked = await testSource(deps, next);
   const replica = replicaConnectionOf(next);
   const sealed = patch.password
@@ -406,7 +436,7 @@ export async function sourceTables(
     case "oracle":
       return introspectOracle(connection, options);
     default:
-      throw new AppError("source_engine_unsupported", connection.engine);
+      return copyConnector(connection.engine).tables(connection, options);
   }
 }
 
@@ -430,6 +460,8 @@ type Exposure = {
     intervalMinutes: number;
     syncedAt: Date | null;
     rows: number | null;
+    /** Values the last copy could not keep in their field's type (ADR 0088). */
+    leftOut: number;
     durationMs: number | null;
     changes: number;
     errorCode: string | null;
@@ -467,6 +499,7 @@ export async function exposedIn(
       "y.intervalMinutes as syncInterval",
       "y.syncedAt",
       "y.rowCount",
+      "y.leftOut",
       "y.durationMs",
       "y.changes as syncChanges",
       "y.errorCode as syncError",
@@ -510,6 +543,7 @@ export async function exposedIn(
                 intervalMinutes: row.syncInterval,
                 syncedAt: row.syncedAt,
                 rows: row.rowCount === null ? null : Number(row.rowCount),
+                leftOut: row.leftOut ?? 0,
                 durationMs: row.durationMs,
                 changes: row.syncChanges ?? 0,
                 errorCode: row.syncError,

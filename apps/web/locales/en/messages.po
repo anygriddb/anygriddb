@@ -419,6 +419,11 @@ msgstr "{0, plural, one {# row} other {# rows}}"
 msgid "{0, plural, one {# table} other {# tables}}"
 msgstr "{0, plural, one {# table} other {# tables}}"
 
+#. placeholder {0}: sync.leftOut
+#: components/admin/sources-tab.tsx
+msgid "{0, plural, one {# value is not of its field's type and reads empty. Refresh fields to follow the source.} other {# values are not of their field's type and read empty. Refresh fields to follow the source.}}"
+msgstr "{0, plural, one {# value is not of its field's type and reads empty. Refresh fields to follow the source.} other {# values are not of their field's type and read empty. Refresh fields to follow the source.}}"
+
 #. placeholder {0}: preview.data.sample.total
 #: components/settings/table-acl-panel.tsx
 msgid "{0, plural, one {# visible row} other {# visible rows}}"
@@ -1963,6 +1968,10 @@ msgstr "AnyGridDB embeds no model: the AI you run (Claude, Cursor, Ollama with a
 #: components/admin/sources-tab.tsx
 msgid "AnyGridDB forgets this source and its password. The client's database is not touched."
 msgstr "AnyGridDB forgets this source and its password. The client's database is not touched."
+
+#: components/admin/sources-tab.tsx
+msgid "AnyGridDB reads this source from a copy: each table you expose is read whole, once per interval, and people read the copy. Nothing is ever written to the source. Give the account the right to read its database, and nothing more."
+msgstr "AnyGridDB reads this source from a copy: each table you expose is read whole, once per interval, and people read the copy. Nothing is ever written to the source. Give the account the right to read its database, and nothing more."
 
 #: components/record/row-status.tsx
 msgid "AnyGridDB refuses any change to this row. The client's database can still be changed by its other applications: AnyGridDB compares the row with its locked values and warns if it changes."
@@ -4461,6 +4470,10 @@ msgstr "First check under way"
 #: components/admin/sources-tab.tsx
 msgid "First copy in progress: the table is read live until then"
 msgstr "First copy in progress: the table is read live until then"
+
+#: components/admin/sources-tab.tsx
+msgid "First copy in progress: the table shows empty until then"
+msgstr "First copy in progress: the table shows empty until then"
 
 #: components/views/gallery-view.tsx
 msgid "Fit"
@@ -10280,6 +10293,10 @@ msgid "The system's authorities, and one given with the instance"
 msgstr "The system's authorities, and one given with the instance"
 
 #: components/admin/sources-tab.tsx
+msgid "The table is read from its copy, a million rows at most; its changes arrive with each refresh, deletes included."
+msgstr "The table is read from its copy, a million rows at most; its changes arrive with each refresh, deletes included."
+
+#: components/admin/sources-tab.tsx
 msgid "The table is read from its copy: it can no longer be changed in AnyGridDB, and its changes arrive with each refresh, deletes included."
 msgstr "The table is read from its copy: it can no longer be changed in AnyGridDB, and its changes arrive with each refresh, deletes included."
 
@@ -10767,6 +10784,10 @@ msgstr "This share is password protected."
 msgid "This source has no side schema: the field is kept in AnyGridDB. A view filters on it by value or emptiness; it cannot sort or group, and formulas, automations, and rules do not read it. Fields added once an administrator names a side schema sort and group."
 msgstr "This source has no side schema: the field is kept in AnyGridDB. A view filters on it by value or emptiness; it cannot sort or group, and formulas, automations, and rules do not read it. Fields added once an administrator names a side schema sort and group."
 
+#: lib/errors.ts
+msgid "This source is read from a copy only: it takes no write, no field of AnyGridDB's and no read replica"
+msgstr "This source is read from a copy only: it takes no write, no field of AnyGridDB's and no read replica"
+
 #: components/table/table-workspace.tsx
 msgid "This table does not exist or is not shared with you."
 msgstr "This table does not exist or is not shared with you."
@@ -10782,6 +10803,10 @@ msgstr "This table has no primary key: its rows cannot be changed"
 #: components/fields/field-editor.tsx
 msgid "This table has no primary key: only formulas, lookups, rollups, and buttons can be added. Storage fields need a key so rows can be matched."
 msgstr "This table has no primary key: only formulas, lookups, rollups, and buttons can be added. Storage fields need a key so rows can be matched."
+
+#: lib/errors.ts
+msgid "This table has over a million rows: AnyGridDB copies a million at most"
+msgstr "This table has over a million rows: AnyGridDB copies a million at most"
 
 #: lib/errors.ts
 msgid "This table has over a million rows: read it live rather than from a copy"

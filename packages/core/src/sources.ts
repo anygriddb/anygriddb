@@ -6,14 +6,33 @@
 import { z } from "zod";
 import { isTimeZone } from "./field-config";
 
-const SOURCE_ENGINES = [
+/** The engines whose SQL the read engine compiles to: read where they live. */
+const SQL_SOURCE_ENGINES = [
   "postgres",
   "mysql",
   "mariadb",
   "sqlserver",
   "oracle",
 ] as const;
+
+/**
+ * Stores that speak no SQL (ADR 0088). AnyGridDB lists what the account
+ * may read and copies it on a schedule; every read goes to the copy, in
+ * AnyGridDB's own database, and nothing is ever written to the store.
+ */
+const COPY_SOURCE_ENGINES = ["mongodb"] as const;
+
+const SOURCE_ENGINES = [...SQL_SOURCE_ENGINES, ...COPY_SOURCE_ENGINES] as const;
 export type SourceEngine = (typeof SOURCE_ENGINES)[number];
+export type SqlSourceEngine = (typeof SQL_SOURCE_ENGINES)[number];
+export type CopySourceEngine = (typeof COPY_SOURCE_ENGINES)[number];
+
+/** True for a store read from a copy only. */
+export function isCopySourceEngine(
+  engine: string | null | undefined,
+): engine is CopySourceEngine {
+  return (COPY_SOURCE_ENGINES as readonly string[]).includes(engine ?? "");
+}
 
 export const DEFAULT_SOURCE_PORTS: Record<SourceEngine, number> = {
   postgres: 5432,
@@ -23,7 +42,11 @@ export const DEFAULT_SOURCE_PORTS: Record<SourceEngine, number> = {
   // TCPS: AnyGridDB reaches Oracle over verified TLS, which a listener of
   // its own serves, by convention here (1521 is the plaintext one).
   oracle: 2484,
+  mongodb: 27017,
 };
+
+/** A copy is refreshed this often unless an administrator says otherwise. */
+export const DEFAULT_COPY_INTERVAL_MINUTES = 60;
 
 const PEM = /^-----BEGIN CERTIFICATE-----[\s\S]+-----END CERTIFICATE-----\s*$/;
 
