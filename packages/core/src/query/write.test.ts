@@ -261,15 +261,14 @@ describe("write builders", () => {
     ).toThrow("Invalid limit");
   });
 
-  it("restores a snapshot as a draft with its identity", () => {
+  it("restores a row as a draft with its identity, from the event that kept it", () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+    const event = "22222222-2222-4222-8222-222222222222";
     const restore = buildRestoreRow({
       table: "t_orders",
       columns: ["title"],
-      snapshot: {
-        id: "11111111-1111-4111-8111-111111111111",
-        title: "A",
-        ag_status: "locked",
-      },
+      id,
+      event,
     });
     expect(restore.text).toContain(
       `("id", "ag_seq", "ag_created_at", "ag_created_by", "title", "ag_position")`,
@@ -277,8 +276,17 @@ describe("write builders", () => {
     // A row deleted before rows had a place comes back at its number.
     expect(restore.text).toContain(`coalesce(s."ag_position", s."ag_seq")`);
     expect(restore.text).not.toContain("ag_status");
+    // The database reads the row where the trail holds it: nothing of it
+    // is bound, so nothing of it was read out and written back.
+    expect(restore.text).toContain(
+      `jsonb_populate_record(null::"t_orders", e."old_value")`,
+    );
+    expect(restore.values).toEqual([event, id]);
     expect(() =>
-      buildRestoreRow({ table: "t_orders", columns: [], snapshot: {} }),
+      buildRestoreRow({ table: "t_orders", columns: [], id: "", event }),
+    ).toThrow("Invalid row id");
+    expect(() =>
+      buildRestoreRow({ table: "t_orders", columns: [], id, event: "1 or 1" }),
     ).toThrow("Invalid row id");
   });
 });

@@ -977,6 +977,8 @@ async function deletedSnapshots(
 ): Promise<
   Array<{
     recordId: string;
+    /** The `delete` event of the trail that holds the row. */
+    eventId: string;
     snapshot: Record<string, unknown>;
     deletedAt: string;
     deletedBy: string;
@@ -1002,6 +1004,7 @@ async function deletedSnapshots(
     .selectFrom("auditEvents as e")
     .innerJoin("users as u", "u.id", "e.userId")
     .select([
+      "e.id",
       "e.recordId",
       "e.oldValue",
       "e.occurredAt",
@@ -1030,6 +1033,7 @@ async function deletedSnapshots(
   const alive = new Set(present.map((row) => String(row.id)));
   const result: Array<{
     recordId: string;
+    eventId: string;
     snapshot: Record<string, unknown>;
     deletedAt: string;
     deletedBy: string;
@@ -1045,6 +1049,7 @@ async function deletedSnapshots(
     }
     result.push({
       recordId,
+      eventId: event.id,
       snapshot: event.oldValue as Record<string, unknown>,
       deletedAt: event.occurredAt.toISOString(),
       deletedBy: event.displayName,
@@ -1176,7 +1181,8 @@ export async function restoreRows(
             buildRestoreRow({
               table: context.physicalName,
               columns: physical,
-              snapshot: item.snapshot,
+              id: item.recordId,
+              event: item.eventId,
             }),
           ),
         );
