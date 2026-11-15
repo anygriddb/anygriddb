@@ -729,6 +729,19 @@ test.describe("a gallery, a timeline, a kanban, and a map past their first page"
     await expect(done.getByRole("button", { name: /^c0001/ })).toBeVisible();
     await expect(todo.getByText("1,049", { exact: true })).toBeVisible();
 
+    // Every stack folded at once keeps its name and its count and shows
+    // no card; opened again, the cards are back.
+    await page.getByRole("button", { name: "Collapse all" }).click();
+    await expect(done.getByRole("button", { name: /^c0001/ })).toHaveCount(0);
+    await expect(todo.getByRole("button", { name: /^c\d{4}/ })).toHaveCount(0);
+    await expect(page.getByText("1,049", { exact: true })).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.getByRole("button", { name: "Expand all" }).click();
+    await expect(done.getByRole("button", { name: /^c0001/ })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Collapse all" }),
+    ).toBeVisible();
+
     // The kanban, made last, moved a place left from its menu.
     const tabs = page
       .getByRole("navigation", { name: "Views" })

@@ -2734,6 +2734,7 @@ msgid "Collapse {name}"
 msgstr "Collapse {name}"
 
 #: components/grid/grid-view.tsx
+#: components/views/kanban-view.tsx
 msgid "Collapse all"
 msgstr "Collapse all"
 
@@ -4076,12 +4077,9 @@ msgid "Expand {name}"
 msgstr "Expand {name}"
 
 #: components/grid/grid-view.tsx
+#: components/views/kanban-view.tsx
 msgid "Expand all"
 msgstr "Expand all"
-
-#: components/views/kanban-view.tsx
-msgid "Expand column {name}"
-msgstr "Expand column {name}"
 
 #: components/grid/grid-view.tsx
 msgid "Expand row"

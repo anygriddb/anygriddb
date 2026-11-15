@@ -2734,6 +2734,7 @@ msgid "Collapse {name}"
 msgstr "Replier {name}"
 
 #: components/grid/grid-view.tsx
+#: components/views/kanban-view.tsx
 msgid "Collapse all"
 msgstr "Tout replier"
 
@@ -4076,12 +4077,9 @@ msgid "Expand {name}"
 msgstr "Déplier {name}"
 
 #: components/grid/grid-view.tsx
+#: components/views/kanban-view.tsx
 msgid "Expand all"
 msgstr "Tout déplier"
-
-#: components/views/kanban-view.tsx
-msgid "Expand column {name}"
-msgstr "Déplier la colonne {name}"
 
 #: components/grid/grid-view.tsx
 msgid "Expand row"

@@ -1,6 +1,12 @@
 import { Checkbox, cn, DragHandle, OptionBadge } from "@anygriddb/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import {
+  ChevronsDownUp,
+  ChevronsUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+} from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useRowDrag, useRowDrop, useRowPlaceDrop } from "../../lib/drag";
 import { placeBetween, type RowPlace } from "../../lib/row-place";
@@ -189,15 +195,17 @@ function Stack({
           isDropTarget && "ring-2 ring-primary",
         )}
       >
+        {/* Named by what it shows, its count and its name: a label of its
+            own would leave out the text a person sees on it. That it
+            opens the stack is said by `aria-expanded`. */}
         <button
           type="button"
           className="flex flex-1 flex-col items-center gap-2 rounded-md px-1 py-1 hover:bg-card"
           aria-expanded={false}
-          aria-label={t`Expand column ${{ name: name }}`}
           onClick={onToggle}
         >
           <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <span className="text-xs text-muted-foreground">{total}</span>
+          <span className="text-xs text-muted-foreground">{total}</span>{" "}
           <span className="text-sm font-medium [writing-mode:vertical-rl]">
             {color ? <OptionBadge color={color}>{name}</OptionBadge> : name}
           </span>
@@ -358,6 +366,16 @@ export function KanbanView(props: ViewProps) {
   const options = optionsOf(stack);
   const placed = stackPlaces(props.groups);
   const stacks = kanbanStacks(options, placed);
+  const visible = stacks.filter(
+    (item) => !hideEmpty || (placed.get(item.id)?.count ?? 0) > 0,
+  );
+  const allFolded =
+    visible.length > 0 && visible.every((item) => folded.has(item.id));
+  function setAllFolded(fold: boolean) {
+    props.onPatch({
+      collapsedStacks: fold ? visible.map((item) => item.id) : null,
+    });
+  }
   function move(rowId: string, target: string) {
     if (!stack) return;
     const row = props.rows.find((item) => item.id === rowId);
@@ -419,44 +437,58 @@ export function KanbanView(props: ViewProps) {
           value={cardFields}
           onChange={(next) => props.onPatch({ cardFields: next })}
         />
+        {visible.length > 1 ? (
+          // Every stack folded to its name and count, or opened again:
+          // what a grid's groups offer, for a board of many stacks.
+          <button
+            type="button"
+            className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setAllFolded(!allFolded)}
+          >
+            {allFolded ? (
+              <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden />
+            ) : (
+              <ChevronsDownUp className="h-3.5 w-3.5" aria-hidden />
+            )}
+            {allFolded ? t`Expand all` : t`Collapse all`}
+          </button>
+        ) : null}
       </div>
       <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
-        {stacks
-          .filter((item) => !hideEmpty || (placed.get(item.id)?.count ?? 0) > 0)
-          .map((item) => (
-            <Stack
-              key={item.id || "__empty"}
-              id={item.id}
-              label={item.label}
-              color={item.color}
-              start={placed.get(item.id)?.start ?? 0}
-              count={placed.get(item.id)?.count ?? 0}
-              rowAt={props.rowAt}
-              ensure={props.ensure}
-              fields={fields}
-              canEdit={props.canEdit}
-              collapsed={folded.has(item.id)}
-              titleColumn={titleName}
-              tintOf={props.tintOf}
-              onToggle={() => toggle(item.id)}
-              onAdd={() =>
-                void props
-                  .onCreate(item.id ? { [stack.name]: item.id } : {})
-                  .then((id) => id && table.openRecord(id))
-              }
-              onMove={move}
-              {...(onMoveRows
-                ? {
-                    onPlace: (
-                      rowId: string,
-                      target: string,
-                      to: RowPlace,
-                      back: RowPlace | null,
-                    ) => void place(rowId, target, to, back),
-                  }
-                : {})}
-            />
-          ))}
+        {visible.map((item) => (
+          <Stack
+            key={item.id || "__empty"}
+            id={item.id}
+            label={item.label}
+            color={item.color}
+            start={placed.get(item.id)?.start ?? 0}
+            count={placed.get(item.id)?.count ?? 0}
+            rowAt={props.rowAt}
+            ensure={props.ensure}
+            fields={fields}
+            canEdit={props.canEdit}
+            collapsed={folded.has(item.id)}
+            titleColumn={titleName}
+            tintOf={props.tintOf}
+            onToggle={() => toggle(item.id)}
+            onAdd={() =>
+              void props
+                .onCreate(item.id ? { [stack.name]: item.id } : {})
+                .then((id) => id && table.openRecord(id))
+            }
+            onMove={move}
+            {...(onMoveRows
+              ? {
+                  onPlace: (
+                    rowId: string,
+                    target: string,
+                    to: RowPlace,
+                    back: RowPlace | null,
+                  ) => void place(rowId, target, to, back),
+                }
+              : {})}
+          />
+        ))}
       </div>
     </div>
   );
