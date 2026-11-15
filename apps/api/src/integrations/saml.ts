@@ -149,6 +149,9 @@ export async function resolveSaml(
     SAML_CALLBACK_URL?: string;
   },
 ): Promise<{ config: SamlConfig | null; source: SamlSource }> {
+  // The environment first: its operator set it (ADR 0083).
+  const fromEnvironment = envSaml(env);
+  if (fromEnvironment) return { config: fromEnvironment, source: "env" };
   const row = await loadSamlRow(db);
   if (row) {
     return {
@@ -161,8 +164,26 @@ export async function resolveSaml(
       source: "database",
     };
   }
-  const config = envSaml(env);
-  return { config, source: config ? "env" : "none" };
+  return { config: null, source: "none" };
+}
+
+/**
+ * What Administration shows of the provider the environment names.
+ * `configured` still says whether a row was saved, which the environment
+ * now keeps unused.
+ */
+export function environmentSaml(
+  config: SamlConfig,
+  row: SamlRow | null,
+): PublicSaml {
+  return {
+    configured: row !== null,
+    entryPoint: config.SAML_ENTRY_POINT,
+    issuer: config.SAML_ISSUER,
+    hasIdpCert: true,
+    callbackUrl: config.SAML_CALLBACK_URL,
+    updatedAt: null,
+  };
 }
 
 export async function saveSaml(

@@ -97,7 +97,7 @@ type RunnerDeps = {
   key?: KeyRing;
   /** How Airtable is reached: `fetch`, or a stand-in in tests. */
   airtableFetch?: typeof fetch;
-  /** Environment bootstrap for the attachment ceiling (ADR 0050). */
+  /** The environment's attachment ceiling: it wins when set (ADR 0083). */
   envAttachmentMaxBytes?: number;
   /** The most rows an export job writes (`EXPORT_MAX_ROWS`). */
   exportMaxRows?: number;

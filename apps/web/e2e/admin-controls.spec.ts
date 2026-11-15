@@ -258,6 +258,24 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       await readFile((await (await bundleDownload).path()) ?? "", "utf8"),
     ) as { health: { build: { version: string; commit: string | null } } };
     expect(bundle.health.build).toMatchObject({ version, commit: null });
+    // The journeys' relay is named in the server's environment: the page
+    // shows where mail goes and offers no way to change it (ADR 0083).
+    await openAdmin(page, "Connections");
+    await expect(
+      page.getByText("Set in the instance's environment").first(),
+    ).toBeVisible();
+    await expect(
+      page
+        .locator("dt", { hasText: /^Host$/ })
+        .locator("xpath=following-sibling::dd[1]"),
+    ).toHaveText("127.0.0.1");
+    await expect(
+      page.getByRole("button", { name: "Save and verify" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Send me a test email" }),
+    ).toBeEnabled();
+    expect(await accessibilityViolations(page)).toEqual([]);
     await openAdmin(page, "Instance", "Health");
     await expect(
       page

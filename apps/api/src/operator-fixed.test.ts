@@ -21,6 +21,7 @@ describe("operatorFixedFromEnv", () => {
       publicUrl: "https://grid.example.org",
       storage: { driver: "disk", path: "/var/lib/anygriddb/files" },
       trustedProxies: ["192.0.2.0/24", "198.51.100.10"],
+      attachmentMaxBytes: null,
     });
     const json = JSON.stringify(fixed);
     expect(json).not.toContain("secret");
@@ -44,6 +45,7 @@ describe("operatorFixedFromEnv", () => {
       S3_KMS_KEY_ID: "kms-key-never-shown",
     });
     const fixed = operatorFixedFromEnv(env);
+    expect(fixed.attachmentMaxBytes).toBeNull();
     expect(fixed.storage).toEqual({
       driver: "s3",
       bucket: "anygriddb-files",
@@ -55,6 +57,16 @@ describe("operatorFixedFromEnv", () => {
     expect(json).not.toContain("access-never-shown");
     expect(json).not.toContain("secret-never-shown");
     expect(json).not.toContain("kms-key-never-shown");
+  });
+
+  it("gives the largest attachment only when the environment sets it", () => {
+    const env = readEnv({
+      DATABASE_URL: "postgresql://anygriddb:secret@127.0.0.1:5432/anygriddb",
+      AUTH_ENCRYPTION_KEY: key,
+      PUBLIC_URL: "https://grid.example.org",
+      ATTACHMENT_MAX_BYTES: "5242880",
+    });
+    expect(operatorFixedFromEnv(env).attachmentMaxBytes).toBe(5_242_880);
   });
 });
 

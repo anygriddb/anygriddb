@@ -1343,6 +1343,10 @@ msgid "Accounts, bases, tables"
 msgstr "Comptes, bases, tables"
 
 #: components/admin/integrations-tab.tsx
+msgid "ACS URL"
+msgstr "URL ACS"
+
+#: components/admin/integrations-tab.tsx
 msgid "ACS URL for the identity provider:"
 msgstr "URL ACS pour le fournisseur d’identité :"
 
@@ -2744,6 +2748,10 @@ msgstr "Calculé à partir d’autres champs"
 msgid "Concatenate"
 msgstr "Concaténer"
 
+#: components/admin/integrations-tab.tsx
+msgid "Configured in this page"
+msgstr "Configuré sur cette page"
+
 #: components/admin/step-up.tsx
 #: components/table/table-workspace.tsx
 msgid "Confirm"
@@ -3671,8 +3679,8 @@ msgid "Email a plain-text notice about maintenance, a policy change, or an incid
 msgstr "Envoyez un avis en texte brut pour une maintenance, un changement de politique ou un incident. Ce n’est pas une newsletter : la préférence de notification de chacun est ignorée."
 
 #: components/admin/integrations-tab.tsx
-msgid "Email and single sign-on for this instance. You can leave the environment empty at install and set these here; a complete save here overrides the environment."
-msgstr "Email et authentification unique pour cette instance. Vous pouvez laisser l’environnement vide à l’installation et les régler ici ; un enregistrement complet ici prime sur l’environnement."
+msgid "Email and single sign-on for this instance. You can leave the environment empty at install and set these here; what the environment sets is shown here and changed there."
+msgstr "Email et authentification unique pour cette instance. Vous pouvez laisser l’environnement vide à l’installation et les régler ici ; ce que l’environnement fixe est affiché ici et se change là-bas."
 
 #: lib/errors.ts
 msgid "Email is not set up on this instance"
@@ -3731,8 +3739,8 @@ msgid "Empty the trash?"
 msgstr "Vider la corbeille ?"
 
 #: components/admin/settings-tab.tsx
-msgid "Empty uses the environment, then 20 MiB. Between 1 and 500."
-msgstr "Vide : environnement, sinon 20 Mio. Entre 1 et 500."
+msgid "Empty uses 20 MiB. Between 1 and 500."
+msgstr "Vide : 20 Mio. Entre 1 et 500."
 
 #: components/table/automations-dialog.tsx
 msgid "Empty: the row as JSON"
@@ -5293,6 +5301,14 @@ msgstr "Sa condition porte sur un champ placé après lui : elle est ignorée."
 msgid "Its members lose it at once. It stays in the trash for {days} days with its data, then is deleted permanently."
 msgstr "Ses membres la perdent aussitôt. Elle reste {days} jours dans la corbeille avec ses données, puis elle est supprimée définitivement."
 
+#: components/admin/integrations-tab.tsx
+msgid "Its operator changes it where the instance is installed."
+msgstr "Son opérateur le change là où l’instance est installée."
+
+#: components/admin/integrations-tab.tsx
+msgid "Its operator changes it where the instance is installed. What was saved on this page before is not used."
+msgstr "Son opérateur le change là où l’instance est installée. Ce qui avait été enregistré sur cette page n’est pas utilisé."
+
 #: components/admin/open-base.tsx
 msgid "Its owners are told now, with your name and this reason. You will read every table of the base and change nothing."
 msgstr "Ses propriétaires sont prévenus maintenant, avec votre nom et cette raison. Vous lirez chaque table de la base sans rien y modifier."
@@ -6619,6 +6635,7 @@ msgstr "Ce n’est pas une adresse email"
 msgid "Not checked yet"
 msgstr "Pas encore vérifié"
 
+#: components/admin/integrations-tab.tsx
 #: lib/known-text.ts
 msgid "Not configured"
 msgstr "Non configuré"
@@ -7543,6 +7560,10 @@ msgstr "Reconnexion…"
 #: components/views/form-view.tsx
 msgid "Redirect after submit"
 msgstr "Redirection après envoi"
+
+#: components/admin/integrations-tab.tsx
+msgid "Redirect URL"
+msgstr "URL de redirection"
 
 #: components/admin/integrations-tab.tsx
 msgid "Redirect URL for the identity provider:"
@@ -8516,6 +8537,14 @@ msgstr "Des sessions sur un calendrier, leurs lieux, et un formulaire où les pa
 #: components/grid/grid-header.tsx
 msgid "Set as primary field"
 msgstr "Définir comme champ principal"
+
+#: components/admin/integrations-tab.tsx
+msgid "Set in the instance's environment"
+msgstr "Fixé dans l’environnement de l’instance"
+
+#: components/admin/settings-tab.tsx
+msgid "Set in the instance's environment: its operator changes it where the instance is installed."
+msgstr "Fixé dans l’environnement de l’instance : son opérateur le change là où l’instance est installée."
 
 #: components/auth/reset-page.tsx
 msgid "Set the password"
@@ -9576,6 +9605,10 @@ msgstr "L’instance n’envoie pas encore d’email : configurez-le dans Conne
 #: components/admin/alerts-section.tsx
 msgid "The instance's certificate expires on {when}."
 msgstr "Le certificat de l’instance expire le {when}."
+
+#: lib/errors.ts
+msgid "The instance's environment sets this: its operator changes it where the instance is installed"
+msgstr "L’environnement de l’instance fixe ce réglage : son opérateur le change là où l’instance est installée"
 
 #: components/fields/formula-docs.ts
 msgid "The ISO week number."

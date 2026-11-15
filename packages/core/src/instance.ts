@@ -464,15 +464,15 @@ export function parseInstanceSettings(
 }
 
 /**
- * UI setting when set, else environment bootstrap, else 20 MiB (ADR 0050).
+ * The environment's ceiling when it sets one (ADR 0083), else the one set
+ * in Administration, else 20 MiB.
  */
 export function resolveAttachmentMaxBytes(
   settings: Pick<InstanceSettings, "attachmentMaxBytes">,
   envBytes?: number,
   fallback: number = DEFAULT_ATTACHMENT_MAX_BYTES,
 ): number {
-  if (settings.attachmentMaxBytes != null) return settings.attachmentMaxBytes;
-  return envBytes ?? fallback;
+  return envBytes ?? settings.attachmentMaxBytes ?? fallback;
 }
 
 /** `ADMIN_EMAILS`: a comma or space separated list, compared in lower case. */

@@ -343,7 +343,7 @@ type HttpDeps = {
   files: FileStore;
   /** Opens a public form's link, for the files its answers carry. */
   encryptionKey: KeyRing;
-  /** Environment bootstrap; the instance setting wins when set (ADR 0050). */
+  /** The environment's ceiling: it wins over the instance setting (ADR 0083). */
   envMaxBytes?: number;
   /** Uploads read at once, shared with imports and snapshots. */
   uploads: UploadSlots;
