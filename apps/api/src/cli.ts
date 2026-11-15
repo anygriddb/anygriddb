@@ -30,6 +30,7 @@ import {
   publicUrl,
   readEncryptionKey,
   readFileSettings,
+  readSyslogCollector,
   secretFromEnv,
 } from "./env.js";
 import { healthAuthorities, probeHealth, publicHost } from "./health-probe.js";
@@ -383,8 +384,18 @@ async function backupsRecord(args: string[]): Promise<number> {
   return 0;
 }
 
+/**
+ * What a command writes to the sign-in trail also goes to the operator's
+ * syslog collector, as it does from the application (ADR 0084).
+ */
+async function shipToSyslog(): Promise<void> {
+  const { watchSyslog } = await import("./integrations/syslog.js");
+  watchSyslog(readSyslogCollector(process.env));
+}
+
 /** Prints the token of an instance that has no account yet. */
 async function installToken(): Promise<number> {
+  await shipToSyslog();
   const { db, close } = createDb(databaseUrl(), { max: 1 });
   try {
     const made = await mintInstallToken(db);
@@ -455,6 +466,7 @@ async function adminRecover(args: string[]): Promise<number> {
   }
   // Read before anything is changed: the link is of no use without it.
   const address = publicUrl(process.env, Number(process.env.PORT ?? "4000"));
+  await shipToSyslog();
   const { db, close } = createDb(databaseUrl(), { max: 1 });
   try {
     const done = await recoverAdministrator(db, input.data);

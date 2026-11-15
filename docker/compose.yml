@@ -247,6 +247,12 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-}
+      # Sign-in events to a syslog collector over TLS, off unless a host
+      # is named (ADR 0084). A certificate authority of your own is a
+      # file you mount, named by SYSLOG_CA_FILE.
+      SYSLOG_HOST: ${SYSLOG_HOST:-}
+      SYSLOG_PORT: ${SYSLOG_PORT:-}
+      SYSLOG_CA_FILE: ${SYSLOG_CA_FILE:-}
       # Files in an object store of your own, in place of the `files`
       # volume (compose.s3.yml sets these for the store it runs).
       STORAGE_DRIVER: ${STORAGE_DRIVER:-}

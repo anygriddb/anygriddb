@@ -675,6 +675,7 @@ export async function instanceRuntime(deps: {
     oidc: oidc.config !== null,
     saml: saml.config !== null,
     siem: siem !== null,
+    syslog: env.SYSLOG !== undefined,
     sourceHosts: [...deps.sources.allowedHosts],
     signup: settings.signup,
     maintenance: settings.maintenance,

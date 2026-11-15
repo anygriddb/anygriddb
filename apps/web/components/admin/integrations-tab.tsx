@@ -77,6 +77,7 @@ export function IntegrationsTab() {
       <OidcSection />
       <SamlSection />
       <SiemSection />
+      <SyslogSection />
     </div>
   );
 }
@@ -705,6 +706,74 @@ function SamlSection() {
         }
       />
       {stepUp.dialog}
+    </RuledSection>
+  );
+}
+
+/**
+ * The syslog collector (ADR 0084): named where the instance is installed,
+ * read here, and tried from here.
+ */
+function SyslogSection() {
+  const { t } = useLingui();
+  const errorText = useErrorText();
+  const api = useTRPC();
+  const syslog = useQuery(api.admin.syslog.get.queryOptions());
+  const [busy, setBusy] = useState(false);
+
+  if (syslog.isError) {
+    return (
+      <LoadFailed error={syslog.error} onRetry={() => void syslog.refetch()} />
+    );
+  }
+  if (!syslog.data) return <Spinner />;
+
+  return (
+    <RuledSection
+      title={t`Syslog collector`}
+      description={t`The same events, as syslog over TLS, to a collector of your network.`}
+    >
+      {syslog.data.configured ? (
+        <HeldByEnvironment
+          saved={false}
+          values={[
+            [t`Host`, syslog.data.host],
+            [t`Port`, String(syslog.data.port)],
+            [
+              t`Certificate verified against`,
+              syslog.data.ownAuthority
+                ? t`The system's authorities, and one given with the instance`
+                : t`The system's authorities`,
+            ],
+          ]}
+        >
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() =>
+              void (async () => {
+                setBusy(true);
+                try {
+                  await trpc.admin.syslog.test.mutate();
+                  toast.success(t`Test event sent`);
+                } catch (cause) {
+                  toast.error(errorText(cause));
+                } finally {
+                  setBusy(false);
+                }
+              })()
+            }
+          >
+            {t`Send test event`}
+          </Button>
+        </HeldByEnvironment>
+      ) : (
+        <p className="max-w-lg text-sm text-muted-foreground">
+          {t`None is named. The instance's operator names one where the instance is installed (SYSLOG_HOST), and events then go to it as they happen.`}
+        </p>
+      )}
     </RuledSection>
   );
 }

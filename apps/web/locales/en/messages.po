@@ -2406,6 +2406,10 @@ msgstr "Certificate is valid"
 msgid "Certificate served, valid until {date}, for: {names}."
 msgstr "Certificate served, valid until {date}, for: {names}."
 
+#: components/admin/integrations-tab.tsx
+msgid "Certificate verified against"
+msgstr "Certificate verified against"
+
 #: components/admin/account-handoff.tsx
 msgid "Change"
 msgstr "Change"
@@ -6619,6 +6623,10 @@ msgstr "Node.js, up for"
 msgid "None"
 msgstr "None"
 
+#: components/admin/integrations-tab.tsx
+msgid "None is named. The instance's operator names one where the instance is installed (SYSLOG_HOST), and events then go to it as they happen."
+msgstr "None is named. The instance's operator names one where the instance is installed (SYSLOG_HOST), and events then go to it as they happen."
+
 #: components/admin/settings-tab.tsx
 msgid "None: a request's address is its client's"
 msgstr "None: a request's address is its client's"
@@ -9195,6 +9203,10 @@ msgstr "Switched on"
 msgid "Synced table"
 msgstr "Synced table"
 
+#: components/admin/integrations-tab.tsx
+msgid "Syslog collector"
+msgstr "Syslog collector"
+
 #: components/shell/user-menu.tsx
 msgid "System"
 msgstr "System"
@@ -9826,6 +9838,10 @@ msgstr "The rows that match a filter"
 msgid "The rows you deleted come back as drafts, with their original number. Rows others deleted are not listed here."
 msgstr "The rows you deleted come back as drafts, with their original number. Rows others deleted are not listed here."
 
+#: components/admin/integrations-tab.tsx
+msgid "The same events, as syslog over TLS, to a collector of your network."
+msgstr "The same events, as syslog over TLS, to a collector of your network."
+
 #: lib/errors.ts
 msgid "The schema kept for AnyGridDB does not exist in the client's database: its administrator must create it"
 msgstr "The schema kept for AnyGridDB does not exist in the client's database: its administrator must create it"
@@ -9877,6 +9893,18 @@ msgstr "The source's account may not make this change: its administrator can gra
 #: lib/errors.ts
 msgid "The source's certificate is not trusted: paste its certificate authority or its certificate"
 msgstr "The source's certificate is not trusted: paste its certificate authority or its certificate"
+
+#: lib/errors.ts
+msgid "The syslog collector did not take the event: check its address, its port, and the certificate it presents"
+msgstr "The syslog collector did not take the event: check its address, its port, and the certificate it presents"
+
+#: components/admin/integrations-tab.tsx
+msgid "The system's authorities"
+msgstr "The system's authorities"
+
+#: components/admin/integrations-tab.tsx
+msgid "The system's authorities, and one given with the instance"
+msgstr "The system's authorities, and one given with the instance"
 
 #: components/admin/sources-tab.tsx
 msgid "The table is read from its copy: it can no longer be changed in AnyGridDB, and its changes arrive with each refresh, deletes included."

@@ -4,6 +4,7 @@ import { passkeysEligible } from "./auth/relying-party.js";
 import { BUILD, describeBuild } from "./build-info.js";
 import { isLoopback, readEnv } from "./env.js";
 import { createFileStore } from "./files/index.js";
+import { watchSyslog } from "./integrations/syslog.js";
 import { loggedError, loggedFields } from "./logged-error.js";
 import { migrateQueue } from "./queue/worker.js";
 import { PgBus } from "./realtime/bus.js";
@@ -32,6 +33,9 @@ await migrateQueue(env.DATABASE_URL, {
   debug: () => undefined,
 });
 await promoteListedAdmins(db, env.ADMIN_EMAILS);
+// Sign-in events also go to the operator's syslog collector, if one is
+// named (ADR 0084).
+watchSyslog(env.SYSLOG);
 
 // A folder that cannot be written stops the start: better than failing
 // on the first upload. A remote S3 service may come up later.

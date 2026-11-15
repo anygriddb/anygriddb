@@ -7,6 +7,7 @@ import {
   samlRouter,
   scimRouter,
   siemRouter,
+  syslogRouter,
   smtpRouter,
 } from "./admin-integrations-router.js";
 import { sourcesRouter } from "./admin-sources-router.js";
@@ -25,6 +26,7 @@ export const adminRouter = t.router({
   oidc: oidcRouter,
   saml: samlRouter,
   siem: siemRouter,
+  syslog: syslogRouter,
   ...adminInstanceProcedures,
   ...adminAccountProcedures,
   ...adminBaseProcedures,

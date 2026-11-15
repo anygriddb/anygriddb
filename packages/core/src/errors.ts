@@ -180,6 +180,8 @@ export const ERRORS = {
   // Integrations.
   invalid_webhook: [BAD, "Invalid webhook"],
   invalid_delivery: [BAD, "Invalid delivery"],
+  /** The syslog collector refused, or did not answer, a test event. */
+  syslog_unreachable: [BAD, "Syslog collector unreachable"],
   invalid_automation: [BAD, "Invalid automation"],
   invalid_lock_ttl: [BAD, "Invalid lock ttl"],
 

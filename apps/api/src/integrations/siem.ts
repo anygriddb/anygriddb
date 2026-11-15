@@ -146,7 +146,18 @@ export async function clearSiem(
   });
 }
 
-type SiemPayload = {
+/** An event of the sign-in trail, as it is recorded. */
+export type CollectorEvent = {
+  action: AuthAction;
+  userId?: string | null;
+  actorId?: string | null;
+  method?: string | null;
+  detail?: string | null;
+  ip?: string | null;
+};
+
+/** What a collector gets of it: ids and codes, never a person's address. */
+export type CollectorPayload = {
   action: AuthAction;
   userId: string | null;
   actorId: string | null;
@@ -156,22 +167,16 @@ type SiemPayload = {
   occurredAt: string;
 };
 
-/** Queues a SIEM delivery when the action is watched and a URL is set. */
-export async function queueSiemEvent(
-  db: Database,
-  event: {
-    action: AuthAction;
-    userId?: string | null;
-    actorId?: string | null;
-    method?: string | null;
-    detail?: string | null;
-    ip?: string | null;
-  },
-): Promise<void> {
-  if (!SIEM_ACTIONS.has(event.action)) return;
-  const row = await loadSiemRow(db);
-  if (!row) return;
-  const payload: SiemPayload = {
+/**
+ * What an event sends to a collector, or null for one no collector is
+ * sent. One list and one shape, for the HTTPS collector and for syslog
+ * (ADR 0084).
+ */
+export function collectorPayload(
+  event: CollectorEvent,
+): CollectorPayload | null {
+  if (!SIEM_ACTIONS.has(event.action)) return null;
+  return {
     action: event.action,
     userId: event.userId ?? null,
     actorId: event.actorId ?? null,
@@ -180,13 +185,24 @@ export async function queueSiemEvent(
     ip: event.ip ?? null,
     occurredAt: new Date().toISOString(),
   };
+}
+
+/** Queues a SIEM delivery when the action is watched and a URL is set. */
+export async function queueSiemEvent(
+  db: Database,
+  event: CollectorEvent,
+): Promise<void> {
+  const payload = collectorPayload(event);
+  if (!payload) return;
+  const row = await loadSiemRow(db);
+  if (!row) return;
   await addJob(db, TASKS.siemEvent, payload, { maxAttempts: 3 });
 }
 
 export async function deliverSiemEvent(
   db: Database,
   key: KeyRing,
-  payload: SiemPayload,
+  payload: CollectorPayload,
 ): Promise<void> {
   const row = await loadSiemRow(db);
   if (!row) return;
