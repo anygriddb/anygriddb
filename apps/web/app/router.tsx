@@ -439,7 +439,12 @@ const baseRoute = createRoute({
   path: "/b/$baseId",
   component: function Base() {
     const { baseId } = baseRoute.useParams();
-    return <BaseHome baseId={baseId} />;
+    // A column, so the page's own spinner stays in the middle.
+    return (
+      <div className="flex flex-1 flex-col overflow-y-auto">
+        <BaseHome baseId={baseId} />
+      </div>
+    );
   },
 });
 
@@ -487,7 +492,11 @@ const dashboardsRoute = createRoute({
   path: "/b/$baseId/dashboards",
   component: function Dashboards() {
     const { baseId } = dashboardsRoute.useParams();
-    return <DashboardList baseId={baseId} />;
+    return (
+      <div className="flex-1 overflow-y-auto">
+        <DashboardList baseId={baseId} />
+      </div>
+    );
   },
 });
 
