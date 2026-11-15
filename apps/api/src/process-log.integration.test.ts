@@ -91,7 +91,7 @@ describe("the process log in Administration", () => {
   it("shows an administrator the line, without the secret it carried", async () => {
     const { lines } = await admin
       .call()
-      .admin.logs({ level: "warn", limit: 200 });
+      .admin.logs({ level: "warn", limit: 100 });
     const got = lines.find((item) => item.message === MARK);
     expect(got).toMatchObject({
       level: "warn",
@@ -112,7 +112,7 @@ describe("the process log in Administration", () => {
   it("lets an auditor read the same line", async () => {
     const { lines } = await auditor
       .call()
-      .admin.logs({ level: "warn", limit: 200 });
+      .admin.logs({ level: "warn", limit: 100 });
     expect(lines.some((item) => item.message === MARK)).toBe(true);
   });
 });

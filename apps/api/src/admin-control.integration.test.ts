@@ -241,7 +241,7 @@ describe("instance controls", () => {
 
   it("acts on an account, and names the administrator who did", async () => {
     await member.call().auth.login({ email: memberEmail, password: PASSWORD });
-    const sessions = await admin.call().admin.sessions();
+    const sessions = await admin.call().admin.sessions({});
     const theirs = sessions.sessions.find((s) => s.userId === memberId);
     expect(theirs?.mine).toBe(false);
     expect(sessions.sessions.some((s) => s.mine)).toBe(true);

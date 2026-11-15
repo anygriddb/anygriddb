@@ -12,6 +12,8 @@ import { useLocale } from "../../lib/i18n";
 import { useTrashDays } from "../../lib/trash";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { useReadsAll } from "./admin-access";
+import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
+import { useAdminPage, useAdminPageSize } from "./admin-page-size";
 
 type Trashed =
   RouterOutputs["admin"]["baseOverview"]["trashed"]["items"][number];
@@ -35,14 +37,21 @@ export function BasesTab() {
   const [search, setSearch] = useState("");
   const [asked, setAsked] = useState("");
   const [ownerlessOnly, setOwnerlessOnly] = useState(false);
+  const [pageSize, setPageSize] = useAdminPageSize();
   useEffect(() => {
     const timer = setTimeout(() => setAsked(search.trim()), 250);
     return () => clearTimeout(timer);
   }, [search]);
+  const { page, setPage, offset, limit } = useAdminPage(
+    pageSize,
+    `${asked}:${ownerlessOnly}`,
+  );
   const bases = useQuery({
     ...api.admin.baseOverview.list.queryOptions({
       search: asked || undefined,
       ownerless: ownerlessOnly || undefined,
+      limit,
+      offset,
     }),
     placeholderData: (previous) => previous,
   });
@@ -51,6 +60,7 @@ export function BasesTab() {
     enabled: readsAll,
   });
   const list = bases.data?.bases ?? [];
+  const total = bases.data?.total ?? 0;
   const trashItems = trashed.data?.items ?? [];
 
   async function restore(entry: Trashed) {
@@ -100,9 +110,9 @@ export function BasesTab() {
         </p>
       ) : null}
       {list.length > 0 ? (
-        <div className="overflow-x-auto rounded-sm border border-border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted text-left text-xs">
+        <>
+          <AdminTable>
+            <AdminTableHead>
               <tr>
                 <th className="px-3 py-2">{t`Base`}</th>
                 <th className="px-3 py-2">{t`Owners`}</th>
@@ -112,7 +122,7 @@ export function BasesTab() {
                 <th className="px-3 py-2 text-right">{t`Files`}</th>
                 <th className="px-3 py-2 text-right">{t`Links and feeds`}</th>
               </tr>
-            </thead>
+            </AdminTableHead>
             <tbody>
               {list.map((base) => (
                 <tr key={base.id} className="border-t border-border">
@@ -151,8 +161,16 @@ export function BasesTab() {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </AdminTable>
+          <AdminPager
+            total={total}
+            offset={offset}
+            pageSize={pageSize}
+            onPageSize={setPageSize}
+            onPrev={() => setPage(page - 1)}
+            onNext={() => setPage(page + 1)}
+          />
+        </>
       ) : null}
 
       {trashItems.length > 0 ? (

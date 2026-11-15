@@ -86,14 +86,16 @@ describe("every public link and calendar feed, for an administrator", () => {
       allowCopy: false,
     });
     const token = await renewCalendarFeed(db, owner, shared.id);
-    const listed = await listOutbound(db, 100);
-    expect(listed.map((item) => [item.kind, item.view, item.author])).toEqual(
+    const listed = await listOutbound(db, { limit: 100 });
+    expect(
+      listed.links.map((item) => [item.kind, item.view, item.author]),
+    ).toEqual(
       expect.arrayContaining([
         ["link", "Partagée", "Owner"],
         ["feed", "Partagée", "Owner"],
       ]),
     );
-    expect(listed.find((item) => item.kind === "link")).toMatchObject({
+    expect(listed.links.find((item) => item.kind === "link")).toMatchObject({
       id: share.id,
       base: "Ventes",
       table: "Clients",
@@ -108,11 +110,14 @@ describe("every public link and calendar feed, for an administrator", () => {
   });
 
   it("revokes a link and removes a feed, both on the trail", async () => {
-    const before = await listOutbound(db, 100);
+    const before = (await listOutbound(db, { limit: 100 })).links;
     for (const item of before) {
       await revokeOutbound(db, admin, { kind: item.kind, id: item.id });
     }
-    expect(await listOutbound(db, 100)).toEqual([]);
+    expect(await listOutbound(db, { limit: 100 })).toEqual({
+      links: [],
+      total: 0,
+    });
     const trail = await db
       .selectFrom("auditEvents")
       .select(["userId", "action"])
@@ -136,9 +141,9 @@ describe("every public link and calendar feed, for an administrator", () => {
       createdBy: owner,
       allowCopy: false,
     });
-    expect((await listOutbound(db, 100)).map((item) => item.view)).toEqual([
-      "Jetée",
-    ]);
+    expect(
+      (await listOutbound(db, { limit: 100 })).links.map((item) => item.view),
+    ).toEqual(["Jetée"]);
     await trashView(
       db,
       owner,
@@ -148,7 +153,10 @@ describe("every public link and calendar feed, for an administrator", () => {
         .where("id", "=", gone.id)
         .executeTakeFirstOrThrow(),
     );
-    expect(await listOutbound(db, 100)).toEqual([]);
+    expect(await listOutbound(db, { limit: 100 })).toEqual({
+      links: [],
+      total: 0,
+    });
   });
 
   it("lists every token, webhook, and automation, a webhook by its host only", async () => {
@@ -199,29 +207,31 @@ describe("every public link and calendar feed, for an administrator", () => {
       })
       .execute();
 
-    const tokens = await listInstanceTokens(db, 100);
-    expect(tokens).toMatchObject([
+    const tokens = await listInstanceTokens(db, { limit: 100 });
+    expect(tokens.tokens).toMatchObject([
       { name: "Reporting", owner: "Owner", readOnly: true, bases: null },
     ]);
-    const hooks = await listInstanceHooks(db, 100);
+    const hooks = await listInstanceHooks(db, {
+      webhooks: { limit: 100 },
+      automations: { limit: 100 },
+    });
+    const allHooks = [...hooks.webhooks, ...hooks.automations];
     expect(
-      hooks.map((hook) => [hook.kind, hook.name, hook.on, hook.failures]),
+      allHooks.map((hook) => [hook.kind, hook.name, hook.on, hook.failures]),
     ).toEqual(
       expect.arrayContaining([
         ["webhook", "Billing", true, 0],
         ["automation", "Reminder", true, 1],
       ]),
     );
-    expect(hooks.find((hook) => hook.kind === "webhook")?.host).toBe(
-      "hooks.example.com",
-    );
+    expect(hooks.webhooks[0]?.host).toBe("hooks.example.com");
     const text = JSON.stringify({ tokens, hooks });
     expect(text).not.toContain(token);
     expect(text).not.toContain("secret-path");
     expect(text).not.toContain("hidden");
 
     // Switched off from there, they stay, off.
-    const webhook = hooks.find((hook) => hook.kind === "webhook");
+    const webhook = hooks.webhooks[0];
     await updateWebhook(
       db,
       keyRing(Buffer.alloc(32)),
@@ -230,10 +240,13 @@ describe("every public link and calendar feed, for an administrator", () => {
       { active: false },
     );
     await setAutomationEnabled(db, owner, automation.id, false);
-    expect((await listInstanceHooks(db, 100)).map((hook) => hook.on)).toEqual([
-      false,
-      false,
-    ]);
+    const after = await listInstanceHooks(db, {
+      webhooks: { limit: 100 },
+      automations: { limit: 100 },
+    });
+    expect(
+      [...after.webhooks, ...after.automations].map((hook) => hook.on),
+    ).toEqual([false, false]);
   });
 
   it("weighs every base by the database's estimates, and lists its tables", async () => {
@@ -254,7 +267,7 @@ describe("every public link and calendar feed, for an administrator", () => {
       createdBy: owner,
       allowCopy: false,
     });
-    const [base] = await listBaseOverview(db, { limit: 10 });
+    const base = (await listBaseOverview(db, { limit: 10 })).bases[0];
     expect(base).toMatchObject({
       name: "Ventes",
       owners: ["Owner"],
@@ -266,7 +279,7 @@ describe("every public link and calendar feed, for an administrator", () => {
     });
     expect(
       await listBaseOverview(db, { limit: 10, search: "nothing" }),
-    ).toEqual([]);
+    ).toEqual({ bases: [], total: 0 });
     expect(await listBaseTables(db, base?.id ?? "")).toEqual([
       {
         id: tableId,
@@ -277,12 +290,14 @@ describe("every public link and calendar feed, for an administrator", () => {
       },
     ]);
     expect(
-      (await listOutbound(db, 10, base?.id ?? "")).map((item) => item.view),
+      (await listOutbound(db, { limit: 10, baseId: base?.id ?? "" })).links.map(
+        (item) => item.view,
+      ),
     ).toEqual(["Ouverte"]);
   });
 
   it("keeps each base's weights to itself, and names three owners at most", async () => {
-    const [ventes] = await listBaseOverview(db, { limit: 10 });
+    const ventes = (await listBaseOverview(db, { limit: 10 })).bases[0];
     const people = await db
       .insertInto("users")
       .values(
@@ -355,12 +370,14 @@ describe("every public link and calendar feed, for an administrator", () => {
       })
       .execute();
 
-    const bases = await listBaseOverview(db, { limit: 10 });
+    const listed = await listBaseOverview(db, { limit: 10 });
+    const bases = listed.bases;
     expect(bases.map((base) => base.name)).toEqual([
       "Achats",
       "Ventes",
       "Vide",
     ]);
+    expect(listed.total).toBe(3);
     expect(bases[0]).toMatchObject({
       owners: ["Ada", "Bob", "Cléo"],
       hasLiveOwner: true,
@@ -380,6 +397,9 @@ describe("every public link and calendar feed, for an administrator", () => {
       fileBytes: 0,
       outbound: 0,
     });
-    expect(await listBaseOverview(db, { limit: 2 })).toEqual(bases.slice(0, 2));
+    expect(await listBaseOverview(db, { limit: 2 })).toEqual({
+      bases: bases.slice(0, 2),
+      total: 3,
+    });
   });
 });

@@ -584,7 +584,7 @@ msgstr "{file}: {0, plural, one {# row found} other {# rows found}}."
 msgid "{filterCount, plural, one {# filter} other {# filters}}"
 msgstr "{filterCount, plural, one {# filter} other {# filters}}"
 
-#: components/admin/accounts-tab.tsx
+#: components/admin/admin-list.tsx
 msgid "{from}–{to} of {total}"
 msgstr "{from}–{to} of {total}"
 
@@ -840,6 +840,10 @@ msgstr "{value} hours"
 #: components/admin/security-tab.tsx
 msgid "{value} minutes"
 msgstr "{value} minutes"
+
+#: components/admin/admin-list.tsx
+msgid "{value} per page"
+msgstr "{value} per page"
 
 #: components/admin/account-export.tsx
 msgid "{writes} writes, {comments} comments, {events} account events. Cell values and comment texts stay out of the file."
@@ -6546,7 +6550,7 @@ msgstr "Newer"
 msgid "Newer release"
 msgstr "Newer release"
 
-#: components/admin/accounts-tab.tsx
+#: components/admin/admin-list.tsx
 msgid "Next"
 msgstr "Next"
 
@@ -7644,7 +7648,7 @@ msgstr "Preparing the import…"
 msgid "Preview: {name}"
 msgstr "Preview: {name}"
 
-#: components/admin/accounts-tab.tsx
+#: components/admin/admin-list.tsx
 msgid "Previous"
 msgstr "Previous"
 
@@ -8588,6 +8592,10 @@ msgstr "Rows of another table"
 #: components/fields/link-selection.tsx
 msgid "Rows offered"
 msgstr "Rows offered"
+
+#: components/admin/admin-list.tsx
+msgid "Rows per page"
+msgstr "Rows per page"
 
 #: components/views/list-view.tsx
 msgid "Rows under"

@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { datedName, downloadCsv } from "../../lib/download";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { AdminPageSizeSelect, AdminTable, AdminTableHead } from "./admin-list";
+import { useAdminPageSize } from "./admin-page-size";
 import { useAuthLabels } from "./auth-labels";
 import { useReadsAll } from "./admin-access";
 
@@ -49,11 +51,12 @@ export function SignInTrail() {
   const api = useTRPC();
   const [action, setAction] = useState<AuthAction | "">("");
   const [cursors, setCursors] = useState<string[]>([]);
+  const [pageSize, setPageSize] = useAdminPageSize();
   const trail = useQuery(
     api.admin.authAudit.queryOptions({
       action: action || undefined,
       before: cursors.at(-1),
-      limit: 50,
+      limit: pageSize,
     }),
   );
   const labels = useAuthLabels();
@@ -194,57 +197,55 @@ export function SignInTrail() {
           : null}
       </p>
       {trail.isLoading ? <Spinner /> : null}
-      <div className="overflow-x-auto rounded-sm border border-border">
-        <table className="w-full text-xs">
-          <thead className="bg-muted text-left">
+      <AdminTable tableClassName="text-xs">
+        <AdminTableHead>
+          <tr>
+            <th className="px-2 py-1.5">{t`Date`}</th>
+            <th className="px-2 py-1.5">{t`Event`}</th>
+            <th className="px-2 py-1.5">{t`Account`}</th>
+            <th className="px-2 py-1.5">{t`How`}</th>
+            <th className="px-2 py-1.5">{t`By`}</th>
+            <th className="px-2 py-1.5">{t`Address`}</th>
+          </tr>
+        </AdminTableHead>
+        <tbody>
+          {trail.data?.events.length === 0 ? (
             <tr>
-              <th className="px-2 py-1.5">{t`Date`}</th>
-              <th className="px-2 py-1.5">{t`Event`}</th>
-              <th className="px-2 py-1.5">{t`Account`}</th>
-              <th className="px-2 py-1.5">{t`How`}</th>
-              <th className="px-2 py-1.5">{t`By`}</th>
-              <th className="px-2 py-1.5">{t`Address`}</th>
+              <td colSpan={6} className="px-2 py-3 text-muted-foreground">
+                {t`No event matches. Sign-ins, failures, and what administrators change show here, with the address.`}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {trail.data?.events.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-2 py-3 text-muted-foreground">
-                  {t`No event matches. Sign-ins, failures, and what administrators change show here, with the address.`}
-                </td>
-              </tr>
-            ) : null}
-            {(trail.data?.events ?? []).map((event) => (
-              <tr key={event.id} className="border-t border-border">
-                <td className="px-2 py-1.5 whitespace-nowrap">
-                  {date(event.occurredAt)}
-                </td>
-                <td className="px-2 py-1.5">
-                  <span
-                    className={
-                      event.action === "login_failure"
-                        ? "font-medium text-danger"
-                        : undefined
-                    }
-                  >
-                    {actionLabel(event.action)}
+          ) : null}
+          {(trail.data?.events ?? []).map((event) => (
+            <tr key={event.id} className="border-t border-border">
+              <td className="px-2 py-1.5 whitespace-nowrap">
+                {date(event.occurredAt)}
+              </td>
+              <td className="px-2 py-1.5">
+                <span
+                  className={
+                    event.action === "login_failure"
+                      ? "font-medium text-danger"
+                      : undefined
+                  }
+                >
+                  {actionLabel(event.action)}
+                </span>
+                {event.detail ? (
+                  <span className="block text-muted-foreground">
+                    {detailLabel(event.detail)}
                   </span>
-                  {event.detail ? (
-                    <span className="block text-muted-foreground">
-                      {detailLabel(event.detail)}
-                    </span>
-                  ) : null}
-                </td>
-                <td className="px-2 py-1.5">{event.userName ?? "—"}</td>
-                <td className="px-2 py-1.5">{methodLabel(event.method)}</td>
-                <td className="px-2 py-1.5">{event.actorName ?? "—"}</td>
-                <td className="px-2 py-1.5 font-mono">{event.ip ?? "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="flex gap-2">
+                ) : null}
+              </td>
+              <td className="px-2 py-1.5">{event.userName ?? "—"}</td>
+              <td className="px-2 py-1.5">{methodLabel(event.method)}</td>
+              <td className="px-2 py-1.5">{event.actorName ?? "—"}</td>
+              <td className="px-2 py-1.5 font-mono">{event.ip ?? "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </AdminTable>
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           reads
           size="sm"
@@ -266,6 +267,13 @@ export function SignInTrail() {
         >
           {t`Older`}
         </Button>
+        <AdminPageSizeSelect
+          size={pageSize}
+          onChange={(size) => {
+            setPageSize(size);
+            setCursors([]);
+          }}
+        />
       </div>
     </div>
   );

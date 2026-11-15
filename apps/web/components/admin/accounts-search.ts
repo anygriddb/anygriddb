@@ -1,7 +1,5 @@
 import { z } from "zod";
-
-/** Accounts per page of the list. */
-export const ACCOUNTS_PAGE = 50;
+import { DEFAULT_ADMIN_PAGE_SIZE } from "./admin-page-size";
 
 /**
  * The accounts list's filters, sort, and page as the address keeps them
@@ -29,7 +27,10 @@ function flag(value: "yes" | "no" | undefined): boolean | undefined {
 }
 
 /** What `admin.users` is asked for the address's filters. */
-export function usersQuery(search: AccountsSearch) {
+export function usersQuery(
+  search: AccountsSearch,
+  pageSize: number = DEFAULT_ADMIN_PAGE_SIZE,
+) {
   return {
     search: search.q || undefined,
     status: search.status,
@@ -38,8 +39,8 @@ export function usersQuery(search: AccountsSearch) {
     origin: search.origin,
     sort: search.sort ?? "created",
     direction: search.dir ?? "asc",
-    offset: ((search.page ?? 1) - 1) * ACCOUNTS_PAGE,
-    limit: ACCOUNTS_PAGE,
+    offset: ((search.page ?? 1) - 1) * pageSize,
+    limit: pageSize,
   };
 }
 

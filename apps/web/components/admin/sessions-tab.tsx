@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
+import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
+import { useAdminPage, useAdminPageSize } from "./admin-page-size";
 
 function date(value: string): string {
   return new Date(value).toLocaleString();
@@ -17,9 +19,12 @@ export function SessionsTab() {
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
+  const [pageSize, setPageSize] = useAdminPageSize();
+  const { page, setPage, offset, limit } = useAdminPage(pageSize);
   const sessions = useQuery({
-    ...api.admin.sessions.queryOptions(),
+    ...api.admin.sessions.queryOptions({ limit, offset }),
     refetchInterval: 30_000,
+    placeholderData: (previous) => previous,
   });
   const [confirmAll, setConfirmAll] = useState(false);
   const settings = useQuery(api.admin.settings.queryOptions());
@@ -35,6 +40,7 @@ export function SessionsTab() {
     }
   }
   const list = sessions.data?.sessions ?? [];
+  const total = sessions.data?.total ?? 0;
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -53,64 +59,78 @@ export function SessionsTab() {
         </Button>
       </div>
       {sessions.isLoading ? <Spinner /> : null}
-      <div className="overflow-x-auto rounded-sm border border-border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted text-left text-xs">
-            <tr>
-              <th className="px-3 py-2">{t`Account`}</th>
-              <th className="px-3 py-2">{t`Signed in`}</th>
-              <th className="px-3 py-2">{t`Ends at the latest`}</th>
-              <th className="px-3 py-2">
-                <span className="sr-only">{t`Actions`}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((session) => (
-              <tr key={session.id} className="border-t border-border">
-                <td className="px-3 py-2">
-                  <p className="font-medium">
-                    {session.displayName}
-                    {session.isAdmin ? (
-                      <span className="ml-2 text-xs font-normal text-muted-foreground">
-                        {t`Administrator`}
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {session.email}
-                  </p>
-                </td>
-                <td className="px-3 py-2 text-xs">{date(session.createdAt)}</td>
-                <td className="px-3 py-2 text-xs">{date(session.expiresAt)}</td>
-                <td className="px-3 py-2 text-right">
-                  {session.mine ? (
-                    <span className="text-xs text-muted-foreground">
-                      {t`You`}
-                    </span>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        void run(
-                          () =>
-                            trpc.admin.endSession.mutate({
-                              sessionId: session.id,
-                            }),
-                          t`Session ended`,
-                        )
-                      }
-                    >
-                      {t`End`}
-                    </Button>
-                  )}
-                </td>
+      {list.length > 0 ? (
+        <>
+          <AdminTable>
+            <AdminTableHead>
+              <tr>
+                <th className="px-3 py-2">{t`Account`}</th>
+                <th className="px-3 py-2">{t`Signed in`}</th>
+                <th className="px-3 py-2">{t`Ends at the latest`}</th>
+                <th className="px-3 py-2">
+                  <span className="sr-only">{t`Actions`}</span>
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </AdminTableHead>
+            <tbody>
+              {list.map((session) => (
+                <tr key={session.id} className="border-t border-border">
+                  <td className="px-3 py-2">
+                    <p className="font-medium">
+                      {session.displayName}
+                      {session.isAdmin ? (
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                          {t`Administrator`}
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {session.email}
+                    </p>
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {date(session.createdAt)}
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {date(session.expiresAt)}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {session.mine ? (
+                      <span className="text-xs text-muted-foreground">
+                        {t`You`}
+                      </span>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          void run(
+                            () =>
+                              trpc.admin.endSession.mutate({
+                                sessionId: session.id,
+                              }),
+                            t`Session ended`,
+                          )
+                        }
+                      >
+                        {t`End`}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </AdminTable>
+          <AdminPager
+            total={total}
+            offset={offset}
+            pageSize={pageSize}
+            onPageSize={setPageSize}
+            onPrev={() => setPage(page - 1)}
+            onNext={() => setPage(page + 1)}
+          />
+        </>
+      ) : null}
       {confirmAll ? (
         <ConfirmDialog
           open

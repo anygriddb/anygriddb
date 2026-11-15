@@ -8,6 +8,8 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { datedName, downloadCsv } from "../../lib/download";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { AdminPageSizeSelect, AdminTable, AdminTableHead } from "./admin-list";
+import { useAdminPageSize } from "./admin-page-size";
 import { useReadsAll } from "./admin-access";
 import { useChangeActionLabel } from "./change-labels";
 
@@ -47,13 +49,14 @@ export function ChangesTrail() {
   const [action, setAction] = useState<(typeof ACTIONS)[number] | "">("");
   const [source, setSource] = useState("");
   const [cursors, setCursors] = useState<string[]>([]);
+  const [pageSize, setPageSize] = useAdminPageSize();
   const before = cursors.at(-1);
   const log = useQuery(
     api.admin.audit.queryOptions({
       action: action || undefined,
       source: source || undefined,
       before,
-      limit: 50,
+      limit: pageSize,
     }),
   );
   /** What an export took out: never a value, its kind, format, and rows. */
@@ -172,76 +175,74 @@ export function ChangesTrail() {
         {t`The log shows who changed which fields. Values stay in each row's history, behind the table's access rights.`}
       </p>
       {log.isLoading ? <Spinner /> : null}
-      <div className="overflow-x-auto rounded-sm border border-border">
-        <table className="w-full text-xs">
-          <thead className="bg-muted text-left">
+      <AdminTable tableClassName="text-xs">
+        <AdminTableHead>
+          <tr>
+            <th className="px-2 py-1.5">{t`Date`}</th>
+            <th className="px-2 py-1.5">{t`Author`}</th>
+            <th className="px-2 py-1.5">{t`Table`}</th>
+            <th className="px-2 py-1.5">{t`Action`}</th>
+            <th className="px-2 py-1.5">{t`Fields`}</th>
+            <th className="px-2 py-1.5">{t`Reason`}</th>
+            <th className="px-2 py-1.5">{t`Source`}</th>
+          </tr>
+        </AdminTableHead>
+        <tbody>
+          {log.data?.events.length === 0 ? (
             <tr>
-              <th className="px-2 py-1.5">{t`Date`}</th>
-              <th className="px-2 py-1.5">{t`Author`}</th>
-              <th className="px-2 py-1.5">{t`Table`}</th>
-              <th className="px-2 py-1.5">{t`Action`}</th>
-              <th className="px-2 py-1.5">{t`Fields`}</th>
-              <th className="px-2 py-1.5">{t`Reason`}</th>
-              <th className="px-2 py-1.5">{t`Source`}</th>
+              <td colSpan={7} className="px-2 py-3 text-muted-foreground">
+                {t`Nothing matches. Every write to a base, its fields, and its roles shows here, and every export, with who made it.`}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {log.data?.events.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-2 py-3 text-muted-foreground">
-                  {t`Nothing matches. Every write to a base, its fields, and its roles shows here, and every export, with who made it.`}
-                </td>
-              </tr>
-            ) : null}
-            {(log.data?.events ?? []).map((event) => (
-              <tr key={event.id} className="border-t border-border align-top">
-                <td className="px-2 py-1.5 whitespace-nowrap">
-                  {date(event.occurredAt)}
-                </td>
-                <td className="px-2 py-1.5">{event.userName ?? "—"}</td>
-                <td className="px-2 py-1.5">
-                  {event.tableName
-                    ? `${event.baseName ?? ""} / ${event.tableName}`
-                    : (event.baseName ?? "—")}
-                  {event.recordId ? (
-                    <span className="block font-mono text-[10px] text-muted-foreground">
-                      {event.recordId.slice(0, 8)}
-                    </span>
-                  ) : null}
-                </td>
-                <td className="px-2 py-1.5">
-                  {event.action === "catalog"
-                    ? catalogLabel(event.catalogTable)
-                    : actionLabel(event.action)}
-                </td>
-                <td className="px-2 py-1.5">
-                  {event.exported
-                    ? exported(event.exported)
-                    : event.opened?.endedAt
-                      ? t`${{ base: event.baseName ?? "—" }}, closed by the administrator who had opened it, on ${{ date: date(event.opened.endedAt) }}`
-                      : event.opened
-                        ? t`${{ base: event.baseName ?? "—" }}, opened by an administrator to read it, until ${{ date: date(event.opened.until) }}`
-                        : event.purged
-                          ? purgedText(
-                              event.purged.events,
-                              date(event.purged.before),
+          ) : null}
+          {(log.data?.events ?? []).map((event) => (
+            <tr key={event.id} className="border-t border-border align-top">
+              <td className="px-2 py-1.5 whitespace-nowrap">
+                {date(event.occurredAt)}
+              </td>
+              <td className="px-2 py-1.5">{event.userName ?? "—"}</td>
+              <td className="px-2 py-1.5">
+                {event.tableName
+                  ? `${event.baseName ?? ""} / ${event.tableName}`
+                  : (event.baseName ?? "—")}
+                {event.recordId ? (
+                  <span className="block font-mono text-[10px] text-muted-foreground">
+                    {event.recordId.slice(0, 8)}
+                  </span>
+                ) : null}
+              </td>
+              <td className="px-2 py-1.5">
+                {event.action === "catalog"
+                  ? catalogLabel(event.catalogTable)
+                  : actionLabel(event.action)}
+              </td>
+              <td className="px-2 py-1.5">
+                {event.exported
+                  ? exported(event.exported)
+                  : event.opened?.endedAt
+                    ? t`${{ base: event.baseName ?? "—" }}, closed by the administrator who had opened it, on ${{ date: date(event.opened.endedAt) }}`
+                    : event.opened
+                      ? t`${{ base: event.baseName ?? "—" }}, opened by an administrator to read it, until ${{ date: date(event.opened.until) }}`
+                      : event.purged
+                        ? purgedText(
+                            event.purged.events,
+                            date(event.purged.before),
+                          )
+                        : event.fields
+                            .map((name) =>
+                              name === "ag_position"
+                                ? t`the row's place`
+                                : name,
                             )
-                          : event.fields
-                              .map((name) =>
-                                name === "ag_position"
-                                  ? t`the row's place`
-                                  : name,
-                              )
-                              .join(", ") || "—"}
-                </td>
-                <td className="px-2 py-1.5">{event.reason ?? "—"}</td>
-                <td className="px-2 py-1.5">{event.source ?? "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="flex gap-2">
+                            .join(", ") || "—"}
+              </td>
+              <td className="px-2 py-1.5">{event.reason ?? "—"}</td>
+              <td className="px-2 py-1.5">{event.source ?? "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </AdminTable>
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           reads
           size="sm"
@@ -263,6 +264,13 @@ export function ChangesTrail() {
         >
           {t`Older`}
         </Button>
+        <AdminPageSizeSelect
+          size={pageSize}
+          onChange={(size) => {
+            setPageSize(size);
+            setCursors([]);
+          }}
+        />
       </div>
     </div>
   );

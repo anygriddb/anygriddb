@@ -7,6 +7,8 @@ import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
 import { RuledSection } from "../shell/notebook-page";
+import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
+import { useAdminPage, useAdminPageSize } from "./admin-page-size";
 
 function date(value: string | null): string {
   return value ? new Date(value).toLocaleString() : "—";
@@ -27,6 +29,10 @@ export function InvitationsPanel() {
     email: string;
   } | null>(null);
   const invitations = useQuery(api.admin.invitations.queryOptions());
+  const [pageSize, setPageSize] = useAdminPageSize();
+  const { page, setPage, offset, limit } = useAdminPage(pageSize);
+  const all = invitations.data?.invitations ?? [];
+  const pageItems = all.slice(offset, offset + limit);
   async function run(action: () => Promise<unknown>, done?: string) {
     try {
       await action();
@@ -50,9 +56,9 @@ export function InvitationsPanel() {
             {t`No invitation is waiting. One shows here from the moment someone is invited to a base until they answer it or it expires.`}
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-sm border border-border">
-            <table className="w-full text-xs">
-              <thead className="bg-muted text-left">
+          <>
+            <AdminTable tableClassName="text-xs">
+              <AdminTableHead>
                 <tr>
                   <th className="px-2 py-1.5">{t`Email`}</th>
                   <th className="px-2 py-1.5">{t`Base`}</th>
@@ -63,9 +69,9 @@ export function InvitationsPanel() {
                     <span className="sr-only">{t`Actions`}</span>
                   </th>
                 </tr>
-              </thead>
+              </AdminTableHead>
               <tbody>
-                {(invitations.data?.invitations ?? []).map((invitation) => (
+                {pageItems.map((invitation) => (
                   <tr key={invitation.id} className="border-t border-border">
                     <td className="px-2 py-1.5">{invitation.email}</td>
                     <td className="px-2 py-1.5">{invitation.baseName}</td>
@@ -121,8 +127,16 @@ export function InvitationsPanel() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </AdminTable>
+            <AdminPager
+              total={all.length}
+              offset={offset}
+              pageSize={pageSize}
+              onPageSize={setPageSize}
+              onPrev={() => setPage(page - 1)}
+              onNext={() => setPage(page + 1)}
+            />
+          </>
         )}
       </RuledSection>
       {withdraw ? (

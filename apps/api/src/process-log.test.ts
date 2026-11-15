@@ -17,7 +17,7 @@ function messages(
   log: ReturnType<typeof createProcessLog>,
   level: "info" | "warn" | "error" = "info",
 ) {
-  return log.list({ level, limit: 20 }).map((item) => item.message);
+  return log.list({ level, limit: 20 }).lines.map((item) => item.message);
 }
 
 describe("the process log", () => {
@@ -55,11 +55,11 @@ describe("the process log", () => {
     ]);
     const failed = log
       .list({ level: "info", limit: 20 })
-      .find((item) => item.message === "request completed");
+      .lines.find((item) => item.message === "request completed");
     expect(failed?.status).toBe(503);
     const stopped = log
       .list({ level: "info", limit: 20 })
-      .find((item) => item.message === "shutting down");
+      .lines.find((item) => item.message === "shutting down");
     expect(stopped).not.toHaveProperty("reason");
     expect(JSON.stringify(stopped)).not.toContain("SIGTERM");
   });
@@ -86,7 +86,7 @@ describe("the process log", () => {
         },
       }),
     );
-    const got = log.list({ level: "error", limit: 1 })[0];
+    const got = log.list({ level: "error", limit: 1 }).lines[0];
     expect(got).toMatchObject({
       message: "request failed",
       level: "error",
@@ -137,7 +137,7 @@ describe("the process log", () => {
       );
     }
     expect(messages(log, "warn")).toEqual(["database connection failed"]);
-    const all = log.list({ level: "info", limit: 10 });
+    const all = log.list({ level: "info", limit: 10 }).lines;
     expect(all).toHaveLength(4);
     expect(all.at(-1)?.message).toBe("database connection failed");
     expect(all[0]?.request?.url).toBe("/probe/9");
@@ -155,7 +155,7 @@ describe("the process log", () => {
     const log = createProcessLog();
     const text = line({ level: 40, msg: "split" });
     log.capture(text.slice(0, 12));
-    expect(log.list({ level: "warn", limit: 5 })).toEqual([]);
+    expect(log.list({ level: "warn", limit: 5 }).lines).toEqual([]);
     log.capture(text.slice(12));
     expect(messages(log, "warn")).toEqual(["split"]);
   });
@@ -166,7 +166,8 @@ describe("the process log", () => {
       "database connection failed",
       new Error("password=hunter2"),
     );
-    const got = log.list({ level: "error", limit: 1 })[0] as ProcessLogLine;
+    const got = log.list({ level: "error", limit: 1 })
+      .lines[0] as ProcessLogLine;
     expect(got.message).toBe("database connection failed");
     expect(got.level).toBe("error");
     expect(got.error?.type).toBe("Error");
@@ -174,7 +175,7 @@ describe("the process log", () => {
     log.rememberFailure("realtime message too large, dropped", undefined);
     const dropped = log
       .list({ level: "error", limit: 5 })
-      .find((item) => item.message.startsWith("realtime"));
+      .lines.find((item) => item.message.startsWith("realtime"));
     expect(dropped?.error).toBeUndefined();
   });
 
@@ -198,19 +199,19 @@ describe("the process log", () => {
       level: "warn",
       limit: 20,
       query: "Missing Title",
-    });
+    }).lines;
     expect(found.map((item) => item.message)).toEqual([
       "page failed in a browser",
     ]);
     expect(
-      log.list({ level: "warn", limit: 20, query: "internal_error" }),
+      log.list({ level: "warn", limit: 20, query: "internal_error" }).lines,
     ).toHaveLength(1);
     expect(
-      log.list({ level: "warn", limit: 20, query: "zzzz-not-here" }),
+      log.list({ level: "warn", limit: 20, query: "zzzz-not-here" }).lines,
     ).toEqual([]);
-    expect(log.list({ level: "warn", limit: 20, query: "   " })).toHaveLength(
-      2,
-    );
+    expect(
+      log.list({ level: "warn", limit: 20, query: "   " }).lines,
+    ).toHaveLength(2);
   });
 
   it("filters by level", () => {
@@ -239,7 +240,7 @@ describe("the process log", () => {
         },
       }),
     );
-    const got = log.list({ level: "warn", limit: 1 })[0];
+    const got = log.list({ level: "warn", limit: 1 }).lines[0];
     expect(got?.client).toEqual({
       kind: "render",
       path: "/s/…",
@@ -266,7 +267,7 @@ describe("the process log", () => {
       expect(
         processLog
           .list({ level: "warn", limit: 50 })
-          .some((item) => item.message === "fastify ring probe"),
+          .lines.some((item) => item.message === "fastify ring probe"),
       ).toBe(true);
     } finally {
       spy.mockRestore();

@@ -7,10 +7,12 @@ import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
+import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
+import { useAdminPage, useAdminPageSize } from "./admin-page-size";
 
 type Access = RouterOutputs["admin"]["access"]["list"];
 type Token = Access["tokens"][number];
-type Hook = Access["hooks"][number];
+type Hook = Access["webhooks"][number];
 
 function date(value: string): string {
   return new Date(value).toLocaleString();
@@ -26,16 +28,24 @@ export function AccessTab() {
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
-  const access = useQuery(api.admin.access.list.queryOptions());
+  const [pageSize, setPageSize] = useAdminPageSize();
+  const tokensPage = useAdminPage(pageSize);
+  const webhooksPage = useAdminPage(pageSize);
+  const automationsPage = useAdminPage(pageSize);
+  const access = useQuery({
+    ...api.admin.access.list.queryOptions({
+      limit: pageSize,
+      tokensOffset: tokensPage.offset,
+      webhooksOffset: webhooksPage.offset,
+      automationsOffset: automationsPage.offset,
+    }),
+    placeholderData: (previous) => previous,
+  });
   const [revoking, setRevoking] = useState<Token | null>(null);
   const [stopping, setStopping] = useState<Hook | null>(null);
   const tokens = access.data?.tokens ?? [];
-  const webhooks = (access.data?.hooks ?? []).filter(
-    (hook) => hook.kind === "webhook",
-  );
-  const automations = (access.data?.hooks ?? []).filter(
-    (hook) => hook.kind === "automation",
-  );
+  const webhooks = access.data?.webhooks ?? [];
+  const automations = access.data?.automations ?? [];
   async function run(action: () => Promise<unknown>) {
     try {
       await action();
@@ -65,9 +75,9 @@ export function AccessTab() {
           <p className="text-sm text-muted-foreground">{t`No API token.`}</p>
         ) : null}
         {tokens.length > 0 ? (
-          <div className="overflow-x-auto rounded-sm border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted text-left text-xs">
+          <>
+            <AdminTable>
+              <AdminTableHead>
                 <tr>
                   <th className={head}>{t`Token`}</th>
                   <th className={head}>{t`Owner`}</th>
@@ -78,7 +88,7 @@ export function AccessTab() {
                     <span className="sr-only">{t`Actions`}</span>
                   </th>
                 </tr>
-              </thead>
+              </AdminTableHead>
               <tbody>
                 {tokens.map((token) => (
                   <tr key={token.id} className="border-t border-border">
@@ -113,16 +123,38 @@ export function AccessTab() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </AdminTable>
+            <AdminPager
+              total={access.data?.tokensTotal ?? 0}
+              offset={tokensPage.offset}
+              pageSize={pageSize}
+              onPageSize={setPageSize}
+              onPrev={() => tokensPage.setPage(tokensPage.page - 1)}
+              onNext={() => tokensPage.setPage(tokensPage.page + 1)}
+            />
+          </>
         ) : null}
       </section>
       {(
         [
-          ["webhook", t`Webhooks`, webhooks, t`No webhook.`],
-          ["automation", t`Automations`, automations, t`No automation.`],
+          [
+            "webhook",
+            t`Webhooks`,
+            webhooks,
+            access.data?.webhooksTotal ?? 0,
+            webhooksPage,
+            t`No webhook.`,
+          ],
+          [
+            "automation",
+            t`Automations`,
+            automations,
+            access.data?.automationsTotal ?? 0,
+            automationsPage,
+            t`No automation.`,
+          ],
         ] as const
-      ).map(([kind, title, list, empty]) => (
+      ).map(([kind, title, list, total, pager, empty]) => (
         <section
           key={kind}
           className="flex flex-col gap-2"
@@ -135,9 +167,9 @@ export function AccessTab() {
             <p className="text-sm text-muted-foreground">{empty}</p>
           ) : null}
           {list.length > 0 ? (
-            <div className="overflow-x-auto rounded-sm border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted text-left text-xs">
+            <>
+              <AdminTable>
+                <AdminTableHead>
                   <tr>
                     <th className={head}>{t`Name`}</th>
                     <th className={head}>{t`Table`}</th>
@@ -150,7 +182,7 @@ export function AccessTab() {
                       <span className="sr-only">{t`Actions`}</span>
                     </th>
                   </tr>
-                </thead>
+                </AdminTableHead>
                 <tbody>
                   {list.map((hook) => (
                     <tr key={hook.id} className="border-t border-border">
@@ -199,8 +231,16 @@ export function AccessTab() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </AdminTable>
+              <AdminPager
+                total={total}
+                offset={pager.offset}
+                pageSize={pageSize}
+                onPageSize={setPageSize}
+                onPrev={() => pager.setPage(pager.page - 1)}
+                onNext={() => pager.setPage(pager.page + 1)}
+              />
+            </>
           ) : null}
         </section>
       ))}

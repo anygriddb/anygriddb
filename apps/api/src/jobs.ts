@@ -595,8 +595,20 @@ async function cancelJobWhere(
 /** Every person's jobs, newest first, for the administration. */
 export async function listAllJobs(
   db: Database,
-  input: { status?: JobRow["status"]; limit: number },
-): Promise<Array<PublicJob & { userName: string | null }>> {
+  input: { status?: JobRow["status"]; limit: number; offset?: number },
+): Promise<{
+  jobs: Array<PublicJob & { userName: string | null }>;
+  total: number;
+}> {
+  const offset = input.offset ?? 0;
+  const counted = await db
+    .selectFrom("jobs")
+    .select((eb) => eb.fn.countAll<string>().as("value"))
+    .$if(input.status !== undefined, (query) =>
+      query.where("status", "=", input.status ?? "queued"),
+    )
+    .executeTakeFirst();
+  const total = Number(counted?.value ?? 0);
   const rows = await jobsWithTable(db)
     .leftJoin("users", "users.id", "jobs.userId")
     .select("users.displayName as userName")
@@ -604,7 +616,11 @@ export async function listAllJobs(
       query.where("jobs.status", "=", input.status ?? "queued"),
     )
     .orderBy("jobs.createdAt", "desc")
+    .offset(offset)
     .limit(input.limit)
     .execute();
-  return rows.map((row) => ({ ...publicJob(row), userName: row.userName }));
+  return {
+    total,
+    jobs: rows.map((row) => ({ ...publicJob(row), userName: row.userName })),
+  };
 }

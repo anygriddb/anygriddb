@@ -20,6 +20,8 @@ import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
 import { RuledSection } from "../shell/notebook-page";
+import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
+import { useAdminPage, useAdminPageSize } from "./admin-page-size";
 
 function date(value: string | null): string {
   return value ? new Date(value).toLocaleString() : "—";
@@ -50,12 +52,24 @@ export function SupportTab() {
   );
   const [confirmSend, setConfirmSend] = useState(false);
   const [busyMail, setBusyMail] = useState(false);
-  const jobs = useQuery(
-    api.admin.jobs.queryOptions({ status: status || undefined, limit: 50 }),
-  );
-  const deliveries = useQuery(
-    api.admin.failedDeliveries.queryOptions({ limit: 50 }),
-  );
+  const [pageSize, setPageSize] = useAdminPageSize();
+  const jobsPage = useAdminPage(pageSize);
+  const deliveriesPage = useAdminPage(pageSize);
+  const jobs = useQuery({
+    ...api.admin.jobs.queryOptions({
+      status: status || undefined,
+      limit: pageSize,
+      offset: jobsPage.offset,
+    }),
+    placeholderData: (previous) => previous,
+  });
+  const deliveries = useQuery({
+    ...api.admin.failedDeliveries.queryOptions({
+      limit: pageSize,
+      offset: deliveriesPage.offset,
+    }),
+    placeholderData: (previous) => previous,
+  });
   const smtp = useQuery(api.admin.smtp.get.queryOptions());
   const accounts = useQuery({
     ...api.admin.users.queryOptions({
@@ -282,9 +296,10 @@ export function SupportTab() {
               id="support-job-status"
               className="w-40"
               value={status}
-              onChange={(event) =>
-                setStatus(event.target.value as JobStatus | "")
-              }
+              onChange={(event) => {
+                setStatus(event.target.value as JobStatus | "");
+                jobsPage.setPage(1);
+              }}
             >
               <option value="">{t`All`}</option>
               {JOB_STATUSES.map((value) => (
@@ -296,69 +311,76 @@ export function SupportTab() {
           </div>
         </div>
         {jobs.isLoading ? <Spinner /> : null}
-        <div className="overflow-x-auto rounded-sm border border-border">
-          <table className="w-full text-xs">
-            <thead className="bg-muted text-left">
+        <AdminTable tableClassName="text-xs">
+          <AdminTableHead>
+            <tr>
+              <th className="px-2 py-1.5">{t`Started`}</th>
+              <th className="px-2 py-1.5">{t`Person`}</th>
+              <th className="px-2 py-1.5">{t`Kind`}</th>
+              <th className="px-2 py-1.5">{t`Table`}</th>
+              <th className="px-2 py-1.5">{t`Status`}</th>
+              <th className="px-2 py-1.5">
+                <span className="sr-only">{t`Actions`}</span>
+              </th>
+            </tr>
+          </AdminTableHead>
+          <tbody>
+            {jobs.data?.jobs.length === 0 ? (
               <tr>
-                <th className="px-2 py-1.5">{t`Started`}</th>
-                <th className="px-2 py-1.5">{t`Person`}</th>
-                <th className="px-2 py-1.5">{t`Kind`}</th>
-                <th className="px-2 py-1.5">{t`Table`}</th>
-                <th className="px-2 py-1.5">{t`Status`}</th>
-                <th className="px-2 py-1.5">
-                  <span className="sr-only">{t`Actions`}</span>
-                </th>
+                <td colSpan={6} className="px-2 py-3 text-muted-foreground">
+                  {status
+                    ? t`No job with this status.`
+                    : t`No job yet. Imports, exports, and copies of tables and bases show here as people start them.`}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {jobs.data?.jobs.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-2 py-3 text-muted-foreground">
-                    {status
-                      ? t`No job with this status.`
-                      : t`No job yet. Imports, exports, and copies of tables and bases show here as people start them.`}
-                  </td>
-                </tr>
-              ) : null}
-              {(jobs.data?.jobs ?? []).map((job) => (
-                <tr key={job.id} className="border-t border-border">
-                  <td className="px-2 py-1.5 whitespace-nowrap">
-                    {date(job.createdAt)}
-                  </td>
-                  <td className="px-2 py-1.5">{job.userName ?? "—"}</td>
-                  <td className="px-2 py-1.5">{kindLabel(job.kind)}</td>
-                  <td className="px-2 py-1.5">{job.tableName ?? "—"}</td>
-                  <td className="px-2 py-1.5">
-                    {statusLabel(job.status)}
-                    {job.status === "running" && job.total ? (
-                      <span className="text-muted-foreground tabular-nums">
-                        {" "}
-                        · {job.done}/{job.total}
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="px-2 py-1.5 text-right">
-                    {job.status === "queued" || job.status === "running" ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() =>
-                          void run(
-                            () =>
-                              trpc.admin.cancelJob.mutate({ jobId: job.id }),
-                            t`Job cancelled`,
-                          )
-                        }
-                      >
-                        {t`Cancel`}
-                      </Button>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ) : null}
+            {(jobs.data?.jobs ?? []).map((job) => (
+              <tr key={job.id} className="border-t border-border">
+                <td className="px-2 py-1.5 whitespace-nowrap">
+                  {date(job.createdAt)}
+                </td>
+                <td className="px-2 py-1.5">{job.userName ?? "—"}</td>
+                <td className="px-2 py-1.5">{kindLabel(job.kind)}</td>
+                <td className="px-2 py-1.5">{job.tableName ?? "—"}</td>
+                <td className="px-2 py-1.5">
+                  {statusLabel(job.status)}
+                  {job.status === "running" && job.total ? (
+                    <span className="text-muted-foreground tabular-nums">
+                      {" "}
+                      · {job.done}/{job.total}
+                    </span>
+                  ) : null}
+                </td>
+                <td className="px-2 py-1.5 text-right">
+                  {job.status === "queued" || job.status === "running" ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        void run(
+                          () => trpc.admin.cancelJob.mutate({ jobId: job.id }),
+                          t`Job cancelled`,
+                        )
+                      }
+                    >
+                      {t`Cancel`}
+                    </Button>
+                  ) : null}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </AdminTable>
+        {(jobs.data?.total ?? 0) > 0 ? (
+          <AdminPager
+            total={jobs.data?.total ?? 0}
+            offset={jobsPage.offset}
+            pageSize={pageSize}
+            onPageSize={setPageSize}
+            onPrev={() => jobsPage.setPage(jobsPage.page - 1)}
+            onNext={() => jobsPage.setPage(jobsPage.page + 1)}
+          />
+        ) : null}
       </RuledSection>
 
       <RuledSection title={t`Webhook deliveries that failed`}>
@@ -368,9 +390,9 @@ export function SupportTab() {
             {t`No delivery has failed. A webhook's delivery shows here once it gives up after its retries, with the error it got.`}
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-sm border border-border">
-            <table className="w-full text-xs">
-              <thead className="bg-muted text-left">
+          <>
+            <AdminTable tableClassName="text-xs">
+              <AdminTableHead>
                 <tr>
                   <th className="px-2 py-1.5">{t`Date`}</th>
                   <th className="px-2 py-1.5">{t`Webhook`}</th>
@@ -378,7 +400,7 @@ export function SupportTab() {
                   <th className="px-2 py-1.5">{t`Attempts`}</th>
                   <th className="px-2 py-1.5">{t`Error`}</th>
                 </tr>
-              </thead>
+              </AdminTableHead>
               <tbody>
                 {(deliveries.data?.deliveries ?? []).map((delivery) => (
                   <tr key={delivery.id} className="border-t border-border">
@@ -401,8 +423,16 @@ export function SupportTab() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </AdminTable>
+            <AdminPager
+              total={deliveries.data?.total ?? 0}
+              offset={deliveriesPage.offset}
+              pageSize={pageSize}
+              onPageSize={setPageSize}
+              onPrev={() => deliveriesPage.setPage(deliveriesPage.page - 1)}
+              onNext={() => deliveriesPage.setPage(deliveriesPage.page + 1)}
+            />
+          </>
         )}
       </RuledSection>
 
