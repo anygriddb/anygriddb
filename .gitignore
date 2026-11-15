@@ -22,3 +22,6 @@ blob-report/
 
 # The sample lab's TLS material (scripts/lab/gen-certs.sh).
 docker/lab/certs/
+
+# Secret files written by scripts/install.sh. The Compose files stay.
+/docker/secrets/

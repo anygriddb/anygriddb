@@ -143,18 +143,39 @@ and `OTEL_EXPORTER_OTLP_HEADERS`, for the application and for the
 Setting both `NAME` and `NAME_FILE` is refused at start: one of them
 would be ignored without a word.
 
-The Compose files of this repository hand each value over themselves,
-and do not start without `POSTGRES_PASSWORD` and `AUTH_ENCRYPTION_KEY`
-in `.env` (`DATABASE_URL` and `AUTH_ENCRYPTION_KEY`, on a PostgreSQL of
-your own): with these files, those two stay in `.env`. The other secrets
-they pass (`S3_ACCESS_KEY` and `S3_SECRET_KEY` of a store of your own,
-`METRICS_TOKEN`, `OTEL_EXPORTER_OTLP_HEADERS`) can come from a file,
-through a Compose file of your own, given after the others, that mounts
-the file and names it. The application runs as user 1000, who must be
-able to read it:
+With the database this stack runs, the two secrets `compose.yml` needs,
+`POSTGRES_PASSWORD` and `AUTH_ENCRYPTION_KEY`, can leave `.env` too:
+
+```sh
+scripts/install.sh            # docker/ of this checkout, or a folder named
+scripts/compose.sh up -d      # every compose command goes through it
+```
+
+`scripts/install.sh` keeps each in a file of `secrets/`, beside `.env`
+(the folder is the owner's alone; PostgreSQL and the application read
+their files as accounts of their own, inside their containers), and the
+database's address made from the password. On an install that already
+runs, it moves the values `.env` holds into their files: a new key would
+leave everything sealed with the old one unread. Run again, it changes
+nothing. `scripts/compose.sh` reads the files so Compose can fill
+`compose.yml` in, which still refuses to start without them, and adds
+`compose.secrets.yml`, which mounts the files and leaves the variables
+empty in the containers: `docker inspect` shows neither. Options before
+the command go to `docker compose` after those two files
+(`scripts/compose.sh -f compose.release.yml --env-file image-pin.env up -d`).
+`scripts/backup.sh`, `scripts/restore.sh` and
+`scripts/upgrade-postgres.sh` read the same files: give them
+`-f compose.yml -f compose.secrets.yml` and the other files the stack runs
+with. On a PostgreSQL of your own, `DATABASE_URL` is handed over as below.
+
+The other secrets (`S3_ACCESS_KEY` and `S3_SECRET_KEY` of a store of your
+own, `METRICS_TOKEN`, `OTEL_EXPORTER_OTLP_HEADERS`, `DATABASE_URL` on a
+PostgreSQL of your own) can come from a file through a Compose file of
+your own, given after the others, that mounts the file and names it. The
+application runs as user 1000, who must be able to read it:
 
 ```yaml
-# compose.secrets.yml
+# compose.local-secrets.yml
 services:
   app:
     environment:
