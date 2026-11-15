@@ -21,6 +21,7 @@ import {
 import { AccountBases } from "./account-bases";
 import { AccountExport } from "./account-export";
 import { useAuthLabels } from "./auth-labels";
+import { RightsAt } from "./rights-at";
 
 /** The everyday actions, in view at the top of the page (ROADMAP #13). */
 const IN_VIEW: readonly AccountAction[] = [
@@ -177,6 +178,7 @@ export function AccountAdminPage({ userId }: { userId: string }) {
         canChange={session.data?.isAdmin === true}
       />
 
+      <RightsAt userId={account.id} />
       <AccountExport userId={account.id} />
 
       {account.identities.length > 0 ? (

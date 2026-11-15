@@ -2207,6 +2207,7 @@ msgstr "Code-barres de {value}"
 
 #: components/admin/bases-tab.tsx
 #: components/admin/invitations-panel.tsx
+#: components/admin/rights-at.tsx
 #: components/admin/sources-tab.tsx
 #: components/admin/trails.tsx
 #: components/shell/base-home.tsx
@@ -4175,6 +4176,7 @@ msgstr "Export"
 msgid "Export account data"
 msgstr "Exporter les données du compte"
 
+#: components/admin/rights-at.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/trails.tsx
 msgid "Export as CSV"
@@ -6744,6 +6746,10 @@ msgstr "Aucun point de restauration pour l’instant."
 msgid "No results"
 msgstr "Aucun résultat"
 
+#: components/admin/rights-at.tsx
+msgid "No role on the trail for this person at that date."
+msgstr "Aucun rôle sur la piste pour cette personne à cette date."
+
 #: lib/errors.ts
 msgid "No row"
 msgstr "Ligne introuvable"
@@ -8256,6 +8262,10 @@ msgstr "révoqué"
 msgid "Revoked"
 msgstr "Révoqué"
 
+#: components/admin/rights-at.tsx
+msgid "Rights at the end of this day"
+msgstr "Droits à la fin de ce jour"
+
 #: components/admin/base-admin-members.tsx
 #: components/admin/group-page.tsx
 #: components/admin/invitations-panel.tsx
@@ -9530,6 +9540,7 @@ msgstr "table"
 
 #: components/admin/access-tab.tsx
 #: components/admin/base-admin-page.tsx
+#: components/admin/rights-at.tsx
 #: components/admin/support-tab.tsx
 #: components/admin/trails.tsx
 #: components/dashboards/dashboard-board.tsx
@@ -9772,6 +9783,10 @@ msgstr "Le certificat expire dans moins de"
 #: components/admin/health-tab.tsx
 msgid "The certificate is the one the operator provided."
 msgstr "Le certificat est celui fourni par l’opérateur."
+
+#: components/admin/rights-at.tsx
+msgid "The change trail no longer reaches this date (earliest kept {date}). The report cannot answer."
+msgstr "La piste des changements n’atteint plus cette date (plus ancien conservé {date}). Le rapport ne peut pas répondre."
 
 #: components/admin/trails.tsx
 msgid "The change trail, as {format}"
@@ -10274,6 +10289,10 @@ msgstr "Le temps entre maintenant et la date, en jours par défaut."
 #: components/fields/formula-docs.ts
 msgid "The time between the date and now, as FROMNOW gives."
 msgstr "Le temps entre la date et maintenant, comme FROMNOW."
+
+#: components/admin/rights-at.tsx
+msgid "The trail was purged before that date."
+msgstr "La piste a été purgée avant cette date."
 
 #: components/shell/trash-dialog.tsx
 #: components/table/table-workspace.tsx
@@ -10786,6 +10805,10 @@ msgstr "Par {groups}"
 #: components/fields/field-editor.tsx
 msgid "Through link"
 msgstr "Via le lien"
+
+#: components/admin/rights-at.tsx
+msgid "through the group {group}"
+msgstr "par le groupe {group}"
 
 #: components/settings/base-settings.tsx
 msgid "through the group {groups}"

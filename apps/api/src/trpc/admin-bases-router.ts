@@ -28,6 +28,7 @@ import {
   effectiveAccess,
   effectiveAccessInputSchema,
 } from "../admin-access.js";
+import { rightsAt, rightsAtCsv, rightsAtLabels } from "../data/rights-at.js";
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { tellOwnersOfRole } from "../data/role-notices.js";
@@ -204,6 +205,61 @@ export const adminBaseProcedures = {
         handle(ctx, async () => {
           await requireAdmin(ctx);
           return effectiveAccess(ctx.db, input);
+        }),
+      ),
+    /**
+     * A person's roles as of a chosen date, rebuilt backward from what
+     * they hold now (own bindings and those a group gives). Incomplete
+     * when the trail was purged before that date.
+     */
+    rightsAt: procedure
+      .input(
+        z.object({
+          userId: z.uuid(),
+          at: z.iso.datetime(),
+        }),
+      )
+      .query(({ ctx, input }) =>
+        handle(ctx, async () => {
+          await requireAdmin(ctx);
+          const report = await rightsAt(ctx.db, {
+            userId: input.userId,
+            at: new Date(input.at),
+          });
+          if (report.incomplete) return report;
+          const labels = await rightsAtLabels(ctx.db, report.lines);
+          return {
+            ...report,
+            lines: report.lines.map((line) => ({
+              ...line,
+              baseName: labels.get(line.scopeId)?.base ?? null,
+              tableName: labels.get(line.scopeId)?.table ?? null,
+            })),
+          };
+        }),
+      ),
+    exportRightsAt: procedure
+      .input(
+        z.object({
+          userId: z.uuid(),
+          at: z.iso.datetime(),
+        }),
+      )
+      .query(({ ctx, input }) =>
+        handle(ctx, async () => {
+          await requireAdmin(ctx);
+          const report = await rightsAt(ctx.db, {
+            userId: input.userId,
+            at: new Date(input.at),
+          });
+          if (report.incomplete) {
+            return { incomplete: true as const, report };
+          }
+          const labels = await rightsAtLabels(ctx.db, report.lines);
+          return {
+            incomplete: false as const,
+            csv: rightsAtCsv(report, labels),
+          };
         }),
       ),
     revokeToken: procedure
