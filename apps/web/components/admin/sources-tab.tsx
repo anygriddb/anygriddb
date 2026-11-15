@@ -5,7 +5,9 @@
  */
 import {
   DEFAULT_SOURCE_PORTS,
+  SOURCE_ENGINES,
   isCopySourceEngine,
+  sourceDatabaseField,
   type SourceEngine,
   type SourceInput,
 } from "@anygriddb/core";
@@ -28,6 +30,7 @@ import { Database, Plus, RefreshCw, ShieldAlert, Table2 } from "lucide-react";
 import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { ENGINE_NAMES } from "../../lib/limits";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { raw } from "../../lib/known-text";
 import { FIELD_LABELS } from "../fields/field-meta";
@@ -40,15 +43,6 @@ type Exposure = SourceTableItem["exposedIn"][number];
 type Right = keyof Exposure["writes"];
 
 const TIME_ZONES = ["UTC", ...Intl.supportedValuesOf("timeZone")];
-
-const ENGINES: Array<[SourceEngine, string, boolean]> = [
-  ["postgres", "PostgreSQL", true],
-  ["mysql", "MySQL", true],
-  ["mariadb", "MariaDB", true],
-  ["sqlserver", "SQL Server", true],
-  ["oracle", "Oracle", true],
-  ["mongodb", "MongoDB", true],
-];
 
 export function SourcesTab() {
   const { t } = useLingui();
@@ -420,6 +414,7 @@ function SourceForm(props: {
     database.trim() &&
     username.trim() &&
     (password || existing);
+  const databaseField = sourceDatabaseField(engine);
   return (
     <form onSubmit={submit} className="grid grid-cols-2 gap-3">
       <div className="col-span-2 flex flex-col gap-1">
@@ -442,16 +437,20 @@ function SourceForm(props: {
             setPort(String(DEFAULT_SOURCE_PORTS[next]));
           }}
         >
-          {ENGINES.map(([value, label, ready]) => (
-            <option key={value} value={value} disabled={!ready}>
-              {ready ? label : t`${{ engine: label }} (soon)`}
+          {SOURCE_ENGINES.map((value) => (
+            <option key={value} value={value}>
+              {ENGINE_NAMES[value]}
             </option>
           ))}
         </Select>
       </div>
       <div className="flex flex-col gap-1">
         <Label htmlFor="source-database">
-          {engine === "oracle" ? t`Service name` : t`Database`}
+          {databaseField === "service"
+            ? t`Service name`
+            : databaseField === "indices"
+              ? t`Indices`
+              : t`Database`}
         </Label>
         <Input
           id="source-database"

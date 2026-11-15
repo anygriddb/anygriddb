@@ -22,10 +22,25 @@ const SQL_SOURCE_ENGINES = [
  */
 const COPY_SOURCE_ENGINES = ["mongodb"] as const;
 
-const SOURCE_ENGINES = [...SQL_SOURCE_ENGINES, ...COPY_SOURCE_ENGINES] as const;
+export const SOURCE_ENGINES = [
+  ...SQL_SOURCE_ENGINES,
+  ...COPY_SOURCE_ENGINES,
+] as const;
 export type SourceEngine = (typeof SOURCE_ENGINES)[number];
 export type SqlSourceEngine = (typeof SQL_SOURCE_ENGINES)[number];
 export type CopySourceEngine = (typeof COPY_SOURCE_ENGINES)[number];
+
+/** What the form calls the field that names the database. */
+export type SourceDatabaseField = "database" | "service" | "indices";
+
+/**
+ * The name of that field. A new store sets it here: the form does not
+ * grow a case of its own for each engine.
+ */
+export function sourceDatabaseField(engine: SourceEngine): SourceDatabaseField {
+  if (engine === "oracle") return "service";
+  return "database";
+}
 
 /** True for a store read from a copy only. */
 export function isCopySourceEngine(

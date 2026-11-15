@@ -608,10 +608,13 @@ export {
 export {
   DEFAULT_COPY_INTERVAL_MINUTES,
   DEFAULT_SOURCE_PORTS,
+  SOURCE_ENGINES,
   isCopySourceEngine,
+  sourceDatabaseField,
   sourceInputSchema,
   sourceUpdateSchema,
   type CopySourceEngine,
+  type SourceDatabaseField,
   type SourceEngine,
   type SqlSourceEngine,
   type SourceInput,

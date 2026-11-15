@@ -555,10 +555,6 @@ msgstr "{disabled, plural, one {# compte désactivé} other {# comptes désactiv
 msgid "{disabled} disabled; {refused} could not be: read the list again."
 msgstr "{disabled} désactivés ; {refused} n’ont pas pu l’être : relisez la liste."
 
-#: components/admin/sources-tab.tsx
-msgid "{engine} (soon)"
-msgstr "{engine} (bientôt)"
-
 #: lib/limits.ts
 msgid "{engine} computes {fn} approximately: the result is right to 15 digits. This is a limit of {engine}."
 msgstr "{engine} calcule {fn} de façon approchée : le résultat est juste à 15 chiffres près. C’est une limite de {engine}."
@@ -5080,6 +5076,10 @@ msgstr "Incrémental"
 #: components/admin/sources-tab.tsx
 msgid "Incremental upserts rows that moved since the last pass; a full reconcile (deletes included) runs every {count} refreshes."
 msgstr "L’incrémental met à jour les lignes qui ont bougé depuis le dernier passage ; une réconciliation complète (suppressions comprises) tourne tous les {count} rafraîchissements."
+
+#: components/admin/sources-tab.tsx
+msgid "Indices"
+msgstr "Index"
 
 #: components/admin/logs-tab.tsx
 msgid "Info"

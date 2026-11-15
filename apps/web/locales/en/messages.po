@@ -555,10 +555,6 @@ msgstr "{disabled, plural, one {# account disabled} other {# accounts disabled}}
 msgid "{disabled} disabled; {refused} could not be: read the list again."
 msgstr "{disabled} disabled; {refused} could not be: read the list again."
 
-#: components/admin/sources-tab.tsx
-msgid "{engine} (soon)"
-msgstr "{engine} (soon)"
-
 #: lib/limits.ts
 msgid "{engine} computes {fn} approximately: the result is right to 15 digits. This is a limit of {engine}."
 msgstr "{engine} computes {fn} approximately: the result is right to 15 digits. This is a limit of {engine}."
@@ -5080,6 +5076,10 @@ msgstr "Incremental"
 #: components/admin/sources-tab.tsx
 msgid "Incremental upserts rows that moved since the last pass; a full reconcile (deletes included) runs every {count} refreshes."
 msgstr "Incremental upserts rows that moved since the last pass; a full reconcile (deletes included) runs every {count} refreshes."
+
+#: components/admin/sources-tab.tsx
+msgid "Indices"
+msgstr "Indices"
 
 #: components/admin/logs-tab.tsx
 msgid "Info"
