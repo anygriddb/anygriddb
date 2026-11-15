@@ -20,7 +20,13 @@ const SQL_SOURCE_ENGINES = [
  * may read and copies it on a schedule; every read goes to the copy, in
  * AnyGridDB's own database, and nothing is ever written to the store.
  */
-const COPY_SOURCE_ENGINES = ["mongodb", "opensearch"] as const;
+const COPY_SOURCE_ENGINES = [
+  "mongodb",
+  "opensearch",
+  "redis",
+  "cassandra",
+  "neo4j",
+] as const;
 
 export const SOURCE_ENGINES = [
   ...SQL_SOURCE_ENGINES,
@@ -31,7 +37,8 @@ export type SqlSourceEngine = (typeof SQL_SOURCE_ENGINES)[number];
 export type CopySourceEngine = (typeof COPY_SOURCE_ENGINES)[number];
 
 /** What the form calls the field that names the database. */
-export type SourceDatabaseField = "database" | "service" | "indices";
+export type SourceDatabaseField =
+  "database" | "service" | "indices" | "prefix" | "keyspace";
 
 /**
  * The name of that field. A new store sets it here: the form does not
@@ -40,6 +47,8 @@ export type SourceDatabaseField = "database" | "service" | "indices";
 export function sourceDatabaseField(engine: SourceEngine): SourceDatabaseField {
   if (engine === "oracle") return "service";
   if (engine === "opensearch") return "indices";
+  if (engine === "redis") return "prefix";
+  if (engine === "cassandra") return "keyspace";
   return "database";
 }
 
@@ -60,6 +69,9 @@ export const DEFAULT_SOURCE_PORTS: Record<SourceEngine, number> = {
   oracle: 2484,
   mongodb: 27017,
   opensearch: 9200,
+  redis: 6379,
+  cassandra: 9042,
+  neo4j: 7687,
 };
 
 /** A copy is refreshed this often unless an administrator says otherwise. */

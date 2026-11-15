@@ -17,6 +17,7 @@ import { randomBytes } from "node:crypto";
 import { sql } from "kysely";
 import { withAudit, type AuditTx } from "../data/audit-context.js";
 import { isUniqueViolation } from "../data/schema-ops.js";
+import { followedField } from "./follow-field.js";
 import { sourceTables, type SourceDeps } from "./sources.js";
 import { refreshCopy, startCopy } from "./sync.js";
 import type { SourceTable } from "./types.js";
@@ -639,13 +640,17 @@ export async function refreshExposedTable(
         }
         // A field an administrator put in the trash stays there.
         if (field.deletedAt !== null) continue;
-        const isLink = field.fieldType === "relation_one_to_many";
-        const fieldType: FieldType = isLink
-          ? field.fieldType
-          : column.field.fieldType;
+        const followed = followedField({
+          link: field.fieldType === "relation_one_to_many",
+          currentType: field.fieldType,
+          currentExternal: field.externalType,
+          clientType: column.field.fieldType,
+          clientExternal: column.type,
+        });
+        const fieldType: FieldType = followed.fieldType;
         const previous = (field.config as { options?: unknown } | null)
           ?.options;
-        const config = isLink
+        const config = followed.keepConfig
           ? field.config
           : clientConfig(
               client,

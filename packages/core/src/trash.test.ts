@@ -59,11 +59,23 @@ describe("trash purge job input", () => {
     expect(trashPurgeJobInputSchema.safeParse({ due: true }).success).toBe(
       true,
     );
+    expect(
+      trashPurgeJobInputSchema.safeParse({
+        baseId: id,
+        dropSchema: "ag01a1c9c490ed7f2cb364428dbe",
+      }).success,
+    ).toBe(true);
   });
 
   it("refuses both, neither, and unknown kinds", () => {
     expect(
       trashPurgeJobInputSchema.safeParse({ baseId: id, due: true }).success,
+    ).toBe(false);
+    expect(
+      trashPurgeJobInputSchema.safeParse({
+        due: true,
+        dropSchema: "ag01a1c9c490ed7f2cb364428dbe",
+      }).success,
     ).toBe(false);
     expect(trashPurgeJobInputSchema.safeParse({}).success).toBe(false);
     expect(

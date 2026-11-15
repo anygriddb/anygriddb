@@ -128,11 +128,30 @@ export const catalogTrashProcedures = {
             throw new AppError("invalid_restore");
           }
         }
+        if (input.dropSchema) {
+          if (!user.isAdmin) throw new AppError("access_denied");
+          const dropsBase = items.some(
+            (item) => item.kind === "base" && item.id === input.baseId,
+          );
+          if (!dropsBase) throw new AppError("invalid_arguments");
+          const home = await ctx.db
+            .selectFrom("bases")
+            .select("homeSchema")
+            .where("id", "=", input.baseId)
+            .executeTakeFirst();
+          if (home?.homeSchema !== input.dropSchema) {
+            throw new AppError("invalid_arguments");
+          }
+        }
         const job = await enqueueJob(queueDeps(ctx), {
           kind: "trash_purge",
           userId: user.id,
           baseId: input.baseId,
-          input: { baseId: input.baseId, items },
+          input: {
+            baseId: input.baseId,
+            items,
+            ...(input.dropSchema ? { dropSchema: input.dropSchema } : {}),
+          },
         });
         return { jobId: job.id };
       }),

@@ -95,6 +95,8 @@ export function ConfirmDialog(props: {
   confirmLabel: string;
   danger?: boolean;
   onConfirm: () => Promise<void> | void;
+  /** Called after confirm. True leaves the dialog open. */
+  holdOpen?: () => boolean;
   /** What to show between the description and the buttons. */
   children?: ReactNode;
 }) {
@@ -115,7 +117,7 @@ export function ConfirmDialog(props: {
               setBusy(true);
               try {
                 await props.onConfirm();
-                props.onOpenChange(false);
+                if (!props.holdOpen?.()) props.onOpenChange(false);
               } finally {
                 setBusy(false);
               }

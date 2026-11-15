@@ -26,6 +26,20 @@ describe("emptyTableHint", () => {
     );
   });
 
+  it("says a copy has not arrived, rather than that the table is empty", () => {
+    expect(
+      emptyTableHint({
+        ...EMPTY,
+        canAdd: false,
+        canImport: false,
+        copyPending: true,
+      }),
+    ).toBe("copy-pending");
+    expect(
+      emptyTableHint({ ...EMPTY, copyPending: true, filtered: true }),
+    ).toBe("copy-pending");
+  });
+
   it("stays quiet while reading, with rows, or for a reader", () => {
     expect(emptyTableHint({ ...EMPTY, loading: true })).toBeNull();
     expect(emptyTableHint({ ...EMPTY, total: 3 })).toBeNull();

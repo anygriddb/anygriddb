@@ -710,7 +710,11 @@ export function Sidebar({
           danger
           onOpenChange={(open) => !open && setDialog(null)}
           title={t`Delete the base “${{ name: dialog.base.name }}”?`}
-          description={t`The base and its tables go to the trash: you can restore it from the home page for ${{ days }} days.`}
+          description={
+            dialog.base.homeSchema
+              ? t`The base and its tables go to the trash: you can restore it from the home page for ${{ days }} days. The schema ${{ schema: dialog.base.homeSchema }} stays in the external source.`
+              : t`The base and its tables go to the trash: you can restore it from the home page for ${{ days }} days.`
+          }
           confirmLabel={t`Delete`}
           onConfirm={async () => {
             const base = dialog.base;

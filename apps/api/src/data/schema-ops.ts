@@ -356,6 +356,21 @@ export async function insertTable(
   const primaryIndex = planned.findIndex((column) =>
     PRIMARY_TYPES.has(column.fieldType),
   );
+  const home = await db
+    .selectFrom("bases")
+    .select(["homeSourceId", "homeSchema"])
+    .where("id", "=", input.baseId)
+    .where("deletedAt", "is", null)
+    .executeTakeFirst();
+  if (!home) throw new AppError("unknown_base");
+  if (home.homeSourceId && home.homeSchema) {
+    const { createHostedTable } = await import("../sources/host-table.js");
+    return createHostedTable(db, userId, {
+      ...input,
+      sourceId: home.homeSourceId,
+      schema: home.homeSchema,
+    });
+  }
   try {
     return await withAudit(db, { userId, source: "web" }, async (tx) => {
       const counted = await tx
@@ -538,7 +553,31 @@ export async function addColumn(
   );
   // AnyGridDB never changes a client's table: on one, a field that stores
   // something lives in the side table (ADR 0032); a formula, a button, or
-  // the row's id stores nothing.
+  // the row's id stores nothing. A table this product created in a schema
+  // it owns is the exception: the new column is a column of that table.
+  if (
+    table.storage === "external" &&
+    table.physicalName.startsWith("h_") &&
+    planned.fieldType !== "formula" &&
+    planned.fieldType !== "button" &&
+    planned.fieldType !== "row_id"
+  ) {
+    const { addHostedColumn } = await import("../sources/host-table.js");
+    return addHostedColumn(
+      db,
+      userId,
+      table,
+      {
+        name: planned.name,
+        label: planned.label,
+        fieldType: planned.fieldType,
+        config: planned.config,
+      },
+      position === undefined
+        ? existing.length
+        : Math.min(position, existing.length),
+    );
+  }
   if (
     table.storage === "external" &&
     planned.fieldType !== "formula" &&

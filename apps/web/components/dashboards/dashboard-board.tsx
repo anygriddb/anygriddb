@@ -127,7 +127,7 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
 }
 
 function DashboardEditor(props: { baseId: string; dashboardId: string }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const api = useTRPC();
   const queryClient = useQueryClient();
   const catalog = useCatalog();
@@ -291,6 +291,15 @@ function DashboardEditor(props: { baseId: string; dashboardId: string }) {
   }
 
   const { dashboard, widgets } = board.data;
+  let oldestCopy: number | null = null;
+  for (const widget of widgets) {
+    const tableId = configString(widget.config, "tableId");
+    const at = base.tables.find((table) => table.id === tableId)?.external
+      ?.synced?.at;
+    if (!at) continue;
+    const time = new Date(at).getTime();
+    if (oldestCopy === null || time < oldestCopy) oldestCopy = time;
+  }
   const ordered = readingOrder(widgets);
   const modifying = manage && editing;
 
@@ -357,9 +366,16 @@ function DashboardEditor(props: { baseId: string; dashboardId: string }) {
           </Link>
         </Button>
         <LayoutDashboard className="h-5 w-5 text-primary" aria-hidden />
-        <h1 className="min-w-0 flex-1 truncate text-xl font-semibold">
-          {dashboard.name}
-        </h1>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-xl font-semibold">{dashboard.name}</h1>
+          {oldestCopy !== null ? (
+            <p role="note" className="text-xs text-muted-foreground">
+              {t`Figures follow the copy of ${{
+                date: new Date(oldestCopy).toLocaleString(i18n.locale),
+              }}`}
+            </p>
+          ) : null}
+        </div>
         {manage && !modifying ? (
           <>
             {undo.canUndo || undo.canRedo ? (

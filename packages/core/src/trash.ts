@@ -19,11 +19,18 @@ export const trashListInputSchema = z.object({ baseId: z.uuid() }).strict();
 
 export const restoreInputSchema = trashItemSchema;
 
+const homeSchemaName = z.string().regex(/^ag[0-9a-f]{26}$/);
+
 /** Deletes items of a base's trash for good; without items, all of them. */
 export const purgeTrashInputSchema = z
   .object({
     baseId: z.uuid(),
     items: z.array(trashItemSchema).min(1).max(100).optional(),
+    /**
+     * Also drop this schema in the external source. Only when it is the
+     * base's own, and only an administrator may ask.
+     */
+    dropSchema: homeSchemaName.optional(),
   })
   .strict();
 
@@ -33,10 +40,13 @@ export const trashPurgeJobInputSchema = z
     baseId: z.uuid().optional(),
     items: z.array(trashItemSchema).min(1).max(100).optional(),
     due: z.boolean().optional(),
+    dropSchema: homeSchemaName.optional(),
   })
   .strict()
   .refine(
-    (input) => Boolean(input.due) !== Boolean(input.baseId),
+    (input) =>
+      Boolean(input.due) !== Boolean(input.baseId) &&
+      !(input.due && input.dropSchema),
     "Invalid job",
   );
 /** When an item deleted at `deletedAt` is purged. */

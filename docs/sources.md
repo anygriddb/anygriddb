@@ -69,6 +69,29 @@ plain words. Every write is recorded in AnyGridDB in three steps, intent,
 applied, confirmed, and shows in the row's history; changes made by other
 applications do not.
 
+## A base held in a SQL source
+
+Creating a base can put the tables it creates in a schema of a PostgreSQL,
+MySQL, MariaDB, or SQL Server source. The choice is an administrator's,
+and only for a source that speaks SQL. A store read from a copy cannot
+hold a base: it has no tables for AnyGridDB to create. Oracle is not
+offered here.
+
+The schema's name is fixed from the base (`ag` and part of its id). The
+account must be allowed to create that schema and the tables in it. If it
+cannot, nothing is created, neither the base nor the schema. Tables added
+later, and columns added to them, are columns of those tables. Members,
+views, dashboards, files, comments, and history stay in AnyGridDB.
+
+Renaming the base does not rename the schema. Two bases need two schemas.
+A starting point is not applied: its sample rows and links are written
+as AnyGridDB's own tables, so the base starts empty. Duplicating one of
+its tables is not offered. Deleting the base leaves the schema. Deleting
+the base for good can also drop it, and only then, when an administrator
+types the schema's name.
+A table that already existed at the client is never one of these: exposing
+it does not change its schema.
+
 ## Reading a copy instead
 
 A DBA who refuses live queries on a production database can have a table
@@ -156,6 +179,33 @@ protocol; it is not part of AnyGridDB's tests.
   control character, the fields past the first 300 of a collection, and
   the collections past the first 1,000.
 
+### The Redis wire protocol
+
+Tested against Valkey. Redis's own server speaks the same protocol; it
+is not part of AnyGridDB's tests.
+
+- **Key prefix** is the start of the keys to read. It is not a pattern:
+  `*`, `?` and a space are refused, and an empty prefix is refused,
+  because either would read every key. The port is 6379 unless you set
+  another. Database 0 is the one read.
+- A key is a row, named by the key. A hash's fields are columns. A
+  string that is a JSON object is a row of its keys. Anything else is
+  one column, `value`.
+- Where the server tells the account's commands, AnyGridDB refuses one
+  that can administer the server (`+@all`, `+@admin`, `+@dangerous`,
+  or every command). A key the scan meets twice is copied once.
+
+### Cassandra
+
+Tested against Cassandra 5.
+
+- **Keyspace** is the keyspace to read. The port is 9042 unless you set
+  another. The data center is the one the server reports for itself.
+- A table is read from first row to last, by pages. A table whose name
+  is not a plain identifier, or which has no partition key, is left out.
+- A superuser, when `system_auth.roles` says so, is refused. A server
+  with authentication turned off says nothing, and is read.
+
 ### OpenSearch
 
 Tested against OpenSearch 2. The port is 9200 unless you set another.
@@ -178,6 +228,20 @@ are left out.
 - Left out: a field whose name is longer than 63 bytes or holds a
   control character, an alias, the fields past the first 300 of an
   index, and the indices past the first 1,000.
+
+### Neo4j
+
+Tested against Neo4j Community.
+
+- **Database** is the Neo4j database (`neo4j` unless you created
+  another). The port is 7687 unless you set another.
+- A label is a table, a node a row named by its element id, a property
+  a column. Relationships are not links: the grid is the nodes, not the
+  graph.
+- The built-in account `neo4j` is refused. Community Edition reports no
+  roles, so create another user: it can read, and the server cannot say
+  it administers. Where roles are reported, `admin` and `architect` are
+  refused too.
 
 ## Statuses and signatures
 
@@ -291,9 +355,10 @@ AnyGridDB once an administrator clicks **Refresh fields** on that table,
 in the source's page (or under the message a grid shows when a read
 fails because the table changed). New columns become fields, links when
 they are foreign keys to an exposed table; a field follows its column's
-type and rights under the same name, so views and formulas keep it; a
-field whose column is gone goes to the trash. The table's primary key
-follows too: without one, writes stop.
+type when that type changed, under the same name, so views and formulas
+keep it. A type chosen in AnyGridDB stays while the column's type is
+the same. A field whose column is gone goes to the trash. The table's
+primary key follows too: without one, writes stop.
 
 A text column a check limits to a list of values reads as a single
 select of that list (`check (status in ('draft', 'sent'))`). SQL Server

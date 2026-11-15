@@ -149,12 +149,15 @@ export type Role = "commenter" | "editor" | "owner" | "viewer";
 export type Scope = "base" | "column" | "row" | "table";
 
 export type SourceEngine =
+  | "cassandra"
   | "mariadb"
   | "mongodb"
   | "mysql"
+  | "neo4j"
   | "opensearch"
   | "oracle"
   | "postgres"
+  | "redis"
   | "sqlserver";
 
 export type TableStorage = "external" | "native";
@@ -301,6 +304,8 @@ export interface Bases {
   deletedAt: Timestamp | null;
   deletedBy: string | null;
   description: string | null;
+  homeSchema: string | null;
+  homeSourceId: string | null;
   id: Generated<string>;
   name: string;
 }

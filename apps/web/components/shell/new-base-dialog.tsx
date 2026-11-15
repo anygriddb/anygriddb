@@ -6,6 +6,7 @@ import {
   DialogFooter,
   Input,
   Label,
+  Select,
   Spinner,
 } from "@anygriddb/ui";
 import { useQuery } from "@tanstack/react-query";
@@ -99,6 +100,8 @@ function NewBaseForm(props: NewBaseProps) {
     staleTime: Infinity,
   });
   const [name, setName] = useState("");
+  const [home, setHome] = useState("");
+  const homes = useQuery(api.catalog.sourceHomes.queryOptions());
   const [template, setTemplate] = useState("");
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -318,6 +321,7 @@ function NewBaseForm(props: NewBaseProps) {
       const created = await trpc.catalog.createBase.mutate({
         name: name.trim(),
         template: template || undefined,
+        sourceId: home || undefined,
       });
       await invalidate();
       props.onOpenChange(false);
@@ -386,44 +390,72 @@ function NewBaseForm(props: NewBaseProps) {
           onChange={(event) => setName(event.target.value)}
         />
       </div>
+      {source === "start" && (homes.data?.length ?? 0) > 0 ? (
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="new-base-home">{t`Where the tables live`}</Label>
+          <Select
+            id="new-base-home"
+            value={home}
+            onChange={(event) => {
+              const next = event.target.value;
+              setHome(next);
+              if (next) setTemplate("");
+            }}
+          >
+            <option value="">{t`AnyGridDB`}</option>
+            {homes.data?.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            {home
+              ? t`Tables you create, and the columns you add to them, are written in a schema of this source. Members, views, dashboards, files, and history stay in AnyGridDB.`
+              : t`Tables stay in AnyGridDB. A source without SQL is not listed: it is read from a copy and cannot hold a new base.`}
+          </p>
+        </div>
+      ) : null}
       {source === "start" ? (
         <>
-          <fieldset className="flex min-h-0 flex-col gap-1">
-            <legend className="mb-1 text-xs font-medium text-muted-foreground">
-              {t`Starting point`}
-            </legend>
-            {templates.isLoading ? <Spinner /> : null}
-            <div
-              role="radiogroup"
-              className="grid max-h-[46vh] grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2"
-            >
-              {choices.map((choice) => (
-                <button
-                  key={choice.id || "empty"}
-                  type="button"
-                  role="radio"
-                  aria-checked={template === choice.id}
-                  onClick={() => pick(choice.id, choice.name)}
-                  className={cn(
-                    "flex flex-col gap-1 rounded-sm border p-3 text-left text-sm hover:bg-muted",
-                    template === choice.id
-                      ? "border-primary ring-1 ring-primary"
-                      : "border-border",
-                  )}
-                >
-                  <span className="font-medium">{choice.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {choice.description}
-                  </span>
-                  {choice.tables.length > 0 ? (
+          {!home ? (
+            <fieldset className="flex min-h-0 flex-col gap-1">
+              <legend className="mb-1 text-xs font-medium text-muted-foreground">
+                {t`Starting point`}
+              </legend>
+              {templates.isLoading ? <Spinner /> : null}
+              <div
+                role="radiogroup"
+                className="grid max-h-[46vh] grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2"
+              >
+                {choices.map((choice) => (
+                  <button
+                    key={choice.id || "empty"}
+                    type="button"
+                    role="radio"
+                    aria-checked={template === choice.id}
+                    onClick={() => pick(choice.id, choice.name)}
+                    className={cn(
+                      "flex flex-col gap-1 rounded-sm border p-3 text-left text-sm hover:bg-muted",
+                      template === choice.id
+                        ? "border-primary ring-1 ring-primary"
+                        : "border-border",
+                    )}
+                  >
+                    <span className="font-medium">{choice.name}</span>
                     <span className="text-xs text-muted-foreground">
-                      {choice.tables.join(" · ")}
+                      {choice.description}
                     </span>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-          </fieldset>
+                    {choice.tables.length > 0 ? (
+                      <span className="text-xs text-muted-foreground">
+                        {choice.tables.join(" · ")}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
           {/* A backup dropped here is read at once. */}
           <div
             className={cn(

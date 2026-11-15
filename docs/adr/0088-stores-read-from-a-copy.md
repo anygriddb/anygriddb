@@ -67,6 +67,20 @@ changed.
   `_id`, a top-level field of the mapping a column. The mapping says
   each field's type. It is tested against OpenSearch 2. A cluster that
   does not say it is OpenSearch is refused.
+- **The Redis wire protocol.** A key prefix is a table, a key a row,
+  a hash field or a JSON object's key a column. It is tested against
+  Valkey. Redis's own server speaks the same protocol and is not part
+  of the tests: its license is not one AnyGridDB's tools take. An
+  account that can administer the server is refused. Nothing is written.
+- **Cassandra.** A keyspace is the database, a table a table, read by
+  pages from first row to last. A superuser, when the server says so,
+  is refused. It is tested against Cassandra 5.
+- **Neo4j.** A database is the database, a label a table, a node a row
+  named by its element id, a property a column. Relationships are not
+  links. The built-in account `neo4j` is refused, and so is `admin` or
+  `architect` where the server reports roles. It is tested against
+  Neo4j Community. The connection is the one host named on the source:
+  the driver's routing protocol is not used.
 
 ## Rejected
 

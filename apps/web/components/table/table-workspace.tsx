@@ -1,5 +1,6 @@
 import {
   applyViewConfigPatch,
+  isCopySourceEngine,
   MAX_VIEW_GROUPS,
   MAX_VIEW_SORTS,
   type FilterGroup,
@@ -896,11 +897,19 @@ export function TableWorkspace({
       !config.filtersDisabled && (config.filter?.conditions.length ?? 0) > 0,
     canAdd,
     canImport,
+    copyPending:
+      external?.synced != null &&
+      external.synced.at === null &&
+      isCopySourceEngine(external.engine),
   });
   const emptyHint =
     hint === "nothing-matches" ? (
       <p className="text-sm text-muted-foreground">
         {t`No row matches this view's filters or search.`}
+      </p>
+    ) : hint === "copy-pending" ? (
+      <p className="text-sm text-muted-foreground">
+        {t`The copy has not arrived. The table stays empty until then.`}
       </p>
     ) : hint === "start" ? (
       // The grid's own last line adds a row: the hint points to it rather
@@ -1220,7 +1229,9 @@ export function TableWorkspace({
                     locale === "fr" ? "fr-FR" : "en-GB",
                   ),
                 }}, refreshed every ${{ minutes: table.external.synced.intervalMinutes }} min: read-only`
-              : t`Copy in preparation: the table is read live until then`}
+              : isCopySourceEngine(table.external.engine)
+                ? t`The copy has not arrived. The table stays empty until then.`
+                : t`Copy in preparation: the table is read live until then`}
           </p>
         ) : null}
         <ViewToolbar
