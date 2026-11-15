@@ -30,6 +30,7 @@ const auditInputSchema = z.object({
       "sign",
       "catalog",
       "export",
+      "open",
       "purge",
       "access",
     ])

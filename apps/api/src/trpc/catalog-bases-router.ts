@@ -201,6 +201,9 @@ export const catalogBaseProcedures = {
                 description: table.description,
                 position: table.position,
                 folderId: table.folderId,
+                // Who opens this table is on the change trail when true
+                // (ROADMAP #31); off until a manager turns it on.
+                trailReads: table.trailReads,
                 role: effectiveTableRole(bindings, table.id, table.baseId),
                 // A client's table (ADR 0006): read where it lives.
                 external:
@@ -316,8 +319,9 @@ export const catalogBaseProcedures = {
                 "users.displayName",
               ])
               .where("auditEvents.tableId", "in", open)
-              // Taking rows out changes nothing (ROADMAP #31).
-              .where("auditEvents.action", "<>", "export")
+              // Taking rows out, or opening a table, changes nothing
+              // (ROADMAP #31).
+              .where("auditEvents.action", "not in", ["export", "open"])
               .orderBy("auditEvents.tableId")
               .orderBy("auditEvents.occurredAt", "desc")
               .execute();

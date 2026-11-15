@@ -1,4 +1,5 @@
 import type { Database } from "@anygriddb/db";
+import { recordTableOpen } from "./table-open-audit.js";
 
 /** Tables a person's home lists as opened last. */
 const RECENT_TABLES_SHOWN = 12;
@@ -59,11 +60,15 @@ export async function setPin(
   await query.execute();
 }
 
-/** Records that a person opened a table, keeping their last fifty. */
+/**
+ * Records that a person opened a table, keeping their last fifty, and
+ * writes to the change trail when that table records opens (ROADMAP #31).
+ */
 export async function touchTable(
   db: Database,
   userId: string,
   tableId: string,
+  source = "web",
 ): Promise<void> {
   await db.transaction().execute(async (trx) => {
     await trx
@@ -90,4 +95,5 @@ export async function touchTable(
       )
       .execute();
   });
+  await recordTableOpen(db, { userId, tableId, source });
 }

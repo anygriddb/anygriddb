@@ -34,6 +34,7 @@ export const ACTIVITY_KINDS = [
   "field_deleted",
   "table_added",
   "table_renamed",
+  "table_opened",
 ] as const;
 
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number];

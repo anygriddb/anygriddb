@@ -16,6 +16,7 @@ export function useChangeActionLabel(): (action: string) => string {
     sign: t`Signature`,
     catalog: t`Structure`,
     export: t`Export`,
+    open: t`Opened`,
     purge: t`Purge`,
     access: t`Base opened`,
   };

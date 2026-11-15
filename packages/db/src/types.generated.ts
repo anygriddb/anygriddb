@@ -12,6 +12,7 @@ export type AuditAction =
   | "export"
   | "insert"
   | "lock"
+  | "open"
   | "purge"
   | "sign"
   | "submit"
@@ -413,6 +414,7 @@ export interface DataTables {
   position: Generated<number>;
   sourceId: string | null;
   storage: Generated<TableStorage>;
+  trailReads: Generated<boolean>;
 }
 
 export interface EmailFactors {
