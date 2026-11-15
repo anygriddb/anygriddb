@@ -38,6 +38,16 @@ type Statement = { text: string; values: readonly unknown[] };
  */
 export const POOL_WAIT_MS = 30_000;
 
+/**
+ * A transaction that has stopped running statements gives its locks back.
+ * Set on this pool only: a session opened beside the application, with
+ * its own connection, is not cut off.
+ */
+export const IDLE_IN_TRANSACTION_TIMEOUT = "60s";
+
+/** What pg_stat_activity and a slow-statement log call this process. */
+export const APPLICATION_NAME = "anygriddb-api";
+
 export function createDb(
   connectionString: string,
   options: {
@@ -51,6 +61,8 @@ export function createDb(
     connectionString,
     max: options.max ?? 10,
     connectionTimeoutMillis: options.waitMs ?? POOL_WAIT_MS,
+    application_name: APPLICATION_NAME,
+    options: `-c idle_in_transaction_session_timeout=${IDLE_IN_TRANSACTION_TIMEOUT}`,
     // A backstop for work that does not set its own limit. Reads use
     // `readWithin` (15s). A lock wait gives the connection back sooner.
     statement_timeout: 60_000,
