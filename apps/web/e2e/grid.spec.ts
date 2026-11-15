@@ -21,6 +21,29 @@ async function typeName(page: Page, text: string) {
   await saved;
 }
 
+/**
+ * Turns the wheel over the heading `target` and waits for a box around
+ * it to move. The shell clips overflow, so a page taller than the window
+ * moves only when a box of its own scrolls; a script's scrollIntoView
+ * would move a clipped box too, so this turns the wheel as a person does.
+ */
+async function expectWheelScrolls(page: Page, target: string) {
+  const heading = page.getByRole("heading", { name: target, exact: true });
+  await heading.hover();
+  await page.mouse.wheel(0, 2000);
+  await expect
+    .poll(() =>
+      heading.evaluate((element) => {
+        let distance = 0;
+        for (let box = element.parentElement; box; box = box.parentElement) {
+          distance = Math.max(distance, box.scrollTop);
+        }
+        return distance;
+      }),
+    )
+    .toBeGreaterThan(0);
+}
+
 test("signup, second factor, base, table, then a typed cell survives a reload", async ({
   page,
 }) => {
@@ -832,5 +855,15 @@ test("an earlier cell, base name, and widget title go back", async ({
   await expect(earlier.getByText("Orders 2 → Orders")).toBeVisible();
   await earlier.getByRole("button", { name: "Close" }).click();
   await expect(page.getByRole("heading", { name: "Orders" })).toBeVisible();
+
+  // A window shorter than the page: the board, the list of dashboards,
+  // and the base's home each scroll with the wheel.
+  await page.getByRole("button", { name: "Done editing" }).click();
+  await page.setViewportSize({ width: 1280, height: 240 });
+  await expectWheelScrolls(page, "Orders");
+  await page.getByRole("link", { name: "Back" }).click();
+  await expectWheelScrolls(page, "Dashboards of Lab");
+  await page.getByRole("link", { name: "Lab", exact: true }).click();
+  await expectWheelScrolls(page, "Lab");
   expect(blocked).toEqual([]);
 });
