@@ -29,14 +29,19 @@ type OutboundLink = {
 
 /**
  * Every public link not revoked, and every calendar feed, of a live view
- * of a live table of a live base: newest first, at most `limit` of each.
+ * of a live table of a live base: newest first, then a page of them.
  */
 export async function listOutbound(
   db: Database,
-  limit: number,
-  /** Only those of this base. */
-  baseId?: string,
-): Promise<OutboundLink[]> {
+  input: {
+    limit: number;
+    offset?: number;
+    /** Only those of this base. */
+    baseId?: string;
+  },
+): Promise<{ links: OutboundLink[]; total: number }> {
+  const offset = input.offset ?? 0;
+  const baseId = input.baseId;
   const now = Date.now();
   const [viewLinks, baseLinks, feeds] = await Promise.all([
     db
@@ -64,7 +69,6 @@ export async function listOutbound(
         query.where("b.id", "=", baseId ?? ""),
       )
       .orderBy("s.createdAt", "desc")
-      .limit(limit)
       .execute(),
     db
       .selectFrom("shares as s")
@@ -86,7 +90,6 @@ export async function listOutbound(
         query.where("b.id", "=", baseId ?? ""),
       )
       .orderBy("s.createdAt", "desc")
-      .limit(limit)
       .execute(),
     db
       .selectFrom("calendarFeeds as f")
@@ -111,10 +114,9 @@ export async function listOutbound(
         query.where("b.id", "=", baseId ?? ""),
       )
       .orderBy("f.createdAt", "desc")
-      .limit(limit)
       .execute(),
   ]);
-  return [
+  const links = [
     ...viewLinks.map((row): OutboundLink => ({
       kind: "link",
       id: row.id,
@@ -159,6 +161,10 @@ export async function listOutbound(
       lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
     })),
   ].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  return {
+    links: links.slice(offset, offset + input.limit),
+    total: links.length,
+  };
 }
 
 /**
@@ -255,9 +261,15 @@ function hostOf(target: string): string | null {
 /** Every API token of the instance, with its owner and last use. */
 export async function listInstanceTokens(
   db: Database,
-  limit: number,
-): Promise<InstanceToken[]> {
+  input: { limit: number; offset?: number },
+): Promise<{ tokens: InstanceToken[]; total: number }> {
+  const offset = input.offset ?? 0;
   const now = Date.now();
+  const counted = await db
+    .selectFrom("apiTokens")
+    .select(sql<string>`count(*)`.as("value"))
+    .executeTakeFirst();
+  const total = Number(counted?.value ?? 0);
   const rows = await db
     .selectFrom("apiTokens as k")
     .innerJoin("users as u", "u.id", "k.userId")
@@ -273,84 +285,120 @@ export async function listInstanceTokens(
       "u.displayName as owner",
     ])
     .orderBy("k.createdAt", "desc")
-    .limit(limit)
+    .offset(offset)
+    .limit(input.limit)
     .execute();
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    ownerId: row.userId,
-    owner: row.owner,
-    createdAt: row.createdAt.toISOString(),
-    expiresAt: row.expiresAt.toISOString(),
-    expired: row.expiresAt.getTime() <= now,
-    lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
-    readOnly: row.readOnly,
-    bases: Array.isArray(row.baseIds) ? row.baseIds.length : null,
-  }));
+  return {
+    tokens: rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      ownerId: row.userId,
+      owner: row.owner,
+      createdAt: row.createdAt.toISOString(),
+      expiresAt: row.expiresAt.toISOString(),
+      expired: row.expiresAt.getTime() <= now,
+      lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
+      readOnly: row.readOnly,
+      bases: Array.isArray(row.baseIds) ? row.baseIds.length : null,
+    })),
+    total,
+  };
 }
 
 /**
  * Every outgoing webhook and automation of a live table of a live base:
  * whether it is on, where a webhook sends (its host), and how it fails.
+ * Each kind is paged on its own.
  */
 export async function listInstanceHooks(
   db: Database,
-  limit: number,
-): Promise<InstanceHook[]> {
+  input: {
+    webhooks: { limit: number; offset?: number };
+    automations: { limit: number; offset?: number };
+  },
+): Promise<{
+  webhooks: InstanceHook[];
+  webhooksTotal: number;
+  automations: InstanceHook[];
+  automationsTotal: number;
+}> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const [webhooks, automations] = await Promise.all([
-    db
-      .selectFrom("webhooks as w")
-      .innerJoin("dataTables as t", "t.id", "w.tableId")
-      .innerJoin("bases as b", "b.id", "t.baseId")
-      .leftJoin("users as u", "u.id", "w.createdBy")
-      .select([
-        "w.id",
-        "w.name",
-        "w.active",
-        "w.target",
-        "w.disabledReason",
-        "w.failureCount",
-        "t.name as table",
-        "b.id as baseId",
-        "b.name as base",
-        "u.displayName as owner",
-      ])
-      .where(liveTable("t"))
-      .where(liveBase("b"))
-      .orderBy("w.createdAt", "desc")
-      .limit(limit)
-      .execute(),
-    db
-      .selectFrom("automations as a")
-      .innerJoin("dataTables as t", "t.id", "a.tableId")
-      .innerJoin("bases as b", "b.id", "t.baseId")
-      .leftJoin("users as u", "u.id", "a.createdBy")
-      .select((eb) => [
-        "a.id",
-        "a.name",
-        "a.enabled",
-        "a.lastRunAt",
-        "t.name as table",
-        "b.id as baseId",
-        "b.name as base",
-        "u.displayName as owner",
-        eb
-          .selectFrom("automationRuns as r")
-          .select((inner) => inner.fn.countAll<string>().as("count"))
-          .whereRef("r.automationId", "=", "a.id")
-          .where("r.status", "=", "failed")
-          .where("r.startedAt", ">=", since)
-          .as("failures"),
-      ])
-      .where(liveTable("t"))
-      .where(liveBase("b"))
-      .orderBy("a.createdAt", "desc")
-      .limit(limit)
-      .execute(),
-  ]);
-  return [
-    ...webhooks.map((row): InstanceHook => ({
+  const webhooksOffset = input.webhooks.offset ?? 0;
+  const automationsOffset = input.automations.offset ?? 0;
+  const [webhooksTotalRow, automationsTotalRow, webhooks, automations] =
+    await Promise.all([
+      db
+        .selectFrom("webhooks as w")
+        .innerJoin("dataTables as t", "t.id", "w.tableId")
+        .innerJoin("bases as b", "b.id", "t.baseId")
+        .select(sql<string>`count(*)`.as("value"))
+        .where(liveTable("t"))
+        .where(liveBase("b"))
+        .executeTakeFirst(),
+      db
+        .selectFrom("automations as a")
+        .innerJoin("dataTables as t", "t.id", "a.tableId")
+        .innerJoin("bases as b", "b.id", "t.baseId")
+        .select(sql<string>`count(*)`.as("value"))
+        .where(liveTable("t"))
+        .where(liveBase("b"))
+        .executeTakeFirst(),
+      db
+        .selectFrom("webhooks as w")
+        .innerJoin("dataTables as t", "t.id", "w.tableId")
+        .innerJoin("bases as b", "b.id", "t.baseId")
+        .leftJoin("users as u", "u.id", "w.createdBy")
+        .select([
+          "w.id",
+          "w.name",
+          "w.active",
+          "w.target",
+          "w.disabledReason",
+          "w.failureCount",
+          "t.name as table",
+          "b.id as baseId",
+          "b.name as base",
+          "u.displayName as owner",
+        ])
+        .where(liveTable("t"))
+        .where(liveBase("b"))
+        .orderBy("w.createdAt", "desc")
+        .offset(webhooksOffset)
+        .limit(input.webhooks.limit)
+        .execute(),
+      db
+        .selectFrom("automations as a")
+        .innerJoin("dataTables as t", "t.id", "a.tableId")
+        .innerJoin("bases as b", "b.id", "t.baseId")
+        .leftJoin("users as u", "u.id", "a.createdBy")
+        .select((eb) => [
+          "a.id",
+          "a.name",
+          "a.enabled",
+          "a.lastRunAt",
+          "t.name as table",
+          "b.id as baseId",
+          "b.name as base",
+          "u.displayName as owner",
+          eb
+            .selectFrom("automationRuns as r")
+            .select((inner) => inner.fn.countAll<string>().as("count"))
+            .whereRef("r.automationId", "=", "a.id")
+            .where("r.status", "=", "failed")
+            .where("r.startedAt", ">=", since)
+            .as("failures"),
+        ])
+        .where(liveTable("t"))
+        .where(liveBase("b"))
+        .orderBy("a.createdAt", "desc")
+        .offset(automationsOffset)
+        .limit(input.automations.limit)
+        .execute(),
+    ]);
+  return {
+    webhooksTotal: Number(webhooksTotalRow?.value ?? 0),
+    automationsTotal: Number(automationsTotalRow?.value ?? 0),
+    webhooks: webhooks.map((row): InstanceHook => ({
       kind: "webhook",
       id: row.id,
       name: row.name,
@@ -364,7 +412,7 @@ export async function listInstanceHooks(
       lastRunAt: null,
       failures: row.failureCount,
     })),
-    ...automations.map((row): InstanceHook => ({
+    automations: automations.map((row): InstanceHook => ({
       kind: "automation",
       id: row.id,
       name: row.name,
@@ -378,7 +426,7 @@ export async function listInstanceHooks(
       lastRunAt: row.lastRunAt?.toISOString() ?? null,
       failures: Number(row.failures ?? 0),
     })),
-  ];
+  };
 }
 
 type BaseOverview = {
@@ -416,32 +464,41 @@ export async function listBaseOverview(
   input: {
     search?: string;
     limit: number;
+    offset?: number;
     baseId?: string;
     /** Only the bases no active account owns. */
     ownerless?: boolean;
   },
-): Promise<BaseOverview[]> {
+): Promise<{ bases: BaseOverview[]; total: number }> {
+  const offset = input.offset ?? 0;
   const pattern = input.search
     ? `%${input.search.replace(/[%_\\]/g, "\\$&")}%`
     : undefined;
-  const page = await db
-    .selectFrom("bases as b")
+  const filtered = () =>
+    db
+      .selectFrom("bases as b")
+      .where(liveBase("b"))
+      .$if(pattern !== undefined, (query) =>
+        query.where("b.name", "ilike", pattern ?? ""),
+      )
+      .$if(input.baseId !== undefined, (query) =>
+        query.where("b.id", "=", input.baseId ?? ""),
+      )
+      .$if(input.ownerless === true, (query) =>
+        query.where(sql<boolean>`not (${LIVE_OWNER})`),
+      );
+  const counted = await filtered()
+    .select(sql<string>`count(*)`.as("value"))
+    .executeTakeFirst();
+  const total = Number(counted?.value ?? 0);
+  const page = await filtered()
     .select(["b.id", "b.name", "b.createdAt", LIVE_OWNER.as("hasLiveOwner")])
-    .where(liveBase("b"))
-    .$if(pattern !== undefined, (query) =>
-      query.where("b.name", "ilike", pattern ?? ""),
-    )
-    .$if(input.baseId !== undefined, (query) =>
-      query.where("b.id", "=", input.baseId ?? ""),
-    )
-    .$if(input.ownerless === true, (query) =>
-      query.where(sql<boolean>`not (${LIVE_OWNER})`),
-    )
     .orderBy("b.name", "asc")
     .orderBy("b.id", "asc")
+    .offset(offset)
     .limit(input.limit)
     .execute();
-  if (page.length === 0) return [];
+  if (page.length === 0) return { bases: [], total };
   const ids = page.map((row) => row.id);
 
   const [ownerRows, memberRows, tableRows, fileRows, shareRows, feedRows] =
@@ -553,21 +610,24 @@ export async function listBaseOverview(
     );
   }
 
-  return page.map((row) => {
-    const tables = tablesByBase.get(row.id);
-    return {
-      id: row.id,
-      name: row.name,
-      createdAt: row.createdAt.toISOString(),
-      owners: ownersByBase.get(row.id) ?? [],
-      hasLiveOwner: row.hasLiveOwner,
-      members: membersByBase.get(row.id) ?? 0,
-      tables: tables?.tables ?? 0,
-      estimatedRows: tables?.estimatedRows ?? 0,
-      fileBytes: filesByBase.get(row.id) ?? 0,
-      outbound: outboundByBase.get(row.id) ?? 0,
-    };
-  });
+  return {
+    total,
+    bases: page.map((row) => {
+      const tables = tablesByBase.get(row.id);
+      return {
+        id: row.id,
+        name: row.name,
+        createdAt: row.createdAt.toISOString(),
+        owners: ownersByBase.get(row.id) ?? [],
+        hasLiveOwner: row.hasLiveOwner,
+        members: membersByBase.get(row.id) ?? 0,
+        tables: tables?.tables ?? 0,
+        estimatedRows: tables?.estimatedRows ?? 0,
+        fileBytes: filesByBase.get(row.id) ?? 0,
+        outbound: outboundByBase.get(row.id) ?? 0,
+      };
+    }),
+  };
 }
 
 /** How many live bases no active account owns. */

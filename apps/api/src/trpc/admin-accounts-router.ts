@@ -390,18 +390,26 @@ export const adminAccountProcedures = {
         return { ok: true as const };
       }),
     ),
-  sessions: procedure.query(({ ctx }) =>
-    handle(ctx, async () => {
-      const admin = await requireSupport(ctx);
-      const sessions = await listSessions(ctx.db);
-      return {
-        sessions: sessions.map((session) => ({
-          ...session,
-          mine: session.userId === admin.id,
-        })),
-      };
-    }),
-  ),
+  sessions: procedure
+    .input(
+      z.object({
+        limit: z.int().min(1).max(100).default(50),
+        offset: z.int().min(0).max(1_000_000).default(0),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        const admin = await requireSupport(ctx);
+        const listed = await listSessions(ctx.db, input);
+        return {
+          total: listed.total,
+          sessions: listed.sessions.map((session) => ({
+            ...session,
+            mine: session.userId === admin.id,
+          })),
+        };
+      }),
+    ),
   endSession: procedure
     .input(z.object({ sessionId: z.uuid() }))
     .mutation(({ ctx, input }) =>

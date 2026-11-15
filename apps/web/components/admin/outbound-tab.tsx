@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
+import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
+import { useAdminPage, useAdminPageSize } from "./admin-page-size";
 
 type Link = RouterOutputs["admin"]["outbound"]["list"]["links"][number];
 
@@ -23,9 +25,15 @@ export function OutboundTab() {
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
-  const outbound = useQuery(api.admin.outbound.list.queryOptions());
+  const [pageSize, setPageSize] = useAdminPageSize();
+  const { page, setPage, offset, limit } = useAdminPage(pageSize);
+  const outbound = useQuery({
+    ...api.admin.outbound.list.queryOptions({ limit, offset }),
+    placeholderData: (previous) => previous,
+  });
   const [revoking, setRevoking] = useState<Link | null>(null);
   const links = outbound.data?.links ?? [];
+  const total = outbound.data?.total ?? 0;
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">
@@ -43,9 +51,9 @@ export function OutboundTab() {
         </p>
       ) : null}
       {links.length > 0 ? (
-        <div className="overflow-x-auto rounded-sm border border-border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted text-left text-xs">
+        <>
+          <AdminTable>
+            <AdminTableHead>
               <tr>
                 <th className="px-3 py-2">{t`What`}</th>
                 <th className="px-3 py-2">{t`View`}</th>
@@ -56,7 +64,7 @@ export function OutboundTab() {
                   <span className="sr-only">{t`Actions`}</span>
                 </th>
               </tr>
-            </thead>
+            </AdminTableHead>
             <tbody>
               {links.map((link) => (
                 <tr
@@ -104,8 +112,16 @@ export function OutboundTab() {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </AdminTable>
+          <AdminPager
+            total={total}
+            offset={offset}
+            pageSize={pageSize}
+            onPageSize={setPageSize}
+            onPrev={() => setPage(page - 1)}
+            onNext={() => setPage(page + 1)}
+          />
+        </>
       ) : null}
       {revoking ? (
         <ConfirmDialog

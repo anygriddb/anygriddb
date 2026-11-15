@@ -222,14 +222,15 @@ export const adminInstanceProcedures = {
     .input(
       z.object({
         level: z.enum(["info", "warn", "error"]).default("warn"),
-        limit: z.int().min(1).max(200).default(100),
+        limit: z.int().min(1).max(100).default(50),
+        offset: z.int().min(0).max(1_000_000).default(0),
         query: z.string().max(200).optional(),
       }),
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
         await requireAdmin(ctx);
-        return { lines: processLog.list(input) };
+        return processLog.list(input);
       }),
     ),
   /**
@@ -303,12 +304,13 @@ export const adminInstanceProcedures = {
       z.object({
         status: z.enum(JOB_STATUSES).optional(),
         limit: z.int().min(1).max(100).default(50),
+        offset: z.int().min(0).max(1_000_000).default(0),
       }),
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
         await requireAdmin(ctx);
-        return { jobs: await listAllJobs(ctx.db, input) };
+        return listAllJobs(ctx.db, input);
       }),
     ),
   cancelJob: procedure
@@ -332,11 +334,16 @@ export const adminInstanceProcedures = {
       }),
     ),
   failedDeliveries: procedure
-    .input(z.object({ limit: z.int().min(1).max(200).default(50) }))
+    .input(
+      z.object({
+        limit: z.int().min(1).max(100).default(50),
+        offset: z.int().min(0).max(1_000_000).default(0),
+      }),
+    )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
         await requireAdmin(ctx);
-        return { deliveries: await listFailedDeliveries(ctx.db, input.limit) };
+        return listFailedDeliveries(ctx.db, input);
       }),
     ),
   /** Sends a test email to the administrator's own address. */

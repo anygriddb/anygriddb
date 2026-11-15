@@ -5,6 +5,8 @@ import { RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTRPC } from "../../lib/trpc";
 import { LoadFailed } from "../shell/load-failed";
+import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
+import { useAdminPage, useAdminPageSize } from "./admin-page-size";
 
 const LEVELS = ["warn", "error", "info"] as const;
 type Level = (typeof LEVELS)[number];
@@ -19,6 +21,7 @@ export function LogsTab() {
   const [level, setLevel] = useState<Level>("warn");
   const [text, setText] = useState("");
   const [query, setQuery] = useState("");
+  const [pageSize, setPageSize] = useAdminPageSize();
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
   const type = (value: string) => {
@@ -26,10 +29,15 @@ export function LogsTab() {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setQuery(value.trim()), 250);
   };
+  const { page, setPage, offset, limit } = useAdminPage(
+    pageSize,
+    `${level}:${query}`,
+  );
   const logs = useQuery({
     ...api.admin.logs.queryOptions({
       level,
-      limit: 200,
+      limit,
+      offset,
       query: query || undefined,
     }),
     refetchInterval: 5_000,
@@ -110,14 +118,15 @@ export function LogsTab() {
       {logs.data ? (
         // A long path or frame makes the table wider than the page: the
         // region scrolls, so a keyboard must be able to reach it.
-        <div
-          role="region"
-          aria-label={t`Recent lines`}
-          tabIndex={0}
-          className="overflow-x-auto rounded-sm border border-border outline-none focus-visible:outline-2 focus-visible:outline-ring"
-        >
-          <table className="w-full text-xs">
-            <thead className="bg-muted text-left">
+        <>
+          <AdminTable
+            role="region"
+            aria-label={t`Recent lines`}
+            tabIndex={0}
+            className="outline-none focus-visible:outline-2 focus-visible:outline-ring"
+            tableClassName="text-xs"
+          >
+            <AdminTableHead>
               <tr>
                 <th className="px-2 py-1.5">{t`Time`}</th>
                 <th className="px-2 py-1.5">{t`Level`}</th>
@@ -125,7 +134,7 @@ export function LogsTab() {
                 <th className="px-2 py-1.5">{t`Request`}</th>
                 <th className="px-2 py-1.5">{t`Address`}</th>
               </tr>
-            </thead>
+            </AdminTableHead>
             <tbody>
               {logs.data.lines.length === 0 ? (
                 <tr>
@@ -197,8 +206,18 @@ export function LogsTab() {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </AdminTable>
+          {logs.data.total > 0 ? (
+            <AdminPager
+              total={logs.data.total}
+              offset={offset}
+              pageSize={pageSize}
+              onPageSize={setPageSize}
+              onPrev={() => setPage(page - 1)}
+              onNext={() => setPage(page + 1)}
+            />
+          ) : null}
+        </>
       ) : null}
     </div>
   );

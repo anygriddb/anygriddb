@@ -145,7 +145,7 @@ describe("the auditor", () => {
     expect((await page.authAudit({ limit: 5 })).events.length).toBeGreaterThan(
       0,
     );
-    expect((await page.sessions()).sessions.length).toBeGreaterThan(0);
+    expect((await page.sessions({})).sessions.length).toBeGreaterThan(0);
   });
 
   it("exports the trails and the access report, under its own name on the trail", async () => {

@@ -36,6 +36,8 @@ import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { raw } from "../../lib/known-text";
 import { FIELD_LABELS } from "../fields/field-meta";
 import { ConfirmDialog } from "../shell/dialogs";
+import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
+import { useAdminPage, useAdminPageSize } from "./admin-page-size";
 import { RefreshFields } from "./refresh-fields";
 
 type Source = RouterOutputs["admin"]["sources"]["list"][number];
@@ -52,9 +54,13 @@ export function SourcesTab() {
   const queryClient = useQueryClient();
   const settings = useQuery(api.admin.sources.settings.queryOptions());
   const list = useQuery(api.admin.sources.list.queryOptions());
+  const [pageSize, setPageSize] = useAdminPageSize();
+  const { page, setPage, offset, limit } = useAdminPage(pageSize);
   const [editing, setEditing] = useState<Source | "new" | null>(null);
   const [removing, setRemoving] = useState<Source | null>(null);
   const [browsing, setBrowsing] = useState<Source | null>(null);
+  const allSources = list.data ?? [];
+  const pageSources = allSources.slice(offset, offset + limit);
   const refresh = () =>
     queryClient.invalidateQueries({
       queryKey: api.admin.sources.list.queryKey(),
@@ -107,10 +113,10 @@ export function SourcesTab() {
           {t`No source yet. Add one to show its tables in a base, read and written where they live.`}
         </p>
       ) : null}
-      {list.data && list.data.length > 0 ? (
-        <div className="overflow-x-auto rounded-sm border border-border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted text-left text-xs text-muted-foreground">
+      {allSources.length > 0 ? (
+        <>
+          <AdminTable>
+            <AdminTableHead className="text-muted-foreground">
               <tr>
                 <th className="px-3 py-2">{t`Name`}</th>
                 <th className="px-3 py-2">{t`Address`}</th>
@@ -123,9 +129,9 @@ export function SourcesTab() {
                   <span className="sr-only">{t`Actions`}</span>
                 </th>
               </tr>
-            </thead>
+            </AdminTableHead>
             <tbody>
-              {list.data.map((source) => (
+              {pageSources.map((source) => (
                 <tr key={source.id} className="border-t border-border">
                   <td className="px-3 py-2 font-medium">
                     <span className="flex items-center gap-1.5">
@@ -200,8 +206,16 @@ export function SourcesTab() {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </AdminTable>
+          <AdminPager
+            total={allSources.length}
+            offset={offset}
+            pageSize={pageSize}
+            onPageSize={setPageSize}
+            onPrev={() => setPage(page - 1)}
+            onNext={() => setPage(page + 1)}
+          />
+        </>
       ) : null}
       <SourceDialog
         target={editing}

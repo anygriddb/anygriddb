@@ -71,13 +71,15 @@ export type ProcessLog = {
   rememberFailure(message: string, error: unknown): void;
   /**
    * Newest first, at this level and above. A word keeps the lines that
-   * contain it, among those of the level.
+   * contain it, among those of the level. `offset` skips the newest
+   * lines already shown on an earlier page.
    */
   list(options: {
     level: ProcessLogLevel;
     limit: number;
+    offset?: number;
     query?: string;
-  }): ProcessLogLine[];
+  }): { lines: ProcessLogLine[]; total: number };
 };
 
 /**
@@ -176,6 +178,7 @@ export function createProcessLog(limits?: {
       const min =
         options.level === "error" ? 50 : options.level === "warn" ? 40 : 30;
       const needle = searchNeedle(options.query);
+      const offset = options.offset ?? 0;
       const levelled =
         min >= 40
           ? failures.stored.filter((item) => item.level >= min)
@@ -184,10 +187,13 @@ export function createProcessLog(limits?: {
         needle === ""
           ? levelled
           : levelled.filter((item) => lineText(item.line).includes(needle));
-      return matched
-        .slice(-options.limit)
-        .reverse()
-        .map((item) => item.line);
+      const newestFirst = matched.slice().reverse();
+      return {
+        total: newestFirst.length,
+        lines: newestFirst
+          .slice(offset, offset + options.limit)
+          .map((item) => item.line),
+      };
     },
   };
 }

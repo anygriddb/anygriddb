@@ -42,13 +42,14 @@ import {
   type AccountTarget,
 } from "./account-actions";
 import {
-  ACCOUNTS_PAGE,
   filtered,
   nextSearch,
   sortSearch,
   usersQuery,
   type AccountsSearch,
 } from "./accounts-search";
+import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
+import { useAdminPageSize } from "./admin-page-size";
 import { BaseName, useBaseChoices } from "./base-choices";
 import { InvitationsPanel } from "./invitations-panel";
 import { PeopleFileDialog } from "./people-file-dialog";
@@ -114,7 +115,12 @@ export function AccountsTab({
   const [adding, setAdding] = useState(false);
   const [fromFile, setFromFile] = useState(false);
   const [text, setText] = useState(search.q ?? "");
-  const query = usersQuery(search);
+  const [pageSize, setPageSize] = useAdminPageSize();
+  const changePageSize = (size: typeof pageSize) => {
+    setPageSize(size);
+    onSearch((current) => nextSearch(current, { page: undefined }));
+  };
+  const query = usersQuery(search, pageSize);
   const list = useQuery({
     ...api.admin.users.queryOptions(query),
     placeholderData: keepPreviousData,
@@ -347,145 +353,126 @@ export function AccountsTab({
         </p>
       ) : null}
       {list.data && list.data.users.length > 0 ? (
-        <div className="overflow-x-auto rounded-sm border border-border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted text-left text-xs">
-              <tr>
-                {isAdmin ? (
-                  <th className="w-8 py-2 pl-3">
-                    <Checkbox
-                      aria-label={t`Select every account of this page`}
-                      disabled={tickable.length === 0}
-                      checked={
-                        tickable.length > 0 && chosenCount === tickable.length
-                      }
-                      onChange={(event) => tick(tickable, event.target.checked)}
-                    />
-                  </th>
-                ) : null}
-                {header("name", t`Account`)}
-                {header("created", t`Created`)}
-                {header("lastSeen", t`Last sign-in`)}
-                <th className="px-3 py-2">{t`Second factor`}</th>
-                <th className="px-3 py-2">{t`Bases`}</th>
-                <th className="px-3 py-2">{t`Status`}</th>
-                <th className="px-3 py-2">
-                  <span className="sr-only">{t`Actions`}</span>
+        <AdminTable>
+          <AdminTableHead>
+            <tr>
+              {isAdmin ? (
+                <th className="w-8 py-2 pl-3">
+                  <Checkbox
+                    aria-label={t`Select every account of this page`}
+                    disabled={tickable.length === 0}
+                    checked={
+                      tickable.length > 0 && chosenCount === tickable.length
+                    }
+                    onChange={(event) => tick(tickable, event.target.checked)}
+                  />
                 </th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.data.users.map((user) => {
-                const target = accountTarget(user);
-                const self = user.id === session.data?.id;
-                return (
-                  <tr key={user.id} className="border-t border-border">
-                    {isAdmin ? (
-                      <td className="w-8 py-2 pl-3">
-                        {tickable.includes(user.id) ? (
-                          <Checkbox
-                            aria-label={t`Select ${{ name: user.displayName }}`}
-                            checked={ticked.has(user.id)}
-                            onChange={(event) =>
-                              tick([user.id], event.target.checked)
-                            }
-                          />
-                        ) : null}
-                      </td>
-                    ) : null}
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <Avatar name={user.displayName} />
-                        <div className="min-w-0">
-                          <Link
-                            to="/admin/people/accounts/$userId"
-                            params={{ userId: user.id }}
-                            className="block truncate font-medium hover:underline"
-                          >
-                            {user.displayName}
-                          </Link>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {user.email}
-                          </p>
-                        </div>
-                        {user.isAdmin ? (
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
-                            {t`Administrator`}
-                          </span>
-                        ) : null}
+              ) : null}
+              {header("name", t`Account`)}
+              {header("created", t`Created`)}
+              {header("lastSeen", t`Last sign-in`)}
+              <th className="px-3 py-2">{t`Second factor`}</th>
+              <th className="px-3 py-2">{t`Bases`}</th>
+              <th className="px-3 py-2">{t`Status`}</th>
+              <th className="px-3 py-2">
+                <span className="sr-only">{t`Actions`}</span>
+              </th>
+            </tr>
+          </AdminTableHead>
+          <tbody>
+            {list.data.users.map((user) => {
+              const target = accountTarget(user);
+              const self = user.id === session.data?.id;
+              return (
+                <tr key={user.id} className="border-t border-border">
+                  {isAdmin ? (
+                    <td className="w-8 py-2 pl-3">
+                      {tickable.includes(user.id) ? (
+                        <Checkbox
+                          aria-label={t`Select ${{ name: user.displayName }}`}
+                          checked={ticked.has(user.id)}
+                          onChange={(event) =>
+                            tick([user.id], event.target.checked)
+                          }
+                        />
+                      ) : null}
+                    </td>
+                  ) : null}
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Avatar name={user.displayName} />
+                      <div className="min-w-0">
+                        <Link
+                          to="/admin/people/accounts/$userId"
+                          params={{ userId: user.id }}
+                          className="block truncate font-medium hover:underline"
+                        >
+                          {user.displayName}
+                        </Link>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {user.email}
+                        </p>
                       </div>
-                    </td>
-                    <td className="px-3 py-2 text-xs">
-                      {date(user.createdAt)}
-                    </td>
-                    <td className="px-3 py-2 text-xs">{date(user.lastSeen)}</td>
-                    <td className="px-3 py-2 text-xs">
-                      {user.mfa ? t`Yes` : t`No`}
-                    </td>
-                    <td className="px-3 py-2 text-xs tabular-nums">
-                      {user.bases}
-                    </td>
-                    <td className="px-3 py-2 text-xs">
-                      <StatusText user={user} />
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center justify-end gap-1">
-                        {self ? (
-                          <span className="px-2 text-xs text-muted-foreground">
-                            {t`You`}
-                          </span>
-                        ) : (
-                          <>
-                            {actions.button("disable", target)}
-                            {actions.button("delete", target)}
-                          </>
-                        )}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            aria-label={t`Actions for ${{ name: user.displayName }}`}
-                            className="rounded p-1 hover:bg-muted"
-                          >
-                            <MoreHorizontal className="h-4 w-4" aria-hidden />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            {ACCOUNT_ACTIONS.map((action) =>
-                              actions.menuItem(action, target),
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      {user.isAdmin ? (
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                          {t`Administrator`}
+                        </span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-xs">{date(user.createdAt)}</td>
+                  <td className="px-3 py-2 text-xs">{date(user.lastSeen)}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {user.mfa ? t`Yes` : t`No`}
+                  </td>
+                  <td className="px-3 py-2 text-xs tabular-nums">
+                    {user.bases}
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    <StatusText user={user} />
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center justify-end gap-1">
+                      {self ? (
+                        <span className="px-2 text-xs text-muted-foreground">
+                          {t`You`}
+                        </span>
+                      ) : (
+                        <>
+                          {actions.button("disable", target)}
+                          {actions.button("delete", target)}
+                        </>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          aria-label={t`Actions for ${{ name: user.displayName }}`}
+                          className="rounded p-1 hover:bg-muted"
+                        >
+                          <MoreHorizontal className="h-4 w-4" aria-hidden />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          {ACCOUNT_ACTIONS.map((action) =>
+                            actions.menuItem(action, target),
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </AdminTable>
       ) : null}
-      {total > ACCOUNTS_PAGE ? (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>
-            {t`${{ from: offset + 1 }}–${{ to: Math.min(offset + ACCOUNTS_PAGE, total) }} of ${total}`}
-          </span>
-          <Button
-            reads
-            size="sm"
-            variant="ghost"
-            disabled={page <= 1}
-            onClick={() => filter({ page: page - 1 })}
-          >
-            {t`Previous`}
-          </Button>
-          <Button
-            reads
-            size="sm"
-            variant="ghost"
-            disabled={offset + ACCOUNTS_PAGE >= total}
-            onClick={() => filter({ page: page + 1 })}
-          >
-            {t`Next`}
-          </Button>
-        </div>
+      {list.data && list.data.users.length > 0 ? (
+        <AdminPager
+          total={total}
+          offset={offset}
+          pageSize={pageSize}
+          onPageSize={changePageSize}
+          onPrev={() => filter({ page: page - 1 })}
+          onNext={() => filter({ page: page + 1 })}
+        />
       ) : null}
 
       {readsAll ? (

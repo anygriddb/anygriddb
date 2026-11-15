@@ -201,7 +201,18 @@ export function authEventsCsv(events: readonly AuthEventRow[]): string {
 /* Sessions                                                            */
 /* ------------------------------------------------------------------ */
 
-export async function listSessions(db: Database) {
+export async function listSessions(
+  db: Database,
+  input: { limit: number; offset?: number } = { limit: 500 },
+) {
+  const offset = input.offset ?? 0;
+  const now = new Date();
+  const counted = await db
+    .selectFrom("sessions as s")
+    .select((eb) => eb.fn.countAll<string>().as("value"))
+    .where("s.expiresAt", ">", now)
+    .executeTakeFirst();
+  const total = Number(counted?.value ?? 0);
   const rows = await db
     .selectFrom("sessions as s")
     .innerJoin("users as u", "u.id", "s.userId")
@@ -214,15 +225,19 @@ export async function listSessions(db: Database) {
       "s.createdAt",
       "s.expiresAt",
     ])
-    .where("s.expiresAt", ">", new Date())
+    .where("s.expiresAt", ">", now)
     .orderBy("s.createdAt", "desc")
-    .limit(500)
+    .offset(offset)
+    .limit(input.limit)
     .execute();
-  return rows.map((row) => ({
-    ...row,
-    createdAt: row.createdAt.toISOString(),
-    expiresAt: row.expiresAt.toISOString(),
-  }));
+  return {
+    total,
+    sessions: rows.map((row) => ({
+      ...row,
+      createdAt: row.createdAt.toISOString(),
+      expiresAt: row.expiresAt.toISOString(),
+    })),
+  };
 }
 
 /** Ends one session; returns whose it was. */
@@ -613,7 +628,17 @@ export async function accessReportCsv(db: Database): Promise<string> {
 /* ------------------------------------------------------------------ */
 
 /** Webhook deliveries that gave up, with the webhook's host only. */
-export async function listFailedDeliveries(db: Database, limit: number) {
+export async function listFailedDeliveries(
+  db: Database,
+  input: { limit: number; offset?: number },
+) {
+  const offset = input.offset ?? 0;
+  const counted = await db
+    .selectFrom("webhookDeliveries as d")
+    .select((eb) => eb.fn.countAll<string>().as("value"))
+    .where("d.status", "=", "failed")
+    .executeTakeFirst();
+  const total = Number(counted?.value ?? 0);
   const rows = await db
     .selectFrom("webhookDeliveries as d")
     .innerJoin("webhooks as w", "w.id", "d.webhookId")
@@ -628,14 +653,18 @@ export async function listFailedDeliveries(db: Database, limit: number) {
     ])
     .where("d.status", "=", "failed")
     .orderBy("d.createdAt", "desc")
-    .limit(limit)
+    .offset(offset)
+    .limit(input.limit)
     .execute();
-  return rows.map(({ target, ...row }) => ({
-    ...row,
-    // The path and query of a target can carry a secret.
-    host: hostOf(target),
-    createdAt: row.createdAt.toISOString(),
-  }));
+  return {
+    total,
+    deliveries: rows.map(({ target, ...row }) => ({
+      ...row,
+      // The path and query of a target can carry a secret.
+      host: hostOf(target),
+      createdAt: row.createdAt.toISOString(),
+    })),
+  };
 }
 
 function hostOf(target: string): string | null {

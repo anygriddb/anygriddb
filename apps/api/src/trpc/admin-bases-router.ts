@@ -159,12 +159,19 @@ export const adminBaseProcedures = {
    * metadata only, and revoking one without being in its base.
    */
   outbound: t.router({
-    list: procedure.query(({ ctx }) =>
-      handle(ctx, async () => {
-        await requireAdmin(ctx);
-        return { links: await listOutbound(ctx.db, 500) };
-      }),
-    ),
+    list: procedure
+      .input(
+        z.object({
+          limit: z.int().min(1).max(100).default(50),
+          offset: z.int().min(0).max(1_000_000).default(0),
+        }),
+      )
+      .query(({ ctx, input }) =>
+        handle(ctx, async () => {
+          await requireAdmin(ctx);
+          return listOutbound(ctx.db, input);
+        }),
+      ),
     revoke: procedure
       .input(z.object({ kind: z.enum(["link", "feed"]), id: z.uuid() }))
       .mutation(({ ctx, input }) =>
@@ -185,16 +192,39 @@ export const adminBaseProcedures = {
    * one revoked or switched off without being in its base.
    */
   access: t.router({
-    list: procedure.query(({ ctx }) =>
-      handle(ctx, async () => {
-        await requireAdmin(ctx);
-        const [tokens, hooks] = await Promise.all([
-          listInstanceTokens(ctx.db, 500),
-          listInstanceHooks(ctx.db, 500),
-        ]);
-        return { tokens, hooks };
-      }),
-    ),
+    list: procedure
+      .input(
+        z.object({
+          limit: z.int().min(1).max(100).default(50),
+          tokensOffset: z.int().min(0).max(1_000_000).default(0),
+          webhooksOffset: z.int().min(0).max(1_000_000).default(0),
+          automationsOffset: z.int().min(0).max(1_000_000).default(0),
+        }),
+      )
+      .query(({ ctx, input }) =>
+        handle(ctx, async () => {
+          await requireAdmin(ctx);
+          const page = { limit: input.limit };
+          const [tokensPage, hooks] = await Promise.all([
+            listInstanceTokens(ctx.db, {
+              ...page,
+              offset: input.tokensOffset,
+            }),
+            listInstanceHooks(ctx.db, {
+              webhooks: { ...page, offset: input.webhooksOffset },
+              automations: { ...page, offset: input.automationsOffset },
+            }),
+          ]);
+          return {
+            tokens: tokensPage.tokens,
+            tokensTotal: tokensPage.total,
+            webhooks: hooks.webhooks,
+            webhooksTotal: hooks.webhooksTotal,
+            automations: hooks.automations,
+            automationsTotal: hooks.automationsTotal,
+          };
+        }),
+      ),
     /**
      * One account's resolved role on a base and each of its tables, with
      * whether it comes from their own binding or a group (ROADMAP #29).
@@ -322,19 +352,19 @@ export const adminBaseProcedures = {
         z.object({
           search: z.string().trim().max(100).optional(),
           ownerless: z.boolean().optional(),
-          limit: z.int().min(1).max(1000).default(500),
+          limit: z.int().min(1).max(100).default(50),
+          offset: z.int().min(0).max(1_000_000).default(0),
         }),
       )
       .query(({ ctx, input }) =>
         handle(ctx, async () => {
           await requireAdmin(ctx);
-          return {
-            bases: await listBaseOverview(ctx.db, {
-              search: input.search || undefined,
-              ownerless: input.ownerless,
-              limit: input.limit,
-            }),
-          };
+          return listBaseOverview(ctx.db, {
+            search: input.search || undefined,
+            ownerless: input.ownerless,
+            limit: input.limit,
+            offset: input.offset,
+          });
         }),
       ),
     get: procedure
@@ -342,18 +372,25 @@ export const adminBaseProcedures = {
       .query(({ ctx, input }) =>
         handle(ctx, async () => {
           await requireAdmin(ctx);
-          const [base] = await listBaseOverview(ctx.db, {
+          const { bases } = await listBaseOverview(ctx.db, {
             baseId: input.baseId,
             limit: 1,
           });
+          const base = bases[0];
           if (!base) throw new AppError("unknown_base");
-          const [members, tables, links, open] = await Promise.all([
+          const [members, tables, outbound, open] = await Promise.all([
             listMembers(ctx.db, input.baseId),
             listBaseTables(ctx.db, input.baseId),
-            listOutbound(ctx.db, 200, input.baseId),
+            listOutbound(ctx.db, { limit: 200, baseId: input.baseId }),
             listOpenAccess(ctx.db, input.baseId),
           ]);
-          return { base, members, tables, links, open };
+          return {
+            base,
+            members,
+            tables,
+            links: outbound.links,
+            open,
+          };
         }),
       ),
     /**

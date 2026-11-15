@@ -584,7 +584,7 @@ msgstr "{file} : {0, plural, one {# ligne détectée} other {# lignes détecté
 msgid "{filterCount, plural, one {# filter} other {# filters}}"
 msgstr "{filterCount, plural, one {# filtre} other {# filtres}}"
 
-#: components/admin/accounts-tab.tsx
+#: components/admin/admin-list.tsx
 msgid "{from}–{to} of {total}"
 msgstr "{from}–{to} sur {total}"
 
@@ -840,6 +840,10 @@ msgstr "{value} heures"
 #: components/admin/security-tab.tsx
 msgid "{value} minutes"
 msgstr "{value} minutes"
+
+#: components/admin/admin-list.tsx
+msgid "{value} per page"
+msgstr "{value} par page"
 
 #: components/admin/account-export.tsx
 msgid "{writes} writes, {comments} comments, {events} account events. Cell values and comment texts stay out of the file."
@@ -6546,7 +6550,7 @@ msgstr "Plus récents"
 msgid "Newer release"
 msgstr "Version plus récente"
 
-#: components/admin/accounts-tab.tsx
+#: components/admin/admin-list.tsx
 msgid "Next"
 msgstr "Suivant"
 
@@ -7644,7 +7648,7 @@ msgstr "Préparation de l’import…"
 msgid "Preview: {name}"
 msgstr "Aperçu : {name}"
 
-#: components/admin/accounts-tab.tsx
+#: components/admin/admin-list.tsx
 msgid "Previous"
 msgstr "Précédent"
 
@@ -8588,6 +8592,10 @@ msgstr "Des lignes d’une autre table"
 #: components/fields/link-selection.tsx
 msgid "Rows offered"
 msgstr "Lignes proposées"
+
+#: components/admin/admin-list.tsx
+msgid "Rows per page"
+msgstr "Lignes par page"
 
 #: components/views/list-view.tsx
 msgid "Rows under"
