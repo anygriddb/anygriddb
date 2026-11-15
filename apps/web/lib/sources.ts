@@ -1,3 +1,5 @@
+import type { SourceEngine } from "@anygriddb/core";
+
 /** What grouping reads of the catalog's bases (`CatalogBase`). */
 type CatalogSlice = ReadonlyArray<{
   id: string;
@@ -6,7 +8,7 @@ type CatalogSlice = ReadonlyArray<{
     id: string;
     name: string;
     external: {
-      engine: string;
+      engine: SourceEngine;
       schema: string;
       name: string;
       source: { id: string; name: string } | null;
@@ -26,7 +28,7 @@ type SourceTable = {
 type SourceGroup = {
   id: string;
   name: string;
-  engine: string;
+  engine: SourceEngine;
   tables: SourceTable[];
 };
 

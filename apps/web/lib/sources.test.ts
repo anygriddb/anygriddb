@@ -1,10 +1,11 @@
+import type { SourceEngine } from "@anygriddb/core";
 import { describe, expect, it } from "vitest";
 import { sourcesOf } from "./sources";
 
 const table = (
   id: string,
   source: { id: string; name: string } | null,
-  engine = "postgres",
+  engine: SourceEngine = "postgres",
 ) => ({
   id,
   name: `Table ${id}`,

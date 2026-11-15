@@ -59,8 +59,9 @@ test("an administrator shows a client's tables in a base, read where they live",
     const dialog = page.getByRole("dialog");
     // A store that speaks no SQL is read from a copy (ADR 0088): its form
     // says so, and asks for nothing a copy has no use for.
-    const engine = dialog.getByLabel("Engine", { exact: true });
-    await engine.selectOption({ label: "MongoDB" });
+    const engine = dialog.getByRole("group", { name: "Engine" });
+    await engine.getByText("MongoDB", { exact: true }).click();
+    await expect(engine.getByRole("radio", { name: "MongoDB" })).toBeChecked();
     await expect(dialog.getByLabel("Port", { exact: true })).toHaveValue(
       "27017",
     );
@@ -74,7 +75,10 @@ test("an administrator shows a client's tables in a base, read where they live",
     await expect(dialog.getByLabel(/Read replica host/)).toHaveCount(0);
     expect(await accessibilityViolations(page)).toEqual([]);
     // A SQL engine's form has them back.
-    await engine.selectOption({ label: "PostgreSQL" });
+    await engine.getByText("PostgreSQL", { exact: true }).click();
+    await expect(
+      engine.getByRole("radio", { name: "PostgreSQL" }),
+    ).toBeChecked();
     await expect(dialog.getByLabel(/Schema kept for AnyGridDB/)).toBeVisible();
     await expect(dialog.getByLabel("Port", { exact: true })).toHaveValue(
       "5432",
