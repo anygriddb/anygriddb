@@ -17,7 +17,8 @@ Paste the ping address, for example
 AnyGridDB calls it with `GET`. It appends `/start` when the job starts
 and `/fail` when the job fails. The address itself means success. A
 body that says the check was not found is a failed ping, even when the
-status is 200. The address is a secret.
+status is 200. The address is a secret. After saving, **Send a test**
+pings the success address once, without waiting for a schedule.
 
 ## Uptime Kuma
 

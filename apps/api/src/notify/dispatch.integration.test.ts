@@ -16,7 +16,11 @@ import {
   errorCode,
   signUpProved,
 } from "../trpc/caller.test-helpers.js";
-import { notifyJobOutcome, runIntegrationDelivery } from "./dispatch.js";
+import {
+  notifyJobOutcome,
+  runIntegrationDelivery,
+  testIntegration,
+} from "./dispatch.js";
 
 const suffix = randomBytes(6).toString("hex");
 const PASSWORD = "correct horse battery staple";
@@ -214,5 +218,94 @@ describe("notification channels", () => {
     expect(paused.lastError).not.toContain(SECRET);
     const listed = await admin.call().admin.notify.list();
     expect(JSON.stringify(listed)).not.toContain(SECRET);
+  });
+
+  it("pings a Healthchecks address when an administrator sends a test", async () => {
+    // example.org resolves; the test never calls the network (outbound mocked).
+    const ping =
+      "https://example.org/ping/11111111-1111-4111-8111-111111111111";
+    const saved = await admin.call().admin.notify.create({
+      provider: "healthchecks",
+      name: "Nightly",
+      events: [],
+      schedules: ["purge"],
+      config: {},
+      secrets: { pingUrl: ping },
+    });
+    expect(saved.secretsSet).toEqual(["pingUrl"]);
+    expect(JSON.stringify(saved)).not.toContain(ping);
+    const seen: { url?: string; method?: string } = {};
+    const result = await testIntegration(
+      {
+        db,
+        key: env.AUTH_ENCRYPTION_KEY,
+        log: () => undefined,
+        send: (request) => {
+          seen.url = request.url;
+          seen.method = request.method;
+          return Promise.resolve({ status: 200, body: "OK" });
+        },
+      },
+      saved.id,
+    );
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe(200);
+    expect(seen.method).toBe("GET");
+    expect(seen.url).toBe(ping);
+    await admin.call().admin.notify.delete({ id: saved.id });
+  });
+
+  it("rejects a Healthchecks test when the body says the check was not found", async () => {
+    const ping =
+      "https://example.org/ping/22222222-2222-4222-8222-222222222222";
+    const saved = await admin.call().admin.notify.create({
+      provider: "healthchecks",
+      name: "Missing",
+      events: [],
+      schedules: ["purge"],
+      config: {},
+      secrets: { pingUrl: ping },
+    });
+    const result = await testIntegration(
+      {
+        db,
+        key: env.AUTH_ENCRYPTION_KEY,
+        log: () => undefined,
+        send: () => Promise.resolve({ status: 200, body: "OK (not found)" }),
+      },
+      saved.id,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(200);
+    expect(result.error).toBe("HTTP 200");
+    expect(JSON.stringify(result)).not.toContain(ping);
+    await admin.call().admin.notify.delete({ id: saved.id });
+  });
+
+  it("needs the mail relay when an administrator tests an email channel", async () => {
+    const saved = await admin.call().admin.notify.create({
+      provider: "smtp",
+      name: "Mail",
+      events: ["job.failed"],
+      schedules: [],
+      config: { recipients: [`ops-${suffix}@example.org`] },
+      secrets: {},
+    });
+    // Through the router (env is passed): no sealed SMTP on this database.
+    const viaRouter = await admin.call().admin.notify.test({ id: saved.id });
+    expect(viaRouter.ok).toBe(false);
+    expect(viaRouter.error).toBe("Mail is not configured");
+    // Without env, mailFor bails before resolveSmtp — same public answer.
+    const withoutEnv = await testIntegration(
+      {
+        db,
+        key: env.AUTH_ENCRYPTION_KEY,
+        log: () => undefined,
+      },
+      saved.id,
+    );
+    expect(withoutEnv.ok).toBe(false);
+    expect(withoutEnv.error).toBe("Mail is not configured");
+    await admin.call().admin.notify.delete({ id: saved.id });
   });
 });

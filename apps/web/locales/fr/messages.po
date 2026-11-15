@@ -463,6 +463,11 @@ msgstr "{0, plural, one {Point de restauration créé : # ligne} other {Point d
 msgid "{0, plural, one {Revoke their API token too: a token is never handed over} other {Revoke their # API tokens too: a token is never handed over}}"
 msgstr "{0, plural, one {Révoquer aussi son jeton d’API : un jeton n’est jamais transmis} other {Révoquer aussi ses # jetons d’API : un jeton n’est jamais transmis}}"
 
+#. placeholder {0}: row.events.length
+#: components/admin/notifications-tab.tsx
+msgid "{0} events"
+msgstr "{0} événements"
+
 #. placeholder {0}: page.lines.length
 #. placeholder {1}: page.total
 #: components/admin/logs-tab.tsx
@@ -2770,8 +2775,12 @@ msgid "Channels"
 msgstr "Canaux"
 
 #: components/admin/notifications-tab.tsx
-msgid "Channels that hear when something on this instance fails. A secret is stored encrypted and is not shown again."
-msgstr "Canaux qui préviennent quand quelque chose échoue sur cette instance. Un secret est chiffré et n’est plus affiché."
+msgid "Channels and heartbeats"
+msgstr "Canaux et battements"
+
+#: components/admin/notifications-tab.tsx
+msgid "Channels hear failures as they happen. Heartbeats ping a monitor when a chosen schedule runs. A secret is stored encrypted and is not shown again."
+msgstr "Les canaux entendent les échecs au fil de l’eau. Les battements interrogent un moniteur quand une planification choisie s’exécute. Un secret est chiffré et n’est plus affiché."
 
 #: components/dashboards/dashboard-board.tsx
 msgid "Chart"
@@ -2842,6 +2851,10 @@ msgstr "Changer de fichier"
 #: components/admin/identity-tab.tsx
 msgid "Choose another image"
 msgstr "Choisir une autre image"
+
+#: components/admin/notifications-tab.tsx
+msgid "Choose at least one schedule, or the monitor will never be pinged by a job."
+msgstr "Choisissez au moins une planification, sinon le moniteur ne sera jamais interrogé par un travail."
 
 #: components/views/map-view.tsx
 msgid "Choose the fields that hold the latitude and the longitude."
@@ -4340,6 +4353,7 @@ msgstr "Toutes les bases de son propriétaire"
 msgid "Every day"
 msgstr "Tous les jours"
 
+#: components/admin/notifications-tab.tsx
 #: components/table/automations-dialog.tsx
 msgid "Every hour"
 msgstr "Toutes les heures"
@@ -4748,6 +4762,10 @@ msgstr "Remplies : {filled} sur {cells}"
 msgid "Filter"
 msgstr "Filtrer"
 
+#: components/admin/notifications-tab.tsx
+msgid "Filter by name"
+msgstr "Filtrer par nom"
+
 #: components/grid/grid-header.tsx
 msgid "Filter by this field"
 msgstr "Filtrer sur ce champ"
@@ -5143,8 +5161,8 @@ msgid "Heartbeat URL"
 msgstr "URL de battement"
 
 #: components/admin/notifications-tab.tsx
-msgid "Held back"
-msgstr "Retenus"
+msgid "Heartbeats"
+msgstr "Battements"
 
 #: components/shell/home-page.tsx
 msgid "Hello {name}"
@@ -7063,6 +7081,10 @@ msgstr "Aucun envoi pour l’instant."
 msgid "No end"
 msgstr "Sans fin"
 
+#: components/admin/notifications-tab.tsx
+msgid "No event"
+msgstr "Aucun événement"
+
 #: components/admin/sign-in-trail.tsx
 msgid "No event matches. Sign-ins, failures, and what administrators change show here, with the address."
 msgstr "Aucun événement ne correspond. Les connexions, les échecs et ce que changent les administrateurs s’affichent ici, avec l’adresse."
@@ -7206,6 +7228,10 @@ msgstr "Aucune tâche en cours"
 #: components/table/automations-dialog.tsx
 msgid "No runs yet."
 msgstr "Aucune exécution pour l’instant."
+
+#: components/admin/notifications-tab.tsx
+msgid "No schedule"
+msgstr "Aucune planification"
 
 #: components/settings/account-settings.tsx
 msgid "No second factor"
@@ -7520,6 +7546,10 @@ msgstr "Sur cette instance, on n’invite qu’avec les adresses de votre organi
 #: components/settings/second-factor.tsx
 msgid "On this phone? Open it in your authenticator app."
 msgstr "Sur ce téléphone ? Ouvrez-le dans votre application d’authentification."
+
+#: components/admin/notifications-tab.tsx
+msgid "Once a day"
+msgstr "Une fois par jour"
 
 #: components/fields/field-meta.tsx
 msgid "One line of text"
@@ -9166,6 +9196,10 @@ msgid "Scan this code with your authenticator app."
 msgstr "Scannez ce code avec votre application d’authentification."
 
 #: components/admin/notifications-tab.tsx
+msgid "Scheduled automations"
+msgstr "Automatisations planifiées"
+
+#: components/admin/notifications-tab.tsx
 msgid "Schedules"
 msgstr "Planifications"
 
@@ -10212,6 +10246,10 @@ msgstr "Collecteur syslog"
 msgid "System"
 msgstr "Système"
 
+#: components/admin/notifications-tab.tsx
+msgid "System jobs"
+msgstr "Travaux système"
+
 #: components/shell/command-palette.tsx
 msgid "System theme"
 msgstr "Thème système"
@@ -10717,8 +10755,8 @@ msgid "The last characters."
 msgstr "Les derniers caractères."
 
 #: components/admin/notifications-tab.tsx
-msgid "The last error is a short reason, never a secret."
-msgstr "La dernière erreur est une raison courte, jamais un secret."
+msgid "The last error is a short reason, never a secret. Send a test pings a heartbeat once, without waiting for its schedule."
+msgstr "La dernière erreur est une raison courte, jamais un secret. Envoyer un essai interroge un battement une fois, sans attendre sa planification."
 
 #: components/table/share-dialog.tsx
 msgid "The link is shown only once. Existing links:"
@@ -10767,6 +10805,10 @@ msgstr "Moyenne des nombres donnés."
 #: components/fields/formula-docs.ts
 msgid "The minutes."
 msgstr "Les minutes."
+
+#: components/admin/notifications-tab.tsx
+msgid "The monitor is pinged only when a selected schedule runs. After saving, use Send a test on the row below to check the address now."
+msgstr "Le moniteur n’est interrogé que quand une planification sélectionnée s’exécute. Après l’enregistrement, utilisez Envoyer un essai sur la ligne ci-dessous pour vérifier l’adresse tout de suite."
 
 #: components/fields/formula-docs.ts
 msgid "The month, from 1 to 12."
@@ -12297,6 +12339,10 @@ msgstr "Champs surveillés (aucun : tous)"
 msgid "Watched table"
 msgstr "Table surveillée"
 
+#: components/admin/notifications-tab.tsx
+msgid "Watches"
+msgstr "Surveillance"
+
 #: components/admin/settings-tab.tsx
 msgid "Web pages and SVG images"
 msgstr "Pages web et images SVG"
@@ -12418,6 +12464,10 @@ msgstr "Tout ce qui utilise ce jeton est refusé désormais. Son propriétaire p
 #: components/table/automations-dialog.tsx
 msgid "When"
 msgstr "Quand"
+
+#: components/admin/notifications-tab.tsx
+msgid "When a backup is reported"
+msgstr "Quand une sauvegarde est signalée"
 
 #: components/admin/emergency-section.tsx
 msgid "When an account, a link, or a token may be in the wrong hands: act on the whole instance at once."

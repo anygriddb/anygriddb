@@ -183,6 +183,7 @@ export const notifyRouter = t.router({
         {
           db: ctx.db,
           key: ctx.env.AUTH_ENCRYPTION_KEY,
+          env: ctx.env,
           log: (error, message) => ctx.req.log.error({ err: error }, message),
         },
         input.id,

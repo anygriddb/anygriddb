@@ -404,6 +404,7 @@ export function NotificationsTab() {
     ...DEFAULT_CHANNEL_EVENTS,
   ]);
   const [schedules, setSchedules] = useState<string[]>([]);
+  const [scheduleFilter, setScheduleFilter] = useState("");
   const [busy, setBusy] = useState(false);
   const [testOf, setTestOf] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -449,7 +450,24 @@ export function NotificationsTab() {
     setValues({});
     setEvents([...DEFAULT_CHANNEL_EVENTS]);
     setSchedules([]);
+    setScheduleFilter("");
     setProviderId(null);
+  }
+
+  function scheduleLabel(id: string): string {
+    if (id === "purge") return t`Hourly purge`;
+    if (id === "audit_purge") return t`Change trail purge`;
+    if (id === "trash_purge") return t`Trash purge`;
+    if (id === "file_sweep") return t`File sweep`;
+    if (id === "backup") return t`Backup report`;
+    const automation = (automations.data ?? []).find((item) => item.id === id);
+    return automation?.name ?? id;
+  }
+
+  function toggleSchedule(id: string, on: boolean) {
+    setSchedules((current) =>
+      on ? [...current, id] : current.filter((item) => item !== id),
+    );
   }
 
   function edit(row: Integration) {
@@ -459,6 +477,7 @@ export function NotificationsTab() {
     setName(row.name);
     setEvents(row.events);
     setSchedules(row.schedules);
+    setScheduleFilter("");
     const next: Record<string, string> = {};
     for (const field of match?.fields ?? []) {
       if (field.secret) {
@@ -598,7 +617,7 @@ export function NotificationsTab() {
     <div>
       <RuledSection
         title={t`Notifications`}
-        description={t`Channels that hear when something on this instance fails. A secret is stored encrypted and is not shown again.`}
+        description={t`Channels hear failures as they happen. Heartbeats ping a monitor when a chosen schedule runs. A secret is stored encrypted and is not shown again.`}
       >
         <form
           className="flex max-w-lg flex-col gap-3"
@@ -614,13 +633,27 @@ export function NotificationsTab() {
                 setProviderId(event.target.value);
                 setValues({});
                 setSchedules([]);
+                setScheduleFilter("");
               }}
             >
-              {addable.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {providerLabel(item.id, item.label)}
-                </option>
-              ))}
+              <optgroup label={t`Channels`}>
+                {addable
+                  .filter((item) => item.family === "channel")
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {providerLabel(item.id, item.label)}
+                    </option>
+                  ))}
+              </optgroup>
+              <optgroup label={t`Heartbeats`}>
+                {addable
+                  .filter((item) => item.family === "heartbeat")
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {providerLabel(item.id, item.label)}
+                    </option>
+                  ))}
+              </optgroup>
             </Select>
             {provider ? (
               <p className="text-xs text-muted-foreground">
@@ -665,53 +698,88 @@ export function NotificationsTab() {
             />
           ))}
           {provider?.family === "heartbeat" ? (
-            <fieldset className="flex flex-col gap-1">
+            <fieldset className="flex flex-col gap-2">
               <legend className="text-xs font-medium text-muted-foreground">
                 {t`Schedules`}
               </legend>
-              {(
-                [
-                  ["purge", t`Hourly purge`],
-                  ["audit_purge", t`Change trail purge`],
-                  ["trash_purge", t`Trash purge`],
-                  ["file_sweep", t`File sweep`],
-                  ["backup", t`Backup report`],
-                ] as const
-              ).map(([id, label]) => (
-                <label key={id} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={schedules.includes(id)}
-                    onChange={(event) => {
-                      const on = event.target.checked;
-                      setSchedules((current) =>
-                        on
-                          ? [...current, id]
-                          : current.filter((item) => item !== id),
-                      );
-                    }}
-                  />
-                  {label}
-                </label>
-              ))}
-              {(automations.data ?? []).map((item) => (
-                <label
-                  key={item.id}
-                  className="flex items-center gap-2 text-sm"
-                >
-                  <Checkbox
-                    checked={schedules.includes(item.id)}
-                    onChange={(event) => {
-                      const on = event.target.checked;
-                      setSchedules((current) =>
-                        on
-                          ? [...current, item.id]
-                          : current.filter((entry) => entry !== item.id),
-                      );
-                    }}
-                  />
-                  {item.name}
-                </label>
-              ))}
+              <p className="text-xs text-muted-foreground">
+                {t`The monitor is pinged only when a selected schedule runs. After saving, use Send a test on the row below to check the address now.`}
+              </p>
+              <div className="flex flex-col gap-1 rounded-sm border border-border p-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {t`System jobs`}
+                </p>
+                {(
+                  [
+                    ["purge", t`Hourly purge`, t`Every hour`],
+                    ["audit_purge", t`Change trail purge`, t`Once a day`],
+                    ["trash_purge", t`Trash purge`, t`Once a day`],
+                    ["file_sweep", t`File sweep`, t`Once a day`],
+                    ["backup", t`Backup report`, t`When a backup is reported`],
+                  ] as const
+                ).map(([id, label, when]) => (
+                  <label key={id} className="flex items-start gap-2 text-sm">
+                    <Checkbox
+                      className="mt-0.5"
+                      checked={schedules.includes(id)}
+                      onChange={(event) =>
+                        toggleSchedule(id, event.target.checked)
+                      }
+                    />
+                    <span>
+                      {label}
+                      <span className="block text-xs text-muted-foreground">
+                        {when}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {(automations.data ?? []).length > 0 ? (
+                <div className="flex flex-col gap-2 rounded-sm border border-border p-2">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {t`Scheduled automations`}
+                  </p>
+                  {(automations.data ?? []).length > 8 ? (
+                    <Input
+                      type="search"
+                      value={scheduleFilter}
+                      placeholder={t`Filter by name`}
+                      autoComplete="off"
+                      onChange={(event) =>
+                        setScheduleFilter(event.target.value)
+                      }
+                    />
+                  ) : null}
+                  <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+                    {(automations.data ?? [])
+                      .filter((item) => {
+                        const needle = scheduleFilter.trim().toLowerCase();
+                        if (!needle) return true;
+                        return item.name.toLowerCase().includes(needle);
+                      })
+                      .map((item) => (
+                        <label
+                          key={item.id}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <Checkbox
+                            checked={schedules.includes(item.id)}
+                            onChange={(event) =>
+                              toggleSchedule(item.id, event.target.checked)
+                            }
+                          />
+                          {item.name}
+                        </label>
+                      ))}
+                  </div>
+                </div>
+              ) : null}
+              {schedules.length === 0 ? (
+                <p className="text-sm text-warning">
+                  {t`Choose at least one schedule, or the monitor will never be pinged by a job.`}
+                </p>
+              ) : null}
             </fieldset>
           ) : null}
           {provider?.subscribes ? (
@@ -762,8 +830,8 @@ export function NotificationsTab() {
         </label>
       </RuledSection>
       <RuledSection
-        title={t`Channels`}
-        description={t`The last error is a short reason, never a secret.`}
+        title={t`Channels and heartbeats`}
+        description={t`The last error is a short reason, never a secret. Send a test pings a heartbeat once, without waiting for its schedule.`}
       >
         {channels.length === 0 ? (
           <p className="rounded-sm border border-dashed border-border px-3 py-6 text-sm text-muted-foreground">
@@ -776,81 +844,101 @@ export function NotificationsTab() {
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">{t`Name`}</th>
                   <th className="px-3 py-2 text-left font-medium">{t`Provider`}</th>
+                  <th className="px-3 py-2 text-left font-medium">{t`Watches`}</th>
                   <th className="px-3 py-2 text-left font-medium">{t`State`}</th>
                   <th className="px-3 py-2 text-left font-medium">{t`Last delivery`}</th>
                   <th className="px-3 py-2 text-left font-medium">{t`Last error`}</th>
-                  <th className="px-3 py-2 text-left font-medium">{t`Held back`}</th>
                   <th className="px-3 py-2 text-right font-medium">{t`Actions`}</th>
                 </tr>
               </thead>
               <tbody>
-                {channels.map((row) => (
-                  <tr key={row.id} className="border-t border-border">
-                    <td className="px-3 py-2">{row.name}</td>
-                    <td className="px-3 py-2">{row.provider}</td>
-                    <td className="px-3 py-2">{statusLabel(row.status)}</td>
-                    <td className="px-3 py-2">
-                      {row.lastDeliveryAt
-                        ? new Date(row.lastDeliveryAt).toLocaleString()
-                        : t`Never`}
-                    </td>
-                    <td className="px-3 py-2">{row.lastError ?? ""}</td>
-                    <td className="px-3 py-2">{row.suppressedCount}</td>
-                    <td className="px-3 py-2 text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          type="button"
-                          size="xs"
-                          variant="outline"
-                          onClick={() => edit(row)}
-                        >
-                          {t`Edit`}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="xs"
-                          variant="outline"
-                          onClick={() => void toggle(row)}
-                        >
-                          {row.status === "error"
-                            ? t`Resume`
-                            : row.enabled
-                              ? t`Disable`
-                              : t`Enable`}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="xs"
-                          variant="outline"
-                          disabled={testOf === row.id}
-                          onClick={() => void sendTest(row.id)}
-                        >
-                          {t`Send a test`}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="xs"
-                          variant="ghost"
-                          onClick={() =>
-                            setHistoryOf((current) =>
-                              current === row.id ? null : row.id,
-                            )
-                          }
-                        >
-                          {t`History`}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="xs"
-                          variant="danger"
-                          onClick={() => setRemoveId(row.id)}
-                        >
-                          {t`Remove`}
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {channels.map((row) => {
+                  const kind = providers.data.find(
+                    (item) => item.id === row.provider,
+                  );
+                  const watches =
+                    kind?.family === "heartbeat"
+                      ? row.schedules.length === 0
+                        ? t`No schedule`
+                        : row.schedules.map(scheduleLabel).join(", ")
+                      : row.events.length === 0
+                        ? t`No event`
+                        : t`${row.events.length} events`;
+                  return (
+                    <tr key={row.id} className="border-t border-border">
+                      <td className="px-3 py-2">{row.name}</td>
+                      <td className="px-3 py-2">
+                        {providerLabel(row.provider, row.provider)}
+                      </td>
+                      <td
+                        className="max-w-56 truncate px-3 py-2"
+                        title={watches}
+                      >
+                        {watches}
+                      </td>
+                      <td className="px-3 py-2">{statusLabel(row.status)}</td>
+                      <td className="px-3 py-2">
+                        {row.lastDeliveryAt
+                          ? new Date(row.lastDeliveryAt).toLocaleString()
+                          : t`Never`}
+                      </td>
+                      <td className="px-3 py-2">{row.lastError ?? ""}</td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="outline"
+                            onClick={() => edit(row)}
+                          >
+                            {t`Edit`}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="outline"
+                            onClick={() => void toggle(row)}
+                          >
+                            {row.status === "error"
+                              ? t`Resume`
+                              : row.enabled
+                                ? t`Disable`
+                                : t`Enable`}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="outline"
+                            disabled={testOf === row.id}
+                            onClick={() => void sendTest(row.id)}
+                          >
+                            {t`Send a test`}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            onClick={() =>
+                              setHistoryOf((current) =>
+                                current === row.id ? null : row.id,
+                              )
+                            }
+                          >
+                            {t`History`}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="danger"
+                            onClick={() => setRemoveId(row.id)}
+                          >
+                            {t`Remove`}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
