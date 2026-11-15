@@ -1343,6 +1343,10 @@ msgid "Accounts, bases, tables"
 msgstr "Accounts, bases, tables"
 
 #: components/admin/integrations-tab.tsx
+msgid "ACS URL"
+msgstr "ACS URL"
+
+#: components/admin/integrations-tab.tsx
 msgid "ACS URL for the identity provider:"
 msgstr "ACS URL for the identity provider:"
 
@@ -2744,6 +2748,10 @@ msgstr "Computed from other fields"
 msgid "Concatenate"
 msgstr "Concatenate"
 
+#: components/admin/integrations-tab.tsx
+msgid "Configured in this page"
+msgstr "Configured in this page"
+
 #: components/admin/step-up.tsx
 #: components/table/table-workspace.tsx
 msgid "Confirm"
@@ -3671,8 +3679,8 @@ msgid "Email a plain-text notice about maintenance, a policy change, or an incid
 msgstr "Email a plain-text notice about maintenance, a policy change, or an incident. This is not a newsletter: it ignores each person's notification preference."
 
 #: components/admin/integrations-tab.tsx
-msgid "Email and single sign-on for this instance. You can leave the environment empty at install and set these here; a complete save here overrides the environment."
-msgstr "Email and single sign-on for this instance. You can leave the environment empty at install and set these here; a complete save here overrides the environment."
+msgid "Email and single sign-on for this instance. You can leave the environment empty at install and set these here; what the environment sets is shown here and changed there."
+msgstr "Email and single sign-on for this instance. You can leave the environment empty at install and set these here; what the environment sets is shown here and changed there."
 
 #: lib/errors.ts
 msgid "Email is not set up on this instance"
@@ -3731,8 +3739,8 @@ msgid "Empty the trash?"
 msgstr "Empty the trash?"
 
 #: components/admin/settings-tab.tsx
-msgid "Empty uses the environment, then 20 MiB. Between 1 and 500."
-msgstr "Empty uses the environment, then 20 MiB. Between 1 and 500."
+msgid "Empty uses 20 MiB. Between 1 and 500."
+msgstr "Empty uses 20 MiB. Between 1 and 500."
 
 #: components/table/automations-dialog.tsx
 msgid "Empty: the row as JSON"
@@ -5293,6 +5301,14 @@ msgstr "Its condition reads a field placed after it: it is ignored."
 msgid "Its members lose it at once. It stays in the trash for {days} days with its data, then is deleted permanently."
 msgstr "Its members lose it at once. It stays in the trash for {days} days with its data, then is deleted permanently."
 
+#: components/admin/integrations-tab.tsx
+msgid "Its operator changes it where the instance is installed."
+msgstr "Its operator changes it where the instance is installed."
+
+#: components/admin/integrations-tab.tsx
+msgid "Its operator changes it where the instance is installed. What was saved on this page before is not used."
+msgstr "Its operator changes it where the instance is installed. What was saved on this page before is not used."
+
 #: components/admin/open-base.tsx
 msgid "Its owners are told now, with your name and this reason. You will read every table of the base and change nothing."
 msgstr "Its owners are told now, with your name and this reason. You will read every table of the base and change nothing."
@@ -6619,6 +6635,7 @@ msgstr "Not an email address"
 msgid "Not checked yet"
 msgstr "Not checked yet"
 
+#: components/admin/integrations-tab.tsx
 #: lib/known-text.ts
 msgid "Not configured"
 msgstr "Not configured"
@@ -7543,6 +7560,10 @@ msgstr "Reconnecting…"
 #: components/views/form-view.tsx
 msgid "Redirect after submit"
 msgstr "Redirect after submit"
+
+#: components/admin/integrations-tab.tsx
+msgid "Redirect URL"
+msgstr "Redirect URL"
 
 #: components/admin/integrations-tab.tsx
 msgid "Redirect URL for the identity provider:"
@@ -8516,6 +8537,14 @@ msgstr "Sessions on a calendar, their venues, and a form where attendees registe
 #: components/grid/grid-header.tsx
 msgid "Set as primary field"
 msgstr "Set as primary field"
+
+#: components/admin/integrations-tab.tsx
+msgid "Set in the instance's environment"
+msgstr "Set in the instance's environment"
+
+#: components/admin/settings-tab.tsx
+msgid "Set in the instance's environment: its operator changes it where the instance is installed."
+msgstr "Set in the instance's environment: its operator changes it where the instance is installed."
 
 #: components/auth/reset-page.tsx
 msgid "Set the password"
@@ -9576,6 +9605,10 @@ msgstr "The instance sends no email yet: set it up under Connections."
 #: components/admin/alerts-section.tsx
 msgid "The instance's certificate expires on {when}."
 msgstr "The instance's certificate expires on {when}."
+
+#: lib/errors.ts
+msgid "The instance's environment sets this: its operator changes it where the instance is installed"
+msgstr "The instance's environment sets this: its operator changes it where the instance is installed"
 
 #: components/fields/formula-docs.ts
 msgid "The ISO week number."

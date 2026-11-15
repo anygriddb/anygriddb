@@ -164,6 +164,18 @@ secrets:
     file: ./metrics_token
 ```
 
+### Email and single sign-on: Administration, or the environment
+
+Email (SMTP) and single sign-on (OIDC, SAML) are set in Administration,
+Connections, once the first account exists. To hold them where the
+instance is installed instead, give the application their variables
+through a Compose file of your own: `SMTP_HOST` and `SMTP_FROM`, with
+`SMTP_PORT`, `SMTP_USER` and `SMTP_PASSWORD`; the four `OIDC_*`; the four
+`SAML_*`. What the environment sets wins: Administration shows it, without
+its secrets, and cannot change it (ADR 0083). Half a configuration there
+is none, and Administration's applies. The same holds for
+`ATTACHMENT_MAX_BYTES`, the largest attachment.
+
 ### Encryption at rest
 
 What `AUTH_ENCRYPTION_KEY` seals stays sealed wherever it is copied. The

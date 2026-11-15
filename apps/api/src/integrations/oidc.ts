@@ -133,6 +133,9 @@ export async function resolveOidc(
     OIDC_REDIRECT_URL?: string;
   },
 ): Promise<{ config: OidcConfig | null; source: OidcSource }> {
+  // The environment first: its operator set it (ADR 0083).
+  const fromEnvironment = envOidc(env);
+  if (fromEnvironment) return { config: fromEnvironment, source: "env" };
   const row = await loadOidcRow(db);
   if (row) {
     return {
@@ -150,8 +153,26 @@ export async function resolveOidc(
       source: "database",
     };
   }
-  const config = envOidc(env);
-  return { config, source: config ? "env" : "none" };
+  return { config: null, source: "none" };
+}
+
+/**
+ * What Administration shows of the provider the environment names, never
+ * its secret. `configured` still says whether a row was saved, which the
+ * environment now keeps unused.
+ */
+export function environmentOidc(
+  config: OidcConfig,
+  row: OidcRow | null,
+): PublicOidc {
+  return {
+    configured: row !== null,
+    issuer: config.OIDC_ISSUER,
+    clientId: config.OIDC_CLIENT_ID,
+    hasClientSecret: true,
+    redirectUrl: config.OIDC_REDIRECT_URL,
+    updatedAt: null,
+  };
 }
 
 const DISCOVERY_TIMEOUT_MS = 10_000;

@@ -208,4 +208,107 @@ describe("operator OIDC and SAML", () => {
     await admin.call().admin.updateSettings({ ssoOnly: false });
     await admin.call().admin.oidc.clear();
   });
+
+  it("lets the environment's providers win, shows them, and does not change them", async () => {
+    const held = {
+      OIDC_ISSUER: "https://env-idp.example.org/",
+      OIDC_CLIENT_ID: "from-env",
+      OIDC_CLIENT_SECRET: "env-secret",
+      OIDC_REDIRECT_URL: "https://grid.example.org/auth/oidc/callback",
+      SAML_ENTRY_POINT: "https://env-idp.example.org/sso",
+      SAML_ISSUER: "https://env-idp.example.org",
+      SAML_CERT: CERT,
+      SAML_CALLBACK_URL: "https://grid.example.org/auth/saml/acs",
+    };
+    // Three of four is not a provider: the page still decides.
+    Object.assign(env, { ...held, OIDC_CLIENT_SECRET: undefined });
+    expect((await resolveOidc(db, env)).source).toBe("none");
+    Object.assign(env, held);
+    try {
+      expect((await resolveOidc(db, env)).source).toBe("env");
+      expect((await resolveSaml(db, env)).source).toBe("env");
+
+      const oidc = await admin.call().admin.oidc.get();
+      expect(oidc).toMatchObject({
+        source: "env",
+        ready: true,
+        configured: false,
+        issuer: "https://env-idp.example.org/",
+        clientId: "from-env",
+        hasClientSecret: true,
+        redirectUrl: "https://grid.example.org/auth/oidc/callback",
+      });
+      expect(JSON.stringify(oidc)).not.toContain("env-secret");
+      expect(
+        await errorCode(
+          admin.call().admin.oidc.update({
+            issuer: "https://idp.example.org/",
+            clientId: "anygriddb",
+            clientSecret: "super-secret",
+          }),
+        ),
+      ).toBe("set_by_environment");
+
+      const saml = await admin.call().admin.saml.get();
+      expect(saml).toMatchObject({
+        source: "env",
+        ready: true,
+        configured: false,
+        entryPoint: "https://env-idp.example.org/sso",
+        issuer: "https://env-idp.example.org",
+        callbackUrl: "https://grid.example.org/auth/saml/acs",
+      });
+      expect(JSON.stringify(saml)).not.toContain("BEGIN CERTIFICATE");
+      expect(
+        await errorCode(
+          admin.call().admin.saml.update({
+            entryPoint: "https://idp.example.org/sso",
+            issuer: "https://idp.example.org",
+            idpCert: CERT,
+          }),
+        ),
+      ).toBe("set_by_environment");
+
+      // Nothing was saved behind the refusals.
+      for (const table of ["instanceOidc", "instanceSaml"] as const) {
+        expect(
+          await db.selectFrom(table).select("id").executeTakeFirst(),
+        ).toBeUndefined();
+      }
+      // The environment's provider counts for requiring single sign-on.
+      const settings = await admin
+        .call()
+        .admin.updateSettings({ ssoOnly: true });
+      expect(settings.ssoOnly).toBe(true);
+      await admin.call().admin.updateSettings({ ssoOnly: false });
+    } finally {
+      for (const name of Object.keys(held)) {
+        Reflect.deleteProperty(env, name);
+      }
+    }
+    expect((await resolveOidc(db, env)).source).toBe("none");
+    expect((await resolveSaml(db, env)).source).toBe("none");
+  });
+
+  it("leaves the largest attachment to the environment when it sets one", async () => {
+    Object.assign(env, { ATTACHMENT_MAX_BYTES: 5_242_880 });
+    try {
+      expect(
+        await errorCode(
+          admin.call().admin.updateSettings({ attachmentMaxBytes: 1_048_576 }),
+        ),
+      ).toBe("set_by_environment");
+      // Another setting of the same page is still saved.
+      const kept = await admin.call().admin.updateSettings({ trashDays: 14 });
+      expect(kept.trashDays).toBe(14);
+      expect(kept.attachmentMaxBytes).toBeNull();
+    } finally {
+      Reflect.deleteProperty(env, "ATTACHMENT_MAX_BYTES");
+    }
+    const saved = await admin
+      .call()
+      .admin.updateSettings({ attachmentMaxBytes: 1_048_576, trashDays: 30 });
+    expect(saved.attachmentMaxBytes).toBe(1_048_576);
+    await admin.call().admin.updateSettings({ attachmentMaxBytes: null });
+  });
 });

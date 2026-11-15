@@ -2,24 +2,27 @@
  * What the instance is connected to: provisioning, mail, single sign-on,
  * and the collector of sign-in events.
  */
+import { AppError } from "@anygriddb/core";
 import { z } from "zod";
 import {
   clearOidc,
+  environmentOidc,
   loadOidcRow,
+  oidcUpdateSchema,
   proveOidcIssuer,
   publicOidc,
   resolveOidc,
   saveOidc,
-  oidcUpdateSchema,
 } from "../integrations/oidc.js";
 import {
   clearSaml,
+  environmentSaml,
   loadSamlRow,
   proveSamlCertificate,
   publicSaml,
   resolveSaml,
-  saveSaml,
   samlUpdateSchema,
+  saveSaml,
 } from "../integrations/saml.js";
 import {
   clearSiem,
@@ -31,6 +34,7 @@ import {
 } from "../integrations/siem.js";
 import {
   clearSmtp,
+  environmentSmtp,
   loadSmtpRow,
   publicSmtp,
   resolveSmtp,
@@ -94,7 +98,9 @@ export const smtpRouter = t.router({
         resolveSmtp(ctx.db, ctx.env),
       ]);
       return {
-        ...publicSmtp(row),
+        ...(resolved.source === "env"
+          ? environmentSmtp(resolved.config, row)
+          : publicSmtp(row)),
         source: resolved.source,
         ready: smtpReady(resolved.config),
       };
@@ -103,6 +109,10 @@ export const smtpRouter = t.router({
   update: procedure.input(smtpUpdateSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
+      // What the environment sets is its operator's to change (ADR 0083).
+      if ((await resolveSmtp(ctx.db, ctx.env)).source === "env") {
+        throw new AppError("set_by_environment");
+      }
       return saveSmtp(ctx.db, ctx.env.AUTH_ENCRYPTION_KEY, admin.id, input, {
         ip: ctx.req.ip,
       });
@@ -126,7 +136,9 @@ export const oidcRouter = t.router({
         resolveOidc(ctx.db, ctx.env),
       ]);
       return {
-        ...publicOidc(row, ctx.env.PUBLIC_URL),
+        ...(resolved.source === "env" && resolved.config
+          ? environmentOidc(resolved.config, row)
+          : publicOidc(row, ctx.env.PUBLIC_URL)),
         source: resolved.source,
         ready: resolved.config !== null,
       };
@@ -135,6 +147,9 @@ export const oidcRouter = t.router({
   update: procedure.input(oidcUpdateSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
+      if ((await resolveOidc(ctx.db, ctx.env)).source === "env") {
+        throw new AppError("set_by_environment");
+      }
       return saveOidc(
         ctx.db,
         ctx.env.AUTH_ENCRYPTION_KEY,
@@ -173,7 +188,9 @@ export const samlRouter = t.router({
         resolveSaml(ctx.db, ctx.env),
       ]);
       return {
-        ...publicSaml(row, ctx.env.PUBLIC_URL),
+        ...(resolved.source === "env" && resolved.config
+          ? environmentSaml(resolved.config, row)
+          : publicSaml(row, ctx.env.PUBLIC_URL)),
         source: resolved.source,
         ready: resolved.config !== null,
       };
@@ -182,6 +199,9 @@ export const samlRouter = t.router({
   update: procedure.input(samlUpdateSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
+      if ((await resolveSaml(ctx.db, ctx.env)).source === "env") {
+        throw new AppError("set_by_environment");
+      }
       return saveSaml(ctx.db, admin.id, input, ctx.env.PUBLIC_URL, {
         ip: ctx.req.ip,
       });

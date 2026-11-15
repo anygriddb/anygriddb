@@ -1,7 +1,7 @@
 /**
- * Operator SMTP (ADR 0050): save through the admin router once the relay
- * answers, resolve prefers the database, send a test mail, never return
- * the password.
+ * Operator SMTP (ADR 0050, 0083): save through the admin router once the
+ * relay answers, send a test mail, never return the password; a relay the
+ * environment names wins, is shown, and is not changed from the page.
  */
 import { randomBytes } from "node:crypto";
 import { createServer, type AddressInfo } from "node:net";
@@ -29,7 +29,6 @@ describe("operator SMTP", () => {
   const env = {
     AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
     PUBLIC_URL: "https://grid.example.org",
-    SMTP_FROM: "env@example.org",
   } as unknown as Env & {
     SMTP_HOST?: string;
     SMTP_PORT?: number;
@@ -49,8 +48,6 @@ describe("operator SMTP", () => {
     db = created.db;
     close = created.close;
     smtp = await fakeSmtp();
-    env.SMTP_HOST = "127.0.0.1";
-    env.SMTP_PORT = smtp.port;
     await admin.signUpFirst({
       email: `admin-${suffix}@example.org`,
       displayName: "Ada Admin",
@@ -67,11 +64,15 @@ describe("operator SMTP", () => {
     await close?.();
   });
 
-  it("falls back to the environment when nothing is saved", async () => {
+  it("has no relay while neither the environment nor the page names one", async () => {
     clearSmtpCache(db);
-    const resolved = await resolveSmtp(db, env);
-    expect(resolved.source).toBe("env");
-    expect(resolved.config.SMTP_FROM).toBe("env@example.org");
+    expect((await resolveSmtp(db, env)).source).toBe("none");
+    // Half a relay in the environment is none.
+    env.SMTP_FROM = "env@example.org";
+    expect((await resolveSmtp(db, env)).source).toBe("none");
+    delete env.SMTP_FROM;
+    const got = await admin.call().admin.smtp.get();
+    expect(got).toMatchObject({ source: "none", ready: false, host: null });
   });
 
   it("saves through the UI path, hides the password, and sends a test", async () => {
@@ -151,11 +152,65 @@ describe("operator SMTP", () => {
     expect(open.hasPassword).toBe(false);
   });
 
-  it("clears the row and falls back to env again", async () => {
-    await admin.call().admin.smtp.clear();
+  it("lets the environment's relay win, shows it, and does not change it", async () => {
+    // A row is saved on the page, then the operator names a relay.
+    expect((await admin.call().admin.smtp.get()).source).toBe("database");
+    env.SMTP_HOST = "127.0.0.1";
+    env.SMTP_PORT = smtp.port;
+    env.SMTP_FROM = "env@example.org";
+    env.SMTP_USER = "relay";
+    env.SMTP_PASSWORD = "never-shown";
+    try {
+      const resolved = await resolveSmtp(db, env);
+      expect(resolved.source).toBe("env");
+      expect(resolved.config.SMTP_FROM).toBe("env@example.org");
+
+      // The page shows what is in force, never its password; the row
+      // saved before is still there, unused.
+      const got = await admin.call().admin.smtp.get();
+      expect(got).toMatchObject({
+        source: "env",
+        ready: true,
+        configured: true,
+        host: "127.0.0.1",
+        port: smtp.port,
+        username: "relay",
+        fromAddress: "env@example.org",
+        hasPassword: true,
+        updatedAt: null,
+      });
+      expect(JSON.stringify(got)).not.toContain("never-shown");
+
+      // A save is refused, and the row stays as it was.
+      expect(
+        await errorCode(
+          admin.call().admin.smtp.update({
+            host: "127.0.0.1",
+            port: smtp.port,
+            username: null,
+            fromAddress: "other@example.org",
+          }),
+        ),
+      ).toBe("set_by_environment");
+      const row = await db
+        .selectFrom("instanceSmtp")
+        .select("fromAddress")
+        .executeTakeFirstOrThrow();
+      expect(row.fromAddress).toBe("grid@example.org");
+
+      // The unused row can be removed; the environment's relay stays.
+      await admin.call().admin.smtp.clear();
+      const after = await admin.call().admin.smtp.get();
+      expect(after).toMatchObject({ source: "env", configured: false });
+    } finally {
+      delete env.SMTP_HOST;
+      delete env.SMTP_PORT;
+      delete env.SMTP_FROM;
+      delete env.SMTP_USER;
+      delete env.SMTP_PASSWORD;
+    }
     clearSmtpCache(db);
-    const resolved = await resolveSmtp(db, env);
-    expect(resolved.source).toBe("env");
+    expect((await resolveSmtp(db, env)).source).toBe("none");
   });
 
   it("refuses a member", async () => {

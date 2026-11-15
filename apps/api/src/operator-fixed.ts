@@ -20,6 +20,8 @@ type OperatorFixed = {
   publicUrl: string;
   storage: OperatorFixedStorage;
   trustedProxies: readonly string[];
+  /** The largest attachment, when the environment sets it (ADR 0083). */
+  attachmentMaxBytes: number | null;
 };
 
 /** Host of an HTTPS endpoint URL, or null when the value is not a URL. */
@@ -48,5 +50,6 @@ export function operatorFixedFromEnv(env: Env): OperatorFixed {
     publicUrl: env.PUBLIC_URL,
     storage,
     trustedProxies: [...env.TRUSTED_PROXIES],
+    attachmentMaxBytes: env.ATTACHMENT_MAX_BYTES ?? null,
   };
 }

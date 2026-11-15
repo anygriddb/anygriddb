@@ -122,13 +122,16 @@ function rowToConfig(row: SmtpRow, key: KeyRing): SmtpConfig {
 }
 
 /**
- * The saved row when there is one; otherwise the environment. Returns
- * which side supplied the config for the admin UI.
+ * The environment when it names a relay: its operator set it, and
+ * Administration cannot move it (ADR 0083). Otherwise the row saved in
+ * Administration; otherwise none. Says which, for the page to show.
  */
 export async function resolveSmtp(
   db: Database,
   env: SmtpConfig & { AUTH_ENCRYPTION_KEY: KeyRing },
 ): Promise<{ config: SmtpConfig; source: SmtpSource }> {
+  const config = envSmtp(env);
+  if (smtpReady(config)) return { config, source: "env" };
   const row = await loadSmtpRow(db);
   if (row) {
     return {
@@ -136,10 +139,26 @@ export async function resolveSmtp(
       source: "database",
     };
   }
-  const config = envSmtp(env);
+  return { config, source: "none" };
+}
+
+/**
+ * What Administration shows of the relay the environment names: where
+ * mail goes and under which name, never the password. `configured` still
+ * says whether a row was saved, which the environment now keeps unused.
+ */
+export function environmentSmtp(
+  config: SmtpConfig,
+  row: SmtpRow | null,
+): PublicSmtp {
   return {
-    config,
-    source: smtpReady(config) ? "env" : "none",
+    configured: row !== null,
+    host: config.SMTP_HOST ?? null,
+    port: config.SMTP_PORT ?? null,
+    username: config.SMTP_USER ?? null,
+    fromAddress: config.SMTP_FROM ?? null,
+    hasPassword: Boolean(config.SMTP_PASSWORD),
+    updatedAt: null,
   };
 }
 

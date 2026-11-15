@@ -277,13 +277,16 @@ describe("more policies (ADR 0044)", () => {
 });
 
 describe("resolveAttachmentMaxBytes", () => {
-  it("prefers the UI setting, then env, then 20 MiB", () => {
+  it("takes the environment's, then Administration's, then 20 MiB", () => {
     expect(
       resolveAttachmentMaxBytes({ attachmentMaxBytes: 5_000_000 }, 9_000_000),
-    ).toBe(5_000_000);
+    ).toBe(9_000_000);
     expect(
       resolveAttachmentMaxBytes({ attachmentMaxBytes: null }, 9_000_000),
     ).toBe(9_000_000);
+    expect(resolveAttachmentMaxBytes({ attachmentMaxBytes: 5_000_000 })).toBe(
+      5_000_000,
+    );
     expect(resolveAttachmentMaxBytes({ attachmentMaxBytes: null })).toBe(
       DEFAULT_ATTACHMENT_MAX_BYTES,
     );

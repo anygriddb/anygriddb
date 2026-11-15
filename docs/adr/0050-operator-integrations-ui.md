@@ -1,6 +1,7 @@
 # 0050 — Operator integrations in the UI
 
-- Status: Accepted
+- Status: Accepted; amended by 0083 (the environment wins when it sets a
+  whole configuration)
 - Date: 2026-11-11
 
 ## Context

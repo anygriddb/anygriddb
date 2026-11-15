@@ -56,6 +56,9 @@ export function SettingsTab() {
   const savedDomains = settings.data.signupDomains.join(", ");
   const domainsText = domains ?? savedDomains;
   const storage = operator.data?.storage;
+  // The largest attachment: the environment's when it sets one (ADR 0083).
+  const heldBytes = operator.data?.attachmentMaxBytes ?? null;
+  const shownBytes = heldBytes ?? settings.data.attachmentMaxBytes;
   const storageSummary = !storage
     ? null
     : storage.driver === "disk"
@@ -194,16 +197,14 @@ export function SettingsTab() {
             max={500}
             placeholder="20"
             aria-describedby="setting-attachment-mb-hint"
+            // The environment's ceiling is read here and changed there.
+            disabled={heldBytes != null}
             defaultValue={
-              settings.data.attachmentMaxBytes != null
-                ? String(
-                    Math.round(
-                      settings.data.attachmentMaxBytes / (1024 * 1024),
-                    ),
-                  )
+              shownBytes != null
+                ? String(Math.round(shownBytes / (1024 * 1024)))
                 : ""
             }
-            key={String(settings.data.attachmentMaxBytes)}
+            key={String(shownBytes)}
             onBlur={(event) => {
               const raw = event.target.value.trim();
               if (!raw) {
@@ -230,7 +231,9 @@ export function SettingsTab() {
           id="setting-attachment-mb-hint"
           className="text-xs text-muted-foreground"
         >
-          {t`Empty uses the environment, then 20 MiB. Between 1 and 500.`}
+          {heldBytes != null
+            ? t`Set in the instance's environment: its operator changes it where the instance is installed.`
+            : t`Empty uses 20 MiB. Between 1 and 500.`}
         </p>
       </div>
       <section

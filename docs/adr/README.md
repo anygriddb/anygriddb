@@ -62,7 +62,7 @@ accepted as the work they decide was done; each carries its own date.
 | [0047](0047-oracle-dialect-spike.md)                 | Oracle dialect: thin mode, shipped on the five-engine conformance suite                 | Accepted                                    |
 | [0048](0048-versions-and-releases.md)                | Versions and releases: SemVer in the root package.json, tags, labelled image            | Accepted                                    |
 | [0049](0049-realtime-gaps.md)                        | Realtime gaps: every page re-reads what it may have missed; heartbeat                   | Accepted (completes 0009)                   |
-| [0050](0050-operator-integrations-ui.md)             | Operator integrations (SMTP, OIDC, SAML) in the UI; env as optional bootstrap           | Accepted                                    |
+| [0050](0050-operator-integrations-ui.md)             | Operator integrations (SMTP, OIDC, SAML) in the UI; env as optional bootstrap           | Accepted (amended by 0083)                  |
 | [0051](0051-admin-account-erasure.md)                | Administrator-initiated account erasure; comments under the tombstone                   | Erase-when-disabled part superseded by 0059 |
 | [0052](0052-operator-mail.md)                        | Operator mail: plain-text notice to all active or chosen accounts                       | Accepted                                    |
 | [0053](0053-sso-prove-and-sso-only.md)               | Prove SSO at save; SSO-only sign-in with admin break-glass                              | Accepted                                    |
@@ -95,3 +95,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0080](0080-install-token.md)                        | The first account takes a token from the command line                                   | Accepted                                    |
 | [0081](0081-account-data-export.md)                  | An account's data exported as a file, written a page at a time                          | Accepted                                    |
 | [0082](0082-operator-way-back-in.md)                 | An operator's way back in when no administrator can sign in                             | Accepted                                    |
+| [0083](0083-environment-holds-what-it-sets.md)       | What the environment sets, Administration shows and cannot change                       | Accepted (amends 0050)                      |

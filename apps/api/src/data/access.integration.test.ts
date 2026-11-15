@@ -724,10 +724,11 @@ describe("field and row rules on PostgreSQL", () => {
       expect(await upload(1024)).toBe(200);
       await expect.poll(() => uploads.busy).toBe(0);
       expect(await upload(8192)).toBe(413);
-      // The setting wins over the environment, without a restart.
+      // The environment's ceiling holds (ADR 0083): a setting written
+      // past Administration, which refuses it, moves nothing.
       await writeSettings(database, owner, { attachmentMaxBytes: 2048 });
-      expect(await upload(3000)).toBe(413);
-      expect(await upload(1500)).toBe(200);
+      expect(await upload(3000)).toBe(200);
+      expect(await upload(8192)).toBe(413);
     } finally {
       await writeSettings(database, owner, { attachmentMaxBytes: null });
       await app.close();

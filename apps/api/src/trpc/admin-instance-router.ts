@@ -187,6 +187,13 @@ export const adminInstanceProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
+        // What the environment sets is its operator's to change (ADR 0083).
+        if (
+          input.attachmentMaxBytes !== undefined &&
+          ctx.env.ATTACHMENT_MAX_BYTES !== undefined
+        ) {
+          throw new AppError("set_by_environment");
+        }
         if (input.ssoOnly === true) {
           const [oidc, saml] = await Promise.all([
             resolveOidc(ctx.db, ctx.env),
