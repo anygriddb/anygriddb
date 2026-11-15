@@ -96,7 +96,9 @@ services:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: ${LAB_PASSWORD}
       MSSQL_PID: Developer
-      MSSQL_MEMORY_LIMIT_MB: "1500"
+      # 1500 MB cannot restore WideWorldImporters: 2500 holds one large
+      # sample at a time.
+      MSSQL_MEMORY_LIMIT_MB: "2500"
     ports:
       - "127.0.0.1:51433:1433"
     volumes:
@@ -108,7 +110,7 @@ services:
       - |
         cp /certs/server.crt /certs/server.key /var/opt/mssql/ &&
         chmod 600 /var/opt/mssql/server.key &&
-        printf '[network]\ntlscert = /var/opt/mssql/server.crt\ntlskey = /var/opt/mssql/server.key\ntlsprotocols = 1.2\nforceencryption = 1\n[memory]\nmemorylimitmb = 1500\n' > /var/opt/mssql/mssql.conf &&
+        printf '[network]\ntlscert = /var/opt/mssql/server.crt\ntlskey = /var/opt/mssql/server.key\ntlsprotocols = 1.2\nforceencryption = 1\n[memory]\nmemorylimitmb = 2500\n' > /var/opt/mssql/mssql.conf &&
         exec /opt/mssql/bin/sqlservr
     healthcheck:
       test:

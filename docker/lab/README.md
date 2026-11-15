@@ -2,7 +2,9 @@
 
 Opt-in Docker engines and seeded sample databases for exercising AnyGridDB
 external sources (ADR 0006) against real schemas: Chinook, Northwind,
-Sakila/Pagila, and AdventureWorks (SQL Server).
+Sakila/Pagila, and AdventureWorks (SQL Server), which the sample suites
+read; and, for the lab alone, DVD Rental, World, Employees (some four
+million rows), and WideWorldImporters (SQL Server).
 
 This is **not** the official product stack. SQL Server uses Compose profile
 `mssql` and Oracle Free profile `oracle` — interoperability images only
@@ -15,9 +17,15 @@ cd docker/lab
 cp .env.example .env
 docker compose up -d
 docker compose --profile mssql --profile oracle up -d   # optional engines
-../../scripts/lab/seed.sh
+../../scripts/lab/seed.sh                    # what the sample suites read
+../../scripts/lab/seed.sh --lab              # and DVD Rental, World, Employees
 ../../scripts/lab/seed.sh --adventureworks   # SQL Server only, ~210 MB download
+../../scripts/lab/seed.sh --wideworldimporters   # SQL Server only, ~120 MB
 ```
+
+Restore one SQL Server backup at a time (`--adventureworks`,
+`--wideworldimporters`, `--wideworldimporters-dw`): the three together
+exhaust the memory the lab gives SQL Server.
 
 `seed.sh` first runs `scripts/lab/fetch-seeds.sh`, which downloads each
 dataset from its pinned upstream version into `seeds/` (not committed)
@@ -49,12 +57,12 @@ plus side schema `anygriddb_side` (Postgres/SQL Server), database `ag_side`
 
 ## Databases after seed
 
-| Engine          | Databases / schemas                                                    |
-| --------------- | ---------------------------------------------------------------------- |
-| PostgreSQL      | `chinook`, `northwind`, `pagila`                                       |
-| MySQL / MariaDB | `Chinook`, `northwind`, `sakila`                                       |
-| SQL Server      | `Chinook`, `northwind`, `AdventureWorks2022` (with `--adventureworks`) |
-| Oracle          | service `FREEPDB1`, schema `CHINOOK`                                   |
+| Engine          | Databases / schemas                                                                                                                                                           |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL      | `chinook`, `northwind`, `pagila`; `dvdrental` with `--lab`                                                                                                                    |
+| MySQL / MariaDB | `Chinook`, `northwind`, `sakila`; `world` and `employees` with `--lab`                                                                                                        |
+| SQL Server      | `Chinook`, `northwind`; `AdventureWorks2022` with `--adventureworks`; `WideWorldImporters` with `--wideworldimporters`; `WideWorldImportersDW` with `--wideworldimporters-dw` |
+| Oracle          | service `FREEPDB1`, schema `CHINOOK`                                                                                                                                          |
 
 ## TLS
 

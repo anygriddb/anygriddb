@@ -3,7 +3,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT/docker/lab"
-ARGS=(--profile mssql down)
+ARGS=(--profile mssql --profile oracle down)
 if [[ "${1:-}" == "--volumes" ]]; then
   ARGS+=(--volumes)
 fi

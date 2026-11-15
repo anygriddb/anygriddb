@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # Idempotent load of sample databases into the anygriddb-lab containers.
-# Usage: ./scripts/lab/seed.sh [--adventureworks] [--all]
+# Without a flag: the four databases the sample suites read (Chinook,
+# Northwind, Sakila, Pagila), which is what those suites ask for.
+# --lab adds the ones the lab alone loads: DVD Rental on PostgreSQL, World
+# and Employees (some four million rows) on MySQL and MariaDB. The SQL
+# Server backups come one flag each: restore one large sample at a time,
+# since the three together exhaust the lab's SQL Server.
+# Usage: ./scripts/lab/seed.sh [--lab] [--adventureworks]
+#   [--wideworldimporters] [--wideworldimporters-dw] [--all]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -20,14 +27,34 @@ MARIADB="${LAB_MARIADB_CONTAINER:-aglab-mariadb}"
 MSSQL="${LAB_MSSQL_CONTAINER:-aglab-mssql}"
 ORACLE="${LAB_ORACLE_CONTAINER:-aglab-oracle}"
 READER=anygriddb
+DO_LAB=0
 DO_AW=0
+DO_WWI=0
+DO_WWI_DW=0
 for arg in "$@"; do
   case "$arg" in
-    --adventureworks | --all) DO_AW=1 ;;
+    --lab) DO_LAB=1 ;;
+    --adventureworks) DO_AW=1 ;;
+    --wideworldimporters) DO_WWI=1 ;;
+    --wideworldimporters-dw) DO_WWI_DW=1 ;;
+    --all)
+      # The lab's samples and one SQL Server backup: AdventureWorks and
+      # the warehouse are asked for by name, one at a time.
+      DO_LAB=1
+      DO_WWI=1
+      ;;
+    *)
+      echo "Unknown option: $arg" >&2
+      exit 2
+      ;;
   esac
 done
 
-"$ROOT/scripts/lab/fetch-seeds.sh" $([[ "$DO_AW" -eq 1 ]] && echo --adventureworks)
+FETCH_ARGS=()
+[[ "$DO_LAB" -eq 1 ]] && FETCH_ARGS+=(--lab)
+[[ "$DO_AW" -eq 1 ]] && FETCH_ARGS+=(--adventureworks)
+[[ "$DO_WWI" -eq 1 || "$DO_WWI_DW" -eq 1 ]] && FETCH_ARGS+=(--wideworldimporters)
+"$ROOT/scripts/lab/fetch-seeds.sh" "${FETCH_ARGS[@]+"${FETCH_ARGS[@]}"}"
 
 need() {
   if ! docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null | grep -q true; then
@@ -52,6 +79,14 @@ docker cp "$SEEDS/pagila/pagila-schema.sql" "$PG":/tmp/pagila-schema.sql
 docker cp "$SEEDS/pagila/pagila-data.sql" "$PG":/tmp/pagila-data.sql
 docker exec "$PG" psql -U postgres -d pagila -v ON_ERROR_STOP=1 -f /tmp/pagila-schema.sql >/tmp/aglab-seed-pg-pagila-schema.log
 docker exec "$PG" psql -U postgres -d pagila -v ON_ERROR_STOP=1 -f /tmp/pagila-data.sql >/tmp/aglab-seed-pg-pagila-data.log
+if [[ "$DO_LAB" -eq 1 ]]; then
+  echo "==> DVD Rental on PostgreSQL"
+  docker exec "$PG" psql -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='dvdrental' AND pid <> pg_backend_pid();" >/dev/null 2>&1 || true
+  docker exec "$PG" psql -U postgres -c "DROP DATABASE IF EXISTS dvdrental;"
+  docker exec "$PG" psql -U postgres -c "CREATE DATABASE dvdrental;"
+  docker cp "$SEEDS/dvdrental/dvdrental.sql" "$PG":/tmp/dvdrental.sql
+  docker exec "$PG" psql -U postgres -d dvdrental -v ON_ERROR_STOP=1 -f /tmp/dvdrental.sql >/tmp/aglab-seed-pg-dvdrental.log
+fi
 
 echo "==> Chinook + Northwind + Sakila on MySQL"
 need "$MYSQL"
@@ -62,6 +97,17 @@ docker exec "$MYSQL" bash -c "mysql -uroot -p'$PASSWORD' < /tmp/northwind.sql" >
 docker cp "$SEEDS/sakila/sakila-schema.sql" "$MYSQL":/tmp/sakila-schema.sql
 docker cp "$SEEDS/sakila/sakila-data.sql" "$MYSQL":/tmp/sakila-data.sql
 docker exec "$MYSQL" bash -c "mysql -uroot -p'$PASSWORD' < /tmp/sakila-schema.sql && mysql -uroot -p'$PASSWORD' < /tmp/sakila-data.sql" >/tmp/aglab-seed-mysql-sakila.log
+if [[ "$DO_LAB" -eq 1 ]]; then
+  echo "==> World + Employees on MySQL"
+  docker cp "$SEEDS/world/world.sql" "$MYSQL":/tmp/world.sql
+  docker exec "$MYSQL" bash -c "mysql -uroot -p'$PASSWORD' < /tmp/world.sql" >/tmp/aglab-seed-mysql-world.log
+  work=$(mktemp -d)
+  tar -xzf "$SEEDS/employees/test_db-1.0.7.tar.gz" -C "$work"
+  docker exec "$MYSQL" rm -rf /tmp/test_db
+  docker cp "$work/test_db-1.0.7" "$MYSQL":/tmp/test_db
+  rm -rf "$work"
+  docker exec "$MYSQL" bash -c "cd /tmp/test_db && mysql -uroot -p'$PASSWORD' < employees.sql" >/tmp/aglab-seed-mysql-employees.log
+fi
 
 echo "==> Chinook + Northwind + Sakila on MariaDB"
 need "$MARIADB"
@@ -72,6 +118,17 @@ docker exec "$MARIADB" bash -c "mariadb -uroot -p'$PASSWORD' < /tmp/northwind.sq
 docker cp "$SEEDS/sakila/sakila-schema.sql" "$MARIADB":/tmp/sakila-schema.sql
 docker cp "$SEEDS/sakila/sakila-data.sql" "$MARIADB":/tmp/sakila-data.sql
 docker exec "$MARIADB" bash -c "mariadb -uroot -p'$PASSWORD' < /tmp/sakila-schema.sql && mariadb -uroot -p'$PASSWORD' < /tmp/sakila-data.sql" >/tmp/aglab-seed-maria-sakila.log
+if [[ "$DO_LAB" -eq 1 ]]; then
+  echo "==> World + Employees on MariaDB"
+  docker cp "$SEEDS/world/world.sql" "$MARIADB":/tmp/world.sql
+  docker exec "$MARIADB" bash -c "mariadb -uroot -p'$PASSWORD' < /tmp/world.sql" >/tmp/aglab-seed-maria-world.log
+  work=$(mktemp -d)
+  tar -xzf "$SEEDS/employees/test_db-1.0.7.tar.gz" -C "$work"
+  docker exec "$MARIADB" rm -rf /tmp/test_db
+  docker cp "$work/test_db-1.0.7" "$MARIADB":/tmp/test_db
+  rm -rf "$work"
+  docker exec "$MARIADB" bash -c "cd /tmp/test_db && mariadb -uroot -p'$PASSWORD' < employees.sql" >/tmp/aglab-seed-maria-employees.log
+fi
 
 if docker inspect -f '{{.State.Running}}' "$MSSQL" 2>/dev/null | grep -q true; then
   echo "==> Chinook + Northwind on SQL Server"
@@ -89,7 +146,6 @@ BEGIN ALTER DATABASE [northwind] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP D
 
   if [[ "$DO_AW" -eq 1 ]]; then
     echo "==> AdventureWorks2022 on SQL Server"
-    # Downloaded and checked by fetch-seeds.sh above.
     BAK="$SEEDS/adventureworks/AdventureWorks2022.bak"
     docker exec "$MSSQL" mkdir -p /var/opt/mssql/backup
     docker cp "$BAK" "$MSSQL":/var/opt/mssql/backup/AdventureWorks2022.bak
@@ -100,6 +156,41 @@ RESTORE DATABASE [AdventureWorks2022]
 FROM DISK = N'/var/opt/mssql/backup/AdventureWorks2022.bak'
 WITH MOVE N'AdventureWorks2022' TO N'/var/opt/mssql/data/AdventureWorks2022.mdf',
      MOVE N'AdventureWorks2022_log' TO N'/var/opt/mssql/data/AdventureWorks2022_log.ldf',
+     REPLACE;
+"
+  fi
+
+  if [[ "$DO_WWI" -eq 1 ]]; then
+    echo "==> WideWorldImporters (OLTP) on SQL Server"
+    docker exec "$MSSQL" mkdir -p /var/opt/mssql/backup /var/opt/mssql/data
+    docker cp "$SEEDS/wideworldimporters/WideWorldImporters-Full.bak" \
+      "$MSSQL":/var/opt/mssql/backup/WideWorldImporters-Full.bak
+    docker exec "$MSSQL" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$PASSWORD" -C -Q "
+IF EXISTS (SELECT name FROM sys.databases WHERE name = N'WideWorldImporters')
+BEGIN ALTER DATABASE [WideWorldImporters] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [WideWorldImporters]; END
+RESTORE DATABASE [WideWorldImporters]
+FROM DISK = N'/var/opt/mssql/backup/WideWorldImporters-Full.bak'
+WITH MOVE N'WWI_Primary' TO N'/var/opt/mssql/data/WideWorldImporters.mdf',
+     MOVE N'WWI_UserData' TO N'/var/opt/mssql/data/WideWorldImporters_UserData.ndf',
+     MOVE N'WWI_Log' TO N'/var/opt/mssql/data/WideWorldImporters.ldf',
+     MOVE N'WWI_InMemory_Data_1' TO N'/var/opt/mssql/data/WideWorldImporters_InMemory_Data_1',
+     REPLACE;
+"
+  fi
+  if [[ "$DO_WWI_DW" -eq 1 ]]; then
+    echo "==> WideWorldImportersDW (OLAP) on SQL Server"
+    docker exec "$MSSQL" mkdir -p /var/opt/mssql/backup /var/opt/mssql/data
+    docker cp "$SEEDS/wideworldimporters/WideWorldImportersDW-Full.bak" \
+      "$MSSQL":/var/opt/mssql/backup/WideWorldImportersDW-Full.bak
+    docker exec "$MSSQL" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$PASSWORD" -C -Q "
+IF EXISTS (SELECT name FROM sys.databases WHERE name = N'WideWorldImportersDW')
+BEGIN ALTER DATABASE [WideWorldImportersDW] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [WideWorldImportersDW]; END
+RESTORE DATABASE [WideWorldImportersDW]
+FROM DISK = N'/var/opt/mssql/backup/WideWorldImportersDW-Full.bak'
+WITH MOVE N'WWI_Primary' TO N'/var/opt/mssql/data/WideWorldImportersDW.mdf',
+     MOVE N'WWI_UserData' TO N'/var/opt/mssql/data/WideWorldImportersDW_UserData.ndf',
+     MOVE N'WWI_Log' TO N'/var/opt/mssql/data/WideWorldImportersDW.ldf',
+     MOVE N'WWIDW_InMemory_Data_1' TO N'/var/opt/mssql/data/WideWorldImportersDW_InMemory_Data_1',
      REPLACE;
 "
   fi

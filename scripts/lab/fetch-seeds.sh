@@ -2,15 +2,33 @@
 # Downloads the lab's sample databases from their pinned upstream versions
 # into docker/lab/seeds (not committed), and checks each file's SHA-256.
 # Two MySQL fixes of Northwind are applied here, then checked too.
-# Usage: ./scripts/lab/fetch-seeds.sh [--adventureworks]
+# Without a flag: the four databases the sample suites read (Chinook,
+# Northwind, Sakila, Pagila). --lab adds the ones the lab alone loads
+# (DVD Rental, World, Employees); the two SQL Server backups are large
+# and come one flag each.
+# Usage: ./scripts/lab/fetch-seeds.sh [--lab] [--adventureworks]
+#   [--wideworldimporters] [--all]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SEEDS="$ROOT/docker/lab/seeds"
+WITH_LAB=0
 WITH_AW=0
+WITH_WWI=0
 for arg in "$@"; do
   case "$arg" in
-    --adventureworks | --all) WITH_AW=1 ;;
+    --lab) WITH_LAB=1 ;;
+    --adventureworks) WITH_AW=1 ;;
+    --wideworldimporters) WITH_WWI=1 ;;
+    --all)
+      WITH_LAB=1
+      WITH_AW=1
+      WITH_WWI=1
+      ;;
+    *)
+      echo "Unknown option: $arg" >&2
+      exit 2
+      ;;
   esac
 done
 
@@ -18,7 +36,12 @@ CHINOOK=https://github.com/lerocha/chinook-database/releases/download/v1.4.5
 PAGILA=https://raw.githubusercontent.com/devrimgunduz/pagila/pagila-v3.1.0
 NORTHWIND=https://raw.githubusercontent.com/harryho/db-samples/9bd103fc8b12b1453c8d02571e413fc7fa65ecdb
 SAKILA=https://downloads.mysql.com/docs/sakila-db.tar.gz
+DVDRENTAL=https://raw.githubusercontent.com/neondatabase-labs/postgres-sample-dbs/3da79f6fa6d096375fd1254735c7ce31dc6ea47d/dvdrental.sql
+WORLD=https://downloads.mysql.com/docs/world-db.zip
+EMPLOYEES=https://codeload.github.com/datacharmer/test_db/tar.gz/refs/tags/v1.0.7
 AW=https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2022.bak
+WWI=https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImporters-Full.bak
+WWI_DW=https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImportersDW-Full.bak
 
 # Fails when a file is not the one pinned.
 check() {
@@ -94,9 +117,41 @@ check b32170e1e2ad5828749b61a5ec896155bcd143104b076e5ee8a3a3b013f44915 \
 check 8c228c678cec6ea9e5145ea868f48be87982252e806a547dcddb67758cadf174 \
   "$SEEDS/sakila/sakila-data.sql"
 
+if [[ "$WITH_LAB" -eq 1 ]]; then
+  fetch "$DVDRENTAL" "$SEEDS/dvdrental/dvdrental.sql" \
+    fa73f75e117e7f2af010ba7542b224d76897a17ac4972be257513c86ad4da12a
+
+  # MySQL publishes World without a version, as it does Sakila: the
+  # archive and the file it holds are both checked.
+  if [[ ! -f "$SEEDS/world/world.sql" ]]; then
+    echo "==> world-db.zip"
+    mkdir -p "$SEEDS/world"
+    work=$(mktemp -d)
+    curl -fsSL --proto '=https' --tlsv1.2 -o "$work/world-db.zip" "$WORLD"
+    check fdb10ffb615ab00e8d8972d8410f20ea58d206c1c6d111baa8aa7d4651bfd231 \
+      "$work/world-db.zip"
+    unzip -q -o "$work/world-db.zip" -d "$work"
+    cp "$work/world-db/world.sql" "$SEEDS/world/world.sql"
+    rm -rf "$work"
+  fi
+  check dc96faace01d61c3d571c45f0fa55a5c9dd26baa2a700f05a6fd74f382482b7b \
+    "$SEEDS/world/world.sql"
+
+  # Employees is kept as its archive: seed.sh unpacks it where it loads it.
+  fetch "$EMPLOYEES" "$SEEDS/employees/test_db-1.0.7.tar.gz" \
+    dddfdb13228d9eec9fd76a3e316037a279768155e015f08fb5302bf6a6541250
+fi
+
 if [[ "$WITH_AW" -eq 1 ]]; then
   fetch "$AW" "$SEEDS/adventureworks/AdventureWorks2022.bak" \
     d17567adb1521f972e1dc183a7216cea869c4580b5d75632425bcadbaf82ce5e
+fi
+
+if [[ "$WITH_WWI" -eq 1 ]]; then
+  fetch "$WWI" "$SEEDS/wideworldimporters/WideWorldImporters-Full.bak" \
+    e842bad6ce02f74f166947e559dab1b476edd7eaae3da2ab9e3f522f1dd87124
+  fetch "$WWI_DW" "$SEEDS/wideworldimporters/WideWorldImportersDW-Full.bak" \
+    e2f4a37c2db3aa494ca8f7bee2f52372b3d2cceac2ec7e3aa3b140bd1e77bee5
 fi
 
 echo "==> Seeds ready in $SEEDS"
