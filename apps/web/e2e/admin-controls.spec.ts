@@ -1020,6 +1020,15 @@ test("an administrator hands a leaving person's base to someone who stays", asyn
     await expect(
       page.getByText("Account data ready to download from Tasks"),
     ).toBeVisible({ timeout: 60_000 });
+    // The task has ended: the list can leave it out and say so.
+    await page.getByRole("button", { name: "Tasks", exact: true }).click();
+    const hideFinished = page.getByRole("button", { name: "Hide finished" });
+    await expect(hideFinished).toHaveAttribute("aria-pressed", "false");
+    await hideFinished.click();
+    await expect(hideFinished).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText("No running tasks")).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.keyboard.press("Escape");
     const exported = await control.query<{ actor: string }>(
       "select a.email as actor from auth_events e join users a on a.id = e.actor_id join users u on u.id = e.user_id where e.action = 'account_data_exported' and u.email = $1",
       [leavingEmail],

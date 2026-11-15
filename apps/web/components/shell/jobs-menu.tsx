@@ -1,5 +1,6 @@
 import {
   Button,
+  cn,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -27,6 +28,7 @@ import { toast } from "sonner";
 import {
   downloadJobFile,
   isFinished,
+  shownJobs,
   useJobErrorText,
   jobPercent,
   useJobs,
@@ -116,6 +118,7 @@ export function JobsMenu() {
   const session = useSession();
   const { live } = useJobs();
   const [open, setOpen] = useState(false);
+  const [hideFinished, setHideFinished] = useState(false);
   const list = useQuery({
     ...api.jobs.list.queryOptions({ limit: 20 }),
     enabled: Boolean(session.data),
@@ -126,6 +129,8 @@ export function JobsMenu() {
     return update && !isFinished(job.status) ? { ...job, ...update } : job;
   });
   const active = jobs.filter((job) => !isFinished(job.status)).length;
+  const finished = jobs.length - active;
+  const shown = shownJobs(jobs, hideFinished);
   if (jobs.length === 0) return null;
 
   function title(job: Job): string {
@@ -287,11 +292,32 @@ export function JobsMenu() {
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-0">
-        <div className="border-b border-border px-3 py-2 text-sm font-semibold">
-          {t`Tasks`}
+        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+          <div className="min-w-0 flex-1 text-sm font-semibold">{t`Tasks`}</div>
+          {finished > 0 ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              className={cn(
+                "h-7 shrink-0 px-2 text-xs",
+                hideFinished
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground",
+              )}
+              aria-pressed={hideFinished}
+              onClick={() => setHideFinished((current) => !current)}
+            >
+              {t`Hide finished`}
+            </Button>
+          ) : null}
         </div>
         <ul className="max-h-96 overflow-y-auto">
-          {jobs.map((job) => {
+          {shown.length === 0 ? (
+            <li className="px-3 py-4 text-center text-sm text-muted-foreground">
+              {t`No running tasks`}
+            </li>
+          ) : null}
+          {shown.map((job) => {
             const Icon = ICONS[job.kind];
             const percent = jobPercent(job);
             return (

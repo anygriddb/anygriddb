@@ -34,6 +34,15 @@ export function isFinished(status: JobStatus): boolean {
   return FINISHED.has(status);
 }
 
+/** The tasks the menu lists: all of them, or only those still running. */
+export function shownJobs<T extends { status: JobStatus }>(
+  jobs: readonly T[],
+  hideFinished: boolean,
+): T[] {
+  if (!hideFinished) return [...jobs];
+  return jobs.filter((job) => !isFinished(job.status));
+}
+
 /** Whole percent done, or null while the total is unknown. */
 export function jobPercent(update: {
   done: number;
