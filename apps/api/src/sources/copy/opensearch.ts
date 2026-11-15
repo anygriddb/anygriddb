@@ -98,12 +98,14 @@ async function ask(
 }
 
 /** The indices a source reads: its pattern, `*` when it names none. */
-function patternPath(source: SourceConnection): string {
-  return source.database
+export function patternPath(
+  source: Pick<SourceConnection, "database">,
+): string {
+  const parts = source.database
     .split(",")
     .map((part) => encodeURIComponent(part.trim()))
-    .filter((part) => part.length > 0)
-    .join(",");
+    .filter((part) => part.length > 0);
+  return parts.length > 0 ? parts.join(",") : "*";
 }
 
 async function check(

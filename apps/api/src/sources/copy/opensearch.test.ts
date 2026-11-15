@@ -5,16 +5,17 @@
 import { createPrivateKey, X509Certificate } from "node:crypto";
 import http from "node:http";
 import https from "node:https";
-import type { AddressInfo } from "node:net";
+import type { AddressInfo, Socket } from "node:net";
 import { AppError } from "@anygriddb/core";
 import { describe, expect, it } from "vitest";
 import type { SourceConnection } from "../types.js";
 import { issueAuthority, issueServer } from "../../tls/certificate.js";
-import { opensearch } from "./opensearch.js";
+import { opensearch, patternPath } from "./opensearch.js";
 
 function connection(
   port: number,
   password = "reader-secret",
+  queryTimeoutMs = 2_000,
 ): SourceConnection {
   return {
     engine: "opensearch",
@@ -24,7 +25,7 @@ function connection(
     username: "reader",
     password,
     tlsCa: null,
-    queryTimeoutMs: 2_000,
+    queryTimeoutMs,
   };
 }
 
@@ -130,6 +131,29 @@ describe("opensearch check", () => {
     }
   });
 
+  it("stops an answer that comes a byte at a time past the source's limit", async () => {
+    const sockets = new Set<Socket>();
+    const slow = await listen((request, response) => {
+      sockets.add(request.socket);
+      response.writeHead(200, { "content-type": "application/json" });
+      // A byte every 100 ms keeps the socket's own limit from firing.
+      const drip = setInterval(() => response.write(" "), 100);
+      response.on("close", () => clearInterval(drip));
+    });
+    try {
+      const started = Date.now();
+      await expect(
+        opensearch.check(connection(slow.port, "reader-secret", 500), {
+          allowPlaintext: true,
+        }),
+      ).rejects.toMatchObject({ code: "source_timeout" });
+      expect(Date.now() - started).toBeLessThan(2_000);
+    } finally {
+      for (const socket of sockets) socket.destroy();
+      await slow.close();
+    }
+  });
+
   it("trusts the source's authority and refuses a different one", async () => {
     const authority = issueAuthority({
       commonName: "Test authority",
@@ -182,5 +206,17 @@ describe("opensearch check", () => {
         server.close((error) => (error ? reject(error) : resolve()));
       });
     }
+  });
+});
+
+describe("the indices a source names", () => {
+  it("reads every index the account may read when it names none", () => {
+    expect(patternPath({ database: "" })).toBe("*");
+    expect(patternPath({ database: " , " })).toBe("*");
+  });
+
+  it("keeps each pattern it names, encoded", () => {
+    expect(patternPath({ database: "orders-*, logs" })).toBe("orders-*,logs");
+    expect(patternPath({ database: "a/b" })).toBe("a%2Fb");
   });
 });

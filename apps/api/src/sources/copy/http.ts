@@ -91,6 +91,7 @@ export function openHttp(
           });
           response.on("error", reject);
           response.on("end", () => {
+            clearTimeout(deadline);
             const text = Buffer.concat(chunks).toString("utf8");
             resolve({
               status: response.statusCode ?? 0,
@@ -99,10 +100,21 @@ export function openHttp(
           });
         },
       );
+      // The socket's limit is between two packets: a server that sends a
+      // byte now and then would keep it open. The whole answer has one too.
+      const deadline = setTimeout(() => {
+        call.destroy(new AppError("source_timeout"));
+      }, source.queryTimeoutMs);
+      call.on("close", () => {
+        clearTimeout(deadline);
+      });
       call.on("timeout", () => {
         call.destroy(new AppError("source_timeout"));
       });
-      call.on("error", reject);
+      call.on("error", (error) => {
+        clearTimeout(deadline);
+        reject(error);
+      });
       call.end(payload);
     });
 
