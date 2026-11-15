@@ -187,7 +187,7 @@ const queryDuration = new Histogram({
 });
 
 /** Records one query against the product database. The text is not kept. */
-export function observeDbQuery(seconds: number): void {
+function observeDbQuery(seconds: number): void {
   queryDuration.observe(seconds);
 }
 

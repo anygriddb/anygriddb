@@ -221,7 +221,7 @@ const REFUSALS = {
  * asks, and what it takes, written from the schemas the requests are read
  * with, so that the document cannot say otherwise than the server does.
  */
-export function adminOpenApi(publicUrl: string): Record<string, unknown> {
+function adminOpenApi(publicUrl: string): Record<string, unknown> {
   const filters = jsonSchema(accountsQuerySchema).properties as Record<
     string,
     unknown

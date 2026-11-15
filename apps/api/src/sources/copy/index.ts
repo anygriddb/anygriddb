@@ -6,12 +6,7 @@ import { opensearch } from "./opensearch.js";
 import { redis } from "./redis.js";
 import type { CopyConnector } from "./types.js";
 
-export type {
-  CopyConnector,
-  CopyRequest,
-  CopyRow,
-  CopyValue,
-} from "./types.js";
+export type { CopyConnector, CopyRequest, CopyRow } from "./types.js";
 
 const CONNECTORS: Record<CopySourceEngine, CopyConnector> = {
   mongodb,

@@ -8,7 +8,7 @@ export type SearchMemory = {
 };
 
 /** The browser's session store, or a store that forgets when it refuses. */
-export function browserSession(): SearchMemory {
+function browserSession(): SearchMemory {
   return {
     getItem(key) {
       try {

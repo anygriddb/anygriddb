@@ -89,7 +89,7 @@ export function payloadId(value: unknown): string | null {
   return typeof id === "string" ? id : null;
 }
 
-export function auditKey(field: string): string {
+function auditKey(field: string): string {
   return AUDIT_KEY[field] ?? field;
 }
 

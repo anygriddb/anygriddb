@@ -7,7 +7,7 @@ export const smtpChannelConfigSchema = z
   })
   .strict();
 
-export const smtpChannelSecretsSchema = z.object({}).strict();
+const smtpChannelSecretsSchema = z.object({}).strict();
 
 /** Mail through the relay already configured under Connections. */
 export const smtpChannelProvider: NotifyProvider = {

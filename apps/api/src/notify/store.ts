@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import {
   AppError,
   INSTANCE_EVENT_TYPES,
@@ -573,9 +572,4 @@ export async function deleteIntegration(
     ip,
   });
   return { id: removed.id, provider: removed.provider };
-}
-
-/** A fresh id for a test send, which is not an instance event. */
-export function newEventId(): string {
-  return randomUUID();
 }

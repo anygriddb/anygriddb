@@ -1,14 +1,7 @@
 import type { z } from "zod";
 
-export const NOTIFY_FAMILIES = [
-  "channel",
-  "heartbeat",
-  "metrics",
-  "errors",
-  "traces",
-] as const;
-
-export type NotifyFamily = (typeof NOTIFY_FAMILIES)[number];
+export type NotifyFamily =
+  "channel" | "heartbeat" | "metrics" | "errors" | "traces";
 
 export type ProviderFieldKind =
   "url" | "text" | "secret" | "number" | "select" | "strings" | "headers";

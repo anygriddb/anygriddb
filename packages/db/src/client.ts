@@ -43,10 +43,10 @@ export const POOL_WAIT_MS = 30_000;
  * Set on this pool only: a session opened beside the application, with
  * its own connection, is not cut off.
  */
-export const IDLE_IN_TRANSACTION_TIMEOUT = "60s";
+const IDLE_IN_TRANSACTION_TIMEOUT = "60s";
 
 /** What pg_stat_activity and a slow-statement log call this process. */
-export const APPLICATION_NAME = "anygriddb-api";
+const APPLICATION_NAME = "anygriddb-api";
 
 export function createDb(
   connectionString: string,

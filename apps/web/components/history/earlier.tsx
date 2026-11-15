@@ -14,7 +14,7 @@ type Change = {
   canRevert: boolean;
 };
 
-export type EarlierEvent = {
+type EarlierEvent = {
   id: string;
   occurredAt: string;
   displayName: string | null;
@@ -26,7 +26,7 @@ export type EarlierEvent = {
 };
 
 /** The same list on a row, a base, a view, a dashboard, and the rest. */
-export function EarlierList(props: {
+function EarlierList(props: {
   events: readonly EarlierEvent[];
   /** What the whole-event button says. A row says it puts the row back. */
   allLabel?: string;
