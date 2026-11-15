@@ -83,7 +83,14 @@ export function LogsTab() {
       ) : null}
       {logs.isLoading ? <Spinner /> : null}
       {logs.data ? (
-        <div className="overflow-x-auto rounded-sm border border-border">
+        // A long path or frame makes the table wider than the page: the
+        // region scrolls, so a keyboard must be able to reach it.
+        <div
+          role="region"
+          aria-label={t`Recent lines`}
+          tabIndex={0}
+          className="overflow-x-auto rounded-sm border border-border outline-none focus-visible:outline-2 focus-visible:outline-ring"
+        >
           <table className="w-full text-xs">
             <thead className="bg-muted text-left">
               <tr>
@@ -142,7 +149,7 @@ export function LogsTab() {
                       </span>
                     ) : null}
                     {line.error?.stack ? (
-                      <pre className="mt-1 overflow-x-auto font-mono text-muted-foreground">
+                      <pre className="mt-1 font-mono break-all whitespace-pre-wrap text-muted-foreground">
                         {line.error.stack}
                       </pre>
                     ) : null}
