@@ -239,8 +239,10 @@ test("a client's rows: locked, signed, told when changed elsewhere, read from a 
     );
     await expect(table.getByRole("row", { name: /lost/ })).toContainText("80");
 
-    // Renamed from its page, and a second widget put before the chart
-    // from its menu: the server took both, and now a screen asks.
+    // Editing is a mode. The rename, the menu and the form live there;
+    // reading hides them.
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await expect(page.getByText("Editing", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Rename the dashboard" }).click();
     const rename = page.getByRole("dialog", { name: "Rename the dashboard" });
     await rename.getByLabel("Name").fill("Ventes 2026");
@@ -266,6 +268,11 @@ test("a client's rows: locked, signed, told when changed elsewhere, read from a 
     await page.reload();
     const titles = page.locator("article h2");
     await expect(titles).toHaveText(["Amount by stage", "Total amount"]);
+    // A reload leaves the mode, so reading shows no menu.
+    await expect(
+      page.getByRole("button", { name: "Actions for Total amount" }),
+    ).toHaveCount(0);
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page
       .getByRole("button", { name: "Actions for Total amount" })
       .click();
@@ -310,6 +317,39 @@ test("a client's rows: locked, signed, told when changed elsewhere, read from a 
     await expect(
       amounts.getByRole("row", { name: /623 – 1[\s ,]?200/ }),
     ).toContainText("1");
+
+    // The menu's pencil opens the same form. Ctrl Z takes the new title
+    // back, and Ctrl Y puts it on again. Done editing hides the menu;
+    // the undo of this session stays beside Edit.
+    await page.getByRole("button", { name: "Actions for Amounts" }).click();
+    await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+    const editWidget = page.getByRole("dialog", { name: "Edit the widget" });
+    await editWidget
+      .getByLabel("Title", { exact: true })
+      .fill("Amounts edited");
+    await editWidget.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(editWidget).toBeHidden();
+    await expect(
+      page.getByRole("heading", { name: "Amounts edited", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("heading", { level: 1 }).click();
+    await page.keyboard.press("Control+z");
+    await expect(
+      page.getByRole("heading", { name: "Amounts", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Control+y");
+    await expect(
+      page.getByRole("heading", { name: "Amounts edited", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Done editing" }).click();
+    await expect(page.getByText("Editing", { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: /Actions for / }),
+    ).toHaveCount(0);
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Amounts", exact: true }),
+    ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
 
     expect(blocked).toEqual([]);

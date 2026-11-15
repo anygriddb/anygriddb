@@ -59,10 +59,33 @@ export function moveWidget<T extends PlacedWidget>(
 ): T[] | null {
   const order = readingOrder(widgets);
   const at = order.findIndex((widget) => widget.id === id);
-  const moved = order[at];
-  const other = order[at + by];
-  if (at < 0 || !moved || !other) return null;
-  order[at] = other;
-  order[at + by] = moved;
-  return packWidgets(order);
+  if (at < 0) return null;
+  return placeWidget(widgets, id, at + by);
+}
+
+/**
+ * The layout with one widget moved to `index` in reading order, the
+ * place it takes, the others packed around it. Null when the index is
+ * outside the list, the widget is already there, or it is unknown.
+ */
+export function placeWidget<T extends PlacedWidget>(
+  widgets: readonly T[],
+  id: string,
+  index: number,
+): T[] | null {
+  const order = readingOrder(widgets);
+  const from = order.findIndex((widget) => widget.id === id);
+  const moved = order[from];
+  if (
+    from < 0 ||
+    !moved ||
+    index < 0 ||
+    index >= order.length ||
+    from === index
+  ) {
+    return null;
+  }
+  const rest = order.filter((widget) => widget.id !== id);
+  rest.splice(index, 0, moved);
+  return packWidgets(rest);
 }

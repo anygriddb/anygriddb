@@ -3634,6 +3634,10 @@ msgstr "Domains: {domains}. Invitations already sent to other addresses stop wor
 msgid "Done"
 msgstr "Done"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Done editing"
+msgstr "Done editing"
+
 #: components/fields/attachment-preview.tsx
 #: components/settings/base-settings.tsx
 #: components/settings/second-factor.tsx
@@ -3743,6 +3747,7 @@ msgstr "Earliest date"
 #: components/admin/change-labels.ts
 #: components/admin/group-page.tsx
 #: components/admin/sources-tab.tsx
+#: components/dashboards/dashboard-board.tsx
 #: components/record/record-panel.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/table/automations-dialog.tsx
@@ -3791,9 +3796,17 @@ msgstr "Edit the cell (or F2); typing replaces the value"
 msgid "Edit the source"
 msgstr "Edit the source"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Edit the widget"
+msgstr "Edit the widget"
+
 #: components/record/record-panel.tsx
 msgid "edited"
 msgstr "edited"
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Editing"
+msgstr "Editing"
 
 #: components/settings/role-label.ts
 msgid "Editor"
@@ -6183,6 +6196,7 @@ msgstr "More actions"
 msgid "More than 20 bases for one person"
 msgstr "More than 20 bases for one person"
 
+#: components/dashboards/dashboard-board.tsx
 #: components/table/table-workspace.tsx
 msgid "Move"
 msgstr "Move"
@@ -6199,6 +6213,7 @@ msgstr "Move {field} down"
 msgid "Move {field} up"
 msgstr "Move {field} up"
 
+#: components/dashboards/dashboard-board.tsx
 #: components/views/gallery-view.tsx
 #: components/views/kanban-view.tsx
 msgid "Move {name}"
@@ -7855,6 +7870,7 @@ msgstr "Redirect URL"
 msgid "Redirect URL for the identity provider:"
 msgstr "Redirect URL for the identity provider:"
 
+#: components/dashboards/dashboard-board.tsx
 #: components/table/view-toolbar.tsx
 msgid "Redo"
 msgstr "Redo"
@@ -8518,6 +8534,7 @@ msgstr "Saturday"
 #: components/admin/group-page.tsx
 #: components/admin/settings-tab.tsx
 #: components/admin/sources-tab.tsx
+#: components/dashboards/dashboard-board.tsx
 #: components/fields/field-editor.tsx
 #: components/record/record-panel.tsx
 #: components/settings/base-settings.tsx
@@ -11222,6 +11239,7 @@ msgstr "Unclosed text: a quote is missing"
 msgid "Under the name, for everyone who opens the sign-in pages, before they sign in: who the instance is for, whom to ask for an account."
 msgstr "Under the name, for everyone who opens the sign-in pages, before they sign in: who the instance is for, whom to ask for an account."
 
+#: components/dashboards/dashboard-board.tsx
 #: components/table/view-toolbar.tsx
 msgid "Undo"
 msgstr "Undo"

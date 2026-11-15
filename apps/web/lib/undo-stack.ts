@@ -12,18 +12,24 @@ export type UndoEntry = {
 export type UndoSizes = { past: number; future: number };
 
 /**
- * A table's changes in this session, 100 deep. A change is kept as soon
- * as it is sent; undo waits for it to be saved and passes over one whose
- * save failed. Undo and redo run one after the other, in the order asked:
- * Ctrl Z right after an edit takes back that edit, and Ctrl Y right after
- * Ctrl Z puts it back.
+ * Changes kept for this session, 100 deep. A change is kept as soon as it
+ * is sent; undo waits for it to be saved and passes over one whose save
+ * failed. Undo and redo run one after the other, in the order asked.
+ *
+ * A step whose undoing or redoing fails is dropped, so the steps before it
+ * can still be undone: a row locked or deleted since refuses for good.
+ * With `keepFailed`, it stays where it was, to be tried again: a
+ * dashboard's steps are writes of its own, refused only for a moment.
  */
 export class UndoStack {
   private past: UndoEntry[] = [];
   private future: UndoEntry[] = [];
   private queue: Promise<unknown> = Promise.resolve();
 
-  constructor(private readonly onChange: (sizes: UndoSizes) => void) {}
+  constructor(
+    private readonly onChange: (sizes: UndoSizes) => void,
+    private readonly options: { keepFailed?: boolean } = {},
+  ) {}
 
   push = (entry: UndoEntry): void => {
     this.past.push(entry);
@@ -38,7 +44,12 @@ export class UndoStack {
         const entry = this.past.pop();
         if (!entry) return undefined;
         if (entry.settled && !(await entry.settled)) continue;
-        await entry.undo();
+        try {
+          await entry.undo();
+        } catch (cause) {
+          if (this.options.keepFailed) this.past.push(entry);
+          throw cause;
+        }
         this.future.push(entry);
         return entry;
       }
@@ -48,7 +59,12 @@ export class UndoStack {
     this.run(async () => {
       const entry = this.future.pop();
       if (!entry) return undefined;
-      await entry.redo();
+      try {
+        await entry.redo();
+      } catch (cause) {
+        if (this.options.keepFailed) this.future.push(entry);
+        throw cause;
+      }
       this.past.push(entry);
       return entry;
     });

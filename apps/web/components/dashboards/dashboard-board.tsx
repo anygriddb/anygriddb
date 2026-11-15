@@ -4,9 +4,12 @@ import {
   isDecimalString,
   MAX_HISTOGRAM_BINS,
 } from "@anygriddb/core";
-
 import {
   Button,
+  cn,
+  Dialog,
+  DialogContent,
+  DragHandle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -30,27 +33,98 @@ import {
   Trash2,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCatalog } from "../../lib/session";
 import { LoadFailed } from "../shell/load-failed";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { canManage } from "../../lib/types";
 import { PromptDialog } from "../shell/dialogs";
-import { moveWidget, readingOrder } from "./widget-layout";
+import { moveWidget, placeWidget, readingOrder } from "./widget-layout";
+import { DashboardHistory, type WidgetBody } from "./dashboard-history";
+import { useWidgetDrag, useWidgetDrop } from "./widget-drag";
+import { useUndo } from "../grid/use-undo";
+import { tableTakesUndo, undoShortcut } from "../../lib/keyboard-undo";
+import { useLingui } from "@lingui/react/macro";
+import { useErrorText } from "../../lib/errors";
 // ECharts loads with the dashboards only (ADR 0035).
 const ChartView = lazy(() =>
   import("./chart-view").then((module) => ({ default: module.ChartView })),
 );
-import { useLingui } from "@lingui/react/macro";
-import { useErrorText } from "../../lib/errors";
 
-type ChartStyle =
-  "bar" | "bar_horizontal" | "line" | "area" | "pie" | "histogram";
+const WIDGET_KINDS = ["metric", "chart", "view_embed"] as const;
+type WidgetKind = (typeof WIDGET_KINDS)[number];
 
-type WidgetKind = "metric" | "chart" | "view_embed";
+const CHART_STYLES = [
+  "bar",
+  "bar_horizontal",
+  "line",
+  "area",
+  "pie",
+  "histogram",
+] as const;
+type ChartStyle = (typeof CHART_STYLES)[number];
+
+type WidgetModel = {
+  id: string;
+  kind: string;
+  title: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  config: Record<string, unknown>;
+};
+
+type WidgetDraft = {
+  title: string;
+  kind: WidgetKind;
+  config: Record<string, unknown>;
+};
+
+type OpenForm = { mode: "add" } | { mode: "edit"; widget: WidgetModel };
+
+function isWidgetKind(value: string): value is WidgetKind {
+  return WIDGET_KINDS.some((kind) => kind === value);
+}
+
+function isChartStyle(value: string): value is ChartStyle {
+  return CHART_STYLES.some((style) => style === value);
+}
+
+function configString(config: Record<string, unknown>, key: string): string {
+  const value = config[key];
+  return typeof value === "string" ? value : "";
+}
+
+function bodyOf(widget: WidgetModel): WidgetBody {
+  if (!isWidgetKind(widget.kind)) throw new Error("Internal error");
+  return {
+    title: widget.title,
+    kind: widget.kind,
+    x: widget.x,
+    y: widget.y,
+    w: widget.w,
+    h: widget.h,
+    config: widget.config,
+  };
+}
+
+function placeOf(widget: WidgetModel) {
+  return {
+    id: widget.id,
+    x: widget.x,
+    y: widget.y,
+    w: widget.w,
+    h: widget.h,
+  };
+}
 
 export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
+  return <DashboardEditor key={props.dashboardId} {...props} />;
+}
+
+function DashboardEditor(props: { baseId: string; dashboardId: string }) {
   const { t } = useLingui();
   const api = useTRPC();
   const queryClient = useQueryClient();
@@ -61,8 +135,113 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
     api.dashboards.get.queryOptions({ dashboardId: props.dashboardId }),
   );
   const errorText = useErrorText();
-  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<OpenForm | null>(null);
   const [renaming, setRenaming] = useState(false);
+  const undo = useUndo({ keepFailed: true });
+  const [history] = useState(() => new DashboardHistory(undo));
+  const undoLast = undo.undo;
+  const redoLast = undo.redo;
+
+  useEffect(() => {
+    const refresh = async () => {
+      await queryClient.invalidateQueries({
+        queryKey: api.dashboards.get.queryKey({
+          dashboardId: props.dashboardId,
+        }),
+      });
+    };
+    history.setWrites({
+      create: async (body) => {
+        const created = await trpc.dashboards.upsertWidget.mutate({
+          dashboardId: props.dashboardId,
+          title: body.title,
+          kind: body.kind,
+          x: body.x,
+          y: body.y,
+          w: body.w,
+          h: body.h,
+          config: body.config,
+        });
+        await refresh();
+        return { id: created.id };
+      },
+      update: async (id, body) => {
+        await trpc.dashboards.upsertWidget.mutate({
+          dashboardId: props.dashboardId,
+          widgetId: id,
+          title: body.title,
+          kind: body.kind,
+          x: body.x,
+          y: body.y,
+          w: body.w,
+          h: body.h,
+          config: body.config,
+        });
+        await Promise.all([
+          refresh(),
+          queryClient.invalidateQueries({
+            queryKey: api.dashboards.widgetData.queryKey({
+              dashboardId: props.dashboardId,
+              widgetId: id,
+            }),
+          }),
+        ]);
+      },
+      remove: async (id) => {
+        await trpc.dashboards.deleteWidget.mutate({
+          dashboardId: props.dashboardId,
+          widgetId: id,
+        });
+        await refresh();
+      },
+      layout: async (widgets) => {
+        await trpc.dashboards.layout.mutate({
+          dashboardId: props.dashboardId,
+          widgets: widgets.map((widget) => ({
+            id: widget.id,
+            x: widget.x,
+            y: widget.y,
+            w: widget.w,
+            h: widget.h,
+          })),
+        });
+        await refresh();
+      },
+      rename: async (name) => {
+        await trpc.dashboards.update.mutate({
+          dashboardId: props.dashboardId,
+          name,
+        });
+        await Promise.all([
+          refresh(),
+          queryClient.invalidateQueries({
+            queryKey: api.dashboards.list.queryKey({ baseId: props.baseId }),
+          }),
+        ]);
+      },
+    });
+  }, [api, history, props.baseId, props.dashboardId, queryClient]);
+
+  // Ctrl Z and Ctrl Y (or Ctrl Shift Z) undo this dashboard's changes,
+  // as the Undo button beside Edit does once editing is done. Text being
+  // typed, and a dialog, keep their own.
+  useEffect(() => {
+    if (!manage) return;
+    const onKey = (event: KeyboardEvent) => {
+      const action = undoShortcut(event);
+      if (!action || !event.isTrusted || event.defaultPrevented) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (!tableTakesUndo(target)) return;
+      event.preventDefault();
+      const run = action === "undo" ? undoLast : redoLast;
+      void run().catch((cause: unknown) => {
+        toast.error(errorText(cause));
+      });
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [manage, undoLast, redoLast, errorText]);
 
   if (!base) return null;
   if (board.isLoading) {
@@ -87,26 +266,56 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
 
   const { dashboard, widgets } = board.data;
   const ordered = readingOrder(widgets);
-  const refresh = () =>
-    queryClient.invalidateQueries({
-      queryKey: api.dashboards.get.queryKey({
-        dashboardId: props.dashboardId,
-      }),
-    });
+  const modifying = manage && editing;
 
-  /** One widget a place earlier or later, the others packed around it. */
-  async function move(widgetId: string, by: -1 | 1) {
-    const layout = moveWidget(widgets, widgetId, by);
-    if (!layout) return;
+  function fail(cause: unknown) {
+    toast.error(errorText(cause));
+  }
+
+  async function run(action: () => Promise<void>) {
     try {
-      await trpc.dashboards.layout.mutate({
-        dashboardId: props.dashboardId,
-        widgets: layout.map(({ id, x, y, w, h }) => ({ id, x, y, w, h })),
-      });
-      await refresh();
+      await action();
     } catch (cause) {
-      toast.error(errorText(cause));
+      fail(cause);
     }
+  }
+
+  async function commitLayout(layout: readonly WidgetModel[]) {
+    await history.move(widgets.map(placeOf), layout.map(placeOf), t`Move`);
+  }
+
+  async function saveWidget(draft: WidgetDraft) {
+    const title = draft.title.trim();
+    if (form?.mode === "edit") {
+      const before = bodyOf(form.widget);
+      const after: WidgetBody = {
+        ...before,
+        title,
+        kind: draft.kind,
+        config: draft.config,
+      };
+      await history.edit(form.widget.id, before, after, t`Edit`);
+      return;
+    }
+    await history.add(
+      {
+        title,
+        kind: draft.kind,
+        x: 0,
+        y:
+          widgets.length === 0
+            ? 0
+            : Math.max(...widgets.map((widget) => widget.y + widget.h)),
+        w: draft.kind === "metric" ? 3 : 6,
+        h: draft.kind === "metric" ? 2 : 4,
+        config: draft.config,
+      },
+      t`Add`,
+    );
+  }
+
+  async function removeWidget(widget: WidgetModel) {
+    await history.remove(widget.id, bodyOf(widget), t`Delete`);
   }
 
   return (
@@ -125,41 +334,61 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
         <h1 className="min-w-0 flex-1 truncate text-xl font-semibold">
           {dashboard.name}
         </h1>
-        {manage ? (
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label={t`Rename the dashboard`}
-            onClick={() => setRenaming(true)}
-          >
-            <Pencil className="h-4 w-4" aria-hidden />
-          </Button>
-        ) : null}
-        {manage ? (
-          <Button size="sm" onClick={() => setAdding((value) => !value)}>
-            <Plus className="h-4 w-4" aria-hidden />
-            {t`Add a widget`}
-          </Button>
+        {manage && !modifying ? (
+          <>
+            {undo.canUndo || undo.canRedo ? (
+              <UndoRedo
+                canUndo={undo.canUndo}
+                canRedo={undo.canRedo}
+                onUndo={() => void undoLast().catch(fail)}
+                onRedo={() => void redoLast().catch(fail)}
+              />
+            ) : null}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setEditing(true)}
+            >
+              <Pencil className="h-4 w-4" aria-hidden />
+              {t`Edit`}
+            </Button>
+          </>
         ) : null}
       </div>
-      {adding && manage ? (
-        <AddWidgetForm
-          baseId={props.baseId}
-          dashboardId={props.dashboardId}
-          nextY={
-            widgets.length === 0
-              ? 0
-              : Math.max(...widgets.map((widget) => widget.y + widget.h))
-          }
-          onDone={async () => {
-            setAdding(false);
-            await queryClient.invalidateQueries({
-              queryKey: api.dashboards.get.queryKey({
-                dashboardId: props.dashboardId,
-              }),
-            });
-          }}
-        />
+      {modifying ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-sm bg-muted px-3 py-2">
+          <p className="text-sm font-medium" role="status">
+            {t`Editing`}
+          </p>
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            <UndoRedo
+              canUndo={undo.canUndo}
+              canRedo={undo.canRedo}
+              onUndo={() => void undoLast().catch(fail)}
+              onRedo={() => void redoLast().catch(fail)}
+            />
+            <Button size="sm" variant="ghost" onClick={() => setRenaming(true)}>
+              {t`Rename the dashboard`}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setForm({ mode: "add" })}
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              {t`Add a widget`}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditing(false);
+                setForm(null);
+              }}
+            >
+              {t`Done editing`}
+            </Button>
+          </div>
+        </div>
       ) : null}
       <div
         className="grid gap-3"
@@ -174,11 +403,21 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
             baseId={props.baseId}
             dashboardId={props.dashboardId}
             widget={widget}
-            manage={manage}
+            editing={modifying}
             first={index === 0}
             last={index === ordered.length - 1}
-            onMove={(by) => void move(widget.id, by)}
-            onChanged={() => void refresh()}
+            onMove={(by) => {
+              const layout = moveWidget(widgets, widget.id, by);
+              if (!layout) return;
+              void run(() => commitLayout(layout));
+            }}
+            onEdit={() => setForm({ mode: "edit", widget })}
+            onDelete={() => void run(() => removeWidget(widget))}
+            onDropWidget={(draggedId) => {
+              const layout = placeWidget(widgets, draggedId, index);
+              if (!layout) return;
+              void run(() => commitLayout(layout));
+            }}
           />
         ))}
       </div>
@@ -187,6 +426,41 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
           {t`Add a metric, a chart, or a view.`}
         </p>
       ) : null}
+      <Dialog
+        open={form !== null}
+        onOpenChange={(open) => {
+          if (!open) setForm(null);
+        }}
+      >
+        <DialogContent
+          title={form?.mode === "edit" ? t`Edit the widget` : t`Add a widget`}
+          wide
+          fullOnPhone
+        >
+          {form ? (
+            <WidgetForm
+              key={form.mode === "edit" ? form.widget.id : "add"}
+              baseId={props.baseId}
+              mode={form.mode}
+              initial={
+                form.mode === "edit"
+                  ? {
+                      title: form.widget.title,
+                      kind: isWidgetKind(form.widget.kind)
+                        ? form.widget.kind
+                        : "metric",
+                      config: form.widget.config,
+                    }
+                  : null
+              }
+              onSubmit={async (draft) => {
+                await saveWidget(draft);
+                setForm(null);
+              }}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
       <PromptDialog
         open={renaming}
         onOpenChange={setRenaming}
@@ -196,20 +470,9 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
         submitLabel={t`Rename`}
         onSubmit={async (name) => {
           try {
-            await trpc.dashboards.update.mutate({
-              dashboardId: props.dashboardId,
-              name: name.trim(),
-            });
-            await Promise.all([
-              refresh(),
-              queryClient.invalidateQueries({
-                queryKey: api.dashboards.list.queryKey({
-                  baseId: props.baseId,
-                }),
-              }),
-            ]);
+            await history.rename(dashboard.name, name.trim(), t`Rename`);
           } catch (cause) {
-            toast.error(errorText(cause));
+            fail(cause);
           }
         }}
       />
@@ -217,25 +480,47 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
   );
 }
 
+function UndoRedo(props: {
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+}) {
+  const { t } = useLingui();
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={!props.canUndo}
+        onClick={props.onUndo}
+      >
+        {t`Undo`}
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={!props.canRedo}
+        onClick={props.onRedo}
+      >
+        {t`Redo`}
+      </Button>
+    </>
+  );
+}
+
 function WidgetCard(props: {
   baseId: string;
   dashboardId: string;
-  manage: boolean;
+  editing: boolean;
   /** The first or last in reading order: it moves no further that way. */
   first: boolean;
   last: boolean;
   onMove: (by: -1 | 1) => void;
-  widget: {
-    id: string;
-    kind: string;
-    title: string;
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    config: Record<string, unknown>;
-  };
-  onChanged: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onDropWidget: (draggedId: string) => void;
+  widget: WidgetModel;
 }) {
   const { t } = useLingui();
   const errorText = useErrorText();
@@ -246,33 +531,61 @@ function WidgetCard(props: {
       widgetId: props.widget.id,
     }),
   );
+  const name = props.widget.title;
+  const { dragProps, dragButtonProps, isDragging } = useWidgetDrag(
+    props.widget.id,
+    name,
+    props.editing,
+  );
+  const ref = useRef<HTMLElement>(null);
+  const { dropProps, isDropTarget } = useWidgetDrop(
+    ref,
+    props.widget.id,
+    props.onDropWidget,
+    props.editing,
+  );
 
   return (
     <article
-      className="flex min-h-0 flex-col overflow-hidden rounded-sm border border-border bg-card"
+      ref={ref}
+      {...dropProps}
+      className={cn(
+        "flex min-h-0 flex-col overflow-hidden rounded-sm border bg-card",
+        props.editing ? "border-dashed border-strong-border" : "border-border",
+        isDropTarget && "ring-2 ring-primary",
+        isDragging && "opacity-50",
+      )}
       style={{
         gridColumn: `${props.widget.x + 1} / span ${props.widget.w}`,
         gridRow: `${props.widget.y + 1} / span ${props.widget.h}`,
       }}
     >
-      <header className="flex items-center gap-2 border-b border-border px-3 py-2">
+      <header
+        className="flex items-center gap-2 border-b border-border px-3 py-2"
+        {...(props.editing ? dragProps : {})}
+      >
+        {props.editing ? (
+          <DragHandle {...dragButtonProps} label={t`Move ${name}`} />
+        ) : null}
         <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-        <h2 className="min-w-0 flex-1 truncate text-sm font-medium">
-          {props.widget.title}
-        </h2>
-        {props.manage ? (
+        <h2 className="min-w-0 flex-1 truncate text-sm font-medium">{name}</h2>
+        {props.editing ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 size="icon"
                 variant="ghost"
                 className="h-7 w-7"
-                aria-label={t`Actions for ${{ widget: props.widget.title }}`}
+                aria-label={t`Actions for ${{ widget: name }}`}
               >
                 <MoreHorizontal className="h-3.5 w-3.5" aria-hidden />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={props.onEdit}>
+                <Pencil className="h-4 w-4" aria-hidden />
+                {t`Edit`}
+              </DropdownMenuItem>
               <DropdownMenuItem
                 disabled={props.first}
                 onSelect={() => props.onMove(-1)}
@@ -288,22 +601,7 @@ function WidgetCard(props: {
                 {t`Move later`}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                danger
-                onSelect={() => {
-                  void (async () => {
-                    try {
-                      await trpc.dashboards.deleteWidget.mutate({
-                        dashboardId: props.dashboardId,
-                        widgetId: props.widget.id,
-                      });
-                      props.onChanged();
-                    } catch (cause) {
-                      toast.error(errorText(cause));
-                    }
-                  })();
-                }}
-              >
+              <DropdownMenuItem danger onSelect={props.onDelete}>
                 <Trash2 className="h-4 w-4" aria-hidden />
                 {t`Delete`}
               </DropdownMenuItem>
@@ -328,7 +626,7 @@ function WidgetCard(props: {
               </div>
             }
           >
-            <ChartView data={data.data} title={props.widget.title} />
+            <ChartView data={data.data} title={name} />
           </Suspense>
         ) : data.data?.kind === "view_embed" ? (
           <div className="flex h-full flex-col items-start justify-center gap-2 text-sm">
@@ -369,11 +667,11 @@ function formatValue(value: unknown): string {
   return cellText(value);
 }
 
-function AddWidgetForm(props: {
+function WidgetForm(props: {
   baseId: string;
-  dashboardId: string;
-  nextY: number;
-  onDone: () => Promise<void>;
+  mode: "add" | "edit";
+  initial: WidgetDraft | null;
+  onSubmit: (draft: WidgetDraft) => Promise<void>;
 }) {
   const { t } = useLingui();
   const errorText = useErrorText();
@@ -381,9 +679,12 @@ function AddWidgetForm(props: {
   const base = catalog.data?.find((item) => item.id === props.baseId);
   const api = useTRPC();
   const tables = base?.tables ?? [];
-  const [kind, setKind] = useState<WidgetKind>("metric");
-  const [title, setTitle] = useState("");
-  const [tableId, setTableId] = useState(tables[0]?.id ?? "");
+  const config = props.initial?.config ?? {};
+  const [kind, setKind] = useState<WidgetKind>(props.initial?.kind ?? "metric");
+  const [title, setTitle] = useState(props.initial?.title ?? "");
+  const [tableId, setTableId] = useState(
+    configString(config, "tableId") || tables[0]?.id || "",
+  );
   const table = tables.find((item) => item.id === tableId);
   const columns = table?.columns ?? [];
   const viewsQuery = useQuery({
@@ -405,17 +706,33 @@ function AddWidgetForm(props: {
     (item) => item.kind === "number" && item.fieldType !== "duration",
   );
   const [column, setColumn] = useState(
-    numeric[0]?.name ?? columns[0]?.name ?? "",
+    configString(config, "column") ||
+      numeric[0]?.name ||
+      columns[0]?.name ||
+      "",
   );
-  const [binned, setBinned] = useState(binnable[0]?.name ?? "");
-  const [bins, setBins] = useState(String(DEFAULT_HISTOGRAM_BINS));
+  const [binned, setBinned] = useState(
+    configString(config, "column") || binnable[0]?.name || "",
+  );
+  const storedBins = config.bins;
+  const [bins, setBins] = useState(
+    typeof storedBins === "number"
+      ? String(storedBins)
+      : String(DEFAULT_HISTOGRAM_BINS),
+  );
   const [groupBy, setGroupBy] = useState(
-    groupable[0]?.name ?? columns[0]?.name ?? "",
+    configString(config, "groupBy") ||
+      groupable[0]?.name ||
+      columns[0]?.name ||
+      "",
   );
-  const [viewId, setViewId] = useState("");
-  const [chartType, setChartType] = useState<ChartStyle>("bar");
-  const [seriesBy, setSeriesBy] = useState("");
-  const [fn, setFn] = useState("count_all");
+  const [viewId, setViewId] = useState(configString(config, "viewId"));
+  const storedStyle = configString(config, "chartType");
+  const [chartType, setChartType] = useState<ChartStyle>(
+    isChartStyle(storedStyle) ? storedStyle : "bar",
+  );
+  const [seriesBy, setSeriesBy] = useState(configString(config, "seriesBy"));
+  const [fn, setFn] = useState(configString(config, "fn") || "count_all");
   const [busy, setBusy] = useState(false);
 
   async function submit() {
@@ -426,7 +743,7 @@ function AddWidgetForm(props: {
     }
     setBusy(true);
     try {
-      const config =
+      const draftConfig =
         kind === "metric"
           ? { tableId, column, fn, ...(viewId ? { viewId } : {}) }
           : kind === "chart"
@@ -452,17 +769,7 @@ function AddWidgetForm(props: {
                   ...(viewId ? { viewId } : {}),
                 }
             : { tableId, viewId };
-      await trpc.dashboards.upsertWidget.mutate({
-        dashboardId: props.dashboardId,
-        title: title.trim(),
-        kind,
-        x: 0,
-        y: props.nextY,
-        w: kind === "metric" ? 3 : 6,
-        h: kind === "metric" ? 2 : 4,
-        config,
-      });
-      await props.onDone();
+      await props.onSubmit({ title: title.trim(), kind, config: draftConfig });
     } catch (cause) {
       toast.error(errorText(cause));
     } finally {
@@ -472,7 +779,7 @@ function AddWidgetForm(props: {
 
   return (
     <form
-      className="grid gap-3 rounded-sm border border-border bg-card p-4 sm:grid-cols-2"
+      className="grid gap-3 sm:grid-cols-2"
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
@@ -492,7 +799,10 @@ function AddWidgetForm(props: {
         <Select
           id="widget-kind"
           value={kind}
-          onChange={(event) => setKind(event.target.value as WidgetKind)}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (isWidgetKind(value)) setKind(value);
+          }}
         >
           <option value="metric">{t`Metric`}</option>
           <option value="chart">{t`Chart`}</option>
@@ -588,9 +898,10 @@ function AddWidgetForm(props: {
             <Select
               id="chart-style"
               value={chartType}
-              onChange={(event) =>
-                setChartType(event.target.value as ChartStyle)
-              }
+              onChange={(event) => {
+                const value = event.target.value;
+                if (isChartStyle(value)) setChartType(value);
+              }}
             >
               <option value="bar">{t`Columns`}</option>
               <option value="bar_horizontal">{t`Horizontal bars`}</option>
@@ -720,7 +1031,7 @@ function AddWidgetForm(props: {
           }
         >
           {busy ? <Spinner /> : null}
-          {t`Add`}
+          {props.mode === "add" ? t`Add` : t`Save`}
         </Button>
       </div>
     </form>

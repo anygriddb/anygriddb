@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { UndoStack, type UndoSizes } from "../../lib/undo-stack";
-/** Client-side undo stack for this table session (`UndoStack`). */
-export function useUndo() {
+/** Client-side undo stack for this session (`UndoStack`). */
+export function useUndo(options: { keepFailed?: boolean } = {}) {
   // What rendering needs from the stack, kept in state so a change shows.
   const [sizes, setSizes] = useState<UndoSizes>({ past: 0, future: 0 });
-  const [stack] = useState(() => new UndoStack(setSizes));
+  const [stack] = useState(() => new UndoStack(setSizes, options));
   return {
     push: stack.push,
     undo: stack.undo,
