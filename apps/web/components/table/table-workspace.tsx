@@ -56,6 +56,7 @@ import { CalendarView } from "../views/calendar-view";
 import { FormView } from "../views/form-view";
 import { GalleryView } from "../views/gallery-view";
 import { KanbanView } from "../views/kanban-view";
+import { ListView } from "../views/list-view";
 import { MapView } from "../views/map-view";
 import { RowCards } from "../views/row-cards";
 import { placeColumns, placeFilter } from "../views/map-places";
@@ -1355,6 +1356,8 @@ export function TableWorkspace({
               <KanbanView {...viewProps} />
             ) : viewType === "gallery" ? (
               <GalleryView {...viewProps} />
+            ) : viewType === "list" ? (
+              <ListView {...viewProps} />
             ) : viewType === "calendar" ? (
               <CalendarView
                 {...viewProps}

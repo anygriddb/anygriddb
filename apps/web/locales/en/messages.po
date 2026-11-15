@@ -381,6 +381,11 @@ msgstr "{0, plural, one {# row restored} other {# rows restored}}"
 msgid "{0, plural, one {# row selected} other {# rows selected}}"
 msgstr "{0, plural, one {# row selected} other {# rows selected}}"
 
+#. placeholder {0}: line.children
+#: components/views/list-view.tsx
+msgid "{0, plural, one {# row under it} other {# rows under it}}"
+msgstr "{0, plural, one {# row under it} other {# rows under it}}"
+
 #. placeholder {0}: resultNumber(job, "rows")
 #: components/shell/jobs-menu.tsx
 msgid "{0, plural, one {# row, file available for 24 h} other {# rows, file available for 24 h}}"
@@ -395,6 +400,7 @@ msgstr "{0, plural, one {# row, file available for 24 h} other {# rows, file ava
 #: components/public/public-view.tsx
 #: components/settings/restore-points.tsx
 #: components/shell/new-base-dialog.tsx
+#: components/views/list-view.tsx
 msgid "{0, plural, one {# row} other {# rows}}"
 msgstr "{0, plural, one {# row} other {# rows}}"
 
@@ -1482,6 +1488,7 @@ msgstr "Add a place field, or two number fields for a latitude and a longitude, 
 
 #: components/grid/grid-view.tsx
 #: components/table/view-toolbar.tsx
+#: components/views/list-view.tsx
 #: components/views/row-cards.tsx
 msgid "Add a row"
 msgstr "Add a row"
@@ -5594,6 +5601,10 @@ msgstr "Links and feeds"
 msgid "Links that no longer fit stop opening at once, and open again if you change your mind."
 msgstr "Links that no longer fit stop opening at once, and open again if you change your mind."
 
+#: components/table/view-tabs.tsx
+msgid "List"
+msgstr "List"
+
 #: components/settings/api-console.tsx
 msgid "List rows (GET)"
 msgstr "List rows (GET)"
@@ -7337,6 +7348,7 @@ msgstr "Previous row"
 #: components/grid/grid-header.tsx
 #: components/views/gallery-view.tsx
 #: components/views/kanban-view.tsx
+#: components/views/list-view.tsx
 msgid "Primary field"
 msgstr "Primary field"
 
@@ -8142,6 +8154,10 @@ msgstr "Row not found"
 msgid "Row status"
 msgstr "Row status"
 
+#: components/views/list-view.tsx
+msgid "Row title"
+msgstr "Row title"
+
 #: components/table/table-workspace.tsx
 #: components/table/view-toolbar.tsx
 msgid "Row trash"
@@ -8151,6 +8167,7 @@ msgstr "Row trash"
 msgid "rows"
 msgstr "rows"
 
+#: components/views/list-view.tsx
 #: components/views/row-cards.tsx
 msgid "Rows"
 msgstr "Rows"
@@ -8166,6 +8183,10 @@ msgstr "Rows of another table"
 #: components/fields/link-selection.tsx
 msgid "Rows offered"
 msgstr "Rows offered"
+
+#: components/views/list-view.tsx
+msgid "Rows under"
+msgstr "Rows under"
 
 #: components/admin/base-admin-page.tsx
 #: components/admin/bases-tab.tsx
@@ -9572,6 +9593,10 @@ msgstr "The first {limit} groups are shown: filter the view to see the others."
 msgid "The first {shown} of {total} places"
 msgstr "The first {shown} of {total} places"
 
+#: components/views/list-view.tsx
+msgid "The first {shown} of {total} rows"
+msgstr "The first {shown} of {total} rows"
+
 #: lib/errors.ts
 msgid "The first account needs the install token: whoever runs this instance asks for it with the command anygriddb install-token"
 msgstr "The first account needs the install token: whoever runs this instance asks for it with the command anygriddb install-token"
@@ -10512,6 +10537,10 @@ msgstr "To create the account of {email}, enter the password you chose when sign
 #: components/shell/new-table-dialog.tsx
 msgid "To do"
 msgstr "To do"
+
+#: components/views/list-view.tsx
+msgid "To nest rows under one another, add a link to a row of this table."
+msgstr "To nest rows under one another, add a link to a row of this table."
 
 #: components/table/filter-builder.tsx
 msgid "today"

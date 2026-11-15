@@ -381,6 +381,11 @@ msgstr "{0, plural, one {# ligne restaurée} other {# lignes restaurées}}"
 msgid "{0, plural, one {# row selected} other {# rows selected}}"
 msgstr "{0, plural, one {# ligne sélectionnée} other {# lignes sélectionnées}}"
 
+#. placeholder {0}: line.children
+#: components/views/list-view.tsx
+msgid "{0, plural, one {# row under it} other {# rows under it}}"
+msgstr "{0, plural, one {# ligne dessous} other {# lignes dessous}}"
+
 #. placeholder {0}: resultNumber(job, "rows")
 #: components/shell/jobs-menu.tsx
 msgid "{0, plural, one {# row, file available for 24 h} other {# rows, file available for 24 h}}"
@@ -395,6 +400,7 @@ msgstr "{0, plural, one {# ligne, fichier disponible 24 h} other {# lignes, fich
 #: components/public/public-view.tsx
 #: components/settings/restore-points.tsx
 #: components/shell/new-base-dialog.tsx
+#: components/views/list-view.tsx
 msgid "{0, plural, one {# row} other {# rows}}"
 msgstr "{0, plural, one {# ligne} other {# lignes}}"
 
@@ -1482,6 +1488,7 @@ msgstr "Ajoutez un champ lieu, ou deux champs nombre pour une latitude et une lo
 
 #: components/grid/grid-view.tsx
 #: components/table/view-toolbar.tsx
+#: components/views/list-view.tsx
 #: components/views/row-cards.tsx
 msgid "Add a row"
 msgstr "Ajouter une ligne"
@@ -5594,6 +5601,10 @@ msgstr "Liens et flux"
 msgid "Links that no longer fit stop opening at once, and open again if you change your mind."
 msgstr "Les liens qui ne conviennent plus cessent aussitôt de s’ouvrir, et s’ouvrent de nouveau si vous changez d’avis."
 
+#: components/table/view-tabs.tsx
+msgid "List"
+msgstr "Liste"
+
 #: components/settings/api-console.tsx
 msgid "List rows (GET)"
 msgstr "Lister des lignes (GET)"
@@ -7337,6 +7348,7 @@ msgstr "Ligne précédente"
 #: components/grid/grid-header.tsx
 #: components/views/gallery-view.tsx
 #: components/views/kanban-view.tsx
+#: components/views/list-view.tsx
 msgid "Primary field"
 msgstr "Champ principal"
 
@@ -8142,6 +8154,10 @@ msgstr "Ligne introuvable"
 msgid "Row status"
 msgstr "Statut de la ligne"
 
+#: components/views/list-view.tsx
+msgid "Row title"
+msgstr "Titre de la ligne"
+
 #: components/table/table-workspace.tsx
 #: components/table/view-toolbar.tsx
 msgid "Row trash"
@@ -8151,6 +8167,7 @@ msgstr "Corbeille des lignes"
 msgid "rows"
 msgstr "lignes"
 
+#: components/views/list-view.tsx
 #: components/views/row-cards.tsx
 msgid "Rows"
 msgstr "Lignes"
@@ -8166,6 +8183,10 @@ msgstr "Des lignes d’une autre table"
 #: components/fields/link-selection.tsx
 msgid "Rows offered"
 msgstr "Lignes proposées"
+
+#: components/views/list-view.tsx
+msgid "Rows under"
+msgstr "Lignes sous"
 
 #: components/admin/base-admin-page.tsx
 #: components/admin/bases-tab.tsx
@@ -9572,6 +9593,10 @@ msgstr "Seuls les {limit} premiers groupes sont affichés : filtrez la vue pour
 msgid "The first {shown} of {total} places"
 msgstr "Les {shown} premiers lieux sur {total}"
 
+#: components/views/list-view.tsx
+msgid "The first {shown} of {total} rows"
+msgstr "Les {shown} premières lignes sur {total}"
+
 #: lib/errors.ts
 msgid "The first account needs the install token: whoever runs this instance asks for it with the command anygriddb install-token"
 msgstr "Le premier compte demande le jeton d’installation : la personne qui exploite cette instance l’obtient avec la commande anygriddb install-token"
@@ -10512,6 +10537,10 @@ msgstr "Pour créer le compte de {email}, saisissez le mot de passe choisi à l�
 #: components/shell/new-table-dialog.tsx
 msgid "To do"
 msgstr "À faire"
+
+#: components/views/list-view.tsx
+msgid "To nest rows under one another, add a link to a row of this table."
+msgstr "Pour imbriquer les lignes les unes sous les autres, ajoutez un lien vers une ligne de cette table."
 
 #: components/table/filter-builder.tsx
 msgid "today"
