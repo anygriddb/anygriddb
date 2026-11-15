@@ -26,6 +26,30 @@ describe("a field refreshed from its client's column", () => {
     ).toEqual({ fieldType: "single_select", keepConfig: true });
   });
 
+  it("keeps a field's settings while its column is the same", () => {
+    expect(
+      followedField({
+        link: false,
+        currentType: "number",
+        currentExternal: "decimal(38,10)",
+        clientType: "number",
+        clientExternal: "decimal(38,10)",
+      }),
+    ).toEqual({ fieldType: "number", keepConfig: true });
+  });
+
+  it("follows a list of values the client's database added", () => {
+    expect(
+      followedField({
+        link: false,
+        currentType: "email",
+        currentExternal: "text",
+        clientType: "single_select",
+        clientExternal: "text",
+      }),
+    ).toEqual({ fieldType: "single_select", keepConfig: false });
+  });
+
   it("keeps a link", () => {
     expect(
       followedField({
