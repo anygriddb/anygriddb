@@ -1,11 +1,12 @@
 import { cn } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { Link, useParams } from "@tanstack/react-router";
-import { ChevronDown, ChevronRight, Server, Table2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Table2 } from "lucide-react";
 import { useState } from "react";
 import { ENGINE_NAMES } from "../../lib/limits";
 import { sourcesOf } from "../../lib/sources";
 import type { CatalogBase } from "../../lib/types";
+import { ENGINE_MARKS, EngineMark } from "../admin/engine-mark";
 
 /**
  * The databases the person's tables live in, by the name an administrator
@@ -49,7 +50,11 @@ export function SidebarSources({ bases }: { bases: readonly CatalogBase[] }) {
                     <ChevronRight className="h-3.5 w-3.5" aria-hidden />
                   )}
                 </span>
-                <Server className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+                <EngineMark
+                  engine={source.engine}
+                  className="h-4 w-4"
+                  title={ENGINE_MARKS[source.engine].label}
+                />
                 <span className="min-w-0 flex-1 truncate text-left">
                   {source.name}
                 </span>

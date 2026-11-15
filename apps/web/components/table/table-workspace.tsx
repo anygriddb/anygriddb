@@ -20,10 +20,11 @@ import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readKey, saveQueue, withoutSaved } from "./view-patch";
 import { emptyTableHint } from "./empty-table-hint-model";
-import { Database, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import { toast } from "sonner";
 import { toWriteValue } from "../../lib/format";
 import { ENGINE_NAMES } from "../../lib/limits";
+import { ENGINE_MARKS, EngineMark } from "../admin/engine-mark";
 import { useLocale } from "../../lib/i18n";
 import { downloadJobFile, useTrackJob } from "../../lib/jobs";
 import { useTrashActions, useTrashDays } from "../../lib/trash";
@@ -1170,7 +1171,11 @@ export function TableWorkspace({
                   tabIndex={0}
                   className="inline-flex h-[22px] max-w-56 items-center gap-1.5 rounded-md border border-border bg-background px-2 font-mono text-xs text-muted-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring"
                 >
-                  <Database className="h-3 w-3 shrink-0" aria-hidden />
+                  <EngineMark
+                    engine={table.external.engine}
+                    className="h-3.5 w-3.5"
+                    title={ENGINE_MARKS[table.external.engine].label}
+                  />
                   <span className="truncate">
                     {table.external.schema}.{table.external.name}
                   </span>
