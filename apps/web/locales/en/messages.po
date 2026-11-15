@@ -2766,6 +2766,10 @@ msgstr "Collapse {name}"
 msgid "Collapse all"
 msgstr "Collapse all"
 
+#: components/shell/sidebar.tsx
+msgid "Collapse all bases"
+msgstr "Collapse all bases"
+
 #: components/views/kanban-view.tsx
 msgid "Collapse column {name}"
 msgstr "Collapse column {name}"
@@ -2971,6 +2975,10 @@ msgstr "Copy in AnyGridDB"
 #: components/table/table-workspace.tsx
 msgid "Copy in preparation: the table is read live until then"
 msgstr "Copy in preparation: the table is read live until then"
+
+#: components/shell/sidebar.tsx
+msgid "Copy link"
+msgstr "Copy link"
 
 #: components/shell/jobs-menu.tsx
 msgid "Copy of {table}"
@@ -4124,6 +4132,10 @@ msgstr "Expand {name}"
 #: components/views/kanban-view.tsx
 msgid "Expand all"
 msgstr "Expand all"
+
+#: components/shell/sidebar.tsx
+msgid "Expand all bases"
+msgstr "Expand all bases"
 
 #: components/grid/grid-view.tsx
 msgid "Expand row"
@@ -5695,6 +5707,7 @@ msgstr "Link"
 #: components/record/record-panel.tsx
 #: components/settings/base-links.tsx
 #: components/settings/base-settings.tsx
+#: components/shell/sidebar.tsx
 #: components/table/share-dialog.tsx
 msgid "Link copied"
 msgstr "Link copied"
@@ -11836,8 +11849,3 @@ msgstr "Zoom in"
 #: components/views/map-view.tsx
 msgid "Zoom out"
 msgstr "Zoom out"
-
-#: components/shell/sidebar.tsx
-msgid "Copy link"
-msgstr "Copy link"
-

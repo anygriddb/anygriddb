@@ -408,6 +408,15 @@ test.describe("a restore point", () => {
     await page.getByRole("menuitem", { name: "Move to Field work" }).click();
     const folders = page.getByRole("button", { name: "Collapse Field work" });
     await expect(folders).toHaveCount(1);
+    // Every base folds at once, and stays folded after a reload; opened
+    // again, its folder is as it was left.
+    await page.getByRole("button", { name: "Collapse all bases" }).click();
+    await expect(folders).toHaveCount(0);
+    await page.reload();
+    const expand = page.getByRole("button", { name: "Expand all bases" });
+    await expect(expand).toBeVisible();
+    await expand.click();
+    await expect(folders).toHaveCount(1);
 
     await page.goto(`${base}/settings`);
     await page.getByLabel("Note (optional)").fill("Before the change");
@@ -731,15 +740,17 @@ test.describe("a gallery, a timeline, a kanban, and a map past their first page"
 
     // Every stack folded at once keeps its name and its count and shows
     // no card; opened again, the cards are back.
-    await page.getByRole("button", { name: "Collapse all" }).click();
+    await page
+      .getByRole("button", { name: "Collapse all", exact: true })
+      .click();
     await expect(done.getByRole("button", { name: /^c0001/ })).toHaveCount(0);
     await expect(todo.getByRole("button", { name: /^c\d{4}/ })).toHaveCount(0);
     await expect(page.getByText("1,049", { exact: true })).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
-    await page.getByRole("button", { name: "Expand all" }).click();
+    await page.getByRole("button", { name: "Expand all", exact: true }).click();
     await expect(done.getByRole("button", { name: /^c0001/ })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Collapse all" }),
+      page.getByRole("button", { name: "Collapse all", exact: true }),
     ).toBeVisible();
 
     // The kanban, made last, moved a place left from its menu.

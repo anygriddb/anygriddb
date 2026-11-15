@@ -293,15 +293,11 @@ export function Sidebar({
   const snapshotGaps = useSnapshotGaps();
   const { trashed } = useTrashActions();
   const [dialog, setDialog] = useState<Dialog>(null);
-  const [collapsed, setCollapsedState] =
-    useState<Set<string>>(readSidebarCollapsed);
-  const setCollapsed: Dispatch<SetStateAction<Set<string>>> = (update) => {
-    setCollapsedState((current) => {
-      const next = typeof update === "function" ? update(current) : update;
-      writeSidebarCollapsed(next);
-      return next;
-    });
-  };
+  const [collapsed, setCollapsed] = useState<Set<string>>(readSidebarCollapsed);
+  // What is folded is kept in this browser, as the sidebar's width is.
+  useEffect(() => {
+    writeSidebarCollapsed(collapsed);
+  }, [collapsed]);
   const [width, setWidth] = useState(readSidebarWidth);
   const aside = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -556,8 +552,8 @@ export function Sidebar({
                 className="h-6 w-6"
                 aria-label={
                   bases.every((base) => collapsed.has(base.id))
-                    ? t`Expand all`
-                    : t`Collapse all`
+                    ? t`Expand all bases`
+                    : t`Collapse all bases`
                 }
                 onClick={() => {
                   setCollapsed((current) => toggleSidebarFold(current, bases));
