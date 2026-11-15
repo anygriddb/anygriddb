@@ -170,6 +170,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
 
   invalid_webhook: msg`Invalid webhook: a public HTTPS address or an email is required`,
   invalid_delivery: msg`This delivery cannot be sent again`,
+  syslog_unreachable: msg`The syslog collector did not take the event: check its address, its port, and the certificate it presents`,
   invalid_automation: msg`Invalid automation`,
   invalid_lock_ttl: msg`Invalid lock duration`,
 

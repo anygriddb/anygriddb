@@ -107,10 +107,13 @@ export async function recordAuthEvent(
       ip,
     })
     .execute();
-  // Best-effort SIEM fan-out (ADR 0056); failures must not break the trail.
+  // Best-effort fan-out to the collectors (ADR 0056, 0084); failures must
+  // not break the trail.
   try {
     const { queueSiemEvent } = await import("../integrations/siem.js");
     await queueSiemEvent(db, { ...event, ip });
+    const { queueSyslogEvent } = await import("../integrations/syslog.js");
+    await queueSyslogEvent(db, { ...event, ip });
   } catch {
     // The worker or the insert already logged; the trail row stays.
   }

@@ -56,6 +56,8 @@ export const TASKS = {
   operatorMail: "operator_mail",
   /** One SIEM webhook delivery for an auth event (ADR 0056). */
   siemEvent: "siem_event",
+  /** One auth event sent to the syslog collector (ADR 0084). */
+  syslogEvent: "syslog_event",
   /** The first link of one account a file of people added, mailed. */
   accountWelcome: "account_welcome",
 } as const;

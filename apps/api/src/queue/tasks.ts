@@ -79,7 +79,11 @@ import {
   deliverOperatorMail,
   operatorMailPayloadSchema,
 } from "../operator-mail.js";
-import { deliverSiemEvent } from "../integrations/siem.js";
+import {
+  type CollectorPayload,
+  deliverSiemEvent,
+} from "../integrations/siem.js";
+import { deliverSyslogEvent } from "../integrations/syslog.js";
 import { runScheduledReleaseCheck } from "../release-status.js";
 import { transactionEvents } from "./row-events.js";
 import type { WorkerGroup } from "./worker.js";
@@ -181,6 +185,21 @@ const automationRunPayloadSchema = eventPayloadSchema.partial().extend({
   values: z.record(z.string().max(63), z.string().max(10_000)).optional(),
 });
 const productJobPayloadSchema = z.object({ jobId: z.uuid() });
+const collectorPayloadSchema = z.object({
+  action: z.string(),
+  userId: z.uuid().nullable(),
+  actorId: z.uuid().nullable(),
+  method: z.string().nullable(),
+  detail: z.string().nullable(),
+  ip: z.string().nullable(),
+  occurredAt: z.string(),
+});
+
+/** A sign-in event as it was queued for a collector (ADR 0056, 0084). */
+function collectorEvent(payload: unknown): CollectorPayload {
+  const parsed = collectorPayloadSchema.parse(payload);
+  return { ...parsed, action: parsed.action as CollectorPayload["action"] };
+}
 const watchPayloadSchema = z.object({ tableId: z.uuid() });
 const sealsPayloadSchema = z.object({
   tableId: z.uuid().optional(),
@@ -421,21 +440,14 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
       );
     },
     [TASKS.siemEvent]: async (payload) => {
-      const parsed = z
-        .object({
-          action: z.string(),
-          userId: z.uuid().nullable(),
-          actorId: z.uuid().nullable(),
-          method: z.string().nullable(),
-          detail: z.string().nullable(),
-          ip: z.string().nullable(),
-          occurredAt: z.string(),
-        })
-        .parse(payload);
-      await deliverSiemEvent(deps.db, deps.env.AUTH_ENCRYPTION_KEY, {
-        ...parsed,
-        action: parsed.action as import("@anygriddb/db").AuthAction,
-      });
+      await deliverSiemEvent(
+        deps.db,
+        deps.env.AUTH_ENCRYPTION_KEY,
+        collectorEvent(payload),
+      );
+    },
+    [TASKS.syslogEvent]: async (payload) => {
+      await deliverSyslogEvent(deps.env.SYSLOG, collectorEvent(payload));
     },
   };
   const jobs: TaskList = {

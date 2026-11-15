@@ -94,7 +94,61 @@ export type Env = {
    */
   OTEL_EXPORTER_OTLP_HEADERS?: string;
   OTEL_SERVICE_NAME: string;
+  /** Where sign-in events go as syslog over TLS; without one, nowhere. */
+  SYSLOG?: SyslogCollector;
 };
+
+/** The syslog collector sign-in events are sent to over TLS (ADR 0084). */
+export type SyslogCollector = {
+  host: string;
+  port: number;
+  /** A certificate authority of the operator's, as PEM, beside the system's. */
+  ca?: string;
+};
+
+/** RFC 5425's own port. */
+const SYSLOG_DEFAULT_PORT = 6514;
+const SYSLOG_HOST = /^[A-Za-z0-9]([A-Za-z0-9.:-]{0,251}[A-Za-z0-9])?$/;
+const CERTIFICATE_PEM =
+  /-----BEGIN CERTIFICATE-----[\s\S]+-----END CERTIFICATE-----/;
+
+/**
+ * `SYSLOG_HOST`, `SYSLOG_PORT` and `SYSLOG_CA_FILE`: none without a host.
+ * A value that names no collector stops the start, saying which.
+ */
+export function readSyslogCollector(
+  source: NodeJS.ProcessEnv,
+): SyslogCollector | undefined {
+  const raw = source.SYSLOG_HOST?.trim();
+  if (!raw) {
+    if (source.SYSLOG_PORT || source.SYSLOG_CA_FILE) {
+      throw new Error("SYSLOG_PORT and SYSLOG_CA_FILE need SYSLOG_HOST");
+    }
+    return undefined;
+  }
+  const host = raw.replace(/^\[(.*)\]$/, "$1").toLowerCase();
+  if (!SYSLOG_HOST.test(host)) {
+    throw new Error("SYSLOG_HOST must be a host name or an address");
+  }
+  const port = source.SYSLOG_PORT
+    ? Number(source.SYSLOG_PORT)
+    : SYSLOG_DEFAULT_PORT;
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error("SYSLOG_PORT must be an integer between 1 and 65535");
+  }
+  if (!source.SYSLOG_CA_FILE) return { host, port };
+  let ca: string;
+  try {
+    ca = readFileSync(source.SYSLOG_CA_FILE, "utf8");
+  } catch (error) {
+    // The variable's name, never the path.
+    throw new Error("SYSLOG_CA_FILE could not be read", { cause: error });
+  }
+  if (!CERTIFICATE_PEM.test(ca)) {
+    throw new Error("SYSLOG_CA_FILE must hold a PEM certificate");
+  }
+  return { host, port, ca };
+}
 
 /**
  * A secret from `NAME`, or from the file `NAME_FILE` names, less its last
@@ -450,6 +504,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     throw new Error("METRICS_TOKEN must be 32 characters or more");
   }
   const otelHeaders = secretFromEnv(source, "OTEL_EXPORTER_OTLP_HEADERS");
+  const syslog = readSyslogCollector(source);
 
   return {
     DATABASE_URL: databaseUrl,
@@ -502,5 +557,6 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
       : {}),
     ...(otelHeaders ? { OTEL_EXPORTER_OTLP_HEADERS: otelHeaders } : {}),
     OTEL_SERVICE_NAME: source.OTEL_SERVICE_NAME || "anygriddb",
+    ...(syslog ? { SYSLOG: syslog } : {}),
   };
 }

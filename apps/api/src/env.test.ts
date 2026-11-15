@@ -374,6 +374,20 @@ describe("isLoopback", () => {
     ).toBe("https://collector.internal:4318");
   });
 
+  it("sends sign-in events to a syslog collector only when one is named", () => {
+    expect(readEnv(base).SYSLOG).toBeUndefined();
+    expect(
+      readEnv({ ...base, SYSLOG_HOST: "logs.example.org" }).SYSLOG,
+    ).toEqual({ host: "logs.example.org", port: 6514 });
+    // A value that names no collector stops the start, saying which.
+    expect(() =>
+      readEnv({ ...base, SYSLOG_HOST: "udp://logs.example.org" }),
+    ).toThrow("SYSLOG_HOST must be a host name or an address");
+    expect(() => readEnv({ ...base, SYSLOG_PORT: "6514" })).toThrow(
+      "SYSLOG_PORT and SYSLOG_CA_FILE need SYSLOG_HOST",
+    );
+  });
+
   it("trusts no proxy unless the operator lists addresses or ranges", () => {
     expect(readEnv(base).TRUSTED_PROXIES).toEqual([]);
     expect(

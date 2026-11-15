@@ -45,6 +45,7 @@ export const NO_PROOF: ReadonlySet<string> = new Set([
   "admin.oidc.test",
   "admin.saml.test",
   "admin.siem.test",
+  "admin.syslog.test",
   "admin.sources.test",
   "admin.sources.check",
   // Reads again what a source already exposes.

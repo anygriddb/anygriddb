@@ -41,6 +41,7 @@ import {
   saveSmtp,
   smtpUpdateSchema,
 } from "../integrations/smtp.js";
+import { sendSyslogTest } from "../integrations/syslog.js";
 import { smtpReady } from "../mail.js";
 import { isLocalGroup, listGroups } from "../scim/groups.js";
 import {
@@ -221,6 +222,35 @@ export const samlRouter = t.router({
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
       await clearSaml(ctx.db, admin.id, ctx.req.ip);
+      return { ok: true as const };
+    }),
+  ),
+});
+
+/**
+ * The syslog collector (ADR 0084), named where the instance is installed:
+ * Administration shows where events go and sends one to try it.
+ */
+export const syslogRouter = t.router({
+  get: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await requireAdmin(ctx);
+      const collector = ctx.env.SYSLOG;
+      return collector
+        ? {
+            configured: true as const,
+            host: collector.host,
+            port: collector.port,
+            // That one was given, never the certificate itself.
+            ownAuthority: collector.ca !== undefined,
+          }
+        : { configured: false as const };
+    }),
+  ),
+  test: procedure.mutation(({ ctx }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      await sendSyslogTest(ctx.env.SYSLOG, admin.id);
       return { ok: true as const };
     }),
   ),

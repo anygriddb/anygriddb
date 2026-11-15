@@ -9,6 +9,7 @@ here was tried on a stack of its own before it was written down.
 | Change the encryption key                | [Changing the encryption key](#changing-the-encryption-key)                               |
 | Set `PUBLIC_URL` / TLS                   | [Address people open](#address-people-open-public_url)                                    |
 | Run behind a reverse proxy               | [Behind a reverse proxy](#behind-a-reverse-proxy)                                         |
+| Get back in as an administrator          | [When no administrator can sign in](#when-no-administrator-can-sign-in)                   |
 | Upgrade AnyGridDB                        | [Update AnyGridDB](#update-anygriddb)                                                     |
 | Move PostgreSQL 17 → 18                  | [PostgreSQL 17 to 18](#postgresql-17-to-18)                                               |
 | Limit an earlier stack's PostgreSQL role | [A stack made before the role was limited](#a-stack-made-before-the-role-was-limited)     |
@@ -17,6 +18,7 @@ here was tried on a stack of its own before it was written down.
 | Provision accounts (SCIM)                | [Provisioning with SCIM](#provisioning-with-scim)                                         |
 | Run several API processes                | [Several API processes](#several-api-processes)                                           |
 | Ship logs / metrics                      | [Shipping logs](#shipping-logs-to-a-collector), [Metrics and traces](#metrics-and-traces) |
+| Send sign-in events to a collector       | [Sign-in events to a collector](#sign-in-events-to-a-collector)                           |
 | Acceptance checklist                     | [DSI acceptance checklist](#dsi-acceptance-checklist)                                     |
 
 ## Install
@@ -733,6 +735,35 @@ is left out on purpose, since a message quotes the value that failed (an
 address, a row): `message` repeats the kind and the code. To find a
 failure, search by `code` and read the first frame of `stack`.
 
+## Sign-in events to a collector
+
+Apart from its logs, the instance can send the events of its sign-in trail
+that a watch cares about, as they happen: failed sign-ins, locks, accounts
+made, changed, disabled or deleted, the roles of Administration, settings,
+second factors removed, tokens. Each carries ids, codes and the client's
+address, never an email or a secret. Two ways, alone or together:
+
+- **Over HTTPS**, to a public address, set and tried in Administration,
+  Connections: each event is posted as JSON, signed with a secret you give
+  (ADR 0056).
+- **As syslog over TLS** (RFC 5425), to a collector of your network, named
+  where the instance is installed (ADR 0084). In `.env`:
+
+  ```sh
+  SYSLOG_HOST=logs.internal
+  SYSLOG_PORT=6514
+  ```
+
+  The collector's certificate is verified for that name. When an authority
+  of your own signed it, mount that authority's certificate (PEM) in the
+  application's container through a Compose file of your own, and name it:
+  `SYSLOG_CA_FILE=/run/secrets/syslog_ca`. Each event is one RFC 5424 line
+  (facility `local0`, application `anygriddb`, message id `auth`) whose
+  message is the event as JSON. It leaves from the queue, and is tried
+  again when the collector is away. Nothing is sent in clear text, and the
+  instance does not start on a value that names no collector.
+  Administration, Connections shows where events go and sends one to try.
+
 ## DSI acceptance checklist
 
 Before opening the instance to users:
@@ -753,8 +784,9 @@ Before opening the instance to users:
 8. Set MFA scope to everyone (or your policy); confirm an enrollment gate.
 9. Turn maintenance on briefly; confirm non-admins are signed out.
 10. Run `scripts/backup.sh` and `scripts/restore.sh` on a spare stack.
-11. If you use a SIEM, save the webhook, send a test event, and confirm it
-    arrives with a valid signature.
+11. If you use a SIEM, save the webhook, or name your syslog collector,
+    send a test event, and confirm it arrives (with a valid signature,
+    over HTTPS).
 12. Scrape `/metrics` with `METRICS_TOKEN` over HTTPS.
 
 ## Metrics and traces
