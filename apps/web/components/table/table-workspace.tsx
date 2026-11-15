@@ -1156,13 +1156,7 @@ export function TableWorkspace({
             </h1>
             {table.external ? (
               // A client's table (ADR 0006): its name in the database, always in view.
-              <Tooltip
-                content={
-                  (ENGINE_NAMES as Record<string, string>)[
-                    table.external.engine
-                  ] ?? table.external.engine
-                }
-              >
+              <Tooltip content={ENGINE_NAMES[table.external.engine]}>
                 <span
                   tabIndex={0}
                   className="inline-flex h-[22px] max-w-56 items-center gap-1.5 rounded-md border border-border bg-background px-2 font-mono text-xs text-muted-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring"

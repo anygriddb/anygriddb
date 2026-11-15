@@ -14,6 +14,7 @@ import {
 import {
   Button,
   Checkbox,
+  cn,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -426,24 +427,42 @@ function SourceForm(props: {
           onChange={(event) => setName(event.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="source-engine">{t`Engine`}</Label>
-        <Select
-          id="source-engine"
-          value={engine}
-          onChange={(event) => {
-            const next = event.target.value as SourceEngine;
-            setEngine(next);
-            setPort(String(DEFAULT_SOURCE_PORTS[next]));
-          }}
-        >
-          {SOURCE_ENGINES.map((value) => (
-            <option key={value} value={value}>
-              {ENGINE_NAMES[value]}
-            </option>
-          ))}
-        </Select>
-      </div>
+      <fieldset className="col-span-2 flex flex-col gap-1">
+        <legend className="text-xs font-medium text-muted-foreground">
+          {t`Engine`}
+        </legend>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {SOURCE_ENGINES.map((value) => {
+            const selected = engine === value;
+            return (
+              <label
+                key={value}
+                className={cn(
+                  "flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-2 text-left text-sm hover:bg-muted focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring",
+                  selected
+                    ? "border-primary ring-1 ring-primary"
+                    : "border-border",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="source-engine"
+                  className="sr-only"
+                  value={value}
+                  checked={selected}
+                  onChange={() => {
+                    setEngine(value);
+                    setPort(String(DEFAULT_SOURCE_PORTS[value]));
+                  }}
+                />
+                <span className="min-w-0 truncate font-medium">
+                  {ENGINE_NAMES[value]}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
       <div className="flex flex-col gap-1">
         <Label htmlFor="source-database">
           {databaseField === "service"

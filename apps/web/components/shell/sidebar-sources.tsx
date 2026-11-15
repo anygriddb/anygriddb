@@ -26,9 +26,7 @@ export function SidebarSources({ bases }: { bases: readonly CatalogBase[] }) {
       <ul className="flex flex-col gap-0.5">
         {sources.map((source) => {
           const open = expanded.has(source.id);
-          const engine =
-            (ENGINE_NAMES as Record<string, string>)[source.engine] ??
-            source.engine;
+          const engineName = ENGINE_NAMES[source.engine];
           return (
             <li key={source.id}>
               <button
@@ -56,7 +54,7 @@ export function SidebarSources({ bases }: { bases: readonly CatalogBase[] }) {
                   {source.name}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground">
-                  {engine}
+                  {engineName}
                 </span>
               </button>
               {open ? (
