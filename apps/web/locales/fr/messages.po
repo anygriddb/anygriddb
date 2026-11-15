@@ -3634,6 +3634,10 @@ msgstr "Domaines : {domains}. Les invitations déjà envoyées à d’autres ad
 msgid "Done"
 msgstr "Terminé"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Done editing"
+msgstr "Terminer"
+
 #: components/fields/attachment-preview.tsx
 #: components/settings/base-settings.tsx
 #: components/settings/second-factor.tsx
@@ -3743,6 +3747,7 @@ msgstr "Plus ancienne date"
 #: components/admin/change-labels.ts
 #: components/admin/group-page.tsx
 #: components/admin/sources-tab.tsx
+#: components/dashboards/dashboard-board.tsx
 #: components/record/record-panel.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/table/automations-dialog.tsx
@@ -3791,9 +3796,17 @@ msgstr "Modifier la cellule (ou F2) ; taper du texte remplace la valeur"
 msgid "Edit the source"
 msgstr "Modifier la source"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Edit the widget"
+msgstr "Modifier le widget"
+
 #: components/record/record-panel.tsx
 msgid "edited"
 msgstr "modifié"
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Editing"
+msgstr "Modification"
 
 #: components/settings/role-label.ts
 msgid "Editor"
@@ -6183,6 +6196,7 @@ msgstr "Plus d’actions"
 msgid "More than 20 bases for one person"
 msgstr "Plus de 20 bases pour une personne"
 
+#: components/dashboards/dashboard-board.tsx
 #: components/table/table-workspace.tsx
 msgid "Move"
 msgstr "Déplacement"
@@ -6199,6 +6213,7 @@ msgstr "Descendre {field}"
 msgid "Move {field} up"
 msgstr "Monter {field}"
 
+#: components/dashboards/dashboard-board.tsx
 #: components/views/gallery-view.tsx
 #: components/views/kanban-view.tsx
 msgid "Move {name}"
@@ -7855,6 +7870,7 @@ msgstr "URL de redirection"
 msgid "Redirect URL for the identity provider:"
 msgstr "URL de redirection pour le fournisseur d’identité :"
 
+#: components/dashboards/dashboard-board.tsx
 #: components/table/view-toolbar.tsx
 msgid "Redo"
 msgstr "Rétablir"
@@ -8518,6 +8534,7 @@ msgstr "Samedi"
 #: components/admin/group-page.tsx
 #: components/admin/settings-tab.tsx
 #: components/admin/sources-tab.tsx
+#: components/dashboards/dashboard-board.tsx
 #: components/fields/field-editor.tsx
 #: components/record/record-panel.tsx
 #: components/settings/base-settings.tsx
@@ -11222,6 +11239,7 @@ msgstr "Texte non fermé : il manque un guillemet"
 msgid "Under the name, for everyone who opens the sign-in pages, before they sign in: who the instance is for, whom to ask for an account."
 msgstr "Sous le nom, pour toute personne qui ouvre les pages de connexion, avant de se connecter : à qui l’instance est destinée, à qui demander un compte."
 
+#: components/dashboards/dashboard-board.tsx
 #: components/table/view-toolbar.tsx
 msgid "Undo"
 msgstr "Annuler"

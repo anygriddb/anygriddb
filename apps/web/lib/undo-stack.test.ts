@@ -58,4 +58,54 @@ describe("UndoStack", () => {
     expect(log).toEqual(["undo a"]);
     expect(sizes.at(-1)).toBe(0);
   });
+
+  it("drops a step whose undo failed, so the one before still undoes", async () => {
+    const log: string[] = [];
+    const stack = new UndoStack(() => undefined);
+    stack.push({
+      label: "a",
+      undo: () => {
+        log.push("undo a");
+        return Promise.resolve();
+      },
+      redo: () => Promise.resolve(),
+    });
+    stack.push({
+      label: "b",
+      undo: () => Promise.reject(new Error("row locked")),
+      redo: () => Promise.resolve(),
+    });
+    await expect(stack.undo()).rejects.toThrow("row locked");
+    await expect(stack.undo()).resolves.toMatchObject({ label: "a" });
+    expect(log).toEqual(["undo a"]);
+  });
+
+  it("keeps a step whose undo or redo failed, when asked to", async () => {
+    const log: string[] = [];
+    let failUndo = true;
+    let failRedo = true;
+    const stack = new UndoStack(() => undefined, { keepFailed: true });
+    stack.push({
+      label: "a",
+      undo: () => {
+        if (failUndo) return Promise.reject(new Error("undo failed"));
+        log.push("undo");
+        return Promise.resolve();
+      },
+      redo: () => {
+        if (failRedo) return Promise.reject(new Error("redo failed"));
+        log.push("redo");
+        return Promise.resolve();
+      },
+    });
+    await expect(stack.undo()).rejects.toThrow("undo failed");
+    expect(log).toEqual([]);
+    failUndo = false;
+    await expect(stack.undo()).resolves.toMatchObject({ label: "a" });
+    await expect(stack.redo()).rejects.toThrow("redo failed");
+    expect(log).toEqual(["undo"]);
+    failRedo = false;
+    await expect(stack.redo()).resolves.toMatchObject({ label: "a" });
+    expect(log).toEqual(["undo", "redo"]);
+  });
 });
