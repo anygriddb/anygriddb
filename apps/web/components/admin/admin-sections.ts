@@ -32,6 +32,7 @@ type AdminPath =
   | "/admin/instance"
   | "/admin/instance/identity"
   | "/admin/instance/health"
+  | "/admin/instance/logs"
   | "/admin/instance/support";
 
 export type AdminPage = { to: AdminPath; label: string };
@@ -144,6 +145,7 @@ export function useAdminSections(): AdminSection[] {
         { to: "/admin/instance", label: t`Settings` },
         { to: "/admin/instance/identity", label: t`Name and logo` },
         { to: "/admin/instance/health", label: t`Health` },
+        { to: "/admin/instance/logs", label: t`Logs` },
         { to: "/admin/instance/support", label: t`Support` },
       ],
     },

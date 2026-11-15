@@ -31,6 +31,7 @@ import { calendarFeedDocument } from "./data/calendar-feeds.js";
 import { shareEmbedOriginsForToken } from "./data/sharing.js";
 import { queueWebhookRun } from "./automations.js";
 import { logUrl } from "./log-url.js";
+import { logDestination } from "./process-log.js";
 import { trustProxy } from "./trust-proxy.js";
 import { registerScim } from "./scim/routes.js";
 import { registerEnterpriseAuth } from "./auth/enterprise.js";
@@ -132,6 +133,9 @@ export async function createApp(deps: {
     // keeps a whole URL under 6,000 characters.
     routerOptions: { maxParamLength: 6_000 },
     logger: {
+      // A second copy of each line, for Administration (ADR 0087). The
+      // stream still writes the container's output, which a collector reads.
+      stream: logDestination(),
       redact: [
         "req.headers.cookie",
         "req.headers.authorization",

@@ -779,6 +779,15 @@ is left out on purpose, since a message quotes the value that failed (an
 address, a row): `message` repeats the kind and the code. To find a
 failure, search by `code` and read the first frame of `stack`.
 
+Administration shows the recent warnings, failures, and the process's own
+messages under Instance, Logs (ADR 0087). Successful requests stay on the
+container's output. The page keeps a line's time, level, message, the
+request's method, path and address, and a failure's kind, code and frames.
+The lines live in the process's memory and disappear when it stops. The
+database and the file store log where they run. A collector pointed at the
+container's output keeps the full copy, including lines from before the
+last start.
+
 ## Sign-in events to a collector
 
 Apart from its logs, the instance can send the events of its sign-in trail

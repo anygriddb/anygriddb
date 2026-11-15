@@ -6,6 +6,7 @@ import { isLoopback, readEnv } from "./env.js";
 import { createFileStore } from "./files/index.js";
 import { watchSyslog } from "./integrations/syslog.js";
 import { loggedError, loggedFields } from "./logged-error.js";
+import { processLog } from "./process-log.js";
 import { migrateQueue } from "./queue/worker.js";
 import { PgBus } from "./realtime/bus.js";
 import { createApp } from "./server.js";
@@ -22,6 +23,7 @@ const { db, pool, close } = createDb(env.DATABASE_URL, {
   max: env.DATABASE_POOL_MAX,
   onError: (error) => {
     console.error("database connection failed", loggedError(error));
+    processLog.rememberFailure("database connection failed", error);
   },
 });
 await migrateDb(pool);
@@ -46,6 +48,7 @@ if (files.driver === "disk") await files.check();
 // AnyGridDB (ADR 0009).
 const bus = new PgBus(pool, env.DATABASE_URL, (error, message) => {
   console.error(message, loggedError(error));
+  processLog.rememberFailure(message, error);
 });
 await bus.start();
 
