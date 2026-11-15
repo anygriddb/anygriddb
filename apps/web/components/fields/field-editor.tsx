@@ -50,6 +50,7 @@ import { FormulaHelpPanel } from "./formula-help-panel";
 // CodeMirror loads with the first formula, not with the grid.
 const FormulaEditor = lazy(() => import("./formula-editor"));
 import { useErrorText } from "../../lib/errors";
+import { Earlier } from "../history/earlier";
 import { distinctLimits, formulaEngine, useLimitText } from "../../lib/limits";
 import { LimitNotice } from "./limit-notice";
 import { LinkSelectionEditor } from "./link-selection";
@@ -1388,6 +1389,20 @@ export function FieldEditor({
                 },
               )}
             </p>
+          ) : null}
+          {editing ? (
+            <Earlier
+              kind="column"
+              id={editing.id}
+              seen={() => ({
+                label: editing.label,
+                description: editing.description,
+                config: editing.config,
+                requireReason: editing.requireReason,
+                required: editing.required,
+                isUnique: editing.isUnique,
+              })}
+            />
           ) : null}
           <DialogFooter>
             <Button variant="ghost" onClick={() => onOpenChange(false)}>

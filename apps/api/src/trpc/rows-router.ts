@@ -20,6 +20,7 @@ import {
   type ReadSpec,
   resolveCommentInputSchema,
   restoreRowsInputSchema,
+  revertRowInputSchema,
   roleAllows,
   rowsAggregateInputSchema,
   rowsGetInputSchema,
@@ -71,6 +72,7 @@ import {
   writeColumns,
   type RowRecord,
 } from "../data/rows.js";
+import { revertRow } from "../services/revert-row.js";
 import { loadView } from "../data/views.js";
 import { publishCatalog } from "../realtime/channels.js";
 import { enrichAttachments } from "../attachments.js";
@@ -443,6 +445,13 @@ export const rowsRouter = t.router({
       await signRowAs(serviceDeps(ctx), await scopeOf(ctx, access), input, {
         source: "web",
       });
+      return { ok: true as const };
+    }),
+  ),
+  revert: procedure.input(revertRowInputSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const scope = await writeScope(ctx, input.tableId);
+      await revertRow(serviceDeps(ctx), scope, input);
       return { ok: true as const };
     }),
   ),

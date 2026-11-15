@@ -101,3 +101,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0085](0085-code-by-email-second-factor.md)          | A code by email as a second factor, for anyone but an administrator                     | Accepted                                    |
 | [0087](0087-process-log.md)                          | Recent lines of the process, read in Administration                                     | Accepted (extends 0018)                     |
 | [0088](0088-stores-read-from-a-copy.md)              | Stores that speak no SQL are read from a copy                                           | Accepted (extends 0034)                     |
+| [0089](0089-putting-a-value-back.md)                 | Putting a value back writes a new change from the trail                                 | Accepted                                    |

@@ -262,8 +262,9 @@ export async function updateBase(
   db: Database,
   userId: string,
   input: { baseId: string; name?: string; description?: string | null },
+  source = "web",
 ): Promise<void> {
-  await withAudit(db, { userId, source: "web" }, async (tx) => {
+  await withAudit(db, { userId, source }, async (tx) => {
     await tx
       .updateTable("bases")
       .set({
@@ -431,11 +432,12 @@ export async function updateTable(
   db: Database,
   userId: string,
   input: { tableId: string; name?: string; description?: string | null },
+  source = "web",
 ): Promise<void> {
   try {
     await withAudit(
       db,
-      { userId, tableId: input.tableId, source: "web" },
+      { userId, tableId: input.tableId, source },
       async (tx) => {
         await tx
           .updateTable("dataTables")
@@ -902,6 +904,7 @@ export async function updateColumn(
   userId: string,
   table: TableRow,
   input: ColumnUpdate,
+  source = "web",
 ): Promise<void> {
   const rows = await loadBaseRows(db, table.baseId);
   const own = ownColumns(rows, table.id);
@@ -1051,7 +1054,7 @@ export async function updateColumn(
   }
   await withAudit(
     db,
-    { userId, tableId: table.id, reason: input.reason ?? null, source: "web" },
+    { userId, tableId: table.id, reason: input.reason ?? null, source },
     async (tx) => {
       if (column.isUnique && (!unique || converting)) {
         await runRows(

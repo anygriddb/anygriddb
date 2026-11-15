@@ -26,6 +26,7 @@ import {
   ArrowLeft,
   ArrowUp,
   BarChart3,
+  History,
   LayoutDashboard,
   MoreHorizontal,
   Pencil,
@@ -40,6 +41,7 @@ import { LoadFailed } from "../shell/load-failed";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { canManage } from "../../lib/types";
 import { PromptDialog } from "../shell/dialogs";
+import { Earlier } from "../history/earlier";
 import { moveWidget, placeWidget, readingOrder } from "./widget-layout";
 import { DashboardHistory, type WidgetBody } from "./dashboard-history";
 import { useWidgetDrag, useWidgetDrop } from "./widget-drag";
@@ -137,6 +139,30 @@ function DashboardEditor(props: { baseId: string; dashboardId: string }) {
   const errorText = useErrorText();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<OpenForm | null>(null);
+  // After a version was put back from the trail: the dashboard, the list
+  // of dashboards (its name), and the widget's own figures.
+  async function reread(widgetId?: string) {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: api.dashboards.get.queryKey({
+          dashboardId: props.dashboardId,
+        }),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: api.dashboards.list.queryKey({ baseId: props.baseId }),
+      }),
+      ...(widgetId
+        ? [
+            queryClient.invalidateQueries({
+              queryKey: api.dashboards.widgetData.queryKey({
+                dashboardId: props.dashboardId,
+                widgetId,
+              }),
+            }),
+          ]
+        : []),
+    ]);
+  }
   const [renaming, setRenaming] = useState(false);
   const undo = useUndo({ keepFailed: true });
   const [history] = useState(() => new DashboardHistory(undo));
@@ -412,6 +438,7 @@ function DashboardEditor(props: { baseId: string; dashboardId: string }) {
               void run(() => commitLayout(layout));
             }}
             onEdit={() => setForm({ mode: "edit", widget })}
+            onReverted={() => void reread(widget.id)}
             onDelete={() => void run(() => removeWidget(widget))}
             onDropWidget={(draggedId) => {
               const layout = placeWidget(widgets, draggedId, index);
@@ -475,7 +502,17 @@ function DashboardEditor(props: { baseId: string; dashboardId: string }) {
             fail(cause);
           }
         }}
-      />
+      >
+        <Earlier
+          kind="dashboard"
+          id={props.dashboardId}
+          seen={() => ({
+            name: dashboard.name,
+            description: dashboard.description,
+          })}
+          onReverted={() => void reread()}
+        />
+      </PromptDialog>
     </div>
   );
 }
@@ -518,6 +555,8 @@ function WidgetCard(props: {
   last: boolean;
   onMove: (by: -1 | 1) => void;
   onEdit: () => void;
+  /** An earlier version was put back from the trail (ADR 0089). */
+  onReverted: () => void;
   onDelete: () => void;
   onDropWidget: (draggedId: string) => void;
   widget: WidgetModel;
@@ -525,6 +564,7 @@ function WidgetCard(props: {
   const { t } = useLingui();
   const errorText = useErrorText();
   const api = useTRPC();
+  const [earlier, setEarlier] = useState(false);
   const data = useQuery(
     api.dashboards.widgetData.queryOptions({
       dashboardId: props.dashboardId,
@@ -546,111 +586,140 @@ function WidgetCard(props: {
   );
 
   return (
-    <article
-      ref={ref}
-      {...dropProps}
-      className={cn(
-        "flex min-h-0 flex-col overflow-hidden rounded-sm border bg-card",
-        props.editing ? "border-dashed border-strong-border" : "border-border",
-        isDropTarget && "ring-2 ring-primary",
-        isDragging && "opacity-50",
-      )}
-      style={{
-        gridColumn: `${props.widget.x + 1} / span ${props.widget.w}`,
-        gridRow: `${props.widget.y + 1} / span ${props.widget.h}`,
-      }}
-    >
-      <header
-        className="flex items-center gap-2 border-b border-border px-3 py-2"
-        {...(props.editing ? dragProps : {})}
-      >
-        {props.editing ? (
-          <DragHandle {...dragButtonProps} label={t`Move ${name}`} />
-        ) : null}
-        <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-        <h2 className="min-w-0 flex-1 truncate text-sm font-medium">{name}</h2>
-        {props.editing ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7"
-                aria-label={t`Actions for ${{ widget: name }}`}
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={props.onEdit}>
-                <Pencil className="h-4 w-4" aria-hidden />
-                {t`Edit`}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={props.first}
-                onSelect={() => props.onMove(-1)}
-              >
-                <ArrowUp className="h-4 w-4" aria-hidden />
-                {t`Move earlier`}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={props.last}
-                onSelect={() => props.onMove(1)}
-              >
-                <ArrowDown className="h-4 w-4" aria-hidden />
-                {t`Move later`}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem danger onSelect={props.onDelete}>
-                <Trash2 className="h-4 w-4" aria-hidden />
-                {t`Delete`}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
-      </header>
-      <div className="min-h-0 flex-1 p-3">
-        {data.isLoading ? (
-          <div className="flex h-full items-center justify-center">
-            <Spinner />
-          </div>
-        ) : data.data?.kind === "metric" ? (
-          <p className="flex h-full items-center justify-center text-3xl font-semibold tabular-nums">
-            {formatValue(data.data.value)}
-          </p>
-        ) : data.data?.kind === "chart" ? (
-          <Suspense
-            fallback={
-              <div className="flex h-full items-center justify-center">
-                <Spinner />
-              </div>
-            }
-          >
-            <ChartView data={data.data} title={name} />
-          </Suspense>
-        ) : data.data?.kind === "view_embed" ? (
-          <div className="flex h-full flex-col items-start justify-center gap-2 text-sm">
-            <p className="text-muted-foreground">
-              {t`Embedded view — open it in the table.`}
-            </p>
-            <Button asChild size="sm" variant="outline">
-              <Link
-                to="/b/$baseId/t/$tableId/{-$viewId}"
-                params={{
-                  baseId: props.baseId,
-                  tableId: data.data.tableId,
-                  viewId: data.data.viewId,
-                }}
-              >
-                {t`Open view`}
-              </Link>
-            </Button>
-          </div>
-        ) : (
-          <p className="text-sm text-danger">{errorText(data.error)}</p>
+    <>
+      <article
+        ref={ref}
+        {...dropProps}
+        className={cn(
+          "flex min-h-0 flex-col overflow-hidden rounded-sm border bg-card",
+          props.editing
+            ? "border-dashed border-strong-border"
+            : "border-border",
+          isDropTarget && "ring-2 ring-primary",
+          isDragging && "opacity-50",
         )}
-      </div>
-    </article>
+        style={{
+          gridColumn: `${props.widget.x + 1} / span ${props.widget.w}`,
+          gridRow: `${props.widget.y + 1} / span ${props.widget.h}`,
+        }}
+      >
+        <header
+          className="flex items-center gap-2 border-b border-border px-3 py-2"
+          {...(props.editing ? dragProps : {})}
+        >
+          {props.editing ? (
+            <DragHandle {...dragButtonProps} label={t`Move ${name}`} />
+          ) : null}
+          <BarChart3
+            className="h-3.5 w-3.5 text-muted-foreground"
+            aria-hidden
+          />
+          <h2 className="min-w-0 flex-1 truncate text-sm font-medium">
+            {name}
+          </h2>
+          {props.editing ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  aria-label={t`Actions for ${{ widget: name }}`}
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={props.onEdit}>
+                  <Pencil className="h-4 w-4" aria-hidden />
+                  {t`Edit`}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setEarlier(true)}>
+                  <History className="h-4 w-4" aria-hidden />
+                  {t`Earlier`}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={props.first}
+                  onSelect={() => props.onMove(-1)}
+                >
+                  <ArrowUp className="h-4 w-4" aria-hidden />
+                  {t`Move earlier`}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={props.last}
+                  onSelect={() => props.onMove(1)}
+                >
+                  <ArrowDown className="h-4 w-4" aria-hidden />
+                  {t`Move later`}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem danger onSelect={props.onDelete}>
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                  {t`Delete`}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </header>
+        <div className="min-h-0 flex-1 p-3">
+          {data.isLoading ? (
+            <div className="flex h-full items-center justify-center">
+              <Spinner />
+            </div>
+          ) : data.data?.kind === "metric" ? (
+            <p className="flex h-full items-center justify-center text-3xl font-semibold tabular-nums">
+              {formatValue(data.data.value)}
+            </p>
+          ) : data.data?.kind === "chart" ? (
+            <Suspense
+              fallback={
+                <div className="flex h-full items-center justify-center">
+                  <Spinner />
+                </div>
+              }
+            >
+              <ChartView data={data.data} title={name} />
+            </Suspense>
+          ) : data.data?.kind === "view_embed" ? (
+            <div className="flex h-full flex-col items-start justify-center gap-2 text-sm">
+              <p className="text-muted-foreground">
+                {t`Embedded view — open it in the table.`}
+              </p>
+              <Button asChild size="sm" variant="outline">
+                <Link
+                  to="/b/$baseId/t/$tableId/{-$viewId}"
+                  params={{
+                    baseId: props.baseId,
+                    tableId: data.data.tableId,
+                    viewId: data.data.viewId,
+                  }}
+                >
+                  {t`Open view`}
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-danger">{errorText(data.error)}</p>
+          )}
+        </div>
+      </article>
+      {earlier ? (
+        <Dialog open onOpenChange={setEarlier}>
+          <DialogContent title={t`Earlier`}>
+            <Earlier
+              kind="widget"
+              id={props.widget.id}
+              seen={() => ({
+                title: props.widget.title,
+                kind: props.widget.kind,
+                config: props.widget.config,
+              })}
+              onReverted={props.onReverted}
+            />
+          </DialogContent>
+        </Dialog>
+      ) : null}
+    </>
   );
 }
 

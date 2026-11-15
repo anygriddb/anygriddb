@@ -100,11 +100,10 @@ type RowInput = {
 type RowUpdate = RowInput & {
   rowId: string;
   /**
-   * What the writer saw in the fields they change. A client's table
-   * compares it under lock and refuses the write when it moved; AnyGridDB's
-   * own tables do not need it.
+   * What the writer saw. A client's table compares each field under lock.
+   * AnyGridDB's own tables compare it when a value is put back (ADR 0089).
    */
-  expected?: Readonly<Record<string, CellValue>> | undefined;
+  expected?: Readonly<Record<string, unknown>> | undefined;
 };
 
 /** A live table, or undefined when it or its base is in the trash. */
@@ -578,7 +577,8 @@ export async function updateRows(
       updates.map((update) => ({
         rowId: update.rowId,
         values: withLinks(scope, update),
-        expected: update.expected,
+        expected: update.expected as
+          Readonly<Record<string, CellValue>> | undefined,
       })),
     );
     await announceRows(
@@ -594,7 +594,11 @@ export async function updateRows(
     deps.db,
     scope.engine,
     writeContext(scope, reason, meta),
-    updates.map((update) => ({ rowId: update.rowId, values: update.values })),
+    updates.map((update) => ({
+      rowId: update.rowId,
+      values: update.values,
+      ...(update.expected ? { expected: update.expected } : {}),
+    })),
   );
   const extra: string[] = [];
   for (const update of updates) {

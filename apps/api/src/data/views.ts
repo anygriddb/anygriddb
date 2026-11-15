@@ -175,6 +175,7 @@ export async function updateView(
     patch?: ViewConfigPatch;
     locked?: boolean;
   },
+  source = "web",
 ) {
   const current = normalizeViewConfig(view.config, view.viewType);
   const base = input.config
@@ -192,7 +193,7 @@ export async function updateView(
   assertViewConfig(engine, next, trashed);
   const updated = await withAudit(
     db,
-    { userId, tableId: view.tableId, source: "web" },
+    { userId, tableId: view.tableId, source },
     (tx) =>
       tx
         .updateTable("views")

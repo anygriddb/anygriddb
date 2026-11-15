@@ -109,10 +109,11 @@ export async function updateFolder(
   db: Database,
   userId: string,
   input: z.infer<typeof updateFolderInputSchema>,
+  source = "web",
 ): Promise<FolderRow> {
   const current = await folderOf(db, input.folderId);
   try {
-    return await withAudit(db, { userId, source: "web" }, async (tx) => {
+    return await withAudit(db, { userId, source }, async (tx) => {
       const folder = await tx
         .updateTable("tableFolders")
         .set({ name: input.name })

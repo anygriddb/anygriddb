@@ -98,8 +98,9 @@ export async function updateDashboard(
     name?: string;
     description?: string | null;
   },
+  source = "web",
 ) {
-  const updated = await withAudit(db, { userId, source: "web" }, (tx) =>
+  const updated = await withAudit(db, { userId, source }, (tx) =>
     tx
       .updateTable("dashboards")
       .set({
@@ -168,6 +169,7 @@ export async function upsertWidget(
   userId: string,
   baseId: string,
   input: UpsertWidgetInput,
+  source = "web",
 ) {
   const parsed = dashboardWidgetConfigSchema.parse({
     kind: input.kind,
@@ -191,26 +193,22 @@ export async function upsertWidget(
 
   if (input.widgetId) {
     const widgetId = input.widgetId;
-    const updated = await withAudit(
-      db,
-      { userId, source: "web" },
-      async (tx) => {
-        const row = await tx
-          .updateTable("dashboardWidgets")
-          .set(fields)
-          .where("id", "=", widgetId)
-          .where("dashboardId", "=", input.dashboardId)
-          .returningAll()
-          .executeTakeFirst();
-        if (!row) throw new AppError("unknown_widget");
-        await tx
-          .updateTable("dashboards")
-          .set({ updatedAt: new Date() })
-          .where("id", "=", input.dashboardId)
-          .execute();
-        return row;
-      },
-    );
+    const updated = await withAudit(db, { userId, source }, async (tx) => {
+      const row = await tx
+        .updateTable("dashboardWidgets")
+        .set(fields)
+        .where("id", "=", widgetId)
+        .where("dashboardId", "=", input.dashboardId)
+        .returningAll()
+        .executeTakeFirst();
+      if (!row) throw new AppError("unknown_widget");
+      await tx
+        .updateTable("dashboards")
+        .set({ updatedAt: new Date() })
+        .where("id", "=", input.dashboardId)
+        .execute();
+      return row;
+    });
     return updated;
   }
 

@@ -9,6 +9,7 @@ import {
   Kbd,
 } from "@anygriddb/ui";
 import { useQueryClient } from "@tanstack/react-query";
+import { Earlier } from "../history/earlier";
 import {
   ArrowDown,
   ArrowUp,
@@ -691,7 +692,17 @@ export function Sidebar({
               trpc.catalog.updateBase.mutate({ baseId: dialog.base.id, name }),
             )
           }
-        />
+        >
+          <Earlier
+            kind="base"
+            id={dialog.base.id}
+            seen={() => ({
+              name: dialog.base.name,
+              description: dialog.base.description,
+            })}
+            onReverted={() => invalidate()}
+          />
+        </PromptDialog>
       ) : null}
       {dialog?.kind === "delete-base" ? (
         <ConfirmDialog
@@ -743,7 +754,14 @@ export function Sidebar({
               }),
             )
           }
-        />
+        >
+          <Earlier
+            kind="folder"
+            id={dialog.folder.id}
+            seen={() => ({ name: dialog.folder.name })}
+            onReverted={() => invalidate()}
+          />
+        </PromptDialog>
       ) : null}
       {dialog?.kind === "delete-folder" ? (
         <ConfirmDialog
@@ -799,7 +817,17 @@ export function Sidebar({
               }),
             )
           }
-        />
+        >
+          <Earlier
+            kind="table"
+            id={dialog.table.id}
+            seen={() => ({
+              name: dialog.table.name,
+              description: dialog.table.description,
+            })}
+            onReverted={() => invalidate()}
+          />
+        </PromptDialog>
       ) : null}
       {dialog?.kind === "delete-table" ? (
         <ConfirmDialog

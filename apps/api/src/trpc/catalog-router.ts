@@ -3,6 +3,7 @@ import { catalogBaseProcedures } from "./catalog-bases-router.js";
 import { catalogFieldProcedures } from "./catalog-fields-router.js";
 import { catalogSharingProcedures } from "./catalog-sharing-router.js";
 import { catalogTableProcedures } from "./catalog-tables-router.js";
+import { catalogRevertProcedures } from "./catalog-revert-router.js";
 import { catalogTrashProcedures } from "./catalog-trash-router.js";
 import { catalogViewProcedures } from "./catalog-views-router.js";
 import { t } from "./init.js";
@@ -19,4 +20,5 @@ export const catalogRouter = t.router({
   ...catalogAccessProcedures,
   ...catalogSharingProcedures,
   ...catalogTrashProcedures,
+  ...catalogRevertProcedures,
 });

@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { countConditions, FilterBuilder } from "../table/filter-builder";
+import { Earlier } from "../history/earlier";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
@@ -343,6 +344,7 @@ export function WebhooksPanel(props: {
   const [secret, setSecret] = useState("");
   const [journal, setJournal] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [openEarlier, setOpenEarlier] = useState<string | null>(null);
   const labels = useMemo(
     () => new Map(props.columns.map((column) => [column.name, column.label])),
     [props.columns],
@@ -374,6 +376,16 @@ export function WebhooksPanel(props: {
                 ) : null}
                 <span className="text-muted-foreground">{hook.target}</span>
               </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs"
+                onClick={() =>
+                  setOpenEarlier(openEarlier === hook.id ? null : hook.id)
+                }
+              >
+                {t`Earlier`}
+              </Button>
               <label className="flex items-center gap-1 text-xs">
                 <Checkbox
                   checked={hook.active}
@@ -460,6 +472,22 @@ export function WebhooksPanel(props: {
                   other: "# failures in a row",
                 })}
               </p>
+            ) : null}
+            {openEarlier === hook.id ? (
+              <Earlier
+                kind="webhook"
+                id={hook.id}
+                seen={() => ({
+                  name: hook.name,
+                  active: hook.active,
+                  events: hook.events,
+                  filter: hook.filter,
+                  watchColumns: hook.watchColumns,
+                  includeValues: hook.includeValues,
+                  target: hook.target,
+                })}
+                onReverted={() => void refresh()}
+              />
             ) : null}
           </li>
         ))}
