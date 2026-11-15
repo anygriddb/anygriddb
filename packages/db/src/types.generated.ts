@@ -20,14 +20,14 @@ export type AuditAction =
 
 export type AuthAction =
   | "account_created"
-  | "acting_as_ended"
-  | "acting_as_started"
   | "account_data_exported"
   | "account_disabled"
   | "account_erased"
   | "account_locked"
   | "account_unlocked"
   | "account_updated"
+  | "acting_as_ended"
+  | "acting_as_started"
   | "factors_cleared"
   | "install_token_issued"
   | "install_token_used"
@@ -803,8 +803,8 @@ export interface Sessions {
   createdAt: Generated<Timestamp>;
   expiresAt: Timestamp;
   id: Generated<string>;
-  impersonateUntil: Timestamp | null;
   impersonatedUserId: string | null;
+  impersonateUntil: Timestamp | null;
   steppedUpAt: Timestamp | null;
   tokenHash: string;
   userId: string;
