@@ -11865,3 +11865,24 @@ msgstr "Zoom in"
 #: components/views/map-view.tsx
 msgid "Zoom out"
 msgstr "Zoom out"
+
+#: components/admin/settings-tab.tsx
+msgid "One MIME type per line, as read from the file's bytes. Empty: every type is taken."
+msgstr "One MIME type per line, as read from the file's bytes. Empty: every type is taken."
+
+#: components/admin/settings-tab.tsx
+msgid "One per line (for example .exe). Empty: every extension is taken. Checked with the file name."
+msgstr "One per line (for example .exe). Empty: every extension is taken. Checked with the file name."
+
+#: components/admin/settings-tab.tsx
+msgid "Refused content types"
+msgstr "Refused content types"
+
+#: components/admin/settings-tab.tsx
+msgid "Refused file extensions"
+msgstr "Refused file extensions"
+
+#: lib/errors.ts
+msgid "That file type is not allowed on this instance."
+msgstr "That file type is not allowed on this instance."
+

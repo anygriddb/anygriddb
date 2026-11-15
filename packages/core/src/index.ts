@@ -18,9 +18,12 @@ export {
 
 export {
   ATTACHMENT_TYPES,
+  attachmentExtensionOf,
+  attachmentIsRefused,
   attachmentPreviewKind,
   isImageAttachmentMime,
   isInlineAttachmentMime,
+  normalizeAttachmentExtension,
 } from "./attachment-types";
 
 export {

@@ -205,6 +205,41 @@ const fields = {
     z.null(),
     z.int().min(1024).max(ATTACHMENT_MAX_BYTES_CEILING),
   ]),
+  /**
+   * File extensions an administrator refuses (ROADMAP #39), each with a
+   * leading dot. Empty means every extension is taken. Checked with the
+   * name the person uploads, never alone as a security gate: the sniffed
+   * type is checked too.
+   */
+  attachmentRefusedExtensions: z
+    .array(
+      z
+        .string()
+        .trim()
+        .transform((raw) => {
+          const withDot = raw.startsWith(".") ? raw : `.${raw}`;
+          return withDot.toLowerCase();
+        })
+        .pipe(z.string().regex(/^\.[a-z0-9]{1,16}$/)),
+    )
+    .max(100)
+    .transform((entries) => [...new Set(entries)]),
+  /**
+   * MIME types refused after the bytes are sniffed. Empty means every
+   * sniffed type is taken. Together with the extensions, this is a refuse
+   * list: the product never turns the six previewed types into the only
+   * ones allowed.
+   */
+  attachmentRefusedMimes: z
+    .array(
+      z
+        .string()
+        .trim()
+        .toLowerCase()
+        .regex(/^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/),
+    )
+    .max(100)
+    .transform((entries) => [...new Set(entries)]),
   /** Days the trash keeps what was deleted, before it is purged for good. */
   trashDays: bounded("trashDays"),
   /** Days a restore point is kept, then removed with its file. */
@@ -290,6 +325,8 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   lockAlerts: true,
   releaseCheck: false,
   attachmentMaxBytes: null,
+  attachmentRefusedExtensions: [],
+  attachmentRefusedMimes: [],
   trashDays: 30,
   restorePointDays: 30,
   auditRetentionDays: 0,
@@ -353,6 +390,12 @@ export const instanceSettingsSchema = z.object({
   releaseCheck: fields.releaseCheck.default(INSTANCE_DEFAULTS.releaseCheck),
   attachmentMaxBytes: fields.attachmentMaxBytes.default(
     INSTANCE_DEFAULTS.attachmentMaxBytes,
+  ),
+  attachmentRefusedExtensions: fields.attachmentRefusedExtensions.default(
+    INSTANCE_DEFAULTS.attachmentRefusedExtensions,
+  ),
+  attachmentRefusedMimes: fields.attachmentRefusedMimes.default(
+    INSTANCE_DEFAULTS.attachmentRefusedMimes,
   ),
   trashDays: fields.trashDays.default(INSTANCE_DEFAULTS.trashDays),
   restorePointDays: fields.restorePointDays.default(
@@ -420,6 +463,8 @@ export const instanceSettingsPatchSchema = z
     lockAlerts: fields.lockAlerts.optional(),
     releaseCheck: fields.releaseCheck.optional(),
     attachmentMaxBytes: fields.attachmentMaxBytes.optional(),
+    attachmentRefusedExtensions: fields.attachmentRefusedExtensions.optional(),
+    attachmentRefusedMimes: fields.attachmentRefusedMimes.optional(),
     trashDays: fields.trashDays.optional(),
     restorePointDays: fields.restorePointDays.optional(),
     auditRetentionDays: fields.auditRetentionDays.optional(),

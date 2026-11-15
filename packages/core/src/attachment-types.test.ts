@@ -1,28 +1,61 @@
 import { describe, expect, it } from "vitest";
 import {
-  ATTACHMENT_TYPES,
-  attachmentPreviewKind,
-  isImageAttachmentMime,
-  isInlineAttachmentMime,
+  attachmentExtensionOf,
+  attachmentIsRefused,
+  normalizeAttachmentExtension,
 } from "./attachment-types";
 
-describe("attachment MIME policy", () => {
-  it("gives every accepted type an inline preview kind", () => {
-    for (const mime of ATTACHMENT_TYPES) {
-      expect(isInlineAttachmentMime(mime)).toBe(true);
-      expect(attachmentPreviewKind(mime)).not.toBeNull();
-    }
-    expect(attachmentPreviewKind("IMAGE/JPEG")).toBe("image");
-    expect(attachmentPreviewKind("application/pdf")).toBe("pdf");
-    expect(attachmentPreviewKind("text/plain")).toBe("text");
-    expect(isImageAttachmentMime("image/webp")).toBe(true);
-    expect(isImageAttachmentMime("application/pdf")).toBe(false);
+describe("attachment refuse lists", () => {
+  it("normalises extensions with a leading dot", () => {
+    expect(normalizeAttachmentExtension("EXE")).toBe(".exe");
+    expect(normalizeAttachmentExtension(".bat")).toBe(".bat");
+    expect(normalizeAttachmentExtension("../x")).toBeNull();
+    expect(normalizeAttachmentExtension("")).toBeNull();
   });
 
-  it("rejects types that must stay downloads", () => {
-    expect(attachmentPreviewKind("image/svg+xml")).toBeNull();
-    expect(attachmentPreviewKind("application/octet-stream")).toBeNull();
-    expect(attachmentPreviewKind("text/html")).toBeNull();
-    expect(isInlineAttachmentMime("image/svg+xml")).toBe(false);
+  it("reads the extension of a file name", () => {
+    expect(attachmentExtensionOf("report.PDF")).toBe(".pdf");
+    expect(attachmentExtensionOf("notes.tar.gz")).toBe(".gz");
+    expect(attachmentExtensionOf("folder/setup.EXE")).toBe(".exe");
+    expect(attachmentExtensionOf("noext")).toBeNull();
+    expect(attachmentExtensionOf(".hidden")).toBeNull();
+  });
+
+  it("accepts every file when the lists are empty", () => {
+    expect(
+      attachmentIsRefused({
+        filename: "virus.exe",
+        mime: "application/octet-stream",
+        refusedExtensions: [],
+        refusedMimes: [],
+      }),
+    ).toBe(false);
+  });
+
+  it("refuses by extension or by sniffed type", () => {
+    expect(
+      attachmentIsRefused({
+        filename: "setup.EXE",
+        mime: "application/octet-stream",
+        refusedExtensions: [".exe"],
+        refusedMimes: [],
+      }),
+    ).toBe(true);
+    expect(
+      attachmentIsRefused({
+        filename: "notes.bin",
+        mime: "application/x-msdownload",
+        refusedExtensions: [],
+        refusedMimes: ["application/x-msdownload"],
+      }),
+    ).toBe(true);
+    expect(
+      attachmentIsRefused({
+        filename: "photo.jpg",
+        mime: "image/jpeg",
+        refusedExtensions: [".exe"],
+        refusedMimes: ["application/x-msdownload"],
+      }),
+    ).toBe(false);
   });
 });

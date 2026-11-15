@@ -236,6 +236,72 @@ export function SettingsTab() {
             : t`Empty uses 20 MiB. Between 1 and 500.`}
         </p>
       </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="setting-attachment-refused-ext">
+          {t`Refused file extensions`}
+        </Label>
+        <Textarea
+          id="setting-attachment-refused-ext"
+          rows={3}
+          className="font-mono text-sm"
+          aria-describedby="setting-attachment-refused-ext-hint"
+          defaultValue={settings.data.attachmentRefusedExtensions.join("\n")}
+          key={settings.data.attachmentRefusedExtensions.join(",")}
+          onBlur={(event) => {
+            const next = event.target.value
+              .split(/[\n,]+/)
+              .map((entry) => entry.trim())
+              .filter(Boolean);
+            const current = settings.data.attachmentRefusedExtensions;
+            if (
+              next.length === current.length &&
+              next.every((entry, index) => entry === current[index])
+            ) {
+              return;
+            }
+            void save({ attachmentRefusedExtensions: next });
+          }}
+        />
+        <p
+          id="setting-attachment-refused-ext-hint"
+          className="text-xs text-muted-foreground"
+        >
+          {t`One per line (for example .exe). Empty: every extension is taken. Checked with the file name.`}
+        </p>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="setting-attachment-refused-mime">
+          {t`Refused content types`}
+        </Label>
+        <Textarea
+          id="setting-attachment-refused-mime"
+          rows={3}
+          className="font-mono text-sm"
+          aria-describedby="setting-attachment-refused-mime-hint"
+          defaultValue={settings.data.attachmentRefusedMimes.join("\n")}
+          key={settings.data.attachmentRefusedMimes.join(",")}
+          onBlur={(event) => {
+            const next = event.target.value
+              .split(/[\n,]+/)
+              .map((entry) => entry.trim())
+              .filter(Boolean);
+            const current = settings.data.attachmentRefusedMimes;
+            if (
+              next.length === current.length &&
+              next.every((entry, index) => entry === current[index])
+            ) {
+              return;
+            }
+            void save({ attachmentRefusedMimes: next });
+          }}
+        />
+        <p
+          id="setting-attachment-refused-mime-hint"
+          className="text-xs text-muted-foreground"
+        >
+          {t`One MIME type per line, as read from the file's bytes. Empty: every type is taken.`}
+        </p>
+      </div>
       <section
         className="flex flex-col gap-1"
         aria-labelledby="setting-operator"

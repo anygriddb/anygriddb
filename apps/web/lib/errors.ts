@@ -126,6 +126,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   invalid_link: msg`Invalid link`,
   invalid_link_count: msg`This link takes only one row`,
   invalid_attachment: msg`A file could not be attached. Add it again.`,
+  attachment_type_refused: msg`That file type is not allowed on this instance.`,
   invalid_comment: msg`Invalid comment`,
   invalid_status: msg`Status change refused`,
   invalid_row_id: msg`Invalid row identifier`,

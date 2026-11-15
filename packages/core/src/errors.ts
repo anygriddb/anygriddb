@@ -127,6 +127,8 @@ export const ERRORS = {
   invalid_link: [BAD, "Invalid link"],
   invalid_link_count: [BAD, "Invalid link count"],
   invalid_attachment: [BAD, "Invalid attachment"],
+  /** An administrator refused this file's extension or sniffed type. */
+  attachment_type_refused: [BAD, "That file type is not allowed"],
   invalid_comment: [BAD, "Invalid comment"],
   invalid_status: [BAD, "Invalid status"],
   invalid_row_id: [BAD, "Invalid row id"],
