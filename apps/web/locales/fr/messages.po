@@ -2766,6 +2766,10 @@ msgstr "Replier {name}"
 msgid "Collapse all"
 msgstr "Tout replier"
 
+#: components/shell/sidebar.tsx
+msgid "Collapse all bases"
+msgstr "Replier toutes les bases"
+
 #: components/views/kanban-view.tsx
 msgid "Collapse column {name}"
 msgstr "Replier la colonne {name}"
@@ -2971,6 +2975,10 @@ msgstr "Copie dans AnyGridDB"
 #: components/table/table-workspace.tsx
 msgid "Copy in preparation: the table is read live until then"
 msgstr "Copie en préparation : la table est lue en direct d’ici là"
+
+#: components/shell/sidebar.tsx
+msgid "Copy link"
+msgstr "Copier le lien"
 
 #: components/shell/jobs-menu.tsx
 msgid "Copy of {table}"
@@ -4124,6 +4132,10 @@ msgstr "Déplier {name}"
 #: components/views/kanban-view.tsx
 msgid "Expand all"
 msgstr "Tout déplier"
+
+#: components/shell/sidebar.tsx
+msgid "Expand all bases"
+msgstr "Déplier toutes les bases"
 
 #: components/grid/grid-view.tsx
 msgid "Expand row"
@@ -5699,6 +5711,7 @@ msgstr "Lien"
 #: components/record/record-panel.tsx
 #: components/settings/base-links.tsx
 #: components/settings/base-settings.tsx
+#: components/shell/sidebar.tsx
 #: components/table/share-dialog.tsx
 msgid "Link copied"
 msgstr "Lien copié"
