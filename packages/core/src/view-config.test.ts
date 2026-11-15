@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   applyViewConfigPatch,
+  formWindow,
+  formWindowNeverOpens,
   keepTrashedParts,
   normalizeViewConfig,
   withRequiredFormFields,
@@ -290,6 +292,83 @@ describe("keepTrashedParts", () => {
     expect(keepTrashedParts(stored, saved, trashed, ["sort"]).sort).toEqual(
       full,
     );
+  });
+});
+
+describe("the time a form takes answers", () => {
+  const noon = new Date("2026-11-15T12:00:00Z");
+
+  it("is always, without a first or a last instant", () => {
+    expect(formWindow(undefined, noon)).toBe("open");
+    expect(formWindow({}, noon)).toBe("open");
+  });
+
+  it("starts at its first instant, and ends just before its last", () => {
+    const form = {
+      openFrom: "2026-11-15T09:00:00Z",
+      openUntil: "2026-11-15T18:00:00+02:00",
+    };
+    expect(formWindow(form, new Date("2026-11-15T08:59:59Z"))).toBe("not_yet");
+    expect(formWindow(form, new Date("2026-11-15T09:00:00Z"))).toBe("open");
+    expect(formWindow(form, new Date("2026-11-15T15:59:59Z"))).toBe("open");
+    // 18:00 at +02:00 is 16:00 UTC: the last instant is no longer open.
+    expect(formWindow(form, new Date("2026-11-15T16:00:00Z"))).toBe("ended");
+    expect(formWindow({ openFrom: form.openFrom }, noon)).toBe("open");
+    expect(formWindow({ openUntil: form.openFrom }, noon)).toBe("ended");
+  });
+
+  it("is never, for a window that ends before it starts", () => {
+    const form = {
+      openFrom: "2026-11-16T09:00:00Z",
+      openUntil: "2026-11-14T09:00:00Z",
+    };
+    // Ended at any time: its link never names a day the form would open.
+    expect(formWindow(form, new Date("2026-11-13T00:00:00Z"))).toBe("ended");
+    expect(formWindow(form, noon)).toBe("ended");
+    expect(formWindow(form, new Date("2026-11-17T00:00:00Z"))).toBe("ended");
+    expect(formWindowNeverOpens(form)).toBe(true);
+    // The same instant on both sides opens nothing either.
+    const instant = { openFrom: form.openFrom, openUntil: form.openFrom };
+    expect(formWindowNeverOpens(instant)).toBe(true);
+    expect(formWindow(instant, new Date(form.openFrom))).toBe("ended");
+    expect(
+      formWindowNeverOpens({
+        openFrom: form.openUntil,
+        openUntil: form.openFrom,
+      }),
+    ).toBe(false);
+    expect(formWindowNeverOpens({ openFrom: form.openFrom })).toBe(false);
+    expect(formWindowNeverOpens(undefined)).toBe(false);
+  });
+
+  it("is kept with the form, and a save that names no instant is refused", async () => {
+    const { viewConfigPatchSchema } = await import("./view-config");
+    const kept = normalizeViewConfig(
+      {
+        form: {
+          title: "Survey",
+          openFrom: "2026-11-15T09:00:00Z",
+          openUntil: "2026-11-14T09:00:00Z",
+        },
+      },
+      "form",
+    );
+    // An inverted window costs the form nothing of its settings.
+    expect(kept.form).toEqual({
+      title: "Survey",
+      openFrom: "2026-11-15T09:00:00Z",
+      openUntil: "2026-11-14T09:00:00Z",
+    });
+    expect(
+      viewConfigPatchSchema.safeParse({
+        form: { openFrom: "2026-11-15T09:00:00Z" },
+      }).success,
+    ).toBe(true);
+    for (const openFrom of ["tomorrow", "2026-11-15", "2026-13-40T00:00:00Z"]) {
+      expect(
+        viewConfigPatchSchema.safeParse({ form: { openFrom } }).success,
+      ).toBe(false);
+    }
   });
 });
 

@@ -7,6 +7,7 @@ import type { KeyRing } from "../auth/key-ring.js";
 import {
   AppError,
   effectiveTableRole,
+  formWindow,
   normalizeViewConfig,
   roleAllows,
   roleFor,
@@ -92,15 +93,17 @@ type OpenedShare = Awaited<ReturnType<typeof openShare>>;
 
 /**
  * Whether a file may be sent to `field` through this link: a form of a
- * table AnyGridDB stores, open, showing that attachment field, which its
- * creator may write.
+ * table AnyGridDB stores, open and within the time it takes answers,
+ * showing that attachment field, which its creator may write.
  */
 export function acceptsFormFile(opened: OpenedShare, field: string): boolean {
   if (
     opened.locked ||
     opened.view.viewType !== "form" ||
     opened.table.storage === "external" ||
-    !opened.fields.includes(field)
+    !opened.fields.includes(field) ||
+    // A form that takes no answers now takes no file either.
+    formWindow(opened.config.form) !== "open"
   ) {
     return false;
   }

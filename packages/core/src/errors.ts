@@ -53,6 +53,8 @@ export const ERRORS = {
   unknown_group: [BAD, "Unknown group"],
   unknown_widget: [BAD, "Unknown widget"],
   unknown_share: [BAD, "Unknown share"],
+  /** A form's public link, before or after the time it takes answers. */
+  form_closed: [403, "The form takes no answers at this time"],
   share_locked: [429, "Share locked"],
   public_links_disabled: [403, "Public links disabled"],
   share_password_required: [BAD, "Share password required"],

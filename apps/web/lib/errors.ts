@@ -62,6 +62,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   share_password_required: msg`On this instance, a public link needs a password`,
   invalid_embed_origin: msg`A site that embeds a link is an address starting with https://, with no path and no wildcard: 20 at most`,
   unknown_share: msg`Share not found`,
+  form_closed: msg`This form takes no answers at this time`,
   unknown_template: msg`Unknown template`,
   table_already_exists: msg`A table already has this name`,
   column_already_exists: msg`A field already has this name`,

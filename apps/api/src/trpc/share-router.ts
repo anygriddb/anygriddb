@@ -6,6 +6,7 @@ import {
   coerceCellValue,
   columnNameSchema,
   describeColumns,
+  formWindow,
   ROW_ERRORS,
   type ViewConfig,
   viewFilter,
@@ -224,6 +225,8 @@ export const shareRouter = t.router({
             name: opened.view.name,
             viewType: opened.view.viewType,
             config: publicConfig(opened.config),
+            // Whether a form takes answers now, by the server's clock.
+            window: formWindow(opened.config.form),
           },
           table: { name: opened.table.name },
           columns: columns.map((column) => ({
@@ -295,6 +298,11 @@ export const shareRouter = t.router({
         const opened = await openShare(ctx, input, "write");
         if (opened.locked || opened.view.viewType !== "form") {
           throw new AppError("unknown_share");
+        }
+        // Outside the time its maker set, the form takes nothing, whoever
+        // calls and whatever page they kept open.
+        if (formWindow(opened.config.form) !== "open") {
+          throw new AppError("form_closed");
         }
         const columns = writeColumns(opened.engine).filter(
           (column) =>

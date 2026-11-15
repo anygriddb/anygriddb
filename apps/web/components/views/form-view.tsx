@@ -2,6 +2,7 @@ import {
   coerceCellValue,
   type FilterGroup,
   type FilterKind,
+  formWindowNeverOpens,
   misplacedConditionFields,
   visibleFormFields,
   withRequiredFormFields,
@@ -27,6 +28,7 @@ import {
   ChevronUp,
   Filter,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode, type SubmitEvent } from "react";
 import { useNarrowScreen } from "../../lib/narrow-screen";
@@ -86,6 +88,8 @@ type FormConfig = {
   successMessage?: string;
   redirectUrl?: string;
   allowAnother?: boolean;
+  openFrom?: string;
+  openUntil?: string;
   fields?: FormField[];
 };
 
@@ -853,10 +857,74 @@ export function FormView(props: ViewProps) {
             <p className="text-xs text-muted-foreground">
               {t`A link can fill fields: add ?prefill_field_name=value to its address, and &hide_field_name=true to hide a filled field.`}
             </p>
+            <FormWindowSetting form={form} onPatch={patchForm} />
           </div>
         </FormFieldsPanel>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * When the form's public link takes answers: from an instant, until
+ * another, or both; empty, at any time. Set in the reader's own zone,
+ * kept as instants. The people of the base are not held to it: they add
+ * rows whenever they may.
+ */
+function FormWindowSetting({
+  form,
+  onPatch,
+}: {
+  form: FormConfig;
+  onPatch: (next: Partial<FormConfig>) => void;
+}) {
+  const { t } = useLingui();
+  const { locale } = useLocale();
+  const zone = editZone({});
+  const field = (key: "openFrom" | "openUntil", label: string) => (
+    <div className="flex flex-col gap-1">
+      <Label id={`form-${key}-label`}>{label}</Label>
+      <div className="flex items-center gap-1">
+        <DatePicker
+          aria-labelledby={`form-${key}-label`}
+          value={toDateValue(form[key], true, zone)}
+          onChange={(next) =>
+            onPatch({ [key]: fromDateValue(next, true) ?? undefined })
+          }
+          granularity="minute"
+          hideTimeZone
+          placeholderValue={startingPoint(zone)}
+          locale={dateFieldLocale(locale)}
+        />
+        {form[key] ? (
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={t`Clear: ${{ name: label }}`}
+            onClick={() => onPatch({ [key]: undefined })}
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+  const inverted = formWindowNeverOpens(form);
+  return (
+    <>
+      {field("openFrom", t`Its link takes answers from`)}
+      {field("openUntil", t`Its link takes answers until`)}
+      <p
+        className={cn(
+          "text-xs",
+          inverted ? "text-danger" : "text-muted-foreground",
+        )}
+      >
+        {inverted
+          ? t`The form closes before it opens: its link takes no answer.`
+          : t`Empty, the link takes answers at any time. The people of the base add rows whenever they may.`}
+      </p>
+    </>
   );
 }
 

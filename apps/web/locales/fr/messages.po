@@ -2620,6 +2620,10 @@ msgstr "Effacer le webhook SIEM ?"
 msgid "Clear the selected cells"
 msgstr "Vider les cellules sélectionnées"
 
+#: components/views/form-view.tsx
+msgid "Clear: {name}"
+msgstr "Effacer : {name}"
+
 #: components/admin/integrations-tab.tsx
 msgid "Client ID"
 msgstr "Identifiant client"
@@ -3765,6 +3769,10 @@ msgstr "Vider la corbeille ?"
 #: components/admin/settings-tab.tsx
 msgid "Empty uses 20 MiB. Between 1 and 500."
 msgstr "Vide : 20 Mio. Entre 1 et 500."
+
+#: components/views/form-view.tsx
+msgid "Empty, the link takes answers at any time. The people of the base add rows whenever they may."
+msgstr "Vide, le lien prend des réponses à tout moment. Les personnes de la base ajoutent des lignes dès qu’elles en ont le droit."
 
 #: components/table/automations-dialog.tsx
 msgid "Empty: the row as JSON"
@@ -5320,6 +5328,14 @@ msgstr "Son adresse cesse de fonctionner tout de suite ; son propriétaire peut
 #: components/views/form-view.tsx
 msgid "Its condition reads a field placed after it: it is ignored."
 msgstr "Sa condition porte sur un champ placé après lui : elle est ignorée."
+
+#: components/views/form-view.tsx
+msgid "Its link takes answers from"
+msgstr "Son lien prend des réponses à partir du"
+
+#: components/views/form-view.tsx
+msgid "Its link takes answers until"
+msgstr "Son lien prend des réponses jusqu’au"
 
 #: components/admin/base-admin-page.tsx
 msgid "Its members lose it at once. It stays in the trash for {days} days with its data, then is deleted permanently."
@@ -9641,6 +9657,10 @@ msgstr "La première règle correspondante colore la ligne."
 msgid "The first part of the text that matches the regular expression."
 msgstr "Le premier passage du texte qui suit l’expression régulière."
 
+#: components/views/form-view.tsx
+msgid "The form closes before it opens: its link takes no answer."
+msgstr "Le formulaire ferme avant d’ouvrir : son lien ne prend aucune réponse."
+
 #: components/admin/group-page.tsx
 msgid "The group and its membership are removed. This cannot be undone."
 msgstr "Le groupe et ses membres sont retirés. Cette action est irréversible."
@@ -10287,6 +10307,26 @@ msgstr "Ce filtre sur un champ conservé dans AnyGridDB correspond à plus de 1 
 #: components/auth/auth-page.tsx
 msgid "This first account will administer the instance. Whoever runs it asks for the token where it runs, with the command anygriddb install-token: it works once, for an hour."
 msgstr "Ce premier compte administrera l’instance. La personne qui l’exploite demande le jeton là où elle tourne, avec la commande anygriddb install-token : il sert une fois, pendant une heure."
+
+#: components/public/public-view.tsx
+msgid "This form does not take answers yet."
+msgstr "Ce formulaire ne prend pas encore de réponses."
+
+#: components/public/public-view.tsx
+msgid "This form is closed."
+msgstr "Ce formulaire est fermé."
+
+#: components/public/public-view.tsx
+msgid "This form takes answers from {when}."
+msgstr "Ce formulaire prend des réponses à partir du {when}."
+
+#: lib/errors.ts
+msgid "This form takes no answers at this time"
+msgstr "Ce formulaire ne prend pas de réponses en ce moment"
+
+#: components/public/public-view.tsx
+msgid "This form took answers until {when}. It is closed."
+msgstr "Ce formulaire a pris des réponses jusqu’au {when}. Il est fermé."
 
 #: lib/errors.ts
 msgid "This group is kept by the identity provider"
