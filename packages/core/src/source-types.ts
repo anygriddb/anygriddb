@@ -46,6 +46,37 @@ function baseName(type: string): string {
   return withoutOuterGroup(type).replace(/\[\]$/, "").trim().toLowerCase();
 }
 
+/** SQLite's declared type affinity as an AnyGridDB field. */
+export function mapSqliteType(column: { type: string }): MappedField {
+  const type = baseName(column.type);
+  if (
+    type.includes("int") ||
+    type === "real" ||
+    type === "numeric" ||
+    type === "decimal" ||
+    type === "double" ||
+    type === "float"
+  ) {
+    return { fieldType: "number", readOnly: false };
+  }
+  if (type === "bool" || type === "boolean") {
+    return { fieldType: "boolean", readOnly: false };
+  }
+  if (type === "date") return { fieldType: "date", readOnly: false };
+  if (type.includes("time") || type === "datetime") {
+    return { fieldType: "datetime", readOnly: false };
+  }
+  if (type === "blob") return { fieldType: "text", readOnly: true };
+  if (type === "json") return { fieldType: "long_text", readOnly: true };
+  if (type === "text" || type === "clob" || type === "varchar" || type === "") {
+    return {
+      fieldType: type === "text" || type === "clob" ? "long_text" : "text",
+      readOnly: false,
+    };
+  }
+  return { fieldType: "text", readOnly: true };
+}
+
 export function mapPostgresType(column: SourceColumnType): MappedField {
   if (column.enumValues && column.enumValues.length > 0) {
     return {

@@ -57,6 +57,7 @@ const TIME_TYPES: Record<DialectName, ReadonlySet<string>> = {
     "timestamp with time zone",
     "timestamp with local time zone",
   ]),
+  sqlite: new Set(["datetime", "text"]),
 };
 
 /**

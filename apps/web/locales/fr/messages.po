@@ -1969,6 +1969,10 @@ msgstr "Plages CIDR autorisées"
 msgid "Allowed hosts: {hosts}"
 msgstr "Hôtes autorisés : {hosts}"
 
+#: components/admin/sources-tab.tsx
+msgid "Allowed SQLite directories: {paths}"
+msgstr "Répertoires SQLite autorisés : {paths}"
+
 #: components/auth/auth-page.tsx
 msgid "Already have an account? Sign in"
 msgstr "Déjà un compte ? Connexion"
@@ -3496,6 +3500,10 @@ msgstr "Tableaux de bord de {name}"
 #: components/admin/sources-tab.tsx
 msgid "Database"
 msgstr "Base de données"
+
+#: components/admin/sources-tab.tsx
+msgid "Database file"
+msgstr "Fichier de base de données"
 
 #: lib/errors.ts
 msgid "Database not found on the source"
@@ -7223,6 +7231,10 @@ msgstr "Aucune opération de source enregistrée sur cette période."
 msgid "No source yet. Add one to show its tables in a base, read and written where they live."
 msgstr "Aucune source pour l’instant. Ajoutez-en une pour afficher ses tables dans une base, lues et écrites là où elles se trouvent."
 
+#: components/admin/sources-tab.tsx
+msgid "No SQLite directory is allowed: the operator sets ANYGRIDDB_SOURCES_ALLOWED_PATHS."
+msgstr "Aucun répertoire SQLite autorisé : l’opérateur définit ANYGRIDDB_SOURCES_ALLOWED_PATHS."
+
 #: components/admin/effective-rights.tsx
 msgid "No table in this base."
 msgstr "Aucune table dans cette base."
@@ -9949,6 +9961,10 @@ msgstr "SQL Server juge cette lecture trop complexe : la table a trop de champs
 msgid "SQL Server no longer kept the changes: the table was read again in full"
 msgstr "SQL Server n’a plus gardé assez longtemps les changements : la table a été relue en entier"
 
+#: components/admin/sources-tab.tsx
+msgid "SQLite is a file on this server: give an absolute path under an allowed directory. TLS does not apply."
+msgstr "SQLite est un fichier sur ce serveur : indiquez un chemin absolu sous un répertoire autorisé. Le TLS ne s’applique pas."
+
 #: components/fields/formula-docs.ts
 msgid "Square root; blank for a negative number."
 msgstr "Racine carrée ; vide pour un nombre négatif."
@@ -11298,6 +11314,10 @@ msgstr "Ce fichier a plus de lignes que l’instance n’en importe d’un coup�
 #: lib/errors.ts
 msgid "This file is too long: at most 200 people in one file"
 msgstr "Ce fichier est trop long : 200 personnes au plus par fichier"
+
+#: lib/errors.ts
+msgid "This file path is not allowed: the operator adds its directory to ANYGRIDDB_SOURCES_ALLOWED_PATHS"
+msgstr "Ce chemin de fichier n’est pas autorisé : l’opérateur ajoute son répertoire à ANYGRIDDB_SOURCES_ALLOWED_PATHS"
 
 #: lib/errors.ts
 msgid "This filter on a field kept in AnyGridDB matches more than 1,000 rows: narrow it"

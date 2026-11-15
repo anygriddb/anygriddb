@@ -35,13 +35,14 @@ import {
   sourceTables,
 } from "../sources.js";
 import { runSync, setTableSync } from "../sync.js";
-import type { SourceConnection, SourceSettings } from "../types.js";
+import type { SourceConnection } from "../types.js";
+import { testSourceSettings } from "../types.js";
 
-const settings: SourceSettings = {
+const settings = testSourceSettings({
   allows: (host) => host === "localhost" || host === "127.0.0.1",
   allowedHosts: ["localhost", "127.0.0.1"],
   allowPlaintext: false,
-};
+});
 
 const BACKEND =
   "ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0";

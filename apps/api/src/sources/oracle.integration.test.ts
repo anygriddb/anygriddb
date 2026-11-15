@@ -31,15 +31,16 @@ import { exposeTables } from "./expose.js";
 import { setSourcePools, SourcePools, toOracle } from "./pools.js";
 import { checkConnection, createSource } from "./sources.js";
 import { introspectOracle } from "./oracle-schema.js";
-import type { SourceConnection, SourceSettings } from "./types.js";
+import type { SourceConnection } from "./types.js";
+import { testSourceSettings } from "./types.js";
 
 const LOCAL = ["localhost", "127.0.0.1"];
-const settings: SourceSettings = {
+const settings = testSourceSettings({
   allows: (host) => LOCAL.includes(host),
   allowedHosts: LOCAL,
   allowPlaintext: true,
-};
-const verified: SourceSettings = { ...settings, allowPlaintext: false };
+});
+const verified = testSourceSettings({ ...settings, allowPlaintext: false });
 
 const SYSTEM_PASSWORD = "Anygrid_Oracle_19";
 

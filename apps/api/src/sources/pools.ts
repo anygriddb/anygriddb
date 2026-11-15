@@ -29,6 +29,8 @@ import {
   oracleExecute,
   oracleSourceError,
 } from "./oracle.js";
+import { connectSqlite, sqliteSourceError } from "./sqlite.js";
+import { resolveSqliteDatabase } from "./sqlite-path.js";
 import { ISOLATION_LEVEL, type Connection } from "tedious";
 import type { Connection as OracleConnection } from "oracledb";
 import type { SourceSettings } from "./types.js";
@@ -747,6 +749,125 @@ function oracleBackend(row: SourceRow, plaintext: boolean, log: Log): Backend {
   };
 }
 
+/** One SQLite file per source; statements use positional `?` placeholders. */
+function sqliteBackend(
+  row: SourceRow,
+  settings: SourceSettings,
+  log: Log,
+): Backend {
+  const access = {
+    paths: settings.paths,
+    allowMemory: settings.sqliteAllowMemory,
+  };
+  let handle: ReturnType<typeof connectSqlite> | null = null;
+  const open = () => {
+    if (!handle) {
+      handle = connectSqlite(
+        {
+          engine: "sqlite",
+          host: row.host,
+          port: row.port,
+          database: row.database,
+          username: row.username,
+          password: row.password,
+          tlsCa: row.tlsCa,
+          queryTimeoutMs: row.queryTimeoutMs,
+        },
+        access,
+      );
+    }
+    return handle;
+  };
+  const mapped = (error: unknown) => {
+    const failure = sqliteSourceError(error);
+    if (failure.code === "source_query_failed") log(error);
+    return failure;
+  };
+  return {
+    async read(body, _readLog) {
+      try {
+        const { db } = open();
+        db.exec("begin immediate");
+        try {
+          const result = await body((statement) => {
+            const positional = toPositional(statement);
+            const rows = db
+              .prepare(positional.text)
+              .all(...(positional.values as never[])) as Record<
+              string,
+              unknown
+            >[];
+            return Promise.resolve(rows.map(unpacked));
+          });
+          db.exec("commit");
+          return result;
+        } catch (error) {
+          db.exec("rollback");
+          throw mapped(error);
+        }
+      } catch (error) {
+        throw error instanceof AppError ? error : mapped(error);
+      }
+    },
+    async write(body, _writeLog) {
+      const { db } = open();
+      db.exec("begin immediate");
+      const run: Run = (statement) => {
+        const positional = toPositional(statement);
+        const rows = db
+          .prepare(positional.text)
+          .all(...(positional.values as never[])) as Record<string, unknown>[];
+        return Promise.resolve(rows.map(unpacked));
+      };
+      const change: Change = (statement) => {
+        const positional = toPositional(statement);
+        const info = db
+          .prepare(positional.text)
+          .run(...(positional.values as never[]));
+        return Promise.resolve({
+          rows: [],
+          affected: Number(info.changes),
+        });
+      };
+      return inWrite(
+        () => body(run, change),
+        () => {
+          db.exec("commit");
+          return Promise.resolve();
+        },
+        () => {
+          db.exec("rollback");
+          return Promise.resolve();
+        },
+        mapped,
+      );
+    },
+    end: () => {
+      handle?.db.close();
+      handle = null;
+      return Promise.resolve();
+    },
+  };
+}
+
+function assertSourceHost(
+  settings: SourceSettings,
+  engine: string,
+  host: string,
+  database: string,
+): void {
+  if (engine === "sqlite") {
+    resolveSqliteDatabase(database, {
+      paths: settings.paths,
+      allowMemory: settings.sqliteAllowMemory,
+    });
+    return;
+  }
+  if (!settings.allows(host)) {
+    throw new AppError("source_host_not_allowed", host);
+  }
+}
+
 export class SourcePools {
   private readonly pools = new Map<string, Entry>();
 
@@ -766,9 +887,7 @@ export class SourcePools {
       .where("id", "=", sourceId)
       .executeTakeFirst();
     if (!row) throw new AppError("unknown_source");
-    if (!this.deps.settings.allows(row.host)) {
-      throw new AppError("source_host_not_allowed", row.host);
-    }
+    assertSourceHost(this.deps.settings, row.engine, row.host, row.database);
     const stamp = `${String(row.updatedAt.getTime())}:${String(row.passwordChangedAt.getTime())}`;
     const current = this.pools.get(sourceId);
     if (current?.stamp === stamp) return current;
@@ -807,13 +926,15 @@ export class SourcePools {
           return sqlServerBackend(target, plaintext, log);
         case "oracle":
           return oracleBackend(target, plaintext, log);
+        case "sqlite":
+          return sqliteBackend(target, this.deps.settings, log);
         default:
           throw new AppError("source_engine_unsupported", row.engine);
       }
     };
     const backend = open(source);
     let replica: Backend | null = null;
-    if (row.replicaHost && row.replicaPort) {
+    if (row.replicaHost && row.replicaPort && row.engine !== "sqlite") {
       if (!this.deps.settings.allows(row.replicaHost)) {
         throw new AppError("source_host_not_allowed", row.replicaHost);
       }
@@ -895,9 +1016,7 @@ export class SourcePools {
     if (!isCopySourceEngine(row.engine)) {
       throw new AppError("source_engine_unsupported", row.engine);
     }
-    if (!this.deps.settings.allows(row.host)) {
-      throw new AppError("source_host_not_allowed", row.host);
-    }
+    assertSourceHost(this.deps.settings, row.engine, row.host, row.database);
     const pages = copyConnector(row.engine).rows(
       {
         engine: row.engine,
