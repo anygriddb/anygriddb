@@ -195,6 +195,10 @@ describe("a row of a store that speaks no SQL", () => {
     expect(fitCopyValue("numeric", Number.NaN)).toBeUndefined();
     expect(fitCopyValue("numeric", Number.POSITIVE_INFINITY)).toBeUndefined();
     expect(fitCopyValue("numeric", "1e99999")).toBeUndefined();
+    expect(fitCopyValue("numeric", `0${"0".repeat(990)}x`)).toBeUndefined();
+    expect(fitCopyValue("numeric", "1".repeat(1_001))).toBeUndefined();
+    expect(fitCopyValue("numeric", "5.")).toBe("5.");
+    expect(fitCopyValue("numeric", ".5")).toBe(".5");
     expect(fitCopyValue("numeric", true)).toBeUndefined();
     expect(fitCopyValue("bigint", 1.5)).toBeUndefined();
     expect(fitCopyValue("bigint", "9223372036854775808")).toBeUndefined();

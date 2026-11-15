@@ -222,7 +222,9 @@ export function copyRow(
 /** A value of a row a store without SQL gave: what JSON carries. */
 export type StoredValue = string | number | boolean | null;
 
-const DECIMAL = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE]([+-]?\d+))?$/;
+// The digits after the point follow it: none of them can be read as
+// either part, so a long run of digits is read once.
+const DECIMAL = /^-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE]([+-]?\d+))?$/;
 const WHOLE = /^-?\d{1,19}$/;
 const INT8_MAX = 2n ** 63n;
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -261,10 +263,12 @@ export function fitCopyValue(
       if (typeof value === "number") {
         return Number.isFinite(value) ? value : undefined;
       }
-      const parts = typeof value === "string" ? DECIMAL.exec(value) : null;
-      return parts !== null &&
-        value.toString().length <= 1_000 &&
-        Math.abs(Number(parts[1] ?? 0)) <= 10_000
+      // The length first: the pattern never reads more than that.
+      const parts =
+        typeof value === "string" && value.length <= 1_000
+          ? DECIMAL.exec(value)
+          : null;
+      return parts !== null && Math.abs(Number(parts[1] ?? 0)) <= 10_000
         ? value
         : undefined;
     }
