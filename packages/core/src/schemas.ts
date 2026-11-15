@@ -123,6 +123,8 @@ export const updateTableInputSchema = z.object({
   tableId: z.uuid(),
   name: labelSchema.optional(),
   description: descriptionSchema.nullable().optional(),
+  /** Who opens this table is written on the change trail (ROADMAP #31). */
+  trailReads: z.boolean().optional(),
 });
 
 export const deleteTableInputSchema = z.object({ tableId: z.uuid() });

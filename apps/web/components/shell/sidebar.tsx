@@ -822,6 +822,40 @@ export function Sidebar({
             )
           }
         >
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={dialog.table.trailReads}
+              onChange={(event) => {
+                const trailReads = event.target.checked;
+                const previous = dialog.table.trailReads;
+                setDialog({
+                  kind: "rename-table",
+                  table: { ...dialog.table, trailReads },
+                });
+                void act(() =>
+                  trpc.catalog.updateTable.mutate({
+                    tableId: dialog.table.id,
+                    trailReads,
+                  }),
+                ).catch(() => {
+                  setDialog((current) =>
+                    current?.kind === "rename-table"
+                      ? {
+                          kind: "rename-table",
+                          table: {
+                            ...current.table,
+                            trailReads: previous,
+                          },
+                        }
+                      : current,
+                  );
+                });
+              }}
+            />
+            <span>{t`Record who opens this table on the change trail`}</span>
+          </label>
           <Earlier
             kind="table"
             id={dialog.table.id}

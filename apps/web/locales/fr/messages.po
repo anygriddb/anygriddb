@@ -752,6 +752,10 @@ msgid "{name} moved a row in {table}"
 msgstr "{name} a déplacé une ligne dans {table}"
 
 #: components/shell/base-activity.tsx
+msgid "{name} opened {table}"
+msgstr "{name} a ouvert {table}"
+
+#: components/shell/base-activity.tsx
 msgid "{name} renamed the field {before} to {field} in {table}"
 msgstr "{name} a renommé le champ {before} en {field} dans {table}"
 
@@ -7691,6 +7695,10 @@ msgstr "Ouvrir la vue"
 msgid "Open: anyone can create an account from the sign-in page. Closed: only administrators create accounts and send a reset link (Accounts). By invitation: a pending base invitation is required. SSO for new accounts follows the same rule. Existing accounts are not affected."
 msgstr "Ouvert : chacun peut créer un compte depuis la page de connexion. Fermé : seuls les administrateurs créent les comptes et envoient un lien de réinitialisation (Comptes). Sur invitation : une invitation à une base en attente est requise. La connexion SSO pour les nouveaux comptes suit la même règle. Les comptes existants ne sont pas concernés."
 
+#: components/admin/change-labels.ts
+msgid "Opened"
+msgstr "Ouverture"
+
 #: components/admin/account-page.tsx
 msgid "Opened {opened}, ends {ends}"
 msgstr "Ouverte le {opened}, se termine le {ends}"
@@ -8393,6 +8401,10 @@ msgstr "Reconnecter maintenant"
 #: lib/known-text.ts
 msgid "Reconnecting…"
 msgstr "Reconnexion…"
+
+#: components/shell/sidebar.tsx
+msgid "Record who opens this table on the change trail"
+msgstr "Noter sur le journal des changements qui ouvre cette table"
 
 #: components/views/form-view.tsx
 msgid "Redirect after submit"

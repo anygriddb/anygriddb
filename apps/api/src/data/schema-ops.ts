@@ -342,6 +342,7 @@ export async function insertTable(
     externalInsert: false,
     externalDelete: false,
     externalSide: null,
+    trailReads: false,
   };
   const rows = withPlanned(
     { tables: [draftTable], columns: [], relations: [], sources: new Map() },
@@ -460,7 +461,12 @@ export async function insertTable(
 export async function updateTable(
   db: Database,
   userId: string,
-  input: { tableId: string; name?: string; description?: string | null },
+  input: {
+    tableId: string;
+    name?: string;
+    description?: string | null;
+    trailReads?: boolean;
+  },
   source = "web",
 ): Promise<void> {
   try {
@@ -474,6 +480,9 @@ export async function updateTable(
             ...(input.name !== undefined ? { name: input.name } : {}),
             ...(input.description !== undefined
               ? { description: input.description }
+              : {}),
+            ...(input.trailReads !== undefined
+              ? { trailReads: input.trailReads }
               : {}),
           })
           .where("id", "=", input.tableId)

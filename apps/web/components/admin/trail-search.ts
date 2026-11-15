@@ -10,6 +10,7 @@ export const CHANGE_ACTIONS = [
   "sign",
   "catalog",
   "export",
+  "open",
   "purge",
   "access",
 ] as const;

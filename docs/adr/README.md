@@ -105,3 +105,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0090](0090-a-base-held-in-a-source.md)              | A new base can keep its tables in a schema of a SQL source                              | Accepted (extends 0006)                     |
 | [0091](0091-acting-as.md)                            | An administrator acts with another person's rights, and signs the change                | Accepted                                    |
 | [0092](0092-notifications-from-administration.md)    | Notification channels configured in Administration, off until an administrator adds one | Accepted (amends 0018 and 0050)             |
+| [0093](0093-table-open-trail.md)                     | Opens of a table on the change trail, opt-in per table                                  | Accepted                                    |

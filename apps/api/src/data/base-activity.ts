@@ -36,7 +36,7 @@ const ROW_KINDS: Readonly<Record<string, ActivityKind>> = {
   sign: "row_signed",
 };
 
-const ACTIONS = [...Object.keys(ROW_KINDS), "catalog"];
+const ACTIONS = [...Object.keys(ROW_KINDS), "catalog", "open"];
 
 /** A trail event as the page reads it, its instant to the microsecond. */
 type TrailEvent = {
@@ -113,6 +113,9 @@ function describe(
     return keys.includes("ag_position")
       ? { ...base, kind: "row_moved", rowId: event.recordId }
       : null;
+  }
+  if (event.action === "open") {
+    return { ...base, kind: "table_opened" };
   }
   const before = record(event.oldValue);
   const after = record(event.newValue);

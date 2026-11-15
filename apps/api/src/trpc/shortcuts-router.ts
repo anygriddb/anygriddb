@@ -36,7 +36,7 @@ export const shortcutsRouter = t.router({
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const { user } = await guardTable(ctx, input.tableId, "read");
-        await touchTable(ctx.db, user.id, input.tableId);
+        await touchTable(ctx.db, user.id, input.tableId, "web");
         return { ok: true as const };
       }),
     ),

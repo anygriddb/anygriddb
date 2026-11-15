@@ -84,6 +84,8 @@ export function BaseActivity({ baseId }: { baseId: string }) {
         return t`${{ name }} created the table ${{ table }}`;
       case "table_renamed":
         return t`${{ name }} renamed the table ${{ before: event.before ?? "" }} to ${{ table }}`;
+      case "table_opened":
+        return t`${{ name }} opened ${{ table }}`;
     }
   }
 
