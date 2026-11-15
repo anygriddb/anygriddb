@@ -11868,11 +11868,11 @@ msgstr "Zoom arrière"
 
 #: components/admin/settings-tab.tsx
 msgid "One MIME type per line, as read from the file's bytes. Empty: every type is taken."
-msgstr "Un type MIME par ligne, tel que lu dans les octets du fichier. Vide : tous les types sont acceptés."
+msgstr "Un type MIME par ligne, tel que lu dans les octets du fichier. Vide : tous les types sont acceptés."
 
 #: components/admin/settings-tab.tsx
 msgid "One per line (for example .exe). Empty: every extension is taken. Checked with the file name."
-msgstr "Une par ligne (par exemple .exe). Vide : toutes les extensions sont acceptées. Vérifié avec le nom du fichier."
+msgstr "Une par ligne (par exemple .exe). Vide : toutes les extensions sont acceptées. Vérifié avec le nom du fichier."
 
 #: components/admin/settings-tab.tsx
 msgid "Refused content types"
@@ -11884,5 +11884,5 @@ msgstr "Extensions de fichier refusées"
 
 #: lib/errors.ts
 msgid "That file type is not allowed on this instance."
-msgstr "Ce type de fichier n'est pas autorisé sur cette instance."
+msgstr "Ce type de fichier n’est pas autorisé sur cette instance."
 
