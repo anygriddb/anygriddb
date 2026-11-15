@@ -63,7 +63,7 @@ describe("neo4j against the server", () => {
         { password: READER_PASSWORD },
       );
       await session.run(
-        "CREATE (:Order {sku: 'A-1', qty: 2, paid: true})-[:BOUGHT]->(:Person {name: 'Ada'})",
+        "CREATE (:Order {sku: 'A-1', qty: 2, paid: true, placed: datetime('2026-03-04T05:06:07+02:00'), due: date('2026-04-01'), tags: ['a', 'b']})-[:BOUGHT]->(:Person {name: 'Ada'})",
       );
       await session.run("CREATE (:Order {sku: 'B-2', qty: 1, paid: false})");
     } finally {
@@ -101,9 +101,12 @@ describe("neo4j against the server", () => {
     const orders = tables.find((table) => table.name === "Order");
     expect(orders?.columns.map((column) => column.name).sort()).toEqual([
       "_id",
+      "due",
       "paid",
+      "placed",
       "qty",
       "sku",
+      "tags",
     ]);
 
     const pages: string[] = [];
@@ -114,7 +117,7 @@ describe("neo4j against the server", () => {
         schema: "neo4j",
         name: "Order",
         key: ["_id"],
-        fields: ["_id", "sku", "qty", "paid"],
+        fields: ["_id", "sku", "qty", "paid", "placed", "due", "tags"],
         pageSize: 1,
       },
     )) {
@@ -125,6 +128,10 @@ describe("neo4j against the server", () => {
       if (row.values.sku === "A-1") {
         expect(row.values.qty).toBe(2);
         expect(row.values.paid).toBe(true);
+        // An instant in UTC, a date as written, a list as its JSON.
+        expect(row.values.placed).toBe("2026-03-04T03:06:07.000Z");
+        expect(row.values.due).toBe("2026-04-01");
+        expect(row.values.tags).toBe('["a","b"]');
       }
     }
     expect(pages.sort()).toEqual(["A-1", "B-2"]);

@@ -78,6 +78,18 @@ describe("redis against the server", () => {
         "+select",
         "+command",
       );
+      // Every command but the ones that read or write the rules: it
+      // cannot read its own rules, and still administers the server.
+      await admin.call(
+        "ACL",
+        "SETUSER",
+        "wide",
+        "on",
+        `>${READER_PASSWORD}`,
+        "~*",
+        "+@all",
+        "-acl",
+      );
       await admin.hset("shop:1", { sku: "A-1", qty: "2", paid: "true" });
       await admin.set("shop:2", JSON.stringify({ sku: "B-2", qty: 1 }));
       await admin.set("shop:3", "loose");
@@ -91,9 +103,15 @@ describe("redis against the server", () => {
     await stop?.();
   });
 
-  it("refuses the admin account and a wrong password, and copies the prefix", async () => {
+  it("refuses an account that administers the server and a wrong password, and copies the prefix", async () => {
     await expect(
       redis.check(connection(port, "default", ADMIN_PASSWORD), {
+        allowPlaintext: true,
+      }),
+    ).rejects.toMatchObject({ code: "source_admin_account" });
+
+    await expect(
+      redis.check(connection(port, "wide", READER_PASSWORD), {
         allowPlaintext: true,
       }),
     ).rejects.toMatchObject({ code: "source_admin_account" });

@@ -1,12 +1,14 @@
 /**
  * Cassandra (ADR 0088). A keyspace is the database, a table is a table,
- * and a row is read by paging the table from first to last. The driver's
- * data center is read from the server, not assumed.
+ * and a row is read by paging the table from first to last, on the one
+ * host the source names.
  *
  * Nothing is written. A superuser is refused when the server says so.
  */
+import { lookup, resolve4, resolve6 } from "node:dns/promises";
+import { isIP } from "node:net";
 import { AppError } from "@anygriddb/core";
-import { Client, types } from "cassandra-driver";
+import { Client, policies, types } from "cassandra-driver";
 import type { SourceConnection } from "../types.js";
 import { connectionError } from "./errors.js";
 import { remember, tableFromSamples } from "./shape.js";
@@ -48,15 +50,50 @@ function cassandraError(error: unknown): AppError {
   return new AppError("source_unreachable", { cause: error });
 }
 
+/**
+ * The addresses the source's host resolves to, as the driver names a
+ * node (`address:port`), by the two ways the driver itself resolves it.
+ */
+export async function hostAddresses(
+  source: SourceConnection,
+): Promise<string[]> {
+  const found = new Set<string>();
+  if (isIP(source.host)) found.add(source.host);
+  const lists = await Promise.allSettled([
+    lookup(source.host, { all: true }).then((all) =>
+      all.map((item) => item.address),
+    ),
+    resolve4(source.host),
+    resolve6(source.host),
+  ]);
+  for (const list of lists) {
+    if (list.status === "fulfilled") {
+      for (const address of list.value) found.add(address);
+    }
+  }
+  if (found.size === 0) throw new AppError("source_unreachable");
+  return [...found].map((address) => `${address}:${String(source.port)}`);
+}
+
+/**
+ * A client of the one host the source names. The driver would otherwise
+ * learn the cluster's other nodes from this one and connect to them; the
+ * allow list keeps every query, and every connection, on this host, so
+ * no data center needs naming either.
+ */
 async function open(
   source: SourceConnection,
   options: ConnectOptions,
   keyspace?: string,
 ): Promise<Client> {
-  const dataCenter = await dataCenterOf(source, options);
   const client = new Client({
     contactPoints: [`${source.host}:${String(source.port)}`],
-    localDataCenter: dataCenter,
+    policies: {
+      loadBalancing: new policies.loadBalancing.AllowListPolicy(
+        new policies.loadBalancing.RoundRobinPolicy(),
+        await hostAddresses(source),
+      ),
+    },
     keyspace,
     credentials: { username: source.username, password: source.password },
     protocolOptions: { port: source.port },
@@ -78,48 +115,6 @@ async function open(
   } catch (error) {
     await client.shutdown().catch(() => undefined);
     throw cassandraError(error);
-  }
-}
-
-/** The data center the contact point belongs to, read before the keyspace. */
-async function dataCenterOf(
-  source: SourceConnection,
-  options: ConnectOptions,
-): Promise<string> {
-  const probe = new Client({
-    contactPoints: [`${source.host}:${String(source.port)}`],
-    localDataCenter: "datacenter1",
-    credentials: { username: source.username, password: source.password },
-    protocolOptions: { port: source.port },
-    socketOptions: {
-      connectTimeout: CONNECT_MS,
-      readTimeout: source.queryTimeoutMs,
-    },
-    sslOptions: options.allowPlaintext
-      ? undefined
-      : {
-          rejectUnauthorized: true,
-          ca: source.tlsCa ? [source.tlsCa] : undefined,
-          servername: source.host,
-        },
-  });
-  try {
-    await probe.connect();
-    const result = await probe.execute("SELECT data_center FROM system.local");
-    // The driver types a cell as any.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const center = result.rows[0]?.get("data_center");
-    return typeof center === "string" && center.length > 0
-      ? center
-      : "datacenter1";
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    const found = /data centers: \[([^\]]+)\]/.exec(message);
-    const named = found?.[1]?.split(",")[0]?.trim().replaceAll("'", "");
-    if (named) return named;
-    throw cassandraError(error);
-  } finally {
-    await probe.shutdown().catch(() => undefined);
   }
 }
 

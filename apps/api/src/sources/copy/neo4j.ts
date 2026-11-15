@@ -27,6 +27,7 @@ import {
 } from "./values.js";
 
 const SAMPLE = 200;
+const CONNECT_MS = 10_000;
 
 function labelOf(name: string): string {
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
@@ -48,20 +49,20 @@ function neoError(error: unknown): AppError {
   return new AppError("source_unreachable", { cause: error });
 }
 
-async function withDriver<T>(
+/** A direct driver to the one host the source names, and how to close it. */
+function driverFor(
   source: SourceConnection,
   options: ConnectOptions,
-  body: (driver: Driver) => Promise<T>,
-): Promise<T> {
+): { driver: Driver; dispose: () => Promise<void> } {
   const directory =
     source.tlsCa && !options.allowPlaintext
       ? mkdtempSync(join(tmpdir(), "ag-neo4j-"))
       : null;
   const certificate = directory ? join(directory, "ca.pem") : null;
-  if (directory && certificate && source.tlsCa)
-    writeFileSync(certificate, source.tlsCa);
-  // bolt:// plus the encryption here. bolt+s would ignore a certificate
-  // authority we supply, and the driver refuses to be told twice.
+  if (certificate && source.tlsCa) writeFileSync(certificate, source.tlsCa);
+  // bolt:// is one server, with no routing to the cluster's others, plus
+  // the encryption here: bolt+s would ignore a certificate authority we
+  // supply, and the driver refuses to be told twice.
   const driver = neo4j.driver(
     `bolt://${source.host}:${String(source.port)}`,
     neo4j.auth.basic(source.username, source.password),
@@ -75,19 +76,67 @@ async function withDriver<T>(
               : "TRUST_SYSTEM_CA_SIGNED_CERTIFICATES",
             ...(certificate ? { trustedCertificates: [certificate] } : {}),
           }),
-      connectionTimeout: 10_000,
+      connectionTimeout: CONNECT_MS,
+      connectionAcquisitionTimeout: CONNECT_MS,
+      maxTransactionRetryTime: 0,
       disableLosslessIntegers: false,
       userAgent: "AnyGridDB",
     },
   );
+  return {
+    driver,
+    dispose: async () => {
+      await driver.close().catch(() => undefined);
+      if (directory) rmSync(directory, { recursive: true, force: true });
+    },
+  };
+}
+
+async function withDriver<T>(
+  source: SourceConnection,
+  options: ConnectOptions,
+  body: (driver: Driver) => Promise<T>,
+): Promise<T> {
+  const { driver, dispose } = driverFor(source, options);
   try {
     return await body(driver);
   } catch (error) {
     throw neoError(error);
   } finally {
-    await driver.close().catch(() => undefined);
-    if (directory) rmSync(directory, { recursive: true, force: true });
+    await dispose();
   }
+}
+
+/** A date, a time, a duration, or a point, as Neo4j's driver types them. */
+function temporal(value: unknown): {
+  kind: ValueKind;
+  native: string;
+  text: string;
+} | null {
+  if (neo4j.isDateTime(value)) {
+    // An instant: kept as the copy keeps every instant, in UTC.
+    return {
+      kind: "datetime",
+      native: "datetime",
+      text: value.toStandardDate().toISOString(),
+    };
+  }
+  if (neo4j.isDate(value)) {
+    return { kind: "date", native: "date", text: value.toString() };
+  }
+  // A local date and time names no instant: kept as written.
+  if (neo4j.isLocalDateTime(value)) {
+    return { kind: "text", native: "localdatetime", text: value.toString() };
+  }
+  if (
+    neo4j.isTime(value) ||
+    neo4j.isLocalTime(value) ||
+    neo4j.isDuration(value) ||
+    neo4j.isPoint(value)
+  ) {
+    return { kind: "text", native: "temporal", text: String(value) };
+  }
+  return null;
 }
 
 function kindOf(
@@ -103,8 +152,25 @@ function kindOf(
   if (neo4j.isInt(value)) return { kind: "integer", native: "integer" };
   if (typeof value === "string")
     return { kind: "text", native: "string", text: value };
-  if (value instanceof Date) return { kind: "datetime", native: "datetime" };
+  const told = temporal(value);
+  if (told) return told;
   return { kind: "document", native: "list" };
+}
+
+/** A list or a map, with its dates and integers as text. */
+function plain(value: unknown): unknown {
+  if (neo4j.isInt(value)) {
+    return value.inSafeRange() ? value.toNumber() : value.toString();
+  }
+  const told = temporal(value);
+  if (told) return told.text;
+  if (Array.isArray(value)) return value.map(plain);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([name, item]) => [name, plain(item)]),
+    );
+  }
+  return value;
 }
 
 function kept(value: unknown): CopyValue {
@@ -114,8 +180,8 @@ function kept(value: unknown): CopyValue {
   }
   const told = kindOf(value);
   if (!told) return null;
-  if (told.kind === "document") return JSON.stringify(value);
-  if (value instanceof Date) return value.toISOString();
+  if (told.kind === "document") return JSON.stringify(plain(value));
+  if (told.text !== undefined && typeof value !== "string") return told.text;
   if (
     typeof value === "string" ||
     typeof value === "number" ||
@@ -135,7 +201,9 @@ export const neo4jStore: CopyConnector = {
         defaultAccessMode: "READ",
       });
       try {
-        const roles = await session.run("SHOW CURRENT USER").catch(() => null);
+        const roles = await session
+          .run("SHOW CURRENT USER", {}, { timeout: source.queryTimeoutMs })
+          .catch(() => null);
         const listed: unknown = roles?.records[0]?.get("roles");
         const administers =
           source.username.toLowerCase() === "neo4j" ||
@@ -168,6 +236,8 @@ export const neo4jStore: CopyConnector = {
       try {
         const labels = await session.run(
           "CALL db.labels() YIELD label RETURN label",
+          {},
+          { timeout: source.queryTimeoutMs },
         );
         const tables: SourceTable[] = [];
         for (const record of labels.records) {
@@ -176,6 +246,7 @@ export const neo4jStore: CopyConnector = {
           const nodes = await session.run(
             `MATCH (n:${labelOf(label)}) RETURN n LIMIT $limit`,
             { limit: neo4j.int(SAMPLE) },
+            { timeout: source.queryTimeoutMs },
           );
           const samples = new Map<string, FieldSample>();
           remember(samples, "_id", "text", "elementId");
@@ -216,31 +287,20 @@ export const neo4jStore: CopyConnector = {
   async *rows(source, options, request) {
     if (request.schema !== source.database)
       throw new AppError("source_schema_changed");
-    const directory =
-      source.tlsCa && !options.allowPlaintext
-        ? mkdtempSync(join(tmpdir(), "ag-neo4j-"))
-        : null;
-    const certificate = directory ? join(directory, "ca.pem") : null;
-    if (directory && certificate && source.tlsCa)
-      writeFileSync(certificate, source.tlsCa);
-    const live = neo4j.driver(
-      `bolt://${source.host}:${String(source.port)}`,
-      neo4j.auth.basic(source.username, source.password),
-      {
-        encrypted: options.allowPlaintext ? "ENCRYPTION_OFF" : "ENCRYPTION_ON",
-        ...(options.allowPlaintext
-          ? {}
-          : {
-              trust: certificate
-                ? "TRUST_CUSTOM_CA_SIGNED_CERTIFICATES"
-                : "TRUST_SYSTEM_CA_SIGNED_CERTIFICATES",
-              ...(certificate ? { trustedCertificates: [certificate] } : {}),
-            }),
-        connectionTimeout: 10_000,
-      },
-    );
+    const { driver, dispose } = driverFor(source, options);
+    // The copy is one pass over the label, which may outlast any limit on
+    // the whole query: the wait for the next node is what is bounded. It
+    // is not counted while the page is being written.
+    const wait = { stalled: false };
+    let timer: NodeJS.Timeout | undefined;
+    const arm = () => {
+      timer = setTimeout(() => {
+        wait.stalled = true;
+        void driver.close();
+      }, source.queryTimeoutMs);
+    };
     try {
-      const session = live.session({
+      const session = driver.session({
         database: source.database,
         defaultAccessMode: "READ",
       });
@@ -251,7 +311,9 @@ export const neo4jStore: CopyConnector = {
            RETURN elementId(n) AS id, properties(n) AS props`,
         );
         let page: CopyRow[] = [];
+        arm();
         for await (const record of found) {
+          timer?.refresh();
           const id = String(record.get("id"));
           const props = record.get("props") as Record<string, unknown>;
           const values: Record<string, CopyValue> = { _id: id };
@@ -261,19 +323,25 @@ export const neo4jStore: CopyConnector = {
           }
           page.push({ id: rowId([id]), values });
           if (page.length >= request.pageSize) {
+            clearTimeout(timer);
             yield page;
             page = [];
+            arm();
           }
         }
+        clearTimeout(timer);
         if (page.length > 0) yield page;
       } finally {
-        await session.close();
+        await session.close().catch(() => undefined);
       }
     } catch (error) {
+      if (wait.stalled) {
+        throw new AppError("source_timeout", { cause: error });
+      }
       throw neoError(error);
     } finally {
-      await live.close().catch(() => undefined);
-      if (directory) rmSync(directory, { recursive: true, force: true });
+      clearTimeout(timer);
+      await dispose();
     }
   },
 };

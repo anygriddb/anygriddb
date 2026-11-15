@@ -107,10 +107,33 @@ function redisError(error: unknown): AppError {
   return new AppError("source_unreachable", { cause: error });
 }
 
-/** True when the account holds a command that can change the whole server. */
-function administers(reply: unknown): boolean {
-  const text = JSON.stringify(reply);
+/**
+ * True when the account can change the whole server. An account that may
+ * read the server's configuration administers it, whatever its rules
+ * say; one that may read its own rules is judged by them. A refusal of
+ * either is what a reader gets.
+ */
+async function administers(redis: Redis, username: string): Promise<boolean> {
+  const configured = await redis
+    .call("CONFIG", "GET", "maxclients")
+    .then(() => true)
+    .catch(refusedAsReader);
+  if (configured) return true;
+  const rules: unknown = await redis
+    .call("ACL", "GETUSER", username)
+    .catch((error: unknown) => {
+      refusedAsReader(error);
+      return null;
+    });
+  const text = JSON.stringify(rules ?? "");
   return ADMIN.some((flag) => text.includes(flag));
+}
+
+/** A command the account may not run: false, and anything else thrown. */
+function refusedAsReader(error: unknown): false {
+  const message = error instanceof Error ? error.message : "";
+  if (/NOPERM|no permissions|unknown command/i.test(message)) return false;
+  throw error;
 }
 
 function kindOf(value: string): {
@@ -241,14 +264,6 @@ async function readKeys(
   return out;
 }
 
-async function hashOf(
-  redis: Redis,
-  key: string,
-): Promise<Record<string, string>> {
-  const found = await readKeys(redis, [key]);
-  return found.get(key) ?? { value: "none" };
-}
-
 async function sampleKeys(redis: Redis, prefix: string): Promise<string[]> {
   const found: string[] = [];
   let cursor = "0";
@@ -272,10 +287,9 @@ export const redis: CopyConnector = {
     try {
       const info = await redis.info("server");
       const version = /redis_version:(\S+)/.exec(info)?.[1] ?? "";
-      const user = await redis
-        .call("ACL", "GETUSER", source.username)
-        .catch(() => null);
-      if (user && administers(user)) throw new AppError("source_admin_account");
+      if (await administers(redis, source.username)) {
+        throw new AppError("source_admin_account");
+      }
       return { serverVersion: `Redis ${version}` };
     } catch (error) {
       throw redisError(error);
@@ -288,10 +302,11 @@ export const redis: CopyConnector = {
     const redis = await open(source, options);
     try {
       const keys = await sampleKeys(redis, source.database);
+      const described = await readKeys(redis, keys);
       const samples = new Map<string, FieldSample>();
       remember(samples, "_key", "text", "key");
       for (const key of keys) {
-        const fields = await hashOf(redis, key);
+        const fields = described.get(key) ?? {};
         for (const [name, value] of Object.entries(fields)) {
           if (!isCopyableName(name)) continue;
           const told = kindOf(value);
