@@ -85,8 +85,7 @@ A row moves up only when it unblocks another.
 1. A published release: 51. It needs no code, only a version tag, and
    comes first: no operator installs a version before it, and the update
    notice has nothing to find.
-2. Administration, lot 6: 31.
-3. Applications, sign-in, and languages: 101, then 106, which needs it,
+2. Applications, sign-in, and languages: 101, then 106, which needs it,
    once decided; 104; 105 once its languages are chosen.
 
 ### Views and organisation
