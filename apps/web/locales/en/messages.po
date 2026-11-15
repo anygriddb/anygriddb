@@ -8555,7 +8555,6 @@ msgstr "Scripts and AI clients that use one stop at once, yours too. A revoked t
 msgid "Scripts and tools using these tokens stop working at once."
 msgstr "Scripts and tools using these tokens stop working at once."
 
-#: components/admin/logs-tab.tsx
 #: components/public/public-view.tsx
 #: components/shell/sidebar.tsx
 #: components/table/view-toolbar.tsx
@@ -8591,6 +8590,10 @@ msgstr "Search bases"
 #: components/fields/formula-help-panel.tsx
 msgid "Search functions"
 msgstr "Search functions"
+
+#: components/admin/logs-tab.tsx
+msgid "Search the lines"
+msgstr "Search the lines"
 
 #: components/table/view-toolbar.tsx
 msgid "Search this view"

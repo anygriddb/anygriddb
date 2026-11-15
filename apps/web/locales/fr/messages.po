@@ -8555,7 +8555,6 @@ msgstr "Les scripts et les clients d’IA qui en utilisent un s’arrêtent auss
 msgid "Scripts and tools using these tokens stop working at once."
 msgstr "Les scripts et outils qui utilisent ces jetons cessent aussitôt de fonctionner."
 
-#: components/admin/logs-tab.tsx
 #: components/public/public-view.tsx
 #: components/shell/sidebar.tsx
 #: components/table/view-toolbar.tsx
@@ -8591,6 +8590,10 @@ msgstr "Rechercher des bases"
 #: components/fields/formula-help-panel.tsx
 msgid "Search functions"
 msgstr "Chercher une fonction"
+
+#: components/admin/logs-tab.tsx
+msgid "Search the lines"
+msgstr "Rechercher dans les lignes"
 
 #: components/table/view-toolbar.tsx
 msgid "Search this view"

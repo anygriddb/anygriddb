@@ -55,7 +55,7 @@ export function LogsTab() {
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div className="flex flex-col gap-1">
-          <Label htmlFor="process-log-search">{t`Search`}</Label>
+          <Label htmlFor="process-log-search">{t`Search the lines`}</Label>
           <Input
             reads
             id="process-log-search"
