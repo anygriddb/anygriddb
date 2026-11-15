@@ -70,7 +70,7 @@ test.describe("a narrow screen", () => {
   test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.50" } });
 
   test("the navigation folds away on a narrow screen", async ({ page }) => {
-    await signUpWithTable(page, "Narrow User");
+    await signUpWithTable(page, "Narrow User", { gridTips: true });
     const navigation = page.locator("aside");
     await expect(navigation).toBeInViewport();
 
@@ -125,6 +125,15 @@ test.describe("a narrow screen", () => {
     expect(await accessibilityViolations(page)).toEqual([]);
     await row.getByRole("button", { name: "Close", exact: true }).click();
     await expect(row).toHaveCount(0);
+
+    // A first visit's tip names the gesture a phone has: no keys there.
+    const tip = page.getByRole("region", {
+      name: "Tap a card to open the row.",
+    });
+    await expect(tip).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await tip.getByRole("button", { name: "Hide the tips" }).click();
+    await expect(tip).toHaveCount(0);
 
     // The row is a card, which opens it; the last card adds one.
     const items = cards.getByRole("listitem");
