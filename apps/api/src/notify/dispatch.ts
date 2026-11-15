@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   AppError,
+  heartbeatSecretsSchema,
   nextRetryDelay,
   NOTIFY_DEDUPE_MS,
   NOTIFY_FAILURE_LIMIT,
@@ -39,6 +40,7 @@ import {
 } from "./providers/rooms.js";
 import { sendSmtpChannel } from "./providers/smtp.js";
 import { sendWebhook, type NotifyPayload } from "./providers/webhook.js";
+import { heartbeatAccepted, heartbeatTarget } from "./pulse.js";
 import { captureServerError, sendSentry } from "./sentry.js";
 import { asFields } from "./store.js";
 
@@ -432,7 +434,8 @@ export async function testIntegration(
     .where("id", "=", integrationId)
     .executeTakeFirst();
   if (!row) throw new AppError("unknown_integration");
-  const send = senderFor(row.provider);
+  const provider = notifyProvider(row.provider);
+  if (!provider) throw new AppError("unknown_integration");
   const outbound = deps.send ?? requestOutbound;
   const event: NotifyPayload = {
     id: randomUUID(),
@@ -445,19 +448,31 @@ export async function testIntegration(
   let response: OutboundResponse | undefined;
   let failure: string | undefined;
   try {
-    if (!send) throw new Error("Unknown provider");
     secrets = openedSecrets(row, deps.key);
     const allowPrivate = (await readSettings(deps.db)).notifyAllowPrivate;
-    response = await send({
-      config: row.config,
-      secrets,
-      mail: await mailFor(deps),
-      event,
-      send: outbound,
-      allowPrivate,
-    });
-    if (response.status < 200 || response.status >= 300) {
-      failure = `HTTP ${String(response.status)}`;
+    if (provider.family === "heartbeat") {
+      // A heartbeat has no event sender: the test is one success ping.
+      const parsed = heartbeatSecretsSchema.parse(secrets);
+      const url = heartbeatTarget(row.provider, parsed, "success");
+      if (!url) throw new AppError("invalid_integration");
+      response = await outbound({ url, method: "GET" }, allowPrivate);
+      if (!heartbeatAccepted(row.provider, response)) {
+        failure = `HTTP ${String(response.status)}`;
+      }
+    } else {
+      const send = senderFor(row.provider);
+      if (!send) throw new Error("Unknown provider");
+      response = await send({
+        config: row.config,
+        secrets,
+        mail: await mailFor(deps),
+        event,
+        send: outbound,
+        allowPrivate,
+      });
+      if (response.status < 200 || response.status >= 300) {
+        failure = `HTTP ${String(response.status)}`;
+      }
     }
   } catch (error) {
     failure = notifyFailureText(error);
