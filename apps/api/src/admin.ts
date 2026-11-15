@@ -143,7 +143,9 @@ export const listUsersInputSchema = z.object({
   /** Whether the account has a second factor of AnyGridDB's own. */
   mfa: z.boolean().optional(),
   origin: z.enum(["local", "sso", "scim"]).optional(),
-  sort: z.enum(["name", "email", "created", "lastSeen"]).default("created"),
+  sort: z
+    .enum(["name", "email", "created", "lastSeen", "mfa", "bases", "status"])
+    .default("created"),
   direction: z.enum(["asc", "desc"]).default("asc"),
   offset: z.int().min(0).max(1_000_000).default(0),
   limit: z.int().min(1).max(100).default(50),
@@ -225,11 +227,18 @@ export async function listUsers(
           .where("u.scimUserName", "is", null)
           .where(sqlTag<boolean>`not ${signOn}`),
       );
+  const lockedNow =
+    policy.lockoutMinutes > 0
+      ? sqlTag`u.locked_at > ${minutesAgo(policy.lockoutMinutes)}`
+      : sqlTag`((not u.is_admin and u.locked_at is not null) or (u.is_admin and u.locked_at > ${minutesAgo(ADMIN_LOCK_MINUTES)}))`;
   const order = {
     name: sqlTag`lower(u.display_name)`,
-    email: sqlTag`u.email`,
+    email: sqlTag`lower(u.email)`,
     created: sqlTag`u.created_at`,
     lastSeen: sqlTag`${lastSeen} nulls first`,
+    mfa: hasFactor,
+    bases: sqlTag`(select count(distinct b.scope_id) from role_bindings b where b.user_id = u.id and b.scope = 'base')`,
+    status: sqlTag`(case when u.disabled_at is not null then 2 when ${lockedNow} then 1 else 0 end)`,
   }[query.sort];
   const direction = query.direction === "desc" ? sqlTag`desc` : sqlTag`asc`;
   const rows = await matching()
@@ -942,9 +951,14 @@ export async function instanceAudit(
     action?: AuditAction;
     source?: string;
     before?: string;
+    from?: string;
+    to?: string;
+    /** `asc` is oldest first. The cursor walks the same way. */
+    direction?: "asc" | "desc";
     limit: number;
   },
 ) {
+  const asc = input.direction === "asc";
   let query = db
     .selectFrom("auditEvents as e")
     .leftJoin("users as u", "u.id", "e.userId")
@@ -965,6 +979,11 @@ export async function instanceAudit(
       "e.tableId",
       "t.name as tableName",
       "b.name as baseName",
+      // Full precision: a cursor built from a millisecond would find this
+      // row again when walking toward the present.
+      sqlTag<string>`to_char(e.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`.as(
+        "occurredExact",
+      ),
     ]);
   if (input.userId) query = query.where("e.userId", "=", input.userId);
   if (input.tableId) query = query.where("e.tableId", "=", input.tableId);
@@ -973,11 +992,21 @@ export async function instanceAudit(
     const prefix = `${input.source.replace(/[%_\\]/g, "\\$&")}%`;
     query = query.where("e.source", "ilike", prefix);
   }
+  if (input.from) {
+    query = query.where("e.occurredAt", ">=", new Date(input.from));
+  }
+  if (input.to) {
+    query = query.where("e.occurredAt", "<=", new Date(input.to));
+  }
   if (input.before) {
-    query = query.where("e.occurredAt", "<", new Date(input.before));
+    query = asc
+      ? query.where(
+          sqlTag<boolean>`e.occurred_at > ${input.before}::timestamptz`,
+        )
+      : query.where("e.occurredAt", "<", new Date(input.before));
   }
   const rows = await query
-    .orderBy("e.occurredAt", "desc")
+    .orderBy("e.occurredAt", asc ? "asc" : "desc")
     .limit(input.limit + 1)
     .execute();
   const page = rows.slice(0, input.limit).map((row) => ({
@@ -1024,6 +1053,7 @@ export async function instanceAudit(
         purged,
         opened,
         catalogBaseId,
+        occurredExact: _exact,
         ...row
       }) => ({
         ...row,
@@ -1056,7 +1086,9 @@ export async function instanceAudit(
     ),
     next:
       rows.length > input.limit
-        ? (page.at(-1)?.occurredAt.toISOString() ?? null)
+        ? asc
+          ? (page.at(-1)?.occurredExact ?? null)
+          : (page.at(-1)?.occurredAt.toISOString() ?? null)
         : null,
   };
 }

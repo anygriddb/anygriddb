@@ -313,16 +313,23 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     expect(await accessibilityViolations(page)).toEqual([]);
     expect(await accessibilityViolations(page)).toEqual([]);
 
-    // Recent lines of this process (ADR 0087). Warnings by default; the
-    // setting just saved is an ordinary message of the process.
+    // Recent lines of this process (ADR 0087). Every kept line by default;
+    // the setting just saved is an ordinary message of the process. The
+    // choice survives leaving the page.
     await openAdmin(page, "Instance", "Logs");
     await expect(
       page.getByText(
         "They are kept in memory and disappear when the process stops.",
       ),
     ).toBeVisible();
+    await expect(page.getByLabel("Show")).toHaveValue("info");
     expect(await accessibilityViolations(page)).toEqual([]);
+    await page.getByLabel("Show").selectOption("error");
+    await openAdmin(page, "Instance", "Health");
+    await openAdmin(page, "Instance", "Logs");
+    await expect(page.getByLabel("Show")).toHaveValue("error");
     await page.getByLabel("Show").selectOption("info");
+    await expect(page.getByLabel("Show")).toHaveValue("info");
     await expect(
       page.getByText("instance settings changed").first(),
     ).toBeVisible();

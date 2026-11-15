@@ -1,47 +1,74 @@
 import { Button, cn, Input, Label, Select, Spinner } from "@anygriddb/ui";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useTRPC } from "../../lib/trpc";
+import { SortHeader } from "../sort-header";
 import { LoadFailed } from "../shell/load-failed";
 import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
 import { useAdminPage, useAdminPageSize } from "./admin-page-size";
+import { InstantRange } from "./instant-range";
+import {
+  logsQuery,
+  logsRangeInvalid,
+  nextLogs,
+  sortLogs,
+  type LogsSearch,
+  type LogsSort,
+} from "./logs-search";
 
-const LEVELS = ["warn", "error", "info"] as const;
+const LEVELS = ["info", "warn", "error"] as const;
 type Level = (typeof LEVELS)[number];
 
 /**
- * Recent lines of this process (ADR 0087). Newest first. Warnings by
- * default: successful requests stay on the container's output.
+ * Recent lines of this process (ADR 0087). Every kept line, newest first,
+ * until the reader narrows them. The choice stays in the address.
  */
-export function LogsTab() {
+export function LogsTab({
+  search,
+  onSearch,
+}: {
+  search: LogsSearch;
+  onSearch: (update: (current: LogsSearch) => LogsSearch) => void;
+}) {
   const { t, i18n } = useLingui();
   const api = useTRPC();
-  const [level, setLevel] = useState<Level>("warn");
-  const [text, setText] = useState("");
-  const [query, setQuery] = useState("");
+  const invalid = logsRangeInvalid(search);
   const [pageSize, setPageSize] = useAdminPageSize();
+  const {
+    page: pageNum,
+    setPage,
+    offset,
+    limit,
+  } = useAdminPage(
+    pageSize,
+    `${search.level ?? "info"}:${search.q ?? ""}:${search.from ?? ""}:${search.to ?? ""}:${search.sort ?? "time"}:${search.dir ?? "desc"}`,
+  );
+  const [text, setText] = useState(search.q ?? "");
+  const [seen, setSeen] = useState(search.q);
+  if (search.q !== seen) {
+    setSeen(search.q);
+    setText(search.q ?? "");
+  }
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
   const type = (value: string) => {
     setText(value);
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => setQuery(value.trim()), 250);
+    timer.current = setTimeout(() => {
+      onSearch((current) =>
+        nextLogs(current, { q: value.trim() || undefined }),
+      );
+    }, 250);
   };
-  const { page, setPage, offset, limit } = useAdminPage(
-    pageSize,
-    `${level}:${query}`,
-  );
   const logs = useQuery({
-    ...api.admin.logs.queryOptions({
-      level,
-      limit,
-      offset,
-      query: query || undefined,
-    }),
-    refetchInterval: 5_000,
-    placeholderData: (previous) => previous,
+    ...api.admin.logs.queryOptions(logsQuery(search, { limit, offset })),
+    enabled: !invalid,
+    refetchInterval: invalid ? false : 5_000,
+    placeholderData: invalid ? undefined : (previous) => previous,
   });
   const when = (iso: string) =>
     new Date(iso).toLocaleString(i18n.locale, {
@@ -55,13 +82,46 @@ export function LogsTab() {
     return t`Info`;
   };
   const showLabel = (value: Level) => {
-    if (value === "error") return t`Errors`;
     if (value === "info") return t`All kept lines`;
+    if (value === "error") return t`Errors`;
     return t`Warnings`;
   };
+  const sort = search.sort ?? "time";
+  const descending = (search.dir ?? "desc") === "desc";
+  const header = (key: LogsSort, label: string) => (
+    <SortHeader
+      label={label}
+      active={sort === key}
+      descending={sort === key && descending}
+      onSort={() => onSearch((current) => sortLogs(current, key))}
+    />
+  );
+  const copy = async (line: {
+    time: string;
+    level: string;
+    message: string;
+    request?: { method: string; url: string; remoteAddress?: string };
+  }) => {
+    const body = [
+      when(line.time),
+      levelLabel(line.level),
+      line.message,
+      line.request ? `${line.request.method} ${line.request.url}` : "",
+      line.request?.remoteAddress ?? "",
+    ]
+      .filter((part) => part !== "")
+      .join("\n");
+    try {
+      await navigator.clipboard.writeText(body);
+      toast.success(t`Copied`);
+    } catch {
+      toast.error(t`Could not copy.`);
+    }
+  };
+  const page = logs.data;
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-2">
+      <div className="flex flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1">
           <Label htmlFor="process-log-search">{t`Search the lines`}</Label>
           <Input
@@ -80,11 +140,11 @@ export function LogsTab() {
             reads
             id="process-log-level"
             className="w-52"
-            value={level}
+            value={search.level ?? "info"}
             onChange={(event) => {
               const value = event.target.value;
               if (value === "warn" || value === "error" || value === "info") {
-                setLevel(value);
+                onSearch((current) => nextLogs(current, { level: value }));
               }
             }}
           >
@@ -95,6 +155,12 @@ export function LogsTab() {
             ))}
           </Select>
         </div>
+        <InstantRange
+          from={search.from}
+          to={search.to}
+          invalid={invalid}
+          onChange={(next) => onSearch((current) => nextLogs(current, next))}
+        />
         <Button
           reads
           size="sm"
@@ -107,17 +173,33 @@ export function LogsTab() {
           />
           {t`Refresh`}
         </Button>
+        {Object.keys(search).length > 0 ? (
+          <Button
+            reads
+            size="sm"
+            variant="ghost"
+            onClick={() => onSearch(() => ({}))}
+          >{t`Clear filters`}</Button>
+        ) : null}
       </div>
       <p className="text-xs text-muted-foreground">
         {t`These are the recent lines of this process, newest first. They are kept in memory and disappear when the process stops. The database and the file store keep their own logs where they run.`}
       </p>
-      {logs.isError ? (
+      {page && !invalid ? (
+        <p className="text-xs text-muted-foreground" aria-live="polite">
+          {page.lines.length < page.total
+            ? t`${page.lines.length} of ${page.total} lines`
+            : plural(page.total, { one: "# line", other: "# lines" })}
+          {page.oldest
+            ? t` The oldest still kept is ${{ time: when(page.oldest) }}.`
+            : null}
+        </p>
+      ) : null}
+      {logs.isError && !invalid ? (
         <LoadFailed error={logs.error} onRetry={() => void logs.refetch()} />
       ) : null}
-      {logs.isLoading ? <Spinner /> : null}
-      {logs.data ? (
-        // A long path or frame makes the table wider than the page: the
-        // region scrolls, so a keyboard must be able to reach it.
+      {logs.isLoading && !invalid ? <Spinner /> : null}
+      {page && !invalid ? (
         <>
           <AdminTable
             role="region"
@@ -128,25 +210,40 @@ export function LogsTab() {
           >
             <AdminTableHead>
               <tr>
-                <th className="px-2 py-1.5">{t`Time`}</th>
-                <th className="px-2 py-1.5">{t`Level`}</th>
-                <th className="px-2 py-1.5">{t`Message`}</th>
-                <th className="px-2 py-1.5">{t`Request`}</th>
-                <th className="px-2 py-1.5">{t`Address`}</th>
+                {header("time", t`Time`)}
+                {header("level", t`Level`)}
+                {header("message", t`Message`)}
+                {header("request", t`Request`)}
+                {header("address", t`Address`)}
+                <th className="px-2 py-1.5">
+                  <span className="sr-only">{t`Copy`}</span>
+                </th>
               </tr>
             </AdminTableHead>
             <tbody>
-              {logs.data.lines.length === 0 ? (
+              {page.lines.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-2 py-3 text-muted-foreground">
-                    {query
+                  <td colSpan={6} className="px-2 py-3 text-muted-foreground">
+                    {search.q
                       ? t`No line matches this search.`
-                      : t`Nothing at this level since the process started.`}
+                      : search.from || search.to
+                        ? t`No line in this range.`
+                        : t`Nothing at this level since the process started.`}
                   </td>
                 </tr>
               ) : null}
-              {logs.data.lines.map((line) => (
-                <tr key={line.seq} className="border-t border-border align-top">
+              {page.lines.map((line) => (
+                <tr
+                  key={line.seq}
+                  className={cn(
+                    "border-t border-border align-top",
+                    line.level === "error" || line.level === "fatal"
+                      ? "shadow-[inset_3px_0_0_var(--color-danger)]"
+                      : line.level === "warn"
+                        ? "shadow-[inset_3px_0_0_var(--color-warning)]"
+                        : undefined,
+                  )}
+                >
                   <td className="px-2 py-1.5 whitespace-nowrap">
                     {when(line.time)}
                   </td>
@@ -203,18 +300,28 @@ export function LogsTab() {
                   <td className="px-2 py-1.5 font-mono whitespace-nowrap">
                     {line.request?.remoteAddress ?? "—"}
                   </td>
+                  <td className="px-2 py-1.5">
+                    <Button
+                      reads
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void copy(line)}
+                    >
+                      {t`Copy`}
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </AdminTable>
-          {logs.data.total > 0 ? (
+          {page.total > 0 ? (
             <AdminPager
-              total={logs.data.total}
+              total={page.total}
               offset={offset}
               pageSize={pageSize}
               onPageSize={setPageSize}
-              onPrev={() => setPage(page - 1)}
-              onNext={() => setPage(page + 1)}
+              onPrev={() => setPage(pageNum - 1)}
+              onNext={() => setPage(pageNum + 1)}
             />
           ) : null}
         </>

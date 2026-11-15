@@ -7,58 +7,61 @@ import { toast } from "sonner";
 import { datedName, downloadCsv } from "../../lib/download";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { SortHeader } from "../sort-header";
 import { AdminPageSizeSelect, AdminTable, AdminTableHead } from "./admin-list";
 import { useAdminPageSize } from "./admin-page-size";
 import { useAuthLabels } from "./auth-labels";
 import { useReadsAll } from "./admin-access";
+import { InstantRange } from "./instant-range";
+import {
+  SIGN_IN_ACTIONS,
+  nextSignIns,
+  toggleSignInDir,
+  trailRangeInvalid,
+  type SignInSearch,
+} from "./trail-search";
 
-const ACTIONS = [
-  "account_created",
-  "login_success",
-  "login_failure",
-  "logout",
-  "session_revoked",
-  "factors_cleared",
-  "token_created",
-  "install_token_issued",
-  "install_token_used",
-  "tokens_revoked",
-  "account_locked",
-  "account_unlocked",
-  "password_changed",
-  "password_reset_requested",
-  "password_reset",
-  "settings_changed",
-  "account_disabled",
-  "account_erased",
-  "account_updated",
-  "account_data_exported",
-  "sso_unlinked",
-  "operator_mail_sent",
-] as const;
-type AuthAction = (typeof ACTIONS)[number];
+type AuthAction = (typeof SIGN_IN_ACTIONS)[number];
 
 function date(value: string): string {
   return new Date(value).toLocaleString();
 }
 
 /** The sign-in trail (ADR 0042): sign-ins, failures, and admin actions. */
-export function SignInTrail() {
+export function SignInTrail({
+  search,
+  onSearch,
+}: {
+  search: SignInSearch;
+  onSearch: (update: (current: SignInSearch) => SignInSearch) => void;
+}) {
   const { t } = useLingui();
   const errorText = useErrorText();
   // An auditor exports too: the export is on the trail under their name.
   const readsAll = useReadsAll();
   const api = useTRPC();
-  const [action, setAction] = useState<AuthAction | "">("");
+  const invalid = trailRangeInvalid(search);
   const [cursors, setCursors] = useState<string[]>([]);
   const [pageSize, setPageSize] = useAdminPageSize();
-  const trail = useQuery(
-    api.admin.authAudit.queryOptions({
-      action: action || undefined,
+  const serial = JSON.stringify(search);
+  const [seen, setSeen] = useState(serial);
+  if (serial !== seen) {
+    setSeen(serial);
+    setCursors([]);
+  }
+  const oldestFirst = (search.dir ?? "desc") === "asc";
+  const trail = useQuery({
+    ...api.admin.authAudit.queryOptions({
+      action: search.action,
+      from: search.from,
+      to: search.to,
+      direction: search.dir ?? "desc",
       before: cursors.at(-1),
       limit: pageSize,
     }),
-  );
+    enabled: !invalid,
+    placeholderData: invalid ? undefined : (previous) => previous,
+  });
   const labels = useAuthLabels();
   const actionLabel = (value: AuthAction) => labels.action(value);
   const methodLabel = labels.method;
@@ -149,7 +152,10 @@ export function SignInTrail() {
   async function exportCsv() {
     try {
       const file = await trpc.admin.exportAuthAudit.mutate({
-        action: action || undefined,
+        action: search.action,
+        from: search.from,
+        to: search.to,
+        direction: search.dir ?? "desc",
       });
       downloadCsv(datedName("anygriddb-sign-ins", "csv"), file.csv);
     } catch (cause) {
@@ -165,20 +171,30 @@ export function SignInTrail() {
             reads
             id="sign-in-action"
             className="w-52"
-            value={action}
+            value={search.action ?? ""}
             onChange={(event) => {
-              setAction(event.target.value as AuthAction | "");
-              setCursors([]);
+              const value = event.target.value;
+              onSearch((current) =>
+                nextSignIns(current, {
+                  action: SIGN_IN_ACTIONS.find((item) => item === value),
+                }),
+              );
             }}
           >
             <option value="">{t`All`}</option>
-            {ACTIONS.map((value) => (
+            {SIGN_IN_ACTIONS.map((value) => (
               <option key={value} value={value}>
                 {actionLabel(value)}
               </option>
             ))}
           </Select>
         </div>
+        <InstantRange
+          from={search.from}
+          to={search.to}
+          invalid={invalid}
+          onChange={(next) => onSearch((current) => nextSignIns(current, next))}
+        />
         {readsAll ? (
           <Button
             reads
@@ -196,85 +212,94 @@ export function SignInTrail() {
           ? t`Events are kept ${{ days: trail.data.retentionDays }} days, then deleted. ${{ total: trail.data.total }} events kept now. An email, a password, or a token is never stored.`
           : null}
       </p>
-      {trail.isLoading ? <Spinner /> : null}
-      <AdminTable tableClassName="text-xs">
-        <AdminTableHead>
-          <tr>
-            <th className="px-2 py-1.5">{t`Date`}</th>
-            <th className="px-2 py-1.5">{t`Event`}</th>
-            <th className="px-2 py-1.5">{t`Account`}</th>
-            <th className="px-2 py-1.5">{t`How`}</th>
-            <th className="px-2 py-1.5">{t`By`}</th>
-            <th className="px-2 py-1.5">{t`Address`}</th>
-          </tr>
-        </AdminTableHead>
-        <tbody>
-          {trail.data?.events.length === 0 ? (
-            <tr>
-              <td colSpan={6} className="px-2 py-3 text-muted-foreground">
-                {t`No event matches. Sign-ins, failures, and what administrators change show here, with the address.`}
-              </td>
-            </tr>
-          ) : null}
-          {(trail.data?.events ?? []).map((event) => (
-            <tr key={event.id} className="border-t border-border">
-              <td className="px-2 py-1.5 whitespace-nowrap">
-                {date(event.occurredAt)}
-              </td>
-              <td className="px-2 py-1.5">
-                <span
-                  className={
-                    event.action === "login_failure"
-                      ? "font-medium text-danger"
-                      : undefined
-                  }
-                >
-                  {actionLabel(event.action)}
-                </span>
-                {event.detail ? (
-                  <span className="block text-muted-foreground">
-                    {detailLabel(event.detail)}
-                  </span>
-                ) : null}
-              </td>
-              <td className="px-2 py-1.5">{event.userName ?? "—"}</td>
-              <td className="px-2 py-1.5">{methodLabel(event.method)}</td>
-              <td className="px-2 py-1.5">{event.actorName ?? "—"}</td>
-              <td className="px-2 py-1.5 font-mono">{event.ip ?? "—"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </AdminTable>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          reads
-          size="sm"
-          variant="ghost"
-          disabled={cursors.length === 0}
-          onClick={() => setCursors((current) => current.slice(0, -1))}
-        >
-          {t`Newer`}
-        </Button>
-        <Button
-          reads
-          size="sm"
-          variant="ghost"
-          disabled={!trail.data?.next}
-          onClick={() => {
-            const next = trail.data?.next;
-            if (next) setCursors((current) => [...current, next]);
-          }}
-        >
-          {t`Older`}
-        </Button>
-        <AdminPageSizeSelect
-          size={pageSize}
-          onChange={(size) => {
-            setPageSize(size);
-            setCursors([]);
-          }}
-        />
-      </div>
+      {trail.isLoading && !invalid ? <Spinner /> : null}
+      {invalid ? null : (
+        <>
+          <AdminTable tableClassName="text-xs">
+            <AdminTableHead>
+              <tr>
+                <SortHeader
+                  label={t`Date`}
+                  active
+                  descending={!oldestFirst}
+                  onSort={() => onSearch(toggleSignInDir)}
+                />
+                <th className="px-2 py-1.5">{t`Event`}</th>
+                <th className="px-2 py-1.5">{t`Account`}</th>
+                <th className="px-2 py-1.5">{t`How`}</th>
+                <th className="px-2 py-1.5">{t`By`}</th>
+                <th className="px-2 py-1.5">{t`Address`}</th>
+              </tr>
+            </AdminTableHead>
+            <tbody>
+              {trail.data?.events.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-2 py-3 text-muted-foreground">
+                    {t`No event matches. Sign-ins, failures, and what administrators change show here, with the address.`}
+                  </td>
+                </tr>
+              ) : null}
+              {(trail.data?.events ?? []).map((event) => (
+                <tr key={event.id} className="border-t border-border">
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    {date(event.occurredAt)}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <span
+                      className={
+                        event.action === "login_failure"
+                          ? "font-medium text-danger"
+                          : undefined
+                      }
+                    >
+                      {actionLabel(event.action)}
+                    </span>
+                    {event.detail ? (
+                      <span className="block text-muted-foreground">
+                        {detailLabel(event.detail)}
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="px-2 py-1.5">{event.userName ?? "—"}</td>
+                  <td className="px-2 py-1.5">{methodLabel(event.method)}</td>
+                  <td className="px-2 py-1.5">{event.actorName ?? "—"}</td>
+                  <td className="px-2 py-1.5 font-mono">{event.ip ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </AdminTable>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              reads
+              size="sm"
+              variant="ghost"
+              disabled={cursors.length === 0}
+              onClick={() => setCursors((current) => current.slice(0, -1))}
+            >
+              {oldestFirst ? t`Older` : t`Newer`}
+            </Button>
+            <Button
+              reads
+              size="sm"
+              variant="ghost"
+              disabled={!trail.data?.next}
+              onClick={() => {
+                const next = trail.data?.next;
+                if (next) setCursors((current) => [...current, next]);
+              }}
+            >
+              {oldestFirst ? t`Newer` : t`Older`}
+            </Button>
+            <AdminPageSizeSelect
+              size={pageSize}
+              onChange={(size) => {
+                setPageSize(size);
+                setCursors([]);
+              }}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

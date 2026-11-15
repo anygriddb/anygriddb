@@ -109,6 +109,26 @@ describe("the process log in Administration", () => {
     );
   });
 
+  it("keeps a line inside its range and drops one outside it", async () => {
+    const future = new Date(Date.now() + 86_400_000).toISOString();
+    const outside = await admin.call().admin.logs({
+      level: "warn",
+      from: future,
+      limit: 100,
+    });
+    expect(outside.lines.some((item) => item.message === MARK)).toBe(false);
+    expect(outside.total).toBe(0);
+    const inside = await admin.call().admin.logs({
+      level: "warn",
+      to: new Date().toISOString(),
+      sort: "message",
+      direction: "asc",
+      limit: 100,
+    });
+    expect(inside.lines.some((item) => item.message === MARK)).toBe(true);
+    expect(inside.oldest).toEqual(expect.any(String));
+  });
+
   it("lets an auditor read the same line", async () => {
     const { lines } = await auditor
       .call()

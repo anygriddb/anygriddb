@@ -6,6 +6,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
+import { sortRows } from "../../lib/sort-rows";
+import { useColumnSort } from "../sort-header";
 import { ConfirmDialog } from "../shell/dialogs";
 import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
 import { useAdminPage, useAdminPageSize } from "./admin-page-size";
@@ -43,9 +45,49 @@ export function AccessTab() {
   });
   const [revoking, setRevoking] = useState<Token | null>(null);
   const [stopping, setStopping] = useState<Hook | null>(null);
-  const tokens = access.data?.tokens ?? [];
-  const webhooks = access.data?.webhooks ?? [];
-  const automations = access.data?.automations ?? [];
+  const tokenSort = useColumnSort<
+    "name" | "owner" | "reaches" | "used" | "ends"
+  >();
+  const webhookSort = useColumnSort<
+    "name" | "table" | "owner" | "state" | "where"
+  >();
+  const automationSort = useColumnSort<
+    "name" | "table" | "owner" | "state" | "where"
+  >();
+  const hookValue = (
+    hook: Hook,
+    key: "name" | "table" | "owner" | "state" | "where",
+  ) => {
+    if (key === "name") return hook.name;
+    if (key === "table") return hook.table;
+    if (key === "owner") return hook.owner;
+    if (key === "state") return hook.on ? 1 : 0;
+    return hook.kind === "webhook" ? hook.host : hook.lastRunAt;
+  };
+  const tokens = sortRows(
+    access.data?.tokens ?? [],
+    tokenSort.sort,
+    (token, key) => {
+      if (key === "name") return token.name;
+      if (key === "owner") return token.owner;
+      if (key === "reaches") return token.bases;
+      if (key === "used") return token.lastUsedAt;
+      return token.expiresAt;
+    },
+    (token) => token.id,
+  );
+  const webhooks = sortRows(
+    access.data?.webhooks ?? [],
+    webhookSort.sort,
+    hookValue,
+    (hook) => hook.id,
+  );
+  const automations = sortRows(
+    access.data?.automations ?? [],
+    automationSort.sort,
+    hookValue,
+    (hook) => hook.id,
+  );
   async function run(action: () => Promise<unknown>) {
     try {
       await action();
@@ -79,11 +121,11 @@ export function AccessTab() {
             <AdminTable>
               <AdminTableHead>
                 <tr>
-                  <th className={head}>{t`Token`}</th>
-                  <th className={head}>{t`Owner`}</th>
-                  <th className={head}>{t`Reaches`}</th>
-                  <th className={head}>{t`Last used`}</th>
-                  <th className={head}>{t`Ends`}</th>
+                  {tokenSort.header("name", t`Token`, head)}
+                  {tokenSort.header("owner", t`Owner`, head)}
+                  {tokenSort.header("reaches", t`Reaches`, head)}
+                  {tokenSort.header("used", t`Last used`, head)}
+                  {tokenSort.header("ends", t`Ends`, head)}
                   <th className={head}>
                     <span className="sr-only">{t`Actions`}</span>
                   </th>
@@ -144,6 +186,7 @@ export function AccessTab() {
             access.data?.webhooksTotal ?? 0,
             webhooksPage,
             t`No webhook.`,
+            webhookSort,
           ],
           [
             "automation",
@@ -152,9 +195,10 @@ export function AccessTab() {
             access.data?.automationsTotal ?? 0,
             automationsPage,
             t`No automation.`,
+            automationSort,
           ],
         ] as const
-      ).map(([kind, title, list, total, pager, empty]) => (
+      ).map(([kind, title, list, total, pager, empty, columns]) => (
         <section
           key={kind}
           className="flex flex-col gap-2"
@@ -171,13 +215,15 @@ export function AccessTab() {
               <AdminTable>
                 <AdminTableHead>
                   <tr>
-                    <th className={head}>{t`Name`}</th>
-                    <th className={head}>{t`Table`}</th>
-                    <th className={head}>{t`Owner`}</th>
-                    <th className={head}>{t`State`}</th>
-                    <th className={head}>
-                      {kind === "webhook" ? t`Sends to` : t`Last run`}
-                    </th>
+                    {columns.header("name", t`Name`, head)}
+                    {columns.header("table", t`Table`, head)}
+                    {columns.header("owner", t`Owner`, head)}
+                    {columns.header("state", t`State`, head)}
+                    {columns.header(
+                      "where",
+                      kind === "webhook" ? t`Sends to` : t`Last run`,
+                      head,
+                    )}
                     <th className={head}>
                       <span className="sr-only">{t`Actions`}</span>
                     </th>

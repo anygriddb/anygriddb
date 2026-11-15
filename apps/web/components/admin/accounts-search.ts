@@ -13,7 +13,7 @@ export const accountsSearchSchema = z.object({
   mfa: z.enum(["yes", "no"]).optional().catch(undefined),
   origin: z.enum(["local", "sso", "scim"]).optional().catch(undefined),
   sort: z
-    .enum(["name", "email", "created", "lastSeen"])
+    .enum(["name", "email", "created", "lastSeen", "mfa", "bases", "status"])
     .optional()
     .catch(undefined),
   dir: z.enum(["asc", "desc"]).optional().catch(undefined),

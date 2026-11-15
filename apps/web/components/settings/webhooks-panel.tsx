@@ -13,6 +13,8 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { History, Plus, Send, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { sortRows } from "../../lib/sort-rows";
+import { useColumnSort } from "../sort-header";
 import { toast } from "sonner";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
@@ -54,6 +56,18 @@ function DeliveriesDialog(props: { webhookId: string; onClose: () => void }) {
     limit: 50,
   });
   const deliveries = useQuery(options);
+  const columns = useColumnSort<"date" | "event" | "result" | "attempts">();
+  const rows = sortRows(
+    deliveries.data?.deliveries ?? [],
+    columns.sort,
+    (delivery, key) => {
+      if (key === "date") return delivery.createdAt;
+      if (key === "event") return delivery.event;
+      if (key === "result") return delivery.status;
+      return delivery.attempts;
+    },
+    (delivery) => delivery.id,
+  );
   return (
     <Dialog open onOpenChange={(open) => !open && props.onClose()}>
       <DialogContent
@@ -66,15 +80,15 @@ function DeliveriesDialog(props: { webhookId: string; onClose: () => void }) {
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-muted text-left">
               <tr>
-                <th className="px-2 py-1">{t`Date`}</th>
-                <th className="px-2 py-1">{t`Event`}</th>
-                <th className="px-2 py-1">{t`Result`}</th>
-                <th className="px-2 py-1">{t`Attempts`}</th>
+                {columns.header("date", t`Date`, "px-2 py-1")}
+                {columns.header("event", t`Event`, "px-2 py-1")}
+                {columns.header("result", t`Result`, "px-2 py-1")}
+                {columns.header("attempts", t`Attempts`, "px-2 py-1")}
                 <th className="px-2 py-1" />
               </tr>
             </thead>
             <tbody>
-              {(deliveries.data?.deliveries ?? []).map((delivery) => (
+              {rows.map((delivery) => (
                 <tr key={delivery.id} className="border-t border-border">
                   <td className="px-2 py-1 whitespace-nowrap">
                     {new Date(delivery.createdAt).toLocaleString()}

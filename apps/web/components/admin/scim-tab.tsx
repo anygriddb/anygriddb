@@ -11,6 +11,8 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
+import { sortRows } from "../../lib/sort-rows";
+import { useColumnSort } from "../sort-header";
 import { useStepUp } from "./step-up";
 
 function date(value: string | null): string {
@@ -34,6 +36,9 @@ export function ScimTab() {
   const [revoking, setRevoking] = useState<{ id: string; name: string } | null>(
     null,
   );
+  const columns = useColumnSort<
+    "name" | "by" | "created" | "expires" | "used"
+  >();
 
   const refresh = () =>
     queryClient.invalidateQueries({
@@ -49,7 +54,19 @@ export function ScimTab() {
     );
   }
   if (!settings.data) return <Spinner />;
-  const { url, tokens, groups } = settings.data;
+  const { url, tokens: listedTokens, groups } = settings.data;
+  const tokens = sortRows(
+    listedTokens,
+    columns.sort,
+    (token, key) => {
+      if (key === "name") return token.name;
+      if (key === "by") return token.createdBy;
+      if (key === "created") return token.createdAt;
+      if (key === "expires") return token.expiresAt;
+      return token.lastUsedAt;
+    },
+    (token) => token.id,
+  );
   return (
     <div className="flex max-w-3xl flex-col gap-4 text-sm">
       <RuledSection
@@ -113,11 +130,11 @@ export function ScimTab() {
           <table className="w-full text-left">
             <thead className="bg-muted text-xs">
               <tr>
-                <th className="px-2 py-1.5">{t`Name`}</th>
-                <th className="px-2 py-1.5">{t`Created by`}</th>
-                <th className="px-2 py-1.5">{t`Created`}</th>
-                <th className="px-2 py-1.5">{t`Expires`}</th>
-                <th className="px-2 py-1.5">{t`Last used`}</th>
+                {columns.header("name", t`Name`)}
+                {columns.header("by", t`Created by`)}
+                {columns.header("created", t`Created`)}
+                {columns.header("expires", t`Expires`)}
+                {columns.header("used", t`Last used`)}
                 <th className="px-2 py-1.5" />
               </tr>
             </thead>

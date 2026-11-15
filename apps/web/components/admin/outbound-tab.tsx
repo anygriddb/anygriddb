@@ -5,6 +5,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
+import { sortRows } from "../../lib/sort-rows";
+import { useColumnSort } from "../sort-header";
 import { ConfirmDialog } from "../shell/dialogs";
 import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
 import { useAdminPage, useAdminPageSize } from "./admin-page-size";
@@ -32,7 +34,21 @@ export function OutboundTab() {
     placeholderData: (previous) => previous,
   });
   const [revoking, setRevoking] = useState<Link | null>(null);
-  const links = outbound.data?.links ?? [];
+  const columns = useColumnSort<
+    "what" | "view" | "author" | "created" | "ends"
+  >();
+  const links = sortRows(
+    outbound.data?.links ?? [],
+    columns.sort,
+    (link, key) => {
+      if (key === "what") return link.kind;
+      if (key === "view") return link.view;
+      if (key === "author") return link.author;
+      if (key === "created") return link.createdAt;
+      return link.kind === "feed" ? link.lastUsedAt : link.expiresAt;
+    },
+    (link) => `${link.kind}:${link.id}`,
+  );
   const total = outbound.data?.total ?? 0;
   return (
     <div className="flex flex-col gap-3">
@@ -55,11 +71,11 @@ export function OutboundTab() {
           <AdminTable>
             <AdminTableHead>
               <tr>
-                <th className="px-3 py-2">{t`What`}</th>
-                <th className="px-3 py-2">{t`View`}</th>
-                <th className="px-3 py-2">{t`Made by`}</th>
-                <th className="px-3 py-2">{t`Created`}</th>
-                <th className="px-3 py-2">{t`Ends, or last read`}</th>
+                {columns.header("what", t`What`, "px-3 py-2")}
+                {columns.header("view", t`View`, "px-3 py-2")}
+                {columns.header("author", t`Made by`, "px-3 py-2")}
+                {columns.header("created", t`Created`, "px-3 py-2")}
+                {columns.header("ends", t`Ends, or last read`, "px-3 py-2")}
                 <th className="px-3 py-2">
                   <span className="sr-only">{t`Actions`}</span>
                 </th>

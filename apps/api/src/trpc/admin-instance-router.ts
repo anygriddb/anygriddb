@@ -220,12 +220,22 @@ export const adminInstanceProcedures = {
    */
   logs: procedure
     .input(
-      z.object({
-        level: z.enum(["info", "warn", "error"]).default("warn"),
-        limit: z.int().min(1).max(100).default(50),
-        offset: z.int().min(0).max(1_000_000).default(0),
-        query: z.string().max(200).optional(),
-      }),
+      z
+        .object({
+          level: z.enum(["info", "warn", "error"]).default("info"),
+          limit: z.int().min(1).max(100).default(50),
+          offset: z.int().min(0).max(1_000_000).default(0),
+          query: z.string().max(200).optional(),
+          from: z.iso.datetime().optional(),
+          to: z.iso.datetime().optional(),
+          sort: z
+            .enum(["time", "level", "message", "request", "address"])
+            .default("time"),
+          direction: z.enum(["asc", "desc"]).default("desc"),
+        })
+        .refine((value) => !value.from || !value.to || value.from <= value.to, {
+          path: ["from"],
+        }),
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {

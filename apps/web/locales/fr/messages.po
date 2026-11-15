@@ -7,6 +7,10 @@ msgstr ""
 "X-Generator: @lingui/cli\n"
 "Language: fr\n"
 
+#: components/admin/logs-tab.tsx
+msgid " The oldest still kept is {time}."
+msgstr " La plus ancienne encore gardée est {time}."
+
 #: components/fields/formula-docs.ts
 msgid "-1, 0, or 1, by its sign."
 msgstr "-1, 0 ou 1, selon le signe."
@@ -316,6 +320,11 @@ msgstr "{0, plural, one {# élément supprimé} other {# éléments supprimés}}
 msgid "{0, plural, one {# job, webhook delivery, or automation run failed in the last 24 hours.} other {# jobs, webhook deliveries, and automation runs failed in the last 24 hours.}}"
 msgstr "{0, plural, one {# tâche, envoi de webhook ou exécution d’automatisation a échoué ces dernières 24 heures.} other {# tâches, envois de webhooks et exécutions d’automatisations ont échoué ces dernières 24 heures.}}"
 
+#. placeholder {0}: page.total
+#: components/admin/logs-tab.tsx
+msgid "{0, plural, one {# line} other {# lines}}"
+msgstr "{0, plural, one {# ligne} other {# lignes}}"
+
 #. placeholder {0}: created.skipped
 #: components/table/table-workspace.tsx
 msgid "{0, plural, one {# locked row was not copied} other {# locked rows were not copied}}"
@@ -453,6 +462,12 @@ msgstr "{0, plural, one {Point de restauration créé : # ligne} other {Point d
 #: components/admin/account-handoff.tsx
 msgid "{0, plural, one {Revoke their API token too: a token is never handed over} other {Revoke their # API tokens too: a token is never handed over}}"
 msgstr "{0, plural, one {Révoquer aussi son jeton d’API : un jeton n’est jamais transmis} other {Révoquer aussi ses # jetons d’API : un jeton n’est jamais transmis}}"
+
+#. placeholder {0}: page.lines.length
+#. placeholder {1}: page.total
+#: components/admin/logs-tab.tsx
+msgid "{0} of {1} lines"
+msgstr "{0} sur {1} lignes"
 
 #: components/shell/notification-items.ts
 msgid "{actor} assigned you a row in {table} ({field})"
@@ -2691,6 +2706,7 @@ msgstr "Formule circulaire : elle dépend d’elle-même"
 msgid "Clear"
 msgstr "Effacer"
 
+#: components/admin/logs-tab.tsx
 #: components/table/view-toolbar.tsx
 msgid "Clear filters"
 msgstr "Effacer les filtres"
@@ -2995,6 +3011,7 @@ msgstr "Continuer en arrière-plan"
 msgid "Convert"
 msgstr "Convertir"
 
+#: components/admin/logs-tab.tsx
 #: lib/clipboard.ts
 msgid "Copied"
 msgstr "Copié"
@@ -3004,6 +3021,7 @@ msgstr "Copié"
 msgid "Copied on {date}"
 msgstr "Copiée le {date}"
 
+#: components/admin/logs-tab.tsx
 #: components/grid/grid-view.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/api-docs.tsx
@@ -3085,6 +3103,10 @@ msgstr "Copiez cette adresse maintenant : elle ne sera plus affichée."
 #: components/admin/scim-tab.tsx
 msgid "Copy this token now: it will not be shown again."
 msgstr "Copiez ce jeton maintenant : il ne sera plus affiché."
+
+#: components/admin/logs-tab.tsx
+msgid "Could not copy."
+msgstr "Impossible de copier."
 
 #: components/admin/account-export.tsx
 msgid "Could not load the account data."
@@ -4668,6 +4690,7 @@ msgstr "Fréquence"
 msgid "Friday"
 msgstr "Vendredi"
 
+#: components/admin/instant-range.tsx
 #: components/table/filter-builder.tsx
 msgid "From"
 msgstr "À partir de"
@@ -6787,6 +6810,10 @@ msgstr "Aucune tâche avec ce statut."
 #: components/admin/support-tab.tsx
 msgid "No job yet. Imports, exports, and copies of tables and bases show here as people start them."
 msgstr "Aucune tâche pour l’instant. Les imports, les exports et les copies de tables ou de bases s’affichent ici dès qu’ils sont lancés."
+
+#: components/admin/logs-tab.tsx
+msgid "No line in this range."
+msgstr "Aucune ligne dans cette plage."
 
 #: components/admin/logs-tab.tsx
 msgid "No line matches this search."
@@ -10442,6 +10469,10 @@ msgstr "Le compte de la source n’a pas le droit de faire cette modification :
 msgid "The source's certificate is not trusted: paste its certificate authority or its certificate"
 msgstr "Certificat de la source non reconnu : collez son autorité de certification ou son certificat"
 
+#: components/admin/instant-range.tsx
+msgid "The start is after the end."
+msgstr "Le début est après la fin."
+
 #: lib/errors.ts
 msgid "The syslog collector did not take the event: check its address, its port, and the certificate it presents"
 msgstr "Le collecteur syslog n’a pas pris l’événement : vérifiez son adresse, son port et le certificat qu’il présente"
@@ -11105,6 +11136,7 @@ msgstr "Titre (facultatif)"
 msgid "TLS error"
 msgstr "Erreur TLS"
 
+#: components/admin/instant-range.tsx
 #: components/table/filter-builder.tsx
 msgid "To"
 msgstr "Jusqu’à"

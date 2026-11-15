@@ -36,8 +36,20 @@ const auditInputSchema = z.object({
     .optional(),
   source: z.string().trim().max(100).optional(),
   before: z.iso.datetime().optional(),
+  from: z.iso.datetime().optional(),
+  to: z.iso.datetime().optional(),
+  direction: z.enum(["asc", "desc"]).default("desc"),
   limit: z.int().min(1).max(200).default(50),
 });
+
+function withinRange<T extends { from?: string; to?: string }>(
+  schema: z.ZodType<T>,
+) {
+  return schema.refine(
+    (value) => !value.from || !value.to || value.from <= value.to,
+    { path: ["from"] },
+  );
+}
 
 const authActionSchema = z.enum([
   "login_success",
@@ -67,24 +79,33 @@ const authActionSchema = z.enum([
 const exportLimit = z.int().min(1).max(10_000).default(10_000);
 
 export const adminTrailProcedures = {
-  audit: procedure.input(auditInputSchema).query(({ ctx, input }) =>
-    handle(ctx, async () => {
-      await requireSupport(ctx);
-      return instanceAudit(ctx.db, {
-        ...input,
-        source: input.source || undefined,
-      });
-    }),
-  ),
+  audit: procedure
+    .input(withinRange(auditInputSchema))
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireSupport(ctx);
+        return instanceAudit(ctx.db, {
+          ...input,
+          source: input.source || undefined,
+        });
+      }),
+    ),
   /** The sign-in trail (ADR 0042), newest first. */
   authAudit: procedure
     .input(
-      z.object({
-        userId: z.uuid().optional(),
-        action: authActionSchema.optional(),
-        before: z.iso.datetime().optional(),
-        limit: z.int().min(1).max(200).default(50),
-      }),
+      z
+        .object({
+          userId: z.uuid().optional(),
+          action: authActionSchema.optional(),
+          before: z.iso.datetime().optional(),
+          from: z.iso.datetime().optional(),
+          to: z.iso.datetime().optional(),
+          direction: z.enum(["asc", "desc"]).default("desc"),
+          limit: z.int().min(1).max(200).default(50),
+        })
+        .refine((value) => !value.from || !value.to || value.from <= value.to, {
+          path: ["from"],
+        }),
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
@@ -99,7 +120,7 @@ export const adminTrailProcedures = {
     ),
   /** CSV downloads of both trails, up to 10,000 events, as filtered. */
   exportAudit: procedure
-    .input(auditInputSchema.extend({ limit: exportLimit }))
+    .input(withinRange(auditInputSchema.extend({ limit: exportLimit })))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
@@ -122,12 +143,19 @@ export const adminTrailProcedures = {
     ),
   exportAuthAudit: procedure
     .input(
-      z.object({
-        userId: z.uuid().optional(),
-        action: authActionSchema.optional(),
-        before: z.iso.datetime().optional(),
-        limit: exportLimit,
-      }),
+      z
+        .object({
+          userId: z.uuid().optional(),
+          action: authActionSchema.optional(),
+          before: z.iso.datetime().optional(),
+          from: z.iso.datetime().optional(),
+          to: z.iso.datetime().optional(),
+          direction: z.enum(["asc", "desc"]).default("desc"),
+          limit: exportLimit,
+        })
+        .refine((value) => !value.from || !value.to || value.from <= value.to, {
+          path: ["from"],
+        }),
     )
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {

@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { sortRows } from "../../lib/sort-rows";
+import { useColumnSort } from "../sort-header";
 import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
@@ -37,6 +39,7 @@ export function ApiTokensTab() {
   const [revoking, setRevoking] = useState<{ id: string; name: string } | null>(
     null,
   );
+  const columns = useColumnSort<"name" | "may" | "by" | "expires" | "used">();
   const scopeLabels: Record<Scope, { label: string; hint: string }> = {
     accounts: {
       label: t`Accounts`,
@@ -63,7 +66,21 @@ export function ApiTokensTab() {
     );
   }
   if (!listed.data) return <Spinner />;
-  const { url, tokens } = listed.data;
+  const { url, tokens: listedTokens } = listed.data;
+  const tokens = sortRows(
+    listedTokens,
+    columns.sort,
+    (token, key) => {
+      if (key === "name") return token.name;
+      if (key === "may") {
+        return token.scopes.map((scope) => scopeLabels[scope].label).join(", ");
+      }
+      if (key === "by") return token.createdBy;
+      if (key === "expires") return token.expiresAt;
+      return token.lastUsedAt;
+    },
+    (token) => token.id,
+  );
   const document = `${url}/openapi.json`;
   return (
     <div className="flex max-w-3xl flex-col gap-4 text-sm">
@@ -140,11 +157,11 @@ export function ApiTokensTab() {
             <table className="w-full text-left">
               <thead className="bg-muted text-xs">
                 <tr>
-                  <th scope="col" className="px-2 py-1.5">{t`Name`}</th>
-                  <th scope="col" className="px-2 py-1.5">{t`May`}</th>
-                  <th scope="col" className="px-2 py-1.5">{t`Created by`}</th>
-                  <th scope="col" className="px-2 py-1.5">{t`Expires`}</th>
-                  <th scope="col" className="px-2 py-1.5">{t`Last used`}</th>
+                  {columns.header("name", t`Name`)}
+                  {columns.header("may", t`May`)}
+                  {columns.header("by", t`Created by`)}
+                  {columns.header("expires", t`Expires`)}
+                  {columns.header("used", t`Last used`)}
                   <th scope="col" className="px-2 py-1.5">
                     <span className="sr-only">{t`Actions`}</span>
                   </th>

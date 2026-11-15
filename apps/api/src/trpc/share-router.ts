@@ -28,6 +28,28 @@ import { procedure, t } from "./init.js";
 
 const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{32,64}$/);
 const accessSchema = z.string().max(200).optional();
+const readerSort = z
+  .array(
+    z.object({
+      column: columnNameSchema,
+      direction: z.enum(["asc", "desc"]),
+    }),
+  )
+  .max(1)
+  .optional();
+
+/**
+ * A reader's order replaces the view's for this request only, and only
+ * for a column the link already shows. Anything else keeps the saved order.
+ */
+function shareSort<T extends { column: string }>(
+  fields: readonly string[],
+  asked: readonly T[] | undefined,
+  saved: readonly T[] | undefined,
+): readonly T[] | undefined {
+  const kept = asked?.filter((item) => fields.includes(item.column));
+  return kept && kept.length > 0 ? kept : saved;
+}
 
 const DISPLAY_KEYS = [
   "fieldOrder",
@@ -166,6 +188,7 @@ export const shareRouter = t.router({
         limit: z.int().min(1).max(1000).default(100),
         search: z.string().trim().min(1).max(200).optional(),
         timeZone: z.string().max(64).optional(),
+        sort: readerSort,
       }),
     )
     .query(({ ctx, input }) =>
@@ -181,6 +204,7 @@ export const shareRouter = t.router({
           engine,
           {
             search: input.search,
+            sort: shareSort(fields, input.sort, undefined),
             fields,
             offset: input.offset,
             limit: input.limit,
@@ -248,6 +272,7 @@ export const shareRouter = t.router({
         limit: z.int().min(1).max(1000).default(100),
         search: z.string().trim().min(1).max(200).optional(),
         timeZone: z.string().max(64).optional(),
+        sort: readerSort,
       }),
     )
     .query(({ ctx, input }) =>
@@ -261,7 +286,7 @@ export const shareRouter = t.router({
           opened.engine,
           {
             filter: andFilters(viewFilter(opened.config)),
-            sort: opened.config.sort,
+            sort: shareSort(opened.fields, input.sort, opened.config.sort),
             search: input.search,
             fields: opened.fields,
             offset: input.offset,

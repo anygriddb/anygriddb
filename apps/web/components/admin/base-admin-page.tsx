@@ -12,6 +12,8 @@ import { useLocale } from "../../lib/i18n";
 import { useSession } from "../../lib/session";
 import { useTrashDays } from "../../lib/trash";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { sortRows } from "../../lib/sort-rows";
+import { useColumnSort } from "../sort-header";
 import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { BaseAdminMembers } from "./base-admin-members";
@@ -34,6 +36,7 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
   const days = useTrashDays();
   const isAdmin = useSession().data?.isAdmin === true;
   const [trashing, setTrashing] = useState(false);
+  const tableSort = useColumnSort<"name" | "rows" | "files">();
   const detail = useQuery(api.admin.baseOverview.get.queryOptions({ baseId }));
   const back = (
     <Link
@@ -57,6 +60,16 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
   }
   if (!detail.data) return <Spinner />;
   const { base, members, tables, links, open } = detail.data;
+  const orderedTables = sortRows(
+    tables,
+    tableSort.sort,
+    (table, key) => {
+      if (key === "name") return table.name;
+      if (key === "rows") return table.estimatedRows;
+      return table.fileBytes;
+    },
+    (table) => table.id,
+  );
   const head = "px-3 py-2";
   return (
     <div className="flex flex-col gap-5">
@@ -93,13 +106,23 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
             <table className="w-full text-sm">
               <thead className="bg-muted text-left text-xs">
                 <tr>
-                  <th className={head}>{t`Table`}</th>
-                  <th className={`${head} text-right`}>{t`Rows, about`}</th>
-                  <th className={`${head} text-right`}>{t`Files`}</th>
+                  {tableSort.header("name", t`Table`, head)}
+                  {tableSort.header(
+                    "rows",
+                    t`Rows, about`,
+                    `${head} text-right`,
+                    "right",
+                  )}
+                  {tableSort.header(
+                    "files",
+                    t`Files`,
+                    `${head} text-right`,
+                    "right",
+                  )}
                 </tr>
               </thead>
               <tbody>
-                {tables.map((table) => (
+                {orderedTables.map((table) => (
                   <tr key={table.id} className="border-t border-border">
                     <td className="px-3 py-2">
                       {table.name}

@@ -5,6 +5,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { sortRows } from "../../lib/sort-rows";
+import { useColumnSort } from "../sort-header";
 import { ConfirmDialog } from "../shell/dialogs";
 import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
 import { useAdminPage, useAdminPageSize } from "./admin-page-size";
@@ -28,6 +30,7 @@ export function SessionsTab() {
   });
   const [confirmAll, setConfirmAll] = useState(false);
   const settings = useQuery(api.admin.settings.queryOptions());
+  const columns = useColumnSort<"account" | "signedIn" | "ends">();
   async function run(action: () => Promise<unknown>, done: string) {
     try {
       await action();
@@ -39,7 +42,16 @@ export function SessionsTab() {
       toast.error(errorText(cause));
     }
   }
-  const list = sessions.data?.sessions ?? [];
+  const list = sortRows(
+    sessions.data?.sessions ?? [],
+    columns.sort,
+    (session, key) => {
+      if (key === "account") return session.displayName;
+      if (key === "signedIn") return session.createdAt;
+      return session.expiresAt;
+    },
+    (session) => session.id,
+  );
   const total = sessions.data?.total ?? 0;
   return (
     <div className="flex flex-col gap-3">
@@ -64,9 +76,9 @@ export function SessionsTab() {
           <AdminTable>
             <AdminTableHead>
               <tr>
-                <th className="px-3 py-2">{t`Account`}</th>
-                <th className="px-3 py-2">{t`Signed in`}</th>
-                <th className="px-3 py-2">{t`Ends at the latest`}</th>
+                {columns.header("account", t`Account`, "px-3 py-2")}
+                {columns.header("signedIn", t`Signed in`, "px-3 py-2")}
+                {columns.header("ends", t`Ends at the latest`, "px-3 py-2")}
                 <th className="px-3 py-2">
                   <span className="sr-only">{t`Actions`}</span>
                 </th>
