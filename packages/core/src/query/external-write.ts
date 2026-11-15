@@ -261,6 +261,8 @@ function writeValue(
     case "email":
     case "url":
     case "phone":
+    case "color":
+    case "place":
       if (typeof value !== "string") throw new AppError("invalid_cell");
       return params.bind(value);
     case "date":
@@ -550,6 +552,8 @@ export const SIDE_FIELD_TYPES = [
   "email",
   "url",
   "phone",
+  "color",
+  "place",
   "rating",
 ] as const;
 
@@ -571,6 +575,8 @@ const SIDE_TYPES: Record<DialectName, Record<SideFieldType, string>> = {
     email: "text",
     url: "text",
     phone: "text",
+    color: "text",
+    place: "text",
     rating: "integer",
   },
   mysql: {
@@ -584,6 +590,8 @@ const SIDE_TYPES: Record<DialectName, Record<SideFieldType, string>> = {
     email: "varchar(500)",
     url: "varchar(2000)",
     phone: "varchar(100)",
+    color: "varchar(7)",
+    place: "varchar(40)",
     rating: "int",
   },
   mariadb: {
@@ -597,6 +605,8 @@ const SIDE_TYPES: Record<DialectName, Record<SideFieldType, string>> = {
     email: "varchar(500)",
     url: "varchar(2000)",
     phone: "varchar(100)",
+    color: "varchar(7)",
+    place: "varchar(40)",
     rating: "int",
   },
   sqlserver: {
@@ -610,6 +620,8 @@ const SIDE_TYPES: Record<DialectName, Record<SideFieldType, string>> = {
     email: "nvarchar(500)",
     url: "nvarchar(2000)",
     phone: "nvarchar(100)",
+    color: "varchar(7)",
+    place: "varchar(40)",
     rating: "int",
   },
   oracle: {
@@ -623,6 +635,8 @@ const SIDE_TYPES: Record<DialectName, Record<SideFieldType, string>> = {
     email: "varchar2(500)",
     url: "varchar2(2000)",
     phone: "varchar2(100)",
+    color: "varchar2(7)",
+    place: "varchar2(40)",
     rating: "number(10)",
   },
 };

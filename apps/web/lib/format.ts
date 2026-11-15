@@ -187,6 +187,10 @@ export function cellDisplay(
   if (column.fieldType === "duration" && typeof value === "number") {
     return formatDuration(value, config.durationFormat);
   }
+  // A place is kept without a space; it is read more easily with one.
+  if (column.fieldType === "place" && typeof value === "string") {
+    return value.replace(",", ", ");
+  }
   // A lookup's or a rollup's durations, in their field's format.
   const asSeconds = (item: unknown) =>
     typeof item === "number"

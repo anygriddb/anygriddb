@@ -15,6 +15,86 @@ const PHONE = /^\+?[0-9 ().-]{3,32}$/;
 const ISO_DATETIME =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})$/;
 
+/**
+ * A colour as it is kept: `#rrggbb`, in lower case. One spelling, so that
+ * two cells of the same colour are equal to a filter and to a group.
+ */
+const COLOR = /^#[0-9a-f]{6}$/;
+const COLOR_TYPED = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+export function isColor(value: string): boolean {
+  return COLOR.test(value);
+}
+
+/** `#abc`, `ABCDEF`, `#AbCdEf`: the colour as it is kept, or nothing. */
+export function parseColor(text: string): string | undefined {
+  const hex = COLOR_TYPED.exec(text.trim())?.[1]?.toLowerCase();
+  if (hex === undefined) return undefined;
+  // Three digits stand for six: each one twice.
+  return hex.length === 3 ? `#${hex.replace(/./g, "$&$&")}` : `#${hex}`;
+}
+
+/** Decimal degrees keep six decimals: a tenth of a metre. */
+const PLACE_DECIMALS = 6;
+/** What a person types for a place is short: anything longer is no place. */
+const PLACE_MAX_CHARS = 64;
+// Read once every run of spaces is one space, so that no part of either
+// pattern can take the same characters as its neighbour: a long run of
+// spaces is then read once, not once per way of sharing it out.
+/** Decimal points; a comma, a semicolon or a space between the two. */
+const PLACE_POINTS =
+  /^([+-]?\d{1,3}(?:\.\d+)?) ?[,; ] ?([+-]?\d{1,3}(?:\.\d+)?)$/;
+/** Decimal commas: the comma is taken, so a semicolon or a space between. */
+const PLACE_COMMAS = /^([+-]?\d{1,3}(?:,\d+)?) ?[; ] ?([+-]?\d{1,3}(?:,\d+)?)$/;
+
+export type Place = { latitude: number; longitude: number };
+
+function degrees(value: number): string {
+  // No trailing zeros, and no exponent at this size: 48.8566, not 48.856600.
+  return String(Number(value.toFixed(PLACE_DECIMALS)));
+}
+
+/**
+ * A place as it is kept: `latitude,longitude` in decimal degrees (WGS 84),
+ * six decimals at most, no space. Latitude within 90 degrees of the
+ * equator, longitude within 180 of Greenwich; nothing for anything else.
+ */
+export function formatPlace(place: Place): string | undefined {
+  const { latitude, longitude } = place;
+  if (
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    Math.abs(latitude) > 90 ||
+    Math.abs(longitude) > 180
+  ) {
+    return undefined;
+  }
+  return `${degrees(latitude)},${degrees(longitude)}`;
+}
+
+/**
+ * Reads what a person types or pastes: the latitude, then the longitude
+ * (`48.8566, 2.3522`, `48.8566 2.3522`, `48,8566; 2,3522`). Nothing for
+ * anything else, a place off the globe included.
+ */
+export function parsePlace(text: string): Place | undefined {
+  const typed = text.trim().replace(/\s+/g, " ");
+  if (typed.length > PLACE_MAX_CHARS) return undefined;
+  const match = PLACE_POINTS.exec(typed) ?? PLACE_COMMAS.exec(typed);
+  if (!match) return undefined;
+  const place = {
+    latitude: Number(match[1]?.replace(",", ".")),
+    longitude: Number(match[2]?.replace(",", ".")),
+  };
+  return formatPlace(place) === undefined ? undefined : place;
+}
+
+/** Whether a text is a place exactly as it is kept. */
+export function isPlace(value: string): boolean {
+  const place = parsePlace(value);
+  return place !== undefined && formatPlace(place) === value;
+}
+
 const MAX_ARRAY_ITEMS = 100;
 
 /** Wire shape of a cell. Arrays hold option names, user ids, or file keys. */
@@ -117,6 +197,12 @@ export function assertCellValue(column: CellColumn, value: unknown): void {
       break;
     case "phone":
       if (typeof value === "string" && PHONE.test(value)) return;
+      break;
+    case "color":
+      if (typeof value === "string" && isColor(value)) return;
+      break;
+    case "place":
+      if (typeof value === "string" && isPlace(value)) return;
       break;
     case "number": {
       // Exact as a decimal string (ADR 0023); a finite number is accepted
@@ -361,6 +447,12 @@ function coerceRaw(
     case "url":
     case "phone":
       return trimmed;
+    case "color":
+      return parseColor(trimmed);
+    case "place": {
+      const place = parsePlace(trimmed);
+      return place ? formatPlace(place) : undefined;
+    }
     case "number":
       return parseLooseDecimal(trimmed);
     case "rating": {

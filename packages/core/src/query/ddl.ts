@@ -259,11 +259,19 @@ export function buildCreateJunction(input: {
 
 const TEXT_SQL = new Set(["text"]);
 
+/**
+ * Text types kept in one spelling (a colour, a place): a value that does
+ * not read as one has no place in them, so a conversion to one of them
+ * rewrites the column.
+ */
+const SPELLED: ReadonlySet<FieldType> = new Set(["color", "place"]);
+
 /** True when both types share a SQL type, so conversion only touches the catalog. */
 export function isMetadataConversion(from: FieldType, to: FieldType): boolean {
   if (!isWritableType(from) || !isWritableType(to)) {
     return false;
   }
+  if (SPELLED.has(to)) return false;
   return physicalSqlType(from) === physicalSqlType(to);
 }
 
@@ -273,6 +281,8 @@ const CONVERTIBLE: ReadonlySet<FieldType> = new Set([
   "email",
   "url",
   "phone",
+  "color",
+  "place",
   "single_select",
   "multi_select",
   "number",
@@ -285,6 +295,34 @@ const CONVERTIBLE: ReadonlySet<FieldType> = new Set([
 
 export function isConvertible(from: FieldType, to: FieldType): boolean {
   return from !== to && CONVERTIBLE.has(from) && CONVERTIBLE.has(to);
+}
+
+/**
+ * A text as `parseColor` and `parsePlace` first make it: every run of
+ * spaces one space, none at either end.
+ */
+function typedText(text: string): string {
+  return `btrim(regexp_replace(${text}, '[[:space:]\u00a0\u202f]+', ' ', 'g'))`;
+}
+
+/**
+ * A text read as a colour, as `parseColor` reads it: six hexadecimal
+ * digits or three, with or without the sign, kept as `#rrggbb`.
+ */
+function colorExpression(text: string): string {
+  const typed = typedText(text);
+  const digits = `ltrim(lower(${typed}), '#')`;
+  return `(case when ${typed} ~* '^#?[0-9a-f]{6}$' then '#' || ${digits} when ${typed} ~* '^#?[0-9a-f]{3}$' then '#' || regexp_replace(${digits}, '(.)', '\\1\\1', 'g') end)`;
+}
+
+/**
+ * A text read as a place, as `parsePlace` reads its decimal points: at
+ * most 64 characters, two numbers of degrees on the globe, kept as
+ * `latitude,longitude` with six decimals at most.
+ */
+function placeExpression(text: string): string {
+  const typed = typedText(text);
+  return `(select case when abs(p.lat) <= 90 and abs(p.lng) <= 180 then trim_scale(round(p.lat, 6))::text || ',' || trim_scale(round(p.lng, 6))::text end from (select (m.parts)[1]::numeric as lat, (m.parts)[2]::numeric as lng from (select case when char_length(${typed}) <= 64 then regexp_match(${typed}, '^([+-]?[0-9]{1,3}(?:[.][0-9]+)?) ?[,; ] ?([+-]?[0-9]{1,3}(?:[.][0-9]+)?)$') end as parts) m) p)`;
 }
 
 /**
@@ -313,6 +351,8 @@ export function convertExpression(
             : fromSql === "timestamptz"
               ? `to_char(${source} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`
               : `${source}::text`;
+  if (to === "color") return colorExpression(asText);
+  if (to === "place") return placeExpression(asText);
   switch (toSql) {
     case "text":
       return TEXT_SQL.has(fromSql) ? source : asText;

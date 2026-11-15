@@ -39,6 +39,10 @@ function example(column: CatalogColumn): unknown {
       return "https://example.org";
     case "phone":
       return "+33 1 23 45 67 89";
+    case "color":
+      return "#1f3fae";
+    case "place":
+      return "48.8566,2.3522";
     case "user":
       return ["<user id>"];
     case "attachment":
@@ -88,6 +92,8 @@ const WRITABLE = new Set([
   "email",
   "url",
   "phone",
+  "color",
+  "place",
   "rating",
   "duration",
   "user",

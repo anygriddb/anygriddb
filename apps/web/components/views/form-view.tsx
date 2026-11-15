@@ -101,6 +101,8 @@ const SUPPORTED = new Set([
   "email",
   "url",
   "phone",
+  "color",
+  "place",
   "rating",
   "duration",
   "user",

@@ -24,13 +24,19 @@ export {
 } from "./attachment-types";
 
 export {
-  ATTACHMENT_KEY,
   assertCellValue,
+  ATTACHMENT_KEY,
+  type CellValue,
   cellValueSchema,
   coerceCellValue,
+  formatPlace,
+  isColor,
   isEmail,
   isHttpUrl,
-  type CellValue,
+  isPlace,
+  parseColor,
+  parsePlace,
+  type Place,
 } from "./cell-values";
 
 export {

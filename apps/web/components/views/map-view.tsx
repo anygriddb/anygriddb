@@ -1,4 +1,4 @@
-import { decimalToNumber } from "@anygriddb/core";
+import { decimalToNumber, parsePlace } from "@anygriddb/core";
 
 import { Button, cn, Tooltip } from "@anygriddb/ui";
 import {
@@ -94,17 +94,24 @@ export function MapView(props: ViewProps) {
       ? props.config.titleColumn
       : undefined,
   );
-  const place = placeColumns(props.config, props.allColumns);
-  const { numbers, latitude: lat, longitude: lon } = place;
-  const notice = mapNotice(place);
+  const found = placeColumns(props.config, props.allColumns);
+  const { places, numbers, place, latitude: lat, longitude: lon } = found;
+  const notice = mapNotice(found);
   // The view reads only the rows that have a place, page after page, up
   // to the ceiling.
-  const shown = lat && lon ? Math.min(props.total, MAP_CEILING) : 0;
+  const placed = Boolean(place) || Boolean(lat && lon);
+  const shown = placed ? Math.min(props.total, MAP_CEILING) : 0;
   const { ensure } = props;
   useEffect(() => {
     if (shown > 0) ensure(0, shown - 1);
   }, [ensure, shown]);
   const points = props.rows.flatMap((row) => {
+    if (place) {
+      // A place field holds both, as it was checked when written.
+      const value = row[place as keyof RowItem];
+      const read = typeof value === "string" ? parsePlace(value) : undefined;
+      return read ? [{ row, ...read }] : [];
+    }
     // Coordinates come as exact decimals; a pin needs a float.
     const latitude = lat
       ? decimalToNumber(row[lat as keyof RowItem])
@@ -187,7 +194,7 @@ export function MapView(props: ViewProps) {
   if (notice === "add-fields") {
     return (
       <ViewSetupPrompt
-        title={t`Add two number fields, a latitude and a longitude, to place rows on the map.`}
+        title={t`Add a place field, or two number fields for a latitude and a longitude, to place rows on the map.`}
         onAddField={props.onOpenFieldEditor}
       />
     );
@@ -195,22 +202,62 @@ export function MapView(props: ViewProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-4 border-b border-border px-4 py-1.5">
-        <ColumnPicker
-          label={t`Latitude`}
-          value={lat}
-          columns={numbers}
-          onChange={(value) => props.onPatch({ latitudeColumn: value })}
-        />
-        <ColumnPicker
-          label={t`Longitude`}
-          value={lon}
-          columns={numbers}
-          onChange={(value) => props.onPatch({ longitudeColumn: value })}
-        />
+        {places.length > 0 ? (
+          <ColumnPicker
+            label={t`Place`}
+            value={place}
+            columns={places}
+            // Without a place field, the map reads two numbers.
+            allowNone={numbers.length >= 2}
+            noneLabel={t`A latitude and a longitude`}
+            onChange={(value) =>
+              props.onPatch(
+                value
+                  ? {
+                      placeColumn: value,
+                      latitudeColumn: null,
+                      longitudeColumn: null,
+                    }
+                  : {
+                      placeColumn: null,
+                      // Chosen, so that the first place field is not
+                      // taken again: the ones found by name, or the
+                      // first two numbers.
+                      latitudeColumn:
+                        numbers.find((column) => /lat/i.test(column.name))
+                          ?.name ??
+                        numbers[0]?.name ??
+                        null,
+                      longitudeColumn:
+                        numbers.find((column) => /lon|lng/i.test(column.name))
+                          ?.name ??
+                        numbers[1]?.name ??
+                        null,
+                    },
+              )
+            }
+          />
+        ) : null}
+        {place ? null : (
+          <>
+            <ColumnPicker
+              label={t`Latitude`}
+              value={lat}
+              columns={numbers}
+              onChange={(value) => props.onPatch({ latitudeColumn: value })}
+            />
+            <ColumnPicker
+              label={t`Longitude`}
+              value={lon}
+              columns={numbers}
+              onChange={(value) => props.onPatch({ longitudeColumn: value })}
+            />
+          </>
+        )}
         <span className="text-xs text-muted-foreground">
           {notice === "choose-fields"
             ? t`Choose the fields that hold the latitude and the longitude.`
-            : props.total > MAP_CEILING && lat && lon
+            : props.total > MAP_CEILING && placed
               ? t`The first ${{ shown: formatNumber(MAP_CEILING, locale) }} of ${{ total: formatNumber(props.total, locale) }} places`
               : plural(points.length, { one: `# point`, other: `# points` })}
         </span>

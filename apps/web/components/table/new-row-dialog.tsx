@@ -34,6 +34,8 @@ const INPUTS = new Set([
   "email",
   "url",
   "phone",
+  "color",
+  "place",
   "rating",
   "duration",
 ]);

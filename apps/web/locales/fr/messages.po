@@ -1011,6 +1011,10 @@ msgid "A change made in Administration asks for your password or second factor a
 msgstr "Une modification faite dans l’Administration redemande votre mot de passe ou votre second facteur. La preuve reste valable cinq minutes."
 
 #: components/fields/field-meta.tsx
+msgid "A colour, shown with its swatch"
+msgstr "Une couleur, affichée avec sa pastille"
+
+#: components/fields/field-meta.tsx
 msgid "A day"
 msgstr "Un jour"
 
@@ -1060,6 +1064,10 @@ msgstr "Un groupe rassemble des comptes pour qu’une base leur donne un même r
 msgid "A JSON document's value at a path, such as $.client.name or $.lines[0]."
 msgstr "La valeur d’un JSON à un chemin, comme $.client.nom ou $.lignes[0]."
 
+#: components/views/map-view.tsx
+msgid "A latitude and a longitude"
+msgstr "Une latitude et une longitude"
+
 #: components/views/form-view.tsx
 msgid "A link can fill fields: add ?prefill_field_name=value to its address, and &hide_field_name=true to hide a filled field."
 msgstr "Un lien peut remplir des champs : ajoutez ?prefill_nom_du_champ=valeur à son adresse, et &hide_nom_du_champ=true pour masquer un champ rempli."
@@ -1092,6 +1100,10 @@ msgstr "Un numéro de téléphone"
 #: components/admin/identity-tab.tsx
 msgid "A PNG, JPEG, or WebP image of 256 KiB at most. It is drawn small, in a square, wherever the mark above is: a symbol reads better than a name written out."
 msgstr "Une image PNG, JPEG ou WebP de 256 Kio au plus. Elle est dessinée en petit, dans un carré, partout où figure la marque ci-dessus : un symbole se lit mieux qu’un nom écrit en toutes lettres."
+
+#: components/fields/field-meta.tsx
+msgid "A point on the globe, which a map shows"
+msgstr "Un point du globe, qu’une carte affiche"
 
 #: components/views/calendar-feed.tsx
 msgid "A private address for your calendar application (Outlook, Google Calendar, Apple Calendar…). It shows what you can read of this view, from six months back to two years ahead. Keep it to yourself: whoever has it reads these rows."
@@ -1464,6 +1476,10 @@ msgstr "Ajoutez une métrique, un graphique ou une vue."
 msgid "Add a person"
 msgstr "Ajouter une personne"
 
+#: components/views/map-view.tsx
+msgid "Add a place field, or two number fields for a latitude and a longitude, to place rows on the map."
+msgstr "Ajoutez un champ lieu, ou deux champs nombre pour une latitude et une longitude, pour placer les lignes sur la carte."
+
 #: components/grid/grid-view.tsx
 #: components/table/view-toolbar.tsx
 #: components/views/row-cards.tsx
@@ -1553,10 +1569,6 @@ msgstr "Ajouter le groupe"
 #: components/table/new-row-dialog.tsx
 msgid "Add the row"
 msgstr "Ajouter la ligne"
-
-#: components/views/map-view.tsx
-msgid "Add two number fields, a latitude and a longitude, to place rows on the map."
-msgstr "Ajoutez deux champs nombre, une latitude et une longitude, pour placer les lignes sur la carte."
 
 #: components/settings/webhooks-panel.tsx
 msgid "Add webhook"
@@ -2674,6 +2686,7 @@ msgid "Color"
 msgstr "Couleur"
 
 #: components/fields/field-editor.tsx
+#: components/fields/field-meta.tsx
 msgid "Colour"
 msgstr "Couleur"
 
@@ -7248,6 +7261,10 @@ msgstr "Vue personnelle"
 msgid "Phone"
 msgstr "Téléphone"
 
+#: components/fields/cell-editor.tsx
+msgid "Pick a colour"
+msgstr "Choisir une couleur"
+
 #: lib/errors.ts
 msgid "Pick a shared view of the linked table"
 msgstr "Choisissez une vue partagée de la table liée"
@@ -7263,6 +7280,11 @@ msgstr "Épingler {name}"
 #: components/shell/sidebar.tsx
 msgid "Pinned"
 msgstr "Épinglés"
+
+#: components/fields/field-meta.tsx
+#: components/views/map-view.tsx
+msgid "Place"
+msgstr "Lieu"
 
 #: components/fields/field-editor.tsx
 msgid "Plain text"
