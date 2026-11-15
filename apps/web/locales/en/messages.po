@@ -10298,6 +10298,10 @@ msgstr "This link no longer works: sign up again"
 msgid "This link takes only one row"
 msgstr "This link takes only one row"
 
+#: lib/errors.ts
+msgid "This list leaves out the address you are saving it from, and would refuse your next sign-in. Add it, or check the trusted proxies if it is not yours"
+msgstr "This list leaves out the address you are saving it from, and would refuse your next sign-in. Add it, or check the trusted proxies if it is not yours"
+
 #: components/table/filter-builder.tsx
 msgid "this month"
 msgstr "this month"

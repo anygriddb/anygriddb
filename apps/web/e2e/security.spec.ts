@@ -85,6 +85,18 @@ test("an administrator sets the lock, unlocks an account, and sends a reset link
     await proveItIsYou(page);
     await expect(page.getByText("Settings saved")).toBeVisible();
 
+    // A list of sign-in addresses that leaves out the one it is saved
+    // from is refused: it would refuse this administrator's next sign-in.
+    await page.getByLabel("Allowed CIDR ranges").fill("192.0.2.0/24");
+    await page.getByRole("button", { name: "Save allowlist" }).click();
+    await expect(
+      page.getByText(
+        /This list leaves out the address you are saving it from.*198\.51\.100\.10/,
+      ),
+    ).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel("Allowed CIDR ranges")).toHaveValue("");
+
     // Someone signs up in their own browser.
     const own = await browser.newContext(from("198.51.100.20"));
     const member = await own.newPage();

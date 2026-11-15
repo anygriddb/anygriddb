@@ -166,6 +166,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   password_sign_in_disabled: msg`Password sign-in is off: use single sign-on, or ask an administrator`,
   sso_required: msg`Turn on single sign-on (OIDC or SAML) before requiring it for everyone`,
   set_by_environment: msg`The instance's environment sets this: its operator changes it where the instance is installed`,
+  sign_in_address_left_out: msg`This list leaves out the address you are saving it from, and would refuse your next sign-in. Add it, or check the trusted proxies if it is not yours`,
   sign_in_address_denied: msg`Sign-in is not allowed from this network address`,
 
   invalid_webhook: msg`Invalid webhook: a public HTTPS address or an email is required`,
