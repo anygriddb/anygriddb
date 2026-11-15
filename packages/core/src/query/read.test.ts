@@ -3,6 +3,7 @@ import {
   buildAggregates,
   buildCountRows,
   buildGroupCounts,
+  buildHistogram,
   buildReadRows,
   describeColumns,
 } from "./read";
@@ -502,5 +503,63 @@ describe("the row's id as a field (ADR 0063)", () => {
       `cast(r."client_no" as nvarchar(1000)) as "ref"`,
     );
     expect(sql.text).not.toContain(`r."ref"`);
+  });
+});
+
+describe("buildHistogram", () => {
+  it("counts the rows in equal bins of a number field", () => {
+    const sql = buildHistogram(
+      catalogFor(),
+      { timeZone: "UTC" },
+      { column: "price", lo: 0, hi: 100, bins: 10 },
+    );
+    // The least value and a bin's width are bound, as decimals the
+    // engine is told are numbers; the greatest is not.
+    expect(sql.values).toEqual(expect.arrayContaining(["0", "10"]));
+    expect(sql.values).not.toContain("100");
+    expect(sql.text).toMatch(/- \$\d+::numeric\) \/ \$\d+::numeric\)/);
+    // A place past the last bin is the last bin: the greatest value's.
+    expect(sql.text).toContain("least(9, greatest(0, floor(");
+    expect(sql.text).toContain(`as "k0"`);
+    expect(sql.text).toContain("count(*)");
+    // Rows without a value are in no bin.
+    expect(sql.text).toContain("is null");
+  });
+
+  it("puts every row in the first bin when all hold the same value", () => {
+    const sql = buildHistogram(
+      catalogFor(),
+      { timeZone: "UTC" },
+      { column: "price", lo: 7, hi: 7, bins: 10 },
+    );
+    expect(sql.text).not.toContain("floor(");
+    expect(sql.values).not.toContain("7");
+  });
+
+  it("refuses a field that is no number, and bounds that make no bins", () => {
+    const histogram = (input: {
+      column: string;
+      lo: number;
+      hi: number;
+      bins: number;
+    }) => buildHistogram(catalogFor(), { timeZone: "UTC" }, input);
+    expect(() =>
+      histogram({ column: "status", lo: 0, hi: 1, bins: 8 }),
+    ).toThrow("Invalid column");
+    expect(() =>
+      histogram({ column: "nowhere", lo: 0, hi: 1, bins: 8 }),
+    ).toThrow("Unknown column");
+    for (const input of [
+      { lo: 0, hi: 1, bins: 1 },
+      { lo: 0, hi: 1, bins: 41 },
+      { lo: 0, hi: 1, bins: 2.5 },
+      { lo: 2, hi: 1, bins: 8 },
+      { lo: Number.NaN, hi: 1, bins: 8 },
+      { lo: 0, hi: Number.POSITIVE_INFINITY, bins: 8 },
+    ]) {
+      expect(() => histogram({ column: "price", ...input })).toThrow(
+        "Invalid arguments",
+      );
+    }
   });
 });

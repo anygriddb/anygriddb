@@ -1,4 +1,9 @@
-import { cellText, isDecimalString } from "@anygriddb/core";
+import {
+  cellText,
+  DEFAULT_HISTOGRAM_BINS,
+  isDecimalString,
+  MAX_HISTOGRAM_BINS,
+} from "@anygriddb/core";
 
 import {
   Button,
@@ -40,7 +45,8 @@ const ChartView = lazy(() =>
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 
-type ChartStyle = "bar" | "bar_horizontal" | "line" | "area" | "pie";
+type ChartStyle =
+  "bar" | "bar_horizontal" | "line" | "area" | "pie" | "histogram";
 
 type WidgetKind = "metric" | "chart" | "view_embed";
 
@@ -393,9 +399,16 @@ function AddWidgetForm(props: {
       column.fieldType,
     ),
   );
+  // What a histogram bins: a field that reads as a number. A duration is
+  // left out: its bounds would be read as seconds.
+  const binnable = columns.filter(
+    (item) => item.kind === "number" && item.fieldType !== "duration",
+  );
   const [column, setColumn] = useState(
     numeric[0]?.name ?? columns[0]?.name ?? "",
   );
+  const [binned, setBinned] = useState(binnable[0]?.name ?? "");
+  const [bins, setBins] = useState(String(DEFAULT_HISTOGRAM_BINS));
   const [groupBy, setGroupBy] = useState(
     groupable[0]?.name ?? columns[0]?.name ?? "",
   );
@@ -417,16 +430,27 @@ function AddWidgetForm(props: {
         kind === "metric"
           ? { tableId, column, fn, ...(viewId ? { viewId } : {}) }
           : kind === "chart"
-            ? {
-                tableId,
-                groupBy,
-                chartType,
-                fn,
-                // Counting rows needs no field; any other measure reads one.
-                ...(fn === "count_all" ? {} : { column }),
-                ...(seriesBy ? { seriesBy } : {}),
-                ...(viewId ? { viewId } : {}),
-              }
+            ? chartType === "histogram"
+              ? {
+                  tableId,
+                  chartType,
+                  // The table may have changed since the field was chosen.
+                  column: binnable.some((item) => item.name === binned)
+                    ? binned
+                    : (binnable[0]?.name ?? ""),
+                  bins: Number(bins),
+                  ...(viewId ? { viewId } : {}),
+                }
+              : {
+                  tableId,
+                  groupBy,
+                  chartType,
+                  fn,
+                  // Counting rows needs no field; any other measure reads one.
+                  ...(fn === "count_all" ? {} : { column }),
+                  ...(seriesBy ? { seriesBy } : {}),
+                  ...(viewId ? { viewId } : {}),
+                }
             : { tableId, viewId };
       await trpc.dashboards.upsertWidget.mutate({
         dashboardId: props.dashboardId,
@@ -464,8 +488,9 @@ function AddWidgetForm(props: {
         />
       </div>
       <div className="flex flex-col gap-1">
-        <Label>{t`Type`}</Label>
+        <Label htmlFor="widget-kind">{t`Type`}</Label>
         <Select
+          id="widget-kind"
           value={kind}
           onChange={(event) => setKind(event.target.value as WidgetKind)}
         >
@@ -475,8 +500,9 @@ function AddWidgetForm(props: {
         </Select>
       </div>
       <div className="flex flex-col gap-1">
-        <Label>{t`Table`}</Label>
+        <Label htmlFor="widget-table">{t`Table`}</Label>
         <Select
+          id="widget-table"
           value={tableId}
           onChange={(event) => {
             setTableId(event.target.value);
@@ -492,8 +518,9 @@ function AddWidgetForm(props: {
       </div>
       {kind !== "view_embed" ? (
         <div className="flex flex-col gap-1">
-          <Label>{t`View (optional filter)`}</Label>
+          <Label htmlFor="widget-view">{t`View (optional filter)`}</Label>
           <Select
+            id="widget-view"
             value={viewId}
             onChange={(event) => setViewId(event.target.value)}
           >
@@ -507,8 +534,9 @@ function AddWidgetForm(props: {
         </div>
       ) : (
         <div className="flex flex-col gap-1">
-          <Label>{t`View`}</Label>
+          <Label htmlFor="widget-view">{t`View`}</Label>
           <Select
+            id="widget-view"
             value={viewId}
             onChange={(event) => setViewId(event.target.value)}
           >
@@ -523,8 +551,9 @@ function AddWidgetForm(props: {
       {kind === "metric" ? (
         <>
           <div className="flex flex-col gap-1">
-            <Label>{t`Field`}</Label>
+            <Label htmlFor="widget-field">{t`Field`}</Label>
             <Select
+              id="widget-field"
               value={column}
               onChange={(event) => setColumn(event.target.value)}
             >
@@ -536,8 +565,12 @@ function AddWidgetForm(props: {
             </Select>
           </div>
           <div className="flex flex-col gap-1">
-            <Label>{t`Aggregate`}</Label>
-            <Select value={fn} onChange={(event) => setFn(event.target.value)}>
+            <Label htmlFor="widget-aggregate">{t`Aggregate`}</Label>
+            <Select
+              id="widget-aggregate"
+              value={fn}
+              onChange={(event) => setFn(event.target.value)}
+            >
               <option value="count_all">{t`Row count`}</option>
               <option value="count_filled">{t`Filled`}</option>
               <option value="sum">{t`Sum`}</option>
@@ -550,68 +583,6 @@ function AddWidgetForm(props: {
       ) : null}
       {kind === "chart" ? (
         <>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="chart-measure">{t`Measure`}</Label>
-            <Select
-              id="chart-measure"
-              value={fn}
-              onChange={(event) => setFn(event.target.value)}
-            >
-              <option value="count_all">{t`Row count`}</option>
-              <option value="sum">{t`Sum`}</option>
-              <option value="avg">{t`Average`}</option>
-              <option value="min">{t`Min`}</option>
-              <option value="max">{t`Max`}</option>
-              <option value="count_filled">{t`Filled`}</option>
-            </Select>
-          </div>
-          {fn !== "count_all" ? (
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="chart-column">{t`Measured field`}</Label>
-              <Select
-                id="chart-column"
-                value={column}
-                onChange={(event) => setColumn(event.target.value)}
-              >
-                {(fn === "count_filled" ? columns : numeric).map((item) => (
-                  <option key={item.name} value={item.name}>
-                    {item.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          ) : null}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="chart-group">{t`Group by`}</Label>
-            <Select
-              id="chart-group"
-              value={groupBy}
-              onChange={(event) => setGroupBy(event.target.value)}
-            >
-              {columns.map((item) => (
-                <option key={item.name} value={item.name}>
-                  {item.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="chart-series">{t`Series (optional)`}</Label>
-            <Select
-              id="chart-series"
-              value={seriesBy}
-              onChange={(event) => setSeriesBy(event.target.value)}
-            >
-              <option value="">{t`None`}</option>
-              {columns
-                .filter((item) => item.name !== groupBy)
-                .map((item) => (
-                  <option key={item.name} value={item.name}>
-                    {item.label}
-                  </option>
-                ))}
-            </Select>
-          </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="chart-style">{t`Style`}</Label>
             <Select
@@ -626,12 +597,128 @@ function AddWidgetForm(props: {
               <option value="line">{t`Line`}</option>
               <option value="area">{t`Area`}</option>
               <option value="pie">{t`Shares of the total`}</option>
+              <option value="histogram">{t`Histogram`}</option>
             </Select>
           </div>
+          {chartType === "histogram" ? (
+            <>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="chart-binned">{t`Number field`}</Label>
+                <Select
+                  id="chart-binned"
+                  value={binned}
+                  aria-describedby="chart-binned-hint"
+                  onChange={(event) => setBinned(event.target.value)}
+                >
+                  {binnable.map((item) => (
+                    <option key={item.name} value={item.name}>
+                      {item.label}
+                    </option>
+                  ))}
+                </Select>
+                <p
+                  id="chart-binned-hint"
+                  className="text-xs text-muted-foreground"
+                >
+                  {binnable.length === 0
+                    ? t`This table has no number field to count in bins.`
+                    : t`Its rows are counted in equal bins, from the least value to the greatest.`}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="chart-bins">{t`Bins`}</Label>
+                <Input
+                  id="chart-bins"
+                  type="number"
+                  inputMode="numeric"
+                  min={2}
+                  max={MAX_HISTOGRAM_BINS}
+                  step={1}
+                  required
+                  value={bins}
+                  onChange={(event) => setBins(event.target.value)}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="chart-measure">{t`Measure`}</Label>
+                <Select
+                  id="chart-measure"
+                  value={fn}
+                  onChange={(event) => setFn(event.target.value)}
+                >
+                  <option value="count_all">{t`Row count`}</option>
+                  <option value="sum">{t`Sum`}</option>
+                  <option value="avg">{t`Average`}</option>
+                  <option value="min">{t`Min`}</option>
+                  <option value="max">{t`Max`}</option>
+                  <option value="count_filled">{t`Filled`}</option>
+                </Select>
+              </div>
+              {fn !== "count_all" ? (
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="chart-column">{t`Measured field`}</Label>
+                  <Select
+                    id="chart-column"
+                    value={column}
+                    onChange={(event) => setColumn(event.target.value)}
+                  >
+                    {(fn === "count_filled" ? columns : numeric).map((item) => (
+                      <option key={item.name} value={item.name}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ) : null}
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="chart-group">{t`Group by`}</Label>
+                <Select
+                  id="chart-group"
+                  value={groupBy}
+                  onChange={(event) => setGroupBy(event.target.value)}
+                >
+                  {columns.map((item) => (
+                    <option key={item.name} value={item.name}>
+                      {item.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="chart-series">{t`Series (optional)`}</Label>
+                <Select
+                  id="chart-series"
+                  value={seriesBy}
+                  onChange={(event) => setSeriesBy(event.target.value)}
+                >
+                  <option value="">{t`None`}</option>
+                  {columns
+                    .filter((item) => item.name !== groupBy)
+                    .map((item) => (
+                      <option key={item.name} value={item.name}>
+                        {item.label}
+                      </option>
+                    ))}
+                </Select>
+              </div>
+            </>
+          )}
         </>
       ) : null}
       <div className="flex justify-end gap-2 sm:col-span-2">
-        <Button type="submit" disabled={busy || !title.trim()}>
+        <Button
+          type="submit"
+          disabled={
+            busy ||
+            !title.trim() ||
+            (kind === "chart" &&
+              chartType === "histogram" &&
+              binnable.length === 0)
+          }
+        >
           {busy ? <Spinner /> : null}
           {t`Add`}
         </Button>

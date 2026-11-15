@@ -273,6 +273,45 @@ test("a client's rows: locked, signed, told when changed elsewhere, read from a 
     await expect(titles).toHaveText(["Total amount", "Amount by stage"]);
     expect(await accessibilityViolations(page)).toEqual([]);
 
+    // A histogram, made from the screen: the four amounts counted in two
+    // bins between the least and the greatest, each named by its bounds.
+    await page.getByRole("button", { name: "Add a widget" }).click();
+    await page.getByLabel("Title", { exact: true }).fill("Amounts");
+    await page.getByLabel("Type", { exact: true }).selectOption("chart");
+    await page.getByLabel("Style", { exact: true }).selectOption("histogram");
+    // The base's first table holds no number: the form says so, and
+    // offers nothing to add.
+    await expect(
+      page.getByText("This table has no number field to count in bins."),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Add", exact: true }),
+    ).toBeDisabled();
+    await page.getByLabel("Table", { exact: true }).selectOption(tableId);
+    // A histogram has no groups, no series and no other measure to ask.
+    await expect(page.getByLabel("Group by")).toHaveCount(0);
+    await expect(page.getByLabel("Measure", { exact: true })).toHaveCount(0);
+    await page
+      .getByLabel("Number field", { exact: true })
+      .selectOption(field("amount") ?? "");
+    await page.getByLabel("Bins", { exact: true }).fill("2");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    const amounts = page
+      .locator("article")
+      .filter({ has: page.getByRole("heading", { name: "Amounts" }) });
+    await amounts
+      .getByRole("button", { name: "Show the table of values" })
+      .click();
+    // 45.25, 80 and 300.5 below the middle, 1,200 above it.
+    await expect(amounts.getByRole("row", { name: /45 – 623/ })).toContainText(
+      "3",
+    );
+    await expect(
+      amounts.getByRole("row", { name: /623 – 1[\s ,]?200/ }),
+    ).toContainText("1");
+    expect(await accessibilityViolations(page)).toEqual([]);
+
     expect(blocked).toEqual([]);
   } finally {
     await control.query(

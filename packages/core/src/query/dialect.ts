@@ -177,6 +177,19 @@ export interface SqlDialect {
     limit: number;
     bind: Bind;
   }): string;
+  /**
+   * The place of a number in equal bins, from 0 to `bins - 1`: how many
+   * times `width` fits between `lo`, the least value, and it. A number
+   * below `lo` counts in the first bin and one past the last in the last,
+   * so the greatest value, which sits on the last line, is in the last.
+   * `lo` and `width` are numbers of the engine (`numberParam`).
+   */
+  histogramBucket(
+    value: string,
+    lo: string,
+    width: string,
+    bins: number,
+  ): string;
   /** An exact number as its text, scale and all: `14.50`. */
   exactText(sql: string): string;
   /**
@@ -598,6 +611,8 @@ export const POSTGRES: SqlDialect = {
     );
     return `select ${names.join(", ")}, to_jsonb(${value}) as "a0" from (${source}) q group by ${names.join(", ")} order by ${names.join(", ")} limit ${bind(limit)}`;
   },
+  histogramBucket: (value, lo, width, bins) =>
+    `least(${String(bins - 1)}, greatest(0, floor(((${value}) - ${lo}) / ${width})::int))`,
   exactText: (sql) => `(${sql})::text`,
   median: exactMedian,
   stddev: (sql) => `stddev_samp(${sql})`,
@@ -1195,6 +1210,8 @@ function mysqlDialect(name: "mysql" | "mariadb"): SqlDialect {
       ];
       return `select json_object(${row.join(", ")}) as "ag_row" from (select ${names.join(", ")}, ${value} as "a0" from (${source}) q group by ${names.join(", ")}) r order by ${names.join(", ")} limit ${String(Math.trunc(limit))}`;
     },
+    histogramBucket: (value, lo, width, bins) =>
+      `least(${String(bins - 1)}, greatest(0, floor(((${value}) - ${lo}) / ${width})))`,
     exactText: (sql) => `cast(${sql} as char)`,
     median: exactMedian,
     stddev: (sql) => `stddev_samp(${sql})`,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chartSeries } from "./dashboards.js";
+import { chartSeries, histogramSeries } from "./dashboards.js";
 
 const columns = [
   {
@@ -64,5 +64,41 @@ describe("chart series", () => {
       { key: "Won", series: undefined, value: null },
     ]);
     expect(result.series).toEqual([{ name: "", values: [null] }]);
+  });
+});
+
+describe("a histogram's bins", () => {
+  it("are in their order, a bin no row fell in drawn at zero", () => {
+    expect(
+      histogramSeries(
+        [
+          { bin: 3, rows: "2" },
+          { bin: "0", rows: 5 },
+        ],
+        4,
+      ),
+    ).toEqual({
+      categories: ["0", "1", "2", "3"],
+      series: [{ name: "", values: [5, 0, 0, 2] }],
+      omitted: { categories: 0, series: 0 },
+    });
+  });
+
+  it("are none without a value to count, and what is no number is left out", () => {
+    expect(histogramSeries([], 0)).toEqual({
+      categories: [],
+      series: [{ name: "", values: [] }],
+      omitted: { categories: 0, series: 0 },
+    });
+    expect(
+      histogramSeries(
+        [
+          { bin: null, rows: 4 },
+          { bin: 0, rows: "many" },
+          { bin: 0, rows: 1 },
+        ],
+        1,
+      ).series[0]?.values,
+    ).toEqual([1]);
   });
 });

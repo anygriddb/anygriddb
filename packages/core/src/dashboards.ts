@@ -1,16 +1,26 @@
 import { z } from "zod";
 import { columnNameSchema, labelSchema } from "./names";
-import { AGGREGATE_FNS } from "./query/read";
+import { AGGREGATE_FNS, MAX_HISTOGRAM_BINS } from "./query/read";
 import { descriptionSchema } from "./schemas";
 
 const DASHBOARD_WIDGET_KINDS = ["metric", "chart", "view_embed"] as const;
 /**
- * Columns, bars, a line, an area, or each group's share of the total
+ * Columns, bars, a line, an area, each group's share of the total
  * (`pie`, kept for saved charts: drawn as bars of shares, which compare
- * better than slices).
+ * better than slices), or the rows counted in equal bins of a number
+ * field (`histogram`).
  */
-const CHART_TYPES = ["bar", "bar_horizontal", "line", "area", "pie"] as const;
+const CHART_TYPES = [
+  "bar",
+  "bar_horizontal",
+  "line",
+  "area",
+  "pie",
+  "histogram",
+] as const;
 export type ChartType = (typeof CHART_TYPES)[number];
+/** The bins of a histogram that does not say how many it has. */
+export const DEFAULT_HISTOGRAM_BINS = 12;
 
 const gridInt = (max: number) => z.int().min(0).max(max);
 
@@ -27,19 +37,41 @@ const chartConfigSchema = z
   .object({
     tableId: z.uuid(),
     viewId: z.uuid().optional(),
-    groupBy: columnNameSchema,
+    /** The field whose values name the groups; a histogram has none. */
+    groupBy: columnNameSchema.optional(),
     /** A second field: one series per value, stacked or side by side. */
     seriesBy: columnNameSchema.optional(),
     chartType: z.enum(CHART_TYPES).default("bar"),
-    /** Value aggregate; defaults to counting rows per group. */
+    /**
+     * The field a measure reads; without one, rows are counted. A
+     * histogram needs it: the number field it bins.
+     */
     column: columnNameSchema.optional(),
+    /** How many equal bins a histogram has. */
+    bins: z.int().min(2).max(MAX_HISTOGRAM_BINS).optional(),
     // The median needs each group's rows again: not per group.
     fn: z
       .enum(AGGREGATE_FNS)
       .refine((fn) => fn !== "median")
       .default("count_all"),
   })
-  .strict();
+  .strict()
+  // A histogram bins one number field and counts rows: it has no groups,
+  // no series and no other measure. Every other chart groups by a field.
+  .superRefine((config, context) => {
+    const refuse = (path: string, message: string) =>
+      context.addIssue({ code: "custom", message, path: [path] });
+    if (config.chartType !== "histogram") {
+      if (!config.groupBy) refuse("groupBy", "A chart groups by a field");
+      if (config.bins !== undefined)
+        refuse("bins", "Only a histogram has bins");
+      return;
+    }
+    if (!config.column) refuse("column", "A histogram bins a field");
+    if (config.groupBy) refuse("groupBy", "A histogram has no groups");
+    if (config.seriesBy) refuse("seriesBy", "A histogram has no series");
+    if (config.fn !== "count_all") refuse("fn", "A histogram counts rows");
+  });
 
 const viewEmbedConfigSchema = z
   .object({

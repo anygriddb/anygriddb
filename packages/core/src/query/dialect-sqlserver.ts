@@ -431,6 +431,13 @@ export const SQLSERVER: SqlDialect = {
     ].join(", ");
     return `select top (${String(Math.trunc(limit))}) (select ${row} for json path, without_array_wrapper, include_null_values) as "ag_row" from (select ${names.join(", ")}, ${value} as "a0" from (${source}) q group by ${names.join(", ")}) g2 order by ${names.map((name) => `g2.${name}`).join(", ")}`;
   },
+  // LEAST and GREATEST came with SQL Server 2022: the bounds are a CASE.
+  histogramBucket: (value, lo, width, bins) => {
+    // A width too small for a DECIMAL's eighteen decimals reads as zero:
+    // no bin then, rather than a division the engine refuses.
+    const place = `floor(((${value}) - ${lo}) / nullif(${width}, 0))`;
+    return `(case when ${place} < 0 then 0 when ${place} > ${String(bins - 1)} then ${String(bins - 1)} else cast(${place} as int) end)`;
+  },
   median: exactMedian,
   stddev: (sql) => `stdev(${sql})`,
   variance: (sql) => `var(${sql})`,
