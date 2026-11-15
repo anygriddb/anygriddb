@@ -9749,7 +9749,7 @@ msgstr "Le certificat est celui fourni par l’opérateur."
 
 #: components/admin/rights-at.tsx
 msgid "The change trail no longer reaches this date (earliest kept {date}). The report cannot answer."
-msgstr "La piste des changements n'atteint plus cette date (plus ancien conservé {date}). Le rapport ne peut pas répondre."
+msgstr "La piste des changements n’atteint plus cette date (plus ancien conservé {date}). Le rapport ne peut pas répondre."
 
 #: components/admin/trails.tsx
 msgid "The change trail, as {format}"
