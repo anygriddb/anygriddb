@@ -1275,6 +1275,10 @@ msgstr "A view's rows, as {format}"
 msgid "A web address, as a link"
 msgstr "A web address, as a link"
 
+#: components/admin/logs-tab.tsx
+msgid "A word in a message, a path, or a code"
+msgstr "A word in a message, a path, or a code"
+
 #: components/admin/security-tab.tsx
 msgid "A year at least: the trash restores a deleted row from this trail. What a shorter choice deletes cannot be brought back; signatures are never deleted."
 msgstr "A year at least: the trash restores a deleted row from this trail. What a shorter choice deletes cannot be brought back; signatures are never deleted."
@@ -6676,6 +6680,10 @@ msgstr "No job with this status."
 msgid "No job yet. Imports, exports, and copies of tables and bases show here as people start them."
 msgstr "No job yet. Imports, exports, and copies of tables and bases show here as people start them."
 
+#: components/admin/logs-tab.tsx
+msgid "No line matches this search."
+msgstr "No line matches this search."
+
 #: components/admin/sign-in-trail.tsx
 msgid "No longer an administrator"
 msgstr "No longer an administrator"
@@ -8603,6 +8611,10 @@ msgstr "Search bases"
 #: components/fields/formula-help-panel.tsx
 msgid "Search functions"
 msgstr "Search functions"
+
+#: components/admin/logs-tab.tsx
+msgid "Search the lines"
+msgstr "Search the lines"
 
 #: components/table/view-toolbar.tsx
 msgid "Search this view"

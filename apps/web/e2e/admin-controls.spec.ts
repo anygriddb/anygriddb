@@ -326,6 +326,12 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await expect(
       page.getByText("instance settings changed").first(),
     ).toBeVisible();
+    await page.getByLabel("Search the lines").fill("settings changed");
+    await expect(
+      page.getByText("instance settings changed").first(),
+    ).toBeVisible();
+    await page.getByLabel("Search the lines").fill("zzzz-not-a-log-line");
+    await expect(page.getByText("No line matches this search.")).toBeVisible();
 
     // Addresses keep the section, the page, and the list's filters
     // (ROADMAP #49); a section's own address opens its first page.

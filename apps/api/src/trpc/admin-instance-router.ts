@@ -223,6 +223,7 @@ export const adminInstanceProcedures = {
       z.object({
         level: z.enum(["info", "warn", "error"]).default("warn"),
         limit: z.int().min(1).max(200).default(100),
+        query: z.string().max(200).optional(),
       }),
     )
     .query(({ ctx, input }) =>

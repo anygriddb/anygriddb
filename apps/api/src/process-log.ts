@@ -69,8 +69,15 @@ export type ProcessLog = {
   capture(chunk: string | Buffer): void;
   /** A failure that is written beside the logger (the pool, the bus). */
   rememberFailure(message: string, error: unknown): void;
-  /** Newest first, at this level and above. */
-  list(options: { level: ProcessLogLevel; limit: number }): ProcessLogLine[];
+  /**
+   * Newest first, at this level and above. A word keeps the lines that
+   * contain it, among those of the level.
+   */
+  list(options: {
+    level: ProcessLogLevel;
+    limit: number;
+    query?: string;
+  }): ProcessLogLine[];
 };
 
 /**
@@ -168,10 +175,15 @@ export function createProcessLog(limits?: {
     list(options) {
       const min =
         options.level === "error" ? 50 : options.level === "warn" ? 40 : 30;
-      const matched =
+      const needle = searchNeedle(options.query);
+      const levelled =
         min >= 40
           ? failures.stored.filter((item) => item.level >= min)
           : mergeBySeq(failures.stored, ordinary.stored);
+      const matched =
+        needle === ""
+          ? levelled
+          : levelled.filter((item) => lineText(item.line).includes(needle));
       return matched
         .slice(-options.limit)
         .reverse()
@@ -204,6 +216,50 @@ function mergeBySeq(
 
 /** The one ring of this process. */
 export const processLog = createProcessLog();
+
+/** A word as the page searches: one line, compared without case. */
+function searchNeedle(query: string | undefined): string {
+  if (query === undefined) return "";
+  return query
+    .replace(/[\r\n\u2028\u2029]+/g, " ")
+    .trim()
+    .toLowerCase()
+    .slice(0, 200);
+}
+
+/** Everything the page shows of a line, so a search finds it there. */
+function lineText(line: ProcessLogLine): string {
+  const parts = [
+    line.message,
+    line.level,
+    line.code ?? "",
+    line.status === undefined ? "" : String(line.status),
+    line.time,
+    line.request?.method ?? "",
+    line.request?.url ?? "",
+    line.request?.remoteAddress ?? "",
+  ];
+  const walk = (error: ProcessLogFailure | undefined) => {
+    if (!error) return;
+    parts.push(
+      error.type,
+      error.code ?? "",
+      error.constraint ?? "",
+      error.stack ?? "",
+    );
+    walk(error.cause);
+  };
+  walk(line.error);
+  if (line.client) {
+    parts.push(
+      line.client.kind,
+      line.client.path,
+      line.client.message ?? "",
+      line.client.stack ?? "",
+    );
+  }
+  return parts.join("\n").toLowerCase();
+}
 
 function keep(
   raw: Record<string, unknown>,

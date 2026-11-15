@@ -1,8 +1,8 @@
-import { Button, cn, Label, Select, Spinner } from "@anygriddb/ui";
+import { Button, cn, Input, Label, Select, Spinner } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTRPC } from "../../lib/trpc";
 import { LoadFailed } from "../shell/load-failed";
 
@@ -17,8 +17,21 @@ export function LogsTab() {
   const { t, i18n } = useLingui();
   const api = useTRPC();
   const [level, setLevel] = useState<Level>("warn");
+  const [text, setText] = useState("");
+  const [query, setQuery] = useState("");
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const type = (value: string) => {
+    setText(value);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setQuery(value.trim()), 250);
+  };
   const logs = useQuery({
-    ...api.admin.logs.queryOptions({ level, limit: 200 }),
+    ...api.admin.logs.queryOptions({
+      level,
+      limit: 200,
+      query: query || undefined,
+    }),
     refetchInterval: 5_000,
     placeholderData: (previous) => previous,
   });
@@ -41,6 +54,18 @@ export function LogsTab() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-2">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="process-log-search">{t`Search the lines`}</Label>
+          <Input
+            reads
+            id="process-log-search"
+            type="search"
+            className="w-64 max-w-full"
+            value={text}
+            onChange={(event) => type(event.target.value)}
+            placeholder={t`A word in a message, a path, or a code`}
+          />
+        </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="process-log-level">{t`Show`}</Label>
           <Select
@@ -105,7 +130,9 @@ export function LogsTab() {
               {logs.data.lines.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-2 py-3 text-muted-foreground">
-                    {t`Nothing at this level since the process started.`}
+                    {query
+                      ? t`No line matches this search.`
+                      : t`Nothing at this level since the process started.`}
                   </td>
                 </tr>
               ) : null}

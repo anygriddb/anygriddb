@@ -1275,6 +1275,10 @@ msgstr "Les lignes d’une vue, en {format}"
 msgid "A web address, as a link"
 msgstr "Une adresse web, en lien"
 
+#: components/admin/logs-tab.tsx
+msgid "A word in a message, a path, or a code"
+msgstr "Un mot dans un message, un chemin ou un code"
+
 #: components/admin/security-tab.tsx
 msgid "A year at least: the trash restores a deleted row from this trail. What a shorter choice deletes cannot be brought back; signatures are never deleted."
 msgstr "Un an au moins : la corbeille restaure une ligne supprimée depuis ce journal. Ce qu’un choix plus court supprime ne peut pas être récupéré ; les signatures ne sont jamais supprimées."
@@ -6676,6 +6680,10 @@ msgstr "Aucune tâche avec ce statut."
 msgid "No job yet. Imports, exports, and copies of tables and bases show here as people start them."
 msgstr "Aucune tâche pour l’instant. Les imports, les exports et les copies de tables ou de bases s’affichent ici dès qu’ils sont lancés."
 
+#: components/admin/logs-tab.tsx
+msgid "No line matches this search."
+msgstr "Aucune ligne ne correspond à cette recherche."
+
 #: components/admin/sign-in-trail.tsx
 msgid "No longer an administrator"
 msgstr "N’est plus administrateur"
@@ -8603,6 +8611,10 @@ msgstr "Rechercher des bases"
 #: components/fields/formula-help-panel.tsx
 msgid "Search functions"
 msgstr "Chercher une fonction"
+
+#: components/admin/logs-tab.tsx
+msgid "Search the lines"
+msgstr "Rechercher dans les lignes"
 
 #: components/table/view-toolbar.tsx
 msgid "Search this view"
