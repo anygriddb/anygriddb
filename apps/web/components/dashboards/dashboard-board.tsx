@@ -345,7 +345,7 @@ function DashboardEditor(props: { baseId: string; dashboardId: string }) {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 p-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
       <div className="flex flex-wrap items-center gap-3">
         <Button asChild size="icon" variant="ghost">
           <Link
