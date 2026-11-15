@@ -1079,6 +1079,10 @@ msgstr "Un champ des lignes liées"
 msgid "A file could not be attached. Add it again."
 msgstr "Un fichier n’a pas pu être joint. Ajoutez-le de nouveau."
 
+#: lib/errors.ts
+msgid "A file from that version is no longer stored"
+msgstr "Un fichier de cette version n’est plus stocké"
+
 #: components/settings/base-settings.tsx
 msgid "A file to keep elsewhere: schema, views, rows, members, and attachments, in a .zip archive. Import it again from “New base”."
 msgstr "Un fichier à garder ailleurs : schéma, vues, lignes, membres et pièces jointes, dans une archive .zip. Importez-le de nouveau depuis « Nouvelle base »."
@@ -1426,6 +1430,7 @@ msgstr "Action"
 #: components/admin/sources-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/grid/grid-view.tsx
+#: components/history/earlier.tsx
 #: components/shell/command-palette.tsx
 msgid "Actions"
 msgstr "Actions"
@@ -1440,6 +1445,7 @@ msgstr "Actions pour {widget}"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
+#: components/history/earlier.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/table/automations-dialog.tsx
 msgid "Active"
@@ -1636,6 +1642,7 @@ msgstr "L’ajout de lignes n’est pas autorisé sur cette table : un administ
 #: components/admin/logs-tab.tsx
 #: components/admin/sign-in-trail.tsx
 #: components/admin/sources-tab.tsx
+#: components/history/earlier.tsx
 msgid "Address"
 msgstr "Adresse"
 
@@ -2874,6 +2881,10 @@ msgstr "Calculé à partir d’autres champs"
 msgid "Concatenate"
 msgstr "Concaténer"
 
+#: components/history/earlier.tsx
+msgid "Configuration"
+msgstr "Configuration"
+
 #: components/admin/integrations-tab.tsx
 msgid "Configured in this page"
 msgstr "Configuré sur cette page"
@@ -3149,6 +3160,10 @@ msgstr "Créer l’adresse"
 #: components/admin/account-actions.tsx
 msgid "Create the link"
 msgstr "Créer le lien"
+
+#: components/history/earlier.tsx
+msgid "created"
+msgstr "créé"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
@@ -3541,6 +3556,7 @@ msgstr "Décrire la vue"
 #: components/admin/group-page.tsx
 #: components/admin/groups-tab.tsx
 #: components/fields/field-editor.tsx
+#: components/history/earlier.tsx
 #: components/settings/base-settings.tsx
 msgid "Description"
 msgstr "Description"
@@ -3735,6 +3751,13 @@ msgstr "Chaque ligne est une vraie ligne de votre base de données. Chaque modif
 msgid "Each sheet you keep becomes a table, its first row that holds something naming its fields. You can change the name above."
 msgstr "Chaque feuille gardée devient une table, et sa première ligne non vide nomme ses champs. Vous pouvez changer le nom ci-dessus."
 
+#: components/dashboards/dashboard-board.tsx
+#: components/history/earlier.tsx
+#: components/settings/webhooks-panel.tsx
+#: components/table/view-tabs.tsx
+msgid "Earlier"
+msgstr "Plus tôt"
+
 #: components/grid/grid-footer.tsx
 msgid "Earliest"
 msgstr "Plus ancienne"
@@ -3800,6 +3823,7 @@ msgstr "Modifier la source"
 msgid "Edit the widget"
 msgstr "Modifier le widget"
 
+#: components/history/earlier.tsx
 #: components/record/record-panel.tsx
 msgid "edited"
 msgstr "modifié"
@@ -4033,6 +4057,7 @@ msgstr "Européen (31/12/2026)"
 msgid "Event"
 msgstr "Événement"
 
+#: components/history/earlier.tsx
 #: components/settings/webhooks-panel.tsx
 #: lib/known-text.ts
 msgid "Events"
@@ -4445,6 +4470,7 @@ msgstr "Remplis"
 msgid "Filled: {filled} of {cells}"
 msgstr "Remplies : {filled} sur {cells}"
 
+#: components/history/earlier.tsx
 #: components/table/view-toolbar.tsx
 msgid "Filter"
 msgstr "Filtrer"
@@ -5605,9 +5631,11 @@ msgid "Keyboard shortcuts"
 msgstr "Raccourcis clavier"
 
 #: components/admin/support-tab.tsx
+#: components/history/earlier.tsx
 msgid "Kind"
 msgstr "Type"
 
+#: components/history/earlier.tsx
 #: components/settings/api-docs.tsx
 msgid "Label"
 msgstr "Libellé"
@@ -5834,6 +5862,10 @@ msgstr "Chargement"
 #: components/fields/attachment-preview.tsx
 msgid "Loading preview…"
 msgstr "Chargement de l’aperçu…"
+
+#: components/history/earlier.tsx
+msgid "Loading…"
+msgstr "Chargement…"
 
 #: components/admin/groups-tab.tsx
 msgid "Local"
@@ -6319,6 +6351,7 @@ msgstr "il y a N jours"
 #: components/admin/scim-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
+#: components/history/earlier.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/shell/new-table-dialog.tsx
 #: components/table/automations-dialog.tsx
@@ -6953,6 +6986,10 @@ msgstr "Notes"
 #: components/admin/logs-tab.tsx
 msgid "Nothing at this level since the process started."
 msgstr "Rien à ce niveau depuis le démarrage du processus."
+
+#: components/history/earlier.tsx
+msgid "Nothing earlier yet."
+msgstr "Rien de plus tôt pour l’instant."
 
 #: components/shell/home-page.tsx
 msgid "Nothing here yet."
@@ -7699,6 +7736,29 @@ msgstr "Purge"
 msgid "purged on {date}"
 msgstr "purge le {date}"
 
+#: components/history/earlier.tsx
+#: components/record/record-panel.tsx
+msgid "put back"
+msgstr "remis"
+
+#: components/history/earlier.tsx
+#: components/record/record-panel.tsx
+msgid "Put back"
+msgstr "Remis"
+
+#: components/record/record-panel.tsx
+msgid "Put the row back"
+msgstr "Remettre la ligne"
+
+#: components/history/earlier.tsx
+msgid "Put this back"
+msgstr "Remettre ceci"
+
+#: components/history/earlier.tsx
+#: components/record/record-panel.tsx
+msgid "Put this value back"
+msgstr "Remettre cette valeur"
+
 #: components/fields/field-editor.tsx
 msgid "QR code"
 msgstr "QR code"
@@ -8035,6 +8095,10 @@ msgstr "Retirer ses seconds facteurs"
 msgid "Remove this calendar feed?"
 msgstr "Supprimer ce flux de calendrier ?"
 
+#: components/history/earlier.tsx
+msgid "removed"
+msgstr "retiré"
+
 #: components/admin/base-admin-members.tsx
 msgid "Removed {name} from the base"
 msgstr "{name} retiré de la base"
@@ -8145,6 +8209,10 @@ msgstr "Corps de la requête"
 msgid "Request refused"
 msgstr "Requête refusée"
 
+#: components/history/earlier.tsx
+msgid "Require a reason"
+msgstr "Exiger un motif"
+
 #: components/fields/field-editor.tsx
 msgid "Require a reason for every change"
 msgstr "Exiger un motif à chaque modification"
@@ -8157,6 +8225,7 @@ msgstr "Rendre obligatoire dans chaque ligne"
 msgid "required"
 msgstr "requis"
 
+#: components/history/earlier.tsx
 #: components/views/form-files.tsx
 msgid "Required"
 msgstr "Obligatoire"
@@ -8458,6 +8527,10 @@ msgstr "Titre de la ligne"
 #: components/table/view-toolbar.tsx
 msgid "Row trash"
 msgstr "Corbeille des lignes"
+
+#: components/history/earlier.tsx
+msgid "Row values"
+msgstr "Valeurs de la ligne"
 
 #: components/table/automations-dialog.tsx
 msgid "rows"
@@ -10564,6 +10637,10 @@ msgstr "Cette base garde déjà autant de points de restauration qu’elle le pe
 msgid "This cannot be done to this account"
 msgstr "Opération impossible sur ce compte"
 
+#: lib/errors.ts
+msgid "This cannot be put back"
+msgstr "Ceci ne peut pas être remis"
+
 #: components/admin/account-actions.tsx
 msgid "This cannot be undone. Their email and factors are removed; audit history and comments stay under “Erased account”; row values in bases are kept. An active account is disabled first, in the same step."
 msgstr "Cette action est irréversible. Son email et ses facteurs sont retirés ; l’historique d’audit et les commentaires restent sous « Erased account » ; les valeurs des lignes dans les bases sont conservées. Un compte actif est d’abord désactivé, dans la même étape."
@@ -10571,6 +10648,10 @@ msgstr "Cette action est irréversible. Son email et ses facteurs sont retirés�
 #: components/settings/account-settings.tsx
 msgid "This cannot be undone. Your email and factors are removed. Comments stay under “Erased account”. Row values in bases are not wiped."
 msgstr "Cette action est irréversible. Votre e-mail et vos facteurs sont retirés. Les commentaires restent sous « Erased account ». Les valeurs des lignes dans les bases ne sont pas effacées."
+
+#: lib/errors.ts
+msgid "This changed since you opened it. The history has been read again."
+msgstr "Ceci a changé depuis l’ouverture. L’historique a été relu."
 
 #: lib/errors.ts
 msgid "This code is wrong, or works no longer"
@@ -10931,6 +11012,7 @@ msgid "Timeout"
 msgstr "Délai dépassé"
 
 #: components/dashboards/dashboard-board.tsx
+#: components/history/earlier.tsx
 #: components/table/automations-dialog.tsx
 msgid "Title"
 msgstr "Titre"
@@ -11063,6 +11145,7 @@ msgstr "Durée de conservation de la corbeille"
 msgid "Trash of {name}"
 msgstr "Corbeille de {name}"
 
+#: components/history/earlier.tsx
 #: components/table/automations-dialog.tsx
 msgid "Trigger"
 msgstr "Déclencheur"
@@ -11269,6 +11352,7 @@ msgid "Unique list"
 msgstr "Liste sans doublons"
 
 #: components/fields/field-editor.tsx
+#: components/history/earlier.tsx
 msgid "Unique values"
 msgstr "Valeurs uniques"
 
@@ -11543,6 +11627,10 @@ msgstr "Avertissement"
 #: components/admin/logs-tab.tsx
 msgid "Warnings"
 msgstr "Avertissements"
+
+#: components/history/earlier.tsx
+msgid "Watched fields"
+msgstr "Champs surveillés"
 
 #: components/settings/webhooks-panel.tsx
 msgid "Watched fields (none checked: all)"
