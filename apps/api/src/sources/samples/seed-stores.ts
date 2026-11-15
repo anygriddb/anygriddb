@@ -1,12 +1,14 @@
 /**
  * Fills the lab's stores that speak no SQL (ADR 0088) with made-up data:
- * a shop's orders, products and events, the same at every run. Started by
+ * a shop's orders, products and events in FerretDB, and its orders in
+ * OpenSearch, the same at every run. Started by
  * `scripts/lab/seed.sh --stores`.
  *
  * LAB_STORE_ROWS sets how many orders (50,000 by default); the events are
  * twice as many, so a million orders also tries what a copy refuses.
  */
 import { readFileSync } from "node:fs";
+import https from "node:https";
 import { Decimal128, Long, MongoClient, ObjectId } from "mongodb";
 
 const HOST = process.env.LAB_HOST ?? "127.0.0.1";
@@ -149,4 +151,136 @@ async function seedDocuments(): Promise<void> {
   }
 }
 
+/** One call to the lab's OpenSearch, through its TLS front, as its admin. */
+function search(
+  method: string,
+  path: string,
+  body?: string,
+  type = "application/json",
+): Promise<{ status: number; text: string }> {
+  return new Promise((resolve, reject) => {
+    const request = https.request(
+      {
+        host: HOST,
+        port: 59243,
+        method,
+        path,
+        ca: CA,
+        timeout: 60_000,
+        auth: `admin:${PASSWORD}`,
+        headers: body === undefined ? {} : { "content-type": type },
+      },
+      (response) => {
+        let text = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk: string) => {
+          text += chunk;
+        });
+        response.on("end", () => {
+          resolve({ status: response.statusCode ?? 0, text });
+        });
+      },
+    );
+    request.on("timeout", () => {
+      request.destroy(new Error("OpenSearch did not answer"));
+    });
+    request.on("error", reject);
+    request.end(body);
+  });
+}
+
+async function searchOk(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<void> {
+  const answer = await search(
+    method,
+    path,
+    body === undefined ? undefined : JSON.stringify(body),
+  );
+  if (answer.status >= 300) {
+    throw new Error(`OpenSearch ${method} ${path}: ${String(answer.status)}`);
+  }
+}
+
+async function seedSearch(): Promise<void> {
+  const random = generator(2027);
+  const count = Math.min(ORDERS, 20_000);
+  await search("DELETE", "/orders");
+  await searchOk("PUT", "/orders", {
+    mappings: {
+      properties: {
+        number: { type: "integer" },
+        status: { type: "keyword" },
+        placedAt: { type: "date" },
+        total: { type: "scaled_float", scaling_factor: 100 },
+        paid: { type: "boolean" },
+        city: { type: "keyword" },
+        tags: { type: "keyword" },
+        note: { type: "text" },
+      },
+    },
+  });
+  for (let start = 0; start < count; start += BATCH) {
+    const lines: string[] = [];
+    for (
+      let index = start;
+      index < Math.min(start + BATCH, count);
+      index += 1
+    ) {
+      lines.push(JSON.stringify({ index: { _id: `O-${String(index + 1)}` } }));
+      lines.push(
+        JSON.stringify({
+          number: index + 1,
+          status: STATUSES[Math.floor(random() * STATUSES.length)],
+          placedAt: new Date(1_735_689_600_000 + index * 20_000).toISOString(),
+          total: Math.round((10 + random() * 990) * 100) / 100,
+          paid: random() < 0.8,
+          city: CITIES[index % CITIES.length],
+          tags: TAGS.filter(() => random() < 0.3),
+          ...(random() < 0.05
+            ? { note: `Leave with the neighbour.\nOrder ${String(index + 1)}.` }
+            : {}),
+        }),
+      );
+    }
+    const answer = await search(
+      "POST",
+      "/orders/_bulk?refresh=false",
+      `${lines.join("\n")}\n`,
+      "application/x-ndjson",
+    );
+    if (answer.status >= 300 || answer.text.includes('"errors":true')) {
+      throw new Error(`OpenSearch bulk: ${String(answer.status)}`);
+    }
+  }
+  await searchOk("POST", "/orders/_refresh");
+  // The account AnyGridDB reads with: the orders, and nothing to change.
+  await searchOk("PUT", "/_plugins/_security/api/internalusers/anygriddb", {
+    password: PASSWORD,
+  });
+  await searchOk("PUT", "/_plugins/_security/api/roles/anygriddb_reader", {
+    cluster_permissions: ["cluster_composite_ops_ro", "cluster:monitor/main"],
+    index_permissions: [
+      {
+        index_patterns: ["orders"],
+        allowed_actions: [
+          "indices:data/read/*",
+          "indices:admin/mappings/get",
+          "indices:admin/get",
+          "indices:monitor/stats",
+        ],
+      },
+    ],
+  });
+  await searchOk(
+    "PUT",
+    "/_plugins/_security/api/rolesmapping/anygriddb_reader",
+    { users: ["anygriddb"] },
+  );
+  console.log(`orders index: ${String(count)} orders`);
+}
+
 await seedDocuments();
+await seedSearch();
