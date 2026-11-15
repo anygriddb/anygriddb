@@ -21,8 +21,10 @@ export ANYGRIDDB_TRUSTED_PROXIES="127.0.0.1,::1"
 
 compose=(docker compose -p anygriddb-e2e -f docker/compose.yml -f docker/compose.e2e.yml)
 
+# The journeys count the accounts they make by name: a database left by
+# the run before would hold theirs too. Each run starts on an empty one.
 cleanup() {
-  "${compose[@]}" down --remove-orphans
+  "${compose[@]}" down --volumes --remove-orphans
 }
 trap cleanup EXIT
 
