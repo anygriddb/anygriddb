@@ -36,6 +36,7 @@ import {
   systemSql,
 } from "./storage";
 import { AppError, type ErrorCode } from "../errors";
+import { numberToDecimal } from "../decimal";
 import type { SourceLimit } from "./limits";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -779,6 +780,75 @@ export function buildGroupAggregates(
       value: exact ? d.exactText(value) : value,
       kind,
       limit: Math.min(input.limit ?? MAX_GROUPS, MAX_GROUPS),
+      bind: (bound) => prepared.params.bind(bound),
+    }),
+    values: prepared.params.values,
+  };
+}
+
+/** The most bins a histogram has: as many as a chart shows categories. */
+export const MAX_HISTOGRAM_BINS = 40;
+
+/**
+ * The rows counted in equal bins of a number field, where the rows live:
+ * `k0`, a bin's place from 0, and `a0`, its rows. `lo` and `hi` are the
+ * least and the greatest value of the same rows, read before. A value on
+ * the line between two bins goes to the upper one, and the greatest to
+ * the last; rows without a value are left out. When every value is the
+ * same, they all count in the first bin.
+ */
+export function buildHistogram(
+  catalog: EngineCatalog,
+  spec: Omit<ReadSpec, "limit" | "groupBy">,
+  input: { column: string; lo: number; hi: number; bins: number },
+): ParameterizedSql {
+  if (
+    !Number.isFinite(input.lo) ||
+    !Number.isFinite(input.hi) ||
+    input.lo > input.hi ||
+    !Number.isInteger(input.bins) ||
+    input.bins < 2 ||
+    input.bins > MAX_HISTOGRAM_BINS
+  ) {
+    throw new AppError("invalid_arguments");
+  }
+  const prepared = prepare(catalog, { ...spec, limit: 1 });
+  const ref = prepared.columns.get(input.column);
+  if (!ref) throw new AppError("unknown_column", input.column);
+  if (ref.kind !== "number") throw new AppError("invalid_column");
+  const d = prepared.d;
+  // The least value and a bin's width go as decimals, each engine told
+  // they are numbers: a client engine is given text, and none can tell
+  // the type of two bound values it is asked to subtract.
+  const bound = (value: number): string => {
+    const decimal = numberToDecimal(value);
+    if (decimal === undefined) throw new AppError("invalid_arguments");
+    return d.numberParam(prepared.params.bind(decimal));
+  };
+  const place =
+    input.lo === input.hi
+      ? "0"
+      : d.histogramBucket(
+          refSql(ref.name),
+          bound(input.lo),
+          bound((input.hi - input.lo) / input.bins),
+          input.bins,
+        );
+  // The key has the shape of any other group's, so each engine's
+  // `groupAggregates` reads it.
+  const bucket = d.groupKey(place, "number");
+  const empty = emptySql(ref, d);
+  const where =
+    prepared.where.length > 0
+      ? `${prepared.where} and not (${empty})`
+      : ` where not (${empty})`;
+  return {
+    text: d.groupAggregates({
+      keys: 1,
+      source: `select ${bucket} as "k0" from ${prepared.derived}${where}`,
+      value: "count(*)",
+      kind: "number",
+      limit: input.bins,
       bind: (bound) => prepared.params.bind(bound),
     }),
     values: prepared.params.values,

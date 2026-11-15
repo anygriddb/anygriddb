@@ -2268,6 +2268,10 @@ msgstr "Avant de l’installer, vérifiez que son empreinte SHA-256 est bien cel
 msgid "Before the yearly import"
 msgstr "Avant l’import annuel"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Bins"
+msgstr "Classes"
+
 #: components/shell/new-table-dialog.tsx
 msgid "Blank table"
 msgstr "Table vide"
@@ -4737,6 +4741,10 @@ msgstr "Masquer les astuces"
 msgid "Hiring"
 msgstr "Recrutement"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Histogram"
+msgstr "Histogramme"
+
 #: components/record/record-panel.tsx
 msgid "History"
 msgstr "Historique"
@@ -5356,6 +5364,10 @@ msgstr "Son opérateur le change là où l’instance est installée. Ce qui ava
 #: components/admin/open-base.tsx
 msgid "Its owners are told now, with your name and this reason. You will read every table of the base and change nothing."
 msgstr "Ses propriétaires sont prévenus maintenant, avec votre nom et cette raison. Vous lirez chaque table de la base sans rien y modifier."
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Its rows are counted in equal bins, from the least value to the greatest."
+msgstr "Ses lignes sont comptées dans des classes égales, de la plus petite valeur à la plus grande."
 
 #: components/shell/sidebar.tsx
 msgid "Its tables stay in the base, back at the root. The folder itself is removed."
@@ -6797,6 +6809,10 @@ msgstr "Prévenir les personnes lorsqu’elles sont assignées"
 #: components/grid/grid-footer.tsx
 msgid "Number"
 msgstr "Nombre"
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Number field"
+msgstr "Champ numérique"
 
 #: components/table/automations-dialog.tsx
 msgid "Number of rows at most"
@@ -10473,6 +10489,10 @@ msgstr "Cette source n’a pas de schéma latéral : le champ est conservé dan
 msgid "This table does not exist or is not shared with you."
 msgstr "Cette table n’existe pas ou ne vous est pas partagée."
 
+#: components/dashboards/dashboard-board.tsx
+msgid "This table has no number field to count in bins."
+msgstr "Cette table n’a aucun champ numérique à compter par classes."
+
 #: lib/errors.ts
 msgid "This table has no primary key: its rows cannot be changed"
 msgstr "Cette table n’a pas de clé primaire : ses lignes ne peuvent pas être modifiées"
@@ -11069,6 +11089,10 @@ msgstr "Valeur"
 #: components/grid/grid-header.tsx
 msgid "Value required"
 msgstr "Valeur obligatoire"
+
+#: components/dashboards/chart-view.tsx
+msgid "Values"
+msgstr "Valeurs"
 
 #: components/table/automations-dialog.tsx
 msgid "Values you can use in texts:"

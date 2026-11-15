@@ -2268,6 +2268,10 @@ msgstr "Before installing it, check that its SHA-256 fingerprint is this one:"
 msgid "Before the yearly import"
 msgstr "Before the yearly import"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Bins"
+msgstr "Bins"
+
 #: components/shell/new-table-dialog.tsx
 msgid "Blank table"
 msgstr "Blank table"
@@ -4737,6 +4741,10 @@ msgstr "Hide the tips"
 msgid "Hiring"
 msgstr "Hiring"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Histogram"
+msgstr "Histogram"
+
 #: components/record/record-panel.tsx
 msgid "History"
 msgstr "History"
@@ -5356,6 +5364,10 @@ msgstr "Its operator changes it where the instance is installed. What was saved 
 #: components/admin/open-base.tsx
 msgid "Its owners are told now, with your name and this reason. You will read every table of the base and change nothing."
 msgstr "Its owners are told now, with your name and this reason. You will read every table of the base and change nothing."
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Its rows are counted in equal bins, from the least value to the greatest."
+msgstr "Its rows are counted in equal bins, from the least value to the greatest."
 
 #: components/shell/sidebar.tsx
 msgid "Its tables stay in the base, back at the root. The folder itself is removed."
@@ -6797,6 +6809,10 @@ msgstr "Notify people when they are assigned"
 #: components/grid/grid-footer.tsx
 msgid "Number"
 msgstr "Number"
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Number field"
+msgstr "Number field"
 
 #: components/table/automations-dialog.tsx
 msgid "Number of rows at most"
@@ -10473,6 +10489,10 @@ msgstr "This source has no side schema: the field is kept in AnyGridDB. A view f
 msgid "This table does not exist or is not shared with you."
 msgstr "This table does not exist or is not shared with you."
 
+#: components/dashboards/dashboard-board.tsx
+msgid "This table has no number field to count in bins."
+msgstr "This table has no number field to count in bins."
+
 #: lib/errors.ts
 msgid "This table has no primary key: its rows cannot be changed"
 msgstr "This table has no primary key: its rows cannot be changed"
@@ -11069,6 +11089,10 @@ msgstr "Value"
 #: components/grid/grid-header.tsx
 msgid "Value required"
 msgstr "Value required"
+
+#: components/dashboards/chart-view.tsx
+msgid "Values"
+msgstr "Values"
 
 #: components/table/automations-dialog.tsx
 msgid "Values you can use in texts:"

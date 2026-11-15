@@ -31,6 +31,35 @@ describe("dashboard schemas", () => {
         },
       }).success,
     ).toBe(true);
+    // A histogram bins one number field and counts rows.
+    const histogram = (config: Record<string, unknown>) =>
+      dashboardWidgetConfigSchema.safeParse({
+        kind: "chart",
+        config: { tableId: id, chartType: "histogram", ...config },
+      }).success;
+    expect(histogram({ column: "amount" })).toBe(true);
+    expect(histogram({ column: "amount", bins: 12 })).toBe(true);
+    expect(histogram({})).toBe(false);
+    expect(histogram({ column: "amount", bins: 1 })).toBe(false);
+    expect(histogram({ column: "amount", bins: 41 })).toBe(false);
+    expect(histogram({ column: "amount", groupBy: "status" })).toBe(false);
+    expect(histogram({ column: "amount", seriesBy: "status" })).toBe(false);
+    expect(histogram({ column: "amount", fn: "sum" })).toBe(false);
+    // Any other chart groups by a field, and has no bins.
+    const columns = (config: Record<string, unknown>) =>
+      dashboardWidgetConfigSchema.safeParse({
+        kind: "chart",
+        config: { tableId: id, chartType: "bar", ...config },
+      }).success;
+    expect(columns({ groupBy: "status" })).toBe(true);
+    expect(columns({})).toBe(false);
+    expect(columns({ groupBy: "status", bins: 12 })).toBe(false);
+    expect(
+      dashboardWidgetConfigSchema.safeParse({
+        kind: "chart",
+        config: { tableId: id, groupBy: "status", chartType: "scatter" },
+      }).success,
+    ).toBe(false);
     expect(
       dashboardWidgetConfigSchema.safeParse({
         kind: "view_embed",

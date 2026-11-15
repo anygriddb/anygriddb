@@ -37,9 +37,19 @@ grow, and phase 7 has the source compute their aggregates.
     few.
   - Grids are hairlines, and there is a single value axis.
   - Sums and counts stack; means and extremes stand side by side.
-- **Forms.** The forms are columns, horizontal bars, a line, an area, and
-  each group's share of the total. Shares are drawn as sorted bars,
-  which compare better than slices. Saved pie charts read that way.
+- **Forms.** The forms are columns, horizontal bars, a line, an area,
+  each group's share of the total, and a histogram. Shares are drawn as
+  sorted bars, which compare better than slices. Saved pie charts read
+  that way.
+- **A histogram counts rows in equal bins of a number field.** It has
+  no groups, no series, and no other measure.
+  - The database that holds the rows finds the least and the greatest
+    value, then counts the rows in the bins between them, in one read:
+    no row is brought back to be counted.
+  - A value on the line between two bins is in the upper one; the
+    greatest is in the last. Rows without a value are in none.
+  - The reader's page names each bin by its two bounds, in the reader's
+    language. Bins touch, since each ends where the next starts.
 - **Every value is reachable without colour or hover.**
   - A legend appears from two series.
   - Values are labelled sparingly.

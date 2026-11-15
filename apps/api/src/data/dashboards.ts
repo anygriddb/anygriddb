@@ -3,11 +3,14 @@ import {
   type AggregateItem,
   AppError,
   type Binding,
+  buildAggregates,
   buildGroupAggregates,
+  buildHistogram,
   cellText,
   type ChartType,
   type CreateDashboardInput,
   dashboardWidgetConfigSchema,
+  DEFAULT_HISTOGRAM_BINS,
   decimalToNumber,
   normalizeViewConfig,
   pruneViewConfig,
@@ -331,6 +334,11 @@ export async function widgetData(
       chartType: ChartType;
       fn: AggregateFn;
       keyTypes: { category: string | null; series: string | null };
+      /**
+       * A histogram's least and greatest value: its bins share what lies
+       * between them equally, and the reader's page names each bin.
+       */
+      bounds: { lo: number; hi: number } | null;
     } & ReturnType<typeof chartSeries>)
   | { kind: "view_embed"; tableId: string; viewId: string }
 > {
@@ -385,12 +393,6 @@ export async function widgetData(
     input.userId,
     timeZone,
   );
-  const groups = [
-    config.groupBy,
-    ...(config.seriesBy && config.seriesBy !== config.groupBy
-      ? [config.seriesBy]
-      : []),
-  ];
   // A view's filter on fields kept in AnyGridDB resolves to row ids first,
   // as in the grid (ADR 0046).
   const viewed: ReadSpec = {
@@ -403,6 +405,69 @@ export async function widgetData(
   const scoped = engine.table.external
     ? await applyControlPlaneReadSpec(deps.db, engine, viewed)
     : viewed;
+  // The client formats keys in the reader's language: a checkbox, a date.
+  const typeOf = (name: string | undefined) =>
+    engine.table.columns.find((column) => column.name === name)?.fieldType ??
+    null;
+
+  if (config.chartType === "histogram") {
+    const column = config.column;
+    if (!column) throw new AppError("invalid_arguments");
+    const bins = config.bins ?? DEFAULT_HISTOGRAM_BINS;
+    // The least and the greatest value, then the bins between them, read
+    // in one transaction: a row written meanwhile is in both or neither.
+    const found =
+      scoped === null
+        ? null
+        : await readTransaction(deps.db, engine, async (run) => {
+            const { limit: _limit, ...within } = scoped;
+            const [edges] = await run(
+              buildAggregates(engine, within, [
+                { column, fn: "min" },
+                { column, fn: "max" },
+              ]),
+            );
+            const lo = decimalToNumber(edges?.a0);
+            const hi = decimalToNumber(edges?.a1);
+            // No value at all, or one past what a chart's axis holds.
+            if (
+              lo === undefined ||
+              hi === undefined ||
+              !Number.isFinite(lo) ||
+              !Number.isFinite(hi)
+            ) {
+              return null;
+            }
+            return {
+              lo,
+              hi,
+              rows: await run(
+                buildHistogram(engine, within, { column, lo, hi, bins }),
+              ),
+            };
+          });
+    return {
+      kind: "chart",
+      chartType: "histogram",
+      fn: "count_all",
+      keyTypes: { category: typeOf(column), series: null },
+      bounds: found ? { lo: found.lo, hi: found.hi } : null,
+      ...histogramSeries(
+        found?.rows.map((row) => ({ bin: row.k0, rows: row.a0 })) ?? [],
+        // Every value the same: one bin holds them all.
+        found ? (found.lo === found.hi ? 1 : bins) : 0,
+      ),
+    };
+  }
+
+  const groupBy = config.groupBy;
+  if (!groupBy) throw new AppError("invalid_arguments");
+  const groups = [
+    groupBy,
+    ...(config.seriesBy && config.seriesBy !== groupBy
+      ? [config.seriesBy]
+      : []),
+  ];
   // Computed by the engine the rows live in (ADR 0005): one aggregate per
   // group, not the rows themselves.
   const rows =
@@ -413,31 +478,52 @@ export async function widgetData(
           return run(
             buildGroupAggregates(engine, within, {
               groups,
-              item: { column: config.column ?? config.groupBy, fn: config.fn },
+              item: { column: config.column ?? groupBy, fn: config.fn },
             }),
           );
         });
-  // The client formats keys in the reader's language: a checkbox, a date.
-  const typeOf = (name: string | undefined) =>
-    engine.table.columns.find((column) => column.name === name)?.fieldType ??
-    null;
   return {
     kind: "chart",
     chartType: config.chartType,
     fn: config.fn,
     keyTypes: {
-      category: typeOf(config.groupBy),
+      category: typeOf(groupBy),
       series: groups.length > 1 ? typeOf(config.seriesBy) : null,
     },
+    bounds: null,
     ...chartSeries(
       engine.table.columns,
-      config,
+      { groupBy, seriesBy: config.seriesBy, fn: config.fn },
       rows.map((row) => ({
         key: row.k0,
         series: groups.length > 1 ? row.k1 : undefined,
         value: row.a0,
       })),
     ),
+  };
+}
+
+/**
+ * A histogram's bins in their order, each named by its place from 0, with
+ * the rows the database counted in it: a bin no row fell in holds none,
+ * and draws at zero, which is what it says.
+ */
+export function histogramSeries(
+  rows: ReadonlyArray<{ bin: unknown; rows: unknown }>,
+  bins: number,
+): ReturnType<typeof chartSeries> {
+  const counted = new Map<number, number>();
+  for (const row of rows) {
+    const bin = decimalToNumber(row.bin);
+    const count = decimalToNumber(row.rows);
+    if (bin === undefined || count === undefined) continue;
+    counted.set(bin, (counted.get(bin) ?? 0) + count);
+  }
+  const places = Array.from({ length: bins }, (_, index) => index);
+  return {
+    categories: places.map(String),
+    series: [{ name: "", values: places.map((bin) => counted.get(bin) ?? 0) }],
+    omitted: { categories: 0, series: 0 },
   };
 }
 

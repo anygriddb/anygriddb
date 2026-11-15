@@ -436,6 +436,8 @@ export const ORACLE: SqlDialect = {
     ];
     return `select json_object(${row.join(", ")} returning clob) as "ag_row" from (select ${names.join(", ")}, ${value} as "a0" from (${source}) q group by ${names.join(", ")}) g2 order by ${names.map((name) => `g2.${name}`).join(", ")} fetch first ${String(Math.trunc(limit))} rows only`;
   },
+  histogramBucket: (value, lo, width, bins) =>
+    `least(${String(bins - 1)}, greatest(0, floor(((${value}) - ${lo}) / ${width})))`,
   // MEDIAN is exact on NUMBER, and an aggregate: Oracle takes no scalar
   // subquery beside COUNT(*) in a query without GROUP BY (ORA-00937).
   median: (sql) => `median(${sql})`,

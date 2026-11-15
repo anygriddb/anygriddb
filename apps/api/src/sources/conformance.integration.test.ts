@@ -13,13 +13,16 @@
 import { randomBytes } from "node:crypto";
 import {
   AppError,
+  buildAggregates,
   buildGroupAggregates,
+  buildHistogram,
+  decimalToNumber,
   describeColumns,
   type EngineCatalog,
   type FilterGroup,
 } from "@anygriddb/core";
 import { keyRing } from "../auth/key-ring.js";
-import { chartSeries } from "../data/dashboards.js";
+import { chartSeries, histogramSeries } from "../data/dashboards.js";
 import { importIntoTable, rowsSource } from "../data/import-commit.js";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -3338,12 +3341,43 @@ describe("conformance of formulas across engines", () => {
           })),
         );
       };
+      // A histogram, as the server reads one: the least and the greatest
+      // value, then the rows counted in the bins between them.
+      const histogram = async (column: string, bins: number) =>
+        readTransaction(db, catalog, async (run) => {
+          const [edges] = await run(
+            buildAggregates(catalog, { timeZone: "UTC" }, [
+              { column, fn: "min" },
+              { column, fn: "max" },
+            ]),
+          );
+          const lo = decimalToNumber(edges?.a0) ?? Number.NaN;
+          const hi = decimalToNumber(edges?.a1) ?? Number.NaN;
+          const rows = await run(
+            buildHistogram(
+              catalog,
+              { timeZone: "UTC" },
+              { column, lo, hi, bins },
+            ),
+          );
+          return {
+            lo,
+            hi,
+            ...histogramSeries(
+              rows.map((row) => ({ bin: row.k0, rows: row.a0 })),
+              bins,
+            ),
+          };
+        });
       traces.set(engine, [
         await chart([field("b")], field("n"), "sum"),
         await chart([field("b"), field("t")], field("n"), "sum"),
         await chart([field("d")], field("id"), "count_all"),
         await chart([field("t")], field("m"), "avg"),
         await chart([field("b")], field("i"), "max"),
+        await histogram(field("m"), 4),
+        await histogram(field("i"), 2),
+        await histogram(field("n"), 40),
       ]);
     }
     const reference = traces.get("postgres");
@@ -3356,6 +3390,25 @@ describe("conformance of formulas across engines", () => {
     expect(reference?.[1]).toMatchObject({
       categories: ["(vide)", "false", "true"],
     });
+    // m holds -2.5, 0 and 3: four bins of 1.375, the greatest in the last,
+    // and a bin no row fell in. The row without a value is in none.
+    expect(reference?.[5]).toEqual({
+      lo: -2.5,
+      hi: 3,
+      categories: ["0", "1", "2", "3"],
+      series: [{ name: "", values: [1, 1, 0, 1] }],
+      omitted: { categories: 0, series: 0 },
+    });
+    expect(reference?.[6]).toMatchObject({
+      lo: -4,
+      hi: 3,
+      series: [{ name: "", values: [1, 1] }],
+    });
+    // The most bins a chart takes, over a million: the two ends hold a row.
+    expect(
+      (reference?.[7] as { series: Array<{ values: number[] }> }).series[0]
+        ?.values,
+    ).toEqual([1, ...Array.from({ length: 38 }, () => 0), 1]);
     for (const engine of ["mysql", "mariadb", "sqlserver", "oracle"] as const) {
       expect(asRead(engine, traces.get(engine)), engine).toEqual(
         asRead(engine, reference),

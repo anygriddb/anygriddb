@@ -17,6 +17,7 @@ import { SVGRenderer } from "echarts/renderers";
 import type { EChartsCoreOption } from "echarts/core";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
+import { binLabels } from "./histogram-bins";
 import {
   useEffect,
   useMemo,
@@ -36,13 +37,15 @@ echarts.use([
 ]);
 
 type ChartData = {
-  chartType: "bar" | "bar_horizontal" | "line" | "area" | "pie";
+  chartType: "bar" | "bar_horizontal" | "line" | "area" | "pie" | "histogram";
   fn: string;
   /** The grouped fields' types: their keys read in the reader's language. */
   keyTypes: { category: string | null; series: string | null };
   categories: string[];
   series: Array<{ name: string; values: Array<number | null> }>;
   omitted: { categories: number; series: number };
+  /** A histogram's least and greatest value: its bins lie between them. */
+  bounds?: { lo: number; hi: number } | null;
 };
 
 /** Aggregates that add up: their series stack. */
@@ -154,16 +157,25 @@ export function ChartView(props: { data: ChartData; title: string }) {
   const data = useMemo(() => {
     const named: ChartData = {
       ...props.data,
-      categories: props.data.categories.map((key) =>
-        keyLabel(key, props.data.keyTypes.category),
-      ),
+      // A histogram's bins are named here, by their bounds, in the
+      // reader's language: the server gives their places and the bounds.
+      categories:
+        props.data.chartType === "histogram" && props.data.bounds
+          ? binLabels(
+              props.data.bounds,
+              props.data.categories.length,
+              i18n.locale,
+            )
+          : props.data.categories.map((key) =>
+              keyLabel(key, props.data.keyTypes.category),
+            ),
       series: props.data.series.map((item) => ({
         ...item,
         name: keyLabel(item.name, props.data.keyTypes.series),
       })),
     };
     return pie ? shares(named) : named;
-  }, [pie, props.data, keyLabel]);
+  }, [pie, props.data, keyLabel, i18n.locale]);
   const percent = pie || PERCENT.has(props.data.fn);
   const format = useMemo(() => {
     const plain = new Intl.NumberFormat(i18n.locale, {
@@ -222,7 +234,9 @@ export function ChartView(props: { data: ChartData; title: string }) {
             <thead className="sticky top-0 bg-card">
               <tr>
                 <th scope="col" className="py-1 pr-2 font-medium">
-                  {t`Category`}
+                  {props.data.chartType === "histogram"
+                    ? t`Values`
+                    : t`Category`}
                 </th>
                 {data.series.map((item) => (
                   <th
@@ -297,6 +311,7 @@ function option(
   const horizontal =
     data.chartType === "bar_horizontal" || data.chartType === "pie";
   const line = data.chartType === "line" || data.chartType === "area";
+  const histogram = data.chartType === "histogram";
   const many = data.series.length > 1;
   const text = { color: colors.muted, fontSize: 11 };
   const categoryAxis = {
@@ -304,7 +319,12 @@ function option(
     data: data.categories,
     axisLine: { lineStyle: { color: colors.grid } },
     axisTick: { show: false },
-    axisLabel: { ...text, hideOverlap: true },
+    axisLabel: {
+      ...text,
+      hideOverlap: true,
+      // A bin's name is two numbers: past a few bins they lean to fit.
+      ...(histogram && data.categories.length > 8 ? { rotate: 35 } : {}),
+    },
     ...(horizontal ? { inverse: true } : {}),
   };
   const valueAxis = {
@@ -395,7 +415,9 @@ function option(
         type: "bar",
         name: item.name,
         data: item.values,
-        barMaxWidth: 24,
+        // A histogram's bins touch, since each ends where the next
+        // starts; any other bar is 24 px at most.
+        ...(histogram ? { barCategoryGap: "4%" } : { barMaxWidth: 24 }),
         ...(stacked && many ? { stack: "total" } : {}),
         // The 2 px surface gap between touching marks; the data end rounds.
         itemStyle: {
