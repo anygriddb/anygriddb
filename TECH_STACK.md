@@ -52,6 +52,7 @@ what comes next is in the [roadmap](ROADMAP.md#next).
 | Compression        | `@fastify/compress`: answers in Brotli or gzip; built files compressed at build time                                 | MIT                |
 | Spreadsheets       | `exceljs`: XLSX import (streamed) and export                                                                         | MIT                |
 | Formula editor     | CodeMirror 6 on the shared parser: completion, inline errors; loaded with a formula                                  | MIT                |
+| Script editor      | CodeMirror 6 with its JavaScript grammar: colours, line numbers, indentation; loaded with a script                   | MIT                |
 | Charts             | Apache ECharts 6, SVG renderer, loaded with the dashboards only (ADR 0035)                                           | Apache-2.0         |
 | Metrics            | `@prometheus-io/client` 0.16: `/metrics` for the operator's token only (ADR 0018)                                    | Apache-2.0         |
 | Traces             | OpenTelemetry 3.0, loaded only when a collector is named (ADR 0018)                                                  | Apache-2.0         |

@@ -16,7 +16,8 @@ first.
   script runs apart from the instance, with no network and no file, and
   is stopped after 10 seconds or at 64 MiB of memory. Scripts are off
   until an administrator allows them, in Administration under Security
-  (ADR 0099).
+  (ADR 0099). A script is written in an editor that colours it, numbers
+  its lines, and indents a new line as the one before.
 - A script calls a public HTTPS address with `fetch`: the instance makes
   the call, as it does a webhook's. An automation keeps the secrets its
   scripts send, each for one host; a secret is typed once, never shown
