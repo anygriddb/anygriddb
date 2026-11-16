@@ -700,8 +700,8 @@ msgid "{name} API"
 msgstr "API de {name}"
 
 #: components/oauth/consent-page.tsx
-msgid "{name} asks to reach bases you choose, through the API and MCP."
-msgstr "{name} demande à atteindre des bases que vous choisissez, par l’API et MCP."
+msgid "{name} asks to reach bases you choose, through the API and MCP. Your answer is sent to {host}."
+msgstr "{name} demande à atteindre des bases que vous choisissez, par l’API et MCP. Votre réponse est envoyée à {host}."
 
 #: components/shell/base-activity.tsx
 msgid "{name} changed {fields} of “{row}” in {table}"
@@ -11563,6 +11563,10 @@ msgstr "Ce lien est incomplet. Rouvrez-le depuis l’application."
 #: lib/errors.ts
 msgid "This link is locked after too many wrong passwords. Try again later."
 msgstr "Ce lien est verrouillé après trop de mots de passe incorrects. Réessayez plus tard."
+
+#: components/oauth/consent-page.tsx
+msgid "This link names an address the application did not register. Open it again from the application."
+msgstr "Ce lien nomme une adresse que l’application n’a pas enregistrée. Rouvrez-le depuis l’application."
 
 #: lib/errors.ts
 msgid "This link no longer works: ask for a new one"
