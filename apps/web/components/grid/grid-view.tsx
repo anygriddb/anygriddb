@@ -463,6 +463,7 @@ export function GridView(props: GridProps) {
   }
 
   async function applyFill(to: number) {
+    const held = selection.getState();
     const range = selection.getRange();
     if (!range) return;
     const count = to - range.r2;
@@ -503,7 +504,8 @@ export function GridView(props: GridProps) {
       });
     }
     if (updates.length > 0) await table.updateCells(updates);
-    selection.update({
+    // The range grows over what it filled.
+    selection.updateIfStill(held, {
       anchor: { r: range.r1, c: range.c1 },
       active: { r: range.r2 + count, c: range.c2 },
     });
@@ -666,7 +668,8 @@ export function GridView(props: GridProps) {
   }
 
   async function onPaste(event: ClipboardEvent<HTMLDivElement>) {
-    const { active, editing } = selection.getState();
+    const held = selection.getState();
+    const { active, editing } = held;
     const range = selection.getRange();
     if (editing || !active || !props.canEdit) return;
     event.preventDefault();
@@ -722,7 +725,8 @@ export function GridView(props: GridProps) {
         }),
       );
     }
-    selection.update({
+    // What was pasted becomes the selection.
+    selection.updateIfStill(held, {
       anchor: start,
       active: {
         r: start.r + Math.max(matrix.length, 1) - 1,

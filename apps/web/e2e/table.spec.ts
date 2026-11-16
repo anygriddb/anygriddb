@@ -553,23 +553,53 @@ test.describe("the grid", () => {
     await expect(notes).toHaveText(["n1", "n1", "n1", "1", "2", "30"]);
 
     // The range's corner, dragged down, carries its series on.
+    const dragCornerTo = async (row: number) => {
+      const corner = await grid.locator(".cursor-ns-resize").boundingBox();
+      const last = await amounts.nth(row).boundingBox();
+      if (!corner || !last) throw new Error("the range has no corner to drag");
+      await page.mouse.move(
+        corner.x + corner.width / 2,
+        corner.y + corner.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(last.x + last.width / 2, last.y + last.height / 2, {
+        steps: 8,
+      });
+      await page.mouse.up();
+    };
     await amounts.first().click();
     await page.keyboard.press("Shift+ArrowDown");
-    const corner = await grid.locator(".cursor-ns-resize").boundingBox();
-    const last = await amounts.nth(3).boundingBox();
-    if (!corner || !last) throw new Error("the range has no corner to drag");
-    await page.mouse.move(
-      corner.x + corner.width / 2,
-      corner.y + corner.height / 2,
-    );
-    await page.mouse.down();
-    await page.mouse.move(last.x + last.width / 2, last.y + last.height / 2, {
-      steps: 8,
-    });
-    await page.mouse.up();
+    await dragCornerTo(3);
     await expect(amounts).toHaveText(["1", "2", "3", "4", "", ""]);
     // The range grows over what it filled, once that is saved.
     await expect(selected).toHaveCount(4);
+
+    // A cell chosen while a fill is being saved stays chosen: the save,
+    // held here until the cell is clicked, does not take the selection
+    // back when it ends.
+    let letThrough: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      letThrough = resolve;
+    });
+    const isUpdate = (url: URL) => url.pathname.includes("rows.updateMany");
+    await page.route(isUpdate, async (route) => {
+      await held;
+      await route.continue();
+    });
+    await amounts.nth(2).click();
+    await page.keyboard.press("Shift+ArrowDown");
+    await dragCornerTo(5);
+    await expect(amounts).toHaveText(["1", "2", "3", "4", "5", "6"]);
+    await names.first().click();
+    const written = saved();
+    letThrough();
+    await written;
+    await page.unroute(isUpdate);
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(resolve)),
+    );
+    await expect(selected).toHaveCount(1);
+    await expect(selected).toHaveAccessibleName("Name: One");
 
     // Ctrl A takes every cell; Escape gives the range up.
     await page.keyboard.press("Control+a");
