@@ -31,7 +31,10 @@ here was tried on a stack of its own before it was written down.
 ## Install
 
 Install a release, never `main`: each release is a Git tag `vX.Y.Z`
-(ADR 0048). Prefer the published image, pinned by version and digest:
+(ADR 0048). No release is published yet: until the first one, build
+from a checkout of `main` as the README's quick start shows, and expect
+changes that a release would announce. Once there is one, prefer the
+published image, pinned by version and digest:
 
 ```sh
 version=X.Y.Z   # the release to install, from GitHub Releases
@@ -41,8 +44,9 @@ curl -fsSLO "$files/compose.yml"
 curl -fsSLO "$files/compose.release.yml"
 curl -fsSL -o .env "$files/.env.example"
 curl -fsSLO "https://github.com/anygriddb/anygriddb/releases/download/v$version/image-pin.env"
-# In .env: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, PUBLIC_URL, and
-AUTH_ENCRYPTION_KEY="$(openssl rand -base64 32)"   # keep it safe, apart
+# In .env, before the first start: POSTGRES_USER, POSTGRES_PASSWORD,
+# POSTGRES_DB, PUBLIC_URL, and AUTH_ENCRYPTION_KEY, which is what
+# `openssl rand -base64 32` prints. Keep that key safe, apart.
 docker compose -f compose.yml -f compose.release.yml \
   --env-file .env --env-file image-pin.env up -d
 ```
@@ -95,8 +99,9 @@ To build from a checkout instead:
 git checkout "$(git tag --list 'v*' --sort=-v:refname | head -n 1)"   # the latest release
 cd docker
 cp .env.example .env
-# In .env: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, PUBLIC_URL, and
-AUTH_ENCRYPTION_KEY="$(openssl rand -base64 32)"   # keep it safe, apart
+# In .env, before the first start: POSTGRES_USER, POSTGRES_PASSWORD,
+# POSTGRES_DB, PUBLIC_URL, and AUTH_ENCRYPTION_KEY, which is what
+# `openssl rand -base64 32` prints. Keep that key safe, apart.
 ../scripts/build-image.sh
 docker compose up -d
 ```
