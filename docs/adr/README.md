@@ -106,7 +106,8 @@ accepted as the work they decide was done; each carries its own date.
 | [0091](0091-acting-as.md)                            | An administrator acts with another person's rights, and signs the change                | Accepted                                                   |
 | [0092](0092-notifications-from-administration.md)    | Notification channels configured in Administration, off until an administrator adds one | Accepted (amends 0018 and 0050)                            |
 | [0093](0093-table-open-trail.md)                     | Opens of a table on the change trail, opt-in per table                                  | Accepted                                                   |
-| [0094](0094-oauth-for-applications.md)               | OAuth for applications: auth code + PKCE, grants as API tokens                          | Accepted                                                   |
+| [0094](0094-oauth-for-applications.md)               | OAuth for applications: auth code + PKCE, grants as API tokens                          | Accepted; amended by 0098                                  |
 | [0095](0095-guesses-take-turns.md)                   | Guesses at an account take turns, and a request carries one                             | Accepted (completes 0043)                                  |
 | [0096](0096-license-shown-and-shipped.md)            | The app shows its license, and ships its libraries' licenses                            | Accepted                                                   |
 | [0097](0097-records-brought-up-to-date.md)           | What seven earlier records say that is no longer so                                     | Accepted (amends 0004, 0005, 0010, 0014, 0017, 0018, 0019) |
+| [0098](0098-oauth-discovery-and-client-proof.md)     | An application finds the grant's addresses, and proves itself by header or body         | Accepted (amends 0094)                                     |

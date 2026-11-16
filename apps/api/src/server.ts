@@ -49,6 +49,7 @@ import {
 import type { Env } from "./env.js";
 import type { FileStore } from "./files/index.js";
 import {
+  acceptFormBodies,
   applyApiSecurityHeaders,
   foreignSessionWrite,
   logFailure,
@@ -224,17 +225,7 @@ export async function createApp(deps: {
     stopHeartbeat();
   });
 
-  app.addContentTypeParser(
-    "application/x-www-form-urlencoded",
-    { parseAs: "string" },
-    (_request, body, done) => {
-      try {
-        done(null, Object.fromEntries(new URLSearchParams(String(body))));
-      } catch (error) {
-        done(error as Error, undefined);
-      }
-    },
-  );
+  acceptFormBodies(app);
   const queue = await startQueue({
     connectionString: deps.env.DATABASE_URL,
     groups: taskGroups({
@@ -433,7 +424,7 @@ export async function createApp(deps: {
     publicUrl: deps.env.PUBLIC_URL,
   });
   registerScim(app, { db: deps.db, publicUrl: deps.env.PUBLIC_URL });
-  registerOauth(app, { db: deps.db });
+  registerOauth(app, { db: deps.db, publicUrl: deps.env.PUBLIC_URL });
   registerAdminApi(app, {
     db: deps.db,
     env: deps.env,
