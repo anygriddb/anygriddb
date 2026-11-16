@@ -11870,6 +11870,10 @@ msgstr "Trop long pour cette instance. Nombre de jours maximal"
 msgid "Too long to draw as a QR code"
 msgstr "Trop long pour être dessiné en QR code"
 
+#: lib/errors.ts
+msgid "Too many attempts at once. Wait a moment, then try again."
+msgstr "Trop de tentatives en même temps. Attendez un instant, puis réessayez."
+
 #: components/admin/admin-overview.tsx
 msgid "Too many failed sign-ins. They wait for the lock to end, or for you to unlock them."
 msgstr "Trop de connexions manquées. Ils attendent la fin du verrouillage, ou que vous les déverrouilliez."

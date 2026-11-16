@@ -11870,6 +11870,10 @@ msgstr "Too long for this instance. Most days allowed"
 msgid "Too long to draw as a QR code"
 msgstr "Too long to draw as a QR code"
 
+#: lib/errors.ts
+msgid "Too many attempts at once. Wait a moment, then try again."
+msgstr "Too many attempts at once. Wait a moment, then try again."
+
 #: components/admin/admin-overview.tsx
 msgid "Too many failed sign-ins. They wait for the lock to end, or for you to unlock them."
 msgstr "Too many failed sign-ins. They wait for the lock to end, or for you to unlock them."

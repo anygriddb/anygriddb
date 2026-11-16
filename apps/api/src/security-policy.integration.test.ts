@@ -227,6 +227,26 @@ describe("the security policy", () => {
       ]);
     });
 
+    it("compares no more guesses than the policy allows when they are sent together", async () => {
+      await policy({ lockoutThreshold: 3, lockoutMinutes: 15 });
+      const target = await account("Bo");
+      const results = await Promise.all(
+        Array.from({ length: 12 }, (_, index) =>
+          signIn(target.email, `wrong password ${String(index)}`).then(
+            (attempt) => attempt.result,
+          ),
+        ),
+      );
+      const count = (result: string) =>
+        results.filter((item) => item === result).length;
+      // Three are compared, and the third locks; the two that waited
+      // behind them find the lock; the others were not taken at all.
+      expect(count("invalid_credentials")).toBe(3);
+      expect(count("account_locked")).toBe(2);
+      expect(count("too_many_attempts")).toBe(7);
+      expect((await signIn(target.email)).result).toBe("account_locked");
+    });
+
     it("lets the lock run out, by the policy in force", async () => {
       const target = await account("Ray");
       for (let attempt = 0; attempt < 3; attempt += 1) {

@@ -21,6 +21,8 @@ export const ERRORS = {
   mfa_enrollment_required: [403, "MFA enrollment required"],
   account_disabled: [403, "Account disabled"],
   account_locked: [403, "Account locked"],
+  /** Guesses about one account take turns; past a few waiting, one is refused. */
+  too_many_attempts: [429, "Too many attempts at once"],
   fresh_sign_in_required: [403, "A recent sign-in is required"],
   step_up_required: [403, "Confirm your password or second factor again"],
   signup_closed: [403, "Signup closed"],
