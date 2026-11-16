@@ -36,4 +36,21 @@ describe("grid selection", () => {
     // The range runs from the active cell alone without an anchor.
     expect(selection.getRange()).toEqual({ r1: 0, c1: 0, r2: 0, c2: 0 });
   });
+
+  it("leaves alone what was chosen while a save lasted", () => {
+    const selection = new GridSelection();
+    selection.update({ active: { r: 0, c: 0 } });
+    // Nothing moved since the save began: what it selects is taken.
+    const untouched = selection.getState();
+    selection.updateIfStill(untouched, {
+      anchor: { r: 0, c: 0 },
+      active: { r: 2, c: 0 },
+    });
+    expect(selection.getRange()).toEqual({ r1: 0, c1: 0, r2: 2, c2: 0 });
+    // Another cell was chosen meanwhile: it stays.
+    const before = selection.getState();
+    selection.update({ anchor: null, active: { r: 5, c: 1 } });
+    selection.updateIfStill(before, { active: { r: 9, c: 9 } });
+    expect(selection.getState().active).toEqual({ r: 5, c: 1 });
+  });
 });

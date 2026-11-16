@@ -78,6 +78,15 @@ export class GridSelection {
     for (const listener of this.listeners) listener();
   }
 
+  /**
+   * Updates the selection only while it is still `held`, the state read
+   * before a save began: what a fill or a paste selects once it is saved
+   * must not replace what the person chose while it was being saved.
+   */
+  updateIfStill(held: SelectionState, patch: Partial<SelectionState>): void {
+    if (this.state === held) this.update(patch);
+  }
+
   /** The flags of the cell at row position `r`, column `c`. */
   flags(r: number, c: number): number {
     const { active, editing, fillTo } = this.state;

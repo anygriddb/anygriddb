@@ -34,6 +34,9 @@ first.
   where the first two did nothing and the trash refused. An undo or a
   redo that cannot be done says why.
 - In the row trash, each box is named by its row for a screen reader.
+- A cell chosen while a fill or a paste is being saved stays chosen:
+  the selection no longer jumps back to what was filled or pasted when
+  the save ends.
 
 ## 0.1.0 - 2026-11-16
 
