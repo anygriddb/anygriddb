@@ -5,6 +5,7 @@ import {
   labelSchema,
   revokeApiTokenInputSchema,
 } from "@anygriddb/core";
+import { previewOauthClient } from "../oauth/clients.js";
 import { issueAuthorizationCode } from "../oauth/flow.js";
 import { isCodeChallenge } from "../oauth/pkce.js";
 import { TRPCError } from "@trpc/server";
@@ -1188,6 +1189,13 @@ export const authRouter = t.router({
       } catch (error) {
         mapProcedureError(error, ctx.req.log);
       }
+    }),
+  /** A live client's name and redirect URIs for the consent page. */
+  oauthClient: procedure
+    .input(z.object({ clientId: z.string().trim().min(1).max(200) }).strict())
+    .query(async ({ ctx, input }) => {
+      await requireUser(ctx);
+      return previewOauthClient(ctx.db, input.clientId);
     }),
   /**
    * Consent for an OAuth client (ADR 0094): issues a one-time code the

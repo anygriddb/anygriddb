@@ -118,6 +118,16 @@ export async function revokeOauthClient(
   });
 }
 
+/** A live client's public name for the consent page. */
+export async function previewOauthClient(
+  db: Database,
+  clientId: string,
+): Promise<{ name: string; redirectUris: string[] } | null> {
+  const client = await findLiveOauthClient(db, clientId);
+  if (!client) return null;
+  return { name: client.name, redirectUris: client.redirectUris };
+}
+
 /** A live client by its public client_id, or null. */
 export async function findLiveOauthClient(
   db: Database,

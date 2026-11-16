@@ -699,6 +699,10 @@ msgstr "{name} answers (version {version})"
 msgid "{name} API"
 msgstr "{name} API"
 
+#: components/oauth/consent-page.tsx
+msgid "{name} asks to reach bases you choose, through the API and MCP."
+msgstr "{name} asks to reach bases you choose, through the API and MCP."
+
 #: components/shell/base-activity.tsx
 msgid "{name} changed {fields} of “{row}” in {table}"
 msgstr "{name} changed {fields} of “{row}” in {table}"
@@ -1942,6 +1946,14 @@ msgstr "All their sessions"
 msgid "All true"
 msgstr "All true"
 
+#: components/oauth/consent-page.tsx
+msgid "Allow"
+msgstr "Allow"
+
+#: components/oauth/consent-page.tsx
+msgid "Allow access"
+msgstr "Allow access"
+
 #: components/admin/health-tab.tsx
 msgid "Allow checking GitHub for a newer release (off by default)"
 msgstr "Allow checking GitHub for a newer release (off by default)"
@@ -2050,6 +2062,10 @@ msgstr "An administrator's second factor is an authenticator app or a passkey, n
 #: components/admin/security-tab.tsx
 msgid "An API token lives at most"
 msgstr "An API token lives at most"
+
+#: components/admin/oauth-clients-tab.tsx
+msgid "An application asks a person for access to bases they choose, then calls the API and MCP with a token. Register it here with the addresses it may send the person back to."
+msgstr "An application asks a person for access to bases they choose, then calls the API and MCP with a token. Register it here with the addresses it may send the person back to."
 
 #: components/settings/second-factor.tsx
 msgid "An authenticator app is set up."
@@ -2207,6 +2223,11 @@ msgstr "API tokens and public links"
 #: components/admin/auth-labels.ts
 msgid "API tokens revoked"
 msgstr "API tokens revoked"
+
+#: components/admin/admin-sections.ts
+#: components/admin/oauth-clients-tab.tsx
+msgid "Applications"
+msgstr "Applications"
 
 #: components/table/view-toolbar.tsx
 msgid "Apply"
@@ -2640,6 +2661,7 @@ msgstr "Calls the push address of an Uptime Kuma monitor, with status up or down
 #: components/admin/step-up.tsx
 #: components/admin/support-tab.tsx
 #: components/fields/field-editor.tsx
+#: components/oauth/consent-page.tsx
 #: components/record/record-panel.tsx
 #: components/record/row-status.tsx
 #: components/settings/second-factor.tsx
@@ -2930,13 +2952,26 @@ msgstr "Clear the selected cells"
 msgid "Clear: {name}"
 msgstr "Clear: {name}"
 
+#: components/admin/oauth-clients-tab.tsx
+msgid "Client id"
+msgstr "Client id"
+
 #: components/admin/integrations-tab.tsx
 msgid "Client ID"
 msgstr "Client ID"
 
+#: components/admin/oauth-clients-tab.tsx
+msgid "Client id copied"
+msgstr "Client id copied"
+
 #: components/admin/integrations-tab.tsx
+#: components/admin/oauth-clients-tab.tsx
 msgid "Client secret"
 msgstr "Client secret"
+
+#: components/admin/oauth-clients-tab.tsx
+msgid "Client secret copied"
+msgstr "Client secret copied"
 
 #: app/providers.tsx
 #: components/record/record-panel.tsx
@@ -3253,6 +3288,18 @@ msgstr "Copy the address"
 msgid "Copy the address of the API"
 msgstr "Copy the address of the API"
 
+#: components/admin/oauth-clients-tab.tsx
+msgid "Copy the client id"
+msgstr "Copy the client id"
+
+#: components/admin/oauth-clients-tab.tsx
+msgid "Copy the client id and secret now. The secret is shown once."
+msgstr "Copy the client id and secret now. The secret is shown once."
+
+#: components/admin/oauth-clients-tab.tsx
+msgid "Copy the client secret"
+msgstr "Copy the client secret"
+
 #: components/table/share-dialog.tsx
 msgid "Copy the embed code"
 msgstr "Copy the embed code"
@@ -3396,6 +3443,7 @@ msgstr "created"
 
 #: components/admin/account-page.tsx
 #: components/admin/accounts-tab.tsx
+#: components/admin/oauth-clients-tab.tsx
 #: components/admin/outbound-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Created"
@@ -3790,6 +3838,10 @@ msgstr "Delivery log"
 msgid "Delivery queued again"
 msgstr "Delivery queued again"
 
+#: components/oauth/consent-page.tsx
+msgid "Deny"
+msgstr "Deny"
+
 #: components/table/view-tabs.tsx
 msgid "Describe the view"
 msgstr "Describe the view"
@@ -3901,6 +3953,7 @@ msgstr "Domains: {domains}. Invitations already sent to other addresses stop wor
 #: components/admin/account-actions.tsx
 #: components/admin/account-handoff.tsx
 #: components/admin/accounts-tab.tsx
+#: components/admin/oauth-clients-tab.tsx
 #: components/admin/support-tab.tsx
 #: components/fields/button-cell.tsx
 #: components/shell/new-table-dialog.tsx
@@ -5287,6 +5340,10 @@ msgstr "HTTPS only. Example: https://hooks.example.com/anygriddb"
 #: components/admin/integrations-tab.tsx
 msgid "HTTPS URL"
 msgstr "HTTPS URL"
+
+#: components/admin/oauth-clients-tab.tsx
+msgid "HTTPS, or http on 127.0.0.1 / localhost for development."
+msgstr "HTTPS, or http on 127.0.0.1 / localhost for development."
 
 #: components/settings/second-factor.tsx
 msgid "I saved the codes"
@@ -6720,6 +6777,7 @@ msgstr "N days ago"
 #: components/admin/groups-tab.tsx
 #: components/admin/identity-tab.tsx
 #: components/admin/notifications-tab.tsx
+#: components/admin/oauth-clients-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
@@ -6985,6 +7043,10 @@ msgstr "No API token to revoke"
 #: components/admin/account-page.tsx
 msgid "No API token."
 msgstr "No API token."
+
+#: components/admin/oauth-clients-tab.tsx
+msgid "No application yet. Register one below."
+msgstr "No application yet. Register one below."
 
 #: components/admin/access-tab.tsx
 msgid "No automation."
@@ -8299,6 +8361,7 @@ msgid "read only"
 msgstr "read only"
 
 #: components/admin/access-tab.tsx
+#: components/oauth/consent-page.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/table-acl-panel.tsx
 msgid "Read only"
@@ -8410,6 +8473,14 @@ msgstr "Record who opens this table on the change trail"
 msgid "Redirect after submit"
 msgstr "Redirect after submit"
 
+#: components/admin/oauth-clients-tab.tsx
+msgid "Redirect URI"
+msgstr "Redirect URI"
+
+#: components/admin/oauth-clients-tab.tsx
+msgid "Redirect URIs"
+msgstr "Redirect URIs"
+
 #: components/admin/integrations-tab.tsx
 msgid "Redirect URL"
 msgstr "Redirect URL"
@@ -8467,6 +8538,10 @@ msgstr "Refused file extensions"
 #: components/admin/settings-tab.tsx
 msgid "Refused whatever their name"
 msgstr "Refused whatever their name"
+
+#: components/admin/oauth-clients-tab.tsx
+msgid "Register"
+msgstr "Register"
 
 #: components/settings/second-factor.tsx
 msgid "Register a passkey"
@@ -8826,6 +8901,7 @@ msgstr "Review integrations"
 #: components/admin/account-actions.tsx
 #: components/admin/api-tokens-tab.tsx
 #: components/admin/emergency-section.tsx
+#: components/admin/oauth-clients-tab.tsx
 #: components/admin/outbound-tab.tsx
 #: components/admin/scim-tab.tsx
 #: components/settings/account-settings.tsx
@@ -8837,9 +8913,14 @@ msgid "Revoke"
 msgstr "Revoke"
 
 #: components/admin/api-tokens-tab.tsx
+#: components/admin/oauth-clients-tab.tsx
 #: components/admin/scim-tab.tsx
 msgid "Revoke “{name}”?"
 msgstr "Revoke “{name}”?"
+
+#: components/admin/oauth-clients-tab.tsx
+msgid "Revoke {name}"
+msgstr "Revoke {name}"
 
 #: components/admin/access-tab.tsx
 msgid "Revoke {name}?"
@@ -8878,6 +8959,7 @@ msgstr "Revoke this public link?"
 msgid "revoked"
 msgstr "revoked"
 
+#: components/admin/oauth-clients-tab.tsx
 #: components/admin/outbound-tab.tsx
 msgid "Revoked"
 msgstr "Revoked"
@@ -10492,6 +10574,10 @@ msgstr "The address of the tile server map views draw their background from: it 
 msgid "The addresses of the sites that may show this link in a frame, each starting with https://. Without one, no site can."
 msgstr "The addresses of the sites that may show this link in a frame, each starting with https://. Without one, no site can."
 
+#: components/admin/oauth-clients-tab.tsx
+msgid "The application can no longer get new tokens. Tokens it already holds stop working."
+msgstr "The application can no longer get new tokens. Tokens it already holds stop working."
+
 #: components/table/automations-dialog.tsx
 msgid "The automation acts with your access; every write is recorded in the audit trail."
 msgstr "The automation acts with your access; every write is recorded in the audit trail."
@@ -11261,6 +11347,10 @@ msgstr "This address is not allowed. Use HTTPS. A private network stays blocked 
 msgid "This API token may not delete rows"
 msgstr "This API token may not delete rows"
 
+#: components/oauth/consent-page.tsx
+msgid "This application is unknown or no longer allowed."
+msgstr "This application is unknown or no longer allowed."
+
 #: components/shell/base-home.tsx
 msgid "This base does not exist or is not shared with you."
 msgstr "This base does not exist or is not shared with you."
@@ -11465,6 +11555,10 @@ msgstr "This kind of field is not a column of a table that lives in an external 
 #: components/public/public-view.tsx
 msgid "This link does not exist, has expired, or was revoked."
 msgstr "This link does not exist, has expired, or was revoked."
+
+#: components/oauth/consent-page.tsx
+msgid "This link is incomplete. Open it again from the application."
+msgstr "This link is incomplete. Open it again from the application."
 
 #: lib/errors.ts
 msgid "This link is locked after too many wrong passwords. Try again later."
@@ -12731,6 +12825,10 @@ msgstr "You have had an address since {date}."
 #: components/views/calendar-feed.tsx
 msgid "You have no address for this view yet."
 msgstr "You have no address for this view yet."
+
+#: components/oauth/consent-page.tsx
+msgid "You have no base to share yet."
+msgstr "You have no base to share yet."
 
 #: components/shell/pending-invitations.tsx
 msgid "You joined {base}"

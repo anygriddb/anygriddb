@@ -24,6 +24,7 @@ type AdminPath =
   | "/admin/connections"
   | "/admin/connections/notifications"
   | "/admin/connections/api"
+  | "/admin/connections/applications"
   | "/admin/sources"
   | "/admin/bases"
   | "/admin/sharing"
@@ -115,6 +116,7 @@ export function useAdminSections(): AdminSection[] {
         { to: "/admin/connections", label: t`Connections` },
         { to: "/admin/connections/notifications", label: t`Notifications` },
         { to: "/admin/connections/api", label: t`Administration API` },
+        { to: "/admin/connections/applications", label: t`Applications` },
       ],
     },
     {

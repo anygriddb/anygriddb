@@ -97,6 +97,11 @@ const ApiTokensTab = page(() =>
     (module) => module.ApiTokensTab,
   ),
 );
+const OauthClientsTab = page(() =>
+  import("../components/admin/oauth-clients-tab").then(
+    (module) => module.OauthClientsTab,
+  ),
+);
 const SecurityPage = page(() =>
   import("../components/admin/security-tab").then(
     (module) => module.SecurityPage,
@@ -511,6 +516,7 @@ const adminRoutes = [
   adminPage("connections", IntegrationsTab),
   adminPage("connections/notifications", NotificationsTab),
   adminPage("connections/api", ApiTokensTab),
+  adminPage("connections/applications", OauthClientsTab),
   adminPage("sources", SourcesTab),
   adminPage("bases", BasesTab),
   adminBaseRoute,
@@ -532,6 +538,33 @@ const accountRoute = createRoute({
     return (
       <div className="flex-1 overflow-y-auto">
         <AccountSettings />
+      </div>
+    );
+  },
+});
+
+const OauthConsentPage = page(() =>
+  import("../components/oauth/consent-page").then(
+    (module) => module.OauthConsentPage,
+  ),
+);
+
+const oauthConsentRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/oauth/consent",
+  validateSearch: (search: Record<string, unknown>) => ({
+    client_id: typeof search.client_id === "string" ? search.client_id : "",
+    redirect_uri:
+      typeof search.redirect_uri === "string" ? search.redirect_uri : "",
+    code_challenge:
+      typeof search.code_challenge === "string" ? search.code_challenge : "",
+    state: typeof search.state === "string" ? search.state : undefined,
+  }),
+  component: function OauthConsent() {
+    const search = oauthConsentRoute.useSearch();
+    return (
+      <div className="flex-1 overflow-y-auto">
+        <OauthConsentPage search={search} />
       </div>
     );
   },
@@ -659,6 +692,7 @@ const routeTree = rootRoute.addChildren([
     homeRoute,
     adminRoute.addChildren(adminRoutes),
     accountRoute,
+    oauthConsentRoute,
     welcomeRoute,
     baseRoute,
     baseApiRoute,

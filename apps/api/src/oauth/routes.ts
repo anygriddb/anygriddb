@@ -47,6 +47,17 @@ export function registerOauth(
   app: FastifyInstance,
   deps: { db: Database },
 ): void {
+  /**
+   * Starts the browser grant: sends the person to the consent page with
+   * the same query string. The SPA requires a session.
+   */
+  app.get("/oauth/authorize", async (request, reply) => {
+    const query = request.url.includes("?")
+      ? request.url.slice(request.url.indexOf("?"))
+      : "";
+    return reply.redirect(`/oauth/consent${query}`);
+  });
+
   app.post(
     "/oauth/token",
     async (request: FastifyRequest, reply: FastifyReply) => {
