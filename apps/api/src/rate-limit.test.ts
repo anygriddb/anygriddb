@@ -22,14 +22,20 @@ describe("rateBucket", () => {
       "auth.confirmSignup",
       "auth.email.send",
       "auth.email.verify",
-      // A proof asked before a factor changes, or before Administration.
+    ]) {
+      expect(rateBucket("POST", `/trpc/${procedure}`)).toBe("auth");
+    }
+    // A proof a signed-in person gives is held by the account's lock, not
+    // by the address: setting up an account must not use up the sign-ins.
+    for (const procedure of [
       "auth.totp.confirm",
       "auth.email.begin",
       "auth.email.disable",
       "auth.webauthn.registerBegin",
       "admin.stepUp",
     ]) {
-      expect(rateBucket("POST", `/trpc/${procedure}`)).toBe("auth");
+      expect(rateBucket("POST", `/trpc/${procedure}`)).toBe("app");
+      expect(credentialCalls(`/trpc/${procedure}`)).toBe(1);
     }
     // An application's secret is checked there (ADR 0094).
     expect(rateBucket("POST", "/oauth/token")).toBe("auth");

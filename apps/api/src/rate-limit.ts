@@ -20,15 +20,28 @@ export const RATE_LIMITS: Record<RateBucket, number> = {
 };
 
 /**
- * The calls that check a password, a code or a secret link, or that mail
- * one: each is a guess someone may be making. A request names at most one
- * of them, and the guesses about one account take turns (`auth/guess-turns`).
+ * The calls anyone can send without a session, or with a sign-in half
+ * made, that check a password, a code or a secret link, or that mail one:
+ * the tight limit per address is for them.
  */
-const CREDENTIAL_CALL =
-  /^(auth\.(login|signup|totp\.(verify|confirm)|backup\.verify|email\.(send|verify|begin|disable)|webauthn\.(authenticate\w*|registerBegin)|invitation|acceptInvitation|erase|changePassword|requestPasswordReset|resetLink|resetPassword|confirmSignup)|rows\.sign|admin\.stepUp)$/;
+const SIGN_IN_CALL =
+  /^(auth\.(login|signup|totp\.verify|backup\.verify|email\.(send|verify)|webauthn\.authenticate\w*|invitation|acceptInvitation|erase|changePassword|requestPasswordReset|resetLink|resetPassword|confirmSignup)|rows\.sign)$/;
 
+/**
+ * The proofs a signed-in person gives before a factor changes or before
+ * Administration: guesses too, held by the account's lock rather than by
+ * the address, since each needs the session.
+ */
+const PROOF_CALL =
+  /^(auth\.(totp\.confirm|email\.(begin|disable)|webauthn\.registerBegin)|admin\.stepUp)$/;
+
+/**
+ * Whether a call checks a password, a code or a secret link. A request
+ * names at most one such call, and those about one account take turns
+ * (`auth/guess-turns`).
+ */
 export function checksCredential(procedure: string): boolean {
-  return CREDENTIAL_CALL.test(procedure);
+  return SIGN_IN_CALL.test(procedure) || PROOF_CALL.test(procedure);
 }
 
 /** The procedures a tRPC address names: a batch separates them by commas. */
@@ -47,7 +60,7 @@ export function rateBucket(method: string, url: string): RateBucket {
   const path = url.split("?")[0] ?? url;
   if (path.startsWith("/trpc/")) {
     const calls = trpcCalls(url);
-    if (calls.some(checksCredential)) return "auth";
+    if (calls.some((call) => SIGN_IN_CALL.test(call))) return "auth";
     // A sign-up's link is a token a page opens, as a public share is.
     if (
       calls.some(
