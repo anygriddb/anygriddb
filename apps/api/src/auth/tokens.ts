@@ -117,6 +117,10 @@ export async function createApiToken(
     readOnly?: boolean;
     allowDelete?: boolean;
     days?: number;
+    /** When set, the token came from an OAuth grant (ADR 0094). */
+    oauthClientId?: string;
+    /** Sign-in trail detail; defaults to a Settings token. */
+    detail?: string;
   } = {},
 ): Promise<{ id: string; token: string; expiresAt: string }> {
   const token = `ag_${randomBytes(32).toString("base64url")}`;
@@ -138,6 +142,7 @@ export async function createApiToken(
         // Omitted means true (scripts keep deleting). A read-only token never
         // deletes; store true so the column stays meaningful only for writers.
         allowDelete: readOnly ? true : scope.allowDelete !== false,
+        oauthClientId: scope.oauthClientId ?? null,
       })
       .returning("id")
       .executeTakeFirst();
@@ -146,7 +151,7 @@ export async function createApiToken(
     await recordAuthEvent(tx, {
       action: "token_created",
       userId,
-      detail: "self_service_token",
+      detail: scope.detail ?? "self_service_token",
     });
     return inserted.id;
   });

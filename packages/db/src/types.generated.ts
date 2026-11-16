@@ -207,6 +207,7 @@ export interface ApiTokens {
   id: Generated<string>;
   lastUsedAt: Timestamp | null;
   name: string;
+  oauthClientId: string | null;
   readOnly: Generated<boolean>;
   tokenHash: string;
   userId: string;
@@ -741,6 +742,44 @@ export interface Notifications {
   userId: string;
 }
 
+export interface OauthAuthorizationCodes {
+  allowDelete: Generated<boolean>;
+  baseIds: string[];
+  clientId: string;
+  codeChallenge: string;
+  codeChallengeMethod: string;
+  codeHash: string;
+  createdAt: Generated<Timestamp>;
+  expiresAt: Timestamp;
+  id: Generated<string>;
+  readOnly: Generated<boolean>;
+  redirectUri: string;
+  usedAt: Timestamp | null;
+  userId: string;
+}
+
+export interface OauthClients {
+  clientId: string;
+  createdAt: Generated<Timestamp>;
+  createdBy: string;
+  id: Generated<string>;
+  name: string;
+  redirectUris: string[];
+  revokedAt: Timestamp | null;
+  secretHash: string;
+}
+
+export interface OauthRefreshTokens {
+  apiTokenId: string;
+  clientId: string;
+  createdAt: Generated<Timestamp>;
+  expiresAt: Timestamp;
+  id: Generated<string>;
+  revokedAt: Timestamp | null;
+  tokenHash: string;
+  userId: string;
+}
+
 export interface OauthStates {
   expiresAt: Timestamp;
   id: Generated<string>;
@@ -1116,6 +1155,9 @@ export interface DB {
   jobs: Jobs;
   loginChallenges: LoginChallenges;
   notifications: Notifications;
+  oauthAuthorizationCodes: OauthAuthorizationCodes;
+  oauthClients: OauthClients;
+  oauthRefreshTokens: OauthRefreshTokens;
   oauthStates: OauthStates;
   passwordHashes: PasswordHashes;
   passwordResets: PasswordResets;

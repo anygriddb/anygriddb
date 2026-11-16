@@ -85,8 +85,8 @@ A row moves up only when it unblocks another.
 1. A published release: 51. It needs no code, only a version tag, and
    comes first: no operator installs a version before it, and the update
    notice has nothing to find.
-2. Applications, sign-in, and languages: 101, then 106, which needs it,
-   once decided; 104; 105 once its languages are chosen.
+2. Applications, sign-in, and languages: 106 once decided (needs 101,
+   which is done); 104; 105 once its languages are chosen.
 
 ### Views and organisation
 
@@ -100,10 +100,10 @@ A row moves up only when it unblocks another.
 
 ### Applications, sign-in, and languages
 
-| #   | What                                                                                                                          | Effort | Notes                                                                                                                       |
-| --- | ----------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------- |
-| 101 | OAuth for applications: a person allows an application, an MCP client among them, on the bases they choose, and takes it back | M      | The MCP server and the REST API take bearer tokens only (ADR 0040): a client that signs a person in by OAuth cannot connect |
-| 104 | Scripts in automations                                                                                                        | L      | Run apart from the API process, under a time and memory ceiling, with the rights of the automation's author                 |
+| #   | What                                                                                                                          | Effort | Notes                                                                                                                                                  |
+| --- | ----------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 101 | OAuth for applications: a person allows an application, an MCP client among them, on the bases they choose, and takes it back | M      | Done: authorization code + PKCE, admin-registered clients, consent on chosen bases, grants as API tokens (ADR 0094). DCR and well-known metadata later |
+| 104 | Scripts in automations                                                                                                        | L      | Run apart from the API process, under a time and memory ceiling, with the rights of the automation's author                                            |
 
 #### Decide before code
 
