@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { InstanceMark } from "../brand/instance-mark";
+import { AboutButton } from "../shell/about-dialog";
 import { PublicRows, readProof, ShareLocked } from "./public-view";
 
 /**
@@ -82,6 +83,7 @@ export function PublicBase({ token }: { token: string }) {
         <div className="flex items-center gap-2">
           <InstanceMark className="h-6 w-6" named />
           <h1 className="truncate font-semibold">{data.base.name}</h1>
+          <AboutButton />
         </div>
         <nav
           aria-label={t`Tables`}

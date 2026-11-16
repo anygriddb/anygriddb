@@ -1,6 +1,6 @@
-import { Dialog, DialogContent } from "@anygriddb/ui";
+import { Dialog, DialogContent, Tooltip } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Info } from "lucide-react";
 import { useEffect, useState } from "react";
 
 /**
@@ -64,5 +64,28 @@ export function AboutDialog() {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * The notice on a page that has no menu to put it in, a public link's:
+ * someone who reads a shared view uses the software too.
+ */
+export function AboutButton() {
+  const { t } = useLingui();
+  return (
+    <>
+      <Tooltip content={t`About AnyGridDB`} side="bottom">
+        <button
+          type="button"
+          aria-label={t`About AnyGridDB`}
+          className="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-muted-foreground outline-none hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+          onClick={openAbout}
+        >
+          <Info className="h-4 w-4" aria-hidden />
+        </button>
+      </Tooltip>
+      <AboutDialog />
+    </>
   );
 }
