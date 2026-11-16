@@ -239,7 +239,7 @@ changes (`scripts/lint-workflows.sh`). A pull request runs the tests of
 the packages it changes, and every test, none replayed from the cache,
 once it changes a file outside the packages: the workflows, `scripts/`,
 `docker/`, or the root's configuration (`scripts/ci-turbo.sh`). Trivy scans the image's system
-packages on `main` and weekly. Secrets belong in GitHub Actions secrets or
+and Node.js packages on `main` and weekly. Secrets belong in GitHub Actions secrets or
 `docker/.env`, never in the tree.
 
 ## Releases
@@ -261,7 +261,7 @@ Until 1.0, a release that breaks something raises the second number
 4. Push the tag: `git push origin vX.Y.Z`. The Release workflow waits for
    `CI` on `main` to pass on that commit, builds the image for
    `linux/amd64` and `linux/arm64`, each on a runner of its own, starts
-   each as an operator does and scans its system packages, and only then
+   each as an operator does and scans its packages, and only then
    pushes them to `ghcr.io/anygriddb/anygriddb` under one name (version,
    minor, and `latest`) and opens a GitHub Release with the tag's notes,
    the digest pin (`image-pin.env`), and the packages each image holds

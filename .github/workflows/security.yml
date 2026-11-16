@@ -1,8 +1,10 @@
 name: Security
 
 # Dependencies: Dependabot alerts on main, dependency review on each pull
-# request. Code: CodeQL. Trivy scans what neither sees: the operating
-# system packages of the image we ship.
+# request. Code: CodeQL. Trivy scans the image we ship: its operating
+# system packages, which neither sees, and its Node.js packages as they
+# are once installed, so that an advisory published after a dependency
+# was merged shows before a release meets it.
 on:
   push:
     branches: [main]
@@ -62,13 +64,13 @@ jobs:
       - name: Build the image
         run: docker build --file docker/Dockerfile --tag anygriddb:scan .
 
-      - name: Scan the image's system packages
+      - name: Scan the image's packages
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           image-ref: anygriddb:scan
           scanners: vuln
-          vuln-type: os
+          vuln-type: os,library
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"

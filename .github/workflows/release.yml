@@ -162,13 +162,16 @@ jobs:
           SMOKE_VERSION: ${{ needs.checks.outputs.version }}
         run: scripts/smoke-image.sh
 
-      - name: Scan its system packages
+      # The system's packages and the Node.js packages the image runs
+      # with: a release is not published with a high or critical flaw
+      # that has a fix, wherever it sits.
+      - name: Scan its packages
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           image-ref: anygriddb:local
           scanners: vuln
-          vuln-type: os
+          vuln-type: os,library
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
