@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
  * version names here where its own source is: the license asks that its
  * users be offered it (AGPL-3.0, section 13).
  */
-export const SOURCE_URL = "https://github.com/anygriddb/anygriddb";
+const SOURCE_URL = "https://github.com/anygriddb/anygriddb";
 
 /** Opens the notice from anywhere, e.g. a menu item. */
 export function openAbout(): void {
