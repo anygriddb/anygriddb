@@ -86,7 +86,15 @@ test.describe("the field dialog", () => {
     await option.press("Enter");
     await expect(dialog.getByLabel("Option name")).toHaveCount(2);
     await option.fill("");
+    // An option's colour is one swatch, which opens the ten.
+    await dialog.getByRole("button", { name: "Colour of Open: Grey" }).click();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.getByRole("radio", { name: "Purple" }).click();
+    await expect(
+      dialog.getByRole("button", { name: "Colour of Open: Purple" }),
+    ).toBeVisible();
     await dialog.getByLabel("Display").selectOption({ label: "Radio buttons" });
+    expect(await accessibilityViolations(page)).toEqual([]);
     await create();
 
     // A number as money.
@@ -123,6 +131,11 @@ test.describe("the field dialog", () => {
     await newField("Go", "Button");
     await dialog.getByLabel("Button text").fill("Open it");
     await dialog.getByLabel("URL").fill("https://example.org/{{record_id}}");
+    await dialog
+      .getByRole("button", { name: "Colour of the button: Blue" })
+      .click();
+    await page.getByRole("radio", { name: "Red" }).click();
+    expect(await accessibilityViolations(page)).toEqual([]);
     await create();
 
     // A checkbox drawn as a switch.
@@ -208,6 +221,9 @@ test.describe("the field dialog", () => {
     await edit("Stage");
     await expect(dialog.getByLabel("Display")).toHaveValue("radio");
     await expect(dialog.getByLabel("Option name")).toHaveCount(2);
+    await expect(
+      dialog.getByRole("button", { name: "Colour of Open: Purple" }),
+    ).toBeVisible();
     await expect(dialog.getByText("API key")).toContainText("stage");
     // An option renamed takes the rows that held it along.
     await dialog.getByLabel("Option name").first().fill("Opened");
@@ -243,6 +259,9 @@ test.describe("the field dialog", () => {
     await expect(dialog.getByLabel("URL")).toHaveValue(
       "https://example.org/{{record_id}}",
     );
+    await expect(
+      dialog.getByRole("button", { name: "Colour of the button: Red" }),
+    ).toBeVisible();
     await cancel();
     await edit("Ok");
     await expect(dialog.getByLabel("Display")).toHaveValue("switch");

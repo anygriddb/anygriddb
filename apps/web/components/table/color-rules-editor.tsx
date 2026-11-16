@@ -3,11 +3,12 @@ import {
   type FilterGroup,
   type OptionColor,
 } from "@anygriddb/core";
-import { Button, cn, Dialog, DialogContent, DialogFooter } from "@anygriddb/ui";
+import { Button, Dialog, DialogContent, DialogFooter } from "@anygriddb/ui";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
+import { OptionColorSwatches } from "../fields/option-color";
 import { FilterBuilder, newCondition } from "./filter-builder";
 
 type ColorRule = { filter: FilterGroup; color: OptionColor };
@@ -39,28 +40,17 @@ export function ColorRulesEditor(props: {
           {draft.map((rule, index) => (
             <li key={index} className="rounded-md border border-border p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="flex flex-wrap gap-1">
-                  {OPTION_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      aria-label={color}
-                      className={cn(
-                        `opt-${color} h-5 w-5 rounded-full border`,
-                        rule.color === color
-                          ? "border-foreground"
-                          : "border-transparent",
-                      )}
-                      onClick={() =>
-                        setDraft((current) =>
-                          current.map((item, at) =>
-                            at === index ? { ...item, color } : item,
-                          ),
-                        )
-                      }
-                    />
-                  ))}
-                </div>
+                <OptionColorSwatches
+                  label={t`Colour of rule ${{ number: index + 1 }}`}
+                  value={rule.color}
+                  onChange={(color) =>
+                    setDraft((current) =>
+                      current.map((item, at) =>
+                        at === index ? { ...item, color } : item,
+                      ),
+                    )
+                  }
+                />
                 <Button
                   size="icon"
                   variant="ghost"

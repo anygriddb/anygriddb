@@ -643,6 +643,10 @@ msgstr "{inviter} invites you to {base} as {role}"
 msgid "{label} ({percent}%)"
 msgstr "{label} ({percent}%)"
 
+#: components/fields/option-color.tsx
+msgid "{label}: {color}"
+msgstr "{label}: {color}"
+
 #: components/admin/admin-overview.tsx
 msgid "{lockedCount, plural, one {locked account} other {locked accounts}}"
 msgstr "{lockedCount, plural, one {locked account} other {locked accounts}}"
@@ -1790,6 +1794,10 @@ msgstr "Add rows"
 msgid "Add the group"
 msgstr "Add the group"
 
+#: components/fields/field-editor.tsx
+msgid "Add the option"
+msgstr "Add the option"
+
 #: components/table/new-row-dialog.tsx
 msgid "Add the row"
 msgstr "Add the row"
@@ -2608,6 +2616,10 @@ msgstr "Blank table"
 msgid "Blocked target (private or internal address)"
 msgstr "Blocked target (private or internal address)"
 
+#: components/fields/option-color.tsx
+msgid "Blue"
+msgstr "Blue"
+
 #: components/settings/api-console.tsx
 msgid "Body"
 msgstr "Body"
@@ -2623,6 +2635,10 @@ msgstr "Bound to single sign-on"
 #: components/shell/welcome-page.tsx
 msgid "Bring your data"
 msgstr "Bring your data"
+
+#: components/fields/option-color.tsx
+msgid "Brown"
+msgstr "Brown"
 
 #: components/settings/second-factor.tsx
 msgid "Browsers accept passkeys on an HTTPS address only: use an authenticator app, or open AnyGridDB over HTTPS."
@@ -3095,14 +3111,22 @@ msgid "Collector address"
 msgstr "Collector address"
 
 #: components/fields/field-editor.tsx
-#: components/table/view-toolbar.tsx
-msgid "Color"
-msgstr "Color"
-
-#: components/fields/field-editor.tsx
 #: components/fields/field-meta.tsx
+#: components/table/view-toolbar.tsx
 msgid "Colour"
 msgstr "Colour"
+
+#: components/fields/field-editor.tsx
+msgid "Colour of {option}"
+msgstr "Colour of {option}"
+
+#: components/table/color-rules-editor.tsx
+msgid "Colour of rule {number}"
+msgstr "Colour of rule {number}"
+
+#: components/fields/field-editor.tsx
+msgid "Colour of the button"
+msgstr "Colour of the button"
 
 #: components/table/color-rules-editor.tsx
 msgid "Colour rules"
@@ -5148,6 +5172,14 @@ msgstr "Go to the home page"
 #: components/shell/command-palette.tsx
 msgid "Go to…"
 msgstr "Go to…"
+
+#: components/fields/option-color.tsx
+msgid "Green"
+msgstr "Green"
+
+#: components/fields/option-color.tsx
+msgid "Grey"
+msgstr "Grey"
 
 #: components/table/view-tabs.tsx
 msgid "Grid"
@@ -7904,6 +7936,10 @@ msgstr "Or import a base:"
 msgid "Or paste rows copied from a spreadsheet"
 msgstr "Or paste rows copied from a spreadsheet"
 
+#: components/fields/option-color.tsx
+msgid "Orange"
+msgstr "Orange"
+
 #: components/table/view-toolbar.tsx
 msgid "Order"
 msgstr "Order"
@@ -8161,6 +8197,10 @@ msgstr "Ping address"
 msgid "Pings a Healthchecks address: /start when a job starts, the address itself when it succeeds, /fail when it fails."
 msgstr "Pings a Healthchecks address: /start when a job starts, the address itself when it succeeds, /fail when it fails."
 
+#: components/fields/option-color.tsx
+msgid "Pink"
+msgstr "Pink"
+
 #: components/shell/sidebar.tsx
 msgid "Pinned"
 msgstr "Pinned"
@@ -8357,6 +8397,10 @@ msgstr "Purge"
 msgid "purged on {date}"
 msgstr "purged on {date}"
 
+#: components/fields/option-color.tsx
+msgid "Purple"
+msgstr "Purple"
+
 #: components/admin/notifications-tab.tsx
 msgid "Push address"
 msgstr "Push address"
@@ -8549,6 +8593,10 @@ msgstr "Reconnecting…"
 #: components/shell/sidebar.tsx
 msgid "Record who opens this table on the change trail"
 msgstr "Record who opens this table on the change trail"
+
+#: components/fields/option-color.tsx
+msgid "Red"
+msgstr "Red"
 
 #: components/views/form-view.tsx
 msgid "Redirect after submit"
@@ -10574,6 +10622,10 @@ msgstr "Target"
 #: lib/known-text.ts
 msgid "Tasks"
 msgstr "Tasks"
+
+#: components/fields/option-color.tsx
+msgid "Teal"
+msgstr "Teal"
 
 #: components/admin/security-tab.tsx
 #: components/admin/sign-in-trail.tsx
@@ -12934,6 +12986,10 @@ msgstr "Wrong passwords and wrong second-factor codes count, per account, whatev
 #: components/admin/sign-in-trail.tsx
 msgid "Wrong second factor"
 msgstr "Wrong second factor"
+
+#: components/fields/option-color.tsx
+msgid "Yellow"
+msgstr "Yellow"
 
 #: components/settings/api-docs.tsx
 msgid "yes"

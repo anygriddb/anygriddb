@@ -643,6 +643,10 @@ msgstr "{inviter} vous invite sur {base} en tant que {role}"
 msgid "{label} ({percent}%)"
 msgstr "{label} ({percent} %)"
 
+#: components/fields/option-color.tsx
+msgid "{label}: {color}"
+msgstr "{label} : {color}"
+
 #: components/admin/admin-overview.tsx
 msgid "{lockedCount, plural, one {locked account} other {locked accounts}}"
 msgstr "{lockedCount, plural, one {compte verrouillé} other {comptes verrouillés}}"
@@ -1790,6 +1794,10 @@ msgstr "Ajouter des lignes"
 msgid "Add the group"
 msgstr "Ajouter le groupe"
 
+#: components/fields/field-editor.tsx
+msgid "Add the option"
+msgstr "Ajouter l’option"
+
 #: components/table/new-row-dialog.tsx
 msgid "Add the row"
 msgstr "Ajouter la ligne"
@@ -2608,6 +2616,10 @@ msgstr "Table vide"
 msgid "Blocked target (private or internal address)"
 msgstr "Destination bloquée (adresse privée ou interne)"
 
+#: components/fields/option-color.tsx
+msgid "Blue"
+msgstr "Bleu"
+
 #: components/settings/api-console.tsx
 msgid "Body"
 msgstr "Corps"
@@ -2623,6 +2635,10 @@ msgstr "Lié à l’authentification unique"
 #: components/shell/welcome-page.tsx
 msgid "Bring your data"
 msgstr "Apporter vos données"
+
+#: components/fields/option-color.tsx
+msgid "Brown"
+msgstr "Marron"
 
 #: components/settings/second-factor.tsx
 msgid "Browsers accept passkeys on an HTTPS address only: use an authenticator app, or open AnyGridDB over HTTPS."
@@ -3095,14 +3111,22 @@ msgid "Collector address"
 msgstr "Adresse du collecteur"
 
 #: components/fields/field-editor.tsx
+#: components/fields/field-meta.tsx
 #: components/table/view-toolbar.tsx
-msgid "Color"
+msgid "Colour"
 msgstr "Couleur"
 
 #: components/fields/field-editor.tsx
-#: components/fields/field-meta.tsx
-msgid "Colour"
-msgstr "Couleur"
+msgid "Colour of {option}"
+msgstr "Couleur de {option}"
+
+#: components/table/color-rules-editor.tsx
+msgid "Colour of rule {number}"
+msgstr "Couleur de la règle {number}"
+
+#: components/fields/field-editor.tsx
+msgid "Colour of the button"
+msgstr "Couleur du bouton"
 
 #: components/table/color-rules-editor.tsx
 msgid "Colour rules"
@@ -5148,6 +5172,14 @@ msgstr "Aller à l’accueil"
 #: components/shell/command-palette.tsx
 msgid "Go to…"
 msgstr "Aller à…"
+
+#: components/fields/option-color.tsx
+msgid "Green"
+msgstr "Vert"
+
+#: components/fields/option-color.tsx
+msgid "Grey"
+msgstr "Gris"
 
 #: components/table/view-tabs.tsx
 msgid "Grid"
@@ -7904,6 +7936,10 @@ msgstr "Ou importez une base :"
 msgid "Or paste rows copied from a spreadsheet"
 msgstr "Ou collez des lignes copiées d’un tableur"
 
+#: components/fields/option-color.tsx
+msgid "Orange"
+msgstr "Orange"
+
 #: components/table/view-toolbar.tsx
 msgid "Order"
 msgstr "Ordre"
@@ -8161,6 +8197,10 @@ msgstr "Adresse de ping"
 msgid "Pings a Healthchecks address: /start when a job starts, the address itself when it succeeds, /fail when it fails."
 msgstr "Appelle une adresse Healthchecks : /start au démarrage d’une tâche, l’adresse elle-même quand elle réussit, /fail quand elle échoue."
 
+#: components/fields/option-color.tsx
+msgid "Pink"
+msgstr "Rose"
+
 #: components/shell/sidebar.tsx
 msgid "Pinned"
 msgstr "Épinglés"
@@ -8357,6 +8397,10 @@ msgstr "Purge"
 msgid "purged on {date}"
 msgstr "purge le {date}"
 
+#: components/fields/option-color.tsx
+msgid "Purple"
+msgstr "Violet"
+
 #: components/admin/notifications-tab.tsx
 msgid "Push address"
 msgstr "Adresse push"
@@ -8549,6 +8593,10 @@ msgstr "Reconnexion…"
 #: components/shell/sidebar.tsx
 msgid "Record who opens this table on the change trail"
 msgstr "Noter sur le journal des changements qui ouvre cette table"
+
+#: components/fields/option-color.tsx
+msgid "Red"
+msgstr "Rouge"
 
 #: components/views/form-view.tsx
 msgid "Redirect after submit"
@@ -10574,6 +10622,10 @@ msgstr "Cible"
 #: lib/known-text.ts
 msgid "Tasks"
 msgstr "Tâches"
+
+#: components/fields/option-color.tsx
+msgid "Teal"
+msgstr "Turquoise"
 
 #: components/admin/security-tab.tsx
 #: components/admin/sign-in-trail.tsx
@@ -12934,6 +12986,10 @@ msgstr "Les mauvais mots de passe et les mauvais codes de second facteur compten
 #: components/admin/sign-in-trail.tsx
 msgid "Wrong second factor"
 msgstr "Second facteur incorrect"
+
+#: components/fields/option-color.tsx
+msgid "Yellow"
+msgstr "Jaune"
 
 #: components/settings/api-docs.tsx
 msgid "yes"
