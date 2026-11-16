@@ -28,7 +28,7 @@ import {
   updateBaseInputSchema,
 } from "@anygriddb/core";
 import { z } from "zod";
-import { readerAccess } from "../data/acl.js";
+import { readerAccess, readableTables } from "../data/acl.js";
 import { applyTemplate } from "../data/data-ops.js";
 import { enqueueJob } from "../jobs.js";
 import {
@@ -57,7 +57,7 @@ import { readSettings } from "../settings.js";
 import { trashBase } from "../data/trash.js";
 import { publishCatalog } from "../realtime/channels.js";
 import type { Context } from "./context.js";
-import { authorize, guardBase, handle, readableTables } from "./guard.js";
+import { authorize, guardBase, handle } from "./guard.js";
 import { procedure, requestNames } from "./init.js";
 import { queueDeps } from "./jobs-router.js";
 import { encryptSecret } from "../auth/crypto.js";

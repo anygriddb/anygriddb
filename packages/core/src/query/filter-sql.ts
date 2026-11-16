@@ -9,7 +9,7 @@ import {
   type FilterKind,
   type FilterValue,
 } from "../filter";
-import { isIsoDate } from "../cell-values";
+import { isIsoDate } from "../iso-date";
 import type { ScalarKind } from "./expressions";
 import { POSTGRES, type SqlDialect } from "./dialect";
 import { quoteIdent, type SqlParams } from "./params";

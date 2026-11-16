@@ -35,7 +35,7 @@ import {
   type SqlDialect,
   type TimeUnit,
 } from "./dialect";
-import { isIsoDate } from "../cell-values";
+import { isIsoDate } from "../iso-date";
 import { parseJsonPath } from "./json-path";
 import { compileFilter, type ColumnRef } from "./filter-sql";
 import { isFilterGroup, type FilterGroup, type FilterKind } from "../filter";

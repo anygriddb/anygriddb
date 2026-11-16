@@ -91,18 +91,6 @@ async function loadTable(ctx: Context, tableId: string): Promise<TableRow> {
   return table;
 }
 
-/** Predicate the read engine uses to hide linked tables the actor cannot read. */
-export function readableTables(
-  bindings: readonly Binding[],
-  baseOf: ReadonlyMap<string, string>,
-): (tableId: string) => boolean {
-  return (tableId) =>
-    roleAllows(
-      effectiveTableRole(bindings, tableId, baseOf.get(tableId)),
-      "read",
-    );
-}
-
 export type TableAccess = Actor & { table: TableRow; role: Role };
 
 /** Authorizes `action` on a table, with the base role as fallback. */

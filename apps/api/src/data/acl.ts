@@ -1,6 +1,7 @@
 import {
   effectiveTableRole,
   filterGroupSchema,
+  roleAllows,
   type Binding,
   type ColumnAccess,
   type ColumnAclEntry,
@@ -10,7 +11,6 @@ import {
   type TableAcl,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
-import { readableTables } from "../trpc/guard.js";
 import { withAudit } from "./audit-context.js";
 import {
   assembleEngine,
@@ -125,6 +125,18 @@ export async function clearTableAcl(
 
 /** Who reads: the account and its roles, which decide the rules that apply. */
 type Reader = { userId: string; bindings: readonly Binding[] };
+
+/** Which tables a reader may read: the engine hides the linked ones they may not. */
+export function readableTables(
+  bindings: readonly Binding[],
+  baseOf: ReadonlyMap<string, string>,
+): (tableId: string) => boolean {
+  return (tableId) =>
+    roleAllows(
+      effectiveTableRole(bindings, tableId, baseOf.get(tableId)),
+      "read",
+    );
+}
 
 /**
  * The reader's field and row rules over `tables`, or undefined when none
