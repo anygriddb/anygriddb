@@ -1129,6 +1129,32 @@ test("an administrator allows scripts, and an automation runs one", async ({
     await expect(dialog.getByText("made a row in Samples")).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
     await dialog.getByRole("button", { name: "Back" }).click();
+
+    // A secret for the script's calls is typed once, and never shown
+    // again: the editor says it is kept, and for which host.
+    await dialog.getByRole("button", { name: "Edit" }).click();
+    await dialog.getByRole("button", { name: "Add a secret" }).click();
+    await dialog.getByLabel("Secret name").fill("API_TOKEN");
+    await dialog
+      .getByLabel("Host the secret is sent to")
+      .fill("api.example.org");
+    await dialog.getByLabel("Secret value").fill("a-made-up-token");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    const listed = page.waitForResponse((response) =>
+      response.url().includes("automations.list"),
+    );
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await listed;
+    await dialog.getByRole("button", { name: "Edit" }).click();
+    await expect(dialog.getByLabel("Secret name")).toHaveValue("API_TOKEN");
+    await expect(dialog.getByLabel("Host the secret is sent to")).toHaveValue(
+      "api.example.org",
+    );
+    await expect(dialog.getByLabel("Secret value")).toHaveValue("");
+    await expect(
+      dialog.getByPlaceholder("Kept: type to replace it"),
+    ).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
     await dialog.getByRole("button", { name: "Close" }).first().click();
 
     // What it wrote is in the grid, as any row.

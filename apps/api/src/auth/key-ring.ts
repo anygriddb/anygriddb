@@ -26,7 +26,8 @@ export type KeyUse =
   | "backup-code"
   | "email-otp"
   | "share-access"
-  | "notify";
+  | "notify"
+  | "automation";
 
 export type KeyRing = {
   /** The identifier written on what is sealed from now on. */

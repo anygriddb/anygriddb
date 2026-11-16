@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   createAutomationInputSchema,
+  fillSecrets,
   hasScript,
   MAX_AUTOMATION_ACTIONS,
   MAX_SCRIPT_LENGTH,
   nextScheduleRun,
   renderTemplate,
   scriptTemplateValues,
+  secretNames,
   templateKeys,
   webhookTemplateValues,
   writeSlackMessage,
@@ -381,6 +383,78 @@ describe("scriptTemplateValues", () => {
     const [key] = Object.keys(values);
     expect(key).toHaveLength(63);
     expect(values[key ?? ""]).toHaveLength(4_000);
+  });
+});
+
+describe("the secrets an automation keeps for its scripts", () => {
+  const withSecrets = (secrets: unknown) =>
+    createAutomationInputSchema.safeParse({
+      tableId: TABLE,
+      name: "Calls",
+      trigger: { type: "row_created" },
+      actions: [{ type: "run_script", code: "return 1;" }],
+      secrets,
+    });
+
+  it("takes a name, a host in lower case, and a value or none", () => {
+    const parsed = withSecrets([
+      { name: "API_TOKEN", host: "API.Example.org", value: "s3cr3t" },
+      { name: "kept", host: "hooks.example.net" },
+    ]);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.secrets).toEqual([
+        { name: "API_TOKEN", host: "api.example.org", value: "s3cr3t" },
+        { name: "kept", host: "hooks.example.net" },
+      ]);
+    }
+    expect(withSecrets(undefined).success).toBe(true);
+  });
+
+  it("refuses a name a script could not write, a host that is not one, and a name twice", () => {
+    const secret = { name: "TOKEN", host: "api.example.org", value: "x" };
+    for (const wrong of [
+      [{ ...secret, name: "1TOKEN" }],
+      [{ ...secret, name: "to ken" }],
+      [{ ...secret, name: "" }],
+      [{ ...secret, host: "https://api.example.org" }],
+      [{ ...secret, host: "api.example.org/path" }],
+      [{ ...secret, host: "api.example.org:8443" }],
+      [{ ...secret, host: "localhost" }],
+      [{ ...secret, host: "10.0.0.1" }],
+      [{ ...secret, host: "*.example.org" }],
+      [{ ...secret, value: "" }],
+      [{ ...secret, other: true }],
+      [secret, { ...secret, value: "y" }],
+      Array.from({ length: 11 }, (_, index) => ({
+        ...secret,
+        name: `T${String(index)}`,
+      })),
+    ]) {
+      expect(withSecrets(wrong).success).toBe(false);
+    }
+  });
+
+  it("finds the names a text writes, and fills them or says which is missing", () => {
+    const text =
+      "Bearer {{secret.TOKEN}} and {{ secret.KEY_2 }}, not {{TOKEN}}";
+    expect(secretNames(text)).toEqual(["TOKEN", "KEY_2"]);
+    expect(
+      fillSecrets(
+        text,
+        new Map([
+          ["TOKEN", "a"],
+          ["KEY_2", "b"],
+        ]),
+      ),
+    ).toEqual({ text: "Bearer a and b, not {{TOKEN}}" });
+    expect(fillSecrets(text, new Map([["TOKEN", "a"]]))).toEqual({
+      missing: "KEY_2",
+    });
+    // A value is put in as it is: what it holds is not read again.
+    expect(
+      fillSecrets("{{secret.A}}", new Map([["A", "{{secret.B}} $& $1"]])),
+    ).toEqual({ text: "{{secret.B}} $& $1" });
   });
 });
 

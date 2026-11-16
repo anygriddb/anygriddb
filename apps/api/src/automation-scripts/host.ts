@@ -1,4 +1,10 @@
-import { AppError, type Binding, rowIdSchema } from "@anygriddb/core";
+import {
+  AppError,
+  type Binding,
+  fillSecrets,
+  rowIdSchema,
+  secretNames,
+} from "@anygriddb/core";
 import { z } from "zod";
 import type { TableRow } from "../data/engine.js";
 import { liveTable } from "../data/live.js";
@@ -12,6 +18,7 @@ import {
   updateRecords,
   type WriteOrigin,
 } from "../public-api/index.js";
+import { failureText, type PinnedAnswer, requestPinned } from "../webhooks.js";
 import type { ScriptHost } from "./sandbox.js";
 
 /** A table of the automation's base, by its id or by its name. */
@@ -55,6 +62,50 @@ const updateSchema = z
   .object({ table: tableSchema, id: rowIdSchema, fields: fieldsSchema })
   .strict();
 
+/** Calls one script may make to addresses outside the instance. */
+export const SCRIPT_REQUESTS = 10;
+/** What one such call may be answered. */
+export const SCRIPT_ANSWER_BYTES = 1024 * 1024;
+
+/** Headers a request sets itself, or that would change where it goes. */
+const KEPT_HEADERS = new Set([
+  "host",
+  "content-length",
+  "connection",
+  "transfer-encoding",
+  "upgrade",
+  "expect",
+  "te",
+  "trailer",
+  "keep-alive",
+]);
+
+/** What `fetch` takes: an address, and what a plain request carries. */
+const requestSchema = z
+  .object({
+    url: z.string().min(1).max(2_000),
+    method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]).default("GET"),
+    headers: z
+      .record(z.string().regex(/^[A-Za-z0-9-]{1,64}$/), z.string().max(4_000))
+      .refine((headers) => Object.keys(headers).length <= 30)
+      .default({}),
+    body: z.string().optional(),
+  })
+  .strict();
+
+/** A secret as a run holds it: where it may go, and what it is. */
+export type ScriptSecret = { host: string; value: string };
+
+/** The host a request goes to, or nothing when its address is not one. */
+function hostOf(address: string): string | undefined {
+  try {
+    const url = new URL(address);
+    return url.protocol === "https:" ? url.hostname.toLowerCase() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** What a script sent, read by `schema`; anything else is refused. */
@@ -97,8 +148,89 @@ export function scriptHost(
     author: Actor;
     baseId: string;
     origin: WriteOrigin;
+    /** The automation's secrets, by name: each goes to its host alone. */
+    secrets?: ReadonlyMap<string, ScriptSecret>;
+    /** How a request leaves: `requestPinned`, unless a test says otherwise. */
+    request?: typeof requestPinned;
   },
 ): ScriptHost {
+  let requests = 0;
+  /**
+   * One call to an address outside the instance (ADR 0101): public HTTPS
+   * only, as a webhook's. A secret is put where the script wrote its
+   * name, and only in a request to the host it is kept for; the script
+   * never holds it.
+   */
+  const call = async (args: unknown): Promise<PinnedAnswer> => {
+    const input = read(requestSchema, args);
+    if (
+      Object.keys(input.headers).some((name) =>
+        KEPT_HEADERS.has(name.toLowerCase()),
+      )
+    ) {
+      throw new AppError("invalid_script_request");
+    }
+    // The address as written, its secrets not yet in it: where it goes
+    // must be plain to read before any secret is.
+    const host = hostOf(input.url);
+    if (!host) throw new AppError("invalid_script_request");
+    const texts = [
+      input.url,
+      ...Object.values(input.headers),
+      input.body ?? "",
+    ];
+    const allowed = new Map<string, string>();
+    for (const name of texts.flatMap(secretNames)) {
+      const secret = context.secrets?.get(name);
+      if (!secret) throw new AppError("unknown_secret", name);
+      if (secret.host !== host) {
+        throw new AppError("secret_for_another_host", name);
+      }
+      allowed.set(name, secret.value);
+    }
+    const fill = (text: string): string => {
+      const filled = fillSecrets(text, allowed);
+      if ("missing" in filled)
+        throw new AppError("unknown_secret", filled.missing);
+      return filled.text;
+    };
+    const url = fill(input.url);
+    // A secret's value cannot move the request to another host.
+    if (hostOf(url) !== host) throw new AppError("invalid_script_request");
+    if (requests >= SCRIPT_REQUESTS) {
+      throw new AppError("script_requests_exhausted");
+    }
+    const headers = Object.fromEntries(
+      Object.entries(input.headers).map(([name, value]) => [name, fill(value)]),
+    );
+    // A header is one line: a value that holds another is not sent.
+    if (Object.values(headers).some((value) => /[\r\n\0]/.test(value))) {
+      throw new AppError("invalid_script_request");
+    }
+    requests += 1;
+    const named = Object.keys(headers).some(
+      (name) => name.toLowerCase() === "user-agent",
+    );
+    try {
+      return await (context.request ?? requestPinned)(url, {
+        method: input.method,
+        // Said to be an automation's, as its other calls are, unless the
+        // script says who it is.
+        headers: named
+          ? headers
+          : { "user-agent": "AnyGridDB-Automation/1", ...headers },
+        ...(input.body === undefined ? {} : { body: fill(input.body) }),
+        maxBytes: SCRIPT_ANSWER_BYTES,
+      });
+    } catch (error) {
+      // A call that got no answer is the script's to handle, in the
+      // words a webhook's delivery uses: a private address, a name that
+      // does not resolve, a timeout. Nothing of the failure itself.
+      throw new AppError("script_request_failed", failureText(error), {
+        cause: error,
+      });
+    }
+  };
   let tables: Promise<TableRow[]> | undefined;
   const baseTables = () =>
     (tables ??= deps.db
@@ -131,6 +263,8 @@ export function scriptHost(
   };
   return async (name, args) => {
     switch (name) {
+      case "http.request":
+        return call(args);
       case "records.list": {
         const input = read(listSchema, args);
         const { tableId, actor } = await resolve(input.table);

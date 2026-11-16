@@ -232,6 +232,84 @@ export async function postPinned(
   });
 }
 
+/** What a public address answered: its status, its headers, its body as text. */
+export type PinnedAnswer = {
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+};
+
+/**
+ * Sends one request to a public HTTPS address, pinned as `postPinned`
+ * is, and reads the answer up to `maxBytes`: a longer one is refused. A
+ * redirect is answered as it is, never followed.
+ */
+export async function requestPinned(
+  target: string,
+  options: {
+    method: string;
+    headers: Record<string, string>;
+    body?: string;
+    maxBytes: number;
+  },
+): Promise<PinnedAnswer> {
+  const url = assertPublicUrl(target);
+  const body = options.body;
+  return new Promise((resolve, reject) => {
+    const outgoing = request(
+      url,
+      {
+        method: options.method,
+        lookup: guardedLookup,
+        timeout: REQUEST_TIMEOUT_MS,
+        headers: {
+          ...options.headers,
+          ...(body === undefined
+            ? {}
+            : { "content-length": String(Buffer.byteLength(body)) }),
+        },
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        let size = 0;
+        response.on("data", (chunk: Buffer) => {
+          size += chunk.length;
+          if (size > options.maxBytes) {
+            outgoing.destroy(new Error("Answer too large"));
+            return;
+          }
+          chunks.push(chunk);
+        });
+        response.on("end", () => {
+          const headers: Record<string, string> = {};
+          for (const [name, value] of Object.entries(response.headers)) {
+            if (value === undefined || Object.keys(headers).length >= 50) {
+              continue;
+            }
+            headers[name] = (
+              Array.isArray(value) ? value.join(", ") : value
+            ).slice(0, 2_000);
+          }
+          resolve({
+            status: response.statusCode ?? 0,
+            headers,
+            body: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+        response.on("error", reject);
+      },
+    );
+    const timer = setTimeout(
+      () => outgoing.destroy(new Error("Timeout")),
+      REQUEST_TIMEOUT_MS,
+    );
+    outgoing.on("close", () => clearTimeout(timer));
+    outgoing.on("timeout", () => outgoing.destroy(new Error("Timeout")));
+    outgoing.on("error", reject);
+    outgoing.end(body);
+  });
+}
+
 export function signBody(secret: string, body: string): string {
   return createHmac("sha256", secret).update(body).digest("hex");
 }
@@ -240,6 +318,7 @@ export function signBody(secret: string, body: string): string {
 export function failureText(error: unknown): string {
   if (error instanceof Error) {
     if (error.message === "Timeout") return "Timeout";
+    if (error.message === "Answer too large") return "Answer too large";
     if (error.message === "Invalid webhook") return "Blocked target";
     if (/^HTTP \d{3}$/.test(error.message)) return error.message;
     const code = (error as { code?: unknown }).code;

@@ -283,6 +283,9 @@ export interface Automations {
   lastRunAt: Timestamp | null;
   name: string;
   nextRunAt: Timestamp | null;
+  secrets: Generated<Json>;
+  secretsCiphertext: Buffer | null;
+  secretsNonce: Buffer | null;
   tableId: string;
   trigger: unknown;
   updatedAt: Generated<Timestamp>;

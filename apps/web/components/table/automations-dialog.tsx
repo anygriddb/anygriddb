@@ -1,5 +1,6 @@
 import {
   MAX_AUTOMATION_ACTIONS,
+  MAX_AUTOMATION_SECRETS,
   MAX_LOOP_ROWS,
   MAX_NESTED_ACTIONS,
   MAX_SCRIPT_LENGTH,
@@ -665,7 +666,7 @@ function ScriptEditor(props: {
         className="flex flex-col gap-1 text-xs text-muted-foreground"
       >
         <p>
-          {t`JavaScript, run apart from the instance, with your access to this base and nothing else: no network, no file.`}
+          {t`JavaScript, run apart from the instance, with your access to this base and nothing else: it opens no file and no connection of its own.`}
         </p>
         <ul className="list-disc pl-4">
           {(
@@ -682,6 +683,10 @@ function ScriptEditor(props: {
               [
                 "records.get(table, id) · records.create(table, fields) · records.update(table, id, fields) · records.delete(table, id)",
                 t`One row read, created, changed, or deleted.`,
+              ],
+              [
+                "await fetch(url, { method, headers, body })",
+                t`A call to a public HTTPS address, made by the instance: 10 calls a script, 1 MiB an answer. It answers status, ok, headers.get(name), text(), and json().`,
               ],
               ["console.log(…)", t`Writes a line to the run's log.`],
               [
@@ -700,6 +705,99 @@ function ScriptEditor(props: {
         </p>
       </div>
     </div>
+  );
+}
+
+/** A secret as the editor holds it: its value typed, or kept as it is. */
+type SecretDraft = {
+  name: string;
+  host: string;
+  value: string;
+  /** Already kept by the automation: an empty value leaves it. */
+  kept: boolean;
+};
+
+/** The secrets an automation keeps for its scripts' calls. */
+function SecretsEditor(props: {
+  secrets: SecretDraft[];
+  onChange: (secrets: SecretDraft[]) => void;
+}) {
+  const { t } = useLingui();
+  const helpId = useId();
+  const set = (index: number, patch: Partial<SecretDraft>) =>
+    props.onChange(
+      props.secrets.map((secret, at) =>
+        at === index ? { ...secret, ...patch } : secret,
+      ),
+    );
+  return (
+    <section
+      aria-describedby={helpId}
+      className="flex flex-col gap-2 rounded-sm border border-border p-3"
+    >
+      <span className="text-xs font-medium text-muted-foreground">
+        {t`Secrets for scripts`}
+      </span>
+      <p id={helpId} className="text-xs text-muted-foreground">
+        {t`A secret is kept sealed and never shown again. A script writes ${"{{secret.NAME}}"} in a call's address, headers, or body: the instance puts the secret there, and only in a call to its own host.`}
+      </p>
+      {props.secrets.map((secret, index) => (
+        <div key={index} className="flex flex-wrap items-center gap-1">
+          <Input
+            aria-label={t`Secret name`}
+            placeholder="API_TOKEN"
+            className="h-8 w-40 font-mono text-xs"
+            maxLength={40}
+            value={secret.name}
+            onChange={(event) => set(index, { name: event.target.value })}
+          />
+          <Input
+            aria-label={t`Host the secret is sent to`}
+            placeholder="api.example.com"
+            className="h-8 w-56 text-xs"
+            maxLength={253}
+            value={secret.host}
+            onChange={(event) => set(index, { host: event.target.value })}
+          />
+          <Input
+            type="password"
+            autoComplete="new-password"
+            aria-label={t`Secret value`}
+            placeholder={secret.kept ? t`Kept: type to replace it` : t`Value`}
+            className="h-8 w-56 text-xs"
+            maxLength={4000}
+            value={secret.value}
+            onChange={(event) => set(index, { value: event.target.value })}
+          />
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={t`Remove secret`}
+            onClick={() =>
+              props.onChange(props.secrets.filter((_, at) => at !== index))
+            }
+          >
+            <X className="h-3.5 w-3.5" aria-hidden />
+          </Button>
+        </div>
+      ))}
+      {props.secrets.length < MAX_AUTOMATION_SECRETS ? (
+        <Button
+          size="xs"
+          variant="ghost"
+          className="self-start"
+          onClick={() =>
+            props.onChange([
+              ...props.secrets,
+              { name: "", host: "", value: "", kept: false },
+            ])
+          }
+        >
+          <Plus className="h-3.5 w-3.5" aria-hidden />
+          {t`Add a secret`}
+        </Button>
+      ) : null}
+    </section>
   );
 }
 
@@ -886,6 +984,16 @@ function AutomationEditor(props: {
   const [actions, setActions] = useState<AutomationAction[]>(
     props.initial?.actions ?? [defaultAction("update_record", table.table.id)],
   );
+  // The secrets it keeps for its scripts: their values are never read
+  // back, so a kept one shows empty and stays unless it is typed again.
+  const [secrets, setSecrets] = useState<SecretDraft[]>(() =>
+    (props.initial?.secrets ?? []).map((secret) => ({
+      name: secret.name,
+      host: secret.host,
+      value: "",
+      kept: true,
+    })),
+  );
   const [busy, setBusy] = useState(false);
   /** A webhook's new address: shown once, here. */
   const [address, setAddress] = useState<string | null>(null);
@@ -902,6 +1010,11 @@ function AutomationEditor(props: {
         enabled: props.initial?.enabled ?? true,
         trigger,
         actions,
+        secrets: secrets.map((secret) => ({
+          name: secret.name.trim(),
+          host: secret.host.trim(),
+          ...(secret.value ? { value: secret.value } : {}),
+        })),
       };
       const saved = props.initial
         ? await trpc.automations.update.mutate({
@@ -1093,6 +1206,9 @@ function AutomationEditor(props: {
           />
         </section>
       ))}
+      {hasScript(actions) || secrets.length > 0 ? (
+        <SecretsEditor secrets={secrets} onChange={setSecrets} />
+      ) : null}
       {actions.length < MAX_AUTOMATION_ACTIONS ? (
         <div>
           <Button

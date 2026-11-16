@@ -69,6 +69,13 @@ const SEALED_COLUMNS: readonly SealedColumn[] = [
     nonce: "headers_nonce",
   },
   {
+    table: "automations",
+    id: "id",
+    use: "automation",
+    ciphertext: "secrets_ciphertext",
+    nonce: "secrets_nonce",
+  },
+  {
     table: "instance_integrations",
     id: "id",
     use: "notify",

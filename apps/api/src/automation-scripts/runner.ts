@@ -3,9 +3,10 @@
  * nothing of the instance: no environment, no database, no network, no
  * file but its own code. The script itself runs one level further in, in
  * a QuickJS interpreter compiled to WebAssembly, where it sees the
- * language and three names: `input`, `records`, `console`. Whatever it
- * asks of the instance crosses to the API process as text, and is done
- * there with its author's rights.
+ * language and four names: `input`, `records`, `console`, `fetch`.
+ * Whatever it asks of the instance crosses to the API process as text,
+ * and is done there with its author's rights; a call to an address is
+ * made there too, never from here.
  *
  * This file imports nothing of the product, so that Node runs it as it
  * is, from the sources as from the bundle.
@@ -85,8 +86,30 @@ const PRELUDE = `(function (hostCall, hostLog, inputJson, script) {
   const console = Object.freeze({
     log: say, info: say, warn: say, error: say, debug: say,
   });
+  const fetch = async (url, options = {}) => {
+    const body = options.body;
+    const answer = await call("http.request", {
+      url: String(url),
+      method: options.method,
+      headers: options.headers,
+      body: body === undefined || typeof body === "string"
+        ? body
+        : JSON.stringify(body),
+    });
+    return Object.freeze({
+      status: answer.status,
+      ok: answer.status >= 200 && answer.status < 300,
+      headers: Object.freeze({
+        get: (name) => answer.headers[String(name).toLowerCase()] ?? null,
+      }),
+      text: async () => answer.body,
+      json: async () => JSON.parse(answer.body),
+    });
+  };
   return (async () => {
-    const result = await script(JSON.parse(inputJson), records, console);
+    const result = await script(
+      JSON.parse(inputJson), records, console, fetch,
+    );
     return result === undefined ? "null" : JSON.stringify(result) ?? "null";
   })();
 })`;
@@ -157,7 +180,7 @@ class Run {
   async start(): Promise<void> {
     const { context } = this;
     const compiled = context.evalCode(
-      `(async function (input, records, console) {${this.task.code}\n})`,
+      `(async function (input, records, console, fetch) {${this.task.code}\n})`,
       "script.js",
     );
     if (compiled.error) {

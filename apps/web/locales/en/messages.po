@@ -1090,6 +1090,10 @@ msgid "A button is clicked"
 msgstr "A button is clicked"
 
 #: components/table/automations-dialog.tsx
+msgid "A call to a public HTTPS address, made by the instance: 10 calls a script, 1 MiB an answer. It answers status, ok, headers.get(name), text(), and json()."
+msgstr "A call to a public HTTPS address, made by the instance: 10 calls a script, 1 MiB an answer. It answers status, ok, headers.get(name), text(), and json()."
+
+#: components/table/automations-dialog.tsx
 msgid "A call to its address (incoming webhook)"
 msgstr "A call to its address (incoming webhook)"
 
@@ -1273,13 +1277,21 @@ msgstr "A rule of the client's database refuses this value"
 msgid "A score drawn as symbols"
 msgstr "A score drawn as symbols"
 
+#: lib/errors.ts
+msgid "A script calls public https:// addresses only, with headers of its own"
+msgstr "A script calls public https:// addresses only, with headers of its own"
+
 #: components/admin/security-tab.tsx
-msgid "A script is code a table's manager writes. It runs apart from the instance, with no network and no file, is stopped after 10 seconds or at 64 MiB of memory, and reads and writes rows with its author's access. Turning scripts off stops those already written at once."
-msgstr "A script is code a table's manager writes. It runs apart from the instance, with no network and no file, is stopped after 10 seconds or at 64 MiB of memory, and reads and writes rows with its author's access. Turning scripts off stops those already written at once."
+msgid "A script is code a table's manager writes. It runs apart from the instance, opens no file and no connection of its own, and is stopped after 10 seconds or at 64 MiB of memory. It reads and writes rows with its author's access, and calls public HTTPS addresses through the instance, as a webhook does. Turning scripts off stops those already written at once."
+msgstr "A script is code a table's manager writes. It runs apart from the instance, opens no file and no connection of its own, and is stopped after 10 seconds or at 64 MiB of memory. It reads and writes rows with its author's access, and calls public HTTPS addresses through the instance, as a webhook does. Turning scripts off stops those already written at once."
 
 #: components/table/automations-dialog.tsx
 msgid "A script is stopped after 10 seconds, at 64 MiB of memory, or after 100 reads and writes; the scripts of one run share a minute."
 msgstr "A script is stopped after 10 seconds, at 64 MiB of memory, or after 100 reads and writes; the scripts of one run share a minute."
+
+#: lib/errors.ts
+msgid "A script makes 10 calls at most"
+msgstr "A script makes 10 calls at most"
 
 #: components/admin/api-tokens-tab.tsx
 msgid "A script that calls the API with this token will be refused at once."
@@ -1296,6 +1308,15 @@ msgstr "A second factor is asked at each sign-in after your password. On this in
 #: components/table/automations-dialog.tsx
 msgid "A secret address is created when you save. A JSON POST (64 KiB at most) triggers it; each field of the body becomes a variable, listed below."
 msgstr "A secret address is created when you save. A JSON POST (64 KiB at most) triggers it; each field of the body becomes a variable, listed below."
+
+#. placeholder {0}: "{{secret.NAME}}"
+#: components/table/automations-dialog.tsx
+msgid "A secret is kept sealed and never shown again. A script writes {0} in a call's address, headers, or body: the instance puts the secret there, and only in a call to its own host."
+msgstr "A secret is kept sealed and never shown again. A script writes {0} in a call's address, headers, or body: the instance puts the secret there, and only in a call to its own host."
+
+#: lib/errors.ts
+msgid "A secret is sent only to the host it is kept for"
+msgstr "A secret is sent only to the host it is kept for"
 
 #: components/admin/sessions-tab.tsx
 msgid "A session ends after {idle} minutes without activity, and after {max} hours in any case (set under Security). Ending one signs the person out at once."
@@ -1684,6 +1705,10 @@ msgstr "Add a row"
 #: components/table/view-toolbar.tsx
 msgid "Add a row and open it"
 msgstr "Add a row and open it"
+
+#: components/table/automations-dialog.tsx
+msgid "Add a secret"
+msgstr "Add a secret"
 
 #: components/views/kanban-view.tsx
 msgid "Add a single select field to arrange cards in columns."
@@ -5329,6 +5354,10 @@ msgstr "Horizontal bars"
 msgid "Host"
 msgstr "Host"
 
+#: components/table/automations-dialog.tsx
+msgid "Host the secret is sent to"
+msgstr "Host the secret is sent to"
+
 #: components/admin/notifications-tab.tsx
 msgid "Hourly purge"
 msgstr "Hourly purge"
@@ -5984,8 +6013,8 @@ msgid "Its tables stay in the base, back at the root. The folder itself is remov
 msgstr "Its tables stay in the base, back at the root. The folder itself is removed."
 
 #: components/table/automations-dialog.tsx
-msgid "JavaScript, run apart from the instance, with your access to this base and nothing else: no network, no file."
-msgstr "JavaScript, run apart from the instance, with your access to this base and nothing else: no network, no file."
+msgid "JavaScript, run apart from the instance, with your access to this base and nothing else: it opens no file and no connection of its own."
+msgstr "JavaScript, run apart from the instance, with your access to this base and nothing else: it opens no file and no connection of its own."
 
 #: components/admin/support-tab.tsx
 #: lib/errors.ts
@@ -6052,6 +6081,10 @@ msgstr "Keep restore points for"
 #: components/settings/restore-points.tsx
 msgid "kept until {date}"
 msgstr "kept until {date}"
+
+#: components/table/automations-dialog.tsx
+msgid "Kept: type to replace it"
+msgstr "Kept: type to replace it"
 
 #: components/table/automations-dialog.tsx
 msgid "key"
@@ -8683,6 +8716,10 @@ msgstr "Remove filter"
 msgid "Remove from {base}"
 msgstr "Remove from {base}"
 
+#: components/table/automations-dialog.tsx
+msgid "Remove secret"
+msgstr "Remove secret"
+
 #: components/admin/account-actions.tsx
 msgid "Remove the auditor role"
 msgstr "Remove the auditor role"
@@ -9458,6 +9495,18 @@ msgstr "Second factor enabled"
 #: components/admin/auth-labels.ts
 msgid "Second factors removed"
 msgstr "Second factors removed"
+
+#: components/table/automations-dialog.tsx
+msgid "Secret name"
+msgstr "Secret name"
+
+#: components/table/automations-dialog.tsx
+msgid "Secret value"
+msgstr "Secret value"
+
+#: components/table/automations-dialog.tsx
+msgid "Secrets for scripts"
+msgstr "Secrets for scripts"
 
 #: components/admin/admin-sections.ts
 msgid "Security"
@@ -11150,6 +11199,10 @@ msgstr "The script used too much memory and was stopped"
 msgid "The script was stopped"
 msgstr "The script was stopped"
 
+#: lib/errors.ts
+msgid "The script's call got no answer"
+msgstr "The script's call got no answer"
+
 #: components/fields/formula-docs.ts
 msgid "The seconds."
 msgstr "The seconds."
@@ -11452,6 +11505,10 @@ msgstr "This API token may not delete rows"
 #: components/oauth/consent-page.tsx
 msgid "This application is unknown or no longer allowed."
 msgstr "This application is unknown or no longer allowed."
+
+#: lib/errors.ts
+msgid "This automation keeps no secret of that name"
+msgstr "This automation keeps no secret of that name"
 
 #: components/shell/base-home.tsx
 msgid "This base does not exist or is not shared with you."
@@ -12193,6 +12250,10 @@ msgstr "Type the account's email to confirm"
 #: components/admin/account-actions.tsx
 msgid "Type the new owner's email"
 msgstr "Type the new owner's email"
+
+#: lib/errors.ts
+msgid "Type the value of a new secret, and of one sent to another host"
+msgstr "Type the value of a new secret, and of one sent to another host"
 
 #: components/shell/airtable-report.tsx
 msgid "type without an equivalent carried over as text"

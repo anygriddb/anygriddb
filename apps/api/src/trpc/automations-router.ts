@@ -32,6 +32,8 @@ async function automationDeps(ctx: Context): Promise<AutomationDeps> {
     smtp,
     webOrigin: ctx.env.PUBLIC_URL,
     log: (error, message) => ctx.req.log.error({ err: error }, message),
+    // A run started by hand opens its automation's secrets as any other.
+    key: ctx.env.AUTH_ENCRYPTION_KEY,
   };
 }
 
@@ -86,7 +88,11 @@ export const automationsRouter = t.router({
         }
         return withAddress(
           ctx,
-          await saveAutomation(ctx.db, { ...input, createdBy: user.id }),
+          await saveAutomation(
+            ctx.db,
+            { ...input, createdBy: user.id },
+            ctx.env.AUTH_ENCRYPTION_KEY,
+          ),
         );
       }),
     ),
@@ -105,12 +111,16 @@ export const automationsRouter = t.router({
         }
         return withAddress(
           ctx,
-          await saveAutomation(ctx.db, {
-            ...input,
-            id: input.automationId,
-            tableId,
-            createdBy: user.id,
-          }),
+          await saveAutomation(
+            ctx.db,
+            {
+              ...input,
+              id: input.automationId,
+              tableId,
+              createdBy: user.id,
+            },
+            ctx.env.AUTH_ENCRYPTION_KEY,
+          ),
         );
       }),
     ),
