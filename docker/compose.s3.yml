@@ -31,7 +31,7 @@ services:
       ]
 
   rustfs:
-    image: rustfs/rustfs:1.0.4
+    image: rustfs/rustfs:1.0.5
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
