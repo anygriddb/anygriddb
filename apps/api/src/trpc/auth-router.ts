@@ -468,6 +468,8 @@ export const authRouter = t.router({
       /** Whether mail is set up: a code by email can be chosen (ADR 0085). */
       mailReady,
       publicLinks: settings.publicLinks,
+      // Whether an automation may run a script here (ADR 0099).
+      automationScripts: settings.automationScripts,
       tokenMaxDays: settings.tokenMaxDays,
       // What delete dialogs tell: how long the trash keeps things.
       trashDays: settings.trashDays,

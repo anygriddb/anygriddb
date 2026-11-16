@@ -370,6 +370,23 @@ function SecurityTab() {
       </RuledSection>
 
       <RuledSection
+        title={t`Automations`}
+        description={t`What an automation may run on this instance besides its own actions.`}
+      >
+        <Choice
+          id="policy-automation-scripts"
+          label={t`Scripts in automations`}
+          value={data.automationScripts ? "on" : "off"}
+          options={[
+            ["off", t`Off`],
+            ["on", t`Allowed`],
+          ]}
+          onChange={(value) => void save({ automationScripts: value === "on" })}
+          hint={t`A script is code a table's manager writes. It runs apart from the instance, with no network and no file, is stopped after 10 seconds or at 64 MiB of memory, and reads and writes rows with its author's access. Turning scripts off stops those already written at once.`}
+        />
+      </RuledSection>
+
+      <RuledSection
         title={t`Sign-in trail`}
         description={t`Sign-ins, failures, and what administrators changed, with the address. The CNIL recommends keeping such logs six months to a year.`}
       >

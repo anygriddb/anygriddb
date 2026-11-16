@@ -116,6 +116,7 @@ export function SignInTrail({
             passwordReset: t`Password resets`,
             tokenMaxDays: t`API token lifetime`,
             publicLinks: t`Public links`,
+            automationScripts: t`Scripts in automations`,
             signupDomains: t`Sign-up domains`,
             authRetentionDays: t`Sign-in trail retention`,
             invitations: t`Whom owners can invite`,

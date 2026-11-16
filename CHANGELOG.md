@@ -8,6 +8,23 @@ first.
 
 ## Unreleased
 
+### Added
+
+- An automation can run a script: a few lines of JavaScript among its
+  actions, which read the row, read and write rows of the base with
+  their author's access, and hand values to the actions after them. A
+  script runs apart from the instance, with no network and no file, and
+  is stopped after 10 seconds or at 64 MiB of memory. Scripts are off
+  until an administrator allows them, in Administration under Security
+  (ADR 0099).
+- An automation started by a call to its address can also be run by
+  hand, from the list of automations.
+
+### Fixed
+
+- The steps of an automation's run are numbered by their place: the
+  second action of an automation was listed as its first.
+
 ## 0.1.0 - 2026-11-16
 
 First public release. The GitHub Release for `v0.1.0` holds the full

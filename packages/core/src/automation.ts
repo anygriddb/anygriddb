@@ -10,6 +10,8 @@ export const MAX_AUTOMATION_ACTIONS = 20;
 export const MAX_NESTED_ACTIONS = 10;
 /** Rows one loop goes through, at most. */
 export const MAX_LOOP_ROWS = 100;
+/** Characters of one script, at most. */
+export const MAX_SCRIPT_LENGTH = 20_000;
 
 const templateSchema = z.string().max(10_000);
 const valuesSchema = z
@@ -128,6 +130,18 @@ const automationStepSchema = z.discriminatedUnion("type", [
       type: z.literal("notify"),
       users: z.array(z.uuid()).min(1).max(20),
       message: z.string().trim().min(1).max(300),
+    })
+    .strict(),
+  /**
+   * Runs its author's JavaScript apart from the instance (ADR 0099). The
+   * script reads `input`, reads and writes records with its author's
+   * rights, and what it returns is `{{script_<key>}}` for the actions
+   * after it.
+   */
+  z
+    .object({
+      type: z.literal("run_script"),
+      code: z.string().min(1).max(MAX_SCRIPT_LENGTH),
     })
     .strict(),
 ]);
@@ -274,6 +288,43 @@ export function webhookTemplateValues(body: unknown): Record<string, string> {
         }
       }
     }
+  }
+  return values;
+}
+
+/** Whether an automation runs a script, at the top or inside a branch or a loop. */
+export function hasScript(actions: readonly AutomationAction[]): boolean {
+  const among = (list: readonly AutomationStep[]) =>
+    list.some((step) => step.type === "run_script");
+  return actions.some((action) => {
+    if (action.type === "branch") {
+      return among(action.then) || among(action.otherwise ?? []);
+    }
+    return action.type === "for_each" ? among(action.actions) : among([action]);
+  });
+}
+
+/**
+ * What a script returned, as template values for the actions after it:
+ * `script_<key>` for each key of an object, `script_result` for anything
+ * else, each as text. Keys keep their letters, digits, and underscores.
+ */
+export function scriptTemplateValues(output: unknown): Record<string, string> {
+  const text = (value: unknown): string => {
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+    return value === null || value === undefined ? "" : JSON.stringify(value);
+  };
+  if (output === null || output === undefined) return {};
+  if (typeof output !== "object" || Array.isArray(output)) {
+    return { script_result: text(output).slice(0, 4_000) };
+  }
+  const values: Record<string, string> = {};
+  for (const [name, value] of Object.entries(output).slice(0, 50)) {
+    const key = `script_${name.replace(/[^A-Za-z0-9_]/g, "_")}`.slice(0, 63);
+    values[key] = text(value).slice(0, 4_000);
   }
   return values;
 }

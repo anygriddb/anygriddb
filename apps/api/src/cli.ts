@@ -38,6 +38,7 @@ import {
   issueServiceCertificates,
   type StackService,
 } from "./tls/authority.js";
+import { ScriptRunner } from "./automation-scripts/sandbox.js";
 import { createFileStore, type FileSettings } from "./files/index.js";
 import { sweepOrphanFiles } from "./files/sweep.js";
 import { copyFiles, type CopyReport } from "./files/transfer.js";
@@ -78,6 +79,10 @@ const USAGE = `Usage:
       Tells the instance a backup ended, for Administration to show and
       to raise an alert when backups stop: scripts/backup.sh runs it, and
       so can a backup made by other means. <time> is ISO 8601.
+  anygriddb scripts check
+      Runs one script as an automation would, apart from this process,
+      and exits 0 when it answered: where the instance is installed lets
+      scripts run.
 `;
 
 class UsageError extends Error {}
@@ -499,6 +504,32 @@ async function adminRecover(args: string[]): Promise<number> {
   }
 }
 
+/**
+ * Runs one script the way an automation does (ADR 0099): the process of
+ * its own, its permissions, the interpreter. Nothing of the instance is
+ * read or written.
+ */
+async function scriptsCheck(): Promise<number> {
+  const runner = new ScriptRunner();
+  try {
+    const { output } = await runner.run(
+      "return input.six * 7;",
+      { six: 6 },
+      () => Promise.reject(new Error("nothing to ask")),
+    );
+    if (output !== 42) throw new Error("the script answered something else");
+    process.stdout.write("A script ran apart from this process.\n");
+    return 0;
+  } catch (error) {
+    process.stderr.write(
+      `Scripts cannot run here: ${message(error)}. The script's process needs to start beside this one, with Node's permission model.\n`,
+    );
+    return 1;
+  } finally {
+    runner.close();
+  }
+}
+
 async function main(argv: string[]): Promise<number> {
   const [group, command, ...rest] = argv;
   try {
@@ -532,6 +563,10 @@ async function main(argv: string[]): Promise<number> {
     }
     if (group === "admin" && command === "recover") {
       return await adminRecover(rest);
+    }
+    if (group === "scripts" && command === "check") {
+      parseArgs({ args: rest, options: {}, strict: true });
+      return await scriptsCheck();
     }
     if (group === undefined || group === "help" || group === "--help") {
       process.stdout.write(USAGE);

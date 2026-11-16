@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   createAutomationInputSchema,
+  hasScript,
   MAX_AUTOMATION_ACTIONS,
+  MAX_SCRIPT_LENGTH,
   nextScheduleRun,
   renderTemplate,
+  scriptTemplateValues,
   templateKeys,
   webhookTemplateValues,
   writeSlackMessage,
@@ -271,6 +274,113 @@ describe("webhookTemplateValues", () => {
   it("gives only `body` for a body that is not an object", () => {
     expect(webhookTemplateValues([1, 2])).toEqual({ body: "[1,2]" });
     expect(webhookTemplateValues(undefined)).toEqual({ body: "null" });
+  });
+});
+
+describe("a script among an automation's actions", () => {
+  const withActions = (actions: unknown[], trigger: unknown) =>
+    createAutomationInputSchema.safeParse({
+      tableId: TABLE,
+      name: "Scripted",
+      trigger,
+      actions,
+    });
+  const script = { type: "run_script", code: "return 1;" };
+
+  it("is accepted at the top, in a branch, in a loop, and without a row", () => {
+    const parsed = withActions(
+      [
+        script,
+        {
+          type: "branch",
+          when: { conjunction: "and", conditions: [] },
+          then: [script],
+        },
+        { type: "for_each", tableId: TABLE, actions: [script] },
+      ],
+      { type: "row_created" },
+    );
+    expect(parsed.success).toBe(true);
+    expect(withActions([script], { type: "webhook" }).success).toBe(true);
+    if (parsed.success) expect(hasScript(parsed.data.actions)).toBe(true);
+  });
+
+  it("is refused empty, too long, or with a field it does not have", () => {
+    const row = { type: "row_created" };
+    expect(withActions([{ ...script, code: "" }], row).success).toBe(false);
+    expect(
+      withActions([{ ...script, code: "x".repeat(MAX_SCRIPT_LENGTH + 1) }], row)
+        .success,
+    ).toBe(false);
+    expect(
+      withActions([{ ...script, url: "https://x.test" }], row).success,
+    ).toBe(false);
+  });
+
+  it("is found wherever it is, and not where there is none", () => {
+    expect(hasScript([{ type: "delete_record" }])).toBe(false);
+    expect(
+      hasScript([
+        {
+          type: "branch",
+          when: { conjunction: "and", conditions: [] },
+          then: [{ type: "delete_record" }],
+          otherwise: [{ type: "run_script", code: "1" }],
+        },
+      ]),
+    ).toBe(true);
+    expect(
+      hasScript([
+        {
+          type: "for_each",
+          tableId: TABLE,
+          limit: 1,
+          actions: [{ type: "run_script", code: "1" }],
+        },
+      ]),
+    ).toBe(true);
+  });
+});
+
+describe("scriptTemplateValues", () => {
+  it("gives an object's keys as text, under script_", () => {
+    expect(
+      scriptTemplateValues({
+        total: 42,
+        ok: true,
+        name: "Ada",
+        none: null,
+        list: [1, 2],
+        "odd key!": "x",
+      }),
+    ).toEqual({
+      script_total: "42",
+      script_ok: "true",
+      script_name: "Ada",
+      script_none: "",
+      script_list: "[1,2]",
+      script_odd_key_: "x",
+    });
+  });
+
+  it("gives anything else as script_result, and nothing for nothing", () => {
+    expect(scriptTemplateValues("done")).toEqual({ script_result: "done" });
+    expect(scriptTemplateValues([1, 2])).toEqual({ script_result: "[1,2]" });
+    expect(scriptTemplateValues(null)).toEqual({});
+    expect(scriptTemplateValues(undefined)).toEqual({});
+  });
+
+  it("keeps a bounded number of keys, each of a bounded length", () => {
+    const many = Object.fromEntries(
+      Array.from({ length: 80 }, (_, index) => [`k${String(index)}`, "v"]),
+    );
+    expect(Object.keys(scriptTemplateValues(many))).toHaveLength(50);
+    const values = scriptTemplateValues({
+      ["k".repeat(100)]: "x".repeat(5_000),
+    });
+    const [key] = Object.keys(values);
+    expect(key).toHaveLength(63);
+    expect(values[key ?? ""]).toHaveLength(4_000);
   });
 });
 

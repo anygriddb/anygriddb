@@ -31,6 +31,7 @@
     "@fastify/rate-limit": "11.2.2",
     "@fastify/static": "10.1.10",
     "@fastify/websocket": "11.3.7",
+    "@jitl/quickjs-ng-wasmfile-release-sync": "0.32.0",
     "@modelcontextprotocol/node": "2.1.2",
     "@modelcontextprotocol/server": "2.4.0",
     "@node-rs/argon2": "2.2.2",
@@ -57,6 +58,7 @@
     "openid-client": "6.8.9",
     "oracledb": "26.0.0",
     "pg": "8.23.1",
+    "quickjs-emscripten-core": "0.32.0",
     "sharp": "0.35.5",
     "tedious": "20.3.9",
     "zod": "4.6.7"

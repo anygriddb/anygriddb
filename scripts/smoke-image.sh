@@ -93,6 +93,9 @@ fi
   dd if=/dev/zero of=/tmp/large bs=1M count=128 2>/dev/null
   rm /tmp/large
 '
+# An automation's script runs in a process of its own, started from the
+# bundle with Node's permission model (ADR 0099): the image must let it.
+"${compose[@]}" exec -T app anygriddb scripts check
 reported="$("${compose[@]}" exec -T app anygriddb version)"
 echo "$reported"
 if [ -n "${SMOKE_VERSION:-}" ] && ! grep -Fq "$SMOKE_VERSION" <<<"$reported"; then
