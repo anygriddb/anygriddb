@@ -46,9 +46,8 @@ Every table is a real SQL table, in AnyGridDB's own PostgreSQL or in your own da
 
 To run an instance people will use, install a release: the published
 image, pinned by version and digest, as [`docs/operations.md`](docs/operations.md#install)
-shows. No release is published yet: until the first one, the two ways
-below, which run this checkout, are the only ones, and `main` is
-development.
+shows. The two ways below run this checkout for development; `main` is
+not a release.
 
 Host development (AnyGridDB on the machine, PostgreSQL in Docker):
 

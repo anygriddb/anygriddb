@@ -32,10 +32,7 @@ here was tried on a stack of its own before it was written down.
 ## Install
 
 Install a release, never `main`: each release is a Git tag `vX.Y.Z`
-(ADR 0048). No release is published yet: until the first one, build
-from a checkout of `main` as the README's quick start shows, and expect
-changes that a release would announce. Once there is one, prefer the
-published image, pinned by version and digest:
+(ADR 0048). Prefer the published image, pinned by version and digest:
 
 ```sh
 version=X.Y.Z   # the release to install, from GitHub Releases
