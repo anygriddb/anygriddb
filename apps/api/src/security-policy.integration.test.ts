@@ -773,6 +773,48 @@ describe("the security policy", () => {
         .executeTakeFirstOrThrow();
       expect(counted.passwordFailures).toBe(6);
     });
+
+    it("takes the password in a request's body, and reads with the proof alone", async () => {
+      const base = await insertBase(db, adminId, { name: `Body ${suffix}` });
+      const table = await insertTable(db, adminId, {
+        baseId: base.id,
+        name: "Leads",
+        columns: [{ name: "title", label: "Title", fieldType: "text" }],
+      });
+      const { id: viewId } = await db
+        .selectFrom("views")
+        .select("id")
+        .where("tableId", "=", table.id)
+        .executeTakeFirstOrThrow();
+      const share = await createShare(db, {
+        viewId,
+        createdBy: adminId,
+        allowCopy: false,
+        password: "a share password",
+      });
+      const visitor = browser().call().share;
+      const token = share.token;
+      expect((await visitor.open({ token })).locked).toBe(true);
+      expect(
+        (await visitor.unlock({ token, password: "wrong password" })).locked,
+      ).toBe(true);
+      const granted = await visitor.unlock({
+        token,
+        password: "a share password",
+      });
+      expect(granted.locked).toBe(false);
+      const reading = await visitor.open({
+        token,
+        access: granted.access ?? undefined,
+      });
+      expect(reading.locked).toBe(false);
+      // A password slipped into a reading is not looked at.
+      const slipped = await visitor.open({
+        token,
+        ...{ password: "a share password" },
+      });
+      expect(slipped.locked).toBe(true);
+    });
   });
 
   describe("an account corrected by an administrator", () => {

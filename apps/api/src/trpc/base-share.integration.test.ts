@@ -126,10 +126,10 @@ describe("a base shared by one link", () => {
     await close?.();
   });
 
-  const open = (
-    token: string,
-    extra: { password?: string; access?: string } = {},
-  ) => visitor.call().share.openBase({ token, ...extra });
+  const open = (token: string, extra: { access?: string } = {}) =>
+    visitor.call().share.openBase({ token, ...extra });
+  const unlock = (token: string, password: string) =>
+    visitor.call().share.unlockBase({ token, password });
   const rowsOf = (token: string, tableId: string, access?: string) =>
     visitor
       .call()
@@ -179,15 +179,15 @@ describe("a base shared by one link", () => {
     });
     expect((await open(link.token)).locked).toBe(true);
     expect(await errorCode(rowsOf(link.token, clients))).toBe("unknown_share");
-    const granted = await open(link.token, { password: "a base password" });
+    const granted = await unlock(link.token, "a base password");
     expect(granted.locked).toBe(false);
     const access = granted.access ?? undefined;
+    // The proof opens the link; the password is never part of a reading.
+    expect((await open(link.token, { access })).locked).toBe(false);
     for (let attempt = 0; attempt < 9; attempt += 1) {
-      expect((await open(link.token, { password: "wrong" })).locked).toBe(true);
+      expect((await unlock(link.token, "wrong")).locked).toBe(true);
     }
-    expect(await errorCode(open(link.token, { password: "wrong" }))).toBe(
-      "share_locked",
-    );
+    expect(await errorCode(unlock(link.token, "wrong"))).toBe("share_locked");
     expect((await rowsOf(link.token, clients, access)).total).toBe(1);
   });
 

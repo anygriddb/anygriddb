@@ -38,7 +38,7 @@ export function PublicBase({ token }: { token: string }) {
   async function unlock() {
     setChecking(true);
     try {
-      const result = await trpc.share.openBase.query({ token, password });
+      const result = await trpc.share.unlockBase.mutate({ token, password });
       setWrong(result.locked);
       if (!result.locked) setGranted(result.access ?? undefined);
     } catch {
