@@ -64,7 +64,7 @@ The product is `apps/` and `packages/`.
 - On Oracle an empty text is NULL, so a blank text and lists built from it read as nothing; `NUMBER` keeps no scale (`7.50` reads `7.5`); `DATE` reads as a day; regular expressions are refused, as on SQL Server. Only Oracle 23ai is tested; 19c is the floor (docs/sources.md).
 - Regular expressions are a portable subset, written in the formula: `\d`, `\w`, and `\s` are ASCII, and back-references and lookbehinds are refused. SQL Server reads none before 2025, so there they are refused.
 - JSON_EXTRACT needs PostgreSQL 16 or later, where a text that is not JSON can be told apart without failing the read. On MySQL it reads JSON numbers as doubles, and the field says so.
-- The opt-in release check stays silent until an administrator turns it on and a GitHub Release exists; merges on `main` alone never raise the notice.
+- The opt-in release check stays silent until an administrator turns it on, and tells of published releases only: merges on `main` alone never raise the notice.
 - Putting a value back reads the change trail (ADR 0089). A comment's earlier text, a role, a token, a secret, a journal of runs or deliveries, and the arrangement of the screen are not put back. A field whose type has changed is not put back from before the change. A file the store no longer has cannot come back with the cell. A value written in a client's database outside AnyGridDB is not here.
 
 ## Next
@@ -82,11 +82,8 @@ priority; across tracks, the order of work below decides.
 
 A row moves up only when it unblocks another.
 
-1. A published release: 51. It needs no code, only a version tag, and
-   comes first: no operator installs a version before it, and the update
-   notice has nothing to find.
-2. Applications, sign-in, and languages: 106 once decided (needs 101,
-   which is done); 104; 105 once its languages are chosen.
+1. Applications, sign-in, and languages: 104; 106 once decided (needs
+   101, which is done); 105 once its languages are chosen.
 
 ### Views and organisation
 
@@ -136,11 +133,7 @@ Every base, link, token, webhook, and automation of the instance, metadata only:
 
 #### Lot 4: backups and alerts
 
-Done: the backup script tells the instance how each run ended, and so can a backup made by other means; Health shows the last ones (#17). Administrators are told, on the first page of Administration, in Health, and by email, of a backup that failed or is late, storage nearly full, the instance's certificate close to expiry, a source whose watched tables cannot be read, and failures piling up: each with its threshold or turned off, once a day at most while it stays open, closed by itself once its cause is gone (#25). Each administrator chooses, in Health, the kinds they are told about by email, account locks among them; every alert still shows to all (#48). A source's own certificate is not watched: once it expires the source stops answering, and that is told.
-
-| #   | What                                                                                                | Effort | Notes                                                                                                                                          |
-| --- | --------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| 51  | A published release the Health check can find, so the update notice can appear when the check is on | S      | Check and banner exist (ADR 0048); no GitHub Release yet, so operators never see one. No code: pushing a version tag runs the release workflow |
+Done: the backup script tells the instance how each run ended, and so can a backup made by other means; Health shows the last ones (#17). Administrators are told, on the first page of Administration, in Health, and by email, of a backup that failed or is late, storage nearly full, the instance's certificate close to expiry, a source whose watched tables cannot be read, and failures piling up: each with its threshold or turned off, once a day at most while it stays open, closed by itself once its cause is gone (#25). Each administrator chooses, in Health, the kinds they are told about by email, account locks among them; every alert still shows to all (#48). A source's own certificate is not watched: once it expires the source stops answering, and that is told. A version is published, so the release check has something to find: once an administrator turns it on, Health says which version is the latest, and a notice appears when it is newer than the one running (#51, ADR 0048).
 
 #### Lot 5: groups and delegated roles
 
