@@ -64,7 +64,7 @@ export function registerOauth(
       const form = formOf(request.body);
       try {
         if (form.grant_type === "authorization_code") {
-          return tokenOk(
+          return await tokenOk(
             reply,
             await exchangeAuthorizationCode(deps.db, {
               clientId: form.client_id ?? "",
@@ -76,7 +76,7 @@ export function registerOauth(
           );
         }
         if (form.grant_type === "refresh_token") {
-          return tokenOk(
+          return await tokenOk(
             reply,
             await refreshAccessToken(deps.db, {
               clientId: form.client_id ?? "",
@@ -85,10 +85,10 @@ export function registerOauth(
             }),
           );
         }
-        return oauthError(reply, 400, "unsupported_grant_type");
+        return await oauthError(reply, 400, "unsupported_grant_type");
       } catch (error) {
         if (error instanceof AppError && error.code === "invalid_input") {
-          return oauthError(reply, 400, "invalid_grant");
+          return await oauthError(reply, 400, "invalid_grant");
         }
         throw error;
       }

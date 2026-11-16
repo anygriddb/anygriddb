@@ -3,9 +3,10 @@
  * Access tokens are normal api_tokens rows so REST and MCP stay one path.
  */
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { AppError } from "@anygriddb/core";
+import { AppError, roleAllows, roleFor } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
+import { loadBindings } from "../auth/access.js";
 import { createApiToken, tokenDays } from "../auth/tokens.js";
 import { readGateSettings } from "../settings.js";
 import { findLiveOauthClient } from "./clients.js";
@@ -40,6 +41,12 @@ export async function issueAuthorizationCode(
   }
   const baseIds = [...new Set(input.baseIds)];
   if (baseIds.length === 0) throw new AppError("invalid_input");
+  const bindings = await loadBindings(db, userId);
+  for (const baseId of baseIds) {
+    if (!roleAllows(roleFor(bindings, "base", baseId), "read")) {
+      throw new AppError("access_denied");
+    }
+  }
 
   const code = `ago_${randomBytes(32).toString("base64url")}`;
   await db
