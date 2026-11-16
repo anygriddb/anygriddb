@@ -22,6 +22,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   mfa_enrollment_required: msg`Turn on a second factor in your settings`,
   account_disabled: msg`This account is disabled`,
   account_locked: msg`This account is locked after too many failed attempts. Try again later, or ask an administrator to unlock it.`,
+  too_many_attempts: msg`Too many attempts at once. Wait a moment, then try again.`,
   fresh_sign_in_required: msg`Sign out, sign in again, and do this within ten minutes: your sign-in is the proof it asks for.`,
   step_up_required: msg`Confirm your password or second factor again to continue`,
   signup_closed: msg`Sign-up is not open for this address`,

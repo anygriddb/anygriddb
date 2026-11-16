@@ -4,11 +4,11 @@
  */
 import { randomBytes } from "node:crypto";
 import { AppError, roleAllows, roleFor } from "@anygriddb/core";
-import type { Database } from "@anygriddb/db";
+import type { Database, Tx } from "@anygriddb/db";
 import { sql } from "kysely";
 import { loadBindings } from "../auth/access.js";
 import { verifyPassword } from "../auth/argon2.js";
-import { createApiToken, tokenDays } from "../auth/tokens.js";
+import { insertApiToken, tokenDays } from "../auth/tokens.js";
 import { readGateSettings } from "../settings.js";
 import { findLiveOauthClient } from "./clients.js";
 import { sha256Hex } from "./hash.js";
@@ -70,11 +70,21 @@ export async function issueAuthorizationCode(
   return { code, redirectUri: input.redirectUri };
 }
 
-async function clientSecretOk(
-  secretHash: string,
-  clientSecret: string,
-): Promise<boolean> {
-  return verifyPassword(secretHash, clientSecret);
+type OauthClient = NonNullable<Awaited<ReturnType<typeof findLiveOauthClient>>>;
+
+/** The live client these credentials name, or the refusal every grant gives. */
+async function authenticClient(
+  db: Database,
+  input: { clientId: string; clientSecret: string },
+): Promise<OauthClient> {
+  const client = await findLiveOauthClient(db, input.clientId);
+  if (
+    !client ||
+    !(await verifyPassword(client.secretHash, input.clientSecret))
+  ) {
+    throw new AppError("invalid_input");
+  }
+  return client;
 }
 
 export type TokenResponse = {
@@ -83,6 +93,54 @@ export type TokenResponse = {
   expires_in: number;
   refresh_token: string;
 };
+
+/**
+ * An access token and the refresh token that renews it, in the caller's
+ * transaction: with what they replace, or not at all.
+ */
+async function issueTokens(
+  tx: Tx,
+  client: OauthClient,
+  grant: {
+    userId: string;
+    baseIds: string[] | null;
+    readOnly: boolean;
+    allowDelete: boolean;
+  },
+  made: { days: number; detail: "oauth_grant" | "oauth_refresh" },
+): Promise<TokenResponse> {
+  const { days } = made;
+  const access = await insertApiToken(
+    tx,
+    grant.userId,
+    `OAuth: ${client.name}`,
+    {
+      baseIds: grant.baseIds ?? undefined,
+      readOnly: grant.readOnly,
+      allowDelete: grant.allowDelete,
+      days,
+      oauthClientId: client.id,
+      detail: made.detail,
+    },
+  );
+  const refresh = `agr_${randomBytes(32).toString("base64url")}`;
+  await tx
+    .insertInto("oauthRefreshTokens")
+    .values({
+      tokenHash: sha256Hex(refresh),
+      clientId: client.id,
+      userId: grant.userId,
+      apiTokenId: access.id,
+      expiresAt: new Date(Date.now() + REFRESH_DAYS * 86_400_000),
+    })
+    .execute();
+  return {
+    access_token: access.token,
+    token_type: "Bearer",
+    expires_in: days * 86_400,
+    refresh_token: refresh,
+  };
+}
 
 /** Exchanges a code for an access token and a refresh token. */
 export async function exchangeAuthorizationCode(
@@ -95,14 +153,7 @@ export async function exchangeAuthorizationCode(
     codeVerifier: string;
   },
 ): Promise<TokenResponse> {
-  const client = await findLiveOauthClient(db, input.clientId);
-  if (
-    !client ||
-    !(await clientSecretOk(client.secretHash, input.clientSecret))
-  ) {
-    throw new AppError("invalid_input");
-  }
-
+  const client = await authenticClient(db, input);
   const row = await db
     .selectFrom("oauthAuthorizationCodes")
     .selectAll()
@@ -118,48 +169,27 @@ export async function exchangeAuthorizationCode(
   ) {
     throw new AppError("invalid_input");
   }
-
-  const claimed = await db
-    .updateTable("oauthAuthorizationCodes")
-    .set({ usedAt: new Date() })
-    .where("id", "=", row.id)
-    .where("usedAt", "is", null)
-    .returning("id")
-    .executeTakeFirst();
-  if (!claimed) throw new AppError("invalid_input");
-
-  const policy = await readGateSettings(db);
-  const days = tokenDays(undefined, policy);
-  const access = await createApiToken(db, row.userId, `OAuth: ${client.name}`, {
-    baseIds: row.baseIds,
-    readOnly: row.readOnly,
-    allowDelete: row.allowDelete,
-    days,
-    oauthClientId: client.id,
-    detail: "oauth_grant",
+  const days = tokenDays(undefined, await readGateSettings(db));
+  // The code is taken and its tokens made together: of two exchanges sent
+  // at once one takes it, and a failure leaves it to be tried again.
+  return db.transaction().execute(async (tx) => {
+    const taken = await tx
+      .updateTable("oauthAuthorizationCodes")
+      .set({ usedAt: new Date() })
+      .where("id", "=", row.id)
+      .where("usedAt", "is", null)
+      .returning("id")
+      .executeTakeFirst();
+    if (!taken) throw new AppError("invalid_input");
+    return issueTokens(tx, client, row, { days, detail: "oauth_grant" });
   });
-
-  const refresh = `agr_${randomBytes(32).toString("base64url")}`;
-  await db
-    .insertInto("oauthRefreshTokens")
-    .values({
-      tokenHash: sha256Hex(refresh),
-      clientId: client.id,
-      userId: row.userId,
-      apiTokenId: access.id,
-      expiresAt: new Date(Date.now() + REFRESH_DAYS * 86_400_000),
-    })
-    .execute();
-
-  return {
-    access_token: access.token,
-    token_type: "Bearer",
-    expires_in: days * 86_400,
-    refresh_token: refresh,
-  };
 }
 
-/** Rotates the refresh token and mints a new access token for the same grant. */
+/**
+ * Renews a grant: the refresh token and its access token are replaced by
+ * new ones, in one transaction. Of two renewals sent at once with one
+ * refresh token, one takes it and the other is refused.
+ */
 export async function refreshAccessToken(
   db: Database,
   input: {
@@ -168,83 +198,38 @@ export async function refreshAccessToken(
     refreshToken: string;
   },
 ): Promise<TokenResponse> {
-  const client = await findLiveOauthClient(db, input.clientId);
-  if (
-    !client ||
-    !(await clientSecretOk(client.secretHash, input.clientSecret))
-  ) {
-    throw new AppError("invalid_input");
-  }
-
-  const refresh = await db
-    .selectFrom("oauthRefreshTokens as r")
-    .innerJoin("apiTokens as t", "t.id", "r.apiTokenId")
-    .select([
-      "r.id",
-      "r.userId",
-      "r.expiresAt",
-      "r.revokedAt",
-      "t.baseIds",
-      "t.readOnly",
-      "t.allowDelete",
-      "t.id as apiTokenId",
-    ])
-    .where("r.tokenHash", "=", sha256Hex(input.refreshToken))
-    .where("r.clientId", "=", client.id)
-    .executeTakeFirst();
-  if (
-    !refresh ||
-    refresh.revokedAt ||
-    refresh.expiresAt.getTime() <= Date.now()
-  ) {
-    throw new AppError("invalid_input");
-  }
-
-  await db
-    .updateTable("oauthRefreshTokens")
-    .set({ revokedAt: new Date() })
-    .where("id", "=", refresh.id)
-    .execute();
-  await db
-    .deleteFrom("apiTokens")
-    .where("id", "=", refresh.apiTokenId)
-    .execute();
-
-  const policy = await readGateSettings(db);
-  const days = tokenDays(undefined, policy);
-  const baseIds = Array.isArray(refresh.baseIds) ? refresh.baseIds : undefined;
-  const access = await createApiToken(
-    db,
-    refresh.userId,
-    `OAuth: ${client.name}`,
-    {
-      baseIds,
-      readOnly: refresh.readOnly,
-      allowDelete: refresh.allowDelete,
-      days,
-      oauthClientId: client.id,
-      detail: "oauth_refresh",
-    },
-  );
-
-  const next = `agr_${randomBytes(32).toString("base64url")}`;
-  await db
-    .insertInto("oauthRefreshTokens")
-    .values({
-      tokenHash: sha256Hex(next),
-      clientId: client.id,
-      userId: refresh.userId,
-      apiTokenId: access.id,
-      expiresAt: new Date(Date.now() + REFRESH_DAYS * 86_400_000),
-    })
-    .execute();
-
-  return {
-    access_token: access.token,
-    token_type: "Bearer",
-    expires_in: days * 86_400,
-    refresh_token: next,
-  };
+  const client = await authenticClient(db, input);
+  const days = tokenDays(undefined, await readGateSettings(db));
+  return db.transaction().execute(async (tx) => {
+    const taken = await tx
+      .updateTable("oauthRefreshTokens")
+      .set({ revokedAt: new Date() })
+      .where("tokenHash", "=", sha256Hex(input.refreshToken))
+      .where("clientId", "=", client.id)
+      .where("revokedAt", "is", null)
+      .where("expiresAt", ">", new Date())
+      .returning(["userId", "apiTokenId"])
+      .executeTakeFirst();
+    if (!taken) throw new AppError("invalid_input");
+    // The access token goes, and takes the refresh token just used with it.
+    const replaced = await tx
+      .deleteFrom("apiTokens")
+      .where("id", "=", taken.apiTokenId)
+      .returning(["baseIds", "readOnly", "allowDelete"])
+      .executeTakeFirst();
+    if (!replaced) throw new AppError("invalid_input");
+    return issueTokens(
+      tx,
+      client,
+      {
+        userId: taken.userId,
+        baseIds: Array.isArray(replaced.baseIds) ? replaced.baseIds : null,
+        readOnly: replaced.readOnly,
+        allowDelete: replaced.allowDelete,
+      },
+      { days, detail: "oauth_refresh" },
+    );
+  });
 }
 
 /** Revokes a refresh token and its access token. */
@@ -256,29 +241,35 @@ export async function revokeRefreshToken(
     refreshToken: string;
   },
 ): Promise<void> {
-  const client = await findLiveOauthClient(db, input.clientId);
-  if (
-    !client ||
-    !(await clientSecretOk(client.secretHash, input.clientSecret))
-  ) {
-    throw new AppError("invalid_input");
-  }
-  const refresh = await db
-    .selectFrom("oauthRefreshTokens")
-    .select(["id", "apiTokenId", "revokedAt"])
-    .where("tokenHash", "=", sha256Hex(input.refreshToken))
-    .where("clientId", "=", client.id)
-    .executeTakeFirst();
-  if (!refresh) return;
-  if (!refresh.revokedAt) {
-    await db
-      .updateTable("oauthRefreshTokens")
-      .set({ revokedAt: new Date() })
-      .where("id", "=", refresh.id)
-      .execute();
-  }
+  const client = await authenticClient(db, input);
+  // Deleting the access token removes the refresh token with it.
   await db
     .deleteFrom("apiTokens")
-    .where("id", "=", refresh.apiTokenId)
+    .where("id", "in", (eb) =>
+      eb
+        .selectFrom("oauthRefreshTokens")
+        .select("apiTokenId")
+        .where("tokenHash", "=", sha256Hex(input.refreshToken))
+        .where("clientId", "=", client.id),
+    )
+    .execute();
+}
+
+/**
+ * Codes that were used or ran out, and refresh tokens past their time:
+ * each is refused wherever it is read, and the hourly purge deletes the
+ * rows, so that a table of secrets' hashes does not grow with every grant.
+ */
+export async function purgeOauthGrants(db: Database): Promise<void> {
+  const now = new Date();
+  await db
+    .deleteFrom("oauthAuthorizationCodes")
+    .where((eb) =>
+      eb.or([eb("expiresAt", "<", now), eb("usedAt", "is not", null)]),
+    )
+    .execute();
+  await db
+    .deleteFrom("oauthRefreshTokens")
+    .where("expiresAt", "<", now)
     .execute();
 }

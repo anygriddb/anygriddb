@@ -761,7 +761,7 @@ export interface OauthAuthorizationCodes {
 export interface OauthClients {
   clientId: string;
   createdAt: Generated<Timestamp>;
-  createdBy: string;
+  createdBy: string | null;
   id: Generated<string>;
   name: string;
   redirectUris: string[];

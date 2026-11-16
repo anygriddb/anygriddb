@@ -29,7 +29,8 @@ import {
 import { trashColumn } from "../data/trash.js";
 import { publishCatalog } from "../realtime/channels.js";
 import type { Context } from "./context.js";
-import { guardTable, handle, readableTables } from "./guard.js";
+import { readableTables } from "../data/acl.js";
+import { guardTable, handle } from "./guard.js";
 import { procedure, requestNames } from "./init.js";
 import { logPublish } from "./catalog-shared.js";
 

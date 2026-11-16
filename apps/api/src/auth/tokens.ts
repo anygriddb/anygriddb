@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { Database } from "@anygriddb/db";
+import type { Database, Executor } from "@anygriddb/db";
 import type { SessionUser } from "./session.js";
 import { AppError, type InstanceSettings } from "@anygriddb/core";
 import { recordAuthEvent } from "./auth-events.js";
@@ -108,54 +108,69 @@ export async function findApiToken(
   };
 }
 
+type NewTokenScope = {
+  baseIds?: string[];
+  readOnly?: boolean;
+  allowDelete?: boolean;
+  days?: number;
+  /** When set, the token came from an OAuth grant (ADR 0094). */
+  oauthClientId?: string;
+  /** Sign-in trail detail; defaults to a Settings token. */
+  detail?: string;
+};
+
+type NewToken = { id: string; token: string; expiresAt: string };
+
 export async function createApiToken(
   db: Database,
   userId: string,
   name: string,
-  scope: {
-    baseIds?: string[];
-    readOnly?: boolean;
-    allowDelete?: boolean;
-    days?: number;
-    /** When set, the token came from an OAuth grant (ADR 0094). */
-    oauthClientId?: string;
-    /** Sign-in trail detail; defaults to a Settings token. */
-    detail?: string;
-  } = {},
-): Promise<{ id: string; token: string; expiresAt: string }> {
+  scope: NewTokenScope = {},
+): Promise<NewToken> {
+  return db
+    .transaction()
+    .execute((tx) => insertApiToken(tx, userId, name, scope));
+}
+
+/**
+ * The token and its line on the sign-in trail, in the transaction of the
+ * caller: an application's grant makes its token with what it replaces.
+ */
+export async function insertApiToken(
+  tx: Executor,
+  userId: string,
+  name: string,
+  scope: NewTokenScope,
+): Promise<NewToken> {
   const token = `ag_${randomBytes(32).toString("base64url")}`;
   const expiresAt = new Date(
     Date.now() + (scope.days ?? DEFAULT_TOKEN_DAYS) * 86_400_000,
   );
   const readOnly = scope.readOnly === true;
-  const id = await db.transaction().execute(async (tx) => {
-    const inserted = await tx
-      .insertInto("apiTokens")
-      .values({
-        userId,
-        name,
-        tokenHash: hashApiToken(token),
-        expiresAt,
-        baseIds:
-          scope.baseIds && scope.baseIds.length > 0 ? scope.baseIds : null,
-        readOnly,
-        // Omitted means true (scripts keep deleting). A read-only token never
-        // deletes; store true so the column stays meaningful only for writers.
-        allowDelete: readOnly ? true : scope.allowDelete !== false,
-        oauthClientId: scope.oauthClientId ?? null,
-      })
-      .returning("id")
-      .executeTakeFirst();
-    if (!inserted) throw new AppError("no_row");
-    // Who made it, never the token: the sign-in trail's contract.
-    await recordAuthEvent(tx, {
-      action: "token_created",
+  const inserted = await tx
+    .insertInto("apiTokens")
+    .values({
       userId,
-      detail: scope.detail ?? "self_service_token",
-    });
-    return inserted.id;
+      name,
+      tokenHash: hashApiToken(token),
+      expiresAt,
+      baseIds: scope.baseIds && scope.baseIds.length > 0 ? scope.baseIds : null,
+      readOnly,
+      // Omitted means true (scripts keep deleting). A read-only token never
+      // deletes; store true so the column stays meaningful only for writers.
+      allowDelete: readOnly ? true : scope.allowDelete !== false,
+      oauthClientId: scope.oauthClientId ?? null,
+    })
+    .returning("id")
+    .executeTakeFirst();
+  if (!inserted) throw new AppError("no_row");
+  // Who made it, never the token: the sign-in trail's contract.
+  await recordAuthEvent(tx, {
+    action: "token_created",
+    userId,
+    detail: scope.detail ?? "self_service_token",
   });
-  return { id, token, expiresAt: expiresAt.toISOString() };
+  return { id: inserted.id, token, expiresAt: expiresAt.toISOString() };
 }
 
 /** A person's tokens, each with the day it stops working under today's policy. */

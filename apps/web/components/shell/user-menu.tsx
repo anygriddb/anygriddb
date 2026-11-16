@@ -13,6 +13,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Check,
+  Info,
   Languages,
   LogOut,
   Monitor,
@@ -26,6 +27,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useLocale } from "../../lib/i18n";
 import { useTheme, type ThemeChoice } from "../../lib/theme";
 import { trpc } from "../../lib/trpc";
+import { openAbout } from "./about-dialog";
 import { openShortcuts } from "./shortcuts-dialog";
 import { useLingui } from "@lingui/react/macro";
 
@@ -71,6 +73,10 @@ export function UserMenu({
           <DropdownMenuItem onSelect={openShortcuts}>
             <Keyboard className="h-4 w-4" aria-hidden />
             {t`Keyboard shortcuts`}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={openAbout}>
+            <Info className="h-4 w-4" aria-hidden />
+            {t`About AnyGridDB`}
           </DropdownMenuItem>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>

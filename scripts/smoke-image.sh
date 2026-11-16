@@ -52,6 +52,24 @@ echo
 # PostgreSQL reached, the schema migrated.
 curl --fail --silent --show-error --insecure "https://localhost:${port}/ready"
 echo
+# The license, and the licenses of the libraries the image holds, as the
+# build wrote them and the app serves them (ADR 0096).
+license="$(curl --fail --silent --show-error --insecure "https://localhost:${port}/license.txt")"
+libraries="$(curl --fail --silent --show-error --insecure "https://localhost:${port}/third-party-licenses.txt")"
+case "$license" in
+  *"GNU AFFERO GENERAL PUBLIC LICENSE"*) ;;
+  *)
+    echo "The image does not serve its license." >&2
+    exit 1
+    ;;
+esac
+case "$libraries" in
+  *" packages."*) ;;
+  *)
+    echo "The image does not serve the licenses of its libraries." >&2
+    exit 1
+    ;;
+esac
 # AnyGridDB's role owns its database and is no superuser (ADR 0003).
 role="$("${compose[@]}" exec -T db psql -U anygriddb -d anygriddb -tAc \
   "select rolsuper::text || ' ' || pg_get_userbyid(datdba) from pg_roles, pg_database where rolname = current_user and datname = current_database()")"

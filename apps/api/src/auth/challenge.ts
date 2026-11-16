@@ -41,20 +41,24 @@ export async function findLoginChallenge(
   return challenge ?? null;
 }
 
+/**
+ * One more wrong code for this sign-in. Counted in the database, in one
+ * statement, so codes tried together are each counted; the sign-in that
+ * used up its tries is gone.
+ */
 export async function failLoginChallenge(
   db: Database,
   id: string,
-  attempts: number,
 ): Promise<void> {
-  if (attempts + 1 >= MFA_ATTEMPT_LIMIT) {
-    await db.deleteFrom("loginChallenges").where("id", "=", id).execute();
-    return;
-  }
-  await db
+  const counted = await db
     .updateTable("loginChallenges")
-    .set({ attempts: attempts + 1 })
+    .set((eb) => ({ attempts: eb("attempts", "+", 1) }))
     .where("id", "=", id)
-    .execute();
+    .returning("attempts")
+    .executeTakeFirst();
+  if (counted && counted.attempts >= MFA_ATTEMPT_LIMIT) {
+    await db.deleteFrom("loginChallenges").where("id", "=", id).execute();
+  }
 }
 
 export async function deleteLoginChallenge(

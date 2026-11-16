@@ -5,12 +5,19 @@ import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { findApiToken } from "../auth/tokens.js";
+import { eraseAccount } from "../data/erasure.js";
 import { insertBase } from "../data/schema-ops.js";
 import { createTestDatabase } from "../test-database.js";
-import { registerOauthClient } from "./clients.js";
+import { errorCode as refusal } from "../trpc/caller.test-helpers.js";
+import {
+  listOauthClients,
+  registerOauthClient,
+  revokeOauthClient,
+} from "./clients.js";
 import {
   exchangeAuthorizationCode,
   issueAuthorizationCode,
+  purgeOauthGrants,
   refreshAccessToken,
   revokeRefreshToken,
 } from "./flow.js";
@@ -113,5 +120,196 @@ describe("oauth authorization code", () => {
       refreshToken: second.refresh_token,
     });
     expect(await findApiToken(db, `Bearer ${second.access_token}`)).toBeNull();
+  });
+
+  const verifier = `v_${"b".repeat(43)}`;
+
+  /** A code the person consented to, for the client registered above. */
+  function consent(bases: string[] = [baseId]) {
+    return issueAuthorizationCode(db, person, {
+      clientId,
+      redirectUri,
+      codeChallenge: codeChallengeS256(verifier),
+      baseIds: bases,
+    });
+  }
+
+  function exchange(
+    code: string,
+    change: Partial<Parameters<typeof exchangeAuthorizationCode>[1]> = {},
+  ) {
+    return exchangeAuthorizationCode(db, {
+      clientId,
+      clientSecret,
+      code,
+      redirectUri,
+      codeVerifier: verifier,
+      ...change,
+    });
+  }
+
+  it("refuses a consent for an address the client did not register, or a base the person does not read", async () => {
+    expect(
+      await refusal(
+        issueAuthorizationCode(db, person, {
+          clientId,
+          redirectUri: "https://elsewhere.example/callback",
+          codeChallenge: codeChallengeS256(verifier),
+          baseIds: [baseId],
+        }),
+      ),
+    ).toBe("invalid_input");
+    const hidden = await insertBase(db, admin, { name: "Not theirs" });
+    expect(await refusal(consent([hidden.id]))).toBe("access_denied");
+  });
+
+  it("refuses an exchange with a wrong secret, verifier, address or client, and leaves the code to its owner", async () => {
+    const { code } = await consent();
+    expect(await refusal(exchange(code, { clientSecret: "ags_wrong" }))).toBe(
+      "invalid_input",
+    );
+    expect(
+      await refusal(exchange(code, { codeVerifier: `v_${"c".repeat(43)}` })),
+    ).toBe("invalid_input");
+    expect(
+      await refusal(
+        exchange(code, { redirectUri: "http://127.0.0.1:9999/other" }),
+      ),
+    ).toBe("invalid_input");
+    expect(await refusal(exchange(code, { clientId: "agc_unknown" }))).toBe(
+      "invalid_input",
+    );
+    expect((await exchange(code)).token_type).toBe("Bearer");
+  });
+
+  it("refuses a code past its time", async () => {
+    const { code } = await consent();
+    await db
+      .updateTable("oauthAuthorizationCodes")
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where("usedAt", "is", null)
+      .execute();
+    expect(await refusal(exchange(code))).toBe("invalid_input");
+  });
+
+  it("gives one pair of tokens when a code is exchanged twice at once", async () => {
+    const { code } = await consent();
+    const answers = await Promise.allSettled([exchange(code), exchange(code)]);
+    expect(answers.map((answer) => answer.status).sort()).toEqual([
+      "fulfilled",
+      "rejected",
+    ]);
+  });
+
+  it("gives one pair of tokens when a refresh token is used twice at once, and none for the one it replaced", async () => {
+    const first = await exchange((await consent()).code);
+    const renew = () =>
+      refreshAccessToken(db, {
+        clientId,
+        clientSecret,
+        refreshToken: first.refresh_token,
+      });
+    const answers = await Promise.allSettled([renew(), renew()]);
+    expect(answers.map((answer) => answer.status).sort()).toEqual([
+      "fulfilled",
+      "rejected",
+    ]);
+    expect(await findApiToken(db, `Bearer ${first.access_token}`)).toBeNull();
+    expect(await refusal(renew())).toBe("invalid_input");
+    const kept = answers.find((answer) => answer.status === "fulfilled");
+    expect(
+      (await findApiToken(db, `Bearer ${kept?.value.access_token ?? ""}`))?.user
+        .id,
+    ).toBe(person);
+  });
+
+  it("refuses a refresh token past its time, and deletes what ran out", async () => {
+    const tokens = await exchange((await consent()).code);
+    const { code: unused } = await consent();
+    await db
+      .updateTable("oauthRefreshTokens")
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .execute();
+    await db
+      .updateTable("oauthAuthorizationCodes")
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where("usedAt", "is", null)
+      .execute();
+    expect(
+      await refusal(
+        refreshAccessToken(db, {
+          clientId,
+          clientSecret,
+          refreshToken: tokens.refresh_token,
+        }),
+      ),
+    ).toBe("invalid_input");
+    await purgeOauthGrants(db);
+    const left = await db
+      .selectNoFrom((eb) => [
+        eb
+          .selectFrom("oauthAuthorizationCodes")
+          .select((b) => b.fn.countAll<string>().as("n"))
+          .as("codes"),
+        eb
+          .selectFrom("oauthRefreshTokens")
+          .select((b) => b.fn.countAll<string>().as("n"))
+          .as("refreshTokens"),
+      ])
+      .executeTakeFirstOrThrow();
+    expect(left).toEqual({ codes: "0", refreshTokens: "0" });
+    expect(await refusal(exchange(unused))).toBe("invalid_input");
+  });
+
+  it("stops a revoked client: its tokens go, and it takes no new consent", async () => {
+    const other = await registerOauthClient(db, admin, {
+      name: "Short-lived",
+      redirectUris: [redirectUri],
+    });
+    const { code } = await issueAuthorizationCode(db, person, {
+      clientId: other.clientId,
+      redirectUri,
+      codeChallenge: codeChallengeS256(verifier),
+      baseIds: [baseId],
+    });
+    const tokens = await exchangeAuthorizationCode(db, {
+      clientId: other.clientId,
+      clientSecret: other.clientSecret,
+      code,
+      redirectUri,
+      codeVerifier: verifier,
+    });
+    await revokeOauthClient(db, admin, other.id);
+    expect(await findApiToken(db, `Bearer ${tokens.access_token}`)).toBeNull();
+    expect(
+      await refusal(
+        issueAuthorizationCode(db, person, {
+          clientId: other.clientId,
+          redirectUri,
+          codeChallenge: codeChallengeS256(verifier),
+          baseIds: [baseId],
+        }),
+      ),
+    ).toBe("invalid_input");
+  });
+
+  it("keeps a client when the administrator who registered it is deleted", async () => {
+    const registrar = await db
+      .insertInto("users")
+      .values({
+        email: `oauth-registrar-${suffix}@example.org`,
+        displayName: "Registrar",
+        isAdmin: true,
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    const theirs = await registerOauthClient(db, registrar.id, {
+      name: "Outlives its author",
+      redirectUris: [redirectUri],
+    });
+    await eraseAccount(db, registrar.id);
+    expect((await listOauthClients(db)).map((client) => client.id)).toContain(
+      theirs.id,
+    );
   });
 });

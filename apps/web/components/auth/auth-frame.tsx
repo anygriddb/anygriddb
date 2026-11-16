@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import type { ReactNode } from "react";
 import { useLocale } from "../../lib/i18n";
 import { InstanceMark, useInstanceIdentity } from "../brand/instance-mark";
+import { AboutDialog, openAbout } from "../shell/about-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "../../lib/trpc";
 
@@ -136,6 +137,14 @@ export function AuthFrame({ children }: { children: ReactNode }) {
           </p>
         ) : null}
         <div className="my-auto w-full max-w-sm py-10">{children}</div>
+        <button
+          type="button"
+          className="self-start text-xs text-muted-foreground underline"
+          onClick={openAbout}
+        >
+          {t`About AnyGridDB`}
+        </button>
+        <AboutDialog />
       </section>
       <section
         aria-hidden

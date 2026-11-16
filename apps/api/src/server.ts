@@ -519,6 +519,9 @@ export async function createApp(deps: {
     prefix: "/trpc",
     trpcOptions: {
       router: appRouter,
+      // A page sends its calls together; the web client stops at 50 a
+      // request (`apps/web/lib/trpc.ts`). Nothing sends more.
+      maxBatchSize: 100,
       onError({
         error,
         path,

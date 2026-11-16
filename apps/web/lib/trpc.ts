@@ -40,7 +40,13 @@ export function createClient() {
       splitLink({
         condition: goesAlone,
         true: httpLink({ url: "/trpc", headers }),
-        false: httpBatchLink({ url: "/trpc", maxURLLength: 6_000, headers }),
+        // The API takes 100 calls a request at most (`maxBatchSize`).
+        false: httpBatchLink({
+          url: "/trpc",
+          maxURLLength: 6_000,
+          maxItems: 50,
+          headers,
+        }),
       }),
     ],
   });

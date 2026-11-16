@@ -2,6 +2,8 @@ import "@fastify/cookie";
 import { AppError, type MadeNames } from "@anygriddb/core";
 import { initTRPC, TRPCError } from "@trpc/server";
 import { assertNotInMaintenance } from "../auth/access.js";
+import { MFA_COOKIE } from "../auth/challenge.js";
+import { inTurn } from "../auth/guess-turns.js";
 import { findApiToken } from "../auth/tokens.js";
 import {
   SESSION_COOKIE,
@@ -14,6 +16,7 @@ import type { SessionUser } from "../auth/session.js";
 import type { Context } from "./context.js";
 import { describeTRPCError, toTRPCError } from "./map-error.js";
 import { measureProcedure } from "../observability.js";
+import { checksCredential } from "../rate-limit.js";
 import { madeNamesFor } from "../settings.js";
 
 export const t = initTRPC.context<Context>().create({
@@ -37,28 +40,64 @@ export const t = initTRPC.context<Context>().create({
  * The base of every procedure: a public error thrown anywhere in a body
  * reaches the client with its status and code, never as an internal one.
  */
-export const procedure = t.procedure.use(async ({ ctx, next, path }) => {
-  // A token never acts as someone. A session does, for this call only.
-  // A caller built without a request (a test of error mapping) is no one.
-  const request = ctx.req as typeof ctx.req | undefined;
-  const acting =
-    request && !request.headers.authorization
-      ? ((await findSessionUser(ctx.db, request.cookies[SESSION_COOKIE]))
-          ?.actingAs?.id ?? null)
-      : null;
-  // Timed and traced per procedure, under its HTTP request (ADR 0018).
-  const result = await measureProcedure(path, ctx.req, () =>
-    runActing(acting, () => next()),
-  );
-  if (
-    !result.ok &&
-    result.error.code === "INTERNAL_SERVER_ERROR" &&
-    result.error.cause instanceof AppError
-  ) {
-    throw toTRPCError(result.error.cause);
+export const procedure = t.procedure.use(
+  async ({ ctx, next, path, getRawInput }) => {
+    // A token never acts as someone. A session does, for this call only.
+    // A caller built without a request (a test of error mapping) is no one.
+    const request = ctx.req as typeof ctx.req | undefined;
+    const acting =
+      request && !request.headers.authorization
+        ? ((await findSessionUser(ctx.db, request.cookies[SESSION_COOKIE]))
+            ?.actingAs?.id ?? null)
+        : null;
+    // Timed and traced per procedure, under its HTTP request (ADR 0018).
+    const run = () =>
+      measureProcedure(path, ctx.req, () => runActing(acting, () => next()));
+    const subject =
+      request && checksCredential(path)
+        ? guessSubject(path, request, await getRawInput())
+        : null;
+    const result = await (subject === null
+      ? run()
+      : inTurn(subject, run).catch((error: unknown) => {
+          throw error instanceof AppError ? toTRPCError(error) : error;
+        }));
+    if (
+      !result.ok &&
+      result.error.code === "INTERNAL_SERVER_ERROR" &&
+      result.error.cause instanceof AppError
+    ) {
+      throw toTRPCError(result.error.cause);
+    }
+    return result;
+  },
+);
+
+/**
+ * Whose password or code a call guesses at, so that such guesses take
+ * turns (`auth/guess-turns`): the address a sign-in names, else the
+ * sign-in under way, the session, or the token the call carries. A call
+ * with none of them (a link's token, a new sign-up) guesses at no account.
+ */
+function guessSubject(
+  path: string,
+  request: Context["req"],
+  input: unknown,
+): string | null {
+  if (path === "auth.login") {
+    const email =
+      typeof input === "object" && input !== null && "email" in input
+        ? input.email
+        : undefined;
+    return typeof email === "string" ? `email:${email.toLowerCase()}` : null;
   }
-  return result;
-});
+  const challenge = request.cookies[MFA_COOKIE];
+  if (challenge) return `challenge:${challenge}`;
+  const session = request.cookies[SESSION_COOKIE];
+  if (session) return `session:${session}`;
+  const token = request.headers.authorization;
+  return token ? `token:${token}` : null;
+}
 
 /**
  * The procedures of one request start together (a page sends its queries

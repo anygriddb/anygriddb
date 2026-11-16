@@ -700,8 +700,8 @@ msgid "{name} API"
 msgstr "API de {name}"
 
 #: components/oauth/consent-page.tsx
-msgid "{name} asks to reach bases you choose, through the API and MCP."
-msgstr "{name} demande à atteindre des bases que vous choisissez, par l’API et MCP."
+msgid "{name} asks to reach bases you choose, through the API and MCP. Your answer is sent to {host}."
+msgstr "{name} demande à atteindre des bases que vous choisissez, par l’API et MCP. Votre réponse est envoyée à {host}."
 
 #: components/shell/base-activity.tsx
 msgid "{name} changed {fields} of “{row}” in {table}"
@@ -1393,6 +1393,12 @@ msgstr "Un mot dans un message, un chemin ou un code"
 #: components/admin/security-tab.tsx
 msgid "A year at least: the trash restores a deleted row from this trail. What a shorter choice deletes cannot be brought back; signatures are never deleted."
 msgstr "Un an au moins : la corbeille restaure une ligne supprimée depuis ce journal. Ce qu’un choix plus court supprime ne peut pas être récupéré ; les signatures ne sont jamais supprimées."
+
+#: components/auth/auth-frame.tsx
+#: components/shell/about-dialog.tsx
+#: components/shell/user-menu.tsx
+msgid "About AnyGridDB"
+msgstr "À propos d’AnyGridDB"
 
 #: components/shell/pending-invitations.tsx
 msgid "Accept"
@@ -2149,6 +2155,10 @@ msgstr "AnyGridDB n’embarque aucun modèle : l’IA que vous faites tourner (
 #: components/admin/sources-tab.tsx
 msgid "AnyGridDB forgets this source and its password. The client's database is not touched."
 msgstr "AnyGridDB oublie cette source et son mot de passe. La base du client n’est pas touchée."
+
+#: components/shell/about-dialog.tsx
+msgid "AnyGridDB is free software: you may use it, study it, share it, and change it under the GNU Affero General Public License, version 3 or any later version."
+msgstr "AnyGridDB est un logiciel libre : vous pouvez l’utiliser, l’étudier, le partager et le modifier selon la licence GNU Affero General Public License, version 3 ou toute version ultérieure."
 
 #: components/admin/notifications-tab.tsx
 msgid "AnyGridDB POSTs the event as JSON and signs those bytes with HMAC-SHA256. The signature is the x-anygrid-signature header."
@@ -3333,6 +3343,10 @@ msgstr "Copiez cette adresse maintenant : elle ne sera plus affichée."
 #: components/admin/scim-tab.tsx
 msgid "Copy this token now: it will not be shown again."
 msgstr "Copiez ce jeton maintenant : il ne sera plus affiché."
+
+#: components/shell/about-dialog.tsx
+msgid "Copyright © the AnyGridDB contributors, and the authors of the libraries it is built with."
+msgstr "Copyright © les contributeurs d’AnyGridDB et les auteurs des bibliothèques dont il est fait."
 
 #: components/admin/logs-tab.tsx
 msgid "Could not copy."
@@ -5876,6 +5890,10 @@ msgstr "Émetteur / Entity ID"
 msgid "Issuer URL"
 msgstr "URL de l’émetteur"
 
+#: components/shell/about-dialog.tsx
+msgid "It comes with no warranty, to the extent the law allows."
+msgstr "Il est fourni sans garantie, dans la mesure permise par la loi."
+
 #: components/admin/base-admin-page.tsx
 msgid "It goes to the trash for {days} days with its data, where its owners and administrators can restore it, then it is deleted permanently."
 msgstr "Elle part à la corbeille pour {days} jours avec ses données, où ses propriétaires et les administrateurs peuvent la restaurer, puis elle est supprimée définitivement."
@@ -6165,6 +6183,10 @@ msgstr "Laisser vide pour garder le mot de passe enregistré"
 #: components/admin/logs-tab.tsx
 msgid "Level"
 msgstr "Niveau"
+
+#: components/shell/about-dialog.tsx
+msgid "Licenses of the libraries it uses"
+msgstr "Licences des bibliothèques qu’il utilise"
 
 #: components/shell/user-menu.tsx
 msgid "Light"
@@ -10037,6 +10059,10 @@ msgstr "Trié par {0, plural, one {# champ} other {# champs}}"
 msgid "Source"
 msgstr "Source"
 
+#: components/shell/about-dialog.tsx
+msgid "Source code"
+msgstr "Code source"
+
 #: lib/errors.ts
 msgid "Source not found"
 msgstr "Source introuvable"
@@ -10856,6 +10882,10 @@ msgstr "Les derniers caractères."
 msgid "The last error is a short reason, never a secret. Send a test pings a heartbeat once, without waiting for its schedule."
 msgstr "La dernière erreur est une raison courte, jamais un secret. Envoyer un essai interroge un battement une fois, sans attendre sa planification."
 
+#: components/shell/about-dialog.tsx
+msgid "The license"
+msgstr "La licence"
+
 #: components/table/share-dialog.tsx
 msgid "The link is shown only once. Existing links:"
 msgstr "Le lien n’est affiché qu’une fois. Liens existants :"
@@ -11564,6 +11594,10 @@ msgstr "Ce lien est incomplet. Rouvrez-le depuis l’application."
 msgid "This link is locked after too many wrong passwords. Try again later."
 msgstr "Ce lien est verrouillé après trop de mots de passe incorrects. Réessayez plus tard."
 
+#: components/oauth/consent-page.tsx
+msgid "This link names an address the application did not register. Open it again from the application."
+msgstr "Ce lien nomme une adresse que l’application n’a pas enregistrée. Rouvrez-le depuis l’application."
+
 #: lib/errors.ts
 msgid "This link no longer works: ask for a new one"
 msgstr "Ce lien ne fonctionne plus : demandez-en un nouveau"
@@ -11869,6 +11903,10 @@ msgstr "Trop long pour cette instance. Nombre de jours maximal"
 #: components/fields/code-image.tsx
 msgid "Too long to draw as a QR code"
 msgstr "Trop long pour être dessiné en QR code"
+
+#: lib/errors.ts
+msgid "Too many attempts at once. Wait a moment, then try again."
+msgstr "Trop de tentatives en même temps. Attendez un instant, puis réessayez."
 
 #: components/admin/admin-overview.tsx
 msgid "Too many failed sign-ins. They wait for the lock to end, or for you to unlock them."

@@ -739,7 +739,7 @@ export const authRouter = t.router({
               .returning("userId")
               .executeTakeFirst();
       if (!recorded) {
-        await failLoginChallenge(ctx.db, challenge.id, challenge.attempts);
+        await failLoginChallenge(ctx.db, challenge.id);
         await signInFailed(ctx, "totp", challenge.userId, "mfa_failed");
         await failedAttempt(ctx, challenge.userId);
         throw new TRPCError({ code: "UNAUTHORIZED" });
@@ -761,7 +761,7 @@ export const authRouter = t.router({
           ctx.env.AUTH_ENCRYPTION_KEY,
         );
         if (!ok) {
-          await failLoginChallenge(ctx.db, challenge.id, challenge.attempts);
+          await failLoginChallenge(ctx.db, challenge.id);
           await signInFailed(ctx, "backup", challenge.userId, "mfa_failed");
           await failedAttempt(ctx, challenge.userId);
           throw new TRPCError({ code: "UNAUTHORIZED" });
@@ -858,7 +858,7 @@ export const authRouter = t.router({
             ctx.env.AUTH_ENCRYPTION_KEY,
           ));
         if (!ok) {
-          await failLoginChallenge(ctx.db, challenge.id, challenge.attempts);
+          await failLoginChallenge(ctx.db, challenge.id);
           await signInFailed(ctx, "email", challenge.userId, "mfa_failed");
           await failedAttempt(ctx, challenge.userId);
           throw new TRPCError({ code: "UNAUTHORIZED" });
@@ -922,7 +922,7 @@ export const authRouter = t.router({
         try {
           await finishAuthentication(ctx.db, ctx.env, challenge.userId, input);
         } catch (error) {
-          await failLoginChallenge(ctx.db, challenge.id, challenge.attempts);
+          await failLoginChallenge(ctx.db, challenge.id);
           await signInFailed(ctx, "webauthn", challenge.userId, "mfa_failed");
           await failedAttempt(ctx, challenge.userId);
           mapProcedureError(error, ctx.req.log);

@@ -18,6 +18,18 @@ export type OauthConsentSearch = {
 };
 
 /**
+ * The host an answer goes back to, when the address asked for is one the
+ * application registered; null otherwise.
+ */
+export function returnAddressHost(
+  asked: string,
+  registered: readonly string[],
+): string | null {
+  if (!registered.includes(asked) || !URL.canParse(asked)) return null;
+  return new URL(asked).host;
+}
+
+/**
  * A person allows an application access to bases they choose (ADR 0094).
  * The application sent them here with client_id, redirect_uri,
  * code_challenge, and state; after consent they go back with a code.
@@ -46,7 +58,7 @@ export function OauthConsentPage({ search }: { search: OauthConsentSearch }) {
   const bases = catalog.data ?? [];
   const clientName = client.data?.name ?? clientId;
 
-  if (!session.data) {
+  if (!session.data || client.isLoading) {
     return (
       <NotebookPage title={t`Allow access`}>
         <Spinner />
@@ -75,7 +87,7 @@ export function OauthConsentPage({ search }: { search: OauthConsentSearch }) {
     );
   }
 
-  if (client.isError || client.data === null) {
+  if (client.isError || !client.data) {
     return (
       <NotebookPage title={t`Allow access`}>
         <p className="text-sm text-muted-foreground">
@@ -85,10 +97,23 @@ export function OauthConsentPage({ search }: { search: OauthConsentSearch }) {
     );
   }
 
+  // Both answers send the person to this address: it is one the
+  // application registered, or the page sends them nowhere.
+  const returnHost = returnAddressHost(redirectUri, client.data.redirectUris);
+  if (returnHost === null) {
+    return (
+      <NotebookPage title={t`Allow access`}>
+        <p className="text-sm text-muted-foreground">
+          {t`This link names an address the application did not register. Open it again from the application.`}
+        </p>
+      </NotebookPage>
+    );
+  }
+
   return (
     <NotebookPage
       title={t`Allow access`}
-      description={t`${{ name: clientName }} asks to reach bases you choose, through the API and MCP.`}
+      description={t`${{ name: clientName }} asks to reach bases you choose, through the API and MCP. Your answer is sent to ${{ host: returnHost }}.`}
     >
       <div className="flex max-w-lg flex-col gap-4 text-sm">
         {bases.length === 0 ? (
@@ -137,7 +162,7 @@ export function OauthConsentPage({ search }: { search: OauthConsentSearch }) {
             {t`Deny`}
           </Button>
           <Button
-            disabled={busy || chosen.size === 0 || client.isLoading}
+            disabled={busy || chosen.size === 0}
             onClick={() => {
               void (async () => {
                 setBusy(true);

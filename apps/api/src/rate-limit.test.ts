@@ -1,5 +1,11 @@
+import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
-import { RATE_LIMITS, rateBucket } from "./rate-limit.js";
+import {
+  credentialCalls,
+  RATE_LIMITS,
+  rateBucket,
+  registerRateLimit,
+} from "./rate-limit.js";
 
 describe("rateBucket", () => {
   it("puts credential checks and public shares in tight buckets", () => {
@@ -19,6 +25,22 @@ describe("rateBucket", () => {
     ]) {
       expect(rateBucket("POST", `/trpc/${procedure}`)).toBe("auth");
     }
+    // A proof a signed-in person gives is held by the account's lock, not
+    // by the address: setting up an account must not use up the sign-ins.
+    for (const procedure of [
+      "auth.totp.confirm",
+      "auth.email.begin",
+      "auth.email.disable",
+      "auth.webauthn.registerBegin",
+      "admin.stepUp",
+    ]) {
+      expect(rateBucket("POST", `/trpc/${procedure}`)).toBe("app");
+      expect(credentialCalls(`/trpc/${procedure}`)).toBe(1);
+    }
+    // An application's secret is checked there (ADR 0094).
+    expect(rateBucket("POST", "/oauth/token")).toBe("auth");
+    expect(rateBucket("POST", "/oauth/revoke")).toBe("auth");
+    expect(rateBucket("GET", "/oauth/authorize?client_id=x")).toBe("app");
 
     expect(rateBucket("GET", "/trpc/share.rows?input=x")).toBe("share");
     // A sign-up's link only names its address: opened as a share is.
@@ -51,5 +73,47 @@ describe("rateBucket", () => {
     expect(rateBucket("GET", "/api/attachments/attabc")).toBe("app");
     expect(rateBucket("GET", "/api/shares/tok/attachments")).toBe("app");
     expect(rateBucket("POST", "/api/client-errors/x")).toBe("app");
+  });
+});
+
+describe("credentialCalls", () => {
+  it("counts the calls of a request that check a credential", () => {
+    expect(credentialCalls("/trpc/rows.read?input=x")).toBe(0);
+    expect(credentialCalls("/trpc/session.current,auth.login?batch=1")).toBe(1);
+    expect(credentialCalls("/trpc/auth.login,auth.login,auth.login")).toBe(3);
+    expect(credentialCalls("/trpc/auth.login%2Cauth.totp.verify?batch=1")).toBe(
+      2,
+    );
+    expect(credentialCalls("/api/v1/tables/x/records")).toBe(0);
+  });
+});
+
+describe("registerRateLimit", () => {
+  async function app() {
+    const server = Fastify();
+    await registerRateLimit(server);
+    server.post("/trpc/:calls", () => ({ reached: true }));
+    return server;
+  }
+
+  it("takes a request that names one credential check, among other calls", async () => {
+    const server = await app();
+    const response = await server.inject({
+      method: "POST",
+      url: "/trpc/session.current,auth.login?batch=1",
+    });
+    expect(response.statusCode).toBe(200);
+    await server.close();
+  });
+
+  it("refuses a request that names several: each would be a guess counted once", async () => {
+    const server = await app();
+    const response = await server.inject({
+      method: "POST",
+      url: "/trpc/auth.login,auth.login?batch=1",
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ code: "request_rejected" });
+    await server.close();
   });
 });

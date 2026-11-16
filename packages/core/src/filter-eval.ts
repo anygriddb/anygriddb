@@ -14,7 +14,7 @@ import {
   type FilterKind,
   type FilterValue,
 } from "./filter";
-import { isIsoDate } from "./cell-values";
+import { isIsoDate } from "./iso-date";
 
 export type FilterEvalContext = {
   /** The kind of each field the filter may name. */

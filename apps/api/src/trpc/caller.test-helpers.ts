@@ -83,7 +83,6 @@ export function browserFactory(deps: {
 
 export type TestBrowser = ReturnType<ReturnType<typeof browserFactory>>;
 
-/** "ok", or the code a call failed with: an AppError's, or tRPC's. */
 /**
  * An account whose address is proved, signed in in this browser: what a
  * sign-up and the link it mails make (ADR 0058), without the mail. For
@@ -117,6 +116,7 @@ export async function signUpProved(
   return id;
 }
 
+/** "ok", or the code a call failed with: an AppError's, or tRPC's. */
 export async function errorCode(promise: Promise<unknown>): Promise<string> {
   try {
     await promise;

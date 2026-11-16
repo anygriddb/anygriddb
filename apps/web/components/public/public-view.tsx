@@ -545,7 +545,7 @@ export function PublicView({ token }: { token: string }) {
   async function unlock() {
     setChecking(true);
     try {
-      const result = await trpc.share.open.query({ token, password });
+      const result = await trpc.share.unlock.mutate({ token, password });
       setWrong(result.locked);
       if (!result.locked) setGranted(result.access ?? undefined);
     } catch {

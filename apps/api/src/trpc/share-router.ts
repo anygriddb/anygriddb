@@ -28,6 +28,10 @@ import { procedure, t } from "./init.js";
 
 const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{32,64}$/);
 const accessSchema = z.string().max(200).optional();
+const passwordSchema = z.object({
+  token: tokenSchema,
+  password: z.string().max(200),
+});
 const readerSort = z
   .array(
     z.object({
@@ -133,13 +137,7 @@ export const shareRouter = t.router({
    * until the password, when it has one.
    */
   openBase: procedure
-    .input(
-      z.object({
-        token: tokenSchema,
-        password: z.string().max(200).optional(),
-        access: accessSchema,
-      }),
-    )
+    .input(z.object({ token: tokenSchema, access: accessSchema }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
         const opened = await openBaseShare(
@@ -218,14 +216,33 @@ export const shareRouter = t.router({
         };
       }),
     ),
+  /**
+   * A link's password, given once, for the proof its readings then carry.
+   * It travels in a request's body: a reading is an address, which a
+   * proxy on the way writes to its log.
+   */
+  unlock: procedure.input(passwordSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const opened = await openShare(ctx, input, "read");
+      return opened.locked
+        ? { locked: true as const, access: null }
+        : { locked: false as const, access: opened.access };
+    }),
+  ),
+  /** The same, for a link to a whole base. */
+  unlockBase: procedure.input(passwordSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const opened = await openBaseShare(
+        { db: ctx.db, encryptionKey: ctx.env.AUTH_ENCRYPTION_KEY },
+        input,
+      );
+      return opened.locked
+        ? { locked: true as const, access: null }
+        : { locked: false as const, access: opened.access };
+    }),
+  ),
   open: procedure
-    .input(
-      z.object({
-        token: tokenSchema,
-        password: z.string().max(200).optional(),
-        access: accessSchema,
-      }),
-    )
+    .input(z.object({ token: tokenSchema, access: accessSchema }))
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
         const opened = await openShare(ctx, input, "read");

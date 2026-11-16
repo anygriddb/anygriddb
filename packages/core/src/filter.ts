@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isIsoDate } from "./cell-values";
+import { isIsoDate } from "./iso-date";
 import type { ValueKind } from "./field-types";
 import { columnNameSchema } from "./names";
 

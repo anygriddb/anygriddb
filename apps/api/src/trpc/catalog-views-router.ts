@@ -21,7 +21,8 @@ import {
   trashView,
   updateView,
 } from "../data/views.js";
-import { guardTable, handle, readableTables } from "./guard.js";
+import { readableTables } from "../data/acl.js";
+import { guardTable, handle } from "./guard.js";
 import { procedure, requestNames } from "./init.js";
 
 export const catalogViewProcedures = {

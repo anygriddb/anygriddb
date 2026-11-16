@@ -64,6 +64,24 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
   await expect(help).not.toContainText("Entrée");
   await page.keyboard.press("Escape");
   await expect(help).toHaveCount(0);
+
+  // What the license asks an interface to show: no warranty, the license,
+  // the source, and the licenses of the libraries the app is built with.
+  await page.getByRole("button", { name: "E2E User" }).click();
+  await page.getByRole("menuitem", { name: "About AnyGridDB" }).click();
+  const about = page.getByRole("dialog", { name: "About AnyGridDB" });
+  await expect(about).toContainText("no warranty");
+  await expect(
+    about.getByRole("link", { name: "Source code" }),
+  ).toHaveAttribute("href", /^https:\/\//);
+  expect(await accessibilityViolations(page)).toEqual([]);
+  const license = await page.request.get("/license.txt");
+  expect(await license.text()).toContain("GNU AFFERO GENERAL PUBLIC LICENSE");
+  const libraries = await page.request.get("/third-party-licenses.txt");
+  expect(await libraries.text()).toMatch(/^\d+ packages\.$/m);
+  await page.keyboard.press("Escape");
+  await expect(about).toHaveCount(0);
+
   await tips.getByRole("button", { name: "Hide the tips" }).click();
   await expect(tips).toHaveCount(0);
 
