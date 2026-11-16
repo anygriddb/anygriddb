@@ -50,6 +50,7 @@ import { GridView } from "../grid/grid-view";
 import { useRows } from "../grid/use-rows";
 import { useUndo } from "../grid/use-undo";
 import { tableTakesUndo, undoShortcut } from "../../lib/keyboard-undo";
+import { StepGivenUp } from "../../lib/undo-stack";
 import { RecordPanel } from "../record/record-panel";
 import { ConfirmDialog, PromptDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
@@ -474,11 +475,14 @@ export function TableWorkspace({
 
   const undo = useUndo();
   const [reasonAsk, setReasonAsk] = useState<{
-    resolve: (reason: string | undefined) => void;
+    resolve: (reason: string | false) => void;
   } | null>(null);
+  // Asks why, when a field touched wants a reason for every change: the
+  // reason, nothing where none is wanted, and `false` when the person
+  // gave none, which gives the change up.
   const askReason = useCallback(
     (touched: readonly string[]) =>
-      new Promise<string | undefined>((resolve) => {
+      new Promise<string | undefined | false>((resolve) => {
         if (
           !allColumns.some(
             (column) => column.requireReason && touched.includes(column.name),
@@ -490,6 +494,24 @@ export function TableWorkspace({
         setReasonAsk({ resolve });
       }),
     [allColumns],
+  );
+  // A row deleted or brought back changes every field it holds.
+  const reasonFields = useMemo(
+    () =>
+      allColumns
+        .filter((column) => column.requireReason)
+        .map((column) => column.name),
+    [allColumns],
+  );
+  // The reason of a step undone or redone: given up, the step stays where
+  // it was, to be tried again.
+  const stepReason = useCallback(
+    async (touched: readonly string[]) => {
+      const reason = await askReason(touched);
+      if (reason === false) throw new StepGivenUp();
+      return reason;
+    },
+    [askReason],
   );
 
   const updateCells = useCallback<TableContextValue["updateCells"]>(
@@ -510,13 +532,10 @@ export function TableWorkspace({
         ...new Set(updates.flatMap((update) => Object.keys(update.values))),
       ];
       const reason = await askReason(touched);
-      if (
-        reason === undefined &&
-        allColumns.some(
-          (column) => column.requireReason && touched.includes(column.name),
-        )
-      )
+      if (reason === false) {
+        if (options?.undoable === false) throw new StepGivenUp();
         return;
+      }
       const previous = updates.map((update) => {
         const row = rowsById.get(update.rowId);
         return {
@@ -598,11 +617,10 @@ export function TableWorkspace({
     // Named, so its undo entries can call it again.
     async function link(rowId, column, targetIds, options) {
       const reason = await askReason([column]);
-      if (
-        reason === undefined &&
-        allColumns.some((item) => item.name === column && item.requireReason)
-      )
+      if (reason === false) {
+        if (options?.undoable === false) throw new StepGivenUp();
         return;
+      }
       const held = rowsById.get(rowId)?.[column as keyof RowItem];
       const previous = Array.isArray(held)
         ? held.flatMap((item: unknown) =>
@@ -637,13 +655,20 @@ export function TableWorkspace({
         settle(false);
       }
     },
-    [tableId, rows, rowsById, allColumns, askReason, errorText, undo, t],
+    [tableId, rows, rowsById, askReason, errorText, undo, t],
   );
 
   // Ctrl Z and Ctrl Y (or Ctrl Shift Z) undo and redo the table's changes
   // wherever the focus is on its page, a cell's list panel included; text
   // being typed and dialogs keep their own.
   const { undo: undoLast, redo: redoLast } = undo;
+  // A step that cannot be undone or redone says why.
+  const runStep = useCallback(
+    (step: () => Promise<unknown>) => {
+      void step().catch((cause: unknown) => toast.error(errorText(cause)));
+    },
+    [errorText],
+  );
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const action = undoShortcut(event);
@@ -652,12 +677,12 @@ export function TableWorkspace({
       const target = event.target instanceof Element ? event.target : null;
       if (!tableTakesUndo(target)) return;
       event.preventDefault();
-      void (action === "undo" ? undoLast() : redoLast());
+      runStep(action === "undo" ? undoLast : redoLast);
     };
     // Captured: a list panel stops the keys it gets from bubbling.
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
-  }, [undoLast, redoLast]);
+  }, [undoLast, redoLast, runStep]);
 
   const insertRows = useCallback(
     async (
@@ -669,6 +694,7 @@ export function TableWorkspace({
         const reason = await askReason([
           ...new Set(list.flatMap((values) => Object.keys(values))),
         ]);
+        if (reason === false) return [];
         const created = await trpc.rows.insertMany.mutate({
           tableId,
           rows: list,
@@ -686,11 +712,16 @@ export function TableWorkspace({
               await trpc.rows.deleteMany.mutate({
                 tableId,
                 rowIds: created.ids,
+                reason: await stepReason(reasonFields),
               });
               rows.refresh();
             },
             redo: async () => {
-              await trpc.rows.restore.mutate({ tableId, rowIds: created.ids });
+              await trpc.rows.restore.mutate({
+                tableId,
+                rowIds: created.ids,
+                reason: await stepReason(reasonFields),
+              });
               rows.refresh();
             },
           });
@@ -702,18 +733,25 @@ export function TableWorkspace({
         return [];
       }
     },
-    [tableId, rows, undo, t, askReason, errorText, external],
+    [
+      tableId,
+      rows,
+      undo,
+      t,
+      askReason,
+      stepReason,
+      reasonFields,
+      errorText,
+      external,
+    ],
   );
 
   const deleteRows = useCallback(
     async (rowIds: string[]) => {
       if (rowIds.length === 0) return;
       try {
-        const reason = await askReason(
-          allColumns
-            .filter((column) => column.requireReason)
-            .map((column) => column.name),
-        );
+        const reason = await askReason(reasonFields);
+        if (reason === false) return;
         await trpc.rows.deleteMany.mutate({ tableId, rowIds, reason });
         rows.refresh();
         setSavedAt(new Date());
@@ -736,21 +774,37 @@ export function TableWorkspace({
           {
             action: {
               label: t`Cancel`,
-              onClick: () =>
-                void trpc.rows.restore
-                  .mutate({ tableId, rowIds })
-                  .then(() => rows.refresh()),
+              onClick: () => {
+                void (async () => {
+                  const back = await askReason(reasonFields);
+                  if (back === false) return;
+                  await trpc.rows.restore.mutate({
+                    tableId,
+                    rowIds,
+                    reason: back,
+                  });
+                  rows.refresh();
+                })().catch((cause: unknown) => toast.error(errorText(cause)));
+              },
             },
           },
         );
         undo.push({
           label: t`Delete`,
           undo: async () => {
-            await trpc.rows.restore.mutate({ tableId, rowIds });
+            await trpc.rows.restore.mutate({
+              tableId,
+              rowIds,
+              reason: await stepReason(reasonFields),
+            });
             rows.refresh();
           },
           redo: async () => {
-            await trpc.rows.deleteMany.mutate({ tableId, rowIds });
+            await trpc.rows.deleteMany.mutate({
+              tableId,
+              rowIds,
+              reason: await stepReason(reasonFields),
+            });
             rows.refresh();
           },
         });
@@ -759,7 +813,17 @@ export function TableWorkspace({
         toast.error(errorText(cause));
       }
     },
-    [tableId, rows, undo, t, askReason, allColumns, errorText, external],
+    [
+      tableId,
+      rows,
+      undo,
+      t,
+      askReason,
+      stepReason,
+      reasonFields,
+      errorText,
+      external,
+    ],
   );
 
   const duplicateRows = useCallback(
@@ -1252,8 +1316,8 @@ export function TableWorkspace({
           canEdit={writable && !external}
           canUndo={undo.canUndo}
           canRedo={undo.canRedo}
-          onUndo={() => void undo.undo()}
-          onRedo={() => void undo.redo()}
+          onUndo={() => runStep(undo.undo)}
+          onRedo={() => runStep(undo.redo)}
           onExport={exportView}
           onImport={() => setImportOpen(true)}
           onTrash={() => setTrashOpen(true)}
@@ -1462,7 +1526,7 @@ export function TableWorkspace({
           open
           onOpenChange={(open) => {
             if (!open) {
-              reasonAsk.resolve(undefined);
+              reasonAsk.resolve(false);
               setReasonAsk(null);
             }
           }}
@@ -1498,6 +1562,7 @@ export function TableWorkspace({
       {trashOpen ? (
         <TrashDialog
           tableId={tableId}
+          askReason={() => askReason(reasonFields)}
           onClose={() => setTrashOpen(false)}
           onRestored={() => rows.refresh()}
         />
@@ -1521,10 +1586,13 @@ export function TableWorkspace({
 
 function TrashDialog({
   tableId,
+  askReason,
   onClose,
   onRestored,
 }: {
   tableId: string;
+  /** Why the rows come back, where a field asks; `false` when not said. */
+  askReason: () => Promise<string | undefined | false>;
   onClose: () => void;
   onRestored: () => void;
 }) {
@@ -1553,25 +1621,25 @@ function TrashDialog({
         ) : null}
         <ul className="flex max-h-80 flex-col divide-y divide-border overflow-y-auto">
           {(trash.data?.rows ?? []).map((item) => (
-            <li
-              key={item.rowId}
-              className="flex items-center gap-2 py-1.5 text-sm"
-            >
-              <Checkbox
-                checked={picked.has(item.rowId)}
-                onChange={(event) =>
-                  setPicked((current) => {
-                    const next = new Set(current);
-                    if (event.target.checked) next.add(item.rowId);
-                    else next.delete(item.rowId);
-                    return next;
-                  })
-                }
-              />
-              <span className="min-w-0 flex-1 truncate">{item.label}</span>
-              <span className="text-xs text-muted-foreground">
-                {item.deletedBy} · {new Date(item.deletedAt).toLocaleString()}
-              </span>
+            <li key={item.rowId} className="py-1.5 text-sm">
+              {/* The row's name is the box's: a click on either ticks it. */}
+              <label className="flex items-center gap-2">
+                <Checkbox
+                  checked={picked.has(item.rowId)}
+                  onChange={(event) =>
+                    setPicked((current) => {
+                      const next = new Set(current);
+                      if (event.target.checked) next.add(item.rowId);
+                      else next.delete(item.rowId);
+                      return next;
+                    })
+                  }
+                />
+                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                <span className="text-xs text-muted-foreground">
+                  {item.deletedBy} · {new Date(item.deletedAt).toLocaleString()}
+                </span>
+              </label>
             </li>
           ))}
           {trash.data?.rows.length === 0 ? (
@@ -1590,9 +1658,12 @@ function TrashDialog({
               if (busy.current) return;
               busy.current = true;
               try {
+                const reason = await askReason();
+                if (reason === false) return;
                 await trpc.rows.restore.mutate({
                   tableId,
                   rowIds: [...picked],
+                  reason,
                 });
                 toast.success(
                   plural(picked.size, {

@@ -309,6 +309,7 @@ test.describe("a table's rows", () => {
     await page.getByRole("menuitem", { name: "Row trash" }).click();
     const trash = page.getByRole("dialog", { name: "Row trash" });
     await expect(trash.getByRole("listitem")).toHaveCount(2);
+    expect(await accessibilityViolations(page)).toEqual([]);
     await trash.getByRole("checkbox").first().check();
     await trash.getByRole("button", { name: "Restore" }).click();
     await expect(
@@ -354,6 +355,59 @@ test.describe("a table's rows", () => {
     await page.keyboard.press(" ");
     await panel.getByRole("tab", { name: "History" }).click();
     await expect(panel.getByText("Reason: Recount")).toBeVisible();
+    await panel.getByRole("button", { name: "Close" }).click();
+
+    // Where a field asks why, a row that comes back says why too: from
+    // the notice of its delete, from the keyboard, and from the trash.
+    const why = reason.getByLabel(/needs a reason/);
+    const confirm = reason.getByRole("button", { name: "Confirm" });
+    const deleteSecond = async (because: string) => {
+      await names.nth(1).click({ button: "right" });
+      await page.getByRole("menuitem", { name: "Delete rows" }).click();
+      await why.fill(because);
+      await confirm.click();
+      await expect(names).toHaveCount(4);
+    };
+    await deleteSecond("One too many");
+    await page
+      .locator("[data-sonner-toast]")
+      .filter({ hasText: "1 row deleted" })
+      .getByRole("button", { name: "Cancel" })
+      .first()
+      .click();
+    await why.fill("Needed after all");
+    await confirm.click();
+    await expect(names).toHaveCount(5);
+
+    // An undo left without its reason changes nothing, and can be asked
+    // again.
+    await deleteSecond("Twice now");
+    await names.first().click();
+    await page.keyboard.press("Control+z");
+    await expect(reason).toBeVisible();
+    await reason.getByRole("button", { name: "Cancel" }).click();
+    await expect(reason).toBeHidden();
+    await expect(names).toHaveCount(4);
+    await page.keyboard.press("Control+z");
+    await why.fill("Undone");
+    await confirm.click();
+    await expect(names).toHaveCount(5);
+
+    await deleteSecond("Third time");
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Row trash" }).click();
+    await trash.getByRole("checkbox").first().check();
+    await trash.getByRole("button", { name: "Restore" }).click();
+    await why.fill("Back from the trash");
+    await confirm.click();
+    await expect(
+      page.getByText("1 row restored", { exact: true }).last(),
+    ).toBeVisible();
+    await trash
+      .getByRole("button", { name: "Close" })
+      .filter({ hasText: "Close" })
+      .click();
+    await expect(names).toHaveCount(5);
 
     expect(blocked).toEqual([]);
   });

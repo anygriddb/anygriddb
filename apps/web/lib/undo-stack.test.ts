@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { UndoStack, type UndoEntry } from "./undo-stack";
+import { StepGivenUp, UndoStack, type UndoEntry } from "./undo-stack";
 
 /** An entry that writes what it does into `log`. */
 function entry(
@@ -107,5 +107,27 @@ describe("UndoStack", () => {
     failRedo = false;
     await expect(stack.redo()).resolves.toMatchObject({ label: "a" });
     expect(log).toEqual(["undo", "redo"]);
+  });
+
+  it("keeps a step the person gave up, and reports nothing", async () => {
+    const log: string[] = [];
+    const sizes: Array<{ past: number; future: number }> = [];
+    let answered = false;
+    const stack = new UndoStack((next) => sizes.push(next));
+    // A step that asks why before it writes: unanswered, it does nothing.
+    const asks = () => {
+      if (!answered) return Promise.reject(new StepGivenUp());
+      log.push("done");
+      return Promise.resolve();
+    };
+    stack.push({ label: "a", undo: asks, redo: asks });
+    await expect(stack.undo()).resolves.toBeUndefined();
+    expect(sizes.at(-1)).toEqual({ past: 1, future: 0 });
+    answered = true;
+    await expect(stack.undo()).resolves.toMatchObject({ label: "a" });
+    answered = false;
+    await expect(stack.redo()).resolves.toBeUndefined();
+    expect(sizes.at(-1)).toEqual({ past: 0, future: 1 });
+    expect(log).toEqual(["done"]);
   });
 });
