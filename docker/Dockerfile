@@ -72,6 +72,10 @@ RUN printf '#!/bin/sh\nexec node --enable-source-maps /app/apps/api/dist/cli.js 
 # The image's `node` user, numeric so runAsNonRoot checks can verify it.
 USER 1000:1000
 EXPOSE 4000
+# Asks the API on the loopback, over HTTPS, its certificate verified
+# (ADR 0029). The Compose file says the same, with its own intervals.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD ["anygriddb", "health"]
 CMD ["node", "--enable-source-maps", "dist/index.js"]
 
 # Last, so a new date or commit only relabels the image.
