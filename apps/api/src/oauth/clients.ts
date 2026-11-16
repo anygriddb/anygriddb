@@ -7,8 +7,8 @@ import { randomBytes } from "node:crypto";
 import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
+import { hashPassword } from "../auth/argon2.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
-import { sha256Hex } from "./hash.js";
 
 const HTTPS_OR_LOOPBACK =
   /^(https:\/\/.+|http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/.*)?)$/i;
@@ -39,13 +39,14 @@ export async function registerOauthClient(
   const redirectUris = assertRedirectUris(input.redirectUris);
   const clientId = `agc_${randomBytes(24).toString("base64url")}`;
   const clientSecret = `ags_${randomBytes(32).toString("base64url")}`;
+  const secretHash = await hashPassword(clientSecret);
   const row = await db.transaction().execute(async (tx) => {
     const inserted = await tx
       .insertInto("oauthClients")
       .values({
         clientId,
         name,
-        secretHash: sha256Hex(clientSecret),
+        secretHash,
         redirectUris: sql<string[]>`array[${sql.join(
           redirectUris.map((uri) => sql`${uri}`),
         )}]::text[]`,

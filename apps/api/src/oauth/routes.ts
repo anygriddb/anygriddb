@@ -13,12 +13,26 @@ import {
   type TokenResponse,
 } from "./flow.js";
 
-type Form = Record<string, string>;
+const FORM_KEYS = [
+  "grant_type",
+  "client_id",
+  "client_secret",
+  "code",
+  "redirect_uri",
+  "code_verifier",
+  "refresh_token",
+  "token",
+] as const;
+
+type FormKey = (typeof FORM_KEYS)[number];
+type Form = Partial<Record<FormKey, string>>;
 
 function formOf(body: unknown): Form {
   if (!body || typeof body !== "object" || Array.isArray(body)) return {};
+  const raw = body as Record<string, unknown>;
   const out: Form = {};
-  for (const [key, value] of Object.entries(body as Record<string, unknown>)) {
+  for (const key of FORM_KEYS) {
+    const value = raw[key];
     if (typeof value === "string") out[key] = value;
   }
   return out;

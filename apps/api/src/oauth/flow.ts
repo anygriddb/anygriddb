@@ -2,11 +2,12 @@
  * Authorization code + PKCE + refresh for applications (ADR 0094).
  * Access tokens are normal api_tokens rows so REST and MCP stay one path.
  */
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { AppError, roleAllows, roleFor } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { loadBindings } from "../auth/access.js";
+import { verifyPassword } from "../auth/argon2.js";
 import { createApiToken, tokenDays } from "../auth/tokens.js";
 import { readGateSettings } from "../settings.js";
 import { findLiveOauthClient } from "./clients.js";
@@ -69,10 +70,11 @@ export async function issueAuthorizationCode(
   return { code, redirectUri: input.redirectUri };
 }
 
-function secretsEqual(left: string, right: string): boolean {
-  const a = Buffer.from(left);
-  const b = Buffer.from(right);
-  return a.length === b.length && timingSafeEqual(a, b);
+async function clientSecretOk(
+  secretHash: string,
+  clientSecret: string,
+): Promise<boolean> {
+  return verifyPassword(secretHash, clientSecret);
 }
 
 export type TokenResponse = {
@@ -96,7 +98,7 @@ export async function exchangeAuthorizationCode(
   const client = await findLiveOauthClient(db, input.clientId);
   if (
     !client ||
-    !secretsEqual(client.secretHash, sha256Hex(input.clientSecret))
+    !(await clientSecretOk(client.secretHash, input.clientSecret))
   ) {
     throw new AppError("invalid_input");
   }
@@ -169,7 +171,7 @@ export async function refreshAccessToken(
   const client = await findLiveOauthClient(db, input.clientId);
   if (
     !client ||
-    !secretsEqual(client.secretHash, sha256Hex(input.clientSecret))
+    !(await clientSecretOk(client.secretHash, input.clientSecret))
   ) {
     throw new AppError("invalid_input");
   }
@@ -257,7 +259,7 @@ export async function revokeRefreshToken(
   const client = await findLiveOauthClient(db, input.clientId);
   if (
     !client ||
-    !secretsEqual(client.secretHash, sha256Hex(input.clientSecret))
+    !(await clientSecretOk(client.secretHash, input.clientSecret))
   ) {
     throw new AppError("invalid_input");
   }
