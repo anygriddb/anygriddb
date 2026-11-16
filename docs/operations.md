@@ -129,6 +129,14 @@ certificate of yours, it makes its own authority; its log and
 Administration > Health give the fingerprint to check before people
 install it.
 
+"About AnyGridDB", in the account menu and on the sign-in page, shows
+the license, that the software comes without warranty, where its source
+is, and the licenses of the libraries it is built with
+(`/license.txt`, `/third-party-licenses.txt`). The license asks whoever
+runs a version they changed to offer its source to the people who use
+it: name your repository in `SOURCE_URL`
+(`apps/web/components/shell/about-dialog.tsx`) before you build.
+
 `AUTH_ENCRYPTION_KEY` seals the sources' passwords, second factors, and
 TLS keys. Lose it and they cannot be read again. To change it, follow
 "Changing the encryption key" below: changed alone, it opens nothing of

@@ -25,3 +25,8 @@ docker/lab/certs/
 
 # Secret files written by scripts/install.sh. The Compose files stay.
 /docker/secrets/
+
+# Written by the web build (scripts/third-party-licenses.mjs): the license
+# and the libraries' licenses, as the app serves them.
+/apps/web/public/license.txt
+/apps/web/public/third-party-licenses.txt

@@ -22,8 +22,13 @@ Every dependency AnyGridDB ships, in its image and in the app's bundle,
 is under an OSI-approved license, and `pnpm check` refuses one that is not
 (`scripts/check-licenses.mjs`). The one exception, data that a build tool
 reads and that is not shipped, is named in
-[`OPEN_SOURCE_POLICY.md`](OPEN_SOURCE_POLICY.md). Those added in the v2
-cycle and the stack rewrite:
+[`OPEN_SOURCE_POLICY.md`](OPEN_SOURCE_POLICY.md).
+
+The whole list, with the text of each license, is written when the app is
+built (`scripts/third-party-licenses.mjs`) from what was installed: every
+instance serves it at `/third-party-licenses.txt`, beside AnyGridDB's own
+license at `/license.txt`, and "About AnyGridDB" in the app links to both.
+The main ones:
 
 | Package                                                                                 | License    |
 | --------------------------------------------------------------------------------------- | ---------- |

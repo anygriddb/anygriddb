@@ -1394,6 +1394,12 @@ msgstr "A word in a message, a path, or a code"
 msgid "A year at least: the trash restores a deleted row from this trail. What a shorter choice deletes cannot be brought back; signatures are never deleted."
 msgstr "A year at least: the trash restores a deleted row from this trail. What a shorter choice deletes cannot be brought back; signatures are never deleted."
 
+#: components/auth/auth-frame.tsx
+#: components/shell/about-dialog.tsx
+#: components/shell/user-menu.tsx
+msgid "About AnyGridDB"
+msgstr "About AnyGridDB"
+
 #: components/shell/pending-invitations.tsx
 msgid "Accept"
 msgstr "Accept"
@@ -2149,6 +2155,10 @@ msgstr "AnyGridDB embeds no model: the AI you run (Claude, Cursor, Ollama with a
 #: components/admin/sources-tab.tsx
 msgid "AnyGridDB forgets this source and its password. The client's database is not touched."
 msgstr "AnyGridDB forgets this source and its password. The client's database is not touched."
+
+#: components/shell/about-dialog.tsx
+msgid "AnyGridDB is free software: you may use it, study it, share it, and change it under the GNU Affero General Public License, version 3 or any later version."
+msgstr "AnyGridDB is free software: you may use it, study it, share it, and change it under the GNU Affero General Public License, version 3 or any later version."
 
 #: components/admin/notifications-tab.tsx
 msgid "AnyGridDB POSTs the event as JSON and signs those bytes with HMAC-SHA256. The signature is the x-anygrid-signature header."
@@ -3333,6 +3343,10 @@ msgstr "Copy this address now: it will not be shown again."
 #: components/admin/scim-tab.tsx
 msgid "Copy this token now: it will not be shown again."
 msgstr "Copy this token now: it will not be shown again."
+
+#: components/shell/about-dialog.tsx
+msgid "Copyright © the AnyGridDB contributors, and the authors of the libraries it is built with."
+msgstr "Copyright © the AnyGridDB contributors, and the authors of the libraries it is built with."
 
 #: components/admin/logs-tab.tsx
 msgid "Could not copy."
@@ -5876,6 +5890,10 @@ msgstr "Issuer / Entity ID"
 msgid "Issuer URL"
 msgstr "Issuer URL"
 
+#: components/shell/about-dialog.tsx
+msgid "It comes with no warranty, to the extent the law allows."
+msgstr "It comes with no warranty, to the extent the law allows."
+
 #: components/admin/base-admin-page.tsx
 msgid "It goes to the trash for {days} days with its data, where its owners and administrators can restore it, then it is deleted permanently."
 msgstr "It goes to the trash for {days} days with its data, where its owners and administrators can restore it, then it is deleted permanently."
@@ -6165,6 +6183,10 @@ msgstr "Leave blank to keep the stored password"
 #: components/admin/logs-tab.tsx
 msgid "Level"
 msgstr "Level"
+
+#: components/shell/about-dialog.tsx
+msgid "Licenses of the libraries it uses"
+msgstr "Licenses of the libraries it uses"
 
 #: components/shell/user-menu.tsx
 msgid "Light"
@@ -10037,6 +10059,10 @@ msgstr "Sorted by {0, plural, one {# field} other {# fields}}"
 msgid "Source"
 msgstr "Source"
 
+#: components/shell/about-dialog.tsx
+msgid "Source code"
+msgstr "Source code"
+
 #: lib/errors.ts
 msgid "Source not found"
 msgstr "Source not found"
@@ -10855,6 +10881,10 @@ msgstr "The last characters."
 #: components/admin/notifications-tab.tsx
 msgid "The last error is a short reason, never a secret. Send a test pings a heartbeat once, without waiting for its schedule."
 msgstr "The last error is a short reason, never a secret. Send a test pings a heartbeat once, without waiting for its schedule."
+
+#: components/shell/about-dialog.tsx
+msgid "The license"
+msgstr "The license"
 
 #: components/table/share-dialog.tsx
 msgid "The link is shown only once. Existing links:"

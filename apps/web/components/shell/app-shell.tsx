@@ -16,6 +16,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { onSignIn, safeNext } from "../auth/auth-page";
 import { CommandPalette } from "./command-palette";
 import { LoadFailed } from "./load-failed";
+import { AboutDialog } from "./about-dialog";
 import { ShortcutsDialog } from "./shortcuts-dialog";
 import { Sidebar } from "./sidebar";
 
@@ -218,6 +219,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <CommandPalette />
         <ShortcutsDialog />
+        <AboutDialog />
       </JobsProvider>
     </RealtimeProvider>
   );

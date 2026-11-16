@@ -26,6 +26,10 @@ COPY apps/web apps/web
 COPY packages/db packages/db
 COPY packages/core packages/core
 COPY packages/ui packages/ui
+# The web build writes the license and the libraries' licenses into what
+# the app serves, from what is installed here.
+COPY LICENSE LICENSE
+COPY scripts/third-party-licenses.mjs scripts/third-party-licenses.mjs
 # Which AnyGridDB the bundle reports (ADR 0048). Empty: the root
 # package.json's version, commit not recorded. scripts/build-image.sh sets
 # them from the checkout; a version that is not package.json's stops here.
@@ -50,6 +54,9 @@ COPY --from=production-dependencies /app/apps/api/node_modules /app/apps/api/nod
 COPY --from=build /app/apps/api/dist /app/apps/api/dist
 # The API finds the app next to it, in apps/web/dist.
 COPY --from=build /app/apps/web/dist /app/apps/web/dist
+# The license, where someone who opens the image looks for it. The
+# libraries' licenses are served with the app (`/third-party-licenses.txt`).
+COPY LICENSE /app/LICENSE
 # Files (attachments, exports, staged imports) go to a volume mounted here.
 # The directory belongs to the runtime user, so a fresh named volume does too.
 RUN mkdir -p /data/files /data/tls && chown 1000:1000 /data/files /data/tls \
