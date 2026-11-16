@@ -29,8 +29,13 @@ memory and time with it.
   a hostile script.**
   1. The script runs in a QuickJS interpreter compiled to WebAssembly.
      It sees the language and three names, nothing of Node: no `process`,
-     no `require`, no `fetch`, no timer. The interpreter has a memory
-     ceiling (32 MiB), a stack ceiling, and is interrupted once its time
+     no `require`, no `fetch`, no timer. The interpreter's whole memory
+     cannot grow past 64 MiB: the WebAssembly memory it is given has
+     that maximum, so a script is refused what it asks beyond it, however
+     it asks. (QuickJS's own limit is set too, but as it is built for
+     WebAssembly it counts allocations, not their size: alone, it let a
+     script take the two gibibytes the module may address.) It has a
+     stack ceiling, and is interrupted once its time
      is up: 10 seconds, the instance's answers included, and a minute
      for all the scripts of one run.
   2. The interpreter lives in a process of its own, started with Node's
@@ -74,7 +79,7 @@ memory and time with it.
   trail with it, and an earlier version is put back as the rest is
   (ADR 0089).
 - Each script in flight costs the instance a process: at most four at
-  once, each within 128 MiB of heap beside the interpreter's 32 MiB.
+  once, each within 128 MiB of heap beside the interpreter's 64 MiB.
 - The second wall is there for what gets past the first, not instead
   of it: a process may still signal another of the same account, and
   memory outside its heap is not counted. Only the interpreter keeps a

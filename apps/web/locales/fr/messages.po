@@ -1274,12 +1274,12 @@ msgid "A score drawn as symbols"
 msgstr "Une note dessinée en symboles"
 
 #: components/admin/security-tab.tsx
-msgid "A script is code a table's manager writes. It runs apart from the instance, with no network and no file, is stopped after 10 seconds or at 32 MiB of memory, and reads and writes rows with its author's access. Turning scripts off stops those already written at once."
-msgstr "Un script est du code écrit par le gestionnaire d’une table. Il s’exécute à l’écart de l’instance, sans réseau ni fichier, est arrêté après 10 secondes ou à 32 Mio de mémoire, et lit et écrit des lignes avec les droits de son auteur. Désactiver les scripts arrête aussitôt ceux qui sont déjà écrits."
+msgid "A script is code a table's manager writes. It runs apart from the instance, with no network and no file, is stopped after 10 seconds or at 64 MiB of memory, and reads and writes rows with its author's access. Turning scripts off stops those already written at once."
+msgstr "Un script est du code écrit par le gestionnaire d’une table. Il s’exécute à l’écart de l’instance, sans réseau ni fichier, est arrêté après 10 secondes ou à 64 Mio de mémoire, et lit et écrit des lignes avec les droits de son auteur. Désactiver les scripts arrête aussitôt ceux qui sont déjà écrits."
 
 #: components/table/automations-dialog.tsx
-msgid "A script is stopped after 10 seconds, at 32 MiB of memory, or after 100 reads and writes; the scripts of one run share a minute."
-msgstr "Un script est arrêté après 10 secondes, à 32 Mio de mémoire, ou après 100 lectures et écritures ; les scripts d’une même exécution se partagent une minute."
+msgid "A script is stopped after 10 seconds, at 64 MiB of memory, or after 100 reads and writes; the scripts of one run share a minute."
+msgstr "Un script est arrêté après 10 secondes, à 64 Mio de mémoire, ou après 100 lectures et écritures ; les scripts d’une même exécution se partagent une minute."
 
 #: components/admin/api-tokens-tab.tsx
 msgid "A script that calls the API with this token will be refused at once."

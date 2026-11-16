@@ -6,14 +6,16 @@ import { z } from "zod";
 
 /**
  * What one script may use before it is stopped (ADR 0099). The time
- * counts the instance's answers too; the memory is the interpreter's,
- * and the process around it has a heap of its own to carry the answers.
+ * counts the instance's answers too; the memory is the interpreter's
+ * whole memory, which cannot grow past it, and the process around it has
+ * a heap of its own to carry the answers.
  */
 export const SCRIPT_LIMITS = {
   timeMs: 10_000,
   /** What the scripts of one automation run may take together. */
   runMs: 60_000,
-  memoryBytes: 32 * 1024 * 1024,
+  /** The interpreter starts with 16 MiB: a ceiling under that is 16 MiB. */
+  memoryBytes: 64 * 1024 * 1024,
   /** Reads and writes one script may ask for. */
   maxCalls: 100,
   /** What one call may carry to the instance. */
@@ -286,7 +288,8 @@ export class ScriptRunner {
 
   private spawn(): Started {
     const { entry, execArgv } = scriptProcess(this.limits);
-    const child = fork(entry, [], {
+    // The interpreter's memory is given its ceiling when it is made.
+    const child = fork(entry, [String(this.limits.memoryBytes)], {
       execArgv,
       // Nothing of the instance: no address, no key, no path.
       env: {},

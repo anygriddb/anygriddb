@@ -1274,12 +1274,12 @@ msgid "A score drawn as symbols"
 msgstr "A score drawn as symbols"
 
 #: components/admin/security-tab.tsx
-msgid "A script is code a table's manager writes. It runs apart from the instance, with no network and no file, is stopped after 10 seconds or at 32 MiB of memory, and reads and writes rows with its author's access. Turning scripts off stops those already written at once."
-msgstr "A script is code a table's manager writes. It runs apart from the instance, with no network and no file, is stopped after 10 seconds or at 32 MiB of memory, and reads and writes rows with its author's access. Turning scripts off stops those already written at once."
+msgid "A script is code a table's manager writes. It runs apart from the instance, with no network and no file, is stopped after 10 seconds or at 64 MiB of memory, and reads and writes rows with its author's access. Turning scripts off stops those already written at once."
+msgstr "A script is code a table's manager writes. It runs apart from the instance, with no network and no file, is stopped after 10 seconds or at 64 MiB of memory, and reads and writes rows with its author's access. Turning scripts off stops those already written at once."
 
 #: components/table/automations-dialog.tsx
-msgid "A script is stopped after 10 seconds, at 32 MiB of memory, or after 100 reads and writes; the scripts of one run share a minute."
-msgstr "A script is stopped after 10 seconds, at 32 MiB of memory, or after 100 reads and writes; the scripts of one run share a minute."
+msgid "A script is stopped after 10 seconds, at 64 MiB of memory, or after 100 reads and writes; the scripts of one run share a minute."
+msgstr "A script is stopped after 10 seconds, at 64 MiB of memory, or after 100 reads and writes; the scripts of one run share a minute."
 
 #: components/admin/api-tokens-tab.tsx
 msgid "A script that calls the API with this token will be refused at once."

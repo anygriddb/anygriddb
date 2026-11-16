@@ -186,17 +186,46 @@ describe("what a script cannot do", () => {
     expect(thrown.kind).toBe("timeout");
   });
 
-  it("is stopped when it takes more memory than it may", async () => {
+  it.each([
+    [
+      "many large strings",
+      `const kept = []; while (true) kept.push("x".repeat(512 * 1024) + kept.length);`,
+    ],
+    [
+      "many small arrays",
+      `const kept = []; while (true) kept.push(new Array(1000).fill("x"));`,
+    ],
+    [
+      "many objects",
+      `const kept = []; while (true) kept.push({ at: kept.length, text: "x" });`,
+    ],
+    ["one array too large", `return new Array(50_000_000).fill(1).length;`],
+    ["bytes", `return new Uint8Array(256 * 1024 * 1024).length;`],
+  ])(
+    "is stopped when it takes more memory than it may: %s",
+    async (_, code) => {
+      const started = Date.now();
+      const thrown = await failure(
+        runner({ memoryBytes: 24 * 1024 * 1024 }).run(code, {}, noHost),
+      );
+      // Refused the memory, not left to run until its time is up.
+      expect(thrown.kind).toBe("memory");
+      expect(thrown.message).toBe("Script used too much memory");
+      expect(Date.now() - started).toBeLessThan(SCRIPT_LIMITS.timeMs);
+    },
+  );
+
+  it("is refused a text longer than the interpreter makes", async () => {
+    const started = Date.now();
     const thrown = await failure(
-      runner({ memoryBytes: 4 * 1024 * 1024 }).run(
-        `const kept = [];
-         while (true) kept.push("x".repeat(512 * 1024) + kept.length);`,
+      runner().run(
+        `let text = "x".repeat(1024); while (true) text += text;`,
         {},
         noHost,
       ),
     );
-    expect(thrown.kind).toBe("memory");
-    expect(thrown.message).toBe("Script used too much memory");
+    expect(thrown.kind).not.toBe("timeout");
+    expect(Date.now() - started).toBeLessThan(SCRIPT_LIMITS.timeMs);
   });
 
   it("is stopped when the instance takes too long to answer", async () => {

@@ -696,7 +696,7 @@ function ScriptEditor(props: {
           ))}
         </ul>
         <p>
-          {t`A script is stopped after 10 seconds, at 32 MiB of memory, or after 100 reads and writes; the scripts of one run share a minute.`}
+          {t`A script is stopped after 10 seconds, at 64 MiB of memory, or after 100 reads and writes; the scripts of one run share a minute.`}
         </p>
       </div>
     </div>

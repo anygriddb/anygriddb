@@ -13,6 +13,7 @@
 import variant from "@jitl/quickjs-ng-wasmfile-release-sync";
 import {
   newQuickJSWASMModuleFromVariant,
+  newVariant,
   type QuickJSContext,
   type QuickJSHandle,
   type QuickJSRuntime,
@@ -304,7 +305,35 @@ class Run {
   }
 }
 
-const engine = await newQuickJSWASMModuleFromVariant(variant);
+/**
+ * The interpreter's whole memory, given a ceiling it cannot grow past.
+ * QuickJS has a limit of its own, set for each script, but as it is
+ * built here it counts allocations rather than their size: many strings
+ * of a megabyte pass under it. This one counts bytes, whatever asked for
+ * them, and a script that reaches it is refused the memory and fails.
+ */
+const PAGE_BYTES = 64 * 1024;
+const START_PAGES = 256;
+const ceiling = Number(process.argv[2]);
+// Node has WebAssembly, but the types this package is checked with do
+// not describe it: what makes a memory is named here, and the memory is
+// handed on as the library's own type.
+type MemoryLimits = { initial: number; maximum: number };
+const { Memory } = (
+  globalThis as unknown as {
+    WebAssembly: { Memory: new (limits: MemoryLimits) => object };
+  }
+).WebAssembly;
+const memory = new Memory({
+  initial: START_PAGES,
+  maximum: Math.max(
+    START_PAGES,
+    Math.floor((Number.isFinite(ceiling) ? ceiling : 0) / PAGE_BYTES),
+  ),
+});
+const engine = await newQuickJSWASMModuleFromVariant(
+  newVariant(variant, { wasmMemory: memory as never }),
+);
 let current: Run | undefined;
 
 process.on("message", (message: Incoming) => {

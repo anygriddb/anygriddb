@@ -394,7 +394,7 @@ script never runs in the application's process: each automation run
 that holds one starts a process of its own, which reads its own code
 and nothing else, writes nowhere, opens no connection, and is given
 nothing of the environment. Four scripts run at once at most, the
-others wait; each may take 128 MiB of memory for its process and 32 MiB
+others wait; each may take 128 MiB of memory for its process and 64 MiB
 for the script itself, and is ended after 10 seconds; the scripts of
 one automation run share a minute. Leave the
 container that much memory beside what the application uses, or leave

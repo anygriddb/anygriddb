@@ -14,7 +14,7 @@ first.
   actions, which read the row, read and write rows of the base with
   their author's access, and hand values to the actions after them. A
   script runs apart from the instance, with no network and no file, and
-  is stopped after 10 seconds or at 32 MiB of memory. Scripts are off
+  is stopped after 10 seconds or at 64 MiB of memory. Scripts are off
   until an administrator allows them, in Administration under Security
   (ADR 0099).
 - An automation started by a call to its address can also be run by

@@ -382,7 +382,7 @@ function SecurityTab() {
             ["on", t`Allowed`],
           ]}
           onChange={(value) => void save({ automationScripts: value === "on" })}
-          hint={t`A script is code a table's manager writes. It runs apart from the instance, with no network and no file, is stopped after 10 seconds or at 32 MiB of memory, and reads and writes rows with its author's access. Turning scripts off stops those already written at once.`}
+          hint={t`A script is code a table's manager writes. It runs apart from the instance, with no network and no file, is stopped after 10 seconds or at 64 MiB of memory, and reads and writes rows with its author's access. Turning scripts off stops those already written at once.`}
         />
       </RuledSection>
 
