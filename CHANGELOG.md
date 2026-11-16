@@ -8,9 +8,10 @@ first.
 
 ## Unreleased
 
-No version is published yet. This section lists what changed since the
-tree was last checked for a first release; it becomes that release's
-notes.
+## 0.1.0 - 2026-11-16
+
+First public release. The GitHub Release for `v0.1.0` holds the full
+operator notes; this entry records what landed last before that tag.
 
 ### Security
 
