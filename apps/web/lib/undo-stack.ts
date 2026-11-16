@@ -12,6 +12,17 @@ export type UndoEntry = {
 export type UndoSizes = { past: number; future: number };
 
 /**
+ * What a step throws when the person gave it up, by leaving unanswered a
+ * question it asked: nothing failed, and the step stays where it was.
+ */
+export class StepGivenUp extends Error {
+  constructor() {
+    super("Step given up");
+    this.name = "StepGivenUp";
+  }
+}
+
+/**
  * Changes kept for this session, 100 deep. A change is kept as soon as it
  * is sent; undo waits for it to be saved and passes over one whose save
  * failed. Undo and redo run one after the other, in the order asked.
@@ -20,6 +31,8 @@ export type UndoSizes = { past: number; future: number };
  * can still be undone: a row locked or deleted since refuses for good.
  * With `keepFailed`, it stays where it was, to be tried again: a
  * dashboard's steps are writes of its own, refused only for a moment.
+ * A step given up (`StepGivenUp`) stays too, and answers as if there had
+ * been nothing to undo.
  */
 export class UndoStack {
   private past: UndoEntry[] = [];
@@ -47,7 +60,9 @@ export class UndoStack {
         try {
           await entry.undo();
         } catch (cause) {
-          if (this.options.keepFailed) this.past.push(entry);
+          const givenUp = cause instanceof StepGivenUp;
+          if (givenUp || this.options.keepFailed) this.past.push(entry);
+          if (givenUp) return undefined;
           throw cause;
         }
         this.future.push(entry);
@@ -62,7 +77,9 @@ export class UndoStack {
       try {
         await entry.redo();
       } catch (cause) {
-        if (this.options.keepFailed) this.future.push(entry);
+        const givenUp = cause instanceof StepGivenUp;
+        if (givenUp || this.options.keepFailed) this.future.push(entry);
+        if (givenUp) return undefined;
         throw cause;
       }
       this.past.push(entry);

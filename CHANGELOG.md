@@ -29,6 +29,11 @@ first.
 
 - The steps of an automation's run are numbered by their place: the
   second action of an automation was listed as its first.
+- On a table where a field asks for a reason, deleted rows come back:
+  the notice of a delete, an undo, and the row trash ask for the reason,
+  where the first two did nothing and the trash refused. An undo or a
+  redo that cannot be done says why.
+- In the row trash, each box is named by its row for a screen reader.
 
 ## 0.1.0 - 2026-11-16
 
