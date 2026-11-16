@@ -53,6 +53,7 @@ import {
 } from "./jobs.js";
 import { purgeAuthEvents } from "../auth/auth-events.js";
 import { purgeExpiredSignIns } from "../auth/expired.js";
+import { purgeOauthGrants } from "../oauth/flow.js";
 import { sweepInactiveAccounts } from "../auth/inactivity.js";
 import { purgeResetLinks } from "../auth/password-reset.js";
 import { purgeSignupRequests } from "../auth/signup-requests.js";
@@ -401,6 +402,7 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
         await purgeResetLinks(deps.db);
         await purgeSignupRequests(deps.db);
         await purgeExpiredSignIns(deps.db);
+        await purgeOauthGrants(deps.db);
         await sweepInactiveAccounts({
           db: deps.db,
           env: deps.env,
