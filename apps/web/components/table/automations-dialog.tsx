@@ -28,7 +28,7 @@ import {
 } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, History, Pencil, Play, Plus, Trash2, X } from "lucide-react";
-import { useId, useState } from "react";
+import { lazy, Suspense, useId, useState } from "react";
 import { toast } from "sonner";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import type { CatalogColumn } from "../../lib/types";
@@ -37,6 +37,9 @@ import { useTable } from "./table-context";
 import { useLingui } from "@lingui/react/macro";
 import { Earlier } from "../history/earlier";
 import { useErrorText } from "../../lib/errors";
+
+// CodeMirror and the JavaScript grammar load with the first script.
+const ScriptCodeEditor = lazy(() => import("./script-code-editor"));
 
 type Automation = RouterOutputs["automations"]["list"]["automations"][number];
 type TriggerType = AutomationTrigger["type"];
@@ -650,17 +653,23 @@ function ScriptEditor(props: {
           {t`Scripts are turned off on this instance: an administrator turns them on in Administration, under Security.`}
         </p>
       ) : null}
-      <Textarea
-        aria-label={t`Script`}
-        aria-describedby={helpId}
-        className="min-h-48 font-mono text-xs"
-        spellCheck={false}
-        autoCapitalize="off"
-        autoCorrect="off"
-        maxLength={MAX_SCRIPT_LENGTH}
-        value={props.code}
-        onChange={(event) => props.onChange(event.target.value)}
-      />
+      {/* The editor comes with the first script opened; until then the
+          text is there to read. */}
+      <Suspense
+        fallback={
+          <pre className="min-h-48 overflow-auto rounded-md border border-border p-2 font-mono text-xs">
+            {props.code}
+          </pre>
+        }
+      >
+        <ScriptCodeEditor
+          label={t`Script`}
+          describedBy={helpId}
+          maxLength={MAX_SCRIPT_LENGTH}
+          value={props.code}
+          onChange={props.onChange}
+        />
+      </Suspense>
       <div
         id={helpId}
         className="flex flex-col gap-1 text-xs text-muted-foreground"
