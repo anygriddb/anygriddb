@@ -14,6 +14,7 @@ import {
 import { notifyRouter } from "./admin-notify-router.js";
 import { sourcesRouter } from "./admin-sources-router.js";
 import { adminTrailProcedures } from "./admin-trails-router.js";
+import { oauthClientsRouter } from "./admin-oauth-router.js";
 import { t } from "./init.js";
 
 /**
@@ -24,6 +25,7 @@ export const adminRouter = t.router({
   groups: groupsRouter,
   scim: scimRouter,
   apiTokens: apiTokensRouter,
+  oauthClients: oauthClientsRouter,
   sources: sourcesRouter,
   smtp: smtpRouter,
   notify: notifyRouter,

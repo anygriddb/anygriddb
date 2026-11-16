@@ -35,6 +35,7 @@ import { queueWebhookRun } from "./automations.js";
 import { logUrl } from "./log-url.js";
 import { logDestination } from "./process-log.js";
 import { trustProxy } from "./trust-proxy.js";
+import { registerOauth } from "./oauth/routes.js";
 import { registerScim } from "./scim/routes.js";
 import { registerEnterpriseAuth } from "./auth/enterprise.js";
 import {
@@ -432,6 +433,7 @@ export async function createApp(deps: {
     publicUrl: deps.env.PUBLIC_URL,
   });
   registerScim(app, { db: deps.db, publicUrl: deps.env.PUBLIC_URL });
+  registerOauth(app, { db: deps.db });
   registerAdminApi(app, {
     db: deps.db,
     env: deps.env,

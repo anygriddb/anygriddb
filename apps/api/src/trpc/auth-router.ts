@@ -5,6 +5,8 @@ import {
   labelSchema,
   revokeApiTokenInputSchema,
 } from "@anygriddb/core";
+import { issueAuthorizationCode } from "../oauth/flow.js";
+import { isCodeChallenge } from "../oauth/pkce.js";
 import { TRPCError } from "@trpc/server";
 import { factorMethods, mfaGate, loadBindings } from "../auth/access.js";
 import {
@@ -1183,6 +1185,39 @@ export const authRouter = t.router({
         refuseApiToken(ctx);
         await revokeApiToken(ctx.db, user.id, input.tokenId);
         return { ok: true as const };
+      } catch (error) {
+        mapProcedureError(error, ctx.req.log);
+      }
+    }),
+  /**
+   * Consent for an OAuth client (ADR 0094): issues a one-time code the
+   * application exchanges at /oauth/token. Session only; never a bearer.
+   */
+  oauthConsent: procedure
+    .input(
+      z
+        .object({
+          clientId: z.string().trim().min(1).max(200),
+          redirectUri: z.string().trim().min(1).max(2_000),
+          codeChallenge: z.string().trim().min(43).max(128),
+          baseIds: z.array(z.uuid()).min(1).max(100),
+          readOnly: z.boolean().optional(),
+          allowDelete: z.boolean().optional(),
+        })
+        .strict(),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = await requireUser(ctx);
+      try {
+        refuseApiToken(ctx);
+        if (!isCodeChallenge(input.codeChallenge)) {
+          throw new AppError("invalid_input");
+        }
+        const policy = await readGateSettings(ctx.db);
+        if (policy.apiTokens === "admins" && !user.isAdmin) {
+          throw new AppError("api_tokens_restricted");
+        }
+        return await issueAuthorizationCode(ctx.db, user.id, input);
       } catch (error) {
         mapProcedureError(error, ctx.req.log);
       }
