@@ -31,6 +31,10 @@ notes.
   libraries the app is built with, which every instance now serves
   (`/license.txt`, `/third-party-licenses.txt`, ADR 0096).
 - The image declares its own health check.
+- An application finds the grant's addresses at
+  `/.well-known/oauth-authorization-server` and may prove itself with
+  the `Authorization: Basic` header; a client that does not is answered
+  `invalid_client` (ADR 0098, `docs/integrations/oauth.md`).
 
 ### Changed
 

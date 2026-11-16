@@ -176,3 +176,34 @@ function errorBody(failure: PublicError): {
 export function publicErrorBody(status: number, code?: ErrorCode) {
   return errorBody(publicError(new AppError(code ?? codeFor(status))));
 }
+
+type FormApp = {
+  addContentTypeParser: (
+    type: string,
+    options: { parseAs: "string" },
+    parser: (
+      request: unknown,
+      body: string | Buffer,
+      done: (error: Error | null, body?: unknown) => void,
+    ) => void,
+  ) => unknown;
+};
+
+/**
+ * Takes a form's body (`application/x-www-form-urlencoded`) as an object
+ * of its fields: what an identity provider posts back, and what an
+ * application sends for a token.
+ */
+export function acceptFormBodies(app: FormApp): void {
+  app.addContentTypeParser(
+    "application/x-www-form-urlencoded",
+    { parseAs: "string" },
+    (_request, body, done) => {
+      try {
+        done(null, Object.fromEntries(new URLSearchParams(String(body))));
+      } catch (error) {
+        done(error as Error, undefined);
+      }
+    },
+  );
+}

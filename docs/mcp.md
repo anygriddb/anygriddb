@@ -57,6 +57,12 @@ token, or `delete_records` when deletes are off) is a JSON-RPC error
 (`-32602`). Clients must read `isError` and the JSON-RPC `error`, not
 only the HTTP status.
 
+## A token an application asks for
+
+Instead of a token someone pastes, an application an administrator
+registered can ask a person for access to the bases they choose, and
+use the token it gets here: [Applications (OAuth)](integrations/oauth.md).
+
 ## Clients
 
 Claude Code:

@@ -72,7 +72,14 @@ export async function issueAuthorizationCode(
 
 type OauthClient = NonNullable<Awaited<ReturnType<typeof findLiveOauthClient>>>;
 
-/** The live client these credentials name, or the refusal every grant gives. */
+/** What a refusal says when it is the client that did not prove itself. */
+export const CLIENT_REFUSED = "client";
+
+/**
+ * The live client these credentials name. A refusal names the client, so
+ * that the token address answers `invalid_client` rather than
+ * `invalid_grant`.
+ */
 async function authenticClient(
   db: Database,
   input: { clientId: string; clientSecret: string },
@@ -82,7 +89,7 @@ async function authenticClient(
     !client ||
     !(await verifyPassword(client.secretHash, input.clientSecret))
   ) {
-    throw new AppError("invalid_input");
+    throw new AppError("invalid_input", CLIENT_REFUSED);
   }
   return client;
 }

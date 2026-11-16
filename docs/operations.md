@@ -26,6 +26,7 @@ here was tried on a stack of its own before it was written down.
 | Scrape Prometheus                        | [Metrics](integrations/metrics.md)                                                        |
 | Send errors and traces                   | [Errors and traces](integrations/errors.md)                                               |
 | See whether the instance can serve       | [Health](integrations/health.md)                                                          |
+| Let an application ask people for access | [Applications (OAuth)](integrations/oauth.md)                                             |
 | Acceptance checklist                     | [DSI acceptance checklist](#dsi-acceptance-checklist)                                     |
 
 ## Install
