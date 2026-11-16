@@ -400,6 +400,13 @@ one automation run share a minute. Leave the
 container that much memory beside what the application uses, or leave
 scripts off.
 
+Where the instance is installed must let that process start. This says
+whether it does, without reading or writing anything of the instance:
+
+```bash
+docker compose exec app anygriddb scripts check
+```
+
 ### Exports
 
 An export job writes its file to the system's temporary folder as the
