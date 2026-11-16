@@ -135,7 +135,8 @@ certificate of yours, it makes its own authority; its log and
 Administration > Health give the fingerprint to check before people
 install it.
 
-"About AnyGridDB", in the account menu and on the sign-in page, shows
+"About AnyGridDB", in the account menu, on the sign-in page and on
+public links' pages, shows
 the license, that the software comes without warranty, where its source
 is, and the licenses of the libraries it is built with
 (`/license.txt`, `/third-party-licenses.txt`). The license asks whoever

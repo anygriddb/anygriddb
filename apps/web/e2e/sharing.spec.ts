@@ -117,6 +117,13 @@ test("an owner shares a whole base read-only, and anyone with the link reads it"
   await expect(reader.getByRole("cell", { name: "Beatrix" })).toBeVisible();
   // One row is counted as one.
   await expect(reader.getByText("1 row", { exact: true })).toBeVisible();
+  // Someone without an account uses the software too: the notice of its
+  // license is on their page.
+  await reader.getByRole("button", { name: "About AnyGridDB" }).click();
+  const about = reader.getByRole("dialog", { name: "About AnyGridDB" });
+  await expect(about).toContainText("no warranty");
+  await reader.keyboard.press("Escape");
+  await expect(about).toHaveCount(0);
   expect(await accessibilityViolations(reader)).toEqual([]);
 
   await page.getByRole("button", { name: "Revoke" }).click();

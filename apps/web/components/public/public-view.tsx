@@ -23,6 +23,7 @@ import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { InstanceMark } from "../brand/instance-mark";
+import { AboutButton } from "../shell/about-dialog";
 import { SortHeader } from "../sort-header";
 import { useLocale } from "../../lib/i18n";
 
@@ -596,6 +597,7 @@ export function PublicView({ token }: { token: string }) {
           <p className="text-xs text-muted-foreground">{data.table.name}</p>
           <h1 className="truncate font-semibold">{data.view.name}</h1>
         </div>
+        <AboutButton />
       </header>
       {viewType === "form" ? (
         <div className="flex-1 overflow-y-auto bg-muted/40 p-6">

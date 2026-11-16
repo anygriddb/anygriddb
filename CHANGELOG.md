@@ -26,7 +26,8 @@ notes.
 
 ### Added
 
-- "About AnyGridDB", in the account menu and on the sign-in page: the
+- "About AnyGridDB", in the account menu, on the sign-in page and on
+  public links' pages: the
   license, the absence of warranty, the source, and the licenses of the
   libraries the app is built with, which every instance now serves
   (`/license.txt`, `/third-party-licenses.txt`, ADR 0096).

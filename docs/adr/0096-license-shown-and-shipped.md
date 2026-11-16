@@ -23,9 +23,10 @@ changed version to offer its source to the people who use it.
   carries. A text already printed is named, not repeated.
 - **The app serves them and the image holds them**: they are part of the
   build, like any other file of the app.
-- **"About AnyGridDB"**, in the account menu and on the sign-in page,
-  says whose work this is, that it comes without warranty, under which
-  license, and links to the source and to both files.
+- **"About AnyGridDB"**, in the account menu, on the sign-in page, and
+  in the header of a public link's page, says whose work this is, that
+  it comes without warranty, under which license, and links to the
+  source and to both files.
 - **The source's address is one constant** (`SOURCE_URL`): whoever runs
   a changed version names their own there before building.
 
@@ -33,8 +34,8 @@ changed version to offer its source to the people who use it.
 
 - The list is what pnpm reports for the dependencies of the API and of
   the app: a library that states its license wrongly is listed wrongly.
-- A public link's page shows no such notice yet: it has no menu to put
-  one in.
+- A form embedded in another site shows the notice's button in its own
+  header, as its page does.
 
 ## Rejected
 
