@@ -76,30 +76,36 @@ export function registerOauth(
     "/oauth/token",
     async (request: FastifyRequest, reply: FastifyReply) => {
       const form = formOf(request.body);
+      const grant =
+        form.grant_type === "authorization_code" ||
+        form.grant_type === "refresh_token"
+          ? form.grant_type
+          : null;
       try {
-        if (form.grant_type === "authorization_code") {
-          return await tokenOk(
-            reply,
-            await exchangeAuthorizationCode(deps.db, {
-              clientId: form.client_id ?? "",
-              clientSecret: form.client_secret ?? "",
-              code: form.code ?? "",
-              redirectUri: form.redirect_uri ?? "",
-              codeVerifier: form.code_verifier ?? "",
-            }),
-          );
+        switch (grant) {
+          case "authorization_code":
+            return await tokenOk(
+              reply,
+              await exchangeAuthorizationCode(deps.db, {
+                clientId: form.client_id ?? "",
+                clientSecret: form.client_secret ?? "",
+                code: form.code ?? "",
+                redirectUri: form.redirect_uri ?? "",
+                codeVerifier: form.code_verifier ?? "",
+              }),
+            );
+          case "refresh_token":
+            return await tokenOk(
+              reply,
+              await refreshAccessToken(deps.db, {
+                clientId: form.client_id ?? "",
+                clientSecret: form.client_secret ?? "",
+                refreshToken: form.refresh_token ?? "",
+              }),
+            );
+          default:
+            return await oauthError(reply, 400, "unsupported_grant_type");
         }
-        if (form.grant_type === "refresh_token") {
-          return await tokenOk(
-            reply,
-            await refreshAccessToken(deps.db, {
-              clientId: form.client_id ?? "",
-              clientSecret: form.client_secret ?? "",
-              refreshToken: form.refresh_token ?? "",
-            }),
-          );
-        }
-        return await oauthError(reply, 400, "unsupported_grant_type");
       } catch (error) {
         if (error instanceof AppError && error.code === "invalid_input") {
           return await oauthError(reply, 400, "invalid_grant");
