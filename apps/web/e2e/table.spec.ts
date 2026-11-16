@@ -206,6 +206,25 @@ test.describe("a field's menu", () => {
     await expect(header("Extra")).toBeVisible();
     await expect(header("Amount \\(copy\\)")).toHaveCount(0);
 
+    // Rows coloured by rules: the first rule a row matches tints its
+    // margin.
+    await page.getByRole("button", { name: "Colour", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Edit colour rules" }).click();
+    const rules = page.getByRole("dialog", { name: "Colour rules" });
+    await rules.getByRole("button", { name: "Add a colour rule" }).click();
+    await rules.getByLabel("Operator").selectOption({ label: "is" });
+    await rules.getByLabel("Value").fill("Alpha");
+    await rules
+      .getByRole("radiogroup", { name: "Colour of rule 1" })
+      .getByRole("radio", { name: "Green" })
+      .check();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await rules.getByRole("button", { name: "Save" }).click();
+    await expect(rules).toBeHidden();
+    await expect(page.locator('[role="rowheader"].row-tint-green')).toHaveCount(
+      2,
+    );
+
     expect(blocked).toEqual([]);
   });
 });

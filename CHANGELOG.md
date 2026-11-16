@@ -37,6 +37,10 @@ first.
 - A cell chosen while a fill or a paste is being saved stays chosen:
   the selection no longer jumps back to what was filled or pasted when
   the save ends.
+- The colour of an option, of a button, and of a colour rule is chosen
+  among swatches large enough to point at, each named in the reader's
+  language, the chosen one ticked. The button that adds an option has a
+  name for a screen reader.
 
 ## 0.1.0 - 2026-11-16
 

@@ -511,7 +511,7 @@ export function ViewToolbar(props: {
           }
         >
           <Palette className="h-3.5 w-3.5" aria-hidden />
-          {t`Color`}
+          {t`Colour`}
         </ToolButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent>

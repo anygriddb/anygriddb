@@ -21,7 +21,6 @@ import {
 import {
   Button,
   Checkbox,
-  cn,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -54,6 +53,7 @@ import { Earlier } from "../history/earlier";
 import { distinctLimits, formulaEngine, useLimitText } from "../../lib/limits";
 import { LimitNotice } from "./limit-notice";
 import { LinkSelectionEditor } from "./link-selection";
+import { OPTION_COLOR_NAMES, OptionColorButton } from "./option-color";
 import { countConditions, FilterBuilder } from "../table/filter-builder";
 
 const NO_PEOPLE = new Map<string, Collaborator>();
@@ -180,28 +180,17 @@ function OptionsEditor({
             className="flex items-center gap-1.5"
           >
             <GripVertical className="h-3.5 w-3.5 opacity-40" aria-hidden />
-            <div className="flex gap-0.5">
-              {OPTION_COLORS.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  aria-label={color}
-                  className={cn(
-                    `opt-${color} h-4 w-4 rounded-full border`,
-                    option.color === color
-                      ? "border-foreground"
-                      : "border-transparent",
-                  )}
-                  onClick={() =>
-                    onChange(
-                      options.map((item, at) =>
-                        at === index ? { ...item, color } : item,
-                      ),
-                    )
-                  }
-                />
-              ))}
-            </div>
+            <OptionColorButton
+              label={t`Colour of ${{ option: option.name }}`}
+              value={option.color}
+              onChange={(color) =>
+                onChange(
+                  options.map((item, at) =>
+                    at === index ? { ...item, color } : item,
+                  ),
+                )
+              }
+            />
             <Input
               className="h-8"
               aria-label={t`Option name`}
@@ -249,7 +238,12 @@ function OptionsEditor({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />
-        <Button type="submit" size="sm" variant="outline">
+        <Button
+          type="submit"
+          size="sm"
+          variant="outline"
+          aria-label={t`Add the option`}
+        >
           <Plus className="h-4 w-4" aria-hidden />
         </Button>
       </form>
@@ -1024,7 +1018,7 @@ export function FieldEditor({
                   <option value="">{t`Default`}</option>
                   {OPTION_COLORS.map((color) => (
                     <option key={color} value={color}>
-                      {color}
+                      {t(OPTION_COLOR_NAMES[color])}
                     </option>
                   ))}
                 </Select>
@@ -1079,23 +1073,13 @@ export function FieldEditor({
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Label>{t`Color`}</Label>
-                  <div className="flex h-9 items-center gap-1">
-                    {OPTION_COLORS.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        aria-label={color}
-                        aria-pressed={buttonColor === color}
-                        className={cn(
-                          `opt-${color} h-5 w-5 rounded-full border`,
-                          buttonColor === color
-                            ? "border-foreground"
-                            : "border-transparent",
-                        )}
-                        onClick={() => setButtonColor(color)}
-                      />
-                    ))}
+                  <Label>{t`Colour`}</Label>
+                  <div className="flex h-9 items-center">
+                    <OptionColorButton
+                      label={t`Colour of the button`}
+                      value={buttonColor}
+                      onChange={setButtonColor}
+                    />
                   </div>
                 </div>
               </div>
