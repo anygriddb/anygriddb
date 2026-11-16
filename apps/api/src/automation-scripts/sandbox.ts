@@ -24,8 +24,10 @@ export const SCRIPT_LIMITS = {
   maxOutputBytes: 64 * 1024,
   /** The heap of the process the interpreter lives in. */
   heapMb: 128,
-  /** How long that process may take to start, or to be stopped. */
-  graceMs: 5_000,
+  /** How long that process may take to start. */
+  startMs: 10_000,
+  /** How long past a script's time its process is left before it is ended. */
+  graceMs: 2_000,
 } as const;
 
 export type ScriptLimits = { [Key in keyof typeof SCRIPT_LIMITS]: number };
@@ -307,7 +309,7 @@ export class ScriptRunner {
     });
     const timer = setTimeout(() => {
       if (this.started === started) this.fail(stopped());
-    }, this.limits.graceMs);
+    }, this.limits.startMs);
     // A start that fails is told to the script that waited for it.
     ready.then(
       () => clearTimeout(timer),

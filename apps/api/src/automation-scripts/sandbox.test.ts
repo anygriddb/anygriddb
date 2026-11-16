@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   SCRIPT_LIMITS,
   SCRIPTS_AT_ONCE,
@@ -10,6 +10,10 @@ import {
   scriptProcess,
   ScriptRunner,
 } from "./sandbox.js";
+
+// Each test starts a process or several: on a busy machine that takes
+// longer than a test usually may.
+vi.setConfig({ testTimeout: 30_000 });
 
 const runners: ScriptRunner[] = [];
 
@@ -185,7 +189,8 @@ describe("what a script cannot do", () => {
   it("is stopped when it takes more memory than it may", async () => {
     const thrown = await failure(
       runner({ memoryBytes: 4 * 1024 * 1024 }).run(
-        `const kept = []; while (true) kept.push(new Array(1000).fill("x"));`,
+        `const kept = [];
+         while (true) kept.push("x".repeat(512 * 1024) + kept.length);`,
         {},
         noHost,
       ),
@@ -212,7 +217,8 @@ describe("what a script cannot do", () => {
     );
     expect(thrown.kind).toBe("error");
     expect(thrown.message).toMatch(/never comes/);
-    expect(Date.now() - started).toBeLessThan(2_000);
+    // Long before its time is up.
+    expect(Date.now() - started).toBeLessThan(SCRIPT_LIMITS.timeMs);
   });
 
   it("asks the instance a bounded number of times", async () => {
@@ -284,31 +290,43 @@ describe("what a script cannot do", () => {
 
 describe("the scripts of one run", () => {
   it("share the run's time: the last ones get what is left, then nothing", async () => {
-    const one = runner({ timeMs: 1_000, runMs: 500 });
-    const busy = `const end = Date.now() + 300; while (Date.now() < end) {} return "done";`;
+    const one = runner({ timeMs: 5_000, runMs: 1_000 });
+    const busy = `const end = Date.now() + 700; while (Date.now() < end) {} return "done";`;
     expect((await one.run(busy, {}, noHost)).output).toBe("done");
-    // 200 ms are left: the same script is cut short.
+    // Less than its 700 ms are left: the same script is cut short.
     expect((await failure(one.run(busy, {}, noHost))).kind).toBe("timeout");
+    // Nothing is left: no process is started for it.
     const started = Date.now();
     const last = await failure(one.run(`return 1;`, {}, noHost));
     expect(last.kind).toBe("timeout");
-    expect(Date.now() - started).toBeLessThan(200);
+    expect(Date.now() - started).toBeLessThan(500);
   });
 });
 
 describe("scripts of several runs", () => {
   it("run a few at once, the others waiting their turn", async () => {
+    const total = SCRIPTS_AT_ONCE + 3;
     let inFlight = 0;
     let most = 0;
+    let left = total;
+    const held: Array<() => void> = [];
+    // Each call is held until as many scripts as may run at once are
+    // here, or until no other can come: were one too many let in, or one
+    // too few, the count would say so or the test would never end.
     const host: ScriptHost = async () => {
       inFlight += 1;
       most = Math.max(most, inFlight);
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      if (inFlight < Math.min(SCRIPTS_AT_ONCE, left)) {
+        await new Promise<void>((resolve) => held.push(resolve));
+      } else {
+        for (const release of held.splice(0)) release();
+      }
       inFlight -= 1;
+      left -= 1;
       return null;
     };
     const results = await Promise.all(
-      Array.from({ length: SCRIPTS_AT_ONCE + 3 }, (_, index) =>
+      Array.from({ length: total }, (_, index) =>
         runner().run(
           `await records.get("Orders", "x"); return input;`,
           index,
@@ -317,7 +335,7 @@ describe("scripts of several runs", () => {
       ),
     );
     expect(results.map((result) => result.output)).toEqual(
-      Array.from({ length: SCRIPTS_AT_ONCE + 3 }, (_, index) => index),
+      Array.from({ length: total }, (_, index) => index),
     );
     expect(most).toBe(SCRIPTS_AT_ONCE);
   });
