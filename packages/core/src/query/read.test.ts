@@ -42,8 +42,11 @@ describe("buildReadRows", () => {
     );
     // Rows the sorts tie on keep the order people gave them.
     expect(sql.text).toContain(`r."ag_position" as "ag_order_0"`);
+    // The page's rows are found first, then written out in the same
+    // order: no row the page skips is turned to JSON.
+    expect(sql.text).toMatch(/^select q\."id".* from \(select q\.\* from \(/);
     expect(sql.text).toMatch(
-      /order by q\."total" desc nulls last, q\."ag_order_0" asc, q\."ag_seq" asc limit \$\d+ offset \$\d+$/,
+      /order by q\."total" desc nulls last, q\."ag_order_0" asc, q\."ag_seq" asc limit \$\d+ offset \$\d+\) q order by q\."total" desc nulls last, q\."ag_order_0" asc, q\."ag_seq" asc$/,
     );
     expect(sql.values).not.toContain("Europe/Paris");
     expect(sql.values).toContain("Open");

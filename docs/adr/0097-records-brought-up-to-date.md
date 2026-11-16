@@ -1,13 +1,13 @@
-# 0097 — What six earlier records say that is no longer so
+# 0097 — What seven earlier records say that is no longer so
 
 - Status: Accepted
 - Date: 2026-11-16
-- Amends: 0004, 0005, 0010, 0014, 0018, 0019
+- Amends: 0004, 0005, 0010, 0014, 0017, 0018, 0019
 
 ## Context
 
-A record is not rewritten; a later one says what changed. Six records
-still said, with no later word, something the tree no longer does.
+A record is not rewritten; a later one says what changed. Seven records
+still said, with no later word, something the tree does not do.
 
 ## Decision
 
@@ -21,6 +21,13 @@ still said, with no later word, something the tree no longer does.
   with `compose.s3.yml` beside the default file.
 - **0014: the image runs as the numeric user `1000:1000`**, which is the
   base image's `node`, so that a platform can check it is not root.
+- **0017: a base has no schema of its own yet.** The tables AnyGridDB
+  stores live in `public`, each named `t_<id>`. The move to one schema a
+  base waits for the feature that needs it, read-only SQL access to one
+  base: until then it would touch every SQL builder for no visible gain,
+  and nothing done meanwhile makes it harder, since a table moves with
+  `ALTER TABLE … SET SCHEMA`. A base's snapshot and its purge go through
+  the catalog, not through the schema.
 - **0018: metrics come from `@prometheus-io/client`** (Apache-2.0),
   where the record names `prom-client`.
 - **0019: the default file runs four services**: AnyGridDB and
@@ -30,4 +37,4 @@ still said, with no later word, something the tree no longer does.
 
 ## Consequences
 
-- The index names this record beside each of the six.
+- The index names this record beside each of the seven.

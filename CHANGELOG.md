@@ -32,6 +32,13 @@ notes.
   (`/license.txt`, `/third-party-licenses.txt`, ADR 0096).
 - The image declares its own health check.
 
+### Changed
+
+- A page far down a large table, and a page of a sorted one, are read
+  several times faster on PostgreSQL: on a million rows, the page at the
+  500,000th row went from 542 ms to 48 ms, and a sort from 403 ms to
+  62 ms.
+
 ### Fixed
 
 - An administrator who registered an application can be deleted; the
