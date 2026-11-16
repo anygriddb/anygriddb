@@ -1273,6 +1273,14 @@ msgstr "Une règle de la base du client refuse cette valeur"
 msgid "A score drawn as symbols"
 msgstr "Une note dessinée en symboles"
 
+#: components/admin/security-tab.tsx
+msgid "A script is code a table's manager writes. It runs apart from the instance, with no network and no file, is stopped after 10 seconds or at 32 MiB of memory, and reads and writes rows with its author's access. Turning scripts off stops those already written at once."
+msgstr "Un script est du code écrit par le gestionnaire d’une table. Il s’exécute à l’écart de l’instance, sans réseau ni fichier, est arrêté après 10 secondes ou à 32 Mio de mémoire, et lit et écrit des lignes avec les droits de son auteur. Désactiver les scripts arrête aussitôt ceux qui sont déjà écrits."
+
+#: components/table/automations-dialog.tsx
+msgid "A script is stopped after 10 seconds, at 32 MiB of memory, or after 100 reads and writes; the scripts of one run share a minute."
+msgstr "Un script est arrêté après 10 secondes, à 32 Mio de mémoire, ou après 100 lectures et écritures ; les scripts d’une même exécution se partagent une minute."
+
 #: components/admin/api-tokens-tab.tsx
 msgid "A script that calls the API with this token will be refused at once."
 msgstr "Un script qui appelle l’API avec ce jeton sera refusé aussitôt."
@@ -2343,6 +2351,7 @@ msgstr "Automatisation dans {table}"
 
 #: components/admin/access-tab.tsx
 #: components/admin/account-handoff.tsx
+#: components/admin/security-tab.tsx
 #: components/table/view-toolbar.tsx
 msgid "Automations"
 msgstr "Automatisations"
@@ -5098,6 +5107,11 @@ msgstr "Rôle d’auditeur donné"
 msgid "Given the support role"
 msgstr "Rôle de support donné"
 
+#. placeholder {0}: "{{script_total}}"
+#: components/table/automations-dialog.tsx
+msgid "Gives {0} to the actions after this one."
+msgstr "Donne {0} aux actions qui suivent celle-ci."
+
 #: components/admin/open-base.tsx
 msgid "Go to the base"
 msgstr "Aller à la base"
@@ -5969,6 +5983,10 @@ msgstr "Ses lignes sont comptées dans des classes égales, de la plus petite va
 msgid "Its tables stay in the base, back at the root. The folder itself is removed."
 msgstr "Ses tables restent dans la base, à la racine. Le dossier lui-même est retiré."
 
+#: components/table/automations-dialog.tsx
+msgid "JavaScript, run apart from the instance, with your access to this base and nothing else: no network, no file."
+msgstr "Du JavaScript, exécuté à l’écart de l’instance, avec vos droits sur cette base et rien d’autre : ni réseau, ni fichier."
+
 #: components/admin/support-tab.tsx
 #: lib/errors.ts
 #: lib/jobs.tsx
@@ -6034,6 +6052,10 @@ msgstr "Garder les points de restauration"
 #: components/settings/restore-points.tsx
 msgid "kept until {date}"
 msgstr "gardé jusqu’au {date}"
+
+#: components/table/automations-dialog.tsx
+msgid "key"
+msgstr "clé"
 
 #: components/settings/api-docs.tsx
 msgid "Key"
@@ -7655,6 +7677,10 @@ msgstr "Une option d’une liste"
 msgid "One per line (for example .exe). Empty: every extension is taken. Checked with the file name."
 msgstr "Une par ligne (par exemple .exe). Vide : toutes les extensions sont acceptées. Vérifié avec le nom du fichier."
 
+#: components/table/automations-dialog.tsx
+msgid "One row read, created, changed, or deleted."
+msgstr "Une ligne lue, créée, modifiée ou supprimée."
+
 #: components/admin/sign-in-trail.tsx
 msgid "One session"
 msgstr "Une session"
@@ -9175,6 +9201,10 @@ msgstr "Lignes sous"
 msgid "Rows, about"
 msgstr "Lignes, environ"
 
+#: components/table/automations-dialog.tsx
+msgid "Run a script"
+msgstr "Exécuter un script"
+
 #: components/fields/field-editor.tsx
 msgid "Run an automation"
 msgstr "Lancer une automatisation"
@@ -9335,6 +9365,10 @@ msgstr "Provisionnement SCIM 2.0"
 msgid "SCIM address"
 msgstr "Adresse SCIM"
 
+#: components/table/automations-dialog.tsx
+msgid "Script"
+msgstr "Script"
+
 #: components/admin/emergency-section.tsx
 msgid "Scripts and AI clients that use one stop at once, yours too. A revoked token cannot be brought back: people make new ones."
 msgstr "Les scripts et les clients d’IA qui en utilisent un s’arrêtent aussitôt, les vôtres aussi. Un jeton révoqué ne peut pas être rétabli : chacun en crée de nouveaux."
@@ -9342,6 +9376,20 @@ msgstr "Les scripts et les clients d’IA qui en utilisent un s’arrêtent auss
 #: components/admin/account-actions.tsx
 msgid "Scripts and tools using these tokens stop working at once."
 msgstr "Les scripts et outils qui utilisent ces jetons cessent aussitôt de fonctionner."
+
+#: components/table/automations-dialog.tsx
+msgid "Scripts are turned off on this instance: an administrator turns them on in Administration, under Security."
+msgstr "Les scripts sont désactivés sur cette instance : un administrateur les active dans l’Administration, sous Sécurité."
+
+#: components/admin/security-tab.tsx
+#: components/admin/sign-in-trail.tsx
+msgid "Scripts in automations"
+msgstr "Scripts dans les automatisations"
+
+#: lib/errors.ts
+#: lib/known-text.ts
+msgid "Scripts in automations are turned off on this instance"
+msgstr "Les scripts dans les automatisations sont désactivés sur cette instance"
 
 #: components/admin/settings-tab.tsx
 msgid "Scripts that start with #!"
@@ -11046,6 +11094,10 @@ msgstr "La ligne a disparu de la base du client."
 msgid "The row is added in the client's database, which checks the values. A field left empty takes the database's default."
 msgstr "La ligne s’ajoute dans la base du client, qui vérifie les valeurs. Un champ laissé vide prend la valeur par défaut de la base."
 
+#: components/table/automations-dialog.tsx
+msgid "The row the run is about, with its id and its fields; none when the trigger has no row."
+msgstr "La ligne concernée par l’exécution, avec son identifiant et ses champs ; aucune quand le déclencheur n’a pas de ligne."
+
 #: components/fields/formula-docs.ts
 msgid "The row's id."
 msgstr "L’identifiant de la ligne."
@@ -11066,6 +11118,10 @@ msgstr "Les lignes n’ont pas pu être lues : {reason}"
 msgid "The rows of a shared view"
 msgstr "Les lignes d’une vue partagée"
 
+#: components/table/automations-dialog.tsx
+msgid "The rows of a table of this base, named as it is here: 100 at a time, 1,000 at most."
+msgstr "Les lignes d’une table de cette base, nommée comme ici : 100 à la fois, 1 000 au plus."
+
 #: components/fields/link-selection.tsx
 msgid "The rows that match a filter"
 msgstr "Les lignes qui correspondent à un filtre"
@@ -11081,6 +11137,18 @@ msgstr "Les mêmes événements, en syslog sur TLS, vers un collecteur de votre 
 #: lib/errors.ts
 msgid "The schema kept for AnyGridDB does not exist in the client's database: its administrator must create it"
 msgstr "Le schéma réservé à AnyGridDB n’existe pas dans la base du client : son administrateur doit le créer"
+
+#: lib/known-text.ts
+msgid "The script took too long and was stopped"
+msgstr "Le script a pris trop de temps et a été arrêté"
+
+#: lib/known-text.ts
+msgid "The script used too much memory and was stopped"
+msgstr "Le script a utilisé trop de mémoire et a été arrêté"
+
+#: lib/known-text.ts
+msgid "The script was stopped"
+msgstr "Le script a été arrêté"
 
 #: components/fields/formula-docs.ts
 msgid "The seconds."
@@ -11218,6 +11286,10 @@ msgstr "La valeur si c’est un texte, sinon un texte vide."
 #: components/fields/formula-docs.ts
 msgid "The values of every list, one after the other."
 msgstr "Les valeurs de toutes les listes, l’une après l’autre."
+
+#: components/table/automations-dialog.tsx
+msgid "The values texts can use, by key."
+msgstr "Les valeurs utilisables dans les textes, par clé."
 
 #: components/table/view-tabs.tsx
 msgid "The view goes to the base's trash for {days} days. The data is not touched."
@@ -12540,6 +12612,10 @@ msgstr "Ce qu’un de vos scripts demande à l’Administration : lister et cr�
 msgid "What administrators are told about: here, on the first page of Administration, and by email when it is set up, once a day at most while an alert stays open. An alert closes by itself once its cause is gone."
 msgstr "Ce dont les administrateurs sont prévenus : ici, sur la première page de l’Administration, et par e-mail s’il est configuré, une fois par jour au plus tant qu’une alerte reste ouverte. Une alerte se ferme d’elle-même quand sa cause a disparu."
 
+#: components/admin/security-tab.tsx
+msgid "What an automation may run on this instance besides its own actions."
+msgstr "Ce qu’une automatisation peut exécuter sur cette instance en plus de ses propres actions."
+
 #: components/fields/formula-docs.ts
 msgid "What comes after the first delimiter; blank when it is not there."
 msgstr "Ce qui suit le premier délimiteur ; vide s’il n’y est pas."
@@ -12551,6 +12627,10 @@ msgstr "Ce qui précède le premier délimiteur ; vide s’il n’y est pas."
 #: components/shell/home-page.tsx
 msgid "What is waiting for you, and what changed in your tables."
 msgstr "Ce qui vous attend, et ce qui a changé dans vos tables."
+
+#: components/table/automations-dialog.tsx
+msgid "What its scripts logged"
+msgstr "Ce que ses scripts ont écrit au journal"
 
 #: components/settings/account-settings.tsx
 msgid "What only you can change. Rights on a base are set in that base."
@@ -12769,6 +12849,10 @@ msgstr "Écriture"
 #: components/record/record-panel.tsx
 msgid "Write a comment… (@ to mention)"
 msgstr "Écrire un commentaire… (@ pour mentionner)"
+
+#: components/table/automations-dialog.tsx
+msgid "Writes a line to the run's log."
+msgstr "Écrit une ligne dans le journal de l’exécution."
 
 #: components/admin/sources-tab.tsx
 msgid "Writes allowed in this base"

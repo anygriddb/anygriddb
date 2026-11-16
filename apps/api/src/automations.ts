@@ -13,6 +13,7 @@ import {
   type FilterGroup,
   effectiveTableRole,
   type EngineCatalog,
+  hasScript,
   isEmail,
   isWritableType,
   MAX_EVENT_DEPTH,
@@ -21,6 +22,7 @@ import {
   renderTemplate,
   roleAllows,
   type RowEvent,
+  scriptTemplateValues,
   touchesWatched,
   webhookTemplateValues,
   writeSlackMessage,
@@ -32,6 +34,8 @@ import type { Bus } from "./realtime/bus.js";
 import { sql } from "kysely";
 import { z } from "zod";
 import { loadBindings } from "./auth/access.js";
+import { scriptHost } from "./automation-scripts/host.js";
+import { ScriptFailure, ScriptRunner } from "./automation-scripts/sandbox.js";
 import { withAudit, type AuditTx } from "./data/audit-context.js";
 import { loadEngine, type TableRow } from "./data/engine.js";
 import {
@@ -43,8 +47,10 @@ import {
 import { sendMail, type SmtpConfig } from "./mail.js";
 import { notify, type NotifyDeps } from "./notifications.js";
 import { assertPublicHttps, failureText, postPinned } from "./webhooks.js";
-import { madeNamesFor, readMailVoice } from "./settings.js";
+import { type Actor, presentRecord } from "./public-api/index.js";
+import { madeNamesFor, readGateSettings, readMailVoice } from "./settings.js";
 import { liveBase, liveTable } from "./data/live.js";
+import { automationScriptCounted } from "./observability.js";
 import { addJob, TASKS } from "./queue/jobs.js";
 import { acquireLock } from "./realtime/locks.js";
 import {
@@ -369,6 +375,13 @@ export async function saveAutomation(
   // Same public-HTTPS check as table webhooks: refuse private targets at
   // save time, not only when the action runs.
   await assertPublicWebhookActions(input.actions);
+  // A script runs only where an administrator allowed scripts (ADR 0099).
+  if (
+    hasScript(input.actions) &&
+    !(await readGateSettings(db)).automationScripts
+  ) {
+    throw new AppError("scripts_disabled");
+  }
   // A webhook trigger keeps its address; a new one gets one, shown once.
   const hook = input.trigger.type === "webhook";
   const current = input.id
@@ -542,6 +555,24 @@ async function creatorEngine(
   return loadRowScope(db, { userId, bindings }, table);
 }
 
+/**
+ * The automation's author as the public API's operations take a caller:
+ * their roles as they are now, and nothing of Administration, whoever
+ * they are.
+ */
+async function authorActor(db: Database, userId: string): Promise<Actor> {
+  const user = await db
+    .selectFrom("users")
+    .select(["id", "email", "displayName"])
+    .where("id", "=", userId)
+    .executeTakeFirst();
+  if (!user) throw new AppError("access_denied");
+  return {
+    user: { ...user, isAdmin: false, isSupport: false, isAuditor: false },
+    bindings: await loadBindings(db, userId),
+  };
+}
+
 /** Template values: every column as display text, plus the run's own keys. */
 export function templateValues(
   engine: EngineCatalog,
@@ -614,10 +645,18 @@ async function underRateLimit(
   return (row?.count ?? 0) < RUNS_PER_MINUTE;
 }
 
-type Step = { type: string; ok: boolean; error?: string };
+type Step = {
+  type: string;
+  ok: boolean;
+  error?: string;
+  /** What a script wrote with `console.log`. */
+  log?: string[];
+};
 
 /** Short, displayable reason for a failed step. */
 export function stepError(error: unknown): string {
+  // A script's own error, or the ceiling it reached, in its own words.
+  if (error instanceof ScriptFailure) return error.message.slice(0, 300);
   // A public error keeps its words, which the app translates from its code:
   // a client's database refusing a value, a locked row, a missing field.
   if (error instanceof AppError && error.code !== "internal_error") {
@@ -764,6 +803,8 @@ export async function runAutomation(
     bus: deps.bus,
     log: deps.log,
   };
+  // The process this run's scripts share: started by the first of them.
+  const scripts = new ScriptRunner();
   /** What a step runs in: the table it writes, its row, its values. */
   type Frame = {
     scope: RowScope;
@@ -771,9 +812,77 @@ export async function runAutomation(
     values: Record<string, string>;
   };
   const steps: Step[] = [];
-  /** One action that holds no other; throws what fails. */
-  const runStep = async (action: AutomationStep, frame: Frame) => {
+  /** What a script is refused, in words it may show; the rest is logged. */
+  const refusal = (error: unknown) => {
+    if (error instanceof AppError && error.code !== "internal_error") {
+      return stepError(error);
+    }
+    deps.log(error, "automation script call failed");
+    return "Internal error";
+  };
+  /** A script, counted by how it ended; one that was cut short is logged. */
+  const runScript: ScriptRunner["run"] = async (...call) => {
+    try {
+      const result = await scripts.run(...call);
+      automationScriptCounted("success");
+      return result;
+    } catch (error) {
+      const kind = error instanceof ScriptFailure ? error.kind : "stopped";
+      automationScriptCounted(kind);
+      // Its own error is its author's to read; a process that ended
+      // without answering is the operator's.
+      if (kind === "stopped") deps.log(error, "automation script stopped");
+      throw error;
+    }
+  };
+  /**
+   * One action that holds no other; throws what fails. A script answers
+   * what it logged.
+   */
+  const runStep = async (
+    action: AutomationStep,
+    frame: Frame,
+  ): Promise<string[] | undefined> => {
     switch (action.type) {
+      case "run_script": {
+        // An administrator may have turned scripts off since it was saved.
+        if (!(await readGateSettings(deps.db)).automationScripts) {
+          throw new AppError("scripts_disabled");
+        }
+        const result = await runScript(
+          action.code,
+          {
+            trigger: context.trigger,
+            table: { id: frame.scope.table.id, name: frame.scope.table.name },
+            record: frame.row
+              ? presentRecord(frame.row, frame.scope.engine, "name")
+              : null,
+            values: frame.values,
+          },
+          scriptHost(
+            {
+              db: deps.db,
+              bus: deps.bus,
+              publicUrl: deps.webOrigin,
+              log: deps.log,
+            },
+            {
+              author: await authorActor(deps.db, creatorId),
+              baseId: own.table.baseId,
+              // On the trail as the automation's other writes are.
+              origin: {
+                source,
+                fixedReason: reason,
+                depth: context.depth + 1,
+              },
+            },
+          ),
+          refusal,
+        );
+        // What it returned is there for the actions after it.
+        Object.assign(frame.values, scriptTemplateValues(result.output));
+        return result.logs;
+      }
       case "update_record": {
         if (!frame.row) throw new AppError("no_row");
         const cells = coerceAll(
@@ -910,117 +1019,139 @@ export async function runAutomation(
         break;
       }
     }
+    return undefined;
   };
   /** A list of actions; false once one failed, which stops the run. */
   const runSteps = async (
     list: readonly AutomationStep[],
     frame: Frame,
     path: string,
+    /** Where the list starts among its siblings: a top action's own place. */
+    first = 0,
   ): Promise<string | null> => {
     for (const [index, action] of list.entries()) {
-      const type = `${path}${String(index + 1)}.${action.type}`;
+      const type = `${path}${String(first + index + 1)}.${action.type}`;
       try {
-        await runStep(action, frame);
-        steps.push({ type, ok: true });
+        const lines = await runStep(action, frame);
+        steps.push({
+          type,
+          ok: true,
+          ...(lines?.length ? { log: lines } : {}),
+        });
       } catch (error) {
         const message = stepError(error);
-        steps.push({ type, ok: false, error: message });
+        steps.push({
+          type,
+          ok: false,
+          error: message,
+          ...(error instanceof ScriptFailure && error.logs.length > 0
+            ? { log: [...error.logs] }
+            : {}),
+        });
         return message;
       }
     }
     return null;
   };
   const top: Frame = { scope: own, row, values };
-  for (const [index, action] of parsed.actions.entries()) {
-    const path = String(index + 1);
-    if (action.type === "branch") {
-      // The condition reads the row where it lives, as a filter does.
-      let taken: readonly AutomationStep[];
-      try {
-        if (!row) throw new AppError("no_row");
-        const page = await readPage(
-          deps.db,
-          own.engine,
-          {
-            rowIds: [row.id],
-            filter: action.when,
-            limit: 1,
-            timeZone: "UTC",
-            me: creatorId,
-          },
-          { total: false },
-        );
-        const matches = page.rows.length > 0;
-        taken = matches ? action.then : (action.otherwise ?? []);
-        steps.push({
-          type: `${path}.branch:${matches ? "then" : "otherwise"}`,
-          ok: true,
-        });
-      } catch (error) {
-        const message = stepError(error);
-        steps.push({ type: `${path}.branch`, ok: false, error: message });
-        return log("failed", steps, message);
-      }
-      const failed = await runSteps(taken, top, `${path}.`);
-      if (failed) return log("failed", steps, failed);
-      continue;
-    }
-    if (action.type === "for_each") {
-      let target: RowScope | null;
-      let rows: RowRecord[];
-      try {
-        target = await creatorEngine(deps.db, creatorId, action.tableId);
-        if (!target || target.table.baseId !== own.table.baseId) {
-          throw new AppError("access_denied");
+  const runActions = async () => {
+    for (const [index, action] of parsed.actions.entries()) {
+      const path = String(index + 1);
+      if (action.type === "branch") {
+        // The condition reads the row where it lives, as a filter does.
+        let taken: readonly AutomationStep[];
+        try {
+          if (!row) throw new AppError("no_row");
+          const page = await readPage(
+            deps.db,
+            own.engine,
+            {
+              rowIds: [row.id],
+              filter: action.when,
+              limit: 1,
+              timeZone: "UTC",
+              me: creatorId,
+            },
+            { total: false },
+          );
+          const matches = page.rows.length > 0;
+          taken = matches ? action.then : (action.otherwise ?? []);
+          steps.push({
+            type: `${path}.branch:${matches ? "then" : "otherwise"}`,
+            ok: true,
+          });
+        } catch (error) {
+          const message = stepError(error);
+          steps.push({ type: `${path}.branch`, ok: false, error: message });
+          return log("failed", steps, message);
         }
-        const page = await readPage(
-          deps.db,
-          target.engine,
-          {
-            ...(action.filter ? { filter: action.filter } : {}),
-            limit: Math.min(action.limit, MAX_LOOP_ROWS),
-            timeZone: "UTC",
-            me: creatorId,
-          },
-          { total: false },
-        );
-        rows = page.rows;
-        steps.push({
-          type: `${path}.for_each:${String(rows.length)}`,
-          ok: true,
-        });
-      } catch (error) {
-        const message = stepError(error);
-        steps.push({ type: `${path}.for_each`, ok: false, error: message });
-        return log("failed", steps, message);
-      }
-      const scope = target;
-      for (const [place, item] of rows.entries()) {
-        // Each action is about the loop's row; the trigger's own keys stay.
-        const frame: Frame = {
-          scope,
-          row: item,
-          values: {
-            ...values,
-            ...templateValues(scope.engine, item, people, {
-              table: scope.table.name,
-              recordUrl: `${deps.webOrigin}/b/${scope.table.baseId}/t/${scope.table.id}?row=${encodeURIComponent(item.id)}`,
-            }),
-          },
-        };
-        const failed = await runSteps(
-          action.actions,
-          frame,
-          `${path}[${String(place + 1)}].`,
-        );
+        const failed = await runSteps(taken, top, `${path}.`);
         if (failed) return log("failed", steps, failed);
+        continue;
       }
-      continue;
+      if (action.type === "for_each") {
+        let target: RowScope | null;
+        let rows: RowRecord[];
+        try {
+          target = await creatorEngine(deps.db, creatorId, action.tableId);
+          if (!target || target.table.baseId !== own.table.baseId) {
+            throw new AppError("access_denied");
+          }
+          const page = await readPage(
+            deps.db,
+            target.engine,
+            {
+              ...(action.filter ? { filter: action.filter } : {}),
+              limit: Math.min(action.limit, MAX_LOOP_ROWS),
+              timeZone: "UTC",
+              me: creatorId,
+            },
+            { total: false },
+          );
+          rows = page.rows;
+          steps.push({
+            type: `${path}.for_each:${String(rows.length)}`,
+            ok: true,
+          });
+        } catch (error) {
+          const message = stepError(error);
+          steps.push({ type: `${path}.for_each`, ok: false, error: message });
+          return log("failed", steps, message);
+        }
+        const scope = target;
+        for (const [place, item] of rows.entries()) {
+          // Each action is about the loop's row; the trigger's own keys stay.
+          const frame: Frame = {
+            scope,
+            row: item,
+            values: {
+              ...values,
+              ...templateValues(scope.engine, item, people, {
+                table: scope.table.name,
+                recordUrl: `${deps.webOrigin}/b/${scope.table.baseId}/t/${scope.table.id}?row=${encodeURIComponent(item.id)}`,
+              }),
+            },
+          };
+          const failed = await runSteps(
+            action.actions,
+            frame,
+            `${path}[${String(place + 1)}].`,
+          );
+          if (failed) return log("failed", steps, failed);
+        }
+        continue;
+      }
+      const failed = await runSteps([action], top, "", index);
+      if (failed) return log("failed", steps, failed);
     }
-    const failed = await runSteps([action], top, "");
-    if (failed) return log("failed", steps, failed);
+    return log("success", steps);
+  };
+  try {
+    return await runActions();
+  } finally {
+    // The scripts' process ends with the run.
+    scripts.close();
   }
-  return log("success", steps);
 }
 
 /**

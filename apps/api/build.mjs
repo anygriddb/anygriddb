@@ -1,6 +1,6 @@
 // Bundles the API for production: our code and the workspace packages
-// (TypeScript sources) go into dist/index.js, dist/import-worker.js, and
-// dist/cli.js (the operator commands);
+// (TypeScript sources) go into dist/index.js, dist/import-worker.js,
+// dist/script-runner.js, and dist/cli.js (the operator commands);
 // npm packages stay external and are installed next to them, native ones
 // included.
 import { execFileSync } from "node:child_process";
@@ -50,10 +50,12 @@ const buildInfo = { version, commit, builtAt: new Date().toISOString() };
 await rm("dist", { recursive: true, force: true });
 
 const result = await build({
-  // The import parser runs in a worker thread of its own (ADR 0025).
+  // The import parser runs in a worker thread of its own (ADR 0025), and
+  // an automation's scripts in a process of their own (ADR 0099).
   entryPoints: {
     index: "src/index.ts",
     "import-worker": "src/import-worker.ts",
+    "script-runner": "src/automation-scripts/runner.ts",
     cli: "src/cli.ts",
   },
   outdir: "dist",

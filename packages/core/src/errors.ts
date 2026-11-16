@@ -210,6 +210,8 @@ export const ERRORS = {
   /** The syslog collector refused, or did not answer, a test event. */
   syslog_unreachable: [BAD, "Syslog collector unreachable"],
   invalid_automation: [BAD, "Invalid automation"],
+  /** An automation with a script, while the instance runs none (ADR 0099). */
+  scripts_disabled: [403, "Scripts disabled"],
   invalid_lock_ttl: [BAD, "Invalid lock ttl"],
 
   // Sources: client databases (ADRs 0006, 0026).

@@ -73,6 +73,17 @@ export const writeBodySchema = z.object({
   fieldKey: z.enum(["name", "label"]).optional(),
 });
 
+/**
+ * Where a write comes from when a person did not send it to the API
+ * themselves: an automation's script, named on the trail as the
+ * automation's other writes are.
+ */
+export type WriteOrigin = {
+  source: string;
+  fixedReason?: string | null;
+  depth?: number;
+};
+
 type PreparedWrite = {
   id?: string;
   values: Record<string, CellValue>;
@@ -158,7 +169,7 @@ function keyMap(engine: EngineCatalog, mode: "name" | "label") {
   return { toKey, fromKey };
 }
 
-function presentRecord(
+export function presentRecord(
   row: RowRecord,
   engine: EngineCatalog,
   mode: "name" | "label",
@@ -534,13 +545,14 @@ export async function createRecords(
   tableId: string,
   bodyInput: unknown,
   reason?: string,
+  origin?: WriteOrigin,
 ) {
   const body = writeBodySchema.safeParse(bodyInput);
   if (!body.success) throw new AppError("invalid_body");
   const table = await tableFor(deps, actor, tableId, "write");
   const scope = await scopeFor(deps, actor, table);
   const prepared = await prepareWrites(deps, scope.engine, table, body.data);
-  const meta = { reason, source: "api" as const };
+  const meta = origin ?? { reason, source: "api" as const };
   const rows = prepared.map((record) => ({
     values: record.values,
     links: record.links.map((link) => ({
@@ -558,13 +570,14 @@ export async function updateRecords(
   tableId: string,
   bodyInput: unknown,
   reason?: string,
+  origin?: WriteOrigin,
 ) {
   const body = writeBodySchema.safeParse(bodyInput);
   if (!body.success) throw new AppError("invalid_body");
   const table = await tableFor(deps, actor, tableId, "write");
   const scope = await scopeFor(deps, actor, table);
   const prepared = await prepareWrites(deps, scope.engine, table, body.data);
-  const meta = { reason, source: "api" as const };
+  const meta = origin ?? { reason, source: "api" as const };
   const rows = prepared.map((record) => ({
     values: record.values,
     links: record.links.map((link) => ({
@@ -587,13 +600,14 @@ export async function deleteRecords(
   tableId: string,
   ids: string[],
   reason?: string,
+  origin?: WriteOrigin,
 ) {
   const table = await tableFor(deps, actor, tableId, "write");
   const deleted = await deleteRows(
     serviceDeps(deps),
     await scopeFor(deps, actor, table),
     ids,
-    { reason, source: "api" },
+    origin ?? { reason, source: "api" },
   );
   return { records: deleted.map((id) => ({ id, deleted: true })) };
 }

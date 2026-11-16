@@ -387,6 +387,19 @@ uploaded, before anything is kept. Leave room in the temporary folder
 for the largest file, once per upload and once per import running at
 once (`UPLOAD_CONCURRENCY`, `JOB_CONCURRENCY`).
 
+### Scripts in automations
+
+Off until an administrator allows them (Administration, Security). A
+script never runs in the application's process: each automation run
+that holds one starts a process of its own, which reads its own code
+and nothing else, writes nowhere, opens no connection, and is given
+nothing of the environment. Four scripts run at once at most, the
+others wait; each may take 128 MiB of memory for its process and 32 MiB
+for the script itself, and is ended after 10 seconds; the scripts of
+one automation run share a minute. Leave the
+container that much memory beside what the application uses, or leave
+scripts off.
+
 ### Exports
 
 An export job writes its file to the system's temporary folder as the
@@ -910,11 +923,13 @@ Both are off until you turn them on (ADR 0018).
   Series cover requests by route, tRPC procedures, the pool requests go
   through, transactions and connections in use per client database,
   background tasks, the job queue, failures pages report from browsers,
-  and the process. Three more:
+  and the process. Four more:
   `anygriddb_db_query_duration_seconds` (how long a query on
   AnyGridDB's own database took; the statement is not a label),
-  `anygriddb_database_size_bytes`, and
-  `anygriddb_websocket_connections` (browser sockets on this process).
+  `anygriddb_database_size_bytes`,
+  `anygriddb_websocket_connections` (browser sockets on this process),
+  and `anygriddb_automation_scripts_total` (scripts automations ran, by
+  how each ended: `success`, `error`, `timeout`, `memory`, `stopped`).
   Rules to start from:
 
   ```yaml

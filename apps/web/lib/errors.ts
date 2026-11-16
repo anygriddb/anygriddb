@@ -190,6 +190,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   invalid_delivery: msg`This delivery cannot be sent again`,
   syslog_unreachable: msg`The syslog collector did not take the event: check its address, its port, and the certificate it presents`,
   invalid_automation: msg`Invalid automation`,
+  scripts_disabled: msg`Scripts in automations are turned off on this instance`,
   invalid_lock_ttl: msg`Invalid lock duration`,
 
   unknown_source: msg`Source not found`,

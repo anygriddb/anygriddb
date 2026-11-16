@@ -1052,3 +1052,91 @@ test("an administrator hands a leaving person's base to someone who stays", asyn
     await control.end();
   }
 });
+
+// Scripts in automations (ADR 0099): off until an administrator allows
+// them, then written by a table's manager, run by hand, and read in the
+// run's log.
+test("an administrator allows scripts, and an automation runs one", async ({
+  page,
+}) => {
+  const blocked = watchPolicy(page);
+  const control = new pg.Client({ connectionString: controlUrl });
+  await control.connect();
+  try {
+    const { email } = await signUpWithTable(page, "Script Admin");
+    await control.query("update users set is_admin = true where email = $1", [
+      email,
+    ]);
+    const table = page.url();
+    const dialog = page.getByRole("dialog");
+    const openAutomations = async () => {
+      await page.getByRole("button", { name: "More actions" }).click();
+      await page.getByRole("menuitem", { name: "Automations" }).click();
+    };
+    const writeScript = async (name: string) => {
+      await dialog.getByRole("button", { name: "New automation" }).click();
+      await dialog.getByLabel("Name").fill(name);
+      await dialog.getByLabel("When").selectOption({ label: "On a schedule" });
+      await dialog
+        .getByLabel("Action", { exact: true })
+        .selectOption({ label: "Run a script" });
+      await dialog
+        .getByLabel("Script", { exact: true })
+        .fill(
+          [
+            'const made = await records.create("Samples", { notes: "from a script" });',
+            'console.log("made a row in", input.table.name);',
+            "return { id: made.id };",
+          ].join("\n"),
+        );
+    };
+
+    // Off by default: the dialog says so, and the server refuses.
+    await openAutomations();
+    await writeScript("Too early");
+    await expect(
+      dialog.getByText(/Scripts are turned off on this instance/),
+    ).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(
+      page.getByText("Scripts in automations are turned off on this instance"),
+    ).toBeVisible();
+
+    // The administrator allows them, with the proof.
+    await page.goto("/admin");
+    await openAdmin(page, "Security");
+    await page
+      .getByLabel("Scripts in automations")
+      .selectOption({ label: "Allowed" });
+    await proveItIsYou(page);
+    await expect(page.getByText("Settings saved")).toBeVisible();
+
+    // The same script is saved, run by hand, and its log read.
+    await page.goto(table);
+    await page.getByRole("grid").waitFor();
+    await openAutomations();
+    await writeScript("Stamp");
+    await expect(
+      dialog.getByText(/Scripts are turned off on this instance/),
+    ).toBeHidden();
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await dialog.getByRole("button", { name: "Run now" }).click();
+    await expect(page.getByText("Done", { exact: true })).toBeVisible();
+    await dialog.getByRole("button", { name: "Runs" }).click();
+    await expect(dialog.getByText("Succeeded")).toBeVisible();
+    await dialog.getByText("What its scripts logged").click();
+    await expect(dialog.getByText("made a row in Samples")).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await dialog.getByRole("button", { name: "Back" }).click();
+    await dialog.getByRole("button", { name: "Close" }).first().click();
+
+    // What it wrote is in the grid, as any row.
+    await expect(
+      page.getByRole("gridcell", { name: "from a script" }),
+    ).toBeVisible();
+    expect(blocked).toEqual([]);
+  } finally {
+    await control.end();
+  }
+});

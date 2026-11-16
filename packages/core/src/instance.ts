@@ -199,6 +199,12 @@ const fields = {
    */
   releaseCheck: z.boolean(),
   /**
+   * Whether automations may run scripts (ADR 0099). Off by default: an
+   * instance runs code its members wrote only once an administrator
+   * said so.
+   */
+  automationScripts: z.boolean(),
+  /**
    * Largest attachment in bytes (ADR 0050). Null keeps the environment
    * bootstrap, then the built-in 20 MiB default.
    */
@@ -325,6 +331,7 @@ export const INSTANCE_DEFAULTS: InstanceSettings = {
   inactiveDays: 0,
   lockAlerts: true,
   releaseCheck: false,
+  automationScripts: false,
   attachmentMaxBytes: null,
   attachmentRefusedExtensions: [],
   attachmentRefusedKinds: [],
@@ -390,6 +397,9 @@ export const instanceSettingsSchema = z.object({
   inactiveDays: fields.inactiveDays.default(INSTANCE_DEFAULTS.inactiveDays),
   lockAlerts: fields.lockAlerts.default(INSTANCE_DEFAULTS.lockAlerts),
   releaseCheck: fields.releaseCheck.default(INSTANCE_DEFAULTS.releaseCheck),
+  automationScripts: fields.automationScripts.default(
+    INSTANCE_DEFAULTS.automationScripts,
+  ),
   attachmentMaxBytes: fields.attachmentMaxBytes.default(
     INSTANCE_DEFAULTS.attachmentMaxBytes,
   ),
@@ -467,6 +477,7 @@ export const instanceSettingsPatchSchema = z
     inactiveDays: fields.inactiveDays.optional(),
     lockAlerts: fields.lockAlerts.optional(),
     releaseCheck: fields.releaseCheck.optional(),
+    automationScripts: fields.automationScripts.optional(),
     attachmentMaxBytes: fields.attachmentMaxBytes.optional(),
     attachmentRefusedExtensions: fields.attachmentRefusedExtensions.optional(),
     attachmentRefusedKinds: fields.attachmentRefusedKinds.optional(),

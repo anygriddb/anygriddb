@@ -50,6 +50,10 @@ const KNOWN: Record<string, MessageDescriptor> = {
   "Loop limit": msg`Stopped: automation loop`,
   "Rate limit": msg`Stopped: too many runs a minute`,
   "Invalid email settings": msg`Invalid email settings`,
+  "Scripts disabled": msg`Scripts in automations are turned off on this instance`,
+  "Script took too long": msg`The script took too long and was stopped`,
+  "Script used too much memory": msg`The script used too much memory and was stopped`,
+  "Script stopped": msg`The script was stopped`,
   "Not configured": msg`Not configured`,
 
   // Row statuses.

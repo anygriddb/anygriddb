@@ -105,6 +105,20 @@ export function actingAsCounted(result: "started" | "ended" | "refused"): void {
   actingAs.inc({ result });
 }
 
+const automationScripts = new Counter({
+  name: "anygriddb_automation_scripts_total",
+  help: "Scripts automations ran, by how each ended: success, error, timeout, memory, stopped.",
+  labelNames: ["outcome"] as const,
+  registers: [registry],
+});
+
+/** One script of an automation, ended (ADR 0099). */
+export function automationScriptCounted(
+  outcome: "success" | "error" | "timeout" | "memory" | "stopped",
+): void {
+  automationScripts.inc({ outcome });
+}
+
 /** Jobs waiting, scheduled, running, and failed for good, read at scrape. */
 export function registerQueueGauge(db: Database): void {
   new Gauge({

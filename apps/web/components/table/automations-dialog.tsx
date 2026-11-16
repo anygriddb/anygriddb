@@ -2,8 +2,10 @@ import {
   MAX_AUTOMATION_ACTIONS,
   MAX_LOOP_ROWS,
   MAX_NESTED_ACTIONS,
+  MAX_SCRIPT_LENGTH,
   TEMPLATE_KEYS,
   WRITABLE_TYPES,
+  hasScript,
   type AutomationAction,
   type AutomationStep,
   type AutomationTrigger,
@@ -25,7 +27,7 @@ import {
 } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, History, Pencil, Play, Plus, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import type { CatalogColumn } from "../../lib/types";
@@ -60,6 +62,7 @@ const STEPS: StepType[] = [
   "send_slack",
   "send_teams",
   "notify",
+  "run_script",
 ];
 const ACTIONS: ActionType[] = [...STEPS, "branch", "for_each"];
 /** Actions about the trigger's row, which some triggers have not. */
@@ -69,6 +72,13 @@ const ROW_ACTIONS = new Set<ActionType>([
   "branch",
 ]);
 const ROWLESS = new Set<TriggerType>(["schedule", "webhook", "row_deleted"]);
+/** Triggers a manager may run by hand: those that wait for no row. */
+const RUN_BY_HAND = new Set<TriggerType>(["schedule", "webhook"]);
+/** What a new script starts as: its row's id, handed to the actions after it. */
+const FIRST_SCRIPT = `const row = input.record;
+console.log("Run for", row ? row.id : "no row");
+return { id: row ? row.id : "" };
+`;
 const EMPTY_FILTER: FilterGroup = { conjunction: "and", conditions: [] };
 
 function useLabels() {
@@ -94,6 +104,7 @@ function useLabels() {
       send_slack: t`Send to Slack`,
       send_teams: t`Send to Teams`,
       notify: t`Notify collaborators`,
+      run_script: t`Run a script`,
       branch: t`If… then… otherwise…`,
       for_each: t`For each row of…`,
     })[type];
@@ -176,6 +187,8 @@ function defaultStep(type: StepType, tableId: string): AutomationStep {
       return { type, url: "https://", message: "" };
     case "notify":
       return { type, users: [], message: "" };
+    case "run_script":
+      return { type, code: FIRST_SCRIPT };
   }
 }
 
@@ -608,7 +621,86 @@ function ActionEditor(props: {
           />
         </div>
       );
+    case "run_script":
+      return (
+        <ScriptEditor
+          code={action.code}
+          onChange={(code) => props.onChange({ ...action, code })}
+        />
+      );
   }
+}
+
+/** A script's source, and what it may use: said once, under the text. */
+function ScriptEditor(props: {
+  code: string;
+  onChange: (code: string) => void;
+}) {
+  const { t } = useLingui();
+  const api = useTRPC();
+  const helpId = useId();
+  // Whether this instance runs scripts at all (ADR 0099).
+  const instance = useQuery(api.auth.instance.queryOptions());
+  const off = instance.data ? !instance.data.automationScripts : false;
+  return (
+    <div className="flex flex-col gap-1">
+      {off ? (
+        <p role="note" className="text-xs text-warning">
+          {t`Scripts are turned off on this instance: an administrator turns them on in Administration, under Security.`}
+        </p>
+      ) : null}
+      <Textarea
+        aria-label={t`Script`}
+        aria-describedby={helpId}
+        className="min-h-48 font-mono text-xs"
+        spellCheck={false}
+        autoCapitalize="off"
+        autoCorrect="off"
+        maxLength={MAX_SCRIPT_LENGTH}
+        value={props.code}
+        onChange={(event) => props.onChange(event.target.value)}
+      />
+      <div
+        id={helpId}
+        className="flex flex-col gap-1 text-xs text-muted-foreground"
+      >
+        <p>
+          {t`JavaScript, run apart from the instance, with your access to this base and nothing else: no network, no file.`}
+        </p>
+        <ul className="list-disc pl-4">
+          {(
+            [
+              [
+                "input.record",
+                t`The row the run is about, with its id and its fields; none when the trigger has no row.`,
+              ],
+              ["input.values", t`The values texts can use, by key.`],
+              [
+                "await records.list(table, { filter, sort, limit })",
+                t`The rows of a table of this base, named as it is here: 100 at a time, 1,000 at most.`,
+              ],
+              [
+                "records.get(table, id) · records.create(table, fields) · records.update(table, id, fields) · records.delete(table, id)",
+                t`One row read, created, changed, or deleted.`,
+              ],
+              ["console.log(…)", t`Writes a line to the run's log.`],
+              [
+                "return { total: 3 }",
+                t`Gives ${"{{script_total}}"} to the actions after this one.`,
+              ],
+            ] as const
+          ).map(([code, says]) => (
+            <li key={code}>
+              <code>{code}</code>: {says}
+            </li>
+          ))}
+        </ul>
+        <p>
+          {t`A script is stopped after 10 seconds, at 32 MiB of memory, or after 100 reads and writes; the scripts of one run share a minute.`}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function TriggerEditor(props: {
@@ -1030,6 +1122,7 @@ function AutomationEditor(props: {
             ...(trigger.type === "webhook"
               ? ["body", `body_<${t`field`}>`]
               : []),
+            ...(hasScript(actions) ? [`script_<${t`key`}>`] : []),
           ]
             .map((key) => `{{${key}}}`)
             .join(" ")}
@@ -1097,6 +1190,7 @@ function RunsList({ automationId }: { automationId: string }) {
               <td className="px-2 py-1">
                 {status(run.status)}
                 {run.error ? ` · ${errorText(run.error)}` : ""}
+                <ScriptLog steps={run.steps} />
               </td>
               <td className="px-2 py-1">{run.triggeredBy ?? "—"}</td>
             </tr>
@@ -1107,6 +1201,29 @@ function RunsList({ automationId }: { automationId: string }) {
         <p className="p-3 text-sm text-muted-foreground">{t`No runs yet.`}</p>
       ) : null}
     </div>
+  );
+}
+
+/** What a run's scripts wrote with `console.log`, folded under its result. */
+function ScriptLog({ steps }: { steps: unknown }) {
+  const { t } = useLingui();
+  const lines = (Array.isArray(steps) ? steps : []).flatMap((step: unknown) => {
+    const log =
+      step && typeof step === "object" && "log" in step ? step.log : undefined;
+    return Array.isArray(log)
+      ? log.filter((line): line is string => typeof line === "string")
+      : [];
+  });
+  if (lines.length === 0) return null;
+  return (
+    <details className="mt-1">
+      <summary className="cursor-pointer text-muted-foreground">
+        {t`What its scripts logged`}
+      </summary>
+      <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap font-mono text-xs">
+        {lines.join("\n")}
+      </pre>
+    </details>
   );
 }
 
@@ -1198,7 +1315,7 @@ export function AutomationsDialog({ onClose }: { onClose: () => void }) {
                         : ""}
                     </p>
                   </div>
-                  {automation.trigger.type === "schedule" ? (
+                  {RUN_BY_HAND.has(automation.trigger.type) ? (
                     <Button
                       size="icon"
                       variant="ghost"
