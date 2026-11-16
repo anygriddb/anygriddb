@@ -24,9 +24,8 @@
   that is at least a week old, and the lockfile was resolved again from
   scratch.
 - The bot that opens dependency updates waits seven days too. It was
-  Renovate, with a configuration copied from another project; Dependabot
-  now does it for every ecosystem, with a seven-day `cooldown`
-  (`.github/dependabot.yml`).
+  Renovate; Dependabot now does it for every ecosystem, with a seven-day
+  `cooldown` (`.github/dependabot.yml`).
 
 ## Rejected
 

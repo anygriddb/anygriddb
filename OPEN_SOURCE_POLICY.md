@@ -81,7 +81,7 @@ desktop product as a **requirement**. Documented alternatives are fine.
 
 ## Known inherited debt (honest)
 
-The optional S3 driver talks to RustFS or any S3 service with `@aws-sdk/client-s3`. It does not ship a MinIO server. Spreadsheets go through `exceljs` (MIT). Do not add SheetJS Community Edition, a MinIO client, or Sentry.
+The optional S3 driver talks to RustFS or any S3 service with `@aws-sdk/client-s3`. It does not ship a MinIO server. Spreadsheets go through `exceljs` (MIT). Do not add SheetJS Community Edition, a MinIO client, or an error tracker's SDK: an instance tells a tracker of its failures only once an administrator adds one as a notification channel, in a plain HTTPS request that names the kind of failure and nothing else (`docs/integrations/errors.md`).
 
 One package of the build tools is not under an OSI-approved license:
 `caniuse-lite`, the browser support data that Babel reads through
@@ -92,7 +92,7 @@ ships. `scripts/check-licenses.mjs` names it as its only exception.
 Two older rules were based on facts that changed:
 
 - **Redis.** It was pinned to 7.2 because 7.4 moved to RSALv2/SSPL. Redis 8 has been available under AGPLv3, an OSI license, since May 2025. The pin is moot anyway: Redis left the stack (ADR 0009). Valkey (BSD) is the only candidate if a cache ever returns.
-- **MinIO.** Its server is AGPL-3.0, an OSI license. It stays out because it was abandoned: its community edition went into maintenance mode in December 2025 and was archived in 2026.
+- **MinIO.** Its server is AGPL-3.0, an OSI license. It stays out because its community edition went into maintenance mode in December 2025: the object store a stack runs beside AnyGridDB should be one that is still developed.
 
 Track removals or replacements in `ROADMAP.md` when a dep fails this policy.
 
