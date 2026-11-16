@@ -11199,6 +11199,10 @@ msgstr "The script used too much memory and was stopped"
 msgid "The script was stopped"
 msgstr "The script was stopped"
 
+#: lib/errors.ts
+msgid "The script's call got no answer"
+msgstr "The script's call got no answer"
+
 #: components/fields/formula-docs.ts
 msgid "The seconds."
 msgstr "The seconds."

@@ -21,7 +21,10 @@ kept by the change trail, which records the script's text.
   public address, the name resolved once and the connection made to
   what it resolved to, ten seconds at most. A redirect is answered as it
   is, never followed. The answer comes back as its status, its headers,
-  and its body as text, one mebibyte at most. Ten calls a script.
+  and its body as text, one mebibyte at most. Ten calls a script. A
+  call that gets no answer is an error the script may catch, told in
+  the words a webhook's delivery uses (a blocked target, an unknown
+  host, a timeout), and nothing of the failure itself.
 - **An automation keeps secrets**, ten at most, each with a name and the
   one host it is for. They are sealed with the instance's key, in the
   automation's own row, under a use of their own (`automation`); the key

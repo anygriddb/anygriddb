@@ -221,6 +221,8 @@ export const ERRORS = {
   /** What a script may call: a public HTTPS address, a bounded number of times. */
   invalid_script_request: [BAD, "Invalid request"],
   script_requests_exhausted: [429, "Too many requests"],
+  /** The call left and did not come back with an answer: why, in a word. */
+  script_request_failed: [503, "Request failed"],
   invalid_lock_ttl: [BAD, "Invalid lock ttl"],
 
   // Sources: client databases (ADRs 0006, 0026).

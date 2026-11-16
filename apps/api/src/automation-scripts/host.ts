@@ -18,7 +18,7 @@ import {
   updateRecords,
   type WriteOrigin,
 } from "../public-api/index.js";
-import { type PinnedAnswer, requestPinned } from "../webhooks.js";
+import { failureText, type PinnedAnswer, requestPinned } from "../webhooks.js";
 import type { ScriptHost } from "./sandbox.js";
 
 /** A table of the automation's base, by its id or by its name. */
@@ -211,16 +211,25 @@ export function scriptHost(
     const named = Object.keys(headers).some(
       (name) => name.toLowerCase() === "user-agent",
     );
-    return (context.request ?? requestPinned)(url, {
-      method: input.method,
-      // Said to be an automation's, as its other calls are, unless the
-      // script says who it is.
-      headers: named
-        ? headers
-        : { "user-agent": "AnyGridDB-Automation/1", ...headers },
-      ...(input.body === undefined ? {} : { body: fill(input.body) }),
-      maxBytes: SCRIPT_ANSWER_BYTES,
-    });
+    try {
+      return await (context.request ?? requestPinned)(url, {
+        method: input.method,
+        // Said to be an automation's, as its other calls are, unless the
+        // script says who it is.
+        headers: named
+          ? headers
+          : { "user-agent": "AnyGridDB-Automation/1", ...headers },
+        ...(input.body === undefined ? {} : { body: fill(input.body) }),
+        maxBytes: SCRIPT_ANSWER_BYTES,
+      });
+    } catch (error) {
+      // A call that got no answer is the script's to handle, in the
+      // words a webhook's delivery uses: a private address, a name that
+      // does not resolve, a timeout. Nothing of the failure itself.
+      throw new AppError("script_request_failed", failureText(error), {
+        cause: error,
+      });
+    }
   };
   let tables: Promise<TableRow[]> | undefined;
   const baseTables = () =>

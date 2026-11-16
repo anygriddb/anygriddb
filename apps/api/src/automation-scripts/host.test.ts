@@ -208,6 +208,53 @@ describe("a script's call to an address", () => {
   });
 });
 
+describe("a call that gets no answer", () => {
+  it("is told to the script in a word, as a webhook's delivery is", async () => {
+    const failures: Array<[Error, string]> = [
+      [new AppError("invalid_webhook"), "Request failed: Blocked target"],
+      [new Error("Timeout"), "Request failed: Timeout"],
+      [new Error("Answer too large"), "Request failed: Answer too large"],
+      [
+        Object.assign(new Error("getaddrinfo"), { code: "ENOTFOUND" }),
+        "Request failed: Unknown host",
+      ],
+      [
+        Object.assign(new Error("connect"), { code: "ECONNREFUSED" }),
+        "Request failed: Connection refused",
+      ],
+      // What it does not know says nothing of itself.
+      [
+        new Error("socket hang up at 203.0.113.9"),
+        "Request failed: Network error",
+      ],
+    ];
+    for (const [failure, said] of failures) {
+      const host = scriptHost({} as PublicApiDeps, {
+        author: {
+          user: {
+            id: "00000000-0000-4000-8000-000000000001",
+            email: "author@example.org",
+            displayName: "Author",
+            isAdmin: false,
+            isSupport: false,
+            isAuditor: false,
+          },
+          bindings: [],
+        },
+        baseId: "00000000-0000-4000-8000-000000000002",
+        origin: { source: "automation:test" },
+        request: () => Promise.reject(failure),
+      });
+      await expect(
+        host("http.request", { url: "https://api.example.org/" }),
+      ).rejects.toMatchObject({
+        code: "script_request_failed",
+        message: said,
+      });
+    }
+  });
+});
+
 describe("the author's roles, within the automation's base", () => {
   it("keeps the base's own and its tables', and drops every other", () => {
     const base = "00000000-0000-4000-8000-0000000000b1";

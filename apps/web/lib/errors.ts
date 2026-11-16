@@ -196,6 +196,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   secret_value_required: msg`Type the value of a new secret, and of one sent to another host`,
   invalid_script_request: msg`A script calls public https:// addresses only, with headers of its own`,
   script_requests_exhausted: msg`A script makes 10 calls at most`,
+  script_request_failed: msg`The script's call got no answer`,
   invalid_lock_ttl: msg`Invalid lock duration`,
 
   unknown_source: msg`Source not found`,

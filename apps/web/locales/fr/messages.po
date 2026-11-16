@@ -11199,6 +11199,10 @@ msgstr "Le script a utilisé trop de mémoire et a été arrêté"
 msgid "The script was stopped"
 msgstr "Le script a été arrêté"
 
+#: lib/errors.ts
+msgid "The script's call got no answer"
+msgstr "L’appel du script n’a pas reçu de réponse"
+
 #: components/fields/formula-docs.ts
 msgid "The seconds."
 msgstr "Les secondes."
