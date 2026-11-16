@@ -118,12 +118,55 @@ describe("what a script answers", () => {
 describe("what a script cannot do", () => {
   it("sees the language, and nothing of the process it runs in", async () => {
     const result = await runner().run(
-      `return [typeof process, typeof require, typeof fetch, typeof setTimeout,
+      `return [typeof process, typeof require, typeof XMLHttpRequest, typeof setTimeout,
                typeof WebAssembly, typeof globalThis.module, typeof Deno];`,
       {},
       noHost,
     );
     expect(result.output).toEqual(Array.from({ length: 7 }, () => "undefined"));
+  });
+
+  it("calls an address by asking the instance, and reads the answer as fetch gives it", async () => {
+    const asked: Array<{ name: string; args: unknown }> = [];
+    const host: ScriptHost = (name, args) => {
+      asked.push({ name, args });
+      return Promise.resolve({
+        status: 201,
+        headers: { "content-type": "application/json" },
+        body: '{"id":7}',
+      });
+    };
+    const result = await runner().run(
+      `const answer = await fetch("https://api.example.org/items", {
+         method: "POST",
+         headers: { "X-Key": "{{secret.KEY}}" },
+         body: { name: "x" },
+       });
+       return [answer.status, answer.ok, answer.headers.get("Content-Type"),
+               await answer.text(), (await answer.json()).id, typeof globalThis.fetch];`,
+      {},
+      host,
+    );
+    expect(asked).toEqual([
+      {
+        name: "http.request",
+        args: {
+          url: "https://api.example.org/items",
+          method: "POST",
+          headers: { "X-Key": "{{secret.KEY}}" },
+          body: '{"name":"x"}',
+        },
+      },
+    ]);
+    // What it is given is a name of its own, not a global of the process.
+    expect(result.output).toEqual([
+      201,
+      true,
+      "application/json",
+      '{"id":7}',
+      7,
+      "undefined",
+    ]);
   });
 
   it("reaches no function of the host through the ones it is given", async () => {

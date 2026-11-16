@@ -7,6 +7,7 @@ import {
   payloadRow,
   planAttempt,
   postPinned,
+  requestPinned,
   signBody,
 } from "./webhooks.js";
 
@@ -74,6 +75,22 @@ describe("guardedLookup", () => {
     await expect(postPinned("https://10.0.0.1/hook", "{}", {})).rejects.toThrow(
       "Invalid webhook",
     );
+  });
+
+  it("refuses a request that is not to a public https address, whatever its method", async () => {
+    for (const target of [
+      "https://10.0.0.1/",
+      "https://localhost/",
+      "https://[::1]/",
+      "https://169.254.169.254/latest/meta-data/",
+      "http://example.org/",
+      "https://user:pass@example.org/",
+      "https://service.internal/",
+    ]) {
+      await expect(
+        requestPinned(target, { method: "GET", headers: {}, maxBytes: 1_000 }),
+      ).rejects.toThrow("Invalid webhook");
+    }
   });
 });
 

@@ -3,6 +3,8 @@ import {
   AppError,
   type AutomationAction,
   automationActionSchema,
+  type AutomationSecretInfo,
+  type AutomationSecretInput,
   type AutomationStep,
   type AutomationTrigger,
   automationTriggerSchema,
@@ -34,7 +36,9 @@ import type { Bus } from "./realtime/bus.js";
 import { sql } from "kysely";
 import { z } from "zod";
 import { loadBindings } from "./auth/access.js";
-import { scriptHost } from "./automation-scripts/host.js";
+import { decryptSecret, encryptSecret } from "./auth/crypto.js";
+import type { KeyRing } from "./auth/key-ring.js";
+import { type ScriptSecret, scriptHost } from "./automation-scripts/host.js";
 import { ScriptFailure, ScriptRunner } from "./automation-scripts/sandbox.js";
 import { withAudit, type AuditTx } from "./data/audit-context.js";
 import { loadEngine, type TableRow } from "./data/engine.js";
@@ -46,7 +50,12 @@ import {
 } from "./data/rows.js";
 import { sendMail, type SmtpConfig } from "./mail.js";
 import { notify, type NotifyDeps } from "./notifications.js";
-import { assertPublicHttps, failureText, postPinned } from "./webhooks.js";
+import {
+  assertPublicHttps,
+  failureText,
+  postPinned,
+  type requestPinned,
+} from "./webhooks.js";
 import { type Actor, presentRecord } from "./public-api/index.js";
 import { madeNamesFor, readGateSettings, readMailVoice } from "./settings.js";
 import { liveBase, liveTable } from "./data/live.js";
@@ -69,8 +78,13 @@ export type AutomationDeps = {
   smtp: SmtpConfig;
   webOrigin: string;
   log: (error: unknown, message: string) => void;
-  /** Present when a scheduled run should ping a monitor. */
-  key?: import("./auth/key-ring.js").KeyRing;
+  /**
+   * Opens what the instance keeps sealed: a schedule's monitor, and the
+   * secrets of an automation's scripts.
+   */
+  key?: KeyRing;
+  /** How a script's call leaves the instance, when a test says otherwise. */
+  request?: typeof requestPinned;
 };
 
 /** Runs one automation may start per minute, whatever triggers it. */
@@ -195,6 +209,79 @@ export async function assertAutomation(
   }
 }
 
+/** What a stored automation says of its secrets: never a value. */
+function secretInfo(stored: unknown): AutomationSecretInfo[] {
+  if (!Array.isArray(stored)) return [];
+  return stored.flatMap((item: unknown) => {
+    if (!item || typeof item !== "object") return [];
+    const { name, host, setAt } = item as Record<string, unknown>;
+    return typeof name === "string" &&
+      typeof host === "string" &&
+      typeof setAt === "string"
+      ? [{ name, host, setAt }]
+      : [];
+  });
+}
+
+/** An automation's secrets, opened: for the run that sends them. */
+function openSecrets(
+  row: Pick<AutomationRow, "secretsCiphertext" | "secretsNonce">,
+  key: KeyRing,
+): Map<string, ScriptSecret> {
+  const opened = new Map<string, ScriptSecret>();
+  if (!row.secretsCiphertext || !row.secretsNonce) return opened;
+  const kept: unknown = JSON.parse(
+    decryptSecret(row.secretsCiphertext, row.secretsNonce, key, "automation"),
+  );
+  if (!kept || typeof kept !== "object") return opened;
+  for (const [name, secret] of Object.entries(kept)) {
+    const { host, value } = (secret ?? {}) as Record<string, unknown>;
+    if (typeof host === "string" && typeof value === "string") {
+      opened.set(name, { host, value });
+    }
+  }
+  return opened;
+}
+
+/**
+ * The secrets an automation keeps once `asked` is applied to those it
+ * has (ADR 0101). A secret named without a value keeps the one it has,
+ * for the same host only: sent elsewhere, it is given again, or anyone
+ * who may edit the automation could point it at a host of their own.
+ * One that is not named is dropped.
+ */
+function mergeSecrets(
+  asked: readonly AutomationSecretInput[],
+  kept: ReadonlyMap<string, ScriptSecret>,
+  info: readonly AutomationSecretInfo[],
+  now: Date,
+): { values: Map<string, ScriptSecret>; info: AutomationSecretInfo[] } {
+  const values = new Map<string, ScriptSecret>();
+  const said: AutomationSecretInfo[] = [];
+  for (const secret of asked) {
+    const before = kept.get(secret.name);
+    // A host is compared as a request's is read: in lower case.
+    const host = secret.host.toLowerCase();
+    if (secret.value !== undefined) {
+      values.set(secret.name, { host, value: secret.value });
+      said.push({ name: secret.name, host, setAt: now.toISOString() });
+      continue;
+    }
+    if (!before || before.host !== host) {
+      throw new AppError("secret_value_required", secret.name);
+    }
+    values.set(secret.name, before);
+    said.push({
+      name: secret.name,
+      host,
+      setAt:
+        info.find((item) => item.name === secret.name)?.setAt ??
+        now.toISOString(),
+    });
+  }
+  return { values, info: said };
+}
+
 export async function listAutomations(db: Database, tableId: string) {
   const rows = await db
     .selectFrom("automations as a")
@@ -210,6 +297,8 @@ export async function listAutomations(db: Database, tableId: string) {
     enabled: automation.enabled,
     trigger: automation.trigger as AutomationTrigger,
     actions: automation.actions as AutomationAction[],
+    // Their names and hosts, for whoever edits it: no value leaves.
+    secrets: secretInfo(automation.secrets),
     createdBy,
     nextRunAt: automation.nextRunAt?.toISOString() ?? null,
     lastRunAt: automation.lastRunAt?.toISOString() ?? null,
@@ -369,8 +458,12 @@ export async function saveAutomation(
     enabled: boolean;
     trigger: AutomationTrigger;
     actions: AutomationAction[];
+    /** The secrets to keep; absent, those it has stay as they are. */
+    secrets?: AutomationSecretInput[] | undefined;
     source?: string;
   },
+  /** Seals the secrets: needed only when `secrets` is given. */
+  key?: KeyRing,
 ): Promise<{ id: string; webhookToken?: string }> {
   // Same public-HTTPS check as table webhooks: refuse private targets at
   // save time, not only when the action runs.
@@ -387,12 +480,19 @@ export async function saveAutomation(
   const current = input.id
     ? await db
         .selectFrom("automations")
-        .select("webhookTokenHash")
+        .select([
+          "webhookTokenHash",
+          "secrets",
+          "secretsCiphertext",
+          "secretsNonce",
+        ])
         .where("id", "=", input.id)
         .executeTakeFirst()
     : undefined;
   const token = hook && !current?.webhookTokenHash ? newHookToken() : undefined;
+  const secrets = sealSecrets(input.secrets, current, key);
   const values = {
+    ...secrets,
     name: input.name,
     enabled: input.enabled,
     trigger: input.trigger,
@@ -449,6 +549,45 @@ export async function saveAutomation(
   );
   if (!created) throw new AppError("no_row");
   return { id: created.id, ...(token ? { webhookToken: token } : {}) };
+}
+
+/**
+ * The columns that hold an automation's secrets after a save: nothing
+ * when the save does not speak of them, the list of their names and the
+ * sealed values otherwise.
+ */
+function sealSecrets(
+  asked: readonly AutomationSecretInput[] | undefined,
+  current:
+    | Pick<AutomationRow, "secrets" | "secretsCiphertext" | "secretsNonce">
+    | undefined,
+  key: KeyRing | undefined,
+): {
+  secrets?: AutomationSecretInfo[];
+  secretsCiphertext?: Buffer | null;
+  secretsNonce?: Buffer | null;
+} {
+  if (asked === undefined) return {};
+  if (asked.length === 0) {
+    return { secrets: [], secretsCiphertext: null, secretsNonce: null };
+  }
+  if (!key) throw new AppError("internal_error");
+  const merged = mergeSecrets(
+    asked,
+    current ? openSecrets(current, key) : new Map(),
+    secretInfo(current?.secrets),
+    new Date(),
+  );
+  const sealed = encryptSecret(
+    JSON.stringify(Object.fromEntries(merged.values)),
+    key,
+    "automation",
+  );
+  return {
+    secrets: merged.info,
+    secretsCiphertext: sealed.ciphertext,
+    secretsNonce: sealed.nonce,
+  };
 }
 
 export async function setAutomationEnabled(
@@ -875,6 +1014,11 @@ export async function runAutomation(
                 fixedReason: reason,
                 depth: context.depth + 1,
               },
+              // Opened for this run, for the calls its scripts make.
+              ...(deps.key
+                ? { secrets: openSecrets(automation, deps.key) }
+                : {}),
+              ...(deps.request ? { request: deps.request } : {}),
             },
           ),
           refusal,

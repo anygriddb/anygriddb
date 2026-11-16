@@ -400,6 +400,12 @@ one automation run share a minute. Leave the
 container that much memory beside what the application uses, or leave
 scripts off.
 
+A script's calls to addresses leave from the application, never from
+the script's process, and only to public HTTPS addresses, as webhooks
+do: an instance with no way out makes none. The secrets those calls
+carry are sealed with `AUTH_ENCRYPTION_KEY`, and `anygriddb keys rotate`
+seals them again with the rest.
+
 Where the instance is installed must let that process start. This says
 whether it does, without reading or writing anything of the instance:
 

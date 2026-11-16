@@ -111,5 +111,6 @@ accepted as the work they decide was done; each carries its own date.
 | [0096](0096-license-shown-and-shipped.md)            | The app shows its license, and ships its libraries' licenses                            | Accepted                                                   |
 | [0097](0097-records-brought-up-to-date.md)           | What seven earlier records say that is no longer so                                     | Accepted (amends 0004, 0005, 0010, 0014, 0017, 0018, 0019) |
 | [0098](0098-oauth-discovery-and-client-proof.md)     | An application finds the grant's addresses, and proves itself by header or body         | Accepted (amends 0094)                                     |
-| [0099](0099-scripts-in-automations.md)               | A script in an automation runs apart from the instance, as its author                   | Accepted                                                   |
+| [0099](0099-scripts-in-automations.md)               | A script in an automation runs apart from the instance, as its author                   | Accepted; amended by 0101                                  |
 | [0100](0100-release-scan-reads-node-packages.md)     | A release is refused on a fixed advisory in a Node.js package too                       | Accepted (amends 0061)                                     |
+| [0101](0101-a-script-calls-an-address.md)            | A script calls an address through the instance, with secrets it never holds             | Accepted (amends 0099)                                     |

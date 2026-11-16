@@ -12,6 +12,8 @@ export const MAX_NESTED_ACTIONS = 10;
 export const MAX_LOOP_ROWS = 100;
 /** Characters of one script, at most. */
 export const MAX_SCRIPT_LENGTH = 20_000;
+/** Secrets one automation keeps for its scripts, at most. */
+export const MAX_AUTOMATION_SECRETS = 10;
 
 const templateSchema = z.string().max(10_000);
 const valuesSchema = z
@@ -196,17 +198,64 @@ const ROWLESS_TRIGGERS = new Set<AutomationTrigger["type"]>([
   "row_deleted",
 ]);
 
+/** A secret's name, as a script writes it: `{{secret.NAME}}`. */
+const secretNameSchema = z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,39}$/);
+
+/** The one host a secret is sent to: a name, no port, no path. */
+const secretHostSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(253)
+  .regex(/^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/);
+
+/**
+ * A secret an automation keeps for its scripts (ADR 0101): sent only to
+ * its host, in the place a script wrote its name. Its value is written
+ * and never read back: absent, the one already kept stays.
+ */
+export const automationSecretInputSchema = z
+  .object({
+    name: secretNameSchema,
+    host: secretHostSchema,
+    value: z.string().min(1).max(4_000).optional(),
+  })
+  .strict();
+
+export type AutomationSecretInput = z.infer<typeof automationSecretInputSchema>;
+
+/** What is said of a secret: never its value. */
+export type AutomationSecretInfo = {
+  name: string;
+  host: string;
+  /** When its value was last set. */
+  setAt: string;
+};
+
 const automationShape = {
   name: z.string().trim().min(1).max(100),
   enabled: z.boolean().default(true),
   trigger: automationTriggerSchema,
   actions: z.array(automationActionSchema).min(1).max(MAX_AUTOMATION_ACTIONS),
+  /** The secrets to keep, by name; absent, they stay as they are. */
+  secrets: z
+    .array(automationSecretInputSchema)
+    .max(MAX_AUTOMATION_SECRETS)
+    .optional(),
 };
 
 function checkShape(
-  input: { trigger: AutomationTrigger; actions: AutomationAction[] },
+  input: {
+    trigger: AutomationTrigger;
+    actions: AutomationAction[];
+    secrets?: AutomationSecretInput[] | undefined;
+  },
   context: z.RefinementCtx,
 ) {
+  const names = (input.secrets ?? []).map((secret) => secret.name);
+  if (new Set(names).size !== names.length) {
+    context.addIssue({ code: "custom", message: "Invalid automation" });
+  }
   // A loop's actions have its row; the others need the trigger's.
   if (
     ROWLESS_TRIGGERS.has(input.trigger.type) &&
@@ -327,6 +376,33 @@ export function scriptTemplateValues(output: unknown): Record<string, string> {
     values[key] = text(value).slice(0, 4_000);
   }
   return values;
+}
+
+/** What a script writes where a secret goes: `{{secret.NAME}}`. */
+const SECRET_PLACE = /\{\{\s*secret\.([A-Za-z][A-Za-z0-9_]{0,39})\s*\}\}/g;
+
+/** The secrets a text names, in the order it names them. */
+export function secretNames(text: string): string[] {
+  return [...text.matchAll(SECRET_PLACE)].map((match) => match[1] ?? "");
+}
+
+/**
+ * Puts each secret where its name is written. A name `values` does not
+ * hold is not a secret of this call: the answer says which one, and
+ * nothing is filled.
+ */
+export function fillSecrets(
+  text: string,
+  values: ReadonlyMap<string, string>,
+): { text: string } | { missing: string } {
+  const missing = secretNames(text).find((name) => !values.has(name));
+  if (missing !== undefined) return { missing };
+  return {
+    text: text.replace(
+      SECRET_PLACE,
+      (_, name: string) => values.get(name) ?? "",
+    ),
+  };
 }
 
 /** Keys every template may use besides column names. */

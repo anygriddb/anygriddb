@@ -17,6 +17,10 @@ first.
   is stopped after 10 seconds or at 64 MiB of memory. Scripts are off
   until an administrator allows them, in Administration under Security
   (ADR 0099).
+- A script calls a public HTTPS address with `fetch`: the instance makes
+  the call, as it does a webhook's. An automation keeps the secrets its
+  scripts send, each for one host; a secret is typed once, never shown
+  again, and never given to the script itself (ADR 0101).
 - An automation started by a call to its address can also be run by
   hand, from the list of automations.
 

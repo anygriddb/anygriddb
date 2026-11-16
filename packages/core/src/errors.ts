@@ -212,6 +212,15 @@ export const ERRORS = {
   invalid_automation: [BAD, "Invalid automation"],
   /** An automation with a script, while the instance runs none (ADR 0099). */
   scripts_disabled: [403, "Scripts disabled"],
+  /** A script names a secret its automation does not keep (ADR 0101). */
+  unknown_secret: [BAD, "Unknown secret"],
+  /** A secret is sent to its own host and no other. */
+  secret_for_another_host: [BAD, "Secret kept for another host"],
+  /** A secret moved to another host is given again. */
+  secret_value_required: [BAD, "Secret value required"],
+  /** What a script may call: a public HTTPS address, a bounded number of times. */
+  invalid_script_request: [BAD, "Invalid request"],
+  script_requests_exhausted: [429, "Too many requests"],
   invalid_lock_ttl: [BAD, "Invalid lock ttl"],
 
   // Sources: client databases (ADRs 0006, 0026).
