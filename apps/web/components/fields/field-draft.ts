@@ -261,7 +261,7 @@ export function codeAppearance(draft: FieldDraft): "qr" | "barcode" | null {
 }
 
 /** A lookup's or rollup's condition, when it holds one. */
-export function linkedCondition(draft: FieldDraft): FilterGroup | undefined {
+function linkedCondition(draft: FieldDraft): FilterGroup | undefined {
   return countConditions(draft.linkedFilter) > 0
     ? draft.linkedFilter
     : undefined;

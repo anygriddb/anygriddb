@@ -21,7 +21,7 @@ export const OPTION_COLOR_NAMES: Record<OptionColor, MessageDescriptor> = {
 };
 
 /** The colour a setting holds, or grey when it holds none of the ten. */
-export function optionColor(value: string): OptionColor {
+function optionColor(value: string): OptionColor {
   return OPTION_COLORS.find((color) => color === value) ?? "gray";
 }
 
