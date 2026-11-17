@@ -5,14 +5,15 @@ import {
   RATING_ICONS,
   SINGLE_SELECT_APPEARANCES,
 } from "@anygriddb/core";
-import { Button, Checkbox, Input, Label, Select } from "@anygriddb/ui";
+import { Button, Checkbox, Input, Label, Select, Tooltip } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
-import { GripVertical, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import {
   codeAppearance,
   type FieldDraft,
   type FieldOption,
+  moveOption,
 } from "./field-draft";
 import { OPTION_COLOR_NAMES, OptionColorButton } from "./option-color";
 
@@ -22,7 +23,15 @@ export type SettingsProps = {
   set: (change: Partial<FieldDraft>) => void;
 };
 
-/** The options of a list: each named once, coloured, and deleted. */
+/** A place up or down, for an option that has one. */
+const MOVE =
+  "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground outline-none hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring aria-disabled:opacity-40 aria-disabled:hover:bg-transparent";
+
+/**
+ * The options of a list: each named once, coloured, put in its place, and
+ * deleted. Their order is the one a cell offers them in, and a kanban its
+ * stacks.
+ */
 function OptionsEditor({
   options,
   onChange,
@@ -38,10 +47,34 @@ function OptionsEditor({
       <ul className="flex flex-col gap-1">
         {options.map((option, index) => (
           <li
-            key={`${option.original ?? "new"}-${index}`}
+            key={option.id ?? String(index)}
             className="flex items-center gap-1.5"
           >
-            <GripVertical className="h-3.5 w-3.5 opacity-40" aria-hidden />
+            {/* The first and the last keep their buttons, so that the
+                focus stays on the one just pressed: they say they do
+                nothing more. */}
+            <Tooltip content={t`Move up`}>
+              <button
+                type="button"
+                aria-label={t`Move ${{ option: option.name }} up`}
+                aria-disabled={index === 0}
+                className={MOVE}
+                onClick={() => onChange(moveOption(options, index, -1))}
+              >
+                <ArrowUp className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </Tooltip>
+            <Tooltip content={t`Move down`}>
+              <button
+                type="button"
+                aria-label={t`Move ${{ option: option.name }} down`}
+                aria-disabled={index === options.length - 1}
+                className={MOVE}
+                onClick={() => onChange(moveOption(options, index, 1))}
+              >
+                <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </Tooltip>
             <OptionColorButton
               label={t`Colour of ${{ option: option.name }}`}
               value={option.color}
@@ -88,6 +121,7 @@ function OptionsEditor({
               name,
               color:
                 OPTION_COLORS[options.length % OPTION_COLORS.length] ?? "gray",
+              id: crypto.randomUUID(),
             },
           ]);
           setDraft("");

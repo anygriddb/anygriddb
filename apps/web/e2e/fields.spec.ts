@@ -86,6 +86,16 @@ test.describe("the field dialog", () => {
     await option.press("Enter");
     await expect(dialog.getByLabel("Option name")).toHaveCount(2);
     await option.fill("");
+    // The options keep the order they are put in: the last one moved up,
+    // from the keyboard, which stays on the button it pressed.
+    const names = dialog.getByLabel("Option name");
+    await expect(names.first()).toHaveValue("Open");
+    const up = dialog.getByRole("button", { name: "Move Closed up" });
+    await up.focus();
+    await page.keyboard.press("Enter");
+    await expect(names.first()).toHaveValue("Closed");
+    await expect(up).toBeFocused();
+    await expect(up).toHaveAttribute("aria-disabled", "true");
     // An option's colour is one swatch, which opens the ten.
     await dialog.getByRole("button", { name: "Colour of Open: Grey" }).click();
     expect(await accessibilityViolations(page)).toEqual([]);
@@ -221,12 +231,15 @@ test.describe("the field dialog", () => {
     await edit("Stage");
     await expect(dialog.getByLabel("Display")).toHaveValue("radio");
     await expect(dialog.getByLabel("Option name")).toHaveCount(2);
+    await expect(dialog.getByLabel("Option name").first()).toHaveValue(
+      "Closed",
+    );
     await expect(
       dialog.getByRole("button", { name: "Colour of Open: Purple" }),
     ).toBeVisible();
     await expect(dialog.getByText("API key")).toContainText("stage");
     // An option renamed takes the rows that held it along.
-    await dialog.getByLabel("Option name").first().fill("Opened");
+    await dialog.getByLabel("Option name").nth(1).fill("Opened");
     await dialog.getByRole("button", { name: "Save" }).click();
     await expect(dialog).toBeHidden();
     await expect(cells(page, "stage").first()).toHaveText("Opened");

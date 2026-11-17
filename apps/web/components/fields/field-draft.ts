@@ -17,8 +17,17 @@ import { countConditions } from "../table/filter-builder";
 import { CODE_FIELD_TYPES } from "./field-appearance";
 import { FIELD_GROUPS } from "./field-meta";
 
-/** An option of a list; `original` is the name it was stored under. */
-export type FieldOption = { name: string; color: string; original?: string };
+/**
+ * An option of a list. `original` is the name it was stored under; `id`
+ * tells it apart while the dialog is open, where its name and its place
+ * both change.
+ */
+export type FieldOption = {
+  name: string;
+  color: string;
+  original?: string;
+  id?: string;
+};
 
 /** The field the dialog makes, or the one it changes. */
 export type FieldEditorTarget =
@@ -154,7 +163,7 @@ export function draftOf(
     unique: editing?.isUnique ?? false,
     primary: editing?.isPrimary ?? false,
     options: ((config.options as FieldOption[] | undefined) ?? []).map(
-      (option) => ({ ...option, original: option.name }),
+      (option) => ({ ...option, original: option.name, id: option.name }),
     ),
     appearance: (config.appearance as string | undefined) ?? "",
     precision: number.precision === undefined ? "" : String(number.precision),
@@ -222,6 +231,25 @@ export function typesOffered(
       (CONVERTIBLE.has(editing.fieldType) && CONVERTIBLE.has(type))
     );
   });
+}
+
+/**
+ * The options with the one at `index` moved a place up (`-1`) or down
+ * (`1`): the order a list offers its choices in, and a kanban its stacks.
+ * Unchanged when there is no such place.
+ */
+export function moveOption(
+  options: readonly FieldOption[],
+  index: number,
+  by: -1 | 1,
+): FieldOption[] {
+  const to = index + by;
+  const moved = options[index];
+  const next = [...options];
+  if (!moved || to < 0 || to >= options.length) return next;
+  next.splice(index, 1);
+  next.splice(to, 0, moved);
+  return next;
 }
 
 /** The code a short text is drawn as, where the field holds one. */
