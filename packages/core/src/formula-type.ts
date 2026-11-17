@@ -17,7 +17,6 @@ import {
   MARIADB,
   MYSQL,
   POSTGRES,
-  SQLITE,
   type DialectName,
   type SqlDialect,
 } from "./query/dialect";
@@ -80,8 +79,6 @@ function dialectNamed(name: DialectName | undefined): SqlDialect {
       return SQLSERVER;
     case "oracle":
       return ORACLE;
-    case "sqlite":
-      return SQLITE;
     default:
       return POSTGRES;
   }

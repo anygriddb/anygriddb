@@ -8,6 +8,17 @@ first.
 
 ## Unreleased
 
+### Removed
+
+- A SQLite file is no longer read as a source (ADR 0107). It never
+  showed a table that holds a text: such a table failed to open.
+  **Before upgrading**, with the version in place, an administrator
+  deletes the tables of a SQLite source from their bases, then from
+  each base's trash, then the source itself, in Administration. The
+  upgrade refuses to start while one is declared, says so, and changes
+  nothing. `ANYGRIDDB_SOURCES_ALLOWED_PATHS` and
+  `ANYGRIDDB_SOURCES_SQLITE_ALLOW_MEMORY` are no longer read.
+
 ## 0.2.0 - 2026-11-17
 
 **Before upgrading:** an instance that declared a source on the Redis

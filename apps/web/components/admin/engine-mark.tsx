@@ -17,7 +17,6 @@ export const ENGINE_MARKS: Record<
   oracle: { label: "Oracle", color: "#c74634" },
   mongodb: { label: "MongoDB wire", color: "#00684a" },
   opensearch: { label: "OpenSearch", color: "#005eb8" },
-  sqlite: { label: "SQLite", color: "#0f80cc" },
 };
 
 /** White glyph drawn on the engine's colour. */
@@ -102,15 +101,6 @@ function Glyph({ engine }: { engine: SourceEngine }) {
           <circle cx="11" cy="11" r="5.2" />
           <circle cx="11" cy="11" r="2.4" />
           <path d="M15.2 15.2l3.6 3.6" strokeLinecap="round" />
-        </g>
-      );
-    case "sqlite":
-      // Feather: a light file database.
-      return (
-        <g fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round">
-          <path d="M7 17.5c4-1.5 7.5-5 9.5-9.5 0.6-1.4-.6-2.6-2-2-4.5 2-8 5.5-9.5 9.5" />
-          <path d="M8.2 15.2l7.2-7.2" />
-          <path d="M9.5 17.8l1.2-3.2" />
         </g>
       );
   }

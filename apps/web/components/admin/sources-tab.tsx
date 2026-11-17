@@ -78,9 +78,7 @@ export function SourcesTab() {
     (source, key) => {
       if (key === "name") return source.name;
       if (key === "address") {
-        return source.engine === "sqlite"
-          ? source.database
-          : `${source.host}:${String(source.port)}/${source.database}`;
+        return `${source.host}:${String(source.port)}/${source.database}`;
       }
       if (key === "account") return source.username;
       if (key === "schema") return source.sideSchema;
@@ -110,8 +108,6 @@ export function SourcesTab() {
   }
 
   const allowed = settings.data?.allowedHosts ?? [];
-  const allowedPaths = settings.data?.allowedPaths ?? [];
-  const canAdd = allowed.length > 0 || allowedPaths.length > 0;
   return (
     <div className="flex flex-col gap-3">
       {settings.data?.allowPlaintext ? (
@@ -128,13 +124,12 @@ export function SourcesTab() {
           ? t`Allowed hosts: ${{ hosts: allowed.join(", ") }}`
           : t`No host is allowed: the operator sets ANYGRIDDB_SOURCES_ALLOWED_HOSTS.`}
       </p>
-      <p className="text-sm text-muted-foreground">
-        {allowedPaths.length > 0
-          ? t`Allowed SQLite directories: ${{ paths: allowedPaths.join(", ") }}`
-          : t`No SQLite directory is allowed: the operator sets ANYGRIDDB_SOURCES_ALLOWED_PATHS.`}
-      </p>
       <div>
-        <Button size="sm" disabled={!canAdd} onClick={() => setEditing("new")}>
+        <Button
+          size="sm"
+          disabled={allowed.length === 0}
+          onClick={() => setEditing("new")}
+        >
           <Plus className="h-4 w-4" aria-hidden />
           {t`Add a source`}
         </Button>
@@ -172,9 +167,7 @@ export function SourcesTab() {
                     </span>
                   </td>
                   <td className="px-3 py-2 font-mono text-xs">
-                    {source.engine === "sqlite"
-                      ? source.database
-                      : `${source.host}:${source.port}/${source.database}`}
+                    {source.host}:{source.port}/{source.database}
                   </td>
                   <td className="px-3 py-2">{source.username}</td>
                   <td className="px-3 py-2 font-mono text-xs">
@@ -361,20 +354,19 @@ function SourceForm(props: {
   // A store read from a copy (ADR 0088): no field of AnyGridDB's is kept
   // there, no replica is read, and its dates carry their zone.
   const copyOnly = isCopySourceEngine(engine);
-  const sqliteOnly = engine === "sqlite";
 
   function input(): SourceInput {
     const primaryPort = Number(port);
-    const replica = copyOnly || sqliteOnly ? "" : replicaHost.trim();
+    const replica = copyOnly ? "" : replicaHost.trim();
     return {
       name: name.trim(),
       engine,
-      host: sqliteOnly ? "localhost" : host.trim(),
-      port: sqliteOnly ? DEFAULT_SOURCE_PORTS.sqlite : primaryPort,
+      host: host.trim(),
+      port: primaryPort,
       database: database.trim(),
-      username: sqliteOnly ? "" : username.trim(),
-      password: sqliteOnly ? "" : password,
-      tlsCa: sqliteOnly ? null : certificate.trim() || null,
+      username: username.trim(),
+      password,
+      tlsCa: certificate.trim() || null,
       connectionLimit: Number(limit),
       queryTimeoutMs: Math.round(Number(timeout) * 1000),
       timeZone: copyOnly ? "UTC" : timeZone.trim() || "UTC",
@@ -461,7 +453,9 @@ function SourceForm(props: {
   const complete =
     name.trim() &&
     database.trim() &&
-    (sqliteOnly || (host.trim() && username.trim() && (password || existing)));
+    host.trim() &&
+    username.trim() &&
+    (password || existing);
   const databaseField = sourceDatabaseField(engine);
   return (
     <form onSubmit={submit} className="grid grid-cols-2 gap-3">
@@ -500,17 +494,6 @@ function SourceForm(props: {
                   onChange={() => {
                     setEngine(value);
                     setPort(String(DEFAULT_SOURCE_PORTS[value]));
-                    if (value === "sqlite") {
-                      setHost("localhost");
-                      setUsername("");
-                      setPassword("");
-                      setCertificate("");
-                      setReplicaHost("");
-                      setReplicaPort("");
-                      setReplicaDatabase("");
-                      setReplicaUsername("");
-                      setReplicaPassword("");
-                    }
                   }}
                 />
                 <EngineMark engine={value} className="h-6 w-6" />
@@ -524,13 +507,11 @@ function SourceForm(props: {
       </fieldset>
       <div className="flex flex-col gap-1">
         <Label htmlFor="source-database">
-          {sqliteOnly
-            ? t`Database file`
-            : databaseField === "service"
-              ? t`Service name`
-              : databaseField === "indices"
-                ? t`Indices`
-                : t`Database`}
+          {databaseField === "service"
+            ? t`Service name`
+            : databaseField === "indices"
+              ? t`Indices`
+              : t`Database`}
         </Label>
         <Input
           id="source-database"
@@ -538,70 +519,61 @@ function SourceForm(props: {
           onChange={(event) => setDatabase(event.target.value)}
         />
       </div>
-      {sqliteOnly ? (
-        <p className="col-span-2 text-xs text-muted-foreground">
-          {t`SQLite is a file on this server: give an absolute path under an allowed directory. TLS does not apply.`}
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="source-host">{t`Host`}</Label>
+        <Input
+          id="source-host"
+          placeholder="db.internal"
+          value={host}
+          onChange={(event) => setHost(event.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="source-port">{t`Port`}</Label>
+        <Input
+          id="source-port"
+          inputMode="numeric"
+          value={port}
+          onChange={(event) => setPort(event.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="source-username">{t`Account`}</Label>
+        <Input
+          id="source-username"
+          autoComplete="off"
+          value={username}
+          onChange={(event) => setUsername(event.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="source-password">{t`Password`}</Label>
+        <Input
+          id="source-password"
+          type="password"
+          autoComplete="new-password"
+          placeholder={existing ? t`Unchanged` : undefined}
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+        />
+      </div>
+      <div className="col-span-2 flex flex-col gap-1">
+        <Label htmlFor="source-certificate">{t`Certificate (optional)`}</Label>
+        <Textarea
+          id="source-certificate"
+          aria-describedby="source-certificate-help"
+          className="min-h-24 font-mono text-xs"
+          placeholder="-----BEGIN CERTIFICATE-----"
+          value={certificate}
+          onChange={(event) => setCertificate(event.target.value)}
+        />
+        <p
+          id="source-certificate-help"
+          className="text-xs text-muted-foreground"
+        >
+          {t`The server's internal certificate authority, or its self-signed certificate. Without one, the system's authorities are trusted.`}
         </p>
-      ) : null}
-      {sqliteOnly ? null : (
-        <>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="source-host">{t`Host`}</Label>
-            <Input
-              id="source-host"
-              placeholder="db.internal"
-              value={host}
-              onChange={(event) => setHost(event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="source-port">{t`Port`}</Label>
-            <Input
-              id="source-port"
-              inputMode="numeric"
-              value={port}
-              onChange={(event) => setPort(event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="source-username">{t`Account`}</Label>
-            <Input
-              id="source-username"
-              autoComplete="off"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="source-password">{t`Password`}</Label>
-            <Input
-              id="source-password"
-              type="password"
-              autoComplete="new-password"
-              placeholder={existing ? t`Unchanged` : undefined}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </div>
-          <div className="col-span-2 flex flex-col gap-1">
-            <Label htmlFor="source-certificate">{t`Certificate (optional)`}</Label>
-            <Textarea
-              id="source-certificate"
-              aria-describedby="source-certificate-help"
-              className="min-h-24 font-mono text-xs"
-              placeholder="-----BEGIN CERTIFICATE-----"
-              value={certificate}
-              onChange={(event) => setCertificate(event.target.value)}
-            />
-            <p
-              id="source-certificate-help"
-              className="text-xs text-muted-foreground"
-            >
-              {t`The server's internal certificate authority, or its self-signed certificate. Without one, the system's authorities are trusted.`}
-            </p>
-          </div>
-        </>
-      )}
+      </div>
       <div className="flex flex-col gap-1">
         <Label htmlFor="source-timeout">{t`Time limit per query (seconds)`}</Label>
         <Input
@@ -663,54 +635,52 @@ function SourceForm(props: {
               {t`Fields people add to this source's tables are kept there, one side table per exposed table (a database on MySQL and MariaDB, the account's own schema on Oracle). Left empty, AnyGridDB keeps them in its own database: they filter a view, but cannot sort or group it. The client's tables are never changed.`}
             </p>
           </div>
-          {sqliteOnly ? null : (
-            <div className="col-span-2 flex flex-col gap-1">
-              <Label htmlFor="source-replica-host">{t`Read replica host (optional)`}</Label>
-              <div className="grid grid-cols-[1fr_6rem_1fr] gap-2">
-                <Input
-                  id="source-replica-host"
-                  value={replicaHost}
-                  placeholder={t`Same as primary when empty`}
-                  onChange={(event) => setReplicaHost(event.target.value)}
-                />
-                <Input
-                  aria-label={t`Replica port`}
-                  value={replicaPort}
-                  placeholder={port}
-                  onChange={(event) => setReplicaPort(event.target.value)}
-                />
-                <Input
-                  aria-label={t`Replica database`}
-                  value={replicaDatabase}
-                  placeholder={database || t`Database`}
-                  onChange={(event) => setReplicaDatabase(event.target.value)}
-                />
-              </div>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <Input
-                  aria-label={t`Replica username`}
-                  value={replicaUsername}
-                  placeholder={username || t`Username`}
-                  onChange={(event) => setReplicaUsername(event.target.value)}
-                />
-                <Input
-                  type="password"
-                  aria-label={t`Replica password`}
-                  value={replicaPassword}
-                  placeholder={
-                    existing?.replicaHost
-                      ? t`Leave blank to keep the stored password`
-                      : t`Same as primary when empty`
-                  }
-                  onChange={(event) => setReplicaPassword(event.target.value)}
-                  autoComplete="new-password"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t`Grid and API reads use the replica when set; writes stay on the primary. If the replica is unreachable, reads fall back to the primary.`}
-              </p>
+          <div className="col-span-2 flex flex-col gap-1">
+            <Label htmlFor="source-replica-host">{t`Read replica host (optional)`}</Label>
+            <div className="grid grid-cols-[1fr_6rem_1fr] gap-2">
+              <Input
+                id="source-replica-host"
+                value={replicaHost}
+                placeholder={t`Same as primary when empty`}
+                onChange={(event) => setReplicaHost(event.target.value)}
+              />
+              <Input
+                aria-label={t`Replica port`}
+                value={replicaPort}
+                placeholder={port}
+                onChange={(event) => setReplicaPort(event.target.value)}
+              />
+              <Input
+                aria-label={t`Replica database`}
+                value={replicaDatabase}
+                placeholder={database || t`Database`}
+                onChange={(event) => setReplicaDatabase(event.target.value)}
+              />
             </div>
-          )}
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Input
+                aria-label={t`Replica username`}
+                value={replicaUsername}
+                placeholder={username || t`Username`}
+                onChange={(event) => setReplicaUsername(event.target.value)}
+              />
+              <Input
+                type="password"
+                aria-label={t`Replica password`}
+                value={replicaPassword}
+                placeholder={
+                  existing?.replicaHost
+                    ? t`Leave blank to keep the stored password`
+                    : t`Same as primary when empty`
+                }
+                onChange={(event) => setReplicaPassword(event.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t`Grid and API reads use the replica when set; writes stay on the primary. If the replica is unreachable, reads fall back to the primary.`}
+            </p>
+          </div>
         </>
       )}
       <DialogFooter className="col-span-2">

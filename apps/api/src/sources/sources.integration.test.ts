@@ -36,13 +36,13 @@ import {
   sourceTables,
   updateSource,
 } from "./sources.js";
-import { testSourceSettings } from "./types.js";
+import type { SourceSettings } from "./types.js";
 
-const settings = testSourceSettings({
+const settings: SourceSettings = {
   allows: (host) => host === "localhost" || host === "127.0.0.1",
   allowedHosts: ["localhost", "127.0.0.1"],
   allowPlaintext: false,
-});
+};
 
 describe("PostgreSQL sources", () => {
   let server: StartedTestContainer | undefined;

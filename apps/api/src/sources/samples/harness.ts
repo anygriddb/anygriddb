@@ -12,7 +12,7 @@ import { createTestDatabase } from "../../test-database.js";
 import { exposeTables } from "../expose.js";
 import { setSourcePools, SourcePools } from "../pools.js";
 import { createSource, sourceTables } from "../sources.js";
-import { testSourceSettings, type SourceSettings } from "../types.js";
+import type { SourceSettings } from "../types.js";
 import { seedsRoot } from "./paths.js";
 import type { SampleEndpoint, SampleEngine } from "./types.js";
 
@@ -37,11 +37,11 @@ export function need<T>(value: T | null | undefined, what: string): T {
   return value;
 }
 
-const sampleSettings = testSourceSettings({
+const sampleSettings: SourceSettings = {
   allows: () => true,
   allowedHosts: [],
   allowPlaintext: !labTls,
-});
+};
 
 export type SampleControl = {
   db: Database;

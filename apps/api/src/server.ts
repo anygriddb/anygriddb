@@ -62,8 +62,6 @@ import { appRouter } from "./trpc/router.js";
 import { taskGroups } from "./queue/tasks.js";
 import { startQueue } from "./queue/worker.js";
 import { HostAllowList } from "./sources/allow-list.js";
-import { PathAllowList } from "./sources/path-allow-list.js";
-import { resolveSqliteDatabase } from "./sources/sqlite-path.js";
 import { setSourcePools, SourcePools } from "./sources/pools.js";
 import type { SourceSettings } from "./sources/types.js";
 import { refreshTls, type TlsState } from "./tls/authority.js";
@@ -164,26 +162,10 @@ export async function createApp(deps: {
   });
   // Read once at start: an entry the operator mistyped stops the API here.
   const allowList = new HostAllowList(deps.env.SOURCES_ALLOWED_HOSTS);
-  const pathAllowList = new PathAllowList(deps.env.SOURCES_ALLOWED_PATHS);
-  const sqliteAccess = {
-    paths: pathAllowList,
-    allowMemory: deps.env.SOURCES_SQLITE_ALLOW_MEMORY,
-  };
   const sources: SourceSettings = {
     allows: (host) => allowList.allows(host),
     allowedHosts: allowList.entries,
     allowPlaintext: deps.env.SOURCES_ALLOW_PLAINTEXT,
-    paths: pathAllowList,
-    allowedPaths: pathAllowList.entries,
-    allowsPath: (database) => {
-      try {
-        resolveSqliteDatabase(database, sqliteAccess);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    sqliteAllowMemory: deps.env.SOURCES_SQLITE_ALLOW_MEMORY,
   };
   if (sources.allowPlaintext) {
     app.log.warn(

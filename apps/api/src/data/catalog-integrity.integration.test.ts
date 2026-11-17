@@ -477,39 +477,40 @@ describe("catalog integrity on a catalog that already holds a role twice", () =>
   });
 });
 
-describe("a catalog that holds a source of a store no longer read", () => {
-  async function withSources(
-    engines: readonly string[],
-    upTo = "0116",
-  ): Promise<Awaited<ReturnType<typeof catalogBefore>> & { owner: string }> {
-    const created = await catalogBefore(upTo);
-    const person = await created.db
-      .insertInto("users")
-      .values({
-        email: `stores-${randomBytes(4).toString("hex")}@example.com`,
-        displayName: "Owner",
-      })
-      .returning("id")
-      .executeTakeFirstOrThrow();
-    await withAudit(
-      created.db,
-      { userId: person.id, source: "web" },
-      async (tx) => {
-        for (const engine of engines) {
-          await sql`
-            insert into sources
-              (name, engine, host, port, database, username,
-               password_ciphertext, password_nonce)
-            values
-              (${`Source ${engine}`}, ${engine}::source_engine,
-               'db.example.org', 5432, 'shop', 'reader', '\\x00', '\\x00')
-          `.execute(tx);
-        }
-      },
-    );
-    return { ...created, owner: person.id };
-  }
+/** A catalog as it was before `upTo`, with a source of each engine. */
+async function withSources(
+  engines: readonly string[],
+  upTo = "0116",
+): Promise<Awaited<ReturnType<typeof catalogBefore>> & { owner: string }> {
+  const created = await catalogBefore(upTo);
+  const person = await created.db
+    .insertInto("users")
+    .values({
+      email: `stores-${randomBytes(4).toString("hex")}@example.com`,
+      displayName: "Owner",
+    })
+    .returning("id")
+    .executeTakeFirstOrThrow();
+  await withAudit(
+    created.db,
+    { userId: person.id, source: "web" },
+    async (tx) => {
+      for (const engine of engines) {
+        await sql`
+          insert into sources
+            (name, engine, host, port, database, username,
+             password_ciphertext, password_nonce)
+          values
+            (${`Source ${engine}`}, ${engine}::source_engine,
+             'db.example.org', 5432, 'shop', 'reader', '\\x00', '\\x00')
+        `.execute(tx);
+      }
+    },
+  );
+  return { ...created, owner: person.id };
+}
 
+describe("a catalog that holds a source of a store no longer read", () => {
   it("refuses to upgrade, says why, and leaves the version before able to start", async () => {
     // As the first published version left it: the migration before the
     // one that refuses is pending too.
@@ -572,7 +573,6 @@ describe("a catalog that holds a source of a store no longer read", () => {
     const { db, pool, close, owner } = await withSources([
       "postgres",
       "mongodb",
-      "sqlite",
     ]);
     try {
       const ran = await migrateDb(pool);
@@ -583,7 +583,6 @@ describe("a catalog that holds a source of a store no longer read", () => {
       expect(kept.rows.map((row) => row.engine)).toEqual([
         "mongodb",
         "postgres",
-        "sqlite",
       ]);
       await expect(
         sql`select 'redis'::source_engine`.execute(db),
@@ -604,6 +603,83 @@ describe("a catalog that holds a source of a store no longer read", () => {
       expect(trail.rows[0]?.count).toBe("1");
     } finally {
       await close();
+    }
+  });
+});
+
+// A SQLite file is no longer a source (ADR 0107): the upgrade asks
+// before it runs, from the catalog either published version left.
+describe("a catalog that holds a SQLite source", () => {
+  it.each([
+    ["the first version", "0115"],
+    ["the version before", "0118"],
+  ])(
+    "refuses to upgrade from %s, changes nothing, then takes the catalog without it",
+    async (_version, upTo) => {
+      const { db, pool, close, owner } = await withSources(
+        ["postgres", "sqlite"],
+        upTo,
+      );
+      const before = await migrationsBefore(upTo);
+      try {
+        const was = await appliedTo(db);
+        const refused = await migrateDb(pool).catch((error: unknown) => error);
+        expect(refused).toBeInstanceOf(UpgradeRefused);
+        expect((refused as UpgradeRefused).migration).toBe(
+          "0118_sqlite_source_removed",
+        );
+        expect((refused as UpgradeRefused).message).toContain(
+          "no longer reads a SQLite file",
+        );
+        expect(await appliedTo(db)).toEqual(was);
+        // The version before starts again, and its administrator
+        // deletes the source.
+        expect(await migrateDb(pool, before)).toEqual([]);
+        await withAudit(db, { userId: owner, source: "web" }, (tx) =>
+          sql`delete from sources where engine::text = 'sqlite'`.execute(tx),
+        );
+        const ran = await migrateDb(pool);
+        expect(ran).toContain("0118_sqlite_source_removed");
+        const kept = await sql<{ engine: string }>`
+          select engine::text as engine from sources
+        `.execute(db);
+        expect(kept.rows.map((row) => row.engine)).toEqual(["postgres"]);
+        await expect(
+          sql`select 'sqlite'::source_engine`.execute(db),
+        ).rejects.toThrow(/invalid input value for enum source_engine/);
+        // A change of a source is still on the trail.
+        await withAudit(db, { userId: owner, source: "web" }, (tx) =>
+          sql`update sources set host = 'other.example.org'`.execute(tx),
+        );
+        const trail = await sql<{ count: string }>`
+          select count(*)::text as count from audit_events
+          where catalog_table = 'sources'
+            and new_value ->> 'host' = 'other.example.org'
+        `.execute(db);
+        expect(trail.rows[0]?.count).toBe("1");
+      } finally {
+        await close();
+        await rm(before, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("is refused by the migration itself when nothing asked before it", async () => {
+    const { db, pool, close } = await withSources(["sqlite"], "0118");
+    const unasked = await migrationsBefore("9999");
+    try {
+      await rm(join(unasked, "0118_sqlite_source_removed.check.sql"));
+      const refused = await migrateDb(pool, unasked).catch(
+        (error: unknown) => error,
+      );
+      expect(refused).not.toBeInstanceOf(UpgradeRefused);
+      expect(String((refused as Error).cause)).toContain(
+        "no longer reads a SQLite file",
+      );
+      expect((await appliedTo(db)).at(-1)).toBe("0117_syslog_collector");
+    } finally {
+      await close();
+      await rm(unasked, { recursive: true, force: true });
     }
   });
 });

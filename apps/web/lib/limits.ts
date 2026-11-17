@@ -20,7 +20,6 @@ export const ENGINE_NAMES: Record<SourceEngine, string> = {
   mariadb: "MariaDB",
   sqlserver: "SQL Server",
   oracle: "Oracle",
-  sqlite: "SQLite",
   mongodb: "MongoDB",
   opensearch: "OpenSearch",
 };

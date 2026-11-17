@@ -204,7 +204,6 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   unknown_source: msg`Source not found`,
   source_already_exists: msg`A source already has this name`,
   source_host_not_allowed: msg`This host is not allowed: the operator adds it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS`,
-  source_path_not_allowed: msg`This file path is not allowed: the operator adds its directory to ANYGRIDDB_SOURCES_ALLOWED_PATHS`,
   source_engine_unsupported: msg`This engine is not supported yet`,
   source_version_unsupported: msg`This server version is not supported: PostgreSQL 13, MySQL 8.0, MariaDB 10.6, SQL Server 2017 or later`,
   source_engine_mismatch: msg`The server is not of the chosen engine: MySQL and MariaDB differ`,

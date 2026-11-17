@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sourceDatabaseField, sourceInputSchema } from "./sources";
+import { sourceDatabaseField } from "./sources";
 
 describe("sourceDatabaseField", () => {
   it("calls Oracle's field a service name", () => {
@@ -14,18 +14,5 @@ describe("sourceDatabaseField", () => {
 
   it("calls a search cluster's field indices", () => {
     expect(sourceDatabaseField("opensearch")).toBe("indices");
-  });
-
-  it("accepts a SQLite source without an account or a password", () => {
-    const parsed = sourceInputSchema.parse({
-      name: "local",
-      engine: "sqlite",
-      host: "localhost",
-      port: 1,
-      database: "/var/lib/anygriddb/demo.sqlite",
-      username: "",
-      password: "",
-    });
-    expect(parsed.engine).toBe("sqlite");
   });
 });

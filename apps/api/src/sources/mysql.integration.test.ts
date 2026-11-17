@@ -23,14 +23,13 @@ import { isAdministrator } from "./mysql.js";
 import { introspectMysql } from "./mysql-schema.js";
 import { setSourcePools, SourcePools, toPositional } from "./pools.js";
 import { checkConnection, createSource } from "./sources.js";
-import type { SourceConnection } from "./types.js";
-import { testSourceSettings } from "./types.js";
+import type { SourceConnection, SourceSettings } from "./types.js";
 
-const settings = testSourceSettings({
+const settings: SourceSettings = {
   allows: (host) => host === "localhost" || host === "127.0.0.1",
   allowedHosts: ["localhost", "127.0.0.1"],
   allowPlaintext: false,
-});
+};
 
 const SETUP = [
   "create user 'reader'@'%' identified by 'readerpass'",

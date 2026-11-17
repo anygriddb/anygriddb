@@ -42,7 +42,6 @@ export const sourcesRouter = t.router({
       await requireAdmin(ctx);
       return {
         allowedHosts: [...ctx.sources.allowedHosts],
-        allowedPaths: [...ctx.sources.allowedPaths],
         allowPlaintext: ctx.sources.allowPlaintext,
       };
     }),
