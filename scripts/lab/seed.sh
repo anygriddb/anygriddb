@@ -55,8 +55,8 @@ for arg in "$@"; do
 done
 
 if [[ "$DO_STORES" -eq 1 ]]; then
-  echo "==> Made-up orders on FerretDB, OpenSearch, Valkey, Cassandra and Neo4j"
-  for container in aglab-ferretdb aglab-opensearch-tls aglab-stores-tls; do
+  echo "==> Made-up orders on FerretDB and OpenSearch"
+  for container in aglab-ferretdb aglab-opensearch-tls; do
     if ! docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null | grep -q true; then
       echo "Container $container is not running. Start with: ./scripts/lab/up.sh --stores" >&2
       exit 1

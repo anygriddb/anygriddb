@@ -17,9 +17,6 @@ export const ENGINE_MARKS: Record<
   oracle: { label: "Oracle", color: "#c74634" },
   mongodb: { label: "MongoDB wire", color: "#00684a" },
   opensearch: { label: "OpenSearch", color: "#005eb8" },
-  redis: { label: "Redis", color: "#a41e11" },
-  cassandra: { label: "Cassandra", color: "#1287b1" },
-  neo4j: { label: "Neo4j", color: "#018bff" },
   sqlite: { label: "SQLite", color: "#0f80cc" },
 };
 
@@ -105,43 +102,6 @@ function Glyph({ engine }: { engine: SourceEngine }) {
           <circle cx="11" cy="11" r="5.2" />
           <circle cx="11" cy="11" r="2.4" />
           <path d="M15.2 15.2l3.6 3.6" strokeLinecap="round" />
-        </g>
-      );
-    case "redis":
-      // Stacked cubes: key-value boxes.
-      return (
-        <g fill="none" stroke="#fff" strokeWidth="1.4">
-          <path d="M5 9.5l7-3.2 7 3.2-7 3.2z" />
-          <path d="M5 9.5v5.2l7 3.2 7-3.2V9.5" />
-          <path d="M12 12.7v5.2" />
-        </g>
-      );
-    case "cassandra":
-      // Ring of nodes.
-      return (
-        <g fill="#fff">
-          <circle cx="12" cy="6.5" r="1.6" />
-          <circle cx="17.2" cy="9.8" r="1.6" />
-          <circle cx="17.2" cy="15.2" r="1.6" />
-          <circle cx="12" cy="18.5" r="1.6" />
-          <circle cx="6.8" cy="15.2" r="1.6" />
-          <circle cx="6.8" cy="9.8" r="1.6" />
-        </g>
-      );
-    case "neo4j":
-      // Connected nodes.
-      return (
-        <g>
-          <path
-            d="M7.5 9.5l4.5 2.2 4.5-2.2M12 11.7v5.3"
-            stroke="#fff"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            fill="none"
-          />
-          <circle cx="7.5" cy="8.5" r="2.2" fill="#fff" />
-          <circle cx="16.5" cy="8.5" r="2.2" fill="#fff" />
-          <circle cx="12" cy="18" r="2.2" fill="#fff" />
         </g>
       );
     case "sqlite":

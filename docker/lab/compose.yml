@@ -3,8 +3,7 @@
 # SQL Server is profile `mssql` only; Oracle Free is profile `oracle` only
 # (OPEN_SOURCE_POLICY.md — interoperability images, never the default stack).
 # Profile `stores` starts the stores that speak no SQL, which AnyGridDB reads
-# from a copy (ADR 0088): FerretDB (the MongoDB wire protocol), OpenSearch,
-# Valkey (the Redis wire protocol), Cassandra, and Neo4j Community.
+# from a copy (ADR 0088): FerretDB (the MongoDB wire protocol) and OpenSearch.
 #
 #   ./scripts/lab/up.sh --mssql --oracle --stores
 #   ./scripts/lab/seed.sh --all
@@ -243,108 +242,6 @@ services:
       - ./certs:/certs:ro
       - ./opensearch-tls/nginx.conf:/etc/nginx/nginx.conf:ro
 
-  # Valkey (BSD-3-Clause) speaks the Redis wire protocol. Its own port
-  # stays inside; the front below serves it over TLS. Redis's server is
-  # not used: its license is not one this lab takes.
-  valkey:
-    profiles: ["stores"]
-    image: valkey/valkey:8.1.4
-    container_name: aglab-valkey
-    environment:
-      LAB_PASSWORD: ${LAB_PASSWORD}
-    command:
-      - valkey-server
-      - --bind
-      - 0.0.0.0
-      - --protected-mode
-      - "no"
-      - --requirepass
-      - ${LAB_PASSWORD}
-      - --appendonly
-      - "yes"
-    volumes:
-      - aglab-valkey-data:/data
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          'valkey-cli -a "$$LAB_PASSWORD" --no-auth-warning ping | grep -q PONG',
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-
-  # Cassandra (Apache-2.0). Authentication is off, as the image ships:
-  # the connector reads it when the server says nothing about roles.
-  cassandra:
-    profiles: ["stores"]
-    image: cassandra:5.0
-    container_name: aglab-cassandra
-    environment:
-      MAX_HEAP_SIZE: 512M
-      HEAP_NEWSIZE: 128M
-      # The volume kept from the lab's first start is named this. A new
-      # name makes Cassandra refuse to open it.
-      CASSANDRA_CLUSTER_NAME: anygriddb-lab
-    volumes:
-      - aglab-cassandra-data:/var/lib/cassandra
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "cqlsh -e 'SELECT release_version FROM system.local' >/dev/null",
-        ]
-      interval: 15s
-      timeout: 10s
-      retries: 40
-      start_period: 90s
-
-  # Neo4j Community (GPL-3.0). The bolt port stays inside; the front
-  # serves it over TLS. The built-in account is the one the seed uses
-  # to load data, and the one AnyGridDB refuses.
-  neo4j:
-    profiles: ["stores"]
-    image: neo4j:5.26-community
-    container_name: aglab-neo4j
-    environment:
-      NEO4J_AUTH: neo4j/${LAB_PASSWORD}
-      LAB_PASSWORD: ${LAB_PASSWORD}
-      NEO4J_server_memory_heap_initial__size: 256m
-      NEO4J_server_memory_heap_max__size: 512m
-      NEO4J_server_memory_pagecache_size: 128m
-      NEO4J_server_bolt_tls__level: DISABLED
-    volumes:
-      - aglab-neo4j-data:/data
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          'cypher-shell -a bolt://127.0.0.1:7687 -u neo4j -p "$$LAB_PASSWORD" ''RETURN 1'' >/dev/null',
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 40s
-
-  stores-tls:
-    profiles: ["stores"]
-    image: nginx:1.30-alpine
-    container_name: aglab-stores-tls
-    depends_on:
-      valkey:
-        condition: service_healthy
-      cassandra:
-        condition: service_healthy
-      neo4j:
-        condition: service_healthy
-    ports:
-      - "127.0.0.1:56379:6379"
-      - "127.0.0.1:59042:9042"
-      - "127.0.0.1:57687:7687"
-    volumes:
-      - ./certs:/certs:ro
-      - ./stores-tls/nginx.conf:/etc/nginx/nginx.conf:ro
-
 volumes:
   aglab-pg-data:
   aglab-mysql-data:
@@ -354,6 +251,3 @@ volumes:
   aglab-oracle-data:
   aglab-ferretdb-pg-data:
   aglab-opensearch-data:
-  aglab-valkey-data:
-  aglab-cassandra-data:
-  aglab-neo4j-data:

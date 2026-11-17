@@ -210,37 +210,6 @@ protocol; it is not part of AnyGridDB's tests.
   control character, the fields past the first 300 of a collection, and
   the collections past the first 1,000.
 
-### The Redis wire protocol
-
-Tested against Valkey. Redis's own server speaks the same protocol; it
-is not part of AnyGridDB's tests.
-
-- **Key prefix** is the start of the keys to read. It is not a pattern:
-  `*`, `?` and a space are refused, and an empty prefix is refused,
-  because either would read every key. The port is 6379 unless you set
-  another. Database 0 is the one read.
-- A key is a row, named by the key. A hash's fields are columns. A
-  string that is a JSON object is a row of its keys. Anything else is
-  one column, `value`.
-- An account that can administer the server is refused: one that may
-  read the server's configuration (`CONFIG GET`), or whose rules, where
-  it may read them, grant `+@all`, `+@admin` or `+@dangerous`. Give the
-  account the commands a copy uses (`SCAN`, `TYPE`, `GET`, `HGETALL`,
-  `INFO`, `PING`, `HELLO`) on its prefix, and nothing else. A key the
-  scan meets twice is copied once.
-
-### Cassandra
-
-Tested against Cassandra 5.
-
-- **Keyspace** is the keyspace to read. The port is 9042 unless you set
-  another. AnyGridDB connects to the host the source names, and to no
-  other node of the cluster, whatever the server says of them.
-- A table is read from first row to last, by pages. A table whose name
-  is not a plain identifier, or which has no partition key, is left out.
-- A superuser, when `system_auth.roles` says so, is refused. A server
-  with authentication turned off says nothing, and is read.
-
 ### OpenSearch
 
 Tested against OpenSearch 2. The port is 9200 unless you set another.
@@ -263,24 +232,6 @@ are left out.
 - Left out: a field whose name is longer than 63 bytes or holds a
   control character, an alias, the fields past the first 300 of an
   index, and the indices past the first 1,000.
-
-### Neo4j
-
-Tested against Neo4j Community.
-
-- **Database** is the Neo4j database (`neo4j` unless you created
-  another). The port is 7687 unless you set another.
-- A label is a table, a node a row named by its element id, a property
-  a column. Relationships are not links: the grid is the nodes, not the
-  graph.
-- The built-in account `neo4j` is refused. Community Edition reports no
-  roles, so create another user: it can read, and the server cannot say
-  it administers. Where roles are reported, `admin` and `architect` are
-  refused too.
-- Each query, and during a copy the wait for the next node, ends after
-  the source's time limit. A date and time is copied as an instant in
-  UTC, a date as written; a local date and time, a time, a duration and
-  a point are copied as text.
 
 ## Statuses and signatures
 
