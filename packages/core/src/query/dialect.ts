@@ -24,12 +24,11 @@ import type { EngineTable, PhysicalColumn } from "./engine";
 import type { ScalarKind } from "./expressions";
 import { ORACLE } from "./dialect-oracle";
 import { SQLSERVER } from "./dialect-sqlserver";
-import { buildSqlite } from "./dialect-sqlite";
 import { exactMedian } from "./median";
 import { withoutGroups } from "../plain-text";
 
 export type DialectName =
-  "postgres" | "mysql" | "mariadb" | "sqlserver" | "oracle" | "sqlite";
+  "postgres" | "mysql" | "mariadb" | "sqlserver" | "oracle";
 
 export type SortDirection = "asc" | "desc";
 
@@ -1460,7 +1459,6 @@ function mysqlDialect(name: "mysql" | "mariadb"): SqlDialect {
 
 export const MYSQL = mysqlDialect("mysql");
 export const MARIADB = mysqlDialect("mariadb");
-export const SQLITE = buildSqlite(MYSQL);
 
 /** The dialect a table's rows are read in. */
 export function dialectOf(table: EngineTable): SqlDialect {
@@ -1480,8 +1478,6 @@ function baseDialect(table: EngineTable): SqlDialect {
       return SQLSERVER;
     case "oracle":
       return ORACLE;
-    case "sqlite":
-      return SQLITE;
     default:
       return POSTGRES;
   }

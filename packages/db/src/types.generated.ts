@@ -159,7 +159,6 @@ export type SourceEngine =
   | "opensearch"
   | "oracle"
   | "postgres"
-  | "sqlite"
   | "sqlserver";
 
 export type TableStorage = "external" | "native";

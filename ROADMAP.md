@@ -58,7 +58,6 @@ The product is `apps/` and `packages/`.
 - Rows deleted before this release's many-to-many restore fix come back without those links.
 - A SAML provider that sends only transient or address NameIDs matches accounts by address: it must verify them. OIDC, and SAML with a persistent NameID, bind the account to the provider's subject.
 - The map view shows the rows of its view over a plain background, or over the tiles of the server an administrator names (ADR 0068). Over tiles it pans and zooms; over the plain background it stays fitted to its rows.
-- A SQLite file is read and written through a dialect of its own, which the conformance suite does not run yet: its formulas and filters are not held to the other engines' results (ADR 0102). Row 109.
 - A synced table is as old as its last refresh, is read-only, stops at a million rows, and links to a table read live show empty.
 - A locked client row is protected from AnyGridDB's writes only: a change another application makes is detected (within five minutes, seconds on a watched table) and told, not refused. Its seal covers every stored column, so a row put back still differs by its `updated_at`.
 - On SQL Server a page is one query: a table with very many complex computed fields can exceed what SQL Server compiles, and AnyGridDB says so. There, MD5, SHA256, and SHA512 read texts of up to 100,000 characters, and JSON_EXTRACT reads a text value of up to 4,000.
@@ -77,7 +76,8 @@ is. What is still missing comes in three tracks: the views and
 spreadsheet gestures people miss, the applications, sign-ins, and
 languages around an instance, and what an instance administrator cannot
 yet do from Administration. Data in and out, at any size, has nothing
-open since rows 83, 99, and 100; what an engine still owes is row 109.
+open since rows 83, 99, and 100, and no engine owes anything since
+row 109.
 Inside a table, the order is the
 priority; across tracks, the order of work below decides.
 
@@ -87,14 +87,13 @@ A row moves up only when it unblocks another.
 
 1. Applications, sign-in, and languages: 106 once decided (needs 101,
    which is done); 105 once its languages are chosen.
-2. Data: 109. It waits for no decision, so it comes first while 105
-   and 106 wait for theirs.
+2. Data: nothing open. Row 109 is done, by taking SQLite out (ADR 0107).
 
 ### Data
 
-| #   | What                            | Effort | Notes                                                                                                                                                                            |
-| --- | ------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 109 | SQLite on the conformance suite | M      | The suite runs five engines (ADR 0005); SQLite runs in the process, with no container. A function it cannot hold to the others' results is refused or carries a limit (ADR 0027) |
+| #   | What                            | Effort | Notes                                                                                                                                                                                                     |
+| --- | ------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 109 | SQLite on the conformance suite | M      | Done, by taking it out: beside the reference, a SQLite table that holds a text did not open, and none of the suite's formulas agreed. Five engines are read where they live, each on the suite (ADR 0107) |
 
 ### Views and organisation
 

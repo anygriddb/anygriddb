@@ -657,22 +657,6 @@ const SIDE_TYPES: Record<DialectName, Record<SideFieldType, string>> = {
     json: "clob",
     rating: "number(10)",
   },
-  sqlite: {
-    text: "text",
-    long_text: "text",
-    number: "real",
-    boolean: "integer",
-    date: "text",
-    datetime: "text",
-    single_select: "text",
-    email: "text",
-    url: "text",
-    phone: "text",
-    color: "text",
-    place: "text",
-    json: "text",
-    rating: "integer",
-  },
 };
 
 /** The SQL type a side column of `fieldType` has on an engine. */

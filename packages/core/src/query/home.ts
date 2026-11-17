@@ -12,7 +12,7 @@ import { sideColumnType, type SideFieldType } from "./external-write";
 import { quoteExternalIdent, type ParameterizedSql } from "./params";
 
 /** The engines that can hold a base. Oracle's schema is its account. */
-export type HomeDialect = Exclude<DialectName, "oracle" | "sqlite">;
+export type HomeDialect = Exclude<DialectName, "oracle">;
 
 const HOME_DIALECTS: readonly string[] = [
   "postgres",

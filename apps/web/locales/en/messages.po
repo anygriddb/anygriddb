@@ -2029,10 +2029,6 @@ msgstr "Allowed CIDR ranges"
 msgid "Allowed hosts: {hosts}"
 msgstr "Allowed hosts: {hosts}"
 
-#: components/admin/sources-tab.tsx
-msgid "Allowed SQLite directories: {paths}"
-msgstr "Allowed SQLite directories: {paths}"
-
 #: components/auth/auth-page.tsx
 msgid "Already have an account? Sign in"
 msgstr "Already have an account? Sign in"
@@ -3637,10 +3633,6 @@ msgstr "Dashboards of {name}"
 #: components/admin/sources-tab.tsx
 msgid "Database"
 msgstr "Database"
-
-#: components/admin/sources-tab.tsx
-msgid "Database file"
-msgstr "Database file"
 
 #: lib/errors.ts
 msgid "Database not found on the source"
@@ -7438,10 +7430,6 @@ msgstr "No source operations recorded in this period."
 msgid "No source yet. Add one to show its tables in a base, read and written where they live."
 msgstr "No source yet. Add one to show its tables in a base, read and written where they live."
 
-#: components/admin/sources-tab.tsx
-msgid "No SQLite directory is allowed: the operator sets ANYGRIDDB_SOURCES_ALLOWED_PATHS."
-msgstr "No SQLite directory is allowed: the operator sets ANYGRIDDB_SOURCES_ALLOWED_PATHS."
-
 #: components/admin/effective-rights.tsx
 msgid "No table in this base."
 msgstr "No table in this base."
@@ -10287,10 +10275,6 @@ msgstr "SQL Server finds this read too complex: the table has too many computed 
 msgid "SQL Server no longer kept the changes: the table was read again in full"
 msgstr "SQL Server no longer kept the changes: the table was read again in full"
 
-#: components/admin/sources-tab.tsx
-msgid "SQLite is a file on this server: give an absolute path under an allowed directory. TLS does not apply."
-msgstr "SQLite is a file on this server: give an absolute path under an allowed directory. TLS does not apply."
-
 #: components/fields/formula-docs.ts
 msgid "Square root; blank for a negative number."
 msgstr "Square root; blank for a negative number."
@@ -11705,10 +11689,6 @@ msgstr "This file has more rows than this instance imports at once: split it fir
 #: lib/errors.ts
 msgid "This file is too long: at most 200 people in one file"
 msgstr "This file is too long: at most 200 people in one file"
-
-#: lib/errors.ts
-msgid "This file path is not allowed: the operator adds its directory to ANYGRIDDB_SOURCES_ALLOWED_PATHS"
-msgstr "This file path is not allowed: the operator adds its directory to ANYGRIDDB_SOURCES_ALLOWED_PATHS"
 
 #: lib/errors.ts
 msgid "This filter on a field kept in AnyGridDB matches more than 1,000 rows: narrow it"

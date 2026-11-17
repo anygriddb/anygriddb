@@ -14,7 +14,6 @@ import type { Env } from "../env.js";
 import type { FileStore } from "../files/index.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import type { Context } from "./context.js";
-import { testSourceSettings } from "../sources/types.js";
 import { appRouter } from "./router.js";
 
 export const TEST_IP = "203.0.113.7";
@@ -50,11 +49,9 @@ export function browserFactory(deps: {
         files: { driver: "disk" } as unknown as FileStore,
         hub: deps.hub,
         sources: {
-          ...testSourceSettings({
-            allows: () => false,
-            allowedHosts: [],
-            allowPlaintext: false,
-          }),
+          allows: () => false,
+          allowedHosts: [],
+          allowPlaintext: false,
         },
         tls: () => null,
       };

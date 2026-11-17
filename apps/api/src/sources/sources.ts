@@ -24,9 +24,6 @@ import { introspectOracle } from "./oracle-schema.js";
 import { introspectMysql } from "./mysql-schema.js";
 import { introspectPostgres } from "./postgres-schema.js";
 import { copyConnector } from "./copy/index.js";
-import { checkSqlite } from "./sqlite.js";
-import { introspectSqlite } from "./sqlite-schema.js";
-import { resolveSqliteDatabase } from "./sqlite-path.js";
 import type {
   SourceCheck,
   SourceConnection,
@@ -90,27 +87,13 @@ export async function listSources(db: Database) {
 }
 
 /** Connects as every later read will, or says why it cannot. */
-function assertSourceAllowed(
-  settings: SourceSettings,
-  source: SourceConnection,
-): void {
-  if (source.engine === "sqlite") {
-    resolveSqliteDatabase(source.database, {
-      paths: settings.paths,
-      allowMemory: settings.sqliteAllowMemory,
-    });
-    return;
-  }
-  if (!settings.allows(source.host)) {
-    throw new AppError("source_host_not_allowed", source.host);
-  }
-}
-
 export async function checkConnection(
   settings: SourceSettings,
   source: SourceConnection,
 ): Promise<SourceCheck> {
-  assertSourceAllowed(settings, source);
+  if (!settings.allows(source.host)) {
+    throw new AppError("source_host_not_allowed", source.host);
+  }
   const options = { allowPlaintext: settings.allowPlaintext };
   switch (source.engine) {
     case "postgres":
@@ -122,11 +105,6 @@ export async function checkConnection(
       return checkSqlServer(source, options);
     case "oracle":
       return checkOracle(source, options);
-    case "sqlite":
-      return checkSqlite(source, {
-        paths: settings.paths,
-        allowMemory: settings.sqliteAllowMemory,
-      });
     default:
       return copyConnector(source.engine).check(source, options);
   }
@@ -452,7 +430,9 @@ export async function sourceTables(
     home && (stored.engine === "mysql" || stored.engine === "mariadb")
       ? { ...stored, database: home }
       : stored;
-  assertSourceAllowed(deps.settings, connection);
+  if (!deps.settings.allows(connection.host)) {
+    throw new AppError("source_host_not_allowed", connection.host);
+  }
   const options = { allowPlaintext: deps.settings.allowPlaintext };
   switch (connection.engine) {
     case "postgres":
@@ -464,11 +444,6 @@ export async function sourceTables(
       return introspectSqlServer(connection, options);
     case "oracle":
       return introspectOracle(connection, options);
-    case "sqlite":
-      return introspectSqlite(connection, {
-        paths: deps.settings.paths,
-        allowMemory: deps.settings.sqliteAllowMemory,
-      });
     default:
       return copyConnector(connection.engine).tables(connection, options);
   }
