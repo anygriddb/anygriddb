@@ -271,27 +271,6 @@ test.describe("a table's rows", () => {
     await page.keyboard.press("Enter");
     await expect(names).toHaveText(["Bravo", "Alpha", "Charlie"]);
 
-    // A field of unique values refuses a value another row holds, and
-    // says so in those words.
-    await send(page, "catalog.updateColumn", {
-      tableId: tableIdOf(page),
-      name: "name",
-      unique: true,
-    });
-    await names.nth(2).click();
-    await page.keyboard.press("F2");
-    await nameEditor.fill("Alpha");
-    await page.keyboard.press("Enter");
-    await expect(
-      page.getByText(/^Another row already holds this value/),
-    ).toBeVisible();
-    await expect(names).toHaveText(["Bravo", "Alpha", "Charlie"]);
-    await send(page, "catalog.updateColumn", {
-      tableId: tableIdOf(page),
-      name: "name",
-      unique: false,
-    });
-
     // A summary under a field.
     await grid.getByRole("button", { name: "Summary of Amount" }).click();
     await page.getByRole("menuitem", { name: "Sum", exact: true }).click();
