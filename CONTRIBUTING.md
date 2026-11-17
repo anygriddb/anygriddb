@@ -259,9 +259,17 @@ Until 1.0, a release that breaks something raises the second number
 (`0.2.0` → `0.3.0`), anything else the third.
 
 1. On an up-to-date `main`, with `CI` green: `pnpm check`,
-   `pnpm test:integration`, and `pnpm test:e2e`.
+   `pnpm test:integration`, and `pnpm test:e2e`. Then, on the image built
+   from it and as [`docs/operations.md`](docs/operations.md) says: an
+   install from nothing, and an upgrade of an install of the release
+   before, its data kept. A step the notes will ask of an operator is
+   done as someone who has not read them would meet it: upgrade first.
 2. Open a pull request whose one commit, `chore(release): vX.Y.Z`, sets
-   `version` in the root `package.json`.
+   `version` in the root `package.json`, dates the changelog's
+   "Unreleased", and adds the release to `RELEASED` in
+   `apps/api/src/data/catalog-integrity.integration.test.ts` with the
+   next free migration number: from then on, every change is tried as an
+   upgrade from that release's catalog.
 3. Once it is merged, tag the commit it became on `main`:
    `git tag -a vX.Y.Z <commit>`. The tag's message is the release notes
    for operators: what was added, changed, and fixed, and first what
@@ -276,7 +284,10 @@ Until 1.0, a release that breaks something raises the second number
    the digest pin (`image-pin.env`), and the packages each image holds
    (`anygriddb-amd64.spdx.json`, `anygriddb-arm64.spdx.json`). A step
    that fails publishes nothing: fix, then run the workflow again. The first time, make the
-   package public in its GitHub settings: GitHub creates it private.
+   package public in its GitHub settings: GitHub creates it private. The
+   package must also let this repository write to it (its settings,
+   "Manage Actions access"): refused there, the push fails and nothing
+   is published.
 
 To rehearse a release, run the Release workflow by hand on `main`
 (Actions, Release, Run workflow): it does everything but publish.
