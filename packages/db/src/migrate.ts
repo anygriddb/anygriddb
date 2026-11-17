@@ -7,6 +7,10 @@
  * - Each applied file is recorded with its SHA-256; a file that changed
  *   after it was applied stops the start, and so does a database that
  *   knows a migration this code does not.
+ * - A migration that may refuse a database says so in a file beside it,
+ *   `NNNN_name.check.sql`, asked of every pending migration before the
+ *   first of them runs: an upgrade that is refused changes nothing, and
+ *   the version before starts again on the same data (ADR 0106).
  * - A database Drizzle migrated is adopted: its applied files are recorded
  *   without running them again.
  */
@@ -23,6 +27,7 @@ declare const __ANYGRID_MIGRATIONS__: string | undefined;
 
 const LOCK = "anygriddb.migrations";
 const FILE = /^\d{4}_[a-z0-9_]+\.sql$/;
+const CHECK = ".check.sql";
 
 /**
  * When Drizzle recorded each file it applied (its journal's `when`), for
@@ -60,21 +65,72 @@ function migrationsFolder(): string {
   return fileURLToPath(new URL(bundled ?? "../migrations", import.meta.url));
 }
 
-type Migration = { name: string; sql: string; checksum: string };
+type Migration = {
+  name: string;
+  sql: string;
+  checksum: string;
+  /** What it asks of the database before any pending migration runs. */
+  check: string | null;
+};
 
 async function readMigrations(folder: string): Promise<Migration[]> {
-  const files = (await readdir(folder)).filter((name) => FILE.test(name));
+  const present = await readdir(folder);
+  const files = present.filter((name) => FILE.test(name));
   files.sort();
   return Promise.all(
     files.map(async (file) => {
+      const name = file.slice(0, -".sql".length);
       const sql = await readFile(`${folder}/${file}`, "utf8");
       return {
-        name: file.slice(0, -".sql".length),
+        name,
         sql,
         checksum: createHash("sha256").update(sql).digest("hex"),
+        check: present.includes(`${name}${CHECK}`)
+          ? await readFile(`${folder}/${name}${CHECK}`, "utf8")
+          : null,
       };
     }),
   );
+}
+
+/**
+ * An upgrade a pending migration's check refused, before any of them
+ * ran. Its message ends with what the check raised: what to do first,
+ * with the version before.
+ */
+export class UpgradeRefused extends Error {
+  constructor(
+    readonly migration: string,
+    cause: unknown,
+  ) {
+    const reason = cause instanceof Error ? cause.message : "its check failed";
+    super(
+      `Upgrade refused by ${migration}, before anything was changed: ${reason}`,
+      { cause },
+    );
+    this.name = "UpgradeRefused";
+  }
+}
+
+/**
+ * Asks the check of each pending migration that has one, in a
+ * transaction that may only read. A check refuses by raising.
+ */
+async function askChecks(
+  client: pg.PoolClient,
+  pending: readonly Migration[],
+): Promise<void> {
+  for (const migration of pending) {
+    if (migration.check === null) continue;
+    await client.query("begin transaction read only");
+    try {
+      await client.query(migration.check);
+    } catch (error) {
+      throw new UpgradeRefused(migration.name, error);
+    } finally {
+      await client.query("rollback");
+    }
+  }
 }
 
 /** Records the files a Drizzle-migrated database already ran. */
@@ -155,16 +211,21 @@ export async function migrateDb(
         `The database has migrations this version does not know: ${unknown.join(", ")}`,
       );
     }
+    const pending: Migration[] = [];
     for (const migration of migrations) {
       const checksum = applied.get(migration.name);
-      if (checksum !== undefined) {
-        if (checksum !== migration.checksum) {
-          throw new Error(
-            `Migration ${migration.name} changed after it was applied`,
-          );
-        }
-        continue;
+      if (checksum === undefined) {
+        pending.push(migration);
+      } else if (checksum !== migration.checksum) {
+        throw new Error(
+          `Migration ${migration.name} changed after it was applied`,
+        );
       }
+    }
+    // A database that holds nothing has nothing a check could refuse,
+    // and none of the tables a check reads.
+    if (applied.size > 0) await askChecks(client, pending);
+    for (const migration of pending) {
       await client.query("begin");
       try {
         await client.query(migration.sql);

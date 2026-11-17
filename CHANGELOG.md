@@ -40,6 +40,12 @@ first.
   Notifications. One named in the instance's environment still wins, and
   is shown there (ADR 0105).
 
+### Changed
+
+- An upgrade that asks for a step first is refused before it changes
+  anything: the application's log says "Upgrade refused" and what to
+  do, and the version before starts again on the same data (ADR 0106).
+
 ### Removed
 
 - The Redis wire protocol, Cassandra, and Neo4j are no longer read as

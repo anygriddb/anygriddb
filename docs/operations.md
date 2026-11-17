@@ -504,6 +504,13 @@ version, or the second before 1.0: it may ask for a step of its own.
 Migrations run when AnyGridDB starts, under a lock, so two instances
 starting at once do not both migrate.
 
+A release that asks for a step before the upgrade looks for it before
+its first migration runs. When the step was not done, AnyGridDB does not
+start, and its log (`docker compose logs app`) says "Upgrade refused"
+and what to do. Nothing was changed: start the version before again,
+with the Compose files and the pin it was installed from, do the step,
+then upgrade (ADR 0106).
+
 Administration > Health then shows the version and the commit running.
 An administrator may opt in there to check GitHub for a newer release;
 the default makes no outbound call. When a newer release is found, a
