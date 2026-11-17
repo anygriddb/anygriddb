@@ -47,8 +47,8 @@ asks for, and only a backup opens it again.
 - A migration that fails for any other reason still leaves the ones
   before it applied, as before: the new version is started again once
   the cause is gone, or the backup is restored.
-- A check is one more file to keep true. A test asks every check of a
-  catalog as the first release left it.
+- A check is one more file to keep true. A test upgrades the catalog
+  each release left, and so asks every check of each of them.
 
 ## Rejected
 

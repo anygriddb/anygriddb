@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import {
   createDb,
   migrateDb,
+  migrationNames,
   UpgradeRefused,
   type Database,
 } from "@anygriddb/db";
@@ -290,6 +291,39 @@ async function appliedTo(db: Database): Promise<string[]> {
   `.execute(db);
   return applied.rows.map((row) => row.name);
 }
+
+/**
+ * Each released version, with the first migration it did not have: an
+ * instance of that version is upgraded from the catalog before it. A
+ * release adds its line, with the next free number.
+ */
+const RELEASED = [
+  ["0.1.0", "0115"],
+  ["0.2.0", "0118"],
+] as const;
+
+// An instance is upgraded from any release, not only from the last: the
+// migrations since it run on its catalog, and every check is asked of it
+// (ADR 0106) and refuses nothing it has no reason to.
+describe("an upgrade from each released version", () => {
+  it.each(RELEASED)(
+    "runs the migrations since %s on the catalog it left",
+    async (_version, next) => {
+      const { db, pool, close } = await catalogBefore(next);
+      try {
+        const known = await migrationNames();
+        const pending = known.filter((name) => name >= next);
+        expect(await appliedTo(db)).toEqual(
+          known.filter((name) => name < next),
+        );
+        expect(await migrateDb(pool)).toEqual(pending);
+        expect(await appliedTo(db)).toEqual(known);
+      } finally {
+        await close();
+      }
+    },
+  );
+});
 
 // A migration may refuse a database (ADR 0106): it asks before any
 // pending migration runs, so that a refusal changes nothing.
