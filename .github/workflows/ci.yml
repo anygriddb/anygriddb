@@ -10,8 +10,11 @@ permissions:
 
 # A pull request's newer push replaces its older run. Every commit of main
 # runs to the end: a release publishes a commit only once its run passed.
+# On main the group is the commit, not the branch: a group keeps one run
+# waiting, so a third push arriving while one ran cancelled the one that
+# waited, and that commit had no run to show.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:

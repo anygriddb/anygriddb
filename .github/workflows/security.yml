@@ -15,8 +15,10 @@ on:
 permissions:
   contents: read
 
+# As CI: on main the group is the commit, so that no push takes the place
+# of one that waits.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
