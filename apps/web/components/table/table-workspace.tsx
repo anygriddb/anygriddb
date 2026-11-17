@@ -1,36 +1,13 @@
-import {
-  applyViewConfigPatch,
-  isCopySourceEngine,
-  MAX_VIEW_GROUPS,
-  MAX_VIEW_SORTS,
-  type FilterGroup,
-} from "@anygriddb/core";
-import {
-  Avatar,
-  Button,
-  Checkbox,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  Spinner,
-  Tooltip,
-} from "@anygriddb/ui";
+import { isCopySourceEngine } from "@anygriddb/core";
+import { Spinner } from "@anygriddb/ui";
+import { useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { readKey, saveQueue, withoutSaved } from "./view-patch";
-import { emptyTableHint } from "./empty-table-hint-model";
-import { Upload } from "lucide-react";
-import { toast } from "sonner";
-import { toWriteValue } from "../../lib/format";
-import { ENGINE_NAMES } from "../../lib/limits";
-import { ENGINE_MARKS, EngineMark } from "../admin/engine-mark";
+import { useEffect, useState } from "react";
 import { useLocale } from "../../lib/i18n";
-import { downloadJobFile, useTrackJob } from "../../lib/jobs";
-import { useTrashActions, useTrashDays } from "../../lib/trash";
-import { useChannel, usePresence } from "../../lib/realtime";
+import { useNarrowScreen } from "../../lib/narrow-screen";
+import { usePresence } from "../../lib/realtime";
 import { useCatalog, useSession } from "../../lib/session";
-import type { RowPlace } from "../../lib/row-place";
 import { trpc, useTRPC } from "../../lib/trpc";
 import {
   canManage,
@@ -38,23 +15,13 @@ import {
   type CatalogColumn,
   type Collaborator,
   type RowItem,
-  type ViewConfig,
-  type ViewItem,
 } from "../../lib/types";
 import { FieldEditor, type FieldEditorTarget } from "../fields/field-editor";
-import { isLinkField } from "../fields/field-meta";
-import { isEditableColumn } from "../grid/grid-clipboard";
-import { nextFrozenColumns } from "../grid/margin-column";
 import { GridTips } from "../grid/grid-tips";
 import { GridView } from "../grid/grid-view";
-import { useRows } from "../grid/use-rows";
-import { useUndo } from "../grid/use-undo";
-import { tableTakesUndo, undoShortcut } from "../../lib/keyboard-undo";
-import { StepGivenUp } from "../../lib/undo-stack";
+import { RowsError } from "../grid/rows-error";
 import { RecordPanel } from "../record/record-panel";
-import { ConfirmDialog, PromptDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
-import { useNarrowScreen } from "../../lib/narrow-screen";
 import { CalendarView } from "../views/calendar-view";
 import { FormView } from "../views/form-view";
 import { GalleryView } from "../views/gallery-view";
@@ -62,78 +29,45 @@ import { KanbanView } from "../views/kanban-view";
 import { ListView } from "../views/list-view";
 import { MapView } from "../views/map-view";
 import { RowCards } from "../views/row-cards";
-import { placeColumns, placeFilter } from "../views/map-places";
 import { TimelineView } from "../views/timeline-view";
 import { AutomationsDialog } from "./automations-dialog";
 import { DEFAULT_FROZEN, orderColumns, visibleColumns } from "./column-layout";
+import { DeleteFieldDialog } from "./delete-field-dialog";
+import { EmptyTableHint } from "./empty-table-hint";
+import { emptyTableHint } from "./empty-table-hint-model";
+import { fieldMenuPatch } from "./field-menu";
 import { ImportDialog } from "./import-dialog";
-import { newCondition } from "./filter-builder";
-import { resolveRowTint } from "./row-tint";
-import { upsertFirstLevel } from "./view-levels";
-import {
-  TableContext,
-  type CellValue,
-  type TableContextValue,
-} from "./table-context";
-import { ViewTabs } from "./view-tabs";
-import { ViewToolbar, type ViewPatch } from "./view-toolbar";
-import { useLingui } from "@lingui/react/macro";
-import { plural } from "@lingui/core/macro";
-import { useErrorText } from "../../lib/errors";
-import { RowsError } from "../grid/rows-error";
 import { NewRowDialog } from "./new-row-dialog";
-import {
-  calendarFilter,
-  calendarStart,
-  thisMonth,
-} from "../views/calendar-view";
-import {
-  timelineFilter,
-  timelinePeriod,
-  timelineScale,
-} from "../views/timeline-period";
+import { ReasonDialog } from "./reason-dialog";
+import { RowTrashDialog } from "./row-trash-dialog";
+import { resolveRowTint } from "./row-tint";
+import { TableContext, type TableContextValue } from "./table-context";
+import { CopyNote, TableHeader, ViewNotes } from "./table-header";
+import { useAggregates } from "./use-aggregates";
+import { useFieldChanges } from "./use-field-changes";
+import { useNewRow } from "./use-new-row";
+import { useReason } from "./use-reason";
+import { useRecordPanel } from "./use-record-panel";
+import { useRowWrites } from "./use-row-writes";
+import { useUndoKeys } from "./use-undo-keys";
+import { useViewExport } from "./use-view-export";
+import { useViewRows } from "./use-view-rows";
+import { useViewSettings } from "./use-view-settings";
+import { ViewToolbar, type ViewPatch } from "./view-toolbar";
 
-function canEditView(
-  view: ViewItem | undefined,
-  role: string | null,
-  personalOwner: boolean,
-): boolean {
-  if (!view) return false;
-  if (view.personal) return personalOwner;
-  if (view.locked) return role === "owner";
-  return role === "owner" || role === "editor";
-}
+/** A table not read yet has no field: one list, the same every time. */
+const NO_COLUMNS: readonly CatalogColumn[] = [];
 
-/** Values a new row takes so it stays visible in a filtered view. */
-function prefillFromFilter(
-  filter: FilterGroup | undefined,
-  columns: readonly CatalogColumn[],
-): Record<string, CellValue> {
-  if (!filter || filter.conjunction !== "and") return {};
-  const values: Record<string, CellValue> = {};
-  for (const node of filter.conditions) {
-    if ("conjunction" in node) continue;
-    const column = columns.find((item) => item.name === node.column);
-    if (!column || !isEditableColumn(column)) continue;
-    if (
-      node.op === "is" &&
-      (typeof node.value === "string" ||
-        typeof node.value === "number" ||
-        typeof node.value === "boolean")
-    ) {
-      values[column.name] = node.value;
-    }
-    if (
-      node.op === "has_any_of" &&
-      Array.isArray(node.value) &&
-      column.fieldType === "multi_select"
-    ) {
-      values[column.name] = node.value.slice(0, 1);
-    }
-  }
-  return values;
-}
-
+/**
+ * A table's page: its header, the toolbar of the view shown, the view
+ * itself, the panel of an open row, and the dialogs they call. What each
+ * part needs is read and written by a hook of its own; this component
+ * gives them to each other.
+ *
+ * It holds no `useMemo` and no `useCallback`: the React Compiler keeps
+ * what it computes from one render to the next, the value the rows and
+ * the cells read from its context among them.
+ */
 export function TableWorkspace({
   baseId,
   tableId,
@@ -147,8 +81,6 @@ export function TableWorkspace({
   rowId?: string;
 }) {
   const { t } = useLingui();
-  const days = useTrashDays();
-  const errorText = useErrorText();
   const { locale } = useLocale();
   const navigate = useNavigate();
   const api = useTRPC();
@@ -159,13 +91,10 @@ export function TableWorkspace({
   const table = base?.tables.find((item) => item.id === tableId);
   const role = table?.role ?? base?.role ?? null;
   const views = useQuery(api.catalog.views.queryOptions({ tableId }));
-  const jobList = useQuery(api.jobs.list.queryOptions({ limit: 20 }));
-  const trackJob = useTrackJob();
-  const { trashed } = useTrashActions();
   const collaborators = useQuery(
     api.catalog.collaborators.queryOptions({ baseId }),
   );
-  const viewList = useMemo(() => views.data?.views ?? [], [views.data]);
+  const viewList = views.data?.views ?? [];
   const activeView = viewList.find((view) => view.id === viewId) ?? viewList[0];
 
   // The home lists the tables a person opened last; a failure there
@@ -192,24 +121,13 @@ export function TableWorkspace({
       });
   }, [viewId, activeView, navigate, baseId, tableId]);
 
-  // Unsaved changes to the view shown; another view starts clean.
-  const [localPatch, setLocalPatch] = useState<ViewPatch>({});
-  const [patchedView, setPatchedView] = useState(activeView?.id);
-  if (patchedView !== activeView?.id) {
-    setPatchedView(activeView?.id);
-    setLocalPatch({});
-  }
-  const config: ViewConfig = useMemo(
-    () =>
-      applyViewConfigPatch(
-        (activeView?.config ?? {}) as never,
-        localPatch as never,
-      ),
-    [activeView?.config, localPatch],
-  );
-  const editableView = canEditView(activeView, role, true);
-  // A client's table is read where it lives, and written only as an
-  // administrator enabled it: editing, adding, and deleting apart.
+  // The view: its settings, its fields in its order, and its rows.
+  const settings = useViewSettings({ tableId, view: activeView, role });
+  const { config } = settings;
+  const patchView = settings.patch;
+  // What the person may do to its rows. A client's table is read where
+  // it lives, and written only as an administrator enabled it: editing,
+  // adding, and deleting apart.
   const external = table?.external ?? null;
   // Fields AnyGridDB added to a client's table are edited even when the
   // client's own fields are read-only (ADR 0032); each field says which.
@@ -222,223 +140,45 @@ export function TableWorkspace({
   // shows when it sorts nothing (ADR 0060); a client's keep its database's.
   const byHand =
     external === null && canWrite(role) && (config.sort?.length ?? 0) === 0;
-
-  // A view's saves go one after another, and a setting is shown as kept
-  // locally until its own save is stored: a quicker second change of the
-  // same setting is neither undone nor saved first.
-  const [queueSave] = useState(saveQueue);
-  const patchView = useCallback(
-    async (patch: ViewPatch) => {
-      setLocalPatch((current) => ({ ...current, ...patch }));
-      if (!activeView || !editableView) return;
-      const viewId = activeView.id;
-      await queueSave(async () => {
-        try {
-          await trpc.catalog.updateView.mutate({ viewId, patch });
-          await queryClient.invalidateQueries({
-            queryKey: api.catalog.views.queryKey({ tableId }),
-          });
-          setLocalPatch((current) => withoutSaved(current, patch));
-        } catch (cause) {
-          toast.error(errorText(cause));
-        }
-      });
-    },
-    [activeView, editableView, queryClient, api, tableId, errorText, queueSave],
-  );
-
   const [search, setSearch] = useState("");
-  // When the last write reached the database: the toolbar says so.
-  const [savedAt, setSavedAt] = useState<Date | null>(null);
-  const [saveStatus, setSaveStatus] = useState<
-    "idle" | "saving" | "saved" | "error"
-  >("idle");
   const viewType = activeView?.viewType ?? "grid";
   const isGrid = viewType === "grid";
   // A phone has no room for a grid's columns: its rows are cards.
   const narrow = useNarrowScreen();
-  const allColumns = useMemo(() => table?.columns ?? [], [table]);
-  const ordered = useMemo(
-    () => orderColumns(allColumns, config.fieldOrder),
-    [allColumns, config.fieldOrder],
-  );
-  const hidden = useMemo(
-    () => new Set(config.hiddenFields ?? []),
-    [config.hiddenFields],
-  );
-  const visible = useMemo(
-    () => visibleColumns(ordered, config.hiddenFields),
-    [ordered, config.hiddenFields],
-  );
-
+  const allColumns = table?.columns ?? NO_COLUMNS;
+  const ordered = orderColumns(allColumns, config.fieldOrder);
+  const visible = visibleColumns(ordered, config.hiddenFields);
   const groupBy = isGrid ? (config.groupBy ?? []) : [];
-  const tintContext = useMemo(
-    () => ({
-      kinds: new Map(visible.map((column) => [column.name, column.kind])),
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      me: session.data?.id,
-    }),
-    [visible, session.data?.id],
+  const tintContext = {
+    kinds: new Map(visible.map((column) => [column.name, column.kind])),
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    me: session.data?.id,
+  };
+  const read = useViewRows({
+    baseId,
+    tableId,
+    view: activeView,
+    config,
+    local: settings.local,
+    search,
+    columns: ordered,
+  });
+  const { rows } = read;
+  const people = new Map<string, Collaborator>(
+    (collaborators.data?.users ?? []).map((person) => [person.id, person]),
   );
-  // A calendar reads the rows of the six weeks it shows, not a first page.
-  const [calendarMonth, setCalendarMonth] = useState(thisMonth);
-  const calendarField =
-    viewType === "calendar" ? calendarStart(ordered, config) : undefined;
-  // A timeline reads the rows whose bars cross the period it shows.
-  const [timelineFocus, setTimelineFocus] = useState(thisMonth);
-  const timelineStart =
-    viewType === "timeline" ? calendarStart(ordered, config)?.name : undefined;
-  const timelineEnd =
-    timelineStart && typeof config.endColumn === "string"
-      ? ordered.find((column) => column.name === config.endColumn)?.name
-      : undefined;
-  const timelineAt = timelineScale(config.timelineScale);
-  // A map reads only the rows that have a place.
-  const mapPlaces =
-    viewType === "map" ? placeColumns(config, ordered) : undefined;
-  const place = mapPlaces?.place;
-  const latitude = mapPlaces?.latitude;
-  const longitude = mapPlaces?.longitude;
-  const scope = useMemo(
-    () =>
-      calendarField
-        ? calendarFilter(calendarField, calendarMonth)
-        : timelineStart
-          ? timelineFilter(
-              timelineStart,
-              timelineEnd,
-              timelinePeriod(timelineFocus, timelineAt),
-            )
-          : placeFilter({ place, latitude, longitude }),
-    [
-      calendarField,
-      calendarMonth,
-      timelineStart,
-      timelineEnd,
-      timelineFocus,
-      timelineAt,
-      place,
-      latitude,
-      longitude,
-    ],
-  );
-  const askedQuery = useMemo(() => {
-    const local =
-      localPatch.filter !== undefined ||
-      localPatch.sort !== undefined ||
-      localPatch.groupBy !== undefined ||
-      localPatch.filtersDisabled !== undefined;
-    const own = config.filtersDisabled ? undefined : config.filter;
-    // The server ANDs a filter it is given with the view's own.
-    const filter = local
-      ? own && scope
-        ? { conjunction: "and" as const, conditions: [own, scope] }
-        : (own ?? scope)
-      : scope;
-    return {
-      viewId: activeView?.id,
-      search: search || undefined,
-      ...(local
-        ? {
-            ignoreViewFilter: true,
-            sort: config.sort,
-            groupBy: config.groupBy,
-          }
-        : {}),
-      ...(filter ? { filter } : {}),
-    };
-  }, [activeView?.id, search, localPatch, config, scope]);
-  // A setting is read with its value kept locally, then saved: the rows
-  // read then stay, and the view keeps its place, as long as what the
-  // read asks for is the same.
-  const asked = readKey({
+  const rowsById = new Map(rows.loadedRows().map((row) => [row.id, row]));
+  const aggregates = useAggregates({
+    tableId,
     viewId: activeView?.id,
     search,
-    filter: config.filtersDisabled ? undefined : config.filter,
-    sort: config.sort,
-    groupBy: config.groupBy,
-    scope,
-  });
-  const [kept, setKept] = useState({ key: asked, query: askedQuery });
-  if (kept.key !== asked) setKept({ key: asked, query: askedQuery });
-  const rowsQuery = kept.key === asked ? kept.query : askedQuery;
-  // A kanban reads its rows grouped by its stack field: each stack is the
-  // rows from where its group starts, read as the stack scrolls.
-  const kanbanStack =
-    viewType === "kanban"
-      ? typeof config.stackColumn === "string"
-        ? config.stackColumn
-        : ordered.find((column) => column.fieldType === "single_select")?.name
-      : undefined;
-  const readQuery = useMemo(
-    () =>
-      kanbanStack
-        ? {
-            ...rowsQuery,
-            groupBy: [{ column: kanbanStack, direction: "asc" as const }],
-          }
-        : rowsQuery,
-    [rowsQuery, kanbanStack],
-  );
-  const layout = isGrid
-    ? groupBy.length > 0
-      ? "grouped"
-      : "pages"
-    : kanbanStack
-      ? "stacks"
-      : viewType === "gallery" || viewType === "timeline"
-        ? "pages"
-        : "onePage";
-  const rows = useRows(tableId, readQuery, layout);
-  // A calendar shows a page of rows; its days count every row, as the
-  // database groups them.
-  const stackName =
-    calendarField?.kind === "date" ? calendarField.name : undefined;
-  const stackCounts = useQuery({
-    ...api.rows.read.queryOptions({
-      ...rowsQuery,
-      tableId,
-      offset: 0,
-      limit: 1,
-      withTotal: false,
-      groupBy: [{ column: stackName ?? "", direction: "asc" }],
-    }),
-    enabled: stackName !== undefined,
-  });
-  const counts = useMemo(() => {
-    if (!stackName || !stackCounts.data) return undefined;
-    return new Map(
-      stackCounts.data.groups
-        .filter((group) => group.depth === 1)
-        .map((group) => [
-          typeof group.keys[0] === "string" ? group.keys[0] : "",
-          group.count,
-        ]),
-    );
-  }, [stackName, stackCounts.data]);
-  // A field added, changed, or removed changes what the rows hold: a new
-  // formula's values, a converted field's. Read them again.
-  useChannel(baseId, {
-    message: (message) => {
-      if (message.type === "catalog") rows.refresh();
-    },
-    resync: () => {
-      rows.refresh();
-    },
+    config,
+    columns: allColumns,
+    enabled: isGrid,
+    version: rows.version,
   });
 
-  const people = useMemo(
-    () =>
-      new Map<string, Collaborator>(
-        (collaborators.data?.users ?? []).map((person) => [person.id, person]),
-      ),
-    [collaborators.data],
-  );
-  const rowsById = useMemo(
-    () => new Map(rows.loadedRows().map((row) => [row.id, row])),
-    [rows],
-  );
-
+  // Who else is here, and on which cell.
   const [activeCell, setActiveCell] = useState<{
     rowId?: string;
     column?: string;
@@ -447,511 +187,42 @@ export function TableWorkspace({
     viewId: activeView?.id,
     ...activeCell,
   });
-  const onActiveCell = useCallback(
-    (rowId: string | undefined, column: string | undefined) =>
-      setActiveCell({ rowId, column }),
-    [],
-  );
+  const onActiveCell = (
+    rowId: string | undefined,
+    column: string | undefined,
+  ) => setActiveCell({ rowId, column });
 
-  const aggregations = (config.aggregations ?? {}) as Record<string, string>;
-  const items = Object.entries(aggregations).flatMap(([column, fn]) =>
-    allColumns.some((item) => item.name === column)
-      ? [{ column, fn: fn as never }]
-      : [],
-  );
-  const aggregates = useQuery({
-    ...api.rows.aggregate.queryOptions({
-      tableId,
-      viewId: activeView?.id,
-      search: search || undefined,
-      items,
-    }),
-    enabled: isGrid && items.length > 0 && Boolean(activeView),
+  // The changes the person makes.
+  const reason = useReason(allColumns);
+  const writes = useRowWrites({
+    tableId,
+    columns: allColumns,
+    rows,
+    rowsById,
+    external: external !== null,
+    stacked: read.layout === "stacks",
+    byHand,
+    filter: config.filter,
+    reason,
   });
-  const refetchAggregates = aggregates.refetch;
-  useEffect(() => {
-    if (items.length > 0) void refetchAggregates();
-  }, [rows.version, items.length, refetchAggregates]);
+  const { addRow, deleteRows, duplicateRows, insertRows, moveRows } = writes;
+  useUndoKeys(writes.undo, writes.redo);
 
-  const undo = useUndo();
-  const [reasonAsk, setReasonAsk] = useState<{
-    resolve: (reason: string | false) => void;
-  } | null>(null);
-  // Asks why, when a field touched wants a reason for every change: the
-  // reason, nothing where none is wanted, and `false` when the person
-  // gave none, which gives the change up.
-  const askReason = useCallback(
-    (touched: readonly string[]) =>
-      new Promise<string | undefined | false>((resolve) => {
-        if (
-          !allColumns.some(
-            (column) => column.requireReason && touched.includes(column.name),
-          )
-        ) {
-          resolve(undefined);
-          return;
-        }
-        setReasonAsk({ resolve });
-      }),
-    [allColumns],
-  );
-  // A row deleted or brought back changes every field it holds.
-  const reasonFields = useMemo(
-    () =>
-      allColumns
-        .filter((column) => column.requireReason)
-        .map((column) => column.name),
-    [allColumns],
-  );
-  // The reason of a step undone or redone: given up, the step stays where
-  // it was, to be tried again.
-  const stepReason = useCallback(
-    async (touched: readonly string[]) => {
-      const reason = await askReason(touched);
-      if (reason === false) throw new StepGivenUp();
-      return reason;
-    },
-    [askReason],
-  );
-
-  const updateCells = useCallback<TableContextValue["updateCells"]>(
-    // Named, so its undo entries can call it again.
-    async function update(updates, options) {
-      if (updates.length === 0) return;
-      const byName = new Map(allColumns.map((column) => [column.name, column]));
-      updates = updates.map((update) => ({
-        rowId: update.rowId,
-        values: Object.fromEntries(
-          Object.entries(update.values).map(([key, value]) => [
-            key,
-            toWriteValue(byName.get(key)?.fieldType ?? "text", value),
-          ]),
-        ),
-      }));
-      const touched = [
-        ...new Set(updates.flatMap((update) => Object.keys(update.values))),
-      ];
-      const reason = await askReason(touched);
-      if (reason === false) {
-        if (options?.undoable === false) throw new StepGivenUp();
-        return;
-      }
-      const previous = updates.map((update) => {
-        const row = rowsById.get(update.rowId);
-        return {
-          rowId: update.rowId,
-          values: Object.fromEntries(
-            Object.keys(update.values).map((key) => [
-              key,
-              (row?.[key as keyof RowItem] ?? null) as CellValue,
-            ]),
-          ),
-        };
-      });
-      for (const update of updates)
-        rows.patchLocal(update.rowId, update.values);
-      // Until the save answers, a read made elsewhere may still hold the
-      // rows as they were: it must not put that back under an open editor.
-      const release = rows.holdRows(updates.map((update) => update.rowId));
-      // Kept as soon as it is sent: an undo right away waits for the save.
-      let settle: (applied: boolean) => void = () => undefined;
-      if (options?.undoable !== false) {
-        undo.push({
-          label: t`Edit`,
-          undo: () => update(previous, { undoable: false }),
-          redo: () => update(updates, { undoable: false }),
-          settled: new Promise<boolean>((resolve) => {
-            settle = resolve;
-          }),
-        });
-      }
-      setSaveStatus("saving");
-      try {
-        // A client's table compares what the person saw with what its
-        // row holds now, and refuses the change if it moved (ADR 0006).
-        const sent = updates.map((update, index) =>
-          external
-            ? { ...update, expected: previous[index]?.values ?? {} }
-            : update,
-        );
-        for (let index = 0; index < sent.length; index += 500) {
-          await trpc.rows.updateMany.mutate({
-            tableId,
-            updates: sent.slice(index, index + 500),
-            reason,
-          });
-        }
-        release();
-        // A card moved to another stack moves where every stack starts.
-        if (layout === "stacks") rows.refresh();
-        else void rows.refetchIds(updates.map((update) => update.rowId));
-        setSavedAt(new Date());
-        setSaveStatus("saved");
-        settle(true);
-      } catch (cause) {
-        for (const update of previous)
-          rows.patchLocal(update.rowId, update.values);
-        release();
-        // What the rows hold now, which may not be what was shown.
-        void rows.refetchIds(updates.map((update) => update.rowId));
-        setSaveStatus("error");
-        toast.error(errorText(cause));
-        settle(false);
-      }
-    },
-    [
-      askReason,
-      allColumns,
-      rowsById,
-      rows,
-      tableId,
-      t,
-      undo,
-      errorText,
-      external,
-      layout,
-    ],
-  );
-
-  const setLinks = useCallback<TableContextValue["setLinks"]>(
-    // Named, so its undo entries can call it again.
-    async function link(rowId, column, targetIds, options) {
-      const reason = await askReason([column]);
-      if (reason === false) {
-        if (options?.undoable === false) throw new StepGivenUp();
-        return;
-      }
-      const held = rowsById.get(rowId)?.[column as keyof RowItem];
-      const previous = Array.isArray(held)
-        ? held.flatMap((item: unknown) =>
-            item && typeof item === "object" && "id" in item
-              ? [String(item.id)]
-              : [],
-          )
-        : [];
-      let settle: (applied: boolean) => void = () => undefined;
-      if (options?.undoable !== false) {
-        undo.push({
-          label: t`Edit`,
-          undo: () => link(rowId, column, previous, { undoable: false }),
-          redo: () => link(rowId, column, targetIds, { undoable: false }),
-          settled: new Promise<boolean>((resolve) => {
-            settle = resolve;
-          }),
-        });
-      }
-      try {
-        await trpc.rows.setLinks.mutate({
-          tableId,
-          rowId,
-          column,
-          targetIds,
-          reason,
-        });
-        await rows.refetchIds([rowId]);
-        settle(true);
-      } catch (cause) {
-        toast.error(errorText(cause));
-        settle(false);
-      }
-    },
-    [tableId, rows, rowsById, askReason, errorText, undo, t],
-  );
-
-  // Ctrl Z and Ctrl Y (or Ctrl Shift Z) undo and redo the table's changes
-  // wherever the focus is on its page, a cell's list panel included; text
-  // being typed and dialogs keep their own.
-  const { undo: undoLast, redo: redoLast } = undo;
-  // A step that cannot be undone or redone says why.
-  const runStep = useCallback(
-    (step: () => Promise<unknown>) => {
-      void step().catch((cause: unknown) => toast.error(errorText(cause)));
-    },
-    [errorText],
-  );
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const action = undoShortcut(event);
-      // A list panel copies each key to its active option (untrusted).
-      if (!action || !event.isTrusted || event.defaultPrevented) return;
-      const target = event.target instanceof Element ? event.target : null;
-      if (!tableTakesUndo(target)) return;
-      event.preventDefault();
-      runStep(action === "undo" ? undoLast : redoLast);
-    };
-    // Captured: a list panel stops the keys it gets from bubbling.
-    document.addEventListener("keydown", onKey, true);
-    return () => document.removeEventListener("keydown", onKey, true);
-  }, [undoLast, redoLast, runStep]);
-
-  const insertRows = useCallback(
-    async (
-      list: Array<Record<string, CellValue>>,
-      track = true,
-      place?: RowPlace,
-    ): Promise<string[]> => {
-      try {
-        const reason = await askReason([
-          ...new Set(list.flatMap((values) => Object.keys(values))),
-        ]);
-        if (reason === false) return [];
-        const created = await trpc.rows.insertMany.mutate({
-          tableId,
-          rows: list,
-          reason,
-          place,
-        });
-        rows.refresh();
-        setSavedAt(new Date());
-        setSaveStatus("saved");
-        // A client's row has no trash to come back from: no undo there.
-        if (track && !external) {
-          undo.push({
-            label: t`Insert`,
-            undo: async () => {
-              await trpc.rows.deleteMany.mutate({
-                tableId,
-                rowIds: created.ids,
-                reason: await stepReason(reasonFields),
-              });
-              rows.refresh();
-            },
-            redo: async () => {
-              await trpc.rows.restore.mutate({
-                tableId,
-                rowIds: created.ids,
-                reason: await stepReason(reasonFields),
-              });
-              rows.refresh();
-            },
-          });
-        }
-        return created.ids;
-      } catch (cause) {
-        setSaveStatus("error");
-        toast.error(errorText(cause));
-        return [];
-      }
-    },
-    [
-      tableId,
-      rows,
-      undo,
-      t,
-      askReason,
-      stepReason,
-      reasonFields,
-      errorText,
-      external,
-    ],
-  );
-
-  const deleteRows = useCallback(
-    async (rowIds: string[]) => {
-      if (rowIds.length === 0) return;
-      try {
-        const reason = await askReason(reasonFields);
-        if (reason === false) return;
-        await trpc.rows.deleteMany.mutate({ tableId, rowIds, reason });
-        rows.refresh();
-        setSavedAt(new Date());
-        setSaveStatus("saved");
-        if (external) {
-          // Deleted in the client's database: nothing to restore from.
-          toast.success(
-            plural(rowIds.length, {
-              one: `# row deleted from the client's database`,
-              other: `# rows deleted from the client's database`,
-            }),
-          );
-          return;
-        }
-        toast.success(
-          plural(rowIds.length, {
-            one: "# row deleted",
-            other: "# rows deleted",
-          }),
-          {
-            action: {
-              label: t`Cancel`,
-              onClick: () => {
-                void (async () => {
-                  const back = await askReason(reasonFields);
-                  if (back === false) return;
-                  await trpc.rows.restore.mutate({
-                    tableId,
-                    rowIds,
-                    reason: back,
-                  });
-                  rows.refresh();
-                })().catch((cause: unknown) => toast.error(errorText(cause)));
-              },
-            },
-          },
-        );
-        undo.push({
-          label: t`Delete`,
-          undo: async () => {
-            await trpc.rows.restore.mutate({
-              tableId,
-              rowIds,
-              reason: await stepReason(reasonFields),
-            });
-            rows.refresh();
-          },
-          redo: async () => {
-            await trpc.rows.deleteMany.mutate({
-              tableId,
-              rowIds,
-              reason: await stepReason(reasonFields),
-            });
-            rows.refresh();
-          },
-        });
-      } catch (cause) {
-        setSaveStatus("error");
-        toast.error(errorText(cause));
-      }
-    },
-    [
-      tableId,
-      rows,
-      undo,
-      t,
-      askReason,
-      stepReason,
-      reasonFields,
-      errorText,
-      external,
-    ],
-  );
-
-  const duplicateRows = useCallback(
-    async (rowIds: string[]) => {
-      // The copies go under the last row copied, where rows keep an order
-      // of their own; at the end otherwise.
-      const order = new Map(
-        rows.loadedRows().map((row, index) => [row.id, index]),
-      );
-      const last = [...rowIds].sort(
-        (a, b) => (order.get(a) ?? -1) - (order.get(b) ?? -1),
-      )[rowIds.length - 1];
-      const list = rowIds.flatMap((id) => {
-        const row = rowsById.get(id);
-        if (!row) return [];
-        return [
-          Object.fromEntries(
-            allColumns
-              .filter((column) => isEditableColumn(column))
-              .map((column) => [
-                column.name,
-                (row[column.name as keyof RowItem] ?? null) as CellValue,
-              ]),
-          ),
-        ];
-      });
-      if (list.length > 0) {
-        await insertRows(
-          list,
-          true,
-          byHand && last ? { after: last } : undefined,
-        );
-      }
-    },
-    [rowsById, rows, allColumns, insertRows, byHand],
-  );
-
-  const addRow = useCallback(
-    async (
-      values: Record<string, unknown> = {},
-      place?: RowPlace,
-    ): Promise<string | undefined> => {
-      const ids = await insertRows(
-        [
-          {
-            ...prefillFromFilter(config.filter, allColumns),
-            ...(values as Record<string, CellValue>),
-          },
-        ],
-        true,
-        place,
-      );
-      return ids[0];
-    },
-    [insertRows, config.filter, allColumns],
-  );
-
-  // Rows put beside another by hand; undone by putting them back beside
-  // the row they followed.
-  const moveRows = useCallback(
-    async (rowIds: string[], place: RowPlace, back: RowPlace | null) => {
-      const move = async (to: RowPlace) => {
-        await trpc.rows.move.mutate({ tableId, rowIds, place: to });
-        rows.refresh();
-      };
-      try {
-        await move(place);
-        setSavedAt(new Date());
-        setSaveStatus("saved");
-        if (back) {
-          undo.push({
-            label: t`Move`,
-            undo: () => move(back),
-            redo: () => move(place),
-          });
-        }
-      } catch (cause) {
-        setSaveStatus("error");
-        toast.error(errorText(cause));
-      }
-    },
-    [tableId, rows, undo, t, errorText],
-  );
-
-  const [recordId, setRecordId] = useState<string | null>(rowId ?? null);
-  const openRecord = useCallback((rowId: string) => setRecordId(rowId), []);
+  // The row open in the panel, and a row being added.
+  const loaded = rows.loadedRows();
+  const record = useRecordPanel({
+    tableId,
+    initial: rowId,
+    rowsById,
+    loaded,
+  });
   // A client's table checks a new row as a whole, and a table with a
-  // required field refuses an empty one: the row is filled first. Any other
-  // row of AnyGridDB's own starts empty, in its record panel.
+  // required field refuses an empty one: the row is filled first.
   const fillFirst =
     external !== null || allColumns.some((column) => column.required);
-  const [newRowValues, setNewRowValues] = useState<Record<
-    string,
-    unknown
-  > | null>(null);
-  // Where the row being filled goes, when it was asked for above or below
-  // another.
-  const [newRowPlace, setNewRowPlace] = useState<RowPlace | undefined>();
-  const newRow = useCallback(() => {
-    if (fillFirst) {
-      setNewRowValues({});
-      return;
-    }
-    void addRow().then((id) => {
-      if (id) setRecordId(id);
-    });
-  }, [fillFirst, addRow]);
-  const [importOpen, setImportOpen] = useState(false);
-  const addInGrid = useCallback(async () => {
-    if (fillFirst) {
-      setNewRowPlace(undefined);
-      setNewRowValues({});
-      return;
-    }
-    // The new row appears in the grid: that is the confirmation.
-    await addRow();
-  }, [fillFirst, addRow]);
-  const insertBeside = useCallback(
-    async (place: RowPlace) => {
-      if (fillFirst) {
-        setNewRowPlace(place);
-        setNewRowValues({});
-        return;
-      }
-      await addRow({}, place);
-    },
-    [fillFirst, addRow],
-  );
+  const newRow = useNewRow({ fillFirst, addRow, openRecord: record.open });
+
+  // What an empty grid says under its last line.
   const canImport = writable && external === null;
   const hint = emptyTableHint({
     total: rows.total,
@@ -967,52 +238,8 @@ export function TableWorkspace({
       external.synced.at === null &&
       isCopySourceEngine(external.engine),
   });
-  const emptyHint =
-    hint === "nothing-matches" ? (
-      <p className="text-sm text-muted-foreground">
-        {t`No row matches this view's filters or search.`}
-      </p>
-    ) : hint === "copy-pending" ? (
-      <p className="text-sm text-muted-foreground">
-        {t`The copy has not arrived. The table stays empty until then.`}
-      </p>
-    ) : hint === "start" ? (
-      // The grid's own last line adds a row: the hint points to it rather
-      // than offering a second button that does the same.
-      <div className="flex flex-col items-start gap-3">
-        <p className="text-sm font-medium">{t`No rows yet.`}</p>
-        <p className="text-sm text-muted-foreground">
-          {canImport
-            ? t`Add a first row on the line above, or bring the rows of a CSV, Excel, or JSON file.`
-            : t`Add a first row on the line above.`}
-        </p>
-        {canImport ? (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setImportOpen(true)}
-          >
-            <Upload className="h-4 w-4" aria-hidden />
-            {t`Import a file`}
-          </Button>
-        ) : null}
-      </div>
-    ) : null;
-  const recordQuery = useQuery({
-    ...api.rows.get.queryOptions({
-      tableId,
-      rowIds: recordId ? [recordId] : ["00000000-0000-4000-8000-000000000000"],
-    }),
-    enabled: Boolean(recordId) && !rowsById.has(recordId ?? ""),
-  });
-  const recordRow = recordId
-    ? (rowsById.get(recordId) ?? recordQuery.data?.rows[0])
-    : undefined;
-  const loadedOrder = rows.loadedRows();
-  const recordIndex = recordRow
-    ? loadedOrder.findIndex((row) => row.id === recordRow.id)
-    : -1;
 
+  // The dialogs the page opens.
   const [fieldEditor, setFieldEditor] = useState<FieldEditorTarget | null>(
     null,
   );
@@ -1020,61 +247,25 @@ export function TableWorkspace({
   const [filterOpen, setFilterOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
   const [automationsOpen, setAutomationsOpen] = useState(false);
-
-  const invalidateCatalog = () =>
-    queryClient.invalidateQueries({ queryKey: api.catalog.list.queryKey() });
+  const [importOpen, setImportOpen] = useState(false);
+  const fields = useFieldChanges({ tableId, refreshRows: rows.refresh });
+  const exportView = useViewExport({
+    tableId,
+    tableName: table?.name ?? "",
+    viewId: activeView?.id,
+    search,
+  });
 
   function onHeaderAction(action: string, column: CatalogColumn) {
+    const patch = fieldMenuPatch(action, column, { config, visible });
+    if (patch) {
+      // A condition added to the filter opens ready to be filled.
+      void patchView(patch).then(() => {
+        if (action === "filter") setFilterOpen(true);
+      });
+      return;
+    }
     switch (action) {
-      case "sort-asc":
-      case "sort-desc":
-        void patchView({
-          sort: upsertFirstLevel(
-            config.sort ?? [],
-            {
-              column: column.name,
-              direction: action === "sort-asc" ? "asc" : "desc",
-            },
-            MAX_VIEW_SORTS,
-          ),
-        });
-        return;
-      case "group":
-        void patchView({
-          groupBy: upsertFirstLevel(
-            config.groupBy ?? [],
-            { column: column.name, direction: "asc" },
-            MAX_VIEW_GROUPS,
-          ),
-        });
-        return;
-      case "hide":
-        void patchView({ hiddenFields: [...hidden, column.name] });
-        return;
-      case "freeze": {
-        const index = visible.indexOf(column);
-        if (index < 0) return;
-        void patchView({
-          frozenColumns: nextFrozenColumns(
-            config.frozenColumns ?? DEFAULT_FROZEN,
-            index,
-          ),
-        });
-        return;
-      }
-      case "filter": {
-        const current = config.filter ?? {
-          conjunction: "and" as const,
-          conditions: [],
-        };
-        void patchView({
-          filter: {
-            ...current,
-            conditions: [...current.conditions, newCondition(column)],
-          },
-        }).then(() => setFilterOpen(true));
-        return;
-      }
       case "insert-left":
       case "insert-right":
         setFieldEditor({
@@ -1083,67 +274,15 @@ export function TableWorkspace({
         });
         return;
       case "primary":
-        void trpc.catalog.setPrimaryColumn
-          .mutate({ tableId, name: column.name })
-          .then(invalidateCatalog)
-          .catch((cause: unknown) => toast.error(errorText(cause)));
+        fields.makePrimary(column);
         return;
       case "duplicate":
-        void trpc.catalog.duplicateColumn
-          .mutate({ tableId, name: column.name })
-          .then(async (created) => {
-            await invalidateCatalog();
-            rows.refresh();
-            if (created.skipped > 0) {
-              toast.warning(
-                plural(created.skipped, {
-                  one: "# locked row was not copied",
-                  other: "# locked rows were not copied",
-                }),
-              );
-            }
-          })
-          .catch((cause: unknown) => toast.error(errorText(cause)));
+        fields.duplicate(column);
         return;
       case "delete":
         setDeleteColumn(column);
         return;
     }
-  }
-
-  async function exportView(format: "csv" | "json" | "xlsx") {
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (jobList.data?.exportFiles) {
-      // Large views take a while: the file is built by a job, then downloaded.
-      let jobId: string;
-      try {
-        ({ jobId } = await trpc.jobs.startExport.mutate({
-          tableId,
-          viewId: activeView?.id,
-          format,
-          search: search || undefined,
-          timeZone,
-        }));
-      } catch (cause) {
-        toast.error(errorText(cause));
-        return;
-      }
-      const job = await trackJob(jobId, {
-        label: t`Exporting ${{ table: table?.name ?? "" }}…`,
-        onDone: () => ({ message: t`Export ready` }),
-      });
-      if (job.status === "done" && job.download) downloadJobFile(job.id);
-      return;
-    }
-    const query = new URLSearchParams({ format });
-    if (activeView?.id) query.set("viewId", activeView.id);
-    if (search) query.set("search", search);
-    query.set("timeZone", timeZone);
-    // The API answers with an attachment, so the page stays where it is.
-    const link = document.createElement("a");
-    link.href = `/api/export/${tableId}?${query.toString()}`;
-    link.rel = "noopener";
-    link.click();
   }
 
   if (!catalog.data || !views.data) {
@@ -1183,15 +322,18 @@ export function TableWorkspace({
     people,
     locale,
     search,
-    updateCells,
-    setLinks,
-    openRecord,
+    updateCells: (updates) => writes.updateCells(updates),
+    setLinks: (row, column, targetIds) =>
+      writes.setLinks(row, column, targetIds),
+    openRecord: record.open,
     rowsById,
-    saveStatus,
+    saveStatus: writes.saveStatus,
   };
 
+  const tintOf = (row: RowItem) =>
+    resolveRowTint(row, visible, config.color, tintContext);
   const viewProps = {
-    rows: loadedOrder,
+    rows: loaded,
     total: rows.total,
     rowAt: rows.rowAt,
     ensure: rows.ensure,
@@ -1202,106 +344,33 @@ export function TableWorkspace({
     onPatch: (patch: ViewPatch) => void patchView(patch),
     // A form fills its own fields; a card or a day added elsewhere opens
     // the new row with what it already knows.
-    onCreate: (values: Record<string, unknown>) => {
-      if (fillFirst && viewType !== "form") {
-        setNewRowValues(values);
-        return Promise.resolve(undefined);
-      }
-      return addRow(values);
-    },
-    tintOf: (row: RowItem) =>
-      resolveRowTint(row, visible, config.color, tintContext),
+    onCreate:
+      viewType === "form"
+        ? (values: Record<string, unknown>) => addRow(values)
+        : newRow.addWith,
+    tintOf,
     ...(byHand ? { onMoveRows: moveRows } : {}),
     groups: rows.groups,
-    ...(counts ? { counts } : {}),
+    ...(read.counts ? { counts: read.counts } : {}),
     ...(canManage(role) && !external
       ? { onOpenFieldEditor: () => setFieldEditor({ mode: "create" }) }
       : {}),
   };
+  const openRow = record.row;
 
   return (
     <TableContext.Provider value={contextValue}>
       <div className="flex min-h-0 flex-1 flex-col">
-        {/* One line: the table, where it lives, its views, who is here. */}
-        <header className="flex h-11 shrink-0 items-center gap-3 border-b border-border bg-card pr-2 pl-4">
-          <div className="flex min-w-0 shrink-0 items-center gap-2">
-            <h1 className="max-w-64 truncate text-base font-semibold">
-              {table.name}
-            </h1>
-            {table.external ? (
-              // A client's table (ADR 0006): its name in the database, always in view.
-              <Tooltip content={ENGINE_NAMES[table.external.engine]}>
-                <span
-                  tabIndex={0}
-                  className="inline-flex h-[22px] max-w-56 items-center gap-1.5 rounded-md border border-border bg-background px-2 font-mono text-xs text-muted-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring"
-                >
-                  <EngineMark
-                    engine={table.external.engine}
-                    className="h-3.5 w-3.5"
-                    title={ENGINE_MARKS[table.external.engine].label}
-                  />
-                  <span className="truncate">
-                    {table.external.schema}.{table.external.name}
-                  </span>
-                </span>
-              </Tooltip>
-            ) : null}
-          </div>
-          <ViewTabs
-            baseId={baseId}
-            tableId={tableId}
-            views={viewList}
-            activeId={activeView?.id}
-            role={role}
-            userCanEditView={(view) => canEditView(view, role, true)}
-            onChanged={() =>
-              queryClient.invalidateQueries({
-                queryKey: api.catalog.views.queryKey({ tableId }),
-              })
-            }
-            onCreated={(view) =>
-              void navigate({
-                to: "/b/$baseId/t/$tableId/{-$viewId}",
-                params: { baseId: baseId, tableId: tableId, viewId: view.id },
-              })
-            }
-            className="flex-1 self-stretch"
-          />
-          <div
-            role="group"
-            className="flex shrink-0 -space-x-1.5"
-            aria-label={t`People here`}
-          >
-            {presence.slice(0, 6).map((peer) => (
-              <Tooltip key={peer.userId} content={peer.name}>
-                <span
-                  role="img"
-                  aria-label={peer.name}
-                  tabIndex={0}
-                  className="rounded-full ring-2 ring-card outline-none focus-visible:ring-ring"
-                >
-                  <Avatar name={peer.name} />
-                </span>
-              </Tooltip>
-            ))}
-          </div>
-        </header>
-        {table.external?.synced ? (
-          // Read from a copy (ADR 0034): say how fresh it is.
-          <p
-            role="note"
-            className="border-b border-border bg-head px-4 py-1 text-xs text-muted-foreground"
-          >
-            {table.external.synced.at
-              ? t`Copy of the client's database from ${{
-                  date: new Date(table.external.synced.at).toLocaleString(
-                    locale === "fr" ? "fr-FR" : "en-GB",
-                  ),
-                }}, refreshed every ${{ minutes: table.external.synced.intervalMinutes }} min: read-only`
-              : isCopySourceEngine(table.external.engine)
-                ? t`The copy has not arrived. The table stays empty until then.`
-                : t`Copy in preparation: the table is read live until then`}
-          </p>
+        <TableHeader
+          baseId={baseId}
+          table={table}
+          views={viewList}
+          activeId={activeView?.id}
+          role={role}
+          presence={presence}
+        />
+        {table.external ? (
+          <CopyNote external={table.external} locale={locale} />
         ) : null}
         <ViewToolbar
           config={config}
@@ -1314,38 +383,28 @@ export function TableWorkspace({
           // Imports, the row trash, and automations stay with AnyGridDB's
           // own tables for now.
           canEdit={writable && !external}
-          canUndo={undo.canUndo}
-          canRedo={undo.canRedo}
-          onUndo={() => runStep(undo.undo)}
-          onRedo={() => runStep(undo.redo)}
+          canUndo={writes.canUndo}
+          canRedo={writes.canRedo}
+          onUndo={writes.undo}
+          onRedo={writes.redo}
           onExport={exportView}
           onImport={() => setImportOpen(true)}
           onTrash={() => setTrashOpen(true)}
           onAutomations={
             canManage(role) ? () => setAutomationsOpen(true) : undefined
           }
-          onNewRow={canAdd ? newRow : undefined}
+          onNewRow={canAdd ? newRow.addAndOpen : undefined}
           gridOnly={isGrid}
           filterOpen={filterOpen}
           onFilterOpen={setFilterOpen}
-          savedAt={savedAt}
-          saveStatus={saveStatus}
+          savedAt={writes.savedAt}
+          saveStatus={writes.saveStatus}
         />
-        {typeof config.description === "string" && config.description ? (
-          <p
-            className="border-b border-border px-4 py-1.5 text-sm whitespace-pre-line text-muted-foreground"
-            aria-label={t`View description`}
-          >
-            {config.description}
-          </p>
-        ) : null}
-        {!editableView && activeView ? (
-          <p className="border-b border-border bg-accent/40 px-4 py-1 text-xs text-muted-foreground">
-            {activeView.locked
-              ? t`Locked view: your settings stay local.`
-              : t`Your view settings stay local.`}
-          </p>
-        ) : null}
+        <ViewNotes
+          view={activeView}
+          description={config.description}
+          editable={settings.editable}
+        />
         {isGrid && rows.total > 0 ? <GridTips canEdit={writable} /> : null}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -1359,27 +418,33 @@ export function TableWorkspace({
                 frozen={config.frozenColumns ?? DEFAULT_FROZEN}
                 rowHeight={config.rowHeight ?? "short"}
                 groupBy={groupBy}
-                tintOf={(row) =>
-                  resolveRowTint(row, visible, config.color, tintContext)
-                }
+                tintOf={tintOf}
                 canEdit={writable}
                 canAdd={canAdd}
                 canDelete={canDelete}
                 canManage={canManage(role)}
-                aggregations={aggregations}
-                aggregateValues={aggregates.data?.values}
+                aggregations={aggregates.aggregations}
+                aggregateValues={aggregates.values}
                 presence={presence.filter(
                   (peer) => peer.viewId === activeView?.id,
                 )}
                 onActiveCell={onActiveCell}
-                onAddRow={addInGrid}
-                emptyHint={emptyHint}
+                onAddRow={newRow.addInGrid}
+                emptyHint={
+                  hint ? (
+                    <EmptyTableHint
+                      hint={hint}
+                      canImport={canImport}
+                      onImport={() => setImportOpen(true)}
+                    />
+                  ) : null
+                }
                 onInsertRows={async (list) => {
                   await insertRows(list);
                 }}
                 onDeleteRows={deleteRows}
                 onDuplicateRows={duplicateRows}
-                onInsertBeside={byHand && canAdd ? insertBeside : undefined}
+                onInsertBeside={byHand && canAdd ? newRow.addBeside : undefined}
                 onMoveRows={byHand ? moveRows : undefined}
                 onResize={(column, width) =>
                   void patchView({
@@ -1398,7 +463,7 @@ export function TableWorkspace({
                   void patchView({ fieldOrder: order });
                 }}
                 onAggregate={(column, fn) => {
-                  const next = { ...aggregations };
+                  const next = { ...aggregates.aggregations };
                   if (fn) next[column] = fn;
                   else Reflect.deleteProperty(next, column);
                   void patchView({
@@ -1412,9 +477,7 @@ export function TableWorkspace({
                 onEditField={(column) =>
                   setFieldEditor({ mode: "edit", column })
                 }
-                onHeaderAction={(action, column) =>
-                  onHeaderAction(action, column)
-                }
+                onHeaderAction={onHeaderAction}
               />
             ) : rows.error ? (
               <RowsError
@@ -1435,15 +498,15 @@ export function TableWorkspace({
             ) : viewType === "calendar" ? (
               <CalendarView
                 {...viewProps}
-                month={calendarMonth}
-                onMonth={setCalendarMonth}
+                month={read.calendarMonth}
+                onMonth={read.setCalendarMonth}
                 {...(activeView ? { viewId: activeView.id } : {})}
               />
             ) : viewType === "timeline" ? (
               <TimelineView
                 {...viewProps}
-                focus={timelineFocus}
-                onFocus={setTimelineFocus}
+                focus={read.timelineFocus}
+                onFocus={read.setTimelineFocus}
               />
             ) : viewType === "form" ? (
               <FormView {...viewProps} canEdit={canAdd} />
@@ -1451,31 +514,23 @@ export function TableWorkspace({
               <MapView {...viewProps} />
             )}
           </div>
-          {recordRow ? (
+          {openRow ? (
             <RecordPanel
-              row={recordRow}
+              row={openRow}
               columns={visible}
-              onClose={() => setRecordId(null)}
-              onPrevious={
-                recordIndex > 0
-                  ? () => setRecordId(loadedOrder[recordIndex - 1]?.id ?? null)
-                  : undefined
-              }
-              onNext={
-                recordIndex >= 0 && recordIndex < loadedOrder.length - 1
-                  ? () => setRecordId(loadedOrder[recordIndex + 1]?.id ?? null)
-                  : undefined
-              }
+              onClose={record.close}
+              onPrevious={record.previous}
+              onNext={record.next}
               onDuplicate={
-                canAdd && rowsById.has(recordRow.id)
-                  ? () => void duplicateRows([recordRow.id])
+                canAdd && rowsById.has(openRow.id)
+                  ? () => void duplicateRows([openRow.id])
                   : undefined
               }
               onDelete={
                 canDelete
                   ? () => {
-                      setRecordId(null);
-                      void deleteRows([recordRow.id]);
+                      record.close();
+                      void deleteRows([openRow.id]);
                     }
                   : undefined
               }
@@ -1494,51 +549,13 @@ export function TableWorkspace({
         />
       ) : null}
       {deleteColumn ? (
-        <ConfirmDialog
-          open
-          danger
-          onOpenChange={(open) => !open && setDeleteColumn(null)}
-          title={t`Delete the field “${{ name: deleteColumn.label }}”?`}
-          description={
-            isLinkField(deleteColumn.fieldType)
-              ? t`The field, and its inverse field if any, go to the base's trash for ${{ days }} days with their links.`
-              : t`The field goes to the base's trash for ${{ days }} days with its values.`
-          }
-          confirmLabel={t`Delete`}
-          onConfirm={async () => {
-            const column = deleteColumn;
-            try {
-              await trpc.catalog.deleteColumn.mutate({
-                tableId,
-                name: column.name,
-              });
-              await invalidateCatalog();
-              rows.refresh();
-              trashed(t`Field moved to the trash`, "column", column.id);
-            } catch (cause) {
-              toast.error(errorText(cause));
-            }
-          }}
+        <DeleteFieldDialog
+          column={deleteColumn}
+          onClose={() => setDeleteColumn(null)}
+          onDelete={fields.remove}
         />
       ) : null}
-      {reasonAsk ? (
-        <PromptDialog
-          open
-          onOpenChange={(open) => {
-            if (!open) {
-              reasonAsk.resolve(false);
-              setReasonAsk(null);
-            }
-          }}
-          title={t`Reason for the change`}
-          label={t`This field needs a reason, kept in the audit trail.`}
-          submitLabel={t`Confirm`}
-          onSubmit={(reason) => {
-            reasonAsk.resolve(reason);
-            setReasonAsk(null);
-          }}
-        />
-      ) : null}
+      {reason.asking ? <ReasonDialog onAnswer={reason.answer} /> : null}
       {automationsOpen ? (
         <AutomationsDialog onClose={() => setAutomationsOpen(false)} />
       ) : null}
@@ -1554,139 +571,29 @@ export function TableWorkspace({
             external: table.external !== null,
           }}
           onDone={() => {
-            void invalidateCatalog();
+            void fields.readCatalog();
             rows.refresh();
           }}
         />
       ) : null}
       {trashOpen ? (
-        <TrashDialog
+        <RowTrashDialog
           tableId={tableId}
-          askReason={() => askReason(reasonFields)}
+          askReason={() => reason.ask(reason.everyField)}
           onClose={() => setTrashOpen(false)}
           onRestored={() => rows.refresh()}
         />
       ) : null}
-      {newRowValues ? (
+      {newRow.filling ? (
         <NewRowDialog
           open
           columns={ordered}
           external={external !== null}
-          initial={newRowValues}
-          onClose={() => {
-            setNewRowValues(null);
-            setNewRowPlace(undefined);
-          }}
-          onCreate={(values) => addRow(values, newRowPlace)}
+          initial={newRow.filling}
+          onClose={newRow.stopFilling}
+          onCreate={(values) => addRow(values, newRow.place)}
         />
       ) : null}
     </TableContext.Provider>
-  );
-}
-
-function TrashDialog({
-  tableId,
-  askReason,
-  onClose,
-  onRestored,
-}: {
-  tableId: string;
-  /** Why the rows come back, where a field asks; `false` when not said. */
-  askReason: () => Promise<string | undefined | false>;
-  onClose: () => void;
-  onRestored: () => void;
-}) {
-  const { t } = useLingui();
-  const errorText = useErrorText();
-  const api = useTRPC();
-  const queryClient = useQueryClient();
-  const trash = useQuery(api.rows.trash.queryOptions({ tableId, limit: 100 }));
-  const [picked, setPicked] = useState<Set<string>>(new Set());
-  const busy = useRef(false);
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        title={t`Row trash`}
-        description={
-          trash.data?.own
-            ? t`The rows you deleted come back as drafts, with their original number. Rows others deleted are not listed here.`
-            : t`Deleted rows come back as drafts, with their original number.`
-        }
-      >
-        {trash.isLoading ? <Spinner /> : null}
-        {trash.error ? (
-          <p role="alert" className="text-sm text-danger">
-            {errorText(trash.error)}
-          </p>
-        ) : null}
-        <ul className="flex max-h-80 flex-col divide-y divide-border overflow-y-auto">
-          {(trash.data?.rows ?? []).map((item) => (
-            <li key={item.rowId} className="py-1.5 text-sm">
-              {/* The row's name is the box's: a click on either ticks it. */}
-              <label className="flex items-center gap-2">
-                <Checkbox
-                  checked={picked.has(item.rowId)}
-                  onChange={(event) =>
-                    setPicked((current) => {
-                      const next = new Set(current);
-                      if (event.target.checked) next.add(item.rowId);
-                      else next.delete(item.rowId);
-                      return next;
-                    })
-                  }
-                />
-                <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                <span className="text-xs text-muted-foreground">
-                  {item.deletedBy} · {new Date(item.deletedAt).toLocaleString()}
-                </span>
-              </label>
-            </li>
-          ))}
-          {trash.data?.rows.length === 0 ? (
-            <li className="py-4 text-sm text-muted-foreground">
-              {t`The trash is empty.`}
-            </li>
-          ) : null}
-        </ul>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
-            {t`Close`}
-          </Button>
-          <Button
-            disabled={picked.size === 0}
-            onClick={async () => {
-              if (busy.current) return;
-              busy.current = true;
-              try {
-                const reason = await askReason();
-                if (reason === false) return;
-                await trpc.rows.restore.mutate({
-                  tableId,
-                  rowIds: [...picked],
-                  reason,
-                });
-                toast.success(
-                  plural(picked.size, {
-                    one: "# row restored",
-                    other: "# rows restored",
-                  }),
-                );
-                setPicked(new Set());
-                onRestored();
-                await queryClient.invalidateQueries({
-                  queryKey: api.rows.trash.queryKey({ tableId, limit: 100 }),
-                });
-              } catch (cause) {
-                toast.error(errorText(cause));
-              } finally {
-                busy.current = false;
-              }
-            }}
-          >
-            {t`Restore`}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

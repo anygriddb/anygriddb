@@ -326,7 +326,7 @@ msgid "{0, plural, one {# line} other {# lines}}"
 msgstr "{0, plural, one {# ligne} other {# lignes}}"
 
 #. placeholder {0}: created.skipped
-#: components/table/table-workspace.tsx
+#: components/table/use-field-changes.ts
 msgid "{0, plural, one {# locked row was not copied} other {# locked rows were not copied}}"
 msgstr "{0, plural, one {# ligne verrouillée n’a pas été copiée} other {# lignes verrouillées n’ont pas été copiées}}"
 
@@ -378,17 +378,17 @@ msgid "{0, plural, one {# point} other {# points}}"
 msgstr "{0, plural, one {# point} other {# points}}"
 
 #. placeholder {0}: rowIds.length
-#: components/table/table-workspace.tsx
+#: components/table/use-row-writes.ts
 msgid "{0, plural, one {# row deleted from the client's database} other {# rows deleted from the client's database}}"
 msgstr "{0, plural, one {# ligne supprimée de la base du client} other {# lignes supprimées de la base du client}}"
 
 #. placeholder {0}: rowIds.length
-#: components/table/table-workspace.tsx
+#: components/table/use-row-writes.ts
 msgid "{0, plural, one {# row deleted} other {# rows deleted}}"
 msgstr "{0, plural, one {# ligne supprimée} other {# lignes supprimées}}"
 
 #. placeholder {0}: picked.size
-#: components/table/table-workspace.tsx
+#: components/table/row-trash-dialog.tsx
 msgid "{0, plural, one {# row restored} other {# rows restored}}"
 msgstr "{0, plural, one {# ligne restaurée} other {# lignes restaurées}}"
 
@@ -1659,11 +1659,11 @@ msgstr "Ajouter un champ"
 msgid "Add a file"
 msgstr "Ajouter un fichier"
 
-#: components/table/table-workspace.tsx
+#: components/table/empty-table-hint.tsx
 msgid "Add a first row on the line above, or bring the rows of a CSV, Excel, or JSON file."
 msgstr "Ajoutez une première ligne juste au-dessus, ou apportez les lignes d’un fichier CSV, Excel ou JSON."
 
-#: components/table/table-workspace.tsx
+#: components/table/empty-table-hint.tsx
 msgid "Add a first row on the line above."
 msgstr "Ajoutez une première ligne juste au-dessus."
 
@@ -2732,7 +2732,7 @@ msgstr "Appelle l’adresse push d’un moniteur Uptime Kuma, avec l’état up 
 #: components/table/automations-dialog.tsx
 #: components/table/color-rules-editor.tsx
 #: components/table/new-row-dialog.tsx
-#: components/table/table-workspace.tsx
+#: components/table/use-row-writes.ts
 #: lib/jobs.tsx
 #: lib/trash.tsx
 msgid "Cancel"
@@ -3040,7 +3040,7 @@ msgstr "Secret client copié"
 #: components/shell/trash-dialog.tsx
 #: components/table/automations-dialog.tsx
 #: components/table/import-dialog.tsx
-#: components/table/table-workspace.tsx
+#: components/table/row-trash-dialog.tsx
 msgid "Close"
 msgstr "Fermer"
 
@@ -3216,7 +3216,7 @@ msgid "Configured in this page"
 msgstr "Configuré sur cette page"
 
 #: components/admin/step-up.tsx
-#: components/table/table-workspace.tsx
+#: components/table/reason-dialog.tsx
 msgid "Confirm"
 msgstr "Valider"
 
@@ -3326,7 +3326,7 @@ msgstr "Copier ({mod} V pour coller, même depuis un tableur)"
 msgid "Copy in AnyGridDB"
 msgstr "Copie dans AnyGridDB"
 
-#: components/table/table-workspace.tsx
+#: components/table/table-header.tsx
 msgid "Copy in preparation: the table is read live until then"
 msgstr "Copie en préparation : la table est lue en direct d’ici là"
 
@@ -3338,7 +3338,7 @@ msgstr "Copier le lien"
 msgid "Copy of {table}"
 msgstr "Copie de {table}"
 
-#: components/table/table-workspace.tsx
+#: components/table/table-header.tsx
 msgid "Copy of the client's database from {date}, refreshed every {minutes} min: read-only"
 msgstr "Copie de la base du client du {date}, actualisée toutes les {minutes} min : lecture seule"
 
@@ -3736,7 +3736,8 @@ msgstr "suppression"
 #: components/settings/webhooks-panel.tsx
 #: components/shell/sidebar.tsx
 #: components/table/automations-dialog.tsx
-#: components/table/table-workspace.tsx
+#: components/table/delete-field-dialog.tsx
+#: components/table/use-row-writes.ts
 #: components/table/view-tabs.tsx
 msgid "Delete"
 msgstr "Supprimer"
@@ -3815,7 +3816,7 @@ msgstr "Supprimer la table"
 msgid "Delete the base “{name}”?"
 msgstr "Supprimer la base « {name} » ?"
 
-#: components/table/table-workspace.tsx
+#: components/table/delete-field-dialog.tsx
 msgid "Delete the field “{name}”?"
 msgstr "Supprimer le champ « {name} » ?"
 
@@ -3878,7 +3879,7 @@ msgstr "supprimé le {date} par {name}"
 msgid "Deleted permanently"
 msgstr "Supprimé définitivement"
 
-#: components/table/table-workspace.tsx
+#: components/table/row-trash-dialog.tsx
 msgid "Deleted rows come back as drafts, with their original number."
 msgstr "Les lignes supprimées reviennent en brouillon, avec leur numéro d’origine."
 
@@ -4162,7 +4163,7 @@ msgstr "Plus ancienne date"
 #: components/record/record-panel.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/table/automations-dialog.tsx
-#: components/table/table-workspace.tsx
+#: components/table/use-row-writes.ts
 msgid "Edit"
 msgstr "Modifier"
 
@@ -4635,7 +4636,7 @@ msgid "Export of {table}"
 msgstr "Export de {table}"
 
 #: components/settings/base-settings.tsx
-#: components/table/table-workspace.tsx
+#: components/table/use-view-export.ts
 msgid "Export ready"
 msgstr "Export prêt"
 
@@ -4663,7 +4664,7 @@ msgstr "Exporter qui a accès"
 msgid "Export with data"
 msgstr "Exporter avec les données"
 
-#: components/table/table-workspace.tsx
+#: components/table/use-view-export.ts
 msgid "Exporting {table}…"
 msgstr "Export de {table}…"
 
@@ -4746,7 +4747,7 @@ msgstr "Champ"
 msgid "Field {position}"
 msgstr "Champ {position}"
 
-#: components/table/table-workspace.tsx
+#: components/table/use-field-changes.ts
 msgid "Field moved to the trash"
 msgstr "Champ placé dans la corbeille"
 
@@ -5490,7 +5491,7 @@ msgid "Import {name}"
 msgstr "Importer {name}"
 
 #: components/shell/sidebar.tsx
-#: components/table/table-workspace.tsx
+#: components/table/empty-table-hint.tsx
 #: components/table/view-toolbar.tsx
 msgid "Import a file"
 msgstr "Importer un fichier"
@@ -5603,7 +5604,7 @@ msgstr "Hérité ({role})"
 msgid "insert"
 msgstr "ajout"
 
-#: components/table/table-workspace.tsx
+#: components/table/use-row-writes.ts
 msgid "Insert"
 msgstr "Ajout"
 
@@ -6461,7 +6462,7 @@ msgstr "valeur verrouillée {value}"
 msgid "Locked view"
 msgstr "Vue verrouillée"
 
-#: components/table/table-workspace.tsx
+#: components/table/table-header.tsx
 msgid "Locked view: your settings stay local."
 msgstr "Vue verrouillée : vos réglages restent locaux."
 
@@ -6766,7 +6767,7 @@ msgid "More than 20 bases for one person"
 msgstr "Plus de 20 bases pour une personne"
 
 #: components/dashboards/dashboard-board.tsx
-#: components/table/table-workspace.tsx
+#: components/table/use-row-writes.ts
 msgid "Move"
 msgstr "Déplacement"
 
@@ -7384,7 +7385,7 @@ msgstr "Aucun rôle sur la piste pour cette personne à cette date."
 msgid "No row"
 msgstr "Ligne introuvable"
 
-#: components/table/table-workspace.tsx
+#: components/table/empty-table-hint.tsx
 msgid "No row matches this view's filters or search."
 msgstr "Aucune ligne ne correspond aux filtres ou à la recherche de cette vue."
 
@@ -7392,7 +7393,7 @@ msgstr "Aucune ligne ne correspond aux filtres ou à la recherche de cette vue."
 msgid "No rows in this period."
 msgstr "Aucune ligne sur cette période."
 
-#: components/table/table-workspace.tsx
+#: components/table/empty-table-hint.tsx
 msgid "No rows yet."
 msgstr "Aucune ligne pour l’instant."
 
@@ -8115,7 +8116,7 @@ msgstr "Personnes"
 msgid "people carried over as text (name and address)"
 msgstr "personnes reprises en texte (nom et adresse)"
 
-#: components/table/table-workspace.tsx
+#: components/table/table-header.tsx
 msgid "People here"
 msgstr "Personnes présentes"
 
@@ -8548,7 +8549,7 @@ msgid "Reason"
 msgstr "Motif"
 
 #: components/table/import-dialog.tsx
-#: components/table/table-workspace.tsx
+#: components/table/reason-dialog.tsx
 msgid "Reason for the change"
 msgstr "Motif de la modification"
 
@@ -8970,7 +8971,7 @@ msgstr "REST sur {url}. Authentifiez-vous avec un jeton : Authorization: Bearer
 #: components/admin/bases-tab.tsx
 #: components/shell/trash-dialog.tsx
 #: components/shell/trashed-bases.tsx
-#: components/table/table-workspace.tsx
+#: components/table/row-trash-dialog.tsx
 msgid "Restore"
 msgstr "Restaurer"
 
@@ -9243,7 +9244,7 @@ msgstr "Statut de la ligne"
 msgid "Row title"
 msgstr "Titre de la ligne"
 
-#: components/table/table-workspace.tsx
+#: components/table/row-trash-dialog.tsx
 #: components/table/view-toolbar.tsx
 msgid "Row trash"
 msgstr "Corbeille des lignes"
@@ -10857,7 +10858,8 @@ msgstr "Le code par email est désactivé"
 msgid "The code could not be sent: try again in a minute, or use a backup code"
 msgstr "Le code n’a pas pu être envoyé : réessayez dans une minute, ou utilisez un code de secours"
 
-#: components/table/table-workspace.tsx
+#: components/table/empty-table-hint.tsx
+#: components/table/table-header.tsx
 msgid "The copy has not arrived. The table stays empty until then."
 msgstr "La copie n’est pas encore arrivée. La table reste vide jusqu’alors."
 
@@ -10894,11 +10896,11 @@ msgstr "Le jour de la semaine, de 0 (dimanche) à 6 (samedi)."
 msgid "The false value."
 msgstr "La valeur fausse."
 
-#: components/table/table-workspace.tsx
+#: components/table/delete-field-dialog.tsx
 msgid "The field goes to the base's trash for {days} days with its values."
 msgstr "Le champ va dans la corbeille de la base pendant {days} jours, avec ses valeurs."
 
-#: components/table/table-workspace.tsx
+#: components/table/delete-field-dialog.tsx
 msgid "The field, and its inverse field if any, go to the base's trash for {days} days with their links."
 msgstr "Le champ et son champ inverse éventuel vont dans la corbeille de la base pendant {days} jours, avec leurs liens."
 
@@ -11227,7 +11229,7 @@ msgstr "Les lignes d’une table de cette base, nommée comme ici : 100 à la f
 msgid "The rows that match a filter"
 msgstr "Les lignes qui correspondent à un filtre"
 
-#: components/table/table-workspace.tsx
+#: components/table/row-trash-dialog.tsx
 msgid "The rows you deleted come back as drafts, with their original number. Rows others deleted are not listed here."
 msgstr "Les lignes que vous avez supprimées reviennent en brouillon, avec leur numéro d’origine. Celles supprimées par d’autres n’apparaissent pas ici."
 
@@ -11368,7 +11370,7 @@ msgid "The trail was purged before that date."
 msgstr "La piste a été purgée avant cette date."
 
 #: components/shell/trash-dialog.tsx
-#: components/table/table-workspace.tsx
+#: components/table/row-trash-dialog.tsx
 msgid "The trash is empty."
 msgstr "La corbeille est vide."
 
@@ -11654,7 +11656,7 @@ msgstr "Ce champ est conservé dans AnyGridDB : sur une table client lue en dir
 msgid "This field is read-only"
 msgstr "Ce champ est en lecture seule"
 
-#: components/table/table-workspace.tsx
+#: components/table/reason-dialog.tsx
 msgid "This field needs a reason, kept in the audit trail."
 msgstr "Ce champ exige un motif, conservé dans l’audit."
 
@@ -12600,7 +12602,7 @@ msgstr "Actions de la vue"
 msgid "View as"
 msgstr "Voir en tant que"
 
-#: components/table/table-workspace.tsx
+#: components/table/table-header.tsx
 msgid "View description"
 msgstr "Description de la vue"
 
@@ -13125,7 +13127,7 @@ msgstr "Votre signature vous engage : saisissez de nouveau votre mot de passe."
 msgid "Your SQL tables, read and written like a page of a notebook."
 msgstr "Vos tables SQL, lues et écrites comme une page de cahier."
 
-#: components/table/table-workspace.tsx
+#: components/table/table-header.tsx
 msgid "Your view settings stay local."
 msgstr "Vos réglages de vue restent locaux."
 

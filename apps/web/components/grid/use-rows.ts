@@ -20,7 +20,7 @@ const MAX_ROWS_PER_READ = 500;
 
 type ReadInput = RouterInputs["rows"]["read"];
 
-type RowsQuery = Omit<
+export type RowsQuery = Omit<
   ReadInput,
   "offset" | "limit" | "tableId" | "timeZone" | "withGroups"
 >;
@@ -40,7 +40,7 @@ export type Groups = Array<{
  * where every stack starts (a kanban); or one page of up to 1000 rows
  * (the views that lay out what they hold on the client).
  */
-type RowsLayout = "pages" | "grouped" | "stacks" | "onePage";
+export type RowsLayout = "pages" | "grouped" | "stacks" | "onePage";
 
 /** What rendering reads; a new object whenever a loaded row changes. */
 type Snapshot = {
