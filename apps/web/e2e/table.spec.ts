@@ -247,6 +247,30 @@ test.describe("a table's rows", () => {
     const amounts = cells(page, "amount");
     const grid = page.getByRole("grid");
 
+    // A change to a value someone else changed meanwhile is refused. The
+    // editor opens on "Charlie"; by the time its change is sent, the row
+    // holds "Delta". The page says so and shows what the row holds; made
+    // again on that, the change is taken.
+    const charlieId = await firstRowId(page, "Charlie");
+    await names.nth(2).click();
+    await page.keyboard.press("F2");
+    const nameEditor = page.getByRole("textbox", { name: "Name" });
+    await expect(nameEditor).toHaveValue("Charlie");
+    await send(page, "rows.updateMany", {
+      tableId: tableIdOf(page),
+      updates: [{ rowId: charlieId, values: { name: "Delta" } }],
+    });
+    await nameEditor.fill("Echo");
+    await page.keyboard.press("Enter");
+    await expect(page.getByText(/^Someone changed this value/)).toBeVisible();
+    await expect(names).toHaveText(["Bravo", "Alpha", "Delta"]);
+    await names.nth(2).click();
+    await page.keyboard.press("F2");
+    await expect(nameEditor).toHaveValue("Delta");
+    await nameEditor.fill("Charlie");
+    await page.keyboard.press("Enter");
+    await expect(names).toHaveText(["Bravo", "Alpha", "Charlie"]);
+
     // A summary under a field.
     await grid.getByRole("button", { name: "Summary of Amount" }).click();
     await page.getByRole("menuitem", { name: "Sum", exact: true }).click();

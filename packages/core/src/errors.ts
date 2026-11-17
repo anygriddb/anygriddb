@@ -271,6 +271,7 @@ export const ERRORS = {
   source_copy_too_large: [BAD, "Table too large to copy"],
   source_copy_only: [BAD, "This source is read from a copy only"],
   source_conflict: [409, "Row changed in the source since it was read"],
+  row_conflict: [409, "Value changed since it was read"],
   revert_stale: [409, "Changed since it was shown"],
   revert_unavailable: [400, "This cannot be put back"],
   revert_file_gone: [400, "A file from that version is gone"],

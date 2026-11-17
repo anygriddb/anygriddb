@@ -27,6 +27,12 @@ first.
 - The options of a list are put in order from the field's dialog: each
   moves a place up or down. A cell offers them in that order, and a
   kanban lays its stacks out in it.
+- A change to a value someone else changed meanwhile is refused, on
+  AnyGridDB's own tables as on a client's: the page says so and shows
+  what the row holds. Two people changing different fields of a row are
+  not stopped. Through the API, an update that sends `expected` is
+  compared the same way and answers 409 `row_conflict`; one that does
+  not is written as before (ADR 0103).
 
 ### Fixed
 

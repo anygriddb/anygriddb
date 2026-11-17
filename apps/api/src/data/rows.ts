@@ -31,6 +31,7 @@ import {
   quoteIdent,
   type ReadSpec,
   type RowPlace,
+  sameAsSeen,
   sameCell,
   placeTarget,
   type WriteColumn,
@@ -774,6 +775,12 @@ export async function updateRows(
     rowId: string;
     values: Readonly<Record<string, CellValue>>;
     /**
+     * What the writer saw in the fields they change, as a read gave them:
+     * the locked row must still read the same, or nothing is written
+     * (ADR 0103).
+     */
+    expected?: Readonly<Record<string, CellValue>> | undefined;
+    /**
      * What the row must still hold, set by the server when a value is put
      * back: the locked row must match, or nothing is written (ADR 0089).
      */
@@ -832,11 +839,66 @@ export async function updateRows(
         }
       }
     }
+    await assertAsSeen(tx, engine, updates);
     for (const item of statements) {
       readId(await runRows(tx, item.statement));
     }
   });
   return statements.map((item) => item.rowId);
+}
+
+/**
+ * Refuses a write whose author saw something else in a field they change.
+ * The rows are locked: they are read again through the read engine, as the
+ * author's page read them, and compared field by field. Two writers of
+ * different fields of one row do not meet. Only the fields written are
+ * compared, which the author may read: what they claim to have seen in
+ * another field is not looked at, so a guess learns nothing.
+ */
+async function assertAsSeen(
+  tx: AuditTx,
+  engine: EngineCatalog,
+  updates: ReadonlyArray<{
+    rowId: string;
+    values: Readonly<Record<string, CellValue>>;
+    expected?: Readonly<Record<string, CellValue>> | undefined;
+  }>,
+): Promise<void> {
+  const compared = updates.flatMap((update) => {
+    const seen = update.expected;
+    if (!seen) return [];
+    const names = Object.keys(update.values).filter((name) =>
+      Object.hasOwn(seen, name),
+    );
+    return names.length > 0 ? [{ rowId: update.rowId, seen, names }] : [];
+  });
+  if (compared.length === 0) return;
+  const fields = [...new Set(compared.flatMap((item) => item.names))];
+  const rowIds = [...new Set(compared.map((item) => item.rowId))];
+  const current = new Map<string, RowRecord>();
+  for (let index = 0; index < rowIds.length; index += MAX_READ_LIMIT) {
+    const chunk = rowIds.slice(index, index + MAX_READ_LIMIT);
+    const rows = (await runRows(
+      tx,
+      buildReadRows(engine, {
+        rowIds: chunk,
+        limit: chunk.length,
+        timeZone: "UTC",
+        fields,
+      }),
+    )) as RowRecord[];
+    for (const row of rows) current.set(row.id.toLowerCase(), row);
+  }
+  for (const item of compared) {
+    const row = current.get(item.rowId.toLowerCase());
+    if (!row) throw new AppError("no_row");
+    for (const name of item.names) {
+      const column = engine.table.columns.find((entry) => entry.name === name);
+      if (!column) throw new AppError("unknown_column", name);
+      if (sameAsSeen(column.fieldType, row[name], item.seen[name])) continue;
+      throw new AppError("row_conflict", column.label);
+    }
+  }
 }
 
 /**

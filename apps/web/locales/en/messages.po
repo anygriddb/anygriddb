@@ -10192,6 +10192,10 @@ msgstr "Slow means one second or more. Figures come from every process writing t
 msgid "Someone"
 msgstr "Someone"
 
+#: lib/errors.ts
+msgid "Someone changed this value while you were changing it: the current value now shows, make your change again if needed"
+msgstr "Someone changed this value while you were changing it: the current value now shows, make your change again if needed"
+
 #: components/admin/account-handoff.tsx
 msgid "Someone who stays becomes an owner of the bases {name} alone owns, and the author of the automations and webhooks {name} made, where they may manage them. {name}'s account and roles are left as they are."
 msgstr "Someone who stays becomes an owner of the bases {name} alone owns, and the author of the automations and webhooks {name} made, where they may manage them. {name}'s account and roles are left as they are."

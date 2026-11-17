@@ -100,9 +100,10 @@ type RowInput = {
 type RowUpdate = RowInput & {
   rowId: string;
   /**
-   * What the writer saw in the fields they change. A client's table
-   * compares it under lock and refuses the write when it moved; AnyGridDB's
-   * own tables do not read it.
+   * What the writer saw in the fields they change. The row is compared
+   * with it under lock, and the write refused when a value moved: on a
+   * client's table (ADR 0028) and on AnyGridDB's own (ADR 0103). A write
+   * that does not say what it saw is not compared.
    */
   expected?: Readonly<Record<string, CellValue>> | undefined;
   /**
@@ -605,6 +606,7 @@ export async function updateRows(
     updates.map((update) => ({
       rowId: update.rowId,
       values: update.values,
+      ...(update.expected ? { expected: update.expected } : {}),
       ...(update.storedNow ? { storedNow: update.storedNow } : {}),
     })),
   );

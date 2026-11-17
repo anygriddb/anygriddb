@@ -15,6 +15,7 @@ import {
   rowCopies,
   touchedFields,
   valuesBefore,
+  valuesSeen,
   writeValues,
   type CellUpdate,
 } from "./row-writes";
@@ -45,10 +46,7 @@ export function useRowWrites(input: {
   columns: readonly CatalogColumn[];
   rows: RowsState;
   rowsById: ReadonlyMap<string, RowItem>;
-  /**
-   * A client's table: a change is checked against what the person saw
-   * (ADR 0006), and a row deleted there has no trash to come back from.
-   */
+  /** A client's table: a row deleted there has no trash to come back from. */
   external: boolean;
   /** A kanban's stacks: a card changed may belong to another stack. */
   stacked: boolean;
@@ -72,13 +70,14 @@ export function useRowWrites(input: {
   /**
    * Shows a change of cells at once and saves it behind. Refused, the rows
    * go back to what they held, and the page says why. Says whether it was
-   * saved.
+   * saved. `seen` is what the person saw in the fields they change.
    */
   const saveCells = useCallback(
     async (
       updates: CellUpdate[],
       previous: CellUpdate[],
       reason: string | undefined,
+      seen: ReadonlyArray<Record<string, CellValue>>,
     ): Promise<boolean> => {
       const rowIds = updates.map((update) => update.rowId);
       for (const update of updates)
@@ -87,13 +86,12 @@ export function useRowWrites(input: {
       // rows as they were: it must not put that back under an open editor.
       const release = rows.holdRows(rowIds);
       setSaveStatus("saving");
-      // A client's table compares what the person saw with what its row
-      // holds now, and refuses the change if it moved (ADR 0006).
-      const sent = updates.map((update, index) =>
-        external
-          ? { ...update, expected: previous[index]?.values ?? {} }
-          : update,
-      );
+      // The server compares what the person saw with what the row holds
+      // now, and refuses the change if a value moved (ADR 0028, ADR 0103).
+      const sent = updates.map((update, index) => ({
+        ...update,
+        expected: seen[index] ?? {},
+      }));
       try {
         for (let index = 0; index < sent.length; index += WRITE_BATCH) {
           await trpc.rows.updateMany.mutate({
@@ -120,18 +118,25 @@ export function useRowWrites(input: {
         return false;
       }
     },
-    [rows, tableId, errorText, external, stacked],
+    [rows, tableId, errorText, stacked],
   );
 
   /**
    * A change of cells undone or redone: written again, with the reason it
-   * needs, and not kept a second time.
+   * needs, and not kept a second time. `left` is what the step it reverses
+   * left in those cells: the write is refused if someone changed them
+   * since, as any change to a value that moved is.
    */
   const replayCells = useCallback(
-    async (given: CellUpdate[]) => {
+    async (given: CellUpdate[], left: CellUpdate[]) => {
       const updates = writeValues(given, columns);
       const reason = await askForStep(touchedFields(updates));
-      await saveCells(updates, valuesBefore(updates, rowsById), reason);
+      await saveCells(
+        updates,
+        valuesBefore(updates, rowsById),
+        reason,
+        valuesSeen(updates, left, columns),
+      );
     },
     [columns, askForStep, saveCells, rowsById],
   );
@@ -147,11 +152,18 @@ export function useRowWrites(input: {
       const saved = deferred<boolean>();
       push({
         label: t`Edit`,
-        undo: () => replayCells(previous),
-        redo: () => replayCells(updates),
+        undo: () => replayCells(previous, updates),
+        redo: () => replayCells(updates, previous),
         settled: saved.promise,
       });
-      saved.resolve(await saveCells(updates, previous, reason));
+      saved.resolve(
+        await saveCells(
+          updates,
+          previous,
+          reason,
+          valuesSeen(given, previous, columns),
+        ),
+      );
     },
     [ask, columns, rowsById, t, push, saveCells, replayCells],
   );

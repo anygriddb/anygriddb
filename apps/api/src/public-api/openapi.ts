@@ -187,15 +187,10 @@ export function buildOpenApi(
             properties: {
               id: recordId,
               fields: { $ref: `#/components/schemas/${schemaName}` },
-              ...(table.external
-                ? {
-                    expected: {
-                      $ref: `#/components/schemas/${schemaName}`,
-                      description:
-                        "What you last read in the fields you change: the update is refused (409, source_conflict) if they changed since",
-                    },
-                  }
-                : {}),
+              expected: {
+                $ref: `#/components/schemas/${schemaName}`,
+                description: `What you last read in the fields you change: the update is refused (409, ${table.external ? "source_conflict" : "row_conflict"}) if they changed since. Left out, the update is not compared`,
+              },
             },
           },
         },

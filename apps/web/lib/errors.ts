@@ -233,6 +233,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   source_copy_too_large: msg`This table has over a million rows: AnyGridDB copies a million at most`,
   source_copy_only: msg`This source is read from a copy only: it takes no write, no field of AnyGridDB's and no read replica`,
   source_conflict: msg`This value changed in the client's database since you read it: the current value now shows, make your change again if needed`,
+  row_conflict: msg`Someone changed this value while you were changing it: the current value now shows, make your change again if needed`,
   revert_stale: msg`This changed since you opened it. The history has been read again.`,
   revert_unavailable: msg`This cannot be put back`,
   revert_file_gone: msg`A file from that version is no longer stored`,

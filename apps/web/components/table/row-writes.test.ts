@@ -6,6 +6,7 @@ import {
   rowCopies,
   touchedFields,
   valuesBefore,
+  valuesSeen,
   writeValues,
 } from "./row-writes";
 
@@ -61,6 +62,49 @@ describe("valuesBefore", () => {
     expect(
       valuesBefore([{ rowId: "r9", values: { name: "Zed" } }], rowsById),
     ).toEqual([{ rowId: "r9", values: { name: null } }]);
+  });
+});
+
+describe("valuesSeen", () => {
+  const typed = [
+    ...columns,
+    { name: "files", fieldType: "attachment", kind: "text", access: "write" },
+    { name: "doc", fieldType: "json", kind: "text", access: "write" },
+  ] as unknown as CatalogColumn[];
+
+  it("takes what the page held, as each field writes it", () => {
+    const seen = valuesSeen(
+      [{ rowId: "r1", values: { files: ["k2"], doc: "{}" } }],
+      [
+        {
+          rowId: "r1",
+          values: {
+            files: [{ key: "k1", name: "a.pdf" }],
+            doc: { a: 1 },
+          } as never,
+        },
+      ],
+      typed,
+    );
+    expect(seen).toEqual([{ files: ["k1"], doc: '{"a":1}' }]);
+  });
+
+  it("takes what an editor showed when it opened over what the page holds", () => {
+    const seen = valuesSeen(
+      [{ rowId: "r1", values: { name: "Grace" }, seen: { name: "Ada" } }],
+      [{ rowId: "r1", values: { name: "Edsger" } }],
+      typed,
+    );
+    expect(seen).toEqual([{ name: "Ada" }]);
+  });
+
+  it("leaves out a value too long to travel", () => {
+    const seen = valuesSeen(
+      [{ rowId: "r1", values: { name: "short" } }],
+      [{ rowId: "r1", values: { name: "x".repeat(20_001) } }],
+      typed,
+    );
+    expect(seen).toEqual([{}]);
   });
 });
 

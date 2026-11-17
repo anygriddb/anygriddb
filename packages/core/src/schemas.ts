@@ -303,8 +303,8 @@ export const moveRowsInputSchema = z.object({
 
 /**
  * A row's id: AnyGridDB's uuid, or a client table's key as text. `expected`
- * holds what the writer saw in the fields it changes: a client's table
- * refuses the write when they moved since (ADR 0006).
+ * holds what the writer saw in the fields it changes: the write is refused
+ * when they moved since (ADR 0028, ADR 0103).
  */
 const rowUpdateSchema = z.object({
   rowId: rowIdSchema,

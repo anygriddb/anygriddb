@@ -266,6 +266,32 @@ describe("row writes through the REST API", () => {
     expect(audited).toHaveLength(120);
   });
 
+  it("refuses an update whose caller read another value than the row holds", async () => {
+    const created = await call("POST", clientsId, {
+      records: [{ fields: { name: "Seen", city: "Lyon" } }],
+    });
+    const id = created.json<{ records: Array<{ id: string }> }>().records[0]
+      ?.id;
+    // The caller read "Lyon"; someone wrote "Nantes" since.
+    await call("PATCH", clientsId, {
+      records: [{ id, fields: { city: "Nantes" } }],
+    });
+    const refused = await call("PATCH", clientsId, {
+      records: [{ id, fields: { city: "Paris" }, expected: { city: "Lyon" } }],
+    });
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json<{ code: string; detail: string }>()).toMatchObject({
+      code: "row_conflict",
+      detail: "City",
+    });
+    const taken = await call("PATCH", clientsId, {
+      records: [
+        { id, fields: { city: "Paris" }, expected: { city: "Nantes" } },
+      ],
+    });
+    expect(taken.statusCode).toBe(200);
+  });
+
   it("refuses a whole update when one of its rows is missing", async () => {
     const created = await call("POST", clientsId, {
       records: [
