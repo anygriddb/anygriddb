@@ -24,6 +24,9 @@ first.
   again, and never given to the script itself (ADR 0101).
 - An automation started by a call to its address can also be run by
   hand, from the list of automations.
+- The options of a list are put in order from the field's dialog: each
+  moves a place up or down. A cell offers them in that order, and a
+  kanban lays its stacks out in it.
 
 ### Fixed
 

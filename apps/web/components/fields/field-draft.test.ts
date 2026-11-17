@@ -7,6 +7,7 @@ import {
   draftOf,
   fieldRequest,
   formulaConfigOf,
+  moveOption,
   typesOffered,
   type FieldDraft,
 } from "./field-draft";
@@ -111,7 +112,7 @@ describe("draftOf", () => {
         table,
         tables,
       ).options,
-    ).toEqual([{ name: "Open", color: "gray", original: "Open" }]);
+    ).toEqual([{ name: "Open", color: "gray", original: "Open", id: "Open" }]);
   });
 });
 
@@ -260,6 +261,35 @@ describe("configOf", () => {
       codeAppearance(fresh({ fieldType: "number", appearance: "qr" })),
     ).toBeNull();
     expect(configOf(fresh({ fieldType: "long_text" }), {})).toEqual({});
+  });
+});
+
+describe("moveOption", () => {
+  const options = [
+    { name: "Open", color: "gray" },
+    { name: "Waiting", color: "red" },
+    { name: "Closed", color: "green" },
+  ];
+  const names = (list: Array<{ name: string }>) =>
+    list.map((item) => item.name);
+
+  it("moves an option a place up or down", () => {
+    expect(names(moveOption(options, 2, -1))).toEqual([
+      "Open",
+      "Closed",
+      "Waiting",
+    ]);
+    expect(names(moveOption(options, 0, 1))).toEqual([
+      "Waiting",
+      "Open",
+      "Closed",
+    ]);
+  });
+
+  it("leaves the order as it is past either end", () => {
+    expect(names(moveOption(options, 0, -1))).toEqual(names(options));
+    expect(names(moveOption(options, 2, 1))).toEqual(names(options));
+    expect(names(moveOption(options, 7, -1))).toEqual(names(options));
   });
 });
 

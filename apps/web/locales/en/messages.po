@@ -6792,6 +6792,14 @@ msgstr "Move {field} up"
 msgid "Move {name}"
 msgstr "Move {name}"
 
+#: components/fields/field-settings.tsx
+msgid "Move {option} down"
+msgstr "Move {option} down"
+
+#: components/fields/field-settings.tsx
+msgid "Move {option} up"
+msgstr "Move {option} up"
+
 #: components/shell/shortcuts-dialog.tsx
 msgid "Move between cells"
 msgstr "Move between cells"
@@ -6800,6 +6808,7 @@ msgstr "Move between cells"
 msgid "Move between cells. With Shift, or by dragging, select several."
 msgstr "Move between cells. With Shift, or by dragging, select several."
 
+#: components/fields/field-settings.tsx
 #: components/shell/sidebar.tsx
 msgid "Move down"
 msgstr "Move down"
@@ -6856,6 +6865,7 @@ msgstr "Move to {name}"
 msgid "Move to the trash"
 msgstr "Move to the trash"
 
+#: components/fields/field-settings.tsx
 #: components/shell/sidebar.tsx
 msgid "Move up"
 msgstr "Move up"
