@@ -62,6 +62,7 @@ export {
 } from "./cell-values";
 
 export { jsonCellText, prettyJson } from "./json-text";
+export { sameAsSeen } from "./seen-cell";
 
 export {
   cellText,

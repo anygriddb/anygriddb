@@ -61,7 +61,7 @@ accepted as the work they decide was done; each carries its own date.
 | [0046](0046-control-plane-enrichment.md)             | Enrichment without a side schema lives in the control plane                             | Accepted (amends 0032)                                     |
 | [0047](0047-oracle-dialect-spike.md)                 | Oracle dialect: thin mode, shipped on the five-engine conformance suite                 | Accepted                                                   |
 | [0048](0048-versions-and-releases.md)                | Versions and releases: SemVer in the root package.json, tags, labelled image            | Accepted                                                   |
-| [0049](0049-realtime-gaps.md)                        | Realtime gaps: every page re-reads what it may have missed; heartbeat                   | Accepted (completes 0009)                                  |
+| [0049](0049-realtime-gaps.md)                        | Realtime gaps: every page re-reads what it may have missed; heartbeat                   | Accepted (completes 0009); amended by 0103                 |
 | [0050](0050-operator-integrations-ui.md)             | Operator integrations (SMTP, OIDC, SAML) in the UI; env as optional bootstrap           | Accepted (amended by 0083 and 0092)                        |
 | [0051](0051-admin-account-erasure.md)                | Administrator-initiated account erasure; comments under the tombstone                   | Erase-when-disabled part superseded by 0059                |
 | [0052](0052-operator-mail.md)                        | Operator mail: plain-text notice to all active or chosen accounts                       | Accepted                                                   |
@@ -115,3 +115,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0100](0100-release-scan-reads-node-packages.md)     | A release is refused on a fixed advisory in a Node.js package too                       | Accepted (amends 0061)                                     |
 | [0101](0101-a-script-calls-an-address.md)            | A script calls an address through the instance, with secrets it never holds             | Accepted (amends 0099)                                     |
 | [0102](0102-more-records-brought-up-to-date.md)      | Seven more records that no longer say what is so                                        | Accepted (amends 0006, 0009, 0012, 0019, 0024, 0026, 0088) |
+| [0103](0103-a-write-compared-with-what-was-seen.md)  | A write to AnyGridDB's own table is compared with what its author saw                   | Accepted                                                   |

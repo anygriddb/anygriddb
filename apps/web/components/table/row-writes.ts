@@ -1,9 +1,19 @@
+import { cellValueSchema } from "@anygriddb/core";
 import { toWriteValue } from "../../lib/format";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { isEditableColumn } from "../grid/grid-clipboard";
 import type { CellValue } from "./table-context";
 
-export type CellUpdate = { rowId: string; values: Record<string, CellValue> };
+export type CellUpdate = {
+  rowId: string;
+  values: Record<string, CellValue>;
+  /**
+   * What the person saw in these fields when they began the change, where
+   * that is not what the page holds now: an editor left open while the row
+   * was read again (ADR 0103).
+   */
+  seen?: Record<string, CellValue>;
+};
 
 /** Each value as its field's type writes it. */
 export function writeValues(
@@ -31,7 +41,7 @@ export function touchedFields(updates: readonly CellUpdate[]): string[] {
 
 /**
  * What the rows hold in the fields an update changes: what undoing it
- * writes back, and what a client's table is asked to still hold.
+ * writes back, and what the server is asked to find still there.
  */
 export function valuesBefore(
   updates: readonly CellUpdate[],
@@ -49,6 +59,43 @@ export function valuesBefore(
       ),
     };
   });
+}
+
+/**
+ * What the person saw in the fields each update changes: what its editor
+ * showed when it opened, else what the page held when they acted. Each
+ * value travels as its field's type writes it, a document as its text. A
+ * value too long to travel is left out: its field is then not compared.
+ */
+export function valuesSeen(
+  given: readonly CellUpdate[],
+  previous: readonly CellUpdate[],
+  columns: readonly CatalogColumn[],
+): Array<Record<string, CellValue>> {
+  const types = new Map(
+    columns.map((column) => [column.name, column.fieldType]),
+  );
+  return given.map((update, index) => {
+    const seen: Record<string, unknown> = {
+      ...previous[index]?.values,
+      ...update.seen,
+    };
+    return Object.fromEntries(
+      Object.entries(seen).flatMap(([key, value]) => {
+        const sent = cellValueSchema.safeParse(
+          asSeen(types.get(key) ?? "text", value),
+        );
+        return sent.success ? [[key, sent.data]] : [];
+      }),
+    );
+  });
+}
+
+function asSeen(fieldType: string, value: unknown): unknown {
+  if (fieldType === "json" && value !== null && typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return toWriteValue(fieldType, value);
 }
 
 /** The ids of the rows a link cell holds. */

@@ -20,9 +20,17 @@ export type TableContextValue = {
   people: ReadonlyMap<string, Collaborator>;
   locale: "fr" | "en";
   search: string;
-  /** Writes cell values. Resolves once the server accepted them. */
+  /**
+   * Writes cell values. Resolves once the server accepted them. `seen` is
+   * what an editor showed when it opened: the write is refused if the
+   * field holds something else by then (ADR 0103).
+   */
   updateCells: (
-    updates: Array<{ rowId: string; values: Record<string, CellValue> }>,
+    updates: Array<{
+      rowId: string;
+      values: Record<string, CellValue>;
+      seen?: Record<string, CellValue>;
+    }>,
   ) => Promise<void>;
   /** Sets a link cell's rows. Resolves once the server took them. */
   setLinks: (

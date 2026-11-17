@@ -67,6 +67,20 @@ type EditorProps = {
   onDone: (move?: Move) => void;
 };
 
+/**
+ * What the cell held when its editor opened: what the person saw, and what
+ * their change is compared with, whatever the page read since (ADR 0103).
+ */
+function useSeenAtOpen(
+  row: RowItem,
+  column: CatalogColumn,
+): Record<string, CellValue> {
+  const [seen] = useState(() => ({
+    [column.name]: (row[column.name as keyof RowItem] ?? null) as CellValue,
+  }));
+  return seen;
+}
+
 function toCellColumn(column: CatalogColumn) {
   return { fieldType: column.fieldType, config: column.config };
 }
@@ -113,6 +127,7 @@ const INLINE_EDITOR_CLASS =
 function InlineEditor({ column, row, initialText, onDone }: EditorProps) {
   const { t } = useLingui();
   const { updateCells } = useTable();
+  const seen = useSeenAtOpen(row, column);
   const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   const pickerRef = useRef<HTMLInputElement>(null);
   const current = row[column.name as keyof RowItem];
@@ -160,7 +175,9 @@ function InlineEditor({ column, row, initialText, onDone }: EditorProps) {
       return;
     }
     onDone(move);
-    await updateCells([{ rowId: row.id, values: { [column.name]: value } }]);
+    await updateCells([
+      { rowId: row.id, values: { [column.name]: value }, seen },
+    ]);
   }
 
   function onKeyDown(event: KeyboardEvent) {
@@ -272,6 +289,7 @@ function InlineEditor({ column, row, initialText, onDone }: EditorProps) {
 function DateEditor({ column, row, initialText, onDone }: EditorProps) {
   const { t } = useLingui();
   const { updateCells, locale } = useTable();
+  const seen = useSeenAtOpen(row, column);
   const withTime = column.fieldType === "datetime";
   const format = dateFormatOf(column);
   const zone = editZone(format);
@@ -331,7 +349,9 @@ function DateEditor({ column, row, initialText, onDone }: EditorProps) {
     const next = fromDateValue(latest.current, withTime);
     onDone(move);
     if (sameDate(current, next, withTime)) return;
-    await updateCells([{ rowId: row.id, values: { [column.name]: next } }]);
+    await updateCells([
+      { rowId: row.id, values: { [column.name]: next }, seen },
+    ]);
   }
 
   return (
@@ -395,6 +415,7 @@ function DateEditor({ column, row, initialText, onDone }: EditorProps) {
 /** A rating: clickable glyphs (icon/colour from the field), arrows, digits. */
 function RatingEditor({ column, row, initialText, onDone }: EditorProps) {
   const { updateCells } = useTable();
+  const seen = useSeenAtOpen(row, column);
   const { max } = ratingVisual(column);
   const current = row[column.name as keyof RowItem];
   const stored = typeof current === "number" ? current : null;
@@ -409,7 +430,9 @@ function RatingEditor({ column, row, initialText, onDone }: EditorProps) {
     committed.current = true;
     onDone(move);
     if (next === stored) return;
-    await updateCells([{ rowId: row.id, values: { [column.name]: next } }]);
+    await updateCells([
+      { rowId: row.id, values: { [column.name]: next }, seen },
+    ]);
   }
 
   return (

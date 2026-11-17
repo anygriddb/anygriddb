@@ -10192,6 +10192,10 @@ msgstr "Lente : une seconde ou plus. Les chiffres viennent de chaque processus 
 msgid "Someone"
 msgstr "Quelqu’un"
 
+#: lib/errors.ts
+msgid "Someone changed this value while you were changing it: the current value now shows, make your change again if needed"
+msgstr "Quelqu’un a modifié cette valeur pendant que vous la changiez : la valeur actuelle s’affiche, refaites la modification si besoin"
+
 #: components/admin/account-handoff.tsx
 msgid "Someone who stays becomes an owner of the bases {name} alone owns, and the author of the automations and webhooks {name} made, where they may manage them. {name}'s account and roles are left as they are."
 msgstr "Une personne qui reste devient propriétaire des bases dont {name} est seul propriétaire, et l’auteur des automatisations et des webhooks créés par {name}, là où elle peut les gérer. Le compte et les rôles de {name} restent tels quels."
