@@ -1,6 +1,6 @@
 # 0016 — Field and row rules are enforced by the read engine
 
-- Status: Implemented
+- Status: Accepted
 - Date: 2026-11-07
 
 ## Context
