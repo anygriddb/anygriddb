@@ -23,14 +23,12 @@ export type TableContextValue = {
   /** Writes cell values. Resolves once the server accepted them. */
   updateCells: (
     updates: Array<{ rowId: string; values: Record<string, CellValue> }>,
-    options?: { undoable?: boolean },
   ) => Promise<void>;
   /** Sets a link cell's rows. Resolves once the server took them. */
   setLinks: (
     rowId: string,
     column: string,
     targetIds: string[],
-    options?: { undoable?: boolean },
   ) => Promise<void>;
   openRecord: (rowId: string) => void;
   rowsById: ReadonlyMap<string, RowItem>;
