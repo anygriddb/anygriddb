@@ -34,6 +34,14 @@ first.
   compared the same way and answers 409 `row_conflict`; one that does
   not is written as before (ADR 0103).
 
+### Removed
+
+- The Redis wire protocol, Cassandra, and Neo4j are no longer read as
+  sources (ADR 0104). **Before upgrading**, an administrator deletes the
+  sources of those engines, in Administration, with the version in
+  place: the upgrade refuses to start while one is declared, and says
+  so. The MongoDB wire protocol and OpenSearch are read as before.
+
 ### Fixed
 
 - The steps of an automation's run are numbered by their place: the

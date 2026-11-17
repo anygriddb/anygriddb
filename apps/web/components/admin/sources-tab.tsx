@@ -530,32 +530,13 @@ function SourceForm(props: {
               ? t`Service name`
               : databaseField === "indices"
                 ? t`Indices`
-                : databaseField === "prefix"
-                  ? t`Key prefix`
-                  : databaseField === "keyspace"
-                    ? t`Keyspace`
-                    : t`Database`}
+                : t`Database`}
         </Label>
         <Input
           id="source-database"
           value={database}
           onChange={(event) => setDatabase(event.target.value)}
         />
-        {engine === "redis" ? (
-          <p className="text-xs text-muted-foreground">
-            {t`Example: shop: reads the keys shop:1 and shop:2, and no other.`}
-          </p>
-        ) : null}
-        {engine === "cassandra" ? (
-          <p className="text-xs text-muted-foreground">
-            {t`A table without a partition key is left out.`}
-          </p>
-        ) : null}
-        {engine === "neo4j" ? (
-          <p className="text-xs text-muted-foreground">
-            {t`A label is a table of nodes. Relationships are not links.`}
-          </p>
-        ) : null}
       </div>
       {sqliteOnly ? (
         <p className="col-span-2 text-xs text-muted-foreground">

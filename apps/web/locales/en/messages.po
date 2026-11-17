@@ -1192,10 +1192,6 @@ msgstr "A group gathers accounts so a base can give them one role. Make a group 
 msgid "A JSON document's value at a path, such as $.client.name or $.lines[0]."
 msgstr "A JSON document's value at a path, such as $.client.name or $.lines[0]."
 
-#: components/admin/sources-tab.tsx
-msgid "A label is a table of nodes. Relationships are not links."
-msgstr "A label is a table of nodes. Relationships are not links."
-
 #: components/views/map-view.tsx
 msgid "A latitude and a longitude"
 msgstr "A latitude and a longitude"
@@ -1389,10 +1385,6 @@ msgstr "A table override replaces the base role either way. Field rights further
 #: lib/errors.ts
 msgid "A table that lives in an external source is not duplicated. Add another table there."
 msgstr "A table that lives in an external source is not duplicated. Add another table there."
-
-#: components/admin/sources-tab.tsx
-msgid "A table without a partition key is left out."
-msgstr "A table without a partition key is left out."
 
 #: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
@@ -4567,10 +4559,6 @@ msgstr "Example"
 msgid "Example:"
 msgstr "Example:"
 
-#: components/admin/sources-tab.tsx
-msgid "Example: shop: reads the keys shop:1 and shop:2, and no other."
-msgstr "Example: shop: reads the keys shop:1 and shop:2, and no other."
-
 #: components/table/import-dialog.tsx
 msgid "Existing rows"
 msgstr "Existing rows"
@@ -6134,18 +6122,10 @@ msgstr "Key"
 msgid "key {key}"
 msgstr "key {key}"
 
-#: components/admin/sources-tab.tsx
-msgid "Key prefix"
-msgstr "Key prefix"
-
 #: components/shell/shortcuts-dialog.tsx
 #: components/shell/user-menu.tsx
 msgid "Keyboard shortcuts"
 msgstr "Keyboard shortcuts"
-
-#: components/admin/sources-tab.tsx
-msgid "Keyspace"
-msgstr "Keyspace"
 
 #: components/admin/support-tab.tsx
 #: components/history/earlier.tsx
