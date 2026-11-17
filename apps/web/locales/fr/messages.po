@@ -2156,6 +2156,10 @@ msgstr "Annonce"
 msgid "Another application is changing this row: try again in a moment"
 msgstr "Une autre application modifie cette ligne : réessayez dans un instant"
 
+#: lib/errors.ts
+msgid "Another row already holds this value, in a field of unique values"
+msgstr "Une autre ligne contient déjà cette valeur, dans un champ à valeurs uniques"
+
 #: components/admin/security-tab.tsx
 msgid "Any address"
 msgstr "Toute adresse"

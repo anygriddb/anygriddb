@@ -222,7 +222,7 @@ test.describe("the field dialog", () => {
     await page.keyboard.type("R1");
     await page.keyboard.press("Enter");
     await expect(
-      page.getByText("Duplicate values prevent uniqueness"),
+      page.getByText(/^Another row already holds this value.*: Ref$/),
     ).toBeVisible();
     await page.reload();
     await expect(cells(page, "ref")).toHaveText(["R1", "R2"]);

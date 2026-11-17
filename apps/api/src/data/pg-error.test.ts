@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { loggedError } from "../logged-error.js";
-import { rethrowAuditError, uniqueViolation } from "./pg-error.js";
+import {
+  rethrowAuditError,
+  uniqueViolation,
+  violatedUnique,
+} from "./pg-error.js";
 import { isUniqueViolation } from "./schema-ops.js";
 
 const unique = () =>
@@ -19,6 +23,25 @@ function thrownBy(error: unknown): unknown {
 }
 
 describe("PostgreSQL errors", () => {
+  it("names the index a unique violation met, through what wraps it", () => {
+    expect(violatedUnique(unique())).toBe("users_email_unique");
+    expect(
+      violatedUnique(new Error("transaction failed", { cause: unique() })),
+    ).toBe("users_email_unique");
+  });
+
+  it("names no index for another failure", () => {
+    expect(
+      violatedUnique(
+        Object.assign(new Error("violates foreign key"), {
+          code: "23503",
+          constraint: "orders_client_fk",
+        }),
+      ),
+    ).toBeUndefined();
+    expect(violatedUnique(new Error("boom"))).toBeUndefined();
+  });
+
   it("lets a unique violation through, for the caller that names it", () => {
     const raised = unique();
     expect(thrownBy(raised)).toBe(raised);

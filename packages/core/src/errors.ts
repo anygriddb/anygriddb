@@ -81,6 +81,7 @@ export const ERRORS = {
   column_is_read_only: [BAD, "Column is read-only"],
   duplicate_column: [BAD, "Duplicate column"],
   duplicate_values: [BAD, "Duplicate values"],
+  value_duplicate: [409, "Value already used in another row"],
   no_columns: [BAD, "No columns"],
   no_tables: [BAD, "No tables"],
   invalid_column: [BAD, "Invalid column"],
