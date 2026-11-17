@@ -41,7 +41,13 @@ import {
   saveSmtp,
   smtpUpdateSchema,
 } from "../integrations/smtp.js";
-import { sendSyslogTest } from "../integrations/syslog.js";
+import {
+  clearSyslog,
+  publicSyslog,
+  saveSyslog,
+  sendSyslogTest,
+  syslogUpdateSchema,
+} from "../integrations/syslog.js";
 import { smtpReady } from "../mail.js";
 import { isLocalGroup, listGroups } from "../scim/groups.js";
 import {
@@ -279,29 +285,36 @@ export const samlRouter = t.router({
 });
 
 /**
- * The syslog collector (ADR 0084), named where the instance is installed:
- * Administration shows where events go and sends one to try it.
+ * The syslog collector (ADR 0084): the one the environment names, else
+ * the one saved here (ADR 0105). Administration shows where events go,
+ * sets it when the environment does not, and sends one to try it.
  */
 export const syslogRouter = t.router({
   get: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
       await requireAdmin(ctx);
-      const collector = ctx.env.SYSLOG;
-      return collector
-        ? {
-            configured: true as const,
-            host: collector.host,
-            port: collector.port,
-            // That one was given, never the certificate itself.
-            ownAuthority: collector.ca !== undefined,
-          }
-        : { configured: false as const };
+      return publicSyslog(ctx.db, ctx.env.SYSLOG);
+    }),
+  ),
+  update: procedure.input(syslogUpdateSchema).mutation(({ ctx, input }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      return saveSyslog(ctx.db, ctx.env.SYSLOG, admin.id, input, {
+        ip: ctx.req.ip,
+      });
+    }),
+  ),
+  clear: procedure.mutation(({ ctx }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      await clearSyslog(ctx.db, admin.id, ctx.req.ip);
+      return { ok: true as const };
     }),
   ),
   test: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
-      await sendSyslogTest(ctx.env.SYSLOG, admin.id);
+      await sendSyslogTest(ctx.db, ctx.env.SYSLOG, admin.id);
       return { ok: true as const };
     }),
   ),

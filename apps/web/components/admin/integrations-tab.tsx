@@ -711,14 +711,19 @@ function SamlSection() {
 }
 
 /**
- * The syslog collector (ADR 0084): named where the instance is installed,
- * read here, and tried from here.
+ * The syslog collector (ADR 0084): the one the instance's environment
+ * names, shown here, else the one saved here (ADR 0105).
  */
 function SyslogSection() {
   const { t } = useLingui();
   const errorText = useErrorText();
   const api = useTRPC();
+  const queryClient = useQueryClient();
   const syslog = useQuery(api.admin.syslog.get.queryOptions());
+  const [host, setHost] = useState<string | null>(null);
+  const [port, setPort] = useState<string | null>(null);
+  const [authority, setAuthority] = useState("");
+  const [clearAsk, setClearAsk] = useState(false);
   const [busy, setBusy] = useState(false);
 
   if (syslog.isError) {
@@ -727,53 +732,166 @@ function SyslogSection() {
     );
   }
   if (!syslog.data) return <Spinner />;
+  const data = syslog.data;
+
+  /** One change at a time; a refusal is said, and the page stays usable. */
+  async function run(change: () => Promise<void>) {
+    setBusy(true);
+    try {
+      await change();
+    } catch (cause) {
+      toast.error(errorText(cause));
+    }
+    setBusy(false);
+  }
+  const refresh = () =>
+    queryClient.invalidateQueries({
+      queryKey: api.admin.syslog.get.queryKey(),
+    });
+  const sendTest = () =>
+    run(async () => {
+      await trpc.admin.syslog.test.mutate();
+      toast.success(t`Test event sent`);
+    });
+  const testButton = (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      disabled={busy}
+      onClick={() => void sendTest()}
+    >
+      {t`Send test event`}
+    </Button>
+  );
+  const clearButton = (
+    <Button
+      type="button"
+      size="sm"
+      variant="ghost"
+      disabled={busy}
+      onClick={() => setClearAsk(true)}
+    >
+      {t`Remove the saved collector`}
+    </Button>
+  );
+  const held = data.configured && data.source === "environment";
+  const savedHost = data.configured && !held ? data.host : "";
+  const savedPort = data.configured && !held ? String(data.port) : "6514";
+  const hostValue = host ?? savedHost;
+  const portValue = port ?? savedPort;
+  const keepsAuthority = data.configured && !held && data.ownAuthority;
 
   return (
     <RuledSection
       title={t`Syslog collector`}
       description={t`The same events, as syslog over TLS, to a collector of your network.`}
     >
-      {syslog.data.configured ? (
+      {data.configured && held ? (
         <HeldByEnvironment
-          saved={false}
+          saved={data.saved}
           values={[
-            [t`Host`, syslog.data.host],
-            [t`Port`, String(syslog.data.port)],
+            [t`Host`, data.host],
+            [t`Port`, String(data.port)],
             [
               t`Certificate verified against`,
-              syslog.data.ownAuthority
+              data.ownAuthority
                 ? t`The system's authorities, and one given with the instance`
                 : t`The system's authorities`,
             ],
           ]}
         >
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={busy}
-            onClick={() =>
-              void (async () => {
-                setBusy(true);
-                try {
-                  await trpc.admin.syslog.test.mutate();
-                  toast.success(t`Test event sent`);
-                } catch (cause) {
-                  toast.error(errorText(cause));
-                } finally {
-                  setBusy(false);
-                }
-              })()
-            }
-          >
-            {t`Send test event`}
-          </Button>
+          {testButton}
+          {data.saved ? clearButton : null}
         </HeldByEnvironment>
       ) : (
-        <p className="max-w-lg text-sm text-muted-foreground">
-          {t`None is named. The instance's operator names one where the instance is installed (SYSLOG_HOST), and events then go to it as they happen.`}
-        </p>
+        <form
+          className="flex max-w-lg flex-col gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void run(async () => {
+              await trpc.admin.syslog.update.mutate({
+                host: hostValue.trim(),
+                port: Number(portValue),
+                ...(authority.trim() ? { ca: authority.trim() } : {}),
+              });
+              setHost(null);
+              setPort(null);
+              setAuthority("");
+              await refresh();
+              toast.success(t`Syslog collector saved`);
+            });
+          }}
+        >
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="syslog-host">{t`Host`}</Label>
+            <Input
+              id="syslog-host"
+              required
+              autoComplete="off"
+              placeholder="logs.example.org"
+              value={hostValue}
+              onChange={(event) => setHost(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="syslog-port">{t`Port`}</Label>
+            <Input
+              id="syslog-port"
+              type="number"
+              required
+              min={1}
+              max={65535}
+              className="w-32"
+              value={portValue}
+              onChange={(event) => setPort(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="syslog-authority">
+              {t`Certificate authority (PEM), if the system does not know the collector's`}
+            </Label>
+            <Textarea
+              id="syslog-authority"
+              rows={4}
+              placeholder={
+                keepsAuthority
+                  ? t`Leave blank to keep the current certificate`
+                  : "-----BEGIN CERTIFICATE-----"
+              }
+              value={authority}
+              onChange={(event) => setAuthority(event.target.value)}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t`Saved once the collector took a test event, over TLS with its certificate verified. An address of a private network is refused unless private networks are allowed, under Notifications.`}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" size="sm" disabled={busy}>
+              <Cable className="h-4 w-4" aria-hidden />
+              {t`Save syslog collector`}
+            </Button>
+            {data.configured ? testButton : null}
+            {data.saved ? clearButton : null}
+          </div>
+        </form>
       )}
+      <ConfirmDialog
+        open={clearAsk}
+        onOpenChange={setClearAsk}
+        title={t`Remove the saved collector?`}
+        description={t`Events stop going to it. One the instance's environment names stays in force.`}
+        confirmLabel={t`Remove`}
+        onConfirm={() =>
+          void run(async () => {
+            await trpc.admin.syslog.clear.mutate();
+            setHost(null);
+            setPort(null);
+            await refresh();
+            toast.success(t`Saved collector removed`);
+          })
+        }
+      />
     </RuledSection>
   );
 }

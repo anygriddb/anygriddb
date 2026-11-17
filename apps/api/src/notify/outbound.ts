@@ -79,7 +79,7 @@ export function notifyFailureText(error: unknown): string {
 }
 
 /** DNS for the socket: the addresses checked are the ones it connects to. */
-function notifyLookup(allowPrivate: boolean): LookupFunction {
+export function notifyLookup(allowPrivate: boolean): LookupFunction {
   return (hostname, options, callback) => {
     dnsLookup(
       hostname,

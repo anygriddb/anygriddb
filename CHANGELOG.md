@@ -33,6 +33,12 @@ first.
   not stopped. Through the API, an update that sends `expected` is
   compared the same way and answers 409 `row_conflict`; one that does
   not is written as before (ADR 0103).
+- The syslog collector is set in Administration, under Connections: its
+  host, its port, and an authority's certificate when it needs one. It
+  is saved once it took a test event, and needs no restart. A collector
+  on a private network needs private networks allowed, under
+  Notifications. One named in the instance's environment still wins, and
+  is shown there (ADR 0105).
 
 ### Removed
 

@@ -2776,6 +2776,10 @@ msgstr "Catégorie"
 msgid "Certificate (optional)"
 msgstr "Certificat (facultatif)"
 
+#: components/admin/integrations-tab.tsx
+msgid "Certificate authority (PEM), if the system does not know the collector's"
+msgstr "Autorité de certification (PEM), si le système ne connaît pas celle du collecteur"
+
 #: components/admin/alerts-section.tsx
 msgid "Certificate close to expiry"
 msgstr "Certificat bientôt expiré"
@@ -4459,6 +4463,10 @@ msgstr "Événements"
 #: components/admin/sign-in-trail.tsx
 msgid "Events are kept {days} days, then deleted. {total} events kept now. An email, a password, or a token is never stored."
 msgstr "Les événements sont gardés {days} jours, puis supprimés. {total} événements gardés aujourd’hui. Aucun email, mot de passe ni jeton n’est enregistré."
+
+#: components/admin/integrations-tab.tsx
+msgid "Events stop going to it. One the instance's environment names stays in force."
+msgstr "Les événements ne lui sont plus envoyés. Celui que nomme l’environnement de l’instance reste en vigueur."
 
 #: components/admin/sources-tab.tsx
 msgid "every"
@@ -7490,10 +7498,6 @@ msgstr "Node.js, en service depuis"
 msgid "None"
 msgstr "Aucune"
 
-#: components/admin/integrations-tab.tsx
-msgid "None is named. The instance's operator names one where the instance is installed (SYSLOG_HOST), and events then go to it as they happen."
-msgstr "Aucun n’est désigné. L’opérateur de l’instance en désigne un là où elle est installée (SYSLOG_HOST), et les événements lui sont alors envoyés au fil de l’eau."
-
 #: components/admin/settings-tab.tsx
 msgid "None: a request's address is its client's"
 msgstr "Aucun : l’adresse d’une requête est celle de son client"
@@ -8701,6 +8705,7 @@ msgstr "Recharger la page"
 #: components/admin/account-actions.tsx
 #: components/admin/account-bases.tsx
 #: components/admin/base-admin-members.tsx
+#: components/admin/integrations-tab.tsx
 #: components/admin/notifications-tab.tsx
 #: components/admin/settings-tab.tsx
 #: components/fields/cell-editor.tsx
@@ -8777,6 +8782,14 @@ msgstr "Retirer le groupe {name}"
 #: components/admin/identity-tab.tsx
 msgid "Remove the logo"
 msgstr "Retirer le logo"
+
+#: components/admin/integrations-tab.tsx
+msgid "Remove the saved collector"
+msgstr "Retirer le collecteur enregistré"
+
+#: components/admin/integrations-tab.tsx
+msgid "Remove the saved collector?"
+msgstr "Retirer le collecteur enregistré ?"
 
 #: components/admin/account-actions.tsx
 msgid "Remove the support role"
@@ -9373,6 +9386,10 @@ msgstr "Enregistrer SAML"
 msgid "Save SIEM webhook"
 msgstr "Enregistrer le webhook SIEM"
 
+#: components/admin/integrations-tab.tsx
+msgid "Save syslog collector"
+msgstr "Enregistrer le collecteur syslog"
+
 #: components/admin/identity-tab.tsx
 msgid "Save the mail settings"
 msgstr "Enregistrer les réglages des emails"
@@ -9396,12 +9413,20 @@ msgid "Saved at {time}"
 msgstr "Enregistré à {time}"
 
 #: components/admin/integrations-tab.tsx
+msgid "Saved collector removed"
+msgstr "Collecteur enregistré retiré"
+
+#: components/admin/integrations-tab.tsx
 msgid "Saved email cleared"
 msgstr "Email enregistré effacé"
 
 #: components/admin/integrations-tab.tsx
 msgid "Saved OIDC cleared"
 msgstr "OIDC enregistré effacé"
+
+#: components/admin/integrations-tab.tsx
+msgid "Saved once the collector took a test event, over TLS with its certificate verified. An address of a private network is refused unless private networks are allowed, under Notifications."
+msgstr "Enregistré une fois que le collecteur a reçu un événement de test, en TLS avec son certificat vérifié. Une adresse d’un réseau privé est refusée, sauf si les réseaux privés sont autorisés, sous Notifications."
 
 #: components/admin/integrations-tab.tsx
 msgid "Saved SAML cleared"
@@ -10509,6 +10534,10 @@ msgstr "Table synchronisée"
 msgid "Syslog collector"
 msgstr "Collecteur syslog"
 
+#: components/admin/integrations-tab.tsx
+msgid "Syslog collector saved"
+msgstr "Collecteur syslog enregistré"
+
 #: components/shell/user-menu.tsx
 msgid "System"
 msgstr "Système"
@@ -11548,6 +11577,10 @@ msgstr "Cette adresse a déjà un compte"
 #: components/admin/people-file-dialog.tsx
 msgid "This address is in the file twice"
 msgstr "Cette adresse figure deux fois dans le fichier"
+
+#: lib/errors.ts
+msgid "This address is not allowed for a collector. One of a private network stays blocked unless private networks are allowed, under Notifications."
+msgstr "Cette adresse n’est pas autorisée pour un collecteur. Celle d’un réseau privé reste bloquée, sauf si les réseaux privés sont autorisés, sous Notifications."
 
 #: lib/errors.ts
 msgid "This address is not allowed. Use HTTPS. A private network stays blocked unless you allow it on this page."

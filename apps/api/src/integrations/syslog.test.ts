@@ -4,15 +4,18 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer, type Server } from "node:tls";
+import type { Database } from "@anygriddb/db";
 import { afterEach, describe, expect, it } from "vitest";
 import { readSyslogCollector } from "../env.js";
 import { issueAuthority, issueServer } from "../tls/certificate.js";
 import { collectorPayload, type CollectorPayload } from "./siem.js";
 import {
+  assertCollectorAllowed,
   deliverSyslogEvent,
   formatSyslogLine,
   sendSyslogLine,
   sendSyslogTest,
+  syslogUpdateSchema,
 } from "./syslog.js";
 
 const PAYLOAD: CollectorPayload = {
@@ -208,10 +211,9 @@ describe("sending to the collector", () => {
     }
   });
 
-  it("throws for the queue to try again, and does nothing without a collector", async () => {
-    await expect(
-      deliverSyslogEvent(undefined, PAYLOAD),
-    ).resolves.toBeUndefined();
+  it("throws for the queue to try again when the environment's collector is away", async () => {
+    // The environment names the collector: the database is not asked.
+    const unasked = null as unknown as Database;
     const { createServer: createPlain } = await import("node:net");
     const closed = createPlain();
     await new Promise<void>((resolve) =>
@@ -220,17 +222,74 @@ describe("sending to the collector", () => {
     const { port } = closed.address() as AddressInfo;
     await new Promise<void>((resolve) => closed.close(() => resolve()));
     await expect(
-      deliverSyslogEvent({ host: "127.0.0.1", port }, PAYLOAD),
+      deliverSyslogEvent(unasked, { host: "127.0.0.1", port }, PAYLOAD),
     ).rejects.toMatchObject({ code: "invalid_delivery", detail: "syslog" });
-    // The test from Administration: no collector, then one that is away.
-    await expect(
-      sendSyslogTest(undefined, "00000000-0000-4000-8000-000000000002"),
-    ).rejects.toMatchObject({ code: "not_found" });
+    // The test from Administration, on a collector that is away.
     await expect(
       sendSyslogTest(
+        unasked,
         { host: "127.0.0.1", port },
         "00000000-0000-4000-8000-000000000002",
       ),
     ).rejects.toMatchObject({ code: "syslog_unreachable" });
+  });
+});
+
+describe("a collector named in Administration", () => {
+  const publicAddress = () =>
+    Promise.resolve([{ address: "203.0.113.10", family: 4 }]);
+  const privateAddress = () =>
+    Promise.resolve([{ address: "10.1.2.3", family: 4 }]);
+
+  it("takes a host, a port, and an authority, and gives the port its default", () => {
+    expect(syslogUpdateSchema.parse({ host: " Logs.Example.ORG " })).toEqual({
+      host: "logs.example.org",
+      port: 6514,
+    });
+    expect(
+      syslogUpdateSchema.safeParse({
+        host: "logs.example.org",
+        port: 6515,
+        ca: "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("refuses what names no collector", () => {
+    for (const input of [
+      { host: "" },
+      { host: "logs example" },
+      { host: "https://logs.example.org" },
+      { host: "logs.example.org", port: 0 },
+      { host: "logs.example.org", port: 70_000 },
+      { host: "logs.example.org", ca: "not a certificate" },
+      { host: "logs.example.org", secret: "x" },
+    ]) {
+      expect(syslogUpdateSchema.safeParse(input).success, input.host).toBe(
+        false,
+      );
+    }
+  });
+
+  it("is allowed on a public address, and on a private one only where those are", async () => {
+    const collector = { host: "logs.example.org", port: 6514 };
+    await expect(
+      assertCollectorAllowed(collector, false, publicAddress),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertCollectorAllowed(collector, false, privateAddress),
+    ).rejects.toMatchObject({ code: "invalid_syslog_target" });
+    await expect(
+      assertCollectorAllowed(collector, true, privateAddress),
+    ).resolves.toBeUndefined();
+  });
+
+  it("is never the machine itself, nor a cloud's metadata", async () => {
+    for (const host of ["127.0.0.1", "::1", "169.254.169.254", "localhost"]) {
+      await expect(
+        assertCollectorAllowed({ host, port: 6514 }, true),
+        host,
+      ).rejects.toMatchObject({ code: "invalid_syslog_target" });
+    }
   });
 });
