@@ -2772,6 +2772,10 @@ msgstr "Category"
 msgid "Certificate (optional)"
 msgstr "Certificate (optional)"
 
+#: components/admin/integrations-tab.tsx
+msgid "Certificate authority (PEM), if the system does not know the collector's"
+msgstr "Certificate authority (PEM), if the system does not know the collector's"
+
 #: components/admin/alerts-section.tsx
 msgid "Certificate close to expiry"
 msgstr "Certificate close to expiry"
@@ -4455,6 +4459,10 @@ msgstr "Events"
 #: components/admin/sign-in-trail.tsx
 msgid "Events are kept {days} days, then deleted. {total} events kept now. An email, a password, or a token is never stored."
 msgstr "Events are kept {days} days, then deleted. {total} events kept now. An email, a password, or a token is never stored."
+
+#: components/admin/integrations-tab.tsx
+msgid "Events stop going to it. One the instance's environment names stays in force."
+msgstr "Events stop going to it. One the instance's environment names stays in force."
 
 #: components/admin/sources-tab.tsx
 msgid "every"
@@ -7486,10 +7494,6 @@ msgstr "Node.js, up for"
 msgid "None"
 msgstr "None"
 
-#: components/admin/integrations-tab.tsx
-msgid "None is named. The instance's operator names one where the instance is installed (SYSLOG_HOST), and events then go to it as they happen."
-msgstr "None is named. The instance's operator names one where the instance is installed (SYSLOG_HOST), and events then go to it as they happen."
-
 #: components/admin/settings-tab.tsx
 msgid "None: a request's address is its client's"
 msgstr "None: a request's address is its client's"
@@ -8697,6 +8701,7 @@ msgstr "Reload the page"
 #: components/admin/account-actions.tsx
 #: components/admin/account-bases.tsx
 #: components/admin/base-admin-members.tsx
+#: components/admin/integrations-tab.tsx
 #: components/admin/notifications-tab.tsx
 #: components/admin/settings-tab.tsx
 #: components/fields/cell-editor.tsx
@@ -8773,6 +8778,14 @@ msgstr "Remove the group {name}"
 #: components/admin/identity-tab.tsx
 msgid "Remove the logo"
 msgstr "Remove the logo"
+
+#: components/admin/integrations-tab.tsx
+msgid "Remove the saved collector"
+msgstr "Remove the saved collector"
+
+#: components/admin/integrations-tab.tsx
+msgid "Remove the saved collector?"
+msgstr "Remove the saved collector?"
 
 #: components/admin/account-actions.tsx
 msgid "Remove the support role"
@@ -9369,6 +9382,10 @@ msgstr "Save SAML"
 msgid "Save SIEM webhook"
 msgstr "Save SIEM webhook"
 
+#: components/admin/integrations-tab.tsx
+msgid "Save syslog collector"
+msgstr "Save syslog collector"
+
 #: components/admin/identity-tab.tsx
 msgid "Save the mail settings"
 msgstr "Save the mail settings"
@@ -9392,12 +9409,20 @@ msgid "Saved at {time}"
 msgstr "Saved at {time}"
 
 #: components/admin/integrations-tab.tsx
+msgid "Saved collector removed"
+msgstr "Saved collector removed"
+
+#: components/admin/integrations-tab.tsx
 msgid "Saved email cleared"
 msgstr "Saved email cleared"
 
 #: components/admin/integrations-tab.tsx
 msgid "Saved OIDC cleared"
 msgstr "Saved OIDC cleared"
+
+#: components/admin/integrations-tab.tsx
+msgid "Saved once the collector took a test event, over TLS with its certificate verified. An address of a private network is refused unless private networks are allowed, under Notifications."
+msgstr "Saved once the collector took a test event, over TLS with its certificate verified. An address of a private network is refused unless private networks are allowed, under Notifications."
 
 #: components/admin/integrations-tab.tsx
 msgid "Saved SAML cleared"
@@ -10505,6 +10530,10 @@ msgstr "Synced table"
 msgid "Syslog collector"
 msgstr "Syslog collector"
 
+#: components/admin/integrations-tab.tsx
+msgid "Syslog collector saved"
+msgstr "Syslog collector saved"
+
 #: components/shell/user-menu.tsx
 msgid "System"
 msgstr "System"
@@ -11544,6 +11573,10 @@ msgstr "This address already has an account"
 #: components/admin/people-file-dialog.tsx
 msgid "This address is in the file twice"
 msgstr "This address is in the file twice"
+
+#: lib/errors.ts
+msgid "This address is not allowed for a collector. One of a private network stays blocked unless private networks are allowed, under Notifications."
+msgstr "This address is not allowed for a collector. One of a private network stays blocked unless private networks are allowed, under Notifications."
 
 #: lib/errors.ts
 msgid "This address is not allowed. Use HTTPS. A private network stays blocked unless you allow it on this page."

@@ -869,23 +869,33 @@ address, never an email or a secret. Two ways, alone or together:
 - **Over HTTPS**, to a public address, set and tried in Administration,
   Connections: each event is posted as JSON, signed with a secret you give
   (ADR 0056).
-- **As syslog over TLS** (RFC 5425), to a collector of your network, named
-  where the instance is installed (ADR 0084). In `.env`:
+- **As syslog over TLS** (RFC 5425), to a collector of your network
+  (ADR 0084), set and tried in Administration, Connections: its host, its
+  port (6514 unless you give another), and, when an authority of your
+  own signed its certificate, that authority's certificate (PEM). It is
+  saved once it took a test event. A collector on a private network
+  needs private networks allowed, under Notifications; the machine
+  itself and a cloud's metadata address are never a collector (ADR 0105).
+
+  An operator may name the collector where the instance is installed
+  instead. It then holds whatever Administration saved, and
+  Administration shows it and cannot change it (ADR 0083). In `.env`:
 
   ```sh
   SYSLOG_HOST=logs.internal
   SYSLOG_PORT=6514
   ```
 
-  The collector's certificate is verified for that name. When an authority
-  of your own signed it, mount that authority's certificate (PEM) in the
-  application's container through a Compose file of your own, and name it:
-  `SYSLOG_CA_FILE=/run/secrets/syslog_ca`. Each event is one RFC 5424 line
-  (facility `local0`, application `anygriddb`, message id `auth`) whose
-  message is the event as JSON. It leaves from the queue, and is tried
-  again when the collector is away. Nothing is sent in clear text, and the
-  instance does not start on a value that names no collector.
-  Administration, Connections shows where events go and sends one to try.
+  with the authority's certificate mounted in the application's
+  container through a Compose file of your own, and named:
+  `SYSLOG_CA_FILE=/run/secrets/syslog_ca`. The instance does not start
+  on a value that names no collector.
+
+  Either way the collector's certificate is verified for its name. Each
+  event is one RFC 5424 line (facility `local0`, application
+  `anygriddb`, message id `auth`) whose message is the event as JSON. It
+  leaves from the queue, and is tried again when the collector is away.
+  Nothing is sent in clear text.
 
 ## DSI acceptance checklist
 
@@ -907,7 +917,7 @@ Before opening the instance to users:
 8. Set MFA scope to everyone (or your policy); confirm an enrollment gate.
 9. Turn maintenance on briefly; confirm non-admins are signed out.
 10. Run `scripts/backup.sh` and `scripts/restore.sh` on a spare stack.
-11. If you use a SIEM, save the webhook, or name your syslog collector,
+11. If you use a SIEM, save the webhook, or your syslog collector,
     send a test event, and confirm it arrives (with a valid signature,
     over HTTPS).
 12. Scrape `/metrics` with `METRICS_TOKEN` over HTTPS.

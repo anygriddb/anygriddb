@@ -505,7 +505,11 @@ export function taskGroups(deps: TaskDeps): WorkerGroup[] {
       );
     },
     [TASKS.syslogEvent]: async (payload) => {
-      await deliverSyslogEvent(deps.env.SYSLOG, collectorEvent(payload));
+      await deliverSyslogEvent(
+        deps.db,
+        deps.env.SYSLOG,
+        collectorEvent(payload),
+      );
     },
   };
   const jobs: TaskList = {

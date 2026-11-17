@@ -18,7 +18,6 @@ components/admin/integrations-tab.tsx OidcSection
 components/admin/integrations-tab.tsx SamlSection
 components/admin/integrations-tab.tsx SiemSection
 components/admin/integrations-tab.tsx SmtpSection
-components/admin/integrations-tab.tsx SyslogSection
 components/admin/notifications-tab.tsx NotificationsTab
 components/admin/notifications-tab.tsx ProbeCard
 components/admin/open-base.tsx OpenBase

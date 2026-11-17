@@ -275,8 +275,16 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     await expect(
       page.getByRole("button", { name: "Send me a test email" }),
     ).toBeEnabled();
-    // No syslog collector is named where this instance is installed.
-    await expect(page.getByText(/^None is named\./)).toBeVisible();
+    // No syslog collector is named where this instance is installed: it
+    // is set here. The machine itself is never one, and nothing is saved.
+    await page.getByLabel("Host", { exact: true }).fill("127.0.0.1");
+    await page.getByRole("button", { name: "Save syslog collector" }).click();
+    await expect(
+      page.getByText(/^This address is not allowed for a collector/),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Remove the saved collector" }),
+    ).toHaveCount(0);
     expect(await accessibilityViolations(page)).toEqual([]);
     await openAdmin(page, "Instance", "Health");
     await expect(

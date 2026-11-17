@@ -4,17 +4,24 @@
  * the collector is away, over TLS with its certificate verified (RFC
  * 5425). Never in clear text, never from the request that made the event.
  *
- * The collector is named where the instance is installed (`SYSLOG_HOST`):
- * it sits on the operator's network, and which hosts of that network the
- * instance connects to is the operator's to say.
+ * The collector is the one the instance's environment names (`SYSLOG_HOST`),
+ * else the one saved in Administration (ADR 0105). One an administrator
+ * saved is held to what a notification channel is: an address checked
+ * before and at the connection, a private one only where an administrator
+ * allowed private networks.
  */
-import { isIP } from "node:net";
+import { isIP, type LookupFunction } from "node:net";
 import { hostname } from "node:os";
 import { connect, rootCertificates } from "node:tls";
 import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
+import { z } from "zod";
+import { recordAuthEvent } from "../auth/auth-events.js";
 import type { SyslogCollector } from "../env.js";
+import { notifyLookup } from "../notify/outbound.js";
+import { assertNotifyTarget, type NotifyResolve } from "../notify/target.js";
 import { addJob, TASKS } from "../queue/jobs.js";
+import { readSettings } from "../settings.js";
 import {
   type CollectorEvent,
   type CollectorPayload,
@@ -55,12 +62,15 @@ export function sendSyslogLine(
   collector: SyslogCollector,
   line: string,
   timeoutMs: number = SEND_TIMEOUT_MS,
+  lookup?: LookupFunction,
 ): Promise<void> {
   const frame = `${String(Buffer.byteLength(line))} ${line}`;
   return new Promise<void>((resolve, reject) => {
     const socket = connect({
       host: collector.host,
       port: collector.port,
+      // The addresses checked are the ones it connects to.
+      ...(lookup ? { lookup } : {}),
       // An address has no name to send; its certificate must list it.
       servername: isIP(collector.host) === 0 ? collector.host : undefined,
       ca: collector.ca ? [...rootCertificates, collector.ca] : undefined,
@@ -87,41 +97,151 @@ export function sendSyslogLine(
   });
 }
 
-/** Queues one event for the collector, when this process has one. */
-export async function queueSyslogEvent(
-  db: Database,
-  event: CollectorEvent,
-): Promise<void> {
-  if (!watched) return;
-  const payload = collectorPayload(event);
-  if (!payload) return;
-  await addJob(db, TASKS.syslogEvent, payload, { maxAttempts: 5 });
+/** A host name or an address, as the environment's own is read. */
+const HOST = /^[A-Za-z0-9]([A-Za-z0-9.:-]{0,251}[A-Za-z0-9])?$/;
+const PEM = /^-----BEGIN CERTIFICATE-----[\s\S]+-----END CERTIFICATE-----\s*$/;
+
+export const syslogUpdateSchema = z
+  .object({
+    host: z
+      .string()
+      .trim()
+      .regex(HOST)
+      .transform((host) => host.toLowerCase()),
+    port: z.number().int().min(1).max(65_535).default(6514),
+    /**
+     * The authority that signed the collector's certificate, when it is
+     * not one the system knows. Left out, the one saved is kept; null
+     * forgets it.
+     */
+    ca: z.string().trim().max(65_536).regex(PEM).nullable().optional(),
+  })
+  .strict();
+
+type SyslogUpdate = z.infer<typeof syslogUpdateSchema>;
+
+/** The collector in force, and who named it. */
+type NamedCollector = {
+  collector: SyslogCollector;
+  source: "environment" | "administration";
+};
+
+type PublicSyslog =
+  | { configured: false; saved: boolean }
+  | {
+      configured: true;
+      source: NamedCollector["source"];
+      host: string;
+      port: number;
+      /** That an authority was given, never the certificate itself. */
+      ownAuthority: boolean;
+      /** A collector is saved in Administration, in force or not. */
+      saved: boolean;
+    };
+
+async function loadSyslogRow(db: Database): Promise<SyslogCollector | null> {
+  const row = await db
+    .selectFrom("instanceSyslog")
+    .select(["host", "port", "ca"])
+    .where("id", "=", true)
+    .executeTakeFirst();
+  if (!row) return null;
+  return { host: row.host, port: row.port, ...(row.ca ? { ca: row.ca } : {}) };
 }
 
 /**
- * The worker's delivery. A failure is thrown for the queue to try again;
- * it names no host: the collector's address is the operator's.
+ * The environment's collector when it names one (ADR 0083), else the one
+ * saved in Administration, else none.
  */
-export async function deliverSyslogEvent(
-  collector: SyslogCollector | undefined,
-  payload: CollectorPayload,
+async function resolveSyslog(
+  db: Database,
+  fromEnvironment: SyslogCollector | undefined,
+): Promise<NamedCollector | null> {
+  if (fromEnvironment) {
+    return { collector: fromEnvironment, source: "environment" };
+  }
+  const saved = await loadSyslogRow(db);
+  return saved ? { collector: saved, source: "administration" } : null;
+}
+
+/** What Administration shows of the collector: never a certificate. */
+export async function publicSyslog(
+  db: Database,
+  fromEnvironment: SyslogCollector | undefined,
+): Promise<PublicSyslog> {
+  const saved = (await loadSyslogRow(db)) !== null;
+  const named = await resolveSyslog(db, fromEnvironment);
+  if (!named) return { configured: false, saved };
+  return {
+    configured: true,
+    source: named.source,
+    host: named.collector.host,
+    port: named.collector.port,
+    ownAuthority: named.collector.ca !== undefined,
+    saved,
+  };
+}
+
+/**
+ * Refuses a collector an administrator may not name: an address of the
+ * machine itself or of a cloud's metadata, ever, and one of a private
+ * network unless an administrator allowed those (ADR 0092).
+ */
+export async function assertCollectorAllowed(
+  collector: SyslogCollector,
+  allowPrivate: boolean,
+  resolve?: NotifyResolve,
 ): Promise<void> {
-  // Taken out of the environment since the event was queued: nothing to do.
-  if (!collector) return;
+  const host =
+    isIP(collector.host) === 6 ? `[${collector.host}]` : collector.host;
   try {
-    await sendSyslogLine(collector, formatSyslogLine(payload));
+    await assertNotifyTarget(`https://${host}:${String(collector.port)}/`, {
+      allowPrivate,
+      ...(resolve ? { resolve } : {}),
+    });
   } catch (error) {
-    throw new AppError("invalid_delivery", "syslog", { cause: error });
+    throw new AppError("invalid_syslog_target", { cause: error });
   }
 }
 
-/** One event sent now, for Administration's test: refused when it fails. */
-export async function sendSyslogTest(
-  collector: SyslogCollector | undefined,
-  actorId: string,
+/**
+ * How a collector is reached: the network's own way, or a stand-in in
+ * tests, whose collector listens on the loopback no administrator may
+ * name.
+ */
+export type SyslogReach = {
+  resolve?: NotifyResolve;
+  send?: typeof sendSyslogLine;
+};
+
+/**
+ * Sends a line to the collector in force. The environment's is the
+ * operator's word and is reached as named; one saved in Administration is
+ * checked again, and the connection goes to the address that was checked.
+ */
+async function sendToCollector(
+  db: Database,
+  named: NamedCollector,
+  line: string,
+  reach: SyslogReach = {},
 ): Promise<void> {
-  if (!collector) throw new AppError("not_found");
-  const line = formatSyslogLine({
+  const send = reach.send ?? sendSyslogLine;
+  if (named.source === "environment") {
+    await send(named.collector, line);
+    return;
+  }
+  const allowPrivate = (await readSettings(db)).notifyAllowPrivate;
+  await assertCollectorAllowed(named.collector, allowPrivate, reach.resolve);
+  await send(
+    named.collector,
+    line,
+    SEND_TIMEOUT_MS,
+    notifyLookup(allowPrivate),
+  );
+}
+
+function testLine(actorId: string): string {
+  return formatSyslogLine({
     action: "settings_changed",
     userId: null,
     actorId,
@@ -130,9 +250,129 @@ export async function sendSyslogTest(
     ip: null,
     occurredAt: new Date().toISOString(),
   });
+}
+
+/**
+ * Saves the collector, once it took an event sent with these settings: a
+ * mistyped host or a certificate it cannot verify is said now, not at the
+ * first event lost. Refused while the environment names one.
+ */
+export async function saveSyslog(
+  db: Database,
+  fromEnvironment: SyslogCollector | undefined,
+  userId: string,
+  input: SyslogUpdate,
+  options: { ip?: string; reach?: SyslogReach } = {},
+): Promise<PublicSyslog> {
+  if (fromEnvironment) throw new AppError("set_by_environment");
+  const ca = input.ca === undefined ? (await loadSyslogRow(db))?.ca : input.ca;
+  const collector: SyslogCollector = {
+    host: input.host,
+    port: input.port,
+    ...(ca ? { ca } : {}),
+  };
   try {
-    await sendSyslogLine(collector, line);
+    await sendToCollector(
+      db,
+      { collector, source: "administration" },
+      testLine(userId),
+      options.reach,
+    );
   } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError("syslog_unreachable", { cause: error });
+  }
+  const row = {
+    id: true as const,
+    host: collector.host,
+    port: collector.port,
+    ca: collector.ca ?? null,
+    updatedBy: userId,
+    updatedAt: new Date(),
+  };
+  await db
+    .insertInto("instanceSyslog")
+    .values(row)
+    .onConflict((conflict) =>
+      conflict.column("id").doUpdateSet({
+        host: row.host,
+        port: row.port,
+        ca: row.ca,
+        updatedBy: row.updatedBy,
+        updatedAt: row.updatedAt,
+      }),
+    )
+    .execute();
+  await recordAuthEvent(db, {
+    action: "settings_changed",
+    actorId: userId,
+    method: "admin",
+    detail: "syslog",
+    ip: options.ip,
+  });
+  return publicSyslog(db, fromEnvironment);
+}
+
+/** Forgets the collector saved in Administration, in force or not. */
+export async function clearSyslog(
+  db: Database,
+  userId: string,
+  ip?: string,
+): Promise<void> {
+  await db.deleteFrom("instanceSyslog").where("id", "=", true).execute();
+  await recordAuthEvent(db, {
+    action: "settings_changed",
+    actorId: userId,
+    method: "admin",
+    detail: "syslog",
+    ip,
+  });
+}
+
+/** Queues one event for the collector, when the instance has one. */
+export async function queueSyslogEvent(
+  db: Database,
+  event: CollectorEvent,
+): Promise<void> {
+  const payload = collectorPayload(event);
+  if (!payload) return;
+  if (!watched && !(await loadSyslogRow(db))) return;
+  await addJob(db, TASKS.syslogEvent, payload, { maxAttempts: 5 });
+}
+
+/**
+ * The worker's delivery. A failure is thrown for the queue to try again;
+ * it names no host: the collector's address is not the log's to keep.
+ */
+export async function deliverSyslogEvent(
+  db: Database,
+  fromEnvironment: SyslogCollector | undefined,
+  payload: CollectorPayload,
+  reach?: SyslogReach,
+): Promise<void> {
+  const named = await resolveSyslog(db, fromEnvironment);
+  // No longer named since the event was queued: nothing to do.
+  if (!named) return;
+  try {
+    await sendToCollector(db, named, formatSyslogLine(payload), reach);
+  } catch (error) {
+    throw new AppError("invalid_delivery", "syslog", { cause: error });
+  }
+}
+
+/** One event sent now, for Administration's test: refused when it fails. */
+export async function sendSyslogTest(
+  db: Database,
+  fromEnvironment: SyslogCollector | undefined,
+  actorId: string,
+  reach?: SyslogReach,
+): Promise<void> {
+  const named = await resolveSyslog(db, fromEnvironment);
+  if (!named) throw new AppError("not_found");
+  try {
+    await sendToCollector(db, named, testLine(actorId), reach);
+  } catch (error) {
+    if (error instanceof AppError) throw error;
     throw new AppError("syslog_unreachable", { cause: error });
   }
 }

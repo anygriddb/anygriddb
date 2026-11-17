@@ -663,6 +663,15 @@ export interface InstanceSmtp {
   username: string | null;
 }
 
+export interface InstanceSyslog {
+  ca: string | null;
+  host: string;
+  id: Generated<boolean>;
+  port: number;
+  updatedAt: Generated<Timestamp>;
+  updatedBy: string | null;
+}
+
 export interface IntegrationDeliveries {
   attempts: Generated<number>;
   createdAt: Generated<Timestamp>;
@@ -1149,6 +1158,7 @@ export interface DB {
   instanceSettings: InstanceSettings;
   instanceSiem: InstanceSiem;
   instanceSmtp: InstanceSmtp;
+  instanceSyslog: InstanceSyslog;
   integrationDeliveries: IntegrationDeliveries;
   integrationSchedules: IntegrationSchedules;
   invitations: Invitations;

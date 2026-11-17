@@ -23,7 +23,18 @@ import { taskGroups } from "../queue/tasks.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { createTestDatabase } from "../test-database.js";
 import { issueAuthority, issueServer } from "../tls/certificate.js";
-import { watchSyslog } from "./syslog.js";
+import { writeSettings } from "../settings.js";
+import {
+  clearSyslog,
+  deliverSyslogEvent,
+  publicSyslog,
+  saveSyslog,
+  sendSyslogLine,
+  sendSyslogTest,
+  syslogUpdateSchema,
+  watchSyslog,
+  type SyslogReach,
+} from "./syslog.js";
 
 describe("sign-in events to a syslog collector", () => {
   let db: Database;
@@ -162,5 +173,153 @@ describe("sign-in events to a syslog collector", () => {
     await runJobs(pool, tasks);
     expect(await waiting()).toEqual([]);
     expect(received).toHaveLength(1);
+  });
+
+  describe("named in Administration", () => {
+    let admin = "";
+    /** The collector's name stands for the test's own, on the loopback. */
+    const reach = (address: string): SyslogReach => ({
+      resolve: () => Promise.resolve([{ address, family: 4 }]),
+      send: (_named, line) => sendSyslogLine(collector, line),
+    });
+    const named = syslogUpdateSchema.parse({ host: "logs.example.org" });
+    /** Forgets the jobs waiting: what an earlier test queued. */
+    const drain = () =>
+      pool.query(
+        `select graphile_worker.complete_jobs(array(select id from graphile_worker.jobs))`,
+      );
+
+    beforeAll(async () => {
+      watchSyslog(undefined);
+      delete env.SYSLOG;
+      const person = await db
+        .insertInto("users")
+        .values({
+          email: "syslog-admin@example.com",
+          displayName: "Admin",
+          isAdmin: true,
+        })
+        .returning("id")
+        .executeTakeFirstOrThrow();
+      admin = person.id;
+    });
+
+    it("is refused while the environment names one, and saves nothing", async () => {
+      await expect(
+        saveSyslog(db, collector, admin, named, {
+          reach: reach("203.0.113.10"),
+        }),
+      ).rejects.toMatchObject({ code: "set_by_environment" });
+      expect(await publicSyslog(db, undefined)).toEqual({
+        configured: false,
+        saved: false,
+      });
+    });
+
+    it("is refused on a private address until an administrator allows those", async () => {
+      await expect(
+        saveSyslog(db, undefined, admin, named, { reach: reach("10.1.2.3") }),
+      ).rejects.toMatchObject({ code: "invalid_syslog_target" });
+      expect(await publicSyslog(db, undefined)).toMatchObject({
+        configured: false,
+      });
+      await writeSettings(db, admin, { notifyAllowPrivate: true });
+      try {
+        const saved = await saveSyslog(db, undefined, admin, named, {
+          reach: reach("10.1.2.3"),
+        });
+        expect(saved).toMatchObject({
+          configured: true,
+          source: "administration",
+          host: "logs.example.org",
+          port: 6514,
+        });
+      } finally {
+        await writeSettings(db, admin, { notifyAllowPrivate: false });
+        await clearSyslog(db, admin);
+      }
+    });
+
+    it("is not saved when the collector does not take the event", async () => {
+      await expect(
+        saveSyslog(db, undefined, admin, named, {
+          reach: {
+            resolve: () =>
+              Promise.resolve([{ address: "203.0.113.10", family: 4 }]),
+            send: () => Promise.reject(new Error("no route")),
+          },
+        }),
+      ).rejects.toMatchObject({ code: "syslog_unreachable" });
+      expect(await publicSyslog(db, undefined)).toMatchObject({
+        configured: false,
+      });
+    });
+
+    it("is saved once it took an event, then gets the trail's events", async () => {
+      received.length = 0;
+      await drain();
+      const saved = await saveSyslog(db, undefined, admin, named, {
+        ip: "192.0.2.20",
+        reach: reach("203.0.113.10"),
+      });
+      expect(saved).toEqual({
+        configured: true,
+        source: "administration",
+        host: "logs.example.org",
+        port: 6514,
+        ownAuthority: false,
+        saved: true,
+      });
+      // The event sent to try it, before anything was saved.
+      expect(received).toHaveLength(1);
+      expect(received[0]).toContain('"detail":"syslog"');
+      // Saving is on the trail, and the trail's events are queued from then.
+      expect(await waiting()).toEqual(["settings_changed"]);
+      await drain();
+      await recordAuthEvent(db, { action: "account_locked" });
+      expect(await waiting()).toEqual(["account_locked"]);
+      await deliverSyslogEvent(
+        db,
+        undefined,
+        {
+          action: "account_locked",
+          userId: null,
+          actorId: null,
+          method: null,
+          detail: null,
+          ip: null,
+          occurredAt: new Date().toISOString(),
+        },
+        reach("203.0.113.10"),
+      );
+      expect(received).toHaveLength(2);
+      await sendSyslogTest(db, undefined, admin, reach("203.0.113.10"));
+      expect(received).toHaveLength(3);
+      // Private networks closed again: a collector that now resolves to
+      // one is no longer sent to.
+      await expect(
+        sendSyslogTest(db, undefined, admin, reach("10.1.2.3")),
+      ).rejects.toMatchObject({ code: "invalid_syslog_target" });
+    });
+
+    it("gives way to the environment's, and is forgotten when cleared", async () => {
+      expect(await publicSyslog(db, collector)).toMatchObject({
+        configured: true,
+        source: "environment",
+        host: collector.host,
+        saved: true,
+      });
+      await clearSyslog(db, admin, "192.0.2.20");
+      expect(await publicSyslog(db, undefined)).toEqual({
+        configured: false,
+        saved: false,
+      });
+      await drain();
+      await recordAuthEvent(db, { action: "account_locked" });
+      expect(await waiting()).toEqual([]);
+      await expect(sendSyslogTest(db, undefined, admin)).rejects.toMatchObject({
+        code: "not_found",
+      });
+    });
   });
 });

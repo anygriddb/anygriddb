@@ -189,6 +189,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   notify_needs_mail: msg`Configure the mail relay under Connections before this channel can send.`,
   invalid_delivery: msg`This delivery cannot be sent again`,
   syslog_unreachable: msg`The syslog collector did not take the event: check its address, its port, and the certificate it presents`,
+  invalid_syslog_target: msg`This address is not allowed for a collector. One of a private network stays blocked unless private networks are allowed, under Notifications.`,
   invalid_automation: msg`Invalid automation`,
   scripts_disabled: msg`Scripts in automations are turned off on this instance`,
   unknown_secret: msg`This automation keeps no secret of that name`,
