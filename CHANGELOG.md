@@ -36,6 +36,9 @@ first.
 
 ### Fixed
 
+- A value typed into a field of unique values that another row already
+  holds is refused in those words, naming the field. The message spoke
+  of making the field unique, and named an index.
 - The steps of an automation's run are numbered by their place: the
   second action of an automation was listed as its first.
 - On a table where a field asks for a reason, deleted rows come back:

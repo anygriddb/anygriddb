@@ -15,6 +15,7 @@ import {
   effectiveTableRole,
   type EngineCatalog,
   type EngineColumn,
+  indexName,
   placeTarget,
   resolveChangeReason,
   roleAllows,
@@ -27,6 +28,7 @@ import { readerEngine } from "../data/acl.js";
 import { announceRows, type AnnounceDeps } from "../data/announce.js";
 import type { CatalogRows, TableRow } from "../data/engine.js";
 import { liveBase, liveTable } from "../data/live.js";
+import { violatedUnique } from "../data/pg-error.js";
 import { setLinks } from "../data/relations.js";
 import {
   assertFieldsWritable,
@@ -557,7 +559,9 @@ export async function createRows(
     },
     rows.map((row) => row.values),
     place,
-  );
+  ).catch((error: unknown) => {
+    throw valueTaken(scope, error);
+  });
   const extra: string[] = [];
   for (const [index, row] of rows.entries()) {
     const id = ids[index];
@@ -568,6 +572,23 @@ export async function createRows(
   }
   await announceRows(deps, scope.table.id, "insert", ids, extra);
   return ids;
+}
+
+/**
+ * A value another row already holds, in a field that keeps each value
+ * once: said as that, naming the field. PostgreSQL names an index, which
+ * tells a person nothing, and the other transports' own message speaks of
+ * making a field unique.
+ */
+function valueTaken(scope: RowScope, error: unknown): unknown {
+  const index = violatedUnique(error);
+  if (!index) return error;
+  const column = scope.engine.table.columns.find(
+    (item) => indexName(scope.table.physicalName, item.name, "uq") === index,
+  );
+  return column
+    ? new AppError("value_duplicate", column.label, { cause: error })
+    : error;
 }
 
 export async function updateRows(
@@ -609,7 +630,9 @@ export async function updateRows(
       ...(update.expected ? { expected: update.expected } : {}),
       ...(update.storedNow ? { storedNow: update.storedNow } : {}),
     })),
-  );
+  ).catch((error: unknown) => {
+    throw valueTaken(scope, error);
+  });
   const extra: string[] = [];
   for (const update of updates) {
     if (!update.links?.length) continue;

@@ -292,6 +292,53 @@ describe("row writes through the REST API", () => {
     expect(taken.statusCode).toBe(200);
   });
 
+  it("says which field already holds a value, when it keeps each value once", async () => {
+    const table = await findLiveTable(database, clientsId);
+    if (!table) throw new Error("no table");
+    const created = await call("POST", clientsId, {
+      records: [
+        { fields: { name: "Unique one", city: "Brest" } },
+        { fields: { name: "Unique two", city: "Reims" } },
+      ],
+    });
+    const [, second] = created
+      .json<{ records: Array<{ id: string }> }>()
+      .records.map((record) => record.id);
+    // Every other test's rows have a name of their own or none.
+    await updateColumn(database, ownerId, table, {
+      name: "name",
+      unique: true,
+    });
+    try {
+      const changed = await call("PATCH", clientsId, {
+        records: [{ id: second, fields: { name: "Unique one" } }],
+      });
+      expect(changed.statusCode).toBe(409);
+      expect(changed.json<{ code: string; detail: string }>()).toMatchObject({
+        code: "value_duplicate",
+        detail: "Name",
+      });
+      const added = await call("POST", clientsId, {
+        records: [{ fields: { name: "Unique two" } }],
+      });
+      expect(added.statusCode).toBe(409);
+      expect(added.json<{ code: string; detail: string }>()).toMatchObject({
+        code: "value_duplicate",
+        detail: "Name",
+      });
+      // A value nobody holds is taken as before.
+      const free = await call("PATCH", clientsId, {
+        records: [{ id: second, fields: { name: "Unique three" } }],
+      });
+      expect(free.statusCode).toBe(200);
+    } finally {
+      await updateColumn(database, ownerId, table, {
+        name: "name",
+        unique: false,
+      });
+    }
+  });
+
   it("refuses a whole update when one of its rows is missing", async () => {
     const created = await call("POST", clientsId, {
       records: [

@@ -45,6 +45,11 @@ function constraintName(error: unknown): string | undefined {
   return undefined;
 }
 
+/** The index or constraint a unique violation names, when it is one. */
+export function violatedUnique(error: unknown): string | undefined {
+  return postgresCode(error) === "23505" ? constraintName(error) : undefined;
+}
+
 /**
  * A unique violation as a public error. The constraint name only: the
  * conflicting value stays out of the client and the log.

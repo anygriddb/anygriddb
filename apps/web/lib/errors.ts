@@ -80,6 +80,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   column_is_read_only: msg`This field is read-only`,
   duplicate_column: msg`This field appears twice`,
   duplicate_values: msg`Duplicate values prevent uniqueness`,
+  value_duplicate: msg`Another row already holds this value, in a field of unique values`,
   no_columns: msg`No fields`,
   no_tables: msg`Add at least one table before exporting`,
   invalid_column: msg`Invalid field`,
