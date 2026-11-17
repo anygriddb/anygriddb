@@ -49,10 +49,13 @@ first.
 ### Removed
 
 - The Redis wire protocol, Cassandra, and Neo4j are no longer read as
-  sources (ADR 0104). **Before upgrading**, an administrator deletes the
-  sources of those engines, in Administration, with the version in
-  place: the upgrade refuses to start while one is declared, and says
-  so. The MongoDB wire protocol and OpenSearch are read as before.
+  sources (ADR 0104). **Before upgrading**, with the version in place,
+  an administrator deletes the tables of those sources from their
+  bases, then from each base's trash, then the sources themselves, in
+  Administration: a source is not deleted while one of its tables is
+  in a base or in its trash. The upgrade refuses to start while such a
+  source is declared, and says so. The MongoDB wire protocol and
+  OpenSearch are read as before.
 
 ### Fixed
 

@@ -8,7 +8,7 @@ BEGIN
     IF EXISTS (
       SELECT 1 FROM "sources" WHERE "engine"::text IN ('redis', 'cassandra', 'neo4j')
     ) THEN
-      RAISE EXCEPTION 'This version no longer reads Redis, Cassandra, or Neo4j: with the version before, delete the sources of those engines in Administration, then upgrade'
+      RAISE EXCEPTION 'This version no longer reads Redis, Cassandra, or Neo4j. Start the version before again and, with it, delete the tables of those sources from their bases, then from each base''s trash, then the sources themselves in Administration. Then upgrade'
         USING ERRCODE = 'feature_not_supported';
     END IF;
   END IF;
