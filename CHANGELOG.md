@@ -8,6 +8,16 @@ first.
 
 ## Unreleased
 
+## 0.2.0 - 2026-11-17
+
+**Before upgrading:** an instance that declared a source on the Redis
+wire protocol, Cassandra, or Neo4j deletes it first, with 0.1.0 still in
+place: the source's tables from their bases, then from each base's
+trash, then the source itself, in Administration ("Removed", below).
+The upgrade refuses to start while one is declared, says so in the
+application's log, and changes nothing: 0.1.0 starts again on the same
+data. Nothing else is asked of an operator.
+
 ### Added
 
 - An automation can run a script: a few lines of JavaScript among its
@@ -76,6 +86,20 @@ first.
   among swatches large enough to point at, each named in the reader's
   language, the chosen one ticked. The button that adds an option has a
   name for a screen reader.
+
+### Operators
+
+- Migrations 0115 to 0117 run at the first start, as every migration
+  does. 0116 is the one that refuses a Redis, Cassandra, or Neo4j
+  source.
+- Scripts start a process of their own, four at once at most, each
+  with up to 128 MiB of memory: leave the container that much beside
+  what the application uses, or leave scripts off.
+  `docker compose exec app anygriddb scripts check` says whether the
+  process starts where the instance runs (`docs/operations.md`).
+- A release is refused when a Node.js package of its image has a high
+  or critical advisory with a fix, as it already was for the system's
+  packages (ADR 0100).
 
 ## 0.1.0 - 2026-11-16
 
