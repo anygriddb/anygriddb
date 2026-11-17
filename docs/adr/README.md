@@ -100,7 +100,7 @@ accepted as the work they decide was done; each carries its own date.
 | [0085](0085-code-by-email-second-factor.md)          | A code by email as a second factor, for anyone but an administrator                     | Accepted                                                   |
 | [0086](0086-administration-api.md)                   | An administration API, with tokens of its own that give no proof                        | Accepted                                                   |
 | [0087](0087-process-log.md)                          | Recent lines of the process, read in Administration                                     | Accepted (extends 0018)                                    |
-| [0088](0088-stores-read-from-a-copy.md)              | Stores that speak no SQL are read from a copy                                           | Accepted (extends 0034); amended by 0102                   |
+| [0088](0088-stores-read-from-a-copy.md)              | Stores that speak no SQL are read from a copy                                           | Accepted (extends 0034); amended by 0102, 0104             |
 | [0089](0089-putting-a-value-back.md)                 | Putting a value back writes a new change from the trail                                 | Accepted                                                   |
 | [0090](0090-a-base-held-in-a-source.md)              | A new base can keep its tables in a schema of a SQL source                              | Accepted (extends 0006)                                    |
 | [0091](0091-acting-as.md)                            | An administrator acts with another person's rights, and signs the change                | Accepted                                                   |
@@ -116,3 +116,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0101](0101-a-script-calls-an-address.md)            | A script calls an address through the instance, with secrets it never holds             | Accepted (amends 0099)                                     |
 | [0102](0102-more-records-brought-up-to-date.md)      | Seven more records that no longer say what is so                                        | Accepted (amends 0006, 0009, 0012, 0019, 0024, 0026, 0088) |
 | [0103](0103-a-write-compared-with-what-was-seen.md)  | A write to AnyGridDB's own table is compared with what its author saw                   | Accepted                                                   |
+| [0104](0104-two-stores-read-from-a-copy.md)          | Two stores are read from a copy, not five                                               | Accepted (amends 0088)                                     |

@@ -1192,10 +1192,6 @@ msgstr "Un groupe rassemble des comptes pour qu’une base leur donne un même r
 msgid "A JSON document's value at a path, such as $.client.name or $.lines[0]."
 msgstr "La valeur d’un JSON à un chemin, comme $.client.nom ou $.lignes[0]."
 
-#: components/admin/sources-tab.tsx
-msgid "A label is a table of nodes. Relationships are not links."
-msgstr "Une étiquette est une table de nœuds. Les relations ne sont pas des liens."
-
 #: components/views/map-view.tsx
 msgid "A latitude and a longitude"
 msgstr "Une latitude et une longitude"
@@ -1389,10 +1385,6 @@ msgstr "Une surcharge remplace le rôle sur la base pour une table, dans un sens
 #: lib/errors.ts
 msgid "A table that lives in an external source is not duplicated. Add another table there."
 msgstr "Une table qui vit dans une source externe n’est pas dupliquée. Ajoutez-en une autre là-bas."
-
-#: components/admin/sources-tab.tsx
-msgid "A table without a partition key is left out."
-msgstr "Une table sans clé de partition est laissée de côté."
 
 #: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx
@@ -4571,10 +4563,6 @@ msgstr "Exemple"
 msgid "Example:"
 msgstr "Exemple :"
 
-#: components/admin/sources-tab.tsx
-msgid "Example: shop: reads the keys shop:1 and shop:2, and no other."
-msgstr "Exemple : shop: lit les clés shop:1 et shop:2, et aucune autre."
-
 #: components/table/import-dialog.tsx
 msgid "Existing rows"
 msgstr "Lignes existantes"
@@ -6138,18 +6126,10 @@ msgstr "Clé"
 msgid "key {key}"
 msgstr "clé {key}"
 
-#: components/admin/sources-tab.tsx
-msgid "Key prefix"
-msgstr "Préfixe de clé"
-
 #: components/shell/shortcuts-dialog.tsx
 #: components/shell/user-menu.tsx
 msgid "Keyboard shortcuts"
 msgstr "Raccourcis clavier"
-
-#: components/admin/sources-tab.tsx
-msgid "Keyspace"
-msgstr "Espace de clés"
 
 #: components/admin/support-tab.tsx
 #: components/history/earlier.tsx

@@ -153,15 +153,12 @@ export type Role = "commenter" | "editor" | "owner" | "viewer";
 export type Scope = "base" | "column" | "row" | "table";
 
 export type SourceEngine =
-  | "cassandra"
   | "mariadb"
   | "mongodb"
   | "mysql"
-  | "neo4j"
   | "opensearch"
   | "oracle"
   | "postgres"
-  | "redis"
   | "sqlite"
   | "sqlserver";
 

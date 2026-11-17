@@ -351,3 +351,101 @@ describe("catalog integrity on a catalog that already holds a role twice", () =>
     }
   });
 });
+
+describe("a catalog that holds a source of a store no longer read", () => {
+  async function withSources(
+    engines: readonly string[],
+  ): Promise<Awaited<ReturnType<typeof catalogBefore>> & { owner: string }> {
+    const created = await catalogBefore("0116");
+    const person = await created.db
+      .insertInto("users")
+      .values({
+        email: `stores-${randomBytes(4).toString("hex")}@example.com`,
+        displayName: "Owner",
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await withAudit(
+      created.db,
+      { userId: person.id, source: "web" },
+      async (tx) => {
+        for (const engine of engines) {
+          await sql`
+            insert into sources
+              (name, engine, host, port, database, username,
+               password_ciphertext, password_nonce)
+            values
+              (${`Source ${engine}`}, ${engine}::source_engine,
+               'db.example.org', 5432, 'shop', 'reader', '\\x00', '\\x00')
+          `.execute(tx);
+        }
+      },
+    );
+    return { ...created, owner: person.id };
+  }
+
+  it("refuses to migrate, says why, and changes nothing", async () => {
+    const { db, pool, close } = await withSources(["postgres", "redis"]);
+    try {
+      let refused: unknown;
+      try {
+        await migrateDb(pool);
+      } catch (error) {
+        refused = error;
+      }
+      expect(refused).toBeInstanceOf(Error);
+      expect(String((refused as Error).cause)).toContain(
+        "no longer reads Redis, Cassandra, or Neo4j",
+      );
+      const kept = await sql<{ engine: string }>`
+        select engine::text as engine from sources order by engine::text
+      `.execute(db);
+      expect(kept.rows.map((row) => row.engine)).toEqual(["postgres", "redis"]);
+      const applied = await sql<{ name: string }>`
+        select name from schema_migrations where name like '0116%'
+      `.execute(db);
+      expect(applied.rows).toEqual([]);
+    } finally {
+      await close();
+    }
+  });
+
+  it("keeps the sources it still reads, and takes no such store again", async () => {
+    const { db, pool, close, owner } = await withSources([
+      "postgres",
+      "mongodb",
+      "sqlite",
+    ]);
+    try {
+      const ran = await migrateDb(pool);
+      expect(ran[0]).toBe("0116_fewer_copy_stores");
+      const kept = await sql<{ engine: string }>`
+        select engine::text as engine from sources order by engine::text
+      `.execute(db);
+      expect(kept.rows.map((row) => row.engine)).toEqual([
+        "mongodb",
+        "postgres",
+        "sqlite",
+      ]);
+      await expect(
+        sql`select 'redis'::source_engine`.execute(db),
+      ).rejects.toThrow(/invalid input value for enum source_engine/);
+      // A change of a source is still on the trail: the trigger that
+      // names the column came back.
+      await withAudit(db, { userId: owner, source: "web" }, (tx) =>
+        sql`
+          update sources set host = 'other.example.org'
+          where engine = 'mongodb'
+        `.execute(tx),
+      );
+      const trail = await sql<{ count: string }>`
+        select count(*)::text as count from audit_events
+        where catalog_table = 'sources'
+          and new_value ->> 'host' = 'other.example.org'
+      `.execute(db);
+      expect(trail.rows[0]?.count).toBe("1");
+    } finally {
+      await close();
+    }
+  });
+});
