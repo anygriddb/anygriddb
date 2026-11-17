@@ -78,7 +78,7 @@ msgid "(date1, date2)"
 msgstr "(date1, date2)"
 
 #: components/dashboards/chart-view.tsx
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 #: components/views/row-cards.tsx
 msgid "(empty)"
 msgstr "(empty)"
@@ -241,8 +241,8 @@ msgstr "{0, plural, one {# base} other {# bases}}"
 msgid "{0, plural, one {# cell skipped: incompatible value or computed field} other {# cells skipped: incompatible value or computed field}}"
 msgstr "{0, plural, one {# cell skipped: incompatible value or computed field} other {# cells skipped: incompatible value or computed field}}"
 
-#. placeholder {0}: counts[row.id] ?? 0
-#: components/grid/grid-view.tsx
+#. placeholder {0}: props.comments
+#: components/grid/grid-rows.tsx
 msgid "{0, plural, one {# comment} other {# comments}}"
 msgstr "{0, plural, one {# comment} other {# comments}}"
 
@@ -392,8 +392,8 @@ msgstr "{0, plural, one {# row deleted} other {# rows deleted}}"
 msgid "{0, plural, one {# row restored} other {# rows restored}}"
 msgstr "{0, plural, one {# row restored} other {# rows restored}}"
 
-#. placeholder {0}: checked.size
-#: components/grid/grid-view.tsx
+#. placeholder {0}: props.count
+#: components/grid/grid-checked-bar.tsx
 msgid "{0, plural, one {# row selected} other {# rows selected}}"
 msgstr "{0, plural, one {# row selected} other {# rows selected}}"
 
@@ -1699,7 +1699,7 @@ msgstr "Add a person"
 msgid "Add a place field, or two number fields for a latitude and a longitude, to place rows on the map."
 msgstr "Add a place field, or two number fields for a latitude and a longitude, to place rows on the map."
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 #: components/table/view-toolbar.tsx
 #: components/views/list-view.tsx
 #: components/views/row-cards.tsx
@@ -2836,7 +2836,7 @@ msgstr "Changed {when} by {name}"
 msgid "Changed {when} by you"
 msgstr "Changed {when} by you"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 msgid "Changed outside AnyGridDB since it was locked"
 msgstr "Changed outside AnyGridDB since it was locked"
 
@@ -3093,7 +3093,7 @@ msgstr "Collapse"
 msgid "Collapse {name}"
 msgstr "Collapse {name}"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 #: components/views/kanban-view.tsx
 msgid "Collapse all"
 msgstr "Collapse all"
@@ -3308,7 +3308,7 @@ msgid "Copied on {date}"
 msgstr "Copied on {date}"
 
 #: components/admin/logs-tab.tsx
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/api-docs.tsx
 #: components/settings/base-links.tsx
@@ -3342,7 +3342,7 @@ msgstr "Copy of {table}"
 msgid "Copy of the client's database from {date}, refreshed every {minutes} min: read-only"
 msgstr "Copy of the client's database from {date}, refreshed every {minutes} min: read-only"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 #: components/record/record-panel.tsx
 msgid "Copy row link"
 msgstr "Copy row link"
@@ -3729,7 +3729,7 @@ msgstr "delete"
 #: components/dashboards/dashboard-board.tsx
 #: components/dashboards/dashboard-list.tsx
 #: components/fields/field-editor.tsx
-#: components/grid/grid-view.tsx
+#: components/grid/grid-checked-bar.tsx
 #: components/record/record-panel.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/restore-points.tsx
@@ -3796,7 +3796,7 @@ msgid "Delete row"
 msgstr "Delete row"
 
 #: components/admin/sources-tab.tsx
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 msgid "Delete rows"
 msgstr "Delete rows"
 
@@ -3935,7 +3935,7 @@ msgstr "Description (optional)"
 msgid "Description for {field}"
 msgstr "Description for {field}"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-checked-bar.tsx
 msgid "Deselect"
 msgstr "Deselect"
 
@@ -4082,7 +4082,8 @@ msgstr "Drop files here"
 msgid "DSN"
 msgstr "DSN"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-checked-bar.tsx
+#: components/grid/grid-menu.tsx
 #: components/table/view-tabs.tsx
 msgid "Duplicate"
 msgstr "Duplicate"
@@ -4582,7 +4583,7 @@ msgstr "Expand"
 msgid "Expand {name}"
 msgstr "Expand {name}"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 #: components/views/kanban-view.tsx
 msgid "Expand all"
 msgstr "Expand all"
@@ -4591,7 +4592,8 @@ msgstr "Expand all"
 msgid "Expand all bases"
 msgstr "Expand all bases"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
+#: components/grid/grid-rows.tsx
 msgid "Expand row"
 msgstr "Expand row"
 
@@ -5608,11 +5610,11 @@ msgstr "insert"
 msgid "Insert"
 msgstr "Insert"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 msgid "Insert a row above"
 msgstr "Insert a row above"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 msgid "Insert a row below"
 msgstr "Insert a row below"
 
@@ -6302,7 +6304,7 @@ msgid "Link"
 msgstr "Link"
 
 #: components/admin/account-actions.tsx
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 #: components/record/record-panel.tsx
 #: components/settings/base-links.tsx
 #: components/settings/base-settings.tsx
@@ -6837,11 +6839,11 @@ msgstr "Move south"
 msgid "Move the map"
 msgstr "Move the map"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 msgid "Move the row down"
 msgstr "Move the row down"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 msgid "Move the row up"
 msgstr "Move the row up"
 
@@ -9193,7 +9195,7 @@ msgstr "Rounds toward zero, cutting the decimals."
 msgid "Row"
 msgstr "Row"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 #: components/record/record-panel.tsx
 msgid "Row {number}"
 msgstr "Row {number}"
@@ -9610,7 +9612,7 @@ msgstr "Select every account of this page"
 msgid "Select loaded rows"
 msgstr "Select loaded rows"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 msgid "Select row {index}"
 msgstr "Select row {index}"
 
@@ -10908,7 +10910,7 @@ msgstr "The field, and its inverse field if any, go to the base's trash for {day
 msgid "The fields were up to date"
 msgstr "The fields were up to date"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 #: components/views/row-cards.tsx
 msgid "The first {limit} groups are shown: filter the view to see the others."
 msgstr "The first {limit} groups are shown: filter the view to see the others."

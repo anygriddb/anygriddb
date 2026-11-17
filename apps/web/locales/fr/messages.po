@@ -78,7 +78,7 @@ msgid "(date1, date2)"
 msgstr "(date1, date2)"
 
 #: components/dashboards/chart-view.tsx
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 #: components/views/row-cards.tsx
 msgid "(empty)"
 msgstr "(vide)"
@@ -241,8 +241,8 @@ msgstr "{0, plural, one {# base} other {# bases}}"
 msgid "{0, plural, one {# cell skipped: incompatible value or computed field} other {# cells skipped: incompatible value or computed field}}"
 msgstr "{0, plural, one {# cellule ignorée : valeur incompatible ou champ calculé} other {# cellules ignorées : valeur incompatible ou champ calculé}}"
 
-#. placeholder {0}: counts[row.id] ?? 0
-#: components/grid/grid-view.tsx
+#. placeholder {0}: props.comments
+#: components/grid/grid-rows.tsx
 msgid "{0, plural, one {# comment} other {# comments}}"
 msgstr "{0, plural, one {# commentaire} other {# commentaires}}"
 
@@ -392,8 +392,8 @@ msgstr "{0, plural, one {# ligne supprimée} other {# lignes supprimées}}"
 msgid "{0, plural, one {# row restored} other {# rows restored}}"
 msgstr "{0, plural, one {# ligne restaurée} other {# lignes restaurées}}"
 
-#. placeholder {0}: checked.size
-#: components/grid/grid-view.tsx
+#. placeholder {0}: props.count
+#: components/grid/grid-checked-bar.tsx
 msgid "{0, plural, one {# row selected} other {# rows selected}}"
 msgstr "{0, plural, one {# ligne sélectionnée} other {# lignes sélectionnées}}"
 
@@ -1699,7 +1699,7 @@ msgstr "Ajouter une personne"
 msgid "Add a place field, or two number fields for a latitude and a longitude, to place rows on the map."
 msgstr "Ajoutez un champ lieu, ou deux champs nombre pour une latitude et une longitude, pour placer les lignes sur la carte."
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 #: components/table/view-toolbar.tsx
 #: components/views/list-view.tsx
 #: components/views/row-cards.tsx
@@ -2836,7 +2836,7 @@ msgstr "Modifiée {when} par {name}"
 msgid "Changed {when} by you"
 msgstr "Modifiée {when} par vous"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 msgid "Changed outside AnyGridDB since it was locked"
 msgstr "Modifiée hors d’AnyGridDB depuis son verrouillage"
 
@@ -3093,7 +3093,7 @@ msgstr "Replier"
 msgid "Collapse {name}"
 msgstr "Replier {name}"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 #: components/views/kanban-view.tsx
 msgid "Collapse all"
 msgstr "Tout replier"
@@ -3308,7 +3308,7 @@ msgid "Copied on {date}"
 msgstr "Copiée le {date}"
 
 #: components/admin/logs-tab.tsx
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/api-docs.tsx
 #: components/settings/base-links.tsx
@@ -3342,7 +3342,7 @@ msgstr "Copie de {table}"
 msgid "Copy of the client's database from {date}, refreshed every {minutes} min: read-only"
 msgstr "Copie de la base du client du {date}, actualisée toutes les {minutes} min : lecture seule"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 #: components/record/record-panel.tsx
 msgid "Copy row link"
 msgstr "Copier le lien de la ligne"
@@ -3729,7 +3729,7 @@ msgstr "suppression"
 #: components/dashboards/dashboard-board.tsx
 #: components/dashboards/dashboard-list.tsx
 #: components/fields/field-editor.tsx
-#: components/grid/grid-view.tsx
+#: components/grid/grid-checked-bar.tsx
 #: components/record/record-panel.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/restore-points.tsx
@@ -3796,7 +3796,7 @@ msgid "Delete row"
 msgstr "Supprimer la ligne"
 
 #: components/admin/sources-tab.tsx
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 msgid "Delete rows"
 msgstr "Supprimer les lignes"
 
@@ -3935,7 +3935,7 @@ msgstr "Description (facultative)"
 msgid "Description for {field}"
 msgstr "Description de {field}"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-checked-bar.tsx
 msgid "Deselect"
 msgstr "Désélectionner"
 
@@ -4082,7 +4082,8 @@ msgstr "Glissez des fichiers ici"
 msgid "DSN"
 msgstr "DSN"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-checked-bar.tsx
+#: components/grid/grid-menu.tsx
 #: components/table/view-tabs.tsx
 msgid "Duplicate"
 msgstr "Dupliquer"
@@ -4582,7 +4583,7 @@ msgstr "Déplier"
 msgid "Expand {name}"
 msgstr "Déplier {name}"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 #: components/views/kanban-view.tsx
 msgid "Expand all"
 msgstr "Tout déplier"
@@ -4591,7 +4592,8 @@ msgstr "Tout déplier"
 msgid "Expand all bases"
 msgstr "Déplier toutes les bases"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
+#: components/grid/grid-rows.tsx
 msgid "Expand row"
 msgstr "Développer la ligne"
 
@@ -5608,11 +5610,11 @@ msgstr "ajout"
 msgid "Insert"
 msgstr "Ajout"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 msgid "Insert a row above"
 msgstr "Insérer une ligne au-dessus"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 msgid "Insert a row below"
 msgstr "Insérer une ligne en dessous"
 
@@ -6302,7 +6304,7 @@ msgid "Link"
 msgstr "Lien"
 
 #: components/admin/account-actions.tsx
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 #: components/record/record-panel.tsx
 #: components/settings/base-links.tsx
 #: components/settings/base-settings.tsx
@@ -6837,11 +6839,11 @@ msgstr "Vers le sud"
 msgid "Move the map"
 msgstr "Déplacer la carte"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 msgid "Move the row down"
 msgstr "Descendre la ligne"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-menu.tsx
 msgid "Move the row up"
 msgstr "Monter la ligne"
 
@@ -9193,7 +9195,7 @@ msgstr "Arrondit vers zéro, en coupant les décimales."
 msgid "Row"
 msgstr "Ligne"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 #: components/record/record-panel.tsx
 msgid "Row {number}"
 msgstr "Ligne {number}"
@@ -9610,7 +9612,7 @@ msgstr "Sélectionner tous les comptes de cette page"
 msgid "Select loaded rows"
 msgstr "Sélectionner les lignes chargées"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 msgid "Select row {index}"
 msgstr "Sélectionner la ligne {index}"
 
@@ -10908,7 +10910,7 @@ msgstr "Le champ et son champ inverse éventuel vont dans la corbeille de la bas
 msgid "The fields were up to date"
 msgstr "Les champs étaient à jour"
 
-#: components/grid/grid-view.tsx
+#: components/grid/grid-rows.tsx
 #: components/views/row-cards.tsx
 msgid "The first {limit} groups are shown: filter the view to see the others."
 msgstr "Seuls les {limit} premiers groupes sont affichés : filtrez la vue pour voir les autres."

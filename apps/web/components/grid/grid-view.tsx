@@ -1,36 +1,14 @@
-import { MAX_GROUPS } from "@anygriddb/core";
-import { RowsError } from "./rows-error";
-
 import {
-  Checkbox,
-  cn,
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@anygriddb/ui";
+import { plural } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
-  AlertTriangle,
-  ArrowDown,
-  ArrowUp,
-  BetweenHorizontalEnd,
-  BetweenHorizontalStart,
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  CopyPlus,
-  Expand,
-  Link as LinkIcon,
-  MessageSquare,
-  Plus,
-  Trash2,
-} from "lucide-react";
-import {
   type ClipboardEvent,
-  type CSSProperties,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -43,41 +21,39 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
-import { useRowDrag, useRowPlaceDrop, type ListSlot } from "../../lib/drag";
-import { placeBetween, type RowPlace } from "../../lib/row-place";
-import type { Presence } from "../../lib/realtime";
-import type { CatalogColumn, RowItem } from "../../lib/types";
 import { useErrorText } from "../../lib/errors";
-import { formatNumber } from "../../lib/format";
+import type { Presence } from "../../lib/realtime";
+import { placeBetween, type RowPlace } from "../../lib/row-place";
 import { focusOutside } from "../../lib/tab-out";
-import { useLocale } from "../../lib/i18n";
 import { useTRPC } from "../../lib/trpc";
+import type { CatalogColumn, RowItem } from "../../lib/types";
 import { opensPanel } from "../fields/cell-editor";
 import { DEFAULT_WIDTH } from "../fields/field-meta";
 import { useTable, type CellValue } from "../table/table-context";
 import { createLabelMeasure, defaultColumnWidth } from "./column-width";
-import { GridFooter } from "./grid-footer";
 import { GridCell } from "./grid-cell";
-import { GridHeader } from "./grid-header";
-import { GridSkeleton } from "./grid-skeleton";
-import { ADD_FIELD_WIDTH, GUTTER, marginColumn } from "./margin-column";
-import { SelectionSummaryBar } from "./selection-summary";
+import { CheckedRowsBar } from "./grid-checked-bar";
 import {
-  cellId,
-  GridSelection,
-  useEditingRow,
-  useSelectionState,
-  type Cell,
-  type Range,
-} from "./selection";
-import {
-  fillValues,
   isEditableColumn,
   isEditableLink,
   parseClipboard,
   planPaste,
   toTsv,
 } from "./grid-clipboard";
+import { clearUpdates, fillDownUpdates, fillSeriesUpdates } from "./grid-edits";
+import { GridFooter } from "./grid-footer";
+import { sheetGeometry } from "./grid-geometry";
+import { GridHeader } from "./grid-header";
+import { gridKeyAction } from "./grid-keys";
+import { GridMenuItems } from "./grid-menu";
+import {
+  GRID_LIST,
+  GridAddRow,
+  GridDataRow,
+  GridGroupRow,
+  GridLimitRow,
+} from "./grid-rows";
+import { GridSkeleton } from "./grid-skeleton";
 import {
   type GridItem,
   groupLevels,
@@ -86,9 +62,11 @@ import {
   readPrefix,
   viewItems,
 } from "./group-layout";
+import { ADD_FIELD_WIDTH, GUTTER, marginColumn } from "./margin-column";
+import { RowsError } from "./rows-error";
+import { cellId, GridSelection, type Cell, type Range } from "./selection";
+import { SelectionSummaryBar } from "./selection-summary";
 import type { RowsState } from "./use-rows";
-import { useLingui } from "@lingui/react/macro";
-import { plural } from "@lingui/core/macro";
 
 const ROW_HEIGHTS = {
   short: 32,
@@ -158,7 +136,6 @@ const EMPTY_ROW_ID = "00000000-0000-4000-8000-000000000000";
 
 export function GridView(props: GridProps) {
   const { t } = useLingui();
-  const { locale } = useLocale();
   const errorText = useErrorText();
   const copy = useCopy();
   const canAdd = props.canAdd ?? props.canEdit;
@@ -187,18 +164,10 @@ export function GridView(props: GridProps) {
         DEFAULT_WIDTH,
       ),
   );
-  const offsets: number[] = [];
-  let running = GUTTER;
-  for (const width of widths) {
-    offsets.push(running);
-    running += width;
-  }
   // The sheet ends after its last field, and the column that adds one; the
   // space past it only lets the last field scroll clear of the edge.
-  const sheetWidth = running + (props.canManage ? ADD_FIELD_WIDTH : 0);
-  const totalWidth = running + 120;
-  const frozenCount = Math.min(frozen, columns.length);
-  const frozenWidth = (offsets[frozenCount] ?? running) - GUTTER;
+  const { offsets, sheetWidth, totalWidth, frozenCount, frozenWidth } =
+    sheetGeometry(widths, frozen, props.canManage ? ADD_FIELD_WIDTH : 0);
 
   // A grouped grid whose read said where each group starts places every
   // row at once; otherwise it lays out the rows read so far, in order, and
@@ -317,8 +286,6 @@ export function GridView(props: GridProps) {
     if (moreToRead) rows.ensure(readSoFar.length, readSoFar.length);
   }, [firstRow, lastRow, moreToRead, readSoFar.length, rows]);
 
-  const rowIndexOfItem = (item: GridItem | undefined): number | undefined =>
-    item?.type === "row" ? item.index : undefined;
   const visibleRowIndexes = useMemo(
     () => items.flatMap((item) => (item.type === "row" ? [item.index] : [])),
     [items],
@@ -419,18 +386,20 @@ export function GridView(props: GridProps) {
     return list;
   }
 
+  /** The fields of a range, first to last. */
+  const columnsOf = (range: Range) => columns.slice(range.c1, range.c2 + 1);
+
+  /** The rows shown from one place to another, a hole for one not read. */
+  const rowsBetween = (from: number, to: number) =>
+    Array.from({ length: Math.max(to - from + 1, 0) }, (_, offset) =>
+      rowAtPosition(from + offset),
+    );
+
   async function clearRange() {
     const range = selection.getRange();
     if (!range || !props.canEdit) return;
-    const targets = columns
-      .slice(range.c1, range.c2 + 1)
-      .filter(isEditableColumn);
-    if (targets.length === 0) return;
-    const updates = selectedRows().map((row) => ({
-      rowId: row.id,
-      values: Object.fromEntries(targets.map((column) => [column.name, null])),
-    }));
-    await table.updateCells(updates);
+    const updates = clearUpdates(selectedRows(), columnsOf(range));
+    if (updates.length > 0) await table.updateCells(updates);
   }
 
   async function fillDown(target: Range) {
@@ -439,26 +408,10 @@ export function GridView(props: GridProps) {
       toast.error(t`Could not load the rows to fill`);
       return;
     }
-    const sourceRow = rowAtPosition(target.r1);
-    if (!sourceRow) return;
-    const targets = columns
-      .slice(target.c1, target.c2 + 1)
-      .filter(isEditableColumn);
-    const updates: Array<{ rowId: string; values: Record<string, CellValue> }> =
-      [];
-    for (let r = target.r1 + 1; r <= target.r2; r += 1) {
-      const row = rowAtPosition(r);
-      if (!row) continue;
-      updates.push({
-        rowId: row.id,
-        values: Object.fromEntries(
-          targets.map((column) => [
-            column.name,
-            (sourceRow[column.name as keyof RowItem] ?? null) as CellValue,
-          ]),
-        ),
-      });
-    }
+    const updates = fillDownUpdates(
+      rowsBetween(target.r1, target.r2),
+      columnsOf(target),
+    );
     if (updates.length > 0) await table.updateCells(updates);
   }
 
@@ -473,36 +426,11 @@ export function GridView(props: GridProps) {
       toast.error(t`Could not load the rows to fill`);
       return;
     }
-    const targets = columns
-      .slice(range.c1, range.c2 + 1)
-      .filter(isEditableColumn);
-    const sourceRows = selectedRows();
-    const updates: Array<{ rowId: string; values: Record<string, CellValue> }> =
-      [];
-    const series = Object.fromEntries(
-      targets.map((column) => [
-        column.name,
-        fillValues(
-          sourceRows.map(
-            (row) => (row[column.name as keyof RowItem] ?? null) as CellValue,
-          ),
-          count,
-        ),
-      ]),
+    const updates = fillSeriesUpdates(
+      selectedRows(),
+      rowsBetween(range.r2 + 1, range.r2 + count),
+      columnsOf(range),
     );
-    for (let offset = 0; offset < count; offset += 1) {
-      const row = rowAtPosition(range.r2 + 1 + offset);
-      if (!row) continue;
-      updates.push({
-        rowId: row.id,
-        values: Object.fromEntries(
-          targets.map((column) => [
-            column.name,
-            series[column.name]?.[offset] ?? null,
-          ]),
-        ),
-      });
-    }
     if (updates.length > 0) await table.updateCells(updates);
     // The range grows over what it filled.
     selection.updateIfStill(held, {
@@ -544,109 +472,61 @@ export function GridView(props: GridProps) {
     // that adds a row) are that control's: only the grid's own drive it.
     if (event.target !== event.currentTarget) return;
     const { active, editing } = selection.getState();
-    const range = selection.getRange();
     if (editing) return;
-    const activeRow = active ? rowAtPosition(active.r) : undefined;
-    const mod = event.ctrlKey || event.metaKey;
-    if (!active) {
-      if (event.key.startsWith("Arrow") && visibleRowIndexes.length > 0) {
+    const action = gridKeyAction(event, {
+      active,
+      rows: visibleRowIndexes.length,
+      columns: columns.length,
+    });
+    if (!action || !active) {
+      if (action?.kind === "move") {
         event.preventDefault();
-        move({ r: 0, c: 0 }, false);
+        move(action.cell, action.extend);
       }
       return;
     }
-    const lastRow = visibleRowIndexes.length - 1;
-    switch (event.key) {
-      case "ArrowUp":
+    const activeRow = rowAtPosition(active.r);
+    const range = selection.getRange();
+    switch (action.kind) {
+      case "move":
         event.preventDefault();
-        move({ r: mod ? 0 : active.r - 1, c: active.c }, event.shiftKey);
+        move(action.cell, action.extend);
         return;
-      case "ArrowDown":
-        event.preventDefault();
-        move({ r: mod ? lastRow : active.r + 1, c: active.c }, event.shiftKey);
-        return;
-      case "ArrowLeft":
-        event.preventDefault();
-        move({ r: active.r, c: mod ? 0 : active.c - 1 }, event.shiftKey);
-        return;
-      case "ArrowRight":
-        event.preventDefault();
-        move(
-          { r: active.r, c: mod ? columns.length - 1 : active.c + 1 },
-          event.shiftKey,
-        );
-        return;
-      case "Tab": {
-        // Past the row's last field, or before its first, Tab leaves the
-        // grid for the page's next control, as from any other: the
-        // keyboard is never held in it.
-        const next = active.c + (event.shiftKey ? -1 : 1);
-        if (next < 0 || next >= columns.length) {
-          if (focusOutside(event.currentTarget, event.shiftKey)) {
-            event.preventDefault();
-          }
-          return;
-        }
-        event.preventDefault();
-        move({ r: active.r, c: next }, false);
-        return;
-      }
-      case "Home":
-        event.preventDefault();
-        move({ r: mod ? 0 : active.r, c: 0 }, event.shiftKey);
-        return;
-      case "End":
-        event.preventDefault();
-        move(
-          { r: mod ? lastRow : active.r, c: columns.length - 1 },
-          event.shiftKey,
-        );
-        return;
-      case "PageDown":
-        event.preventDefault();
-        move({ r: active.r + 15, c: active.c }, event.shiftKey);
-        return;
-      case "PageUp":
-        event.preventDefault();
-        move({ r: active.r - 15, c: active.c }, event.shiftKey);
-        return;
-      case "Enter":
-      case "F2":
-        event.preventDefault();
-        if (event.shiftKey && activeRow) table.openRecord(activeRow.id);
-        else startEdit(active);
-        return;
-      case " ":
-        if (!mod) {
+      case "leave":
+        // The key is the browser's unless the grid found where to go.
+        if (focusOutside(event.currentTarget, action.backward)) {
           event.preventDefault();
-          if (activeRow) table.openRecord(activeRow.id);
         }
         return;
-      case "Escape":
+      case "edit":
+        event.preventDefault();
+        startEdit(active, action.text);
+        return;
+      case "open":
+        event.preventDefault();
+        if (activeRow) table.openRecord(activeRow.id);
+        return;
+      case "deselect":
         selection.update({ anchor: null });
         return;
-      case "Delete":
-      case "Backspace":
+      case "clear":
         event.preventDefault();
         void clearRange();
         return;
-    }
-    if (mod && event.key.toLowerCase() === "d" && range) {
-      event.preventDefault();
-      void fillDown(range);
-      return;
-    }
-    if (mod && event.key.toLowerCase() === "a") {
-      event.preventDefault();
-      selection.update({
-        anchor: { r: 0, c: 0 },
-        active: { r: lastRow, c: columns.length - 1 },
-      });
-      return;
-    }
-    if (!mod && !event.altKey && event.key.length === 1) {
-      event.preventDefault();
-      startEdit(active, event.key);
+      case "fillDown":
+        event.preventDefault();
+        if (range) void fillDown(range);
+        return;
+      case "selectAll":
+        event.preventDefault();
+        selection.update({
+          anchor: { r: 0, c: 0 },
+          active: {
+            r: visibleRowIndexes.length - 1,
+            c: columns.length - 1,
+          },
+        });
+        return;
     }
   }
 
@@ -846,45 +726,26 @@ export function GridView(props: GridProps) {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {checked.size > 0 ? (
-        <div className="absolute top-1 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-sm border border-border bg-card px-3 py-1.5 text-sm shadow-lg">
-          <span>
-            {plural(checked.size, {
-              one: "# row selected",
-              other: "# rows selected",
-            })}
-          </span>
-          <button
-            type="button"
-            className="rounded px-2 py-0.5 hover:bg-muted"
-            onClick={() => setChecked(new Set())}
-          >
-            {t`Deselect`}
-          </button>
-          {canAdd ? (
-            <button
-              type="button"
-              className="rounded px-2 py-0.5 hover:bg-muted"
-              onClick={async () => {
-                await props.onDuplicateRows([...checked]);
-                setChecked(new Set());
-              }}
-            >
-              {t`Duplicate`}
-            </button>
-          ) : null}
-          {canDelete ? (
-            <button
-              type="button"
-              className="rounded px-2 py-0.5 text-danger hover:bg-muted"
-              onClick={async () => {
-                await props.onDeleteRows([...checked]);
-                setChecked(new Set());
-              }}
-            >
-              {t`Delete`}
-            </button>
-          ) : null}
-        </div>
+        <CheckedRowsBar
+          count={checked.size}
+          onDeselect={() => setChecked(new Set())}
+          onDuplicate={
+            canAdd
+              ? () =>
+                  void props
+                    .onDuplicateRows([...checked])
+                    .then(() => setChecked(new Set()))
+              : undefined
+          }
+          onDelete={
+            canDelete
+              ? () =>
+                  void props
+                    .onDeleteRows([...checked])
+                    .then(() => setChecked(new Set()))
+              : undefined
+          }
+        />
       ) : null}
       <ContextMenu>
         <ContextMenuTrigger asChild>
@@ -940,258 +801,91 @@ export function GridView(props: GridProps) {
               {virtualRows.map((virtual) => {
                 const item = items[virtual.index];
                 if (!item) return null;
-                const top = virtual.start + HEADER;
+                const line = {
+                  top: virtual.start + HEADER,
+                  height: virtual.size,
+                  width: totalWidth,
+                };
                 if (item.type === "group") {
                   return (
-                    <div
+                    <GridGroupRow
                       key={`g-${item.key}`}
-                      role="row"
-                      className="group/group absolute left-0 flex items-center gap-2 border-b border-rule bg-head px-2 text-sm font-medium"
-                      style={{
-                        top,
-                        height: virtual.size,
-                        width: totalWidth,
-                        paddingLeft: 8 + item.depth * 20,
-                      }}
-                    >
-                      <div
-                        role="gridcell"
-                        aria-colspan={columns.length + 1}
-                        className="contents"
-                      >
-                        {/* Named by what it shows; folded or not, it says. */}
-                        <button
-                          type="button"
-                          aria-expanded={!collapsed.has(item.key)}
-                          className="sticky left-2 flex items-center gap-2"
-                          onClick={() =>
-                            setCollapsed((current) => {
-                              const next = new Set(current);
-                              if (next.has(item.key)) next.delete(item.key);
-                              else next.add(item.key);
-                              return next;
-                            })
-                          }
-                        >
-                          {collapsed.has(item.key) ? (
-                            <ChevronRight className="h-4 w-4" aria-hidden />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" aria-hidden />
-                          )}
-                          {item.color ? (
-                            <span
-                              className={`opt-${item.color} rounded-full px-2 text-xs`}
-                            >
-                              {item.label || t`(empty)`}
-                            </span>
-                          ) : (
-                            <span>{item.label || t`(empty)`}</span>
-                          )}
-                          <span className="text-xs font-normal text-muted-foreground">
-                            {item.count}
-                          </span>
-                        </button>
-                        {item.depth === 0 ? (
-                          <button
-                            type="button"
-                            className="sticky right-2 ml-auto rounded px-2 text-xs font-normal text-muted-foreground opacity-0 group-hover/group:opacity-100 hover:bg-card hover:text-foreground focus-visible:opacity-100"
-                            onClick={() =>
-                              setCollapsed(
-                                allCollapsed ? new Set() : new Set(groupKeys),
-                              )
-                            }
-                          >
-                            {allCollapsed ? t`Expand all` : t`Collapse all`}
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
+                      item={item}
+                      line={line}
+                      span={columns.length + 1}
+                      folded={collapsed.has(item.key)}
+                      onFold={() =>
+                        setCollapsed((current) => {
+                          const next = new Set(current);
+                          if (next.has(item.key)) next.delete(item.key);
+                          else next.add(item.key);
+                          return next;
+                        })
+                      }
+                      allFolded={allCollapsed}
+                      onFoldAll={() =>
+                        setCollapsed(
+                          allCollapsed ? new Set() : new Set(groupKeys),
+                        )
+                      }
+                    />
                   );
                 }
                 if (item.type === "limit") {
-                  const limit = formatNumber(MAX_GROUPS, locale);
                   return (
-                    <div
+                    <GridLimitRow
                       key="group-limit"
-                      role="row"
-                      className="absolute left-0 flex items-center border-b border-rule px-3 text-[13px] text-muted-foreground"
-                      style={{ top, height: virtual.size, width: totalWidth }}
-                    >
-                      <div
-                        role="gridcell"
-                        aria-colspan={columns.length + 1}
-                        className="sticky left-3"
-                      >
-                        {t`The first ${limit} groups are shown: filter the view to see the others.`}
-                      </div>
-                    </div>
+                      line={line}
+                      span={columns.length + 1}
+                    />
                   );
                 }
                 if (item.type === "add") {
                   return (
-                    <div
+                    <GridAddRow
                       key="add-row"
-                      role="row"
-                      className="absolute left-0 flex"
-                      style={{ top, height: virtual.size, width: totalWidth }}
-                    >
-                      <div
-                        role="gridcell"
-                        aria-colspan={columns.length + 1}
-                        className="contents"
-                      >
-                        <button
-                          type="button"
-                          className="group/add flex h-full items-center border-b border-rule text-[13px] text-muted-foreground hover:text-foreground"
-                          style={{ width: sheetWidth }}
-                          onClick={() => void props.onAddRow()}
-                        >
-                          {/* The gutter's share of the row: the plus sits where the numbers do. */}
-                          <span
-                            className={cn(
-                              "sticky left-0 flex h-full shrink-0 items-center justify-end border-r border-rule bg-head px-2 group-hover/add:bg-muted",
-                              marginColumn(frozenCount) === -1 &&
-                                "border-r-2 border-r-margin",
-                            )}
-                            style={{ width: GUTTER }}
-                          >
-                            <Plus className="h-3.5 w-3.5" aria-hidden />
-                          </span>
-                          <span className="px-2 group-hover/add:bg-muted">
-                            {t`Add a row`}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
+                      line={line}
+                      span={columns.length + 1}
+                      sheetWidth={sheetWidth}
+                      frozenCount={frozenCount}
+                      onAdd={() => void props.onAddRow()}
+                    />
                   );
                 }
-                const position = positionOfRow(rowIndexOfItem(item) ?? -1);
+                const position = positionOfRow(item.index);
                 const row = rows.rowAt(item.index);
-                const tint =
-                  row && props.tintOf ? props.tintOf(row) : undefined;
-                const slot: ListSlot | undefined =
-                  onMoveRows && row
-                    ? { list: GRID_LIST, index: item.index }
-                    : undefined;
                 return (
-                  <EditingRow
+                  <GridDataRow
                     key={row?.id ?? `r-${item.index}`}
                     selection={selection}
+                    row={row}
+                    index={item.index}
                     position={position}
-                    rowIndex={item.index + 2}
-                    className="group/row absolute left-0 flex"
-                    style={{ top, height: virtual.size, width: totalWidth }}
-                    drop={
-                      slot && row
-                        ? { ...slot, rowId: row.id, onPlace: moveRow }
+                    line={line}
+                    rowHeight={rowHeight}
+                    frozenCount={frozenCount}
+                    tint={row && props.tintOf ? props.tintOf(row) : undefined}
+                    checked={row ? checked.has(row.id) : false}
+                    onCheck={(value) => {
+                      if (!row) return;
+                      setChecked((current) => {
+                        const next = new Set(current);
+                        if (value) next.add(row.id);
+                        else next.delete(row.id);
+                        return next;
+                      });
+                    }}
+                    comments={row ? (counts[row.id] ?? 0) : 0}
+                    onOpen={() => {
+                      if (row) table.openRecord(row.id);
+                    }}
+                    slot={
+                      onMoveRows
+                        ? { list: GRID_LIST, index: item.index }
                         : undefined
                     }
-                    onContextMenu={() => {
-                      const range = selection.getRange();
-                      if (
-                        !range ||
-                        position < range.r1 ||
-                        position > range.r2
-                      ) {
-                        selection.update({
-                          anchor: null,
-                          active: {
-                            r: position,
-                            c: selection.getState().active?.c ?? 0,
-                          },
-                        });
-                      }
-                    }}
+                    onPlace={moveRow}
                   >
-                    <RowGutter
-                      rowId={row?.id}
-                      label={t`Row ${{ number: String(item.index + 1) }}`}
-                      // A locked or signed row stays where it is; others
-                      // can still be put beside it.
-                      slot={row && isFixed(row) ? undefined : slot}
-                      className={cn(
-                        "sticky left-0 z-[6] flex shrink-0 items-center gap-1.5 border-r border-b border-rule bg-head px-1.5 font-mono text-xs text-muted-foreground",
-                        marginColumn(frozenCount) === -1 &&
-                          "border-r-2 border-r-margin",
-                        tint && `row-tint-${tint}`,
-                      )}
-                      style={{ width: GUTTER, height: rowHeight }}
-                    >
-                      <Checkbox
-                        aria-label={t`Select row ${{ index: item.index + 1 }}`}
-                        className={cn(
-                          "h-3.5 w-3.5 shrink-0",
-                          !checked.has(row?.id ?? "") &&
-                            "opacity-0 group-hover/row:opacity-100",
-                        )}
-                        checked={row ? checked.has(row.id) : false}
-                        onChange={(event) =>
-                          row &&
-                          setChecked((current) => {
-                            const next = new Set(current);
-                            if (event.target.checked) next.add(row.id);
-                            else next.delete(row.id);
-                            return next;
-                          })
-                        }
-                      />
-                      <span
-                        className={cn(
-                          "flex-1 text-right tabular-nums",
-                          checked.has(row?.id ?? "")
-                            ? "hidden"
-                            : "group-hover/row:hidden",
-                        )}
-                      >
-                        {/* Its rank in the view, as a spreadsheet numbers
-                            its lines: the row's own number, which never
-                            changes, is the record panel's. */}
-                        {item.index + 1}
-                      </span>
-                      {row ? (
-                        <button
-                          type="button"
-                          aria-label={t`Expand row`}
-                          className="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-foreground hover:bg-muted group-hover/row:inline-flex"
-                          onClick={() => table.openRecord(row.id)}
-                        >
-                          <Expand className="h-3.5 w-3.5" aria-hidden />
-                        </button>
-                      ) : null}
-                      {row && (counts[row.id] ?? 0) > 0 ? (
-                        <button
-                          type="button"
-                          className="inline-flex h-6 min-w-6 items-center justify-center gap-0.5 rounded px-0.5 text-[10px] hover:bg-muted group-hover/row:hidden"
-                          aria-label={plural(counts[row.id] ?? 0, {
-                            one: `# comment`,
-                            other: `# comments`,
-                          })}
-                          onClick={() => table.openRecord(row.id)}
-                        >
-                          <MessageSquare className="h-3 w-3" aria-hidden />
-                          {counts[row.id]}
-                        </button>
-                      ) : null}
-                      {row &&
-                      (row.ag_status === "locked" ||
-                        row.ag_status === "signed") ? (
-                        <span title={row.ag_status} className="text-[10px]">
-                          🔒
-                        </span>
-                      ) : null}
-                      {row?.drift ? (
-                        <span
-                          role="img"
-                          aria-label={t`Changed outside AnyGridDB since it was locked`}
-                          title={t`Changed outside AnyGridDB since it was locked`}
-                        >
-                          <AlertTriangle
-                            className="h-3.5 w-3.5 text-danger"
-                            aria-hidden
-                          />
-                        </span>
-                      ) : null}
-                    </RowGutter>
                     {Array.from({ length: frozenCount }, (_, columnIndex) =>
                       renderCell(row, position, columnIndex),
                     )}
@@ -1212,7 +906,7 @@ export function GridView(props: GridProps) {
                         virtualColumn.index + frozenCount,
                       ),
                     )}
-                  </EditingRow>
+                  </GridDataRow>
                 );
               })}
               <div style={{ height: rowVirtualizer.getTotalSize() }} />
@@ -1299,211 +993,5 @@ export function GridView(props: GridProps) {
         rowAt={rowAtPosition}
       />
     </div>
-  );
-}
-
-/**
- * A body row that rises above later virtualized rows while one of its
- * cells is edited, so an overflowing list panel keeps the pointer.
- */
-function EditingRow(props: {
-  selection: GridSelection;
-  position: number;
-  rowIndex: number;
-  className?: string;
-  style?: CSSProperties;
-  onContextMenu?: () => void;
-  /** Where a row dropped on this one goes, when rows move by hand. */
-  drop?: ListSlot & {
-    rowId: string;
-    onPlace: (rowId: string, place: RowPlace, from: number | undefined) => void;
-  };
-  children: ReactNode;
-}) {
-  const editing = useEditingRow(props.selection, props.position);
-  const ref = useRef<HTMLDivElement>(null);
-  const drop = props.drop;
-  const { dropProps, side } = useRowPlaceDrop(
-    ref,
-    {
-      list: drop?.list ?? GRID_LIST,
-      index: drop?.index ?? -1,
-      rowId: drop?.rowId ?? "",
-    },
-    (rowId, place, from) => drop?.onPlace(rowId, place, from),
-    drop !== undefined,
-  );
-  return (
-    <div
-      {...(drop ? dropProps : {})}
-      ref={ref}
-      role="row"
-      aria-rowindex={props.rowIndex}
-      className={cn(props.className, editing && "z-40")}
-      style={props.style}
-      onContextMenu={props.onContextMenu}
-    >
-      {props.children}
-      {side ? (
-        // Where the row dropped would land: a rule above or below this one.
-        <span
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute right-0 left-0 z-[7] h-0.5 bg-primary",
-            side === "before" ? "top-0" : "bottom-0",
-          )}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-/** The grid's rows, as one list to move rows within. */
-const GRID_LIST = "grid";
-
-/** A locked or signed row, which keeps its place. */
-function isFixed(row: RowItem): boolean {
-  return row.ag_status === "locked" || row.ag_status === "signed";
-}
-
-/**
- * A row's gutter. Where rows move by hand, it is what one drags the row by;
- * the keyboard moves it from the row's menu.
- */
-function RowGutter(props: {
-  rowId: string | undefined;
-  label: string;
-  slot: ListSlot | undefined;
-  className: string;
-  style: CSSProperties;
-  children: ReactNode;
-}) {
-  const movable = props.slot !== undefined && props.rowId !== undefined;
-  const { dragProps, isDragging } = useRowDrag(
-    props.rowId ?? "",
-    props.label,
-    movable,
-    props.slot,
-  );
-  return (
-    <div
-      role="rowheader"
-      aria-colindex={1}
-      // Only the pointer's drag: the row's menu moves it by keyboard.
-      {...(movable
-        ? {
-            draggable: dragProps.draggable,
-            onDragStart: dragProps.onDragStart,
-            onDrag: dragProps.onDrag,
-            onDragEnd: dragProps.onDragEnd,
-          }
-        : {})}
-      className={cn(
-        props.className,
-        movable && "cursor-grab",
-        isDragging && "opacity-50",
-      )}
-      style={props.style}
-    >
-      {props.children}
-    </div>
-  );
-}
-
-/**
- * The context menu's items. They mount when the menu opens, and read the
- * selection then: the grid itself does not re-render when it moves.
- */
-function GridMenuItems(props: {
-  selection: GridSelection;
-  rowAtPosition: (position: number) => RowItem | undefined;
-  canAdd: boolean;
-  canDelete: boolean;
-  onInsertBeside: ((place: RowPlace) => void) | undefined;
-  onMove:
-    | ((rowId: string, place: RowPlace, back: RowPlace | null) => void)
-    | undefined;
-  onCopy: () => void;
-  onDuplicate: () => void;
-  onDelete: () => void;
-}) {
-  const { t } = useLingui();
-  const copy = useCopy();
-  const table = useTable();
-  const { active } = useSelectionState(props.selection);
-  const row = active ? props.rowAtPosition(active.r) : undefined;
-  const above = active ? props.rowAtPosition(active.r - 1) : undefined;
-  const below = active ? props.rowAtPosition(active.r + 1) : undefined;
-  const back = placeBetween(above?.id, below?.id);
-  const onInsertBeside = props.canAdd ? props.onInsertBeside : undefined;
-  const onMove = row && !isFixed(row) ? props.onMove : undefined;
-  return (
-    <>
-      {row ? (
-        <ContextMenuItem onSelect={() => table.openRecord(row.id)}>
-          <Expand className="h-4 w-4" aria-hidden />
-          {t`Expand row`}
-        </ContextMenuItem>
-      ) : null}
-      <ContextMenuItem onSelect={props.onCopy}>
-        <Copy className="h-4 w-4" aria-hidden />
-        {t`Copy`}
-      </ContextMenuItem>
-      {row ? (
-        <ContextMenuItem
-          onSelect={() =>
-            copy(
-              `${window.location.origin}${window.location.pathname}?row=${row.id}`,
-              t`Link copied`,
-            )
-          }
-        >
-          <LinkIcon className="h-4 w-4" aria-hidden />
-          {t`Copy row link`}
-        </ContextMenuItem>
-      ) : null}
-      {row && (onInsertBeside || onMove) ? <ContextMenuSeparator /> : null}
-      {row && onInsertBeside ? (
-        <>
-          <ContextMenuItem onSelect={() => onInsertBeside({ before: row.id })}>
-            <BetweenHorizontalStart className="h-4 w-4" aria-hidden />
-            {t`Insert a row above`}
-          </ContextMenuItem>
-          <ContextMenuItem onSelect={() => onInsertBeside({ after: row.id })}>
-            <BetweenHorizontalEnd className="h-4 w-4" aria-hidden />
-            {t`Insert a row below`}
-          </ContextMenuItem>
-        </>
-      ) : null}
-      {row && onMove && above ? (
-        <ContextMenuItem
-          onSelect={() => onMove(row.id, { before: above.id }, back)}
-        >
-          <ArrowUp className="h-4 w-4" aria-hidden />
-          {t`Move the row up`}
-        </ContextMenuItem>
-      ) : null}
-      {row && onMove && below ? (
-        <ContextMenuItem
-          onSelect={() => onMove(row.id, { after: below.id }, back)}
-        >
-          <ArrowDown className="h-4 w-4" aria-hidden />
-          {t`Move the row down`}
-        </ContextMenuItem>
-      ) : null}
-      {props.canAdd || props.canDelete ? <ContextMenuSeparator /> : null}
-      {props.canAdd ? (
-        <ContextMenuItem onSelect={props.onDuplicate}>
-          <CopyPlus className="h-4 w-4" aria-hidden />
-          {t`Duplicate`}
-        </ContextMenuItem>
-      ) : null}
-      {props.canDelete ? (
-        <ContextMenuItem danger onSelect={props.onDelete}>
-          <Trash2 className="h-4 w-4" aria-hidden />
-          {t`Delete rows`}
-        </ContextMenuItem>
-      ) : null}
-    </>
   );
 }
