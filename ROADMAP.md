@@ -58,6 +58,8 @@ The product is `apps/` and `packages/`.
 - Rows deleted before this release's many-to-many restore fix come back without those links.
 - A SAML provider that sends only transient or address NameIDs matches accounts by address: it must verify them. OIDC, and SAML with a persistent NameID, bind the account to the provider's subject.
 - The map view shows the rows of its view over a plain background, or over the tiles of the server an administrator names (ADR 0068). Over tiles it pans and zooms; over the plain background it stays fitted to its rows.
+- On AnyGridDB's own tables the last write to a cell wins: two people who change the same cell at once are not told. A write to a client's table is compared with what the person saw, and refused when the value moved (ADR 0028). Row 108.
+- A SQLite file is read and written through a dialect of its own, which the conformance suite does not run yet: its formulas and filters are not held to the other engines' results (ADR 0102). Row 109.
 - A synced table is as old as its last refresh, is read-only, stops at a million rows, and links to a table read live show empty.
 - A locked client row is protected from AnyGridDB's writes only: a change another application makes is detected (within five minutes, seconds on a watched table) and told, not refused. Its seal covers every stored column, so a row put back still differs by its `updated_at`.
 - On SQL Server a page is one query: a table with very many complex computed fields can exceed what SQL Server compiles, and AnyGridDB says so. There, MD5, SHA256, and SHA512 read texts of up to 100,000 characters, and JSON_EXTRACT reads a text value of up to 4,000.
@@ -76,7 +78,8 @@ is. What is still missing comes in three tracks: the views and
 spreadsheet gestures people miss, the applications, sign-ins, and
 languages around an instance, and what an instance administrator cannot
 yet do from Administration. Data in and out, at any size, has nothing
-open since rows 83, 99, and 100. Inside a table, the order is the
+open since rows 83, 99, and 100; what a write and an engine still owe
+is rows 108 and 109. Inside a table, the order is the
 priority; across tracks, the order of work below decides.
 
 ### Order of work
@@ -85,6 +88,15 @@ A row moves up only when it unblocks another.
 
 1. Applications, sign-in, and languages: 106 once decided (needs 101,
    which is done); 105 once its languages are chosen.
+2. Data: 108, then 109. Neither waits for a decision, so they come
+   first while 105 and 106 wait for theirs.
+
+### Data
+
+| #   | What                                                                          | Effort | Notes                                                                                                                                                                                                                                                                            |
+| --- | ----------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 108 | A write to one of AnyGridDB's own tables is compared with what the person saw | M      | The grid already sends what it showed for a client's table (ADR 0028), and putting a value back already compares under lock (ADR 0089): the same comparison, field by field, on every write that says what it saw. A write that does not say (an API client) is written as today |
+| 109 | SQLite on the conformance suite                                               | M      | The suite runs five engines (ADR 0005); SQLite runs in the process, with no container. A function it cannot hold to the others' results is refused or carries a limit (ADR 0027)                                                                                                 |
 
 ### Views and organisation
 
@@ -98,9 +110,9 @@ A row moves up only when it unblocks another.
 
 ### Applications, sign-in, and languages
 
-| #   | What                                                                                                                          | Effort | Notes                                                                                                                                                  |
-| --- | ----------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 101 | OAuth for applications: a person allows an application, an MCP client among them, on the bases they choose, and takes it back | M      | Done: authorization code + PKCE, admin-registered clients, consent on chosen bases, grants as API tokens (ADR 0094). DCR and well-known metadata later |
+| #   | What                                                                                                                          | Effort | Notes                                                                                                                                           |
+| --- | ----------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 101 | OAuth for applications: a person allows an application, an MCP client among them, on the bases they choose, and takes it back | M      | Done: authorization code + PKCE, admin-registered clients, consent on chosen bases, grants as API tokens (ADR 0094, 0098). No self-registration |
 
 #### Decide before code
 

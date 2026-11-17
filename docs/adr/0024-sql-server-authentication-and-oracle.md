@@ -1,7 +1,8 @@
 # 0024 — SQL Server authentication and the Oracle dialect: gaps we close ourselves
 
-- Status: Accepted; its SQL Server part is superseded by
-  [0026](0026-source-connections.md)
+- Status: Superseded: its SQL Server part by
+  [0026](0026-source-connections.md), its Oracle part by
+  [0047](0047-oracle-dialect-spike.md)
 - Date: 2026-11-07
 
 ## Context
