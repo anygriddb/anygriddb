@@ -1578,7 +1578,7 @@ msgid "Act as this person"
 msgstr "Agir en tant que cette personne"
 
 #: components/admin/trails.tsx
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 #: components/table/automations-dialog.tsx
 msgid "Action"
 msgstr "Action"
@@ -1679,7 +1679,7 @@ msgstr "Ajouter un groupe"
 msgid "Add a level"
 msgstr "Ajouter un niveau"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Add a link to another table first."
 msgstr "Ajoutez d’abord un lien vers une autre table."
 
@@ -1794,7 +1794,7 @@ msgstr "Ajouter des lignes"
 msgid "Add the group"
 msgstr "Ajouter le groupe"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Add the option"
 msgstr "Ajouter l’option"
 
@@ -1918,7 +1918,7 @@ msgstr "Après l’authentification unique (SSO)"
 msgid "Aggregate"
 msgstr "Agrégat"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Aggregation"
 msgstr "Agrégation"
 
@@ -1989,7 +1989,7 @@ msgstr "Tous les raccourcis"
 msgid "All their sessions"
 msgstr "Toutes ses sessions"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "All true"
 msgstr "Toutes vraies"
 
@@ -2017,11 +2017,11 @@ msgstr "Autoriser la suppression de lignes"
 msgid "Allow private networks"
 msgstr "Autoriser les réseaux privés"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Allow several linked rows"
 msgstr "Autoriser plusieurs lignes liées"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Allow several people"
 msgstr "Autoriser plusieurs personnes"
 
@@ -2053,7 +2053,7 @@ msgstr "déjà dans cette base"
 msgid "Already running"
 msgstr "Déjà en cours"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Also create the inverse field in the other table"
 msgstr "Créer aussi le champ inverse dans l’autre table"
 
@@ -2134,7 +2134,7 @@ msgstr "Une erreur, montrée dans la cellule avec son message."
 msgid "an exact date"
 msgstr "une date précise"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "An expanded row draws this field's text as a code, for a scanner to read."
 msgstr "Une ligne développée dessine le texte de ce champ sous forme de code, lisible par un lecteur de codes."
 
@@ -2172,7 +2172,7 @@ msgstr "Toute adresse"
 msgid "Any form of the table"
 msgstr "Tous les formulaires de la table"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Any true"
 msgstr "Au moins une vraie"
 
@@ -2369,7 +2369,7 @@ msgstr "Code d’authentification ou de secours"
 msgid "Author"
 msgstr "Auteur"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Auto"
 msgstr "Auto"
 
@@ -2398,7 +2398,7 @@ msgid "Autonumber"
 msgstr "Numéro auto"
 
 #: components/dashboards/dashboard-board.tsx
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 #: components/grid/grid-footer.tsx
 #: components/table/view-toolbar.tsx
 msgid "Average"
@@ -2462,7 +2462,7 @@ msgstr "Rapport de sauvegarde"
 msgid "Backups"
 msgstr "Sauvegardes"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Barcode"
 msgstr "Code-barres"
 
@@ -2657,7 +2657,7 @@ msgstr "Bouton"
 msgid "button not carried over"
 msgstr "bouton non repris"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Button text"
 msgstr "Texte du bouton"
 
@@ -2880,8 +2880,8 @@ msgstr "Vérifier maintenant"
 msgid "Check your email"
 msgstr "Consultez vos e-mails"
 
-#: components/fields/field-editor.tsx
 #: components/fields/field-meta.tsx
+#: components/fields/field-settings.tsx
 msgid "Checkbox"
 msgstr "Case à cocher"
 
@@ -2900,11 +2900,11 @@ msgstr "Vérifiée"
 msgid "Checked at {time}"
 msgstr "Vérifiée à {time}"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Checked on every change, wherever it comes from. Negative values already in the table stay until they are changed."
 msgstr "Vérifié à chaque modification, d’où qu’elle vienne. Les valeurs négatives déjà présentes dans la table restent jusqu’à leur modification."
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Checklist"
 msgstr "Liste à cocher"
 
@@ -3110,13 +3110,13 @@ msgstr "Replier la colonne {name}"
 msgid "Collector address"
 msgstr "Adresse du collecteur"
 
-#: components/fields/field-editor.tsx
 #: components/fields/field-meta.tsx
+#: components/fields/field-settings.tsx
 #: components/table/view-toolbar.tsx
 msgid "Colour"
 msgstr "Couleur"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Colour of {option}"
 msgstr "Couleur de {option}"
 
@@ -3124,7 +3124,7 @@ msgstr "Couleur de {option}"
 msgid "Colour of rule {number}"
 msgstr "Couleur de la règle {number}"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Colour of the button"
 msgstr "Couleur du bouton"
 
@@ -3132,7 +3132,7 @@ msgstr "Couleur du bouton"
 msgid "Colour rules"
 msgstr "Règles de couleur"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Coloured badges"
 msgstr "Badges colorés"
 
@@ -3199,7 +3199,7 @@ msgstr "Calcul et système"
 msgid "Computed from other fields"
 msgstr "Calculé à partir d’autres champs"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Concatenate"
 msgstr "Concaténer"
 
@@ -3426,11 +3426,11 @@ msgstr "Impossible de charger les lignes où coller"
 msgid "Could not reach the release feed"
 msgstr "Impossible d’atteindre le flux des versions"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Count of links"
 msgstr "Nombre de liens"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Count of values"
 msgstr "Nombre de valeurs"
 
@@ -3574,7 +3574,7 @@ msgctxt "keyboard key"
 msgid "Ctrl"
 msgstr "Ctrl"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Currency"
 msgstr "Devise"
 
@@ -3666,7 +3666,7 @@ msgstr "Date"
 msgid "Date and time"
 msgstr "Date et heure"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Date format"
 msgstr "Format de date"
 
@@ -3697,11 +3697,11 @@ msgstr "Durée (jours)"
 msgid "Deals"
 msgstr "Opportunités"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Decimal"
 msgstr "Décimal"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Decimals"
 msgstr "Décimales"
 
@@ -3709,7 +3709,7 @@ msgstr "Décimales"
 msgid "Decline"
 msgstr "Refuser"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Default"
 msgstr "Par défaut"
 
@@ -3728,7 +3728,7 @@ msgstr "suppression"
 #: components/admin/sources-tab.tsx
 #: components/dashboards/dashboard-board.tsx
 #: components/dashboards/dashboard-list.tsx
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 #: components/grid/grid-checked-bar.tsx
 #: components/record/record-panel.tsx
 #: components/settings/account-settings.tsx
@@ -3994,7 +3994,7 @@ msgstr "L’espace disque est bas"
 msgid "Dismiss"
 msgstr "Ignorer"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Display"
 msgstr "Affichage"
 
@@ -4151,7 +4151,7 @@ msgstr "Plus tôt"
 msgid "Earliest"
 msgstr "Plus ancienne"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Earliest date"
 msgstr "Plus ancienne date"
 
@@ -4442,7 +4442,7 @@ msgctxt "keyboard key"
 msgid "Esc"
 msgstr "Échap"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "European (31/12/2026)"
 msgstr "Européen (31/12/2026)"
 
@@ -4754,6 +4754,7 @@ msgid "Field moved to the trash"
 msgstr "Champ placé dans la corbeille"
 
 #: components/fields/field-editor.tsx
+#: components/fields/field-formula-settings.tsx
 #: components/table/import-dialog.tsx
 msgid "Field name"
 msgstr "Nom du champ"
@@ -4770,7 +4771,7 @@ msgstr "Droits par champ"
 msgid "Field to fill"
 msgstr "Champ à remplir"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Field to look up"
 msgstr "Champ à reprendre"
 
@@ -4782,7 +4783,7 @@ msgstr "Types de champ"
 msgid "Field used by"
 msgstr "Champ utilisé par"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "field_name"
 msgstr "nom_du_champ"
 
@@ -4917,7 +4918,7 @@ msgstr "Rechercher une base, une table ou une action"
 msgid "Find an account"
 msgstr "Trouver un compte"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Fire"
 msgstr "Feu"
 
@@ -4937,7 +4938,7 @@ msgstr "Première copie en cours : la table s’affiche vide d’ici là"
 msgid "Fit"
 msgstr "Ajustement"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Flag"
 msgstr "Drapeau"
 
@@ -5018,11 +5019,11 @@ msgstr "Champs du formulaire"
 msgid "Form title"
 msgstr "Titre du formulaire"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Format"
 msgstr "Format"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-formula-settings.tsx
 #: components/fields/field-meta.tsx
 msgid "Formula"
 msgstr "Formule"
@@ -5297,7 +5298,7 @@ msgstr "En-têtes"
 msgid "Health"
 msgstr "Santé"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Heart"
 msgstr "Cœur"
 
@@ -5441,7 +5442,7 @@ msgstr "HTTPS, ou http sur 127.0.0.1 / localhost pour le développement."
 msgid "I saved the codes"
 msgstr "J’ai copié les codes"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Icon"
 msgstr "Icône"
 
@@ -5618,7 +5619,7 @@ msgstr "Insérer une ligne au-dessus"
 msgid "Insert a row below"
 msgstr "Insérer une ligne en dessous"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Insert a value with {field} or {id}. Only http and https links open."
 msgstr "Insérez une valeur avec {field} ou {id}. Seuls les liens http et https s’ouvrent."
 
@@ -6242,7 +6243,7 @@ msgstr "l’année dernière"
 msgid "Latest"
 msgstr "Plus récente"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Latest date"
 msgstr "Plus récente date"
 
@@ -6341,7 +6342,7 @@ msgstr "Lien vers une autre table"
 msgid "Link to rows"
 msgstr "Lien vers des lignes"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Linked table"
 msgstr "Table liée"
 
@@ -6497,7 +6498,7 @@ msgstr "Logo enregistré"
 msgid "Logs"
 msgstr "Journaux"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Long (December 31, 2026)"
 msgstr "Long (31 décembre 2026)"
 
@@ -6611,11 +6612,11 @@ msgstr "Max"
 msgid "Max: {max}"
 msgstr "Max : {max}"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Maximum"
 msgstr "Maximum"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Maximum rating"
 msgstr "Note maximale"
 
@@ -6632,7 +6633,7 @@ msgstr "MCP (IA)"
 msgid "Me"
 msgstr "Moi"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Mean of distinct values"
 msgstr "Moyenne des valeurs distinctes"
 
@@ -6734,7 +6735,7 @@ msgstr "Min"
 msgid "Min: {min}"
 msgstr "Min : {min}"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Minimum"
 msgstr "Minimum"
 
@@ -6998,7 +6999,7 @@ msgstr "Nouveau dossier dans {name}"
 msgid "New group"
 msgstr "Nouveau groupe"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "New option"
 msgstr "Nouvelle option"
 
@@ -7627,7 +7628,7 @@ msgstr "Notifications, {count} non lues"
 msgid "Notify collaborators"
 msgstr "Notifier des collaborateurs"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Notify people when they are assigned"
 msgstr "Prévenir les personnes lorsqu’elles sont assignées"
 
@@ -7785,7 +7786,7 @@ msgstr "Seules les modifications faites dans AnyGridDB apparaissent ici : celle
 msgid "Only formulas, lookups, rollups, and buttons can be added on this table."
 msgstr "Seules les formules, recherches, agrégats et boutons peuvent être ajoutés sur cette table."
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Only the linked rows that match"
 msgstr "Seulement les lignes liées qui correspondent"
 
@@ -7809,7 +7810,7 @@ msgstr "Ouvrir"
 msgid "Open “{row}”"
 msgstr "Ouvrir « {row} »"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Open a URL"
 msgstr "Ouvrir une URL"
 
@@ -7910,7 +7911,7 @@ msgstr "Opérateur"
 msgid "Ops"
 msgstr "Opérations"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Option name"
 msgstr "Nom de l’option"
 
@@ -7922,7 +7923,7 @@ msgstr "Point HTTPS optionnel qui reçoit certains événements de connexion et 
 msgid "Optional: the bases they reach from the start, and their role on each. Any base of the instance; each role is on the change trail under your name."
 msgstr "Facultatif : les bases auxquelles la personne accède dès le départ, et son rôle sur chacune. N’importe quelle base de l’instance ; chaque rôle figure au journal des modifications sous votre nom."
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Options"
 msgstr "Options"
 
@@ -8138,7 +8139,7 @@ msgstr "Personnes, sécurité, connexions externes, sources, journaux et l’ins
 msgid "Per-table access"
 msgstr "Droits par table"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Percent"
 msgstr "Pourcentage"
 
@@ -8213,7 +8214,7 @@ msgstr "Épinglés"
 msgid "Place"
 msgstr "Lieu"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Plain text"
 msgstr "Texte simple"
 
@@ -8431,7 +8432,7 @@ msgstr "Remettre ceci"
 msgid "Put this value back"
 msgstr "Remettre cette valeur"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "QR code"
 msgstr "QR code"
 
@@ -8448,7 +8449,7 @@ msgstr "En attente"
 msgid "Queued events"
 msgstr "Événements en attente"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Radio buttons"
 msgstr "Boutons radio"
 
@@ -8630,7 +8631,7 @@ msgstr "Rétablir"
 msgid "Reference"
 msgstr "Référence"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-formula-settings.tsx
 msgid "Reference a field with {example}. Operators: + - * / % & = != > >= < <=."
 msgstr "Référencez un champ avec {example}. Opérateurs : + - * / % & = != > >= < <=."
 
@@ -8659,7 +8660,7 @@ msgstr "actualisée toutes les"
 msgid "refreshes"
 msgstr "rafraîchissements"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Refuse negative numbers"
 msgstr "Refuser les nombres négatifs"
 
@@ -8687,7 +8688,7 @@ msgstr "Enregistrer la clé d’accès"
 msgid "Relations"
 msgstr "Relations"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Relative (in 3 days)"
 msgstr "Relatif (dans 3 jours)"
 
@@ -9293,7 +9294,7 @@ msgstr "Lignes, environ"
 msgid "Run a script"
 msgstr "Exécuter un script"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Run an automation"
 msgstr "Lancer une automatisation"
 
@@ -10275,15 +10276,15 @@ msgstr "Racine carrée ; vide pour un nombre négatif."
 msgid "Standard deviation"
 msgstr "Écart type"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Standard deviation (population)"
 msgstr "Écart type (population)"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Standard deviation (sample)"
 msgstr "Écart type (échantillon)"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Star"
 msgstr "Étoile"
 
@@ -10444,12 +10445,12 @@ msgid "Suggested rows for {field}"
 msgstr "Lignes proposées pour {field}"
 
 #: components/dashboards/dashboard-board.tsx
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 #: components/grid/grid-footer.tsx
 msgid "Sum"
 msgstr "Somme"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Sum of distinct values"
 msgstr "Somme des valeurs distinctes"
 
@@ -10482,7 +10483,7 @@ msgstr "Support"
 msgid "Support role taken away"
 msgstr "Rôle de support retiré"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Switch"
 msgstr "Interrupteur"
 
@@ -10685,8 +10686,8 @@ msgstr "Test envoyé. {status} {detail}"
 msgid "Test the connection"
 msgstr "Tester la connexion"
 
-#: components/fields/field-editor.tsx
 #: components/fields/field-meta.tsx
+#: components/fields/field-settings.tsx
 #: components/fields/formula-docs.ts
 msgid "Text"
 msgstr "Texte"
@@ -11464,7 +11465,7 @@ msgstr "Thème"
 msgid "Then ({index})"
 msgstr "Alors ({index})"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Then create an automation triggered by this button, from the view menu."
 msgstr "Créez ensuite une automatisation déclenchée par ce bouton, depuis le menu de la vue."
 
@@ -11943,7 +11944,7 @@ msgstr "cette année"
 msgid "Through {groups}"
 msgstr "Par {groups}"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Through link"
 msgstr "Via le lien"
 
@@ -11959,7 +11960,7 @@ msgstr "par le groupe {groups}"
 msgid "Through the identity provider only"
 msgstr "Par le fournisseur d’identité seulement"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Thumb"
 msgstr "Pouce"
 
@@ -12366,11 +12367,12 @@ msgstr "Dégeler les colonnes"
 msgid "Unique"
 msgstr "Distincts"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Unique list"
 msgstr "Liste sans doublons"
 
 #: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 #: components/history/earlier.tsx
 msgid "Unique values"
 msgstr "Valeurs uniques"
@@ -12493,13 +12495,13 @@ msgstr "Mettre à jour quand « {name} » correspond"
 msgid "Upload refused"
 msgstr "Envoi refusé"
 
-#: components/fields/field-editor.tsx
 #: components/fields/field-meta.tsx
+#: components/fields/field-settings.tsx
 #: components/table/automations-dialog.tsx
 msgid "URL"
 msgstr "URL"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "US (12/31/2026)"
 msgstr "Américain (12/31/2026)"
 
@@ -12559,11 +12561,11 @@ msgstr "Valeurs"
 msgid "Values you can use in texts:"
 msgstr "Valeurs utilisables dans les textes :"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Variance (population)"
 msgstr "Variance (population)"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-link-settings.tsx
 msgid "Variance (sample)"
 msgstr "Variance (échantillon)"
 
@@ -13006,7 +13008,7 @@ msgstr "oui"
 msgid "Yes"
 msgstr "Oui"
 
-#: components/fields/field-editor.tsx
+#: components/fields/field-settings.tsx
 msgid "Yes / No"
 msgstr "Oui / Non"
 
