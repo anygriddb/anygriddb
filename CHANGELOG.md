@@ -40,13 +40,22 @@ first.
   Notifications. One named in the instance's environment still wins, and
   is shown there (ADR 0105).
 
+### Changed
+
+- An upgrade that asks for a step first is refused before it changes
+  anything: the application's log says "Upgrade refused" and what to
+  do, and the version before starts again on the same data (ADR 0106).
+
 ### Removed
 
 - The Redis wire protocol, Cassandra, and Neo4j are no longer read as
-  sources (ADR 0104). **Before upgrading**, an administrator deletes the
-  sources of those engines, in Administration, with the version in
-  place: the upgrade refuses to start while one is declared, and says
-  so. The MongoDB wire protocol and OpenSearch are read as before.
+  sources (ADR 0104). **Before upgrading**, with the version in place,
+  an administrator deletes the tables of those sources from their
+  bases, then from each base's trash, then the sources themselves, in
+  Administration: a source is not deleted while one of its tables is
+  in a base or in its trash. The upgrade refuses to start while such a
+  source is declared, and says so. The MongoDB wire protocol and
+  OpenSearch are read as before.
 
 ### Fixed
 

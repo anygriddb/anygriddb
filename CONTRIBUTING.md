@@ -139,7 +139,10 @@ so they are not checked.
 - **Migrations**: a new `packages/db/migrations/NNNN_snake_case.sql` with the
   next free number. Never edit one that has been applied. Then regenerate the
   types; the integration test `db-types.integration.test.ts` fails when they
-  lag.
+  lag. A migration that may refuse a database, for data it cannot keep, says
+  so in `NNNN_snake_case.check.sql` beside it, which raises to refuse. It is
+  asked before any pending migration runs, of a database as any release left
+  it: an upgrade that is refused changes nothing (ADR 0106).
 - **Reads**: 1 to 1,000 rows per request (`MAX_READ_LIMIT`).
 
 ## Style and checks

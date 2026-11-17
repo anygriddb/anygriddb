@@ -4,11 +4,16 @@
  * account that touched them, and the pool's own limits.
  */
 import { randomBytes } from "node:crypto";
-import { copyFile, mkdtemp, readdir, rm } from "node:fs/promises";
+import { copyFile, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createDb, migrateDb, type Database } from "@anygriddb/db";
+import {
+  createDb,
+  migrateDb,
+  UpgradeRefused,
+  type Database,
+} from "@anygriddb/db";
 import { sql } from "kysely";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -230,8 +235,8 @@ const MIGRATIONS = fileURLToPath(
   new URL("../../../../packages/db/migrations/", import.meta.url),
 );
 
-/** An empty database, migrated up to the file before `upTo`. */
-async function catalogBefore(upTo: string) {
+/** A database that holds nothing, not even the record of a migration. */
+async function emptyDatabase() {
   const adminUrl = inject("adminUrl");
   const name = `catalog_upgrade_${randomBytes(6).toString("hex")}`;
   const admin = new pg.Client({ connectionString: adminUrl });
@@ -243,20 +248,140 @@ async function catalogBefore(upTo: string) {
   }
   const url = new URL(adminUrl);
   url.pathname = `/${name}`;
-  const created = createDb(url.toString());
+  return createDb(url.toString());
+}
+
+/** A folder of the migrations before `upTo`: what an earlier version ships. */
+async function migrationsBefore(upTo: string): Promise<string> {
   const earlier = await mkdtemp(join(tmpdir(), "migrations-"));
-  try {
-    for (const file of await readdir(MIGRATIONS)) {
-      if (file.endsWith(".sql") && file < upTo) {
-        await copyFile(join(MIGRATIONS, file), join(earlier, file));
-      }
+  for (const file of await readdir(MIGRATIONS)) {
+    if (file.endsWith(".sql") && file < upTo) {
+      await copyFile(join(MIGRATIONS, file), join(earlier, file));
     }
+  }
+  return earlier;
+}
+
+/** A folder of migrations written for one test. */
+async function migrationsOf(files: Record<string, string>): Promise<string> {
+  const folder = await mkdtemp(join(tmpdir(), "migrations-"));
+  for (const [name, text] of Object.entries(files)) {
+    await writeFile(join(folder, name), text);
+  }
+  return folder;
+}
+
+/** An empty database, migrated up to the file before `upTo`. */
+async function catalogBefore(upTo: string) {
+  const created = await emptyDatabase();
+  const earlier = await migrationsBefore(upTo);
+  try {
     await migrateDb(created.pool, earlier);
   } finally {
     await rm(earlier, { recursive: true, force: true });
   }
   return created;
 }
+
+/** The migrations the database says it ran, in order. */
+async function appliedTo(db: Database): Promise<string[]> {
+  const applied = await sql<{ name: string }>`
+    select name from schema_migrations order by name
+  `.execute(db);
+  return applied.rows.map((row) => row.name);
+}
+
+// A migration may refuse a database (ADR 0106): it asks before any
+// pending migration runs, so that a refusal changes nothing.
+describe("a migration that asks before it runs", () => {
+  const first = {
+    "0000_things.sql": "create table things (id int primary key);",
+  };
+  const next = {
+    ...first,
+    "0001_more.sql": "alter table things add column label text;",
+    "0002_fewer.sql": "alter table things drop column id;",
+    "0002_fewer.check.sql": `
+      do $$ begin
+        if exists (select 1 from things) then
+          raise exception 'Empty the things first';
+        end if;
+      end $$;`,
+  };
+
+  it("refuses before the first pending migration, then runs them all", async () => {
+    const { db, pool, close } = await emptyDatabase();
+    const [before, after] = await Promise.all([
+      migrationsOf(first),
+      migrationsOf(next),
+    ]);
+    try {
+      expect(await migrateDb(pool, before)).toEqual(["0000_things"]);
+      await sql`insert into things values (1)`.execute(db);
+
+      const refused = await migrateDb(pool, after).catch(
+        (error: unknown) => error,
+      );
+      expect(refused).toBeInstanceOf(UpgradeRefused);
+      expect((refused as UpgradeRefused).migration).toBe("0002_fewer");
+      expect((refused as UpgradeRefused).message).toContain(
+        "before anything was changed: Empty the things first",
+      );
+      // Not even the migration before the one that asked.
+      expect(await appliedTo(db)).toEqual(["0000_things"]);
+      // The version before starts on it again.
+      expect(await migrateDb(pool, before)).toEqual([]);
+
+      await sql`delete from things`.execute(db);
+      expect(await migrateDb(pool, after)).toEqual(["0001_more", "0002_fewer"]);
+    } finally {
+      await close();
+      await rm(before, { recursive: true, force: true });
+      await rm(after, { recursive: true, force: true });
+    }
+  });
+
+  it("asks nothing of a database that holds nothing", async () => {
+    const { pool, close } = await emptyDatabase();
+    // Asked, the check would fail: its table is not made yet.
+    const folder = await migrationsOf(next);
+    try {
+      expect(await migrateDb(pool, folder)).toEqual([
+        "0000_things",
+        "0001_more",
+        "0002_fewer",
+      ]);
+    } finally {
+      await close();
+      await rm(folder, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a check that writes", async () => {
+    const { db, pool, close } = await emptyDatabase();
+    const [before, after] = await Promise.all([
+      migrationsOf(first),
+      migrationsOf({
+        ...first,
+        "0001_more.sql": "alter table things add column label text;",
+        "0001_more.check.sql": "insert into things values (2);",
+      }),
+    ]);
+    try {
+      await migrateDb(pool, before);
+      await expect(migrateDb(pool, after)).rejects.toBeInstanceOf(
+        UpgradeRefused,
+      );
+      const rows = await sql`select id from things`.execute(db);
+      expect(rows.rows).toEqual([]);
+      expect(await appliedTo(db)).toEqual(["0000_things"]);
+    } finally {
+      await close();
+      await rm(before, { recursive: true, force: true });
+      await rm(after, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("catalog integrity on a catalog that already holds a role twice", () => {
   it("keeps the highest role of each grant, and every other grant", async () => {
@@ -355,8 +480,9 @@ describe("catalog integrity on a catalog that already holds a role twice", () =>
 describe("a catalog that holds a source of a store no longer read", () => {
   async function withSources(
     engines: readonly string[],
+    upTo = "0116",
   ): Promise<Awaited<ReturnType<typeof catalogBefore>> & { owner: string }> {
-    const created = await catalogBefore("0116");
+    const created = await catalogBefore(upTo);
     const person = await created.db
       .insertInto("users")
       .values({
@@ -384,29 +510,61 @@ describe("a catalog that holds a source of a store no longer read", () => {
     return { ...created, owner: person.id };
   }
 
-  it("refuses to migrate, says why, and changes nothing", async () => {
-    const { db, pool, close } = await withSources(["postgres", "redis"]);
+  it("refuses to upgrade, says why, and leaves the version before able to start", async () => {
+    // As the first published version left it: the migration before the
+    // one that refuses is pending too.
+    const { db, pool, close, owner } = await withSources(
+      ["postgres", "redis"],
+      "0115",
+    );
+    const before = await migrationsBefore("0115");
     try {
-      let refused: unknown;
-      try {
-        await migrateDb(pool);
-      } catch (error) {
-        refused = error;
-      }
-      expect(refused).toBeInstanceOf(Error);
-      expect(String((refused as Error).cause)).toContain(
+      const was = await appliedTo(db);
+      const refused = await migrateDb(pool).catch((error: unknown) => error);
+      expect(refused).toBeInstanceOf(UpgradeRefused);
+      expect((refused as UpgradeRefused).message).toContain(
         "no longer reads Redis, Cassandra, or Neo4j",
       );
       const kept = await sql<{ engine: string }>`
         select engine::text as engine from sources order by engine::text
       `.execute(db);
       expect(kept.rows.map((row) => row.engine)).toEqual(["postgres", "redis"]);
-      const applied = await sql<{ name: string }>`
-        select name from schema_migrations where name like '0116%'
-      `.execute(db);
-      expect(applied.rows).toEqual([]);
+      expect(await appliedTo(db)).toEqual(was);
+      // The version before starts again, and its administrator deletes
+      // the source: the upgrade then runs whole.
+      expect(await migrateDb(pool, before)).toEqual([]);
+      await withAudit(db, { userId: owner, source: "web" }, (tx) =>
+        sql`delete from sources where engine::text = 'redis'`.execute(tx),
+      );
+      const ran = await migrateDb(pool);
+      expect(ran.slice(0, 2)).toEqual([
+        "0115_automation_secrets",
+        "0116_fewer_copy_stores",
+      ]);
     } finally {
       await close();
+      await rm(before, { recursive: true, force: true });
+    }
+  });
+
+  it("is refused by the migration itself when nothing asked before it", async () => {
+    const { db, pool, close } = await withSources(["cassandra"]);
+    // Every migration, and no check.
+    const unasked = await migrationsBefore("9999");
+    try {
+      await rm(join(unasked, "0116_fewer_copy_stores.check.sql"));
+      const refused = await migrateDb(pool, unasked).catch(
+        (error: unknown) => error,
+      );
+      expect(refused).not.toBeInstanceOf(UpgradeRefused);
+      expect(String((refused as Error).cause)).toContain(
+        "no longer reads Redis, Cassandra, or Neo4j",
+      );
+      const applied = await appliedTo(db);
+      expect(applied.at(-1)).toBe("0115_automation_secrets");
+    } finally {
+      await close();
+      await rm(unasked, { recursive: true, force: true });
     }
   });
 

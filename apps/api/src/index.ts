@@ -1,4 +1,4 @@
-import { createDb, migrateDb } from "@anygriddb/db";
+import { createDb, migrateDb, UpgradeRefused } from "@anygriddb/db";
 import { hasAccounts, promoteListedAdmins } from "./admin.js";
 import { passkeysEligible } from "./auth/relying-party.js";
 import { BUILD, describeBuild } from "./build-info.js";
@@ -38,6 +38,8 @@ try {
 } catch (error) {
   const { notifyMigrationFailure } = await import("./notify/migrate.js");
   await notifyMigrationFailure(db, error);
+  // A refusal has just said what to do: no stack to read after it.
+  if (error instanceof UpgradeRefused) process.exit(1);
   throw error;
 }
 // Row writes queue their events in graphile-worker: its schema comes first.

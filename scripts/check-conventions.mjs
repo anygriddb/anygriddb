@@ -4,7 +4,8 @@
  * - files and directories under apps/, packages/, scripts/, docker/, and
  *   docs/ are kebab-case, but for names a tool or a convention imposes;
  * - migrations are `NNNN_snake_case.sql`, numbered from 0000 without a
- *   gap or a repeat;
+ *   gap or a repeat; a migration's check is `NNNN_snake_case.check.sql`,
+ *   beside it;
  * - dependencies are pinned to exact versions;
  * - the root package.json holds the product's version, in SemVer
  *   (ADR 0048).
@@ -20,6 +21,7 @@ const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)*$/;
 const IMPOSED = new Set(["README.md", "SOURCES.md", "Dockerfile", "LICENSE"]);
 const MIGRATIONS = "packages/db/migrations/";
 const MIGRATION = /^(\d{4})_[a-z0-9]+(_[a-z0-9]+)*\.sql$/;
+const MIGRATION_CHECK = ".check.sql";
 const EXACT = /^(\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?|workspace:\*)$/;
 const PINNED = ["dependencies", "devDependencies", "optionalDependencies"];
 const SEMVER =
@@ -46,10 +48,20 @@ for (const path of tracked.filter((file) =>
   }
 }
 
-const migrations = tracked
+const migrationFiles = tracked
   .filter((file) => file.startsWith(MIGRATIONS))
   .map((file) => basename(file))
   .sort();
+const migrations = migrationFiles.filter(
+  (name) => !name.endsWith(MIGRATION_CHECK),
+);
+for (const name of migrationFiles) {
+  if (!name.endsWith(MIGRATION_CHECK)) continue;
+  const migration = `${name.slice(0, -MIGRATION_CHECK.length)}.sql`;
+  if (!migrations.includes(migration)) {
+    problems.push(`${MIGRATIONS}${name}: no migration ${migration} beside it`);
+  }
+}
 migrations.forEach((name, index) => {
   const match = MIGRATION.exec(name);
   if (!match) {

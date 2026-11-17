@@ -16,7 +16,7 @@ accepted as the work they decide was done; each carries its own date.
 | [0001](0001-typescript-end-to-end.md)                  | TypeScript end to end                                                                   | Superseded by 0021                                         |
 | [0002](0002-two-planes.md)                             | Two planes: AnyGridDB's PostgreSQL, and the client's databases                          | Accepted                                                   |
 | [0003](0003-postgresql-only-internal-store.md)         | AnyGridDB's own store is PostgreSQL only                                                | Accepted                                                   |
-| [0004](0004-kysely-and-sql-migrations.md)              | Kysely, `pg`, plain SQL migrations, generated types                                     | Accepted; amended by 0097                                  |
+| [0004](0004-kysely-and-sql-migrations.md)              | Kysely, `pg`, plain SQL migrations, generated types                                     | Accepted; amended by 0097, 0106                            |
 | [0005](0005-multi-dialect-read-engine.md)              | A read engine with one compiler per SQL dialect                                         | Refusal rule amended by 0027; amended by 0097              |
 | [0006](0006-external-sources.md)                       | External sources: live reads and writes on the client's databases                       | Sign-in part superseded by 0026; amended by 0046, 0102     |
 | [0007](0007-guarantees-per-storage.md)                 | What audit, locks, and signatures guarantee on native and external tables               | Accepted                                                   |
@@ -118,3 +118,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0103](0103-a-write-compared-with-what-was-seen.md)    | A write to AnyGridDB's own table is compared with what its author saw                   | Accepted                                                   |
 | [0104](0104-two-stores-read-from-a-copy.md)            | Two stores are read from a copy, not five                                               | Accepted (amends 0088)                                     |
 | [0105](0105-syslog-collector-set-in-administration.md) | The syslog collector is set in Administration                                           | Accepted (amends 0084)                                     |
+| [0106](0106-a-migration-asks-before-any-runs.md)       | A migration that may refuse asks before any of them runs                                | Accepted (amends 0004)                                     |
