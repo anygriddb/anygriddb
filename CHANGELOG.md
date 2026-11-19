@@ -19,6 +19,14 @@ first.
   nothing. `ANYGRIDDB_SOURCES_ALLOWED_PATHS` and
   `ANYGRIDDB_SOURCES_SQLITE_ALLOW_MEMORY` are no longer read.
 
+### Fixed
+
+- Where the keyboard is shows again on the buttons that open a menu,
+  the button that closes a dialog, the days of a date picker, the
+  buttons that edit a field in a row's panel, a kanban's cards, and the
+  handles that move a card, an option, or a widget: they drew no focus
+  ring.
+
 ## 0.2.0 - 2026-11-17
 
 **Before upgrading:** an instance that declared a source on the Redis

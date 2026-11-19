@@ -92,7 +92,7 @@ export function OptionColorButton(props: {
           aria-label={t`${{ label: props.label }}: ${{ color: name }}`}
           className={cn(
             `opt-${held}`,
-            "h-6 w-6 shrink-0 rounded-full border border-strong-border outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+            "h-6 w-6 shrink-0 rounded-full border border-strong-border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
           )}
         />
       </PopoverTrigger>

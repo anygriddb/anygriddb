@@ -183,7 +183,7 @@ function FieldRow({
               role="checkbox"
               aria-checked={value === true}
               aria-label={column.label}
-              className="absolute inset-0 z-[1] rounded-md outline-none focus-visible:outline-2 focus-visible:outline-ring"
+              className="absolute inset-0 z-[1] rounded-md focus-visible:outline-2 focus-visible:outline-ring"
               onClick={(event) => {
                 event.stopPropagation();
                 toggle();
@@ -195,7 +195,7 @@ function FieldRow({
                 ref={editButton}
                 type="button"
                 aria-label={t`Edit ${{ field: column.label }}`}
-                className="absolute top-1 right-1 z-[1] inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground opacity-0 outline-none group-hover:opacity-100 hover:bg-muted focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-ring"
+                className="absolute top-1 right-1 z-[1] inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-ring"
                 onClick={(event) => {
                   event.stopPropagation();
                   setEditing(true);

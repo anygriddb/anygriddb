@@ -66,10 +66,10 @@ const segmentClass =
   "rounded px-0.5 tabular-nums outline-none data-[placeholder]:text-muted-foreground data-[type=literal]:px-0 data-[type=literal]:text-muted-foreground data-[focused]:bg-primary data-[focused]:text-primary-foreground data-[focused]:data-[placeholder]:text-primary-foreground";
 
 const navButton =
-  "inline-flex h-7 w-7 items-center justify-center rounded-md outline-none hover:bg-muted data-[focus-visible]:outline-2 data-[focus-visible]:outline-ring";
+  "inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted data-[focus-visible]:outline-2 data-[focus-visible]:outline-ring";
 
 const dayClass =
-  "flex h-8 w-8 cursor-default items-center justify-center rounded-md text-sm tabular-nums outline-none data-[outside-month]:hidden data-[hovered]:bg-muted data-[selected]:bg-primary data-[selected]:text-primary-foreground data-[focus-visible]:outline-2 data-[focus-visible]:outline-ring data-[disabled]:opacity-40 data-[unavailable]:line-through";
+  "flex h-8 w-8 cursor-default items-center justify-center rounded-md text-sm tabular-nums data-[outside-month]:hidden data-[hovered]:bg-muted data-[selected]:bg-primary data-[selected]:text-primary-foreground data-[focus-visible]:outline-2 data-[focus-visible]:outline-ring data-[disabled]:opacity-40 data-[unavailable]:line-through";
 
 export function DatePicker(props: DatePickerProps) {
   const cell = props.variant === "cell";

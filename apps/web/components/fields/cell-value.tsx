@@ -228,7 +228,7 @@ export function CellValueView({
             <button
               key={file.key}
               type="button"
-              className="rounded outline-none hover:opacity-80 focus-visible:outline-2 focus-visible:outline-ring"
+              className="rounded hover:opacity-80 focus-visible:outline-2 focus-visible:outline-ring"
               aria-label={t`Preview: ${{ name: file.filename }}`}
               onClick={(event) => {
                 event.stopPropagation();
