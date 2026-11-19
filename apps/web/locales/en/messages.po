@@ -10173,6 +10173,10 @@ msgstr "Skip"
 msgid "Skip for now"
 msgstr "Skip for now"
 
+#: components/shell/app-shell.tsx
+msgid "Skip to the content"
+msgstr "Skip to the content"
+
 #: components/table/automations-dialog.tsx
 msgid "Skipped"
 msgstr "Skipped"

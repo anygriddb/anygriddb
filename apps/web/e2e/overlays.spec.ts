@@ -13,6 +13,27 @@ test("menus, submenus, a context menu, and a popover work from the keyboard", as
   const blocked = watchPolicy(page);
   await signUpWithTable(page, "Menu User");
 
+  // A page has one main part, and the keyboard's first stop leads to it,
+  // past the navigation.
+  await page.reload();
+  await expect(page.getByRole("grid")).toBeVisible();
+  const main = page.getByRole("main");
+  await expect(main).toHaveCount(1);
+  await page.keyboard.press("Tab");
+  const skip = page.getByRole("link", { name: "Skip to the content" });
+  await expect(skip).toBeFocused();
+  await expect(skip).toBeInViewport();
+  await page.keyboard.press("Enter");
+  await expect(main).toBeFocused();
+  await page.keyboard.press("Tab");
+  expect(
+    await main.evaluate(
+      (element) =>
+        element !== document.activeElement &&
+        element.contains(document.activeElement),
+    ),
+  ).toBe(true);
+
   await page.getByRole("button", { name: "Menu User" }).click();
   await expect(page.getByRole("menu")).toBeVisible();
   await page.getByRole("menuitem", { name: "Theme" }).focus();

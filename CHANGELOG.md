@@ -33,6 +33,10 @@ first.
   buttons that edit a field in a row's panel, a kanban's cards, and the
   handles that move a card, an option, or a widget: they drew no focus
   ring.
+- Behind a session, a page is the main part of its screen for a screen
+  reader, and the keyboard's first stop, "Skip to the content", leads
+  to it: the way to a page was through every base and table of the
+  navigation.
 - In a kanban and a gallery, Enter or Space on a card opens its row
   and nothing else. It also picked the card up: the page stopped
   answering until Escape, and a second Enter dropped the card. A click
