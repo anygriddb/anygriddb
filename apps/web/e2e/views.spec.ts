@@ -30,7 +30,10 @@ function dayOfThisMonth(day: number): string {
   return `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-/** Four rows, three to do and one in progress, each due this month. */
+/**
+ * Four rows, three to do and one in progress, each due this month; the
+ * first has a site, which its card shows as a link.
+ */
 async function fourRows(page: Page): Promise<void> {
   const tableId = tableIdOf(page);
   await send(page, "catalog.addColumn", {
@@ -39,10 +42,21 @@ async function fourRows(page: Page): Promise<void> {
     label: "Due",
     fieldType: "date",
   });
+  await send(page, "catalog.addColumn", {
+    tableId,
+    name: "site",
+    label: "Site",
+    fieldType: "url",
+  });
   await send(page, "rows.insertMany", {
     tableId,
     rows: [
-      { name: "Alpha", status: "To do", due: dayOfThisMonth(10) },
+      {
+        name: "Alpha",
+        status: "To do",
+        due: dayOfThisMonth(10),
+        site: "https://example.org/alpha",
+      },
       { name: "Bravo", status: "To do", due: dayOfThisMonth(11) },
       { name: "Charlie", status: "To do", due: dayOfThisMonth(12) },
       { name: "Delta", status: "In progress", due: dayOfThisMonth(13) },
@@ -105,6 +119,13 @@ test.describe("a kanban, a gallery, and a calendar", () => {
     await expect
       .poll(() => cardsOf("To do"))
       .toEqual(["Alpha", "Bravo", "Charlie"]);
+    // A card is opened by its name, and an address among its fields stays
+    // a link beside it: neither holds the other.
+    await expect(card("Alpha")).toHaveAccessibleName("Alpha");
+    await expect(
+      stack("To do").getByRole("link", { name: "https://example.org/alpha" }),
+    ).toHaveAttribute("href", "https://example.org/alpha");
+    expect(await accessibilityViolations(page)).toEqual([]);
 
     // Enter on a card opens its row and nothing else: no drag starts under
     // it. The row's panel takes the keyboard, and Escape gives it back to

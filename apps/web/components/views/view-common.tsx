@@ -3,6 +3,7 @@ import { cellText, rowError } from "@anygriddb/core";
 import {
   Button,
   Checkbox,
+  cn,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -149,6 +150,36 @@ export function ColumnPicker({
   );
 }
 
+/**
+ * What opens a row drawn as a card: a button that holds the row's name
+ * and covers the whole card, which must be positioned (`relative`). What
+ * the card shows beside it stays what it is, so that an address among its
+ * fields is still a link: inside a button a link is neither, to a screen
+ * reader nor to the keyboard.
+ */
+export function CardOpener({
+  name,
+  onOpen,
+  className,
+}: {
+  name: string;
+  onOpen: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn(
+        "block w-full cursor-pointer truncate text-left font-medium after:absolute after:inset-0 after:rounded-sm focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring",
+        className,
+      )}
+    >
+      {name}
+    </button>
+  );
+}
+
 export function CardFields({
   row,
   columns,
@@ -158,7 +189,9 @@ export function CardFields({
 }) {
   const table = useTable();
   return (
-    <dl className="mt-1 flex flex-col gap-1">
+    // A link among the fields stands above the button that covers the
+    // card, tall enough to be pointed at.
+    <dl className="mt-1 flex flex-col gap-1 [&_a]:relative [&_a]:py-1">
       {columns.map((column) => {
         const value = row[column.name as keyof RowItem];
         const error = rowError(row, column.name);

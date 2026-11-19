@@ -17,6 +17,7 @@ import { kanbanStacks, stackPlaces } from "./kanban-stacks";
 import {
   CardFields,
   CardFieldsPicker,
+  CardOpener,
   cardColumns,
   ColumnPicker,
   useRowTitle,
@@ -93,19 +94,13 @@ function Card({
       <div
         {...dragProps}
         className={cn(
-          "relative rounded-sm border border-border bg-card text-sm hover:border-strong-border",
+          "relative rounded-sm border border-border bg-card p-2.5 pr-7 text-sm hover:border-strong-border",
           isDragging && "opacity-50",
           tint && `row-tint-${tint}`,
         )}
       >
-        <button
-          type="button"
-          onClick={() => table.openRecord(row.id)}
-          className="w-full cursor-pointer rounded-sm p-2.5 pr-7 text-left focus-visible:outline-2 focus-visible:outline-ring"
-        >
-          <p className="truncate font-medium">{name}</p>
-          <CardFields row={row} columns={fields} />
-        </button>
+        <CardOpener name={name} onOpen={() => table.openRecord(row.id)} />
+        <CardFields row={row} columns={fields} />
         {draggable ? (
           <DragHandle
             {...dragButtonProps}
