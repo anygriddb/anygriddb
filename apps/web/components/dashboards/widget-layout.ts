@@ -41,6 +41,24 @@ export function packWidgets<T extends PlacedWidget>(order: readonly T[]): T[] {
   return placed;
 }
 
+/**
+ * Where a widget stands on the page's grid: at its place among the twelve
+ * columns, or, on a screen too narrow for them, across the whole width,
+ * under the widget read before it and as tall as it is. On a phone a
+ * widget three columns wide was a quarter of the screen.
+ */
+export function widgetCell(
+  widget: PlacedWidget,
+  stacked: boolean,
+): { gridColumn: string; gridRow: string } {
+  return stacked
+    ? { gridColumn: "1 / -1", gridRow: `span ${String(widget.h)}` }
+    : {
+        gridColumn: `${String(widget.x + 1)} / span ${String(widget.w)}`,
+        gridRow: `${String(widget.y + 1)} / span ${String(widget.h)}`,
+      };
+}
+
 /** The widgets in reading order: by row, then by column. */
 export function readingOrder<T extends PlacedWidget>(
   widgets: readonly T[],

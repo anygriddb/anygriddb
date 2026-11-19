@@ -98,6 +98,9 @@ first.
   phone's cards: the whole card was one button around it. A card is
   named by its row, where a screen reader heard every field in the
   button's name.
+- On a phone, a dashboard's widgets stand one under another, each as
+  wide as the screen, and its name is read whole: a widget kept its
+  share of twelve columns, a quarter of the screen for a figure.
 
 ## 0.2.0 - 2026-11-17
 

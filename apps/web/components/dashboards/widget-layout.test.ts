@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { moveWidget, packWidgets, placeWidget } from "./widget-layout";
+import {
+  moveWidget,
+  packWidgets,
+  placeWidget,
+  widgetCell,
+} from "./widget-layout";
 
 const chart = { id: "chart", x: 0, y: 0, w: 6, h: 4 };
 const metric = { id: "metric", x: 6, y: 0, w: 3, h: 2 };
@@ -54,5 +59,23 @@ describe("moving a dashboard's widgets", () => {
       [0, 2, 8],
       [0, 4, 12],
     ]);
+  });
+});
+
+describe("widgetCell", () => {
+  const widget = { id: "a", x: 3, y: 2, w: 6, h: 4 };
+
+  it("stands at its place among the twelve columns", () => {
+    expect(widgetCell(widget, false)).toEqual({
+      gridColumn: "4 / span 6",
+      gridRow: "3 / span 4",
+    });
+  });
+
+  it("takes the whole width on a narrow screen, as tall as it is", () => {
+    expect(widgetCell(widget, true)).toEqual({
+      gridColumn: "1 / -1",
+      gridRow: "span 4",
+    });
   });
 });

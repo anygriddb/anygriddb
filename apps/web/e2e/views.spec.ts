@@ -360,6 +360,19 @@ test.describe("a dashboard", () => {
     ).toBeVisible();
     await expect(widget("Every sample").getByText("2 rows")).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
+    // On a phone the widgets stand one under another, each as wide as
+    // the page: twelve columns have no room there.
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const title of ["First", "Every sample"]) {
+      await expect
+        .poll(async () => (await widget(title).boundingBox())?.width ?? 0)
+        .toBeGreaterThan(300);
+    }
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.setViewportSize({ width: 1280, height: 720 });
     // A row's name opens that row in its table.
     await sample.getByRole("link", { name: "Bravo" }).click();
     await expect(

@@ -36,13 +36,19 @@ import {
 import { Link } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useNarrowScreen } from "../../lib/narrow-screen";
 import { useCatalog } from "../../lib/session";
 import { LoadFailed } from "../shell/load-failed";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { canManage } from "../../lib/types";
 import { PromptDialog } from "../shell/dialogs";
 import { Earlier } from "../history/earlier";
-import { moveWidget, placeWidget, readingOrder } from "./widget-layout";
+import {
+  moveWidget,
+  placeWidget,
+  readingOrder,
+  widgetCell,
+} from "./widget-layout";
 import { ViewWidget } from "./view-widget";
 import { embeddedViewId } from "./widget-view";
 import { DashboardHistory, type WidgetBody } from "./dashboard-history";
@@ -132,6 +138,8 @@ export function DashboardBoard(props: { baseId: string; dashboardId: string }) {
 function DashboardEditor(props: { baseId: string; dashboardId: string }) {
   const { t, i18n } = useLingui();
   const api = useTRPC();
+  // A phone has no room for twelve columns: its widgets stand in one.
+  const narrow = useNarrowScreen();
   const queryClient = useQueryClient();
   const catalog = useCatalog();
   const base = catalog.data?.find((item) => item.id === props.baseId);
@@ -369,7 +377,9 @@ function DashboardEditor(props: { baseId: string; dashboardId: string }) {
           </Link>
         </Button>
         <LayoutDashboard className="h-5 w-5 text-primary" aria-hidden />
-        <div className="min-w-0 flex-1">
+        {/* Wide enough to be read: on a narrow screen what follows goes
+            to the next line, where the name was cut to two letters. */}
+        <div className="min-w-40 flex-1">
           <h1 className="truncate text-xl font-semibold">{dashboard.name}</h1>
           {oldestCopy !== null ? (
             <p role="note" className="text-xs text-muted-foreground">
@@ -448,6 +458,7 @@ function DashboardEditor(props: { baseId: string; dashboardId: string }) {
             baseId={props.baseId}
             dashboardId={props.dashboardId}
             widget={widget}
+            stacked={narrow}
             editing={modifying}
             first={index === 0}
             last={index === ordered.length - 1}
@@ -579,6 +590,8 @@ function WidgetCard(props: {
   onDelete: () => void;
   onDropWidget: (draggedId: string) => void;
   widget: WidgetModel;
+  /** On a narrow screen: under the widget before it, the page's width. */
+  stacked: boolean;
 }) {
   const { t } = useLingui();
   const errorText = useErrorText();
@@ -620,10 +633,7 @@ function WidgetCard(props: {
           isDropTarget && "ring-2 ring-primary",
           isDragging && "opacity-50",
         )}
-        style={{
-          gridColumn: `${props.widget.x + 1} / span ${props.widget.w}`,
-          gridRow: `${props.widget.y + 1} / span ${props.widget.h}`,
-        }}
+        style={widgetCell(props.widget, props.stacked)}
       >
         <header
           className="flex items-center gap-2 border-b border-border px-3 py-2"
