@@ -25,6 +25,24 @@ test("menus, submenus, a context menu, and a popover work from the keyboard", as
   await expect(page.getByRole("menuitem", { name: "Kanban" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toBeHidden();
+  // The keyboard is back on the button, which shows it: a ring is drawn.
+  await expect(page.getByRole("button", { name: "New view" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "New view" })).toHaveCSS(
+    "outline-style",
+    "solid",
+  );
+  // So does the button that closes a dialog.
+  await page.keyboard.press("Control+k");
+  const palette = page.getByRole("dialog", { name: "Go to…" });
+  await expect(palette.getByRole("combobox")).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(palette.getByRole("button", { name: "Close" })).toBeFocused();
+  await expect(palette.getByRole("button", { name: "Close" })).toHaveCSS(
+    "outline-style",
+    "solid",
+  );
+  await page.keyboard.press("Escape");
+  await expect(palette).toBeHidden();
 
   await page.getByRole("button", { name: "Add a row", exact: true }).click();
   await page

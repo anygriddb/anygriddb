@@ -89,7 +89,7 @@ function Card({
         <button
           type="button"
           onClick={() => table.openRecord(row.id)}
-          className="w-full cursor-pointer rounded-sm p-2.5 pr-7 text-left outline-none focus-visible:outline-2 focus-visible:outline-ring"
+          className="w-full cursor-pointer rounded-sm p-2.5 pr-7 text-left focus-visible:outline-2 focus-visible:outline-ring"
         >
           <p className="truncate font-medium">{name}</p>
           <CardFields row={row} columns={fields} />

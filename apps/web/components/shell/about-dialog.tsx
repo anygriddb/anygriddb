@@ -79,7 +79,7 @@ export function AboutButton() {
         <button
           type="button"
           aria-label={t`About AnyGridDB`}
-          className="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-muted-foreground outline-none hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+          className="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
           onClick={openAbout}
         >
           <Info className="h-4 w-4" aria-hidden />

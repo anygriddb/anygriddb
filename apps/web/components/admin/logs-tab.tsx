@@ -205,7 +205,7 @@ export function LogsTab({
             role="region"
             aria-label={t`Recent lines`}
             tabIndex={0}
-            className="outline-none focus-visible:outline-2 focus-visible:outline-ring"
+            className="focus-visible:outline-2 focus-visible:outline-ring"
             tableClassName="text-xs"
           >
             <AdminTableHead>

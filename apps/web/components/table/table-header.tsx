@@ -43,7 +43,7 @@ export function TableHeader({
           <Tooltip content={ENGINE_NAMES[table.external.engine]}>
             <span
               tabIndex={0}
-              className="inline-flex h-[22px] max-w-56 items-center gap-1.5 rounded-md border border-border bg-background px-2 font-mono text-xs text-muted-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring"
+              className="inline-flex h-[22px] max-w-56 items-center gap-1.5 rounded-md border border-border bg-background px-2 font-mono text-xs text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring"
             >
               <EngineMark
                 engine={table.external.engine}

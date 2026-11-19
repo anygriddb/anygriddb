@@ -25,7 +25,7 @@ export type SettingsProps = {
 
 /** A place up or down, for an option that has one. */
 const MOVE =
-  "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground outline-none hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring aria-disabled:opacity-40 aria-disabled:hover:bg-transparent";
+  "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring aria-disabled:opacity-40 aria-disabled:hover:bg-transparent";
 
 /**
  * The options of a list: each named once, coloured, put in its place, and

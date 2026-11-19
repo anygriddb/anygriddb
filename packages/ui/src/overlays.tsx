@@ -155,7 +155,7 @@ export function DialogContent({
             </div>
             <AriaButton
               slot="close"
-              className="rounded p-1 text-muted-foreground outline-none hover:bg-muted data-[focus-visible]:outline-2 data-[focus-visible]:outline-ring"
+              className="rounded p-1 text-muted-foreground hover:bg-muted data-[focus-visible]:outline-2 data-[focus-visible]:outline-ring"
               aria-label={text.close}
             >
               <X className="h-4 w-4" aria-hidden />
@@ -300,7 +300,7 @@ export function DropdownMenuTrigger({
   return (
     <AriaButton
       className={cn(
-        "outline-none data-[focus-visible]:outline-2 data-[focus-visible]:outline-ring",
+        "data-[focus-visible]:outline-2 data-[focus-visible]:outline-ring",
         className,
       )}
       style={style}
@@ -582,7 +582,7 @@ export function DragHandle({
       aria-label={label}
       className={cn(
         // A target of 24 px at least (WCAG 2.5.8), even over a card.
-        "inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground outline-none hover:bg-muted data-[focus-visible]:outline-2 data-[focus-visible]:outline-ring",
+        "inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted data-[focus-visible]:outline-2 data-[focus-visible]:outline-ring",
         className,
       )}
     >
