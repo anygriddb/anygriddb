@@ -587,8 +587,8 @@ function History({ row }: { row: RowItem }) {
                   moved
                     ? MOVED
                     : (ACTION_LABELS[event.action] ?? raw(event.action)),
-                )}
-                <span className="ml-1 text-muted-foreground">
+                )}{" "}
+                <span className="text-muted-foreground">
                   {formatInstant(event.occurredAt, locale)}
                   {event.source === "revert"
                     ? ` · ${t`put back`}`

@@ -10,7 +10,7 @@ export function useRoleLabel() {
       : role === "editor"
         ? t`Editor`
         : role === "commenter"
-          ? t`Comment`
+          ? t`Commenter`
           : role === "viewer"
             ? t`Viewer`
             : "—";

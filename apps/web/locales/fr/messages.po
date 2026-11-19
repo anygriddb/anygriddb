@@ -3158,13 +3158,16 @@ msgid "Command line"
 msgstr "Ligne de commande"
 
 #: components/record/record-panel.tsx
-#: components/settings/role-label.ts
 msgid "Comment"
 msgstr "Commenter"
 
 #: components/record/record-panel.tsx
 msgid "Comment deleted"
 msgstr "Commentaire supprimé"
+
+#: components/settings/role-label.ts
+msgid "Commenter"
+msgstr "Commentateur"
 
 #: components/record/record-panel.tsx
 #: components/shell/shortcuts-dialog.tsx

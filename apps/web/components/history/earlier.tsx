@@ -64,8 +64,8 @@ function EarlierList(props: {
               ? t`created`
               : event.verb === "removed"
                 ? t`removed`
-                : t`edited`}
-            <span className="ml-1 text-muted-foreground">
+                : t`edited`}{" "}
+            <span className="text-muted-foreground">
               {formatInstant(event.occurredAt, locale)}
               {event.source === "revert" ? ` · ${t`put back`}` : ""}
             </span>
