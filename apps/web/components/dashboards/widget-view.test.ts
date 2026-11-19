@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { embeddedViewId } from "./widget-view";
+import { embeddedViewId, rowsLeftOut } from "./widget-view";
 
 const VIEWS = [{ id: "grid" }, { id: "kanban" }];
 
@@ -19,5 +19,17 @@ describe("embeddedViewId", () => {
 
   it("has none to give while the table's views are not read", () => {
     expect(embeddedViewId([], "")).toBe("");
+  });
+});
+
+describe("rowsLeftOut", () => {
+  it("counts the rows of the view the widget does not show", () => {
+    expect(rowsLeftOut(20, 153)).toBe(133);
+  });
+
+  it("leaves none out of a short view, or of one that was not counted", () => {
+    expect(rowsLeftOut(3, 3)).toBe(0);
+    expect(rowsLeftOut(20, undefined)).toBe(0);
+    expect(rowsLeftOut(20, null)).toBe(0);
   });
 });

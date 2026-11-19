@@ -412,6 +412,7 @@ msgstr "{0, plural, one {# row, file available for 24 h} other {# rows, file ava
 #. placeholder {0}: props.total
 #: components/admin/sources-tab.tsx
 #: components/admin/trails.tsx
+#: components/dashboards/view-widget.tsx
 #: components/grid/grid-footer.tsx
 #: components/public/public-view.tsx
 #: components/settings/restore-points.tsx
@@ -4282,10 +4283,6 @@ msgstr "Embedded in {sites}"
 msgid "Embedded view"
 msgstr "Embedded view"
 
-#: components/dashboards/dashboard-board.tsx
-msgid "Embedded view — open it in the table."
-msgstr "Embedded view — open it in the table."
-
 #: components/grid/grid-footer.tsx
 msgid "Empty"
 msgstr "Empty"
@@ -7393,6 +7390,10 @@ msgstr "No row matches this view's filters or search."
 msgid "No rows in this period."
 msgstr "No rows in this period."
 
+#: components/dashboards/view-widget.tsx
+msgid "No rows in this view."
+msgstr "No rows in this view."
+
 #: components/table/empty-table-hint.tsx
 msgid "No rows yet."
 msgstr "No rows yet."
@@ -7855,7 +7856,7 @@ msgstr "Open this base to read it?"
 msgid "Open to anyone"
 msgstr "Open to anyone"
 
-#: components/dashboards/dashboard-board.tsx
+#: components/dashboards/view-widget.tsx
 msgid "Open view"
 msgstr "Open view"
 
@@ -10942,6 +10943,7 @@ msgstr "The first {limit} groups are shown: filter the view to see the others."
 msgid "The first {shown} of {total} places"
 msgstr "The first {shown} of {total} places"
 
+#: components/dashboards/view-widget.tsx
 #: components/views/list-view.tsx
 msgid "The first {shown} of {total} rows"
 msgstr "The first {shown} of {total} rows"
