@@ -393,8 +393,11 @@ export function TableWorkspace({
           onAutomations={
             canManage(role) ? () => setAutomationsOpen(true) : undefined
           }
-          onNewRow={canAdd ? newRow.addAndOpen : undefined}
-          gridOnly={isGrid}
+          // A form adds its own rows, and draws none.
+          onNewRow={
+            canAdd && viewType !== "form" ? newRow.addAndOpen : undefined
+          }
+          shape={isGrid ? "grid" : viewType === "form" ? "form" : "rows"}
           filterOpen={filterOpen}
           onFilterOpen={setFilterOpen}
           savedAt={writes.savedAt}

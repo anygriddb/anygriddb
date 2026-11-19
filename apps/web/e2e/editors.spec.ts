@@ -364,6 +364,17 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
     .click();
   const due = page.getByRole("group", { name: "Due" });
   await expect(due).toBeVisible();
+  // A form draws no row: its bar keeps what acts on the table, and none
+  // of what chooses or arranges rows.
+  await expect(
+    page.getByRole("button", { name: "More actions" }),
+  ).toBeVisible();
+  for (const tool of ["Add a row and open it", "Fields", "Filter", "Sort"]) {
+    await expect(
+      page.getByRole("button", { name: tool, exact: true }),
+    ).toHaveCount(0);
+  }
+  await expect(page.getByLabel("Search this view")).toHaveCount(0);
   expect(await accessibilityViolations(page)).toEqual([]);
   await due.getByRole("spinbutton").first().focus();
   await page.keyboard.type("15032026");

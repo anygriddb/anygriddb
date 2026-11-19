@@ -8,6 +8,13 @@ first.
 
 ## Unreleased
 
+### Changed
+
+- A form's bar keeps what acts on the table (undo, export, import,
+  automations, the row trash) and no longer shows what chooses or
+  arranges rows: fields, filter, sort, colour, search, and the button
+  that adds a row. A form draws no row for them to act on.
+
 ### Removed
 
 - A SQLite file is no longer read as a source (ADR 0107). It never
