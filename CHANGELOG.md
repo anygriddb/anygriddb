@@ -75,6 +75,10 @@ first.
   links), an automation's runs, a webhook's deliveries, the trash, and
   the bell followed the browser's own habit: on one set to it, the 3rd
   of April was written 4/3 there and 03/04 in a grid.
+- A dashboard's widget for a view is added with the view its list
+  shows: on a table with one view, or for the first of several, it was
+  refused as "Invalid view", the list showing a view that had not been
+  taken.
 - The role between editor and viewer is named "Commenter" wherever a
   role is chosen or shown, as invitations name it: it read "Comment",
   and in French the verb.

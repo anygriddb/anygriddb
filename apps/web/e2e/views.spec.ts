@@ -266,12 +266,15 @@ test.describe("a kanban, a gallery, and a calendar", () => {
 });
 
 // A dashboard's widgets are moved the same way while it is arranged: by
-// a handle, onto another widget, whose place the one moved takes. It makes
-// an account, so it takes a client address of its own.
+// a handle, onto another widget, whose place the one moved takes. One of
+// them shows a view of a table. It makes an account, so it takes a client
+// address of its own.
 test.describe("a dashboard", () => {
   test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.96" } });
 
-  test("moves a widget onto another from the keyboard", async ({ page }) => {
+  test("moves a widget from the keyboard, and shows a table's only view", async ({
+    page,
+  }) => {
     const blocked = watchPolicy(page);
     await signUpWithTable(page, "Board Mover");
     await page.getByRole("link", { name: "Dashboards" }).click();
@@ -324,6 +327,20 @@ test.describe("a dashboard", () => {
     await page.keyboard.press("Enter");
     await expect.poll(board).toEqual(["Second", "Third", "First"]);
     await expect(widget("Third")).toBeFocused();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // A widget that shows a view takes the one its list shows: a table's
+    // only view, with nothing to choose.
+    await page.getByRole("button", { name: "Add a widget" }).click();
+    const added = page.getByRole("dialog", { name: "Add a widget" });
+    await added.getByLabel("Title", { exact: true }).fill("Every sample");
+    await added.getByLabel("Type").selectOption({ label: "Embedded view" });
+    await expect(added.getByLabel("View", { exact: true })).toHaveValue(/.+/);
+    await added.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(added).toBeHidden();
+    await expect(
+      page.getByRole("heading", { name: "Every sample" }),
+    ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
 
     expect(blocked).toEqual([]);
