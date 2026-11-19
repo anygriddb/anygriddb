@@ -54,6 +54,7 @@ import { FieldIcon } from "../fields/field-meta";
 import { isEditableColumn, isEditableLink } from "../grid/grid-clipboard";
 import { useTable } from "../table/table-context";
 import { CommentBody, MentionTextarea } from "./mention-input";
+import { usePanelFocus } from "./panel-focus";
 import { printRecord } from "./print-record";
 import { RowStatus, useSubmitRow } from "./row-status";
 import { canSubmitRow } from "./row-status-model";
@@ -743,6 +744,7 @@ export function RecordPanel({
   const [tab, setTab] = useState<"comments" | "history">("comments");
   const [showHidden, setShowHidden] = useState(false);
   const narrow = useNarrowScreen();
+  const panelRef = usePanelFocus(row?.id, !narrow);
   if (!row) return null;
   const primary = table.table.columns.find((column) => column.isPrimary);
   const title = primary
@@ -774,15 +776,19 @@ export function RecordPanel({
     (external && canWrite(table.role) && unlocked && isEditableLink(column));
   const panel = (
     <aside
+      ref={panelRef}
+      tabIndex={-1}
       className={cn(
-        "flex flex-col bg-card",
+        "flex flex-col bg-card focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
         narrow
           ? "h-full w-full"
           : "w-[26rem] max-w-full shrink-0 border-l border-border",
       )}
       aria-label={t`Row details`}
       onKeyDown={(event) => {
-        if (event.key === "Escape") onClose();
+        // What the panel holds answers Escape first: a list of people to
+        // mention closes, and the comment being written stays.
+        if (event.key === "Escape" && !event.defaultPrevented) onClose();
       }}
     >
       <header className="flex h-11 shrink-0 items-center gap-0.5 border-b border-border pr-2 pl-4">

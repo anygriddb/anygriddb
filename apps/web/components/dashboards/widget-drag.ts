@@ -11,19 +11,25 @@ const WIDGET_TYPE = "application/x-anygriddb-widget";
 
 /**
  * The widget being dragged in this tab, while it is. A drop refuses the
- * widget's own card from this, because the drag ends before the id is read.
+ * widget's own card from this, because the drag ends before the id is
+ * read. Held in an object that is never replaced, as a row's drag is
+ * (`lib/drag.ts`): the React Compiler reads a module's variable where it
+ * is used.
  */
-let draggingId: string | null = null;
+const drag: { widgetId: string | null } = { widgetId: null };
 
 export function useWidgetDrag(id: string, label: string, enabled: boolean) {
   return useDrag({
     isDisabled: !enabled,
+    // Picked up by its handle from the keyboard: the header's own buttons
+    // keep their keys and their clicks.
+    hasDragButton: true,
     getItems: () => [{ [WIDGET_TYPE]: id, "text/plain": label }],
     onDragStart: () => {
-      draggingId = id;
+      drag.widgetId = id;
     },
     onDragEnd: () => {
-      draggingId = null;
+      drag.widgetId = null;
     },
   });
 }
@@ -43,7 +49,7 @@ export function useWidgetDrop(
     ref,
     isDisabled: !enabled,
     getDropOperation: (types) =>
-      types.has(WIDGET_TYPE) && draggingId !== widgetId ? "move" : "cancel",
+      types.has(WIDGET_TYPE) && drag.widgetId !== widgetId ? "move" : "cancel",
     onDrop: (event) => {
       for (const item of event.items) {
         if (!isTextDropItem(item) || !item.types.has(WIDGET_TYPE)) continue;

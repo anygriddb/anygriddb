@@ -27,6 +27,10 @@ import { useLingui } from "@lingui/react/macro";
 import { formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 
+/** A place to drop a card shows that the keyboard is on it. */
+const DROP_FOCUS =
+  "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring";
+
 function Card({
   row,
   stack,
@@ -67,7 +71,15 @@ function Card({
     onPlace !== undefined,
   );
   return (
-    <div ref={ref} {...(onPlace ? dropProps : {})} className="relative">
+    <div
+      ref={ref}
+      // A place to drop a card, reached with Tab while one is carried:
+      // it takes the keyboard and says which card it is beside.
+      {...(onPlace
+        ? { ...dropProps, role: "group", "aria-label": name, tabIndex: -1 }
+        : {})}
+      className={cn("relative rounded-sm", DROP_FOCUS)}
+    >
       {side ? (
         // Where the card dropped would land: in the gap above or below.
         <span
@@ -189,9 +201,11 @@ function Stack({
       <section
         ref={ref}
         {...dropProps}
+        tabIndex={-1}
         aria-label={name}
         className={cn(
           "flex w-10 shrink-0 flex-col items-center rounded-sm bg-muted/70 py-2",
+          DROP_FOCUS,
           isDropTarget && "ring-2 ring-primary",
         )}
       >
@@ -217,9 +231,13 @@ function Stack({
     <section
       ref={ref}
       {...dropProps}
-      aria-label={label || t`No value`}
+      // Reached with Tab while a card is carried, and where the keyboard
+      // stays once the card is dropped.
+      tabIndex={-1}
+      aria-label={name}
       className={cn(
         "flex w-72 shrink-0 flex-col rounded-sm bg-muted/70 p-2",
+        DROP_FOCUS,
         isDropTarget && "ring-2 ring-primary",
       )}
     >

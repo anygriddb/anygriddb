@@ -606,8 +606,11 @@ function WidgetCard(props: {
       <article
         ref={ref}
         {...dropProps}
+        // While widgets are arranged, each is a place to drop another,
+        // reached with Tab: it takes the keyboard and says its name.
+        {...(props.editing ? { "aria-label": name, tabIndex: -1 } : {})}
         className={cn(
-          "flex min-h-0 flex-col overflow-hidden rounded-sm border bg-card",
+          "flex min-h-0 flex-col overflow-hidden rounded-sm border bg-card focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
           props.editing
             ? "border-dashed border-strong-border"
             : "border-border",
