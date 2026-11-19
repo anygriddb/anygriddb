@@ -43,6 +43,7 @@ import { canManage } from "../../lib/types";
 import { PromptDialog } from "../shell/dialogs";
 import { Earlier } from "../history/earlier";
 import { moveWidget, placeWidget, readingOrder } from "./widget-layout";
+import { ViewWidget } from "./view-widget";
 import { embeddedViewId } from "./widget-view";
 import { DashboardHistory, type WidgetBody } from "./dashboard-history";
 import { useWidgetDrag, useWidgetDrop } from "./widget-drag";
@@ -702,23 +703,12 @@ function WidgetCard(props: {
               <ChartView data={data.data} title={name} />
             </Suspense>
           ) : data.data?.kind === "view_embed" ? (
-            <div className="flex h-full flex-col items-start justify-center gap-2 text-sm">
-              <p className="text-muted-foreground">
-                {t`Embedded view — open it in the table.`}
-              </p>
-              <Button asChild size="sm" variant="outline">
-                <Link
-                  to="/b/$baseId/t/$tableId/{-$viewId}"
-                  params={{
-                    baseId: props.baseId,
-                    tableId: data.data.tableId,
-                    viewId: data.data.viewId,
-                  }}
-                >
-                  {t`Open view`}
-                </Link>
-              </Button>
-            </div>
+            <ViewWidget
+              baseId={props.baseId}
+              tableId={data.data.tableId}
+              viewId={data.data.viewId}
+              title={name}
+            />
           ) : (
             <p className="text-sm text-danger">{errorText(data.error)}</p>
           )}

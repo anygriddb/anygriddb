@@ -277,6 +277,13 @@ test.describe("a dashboard", () => {
   }) => {
     const blocked = watchPolicy(page);
     await signUpWithTable(page, "Board Mover");
+    await send(page, "rows.insertMany", {
+      tableId: tableIdOf(page),
+      rows: [
+        { name: "Alpha", status: "To do" },
+        { name: "Bravo", status: "Done" },
+      ],
+    });
     await page.getByRole("link", { name: "Dashboards" }).click();
     await page.getByLabel("New dashboard").fill("Board");
     await page.getByRole("button", { name: "Create", exact: true }).click();
@@ -341,7 +348,25 @@ test.describe("a dashboard", () => {
     await expect(
       page.getByRole("heading", { name: "Every sample" }),
     ).toBeVisible();
+    // It shows the view's rows, each with the fields the view shows, and
+    // says how many it holds.
+    const sample = page.getByRole("table", { name: "Every sample" });
+    await expect(
+      sample.getByRole("columnheader").filter({ hasText: /^(Name|Status)$/ }),
+    ).toHaveCount(2);
+    await expect(sample.getByRole("row")).toHaveCount(3);
+    await expect(
+      sample.getByRole("row", { name: /Bravo/ }).getByText("Done"),
+    ).toBeVisible();
+    await expect(widget("Every sample").getByText("2 rows")).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
+    // A row's name opens that row in its table.
+    await sample.getByRole("link", { name: "Bravo" }).click();
+    await expect(
+      page
+        .getByRole("complementary", { name: "Row details" })
+        .getByRole("heading", { name: "Bravo" }),
+    ).toBeVisible();
 
     expect(blocked).toEqual([]);
   });

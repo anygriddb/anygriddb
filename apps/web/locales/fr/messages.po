@@ -412,6 +412,7 @@ msgstr "{0, plural, one {# ligne, fichier disponible 24 h} other {# lignes, fich
 #. placeholder {0}: props.total
 #: components/admin/sources-tab.tsx
 #: components/admin/trails.tsx
+#: components/dashboards/view-widget.tsx
 #: components/grid/grid-footer.tsx
 #: components/public/public-view.tsx
 #: components/settings/restore-points.tsx
@@ -4282,10 +4283,6 @@ msgstr "Intégré dans {sites}"
 msgid "Embedded view"
 msgstr "Vue intégrée"
 
-#: components/dashboards/dashboard-board.tsx
-msgid "Embedded view — open it in the table."
-msgstr "Vue intégrée — ouvrez-la dans la table."
-
 #: components/grid/grid-footer.tsx
 msgid "Empty"
 msgstr "Vides"
@@ -7393,6 +7390,10 @@ msgstr "Aucune ligne ne correspond aux filtres ou à la recherche de cette vue."
 msgid "No rows in this period."
 msgstr "Aucune ligne sur cette période."
 
+#: components/dashboards/view-widget.tsx
+msgid "No rows in this view."
+msgstr "Aucune ligne dans cette vue."
+
 #: components/table/empty-table-hint.tsx
 msgid "No rows yet."
 msgstr "Aucune ligne pour l’instant."
@@ -7855,7 +7856,7 @@ msgstr "Ouvrir cette base pour la lire ?"
 msgid "Open to anyone"
 msgstr "Ouvertes à tous"
 
-#: components/dashboards/dashboard-board.tsx
+#: components/dashboards/view-widget.tsx
 msgid "Open view"
 msgstr "Ouvrir la vue"
 
@@ -10942,6 +10943,7 @@ msgstr "Seuls les {limit} premiers groupes sont affichés : filtrez la vue pour
 msgid "The first {shown} of {total} places"
 msgstr "Les {shown} premiers lieux sur {total}"
 
+#: components/dashboards/view-widget.tsx
 #: components/views/list-view.tsx
 msgid "The first {shown} of {total} rows"
 msgstr "Les {shown} premières lignes sur {total}"

@@ -8,6 +8,14 @@ first.
 
 ## Unreleased
 
+### Added
+
+- A dashboard's widget for a view shows the view's rows: the first
+  twenty, with the fields the view shows, in its order, under its
+  filter and its sort, as the reader may read them. A row's name opens
+  the row in its table, and a link opens the view. The widget only
+  pointed to the view.
+
 ### Changed
 
 - A form's bar keeps what acts on the table (undo, export, import,
