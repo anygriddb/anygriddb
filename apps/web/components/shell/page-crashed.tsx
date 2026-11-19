@@ -1,6 +1,14 @@
 import { Button } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { TriangleAlert } from "lucide-react";
+import { createContext, use } from "react";
+
+/**
+ * Whether a page is drawn inside the shell, which holds the page's
+ * `main`. Kept here, with what the app loads first: the shell is loaded
+ * with the first page behind a session.
+ */
+export const PageInShell = createContext(false);
 
 /**
  * What a page shows when its code fails while drawing: in the person's
@@ -11,8 +19,11 @@ import { TriangleAlert } from "lucide-react";
  */
 export function PageCrashed({ onReload }: { onReload?: () => void } = {}) {
   const { t } = useLingui();
+  // In the shell it takes a page's place in the shell's `main`; outside,
+  // it is the page, and its landmark.
+  const Frame = use(PageInShell) ? "div" : "main";
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+    <Frame className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-center">
       <TriangleAlert className="h-6 w-6 text-destructive" aria-hidden />
       {/* Announced as it appears; `main` stays the page's landmark. */}
       <div role="alert" className="flex flex-col items-center gap-3">
@@ -38,6 +49,6 @@ export function PageCrashed({ onReload }: { onReload?: () => void } = {}) {
           {t`Back to home`}
         </a>
       </div>
-    </main>
+    </Frame>
   );
 }

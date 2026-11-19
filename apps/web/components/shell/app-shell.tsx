@@ -16,6 +16,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { onSignIn, safeNext } from "../auth/auth-page";
 import { CommandPalette } from "./command-palette";
 import { LoadFailed } from "./load-failed";
+import { PageInShell } from "./page-crashed";
 import { AboutDialog } from "./about-dialog";
 import { ShortcutsDialog } from "./shortcuts-dialog";
 import { Sidebar } from "./sidebar";
@@ -127,6 +128,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [openedOn, setOpenedOn] = useState<string | null>(null);
   const navigation = navigationMode(narrow, openedOn, page);
   const menuButton = useRef<HTMLButtonElement>(null);
+  const pageMain = useRef<HTMLElement>(null);
   const wasOpen = useRef(false);
   useEffect(() => {
     // Closing gives focus back to the button that opened it.
@@ -177,6 +179,18 @@ export function AppShell({ children }: { children: ReactNode }) {
     <RealtimeProvider enabled>
       <JobsProvider>
         <div className="flex h-screen overflow-hidden">
+          {/* The keyboard's first stop: past the navigation, which holds
+              every base and table, to the page. Drawn once it is reached. */}
+          <a
+            href="#page"
+            className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:top-2 focus-visible:left-2 focus-visible:z-50 focus-visible:rounded-md focus-visible:bg-card focus-visible:px-3 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:shadow-md focus-visible:outline-2 focus-visible:outline-ring"
+            onClick={(event) => {
+              event.preventDefault();
+              pageMain.current?.focus();
+            }}
+          >
+            {t`Skip to the content`}
+          </a>
           <Sidebar
             user={session.data}
             mode={navigation}
@@ -214,7 +228,16 @@ export function AppShell({ children }: { children: ReactNode }) {
             <InstanceBanner />
             <ActingBanner />
             <ConnectionBanner />
-            {children}
+            <PageInShell value>
+              <main
+                ref={pageMain}
+                id="page"
+                tabIndex={-1}
+                className="flex min-h-0 min-w-0 flex-1 flex-col outline-none"
+              >
+                {children}
+              </main>
+            </PageInShell>
           </div>
         </div>
         <CommandPalette />
