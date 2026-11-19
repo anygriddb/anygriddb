@@ -113,7 +113,12 @@ export function ViewToolbar(props: {
   onAutomations?: () => void;
   /** Shown to those who may add rows. */
   onNewRow?: () => void;
-  gridOnly: boolean;
+  /**
+   * What the view draws, which says the tools it takes: a grid, all of
+   * them; another view of rows, all but groups and the rows' height; a
+   * form, which draws no row, none of those that choose or arrange rows.
+   */
+  shape: "grid" | "rows" | "form";
   filterOpen: boolean;
   onFilterOpen: (open: boolean) => void;
   /** When the last change reached the database: the bar says so. */
@@ -143,6 +148,8 @@ export function ViewToolbar(props: {
     return () => clearTimeout(timer);
   }, [searchText]);
 
+  const isGrid = props.shape === "grid";
+  const drawsRows = props.shape !== "form";
   const hidden = new Set(config.hiddenFields ?? []);
   const sorts = config.sort ?? [];
   const groups = config.groupBy ?? [];
@@ -378,7 +385,7 @@ export function ViewToolbar(props: {
       </PopoverContent>
     </Popover>
   );
-  const groupControl = props.gridOnly ? (
+  const groupControl = isGrid ? (
     <Popover>
       <PopoverTrigger asChild>
         <ToolButton active={groups.length > 0}>
@@ -477,7 +484,7 @@ export function ViewToolbar(props: {
       </PopoverContent>
     </Popover>
   ) : null;
-  const heightControl = props.gridOnly ? (
+  const heightControl = isGrid ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <ToolButton>
@@ -582,7 +589,7 @@ export function ViewToolbar(props: {
             <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-border" />
           </>
         ) : null}
-        {narrow ? (
+        {!drawsRows ? null : narrow ? (
           <>
             {filterControl}
             <Tooltip content={t`View settings`}>
@@ -612,7 +619,7 @@ export function ViewToolbar(props: {
           </>
         )}
         <ColorRulesEditor
-          open={rulesOpen}
+          open={drawsRows && rulesOpen}
           onOpenChange={setRulesOpen}
           columns={allColumns}
           people={props.people}
@@ -674,19 +681,21 @@ export function ViewToolbar(props: {
           >
             <Redo2 className="h-3.5 w-3.5" aria-hidden />
           </ToolButton>
-          <div className="relative min-w-20 flex-1 md:flex-none">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 opacity-50"
-              aria-hidden
-            />
-            <Input
-              aria-label={t`Search this view`}
-              placeholder={t`Search`}
-              className="h-7 w-full pl-7 text-xs md:w-44"
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-            />
-          </div>
+          {drawsRows ? (
+            <div className="relative min-w-20 flex-1 md:flex-none">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 opacity-50"
+                aria-hidden
+              />
+              <Input
+                aria-label={t`Search this view`}
+                placeholder={t`Search`}
+                className="h-7 w-full pl-7 text-xs md:w-44"
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+              />
+            </div>
+          ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <ToolButton aria-label={t`More actions`}>
@@ -730,7 +739,7 @@ export function ViewToolbar(props: {
           </DropdownMenu>
         </div>
       </div>
-      {narrow && settingsOpen ? (
+      {drawsRows && narrow && settingsOpen ? (
         <div
           id={settingsId}
           className="flex flex-wrap items-center gap-0.5 border-t border-border px-2 py-0.5"
@@ -742,7 +751,7 @@ export function ViewToolbar(props: {
           {colorControl}
         </div>
       ) : null}
-      {chips.length > 0 && !config.filtersDisabled ? (
+      {drawsRows && chips.length > 0 && !config.filtersDisabled ? (
         <div
           className="flex flex-wrap items-center gap-1.5 px-2 pb-1.5"
           role="group"
