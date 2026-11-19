@@ -43,6 +43,7 @@ import { canManage } from "../../lib/types";
 import { PromptDialog } from "../shell/dialogs";
 import { Earlier } from "../history/earlier";
 import { moveWidget, placeWidget, readingOrder } from "./widget-layout";
+import { embeddedViewId } from "./widget-view";
 import { DashboardHistory, type WidgetBody } from "./dashboard-history";
 import { useWidgetDrag, useWidgetDrop } from "./widget-drag";
 import { useUndo } from "../grid/use-undo";
@@ -824,9 +825,11 @@ function WidgetForm(props: {
   const [fn, setFn] = useState(configString(config, "fn") || "count_all");
   const [busy, setBusy] = useState(false);
 
+  const embedded = embeddedViewId(views, viewId);
+
   async function submit() {
     if (!title.trim() || !tableId) return;
-    if (kind === "view_embed" && !viewId) {
+    if (kind === "view_embed" && !embedded) {
       toast.error(t`Invalid view`);
       return;
     }
@@ -857,7 +860,7 @@ function WidgetForm(props: {
                   ...(seriesBy ? { seriesBy } : {}),
                   ...(viewId ? { viewId } : {}),
                 }
-            : { tableId, viewId };
+            : { tableId, viewId: embedded };
       await props.onSubmit({ title: title.trim(), kind, config: draftConfig });
     } catch (cause) {
       toast.error(errorText(cause));
@@ -936,7 +939,7 @@ function WidgetForm(props: {
           <Label htmlFor="widget-view">{t`View`}</Label>
           <Select
             id="widget-view"
-            value={viewId}
+            value={embedded}
             onChange={(event) => setViewId(event.target.value)}
           >
             {views.map((view) => (
