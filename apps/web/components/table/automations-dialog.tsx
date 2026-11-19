@@ -112,7 +112,13 @@ function useLabels() {
       branch: t`If… then… otherwise…`,
       for_each: t`For each row of…`,
     })[type];
-  return { trigger, action };
+  /** What started a run: its trigger, or the person who ran it by hand. */
+  const started = (by: string) => {
+    if (by === "manual") return t`Run by hand`;
+    const known = TRIGGERS.find((type) => type === by);
+    return known ? trigger(known) : by;
+  };
+  return { trigger, action, started };
 }
 
 function writable(columns: readonly CatalogColumn[]) {
@@ -1270,6 +1276,7 @@ function AutomationEditor(props: {
 
 function RunsList({ automationId }: { automationId: string }) {
   const { t } = useLingui();
+  const labels = useLabels();
   const errorText = useErrorText();
   const api = useTRPC();
   const runs = useQuery(
@@ -1281,7 +1288,7 @@ function RunsList({ automationId }: { automationId: string }) {
     columns.sort,
     (run, key) => {
       if (key === "date") return run.startedAt;
-      if (key === "trigger") return run.trigger;
+      if (key === "trigger") return labels.started(run.trigger);
       if (key === "result") return run.status;
       return run.triggeredBy;
     },
@@ -1311,7 +1318,7 @@ function RunsList({ automationId }: { automationId: string }) {
               <td className="px-2 py-1 whitespace-nowrap">
                 {new Date(run.startedAt).toLocaleString()}
               </td>
-              <td className="px-2 py-1">{run.trigger}</td>
+              <td className="px-2 py-1">{labels.started(run.trigger)}</td>
               <td className="px-2 py-1">
                 {status(run.status)}
                 {run.error ? ` · ${errorText(run.error)}` : ""}
