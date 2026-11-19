@@ -145,7 +145,7 @@ export function ScimTab() {
                   <td className="px-2 py-1.5">
                     {token.createdBy}
                     {token.active ? null : (
-                      <span className="ml-1 text-xs text-destructive">
+                      <span className="ml-1 text-xs text-danger">
                         {t`(inactive: no longer an administrator)`}
                       </span>
                     )}
@@ -156,9 +156,7 @@ export function ScimTab() {
                   <td className="px-2 py-1.5 text-xs">
                     {date(token.expiresAt)}
                     {new Date(token.expiresAt) <= new Date() ? (
-                      <span className="ml-1 text-destructive">
-                        {t`(expired)`}
-                      </span>
+                      <span className="ml-1 text-danger">{t`(expired)`}</span>
                     ) : null}
                   </td>
                   <td className="px-2 py-1.5 text-xs">
