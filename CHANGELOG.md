@@ -26,6 +26,26 @@ first.
   buttons that edit a field in a row's panel, a kanban's cards, and the
   handles that move a card, an option, or a widget: they drew no focus
   ring.
+- In a kanban and a gallery, Enter or Space on a card opens its row
+  and nothing else. It also picked the card up: the page stopped
+  answering until Escape, and a second Enter dropped the card. A click
+  in the very middle of a card did the same.
+- A card carried from the keyboard onto the card below it lands after
+  that card, and the move is undone as any other: it stayed where it
+  was.
+- A row's panel takes the keyboard when it opens beside a view, and
+  Escape gives it back to the card, the day, or the cell it was opened
+  from. From a card, the panel was reached only past every other card
+  of the view.
+- In a row's panel, Escape closes the list of people to mention and
+  keeps the comment being written: it closed the panel.
+- While a card or a widget is carried from the keyboard, the place
+  offered takes the keyboard, is named for a screen reader, and keeps
+  the keyboard once the card is dropped there.
+- A calendar names each day in full for a screen reader, with that
+  day's rows under it.
+- A gallery's cards stay as they are when a row's panel opens beside
+  them: each was drawn again, its picture with it.
 
 ## 0.2.0 - 2026-11-17
 

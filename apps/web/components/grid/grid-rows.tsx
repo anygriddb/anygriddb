@@ -385,14 +385,7 @@ function RowGutter(props: {
       role="rowheader"
       aria-colindex={1}
       // Only the pointer's drag: the row's menu moves it by keyboard.
-      {...(movable
-        ? {
-            draggable: dragProps.draggable,
-            onDragStart: dragProps.onDragStart,
-            onDrag: dragProps.onDrag,
-            onDragEnd: dragProps.onDragEnd,
-          }
-        : {})}
+      {...(movable ? dragProps : {})}
       className={cn(
         props.className,
         movable && "cursor-grab",

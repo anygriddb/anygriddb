@@ -44,10 +44,7 @@ function Event({
   return (
     <button
       type="button"
-      draggable={dragProps.draggable}
-      onDragStart={dragProps.onDragStart}
-      onDrag={dragProps.onDrag}
-      onDragEnd={dragProps.onDragEnd}
+      {...dragProps}
       style={isDragging ? { opacity: 0.5 } : undefined}
       onClick={(event) => {
         event.stopPropagation();
@@ -65,6 +62,7 @@ function Event({
 
 function Day({
   day,
+  name,
   inMonth,
   today,
   children,
@@ -72,6 +70,8 @@ function Day({
   onMove,
 }: {
   day: string;
+  /** The day in full, as it is read out: its events are heard under it. */
+  name: string;
   inMonth: boolean;
   today: boolean;
   children: React.ReactNode;
@@ -87,6 +87,8 @@ function Day({
     <div
       ref={ref}
       {...dropProps}
+      role="group"
+      aria-label={name}
       onDoubleClick={onCreate}
       className={cn(
         "flex min-h-28 flex-col gap-1 overflow-hidden border-r border-b border-border p-1",
@@ -229,11 +231,13 @@ export function CalendarView(
       },
     ]);
   }
+  const intl = locale === "fr" ? "fr-FR" : "en-GB";
   const weekdays = Array.from({ length: 7 }, (_, index) =>
-    new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
+    new Intl.DateTimeFormat(intl, {
       weekday: "short",
     }).format(new Date(2024, 0, 1 + index)),
   );
+  const dayName = new Intl.DateTimeFormat(intl, { dateStyle: "full" });
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-3 border-b border-border px-4 py-1.5">
@@ -248,7 +252,7 @@ export function CalendarView(
           <ChevronLeft className="h-4 w-4" aria-hidden />
         </Button>
         <span className="w-40 text-center text-sm font-medium capitalize">
-          {new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
+          {new Intl.DateTimeFormat(intl, {
             month: "long",
             year: "numeric",
           }).format(month)}
@@ -303,6 +307,7 @@ export function CalendarView(
             <Day
               key={key}
               day={key}
+              name={dayName.format(date)}
               inMonth={date.getMonth() === month.getMonth()}
               today={key === todayKey}
               onMove={move}

@@ -13,9 +13,23 @@ const ROW_TYPE = "application/x-anygriddb-row";
 /** Where a row sits in a list of rows: a grid, or one kanban stack. */
 export type ListSlot = { list: string; index: number };
 
-/** The row being dragged in this tab, and where it was, while it is. */
-let dragging: (ListSlot & { rowId: string }) | null = null;
+/**
+ * The row being dragged in this tab, and where it was, while it is. Held
+ * in an object that is never replaced: the React Compiler takes a
+ * module's variable for a constant and reads it where it is used, so a
+ * drop that noted where the row came from would read it again once the
+ * drag had ended, and find nothing (a card dropped from the keyboard on
+ * the one below it stayed where it was).
+ */
+const drag: { row: (ListSlot & { rowId: string }) | null } = { row: null };
 
+/**
+ * A row carried by the pointer from the element that takes `dragProps`.
+ * From the keyboard and a screen reader it is picked up by a handle of
+ * its own (`dragButtonProps`, on a `DragHandle`), never by the element:
+ * what a card holds, such as the button that opens its row, keeps its
+ * keys and its clicks.
+ */
 export function useRowDrag(
   rowId: string,
   label: string,
@@ -24,12 +38,13 @@ export function useRowDrag(
 ) {
   return useDrag({
     isDisabled: !enabled,
+    hasDragButton: true,
     getItems: () => [{ [ROW_TYPE]: rowId, "text/plain": label }],
     onDragStart: () => {
-      dragging = from ? { rowId, ...from } : null;
+      drag.row = from ? { rowId, ...from } : null;
     },
     onDragEnd: () => {
-      dragging = null;
+      drag.row = null;
     },
   });
 }
@@ -65,8 +80,8 @@ export function useRowPlaceDrop(
   enabled: boolean,
 ) {
   const origin = (rowId: string) =>
-    dragging?.rowId === rowId && dragging.list === target.list
-      ? dragging.index
+    drag.row?.rowId === rowId && drag.row.list === target.list
+      ? drag.row.index
       : undefined;
   const drop = useDrop({
     ref,
@@ -75,7 +90,7 @@ export function useRowPlaceDrop(
     onDrop: (event) => {
       // Where the row came from is read now: the drag ends before its id
       // is read.
-      const from = dragging;
+      const from = drag.row;
       for (const item of event.items) {
         if (!isTextDropItem(item) || !item.types.has(ROW_TYPE)) continue;
         void item.getText(ROW_TYPE).then((rowId) => {
@@ -92,7 +107,7 @@ export function useRowPlaceDrop(
   const side: "before" | "after" | null = drop.isDropTarget
     ? "after" in
       dropPlace(
-        dragging ? origin(dragging.rowId) : undefined,
+        drag.row ? origin(drag.row.rowId) : undefined,
         target.index,
         target.rowId,
       )
