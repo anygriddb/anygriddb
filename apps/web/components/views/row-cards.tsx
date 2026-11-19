@@ -15,6 +15,7 @@ import {
 import { useTable } from "../table/table-context";
 import {
   CardFields,
+  CardOpener,
   cardColumns,
   useRowTitle,
   type ViewProps,
@@ -186,17 +187,18 @@ export function RowCards(
                   {t`Add a row`}
                 </button>
               ) : row ? (
-                <button
-                  type="button"
-                  onClick={() => table.openRecord(row.id)}
+                <div
                   className={cn(
-                    "flex w-full flex-col gap-1 rounded-sm border border-border bg-card p-3 text-left hover:border-strong-border",
+                    "relative flex w-full flex-col gap-1 rounded-sm border border-border bg-card p-3 hover:border-strong-border",
                     props.tintOf?.(row) && `row-tint-${props.tintOf(row)}`,
                   )}
                 >
-                  <span className="truncate font-medium">{title(row)}</span>
+                  <CardOpener
+                    name={title(row)}
+                    onOpen={() => table.openRecord(row.id)}
+                  />
                   <CardFields row={row} columns={fields} />
-                </button>
+                </div>
               ) : (
                 <div
                   aria-hidden

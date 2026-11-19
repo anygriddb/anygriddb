@@ -81,6 +81,11 @@ first.
 - In a row's history and in what a base, a view, or a field held
   earlier, a space parts what was done from when: a screen reader read
   "created19/11/2026".
+- A web address or an email among a card's fields is a link again for
+  the keyboard and a screen reader, on a kanban, a gallery, and a
+  phone's cards: the whole card was one button around it. A card is
+  named by its row, where a screen reader heard every field in the
+  button's name.
 
 ## 0.2.0 - 2026-11-17
 

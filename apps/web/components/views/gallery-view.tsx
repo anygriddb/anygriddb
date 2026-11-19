@@ -11,6 +11,7 @@ import { cn, DragHandle, Select } from "@anygriddb/ui";
 import {
   CardFields,
   CardFieldsPicker,
+  CardOpener,
   cardColumns,
   ColumnPicker,
   useRowTitle,
@@ -293,11 +294,9 @@ export function GalleryView(props: ViewProps) {
                       draggable={!locked}
                       onPlace={place}
                     >
-                      <button
-                        type="button"
-                        onClick={() => table.openRecord(row.id)}
+                      <div
                         className={cn(
-                          "flex w-full flex-col overflow-hidden rounded-sm border border-border bg-card text-left hover:border-strong-border",
+                          "relative flex w-full flex-col overflow-hidden rounded-sm border border-border bg-card hover:border-strong-border",
                           tint && `row-tint-${tint}`,
                         )}
                       >
@@ -327,10 +326,15 @@ export function GalleryView(props: ViewProps) {
                           </div>
                         ) : null}
                         <div className="p-3">
-                          <p className="truncate font-medium">{title(row)}</p>
+                          <CardOpener
+                            name={title(row)}
+                            onOpen={() => table.openRecord(row.id)}
+                            // Clear of the handle at the card's corner.
+                            className="pr-5"
+                          />
                           <CardFields row={row} columns={fields} />
                         </div>
-                      </button>
+                      </div>
                     </MovableCard>
                   </div>
                 );
