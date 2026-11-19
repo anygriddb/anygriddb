@@ -1133,6 +1133,10 @@ test("an administrator allows scripts, and an automation runs one", async ({
     await expect(page.getByText("Done", { exact: true })).toBeVisible();
     await dialog.getByRole("button", { name: "Runs" }).click();
     await expect(dialog.getByText("Succeeded")).toBeVisible();
+    // The run says what started it in the dialog's own words.
+    await expect(
+      dialog.getByRole("cell", { name: "Run by hand", exact: true }),
+    ).toBeVisible();
     await dialog.getByText("What its scripts logged").click();
     await expect(dialog.getByText("made a row in Samples")).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);

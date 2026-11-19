@@ -59,6 +59,9 @@ first.
 - A timeline's bar too short for its row's name is drawn bare: it
   showed the name's first letter, cut. The name is at the head of the
   line, and a screen reader still hears it on the bar.
+- The runs of an automation say what started each in the words of its
+  dialog, "A row is created" or "Run by hand": they showed a code,
+  `row_created` or `manual`, in English whatever the language.
 
 ## 0.2.0 - 2026-11-17
 

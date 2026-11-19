@@ -9294,6 +9294,10 @@ msgid "Run an automation"
 msgstr "Run an automation"
 
 #: components/table/automations-dialog.tsx
+msgid "Run by hand"
+msgstr "Run by hand"
+
+#: components/table/automations-dialog.tsx
 msgid "Run now"
 msgstr "Run now"
 
