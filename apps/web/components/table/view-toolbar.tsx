@@ -64,6 +64,7 @@ import {
 import { raw } from "../../lib/known-text";
 import { useLingui } from "@lingui/react/macro";
 import { msg, plural } from "@lingui/core/macro";
+import { formatClock } from "../../lib/format";
 
 export type ViewPatch = Partial<{
   [K in keyof ViewConfig]: ViewConfig[K] | null;
@@ -659,10 +660,7 @@ export function ViewToolbar(props: {
               <Check className="h-3 w-3" aria-hidden />
               <span className="max-md:sr-only">
                 {t`Saved at ${{
-                  time: new Intl.DateTimeFormat(
-                    locale === "fr" ? "fr-FR" : "en-GB",
-                    { hour: "2-digit", minute: "2-digit" },
-                  ).format(props.savedAt),
+                  time: formatClock(props.savedAt, locale),
                 }}`}
               </span>
             </span>

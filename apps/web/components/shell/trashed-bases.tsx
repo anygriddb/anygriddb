@@ -11,12 +11,14 @@ import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { ConfirmDialog } from "./dialogs";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { useWhen } from "../../lib/i18n";
 
 type Entry = RouterOutputs["catalog"]["trashedBases"]["items"][number];
 
 /** Bases the caller deleted or managed, restorable while the trash keeps them. */
 export function TrashedBases() {
   const { t } = useLingui();
+  const when = useWhen();
   const days = useTrashDays();
   const errorText = useErrorText();
   const api = useTRPC();
@@ -72,9 +74,8 @@ export function TrashedBases() {
             <div className="min-w-0 flex-1">
               <div className="truncate font-medium">{entry.name}</div>
               <div className="text-xs text-muted-foreground">
-                {t`deleted on ${{ date: new Date(entry.deletedAt).toLocaleDateString() }} by ${{ name: entry.deletedBy ?? t`a deleted account` }}`}{" "}
-                ·{" "}
-                {t`purged on ${{ date: new Date(entry.purgeAt).toLocaleDateString() }}`}
+                {t`deleted on ${{ date: when.day(entry.deletedAt) }} by ${{ name: entry.deletedBy ?? t`a deleted account` }}`}{" "}
+                · {t`purged on ${{ date: when.day(entry.purgeAt) }}`}
               </div>
             </div>
             <Button

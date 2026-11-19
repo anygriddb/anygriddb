@@ -6,15 +6,12 @@ import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { sortRows } from "../../lib/sort-rows";
+import { useWhen } from "../../lib/i18n";
 import { useColumnSort } from "../sort-header";
 import { ConfirmDialog } from "../shell/dialogs";
 import { RuledSection } from "../shell/notebook-page";
 import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
 import { useAdminPage, useAdminPageSize } from "./admin-page-size";
-
-function date(value: string | null): string {
-  return value ? new Date(value).toLocaleString() : "—";
-}
 
 /**
  * Pending base invitations, next to Accounts (ROADMAP #20). An
@@ -23,6 +20,7 @@ function date(value: string | null): string {
  */
 export function InvitationsPanel() {
   const { t } = useLingui();
+  const date = useWhen().instant;
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();

@@ -19,6 +19,7 @@ import {
   type LogsSearch,
   type LogsSort,
 } from "./logs-search";
+import { intlLocale } from "../../lib/format";
 
 const LEVELS = ["info", "warn", "error"] as const;
 type Level = (typeof LEVELS)[number];
@@ -71,7 +72,7 @@ export function LogsTab({
     placeholderData: invalid ? undefined : (previous) => previous,
   });
   const when = (iso: string) =>
-    new Date(iso).toLocaleString(i18n.locale, {
+    new Date(iso).toLocaleString(intlLocale(i18n.locale), {
       dateStyle: "medium",
       timeStyle: "medium",
     });

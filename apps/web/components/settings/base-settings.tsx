@@ -19,11 +19,13 @@ import { WebhooksPanel } from "./webhooks-panel";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { Earlier } from "../history/earlier";
+import { useWhen } from "../../lib/i18n";
 
 const ROLES: Role[] = ["owner", "editor", "commenter", "viewer"];
 
 export function BaseSettings({ baseId }: { baseId: string }) {
   const { t } = useLingui();
+  const when = useWhen();
   const copy = useCopy();
   const errorText = useErrorText();
   const api = useTRPC();
@@ -154,7 +156,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
                 role="status"
                 className="mb-2 rounded-sm border border-warning/40 bg-warning-surface px-3 py-2 text-sm"
               >
-                {t`${{ name: open.displayName }}, an administrator, is not a member and can read this base until ${{ until: new Date(open.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }}, without changing anything. Their reason: ${{ reason: open.reason }}`}
+                {t`${{ name: open.displayName }}, an administrator, is not a member and can read this base until ${{ until: when.clock(open.expiresAt) }}, without changing anything. Their reason: ${{ reason: open.reason }}`}
               </p>
             ))}
             <ul className="divide-y divide-border">

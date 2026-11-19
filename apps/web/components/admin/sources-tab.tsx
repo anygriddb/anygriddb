@@ -42,6 +42,8 @@ import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
 import { useAdminPage, useAdminPageSize } from "./admin-page-size";
 import { EngineMark } from "./engine-mark";
 import { RefreshFields } from "./refresh-fields";
+import { intlLocale, formatInstant } from "../../lib/format";
+import { useWhen } from "../../lib/i18n";
 
 type Source = RouterOutputs["admin"]["sources"]["list"][number];
 type SourceTableItem = RouterOutputs["admin"]["sources"]["tables"][number];
@@ -52,6 +54,7 @@ const TIME_ZONES = ["UTC", ...Intl.supportedValuesOf("timeZone")];
 
 export function SourcesTab() {
   const { t } = useLingui();
+  const when = useWhen();
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
@@ -192,9 +195,7 @@ export function SourcesTab() {
                     )}
                   </td>
                   <td className="px-3 py-2">
-                    {source.checkedAt
-                      ? new Date(source.checkedAt).toLocaleString()
-                      : "—"}
+                    {source.checkedAt ? when.instant(source.checkedAt) : "—"}
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-1">
@@ -1245,7 +1246,7 @@ function TableSync(props: {
             {sync.errorCode
               ? errorText({ data: { reason: { code: sync.errorCode } } })
               : sync.syncedAt
-                ? `${t`Copied on ${{ date: new Date(sync.syncedAt).toLocaleString(i18n.locale) }}`} · ${plural(sync.rows ?? 0, { one: `# row`, other: `# rows` })} · ${plural(sync.changes, { 0: "no change", one: `# row changed`, other: `# rows changed` })}`
+                ? `${t`Copied on ${{ date: formatInstant(sync.syncedAt, i18n.locale) }}`} · ${plural(sync.rows ?? 0, { one: `# row`, other: `# rows` })} · ${plural(sync.changes, { 0: "no change", one: `# row changed`, other: `# rows changed` })}`
                 : props.copyOnly
                   ? t`First copy in progress: the table shows empty until then`
                   : t`First copy in progress: the table is read live until then`}
@@ -1336,7 +1337,7 @@ function TableWatch(props: {
   const time = (value: Date | string | null) =>
     value === null
       ? ""
-      : new Date(value).toLocaleTimeString(i18n.locale, {
+      : new Date(value).toLocaleTimeString(intlLocale(i18n.locale), {
           hour: "2-digit",
           minute: "2-digit",
           second: "2-digit",

@@ -1,6 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import { useCallback } from "react";
 import { useLocale } from "./i18n";
+import { intlLocale } from "./format";
 
 const UNITS = ["B", "KiB", "MiB", "GiB", "TiB"] as const;
 
@@ -33,7 +34,7 @@ export function useFormatBytes(): (size: number) => string {
     (bytes: number) => {
       const { value, unit } = byteSize(bytes);
       const digits = unit === "B" ? 0 : 1;
-      const size = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-GB", {
+      const size = new Intl.NumberFormat(intlLocale(locale), {
         minimumFractionDigits: digits,
         maximumFractionDigits: digits,
       }).format(value);

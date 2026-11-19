@@ -23,6 +23,7 @@ import { Earlier } from "../history/earlier";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { useWhen } from "../../lib/i18n";
 
 const EVENTS = ["insert", "update", "delete", "status", "import"] as const;
 type HookEvent = (typeof EVENTS)[number];
@@ -47,6 +48,7 @@ function useEventLabel() {
 
 function DeliveriesDialog(props: { webhookId: string; onClose: () => void }) {
   const { t } = useLingui();
+  const when = useWhen();
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
@@ -91,7 +93,7 @@ function DeliveriesDialog(props: { webhookId: string; onClose: () => void }) {
               {rows.map((delivery) => (
                 <tr key={delivery.id} className="border-t border-border">
                   <td className="px-2 py-1 whitespace-nowrap">
-                    {new Date(delivery.createdAt).toLocaleString()}
+                    {when.instant(delivery.createdAt)}
                   </td>
                   <td className="px-2 py-1">{eventLabel(delivery.event)}</td>
                   <td className="px-2 py-1">

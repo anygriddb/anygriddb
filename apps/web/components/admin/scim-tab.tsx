@@ -12,12 +12,9 @@ import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
 import { sortRows } from "../../lib/sort-rows";
+import { useWhen } from "../../lib/i18n";
 import { useColumnSort } from "../sort-header";
 import { useStepUp } from "./step-up";
-
-function date(value: string | null): string {
-  return value ? new Date(value).toLocaleString() : "—";
-}
 
 /**
  * Provisioning by an identity provider (SCIM 2.0): its address, the tokens
@@ -25,6 +22,7 @@ function date(value: string | null): string {
  */
 export function ScimTab() {
   const { t } = useLingui();
+  const date = useWhen().instant;
   const copy = useCopy();
   const errorText = useErrorText();
   const api = useTRPC();

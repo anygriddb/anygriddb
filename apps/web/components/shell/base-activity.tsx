@@ -4,7 +4,7 @@ import { useLingui } from "@lingui/react/macro";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { formatDate } from "../../lib/format";
+import { formatDate, intlLocale } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import { useCatalog } from "../../lib/session";
 import { useTRPC } from "../../lib/trpc";
@@ -28,7 +28,7 @@ export function BaseActivity({ baseId }: { baseId: string }) {
     ...api.catalog.baseActivity.queryOptions({ baseId, before, limit: 50 }),
     placeholderData: keepPreviousData,
   });
-  const list = new Intl.ListFormat(locale === "fr" ? "fr-FR" : "en-GB", {
+  const list = new Intl.ListFormat(intlLocale(locale), {
     type: "conjunction",
   });
 

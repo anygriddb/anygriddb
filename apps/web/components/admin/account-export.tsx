@@ -8,12 +8,9 @@ import { useErrorText } from "../../lib/errors";
 import { useJobs } from "../../lib/jobs";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { useWhen } from "../../lib/i18n";
 import { useAuthLabels } from "./auth-labels";
 import { useChangeActionLabel } from "./change-labels";
-
-function date(value: string | null | undefined): string {
-  return value ? new Date(value).toLocaleString() : "—";
-}
 
 /**
  * An account's data on its page (ROADMAP #32): what it wrote lately and
@@ -23,6 +20,7 @@ function date(value: string | null | undefined): string {
  */
 export function AccountExport({ userId }: { userId: string }) {
   const { t } = useLingui();
+  const date = useWhen().instant;
   const api = useTRPC();
   const session = useSession();
   const errorText = useErrorText();

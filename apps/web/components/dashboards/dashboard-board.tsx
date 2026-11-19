@@ -49,6 +49,7 @@ import { useUndo } from "../grid/use-undo";
 import { tableTakesUndo, undoShortcut } from "../../lib/keyboard-undo";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { formatInstant } from "../../lib/format";
 // ECharts loads with the dashboards only (ADR 0035).
 const ChartView = lazy(() =>
   import("./chart-view").then((module) => ({ default: module.ChartView })),
@@ -371,7 +372,7 @@ function DashboardEditor(props: { baseId: string; dashboardId: string }) {
           {oldestCopy !== null ? (
             <p role="note" className="text-xs text-muted-foreground">
               {t`Figures follow the copy of ${{
-                date: new Date(oldestCopy).toLocaleString(i18n.locale),
+                date: formatInstant(oldestCopy, i18n.locale),
               }}`}
             </p>
           ) : null}

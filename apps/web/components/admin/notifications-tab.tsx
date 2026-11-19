@@ -26,6 +26,7 @@ import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
 import { useStepUp } from "./step-up";
+import { useWhen } from "../../lib/i18n";
 
 type Provider = RouterOutputs["admin"]["notify"]["providers"][number];
 type Integration = RouterOutputs["admin"]["notify"]["list"][number];
@@ -383,6 +384,7 @@ function ProbeCard({
 
 export function NotificationsTab() {
   const { t } = useLingui();
+  const when = useWhen();
   const api = useTRPC();
   const queryClient = useQueryClient();
   const stepUp = useStepUp();
@@ -879,7 +881,7 @@ export function NotificationsTab() {
                       <td className="px-3 py-2">{statusLabel(row.status)}</td>
                       <td className="px-3 py-2">
                         {row.lastDeliveryAt
-                          ? new Date(row.lastDeliveryAt).toLocaleString()
+                          ? when.instant(row.lastDeliveryAt)
                           : t`Never`}
                       </td>
                       <td className="px-3 py-2">{row.lastError ?? ""}</td>
@@ -1114,6 +1116,7 @@ function DeliveryHistory({
   error: unknown;
 }) {
   const { t } = useLingui();
+  const when = useWhen();
   const errorText = useErrorText();
   if (loading) return <Spinner />;
   if (error)
@@ -1138,9 +1141,7 @@ function DeliveryHistory({
         <tbody>
           {rows.map((row) => (
             <tr key={row.id} className="border-t border-border">
-              <td className="px-3 py-2">
-                {new Date(row.createdAt).toLocaleString()}
-              </td>
+              <td className="px-3 py-2">{when.instant(row.createdAt)}</td>
               <td className="px-3 py-2">{row.event}</td>
               <td className="px-3 py-2">
                 {row.status}

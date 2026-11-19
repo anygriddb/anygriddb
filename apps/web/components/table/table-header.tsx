@@ -10,6 +10,7 @@ import type { CatalogTable, Role, ViewItem } from "../../lib/types";
 import { ENGINE_MARKS, EngineMark } from "../admin/engine-mark";
 import { canEditView } from "./table-rights";
 import { ViewTabs } from "./view-tabs";
+import { formatInstant } from "../../lib/format";
 
 /** One line: the table, where it lives, its views, who is here. */
 export function TableHeader({
@@ -117,9 +118,7 @@ export function CopyNote({
     >
       {synced.at
         ? t`Copy of the client's database from ${{
-            date: new Date(synced.at).toLocaleString(
-              locale === "fr" ? "fr-FR" : "en-GB",
-            ),
+            date: formatInstant(synced.at, locale),
           }}, refreshed every ${{ minutes: synced.intervalMinutes }} min: read-only`
         : isCopySourceEngine(external.engine)
           ? t`The copy has not arrived. The table stays empty until then.`

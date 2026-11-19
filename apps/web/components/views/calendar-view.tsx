@@ -14,6 +14,7 @@ import {
 } from "./view-common";
 import { useLingui } from "@lingui/react/macro";
 import { CalendarFeedButton } from "./calendar-feed";
+import { intlLocale } from "../../lib/format";
 
 /** Events a day shows; the others are counted under them. */
 const SHOWN = 6;
@@ -231,7 +232,7 @@ export function CalendarView(
       },
     ]);
   }
-  const intl = locale === "fr" ? "fr-FR" : "en-GB";
+  const intl = intlLocale(locale);
   const weekdays = Array.from({ length: 7 }, (_, index) =>
     new Intl.DateTimeFormat(intl, {
       weekday: "short",

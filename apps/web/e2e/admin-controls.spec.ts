@@ -1133,9 +1133,17 @@ test("an administrator allows scripts, and an automation runs one", async ({
     await expect(page.getByText("Done", { exact: true })).toBeVisible();
     await dialog.getByRole("button", { name: "Runs" }).click();
     await expect(dialog.getByText("Succeeded")).toBeVisible();
-    // The run says what started it in the dialog's own words.
+    // The run says what started it in the dialog's own words, and when
+    // as every screen writes an instant: the day first, on 24 hours,
+    // whatever this browser's own habit.
     await expect(
       dialog.getByRole("cell", { name: "Run by hand", exact: true }),
+    ).toBeVisible();
+    const today = new Intl.DateTimeFormat("en-GB").format(new Date());
+    await expect(
+      dialog.getByRole("cell", {
+        name: new RegExp(`^${today}, \\d{2}:\\d{2}:\\d{2}$`),
+      }),
     ).toBeVisible();
     await dialog.getByText("What its scripts logged").click();
     await expect(dialog.getByText("made a row in Samples")).toBeVisible();

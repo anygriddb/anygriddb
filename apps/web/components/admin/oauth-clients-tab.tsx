@@ -7,14 +7,11 @@ import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { useWhen } from "../../lib/i18n";
 import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
 import { useStepUp } from "./step-up";
-
-function date(value: string | null): string {
-  return value ? new Date(value).toLocaleString() : "—";
-}
 
 /**
  * Applications that ask a person for access (ADR 0094): an administrator
@@ -22,6 +19,7 @@ function date(value: string | null): string {
  */
 export function OauthClientsTab() {
   const { t } = useLingui();
+  const date = useWhen().instant;
   const copy = useCopy();
   const errorText = useErrorText();
   const api = useTRPC();

@@ -9,6 +9,7 @@ import { ErrorBoundary } from "../components/shell/error-boundary";
 import { I18nProvider, useLocale } from "../lib/i18n";
 import { ThemeProvider, useTheme } from "../lib/theme";
 import { createClient, TRPCProvider, useTRPC } from "../lib/trpc";
+import { intlLocale } from "../lib/format";
 
 /**
  * The words the shared components say, in the person's language: ours,
@@ -19,7 +20,7 @@ function UiTexts({ children }: { children: ReactNode }) {
   const { t } = useLingui();
   const { locale } = useLocale();
   return (
-    <AriaLocaleProvider locale={locale === "fr" ? "fr-FR" : "en-GB"}>
+    <AriaLocaleProvider locale={intlLocale(locale)}>
       <UiTextProvider close={t`Close`} loading={t`Loading`}>
         {children}
       </UiTextProvider>

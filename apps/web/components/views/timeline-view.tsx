@@ -21,6 +21,7 @@ import {
   type ViewProps,
 } from "./view-common";
 import { useLingui } from "@lingui/react/macro";
+import { intlLocale } from "../../lib/format";
 
 const DAY = 86_400_000;
 const SCALE: Record<TimelineScale, number> = { day: 40, week: 12, month: 4 };
@@ -112,7 +113,7 @@ export function TimelineView(
       />
     );
   }
-  const intl = locale === "fr" ? "fr-FR" : "en-GB";
+  const intl = intlLocale(locale);
   const lastDay = new Date(
     period.next.getFullYear(),
     period.next.getMonth(),

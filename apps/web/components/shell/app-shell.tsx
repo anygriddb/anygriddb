@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { CloudOff, Megaphone, Menu } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useWhen } from "../../lib/i18n";
 import { JobsProvider } from "../../lib/jobs";
 import { navigationMode, useNarrowScreen } from "../../lib/narrow-screen";
 import {
@@ -32,11 +33,9 @@ function ActingBanner() {
   const navigate = useNavigate();
   const acting = session.data?.actingAs;
   const [busy, setBusy] = useState(false);
+  const when = useWhen();
   if (!acting) return null;
-  const until = new Date(acting.until).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const until = when.clock(acting.until);
   return (
     <div
       role="status"

@@ -7,6 +7,7 @@ import { InstanceMark, useInstanceIdentity } from "../brand/instance-mark";
 import { AboutDialog, openAbout } from "../shell/about-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "../../lib/trpc";
+import { intlLocale } from "../../lib/format";
 
 /** A page of the register, as the product draws one: figures the person can trust. */
 const ENTRIES: ReadonlyArray<{
@@ -69,12 +70,12 @@ function Line({
 function LedgerSpecimen() {
   const { t } = useLingui();
   const { locale } = useLocale();
-  const date = new Intl.DateTimeFormat(locale, {
+  const date = new Intl.DateTimeFormat(intlLocale(locale), {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   });
-  const amount = new Intl.NumberFormat(locale, {
+  const amount = new Intl.NumberFormat(intlLocale(locale), {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });

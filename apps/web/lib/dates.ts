@@ -15,6 +15,7 @@ import {
 } from "@anygriddb/ui";
 import type { DateFormat } from "@anygriddb/core";
 import type { CatalogColumn } from "./types";
+import { intlLocale } from "./format";
 
 type Locale = "fr" | "en";
 
@@ -30,7 +31,7 @@ export function dateFormatOf(column: CatalogColumn): DateFormat {
 export function dateFieldLocale(locale: Locale, format?: string): string {
   if (format === "us") return "en-US";
   if (format === "iso") return locale === "fr" ? "fr-CA" : "en-CA";
-  return locale === "fr" ? "fr-FR" : "en-GB";
+  return intlLocale(locale);
 }
 
 /** The zone a date and time is edited in: the field's, else the reader's. */
