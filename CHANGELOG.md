@@ -46,6 +46,12 @@ first.
   day's rows under it.
 - A gallery's cards stay as they are when a row's panel opens beside
   them: each was drawn again, its picture with it.
+- A timeline opens on today when its period holds it. At the scale of
+  a year it opened on January, and the rows of the autumn were out of
+  sight until the page was scrolled.
+- A timeline's bar too short for its row's name is drawn bare: it
+  showed the name's first letter, cut. The name is at the head of the
+  line, and a screen reader still hears it on the bar.
 
 ## 0.2.0 - 2026-11-17
 

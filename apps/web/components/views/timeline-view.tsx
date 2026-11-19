@@ -7,6 +7,8 @@ import type { RowItem } from "../../lib/types";
 import { useTable } from "../table/table-context";
 import { thisMonth } from "./calendar-view";
 import {
+  barHoldsName,
+  openingScroll,
   shiftPeriod,
   timelinePeriod,
   timelineScale,
@@ -24,6 +26,8 @@ const DAY = 86_400_000;
 const SCALE: Record<TimelineScale, number> = { day: 40, week: 12, month: 4 };
 const ROW = 36;
 const HEADER = 32;
+/** The column of names kept at the left of the axis (`w-56`). */
+const NAMES = 224;
 
 function toTime(value: unknown): number | null {
   if (typeof value !== "string") return null;
@@ -84,6 +88,20 @@ export function TimelineView(
   useEffect(() => {
     if (lines.length > 0) ensure(first, last);
   }, [ensure, first, last, lines.length]);
+  // A period opens on today when it holds it: once its rows are drawn,
+  // and again when the period or the scale changes.
+  const drawn = startName !== undefined && props.total > 0;
+  const periodStart = utcDay(period.first);
+  const todayIn = Math.round((utcDay(new Date(now)) - periodStart) / DAY);
+  useEffect(() => {
+    const axis = scrollRef.current;
+    if (!drawn || !axis) return;
+    axis.scrollLeft = openingScroll({
+      today: todayIn >= 0 && todayIn < period.days ? todayIn : null,
+      perDay,
+      shown: axis.clientWidth - NAMES,
+    });
+  }, [drawn, periodStart, period.days, todayIn, perDay]);
   // Same setup prompt as the calendar and the kanban: the reason, and a
   // way to add the field when the person may change the schema.
   if (!startName) {
@@ -114,7 +132,7 @@ export function TimelineView(
         : new Intl.DateTimeFormat(intl, { year: "numeric" }).format(
             period.first,
           );
-  const min = utcDay(period.first);
+  const min = periodStart;
   const max = min + period.days * DAY;
   const width = period.days * perDay;
   const ticks: Array<{ left: number; label: string }> = [];
@@ -132,7 +150,7 @@ export function TimelineView(
       });
     }
   }
-  const today = utcDay(new Date(now));
+  const today = min + todayIn * DAY;
   const height = HEADER + virtualizer.getTotalSize();
   const step = (direction: -1 | 1) =>
     props.onFocus(shiftPeriod(props.focus, scale, direction));
@@ -305,22 +323,23 @@ function Bar(props: {
   const left = Math.max(from, props.min);
   const right = Math.min(to + DAY, props.max);
   if (right <= left) return null;
+  const width = Math.max(props.perDay, ((right - left) / DAY) * props.perDay);
+  const named = barHoldsName(width);
   return (
     <button
       type="button"
       onClick={props.onOpen}
       className={cn(
-        "absolute top-1.5 h-6 truncate rounded-md bg-primary px-2 text-left text-xs text-primary-foreground",
+        "absolute top-1.5 h-6 truncate rounded-md bg-primary text-left text-xs text-primary-foreground",
+        named && "px-2",
         from < props.min && "rounded-l-none",
         to + DAY > props.max && "rounded-r-none",
         props.tint && `row-tint-${props.tint}`,
       )}
-      style={{
-        left: ((left - props.min) / DAY) * props.perDay,
-        width: Math.max(props.perDay, ((right - left) / DAY) * props.perDay),
-      }}
+      style={{ left: ((left - props.min) / DAY) * props.perDay, width }}
     >
-      {props.label}
+      {/* Too short for the name, a bar keeps it for a screen reader. */}
+      <span className={named ? undefined : "sr-only"}>{props.label}</span>
     </button>
   );
 }

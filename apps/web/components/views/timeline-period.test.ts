@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  barHoldsName,
+  openingScroll,
   shiftPeriod,
   timelineFilter,
   timelinePeriod,
@@ -31,6 +33,26 @@ describe("timelinePeriod", () => {
       to: "2028-02-29",
       days: 29,
     });
+  });
+});
+
+describe("openingScroll", () => {
+  it("brings today a third of the way into what shows", () => {
+    // 19 November in a year drawn at four pixels a day, 900 showing.
+    expect(openingScroll({ today: 322, perDay: 4, shown: 900 })).toBe(988);
+  });
+
+  it("stays at the first day when today is close to it, or elsewhere", () => {
+    expect(openingScroll({ today: 3, perDay: 40, shown: 900 })).toBe(0);
+    expect(openingScroll({ today: null, perDay: 4, shown: 900 })).toBe(0);
+  });
+});
+
+describe("barHoldsName", () => {
+  it("names a bar of a few days, and leaves a day's bar bare", () => {
+    expect(barHoldsName(80)).toBe(true);
+    expect(barHoldsName(40)).toBe(false);
+    expect(barHoldsName(4)).toBe(false);
   });
 });
 
