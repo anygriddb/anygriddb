@@ -37,6 +37,9 @@ first.
   reader, and the keyboard's first stop, "Skip to the content", leads
   to it: the way to a page was through every base and table of the
   navigation.
+- The sign of a page, a table, or a list that could not be read, and
+  the marks of a provisioning token that is revoked or expired, are
+  drawn in the colour that warns: they were in the text's own.
 - In a kanban and a gallery, Enter or Space on a card opens its row
   and nothing else. It also picked the card up: the page stopped
   answering until Escape, and a second Enter dropped the card. A click

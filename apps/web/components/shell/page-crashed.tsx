@@ -24,7 +24,7 @@ export function PageCrashed({ onReload }: { onReload?: () => void } = {}) {
   const Frame = use(PageInShell) ? "div" : "main";
   return (
     <Frame className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-      <TriangleAlert className="h-6 w-6 text-destructive" aria-hidden />
+      <TriangleAlert className="h-6 w-6 text-danger" aria-hidden />
       {/* Announced as it appears; `main` stays the page's landmark. */}
       <div role="alert" className="flex flex-col items-center gap-3">
         <h1 className="text-lg font-semibold">{t`This page stopped working`}</h1>

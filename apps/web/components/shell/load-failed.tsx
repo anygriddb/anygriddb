@@ -24,7 +24,7 @@ export function LoadFailed(props: {
         props.fullScreen && "h-screen",
       )}
     >
-      <TriangleAlert className="h-6 w-6 text-destructive" aria-hidden />
+      <TriangleAlert className="h-6 w-6 text-danger" aria-hidden />
       <p className="max-w-md text-sm">
         {hasReason(props.error)
           ? t`This page could not be loaded: ${{ reason: errorText(props.error) }}`

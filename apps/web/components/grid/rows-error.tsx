@@ -28,7 +28,7 @@ export function RowsError(props: {
       role="alert"
       className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center"
     >
-      <TriangleAlert className="h-6 w-6 text-destructive" aria-hidden />
+      <TriangleAlert className="h-6 w-6 text-danger" aria-hidden />
       <p className="max-w-md text-sm">
         {t`The rows could not be read: ${{ reason: errorText(props.error) }}`}
       </p>
