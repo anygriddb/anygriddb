@@ -55,6 +55,34 @@ export function timelinePeriod(
   return { first, next, from: isoDay(first), to: isoDay(last), days };
 }
 
+/**
+ * How far along its axis a period opens, in pixels: today a third of the
+ * way into what shows, when the period holds it, so that what is under
+ * way and what comes next are both there; at its first day otherwise. A
+ * year is wider than the page: opened at January, its bars of the autumn
+ * were out of sight and the timeline looked empty.
+ */
+export function openingScroll(input: {
+  /** Days from the period's first day to today; null outside the period. */
+  today: number | null;
+  /** Pixels a day takes at the scale shown. */
+  perDay: number;
+  /** Pixels of the axis that show at once. */
+  shown: number;
+}): number {
+  if (input.today === null) return 0;
+  return Math.max(0, Math.round(input.today * input.perDay - input.shown / 3));
+}
+
+/**
+ * Whether a bar this wide has room for its row's name. A bar too short
+ * for it showed the first letter cut in two; the name is beside it, at
+ * the head of its line.
+ */
+export function barHoldsName(width: number): boolean {
+  return width >= 56;
+}
+
 /** The first month of the period before (`-1`) or after (`1`) this one. */
 export function shiftPeriod(
   focus: Date,

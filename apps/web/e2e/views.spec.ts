@@ -308,3 +308,75 @@ test.describe("a dashboard", () => {
     expect(blocked).toEqual([]);
   });
 });
+
+// A timeline is wider than the page at the scale of a year: it opens on
+// today, where what is under way shows. A bar too short for its row's
+// name leaves it to the head of its line. It makes an account, so it
+// takes a client address of its own.
+test.describe("a timeline", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.97" } });
+
+  test("opens on today at every scale, and leaves a short bar bare", async ({
+    page,
+  }) => {
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "Timeline Reader");
+    const tableId = tableIdOf(page);
+    for (const name of ["start", "due"]) {
+      await send(page, "catalog.addColumn", {
+        tableId,
+        name,
+        fieldType: "date",
+      });
+    }
+    await send(page, "rows.insertMany", {
+      tableId,
+      rows: [
+        { name: "Harvest", start: "2026-11-16", due: "2026-11-27" },
+        { name: "Tasting", start: "2026-11-19", due: "2026-11-19" },
+      ],
+    });
+    // A day of the autumn: at the scale of a year it lies past the page's
+    // right edge, whatever the day the journey runs.
+    await page.clock.setFixedTime(new Date("2026-11-19T10:00:00"));
+    await page.reload();
+    await newView(page, "Timeline");
+    await page
+      .getByRole("combobox", { name: "End", exact: true })
+      .selectOption({ label: "due" });
+    // A row is named at the head of its line, then by its bar.
+    const bar = (name: string) =>
+      page.getByRole("button", { name, exact: true }).nth(1);
+    const scale = page.getByRole("combobox", { name: "Scale" });
+
+    // A quarter: the fortnight's bar is named, the day's is too short.
+    await expect(bar("Harvest")).toBeInViewport();
+    await expect(bar("Harvest")).toHaveText("Harvest");
+    await expect(bar("Tasting")).toBeInViewport();
+    const nameWidth = async (name: string) =>
+      (await bar(name).locator("span").boundingBox())?.width ?? 0;
+    expect(await nameWidth("Tasting")).toBeLessThanOrEqual(1);
+    await expect(bar("Tasting")).toHaveAccessibleName("Tasting");
+
+    // A year, four pixels a day: November is past the page's width.
+    await scale.selectOption("month");
+    await expect(page.getByText("2026", { exact: true })).toBeVisible();
+    await expect(bar("Harvest")).toBeInViewport();
+    expect(await nameWidth("Harvest")).toBeLessThanOrEqual(1);
+
+    // A month, forty pixels a day: both bars are named.
+    await scale.selectOption("day");
+    await expect(bar("Tasting")).toBeInViewport();
+    await expect(bar("Harvest")).toHaveText("Harvest");
+    expect(await nameWidth("Tasting")).toBeLessThanOrEqual(1);
+
+    // Another period starts at its first day; back to this one, on today.
+    await page.getByRole("button", { name: "Next period" }).click();
+    await expect(page.getByText("December 2026")).toBeVisible();
+    await page.getByRole("button", { name: "Today", exact: true }).click();
+    await expect(bar("Tasting")).toBeInViewport();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    expect(blocked).toEqual([]);
+  });
+});
