@@ -75,6 +75,12 @@ first.
   links), an automation's runs, a webhook's deliveries, the trash, and
   the bell followed the browser's own habit: on one set to it, the 3rd
   of April was written 4/3 there and 03/04 in a grid.
+- The role between editor and viewer is named "Commenter" wherever a
+  role is chosen or shown, as invitations name it: it read "Comment",
+  and in French the verb.
+- In a row's history and in what a base, a view, or a field held
+  earlier, a space parts what was done from when: a screen reader read
+  "created19/11/2026".
 
 ## 0.2.0 - 2026-11-17
 

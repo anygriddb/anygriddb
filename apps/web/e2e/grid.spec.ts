@@ -873,6 +873,10 @@ test.describe("putting a value back", () => {
     await page.getByRole("button", { name: "Actions for Orders 2" }).click();
     await page.getByRole("menuitem", { name: "Earlier", exact: true }).click();
     const earlier = page.getByRole("dialog", { name: "Earlier" });
+    // What was done and when are two words, to a screen reader too.
+    await expect(
+      earlier.getByText(/ edited \d{2}\/\d{2}\/\d{4}, \d{2}:\d{2}/).first(),
+    ).toBeVisible();
     await earlier.getByRole("button", { name: "Put this value back" }).click();
     await expect(earlier.getByText("Orders 2 → Orders")).toBeVisible();
     await earlier.getByRole("button", { name: "Close" }).click();

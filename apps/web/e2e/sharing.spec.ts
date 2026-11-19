@@ -55,6 +55,11 @@ test("an owner invites an address, and its account accepts from its home page", 
   const base = /\/b\/[^/]+/.exec(page.url())?.[0] ?? "";
   await page.goto(`${base}/settings`);
   await page.getByLabel("Invite by email").fill(guestEmail);
+  // The role is named as the person will read it in the invitation.
+  await page
+    .locator("form", { has: page.getByLabel("Invite by email") })
+    .getByRole("combobox", { name: "Role" })
+    .selectOption({ label: "Commenter" });
   await page.getByRole("button", { name: "Invite", exact: true }).click();
   // Not "Access granted": nothing says the address has an account.
   await expect(page.getByText(/^Invitation (emailed|created)$/)).toBeVisible();
@@ -63,7 +68,7 @@ test("an owner invites an address, and its account accepts from its home page", 
   await guest.goto("/");
   const invitations = guest.getByRole("region", { name: "Invitations" });
   await expect(
-    invitations.getByText("Olive Owner invites you to Lab as Editor"),
+    invitations.getByText("Olive Owner invites you to Lab as Commenter"),
   ).toBeVisible();
   expect(await accessibilityViolations(guest)).toEqual([]);
   await invitations.getByRole("button", { name: "Accept" }).click();
