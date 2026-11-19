@@ -12,6 +12,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { formatInstant } from "../../lib/format";
 
 /**
  * A private iCal address of a calendar view, for the person: a calendar
@@ -47,7 +48,7 @@ export function CalendarFeedButton({ viewId }: { viewId: string }) {
   }
   const current = feed.data?.feed;
   const when = (date: Date | string | null | undefined) =>
-    date ? new Date(date).toLocaleString(i18n.locale) : "";
+    date ? formatInstant(date, i18n.locale) : "";
   return (
     <>
       <Button size="xs" variant="outline" onClick={() => setOpen(true)}>

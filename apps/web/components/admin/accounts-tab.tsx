@@ -27,6 +27,7 @@ import { sortRows } from "../../lib/sort-rows";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { Role } from "../../lib/types";
+import { useWhen } from "../../lib/i18n";
 import { useColumnSort } from "../sort-header";
 import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
@@ -49,10 +50,6 @@ import { PeopleFileDialog } from "./people-file-dialog";
 import { useStepUp } from "./step-up";
 import { useRoleLabel } from "../settings/role-label";
 import { useReadsAll } from "./admin-access";
-
-function date(value: string | null | undefined): string {
-  return value ? new Date(value).toLocaleString() : "—";
-}
 
 /** The fields an action needs, from a row of the list. */
 function accountTarget(user: {
@@ -112,6 +109,7 @@ export function AccountsTab({
   onSearch: (update: (current: AccountsSearch) => AccountsSearch) => void;
 }) {
   const { t } = useLingui();
+  const date = useWhen().instant;
   const api = useTRPC();
   const session = useSession();
   const isAdmin = session.data?.isAdmin === true;
@@ -524,6 +522,7 @@ function StatusText({
   };
 }) {
   const { t } = useLingui();
+  const date = useWhen().instant;
   return (
     <div className="flex flex-col gap-0.5">
       {user.disabledAt ? (

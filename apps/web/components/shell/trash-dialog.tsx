@@ -17,6 +17,7 @@ import { VIEW_ICONS } from "../table/view-tabs";
 import { ConfirmDialog } from "./dialogs";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { useWhen } from "../../lib/i18n";
 
 type Entry = RouterOutputs["catalog"]["trash"]["items"][number];
 
@@ -46,6 +47,7 @@ export function TrashDialog(props: {
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useLingui();
+  const when = useWhen();
   const days = useTrashDays();
   const errorText = useErrorText();
   const api = useTRPC();
@@ -118,9 +120,8 @@ export function TrashDialog(props: {
                   <div className="truncate font-medium">{entry.name}</div>
                   <div className="truncate text-xs text-muted-foreground">
                     {kindLabel(entry)} ·{" "}
-                    {t`deleted on ${{ date: new Date(entry.deletedAt).toLocaleDateString() }} by ${{ name: entry.deletedBy ?? t`a deleted account` }}`}{" "}
-                    ·{" "}
-                    {t`purged on ${{ date: new Date(entry.purgeAt).toLocaleDateString() }}`}
+                    {t`deleted on ${{ date: when.day(entry.deletedAt) }} by ${{ name: entry.deletedBy ?? t`a deleted account` }}`}{" "}
+                    · {t`purged on ${{ date: when.day(entry.purgeAt) }}`}
                   </div>
                 </div>
                 <Button

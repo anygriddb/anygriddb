@@ -11,6 +11,7 @@ import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { known } from "../../lib/known-text";
 import { useStepUp } from "./step-up";
+import { intlLocale } from "../../lib/format";
 
 type ReleaseStatusView = {
   current: string;
@@ -47,7 +48,7 @@ export function HealthTab() {
   const data = health.data;
   const releaseStatus: ReleaseStatusView | null = release.data?.status ?? null;
   const when = (iso: string) =>
-    new Date(iso).toLocaleString(i18n.locale, {
+    new Date(iso).toLocaleString(intlLocale(i18n.locale), {
       dateStyle: "long",
       timeStyle: "short",
     });
@@ -339,7 +340,7 @@ function UsageSection({
   );
   const maxBases = Math.max(1, ...last.map((point) => point.basesActive30d));
   const dayLabel = (day: string) =>
-    new Date(`${day}T00:00:00Z`).toLocaleDateString(locale, {
+    new Date(`${day}T00:00:00Z`).toLocaleDateString(intlLocale(locale), {
       month: "short",
       day: "numeric",
     });
@@ -518,7 +519,9 @@ function TlsCard() {
   const data = tls.data;
   if (!data) return null;
   const date = (iso: string) =>
-    new Date(iso).toLocaleDateString(i18n.locale, { dateStyle: "long" });
+    new Date(iso).toLocaleDateString(intlLocale(i18n.locale), {
+      dateStyle: "long",
+    });
   return (
     <RuledSection title={t`Encrypted connection (HTTPS)`} className="text-sm">
       {data.authority ? (

@@ -10,10 +10,42 @@ const DATE_STYLES: Record<string, Intl.DateTimeFormatOptions> = {
   long: { year: "numeric", month: "long", day: "numeric" },
 };
 
+/**
+ * The tag dates and numbers are written in, for the language the app is
+ * read in: the day first and a clock of 24 hours, in English as in
+ * French. Said in one place, so that an instant reads the same on every
+ * screen: left to the browser, one screen wrote `11/19/2026, 8:56 PM`
+ * and the next `19/11/2026, 20:56`, and the third of April could be read
+ * as the fourth of March.
+ */
+export function intlLocale(language: string): "fr-FR" | "en-GB" {
+  return language === "fr" ? "fr-FR" : "en-GB";
+}
+
 function localeTag(locale: Locale, format?: string): string {
   if (format === "us") return "en-US";
   if (format === "eu") return "fr-FR";
-  return locale === "fr" ? "fr-FR" : "en-GB";
+  return intlLocale(locale);
+}
+
+type Instant = string | number | Date;
+
+/** An instant where the reader is: its day and its time, to the second. */
+export function formatInstant(value: Instant, language: string): string {
+  return new Date(value).toLocaleString(intlLocale(language));
+}
+
+/** The day of an instant, where the reader is. */
+export function formatDay(value: Instant, language: string): string {
+  return new Date(value).toLocaleDateString(intlLocale(language));
+}
+
+/** The time of an instant where the reader is, to the minute. */
+export function formatClock(value: Instant, language: string): string {
+  return new Date(value).toLocaleTimeString(intlLocale(language), {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 /** Intl formats a decimal string exactly, digit by digit. */

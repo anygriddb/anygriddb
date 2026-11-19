@@ -1,6 +1,7 @@
 import { DatePicker, getLocalTimeZone, Label } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { fromDateValue, toDateValue } from "../../lib/dates";
+import { intlLocale } from "../../lib/format";
 
 /** The last millisecond of the minute a date field holds. */
 export function endOfMinute(iso: string): string {
@@ -30,7 +31,7 @@ export function InstantRange({
 }) {
   const { t, i18n } = useLingui();
   const zone = getLocalTimeZone();
-  const locale = i18n.locale === "fr" ? "fr-FR" : "en-GB";
+  const locale = intlLocale(i18n.locale);
   const field = (
     id: string,
     label: string,

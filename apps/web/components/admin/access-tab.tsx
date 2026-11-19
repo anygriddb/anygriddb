@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { sortRows } from "../../lib/sort-rows";
+import { useWhen } from "../../lib/i18n";
 import { useColumnSort } from "../sort-header";
 import { ConfirmDialog } from "../shell/dialogs";
 import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
@@ -16,10 +17,6 @@ type Access = RouterOutputs["admin"]["access"]["list"];
 type Token = Access["tokens"][number];
 type Hook = Access["webhooks"][number];
 
-function date(value: string): string {
-  return new Date(value).toLocaleString();
-}
-
 /**
  * The API tokens, outgoing webhooks, and automations of the whole
  * instance (ROADMAP #23): who owns each, whether it is on, how it was last
@@ -27,6 +24,7 @@ function date(value: string): string {
  */
 export function AccessTab() {
   const { t } = useLingui();
+  const date = useWhen().instant;
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();

@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { useWhen } from "../../lib/i18n";
 import { LoadFailed } from "../shell/load-failed";
 import {
   ACCOUNT_ACTIONS,
@@ -39,10 +40,6 @@ const IN_VIEW: readonly AccountAction[] = [
   "delete",
 ];
 
-function date(value: string | null | undefined): string {
-  return value ? new Date(value).toLocaleString() : "—";
-}
-
 /**
  * One account in Administration (ROADMAP #19): who it is, where it comes
  * from and how it signs in, its bases and roles (and the group that gives
@@ -51,6 +48,7 @@ function date(value: string | null | undefined): string {
  */
 export function AccountAdminPage({ userId }: { userId: string }) {
   const { t } = useLingui();
+  const date = useWhen().instant;
   const api = useTRPC();
   const session = useSession();
   const navigate = useNavigate();

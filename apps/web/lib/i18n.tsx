@@ -4,6 +4,7 @@
  * the browser's when the app speaks it, then the instance's default.
  */
 import { i18n } from "@lingui/core";
+import { formatClock, formatDay, formatInstant } from "./format";
 import { I18nProvider as LinguiProvider } from "@lingui/react";
 import {
   createContext,
@@ -114,4 +115,30 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
 export function useLocale() {
   return useContext(LocaleContext);
+}
+
+type Instant = string | number | Date | null | undefined;
+
+/**
+ * Instants as every screen writes them, in the reader's language: a day
+ * and its time, a day, or a time to the minute. One that is missing is a
+ * dash.
+ */
+export function useWhen(): {
+  instant: (value: Instant) => string;
+  day: (value: Instant) => string;
+  clock: (value: Instant) => string;
+} {
+  const { locale } = useLocale();
+  const written =
+    (format: (value: string | number | Date, language: string) => string) =>
+    (value: Instant) =>
+      value === null || value === undefined || value === ""
+        ? "—"
+        : format(value, locale);
+  return {
+    instant: written(formatInstant),
+    day: written(formatDay),
+    clock: written(formatClock),
+  };
 }

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { formatNumber } from "../../lib/format";
 import { useFormatBytes } from "../../lib/format-bytes";
-import { useLocale } from "../../lib/i18n";
+import { useLocale, useWhen } from "../../lib/i18n";
 import { sortRows } from "../../lib/sort-rows";
 import { useTrashDays } from "../../lib/trash";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
@@ -29,6 +29,7 @@ type Trashed =
  */
 export function BasesTab() {
   const { t } = useLingui();
+  const when = useWhen();
   const formatBytes = useFormatBytes();
   const { locale } = useLocale();
   const errorText = useErrorText();
@@ -211,7 +212,7 @@ export function BasesTab() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-medium">{entry.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {t`deleted on ${{ date: new Date(entry.deletedAt).toLocaleDateString() }} by ${{ name: entry.deletedBy ?? t`a deleted account` }}`}
+                    {t`deleted on ${{ date: when.day(entry.deletedAt) }} by ${{ name: entry.deletedBy ?? t`a deleted account` }}`}
                   </div>
                 </div>
                 <Button

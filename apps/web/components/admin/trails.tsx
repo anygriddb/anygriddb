@@ -8,6 +8,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { datedName, downloadCsv } from "../../lib/download";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { useWhen } from "../../lib/i18n";
 import { SortHeader } from "../sort-header";
 import { AdminPageSizeSelect, AdminTable, AdminTableHead } from "./admin-list";
 import { useAdminPageSize } from "./admin-page-size";
@@ -21,10 +22,6 @@ import {
   trailRangeInvalid,
   type ChangesSearch,
 } from "./trail-search";
-
-function date(value: string | null | undefined): string {
-  return value ? new Date(value).toLocaleString() : "—";
-}
 
 /** A retention purge, as the trail tells it. */
 function purgedText(events: number, before: string): string {
@@ -43,6 +40,7 @@ export function ChangesTrail({
   onSearch: (update: (current: ChangesSearch) => ChangesSearch) => void;
 }) {
   const { t } = useLingui();
+  const date = useWhen().instant;
   const errorText = useErrorText();
   // An auditor exports too: the export is on the trail under their name.
   const readsAll = useReadsAll();

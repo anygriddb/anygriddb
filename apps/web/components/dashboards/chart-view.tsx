@@ -27,6 +27,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { intlLocale } from "../../lib/format";
 
 echarts.use([
   BarChart,
@@ -138,7 +139,9 @@ export function ChartView(props: { data: ChartData; title: string }) {
   // A group's key as the reader reads it: a checkbox's yes or no, a date in
   // their language, an empty group named so.
   const keyLabel = useMemo(() => {
-    const dates = new Intl.DateTimeFormat(i18n.locale, { dateStyle: "medium" });
+    const dates = new Intl.DateTimeFormat(intlLocale(i18n.locale), {
+      dateStyle: "medium",
+    });
     return (key: string, fieldType: string | null) => {
       if (key === "(vide)") return t`(empty)`;
       if (fieldType === "boolean") {

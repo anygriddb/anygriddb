@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { useLocale } from "../../lib/i18n";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { formatInstant } from "../../lib/format";
 
 type Change = {
   field: string;
@@ -65,9 +66,7 @@ function EarlierList(props: {
                 ? t`removed`
                 : t`edited`}
             <span className="ml-1 text-muted-foreground">
-              {new Date(event.occurredAt).toLocaleString(
-                locale === "fr" ? "fr-FR" : "en-GB",
-              )}
+              {formatInstant(event.occurredAt, locale)}
               {event.source === "revert" ? ` · ${t`put back`}` : ""}
             </span>
           </p>

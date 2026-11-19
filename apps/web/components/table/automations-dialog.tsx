@@ -37,6 +37,7 @@ import { useTable } from "./table-context";
 import { useLingui } from "@lingui/react/macro";
 import { Earlier } from "../history/earlier";
 import { useErrorText } from "../../lib/errors";
+import { useWhen } from "../../lib/i18n";
 
 // CodeMirror and the JavaScript grammar load with the first script.
 const ScriptCodeEditor = lazy(() => import("./script-code-editor"));
@@ -1276,6 +1277,7 @@ function AutomationEditor(props: {
 
 function RunsList({ automationId }: { automationId: string }) {
   const { t } = useLingui();
+  const when = useWhen();
   const labels = useLabels();
   const errorText = useErrorText();
   const api = useTRPC();
@@ -1316,7 +1318,7 @@ function RunsList({ automationId }: { automationId: string }) {
           {rows.map((run) => (
             <tr key={run.id} className="border-t border-border">
               <td className="px-2 py-1 whitespace-nowrap">
-                {new Date(run.startedAt).toLocaleString()}
+                {when.instant(run.startedAt)}
               </td>
               <td className="px-2 py-1">{labels.started(run.trigger)}</td>
               <td className="px-2 py-1">
@@ -1362,6 +1364,7 @@ function ScriptLog({ steps }: { steps: unknown }) {
 /** Automations of the current table: list, switch, run log, and editor. */
 export function AutomationsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useLingui();
+  const when = useWhen();
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
@@ -1443,7 +1446,7 @@ export function AutomationsDialog({ onClose }: { onClose: () => void }) {
                         .map((action) => labels.action(action.type))
                         .join(", ")}
                       {automation.lastRunAt
-                        ? ` · ${t`last run ${{ date: new Date(automation.lastRunAt).toLocaleString() }}`}`
+                        ? ` · ${t`last run ${{ date: when.instant(automation.lastRunAt) }}`}`
                         : ""}
                     </p>
                   </div>

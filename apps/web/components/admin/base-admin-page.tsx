@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { formatNumber } from "../../lib/format";
 import { useFormatBytes } from "../../lib/format-bytes";
-import { useLocale } from "../../lib/i18n";
+import { useLocale, useWhen } from "../../lib/i18n";
 import { useSession } from "../../lib/session";
 import { useTrashDays } from "../../lib/trash";
 import { trpc, useTRPC } from "../../lib/trpc";
@@ -27,6 +27,7 @@ import { OpenBase } from "./open-base";
  */
 export function BaseAdminPage({ baseId }: { baseId: string }) {
   const { t } = useLingui();
+  const when = useWhen();
   const formatBytes = useFormatBytes();
   const { locale } = useLocale();
   const api = useTRPC();
@@ -77,8 +78,8 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
       <header>
         <h2 className="text-lg font-semibold">{base.name}</h2>
         <p className="text-sm text-muted-foreground">
-          {t`Created ${{ when: new Date(base.createdAt).toLocaleDateString() }}`}{" "}
-          · {formatBytes(base.fileBytes)}
+          {t`Created ${{ when: when.day(base.createdAt) }}`} ·{" "}
+          {formatBytes(base.fileBytes)}
         </p>
         {!base.hasLiveOwner ? (
           <p className="mt-2 rounded-sm border border-warning/40 bg-warning-surface px-3 py-2 text-sm">

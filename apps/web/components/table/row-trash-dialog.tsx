@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { ReasonAnswer } from "./use-reason";
+import { useWhen } from "../../lib/i18n";
 
 /**
  * The rows deleted from a table, which a person brings back: all of them
@@ -32,6 +33,7 @@ export function RowTrashDialog({
   onRestored: () => void;
 }) {
   const { t } = useLingui();
+  const when = useWhen();
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
@@ -97,7 +99,7 @@ export function RowTrashDialog({
                 />
                 <span className="min-w-0 flex-1 truncate">{item.label}</span>
                 <span className="text-xs text-muted-foreground">
-                  {item.deletedBy} · {new Date(item.deletedAt).toLocaleString()}
+                  {item.deletedBy} · {when.instant(item.deletedAt)}
                 </span>
               </label>
             </li>

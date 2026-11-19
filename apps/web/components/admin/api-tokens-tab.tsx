@@ -8,16 +8,13 @@ import { useCopy } from "../../lib/clipboard";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { sortRows } from "../../lib/sort-rows";
+import { useWhen } from "../../lib/i18n";
 import { useColumnSort } from "../sort-header";
 import { ConfirmDialog } from "../shell/dialogs";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
 
 type Scope = "accounts" | "invitations" | "settings";
-
-function date(value: string | null): string {
-  return value ? new Date(value).toLocaleString() : "—";
-}
 
 /**
  * The administration API (ADR 0086): its address, and the tokens an
@@ -27,6 +24,7 @@ function date(value: string | null): string {
  */
 export function ApiTokensTab() {
   const { t } = useLingui();
+  const date = useWhen().instant;
   const copy = useCopy();
   const errorText = useErrorText();
   const api = useTRPC();

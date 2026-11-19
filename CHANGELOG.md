@@ -66,6 +66,12 @@ first.
 - The runs of an automation say what started each in the words of its
   dialog, "A row is created" or "Run by hand": they showed a code,
   `row_created` or `manual`, in English whatever the language.
+- A date reads the same on every screen, the day first and on 24
+  hours, in the language the app is read in. The lists of
+  Administration (accounts, sessions, sign-ins, changes, tokens,
+  links), an automation's runs, a webhook's deliveries, the trash, and
+  the bell followed the browser's own habit: on one set to it, the 3rd
+  of April was written 4/3 there and 03/04 in a grid.
 
 ## 0.2.0 - 2026-11-17
 

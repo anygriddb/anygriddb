@@ -18,10 +18,12 @@ import {
   useOpenNotification,
   type NotificationItem,
 } from "./notification-items";
+import { useWhen } from "../../lib/i18n";
 
 /** Unread count, list, and live updates on the user's own channel. */
 export function NotificationBell() {
   const { t } = useLingui();
+  const when = useWhen();
   const api = useTRPC();
   const queryClient = useQueryClient();
   const session = useSession();
@@ -110,7 +112,7 @@ export function NotificationBell() {
                   <span className="min-w-0 flex-1">
                     <span className="block">{describe(item)}</span>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(item.createdAt).toLocaleString()}
+                      {when.instant(item.createdAt)}
                     </span>
                   </span>
                   {!item.read ? (

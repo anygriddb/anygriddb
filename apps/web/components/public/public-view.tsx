@@ -26,6 +26,7 @@ import { InstanceMark } from "../brand/instance-mark";
 import { AboutButton } from "../shell/about-dialog";
 import { SortHeader } from "../sort-header";
 import { useLocale } from "../../lib/i18n";
+import { intlLocale } from "../../lib/format";
 
 const NO_PEOPLE: ReadonlyMap<string, Collaborator> = new Map();
 const TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -67,7 +68,7 @@ function FormClosed({
   const said = (instant: string | undefined) =>
     instant === undefined
       ? undefined
-      : new Date(instant).toLocaleString(locale === "fr" ? "fr-FR" : "en-GB", {
+      : new Date(instant).toLocaleString(intlLocale(locale), {
           dateStyle: "long",
           timeStyle: "short",
         });

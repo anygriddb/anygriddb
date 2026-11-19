@@ -8,6 +8,7 @@ import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { useRoleLabel } from "../settings/role-label";
 import { LoadFailed } from "../shell/load-failed";
+import { useWhen } from "../../lib/i18n";
 
 /**
  * The end of a calendar day in this browser's zone, as UTC. A day that
@@ -37,6 +38,7 @@ export function endOfChosenDay(day: string): string | null {
  */
 export function RightsAt({ userId }: { userId: string }) {
   const { t } = useLingui();
+  const when = useWhen();
   const errorText = useErrorText();
   const api = useTRPC();
   const roleLabel = useRoleLabel();
@@ -116,7 +118,7 @@ export function RightsAt({ userId }: { userId: string }) {
         <p className="text-warning">
           {t`The change trail no longer reaches this date (earliest kept ${{
             date: report.data.earliestKept
-              ? new Date(report.data.earliestKept).toLocaleString()
+              ? when.instant(report.data.earliestKept)
               : "—",
           }}). The report cannot answer.`}
         </p>
@@ -152,9 +154,7 @@ export function RightsAt({ userId }: { userId: string }) {
                 </span>
                 <span className="text-muted-foreground">
                   {roleLabel(line.role)}
-                  {line.occurredAt
-                    ? ` · ${new Date(line.occurredAt).toLocaleString()}`
-                    : ""}
+                  {line.occurredAt ? ` · ${when.instant(line.occurredAt)}` : ""}
                 </span>
               </li>
             ))}

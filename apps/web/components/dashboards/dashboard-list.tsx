@@ -10,9 +10,11 @@ import { canManage } from "../../lib/types";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { EmptyState, NotebookPage } from "../shell/notebook-page";
+import { useWhen } from "../../lib/i18n";
 
 export function DashboardList({ baseId }: { baseId: string }) {
   const { t } = useLingui();
+  const when = useWhen();
   const errorText = useErrorText();
   const api = useTRPC();
   const navigate = useNavigate();
@@ -103,7 +105,7 @@ export function DashboardList({ baseId }: { baseId: string }) {
                   {dashboard.name}
                 </Link>
                 <span className="text-xs text-muted-foreground">
-                  {new Date(dashboard.updatedAt).toLocaleString()}
+                  {when.instant(dashboard.updatedAt)}
                 </span>
                 {manage ? (
                   <Button

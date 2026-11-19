@@ -10,6 +10,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { PromptDialog } from "../shell/dialogs";
 import { useInvalidateCatalog } from "../shell/sidebar";
 import { useStepUp } from "./step-up";
+import { useWhen } from "../../lib/i18n";
 
 type Opening = {
   userId: string;
@@ -17,9 +18,6 @@ type Opening = {
   reason: string;
   expiresAt: string | Date;
 };
-
-const hour = (when: string | Date) =>
-  new Date(when).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 /**
  * Reading a base without being a member of it (ADR 0074). Administration
@@ -37,6 +35,7 @@ export function OpenBase({
   open: readonly Opening[];
 }) {
   const { t } = useLingui();
+  const hour = useWhen().clock;
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();

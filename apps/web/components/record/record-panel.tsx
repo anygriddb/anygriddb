@@ -34,7 +34,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
-import { attachmentList, cellDisplay } from "../../lib/format";
+import { attachmentList, cellDisplay, formatInstant } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import { useNarrowScreen } from "../../lib/narrow-screen";
 import { useSession } from "../../lib/session";
@@ -303,9 +303,7 @@ function Comments({ rowId }: { rowId: string }) {
         <p className="text-xs">
           <span className="font-medium">{comment.displayName}</span>{" "}
           <span className="text-muted-foreground">
-            {new Date(comment.createdAt).toLocaleString(
-              table.locale === "fr" ? "fr-FR" : "en-GB",
-            )}
+            {formatInstant(comment.createdAt, table.locale)}
             {comment.updatedAt ? ` · ${t`edited`}` : ""}
             {!reply && comment.resolvedAt
               ? ` · ${
@@ -591,9 +589,7 @@ function History({ row }: { row: RowItem }) {
                     : (ACTION_LABELS[event.action] ?? raw(event.action)),
                 )}
                 <span className="ml-1 text-muted-foreground">
-                  {new Date(event.occurredAt).toLocaleString(
-                    locale === "fr" ? "fr-FR" : "en-GB",
-                  )}
+                  {formatInstant(event.occurredAt, locale)}
                   {event.source === "revert"
                     ? ` · ${t`put back`}`
                     : event.source &&

@@ -14,7 +14,7 @@ import { AlertTriangle, Lock, PenLine, Unlock } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
 import { reasonOf, useErrorText } from "../../lib/errors";
-import { cellDisplay } from "../../lib/format";
+import { cellDisplay, formatInstant } from "../../lib/format";
 import { trpc } from "../../lib/trpc";
 import { canManage, type RowItem } from "../../lib/types";
 import { useTable } from "../table/table-context";
@@ -142,9 +142,7 @@ export function RowStatus({ row }: { row: RowItem }) {
       {row.signature ? (
         <p className="text-xs text-muted-foreground">
           {t`Signed by ${{ name: row.signature.displayName }} on ${{
-            date: new Date(row.signature.signedAt).toLocaleString(
-              table.locale === "fr" ? "fr-FR" : "en-GB",
-            ),
+            date: formatInstant(row.signature.signedAt, table.locale),
           }}: “${{ meaning: row.signature.meaning }}”`}
         </p>
       ) : null}
@@ -170,9 +168,7 @@ export function RowStatus({ row }: { row: RowItem }) {
             </p>
             <p className="text-muted-foreground">
               {t`Found on ${{
-                date: new Date(drift.at).toLocaleString(
-                  table.locale === "fr" ? "fr-FR" : "en-GB",
-                ),
+                date: formatInstant(drift.at, table.locale),
               }}. An owner can unlock it, check it, then lock it again.`}
             </p>
             {drift.fields.length > 0 ? (

@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
+import { formatClock, intlLocale } from "../../lib/format";
+import { useLocale } from "../../lib/i18n";
 import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import type { Role } from "../../lib/types";
 import { useRoleLabel } from "../settings/role-label";
@@ -40,6 +42,7 @@ export const NOTIFICATION_ICONS = {
 /** What a notification says, in one sentence. */
 export function useDescribeNotification() {
   const { t } = useLingui();
+  const { locale } = useLocale();
   const roleLabel = useRoleLabel();
   return (item: NotificationItem) => {
     const actor = item.actorName ?? t`Someone`;
@@ -67,7 +70,7 @@ export function useDescribeNotification() {
         return t`${actor} made ${{ name: item.data?.name ?? "—" }} an owner of ${{ base: item.data?.base ?? "—" }}`;
       case "acting_as": {
         const until = item.data?.until
-          ? new Date(item.data.until).toLocaleString([], {
+          ? new Date(item.data.until).toLocaleString(intlLocale(locale), {
               dateStyle: "medium",
               timeStyle: "short",
             })
@@ -80,10 +83,7 @@ export function useDescribeNotification() {
         const base = item.data?.base ?? "—";
         const reason = item.data?.reason ?? "—";
         if (item.data?.until) {
-          const until = new Date(item.data.until).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          });
+          const until = formatClock(item.data.until, locale);
           return t`${actor}, an administrator, opened ${base} to read it until ${until}. Their reason: ${reason}`;
         }
         const role = roleLabel((item.data?.role ?? "viewer") as Role);

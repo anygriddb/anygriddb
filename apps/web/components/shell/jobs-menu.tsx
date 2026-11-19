@@ -40,6 +40,7 @@ import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { useSnapshotGaps } from "../../lib/snapshot-report";
 import { AirtableReport } from "./airtable-report";
+import { useWhen } from "../../lib/i18n";
 
 const ICONS = {
   import: FileUp,
@@ -110,6 +111,7 @@ function SnapshotGapsReport({ gaps }: { gaps: string[] }) {
 /** The author's recent jobs: progress, cancel, download, and open. */
 export function JobsMenu() {
   const { t } = useLingui();
+  const when = useWhen();
   const jobError = useJobErrorText();
   const errorText = useErrorText();
   const snapshotGaps = useSnapshotGaps();
@@ -425,7 +427,7 @@ export function JobsMenu() {
                       </button>
                     ) : null}
                     <span className="ml-auto text-muted-foreground">
-                      {new Date(job.createdAt).toLocaleTimeString()}
+                      {when.clock(job.createdAt)}
                     </span>
                   </div>
                   {job.status === "done" && job.kind === "import_airtable" ? (

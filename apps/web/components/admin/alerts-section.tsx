@@ -17,6 +17,7 @@ import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import { LoadFailed } from "../shell/load-failed";
 import { RuledSection } from "../shell/notebook-page";
 import { useStepUp } from "./step-up";
+import { intlLocale } from "../../lib/format";
 
 type Alert = RouterOutputs["admin"]["alerts"]["alerts"][number];
 
@@ -27,7 +28,7 @@ export function useAlertText(): (
   const { t, i18n } = useLingui();
   const when = (value: string | number | null | undefined) =>
     typeof value === "string"
-      ? new Date(value).toLocaleString(i18n.locale, {
+      ? new Date(value).toLocaleString(intlLocale(i18n.locale), {
           dateStyle: "long",
           timeStyle: "short",
         })
@@ -80,7 +81,7 @@ export function AlertsSection() {
   const spared = new Set<AlertChoice>(choices.data?.spared ?? []);
   const ids = useId();
   const when = (iso: string) =>
-    new Date(iso).toLocaleString(i18n.locale, {
+    new Date(iso).toLocaleString(intlLocale(i18n.locale), {
       dateStyle: "medium",
       timeStyle: "short",
     });

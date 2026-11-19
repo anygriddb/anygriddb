@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { datedName, downloadCsv } from "../../lib/download";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { useWhen } from "../../lib/i18n";
 import { SortHeader } from "../sort-header";
 import { AdminPageSizeSelect, AdminTable, AdminTableHead } from "./admin-list";
 import { useAdminPageSize } from "./admin-page-size";
@@ -23,10 +24,6 @@ import {
 
 type AuthAction = (typeof SIGN_IN_ACTIONS)[number];
 
-function date(value: string): string {
-  return new Date(value).toLocaleString();
-}
-
 /** The sign-in trail (ADR 0042): sign-ins, failures, and admin actions. */
 export function SignInTrail({
   search,
@@ -36,6 +33,7 @@ export function SignInTrail({
   onSearch: (update: (current: SignInSearch) => SignInSearch) => void;
 }) {
   const { t } = useLingui();
+  const date = useWhen().instant;
   const errorText = useErrorText();
   // An auditor exports too: the export is on the trail under their name.
   const readsAll = useReadsAll();
