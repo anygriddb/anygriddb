@@ -15,32 +15,20 @@ Every table is a real SQL table, in AnyGridDB's own PostgreSQL or in your own da
 
 ## Features
 
-- **Your databases**:
-  - Declare PostgreSQL, MySQL, MariaDB, SQL Server, and Oracle sources.
-  - Show their tables and views in a base; foreign keys become links.
-  - Edit, add, and delete rows where an administrator allows it, compared under lock.
-  - Add fields of your own in a schema the DBA grants.
-  - Follow changes other applications make.
-  - Read a table from a copy refreshed in AnyGridDB when live queries are not welcome.
-  - Read a store that speaks no SQL from such a copy: a database that speaks the MongoDB wire protocol, a collection as a table; an OpenSearch cluster, an index as a table.
-- **Grid**: virtualized rows and columns, keyboard navigation, copy and paste with spreadsheets, fill down, undo and redo, footers, grouping, row colours, and frozen columns.
-- **Fields**: 30 types, including links (one-way or two-way, limited to a view or a filter), lookups and rollups (over the linked rows that match a condition), formulas (94 functions, regular expressions and JSON included), users, attachments with thumbnails, ratings, durations, system fields, the row's id, buttons, a colour, a place a map reads, and a JSON document a formula reads into; a text, a link, a formula, or a row's number or id drawn as a QR code or a barcode.
-- **Views**: grid, form (fields shown on earlier answers), kanban, gallery, list (rows nested under their parent), calendar (a private iCal feed per person), timeline, and map; personal and locked views; nested and/or filters with relative dates and ranges.
-- **Collaboration**: live updates and presence, comments with replies and @mentions, in threads that are resolved and opened again, notifications (in-app, optionally by email), row history, a base's activity in the tables and fields each member sees, trash and restore.
-- **Trash**: deleted bases, tables, fields, and views wait 30 days, or as long as an administrator chooses, with their data, links, and view settings, and come back in one click.
-- **Sharing**: owner, editor, commenter, and viewer roles per base or per table; invitations; public views and forms, and a whole base read-only by one link, with optional password and expiry; a form's link takes answers between the dates its maker sets.
-- **Data**: import CSV, TSV, JSON, or Excel with type detection, column mapping, and updates by key; import an Airtable base (tables, links, lookups, formulas, views, and rows, with a report of what differs); make a base of a workbook (`.xlsx`, from Google Sheets, Excel, or LibreOffice), a table of each sheet kept; export a view as CSV, JSON, or Excel; back up a whole base, with its attachments and members, as one file to import again, or keep it on the instance as a restore point, restored beside the base in one step; duplicate tables and fields; base templates. Long imports, exports, and copies run as background jobs with live progress and can be cancelled.
-- **Integrations**: REST API with an OpenAPI 3.1 document per base and a page to try requests, an MCP server for the AI you run ([docs/mcp.md](docs/mcp.md)), scoped API tokens, webhooks with filters, retries, and a delivery log, and automations (row, form, schedule, button, or incoming webhook triggers; branches and loops over rows; scripts of your own, run apart from the instance once an administrator allows them, which can call your other services). These work on your databases' tables too.
-- **Dashboards**: metrics, charts (columns, bars, lines, areas, shares, with series; a histogram of a number field), and embedded views. Each chart's values are computed by the database that holds the rows, under each reader's rights.
-- **Security and compliance**:
-  - Argon2id passwords, TOTP and passkeys, OIDC and SAML; SCIM 2.0 provisioning of accounts and groups, which get roles on bases.
-  - An append-only audit trail with reasons and sources.
-  - Row statuses and signatures confirmed by password (simple electronic signatures), fingerprinted on a client's rows.
-  - Field and row rules enforced on every engine.
-  - HTTPS only, and every connection encrypted and verified.
-  - Rate limits and account erasure.
-- **Administration**: accounts and their sessions, second factors, tokens, locks, and reset links, a security policy from simple defaults (who needs a second factor, locks and alerts, sessions, passwords, who creates bases and tokens, public links, sign-up and invitation domains, idle accounts), sign-up policy, maintenance and an announcement, the instance's own name, logo, and mail signature, sources, the audit and sign-in trails (CSV export), an access report, jobs and failed deliveries, service health and a support bundle, and Prometheus metrics and OpenTelemetry traces when the operator turns them on. An administrator reads a base they are not a member of only by opening it for an hour, with a reason its owners are told. Two roles stand beside administrators: support, which helps a person sign in again, and an auditor, who reads every page and changes nothing. An operator's scripts list and make accounts and change the settings of the instance's running through an administration API, with tokens made for it that give no way round the proof ([docs/operations.md](docs/operations.md#the-administration-api)).
-- English-source interface with a complete French locale, light and dark themes.
+In short; [`ROADMAP.md`](ROADMAP.md#done) says what works, area by area.
+
+- **Your databases**: PostgreSQL, MySQL, MariaDB, SQL Server, and Oracle tables, read and edited where they live; a refreshed copy when live queries are not welcome, which is also how a MongoDB-protocol database and an OpenSearch cluster are read.
+- **Grid**: virtualized rows and columns, keyboard navigation, copy and paste with spreadsheets, fill down, undo and redo, grouping, footers, and frozen columns.
+- **Fields**: 30 types, with links, lookups, rollups, and formulas (94 functions) computed by the database that holds the rows.
+- **Views**: grid, form, kanban, gallery, list, calendar, timeline, and map; personal and locked views; nested filters.
+- **Collaboration**: live updates and presence, comments and @mentions, notifications, row history, and a trash that keeps what was deleted for 30 days.
+- **Sharing**: owner, editor, commenter, and viewer roles per base or per table, with field and row rules; public views, forms, and read-only bases, with a password and an expiry.
+- **Data**: import and export of CSV, TSV, JSON, and Excel; an Airtable base or a workbook made a base; base backups, restore points, and templates.
+- **Integrations**: a REST API with an OpenAPI 3.1 document per base, an [MCP server](docs/mcp.md) for the AI you run, scoped tokens, OAuth for applications, webhooks, and automations that run scripts of your own.
+- **Dashboards**: metrics, charts, and a view's rows, computed by the database under each reader's rights.
+- **Security**: Argon2id passwords, TOTP and passkeys, OIDC, SAML, and SCIM; an append-only audit trail; row statuses and signatures; HTTPS only, every connection encrypted and verified.
+- **Administration**: accounts, the security policy, sources, the trails, and health in one place; support and auditor roles; an [administration API](docs/operations.md#the-administration-api) for an operator's scripts. An administrator who opens a base they are not a member of, or acts with a person's rights, gives a reason, and the people concerned are told.
+- **Interface**: English source with a complete French locale, light and dark themes, on a phone and from the keyboard.
 
 ## Quick start
 
@@ -99,12 +87,14 @@ owns is the table of [`CONTRIBUTING.md`](CONTRIBUTING.md#where-to-change-what).
 
 ### Operator
 
-| Doc                                        | What                                             |
-| ------------------------------------------ | ------------------------------------------------ |
-| [`docs/operations.md`](docs/operations.md) | Install, offline, upgrade, backup, managed DB    |
-| [`docs/sources.md`](docs/sources.md)       | Connecting a client database: accounts and TLS   |
-| [`docs/mcp.md`](docs/mcp.md)               | Connecting the AI you run through the MCP server |
-| [`SECURITY.md`](SECURITY.md)               | What is protected, and how to report a weakness  |
+| Doc                                        | What                                                                 |
+| ------------------------------------------ | -------------------------------------------------------------------- |
+| [`docs/operations.md`](docs/operations.md) | Install, offline, upgrade, backup, managed DB                        |
+| [`docs/integrations/`](docs/integrations/) | Notifications, heartbeats, metrics, errors and traces, health, OAuth |
+| [`docs/sources.md`](docs/sources.md)       | Connecting a client database: accounts and TLS                       |
+| [`docs/mcp.md`](docs/mcp.md)               | Connecting the AI you run through the MCP server                     |
+| [`SECURITY.md`](SECURITY.md)               | How to report a vulnerability, and what protects an instance         |
+| [`CHANGELOG.md`](CHANGELOG.md)             | What changes for those who run or use an instance                    |
 
 ### Contributor
 
@@ -114,14 +104,12 @@ owns is the table of [`CONTRIBUTING.md`](CONTRIBUTING.md#where-to-change-what).
 | [`TECH_STACK.md`](TECH_STACK.md)                 | What this tree uses                                  |
 | [`ROADMAP.md`](ROADMAP.md)                       | What is done, known limits, what next                |
 | [`docs/brand.md`](docs/brand.md)                 | Notebook identity: type, colour, BrandMark           |
+| [`docs/i18n-glossary.md`](docs/i18n-glossary.md) | The words the interface uses                         |
 | [`docs/weblate.md`](docs/weblate.md)             | Weblate and a third locale                           |
 | [`OPEN_SOURCE_POLICY.md`](OPEN_SOURCE_POLICY.md) | Legal-safe dependency rules                          |
 | [`NOTICE.md`](NOTICE.md)                         | Copyright notice and selected dependency licenses    |
 | [`ACCESSIBILITY.md`](ACCESSIBILITY.md)           | Accessibility commitment and how to report a barrier |
-| [`SECURITY.md`](SECURITY.md)                     | How to report a vulnerability                        |
-| [`docs/operations.md`](docs/operations.md)       | Install, upgrade, backup, and restore for operators  |
 | [Code of conduct](.github/CODE_OF_CONDUCT.md)    | Expected behaviour in the project's spaces           |
-| [`CHANGELOG.md`](CHANGELOG.md)                   | What changes for those who run or use an instance    |
 
 ### Architecture
 

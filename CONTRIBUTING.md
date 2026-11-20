@@ -91,7 +91,7 @@ Under `apps/`, `packages/`, `scripts/`, `docker/`, and `docs/`:
 
 | Kind                      | Convention                      | Example                                                 |
 | ------------------------- | ------------------------------- | ------------------------------------------------------- |
-| Directories, source files | kebab-case                      | `grid-view.tsx`, `content-security-policy.ts`           |
+| Directories, source files | kebab-case                      | `grid-view.tsx`, `sign-in-allowlist.ts`                 |
 | Names a tool imposes      | as the tool spells them         | `vite.config.ts`, `Dockerfile`, `README.md`             |
 | Directory collections     | plural                          | `components/`, `migrations/`                            |
 | React components          | PascalCase                      | `export function GridView` in `grid-view.tsx`           |
@@ -218,9 +218,9 @@ Scope: the package or area touched (`web`, `api`, `core`, `db`, `ui`,
 ```
 feat(api): add SQL Server connector
 fix(web): restore filter hierarchy on import
-feat!: drop SQLite as a production meta store
+refactor(sources)!: stop reading SQLite files
 
-BREAKING CHANGE: production meta store is Postgres only.
+BREAKING CHANGE: a SQLite source is deleted before the upgrade.
 ```
 
 Husky's `commit-msg` runs commitlint, then

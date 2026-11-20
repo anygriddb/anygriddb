@@ -7,6 +7,7 @@ here was tried on a stack of its own before it was written down.
 | ---------------------------------------- | ----------------------------------------------------------------------------------------- |
 | Install a release                        | [Install](#install)                                                                       |
 | Change the encryption key                | [Changing the encryption key](#changing-the-encryption-key)                               |
+| Keep files in an S3 store, or move them  | [Where files are kept](#where-files-are-kept)                                             |
 | Set `PUBLIC_URL` / TLS                   | [Address people open](#address-people-open-public_url)                                    |
 | Run behind a reverse proxy               | [Behind a reverse proxy](#behind-a-reverse-proxy)                                         |
 | Get back in as an administrator          | [When no administrator can sign in](#when-no-administrator-can-sign-in)                   |
@@ -27,7 +28,7 @@ here was tried on a stack of its own before it was written down.
 | Send errors and traces                   | [Errors and traces](integrations/errors.md)                                               |
 | See whether the instance can serve       | [Health](integrations/health.md)                                                          |
 | Let an application ask people for access | [Applications (OAuth)](integrations/oauth.md)                                             |
-| Acceptance checklist                     | [DSI acceptance checklist](#dsi-acceptance-checklist)                                     |
+| Acceptance checklist                     | [Acceptance checklist](#acceptance-checklist)                                             |
 
 ## Install
 
@@ -301,6 +302,35 @@ in the files' store as soon as it is sent, 30 a minute at most per
 address. One that no answer claims within a day is removed by the hourly
 purge (ADR 0062).
 
+### Where files are kept
+
+Files live on the `files` volume. To keep them in an S3-compatible store
+instead, start the stack with `compose.s3.yml`, which adds RustFS
+(`docker compose -f compose.yml -f compose.s3.yml up -d`), or set
+`STORAGE_DRIVER=s3` and the `S3_*` values of a service of your own.
+
+To move an instance's files from one to the other, with both stores
+set in the environment and `STORAGE_DRIVER` naming the one in use
+(`disk` must be written: with `S3_*` set and no driver, the instance
+uses S3):
+
+1. Copy every file the target lacks. Nothing is deleted, and
+   `--dry-run` counts first:
+
+   ```bash
+   docker compose exec app anygriddb storage migrate --from disk --to s3
+   ```
+
+2. Switch `STORAGE_DRIVER` and start the stack again.
+3. Run the command again, for the files written meanwhile.
+
+A file is stored before the row that names it, so an upload that died
+on the way leaves a file no row names. A daily sweep deletes those
+older than a day: `anygriddb storage sweep --dry-run` lists what it
+would delete, and without the flag deletes them now. A folder or a
+bucket therefore belongs to one instance, and a database restored from
+a backup comes with the files of the same moment.
+
 ### Address people open (`PUBLIC_URL`)
 
 `PUBLIC_URL` is the HTTPS origin people type: links in emails, cookies,
@@ -491,9 +521,10 @@ docker compose -f compose.yml -f compose.release.yml \
 From a repository checkout instead:
 
 ```sh
+version=X.Y.Z   # the release to install
 git fetch --tags
-git tag -n20 v0.2.0              # the release to install, and its notes
-git checkout v0.2.0
+git tag -n20 "v$version"         # its notes
+git checkout "v$version"
 scripts/build-image.sh
 cd docker && docker compose up -d
 ```
@@ -798,34 +829,25 @@ What to know:
 
 ## Several API processes
 
-A load balancer asks each process `/ready`: it answers 200 while
-PostgreSQL answers within two seconds, and 503 otherwise, so requests go
-to a process that can serve them. `/health` only says the process is up.
+The supported production shape is **one API process** with the Compose
+stack in this repository (or an equivalent single instance against a
+managed PostgreSQL). Several API processes behind a load balancer work
+for reads and writes, with these limits:
+
+- **Rate limits** are counted in each process's memory. Put the
+  balancer's addresses in `ANYGRIDDB_TRUSTED_PROXIES`, so clients are
+  keyed by their real address, and enforce an overall limit on the
+  proxy: otherwise N replicas multiply every bucket.
+- **WebSocket presence** is per process. Fan-out uses PostgreSQL
+  `LISTEN`/`NOTIFY`, so other browsers see row changes, but presence and
+  some in-memory gates are not shared.
+
+The balancer asks each process `/ready`: it answers 200 while PostgreSQL
+answers within two seconds, and 503 otherwise, so requests go to a
+process that can serve them. `/health` only says the process is up.
 `/healthz` answers the same as `/health`. `/readyz` answers the same as
 `/ready`, and also 503 when a migration this process knows is not applied.
 See [Health](integrations/health.md).
-
-Rate limits are counted in each process's memory. Behind a load balancer,
-put the balancer's addresses in `ANYGRIDDB_TRUSTED_PROXIES` so clients are
-keyed by their real address, and enforce an overall limit on the proxy as
-well: N replicas otherwise multiply every bucket. WebSocket presence is
-also per process; fan-out uses PostgreSQL `LISTEN`/`NOTIFY`.
-
-## Supported topology
-
-The supported production shape is **one API process** with the Compose
-stack in this repository (or an equivalent single instance against a
-managed PostgreSQL).
-
-Several API processes behind a load balancer work for reads and writes,
-with these limits:
-
-- **Rate limits** are counted in each process's memory. Put the balancer
-  in `ANYGRIDDB_TRUSTED_PROXIES` and enforce an overall limit on the proxy:
-  otherwise N replicas multiply every bucket.
-- **WebSocket presence** is per process; fan-out still uses PostgreSQL
-  `LISTEN`/`NOTIFY`, so other browsers see row changes, but presence and
-  some in-memory gates are not shared.
 
 Helm charts and multi-region active-active stay outside this repository.
 
@@ -838,8 +860,7 @@ With the nightly cron example under [Backups](#backups):
 | **RPO**   | Up to the time since the last successful `scripts/backup.sh` (about 24 hours on the sample cron). Continuous WAL archiving on your PostgreSQL shortens it.     |
 | **RTO**   | The time to run `scripts/restore.sh` on a spare host with the same `AUTH_ENCRYPTION_KEY`, plus DNS or load-balancer cutover. Measure it once on a spare stack. |
 
-An untested backup is a hope: restore onto a spare stack after every major
-upgrade.
+Restore onto a spare stack after every major upgrade.
 
 ## Shipping logs to a collector
 
@@ -903,31 +924,6 @@ address, never an email or a secret. Two ways, alone or together:
   `anygriddb`, message id `auth`) whose message is the event as JSON. It
   leaves from the queue, and is tried again when the collector is away.
   Nothing is sent in clear text.
-
-## DSI acceptance checklist
-
-Before opening the instance to users:
-
-1. Install a release image pinned by digest; set `PUBLIC_URL` and
-   `AUTH_ENCRYPTION_KEY`; confirm Health shows a trusted certificate path.
-2. Put the database and the files on encrypted storage (Encryption at
-   rest).
-3. Configure SMTP; send a test email from Support. Without email, people
-   join only by an invitation's link or an account an administrator
-   creates: a sign-up proves its address by a mailed link (ADR 0058).
-4. Configure OIDC or SAML; use **Test issuer** / **Test certificate**, then
-   complete one real sign-in.
-5. Optionally turn on **SSO-only** (administrators keep a password).
-6. Optionally set the **sign-in allowlist** and `ANYGRIDDB_TRUSTED_PROXIES`.
-7. Create a SCIM token and push one user and one group from the identity
-   provider; assign the group a role on a base.
-8. Set MFA scope to everyone (or your policy); confirm an enrollment gate.
-9. Turn maintenance on briefly; confirm non-admins are signed out.
-10. Run `scripts/backup.sh` and `scripts/restore.sh` on a spare stack.
-11. If you use a SIEM, save the webhook, or your syslog collector,
-    send a test event, and confirm it arrives (with a valid signature,
-    over HTTPS).
-12. Scrape `/metrics` with `METRICS_TOKEN` over HTTPS.
 
 ## Metrics and traces
 
@@ -995,3 +991,28 @@ Both are off until you turn them on (ADR 0018).
   in client databases, and background tasks. Errors can go to a
   Sentry-compatible store from that same page. See
   [Errors and traces](integrations/errors.md).
+
+## Acceptance checklist
+
+Before opening the instance to users:
+
+1. Install a release image pinned by digest; set `PUBLIC_URL` and
+   `AUTH_ENCRYPTION_KEY`; confirm Health shows a trusted certificate path.
+2. Put the database and the files on encrypted storage (Encryption at
+   rest).
+3. Configure SMTP; send a test email from Support. Without email, people
+   join only by an invitation's link or an account an administrator
+   creates: a sign-up proves its address by a mailed link (ADR 0058).
+4. Configure OIDC or SAML; use **Test issuer** / **Test certificate**, then
+   complete one real sign-in.
+5. Optionally turn on **SSO-only** (administrators keep a password).
+6. Optionally set the **sign-in allowlist** and `ANYGRIDDB_TRUSTED_PROXIES`.
+7. Create a SCIM token and push one user and one group from the identity
+   provider; assign the group a role on a base.
+8. Set MFA scope to everyone (or your policy); confirm an enrollment gate.
+9. Turn maintenance on briefly; confirm non-admins are signed out.
+10. Run `scripts/backup.sh` and `scripts/restore.sh` on a spare stack.
+11. If you use a SIEM, save the webhook, or your syslog collector,
+    send a test event, and confirm it arrives (with a valid signature,
+    over HTTPS).
+12. Scrape `/metrics` with `METRICS_TOKEN` over HTTPS.

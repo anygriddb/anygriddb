@@ -2,7 +2,9 @@
 
 Each record states one decision, why it was taken, what it costs, and what was
 rejected. A record is never rewritten to say something else: a later record
-supersedes it.
+supersedes it. A record's **Context** is frozen at its date (present tense
+there is the past of that day); the Status column and later amendments say
+what the tree runs now.
 
 Records 0001 to 0020 were accepted on 2026-11-07, after a review that
 challenged every piece of the stack on its merits, regardless of the code
