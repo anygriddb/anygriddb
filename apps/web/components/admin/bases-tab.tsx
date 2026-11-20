@@ -22,10 +22,10 @@ type Trashed =
 
 /**
  * Every base of the instance (ROADMAP #14, #22): its owners, members, tables,
- * estimated rows, files, and what of it leaves through a link or a feed;
- * the bases no active account owns, pointed out; and the bases in the
- * trash, whoever deleted them, restored from here. Metadata only: never a
- * cell value. A base opens its own page.
+ * estimated rows, files, what of it leaves through a link or a feed, and
+ * when it was last used; the bases no active account owns, pointed out;
+ * and the bases in the trash, whoever deleted them, restored from here.
+ * Metadata only: never a cell value. A base opens its own page.
  */
 export function BasesTab() {
   const { t } = useLingui();
@@ -42,7 +42,14 @@ export function BasesTab() {
   const [ownerlessOnly, setOwnerlessOnly] = useState(false);
   const [pageSize, setPageSize] = useAdminPageSize();
   const columns = useColumnSort<
-    "name" | "owners" | "members" | "tables" | "rows" | "files" | "outbound"
+    | "name"
+    | "owners"
+    | "members"
+    | "tables"
+    | "rows"
+    | "files"
+    | "outbound"
+    | "activity"
   >();
   useEffect(() => {
     const timer = setTimeout(() => setAsked(search.trim()), 250);
@@ -75,7 +82,10 @@ export function BasesTab() {
       if (key === "tables") return base.tables;
       if (key === "rows") return base.estimatedRows;
       if (key === "files") return base.fileBytes;
-      return base.outbound;
+      if (key === "outbound") return base.outbound;
+      return base.lastActivityAt === null
+        ? null
+        : Date.parse(base.lastActivityAt);
     },
     (base) => base.id,
   );
@@ -97,7 +107,8 @@ export function BasesTab() {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">
-        {t`Row counts are the database's estimates: a table gets one once it has been analyzed.`}
+        {t`Row counts are the database's estimates: a table gets one once it has been analyzed.`}{" "}
+        {t`Last activity is the newest change or export in one of the base's tables. Reading leaves no trace, unless a table records who opens it.`}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <Input
@@ -145,6 +156,12 @@ export function BasesTab() {
                   "px-3 py-2",
                   "right",
                 )}
+                {columns.header(
+                  "activity",
+                  t`Last activity`,
+                  "px-3 py-2",
+                  "right",
+                )}
               </tr>
             </AdminTableHead>
             <tbody>
@@ -181,6 +198,9 @@ export function BasesTab() {
                   </td>
                   <td className="px-3 py-2 text-right text-xs tabular-nums">
                     {formatNumber(base.outbound, locale)}
+                  </td>
+                  <td className="px-3 py-2 text-right text-xs tabular-nums">
+                    {when.day(base.lastActivityAt)}
                   </td>
                 </tr>
               ))}

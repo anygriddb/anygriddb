@@ -1,12 +1,14 @@
 /**
  * Usage figures for Administration (ROADMAP #40): accounts and bases
  * active over the last 30 days, with a daily snapshot so a trend does
- * not depend on who is active now. Active bases are found through the
- * trail's index by table, never by scanning the whole trail.
+ * not depend on who is active now. A base is active when one of its
+ * tables was used in the window (`lastActivity`): each table's newest
+ * event is read by the trails' indexes, never by scanning a trail.
  */
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { ERASED_USER_ID } from "./data/erasure.js";
+import { lastActivity } from "./data/table-activity.js";
 
 const DAY_MS = 86_400_000;
 const WINDOW_DAYS = 30;
@@ -52,14 +54,10 @@ export async function countUsageNow(
     sql<{ n: string }>`
       select count(distinct t.base_id)::text as n
       from data_tables t
-      cross join lateral (
-        select 1
-        from audit_events a
-        where a.table_id = t.id
-          and a.occurred_at > ${since}
-        limit 1
-      ) hit
+      join bases b on b.id = t.base_id
       where t.deleted_at is null
+        and b.deleted_at is null
+        and ${lastActivity("t")} > ${since}
     `.execute(db),
     Promise.all([
       db

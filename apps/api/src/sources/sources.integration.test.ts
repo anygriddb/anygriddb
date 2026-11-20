@@ -16,6 +16,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { loadEngine } from "../data/engine.js";
 import { grantMember } from "../data/members.js";
+import { listBaseTables } from "../data/outbound.js";
 import type { Env } from "../env.js";
 import { browserFactory, signUpProved } from "../trpc/caller.test-helpers.js";
 import { readPage } from "../data/rows.js";
@@ -438,6 +439,25 @@ describe("PostgreSQL sources", () => {
       { total: false },
     );
     expect(restored.rows[0]?.[note.name]).toBe("Paid");
+    // Administration says the table was last used when that row was
+    // written: by the trail of a client's writes, which holds something
+    // newer than the change trail does of this table.
+    const lastWrite = await db
+      .selectFrom("externalWrites")
+      .select((eb) => eb.fn.max("requestedAt").as("at"))
+      .where("tableId", "=", invoicesId)
+      .executeTakeFirstOrThrow();
+    const lastEvent = await db
+      .selectFrom("auditEvents")
+      .select((eb) => eb.fn.max("occurredAt").as("at"))
+      .where("tableId", "=", invoicesId)
+      .executeTakeFirstOrThrow();
+    expect(lastWrite.at.getTime()).toBeGreaterThan(lastEvent.at.getTime());
+    expect(
+      (await listBaseTables(db, base.id)).find(
+        (listed) => listed.id === invoicesId,
+      )?.lastActivityAt,
+    ).toBe(lastWrite.at.toISOString());
     // A field rule that hides it hides its value too.
     const hidden = await readPage(
       db,

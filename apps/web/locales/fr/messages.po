@@ -6170,6 +6170,20 @@ msgstr "Pièce jointe maximale"
 msgid "Largest value first"
 msgstr "La plus grande valeur d’abord"
 
+#: components/admin/base-admin-page.tsx
+#: components/admin/bases-tab.tsx
+msgid "Last activity"
+msgstr "Dernière activité"
+
+#: components/admin/base-admin-page.tsx
+msgid "Last activity {when}"
+msgstr "Dernière activité le {when}"
+
+#: components/admin/base-admin-page.tsx
+#: components/admin/bases-tab.tsx
+msgid "Last activity is the newest change or export in one of the base's tables. Reading leaves no trace, unless a table records who opens it."
+msgstr "La dernière activité est la modification ou l’export le plus récent dans l’une des tables de la base. Une lecture ne laisse aucune trace, sauf si une table note qui l’ouvre."
+
 #: components/admin/health-tab.tsx
 msgid "Last checked {date}"
 msgstr "Dernière vérification {date}"
@@ -7155,6 +7169,10 @@ msgstr "Aucun compte actif n’est propriétaire de cette base, lui-même ou par
 #: components/admin/bases-tab.tsx
 msgid "No active owner"
 msgstr "Pas de propriétaire actif"
+
+#: components/admin/base-admin-page.tsx
+msgid "No activity recorded"
+msgstr "Aucune activité enregistrée"
 
 #: components/admin/alerts-section.tsx
 msgid "No alert is open."

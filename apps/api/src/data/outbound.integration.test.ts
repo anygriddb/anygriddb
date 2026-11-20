@@ -287,8 +287,11 @@ describe("every public link and calendar feed, for an administrator", () => {
         external: false,
         estimatedRows: 3,
         fileBytes: 0,
+        lastActivityAt: base?.lastActivityAt,
       },
     ]);
+    // Its one table's newest event is the base's own.
+    expect(base?.lastActivityAt).toEqual(expect.any(String));
     expect(
       (await listOutbound(db, { limit: 10, baseId: base?.id ?? "" })).links.map(
         (item) => item.view,
@@ -400,6 +403,150 @@ describe("every public link and calendar feed, for an administrator", () => {
     expect(await listBaseOverview(db, { limit: 2 })).toEqual({
       bases: bases.slice(0, 2),
       total: 3,
+    });
+    // A base with no table was never used: the trails name tables.
+    expect(bases[2]?.lastActivityAt).toBeNull();
+  });
+
+  it("says when a base and each of its tables were last used, by what the three trails hold", async () => {
+    const maker = (
+      await db
+        .insertInto("users")
+        .values({
+          email: `maker-${suffix}@example.org`,
+          displayName: "Maker",
+        })
+        .returning("id")
+        .executeTakeFirstOrThrow()
+    ).id;
+    const baseId = (await insertBase(db, maker, { name: "Atelier" })).id;
+    const columns = [
+      { name: "name", label: "Nom", fieldType: "text" as const },
+    ];
+    const made = (name: string) =>
+      insertTable(db, maker, { baseId, name, columns });
+    const parts = (await made("Pièces")).id;
+    const tools = (await made("Outils")).id;
+    const scrap = await made("Rebut");
+    // Every instant is ahead of the clock, so that what made the tables,
+    // written a moment ago, is older than each of them.
+    const start = Date.now();
+    const hours = (count: number) => new Date(start + count * 3_600_000);
+    const used = async () => {
+      const [base] = (await listBaseOverview(db, { baseId, limit: 1 })).bases;
+      const tables = await listBaseTables(db, baseId);
+      return {
+        base: base?.lastActivityAt,
+        tables: Object.fromEntries(
+          tables.map((table) => [table.name, table.lastActivityAt]),
+        ),
+      };
+    };
+
+    // Making its tables is the first use of a base.
+    const atFirst = await used();
+    expect(Object.keys(atFirst.tables)).toEqual(["Pièces", "Outils", "Rebut"]);
+    expect(Date.parse(atFirst.base ?? "")).toBeLessThanOrEqual(Date.now());
+    expect(Date.parse(atFirst.base ?? "")).toBeGreaterThan(start - 60_000);
+
+    // A row changed, on the change trail.
+    await db
+      .insertInto("auditEvents")
+      .values({
+        userId: maker,
+        action: "update",
+        tableId: parts,
+        oldValue: { name: "a" },
+        newValue: { name: "b" },
+        source: "web",
+        occurredAt: hours(1),
+      })
+      .execute();
+    expect(await used()).toMatchObject({
+      base: hours(1).toISOString(),
+      tables: { Pièces: hours(1).toISOString() },
+    });
+
+    // A row written in a client's database, on the trail of those writes.
+    await db
+      .insertInto("externalWrites")
+      .values({
+        userId: maker,
+        tableId: tools,
+        sourceId: "33333333-3333-4333-8333-333333333333",
+        rowId: "1",
+        action: "update",
+        oldValue: {},
+        newValue: {},
+        requestedAt: hours(2),
+      })
+      .execute();
+    expect(await used()).toMatchObject({
+      base: hours(2).toISOString(),
+      tables: {
+        Pièces: hours(1).toISOString(),
+        Outils: hours(2).toISOString(),
+      },
+    });
+
+    // A status a person gave a client's row; what a check found later on
+    // that row is nobody's use of the table.
+    await db
+      .insertInto("externalStatusEvents")
+      .values([
+        {
+          userId: maker,
+          tableId: parts,
+          rowId: "1",
+          action: "lock",
+          source: "web",
+          at: hours(3),
+        },
+        {
+          userId: null,
+          tableId: parts,
+          rowId: "1",
+          action: "changed",
+          source: "check",
+          at: hours(4),
+        },
+      ])
+      .execute();
+    expect(await used()).toMatchObject({
+      base: hours(3).toISOString(),
+      tables: {
+        Pièces: hours(3).toISOString(),
+        Outils: hours(2).toISOString(),
+      },
+    });
+
+    // A table in the trash is not listed, and its events are not the
+    // base's: the date is the newest of the tables the page shows.
+    await trashTable(
+      db,
+      maker,
+      await db
+        .selectFrom("dataTables")
+        .selectAll()
+        .where("id", "=", scrap.id)
+        .executeTakeFirstOrThrow(),
+    );
+    await db
+      .insertInto("auditEvents")
+      .values({
+        userId: maker,
+        action: "export",
+        tableId: scrap.id,
+        source: "web",
+        occurredAt: hours(5),
+      })
+      .execute();
+    expect(await used()).toEqual({
+      base: hours(3).toISOString(),
+      tables: {
+        Pièces: hours(3).toISOString(),
+        Outils: hours(2).toISOString(),
+      },
     });
   });
 });

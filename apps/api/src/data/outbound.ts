@@ -8,6 +8,7 @@ import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { withAudit } from "./audit-context.js";
 import { liveBase, liveTable, liveView } from "./live.js";
+import { lastActivity } from "./table-activity.js";
 
 type OutboundLink = {
   kind: "link" | "feed";
@@ -445,6 +446,8 @@ type BaseOverview = {
   fileBytes: number;
   /** Public links and calendar feeds of its views. */
   outbound: number;
+  /** When one of its tables was last used, by what the trails hold. */
+  lastActivityAt: string | null;
 };
 
 /**
@@ -527,6 +530,7 @@ export async function listBaseOverview(
         baseId: string;
         tables: string;
         estimatedRows: string;
+        lastActivityAt: Date | null;
       }>`
         select t.base_id as "baseId",
                count(*)::text as tables,
@@ -538,7 +542,8 @@ export async function listBaseOverview(
                    end
                  ),
                  0
-               )::bigint::text as "estimatedRows"
+               )::bigint::text as "estimatedRows",
+               max(${lastActivity("t")}) as "lastActivityAt"
           from data_tables t
           left join pg_class c
             on c.oid = to_regclass(quote_ident(t.physical_name))
@@ -596,6 +601,7 @@ export async function listBaseOverview(
       {
         tables: Number(row.tables),
         estimatedRows: Number(row.estimatedRows),
+        lastActivityAt: row.lastActivityAt,
       },
     ]),
   );
@@ -625,6 +631,7 @@ export async function listBaseOverview(
         estimatedRows: tables?.estimatedRows ?? 0,
         fileBytes: filesByBase.get(row.id) ?? 0,
         outbound: outboundByBase.get(row.id) ?? 0,
+        lastActivityAt: tables?.lastActivityAt?.toISOString() ?? null,
       };
     }),
   };
@@ -649,6 +656,8 @@ type BaseTableOverview = {
   /** AnyGridDB's own tables only; a client's database counts its own. */
   estimatedRows: number | null;
   fileBytes: number;
+  /** When it was last used, by what the trails hold. */
+  lastActivityAt: string | null;
 };
 
 /** A base's live tables, by their place, with their weight. */
@@ -670,6 +679,7 @@ export async function listBaseTables(
       sql<string>`(select coalesce(sum(a.size), 0) from attachments a where a.table_id = t.id)`.as(
         "fileBytes",
       ),
+      lastActivity("t").as("lastActivityAt"),
     ])
     .where("t.baseId", "=", baseId)
     .where(liveTable("t"))
@@ -682,5 +692,6 @@ export async function listBaseTables(
     estimatedRows:
       row.estimatedRows === null ? null : Number(row.estimatedRows),
     fileBytes: Number(row.fileBytes),
+    lastActivityAt: row.lastActivityAt?.toISOString() ?? null,
   }));
 }
