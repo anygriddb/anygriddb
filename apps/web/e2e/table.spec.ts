@@ -166,6 +166,18 @@ test.describe("a field's menu", () => {
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(names).toHaveCount(4);
 
+    // A condition with nothing typed yet asks nothing: every row shows,
+    // and a row is added as before. A number took the empty value of
+    // its condition, and the row was refused whole.
+    await fieldMenu(page, "Amount", "Filter by this field");
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(page.getByRole("button", { name: "1 filter" })).toBeVisible();
+    await expect(names).toHaveCount(4);
+    await page.getByRole("button", { name: "Add a row", exact: true }).click();
+    await expect(names).toHaveCount(5);
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    await expect(names).toHaveCount(5);
+
     // A field added beside another lands there.
     await fieldMenu(page, "Name", "Insert right");
     const dialog = page.getByRole("dialog", { name: "New field" });
@@ -177,7 +189,13 @@ test.describe("a field's menu", () => {
     // A copy of a field comes with its values.
     await fieldMenu(page, "Amount", "Duplicate field");
     await expect(header("Amount \\(copy\\)")).toBeVisible();
-    await expect(cells(page, "amount_copy")).toHaveText(["20", "10", "30", ""]);
+    await expect(cells(page, "amount_copy")).toHaveText([
+      "20",
+      "10",
+      "30",
+      "",
+      "",
+    ]);
 
     // The primary field names the row and comes first; another takes its
     // place, and gives it back.
