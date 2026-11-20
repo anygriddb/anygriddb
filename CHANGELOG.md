@@ -42,6 +42,15 @@ first.
   each table, which inviting them again does not bring back.
   Administration already asked. Each bin is named after its member. A
   pending invitation that could not be revoked says why.
+- Adding the object store to an instance that runs
+  (`-f compose.yml -f compose.s3.yml up -d`) no longer stops it. The
+  stack's internal authority was made again with a new key to cover
+  the new service, PostgreSQL went on serving the certificate of the
+  old one, and AnyGridDB refused it and restarted without end until
+  PostgreSQL was restarted by hand. The authority's certificate is now
+  renewed with the key it has, when a service joins the stack and in
+  its last year: what runs stays verified, and nothing needs a
+  restart.
 
 ## 0.3.1 - 2026-11-20
 
