@@ -1,4 +1,5 @@
 import type { FilterGroup } from "@anygriddb/core";
+import { isoDay } from "./view-days";
 
 export type TimelineScale = "day" | "week" | "month";
 
@@ -16,10 +17,6 @@ function monthIndex(date: Date): number {
 
 function fromIndex(index: number): Date {
   return new Date(Math.floor(index / 12), ((index % 12) + 12) % 12, 1);
-}
-
-function isoDay(date: Date): string {
-  return `${String(date.getFullYear())}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 type TimelinePeriod = {

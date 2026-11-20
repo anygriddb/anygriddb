@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useChannel } from "../../lib/realtime";
 import { useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, ViewConfig, ViewItem } from "../../lib/types";
@@ -15,8 +15,15 @@ import {
   timelinePeriod,
   timelineScale,
 } from "../views/timeline-period";
+import { monthDays } from "../views/view-days";
 import { readKey } from "./view-patch";
-import { countsByDay, kanbanStack, rowsLayout, rowsQuery } from "./view-read";
+import {
+  countsByDay,
+  kanbanStack,
+  prefillForDays,
+  rowsLayout,
+  rowsQuery,
+} from "./view-read";
 import type { ViewPatch } from "./view-toolbar";
 
 /**
@@ -48,8 +55,9 @@ export function useViewRows(input: {
     viewType === "calendar" ? calendarStart(columns, config) : undefined;
   // A timeline reads the rows whose bars cross the period it shows.
   const [timelineFocus, setTimelineFocus] = useState(thisMonth);
-  const timelineStart =
-    viewType === "timeline" ? calendarStart(columns, config)?.name : undefined;
+  const timelineField =
+    viewType === "timeline" ? calendarStart(columns, config) : undefined;
+  const timelineStart = timelineField?.name;
   const timelineEnd =
     timelineStart && typeof config.endColumn === "string"
       ? columns.find((column) => column.name === config.endColumn)?.name
@@ -141,6 +149,23 @@ export function useViewRows(input: {
     [dayField, dayCounts.data],
   );
 
+  // A row added from the view's bar takes a day the view shows: without
+  // one, a calendar or a timeline would not show the row it just made.
+  const placedBy = calendarField ?? timelineField;
+  const shownDays = useMemo(
+    () =>
+      calendarField
+        ? monthDays(calendarMonth)
+        : timelineField
+          ? timelinePeriod(timelineFocus, timelineAt)
+          : undefined,
+    [calendarField, calendarMonth, timelineField, timelineFocus, timelineAt],
+  );
+  const newRowValues = useCallback(
+    () => prefillForDays(placedBy, shownDays, new Date()),
+    [placedBy, shownDays],
+  );
+
   // A field added, changed, or removed changes what the rows hold: a new
   // formula's values, a converted field's. Read them again.
   useChannel(baseId, {
@@ -160,5 +185,6 @@ export function useViewRows(input: {
     setCalendarMonth,
     timelineFocus,
     setTimelineFocus,
+    newRowValues,
   };
 }

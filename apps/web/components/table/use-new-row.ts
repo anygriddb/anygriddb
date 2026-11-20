@@ -16,8 +16,10 @@ export function useNewRow(input: {
   ) => Promise<string | undefined>;
   /** Opens a row's panel. */
   openRecord: (rowId: string) => void;
+  /** What the view gives a row added from its bar, so that it shows it. */
+  start: () => Record<string, unknown>;
 }) {
-  const { fillFirst, addRow, openRecord } = input;
+  const { fillFirst, addRow, openRecord, start } = input;
   // What the row being filled already holds; null while none is.
   const [values, setValues] = useState<Record<string, unknown> | null>(null);
   // Where it goes, when it was asked for above or below another.
@@ -25,14 +27,15 @@ export function useNewRow(input: {
 
   /** A new row, opened in its panel: the toolbar's button. */
   const addAndOpen = useCallback(() => {
+    const known = start();
     if (fillFirst) {
-      setValues({});
+      setValues(known);
       return;
     }
-    void addRow().then((id) => {
+    void addRow(known).then((id) => {
       if (id) openRecord(id);
     });
-  }, [fillFirst, addRow, openRecord]);
+  }, [fillFirst, addRow, openRecord, start]);
 
   /** A new row at the end of the grid: its last line. */
   const addInGrid = useCallback(async () => {

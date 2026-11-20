@@ -259,6 +259,15 @@ test.describe("a kanban, a gallery, and a calendar", () => {
       panel.getByRole("heading", { name: "Untitled" }),
     ).toBeVisible();
     await expect(day(22).getByRole("button")).toHaveCount(1);
+    // A row added from the bar takes today, so that the calendar shows
+    // the row it just made. The page's clock is set to a day that holds
+    // no row of this journey.
+    await page.clock.setFixedTime(new Date(`${dayOfThisMonth(25)}T10:00:00`));
+    await page.getByRole("button", { name: "Add a row and open it" }).click();
+    await expect(day(25).getByRole("button")).toHaveCount(1);
+    await expect(
+      panel.getByText(`25/${monthNumber ?? ""}/${year ?? ""}`, { exact: true }),
+    ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
 
     expect(blocked).toEqual([]);
@@ -531,6 +540,17 @@ test.describe("a timeline", () => {
     await expect(page.getByText("December 2026")).toBeVisible();
     await page.getByRole("button", { name: "Today", exact: true }).click();
     await expect(bar("Tasting")).toBeInViewport();
+
+    // A row added from the bar starts today: the timeline draws the bar
+    // of the row it just made, named by its number while it has no name,
+    // and the row's panel says the day.
+    await page.getByRole("button", { name: "Add a row and open it" }).click();
+    await expect(bar("#3")).toBeInViewport();
+    await expect(
+      page
+        .getByRole("complementary", { name: "Row details" })
+        .getByText("19/11/2026", { exact: true }),
+    ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
 
     expect(blocked).toEqual([]);

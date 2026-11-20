@@ -3,6 +3,7 @@ import type { CatalogColumn, ViewConfig } from "../../lib/types";
 import {
   countsByDay,
   kanbanStack,
+  prefillForDays,
   prefillFromFilter,
   rowsLayout,
   rowsQuery,
@@ -173,5 +174,48 @@ describe("prefillFromFilter", () => {
         columns,
       ),
     ).toEqual({});
+  });
+});
+
+describe("prefillForDays", () => {
+  const field = (patch: Record<string, unknown>) =>
+    ({
+      name: "due",
+      fieldType: "date",
+      kind: "date",
+      access: "write",
+      ...patch,
+    }) as unknown as CatalogColumn;
+  const march = { from: "2026-03-01", to: "2026-03-31" };
+
+  it("gives a new row today when the view shows it, the first day shown otherwise", () => {
+    expect(prefillForDays(field({}), march, new Date(2026, 2, 17, 10))).toEqual(
+      { due: "2026-03-17" },
+    );
+    expect(prefillForDays(field({}), march, new Date(2026, 5, 2, 10))).toEqual({
+      due: "2026-03-01",
+    });
+  });
+
+  it("gives a field that keeps a time nine in the morning that day", () => {
+    expect(
+      prefillForDays(
+        field({ fieldType: "datetime", kind: "datetime" }),
+        march,
+        new Date(2026, 2, 17, 22),
+      ),
+    ).toEqual({ due: new Date(2026, 2, 17, 9).toISOString() });
+  });
+
+  it("gives nothing when the view shows no days, or when its date cannot be written", () => {
+    const today = new Date(2026, 2, 17, 10);
+    expect(prefillForDays(field({}), undefined, today)).toEqual({});
+    expect(prefillForDays(undefined, march, today)).toEqual({});
+    // A formula that answers a date, and a date a field rule lets the
+    // reader only read.
+    expect(
+      prefillForDays(field({ fieldType: "formula" }), march, today),
+    ).toEqual({});
+    expect(prefillForDays(field({ access: "read" }), march, today)).toEqual({});
   });
 });

@@ -2,6 +2,7 @@ import type { FilterGroup } from "@anygriddb/core";
 import type { CatalogColumn, ViewConfig } from "../../lib/types";
 import { isEditableColumn } from "../grid/grid-clipboard";
 import type { Groups, RowsLayout, RowsQuery } from "../grid/use-rows";
+import { dayToAdd, dayValue, type ShownDays } from "../views/view-days";
 import type { CellValue } from "./table-context";
 import type { ViewPatch } from "./view-toolbar";
 
@@ -117,4 +118,28 @@ export function prefillFromFilter(
     }
   }
   return values;
+}
+
+/**
+ * What a row added from a view's bar takes so that the view shows it: a
+ * calendar and a timeline place rows by a date, and a row without one is
+ * in neither. Today when the days shown hold it, their first day
+ * otherwise. Nothing when the view shows no days, or when the date it
+ * places rows by cannot be written (a formula, a field the reader may
+ * only read).
+ */
+export function prefillForDays(
+  field: CatalogColumn | undefined,
+  shown: ShownDays | undefined,
+  today: Date,
+): Record<string, CellValue> {
+  if (!field || !shown || !isEditableColumn(field)) return {};
+  if (field.fieldType !== "date" && field.fieldType !== "datetime") return {};
+  return {
+    [field.name]: dayValue(
+      dayToAdd(shown, today),
+      field.fieldType === "datetime",
+      null,
+    ),
+  };
 }
