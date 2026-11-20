@@ -16,6 +16,10 @@ first.
   page: it took more than half of it. At every width, a bar of a day or
   two is opened by a width a pointer finds: at the scale of a year it
   was four pixels wide, and that was all there was to press.
+- A row's panel draws a checkbox that was never ticked as a box not
+  ticked, and a rating never given as none of its stars. Each showed an
+  empty line under its name, with nothing to say a click ticks or
+  rates.
 
 ## 0.3.1 - 2026-11-20
 

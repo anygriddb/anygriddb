@@ -192,6 +192,11 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
     fieldType: "boolean",
   });
   await addField(page, tableId, {
+    name: "score",
+    label: "Score",
+    fieldType: "rating",
+  });
+  await addField(page, tableId, {
     name: "stage",
     label: "Stage",
     fieldType: "single_select",
@@ -315,12 +320,18 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
   await expect(panel.getByText("resolved by Panel User")).toBeHidden();
   await expect(panel.getByRole("button", { name: "Resolve" })).toBeVisible();
 
+  // A checkbox never ticked and a rating never given draw what they
+  // are: a box not ticked, and none of the stars. Each line was empty.
   const done = panel.getByRole("checkbox", { name: "Done" });
+  await expect(panel.getByRole("img", { name: "unchecked" })).toBeVisible();
+  await expect(panel.getByRole("img", { name: "0/5" })).toBeVisible();
   await done.focus();
   saved = savedValues(page);
   await page.keyboard.press(" ");
   expect(await saved).toContain('"done":true');
   await expect(done).toHaveAttribute("aria-checked", "true");
+  await expect(panel.getByRole("img", { name: "checked" })).toBeVisible();
+  await expect(panel.getByRole("img", { name: "unchecked" })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
 
