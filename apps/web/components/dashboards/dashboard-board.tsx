@@ -55,6 +55,7 @@ import {
   measureAddsUp,
   measuredColumn,
 } from "./widget-view";
+import { groupsDates } from "./span-label";
 import { DashboardHistory, type WidgetBody } from "./dashboard-history";
 import { useWidgetDrag, useWidgetDrop } from "./widget-drag";
 import { useUndo } from "../grid/use-undo";
@@ -841,6 +842,11 @@ function WidgetForm(props: {
     typeof config.limit === "number" ? String(config.limit) : "",
   );
   const [sideBySide, setSideBySide] = useState(config.sideBySide === true);
+  const [period, setPeriod] = useState(configString(config, "period") || "day");
+  // Dates are grouped by day, or by more: a week, a month, a quarter, a year.
+  const dated = groupsDates(
+    columns.find((item) => item.name === groupBy)?.fieldType,
+  );
   const most = String(MAX_CHART_CATEGORIES);
   // Shares are each of the whole, largest first: nothing to choose there.
   const ordered = chartType !== "pie" && chartType !== "histogram";
@@ -881,6 +887,7 @@ function WidgetForm(props: {
                   // Counting rows needs no field; any other measure reads one.
                   ...(fn === "count_all" ? {} : { column }),
                   ...(seriesBy ? { seriesBy } : {}),
+                  ...(dated && period !== "day" ? { period } : {}),
                   ...(ordered && byValue ? { order: "value" } : {}),
                   ...(ordered &&
                   categoriesAsked(shown, MAX_CHART_CATEGORIES) !== null
@@ -1119,6 +1126,22 @@ function WidgetForm(props: {
                   ))}
                 </Select>
               </div>
+              {dated ? (
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="chart-period">{t`Dates grouped by`}</Label>
+                  <Select
+                    id="chart-period"
+                    value={period}
+                    onChange={(event) => setPeriod(event.target.value)}
+                  >
+                    <option value="day">{t`Day`}</option>
+                    <option value="week">{t`Week`}</option>
+                    <option value="month">{t`Month`}</option>
+                    <option value="quarter">{t`Quarter`}</option>
+                    <option value="year">{t`Year`}</option>
+                  </Select>
+                </div>
+              ) : null}
               <div className="flex flex-col gap-1">
                 <Label htmlFor="chart-series">{t`Series (optional)`}</Label>
                 <Select

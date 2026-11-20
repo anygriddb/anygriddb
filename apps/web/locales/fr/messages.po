@@ -3683,6 +3683,11 @@ msgstr "date1 moins date2, en jours par défaut ; négatif si date1 vient avant
 msgid "Dates"
 msgstr "Dates"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Dates grouped by"
+msgstr "Dates regroupées par"
+
+#: components/dashboards/dashboard-board.tsx
 #: components/table/automations-dialog.tsx
 #: components/views/timeline-view.tsx
 msgid "Day"
@@ -6751,6 +6756,7 @@ msgstr "mode"
 msgid "Monday"
 msgstr "Lundi"
 
+#: components/dashboards/dashboard-board.tsx
 #: components/views/timeline-view.tsx
 msgid "Month"
 msgstr "Mois"
@@ -8439,6 +8445,10 @@ msgstr "Remettre ceci"
 msgid "Put this value back"
 msgstr "Remettre cette valeur"
 
+#: components/dashboards/chart-view.tsx
+msgid "Q{quarter} {year}"
+msgstr "T{quarter} {year}"
+
 #: components/fields/field-settings.tsx
 msgid "QR code"
 msgstr "QR code"
@@ -8446,6 +8456,10 @@ msgstr "QR code"
 #: components/fields/code-image.tsx
 msgid "QR code of {value}"
 msgstr "QR code de {value}"
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Quarter"
+msgstr "Trimestre"
 
 #: components/admin/support-tab.tsx
 #: components/shell/jobs-menu.tsx
@@ -12768,6 +12782,7 @@ msgstr "Webhooks"
 msgid "Wednesday"
 msgstr "Mercredi"
 
+#: components/dashboards/dashboard-board.tsx
 #: components/views/timeline-view.tsx
 msgid "Week"
 msgstr "Semaine"
@@ -13045,6 +13060,10 @@ msgstr "Les mauvais mots de passe et les mauvais codes de second facteur compten
 #: components/admin/sign-in-trail.tsx
 msgid "Wrong second factor"
 msgstr "Second facteur incorrect"
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Year"
+msgstr "Année"
 
 #: components/fields/option-color.tsx
 msgid "Yellow"

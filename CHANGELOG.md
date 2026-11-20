@@ -19,6 +19,10 @@ first.
   first, or left in their field's own; a chart draws the first of
   them, as many as its maker says, and counts the rest. With them, a
   chart of the fifteen largest of a hundred is two settings.
+- A chart groups dates by their week, month, quarter, or year, each
+  named by it ("Mar 2026", "Q1 2026"), on a client's database as on
+  AnyGridDB's own: it grouped them by day only, and a month needed a
+  formula field.
 - A chart's series that add up are drawn side by side when its maker
   says so, where they always stood one on another: what came in and
   what went out are compared, not summed.

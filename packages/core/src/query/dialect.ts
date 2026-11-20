@@ -78,8 +78,8 @@ export interface SqlDialect {
   addDays(date: string, days: string): string;
   /** A date moved by whole months or years. */
   addPeriod(date: string, amount: number, unit: "month" | "year"): string;
-  /** The first day of the week (Monday), month, or year of a date. */
-  startOf(date: string, unit: "week" | "month" | "year"): string;
+  /** The first day of the week (Monday), month, quarter, or year of a date. */
+  startOf(date: string, unit: DateSpan): string;
   /** Days from `start` to `end`, two dates. */
   daysBetween(end: string, start: string): string;
   /** Seconds from `start` to `end`, two instants. */
@@ -419,6 +419,9 @@ type ListInput = {
   where: string;
   order: readonly string[];
 };
+
+/** What a date is brought back to the first day of. */
+export type DateSpan = "week" | "month" | "quarter" | "year";
 
 export type DatePart =
   "year" | "month" | "day" | "hour" | "minute" | "second" | "dow" | "week";
@@ -1097,7 +1100,9 @@ function mysqlDialect(name: "mysql" | "mariadb"): SqlDialect {
         ? `date_sub(${date}, interval weekday(${date}) day)`
         : unit === "month"
           ? `date_sub(${date}, interval dayofmonth(${date}) - 1 day)`
-          : `makedate(year(${date}), 1)`,
+          : unit === "quarter"
+            ? `date_add(makedate(year(${date}), 1), interval quarter(${date}) - 1 quarter)`
+            : `makedate(year(${date}), 1)`,
     daysBetween: (end, start) => `datediff(${end}, ${start})`,
     secondsBetween: (end, start) =>
       `timestampdiff(microsecond, ${start}, ${end}) / 1000000`,

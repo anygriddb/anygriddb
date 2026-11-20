@@ -679,6 +679,7 @@ export {
   DEFAULT_HISTOGRAM_BINS,
   MAX_CHART_CATEGORIES,
   type ChartOrder,
+  type ChartPeriod,
   type ChartType,
   type CreateDashboardInput,
   type UpsertWidgetInput,

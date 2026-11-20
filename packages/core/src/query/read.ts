@@ -27,7 +27,12 @@ import {
   type FilterContext,
 } from "./filter-sql";
 import { quoteIdent, SqlParams, type ParameterizedSql } from "./params";
-import { dialectOf, type JsonKind, type SqlDialect } from "./dialect";
+import {
+  dialectOf,
+  type DateSpan,
+  type JsonKind,
+  type SqlDialect,
+} from "./dialect";
 import {
   idSql,
   readTableSql,
@@ -489,11 +494,22 @@ function orderSql(prepared: Prepared, ref: ProjectedColumn): string {
   }
 }
 
-function groupKeySql(prepared: Prepared, ref: ProjectedColumn): string {
+/**
+ * A group's key. A date groups by its day, an instant by its day where
+ * the reader is; with a `span`, by the first day of that day's week,
+ * month, quarter, or year. A span means nothing to another field.
+ */
+function groupKeySql(
+  prepared: Prepared,
+  ref: ProjectedColumn,
+  span?: DateSpan,
+): string {
   const x = refSql(ref.name);
   const d = prepared.d;
-  if (ref.kind === "datetime") {
-    return d.groupKey(d.localDate(x, prepared.filterContext.tz), "date");
+  if (ref.kind === "datetime" || (ref.kind === "date" && span)) {
+    const day =
+      ref.kind === "datetime" ? d.localDate(x, prepared.filterContext.tz) : x;
+    return d.groupKey(span ? d.startOf(day, span) : day, "date");
   }
   // Keys travel as each engine's JSON: a number as a JSON number.
   return d.groupKey(x, ref.kind === "number" ? "number" : jsonKind(ref));
@@ -755,6 +771,8 @@ export function buildGroupCounts(
  * One aggregate per group of up to two fields, computed where the rows
  * live (a chart's bars, or its series): `k0`, `k1`, and `a0` per group.
  * The median, which reads each group's rows again, is not one of them.
+ * `spans` gives, for the group at the same place, the span its dates are
+ * grouped by: a month's rows together, named by the month's first day.
  */
 export function buildGroupAggregates(
   catalog: EngineCatalog,
@@ -763,6 +781,7 @@ export function buildGroupAggregates(
     groups: readonly string[];
     item: AggregateItem;
     limit?: number;
+    spans?: ReadonlyArray<DateSpan | undefined>;
   },
 ): ParameterizedSql {
   if (input.groups.length === 0 || input.groups.length > 2) {
@@ -773,7 +792,7 @@ export function buildGroupAggregates(
   const d = prepared.d;
   const keys = input.groups.map(
     (name, index) =>
-      `${groupKeySql(prepared, lookupRef(prepared, name, "group"))} as "k${String(index)}"`,
+      `${groupKeySql(prepared, lookupRef(prepared, name, "group"), input.spans?.[index])} as "k${String(index)}"`,
   );
   const ref = prepared.columns.get(input.item.column);
   if (!ref) throw new AppError("unknown_column", input.item.column);

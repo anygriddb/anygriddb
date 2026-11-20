@@ -29,6 +29,12 @@ export const MAX_CHART_CATEGORIES = 40;
  */
 const CHART_ORDERS = ["field", "value"] as const;
 export type ChartOrder = (typeof CHART_ORDERS)[number];
+/**
+ * What a category of dates covers: each day, or the days of a week (from
+ * Monday), a month, a quarter, or a year together.
+ */
+const CHART_PERIODS = ["day", "week", "month", "quarter", "year"] as const;
+export type ChartPeriod = (typeof CHART_PERIODS)[number];
 
 const gridInt = (max: number) => z.int().min(0).max(max);
 
@@ -57,6 +63,8 @@ const chartConfigSchema = z
     column: columnNameSchema.optional(),
     /** How many equal bins a histogram has. */
     bins: z.int().min(2).max(MAX_HISTOGRAM_BINS).optional(),
+    /** What a category covers when the groups are dates: a day unless said. */
+    period: z.enum(CHART_PERIODS).optional(),
     /** The order of the categories: the field's own unless said. */
     order: z.enum(CHART_ORDERS).optional(),
     /** How many categories are drawn, the first of that order. */
@@ -92,6 +100,8 @@ const chartConfigSchema = z
       return;
     }
     if (!config.column) refuse("column", "A histogram bins a field");
+    if (config.period !== undefined)
+      refuse("period", "A histogram has no dates to group");
     if (config.groupBy) refuse("groupBy", "A histogram has no groups");
     if (config.seriesBy) refuse("seriesBy", "A histogram has no series");
     if (config.fn !== "count_all") refuse("fn", "A histogram counts rows");
