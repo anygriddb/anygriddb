@@ -52,6 +52,9 @@ import { ViewWidget } from "./view-widget";
 import {
   categoriesAsked,
   embeddedViewId,
+  fieldKept,
+  fieldShown,
+  measurableFields,
   measureAddsUp,
   measuredColumn,
 } from "./widget-view";
@@ -61,6 +64,8 @@ import { useWidgetDrag, useWidgetDrop } from "./widget-drag";
 import { useUndo } from "../grid/use-undo";
 import { tableTakesUndo, undoShortcut } from "../../lib/keyboard-undo";
 import { useLingui } from "@lingui/react/macro";
+import { AGGREGATE_LABELS } from "../../lib/aggregate-labels";
+import { raw } from "../../lib/known-text";
 import { useErrorText } from "../../lib/errors";
 import {
   formatAggregate,
@@ -108,6 +113,16 @@ type OpenForm = { mode: "add" } | { mode: "edit"; widget: WidgetModel };
 function isWidgetKind(value: string): value is WidgetKind {
   return WIDGET_KINDS.some((kind) => kind === value);
 }
+
+/** The measures the form offers; another, set elsewhere, is listed too. */
+const OFFERED_MEASURES = new Set([
+  "count_all",
+  "count_filled",
+  "sum",
+  "avg",
+  "min",
+  "max",
+]);
 
 function isChartStyle(value: string): value is ChartStyle {
   return CHART_STYLES.some((style) => style === value);
@@ -796,9 +811,6 @@ function WidgetForm(props: {
     enabled: Boolean(tableId),
   });
   const views = viewsQuery.data?.views ?? [];
-  const numeric = columns.filter((column) =>
-    ["number", "rating", "duration"].includes(column.fieldType),
-  );
   const groupable = columns.filter((column) =>
     ["single_select", "multi_select", "user", "boolean", "text"].includes(
       column.fieldType,
@@ -809,27 +821,18 @@ function WidgetForm(props: {
   const binnable = columns.filter(
     (item) => item.kind === "number" && item.fieldType !== "duration",
   );
-  const [column, setColumn] = useState(
-    configString(config, "column") ||
-      numeric[0]?.name ||
-      columns[0]?.name ||
-      "",
-  );
-  const [binned, setBinned] = useState(
-    configString(config, "column") || binnable[0]?.name || "",
-  );
+  // What was chosen in each list. A list shows a field as chosen whatever
+  // this holds (its first, once the table or the measure has changed):
+  // the form reads and saves the one each list shows, worked out below.
+  const [column, setColumn] = useState(configString(config, "column"));
+  const [binned, setBinned] = useState(configString(config, "column"));
   const storedBins = config.bins;
   const [bins, setBins] = useState(
     typeof storedBins === "number"
       ? String(storedBins)
       : String(DEFAULT_HISTOGRAM_BINS),
   );
-  const [groupBy, setGroupBy] = useState(
-    configString(config, "groupBy") ||
-      groupable[0]?.name ||
-      columns[0]?.name ||
-      "",
-  );
+  const [groupBy, setGroupBy] = useState(configString(config, "groupBy"));
   const [viewId, setViewId] = useState(configString(config, "viewId"));
   const storedStyle = configString(config, "chartType");
   const [chartType, setChartType] = useState<ChartStyle>(
@@ -843,15 +846,25 @@ function WidgetForm(props: {
   );
   const [sideBySide, setSideBySide] = useState(config.sideBySide === true);
   const [period, setPeriod] = useState(configString(config, "period") || "day");
+  // The fields the measure can read, and the one its list shows.
+  const measurable = measurableFields(columns, fn);
+  const measured = fieldShown(measurable, column);
+  const binField = fieldShown(binnable, binned);
+  // A chart groups by a field people group by, before any other.
+  const grouped = fieldShown([...groupable, ...columns], groupBy);
+  const seriesFields = columns.filter((item) => item.name !== grouped);
+  const series = fieldKept(seriesFields, seriesBy);
+  // A measure that reads a field, on a table that has none it can read.
+  const nothingToMeasure = fn !== "count_all" && measurable.length === 0;
   // Dates are grouped by day, or by more: a week, a month, a quarter, a year.
   const dated = groupsDates(
-    columns.find((item) => item.name === groupBy)?.fieldType,
+    columns.find((item) => item.name === grouped)?.fieldType,
   );
   const most = String(MAX_CHART_CATEGORIES);
   // Shares are each of the whole, largest first: nothing to choose there.
   const ordered = chartType !== "pie" && chartType !== "histogram";
   // Series that add up stand one on another, or side by side.
-  const stackable = ordered && Boolean(seriesBy) && measureAddsUp(fn);
+  const stackable = ordered && Boolean(series) && measureAddsUp(fn);
   const [busy, setBusy] = useState(false);
 
   const embedded = embeddedViewId(views, viewId);
@@ -866,27 +879,30 @@ function WidgetForm(props: {
     try {
       const draftConfig =
         kind === "metric"
-          ? { tableId, column, fn, ...(viewId ? { viewId } : {}) }
+          ? {
+              tableId,
+              // A figure names a field even when it counts rows.
+              column: measured || fieldShown(columns, column),
+              fn,
+              ...(viewId ? { viewId } : {}),
+            }
           : kind === "chart"
             ? chartType === "histogram"
               ? {
                   tableId,
                   chartType,
-                  // The table may have changed since the field was chosen.
-                  column: binnable.some((item) => item.name === binned)
-                    ? binned
-                    : (binnable[0]?.name ?? ""),
+                  column: binField,
                   bins: Number(bins),
                   ...(viewId ? { viewId } : {}),
                 }
               : {
                   tableId,
-                  groupBy,
+                  groupBy: grouped,
                   chartType,
                   fn,
                   // Counting rows needs no field; any other measure reads one.
-                  ...(fn === "count_all" ? {} : { column }),
-                  ...(seriesBy ? { seriesBy } : {}),
+                  ...(fn === "count_all" ? {} : { column: measured }),
+                  ...(series ? { seriesBy: series } : {}),
                   ...(dated && period !== "day" ? { period } : {}),
                   ...(ordered && byValue ? { order: "value" } : {}),
                   ...(ordered &&
@@ -904,6 +920,58 @@ function WidgetForm(props: {
       setBusy(false);
     }
   }
+
+  // What a figure and a chart measure: asked the same way of both.
+  const measureFields = (
+    <>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="widget-measure">{t`Measure`}</Label>
+        <Select
+          id="widget-measure"
+          value={fn}
+          onChange={(event) => setFn(event.target.value)}
+        >
+          <option value="count_all">{t`Row count`}</option>
+          <option value="count_filled">{t`Filled`}</option>
+          <option value="sum">{t`Sum`}</option>
+          <option value="avg">{t`Average`}</option>
+          <option value="min">{t`Min`}</option>
+          <option value="max">{t`Max`}</option>
+          {/* A measure set outside this form is kept, by its name. */}
+          {OFFERED_MEASURES.has(fn) ? null : (
+            <option value={fn}>{t(AGGREGATE_LABELS[fn] ?? raw(fn))}</option>
+          )}
+        </Select>
+      </div>
+      {fn !== "count_all" ? (
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="widget-measured">{t`Measured field`}</Label>
+          <Select
+            id="widget-measured"
+            value={measured}
+            aria-describedby={
+              nothingToMeasure ? "widget-measured-hint" : undefined
+            }
+            onChange={(event) => setColumn(event.target.value)}
+          >
+            {measurable.map((item) => (
+              <option key={item.name} value={item.name}>
+                {item.label}
+              </option>
+            ))}
+          </Select>
+          {nothingToMeasure ? (
+            <p
+              id="widget-measured-hint"
+              className="text-xs text-muted-foreground"
+            >
+              {t`This table has no field this measure can read.`}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
 
   return (
     <form
@@ -986,39 +1054,7 @@ function WidgetForm(props: {
           </Select>
         </div>
       )}
-      {kind === "metric" ? (
-        <>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="widget-field">{t`Field`}</Label>
-            <Select
-              id="widget-field"
-              value={column}
-              onChange={(event) => setColumn(event.target.value)}
-            >
-              {columns.map((item) => (
-                <option key={item.name} value={item.name}>
-                  {item.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="widget-aggregate">{t`Aggregate`}</Label>
-            <Select
-              id="widget-aggregate"
-              value={fn}
-              onChange={(event) => setFn(event.target.value)}
-            >
-              <option value="count_all">{t`Row count`}</option>
-              <option value="count_filled">{t`Filled`}</option>
-              <option value="sum">{t`Sum`}</option>
-              <option value="avg">{t`Average`}</option>
-              <option value="min">{t`Min`}</option>
-              <option value="max">{t`Max`}</option>
-            </Select>
-          </div>
-        </>
-      ) : null}
+      {kind === "metric" ? measureFields : null}
       {kind === "chart" ? (
         <>
           <div className="flex flex-col gap-1">
@@ -1045,7 +1081,7 @@ function WidgetForm(props: {
                 <Label htmlFor="chart-binned">{t`Number field`}</Label>
                 <Select
                   id="chart-binned"
-                  value={binned}
+                  value={binField}
                   aria-describedby="chart-binned-hint"
                   onChange={(event) => setBinned(event.target.value)}
                 >
@@ -1081,42 +1117,12 @@ function WidgetForm(props: {
             </>
           ) : (
             <>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="chart-measure">{t`Measure`}</Label>
-                <Select
-                  id="chart-measure"
-                  value={fn}
-                  onChange={(event) => setFn(event.target.value)}
-                >
-                  <option value="count_all">{t`Row count`}</option>
-                  <option value="sum">{t`Sum`}</option>
-                  <option value="avg">{t`Average`}</option>
-                  <option value="min">{t`Min`}</option>
-                  <option value="max">{t`Max`}</option>
-                  <option value="count_filled">{t`Filled`}</option>
-                </Select>
-              </div>
-              {fn !== "count_all" ? (
-                <div className="flex flex-col gap-1">
-                  <Label htmlFor="chart-column">{t`Measured field`}</Label>
-                  <Select
-                    id="chart-column"
-                    value={column}
-                    onChange={(event) => setColumn(event.target.value)}
-                  >
-                    {(fn === "count_filled" ? columns : numeric).map((item) => (
-                      <option key={item.name} value={item.name}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              ) : null}
+              {measureFields}
               <div className="flex flex-col gap-1">
                 <Label htmlFor="chart-group">{t`Group by`}</Label>
                 <Select
                   id="chart-group"
-                  value={groupBy}
+                  value={grouped}
                   onChange={(event) => setGroupBy(event.target.value)}
                 >
                   {columns.map((item) => (
@@ -1146,17 +1152,15 @@ function WidgetForm(props: {
                 <Label htmlFor="chart-series">{t`Series (optional)`}</Label>
                 <Select
                   id="chart-series"
-                  value={seriesBy}
+                  value={series}
                   onChange={(event) => setSeriesBy(event.target.value)}
                 >
                   <option value="">{t`None`}</option>
-                  {columns
-                    .filter((item) => item.name !== groupBy)
-                    .map((item) => (
-                      <option key={item.name} value={item.name}>
-                        {item.label}
-                      </option>
-                    ))}
+                  {seriesFields.map((item) => (
+                    <option key={item.name} value={item.name}>
+                      {item.label}
+                    </option>
+                  ))}
                 </Select>
               </div>
               {stackable ? (
@@ -1222,9 +1226,9 @@ function WidgetForm(props: {
           disabled={
             busy ||
             !title.trim() ||
-            (kind === "chart" &&
-              chartType === "histogram" &&
-              binnable.length === 0)
+            (kind === "chart" && chartType === "histogram"
+              ? binnable.length === 0
+              : kind !== "view_embed" && nothingToMeasure)
           }
         >
           {busy ? <Spinner /> : null}

@@ -904,23 +904,23 @@ msgstr "{value} par page"
 msgid "{writes} writes, {comments} comments, {events} account events. Cell values and comment texts stay out of the file."
 msgstr "{writes} écritures, {comments} commentaires, {events} événements de compte. Les valeurs des cellules et le texte des commentaires restent hors du fichier."
 
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "% checked"
 msgstr "% cochés"
 
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "% empty"
 msgstr "% vides"
 
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "% filled"
 msgstr "% remplis"
 
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "% unchecked"
 msgstr "% non cochés"
 
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "% unique"
 msgstr "% distincts"
 
@@ -1907,10 +1907,6 @@ msgstr "Après une période sans activité"
 msgid "After single sign-on"
 msgstr "Après l’authentification unique (SSO)"
 
-#: components/dashboards/dashboard-board.tsx
-msgid "Aggregate"
-msgstr "Agrégat"
-
 #: components/fields/field-link-settings.tsx
 msgid "Aggregation"
 msgstr "Agrégation"
@@ -2396,8 +2392,8 @@ msgstr "Numéro auto"
 
 #: components/dashboards/dashboard-board.tsx
 #: components/fields/field-link-settings.tsx
-#: components/grid/grid-footer.tsx
 #: components/table/view-toolbar.tsx
+#: lib/aggregate-labels.ts
 msgid "Average"
 msgstr "Moyenne"
 
@@ -2897,7 +2893,7 @@ msgid "checked"
 msgstr "coché"
 
 #: components/admin/sources-tab.tsx
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "Checked"
 msgstr "Vérifiée"
 
@@ -4156,7 +4152,7 @@ msgstr "Chaque feuille gardée devient une table, et sa première ligne non vide
 msgid "Earlier"
 msgstr "Plus tôt"
 
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "Earliest"
 msgstr "Plus ancienne"
 
@@ -4296,7 +4292,7 @@ msgstr "Intégré dans {sites}"
 msgid "Embedded view"
 msgstr "Vue intégrée"
 
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "Empty"
 msgstr "Vides"
 
@@ -4744,7 +4740,6 @@ msgstr "champ"
 
 #: components/admin/sources-tab.tsx
 #: components/admin/trails.tsx
-#: components/dashboards/dashboard-board.tsx
 #: components/table/filter-builder.tsx
 #: components/table/view-toolbar.tsx
 msgid "Field"
@@ -4887,7 +4882,7 @@ msgid "Fill the issuer of a provider"
 msgstr "Remplir l’émetteur d’un fournisseur"
 
 #: components/dashboards/dashboard-board.tsx
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "Filled"
 msgstr "Remplis"
 
@@ -6254,7 +6249,7 @@ msgstr "la semaine dernière"
 msgid "last year"
 msgstr "l’année dernière"
 
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "Latest"
 msgstr "Plus récente"
 
@@ -6619,7 +6614,7 @@ msgid "Mark all as read"
 msgstr "Tout marquer comme lu"
 
 #: components/dashboards/dashboard-board.tsx
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "Max"
 msgstr "Max"
 
@@ -6668,7 +6663,7 @@ msgstr "Mesure"
 msgid "Measured field"
 msgstr "Champ mesuré"
 
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "Median"
 msgstr "Médiane"
 
@@ -6742,7 +6737,7 @@ msgid "min"
 msgstr "min"
 
 #: components/dashboards/dashboard-board.tsx
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "Min"
 msgstr "Min"
 
@@ -7659,7 +7654,7 @@ msgid "Notify people when they are assigned"
 msgstr "Prévenir les personnes lorsqu’elles sont assignées"
 
 #: components/fields/field-meta.tsx
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "Number"
 msgstr "Nombre"
 
@@ -8492,7 +8487,7 @@ msgstr "Événements en attente"
 msgid "Radio buttons"
 msgstr "Boutons radio"
 
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "Range (days)"
 msgstr "Étendue (jours)"
 
@@ -10348,7 +10343,7 @@ msgstr "SQL Server n’a plus gardé assez longtemps les changements : la table
 msgid "Square root; blank for a negative number."
 msgstr "Racine carrée ; vide pour un nombre négatif."
 
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "Standard deviation"
 msgstr "Écart type"
 
@@ -10522,7 +10517,7 @@ msgstr "Lignes proposées pour {field}"
 
 #: components/dashboards/dashboard-board.tsx
 #: components/fields/field-link-settings.tsx
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "Sum"
 msgstr "Somme"
 
@@ -11962,6 +11957,10 @@ msgid "This table does not exist or is not shared with you."
 msgstr "Cette table n’existe pas ou ne vous est pas partagée."
 
 #: components/dashboards/dashboard-board.tsx
+msgid "This table has no field this measure can read."
+msgstr "Cette table n’a aucun champ que cette mesure peut lire."
+
+#: components/dashboards/dashboard-board.tsx
 msgid "This table has no number field to count in bins."
 msgstr "Cette table n’a aucun champ numérique à compter par classes."
 
@@ -12411,7 +12410,7 @@ msgstr "Inchangé"
 msgid "unchecked"
 msgstr "non coché"
 
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "Unchecked"
 msgstr "Non cochés"
 
@@ -12448,7 +12447,7 @@ msgstr "Caractère inattendu"
 msgid "Unfreeze columns"
 msgstr "Dégeler les colonnes"
 
-#: components/grid/grid-footer.tsx
+#: lib/aggregate-labels.ts
 msgid "Unique"
 msgstr "Distincts"
 
