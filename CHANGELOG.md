@@ -61,6 +61,11 @@ first.
   it is named. Its chips ran together in the page's text ("RedGreen"),
   which the cell's name ("Tags: Red, Green") does not hold: someone who
   speaks to the page says what they see.
+- A base made from a template dates its sample rows from the day it
+  is made: a deal that closes this week, a project under way, sessions
+  tomorrow. They were written as dates, so the calendar of the events
+  template already opened on an empty month, and every task would have
+  been overdue a few months on.
 
 ## 0.3.0 - 2026-11-20
 

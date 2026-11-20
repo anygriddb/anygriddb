@@ -277,6 +277,19 @@ test("signup, second factor, base, table, then a typed cell survives a reload", 
   await expect(
     page.getByRole("navigation", { name: "Views" }).getByRole("link"),
   ).toHaveText(["Grid", "Calendar"]);
+  // Its sample dates are counted from the day the base is made: the
+  // calendar, which opens on this month, shows its sessions. Written as
+  // dates, they were months away, and the page was empty.
+  await page
+    .getByRole("navigation", { name: "Views" })
+    .getByRole("link", { name: "Calendar" })
+    .click();
+  for (const session of ["Opening keynote", "Hands-on lab", "Closing panel"]) {
+    await expect(
+      page.getByRole("button", { name: session, exact: true }),
+    ).toBeVisible();
+  }
+  expect(await accessibilityViolations(page)).toEqual([]);
 
   expect(blocked).toEqual([]);
   expect(blockedOther).toEqual([]);
