@@ -27,6 +27,74 @@ describe("chart series", () => {
     expect(result.series).toEqual([{ name: "", values: [3, 1, 2] }]);
   });
 
+  it("orders categories by their value, greatest first, and keeps the first ones", () => {
+    const sold = [
+      { key: "Lead", series: undefined, value: "5" },
+      { key: "Won", series: undefined, value: "40" },
+      { key: "Lost", series: undefined, value: "12.5" },
+      { key: "Open", series: undefined, value: null },
+    ];
+    const byValue = chartSeries(
+      columns,
+      { groupBy: "stage", fn: "sum", order: "value" },
+      sold,
+    );
+    // The one without a value is last, whatever its name.
+    expect(byValue.categories).toEqual(["Won", "Lost", "Lead", "Open"]);
+    expect(byValue.series).toEqual([{ name: "", values: [40, 12.5, 5, null] }]);
+    const firstTwo = chartSeries(
+      columns,
+      { groupBy: "stage", fn: "sum", order: "value", limit: 2 },
+      sold,
+    );
+    expect(firstTwo.categories).toEqual(["Won", "Lost"]);
+    expect(firstTwo.omitted.categories).toBe(2);
+    // Without an order, the first of the field's own.
+    const own = chartSeries(
+      columns,
+      { groupBy: "stage", fn: "sum", limit: 2 },
+      sold,
+    );
+    expect(own.categories).toEqual(["Lead", "Won"]);
+  });
+
+  it("weighs a category by its series together, or by the greatest when the measure does not add up", () => {
+    const pairs = [
+      { key: "Lead", series: "a", value: 6 },
+      { key: "Lead", series: "b", value: 6 },
+      { key: "Won", series: "a", value: 10 },
+      { key: "Won", series: "b", value: 1 },
+    ];
+    const summed = chartSeries(
+      columns,
+      { groupBy: "stage", seriesBy: "owner", fn: "sum", order: "value" },
+      pairs,
+    );
+    expect(summed.categories).toEqual(["Lead", "Won"]);
+    const meant = chartSeries(
+      columns,
+      { groupBy: "stage", seriesBy: "owner", fn: "avg", order: "value" },
+      pairs,
+    );
+    expect(meant.categories).toEqual(["Won", "Lead"]);
+  });
+
+  it("never draws more categories than a chart holds, whatever is asked", () => {
+    const many = Array.from({ length: 60 }, (_, index) => ({
+      key: `k${String(index)}`,
+      series: undefined,
+      value: index,
+    }));
+    const result = chartSeries(
+      columns,
+      { groupBy: "owner", fn: "sum", order: "value", limit: 500 },
+      many,
+    );
+    expect(result.categories).toHaveLength(40);
+    expect(result.categories[0]).toBe("k59");
+    expect(result.omitted.categories).toBe(20);
+  });
+
   it("folds the smallest series into one when the measure adds up", () => {
     const result = chartSeries(
       columns,

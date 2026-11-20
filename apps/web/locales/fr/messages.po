@@ -2289,6 +2289,10 @@ msgstr "comme auteur"
 msgid "As an administrator"
 msgstr "En tant qu’administrateur"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "As the field orders them"
+msgstr "Dans l’ordre du champ"
+
 #: lib/errors.ts
 msgid "Ask an administrator to reset your password"
 msgstr "Demandez à un administrateur de réinitialiser votre mot de passe"
@@ -2764,6 +2768,10 @@ msgstr "Champs de carte"
 #: components/views/kanban-view.tsx
 msgid "Card title"
 msgstr "Titre des cartes"
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Categories shown"
+msgstr "Catégories affichées"
 
 #: components/dashboards/chart-view.tsx
 msgid "Category"
@@ -6153,6 +6161,10 @@ msgstr "Langue"
 msgid "Largest attachment"
 msgstr "Pièce jointe maximale"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Largest value first"
+msgstr "La plus grande valeur d’abord"
+
 #: components/admin/health-tab.tsx
 msgid "Last checked {date}"
 msgstr "Dernière vérification {date}"
@@ -7728,6 +7740,10 @@ msgstr "Une ligne de texte"
 msgid "One line per person, at most {PEOPLE_FILE_MAX}. Each gets a link by email to choose their password, valid a week. Nobody becomes an administrator this way."
 msgstr "Une ligne par personne, {PEOPLE_FILE_MAX} au plus. Chacune reçoit par email un lien pour choisir son mot de passe, valable une semaine. Personne ne devient administrateur de cette façon."
 
+#: components/dashboards/dashboard-board.tsx
+msgid "One on another"
+msgstr "L’une sur l’autre"
+
 #: components/fields/field-meta.tsx
 msgid "One option from a list"
 msgstr "Une option d’une liste"
@@ -7934,6 +7950,7 @@ msgstr "Ou collez des lignes copiées d’un tableur"
 msgid "Orange"
 msgstr "Orange"
 
+#: components/dashboards/dashboard-board.tsx
 #: components/table/view-toolbar.tsx
 msgid "Order"
 msgstr "Ordre"
@@ -9766,6 +9783,10 @@ msgstr "Envoyées à des personnes qui n’ont pas encore rejoint. Renvoyez-en u
 msgid "Series (optional)"
 msgstr "Séries (optionnel)"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Series are drawn"
+msgstr "Les séries sont dessinées"
+
 #: components/admin/notifications-tab.tsx
 msgid "Server"
 msgstr "Serveur"
@@ -9947,6 +9968,10 @@ msgstr "Affichés sur les cartes"
 #: components/admin/identity-tab.tsx
 msgid "Shown on the sign-in pages, at the top of the app, in the browser's tab, and in mail. Empty: {PRODUCT_NAME}."
 msgstr "Affiché sur les pages de connexion, en haut de l’application, dans l’onglet du navigateur et dans les emails. Vide : {PRODUCT_NAME}."
+
+#: components/dashboards/dashboard-board.tsx
+msgid "Side by side"
+msgstr "Côte à côte"
 
 #: components/admin/sources-tab.tsx
 msgid "Side schema"
@@ -10971,6 +10996,10 @@ msgstr "La première ligne du fichier doit nommer les colonnes email et nom"
 #: components/table/color-rules-editor.tsx
 msgid "The first matching rule colours the row."
 msgstr "La première règle correspondante colore la ligne."
+
+#: components/dashboards/dashboard-board.tsx
+msgid "The first of that order. Empty: up to {most}."
+msgstr "Les premières de cet ordre. Vide : jusqu’à {most}."
 
 #: components/fields/formula-docs.ts
 msgid "The first part of the text that matches the regular expression."

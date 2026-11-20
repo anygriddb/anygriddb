@@ -287,8 +287,8 @@ test.describe("a dashboard", () => {
     await send(page, "rows.insertMany", {
       tableId: tableIdOf(page),
       rows: [
-        { name: "Alpha", status: "To do", amount: "1200.5" },
-        { name: "Bravo", status: "Done", amount: "34.2" },
+        { name: "Alpha", status: "To do", amount: "34.2" },
+        { name: "Bravo", status: "Done", amount: "1200.5" },
       ],
     });
     await page.getByRole("link", { name: "Dashboards" }).click();
@@ -391,10 +391,30 @@ test.describe("a dashboard", () => {
     await widget("Billed by status")
       .getByRole("button", { name: "Show the table of values" })
       .click();
-    await expect(
-      widget("Billed by status").getByRole("cell", { name: "€1,200.50" }),
-    ).toBeVisible();
+    const values = widget("Billed by status").getByRole("table");
+    await expect(values.getByRole("cell", { name: "€1,200.50" })).toBeVisible();
+    // The categories stand in their field's order, a list's options:
+    // "To do" before "Done".
+    await expect(values.getByRole("rowheader")).toHaveText(["To do", "Done"]);
     expect(await accessibilityViolations(page)).toEqual([]);
+    // By value, the largest first, and the first alone: the rest is
+    // counted under the chart.
+    await page
+      .getByRole("button", { name: "Actions for Billed by status" })
+      .click();
+    await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+    const ordered = page.getByRole("dialog", { name: "Edit the widget" });
+    await ordered
+      .getByLabel("Order", { exact: true })
+      .selectOption({ label: "Largest value first" });
+    await ordered.getByLabel("Categories shown").fill("1");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await ordered.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(ordered).toBeHidden();
+    await expect(
+      widget("Billed by status").getByText("1 more category is not shown."),
+    ).toBeVisible();
+    await expect(values.getByRole("rowheader")).toHaveText(["Done"]);
     // On a phone the widgets stand one under another, each as wide as
     // the page: twelve columns have no room there.
     await page.setViewportSize({ width: 390, height: 844 });

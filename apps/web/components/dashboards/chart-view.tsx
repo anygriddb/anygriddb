@@ -20,6 +20,7 @@ import { useLingui } from "@lingui/react/macro";
 import { sortRows } from "../../lib/sort-rows";
 import { SortHeader, useColumnSort } from "../sort-header";
 import { axisFormat } from "./axis-format";
+import { measureAddsUp } from "./widget-view";
 import { binLabels } from "./histogram-bins";
 import {
   useEffect,
@@ -56,17 +57,10 @@ type ChartData = {
   omitted: { categories: number; series: number };
   /** A histogram's least and greatest value: its bins lie between them. */
   bounds?: { lo: number; hi: number } | null;
+  /** Series side by side, where they would stand one on another. */
+  sideBySide?: boolean;
 };
 
-/** Aggregates that add up: their series stack. */
-const ADDITIVE = new Set([
-  "count_all",
-  "count_empty",
-  "count_filled",
-  "sum",
-  "checked",
-  "unchecked",
-]);
 const PERCENT = new Set([
   "percent_empty",
   "percent_filled",
@@ -235,7 +229,9 @@ export function ChartView(props: {
         colors: tokens(),
         format,
         compact,
-        stacked: ADDITIVE.has(data.fn) && !pie,
+        // Series that add up stand one on another, unless they are set
+        // side by side: money in and money out are compared, not summed.
+        stacked: measureAddsUp(data.fn) && !pie && !data.sideBySide,
         title: props.title,
         // A change of theme sets the option again: colours are read anew.
         dark: theme === "dark",

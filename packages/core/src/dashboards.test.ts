@@ -68,6 +68,35 @@ describe("dashboard schemas", () => {
     ).toBe(false);
   });
 
+  it("takes a chart's order, how many categories it draws, and series side by side", () => {
+    const chart = (config: object) =>
+      dashboardWidgetConfigSchema.safeParse({
+        kind: "chart",
+        config: { tableId: id, groupBy: "status", ...config },
+      }).success;
+    expect(chart({ order: "value", limit: 15, sideBySide: true })).toBe(true);
+    expect(chart({ chartType: "line", order: "field", limit: 40 })).toBe(true);
+    // Past what a chart draws, and an order nobody knows.
+    expect(chart({ limit: 41 })).toBe(false);
+    expect(chart({ limit: 0 })).toBe(false);
+    expect(chart({ order: "random" })).toBe(false);
+    // Shares are each of the whole, largest first: nothing to choose.
+    expect(chart({ chartType: "pie", limit: 5 })).toBe(false);
+    expect(chart({ chartType: "pie", order: "value" })).toBe(false);
+    expect(chart({ chartType: "pie", sideBySide: true })).toBe(false);
+    expect(
+      dashboardWidgetConfigSchema.safeParse({
+        kind: "chart",
+        config: {
+          tableId: id,
+          chartType: "histogram",
+          column: "amount",
+          limit: 5,
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   it("refuses an upsert whose config does not match its kind", () => {
     expect(
       upsertWidgetInputSchema.safeParse({

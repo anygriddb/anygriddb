@@ -21,6 +21,14 @@ const CHART_TYPES = [
 export type ChartType = (typeof CHART_TYPES)[number];
 /** The bins of a histogram that does not say how many it has. */
 export const DEFAULT_HISTOGRAM_BINS = 12;
+/** The categories a chart draws, at most: the rest are counted. */
+export const MAX_CHART_CATEGORIES = 40;
+/**
+ * A chart's categories in their field's own order (a list's options,
+ * else the alphabet, a date's days), or by their value, greatest first.
+ */
+const CHART_ORDERS = ["field", "value"] as const;
+export type ChartOrder = (typeof CHART_ORDERS)[number];
 
 const gridInt = (max: number) => z.int().min(0).max(max);
 
@@ -49,6 +57,12 @@ const chartConfigSchema = z
     column: columnNameSchema.optional(),
     /** How many equal bins a histogram has. */
     bins: z.int().min(2).max(MAX_HISTOGRAM_BINS).optional(),
+    /** The order of the categories: the field's own unless said. */
+    order: z.enum(CHART_ORDERS).optional(),
+    /** How many categories are drawn, the first of that order. */
+    limit: z.int().min(1).max(MAX_CHART_CATEGORIES).optional(),
+    /** Series drawn side by side, where they would stand one on another. */
+    sideBySide: z.boolean().optional(),
     // The median needs each group's rows again: not per group.
     fn: z
       .enum(AGGREGATE_FNS)
@@ -61,6 +75,16 @@ const chartConfigSchema = z
   .superRefine((config, context) => {
     const refuse = (path: string, message: string) =>
       context.addIssue({ code: "custom", message, path: [path] });
+    // Shares are drawn largest first, each of the whole: cutting some
+    // out would make the rest add up to a hundred. Bins are in their order.
+    if (config.chartType === "pie" || config.chartType === "histogram") {
+      if (config.order !== undefined)
+        refuse("order", "This chart has its own order");
+      if (config.limit !== undefined)
+        refuse("limit", "This chart draws every category");
+      if (config.sideBySide !== undefined)
+        refuse("sideBySide", "This chart has no series to set apart");
+    }
     if (config.chartType !== "histogram") {
       if (!config.groupBy) refuse("groupBy", "A chart groups by a field");
       if (config.bins !== undefined)
