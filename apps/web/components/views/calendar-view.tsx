@@ -232,7 +232,7 @@ export function CalendarView(
   const dayName = new Intl.DateTimeFormat(intl, { dateStyle: "full" });
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-3 border-b border-border px-4 py-1.5">
+      <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-1.5">
         <Button
           size="icon"
           variant="ghost"
