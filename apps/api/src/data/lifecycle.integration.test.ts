@@ -507,6 +507,7 @@ describe("jobs, trash, and authors", () => {
         baseId,
         template,
         madeNames("fr"),
+        new Date("2026-06-28T12:00:00Z"),
       );
       const tables = await db
         .selectFrom("dataTables")
@@ -544,6 +545,9 @@ describe("jobs, trash, and authors", () => {
       const line = deal.rows.find((row) => row.titre === "Ligne de production");
       expect(String(line?.[weighted?.name ?? ""])).toBe("28800");
       expect(line?.etape).toBe("Proposition");
+      // Its dates are counted from the day the base is made: this deal
+      // closes four days later, in the month after.
+      expect(line?.cloture).toBe("2026-07-02");
       const views = await db
         .selectFrom("views")
         .select("name")

@@ -17,6 +17,7 @@ import {
   isWritableType,
   type MadeNames,
   localizeTemplate,
+  templateOn,
   madeNames,
   type ReadSpec,
   ROLLUP_FNS,
@@ -134,17 +135,20 @@ function definitionOf(column: ColumnRow): ColumnDefinition {
 
 /**
  * Builds every table of a template, then its two-way links, rollups,
- * sample rows, and views. Sample rows are audited with source `template`.
+ * sample rows, and views. Sample rows are audited with source `template`,
+ * and dated from `today`: what a template says is due next week is due
+ * the week after the base is made.
  */
 export async function applyTemplate(
   db: Database,
   userId: string,
   baseId: string,
-  template: BaseTemplate,
+  source: BaseTemplate,
   names: MadeNames = madeNames(),
+  today: Date = new Date(),
 ): Promise<string[]> {
   // Written in the asker's language: the base is theirs to read.
-  template = localizeTemplate(template, names.locale);
+  const template = templateOn(localizeTemplate(source, names.locale), today);
   const ids = new Map<string, string>();
   for (const table of template.tables) {
     const created = await insertTable(db, userId, {

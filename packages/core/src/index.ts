@@ -376,7 +376,12 @@ export {
   type ImportFormat,
 } from "./schemas";
 
-export { BASE_TEMPLATES, findTemplate, type BaseTemplate } from "./templates";
+export {
+  BASE_TEMPLATES,
+  findTemplate,
+  templateOn,
+  type BaseTemplate,
+} from "./templates";
 export { localizeTemplate } from "./template-words";
 
 export {

@@ -7,11 +7,23 @@ import type { ColumnDefinition } from "./schemas";
  * key; lookups and rollups name a link's inverse column, which keeps its
  * name in every language.
  */
-type TemplateTable = {
+/**
+ * A day counted from the one a base is made from its template: 0 that
+ * day, 7 a week later, -3 three days before; `at` gives it a time, in
+ * UTC. A template that carried dates of its own showed, months on, a
+ * calendar with nothing on its page and tasks that were all overdue.
+ */
+export type TemplateDay = { day: number; at?: string };
+
+/** What a sample row holds as it is written, and once its days are dates. */
+type PlainValue = string | number | boolean | string[] | null;
+type TemplateValue = PlainValue | TemplateDay;
+
+type TemplateTable<Value> = {
   key: string;
   name: string;
   columns: ColumnDefinition[];
-  rows?: Array<Record<string, string | number | boolean | string[] | null>>;
+  rows?: Array<Record<string, Value>>;
   views?: Array<{
     name: string;
     viewType: "grid" | "kanban" | "calendar" | "gallery" | "timeline" | "form";
@@ -43,14 +55,63 @@ type TemplateComputed = {
   fn?: "count" | "sum" | "avg" | "min" | "max" | "concatenate";
 };
 
-export type BaseTemplate = {
+export type BaseTemplate<Value = TemplateValue> = {
   id: string;
   name: string;
   description: string;
-  tables: TemplateTable[];
+  tables: TemplateTable<Value>[];
   links?: TemplateLink[];
   computed?: TemplateComputed[];
 };
+
+/** A day counted from the one the base is made, for a sample row. */
+const day = (count: number, at?: string): TemplateDay =>
+  at === undefined ? { day: count } : { day: count, at };
+
+function isTemplateDay(value: TemplateValue): value is TemplateDay {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * The template as it is made on a given day: each day its rows count
+ * from that one becomes the date it names, as a date field keeps one, or
+ * the instant when it carries a time.
+ */
+export function templateOn(
+  template: BaseTemplate,
+  today: Date,
+): BaseTemplate<PlainValue> {
+  const dated = (value: TemplateDay): string => {
+    const date = new Date(
+      Date.UTC(
+        today.getUTCFullYear(),
+        today.getUTCMonth(),
+        today.getUTCDate() + value.day,
+      ),
+    )
+      .toISOString()
+      .slice(0, 10);
+    return value.at === undefined ? date : `${date}T${value.at}:00.000Z`;
+  };
+  return {
+    ...template,
+    tables: template.tables.map(({ rows, ...table }) => ({
+      ...table,
+      ...(rows
+        ? {
+            rows: rows.map((row) =>
+              Object.fromEntries(
+                Object.entries(row).map(([name, value]) => [
+                  name,
+                  isTemplateDay(value) ? dated(value) : value,
+                ]),
+              ),
+            ),
+          }
+        : {}),
+    })),
+  };
+}
 
 const STATUS = (names: string[]) => ({
   options: names.map((name, index) => ({
@@ -166,21 +227,21 @@ export const BASE_TEMPLATES: readonly BaseTemplate[] = [
             titre: "Production line",
             montant: 48000,
             etape: "Proposal",
-            cloture: "2026-12-15",
+            cloture: day(4),
             probabilite: 60,
           },
           {
             titre: "Annual audit",
             montant: 12000,
             etape: "Qualified",
-            cloture: "2027-01-20",
+            cloture: day(35),
             probabilite: 40,
           },
           {
             titre: "Citizen portal",
             montant: 30000,
             etape: "Won",
-            cloture: "2026-10-30",
+            cloture: day(-20),
             probabilite: 100,
           },
         ],
@@ -259,14 +320,14 @@ export const BASE_TEMPLATES: readonly BaseTemplate[] = [
         rows: [
           {
             nom: "Website redesign",
-            debut: "2026-11-02",
-            fin: "2026-12-18",
+            debut: day(-18),
+            fin: day(28),
             statut: "In progress",
           },
           {
             nom: "Data migration",
-            debut: "2026-12-01",
-            fin: "2027-02-28",
+            debut: day(11),
+            fin: day(100),
             statut: "Not started",
           },
         ],
@@ -302,21 +363,21 @@ export const BASE_TEMPLATES: readonly BaseTemplate[] = [
           {
             tache: "Mockups",
             statut: "Done",
-            echeance: "2026-11-10",
+            echeance: day(-10),
             estimation: 16,
             priorite: 3,
           },
           {
             tache: "Integration",
             statut: "In progress",
-            echeance: "2026-11-28",
+            echeance: day(8),
             estimation: 40,
             priorite: 2,
           },
           {
             tache: "Acceptance testing",
             statut: "To do",
-            echeance: "2026-12-12",
+            echeance: day(22),
             estimation: 12,
             priorite: 2,
           },
@@ -545,20 +606,20 @@ export const BASE_TEMPLATES: readonly BaseTemplate[] = [
         rows: [
           {
             titre: "Opening keynote",
-            debut: "2027-03-16T08:30:00.000Z",
-            fin: "2027-03-16T09:30:00.000Z",
+            debut: day(1, "08:30"),
+            fin: day(1, "09:30"),
             format: "Talk",
           },
           {
             titre: "Hands-on lab",
-            debut: "2027-03-16T13:00:00.000Z",
-            fin: "2027-03-16T16:00:00.000Z",
+            debut: day(1, "13:00"),
+            fin: day(1, "16:00"),
             format: "Workshop",
           },
           {
             titre: "Closing panel",
-            debut: "2027-03-17T15:00:00.000Z",
-            fin: "2027-03-17T16:00:00.000Z",
+            debut: day(2, "15:00"),
+            fin: day(2, "16:00"),
             format: "Panel",
           },
         ],
@@ -717,19 +778,19 @@ export const BASE_TEMPLATES: readonly BaseTemplate[] = [
             nom: "Léa Bernard",
             email: "lea.bernard@example.org",
             etape: "Interview",
-            candidature: "2027-02-01",
+            candidature: day(-19),
           },
           {
             nom: "Hugo Petit",
             email: "hugo.petit@example.org",
             etape: "Screening",
-            candidature: "2027-02-08",
+            candidature: day(-12),
           },
           {
             nom: "Chloé Moreau",
             email: "chloe.moreau@example.org",
             etape: "Applied",
-            candidature: "2027-02-12",
+            candidature: day(-2),
           },
         ],
         views: [

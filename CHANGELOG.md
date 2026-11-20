@@ -54,6 +54,11 @@ first.
   restricts. A field's permission is read whole in its list, where it
   was cut. A field added after a member's permissions were saved with
   every field read and written is no longer hidden from them.
+- A base made from a template dates its sample rows from the day it
+  is made: a deal that closes this week, a project under way, sessions
+  tomorrow. They were written as dates, so the calendar of the events
+  template already opened on an empty month, and every task would have
+  been overdue a few months on.
 
 ## 0.3.0 - 2026-11-20
 
