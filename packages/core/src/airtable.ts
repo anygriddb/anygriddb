@@ -8,7 +8,7 @@
 import type { BaseSnapshot, SnapshotLink, SnapshotTable } from "./snapshot";
 import { MAX_SNAPSHOT_TABLES, SNAPSHOT_KIND } from "./snapshot";
 import { madeNames, type MadeNames } from "./made-names";
-import { deriveColumnName } from "./names";
+import { deriveColumnName, labelSchema, tidyLabel } from "./names";
 import { OPTION_COLORS, type OptionColor } from "./field-config";
 import { parseFormula } from "./formula";
 import type { ViewType } from "./view-config";
@@ -82,16 +82,10 @@ function fieldLabel(name: string, fallback: string): string {
   return (clean || fallback).slice(0, 100);
 }
 
-/** Base, table, and view names: a letter or digit first, few signs. */
+/** Base, table, and view names, as a name may hold them. */
 function plainLabel(name: string, fallback: string): string {
-  const clean = name
-    .replace(/[^\p{L}\p{N} _.'()&/+:#-]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^[^\p{L}\p{N}]+/u, "")
-    .slice(0, 80)
-    .trim();
-  return clean || fallback;
+  const clean = tidyLabel(name);
+  return labelSchema.safeParse(clean).success ? clean : fallback;
 }
 
 function unique(label: string, taken: Set<string>, max: number): string {

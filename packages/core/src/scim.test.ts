@@ -128,7 +128,9 @@ describe("parseScimUser", () => {
   });
 
   it("makes a display name AnyGridDB accepts", () => {
-    expect(scimDisplayName("José O’Neil", "j@x.y")).toBe("José O Neil");
+    // A name keeps its own signs, the apostrophe people type among them.
+    expect(scimDisplayName("José O’Neil", "j@x.y")).toBe("José O’Neil");
+    expect(scimDisplayName("Ada\tLovelace\n", "a@x.y")).toBe("Ada Lovelace");
     expect(scimDisplayName("  ", "jean.dupont@x.y")).toBe("jean.dupont");
     expect(scimDisplayName("***", "***@x.y")).toBe("Account");
     expect(scimDisplayName("***", "***@x.y", "Compte")).toBe("Compte");

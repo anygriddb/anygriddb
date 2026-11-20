@@ -6,7 +6,7 @@
 import { z } from "zod";
 import { isEmail } from "./cell-values";
 import { madeNames } from "./made-names";
-import { labelSchema } from "./names";
+import { labelSchema, tidyLabel } from "./names";
 
 const SCIM_USER = "urn:ietf:params:scim:schemas:core:2.0:User";
 const SCIM_GROUP = "urn:ietf:params:scim:schemas:core:2.0:Group";
@@ -204,16 +204,8 @@ export function scimDisplayName(
   email: string,
   unnamed: string = madeNames().account,
 ): string {
-  const tidy = (text: string) =>
-    text
-      .replace(/[^\p{L}\p{N} _.'()&/+:#-]/gu, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .replace(/^[^\p{L}\p{N}]+/u, "")
-      .slice(0, 80)
-      .trim();
   for (const candidate of [raw ?? "", email.split("@")[0] ?? ""]) {
-    const name = tidy(candidate);
+    const name = tidyLabel(candidate);
     if (labelSchema.safeParse(name).success) return name;
   }
   return unnamed;
