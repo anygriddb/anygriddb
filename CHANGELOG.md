@@ -26,6 +26,13 @@ first.
   view shows, today when the month or the period shown holds it and
   its first day otherwise: the view shows the row it just made. The row
   was made with no date, and neither view showed it.
+- A dashboard's figure or chart measures the field its form shows.
+  Once another table or another measure was picked, the form kept the
+  field chosen before, and saved a widget of a field its table does not
+  have, which read "Unknown field". A figure's form now asks for the
+  measure, then for the field, as a chart's does; a measure lists the
+  fields it can read, the number a formula or a rollup answers among
+  them, and says so when the table has none.
 
 ## 0.3.0 - 2026-11-20
 

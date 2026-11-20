@@ -306,6 +306,20 @@ test.describe("a dashboard", () => {
         { name: "Bravo", status: "Done", amount: "1200.5", due: "2026-03-31" },
       ],
     });
+    // A second table, which has none of the first one's fields.
+    const made = await page.request.post("/trpc/catalog.createTable", {
+      data: {
+        baseId: /\/b\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "",
+        name: "Ledger",
+        columns: [{ name: "title", label: "Title", fieldType: "text" }],
+      },
+    });
+    expect(made.ok(), await made.text()).toBe(true);
+    await send(page, "rows.insertMany", {
+      tableId: ((await made.json()) as { result: { data: { id: string } } })
+        .result.data.id,
+      rows: [{ title: "Opening" }],
+    });
     await page.getByRole("link", { name: "Dashboards" }).click();
     await page.getByLabel("New dashboard").fill("Board");
     await page.getByRole("button", { name: "Create", exact: true }).click();
@@ -387,18 +401,53 @@ test.describe("a dashboard", () => {
     await page.getByRole("button", { name: "Add a widget" }).click();
     const figure = page.getByRole("dialog", { name: "Add a widget" });
     await figure.getByLabel("Title", { exact: true }).fill("Billed");
-    await figure.getByLabel("Field", { exact: true }).selectOption({
-      label: "Amount",
-    });
-    await figure.getByLabel("Aggregate").selectOption({ label: "Sum" });
+    // A sum reads a number: the list of fields holds the table's one,
+    // and what it shows is what is measured.
+    await figure
+      .getByLabel("Measure", { exact: true })
+      .selectOption({ label: "Sum" });
+    await expect(figure.getByLabel("Measured field")).toHaveValue("amount");
     await figure.getByRole("button", { name: "Add", exact: true }).click();
     await expect(figure).toBeHidden();
     await expect(widget("Billed").getByText("€1,234.70")).toBeVisible();
+    // A widget's lists follow its table. A figure started on one table,
+    // then given another, measures the field the other's list shows: the
+    // form kept the first table's field, which the second does not have.
+    await page.getByRole("button", { name: "Add a widget" }).click();
+    const moved = page.getByRole("dialog", { name: "Add a widget" });
+    await moved.getByLabel("Title", { exact: true }).fill("Entries named");
+    await moved
+      .getByLabel("Measure", { exact: true })
+      .selectOption({ label: "Filled" });
+    await moved.getByLabel("Measured field").selectOption({ label: "Amount" });
+    await moved.getByLabel("Table").selectOption({ label: "Ledger" });
+    await expect(moved.getByLabel("Measured field")).toHaveValue("title");
+    // A sum has nothing to read there, and the form says so.
+    await moved
+      .getByLabel("Measure", { exact: true })
+      .selectOption({ label: "Sum" });
+    await expect(
+      moved.getByText("This table has no field this measure can read."),
+    ).toBeVisible();
+    await expect(
+      moved.getByRole("button", { name: "Add", exact: true }),
+    ).toBeDisabled();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await moved
+      .getByLabel("Measure", { exact: true })
+      .selectOption({ label: "Filled" });
+    await moved.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(moved).toBeHidden();
+    await expect(
+      widget("Entries named").getByText("1", { exact: true }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Add a widget" }).click();
     const chart = page.getByRole("dialog", { name: "Add a widget" });
     await chart.getByLabel("Title", { exact: true }).fill("Billed by status");
     await chart.getByLabel("Type").selectOption({ label: "Chart" });
-    await chart.getByLabel("Measure").selectOption({ label: "Sum" });
+    await chart
+      .getByLabel("Measure", { exact: true })
+      .selectOption({ label: "Sum" });
     await chart.getByLabel("Measured field").selectOption({ label: "Amount" });
     await chart.getByLabel("Group by").selectOption({ label: "Status" });
     await chart.getByRole("button", { name: "Add", exact: true }).click();

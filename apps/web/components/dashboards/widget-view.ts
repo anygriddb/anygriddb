@@ -1,3 +1,5 @@
+import { aggregateFunctionsFor, type FilterKind } from "@anygriddb/core";
+
 /**
  * The view a widget that shows one will show: the view chosen, or the
  * table's first while none is. A list with no empty choice shows its
@@ -10,6 +12,49 @@ export function embeddedViewId(
   chosen: string,
 ): string {
   return views.find((view) => view.id === chosen)?.id ?? views[0]?.id ?? "";
+}
+
+/**
+ * The field a list shows as chosen: the one chosen while the list holds
+ * it, or the list's first, which a list with no empty choice shows
+ * whatever its form holds. A form that kept what was chosen for another
+ * table, or for another measure, saved a widget of a field its list did
+ * not show, and its table did not have.
+ */
+export function fieldShown(
+  fields: ReadonlyArray<{ name: string }>,
+  chosen: string,
+): string {
+  return (
+    fields.find((field) => field.name === chosen)?.name ?? fields[0]?.name ?? ""
+  );
+}
+
+/**
+ * The same for a list that may be left empty: none while the list does
+ * not hold the field chosen.
+ */
+export function fieldKept(
+  fields: ReadonlyArray<{ name: string }>,
+  chosen: string,
+): string {
+  return fields.some((field) => field.name === chosen) ? chosen : "";
+}
+
+/**
+ * The fields a measure can read, by the rule the server holds a measure
+ * to: for a sum, a mean, or an extreme, those that read as a number, a
+ * formula's or a rollup's result among them; for the count of the rows
+ * that hold a value, any field but a checkbox. A count of rows reads none.
+ */
+export function measurableFields<Field extends { kind: FilterKind }>(
+  fields: readonly Field[],
+  fn: string,
+): readonly Field[] {
+  if (fn === "count_all") return [];
+  return fields.filter((field) =>
+    aggregateFunctionsFor(field.kind).some((allowed) => allowed === fn),
+  );
 }
 
 /** Rows a view's widget shows: a glance, the view itself is a click away. */
