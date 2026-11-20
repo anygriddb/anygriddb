@@ -39,3 +39,29 @@ export function measuredColumn<Column extends { name: string }>(
     ?.find((table) => table.id === config.tableId)
     ?.columns.find((column) => column.name === config.column);
 }
+
+/** Measures that add up: their series can stand one on another. */
+const ADDITIVE = new Set([
+  "count_all",
+  "count_empty",
+  "count_filled",
+  "sum",
+  "checked",
+  "unchecked",
+]);
+
+/** Whether the series of a measure add up to something: a sum, a count. */
+export function measureAddsUp(fn: string): boolean {
+  return ADDITIVE.has(fn);
+}
+
+/**
+ * How many categories a chart is asked to draw, from what was typed:
+ * a whole number from 1 to `most`. Nothing typed, or no number, asks
+ * for none in particular.
+ */
+export function categoriesAsked(typed: string, most: number): number | null {
+  const asked = Number(typed.trim());
+  if (typed.trim() === "" || !Number.isFinite(asked)) return null;
+  return Math.min(most, Math.max(1, Math.trunc(asked)));
+}

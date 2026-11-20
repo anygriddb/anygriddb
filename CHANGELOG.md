@@ -15,6 +15,13 @@ first.
   filter and its sort, as the reader may read them. A row's name opens
   the row in its table, and a link opens the view. The widget only
   pointed to the view.
+- A chart's categories are put in order by their value, the largest
+  first, or left in their field's own; a chart draws the first of
+  them, as many as its maker says, and counts the rest. With them, a
+  chart of the fifteen largest of a hundred is two settings.
+- A chart's series that add up are drawn side by side when its maker
+  says so, where they always stood one on another: what came in and
+  what went out are compared, not summed.
 
 ### Changed
 

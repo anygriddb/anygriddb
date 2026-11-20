@@ -677,6 +677,8 @@ export {
   upsertWidgetInputSchema,
   widgetDataInputSchema,
   DEFAULT_HISTOGRAM_BINS,
+  MAX_CHART_CATEGORIES,
+  type ChartOrder,
   type ChartType,
   type CreateDashboardInput,
   type UpsertWidgetInput,

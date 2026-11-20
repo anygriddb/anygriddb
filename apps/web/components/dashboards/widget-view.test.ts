@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { embeddedViewId, measuredColumn, rowsLeftOut } from "./widget-view";
+import {
+  categoriesAsked,
+  embeddedViewId,
+  measureAddsUp,
+  measuredColumn,
+  rowsLeftOut,
+} from "./widget-view";
 
 const VIEWS = [{ id: "grid" }, { id: "kanban" }];
 
@@ -57,5 +63,29 @@ describe("measuredColumn", () => {
     expect(
       measuredColumn(undefined, { tableId: "invoices", column: "amount" }),
     ).toBeUndefined();
+  });
+});
+
+describe("measureAddsUp", () => {
+  it("says a count and a sum add up, a mean and an extreme do not", () => {
+    expect(measureAddsUp("sum")).toBe(true);
+    expect(measureAddsUp("count_all")).toBe(true);
+    expect(measureAddsUp("avg")).toBe(false);
+    expect(measureAddsUp("max")).toBe(false);
+  });
+});
+
+describe("categoriesAsked", () => {
+  it("takes a whole number of categories, within what a chart draws", () => {
+    expect(categoriesAsked("15", 40)).toBe(15);
+    expect(categoriesAsked(" 7.9 ", 40)).toBe(7);
+    expect(categoriesAsked("400", 40)).toBe(40);
+    expect(categoriesAsked("0", 40)).toBe(1);
+  });
+
+  it("asks for none in particular when nothing, or no number, is typed", () => {
+    expect(categoriesAsked("", 40)).toBeNull();
+    expect(categoriesAsked("   ", 40)).toBeNull();
+    expect(categoriesAsked("many", 40)).toBeNull();
   });
 });

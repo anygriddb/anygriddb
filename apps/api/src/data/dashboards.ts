@@ -7,11 +7,13 @@ import {
   buildGroupAggregates,
   buildHistogram,
   cellText,
+  type ChartOrder,
   type ChartType,
   type CreateDashboardInput,
   dashboardWidgetConfigSchema,
   DEFAULT_HISTOGRAM_BINS,
   decimalToNumber,
+  MAX_CHART_CATEGORIES,
   normalizeViewConfig,
   pruneViewConfig,
   type ReadSpec,
@@ -337,6 +339,8 @@ export async function widgetData(
        * between them equally, and the reader's page names each bin.
        */
       bounds: { lo: number; hi: number } | null;
+      /** Series side by side, where they would stand one on another. */
+      sideBySide: boolean;
     } & ReturnType<typeof chartSeries>)
   | { kind: "view_embed"; tableId: string; viewId: string }
 > {
@@ -450,6 +454,7 @@ export async function widgetData(
       fn: "count_all",
       keyTypes: { category: typeOf(column), series: null },
       bounds: found ? { lo: found.lo, hi: found.hi } : null,
+      sideBySide: false,
       ...histogramSeries(
         found?.rows.map((row) => ({ bin: row.k0, rows: row.a0 })) ?? [],
         // Every value the same: one bin holds them all.
@@ -489,9 +494,16 @@ export async function widgetData(
       series: groups.length > 1 ? typeOf(config.seriesBy) : null,
     },
     bounds: null,
+    sideBySide: config.sideBySide === true,
     ...chartSeries(
       engine.table.columns,
-      { groupBy, seriesBy: config.seriesBy, fn: config.fn },
+      {
+        groupBy,
+        seriesBy: config.seriesBy,
+        fn: config.fn,
+        order: config.order,
+        limit: config.limit,
+      },
       rows.map((row) => ({
         key: row.k0,
         series: groups.length > 1 ? row.k1 : undefined,
@@ -525,8 +537,6 @@ export function histogramSeries(
   };
 }
 
-/** Categories on the x axis, at most this many; the rest are counted. */
-const MAX_CATEGORIES = 40;
 /** Series drawn, at most: more fold into "Others". */
 const MAX_SERIES = 8;
 /** Aggregates that add up: series past the limit fold into one. */
@@ -576,7 +586,15 @@ function keyOrder(columns: readonly ChartColumn[], name: string | undefined) {
  */
 export function chartSeries(
   columns: readonly ChartColumn[],
-  config: { groupBy: string; seriesBy?: string | undefined; fn: AggregateFn },
+  config: {
+    groupBy: string;
+    seriesBy?: string | undefined;
+    fn: AggregateFn;
+    /** By value, greatest first; the field's own order unless said. */
+    order?: ChartOrder | undefined;
+    /** The categories drawn, the first of that order. */
+    limit?: number | undefined;
+  },
   rows: ReadonlyArray<{ key: unknown; series: unknown; value: unknown }>,
 ): {
   categories: string[];
@@ -597,10 +615,37 @@ export function chartSeries(
     byKey.set(key, cell);
     seriesTotal.set(name, (seriesTotal.get(name) ?? 0) + Math.abs(value ?? 0));
   }
+  const ownOrder = keyOrder(columns, config.groupBy);
+  // A category's value across its series: their total when the measure
+  // adds up, the greatest of them otherwise. One without a value is last.
+  const worth = new Map<string, number>();
+  for (const [key, cell] of byKey) {
+    const values = [...cell.values()].filter(
+      (value): value is number => value !== null,
+    );
+    if (values.length === 0) continue;
+    worth.set(
+      key,
+      ADDITIVE.has(config.fn)
+        ? values.reduce((sum, value) => sum + value, 0)
+        : Math.max(...values),
+    );
+  }
+  const byValue = (left: string, right: string) => {
+    const a = worth.get(left);
+    const b = worth.get(right);
+    if (a === undefined || b === undefined) {
+      return a === b ? ownOrder(left, right) : a === undefined ? 1 : -1;
+    }
+    return b - a || ownOrder(left, right);
+  };
   const allCategories = [...byKey.keys()].sort(
-    keyOrder(columns, config.groupBy),
+    config.order === "value" ? byValue : ownOrder,
   );
-  const categories = allCategories.slice(0, MAX_CATEGORIES);
+  const categories = allCategories.slice(
+    0,
+    Math.min(config.limit ?? MAX_CHART_CATEGORIES, MAX_CHART_CATEGORIES),
+  );
   const ranked = [...seriesTotal.keys()].sort(
     (left, right) =>
       (seriesTotal.get(right) ?? 0) - (seriesTotal.get(left) ?? 0),

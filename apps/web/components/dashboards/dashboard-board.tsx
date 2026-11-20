@@ -1,4 +1,8 @@
-import { DEFAULT_HISTOGRAM_BINS, MAX_HISTOGRAM_BINS } from "@anygriddb/core";
+import {
+  DEFAULT_HISTOGRAM_BINS,
+  MAX_CHART_CATEGORIES,
+  MAX_HISTOGRAM_BINS,
+} from "@anygriddb/core";
 import {
   Button,
   cn,
@@ -45,7 +49,12 @@ import {
   widgetCell,
 } from "./widget-layout";
 import { ViewWidget } from "./view-widget";
-import { embeddedViewId, measuredColumn } from "./widget-view";
+import {
+  categoriesAsked,
+  embeddedViewId,
+  measureAddsUp,
+  measuredColumn,
+} from "./widget-view";
 import { DashboardHistory, type WidgetBody } from "./dashboard-history";
 import { useWidgetDrag, useWidgetDrop } from "./widget-drag";
 import { useUndo } from "../grid/use-undo";
@@ -827,6 +836,16 @@ function WidgetForm(props: {
   );
   const [seriesBy, setSeriesBy] = useState(configString(config, "seriesBy"));
   const [fn, setFn] = useState(configString(config, "fn") || "count_all");
+  const [byValue, setByValue] = useState(config.order === "value");
+  const [shown, setShown] = useState(
+    typeof config.limit === "number" ? String(config.limit) : "",
+  );
+  const [sideBySide, setSideBySide] = useState(config.sideBySide === true);
+  const most = String(MAX_CHART_CATEGORIES);
+  // Shares are each of the whole, largest first: nothing to choose there.
+  const ordered = chartType !== "pie" && chartType !== "histogram";
+  // Series that add up stand one on another, or side by side.
+  const stackable = ordered && Boolean(seriesBy) && measureAddsUp(fn);
   const [busy, setBusy] = useState(false);
 
   const embedded = embeddedViewId(views, viewId);
@@ -862,6 +881,12 @@ function WidgetForm(props: {
                   // Counting rows needs no field; any other measure reads one.
                   ...(fn === "count_all" ? {} : { column }),
                   ...(seriesBy ? { seriesBy } : {}),
+                  ...(ordered && byValue ? { order: "value" } : {}),
+                  ...(ordered &&
+                  categoriesAsked(shown, MAX_CHART_CATEGORIES) !== null
+                    ? { limit: categoriesAsked(shown, MAX_CHART_CATEGORIES) }
+                    : {}),
+                  ...(stackable && sideBySide ? { sideBySide: true } : {}),
                   ...(viewId ? { viewId } : {}),
                 }
             : { tableId, viewId: embedded };
@@ -1111,6 +1136,59 @@ function WidgetForm(props: {
                     ))}
                 </Select>
               </div>
+              {stackable ? (
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="chart-stack">{t`Series are drawn`}</Label>
+                  <Select
+                    id="chart-stack"
+                    value={sideBySide ? "beside" : "stacked"}
+                    onChange={(event) =>
+                      setSideBySide(event.target.value === "beside")
+                    }
+                  >
+                    <option value="stacked">{t`One on another`}</option>
+                    <option value="beside">{t`Side by side`}</option>
+                  </Select>
+                </div>
+              ) : null}
+              {ordered ? (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="chart-order">{t`Order`}</Label>
+                    <Select
+                      id="chart-order"
+                      value={byValue ? "value" : "field"}
+                      onChange={(event) =>
+                        setByValue(event.target.value === "value")
+                      }
+                    >
+                      <option value="field">{t`As the field orders them`}</option>
+                      <option value="value">{t`Largest value first`}</option>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="chart-shown">{t`Categories shown`}</Label>
+                    <Input
+                      id="chart-shown"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={MAX_CHART_CATEGORIES}
+                      step={1}
+                      placeholder={most}
+                      aria-describedby="chart-shown-hint"
+                      value={shown}
+                      onChange={(event) => setShown(event.target.value)}
+                    />
+                    <p
+                      id="chart-shown-hint"
+                      className="text-xs text-muted-foreground"
+                    >
+                      {t`The first of that order. Empty: up to ${most}.`}
+                    </p>
+                  </div>
+                </>
+              ) : null}
             </>
           )}
         </>
