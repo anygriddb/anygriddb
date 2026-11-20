@@ -1,6 +1,6 @@
 {
   "name": "anygriddb-root",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "AnyGridDB — open-source spreadsheet databases (AGPL-3.0, no paid feature locks)",
   "private": true,
   "type": "module",
