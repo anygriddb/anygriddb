@@ -629,6 +629,12 @@ test.describe("undo with the panel open", () => {
     await expect(bob).toHaveAttribute("aria-selected", "true");
     await page.keyboard.press("Escape");
     await expect(cell(page, "related")).toContainText("Bob");
+    // A cell that holds several things is named by them, one after
+    // another, and shows the same words: its chips, read as text, ran
+    // together ("RedGreen"), which its name does not hold.
+    await expect(cell(page, "tags")).toHaveAccessibleName("Tags: Red, Green");
+    await expect(cell(page, "tags")).toHaveText("Red Green");
+    expect(await accessibilityViolations(page)).toEqual([]);
     expect(blocked).toEqual([]);
   });
 });
