@@ -10,10 +10,67 @@ import {
 } from "./view-read";
 
 const columns = [
-  { name: "name", fieldType: "text", kind: "text", access: "write" },
-  { name: "stage", fieldType: "single_select", kind: "text", access: "write" },
-  { name: "tags", fieldType: "multi_select", kind: "text", access: "write" },
-  { name: "total", fieldType: "formula", kind: "number", access: "write" },
+  {
+    name: "name",
+    fieldType: "text",
+    kind: "text",
+    access: "write",
+    config: {},
+  },
+  {
+    name: "stage",
+    fieldType: "single_select",
+    kind: "text",
+    access: "write",
+    config: { options: [{ name: "Idea" }, { name: "Draft" }] },
+  },
+  {
+    name: "tags",
+    fieldType: "multi_select",
+    kind: "text",
+    access: "write",
+    config: { options: [{ name: "a" }, { name: "b" }] },
+  },
+  {
+    name: "total",
+    fieldType: "formula",
+    kind: "number",
+    access: "write",
+    config: {},
+  },
+] as unknown as CatalogColumn[];
+
+/** Fields that take only what is written their way. */
+const typed = [
+  ...columns,
+  {
+    name: "mail",
+    fieldType: "email",
+    kind: "text",
+    access: "write",
+    config: {},
+  },
+  {
+    name: "amount",
+    fieldType: "number",
+    kind: "number",
+    access: "write",
+    config: {},
+  },
+  {
+    name: "done",
+    fieldType: "boolean",
+    kind: "boolean",
+    access: "write",
+    config: {},
+  },
+  {
+    name: "owner",
+    fieldType: "user",
+    kind: "text",
+    access: "write",
+    config: {},
+  },
 ] as unknown as CatalogColumn[];
 
 const scope = {
@@ -152,6 +209,72 @@ describe("prefillFromFilter", () => {
         columns,
       ),
     ).toEqual({ name: "Alpha", tags: ["a"] });
+  });
+
+  it("gives nothing for a condition that has no value yet", () => {
+    // "Filter by this field" adds the condition before anything is typed,
+    // and a read leaves it out: the new row starts without it too.
+    expect(
+      prefillFromFilter(
+        {
+          conjunction: "and",
+          conditions: [
+            { column: "name", op: "is", value: "" },
+            { column: "stage", op: "is", value: "" },
+            { column: "mail", op: "is", value: "" },
+            { column: "amount", op: "is", value: "" },
+          ],
+        },
+        typed,
+      ),
+    ).toEqual({});
+  });
+
+  it("gives a value its field takes, and none it would refuse", () => {
+    expect(
+      prefillFromFilter(
+        {
+          conjunction: "and",
+          conditions: [
+            { column: "mail", op: "is", value: "ada@example.org" },
+            { column: "amount", op: "is", value: "12.5" },
+            { column: "done", op: "is", value: true },
+          ],
+        },
+        typed,
+      ),
+    ).toEqual({ mail: "ada@example.org", amount: "12.5", done: true });
+    // Half an address, a word for a number, "me" for a person, an option
+    // the list no longer has: what a filter may hold and a cell may not.
+    // The row is made without them.
+    expect(
+      prefillFromFilter(
+        {
+          conjunction: "and",
+          conditions: [
+            { column: "mail", op: "is", value: "ada@" },
+            { column: "amount", op: "is", value: "many" },
+            { column: "owner", op: "is", value: "me" },
+            { column: "stage", op: "is", value: "Published" },
+            { column: "tags", op: "has_any_of", value: ["gone", "a"] },
+            { column: "name", op: "is", value: "Alpha" },
+          ],
+        },
+        typed,
+      ),
+    ).toEqual({ name: "Alpha", tags: ["a"] });
+    expect(
+      prefillFromFilter(
+        {
+          conjunction: "and",
+          conditions: [
+            { column: "stage", op: "is", value: "Draft" },
+            { column: "tags", op: "has_any_of", value: ["b", "a"] },
+          ],
+        },
+        typed,
+      ),
+    ).toEqual({ stage: "Draft", tags: ["b"] });
   });
 
   it("gives nothing under an “or”, for a computed field, or for another condition", () => {

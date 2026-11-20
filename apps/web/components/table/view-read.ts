@@ -1,4 +1,4 @@
-import type { FilterGroup } from "@anygriddb/core";
+import { assertCellValue, type FilterGroup } from "@anygriddb/core";
 import type { CatalogColumn, ViewConfig } from "../../lib/types";
 import { isEditableColumn } from "../grid/grid-clipboard";
 import type { Groups, RowsLayout, RowsQuery } from "../grid/use-rows";
@@ -90,7 +90,23 @@ export function countsByDay(groups: Groups): Map<string, number> {
   );
 }
 
-/** Values a new row takes so it stays visible in a filtered view. */
+/** Whether a field takes a value as a cell: what the server asks of a row. */
+function takes(column: CatalogColumn, value: CellValue): boolean {
+  try {
+    assertCellValue(column, value);
+    return true;
+  } catch {
+    // A filter holds what a cell may not: half an address, "me".
+    return false;
+  }
+}
+
+/**
+ * Values a new row takes so it stays visible in a filtered view. A
+ * condition with nothing typed yet asks nothing, as a read leaves it out;
+ * and a value its field would refuse is left out too: the row is made
+ * without it, where it was refused whole.
+ */
 export function prefillFromFilter(
   filter: FilterGroup | undefined,
   columns: readonly CatalogColumn[],
@@ -107,14 +123,18 @@ export function prefillFromFilter(
         typeof node.value === "number" ||
         typeof node.value === "boolean")
     ) {
-      values[column.name] = node.value;
+      if (node.value !== "" && takes(column, node.value)) {
+        values[column.name] = node.value;
+      }
     }
     if (
       node.op === "has_any_of" &&
       Array.isArray(node.value) &&
       column.fieldType === "multi_select"
     ) {
-      values[column.name] = node.value.slice(0, 1);
+      // The first of them the list still has.
+      const kept = node.value.find((option) => takes(column, [option]));
+      if (kept !== undefined) values[column.name] = [kept];
     }
   }
   return values;

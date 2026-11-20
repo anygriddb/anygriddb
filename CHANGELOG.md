@@ -57,6 +57,12 @@ first.
   account's action, was reported to the operator as a failure in a
   browser. Giving the proof up before an emergency switch showed an
   error: it now leaves things as they were, with nothing to say.
+- A row is added to a view that filters on a field with nothing typed
+  yet. "Filter by this field", in a field's menu, keeps the condition
+  as soon as it is chosen: until a value was typed, "Add a row" was
+  refused with "Invalid cell" for any field but a text, since the new
+  row took the empty value of the condition. A new row now takes from
+  the view's filter only what its fields accept.
 
 ## 0.3.1 - 2026-11-20
 
