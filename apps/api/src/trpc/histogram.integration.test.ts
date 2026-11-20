@@ -133,6 +133,8 @@ describe("a histogram on a dashboard", () => {
       fn: "count_all",
       keyTypes: { category: "number", series: null },
       bounds: { lo: 0, hi: 100 },
+      // Bins stand each on its own: a histogram has no series.
+      sideBySide: false,
       // A bin's place; the page names it by its bounds.
       categories: ["0", "1", "2", "3"],
       // 25 is in the second bin, both 100 in the last; the row without
