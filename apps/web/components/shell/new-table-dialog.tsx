@@ -10,6 +10,7 @@ import { useState, type SubmitEvent } from "react";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
+import { useAction } from "./dialogs";
 
 type NewTableStyle = "starter" | "blank";
 
@@ -58,7 +59,7 @@ export function NewTableDialog(props: {
   onCreate: (input: {
     name: string;
     columns: ReturnType<typeof newTableColumns>;
-  }) => Promise<void>;
+  }) => unknown;
 }) {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -74,9 +75,10 @@ function NewTableForm(props: {
   onCreate: (input: {
     name: string;
     columns: ReturnType<typeof newTableColumns>;
-  }) => Promise<void>;
+  }) => unknown;
 }) {
   const { t } = useLingui();
+  const run = useAction();
   const [name, setName] = useState("");
   const [style, setStyle] = useState<NewTableStyle>("starter");
   const [busy, setBusy] = useState(false);
@@ -85,18 +87,14 @@ function NewTableForm(props: {
     event.preventDefault();
     if (!name.trim()) return;
     setBusy(true);
-    try {
-      await props.onCreate({
+    const done = await run(() =>
+      props.onCreate({
         name: name.trim(),
         columns: newTableColumns((descriptor) => t(descriptor), style),
-      });
-      props.onOpenChange(false);
-    } catch {
-      // The caller told why; the dialog stays open to try again.
-      return;
-    } finally {
-      setBusy(false);
-    }
+      }),
+    );
+    setBusy(false);
+    if (done) props.onOpenChange(false);
   }
 
   return (

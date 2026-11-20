@@ -270,20 +270,15 @@ export function BaseAdminMembers({
           description={t`They lose their own role on the base and its tables at once, and their open pages reload. A role a group gives them stays.`}
           confirmLabel={t`Remove`}
           onConfirm={async () => {
-            try {
-              if (!(await stepUp.ensure())) return;
-              await trpc.admin.removeBaseRole.mutate({
-                userId: removing.userId,
-                baseId,
-              });
-              await refresh();
-              toast.success(
-                t`Removed ${{ name: removing.displayName }} from the base`,
-              );
-            } catch (cause) {
-              toast.error(errorText(cause));
-              throw cause;
-            }
+            if (!(await stepUp.ensure())) return;
+            await trpc.admin.removeBaseRole.mutate({
+              userId: removing.userId,
+              baseId,
+            });
+            await refresh();
+            toast.success(
+              t`Removed ${{ name: removing.displayName }} from the base`,
+            );
           }}
         />
       ) : null}

@@ -5,7 +5,6 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useErrorText } from "../../lib/errors";
 import { formatNumber } from "../../lib/format";
 import { useFormatBytes } from "../../lib/format-bytes";
 import { useLocale, useWhen } from "../../lib/i18n";
@@ -32,7 +31,6 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
   const formatBytes = useFormatBytes();
   const { locale } = useLocale();
   const api = useTRPC();
-  const errorText = useErrorText();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const days = useTrashDays();
@@ -232,17 +230,12 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
           description={t`Its members lose it at once. It stays in the trash for ${{ days }} days with its data, then is deleted permanently.`}
           confirmLabel={t`Move to the trash`}
           onConfirm={async () => {
-            try {
-              await trpc.admin.baseOverview.trash.mutate({ baseId });
-              await queryClient.invalidateQueries({
-                queryKey: api.admin.baseOverview.pathKey(),
-              });
-              toast.success(t`Moved to the trash`);
-              await navigate({ to: "/admin/bases" });
-            } catch (cause) {
-              toast.error(errorText(cause));
-              throw cause;
-            }
+            await trpc.admin.baseOverview.trash.mutate({ baseId });
+            await queryClient.invalidateQueries({
+              queryKey: api.admin.baseOverview.pathKey(),
+            });
+            toast.success(t`Moved to the trash`);
+            await navigate({ to: "/admin/bases" });
           }}
         />
       ) : null}

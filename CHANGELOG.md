@@ -51,6 +51,12 @@ first.
   renewed with the key it has, when a service joins the stack and in
   its last year: what runs stays verified, and nothing needs a
   restart.
+- A dialog whose action is refused says so once and stays open, and
+  the instance is no longer told that a page failed. An address typed
+  wrong in "Delete the account", or the proof given up before an
+  account's action, was reported to the operator as a failure in a
+  browser. Giving the proof up before an emergency switch showed an
+  error: it now leaves things as they were, with nothing to say.
 
 ## 0.3.1 - 2026-11-20
 

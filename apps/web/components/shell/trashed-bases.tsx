@@ -2,7 +2,7 @@ import { Button, Input, Label } from "@anygriddb/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Database, RotateCcw, Trash2 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useTrackJob } from "../../lib/jobs";
 import { useTrashActions, useTrashDays } from "../../lib/trash";
@@ -32,7 +32,6 @@ export function TrashedBases() {
   const session = useSession();
   const [purging, setPurging] = useState<Entry | null>(null);
   const [schemaName, setSchemaName] = useState("");
-  const holdPurge = useRef(false);
   const items = list.data?.items ?? [];
   if (items.length === 0) return null;
 
@@ -98,7 +97,6 @@ export function TrashedBases() {
               variant="ghost"
               aria-label={t`Delete ${{ name: entry.name }} permanently`}
               onClick={() => {
-                holdPurge.current = false;
                 setSchemaName("");
                 setPurging(entry);
               }}
@@ -120,15 +118,13 @@ export function TrashedBases() {
               : t`The data and attached files will be erased. The audit history is kept.`
           }
           confirmLabel={t`Delete permanently`}
-          holdOpen={() => holdPurge.current}
           onConfirm={() => {
             const typed = schemaName.trim();
-            holdPurge.current = Boolean(typed && typed !== purging.homeSchema);
-            if (holdPurge.current) {
+            if (typed && typed !== purging.homeSchema) {
               toast.error(
                 t`That is not the schema's name, so the base was not deleted.`,
               );
-              return;
+              return false;
             }
             void purge(
               purging,

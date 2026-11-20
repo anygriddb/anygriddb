@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { toast } from "sonner";
 import { formatDate } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import { useCatalog } from "../../lib/session";
@@ -19,7 +18,6 @@ import { trpc } from "../../lib/trpc";
 import { canManage } from "../../lib/types";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
-import { useErrorText } from "../../lib/errors";
 import { LoadFailed } from "./load-failed";
 import { NewTableDialog } from "./new-table-dialog";
 import { EmptyState, NotebookPage } from "./notebook-page";
@@ -31,7 +29,6 @@ import { useInvalidateCatalog } from "./sidebar";
  */
 export function BaseHome({ baseId }: { baseId: string }) {
   const { t } = useLingui();
-  const errorText = useErrorText();
   const navigate = useNavigate();
   const catalog = useCatalog();
   const invalidate = useInvalidateCatalog();
@@ -215,21 +212,16 @@ export function BaseHome({ baseId }: { baseId: string }) {
         onOpenChange={setCreating}
         title={t`New table in ${{ name: base.name }}`}
         onCreate={async ({ name, columns }) => {
-          try {
-            const created = await trpc.catalog.createTable.mutate({
-              baseId,
-              name,
-              columns,
-            });
-            await invalidate();
-            void navigate({
-              to: "/b/$baseId/t/$tableId/{-$viewId}",
-              params: { baseId, tableId: created.id },
-            });
-          } catch (cause) {
-            toast.error(errorText(cause));
-            throw cause;
-          }
+          const created = await trpc.catalog.createTable.mutate({
+            baseId,
+            name,
+            columns,
+          });
+          await invalidate();
+          void navigate({
+            to: "/b/$baseId/t/$tableId/{-$viewId}",
+            params: { baseId, tableId: created.id },
+          });
         }}
       />
     </NotebookPage>

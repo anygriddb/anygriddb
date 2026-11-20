@@ -138,14 +138,9 @@ export function OpenBase({
         submitLabel={t`Open for an hour`}
         multiline
         onSubmit={async (reason) => {
-          try {
-            await trpc.admin.baseOverview.open.mutate({ baseId, reason });
-            await refresh();
-            toast.success(t`The base is open to you for an hour`);
-          } catch (cause) {
-            toast.error(errorText(cause));
-            throw cause;
-          }
+          await trpc.admin.baseOverview.open.mutate({ baseId, reason });
+          await refresh();
+          toast.success(t`The base is open to you for an hour`);
         }}
       >
         <p className="text-sm text-muted-foreground">
