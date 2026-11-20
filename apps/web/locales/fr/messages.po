@@ -3856,6 +3856,10 @@ msgstr "Supprimer la table « {name} » ?"
 msgid "Delete the view “{name}”?"
 msgstr "Supprimer la vue « {name} » ?"
 
+#: components/settings/webhooks-panel.tsx
+msgid "Delete the webhook “{name}”?"
+msgstr "Supprimer le webhook « {name} » ?"
+
 #: components/admin/base-admin-page.tsx
 msgid "Delete this base"
 msgstr "Supprimer cette base"
@@ -5992,6 +5996,10 @@ msgstr "Elle n’a pas encore été lue."
 #: lib/trash.tsx
 msgid "It stays in the trash for {days} days."
 msgstr "Il reste {days} jours dans la corbeille."
+
+#: components/settings/webhooks-panel.tsx
+msgid "It stops at once, and its delivery log goes with it. A deleted webhook cannot be brought back."
+msgstr "Il s’arrête aussitôt, et son journal des envois disparaît avec lui. Un webhook supprimé ne peut pas être rétabli."
 
 #: components/admin/notifications-tab.tsx
 msgid "It stops receiving events. Past deliveries are kept until they expire."
