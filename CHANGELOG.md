@@ -8,6 +8,14 @@ first.
 
 ## Unreleased
 
+## 0.3.0 - 2026-11-20
+
+**Before upgrading:** an instance that declared a SQLite file as a
+source deletes it first, with 0.2.0 still in place: the source's tables
+from their bases, then from each base's trash, then the source itself,
+in Administration ("Removed", below). The upgrade refuses to start
+while one is declared, says so, and changes nothing.
+
 ### Added
 
 - A dashboard's widget for a view shows the view's rows: the first
