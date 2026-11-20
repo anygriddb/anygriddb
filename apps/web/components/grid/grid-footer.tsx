@@ -1,8 +1,4 @@
-import {
-  aggregateFunctionsFor,
-  cellText,
-  isDecimalString,
-} from "@anygriddb/core";
+import { aggregateFunctionsFor } from "@anygriddb/core";
 import {
   cn,
   DropdownMenu,
@@ -12,7 +8,7 @@ import {
   Tooltip,
 } from "@anygriddb/ui";
 import { GUTTER, marginColumn } from "./margin-column";
-import { formatDate, formatNumber } from "../../lib/format";
+import { formatAggregate } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import type { CatalogColumn } from "../../lib/types";
 import { useLingui } from "@lingui/react/macro";
@@ -42,42 +38,6 @@ const AGGREGATE_LABELS: Record<string, MessageDescriptor> = {
   percent_checked: msg`% checked`,
   percent_unchecked: msg`% unchecked`,
 };
-
-function formatAggregate(
-  value: unknown,
-  fn: string,
-  column: CatalogColumn,
-  locale: "fr" | "en",
-): string {
-  if (value === null || value === undefined) return "—";
-  // Sums, means, and extremes of exact numbers come as decimal text.
-  if (typeof value === "number" || isDecimalString(value)) {
-    if (fn.startsWith("percent"))
-      return `${formatNumber(value, locale, { precision: 1 })} %`;
-    if (
-      fn === "sum" ||
-      fn === "avg" ||
-      fn === "median" ||
-      fn === "min" ||
-      fn === "max" ||
-      fn === "std_dev"
-    ) {
-      return formatNumber(
-        value,
-        locale,
-        (column.config as { number?: Parameters<typeof formatNumber>[2] })
-          .number,
-      );
-    }
-    return formatNumber(value, locale, {
-      precision: fn === "date_range_days" ? 1 : 0,
-    });
-  }
-  if (typeof value === "string" && (fn === "earliest" || fn === "latest")) {
-    return formatDate(value, locale, undefined, column.kind === "datetime");
-  }
-  return cellText(value);
-}
 
 export function GridFooter(props: {
   columns: readonly CatalogColumn[];

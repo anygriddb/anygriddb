@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatAggregate,
   formatAgo,
   formatClock,
   formatDay,
@@ -43,5 +44,50 @@ describe("an instant, written for a person", () => {
     expect(intlLocale("en-US")).toBe("en-GB");
     expect(intlLocale("de")).toBe("en-GB");
     expect(formatDay(new Date(2026, 3, 3), "en-US")).toBe("03/04/2026");
+  });
+});
+
+describe("formatAggregate", () => {
+  /** Intl parts a number with narrow and no-break spaces: read as one kind. */
+  const plain = (text: string) => text.replace(/\s/g, " ");
+  const euros = {
+    kind: "number",
+    config: { number: { style: "currency", currency: "EUR", precision: 2 } },
+  } as const;
+  const bare = { kind: "number", config: {} } as const;
+
+  it("writes a sum, a mean, or an extreme of a field as the field is written", () => {
+    expect(plain(formatAggregate("1234.5", "sum", euros, "fr"))).toBe(
+      "1 234,50 €",
+    );
+    expect(formatAggregate("1234.5", "max", euros, "en")).toBe("€1,234.50");
+  });
+
+  it("writes a count or a share of a field of euros as a number, not as euros", () => {
+    expect(formatAggregate(42, "count_filled", euros, "en")).toBe("42");
+    expect(formatAggregate("87.5", "percent_filled", euros, "en")).toBe(
+      "87.5 %",
+    );
+  });
+
+  it("holds a field with no precision to the decimals it is given", () => {
+    expect(formatAggregate("12.3333333333", "avg", bare, "en", 2)).toBe(
+      "12.33",
+    );
+    expect(formatAggregate("1234", "sum", bare, "en", 2)).toBe("1,234");
+    // A precision the field sets is the field's own.
+    expect(formatAggregate("12.3333", "avg", euros, "en", 0)).toBe("€12.33");
+  });
+
+  it("writes a number without its field, and a dash for no value", () => {
+    expect(formatAggregate("1234.5", "sum", undefined, "en")).toBe("1,234.5");
+    expect(formatAggregate(null, "sum", euros, "en")).toBe("—");
+  });
+
+  it("writes the earliest and the latest as dates", () => {
+    const day = { kind: "date", config: {} } as const;
+    expect(formatAggregate("2026-04-03", "earliest", day, "en")).toMatch(
+      /^03\/04\/2026$/,
+    );
   });
 });

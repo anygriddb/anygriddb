@@ -59,15 +59,19 @@ function numeric(value: number | string): number | Intl.StringNumericLiteral {
  * Formats a number for display. A decimal string is formatted exactly:
  * Intl reads it as written, without going through a float (ADR 0023).
  */
+export type NumberFormat = {
+  precision?: number;
+  style?: "decimal" | "percent" | "currency";
+  currency?: string;
+  thousands?: boolean;
+  /** The most decimals shown where no precision is set: 10 unless said. */
+  maxDecimals?: number;
+};
+
 export function formatNumber(
   value: number | string,
   locale: Locale,
-  format?: {
-    precision?: number;
-    style?: "decimal" | "percent" | "currency";
-    currency?: string;
-    thousands?: boolean;
-  },
+  format?: NumberFormat,
 ): string {
   const style = format?.style ?? "decimal";
   const options: Intl.NumberFormatOptions = {
@@ -77,7 +81,7 @@ export function formatNumber(
     options.minimumFractionDigits = format.precision;
     options.maximumFractionDigits = format.precision;
   } else {
-    options.maximumFractionDigits = 10;
+    options.maximumFractionDigits = format?.maxDecimals ?? 10;
   }
   if (style === "percent") {
     return `${new Intl.NumberFormat(localeTag(locale), options).format(numeric(value))} %`;
@@ -98,6 +102,67 @@ export function formatNumber(
   return new Intl.NumberFormat(localeTag(locale), options).format(
     numeric(value),
   );
+}
+
+/** Aggregates whose result is a value of the field: written as the field is. */
+const VALUE_AGGREGATES = new Set([
+  "sum",
+  "avg",
+  "median",
+  "min",
+  "max",
+  "std_dev",
+]);
+
+/** The format a field's numbers are written in, if it sets one. */
+export function numberFormatOf(
+  column: Pick<CatalogColumn, "config"> | undefined,
+): NumberFormat | undefined {
+  return column?.config.number;
+}
+
+/**
+ * Whether an aggregate of a field is written in the field's format: a sum
+ * of euros is euros, a count of them is a number.
+ */
+export function aggregateKeepsFormat(fn: string): boolean {
+  return VALUE_AGGREGATES.has(fn);
+}
+
+/**
+ * An aggregate as people read it, in a grid's footer and on a dashboard:
+ * a value of the field in the field's format, a share as a percentage, a
+ * count as a whole number, a date as a date. `maxDecimals` holds a value
+ * whose field sets no precision to so many decimals.
+ */
+export function formatAggregate(
+  value: unknown,
+  fn: string,
+  column: Pick<CatalogColumn, "kind" | "config"> | undefined,
+  locale: Locale,
+  maxDecimals?: number,
+): string {
+  if (value === null || value === undefined) return "—";
+  // Sums, means, and extremes of exact numbers come as decimal text.
+  if (typeof value === "number" || isDecimalString(value)) {
+    if (fn.startsWith("percent"))
+      return `${formatNumber(value, locale, { precision: 1 })} %`;
+    if (aggregateKeepsFormat(fn)) {
+      const format = numberFormatOf(column);
+      return formatNumber(
+        value,
+        locale,
+        maxDecimals === undefined ? format : { ...format, maxDecimals },
+      );
+    }
+    return formatNumber(value, locale, {
+      precision: fn === "date_range_days" ? 1 : 0,
+    });
+  }
+  if (typeof value === "string" && (fn === "earliest" || fn === "latest")) {
+    return formatDate(value, locale, undefined, column?.kind === "datetime");
+  }
+  return cellText(value);
 }
 
 export function formatDate(

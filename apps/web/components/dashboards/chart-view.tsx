@@ -19,6 +19,7 @@ import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { sortRows } from "../../lib/sort-rows";
 import { SortHeader, useColumnSort } from "../sort-header";
+import { axisFormat } from "./axis-format";
 import { binLabels } from "./histogram-bins";
 import {
   useEffect,
@@ -27,7 +28,13 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { intlLocale } from "../../lib/format";
+import {
+  aggregateKeepsFormat,
+  formatNumber,
+  intlLocale,
+  type NumberFormat,
+} from "../../lib/format";
+import { useLocale } from "../../lib/i18n";
 
 echarts.use([
   BarChart,
@@ -129,8 +136,14 @@ function shares(data: ChartData): ChartData {
   };
 }
 
-export function ChartView(props: { data: ChartData; title: string }) {
+export function ChartView(props: {
+  data: ChartData;
+  title: string;
+  /** The format of the field the chart measures, if it sets one. */
+  numberFormat?: NumberFormat;
+}) {
   const { t, i18n } = useLingui();
+  const { locale } = useLocale();
   const ref = useRef<HTMLDivElement>(null);
   const theme = useThemeName();
   // The same values as a table, in the chart's place: never squeezed.
@@ -182,21 +195,23 @@ export function ChartView(props: { data: ChartData; title: string }) {
     return pie ? shares(named) : named;
   }, [pie, props.data, keyLabel, i18n.locale]);
   const percent = pie || PERCENT.has(props.data.fn);
-  const format = useMemo(() => {
-    const plain = new Intl.NumberFormat(i18n.locale, {
-      maximumFractionDigits: 2,
-    });
-    return (value: number | null) =>
-      value === null ? "—" : `${plain.format(value)}${percent ? " %" : ""}`;
-  }, [i18n.locale, percent]);
-  const compact = useMemo(() => {
-    const short = new Intl.NumberFormat(i18n.locale, {
-      notation: "compact",
-      maximumFractionDigits: 1,
-    });
-    return (value: number) =>
-      `${Math.abs(value) >= 10_000 ? short.format(value) : new Intl.NumberFormat(i18n.locale).format(value)}${percent ? " %" : ""}`;
-  }, [i18n.locale, percent]);
+  // A sum or a mean of a field is written as the field is, euros as
+  // euros; a count or a share of rows is a number of its own.
+  const fieldFormat =
+    !pie && aggregateKeepsFormat(props.data.fn)
+      ? props.numberFormat
+      : undefined;
+  const format = useMemo(
+    () => (value: number | null) =>
+      value === null
+        ? "—"
+        : `${formatNumber(value, locale, { ...fieldFormat, maxDecimals: 2 })}${percent ? " %" : ""}`,
+    [locale, percent, fieldFormat],
+  );
+  const compact = useMemo(
+    () => axisFormat(intlLocale(locale), fieldFormat, percent),
+    [locale, percent, fieldFormat],
+  );
 
   useEffect(() => {
     const node = ref.current;

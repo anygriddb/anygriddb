@@ -25,3 +25,17 @@ export function rowsLeftOut(
 ): number {
   return total === null || total === undefined ? 0 : Math.max(0, total - shown);
 }
+
+/**
+ * The field a figure or a chart measures, as the catalog holds it: its
+ * format is the one its sum or its mean is written in. None when the
+ * widget counts rows, or when the field is gone or hidden from the reader.
+ */
+export function measuredColumn<Column extends { name: string }>(
+  tables: ReadonlyArray<{ id: string; columns: readonly Column[] }> | undefined,
+  config: Record<string, unknown>,
+): Column | undefined {
+  return tables
+    ?.find((table) => table.id === config.tableId)
+    ?.columns.find((column) => column.name === config.column);
+}
