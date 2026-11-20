@@ -17,6 +17,13 @@ import { createTestDatabase } from "../test-database.js";
 import { listTableAcls, setTableAcl } from "./acl.js";
 import { withAudit } from "./audit-context.js";
 import { importBaseSnapshot } from "./base-snapshot.js";
+import {
+  createDashboard,
+  getDashboard,
+  listDashboards,
+  upsertWidget,
+  widgetData,
+} from "./dashboards.js";
 import { snapshotOf } from "./snapshot.test-helpers.js";
 import { loadEngine } from "./engine.js";
 import {
@@ -28,6 +35,7 @@ import {
 import { insertRows, readPage } from "./rows.js";
 import { insertBase, insertTable } from "./schema-ops.js";
 import { openStagedSnapshot, stageSnapshotFile } from "./snapshot-stage.js";
+import { createView } from "./views.js";
 import { isZip, ZipReader } from "./zip.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -244,6 +252,7 @@ describe("snapshots with files and people", () => {
         members: 1,
         membersMissing: 1,
         membersLeft: 0,
+        widgetsLeft: 0,
       });
       const role = await db
         .selectFrom("roleBindings")
@@ -616,5 +625,272 @@ describe("snapshots with files and people", () => {
       folders: [],
       tables: { "": ["Loose", "Quotes", "Old", "Invoices"] },
     });
+  });
+
+  it("keeps the base's dashboards, their widgets reading the new base's tables and views", async () => {
+    const source = (await insertBase(db, owner, { name: "Pilotage" })).id;
+    const tableId = (
+      await insertTable(db, owner, {
+        baseId: source,
+        name: "Orders",
+        columns: [
+          { name: "name", label: "Name", fieldType: "text" },
+          { name: "amount", label: "Amount", fieldType: "number" },
+        ],
+      })
+    ).id;
+    const { engine, rows } = await loadEngine(db, tableId, () => true);
+    const physical = rows.tables.find((item) => item.id === tableId);
+    if (!physical) throw new Error("no table");
+    await insertRows(
+      db,
+      engine,
+      {
+        userId: owner,
+        tableId,
+        physicalName: physical.physicalName,
+        baseId: source,
+        reason: null,
+        source: "test",
+      },
+      [
+        { name: "A", amount: "50" },
+        { name: "B", amount: "150" },
+        { name: "C", amount: "250" },
+      ],
+    );
+    // The grid made with the table, a view everyone has, and one only
+    // its author has: a snapshot holds the first two.
+    const large = await createView(db, engine, owner, {
+      tableId,
+      name: "Large",
+      viewType: "grid",
+      config: {
+        filter: {
+          conjunction: "and",
+          conditions: [{ column: "amount", op: "gt", value: "100" }],
+        },
+      },
+      ownerId: null,
+    });
+    const mine = await createView(db, engine, owner, {
+      tableId,
+      name: "Mine",
+      viewType: "grid",
+      ownerId: owner,
+    });
+
+    const overview = await createDashboard(db, owner, {
+      baseId: source,
+      name: "Overview",
+      description: "The week",
+    });
+    await createDashboard(db, owner, { baseId: source, name: "Empty" });
+    const widget = (
+      title: string,
+      kind: "metric" | "chart" | "view_embed",
+      y: number,
+      config: Record<string, unknown>,
+    ) =>
+      upsertWidget(db, owner, source, {
+        dashboardId: overview.id,
+        title,
+        kind,
+        x: 0,
+        y,
+        w: 6,
+        h: 3,
+        config: { tableId, ...config },
+      });
+    await widget("Large total", "metric", 0, {
+      viewId: large.id,
+      column: "amount",
+      fn: "sum",
+    });
+    await widget("By name", "chart", 3, {
+      groupBy: "name",
+      chartType: "bar",
+      fn: "count_all",
+    });
+    await widget("Large rows", "view_embed", 6, { viewId: large.id });
+    await widget("My total", "metric", 9, {
+      viewId: mine.id,
+      column: "amount",
+      fn: "sum",
+    });
+
+    /** A base's dashboards as a reader finds them, ids apart. */
+    const boardsOf = async (ofBase: string) => {
+      const table = await db
+        .selectFrom("dataTables")
+        .select("id")
+        .where("baseId", "=", ofBase)
+        .executeTakeFirstOrThrow();
+      const views = await db
+        .selectFrom("views")
+        .select(["id", "name"])
+        .where("tableId", "=", table.id)
+        .execute();
+      const viewName = new Map(views.map((view) => [view.id, view.name]));
+      const boards = [];
+      for (const listed of await listDashboards(db, ofBase)) {
+        const { widgets } = await getDashboard(db, listed.id);
+        boards.push({
+          name: listed.name,
+          description: listed.description,
+          widgets: widgets.map((item) => {
+            const { tableId: read, viewId, ...settings } = item.config;
+            return {
+              title: item.title,
+              kind: item.kind,
+              place: [item.x, item.y, item.w, item.h],
+              ownTable: read === table.id,
+              view: typeof viewId === "string" ? viewName.get(viewId) : null,
+              settings,
+            };
+          }),
+          rows: widgets,
+        });
+      }
+      return boards;
+    };
+    const kept = [
+      {
+        name: "Overview",
+        description: "The week",
+        widgets: [
+          {
+            title: "Large total",
+            kind: "metric",
+            place: [0, 0, 6, 3],
+            ownTable: true,
+            view: "Large",
+            settings: { column: "amount", fn: "sum" },
+          },
+          {
+            title: "By name",
+            kind: "chart",
+            place: [0, 3, 6, 3],
+            ownTable: true,
+            view: null,
+            settings: { groupBy: "name", chartType: "bar", fn: "count_all" },
+          },
+          {
+            title: "Large rows",
+            kind: "view_embed",
+            place: [0, 6, 6, 3],
+            ownTable: true,
+            view: "Large",
+            settings: {},
+          },
+        ],
+      },
+      { name: "Empty", description: null, widgets: [] },
+    ];
+    const plain = (boards: Awaited<ReturnType<typeof boardsOf>>) =>
+      boards.map(({ rows: _rows, ...board }) => board);
+
+    // The schema alone: the dashboards, each widget by its table's key
+    // and its view's rank, and the one the file could not hold counted.
+    const schema = await snapshotOf(db, files, source, { withData: false });
+    await schema.close();
+    expect(schema.snapshot.dashboards).toEqual([
+      {
+        name: "Overview",
+        description: "The week",
+        left: 1,
+        widgets: [
+          {
+            title: "Large total",
+            kind: "metric",
+            x: 0,
+            y: 0,
+            w: 6,
+            h: 3,
+            table: "orders",
+            view: 1,
+            config: { column: "amount", fn: "sum" },
+          },
+          {
+            title: "By name",
+            kind: "chart",
+            x: 0,
+            y: 3,
+            w: 6,
+            h: 3,
+            table: "orders",
+            config: { groupBy: "name", chartType: "bar", fn: "count_all" },
+          },
+          {
+            title: "Large rows",
+            kind: "view_embed",
+            x: 0,
+            y: 6,
+            w: 6,
+            h: 3,
+            table: "orders",
+            view: 1,
+            config: {},
+          },
+        ],
+      },
+      { name: "Empty", widgets: [] },
+    ]);
+    if (schema.packed.kind !== "json") throw new Error("not a JSON snapshot");
+    // No id of the base it leaves is written with them.
+    const written = schema.packed.bytes.toString("utf8");
+    expect(written).not.toContain(tableId);
+    expect(written).not.toContain(large.id);
+
+    const copy = await importBaseSnapshot(db, files, owner, schema.snapshot, {
+      maxRows: 1_000_000,
+    });
+    expect(plain(await boardsOf(copy.baseId))).toEqual(kept);
+    expect(copy.report.widgetsLeft).toBe(1);
+
+    // With its rows: the figure of the new base is read from its own
+    // table, through its own view.
+    const archived = await snapshotOf(db, files, source, { withData: true });
+    try {
+      expect(archived.snapshot.dashboards).toEqual(schema.snapshot.dashboards);
+      const restored = await importBaseSnapshot(
+        db,
+        files,
+        owner,
+        archived.snapshot,
+        { maxRows: 1_000_000, readLines: archived.readLines },
+      );
+      const boards = await boardsOf(restored.baseId);
+      expect(plain(boards)).toEqual(kept);
+      const figure = boards[0]?.rows.find((row) => row.title === "Large total");
+      if (!figure) throw new Error("no figure");
+      const read = await widgetData(
+        { db },
+        {
+          widget: figure,
+          userId: owner,
+          bindings: [
+            { role: "owner", scope: "base", scopeId: restored.baseId },
+          ],
+          canReadTable: () => true,
+          timeZone: "UTC",
+        },
+      );
+      expect(read).toMatchObject({ kind: "metric", value: "400" });
+    } finally {
+      await archived.close();
+    }
+
+    // A base without dashboards gives the snapshot it always gave, and
+    // brings none.
+    const bare = await snapshotOf(db, files, baseId, { withData: false });
+    await bare.close();
+    if (bare.packed.kind !== "json") throw new Error("not a JSON snapshot");
+    expect(bare.packed.bytes.toString("utf8")).not.toMatch(/"dashboards":/);
+    const none = await importBaseSnapshot(db, files, owner, bare.snapshot, {
+      maxRows: 1_000_000,
+    });
+    expect(await listDashboards(db, none.baseId)).toEqual([]);
+    expect(none.report.widgetsLeft).toBe(0);
   });
 });

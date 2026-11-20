@@ -581,6 +581,10 @@ msgstr "{count, plural, one {Une intégration échoue et ne reçoit plus d’év
 msgid "{count, plural, one {Expose # table} other {Expose # tables}}"
 msgstr "{count, plural, one {Exposer # table} other {Exposer # tables}}"
 
+#: components/shell/new-base-dialog.tsx
+msgid "{dashboards, plural, one {# dashboard} other {# dashboards}}"
+msgstr "{dashboards, plural, one {# tableau de bord} other {# tableaux de bord}}"
+
 #: components/settings/account-settings.tsx
 msgid "{days} days"
 msgstr "{days} jours"
@@ -903,6 +907,10 @@ msgstr "{value} par page"
 msgid "{visible, plural, one {# visible row} other {# visible rows}}"
 msgstr "{visible, plural, one {# ligne visible} other {# lignes visibles}}"
 
+#: lib/snapshot-report.ts
+msgid "{widgets, plural, one {# widget that reads a source's table or a personal view, left out of its dashboard} other {# widgets that read a source's table or a personal view, left out of their dashboards}}"
+msgstr "{widgets, plural, one {# widget qui lit la table d’une source ou une vue personnelle, laissé hors de son tableau de bord} other {# widgets qui lisent la table d’une source ou une vue personnelle, laissés hors de leur tableau de bord}}"
+
 #: components/admin/account-export.tsx
 msgid "{writes} writes, {comments} comments, {events} account events. Cell values and comment texts stay out of the file."
 msgstr "{writes} écritures, {comments} commentaires, {events} événements de compte. Les valeurs des cellules et le texte des commentaires restent hors du fichier."
@@ -1173,8 +1181,8 @@ msgid "A file from that version is no longer stored"
 msgstr "Un fichier de cette version n’est plus stocké"
 
 #: components/settings/base-settings.tsx
-msgid "A file to keep elsewhere: schema, views, rows, members, and attachments, in a .zip archive. Import it again from “New base”."
-msgstr "Un fichier à garder ailleurs : schéma, vues, lignes, membres et pièces jointes, dans une archive .zip. Importez-le de nouveau depuis « Nouvelle base »."
+msgid "A file to keep elsewhere: schema, views, dashboards, rows, members, and attachments, in a .zip archive. Import it again from “New base”. Comments, the history of changes, automations, webhooks, and public links stay with this base."
+msgstr "Un fichier à garder ailleurs : schéma, vues, tableaux de bord, lignes, membres et pièces jointes, dans une archive .zip. Importez-le de nouveau depuis « Nouvelle base ». Les commentaires, l’historique des modifications, les automatisations, les webhooks et les liens publics restent avec cette base."
 
 #: lib/errors.ts
 msgid "A folder already has this name"
@@ -10894,6 +10902,10 @@ msgid "The base and its tables go to the trash: you can restore it from the home
 msgstr "La base et ses tables vont dans la corbeille : vous pourrez la restaurer depuis l’accueil pendant {days} jours. Le schéma {schema} reste dans la source externe."
 
 #: components/settings/restore-points.tsx
+msgid "The base as it is now, its rows, files, views, dashboards, and members, kept on this instance for {days} days. Restoring one makes a new base beside this one: this base is not changed."
+msgstr "Chaque point garde la base telle qu’elle est, ses lignes, fichiers, vues, tableaux de bord et membres, sur cette instance pendant {days} jours. En restaurer un crée une nouvelle base à côté de celle-ci : cette base ne change pas."
+
+#: components/settings/restore-points.tsx
 msgid "The base as it was on {date} can no longer be restored. The base itself is not changed."
 msgstr "La base telle qu’elle était le {date} ne pourra plus être restaurée. La base elle-même ne change pas."
 
@@ -11550,10 +11562,6 @@ msgstr "Le volume où sont les fichiers est plein à {percent} %."
 #: components/admin/alerts-section.tsx
 msgid "The volume the files are on is full at"
 msgstr "Le volume où sont les fichiers est plein à"
-
-#: components/settings/restore-points.tsx
-msgid "The whole base, its rows, files, views, and members, kept on this instance for {days} days. Restoring one makes a new base beside this one: this base is not changed."
-msgstr "Chaque point garde la base entière, ses lignes, fichiers, vues et membres, sur cette instance pendant {days} jours. En restaurer un crée une nouvelle base à côté de celle-ci : cette base ne change pas."
 
 #: components/fields/formula-docs.ts
 msgid "The whole number just above."

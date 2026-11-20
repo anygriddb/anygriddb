@@ -12,6 +12,7 @@ import {
   type CellValue,
   type ColumnDefinition,
   CREATABLE_TYPES,
+  dashboardWidgetConfigSchema,
   deriveColumnName,
   type EngineCatalog,
   type FieldType,
@@ -21,11 +22,13 @@ import {
   madeNames,
   MAX_SNAPSHOT_ARCHIVE_BYTES,
   MAX_SNAPSHOT_BYTES,
+  MAX_SNAPSHOT_DASHBOARDS,
   MAX_SNAPSHOT_FILES,
   MAX_SNAPSHOT_FOLDERS,
   MAX_SNAPSHOT_LINE_BYTES,
   MAX_SNAPSHOT_LINK_PAIRS,
   MAX_SNAPSHOT_ROWS,
+  MAX_SNAPSHOT_WIDGETS,
   normalizeViewConfig,
   ROLLUP_FNS,
   type RollupFn,
@@ -34,6 +37,7 @@ import {
   SNAPSHOT_ENTRY,
   SNAPSHOT_KIND,
   SNAPSHOT_VERSION,
+  type SnapshotDashboard,
   type SnapshotFile,
   type SnapshotFileRef,
   snapshotFileRefSchema,
@@ -44,6 +48,8 @@ import {
   snapshotRowCount,
   snapshotRowsEntry,
   type SnapshotTable,
+  widgetConfigOn,
+  widgetSettings,
 } from "@anygriddb/core";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -55,6 +61,7 @@ import {
 } from "../attachments.js";
 import { runRows, withAudit } from "./audit-context.js";
 import { insertComputed } from "./computed.js";
+import { createDashboard, listDashboards, upsertWidget } from "./dashboards.js";
 import { MAX_COPY_ROWS, toCell } from "./data-ops.js";
 import { loadEngine, sortColumns, type ColumnRow } from "./engine.js";
 import { createFolder, listFolders, moveTableToFolder } from "./folders.js";
@@ -299,6 +306,7 @@ async function describeBase(
   links: SnapshotLink[];
   computed: BaseSnapshot["computed"];
   folders: Array<{ name: string }>;
+  dashboards: SnapshotDashboard[];
 }> {
   const base = await db
     .selectFrom("bases")
@@ -343,6 +351,7 @@ async function describeBase(
   const snapshotLinks: SnapshotLink[] = [];
   const computed: BaseSnapshot["computed"] = [];
   const emittedLinks = new Set<string>();
+  const placed = new Map<string, PlacedTable>();
 
   for (const table of tableRows) {
     const key = idToKey.get(table.id) ?? tableKey(table.name, keys);
@@ -365,6 +374,12 @@ async function describeBase(
       .orderBy("position", "asc")
       .orderBy("createdAt", "asc")
       .execute();
+    // The views everyone has: one person's own stay with that person.
+    const shared = viewRows.filter((view) => !view.ownerId);
+    placed.set(table.id, {
+      key,
+      views: new Map(shared.map((view, rank) => [view.id, rank])),
+    });
 
     const links: SourceTable["links"] = [];
     for (const column of own.filter((item) => LINK_TYPES.has(item.fieldType))) {
@@ -439,13 +454,11 @@ async function describeBase(
         folder: table.folderId ? folderName.get(table.folderId) : undefined,
         columns: stored.map(definitionOf),
         primary,
-        views: viewRows
-          .filter((view) => !view.ownerId)
-          .map((view) => ({
-            name: view.name,
-            viewType: view.viewType,
-            config: normalizeViewConfig(view.config, view.viewType),
-          })),
+        views: shared.map((view) => ({
+          name: view.name,
+          viewType: view.viewType,
+          config: normalizeViewConfig(view.config, view.viewType),
+        })),
       },
       writable: write.map((column) => column.name),
       fileColumns: typed("attachment"),
@@ -459,7 +472,87 @@ async function describeBase(
     links: snapshotLinks,
     computed,
     folders: folders.map((folder) => ({ name: folder.name })),
+    dashboards: await describeDashboards(db, baseId, placed),
   };
+}
+
+/** Where a snapshot keeps a table: its key, and its views by their rank. */
+type PlacedTable = { key: string; views: ReadonlyMap<string, number> };
+
+/**
+ * The base's dashboards in their order, each widget naming the table it
+ * reads by its key and its view by its rank there. A widget that reads
+ * what the snapshot does not hold (a table that lives in a client's
+ * database, a view only its author has) is left out and counted: under
+ * its title, without its view, it would show another figure.
+ */
+async function describeDashboards(
+  db: Database,
+  baseId: string,
+  tables: ReadonlyMap<string, PlacedTable>,
+): Promise<SnapshotDashboard[]> {
+  const boards = await listDashboards(db, baseId);
+  if (boards.length === 0) return [];
+  if (boards.length > MAX_SNAPSHOT_DASHBOARDS) {
+    throw new AppError("too_large_snapshot");
+  }
+  const widgets = await db
+    .selectFrom("dashboardWidgets")
+    .selectAll()
+    .where(
+      "dashboardId",
+      "in",
+      boards.map((board) => board.id),
+    )
+    .orderBy("y", "asc")
+    .orderBy("x", "asc")
+    .orderBy("createdAt", "asc")
+    .orderBy("id", "asc")
+    .execute();
+  const widgetsOf = new Map<string, typeof widgets>();
+  for (const widget of widgets) {
+    const listed = widgetsOf.get(widget.dashboardId);
+    if (listed) listed.push(widget);
+    else widgetsOf.set(widget.dashboardId, [widget]);
+  }
+  return boards.map((board) => {
+    const kept: SnapshotDashboard["widgets"] = [];
+    let left = 0;
+    for (const widget of widgetsOf.get(board.id) ?? []) {
+      const read = dashboardWidgetConfigSchema.safeParse({
+        kind: widget.kind,
+        config: widget.config,
+      });
+      const config = read.success ? read.data.config : undefined;
+      const table = config ? tables.get(config.tableId) : undefined;
+      const viewId = config && "viewId" in config ? config.viewId : undefined;
+      const view = viewId === undefined ? undefined : table?.views.get(viewId);
+      if (!config || !table || (viewId !== undefined && view === undefined)) {
+        left += 1;
+        continue;
+      }
+      kept.push({
+        title: widget.title,
+        kind: widget.kind,
+        x: widget.x,
+        y: widget.y,
+        w: widget.w,
+        h: widget.h,
+        table: table.key,
+        ...(view === undefined ? {} : { view }),
+        config: widgetSettings(config),
+      });
+    }
+    if (kept.length > MAX_SNAPSHOT_WIDGETS) {
+      throw new AppError("too_large_snapshot");
+    }
+    return {
+      name: board.name,
+      ...(board.description ? { description: board.description } : {}),
+      widgets: kept,
+      ...(left > 0 ? { left } : {}),
+    };
+  });
 }
 
 /** The sequence numbers of some rows of a table, by their ids. */
@@ -625,6 +718,10 @@ export async function writeBaseSnapshot(
     // Named only when the base has some: without folders, the snapshot
     // is the one an instance that knows none reads.
     ...(described.folders.length > 0 ? { folders: described.folders } : {}),
+    // Its dashboards, on the same terms.
+    ...(described.dashboards.length > 0
+      ? { dashboards: described.dashboards }
+      : {}),
   };
   if (!input.withData) {
     const snapshot = baseSnapshotSchema.parse({
@@ -819,6 +916,11 @@ type SnapshotImportReport = {
   membersMissing: number;
   /** Members left out because they have left the base since. */
   membersLeft: number;
+  /**
+   * Widgets their dashboards came without: they read a table or a view
+   * the snapshot does not hold.
+   */
+  widgetsLeft: number;
 };
 
 /** Rows of access a statement writes at a time. */
@@ -1206,6 +1308,7 @@ export async function importBaseSnapshot(
     members: 0,
     membersMissing: 0,
     membersLeft: 0,
+    widgetsLeft: 0,
   };
   try {
     const ids = new Map<string, string>();
@@ -1502,6 +1605,8 @@ export async function importBaseSnapshot(
       }
     }
 
+    /** Each table's views as made here, in the snapshot's order. */
+    const viewIds = new Map<string, string[]>();
     for (const table of parsed.tables) {
       const tableId = ids.get(table.key);
       if (!tableId) continue;
@@ -1513,15 +1618,59 @@ export async function importBaseSnapshot(
           tx.deleteFrom("views").where("tableId", "=", tableId).execute(),
         );
       }
+      const made: string[] = [];
       for (const view of table.views) {
-        await createView(db, engine, userId, {
+        const created = await createView(db, engine, userId, {
           tableId,
           name: view.name,
           viewType: view.viewType,
           config: view.config,
           ownerId: null,
         });
+        made.push(created.id);
       }
+      viewIds.set(table.key, made);
+    }
+
+    // Its dashboards last: a widget reads a table and a view made above.
+    for (const dashboard of parsed.dashboards ?? []) {
+      const board = await createDashboard(
+        db,
+        userId,
+        {
+          baseId: created.id,
+          name: dashboard.name,
+          description: dashboard.description,
+        },
+        "snapshot",
+      );
+      for (const widget of dashboard.widgets) {
+        const tableId = ids.get(widget.table);
+        const viewId =
+          widget.view === undefined
+            ? undefined
+            : viewIds.get(widget.table)?.[widget.view];
+        if (!tableId || (widget.view !== undefined && !viewId)) {
+          throw new AppError("invalid_snapshot");
+        }
+        await upsertWidget(
+          db,
+          userId,
+          created.id,
+          {
+            dashboardId: board.id,
+            title: widget.title,
+            kind: widget.kind,
+            x: widget.x,
+            y: widget.y,
+            w: widget.w,
+            h: widget.h,
+            config: widgetConfigOn(widget.config, tableId, viewId),
+          },
+          "snapshot",
+        );
+      }
+      report.widgetsLeft += dashboard.left ?? 0;
     }
 
     await input.onProgress?.(total, total);

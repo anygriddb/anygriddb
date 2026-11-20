@@ -314,7 +314,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
       {manage ? (
         <RuledSection
           title={t`Backup`}
-          description={t`A file to keep elsewhere: schema, views, rows, members, and attachments, in a .zip archive. Import it again from “New base”.`}
+          description={t`A file to keep elsewhere: schema, views, dashboards, rows, members, and attachments, in a .zip archive. Import it again from “New base”. Comments, the history of changes, automations, webhooks, and public links stay with this base.`}
         >
           <div className="flex flex-wrap gap-2">
             <Button

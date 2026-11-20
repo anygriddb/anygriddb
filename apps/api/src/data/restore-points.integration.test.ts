@@ -21,6 +21,12 @@ import {
 import { createTestDatabase } from "../test-database.js";
 import { listTableAcls, setTableAcl } from "./acl.js";
 import { withAudit } from "./audit-context.js";
+import {
+  createDashboard,
+  getDashboard,
+  listDashboards,
+  upsertWidget,
+} from "./dashboards.js";
 import { loadEngine } from "./engine.js";
 import {
   deleteRestorePoint,
@@ -132,6 +138,18 @@ describe("restore points", () => {
         { name: "Initech" },
       ],
     );
+    // The base has a dashboard, with one figure.
+    const board = await createDashboard(db, owner, { baseId, name: "Marges" });
+    await upsertWidget(db, owner, baseId, {
+      dashboardId: board.id,
+      title: "Marge totale",
+      kind: "metric",
+      x: 0,
+      y: 0,
+      w: 4,
+      h: 3,
+      config: { tableId, column: "margin", fn: "sum" },
+    });
   });
 
   afterAll(async () => {
@@ -237,6 +255,14 @@ describe("restore points", () => {
       ["Initech", null, null],
     ]);
     expect(restored.report.peopleDropped).toBe(1);
+    // Its dashboard came back with it, reading the restored table.
+    const [board] = await listDashboards(db, restored.baseId);
+    expect(board?.name).toBe("Marges");
+    const { widgets } = await getDashboard(db, board?.id ?? "");
+    expect(widgets.map((widget) => [widget.title, widget.config])).toEqual([
+      ["Marge totale", { tableId: table.id, column: "margin", fn: "sum" }],
+    ]);
+    expect(restored.report.widgetsLeft).toBe(0);
   });
 
   it("refuses one more past the most a base keeps, and deletes one with its file", async () => {

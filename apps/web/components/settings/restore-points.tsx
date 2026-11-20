@@ -113,7 +113,7 @@ export function RestorePoints({
       title={t`Restore points`}
       description={
         listed.data
-          ? t`The whole base, its rows, files, views, and members, kept on this instance for ${{ days: listed.data.keepDays }} days. Restoring one makes a new base beside this one: this base is not changed.`
+          ? t`The base as it is now, its rows, files, views, dashboards, and members, kept on this instance for ${{ days: listed.data.keepDays }} days. Restoring one makes a new base beside this one: this base is not changed.`
           : undefined
       }
     >

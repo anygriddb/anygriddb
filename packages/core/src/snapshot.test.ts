@@ -128,6 +128,94 @@ describe("baseSnapshotSchema", () => {
     ).toBe(false);
   });
 
+  it("keeps a base's dashboards, each widget naming its table and its view", () => {
+    const [table] = minimal.tables;
+    if (!table) throw new Error("no table");
+    const viewed = {
+      ...minimal,
+      tables: [
+        {
+          ...table,
+          views: [
+            { name: "Grid", viewType: "grid" as const },
+            { name: "Recent", viewType: "grid" as const },
+          ],
+        },
+      ],
+    };
+    const widget = {
+      title: "Contacts",
+      kind: "metric" as const,
+      x: 0,
+      y: 0,
+      w: 4,
+      h: 3,
+      // The table by its key, the view by its rank among the table's.
+      table: "contacts",
+      view: 1,
+      config: { column: "nom", fn: "count_all" },
+    };
+    const board = (widgets: unknown[], more: object = {}) => ({
+      ...viewed,
+      dashboards: [{ name: "Overview", widgets, ...more }],
+    });
+    const parsed = baseSnapshotSchema.parse(
+      board(
+        [
+          widget,
+          {
+            ...widget,
+            title: "By email",
+            kind: "chart",
+            view: undefined,
+            config: { groupBy: "email", fn: "count_all", chartType: "bar" },
+          },
+          { ...widget, title: "Rows", kind: "view_embed", config: {} },
+        ],
+        // Two it could not hold: a client's table, a view of one person.
+        { description: "The week", left: 2 },
+      ),
+    );
+    expect(parsed.dashboards?.[0]?.widgets.map((item) => item.title)).toEqual([
+      "Contacts",
+      "By email",
+      "Rows",
+    ]);
+    expect(parsed.dashboards?.[0]?.left).toBe(2);
+    // A base without dashboards says nothing of them.
+    expect(baseSnapshotSchema.parse(minimal).dashboards).toBeUndefined();
+    // One without a widget is a dashboard still.
+    expect(baseSnapshotSchema.safeParse(board([])).success).toBe(true);
+
+    const refused = (widgets: unknown[]) =>
+      baseSnapshotSchema.safeParse(board(widgets)).success;
+    // A table the snapshot does not list, a view past the table's last.
+    expect(refused([{ ...widget, table: "orders" }])).toBe(false);
+    expect(refused([{ ...widget, view: 2 }])).toBe(false);
+    // Settings its kind does not read with: a figure needs its field,
+    // rows drawn need their view, and an id of another base is no key.
+    expect(refused([{ ...widget, config: { fn: "count_all" } }])).toBe(false);
+    expect(
+      refused([{ ...widget, kind: "view_embed", view: undefined, config: {} }]),
+    ).toBe(false);
+    expect(
+      refused([{ ...widget, config: { ...widget.config, tableId: id } }]),
+    ).toBe(false);
+    expect(
+      refused([{ ...widget, config: { ...widget.config, viewId: id } }]),
+    ).toBe(false);
+    // A base names each dashboard once.
+    expect(
+      baseSnapshotSchema.safeParse({
+        ...viewed,
+        dashboards: [
+          { name: "Overview", widgets: [] },
+          { name: "Overview", widgets: [] },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
   it("refuses unknown keys and empty tables", () => {
     expect(
       baseSnapshotSchema.safeParse({ ...minimal, extra: true }).success,

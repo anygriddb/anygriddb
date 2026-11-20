@@ -1,5 +1,11 @@
 import { z } from "zod";
 import { columnAclEntrySchema } from "./acl";
+import {
+  DASHBOARD_WIDGET_KINDS,
+  dashboardWidgetConfigSchema,
+  widgetConfigOn,
+  widgetPlace,
+} from "./dashboards";
 import { rollupFnSchema } from "./field-config";
 import { filterGroupSchema } from "./filter";
 import { columnNameSchema, labelSchema } from "./names";
@@ -36,6 +42,9 @@ export const MAX_SNAPSHOT_BYTES = 40 * 1024 * 1024;
 /** An archive with files: under ZIP's 4 GiB without ZIP64. */
 export const MAX_SNAPSHOT_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024;
 export const MAX_SNAPSHOT_FILES = 50_000;
+export const MAX_SNAPSHOT_DASHBOARDS = 500;
+/** The widgets of one dashboard. */
+export const MAX_SNAPSHOT_WIDGETS = 500;
 /** The JSON inside an archive. */
 export const SNAPSHOT_ENTRY = "snapshot.json";
 
@@ -126,6 +135,40 @@ const snapshotTableSchema = z
   })
   .strict();
 
+/**
+ * A dashboard's widget: its settings as the dashboard keeps them, but for
+ * the table and the view it reads. Those are ids of the base it was made
+ * in: a snapshot names the table by its key, and the view by its rank
+ * among that table's views.
+ */
+const snapshotWidgetSchema = z
+  .object({
+    title: labelSchema,
+    kind: z.enum(DASHBOARD_WIDGET_KINDS),
+    ...widgetPlace,
+    table: z.string().min(1).max(63),
+    view: z.int().min(0).max(49).optional(),
+    config: z.record(z.string(), z.unknown()),
+  })
+  .strict();
+
+/** A dashboard: its name, and its widgets where they sit. */
+const snapshotDashboardSchema = z
+  .object({
+    name: labelSchema,
+    description: descriptionSchema.optional(),
+    widgets: z.array(snapshotWidgetSchema).max(MAX_SNAPSHOT_WIDGETS),
+    /**
+     * The widgets the snapshot could not hold: those that read a table
+     * that lives in a client's database, or a view only one person has.
+     */
+    left: z.int().min(1).max(Number.MAX_SAFE_INTEGER).optional(),
+  })
+  .strict();
+
+/** An id that stands for the table or the view a widget will read. */
+const SOME_ID = "00000000-0000-4000-8000-000000000000";
+
 /** A folder of tables: a name, and its place by its rank in the list. */
 const snapshotFolderSchema = z.object({ name: labelSchema }).strict();
 
@@ -194,9 +237,50 @@ export const baseSnapshotSchema = z
      * snapshot it always gave.
      */
     folders: z.array(snapshotFolderSchema).max(MAX_SNAPSHOT_FOLDERS).optional(),
+    /**
+     * The base's dashboards, in their order. Written only for a base that
+     * has some, as the folders are.
+     */
+    dashboards: z
+      .array(snapshotDashboardSchema)
+      .max(MAX_SNAPSHOT_DASHBOARDS)
+      .optional(),
   })
   .strict()
   .superRefine((snapshot, context) => {
+    // A base names each dashboard once. A widget reads a table the
+    // snapshot lists and, when it reads a view, one of that table's;
+    // its settings are those of its kind, and name no id of another base.
+    const dashboards = snapshot.dashboards ?? [];
+    const views = new Map(
+      snapshot.tables.map((table) => [table.key, table.views.length]),
+    );
+    const readable = dashboards.every((dashboard) =>
+      dashboard.widgets.every((widget) => {
+        const listed = views.get(widget.table);
+        return (
+          listed !== undefined &&
+          (widget.view === undefined || widget.view < listed) &&
+          !("tableId" in widget.config) &&
+          !("viewId" in widget.config) &&
+          dashboardWidgetConfigSchema.safeParse({
+            kind: widget.kind,
+            config: widgetConfigOn(
+              widget.config,
+              SOME_ID,
+              widget.view === undefined ? undefined : SOME_ID,
+            ),
+          }).success
+        );
+      }),
+    );
+    if (
+      !readable ||
+      new Set(dashboards.map((dashboard) => dashboard.name)).size !==
+        dashboards.length
+    ) {
+      context.addIssue({ code: "custom", message: "dashboards" });
+    }
     // A table sits in a folder the snapshot lists, and a base names each
     // folder once.
     const folders = new Set(snapshot.folders?.map((folder) => folder.name));
@@ -259,6 +343,7 @@ export type SnapshotFileRef = z.infer<typeof snapshotFileRefSchema>;
 export type BaseSnapshot = z.infer<typeof baseSnapshotSchema>;
 export type SnapshotTable = z.infer<typeof snapshotTableSchema>;
 export type SnapshotLink = z.infer<typeof snapshotLinkSchema>;
+export type SnapshotDashboard = z.infer<typeof snapshotDashboardSchema>;
 
 export const exportSnapshotJobInputSchema = z
   .object({

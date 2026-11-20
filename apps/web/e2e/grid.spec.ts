@@ -22,6 +22,55 @@ async function typeName(page: Page, text: string) {
 }
 
 /**
+ * A dashboard of the open table's base, with one figure: its rows,
+ * counted. Made through the server, as the page's session.
+ */
+async function countingDashboard(page: Page, name: string): Promise<void> {
+  const ask = async (path: string, data: unknown) => {
+    const response = await page.request.post(`/trpc/${path}`, { data });
+    expect(response.ok(), await response.text()).toBe(true);
+    return (await response.json()) as { result: { data: { id: string } } };
+  };
+  const made = await ask("dashboards.create", {
+    baseId: /\/b\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "",
+    name,
+  });
+  await ask("dashboards.upsertWidget", {
+    dashboardId: made.result.data.id,
+    title: "Rows",
+    kind: "metric",
+    x: 0,
+    y: 0,
+    w: 4,
+    h: 3,
+    config: {
+      tableId: /\/t\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "",
+      column: "name",
+      fn: "count_all",
+    },
+  });
+}
+
+/** Opens a dashboard of the base whose page is open, and reads its figure. */
+async function expectDashboardCounts(
+  page: Page,
+  name: string,
+  rows: string,
+): Promise<void> {
+  await page
+    .getByRole("navigation", { name: "Base", exact: true })
+    .getByRole("link", { name: "Dashboards" })
+    .click();
+  await page.getByRole("main").getByRole("link", { name }).click();
+  await expect(
+    page
+      .getByRole("article")
+      .filter({ has: page.getByRole("heading", { name: "Rows", exact: true }) })
+      .getByText(rows, { exact: true }),
+  ).toBeVisible();
+}
+
+/**
  * Turns the wheel over the heading `target` and waits for a box around
  * it to move. The shell clips overflow, so a page taller than the window
  * moves only when a box of its own scrolls; a script's scrollIntoView
@@ -442,13 +491,17 @@ test.describe("a file of more rows than one batch", () => {
   });
 });
 
-// A restore point keeps the base as it was (ADR 0077): restored, it comes
-// back as a new base beside the first, which keeps what was written since.
-// It makes an account, so it takes a client address of its own.
-test.describe("a restore point", () => {
+// A base kept for later, two ways. A restore point keeps it on the
+// instance as it was (ADR 0077): restored, it comes back as a new base
+// beside the first, which keeps what was written since. Its backup file
+// is kept elsewhere, and makes the base again wherever it is imported.
+// Both make an account, so they take a client address of their own.
+test.describe("a base kept for later", () => {
   test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.82" } });
 
-  test("brings the base back as it was, beside it", async ({ page }) => {
+  test("a restore point brings the base back as it was, beside it", async ({
+    page,
+  }) => {
     const blocked = watchPolicy(page);
     await signUpWithTable(page, "Rhea Restorer");
     const table = page.url();
@@ -472,6 +525,8 @@ test.describe("a restore point", () => {
     await expect(expand).toBeVisible();
     await expand.click();
     await expect(folders).toHaveCount(1);
+    // And a dashboard, which the point keeps as well.
+    await countingDashboard(page, "Follow-up");
 
     await page.goto(`${base}/settings`);
     await page.getByLabel("Note (optional)").fill("Before the change");
@@ -507,6 +562,10 @@ test.describe("a restore point", () => {
       .getByRole("link", { name: /Samples/ })
       .click();
     await expect(nameCell(page)).toContainText("Before");
+    // Its dashboard came back too, and counts the restored base's row.
+    await page.goBack();
+    await expectDashboardCounts(page, "Follow-up", "1");
+    expect(await accessibilityViolations(page)).toEqual([]);
 
     await page.goto(table);
     await expect(nameCell(page)).toContainText("After");
@@ -527,6 +586,60 @@ test.describe("a restore point", () => {
       page.getByText("Rhea Restorer created the table Samples"),
     ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
+    expect(blocked).toEqual([]);
+  });
+
+  // Exported with its data from the base's settings, the file makes the
+  // base again from "New base", its dashboard with it.
+  test("a backup file makes the base again, with its rows and its dashboard", async ({
+    page,
+  }, testInfo) => {
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "Fiona Filer");
+    const base = /\/b\/[^/]+/.exec(page.url())?.[0] ?? "";
+    await page.getByRole("button", { name: "Add a row", exact: true }).click();
+    await typeName(page, "Kept");
+    await countingDashboard(page, "Follow-up");
+
+    await page.goto(`${base}/settings`);
+    await page.getByRole("button", { name: "Export with data" }).click();
+    await expect(page.getByText("Export ready")).toBeVisible({
+      timeout: 60_000,
+    });
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download", exact: true }).click();
+    const file = testInfo.outputPath("lab.anygriddb.zip");
+    await (await download).saveAs(file);
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "New base" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "New base" });
+    await dialog.getByRole("button", { name: "from a backup file" }).click();
+    const chooser = page.waitForEvent("filechooser");
+    await dialog.getByRole("button", { name: "Choose a file" }).click();
+    await (await chooser).setFiles(file);
+    // What the file holds is said before anything is made of it.
+    await expect(dialog).toContainText(
+      "File ready: 1 table, 1 dashboard, 1 row, 0 files.",
+    );
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await dialog.getByLabel("Base name").fill("Lab from its file");
+    await dialog.getByRole("button", { name: "Import", exact: true }).click();
+    await expect(page.getByText("Base created")).toBeVisible({
+      timeout: 60_000,
+    });
+    await page.getByRole("button", { name: "Open", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Lab from its file" }),
+    ).toBeVisible();
+    await expectDashboardCounts(page, "Follow-up", "1");
+    await page.goBack();
+    await page.goBack();
+    await page
+      .getByRole("region", { name: "Tables" })
+      .getByRole("link", { name: /Samples/ })
+      .click();
+    await expect(nameCell(page)).toContainText("Kept");
     expect(blocked).toEqual([]);
   });
 });

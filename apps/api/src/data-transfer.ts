@@ -826,6 +826,7 @@ export function registerDataTransferRoutes(
         snapshotId: staged.snapshotId,
         name: staged.snapshot.base.name,
         tables: staged.snapshot.tables.length,
+        dashboards: staged.snapshot.dashboards?.length ?? 0,
         rows: snapshotRowCount(staged.snapshot),
         files: staged.snapshot.files?.length ?? 0,
         members: staged.snapshot.members?.length ?? 0,

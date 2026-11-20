@@ -6,6 +6,12 @@ import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { storeAttachment } from "./attachments.js";
 import { withAudit } from "./data/audit-context.js";
+import {
+  createDashboard,
+  getDashboard,
+  listDashboards,
+  upsertWidget,
+} from "./data/dashboards.js";
 import { snapshotOf } from "./data/snapshot.test-helpers.js";
 import { loadEngine } from "./data/engine.js";
 import { insertNativeBatch } from "./services/rows.js";
@@ -97,6 +103,18 @@ describe("duplicating a base", () => {
         { name: "Globex" },
       ],
     );
+    // A dashboard that counts the clients.
+    const board = await createDashboard(db, owner, { baseId, name: "Suivi" });
+    await upsertWidget(db, owner, baseId, {
+      dashboardId: board.id,
+      title: "Clients",
+      kind: "metric",
+      x: 0,
+      y: 0,
+      w: 4,
+      h: 3,
+      config: { tableId: table.id, column: "name", fn: "count_all" },
+    });
     runners = jobRunners({
       db,
       bus: { publish: async () => undefined } as never,
@@ -140,6 +158,13 @@ describe("duplicating a base", () => {
       .where("baseId", "=", copyId)
       .execute();
     expect(tables.map((table) => table.name)).toEqual(["Clients"]);
+    // Its dashboard came with it, and counts the copy's clients.
+    const [board] = await listDashboards(db, copyId);
+    expect(board?.name).toBe("Suivi");
+    const { widgets } = await getDashboard(db, board?.id ?? "");
+    expect(widgets.map((widget) => [widget.title, widget.config])).toEqual([
+      ["Clients", { tableId: tables[0]?.id, column: "name", fn: "count_all" }],
+    ]);
     // Its rows came with it.
     const copied = await snapshotOf(db, files, copyId, {
       withData: true,
