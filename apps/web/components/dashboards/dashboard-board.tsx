@@ -76,6 +76,7 @@ import {
   numberFormatOf,
 } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
+import { useTableChanges } from "../../lib/realtime";
 // ECharts loads with the dashboards only (ADR 0035).
 const ChartView = lazy(() =>
   import("./chart-view").then((module) => ({ default: module.ChartView })),
@@ -638,6 +639,14 @@ function WidgetCard(props: {
       dashboardId: props.dashboardId,
       widgetId: props.widget.id,
     }),
+  );
+  // A figure and a chart follow their table: once its rows change, they
+  // are read again. A view's widget reads its own rows, and follows them.
+  useTableChanges(
+    props.widget.kind === "view_embed"
+      ? undefined
+      : configString(props.widget.config, "tableId") || undefined,
+    () => void data.refetch(),
   );
   const name = props.widget.title;
   const { dragProps, dragButtonProps, isDragging } = useWidgetDrag(

@@ -7,6 +7,7 @@ import { Link } from "@tanstack/react-router";
 import { useErrorText } from "../../lib/errors";
 import { cellDisplay, formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
+import { useTableChanges } from "../../lib/realtime";
 import { useCatalog } from "../../lib/session";
 import { useTRPC } from "../../lib/trpc";
 import type { Collaborator, RowItem } from "../../lib/types";
@@ -19,7 +20,8 @@ const NO_PEOPLE: ReadonlyMap<string, Collaborator> = new Map();
 /**
  * A view of a table on a dashboard: its first rows, with the fields the
  * view shows, in its order, under its filter and its sort, as the reader
- * may read them. Each row opens in its table, and so does the view.
+ * may read them, and read again once the table's rows change. Each row
+ * opens in its table, and so does the view.
  */
 export function ViewWidget(props: {
   baseId: string;
@@ -50,6 +52,8 @@ export function ViewWidget(props: {
       withGroups: "none",
     }),
   );
+  // Its table's rows changed: the view's first rows are read again.
+  useTableChanges(props.tableId, () => void read.refetch());
   const view = views.data?.views.find((item) => item.id === props.viewId);
   const columns = visibleColumns(
     orderColumns(table?.columns ?? [], view?.config.fieldOrder),
