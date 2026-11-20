@@ -37,6 +37,11 @@ first.
   automation asks first too: its steps, the secrets it keeps, and the
   record of its runs went with one click. The buttons of an
   automation's line say what they do.
+- Taking a member out of a base, from its settings, asks first: one
+  click on the bin took their role and the permissions set for them on
+  each table, which inviting them again does not bring back.
+  Administration already asked. Each bin is named after its member. A
+  pending invitation that could not be revoked says why.
 
 ## 0.3.1 - 2026-11-20
 

@@ -8833,12 +8833,14 @@ msgstr "Retirer {base}"
 
 #: components/admin/base-admin-members.tsx
 #: components/admin/group-page.tsx
+#: components/settings/base-settings.tsx
 #: components/views/form-files.tsx
 msgid "Remove {name}"
 msgstr "Retirer {name}"
 
 #: components/admin/account-bases.tsx
 #: components/admin/base-admin-members.tsx
+#: components/settings/base-settings.tsx
 msgid "Remove {name} from {base}?"
 msgstr "Retirer {name} de {base} ?"
 
@@ -11677,6 +11679,10 @@ msgstr "La personne garde son compte et ses bases, et n’ouvre plus l’Adminis
 #: components/admin/base-admin-members.tsx
 msgid "They lose their own role on the base and its tables at once, and their open pages reload. A role a group gives them stays."
 msgstr "La personne perd aussitôt son propre rôle sur la base et ses tables, et ses pages ouvertes se rechargent. Un rôle donné par un groupe reste."
+
+#: components/settings/base-settings.tsx
+msgid "They lose their own role on the base and its tables at once, with the permissions set for them on each table, and their open pages reload. A role a group gives them stays."
+msgstr "La personne perd aussitôt son propre rôle sur la base et ses tables, avec les droits réglés pour elle sur chaque table, et ses pages ouvertes se rechargent. Un rôle donné par un groupe reste."
 
 #: components/admin/account-actions.tsx
 msgid "They open the accounts, the sessions and the trails of Administration to help a person sign in again: send a link, unlock, sign out, remove second factors, unlink single sign-on, revoke tokens. They change no setting, give no role, and open no base they are not a member of."

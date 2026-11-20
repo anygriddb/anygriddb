@@ -176,6 +176,25 @@ test("an owner invites an address, its account accepts, and reads what its permi
     guest.getByRole("columnheader", { name: /Unit price/ }),
   ).toBeVisible();
 
+  // The owner takes the member out of the base, once that is confirmed:
+  // their role goes at once, with what was set for them on its tables.
+  const out = page.getByRole("button", { name: `Remove Guest ${stamp}` });
+  await out.click();
+  const asking = page.getByRole("dialog", {
+    name: `Remove Guest ${stamp} from Lab?`,
+  });
+  await expect(asking).toContainText(
+    "the permissions set for them on each table",
+  );
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await asking.getByRole("button", { name: "Cancel" }).click();
+  await expect(out).toBeVisible();
+  await out.click();
+  await asking.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(out).toHaveCount(0);
+  await guest.reload();
+  await expect(guest.getByRole("gridcell", { name: "Desk" })).toHaveCount(0);
+
   await own.close();
   expect(blocked).toEqual([]);
 });
