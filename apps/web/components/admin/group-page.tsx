@@ -483,17 +483,12 @@ export function GroupAdminPage({ groupId }: { groupId: string }) {
           }
           confirmLabel={t`Delete`}
           onConfirm={async () => {
-            try {
-              await trpc.admin.groups.delete.mutate({ groupId });
-              await queryClient.invalidateQueries({
-                queryKey: api.admin.groups.list.queryKey(),
-              });
-              toast.success(t`Group deleted`);
-              void navigate({ to: "/admin/people/groups" });
-            } catch (cause) {
-              toast.error(errorText(cause));
-              throw cause;
-            }
+            await trpc.admin.groups.delete.mutate({ groupId });
+            await queryClient.invalidateQueries({
+              queryKey: api.admin.groups.list.queryKey(),
+            });
+            toast.success(t`Group deleted`);
+            void navigate({ to: "/admin/people/groups" });
           }}
         />
       ) : null}

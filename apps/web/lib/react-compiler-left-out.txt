@@ -2,7 +2,6 @@
 # and its name. It leaves them as written, without a word:
 # react-compiler.test.ts keeps this list true. It only gets shorter: once
 # what a line names compiles, the line goes.
-components/admin/account-actions.tsx useAccountActions
 components/admin/account-bases.tsx AccountBases
 components/admin/account-export.tsx AccountExport
 components/admin/account-handoff.tsx HandoffForm
@@ -64,10 +63,7 @@ components/settings/profile-form.tsx ProfileForm
 components/settings/restore-points.tsx RestorePoints
 components/settings/webhooks-panel.tsx NewWebhookForm
 components/settings/webhooks-panel.tsx WebhooksPanel
-components/shell/dialogs.tsx ConfirmDialog
-components/shell/dialogs.tsx PromptForm
 components/shell/new-base-dialog.tsx NewBaseForm
-components/shell/new-table-dialog.tsx NewTableForm
 components/shell/notebook-page.tsx NotebookPage
 components/shell/pending-invitations.tsx PendingInvitations
 components/shell/trash-dialog.tsx TrashDialog

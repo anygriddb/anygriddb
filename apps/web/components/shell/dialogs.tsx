@@ -8,6 +8,33 @@ import {
 } from "@anygriddb/ui";
 import { useState, type SubmitEvent, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { TRPCClientError } from "@trpc/client";
+import { toast } from "sonner";
+import { useErrorText } from "../../lib/errors";
+import { reportFailure } from "../../lib/report-failure";
+
+/**
+ * Runs a dialog's action and says whether the dialog may close.
+ *
+ * An action that throws is said here, once, and the dialog stays open to
+ * be tried again: what the server refused in the person's words, and
+ * anything else told to the instance too, as a page that failed. Nothing
+ * is left for the window to catch. An action that answers `false` did not
+ * go through and has said why itself (a name typed wrong, a proof given
+ * up): the dialog stays open too. Anything else it answers closes it.
+ */
+export function useAction(): (action: () => unknown) => Promise<boolean> {
+  const errorText = useErrorText();
+  return async (action) => {
+    try {
+      return (await action()) !== false;
+    } catch (cause) {
+      toast.error(errorText(cause));
+      if (!(cause instanceof TRPCClientError)) reportFailure("error", cause);
+      return false;
+    }
+  };
+}
 
 type PromptProps = {
   open: boolean;
@@ -16,7 +43,8 @@ type PromptProps = {
   label: string;
   initial?: string;
   submitLabel?: string;
-  onSubmit: (value: string) => Promise<void> | void;
+  /** Throws what it could not do; answers `false` once it said why itself. */
+  onSubmit: (value: string) => unknown;
   children?: ReactNode;
   /** An empty value is submitted too: it clears what was there. */
   optional?: boolean;
@@ -39,16 +67,14 @@ function PromptForm(props: PromptProps) {
   const { t } = useLingui();
   const [value, setValue] = useState(props.initial ?? "");
   const [busy, setBusy] = useState(false);
+  const run = useAction();
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     if (!value.trim() && !props.optional) return;
     setBusy(true);
-    try {
-      await props.onSubmit(value.trim());
-      props.onOpenChange(false);
-    } finally {
-      setBusy(false);
-    }
+    const done = await run(() => props.onSubmit(value.trim()));
+    setBusy(false);
+    if (done) props.onOpenChange(false);
   }
   return (
     <form onSubmit={submit} className="flex flex-col gap-2">
@@ -94,14 +120,14 @@ export function ConfirmDialog(props: {
   description: string;
   confirmLabel: string;
   danger?: boolean;
-  onConfirm: () => Promise<void> | void;
-  /** Called after confirm. True leaves the dialog open. */
-  holdOpen?: () => boolean;
+  /** Throws what it could not do; answers `false` once it said why itself. */
+  onConfirm: () => unknown;
   /** What to show between the description and the buttons. */
   children?: ReactNode;
 }) {
   const { t } = useLingui();
   const [busy, setBusy] = useState(false);
+  const run = useAction();
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent title={props.title} description={props.description}>
@@ -115,12 +141,9 @@ export function ConfirmDialog(props: {
             disabled={busy}
             onClick={async () => {
               setBusy(true);
-              try {
-                await props.onConfirm();
-                if (!props.holdOpen?.()) props.onOpenChange(false);
-              } finally {
-                setBusy(false);
-              }
+              const done = await run(props.onConfirm);
+              setBusy(false);
+              if (done) props.onOpenChange(false);
             }}
           >
             {props.confirmLabel}

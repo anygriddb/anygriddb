@@ -317,14 +317,23 @@ export function Sidebar({
   const shortcuts = useShortcuts();
   const { pinned } = resolveShortcuts(bases, shortcuts.data);
 
-  async function act(action: () => Promise<unknown>, success?: string) {
+  /**
+   * Does something to the catalog and reads it again. A refusal is said
+   * here, and the answer is whether it was done: a dialog that asked
+   * stays open on `false`, and nothing is thrown for a menu to drop.
+   */
+  async function act(
+    action: () => Promise<unknown>,
+    success?: string,
+  ): Promise<boolean> {
     try {
       await action();
       await invalidate();
       if (success) toast.success(success);
+      return true;
     } catch (cause) {
       toast.error(errorText(cause));
-      throw cause;
+      return false;
     }
   }
 
@@ -718,9 +727,10 @@ export function Sidebar({
           confirmLabel={t`Delete`}
           onConfirm={async () => {
             const base = dialog.base;
-            await act(() =>
+            const done = await act(() =>
               trpc.catalog.deleteBase.mutate({ baseId: base.id }),
             );
+            if (!done) return false;
             trashed(t`Base moved to the trash`, "base", base.id);
             if (params.baseId === base.id) void navigate({ to: "/" });
           }}
@@ -791,13 +801,14 @@ export function Sidebar({
           title={t`New table in ${{ name: dialog.base.name }}`}
           onCreate={async ({ name, columns }) => {
             let created: { id: string } | undefined;
-            await act(async () => {
+            const done = await act(async () => {
               created = await trpc.catalog.createTable.mutate({
                 baseId: dialog.base.id,
                 name,
                 columns,
               });
             });
+            if (!done) return false;
             if (created)
               void navigate({
                 to: "/b/$baseId/t/$tableId/{-$viewId}",
@@ -839,7 +850,8 @@ export function Sidebar({
                     tableId: dialog.table.id,
                     trailReads,
                   }),
-                ).catch(() => {
+                ).then((done) => {
+                  if (done) return;
                   setDialog((current) =>
                     current?.kind === "rename-table"
                       ? {
@@ -877,9 +889,10 @@ export function Sidebar({
           confirmLabel={t`Delete`}
           onConfirm={async () => {
             const table = dialog.table;
-            await act(() =>
+            const done = await act(() =>
               trpc.catalog.deleteTable.mutate({ tableId: table.id }),
             );
+            if (!done) return false;
             trashed(t`Table moved to the trash`, "table", table.id);
             if (params.tableId === table.id)
               void navigate({

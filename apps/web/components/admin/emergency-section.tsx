@@ -27,9 +27,12 @@ export function EmergencySection() {
   const [asked, setAsked] = useState<Switch | null>(null);
   const linksOff = settings.data?.publicLinks === "off";
 
-  async function run(action: () => Promise<string>) {
+  /** `null` when the person gave the proof up: nothing was done. */
+  async function run(action: () => Promise<string | null>) {
     try {
-      toast.success(await action());
+      const done = await action();
+      if (done === null) return;
+      toast.success(done);
       await Promise.all(
         [api.admin.settings, api.admin.sessions, api.auth.instance].map(
           (procedure) =>
@@ -119,9 +122,7 @@ export function EmergencySection() {
           confirmLabel={t`Turn off`}
           onConfirm={() =>
             run(async () => {
-              if (!(await stepUp.ensure())) {
-                throw new Error("step_up_cancelled");
-              }
+              if (!(await stepUp.ensure())) return null;
               await trpc.admin.updateSettings.mutate({ publicLinks: "off" });
               return t`Public links are off`;
             })
@@ -138,9 +139,7 @@ export function EmergencySection() {
           confirmLabel={t`Revoke`}
           onConfirm={() =>
             run(async () => {
-              if (!(await stepUp.ensure())) {
-                throw new Error("step_up_cancelled");
-              }
+              if (!(await stepUp.ensure())) return null;
               const { count } = await trpc.admin.revokeAllTokens.mutate();
               return count === 0
                 ? t`No API token to revoke`

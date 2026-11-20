@@ -13,6 +13,7 @@ import {
   signUp,
   signUpWithTable,
   uniqueStamp,
+  watchFailures,
   watchPolicy,
 } from "./setup";
 
@@ -40,6 +41,7 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
   browser,
 }) => {
   const blocked = watchPolicy(page);
+  const failed = watchFailures(page);
   const control = new pg.Client({ connectionString: controlUrl });
   await control.connect();
   try {
@@ -605,6 +607,8 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
 
     await other.close();
     expect(blocked).toEqual([]);
+    // Each refusal was said to the person: none was left for the page to fail on.
+    expect(failed).toEqual([]);
   } finally {
     await control.end();
   }
@@ -617,6 +621,7 @@ test("an administrator deletes a departed owner and names who takes the base", a
   browser,
 }) => {
   const blocked = watchPolicy(page);
+  const failed = watchFailures(page);
   const control = new pg.Client({ connectionString: controlUrl });
   await control.connect();
   try {
@@ -707,6 +712,8 @@ test("an administrator deletes a departed owner and names who takes the base", a
     await theirs.close();
     await other.close();
     expect(blocked).toEqual([]);
+    // Three refusals, each said in the dialog: none thrown at the page.
+    expect(failed).toEqual([]);
   } finally {
     await control.end();
   }

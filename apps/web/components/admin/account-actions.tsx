@@ -278,121 +278,114 @@ export function useAccountActions({
   /**
    * Asked right before a sensitive action goes to the server (ROADMAP
    * #28), once what was typed is in order: the password or the second
-   * factor again, unless one was given in the last five minutes.
+   * factor again, unless one was given in the last five minutes. Whether
+   * it was given: a person who gives up is back on the dialog, as it was.
    */
-  async function prove(): Promise<void> {
-    if (!(await stepUp.ensure())) throw new Error("step_up_cancelled");
-  }
+  const proved = (): Promise<boolean> => stepUp.ensure();
 
-  async function confirm(): Promise<void> {
+  /**
+   * What the dialog confirms. A refusal of the server is thrown on to the
+   * dialog, which says it and stays open; what is said here (a name typed
+   * wrong, a proof given up) answers `false`, and the dialog stays open
+   * too.
+   */
+  async function confirm(): Promise<boolean | undefined> {
     if (!open) return;
     const { target, action } = open;
     const userId = target.id;
-    try {
-      switch (action) {
-        case "edit":
-          await trpc.admin.updateAccount.mutate({
-            userId,
-            displayName: edit.displayName,
-            email: edit.email.trim(),
-          });
-          toast.success(t`Saved`);
-          break;
-        case "reset": {
-          const result = await trpc.admin.sendPasswordReset.mutate({ userId });
-          if (result.sent) {
-            toast.success(t`Link sent to ${{ to: result.to }}`);
-          } else {
-            setHanded({ name: target.displayName, link: result.link });
-          }
-          break;
+    switch (action) {
+      case "edit":
+        await trpc.admin.updateAccount.mutate({
+          userId,
+          displayName: edit.displayName,
+          email: edit.email.trim(),
+        });
+        toast.success(t`Saved`);
+        break;
+      case "reset": {
+        const result = await trpc.admin.sendPasswordReset.mutate({ userId });
+        if (result.sent) {
+          toast.success(t`Link sent to ${{ to: result.to }}`);
+        } else {
+          setHanded({ name: target.displayName, link: result.link });
         }
-        case "disable":
-          await prove();
-          await trpc.admin.setDisabled.mutate({
-            userId,
-            disabled: !target.disabled,
-          });
-          toast.success(target.disabled ? t`Enabled` : t`Disabled`);
-          break;
-        case "unlock":
-          await trpc.admin.unlock.mutate({ userId });
-          toast.success(t`Unlocked`);
-          break;
-        case "admin":
-          // Giving or taking away administration asks for the proof.
-          await prove();
-          await trpc.admin.setAdmin.mutate({ userId, admin: !target.isAdmin });
-          toast.success(t`Saved`);
-          break;
-        case "support":
-          await prove();
-          await trpc.admin.setSupport.mutate({
-            userId,
-            support: !target.isSupport,
-          });
-          toast.success(t`Saved`);
-          break;
-        case "auditor":
-          await prove();
-          await trpc.admin.setAuditor.mutate({
-            userId,
-            auditor: !target.isAuditor,
-          });
-          toast.success(t`Saved`);
-          break;
-        case "sessions":
-          await trpc.admin.endUserSessions.mutate({ userId });
-          toast.success(t`Done`);
-          break;
-        case "factors":
-          await prove();
-          await trpc.admin.clearFactors.mutate({ userId });
-          toast.success(t`Done`);
-          break;
-        case "signOn":
-          await prove();
-          await trpc.admin.unlinkSignOn.mutate({ userId });
-          toast.success(t`Done`);
-          break;
-        case "tokens":
-          await prove();
-          await trpc.admin.revokeTokens.mutate({ userId });
-          toast.success(t`Done`);
-          break;
-        case "delete": {
-          if (!erase) return;
-          if (erase.typed.trim().toLowerCase() !== target.email.toLowerCase()) {
-            toast.error(t`Type the account's email to confirm`);
-            throw new Error("confirm_email");
-          }
-          const handsOver = erase.soleOwnerBases.length > 0;
-          if (handsOver && erase.successor.trim() === "") {
-            toast.error(t`Type the new owner's email`);
-            throw new Error("successor_email");
-          }
-          await prove();
-          await trpc.admin.erase.mutate({
-            userId,
-            email: erase.typed.trim(),
-            successorEmail: handsOver ? erase.successor.trim() : undefined,
-          });
-          toast.success(t`Account deleted`);
-          break;
+        break;
+      }
+      case "disable":
+        if (!(await proved())) return false;
+        await trpc.admin.setDisabled.mutate({
+          userId,
+          disabled: !target.disabled,
+        });
+        toast.success(target.disabled ? t`Enabled` : t`Disabled`);
+        break;
+      case "unlock":
+        await trpc.admin.unlock.mutate({ userId });
+        toast.success(t`Unlocked`);
+        break;
+      case "admin":
+        // Giving or taking away administration asks for the proof.
+        if (!(await proved())) return false;
+        await trpc.admin.setAdmin.mutate({ userId, admin: !target.isAdmin });
+        toast.success(t`Saved`);
+        break;
+      case "support":
+        if (!(await proved())) return false;
+        await trpc.admin.setSupport.mutate({
+          userId,
+          support: !target.isSupport,
+        });
+        toast.success(t`Saved`);
+        break;
+      case "auditor":
+        if (!(await proved())) return false;
+        await trpc.admin.setAuditor.mutate({
+          userId,
+          auditor: !target.isAuditor,
+        });
+        toast.success(t`Saved`);
+        break;
+      case "sessions":
+        await trpc.admin.endUserSessions.mutate({ userId });
+        toast.success(t`Done`);
+        break;
+      case "factors":
+        if (!(await proved())) return false;
+        await trpc.admin.clearFactors.mutate({ userId });
+        toast.success(t`Done`);
+        break;
+      case "signOn":
+        if (!(await proved())) return false;
+        await trpc.admin.unlinkSignOn.mutate({ userId });
+        toast.success(t`Done`);
+        break;
+      case "tokens":
+        if (!(await proved())) return false;
+        await trpc.admin.revokeTokens.mutate({ userId });
+        toast.success(t`Done`);
+        break;
+      case "delete": {
+        if (!erase) return;
+        if (erase.typed.trim().toLowerCase() !== target.email.toLowerCase()) {
+          toast.error(t`Type the account's email to confirm`);
+          return false;
         }
+        const handsOver = erase.soleOwnerBases.length > 0;
+        if (handsOver && erase.successor.trim() === "") {
+          toast.error(t`Type the new owner's email`);
+          return false;
+        }
+        if (!(await proved())) return false;
+        await trpc.admin.erase.mutate({
+          userId,
+          email: erase.typed.trim(),
+          successorEmail: handsOver ? erase.successor.trim() : undefined,
+        });
+        toast.success(t`Account deleted`);
+        break;
       }
-      await refresh(target, action);
-    } catch (cause) {
-      if (
-        cause instanceof Error &&
-        (cause.message.endsWith("_email") ||
-          cause.message === "step_up_cancelled")
-      ) {
-        throw cause;
-      }
-      toast.error(errorText(cause));
-      throw cause;
     }
+    await refresh(target, action);
   }
 
   const close = (next: boolean) => {

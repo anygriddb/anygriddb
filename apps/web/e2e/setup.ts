@@ -32,6 +32,19 @@ export function watchPolicy(page: Page): string[] {
   return blocked;
 }
 
+/**
+ * Collects what the page fails on with nobody to catch it: an exception
+ * thrown, a promise refused. A refusal the page tells the person is no
+ * such failure: a journey that meets some ends with this list empty.
+ */
+export function watchFailures(page: Page): string[] {
+  const failures: string[] = [];
+  page.on("pageerror", (error) => {
+    failures.push(`${error.name}: ${error.message}`);
+  });
+  return failures;
+}
+
 /** A unique part for a journey's names: time, then random bytes. */
 export function uniqueStamp(): string {
   return `${Date.now().toString(36)}${randomBytes(3).toString("hex")}`;
@@ -125,6 +138,8 @@ export async function mailedCode(to: string, subject: string): Promise<string> {
  */
 async function hideGridTips(page: Page): Promise<void> {
   await page.context().addInitScript(() => {
+    // A page that has not gone anywhere yet has no storage to read.
+    if (window.origin === "null") return;
     window.localStorage.setItem("ag_grid_tips", "hidden");
   });
 }
