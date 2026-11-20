@@ -286,6 +286,7 @@ test.describe("a dashboard", () => {
   }) => {
     const blocked = watchPolicy(page);
     await signUpWithTable(page, "Board Mover");
+    const samplesId = tableIdOf(page);
     await send(page, "catalog.addColumn", {
       tableId: tableIdOf(page),
       name: "amount",
@@ -513,6 +514,21 @@ test.describe("a dashboard", () => {
     await expect(
       widget("Due by month").getByRole("table").getByRole("rowheader"),
     ).toHaveText(["Jan 2026", "Mar 2026"]);
+    // A dashboard follows its tables. A row is added elsewhere: the sum,
+    // the last value, the chart, and the view's rows are read again,
+    // and nobody reloads the page.
+    await send(page, "rows.insertMany", {
+      tableId: samplesId,
+      rows: [
+        { name: "Charlie", status: "Done", amount: "100", due: "2026-04-15" },
+      ],
+    });
+    await expect(widget("Billed").getByText("€1,334.70")).toBeVisible();
+    await expect(widget("Last billed").getByText("€100.00")).toBeVisible();
+    await expect(
+      widget("Due by month").getByRole("table").getByRole("rowheader"),
+    ).toHaveText(["Jan 2026", "Mar 2026", "Apr 2026"]);
+    await expect(widget("Every sample").getByText("3 rows")).toBeVisible();
     // On a phone the widgets stand one under another, each as wide as
     // the page: twelve columns have no room there.
     await page.setViewportSize({ width: 390, height: 844 });

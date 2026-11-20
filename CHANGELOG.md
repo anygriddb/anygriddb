@@ -24,6 +24,10 @@ first.
   or only those that match conditions, where "Me" in a collaborator
   field keeps each person to their own rows. The rule was kept and
   enforced everywhere, and no screen set it.
+- A dashboard follows its tables. Once the rows of a table change, the
+  figures, the charts, and the views' rows that read it are read
+  again, a moment later and once for a burst of changes. A dashboard
+  read when it was opened, and went on showing what was true then.
 
 ### Fixed
 

@@ -15,6 +15,7 @@ import {
   type ServerMessage,
   type Subscriber,
 } from "./realtime-connection";
+import { oncePerBurst } from "./once-per-burst";
 import { socketUrl, useTRPC } from "./trpc";
 const ConnectionContext = createContext<Connection | null>(null);
 
@@ -100,6 +101,48 @@ export function useChannel(
       },
     });
   }, [connection, channel]);
+}
+
+/** How long after a table's first change a figure of it is read again. */
+const TABLE_CHANGES_DELAY_MS = 2000;
+
+/**
+ * Tells when the rows of a table changed, once per burst of changes: for
+ * what shows a figure of the table rather than its rows, and reads the
+ * whole of it again (a dashboard's widgets). A grid follows row by row
+ * (`useRows`).
+ */
+export function useTableChanges(
+  tableId: string | undefined,
+  onChange: () => void,
+): void {
+  const connection = useContext(ConnectionContext);
+  // The latest callback, without subscribing again each time it changes.
+  const changed = useEffectEvent(onChange);
+  useEffect(() => {
+    if (!connection || !tableId) return;
+    const burst = oncePerBurst(() => {
+      changed();
+    }, TABLE_CHANGES_DELAY_MS);
+    const leave = connection.subscribe(tableId, {
+      message: (message) => {
+        if (
+          message.type === "rows" ||
+          message.type === "refresh" ||
+          message.type === "delete"
+        ) {
+          burst.soon();
+        }
+      },
+      resync: () => {
+        burst.soon();
+      },
+    });
+    return () => {
+      leave();
+      burst.cancel();
+    };
+  }, [connection, tableId]);
 }
 
 function useSocketSend(): (message: Record<string, unknown>) => void {
