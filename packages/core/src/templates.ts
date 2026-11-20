@@ -13,7 +13,7 @@ import type { ColumnDefinition } from "./schemas";
  * UTC. A template that carried dates of its own showed, months on, a
  * calendar with nothing on its page and tasks that were all overdue.
  */
-export type TemplateDay = { day: number; at?: string };
+type TemplateDay = { day: number; at?: string };
 
 /** What a sample row holds as it is written, and once its days are dates. */
 type PlainValue = string | number | boolean | string[] | null;
