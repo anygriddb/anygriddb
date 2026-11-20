@@ -1,26 +1,22 @@
-# Security Policy
+# Security policy
 
-### Sessions and factors
+## Reporting a vulnerability
 
-AnyGridDB serves HTTPS only (ADR 0029): the operator's certificate, or one signed by the instance's own authority, which is name-constrained to the instance's addresses and whose private keys are stored encrypted with `AUTH_ENCRYPTION_KEY`. Plain HTTP on the same port gets a redirect and nothing else. `PUBLIC_URL` must be HTTPS; plain HTTP is accepted only for the development server on the machine's loopback. HSTS is sent with the operator's certificate. Passkeys (WebAuthn) also need a DNS hostname or `localhost` in `PUBLIC_URL`, matching the address people open; an IP-only origin keeps HTTPS and TOTP.
+Please report (suspected) security vulnerabilities to ngsanogo@proton.me, or privately through GitHub: [report a vulnerability](https://github.com/anygriddb/anygriddb/security/advisories/new). Do not open a public issue.
 
-Every connection AnyGridDB opens beyond the machine's loopback is TLS with the certificate verified, and it refuses to start on a setting that breaks this (ADR 0030): its PostgreSQL (`sslmode=verify-full`), S3, SMTP (implicit TLS or required STARTTLS), SAML, clients' databases, and webhooks. In the compose stack, PostgreSQL takes TLS connections only, and RustFS serves HTTPS, both with certificates from the instance's internal authority, which only AnyGridDB trusts, name-constrained to the services.
+- You will receive an answer within 7 working days.
+- If the issue is confirmed, a fix is released as soon as its complexity allows, and the advisory is published with it.
 
-Sign-in sets a `__Host-` session cookie, `HttpOnly`, `Secure`, and `SameSite=Strict`, only after the password check succeeds. A change or a live connection made with that cookie is taken only from the app's own pages: the browser says which page sent it, and one of another origin is refused. When TOTP or a passkey is enrolled, that factor must succeed before the cookie is set.
+If you believe an issue is already being exploited in the wild, say so in
+the first private message so triage can jump the queue.
 
-Passwords are hashed with Argon2id (64 MiB). TOTP secrets are encrypted at rest with AES-256-GCM under `AUTH_ENCRYPTION_KEY`. Backup codes are stored as hashes. The server keeps a WebAuthn public key and signature counter only; biometrics stay on the device.
+## Supported versions
 
-Sign-ins, refused sign-ins, sign-outs, and what an administrator does to an account (ended sessions, removed second factors, revoked tokens, unlocks, reset links, a corrected name or address) go to the `auth_events` trail, with the acting administrator and the client address but never an email, a password, or a token: a corrected address is recorded as a change, without the old or the new one. An identity provider keeps the name and address of the accounts it provisions. So does each setting an administrator changes, by name. It is append-only, kept six months to a year as the instance says, and cleared of an erased account's ids and addresses (ADRs 0042, 0043). Administration > Audit log > Sign-ins shows it. Row and catalog changes stay in the separate `audit_events` trail.
+Security fixes go into the next release, and the latest release is the
+only one supported: until 1.0 no earlier version receives a fix. Each
+release's notes say first what an operator must do before installing it.
 
-The security policy is the administrator's, from defaults most organizations keep (ADR 0043, Administration > Security): administrators always need a second factor, and by default so do base owners; an account locks for 15 minutes after 10 failed passwords or codes in a row, counted per account whatever the address, and guesses sent together take turns so that none is compared past the count (each API process keeps its own turns); sessions end after 15 minutes idle and 12 hours in any case; passwords have 12 characters at least, with no character classes or expiry. A reset link works once, an hour when the person asks by email, a day when an administrator sends it, and keeps the second factors. After single sign-on, an account's own second factor is asked too, unless the instance trusts the identity provider's. No setting turns the lock off, lets an administrator work without a second factor, or keeps the sign-in trail less than six months.
-
-Administrators can also keep invitations to the organization's domains, keep base and API token creation to themselves, and have accounts nobody used for 30 to 365 days disabled, after an email warning a week before; administrators and identity-provider accounts are never disabled this way. Administrators are told of each lock in the app and by email, at most ten times an hour (ADR 0044).
-
-### Account erasure and SCIM
-
-When someone leaves, an administrator can disable the account: sessions end and tokens stop; email and history stay. Deleting it erases the identity (ADR 0051). The person can do it in Settings > Delete account, with the proof a sensitive action asks: their password, a code from their authenticator when they have one, a sign-in less than ten minutes old where neither can be asked (an account its identity provider signs in, or whose second factor is a passkey), and never with an API token; a wrong password or code counts toward the account's lock. An administrator can do it in one step, after typing the account's email, unless SCIM actively manages it: an enabled account is disabled first, in the same transaction (ADR 0059). A live base keeps an owner: a person who alone owns one grants another owner first, and an administrator names the active account that takes those bases, which the bases' audit records. The only active administrator cannot erase their own account. Erasure removes sign-in, second factors, sessions and tokens, invitations to that address, personal views, and public links the person created. Audit rows, signatures, comments, and the write trails of client tables keep their facts under one placeholder account; addresses in the sign-in trail are cleared. What the person typed into tables, and the files they added, are the tables' content and stay: a manager trashes or edits those rows (or deletes a comment) when the content itself must leave the instance. An identity provider's SCIM DELETE or deactivation is not erasure: the account is disabled (and taken out of its groups on DELETE), but its email, display name, and history stay, so the provider can bring it back; after that, an administrator may erase. Webhook deliveries keep row values for up to 30 days when a webhook was created to include them (off by default); the addresses webhooks call and the mail relay then process personal data.
-
-### Scope (threat model)
+## Scope
 
 In scope: flaws that let an untrusted person break confidentiality,
 integrity, or availability of an AnyGridDB instance or of data it holds —
@@ -44,20 +40,7 @@ Client databases connected as sources stay under the operator's control:
 AnyGridDB must not change their schema; a report about rights on a source
 should say what account and grants the operator configured.
 
-### Supported versions
-
-Security fixes go into the next release, and the latest release is the
-only one supported: until 1.0 no earlier version receives a fix. Each
-release's notes say first what an operator must do before installing it.
-
-### Reporting a Vulnerability
-
-Please report (suspected) security vulnerabilities to ngsanogo@proton.me, or privately through GitHub: [report a vulnerability](https://github.com/anygriddb/anygriddb/security/advisories/new). Do not open a public issue.
-
-- You will receive an answer within 7 working days.
-- If the issue is confirmed, a fix is released as soon as its complexity allows, and the advisory is published with it.
-
-### Incident response
+## Incident response
 
 When a report or an alert looks real:
 
@@ -72,5 +55,57 @@ When a report or an alert looks real:
 4. **Notify** — there is no separate mailing list yet; GitHub Security
    Advisories and the release notes are the channels.
 
-If you believe an issue is already being exploited in the wild, say so in
-the first private message so triage can jump the queue.
+## What protects an instance
+
+### Connections
+
+AnyGridDB serves HTTPS only (ADR 0029): the operator's certificate, or one signed by the instance's own authority, which is name-constrained to the instance's addresses and whose private keys are stored encrypted with `AUTH_ENCRYPTION_KEY`. Plain HTTP on the same port gets a redirect and nothing else. `PUBLIC_URL` must be HTTPS; plain HTTP is accepted only for the development server on the machine's loopback. HSTS is sent with the operator's certificate. Passkeys (WebAuthn) also need a DNS hostname or `localhost` in `PUBLIC_URL`, matching the address people open; an IP-only origin keeps HTTPS and TOTP.
+
+Every connection AnyGridDB opens beyond the machine's loopback is TLS with the certificate verified, and it refuses to start on a setting that breaks this (ADR 0030): its PostgreSQL (`sslmode=verify-full`), S3, SMTP (implicit TLS or required STARTTLS), SAML, clients' databases, and webhooks. In the compose stack, PostgreSQL takes TLS connections only, and RustFS serves HTTPS, both with certificates from the instance's internal authority, which only AnyGridDB trusts, name-constrained to the services.
+
+### Sessions and factors
+
+Sign-in sets a `__Host-` session cookie, `HttpOnly`, `Secure`, and `SameSite=Strict`, only after the password check succeeds. A change or a live connection made with that cookie is taken only from the app's own pages: the browser says which page sent it, and one of another origin is refused. When TOTP or a passkey is enrolled, that factor must succeed before the cookie is set.
+
+Passwords are hashed with Argon2id (64 MiB). TOTP secrets are encrypted at rest with AES-256-GCM under `AUTH_ENCRYPTION_KEY`. Backup codes are stored as hashes. The server keeps a WebAuthn public key and signature counter only; biometrics stay on the device.
+
+### The security policy
+
+The security policy is the administrator's, from defaults most organizations keep (ADR 0043, Administration > Security):
+
+- Administrators always need a second factor, and by default so do base owners.
+- An account locks for 15 minutes after 10 failed passwords or codes in a row, counted per account whatever the address, and guesses sent together take turns so that none is compared past the count (each API process keeps its own turns).
+- Sessions end after 15 minutes idle and 12 hours in any case.
+- Passwords have 12 characters at least, with no character classes or expiry.
+
+A reset link works once, an hour when the person asks by email, a day when an administrator sends it, and keeps the second factors. After single sign-on, an account's own second factor is asked too, unless the instance trusts the identity provider's. No setting turns the lock off, lets an administrator work without a second factor, or keeps the sign-in trail less than six months.
+
+Administrators can also keep invitations to the organization's domains, keep base and API token creation to themselves, and have accounts nobody used for 30 to 365 days disabled, after an email warning a week before; administrators and identity-provider accounts are never disabled this way. Administrators are told of each lock in the app and by email, at most ten times an hour (ADR 0044).
+
+### The sign-in trail
+
+Sign-ins, refused sign-ins, sign-outs, and what an administrator does to an account (ended sessions, removed second factors, revoked tokens, unlocks, reset links, a corrected name or address) go to the `auth_events` trail, with the acting administrator and the client address but never an email, a password, or a token: a corrected address is recorded as a change, without the old or the new one (an identity provider keeps the name and address of the accounts it provisions). Each setting an administrator changes goes there too, by name.
+
+It is append-only, kept six months to a year as the instance says, and cleared of an erased account's ids and addresses (ADRs 0042, 0043). Administration > Audit log > Sign-ins shows it. Row and catalog changes stay in the separate `audit_events` trail.
+
+### An administrator's way into data
+
+Being an administrator gives no role on a base. Three gestures give an administrator a way into one, and none is silent:
+
+- **Opening a base** they are not a member of, for an hour, with a reason: they read every table and change nothing, it is written to the change trail, and the base's owners are told at once, in the app and by email (ADR 0074).
+- **Giving themselves a role** on a base, which asks a reason too: its owners are told the same way.
+- **Acting with another person's rights**, for thirty minutes, after the proof and with a reason (ADR 0091). The session stays the administrator's: every change is signed by the administrator and names the person, the sign-in trail records the start and the end, and the person is told, in the app and by email. Administration is closed while it lasts. Another administrator, a support account, an auditor, and a disabled account cannot be acted as, and an API token never acts as anyone.
+
+Every change made in Administration asks for the password or the second factor again, unless one was given in the last five minutes (ADR 0073).
+
+### Account erasure and SCIM
+
+When someone leaves, an administrator can disable the account: sessions end and tokens stop; email and history stay. Deleting it erases the identity (ADR 0051).
+
+- **By the person.** The person erases their own account in Settings > Delete account, with the proof a sensitive action asks: their password, a code from their authenticator when they have one, a sign-in less than ten minutes old where neither can be asked (an account its identity provider signs in, or whose second factor is a passkey), and never with an API token; a wrong password or code counts toward the account's lock.
+- **By an administrator.** An administrator erases an account in one step, after typing the account's email, unless SCIM actively manages it: an enabled account is disabled first, in the same transaction (ADR 0059).
+- **A base keeps an owner.** A live base keeps an owner: a person who alone owns one grants another owner first, and an administrator names the active account that takes those bases, which the bases' audit records. The only active administrator cannot erase their own account.
+- **What goes.** Erasure removes sign-in, second factors, sessions and tokens, invitations to that address, personal views, and public links the person created.
+- **What stays.** Audit rows, signatures, comments, and the write trails of client tables keep their facts under one placeholder account; addresses in the sign-in trail are cleared. What the person typed into tables, and the files they added, are the tables' content and stay: a manager trashes or edits those rows (or deletes a comment) when the content itself must leave the instance.
+- **SCIM.** An identity provider's SCIM DELETE or deactivation is not erasure: the account is disabled (and taken out of its groups on DELETE), but its email, display name, and history stay, so the provider can bring it back; after that, an administrator may erase.
+- **Webhooks.** Webhook deliveries keep row values for up to 30 days when a webhook was created to include them (off by default); the addresses webhooks call and the mail relay then process personal data.
