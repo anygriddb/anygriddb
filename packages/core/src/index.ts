@@ -654,6 +654,7 @@ export {
   snapshotLineSchema,
   snapshotRowCount,
   snapshotRowsEntry,
+  snapshotSummary,
   type BaseSnapshot,
   type SnapshotDashboard,
   type SnapshotFile,

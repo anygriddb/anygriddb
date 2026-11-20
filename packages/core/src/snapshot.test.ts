@@ -9,6 +9,7 @@ import {
   snapshotLineSchema,
   snapshotRowCount,
   snapshotRowsEntry,
+  snapshotSummary,
 } from "./snapshot";
 
 const id = "0b5c4f3e-8a5e-4c43-9f61-2d4b8d1c7a10";
@@ -340,6 +341,41 @@ describe("version 3: rows as lines of their own entry", () => {
         nom: { nested: true },
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("snapshotSummary", () => {
+  it("counts what a file holds, its members without the person importing it", () => {
+    const parsed = baseSnapshotSchema.parse({
+      ...minimal,
+      members: [
+        { email: "ada@example.com", role: "owner" },
+        { email: "bob@example.com", role: "editor" },
+      ],
+      dashboards: [{ name: "Overview", widgets: [] }],
+    });
+    // Ada owns the base she makes, whatever the file says of her: only
+    // Bob has a role to be given back.
+    expect(snapshotSummary(parsed, "Ada@Example.com")).toEqual({
+      name: "Demo",
+      tables: 1,
+      dashboards: 1,
+      rows: 1,
+      files: 0,
+      members: 1,
+    });
+    // Someone the file does not name can give every member theirs.
+    expect(snapshotSummary(parsed, "carol@example.com").members).toBe(2);
+    // A file that names its importer alone has nobody to give a role to.
+    expect(
+      snapshotSummary(
+        { ...parsed, members: [{ email: "ada@example.com", role: "owner" }] },
+        "ada@example.com",
+      ).members,
+    ).toBe(0);
+    expect(
+      snapshotSummary(baseSnapshotSchema.parse(minimal), "x").members,
+    ).toBe(0);
   });
 });
 
