@@ -24,8 +24,12 @@ import {
 export const recoveryInputSchema = z
   .object({
     email: z.email().max(254),
-    /** The name of the account to make when the address has none. */
-    create: labelSchema.optional(),
+    /**
+     * The name of the account to make when the address has none. Typed
+     * on a command line, where a word that starts with a dash is the
+     * next option, not a name.
+     */
+    create: labelSchema.refine((name) => !name.startsWith("-")).optional(),
     clearFactors: z.boolean().default(false),
     anyAddress: z.boolean().default(false),
   })

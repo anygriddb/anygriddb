@@ -245,13 +245,16 @@ test("a client's rows: locked, signed, told when changed elsewhere, read from a 
     await expect(page.getByText("Editing", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Rename the dashboard" }).click();
     const rename = page.getByRole("dialog", { name: "Rename the dashboard" });
-    await rename.getByLabel("Name").fill("Ventes 2026");
+    // A name takes the signs people write: a dash, a percent sign, a
+    // comma, a sign of money.
+    const renamed = "Ventes 2026 — 100 %, en €";
+    await rename.getByLabel("Name").fill(renamed);
     await rename.getByRole("button", { name: "Rename" }).click();
     await expect(
-      page.getByRole("heading", { level: 1, name: "Ventes 2026" }),
+      page.getByRole("heading", { level: 1, name: renamed }),
     ).toBeVisible();
     await expect(
-      named.getByRole("link", { name: "Ventes 2026", exact: true }),
+      named.getByRole("link", { name: renamed, exact: true }),
     ).toBeVisible();
     ok(
       await call(page, "dashboards.upsertWidget", {

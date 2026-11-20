@@ -43,6 +43,13 @@ first.
 
 ### Fixed
 
+- A name takes the signs people write. A base, a table, a view, a
+  folder, a dashboard, a widget, a group, or a person is named
+  "Dépenses > 100 €" or "Revenus, par mois": a name was refused for a
+  sign of money, a comma, a percent sign, a long dash, or the
+  apostrophe a keyboard types. A name still holds a letter or a digit,
+  and one line. An account an identity provider sends, and what an
+  Airtable base brings, keep their signs too.
 - Where the keyboard is shows again on the buttons that open a menu,
   the button that closes a dialog, the days of a date picker, the
   buttons that edit a field in a row's panel, a kanban's cards, and the
