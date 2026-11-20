@@ -22,8 +22,9 @@ import { OpenBase } from "./open-base";
 /**
  * One base in Administration (ROADMAP #14, #69, #22): its members, whose
  * roles are given, changed, and taken away from here; its tables with
- * their weight; its public links and calendar feeds; and the base itself
- * put in the trash. Metadata only: never a cell value.
+ * their weight and when each was last used; its public links and calendar
+ * feeds; and the base itself put in the trash. Metadata only: never a
+ * cell value.
  */
 export function BaseAdminPage({ baseId }: { baseId: string }) {
   const { t } = useLingui();
@@ -37,7 +38,7 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
   const days = useTrashDays();
   const isAdmin = useSession().data?.isAdmin === true;
   const [trashing, setTrashing] = useState(false);
-  const tableSort = useColumnSort<"name" | "rows" | "files">();
+  const tableSort = useColumnSort<"name" | "rows" | "files" | "activity">();
   const detail = useQuery(api.admin.baseOverview.get.queryOptions({ baseId }));
   const back = (
     <Link
@@ -67,7 +68,10 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
     (table, key) => {
       if (key === "name") return table.name;
       if (key === "rows") return table.estimatedRows;
-      return table.fileBytes;
+      if (key === "files") return table.fileBytes;
+      return table.lastActivityAt === null
+        ? null
+        : Date.parse(table.lastActivityAt);
     },
     (table) => table.id,
   );
@@ -79,7 +83,10 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
         <h2 className="text-lg font-semibold">{base.name}</h2>
         <p className="text-sm text-muted-foreground">
           {t`Created ${{ when: when.day(base.createdAt) }}`} ·{" "}
-          {formatBytes(base.fileBytes)}
+          {formatBytes(base.fileBytes)} ·{" "}
+          {base.lastActivityAt
+            ? t`Last activity ${{ when: when.day(base.lastActivityAt) }}`
+            : t`No activity recorded`}
         </p>
         {!base.hasLiveOwner ? (
           <p className="mt-2 rounded-sm border border-warning/40 bg-warning-surface px-3 py-2 text-sm">
@@ -103,49 +110,63 @@ export function BaseAdminPage({ baseId }: { baseId: string }) {
         {tables.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t`No table.`}</p>
         ) : (
-          <div className="overflow-x-auto rounded-sm border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted text-left text-xs">
-                <tr>
-                  {tableSort.header("name", t`Table`, head)}
-                  {tableSort.header(
-                    "rows",
-                    t`Rows, about`,
-                    `${head} text-right`,
-                    "right",
-                  )}
-                  {tableSort.header(
-                    "files",
-                    t`Files`,
-                    `${head} text-right`,
-                    "right",
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {orderedTables.map((table) => (
-                  <tr key={table.id} className="border-t border-border">
-                    <td className="px-3 py-2">
-                      {table.name}
-                      {table.external ? (
-                        <span className="block text-xs text-muted-foreground">
-                          {t`In a client's database`}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-2 text-right text-xs tabular-nums">
-                      {table.estimatedRows === null
-                        ? "—"
-                        : formatNumber(table.estimatedRows, locale)}
-                    </td>
-                    <td className="px-3 py-2 text-right text-xs tabular-nums">
-                      {formatBytes(table.fileBytes)}
-                    </td>
+          <>
+            <p className="text-sm text-muted-foreground">
+              {t`Last activity is the newest change or export in one of the base's tables. Reading leaves no trace, unless a table records who opens it.`}
+            </p>
+            <div className="overflow-x-auto rounded-sm border border-border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-left text-xs">
+                  <tr>
+                    {tableSort.header("name", t`Table`, head)}
+                    {tableSort.header(
+                      "rows",
+                      t`Rows, about`,
+                      `${head} text-right`,
+                      "right",
+                    )}
+                    {tableSort.header(
+                      "files",
+                      t`Files`,
+                      `${head} text-right`,
+                      "right",
+                    )}
+                    {tableSort.header(
+                      "activity",
+                      t`Last activity`,
+                      `${head} text-right`,
+                      "right",
+                    )}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {orderedTables.map((table) => (
+                    <tr key={table.id} className="border-t border-border">
+                      <td className="px-3 py-2">
+                        {table.name}
+                        {table.external ? (
+                          <span className="block text-xs text-muted-foreground">
+                            {t`In a client's database`}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 text-right text-xs tabular-nums">
+                        {table.estimatedRows === null
+                          ? "—"
+                          : formatNumber(table.estimatedRows, locale)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-xs tabular-nums">
+                        {formatBytes(table.fileBytes)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-xs tabular-nums">
+                        {when.day(table.lastActivityAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
 

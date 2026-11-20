@@ -6,6 +6,7 @@ import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { insertBase, insertTable } from "./data/schema-ops.js";
+import { trashBase } from "./data/trash.js";
 import { createTestDatabase } from "./test-database.js";
 import {
   countUsageNow,
@@ -22,6 +23,8 @@ describe("usage figures", () => {
   let close: (() => Promise<void>) | undefined;
   let admin = "";
   let quiet = "";
+  let baseId = "";
+  let tableId = "";
 
   beforeAll(async () => {
     const created = await createTestDatabase("usage_stats");
@@ -50,8 +53,8 @@ describe("usage figures", () => {
         .returning("id")
         .executeTakeFirstOrThrow()
     ).id;
-    const baseId = (await insertBase(db, admin, { name: "Sales" })).id;
-    const tableId = (
+    baseId = (await insertBase(db, admin, { name: "Sales" })).id;
+    tableId = (
       await insertTable(db, admin, {
         baseId,
         name: "Clients",
@@ -110,5 +113,57 @@ describe("usage figures", () => {
       on conflict do nothing
     `.execute(db);
     expect(await purgeUsageDaily(db, now)).toBeGreaterThanOrEqual(1);
+  });
+
+  // Far enough ahead that what made the tables has left the window.
+  const day = 86_400_000;
+  const later = new Date(Date.now() + 90 * day);
+  const activeLater = async () =>
+    (await countUsageNow(db, later)).basesActive30d;
+
+  it("counts a base whose rows were written in a client's database", async () => {
+    expect(await activeLater()).toBe(0);
+    await db
+      .insertInto("externalWrites")
+      .values({
+        userId: admin,
+        tableId,
+        sourceId: "33333333-3333-4333-8333-333333333333",
+        rowId: "1",
+        action: "update",
+        oldValue: {},
+        newValue: {},
+        requestedAt: new Date(later.getTime() - day),
+      })
+      .execute();
+    expect(await activeLater()).toBe(1);
+  });
+
+  it("does not count a base in the trash", async () => {
+    const before = await activeLater();
+    const gone = (await insertBase(db, admin, { name: "Gone" })).id;
+    const table = (
+      await insertTable(db, admin, {
+        baseId: gone,
+        name: "Leads",
+        columns: [{ name: "name", label: "Name", fieldType: "text" }],
+      })
+    ).id;
+    await db
+      .insertInto("auditEvents")
+      .values({
+        userId: admin,
+        action: "update",
+        tableId: table,
+        oldValue: { name: "a" },
+        newValue: { name: "b" },
+        source: "web",
+        occurredAt: new Date(later.getTime() - day),
+      })
+      .execute();
+    expect(await activeLater()).toBe(before + 1);
+    // Its tables are still there, and were used: the base is not.
+    await trashBase(db, admin, gone);
+    expect(await activeLater()).toBe(before);
   });
 });

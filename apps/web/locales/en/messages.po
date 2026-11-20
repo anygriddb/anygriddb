@@ -6170,6 +6170,20 @@ msgstr "Largest attachment"
 msgid "Largest value first"
 msgstr "Largest value first"
 
+#: components/admin/base-admin-page.tsx
+#: components/admin/bases-tab.tsx
+msgid "Last activity"
+msgstr "Last activity"
+
+#: components/admin/base-admin-page.tsx
+msgid "Last activity {when}"
+msgstr "Last activity {when}"
+
+#: components/admin/base-admin-page.tsx
+#: components/admin/bases-tab.tsx
+msgid "Last activity is the newest change or export in one of the base's tables. Reading leaves no trace, unless a table records who opens it."
+msgstr "Last activity is the newest change or export in one of the base's tables. Reading leaves no trace, unless a table records who opens it."
+
 #: components/admin/health-tab.tsx
 msgid "Last checked {date}"
 msgstr "Last checked {date}"
@@ -7155,6 +7169,10 @@ msgstr "No active account owns this base, itself or through a group: nobody can 
 #: components/admin/bases-tab.tsx
 msgid "No active owner"
 msgstr "No active owner"
+
+#: components/admin/base-admin-page.tsx
+msgid "No activity recorded"
+msgstr "No activity recorded"
 
 #: components/admin/alerts-section.tsx
 msgid "No alert is open."

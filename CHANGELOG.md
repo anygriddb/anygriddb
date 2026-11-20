@@ -8,6 +8,21 @@ first.
 
 ## Unreleased
 
+### Added
+
+- Administration says when each base was last used, in the list of
+  bases and on a base's page, where each of its tables has its date
+  too: the newest change or export the trails hold, the rows written
+  in a client's database among them. Reading a table leaves no trace
+  unless its manager records who opens it, and the page says so.
+
+### Fixed
+
+- The count of bases active over thirty days takes in a base whose
+  rows are written in a client's database, and leaves out a base in
+  the trash: it counted neither as it should, so that it could show
+  more active bases than the instance had.
+
 ## 0.3.0 - 2026-11-20
 
 **Before upgrading:** an instance that declared a SQLite file as a

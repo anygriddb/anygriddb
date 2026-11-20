@@ -80,15 +80,30 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     // another journey's base must not leave under its feet.
     await openAdmin(page, "Bases");
     await page.getByLabel("Search bases").fill("Lab");
-    const ownBase = page
-      .getByRole("row", { name: /Admin Controls/ })
-      .getByRole("link")
-      .first();
+    const ownRow = page.getByRole("row", { name: /Admin Controls/ });
+    const ownBase = ownRow.getByRole("link").first();
     await expect(ownBase).toBeVisible();
+    // The list says when each base was last used: this one when its
+    // table was made, which is the newest event the trail holds of it.
+    const used = await control.query<{ at: Date }>(
+      "select max(e.occurred_at) as at from audit_events e join data_tables t on t.id = e.table_id join role_bindings r on r.scope = 'base' and r.scope_id = t.base_id join users u on u.id = r.user_id where u.email = $1",
+      [email],
+    );
+    const lastUsed = new Intl.DateTimeFormat("en-GB").format(used.rows[0]?.at);
+    await expect(ownRow.getByRole("cell").last()).toHaveText(lastUsed);
     expect(await accessibilityViolations(page)).toEqual([]);
     await ownBase.click();
     await page.waitForURL(/\/admin\/bases\/[0-9a-f-]{36}$/);
     await expect(page.getByRole("heading", { name: "Members" })).toBeVisible();
+    // Its page says it too, of the base and of each of its tables.
+    await expect(page.getByText(`Last activity ${lastUsed}`)).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: "Tables" })
+        .getByRole("row", { name: /Samples/ })
+        .getByRole("cell")
+        .last(),
+    ).toHaveText(lastUsed);
     expect(await accessibilityViolations(page)).toEqual([]);
 
     // From that page a role is given to someone, then taken away
