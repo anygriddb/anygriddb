@@ -3836,9 +3836,21 @@ msgstr "Supprimer la règle"
 msgid "Delete table"
 msgstr "Supprimer la table"
 
+#: components/table/automations-dialog.tsx
+msgid "Delete the automation “{name}”?"
+msgstr "Supprimer l’automatisation « {name} » ?"
+
 #: components/shell/sidebar.tsx
 msgid "Delete the base “{name}”?"
 msgstr "Supprimer la base « {name} » ?"
+
+#: components/dashboards/dashboard-list.tsx
+msgid "Delete the dashboard “{name}”?"
+msgstr "Supprimer le tableau de bord « {name} » ?"
+
+#: components/dashboards/dashboard-list.tsx
+msgid "Delete the dashboard {name}"
+msgstr "Supprimer le tableau de bord {name}"
 
 #: components/table/delete-field-dialog.tsx
 msgid "Delete the field “{name}”?"
@@ -6009,6 +6021,10 @@ msgstr "Il reste {days} jours dans la corbeille."
 msgid "It stops at once, and its delivery log goes with it. A deleted webhook cannot be brought back."
 msgstr "Il s’arrête aussitôt, et son journal des envois disparaît avec lui. Un webhook supprimé ne peut pas être rétabli."
 
+#: components/table/automations-dialog.tsx
+msgid "It stops at once. Its steps, the secrets it keeps, and the record of its runs go with it: a deleted automation cannot be brought back."
+msgstr "Elle s’arrête aussitôt. Ses étapes, les secrets qu’elle garde et l’historique de ses exécutions disparaissent avec elle : une automatisation supprimée ne peut pas être rétablie."
+
 #: components/table/revoke-link.tsx
 msgid "It stops opening at once, for everyone who has it. A link is not made again: another has another address."
 msgstr "Il cesse de s’ouvrir aussitôt, pour tous ceux qui l’ont. Un lien ne se recrée pas : un autre aura une autre adresse."
@@ -6075,6 +6091,10 @@ msgstr "Ses lignes sont comptées dans des classes égales, de la plus petite va
 #: components/shell/sidebar.tsx
 msgid "Its tables stay in the base, back at the root. The folder itself is removed."
 msgstr "Ses tables restent dans la base, à la racine. Le dossier lui-même est retiré."
+
+#: components/dashboards/dashboard-list.tsx
+msgid "Its widgets go with it. A deleted dashboard cannot be brought back: the tables it reads keep their rows."
+msgstr "Ses widgets disparaissent avec lui. Un tableau de bord supprimé ne peut pas être rétabli : les tables qu’il lit gardent leurs lignes."
 
 #: components/table/automations-dialog.tsx
 msgid "JavaScript, run apart from the instance, with your access to this base and nothing else: it opens no file and no connection of its own."

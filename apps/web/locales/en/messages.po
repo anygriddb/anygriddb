@@ -3836,9 +3836,21 @@ msgstr "Delete rule"
 msgid "Delete table"
 msgstr "Delete table"
 
+#: components/table/automations-dialog.tsx
+msgid "Delete the automation “{name}”?"
+msgstr "Delete the automation “{name}”?"
+
 #: components/shell/sidebar.tsx
 msgid "Delete the base “{name}”?"
 msgstr "Delete the base “{name}”?"
+
+#: components/dashboards/dashboard-list.tsx
+msgid "Delete the dashboard “{name}”?"
+msgstr "Delete the dashboard “{name}”?"
+
+#: components/dashboards/dashboard-list.tsx
+msgid "Delete the dashboard {name}"
+msgstr "Delete the dashboard {name}"
 
 #: components/table/delete-field-dialog.tsx
 msgid "Delete the field “{name}”?"
@@ -6009,6 +6021,10 @@ msgstr "It stays in the trash for {days} days."
 msgid "It stops at once, and its delivery log goes with it. A deleted webhook cannot be brought back."
 msgstr "It stops at once, and its delivery log goes with it. A deleted webhook cannot be brought back."
 
+#: components/table/automations-dialog.tsx
+msgid "It stops at once. Its steps, the secrets it keeps, and the record of its runs go with it: a deleted automation cannot be brought back."
+msgstr "It stops at once. Its steps, the secrets it keeps, and the record of its runs go with it: a deleted automation cannot be brought back."
+
 #: components/table/revoke-link.tsx
 msgid "It stops opening at once, for everyone who has it. A link is not made again: another has another address."
 msgstr "It stops opening at once, for everyone who has it. A link is not made again: another has another address."
@@ -6075,6 +6091,10 @@ msgstr "Its rows are counted in equal bins, from the least value to the greatest
 #: components/shell/sidebar.tsx
 msgid "Its tables stay in the base, back at the root. The folder itself is removed."
 msgstr "Its tables stay in the base, back at the root. The folder itself is removed."
+
+#: components/dashboards/dashboard-list.tsx
+msgid "Its widgets go with it. A deleted dashboard cannot be brought back: the tables it reads keep their rows."
+msgstr "Its widgets go with it. A deleted dashboard cannot be brought back: the tables it reads keep their rows."
 
 #: components/table/automations-dialog.tsx
 msgid "JavaScript, run apart from the instance, with your access to this base and nothing else: it opens no file and no connection of its own."

@@ -31,6 +31,12 @@ first.
   neither is made again. Administration already asked. Their lists
   write a day as every screen does ("20/11/2026"), where they showed
   the first ten characters of an instant.
+- Deleting a dashboard asks first, and says its widgets go with it:
+  one click on its bin deleted it, and nothing brings a dashboard back.
+  Each bin of the list is named after its dashboard. Deleting an
+  automation asks first too: its steps, the secrets it keeps, and the
+  record of its runs went with one click. The buttons of an
+  automation's line say what they do.
 
 ## 0.3.1 - 2026-11-20
 

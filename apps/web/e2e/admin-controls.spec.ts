@@ -1190,6 +1190,22 @@ test("an administrator allows scripts, and an automation runs one", async ({
       dialog.getByPlaceholder("Kept: type to replace it"),
     ).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel" }).click();
+
+    // Deleting it asks first: its steps, the secret it keeps and the
+    // record of its runs go with it, and nothing brings them back.
+    await dialog.getByRole("button", { name: "Delete" }).click();
+    const asking = page.getByRole("dialog", {
+      name: "Delete the automation “Stamp”?",
+    });
+    await expect(asking).toContainText("the record of its runs go with it");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await asking.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog.getByText("Stamp", { exact: true })).toBeVisible();
+    await dialog.getByRole("button", { name: "Delete" }).click();
+    await asking.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(
+      dialog.getByText("No automations on this table."),
+    ).toBeVisible();
     await dialog.getByRole("button", { name: "Close" }).first().click();
 
     // What it wrote is in the grid, as any row.

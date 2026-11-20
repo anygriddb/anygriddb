@@ -1,4 +1,4 @@
-import { Button, Input, Label, Spinner } from "@anygriddb/ui";
+import { Button, Input, Label, Spinner, Tooltip } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -9,6 +9,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import { canManage } from "../../lib/types";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { ConfirmDialog } from "../shell/dialogs";
 import { EmptyState, NotebookPage } from "../shell/notebook-page";
 import { useWhen } from "../../lib/i18n";
 
@@ -25,6 +26,10 @@ export function DashboardList({ baseId }: { baseId: string }) {
   const list = useQuery(api.dashboards.list.queryOptions({ baseId }));
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  // The dashboard about to be deleted, once that is confirmed.
+  const [removing, setRemoving] = useState<{ id: string; name: string } | null>(
+    null,
+  );
 
   if (!base) return null;
 
@@ -108,33 +113,48 @@ export function DashboardList({ baseId }: { baseId: string }) {
                   {when.instant(dashboard.updatedAt)}
                 </span>
                 {manage ? (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    aria-label={t`Delete`}
-                    onClick={() => {
-                      void (async () => {
-                        try {
-                          await trpc.dashboards.delete.mutate({
-                            dashboardId: dashboard.id,
-                          });
-                          await queryClient.invalidateQueries({
-                            queryKey: api.dashboards.list.queryKey({ baseId }),
-                          });
-                          toast.success(t`Dashboard deleted`);
-                        } catch (cause) {
-                          toast.error(errorText(cause));
-                        }
-                      })();
-                    }}
+                  <Tooltip
+                    content={t`Delete the dashboard ${{ name: dashboard.name }}`}
                   >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                  </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={t`Delete the dashboard ${{ name: dashboard.name }}`}
+                      onClick={() =>
+                        setRemoving({ id: dashboard.id, name: dashboard.name })
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </Tooltip>
                 ) : null}
               </div>
             </li>
           ))}
         </ul>
+      ) : null}
+      {removing ? (
+        <ConfirmDialog
+          open
+          danger
+          onOpenChange={(open) => !open && setRemoving(null)}
+          title={t`Delete the dashboard “${{ name: removing.name }}”?`}
+          description={t`Its widgets go with it. A deleted dashboard cannot be brought back: the tables it reads keep their rows.`}
+          confirmLabel={t`Delete`}
+          onConfirm={async () => {
+            try {
+              await trpc.dashboards.delete.mutate({
+                dashboardId: removing.id,
+              });
+              toast.success(t`Dashboard deleted`);
+            } catch (cause) {
+              toast.error(errorText(cause));
+            }
+            await queryClient.invalidateQueries({
+              queryKey: api.dashboards.list.queryKey({ baseId }),
+            });
+          }}
+        />
       ) : null}
     </NotebookPage>
   );

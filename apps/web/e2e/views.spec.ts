@@ -564,6 +564,34 @@ test.describe("a dashboard", () => {
         .getByRole("heading", { name: "Bravo" }),
     ).toBeVisible();
 
+    // A dashboard is deleted from the list of the base's, once that is
+    // confirmed: its widgets go with it, and nothing brings it back.
+    await page.keyboard.press("Escape");
+    await page.getByRole("link", { name: "Dashboards" }).click();
+    const listed = page
+      .getByRole("main")
+      .getByRole("link", { name: "Board", exact: true });
+    await page
+      .getByRole("button", { name: "Delete the dashboard Board" })
+      .click();
+    const asking = page.getByRole("dialog", {
+      name: "Delete the dashboard “Board”?",
+    });
+    await expect(asking).toContainText("Its widgets go with it");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await asking.getByRole("button", { name: "Cancel" }).click();
+    await expect(listed).toBeVisible();
+    await page
+      .getByRole("button", { name: "Delete the dashboard Board" })
+      .click();
+    await asking.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(page.getByText("Dashboard deleted")).toBeVisible();
+    await expect(listed).toHaveCount(0);
+    // The navigation forgets it too.
+    await expect(
+      page.getByRole("link", { name: "Board", exact: true }),
+    ).toHaveCount(0);
+
     expect(blocked).toEqual([]);
   });
 });
