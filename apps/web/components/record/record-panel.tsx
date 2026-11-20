@@ -1,4 +1,4 @@
-import { cellText, isBlankCell, rowError } from "@anygriddb/core";
+import { cellText, rowError } from "@anygriddb/core";
 import {
   Avatar,
   Button,
@@ -50,11 +50,13 @@ import { CellEditor, opensPanel } from "../fields/cell-editor";
 import { linkTarget } from "../fields/link-actions";
 import { ButtonCell } from "../fields/button-cell";
 import { CellValueView } from "../fields/cell-value";
+import { booleanAppearance } from "../fields/field-appearance";
 import { FieldIcon } from "../fields/field-meta";
 import { isEditableColumn, isEditableLink } from "../grid/grid-clipboard";
 import { useTable } from "../table/table-context";
 import { CommentBody, MentionTextarea } from "./mention-input";
 import { usePanelFocus } from "./panel-focus";
+import { panelDrawing } from "./panel-value";
 import { printRecord } from "./print-record";
 import { RowStatus, useSubmitRow } from "./row-status";
 import { canSubmitRow } from "./row-status-model";
@@ -74,9 +76,6 @@ const SKIP = new Set([
   "ag_created_by",
   "ag_updated_by",
 ]);
-
-/** Fields whose value draws its own empty state: never "Empty". */
-const DRAWS_ITS_EMPTY = new Set(["button", "boolean", "rating"]);
 
 function FieldRow({
   column,
@@ -133,10 +132,13 @@ function FieldRow({
     ]);
   // An empty value says so, where a click fills it in. A checkbox and a
   // rating draw their own empty state.
-  const blank =
-    isBlankCell(value) &&
-    !DRAWS_ITS_EMPTY.has(column.fieldType) &&
-    rowError(row, column.name) === null;
+  const drawing = panelDrawing({
+    fieldType: column.fieldType,
+    appearance:
+      column.fieldType === "boolean" ? booleanAppearance(column) : null,
+    value,
+    failed: rowError(row, column.name) !== null,
+  });
   return (
     <div
       ref={box}
@@ -209,13 +211,19 @@ function FieldRow({
         ) : null}
         {column.fieldType === "button" ? (
           <ButtonCell column={column} row={row} />
-        ) : blank ? (
+        ) : drawing.kind === "blank" ? (
           <span className="text-muted-foreground">
             {asTitle ? t`Untitled` : t`No value`}
           </span>
+        ) : drawing.kind === "unticked" ? (
+          <span
+            role="img"
+            aria-label={t`unchecked`}
+            className="inline-flex h-4 w-4 rounded border border-muted-foreground bg-card"
+          />
         ) : (
           <CellValueView
-            value={value}
+            value={drawing.value}
             column={column}
             locale={table.locale}
             people={table.people}
