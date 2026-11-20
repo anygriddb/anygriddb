@@ -54,6 +54,10 @@ first.
   restricts. A field's permission is read whole in its list, where it
   was cut. A field added after a member's permissions were saved with
   every field read and written is no longer hidden from them.
+- A cell that holds several options, linked rows, or people reads as
+  it is named. Its chips ran together in the page's text ("RedGreen"),
+  which the cell's name ("Tags: Red, Green") does not hold: someone who
+  speaks to the page says what they see.
 
 ## 0.3.0 - 2026-11-20
 

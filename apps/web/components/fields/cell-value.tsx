@@ -10,7 +10,7 @@ import {
 import { Avatar, cn, OptionBadge } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { Check, MapPin, Paperclip } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { attachmentList, cellDisplay, isLinkArray } from "../../lib/format";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { CodeImage } from "./code-image";
@@ -23,6 +23,18 @@ import {
 import { RatingControl } from "./rating-control";
 
 type Option = { name: string; color: string };
+
+/**
+ * The same chips with a space between them in the page's text. A cell
+ * that holds several things draws each as a chip, and nothing between
+ * them: read as text, "Red" and "Green" ran together as "RedGreen",
+ * which the cell's name ("Tags: Red, Green") does not hold. Someone who
+ * speaks to the page says what they see (WCAG 2.5.3). The space draws
+ * nothing in a row of chips.
+ */
+function spaced(chips: readonly ReactElement[]): ReactNode[] {
+  return chips.flatMap((chip, index) => (index === 0 ? [chip] : [" ", chip]));
+}
 
 export function optionsOf(column: CatalogColumn): Option[] {
   const config = column.config as { options?: Option[] };
@@ -156,18 +168,20 @@ export function CellValueView({
       <span
         className={cn("flex gap-1", wrap ? "flex-wrap" : "overflow-hidden")}
       >
-        {names.map((name) =>
-          plain ? (
-            <span key={name} className="truncate text-sm">
-              {name}
-            </span>
-          ) : (
-            <OptionBadge
-              key={name}
-              color={options.find((option) => option.name === name)?.color}
-            >
-              {name}
-            </OptionBadge>
+        {spaced(
+          names.map((name) =>
+            plain ? (
+              <span key={name} className="truncate text-sm">
+                {name}
+              </span>
+            ) : (
+              <OptionBadge
+                key={name}
+                color={options.find((option) => option.name === name)?.color}
+              >
+                {name}
+              </OptionBadge>
+            ),
           ),
         )}
       </span>
@@ -182,18 +196,20 @@ export function CellValueView({
       <span
         className={cn("flex gap-1.5", wrap ? "flex-wrap" : "overflow-hidden")}
       >
-        {ids.map((id) => {
-          const name = people.get(id)?.displayName ?? "?";
-          return (
-            <span
-              key={id}
-              className="inline-flex max-w-full items-center gap-1 rounded-full bg-muted py-0.5 pr-2 pl-0.5 text-xs"
-            >
-              <Avatar name={name} className="h-5 w-5" />
-              <span className="truncate">{name}</span>
-            </span>
-          );
-        })}
+        {spaced(
+          ids.map((id) => {
+            const name = people.get(id)?.displayName ?? "?";
+            return (
+              <span
+                key={id}
+                className="inline-flex max-w-full items-center gap-1 rounded-full bg-muted py-0.5 pr-2 pl-0.5 text-xs"
+              >
+                <Avatar name={name} className="h-5 w-5" />
+                <span className="truncate">{name}</span>
+              </span>
+            );
+          }),
+        )}
       </span>
     );
   }
@@ -249,27 +265,29 @@ export function CellValueView({
       <span
         className={cn("flex gap-1", wrap ? "flex-wrap" : "overflow-hidden")}
       >
-        {value.map((link) =>
-          onOpenLink ? (
-            <button
-              key={link.id}
-              type="button"
-              className="max-w-full truncate rounded border border-border bg-muted px-1.5 text-xs leading-5 text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-              title={t`Open linked row`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onOpenLink(link);
-              }}
-            >
-              {highlight(link.label || "—", search)}
-            </button>
-          ) : (
-            <span
-              key={link.id}
-              className="max-w-full truncate rounded border border-border bg-muted px-1.5 text-xs leading-5"
-            >
-              {highlight(link.label || "—", search)}
-            </span>
+        {spaced(
+          value.map((link) =>
+            onOpenLink ? (
+              <button
+                key={link.id}
+                type="button"
+                className="max-w-full truncate rounded border border-border bg-muted px-1.5 text-xs leading-5 text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                title={t`Open linked row`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenLink(link);
+                }}
+              >
+                {highlight(link.label || "—", search)}
+              </button>
+            ) : (
+              <span
+                key={link.id}
+                className="max-w-full truncate rounded border border-border bg-muted px-1.5 text-xs leading-5"
+              >
+                {highlight(link.label || "—", search)}
+              </span>
+            ),
           ),
         )}
       </span>
