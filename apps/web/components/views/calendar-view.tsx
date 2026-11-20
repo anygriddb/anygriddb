@@ -15,13 +15,10 @@ import {
 import { useLingui } from "@lingui/react/macro";
 import { CalendarFeedButton } from "./calendar-feed";
 import { intlLocale } from "../../lib/format";
+import { dayValue, isoDay } from "./view-days";
 
 /** Events a day shows; the others are counted under them. */
 const SHOWN = 6;
-
-function isoDay(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
 
 function dayOf(value: unknown, withTime: boolean): string | null {
   if (typeof value !== "string") return null;
@@ -208,16 +205,6 @@ export function CalendarView(
     if (day) byDay.set(day, [...(byDay.get(day) ?? []), row]);
   }
   const todayKey = isoDay(new Date());
-  function valueFor(day: string, previous: unknown): string {
-    if (!withTime) return day;
-    const time =
-      typeof previous === "string"
-        ? new Date(previous)
-        : new Date(`${day}T09:00:00`);
-    const [year, monthPart, date] = day.split("-").map(Number);
-    time.setFullYear(year ?? 2000, (monthPart ?? 1) - 1, date ?? 1);
-    return time.toISOString();
-  }
   function move(rowId: string, day: string) {
     if (!start) return;
     const row = props.rows.find((item) => item.id === rowId);
@@ -227,7 +214,11 @@ export function CalendarView(
       {
         rowId: row.id,
         values: {
-          [start.name]: valueFor(day, row[start.name as keyof RowItem]),
+          [start.name]: dayValue(
+            day,
+            withTime,
+            row[start.name as keyof RowItem],
+          ),
         },
       },
     ]);
@@ -316,7 +307,9 @@ export function CalendarView(
                 editable
                   ? () =>
                       void props
-                        .onCreate({ [start.name]: valueFor(key, null) })
+                        .onCreate({
+                          [start.name]: dayValue(key, withTime, null),
+                        })
                         .then((id) => id && table.openRecord(id))
                   : undefined
               }

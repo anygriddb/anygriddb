@@ -220,7 +220,12 @@ export function TableWorkspace({
   // required field refuses an empty one: the row is filled first.
   const fillFirst =
     external !== null || allColumns.some((column) => column.required);
-  const newRow = useNewRow({ fillFirst, addRow, openRecord: record.open });
+  const newRow = useNewRow({
+    fillFirst,
+    addRow,
+    openRecord: record.open,
+    start: read.newRowValues,
+  });
 
   // What an empty grid says under its last line.
   const canImport = writable && external === null;

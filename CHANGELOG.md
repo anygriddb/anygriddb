@@ -22,6 +22,10 @@ first.
   rows are written in a client's database, and leaves out a base in
   the trash: it counted neither as it should, so that it could show
   more active bases than the instance had.
+- A row added from the bar of a calendar or a timeline takes a day the
+  view shows, today when the month or the period shown holds it and
+  its first day otherwise: the view shows the row it just made. The row
+  was made with no date, and neither view showed it.
 
 ## 0.3.0 - 2026-11-20
 
