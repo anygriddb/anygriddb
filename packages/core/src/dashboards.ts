@@ -36,6 +36,13 @@ export type ChartOrder = (typeof CHART_ORDERS)[number];
 const CHART_PERIODS = ["day", "week", "month", "quarter", "year"] as const;
 export type ChartPeriod = (typeof CHART_PERIODS)[number];
 
+/**
+ * What a figure measures: an aggregate of its field over the rows, or the
+ * value the field holds in the last of them (`last`).
+ */
+const METRIC_FNS = [...AGGREGATE_FNS, "last"] as const;
+export type MetricFn = (typeof METRIC_FNS)[number];
+
 const gridInt = (max: number) => z.int().min(0).max(max);
 
 const metricConfigSchema = z
@@ -43,9 +50,32 @@ const metricConfigSchema = z
     tableId: z.uuid(),
     viewId: z.uuid().optional(),
     column: columnNameSchema,
-    fn: z.enum(AGGREGATE_FNS),
+    fn: z.enum(METRIC_FNS),
+    /**
+     * The field that puts the rows in order for the last value: the last
+     * row holds its greatest value and, among several that do, is the
+     * one made last.
+     */
+    orderBy: columnNameSchema.optional(),
   })
-  .strict();
+  .strict()
+  // The last value is the last by a field; an aggregate has no order.
+  .superRefine((config, context) => {
+    if (config.fn === "last" && config.orderBy === undefined) {
+      context.addIssue({
+        code: "custom",
+        message: "The last value needs the field that orders the rows",
+        path: ["orderBy"],
+      });
+    }
+    if (config.fn !== "last" && config.orderBy !== undefined) {
+      context.addIssue({
+        code: "custom",
+        message: "Only the last value is ordered",
+        path: ["orderBy"],
+      });
+    }
+  });
 
 const chartConfigSchema = z
   .object({

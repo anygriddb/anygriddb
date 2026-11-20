@@ -1,6 +1,5 @@
 import {
   type AggregateFn,
-  type AggregateItem,
   AppError,
   type Binding,
   buildAggregates,
@@ -14,7 +13,9 @@ import {
   dashboardWidgetConfigSchema,
   DEFAULT_HISTOGRAM_BINS,
   decimalToNumber,
+  type EngineCatalog,
   MAX_CHART_CATEGORIES,
+  type MetricFn,
   normalizeViewConfig,
   pruneViewConfig,
   type ReadSpec,
@@ -25,7 +26,12 @@ import type { Database, DashboardRow, WidgetRow } from "@anygriddb/db";
 import { readerEngine } from "./acl.js";
 import { withAudit } from "./audit-context.js";
 import { liveColumnNames, liveTable, liveView } from "./live.js";
-import { aggregateRows, readTransaction, safeTimeZone } from "./rows.js";
+import {
+  aggregateRows,
+  readPage,
+  readTransaction,
+  safeTimeZone,
+} from "./rows.js";
 import { applyControlPlaneReadSpec } from "../sources/control-plane-read-filter.js";
 import { loadView } from "./views.js";
 export async function listDashboards(db: Database, baseId: string) {
@@ -319,6 +325,41 @@ async function viewFilterSpec(
   };
 }
 
+/**
+ * The value a field holds in the last of the rows read: the row whose
+ * `orderBy` is the greatest and, among several, the one made last. A row
+ * where either field is empty is passed over: a figure says the last
+ * value known. One read of one row, where the rows live.
+ */
+export async function lastValue(
+  db: Database,
+  engine: EngineCatalog,
+  spec: Omit<ReadSpec, "limit">,
+  item: { column: string; orderBy: string },
+): Promise<unknown> {
+  const filled = [item.orderBy, item.column].map((column) => ({
+    column,
+    op: "is_not_empty" as const,
+  }));
+  const page = await readPage(
+    db,
+    engine,
+    {
+      ...spec,
+      filter: {
+        conjunction: "and",
+        conditions: [...(spec.filter ? [spec.filter] : []), ...filled],
+      },
+      sort: [{ column: item.orderBy, direction: "desc" }],
+      newestFirst: true,
+      fields: [item.column],
+      limit: 1,
+    },
+    { total: false, groups: "none" },
+  );
+  return page.rows[0]?.[item.column] ?? null;
+}
+
 export async function widgetData(
   deps: { db: Database },
   input: {
@@ -329,7 +370,7 @@ export async function widgetData(
     timeZone: string;
   },
 ): Promise<
-  | { kind: "metric"; value: unknown; fn: AggregateFn; column: string }
+  | { kind: "metric"; value: unknown; fn: MetricFn; column: string }
   | ({
       kind: "chart";
       chartType: ChartType;
@@ -374,9 +415,7 @@ export async function widgetData(
   const timeZone = safeTimeZone(input.timeZone);
 
   if (parsed.kind === "metric") {
-    const items: AggregateItem[] = [
-      { column: parsed.config.column, fn: parsed.config.fn },
-    ];
+    const { column, fn, orderBy } = parsed.config;
     const spec = await viewFilterSpec(
       deps.db,
       parsed.config.tableId,
@@ -384,13 +423,15 @@ export async function widgetData(
       input.userId,
       timeZone,
     );
-    const [value] = await aggregateRows(deps.db, engine, spec, items);
-    return {
-      kind: "metric",
-      value,
-      fn: parsed.config.fn,
-      column: parsed.config.column,
-    };
+    if (fn !== "last") {
+      const [value] = await aggregateRows(deps.db, engine, spec, [
+        { column, fn },
+      ]);
+      return { kind: "metric", value, fn, column };
+    }
+    if (!orderBy) throw new AppError("invalid_arguments");
+    const value = await lastValue(deps.db, engine, spec, { column, orderBy });
+    return { kind: "metric", value, fn, column };
   }
 
   const config = parsed.config;

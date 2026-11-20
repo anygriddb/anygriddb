@@ -6241,6 +6241,10 @@ msgstr "last used {date}"
 msgid "Last used {date}"
 msgstr "Last used {date}"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Last value"
+msgstr "Last value"
+
 #: components/table/filter-builder.tsx
 msgid "last week"
 msgstr "last week"
@@ -9320,6 +9324,10 @@ msgstr "Rows of another table"
 msgid "Rows offered"
 msgstr "Rows offered"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Rows ordered by"
+msgstr "Rows ordered by"
+
 #: components/admin/admin-list.tsx
 msgid "Rows per page"
 msgstr "Rows per page"
@@ -11116,6 +11124,10 @@ msgstr "The last characters."
 msgid "The last error is a short reason, never a secret. Send a test pings a heartbeat once, without waiting for its schedule."
 msgstr "The last error is a short reason, never a secret. Send a test pings a heartbeat once, without waiting for its schedule."
 
+#: components/dashboards/dashboard-board.tsx
+msgid "The last row is the one where this field is greatest and, of several, the one added last. A row where either field is empty is passed over."
+msgstr "The last row is the one where this field is greatest and, of several, the one added last. A row where either field is empty is passed over."
+
 #: components/shell/about-dialog.tsx
 msgid "The license"
 msgstr "The license"
@@ -11955,6 +11967,10 @@ msgstr "This source is read from a copy only: it takes no write, no field of Any
 #: components/table/table-workspace.tsx
 msgid "This table does not exist or is not shared with you."
 msgstr "This table does not exist or is not shared with you."
+
+#: components/dashboards/dashboard-board.tsx
+msgid "This table has no date or number field to put its rows in order."
+msgstr "This table has no date or number field to put its rows in order."
 
 #: components/dashboards/dashboard-board.tsx
 msgid "This table has no field this measure can read."

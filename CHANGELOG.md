@@ -15,6 +15,11 @@ first.
   too: the newest change or export the trails hold, the rows written
   in a client's database among them. Reading a table leaves no trace
   unless its manager records who opens it, and the page says so.
+- A dashboard's figure reads the last value of a field: what the field
+  holds in the row that comes last by a date or a number and, of
+  several rows that share it, in the one added last. A balance is read
+  on its latest day, where it took a view made to keep that row. A row
+  where either field is empty is passed over.
 
 ### Fixed
 

@@ -6241,6 +6241,10 @@ msgstr "dernière utilisation {date}"
 msgid "Last used {date}"
 msgstr "Dernière utilisation le {date}"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Last value"
+msgstr "Dernière valeur"
+
 #: components/table/filter-builder.tsx
 msgid "last week"
 msgstr "la semaine dernière"
@@ -9320,6 +9324,10 @@ msgstr "Des lignes d’une autre table"
 msgid "Rows offered"
 msgstr "Lignes proposées"
 
+#: components/dashboards/dashboard-board.tsx
+msgid "Rows ordered by"
+msgstr "Lignes ordonnées par"
+
 #: components/admin/admin-list.tsx
 msgid "Rows per page"
 msgstr "Lignes par page"
@@ -11116,6 +11124,10 @@ msgstr "Les derniers caractères."
 msgid "The last error is a short reason, never a secret. Send a test pings a heartbeat once, without waiting for its schedule."
 msgstr "La dernière erreur est une raison courte, jamais un secret. Envoyer un essai interroge un battement une fois, sans attendre sa planification."
 
+#: components/dashboards/dashboard-board.tsx
+msgid "The last row is the one where this field is greatest and, of several, the one added last. A row where either field is empty is passed over."
+msgstr "La dernière ligne est celle où ce champ est le plus grand et, à égalité, celle ajoutée en dernier. Une ligne où l’un des deux champs est vide est ignorée."
+
 #: components/shell/about-dialog.tsx
 msgid "The license"
 msgstr "La licence"
@@ -11955,6 +11967,10 @@ msgstr "Cette source n’est lue que depuis une copie : elle ne prend ni écrit
 #: components/table/table-workspace.tsx
 msgid "This table does not exist or is not shared with you."
 msgstr "Cette table n’existe pas ou ne vous est pas partagée."
+
+#: components/dashboards/dashboard-board.tsx
+msgid "This table has no date or number field to put its rows in order."
+msgstr "Cette table n’a aucun champ de date ou de nombre pour ordonner ses lignes."
 
 #: components/dashboards/dashboard-board.tsx
 msgid "This table has no field this measure can read."

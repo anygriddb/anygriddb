@@ -55,6 +55,43 @@ describe("buildReadRows", () => {
     expect(sql.text).not.toMatch(/'Open'/);
   });
 
+  it("puts the rows a sort leaves together last made first, when asked", () => {
+    const spec = {
+      limit: 1,
+      sort: [{ column: "total", direction: "desc" as const }],
+    };
+    // The order people gave the rows, then the order they came in, both
+    // turned round: the first row read is the last of the sort.
+    expect(
+      buildReadRows(catalogFor(), { ...spec, newestFirst: true }).text,
+    ).toMatch(
+      /order by q\."total" desc nulls last, q\."ag_order_0" desc, q\."ag_seq" desc$/,
+    );
+    // A client's rows come in the order of their key: the greatest first.
+    const table = {
+      ...clients,
+      storage: "external" as const,
+      external: {
+        sourceId: "s",
+        dialect: "sqlserver" as const,
+        schema: "dbo",
+        name: "clients",
+        key: ["client_no"],
+      },
+      columns: clients.columns.map((column) => ({
+        ...column,
+        physical: { name: column.name, type: "nvarchar(200)", zone: "UTC" },
+      })),
+    };
+    const read = (newestFirst: boolean) =>
+      buildReadRows(
+        { ...catalogFor(), table, tables: new Map([[table.id, table]]) },
+        { limit: 1, newestFirst },
+      ).text;
+    expect(read(false)).toMatch(/order by q\."ag_order_0" asc /);
+    expect(read(true)).toMatch(/order by q\."ag_order_0" desc /);
+  });
+
   it("hides an unreadable link target and degrades a broken formula", () => {
     const sql = buildReadRows(catalogFor(false), { limit: 10 });
     expect(sql.text).not.toContain("t_secret");

@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
+import type { CatalogColumn } from "../../lib/types";
 import {
   categoriesAsked,
   embeddedViewId,
   fieldKept,
   fieldShown,
+  lastValueText,
   measurableFields,
   measureAddsUp,
   measuredColumn,
+  measureShown,
+  orderingFields,
   rowsLeftOut,
 } from "./widget-view";
 
@@ -32,11 +36,11 @@ describe("embeddedViewId", () => {
 });
 
 const FIELDS = [
-  { name: "title", kind: "text" as const },
-  { name: "amount", kind: "number" as const },
-  { name: "margin", kind: "number" as const },
-  { name: "due", kind: "date" as const },
-  { name: "paid", kind: "boolean" as const },
+  { name: "title", kind: "text" as const, fieldType: "text" },
+  { name: "amount", kind: "number" as const, fieldType: "number" },
+  { name: "margin", kind: "number" as const, fieldType: "formula" },
+  { name: "due", kind: "date" as const, fieldType: "date" },
+  { name: "paid", kind: "boolean" as const, fieldType: "boolean" },
 ];
 
 describe("fieldShown", () => {
@@ -84,6 +88,89 @@ describe("measurableFields", () => {
     expect(names("earliest")).toEqual(["due"]);
     expect(names("checked")).toEqual(["paid"]);
     expect(names("no_such_measure")).toEqual([]);
+  });
+});
+
+describe("the last value of a field", () => {
+  const more = [
+    ...FIELDS,
+    { name: "sent", kind: "datetime" as const, fieldType: "datetime" },
+    { name: "owner", kind: "user" as const, fieldType: "user" },
+    { name: "tags", kind: "options" as const, fieldType: "multi_select" },
+    { name: "meta", kind: "text" as const, fieldType: "json" },
+  ];
+
+  it("is read of a field that holds one value: a text, a number, a date", () => {
+    expect(measurableFields(more, "last").map((field) => field.name)).toEqual([
+      "title",
+      "amount",
+      "margin",
+      "due",
+      "sent",
+    ]);
+  });
+
+  it("is the last by a date or an instant first, then by a number", () => {
+    expect(orderingFields(more).map((field) => field.name)).toEqual([
+      "due",
+      "sent",
+      "amount",
+      "margin",
+    ]);
+    // A table of texts and checkboxes has nothing to order by.
+    expect(
+      orderingFields(
+        FIELDS.filter(
+          (field) => field.kind === "text" || field.kind === "boolean",
+        ),
+      ),
+    ).toEqual([]);
+  });
+
+  it("is a figure's measure only: a chart counts rows in its place", () => {
+    expect(measureShown("metric", "last")).toBe("last");
+    expect(measureShown("chart", "last")).toBe("count_all");
+    expect(measureShown("chart", "sum")).toBe("sum");
+  });
+
+  const column = (patch: Record<string, unknown>) =>
+    ({
+      name: "value",
+      kind: "text",
+      fieldType: "text",
+      config: {},
+      ...patch,
+    }) as unknown as CatalogColumn;
+
+  it("is written as its field writes a cell", () => {
+    expect(
+      lastValueText(
+        "1200.5",
+        column({
+          kind: "number",
+          fieldType: "number",
+          config: {
+            number: { style: "currency", currency: "EUR", precision: 2 },
+          },
+        }),
+        "en",
+      ),
+    ).toBe("€1,200.50");
+    expect(
+      lastValueText(
+        "2026-03-31",
+        column({ kind: "date", fieldType: "date" }),
+        "en",
+      ),
+    ).toBe("31/03/2026");
+    // A text that looks like a number stays the text it is.
+    expect(lastValueText("000123", column({}), "en")).toBe("000123");
+  });
+
+  it("is a dash while there is none, and the bare value of a field not known", () => {
+    expect(lastValueText(null, column({}), "en")).toBe("—");
+    expect(lastValueText("", column({}), "en")).toBe("—");
+    expect(lastValueText("Fee", undefined, "en")).toBe("Fee");
   });
 });
 

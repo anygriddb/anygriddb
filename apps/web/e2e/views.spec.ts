@@ -410,6 +410,21 @@ test.describe("a dashboard", () => {
     await figure.getByRole("button", { name: "Add", exact: true }).click();
     await expect(figure).toBeHidden();
     await expect(widget("Billed").getByText("€1,234.70")).toBeVisible();
+    // A figure reads the last value of a field: the amount of the row
+    // due last, written as the field writes it.
+    await page.getByRole("button", { name: "Add a widget" }).click();
+    const latest = page.getByRole("dialog", { name: "Add a widget" });
+    await latest.getByLabel("Title", { exact: true }).fill("Last billed");
+    await latest
+      .getByLabel("Measure", { exact: true })
+      .selectOption({ label: "Last value" });
+    await latest.getByLabel("Measured field").selectOption({ label: "Amount" });
+    // The table's one date puts its rows in order, as the list shows.
+    await expect(latest.getByLabel("Rows ordered by")).toHaveValue("due");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await latest.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(latest).toBeHidden();
+    await expect(widget("Last billed").getByText("€1,200.50")).toBeVisible();
     // A widget's lists follow its table. A figure started on one table,
     // then given another, measures the field the other's list shows: the
     // form kept the first table's field, which the second does not have.
