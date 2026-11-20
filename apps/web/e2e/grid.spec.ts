@@ -622,6 +622,9 @@ test.describe("a base kept for later", () => {
     await expect(dialog).toContainText(
       "File ready: 1 table, 1 dashboard, 1 row, 0 files.",
     );
+    // The file names one member, the person importing it, who owns the
+    // base they make: no role to give back, so nothing is asked.
+    await expect(dialog.getByRole("checkbox")).toHaveCount(0);
     expect(await accessibilityViolations(page)).toEqual([]);
     await dialog.getByLabel("Base name").fill("Lab from its file");
     await dialog.getByRole("button", { name: "Import", exact: true }).click();

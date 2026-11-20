@@ -47,6 +47,10 @@ first.
   rows are written in a client's database, and leaves out a base in
   the trash: it counted neither as it should, so that it could show
   more active bases than the instance had.
+- Importing a base from its file counts the members it can give
+  their role back to without the person importing it, who owns the
+  base they make. A file that named them alone still asked whether to
+  give "the member" their role back, which did nothing.
 - Deleting a webhook asks first, and says its delivery log goes with
   it: one click deleted it. In the list a webhook's channel is named
   as its form names it ("Email", not "SMTP"), its three buttons say

@@ -24,7 +24,7 @@ import {
   type ReadSpec,
   roleAllows,
   roleFor,
-  snapshotRowCount,
+  snapshotSummary,
   toCsv,
   toCsvRows,
   viewFilter,
@@ -824,12 +824,7 @@ export function registerDataTransferRoutes(
       }
       return await reply.send({
         snapshotId: staged.snapshotId,
-        name: staged.snapshot.base.name,
-        tables: staged.snapshot.tables.length,
-        dashboards: staged.snapshot.dashboards?.length ?? 0,
-        rows: snapshotRowCount(staged.snapshot),
-        files: staged.snapshot.files?.length ?? 0,
-        members: staged.snapshot.members?.length ?? 0,
+        ...snapshotSummary(staged.snapshot, actor.user.email),
       });
     } finally {
       await folder.remove();

@@ -338,6 +338,35 @@ export function snapshotRowCount(snapshot: {
   );
 }
 
+/**
+ * What a snapshot holds, for the person about to import it. Its members
+ * are counted without that person: whoever imports a base owns it,
+ * whatever role the file gave them, so they have none to be given back.
+ */
+export function snapshotSummary(
+  snapshot: BaseSnapshot,
+  importer: string,
+): {
+  name: string;
+  tables: number;
+  dashboards: number;
+  rows: number;
+  files: number;
+  members: number;
+} {
+  const self = importer.toLowerCase();
+  return {
+    name: snapshot.base.name,
+    tables: snapshot.tables.length,
+    dashboards: snapshot.dashboards?.length ?? 0,
+    rows: snapshotRowCount(snapshot),
+    files: snapshot.files?.length ?? 0,
+    members: (snapshot.members ?? []).filter(
+      (member) => member.email.toLowerCase() !== self,
+    ).length,
+  };
+}
+
 export type SnapshotFile = z.infer<typeof snapshotFileSchema>;
 export type SnapshotFileRef = z.infer<typeof snapshotFileRefSchema>;
 export type BaseSnapshot = z.infer<typeof baseSnapshotSchema>;
