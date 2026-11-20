@@ -20,6 +20,11 @@ first.
   ticked, and a rating never given as none of its stars. Each showed an
   empty line under its name, with nothing to say a click ticks or
   rates.
+- A card and a line of a list draw a checkbox that is not ticked as an
+  empty box: its name stood over nothing, where a switch drew "off" and
+  a yes or no said "No". A view shared by a link, drawn as cards, leaves
+  out a field that holds nothing, as the app's cards do: it listed
+  every name, most of them over an empty place.
 
 ## 0.3.1 - 2026-11-20
 

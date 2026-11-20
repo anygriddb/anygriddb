@@ -54,6 +54,21 @@ function highlight(text: string, search: string): ReactNode {
   );
 }
 
+/**
+ * A checkbox drawn as a box, and not ticked: where a field is named
+ * beside its value, so that a place left empty would say nothing.
+ */
+export function UntickedBox() {
+  const { t } = useLingui();
+  return (
+    <span
+      role="img"
+      aria-label={t`unchecked`}
+      className="inline-flex h-4 w-4 shrink-0 rounded border border-muted-foreground bg-card"
+    />
+  );
+}
+
 /** Read-only rendering of a cell, shared by the grid, cards, and the record panel. */
 export function CellValueView({
   value,
@@ -64,6 +79,7 @@ export function CellValueView({
   wrap = false,
   inColumn = true,
   codes = false,
+  unticked = false,
   error = null,
   onOpenLink,
   onOpenFile,
@@ -84,6 +100,12 @@ export function CellValueView({
    * room for a scanner to read it (a row's panel), not in a grid's line.
    */
   codes?: boolean;
+  /**
+   * Draws a checkbox that is not ticked as an empty box: under the
+   * field's name (a card, a line of a list), where an empty place says
+   * nothing. A column of ticks reads without it.
+   */
+  unticked?: boolean;
   /** The error the value is (ERROR in a formula, ADR 0036), with its message. */
   error?: string | null;
   /** Opens a linked row: links become buttons when given. */
@@ -151,6 +173,8 @@ export function CellValueView({
       >
         <Check className="h-3 w-3" aria-hidden />
       </span>
+    ) : unticked ? (
+      <UntickedBox />
     ) : null;
   }
   if (type === "single_select" || type === "multi_select") {

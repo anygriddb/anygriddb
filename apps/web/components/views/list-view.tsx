@@ -1,4 +1,3 @@
-import { rowError } from "@anygriddb/core";
 import { cn } from "@anygriddb/ui";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
@@ -14,6 +13,7 @@ import {
 import { formatNumber } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import type { RowItem } from "../../lib/types";
+import { drawnFields } from "./card-fields";
 import { CellValueView } from "../fields/cell-value";
 import { useTable } from "../table/table-context";
 import {
@@ -306,15 +306,7 @@ function LineFields({
   columns: ReturnType<typeof cardColumns>;
 }) {
   const table = useTable();
-  const shown = columns.flatMap((column) => {
-    const value = row[column.name as keyof RowItem];
-    const error = rowError(row, column.name);
-    const empty =
-      value === null ||
-      value === undefined ||
-      (Array.isArray(value) && value.length === 0);
-    return error === null && empty ? [] : [{ column, value, error }];
-  });
+  const shown = drawnFields(row, columns);
   if (shown.length === 0) return null;
   return (
     <span className="flex min-w-0 flex-wrap gap-x-4 gap-y-0.5 text-xs">
@@ -328,6 +320,7 @@ function LineFields({
               locale={table.locale}
               people={table.people}
               inColumn={false}
+              unticked
               error={error}
             />
           </span>

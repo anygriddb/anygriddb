@@ -12475,7 +12475,6 @@ msgid "Unchanged"
 msgstr "Inchangé"
 
 #: components/fields/cell-value.tsx
-#: components/record/record-panel.tsx
 #: components/table/filter-builder.tsx
 #: components/table/view-toolbar.tsx
 msgid "unchecked"
