@@ -13,6 +13,8 @@ type SnapshotReport = {
   membersMissing: number;
   /** Absent from a report written before restore points. */
   membersLeft?: number;
+  /** Absent from a report written before dashboards came over. */
+  widgetsLeft?: number;
 };
 
 /** The report in a finished job's result, when it has one. */
@@ -35,6 +37,7 @@ export function useSnapshotGaps(): (result: unknown) => string[] {
   return (result) => {
     const report = snapshotReport(result);
     if (!report) return [];
+    const widgets = report.widgetsLeft ?? 0;
     return [
       report.filesMissing > 0
         ? t`${plural(report.filesMissing, {
@@ -65,6 +68,13 @@ export function useSnapshotGaps(): (result: unknown) => string[] {
         ? t`${plural(report.membersLeft ?? 0, {
             one: "# member who has left the base since, left out",
             other: "# members who have left the base since, left out",
+          })}`
+        : null,
+      widgets > 0
+        ? t`${plural(widgets, {
+            one: "# widget that reads a source's table or a personal view, left out of its dashboard",
+            other:
+              "# widgets that read a source's table or a personal view, left out of their dashboards",
           })}`
         : null,
     ].filter((item): item is string => item !== null);

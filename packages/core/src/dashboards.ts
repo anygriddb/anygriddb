@@ -3,7 +3,11 @@ import { columnNameSchema, labelSchema } from "./names";
 import { AGGREGATE_FNS, MAX_HISTOGRAM_BINS } from "./query/read";
 import { descriptionSchema } from "./schemas";
 
-const DASHBOARD_WIDGET_KINDS = ["metric", "chart", "view_embed"] as const;
+export const DASHBOARD_WIDGET_KINDS = [
+  "metric",
+  "chart",
+  "view_embed",
+] as const;
 /**
  * Columns, bars, a line, an area, each group's share of the total
  * (`pie`, kept for saved charts: drawn as bars of shares, which compare
@@ -44,6 +48,14 @@ const METRIC_FNS = [...AGGREGATE_FNS, "last"] as const;
 export type MetricFn = (typeof METRIC_FNS)[number];
 
 const gridInt = (max: number) => z.int().min(0).max(max);
+
+/** Where a widget sits on the dashboard's twelve columns, and its size. */
+export const widgetPlace = {
+  x: gridInt(11),
+  y: gridInt(200),
+  w: z.int().min(2).max(12),
+  h: z.int().min(2).max(12),
+};
 
 const metricConfigSchema = z
   .object({
@@ -152,6 +164,27 @@ export const dashboardWidgetConfigSchema = z.discriminatedUnion("kind", [
     .strict(),
 ]);
 
+/**
+ * A widget's settings without the table and the view it reads. Those two
+ * are ids of the widget's own base: a copy of its dashboard in another
+ * base keeps the rest, and reads that base's.
+ */
+export function widgetSettings(
+  config: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  const { tableId: _tableId, viewId: _viewId, ...settings } = config;
+  return settings;
+}
+
+/** Those settings, reading a table and, when the widget reads one, a view. */
+export function widgetConfigOn(
+  settings: Readonly<Record<string, unknown>>,
+  tableId: string,
+  viewId?: string,
+): Record<string, unknown> {
+  return { ...settings, tableId, ...(viewId === undefined ? {} : { viewId }) };
+}
+
 export const createDashboardInputSchema = z
   .object({
     baseId: z.uuid(),
@@ -218,17 +251,7 @@ export const layoutWidgetsInputSchema = z
   .object({
     dashboardId: z.uuid(),
     widgets: z
-      .array(
-        z
-          .object({
-            id: z.uuid(),
-            x: gridInt(11),
-            y: gridInt(200),
-            w: z.int().min(2).max(12),
-            h: z.int().min(2).max(12),
-          })
-          .strict(),
-      )
+      .array(z.object({ id: z.uuid(), ...widgetPlace }).strict())
       .min(1)
       .max(48),
   })

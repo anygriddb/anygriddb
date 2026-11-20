@@ -28,6 +28,15 @@ first.
   figures, the charts, and the views' rows that read it are read
   again, a moment later and once for a burst of changes. A dashboard
   read when it was opened, and went on showing what was true then.
+- A base's dashboards come with it: in its backup file, in a copy of
+  the base, and in a restore point. Each widget reads the new base's
+  own table and view. All three came back without a single dashboard,
+  and nothing said so. A widget that reads a table of a source or a
+  personal view, which a file does not hold, is left out, and the
+  import says how many were. A file from a base that has dashboards
+  is not read by an earlier version. The base's settings now say what
+  stays behind: comments, the history of changes, automations,
+  webhooks, and public links.
 
 ### Fixed
 

@@ -27,6 +27,7 @@ type Staged = {
   snapshotId: string;
   name: string;
   tables: number;
+  dashboards: number;
   rows: number;
   files: number;
   members: number;
@@ -106,6 +107,7 @@ function NewBaseForm(props: NewBaseProps) {
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [staged, setStaged] = useState<Staged | null>(null);
+  const dashboards = staged?.dashboards ?? 0;
   const [restoreMembers, setRestoreMembers] = useState(false);
   const [workbook, setWorkbook] = useState<Workbook | null>(null);
   const [sheets, setSheets] = useState<ReadonlySet<number>>(new Set());
@@ -513,6 +515,16 @@ function NewBaseForm(props: NewBaseProps) {
                         one: `# table`,
                         other: `# tables`,
                       }),
+                      // Named when the file holds some: one written
+                      // before they were kept has none to count.
+                      ...(dashboards > 0
+                        ? [
+                            plural(dashboards, {
+                              one: `# dashboard`,
+                              other: `# dashboards`,
+                            }),
+                          ]
+                        : []),
                       plural(staged.rows, { one: `# row`, other: `# rows` }),
                       plural(staged.files, {
                         one: `# file`,

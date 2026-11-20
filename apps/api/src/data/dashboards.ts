@@ -73,6 +73,7 @@ export async function createDashboard(
   db: Database,
   userId: string,
   input: CreateDashboardInput,
+  source = "web",
 ) {
   const existing = await db
     .selectFrom("dashboards")
@@ -83,7 +84,7 @@ export async function createDashboard(
     existing.length === 0
       ? 0
       : Math.max(...existing.map((row) => row.position)) + 1;
-  const created = await withAudit(db, { userId, source: "web" }, (tx) =>
+  const created = await withAudit(db, { userId, source }, (tx) =>
     tx
       .insertInto("dashboards")
       .values({
@@ -221,7 +222,7 @@ export async function upsertWidget(
     return updated;
   }
 
-  const created = await withAudit(db, { userId, source: "web" }, async (tx) => {
+  const created = await withAudit(db, { userId, source }, async (tx) => {
     const row = await tx
       .insertInto("dashboardWidgets")
       .values({ dashboardId: input.dashboardId, ...fields })
