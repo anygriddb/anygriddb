@@ -8,6 +8,12 @@ first.
 
 ## Unreleased
 
+## 0.3.1 - 2026-11-20
+
+**Before upgrading:** nothing to do. A restore point or a backup file
+made before this version holds no dashboard: make a new one once
+upgraded.
+
 ### Added
 
 - Administration says when each base was last used, in the list of
