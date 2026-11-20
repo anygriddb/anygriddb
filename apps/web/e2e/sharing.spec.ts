@@ -32,13 +32,37 @@ test.use({
 // A role given to an address: the owner is told the same thing whether or
 // not the address has an account, and the person who has one finds the
 // invitation on their home page and accepts it there, without a link.
-test("an owner invites an address, and its account accepts from its home page", async ({
+// The owner then keeps them to some rows and hides a field from them: the
+// settings show the table as they read it, and their own grid agrees.
+test("an owner invites an address, its account accepts, and reads what its permissions leave", async ({
   page,
   browser,
 }) => {
   const blocked = watchPolicy(page);
 
   await signUpWithTable(page, "Olive Owner");
+  const tableId = /\/t\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
+  const tablePath = new URL(page.url()).pathname;
+  for (const column of [
+    { name: "unit_price", label: "Unit price", fieldType: "number" },
+    { name: "seller", label: "Seller", fieldType: "text" },
+  ]) {
+    const added = await page.request.post("/trpc/catalog.addColumn", {
+      data: { tableId, ...column },
+    });
+    expect(added.ok(), await added.text()).toBe(true);
+  }
+  const filled = await page.request.post("/trpc/rows.insertMany", {
+    data: {
+      tableId,
+      rows: [
+        { name: "Chair", seller: "ada", unit_price: "120" },
+        { name: "Desk", seller: "bob", unit_price: "480" },
+        { name: "Lamp", seller: "ada", unit_price: "35" },
+      ],
+    },
+  });
+  expect(filled.ok(), await filled.text()).toBe(true);
   // The person invited already has an account, made in their own browser.
   // The owner comes first: an instance's first account administers it, and
   // an administrator is asked for a second factor before anything else.
@@ -78,6 +102,77 @@ test("an owner invites an address, and its account accepts from its home page", 
     guest
       .getByRole("navigation", { name: "Bases" })
       .getByRole("link", { name: "Lab" }),
+  ).toBeVisible();
+
+  // Their permissions on the table. The settings are opened anew: the
+  // list of members arrives after the panel, and "View as" answers at
+  // once for the member it shows, who is the guest, not the owner, whom
+  // no permission restricts.
+  await page.goto(`${base}/settings`);
+  const rules = page.getByRole("region", { name: "Permissions on Samples" });
+  await expect(
+    rules.getByLabel("Member whose permissions are set").getByRole("option"),
+  ).toHaveText([`Guest ${stamp}`]);
+  await rules.getByRole("button", { name: "View as" }).click();
+  const preview = rules.getByRole("region", {
+    name: `Preview: Guest ${stamp}`,
+  });
+  // Their role in words, and every row.
+  await expect(preview.getByText("Commenter · 3 visible rows")).toBeVisible();
+  expect(await accessibilityViolations(page)).toEqual([]);
+  // Only the rows of one seller, and no price.
+  await rules
+    .getByLabel("Rows this member sees")
+    .selectOption({ label: "Only the rows that match" });
+  await rules.getByRole("button", { name: "Add a condition" }).click();
+  await rules
+    .getByLabel("Field", { exact: true })
+    .selectOption({ label: "Seller" });
+  await rules.getByLabel("Value").fill("ada");
+  await rules
+    .getByLabel("What this member may do with Unit price")
+    .selectOption({ label: "Hidden" });
+  await expect(
+    preview.getByText("Changes not saved yet are not in this preview."),
+  ).toBeVisible();
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await rules.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Permissions saved")).toBeVisible();
+  // The table as they read it: two rows, the fields by their labels.
+  await expect(preview.getByText("Commenter · 2 visible rows")).toBeVisible();
+  await expect(preview.getByRole("columnheader")).toHaveText([
+    "Name",
+    "Notes",
+    "Status",
+    "Seller",
+  ]);
+  await expect(preview.getByRole("cell", { name: "Chair" })).toBeVisible();
+  await expect(preview.getByRole("cell", { name: "Lamp" })).toBeVisible();
+  await expect(preview.getByRole("cell", { name: "Desk" })).toHaveCount(0);
+  expect(await accessibilityViolations(page)).toEqual([]);
+
+  // Their own grid agrees.
+  await guest.goto(tablePath);
+  await expect(guest.getByRole("gridcell", { name: "Chair" })).toBeVisible();
+  await expect(guest.getByRole("gridcell", { name: "Lamp" })).toBeVisible();
+  await expect(guest.getByRole("gridcell", { name: "Desk" })).toHaveCount(0);
+  await expect(
+    guest.getByRole("columnheader", { name: /Unit price/ }),
+  ).toHaveCount(0);
+
+  // Kept: opened again, the settings show the rule and the hidden field.
+  await page.reload();
+  await expect(rules.getByLabel("Rows this member sees")).toHaveValue("some");
+  await expect(
+    rules.getByLabel("What this member may do with Unit price"),
+  ).toHaveValue("hide");
+  // Cleared, they read every row and field again.
+  await rules.getByRole("button", { name: "Clear restrictions" }).click();
+  await expect(page.getByText("Restrictions cleared")).toBeVisible();
+  await guest.reload();
+  await expect(guest.getByRole("gridcell", { name: "Desk" })).toBeVisible();
+  await expect(
+    guest.getByRole("columnheader", { name: /Unit price/ }),
   ).toBeVisible();
 
   await own.close();
