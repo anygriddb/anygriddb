@@ -63,6 +63,12 @@ first.
   refused with "Invalid cell" for any field but a text, since the new
   row took the empty value of the condition. A new row now takes from
   the view's filter only what its fields accept.
+- The files of the app itself no longer count in the limit of requests
+  per address. A first page asks for a hundred of them: some sixty
+  people behind one address, opening the app after an upgrade, used up
+  the three thousand requests a minute their pages share, and the next
+  were refused the scripts themselves. What a page asks of the server
+  is counted as before.
 
 ## 0.3.1 - 2026-11-20
 

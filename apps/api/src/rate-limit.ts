@@ -98,12 +98,29 @@ export function rateBucket(method: string, url: string): RateBucket {
 }
 
 /**
+ * Whether a request reads a file of the app's build (`/assets`, each under
+ * a name that changes with its content). They are not counted: a first
+ * page asks for a hundred of them, so the people behind one address,
+ * opening the app after an upgrade gave every file a new name, used up
+ * what their pages may then ask of the server, and were refused the
+ * scripts themselves. Sent from the disk as they are, they ask nothing a
+ * limit protects.
+ */
+export function buildFile(method: string, url: string): boolean {
+  return (
+    (method === "GET" || method === "HEAD") &&
+    (url.split("?")[0] ?? url).startsWith("/assets/")
+  );
+}
+
+/**
  * Counts in memory, per process (ADR 0009): with several API processes the
  * limits add up, which suits the instances AnyGridDB targets.
  */
 export async function registerRateLimit(app: FastifyInstance): Promise<void> {
   await app.register(rateLimit, {
     timeWindow: 60_000,
+    allowList: (request) => buildFile(request.method, request.url),
     keyGenerator: (request) =>
       `${request.ip}:${rateBucket(request.method, request.url)}`,
     max: (request) => RATE_LIMITS[rateBucket(request.method, request.url)],
