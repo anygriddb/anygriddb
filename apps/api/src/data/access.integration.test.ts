@@ -11,7 +11,7 @@ import { createTestDatabase } from "../test-database.js";
 import cookie from "@fastify/cookie";
 import Fastify from "fastify";
 import { registerAttachmentRoutes, visibleToReader } from "../attachments.js";
-import { uploadSlots } from "../upload-slots.js";
+import { uploadSlots, type UploadSlots } from "../upload-slots.js";
 import { loadBindings } from "../auth/access.js";
 import { createApiToken } from "../auth/tokens.js";
 import { writeSettings } from "../settings.js";
@@ -671,7 +671,19 @@ describe("field and row rules on PostgreSQL", () => {
   it("refuses an upload over the limit in force, the setting before the environment", async () => {
     const app = Fastify();
     await app.register(cookie);
-    const uploads = uploadSlots(1);
+    // One slot, given back a moment after the answer has left, as it is
+    // on a busy machine: an upload sent on the heels of another finds it
+    // taken, so each one below waits for it.
+    const slots = uploadSlots(1);
+    const uploads: UploadSlots = {
+      take() {
+        const give = slots.take();
+        return give && (() => void setTimeout(give, 25));
+      },
+      get busy() {
+        return slots.busy;
+      },
+    };
     await registerAttachmentRoutes(app, {
       db: database,
       files: new DiskStore(filesRoot),
@@ -682,6 +694,7 @@ describe("field and row rules on PostgreSQL", () => {
     // The editor: an owner would first have to enroll a second factor.
     const { token } = await createApiToken(database, editor, "upload");
     const boundary = "----anygriddb-upload";
+    const slotFree = () => expect.poll(() => uploads.busy).toBe(0);
     const upload = async (size: number) => {
       const response = await app.inject({
         method: "POST",
@@ -715,19 +728,21 @@ describe("field and row rules on PostgreSQL", () => {
       expect(file?.size).toBe(1024);
       file?.body.destroy();
       // Every slot taken: refused at once, and taken again once free.
-      // The answer leaves before the slot is given back.
-      await expect.poll(() => uploads.busy).toBe(0);
+      await slotFree();
       const held = uploads.take();
       expect(held).toBeDefined();
       expect(await upload(1024)).toBe(503);
       held?.();
+      await slotFree();
       expect(await upload(1024)).toBe(200);
-      await expect.poll(() => uploads.busy).toBe(0);
+      await slotFree();
       expect(await upload(8192)).toBe(413);
       // The environment's ceiling holds (ADR 0083): a setting written
       // past Administration, which refuses it, moves nothing.
       await writeSettings(database, owner, { attachmentMaxBytes: 2048 });
+      await slotFree();
       expect(await upload(3000)).toBe(200);
+      await slotFree();
       expect(await upload(8192)).toBe(413);
     } finally {
       await writeSettings(database, owner, { attachmentMaxBytes: null });
