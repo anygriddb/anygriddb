@@ -54,6 +54,9 @@ first.
   restricts. A field's permission is read whole in its list, where it
   was cut. A field added after a member's permissions were saved with
   every field read and written is no longer hidden from them.
+- On a phone a calendar's bar goes on to a second line. The list of
+  the field it places rows by was cut at the screen's edge, and
+  "Subscribe" was out of reach.
 
 ## 0.3.0 - 2026-11-20
 

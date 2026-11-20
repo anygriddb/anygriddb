@@ -270,6 +270,20 @@ test.describe("a kanban, a gallery, and a calendar", () => {
     ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
 
+    // On a phone the calendar's bar goes on to a second line: the field
+    // it places rows by and its feed stay within reach. They ran past the
+    // screen's edge, cut, with nothing to scroll them back.
+    await page.keyboard.press("Escape");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("combobox", { name: "Date" })).toBeInViewport({
+      ratio: 1,
+    });
+    await expect(
+      page.getByRole("button", { name: "Subscribe" }),
+    ).toBeInViewport({ ratio: 1 });
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.setViewportSize({ width: 1280, height: 720 });
+
     expect(blocked).toEqual([]);
   });
 });
