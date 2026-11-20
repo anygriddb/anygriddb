@@ -1,4 +1,4 @@
-import { Avatar, Button, Input, Label, Select } from "@anygriddb/ui";
+import { Avatar, Button, Input, Label, Select, Tooltip } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -13,6 +13,7 @@ import {
   type Collaborator,
   type Role,
 } from "../../lib/types";
+import { ConfirmDialog } from "../shell/dialogs";
 import { NotebookPage, RuledSection } from "../shell/notebook-page";
 import { useInvalidateCatalog } from "../shell/sidebar";
 import { GroupRoles } from "./group-roles";
@@ -64,6 +65,11 @@ export function BaseSettings({ baseId }: { baseId: string }) {
   const [description, setDescription] = useState<string | null>(null);
   const [inviteLink, setInviteLink] = useState("");
   const [exporting, setExporting] = useState(false);
+  // The member about to be taken out of the base, once that is confirmed.
+  const [removing, setRemoving] = useState<{
+    userId: string;
+    name: string;
+  } | null>(null);
   const track = useTrackJob();
 
   async function exportSnapshot(withData: boolean) {
@@ -205,22 +211,22 @@ export function BaseSettings({ baseId }: { baseId: string }) {
                       </option>
                     ))}
                   </Select>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    aria-label={t`Remove`}
-                    className={member.direct ? undefined : "invisible"}
-                    onClick={() =>
-                      void run(() =>
-                        trpc.catalog.revoke.mutate({
-                          baseId,
+                  <Tooltip content={t`Remove ${{ name: member.displayName }}`}>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={t`Remove ${{ name: member.displayName }}`}
+                      className={member.direct ? undefined : "invisible"}
+                      onClick={() =>
+                        setRemoving({
                           userId: member.userId,
-                        }),
-                      )
-                    }
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                  </Button>
+                          name: member.displayName,
+                        })
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </Tooltip>
                 </li>
               ))}
             </ul>
@@ -378,12 +384,28 @@ export function BaseSettings({ baseId }: { baseId: string }) {
           ))}
         </RuledSection>
       ) : null}
+      {removing ? (
+        <ConfirmDialog
+          open
+          danger
+          onOpenChange={(open) => !open && setRemoving(null)}
+          title={t`Remove ${{ name: removing.name }} from ${{ base: base.name }}?`}
+          description={t`They lose their own role on the base and its tables at once, with the permissions set for them on each table, and their open pages reload. A role a group gives them stays.`}
+          confirmLabel={t`Remove`}
+          onConfirm={() =>
+            run(() =>
+              trpc.catalog.revoke.mutate({ baseId, userId: removing.userId }),
+            )
+          }
+        />
+      ) : null}
     </NotebookPage>
   );
 }
 
 function PendingInvitations({ baseId }: { baseId: string }) {
   const { t } = useLingui();
+  const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
   const roleLabel = useRoleLabel();
@@ -406,10 +428,14 @@ function PendingInvitations({ baseId }: { baseId: string }) {
               size="xs"
               variant="ghost"
               onClick={async () => {
-                await trpc.catalog.revokeInvitation.mutate({
-                  baseId,
-                  invitationId: invitation.id,
-                });
+                try {
+                  await trpc.catalog.revokeInvitation.mutate({
+                    baseId,
+                    invitationId: invitation.id,
+                  });
+                } catch (cause) {
+                  toast.error(errorText(cause));
+                }
                 await queryClient.invalidateQueries({
                   queryKey: api.catalog.invitations.queryKey({ baseId }),
                 });
