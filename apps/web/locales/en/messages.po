@@ -6009,6 +6009,10 @@ msgstr "It stays in the trash for {days} days."
 msgid "It stops at once, and its delivery log goes with it. A deleted webhook cannot be brought back."
 msgstr "It stops at once, and its delivery log goes with it. A deleted webhook cannot be brought back."
 
+#: components/table/revoke-link.tsx
+msgid "It stops opening at once, for everyone who has it. A link is not made again: another has another address."
+msgstr "It stops opening at once, for everyone who has it. A link is not made again: another has another address."
+
 #: components/admin/notifications-tab.tsx
 msgid "It stops receiving events. Past deliveries are kept until they expire."
 msgstr "It stops receiving events. Past deliveries are kept until they expire."
@@ -8548,8 +8552,8 @@ msgid "Rating"
 msgstr "Rating"
 
 #: components/settings/account-settings.tsx
-msgid "Reachable bases"
-msgstr "Reachable bases"
+msgid "Reachable bases:"
+msgstr "Reachable bases:"
 
 #: components/admin/access-tab.tsx
 msgid "Reaches"
@@ -9139,6 +9143,7 @@ msgstr "Review integrations"
 #: components/settings/account-settings.tsx
 #: components/settings/base-links.tsx
 #: components/settings/base-settings.tsx
+#: components/table/revoke-link.tsx
 #: components/table/share-dialog.tsx
 #: components/views/calendar-feed.tsx
 msgid "Revoke"
@@ -9155,6 +9160,7 @@ msgid "Revoke {name}"
 msgstr "Revoke {name}"
 
 #: components/admin/access-tab.tsx
+#: components/settings/account-settings.tsx
 msgid "Revoke {name}?"
 msgstr "Revoke {name}?"
 
@@ -9182,6 +9188,10 @@ msgstr "Revoke the token {name}"
 #: components/admin/account-actions.tsx
 msgid "Revoke their API tokens"
 msgstr "Revoke their API tokens"
+
+#: components/table/revoke-link.tsx
+msgid "Revoke this link?"
+msgstr "Revoke this link?"
 
 #: components/admin/outbound-tab.tsx
 msgid "Revoke this public link?"
@@ -12949,6 +12959,10 @@ msgstr "What was done in {base}, newest first: in the tables and fields you see,
 #: components/shell/page-crashed.tsx
 msgid "What you saved is kept. Reload the page to carry on."
 msgstr "What you saved is kept. Reload the page to carry on."
+
+#: components/settings/account-settings.tsx
+msgid "Whatever uses this token is refused from now on. A token is not made again: you can make another."
+msgstr "Whatever uses this token is refused from now on. A token is not made again: you can make another."
 
 #: components/admin/access-tab.tsx
 msgid "Whatever uses this token is refused from now on. Its owner can make another."

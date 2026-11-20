@@ -25,6 +25,12 @@ first.
   a yes or no said "No". A view shared by a link, drawn as cards, leaves
   out a field that holds nothing, as the app's cards do: it listed
   every name, most of them over an empty place.
+- Revoking a public link, of a view or of a base, and revoking an API
+  token of one's own ask first, and say what stops: one click did it,
+  for everyone who had the link and for whatever used the token, and
+  neither is made again. Administration already asked. Their lists
+  write a day as every screen does ("20/11/2026"), where they showed
+  the first ten characters of an instant.
 
 ## 0.3.1 - 2026-11-20
 

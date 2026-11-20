@@ -13,6 +13,7 @@ import { ProfileForm } from "./profile-form";
 import { SecondFactorSetup } from "./second-factor";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { useWhen } from "../../lib/i18n";
 
 export function AccountSettings() {
   const { t } = useLingui();
@@ -42,6 +43,11 @@ export function AccountSettings() {
   const [erasePassword, setErasePassword] = useState("");
   const [eraseCode, setEraseCode] = useState("");
   const [confirmErase, setConfirmErase] = useState(false);
+  // The token about to be revoked, once that is confirmed.
+  const [revoking, setRevoking] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+  const when = useWhen();
   const user = session.data;
 
   async function run(action: () => Promise<void>) {
@@ -237,7 +243,7 @@ export function AccountSettings() {
               {t`Create`}
             </Button>
             <div className="flex w-full flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span>{t`Reachable bases`} :</span>
+              <span>{t`Reachable bases:`}</span>
               {(catalog.data ?? []).length === 0 ? (
                 <span>{t`All bases`}</span>
               ) : null}
@@ -308,7 +314,7 @@ export function AccountSettings() {
                 {token.name}
                 <span className="ml-2 inline-flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                   <span>
-                    {t`expires on ${{ date: token.expiresAt.slice(0, 10) }}`}
+                    {t`expires on ${{ date: when.day(token.expiresAt) }}`}
                   </span>
                   <span>
                     {token.baseIds
@@ -324,7 +330,7 @@ export function AccountSettings() {
                   ) : null}
                   <span>
                     {token.lastUsedAt
-                      ? t`last used ${{ date: token.lastUsedAt.slice(0, 10) }}`
+                      ? t`last used ${{ date: when.day(token.lastUsedAt) }}`
                       : t`never used`}
                   </span>
                 </span>
@@ -332,14 +338,7 @@ export function AccountSettings() {
               <Button
                 size="xs"
                 variant="ghost"
-                onClick={() =>
-                  void run(async () => {
-                    await trpc.auth.revokeToken.mutate({ tokenId: token.id });
-                    await queryClient.invalidateQueries({
-                      queryKey: api.auth.tokens.queryKey(),
-                    });
-                  })
-                }
+                onClick={() => setRevoking({ id: token.id, name: token.name })}
               >
                 {t`Revoke`}
               </Button>
@@ -387,6 +386,24 @@ export function AccountSettings() {
           </p>
         ) : null}
       </RuledSection>
+      {revoking ? (
+        <ConfirmDialog
+          open
+          danger
+          onOpenChange={(open) => !open && setRevoking(null)}
+          title={t`Revoke ${{ name: revoking.name }}?`}
+          description={t`Whatever uses this token is refused from now on. A token is not made again: you can make another.`}
+          confirmLabel={t`Revoke`}
+          onConfirm={() =>
+            run(async () => {
+              await trpc.auth.revokeToken.mutate({ tokenId: revoking.id });
+              await queryClient.invalidateQueries({
+                queryKey: api.auth.tokens.queryKey(),
+              });
+            })
+          }
+        />
+      ) : null}
       <ConfirmDialog
         open={confirmErase}
         onOpenChange={setConfirmErase}
