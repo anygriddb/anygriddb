@@ -26,20 +26,34 @@ const column = (patch: Record<string, unknown>) =>
     ...patch,
   }) as unknown as CatalogColumn;
 
-/** What a cell reads as: its text, the tags that draw it left out. */
+/** The text of a piece of markup: what lies outside its tags. */
+function textIn(markup: string): string {
+  let text = "";
+  let inTag = false;
+  for (const character of markup) {
+    if (character === "<") inTag = true;
+    else if (character === ">") inTag = false;
+    else if (!inTag) text += character;
+  }
+  return text;
+}
+
+/** What a cell reads as: the text of what it draws. */
 function textOf(value: unknown, of: CatalogColumn): string {
-  return renderToStaticMarkup(
-    createElement(
-      I18nProvider,
-      { i18n },
-      createElement(CellValueView, {
-        value,
-        column: of,
-        locale: "en",
-        people,
-      }),
+  return textIn(
+    renderToStaticMarkup(
+      createElement(
+        I18nProvider,
+        { i18n },
+        createElement(CellValueView, {
+          value,
+          column: of,
+          locale: "en",
+          people,
+        }),
+      ),
     ),
-  ).replace(/<[^>]+>/g, "");
+  );
 }
 
 describe("CellValueView", () => {
