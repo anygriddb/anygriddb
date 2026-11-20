@@ -1,4 +1,17 @@
-import { aggregateFunctionsFor, type FilterKind } from "@anygriddb/core";
+import {
+  aggregateFunctionsFor,
+  cellText,
+  type FilterKind,
+} from "@anygriddb/core";
+import { cellDisplay } from "../../lib/format";
+import type { CatalogColumn, Collaborator } from "../../lib/types";
+
+const NO_PEOPLE: ReadonlyMap<string, Collaborator> = new Map();
+
+/** What a field of these kinds holds is one value a figure can show. */
+const ONE_VALUE = new Set<FilterKind>(["text", "number", "date", "datetime"]);
+/** Fields that read as a text and hold something else: a document, a button. */
+const NOT_A_VALUE = new Set(["json", "button"]);
 
 /**
  * The view a widget that shows one will show: the view chosen, or the
@@ -45,16 +58,60 @@ export function fieldKept(
  * The fields a measure can read, by the rule the server holds a measure
  * to: for a sum, a mean, or an extreme, those that read as a number, a
  * formula's or a rollup's result among them; for the count of the rows
- * that hold a value, any field but a checkbox. A count of rows reads none.
+ * that hold a value, any field but a checkbox. A count of rows reads
+ * none. The last value is read of a field that holds one value: a text,
+ * a number, a date.
  */
-export function measurableFields<Field extends { kind: FilterKind }>(
-  fields: readonly Field[],
-  fn: string,
-): readonly Field[] {
+export function measurableFields<
+  Field extends { kind: FilterKind; fieldType: string },
+>(fields: readonly Field[], fn: string): readonly Field[] {
   if (fn === "count_all") return [];
+  if (fn === "last") {
+    return fields.filter(
+      (field) => ONE_VALUE.has(field.kind) && !NOT_A_VALUE.has(field.fieldType),
+    );
+  }
   return fields.filter((field) =>
     aggregateFunctionsFor(field.kind).some((allowed) => allowed === fn),
   );
+}
+
+/**
+ * The fields that can put rows in order for a figure's last value: a
+ * date or an instant first, as a balance is read on its latest day, then
+ * a number.
+ */
+export function orderingFields<Field extends { kind: FilterKind }>(
+  fields: readonly Field[],
+): Field[] {
+  const dated = fields.filter(
+    (field) => field.kind === "date" || field.kind === "datetime",
+  );
+  return [...dated, ...fields.filter((field) => field.kind === "number")];
+}
+
+/**
+ * The measure a widget's list shows: a chart has no last value, so a
+ * figure turned into a chart counts rows, as its list then shows.
+ */
+export function measureShown(kind: string, fn: string): string {
+  return kind === "chart" && fn === "last" ? "count_all" : fn;
+}
+
+/**
+ * A figure's last value, written as its field writes a cell: a number in
+ * the field's format, a date as a date, a text as it is. A dash while
+ * there is none.
+ */
+export function lastValueText(
+  value: unknown,
+  column: CatalogColumn | undefined,
+  locale: "fr" | "en",
+): string {
+  if (value === null || value === undefined || value === "") return "—";
+  return column
+    ? cellDisplay(value, column, locale, NO_PEOPLE)
+    : cellText(value);
 }
 
 /** Rows a view's widget shows: a glance, the view itself is a click away. */

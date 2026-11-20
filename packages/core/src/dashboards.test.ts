@@ -31,6 +31,17 @@ describe("dashboard schemas", () => {
         },
       }).success,
     ).toBe(true);
+    // A figure reads an aggregate, or the last value by the field that
+    // puts the rows in order: the one needs no order, the other has one.
+    const figure = (config: Record<string, unknown>) =>
+      dashboardWidgetConfigSchema.safeParse({
+        kind: "metric",
+        config: { tableId: id, column: "balance", ...config },
+      }).success;
+    expect(figure({ fn: "last", orderBy: "day" })).toBe(true);
+    expect(figure({ fn: "last" })).toBe(false);
+    expect(figure({ fn: "sum", orderBy: "day" })).toBe(false);
+    expect(figure({ fn: "first", orderBy: "day" })).toBe(false);
     // A histogram bins one number field and counts rows.
     const histogram = (config: Record<string, unknown>) =>
       dashboardWidgetConfigSchema.safeParse({

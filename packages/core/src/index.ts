@@ -682,6 +682,7 @@ export {
   type ChartPeriod,
   type ChartType,
   type CreateDashboardInput,
+  type MetricFn,
   type UpsertWidgetInput,
 } from "./dashboards";
 

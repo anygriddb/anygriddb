@@ -87,6 +87,12 @@ export type ReadSpec = {
   offset?: number;
   timeZone?: string;
   me?: string;
+  /**
+   * Among the rows the sorts leave together, the one made last comes
+   * first, where it comes last: a read sorted downward by a field then
+   * starts with the last row of that field's order.
+   */
+  newestFirst?: boolean;
 };
 
 type ProjectedColumn = ColumnRef & {
@@ -533,14 +539,15 @@ function jsonKind(ref: ProjectedColumn): JsonKind {
 }
 
 /**
- * Groups first, then sorts, then insertion order. Rows whose group values
- * order alike but group apart (two texts a collation calls equal, lists
- * that start alike) are told apart by their key, so each group's rows
- * follow each other and a group starts at one place only.
+ * Groups first, then sorts, then insertion order, which `newestFirst`
+ * turns round. Rows whose group values order alike but group apart (two
+ * texts a collation calls equal, lists that start alike) are told apart
+ * by their key, so each group's rows follow each other and a group
+ * starts at one place only.
  */
 function orderClause(
   prepared: Prepared,
-  spec: Pick<ReadSpec, "groupBy" | "sort">,
+  spec: Pick<ReadSpec, "groupBy" | "sort" | "newestFirst">,
 ): string {
   const parts: string[] = [];
   const seen = new Set<string>();
@@ -561,7 +568,8 @@ function orderClause(
     const ref = lookupRef(prepared, sort.column, "sort");
     parts.push(prepared.d.orderTerm(orderSql(prepared, ref), sort.direction));
   }
-  for (const key of prepared.orderKeys) parts.push(`q."${key}" asc`);
+  const made = spec.newestFirst ? "desc" : "asc";
+  for (const key of prepared.orderKeys) parts.push(`q."${key}" ${made}`);
   return ` order by ${parts.join(", ")}`;
 }
 

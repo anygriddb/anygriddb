@@ -22,7 +22,7 @@ import {
   type FilterGroup,
 } from "@anygriddb/core";
 import { keyRing } from "../auth/key-ring.js";
-import { chartSeries, histogramSeries } from "../data/dashboards.js";
+import { chartSeries, histogramSeries, lastValue } from "../data/dashboards.js";
 import { importIntoTable, rowsSource } from "../data/import-commit.js";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -3456,6 +3456,77 @@ describe("conformance of formulas across engines", () => {
     for (const engine of ["mysql", "mariadb", "sqlserver", "oracle"] as const) {
       expect(asRead(engine, traces.get(engine)), engine).toEqual(
         asRead(engine, reference),
+      );
+    }
+  }, 300_000);
+
+  it("reads a figure's last value where the rows live, the row made last among those that tie", async () => {
+    const deps = { db, key, settings };
+    const traces = new Map<Engine, unknown[]>();
+    for (const [engine, { sourceId, schema }] of declared) {
+      const base = await insertBase(db, actorId, { name: `Last ${engine}` });
+      const {
+        tableIds: [casesId = ""],
+      } = await exposeTables(deps, actorId, {
+        sourceId,
+        baseId: base.id,
+        tables: [{ schema, name: "cases" }],
+      });
+      // The same on every row: ordered by it, the three rows tie, and the
+      // last is the one that comes last by its key.
+      const same = await addColumn(db, actorId, casesId, {
+        label: "same",
+        fieldType: "formula",
+        formulaSource: "{id} * 0",
+      });
+      const { engine: catalog } = await loadEngine(db, casesId, () => true);
+      const field = (physical: string) => columnOf(catalog, physical);
+      const last = (
+        column: string,
+        orderBy: string,
+        filter?: FilterGroup,
+      ): Promise<unknown> =>
+        lastValue(
+          db,
+          catalog,
+          { timeZone: "UTC", ...(filter ? { filter } : {}) },
+          { column, orderBy },
+        ).catch(failed);
+      traces.set(engine, [
+        // By a date and by an instant: the row of 2026.
+        await last(field("n"), field("d")),
+        await last(field("s"), field("ts")),
+        // Rows that tie: the third, made last. The second has no `n`, no
+        // `i` and an empty `t`: a value that is not there is passed over.
+        await last(field("t"), same.name),
+        await last(field("m"), same.name),
+        await last(field("i"), same.name),
+        await last(field("n"), same.name),
+        // Within a filter: of the rows whose `i` is positive, the first.
+        await last(field("n"), same.name, {
+          conjunction: "and",
+          conditions: [{ column: field("i"), op: "gt", value: 0 }],
+        }),
+        // Nothing to read: no row holds both.
+        await last(field("n"), same.name, {
+          conjunction: "and",
+          conditions: [{ column: field("i"), op: "gt", value: 100 }],
+        }),
+      ]);
+    }
+    expect(traces.get("postgres")).toEqual([
+      "7.25",
+      "Hello World",
+      "é",
+      "3.00",
+      "-4",
+      "1000000.10",
+      "7.25",
+      null,
+    ]);
+    for (const engine of ["mysql", "mariadb", "sqlserver", "oracle"] as const) {
+      expect(asRead(engine, traces.get(engine)), engine).toEqual(
+        asRead(engine, traces.get("postgres")),
       );
     }
   }, 300_000);

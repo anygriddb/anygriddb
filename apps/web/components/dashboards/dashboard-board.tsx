@@ -54,9 +54,12 @@ import {
   embeddedViewId,
   fieldKept,
   fieldShown,
+  lastValueText,
   measurableFields,
   measureAddsUp,
   measuredColumn,
+  measureShown,
+  orderingFields,
 } from "./widget-view";
 import { groupsDates } from "./span-label";
 import { DashboardHistory, type WidgetBody } from "./dashboard-history";
@@ -122,6 +125,7 @@ const OFFERED_MEASURES = new Set([
   "avg",
   "min",
   "max",
+  "last",
 ]);
 
 function isChartStyle(value: string): value is ChartStyle {
@@ -732,13 +736,15 @@ function WidgetCard(props: {
             </div>
           ) : data.data?.kind === "metric" ? (
             <p className="flex h-full items-center justify-center text-3xl font-semibold tabular-nums">
-              {formatAggregate(
-                data.data.value,
-                data.data.fn,
-                measured,
-                locale,
-                2,
-              )}
+              {data.data.fn === "last"
+                ? lastValueText(data.data.value, measured, locale)
+                : formatAggregate(
+                    data.data.value,
+                    data.data.fn,
+                    measured,
+                    locale,
+                    2,
+                  )}
             </p>
           ) : data.data?.kind === "chart" ? (
             <Suspense
@@ -840,22 +846,29 @@ function WidgetForm(props: {
   );
   const [seriesBy, setSeriesBy] = useState(configString(config, "seriesBy"));
   const [fn, setFn] = useState(configString(config, "fn") || "count_all");
+  const [orderBy, setOrderBy] = useState(configString(config, "orderBy"));
   const [byValue, setByValue] = useState(config.order === "value");
   const [shown, setShown] = useState(
     typeof config.limit === "number" ? String(config.limit) : "",
   );
   const [sideBySide, setSideBySide] = useState(config.sideBySide === true);
   const [period, setPeriod] = useState(configString(config, "period") || "day");
-  // The fields the measure can read, and the one its list shows.
-  const measurable = measurableFields(columns, fn);
+  // The measure its list shows, the fields it can read, and the one
+  // their list shows.
+  const measure = measureShown(kind, fn);
+  const measurable = measurableFields(columns, measure);
   const measured = fieldShown(measurable, column);
+  // A last value is the last by a field that puts the rows in order.
+  const byLast = kind === "metric" && measure === "last";
+  const ordering = orderingFields(columns);
+  const orderedBy = fieldShown(ordering, orderBy);
   const binField = fieldShown(binnable, binned);
   // A chart groups by a field people group by, before any other.
   const grouped = fieldShown([...groupable, ...columns], groupBy);
   const seriesFields = columns.filter((item) => item.name !== grouped);
   const series = fieldKept(seriesFields, seriesBy);
   // A measure that reads a field, on a table that has none it can read.
-  const nothingToMeasure = fn !== "count_all" && measurable.length === 0;
+  const nothingToMeasure = measure !== "count_all" && measurable.length === 0;
   // Dates are grouped by day, or by more: a week, a month, a quarter, a year.
   const dated = groupsDates(
     columns.find((item) => item.name === grouped)?.fieldType,
@@ -864,7 +877,7 @@ function WidgetForm(props: {
   // Shares are each of the whole, largest first: nothing to choose there.
   const ordered = chartType !== "pie" && chartType !== "histogram";
   // Series that add up stand one on another, or side by side.
-  const stackable = ordered && Boolean(series) && measureAddsUp(fn);
+  const stackable = ordered && Boolean(series) && measureAddsUp(measure);
   const [busy, setBusy] = useState(false);
 
   const embedded = embeddedViewId(views, viewId);
@@ -883,7 +896,8 @@ function WidgetForm(props: {
               tableId,
               // A figure names a field even when it counts rows.
               column: measured || fieldShown(columns, column),
-              fn,
+              fn: measure,
+              ...(byLast ? { orderBy: orderedBy } : {}),
               ...(viewId ? { viewId } : {}),
             }
           : kind === "chart"
@@ -899,9 +913,9 @@ function WidgetForm(props: {
                   tableId,
                   groupBy: grouped,
                   chartType,
-                  fn,
+                  fn: measure,
                   // Counting rows needs no field; any other measure reads one.
-                  ...(fn === "count_all" ? {} : { column: measured }),
+                  ...(measure === "count_all" ? {} : { column: measured }),
                   ...(series ? { seriesBy: series } : {}),
                   ...(dated && period !== "day" ? { period } : {}),
                   ...(ordered && byValue ? { order: "value" } : {}),
@@ -928,7 +942,7 @@ function WidgetForm(props: {
         <Label htmlFor="widget-measure">{t`Measure`}</Label>
         <Select
           id="widget-measure"
-          value={fn}
+          value={measure}
           onChange={(event) => setFn(event.target.value)}
         >
           <option value="count_all">{t`Row count`}</option>
@@ -937,13 +951,19 @@ function WidgetForm(props: {
           <option value="avg">{t`Average`}</option>
           <option value="min">{t`Min`}</option>
           <option value="max">{t`Max`}</option>
+          {/* A figure's alone: a chart has no last value. */}
+          {kind === "metric" ? (
+            <option value="last">{t`Last value`}</option>
+          ) : null}
           {/* A measure set outside this form is kept, by its name. */}
-          {OFFERED_MEASURES.has(fn) ? null : (
-            <option value={fn}>{t(AGGREGATE_LABELS[fn] ?? raw(fn))}</option>
+          {OFFERED_MEASURES.has(measure) ? null : (
+            <option value={measure}>
+              {t(AGGREGATE_LABELS[measure] ?? raw(measure))}
+            </option>
           )}
         </Select>
       </div>
-      {fn !== "count_all" ? (
+      {measure !== "count_all" ? (
         <div className="flex flex-col gap-1">
           <Label htmlFor="widget-measured">{t`Measured field`}</Label>
           <Select
@@ -968,6 +988,28 @@ function WidgetForm(props: {
               {t`This table has no field this measure can read.`}
             </p>
           ) : null}
+        </div>
+      ) : null}
+      {byLast ? (
+        <div className="flex flex-col gap-1 sm:col-span-2">
+          <Label htmlFor="widget-order">{t`Rows ordered by`}</Label>
+          <Select
+            id="widget-order"
+            value={orderedBy}
+            aria-describedby="widget-order-hint"
+            onChange={(event) => setOrderBy(event.target.value)}
+          >
+            {ordering.map((item) => (
+              <option key={item.name} value={item.name}>
+                {item.label}
+              </option>
+            ))}
+          </Select>
+          <p id="widget-order-hint" className="text-xs text-muted-foreground">
+            {ordering.length === 0
+              ? t`This table has no date or number field to put its rows in order.`
+              : t`The last row is the one where this field is greatest and, of several, the one added last. A row where either field is empty is passed over.`}
+          </p>
         </div>
       ) : null}
     </>
@@ -1228,7 +1270,8 @@ function WidgetForm(props: {
             !title.trim() ||
             (kind === "chart" && chartType === "histogram"
               ? binnable.length === 0
-              : kind !== "view_embed" && nothingToMeasure)
+              : kind !== "view_embed" &&
+                (nothingToMeasure || (byLast && ordering.length === 0)))
           }
         >
           {busy ? <Spinner /> : null}
