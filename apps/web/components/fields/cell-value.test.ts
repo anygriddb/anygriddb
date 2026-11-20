@@ -89,4 +89,38 @@ describe("CellValueView", () => {
     ).toBe("");
     expect(textOf("One text", column({}))).toBe("One text");
   });
+
+  it("draws a box not ticked under a field's name, and nothing in a column of ticks", () => {
+    const done = column({ fieldType: "boolean", kind: "boolean" });
+    const drawn = (value: unknown, unticked: boolean) =>
+      renderToStaticMarkup(
+        createElement(
+          I18nProvider,
+          { i18n },
+          createElement(CellValueView, {
+            value,
+            column: done,
+            locale: "en",
+            people,
+            unticked,
+          }),
+        ),
+      );
+    // A grid's column reads by its ticks: a box not ticked draws nothing.
+    expect(drawn(false, false)).toBe("");
+    expect(drawn(true, false)).toContain('aria-label="checked"');
+    // Under its name, on a card, an empty place says nothing: the box.
+    expect(drawn(false, true)).toContain('aria-label="unchecked"');
+    expect(drawn(true, true)).toContain('aria-label="checked"');
+    expect(drawn(true, true)).not.toContain("unchecked");
+    // Never set, a card leaves the field out, and nothing is drawn.
+    expect(drawn(null, true)).toBe("");
+    // A switch and a yes or no say "off" and "No" by themselves.
+    const sent = column({
+      fieldType: "boolean",
+      kind: "boolean",
+      config: { appearance: "yes_no" },
+    });
+    expect(textOf(false, sent)).toBe("No");
+  });
 });

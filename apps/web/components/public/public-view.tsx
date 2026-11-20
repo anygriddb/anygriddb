@@ -13,6 +13,7 @@ import { dateFormatOf, editZone, formInstant } from "../../lib/dates";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { CellValueView } from "../fields/cell-value";
+import { drawnFields } from "../views/card-fields";
 import { formPrefill } from "../views/form-prefill";
 import { formRedirectAfterSubmit } from "../views/form-redirect";
 import { FormFiles } from "../views/form-files";
@@ -407,23 +408,26 @@ export function PublicRows({
                   </p>
                 ) : null}
                 <dl className="mt-2 flex flex-col gap-1">
-                  {detailColumns.map((column) => (
-                    <div key={column.name}>
-                      <dt className="text-[11px] text-muted-foreground">
-                        {column.label}
-                      </dt>
-                      <dd className="flex min-w-0 text-xs">
-                        <CellValueView
-                          value={row[column.name]}
-                          error={rowError(row, column.name)}
-                          column={column}
-                          locale={locale}
-                          people={NO_PEOPLE}
-                          inColumn={false}
-                        />
-                      </dd>
-                    </div>
-                  ))}
+                  {drawnFields(row, detailColumns).map(
+                    ({ column, value, error }) => (
+                      <div key={column.name}>
+                        <dt className="text-[11px] text-muted-foreground">
+                          {column.label}
+                        </dt>
+                        <dd className="flex min-w-0 text-xs">
+                          <CellValueView
+                            value={value}
+                            error={error}
+                            column={column}
+                            locale={locale}
+                            people={NO_PEOPLE}
+                            inColumn={false}
+                            unticked
+                          />
+                        </dd>
+                      </div>
+                    ),
+                  )}
                 </dl>
               </li>
             ))}

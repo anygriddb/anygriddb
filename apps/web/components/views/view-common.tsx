@@ -1,4 +1,4 @@
-import { cellText, rowError } from "@anygriddb/core";
+import { cellText } from "@anygriddb/core";
 
 import {
   Button,
@@ -15,6 +15,7 @@ import { cellDisplay } from "../../lib/format";
 import type { RowPlace } from "../../lib/row-place";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { CellValueView } from "../fields/cell-value";
+import { drawnFields } from "./card-fields";
 import { EmptyState } from "../shell/notebook-page";
 import { useTable } from "../table/table-context";
 import type { ViewPatch } from "../table/view-toolbar";
@@ -192,34 +193,22 @@ export function CardFields({
     // A link among the fields stands above the button that covers the
     // card, tall enough to be pointed at.
     <dl className="mt-1 flex flex-col gap-1 [&_a]:relative [&_a]:py-1">
-      {columns.map((column) => {
-        const value = row[column.name as keyof RowItem];
-        const error = rowError(row, column.name);
-        if (
-          error === null &&
-          (value === null ||
-            value === undefined ||
-            (Array.isArray(value) && value.length === 0))
-        )
-          return null;
-        return (
-          <div key={column.name} className="min-w-0">
-            <dt className="text-[11px] text-muted-foreground">
-              {column.label}
-            </dt>
-            <dd className="flex min-w-0 text-xs">
-              <CellValueView
-                value={value}
-                column={column}
-                locale={table.locale}
-                people={table.people}
-                inColumn={false}
-                error={error}
-              />
-            </dd>
-          </div>
-        );
-      })}
+      {drawnFields(row, columns).map(({ column, value, error }) => (
+        <div key={column.name} className="min-w-0">
+          <dt className="text-[11px] text-muted-foreground">{column.label}</dt>
+          <dd className="flex min-w-0 text-xs">
+            <CellValueView
+              value={value}
+              column={column}
+              locale={table.locale}
+              people={table.people}
+              inColumn={false}
+              unticked
+              error={error}
+            />
+          </dd>
+        </div>
+      ))}
     </dl>
   );
 }

@@ -49,7 +49,7 @@ import { AttachmentPreview } from "../fields/attachment-preview";
 import { CellEditor, opensPanel } from "../fields/cell-editor";
 import { linkTarget } from "../fields/link-actions";
 import { ButtonCell } from "../fields/button-cell";
-import { CellValueView } from "../fields/cell-value";
+import { CellValueView, UntickedBox } from "../fields/cell-value";
 import { booleanAppearance } from "../fields/field-appearance";
 import { FieldIcon } from "../fields/field-meta";
 import { isEditableColumn, isEditableLink } from "../grid/grid-clipboard";
@@ -216,11 +216,7 @@ function FieldRow({
             {asTitle ? t`Untitled` : t`No value`}
           </span>
         ) : drawing.kind === "unticked" ? (
-          <span
-            role="img"
-            aria-label={t`unchecked`}
-            className="inline-flex h-4 w-4 rounded border border-muted-foreground bg-card"
-          />
+          <UntickedBox />
         ) : (
           <CellValueView
             value={drawing.value}
