@@ -16,6 +16,8 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import type { ViewItem } from "../../lib/types";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { useWhen } from "../../lib/i18n";
+import { RevokeLink } from "./revoke-link";
 
 /** The addresses typed, apart by spaces, commas, or lines. */
 export function parseEmbedSites(text: string): string[] {
@@ -50,6 +52,8 @@ export function ShareDialog({
   const [sites, setSites] = useState("");
   const [link, setLink] = useState("");
   const [embedded, setEmbedded] = useState(false);
+  const [revoking, setRevoking] = useState<string | null>(null);
+  const when = useWhen();
   const refresh = () =>
     queryClient.invalidateQueries({
       queryKey: api.catalog.shares.queryKey({ viewId: view.id }),
@@ -197,9 +201,9 @@ export function ShareDialog({
               ) : null}
               <span className="min-w-0 flex-1">
                 <span className="block truncate">
-                  {t`Created by ${{ name: share.createdBy }} on ${{ date: share.createdAt.slice(0, 10) }}`}
+                  {t`Created by ${{ name: share.createdBy }} on ${{ date: when.day(share.createdAt) }}`}
                   {share.expiresAt
-                    ? ` · ${t`expires on ${{ date: share.expiresAt.slice(0, 10) }}`}`
+                    ? ` · ${t`expires on ${{ date: when.day(share.expiresAt) }}`}`
                     : ""}
                 </span>
                 {share.embedOrigins.length > 0 ? (
@@ -216,12 +220,7 @@ export function ShareDialog({
                 <Button
                   size="xs"
                   variant="ghost"
-                  onClick={async () => {
-                    await trpc.catalog.revokeShare.mutate({
-                      shareId: share.id,
-                    });
-                    await refresh();
-                  }}
+                  onClick={() => setRevoking(share.id)}
                 >
                   {t`Revoke`}
                 </Button>
@@ -229,6 +228,11 @@ export function ShareDialog({
             </li>
           ))}
         </ul>
+        <RevokeLink
+          shareId={revoking}
+          onClose={() => setRevoking(null)}
+          onRevoked={refresh}
+        />
       </DialogContent>
     </Dialog>
   );

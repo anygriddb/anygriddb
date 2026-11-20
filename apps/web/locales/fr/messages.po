@@ -6009,6 +6009,10 @@ msgstr "Il reste {days} jours dans la corbeille."
 msgid "It stops at once, and its delivery log goes with it. A deleted webhook cannot be brought back."
 msgstr "Il s’arrête aussitôt, et son journal des envois disparaît avec lui. Un webhook supprimé ne peut pas être rétabli."
 
+#: components/table/revoke-link.tsx
+msgid "It stops opening at once, for everyone who has it. A link is not made again: another has another address."
+msgstr "Il cesse de s’ouvrir aussitôt, pour tous ceux qui l’ont. Un lien ne se recrée pas : un autre aura une autre adresse."
+
 #: components/admin/notifications-tab.tsx
 msgid "It stops receiving events. Past deliveries are kept until they expire."
 msgstr "Elle ne reçoit plus d’événements. Les envois passés sont conservés jusqu’à leur expiration."
@@ -8548,8 +8552,8 @@ msgid "Rating"
 msgstr "Note"
 
 #: components/settings/account-settings.tsx
-msgid "Reachable bases"
-msgstr "Bases accessibles"
+msgid "Reachable bases:"
+msgstr "Bases accessibles :"
 
 #: components/admin/access-tab.tsx
 msgid "Reaches"
@@ -9139,6 +9143,7 @@ msgstr "Voir les intégrations"
 #: components/settings/account-settings.tsx
 #: components/settings/base-links.tsx
 #: components/settings/base-settings.tsx
+#: components/table/revoke-link.tsx
 #: components/table/share-dialog.tsx
 #: components/views/calendar-feed.tsx
 msgid "Revoke"
@@ -9155,6 +9160,7 @@ msgid "Revoke {name}"
 msgstr "Révoquer {name}"
 
 #: components/admin/access-tab.tsx
+#: components/settings/account-settings.tsx
 msgid "Revoke {name}?"
 msgstr "Révoquer {name} ?"
 
@@ -9182,6 +9188,10 @@ msgstr "Révoquer le jeton {name}"
 #: components/admin/account-actions.tsx
 msgid "Revoke their API tokens"
 msgstr "Révoquer ses jetons d’API"
+
+#: components/table/revoke-link.tsx
+msgid "Revoke this link?"
+msgstr "Révoquer ce lien ?"
 
 #: components/admin/outbound-tab.tsx
 msgid "Revoke this public link?"
@@ -12949,6 +12959,10 @@ msgstr "Ce qui a été fait dans {base}, du plus récent au plus ancien : dans 
 #: components/shell/page-crashed.tsx
 msgid "What you saved is kept. Reload the page to carry on."
 msgstr "Ce que vous avez enregistré est conservé. Rechargez la page pour continuer."
+
+#: components/settings/account-settings.tsx
+msgid "Whatever uses this token is refused from now on. A token is not made again: you can make another."
+msgstr "Tout ce qui utilise ce jeton est refusé désormais. Un jeton ne se recrée pas : vous pouvez en créer un autre."
 
 #: components/admin/access-tab.tsx
 msgid "Whatever uses this token is refused from now on. Its owner can make another."

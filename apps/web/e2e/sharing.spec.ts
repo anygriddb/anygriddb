@@ -227,8 +227,22 @@ test("an owner shares a whole base read-only, and anyone with the link reads it"
   await expect(about).toHaveCount(0);
   expect(await accessibilityViolations(reader)).toEqual([]);
 
-  await page.getByRole("button", { name: "Revoke" }).click();
-  await expect(page.getByRole("button", { name: "Revoke" })).toHaveCount(0);
+  // The link is listed with the day it was made, written as every
+  // screen writes a day. Revoking it asks first: everyone who has it
+  // loses it, and a link is not made again.
+  const listed = page.getByRole("listitem").filter({ hasText: "Created by" });
+  await expect(listed).toContainText(/ on \d{2}\/\d{2}\/\d{4}/);
+  await listed.getByRole("button", { name: "Revoke" }).click();
+  const asking = page.getByRole("dialog", { name: "Revoke this link?" });
+  await expect(asking).toContainText("for everyone who has it");
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await asking.getByRole("button", { name: "Cancel" }).click();
+  await expect(listed).toBeVisible();
+  await reader.reload();
+  await expect(reader.getByRole("heading", { name: "Lab" })).toBeVisible();
+  await listed.getByRole("button", { name: "Revoke" }).click();
+  await asking.getByRole("button", { name: "Revoke", exact: true }).click();
+  await expect(listed).toHaveCount(0);
   await reader.reload();
   await expect(
     reader.getByText("This link does not exist, has expired, or was revoked."),
@@ -391,6 +405,20 @@ test("a public form is embedded in the site its link names, and in no other", as
   await expect.poll(() => refused.length).toBeGreaterThan(0);
   await expect(
     other.frameLocator("iframe").getByRole("button", { name: "Submit" }),
+  ).toHaveCount(0);
+
+  // The link is revoked from the view's own dialog, once that is
+  // confirmed: the site that framed it shows a form no longer.
+  await page.getByRole("button", { name: "View actions" }).click();
+  await page.getByRole("menuitem", { name: "Share view" }).click();
+  await sharing.getByRole("button", { name: "Revoke" }).click();
+  const asking = page.getByRole("dialog", { name: "Revoke this link?" });
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await asking.getByRole("button", { name: "Revoke", exact: true }).click();
+  await expect(sharing.getByText("revoked", { exact: true })).toBeVisible();
+  await named.reload();
+  await expect(
+    named.frameLocator("iframe").getByRole("button", { name: "Submit" }),
   ).toHaveCount(0);
   await anonymous.close();
 });

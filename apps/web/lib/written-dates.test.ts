@@ -36,6 +36,40 @@ function leftToTheBrowser(source: string): string[] {
   );
 }
 
+/**
+ * The dates a source hands a message as the first ten characters of an
+ * instant: "2026-11-20", the year first, in the day of UTC, where every
+ * other screen writes the day first in the reader's own.
+ */
+function cutFromAnInstant(source: string): string[] {
+  return source.match(/\{\{\s*\w+:\s*[^{}]*\.slice\(0,\s*10\)\s*\}\}/g) ?? [];
+}
+
+describe("cutFromAnInstant", () => {
+  it("finds a date cut out of an instant for a message", () => {
+    expect(
+      cutFromAnInstant(
+        [
+          "t`expires on ${{ date: token.expiresAt.slice(0, 10) }}`",
+          "t`Created by ${{ name }} on ${{ date: share.createdAt.slice(0,10) }}`",
+        ].join("\n"),
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("lets through a date the app writes, and a cut that is no message's", () => {
+    expect(
+      cutFromAnInstant(
+        [
+          "t`expires on ${{ date: when.day(token.expiresAt) }}`",
+          "for (const file of [...list].slice(0, 10)) {",
+          "return withTime ? isoDay(new Date(value)) : value.slice(0, 10);",
+        ].join("\n"),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe("leftToTheBrowser", () => {
   it("finds a date written as the browser pleases, or in the app's bare language", () => {
     expect(
@@ -74,6 +108,17 @@ it("no screen leaves a date's format to the browser", () => {
           (call) => `${relative(WEB, file)}: ${call}`,
         ),
       ),
+  );
+  expect(found).toEqual([]);
+});
+
+it("no message is handed a date cut out of an instant", () => {
+  const found = FOLDERS.flatMap((folder) =>
+    sources(join(WEB, folder)).flatMap((file) =>
+      cutFromAnInstant(readFileSync(file, "utf8")).map(
+        (cut) => `${relative(WEB, file)}: ${cut}`,
+      ),
+    ),
   );
   expect(found).toEqual([]);
 });

@@ -569,7 +569,6 @@ export function WebhooksPanel(props: {
               });
             } catch (cause) {
               toast.error(errorText(cause));
-              throw cause;
             }
             await refresh();
           }}

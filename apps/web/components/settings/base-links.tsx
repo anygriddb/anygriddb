@@ -6,8 +6,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { useErrorText } from "../../lib/errors";
+import { useWhen } from "../../lib/i18n";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { RuledSection } from "../shell/notebook-page";
+import { RevokeLink } from "../table/revoke-link";
 
 /**
  * Links that show the whole base read-only (ROADMAP row 93), each table as
@@ -27,6 +29,8 @@ export function BaseLinks({ baseId }: { baseId: string }) {
   const [password, setPassword] = useState("");
   const [days, setDays] = useState("");
   const [link, setLink] = useState("");
+  const [revoking, setRevoking] = useState<string | null>(null);
+  const when = useWhen();
   const refresh = () =>
     queryClient.invalidateQueries({
       queryKey: api.catalog.baseShares.queryKey({ baseId }),
@@ -121,24 +125,15 @@ export function BaseLinks({ baseId }: { baseId: string }) {
                 />
               ) : null}
               <span className="min-w-0 flex-1 truncate">
-                {t`Created by ${{ name: share.createdBy }} on ${{ date: share.createdAt.slice(0, 10) }}`}
+                {t`Created by ${{ name: share.createdBy }} on ${{ date: when.day(share.createdAt) }}`}
                 {share.expiresAt
-                  ? ` · ${t`expires on ${{ date: share.expiresAt.slice(0, 10) }}`}`
+                  ? ` · ${t`expires on ${{ date: when.day(share.expiresAt) }}`}`
                   : ""}
               </span>
               <Button
                 size="xs"
                 variant="ghost"
-                onClick={async () => {
-                  try {
-                    await trpc.catalog.revokeShare.mutate({
-                      shareId: share.id,
-                    });
-                    await refresh();
-                  } catch (cause) {
-                    toast.error(errorText(cause));
-                  }
-                }}
+                onClick={() => setRevoking(share.id)}
               >
                 {t`Revoke`}
               </Button>
@@ -146,6 +141,11 @@ export function BaseLinks({ baseId }: { baseId: string }) {
           ))}
         </ul>
       ) : null}
+      <RevokeLink
+        shareId={revoking}
+        onClose={() => setRevoking(null)}
+        onRevoked={refresh}
+      />
     </RuledSection>
   );
 }

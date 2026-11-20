@@ -6,6 +6,7 @@ import {
   nextTotp,
   signIn,
   signUp,
+  signUpWithTable,
   uniqueStamp,
   watchPolicy,
 } from "./setup";
@@ -105,5 +106,36 @@ test("a member chooses a code by email, and signs in with one", async ({
   // In: the account's own page opens.
   await page.goto("/settings");
   await expect(page.getByText("A code by email is set up.")).toBeVisible();
+  expect(blocked).toEqual([]);
+});
+
+// A token of one's own: made, shown once, listed with the day it ends,
+// and revoked once that is confirmed. Whatever uses it stops then, and a
+// token is not made again: one click did it.
+test("an API token is made, listed with the day it ends, and revoked once confirmed", async ({
+  page,
+}) => {
+  const blocked = watchPolicy(page);
+  await signUpWithTable(page, "Token Maker");
+  await page.goto("/settings");
+  await page.getByLabel("Token name").fill("Nightly");
+  await page.getByLabel("Days").fill("7");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  const token = page.getByRole("listitem").filter({ hasText: "Nightly" });
+  // A day, as every screen writes one: not the first ten characters of
+  // an instant.
+  await expect(token).toContainText(/expires on \d{2}\/\d{2}\/\d{4}/);
+  await expect(token).toContainText("never used");
+  expect(await accessibilityViolations(page)).toEqual([]);
+
+  await token.getByRole("button", { name: "Revoke" }).click();
+  const asking = page.getByRole("dialog", { name: "Revoke Nightly?" });
+  await expect(asking).toContainText("is refused from now on");
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await asking.getByRole("button", { name: "Cancel" }).click();
+  await expect(token).toBeVisible();
+  await token.getByRole("button", { name: "Revoke" }).click();
+  await asking.getByRole("button", { name: "Revoke", exact: true }).click();
+  await expect(token).toHaveCount(0);
   expect(blocked).toEqual([]);
 });
