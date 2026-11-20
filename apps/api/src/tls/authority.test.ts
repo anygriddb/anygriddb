@@ -2,7 +2,8 @@ import { randomBytes, X509Certificate } from "node:crypto";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { connect, createServer } from "node:tls";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { keyRing } from "../auth/key-ring.js";
 import {
   issueServiceCertificates,
@@ -33,6 +34,40 @@ async function settings(
 }
 
 const quiet = () => undefined;
+
+/**
+ * Whether a client that trusts `authority` alone takes the certificate a
+ * service named `name` serves: a real handshake, checked as PostgreSQL's
+ * and the files' store's clients check theirs.
+ */
+async function handshake(
+  served: { cert: string; key: string },
+  authority: string,
+  name: string,
+): Promise<string> {
+  const server = createServer({ cert: served.cert, key: served.key });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as { port: number };
+  try {
+    return await new Promise<string>((resolve) => {
+      const socket = connect({
+        host: "127.0.0.1",
+        port,
+        servername: name,
+        ca: authority,
+      });
+      socket.once("secureConnect", () => {
+        socket.end();
+        resolve("verified");
+      });
+      socket.once("error", (error: NodeJS.ErrnoException) =>
+        resolve(error.code ?? "refused"),
+      );
+    });
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
 
 describe("the certificate AnyGridDB serves", () => {
   it("names the public host, this machine, and the operator's extra names", async () => {
@@ -157,5 +192,105 @@ describe("the certificate AnyGridDB serves", () => {
     expect(again.fingerprint).toBe(first.fingerprint);
     const browser = await loadTls(options, quiet);
     expect(browser.authority?.fingerprint).not.toBe(first.fingerprint);
+  });
+
+  it("keeps a running service verified when another joins the stack", async () => {
+    const options = await settings();
+    const out = join(options.TLS_DIR, "..", "certs");
+    const read = (...path: string[]) => readFile(join(out, ...path), "utf8");
+    await issueServiceCertificates(
+      options,
+      [{ name: "db", postgres: true }],
+      out,
+      quiet,
+    );
+    // PostgreSQL is running: it keeps serving what it read at its start.
+    const running = {
+      cert: await read("db", "db_cert.pem"),
+      key: await read("db", "db_key.pem"),
+    };
+    const before = await read("internal-authority.crt");
+
+    await issueServiceCertificates(
+      options,
+      [{ name: "db", postgres: true }, { name: "rustfs" }],
+      out,
+      quiet,
+    );
+    const after = await read("internal-authority.crt");
+    // The authority now vouches for the new service too...
+    const store = {
+      cert: await read("rustfs", "rustfs_cert.pem"),
+      key: await read("rustfs", "rustfs_key.pem"),
+    };
+    expect(await handshake(store, after, "rustfs")).toBe("verified");
+    expect(await handshake(store, before, "rustfs")).not.toBe("verified");
+    // ...and whoever reads it now still takes the service that never
+    // restarted, as a client that started before takes one that did.
+    expect(await handshake(running, after, "db")).toBe("verified");
+    const restarted = {
+      cert: await read("db", "db_cert.pem"),
+      key: await read("db", "db_key.pem"),
+    };
+    expect(restarted.cert).not.toBe(running.cert);
+    expect(await handshake(restarted, before, "db")).toBe("verified");
+  });
+
+  it("refuses a service that another instance's authority vouches for", async () => {
+    const mine = await settings();
+    const theirs = await settings();
+    const out = (options: TlsSettings) => join(options.TLS_DIR, "..", "certs");
+    for (const options of [mine, theirs]) {
+      await issueServiceCertificates(
+        options,
+        [{ name: "db", postgres: true }],
+        out(options),
+        quiet,
+      );
+    }
+    const served = {
+      cert: await readFile(join(out(theirs), "db", "db_cert.pem"), "utf8"),
+      key: await readFile(join(out(theirs), "db", "db_key.pem"), "utf8"),
+    };
+    const trusted = await readFile(
+      join(out(mine), "internal-authority.crt"),
+      "utf8",
+    );
+    expect(await handshake(served, trusted, "db")).not.toBe("verified");
+  });
+
+  it("renews the internal authority in its last year without a new key", async () => {
+    const options = await settings();
+    const out = join(options.TLS_DIR, "..", "certs");
+    const services = [{ name: "db", postgres: true }];
+    const first = await issueServiceCertificates(options, services, out, quiet);
+    const running = new X509Certificate(
+      await readFile(join(out, "db", "db_cert.pem"), "utf8"),
+    );
+    // Nine years and a half on, the authority is in its last year.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(Date.now() + 9.5 * 365 * 86_400_000);
+      const said: string[] = [];
+      const renewed = await issueServiceCertificates(
+        options,
+        services,
+        out,
+        (line) => said.push(line),
+      );
+      expect(renewed.fingerprint).not.toBe(first.fingerprint);
+      expect(said.join(" ")).toMatch(/renew/i);
+      const authority = new X509Certificate(
+        await readFile(join(out, "internal-authority.crt"), "utf8"),
+      );
+      expect(new Date(authority.validTo).getTime()).toBeGreaterThan(
+        Date.now() + 9 * 365 * 86_400_000,
+      );
+      // The certificate a service loaded before is still its own.
+      expect(running.checkIssued(authority)).toBe(true);
+      expect(running.verify(authority.publicKey)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

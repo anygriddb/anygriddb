@@ -225,10 +225,35 @@ async function localAuthority(
         permitted: [...allowed],
       };
     }
+    // The stack's services keep serving the certificate they read at
+    // their start, and whoever checks them reads the authority again at
+    // any time. A new key would leave every running service refused
+    // until it restarts: the internal authority's certificate is made
+    // again with the key it has, so what that key signed stays good.
+    if (kind === "internal-authority") {
+      log(
+        "the internal authority does not cover the stack's services any more, or ends within a year: its certificate is renewed, with the key it has",
+      );
+      const renewed = issueAuthority({
+        commonName: COMMON_NAMES[kind],
+        names,
+        key: createPrivateKey(key),
+      });
+      await writeAtomic(join(dir, `${kind}.crt`), renewed.cert, 0o644);
+      await writeAtomic(
+        join(dir, `${kind}.json`),
+        `${JSON.stringify({ names }, null, 2)}\n`,
+        0o644,
+      );
+      return {
+        issued: { cert: renewed.cert, key },
+        cert: new X509Certificate(renewed.cert),
+        fresh: true,
+        permitted: [...names],
+      };
+    }
     log(
-      kind === "authority"
-        ? "the local authority does not cover the instance's names any more, or ends within a year: issuing a new one, which workstations must install again"
-        : "the internal authority does not cover the stack's services any more, or ends within a year: issuing a new one",
+      "the local authority does not cover the instance's names any more, or ends within a year: issuing a new one, which workstations must install again",
     );
   }
   const issued = issueAuthority({ commonName: COMMON_NAMES[kind], names });

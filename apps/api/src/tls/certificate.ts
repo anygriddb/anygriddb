@@ -11,6 +11,7 @@
  */
 import {
   createHash,
+  createPublicKey,
   generateKeyPairSync,
   randomBytes,
   sign,
@@ -216,14 +217,19 @@ function keyPair() {
 
 /**
  * The instance's authority, for ten years, limited to `names` and the
- * certificates it signs directly.
+ * certificates it signs directly. Given the `key` of an authority that
+ * exists, it is that authority's certificate made again: what the key
+ * signed before stays vouched for, for the names the new one covers.
  */
 export function issueAuthority(input: {
   commonName: string;
   names: readonly string[];
   years?: number;
+  key?: KeyObject;
 }): Issued {
-  const { privateKey, publicKey } = keyPair();
+  const { privateKey, publicKey } = input.key
+    ? { privateKey: input.key, publicKey: createPublicKey(input.key) }
+    : keyPair();
   const notAfter = new Date();
   notAfter.setUTCFullYear(notAfter.getUTCFullYear() + (input.years ?? 10));
   const cert = issue({
