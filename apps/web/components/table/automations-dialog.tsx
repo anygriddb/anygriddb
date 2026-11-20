@@ -25,6 +25,7 @@ import {
   Select,
   Spinner,
   Textarea,
+  Tooltip,
 } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, History, Pencil, Play, Plus, Trash2, X } from "lucide-react";
@@ -36,6 +37,7 @@ import { FilterBuilder } from "./filter-builder";
 import { useTable } from "./table-context";
 import { useLingui } from "@lingui/react/macro";
 import { Earlier } from "../history/earlier";
+import { ConfirmDialog } from "../shell/dialogs";
 import { useErrorText } from "../../lib/errors";
 import { useWhen } from "../../lib/i18n";
 
@@ -1379,6 +1381,8 @@ export function AutomationsDialog({ onClose }: { onClose: () => void }) {
     | { kind: "edit"; automation: Automation | null }
     | { kind: "runs"; automation: Automation }
   >({ kind: "list" });
+  // The automation about to be deleted, once that is confirmed.
+  const [removing, setRemoving] = useState<Automation | null>(null);
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: options.queryKey });
   async function act(action: () => Promise<unknown>) {
@@ -1451,57 +1455,61 @@ export function AutomationsDialog({ onClose }: { onClose: () => void }) {
                     </p>
                   </div>
                   {RUN_BY_HAND.has(automation.trigger.type) ? (
+                    <Tooltip content={t`Run now`}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label={t`Run now`}
+                        onClick={() =>
+                          void act(async () => {
+                            const result = await trpc.automations.runNow.mutate(
+                              {
+                                automationId: automation.id,
+                              },
+                            );
+                            if (result.status === "success")
+                              toast.success(t`Done`);
+                            else
+                              toast.error(
+                                t`Failed: ${{ error: result.error ? errorText(result.error) : "—" }}`,
+                              );
+                          })
+                        }
+                      >
+                        <Play className="h-4 w-4" aria-hidden />
+                      </Button>
+                    </Tooltip>
+                  ) : null}
+                  <Tooltip content={t`Runs`}>
                     <Button
                       size="icon"
                       variant="ghost"
-                      aria-label={t`Run now`}
-                      onClick={() =>
-                        void act(async () => {
-                          const result = await trpc.automations.runNow.mutate({
-                            automationId: automation.id,
-                          });
-                          if (result.status === "success")
-                            toast.success(t`Done`);
-                          else
-                            toast.error(
-                              t`Failed: ${{ error: result.error ? errorText(result.error) : "—" }}`,
-                            );
-                        })
-                      }
+                      aria-label={t`Runs`}
+                      onClick={() => setMode({ kind: "runs", automation })}
                     >
-                      <Play className="h-4 w-4" aria-hidden />
+                      <History className="h-4 w-4" aria-hidden />
                     </Button>
-                  ) : null}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    aria-label={t`Runs`}
-                    onClick={() => setMode({ kind: "runs", automation })}
-                  >
-                    <History className="h-4 w-4" aria-hidden />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    aria-label={t`Edit`}
-                    onClick={() => setMode({ kind: "edit", automation })}
-                  >
-                    <Pencil className="h-4 w-4" aria-hidden />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    aria-label={t`Delete`}
-                    onClick={() =>
-                      void act(() =>
-                        trpc.automations.delete.mutate({
-                          automationId: automation.id,
-                        }),
-                      )
-                    }
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                  </Button>
+                  </Tooltip>
+                  <Tooltip content={t`Edit`}>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={t`Edit`}
+                      onClick={() => setMode({ kind: "edit", automation })}
+                    >
+                      <Pencil className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </Tooltip>
+                  <Tooltip content={t`Delete`}>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={t`Delete`}
+                      onClick={() => setRemoving(automation)}
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </Tooltip>
                 </li>
               ))}
             </ul>
@@ -1523,6 +1531,21 @@ export function AutomationsDialog({ onClose }: { onClose: () => void }) {
             </DialogFooter>
           </div>
         )}
+        {removing ? (
+          <ConfirmDialog
+            open
+            danger
+            onOpenChange={(open) => !open && setRemoving(null)}
+            title={t`Delete the automation “${{ name: removing.name }}”?`}
+            description={t`It stops at once. Its steps, the secrets it keeps, and the record of its runs go with it: a deleted automation cannot be brought back.`}
+            confirmLabel={t`Delete`}
+            onConfirm={() =>
+              act(() =>
+                trpc.automations.delete.mutate({ automationId: removing.id }),
+              )
+            }
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );
