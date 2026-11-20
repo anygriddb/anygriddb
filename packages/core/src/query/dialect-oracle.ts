@@ -322,7 +322,9 @@ export const ORACLE: SqlDialect = {
       ? `(${date} - mod(to_number(to_char(${date}, 'D')) + 5, 7))`
       : unit === "month"
         ? `trunc(${date}, 'MM')`
-        : `trunc(${date}, 'YYYY')`,
+        : unit === "quarter"
+          ? `trunc(${date}, 'Q')`
+          : `trunc(${date}, 'YYYY')`,
   daysBetween: (end, start) => `(${end} - ${start})`,
   secondsBetween: (end, start) =>
     `(extract(day from (${end} - ${start})) * 86400 + extract(hour from (${end} - ${start})) * 3600 + extract(minute from (${end} - ${start})) * 60 + extract(second from (${end} - ${start})))`,

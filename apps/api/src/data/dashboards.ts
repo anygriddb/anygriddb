@@ -8,6 +8,7 @@ import {
   buildHistogram,
   cellText,
   type ChartOrder,
+  type ChartPeriod,
   type ChartType,
   type CreateDashboardInput,
   dashboardWidgetConfigSchema,
@@ -341,6 +342,11 @@ export async function widgetData(
       bounds: { lo: number; hi: number } | null;
       /** Series side by side, where they would stand one on another. */
       sideBySide: boolean;
+      /**
+       * What a category of dates covers past a day: its key is the first
+       * day of that week, month, quarter, or year.
+       */
+      period: Exclude<ChartPeriod, "day"> | null;
     } & ReturnType<typeof chartSeries>)
   | { kind: "view_embed"; tableId: string; viewId: string }
 > {
@@ -455,6 +461,7 @@ export async function widgetData(
       keyTypes: { category: typeOf(column), series: null },
       bounds: found ? { lo: found.lo, hi: found.hi } : null,
       sideBySide: false,
+      period: null,
       ...histogramSeries(
         found?.rows.map((row) => ({ bin: row.k0, rows: row.a0 })) ?? [],
         // Every value the same: one bin holds them all.
@@ -465,6 +472,12 @@ export async function widgetData(
 
   const groupBy = config.groupBy;
   if (!groupBy) throw new AppError("invalid_arguments");
+  // Dates grouped by more than a day: the engine brings each back to
+  // the first day of its week, month, quarter, or year.
+  const span =
+    config.period === undefined || config.period === "day"
+      ? undefined
+      : config.period;
   const groups = [
     groupBy,
     ...(config.seriesBy && config.seriesBy !== groupBy
@@ -482,6 +495,7 @@ export async function widgetData(
             buildGroupAggregates(engine, within, {
               groups,
               item: { column: config.column ?? groupBy, fn: config.fn },
+              spans: [span],
             }),
           );
         });
@@ -494,6 +508,7 @@ export async function widgetData(
       series: groups.length > 1 ? typeOf(config.seriesBy) : null,
     },
     bounds: null,
+    period: span ?? null,
     sideBySide: config.sideBySide === true,
     ...chartSeries(
       engine.table.columns,

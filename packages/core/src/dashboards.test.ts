@@ -80,6 +80,10 @@ describe("dashboard schemas", () => {
     expect(chart({ limit: 41 })).toBe(false);
     expect(chart({ limit: 0 })).toBe(false);
     expect(chart({ order: "random" })).toBe(false);
+    // Dates grouped by a month; shares take a period too.
+    expect(chart({ period: "month" })).toBe(true);
+    expect(chart({ chartType: "pie", period: "quarter" })).toBe(true);
+    expect(chart({ period: "decade" })).toBe(false);
     // Shares are each of the whole, largest first: nothing to choose.
     expect(chart({ chartType: "pie", limit: 5 })).toBe(false);
     expect(chart({ chartType: "pie", order: "value" })).toBe(false);
@@ -92,6 +96,17 @@ describe("dashboard schemas", () => {
           chartType: "histogram",
           column: "amount",
           limit: 5,
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      dashboardWidgetConfigSchema.safeParse({
+        kind: "chart",
+        config: {
+          tableId: id,
+          chartType: "histogram",
+          column: "amount",
+          period: "month",
         },
       }).success,
     ).toBe(false);

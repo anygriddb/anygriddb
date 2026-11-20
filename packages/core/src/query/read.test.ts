@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAggregates,
   buildCountRows,
+  buildGroupAggregates,
   buildGroupCounts,
   buildHistogram,
   buildReadRows,
@@ -564,5 +565,55 @@ describe("buildHistogram", () => {
         "Invalid arguments",
       );
     }
+  });
+});
+
+describe("buildGroupAggregates", () => {
+  const keyOf = (
+    column: string,
+    span?: "week" | "month" | "quarter" | "year",
+    timeZone = "UTC",
+  ) =>
+    buildGroupAggregates(
+      catalogFor(),
+      { timeZone },
+      {
+        groups: [column],
+        item: { column: "total", fn: "sum" },
+        spans: [span],
+      },
+    ).text;
+
+  it("groups a date by the first day of its week, month, quarter, or year", () => {
+    for (const span of ["week", "month", "quarter", "year"] as const) {
+      expect(keyOf("due", span)).toContain(
+        `to_jsonb(date_trunc('${span}', q."due")::date) as "k0"`,
+      );
+    }
+    // An instant is first the day it is where the reader is.
+    expect(keyOf("created", "month", "Europe/Paris")).toMatch(
+      /to_jsonb\(date_trunc\('month', .*at time zone.*\)::date\) as "k0"/,
+    );
+  });
+
+  it("leaves a date to its day without a span, and a span means nothing to a text", () => {
+    expect(keyOf("due")).not.toContain("date_trunc");
+    expect(keyOf("status", "month")).not.toContain("date_trunc");
+    expect(keyOf("status", "month")).toBe(keyOf("status"));
+  });
+
+  it("finds a quarter's first day on every engine", () => {
+    expect(POSTGRES.startOf("d", "quarter")).toBe(
+      `date_trunc('quarter', d)::date`,
+    );
+    for (const dialect of [MYSQL, MARIADB]) {
+      expect(dialect.startOf("d", "quarter")).toBe(
+        "date_add(makedate(year(d), 1), interval quarter(d) - 1 quarter)",
+      );
+    }
+    expect(SQLSERVER.startOf("d", "quarter")).toBe(
+      "datefromparts(year(d), (datepart(quarter, d) - 1) * 3 + 1, 1)",
+    );
+    expect(ORACLE.startOf("d", "quarter")).toBe("trunc(d, 'Q')");
   });
 });

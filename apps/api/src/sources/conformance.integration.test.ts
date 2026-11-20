@@ -3321,13 +3321,17 @@ describe("conformance of formulas across engines", () => {
         groups: string[],
         column: string,
         fn: "sum" | "count_all" | "avg" | "max",
+        // The span the first group's dates are grouped by, and where the
+        // reader is: an instant is first a day there.
+        span?: "week" | "month" | "quarter" | "year",
+        timeZone = "UTC",
       ) => {
         const rows = await readTransaction(db, catalog, (run) =>
           run(
             buildGroupAggregates(
               catalog,
-              { timeZone: "UTC" },
-              { groups, item: { column, fn } },
+              { timeZone },
+              { groups, item: { column, fn }, spans: [span] },
             ),
           ),
         );
@@ -3378,6 +3382,30 @@ describe("conformance of formulas across engines", () => {
         await histogram(field("m"), 4),
         await histogram(field("i"), 2),
         await histogram(field("n"), 40),
+        // Dates grouped by more than a day, each named by its first day.
+        await chart([field("d")], field("id"), "count_all", "week"),
+        await chart([field("d")], field("id"), "count_all", "month"),
+        await chart([field("d")], field("id"), "count_all", "quarter"),
+        await chart([field("d")], field("n"), "sum", "year"),
+        // An instant's day is the reader's: the last second of 2024 in
+        // UTC is already 2025 in Tokyo.
+        await chart([field("ts")], field("id"), "count_all", "quarter"),
+        await chart(
+          [field("ts")],
+          field("id"),
+          "count_all",
+          "quarter",
+          "Asia/Tokyo",
+        ),
+        await chart(
+          [field("ts")],
+          field("id"),
+          "count_all",
+          "year",
+          "Asia/Tokyo",
+        ),
+        // A span means nothing to a text: its groups are as they were.
+        await chart([field("t")], field("id"), "count_all", "month"),
       ]);
     }
     const reference = traces.get("postgres");
@@ -3409,6 +3437,22 @@ describe("conformance of formulas across engines", () => {
       (reference?.[7] as { series: Array<{ values: number[] }> }).series[0]
         ?.values,
     ).toEqual([1, ...Array.from({ length: 38 }, () => 0), 1]);
+    // The dates are 2026-02-28, a Saturday, and 2024-02-29, a Thursday;
+    // one row has none, and its group is named first.
+    const dated = (at: number) =>
+      (reference?.[at] as { categories: string[] } | undefined)?.categories;
+    expect(dated(8)).toEqual(["(vide)", "2024-02-26", "2026-02-23"]);
+    expect(dated(9)).toEqual(["(vide)", "2024-02-01", "2026-02-01"]);
+    expect(dated(10)).toEqual(["(vide)", "2024-01-01", "2026-01-01"]);
+    expect(reference?.[11]).toEqual({
+      categories: ["(vide)", "2024-01-01", "2026-01-01"],
+      series: [{ name: "", values: [null, 1000000.1, 7.25] }],
+      omitted: { categories: 0, series: 0 },
+    });
+    // The instants are 2026-01-10 09:30 and 2024-12-31 23:59:59, in UTC.
+    expect(dated(12)).toEqual(["(vide)", "2024-10-01", "2026-01-01"]);
+    expect(dated(13)).toEqual(["(vide)", "2025-01-01", "2026-01-01"]);
+    expect(dated(14)).toEqual(["(vide)", "2025-01-01", "2026-01-01"]);
     for (const engine of ["mysql", "mariadb", "sqlserver", "oracle"] as const) {
       expect(asRead(engine, traces.get(engine)), engine).toEqual(
         asRead(engine, reference),

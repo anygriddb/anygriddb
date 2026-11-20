@@ -331,7 +331,9 @@ export const SQLSERVER: SqlDialect = {
       ? `dateadd(day, -((datepart(weekday, ${date}) + @@datefirst - 2) % 7), ${date})`
       : unit === "month"
         ? `datefromparts(year(${date}), month(${date}), 1)`
-        : `datefromparts(year(${date}), 1, 1)`,
+        : unit === "quarter"
+          ? `datefromparts(year(${date}), (datepart(quarter, ${date}) - 1) * 3 + 1, 1)`
+          : `datefromparts(year(${date}), 1, 1)`,
   daysBetween: (end, start) => `datediff(day, ${start}, ${end})`,
   secondsBetween: (end, start) =>
     `(datediff_big(microsecond, ${start}, ${end}) / 1000000.0)`,

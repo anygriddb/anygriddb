@@ -284,11 +284,17 @@ test.describe("a dashboard", () => {
       fieldType: "number",
       config: { number: { style: "currency", currency: "EUR", precision: 2 } },
     });
+    await send(page, "catalog.addColumn", {
+      tableId: tableIdOf(page),
+      name: "due",
+      label: "Due",
+      fieldType: "date",
+    });
     await send(page, "rows.insertMany", {
       tableId: tableIdOf(page),
       rows: [
-        { name: "Alpha", status: "To do", amount: "34.2" },
-        { name: "Bravo", status: "Done", amount: "1200.5" },
+        { name: "Alpha", status: "To do", amount: "34.2", due: "2026-01-09" },
+        { name: "Bravo", status: "Done", amount: "1200.5", due: "2026-03-31" },
       ],
     });
     await page.getByRole("link", { name: "Dashboards" }).click();
@@ -415,6 +421,25 @@ test.describe("a dashboard", () => {
       widget("Billed by status").getByText("1 more category is not shown."),
     ).toBeVisible();
     await expect(values.getByRole("rowheader")).toHaveText(["Done"]);
+    // Dates are grouped by their month, each named by it: the days of
+    // January together, and those of March.
+    await page.getByRole("button", { name: "Add a widget" }).click();
+    const monthly = page.getByRole("dialog", { name: "Add a widget" });
+    await monthly.getByLabel("Title", { exact: true }).fill("Due by month");
+    await monthly.getByLabel("Type").selectOption({ label: "Chart" });
+    await monthly.getByLabel("Group by").selectOption({ label: "Due" });
+    await monthly
+      .getByLabel("Dates grouped by")
+      .selectOption({ label: "Month" });
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await monthly.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(monthly).toBeHidden();
+    await widget("Due by month")
+      .getByRole("button", { name: "Show the table of values" })
+      .click();
+    await expect(
+      widget("Due by month").getByRole("table").getByRole("rowheader"),
+    ).toHaveText(["Jan 2026", "Mar 2026"]);
     // On a phone the widgets stand one under another, each as wide as
     // the page: twelve columns have no room there.
     await page.setViewportSize({ width: 390, height: 844 });

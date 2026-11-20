@@ -21,6 +21,7 @@ import { sortRows } from "../../lib/sort-rows";
 import { SortHeader, useColumnSort } from "../sort-header";
 import { axisFormat } from "./axis-format";
 import { measureAddsUp } from "./widget-view";
+import { groupsDates, spanLabel, type DateSpan } from "./span-label";
 import { binLabels } from "./histogram-bins";
 import {
   useEffect,
@@ -59,6 +60,8 @@ type ChartData = {
   bounds?: { lo: number; hi: number } | null;
   /** Series side by side, where they would stand one on another. */
   sideBySide?: boolean;
+  /** What a category of dates covers past a day: named by its first day. */
+  period?: DateSpan | null;
 };
 
 const PERCENT = new Set([
@@ -149,18 +152,18 @@ export function ChartView(props: {
     const dates = new Intl.DateTimeFormat(intlLocale(i18n.locale), {
       dateStyle: "medium",
     });
-    return (key: string, fieldType: string | null) => {
+    return (key: string, fieldType: string | null, span?: DateSpan | null) => {
       if (key === "(vide)") return t`(empty)`;
       if (fieldType === "boolean") {
         return key === "true" ? t`Yes` : key === "false" ? t`No` : key;
       }
-      if (
-        (fieldType === "date" ||
-          fieldType === "datetime" ||
-          fieldType === "created_time" ||
-          fieldType === "last_modified_time") &&
-        /^\d{4}-\d{2}-\d{2}/.test(key)
-      ) {
+      if (groupsDates(fieldType) && /^\d{4}-\d{2}-\d{2}/.test(key)) {
+        if (span) {
+          return spanLabel(key, span, i18n.locale, (place, year) => {
+            const quarter = String(place);
+            return t`Q${quarter} ${year}`;
+          });
+        }
         return dates.format(new Date(`${key.slice(0, 10)}T12:00:00Z`));
       }
       return key;
@@ -179,7 +182,7 @@ export function ChartView(props: {
               i18n.locale,
             )
           : props.data.categories.map((key) =>
-              keyLabel(key, props.data.keyTypes.category),
+              keyLabel(key, props.data.keyTypes.category, props.data.period),
             ),
       series: props.data.series.map((item) => ({
         ...item,
