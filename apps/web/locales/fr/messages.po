@@ -137,6 +137,10 @@ msgstr "(nombre, diviseur)"
 msgid "(number)"
 msgstr "(nombre)"
 
+#: components/settings/table-rules-panel.tsx
+msgid "(read only)"
+msgstr "(lecture seule)"
+
 #: components/fields/formula-docs.ts
 msgid "(sought, text, [start])"
 msgstr "(cherché, texte, [début])"
@@ -433,11 +437,6 @@ msgstr "{0, plural, one {# table} other {# tables}}"
 #: components/admin/sources-tab.tsx
 msgid "{0, plural, one {# value is not of its field's type and reads empty. Refresh fields to follow the source.} other {# values are not of their field's type and read empty. Refresh fields to follow the source.}}"
 msgstr "{0, plural, one {# valeur n’est pas du type de son champ et se lit vide. Actualisez les champs pour suivre la source.} other {# valeurs ne sont pas du type de leur champ et se lisent vides. Actualisez les champs pour suivre la source.}}"
-
-#. placeholder {0}: preview.data.sample.total
-#: components/settings/table-acl-panel.tsx
-msgid "{0, plural, one {# visible row} other {# visible rows}}"
-msgstr "{0, plural, one {# ligne visible} other {# lignes visibles}}"
 
 #. placeholder {0}: result.webhooks.moved
 #: components/admin/account-handoff.tsx
@@ -900,6 +899,10 @@ msgstr "{value} minutes"
 msgid "{value} per page"
 msgstr "{value} par page"
 
+#: components/settings/table-rules-panel.tsx
+msgid "{visible, plural, one {# visible row} other {# visible rows}}"
+msgstr "{visible, plural, one {# ligne visible} other {# lignes visibles}}"
+
 #: components/admin/account-export.tsx
 msgid "{writes} writes, {comments} comments, {events} account events. Cell values and comment texts stay out of the file."
 msgstr "{writes} écritures, {comments} commentaires, {events} événements de compte. Les valeurs des cellules et le texte des commentaires restent hors du fichier."
@@ -1270,6 +1273,10 @@ msgstr "Une ligne remplit une condition"
 msgid "A row outside this selection cannot be linked; links already in place stay."
 msgstr "Une ligne hors de cette sélection ne peut pas être liée ; les liens déjà en place restent."
 
+#: components/settings/table-rules-panel.tsx
+msgid "A row that does not match is hidden from this member in every view, export, and answer of the API. “Me”, in a collaborator field, keeps each person to their own rows."
+msgstr "Une ligne qui ne correspond pas est cachée à ce membre dans chaque vue, chaque export et chaque réponse de l’API. « Moi », dans un champ collaborateur, laisse à chacun ses propres lignes."
+
 #: lib/errors.ts
 msgid "A rule of the client's database refuses this value"
 msgstr "Une règle de la base du client refuse cette valeur"
@@ -1380,8 +1387,8 @@ msgid "A table already has this name"
 msgstr "Une table porte déjà ce nom"
 
 #: components/settings/base-settings.tsx
-msgid "A table override replaces the base role either way. Field rights further restrict reading and writing."
-msgstr "Une surcharge remplace le rôle sur la base pour une table, dans un sens comme dans l’autre. Les droits par champ restreignent encore la lecture et l’écriture."
+msgid "A table override replaces the base role either way. A member's permissions then narrow the rows they see and what they may do with each field."
+msgstr "Une surcharge remplace le rôle sur la base pour une table, dans un sens comme dans l’autre. Les droits d’un membre restreignent ensuite les lignes qu’il voit et ce qu’il peut faire de chaque champ."
 
 #: lib/errors.ts
 msgid "A table that lives in an external source is not duplicated. Add another table there."
@@ -2853,6 +2860,10 @@ msgstr "Les modifications ne sont pas autorisées sur cette table : un administ
 msgid "Changes made elsewhere"
 msgstr "Changements faits ailleurs"
 
+#: components/settings/table-rules-panel.tsx
+msgid "Changes not saved yet are not in this preview."
+msgstr "Les changements pas encore enregistrés ne sont pas dans cet aperçu."
+
 #: components/settings/webhooks-panel.tsx
 msgid "Channel"
 msgstr "Canal"
@@ -2969,7 +2980,7 @@ msgstr "Effacer"
 msgid "Clear filters"
 msgstr "Effacer les filtres"
 
-#: components/settings/table-acl-panel.tsx
+#: components/settings/table-rules-panel.tsx
 msgid "Clear restrictions"
 msgstr "Retirer les restrictions"
 
@@ -3036,7 +3047,7 @@ msgstr "Secret client copié"
 
 #: app/providers.tsx
 #: components/record/record-panel.tsx
-#: components/settings/table-acl-panel.tsx
+#: components/settings/table-rules-panel.tsx
 #: components/settings/webhooks-panel.tsx
 #: components/shell/trash-dialog.tsx
 #: components/table/automations-dialog.tsx
@@ -4511,6 +4522,10 @@ msgstr "Toutes les autres sessions prennent fin maintenant, celles des administr
 msgid "Every other session ends now, administrators' too. Yours stays open."
 msgstr "Toutes les autres sessions prennent fin maintenant, celles des administrateurs aussi. La vôtre reste ouverte."
 
+#: components/settings/table-rules-panel.tsx
+msgid "Every row"
+msgstr "Toutes les lignes"
+
 #: components/fields/link-selection.tsx
 msgid "Every row of {table}"
 msgstr "Toutes les lignes de {table}"
@@ -4763,10 +4778,6 @@ msgstr "Nom du champ"
 msgid "Field of {table}"
 msgstr "Champ de {table}"
 
-#: components/settings/table-acl-panel.tsx
-msgid "Field permissions"
-msgstr "Droits par champ"
-
 #: components/table/automations-dialog.tsx
 msgid "Field to fill"
 msgstr "Champ à remplir"
@@ -4788,6 +4799,7 @@ msgid "field_name"
 msgstr "nom_du_champ"
 
 #: components/admin/trails.tsx
+#: components/settings/table-rules-panel.tsx
 #: components/shell/new-table-dialog.tsx
 #: components/table/view-toolbar.tsx
 msgid "Fields"
@@ -5322,7 +5334,7 @@ msgstr "Bonjour {name}. D’abord, protégez votre compte."
 msgid "Here is this webhook's address. Copy it now: it will not be shown again."
 msgstr "Voici l’adresse de ce webhook. Copiez-la maintenant : elle ne sera plus affichée."
 
-#: components/settings/table-acl-panel.tsx
+#: components/settings/table-rules-panel.tsx
 msgid "Hidden"
 msgstr "Masqué"
 
@@ -5896,10 +5908,6 @@ msgstr "Inviter"
 #: components/settings/base-settings.tsx
 msgid "Invite by email"
 msgstr "Inviter par email"
-
-#: components/settings/table-acl-panel.tsx
-msgid "Invite members to set fine-grained permissions."
-msgstr "Invitez des membres pour définir des droits fins."
 
 #: components/admin/invitations-panel.tsx
 msgid "Invited by"
@@ -6683,9 +6691,9 @@ msgstr "Membre d’un groupe"
 msgid "Member removed"
 msgstr "Membre retiré"
 
-#: components/settings/table-acl-panel.tsx
-msgid "Member whose field permissions are set"
-msgstr "Membre dont on règle les permissions sur les champs"
+#: components/settings/table-rules-panel.tsx
+msgid "Member whose permissions are set"
+msgstr "Membre dont on règle les droits"
 
 #: components/admin/base-admin-members.tsx
 #: components/admin/bases-tab.tsx
@@ -7297,6 +7305,10 @@ msgstr "Aucun événement"
 msgid "No event matches. Sign-ins, failures, and what administrators change show here, with the address."
 msgstr "Aucun événement ne correspond. Les connexions, les échecs et ce que changent les administrateurs s’affichent ici, avec l’adresse."
 
+#: components/settings/table-rules-panel.tsx
+msgid "No field is visible to this member."
+msgstr "Aucun champ n’est visible pour ce membre."
+
 #: lib/errors.ts
 msgid "No fields"
 msgstr "Aucun champ"
@@ -7416,6 +7428,10 @@ msgstr "Aucun rôle sur la piste pour cette personne à cette date."
 #: lib/errors.ts
 msgid "No row"
 msgstr "Ligne introuvable"
+
+#: components/settings/table-rules-panel.tsx
+msgid "No row is visible to this member."
+msgstr "Aucune ligne n’est visible pour ce membre."
 
 #: components/table/empty-table-hint.tsx
 msgid "No row matches this view's filters or search."
@@ -7819,6 +7835,10 @@ msgstr "Seules les formules, recherches, agrégats et boutons peuvent être ajou
 msgid "Only the linked rows that match"
 msgstr "Seulement les lignes liées qui correspondent"
 
+#: components/settings/table-rules-panel.tsx
+msgid "Only the rows that match"
+msgstr "Seulement les lignes qui correspondent"
+
 #: components/admin/security-tab.tsx
 msgid "Only with a password"
 msgstr "Seulement avec un mot de passe"
@@ -8186,7 +8206,19 @@ msgstr "Suppression définitive"
 msgid "Permanently delete your account?"
 msgstr "Supprimer définitivement votre compte ?"
 
-#: components/settings/table-acl-panel.tsx
+#: components/settings/table-rules-panel.tsx
+msgid "Permissions are set for members who do not own the table. Invite someone, or give a member a role under Owner."
+msgstr "Les droits se règlent pour les membres qui ne sont pas propriétaires de la table. Invitez quelqu’un, ou donnez à un membre un rôle en dessous de Propriétaire."
+
+#: components/settings/table-rules-panel.tsx
+msgid "Permissions of"
+msgstr "Droits de"
+
+#: components/settings/table-rules-panel.tsx
+msgid "Permissions on {table}"
+msgstr "Droits sur {table}"
+
+#: components/settings/table-rules-panel.tsx
 msgid "Permissions saved"
 msgstr "Droits enregistrés"
 
@@ -8287,7 +8319,7 @@ msgstr "Préparation de l’import…"
 
 #: components/fields/cell-editor.tsx
 #: components/fields/cell-value.tsx
-#: components/settings/table-acl-panel.tsx
+#: components/settings/table-rules-panel.tsx
 msgid "Preview: {name}"
 msgstr "Aperçu : {name}"
 
@@ -8519,7 +8551,7 @@ msgstr "Lu le {when}"
 msgid "Read a row (GET)"
 msgstr "Lire une ligne (GET)"
 
-#: components/settings/table-acl-panel.tsx
+#: components/settings/table-rules-panel.tsx
 msgid "Read and write"
 msgstr "Lecture et écriture"
 
@@ -8530,7 +8562,7 @@ msgstr "lecture seule"
 #: components/admin/access-tab.tsx
 #: components/oauth/consent-page.tsx
 #: components/settings/account-settings.tsx
-#: components/settings/table-acl-panel.tsx
+#: components/settings/table-rules-panel.tsx
 msgid "Read only"
 msgstr "Lecture seule"
 
@@ -9056,7 +9088,7 @@ msgstr "Restauré depuis la corbeille"
 msgid "Restoring the base as it was on {date}…"
 msgstr "Restauration de la base telle qu’elle était le {date}…"
 
-#: components/settings/table-acl-panel.tsx
+#: components/settings/table-rules-panel.tsx
 msgid "Restrictions cleared"
 msgstr "Restrictions retirées"
 
@@ -9202,10 +9234,6 @@ msgstr "Rôle sur {table}"
 msgid "Role removed"
 msgstr "Rôle retiré"
 
-#: components/settings/table-acl-panel.tsx
-msgid "Role: {role}"
-msgstr "Rôle : {role}"
-
 #: components/admin/people-file-dialog.tsx
 msgid "Roles are limited to the instance's domains, and this address is outside them"
 msgstr "Les rôles sont réservés aux domaines de l’instance, et cette adresse n’en fait pas partie"
@@ -9307,6 +9335,7 @@ msgstr "Valeurs de la ligne"
 msgid "rows"
 msgstr "lignes"
 
+#: components/settings/table-rules-panel.tsx
 #: components/views/list-view.tsx
 #: components/views/row-cards.tsx
 msgid "Rows"
@@ -9331,6 +9360,10 @@ msgstr "Lignes ordonnées par"
 #: components/admin/admin-list.tsx
 msgid "Rows per page"
 msgstr "Lignes par page"
+
+#: components/settings/table-rules-panel.tsx
+msgid "Rows this member sees"
+msgstr "Lignes que ce membre voit"
 
 #: components/views/list-view.tsx
 msgid "Rows under"
@@ -9399,7 +9432,7 @@ msgstr "Samedi"
 #: components/record/record-panel.tsx
 #: components/settings/base-settings.tsx
 #: components/settings/profile-form.tsx
-#: components/settings/table-acl-panel.tsx
+#: components/settings/table-rules-panel.tsx
 #: components/shell/dialogs.tsx
 #: components/table/automations-dialog.tsx
 #: components/table/color-rules-editor.tsx
@@ -11004,6 +11037,7 @@ msgid "The first {shown} of {total} places"
 msgstr "Les {shown} premiers lieux sur {total}"
 
 #: components/dashboards/view-widget.tsx
+#: components/settings/table-rules-panel.tsx
 #: components/views/list-view.tsx
 msgid "The first {shown} of {total} rows"
 msgstr "Les {shown} premières lignes sur {total}"
@@ -11039,6 +11073,10 @@ msgstr "Les premières de cet ordre. Vide : jusqu’à {most}."
 #: components/fields/formula-docs.ts
 msgid "The first part of the text that matches the regular expression."
 msgstr "Le premier passage du texte qui suit l’expression régulière."
+
+#: components/settings/table-rules-panel.tsx
+msgid "The first rows as {name} reads them"
+msgstr "Les premières lignes telles que {name} les lit"
 
 #: components/views/form-view.tsx
 msgid "The form closes before it opens: its link takes no answer."
@@ -12702,7 +12740,7 @@ msgstr "Vue (filtre optionnel)"
 msgid "View actions"
 msgstr "Actions de la vue"
 
-#: components/settings/table-acl-panel.tsx
+#: components/settings/table-rules-panel.tsx
 msgid "View as"
 msgstr "Voir en tant que"
 
@@ -12745,10 +12783,6 @@ msgstr "Lecteur"
 #: components/table/view-tabs.tsx
 msgid "Views"
 msgstr "Vues"
-
-#: components/settings/table-acl-panel.tsx
-msgid "Visible fields: {fields}"
-msgstr "Champs visibles : {fields}"
 
 #: components/admin/logs-tab.tsx
 msgid "Warning"
@@ -12884,7 +12918,7 @@ msgstr "Ce que le jeton peut faire"
 msgid "What they owned handed to someone who stays"
 msgstr "Ce qu’il possédait transmis à une personne qui reste"
 
-#: components/settings/table-acl-panel.tsx
+#: components/settings/table-rules-panel.tsx
 msgid "What this member may do with {field}"
 msgstr "Ce que ce membre peut faire de {field}"
 

@@ -7,14 +7,19 @@ import { useCopy } from "../../lib/clipboard";
 import { downloadJobFile, useTrackJob } from "../../lib/jobs";
 import { useCatalog } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
-import { canManage, type CatalogBase, type Role } from "../../lib/types";
+import {
+  canManage,
+  type CatalogBase,
+  type Collaborator,
+  type Role,
+} from "../../lib/types";
 import { NotebookPage, RuledSection } from "../shell/notebook-page";
 import { useInvalidateCatalog } from "../shell/sidebar";
 import { GroupRoles } from "./group-roles";
 import { BaseLinks } from "./base-links";
 import { RestorePoints } from "./restore-points";
 import { useRoleLabel } from "./role-label";
-import { TableAclPanel } from "./table-acl-panel";
+import { TableRulesPanel } from "./table-rules-panel";
 import { WebhooksPanel } from "./webhooks-panel";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
@@ -343,7 +348,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
       {manage ? (
         <RuledSection
           title={t`Per-table access`}
-          description={t`A table override replaces the base role either way. Field rights further restrict reading and writing.`}
+          description={t`A table override replaces the base role either way. A member's permissions then narrow the rows they see and what they may do with each field.`}
         >
           {base.tables.map((table) => (
             <TableAccess
@@ -351,7 +356,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
               tableId={table.id}
               name={table.name}
               columns={table.columns}
-              people={[...(collaborators.data?.users ?? [])]}
+              people={people}
             />
           ))}
         </RuledSection>
@@ -428,7 +433,8 @@ function TableAccess({
   tableId: string;
   name: string;
   columns: CatalogBase["tables"][number]["columns"];
-  people: Array<{ id: string; displayName: string; email?: string }>;
+  /** The base's people by id, to name those a cell or a condition holds. */
+  people: ReadonlyMap<string, Collaborator>;
 }) {
   const { t } = useLingui();
   const errorText = useErrorText();
@@ -477,7 +483,13 @@ function TableAccess({
           </li>
         ))}
       </ul>
-      <TableAclPanel tableId={tableId} columns={columns} people={people} />
+      <TableRulesPanel
+        tableId={tableId}
+        tableName={name}
+        columns={columns}
+        members={access.data?.people ?? []}
+        people={people}
+      />
     </div>
   );
 }

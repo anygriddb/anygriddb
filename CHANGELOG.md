@@ -20,6 +20,10 @@ first.
   several rows that share it, in the one added last. A balance is read
   on its latest day, where it took a view made to keep that row. A row
   where either field is empty is passed over.
+- A base's settings set the rows a member sees on a table: every row,
+  or only those that match conditions, where "Me" in a collaborator
+  field keeps each person to their own rows. The rule was kept and
+  enforced everywhere, and no screen set it.
 
 ### Fixed
 
@@ -38,6 +42,14 @@ first.
   measure, then for the field, as a chart's does; a measure lists the
   fields it can read, the number a formula or a rollup answers among
   them, and says so when the table has none.
+- "View as", in a base's settings, shows the table as the member
+  reads it: their role in words and the first rows, with the fields
+  they may read under their labels. It gave the role's identifier and
+  the fields' internal names, answered nothing until a member was
+  picked by hand, and offered the table's owners, whom no permission
+  restricts. A field's permission is read whole in its list, where it
+  was cut. A field added after a member's permissions were saved with
+  every field read and written is no longer hidden from them.
 
 ## 0.3.0 - 2026-11-20
 

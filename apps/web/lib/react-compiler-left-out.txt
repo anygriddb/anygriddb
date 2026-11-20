@@ -62,7 +62,6 @@ components/settings/base-settings.tsx BaseSettings
 components/settings/base-settings.tsx TableAccess
 components/settings/profile-form.tsx ProfileForm
 components/settings/restore-points.tsx RestorePoints
-components/settings/table-acl-panel.tsx TableAclPanel
 components/settings/webhooks-panel.tsx NewWebhookForm
 components/settings/webhooks-panel.tsx WebhooksPanel
 components/shell/dialogs.tsx ConfirmDialog
