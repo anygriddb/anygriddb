@@ -612,8 +612,11 @@ test.describe("a timeline", () => {
     await expect(bar("Harvest")).toBeInViewport();
     await expect(bar("Harvest")).toHaveText("Harvest");
     await expect(bar("Tasting")).toBeInViewport();
+    // The name a bar holds, inside what is drawn of it.
     const nameWidth = async (name: string) =>
-      (await bar(name).locator("span").boundingBox())?.width ?? 0;
+      (await bar(name).locator("span > span").boundingBox())?.width ?? 0;
+    const widthOf = async (name: string) =>
+      (await bar(name).boundingBox())?.width ?? 0;
     expect(await nameWidth("Tasting")).toBeLessThanOrEqual(1);
     await expect(bar("Tasting")).toHaveAccessibleName("Tasting");
 
@@ -622,6 +625,9 @@ test.describe("a timeline", () => {
     await expect(page.getByText("2026", { exact: true })).toBeVisible();
     await expect(bar("Harvest")).toBeInViewport();
     expect(await nameWidth("Harvest")).toBeLessThanOrEqual(1);
+    // A day's bar is drawn four pixels wide there, and is opened by a
+    // width a pointer finds.
+    expect(await widthOf("Tasting")).toBeGreaterThanOrEqual(24);
 
     // A month, forty pixels a day: both bars are named.
     await scale.selectOption("day");
@@ -645,6 +651,17 @@ test.describe("a timeline", () => {
         .getByRole("complementary", { name: "Row details" })
         .getByText("19/11/2026", { exact: true }),
     ).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // On a phone the names leave the axis most of the page: they took
+    // more than half of it. A day's bar beside them is still a target.
+    await page.keyboard.press("Escape");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await scale.selectOption("week");
+    const head = page.getByRole("button", { name: "Tasting", exact: true });
+    await expect(head.first()).toBeInViewport();
+    expect((await head.first().boundingBox())?.width).toBeLessThanOrEqual(130);
+    await expect(bar("Tasting")).toBeInViewport();
     expect(await accessibilityViolations(page)).toEqual([]);
 
     expect(blocked).toEqual([]);

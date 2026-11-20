@@ -473,6 +473,20 @@ test.describe("a colour and a place", () => {
     await expect(page.getByLabel("Latitude")).toHaveCount(0);
     expect(await accessibilityViolations(page)).toEqual([]);
 
+    // On a phone the map stands over its list, each as wide as the page:
+    // beside its list it was a strip a hundred pixels wide.
+    await page.setViewportSize({ width: 390, height: 844 });
+    const pin = page.getByTitle("Paris", { exact: true });
+    const listed = page.getByRole("button", { name: "Paris", exact: true });
+    await expect(pin).toBeInViewport();
+    await expect(listed).toBeInViewport();
+    const sheet = await pin.locator("..").boundingBox();
+    const line = await listed.boundingBox();
+    expect(sheet?.width).toBeGreaterThan(300);
+    expect(line?.width).toBeGreaterThan(300);
+    expect(line?.y).toBeGreaterThan((sheet?.y ?? 0) + (sheet?.height ?? 0));
+    expect(await accessibilityViolations(page)).toEqual([]);
+
     expect(blocked).toEqual([]);
   });
 });

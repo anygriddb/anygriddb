@@ -3,11 +3,14 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocale } from "../../lib/i18n";
+import { useNarrowScreen } from "../../lib/narrow-screen";
 import type { RowItem } from "../../lib/types";
 import { useTable } from "../table/table-context";
 import { thisMonth } from "./calendar-view";
 import {
   barHoldsName,
+  barTarget,
+  namesWidth,
   openingScroll,
   shiftPeriod,
   timelinePeriod,
@@ -27,8 +30,6 @@ const DAY = 86_400_000;
 const SCALE: Record<TimelineScale, number> = { day: 40, week: 12, month: 4 };
 const ROW = 36;
 const HEADER = 32;
-/** The column of names kept at the left of the axis (`w-56`). */
-const NAMES = 224;
 
 function toTime(value: unknown): number | null {
   if (typeof value !== "string") return null;
@@ -57,6 +58,8 @@ export function TimelineView(
   );
   // Today, as of when the view opened: the axis does not move as it renders.
   const [now] = useState(Date.now);
+  // The column of names kept at the left of the axis.
+  const names = namesWidth(useNarrowScreen());
   const scrollRef = useRef<HTMLDivElement>(null);
   const dated = props.allColumns.filter(
     (column) => column.kind === "date" || column.kind === "datetime",
@@ -100,9 +103,9 @@ export function TimelineView(
     axis.scrollLeft = openingScroll({
       today: todayIn >= 0 && todayIn < period.days ? todayIn : null,
       perDay,
-      shown: axis.clientWidth - NAMES,
+      shown: axis.clientWidth - names,
     });
-  }, [drawn, periodStart, period.days, todayIn, perDay]);
+  }, [drawn, periodStart, period.days, todayIn, perDay, names]);
   // Same setup prompt as the calendar and the kanban: the reason, and a
   // way to add the field when the person may change the schema.
   if (!startName) {
@@ -221,8 +224,8 @@ export function TimelineView(
       ) : (
         <div ref={scrollRef} className="flex min-h-0 flex-1 overflow-auto">
           <div
-            className="sticky left-0 z-10 w-56 shrink-0 border-r border-border bg-card"
-            style={{ height }}
+            className="sticky left-0 z-10 shrink-0 border-r border-border bg-card"
+            style={{ height, width: names }}
           >
             <div className="sticky top-0 z-[5] h-8 border-b border-border bg-card" />
             {lines.map((line) => {
@@ -326,21 +329,31 @@ function Bar(props: {
   if (right <= left) return null;
   const width = Math.max(props.perDay, ((right - left) / DAY) * props.perDay);
   const named = barHoldsName(width);
+  // The button is what opens the row, never narrower than a pointer's
+  // target; the bar inside it is as wide as its days.
   return (
     <button
       type="button"
       onClick={props.onOpen}
-      className={cn(
-        "absolute top-1.5 h-6 truncate rounded-md bg-primary text-left text-xs text-primary-foreground",
-        named && "px-2",
-        from < props.min && "rounded-l-none",
-        to + DAY > props.max && "rounded-r-none",
-        props.tint && `row-tint-${props.tint}`,
-      )}
-      style={{ left: ((left - props.min) / DAY) * props.perDay, width }}
+      className="absolute top-1.5 h-6 text-left text-xs"
+      style={{
+        left: ((left - props.min) / DAY) * props.perDay,
+        width: barTarget(width),
+      }}
     >
-      {/* Too short for the name, a bar keeps it for a screen reader. */}
-      <span className={named ? undefined : "sr-only"}>{props.label}</span>
+      <span
+        className={cn(
+          "block h-full truncate rounded-md bg-primary leading-6 text-primary-foreground",
+          named && "px-2",
+          from < props.min && "rounded-l-none",
+          to + DAY > props.max && "rounded-r-none",
+          props.tint && `row-tint-${props.tint}`,
+        )}
+        style={{ width }}
+      >
+        {/* Too short for the name, a bar keeps it for a screen reader. */}
+        <span className={named ? undefined : "sr-only"}>{props.label}</span>
+      </span>
     </button>
   );
 }

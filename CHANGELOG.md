@@ -8,6 +8,15 @@ first.
 
 ## Unreleased
 
+### Fixed
+
+- On a phone a map stands over the list of its points, each as wide as
+  the page. Beside its list, the map was a strip a hundred pixels wide.
+- On a phone a timeline's column of names leaves the axis most of the
+  page: it took more than half of it. At every width, a bar of a day or
+  two is opened by a width a pointer finds: at the scale of a year it
+  was four pixels wide, and that was all there was to press.
+
 ## 0.3.1 - 2026-11-20
 
 **Before upgrading:** nothing to do. A restore point or a backup file

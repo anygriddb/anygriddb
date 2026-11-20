@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   barHoldsName,
+  barTarget,
+  namesWidth,
   openingScroll,
   shiftPeriod,
   timelineFilter,
@@ -53,6 +55,24 @@ describe("barHoldsName", () => {
     expect(barHoldsName(80)).toBe(true);
     expect(barHoldsName(40)).toBe(false);
     expect(barHoldsName(4)).toBe(false);
+  });
+});
+
+describe("barTarget", () => {
+  it("gives a short bar a finger's width to be opened by, and a long one its own", () => {
+    // A day at the scale of a year is drawn four pixels wide.
+    expect(barTarget(4)).toBe(24);
+    expect(barTarget(12)).toBe(24);
+    expect(barTarget(24)).toBe(24);
+    expect(barTarget(480)).toBe(480);
+  });
+});
+
+describe("namesWidth", () => {
+  it("leaves the axis most of a narrow screen", () => {
+    expect(namesWidth(false)).toBe(224);
+    // On 390 pixels, 224 of names left the axis less than half.
+    expect(namesWidth(true)).toBeLessThanOrEqual(390 / 3);
   });
 });
 
