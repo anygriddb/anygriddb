@@ -9,6 +9,7 @@ import {
   Label,
   Select,
   Spinner,
+  Tooltip,
 } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { History, Plus, Send, Trash2 } from "lucide-react";
@@ -20,6 +21,7 @@ import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
 import { countConditions, FilterBuilder } from "../table/filter-builder";
 import { Earlier } from "../history/earlier";
+import { ConfirmDialog } from "../shell/dialogs";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
@@ -151,6 +153,7 @@ function NewWebhookForm(props: {
   tableId: string;
   columns: readonly CatalogColumn[];
   people: ReadonlyMap<string, Collaborator>;
+  /** With the secret its calls are signed with; none for one by email. */
   onCreated: (secret: string) => void;
 }) {
   const { t } = useLingui();
@@ -194,7 +197,8 @@ function NewWebhookForm(props: {
                 ? { [headerName.trim()]: headerValue }
                 : undefined,
           });
-          props.onCreated(created.secret);
+          // A mail carries no signature: its secret would sign nothing.
+          props.onCreated(kind === "http" ? created.secret : "");
           setName("");
           setTarget("");
           setWatch([]);
@@ -361,6 +365,11 @@ export function WebhooksPanel(props: {
   const [journal, setJournal] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [openEarlier, setOpenEarlier] = useState<string | null>(null);
+  // The webhook about to be deleted, once its deletion is confirmed.
+  const [removing, setRemoving] = useState<{
+    id: string;
+    label: string;
+  } | null>(null);
   const labels = useMemo(
     () => new Map(props.columns.map((column) => [column.name, column.label])),
     [props.columns],
@@ -383,8 +392,8 @@ export function WebhooksPanel(props: {
         {(hooks.data?.webhooks ?? []).map((hook) => (
           <li key={hook.id} className="flex flex-col gap-1 py-2">
             <div className="flex items-center gap-2">
-              <span className="rounded bg-muted px-1.5 text-xs uppercase">
-                {hook.kind}
+              <span className="rounded bg-muted px-1.5 text-xs">
+                {hook.kind === "smtp" ? t`Email` : "HTTPS"}
               </span>
               <span className="min-w-0 flex-1 truncate">
                 {hook.name ? (
@@ -416,50 +425,57 @@ export function WebhooksPanel(props: {
                 />
                 {t`Active`}
               </label>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label={t`Send a test`}
-                onClick={async () => {
-                  try {
-                    const result = await trpc.catalog.testWebhook.mutate({
-                      webhookId: hook.id,
-                    });
-                    if (result.ok)
-                      toast.success(
-                        t`Test sent (${{ status: result.status ?? "—" }})`,
-                      );
-                    else
-                      toast.error(
-                        t`Test failed: ${{ error: result.error ? errorText(result.error) : "—" }}`,
-                      );
-                  } catch (cause) {
-                    toast.error(errorText(cause));
+              <Tooltip content={t`Send a test`}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={t`Send a test`}
+                  onClick={async () => {
+                    try {
+                      const result = await trpc.catalog.testWebhook.mutate({
+                        webhookId: hook.id,
+                      });
+                      if (result.ok)
+                        toast.success(
+                          t`Test sent (${{ status: result.status ?? "—" }})`,
+                        );
+                      else
+                        toast.error(
+                          t`Test failed: ${{ error: result.error ? errorText(result.error) : "—" }}`,
+                        );
+                    } catch (cause) {
+                      toast.error(errorText(cause));
+                    }
+                  }}
+                >
+                  <Send className="h-4 w-4" aria-hidden />
+                </Button>
+              </Tooltip>
+              <Tooltip content={t`Delivery log`}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={t`Delivery log`}
+                  onClick={() => setJournal(hook.id)}
+                >
+                  <History className="h-4 w-4" aria-hidden />
+                </Button>
+              </Tooltip>
+              <Tooltip content={t`Delete`}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={t`Delete`}
+                  onClick={() =>
+                    setRemoving({
+                      id: hook.id,
+                      label: hook.name || hook.target,
+                    })
                   }
-                }}
-              >
-                <Send className="h-4 w-4" aria-hidden />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label={t`Delivery log`}
-                onClick={() => setJournal(hook.id)}
-              >
-                <History className="h-4 w-4" aria-hidden />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label={t`Delete`}
-                onClick={() =>
-                  void act(() =>
-                    trpc.catalog.deleteWebhook.mutate({ webhookId: hook.id }),
-                  )
-                }
-              >
-                <Trash2 className="h-4 w-4" aria-hidden />
-              </Button>
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                </Button>
+              </Tooltip>
             </div>
             <p className="text-xs text-muted-foreground">
               {hook.events.map(eventLabel).join(", ")}
@@ -536,6 +552,27 @@ export function WebhooksPanel(props: {
         <DeliveriesDialog
           webhookId={journal}
           onClose={() => setJournal(null)}
+        />
+      ) : null}
+      {removing ? (
+        <ConfirmDialog
+          open
+          danger
+          onOpenChange={(open) => !open && setRemoving(null)}
+          title={t`Delete the webhook “${{ name: removing.label }}”?`}
+          description={t`It stops at once, and its delivery log goes with it. A deleted webhook cannot be brought back.`}
+          confirmLabel={t`Delete`}
+          onConfirm={async () => {
+            try {
+              await trpc.catalog.deleteWebhook.mutate({
+                webhookId: removing.id,
+              });
+            } catch (cause) {
+              toast.error(errorText(cause));
+              throw cause;
+            }
+            await refresh();
+          }}
         />
       ) : null}
     </div>

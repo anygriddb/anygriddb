@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   accessibilityViolations,
+  mailedMessage,
   signUp,
   signUpWithTable,
   uniqueStamp,
@@ -392,4 +393,65 @@ test("a public form is embedded in the site its link names, and in no other", as
     other.frameLocator("iframe").getByRole("button", { name: "Submit" }),
   ).toHaveCount(0);
   await anonymous.close();
+});
+
+// What a table sends out when its rows change: a webhook, here by email,
+// which the journeys' mail catcher takes. Its test, a delivery, its log,
+// and its deletion, which asks first: its log goes with it.
+test("a table's webhook is tested, delivers a new row, and is deleted once confirmed", async ({
+  page,
+}) => {
+  const blocked = watchPolicy(page);
+  await signUpWithTable(page, "Hook Maker");
+  const tableId = /\/t\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
+  const base = /\/b\/[^/]+/.exec(page.url())?.[0] ?? "";
+  await page.goto(`${base}/settings`);
+  await page.getByRole("button", { name: "New webhook" }).click();
+  await page
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Orders to the desk");
+  await page.getByLabel("Channel").selectOption({ label: "Email" });
+  const address = `e2e-hook-${uniqueStamp()}@example.com`;
+  await page.getByLabel("Target").fill(address);
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await page.getByRole("button", { name: "Add webhook" }).click();
+  // Listed under the name its form gave its channel; a mail is not
+  // signed, so no signing secret is shown for it.
+  const hook = page.getByRole("listitem").filter({
+    hasText: "Orders to the desk",
+  });
+  await expect(hook.getByText("Email", { exact: true })).toBeVisible();
+  await expect(page.getByText("Signing secret, shown once:")).toHaveCount(0);
+  expect(await accessibilityViolations(page)).toEqual([]);
+
+  // Its test arrives.
+  await hook.getByRole("button", { name: "Send a test" }).click();
+  await expect(page.getByText(/^Test sent/)).toBeVisible();
+  const sent = await mailedMessage(address, "test");
+  expect(sent.subject).toContain("Orders to the desk");
+  // A row made in the table is delivered, and the log says both.
+  const made = await page.request.post("/trpc/rows.insertMany", {
+    data: { tableId, rows: [{ name: "An order" }] },
+  });
+  expect(made.ok(), await made.text()).toBe(true);
+  await hook.getByRole("button", { name: "Delivery log" }).click();
+  const log = page.getByRole("dialog", { name: "Delivery log" });
+  await expect(log.getByRole("cell", { name: "Creation" })).toBeVisible();
+  await expect(log.getByRole("cell", { name: "Test" })).toBeVisible();
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await log.getByRole("button", { name: "Close" }).first().click();
+
+  // Deleting it asks first, and says what goes with it.
+  await hook.getByRole("button", { name: "Delete", exact: true }).click();
+  const asking = page.getByRole("dialog", {
+    name: "Delete the webhook “Orders to the desk”?",
+  });
+  await expect(asking).toContainText("its delivery log goes with it");
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await asking.getByRole("button", { name: "Cancel" }).click();
+  await expect(hook).toBeVisible();
+  await hook.getByRole("button", { name: "Delete", exact: true }).click();
+  await asking.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(hook).toHaveCount(0);
+  expect(blocked).toEqual([]);
 });
