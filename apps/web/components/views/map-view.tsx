@@ -262,11 +262,13 @@ export function MapView(props: ViewProps) {
               : plural(points.length, { one: `# point`, other: `# points` })}
         </span>
       </div>
-      <div className="flex min-h-0 flex-1">
+      {/* On a narrow screen the map stands over its list, each as wide as
+          the page: side by side, the list left the map a strip. */}
+      <div className="flex min-h-0 flex-1 max-md:flex-col">
         <div
           ref={sheetRef}
           className={cn(
-            "relative m-4 flex-1 overflow-hidden rounded-sm border border-border",
+            "relative m-4 flex-1 overflow-hidden rounded-sm border border-border max-md:m-2 max-md:h-64 max-md:flex-none",
             tileUrl
               ? "cursor-grab touch-none bg-muted select-none"
               : "bg-[linear-gradient(transparent_49.5%,var(--ag-border)_50%,transparent_50.5%),linear-gradient(90deg,transparent_49.5%,var(--ag-border)_50%,transparent_50.5%)] bg-[size:12.5%_16.66%]",
@@ -407,7 +409,7 @@ export function MapView(props: ViewProps) {
             </p>
           ) : null}
         </div>
-        <ul className="w-64 shrink-0 overflow-y-auto border-l border-border text-sm">
+        <ul className="w-64 shrink-0 overflow-y-auto border-l border-border text-sm max-md:min-h-0 max-md:w-auto max-md:flex-1 max-md:border-t max-md:border-l-0">
           {points.map(({ row, latitude, longitude }) => {
             const tint = props.tintOf?.(row);
             return (

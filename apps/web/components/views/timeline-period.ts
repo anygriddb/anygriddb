@@ -80,6 +80,23 @@ export function barHoldsName(width: number): boolean {
   return width >= 56;
 }
 
+/**
+ * The width a bar is opened by: its own, and never less than the least
+ * a pointer's target may be (24 pixels). A day's bar is drawn four
+ * pixels wide at the scale of a year: drawn so, it is still found.
+ */
+export function barTarget(width: number): number {
+  return Math.max(width, 24);
+}
+
+/**
+ * The width of the column of names at the left of the axis. On a narrow
+ * screen the wide one left the axis less than half of the page.
+ */
+export function namesWidth(narrow: boolean): number {
+  return narrow ? 128 : 224;
+}
+
 /** The first month of the period before (`-1`) or after (`1`) this one. */
 export function shiftPeriod(
   focus: Date,
