@@ -101,6 +101,11 @@ first.
 - On a phone, a dashboard's widgets stand one under another, each as
   wide as the screen, and its name is read whole: a widget kept its
   share of twelve columns, a quarter of the screen for a figure.
+- A dashboard's figure and a chart's values are written as the field
+  they measure is: a sum, a mean, or an extreme of a field of euros
+  reads `1 234,70 €`, on the chart's axis and in its table of values
+  too, where it read `1 234,7`. A figure of a field's earliest or
+  latest date reads as a date.
 
 ## 0.2.0 - 2026-11-17
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { embeddedViewId, rowsLeftOut } from "./widget-view";
+import { embeddedViewId, measuredColumn, rowsLeftOut } from "./widget-view";
 
 const VIEWS = [{ id: "grid" }, { id: "kanban" }];
 
@@ -31,5 +31,31 @@ describe("rowsLeftOut", () => {
     expect(rowsLeftOut(3, 3)).toBe(0);
     expect(rowsLeftOut(20, undefined)).toBe(0);
     expect(rowsLeftOut(20, null)).toBe(0);
+  });
+});
+
+describe("measuredColumn", () => {
+  const TABLES = [
+    { id: "invoices", columns: [{ name: "amount" }, { name: "paid_on" }] },
+    { id: "clients", columns: [{ name: "amount" }] },
+  ];
+
+  it("finds the field a widget measures, in the widget's table", () => {
+    expect(
+      measuredColumn(TABLES, { tableId: "invoices", column: "amount" }),
+    ).toBe(TABLES[0]?.columns[0]);
+  });
+
+  it("has none for a widget that counts rows, a field that is gone, or a catalog not read yet", () => {
+    expect(measuredColumn(TABLES, { tableId: "invoices" })).toBeUndefined();
+    expect(
+      measuredColumn(TABLES, { tableId: "invoices", column: "vat" }),
+    ).toBeUndefined();
+    expect(
+      measuredColumn(TABLES, { tableId: "gone", column: "amount" }),
+    ).toBeUndefined();
+    expect(
+      measuredColumn(undefined, { tableId: "invoices", column: "amount" }),
+    ).toBeUndefined();
   });
 });

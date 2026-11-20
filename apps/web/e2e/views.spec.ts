@@ -277,11 +277,18 @@ test.describe("a dashboard", () => {
   }) => {
     const blocked = watchPolicy(page);
     await signUpWithTable(page, "Board Mover");
+    await send(page, "catalog.addColumn", {
+      tableId: tableIdOf(page),
+      name: "amount",
+      label: "Amount",
+      fieldType: "number",
+      config: { number: { style: "currency", currency: "EUR", precision: 2 } },
+    });
     await send(page, "rows.insertMany", {
       tableId: tableIdOf(page),
       rows: [
-        { name: "Alpha", status: "To do" },
-        { name: "Bravo", status: "Done" },
+        { name: "Alpha", status: "To do", amount: "1200.5" },
+        { name: "Bravo", status: "Done", amount: "34.2" },
       ],
     });
     await page.getByRole("link", { name: "Dashboards" }).click();
@@ -359,6 +366,34 @@ test.describe("a dashboard", () => {
       sample.getByRole("row", { name: /Bravo/ }).getByText("Done"),
     ).toBeVisible();
     await expect(widget("Every sample").getByText("2 rows")).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    // A figure and a chart are written as the field they measure is: a
+    // sum of euros is euros, where it read as a bare number.
+    await page.getByRole("button", { name: "Add a widget" }).click();
+    const figure = page.getByRole("dialog", { name: "Add a widget" });
+    await figure.getByLabel("Title", { exact: true }).fill("Billed");
+    await figure.getByLabel("Field", { exact: true }).selectOption({
+      label: "Amount",
+    });
+    await figure.getByLabel("Aggregate").selectOption({ label: "Sum" });
+    await figure.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(figure).toBeHidden();
+    await expect(widget("Billed").getByText("€1,234.70")).toBeVisible();
+    await page.getByRole("button", { name: "Add a widget" }).click();
+    const chart = page.getByRole("dialog", { name: "Add a widget" });
+    await chart.getByLabel("Title", { exact: true }).fill("Billed by status");
+    await chart.getByLabel("Type").selectOption({ label: "Chart" });
+    await chart.getByLabel("Measure").selectOption({ label: "Sum" });
+    await chart.getByLabel("Measured field").selectOption({ label: "Amount" });
+    await chart.getByLabel("Group by").selectOption({ label: "Status" });
+    await chart.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(chart).toBeHidden();
+    await widget("Billed by status")
+      .getByRole("button", { name: "Show the table of values" })
+      .click();
+    await expect(
+      widget("Billed by status").getByRole("cell", { name: "€1,200.50" }),
+    ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
     // On a phone the widgets stand one under another, each as wide as
     // the page: twelve columns have no room there.

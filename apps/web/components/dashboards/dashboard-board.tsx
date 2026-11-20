@@ -1,9 +1,4 @@
-import {
-  cellText,
-  DEFAULT_HISTOGRAM_BINS,
-  isDecimalString,
-  MAX_HISTOGRAM_BINS,
-} from "@anygriddb/core";
+import { DEFAULT_HISTOGRAM_BINS, MAX_HISTOGRAM_BINS } from "@anygriddb/core";
 import {
   Button,
   cn,
@@ -50,14 +45,19 @@ import {
   widgetCell,
 } from "./widget-layout";
 import { ViewWidget } from "./view-widget";
-import { embeddedViewId } from "./widget-view";
+import { embeddedViewId, measuredColumn } from "./widget-view";
 import { DashboardHistory, type WidgetBody } from "./dashboard-history";
 import { useWidgetDrag, useWidgetDrop } from "./widget-drag";
 import { useUndo } from "../grid/use-undo";
 import { tableTakesUndo, undoShortcut } from "../../lib/keyboard-undo";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
-import { formatInstant } from "../../lib/format";
+import {
+  formatAggregate,
+  formatInstant,
+  numberFormatOf,
+} from "../../lib/format";
+import { useLocale } from "../../lib/i18n";
 // ECharts loads with the dashboards only (ADR 0035).
 const ChartView = lazy(() =>
   import("./chart-view").then((module) => ({ default: module.ChartView })),
@@ -597,6 +597,13 @@ function WidgetCard(props: {
   const errorText = useErrorText();
   const api = useTRPC();
   const [earlier, setEarlier] = useState(false);
+  const { locale } = useLocale();
+  const catalog = useCatalog();
+  // A sum or a mean is written as its field is: euros stay euros.
+  const measured = measuredColumn(
+    catalog.data?.find((item) => item.id === props.baseId)?.tables,
+    props.widget.config,
+  );
   const data = useQuery(
     api.dashboards.widgetData.queryOptions({
       dashboardId: props.dashboardId,
@@ -700,7 +707,13 @@ function WidgetCard(props: {
             </div>
           ) : data.data?.kind === "metric" ? (
             <p className="flex h-full items-center justify-center text-3xl font-semibold tabular-nums">
-              {formatValue(data.data.value)}
+              {formatAggregate(
+                data.data.value,
+                data.data.fn,
+                measured,
+                locale,
+                2,
+              )}
             </p>
           ) : data.data?.kind === "chart" ? (
             <Suspense
@@ -710,7 +723,11 @@ function WidgetCard(props: {
                 </div>
               }
             >
-              <ChartView data={data.data} title={name} />
+              <ChartView
+                data={data.data}
+                title={name}
+                numberFormat={numberFormatOf(measured)}
+              />
             </Suspense>
           ) : data.data?.kind === "view_embed" ? (
             <ViewWidget
@@ -742,19 +759,6 @@ function WidgetCard(props: {
       ) : null}
     </>
   );
-}
-
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) return "—";
-  if (typeof value === "number" || isDecimalString(value)) {
-    // A decimal string is formatted exactly, without a float (ADR 0023).
-    return new Intl.NumberFormat(undefined, {
-      maximumFractionDigits: 2,
-    }).format(
-      typeof value === "string" ? (value as Intl.StringNumericLiteral) : value,
-    );
-  }
-  return cellText(value);
 }
 
 function WidgetForm(props: {
