@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
+import pg from "pg";
 import {
   accessibilityViolations,
+  clusterUrl,
   enableTotp,
   mailedMessage,
   signUp,
@@ -615,6 +617,26 @@ test("a table's webhook is tested, delivers a new row, and is deleted once confi
   });
   expect(made.ok(), await made.text()).toBe(true);
   await expect(log.getByRole("cell", { name: "Creation" })).toBeVisible();
+  // A delivery is written before it is tried. One that waits for its
+  // first attempt says so: it read "Retry scheduled (—)", as one that
+  // failed and waits for the next does. Written here as the server
+  // writes one, with no attempt queued, so that it stays.
+  const control = new pg.Client({ connectionString: clusterUrl() });
+  await control.connect();
+  try {
+    await control.query(
+      `insert into webhook_deliveries (webhook_id, event, status, attempts, next_attempt_at)
+       select id, 'insert', 'pending', 0, now() + interval '1 day'
+         from webhooks where table_id = $1`,
+      [tableId],
+    );
+  } finally {
+    await control.end();
+  }
+  await expect(
+    log.getByRole("cell", { name: "Waiting to be sent" }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(log.getByText(/Retry scheduled/)).toHaveCount(0);
   expect(await accessibilityViolations(page)).toEqual([]);
   await log.getByRole("button", { name: "Close" }).first().click();
 

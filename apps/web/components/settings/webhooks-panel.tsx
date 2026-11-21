@@ -26,6 +26,7 @@ import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { useWhen } from "../../lib/i18n";
+import { deliveryOutcome } from "./webhook-deliveries";
 
 const EVENTS = ["insert", "update", "delete", "status", "import"] as const;
 type HookEvent = (typeof EVENTS)[number];
@@ -74,6 +75,19 @@ function DeliveriesDialog(props: { webhookId: string; onClose: () => void }) {
     },
     (delivery) => delivery.id,
   );
+  const outcomeText = (delivery: (typeof rows)[number]) => {
+    const error = delivery.error ? errorText(delivery.error) : "—";
+    switch (deliveryOutcome(delivery)) {
+      case "sent":
+        return t`Sent (${{ status: delivery.responseStatus ?? "—" }})`;
+      case "waiting":
+        return t`Waiting to be sent`;
+      case "retry":
+        return t`Retry scheduled (${{ error }})`;
+      case "failed":
+        return t`Failed (${{ error }})`;
+    }
+  };
   return (
     <Dialog open onOpenChange={(open) => !open && props.onClose()}>
       <DialogContent
@@ -100,13 +114,7 @@ function DeliveriesDialog(props: { webhookId: string; onClose: () => void }) {
                     {when.instant(delivery.createdAt)}
                   </td>
                   <td className="px-2 py-1">{eventLabel(delivery.event)}</td>
-                  <td className="px-2 py-1">
-                    {delivery.status === "success"
-                      ? t`Sent (${{ status: delivery.responseStatus ?? "—" }})`
-                      : delivery.status === "pending"
-                        ? t`Retry scheduled (${{ error: delivery.error ? errorText(delivery.error) : "—" }})`
-                        : t`Failed (${{ error: delivery.error ? errorText(delivery.error) : "—" }})`}
-                  </td>
+                  <td className="px-2 py-1">{outcomeText(delivery)}</td>
                   <td className="px-2 py-1 tabular-nums">
                     {delivery.attempts}
                   </td>

@@ -12888,6 +12888,10 @@ msgstr "Viewer"
 msgid "Views"
 msgstr "Views"
 
+#: components/settings/webhooks-panel.tsx
+msgid "Waiting to be sent"
+msgstr "Waiting to be sent"
+
 #: components/admin/logs-tab.tsx
 msgid "Warning"
 msgstr "Warning"
