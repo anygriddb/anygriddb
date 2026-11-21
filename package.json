@@ -40,6 +40,7 @@
     "test:integration": "turbo test:integration",
     "test:samples": "pnpm --filter @anygriddb/api test:samples",
     "test:e2e": "turbo test:e2e",
+    "test:e2e:coverage": "E2E_COVERAGE_DIR=coverage/e2e bash scripts/e2e.sh",
     "lab:up": "./scripts/lab/up.sh",
     "lab:down": "./scripts/lab/down.sh",
     "lab:seed": "./scripts/lab/seed.sh",

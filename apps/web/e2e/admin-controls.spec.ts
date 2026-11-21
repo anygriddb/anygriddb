@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./journey";
 import { readFile } from "node:fs/promises";
 import pg from "pg";
 import {

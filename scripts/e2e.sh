@@ -33,4 +33,18 @@ trap cleanup EXIT
 pnpm --filter @anygriddb/web exec playwright install chromium
 
 "${compose[@]}" up -d db mail --wait
+
+# `pnpm test:e2e:coverage [playwright arguments]`: the journeys say what they
+# ran, and a failed journey still leaves its report.
+if [[ -n "${E2E_COVERAGE_DIR:-}" ]]; then
+  mkdir -p "$E2E_COVERAGE_DIR"
+  E2E_COVERAGE_DIR="$(cd "$E2E_COVERAGE_DIR" && pwd -P)"
+  export E2E_COVERAGE_DIR
+  rm -rf "$E2E_COVERAGE_DIR"/{client-raw,server-raw,pages,client,server}
+  status=0
+  pnpm --filter @anygriddb/web exec playwright test "$@" || status=$?
+  pnpm --filter @anygriddb/web exec node e2e/coverage-report.mts "$E2E_COVERAGE_DIR"
+  exit "$status"
+fi
+
 pnpm --filter @anygriddb/web exec playwright test
