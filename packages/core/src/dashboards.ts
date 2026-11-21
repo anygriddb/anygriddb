@@ -49,10 +49,26 @@ export type MetricFn = (typeof METRIC_FNS)[number];
 
 const gridInt = (max: number) => z.int().min(0).max(max);
 
+/** The lowest row of the grid a widget may stand on. */
+export const WIDGET_ROW_MAX = 200;
+
+/**
+ * The size a widget takes when none is given, by its kind: a figure is
+ * small, a chart and a view are wide.
+ */
+export const WIDGET_SIZES: Record<
+  (typeof DASHBOARD_WIDGET_KINDS)[number],
+  { w: number; h: number }
+> = {
+  metric: { w: 3, h: 2 },
+  chart: { w: 6, h: 4 },
+  view_embed: { w: 6, h: 4 },
+};
+
 /** Where a widget sits on the dashboard's twelve columns, and its size. */
 export const widgetPlace = {
   x: gridInt(11),
-  y: gridInt(200),
+  y: gridInt(WIDGET_ROW_MAX),
   w: z.int().min(2).max(12),
   h: z.int().min(2).max(12),
 };
@@ -219,10 +235,15 @@ export const upsertWidgetInputSchema = z
     widgetId: z.uuid().optional(),
     title: labelSchema,
     kind: z.enum(DASHBOARD_WIDGET_KINDS),
-    x: gridInt(11).default(0),
-    y: gridInt(200).default(0),
-    w: z.int().min(2).max(12).default(4),
-    h: z.int().min(2).max(12).default(3),
+    /**
+     * Its place and its size on the grid. A new widget given none stands
+     * under the others, at the size of its kind; one that is changed
+     * keeps what it had.
+     */
+    x: gridInt(11).optional(),
+    y: gridInt(WIDGET_ROW_MAX).optional(),
+    w: z.int().min(2).max(12).optional(),
+    h: z.int().min(2).max(12).optional(),
     config: z.record(z.string(), z.unknown()),
   })
   .strict()

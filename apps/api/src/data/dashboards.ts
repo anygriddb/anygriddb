@@ -21,6 +21,8 @@ import {
   type ReadSpec,
   selectOptionNames,
   type UpsertWidgetInput,
+  WIDGET_ROW_MAX,
+  WIDGET_SIZES,
 } from "@anygriddb/core";
 import type { Database, DashboardRow, WidgetRow } from "@anygriddb/db";
 import { readerEngine } from "./acl.js";
@@ -194,11 +196,14 @@ export async function upsertWidget(
   const fields = {
     kind: input.kind,
     title: input.title,
-    x: input.x,
-    y: input.y,
-    w: input.w,
-    h: input.h,
     config: parsed.config as Record<string, unknown>,
+  };
+  // What the caller said of the place and the size, and nothing else.
+  const given = {
+    ...(input.x === undefined ? {} : { x: input.x }),
+    ...(input.y === undefined ? {} : { y: input.y }),
+    ...(input.w === undefined ? {} : { w: input.w }),
+    ...(input.h === undefined ? {} : { h: input.h }),
   };
 
   if (input.widgetId) {
@@ -206,7 +211,7 @@ export async function upsertWidget(
     const updated = await withAudit(db, { userId, source }, async (tx) => {
       const row = await tx
         .updateTable("dashboardWidgets")
-        .set(fields)
+        .set({ ...fields, ...given })
         .where("id", "=", widgetId)
         .where("dashboardId", "=", input.dashboardId)
         .returningAll()
@@ -223,9 +228,28 @@ export async function upsertWidget(
   }
 
   const created = await withAudit(db, { userId, source }, async (tx) => {
+    // A widget made with no place stands under the others, at the left,
+    // as the page puts one: at the corner it hid what stood there.
+    const under =
+      input.y === undefined
+        ? await tx
+            .selectFrom("dashboardWidgets")
+            .select((eb) =>
+              eb.fn.max<number | null>(eb("y", "+", eb.ref("h"))).as("bottom"),
+            )
+            .where("dashboardId", "=", input.dashboardId)
+            .executeTakeFirst()
+        : undefined;
     const row = await tx
       .insertInto("dashboardWidgets")
-      .values({ dashboardId: input.dashboardId, ...fields })
+      .values({
+        dashboardId: input.dashboardId,
+        ...fields,
+        ...WIDGET_SIZES[input.kind],
+        x: 0,
+        y: Math.min(under?.bottom ?? 0, WIDGET_ROW_MAX),
+        ...given,
+      })
       .returningAll()
       .executeTakeFirst();
     if (!row) throw new Error("Internal error");

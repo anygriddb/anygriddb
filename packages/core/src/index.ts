@@ -695,6 +695,8 @@ export {
   type CreateDashboardInput,
   type MetricFn,
   type UpsertWidgetInput,
+  WIDGET_ROW_MAX,
+  WIDGET_SIZES,
 } from "./dashboards";
 
 export {
