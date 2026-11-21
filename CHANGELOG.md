@@ -38,6 +38,13 @@ first.
   files and the authority, archives of nothing, and said it went well.
   A backup also refuses a volume that is not there, which Docker would
   make, empty. An install made by the guide has no such section.
+- A request that names an API token answers for that token: one that
+  was revoked or has expired is refused, even from a browser that also
+  holds a session.
+- MCP answers `405` to `GET` and `DELETE`, as a server with no stream and
+  no session does. A `GET` held its connection open.
+- An application's redirect address may not hold a fragment or an
+  account.
 - `scripts/backup.sh` tells the instance once of a run, by what became
   of the backup: a run that failed while a file was written was listed
   twice in Administration. A run that fails or is stopped keeps nothing

@@ -13,6 +13,14 @@ import { recordAuthEvent } from "../auth/auth-events.js";
 const HTTPS_OR_LOOPBACK =
   /^(https:\/\/.+|http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/.*)?)$/i;
 
+/** RFC 6749, 3.1.2: no fragment; and no account named in the address. */
+function acceptableRedirect(uri: string): boolean {
+  if (uri.length > 2_000 || !HTTPS_OR_LOOPBACK.test(uri)) return false;
+  if (uri.includes("#") || !URL.canParse(uri)) return false;
+  const url = new URL(uri);
+  return url.username === "" && url.password === "";
+}
+
 function assertRedirectUris(uris: readonly string[]): string[] {
   const cleaned = [
     ...new Set(uris.map((uri) => uri.trim()).filter((uri) => uri.length > 0)),
@@ -21,9 +29,7 @@ function assertRedirectUris(uris: readonly string[]): string[] {
     throw new AppError("invalid_input");
   }
   for (const uri of cleaned) {
-    if (uri.length > 2_000 || !HTTPS_OR_LOOPBACK.test(uri)) {
-      throw new AppError("invalid_input");
-    }
+    if (!acceptableRedirect(uri)) throw new AppError("invalid_input");
   }
   return cleaned;
 }

@@ -199,6 +199,21 @@ describe("the MCP server", () => {
     expect(refused.body.result?.isError ?? refused.body.error).toBeTruthy();
   });
 
+  it("answers GET and DELETE at once: each call stands alone", async () => {
+    for (const method of ["GET", "DELETE"] as const) {
+      const response = await app.inject({
+        method,
+        url: "/mcp",
+        headers: {
+          authorization: `Bearer ${writer}`,
+          accept: "application/json, text/event-stream",
+        },
+      });
+      expect(response.statusCode).toBe(405);
+      expect(response.headers.allow).toBe("POST");
+    }
+  });
+
   it("refuses a call without a token, with a session cookie, or from another origin", async () => {
     expect((await rpc(null, "tools/list")).status).toBe(401);
     expect(

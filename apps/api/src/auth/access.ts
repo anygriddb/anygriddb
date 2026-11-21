@@ -9,7 +9,7 @@ import {
 import type { Database } from "@anygriddb/db";
 import { readGateSettings } from "../settings.js";
 import { findSessionUser, type SessionUser } from "./session.js";
-import { findApiToken, type TokenScope } from "./tokens.js";
+import { findApiToken, namesApiToken, type TokenScope } from "./tokens.js";
 import { sessionBindings } from "../data/emergency-access.js";
 import { liveBase, liveTable } from "../data/live.js";
 
@@ -251,6 +251,7 @@ export async function requestActor(
   scope?: TokenScope;
 } | null> {
   const bearer = await findApiToken(db, headers.authorization);
+  if (!bearer && namesApiToken(headers.authorization)) return null;
   const user = bearer?.user ?? (await findSessionUser(db, cookie));
   if (!user) {
     return null;

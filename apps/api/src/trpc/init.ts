@@ -4,7 +4,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import { assertNotInMaintenance } from "../auth/access.js";
 import { MFA_COOKIE } from "../auth/challenge.js";
 import { inTurn } from "../auth/guess-turns.js";
-import { findApiToken } from "../auth/tokens.js";
+import { findApiToken, namesApiToken } from "../auth/tokens.js";
 import {
   SESSION_COOKIE,
   findSessionUser,
@@ -133,6 +133,10 @@ async function findUser(ctx: Context): Promise<SessionUser> {
     await assertNotInMaintenance(ctx.db, bearer.user);
     ctx.tokenScope = bearer.scope;
     return bearer.user;
+  }
+  if (namesApiToken(ctx.req.headers.authorization)) {
+    ctx.req.log.warn("access denied");
+    throw new TRPCError({ code: "UNAUTHORIZED" });
   }
   const token = ctx.req.cookies[SESSION_COOKIE];
   const user = await findSessionUser(ctx.db, token);
