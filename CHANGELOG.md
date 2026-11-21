@@ -8,6 +8,16 @@ first.
 
 ## Unreleased
 
+### Changed
+
+- When a source's host is outside `ANYGRIDDB_SOURCES_ALLOWED_HOSTS`,
+  Administration → Sources shows the impact (how many sources, live
+  tables, synced tables, and bases held in a source) and marks blocked
+  hosts. Tables, bases, and dashboards that depend on them stay visible
+  with a clear note: live tables cannot reach the client; synced tables
+  keep serving their last copy with refresh paused. Emptying the allow
+  list is documented the same way in `docs/sources.md`.
+
 ## 0.3.3 - 2026-11-21
 
 **Before upgrading:** nothing to do. If you changed your encryption key

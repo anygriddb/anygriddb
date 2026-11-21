@@ -229,6 +229,11 @@ msgstr "{0, plural, one {# jeton d’API révoqué} other {# jetons d’API rév
 msgid "{0, plural, one {# automation} other {# automations}}"
 msgstr "{0, plural, one {# automatisation} other {# automatisations}}"
 
+#. placeholder {0}: impact.hostedBases
+#: components/admin/sources-tab.tsx
+msgid "{0, plural, one {# base held in a source} other {# bases held in a source}}"
+msgstr "{0, plural, one {# base hébergée dans une source} other {# bases hébergées dans une source}}"
+
 #. placeholder {0}: group.bases
 #. placeholder {0}: group.roles.length
 #. placeholder {0}: result.bases
@@ -249,6 +254,11 @@ msgstr "{0, plural, one {# cellule ignorée : valeur incompatible ou champ calc
 #: components/grid/grid-rows.tsx
 msgid "{0, plural, one {# comment} other {# comments}}"
 msgstr "{0, plural, one {# commentaire} other {# commentaires}}"
+
+#. placeholder {0}: blockedListed.length
+#: components/admin/sources-tab.tsx
+msgid "{0, plural, one {# declared source sits on a host outside the allow list: its connections are refused until the operator adds that host.} other {# declared sources sit on hosts outside the allow list: their connections are refused until the operator adds those hosts.}}"
+msgstr "{0, plural, one {# source déclarée est sur un hôte hors de la liste autorisée : ses connexions sont refusées tant que l’opérateur n’ajoute pas cet hôte.} other {# sources déclarées sont sur des hôtes hors de la liste autorisée : leurs connexions sont refusées tant que l’opérateur n’ajoute pas ces hôtes.}}"
 
 #. placeholder {0}: hook.failures
 #: components/admin/access-tab.tsx
@@ -328,6 +338,16 @@ msgstr "{0, plural, one {# tâche, envoi de webhook ou exécution d’automatisa
 #: components/admin/logs-tab.tsx
 msgid "{0, plural, one {# line} other {# lines}}"
 msgstr "{0, plural, one {# ligne} other {# lignes}}"
+
+#. placeholder {0}: live.length
+#: components/table/source-reach.tsx
+msgid "{0, plural, one {# live table cannot reach the client's database until the operator allows its host.} other {# live tables cannot reach the client's database until the operator allows their hosts.}}"
+msgstr "{0, plural, one {# table en direct ne peut pas joindre la base du client tant que l’opérateur n’autorise pas son hôte.} other {# tables en direct ne peuvent pas joindre la base du client tant que l’opérateur n’autorise pas leurs hôtes.}}"
+
+#. placeholder {0}: impact.liveTables
+#: components/admin/sources-tab.tsx
+msgid "{0, plural, one {# live table} other {# live tables}}"
+msgstr "{0, plural, one {# table en direct} other {# tables en direct}}"
 
 #. placeholder {0}: created.skipped
 #: components/table/use-field-changes.ts
@@ -424,6 +444,26 @@ msgstr "{0, plural, one {# ligne, fichier disponible 24 h} other {# lignes, fich
 #: components/views/list-view.tsx
 msgid "{0, plural, one {# row} other {# rows}}"
 msgstr "{0, plural, one {# ligne} other {# lignes}}"
+
+#. placeholder {0}: impact.blockedSources
+#: components/admin/sources-tab.tsx
+msgid "{0, plural, one {# source host not allowed} other {# source hosts not allowed}}"
+msgstr "{0, plural, one {# hôte de source non autorisé} other {# hôtes de source non autorisés}}"
+
+#. placeholder {0}: impact.sources
+#: components/admin/sources-tab.tsx
+msgid "{0, plural, one {# source} other {# sources}}"
+msgstr "{0, plural, one {# source} other {# sources}}"
+
+#. placeholder {0}: synced.length
+#: components/table/source-reach.tsx
+msgid "{0, plural, one {# synced table keeps its copy; refresh is paused until the operator allows the host.} other {# synced tables keep their copies; refresh is paused until the operator allows their hosts.}}"
+msgstr "{0, plural, one {# table synchronisée conserve sa copie ; le rafraîchissement est en pause tant que l’opérateur n’autorise pas l’hôte.} other {# tables synchronisées conservent leurs copies ; le rafraîchissement est en pause tant que l’opérateur n’autorise pas leurs hôtes.}}"
+
+#. placeholder {0}: impact.syncedTables
+#: components/admin/sources-tab.tsx
+msgid "{0, plural, one {# synced table} other {# synced tables}}"
+msgstr "{0, plural, one {# table synchronisée} other {# tables synchronisées}}"
 
 #. placeholder {0}: base.tables.length
 #. placeholder {0}: staged.tables
@@ -3381,7 +3421,7 @@ msgstr "Copier ({mod} V pour coller, même depuis un tableur)"
 msgid "Copy in AnyGridDB"
 msgstr "Copie dans AnyGridDB"
 
-#: components/table/table-header.tsx
+#: components/table/source-reach.tsx
 msgid "Copy in preparation: the table is read live until then"
 msgstr "Copie en préparation : la table est lue en direct d’ici là"
 
@@ -3393,7 +3433,7 @@ msgstr "Copier le lien"
 msgid "Copy of {table}"
 msgstr "Copie de {table}"
 
-#: components/table/table-header.tsx
+#: components/table/source-reach.tsx
 msgid "Copy of the client's database from {date}, refreshed every {minutes} min: read-only"
 msgstr "Copie de la base du client du {date}, actualisée toutes les {minutes} min : lecture seule"
 
@@ -5457,6 +5497,10 @@ msgstr "Barres horizontales"
 msgid "Host"
 msgstr "Hôte"
 
+#: components/admin/sources-tab.tsx
+msgid "Host not allowed"
+msgstr "Hôte non autorisé"
+
 #: components/table/automations-dialog.tsx
 msgid "Host the secret is sent to"
 msgstr "Hôte auquel le secret est envoyé"
@@ -7409,8 +7453,8 @@ msgid "No group yet. Create one, or connect an identity provider under Provision
 msgstr "Aucun groupe pour l’instant. Créez-en un, ou connectez un fournisseur d’identité sous Provisionnement."
 
 #: components/admin/sources-tab.tsx
-msgid "No host is allowed: the operator sets ANYGRIDDB_SOURCES_ALLOWED_HOSTS."
-msgstr "Aucun hôte autorisé : l’opérateur définit ANYGRIDDB_SOURCES_ALLOWED_HOSTS."
+msgid "No host is allowed: the operator sets ANYGRIDDB_SOURCES_ALLOWED_HOSTS. New sources cannot be added. Live tables and bases held in a source cannot reach the client; synced tables keep their last copy until the host is allowed again."
+msgstr "Aucun hôte n’est autorisé : l’opérateur renseigne ANYGRIDDB_SOURCES_ALLOWED_HOSTS. Impossible d’ajouter une source. Les tables en direct et les bases hébergées dans une source ne joignent plus le client ; les tables synchronisées gardent leur dernière copie jusqu’à ce que l’hôte soit de nouveau autorisé."
 
 #: components/admin/notifications-tab.tsx
 msgid "No integration yet. Add one above and send a test."
@@ -10731,6 +10775,10 @@ msgstr "Activé"
 msgid "Synced table"
 msgstr "Table synchronisée"
 
+#: components/table/source-reach.tsx
+msgid "Synced tables still show their copies (oldest from {date}); refresh is paused."
+msgstr "Les tables synchronisées affichent encore leurs copies (la plus ancienne du {date}) ; le rafraîchissement est en pause."
+
 #: components/admin/integrations-tab.tsx
 msgid "Syslog collector"
 msgstr "Collecteur syslog"
@@ -11098,7 +11146,7 @@ msgid "The connection to the mail relay cannot be encrypted and verified: 465 fo
 msgstr "La connexion au relais de courrier ne peut pas être chiffrée et vérifiée : 465 pour TLS dès le départ, ou 587 avec STARTTLS, et un certificat que cette instance reconnaît"
 
 #: components/table/empty-table-hint.tsx
-#: components/table/table-header.tsx
+#: components/table/source-reach.tsx
 msgid "The copy has not arrived. The table stays empty until then."
 msgstr "La copie n’est pas encore arrivée. La table reste vide jusqu’alors."
 
@@ -11845,6 +11893,10 @@ msgstr "Cette base n’a aucune table à montrer."
 msgid "This base has no tables yet."
 msgstr "Cette base ne contient encore aucune table."
 
+#: components/table/source-reach.tsx
+msgid "This base has tables whose source host is not allowed."
+msgstr "Cette base a des tables dont l’hôte de source n’est pas autorisé."
+
 #: components/shell/base-home.tsx
 msgid "This base is empty."
 msgstr "Cette base est vide."
@@ -11888,6 +11940,10 @@ msgstr "Conversion impossible"
 #: components/dashboards/dashboard-board.tsx
 msgid "This dashboard does not exist."
 msgstr "Ce tableau de bord n’existe pas."
+
+#: components/table/source-reach.tsx
+msgid "This dashboard uses tables whose source host is not allowed."
+msgstr "Ce tableau de bord utilise des tables dont l’hôte de source n’est pas autorisé."
 
 #: lib/errors.ts
 msgid "This database engine cannot compute it"
@@ -12141,6 +12197,18 @@ msgstr "Cette source n’a pas de schéma latéral : le champ est conservé dan
 #: lib/errors.ts
 msgid "This source is read from a copy only: it takes no write, no field of AnyGridDB's and no read replica"
 msgstr "Cette source n’est lue que depuis une copie : elle ne prend ni écriture, ni champ d’AnyGridDB, ni réplique de lecture"
+
+#: components/table/source-reach.tsx
+msgid "This source's host is not allowed: reading the copy from {date}. Refresh is paused until the operator allows the host."
+msgstr "L’hôte de cette source n’est pas autorisé : lecture de la copie du {date}. Le rafraîchissement est en pause tant que l’opérateur n’autorise pas l’hôte."
+
+#: components/table/source-reach.tsx
+msgid "This source's host is not allowed: the copy cannot refresh until the operator allows the host."
+msgstr "L’hôte de cette source n’est pas autorisé : la copie ne peut pas se rafraîchir tant que l’opérateur n’autorise pas l’hôte."
+
+#: components/table/source-reach.tsx
+msgid "This source's host is not allowed: the operator must add it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS. Rows cannot be read or written in the client's database."
+msgstr "L’hôte de cette source n’est pas autorisé : l’opérateur doit l’ajouter à ANYGRIDDB_SOURCES_ALLOWED_HOSTS. Les lignes ne peuvent pas être lues ni écrites dans la base du client."
 
 #: components/table/table-workspace.tsx
 msgid "This table does not exist or is not shared with you."

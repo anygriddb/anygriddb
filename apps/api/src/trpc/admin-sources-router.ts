@@ -10,6 +10,7 @@ import {
 } from "../sources/expose.js";
 import { setTableWatch, watchColumns } from "../sources/watch.js";
 import { setTableSync, syncNow } from "../sources/sync.js";
+import { sourceImpact } from "../sources/impact.js";
 import {
   createSource,
   deleteSource,
@@ -43,13 +44,20 @@ export const sourcesRouter = t.router({
       return {
         allowedHosts: [...ctx.sources.allowedHosts],
         allowPlaintext: ctx.sources.allowPlaintext,
+        impact: await sourceImpact(ctx.db, ctx.sources),
       };
     }),
   ),
   list: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
       await requireAdmin(ctx);
-      return listSources(ctx.db);
+      const rows = await listSources(ctx.db);
+      return rows.map((row) => ({
+        ...row,
+        hostAllowed: ctx.sources.allows(row.host),
+        replicaHostAllowed:
+          row.replicaHost === null ? null : ctx.sources.allows(row.replicaHost),
+      }));
     }),
   ),
   test: procedure.input(sourceInputSchema).mutation(({ ctx, input }) =>
