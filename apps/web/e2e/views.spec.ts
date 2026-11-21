@@ -355,6 +355,11 @@ test.describe("a dashboard", () => {
     page,
   }) => {
     const blocked = watchPolicy(page);
+    // A part of a chart with no place is written "NaN", and the browser says so.
+    const misdrawn: string[] = [];
+    page.on("console", (message) => {
+      if (message.text().includes("NaN")) misdrawn.push(message.text());
+    });
     await signUpWithTable(page, "Board Mover");
     const samplesId = tableIdOf(page);
     await send(page, "catalog.addColumn", {
@@ -618,6 +623,10 @@ test.describe("a dashboard", () => {
           }),
       )
       .toBe(true);
+    // One of these lines starts on a month where it has no value: past the
+    // time it takes to appear, nothing of it was left without a place.
+    await page.waitForTimeout(600);
+    expect(misdrawn).toEqual([]);
     // A dashboard follows its tables. A row is added elsewhere: the sum,
     // the last value, the chart, and the view's rows are read again,
     // and nobody reloads the page.
