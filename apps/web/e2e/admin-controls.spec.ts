@@ -66,8 +66,17 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     expect(await accessibilityViolations(page)).toEqual([]);
     await openAdmin(page, "People", "Sessions");
     const row = page.getByRole("row", { name: new RegExp(memberEmail) });
+    await expect(page.getByText(/^\d+ open sessions?$/)).toBeVisible();
+    // A refresh that fails leaves the list on the screen.
+    const isSessions = (url: URL) => url.pathname.includes("admin.sessions");
+    await page.route(isSessions, (route) => route.abort());
     await row.getByRole("button", { name: "End" }).click();
     await expect(page.getByText("Session ended")).toBeVisible();
+    await expect(row).toBeVisible();
+    await expect(page.getByText(/could not be loaded/)).toHaveCount(0);
+    await page.unroute(isSessions);
+    await page.reload();
+    await expect(page.getByRole("cell", { name: "You" })).toBeVisible();
     await expect(row).toBeHidden();
     await member.reload();
     await member.waitForURL(/\/login/);

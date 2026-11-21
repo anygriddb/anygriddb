@@ -47,6 +47,11 @@ export function useAdminPageSize(): [
   ];
 }
 
+/** The last page that holds a row; the first when none does. */
+export function lastAdminPage(total: number, pageSize: number): number {
+  return Math.max(1, Math.ceil(total / pageSize));
+}
+
 /**
  * 1-based page index for a list. A new page size or reset key starts again
  * at page 1 without an effect.

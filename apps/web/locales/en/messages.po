@@ -921,6 +921,10 @@ msgstr "{size} TiB"
 msgid "{total, plural, one {# account} other {# accounts}}"
 msgstr "{total, plural, one {# account} other {# accounts}}"
 
+#: components/admin/sessions-tab.tsx
+msgid "{total, plural, one {# open session} other {# open sessions}}"
+msgstr "{total, plural, one {# open session} other {# open sessions}}"
+
 #: components/shell/home-page.tsx
 msgid "{total, plural, one {# row} other {# rows}}"
 msgstr "{total, plural, one {# row} other {# rows}}"
@@ -7599,6 +7603,7 @@ msgid "No second factor"
 msgstr "No second factor"
 
 #: components/admin/account-page.tsx
+#: components/admin/sessions-tab.tsx
 msgid "No session open right now."
 msgstr "No session open right now."
 
@@ -12102,6 +12107,10 @@ msgstr "This invitation does not exist or has expired"
 #: components/public/invitation-page.tsx
 msgid "This invitation does not exist or has expired."
 msgstr "This invitation does not exist or has expired."
+
+#: components/admin/sessions-tab.tsx
+msgid "This is who is signed in on the instance. Who has a table open is shown as “People here” on that table, not here."
+msgstr "This is who is signed in on the instance. Who has a table open is shown as “People here” on that table, not here."
 
 #: lib/errors.ts
 msgid "This job cannot be retried"

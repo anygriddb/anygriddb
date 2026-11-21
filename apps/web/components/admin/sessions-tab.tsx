@@ -1,7 +1,8 @@
 import { Button, Spinner } from "@anygriddb/ui";
+import { plural } from "@lingui/core/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLingui } from "@lingui/react/macro";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
@@ -9,8 +10,13 @@ import { sortRows } from "../../lib/sort-rows";
 import { useWhen } from "../../lib/i18n";
 import { useColumnSort } from "../sort-header";
 import { ConfirmDialog } from "../shell/dialogs";
+import { LoadFailed } from "../shell/load-failed";
 import { AdminPager, AdminTable, AdminTableHead } from "./admin-list";
-import { useAdminPage, useAdminPageSize } from "./admin-page-size";
+import {
+  lastAdminPage,
+  useAdminPage,
+  useAdminPageSize,
+} from "./admin-page-size";
 
 /** Who is signed in now, and ending their sessions (ADR 0042). */
 export function SessionsTab() {
@@ -40,6 +46,22 @@ export function SessionsTab() {
       toast.error(errorText(cause));
     }
   }
+  const total = sessions.data?.total ?? 0;
+  const loaded = sessions.data !== undefined;
+  // The last rows of the last page ended: its neighbour takes over.
+  const lastPage = lastAdminPage(total, pageSize);
+  useEffect(() => {
+    if (loaded && page > lastPage) setPage(lastPage);
+  }, [loaded, page, lastPage, setPage]);
+  // A refresh that fails keeps the list already read.
+  if (sessions.isError && !loaded) {
+    return (
+      <LoadFailed
+        error={sessions.error}
+        onRetry={() => void sessions.refetch()}
+      />
+    );
+  }
   const list = sortRows(
     sessions.data?.sessions ?? [],
     columns.sort,
@@ -50,15 +72,27 @@ export function SessionsTab() {
     },
     (session) => session.id,
   );
-  const total = sessions.data?.total ?? 0;
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          {settings.data
-            ? t`A session ends after ${{ idle: settings.data.sessionIdleMinutes }} minutes without activity, and after ${{ max: settings.data.sessionMaxHours }} hours in any case (set under Security). Ending one signs the person out at once.`
-            : null}
-        </p>
+        <div className="flex min-w-0 flex-col gap-1">
+          {total > 0 ? (
+            <p className="text-sm font-medium">
+              {plural(total, {
+                one: `# open session`,
+                other: `# open sessions`,
+              })}
+            </p>
+          ) : null}
+          <p className="text-sm text-muted-foreground">
+            {settings.data
+              ? t`A session ends after ${{ idle: settings.data.sessionIdleMinutes }} minutes without activity, and after ${{ max: settings.data.sessionMaxHours }} hours in any case (set under Security). Ending one signs the person out at once.`
+              : null}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {t`This is who is signed in on the instance. Who has a table open is shown as “People here” on that table, not here.`}
+          </p>
+        </div>
         <Button
           size="sm"
           variant="outline"
@@ -69,6 +103,11 @@ export function SessionsTab() {
         </Button>
       </div>
       {sessions.isLoading ? <Spinner /> : null}
+      {loaded && total === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {t`No session open right now.`}
+        </p>
+      ) : null}
       {list.length > 0 ? (
         <>
           <AdminTable>

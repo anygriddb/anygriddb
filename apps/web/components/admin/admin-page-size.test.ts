@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   DEFAULT_ADMIN_PAGE_SIZE,
+  lastAdminPage,
   parseAdminPageSize,
   readAdminPageSize,
   writeAdminPageSize,
@@ -44,6 +45,18 @@ describe("parseAdminPageSize", () => {
     expect(parseAdminPageSize("10")).toBe(DEFAULT_ADMIN_PAGE_SIZE);
     expect(parseAdminPageSize("200")).toBe(DEFAULT_ADMIN_PAGE_SIZE);
     expect(parseAdminPageSize("nope")).toBe(DEFAULT_ADMIN_PAGE_SIZE);
+  });
+});
+
+describe("lastAdminPage", () => {
+  it("is the page that holds the last row", () => {
+    expect(lastAdminPage(50, 50)).toBe(1);
+    expect(lastAdminPage(51, 50)).toBe(2);
+    expect(lastAdminPage(100, 20)).toBe(5);
+  });
+
+  it("stays on the first page when there is no row", () => {
+    expect(lastAdminPage(0, 50)).toBe(1);
   });
 });
 
