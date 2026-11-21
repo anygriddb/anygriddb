@@ -194,8 +194,9 @@ const ORACLE: Record<string, FieldType> = {
 /**
  * A column of Oracle: NUMBER(1) is its usual flag, as BOOLEAN is from 23ai;
  * DATE, which also holds a time of day, reads as a date. JSON shows as
- * read-only long text; RAW, BLOB, intervals, ROWID, XML, and spatial types
- * as read-only text.
+ * read-only long text; RAW, BLOB, intervals, ROWID, XML, and vectors as
+ * read-only text. LONG, BFILE, and a type of the client's own are listed
+ * too: their cell says the type, since no expression makes text of them.
  */
 export function mapOracleType(column: { type: string }): MappedField {
   const type = column.type.trim().toLowerCase();

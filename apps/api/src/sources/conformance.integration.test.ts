@@ -982,6 +982,19 @@ const NATIVE_TABLES: Record<Engine, readonly string[]> = {
   ],
 };
 
+/** Oracle's types a row's JSON refuses as they are: one LONG to a table. */
+const ORACLE_ODD_TABLES = [
+  "create or replace type native_point as object (x number)",
+  "grant execute on native_point to reader",
+  "create table native_odd (id number(10) primary key, T_LONG long, T_BFILE bfile, T_XML xmltype, T_ROWID rowid, T_UROWID urowid, T_VECTOR vector(3), T_POINT native_point)",
+  "insert into native_odd values (1, 'plain', bfilename('NOWHERE', 'a.txt'), xmltype('<a>plain</a>'), chartorowid('AAAAAAAAAAAAAAAAAA'), chartorowid('AAAAAAAAAAAAAAAAAA'), to_vector('[1,2,3]'), native_point(1))",
+  "insert into native_odd (id) values (2)",
+  "grant select on native_odd to reader",
+  "create table native_raw (id number(10) primary key, T_LONG_RAW long raw)",
+  "insert into native_raw values (1, hextoraw('ff'))",
+  "grant select on native_raw to reader",
+];
+
 describe("conformance of formulas across engines", () => {
   const servers: StartedTestContainer[] = [];
   const results = new Map<Engine, Map<string, unknown[]>>();
@@ -3994,8 +4007,11 @@ describe("conformance of formulas across engines", () => {
     }
   }, 300_000);
 
-  it("reads, sorts, groups, filters and sums every native type", async () => {
-    const deps = { db, key, settings };
+  /** Every sort, group, filter and figure a field offers, on its engine. */
+  const playEveryField = async (
+    engine: Engine,
+    catalog: Awaited<ReturnType<typeof loadEngine>>["engine"],
+  ) => {
     const quiet = new Set([
       "function_unavailable",
       "invalid_filter",
@@ -4013,6 +4029,68 @@ describe("conformance of formulas across engines", () => {
       }
       return /_(any|all|none)_of$|is_exactly/.test(op) ? ["plain"] : "a";
     };
+    const play = async (what: string, run: () => Promise<unknown>) => {
+      try {
+        await run();
+      } catch (error) {
+        if (error instanceof AppError && quiet.has(error.code)) return;
+        throw new Error(`${engine}, ${what}: ${failed(error)}`, {
+          cause: error,
+        });
+      }
+    };
+    for (const field of describeColumns(catalog)) {
+      expect(field.error, `${engine} ${field.name}`).toBeUndefined();
+      const c = field.name;
+      const read = (more: object) =>
+        readPage(
+          db,
+          catalog,
+          { limit: 10, timeZone: "UTC", ...more },
+          { total: false },
+        );
+      if (!field.noCompare) {
+        await play(`sort ${c}`, () =>
+          read({ sort: [{ column: c, direction: "desc" }] }),
+        );
+      }
+      if (!field.noGroup) {
+        await play(`group ${c}`, () =>
+          read({ groupBy: [{ column: c, direction: "asc" }] }),
+        );
+      }
+      for (const op of filterOperatorsFor(field.kind)) {
+        if (field.noCompare && COMPARING_OPERATORS.has(op)) continue;
+        const value = filterValue(op, field.kind);
+        await play(`${op} ${c}`, () =>
+          read({
+            filter: {
+              conjunction: "and",
+              conditions: [
+                { column: c, op, ...(value === undefined ? {} : { value }) },
+              ],
+            },
+          }),
+        );
+      }
+      for (const fn of aggregatesOfField(field)) {
+        await play(`${fn} ${c}`, () =>
+          aggregateRows(db, catalog, { timeZone: "UTC" }, [{ column: c, fn }]),
+        );
+      }
+    }
+    await play("search", () =>
+      readPage(
+        db,
+        catalog,
+        { limit: 10, timeZone: "UTC", search: "plain" },
+        { total: false },
+      ),
+    );
+  };
+
+  it("reads, sorts, groups, filters and sums every native type", async () => {
+    const deps = { db, key, settings };
     for (const [engine, { sourceId, schema }] of declared) {
       for (const statement of NATIVE_TABLES[engine]) {
         await outside(engine, statement);
@@ -4033,66 +4111,7 @@ describe("conformance of formulas across engines", () => {
         { total: false },
       );
       expect(page.rows, engine).toHaveLength(3);
-      const play = async (what: string, run: () => Promise<unknown>) => {
-        try {
-          await run();
-        } catch (error) {
-          if (error instanceof AppError && quiet.has(error.code)) return;
-          throw new Error(`${engine}, ${what}: ${failed(error)}`, {
-            cause: error,
-          });
-        }
-      };
-      for (const field of describeColumns(catalog)) {
-        expect(field.error, `${engine} ${field.name}`).toBeUndefined();
-        const c = field.name;
-        const read = (more: object) =>
-          readPage(
-            db,
-            catalog,
-            { limit: 10, timeZone: "UTC", ...more },
-            { total: false },
-          );
-        if (!field.noCompare) {
-          await play(`sort ${c}`, () =>
-            read({ sort: [{ column: c, direction: "desc" }] }),
-          );
-        }
-        if (!field.noGroup) {
-          await play(`group ${c}`, () =>
-            read({ groupBy: [{ column: c, direction: "asc" }] }),
-          );
-        }
-        for (const op of filterOperatorsFor(field.kind)) {
-          if (field.noCompare && COMPARING_OPERATORS.has(op)) continue;
-          const value = filterValue(op, field.kind);
-          await play(`${op} ${c}`, () =>
-            read({
-              filter: {
-                conjunction: "and",
-                conditions: [
-                  { column: c, op, ...(value === undefined ? {} : { value }) },
-                ],
-              },
-            }),
-          );
-        }
-        for (const fn of aggregatesOfField(field)) {
-          await play(`${fn} ${c}`, () =>
-            aggregateRows(db, catalog, { timeZone: "UTC" }, [
-              { column: c, fn },
-            ]),
-          );
-        }
-      }
-      await play("search", () =>
-        readPage(
-          db,
-          catalog,
-          { limit: 10, timeZone: "UTC", search: "plain" },
-          { total: false },
-        ),
-      );
+      await playEveryField(engine, catalog);
 
       // A whole number's sum past its type, and a mean with a fraction.
       const whole = columnOf(
@@ -4119,11 +4138,71 @@ describe("conformance of formulas across engines", () => {
         );
         const huge = page.rows.find((row) => row.id === "2");
         expect(huge?.[float] ?? null, engine).toBeNull();
-        expect(rowError(huge ?? {}, float), engine).toMatch(/e\+?308/i);
+        expect(rowError(huge ?? {}, float), engine).toMatch(
+          /^1\.[67].*e\+?308/i,
+        );
         const fine = page.rows.find((row) => row.id === "1");
         expect(Number(fine?.[float]), engine).toBe(2.5);
         expect(rowError(fine ?? {}, float), engine).toBeNull();
       }
     }
   }, 600_000);
+
+  it("opens an Oracle table whatever types it holds", async () => {
+    const oracleSource = declared.get("oracle");
+    if (!oracleSource) throw new Error("no Oracle source");
+    for (const statement of ORACLE_ODD_TABLES) {
+      await outside("oracle", statement);
+    }
+    const base = await insertBase(db, actorId, { name: "Odd types" });
+    const { tableIds } = await exposeTables({ db, key, settings }, actorId, {
+      sourceId: oracleSource.sourceId,
+      baseId: base.id,
+      tables: [
+        { schema: oracleSource.schema, name: "NATIVE_ODD" },
+        { schema: oracleSource.schema, name: "NATIVE_RAW" },
+      ],
+    });
+    const [oddId = "", rawId = ""] = tableIds;
+    const { engine: odd } = await loadEngine(db, oddId, () => true);
+    const page = await readPage(
+      db,
+      odd,
+      { limit: 10, timeZone: "UTC" },
+      { total: false },
+    );
+    expect(page.rows).toHaveLength(2);
+    const filled = page.rows.find((row) => row.id === "1");
+    const blank = page.rows.find((row) => row.id === "2");
+    if (!filled || !blank) throw new Error("two rows expected");
+    // What no expression makes text of reads empty, and is said by its type.
+    for (const [column, type] of [
+      ["T_LONG", "LONG"],
+      ["T_BFILE", "BFILE"],
+      ["T_POINT", "NATIVE_POINT"],
+    ] as const) {
+      const name = columnOf(odd, column);
+      expect(filled[name] ?? null, column).toBeNull();
+      expect(rowError(filled, name), column).toBe(type);
+      expect(rowError(blank, name), column).toBeNull();
+    }
+    // What a read can make text of is the value.
+    expect(filled[columnOf(odd, "T_XML")]).toContain("<a>plain</a>");
+    expect(filled[columnOf(odd, "T_ROWID")]).toMatch(/^[\w.+/]+$/);
+    expect(filled[columnOf(odd, "T_UROWID")]).toMatch(/^[\w.+/]+$/);
+    expect(String(filled[columnOf(odd, "T_VECTOR")])).toMatch(/^\[1/);
+    await playEveryField("oracle", odd);
+
+    const { engine: raw } = await loadEngine(db, rawId, () => true);
+    const rows = await readPage(
+      db,
+      raw,
+      { limit: 10, timeZone: "UTC" },
+      { total: false },
+    );
+    expect(rowError(rows.rows[0] ?? {}, columnOf(raw, "T_LONG_RAW"))).toBe(
+      "LONG RAW",
+    );
+    await playEveryField("oracle", raw);
+  }, 300_000);
 });

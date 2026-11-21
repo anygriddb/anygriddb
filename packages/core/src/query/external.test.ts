@@ -322,7 +322,7 @@ describe("reading a client's table", () => {
         `(case when abs(r."AMOUNT") < 1e28 then cast(r."AMOUNT" as number(38,10)) end) as "amount"`,
       );
       expect(sql).toContain(
-        `(case when r."AMOUNT" is not null and not abs(r."AMOUNT") < 1e28 then to_char(r."AMOUNT") end)`,
+        `(case when r."AMOUNT" is not null and not abs(r."AMOUNT") < 1e28 then '!' || to_char(r."AMOUNT") end)`,
       );
     });
 

@@ -10,6 +10,7 @@
  */
 import { AppError } from "../errors";
 import { isTimeZone } from "../field-config";
+import type { PhysicalColumn } from "./engine";
 import type { ScalarKind } from "./expressions";
 import type {
   Bind,
@@ -35,6 +36,42 @@ function zoneLiteral(zone: string): string {
 /** `number(14,2)` reads as `number`. */
 function typeName(type: string): string {
   return withoutGroups(type.toLowerCase()).replace(/\s+/g, " ").trim();
+}
+
+/** The types a row's JSON takes, as they are or read as text below. */
+const READ_TYPES: ReadonlySet<string> = new Set([
+  "number",
+  "float",
+  "binary_float",
+  "binary_double",
+  "char",
+  "nchar",
+  "varchar2",
+  "nvarchar2",
+  "clob",
+  "nclob",
+  "date",
+  "timestamp",
+  "timestamp with time zone",
+  "timestamp with local time zone",
+  "interval year to month",
+  "interval day to second",
+  "boolean",
+  "json",
+  "raw",
+  "blob",
+  "rowid",
+  "urowid",
+  "xmltype",
+  "vector",
+]);
+
+/**
+ * LONG, BFILE, or a type of the client's own: no expression makes text of
+ * it, and one such column in a row's JSON would stop the whole page.
+ */
+function isUnread(physical: PhysicalColumn): boolean {
+  return !physical.side && !READ_TYPES.has(typeName(physical.type));
 }
 
 /**
@@ -359,13 +396,20 @@ export const ORACLE: SqlDialect = {
     `exists (select 1 from json_table(${sql}, '$[*]' columns (label varchar2(4000) path '$.label')) e where lower(e.label) like lower(${pattern}) escape '\\')`,
   linksIdIn: (sql, list) =>
     `exists (select 1 from json_table(${sql}, '$[*]' columns (id varchar2(1000) path '$.id')) e where e.id in (${list}))`,
-  holdsLargeObject: (physical) => /^n?clob$/.test(typeName(physical.type)),
+  // What is not read has nothing to sort, group, or compare either.
+  holdsLargeObject: (physical) =>
+    isUnread(physical) || /^n?clob$/.test(typeName(physical.type)),
+  // `errorJson` takes off a first character, which Oracle needs so that an
+  // empty message is not NULL: a stored error carries one too.
   storedError: (ref, physical) => {
     const type = typeName(physical.type);
+    if (isUnread(physical)) {
+      return `(case when ${ref} is not null then '!${type.toUpperCase().replace(/'/g, "''")}' end)`;
+    }
     return type === "binary_float" ||
       type === "binary_double" ||
       type === "float"
-      ? `(case when ${ref} is not null and not abs(${ref}) < 1e28 then to_char(${ref}) end)`
+      ? `(case when ${ref} is not null and not abs(${ref}) < 1e28 then '!' || to_char(${ref}) end)`
       : undefined;
   },
   readColumn: (ref, fieldType, physical) => {
@@ -379,11 +423,22 @@ export const ORACLE: SqlDialect = {
       // said beside it (`storedError`). Cast, it would stop the page.
       return `(case when abs(${ref}) < 1e28 then cast(${ref} as number(38,10)) end)`;
     }
+    if (isUnread(physical)) return "cast(null as varchar2(1))";
     // Read-only types shown as text (`mapOracleType`), read as text.
     if (type === "boolean") {
       return `(case when ${ref} then 1 when not ${ref} then 0 end)`;
     }
     if (type.startsWith("interval")) return `to_char(${ref})`;
+    if (type === "rowid") return `rowidtochar(${ref})`;
+    if (type === "urowid") return `cast(${ref} as varchar2(4000))`;
+    // A thousand characters always fit VARCHAR2's 4000 bytes, as a blob's
+    // first bytes do below: a filter can then read them as any other text.
+    if (type === "xmltype") {
+      return `dbms_lob.substr(xmlserialize(content ${ref} as clob), 1000, 1)`;
+    }
+    if (type === "vector") {
+      return `dbms_lob.substr(from_vector(${ref} returning clob), 1000, 1)`;
+    }
     if (type === "raw") return `rawtohex(${ref})`;
     if (type === "blob") return `rawtohex(dbms_lob.substr(${ref}, 2000))`;
     // A DATE also holds a time of day: a date field reads the day alone.
