@@ -528,6 +528,27 @@ test.describe("a dashboard", () => {
     await expect(
       widget("Due by month").getByRole("table").getByRole("rowheader"),
     ).toHaveText(["Jan 2026", "Mar 2026"]);
+    // Several lines are told apart by a legend: each name at a place
+    // of its own, beside its mark. They were all drawn on one corner.
+    await page.getByRole("button", { name: "Add a widget" }).click();
+    const lines = page.getByRole("dialog", { name: "Add a widget" });
+    await lines.getByLabel("Title", { exact: true }).fill("Due by status");
+    await lines.getByLabel("Type").selectOption({ label: "Chart" });
+    await lines.getByLabel("Style").selectOption({ label: "Line" });
+    await lines.getByLabel("Group by").selectOption({ label: "Due" });
+    await lines.getByLabel("Dates grouped by").selectOption({ label: "Month" });
+    await lines
+      .getByLabel("Series (optional)")
+      .selectOption({ label: "Status" });
+    await lines.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(lines).toBeHidden();
+    const legend = (name: string) =>
+      widget("Due by status").locator("svg text").filter({ hasText: name });
+    await expect(legend("To do")).toBeVisible();
+    await expect(legend("Done")).toBeVisible();
+    const placed = async (name: string) =>
+      (await legend(name).boundingBox())?.x ?? Number.NaN;
+    expect(await placed("Done")).toBeGreaterThan((await placed("To do")) + 20);
     // A dashboard follows its tables. A row is added elsewhere: the sum,
     // the last value, the chart, and the view's rows are read again,
     // and nobody reloads the page.

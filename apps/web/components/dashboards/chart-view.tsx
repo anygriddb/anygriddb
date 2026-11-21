@@ -48,7 +48,7 @@ echarts.use([
   SVGRenderer,
 ]);
 
-type ChartData = {
+export type ChartData = {
   chartType: "bar" | "bar_horizontal" | "line" | "area" | "pie" | "histogram";
   fn: string;
   /** The grouped fields' types: their keys read in the reader's language. */
@@ -228,7 +228,7 @@ export function ChartView(props: {
     const chart = echarts.getInstanceByDom(node);
     if (!chart) return;
     chart.setOption(
-      option(data, {
+      chartOption(data, {
         colors: tokens(),
         format,
         compact,
@@ -338,7 +338,8 @@ export function ChartView(props: {
   );
 }
 
-function option(
+/** What the charting library is asked to draw for these values. */
+export function chartOption(
   data: ChartData,
   context: {
     colors: ReturnType<typeof tokens>;
@@ -395,7 +396,11 @@ function option(
       ? {
           top: 0,
           left: 0,
-          icon: line ? "path://M0,4 L14,4" : "rect",
+          // A line's mark is a flat rectangle, as thick as the line. A path
+          // with no height has nothing to be scaled by: the library then
+          // writes no place for the mark nor for its name, and every
+          // name of the legend lands on the same corner.
+          icon: "rect",
           itemWidth: 12,
           itemHeight: line ? 2 : 8,
           textStyle: { color: colors.text, fontSize: 11 },
