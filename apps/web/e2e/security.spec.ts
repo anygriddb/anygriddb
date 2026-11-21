@@ -589,6 +589,16 @@ test("an administrator names the instance, and the sign-in page and its mail car
     expect(visitorBlocked).toEqual([]);
     await own.close();
 
+    // On a phone the navigation is folded away, and the bar over the
+    // page says where one is: under the instance's name, as the
+    // navigation does. It wrote the product's.
+    await page.setViewportSize({ width: 390, height: 800 });
+    const bar = page
+      .getByRole("button", { name: "Open the navigation" })
+      .locator("..");
+    await expect(bar).toHaveText("Trial Register");
+    await page.setViewportSize({ width: 1280, height: 720 });
+
     // Taken away: the product's mark and name are back.
     await page.getByRole("button", { name: "Remove the logo" }).click();
     await expect(page.getByText("Logo removed")).toBeVisible();

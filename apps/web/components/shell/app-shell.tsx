@@ -15,6 +15,7 @@ import {
 import { mayRead, useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { onSignIn, safeNext } from "../auth/auth-page";
+import { InstanceName } from "../brand/instance-mark";
 import { CommandPalette } from "./command-palette";
 import { LoadFailed } from "./load-failed";
 import { PageInShell } from "./page-crashed";
@@ -218,7 +219,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <Menu className="h-4 w-4" aria-hidden />
                 </button>
                 <span className="truncate text-sm font-semibold">
-                  AnyGridDB
+                  <InstanceName />
                 </span>
               </div>
             ) : null}

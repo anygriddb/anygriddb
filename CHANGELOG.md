@@ -21,6 +21,9 @@ first.
   fourth event was cut by the day's edge and the next were not drawn,
   with nothing to say they were there. A week is now as tall as its
   fullest day, the month scrolls, and an event is 24 pixels to press.
+- On a phone, the bar over a page carries the name an administrator
+  gave the instance, as the navigation and the sign-in page do: it
+  wrote "AnyGridDB" whatever the instance was called.
 - A row's panel draws a checkbox that was never ticked as a box not
   ticked, and a rating never given as none of its stars. Each showed an
   empty line under its name, with nothing to say a click ticks or
