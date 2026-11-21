@@ -528,6 +528,8 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
                 {...viewProps}
                 month={read.calendarMonth}
                 onMonth={read.setCalendarMonth}
+                pickedDay={read.pickedDay}
+                onPickDay={read.setPickedDay}
                 {...(activeView ? { viewId: activeView.id } : {})}
               />
             ) : viewType === "timeline" ? (

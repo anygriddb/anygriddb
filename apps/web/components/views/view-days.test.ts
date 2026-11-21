@@ -56,4 +56,14 @@ describe("dayToAdd", () => {
     expect(dayToAdd(march, new Date(2026, 1, 28, 23, 59))).toBe("2026-03-01");
     expect(dayToAdd(march, new Date(2026, 3, 1, 0, 0))).toBe("2026-03-01");
   });
+
+  it("prefers a day the person chose when the days shown hold it", () => {
+    expect(dayToAdd(march, new Date(2026, 2, 17, 10), "2026-03-05")).toBe(
+      "2026-03-05",
+    );
+    expect(dayToAdd(march, new Date(2026, 2, 17, 10), "2026-04-01")).toBe(
+      "2026-03-17",
+    );
+    expect(dayToAdd(march, new Date(2026, 2, 17, 10), null)).toBe("2026-03-17");
+  });
 });
