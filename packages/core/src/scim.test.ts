@@ -22,6 +22,8 @@ const ada: ScimUserState = {
   displayName: "Ada Lovelace",
   externalId: "00u1",
   active: true,
+  givenName: "Ada",
+  familyName: "Lovelace",
 };
 
 const scimType = (run: () => unknown) => {
@@ -110,6 +112,8 @@ describe("parseScimUser", () => {
       displayName: "Ada Lovelace",
       externalId: "e-1",
       active: true,
+      givenName: "Ada",
+      familyName: "Lovelace",
     });
   });
 
@@ -138,6 +142,69 @@ describe("parseScimUser", () => {
 });
 
 describe("patchScimUser", () => {
+  it("keeps the part of a name a provider did not send", () => {
+    const family = patchScimUser(
+      ada,
+      patch({ op: "replace", path: "name.familyName", value: "King" }),
+    );
+    expect(family).toMatchObject({
+      displayName: "Ada King",
+      givenName: "Ada",
+      familyName: "King",
+    });
+    const removed = patchScimUser(
+      ada,
+      patch({ op: "remove", path: "name.familyName" }),
+    );
+    expect(removed).toMatchObject({ displayName: "Ada", familyName: null });
+  });
+
+  it("finds the parts of a name kept before they were", () => {
+    const before = { ...ada, givenName: null, familyName: null };
+    expect(
+      patchScimUser(
+        { ...before, displayName: "Anne Marie Martin" },
+        patch({ op: "replace", path: "name.givenName", value: "Anna" }),
+      ),
+    ).toMatchObject({
+      displayName: "Anna Martin",
+      givenName: "Anna",
+      familyName: "Martin",
+    });
+    expect(
+      patchScimUser(
+        { ...before, displayName: "Cher" },
+        patch({ op: "replace", path: "name.familyName", value: "Sarkisian" }),
+      ),
+    ).toMatchObject({ displayName: "Cher Sarkisian", givenName: "Cher" });
+  });
+
+  it("leaves the parts alone when only the display name changes", () => {
+    expect(
+      patchScimUser(
+        ada,
+        patch({ op: "replace", path: "displayName", value: "The Countess" }),
+      ),
+    ).toMatchObject({
+      displayName: "The Countess",
+      givenName: "Ada",
+      familyName: "Lovelace",
+    });
+  });
+
+  it("keeps a name's parts on one line, and to the length of a name", () => {
+    const next = patchScimUser(
+      ada,
+      patch({
+        op: "replace",
+        path: "name.givenName",
+        value: `A\nB${"c".repeat(200)}`,
+      }),
+    );
+    expect(next.givenName).not.toContain("\n");
+    expect(next.givenName?.length).toBeLessThanOrEqual(80);
+  });
+
   it("applies what Entra ID sends: paths, text booleans, and no-path values", () => {
     expect(
       patchScimUser(
@@ -161,7 +228,8 @@ describe("patchScimUser", () => {
     ).toEqual({
       ...ada,
       active: false,
-      displayName: "Augusta",
+      displayName: "Augusta Lovelace",
+      givenName: "Augusta",
       email: "augusta@corp.example",
     });
     expect(
