@@ -542,13 +542,26 @@ test.describe("a dashboard", () => {
       .selectOption({ label: "Status" });
     await lines.getByRole("button", { name: "Add", exact: true }).click();
     await expect(lines).toBeHidden();
-    const legend = (name: string) =>
-      widget("Due by status").locator("svg text").filter({ hasText: name });
-    await expect(legend("To do")).toBeVisible();
-    await expect(legend("Done")).toBeVisible();
-    const placed = async (name: string) =>
-      (await legend(name).boundingBox())?.x ?? Number.NaN;
-    expect(await placed("Done")).toBeGreaterThan((await placed("To do")) + 20);
+    // Both names are read in one look, and again until it holds: a chart
+    // is drawn anew when its box is measured, and a name read between
+    // two drawings has no place.
+    await expect
+      .poll(() =>
+        widget("Due by status")
+          .locator("svg text")
+          .evaluateAll((texts) => {
+            const at = (name: string) =>
+              texts
+                .find((text) => text.textContent === name)
+                ?.getBoundingClientRect().x;
+            const first = at("To do");
+            const second = at("Done");
+            return (
+              first !== undefined && second !== undefined && second > first + 20
+            );
+          }),
+      )
+      .toBe(true);
     // A dashboard follows its tables. A row is added elsewhere: the sum,
     // the last value, the chart, and the view's rows are read again,
     // and nobody reloads the page.
