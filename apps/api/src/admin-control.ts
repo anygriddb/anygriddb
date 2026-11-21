@@ -5,6 +5,7 @@
  * deliveries, export audits and access, and gather a support bundle.
  * Every action on an account names its actor in the sign-in trail.
  */
+import { dropAccountTokens } from "./auth/tokens.js";
 import type { AuditAction, AuthAction, Database } from "@anygriddb/db";
 import { AppError } from "@anygriddb/core";
 import { sql as sqlTag } from "kysely";
@@ -497,11 +498,7 @@ export async function revokeUserTokens(
 ): Promise<number> {
   await otherAccount(db, actorId, userId);
   return db.transaction().execute(async (tx) => {
-    const revoked = await tx
-      .deleteFrom("apiTokens")
-      .where("userId", "=", userId)
-      .returning("id")
-      .execute();
+    const revoked = await dropAccountTokens(tx, userId);
     if (revoked.length > 0) {
       await recordAuthEvent(tx, {
         action: "tokens_revoked",
@@ -524,6 +521,7 @@ export async function revokeAllTokens(
   actorId: string,
 ): Promise<number> {
   return db.transaction().execute(async (tx) => {
+    await tx.deleteFrom("oauthAuthorizationCodes").execute();
     const revoked = await tx
       .deleteFrom("apiTokens")
       .returning("userId")

@@ -8,7 +8,7 @@ import type { Database, Tx } from "@anygriddb/db";
 import { sql } from "kysely";
 import { loadBindings } from "../auth/access.js";
 import { verifyPassword } from "../auth/argon2.js";
-import { insertApiToken, tokenDays } from "../auth/tokens.js";
+import { hashApiToken, insertApiToken, tokenDays } from "../auth/tokens.js";
 import { readGateSettings } from "../settings.js";
 import { findLiveOauthClient } from "./clients.js";
 import { sha256Hex } from "./hash.js";
@@ -239,25 +239,34 @@ export async function refreshAccessToken(
   });
 }
 
-/** Revokes a refresh token and its access token. */
-export async function revokeRefreshToken(
+/**
+ * Ends a grant of this client from either of its tokens (RFC 7009): a
+ * client may hold only its access token when it signs someone out.
+ */
+export async function revokeGrantToken(
   db: Database,
   input: {
     clientId: string;
     clientSecret: string;
-    refreshToken: string;
+    token: string;
   },
 ): Promise<void> {
   const client = await authenticClient(db, input);
   // Deleting the access token removes the refresh token with it.
   await db
     .deleteFrom("apiTokens")
-    .where("id", "in", (eb) =>
-      eb
-        .selectFrom("oauthRefreshTokens")
-        .select("apiTokenId")
-        .where("tokenHash", "=", sha256Hex(input.refreshToken))
-        .where("clientId", "=", client.id),
+    .where("oauthClientId", "=", client.id)
+    .where((eb) =>
+      eb.or([
+        eb("tokenHash", "=", hashApiToken(input.token)),
+        eb("id", "in", (inner) =>
+          inner
+            .selectFrom("oauthRefreshTokens")
+            .select("apiTokenId")
+            .where("tokenHash", "=", sha256Hex(input.token))
+            .where("clientId", "=", client.id),
+        ),
+      ]),
     )
     .execute();
 }

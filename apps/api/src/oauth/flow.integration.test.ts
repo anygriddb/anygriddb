@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { findApiToken } from "../auth/tokens.js";
 import { eraseAccount } from "../data/erasure.js";
 import { insertBase } from "../data/schema-ops.js";
+import { revokeAllTokens, revokeUserTokens } from "../admin-control.js";
 import { createTestDatabase } from "../test-database.js";
 import { errorCode as refusal } from "../trpc/caller.test-helpers.js";
 import {
@@ -19,7 +20,7 @@ import {
   issueAuthorizationCode,
   purgeOauthGrants,
   refreshAccessToken,
-  revokeRefreshToken,
+  revokeGrantToken,
 } from "./flow.js";
 import { codeChallengeS256 } from "./pkce.js";
 
@@ -114,10 +115,10 @@ describe("oauth authorization code", () => {
       (await findApiToken(db, `Bearer ${second.access_token}`))?.user.id,
     ).toBe(person);
 
-    await revokeRefreshToken(db, {
+    await revokeGrantToken(db, {
       clientId,
       clientSecret,
-      refreshToken: second.refresh_token,
+      token: second.refresh_token,
     });
     expect(await findApiToken(db, `Bearer ${second.access_token}`)).toBeNull();
   });
@@ -147,6 +148,47 @@ describe("oauth authorization code", () => {
       ...change,
     });
   }
+
+  it("ends a grant from its access token too, for this client alone", async () => {
+    const grant = await exchange((await consent()).code);
+    const other = await registerOauthClient(db, admin, {
+      name: "Another bridge",
+      redirectUris: [redirectUri],
+    });
+    await revokeGrantToken(db, {
+      clientId: other.clientId,
+      clientSecret: other.clientSecret,
+      token: grant.access_token,
+    });
+    expect(
+      await findApiToken(db, `Bearer ${grant.access_token}`),
+    ).not.toBeNull();
+
+    await revokeGrantToken(db, {
+      clientId,
+      clientSecret,
+      token: grant.access_token,
+    });
+    expect(await findApiToken(db, `Bearer ${grant.access_token}`)).toBeNull();
+    expect(
+      await refusal(
+        refreshAccessToken(db, {
+          clientId,
+          clientSecret,
+          refreshToken: grant.refresh_token,
+        }),
+      ),
+    ).toBe("invalid_input");
+  });
+
+  it("takes back a code not yet exchanged with an account's tokens", async () => {
+    const one = await consent();
+    await revokeUserTokens(db, admin, person);
+    expect(await refusal(exchange(one.code))).toBe("invalid_input");
+    const two = await consent();
+    await revokeAllTokens(db, admin);
+    expect(await refusal(exchange(two.code))).toBe("invalid_input");
+  });
 
   it("refuses a consent for an address the client did not register, or a base the person does not read", async () => {
     expect(

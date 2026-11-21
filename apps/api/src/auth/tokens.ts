@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { Database, Executor } from "@anygriddb/db";
+import type { Database, Executor, Tx } from "@anygriddb/db";
 import type { SessionUser } from "./session.js";
 import { AppError, type InstanceSettings } from "@anygriddb/core";
 import { recordAuthEvent } from "./auth-events.js";
@@ -23,7 +23,7 @@ export function tokenDays(
   return requested ?? Math.min(DEFAULT_TOKEN_DAYS, policy.tokenMaxDays);
 }
 
-function hashApiToken(token: string): string {
+export function hashApiToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
@@ -41,6 +41,25 @@ export type TokenScope = {
  * that no longer works is refused, whatever session the browser also holds.
  * Another scheme is not ours: a proxy's Basic sign-in travels in this header.
  */
+/**
+ * Takes every API token of an account, and the codes it consented to that
+ * were not exchanged yet: such a code would make a new token afterwards.
+ */
+export async function dropAccountTokens(
+  tx: Tx,
+  userId: string,
+): Promise<Array<{ id: string }>> {
+  await tx
+    .deleteFrom("oauthAuthorizationCodes")
+    .where("userId", "=", userId)
+    .execute();
+  return tx
+    .deleteFrom("apiTokens")
+    .where("userId", "=", userId)
+    .returning("id")
+    .execute();
+}
+
 export function namesApiToken(header: string | undefined): boolean {
   return header?.startsWith("Bearer ") === true;
 }

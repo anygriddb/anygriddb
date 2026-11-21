@@ -4,6 +4,7 @@
  * account is left as it is, and so are their personal API tokens, which
  * the administrator may revoke in the same gesture.
  */
+import { dropAccountTokens } from "../auth/tokens.js";
 import {
   AppError,
   effectiveTableRole,
@@ -209,11 +210,7 @@ export async function handOver(
 
     let tokensRevoked = 0;
     if (input.revokeTokens) {
-      const revoked = await tx
-        .deleteFrom("apiTokens")
-        .where("userId", "=", input.fromUserId)
-        .returning("id")
-        .execute();
+      const revoked = await dropAccountTokens(tx, input.fromUserId);
       tokensRevoked = revoked.length;
       if (tokensRevoked > 0) {
         await recordAuthEvent(tx, {

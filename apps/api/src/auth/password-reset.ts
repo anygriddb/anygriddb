@@ -8,6 +8,7 @@
  * lock. Its second factors stay, so a reset alone never opens an account
  * that has them.
  */
+import { dropAccountTokens } from "./tokens.js";
 import { createHash, randomBytes } from "node:crypto";
 import { AppError, type InstanceSettings } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -169,10 +170,7 @@ export async function resetPassword(
       )
       .execute();
     await tx.deleteFrom("sessions").where("userId", "=", link.userId).execute();
-    await tx
-      .deleteFrom("apiTokens")
-      .where("userId", "=", link.userId)
-      .execute();
+    await dropAccountTokens(tx, link.userId);
     await tx
       .deleteFrom("loginChallenges")
       .where("userId", "=", link.userId)
@@ -207,10 +205,7 @@ export async function changePassword(
         query.where("tokenHash", "!=", input.keepSessionHash ?? ""),
       )
       .execute();
-    await tx
-      .deleteFrom("apiTokens")
-      .where("userId", "=", input.userId)
-      .execute();
+    await dropAccountTokens(tx, input.userId);
     await tx
       .deleteFrom("passwordResets")
       .where("userId", "=", input.userId)

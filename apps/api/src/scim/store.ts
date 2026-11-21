@@ -2,6 +2,7 @@
  * What SCIM requests do to accounts and groups (ADR 0038). Every change
  * runs as the token's administrator, audited with the source `scim`.
  */
+import { dropAccountTokens } from "../auth/tokens.js";
 import {
   parseScimGroup,
   parseScimUser,
@@ -270,7 +271,7 @@ async function saveAccount(
   // the change. A deactivated account is signed out the same way.
   if (next.email !== account.email || !next.active) {
     await tx.deleteFrom("sessions").where("userId", "=", account.id).execute();
-    await tx.deleteFrom("apiTokens").where("userId", "=", account.id).execute();
+    await dropAccountTokens(tx, account.id);
     await recordAuthEvent(tx, {
       action: "session_revoked",
       userId: account.id,
