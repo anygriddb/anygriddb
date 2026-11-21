@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   accessibilityViolations,
+  enableTotp,
   mailedMessage,
   signUp,
   signUpWithTable,
@@ -219,6 +220,50 @@ test("an owner invites an address, its account accepts, and reads what its permi
   await expect(
     guest.getByRole("columnheader", { name: /Unit price/ }),
   ).toBeVisible();
+
+  // An owner who lowers their own role is asked first: nobody gives it
+  // back to themselves. The guest, made an owner, gives it up. An owner
+  // is asked for a second factor, so they set one up first.
+  const roleOf = (who: typeof page) =>
+    who
+      .getByRole("listitem")
+      .filter({ hasText: guestEmail })
+      .getByRole("combobox", { name: "Role" });
+  await guest.goto("/settings");
+  await enableTotp(guest);
+  await roleOf(page).selectOption({ label: "Owner" });
+  await expect(roleOf(page)).toHaveValue("owner");
+  await guest.goto(`${base}/settings`);
+  await expect(roleOf(guest)).toHaveValue("owner");
+  const refusedThem: string[] = [];
+  guest.on("response", (response) => {
+    if (response.status() >= 400) {
+      refusedThem.push(
+        `${String(response.status())} ${new URL(response.url()).pathname}`,
+      );
+    }
+  });
+  await roleOf(guest).selectOption({ label: "Editor" });
+  const lowering = guest.getByRole("dialog", {
+    name: "Stop being an owner of Lab?",
+  });
+  await expect(lowering).toContainText(
+    "Only another owner can make you an owner again",
+  );
+  expect(await accessibilityViolations(guest)).toEqual([]);
+  // Given up, the role stays as it was: one slip of the list did it.
+  await lowering.getByRole("button", { name: "Cancel" }).click();
+  await expect(roleOf(guest)).toHaveValue("owner");
+  await roleOf(guest).selectOption({ label: "Editor" });
+  await lowering.getByRole("button", { name: "Lower my role" }).click();
+  // The base is no longer theirs to manage: its members are not listed
+  // to them, and the page asked nothing the server refuses on the way.
+  await expect(guest.getByLabel("Invite by email")).toHaveCount(0);
+  await expect(roleOf(guest)).toHaveCount(0);
+  expect(refusedThem).toEqual([]);
+  await guest.goto(tablePath);
+  await expect(guest.getByRole("gridcell", { name: "Desk" })).toBeVisible();
+  await page.reload();
 
   // The owner takes the member out of the base, once that is confirmed:
   // their role goes at once, with what was set for them on its tables.
