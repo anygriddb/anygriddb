@@ -6,7 +6,7 @@ import {
 import { canEditView } from "../data/views.js";
 import { listEarlier, locateRevert, revertCatalog } from "../data/revert.js";
 import { publishCatalog } from "../realtime/channels.js";
-import { guardBase, guardTable, handle } from "./guard.js";
+import { authorize, baseAccess, handle, tableAccess } from "./guard.js";
 import type { Context } from "./context.js";
 import { procedure } from "./init.js";
 
@@ -20,20 +20,26 @@ async function guarded(
   kind: (typeof earlierInputSchema)["_output"]["kind"],
   id: string,
 ) {
+  const actor = await authorize(ctx);
   const loaded = await locateRevert(ctx.db, kind, id);
   if (kind === "view") {
     if (!loaded.tableId || !loaded.view) throw new AppError("no_row");
-    const { user, role } = await guardTable(ctx, loaded.tableId, "read");
+    const { user, role } = await tableAccess(
+      ctx,
+      actor,
+      loaded.tableId,
+      "read",
+    );
     if (loaded.personal || !canEditView(loaded.view, user.id, role)) {
       throw new AppError("access_denied");
     }
     return { userId: user.id, loaded };
   }
   if (loaded.tableId) {
-    const { user } = await guardTable(ctx, loaded.tableId, "manage");
+    const { user } = await tableAccess(ctx, actor, loaded.tableId, "manage");
     return { userId: user.id, loaded };
   }
-  const { user } = await guardBase(ctx, loaded.baseId, "manage");
+  const { user } = await baseAccess(ctx, actor, loaded.baseId, "manage");
   return { userId: user.id, loaded };
 }
 

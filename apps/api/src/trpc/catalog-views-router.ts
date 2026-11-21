@@ -22,7 +22,7 @@ import {
   updateView,
 } from "../data/views.js";
 import { readableTables } from "../data/acl.js";
-import { guardTable, handle } from "./guard.js";
+import { authorize, guardTable, handle, tableAccess } from "./guard.js";
 import { procedure, requestNames } from "./init.js";
 
 export const catalogViewProcedures = {
@@ -63,8 +63,14 @@ export const catalogViewProcedures = {
     .input(updateViewInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
+        const actor = await authorize(ctx);
         const view = await loadView(ctx.db, input.viewId);
-        const { user, role } = await guardTable(ctx, view.tableId, "read");
+        const { user, role } = await tableAccess(
+          ctx,
+          actor,
+          view.tableId,
+          "read",
+        );
         if (
           !canEditView(view, user.id, role) ||
           (input.locked !== undefined && role !== "owner")
@@ -79,8 +85,14 @@ export const catalogViewProcedures = {
     .input(duplicateViewInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
+        const actor = await authorize(ctx);
         const view = await loadView(ctx.db, input.viewId);
-        const { user, role } = await guardTable(ctx, view.tableId, "read");
+        const { user, role } = await tableAccess(
+          ctx,
+          actor,
+          view.tableId,
+          "read",
+        );
         const personal = role !== "owner" && role !== "editor";
         if (view.ownerId && view.ownerId !== user.id) {
           throw new AppError("access_denied");
@@ -107,8 +119,14 @@ export const catalogViewProcedures = {
     .input(deleteViewInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
+        const actor = await authorize(ctx);
         const view = await loadView(ctx.db, input.viewId);
-        const { user, role } = await guardTable(ctx, view.tableId, "read");
+        const { user, role } = await tableAccess(
+          ctx,
+          actor,
+          view.tableId,
+          "read",
+        );
         if (!canEditView(view, user.id, role)) {
           throw new AppError("access_denied");
         }

@@ -57,7 +57,7 @@ import { readSettings } from "../settings.js";
 import { trashBase } from "../data/trash.js";
 import { publishCatalog } from "../realtime/channels.js";
 import type { Context } from "./context.js";
-import { authorize, guardBase, handle } from "./guard.js";
+import { authorize, baseAccess, guardBase, handle } from "./guard.js";
 import { procedure, requestNames } from "./init.js";
 import { queueDeps } from "./jobs-router.js";
 import { encryptSecret } from "../auth/crypto.js";
@@ -379,13 +379,16 @@ export const catalogBaseProcedures = {
         return { users: await listCollaborators(ctx.db, input.baseId) };
       }),
     ),
-  templates: procedure.query(() =>
-    BASE_TEMPLATES.map((template) => ({
-      id: template.id,
-      name: template.name,
-      description: template.description,
-      tables: template.tables.map((table) => table.name),
-    })),
+  templates: procedure.query(({ ctx }) =>
+    handle(ctx, async () => {
+      await authorize(ctx);
+      return BASE_TEMPLATES.map((template) => ({
+        id: template.id,
+        name: template.name,
+        description: template.description,
+        tables: template.tables.map((table) => table.name),
+      }));
+    }),
   ),
   sourceHomes: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
@@ -640,8 +643,9 @@ export const catalogBaseProcedures = {
     .input(restoreBaseJobInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
+        const actor = await authorize(ctx);
         const point = await findRestorePoint(ctx.db, input.restorePointId);
-        const { user } = await guardBase(ctx, point.baseId, "manage");
+        const { user } = await baseAccess(ctx, actor, point.baseId, "manage");
         await authorize(ctx, true);
         const base = await ctx.db
           .selectFrom("bases")
@@ -667,8 +671,9 @@ export const catalogBaseProcedures = {
     .input(restorePointIdInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
+        const actor = await authorize(ctx);
         const point = await findRestorePoint(ctx.db, input.restorePointId);
-        await guardBase(ctx, point.baseId, "manage");
+        await baseAccess(ctx, actor, point.baseId, "manage");
         await deleteRestorePoint(ctx.db, ctx.files, point.id, (error) =>
           ctx.req.log.error({ err: error }, "restore point file delete failed"),
         );

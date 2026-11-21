@@ -27,7 +27,13 @@ import {
 import { insertTable, reorderTables, updateTable } from "../data/schema-ops.js";
 import { trashTable } from "../data/trash.js";
 import { publishCatalog } from "../realtime/channels.js";
-import { guardBase, guardTable, handle } from "./guard.js";
+import {
+  authorize,
+  baseAccess,
+  guardBase,
+  guardTable,
+  handle,
+} from "./guard.js";
 import { procedure, requestNames } from "./init.js";
 import { queueDeps } from "./jobs-router.js";
 import { logPublish } from "./catalog-shared.js";
@@ -103,13 +109,14 @@ export const catalogTableProcedures = {
     .input(updateFolderInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
+        const actor = await authorize(ctx);
         const folder = await ctx.db
           .selectFrom("tableFolders")
           .select(["id", "baseId", "deletedAt"])
           .where("id", "=", input.folderId)
           .executeTakeFirst();
         if (!folder || folder.deletedAt) throw new AppError("unknown_folder");
-        const { user } = await guardBase(ctx, folder.baseId, "manage");
+        const { user } = await baseAccess(ctx, actor, folder.baseId, "manage");
         const updated = await updateFolder(ctx.db, user.id, input);
         await publishCatalog(ctx.bus, folder.baseId, logPublish(ctx));
         return updated;
@@ -119,13 +126,14 @@ export const catalogTableProcedures = {
     .input(deleteFolderInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
+        const actor = await authorize(ctx);
         const folder = await ctx.db
           .selectFrom("tableFolders")
           .select(["id", "baseId", "deletedAt"])
           .where("id", "=", input.folderId)
           .executeTakeFirst();
         if (!folder || folder.deletedAt) throw new AppError("unknown_folder");
-        const { user } = await guardBase(ctx, folder.baseId, "manage");
+        const { user } = await baseAccess(ctx, actor, folder.baseId, "manage");
         await deleteFolder(ctx.db, user.id, input.folderId);
         await publishCatalog(ctx.bus, folder.baseId, logPublish(ctx));
         return { ok: true as const };
@@ -156,13 +164,14 @@ export const catalogTableProcedures = {
     .input(reorderFolderTablesInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
+        const actor = await authorize(ctx);
         const folder = await ctx.db
           .selectFrom("tableFolders")
           .select(["id", "baseId", "deletedAt"])
           .where("id", "=", input.folderId)
           .executeTakeFirst();
         if (!folder || folder.deletedAt) throw new AppError("unknown_folder");
-        const { user } = await guardBase(ctx, folder.baseId, "manage");
+        const { user } = await baseAccess(ctx, actor, folder.baseId, "manage");
         await reorderFolderTables(ctx.db, user.id, input.folderId, input.order);
         await publishCatalog(ctx.bus, folder.baseId, logPublish(ctx));
         return { ok: true as const };

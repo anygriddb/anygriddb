@@ -19,7 +19,7 @@ import {
   type AutomationDeps,
 } from "../automations.js";
 import type { Context } from "./context.js";
-import { guardTable, handle } from "./guard.js";
+import { authorize, guardTable, handle, tableAccess } from "./guard.js";
 import { procedure, t } from "./init.js";
 import { liveColumn, liveView } from "../data/live.js";
 import { resolveSmtp } from "../integrations/smtp.js";
@@ -100,8 +100,14 @@ export const automationsRouter = t.router({
     .input(updateAutomationInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
+        const actor = await authorize(ctx);
         const tableId = await automationTableId(ctx.db, input.automationId);
-        const { user, table } = await guardTable(ctx, tableId, "manage");
+        const { user, table } = await tableAccess(
+          ctx,
+          actor,
+          tableId,
+          "manage",
+        );
         await assertAutomation(ctx.db, table, input);
         if (input.trigger.type === "form_submitted") {
           await assertFormView(ctx, table.id, input.trigger.viewId);
@@ -129,8 +135,9 @@ export const automationsRouter = t.router({
     .input(z.object({ automationId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardTable(
+        const { user } = await tableAccess(
           ctx,
+          await authorize(ctx),
           await automationTableId(ctx.db, input.automationId),
           "manage",
         );
@@ -148,8 +155,9 @@ export const automationsRouter = t.router({
     .input(z.object({ automationId: z.uuid(), enabled: z.boolean() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardTable(
+        const { user } = await tableAccess(
           ctx,
+          await authorize(ctx),
           await automationTableId(ctx.db, input.automationId),
           "manage",
         );
@@ -166,8 +174,9 @@ export const automationsRouter = t.router({
     .input(z.object({ automationId: z.uuid() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardTable(
+        const { user } = await tableAccess(
           ctx,
+          await authorize(ctx),
           await automationTableId(ctx.db, input.automationId),
           "manage",
         );
@@ -184,8 +193,9 @@ export const automationsRouter = t.router({
     )
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        await guardTable(
+        await tableAccess(
           ctx,
+          await authorize(ctx),
           await automationTableId(ctx.db, input.automationId),
           "manage",
         );
@@ -199,8 +209,9 @@ export const automationsRouter = t.router({
     .input(z.object({ automationId: z.uuid(), rowId: z.uuid().optional() }))
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardTable(
+        const { user } = await tableAccess(
           ctx,
+          await authorize(ctx),
           await automationTableId(ctx.db, input.automationId),
           "manage",
         );
