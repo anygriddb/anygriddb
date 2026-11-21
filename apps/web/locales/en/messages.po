@@ -11902,6 +11902,10 @@ msgid "This field appears twice"
 msgstr "This field appears twice"
 
 #: lib/errors.ts
+msgid "This field holds long text its database cannot sort, group, or compare"
+msgstr "This field holds long text its database cannot sort, group, or compare"
+
+#: lib/errors.ts
 msgid "This field is computed"
 msgstr "This field is computed"
 
@@ -11928,6 +11932,10 @@ msgstr "This field needs a reason, kept in the audit trail."
 #: lib/errors.ts
 msgid "This field takes no negative number"
 msgstr "This field takes no negative number"
+
+#: lib/errors.ts
+msgid "This figure is too large for the client's database to compute"
+msgstr "This figure is too large for the client's database to compute"
 
 #: lib/errors.ts
 msgid "This file has more rows than this instance imports at once: split it first"

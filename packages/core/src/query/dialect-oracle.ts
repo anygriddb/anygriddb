@@ -325,7 +325,8 @@ export const ORACLE: SqlDialect = {
         : unit === "quarter"
           ? `trunc(${date}, 'Q')`
           : `trunc(${date}, 'YYYY')`,
-  daysBetween: (end, start) => `(${end} - ${start})`,
+  // A date minus a date is a type of its own, which JSON_OBJECT refuses.
+  daysBetween: (end, start) => `to_number(${end} - ${start})`,
   secondsBetween: (end, start) =>
     `(extract(day from (${end} - ${start})) * 86400 + extract(hour from (${end} - ${start})) * 3600 + extract(minute from (${end} - ${start})) * 60 + extract(second from (${end} - ${start})))`,
   // Case folded, as PostgreSQL's ILIKE; a blank matches nothing, and its
@@ -358,6 +359,15 @@ export const ORACLE: SqlDialect = {
     `exists (select 1 from json_table(${sql}, '$[*]' columns (label varchar2(4000) path '$.label')) e where lower(e.label) like lower(${pattern}) escape '\\')`,
   linksIdIn: (sql, list) =>
     `exists (select 1 from json_table(${sql}, '$[*]' columns (id varchar2(1000) path '$.id')) e where e.id in (${list}))`,
+  holdsLargeObject: (physical) => /^n?clob$/.test(typeName(physical.type)),
+  storedError: (ref, physical) => {
+    const type = typeName(physical.type);
+    return type === "binary_float" ||
+      type === "binary_double" ||
+      type === "float"
+      ? `(case when ${ref} is not null and not abs(${ref}) < 1e28 then to_char(${ref}) end)`
+      : undefined;
+  },
   readColumn: (ref, fieldType, physical) => {
     const type = typeName(physical.type);
     if (
@@ -365,8 +375,17 @@ export const ORACLE: SqlDialect = {
       type === "binary_double" ||
       type === "float"
     ) {
-      return `cast(${ref} as number(38,10))`;
+      // Past what NUMBER(38,10) holds, or not a number: read empty, and
+      // said beside it (`storedError`). Cast, it would stop the page.
+      return `(case when abs(${ref}) < 1e28 then cast(${ref} as number(38,10)) end)`;
     }
+    // Read-only types shown as text (`mapOracleType`), read as text.
+    if (type === "boolean") {
+      return `(case when ${ref} then 1 when not ${ref} then 0 end)`;
+    }
+    if (type.startsWith("interval")) return `to_char(${ref})`;
+    if (type === "raw") return `rawtohex(${ref})`;
+    if (type === "blob") return `rawtohex(dbms_lob.substr(${ref}, 2000))`;
     // A DATE also holds a time of day: a date field reads the day alone.
     if (fieldType === "date") return `trunc(${ref})`;
     if (fieldType !== "datetime") return ref;

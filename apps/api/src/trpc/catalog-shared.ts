@@ -125,6 +125,7 @@ export function publicColumns(engine: EngineCatalog, rows: CatalogRows) {
       /** A lookup's or a rollup's durations: the format to show them in. */
       duration: described?.duration ?? null,
       noGroup: described?.noGroup === true,
+      noCompare: described?.noCompare === true,
       formulaSource: config.expr ? formatFormula(config.expr, refs) : null,
       relation: relation
         ? {

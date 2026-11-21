@@ -11,7 +11,7 @@ import type { CatalogColumn } from "../../lib/types";
 
 /** Rows can be sorted by the field. */
 export function canSortBy(column: CatalogColumn): boolean {
-  return !column.controlPlane;
+  return !column.controlPlane && !column.noCompare;
 }
 
 /**

@@ -25,6 +25,8 @@ export type ColumnRef = {
    */
   expression?: string;
   elem?: ScalarKind;
+  /** Held as a large object: a pattern reads it, an equality does not. */
+  noCompare?: boolean;
   /** Option names in display order, for single and multi selects. */
   options?: readonly string[];
   /**
@@ -49,6 +51,14 @@ export type FilterContext = {
   me?: string;
   columns: ReadonlyMap<string, ColumnRef>;
 };
+
+/** What asks an engine to compare a whole value with another. */
+export const COMPARING_OPERATORS: ReadonlySet<string> = new Set([
+  "is",
+  "is_not",
+  "is_any_of",
+  "is_none_of",
+]);
 
 export function refSql(name: string): string {
   return `q.${quoteIdent(name)}`;
@@ -308,6 +318,9 @@ export function compileCondition(
   if (!OPERATORS_BY_KIND[ref.kind].includes(condition.op)) {
     throw new AppError("invalid_filter");
   }
+  if (ref.noCompare && COMPARING_OPERATORS.has(condition.op)) {
+    throw new AppError("not_comparable", condition.column);
+  }
   const x = ref.expression ?? refSql(ref.name);
   const { op, value } = condition;
   const d = ctx.d;
@@ -348,7 +361,9 @@ export function compileCondition(
         case "contains":
           return `(${d.like(x, ctx.params.bind(likePattern(text, "contains")))})`;
         case "not_contains":
-          return `(not ${d.like(`coalesce(${x}, '')`, ctx.params.bind(likePattern(text, "contains")))})`;
+          // Not `coalesce(x, '')`: Oracle takes '' for NULL, and refuses
+          // to mix it with a national character column.
+          return `(${x} is null or not ${d.like(x, ctx.params.bind(likePattern(text, "contains")))})`;
         case "starts_with":
           return `(${d.like(x, ctx.params.bind(likePattern(text, "starts")))})`;
         case "ends_with":

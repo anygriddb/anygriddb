@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { EngineCatalog, EngineTable } from "./engine";
-import { buildReadRows } from "./read";
+import {
+  aggregatesOfField,
+  buildAggregates,
+  buildReadRows,
+  describeColumns,
+} from "./read";
 
 const customers: EngineTable = {
   id: "c",
@@ -259,6 +264,221 @@ describe("reading a client's table", () => {
       }).text;
       expect(zoned).not.toContain(`"ag_d0"`);
       expect(zoned).toMatch(/q\."shipped" <= cast\(\S+ as date\)/);
+    });
+  });
+
+  describe("a type its field cannot hold whole", () => {
+    const numberColumn = (
+      dialect: "sqlserver" | "oracle" | "mysql" | "mariadb",
+      physicalType: string,
+      name = "amount",
+    ): EngineCatalog => {
+      const table: EngineTable = {
+        id: "n",
+        storage: "external",
+        physicalName: "x_n",
+        external: {
+          sourceId: "s",
+          dialect,
+          schema: dialect === "sqlserver" ? "dbo" : "SALES",
+          name: "NUMBERS",
+          key: ["ID"],
+        },
+        columns: [
+          {
+            id: "n1",
+            name,
+            label: "Amount",
+            fieldType: "number",
+            config: {},
+            physical: {
+              name: name.toUpperCase(),
+              type: physicalType,
+              zone: "UTC",
+            },
+          },
+        ],
+      };
+      return { table, tables: new Map([["n", table]]), readable: () => true };
+    };
+
+    it("reads a SQL Server float past decimal(38,10) empty, and says so", () => {
+      const sql = buildReadRows(numberColumn("sqlserver", "float"), {
+        limit: 10,
+      }).text;
+      expect(sql).toContain(
+        `(case when abs(r."AMOUNT") < 1e28 then cast(r."AMOUNT" as decimal(38,10)) end) as "amount"`,
+      );
+      expect(sql).toContain(
+        `(case when abs(r."AMOUNT") >= 1e28 then convert(varchar(32), r."AMOUNT", 2) end)`,
+      );
+    });
+
+    it("reads an Oracle binary float the same way", () => {
+      const sql = buildReadRows(numberColumn("oracle", "binary_double"), {
+        limit: 10,
+      }).text;
+      expect(sql).toContain(
+        `(case when abs(r."AMOUNT") < 1e28 then cast(r."AMOUNT" as number(38,10)) end) as "amount"`,
+      );
+      expect(sql).toContain(
+        `(case when r."AMOUNT" is not null and not abs(r."AMOUNT") < 1e28 then to_char(r."AMOUNT") end)`,
+      );
+    });
+
+    it("reads SQL Server geography as its well-known text", () => {
+      const table: EngineTable = {
+        id: "g",
+        storage: "external",
+        physicalName: "x_g",
+        external: {
+          sourceId: "s",
+          dialect: "sqlserver",
+          schema: "dbo",
+          name: "PLACES",
+          key: ["ID"],
+        },
+        columns: [
+          {
+            id: "g1",
+            name: "shape",
+            label: "Shape",
+            fieldType: "text",
+            config: {},
+            physical: { name: "SHAPE", type: "geography", zone: "UTC" },
+          },
+        ],
+      };
+      const sql = buildReadRows(
+        { table, tables: new Map([["g", table]]), readable: () => true },
+        { limit: 10 },
+      ).text;
+      expect(sql).toContain(`r."SHAPE".STAsText() as "shape"`);
+    });
+
+    it("reads a MySQL bit as binary text and a geometry as its text", () => {
+      const table: EngineTable = {
+        id: "m",
+        storage: "external",
+        physicalName: "x_m",
+        external: {
+          sourceId: "s",
+          dialect: "mysql",
+          schema: "sales",
+          name: "flags",
+          key: ["id"],
+        },
+        columns: [
+          {
+            id: "m1",
+            name: "flags",
+            label: "Flags",
+            fieldType: "text",
+            config: {},
+            physical: { name: "flags", type: "bit(4)", zone: "UTC" },
+          },
+          {
+            id: "m2",
+            name: "place",
+            label: "Place",
+            fieldType: "text",
+            config: {},
+            physical: { name: "place", type: "point", zone: "UTC" },
+          },
+        ],
+      };
+      const sql = buildReadRows(
+        { table, tables: new Map([["m", table]]), readable: () => true },
+        { limit: 10 },
+      ).text;
+      expect(sql).toContain(`lpad(bin(r."flags"), 4, '0') as "flags"`);
+      expect(sql).toContain(`st_astext(r."place") as "place"`);
+    });
+
+    it("sums SQL Server's whole numbers and money as decimals", () => {
+      for (const type of ["int", "bigint", "smallint", "tinyint", "money"]) {
+        const sql = buildAggregates(numberColumn("sqlserver", type), {}, [
+          { column: "amount", fn: "sum" },
+          { column: "amount", fn: "avg" },
+        ]).text;
+        expect(sql).toContain(`sum(cast(q."amount" as decimal(38,10)))`);
+        expect(sql).toContain(`avg(cast(q."amount" as decimal(38,10)))`);
+      }
+      const exact = buildAggregates(
+        numberColumn("sqlserver", "decimal(12,2)"),
+        {},
+        [{ column: "amount", fn: "sum" }],
+      ).text;
+      expect(exact).toContain(`sum(q."amount")`);
+    });
+
+    it("compares no large object on Oracle, and says so of the field", () => {
+      const catalog = numberColumn("oracle", "clob");
+      const [column] = catalog.table.columns;
+      if (column) column.fieldType = "long_text";
+      expect(describeColumns(catalog)[0]).toMatchObject({
+        noCompare: true,
+        noGroup: true,
+      });
+      const refused = { code: "not_comparable" };
+      expect(() =>
+        buildReadRows(catalog, {
+          limit: 5,
+          sort: [{ column: "amount", direction: "asc" }],
+        }),
+      ).toThrow(expect.objectContaining(refused));
+      expect(() =>
+        buildReadRows(catalog, {
+          limit: 5,
+          filter: {
+            conjunction: "and",
+            conditions: [{ column: "amount", op: "is", value: "a" }],
+          },
+        }),
+      ).toThrow(expect.objectContaining(refused));
+      expect(() =>
+        buildAggregates(catalog, {}, [
+          { column: "amount", fn: "count_unique" },
+        ]),
+      ).toThrow(expect.objectContaining(refused));
+      // A pattern reads it, and so does a count of what is filled.
+      expect(
+        buildReadRows(catalog, {
+          limit: 5,
+          filter: {
+            conjunction: "and",
+            conditions: [{ column: "amount", op: "contains", value: "a" }],
+          },
+        }).text,
+      ).toContain("like");
+      expect(() =>
+        buildAggregates(catalog, {}, [
+          { column: "amount", fn: "count_filled" },
+        ]),
+      ).not.toThrow();
+      expect(
+        aggregatesOfField({ kind: "text", noCompare: true }),
+      ).not.toContain("count_unique");
+      expect(aggregatesOfField({ kind: "text" })).toContain("count_unique");
+    });
+
+    it("reads what Oracle and SQL Server show as text, as text", () => {
+      const read = (dialect: "oracle" | "sqlserver", type: string) =>
+        buildReadRows(numberColumn(dialect, type), { limit: 5 }).text;
+      expect(read("oracle", "raw(8)")).toContain(`rawtohex(r."AMOUNT")`);
+      expect(read("oracle", "blob")).toContain("dbms_lob.substr");
+      expect(read("oracle", "interval day(2) to second(6)")).toContain(
+        `to_char(r."AMOUNT")`,
+      );
+      expect(read("oracle", "boolean")).toContain(
+        `case when r."AMOUNT" then 1 when not r."AMOUNT" then 0 end`,
+      );
+      expect(read("sqlserver", "xml")).toContain("as nvarchar(max))");
+      expect(read("sqlserver", "hierarchyid")).toContain(".ToString()");
+      expect(read("sqlserver", "uniqueidentifier")).toContain("as char(36))");
+      expect(read("sqlserver", "sql_variant")).toContain("as nvarchar(4000))");
+      expect(read("sqlserver", "rowversion")).toContain("varchar(18)");
+      expect(read("sqlserver", "time(7)")).toContain("as varchar(16))");
     });
   });
 });

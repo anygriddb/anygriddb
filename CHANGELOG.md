@@ -10,6 +10,14 @@ first.
 
 ### Fixed
 
+- A client's table whose engine holds uncommon types is read without
+  stopping the page: a float past what a decimal can hold reads empty
+  and is said beside the cell; SQL Server geography, hierarchyid, xml
+  and the like, and MySQL bit and spatial types, read as text; a sum or
+  mean of a whole number on SQL Server is taken as a decimal so it does
+  not overflow; an Oracle CLOB is not sorted, grouped or compared by
+  equality (patterns and counts still work); a figure past what the
+  engine computes leaves that figure empty beside the others.
 - "Duplicate field" works on a table of a client's database: the copy
   is one of AnyGridDB's own fields beside the client's rows, and holds
   what the field held. The copy was made empty, and the page read

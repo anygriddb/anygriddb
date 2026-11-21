@@ -257,6 +257,8 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   external_table_schema: msg`AnyGridDB does not change a client's table: this field cannot be added or changed there`,
   source_watch_column: msg`This column does not tell when a row changes: choose a date and time set on every change, or a rowversion`,
   source_watch_unavailable: msg`Change Tracking is off on this table, or the account lacks VIEW CHANGE TRACKING`,
+  source_number_overflow: msg`This figure is too large for the client's database to compute`,
+  not_comparable: msg`This field holds long text its database cannot sort, group, or compare`,
   control_plane_sort: msg`This field is kept in AnyGridDB: it cannot sort or group a live client table`,
   control_plane_filter: msg`This field is kept in AnyGridDB: on a live client table it filters only a view, with AND, by equality or emptiness`,
   control_plane_formula: msg`This field is kept in AnyGridDB: formulas, lookups, and rollups cannot read it`,

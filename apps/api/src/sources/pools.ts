@@ -132,6 +132,9 @@ function postgresReadError(error: unknown, log: Log): AppError {
   // undefined_table, undefined_column: the schema moved under the catalog.
   if (code === "42P01" || code === "42703")
     return new AppError("source_schema_changed", { cause: error });
+  if (code === "22003") {
+    return new AppError("source_number_overflow", { cause: error });
+  }
   const mapped = postgresSourceError(error);
   if (mapped.code !== "source_unreachable" || code === undefined) {
     if (mapped.code === "source_unreachable") log(error);
@@ -154,6 +157,9 @@ function mysqlReadError(error: unknown, log: Log): AppError {
       : undefined;
   if (code === "ER_NO_SUCH_TABLE" || code === "ER_BAD_FIELD_ERROR")
     return new AppError("source_schema_changed", { cause: error });
+  if (code === "ER_DATA_OUT_OF_RANGE") {
+    return new AppError("source_number_overflow", { cause: error });
+  }
   const mapped = mysqlSourceError(error);
   if (mapped.code !== "source_unreachable") return mapped;
   log(error);
@@ -486,6 +492,10 @@ function sqlServerReadError(raised: unknown, log: Log): AppError {
   // out of internal resources. Both mean a query too complex to compile.
   if (number === 8632 || number === 8623)
     return new AppError("source_query_too_complex", { cause: error });
+  // 8115: arithmetic overflow.
+  if (number === 8115) {
+    return new AppError("source_number_overflow", { cause: error });
+  }
   const mapped = sqlServerSourceError(error);
   if (mapped.code !== "source_unreachable") return mapped;
   log(error);
@@ -639,6 +649,10 @@ function oracleReadError(raised: unknown, log: Log): AppError {
   // 942: no such table or view; 904: no such column.
   if (number === 942 || number === 904) {
     return new AppError("source_schema_changed", { cause: raised });
+  }
+  // 1426: numeric overflow; 1438, 1455: a value past its column's type.
+  if (number === 1426 || number === 1438 || number === 1455) {
+    return new AppError("source_number_overflow", { cause: raised });
   }
   const mapped = oracleSourceError(raised);
   if (mapped.code !== "source_unreachable") return mapped;

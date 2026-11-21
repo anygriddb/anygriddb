@@ -1,8 +1,4 @@
-import {
-  aggregateFunctionsFor,
-  cellText,
-  type FilterKind,
-} from "@anygriddb/core";
+import { aggregatesOfField, cellText, type FilterKind } from "@anygriddb/core";
 import { cellDisplay } from "../../lib/format";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
 
@@ -63,7 +59,7 @@ export function fieldKept(
  * a number, a date.
  */
 export function measurableFields<
-  Field extends { kind: FilterKind; fieldType: string },
+  Field extends { kind: FilterKind; fieldType: string; noCompare?: boolean },
 >(fields: readonly Field[], fn: string): readonly Field[] {
   if (fn === "count_all") return [];
   if (fn === "last") {
@@ -72,7 +68,7 @@ export function measurableFields<
     );
   }
   return fields.filter((field) =>
-    aggregateFunctionsFor(field.kind).some((allowed) => allowed === fn),
+    aggregatesOfField(field).some((allowed) => allowed === fn),
   );
 }
 

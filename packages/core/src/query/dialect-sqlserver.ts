@@ -24,6 +24,16 @@ function exact(sql: string): string {
   return `cast(${sql} as nvarchar(max)) collate ${BIN}`;
 }
 
+/** Types a sum would keep, to overflow, or a mean round to a whole number. */
+const WHOLE_OR_MONEY: ReadonlySet<string> = new Set([
+  "tinyint",
+  "smallint",
+  "int",
+  "bigint",
+  "money",
+  "smallmoney",
+]);
+
 const unavailable = (what: string): never => {
   throw new AppError("function_unavailable", what);
 };
@@ -369,8 +379,33 @@ export const SQLSERVER: SqlDialect = {
     `exists (select 1 from openjson(${sql}) with (id nvarchar(1000) '$.id') e where e.id in (${list}))`,
   readColumn: (ref, fieldType, physical) => {
     const type = typeName(physical.type);
-    if (type === "float" || type === "real")
-      return `cast(${ref} as decimal(38,10))`;
+    // A float past what decimal(38,10) holds reads empty, and is said
+    // beside it (`storedError`): cast, it would stop the whole page.
+    if (type === "float" || type === "real") {
+      return `(case when abs(${ref}) < 1e28 then cast(${ref} as decimal(38,10)) end)`;
+    }
+    // Read-only types shown as text (`mapSqlServerType`), read as text:
+    // FOR JSON writes no CLR type, and none of these compares with one.
+    switch (type) {
+      case "geography":
+      case "geometry":
+        return `${ref}.STAsText()`;
+      case "hierarchyid":
+        return `${ref}.ToString()`;
+      case "xml":
+        return `cast(${ref} as nvarchar(max))`;
+      case "sql_variant":
+        return `cast(${ref} as nvarchar(4000))`;
+      case "uniqueidentifier":
+        return `cast(${ref} as char(36))`;
+      case "time":
+        return `cast(${ref} as varchar(16))`;
+      case "timestamp":
+      case "rowversion":
+        return `convert(varchar(18), ${ref}, 1)`;
+      default:
+        break;
+    }
     // The old large types can be neither compared, sorted, nor grouped.
     if (type === "text" || type === "ntext") {
       return `cast(${ref} as nvarchar(max))`;
@@ -383,6 +418,17 @@ export const SQLSERVER: SqlDialect = {
     // A datetime without a zone is in the source's.
     if (physical.zone === "UTC") return `cast(${ref} as datetime2(7))`;
     return `cast((${ref} at time zone ${zoneLiteral(physical.zone)}) at time zone 'UTC' as datetime2(7))`;
+  },
+  // SUM(int) stays an int and overflows; AVG(int) drops the fraction.
+  summed: (sql, physical) =>
+    WHOLE_OR_MONEY.has(typeName(physical.type))
+      ? `cast(${sql} as decimal(38,10))`
+      : sql,
+  storedError: (ref, physical) => {
+    const type = typeName(physical.type);
+    return type === "float" || type === "real"
+      ? `(case when abs(${ref}) >= 1e28 then convert(varchar(32), ${ref}, 2) end)`
+      : undefined;
   },
   keyId: (columns) =>
     columns.length === 1

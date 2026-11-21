@@ -1,5 +1,6 @@
 import {
   DATE_MODES,
+  COMPARING_OPERATORS,
   filterOperatorsFor,
   MAX_FILTER_CONDITIONS,
   MAX_FILTER_DEPTH,
@@ -87,6 +88,10 @@ export function operatorsFor(column: CatalogColumn): FilterOperator[] {
   }
   const ops = filterOperatorsFor(column.kind);
   if (column.kind === "links") return ops.filter((op) => !SET_OPS.has(op));
+  // Long text its database holds apart: a pattern reads it, "is" cannot.
+  if (column.noCompare) {
+    return ops.filter((op) => !COMPARING_OPERATORS.has(op));
+  }
   if (column.kind === "text" && column.fieldType !== "single_select") {
     return ops.filter((op) => op !== "is_any_of" && op !== "is_none_of");
   }
