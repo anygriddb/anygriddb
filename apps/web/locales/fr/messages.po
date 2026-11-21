@@ -12582,6 +12582,8 @@ msgstr "Faire confiance au second facteur du fournisseur d’identité"
 msgid "Trusted proxies"
 msgstr "Proxys de confiance"
 
+#: components/dashboards/dashboard-board.tsx
+#: components/dashboards/view-widget.tsx
 #: components/grid/rows-error.tsx
 #: components/shell/load-failed.tsx
 msgid "Try again"

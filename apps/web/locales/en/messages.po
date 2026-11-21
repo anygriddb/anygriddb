@@ -12582,6 +12582,8 @@ msgstr "Trust the identity provider's second factor"
 msgid "Trusted proxies"
 msgstr "Trusted proxies"
 
+#: components/dashboards/dashboard-board.tsx
+#: components/dashboards/view-widget.tsx
 #: components/grid/rows-error.tsx
 #: components/shell/load-failed.tsx
 msgid "Try again"

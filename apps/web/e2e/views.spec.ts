@@ -610,6 +610,27 @@ test.describe("a dashboard", () => {
     ).toBeLessThanOrEqual(390);
     expect(await accessibilityViolations(page)).toEqual([]);
     await page.setViewportSize({ width: 1280, height: 720 });
+    // A figure that could not be read says so, keeps the icon of its kind,
+    // and is read again when asked.
+    const isFigure = (url: URL) =>
+      url.pathname.includes("dashboards.widgetData");
+    await page.route(isFigure, (route) => route.abort());
+    await page.reload();
+    // Out of arranging, a widget is found by its heading.
+    const billed = page.getByRole("article").filter({
+      has: page.getByRole("heading", { name: "Billed", exact: true }),
+    });
+    const again = billed.getByRole("button", { name: "Try again" });
+    await expect(again).toBeVisible();
+    await expect(billed.locator("svg.lucide-hash")).toBeVisible();
+    await expect(billed.getByText("€1,334.70")).toHaveCount(0);
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.unroute(isFigure);
+    await again.click();
+    await expect(billed.getByText("€1,334.70")).toBeVisible();
+    await expect(again).toHaveCount(0);
+    await page.reload();
+    await expect(sample.getByRole("link", { name: "Bravo" })).toBeVisible();
     // A row's name opens that row in its table.
     await sample.getByRole("link", { name: "Bravo" }).click();
     await expect(

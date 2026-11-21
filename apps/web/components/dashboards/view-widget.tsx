@@ -1,5 +1,5 @@
 import { cellText } from "@anygriddb/core";
-import { Spinner } from "@anygriddb/ui";
+import { Button, Spinner } from "@anygriddb/ui";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery } from "@tanstack/react-query";
@@ -78,7 +78,19 @@ export function ViewWidget(props: {
     );
   }
   if (read.error) {
-    return <p className="text-sm text-danger">{errorText(read.error)}</p>;
+    return (
+      <div className="flex h-full flex-col items-start justify-center gap-2">
+        <p className="text-sm text-danger">{errorText(read.error)}</p>
+        <Button
+          size="xs"
+          variant="outline"
+          disabled={read.isFetching}
+          onClick={() => void read.refetch()}
+        >
+          {t`Try again`}
+        </Button>
+      </div>
+    );
   }
   const rows: readonly RowItem[] = read.data?.rows ?? [];
   const leftOut = rowsLeftOut(rows.length, read.data?.total);
