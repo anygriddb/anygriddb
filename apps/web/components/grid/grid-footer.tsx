@@ -125,7 +125,7 @@ export function GridFooter(props: {
           >
             <button
               type="button"
-              className="underline decoration-dotted underline-offset-2 hover:text-foreground"
+              className="min-h-6 underline decoration-dotted underline-offset-2 hover:text-foreground"
               onClick={props.estimated.onCount}
             >
               {plural(props.total, { one: `≈ # row`, other: `≈ # rows` })}

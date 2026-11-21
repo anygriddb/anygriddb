@@ -73,6 +73,12 @@ first.
   twice in Administration. A run that fails or is stopped keeps nothing
   of what it had written, where it left a folder with part of a dump;
   and what a run writes is its owner's alone from the first byte.
+- On SQL Server, a field held in the old `text`, `ntext` or `image` types
+  can be sorted and grouped: the rows could not be read. On Oracle, a link field
+  is no longer offered for grouping, which that engine cannot do.
+- "Duplicate field" is offered only on a table that can take the copy:
+  not on a store read from a copy, nor on a table with no primary key.
+- The count of rows a client's database estimates is 24 pixels to press.
 - A new install's database log holds no error from the first start.
   The instance asked for the job queue's first table before making it,
   and PostgreSQL wrote the refusal at every new install:

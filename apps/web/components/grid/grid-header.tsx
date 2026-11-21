@@ -58,6 +58,8 @@ export function GridHeader(props: {
   padStart: number;
   width: number;
   canManage: boolean;
+  /** The table can take a field of AnyGridDB's own, as a copy is. */
+  canDuplicateField: boolean;
   allChecked: boolean;
   /** How many loaded rows the header checkbox selects (not the whole view). */
   loadedCount: number;
@@ -179,8 +181,9 @@ export function GridHeader(props: {
                   <ArrowRightToLine className="h-4 w-4" aria-hidden />
                   {t`Insert right`}
                 </DropdownMenuItem>
-                {isWritableType(column.fieldType) ||
-                column.fieldType === "formula" ? (
+                {props.canDuplicateField &&
+                (isWritableType(column.fieldType) ||
+                  column.fieldType === "formula") ? (
                   <DropdownMenuItem
                     onSelect={() => props.onAction("duplicate", column, index)}
                   >

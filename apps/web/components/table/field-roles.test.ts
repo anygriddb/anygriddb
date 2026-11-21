@@ -31,6 +31,15 @@ const keptStage = field("kept_stage", "single_select", "text", true);
 const keptDay = field("kept_day", "date", "date", true);
 
 describe("what a field can do for a view", () => {
+  it("groups by nothing the table's engine cannot compare", () => {
+    const links = {
+      ...field("albums", "relation_one_to_many", "links"),
+      noGroup: true,
+    } as CatalogColumn;
+    expect(canSortBy(links)).toBe(true);
+    expect(canGroupBy(links)).toBe(false);
+  });
+
   it("sorts and groups rows, files apart, which make no group", () => {
     expect(canSortBy(name)).toBe(true);
     expect(canGroupBy(name)).toBe(true);

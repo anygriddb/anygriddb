@@ -669,3 +669,66 @@ describe("buildGroupAggregates", () => {
     expect(ORACLE.startOf("d", "quarter")).toBe("trunc(d, 'Q')");
   });
 });
+
+describe("what an engine cannot compare", () => {
+  const external = (dialect: "oracle" | "sqlserver", type: string) => {
+    // A copy: the fixture's table is shared with every other test.
+    const shared = catalogFor();
+    const catalog = {
+      ...shared,
+      table: {
+        ...shared.table,
+        columns: shared.table.columns.map((column) => ({ ...column })),
+      },
+    };
+    const title = catalog.table.columns.find((item) => item.name === "title");
+    if (title)
+      title.physical = {
+        name: "TITLE",
+        type,
+        zone: "UTC",
+      };
+    catalog.table.external = {
+      sourceId: "s",
+      dialect,
+      schema: "dbo",
+      name: "T",
+      key: ["ID"],
+    };
+    catalog.table.storage = "external";
+    return catalog;
+  };
+
+  it("groups no links on Oracle, and says so of the field", () => {
+    const catalog = external("oracle", "varchar2(50)");
+    const links = describeColumns(catalog).find((c) => c.kind === "links");
+    expect(links?.noGroup).toBe(true);
+    expect(() =>
+      buildReadRows(catalog, {
+        limit: 5,
+        groupBy: [{ column: links?.name ?? "", direction: "asc" }],
+      }),
+    ).toThrow(expect.objectContaining({ code: "invalid_group" }));
+    const elsewhere = describeColumns(catalogFor()).find(
+      (c) => c.kind === "links",
+    );
+    expect(elsewhere?.noGroup).toBeUndefined();
+  });
+
+  it("reads SQL Server's old large texts as text it can sort", () => {
+    for (const type of ["ntext", "text"]) {
+      const page = buildReadRows(external("sqlserver", type), {
+        limit: 5,
+        sort: [{ column: "title", direction: "asc" }],
+      });
+      expect(page.text).toContain('cast(r."TITLE" as nvarchar(max))');
+    }
+    expect(
+      buildReadRows(external("sqlserver", "image"), { limit: 5 }).text,
+    ).toContain('cast(r."TITLE" as varbinary(max))');
+    const page = buildReadRows(external("sqlserver", "nvarchar(50)"), {
+      limit: 5,
+    });
+    expect(page.text).not.toContain('cast(r."TITLE" as nvarchar(max))');
+  });
+});
