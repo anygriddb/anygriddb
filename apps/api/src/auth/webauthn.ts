@@ -8,6 +8,8 @@ import {
 } from "@simplewebauthn/server";
 import type { Database } from "@anygriddb/db";
 import type { Env } from "../env.js";
+import { factorMethods } from "./access.js";
+import { recordAuthEvent } from "./auth-events.js";
 import { relyingParty } from "./relying-party.js";
 import { AppError } from "@anygriddb/core";
 
@@ -205,4 +207,55 @@ export async function finishAuthentication(
     .set({ counter: nextCounter })
     .where("id", "=", stored.id)
     .execute();
+}
+
+/** An account's passkeys, oldest first: when each came, never its key. */
+export async function listPasskeys(
+  db: Database,
+  userId: string,
+): Promise<Array<{ id: string; createdAt: string }>> {
+  const rows = await db
+    .selectFrom("webauthnCredentials")
+    .select(["id", "createdAt"])
+    .where("userId", "=", userId)
+    .orderBy("createdAt")
+    .orderBy("id")
+    .execute();
+  return rows.map((row) => ({
+    id: row.id,
+    createdAt: row.createdAt.toISOString(),
+  }));
+}
+
+/**
+ * Takes a passkey off its own account, as for a key that was lost. With no
+ * second factor left, the backup codes go with it: the next factor set up
+ * issues new ones, and old codes must not outlive what they stood in for.
+ */
+export async function removePasskey(
+  db: Database,
+  userId: string,
+  passkeyId: string,
+  ip?: string,
+): Promise<void> {
+  await db.transaction().execute(async (tx) => {
+    const removed = await tx
+      .deleteFrom("webauthnCredentials")
+      .where("id", "=", passkeyId)
+      .where("userId", "=", userId)
+      .returning("id")
+      .executeTakeFirst();
+    if (!removed) throw new AppError("not_found");
+    if ((await factorMethods(tx, userId)).length === 0) {
+      await tx.deleteFrom("backupCodes").where("userId", "=", userId).execute();
+    }
+    await recordAuthEvent(tx, {
+      action: "factors_cleared",
+      userId,
+      actorId: userId,
+      method: "webauthn",
+      detail: "self_service",
+      ip,
+    });
+  });
 }

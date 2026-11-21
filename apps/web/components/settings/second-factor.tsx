@@ -1,12 +1,20 @@
 import { Button, Input, Label } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Download, KeyRound, Mail, Smartphone } from "lucide-react";
+import {
+  Copy,
+  Download,
+  KeyRound,
+  Mail,
+  Smartphone,
+  Trash2,
+} from "lucide-react";
 import { useMemo, useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
 import { encode } from "uqr";
 import { useCopy } from "../../lib/clipboard";
 import { datedName, downloadText } from "../../lib/download";
 import { useErrorText } from "../../lib/errors";
+import { useWhen } from "../../lib/i18n";
 import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { registerPasskey } from "../../lib/webauthn";
@@ -170,6 +178,16 @@ export function SecondFactorSetup({
     null,
   );
   const [passkeyProof, setPasskeyProof] = useState(false);
+  const when = useWhen();
+  const passkeys = useQuery({
+    ...api.auth.webauthn.list.queryOptions(),
+    enabled: methods.includes("webauthn"),
+  });
+  /** The passkey being taken off, by the words its line shows. */
+  const [removing, setRemoving] = useState<{
+    id: string;
+    label: string;
+  } | null>(null);
   // A code by email: the proof asked before one is sent, the code to
   // type once it is, or the proof asked to turn it off.
   const [emailStep, setEmailStep] = useState<
@@ -199,14 +217,20 @@ export function SecondFactorSetup({
   }
 
   async function refresh() {
-    await queryClient.invalidateQueries({
-      queryKey: api.session.current.queryKey(),
-    });
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: api.session.current.queryKey(),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: api.auth.webauthn.list.queryKey(),
+      }),
+    ]);
   }
 
   function close() {
     setSecret(null);
     setPasskeyProof(false);
+    setRemoving(null);
     setEmailStep(null);
     setCode("");
     setProofValue("");
@@ -229,6 +253,8 @@ export function SecondFactorSetup({
     await refresh();
     if (codes.length === 0) onDone?.();
   }
+
+  const removingLabel = removing?.label ?? "";
 
   if (backupCodes.length > 0) {
     return (
@@ -257,7 +283,80 @@ export function SecondFactorSetup({
           ) : null}
         </ul>
       ) : null}
-      {secret === null && !passkeyProof && emailStep === null ? (
+      {methods.includes("webauthn") && passkeys.data?.length ? (
+        <ul
+          aria-label={t`Your passkeys`}
+          className="flex max-w-md flex-col divide-y divide-border rounded-md border border-border text-sm"
+        >
+          {passkeys.data.map((passkey, index) => {
+            const place = index + 1;
+            const day = when.day(passkey.createdAt);
+            const label = t`Passkey ${place}, added on ${day}`;
+            return (
+              <li
+                key={passkey.id}
+                className="flex items-center justify-between gap-2 px-3 py-1"
+              >
+                <span className="flex items-center gap-2">
+                  <KeyRound className="h-4 w-4" aria-hidden />
+                  {label}
+                </span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={t`Remove passkey ${place}, added on ${day}`}
+                  disabled={removing !== null}
+                  onClick={() => {
+                    setProofValue("");
+                    setRemoving({ id: passkey.id, label });
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      {removing ? (
+        <form
+          className="flex max-w-md flex-col gap-3"
+          onSubmit={(event: SubmitEvent) => {
+            event.preventDefault();
+            void run(async () => {
+              await trpc.auth.webauthn.remove.mutate({
+                id: removing.id,
+                ...proofOf(passkeyProofKind),
+              });
+              toast.success(t`Passkey removed`);
+              close();
+              await refresh();
+            });
+          }}
+        >
+          <p className="text-sm">
+            {methods.length === 1 && passkeys.data?.length === 1
+              ? t`${removingLabel} is your only second factor. Your backup codes stop working with it.`
+              : t`${removingLabel} will no longer sign you in.`}
+          </p>
+          {passkeyProofKind ? (
+            <ProofField
+              kind={passkeyProofKind}
+              value={proofValue}
+              onChange={setProofValue}
+            />
+          ) : null}
+          <div className="flex gap-2">
+            <Button type="submit" variant="danger">
+              {t`Remove the passkey`}
+            </Button>
+            <Button type="button" variant="ghost" onClick={close}>
+              {t`Cancel`}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+      {secret === null && !passkeyProof && !removing && emailStep === null ? (
         <>
           <div className="flex flex-wrap gap-2">
             <Button
