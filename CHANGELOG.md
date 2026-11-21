@@ -8,6 +8,10 @@ first.
 
 ## Unreleased
 
+## 0.3.2 - 2026-11-21
+
+**Before upgrading:** nothing to do.
+
 ### Fixed
 
 - On a phone a map stands over the list of its points, each as wide as
