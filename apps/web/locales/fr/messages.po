@@ -2124,8 +2124,8 @@ msgid "Allowed CIDR ranges"
 msgstr "Plages CIDR autorisées"
 
 #: components/admin/sources-tab.tsx
-msgid "Allowed hosts: {hosts}"
-msgstr "Hôtes autorisés : {hosts}"
+msgid "Allowed hosts, set by ANYGRIDDB_SOURCES_ALLOWED_HOSTS: {hosts}"
+msgstr "Hôtes autorisés, définis par ANYGRIDDB_SOURCES_ALLOWED_HOSTS : {hosts}"
 
 #: components/auth/auth-page.tsx
 msgid "Already have an account? Sign in"
@@ -8033,6 +8033,10 @@ msgstr "Sessions ouvertes"
 msgid "Open since {when}"
 msgstr "Ouverte depuis le {when}"
 
+#: components/table/source-reach.tsx
+msgid "Open Sources in Administration"
+msgstr "Ouvrir Sources dans Administration"
+
 #: components/shell/app-shell.tsx
 msgid "Open the navigation"
 msgstr "Ouvrir la navigation"
@@ -12069,8 +12073,8 @@ msgid "This group is kept by the identity provider"
 msgstr "Ce groupe est tenu par le fournisseur d’identité"
 
 #: lib/errors.ts
-msgid "This host is not allowed: the operator adds it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS"
-msgstr "Cet hôte n’est pas autorisé : l’opérateur l’ajoute à ANYGRIDDB_SOURCES_ALLOWED_HOSTS"
+msgid "This host is not allowed: the operator must allow it"
+msgstr "Cet hôte n’est pas autorisé : l’opérateur doit l’autoriser"
 
 #: lib/errors.ts
 msgid "This install token is wrong, was used already, or is more than an hour old"
@@ -12234,16 +12238,16 @@ msgid "This source is read from a copy only: it takes no write, no field of AnyG
 msgstr "Cette source n’est lue que depuis une copie : elle ne prend ni écriture, ni champ d’AnyGridDB, ni réplique de lecture"
 
 #: components/table/source-reach.tsx
-msgid "This source's host is not allowed: its first copy cannot arrive until the operator adds it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS."
-msgstr "L’hôte de cette source n’est pas autorisé : sa première copie ne peut pas arriver tant que l’opérateur ne l’ajoute pas à ANYGRIDDB_SOURCES_ALLOWED_HOSTS."
+msgid "This source's host is not allowed: its first copy cannot arrive until the operator allows the host."
+msgstr "L’hôte de cette source n’est pas autorisé : sa première copie ne peut arriver tant que l’opérateur n’autorise pas l’hôte."
 
 #: components/table/source-reach.tsx
 msgid "This source's host is not allowed: reading the copy from {date}. Refresh is paused until the operator allows the host."
 msgstr "L’hôte de cette source n’est pas autorisé : lecture de la copie du {date}. Le rafraîchissement est en pause tant que l’opérateur n’autorise pas l’hôte."
 
 #: components/table/source-reach.tsx
-msgid "This source's host is not allowed: the operator must add it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS. Rows cannot be read or written in the client's database."
-msgstr "L’hôte de cette source n’est pas autorisé : l’opérateur doit l’ajouter à ANYGRIDDB_SOURCES_ALLOWED_HOSTS. Les lignes ne peuvent pas être lues ni écrites dans la base du client."
+msgid "This source's host is not allowed: the operator must allow it. Rows cannot be read or written in the client's database."
+msgstr "L’hôte de cette source n’est pas autorisé : l’opérateur doit l’autoriser. Les lignes ne peuvent être lues ni écrites dans la base du client."
 
 #: components/table/table-workspace.tsx
 msgid "This table does not exist or is not shared with you."

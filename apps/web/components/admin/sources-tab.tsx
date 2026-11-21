@@ -139,7 +139,7 @@ export function SourcesTab() {
         </p>
       ) : (
         <p className="text-sm text-muted-foreground">
-          {t`Allowed hosts: ${{ hosts: allowed.join(", ") }}`}
+          {t`Allowed hosts, set by ANYGRIDDB_SOURCES_ALLOWED_HOSTS: ${{ hosts: allowed.join(", ") }}`}
         </p>
       )}
       {impact && impact.sources > 0 ? (
