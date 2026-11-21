@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { pickFieldType, signUpWithTable, watchPolicy } from "./setup.ts";
+import {
+  accessibilityViolations,
+  pickFieldType,
+  signUpWithTable,
+  watchPolicy,
+} from "./setup.ts";
 
 // The formula editor (ADR 0021): completion of fields and functions,
 // an error placed where the formula fails, and the computed column.
@@ -43,6 +48,12 @@ test("a formula field written with completion computes in the grid", async ({
   await page.keyboard.type("1");
   await expect(editor).toHaveText("LEN(1)");
   await dialog.getByLabel("Search functions").fill("");
+  // Every function is a button, and each is a target a finger finds:
+  // sixteen pixels tall, in rows four pixels apart, they were not.
+  await expect(
+    dialog.getByRole("button", { name: "IF", exact: true }),
+  ).toBeVisible();
+  expect(await accessibilityViolations(page)).toEqual([]);
 
   // An unknown function is named under the editor, underlined, and not
   // sent.

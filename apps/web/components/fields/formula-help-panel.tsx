@@ -73,7 +73,8 @@ export function FormulaHelpPanel(props: {
                     selected === fn ? "formula-fn-help" : undefined
                   }
                   className={cn(
-                    "rounded bg-muted px-1 font-mono hover:bg-accent",
+                    // A target of 24 pixels, whatever its name's length.
+                    "inline-flex min-h-6 min-w-6 items-center justify-center rounded bg-muted px-1.5 font-mono hover:bg-accent",
                     selected === fn && "bg-accent text-accent-foreground",
                   )}
                   onMouseEnter={() => setSelected(fn)}
