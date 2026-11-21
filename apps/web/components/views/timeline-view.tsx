@@ -59,9 +59,10 @@ export function TimelineView(
   );
   // Today, as of when the view opened: the axis does not move as it renders.
   const [now] = useState(Date.now);
-  // The column of names kept at the left of the axis.
+  // The column of names beside the axis (its own pane: bars never sit under it).
   const names = namesWidth(useNarrowScreen());
   const scrollRef = useRef<HTMLDivElement>(null);
+  const namesScrollRef = useRef<HTMLDivElement>(null);
   const dated = props.allColumns.filter(canDateBy);
   const startName = startField(props.config, props.allColumns)?.name;
   const endName = endField(props.config, props.allColumns)?.name;
@@ -96,9 +97,21 @@ export function TimelineView(
     axis.scrollLeft = openingScroll({
       today: todayIn >= 0 && todayIn < period.days ? todayIn : null,
       perDay,
-      shown: axis.clientWidth - names,
+      shown: axis.clientWidth,
     });
-  }, [drawn, periodStart, period.days, todayIn, perDay, names]);
+  }, [drawn, periodStart, period.days, todayIn, perDay]);
+  // The axis's own scrollbar takes height from it: the names get as much
+  // more to scroll, or the two panes stop short of the last line.
+  const [axisBar, setAxisBar] = useState(0);
+  useEffect(() => {
+    const axis = scrollRef.current;
+    if (!drawn || !axis) return;
+    const observer = new ResizeObserver(() =>
+      setAxisBar(axis.offsetHeight - axis.clientHeight),
+    );
+    observer.observe(axis);
+    return () => observer.disconnect();
+  }, [drawn]);
   // Same setup prompt as the calendar and the kanban: the reason, and a
   // way to add the field when the person may change the schema.
   if (!startName) {
@@ -222,81 +235,104 @@ export function TimelineView(
           {t`No rows in this period.`}
         </p>
       ) : (
-        <div ref={scrollRef} className="flex min-h-0 flex-1 overflow-auto">
+        <div className="flex min-h-0 flex-1 overflow-hidden">
           <div
-            className="sticky left-0 z-10 shrink-0 border-r border-border bg-card"
-            style={{ height, width: names }}
+            ref={namesScrollRef}
+            className="shrink-0 overflow-x-hidden overflow-y-auto border-r border-border bg-card [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            style={{ width: names }}
+            onScroll={(event) => {
+              const axis = scrollRef.current;
+              if (axis && axis.scrollTop !== event.currentTarget.scrollTop) {
+                axis.scrollTop = event.currentTarget.scrollTop;
+              }
+            }}
           >
-            <div className="sticky top-0 z-[5] h-8 border-b border-border bg-card" />
-            {lines.map((line) => {
-              const row = props.rowAt(line.index);
-              return (
-                <div
-                  key={line.key}
-                  className="absolute left-0 w-full"
-                  style={{ top: HEADER + line.start, height: ROW }}
-                >
-                  {row ? (
-                    <button
-                      type="button"
-                      onClick={() => table.openRecord(row.id)}
-                      className="block h-full w-full truncate border-b border-border px-3 text-left text-sm hover:bg-muted"
-                    >
-                      {title(row)}
-                    </button>
-                  ) : (
-                    <span
-                      aria-hidden
-                      className="m-3 block h-3 w-2/3 animate-pulse rounded-sm bg-muted"
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <div className="relative shrink-0" style={{ width, height }}>
-            <div className="sticky top-0 z-[5] h-8 border-b border-border bg-muted">
-              {ticks.map((tick) => (
-                <span
-                  key={tick.left}
-                  className="absolute top-1.5 border-l border-border pl-1 text-xs text-muted-foreground capitalize"
-                  style={{ left: tick.left }}
-                >
-                  {tick.label}
-                </span>
-              ))}
+            <div className="relative" style={{ height: height + axisBar }}>
+              <div className="sticky top-0 z-[5] h-8 border-b border-border bg-card" />
+              {lines.map((line) => {
+                const row = props.rowAt(line.index);
+                return (
+                  <div
+                    key={line.key}
+                    className="absolute left-0 w-full"
+                    style={{ top: HEADER + line.start, height: ROW }}
+                  >
+                    {row ? (
+                      <button
+                        type="button"
+                        onClick={() => table.openRecord(row.id)}
+                        className="block h-full w-full truncate border-b border-border px-3 text-left text-sm hover:bg-muted"
+                      >
+                        {title(row)}
+                      </button>
+                    ) : (
+                      <span
+                        aria-hidden
+                        className="m-3 block h-3 w-2/3 animate-pulse rounded-sm bg-muted"
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            {today >= min && today < max ? (
-              <div
-                className="absolute top-8 bottom-0 w-px bg-primary/60"
-                style={{ left: ((today - min) / DAY) * perDay }}
-                aria-hidden
-              />
-            ) : null}
-            {lines.map((line) => {
-              const row = props.rowAt(line.index);
-              return (
+          </div>
+          <div
+            ref={scrollRef}
+            className="min-h-0 flex-1 overflow-auto"
+            onScroll={(event) => {
+              const namesPane = namesScrollRef.current;
+              if (
+                namesPane &&
+                namesPane.scrollTop !== event.currentTarget.scrollTop
+              ) {
+                namesPane.scrollTop = event.currentTarget.scrollTop;
+              }
+            }}
+          >
+            <div className="relative" style={{ width, height }}>
+              <div className="sticky top-0 z-[5] h-8 border-b border-border bg-muted">
+                {ticks.map((tick) => (
+                  <span
+                    key={tick.left}
+                    className="absolute top-1.5 border-l border-border pl-1 text-xs text-muted-foreground capitalize"
+                    style={{ left: tick.left }}
+                  >
+                    {tick.label}
+                  </span>
+                ))}
+              </div>
+              {today >= min && today < max ? (
                 <div
-                  key={line.key}
-                  className="absolute left-0 w-full border-b border-border/60"
-                  style={{ top: HEADER + line.start, height: ROW }}
-                >
-                  {row ? (
-                    <Bar
-                      row={row}
-                      label={title(row)}
-                      startName={startName}
-                      endName={endName}
-                      min={min}
-                      max={max}
-                      perDay={perDay}
-                      tint={props.tintOf?.(row)}
-                      onOpen={() => table.openRecord(row.id)}
-                    />
-                  ) : null}
-                </div>
-              );
-            })}
+                  className="absolute top-8 bottom-0 w-px bg-primary/60"
+                  style={{ left: ((today - min) / DAY) * perDay }}
+                  aria-hidden
+                />
+              ) : null}
+              {lines.map((line) => {
+                const row = props.rowAt(line.index);
+                return (
+                  <div
+                    key={line.key}
+                    className="absolute left-0 w-full border-b border-border/60"
+                    style={{ top: HEADER + line.start, height: ROW }}
+                  >
+                    {row ? (
+                      <Bar
+                        row={row}
+                        label={title(row)}
+                        startName={startName}
+                        endName={endName}
+                        min={min}
+                        max={max}
+                        perDay={perDay}
+                        tint={props.tintOf?.(row)}
+                        onOpen={() => table.openRecord(row.id)}
+                      />
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
