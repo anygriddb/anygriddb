@@ -329,9 +329,14 @@ async function keys(write: boolean): Promise<number> {
       return 1;
     }
     if (report.forbidden.length > 0) {
-      // In the compose stack the internal authority's key is root's.
       process.stderr.write(
-        `${report.forbidden.join(", ")}: this account may not read ${report.forbidden.length === 1 ? "this key file" : "these key files"} of the certificates folder. Run the command as the account that owns ${report.forbidden.length === 1 ? "it" : "them"} (docker compose exec -u root app anygriddb keys ${write ? "rotate" : "status"}).\n`,
+        `${report.forbidden.join(", ")}: not readable from this account. Start the stack again (docker compose up -d), which seals the certificates' keys, then run this as the instance's own account (docker compose exec app anygriddb keys ${write ? "rotate" : "status"}).\n`,
+      );
+      return 1;
+    }
+    if (write && earlier.length > 0) {
+      process.stderr.write(
+        `Still under an earlier key: ${earlier.join(", ")}. Start the stack again (docker compose up -d), which seals the certificates' keys, and run this again.\n`,
       );
       return 1;
     }

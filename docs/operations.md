@@ -260,21 +260,20 @@ sealed again.
    ```
 
 3. Start the stack again (`docker compose up -d`). Everything still opens,
-   and what is sealed from now on is sealed with the new key.
+   what is sealed from now on is sealed with the new key, and the keys of
+   the stack's certificates are sealed again with it at this start.
 
 4. Seal again what the earlier key sealed, then check that nothing is left
    under it:
 
    ```bash
-   docker compose exec -u root app anygriddb keys rotate
-   docker compose exec -u root app anygriddb keys status
+   docker compose exec app anygriddb keys rotate
+   docker compose exec app anygriddb keys status
    ```
 
-   As root, since the key of the stack's internal authority is root's in
-   the certificates volume; each file keeps its owner. `rotate` can be
-   run again at any time, beside the running instance. If it names values
-   no key opens, a key is missing from `AUTH_ENCRYPTION_PREVIOUS_KEYS`:
-   add it and run the command again.
+   `rotate` can be run again at any time, beside the running instance. If
+   it names values no key opens, a key is missing from
+   `AUTH_ENCRYPTION_PREVIOUS_KEYS`: add it and run the command again.
 
 5. Once `status` shows only the new key, the earlier one can leave
    `AUTH_ENCRYPTION_PREVIOUS_KEYS`. Keep it with the backups made while it

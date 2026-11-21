@@ -31,6 +31,12 @@ first.
 - A webhook's delivery that has not been tried yet reads "Waiting to be
   sent" in its log. It read "Retry scheduled (—)", as a delivery that
   failed and waits for its next attempt does.
+- A change of encryption key, as the guide gives it, keeps the instance
+  up. The keys of the stack's certificates are sealed again when the
+  stack starts with a new key, and `anygriddb keys status` counts them.
+  They were left under the earlier key, so that taking it away made a
+  new internal authority, which PostgreSQL did not serve until it was
+  restarted. The commands no longer run as root.
 - The backup, restore and PostgreSQL 18 scripts read a stack's name
   from its composition's own. With a `configs:` section among a stack's
   files they took a config's name for it, and looked for the stack's
