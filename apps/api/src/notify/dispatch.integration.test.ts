@@ -21,6 +21,7 @@ import {
   runIntegrationDelivery,
   testIntegration,
 } from "./dispatch.js";
+import { savedTracing } from "./tracing.js";
 
 const suffix = randomBytes(6).toString("hex");
 const PASSWORD = "correct horse battery staple";
@@ -138,6 +139,24 @@ describe("notification channels", () => {
     expect(moved.config).toEqual({ url: "https://10.1.2.4/hook" });
     await notify().delete({ id: saved.id });
     await admin.call().admin.updateSettings({ notifyAllowPrivate: false });
+  });
+
+  it("starts no saved collector on an address no longer allowed", async () => {
+    await admin.call().admin.updateSettings({ notifyAllowPrivate: true });
+    const endpoint = "https://10.1.2.9:4318";
+    const saved = await admin.call().admin.notify.create({
+      provider: "otlp",
+      name: "Traces",
+      events: [],
+      config: { endpoint },
+      secrets: {},
+    });
+    const started = await savedTracing(db, env.AUTH_ENCRYPTION_KEY);
+    expect(started.endpoint).toBe(endpoint);
+    expect(started.lookup).toEqual(expect.any(Function));
+    await admin.call().admin.updateSettings({ notifyAllowPrivate: false });
+    expect(await savedTracing(db, env.AUTH_ENCRYPTION_KEY)).toEqual({});
+    await admin.call().admin.notify.delete({ id: saved.id });
   });
 
   it("seals the secret, delivers a failed job, and pauses after repeated failures", async () => {

@@ -5,6 +5,7 @@
  * made when an endpoint is named: without one, the tracer does nothing
  * and its SDK is never loaded. Nothing leaves the instance by default.
  */
+import type { LookupFunction } from "node:net";
 import { timingSafeEqual } from "node:crypto";
 import type pg from "pg";
 import {
@@ -291,6 +292,8 @@ function otlpHeaders(
 export async function startTracing(settings: {
   endpoint?: string | undefined;
   headers?: string | undefined;
+  /** How a collector saved in Administration finds its address. */
+  lookup?: LookupFunction | undefined;
   serviceName: string;
   version: string;
 }): Promise<() => Promise<void>> {
@@ -313,6 +316,14 @@ export async function startTracing(settings: {
         exporter: new otlp.OTLPTraceExporter({
           url: `${settings.endpoint.replace(/\/$/, "")}/v1/traces`,
           ...(headers ? { headers } : {}),
+          ...(settings.lookup
+            ? {
+                httpAgentOptions: {
+                  keepAlive: true,
+                  lookup: settings.lookup,
+                },
+              }
+            : {}),
         }),
       }),
     ],

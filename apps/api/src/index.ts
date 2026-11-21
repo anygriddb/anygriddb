@@ -80,6 +80,7 @@ const savedTraces = env.OTEL_EXPORTER_OTLP_ENDPOINT
 await applyTracing({
   endpoint: env.OTEL_EXPORTER_OTLP_ENDPOINT ?? savedTraces?.endpoint,
   headers: env.OTEL_EXPORTER_OTLP_HEADERS ?? savedTraces?.headers,
+  lookup: savedTraces?.lookup,
   serviceName: env.OTEL_SERVICE_NAME,
   version: BUILD.version,
 });
