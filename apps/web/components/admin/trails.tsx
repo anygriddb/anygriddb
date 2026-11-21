@@ -268,7 +268,9 @@ export function ChangesTrail({
                                 .map((name) =>
                                   name === "ag_position"
                                     ? t`the row's place`
-                                    : name,
+                                    : name === "ag_status"
+                                      ? t`the row's status`
+                                      : name,
                                 )
                                 .join(", ") || "—"}
                   </td>

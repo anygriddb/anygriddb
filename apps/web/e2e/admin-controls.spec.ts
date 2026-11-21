@@ -749,6 +749,17 @@ test("an auditor reads every page of Administration and changes nothing", async 
     await control.query("update users set is_admin = true where email = $1", [
       adminEmail,
     ]);
+    // A row of their own, for the trail to hold a creation.
+    await page.getByRole("button", { name: "Add a row", exact: true }).click();
+    await expect
+      .poll(async () => {
+        const made = await control.query<{ made: number }>(
+          "select count(*)::int as made from audit_events e join users u on u.id = e.user_id where u.email = $1 and e.action = 'insert'",
+          [adminEmail],
+        );
+        return made.rows[0]?.made ?? 0;
+      })
+      .toBeGreaterThan(0);
 
     // Who will audit, with a second factor of their own: Administration
     // asks one of whoever opens it.
@@ -834,8 +845,18 @@ test("an auditor reads every page of Administration and changes nothing", async 
       auditor.getByRole("link", { name: "Lab", exact: true }).first(),
     ).toBeVisible();
 
-    // The trail is exported, and says who gave them the role.
+    // The trail says what a change touched in words a reader has met:
+    // a row's creation lists the fields it was given, not the columns
+    // every row has, whose author and date are the line's own.
     await openAdmin(auditor, "Trails");
+    await auditor.getByLabel("Action").selectOption({ label: "Creation" });
+    await expect(
+      auditor.getByRole("cell", { name: "Creation" }).first(),
+    ).toBeVisible();
+    await expect(auditor.getByRole("table")).not.toContainText("ag_");
+    await auditor.getByLabel("Action").selectOption({ label: "All" });
+
+    // The trail is exported, and says who gave them the role.
     const download = auditor.waitForEvent("download");
     await auditor.getByRole("button", { name: "Export as CSV" }).click();
     expect((await download).suggestedFilename()).toMatch(/\.csv$/);
