@@ -26,11 +26,13 @@ import {
   ArrowLeft,
   ArrowUp,
   BarChart3,
+  Hash,
   History,
   LayoutDashboard,
   MoreHorizontal,
   Pencil,
   Plus,
+  Table2,
   Trash2,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -120,6 +122,15 @@ type OpenForm = { mode: "add" } | { mode: "edit"; widget: WidgetModel };
 
 function isWidgetKind(value: string): value is WidgetKind {
   return WIDGET_KINDS.some((kind) => kind === value);
+}
+
+/** Icon that matches the widget's kind (metric, chart, or embedded view). */
+function WidgetKindIcon({ kind }: { kind: string }) {
+  const className = "h-3.5 w-3.5 shrink-0 text-muted-foreground";
+  if (kind === "metric") return <Hash className={className} aria-hidden />;
+  if (kind === "view_embed")
+    return <Table2 className={className} aria-hidden />;
+  return <BarChart3 className={className} aria-hidden />;
 }
 
 /** The measures the form offers; another, set elsewhere, is listed too. */
@@ -704,10 +715,7 @@ function WidgetCard(props: {
           {props.editing ? (
             <DragHandle {...dragButtonProps} label={t`Move ${name}`} />
           ) : null}
-          <BarChart3
-            className="h-3.5 w-3.5 text-muted-foreground"
-            aria-hidden
-          />
+          <WidgetKindIcon kind={props.widget.kind} />
           <h2 className="min-w-0 flex-1 truncate text-sm font-medium">
             {name}
           </h2>
@@ -794,7 +802,17 @@ function WidgetCard(props: {
               title={name}
             />
           ) : (
-            <p className="text-sm text-danger">{errorText(data.error)}</p>
+            <div className="flex h-full flex-col items-start justify-center gap-2">
+              <p className="text-sm text-danger">{errorText(data.error)}</p>
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={data.isFetching}
+                onClick={() => void data.refetch()}
+              >
+                {t`Try again`}
+              </Button>
+            </div>
           )}
         </div>
       </article>
