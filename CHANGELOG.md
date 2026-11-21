@@ -32,6 +32,15 @@ first.
   The instance asked for the job queue's first table before making it,
   and PostgreSQL wrote the refusal at every new install:
   `relation "graphile_worker.migrations" does not exist`.
+- A new install waits for its database. PostgreSQL was called healthy
+  while its image was still making the cluster, on a server nothing
+  reaches over the network, and AnyGridDB was started in front of it: on
+  a disk slow to make a cluster it stopped and started again until the
+  database was there, and `docker compose up --wait` ended on an error.
+  The database is healthy once it answers on the network.
+- A new install's database log holds no warning: the cluster is made
+  with its access methods said, where `initdb` warned about the ones it
+  chose. What PostgreSQL serves does not change.
 
 ## 0.3.2 - 2026-11-21
 
