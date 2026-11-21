@@ -10,7 +10,7 @@ const WORDS = {
     action: "Reload the page",
   },
   fr: {
-    text: "AnyGridDB n'a pas pu être chargé. Vérifiez votre connexion, puis rechargez la page.",
+    text: "AnyGridDB n’a pas pu être chargé. Vérifiez votre connexion, puis rechargez la page.",
     action: "Recharger la page",
   },
 } as const;

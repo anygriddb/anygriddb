@@ -11,11 +11,69 @@
     <title>AnyGridDB</title>
     <!-- Before the first paint, so a dark page never flashes light. -->
     <script src="/theme.js"></script>
+    <!--
+      What the page shows while the app has not drawn. Nothing at first;
+      after a few seconds, a word and a way to reload: a script that was
+      refused or lost on the way would otherwise leave the page blank.
+      It needs neither a script nor the app's style sheet, which may be
+      what did not arrive.
+    -->
+    <style>
+      #boot {
+        box-sizing: border-box;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        text-align: center;
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+        visibility: hidden;
+        animation: boot-late 0s 6s forwards;
+      }
+      #boot p {
+        max-width: 28rem;
+        margin: 0;
+      }
+      /* Said here: the app's style sheet, when it did arrive, draws a
+         link as the words around it. */
+      #boot a {
+        color: inherit;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      #boot [lang="fr"],
+      :root[lang="fr"] #boot [lang="en"] {
+        display: none;
+      }
+      :root[lang="fr"] #boot [lang="fr"] {
+        display: block;
+      }
+      @keyframes boot-late {
+        to {
+          visibility: visible;
+        }
+      }
+    </style>
   </head>
   <body
     class="h-screen overflow-hidden bg-background text-foreground antialiased"
   >
-    <div id="root" class="contents"></div>
+    <div id="root" class="contents">
+      <div id="boot" role="status">
+        <p lang="en">
+          AnyGridDB is taking a while to load. If nothing changes, check your
+          connection, then <a href="">reload the page</a>.
+        </p>
+        <p lang="fr">
+          AnyGridDB met du temps à se charger. Si rien ne change, vérifiez votre
+          connexion, puis <a href="">rechargez la page</a>.
+        </p>
+      </div>
+    </div>
     <script type="module" src="/app/main.tsx"></script>
   </body>
 </html>
