@@ -13,7 +13,7 @@ const page = read("../index.html");
 const early = read("../public/theme.js");
 
 describe("the page before the app has drawn", () => {
-  const root = /<div id="root"[^>]*>([\s\S]*?)<\/div>\s*<script/.exec(
+  const root = /<div id="root"[^>]*>([\s\S]*?)<\/div>\s*<script/i.exec(
     page,
   )?.[1];
 
@@ -45,7 +45,10 @@ describe("the page before the app has drawn", () => {
   });
 
   it("carries no script of its own: the policy allows none", () => {
-    const inline = [...page.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)];
+    // However a tag is written: in capitals, a space before its end.
+    const inline = [
+      ...page.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi),
+    ];
     expect(inline.length).toBeGreaterThan(0);
     for (const [, attributes, body] of inline) {
       expect(attributes).toMatch(/\bsrc="/);
