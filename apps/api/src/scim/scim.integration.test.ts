@@ -135,7 +135,20 @@ describe("SCIM 2.0", () => {
     expect(created.body).toMatchObject({
       userName,
       displayName: "Ada Lovelace",
+      name: { givenName: "Ada", familyName: "Lovelace" },
       active: true,
+    });
+    const renamed = await call("PATCH", `/Users/${ada}`, {
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+      Operations: [{ op: "Replace", path: "name.givenName", value: "Augusta" }],
+    });
+    expect(renamed.body).toMatchObject({
+      displayName: "Augusta Lovelace",
+      name: { givenName: "Augusta", familyName: "Lovelace" },
+    });
+    await call("PATCH", `/Users/${ada}`, {
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+      Operations: [{ op: "Replace", path: "name.givenName", value: "Ada" }],
     });
     expect(
       (await call("POST", "/Users", { schemas: [USER], userName })).body

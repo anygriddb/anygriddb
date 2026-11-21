@@ -193,7 +193,32 @@ export type ScimUserState = {
   displayName: string;
   externalId: string | null;
   active: boolean;
+  /** The parts of the name the provider gave, which it changes one by one. */
+  givenName: string | null;
+  familyName: string | null;
 };
+
+/** A part of a name as it is kept: on one line, and null when empty. */
+function namePart(text: string | null | undefined): string | null {
+  return tidyLabel(text ?? "") || null;
+}
+
+/**
+ * The parts of a name, for a provider that changes one of them. An account
+ * made before they were kept has its display name alone: its last word is
+ * taken for the family name.
+ */
+function heldParts(state: ScimUserState): {
+  given: string | null;
+  family: string | null;
+} {
+  if (state.givenName !== null || state.familyName !== null) {
+    return { given: state.givenName, family: state.familyName };
+  }
+  const words = state.displayName.trim().split(/\s+/);
+  const family = words.length > 1 ? (words.pop() ?? null) : null;
+  return { given: namePart(words.join(" ")), family };
+}
 
 /**
  * A display name AnyGridDB accepts, from the provider's words, then from
@@ -247,6 +272,10 @@ export function parseScimUser(
     ),
     externalId: user.externalId ?? null,
     active: user.active ?? current?.active ?? true,
+    givenName: name ? namePart(name.givenName) : (current?.givenName ?? null),
+    familyName: name
+      ? namePart(name.familyName)
+      : (current?.familyName ?? null),
   };
 }
 
@@ -302,11 +331,17 @@ export function patchScimUser(
 ): ScimUserState {
   const next = { ...current };
   // Name parts an operation set, put together once all have run.
-  const names: { display?: string; given?: string; family?: string } = {};
+  const names: {
+    display?: string;
+    given?: string | null;
+    family?: string | null;
+  } = {};
   const set = (rawPath: string, value: unknown, op: string) => {
     const path = rawPath.trim().toLowerCase().replace(/\s+/g, " ");
     if (op === "remove") {
       if (path === "externalid") next.externalId = null;
+      else if (path === "name.givenname") names.given = null;
+      else if (path === "name.familyname") names.family = null;
       else if (REQUIRED_USER_PATHS.has(path)) {
         throw invalid(`${rawPath} cannot be removed`, "mutability");
       }
@@ -388,12 +423,18 @@ export function patchScimUser(
       throw invalid("An operation needs a path or an object value", "noTarget");
     }
   }
-  if (
-    names.display !== undefined ||
-    names.given !== undefined ||
-    names.family !== undefined
-  ) {
-    const parts = [names.given, names.family].filter(Boolean).join(" ");
+  const partChanged = names.given !== undefined || names.family !== undefined;
+  if (partChanged) {
+    const held = heldParts(current);
+    next.givenName =
+      names.given === undefined ? held.given : namePart(names.given);
+    next.familyName =
+      names.family === undefined ? held.family : namePart(names.family);
+  }
+  if (names.display !== undefined || partChanged) {
+    const parts = partChanged
+      ? [next.givenName, next.familyName].filter(Boolean).join(" ")
+      : "";
     next.displayName = scimDisplayName(
       names.display || parts || next.displayName,
       next.email,
@@ -416,7 +457,11 @@ export function scimUserResource(
     ...(user.externalId ? { externalId: user.externalId } : {}),
     userName: user.userName,
     displayName: user.displayName,
-    name: { formatted: user.displayName },
+    name: {
+      formatted: user.displayName,
+      ...(user.givenName ? { givenName: user.givenName } : {}),
+      ...(user.familyName ? { familyName: user.familyName } : {}),
+    },
     emails: [{ value: user.email, type: "work", primary: true }],
     active: user.active,
     groups: (user.groups ?? []).map((group) => ({

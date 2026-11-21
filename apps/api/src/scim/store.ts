@@ -60,6 +60,8 @@ type Account = Pick<
   | "disabledAt"
   | "createdAt"
   | "scimExternalId"
+  | "scimFamilyName"
+  | "scimGivenName"
   | "scimUserName"
   | "deprovisionedAt"
 >;
@@ -72,6 +74,8 @@ const ACCOUNT_COLUMNS = [
   "disabledAt",
   "createdAt",
   "scimExternalId",
+  "scimFamilyName",
+  "scimGivenName",
   "scimUserName",
   "deprovisionedAt",
 ] as const;
@@ -83,6 +87,8 @@ function stateOf(account: Account): ScimUserState {
     displayName: account.displayName,
     externalId: account.scimExternalId,
     active: account.disabledAt === null,
+    givenName: account.scimGivenName,
+    familyName: account.scimFamilyName,
   };
 }
 
@@ -250,6 +256,8 @@ async function saveAccount(
       displayName: next.displayName,
       scimUserName: next.userName,
       scimExternalId: next.externalId,
+      scimGivenName: next.givenName,
+      scimFamilyName: next.familyName,
       deprovisionedAt: null,
       disabledAt: next.active ? null : (account.disabledAt ?? new Date()),
       // The identity provider's say, not an administrator's or inactivity's.
@@ -314,6 +322,8 @@ export async function createScimUser(context: ScimContext, body: unknown) {
         displayName: next.displayName,
         scimUserName: next.userName,
         scimExternalId: next.externalId,
+        scimGivenName: next.givenName,
+        scimFamilyName: next.familyName,
         disabledAt: next.active ? null : new Date(),
       })
       .returning("id")

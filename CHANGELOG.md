@@ -25,6 +25,8 @@ first.
   (no STARTTLS, a certificate the instance does not trust, a port that
   speaks no TLS), or the account is refused. Each read "Invalid email
   settings: check the host, port, and password", whichever it was.
+- SCIM: a provider that changes only a given name or a family name keeps
+  the other part, and reads both back (migration `0120`).
 - The functions of a formula, in a field's dialog, are 24 pixels to
   press, as WCAG 2.2 asks: they were sixteen tall, in rows four pixels
   apart.

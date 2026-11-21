@@ -1044,6 +1044,8 @@ export interface Users {
   lockedAt: Timestamp | null;
   notifyByEmail: Generated<boolean>;
   scimExternalId: string | null;
+  scimFamilyName: string | null;
+  scimGivenName: string | null;
   scimUserName: string | null;
 }
 

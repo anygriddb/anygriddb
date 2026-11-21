@@ -196,6 +196,8 @@ export async function writeAccountDataFile(
       "disabledAt",
       "disabledReason",
       "scimUserName",
+      "scimGivenName",
+      "scimFamilyName",
       "deprovisionedAt",
     ])
     .where("id", "=", userId)
@@ -289,6 +291,8 @@ export async function writeAccountDataFile(
         disabledAt: account.disabledAt?.toISOString() ?? null,
         disabledReason: account.disabledReason,
         provisioned: account.scimUserName !== null,
+        givenName: account.scimGivenName,
+        familyName: account.scimFamilyName,
         deprovisioned: account.deprovisionedAt !== null,
       },
       memberships: {
