@@ -258,6 +258,28 @@ async function replaceSchedules(
     .execute();
 }
 
+/** The addresses a channel's settings name, its secrets apart. */
+function configTargets(provider: string, config: unknown): string[] {
+  switch (provider) {
+    case "webhook":
+      return webhookTargets(config);
+    case "ntfy":
+      return ntfyTargets(config);
+    case "gotify":
+      return gotifyTargets(config);
+    case "apprise":
+      return appriseTargets(config);
+    case "matrix":
+      return matrixTargets(config);
+    case "alertmanager":
+      return alertmanagerTargets(config);
+    case "otlp":
+      return otlpTargets(config);
+    default:
+      return [];
+  }
+}
+
 async function targetsOf(
   provider: string,
   config: unknown,
@@ -265,26 +287,43 @@ async function targetsOf(
   allowPrivate: boolean,
 ): Promise<void> {
   const urls = [
-    ...(provider === "webhook"
-      ? webhookTargets(config)
-      : provider === "ntfy"
-        ? ntfyTargets(config)
-        : provider === "gotify"
-          ? gotifyTargets(config)
-          : provider === "apprise"
-            ? appriseTargets(config)
-            : provider === "matrix"
-              ? matrixTargets(config)
-              : provider === "alertmanager"
-                ? alertmanagerTargets(config)
-                : provider === "otlp"
-                  ? otlpTargets(config)
-                  : []),
+    ...configTargets(provider, config),
     ...(provider === "sentry" ? sentryTargets(secrets) : urlsIn(secrets)),
   ];
   for (const url of urls) {
     await assertNotifyTarget(url, { allowPrivate });
   }
+}
+
+function originOf(url: string): string {
+  return URL.canParse(url) ? new URL(url).origin : url;
+}
+
+/**
+ * A saved secret is sent only to the host it was entered for. A channel
+ * moved to another one asks for it again: leaving the field blank would
+ * otherwise hand it to the new address at the next delivery.
+ */
+function assertSecretsFollow(
+  provider: string,
+  before: unknown,
+  after: unknown,
+  previous: Record<string, unknown>,
+  entered: Record<string, unknown>,
+): void {
+  const known = new Set(configTargets(provider, before).map(originOf));
+  const moved = configTargets(provider, after).some(
+    (url) => !known.has(originOf(url)),
+  );
+  if (!moved) return;
+  const left = Object.entries(previous).some(
+    ([key, value]) =>
+      value !== "" &&
+      value !== null &&
+      value !== undefined &&
+      (entered[key] === undefined || entered[key] === ""),
+  );
+  if (left) throw new AppError("notify_secret_again");
 }
 
 function assertName(name: string): void {
@@ -473,6 +512,13 @@ export async function updateIntegration(
   }
   const secrets = mergeSecrets(previous, input.secrets ?? {});
   const config = input.config ?? asRecord(current.config);
+  assertSecretsFollow(
+    current.provider,
+    current.config,
+    config,
+    previous,
+    input.secrets ?? {},
+  );
   const parsed = parseProviderConfig(current.provider, config, secrets);
   const allowPrivate = (await readSettings(db)).notifyAllowPrivate;
   await targetsOf(

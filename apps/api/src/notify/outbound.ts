@@ -5,7 +5,7 @@ import type { LookupFunction } from "node:net";
 import {
   assertNotifyTarget,
   isNotifyBlocked,
-  redirectTarget,
+  redirectWithinOrigin,
   type ResolvedAddress,
 } from "./target.js";
 
@@ -180,7 +180,11 @@ function requestOnce(
   });
 }
 
-/** POST, PUT, or GET, one redirect at most, each hop checked again. */
+/**
+ * POST, PUT, or GET, one redirect at most, on the same origin and checked
+ * again. A redirect elsewhere is not followed: it answers as the failure
+ * it is, and the channel's credentials stay with the host they are for.
+ */
 export async function requestOutbound(
   call: OutboundRequest,
   allowPrivate: boolean,
@@ -199,10 +203,11 @@ export async function requestOutbound(
     response.location &&
     response.location.length < 2_000
   ) {
-    const next = await assertNotifyTarget(
-      redirectTarget(url, response.location),
-      { allowPrivate },
-    );
+    const within = redirectWithinOrigin(url, response.location);
+    if (within === null) {
+      return { status: response.status, body: response.body };
+    }
+    const next = await assertNotifyTarget(within, { allowPrivate });
     const get =
       response.status === 301 ||
       response.status === 302 ||

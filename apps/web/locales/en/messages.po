@@ -11870,6 +11870,10 @@ msgid "This changed since you opened it. The history has been read again."
 msgstr "This changed since you opened it. The history has been read again."
 
 #: lib/errors.ts
+msgid "This channel's address changed: enter its secret again, so that it is not sent to the new host unasked"
+msgstr "This channel's address changed: enter its secret again, so that it is not sent to the new host unasked"
+
+#: lib/errors.ts
 msgid "This code is wrong, or works no longer"
 msgstr "This code is wrong, or works no longer"
 

@@ -108,6 +108,38 @@ describe("notification channels", () => {
     await admin.call().admin.updateSettings({ notifyAllowPrivate: false });
   });
 
+  it("asks for a saved secret again when a channel moves to another host", async () => {
+    await admin.call().admin.updateSettings({ notifyAllowPrivate: true });
+    const notify = () => admin.call().admin.notify;
+    const saved = await notify().create({
+      provider: "webhook",
+      name: "Moved",
+      events: ["job.failed"],
+      config: { url: "https://10.1.2.3/hook" },
+      secrets: { secret: SECRET },
+    });
+    await notify().update({
+      id: saved.id,
+      config: { url: "https://10.1.2.3/another-path" },
+    });
+    expect(
+      await errorCode(
+        notify().update({
+          id: saved.id,
+          config: { url: "https://10.1.2.4/hook" },
+        }),
+      ),
+    ).toBe("notify_secret_again");
+    const moved = await notify().update({
+      id: saved.id,
+      config: { url: "https://10.1.2.4/hook" },
+      secrets: { secret: "another-long-enough-secret" },
+    });
+    expect(moved.config).toEqual({ url: "https://10.1.2.4/hook" });
+    await notify().delete({ id: saved.id });
+    await admin.call().admin.updateSettings({ notifyAllowPrivate: false });
+  });
+
   it("seals the secret, delivers a failed job, and pauses after repeated failures", async () => {
     const saved = await admin.call().admin.notify.create({
       provider: "webhook",
