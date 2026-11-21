@@ -1,3 +1,4 @@
+import { rulesOwner } from "../data/acting-context.js";
 import {
   addCommentInputSchema,
   andFilters,
@@ -215,7 +216,7 @@ async function readSpec(
     offset: input.offset ?? 0,
     limit: input.limit,
     timeZone: safeTimeZone(input.timeZone),
-    me: access.user.id,
+    me: rulesOwner(access.user.id),
   };
 }
 

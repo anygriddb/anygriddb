@@ -1,3 +1,4 @@
+import { rulesOwner } from "../data/acting-context.js";
 import {
   type Action,
   andFilters,
@@ -480,7 +481,7 @@ export async function listRecords(
       offset: query.data.offset,
       limit: query.data.limit,
       timeZone: safeTimeZone(query.data.timeZone),
-      me: actor.user.id,
+      me: rulesOwner(actor.user.id),
     },
     { total: true },
   );

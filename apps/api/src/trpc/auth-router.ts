@@ -86,6 +86,7 @@ import {
   isSessionToken,
   revokeSession,
   sessionCookieOptions,
+  withActingRights,
 } from "../auth/session.js";
 import {
   backupCodeSchema,
@@ -1343,8 +1344,10 @@ export const sessionRouter = t.router({
       mfaForBases: (await mfaGate(ctx.db, user, [], true)) === "enroll",
       hasPassword: await hasPassword(ctx.db, user.id),
       // What the policy lets this account create (ADR 0044).
-      canCreateBases: user.isAdmin || policy.baseCreation === "everyone",
-      canCreateTokens: user.isAdmin || policy.apiTokens === "everyone",
+      canCreateBases:
+        withActingRights(user).isAdmin || policy.baseCreation === "everyone",
+      canCreateTokens:
+        withActingRights(user).isAdmin || policy.apiTokens === "everyone",
     };
   }),
 });

@@ -1,3 +1,4 @@
+import { rulesOwner } from "./acting-context.js";
 import {
   effectiveTableRole,
   filterGroupSchema,
@@ -156,17 +157,18 @@ export async function readerAccess(
     )
     .map((table) => table.id);
   if (restricted.length === 0) return undefined;
+  const owner = rulesOwner(reader.userId);
   const [rowRules, columnRules] = await Promise.all([
     db
       .selectFrom("tableAcls")
       .select(["tableId", "rowFilter"])
-      .where("userId", "=", reader.userId)
+      .where("userId", "=", owner)
       .where("tableId", "in", restricted)
       .execute(),
     db
       .selectFrom("columnAcls")
       .select(["tableId", "columnName as column", "access"])
-      .where("userId", "=", reader.userId)
+      .where("userId", "=", owner)
       .where("tableId", "in", restricted)
       .execute(),
   ]);
@@ -197,7 +199,7 @@ export async function readerAccess(
       return map !== undefined && map.get(column) === "read";
     },
     rowFilter: (tableId) => filters.get(tableId),
-    me: reader.userId,
+    me: owner,
   };
 }
 

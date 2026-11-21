@@ -9,7 +9,7 @@ import {
 } from "@anygriddb/core";
 import { TRPCError } from "@trpc/server";
 import { assertEnrolled, loadBindings, scopeBindings } from "../auth/access.js";
-import type { SessionUser } from "../auth/session.js";
+import { type SessionUser, withActingRights } from "../auth/session.js";
 import { readGateSettings } from "../settings.js";
 import type { TableRow } from "../data/engine.js";
 import { sessionBindings } from "../data/emergency-access.js";
@@ -44,7 +44,8 @@ export function authorize(ctx: Context, creatingBase = false): Promise<Actor> {
 }
 
 async function findActor(ctx: Context, creatingBase: boolean): Promise<Actor> {
-  const user = await requireUser(ctx);
+  const account = await requireUser(ctx);
+  const user = withActingRights(account);
   if (
     creatingBase &&
     !user.isAdmin &&
@@ -53,7 +54,7 @@ async function findActor(ctx: Context, creatingBase: boolean): Promise<Actor> {
     throw new AppError("base_creation_restricted");
   }
   const raw = await loadBindings(ctx.db, user.actingAs?.id ?? user.id);
-  await assertEnrolled(ctx.db, user, raw, creatingBase);
+  await assertEnrolled(ctx.db, account, raw, creatingBase);
   if (
     creatingBase &&
     ctx.tokenScope &&

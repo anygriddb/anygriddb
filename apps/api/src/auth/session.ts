@@ -61,6 +61,41 @@ export function hashSessionToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
+type ActingRow = {
+  impersonatedUserId: string | null;
+  impersonateUntil: Date | null;
+  isAdmin: boolean;
+  personDisabled: Date | null;
+  personAdmin: boolean | null;
+  personSupport: boolean | null;
+  personAuditor: boolean | null;
+};
+
+/** Whether this session still acts as its person (ADR 0091). */
+function holdsActing(row: ActingRow): boolean {
+  return (
+    row.impersonatedUserId !== null &&
+    row.impersonateUntil !== null &&
+    row.impersonateUntil.getTime() > Date.now() &&
+    row.isAdmin &&
+    row.personDisabled === null &&
+    row.personAdmin !== true &&
+    row.personSupport !== true &&
+    row.personAuditor !== true &&
+    row.impersonatedUserId !== ERASED_USER_ID
+  );
+}
+
+/**
+ * The account as its rights stand in a request: while an administrator
+ * acts as someone, what only an administrator may do is set aside.
+ */
+export function withActingRights(user: SessionUser): SessionUser {
+  return user.actingAs
+    ? { ...user, isAdmin: false, isSupport: false, isAuditor: false }
+    : user;
+}
+
 export async function findSessionUser(
   db: Database,
   token: string | undefined,
@@ -95,15 +130,7 @@ export async function findSessionUser(
   if (!row) return null;
   const until = row.impersonateUntil;
   const personId = row.impersonatedUserId;
-  const allowed =
-    personId !== null &&
-    until !== null &&
-    until.getTime() > Date.now() &&
-    row.personDisabled === null &&
-    row.personAdmin !== true &&
-    row.personSupport !== true &&
-    row.personAuditor !== true &&
-    personId !== ERASED_USER_ID;
+  const allowed = holdsActing(row);
   if (personId !== null && !allowed) {
     await db
       .updateTable("sessions")
@@ -137,37 +164,41 @@ export async function findSessionUser(
   };
 }
 
-/** True while this session hash still belongs to a live, enabled account. */
-export async function sessionHashAlive(
-  db: Database,
-  tokenHash: string,
-): Promise<boolean> {
-  const row = await db
-    .selectFrom("sessions as s")
-    .innerJoin("users as u", "u.id", "s.userId")
-    .select("s.tokenHash")
-    .where("s.tokenHash", "=", tokenHash)
-    .where("s.expiresAt", ">", new Date())
-    .where("u.disabledAt", "is", null)
-    .executeTakeFirst();
-  return row !== undefined;
-}
-
-/** Of these session hashes, those of a live, enabled account: one query. */
-export async function sessionHashesAlive(
+/**
+ * Of these session hashes, those of a live, enabled account, each with
+ * whose rights it holds now: the person it acts as, or its own account.
+ * A socket opened as one of them is closed once it is the other's.
+ */
+export async function sessionIdentities(
   db: Database,
   tokenHashes: readonly string[],
-): Promise<Set<string>> {
-  if (tokenHashes.length === 0) return new Set();
+): Promise<Map<string, string>> {
+  if (tokenHashes.length === 0) return new Map();
   const rows = await db
     .selectFrom("sessions as s")
     .innerJoin("users as u", "u.id", "s.userId")
-    .select("s.tokenHash")
+    .leftJoin("users as p", "p.id", "s.impersonatedUserId")
+    .select([
+      "s.tokenHash",
+      "s.userId",
+      "s.impersonatedUserId",
+      "s.impersonateUntil",
+      "u.isAdmin",
+      "p.disabledAt as personDisabled",
+      "p.isAdmin as personAdmin",
+      "p.isSupport as personSupport",
+      "p.isAuditor as personAuditor",
+    ])
     .where("s.tokenHash", "in", tokenHashes)
     .where("s.expiresAt", ">", new Date())
     .where("u.disabledAt", "is", null)
     .execute();
-  return new Set(rows.map((row) => row.tokenHash));
+  return new Map(
+    rows.map((row) => [
+      row.tokenHash,
+      holdsActing(row) ? (row.impersonatedUserId ?? row.userId) : row.userId,
+    ]),
+  );
 }
 
 /**

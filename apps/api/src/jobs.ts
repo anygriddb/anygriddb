@@ -1,3 +1,4 @@
+import { actingUserId } from "./data/acting-context.js";
 import {
   AppError,
   EXPORT_FILE_HOURS,
@@ -123,6 +124,9 @@ export async function enqueueJob(
     input: unknown;
   },
 ): Promise<JobRow> {
+  // A job runs later, with its author's rights: those of the administrator,
+  // not of the person they act as (ADR 0109).
+  if (actingUserId()) throw new AppError("acting_no_job");
   const parsed = jobInputSchemas[input.kind].safeParse(input.input);
   if (!parsed.success) {
     throw new AppError("invalid_job");

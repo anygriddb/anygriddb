@@ -8,7 +8,12 @@ import {
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { readGateSettings } from "../settings.js";
-import { findSessionUser, type SessionUser } from "./session.js";
+import type { Acting } from "../data/acting-context.js";
+import {
+  findSessionUser,
+  type SessionUser,
+  withActingRights,
+} from "./session.js";
 import { findApiToken, namesApiToken, type TokenScope } from "./tokens.js";
 import { sessionBindings } from "../data/emergency-access.js";
 import { liveBase, liveTable } from "../data/live.js";
@@ -240,6 +245,19 @@ export async function scopeBindings(
   return list;
 }
 
+/** Who a request acts as: a session may, an API token never does (ADR 0091). */
+export async function actingOf(
+  db: Database,
+  authorization: string | undefined,
+  cookie: string | undefined,
+): Promise<Acting | null> {
+  if (namesApiToken(authorization)) return null;
+  const user = await findSessionUser(db, cookie);
+  return user?.actingAs
+    ? { actorId: user.id, personId: user.actingAs.id }
+    : null;
+}
+
 /** User and effective bindings of a plain HTTP request (cookie or bearer token), MFA gate included. */
 export async function requestActor(
   db: Database,
@@ -269,7 +287,7 @@ export async function requestActor(
         raw,
       );
   return {
-    user,
+    user: withActingRights(user),
     bindings: await scopeBindings(db, own, bearer?.scope),
     scope: bearer?.scope,
   };

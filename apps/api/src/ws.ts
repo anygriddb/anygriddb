@@ -115,12 +115,22 @@ type GridAuthorizer = (
   channel: string,
   action: "read" | "write",
 ) => Promise<GridDecision>;
-/** Whether the session that opened the socket is still live. */
-type SessionAlive = (tokenHash: string) => Promise<boolean>;
-/** Of these sessions, the ones still live: one question for a round. */
-type SessionsAlive = (
+/** Of these sessions, the live ones and whose rights each holds now. */
+type SessionIdentities = (
   tokenHashes: readonly string[],
-) => Promise<ReadonlySet<string>>;
+) => Promise<ReadonlyMap<string, string>>;
+
+/**
+ * A session that is over is told so. One that now holds someone else's
+ * rights is asked to reconnect, and opens again as who it is now.
+ */
+function closeForIdentity(
+  socket: { close: (code: number, reason: string) => void },
+  identity: string | undefined,
+): void {
+  if (identity === undefined) socket.close(4401, "Unauthorized");
+  else socket.close(4000, "Reauthorize");
+}
 
 export function parseClientMessage(raw: string): ClientMessage | undefined {
   if (raw.length > MAX_MESSAGE_CHARS) {
@@ -191,8 +201,7 @@ export class GridHub {
       error: unknown,
       message: string,
     ) => void,
-    private readonly sessionAlive: SessionAlive = () => Promise.resolve(true),
-    private readonly sessionsAlive?: SessionsAlive,
+    private readonly sessionIdentities?: SessionIdentities,
   ) {
     this.bus.onMessage((channel, payload) => {
       const safe = relayPayload(payload);
@@ -288,8 +297,9 @@ export class GridHub {
   }
 
   /**
-   * Closes the sockets whose session is over: expired, ended elsewhere, or
-   * of an account since disabled. A socket that sends nothing is checked
+   * Closes the sockets whose session is over (expired, ended elsewhere, of
+   * an account since disabled) or holds another person's rights than when
+   * they opened, as acting starts or ends. A socket that sends nothing is checked
    * here, since nothing else looks at it; one question covers them all.
    */
   async endExpiredSessions(): Promise<number> {
@@ -297,23 +307,15 @@ export class GridHub {
     for (const state of this.sockets.values()) {
       if (state.sessionTokenHash) hashes.add(state.sessionTokenHash);
     }
-    if (hashes.size === 0) return 0;
-    const live = this.sessionsAlive
-      ? await this.sessionsAlive([...hashes])
-      : new Set(
-          (
-            await Promise.all(
-              [...hashes].map(async (hash) =>
-                (await this.sessionAlive(hash)) ? hash : null,
-              ),
-            )
-          ).filter((hash) => hash !== null),
-        );
+    if (hashes.size === 0 || !this.sessionIdentities) return 0;
+    const live = await this.sessionIdentities([...hashes]);
     let closed = 0;
     for (const [socket, state] of this.sockets) {
-      if (!state.sessionTokenHash || live.has(state.sessionTokenHash)) continue;
+      if (!state.sessionTokenHash) continue;
+      const identity = live.get(state.sessionTokenHash);
+      if (identity === state.userId) continue;
       if (socket.readyState !== socket.OPEN) continue;
-      socket.close(4401, "Unauthorized");
+      closeForIdentity(socket, identity);
       closed += 1;
     }
     return closed;
@@ -425,10 +427,13 @@ export class GridHub {
       );
       return;
     }
-    if (state.sessionTokenHash) {
+    if (state.sessionTokenHash && this.sessionIdentities) {
       try {
-        if (!(await this.sessionAlive(state.sessionTokenHash))) {
-          socket.close(4401, "Unauthorized");
+        const identity = (
+          await this.sessionIdentities([state.sessionTokenHash])
+        ).get(state.sessionTokenHash);
+        if (identity !== state.userId) {
+          closeForIdentity(socket, identity);
           return;
         }
       } catch (error) {

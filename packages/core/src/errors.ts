@@ -18,6 +18,7 @@ export const ERRORS = {
   access_denied: [403, "Access denied"],
   /** Administration is closed while the administrator acts as someone. */
   acting_as: [403, "Acting as someone"],
+  acting_no_job: [403, "No job while acting as someone"],
   cannot_act_as: [403, "Cannot act as this person"],
   already_acting: [409, "Already acting as someone"],
   mfa_enrollment_required: [403, "MFA enrollment required"],
