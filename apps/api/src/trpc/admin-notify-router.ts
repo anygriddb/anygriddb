@@ -31,7 +31,7 @@ import { t } from "./init.js";
 import { procedure, requireAdmin } from "./admin-procedure.js";
 
 /** Applies a saved metrics token or collector. True when traces need a restart. */
-async function refreshProbe(
+export async function refreshProbe(
   db: Database,
   env: Env,
   provider: string,
@@ -43,6 +43,7 @@ async function refreshProbe(
   const tracing = await applyTracing({
     endpoint: savedTraces.endpoint,
     headers: savedTraces.headers,
+    lookup: savedTraces.lookup,
     serviceName: env.OTEL_SERVICE_NAME,
     version: BUILD.version,
   });
