@@ -167,25 +167,32 @@ export function SourcesTab() {
       ) : null}
       {impact && impact.blockedSources > 0 ? (
         <p role="status" className="text-sm">
-          {plural(impact.blockedSources, {
-            one: `# source refused by the allow list`,
-            other: `# sources refused by the allow list`,
-          })}
-          {" · "}
-          {plural(impact.unreachableTables, {
-            one: `# table cannot be read`,
-            other: `# tables cannot be read`,
-          })}
-          {" · "}
-          {plural(impact.frozenTables, {
-            one: `# synced table stays on its last copy`,
-            other: `# synced tables stay on their last copy`,
-          })}
-          {" · "}
-          {plural(impact.unreachableBases, {
-            one: `# base held in a source cannot be read`,
-            other: `# bases held in a source cannot be read`,
-          })}
+          {[
+            plural(impact.blockedSources, {
+              one: `# source refused by the allow list`,
+              other: `# sources refused by the allow list`,
+            }),
+            impact.unreachableTables > 0
+              ? plural(impact.unreachableTables, {
+                  one: `# table cannot be read`,
+                  other: `# tables cannot be read`,
+                })
+              : null,
+            impact.frozenTables > 0
+              ? plural(impact.frozenTables, {
+                  one: `# synced table stays on its last copy`,
+                  other: `# synced tables stay on their last copy`,
+                })
+              : null,
+            impact.unreachableBases > 0
+              ? plural(impact.unreachableBases, {
+                  one: `# base held in a source cannot be read`,
+                  other: `# bases held in a source cannot be read`,
+                })
+              : null,
+          ]
+            .filter((part) => part !== null)
+            .join(" · ")}
         </p>
       ) : null}
       {blockedListed.length > 0 && allowed.length > 0 ? (
