@@ -43,8 +43,8 @@ first.
   twice in Administration. A run that fails or is stopped keeps nothing
   of what it had written, where it left a folder with part of a dump;
   and what a run writes is its owner's alone from the first byte.
-- On SQL Server, a field held in the old `text` or `ntext` types can be
-  sorted and grouped: the rows could not be read. On Oracle, a link field
+- On SQL Server, a field held in the old `text`, `ntext` or `image` types
+  can be sorted and grouped: the rows could not be read. On Oracle, a link field
   is no longer offered for grouping, which that engine cannot do.
 - "Duplicate field" is offered only on a table that can take the copy:
   not on a store read from a copy, nor on a table with no primary key.

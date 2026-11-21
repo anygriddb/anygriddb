@@ -708,6 +708,9 @@ describe("what an engine cannot compare", () => {
       });
       expect(page.text).toContain('cast(r."TITLE" as nvarchar(max))');
     }
+    expect(
+      buildReadRows(external("sqlserver", "image"), { limit: 5 }).text,
+    ).toContain('cast(r."TITLE" as varbinary(max))');
     const page = buildReadRows(external("sqlserver", "nvarchar(50)"), {
       limit: 5,
     });
