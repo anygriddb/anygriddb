@@ -18,6 +18,7 @@ import { trpc } from "../../lib/trpc";
 import { canManage } from "../../lib/types";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
+import { BlockedSourcesBanner } from "../table/source-reach";
 import { NewTableDialog } from "./new-table-dialog";
 import { EmptyState, NotebookPage } from "./notebook-page";
 import { useInvalidateCatalog } from "./sidebar";
@@ -63,6 +64,11 @@ export function BaseHome({ baseId }: { baseId: string }) {
         ) : undefined
       }
     >
+      <BlockedSourcesBanner
+        tables={base.tables}
+        locale={locale}
+        surface="base"
+      />
       <nav
         aria-label={t`Base`}
         className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-b border-rule pb-5 text-sm"

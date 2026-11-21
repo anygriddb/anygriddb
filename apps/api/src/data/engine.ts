@@ -24,12 +24,16 @@ export type CatalogRows = {
   tables: TableRow[];
   columns: ColumnRow[];
   relations: RelationRow[];
-  /** Each source the tables come from: its name, engine, and time zone. */
+  /** Each source the tables come from: its name, engine, host, and time zone. */
   sources: ReadonlyMap<
     string,
     {
       name: string;
       engine: string;
+      /** Hosts the operator's allow list is checked against. */
+      host: string;
+      replicaHost: string | null;
+      replicaPort: number | null;
       timeZone: string;
       sideSchema: string | null;
       serverVersion?: string | null;
@@ -429,6 +433,9 @@ export async function loadCatalogRows(
             "id",
             "name",
             "engine",
+            "host",
+            "replicaHost",
+            "replicaPort",
             "timeZone",
             "sideSchema",
             "serverVersion",

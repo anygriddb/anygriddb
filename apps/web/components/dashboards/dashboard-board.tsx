@@ -39,6 +39,7 @@ import { toast } from "sonner";
 import { useNarrowScreen } from "../../lib/narrow-screen";
 import { useCatalog } from "../../lib/session";
 import { LoadFailed } from "../shell/load-failed";
+import { BlockedSourcesBanner } from "../table/source-reach";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { canManage } from "../../lib/types";
 import { PromptDialog } from "../shell/dialogs";
@@ -340,17 +341,21 @@ function DashboardEditor(props: { baseId: string; dashboardId: string }) {
   }
 
   const { dashboard, widgets } = board.data;
-  let oldestCopy: number | null = null;
-  for (const widget of widgets) {
+  const widgetTables = widgets.flatMap((widget) => {
     const tableId = configString(widget.config, "tableId");
-    const at = base.tables.find((table) => table.id === tableId)?.external
-      ?.synced?.at;
+    const table = base.tables.find((item) => item.id === tableId);
+    return table ? [table] : [];
+  });
+  let oldestCopy: number | null = null;
+  for (const table of widgetTables) {
+    const at = table.external?.synced?.at;
     if (!at) continue;
     const time = new Date(at).getTime();
     if (oldestCopy === null || time < oldestCopy) oldestCopy = time;
   }
   const ordered = readingOrder(widgets);
   const modifying = manage && editing;
+  const boardLocale = i18n.locale === "fr" ? "fr" : "en";
 
   function fail(cause: unknown) {
     toast.error(errorText(cause));
@@ -403,6 +408,11 @@ function DashboardEditor(props: { baseId: string; dashboardId: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
+      <BlockedSourcesBanner
+        tables={widgetTables}
+        locale={boardLocale}
+        surface="dashboard"
+      />
       <div className="flex flex-wrap items-center gap-3">
         <Button asChild size="icon" variant="ghost">
           <Link

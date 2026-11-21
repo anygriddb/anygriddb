@@ -2,6 +2,7 @@
  * Bases: what a person sees of theirs, and making, copying, importing,
  * and exporting one.
  */
+import { sourceReachable } from "../sources/impact.js";
 import { isHomeDialect, isHomeTable } from "@anygriddb/core";
 import {
   airtableBaseId,
@@ -195,6 +196,14 @@ export const catalogBaseProcedures = {
                 ...assembleEngine(table.id, rows, readable),
                 ...(access ? { access } : {}),
               };
+              const sourceRow =
+                table.sourceId === null
+                  ? undefined
+                  : rows.sources.get(table.sourceId);
+              // Empty allow list, or a host off it: pools refuse the dial-out.
+              const hostAllowed =
+                sourceRow !== undefined &&
+                sourceReachable(ctx.sources.allows, sourceRow);
               return {
                 id: table.id,
                 name: table.name,
@@ -221,10 +230,10 @@ export const catalogBaseProcedures = {
                             ? null
                             : {
                                 id: table.sourceId,
-                                name:
-                                  rows.sources.get(table.sourceId)?.name ?? "",
+                                name: sourceRow?.name ?? "",
                               },
                         hosted: isHomeTable(table),
+                        hostAllowed,
                         // What an administrator enabled (ADR 0006); a
                         // copy takes no writes (ADR 0034).
                         writes: {
@@ -243,7 +252,7 @@ export const catalogBaseProcedures = {
                           : (table.externalKey ?? []).length === 0 ||
                               table.sourceId === null
                             ? ("off" as const)
-                            : rows.sources.get(table.sourceId)?.sideSchema
+                            : sourceRow?.sideSchema
                               ? ("client" as const)
                               : ("control_plane" as const),
                         enrichmentBlocked: syncs.has(table.id)

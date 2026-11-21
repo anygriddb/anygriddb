@@ -111,6 +111,8 @@ export function SourcesTab() {
   }
 
   const allowed = settings.data?.allowedHosts ?? [];
+  const impact = settings.data?.impact;
+  const blockedListed = allSources.filter((source) => !source.hostAllowed);
   return (
     <div className="flex flex-col gap-3">
       {settings.data?.allowPlaintext ? (
@@ -122,11 +124,87 @@ export function SourcesTab() {
           {t`ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT is on: sources connect without TLS. For development only.`}
         </p>
       ) : null}
-      <p className="text-sm text-muted-foreground">
-        {allowed.length > 0
-          ? t`Allowed hosts: ${{ hosts: allowed.join(", ") }}`
-          : t`No host is allowed: the operator sets ANYGRIDDB_SOURCES_ALLOWED_HOSTS.`}
-      </p>
+      {allowed.length === 0 ? (
+        <p
+          role="status"
+          className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-2 text-sm"
+        >
+          <ShieldAlert
+            className="mt-0.5 h-4 w-4 shrink-0 text-warning"
+            aria-hidden
+          />
+          <span>
+            {t`No host is allowed: the operator sets ANYGRIDDB_SOURCES_ALLOWED_HOSTS. New sources cannot be added. Live tables and bases held in a source cannot reach the client; synced tables keep their last copy until the host is allowed again.`}
+          </span>
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {t`Allowed hosts: ${{ hosts: allowed.join(", ") }}`}
+        </p>
+      )}
+      {impact && impact.sources > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {plural(impact.sources, {
+            one: `# source`,
+            other: `# sources`,
+          })}
+          {" · "}
+          {plural(impact.liveTables, {
+            one: `# live table`,
+            other: `# live tables`,
+          })}
+          {" · "}
+          {plural(impact.syncedTables, {
+            one: `# synced table`,
+            other: `# synced tables`,
+          })}
+          {" · "}
+          {plural(impact.hostedBases, {
+            one: `# base held in a source`,
+            other: `# bases held in a source`,
+          })}
+        </p>
+      ) : null}
+      {impact && impact.blockedSources > 0 ? (
+        <p role="status" className="text-sm">
+          {plural(impact.blockedSources, {
+            one: `# source refused by the allow list`,
+            other: `# sources refused by the allow list`,
+          })}
+          {" · "}
+          {plural(impact.unreachableTables, {
+            one: `# table cannot be read`,
+            other: `# tables cannot be read`,
+          })}
+          {" · "}
+          {plural(impact.frozenTables, {
+            one: `# synced table stays on its last copy`,
+            other: `# synced tables stay on their last copy`,
+          })}
+          {" · "}
+          {plural(impact.unreachableBases, {
+            one: `# base held in a source cannot be read`,
+            other: `# bases held in a source cannot be read`,
+          })}
+        </p>
+      ) : null}
+      {blockedListed.length > 0 && allowed.length > 0 ? (
+        <p
+          role="status"
+          className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-2 text-sm"
+        >
+          <ShieldAlert
+            className="mt-0.5 h-4 w-4 shrink-0 text-warning"
+            aria-hidden
+          />
+          <span>
+            {plural(blockedListed.length, {
+              one: `# declared source sits on a host outside the allow list: its connections are refused until the operator adds that host.`,
+              other: `# declared sources sit on hosts outside the allow list: their connections are refused until the operator adds those hosts.`,
+            })}
+          </span>
+        </p>
+      ) : null}
       <div>
         <Button
           size="sm"
@@ -167,6 +245,13 @@ export function SourcesTab() {
                     <span className="flex items-center gap-1.5">
                       <EngineMark engine={source.engine} className="h-4 w-4" />
                       {source.name}
+                      {!source.hostAllowed ? (
+                        <span className="rounded border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[10px] font-normal text-foreground">
+                          {source.replicaBlocked
+                            ? t`Replica host not allowed`
+                            : t`Host not allowed`}
+                        </span>
+                      ) : null}
                     </span>
                   </td>
                   <td className="px-3 py-2 font-mono text-xs">

@@ -1,4 +1,3 @@
-import { isCopySourceEngine } from "@anygriddb/core";
 import { Avatar, Tooltip } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { useQueryClient } from "@tanstack/react-query";
@@ -10,7 +9,8 @@ import type { CatalogTable, Role, ViewItem } from "../../lib/types";
 import { ENGINE_MARKS, EngineMark } from "../admin/engine-mark";
 import { canEditView } from "./table-rights";
 import { ViewTabs } from "./view-tabs";
-import { formatInstant } from "../../lib/format";
+
+export { CopyNote } from "./source-reach";
 
 /** One line: the table, where it lives, its views, who is here. */
 export function TableHeader({
@@ -97,33 +97,6 @@ export function TableHeader({
         ))}
       </div>
     </header>
-  );
-}
-
-/** A table read from a copy (ADR 0034) says how fresh the copy is. */
-export function CopyNote({
-  external,
-  locale,
-}: {
-  external: NonNullable<CatalogTable["external"]>;
-  locale: "fr" | "en";
-}) {
-  const { t } = useLingui();
-  const synced = external.synced;
-  if (!synced) return null;
-  return (
-    <p
-      role="note"
-      className="border-b border-border bg-head px-4 py-1 text-xs text-muted-foreground"
-    >
-      {synced.at
-        ? t`Copy of the client's database from ${{
-            date: formatInstant(synced.at, locale),
-          }}, refreshed every ${{ minutes: synced.intervalMinutes }} min: read-only`
-        : isCopySourceEngine(external.engine)
-          ? t`The copy has not arrived. The table stays empty until then.`
-          : t`Copy in preparation: the table is read live until then`}
-    </p>
   );
 }
 

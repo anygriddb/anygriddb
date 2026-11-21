@@ -21,8 +21,30 @@ DBA) prepares two things first:
 
 The operator of the AnyGridDB instance lists the hosts sources may live on
 in `ANYGRIDDB_SOURCES_ALLOWED_HOSTS` (names, `*.` domains, addresses,
-ranges). `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT=true` connects without TLS: for
-development only, and the administration page says so.
+ranges). Empty allows none: no new source can be declared, and every
+connection to a declared source is refused (`source_host_not_allowed`).
+That is the network kill switch; it is not a build-time option, and the
+drivers ship in every image.
+
+What emptying the list (or removing a host) does to what is already there:
+
+- **Live tables** and **bases held in a source** (ADR 0090): reads and
+  writes fail until the host is allowed again. Catalog entries, views,
+  dashboards, and automations stay; they show that the source is
+  unavailable.
+- **Synced tables** and **stores read from a copy** (ADR 0034, 0088): the
+  last copy in AnyGridDB's database **keeps serving**. Refresh jobs fail;
+  the data freezes. Clearing the allow list does not hide those rows.
+
+A source with a replica needs both hosts on the list: a replica outside it
+refuses the whole source. A synced table whose first copy has not arrived
+is read live until then, so it is refused like a live one.
+
+Administration → Sources shows how many sources, live tables, synced
+tables, and hosted bases the instance holds and, when a source is refused,
+what that leaves: the tables that cannot be read, those on their last copy,
+and the bases held there. `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT=true` connects
+without TLS: for development only, and the administration page says so.
 
 Every read runs under the source's time limit, with at most its number of
 connections, in a read-only transaction where the engine has one. Dates
