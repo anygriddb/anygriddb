@@ -19,6 +19,7 @@ import { uploadSlots } from "./upload-slots.js";
 import { registerClientErrors } from "./client-errors.js";
 import { registerLogoRoute } from "./instance-logo.js";
 import { registerCompression } from "./compression.js";
+import { registerTextGuard } from "./text-guard.js";
 import { authorizeGrid } from "./auth/access.js";
 import { passkeysEligible } from "./auth/relying-party.js";
 import { registerRateLimit } from "./rate-limit.js";
@@ -261,6 +262,7 @@ export async function createApp(deps: {
       return reply.code(403).send(publicErrorBody(403));
     }
   });
+  registerTextGuard(app);
   // Requests by route pattern, never by path: ids would explode the series.
   app.addHook("onResponse", async (request, reply) => {
     requestAnswered(request, {
