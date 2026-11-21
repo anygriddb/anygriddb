@@ -96,5 +96,15 @@ export default defineConfig({
     sourcemap: true,
     // Hashed file names under /assets: the API caches them for a year.
     assetsDir: "assets",
+    // The chart library is a file of its own, 554 kB, asked for with the
+    // first dashboard and already cut to the parts drawn: anything else
+    // that grows past it is still said.
+    chunkSizeWarningLimit: 600,
+    rolldownOptions: {
+      // The compressed copies are made after the bundle, at the smallest
+      // size, which takes longer than the bundle itself: known, and said
+      // at every build otherwise.
+      checks: { bundlerTimings: false },
+    },
   },
 });

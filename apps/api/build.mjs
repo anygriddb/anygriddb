@@ -65,7 +65,9 @@ const result = await build({
   target: "node26",
   sourcemap: true,
   metafile: true,
-  logLevel: "info",
+  // Its own summary marks a file over a megabyte with a warning sign, a
+  // hint meant for what a browser downloads: the sizes are printed below.
+  logLevel: "warning",
   define: {
     // The migrations ship in dist/migrations, next to the bundle.
     __ANYGRID_MIGRATIONS__: JSON.stringify("./migrations"),
@@ -115,3 +117,8 @@ if (missing.size > 0) {
 await cp("../../packages/db/migrations", "dist/migrations", {
   recursive: true,
 });
+
+for (const [file, output] of Object.entries(result.metafile.outputs)) {
+  if (file.endsWith(".map")) continue;
+  console.log(`  ${file.padEnd(28)} ${(output.bytes / 1024).toFixed(1)} kB`);
+}
