@@ -7,11 +7,13 @@ import { isCopySourceEngine } from "@anygriddb/core";
 import { cn } from "@anygriddb/ui";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
+import { Link } from "@tanstack/react-router";
 import { ShieldAlert } from "lucide-react";
 import { formatInstant } from "../../lib/format";
+import { useSession } from "../../lib/session";
 import type { CatalogTable } from "../../lib/types";
 
-/** Tables whose source host is outside ANYGRIDDB_SOURCES_ALLOWED_HOSTS. */
+/** Tables whose source host is outside the operator's allow list. */
 export function blockedSourceTables(
   tables: readonly CatalogTable[],
 ): CatalogTable[] {
@@ -39,6 +41,8 @@ export function CopyNote({
   locale: "fr" | "en";
 }) {
   const { t } = useLingui();
+  const session = useSession();
+  const isAdmin = Boolean(session.data?.isAdmin);
   const synced = external.synced;
 
   if (!external.hostAllowed) {
@@ -56,6 +60,7 @@ export function CopyNote({
             {t`This source's host is not allowed: reading the copy from ${{
               date: formatInstant(synced.at, locale),
             }}. Refresh is paused until the operator allows the host.`}
+            {isAdmin ? <SourcesLink /> : null}
           </span>
         </p>
       );
@@ -72,8 +77,9 @@ export function CopyNote({
         />
         <span>
           {synced && isCopySourceEngine(external.engine)
-            ? t`This source's host is not allowed: its first copy cannot arrive until the operator adds it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS.`
-            : t`This source's host is not allowed: the operator must add it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS. Rows cannot be read or written in the client's database.`}
+            ? t`This source's host is not allowed: its first copy cannot arrive until the operator allows the host.`
+            : t`This source's host is not allowed: the operator must allow it. Rows cannot be read or written in the client's database.`}
+          {isAdmin ? <SourcesLink /> : null}
         </span>
       </p>
     );
@@ -110,6 +116,8 @@ export function BlockedSourcesBanner({
   surface: "base" | "dashboard";
 }) {
   const { t } = useLingui();
+  const session = useSession();
+  const isAdmin = Boolean(session.data?.isAdmin);
   const blocked = blockedSourceTables(tables);
   if (blocked.length === 0) return null;
 
@@ -140,7 +148,10 @@ export function BlockedSourcesBanner({
         aria-hidden
       />
       <div className="flex min-w-0 flex-col gap-1">
-        <p>{where}</p>
+        <p>
+          {where}
+          {isAdmin ? <SourcesLink /> : null}
+        </p>
         {cut.length > 0 ? (
           <p className="text-xs text-muted-foreground">
             {plural(cut.length, {
@@ -158,5 +169,21 @@ export function BlockedSourcesBanner({
         ) : null}
       </div>
     </div>
+  );
+}
+
+/** For administrators: open the allow-list screen. */
+function SourcesLink() {
+  const { t } = useLingui();
+  return (
+    <>
+      {" "}
+      <Link
+        to="/admin/sources"
+        className="font-medium text-primary underline underline-offset-2"
+      >
+        {t`Open Sources in Administration`}
+      </Link>
+    </>
   );
 }

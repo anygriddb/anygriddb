@@ -78,6 +78,11 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
       page.getByText(/Public links let anyone with the address/),
     ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
+    // The list of sources says which setting holds the allowed hosts.
+    await openAdmin(page, "Sources");
+    await expect(
+      page.getByText(/set by ANYGRIDDB_SOURCES_ALLOWED_HOSTS: /),
+    ).toBeVisible();
     // Every base, and one base's own page: the administrator's, since
     // another journey's base must not leave under its feet.
     await openAdmin(page, "Bases");
