@@ -317,4 +317,43 @@ describe("orders and places the API takes", () => {
       widgets: [{ id: widget.id, x: 6, y: 2, w: 6, h: 4 }],
     });
   });
+
+  it("says that a view is not found, to a read by it and to the widgets that show it", async () => {
+    const gone = await owner.call().catalog.createView({
+      tableId,
+      name: "To the trash",
+      viewType: "grid",
+    });
+    const dashboard = await owner
+      .call()
+      .dashboards.create({ baseId, name: "Of a view" });
+    const shown = await owner.call().dashboards.upsertWidget({
+      dashboardId: dashboard.id,
+      title: "Its rows",
+      kind: "view_embed",
+      config: { tableId, viewId: gone.id },
+    });
+    const counted = await owner.call().dashboards.upsertWidget({
+      dashboardId: dashboard.id,
+      title: "Its total",
+      kind: "metric",
+      config: { tableId, viewId: gone.id, column: "amount", fn: "sum" },
+    });
+    const data = (widgetId: string) =>
+      owner
+        .call()
+        .dashboards.widgetData({ dashboardId: dashboard.id, widgetId });
+    expect(await errorCode(data(shown.id))).toBe("ok");
+    expect(await errorCode(data(counted.id))).toBe("ok");
+
+    await owner.call().catalog.deleteView({ viewId: gone.id });
+    // The view is what is missing: each said "no such row".
+    expect(
+      await errorCode(owner.call().rows.read({ tableId, viewId: gone.id })),
+    ).toBe("unknown_view");
+    expect(await errorCode(data(counted.id))).toBe("unknown_view");
+    // The widget that shows the view says so itself: it answered as if
+    // the view were there, and the page then asked for its rows.
+    expect(await errorCode(data(shown.id))).toBe("unknown_view");
+  });
 });

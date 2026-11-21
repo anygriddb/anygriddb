@@ -48,6 +48,12 @@ first.
 - A chart of several lines, or of several areas, names each of them in
   its legend. The names were all drawn on one corner, one over the
   other, with no mark beside them: nothing said which line was which.
+- A view that is not there is said to be one: "View not found". A
+  dashboard's widget whose view went to the trash, an export, a link, a
+  calendar's feed and the API's `view` each answered "Row not found"
+  (`no_row`; the code is now `unknown_view`). A widget that shows
+  such a view says so once: its page asked for the view's rows and was
+  refused, again each time a row of the table changed.
 - Taking a member out of a base, from its settings, asks first: one
   click on the bin took their role and the permissions set for them on
   each table, which inviting them again does not bring back.

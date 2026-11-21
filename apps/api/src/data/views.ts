@@ -54,7 +54,7 @@ export async function loadView(db: Database, viewId: string): Promise<ViewRow> {
     .where(liveView())
     .executeTakeFirst();
   if (!view) {
-    throw new AppError("no_row");
+    throw new AppError("unknown_view");
   }
   return view;
 }
