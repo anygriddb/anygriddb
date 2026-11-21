@@ -401,6 +401,13 @@ export async function widgetData(
   }
 
   if (parsed.kind === "view_embed") {
+    // A view in the trash is said here, once: the page would ask for
+    // its rows and be refused, again each time the table changes.
+    await assertViewInTable(
+      deps.db,
+      parsed.config.tableId,
+      parsed.config.viewId,
+    );
     return {
       kind: "view_embed",
       tableId: parsed.config.tableId,

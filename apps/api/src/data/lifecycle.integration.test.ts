@@ -419,7 +419,7 @@ describe("jobs, trash, and authors", () => {
         ownerId: null,
       });
       await trashView(db, owner, first);
-      await expect(loadView(db, first.id)).rejects.toThrow("No row");
+      await expect(loadView(db, first.id)).rejects.toThrow("Unknown view");
       const deps = {
         db,
         files: new DiskStore(await mkdtemp(join(tmpdir(), "anygriddb-files-"))),
