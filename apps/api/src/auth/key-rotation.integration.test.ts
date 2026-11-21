@@ -234,6 +234,47 @@ describe("the encryption key changed", () => {
     });
   });
 
+  it("counts a key it may not read by the note beside it, and never takes a closed folder for an empty one", async () => {
+    const locked = await mkdtemp(join(tmpdir(), "anygriddb-locked-"));
+    const file = join(locked, "internal-authority.key.enc");
+    await writeFile(file, await readFile(join(tlsDir, "internal.key.enc")));
+    await chmod(file, 0o000);
+    try {
+      const refused = await rotateKeys(db, after, {
+        write: false,
+        tlsDir: locked,
+      });
+      expect(refused.forbidden).toEqual(["internal-authority.key.enc"]);
+
+      await writeFile(join(locked, "internal-authority.key.id"), "next\n");
+      const counted = await rotateKeys(db, after, {
+        write: false,
+        tlsDir: locked,
+      });
+      expect(counted.forbidden).toEqual([]);
+      expect(counted.byKey.next).toBe((refused.byKey.next ?? 0) + 1);
+
+      await chmod(locked, 0o000);
+      const closed = await rotateKeys(db, after, {
+        write: false,
+        tlsDir: locked,
+      });
+      expect(closed.forbidden).toEqual(["the certificates folder"]);
+    } finally {
+      await chmod(locked, 0o700);
+      await rm(locked, { recursive: true, force: true });
+    }
+    // A folder that is not there holds nothing: the operator's certificates.
+    expect(
+      (
+        await rotateKeys(db, after, {
+          write: false,
+          tlsDir: join(tlsDir, "nothing-here"),
+        })
+      ).forbidden,
+    ).toEqual([]);
+  });
+
   it("keeps a backup code made before the change, while its key is kept", async () => {
     // Without the earlier key the code is unknown, and is not spent.
     expect(await consumeBackupCode(db, ada, adaCode, after)).toBe(false);

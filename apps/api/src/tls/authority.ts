@@ -15,6 +15,7 @@ import { createPrivateKey, X509Certificate } from "node:crypto";
 import {
   chown,
   mkdir,
+  readdir,
   readFile,
   rename,
   stat,
@@ -176,7 +177,43 @@ export async function resealTlsKey(
   return { keyId: secret.currentId, rewritten: true };
 }
 
+/**
+ * The internal authority's key is root's in the compose stack, and the
+ * app's account reads neither it nor, as root without capabilities, the
+ * folder. The one-shot `certs`, which may, notes beside it which key seals
+ * it: that is no secret, and `keys status` can then count it.
+ */
+const INTERNAL_KEY = "internal-authority.key.enc";
+const sealedByFile = (name: string) => name.replace(/\.key\.enc$/, ".key.id");
+
+/** Which key seals a key file its reader may not open, when one was noted. */
+export async function sealedBy(
+  dir: string,
+  name: string,
+): Promise<string | null> {
+  return (await readText(join(dir, sealedByFile(name))))?.trim() || null;
+}
+
 type Log = (message: string) => void;
+
+/**
+ * Seals the folder's keys again under the current key, at the start of a
+ * stack that was given a new one: nothing else has the rights over all of
+ * them, and a key left under the earlier one would be lost with it.
+ */
+async function sealFolderAgain(dir: string, secret: KeyRing, log: Log) {
+  const names = await readdir(dir);
+  for (const name of names.filter((item) => item.endsWith(".key.enc"))) {
+    const outcome = await resealTlsKey(dir, name, secret, true);
+    if (outcome === "unreadable") {
+      log(
+        `${name}: no key given opens it. Add the key that sealed it to AUTH_ENCRYPTION_PREVIOUS_KEYS.`,
+      );
+    } else if (outcome !== "forbidden" && outcome.rewritten) {
+      log(`${name}: sealed again under ${secret.currentId}`);
+    }
+  }
+}
 
 /**
  * The two authorities an instance keeps. `authority` signs the certificate
@@ -432,12 +469,18 @@ export async function issueServiceCertificates(
     }
   }
   await mkdir(settings.TLS_DIR, { recursive: true, mode: 0o700 });
+  await sealFolderAgain(settings.TLS_DIR, settings.AUTH_ENCRYPTION_KEY, log);
   const names = services.map((service) => service.name);
   const authority = await localAuthority(
     { ...settings, PUBLIC_URL: "https://localhost", TLS_NAMES: [] },
     names,
     log,
     "internal-authority",
+  );
+  await writeAtomic(
+    join(settings.TLS_DIR, sealedByFile(INTERNAL_KEY)),
+    `${settings.AUTH_ENCRYPTION_KEY.currentId}\n`,
+    0o644,
   );
   const signer = {
     cert: authority.issued.cert,

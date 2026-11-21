@@ -12,7 +12,7 @@
 import { readdir } from "node:fs/promises";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
-import { resealTlsKey } from "../tls/authority.js";
+import { resealTlsKey, sealedBy } from "../tls/authority.js";
 import { encryptSecret, openSecret } from "./crypto.js";
 import type { KeyRing, KeyUse } from "./key-ring.js";
 
@@ -194,7 +194,16 @@ export async function rotateKeys(
     await rotateColumn(db, ring, column, options.write, report);
   }
   if (options.tlsDir) {
-    const names = await readdir(options.tlsDir).catch(() => []);
+    let names: string[] = [];
+    try {
+      names = await readdir(options.tlsDir);
+    } catch (error) {
+      // No folder: the operator gives the certificates. One that cannot
+      // be read may hold keys, and is never taken for an empty one.
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        report.forbidden.push("the certificates folder");
+      }
+    }
     for (const name of names.filter((item) => item.endsWith(".key.enc"))) {
       const outcome = await resealTlsKey(
         options.tlsDir,
@@ -203,7 +212,9 @@ export async function rotateKeys(
         options.write,
       );
       if (outcome === "forbidden") {
-        report.forbidden.push(name);
+        const keyId = await sealedBy(options.tlsDir, name);
+        if (keyId) count(report, keyId);
+        else report.forbidden.push(name);
         continue;
       }
       if (outcome === "unreadable") {

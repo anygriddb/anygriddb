@@ -4,11 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connect, createServer } from "node:tls";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { keyRing } from "../auth/key-ring.js";
+import { keyRing, mintKey, parseKeyRing } from "../auth/key-ring.js";
 import {
   issueServiceCertificates,
   loadTls,
   refreshTls,
+  resealTlsKey,
+  sealedBy,
   serverNames,
   type TlsSettings,
 } from "./authority.js";
@@ -234,6 +236,71 @@ describe("the certificate AnyGridDB serves", () => {
     };
     expect(restarted.cert).not.toBe(running.cert);
     expect(await handshake(restarted, before, "db")).toBe("verified");
+  });
+
+  it("seals its keys under a new key at the next start, and keeps its authority", async () => {
+    const earlier = randomBytes(32);
+    const options = {
+      ...(await settings()),
+      AUTH_ENCRYPTION_KEY: keyRing(earlier),
+    };
+    const out = join(options.TLS_DIR, "..", "certs");
+    const services = [{ name: "db", postgres: true }];
+    const first = await issueServiceCertificates(options, services, out, quiet);
+    await loadTls(options, quiet);
+    expect(await sealedBy(options.TLS_DIR, "internal-authority.key.enc")).toBe(
+      "0",
+    );
+
+    const next = mintKey("next");
+    const during = parseKeyRing(next, `0:${earlier.toString("base64")}`);
+    const notes: string[] = [];
+    const again = await issueServiceCertificates(
+      { ...options, AUTH_ENCRYPTION_KEY: during },
+      services,
+      out,
+      (note) => notes.push(note),
+    );
+    expect(again.fingerprint).toBe(first.fingerprint);
+    expect(notes.join(" ")).toContain("internal-authority.key.enc");
+    expect(await sealedBy(options.TLS_DIR, "internal-authority.key.enc")).toBe(
+      "next",
+    );
+
+    // The earlier key can go: every key of the folder opens without it.
+    const after = parseKeyRing(next);
+    for (const name of [
+      "authority.key.enc",
+      "server.key.enc",
+      "internal-authority.key.enc",
+    ]) {
+      expect(await resealTlsKey(options.TLS_DIR, name, after, false)).toEqual({
+        keyId: "next",
+        rewritten: false,
+      });
+    }
+    const last = await issueServiceCertificates(
+      { ...options, AUTH_ENCRYPTION_KEY: after },
+      services,
+      out,
+      quiet,
+    );
+    expect(last.fingerprint).toBe(first.fingerprint);
+  });
+
+  it("says which key is missing rather than replacing it without a word", async () => {
+    const options = await settings();
+    const out = join(options.TLS_DIR, "..", "certs");
+    const services = [{ name: "db", postgres: true }];
+    await issueServiceCertificates(options, services, out, quiet);
+    const notes: string[] = [];
+    await issueServiceCertificates(
+      { ...options, AUTH_ENCRYPTION_KEY: parseKeyRing(mintKey("other")) },
+      services,
+      out,
+      (note) => notes.push(note),
+    );
+    expect(notes.join(" ")).toContain("AUTH_ENCRYPTION_PREVIOUS_KEYS");
   });
 
   it("refuses a service that another instance's authority vouches for", async () => {
