@@ -951,10 +951,12 @@ Both are off until you turn them on (ADR 0018).
   Series cover requests by route, tRPC procedures, the pool requests go
   through, transactions and connections in use per client database,
   background tasks, the job queue, failures pages report from browsers,
-  and the process. Four more:
+  and the process. Five more:
   `anygriddb_db_query_duration_seconds` (how long a query on
   AnyGridDB's own database took; the statement is not a label),
   `anygriddb_database_size_bytes`,
+  `anygriddb_database_reachable` (0 while that database answers no
+  scrape; `/metrics` keeps answering),
   `anygriddb_websocket_connections` (browser sockets on this process),
   and `anygriddb_automation_scripts_total` (scripts automations ran, by
   how each ended: `success`, `error`, `timeout`, `memory`, `stopped`).
@@ -964,6 +966,12 @@ Both are off until you turn them on (ADR 0018).
   groups:
     - name: anygriddb
       rules:
+        - alert: AnyGridDBDown
+          expr: up{job="anygriddb"} == 0
+          for: 2m
+        - alert: AnyGridDBDatabaseUnreachable
+          expr: anygriddb_database_reachable == 0
+          for: 1m
         - alert: AnyGridDBServerErrors
           expr: |
             sum(rate(anygriddb_http_requests_total{status="5xx"}[5m]))

@@ -7,10 +7,12 @@ import { createFileStore } from "./files/index.js";
 import { watchSyslog } from "./integrations/syslog.js";
 import { loggedError, loggedFields } from "./logged-error.js";
 import { processLog } from "./process-log.js";
+import { metricsBearer } from "./notify/metrics-token.js";
 import { migrateQueue } from "./queue/worker.js";
 import { PgBus } from "./realtime/bus.js";
 import { createApp } from "./server.js";
 import {
+  registerDatabaseReachableGauge,
   registerDatabaseSizeGauge,
   registerPoolGauge,
   registerQueueGauge,
@@ -88,6 +90,10 @@ registerQueueGauge(db);
 registerPoolGauge(pool);
 registerSourceLoadWriter(db);
 registerDatabaseSizeGauge(db);
+registerDatabaseReachableGauge(db);
+// Read while the database answers: a first scrape during an outage still
+// has the saved token to check.
+await metricsBearer(db, env);
 watchQueries(pool);
 const app = await createApp({ env, db, files, bus, tls });
 if (tls.authority) {

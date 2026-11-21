@@ -120,25 +120,103 @@ export function automationScriptCounted(
   automationScripts.inc({ outcome });
 }
 
-/** Jobs waiting, scheduled, running, and failed for good, read at scrape. */
+/** How long a scrape waits for AnyGridDB's own database. */
+const SCRAPE_READ_MS = 2_000;
+
+/** How long an answer that came after its scrape is still worth giving. */
+const LATE_ANSWER_MS = 120_000;
+
+/**
+ * Reads made for scrapes, one at a time. A database that does not answer
+ * must not take the scrape with it, and a slow one must not be asked again
+ * while it still works on the last question. A scrape waits for the running
+ * read within a limit; an answer that comes after it goes to the scrapes
+ * that follow, so a read slower than the limit still gives a value.
+ * Undefined when the read failed or nothing has answered lately.
+ */
+export function scrapeReader<T>(withinMs: number = SCRAPE_READ_MS) {
+  let running: Promise<{ value: T } | undefined> | undefined;
+  let late: { value: T; at: number } | undefined;
+  return async (read: () => Promise<T>): Promise<T | undefined> => {
+    running ??= Promise.resolve()
+      .then(read)
+      .then(
+        (value) => ({ value }),
+        () => undefined,
+      )
+      .finally(() => {
+        running = undefined;
+      });
+    const current = running;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const gaveUp = new Promise<"gave up">((resolve) => {
+      timer = setTimeout(() => {
+        resolve("gave up");
+      }, withinMs);
+    });
+    const answer = await Promise.race([current, gaveUp]);
+    clearTimeout(timer);
+    if (answer !== "gave up") {
+      late = undefined;
+      return answer?.value;
+    }
+    void current.then((settled) => {
+      late = settled && { value: settled.value, at: Date.now() };
+    });
+    return late && Date.now() - late.at < LATE_ANSWER_MS
+      ? late.value
+      : undefined;
+  };
+}
+
+/** Whether AnyGridDB's own database answers the scrapes' reads. */
+export function registerDatabaseReachableGauge(db: Database): void {
+  const readAnswer = scrapeReader<true>();
+  let reachable = true;
+  new Gauge({
+    name: "anygriddb_database_reachable",
+    help: "1 while AnyGridDB's own database answers the scrapes' reads, even slowly, 0 when it does not.",
+    registers: [registry],
+    async collect() {
+      const answer = await readAnswer(async () => {
+        await sql`select 1`.execute(db);
+        return true;
+      });
+      const now = answer === true;
+      if (reachable && !now) console.error("the database answers no scrape");
+      reachable = now;
+      this.set(now ? 1 : 0);
+    },
+  });
+}
+
+/**
+ * Jobs waiting, scheduled, running, and failed for good, read at scrape.
+ * While the database does not answer there is no count to give: no series.
+ */
 export function registerQueueGauge(db: Database): void {
+  const readJobs = scrapeReader<{ state: string; count: string }[]>();
   new Gauge({
     name: "anygriddb_queue_jobs",
     help: "Background jobs by state: ready, scheduled, running, failed.",
     labelNames: ["state"] as const,
     registers: [registry],
     async collect() {
-      const { rows } = await sql<{ state: string; count: string }>`
-        select case
-            when locked_at is not null then 'running'
-            when attempts >= max_attempts then 'failed'
-            when run_at <= now() then 'ready'
-            else 'scheduled'
-          end as state, count(*)::text as count
-        from graphile_worker.jobs
-        group by 1
-      `.execute(db);
+      const rows = await readJobs(async () => {
+        const result = await sql<{ state: string; count: string }>`
+          select case
+              when locked_at is not null then 'running'
+              when attempts >= max_attempts then 'failed'
+              when run_at <= now() then 'ready'
+              else 'scheduled'
+            end as state, count(*)::text as count
+          from graphile_worker.jobs
+          group by 1
+        `.execute(db);
+        return result.rows;
+      });
       this.reset();
+      if (!rows) return;
       for (const state of ["ready", "scheduled", "running", "failed"]) {
         const found = rows.find((row) => row.state === state);
         this.set({ state }, Number(found?.count ?? 0));
@@ -236,17 +314,24 @@ export function watchQueries(pool: pg.Pool): void {
   pool.query = timed as pg.Pool["query"];
 }
 
-/** The size of AnyGridDB's own database, read when Prometheus scrapes. */
+/**
+ * The size of AnyGridDB's own database, read when Prometheus scrapes. While
+ * the database does not answer, the series keeps its last reading.
+ */
 export function registerDatabaseSizeGauge(db: Database): void {
+  const readSize = scrapeReader<string | undefined>();
   new Gauge({
     name: "anygriddb_database_size_bytes",
     help: "Size of AnyGridDB's own database, in bytes.",
     registers: [registry],
     async collect() {
-      const result = await sql<{ bytes: string }>`
-        select pg_database_size(current_database())::text as bytes
-      `.execute(db);
-      this.set(Number(result.rows[0]?.bytes ?? 0));
+      const bytes = await readSize(async () => {
+        const result = await sql<{ bytes: string }>`
+          select pg_database_size(current_database())::text as bytes
+        `.execute(db);
+        return result.rows[0]?.bytes;
+      });
+      if (bytes !== undefined) this.set(Number(bytes));
     },
   });
 }
