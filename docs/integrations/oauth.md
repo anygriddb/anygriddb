@@ -87,8 +87,12 @@ working. A refresh token lives ninety days and works once.
 curl https://grid.example.org/oauth/revoke -u 'agc_…:ags_…' -d token=agr_…
 ```
 
-ends the grant: the refresh token and its access token. It answers 200
-whether or not the token was still there.
+ends the grant: the refresh token and its access token, whichever of the
+two is given. It answers 200 whether or not the token was still there.
+
+These two addresses take 120 requests a minute per client address, apart
+from people's sign-ins: a backend that renews its people's grants takes
+nothing from theirs. Past that, they answer 429.
 
 ## Refusals
 
