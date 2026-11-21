@@ -87,21 +87,51 @@ Cursor, Claude Desktop, and clients that read an `mcpServers` file:
 
 ### Local model (Ollama and similar)
 
-AnyGridDB does not speak to Ollama itself. Run a client that:
+AnyGridDB does not speak to Ollama itself, and it embeds no model. You
+run the model next to the instance; the model reaches rows only through
+`/mcp` and a bearer token.
 
-1. Holds the bearer token and calls `https://<instance>/mcp` (Streamable
-   HTTP), and
-2. Exposes those MCP tools to the model (Ollama's chat API with `tools`,
-   or a desktop client that already speaks MCP).
+#### Recommended setup
+
+1. Create an API token under **Settings → API tokens** (or ask an
+   administrator when the policy is administrators only). Prefer
+   **read-only**, with deletes left off even if you later allow writes.
+2. Point an MCP-capable client at `https://<instance>/mcp` with
+   `Authorization: Bearer ag_…` (examples above for Claude Code and
+   Cursor). Trust the instance's certificate (below) in that process.
+3. Run Ollama on the operator's network (laptop or a host beside the
+   instance). Give the MCP tools to the model through that client
+   (Ollama's chat API with `tools`, or a desktop client that already
+   speaks MCP).
 
 A client that speaks only stdio can use a generic bridge to an HTTP
 server, such as `mcp-remote`, then point Ollama or another runner at
 that bridge. There is no `anygriddb mcp` command: it would need the
 instance's database credentials on the machine that runs the AI.
 
-Trust the instance's certificate (below) in the process that opens
-`/mcp`. Prefer a read-only token, or a write token with deletes off,
-until you know what the model will call.
+#### What the model can ask
+
+| Kind of question                                             | Through MCP?                                                                                                                        |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Counts and lists of rows (filters, views, search)            | Yes, under the token's rights                                                                                                       |
+| Create or update rows                                        | Only with a write token; prefer confirmation in the client                                                                          |
+| Delete rows                                                  | Only when the token allows deletes (`allowDelete`)                                                                                  |
+| Which tables and fields a base holds                         | Yes, to read, under the token's rights                                                                                              |
+| Changing tables or fields, members, settings, Administration | No — not on MCP, by design                                                                                                          |
+| Who is signed in on the instance                             | No — use **Administration → People → Sessions**; table presence ("People here") is who has that table open, not the instance roster |
+
+A filtered view or a dashboard widget remains more reliable than a
+chat for a recurring figure (for example contracts that expire soon):
+it shows the rows themselves, not a model's reading of them.
+
+#### Hard limits to keep
+
+- Never paste an administrator token (`aga_…`) or a session cookie into
+  a model client.
+- Never give the model raw SQL or a path around the record tools.
+- Prefer a read-only token until you know which tools the model calls.
+- Keep the model on the operator's network when the rows hold personal
+  data: AnyGridDB will not call a cloud LLM for you.
 
 ## The instance's certificate
 
