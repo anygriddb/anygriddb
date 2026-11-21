@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sheetGeometry } from "./grid-geometry";
+import { SCROLL_ROOM, sheetGeometry } from "./grid-geometry";
 import { ADD_FIELD_WIDTH, GUTTER } from "./margin-column";
 
 describe("sheetGeometry", () => {
@@ -21,5 +21,29 @@ describe("sheetGeometry", () => {
     expect(none.frozenCount).toBe(0);
     expect(none.frozenWidth).toBe(0);
     expect(none.sheetWidth).toBe(GUTTER);
+  });
+
+  it("keeps in place only the frozen columns that leave the others room to scroll", () => {
+    const widths = [200, 200, 200, 200, 200];
+    // A window wide enough for the five and the room: all stay.
+    const wide = sheetGeometry(widths, 5, 0, GUTTER + 1000 + SCROLL_ROOM);
+    expect(wide.frozenCount).toBe(5);
+    expect(wide.frozenWidth).toBe(1000);
+    // One pixel less, and the last frozen column scrolls with the rest.
+    const less = sheetGeometry(widths, 5, 0, GUTTER + 1000 + SCROLL_ROOM - 1);
+    expect(less.frozenCount).toBe(4);
+    expect(less.frozenWidth).toBe(800);
+    // A window that has no room beside the first column keeps none.
+    const narrow = sheetGeometry(widths, 5, 0, GUTTER + 200);
+    expect(narrow.frozenCount).toBe(0);
+    expect(narrow.frozenWidth).toBe(0);
+    // Where the columns stand does not change: only which ones stay.
+    expect(narrow.offsets).toEqual(wide.offsets);
+    expect(narrow.totalWidth).toBe(wide.totalWidth);
+  });
+
+  it("keeps what the view freezes until the window is measured", () => {
+    expect(sheetGeometry([200, 200, 200], 3, 0).frozenCount).toBe(3);
+    expect(sheetGeometry([200, 200, 200], 3, 0, undefined).frozenCount).toBe(3);
   });
 });

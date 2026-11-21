@@ -48,14 +48,40 @@ describe("fieldMenuPatch", () => {
     });
   });
 
-  it("freezes up to the field, and frees the columns from the last frozen one", () => {
+  it("freezes up to the field, whatever was frozen, and frees every column", () => {
     const config = { frozenColumns: 1 } as ViewConfig;
     expect(fieldMenuPatch("freeze", notes, { config, visible })).toEqual({
       frozenColumns: 2,
     });
+    // Up to the field already at the margin: it stays there. The entry
+    // that frees the columns is another one, and says so.
     expect(fieldMenuPatch("freeze", name, { config, visible })).toEqual({
+      frozenColumns: 1,
+    });
+    expect(fieldMenuPatch("unfreeze", name, { config, visible })).toEqual({
       frozenColumns: 0,
     });
+    expect(
+      fieldMenuPatch("unfreeze", notes, {
+        config: { frozenColumns: 8 },
+        visible,
+      }),
+    ).toEqual({ frozenColumns: 0 });
+  });
+
+  it("freezes no more columns than a view may", () => {
+    const many = Array.from({ length: 14 }, (_, index) =>
+      column(`field_${String(index)}`),
+    );
+    const last = many[13];
+    expect(last).toBeDefined();
+    if (!last) return;
+    expect(
+      fieldMenuPatch("freeze", last, {
+        config: {},
+        visible: many,
+      }),
+    ).toEqual({ frozenColumns: 10 });
   });
 
   it("adds a condition on the field to the view's filter", () => {

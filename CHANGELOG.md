@@ -49,6 +49,13 @@ first.
   by fields the client's database holds, and say what they need when it
   holds none. Drawn by a field kept in AnyGridDB, each read "The rows
   could not be read", with no way to choose another field.
+- Frozen columns leave the others room to scroll. "Freeze up to here"
+  on a far field kept in place more columns than the window is wide:
+  the others, their menus and the column that adds a field lay under
+  them, and nothing scrolled them into view. As many frozen columns
+  stay as the window has room for; a wider window keeps them all.
+- In a grid, a control that takes the keyboard among the columns that
+  scroll is brought clear of the frozen ones: it could stand under them.
 
 ## 0.3.2 - 2026-11-21
 

@@ -144,6 +144,21 @@ export function GridView(props: GridProps) {
   const api = useTRPC();
   const { rows, columns, frozen } = props;
   const scroller = useRef<HTMLDivElement>(null);
+  // The width the grid shows of its sheet, kept as the window changes:
+  // the frozen columns are held to what leaves the others room to scroll.
+  const [shown, setShown] = useState<number>();
+  const attach = useCallback((node: HTMLDivElement | null) => {
+    scroller.current = node;
+    if (!node) return undefined;
+    const measure = () => setShown(node.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      scroller.current = null;
+    };
+  }, []);
   // The selection lives outside React state: see selection.ts.
   const [selection] = useState(() => new GridSelection());
   const gridId = useId();
@@ -167,7 +182,7 @@ export function GridView(props: GridProps) {
   // The sheet ends after its last field, and the column that adds one; the
   // space past it only lets the last field scroll clear of the edge.
   const { offsets, sheetWidth, totalWidth, frozenCount, frozenWidth } =
-    sheetGeometry(widths, frozen, props.canManage ? ADD_FIELD_WIDTH : 0);
+    sheetGeometry(widths, frozen, props.canManage ? ADD_FIELD_WIDTH : 0, shown);
 
   // A grouped grid whose read said where each group starts places every
   // row at once; otherwise it lays out the rows read so far, in order, and
@@ -750,7 +765,7 @@ export function GridView(props: GridProps) {
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
-            ref={scroller}
+            ref={attach}
             role="grid"
             aria-label={t`Table rows`}
             aria-multiselectable
@@ -761,6 +776,9 @@ export function GridView(props: GridProps) {
             aria-colcount={columns.length + 1 + (props.canManage ? 1 : 0)}
             tabIndex={0}
             className="relative min-h-0 flex-1 overflow-auto outline-none select-none"
+            // A control that takes the keyboard among the columns that
+            // scroll is brought clear of those that stay, not under them.
+            style={{ scrollPaddingLeft: GUTTER + frozenWidth }}
             onKeyDown={onKeyDown}
             onCopy={onCopy}
             onPaste={(event) => void onPaste(event)}

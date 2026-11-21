@@ -255,6 +255,55 @@ test.describe("a field's menu", () => {
     await page.getByRole("button", { name: "Remove", exact: true }).click();
     await page.getByRole("dialog").press("Escape");
 
+    // Frozen columns leave the others room to scroll. Frozen up to its
+    // last field, a table wider than its window kept every column in
+    // place: the last ones, their menus and the column that adds a field
+    // lay under the others, and nothing scrolled them into view.
+    await page.setViewportSize({ width: 1024, height: 720 });
+    await fieldMenu(page, "Files", "Freeze up to here");
+    await expect(header("Name")).toHaveCSS("position", "sticky");
+    await expect(header("Files")).not.toHaveCSS("position", "sticky");
+    await page.getByRole("button", { name: "Add a field" }).click();
+    const added = page.getByRole("dialog", { name: "New field" });
+    await expect(added).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(added).toBeHidden();
+    // What takes the keyboard among the columns that scroll is brought
+    // clear of those that stay: it stood under them.
+    const labels = ["Name", "Extra", "Notes", "Status", "Amount", "Files"];
+    const places = await Promise.all(
+      labels.map((label) =>
+        header(label).evaluate((node) => getComputedStyle(node).position),
+      ),
+    );
+    const firstToScroll =
+      labels[places.findIndex((place) => place !== "sticky")];
+    expect(firstToScroll).toBeDefined();
+    await page
+      .getByRole("grid")
+      .evaluate((node) => node.scrollTo({ left: node.scrollWidth }));
+    const control = page.getByRole("button", {
+      name: `${firstToScroll ?? ""} field menu`,
+    });
+    await control.focus();
+    await expect
+      .poll(() =>
+        control.evaluate((node) => {
+          const box = node.getBoundingClientRect();
+          const top = document.elementFromPoint(
+            box.left + box.width / 2,
+            box.top + box.height / 2,
+          );
+          return top === node || node.contains(top);
+        }),
+      )
+      .toBe(true);
+    // The margin as it is drawn frees the columns, whatever the view froze.
+    const kept = labels[places.lastIndexOf("sticky")] ?? "";
+    await fieldMenu(page, kept, "Unfreeze columns");
+    await expect(header("Name")).not.toHaveCSS("position", "sticky");
+    await page.setViewportSize({ width: 1280, height: 720 });
+
     // Rows coloured by rules: the first rule a row matches tints its
     // margin.
     await page.getByRole("button", { name: "Colour", exact: true }).click();
