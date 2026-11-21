@@ -447,6 +447,14 @@ function prepare(catalog: EngineCatalog, spec: ReadSpec): Prepared {
   };
 }
 
+/**
+ * Files make no group. Nor do links on Oracle: a cell holds them as a CLOB,
+ * which that engine neither compares nor groups.
+ */
+function groupable(ref: ProjectedColumn, d: SqlDialect): boolean {
+  return ref.kind !== "files" && !(ref.kind === "links" && d.name === "oracle");
+}
+
 function lookupRef(
   prepared: Prepared,
   name: string,
@@ -456,7 +464,7 @@ function lookupRef(
   if (!ref) {
     throw new AppError("unknown_column", name);
   }
-  if (ref.kind === "files" && purpose === "group") {
+  if (purpose === "group" && !groupable(ref, prepared.d)) {
     throw new AppError("invalid_group");
   }
   if (ref.column.physical?.controlPlane) {
@@ -1093,6 +1101,8 @@ export function describeColumns(catalog: EngineCatalog): Array<{
   cause?: { code: ErrorCode; detail?: string };
   limits?: SourceLimit[];
   duration?: string;
+  /** Set when rows cannot be grouped by the field. */
+  noGroup?: true;
 }> {
   const prepared = prepare(catalog, { limit: 1 });
   return [...prepared.columns.values()].map((ref) => ({
@@ -1103,5 +1113,6 @@ export function describeColumns(catalog: EngineCatalog): Array<{
     ...(ref.cause ? { cause: ref.cause } : {}),
     ...(ref.limits ? { limits: ref.limits } : {}),
     ...(ref.duration ? { duration: ref.duration } : {}),
+    ...(groupable(ref, prepared.d) ? {} : { noGroup: true as const }),
   }));
 }

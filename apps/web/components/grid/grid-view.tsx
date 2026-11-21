@@ -91,6 +91,7 @@ type GridProps = {
   canAdd?: boolean;
   canDelete?: boolean;
   canManage: boolean;
+  canDuplicateField: boolean;
   aggregations: Readonly<Record<string, string>>;
   aggregateValues: ReadonlyArray<unknown> | undefined;
   presence: readonly Presence[];
@@ -799,6 +800,7 @@ export function GridView(props: GridProps) {
                 }
                 width={totalWidth}
                 canManage={props.canManage}
+                canDuplicateField={props.canDuplicateField}
                 allChecked={
                   checked.size > 0 && checked.size >= rows.loadedRows().length
                 }

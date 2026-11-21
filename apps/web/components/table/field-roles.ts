@@ -14,9 +14,14 @@ export function canSortBy(column: CatalogColumn): boolean {
   return !column.controlPlane;
 }
 
-/** Rows can be grouped by the field: files make no group. */
+/**
+ * Rows can be grouped by the field: files make no group, nor does what the
+ * table's engine cannot compare, which the server says of the field.
+ */
 export function canGroupBy(column: CatalogColumn): boolean {
-  return canSortBy(column) && column.fieldType !== "attachment";
+  return (
+    canSortBy(column) && column.fieldType !== "attachment" && !column.noGroup
+  );
 }
 
 /** A kanban can stack its cards by the field: a list of one option. */

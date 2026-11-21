@@ -371,6 +371,10 @@ export const SQLSERVER: SqlDialect = {
     const type = typeName(physical.type);
     if (type === "float" || type === "real")
       return `cast(${ref} as decimal(38,10))`;
+    // The old large texts can be neither compared, sorted, nor grouped.
+    if (type === "text" || type === "ntext") {
+      return `cast(${ref} as nvarchar(max))`;
+    }
     if (fieldType !== "datetime") return ref;
     if (type === "datetimeoffset") {
       return `cast(switchoffset(${ref}, '+00:00') as datetime2(7))`;
