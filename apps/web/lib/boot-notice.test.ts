@@ -45,14 +45,13 @@ describe("the page before the app has drawn", () => {
   });
 
   it("carries no script of its own: the policy allows none", () => {
-    // However a tag is written: in capitals, a space before its end.
-    const inline = [
-      ...page.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi),
-    ];
-    expect(inline.length).toBeGreaterThan(0);
-    for (const [, attributes, body] of inline) {
+    // Each script the document names is a file: its tag has a `src`, and
+    // nothing stands between the tag and the next one.
+    const opened = [...page.matchAll(/<script\b([^>]*)>([^<]*)/gi)];
+    expect(opened.length).toBeGreaterThan(0);
+    for (const [, attributes, inside] of opened) {
       expect(attributes).toMatch(/\bsrc="/);
-      expect(body?.trim()).toBe("");
+      expect(inside?.trim()).toBe("");
     }
   });
 });
