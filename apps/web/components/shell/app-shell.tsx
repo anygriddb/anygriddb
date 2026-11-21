@@ -12,7 +12,7 @@ import {
   useConnectionDown,
   useReconnect,
 } from "../../lib/realtime";
-import { useSession } from "../../lib/session";
+import { mayRead, useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { onSignIn, safeNext } from "../auth/auth-page";
 import { CommandPalette } from "./command-palette";
@@ -146,9 +146,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [session.isSuccess, session.data, navigate, here, page]);
   // The policy asks this account for a second factor before anything else
   // (ADR 0043): the account page is where it is set up.
-  const mustEnroll = Boolean(
-    session.data && session.data.mfaRequired && !session.data.mfaEnrolled,
-  );
+  const mustEnroll = Boolean(session.data) && !mayRead(session.data);
   const onSetup = useLocation({
     select: (location) =>
       location.pathname === "/settings" || location.pathname === "/welcome",
@@ -175,7 +173,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
   return (
-    <RealtimeProvider enabled>
+    <RealtimeProvider enabled={!mustEnroll}>
       <JobsProvider>
         <div className="flex h-screen overflow-hidden">
           {/* The keyboard's first stop: past the navigation, which holds

@@ -34,7 +34,7 @@ import {
   useJobs,
   type Job,
 } from "../../lib/jobs";
-import { useSession } from "../../lib/session";
+import { mayRead, useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
@@ -123,7 +123,7 @@ export function JobsMenu() {
   const [hideFinished, setHideFinished] = useState(false);
   const list = useQuery({
     ...api.jobs.list.queryOptions({ limit: 20 }),
-    enabled: Boolean(session.data),
+    enabled: mayRead(session.data),
   });
   const jobs = (list.data?.jobs ?? []).map((job) => {
     const update = live.get(job.id);
