@@ -376,8 +376,16 @@ function prepare(catalog: EngineCatalog, spec: ReadSpec): Prepared {
     projected.stored = `q.${storedDayColumn(index)}`;
   });
   [...columns.values()].forEach((projected, index) => {
-    if (projected.errorSql && projected.column.physical) {
-      projected.unread = `q.${errorColumn(index)}`;
+    const physical = projected.column.physical;
+    if (!projected.errorSql || !physical) return;
+    projected.unread = `q.${errorColumn(index)}`;
+    const number = d.storedNumber?.(
+      storedColumnSql(table, "r", physical.name),
+      physical,
+    );
+    if (number) {
+      select.push(`${number} as ${storedNumberColumn(index)}`);
+      projected.storedNumber = `q.${storedNumberColumn(index)}`;
     }
   });
   const own = ctx.scope?.(table, "r");
@@ -633,6 +641,10 @@ export function rowError(
 /** The column of `q` that holds the error of the `index`th column. */
 function errorColumn(index: number): string {
   return `"ag_e${String(index)}"`;
+}
+
+function storedNumberColumn(index: number): string {
+  return `"ag_n${String(index)}"`;
 }
 
 function storedDayColumn(index: number): string {

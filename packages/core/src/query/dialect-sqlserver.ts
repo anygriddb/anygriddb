@@ -424,6 +424,10 @@ export const SQLSERVER: SqlDialect = {
     WHOLE_OR_MONEY.has(typeName(physical.type))
       ? `cast(${sql} as decimal(38,10))`
       : sql,
+  storedNumber: (ref, physical) => {
+    const type = typeName(physical.type);
+    return type === "float" || type === "real" ? ref : undefined;
+  },
   storedError: (ref, physical) => {
     const type = typeName(physical.type);
     return type === "float" || type === "real"

@@ -412,6 +412,14 @@ export const ORACLE: SqlDialect = {
       ? `(case when ${ref} is not null and not abs(${ref}) < 1e28 then '!' || to_char(${ref}) end)`
       : undefined;
   },
+  // Oracle orders NaN above every number: it would pass any "greater than".
+  storedNumber: (ref, physical) => {
+    const type = typeName(physical.type);
+    if (type === "float") return ref;
+    return type === "binary_float" || type === "binary_double"
+      ? `(case when ${ref} is not nan then ${ref} end)`
+      : undefined;
+  },
   readColumn: (ref, fieldType, physical) => {
     const type = typeName(physical.type);
     if (

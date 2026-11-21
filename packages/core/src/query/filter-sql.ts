@@ -44,6 +44,8 @@ export type ColumnRef = {
    * the column of `q` that says so. Such a cell is not an empty one.
    */
   unread?: string;
+  /** The stored number behind such a value, for a comparison to read. */
+  storedNumber?: string;
 };
 
 export type FilterContext = {
@@ -100,6 +102,21 @@ export function emptySql(ref: ColumnRef, d: SqlDialect = POSTGRES): string {
         ? `(${x} is null and ${ref.unread} is null)`
         : `(${x} is null)`;
   }
+}
+
+/**
+ * A comparison of a number, which also sees a value no read can hold, by
+ * the stored one. Only for those: a value a read holds is compared as its
+ * cell shows it.
+ */
+function comparedNumber(
+  ref: ColumnRef,
+  x: string,
+  compare: (subject: string) => string,
+): string {
+  return ref.storedNumber
+    ? `(${compare(x)} or (${ref.unread ?? "null"} is not null and ${compare(ref.storedNumber)}))`
+    : compare(x);
 }
 
 function textValue(value: FilterValue | undefined): string | undefined {
@@ -187,15 +204,19 @@ function betweenSql(
   }
   const [from, to] = value.map(bound);
   // A stored value with a time of day stays on the last day until the next.
-  const upTo = (end: string) =>
+  const upTo = (on: string, end: string) =>
     ref.kind === "date" && ref.stored
-      ? `${subject} < ${d.addDays(end, "1")}`
-      : `${subject} <= ${end}`;
-  const parts = [
-    ...(from === undefined ? [] : [`${subject} >= ${from}`]),
-    ...(to === undefined ? [] : [upTo(to)]),
-  ];
-  return parts.length === 0 ? null : `(${parts.join(" and ")})`;
+      ? `${on} < ${d.addDays(end, "1")}`
+      : `${on} <= ${end}`;
+  if (from === undefined && to === undefined) return null;
+  const within = (on: string) =>
+    `(${[
+      ...(from === undefined ? [] : [`${on} >= ${from}`]),
+      ...(to === undefined ? [] : [upTo(on, to)]),
+    ].join(" and ")})`;
+  return ref.kind === "number"
+    ? comparedNumber(ref, subject, within)
+    : within(subject);
 }
 
 function dateRange(
@@ -398,7 +419,7 @@ export function compileCondition(
       }
       return op === "is_not"
         ? `(${x} is null or ${x} <> ${bound})`
-        : `(${x} ${symbol} ${bound})`;
+        : comparedNumber(ref, x, (on) => `(${on} ${symbol} ${bound})`);
     }
     case "date":
     case "datetime": {

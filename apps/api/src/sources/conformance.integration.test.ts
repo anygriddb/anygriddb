@@ -4194,6 +4194,35 @@ describe("conformance of formulas across engines", () => {
           empties.rows.map((row) => row.id),
           engine,
         ).toEqual(["3"]);
+        // A comparison sees it, though its cell cannot show it.
+        const compared = async (op: string, value: unknown) =>
+          (
+            await readPage(
+              db,
+              catalog,
+              {
+                limit: 10,
+                timeZone: "UTC",
+                filter: {
+                  conjunction: "and",
+                  conditions: [{ column: float, op, value }],
+                },
+              } as Parameters<typeof readPage>[2],
+              { total: false },
+            )
+          ).rows
+            .map((row) => row.id)
+            .sort();
+        expect(await compared("gt", "100"), engine).toEqual(["2"]);
+        expect(await compared("gte", "2.5"), engine).toEqual(["1", "2"]);
+        expect(await compared("lt", "100"), engine).toEqual(["1"]);
+        expect(await compared("is", "2.5"), engine).toEqual(["1"]);
+        expect(await compared("is_between", ["100", ""]), engine).toEqual([
+          "2",
+        ]);
+        expect(await compared("is_between", ["1", "100"]), engine).toEqual([
+          "1",
+        ]);
         const groups = await readTransaction(db, catalog, (run) =>
           run(
             buildGroupAggregates(
@@ -4211,6 +4240,51 @@ describe("conformance of formulas across engines", () => {
       }
     }
   }, 600_000);
+
+  it("compares no Oracle NaN, and an infinity as the number it is", async () => {
+    const oracleSource = declared.get("oracle");
+    if (!oracleSource) throw new Error("no Oracle source");
+    for (const statement of [
+      "create table native_nan (id number(10) primary key, T_D binary_double)",
+      "insert into native_nan values (1, 5)",
+      "insert into native_nan values (2, binary_double_nan)",
+      "insert into native_nan values (3, binary_double_infinity)",
+      "insert into native_nan values (4, -binary_double_infinity)",
+      "grant select on native_nan to reader",
+    ]) {
+      await outside("oracle", statement);
+    }
+    const base = await insertBase(db, actorId, { name: "Not a number" });
+    const {
+      tableIds: [tableId = ""],
+    } = await exposeTables({ db, key, settings }, actorId, {
+      sourceId: oracleSource.sourceId,
+      baseId: base.id,
+      tables: [{ schema: oracleSource.schema, name: "NATIVE_NAN" }],
+    });
+    const { engine: catalog } = await loadEngine(db, tableId, () => true);
+    const column = columnOf(catalog, "T_D");
+    const ids = async (op: "gt" | "lt", value: string) =>
+      (
+        await readPage(
+          db,
+          catalog,
+          {
+            limit: 10,
+            timeZone: "UTC",
+            filter: {
+              conjunction: "and",
+              conditions: [{ column, op, value }],
+            },
+          },
+          { total: false },
+        )
+      ).rows
+        .map((row) => row.id)
+        .sort();
+    expect(await ids("gt", "1")).toEqual(["1", "3"]);
+    expect(await ids("lt", "10")).toEqual(["1", "4"]);
+  }, 120_000);
 
   it("opens an Oracle table whatever types it holds", async () => {
     const oracleSource = declared.get("oracle");

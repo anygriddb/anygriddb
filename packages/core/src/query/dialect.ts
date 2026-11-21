@@ -144,6 +144,11 @@ export interface SqlDialect {
    */
   storedError?(ref: string, physical: PhysicalColumn): string | undefined;
   /**
+   * A stored number as a comparison reads it, for a type that can hold what
+   * `storedError` says: what is not a number reads as null.
+   */
+  storedNumber?(ref: string, physical: PhysicalColumn): string | undefined;
+  /**
    * A number as a sum or a mean takes it, where the engine would keep the
    * column's own type and overflow or drop the fraction.
    */

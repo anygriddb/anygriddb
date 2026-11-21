@@ -439,6 +439,30 @@ describe("reading a client's table", () => {
       }
     });
 
+    it("compares a value past a decimal by what is stored", () => {
+      const filter = {
+        conjunction: "and" as const,
+        conditions: [{ column: "amount", op: "gt" as const, value: "100" }],
+      };
+      const sqlServer = buildReadRows(numberColumn("sqlserver", "float"), {
+        limit: 5,
+        filter,
+      }).text;
+      expect(sqlServer).toMatch(
+        /q\."ag_e\d+" is not null and \(q\."ag_n\d+" >/,
+      );
+      const oracle = buildReadRows(numberColumn("oracle", "binary_double"), {
+        limit: 5,
+        filter,
+      }).text;
+      expect(oracle).toContain(`r."AMOUNT" is not nan`);
+      const exact = buildReadRows(numberColumn("sqlserver", "decimal(12,2)"), {
+        limit: 5,
+        filter,
+      }).text;
+      expect(exact).not.toContain("ag_n");
+    });
+
     it("guards no figure of a type every read holds", () => {
       const sql = buildAggregates(
         numberColumn("sqlserver", "decimal(12,2)"),
