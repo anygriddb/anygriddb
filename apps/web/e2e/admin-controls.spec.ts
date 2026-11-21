@@ -849,12 +849,15 @@ test("an auditor reads every page of Administration and changes nothing", async 
     // a row's creation lists the fields it was given, not the columns
     // every row has, whose author and date are the line's own.
     await openAdmin(auditor, "Trails");
-    await auditor.getByLabel("Action").selectOption({ label: "Creation" });
+    // By its exact name: the navigation names its menus "Base actions",
+    // "Table actions", once the reader has a base.
+    const action = auditor.getByLabel("Action", { exact: true });
+    await action.selectOption({ label: "Creation" });
     await expect(
       auditor.getByRole("cell", { name: "Creation" }).first(),
     ).toBeVisible();
     await expect(auditor.getByRole("table")).not.toContainText("ag_");
-    await auditor.getByLabel("Action").selectOption({ label: "All" });
+    await action.selectOption({ label: "All" });
 
     // The trail is exported, and says who gave them the role.
     const download = auditor.waitForEvent("download");
