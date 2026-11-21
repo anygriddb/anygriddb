@@ -841,7 +841,7 @@ test.describe("a gallery, a timeline, a kanban, and a map past their first page"
     await newView("Timeline");
     await expect(card("c0001").first()).toBeVisible();
     const timeline = card("c0001")
-      .first()
+      .last()
       .locator("xpath=ancestor::div[contains(@class, 'overflow-auto')]");
     await expect(async () => {
       await timeline.evaluate((element) => {
