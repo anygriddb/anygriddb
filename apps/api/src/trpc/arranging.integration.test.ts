@@ -176,6 +176,76 @@ describe("orders and places the API takes", () => {
     expect(await viewNames()).toEqual([...before].reverse());
   });
 
+  it("puts a widget made with no place under the others, and leaves one changed with no place where it stands", async () => {
+    const dashboard = await owner
+      .call()
+      .dashboards.create({ baseId, name: "Places" });
+    const metric = { tableId, column: "amount", fn: "sum" } as const;
+    const place = (widget: { x: number; y: number; w: number; h: number }) => ({
+      x: widget.x,
+      y: widget.y,
+      w: widget.w,
+      h: widget.h,
+    });
+    const first = await owner.call().dashboards.upsertWidget({
+      dashboardId: dashboard.id,
+      title: "First",
+      kind: "metric",
+      config: metric,
+    });
+    const second = await owner.call().dashboards.upsertWidget({
+      dashboardId: dashboard.id,
+      title: "Second",
+      kind: "metric",
+      config: metric,
+    });
+    const chart = await owner.call().dashboards.upsertWidget({
+      dashboardId: dashboard.id,
+      title: "By title",
+      kind: "chart",
+      config: { tableId, groupBy: "title", fn: "count_all", chartType: "bar" },
+    });
+    // A figure is small and a chart wide, as the page makes them; none
+    // stands over another: each made at the corner hid the one before.
+    expect([first, second, chart].map(place)).toEqual([
+      { x: 0, y: 0, w: 3, h: 2 },
+      { x: 0, y: 2, w: 3, h: 2 },
+      { x: 0, y: 4, w: 6, h: 4 },
+    ]);
+    // A place that is given is the widget's.
+    const beside = await owner.call().dashboards.upsertWidget({
+      dashboardId: dashboard.id,
+      title: "Beside",
+      kind: "metric",
+      x: 6,
+      y: 0,
+      w: 6,
+      h: 2,
+      config: metric,
+    });
+    expect(place(beside)).toEqual({ x: 6, y: 0, w: 6, h: 2 });
+
+    // Renamed without a word of its place: it stays where it was put.
+    await owner.call().dashboards.layout({
+      dashboardId: dashboard.id,
+      widgets: [{ id: second.id, x: 4, y: 8, w: 5, h: 3 }],
+    });
+    const renamed = await owner.call().dashboards.upsertWidget({
+      dashboardId: dashboard.id,
+      widgetId: second.id,
+      title: "Second, renamed",
+      kind: "metric",
+      config: metric,
+    });
+    expect(renamed).toMatchObject({
+      title: "Second, renamed",
+      x: 4,
+      y: 8,
+      w: 5,
+      h: 3,
+    });
+  });
+
   it("renames a dashboard and places its widgets, for who manages the base", async () => {
     const dashboard = await owner
       .call()

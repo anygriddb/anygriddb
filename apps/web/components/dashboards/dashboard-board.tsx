@@ -2,6 +2,7 @@ import {
   DEFAULT_HISTOGRAM_BINS,
   MAX_CHART_CATEGORIES,
   MAX_HISTOGRAM_BINS,
+  WIDGET_SIZES,
 } from "@anygriddb/core";
 import {
   Button,
@@ -382,8 +383,7 @@ function DashboardEditor(props: { baseId: string; dashboardId: string }) {
           widgets.length === 0
             ? 0
             : Math.max(...widgets.map((widget) => widget.y + widget.h)),
-        w: draft.kind === "metric" ? 3 : 6,
-        h: draft.kind === "metric" ? 2 : 4,
+        ...WIDGET_SIZES[draft.kind],
         config: draft.config,
       },
       t`Add`,

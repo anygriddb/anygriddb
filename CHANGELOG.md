@@ -109,6 +109,11 @@ first.
   point found what it named first: their answer told a stranger whether
   the id named anything, and nothing more. The list of a new base's
   templates answered anyone, and now answers a person signed in.
+- A dashboard's widget made without a place stands under the others,
+  at the size of its kind, and one that is changed without a place
+  keeps where it stood. The page always says where; a script that did
+  not made every widget at the top-left corner, one over another, and
+  moved back there a widget it only renamed.
 
 ## 0.3.1 - 2026-11-20
 
