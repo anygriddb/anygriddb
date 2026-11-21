@@ -13,6 +13,34 @@ describe("ORACLE dialect", () => {
     expect(ORACLE.cond("x")).toBe("(x = 1)");
   });
 
+  it("says a type no row's JSON takes, and reads the others", () => {
+    const of = (type: string) => ({ name: "c", type, zone: "UTC" });
+    expect(ORACLE.readColumn(`r."c"`, "text", of("long"))).toBe(
+      "cast(null as varchar2(1))",
+    );
+    expect(ORACLE.storedError?.(`r."c"`, of("long raw"))).toContain(
+      "'!LONG RAW'",
+    );
+    expect(ORACLE.holdsLargeObject?.(of("bfile"))).toBe(true);
+    expect(ORACLE.readColumn(`r."c"`, "text", of("rowid"))).toBe(
+      `rowidtochar(r."c")`,
+    );
+    expect(ORACLE.readColumn(`r."c"`, "text", of("varchar2(20)"))).toBe(
+      `r."c"`,
+    );
+    expect(ORACLE.storedError?.(`r."c"`, of("varchar2(20)"))).toBeUndefined();
+  });
+
+  it("keeps every character of a float past a decimal", () => {
+    expect(
+      ORACLE.storedError?.(`r."c"`, {
+        name: "c",
+        type: "binary_double",
+        zone: "UTC",
+      }),
+    ).toContain(`'!' || to_char(r."c")`);
+  });
+
   it("treats empty VARCHAR2 as null for filled text", () => {
     expect(ORACLE.textFilled(`t."name"`)).toBe(`(t."name" is not null)`);
     expect(ORACLE.textLength(`t."name"`)).toBe(`length(t."name")`);
