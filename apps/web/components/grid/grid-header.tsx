@@ -224,7 +224,15 @@ export function GridHeader(props: {
             ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onSelect={() => props.onAction("freeze", column, index)}
+              onSelect={() =>
+                props.onAction(
+                  index === marginColumn(props.frozenCount)
+                    ? "unfreeze"
+                    : "freeze",
+                  column,
+                  index,
+                )
+              }
             >
               <Pin className="h-4 w-4" aria-hidden />
               {index === marginColumn(props.frozenCount) ? (
