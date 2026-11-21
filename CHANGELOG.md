@@ -72,6 +72,9 @@ first.
   the three thousand requests a minute their pages share, and the next
   were refused the scripts themselves. What a page asks of the server
   is counted as before.
+- A page whose scripts do not arrive says so after a few seconds, in
+  the reader's language, and offers to reload: it stayed blank, with no
+  word, when a script was refused or lost on the way.
 
 ## 0.3.1 - 2026-11-20
 

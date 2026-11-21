@@ -246,3 +246,44 @@ test.describe("a narrow screen", () => {
     await expect(navigation).not.toBeInViewport();
   });
 });
+
+// A script refused for the number of requests, or lost on the way: the app
+// never draws. The page itself then says so and offers to reload, with
+// no script to run: it stayed blank.
+test.describe("a page whose scripts do not arrive", () => {
+  test("says it is late and offers to reload, in the reader's language", async ({
+    page,
+    browser,
+  }) => {
+    const late = page.getByText("AnyGridDB is taking a while to load");
+    await page.route("**/assets/*.js", (route) => route.abort());
+    await page.goto("/login");
+    // Nothing at first: an app that draws in time shows no such word.
+    await expect(late).toBeHidden();
+    await expect(late).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByLabel("Email")).toHaveCount(0);
+    expect(await accessibilityViolations(page)).toEqual([]);
+
+    // The link is the page's own address: it reloads with nothing to run.
+    await page.unroute("**/assets/*.js");
+    await page.getByRole("link", { name: "reload the page" }).click();
+    await expect(page.getByLabel("Email")).toBeVisible();
+    await expect(late).toHaveCount(0);
+
+    // A browser that asks for French reads it in French.
+    const french = await browser.newContext({
+      ignoreHTTPSErrors: true,
+      locale: "fr-FR",
+    });
+    const other = await french.newPage();
+    await other.route("**/assets/*.js", (route) => route.abort());
+    await other.goto("/login");
+    await expect(
+      other.getByText("AnyGridDB met du temps à se charger"),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      other.getByText("AnyGridDB is taking a while to load"),
+    ).toBeHidden();
+    await french.close();
+  });
+});
