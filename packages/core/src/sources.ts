@@ -68,7 +68,7 @@ export const DEFAULT_COPY_INTERVAL_MINUTES = 60;
 const PEM = /^-----BEGIN CERTIFICATE-----[\s\S]+-----END CERTIFICATE-----\s*$/;
 
 /** A host name or an IP address, as typed: no scheme, no port, no path. */
-const hostSchema = z
+export const hostSchema = z
   .string()
   .trim()
   .min(1)

@@ -61,3 +61,39 @@ export function withoutOuterGroup(text: string): string {
     ? text.slice(0, open) + text.slice(close + 1)
     : text;
 }
+
+/** A NUL, or half of a surrogate pair: `u` reads a whole pair as one. */
+const UNWRITABLE = /[\0\p{Cs}]/u;
+
+/**
+ * Whether a value from outside holds a text nothing can keep: PostgreSQL's
+ * text takes no NUL, its JSON no half of a surrogate pair, and a name
+ * lookup throws on either. Objects and arrays are walked with a list, not
+ * by recursion: a body may be nested as deep as its size allows. What is
+ * under an `echoed` key is what the caller read and sends back to compare,
+ * which a client's database may hold.
+ */
+export function holdsUnwritableText(
+  value: unknown,
+  echoed: ReadonlySet<string> = new Set(),
+): boolean {
+  const pending: unknown[] = [value];
+  while (pending.length > 0) {
+    const item = pending.pop();
+    if (typeof item === "string") {
+      if (UNWRITABLE.test(item)) return true;
+    } else if (Array.isArray(item)) {
+      for (const inner of item as unknown[]) pending.push(inner);
+    } else if (typeof item === "object" && item !== null) {
+      // A plain object, or the bare kind a query string parses into; a
+      // buffer, a date or a stream has a longer line of prototypes.
+      const kind = Object.getPrototypeOf(item) as object | null;
+      if (kind !== null && Object.getPrototypeOf(kind) !== null) continue;
+      for (const [key, inner] of Object.entries(item)) {
+        if (UNWRITABLE.test(key)) return true;
+        if (!echoed.has(key)) pending.push(inner);
+      }
+    }
+  }
+  return false;
+}

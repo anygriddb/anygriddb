@@ -10,6 +10,8 @@ export {
   type PublicError,
 } from "./errors";
 
+export { holdsUnwritableText } from "./plain-text";
+
 export {
   embedOriginsInputSchema,
   normalizeEmbedOrigins,
@@ -739,6 +741,7 @@ export {
   DEFAULT_COPY_INTERVAL_MINUTES,
   DEFAULT_SOURCE_PORTS,
   SOURCE_ENGINES,
+  hostSchema,
   isCopySourceEngine,
   sourceDatabaseField,
   sourceInputSchema,

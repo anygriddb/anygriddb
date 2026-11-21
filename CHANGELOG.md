@@ -18,6 +18,9 @@ first.
   that holds its rows takes the keyboard, and shows that it has it. A
   view drawn as cards holds nothing to focus, so more rows than the
   window shows were reached with a pointer only.
+- A text no database can keep (a NUL, half a surrogate pair) is refused
+  on every route, with an answer that says so rather than an internal
+  error, and a mail relay's host is checked as a host name.
 - The instance's log says "Server listening at https://…" when it
   starts: it wrote `http://` of a port that speaks HTTPS only.
 - Email settings a mail relay refuses say why: nothing answers at

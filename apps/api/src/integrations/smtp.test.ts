@@ -1,7 +1,7 @@
 import { createCipheriv, randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { smtpReady, type SmtpConfig } from "../mail.js";
-import { publicSmtp, type SmtpRow } from "./smtp.js";
+import { publicSmtp, smtpUpdateSchema, type SmtpRow } from "./smtp.js";
 
 const KEY = randomBytes(32);
 
@@ -59,5 +59,21 @@ describe("smtpReady", () => {
     expect(smtpReady(ready)).toBe(true);
     expect(smtpReady({ SMTP_HOST: "127.0.0.1" })).toBe(false);
     expect(smtpReady({ SMTP_FROM: "grid@example.org" })).toBe(false);
+  });
+});
+
+describe("smtpUpdateSchema", () => {
+  const form = { fromAddress: "grid@example.org" };
+
+  it("takes a host name or an address", () => {
+    for (const host of ["mail.example.org", "192.0.2.10", "[2001:db8::1]"]) {
+      expect(smtpUpdateSchema.safeParse({ ...form, host }).success).toBe(true);
+    }
+  });
+
+  it("refuses what a name lookup throws on", () => {
+    for (const host of ["a\ud800b", "a\u0000b", "a b", "a/b", "'x'"]) {
+      expect(smtpUpdateSchema.safeParse({ ...form, host }).success).toBe(false);
+    }
   });
 });

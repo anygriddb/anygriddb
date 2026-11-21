@@ -1,5 +1,5 @@
 import "@fastify/cookie";
-import { AppError, type MadeNames } from "@anygriddb/core";
+import { AppError, holdsUnwritableText, type MadeNames } from "@anygriddb/core";
 import { initTRPC, TRPCError } from "@trpc/server";
 import { assertNotInMaintenance } from "../auth/access.js";
 import { MFA_COOKIE } from "../auth/challenge.js";
@@ -36,12 +36,18 @@ export const t = initTRPC.context<Context>().create({
   },
 });
 
+/** What a page read and sends back to compare, as a client's database holds it. */
+const READ_BACK: ReadonlySet<string> = new Set(["expected", "seen"]);
+
 /**
  * The base of every procedure: a public error thrown anywhere in a body
  * reaches the client with its status and code, never as an internal one.
  */
 export const procedure = t.procedure.use(
   async ({ ctx, next, path, getRawInput }) => {
+    if (holdsUnwritableText(await getRawInput(), READ_BACK)) {
+      throw toTRPCError(new AppError("invalid_input"));
+    }
     // A token never acts as someone. A session does, for this call only.
     // A caller built without a request (a test of error mapping) is no one.
     const request = ctx.req as typeof ctx.req | undefined;

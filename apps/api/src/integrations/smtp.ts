@@ -3,6 +3,7 @@
  * with AUTH_ENCRYPTION_KEY and never returned to the client.
  */
 import type { KeyRing } from "../auth/key-ring.js";
+import { hostSchema } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { decryptSecret, encryptSecret } from "../auth/crypto.js";
@@ -42,7 +43,7 @@ type SmtpSource = "database" | "env" | "none";
 
 export const smtpUpdateSchema = z
   .object({
-    host: z.string().trim().min(1).max(253),
+    host: hostSchema,
     port: z.int().min(1).max(65535).default(587),
     username: z.string().trim().min(1).max(320).nullable().optional(),
     fromAddress: z.string().trim().min(3).max(320),
