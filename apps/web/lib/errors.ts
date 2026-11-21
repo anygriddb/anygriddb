@@ -18,6 +18,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   sso_refused: msg`Your organization's sign-in was not accepted here. Ask an administrator to check that it sends a verified email address.`,
   access_denied: msg`Access denied`,
   acting_as: msg`Stop acting as this person before using Administration`,
+  acting_no_job: msg`Stop acting as this person before starting this: it would run with your own rights`,
   cannot_act_as: msg`You cannot act as this person`,
   already_acting: msg`Stop acting as the other person first`,
   mfa_enrollment_required: msg`Turn on a second factor in your settings`,

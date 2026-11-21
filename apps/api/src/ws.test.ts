@@ -227,7 +227,8 @@ describe("GridHub sessions", () => {
       {} as never,
       async () => "ok" as const,
       () => undefined,
-      async () => alive,
+      async (hashes) =>
+        new Map(alive ? hashes.map((hash) => [hash, "user"]) : []),
     );
     const closed: string[] = [];
     const socket = Object.assign(new EventEmitter(), {
@@ -294,7 +295,9 @@ describe("GridHub early messages", () => {
 });
 
 describe("GridHub fan-out and silent sockets", () => {
-  async function hub(live: () => ReadonlySet<string> = () => new Set()) {
+  async function hub(
+    live: () => ReadonlyMap<string, string> = () => new Map(),
+  ) {
     const { EventEmitter } = await import("node:events");
     const { GridHub } = await import("./ws.js");
     let deliver: (channel: string, message: string) => void = () => undefined;
@@ -313,7 +316,6 @@ describe("GridHub fan-out and silent sockets", () => {
       {} as never,
       async () => "ok" as const,
       () => undefined,
-      async () => true,
       async (hashes) => {
         asked.push([...hashes].sort());
         return live();
@@ -395,7 +397,9 @@ describe("GridHub fan-out and silent sockets", () => {
   });
 
   it("closes a socket that sends nothing once its session is over", async () => {
-    const { grid, open, asked } = await hub(() => new Set(["live-hash"]));
+    const { grid, open, asked } = await hub(
+      () => new Map([["live-hash", "user"]]),
+    );
     const live = open("live-hash");
     const twin = open("live-hash");
     const over = open("over-hash");
@@ -408,6 +412,15 @@ describe("GridHub fan-out and silent sockets", () => {
     expect(unsigned.closed).toEqual([]);
     // One question for the round, each session named once.
     expect(asked).toEqual([["live-hash", "over-hash"]]);
+  });
+
+  it("asks a socket to reconnect once its session holds other rights", async () => {
+    const { grid, open } = await hub(
+      () => new Map([["acting-hash", "the-person"]]),
+    );
+    const socket = open("acting-hash");
+    expect(await grid.endExpiredSessions()).toBe(1);
+    expect(socket.closed).toEqual(["Reauthorize"]);
   });
 
   it("asks nothing when no socket has a session to check", async () => {

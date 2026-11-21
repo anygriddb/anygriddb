@@ -1,3 +1,4 @@
+import { rulesOwner } from "./data/acting-context.js";
 import { once } from "node:events";
 import { createReadStream, createWriteStream, type WriteStream } from "node:fs";
 import { stat } from "node:fs/promises";
@@ -387,7 +388,7 @@ export async function exportTable(
   let spec: Omit<ReadSpec, "limit"> = {
     search: query.search,
     timeZone: safeTimeZone(query.timeZone),
-    me: actor.userId,
+    me: rulesOwner(actor.userId),
   };
   let config: ReturnType<typeof normalizeViewConfig> | null = null;
   if (query.viewId) {

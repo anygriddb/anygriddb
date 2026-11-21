@@ -1,3 +1,4 @@
+import { registerActingRequests } from "./acting-requests.js";
 import cookie from "@fastify/cookie";
 import websocket from "@fastify/websocket";
 import { migrationNames, type Database } from "@anygriddb/db";
@@ -44,8 +45,7 @@ import {
   hashSessionToken,
   isSessionToken,
   SESSION_COOKIE,
-  sessionHashAlive,
-  sessionHashesAlive,
+  sessionIdentities,
 } from "./auth/session.js";
 import type { Env } from "./env.js";
 import type { FileStore } from "./files/index.js";
@@ -199,8 +199,7 @@ export async function createApp(deps: {
       }
       app.log.error({ err: error }, message);
     },
-    (tokenHash) => sessionHashAlive(deps.db, tokenHash),
-    (tokenHashes) => sessionHashesAlive(deps.db, tokenHashes),
+    (tokenHashes) => sessionIdentities(deps.db, tokenHashes),
   );
   registerWebsocketGauge(() => hub.connections());
   const stopHeartbeat = hub.startHeartbeat();
@@ -262,6 +261,7 @@ export async function createApp(deps: {
       return reply.code(403).send(publicErrorBody(403));
     }
   });
+  registerActingRequests(app, deps.db);
   registerTextGuard(app);
   // Requests by route pattern, never by path: ids would explode the series.
   app.addHook("onResponse", async (request, reply) => {

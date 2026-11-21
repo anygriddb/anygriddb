@@ -1,3 +1,4 @@
+import { rulesOwner } from "./acting-context.js";
 import {
   type AggregateFn,
   AppError,
@@ -344,7 +345,7 @@ async function viewFilterSpec(
     filter,
     search,
     timeZone,
-    me: userId,
+    me: rulesOwner(userId),
     limit: 1,
     ...extra,
   };

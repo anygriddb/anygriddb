@@ -10574,6 +10574,10 @@ msgid "Stop acting as the other person first"
 msgstr "Stop acting as the other person first"
 
 #: lib/errors.ts
+msgid "Stop acting as this person before starting this: it would run with your own rights"
+msgstr "Stop acting as this person before starting this: it would run with your own rights"
+
+#: lib/errors.ts
 msgid "Stop acting as this person before using Administration"
 msgstr "Stop acting as this person before using Administration"
 

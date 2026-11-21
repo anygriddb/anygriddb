@@ -1,7 +1,7 @@
 import "@fastify/cookie";
 import { AppError, holdsUnwritableText, type MadeNames } from "@anygriddb/core";
 import { initTRPC, TRPCError } from "@trpc/server";
-import { assertNotInMaintenance } from "../auth/access.js";
+import { actingOf, assertNotInMaintenance } from "../auth/access.js";
 import { MFA_COOKIE } from "../auth/challenge.js";
 import { inTurn } from "../auth/guess-turns.js";
 import { findApiToken, namesApiToken } from "../auth/tokens.js";
@@ -51,11 +51,13 @@ export const procedure = t.procedure.use(
     // A token never acts as someone. A session does, for this call only.
     // A caller built without a request (a test of error mapping) is no one.
     const request = ctx.req as typeof ctx.req | undefined;
-    const acting =
-      request && !request.headers.authorization
-        ? ((await findSessionUser(ctx.db, request.cookies[SESSION_COOKIE]))
-            ?.actingAs?.id ?? null)
-        : null;
+    const acting = request
+      ? await actingOf(
+          ctx.db,
+          request.headers.authorization,
+          request.cookies[SESSION_COOKIE],
+        )
+      : null;
     // Timed and traced per procedure, under its HTTP request (ADR 0018).
     const run = () =>
       measureProcedure(path, ctx.req, () => runActing(acting, () => next()));
