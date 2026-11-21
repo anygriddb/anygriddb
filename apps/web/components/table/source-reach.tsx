@@ -61,8 +61,9 @@ export function CopyNote({
       );
     }
     return (
+      // A status: the rows' own failure, under it, is the alert.
       <p
-        role="alert"
+        role="status"
         className="flex items-start gap-2 border-b border-danger/40 bg-danger/10 px-4 py-1.5 text-xs text-foreground"
       >
         <ShieldAlert
