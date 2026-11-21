@@ -1,3 +1,4 @@
+import { publicConfig } from "./share-config.js";
 import {
   andFilters,
   AppError,
@@ -8,7 +9,6 @@ import {
   describeColumns,
   formWindow,
   ROW_ERRORS,
-  type ViewConfig,
   viewFilter,
   visibleFormFields,
 } from "@anygriddb/core";
@@ -53,31 +53,6 @@ function shareSort<T extends { column: string }>(
 ): readonly T[] | undefined {
   const kept = asked?.filter((item) => fields.includes(item.column));
   return kept && kept.length > 0 ? kept : saved;
-}
-
-const DISPLAY_KEYS = [
-  "fieldOrder",
-  "hiddenFields",
-  "columnWidths",
-  "rowHeight",
-  "stackColumn",
-  "coverColumn",
-  "coverFit",
-  "titleColumn",
-  "cardFields",
-  "startColumn",
-  "endColumn",
-  "timelineScale",
-  "form",
-] as const;
-
-/** Display settings only: filter values and other internals stay private. */
-function publicConfig(config: ViewConfig): Partial<ViewConfig> {
-  return Object.fromEntries(
-    DISPLAY_KEYS.flatMap((key) =>
-      config[key] === undefined ? [] : [[key, config[key]]],
-    ),
-  );
 }
 
 /**
@@ -265,7 +240,7 @@ export const shareRouter = t.router({
           view: {
             name: opened.view.name,
             viewType: opened.view.viewType,
-            config: publicConfig(opened.config),
+            config: publicConfig(opened.config, opened.fields),
             // Whether a form takes answers now, by the server's clock.
             window: formWindow(opened.config.form),
           },
