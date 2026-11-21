@@ -14,6 +14,7 @@ import {
   type StartedTestContainer,
 } from "testcontainers";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { duplicateColumn } from "../data/data-ops.js";
 import { loadEngine } from "../data/engine.js";
 import { grantMember } from "../data/members.js";
 import { listBaseTables } from "../data/outbound.js";
@@ -495,6 +496,24 @@ describe("PostgreSQL sources", () => {
         },
       }),
     ).toThrow(expect.objectContaining({ code: "control_plane_filter" }));
+    // A field of a client's table is copied beside it: the copy is one
+    // of AnyGridDB's own fields, and holds what the field held, a
+    // client's field or one of AnyGridDB's. The copy was made and its
+    // filling refused as "Invalid row id": a client's rows go by the
+    // client's key, and were written as rows of AnyGridDB's own.
+    const amountCopy = await duplicateColumn(db, admin, table, "amount");
+    expect(amountCopy.skipped).toBe(0);
+    const noteCopy = await duplicateColumn(db, admin, table, note.name);
+    const copied = await readPage(
+      db,
+      (await loadEngine(db, invoicesId, () => true)).engine,
+      { rowIds: ["1003"], limit: 1, timeZone: "UTC" },
+      { total: false },
+    );
+    expect(copied.rows[0]?.amount).not.toBeNull();
+    expect(copied.rows[0]?.[amountCopy.name]).toEqual(copied.rows[0]?.amount);
+    expect(copied.rows[0]?.[noteCopy.name]).toBe("Paid");
+
     // A source with exposed tables stays.
     await expect(deleteSource(deps, admin, source.id)).rejects.toThrow(
       "Source in use",

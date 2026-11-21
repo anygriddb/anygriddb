@@ -653,7 +653,11 @@ export async function duplicateColumn(
     });
     for (let index = 0; index < updates.length; index += BATCH) {
       const slice = updates.slice(index, index + BATCH);
-      if (isHomeTable(table)) {
+      // Rows that live in a client's database, in a table AnyGridDB
+      // made there or in one the client already had, go by the client's
+      // key and are written where they live: the copy is then one of
+      // AnyGridDB's own fields beside them.
+      if (table.storage === "external") {
         // The new column is empty, so that is what the comparison expects.
         await updateExternalRows(
           db,

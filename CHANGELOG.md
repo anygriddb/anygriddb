@@ -10,6 +10,10 @@ first.
 
 ### Fixed
 
+- "Duplicate field" works on a table of a client's database: the copy
+  is one of AnyGridDB's own fields beside the client's rows, and holds
+  what the field held. The copy was made empty, and the page read
+  "Invalid row id".
 - A view opened by a public link scrolls from the keyboard: the region
   that holds its rows takes the keyboard, and shows that it has it. A
   view drawn as cards holds nothing to focus, so more rows than the
