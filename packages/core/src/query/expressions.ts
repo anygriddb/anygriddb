@@ -10,6 +10,7 @@ import {
   FORMULA_FN_SPECS,
   formulaChildren,
   type FormulaExpr,
+  type FormulaFn,
 } from "../formula";
 import {
   findColumn,
@@ -1419,6 +1420,8 @@ function compare(
   op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte",
   left: Typed,
   right: Typed,
+  /** One side is a large object, which its engine compares its own way. */
+  large = false,
 ): string {
   const symbol = { eq: "=", neq: "<>", gt: ">", gte: ">=", lt: "<", lte: "<=" }[
     op
@@ -1456,7 +1459,10 @@ function compare(
     return `(${asNumber(ctx, left)} ${symbol} ${asNumber(ctx, right)})`;
   }
   // Text compares by code point: the same result on every engine.
-  return ctx.d.compareText(asText(ctx, left), symbol, asText(ctx, right));
+  const [a, b] = [asText(ctx, left), asText(ctx, right)];
+  return large && ctx.d.compareLarge
+    ? ctx.d.compareLarge(a, symbol, b)
+    : ctx.d.compareText(a, symbol, b);
 }
 
 function dateFunction(ctx: ExprContext, part: DatePart, arg: Typed): Typed {
@@ -1688,7 +1694,7 @@ function formulaError(
             if (!match || !result) continue;
             const error = of(result);
             pairs.push(
-              `when ${compare(ctx, "eq", value, compileFormula(ctx, table, alias, match, stack))} then ${error ?? d.nullOf("text")}`,
+              `when ${compare(ctx, "eq", value, compileFormula(ctx, table, alias, match, stack), comparesLarge(ctx, table, [subject, match], stack))} then ${error ?? d.nullOf("text")}`,
             );
           }
           const fallback =
@@ -1711,6 +1717,116 @@ function formulaError(
     default:
       return first(formulaChildren(expr).map(of));
   }
+}
+
+/** Functions whose text is made from a text they are given. */
+const PASS_TEXT_ON: ReadonlySet<FormulaFn> = new Set<FormulaFn>([
+  "concat",
+  "lower",
+  "upper",
+  "trim",
+  "left",
+  "right",
+  "mid",
+  "substitute",
+  "replace",
+  "rept",
+  "t",
+  "text_before",
+  "text_after",
+  "regex_extract",
+  "regex_replace",
+  "encode_url_component",
+]);
+
+/**
+ * Whether a formula's text can be a large object of its engine, which that
+ * engine neither sorts nor compares: one it reads and passes on. A number,
+ * a date or a flag made from one is not, whatever it read to get there.
+ */
+export function givesLargeObject(
+  ctx: ExprContext,
+  table: EngineTable,
+  expr: FormulaExpr,
+  stack: readonly string[],
+): boolean {
+  if (!ctx.d.holdsLargeObject) return false;
+  const passedOn = (node: FormulaExpr) =>
+    givesLargeObject(ctx, table, node, stack);
+  switch (expr.op) {
+    case "col": {
+      const column = findColumn(table, expr.name);
+      if (!column) return false;
+      const { physical } = column;
+      if (physical && !physical.side && !physical.controlPlane) {
+        return ctx.d.holdsLargeObject(physical);
+      }
+      const inner =
+        column.fieldType === "formula" ? column.config.expr : undefined;
+      const key = `${table.id}:${column.name}`;
+      if (!inner || stack.includes(key)) return false;
+      return givesLargeObject(ctx, table, inner, [...stack, key]);
+    }
+    case "concat":
+      return passedOn(expr.left) || passedOn(expr.right);
+    case "if":
+      return passedOn(expr.then) || passedOn(expr.else);
+    case "call":
+      if (expr.fn === "if") return expr.args.slice(1).some(passedOn);
+      // What SWITCH compares is not what it gives: its results are.
+      if (expr.fn === "switch") {
+        return expr.args
+          .slice(1)
+          .some(
+            (node, index, rest) =>
+              (index % 2 === 1 || index === rest.length - 1) && passedOn(node),
+          );
+      }
+      return PASS_TEXT_ON.has(expr.fn) && expr.args.some(passedOn);
+    default:
+      return false;
+  }
+}
+
+/** Whether a comparison of these reads a large object of its engine. */
+function comparesLarge(
+  ctx: ExprContext,
+  table: EngineTable,
+  nodes: ReadonlyArray<FormulaExpr | undefined>,
+  stack: readonly string[],
+): boolean {
+  return (
+    ctx.d.compareLarge !== undefined &&
+    nodes.some(
+      (node) => node !== undefined && givesLargeObject(ctx, table, node, stack),
+    )
+  );
+}
+
+/**
+ * The branches of a CASE, which takes one type: where one is a large
+ * object, a short text beside it is made one too.
+ */
+function largeBranches(
+  ctx: ExprContext,
+  table: EngineTable,
+  nodes: ReadonlyArray<FormulaExpr | undefined>,
+  stack: readonly string[],
+  branches: readonly Typed[],
+): Typed[] {
+  if (
+    !ctx.d.largeText ||
+    !nodes.some(
+      (node) => node !== undefined && givesLargeObject(ctx, table, node, stack),
+    )
+  ) {
+    return [...branches];
+  }
+  return branches.map((branch) =>
+    branch.kind === "text"
+      ? { ...branch, sql: ctx.d.largeText?.(branch.sql) ?? branch.sql }
+      : branch,
+  );
 }
 
 /** The error a formula column's values may carry; undefined for others. */
@@ -2019,10 +2135,16 @@ function compileNode(
     }
     case "if": {
       const cond = compileFormula(ctx, table, alias, expr.cond, stack);
-      const [then, otherwise] = unify(ctx, [
-        compileFormula(ctx, table, alias, expr.then, stack),
-        compileFormula(ctx, table, alias, expr.else, stack),
-      ]);
+      const [then, otherwise] = largeBranches(
+        ctx,
+        table,
+        [expr.then, expr.else],
+        stack,
+        unify(ctx, [
+          compileFormula(ctx, table, alias, expr.then, stack),
+          compileFormula(ctx, table, alias, expr.else, stack),
+        ]),
+      );
       if (!then || !otherwise) {
         throw new AppError("invalid_formula");
       }
@@ -2052,7 +2174,15 @@ function compileNode(
           };
         default:
           return {
-            sql: ctx.d.boolValue(compare(ctx, expr.op, left, right)),
+            sql: ctx.d.boolValue(
+              compare(
+                ctx,
+                expr.op,
+                left,
+                right,
+                comparesLarge(ctx, table, [expr.left, expr.right], stack),
+              ),
+            ),
             kind: "boolean",
           };
       }
@@ -2588,10 +2718,16 @@ function compileCall(
       return bool(`(not ${asBool(lazy(0), ctx.d)})`);
     case "if": {
       const cond = lazy(0);
-      const branches = unify(ctx, [
-        lazy(1),
-        rawArgs.length > 2 ? lazy(2) : { sql: "null", kind: "null" },
-      ]);
+      const branches = largeBranches(
+        ctx,
+        table,
+        [rawArgs[1], rawArgs[2]],
+        stack,
+        unify(ctx, [
+          lazy(1),
+          rawArgs.length > 2 ? lazy(2) : { sql: "null", kind: "null" },
+        ]),
+      );
       const [then, otherwise] = branches;
       if (!then || !otherwise) {
         throw new AppError("invalid_formula");
@@ -2606,12 +2742,24 @@ function compileCall(
       const subject = lazy(0);
       const rest = compileArgs(ctx, table, alias, rawArgs.slice(1), stack);
       const hasDefault = rest.length % 2 === 1;
-      const results = unify(ctx, [
-        ...rest.filter((_, index) => index % 2 === 1),
-        ...(hasDefault
-          ? [rest[rest.length - 1] ?? { sql: "null", kind: "null" as const }]
-          : []),
-      ]);
+      const given = rawArgs
+        .slice(1)
+        .filter(
+          (_, index, all) =>
+            index % 2 === 1 || (hasDefault && index === all.length - 1),
+        );
+      const results = largeBranches(
+        ctx,
+        table,
+        given,
+        stack,
+        unify(ctx, [
+          ...rest.filter((_, index) => index % 2 === 1),
+          ...(hasDefault
+            ? [rest[rest.length - 1] ?? { sql: "null", kind: "null" as const }]
+            : []),
+        ]),
+      );
       const pairs: string[] = [];
       for (let index = 0; index + 1 < rest.length; index += 2) {
         const match = rest[index];
@@ -2620,7 +2768,7 @@ function compileCall(
           throw new AppError("invalid_formula");
         }
         pairs.push(
-          `when ${compare(ctx, "eq", subject, match)} then ${result.sql}`,
+          `when ${compare(ctx, "eq", subject, match, comparesLarge(ctx, table, [rawArgs[0], rawArgs[index + 1]], stack))} then ${result.sql}`,
         );
       }
       const fallback = hasDefault ? results[results.length - 1] : undefined;

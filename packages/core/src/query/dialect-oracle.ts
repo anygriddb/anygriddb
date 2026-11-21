@@ -396,6 +396,9 @@ export const ORACLE: SqlDialect = {
     `exists (select 1 from json_table(${sql}, '$[*]' columns (label varchar2(4000) path '$.label')) e where lower(e.label) like lower(${pattern}) escape '\\')`,
   linksIdIn: (sql, list) =>
     `exists (select 1 from json_table(${sql}, '$[*]' columns (id varchar2(1000) path '$.id')) e where e.id in (${list}))`,
+  largeText: (sql) => `to_clob(${sql})`,
+  compareLarge: (a, symbol, b) =>
+    `(dbms_lob.compare(to_clob(${a}), to_clob(${b})) ${symbol} 0)`,
   // What is not read has nothing to sort, group, or compare either.
   holdsLargeObject: (physical) =>
     isUnread(physical) || /^n?clob$/.test(typeName(physical.type)),

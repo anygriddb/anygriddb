@@ -155,6 +155,10 @@ export interface SqlDialect {
   summed?(sql: string, physical: PhysicalColumn): string;
   /** Whether the engine holds this column as a large object it cannot compare. */
   holdsLargeObject?(physical: PhysicalColumn): boolean;
+  /** A text as a large object, for a CASE with one among its results. */
+  largeText?(sql: string): string;
+  /** Two texts compared where one is a large object. */
+  compareLarge?(a: string, symbol: string, b: string): string;
   /**
    * True when `readColumn` reads a date field's day out of a stored value
    * that midnight bounds compare as it is: a filter then compares the
