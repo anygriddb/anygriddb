@@ -40,10 +40,18 @@ export function monthDays(month: Date): ShownDays {
 }
 
 /**
- * The day a row added to a view takes so that the view shows it: today
- * when the days shown hold it, their first day otherwise.
+ * The day a row added to a view takes so that the view shows it: a day
+ * the person has chosen when it is still among the days shown, otherwise
+ * today when the days shown hold it, their first day otherwise.
  */
-export function dayToAdd(shown: ShownDays, today: Date): string {
+export function dayToAdd(
+  shown: ShownDays,
+  today: Date,
+  preferred?: string | null,
+): string {
+  if (preferred && preferred >= shown.from && preferred <= shown.to) {
+    return preferred;
+  }
   const day = isoDay(today);
   return day >= shown.from && day <= shown.to ? day : shown.from;
 }

@@ -341,4 +341,13 @@ describe("prefillForDays", () => {
     ).toEqual({});
     expect(prefillForDays(field({ access: "read" }), march, today)).toEqual({});
   });
+
+  it("prefers a day the person chose when the days shown hold it", () => {
+    expect(
+      prefillForDays(field({}), march, new Date(2026, 2, 17, 10), "2026-03-05"),
+    ).toEqual({ due: "2026-03-05" });
+    expect(
+      prefillForDays(field({}), march, new Date(2026, 2, 17, 10), "2026-04-01"),
+    ).toEqual({ due: "2026-03-17" });
+  });
 });

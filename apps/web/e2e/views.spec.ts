@@ -248,6 +248,9 @@ test.describe("a kanban, a gallery, and a calendar", () => {
     await day(20).getByRole("button", { name: "Alpha" }).focus();
     await page.keyboard.press("Enter");
     await expect(panel).toBeFocused();
+    // Enter opens the event, and adds no row to its day.
+    await expect(panel.getByRole("heading", { name: "Alpha" })).toBeVisible();
+    await expect(day(20).getByRole("button")).toHaveCount(1);
     const [year, monthNumber] = dayOfThisMonth(20).split("-");
     await expect(
       panel.getByText(`20/${monthNumber ?? ""}/${year ?? ""}`, { exact: true }),
@@ -263,6 +266,8 @@ test.describe("a kanban, a gallery, and a calendar", () => {
     // the row it just made. The page's clock is set to a day that holds
     // no row of this journey.
     await page.clock.setFixedTime(new Date(`${dayOfThisMonth(25)}T10:00:00`));
+    // The day last clicked is the bar's choice until "Today" clears it.
+    await page.getByRole("button", { name: "Today", exact: true }).click();
     await page.getByRole("button", { name: "Add a row and open it" }).click();
     await expect(day(25).getByRole("button")).toHaveCount(1);
     await expect(
@@ -287,6 +292,37 @@ test.describe("a kanban, a gallery, and a calendar", () => {
       });
     await page.setViewportSize({ width: 1280, height: 600 });
     await expect.poll(cutByTheDay).toBe(0);
+    await page.setViewportSize({ width: 1280, height: 720 });
+
+    // From the keyboard the month is one stop: the arrows walk its days,
+    // the bar adds to the day reached, and Enter on a day adds there too.
+    await page.keyboard.press("Escape");
+    await day(3).click({ position: { x: 30, y: 60 } });
+    await expect(day(3)).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect(day(4)).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(day(11)).toBeFocused();
+    await page.keyboard.press("ArrowLeft");
+    await expect(day(10)).toBeFocused();
+    await page.keyboard.press("ArrowUp");
+    await expect(day(3)).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect(day(4)).toBeFocused();
+    await expect(page.locator('[data-day][tabindex="0"]')).toHaveCount(1);
+    await expect(page.locator('[data-day][tabindex="0"]')).toHaveAttribute(
+      "data-day",
+      dayOfThisMonth(4),
+    );
+    await page.getByRole("button", { name: "Add a row and open it" }).click();
+    await expect(day(4).getByRole("button")).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await day(5).click({ position: { x: 30, y: 60 } });
+    await page.keyboard.press("Enter");
+    await expect(day(5).getByRole("button")).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.setViewportSize({ width: 1280, height: 600 });
 
     // On a phone the calendar's bar goes on to a second line: the field
     // it places rows by and its feed stay within reach. They ran past the

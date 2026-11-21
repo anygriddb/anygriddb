@@ -48,6 +48,8 @@ export function useViewRows(input: {
 
   // A calendar reads the rows of the six weeks it shows, not a first page.
   const [calendarMonth, setCalendarMonth] = useState(thisMonth);
+  // A day chosen on the calendar (pointer or keyboard) for "Add a row".
+  const [pickedDay, setPickedDay] = useState<string | null>(null);
   const calendarField =
     viewType === "calendar" ? startField(config, columns) : undefined;
   // A timeline reads the rows whose bars cross the period it shows.
@@ -158,9 +160,13 @@ export function useViewRows(input: {
     [calendarField, calendarMonth, timelineField, timelineFocus, timelineAt],
   );
   const newRowValues = useCallback(
-    () => prefillForDays(placedBy, shownDays, new Date()),
-    [placedBy, shownDays],
+    () => prefillForDays(placedBy, shownDays, new Date(), pickedDay),
+    [placedBy, shownDays, pickedDay],
   );
+  const onMonth = useCallback((month: Date) => {
+    setCalendarMonth(month);
+    setPickedDay(null);
+  }, []);
 
   // A field added, changed, or removed changes what the rows hold: a new
   // formula's values, a converted field's. Read them again.
@@ -178,7 +184,9 @@ export function useViewRows(input: {
     layout,
     counts,
     calendarMonth,
-    setCalendarMonth,
+    setCalendarMonth: onMonth,
+    pickedDay,
+    setPickedDay,
     timelineFocus,
     setTimelineFocus,
     newRowValues,
