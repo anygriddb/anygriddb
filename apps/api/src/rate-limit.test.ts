@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
 import {
+  buildFile,
   credentialCalls,
   RATE_LIMITS,
   rateBucket,
@@ -76,6 +77,19 @@ describe("rateBucket", () => {
   });
 });
 
+describe("buildFile", () => {
+  it("names the files of the app's build, asked for and not sent", () => {
+    expect(buildFile("GET", "/assets/index-DGojldg-.js")).toBe(true);
+    expect(buildFile("HEAD", "/assets/index-Y0Qq8lP4.css?x=1")).toBe(true);
+    // Nothing is written there, and no other path is the build's.
+    expect(buildFile("POST", "/assets/index-DGojldg-.js")).toBe(false);
+    expect(buildFile("GET", "/trpc/rows.read?input=/assets/x.js")).toBe(false);
+    expect(buildFile("GET", "/api/attachments/attabc")).toBe(false);
+    expect(buildFile("GET", "/assetsx/index.js")).toBe(false);
+    expect(buildFile("GET", "/")).toBe(false);
+  });
+});
+
 describe("credentialCalls", () => {
   it("counts the calls of a request that check a credential", () => {
     expect(credentialCalls("/trpc/rows.read?input=x")).toBe(0);
@@ -114,6 +128,42 @@ describe("registerRateLimit", () => {
     });
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({ code: "request_rejected" });
+    await server.close();
+  });
+
+  it("does not count the app's own files: a first page asks for a hundred", async () => {
+    const server = Fastify();
+    await registerRateLimit(server);
+    server.get("/assets/:file", () => "a script");
+    server.get("/trpc/:calls", () => ({ reached: true }));
+    // More of them than the bucket holds of anything else, from one
+    // address: a few dozen people behind it, opening the app after an
+    // upgrade gave every file a new name.
+    let refused = 0;
+    for (let sent = 0; sent <= RATE_LIMITS.app; sent += 1) {
+      const response = await server.inject({
+        method: "GET",
+        url: `/assets/chunk-${String(sent)}.js`,
+      });
+      if (response.statusCode !== 200) refused += 1;
+    }
+    expect(refused).toBe(0);
+    // What the pages then ask of the server is taken as before.
+    const call = await server.inject({ method: "GET", url: "/trpc/rows.read" });
+    expect(call.statusCode).toBe(200);
+    await server.close();
+  });
+
+  it("counts every other request of the app, and refuses one too many", async () => {
+    const server = Fastify();
+    await registerRateLimit(server);
+    server.get("/trpc/:calls", () => ({ reached: true }));
+    for (let sent = 0; sent < RATE_LIMITS.app; sent += 1) {
+      await server.inject({ method: "GET", url: "/trpc/rows.read" });
+    }
+    const over = await server.inject({ method: "GET", url: "/trpc/rows.read" });
+    expect(over.statusCode).toBe(429);
+    expect(over.json()).toMatchObject({ error: "Too many requests" });
     await server.close();
   });
 });
