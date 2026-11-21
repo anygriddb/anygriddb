@@ -3,6 +3,7 @@ import type { EngineCatalog, EngineTable } from "./engine";
 import {
   aggregatesOfField,
   buildAggregates,
+  buildGroupAggregates,
   buildReadRows,
   describeColumns,
 } from "./read";
@@ -410,6 +411,44 @@ describe("reading a client's table", () => {
         [{ column: "amount", fn: "sum" }],
       ).text;
       expect(exact).toContain(`sum(q."amount")`);
+    });
+
+    it("leaves a figure empty when a value no decimal holds is in it", () => {
+      for (const [dialect, type] of [
+        ["sqlserver", "float"],
+        ["oracle", "binary_double"],
+      ] as const) {
+        const catalog = numberColumn(dialect, type);
+        const sum = buildAggregates(catalog, {}, [
+          { column: "amount", fn: "sum" },
+        ]).text;
+        expect(sum).toMatch(/case when count\(q\."ag_e\d+"\) = 0 then sum\(/);
+        const grouped = buildGroupAggregates(
+          catalog,
+          {},
+          { groups: ["amount"], item: { column: "amount", fn: "max" } },
+        ).text;
+        expect(grouped).toMatch(
+          /case when count\(q\."ag_e\d+"\) = 0 then max\(/,
+        );
+        const empties = buildAggregates(catalog, {}, [
+          { column: "amount", fn: "count_empty" },
+        ]).text;
+        expect(empties).toMatch(/q\."amount" is null and q\."ag_e\d+" is null/);
+        expect(empties).not.toContain(`count(q."ag_e`);
+      }
+    });
+
+    it("guards no figure of a type every read holds", () => {
+      const sql = buildAggregates(
+        numberColumn("sqlserver", "decimal(12,2)"),
+        {},
+        [
+          { column: "amount", fn: "sum" },
+          { column: "amount", fn: "count_empty" },
+        ],
+      ).text;
+      expect(sql).not.toContain("ag_e");
     });
 
     it("compares no large object on Oracle, and says so of the field", () => {

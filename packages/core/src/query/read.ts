@@ -375,6 +375,11 @@ function prepare(catalog: EngineCatalog, spec: ReadSpec): Prepared {
     );
     projected.stored = `q.${storedDayColumn(index)}`;
   });
+  [...columns.values()].forEach((projected, index) => {
+    if (projected.errorSql && projected.column.physical) {
+      projected.unread = `q.${errorColumn(index)}`;
+    }
+  });
   const own = ctx.scope?.(table, "r");
   const derived = `(select ${select.join(", ")} from ${readTableSql(table)} r${own ? ` where ${own}` : ""}) q`;
   const filterContext: FilterContext = {
@@ -832,7 +837,7 @@ export function buildGroupAggregates(
   return {
     text: d.groupAggregates({
       keys: input.groups.length,
-      source: `select ${keys.join(", ")}, ${refSql(ref.name)} as ${quoteIdent(ref.name)} from ${prepared.derived}${prepared.where}`,
+      source: `select ${keys.join(", ")}, ${refSql(ref.name)} as ${quoteIdent(ref.name)}${ref.unread ? `, ${ref.unread}` : ""} from ${prepared.derived}${prepared.where}`,
       value: exact ? d.exactText(value) : value,
       kind,
       limit: Math.min(input.limit ?? MAX_GROUPS, MAX_GROUPS),
@@ -893,11 +898,12 @@ export function buildHistogram(
   // The key has the shape of any other group's, so each engine's
   // `groupAggregates` reads it.
   const bucket = d.groupKey(place, "number");
-  const empty = emptySql(ref, d);
+  // Bins share the values read: one no read can hold has no place in them.
+  const read = `${refSql(ref.name)} is not null`;
   const where =
     prepared.where.length > 0
-      ? `${prepared.where} and not (${empty})`
-      : ` where not (${empty})`;
+      ? `${prepared.where} and ${read}`
+      : ` where ${read}`;
   return {
     text: d.groupAggregates({
       keys: 1,
@@ -998,7 +1004,33 @@ export const aggregateItemSchema = z.object({
 
 export type AggregateItem = z.infer<typeof aggregateItemSchema>;
 
+/** Figures that count rows, which a value no read can hold still fills. */
+const COUNTS_ROWS: ReadonlySet<AggregateFn> = new Set([
+  "count_all",
+  "count_empty",
+  "count_filled",
+  "percent_empty",
+  "percent_filled",
+]);
+
+/**
+ * A figure over the rows. One that needs a value a read cannot hold is
+ * left empty, as one too large for the database is: leaving that value
+ * out would show a wrong total with nothing to say so.
+ */
 function aggregateSql(
+  d: SqlDialect,
+  ref: ProjectedColumn,
+  fn: AggregateFn,
+  source: string,
+): string {
+  const figure = figureSql(d, ref, fn, source);
+  return ref.unread && !COUNTS_ROWS.has(fn)
+    ? `(case when count(${ref.unread}) = 0 then ${figure} end)`
+    : figure;
+}
+
+function figureSql(
   d: SqlDialect,
   ref: ProjectedColumn,
   fn: AggregateFn,
