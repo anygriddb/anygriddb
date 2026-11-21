@@ -11,7 +11,7 @@ import {
   CLIENT_REFUSED,
   exchangeAuthorizationCode,
   refreshAccessToken,
-  revokeRefreshToken,
+  revokeGrantToken,
   type TokenResponse,
 } from "./flow.js";
 
@@ -222,9 +222,9 @@ export function registerOauth(
       if (client === "twice") return oauthError(reply, 400, "invalid_request");
       if (client === "unreadable") return clientRefused(reply);
       try {
-        await revokeRefreshToken(deps.db, {
+        await revokeGrantToken(deps.db, {
           ...client,
-          refreshToken: form.token ?? form.refresh_token ?? "",
+          token: form.token ?? form.refresh_token ?? "",
         });
       } catch (error) {
         if (refusedClient(error)) return clientRefused(reply);
