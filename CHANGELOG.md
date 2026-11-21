@@ -8,6 +8,32 @@ first.
 
 ## Unreleased
 
+## 0.3.6 - 2026-11-21
+
+**Before upgrading:** nothing to do. This version adds no migration.
+
+### Added
+
+- How to run a local model beside the instance over MCP is in the operator
+  guide (`docs/mcp.md`).
+
+### Fixed
+
+- A dashboard widget that failed to load can be read again from its own
+  control, and its icons stay clear when the panel is narrow.
+- Administration's Sessions page keeps the list already read when a
+  refresh fails, says how many sessions are open, and does not call an
+  empty page "no session" while the total says otherwise.
+- Deleting a comment asks first, and the copy says the comment is replaced
+  by "Comment deleted" (it is not removed from the database).
+- A refused source is worded for the person who reads it, and names the
+  allow-list variable where an administrator can change it.
+- A calendar day is chosen from the keyboard with one tab stop; Enter on
+  an event opens it instead of making a row.
+- A timeline keeps its row names in a pane beside the axis so they stay
+  aligned while scrolling.
+- A chart line that starts with no value still has a place for its label.
+
 ## 0.3.5 - 2026-11-21
 
 **Before upgrading:** nothing to do. This version adds no migration.
