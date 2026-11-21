@@ -388,7 +388,15 @@ export function PublicRows({
           {plural(rows.data?.total ?? 0, { one: "# row", other: "# rows" })}
         </span>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">
+      {/* The rows scroll in a region of their own, which takes the
+          keyboard: cards hold nothing to focus, and scrolled only under
+          a pointer. */}
+      <div
+        role="region"
+        aria-label={t`Rows`}
+        tabIndex={0}
+        className="min-h-0 flex-1 overflow-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+      >
         {cards ? (
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-4 p-4">
             {list.map((row) => (

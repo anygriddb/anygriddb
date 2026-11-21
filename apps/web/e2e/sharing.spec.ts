@@ -297,6 +297,7 @@ test("an owner shares a whole base read-only, and anyone with the link reads it"
 }) => {
   const blocked = watchPolicy(page);
   await signUpWithTable(page, "Bea Baseshare");
+  const tableId = /\/t\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
   await page.getByRole("button", { name: "Add a row", exact: true }).click();
   await page.locator('[role="gridcell"][data-column="name"]').first().click();
   const saved = page.waitForResponse(
@@ -334,6 +335,44 @@ test("an owner shares a whole base read-only, and anyone with the link reads it"
   await reader.keyboard.press("Escape");
   await expect(about).toHaveCount(0);
   expect(await accessibilityViolations(reader)).toEqual([]);
+
+  // A view drawn as cards, opened by its own link, scrolls from the
+  // keyboard. Its cards hold nothing to focus, so the region that holds
+  // them takes the keyboard: more rows than a window shows could only
+  // be reached with a pointer. Sixty rows, where a window shows thirty.
+  const filled = await page.request.post("/trpc/rows.insertMany", {
+    data: {
+      tableId,
+      rows: Array.from({ length: 60 }, (_, index) => ({
+        name: `Card ${String(index + 1)}`,
+      })),
+    },
+  });
+  expect(filled.ok(), await filled.text()).toBe(true);
+  const board = await page.request.post("/trpc/catalog.createView", {
+    data: { tableId, name: "Cards", viewType: "gallery" },
+  });
+  expect(board.ok(), await board.text()).toBe(true);
+  const viewId = ((await board.json()) as { result: { data: { id: string } } })
+    .result.data.id;
+  const shared = await page.request.post("/trpc/catalog.createShare", {
+    data: { viewId },
+  });
+  expect(shared.ok(), await shared.text()).toBe(true);
+  const token = (
+    (await shared.json()) as { result: { data: { token: string } } }
+  ).result.data.token;
+  await reader.goto(`/s/${token}`);
+  const cards = reader.getByRole("region", { name: "Rows" });
+  await expect(cards.getByText("Card 1", { exact: true })).toBeVisible();
+  expect(await accessibilityViolations(reader)).toEqual([]);
+  await expect(
+    cards.getByText("Card 60", { exact: true }),
+  ).not.toBeInViewport();
+  await cards.focus();
+  await reader.keyboard.press("End");
+  await expect(cards.getByText("Card 60", { exact: true })).toBeInViewport();
+  await reader.goto(link);
 
   // The link is listed with the day it was made, written as every
   // screen writes a day. Revoking it asks first: everyone who has it

@@ -8,6 +8,13 @@ first.
 
 ## Unreleased
 
+### Fixed
+
+- A view opened by a public link scrolls from the keyboard: the region
+  that holds its rows takes the keyboard, and shows that it has it. A
+  view drawn as cards holds nothing to focus, so more rows than the
+  window shows were reached with a pointer only.
+
 ## 0.3.2 - 2026-11-21
 
 **Before upgrading:** nothing to do.
