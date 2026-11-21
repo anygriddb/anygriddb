@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./journey";
 import { accessibilityViolations, uniqueStamp } from "./setup";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));

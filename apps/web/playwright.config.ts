@@ -6,6 +6,11 @@ import { defineConfig } from "@playwright/test";
 // this browser does not know.
 const appUrl = process.env.PUBLIC_URL ?? "https://localhost:4010";
 const port = new URL(appUrl).port || "4010";
+// Set by `pnpm test:e2e:coverage`: the server writes what it ran when it ends.
+const coverageDir = process.env.E2E_COVERAGE_DIR;
+const serve = coverageDir
+  ? `NODE_V8_COVERAGE=${JSON.stringify(`${coverageDir}/server-raw`)} pnpm exec tsx src/index.ts`
+  : "pnpm exec tsx src/index.ts";
 
 export default defineConfig({
   testDir: "e2e",
@@ -54,12 +59,14 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command:
-        "pnpm --filter @anygriddb/web build && pnpm exec tsx src/index.ts",
+      command: `pnpm --filter @anygriddb/web build && ${serve}`,
+      ...(coverageDir
+        ? { gracefulShutdown: { signal: "SIGTERM" as const, timeout: 20_000 } }
+        : {}),
       cwd: "../api",
       url: `${appUrl}/health`,
       ignoreHTTPSErrors: true,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: !process.env.CI && !coverageDir,
       timeout: 180_000,
       env: {
         ...process.env,

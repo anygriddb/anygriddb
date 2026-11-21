@@ -80,6 +80,7 @@ stack in Docker:
 | `pnpm test`                                 | unit tests only (no Docker)                                                       |
 | `pnpm test:integration`                     | PostgreSQL and client engines in Testcontainers                                   |
 | `pnpm test:e2e`                             | Playwright journeys in Chromium, with axe accessibility checks                    |
+| `pnpm test:e2e:coverage`                    | the same journeys, measured: what they ran, and what their pages reported         |
 | `pnpm test:samples`                         | sample databases on five engines ([`docker/lab/README.md`](docker/lab/README.md)) |
 | `pnpm vps:up`, `vps:run`, `vps:down`        | the stack under a small server's limits, and its load report (`scripts/vps/`)     |
 | `pnpm --filter @anygriddb/web i18n:extract` | refresh the Lingui catalogs                                                       |
