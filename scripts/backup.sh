@@ -26,7 +26,10 @@
 #
 # Each run is reported to the instance, which shows the last ones in
 # Administration and tells its administrators when backups fail or stop.
-set -Eeuo pipefail
+# A run that stops before its end leaves nothing behind.
+set -euo pipefail
+# What this run writes is its owner's alone from the first byte.
+umask 077
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root/docker"
@@ -73,7 +76,9 @@ if [ ${#args[@]} -eq 0 ]; then args=(-f compose.yml); fi
 compose=(docker compose "${args[@]}")
 if [ -f "$env_file" ]; then compose=(docker compose --env-file "$env_file" "${args[@]}"); fi
 config="$("${compose[@]}" config --format json)"
-project="$(printf '%s\n' "$config" | sed -n 's/^ *"name": *"\([^"]*\)".*/\1/p' | head -n 1)"
+# The project's name is the composition's own `name`, at its top: a
+# config, a network or a volume has a name too, further in.
+project="$("${compose[@]}" config | sed -n 's/^name: *"\{0,1\}\([^"]*\)"\{0,1\} *$/\1/p' | head -n 1)"
 : "${project:?could not read the compose project name}"
 
 # Where the files are: the stack's own volumes, as its composition names them.
@@ -114,7 +119,39 @@ report() {
     --name "$(basename "$out")" --started "$started" ${flags[@]+"${flags[@]}"} >/dev/null 2>&1 ||
     echo "The instance could not be told of this run: Administration will not show it." >&2
 }
-trap 'trap - ERR; report failed' ERR
+# The instance is told once, where the script ends, of what became of the
+# backup: made, or not. A run that stops before its backup is made leaves
+# nothing: a folder with part of a dump is no backup, and holds what a
+# backup holds. Told where a command failed, a failure while a file was
+# written was told twice.
+made=""
+ended() {
+  status=$?
+  trap - EXIT HUP INT TERM
+  if [ -n "$made" ]; then
+    report succeeded
+  else
+    rm -rf -- "$out"
+    echo "This run stopped before its end: nothing is kept of it." >&2
+    report failed
+  fi
+  exit "$status"
+}
+trap ended EXIT
+# Stopped from outside, the run ends the same way: a signal that ends the
+# shell by itself would skip what the end has to do.
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Docker makes a volume that is named and is not there: archived, it
+# would be a backup of nothing that says it went well.
+for volume in "${volumes[@]}"; do
+  if ! docker volume inspect "${project}_${volume}" >/dev/null 2>&1; then
+    echo "The stack ${project} has no volume ${project}_${volume}: give the options the stack runs with." >&2
+    exit 1
+  fi
+done
 
 echo "== Database ${POSTGRES_DB}"
 "${compose[@]}" exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
@@ -131,6 +168,7 @@ done
 
 (cd "$out" && sha256sum "${archives[@]}" >SHA256SUMS)
 chmod 600 "$out"/*
+made=yes
 echo
 echo "Backup: $out"
 du -sh "$out" | cut -f1
@@ -158,5 +196,3 @@ echo "Keep AUTH_ENCRYPTION_KEY apart from it: without that key, this backup's se
 if [ -n "$elsewhere" ]; then
   echo "The files of this stack are in an object store outside it: this backup does not hold them. Keep that bucket with its service's own means." >&2
 fi
-trap - ERR
-report succeeded

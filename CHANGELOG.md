@@ -31,6 +31,18 @@ first.
 - A webhook's delivery that has not been tried yet reads "Waiting to be
   sent" in its log. It read "Retry scheduled (—)", as a delivery that
   failed and waits for its next attempt does.
+- The backup, restore and PostgreSQL 18 scripts read a stack's name
+  from its composition's own. With a `configs:` section among a stack's
+  files they took a config's name for it, and looked for the stack's
+  volumes under that name: a backup then held the database and, for the
+  files and the authority, archives of nothing, and said it went well.
+  A backup also refuses a volume that is not there, which Docker would
+  make, empty. An install made by the guide has no such section.
+- `scripts/backup.sh` tells the instance once of a run, by what became
+  of the backup: a run that failed while a file was written was listed
+  twice in Administration. A run that fails or is stopped keeps nothing
+  of what it had written, where it left a folder with part of a dump;
+  and what a run writes is its owner's alone from the first byte.
 - A new install's database log holds no error from the first start.
   The instance asked for the job queue's first table before making it,
   and PostgreSQL wrote the refusal at every new install:
