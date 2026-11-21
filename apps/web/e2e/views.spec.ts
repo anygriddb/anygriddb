@@ -270,11 +270,31 @@ test.describe("a kanban, a gallery, and a calendar", () => {
     ).toBeVisible();
     expect(await accessibilityViolations(page)).toEqual([]);
 
+    // A day shows its events whole, however short the window: its week
+    // grows with them, and the month scrolls. Where the month had no room
+    // to spare, a day's fourth event was cut by the day's edge, and the
+    // fifth was not drawn, with nothing to say they were there.
+    for (let events = 2; events <= 5; events += 1) {
+      await page.getByRole("button", { name: "Add a row and open it" }).click();
+      await expect(day(25).getByRole("button")).toHaveCount(events);
+    }
+    const cutByTheDay = () =>
+      day(25).evaluate((cell) => {
+        const edge = cell.getBoundingClientRect().bottom;
+        return [...cell.querySelectorAll("button")].filter(
+          (event) => event.getBoundingClientRect().bottom > edge,
+        ).length;
+      });
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await expect.poll(cutByTheDay).toBe(0);
+
     // On a phone the calendar's bar goes on to a second line: the field
     // it places rows by and its feed stay within reach. They ran past the
-    // screen's edge, cut, with nothing to scroll them back.
+    // screen's edge, cut, with nothing to scroll them back. A day's
+    // events are whole there too, each tall enough to press.
     await page.keyboard.press("Escape");
     await page.setViewportSize({ width: 390, height: 844 });
+    await expect.poll(cutByTheDay).toBe(0);
     await expect(page.getByRole("combobox", { name: "Date" })).toBeInViewport({
       ratio: 1,
     });
