@@ -212,6 +212,7 @@ export const ERRORS = {
   integration_limit: [BAD, "Too many integrations"],
   /** An https address the notification rules refuse (ADR 0092). */
   invalid_notify_target: [BAD, "Invalid notification target"],
+  notify_secret_again: [BAD, "Enter the channel's secret again"],
   notify_needs_mail: [BAD, "Mail is not configured"],
   invalid_delivery: [BAD, "Invalid delivery"],
   /** The syslog collector refused, or did not answer, a test event. */

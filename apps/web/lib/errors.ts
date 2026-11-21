@@ -192,6 +192,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   unknown_integration: msg`This integration no longer exists`,
   integration_limit: msg`This instance already has as many integrations as it can`,
   invalid_notify_target: msg`This address is not allowed. Use HTTPS. A private network stays blocked unless you allow it on this page.`,
+  notify_secret_again: msg`This channel's address changed: enter its secret again, so that it is not sent to the new host unasked`,
   notify_needs_mail: msg`Configure the mail relay under Connections before this channel can send.`,
   invalid_delivery: msg`This delivery cannot be sent again`,
   syslog_unreachable: msg`The syslog collector did not take the event: check its address, its port, and the certificate it presents`,

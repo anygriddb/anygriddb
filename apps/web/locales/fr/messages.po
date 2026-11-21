@@ -11874,6 +11874,10 @@ msgid "This changed since you opened it. The history has been read again."
 msgstr "Ceci a changé depuis l’ouverture. L’historique a été relu."
 
 #: lib/errors.ts
+msgid "This channel's address changed: enter its secret again, so that it is not sent to the new host unasked"
+msgstr "L’adresse de ce canal a changé : saisissez de nouveau son secret, pour qu’il ne soit pas envoyé au nouvel hôte sans votre accord"
+
+#: lib/errors.ts
 msgid "This code is wrong, or works no longer"
 msgstr "Ce code est faux, ou ne sert plus"
 

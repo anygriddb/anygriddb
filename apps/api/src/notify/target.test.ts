@@ -1,8 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { assertNotifyTarget, isNotifyBlocked, redirectTarget } from "./target";
+import {
+  assertNotifyTarget,
+  isNotifyBlocked,
+  redirectTarget,
+  redirectWithinOrigin,
+} from "./target";
 
 const PUBLIC = [{ address: "203.0.113.10", family: 4 }];
 const resolve = async () => PUBLIC;
+
+describe("a redirect with a channel's credentials", () => {
+  const from = new URL("https://hooks.example.com/in?key=1");
+
+  it("is followed on the same origin", () => {
+    expect(redirectWithinOrigin(from, "/moved")).toBe(
+      "https://hooks.example.com/moved",
+    );
+  });
+
+  it("is not followed to another host, port, or scheme", () => {
+    for (const elsewhere of [
+      "https://attacker.example/in",
+      "https://hooks.example.com:8443/in",
+      "http://hooks.example.com/in",
+      "//attacker.example/in",
+      "https://",
+    ]) {
+      expect(redirectWithinOrigin(from, elsewhere), elsewhere).toBeNull();
+    }
+  });
+});
 
 describe("notification targets", () => {
   it("accepts a public https address", async () => {

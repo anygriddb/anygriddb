@@ -148,3 +148,17 @@ export async function assertNotifyTarget(
 export function redirectTarget(current: URL, location: string): string {
   return new URL(location, current).href;
 }
+
+/**
+ * The address a redirect may be followed to with this request's headers
+ * and body, which can hold a channel's credentials: on the same origin
+ * only. Null for any other, or for a location that is no address.
+ */
+export function redirectWithinOrigin(
+  current: URL,
+  location: string,
+): string | null {
+  if (!URL.canParse(location, current)) return null;
+  const next = new URL(redirectTarget(current, location));
+  return next.origin === current.origin ? next.href : null;
+}
