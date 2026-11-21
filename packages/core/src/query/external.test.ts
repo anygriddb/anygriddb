@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { FormulaExpr } from "../formula";
 import type { EngineCatalog, EngineTable } from "./engine";
 import {
   aggregatesOfField,
@@ -473,6 +474,86 @@ describe("reading a client's table", () => {
         ],
       ).text;
       expect(sql).not.toContain("ag_e");
+    });
+
+    it("says the same of a formula that gives one, and not of its length", () => {
+      const catalog = numberColumn("oracle", "clob");
+      const [stored] = catalog.table.columns;
+      if (!stored) throw new Error("no column");
+      stored.fieldType = "long_text";
+      const formula = (name: string, expr: FormulaExpr) => ({
+        id: name,
+        name,
+        label: name,
+        fieldType: "formula" as const,
+        config: { expr },
+      });
+      const notes: FormulaExpr = { op: "col", name: "amount" };
+      const table: EngineTable = {
+        ...catalog.table,
+        columns: [
+          ...catalog.table.columns,
+          formula("as_is", notes),
+          formula("again", { op: "col", name: "as_is" }),
+          formula("size", { op: "call", fn: "len", args: [notes] }),
+          formula("picked", {
+            op: "call",
+            fn: "switch",
+            args: [notes, { op: "str", value: "a" }, { op: "str", value: "b" }],
+          }),
+        ],
+      };
+      const withFormulas: EngineCatalog = {
+        ...catalog,
+        table,
+        tables: new Map([[table.id, table]]),
+      };
+      const fields = new Map(
+        describeColumns(withFormulas).map((field) => [field.name, field]),
+      );
+      expect(fields.get("as_is")?.noCompare).toBe(true);
+      expect(fields.get("again")?.noCompare).toBe(true);
+      expect(fields.get("size")?.noCompare).toBeUndefined();
+      expect(fields.get("picked")?.noCompare).toBeUndefined();
+    });
+
+    it("makes a short text a large one beside it, and compares them", () => {
+      const catalog = numberColumn("oracle", "clob");
+      const [stored] = catalog.table.columns;
+      if (!stored) throw new Error("no column");
+      stored.fieldType = "long_text";
+      const notes: FormulaExpr = { op: "col", name: "amount" };
+      const of = (expr: FormulaExpr): EngineCatalog => {
+        const table: EngineTable = {
+          ...catalog.table,
+          columns: [
+            ...catalog.table.columns,
+            {
+              id: "f",
+              name: "f",
+              label: "f",
+              fieldType: "formula",
+              config: { expr },
+            },
+          ],
+        };
+        return { ...catalog, table, tables: new Map([[table.id, table]]) };
+      };
+      const chosen = buildReadRows(
+        of({
+          op: "if",
+          cond: { op: "bool", value: true },
+          then: notes,
+          else: { op: "str", value: "none" },
+        }),
+        { limit: 5 },
+      ).text;
+      expect(chosen).toContain("to_clob(");
+      const same = buildReadRows(
+        of({ op: "eq", left: notes, right: { op: "str", value: "a" } }),
+        { limit: 5 },
+      ).text;
+      expect(same).toContain("dbms_lob.compare(");
     });
 
     it("compares no large object on Oracle, and says so of the field", () => {

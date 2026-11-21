@@ -17,6 +17,7 @@ import {
   type ExprContext,
   type ScalarKind,
   columnError,
+  givesLargeObject,
 } from "./expressions";
 import {
   compileFilter,
@@ -132,6 +133,34 @@ function kindOf(typed: { kind: string; elem?: ScalarKind }): FilterKind {
   return typed.kind as FilterKind;
 }
 
+/** The field is, or a formula gives, what its engine cannot compare. */
+function holdsLargeObject(
+  ctx: ExprContext,
+  column: EngineColumn,
+  kind: string,
+): boolean {
+  const { physical } = column;
+  if (physical) {
+    return (
+      !physical.side &&
+      !physical.controlPlane &&
+      ctx.d.holdsLargeObject?.(physical) === true
+    );
+  }
+  const expr = column.fieldType === "formula" ? column.config.expr : undefined;
+  const { table } = ctx.catalog;
+  // Most tables hold none: their formulas are not walked for one.
+  const holdsOne = table.columns.some(
+    (item) => item.physical && ctx.d.holdsLargeObject?.(item.physical),
+  );
+  return (
+    kind === "text" &&
+    holdsOne &&
+    expr !== undefined &&
+    givesLargeObject(ctx, table, expr, [`${table.id}:${column.name}`])
+  );
+}
+
 function projectColumn(
   ctx: ExprContext,
   column: EngineColumn,
@@ -170,11 +199,7 @@ function projectColumn(
       sql: typed.sql,
       options,
       ...(column.physical?.controlPlane ? { apart: true } : {}),
-      ...(table.external &&
-      column.physical &&
-      !column.physical.side &&
-      !column.physical.controlPlane &&
-      ctx.d.holdsLargeObject?.(column.physical)
+      ...(table.external && holdsLargeObject(ctx, column, typed.kind)
         ? { noCompare: true }
         : {}),
       ...(limits.size > 0 ? { limits: [...limits.values()] } : {}),

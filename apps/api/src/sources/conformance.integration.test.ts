@@ -4286,6 +4286,82 @@ describe("conformance of formulas across engines", () => {
     expect(await ids("lt", "10")).toEqual(["1", "4"]);
   }, 120_000);
 
+  it("compares no Oracle formula that gives a large text", async () => {
+    const oracleSource = declared.get("oracle");
+    if (!oracleSource) throw new Error("no Oracle source");
+    for (const statement of [
+      "create table native_notes (id number(10) primary key, NOTES clob)",
+      "insert into native_notes values (1, 'short')",
+      "insert into native_notes values (2, to_clob(rpad('x', 4000, 'x')) || rpad('y', 4000, 'y'))",
+      "grant select on native_notes to reader",
+    ]) {
+      await outside("oracle", statement);
+    }
+    const base = await insertBase(db, actorId, { name: "Long notes" });
+    const {
+      tableIds: [tableId = ""],
+    } = await exposeTables({ db, key, settings }, actorId, {
+      sourceId: oracleSource.sourceId,
+      baseId: base.id,
+      tables: [{ schema: oracleSource.schema, name: "NATIVE_NOTES" }],
+    });
+    const formula = async (label: string, formulaSource: string) =>
+      (
+        await addColumn(db, actorId, tableId, {
+          label,
+          fieldType: "formula",
+          formulaSource,
+        })
+      ).name;
+    const large = [
+      await formula("as_is", "{NOTES}"),
+      await formula("shout", "UPPER({NOTES})"),
+      await formula("joined", '{NOTES} & "!"'),
+      await formula("chosen", 'IF(LEN({NOTES}) > 1, {NOTES}, "none")'),
+      await formula("again", "{as_is}"),
+    ];
+    const plain = [
+      await formula("size", "LEN({NOTES})"),
+      await formula("flag", 'IF(LEN({NOTES}) > 1, "long", "short")'),
+      await formula("same", '{NOTES} = "short"'),
+      await formula("named", 'SWITCH({NOTES}, "short", "s", "other")'),
+      await formula("after", '{NOTES} > "a"'),
+      await formula("number", "{NOTES} > 5"),
+      await formula("filled", 'IF({NOTES}, "y", "n")'),
+    ];
+    const { engine: catalog } = await loadEngine(db, tableId, () => true);
+    const described = new Map(
+      describeColumns(catalog).map((field) => [field.name, field]),
+    );
+    for (const name of large) {
+      expect(described.get(name)?.noCompare, name).toBe(true);
+    }
+    for (const name of plain) {
+      expect(described.get(name)?.noCompare, name).toBeUndefined();
+    }
+    // Whatever each field still offers, its engine answers.
+    await playEveryField("oracle", catalog);
+    const page = await readPage(
+      db,
+      catalog,
+      {
+        limit: 10,
+        timeZone: "UTC",
+        sort: [{ column: plain[1] ?? "", direction: "asc" }],
+      },
+      { total: false },
+    );
+    expect(page.rows).toHaveLength(2);
+    const short = page.rows.find((row) => row.id === "1");
+    const long = page.rows.find((row) => row.id === "2");
+    expect(String(long?.[large[0] ?? ""]).length).toBe(8000);
+    expect(short?.[plain[2] ?? ""]).toBeTruthy();
+    expect(long?.[plain[2] ?? ""]).toBeFalsy();
+    expect(short?.[plain[3] ?? ""]).toBe("s");
+    expect(long?.[plain[3] ?? ""]).toBe("other");
+    expect(short?.[large[3] ?? ""]).toBe("short");
+  }, 180_000);
+
   it("opens an Oracle table whatever types it holds", async () => {
     const oracleSource = declared.get("oracle");
     if (!oracleSource) throw new Error("no Oracle source");
