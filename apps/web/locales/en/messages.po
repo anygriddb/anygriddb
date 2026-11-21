@@ -11398,6 +11398,10 @@ msgstr "The row's number, given when it was created."
 msgid "the row's place"
 msgstr "the row's place"
 
+#: components/admin/trails.tsx
+msgid "the row's status"
+msgstr "the row's status"
+
 #: components/grid/rows-error.tsx
 msgid "The rows could not be read: {reason}"
 msgstr "The rows could not be read: {reason}"

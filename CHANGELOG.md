@@ -53,6 +53,12 @@ first.
   each table, which inviting them again does not bring back.
   Administration already asked. Each bin is named after its member. A
   pending invitation that could not be revoked says why.
+- Administration's change trail lists what a change touched without
+  the columns every row has. A row's creation read "ag_created_at,
+  ag_created_by, the row's place, ag_status" before the fields it was
+  given, and a deletion the same: who wrote and when are the line's
+  own, and a row's status and place are named, in words, when they
+  change.
 - An account that must set up a second factor first, as a new
   instance's first administrator must, no longer asks for the lists
   every page shares before it has one. The server refused each: five
