@@ -9386,6 +9386,7 @@ msgstr "Valeurs de la ligne"
 msgid "rows"
 msgstr "lignes"
 
+#: components/public/public-view.tsx
 #: components/settings/table-rules-panel.tsx
 #: components/views/list-view.tsx
 #: components/views/row-cards.tsx
