@@ -8,6 +8,14 @@ first.
 
 ## Unreleased
 
+## 0.3.3 - 2026-11-21
+
+**Before upgrading:** nothing to do. If you changed your encryption key
+on an earlier version and still hold the earlier key in
+`AUTH_ENCRYPTION_PREVIOUS_KEYS`, leave it there until this version has
+started once, then follow "Changing the encryption key" in
+`docs/operations.md` from its step 4.
+
 ### Fixed
 
 - A client's table whose engine holds uncommon types is read without
@@ -81,9 +89,10 @@ first.
   twice in Administration. A run that fails or is stopped keeps nothing
   of what it had written, where it left a folder with part of a dump;
   and what a run writes is its owner's alone from the first byte.
-- On SQL Server, a field held in the old `text`, `ntext` or `image` types
-  can be sorted and grouped: the rows could not be read. On Oracle, a link field
-  is no longer offered for grouping, which that engine cannot do.
+- On SQL Server, a field held in the old `text`, `ntext` or `image`
+  types can be sorted and grouped: the rows could not be read. On
+  Oracle, a link field is no longer offered for grouping, which that
+  engine cannot do.
 - "Duplicate field" is offered only on a table that can take the copy:
   not on a store read from a copy, nor on a table with no primary key.
 - The count of rows a client's database estimates is 24 pixels to press.
