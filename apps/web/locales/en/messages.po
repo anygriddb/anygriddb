@@ -9386,6 +9386,7 @@ msgstr "Row values"
 msgid "rows"
 msgstr "rows"
 
+#: components/public/public-view.tsx
 #: components/settings/table-rules-panel.tsx
 #: components/views/list-view.tsx
 #: components/views/row-cards.tsx
