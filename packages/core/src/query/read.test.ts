@@ -318,6 +318,21 @@ describe("search", () => {
     expect(open.text).toContain(`q."status"`);
   });
 
+  it("binds no text when the read holds no field to search", () => {
+    const page = buildReadRows(catalogFor(), {
+      limit: 10,
+      search: "secret",
+      fields: [],
+    });
+    expect(page.text.slice(page.text.lastIndexOf(" where "))).toContain(
+      "false",
+    );
+    expect(page.values.join(" ")).not.toContain("secret");
+    for (let index = 1; index <= page.values.length; index += 1) {
+      expect(page.text).toContain(`$${String(index)}`);
+    }
+  });
+
   it("does not bind a time zone when fields limit the read and search is off", () => {
     const page = buildReadRows(catalogFor(), {
       limit: 10,
