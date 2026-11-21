@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Starts an AnyGridDB image the way an operator does (docker/compose.yml:
 # its certificates, PostgreSQL over verified TLS, the migrations), then
-# asks it what an operator would: /health, /ready, and its version, and
-# reads what a first start wrote. A throwaway stack: its own project name,
-# volumes, secrets, and port on the loopback, removed afterwards whatever
-# happened.
+# asks it what an operator would: /health, /ready, and its version, reads
+# what a first start wrote, and makes a backup and restores it. A
+# throwaway stack: its own project name, volumes, secrets, and port on the
+# loopback, removed afterwards whatever happened.
 #
 #   scripts/smoke-image.sh                        # the image anygriddb:local
 #   SMOKE_PORT=3443 scripts/smoke-image.sh        # another port
@@ -141,6 +141,72 @@ if loud="$(grep -E '^\{"level":(40|50|60),' <<<"$said")" ||
   echo "$loud" >&2
   exit 1
 fi
+
+# A backup and its restore, as the guide has an operator make them
+# (docs/operations.md, Backups). A table and a file made before the
+# backup, and taken out after it, are there again once it is restored.
+as_operator=(env ENV_FILE="$work/smoke.env" BACKUP_DIR="$work/backups")
+options=(-p "$project" -f "$root/docker/compose.yml" -f "$work/compose.smoke.yml")
+ask() {
+  "${compose[@]}" exec -T db psql -U anygriddb -d anygriddb -tAc "$1"
+}
+# The runs the instance was told of: those that made a backup, the others.
+told() {
+  ask "select count(*) filter (where succeeded) || ' ' || count(*) filter (where not succeeded) from backup_runs"
+}
+# What the stack keeps of files, reached as the scripts reach it.
+in_files() {
+  docker run --rm --network none --volume "${project}_files_data:/files" \
+    postgres:18 sh -c "$1"
+}
+ask "create table smoke_kept (word text); insert into smoke_kept values ('kept')" >/dev/null
+in_files 'echo kept > /files/smoke-kept'
+"${as_operator[@]}" "$root/scripts/backup.sh" "${options[@]}"
+if [ "$(told)" != "1 0" ]; then
+  echo "The instance was not told, once, of the backup just made: $(told)" >&2
+  exit 1
+fi
+# A run that stops while a file is written, here because its encryption
+# breaks, ends badly, is told once, and keeps nothing of what it wrote.
+mkdir "$work/bin"
+printf '#!/bin/sh\nexit 1\n' >"$work/bin/age"
+chmod +x "$work/bin/age"
+if PATH="$work/bin:$PATH" BACKUP_AGE_RECIPIENT=age1smoke \
+  "${as_operator[@]}" "$root/scripts/backup.sh" "${options[@]}"; then
+  echo "A backup whose files could not be written ended well." >&2
+  exit 1
+fi
+if [ "$(told)" != "1 1" ]; then
+  echo "The instance was not told, once, of the backup that failed: $(told)" >&2
+  exit 1
+fi
+backup=("$work"/backups/*)
+if [ "${#backup[@]}" -ne 1 ] || [ ! -f "${backup[0]}/SHA256SUMS" ]; then
+  echo "The backups' folder holds more than the one backup made: ${backup[*]}" >&2
+  exit 1
+fi
+# Named after the stack: this one has a config, whose name the scripts
+# once took for the stack's, and looked for its volumes under it.
+case "$(basename "${backup[0]}")" in
+  "$project"-2*) ;;
+  *)
+    echo "The backup is not named after the stack $project: ${backup[0]}" >&2
+    exit 1
+    ;;
+esac
+ask "drop table smoke_kept" >/dev/null
+in_files 'rm /files/smoke-kept'
+"${as_operator[@]}" "$root/scripts/restore.sh" "${backup[0]}" "${options[@]}"
+if [ "$(ask "select word from smoke_kept")" != kept ]; then
+  echo "The restore did not bring back the rows the backup held." >&2
+  exit 1
+fi
+if [ "$(in_files 'cat /files/smoke-kept' 2>/dev/null)" != kept ]; then
+  echo "The restore did not bring back the files the backup held." >&2
+  exit 1
+fi
+curl --fail --silent --show-error --insecure "https://localhost:${port}/ready"
+echo
 
 # A stack that ran PostgreSQL 17 keeps its data in `postgres_data`. This
 # one must stop in front of it and say how to move it, never start on an

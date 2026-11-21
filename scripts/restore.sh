@@ -40,7 +40,9 @@ if [ ${#args[@]} -eq 0 ]; then args=(-f compose.yml); fi
 compose=(docker compose "${args[@]}")
 if [ -f "$env_file" ]; then compose=(docker compose --env-file "$env_file" "${args[@]}"); fi
 config="$("${compose[@]}" config --format json)"
-project="$(printf '%s\n' "$config" | sed -n 's/^ *"name": *"\([^"]*\)".*/\1/p' | head -n 1)"
+# The project's name is the composition's own `name`, at its top: a
+# config, a network or a volume has a name too, further in.
+project="$("${compose[@]}" config | sed -n 's/^name: *"\{0,1\}\([^"]*\)"\{0,1\} *$/\1/p' | head -n 1)"
 : "${project:?could not read the compose project name}"
 
 echo "== Checking ${backup}"

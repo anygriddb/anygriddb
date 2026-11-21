@@ -613,6 +613,9 @@ toward a service of your own) are not in the backup, and the script says
 so each time: keep that bucket with its service's own means, versioning
 or replication.
 
+A run that fails, or that is stopped, keeps nothing of what it had
+written: a folder is a whole backup, with its sums, or is not there.
+
 The folder and its files are readable by their owner only. Emails,
 names, and cell values are in them, while secrets sealed with
 `AUTH_ENCRYPTION_KEY` stay ciphertext because the backup leaves that key
