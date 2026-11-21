@@ -11902,6 +11902,10 @@ msgid "This field appears twice"
 msgstr "Ce champ apparaît deux fois"
 
 #: lib/errors.ts
+msgid "This field holds long text its database cannot sort, group, or compare"
+msgstr "Ce champ contient un texte long que sa base ne sait ni trier, ni grouper, ni comparer"
+
+#: lib/errors.ts
 msgid "This field is computed"
 msgstr "Ce champ est calculé"
 
@@ -11928,6 +11932,10 @@ msgstr "Ce champ exige un motif, conservé dans l’audit."
 #: lib/errors.ts
 msgid "This field takes no negative number"
 msgstr "Ce champ n’accepte aucun nombre négatif"
+
+#: lib/errors.ts
+msgid "This figure is too large for the client's database to compute"
+msgstr "Ce chiffre est trop grand pour que la base du client le calcule"
 
 #: lib/errors.ts
 msgid "This file has more rows than this instance imports at once: split it first"

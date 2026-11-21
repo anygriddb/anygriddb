@@ -543,11 +543,34 @@ export async function aggregateRows(
     return items.map(() => null);
   }
   const { limit: _limit, ...withoutLimit } = clientSpec;
-  const statement = buildAggregates(engine, withoutLimit, items);
-  return readTransaction(db, engine, async (run) => {
-    const row = (await run(statement))[0] ?? {};
-    return items.map((_, index) => row[`a${index}`] ?? null);
-  });
+  const read = async (asked: readonly AggregateItem[]) => {
+    const statement = buildAggregates(engine, withoutLimit, asked);
+    return readTransaction(db, engine, async (run) => {
+      const row = (await run(statement))[0] ?? {};
+      return asked.map((_, index) => row[`a${index}`] ?? null);
+    });
+  };
+  try {
+    return await read(items);
+  } catch (error) {
+    if (!isNumberOverflow(error)) throw error;
+  }
+  // A figure past what the engine computes stops its whole statement: each
+  // is then read alone, and that one reads empty beside the others.
+  const figures: unknown[] = [];
+  for (const item of items) {
+    try {
+      figures.push(...(await read([item])));
+    } catch (error) {
+      if (!isNumberOverflow(error)) throw error;
+      figures.push(null);
+    }
+  }
+  return figures;
+}
+
+function isNumberOverflow(error: unknown): boolean {
+  return error instanceof AppError && error.code === "source_number_overflow";
 }
 
 /** Ids of everyone with a role on the base or one of its tables. */

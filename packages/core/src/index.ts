@@ -15,6 +15,8 @@ export {
 
 export { holdsUnwritableText } from "./plain-text";
 
+export { COMPARING_OPERATORS } from "./query/filter-sql";
+
 export {
   embedOriginsInputSchema,
   normalizeEmbedOrigins,
@@ -563,6 +565,7 @@ export {
   MAX_GROUPS,
   MAX_READ_LIMIT,
   aggregateFunctionsFor,
+  aggregatesOfField,
   buildAggregates,
   buildGroupAggregates,
   buildHistogram,

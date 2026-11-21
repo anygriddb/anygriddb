@@ -1,4 +1,4 @@
-import { aggregateFunctionsFor } from "@anygriddb/core";
+import { aggregatesOfField } from "@anygriddb/core";
 import {
   cn,
   DropdownMenu,
@@ -88,7 +88,7 @@ export function GridFooter(props: {
             >
               {t`None`}
             </DropdownMenuItem>
-            {aggregateFunctionsFor(column.kind).map((option) => (
+            {aggregatesOfField(column).map((option) => (
               <DropdownMenuItem
                 key={option}
                 onSelect={() => props.onAggregate(column.name, option)}

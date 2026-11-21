@@ -310,6 +310,10 @@ export const ERRORS = {
     403,
     "The source's account may not create tables in its side schema",
   ],
+  /** A figure past what the client's engine can compute. */
+  source_number_overflow: [BAD, "A figure is too large for this database"],
+  /** A field its engine holds as a large object: it compares nothing. */
+  not_comparable: [BAD, "This database cannot compare this field's values"],
   control_plane_sort: [
     BAD,
     "This field is kept in AnyGridDB: it cannot sort or group a live client table",

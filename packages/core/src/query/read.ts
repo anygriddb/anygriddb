@@ -170,6 +170,13 @@ function projectColumn(
       sql: typed.sql,
       options,
       ...(column.physical?.controlPlane ? { apart: true } : {}),
+      ...(table.external &&
+      column.physical &&
+      !column.physical.side &&
+      !column.physical.controlPlane &&
+      ctx.d.holdsLargeObject?.(column.physical)
+        ? { noCompare: true }
+        : {}),
       ...(limits.size > 0 ? { limits: [...limits.values()] } : {}),
       ...(errorSql ? { errorSql } : {}),
       ...(duration ? { duration } : {}),
@@ -464,6 +471,7 @@ function lookupRef(
   if (!ref) {
     throw new AppError("unknown_column", name);
   }
+  if (ref.noCompare) throw new AppError("not_comparable", ref.column.label);
   if (purpose === "group" && !groupable(ref, prepared.d)) {
     throw new AppError("invalid_group");
   }
@@ -968,6 +976,21 @@ export function aggregateFunctionsFor(
   }
 }
 
+/** The figures that tell values apart, which a large object cannot do. */
+const COUNTS_DISTINCT: ReadonlySet<AggregateFn> = new Set([
+  "count_unique",
+  "percent_unique",
+]);
+
+/** The figures a field offers, as its engine holds it. */
+export function aggregatesOfField(field: {
+  kind: FilterKind;
+  noCompare?: boolean;
+}): readonly AggregateFn[] {
+  const all = aggregateFunctionsFor(field.kind);
+  return field.noCompare ? all.filter((fn) => !COUNTS_DISTINCT.has(fn)) : all;
+}
+
 export const aggregateItemSchema = z.object({
   column: columnNameSchema,
   fn: z.enum(AGGREGATE_FNS),
@@ -985,7 +1008,13 @@ function aggregateSql(
   if (!aggregateFunctionsFor(ref.kind).includes(fn)) {
     throw new AppError("invalid_aggregate");
   }
+  if (ref.noCompare && COUNTS_DISTINCT.has(fn)) {
+    throw new AppError("not_comparable", ref.column.label);
+  }
   const x = refSql(ref.name);
+  const physical = ref.column.physical;
+  const summed =
+    physical && !isComputed(ref) ? (d.summed?.(x, physical) ?? x) : x;
   const empty = emptySql(ref, d);
   const unchecked = d.cond(`coalesce(${x}, ${d.boolLiteral(false)})`);
   const percent = (count: string): string =>
@@ -1012,9 +1041,9 @@ function aggregateSql(
     case "percent_unique":
       return percent(distinctFilled);
     case "sum":
-      return `sum(${x})`;
+      return `sum(${summed})`;
     case "avg":
-      return `avg(${x})`;
+      return `avg(${summed})`;
     case "median":
       return d.median(x, source);
     case "min":
@@ -1103,6 +1132,8 @@ export function describeColumns(catalog: EngineCatalog): Array<{
   duration?: string;
   /** Set when rows cannot be grouped by the field. */
   noGroup?: true;
+  /** Set when its engine cannot sort it or compare its whole value. */
+  noCompare?: true;
 }> {
   const prepared = prepare(catalog, { limit: 1 });
   return [...prepared.columns.values()].map((ref) => ({
@@ -1113,6 +1144,9 @@ export function describeColumns(catalog: EngineCatalog): Array<{
     ...(ref.cause ? { cause: ref.cause } : {}),
     ...(ref.limits ? { limits: ref.limits } : {}),
     ...(ref.duration ? { duration: ref.duration } : {}),
-    ...(groupable(ref, prepared.d) ? {} : { noGroup: true as const }),
+    ...(groupable(ref, prepared.d) && !ref.noCompare
+      ? {}
+      : { noGroup: true as const }),
+    ...(ref.noCompare ? { noCompare: true as const } : {}),
   }));
 }

@@ -20,6 +20,10 @@ import {
   describeColumns,
   type EngineCatalog,
   type FilterGroup,
+  aggregatesOfField,
+  COMPARING_OPERATORS,
+  filterOperatorsFor,
+  rowError,
 } from "@anygriddb/core";
 import { keyRing } from "../auth/key-ring.js";
 import { chartSeries, histogramSeries, lastValue } from "../data/dashboards.js";
@@ -943,6 +947,40 @@ const MYSQL_TABLES = [
   "create table approvals (id int primary key, label varchar(20), amount decimal(10,2), due date)",
   "create table staff (id int primary key, name varchar(20), dept varchar(10), salary decimal(10,2))",
 ];
+
+const MYSQL_NATIVE = [
+  "create table native (id int primary key, t_int int, t_double double, t_text longtext, t_bit bit(8), t_bytes varbinary(8), t_blob blob, t_time time, t_year year, t_json json, t_enum enum('a','b'), t_set set('a','b'), t_point point null)",
+  "insert into native values (1, 7, 2.5, 'plain', b'10101010', x'00ff', x'ff', '09:30:00', 2026, '{\"a\":1}', 'a', 'a,b', ST_GeomFromText('POINT(1 2)')), (2, 2147483647, 1e308, 'z', b'11111111', x'ffff', x'00', '23:59:59', 2155, '[]', 'b', 'b', null), (3, null, null, null, null, null, null, null, null, null, null, null, null)",
+  "grant select on erp.native to 'reader'@'%'",
+];
+
+/**
+ * A table of the types each engine has beyond the ones the suite's other
+ * tables use: one row of plain values, one of extremes, one of nothing.
+ */
+const NATIVE_TABLES: Record<Engine, readonly string[]> = {
+  postgres: [
+    "create table native (id int primary key, t_int int, t_double double precision, t_text text, t_bytes bytea, t_uuid uuid, t_json jsonb, t_xml xml, t_inet inet, t_range int4range, t_list int[], t_point point, t_span interval)",
+    "insert into native values (1, 7, 2.5, 'plain', '\\x00ff', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '{\"a\":1}', '<a>1</a>', '192.0.2.1', '[1,5)', '{1,2}', '(1,2)', '1 day'), (2, 2147483647, 1e308, 'z', '\\xff', 'ffffffff-ffff-4fff-bfff-ffffffffffff', '[]', '<b/>', '2001:db8::1', 'empty', '{}', '(0,0)', '-1 day'), (3, null, null, null, null, null, null, null, null, null, null, null, null)",
+    "grant select on native to conformance_reader",
+  ],
+  mysql: MYSQL_NATIVE,
+  mariadb: MYSQL_NATIVE,
+  sqlserver: [
+    "create table native (id int primary key, t_int int, t_float float, t_real real, t_money money, t_text text, t_ntext ntext, t_image image, t_xml xml, t_guid uniqueidentifier, t_variant sql_variant, t_tree hierarchyid, t_shape geography, t_flat geometry, t_time time, t_version rowversion)",
+    "insert into native (id, t_int, t_float, t_real, t_money, t_text, t_ntext, t_image, t_xml, t_guid, t_variant, t_tree, t_shape, t_flat, t_time) values (1, 7, 2.5, 1.5, 9.99, 'plain', N'plain', 0xFF, '<a>1</a>', 'A0EEBC99-9C0B-4EF8-BB6D-6BB9BD380A11', cast(7 as int), '/1/', geography::Point(48.85, 2.35, 4326), geometry::Point(1, 2, 0), '09:30:00')",
+    "insert into native (id, t_int, t_float, t_real, t_money, t_text, t_ntext, t_image, t_xml, t_guid, t_variant, t_tree, t_shape, t_flat, t_time) values (2, 2147483647, 1.79E+308, 3.4E+38, 922337203685477.5807, 'z', N'z', 0x00, '<b/>', 'FFFFFFFF-FFFF-4FFF-BFFF-FFFFFFFFFFFF', N'text', '/', geography::Point(-89, -179, 4326), geometry::Point(-1.5, 2.5, 0), '23:59:59')",
+    "insert into native (id) values (3)",
+    "grant select on native to reader",
+  ],
+  oracle: [
+    "create table native (id number(10) primary key, T_NUMBER number, T_DOUBLE binary_double, T_FLOAT binary_float, T_CLOB clob, T_NCLOB nclob, T_BLOB blob, T_RAW raw(8), T_NATIONAL nvarchar2(20), T_YEARS interval year to month, T_DAYS interval day to second, T_DATE date, T_BOOL boolean)",
+    "insert into native values (1, 7, 2.5D, 1.5F, 'plain', 'plain', hextoraw('ff'), hextoraw('00ff'), 'plain', interval '1-2' year to month, interval '1 02:03:04' day to second, '2026-03-14', true)",
+    "insert into native values (2, 2147483647, 1.7E308D, 3.4E38F, 'z', 'z', hextoraw('00'), hextoraw('ff'), 'z', interval '-1-0' year to month, interval '-1 00:00:00' day to second, '9999-12-31', false)",
+    "insert into native (id) values (3)",
+    "grant select on native to reader",
+  ],
+};
 
 describe("conformance of formulas across engines", () => {
   const servers: StartedTestContainer[] = [];
@@ -3955,4 +3993,137 @@ describe("conformance of formulas across engines", () => {
       );
     }
   }, 300_000);
+
+  it("reads, sorts, groups, filters and sums every native type", async () => {
+    const deps = { db, key, settings };
+    const quiet = new Set([
+      "function_unavailable",
+      "invalid_filter",
+      "invalid_group",
+      "not_comparable",
+    ]);
+    const filterValue = (op: string, kind: string): unknown => {
+      if (op === "is_empty" || op === "is_not_empty") return undefined;
+      if (kind === "boolean") return true;
+      if (kind === "number") return op === "is_between" ? ["1", "100"] : "7";
+      if (kind === "date" || kind === "datetime") {
+        if (op === "is_between") return ["2020-01-01", "2030-12-31"];
+        if (op === "is_within") return { mode: "past_year" };
+        return { mode: "exact", date: "2026-03-14" };
+      }
+      return /_(any|all|none)_of$|is_exactly/.test(op) ? ["plain"] : "a";
+    };
+    for (const [engine, { sourceId, schema }] of declared) {
+      for (const statement of NATIVE_TABLES[engine]) {
+        await outside(engine, statement);
+      }
+      const base = await insertBase(db, actorId, { name: `Types ${engine}` });
+      const {
+        tableIds: [tableId = ""],
+      } = await exposeTables(deps, actorId, {
+        sourceId,
+        baseId: base.id,
+        tables: [{ schema, name: engine === "oracle" ? "NATIVE" : "native" }],
+      });
+      const { engine: catalog } = await loadEngine(db, tableId, () => true);
+      const page = await readPage(
+        db,
+        catalog,
+        { limit: 10, timeZone: "UTC" },
+        { total: false },
+      );
+      expect(page.rows, engine).toHaveLength(3);
+      const play = async (what: string, run: () => Promise<unknown>) => {
+        try {
+          await run();
+        } catch (error) {
+          if (error instanceof AppError && quiet.has(error.code)) return;
+          throw new Error(`${engine}, ${what}: ${failed(error)}`, {
+            cause: error,
+          });
+        }
+      };
+      for (const field of describeColumns(catalog)) {
+        expect(field.error, `${engine} ${field.name}`).toBeUndefined();
+        const c = field.name;
+        const read = (more: object) =>
+          readPage(
+            db,
+            catalog,
+            { limit: 10, timeZone: "UTC", ...more },
+            { total: false },
+          );
+        if (!field.noCompare) {
+          await play(`sort ${c}`, () =>
+            read({ sort: [{ column: c, direction: "desc" }] }),
+          );
+        }
+        if (!field.noGroup) {
+          await play(`group ${c}`, () =>
+            read({ groupBy: [{ column: c, direction: "asc" }] }),
+          );
+        }
+        for (const op of filterOperatorsFor(field.kind)) {
+          if (field.noCompare && COMPARING_OPERATORS.has(op)) continue;
+          const value = filterValue(op, field.kind);
+          await play(`${op} ${c}`, () =>
+            read({
+              filter: {
+                conjunction: "and",
+                conditions: [
+                  { column: c, op, ...(value === undefined ? {} : { value }) },
+                ],
+              },
+            }),
+          );
+        }
+        for (const fn of aggregatesOfField(field)) {
+          await play(`${fn} ${c}`, () =>
+            aggregateRows(db, catalog, { timeZone: "UTC" }, [
+              { column: c, fn },
+            ]),
+          );
+        }
+      }
+      await play("search", () =>
+        readPage(
+          db,
+          catalog,
+          { limit: 10, timeZone: "UTC", search: "plain" },
+          { total: false },
+        ),
+      );
+
+      // A whole number's sum past its type, and a mean with a fraction.
+      const whole = columnOf(
+        catalog,
+        engine === "oracle" ? "T_NUMBER" : "t_int",
+      );
+      const [sum, mean] = await aggregateRows(
+        db,
+        catalog,
+        { timeZone: "UTC" },
+        [
+          { column: whole, fn: "sum" },
+          { column: whole, fn: "avg" },
+        ],
+      );
+      expect(Number(sum), engine).toBe(2_147_483_654);
+      expect(Number(mean), engine).toBeCloseTo(1_073_741_827, 0);
+
+      // A float no decimal holds: empty, and said beside it.
+      if (engine === "sqlserver" || engine === "oracle") {
+        const float = columnOf(
+          catalog,
+          engine === "oracle" ? "T_DOUBLE" : "t_float",
+        );
+        const huge = page.rows.find((row) => row.id === "2");
+        expect(huge?.[float] ?? null, engine).toBeNull();
+        expect(rowError(huge ?? {}, float), engine).toMatch(/e\+?308/i);
+        const fine = page.rows.find((row) => row.id === "1");
+        expect(Number(fine?.[float]), engine).toBe(2.5);
+        expect(rowError(fine ?? {}, float), engine).toBeNull();
+      }
+    }
+  }, 600_000);
 });

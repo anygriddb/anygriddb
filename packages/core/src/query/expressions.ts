@@ -65,7 +65,7 @@ import {
 } from "./digits";
 
 export { toCharPattern } from "./dialect";
-import { quoteIdent, SqlParams } from "./params";
+import { SqlParams, quoteExternalIdent, quoteIdent } from "./params";
 import { AppError } from "../errors";
 
 /** Scalar result kinds of a compiled expression. */
@@ -1720,10 +1720,22 @@ export function columnError(
   alias: string,
   column: EngineColumn,
 ): string | undefined {
-  const expr = column.config.expr;
-  if (column.fieldType !== "formula" || !expr || isHidden(ctx, table, column)) {
-    return undefined;
+  if (isHidden(ctx, table, column)) return undefined;
+  const { physical } = column;
+  if (
+    table.external &&
+    physical &&
+    !physical.side &&
+    !physical.controlPlane &&
+    !physical.missing
+  ) {
+    return ctx.d.storedError?.(
+      `${alias}.${quoteExternalIdent(physical.name)}`,
+      physical,
+    );
   }
+  const expr = column.config.expr;
+  if (column.fieldType !== "formula" || !expr) return undefined;
   return formulaError(ctx, table, alias, expr, [`${table.id}:${column.name}`]);
 }
 

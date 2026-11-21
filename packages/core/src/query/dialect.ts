@@ -138,6 +138,19 @@ export interface SqlDialect {
     physical: PhysicalColumn,
   ): string;
   /**
+   * A stored value its field's type cannot hold, written as text, or null;
+   * undefined for a type that holds them all. The cell shows it as an
+   * error: one value must not stop the read of a whole page.
+   */
+  storedError?(ref: string, physical: PhysicalColumn): string | undefined;
+  /**
+   * A number as a sum or a mean takes it, where the engine would keep the
+   * column's own type and overflow or drop the fraction.
+   */
+  summed?(sql: string, physical: PhysicalColumn): string;
+  /** Whether the engine holds this column as a large object it cannot compare. */
+  holdsLargeObject?(physical: PhysicalColumn): boolean;
+  /**
    * True when `readColumn` reads a date field's day out of a stored value
    * that midnight bounds compare as it is: a filter then compares the
    * column itself, and the engine can use its index.
@@ -483,6 +496,19 @@ const SAME_TYPE: Record<string, string> = {
 };
 
 /** `numeric(12,2)` reads as `numeric`, `timestamp(3) with time zone` as `timestamp with time zone`. */
+/** The spatial types of MySQL and MariaDB, read as their text. */
+const MYSQL_SPATIAL: ReadonlySet<string> = new Set([
+  "geometry",
+  "point",
+  "linestring",
+  "polygon",
+  "multipoint",
+  "multilinestring",
+  "multipolygon",
+  "geometrycollection",
+  "geomcollection",
+]);
+
 function typeName(type: string): string {
   return withoutGroups(type.toLowerCase()).replace(/\s+/g, " ").trim();
 }
@@ -1155,6 +1181,12 @@ function mysqlDialect(name: "mysql" | "mariadb"): SqlDialect {
       ) {
         return `cast(${ref} as char)`;
       }
+      // Bits as a person reads them: raw, they are no text JSON can hold.
+      if (type === "bit") {
+        const width = /\((\d+)\)/.exec(physical.type)?.[1] ?? "1";
+        return `lpad(bin(${ref}), ${width}, '0')`;
+      }
+      if (MYSQL_SPATIAL.has(type)) return `st_astext(${ref})`;
       if (fieldType !== "datetime") return ref;
       // TIMESTAMP reads in the session's zone, UTC; DATETIME has none:
       // it is in the source's.
