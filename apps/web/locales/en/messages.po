@@ -7408,6 +7408,10 @@ msgstr "No line matches this search."
 msgid "No longer an administrator"
 msgstr "No longer an administrator"
 
+#: lib/errors.ts
+msgid "No mail relay answers at this host and port"
+msgstr "No mail relay answers at this host and port"
+
 #: components/fields/cell-editor.tsx
 msgid "No matching row"
 msgstr "No matching row"
@@ -11037,6 +11041,10 @@ msgstr "The code by email is off"
 msgid "The code could not be sent: try again in a minute, or use a backup code"
 msgstr "The code could not be sent: try again in a minute, or use a backup code"
 
+#: lib/errors.ts
+msgid "The connection to the mail relay cannot be encrypted and verified: 465 for TLS from the start, or 587 with STARTTLS, and a certificate this instance trusts"
+msgstr "The connection to the mail relay cannot be encrypted and verified: 465 for TLS from the start, or 587 with STARTTLS, and a certificate this instance trusts"
+
 #: components/table/empty-table-hint.tsx
 #: components/table/table-header.tsx
 msgid "The copy has not arrived. The table stays empty until then."
@@ -11269,6 +11277,10 @@ msgstr "The log shows who changed which fields. Values stay in each row's histor
 #: components/admin/identity-tab.tsx
 msgid "The logo in use"
 msgstr "The logo in use"
+
+#: lib/errors.ts
+msgid "The mail relay refused the username or the password"
+msgstr "The mail relay refused the username or the password"
 
 #: components/fields/formula-docs.ts
 msgid "The mean of the numbers given."
