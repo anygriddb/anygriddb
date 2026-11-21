@@ -320,6 +320,36 @@ test("the grid, the record panel, and a form pass axe and work by keyboard", asy
   await expect(panel.getByText("resolved by Panel User")).toBeHidden();
   await expect(panel.getByRole("button", { name: "Resolve" })).toBeVisible();
 
+  // Deleting a comment asks first and says what stays. A delete that
+  // fails leaves the question open; one that passes leaves its mark.
+  const reply = panel
+    .getByRole("listitem")
+    .filter({ hasText: "One more thing" })
+    .last();
+  await reply.getByRole("button", { name: "Delete" }).click();
+  const asking = page.getByRole("dialog", { name: "Delete this comment?" });
+  await expect(asking).toContainText("“Comment deleted”");
+  expect(await accessibilityViolations(page)).toEqual([]);
+  await asking.getByRole("button", { name: "Cancel" }).click();
+  await expect(asking).toBeHidden();
+  await expect(panel.getByText("One more thing")).toBeVisible();
+  const isDelete = (url: URL) => url.pathname.includes("rows.deleteComment");
+  await page.route(isDelete, (route) => route.abort());
+  await reply.getByRole("button", { name: "Delete" }).click();
+  const refused = page.waitForEvent("requestfailed", (request) =>
+    request.url().includes("rows.deleteComment"),
+  );
+  const confirm = asking.getByRole("button", { name: "Delete", exact: true });
+  await confirm.click();
+  await refused;
+  await expect(confirm).toBeEnabled();
+  await expect(asking).toBeVisible();
+  await page.unroute(isDelete);
+  await confirm.click();
+  await expect(asking).toBeHidden();
+  await expect(panel.getByText("Comment deleted")).toBeVisible();
+  await expect(panel.getByText("One more thing")).toHaveCount(0);
+
   // A checkbox never ticked and a rating never given draw what they
   // are: a box not ticked, and none of the stars. Each line was empty.
   const done = panel.getByRole("checkbox", { name: "Done" });

@@ -3969,6 +3969,10 @@ msgstr "Delete the webhook “{name}”?"
 msgid "Delete this base"
 msgstr "Delete this base"
 
+#: components/record/record-panel.tsx
+msgid "Delete this comment?"
+msgstr "Delete this comment?"
+
 #: components/settings/restore-points.tsx
 msgid "Delete this restore point?"
 msgstr "Delete this restore point?"
@@ -11159,6 +11163,10 @@ msgstr "The code by email is off"
 #: lib/errors.ts
 msgid "The code could not be sent: try again in a minute, or use a backup code"
 msgstr "The code could not be sent: try again in a minute, or use a backup code"
+
+#: components/record/record-panel.tsx
+msgid "The comment by {name} is replaced by “Comment deleted” for everyone, and cannot be put back."
+msgstr "The comment by {name} is replaced by “Comment deleted” for everyone, and cannot be put back."
 
 #: lib/errors.ts
 msgid "The connection to the mail relay cannot be encrypted and verified: 465 for TLS from the start, or 587 with STARTTLS, and a certificate this instance trusts"
