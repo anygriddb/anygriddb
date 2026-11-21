@@ -49,12 +49,14 @@ import {
   readingOrder,
   widgetCell,
 } from "./widget-layout";
+import { canGroupBy } from "../table/field-roles";
 import { ViewWidget } from "./view-widget";
 import {
   categoriesAsked,
   embeddedViewId,
   fieldKept,
   fieldShown,
+  groupChoices,
   lastValueText,
   measurableFields,
   measureAddsUp,
@@ -878,9 +880,20 @@ function WidgetForm(props: {
   const orderedBy = fieldShown(ordering, orderBy);
   const binField = fieldShown(binnable, binned);
   // A chart groups by a field people group by, before any other.
-  const grouped = fieldShown([...groupable, ...columns], groupBy);
-  const seriesFields = columns.filter((item) => item.name !== grouped);
+  const groupFields = groupChoices(columns, groupBy);
+  const grouped = fieldShown(
+    [...groupable.filter(canGroupBy), ...groupFields],
+    groupBy,
+  );
+  const seriesFields = groupChoices(columns, seriesBy).filter(
+    (item) => item.name !== grouped,
+  );
   const series = fieldKept(seriesFields, seriesBy);
+  // A field saved before the server refused it stays shown, and is changed
+  // before the chart is saved again: it could not be drawn.
+  const groupsBy = (name: string) =>
+    columns.some((item) => item.name === name && canGroupBy(item));
+  const chartGroups = groupsBy(grouped) && (!series || groupsBy(series));
   // A measure that reads a field, on a table that has none it can read.
   const nothingToMeasure = measure !== "count_all" && measurable.length === 0;
   // Dates are grouped by day, or by more: a week, a month, a quarter, a year.
@@ -1181,7 +1194,7 @@ function WidgetForm(props: {
                   value={grouped}
                   onChange={(event) => setGroupBy(event.target.value)}
                 >
-                  {columns.map((item) => (
+                  {groupFields.map((item) => (
                     <option key={item.name} value={item.name}>
                       {item.label}
                     </option>
@@ -1285,7 +1298,9 @@ function WidgetForm(props: {
             (kind === "chart" && chartType === "histogram"
               ? binnable.length === 0
               : kind !== "view_embed" &&
-                (nothingToMeasure || (byLast && ordering.length === 0)))
+                (nothingToMeasure ||
+                  (byLast && ordering.length === 0) ||
+                  (kind === "chart" && !chartGroups)))
           }
         >
           {busy ? <Spinner /> : null}
