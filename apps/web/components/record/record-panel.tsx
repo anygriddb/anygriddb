@@ -53,6 +53,7 @@ import { CellValueView, UntickedBox } from "../fields/cell-value";
 import { booleanAppearance } from "../fields/field-appearance";
 import { FieldIcon } from "../fields/field-meta";
 import { isEditableColumn, isEditableLink } from "../grid/grid-clipboard";
+import { ConfirmDialog } from "../shell/dialogs";
 import { useTable } from "../table/table-context";
 import { CommentBody, MentionTextarea } from "./mention-input";
 import { usePanelFocus } from "./panel-focus";
@@ -270,6 +271,10 @@ function Comments({ rowId }: { rowId: string }) {
   const [editing, setEditing] = useState<{ id: string; body: string } | null>(
     null,
   );
+  const [deleting, setDeleting] = useState<{
+    id: string;
+    displayName: string;
+  } | null>(null);
   const refresh = () =>
     Promise.all([
       queryClient.invalidateQueries({
@@ -419,9 +424,10 @@ function Comments({ rowId }: { rowId: string }) {
                 type="button"
                 className="hover:text-danger"
                 onClick={() =>
-                  void run(() =>
-                    trpc.rows.deleteComment.mutate({ commentId: comment.id }),
-                  )
+                  setDeleting({
+                    id: comment.id,
+                    displayName: comment.displayName,
+                  })
                 }
               >
                 <Trash2 className="inline h-3 w-3" aria-hidden /> {t`Delete`}
@@ -501,6 +507,20 @@ function Comments({ rowId }: { rowId: string }) {
             {t`Comment`}
           </Button>
         </form>
+      ) : null}
+      {deleting ? (
+        <ConfirmDialog
+          open
+          danger
+          onOpenChange={(open) => !open && setDeleting(null)}
+          title={t`Delete this comment?`}
+          description={t`The comment by ${{ name: deleting.displayName }} is replaced by “Comment deleted” for everyone, and cannot be put back.`}
+          confirmLabel={t`Delete`}
+          onConfirm={async () => {
+            await trpc.rows.deleteComment.mutate({ commentId: deleting.id });
+            await refresh();
+          }}
+        />
       ) : null}
     </div>
   );
