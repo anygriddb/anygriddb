@@ -12,6 +12,7 @@ import { useRowDrag, useRowDrop, useRowPlaceDrop } from "../../lib/drag";
 import { placeBetween, type RowPlace } from "../../lib/row-place";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { optionsOf } from "../fields/cell-value";
+import { canStackBy, stackField } from "../table/field-roles";
 import { useTable } from "../table/table-context";
 import { kanbanStacks, stackPlaces } from "./kanban-stacks";
 import {
@@ -336,15 +337,9 @@ function Stack({
 export function KanbanView(props: ViewProps) {
   const { t } = useLingui();
   const table = useTable();
-  const stackable = props.allColumns.filter(
-    (column) => column.fieldType === "single_select",
-  );
-  const stackName =
-    typeof props.config.stackColumn === "string"
-      ? props.config.stackColumn
-      : stackable[0]?.name;
-  const stack = props.allColumns.find((column) => column.name === stackName);
-  const exclude = stackName ? [stackName] : [];
+  const stackable = props.allColumns.filter(canStackBy);
+  const stack = stackField(props.config, props.allColumns);
+  const exclude = stack ? [stack.name] : [];
   const fields = cardColumns(props.config, props.columns, exclude);
   const cardFields = Array.isArray(props.config.cardFields)
     ? (props.config.cardFields as string[])
@@ -369,7 +364,16 @@ export function KanbanView(props: ViewProps) {
     props.onPatch({ collapsedStacks: next.size > 0 ? [...next] : null });
   }
   if (!stack) {
-    return (
+    // A list is there, kept in AnyGridDB beside a client's rows: it
+    // cannot stack them, and another one added would not either.
+    return props.allColumns.some(
+      (column) => column.fieldType === "single_select",
+    ) ? (
+      <ViewSetupPrompt
+        title={t`A field kept in AnyGridDB cannot arrange the rows of a live client table in columns.`}
+        description={t`A kanban needs a single select field that the client's database holds.`}
+      />
+    ) : (
       <ViewSetupPrompt
         title={t`Add a single select field to arrange cards in columns.`}
         onAddField={props.onOpenFieldEditor}

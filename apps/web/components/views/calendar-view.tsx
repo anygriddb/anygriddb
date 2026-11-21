@@ -5,6 +5,7 @@ import { useRowDrag, useRowDrop } from "../../lib/drag";
 import { useLocale } from "../../lib/i18n";
 import type { FilterGroup } from "@anygriddb/core";
 import type { CatalogColumn, RowItem } from "../../lib/types";
+import { canDateBy, startField } from "../table/field-roles";
 import { useTable } from "../table/table-context";
 import {
   ColumnPicker,
@@ -107,21 +108,6 @@ function Day({
   );
 }
 
-/** The field a calendar places rows by: the view's, else the first date. */
-export function calendarStart(
-  allColumns: readonly CatalogColumn[],
-  config: Record<string, unknown>,
-): CatalogColumn | undefined {
-  const dated = allColumns.filter(
-    (column) => column.kind === "date" || column.kind === "datetime",
-  );
-  const name =
-    typeof config.startColumn === "string"
-      ? config.startColumn
-      : dated[0]?.name;
-  return allColumns.find((column) => column.name === name);
-}
-
 /** The first of the current month. */
 export function thisMonth(): Date {
   const now = new Date();
@@ -180,14 +166,21 @@ export function CalendarView(
       ? props.config.titleColumn
       : undefined,
   );
-  const dated = props.allColumns.filter(
-    (column) => column.kind === "date" || column.kind === "datetime",
-  );
-  const start = calendarStart(props.allColumns, props.config);
+  const dated = props.allColumns.filter(canDateBy);
+  const start = startField(props.config, props.allColumns);
   const month = props.month;
   const setMonth = props.onMonth;
   if (!start) {
-    return (
+    // A date is there, kept in AnyGridDB beside a client's rows: it
+    // cannot choose the rows of a month, and another one would not either.
+    return props.allColumns.some(
+      (column) => column.kind === "date" || column.kind === "datetime",
+    ) ? (
+      <ViewSetupPrompt
+        title={t`A field kept in AnyGridDB cannot place the rows of a live client table on a calendar.`}
+        description={t`A calendar needs a date field that the client's database holds.`}
+      />
+    ) : (
       <ViewSetupPrompt
         title={t`Add a date field to show the calendar.`}
         onAddField={props.onOpenFieldEditor}

@@ -41,6 +41,14 @@ first.
 - A new install's database log holds no warning: the cluster is made
   with its access methods said, where `initdb` warned about the ones it
   chose. What PostgreSQL serves does not change.
+- A field's menu, in a grid, offers what the field can do: no grouping
+  by a files field, and neither a sort nor a grouping by a field that
+  AnyGridDB keeps beside the rows of a live client table. Each was
+  offered, the server refused it, and the rows could not be read.
+- On a live client table, a kanban, a calendar and a timeline are drawn
+  by fields the client's database holds, and say what they need when it
+  holds none. Drawn by a field kept in AnyGridDB, each read "The rows
+  could not be read", with no way to choose another field.
 
 ## 0.3.2 - 2026-11-21
 

@@ -4,6 +4,7 @@ import {
   type FilterGroup,
 } from "@anygriddb/core";
 import { ColorRulesEditor } from "./color-rules-editor";
+import { canGroupBy, canSortBy } from "./field-roles";
 import {
   Button,
   Checkbox,
@@ -160,8 +161,8 @@ export function ViewToolbar(props: {
       column.fieldType === "single_select" ||
       column.fieldType === "multi_select",
   );
-  // Control-plane enrichment cannot sort or group on the client (ADR 0046).
-  const orderable = allColumns.filter((column) => !column.controlPlane);
+  const sortable = allColumns.filter(canSortBy);
+  const groupable = allColumns.filter(canGroupBy);
   const { conjunction: joined, chips } = filterChips(config.filter);
   const chipWords: ChipWords = {
     me: t`Me`,
@@ -322,7 +323,7 @@ export function ViewToolbar(props: {
                   })
                 }
               >
-                {orderable.map((column) => (
+                {sortable.map((column) => (
                   <option key={column.name} value={column.name}>
                     {column.label}
                   </option>
@@ -370,7 +371,7 @@ export function ViewToolbar(props: {
             variant="ghost"
             className="mt-2"
             onClick={() => {
-              const column = orderable.find(
+              const column = sortable.find(
                 (item) => !sorts.some((sort) => sort.column === item.name),
               );
               if (column)
@@ -414,13 +415,11 @@ export function ViewToolbar(props: {
                   })
                 }
               >
-                {orderable
-                  .filter((column) => column.fieldType !== "attachment")
-                  .map((column) => (
-                    <option key={column.name} value={column.name}>
-                      {column.label}
-                    </option>
-                  ))}
+                {groupable.map((column) => (
+                  <option key={column.name} value={column.name}>
+                    {column.label}
+                  </option>
+                ))}
               </Select>
               <Select
                 aria-label={t`Order`}
@@ -464,10 +463,8 @@ export function ViewToolbar(props: {
             variant="ghost"
             className="mt-2"
             onClick={() => {
-              const column = orderable.find(
-                (item) =>
-                  !groups.some((group) => group.column === item.name) &&
-                  item.fieldType !== "attachment",
+              const column = groupable.find(
+                (item) => !groups.some((group) => group.column === item.name),
               );
               if (column)
                 props.onPatch({

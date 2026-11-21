@@ -1105,6 +1105,10 @@ msgstr "A blank value."
 msgid "A button is clicked"
 msgstr "A button is clicked"
 
+#: components/views/calendar-view.tsx
+msgid "A calendar needs a date field that the client's database holds."
+msgstr "A calendar needs a date field that the client's database holds."
+
 #: components/table/automations-dialog.tsx
 msgid "A call to a public HTTPS address, made by the instance: 10 calls a script, 1 MiB an answer. It answers status, ok, headers.get(name), text(), and json()."
 msgstr "A call to a public HTTPS address, made by the instance: 10 calls a script, 1 MiB an answer. It answers status, ok, headers.get(name), text(), and json()."
@@ -1168,6 +1172,18 @@ msgstr "a deleted account"
 msgid "A field already has this name"
 msgstr "A field already has this name"
 
+#: components/views/kanban-view.tsx
+msgid "A field kept in AnyGridDB cannot arrange the rows of a live client table in columns."
+msgstr "A field kept in AnyGridDB cannot arrange the rows of a live client table in columns."
+
+#: components/views/calendar-view.tsx
+msgid "A field kept in AnyGridDB cannot place the rows of a live client table on a calendar."
+msgstr "A field kept in AnyGridDB cannot place the rows of a live client table on a calendar."
+
+#: components/views/timeline-view.tsx
+msgid "A field kept in AnyGridDB cannot place the rows of a live client table on a timeline."
+msgstr "A field kept in AnyGridDB cannot place the rows of a live client table on a timeline."
+
 #: components/fields/field-meta.tsx
 msgid "A field of the linked rows"
 msgstr "A field of the linked rows"
@@ -1203,6 +1219,10 @@ msgstr "A group gathers accounts so a base can give them one role. Make a group 
 #: components/fields/formula-docs.ts
 msgid "A JSON document's value at a path, such as $.client.name or $.lines[0]."
 msgstr "A JSON document's value at a path, such as $.client.name or $.lines[0]."
+
+#: components/views/kanban-view.tsx
+msgid "A kanban needs a single select field that the client's database holds."
+msgstr "A kanban needs a single select field that the client's database holds."
 
 #: components/views/map-view.tsx
 msgid "A latitude and a longitude"
@@ -1401,6 +1421,10 @@ msgstr "A table override replaces the base role either way. A member's permissio
 #: lib/errors.ts
 msgid "A table that lives in an external source is not duplicated. Add another table there."
 msgstr "A table that lives in an external source is not duplicated. Add another table there."
+
+#: components/views/timeline-view.tsx
+msgid "A timeline needs a date field that the client's database holds."
+msgstr "A timeline needs a date field that the client's database holds."
 
 #: components/admin/api-tokens-tab.tsx
 #: components/admin/scim-tab.tsx

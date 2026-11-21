@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocale } from "../../lib/i18n";
 import { useNarrowScreen } from "../../lib/narrow-screen";
 import type { RowItem } from "../../lib/types";
+import { canDateBy, endField, startField } from "../table/field-roles";
 import { useTable } from "../table/table-context";
 import { thisMonth } from "./calendar-view";
 import {
@@ -61,17 +62,9 @@ export function TimelineView(
   // The column of names kept at the left of the axis.
   const names = namesWidth(useNarrowScreen());
   const scrollRef = useRef<HTMLDivElement>(null);
-  const dated = props.allColumns.filter(
-    (column) => column.kind === "date" || column.kind === "datetime",
-  );
-  const startName =
-    typeof props.config.startColumn === "string"
-      ? props.config.startColumn
-      : dated[0]?.name;
-  const endName =
-    typeof props.config.endColumn === "string"
-      ? props.config.endColumn
-      : undefined;
+  const dated = props.allColumns.filter(canDateBy);
+  const startName = startField(props.config, props.allColumns)?.name;
+  const endName = endField(props.config, props.allColumns)?.name;
   const scale = timelineScale(props.config.timelineScale);
   const perDay = SCALE[scale];
   const period = timelinePeriod(props.focus, scale);
@@ -109,7 +102,14 @@ export function TimelineView(
   // Same setup prompt as the calendar and the kanban: the reason, and a
   // way to add the field when the person may change the schema.
   if (!startName) {
-    return (
+    return props.allColumns.some(
+      (column) => column.kind === "date" || column.kind === "datetime",
+    ) ? (
+      <ViewSetupPrompt
+        title={t`A field kept in AnyGridDB cannot place the rows of a live client table on a timeline.`}
+        description={t`A timeline needs a date field that the client's database holds.`}
+      />
+    ) : (
       <ViewSetupPrompt
         title={t`Add a date field to show the timeline.`}
         onAddField={props.onOpenFieldEditor}

@@ -199,6 +199,97 @@ test("an administrator shows a client's tables in a base, read where they live",
     );
     await check.end();
     expect(stored.rows[0]?.amount).toBe("8.00");
+
+    // Fields of AnyGridDB's own beside the client's rows (ADR 0046). The
+    // client's database chooses and orders its rows without them: such a
+    // field's menu filters by it, and offers neither a sort nor a group,
+    // where a field of the client's has both.
+    const keep = async (field: Record<string, unknown>) => {
+      const tableId = /\/t\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
+      const response = await page.request.post("/trpc/catalog.addColumn", {
+        data: { tableId, ...field },
+      });
+      expect(response.ok(), await response.text()).toBe(true);
+      await page.reload();
+    };
+    const entry = (name: string) =>
+      page.getByRole("menuitem", { name, exact: true });
+    const newView = async (kind: string) => {
+      await page.getByRole("button", { name: "New view" }).click();
+      await page.getByRole("menuitem", { name: kind }).click();
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Create", exact: true })
+        .click();
+    };
+    await keep({
+      label: "Mood",
+      fieldType: "single_select",
+      options: ["Calm", "Loud"],
+    });
+    await keep({ label: "Due", fieldType: "date" });
+    await page.getByRole("button", { name: "Mood field menu" }).click();
+    await expect(entry("Filter by this field")).toBeVisible();
+    await expect(entry("Sort A → Z")).toHaveCount(0);
+    await expect(entry("Group by this field")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "status field menu" }).click();
+    await expect(entry("Sort A → Z")).toBeVisible();
+    await expect(entry("Group by this field")).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    // A kanban stacks the rows by the client's own list, the only one it
+    // offers. A calendar and a timeline have no date of the client's to
+    // place rows by, and say so: each read "The rows could not be read".
+    await newView("Kanban");
+    await expect(page.getByLabel("Columns by").locator("option")).toHaveText([
+      "status",
+    ]);
+    await expect(page.getByRole("region", { name: "paid" })).toBeVisible();
+    await newView("Calendar");
+    await expect(
+      page.getByText(
+        "A field kept in AnyGridDB cannot place the rows of a live client table on a calendar.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "A calendar needs a date field that the client's database holds.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Add a field", exact: true }),
+    ).toHaveCount(0);
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await newView("Timeline");
+    await expect(
+      page.getByText(
+        "A field kept in AnyGridDB cannot place the rows of a live client table on a timeline.",
+      ),
+    ).toBeVisible();
+
+    // The customers have no list of their own: a kanban says what it
+    // needs, and no longer asks for a field that would be kept as well.
+    await page.getByRole("link", { name: "customers", exact: true }).click();
+    await expect(
+      grid.getByRole("gridcell", { name: "name: Ada" }),
+    ).toBeVisible();
+    await keep({
+      label: "Mood",
+      fieldType: "single_select",
+      options: ["Calm", "Loud"],
+    });
+    await newView("Kanban");
+    await expect(
+      page.getByText(
+        "A field kept in AnyGridDB cannot arrange the rows of a live client table in columns.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "A kanban needs a single select field that the client's database holds.",
+      ),
+    ).toBeVisible();
     expect(blocked).toEqual([]);
   } finally {
     // The server's pool still holds connections to the client's database.

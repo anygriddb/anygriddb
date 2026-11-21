@@ -31,6 +31,7 @@ import { isPrimaryType, isWritableType } from "@anygriddb/core";
 import { useRef, useState } from "react";
 import type { CatalogColumn } from "../../lib/types";
 import { FieldIcon } from "../fields/field-meta";
+import { canGroupBy, canSortBy } from "../table/field-roles";
 import { ResizeHandle } from "../shell/resize-handle";
 import { distinctLimits, useLimitText } from "../../lib/limits";
 import { plural } from "@lingui/core/macro";
@@ -190,30 +191,37 @@ export function GridHeader(props: {
                 <DropdownMenuSeparator />
               </>
             ) : null}
-            <DropdownMenuItem
-              onSelect={() => props.onAction("sort-asc", column, index)}
-            >
-              <ArrowDownAZ className="h-4 w-4" aria-hidden />
-              {t`Sort A → Z`}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => props.onAction("sort-desc", column, index)}
-            >
-              <ArrowUpZA className="h-4 w-4" aria-hidden />
-              {t`Sort Z → A`}
-            </DropdownMenuItem>
+            {/* Only what the field can do (`field-roles.ts`). */}
+            {canSortBy(column) ? (
+              <>
+                <DropdownMenuItem
+                  onSelect={() => props.onAction("sort-asc", column, index)}
+                >
+                  <ArrowDownAZ className="h-4 w-4" aria-hidden />
+                  {t`Sort A → Z`}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => props.onAction("sort-desc", column, index)}
+                >
+                  <ArrowUpZA className="h-4 w-4" aria-hidden />
+                  {t`Sort Z → A`}
+                </DropdownMenuItem>
+              </>
+            ) : null}
             <DropdownMenuItem
               onSelect={() => props.onAction("filter", column, index)}
             >
               <Filter className="h-4 w-4" aria-hidden />
               {t`Filter by this field`}
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => props.onAction("group", column, index)}
-            >
-              <Group className="h-4 w-4" aria-hidden />
-              {t`Group by this field`}
-            </DropdownMenuItem>
+            {canGroupBy(column) ? (
+              <DropdownMenuItem
+                onSelect={() => props.onAction("group", column, index)}
+              >
+                <Group className="h-4 w-4" aria-hidden />
+                {t`Group by this field`}
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={() => props.onAction("freeze", column, index)}
