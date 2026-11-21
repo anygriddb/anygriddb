@@ -1,6 +1,7 @@
 import { aggregatesOfField, cellText, type FilterKind } from "@anygriddb/core";
 import { cellDisplay } from "../../lib/format";
 import type { CatalogColumn, Collaborator } from "../../lib/types";
+import { canGroupBy } from "../table/field-roles";
 
 const NO_PEOPLE: ReadonlyMap<string, Collaborator> = new Map();
 
@@ -48,6 +49,20 @@ export function fieldKept(
   chosen: string,
 ): string {
   return fields.some((field) => field.name === chosen) ? chosen : "";
+}
+
+/**
+ * The fields a chart's list offers to group by, by the rule the server
+ * holds a group to. One saved before it was refused stays listed: the
+ * person sees what the chart asks for, and can change it.
+ */
+export function groupChoices(
+  columns: readonly CatalogColumn[],
+  chosen: string,
+): CatalogColumn[] {
+  return columns.filter(
+    (column) => canGroupBy(column) || column.name === chosen,
+  );
 }
 
 /**

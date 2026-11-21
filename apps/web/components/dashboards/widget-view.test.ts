@@ -5,6 +5,7 @@ import {
   embeddedViewId,
   fieldKept,
   fieldShown,
+  groupChoices,
   lastValueText,
   measurableFields,
   measureAddsUp,
@@ -15,6 +16,37 @@ import {
 } from "./widget-view";
 
 const VIEWS = [{ id: "grid" }, { id: "kanban" }];
+
+describe("groupChoices", () => {
+  const of = (name: string, patch: Record<string, unknown> = {}) =>
+    ({
+      name,
+      kind: "text",
+      fieldType: "text",
+      config: {},
+      ...patch,
+    }) as unknown as CatalogColumn;
+  const fields = [
+    of("name"),
+    of("notes", { noCompare: true, noGroup: true }),
+    of("albums", { fieldType: "relation_one_to_many", noGroup: true }),
+    of("kept", { controlPlane: true }),
+    of("files", { fieldType: "attachment" }),
+  ];
+
+  it("offers only what the server groups", () => {
+    expect(groupChoices(fields, "").map((field) => field.name)).toEqual([
+      "name",
+    ]);
+  });
+
+  it("keeps a field saved before it was refused, to be changed", () => {
+    expect(groupChoices(fields, "notes").map((field) => field.name)).toEqual([
+      "name",
+      "notes",
+    ]);
+  });
+});
 
 describe("embeddedViewId", () => {
   it("takes the view chosen", () => {
