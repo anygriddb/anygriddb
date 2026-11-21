@@ -13,6 +13,8 @@ export const ERRORS = {
   invalid_code: [401, "Invalid code"],
   webauthn_rejected: [401, "WebAuthn rejected"],
   challenge_expired: [401, "Challenge expired"],
+  /** A provider's answer this instance cannot take an account from. */
+  sso_refused: [403, "Single sign-on refused"],
   access_denied: [403, "Access denied"],
   /** Administration is closed while the administrator acts as someone. */
   acting_as: [403, "Acting as someone"],
@@ -387,6 +389,31 @@ export class AppError extends Error {
 }
 
 /** What a client receives about a failure: its code, detail, and message. */
+/**
+ * What a single sign-on that came back refused may say on the sign-in
+ * page. The page's address carries the code, and nothing else is read
+ * from it.
+ */
+export const SIGN_ON_REFUSALS = [
+  "account_disabled",
+  "challenge_expired",
+  "install_token_required",
+  "instance_maintenance",
+  "sign_in_address_denied",
+  "signup_closed",
+  "signup_domain_not_allowed",
+  "sso_refused",
+  "too_many_attempts",
+] as const satisfies readonly ErrorCode[];
+
+export type SignOnRefusal = (typeof SIGN_ON_REFUSALS)[number];
+
+/** The sentence a refused sign-on is told by: `sso_refused` unless named. */
+export function signOnRefusal(error: unknown): SignOnRefusal {
+  if (!(error instanceof AppError)) return "sso_refused";
+  return SIGN_ON_REFUSALS.find((code) => code === error.code) ?? "sso_refused";
+}
+
 export type PublicError = {
   code: ErrorCode;
   detail?: string;

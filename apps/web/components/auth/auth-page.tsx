@@ -1,3 +1,4 @@
+import type { SignOnRefusal } from "@anygriddb/core";
 import { Button, Input, Label, Spinner } from "@anygriddb/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Mail } from "lucide-react";
@@ -92,12 +93,15 @@ export function AuthPage({
   mode,
   next: requested,
   secondStep = false,
+  refused,
 }: {
   mode: "login" | "signup";
   /** The `next` search parameter, unchecked. */
   next?: string;
   /** Back from single sign-on, with AnyGridDB's own second step to do. */
   secondStep?: boolean;
+  /** Back from single sign-on refused, and why. */
+  refused?: SignOnRefusal;
 }) {
   const { t } = useLingui();
   const errorText = useErrorText();
@@ -137,6 +141,8 @@ export function AuthPage({
   /** The address a sign-up's link was mailed to (ADR 0058). */
   const [awaiting, setAwaiting] = useState("");
   const finishing = useRef(false);
+  const shownError =
+    error || (refused ? errorText({ reason: { code: refused } }) : "");
   const minLength = instance.data?.passwordMinLength ?? 12;
   // The sign-in form never waits on the policy; the sign-up form does.
   const view =
@@ -572,9 +578,9 @@ export function AuthPage({
           </p>
         </form>
       )}
-      {error ? (
+      {shownError ? (
         <p role="alert" className="mt-4 text-sm text-danger">
-          {error}
+          {shownError}
         </p>
       ) : null}
     </AuthFrame>

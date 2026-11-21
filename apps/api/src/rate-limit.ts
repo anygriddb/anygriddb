@@ -3,11 +3,21 @@ import type { FastifyInstance } from "fastify";
 import { publicErrorBody } from "./http.js";
 
 type RateBucket =
-  "auth" | "share" | "api" | "upload" | "formUpload" | "report" | "app";
+  | "auth"
+  | "signOn"
+  | "share"
+  | "api"
+  | "upload"
+  | "formUpload"
+  | "report"
+  | "app";
 
 /** Requests allowed per minute and per client address, by bucket. */
 export const RATE_LIMITS: Record<RateBucket, number> = {
   auth: 20,
+  // The way to an identity provider and back: two requests a sign-in, and
+  // the people of an office, behind one address, arrive together.
+  signOn: 300,
   share: 240,
   api: 600,
   upload: 120,
@@ -71,14 +81,10 @@ export function rateBucket(method: string, url: string): RateBucket {
     }
     return "app";
   }
+  // No password is checked there: the provider does it.
+  if (path.startsWith("/auth/")) return "signOn";
   // An application's secret is checked at these two (ADR 0094).
-  if (
-    path.startsWith("/auth/") ||
-    path === "/oauth/token" ||
-    path === "/oauth/revoke"
-  ) {
-    return "auth";
-  }
+  if (path === "/oauth/token" || path === "/oauth/revoke") return "auth";
   // Public addresses a token opens, as public shares are.
   if (path.startsWith("/hooks/") || path.startsWith("/ical/")) return "share";
   if (

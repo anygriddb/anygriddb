@@ -13378,6 +13378,10 @@ msgstr "Your organization asks for a second factor on this account: set one up b
 msgid "Your organization's directory keeps your name and address: change them there."
 msgstr "Your organization's directory keeps your name and address: change them there."
 
+#: lib/errors.ts
+msgid "Your organization's sign-in was not accepted here. Ask an administrator to check that it sends a verified email address."
+msgstr "Your organization's sign-in was not accepted here. Ask an administrator to check that it sends a verified email address."
+
 #: components/admin/account-actions.tsx
 msgid "Your own account: from your settings"
 msgstr "Your own account: from your settings"

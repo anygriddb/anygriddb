@@ -22,7 +22,7 @@ import { registerCompression } from "./compression.js";
 import { registerTextGuard } from "./text-guard.js";
 import { authorizeGrid } from "./auth/access.js";
 import { passkeysEligible } from "./auth/relying-party.js";
-import { registerRateLimit } from "./rate-limit.js";
+import { rateBucket, registerRateLimit } from "./rate-limit.js";
 import { metricsBearer } from "./notify/metrics-token.js";
 import { registerWebsocketGauge } from "./observability.js";
 import { migrationsCurrent, readinessProbe } from "./readiness.js";
@@ -383,6 +383,15 @@ export async function createApp(deps: {
         });
     }
     if (reply.sent) {
+      return;
+    }
+    // A sign-on is a page the browser is on: it is told on the sign-in
+    // page, not shown a body of JSON.
+    if (
+      status === 429 &&
+      rateBucket(request.method, request.url) === "signOn"
+    ) {
+      void reply.redirect("/login?refused=too_many_attempts", 303);
       return;
     }
     reply.code(status).send(body);

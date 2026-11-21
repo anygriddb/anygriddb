@@ -205,7 +205,7 @@ describe("OIDC sign-in through openid-client", () => {
     provider.state.nonce = nonce;
     provider.state.claims = { email, name: "Ada", sub: `other-${suffix}` };
     const response = await callback({ state, browser });
-    expect(response.headers.location).toBe("/");
+    expect(response.headers.location).toBe("/login?refused=sso_refused");
     expect(session(response)).toBe("");
   });
 
@@ -233,7 +233,33 @@ describe("OIDC sign-in through openid-client", () => {
       email_verified: false,
     };
     const response = await callback({ state, browser });
-    expect(response.headers.location).toBe("/");
+    expect(response.headers.location).toBe("/login?refused=sso_refused");
+    expect(session(response)).toBe("");
+  });
+
+  it("says on the sign-in page why it refused", async () => {
+    const email = `told-${suffix}@example.com`;
+    const first = await start();
+    provider.state.nonce = first.nonce;
+    provider.state.claims = {
+      email,
+      email_verified: true,
+      name: "Told",
+      sub: `told-${suffix}`,
+    };
+    await callback({ state: first.state, browser: first.browser });
+    await database
+      .updateTable("users")
+      .set({ disabledAt: new Date() })
+      .where("email", "=", email)
+      .execute();
+    const again = await start();
+    provider.state.nonce = again.nonce;
+    const response = await callback({
+      state: again.state,
+      browser: again.browser,
+    });
+    expect(response.headers.location).toBe("/login?refused=account_disabled");
     expect(session(response)).toBe("");
   });
 

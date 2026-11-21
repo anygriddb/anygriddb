@@ -4,6 +4,7 @@
  * shape, is a compile error. Pages read their parameters here and hand
  * them to components as props, so components do not depend on the router.
  */
+import { SIGN_ON_REFUSALS } from "@anygriddb/core";
 import { Spinner } from "@anygriddb/ui";
 import {
   createRootRoute,
@@ -247,10 +248,19 @@ const loginRoute = createRoute({
   validateSearch: nextSearch.extend({
     /** Back from single sign-on with a second step to do (ADR 0043). */
     mfa: z.coerce.number().optional().catch(undefined),
+    /** Back from single sign-on refused: what the page says. */
+    refused: z.enum(SIGN_ON_REFUSALS).optional().catch(undefined),
   }),
   component: function Login() {
-    const { next, mfa } = loginRoute.useSearch();
-    return <AuthPage mode="login" next={next} secondStep={mfa === 1} />;
+    const { next, mfa, refused } = loginRoute.useSearch();
+    return (
+      <AuthPage
+        mode="login"
+        next={next}
+        secondStep={mfa === 1}
+        refused={refused}
+      />
+    );
   },
 });
 

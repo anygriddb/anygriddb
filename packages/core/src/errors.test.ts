@@ -5,6 +5,8 @@ import {
   ERRORS,
   isErrorCode,
   publicError,
+  SIGN_ON_REFUSALS,
+  signOnRefusal,
 } from "./errors";
 
 describe("public errors", () => {
@@ -43,5 +45,23 @@ describe("public errors", () => {
     }
     expect(isErrorCode("unknown_table")).toBe(true);
     expect(isErrorCode("toString")).toBe(false);
+  });
+});
+
+describe("signOnRefusal", () => {
+  it("names what a person can act on", () => {
+    for (const code of SIGN_ON_REFUSALS) {
+      expect(signOnRefusal(new AppError(code))).toBe(code);
+    }
+  });
+
+  it("says nothing more of any other failure", () => {
+    expect(signOnRefusal(new AppError("invalid_credentials"))).toBe(
+      "sso_refused",
+    );
+    expect(signOnRefusal(new Error("a provider's own words"))).toBe(
+      "sso_refused",
+    );
+    expect(signOnRefusal(undefined)).toBe("sso_refused");
   });
 });

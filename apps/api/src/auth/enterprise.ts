@@ -22,7 +22,7 @@ import { resolveOidc, type OidcConfig } from "../integrations/oidc.js";
 import { resolveSaml, type SamlConfig } from "../integrations/saml.js";
 import { assertSignInAddressAllowed } from "./sign-in-allowlist.js";
 import { readSettings } from "../settings.js";
-import { AppError } from "@anygriddb/core";
+import { AppError, signOnRefusal } from "@anygriddb/core";
 
 type Deps = {
   env: Env;
@@ -370,7 +370,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       return reply.code(404).send({ error: "Not found" });
     }
     const query = request.query as { code?: unknown; state?: unknown };
-    let next = "/";
+    let next: string;
     try {
       if (typeof query.code !== "string" || typeof query.state !== "string") {
         throw new AppError("challenge_expired");
@@ -420,8 +420,9 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
     } catch (error) {
       request.log.warn({ err: error }, "authentication failed");
       await signInRefused(deps.db, request, "oidc", error);
+      next = `/login?refused=${signOnRefusal(error)}`;
     }
-    // Signed in or not, the browser goes back to the app.
+    // Signed in or told why, the browser goes back to the app.
     return reply.redirect(next);
   });
 
@@ -453,7 +454,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
     if (!samlEnv) {
       return reply.code(404).send({ error: "Not found" });
     }
-    let next = "/";
+    let next: string;
     try {
       const body = request.body as {
         SAMLResponse?: unknown;
@@ -498,8 +499,9 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
     } catch (error) {
       request.log.warn({ err: error }, "authentication failed");
       await signInRefused(deps.db, request, "saml", error);
+      next = `/login?refused=${signOnRefusal(error)}`;
     }
-    // Signed in or not, the browser goes back to the app.
+    // Signed in or told why, the browser goes back to the app.
     return reply.redirect(next);
   });
 }

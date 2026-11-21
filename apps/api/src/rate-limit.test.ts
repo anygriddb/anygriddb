@@ -40,6 +40,13 @@ describe("rateBucket", () => {
       expect(credentialCalls(`/trpc/${procedure}`)).toBe(1);
     }
     // An application's secret is checked there (ADR 0094).
+    expect(rateBucket("GET", "/auth/oidc/start")).toBe("signOn");
+    expect(rateBucket("GET", "/auth/oidc/callback?code=a&state=b")).toBe(
+      "signOn",
+    );
+    expect(rateBucket("GET", "/auth/saml/start")).toBe("signOn");
+    expect(rateBucket("POST", "/auth/saml/acs")).toBe("signOn");
+    expect(RATE_LIMITS.signOn).toBeGreaterThan(RATE_LIMITS.auth);
     expect(rateBucket("POST", "/oauth/token")).toBe("auth");
     expect(rateBucket("POST", "/oauth/revoke")).toBe("auth");
     expect(rateBucket("GET", "/oauth/authorize?client_id=x")).toBe("app");
