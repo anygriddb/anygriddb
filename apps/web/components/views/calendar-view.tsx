@@ -49,7 +49,7 @@ function Event({
         table.openRecord(row.id);
       }}
       className={cn(
-        "w-full shrink-0 truncate rounded bg-accent px-1.5 py-0.5 text-left text-xs text-accent-foreground",
+        "min-h-6 w-full shrink-0 truncate rounded bg-accent px-1.5 py-0.5 text-left text-xs text-accent-foreground",
         tint && `row-tint-${tint}`,
       )}
     >
@@ -292,7 +292,9 @@ export function CalendarView(
           </div>
         ))}
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-7 overflow-y-auto border-l border-border">
+      {/* A week is as tall as its fullest day, and the month scrolls: a
+          week of the height left to it cut the events past its edge. */}
+      <div className="grid min-h-0 flex-1 auto-rows-[minmax(min-content,auto)] grid-cols-7 overflow-y-auto border-l border-border">
         {days.map((date) => {
           const key = isoDay(date);
           return (

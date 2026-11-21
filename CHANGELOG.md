@@ -16,6 +16,11 @@ first.
   page: it took more than half of it. At every width, a bar of a day or
   two is opened by a width a pointer finds: at the scale of a year it
   was four pixels wide, and that was all there was to press.
+- A calendar shows a day's events whole. On a phone, or in a window
+  too short for the month, a week kept the height left to it: a day's
+  fourth event was cut by the day's edge and the next were not drawn,
+  with nothing to say they were there. A week is now as tall as its
+  fullest day, the month scrolls, and an event is 24 pixels to press.
 - A row's panel draws a checkbox that was never ticked as a box not
   ticked, and a rating never given as none of its stars. Each showed an
   empty line under its name, with nothing to say a click ticks or
