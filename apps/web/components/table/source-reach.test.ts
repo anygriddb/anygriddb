@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockedSourceTables } from "./source-reach";
+import { blockedSourceTables, keepsCopy } from "./source-reach";
 import type { CatalogTable } from "../../lib/types";
 
 type External = NonNullable<CatalogTable["external"]>;
@@ -40,7 +40,22 @@ function table(
   };
 }
 
+describe("keepsCopy", () => {
+  it("is true only once a first copy has arrived", () => {
+    expect(keepsCopy(table("c", "Copied", external(false, true)))).toBe(true);
+    const waiting = external(false, true);
+    waiting.synced = { at: null, intervalMinutes: 15 };
+    expect(keepsCopy(table("w", "Waiting", waiting))).toBe(false);
+    expect(keepsCopy(table("l", "Live", external(false)))).toBe(false);
+  });
+});
+
 describe("blockedSourceTables", () => {
+  it("counts a table once, however many widgets read it", () => {
+    const blocked = table("b", "Blocked", external(false));
+    expect(blockedSourceTables([blocked, blocked, blocked])).toHaveLength(1);
+  });
+
   it("keeps only external tables whose host is not allowed", () => {
     const native = table("n", "Native", null);
     const blocked = table("b", "Blocked", external(false));

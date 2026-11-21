@@ -15,9 +15,19 @@ import type { CatalogTable } from "../../lib/types";
 export function blockedSourceTables(
   tables: readonly CatalogTable[],
 ): CatalogTable[] {
-  return tables.filter(
+  // A dashboard lists a table once per widget that reads it.
+  const unique = new Map(tables.map((table) => [table.id, table]));
+  return [...unique.values()].filter(
     (table) => table.external !== null && !table.external.hostAllowed,
   );
+}
+
+/**
+ * A blocked table still shows rows only from a copy that has arrived:
+ * until the first one, a synced table is read live, and so refused.
+ */
+export function keepsCopy(table: CatalogTable): boolean {
+  return Boolean(table.external?.synced?.at);
 }
 
 /** Note under a table header: live refuse, or synced copy frozen. */
@@ -32,7 +42,7 @@ export function CopyNote({
   const synced = external.synced;
 
   if (!external.hostAllowed) {
-    if (synced) {
+    if (synced?.at) {
       return (
         <p
           role="status"
@@ -43,11 +53,9 @@ export function CopyNote({
             aria-hidden
           />
           <span>
-            {synced.at
-              ? t`This source's host is not allowed: reading the copy from ${{
-                  date: formatInstant(synced.at, locale),
-                }}. Refresh is paused until the operator allows the host.`
-              : t`This source's host is not allowed: the copy cannot refresh until the operator allows the host.`}
+            {t`This source's host is not allowed: reading the copy from ${{
+              date: formatInstant(synced.at, locale),
+            }}. Refresh is paused until the operator allows the host.`}
           </span>
         </p>
       );
@@ -62,7 +70,9 @@ export function CopyNote({
           aria-hidden
         />
         <span>
-          {t`This source's host is not allowed: the operator must add it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS. Rows cannot be read or written in the client's database.`}
+          {synced && isCopySourceEngine(external.engine)
+            ? t`This source's host is not allowed: its first copy cannot arrive until the operator adds it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS.`
+            : t`This source's host is not allowed: the operator must add it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS. Rows cannot be read or written in the client's database.`}
         </span>
       </p>
     );
@@ -102,8 +112,8 @@ export function BlockedSourcesBanner({
   const blocked = blockedSourceTables(tables);
   if (blocked.length === 0) return null;
 
-  const live = blocked.filter((table) => table.external?.synced == null);
-  const synced = blocked.filter((table) => table.external?.synced != null);
+  const cut = blocked.filter((table) => !keepsCopy(table));
+  const synced = blocked.filter(keepsCopy);
   const oldest = synced.reduce<string | null>((best, table) => {
     const at = table.external?.synced?.at ?? null;
     if (!at) return best;
@@ -130,24 +140,19 @@ export function BlockedSourcesBanner({
       />
       <div className="flex min-w-0 flex-col gap-1">
         <p>{where}</p>
-        {live.length > 0 ? (
+        {cut.length > 0 ? (
           <p className="text-xs text-muted-foreground">
-            {plural(live.length, {
-              one: `# live table cannot reach the client's database until the operator allows its host.`,
-              other: `# live tables cannot reach the client's database until the operator allows their hosts.`,
+            {plural(cut.length, {
+              one: `# table cannot reach the client's database until the operator allows its host.`,
+              other: `# tables cannot reach the client's database until the operator allows their hosts.`,
             })}
           </p>
         ) : null}
-        {synced.length > 0 ? (
+        {oldest ? (
           <p className="text-xs text-muted-foreground">
-            {oldest
-              ? t`Synced tables still show their copies (oldest from ${{
-                  date: formatInstant(oldest, locale),
-                }}); refresh is paused.`
-              : plural(synced.length, {
-                  one: `# synced table keeps its copy; refresh is paused until the operator allows the host.`,
-                  other: `# synced tables keep their copies; refresh is paused until the operator allows their hosts.`,
-                })}
+            {t`Synced tables still show their copies (oldest from ${{
+              date: formatInstant(oldest, locale),
+            }}); refresh is paused.`}
           </p>
         ) : null}
       </div>

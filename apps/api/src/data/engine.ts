@@ -30,8 +30,10 @@ export type CatalogRows = {
     {
       name: string;
       engine: string;
-      /** Host the operator's allow list is checked against. */
+      /** Hosts the operator's allow list is checked against. */
       host: string;
+      replicaHost: string | null;
+      replicaPort: number | null;
       timeZone: string;
       sideSchema: string | null;
       serverVersion?: string | null;
@@ -432,6 +434,8 @@ export async function loadCatalogRows(
             "name",
             "engine",
             "host",
+            "replicaHost",
+            "replicaPort",
             "timeZone",
             "sideSchema",
             "serverVersion",

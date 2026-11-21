@@ -2,6 +2,7 @@
  * Bases: what a person sees of theirs, and making, copying, importing,
  * and exporting one.
  */
+import { sourceReachable } from "../sources/impact.js";
 import { isHomeDialect, isHomeTable } from "@anygriddb/core";
 import {
   airtableBaseId,
@@ -199,9 +200,10 @@ export const catalogBaseProcedures = {
                 table.sourceId === null
                   ? undefined
                   : rows.sources.get(table.sourceId);
-              // Empty allow list, or host off it: pools refuse the dial-out.
+              // Empty allow list, or a host off it: pools refuse the dial-out.
               const hostAllowed =
-                sourceRow !== undefined && ctx.sources.allows(sourceRow.host);
+                sourceRow !== undefined &&
+                sourceReachable(ctx.sources.allows, sourceRow);
               return {
                 id: table.id,
                 name: table.name,

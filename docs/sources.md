@@ -36,9 +36,14 @@ What emptying the list (or removing a host) does to what is already there:
   last copy in AnyGridDB's database **keeps serving**. Refresh jobs fail;
   the data freezes. Clearing the allow list does not hide those rows.
 
+A source with a replica needs both hosts on the list: a replica outside it
+refuses the whole source. A synced table whose first copy has not arrived
+is read live until then, so it is refused like a live one.
+
 Administration → Sources shows how many sources, live tables, synced
-tables, and hosted bases the instance holds, and which declared hosts sit
-outside the list. `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT=true` connects
+tables, and hosted bases the instance holds and, when a source is refused,
+what that leaves: the tables that cannot be read, those on their last copy,
+and the bases held there. `ANYGRIDDB_SOURCES_ALLOW_PLAINTEXT=true` connects
 without TLS: for development only, and the administration page says so.
 
 Every read runs under the source's time limit, with at most its number of

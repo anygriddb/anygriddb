@@ -229,6 +229,11 @@ msgstr "{0, plural, one {# jeton d’API révoqué} other {# jetons d’API rév
 msgid "{0, plural, one {# automation} other {# automations}}"
 msgstr "{0, plural, one {# automatisation} other {# automatisations}}"
 
+#. placeholder {0}: impact.unreachableBases
+#: components/admin/sources-tab.tsx
+msgid "{0, plural, one {# base held in a source cannot be read} other {# bases held in a source cannot be read}}"
+msgstr "{0, plural, one {# base hébergée dans une source ne peut pas être lue} other {# bases hébergées dans une source ne peuvent pas être lues}}"
+
 #. placeholder {0}: impact.hostedBases
 #: components/admin/sources-tab.tsx
 msgid "{0, plural, one {# base held in a source} other {# bases held in a source}}"
@@ -339,11 +344,6 @@ msgstr "{0, plural, one {# tâche, envoi de webhook ou exécution d’automatisa
 msgid "{0, plural, one {# line} other {# lines}}"
 msgstr "{0, plural, one {# ligne} other {# lignes}}"
 
-#. placeholder {0}: live.length
-#: components/table/source-reach.tsx
-msgid "{0, plural, one {# live table cannot reach the client's database until the operator allows its host.} other {# live tables cannot reach the client's database until the operator allows their hosts.}}"
-msgstr "{0, plural, one {# table en direct ne peut pas joindre la base du client tant que l’opérateur n’autorise pas son hôte.} other {# tables en direct ne peuvent pas joindre la base du client tant que l’opérateur n’autorise pas leurs hôtes.}}"
-
 #. placeholder {0}: impact.liveTables
 #: components/admin/sources-tab.tsx
 msgid "{0, plural, one {# live table} other {# live tables}}"
@@ -447,23 +447,33 @@ msgstr "{0, plural, one {# ligne} other {# lignes}}"
 
 #. placeholder {0}: impact.blockedSources
 #: components/admin/sources-tab.tsx
-msgid "{0, plural, one {# source host not allowed} other {# source hosts not allowed}}"
-msgstr "{0, plural, one {# hôte de source non autorisé} other {# hôtes de source non autorisés}}"
+msgid "{0, plural, one {# source refused by the allow list} other {# sources refused by the allow list}}"
+msgstr "{0, plural, one {# source refusée par la liste d’hôtes autorisés} other {# sources refusées par la liste d’hôtes autorisés}}"
 
 #. placeholder {0}: impact.sources
 #: components/admin/sources-tab.tsx
 msgid "{0, plural, one {# source} other {# sources}}"
 msgstr "{0, plural, one {# source} other {# sources}}"
 
-#. placeholder {0}: synced.length
-#: components/table/source-reach.tsx
-msgid "{0, plural, one {# synced table keeps its copy; refresh is paused until the operator allows the host.} other {# synced tables keep their copies; refresh is paused until the operator allows their hosts.}}"
-msgstr "{0, plural, one {# table synchronisée conserve sa copie ; le rafraîchissement est en pause tant que l’opérateur n’autorise pas l’hôte.} other {# tables synchronisées conservent leurs copies ; le rafraîchissement est en pause tant que l’opérateur n’autorise pas leurs hôtes.}}"
+#. placeholder {0}: impact.frozenTables
+#: components/admin/sources-tab.tsx
+msgid "{0, plural, one {# synced table stays on its last copy} other {# synced tables stay on their last copy}}"
+msgstr "{0, plural, one {# table synchronisée reste sur sa dernière copie} other {# tables synchronisées restent sur leur dernière copie}}"
 
 #. placeholder {0}: impact.syncedTables
 #: components/admin/sources-tab.tsx
 msgid "{0, plural, one {# synced table} other {# synced tables}}"
 msgstr "{0, plural, one {# table synchronisée} other {# tables synchronisées}}"
+
+#. placeholder {0}: impact.unreachableTables
+#: components/admin/sources-tab.tsx
+msgid "{0, plural, one {# table cannot be read} other {# tables cannot be read}}"
+msgstr "{0, plural, one {# table ne peut pas être lue} other {# tables ne peuvent pas être lues}}"
+
+#. placeholder {0}: cut.length
+#: components/table/source-reach.tsx
+msgid "{0, plural, one {# table cannot reach the client's database until the operator allows its host.} other {# tables cannot reach the client's database until the operator allows their hosts.}}"
+msgstr "{0, plural, one {# table ne peut pas joindre la base du client tant que l’opérateur n’autorise pas son hôte.} other {# tables ne peuvent pas joindre la base du client tant que l’opérateur n’autorise pas leurs hôtes.}}"
 
 #. placeholder {0}: base.tables.length
 #. placeholder {0}: staged.tables
@@ -9107,6 +9117,10 @@ msgid "Replica database"
 msgstr "Base de la réplique"
 
 #: components/admin/sources-tab.tsx
+msgid "Replica host not allowed"
+msgstr "Hôte du réplica non autorisé"
+
+#: components/admin/sources-tab.tsx
 msgid "Replica password"
 msgstr "Mot de passe de la réplique"
 
@@ -12199,12 +12213,12 @@ msgid "This source is read from a copy only: it takes no write, no field of AnyG
 msgstr "Cette source n’est lue que depuis une copie : elle ne prend ni écriture, ni champ d’AnyGridDB, ni réplique de lecture"
 
 #: components/table/source-reach.tsx
-msgid "This source's host is not allowed: reading the copy from {date}. Refresh is paused until the operator allows the host."
-msgstr "L’hôte de cette source n’est pas autorisé : lecture de la copie du {date}. Le rafraîchissement est en pause tant que l’opérateur n’autorise pas l’hôte."
+msgid "This source's host is not allowed: its first copy cannot arrive until the operator adds it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS."
+msgstr "L’hôte de cette source n’est pas autorisé : sa première copie ne peut pas arriver tant que l’opérateur ne l’ajoute pas à ANYGRIDDB_SOURCES_ALLOWED_HOSTS."
 
 #: components/table/source-reach.tsx
-msgid "This source's host is not allowed: the copy cannot refresh until the operator allows the host."
-msgstr "L’hôte de cette source n’est pas autorisé : la copie ne peut pas se rafraîchir tant que l’opérateur n’autorise pas l’hôte."
+msgid "This source's host is not allowed: reading the copy from {date}. Refresh is paused until the operator allows the host."
+msgstr "L’hôte de cette source n’est pas autorisé : lecture de la copie du {date}. Le rafraîchissement est en pause tant que l’opérateur n’autorise pas l’hôte."
 
 #: components/table/source-reach.tsx
 msgid "This source's host is not allowed: the operator must add it to ANYGRIDDB_SOURCES_ALLOWED_HOSTS. Rows cannot be read or written in the client's database."

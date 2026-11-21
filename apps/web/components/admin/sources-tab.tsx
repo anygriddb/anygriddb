@@ -163,15 +163,29 @@ export function SourcesTab() {
             one: `# base held in a source`,
             other: `# bases held in a source`,
           })}
-          {impact.blockedSources > 0 ? (
-            <>
-              {" · "}
-              {plural(impact.blockedSources, {
-                one: `# source host not allowed`,
-                other: `# source hosts not allowed`,
-              })}
-            </>
-          ) : null}
+        </p>
+      ) : null}
+      {impact && impact.blockedSources > 0 ? (
+        <p role="status" className="text-sm">
+          {plural(impact.blockedSources, {
+            one: `# source refused by the allow list`,
+            other: `# sources refused by the allow list`,
+          })}
+          {" · "}
+          {plural(impact.unreachableTables, {
+            one: `# table cannot be read`,
+            other: `# tables cannot be read`,
+          })}
+          {" · "}
+          {plural(impact.frozenTables, {
+            one: `# synced table stays on its last copy`,
+            other: `# synced tables stay on their last copy`,
+          })}
+          {" · "}
+          {plural(impact.unreachableBases, {
+            one: `# base held in a source cannot be read`,
+            other: `# bases held in a source cannot be read`,
+          })}
         </p>
       ) : null}
       {blockedListed.length > 0 && allowed.length > 0 ? (
@@ -233,7 +247,9 @@ export function SourcesTab() {
                       {source.name}
                       {!source.hostAllowed ? (
                         <span className="rounded border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[10px] font-normal text-foreground">
-                          {t`Host not allowed`}
+                          {source.replicaBlocked
+                            ? t`Replica host not allowed`
+                            : t`Host not allowed`}
                         </span>
                       ) : null}
                     </span>

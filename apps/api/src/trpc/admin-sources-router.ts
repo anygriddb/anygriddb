@@ -10,7 +10,7 @@ import {
 } from "../sources/expose.js";
 import { setTableWatch, watchColumns } from "../sources/watch.js";
 import { setTableSync, syncNow } from "../sources/sync.js";
-import { sourceImpact } from "../sources/impact.js";
+import { sourceImpact, sourceReachable } from "../sources/impact.js";
 import {
   createSource,
   deleteSource,
@@ -54,9 +54,11 @@ export const sourcesRouter = t.router({
       const rows = await listSources(ctx.db);
       return rows.map((row) => ({
         ...row,
-        hostAllowed: ctx.sources.allows(row.host),
-        replicaHostAllowed:
-          row.replicaHost === null ? null : ctx.sources.allows(row.replicaHost),
+        hostAllowed: sourceReachable(ctx.sources.allows, row),
+        // The primary is on the list, and its replica is what refuses it.
+        replicaBlocked:
+          ctx.sources.allows(row.host) &&
+          !sourceReachable(ctx.sources.allows, row),
       }));
     }),
   ),
