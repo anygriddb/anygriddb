@@ -8,6 +8,29 @@ first.
 
 ## Unreleased
 
+## 0.3.5 - 2026-11-21
+
+**Before upgrading:** nothing to do. This version adds no migration.
+
+### Added
+
+- `anygriddb_database_reachable` says whether AnyGridDB's own database
+  answers, and the guide's alert rules use it, with one on `up`.
+
+### Fixed
+
+- `/metrics` keeps answering while the database is down: it failed whole,
+  at the moment an operator needs it. The queue's series leave for as long
+  as the outage lasts, and the size keeps its last reading.
+- An OAuth application's token and revocation calls have a limit of their
+  own, 120 a minute per address. A backend renewing its people's grants no
+  longer uses up the sign-ins of everyone behind its address.
+- A comparison (`>`, `>=`, `<`, `<=`, between) finds a float too large to
+  read by the value the client's database stores. On Oracle a NaN passes
+  no comparison, and an infinity is the number it is.
+- An Oracle formula over a large text no longer stops its table's page. A
+  formula that gives a large text offers no sort, group or equality filter.
+
 ## 0.3.4 - 2026-11-21
 
 **Before upgrading:** nothing to do. Afterwards, a notification channel
