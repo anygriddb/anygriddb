@@ -432,22 +432,20 @@ describe.each(FLAVORS)("$engine sources", (flavor) => {
       admin,
       sourceId: source.id,
       dialect: flavor.engine,
-      scalar: async (query) =>
-        (
-          await server?.exec([
-            flavor.client,
-            "-uroot",
-            "-prootpass",
-            "-N",
-            "-B",
-            "-e",
-            query,
-          ])
-        )?.output
-          .trim()
-          .split("\n")
-          // The client warns about the password on the line before.
-          .at(-1) ?? "",
+      scalar: async (query) => {
+        const answer = await server?.exec([
+          flavor.client,
+          "-uroot",
+          "-prootpass",
+          "-N",
+          "-B",
+          "-e",
+          query,
+        ]);
+        // Its own output: the client warns about the password on the
+        // other stream, which may arrive before or after.
+        return answer?.stdout.trim() ?? "";
+      },
     });
   });
 });
