@@ -97,7 +97,14 @@ import {
 } from "../services/rows.js";
 import type { Context } from "./context.js";
 import { queueDeps } from "./jobs-router.js";
-import { guardBase, guardTable, handle, type TableAccess } from "./guard.js";
+import {
+  authorize,
+  guardBase,
+  guardTable,
+  handle,
+  tableAccess,
+  type TableAccess,
+} from "./guard.js";
 import { procedure, requestNames, requireUser, t } from "./init.js";
 import { liveColumnNames } from "../data/live.js";
 import { resolveSmtp } from "../integrations/smtp.js";
@@ -693,8 +700,9 @@ export const rowsRouter = t.router({
     .input(updateCommentInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const access = await guardTable(
+        const access = await tableAccess(
           ctx,
+          await authorize(ctx),
           await commentTableId(ctx.db, input.commentId),
           "comment",
         );
@@ -733,8 +741,9 @@ export const rowsRouter = t.router({
     .input(resolveCommentInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
+        const actor = await authorize(ctx);
         const place = await commentPlace(ctx.db, input.commentId);
-        const access = await guardTable(ctx, place.tableId, "comment");
+        const access = await tableAccess(ctx, actor, place.tableId, "comment");
         const { engine } = await engineFor(ctx, access);
         await assertRowsInScope(ctx.db, engine, [place.rowId]);
         await resolveComment(ctx.db, {
@@ -749,8 +758,9 @@ export const rowsRouter = t.router({
     .input(deleteCommentInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const access = await guardTable(
+        const access = await tableAccess(
           ctx,
+          await authorize(ctx),
           await commentTableId(ctx.db, input.commentId),
           "comment",
         );

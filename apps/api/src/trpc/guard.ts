@@ -99,7 +99,21 @@ export async function guardTable(
   tableId: string,
   action: Action,
 ): Promise<TableAccess> {
-  const actor = await authorize(ctx);
+  return tableAccess(ctx, await authorize(ctx), tableId, action);
+}
+
+/**
+ * The same, for a caller already asked who they are. A procedure given the
+ * id of something a table holds (a view, a webhook, a comment) asks
+ * `authorize` first, finds the table, then comes here: someone who is not
+ * signed in is told so, and nothing of whether the id names anything.
+ */
+export async function tableAccess(
+  ctx: Context,
+  actor: Actor,
+  tableId: string,
+  action: Action,
+): Promise<TableAccess> {
   const table = await loadTable(ctx, tableId);
   const role = effectiveTableRole(actor.bindings, table.id, table.baseId);
   if (!role || !roleAllows(role, action)) {
@@ -114,7 +128,16 @@ export async function guardBase(
   action: Action,
   creatingBase = false,
 ): Promise<Actor & { role: Role }> {
-  const actor = await authorize(ctx, creatingBase);
+  return baseAccess(ctx, await authorize(ctx, creatingBase), baseId, action);
+}
+
+/** The same, for a caller already asked who they are: see `tableAccess`. */
+export async function baseAccess(
+  ctx: Context,
+  actor: Actor,
+  baseId: string,
+  action: Action,
+): Promise<Actor & { role: Role }> {
   const base = await ctx.db
     .selectFrom("bases")
     .select("id")

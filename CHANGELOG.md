@@ -91,6 +91,12 @@ first.
   filter's list, and the navigation's small buttons (pin, menus). A
   link in a sentence of Administration is underlined: in the dark theme
   its colour alone did not tell it apart.
+- A request that is not signed in is told so before anything is looked
+  up for it. Thirty-six operations given the id of a view, a dashboard,
+  a webhook, a comment, an automation, a folder, a link or a restore
+  point found what it named first: their answer told a stranger whether
+  the id named anything, and nothing more. The list of a new base's
+  templates answered anyone, and now answers a person signed in.
 
 ## 0.3.1 - 2026-11-20
 
