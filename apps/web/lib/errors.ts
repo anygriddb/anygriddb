@@ -15,6 +15,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   invalid_code: msg`Invalid code`,
   webauthn_rejected: msg`The passkey was not accepted`,
   challenge_expired: msg`Time is up: start again`,
+  sso_refused: msg`Your organization's sign-in was not accepted here. Ask an administrator to check that it sends a verified email address.`,
   access_denied: msg`Access denied`,
   acting_as: msg`Stop acting as this person before using Administration`,
   cannot_act_as: msg`You cannot act as this person`,

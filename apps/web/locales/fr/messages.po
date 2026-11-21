@@ -13354,6 +13354,10 @@ msgstr "Votre organisation exige un second facteur sur ce compte : configurez-e
 msgid "Your organization's directory keeps your name and address: change them there."
 msgstr "L’annuaire de votre organisation tient votre nom et votre adresse : changez-les là-bas."
 
+#: lib/errors.ts
+msgid "Your organization's sign-in was not accepted here. Ask an administrator to check that it sends a verified email address."
+msgstr "L’authentification de votre organisation n’a pas été acceptée ici. Demandez à un administrateur de vérifier qu’elle transmet une adresse e-mail vérifiée."
+
 #: components/admin/account-actions.tsx
 msgid "Your own account: from your settings"
 msgstr "Votre propre compte : depuis vos réglages"

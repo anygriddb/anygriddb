@@ -14,6 +14,11 @@ first.
   is one of AnyGridDB's own fields beside the client's rows, and holds
   what the field held. The copy was made empty, and the page read
   "Invalid row id".
+- A single sign-on that is refused says why on the sign-in page (a
+  disabled account, sign-up closed, maintenance, an address the provider
+  did not verify), and a sign-on no longer counts in the limit on
+  password attempts: ten people a minute behind one office address could
+  sign in before the eleventh read a page of raw JSON.
 - A view opened by a public link scrolls from the keyboard: the region
   that holds its rows takes the keyboard, and shows that it has it. A
   view drawn as cards holds nothing to focus, so more rows than the

@@ -6,8 +6,11 @@ export {
   ERRORS,
   isErrorCode,
   publicError,
+  SIGN_ON_REFUSALS,
+  signOnRefusal,
   type ErrorCode,
   type PublicError,
+  type SignOnRefusal,
 } from "./errors";
 
 export {
