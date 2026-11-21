@@ -3637,7 +3637,6 @@ msgstr "Dashboard"
 msgid "Dashboard deleted"
 msgstr "Dashboard deleted"
 
-#: components/dashboards/dashboard-board.tsx
 #: lib/errors.ts
 msgid "Dashboard not found"
 msgstr "Dashboard not found"
@@ -11757,7 +11756,7 @@ msgstr "This application is unknown or no longer allowed."
 msgid "This automation keeps no secret of that name"
 msgstr "This automation keeps no secret of that name"
 
-#: components/shell/base-home.tsx
+#: components/shell/in-base.tsx
 msgid "This base does not exist or is not shared with you."
 msgstr "This base does not exist or is not shared with you."
 
@@ -11812,6 +11811,10 @@ msgstr "This column does not tell when a row changes: choose a date and time set
 #: lib/errors.ts
 msgid "This conversion is not possible"
 msgstr "This conversion is not possible"
+
+#: components/dashboards/dashboard-board.tsx
+msgid "This dashboard does not exist."
+msgstr "This dashboard does not exist."
 
 #: lib/errors.ts
 msgid "This database engine cannot compute it"

@@ -78,6 +78,50 @@ test("an owner invites an address, its account accepts, and reads what its permi
   });
 
   const base = /\/b\/[^/]+/.exec(page.url())?.[0] ?? "";
+
+  // Not invited yet, the guest follows a link to each page of the base:
+  // every one says the base is not shared with them, and asks nothing
+  // about it. Only the base's own page did: the others stayed blank, or
+  // offered to try again what the server had refused.
+  const refused: string[] = [];
+  const note = (response: { status(): number; url(): string }) => {
+    if (response.status() >= 400) {
+      refused.push(
+        `${String(response.status())} ${new URL(response.url()).pathname}`,
+      );
+    }
+  };
+  guest.on("response", note);
+  const nobody = "11111111-1111-4111-8111-111111111111";
+  for (const path of [
+    tablePath,
+    `${base}/settings`,
+    `${base}/activity`,
+    `${base}/api`,
+    `${base}/dashboards`,
+    `${base}/dashboards/${nobody}`,
+    base,
+  ]) {
+    await guest.goto(path);
+    await expect(
+      guest.getByText("This base does not exist or is not shared with you."),
+    ).toBeVisible();
+  }
+  expect(refused).toEqual([]);
+  guest.off("response", note);
+  // In a base of one's own, a table or a dashboard that is not there is
+  // said so too, the table without a word to the server.
+  page.on("response", note);
+  await page.goto(`${base}/t/${nobody}`);
+  await expect(
+    page.getByText("This table does not exist or is not shared with you."),
+  ).toBeVisible();
+  expect(refused).toEqual([]);
+  page.off("response", note);
+  await page.goto(`${base}/dashboards/${nobody}`);
+  await expect(page.getByText("This dashboard does not exist.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try again" })).toHaveCount(0);
+
   await page.goto(`${base}/settings`);
   await page.getByLabel("Invite by email").fill(guestEmail);
   // The role is named as the person will read it in the invitation.

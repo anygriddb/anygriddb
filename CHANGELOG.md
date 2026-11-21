@@ -39,6 +39,12 @@ first.
   neither is made again. Administration already asked. Their lists
   write a day as every screen does ("20/11/2026"), where they showed
   the first ten characters of an instant.
+- A page of a base that is not shared with its reader says so, as the
+  base's own page did: its settings, its dashboards and its API page
+  stayed blank, and its activity and its tables offered to "Try again"
+  what the server had refused. A table or a dashboard that is not
+  there is said so too. Nothing is asked about a base or a table the
+  reader's own list does not hold.
 - Deleting a dashboard asks first, and says its widgets go with it:
   one click on its bin deleted it, and nothing brings a dashboard back.
   Each bin of the list is named after its dashboard. Deleting an

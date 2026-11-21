@@ -3637,7 +3637,6 @@ msgstr "Tableau de bord"
 msgid "Dashboard deleted"
 msgstr "Tableau de bord supprimé"
 
-#: components/dashboards/dashboard-board.tsx
 #: lib/errors.ts
 msgid "Dashboard not found"
 msgstr "Tableau de bord introuvable"
@@ -11757,7 +11756,7 @@ msgstr "Cette application est inconnue ou n’est plus autorisée."
 msgid "This automation keeps no secret of that name"
 msgstr "Cette automatisation ne conserve aucun secret de ce nom"
 
-#: components/shell/base-home.tsx
+#: components/shell/in-base.tsx
 msgid "This base does not exist or is not shared with you."
 msgstr "Cette base n’existe pas ou ne vous est pas partagée."
 
@@ -11812,6 +11811,10 @@ msgstr "Cette colonne ne dit pas quand une ligne change : choisissez une date e
 #: lib/errors.ts
 msgid "This conversion is not possible"
 msgstr "Conversion impossible"
+
+#: components/dashboards/dashboard-board.tsx
+msgid "This dashboard does not exist."
+msgstr "Ce tableau de bord n’existe pas."
 
 #: lib/errors.ts
 msgid "This database engine cannot compute it"

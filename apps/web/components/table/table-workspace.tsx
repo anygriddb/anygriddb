@@ -59,7 +59,37 @@ import { ViewToolbar, type ViewPatch } from "./view-toolbar";
 const NO_COLUMNS: readonly CatalogColumn[] = [];
 
 /**
- * A table's page: its header, the toolbar of the view shown, the view
+ * A table's page, for a table the reader's catalog holds. One that is
+ * not theirs, or does not exist, is said so here, before its views, its
+ * people and its rows are asked for: the server refused each, and the
+ * page offered to try again what it would refuse again.
+ */
+export function TableWorkspace(props: TableWorkspaceProps) {
+  const { t } = useLingui();
+  const catalog = useCatalog();
+  const theirs = catalog.data
+    ?.find((base) => base.id === props.baseId)
+    ?.tables.some((table) => table.id === props.tableId);
+  if (catalog.data && !theirs) {
+    return (
+      <p className="p-6 text-sm text-muted-foreground">
+        {t`This table does not exist or is not shared with you.`}
+      </p>
+    );
+  }
+  return <OpenTable {...props} />;
+}
+
+type TableWorkspaceProps = {
+  baseId: string;
+  tableId: string;
+  viewId?: string;
+  /** A record to open in the side panel on arrival. */
+  rowId?: string;
+};
+
+/**
+ * The page itself: its header, the toolbar of the view shown, the view
  * itself, the panel of an open row, and the dialogs they call. What each
  * part needs is read and written by a hook of its own; this component
  * gives them to each other.
@@ -68,18 +98,7 @@ const NO_COLUMNS: readonly CatalogColumn[] = [];
  * what it computes from one render to the next, the value the rows and
  * the cells read from its context among them.
  */
-export function TableWorkspace({
-  baseId,
-  tableId,
-  viewId,
-  rowId,
-}: {
-  baseId: string;
-  tableId: string;
-  viewId?: string;
-  /** A record to open in the side panel on arrival. */
-  rowId?: string;
-}) {
+function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
   const { t } = useLingui();
   const { locale } = useLocale();
   const navigate = useNavigate();
