@@ -54,7 +54,10 @@ first.
   instance's first administrator must, no longer asks for the lists
   every page shares before it has one. The server refused each: five
   warnings in the instance's log on the first page of a new install,
-  and an error in the browser's console.
+  and an error in the browser's console. Until the factor is there the
+  navigation holds the account's menu alone: the search, "New base",
+  Administration and the bell led to what the server refuses, and the
+  account's page no longer asks for the notifications' setting.
 - Adding the object store to an instance that runs
   (`-f compose.yml -f compose.s3.yml up -d`) no longer stops it. The
   stack's internal authority was made again with a new key to cover
