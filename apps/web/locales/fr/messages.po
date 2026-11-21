@@ -12888,6 +12888,10 @@ msgstr "Lecteur"
 msgid "Views"
 msgstr "Vues"
 
+#: components/settings/webhooks-panel.tsx
+msgid "Waiting to be sent"
+msgstr "En attente d’envoi"
+
 #: components/admin/logs-tab.tsx
 msgid "Warning"
 msgstr "Avertissement"

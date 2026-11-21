@@ -28,6 +28,9 @@ first.
 - The functions of a formula, in a field's dialog, are 24 pixels to
   press, as WCAG 2.2 asks: they were sixteen tall, in rows four pixels
   apart.
+- A webhook's delivery that has not been tried yet reads "Waiting to be
+  sent" in its log. It read "Retry scheduled (—)", as a delivery that
+  failed and waits for its next attempt does.
 - A new install's database log holds no error from the first start.
   The instance asked for the job queue's first table before making it,
   and PostgreSQL wrote the refusal at every new install:
