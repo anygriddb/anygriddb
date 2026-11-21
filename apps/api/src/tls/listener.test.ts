@@ -5,7 +5,7 @@ import { createServer, get as httpsGet } from "node:https";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { issueAuthority, issueServer } from "./certificate.js";
-import { plainResponse, redirectPlainHttp } from "./listener.js";
+import { listeningText, plainResponse, redirectPlainHttp } from "./listener.js";
 
 describe("plainResponse", () => {
   it("redirects to the same host and path over HTTPS", () => {
@@ -26,6 +26,23 @@ describe("plainResponse", () => {
     ]) {
       expect(plainResponse(head), head).toMatch(/^HTTP\/1\.1 400 /);
     }
+  });
+});
+
+describe("listeningText", () => {
+  it("says the port speaks HTTPS, which the framework does not know", () => {
+    expect(listeningText("http://127.0.0.1:4000")).toBe(
+      "Server listening at https://127.0.0.1:4000",
+    );
+    expect(listeningText("http://[::1]:4000")).toBe(
+      "Server listening at https://[::1]:4000",
+    );
+  });
+
+  it("leaves an address that says https as it is", () => {
+    expect(listeningText("https://10.0.0.5:4000")).toBe(
+      "Server listening at https://10.0.0.5:4000",
+    );
   });
 });
 

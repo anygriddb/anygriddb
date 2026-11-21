@@ -17,6 +17,16 @@ const HOST = /^[a-z0-9.-]+(?::\d{1,5})?$|^\[[0-9a-f:.]+\](?::\d{1,5})?$/i;
 const TARGET = /^\/[\x21-\x7e]*$/;
 
 /**
+ * What the server logs once it listens. The framework writes the scheme
+ * from its own options, which know nothing of the HTTPS server it was
+ * handed: it said `http://` of a port that answers plain HTTP with a
+ * redirect and nothing else.
+ */
+export function listeningText(address: string): string {
+  return `Server listening at ${address.replace(/^http:/, "https:")}`;
+}
+
+/**
  * The response to a plain HTTP request: a permanent redirect to the same
  * host and path over HTTPS, or 400 when the request names no valid host.
  */

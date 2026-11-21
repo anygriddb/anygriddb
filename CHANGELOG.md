@@ -14,6 +14,8 @@ first.
   that holds its rows takes the keyboard, and shows that it has it. A
   view drawn as cards holds nothing to focus, so more rows than the
   window shows were reached with a pointer only.
+- The instance's log says "Server listening at https://…" when it
+  starts: it wrote `http://` of a port that speaks HTTPS only.
 - Email settings a mail relay refuses say why: nothing answers at
   this host and port, the connection cannot be encrypted and verified
   (no STARTTLS, a certificate the instance does not trust, a port that

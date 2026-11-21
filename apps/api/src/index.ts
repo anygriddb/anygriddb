@@ -23,6 +23,7 @@ import {
   stopCurrentTracing,
 } from "./notify/tracing.js";
 import { loadTls } from "./tls/authority.js";
+import { listeningText } from "./tls/listener.js";
 
 console.info(`${describeBuild(BUILD)}: starting`);
 const env = readEnv();
@@ -125,7 +126,11 @@ if (files.driver === "s3") {
     app.log.warn({ err: error }, "object storage bucket check failed");
   });
 }
-await app.listen({ port: env.PORT, host: "0.0.0.0" });
+await app.listen({
+  port: env.PORT,
+  host: "0.0.0.0",
+  listenTextResolver: listeningText,
+});
 
 let shuttingDown = false;
 const shutdown = async (reason: string) => {
