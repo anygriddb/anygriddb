@@ -142,6 +142,12 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in docker/.env, or run scripts/compose.sh}
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in docker/.env}
       ANYGRIDDB_DB_USER: ${POSTGRES_USER:?set POSTGRES_USER in docker/.env}
+      # What the cluster's own access file says, told to `initdb` rather
+      # than left to its defaults, which it warns about at every new
+      # install. PostgreSQL does not serve that file here but the one
+      # `certs` writes (`hba_file` below), which says the same: the socket
+      # inside the container is let in, the network asks for a password.
+      POSTGRES_INITDB_ARGS: --auth-local=trust --auth-host=scram-sha-256
     # Before PostgreSQL starts, the step that makes AnyGridDB's role is put
     # where the image runs it: once, on an empty volume, never on a
     # database that exists. It is written here rather than mounted from a
@@ -215,12 +221,22 @@ services:
         condition: service_completed_successfully
       postgres-upgrade-check:
         condition: service_completed_successfully
+    # Healthy once the server answers on the network, where AnyGridDB
+    # reaches it. On an empty volume the image first runs a server on its
+    # socket alone, to make the database and its role: asked through the
+    # socket, that one answered for a database nothing could connect to
+    # yet, and AnyGridDB was started in front of it. A new cluster is given
+    # the time a slow disk takes.
     healthcheck:
       test:
-        ["CMD-SHELL", 'pg_isready -U "$$ANYGRIDDB_DB_USER" -d "$$POSTGRES_DB"']
+        [
+          "CMD-SHELL",
+          'pg_isready -h 127.0.0.1 -U "$$ANYGRIDDB_DB_USER" -d "$$POSTGRES_DB"',
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 2m
     networks:
       - internal
 

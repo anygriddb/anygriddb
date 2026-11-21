@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Starts an AnyGridDB image the way an operator does (docker/compose.yml:
 # its certificates, PostgreSQL over verified TLS, the migrations), then
-# asks it what an operator would: /health, /ready, and its version. A
-# throwaway stack: its own project name, volumes, secrets, and port on the
-# loopback, removed afterwards whatever happened.
+# asks it what an operator would: /health, /ready, and its version, and
+# reads what a first start wrote. A throwaway stack: its own project name,
+# volumes, secrets, and port on the loopback, removed afterwards whatever
+# happened.
 #
 #   scripts/smoke-image.sh                        # the image anygriddb:local
 #   SMOKE_PORT=3443 scripts/smoke-image.sh        # another port
@@ -22,8 +23,19 @@ POSTGRES_DB=anygriddb
 AUTH_ENCRYPTION_KEY=$(openssl rand -base64 32)
 PUBLIC_URL=https://localhost:${port}
 EOF
+# The new cluster takes its time, as on a slow disk. The image keeps a
+# server on its socket alone meanwhile: AnyGridDB must wait for the one
+# it can reach.
 cat > "$work/compose.smoke.yml" <<EOF
+configs:
+  slow-first-start:
+    content: |
+      sleep 12
 services:
+  db:
+    configs:
+      - source: slow-first-start
+        target: /docker-entrypoint-initdb.d/00-slow-first-start.sh
   app:
     ports: !override
       - "127.0.0.1:${port}:4000"
@@ -47,6 +59,13 @@ trap cleanup EXIT
 
 "${compose[@]}" up --detach --no-build --wait --wait-timeout 240
 
+# AnyGridDB was started once: its database could be reached when it
+# asked, and nothing else stopped it on the way.
+restarts="$(docker inspect --format '{{.RestartCount}}' "$("${compose[@]}" ps --quiet app)")"
+if [ "$restarts" != "0" ]; then
+  echo "AnyGridDB was started $((restarts + 1)) times: it stopped on the way, as it does in front of a database it cannot reach yet." >&2
+  exit 1
+fi
 curl --fail --silent --show-error --insecure "https://localhost:${port}/health"
 echo
 # PostgreSQL reached, the schema migrated.
@@ -100,6 +119,26 @@ reported="$("${compose[@]}" exec -T app anygriddb version)"
 echo "$reported"
 if [ -n "${SMOKE_VERSION:-}" ] && ! grep -Fq "$SMOKE_VERSION" <<<"$reported"; then
   echo "The image reports another version than $SMOKE_VERSION." >&2
+  exit 1
+fi
+
+# A first start leaves nothing for an operator to stop on: no warning and
+# no error, in what PostgreSQL wrote or in what the instance did.
+said="$("${compose[@]}" logs --no-color --no-log-prefix db 2>&1)"
+if ! grep -Fq "00-slow-first-start.sh" <<<"$said"; then
+  echo "The new cluster did not take its time: this start proved nothing about waiting for it." >&2
+  exit 1
+fi
+if loud="$(grep -E '^initdb: warning|(WARNING|ERROR|FATAL|PANIC):' <<<"$said")"; then
+  echo "PostgreSQL's log of a first start holds a warning or an error:" >&2
+  echo "$loud" >&2
+  exit 1
+fi
+said="$("${compose[@]}" logs --no-color --no-log-prefix certs app 2>&1)"
+if loud="$(grep -E '^\{"level":(40|50|60),' <<<"$said")" ||
+  loud="$(grep -v '^{' <<<"$said" | grep -iE 'warn|error|fail|fatal|deprecat')"; then
+  echo "The instance's log of a first start holds a warning or an error:" >&2
+  echo "$loud" >&2
   exit 1
 fi
 
