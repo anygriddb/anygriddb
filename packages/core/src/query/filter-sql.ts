@@ -519,6 +519,16 @@ export function compileFilter(
   return `(${parts.join(group.conjunction === "and" ? " and " : " or ")})`;
 }
 
+/** The kinds of column a search reads. */
+const SEARCHED_KINDS: ReadonlySet<string> = new Set([
+  "text",
+  "number",
+  "date",
+  "options",
+  "array",
+  "links",
+]);
+
 /** Global search: ILIKE over every text-like column. */
 export function compileSearch(
   ctx: FilterContext,
@@ -527,6 +537,11 @@ export function compileSearch(
   const text = search?.trim();
   if (!text) {
     return null;
+  }
+  // With nothing to search, the text is not bound: a parameter no statement
+  // reads has no type, and PostgreSQL refuses the whole statement (42P18).
+  if (![...ctx.columns.values()].some((ref) => SEARCHED_KINDS.has(ref.kind))) {
+    return "false";
   }
   const d = ctx.d;
   const pattern = d.textParam(ctx.params.bind(likePattern(text, "contains")));
@@ -557,9 +572,6 @@ export function compileSearch(
       default:
         break;
     }
-  }
-  if (parts.length === 0) {
-    return "false";
   }
   return `(${parts.join(" or ")})`;
 }

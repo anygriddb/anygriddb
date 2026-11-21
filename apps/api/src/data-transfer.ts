@@ -412,10 +412,11 @@ export async function exportTable(
   const columns = exportColumns(engine, config).filter(
     (column) => !engine.access?.hidden(engine.table.id, column.name),
   );
+  // Counted as it is read: a search looks in the fields the file holds.
   const counted = await readPage(
     deps.db,
     engine,
-    { ...spec, limit: 1, fields: [] },
+    { ...spec, limit: 1, fields: columns.map((column) => column.name) },
     { total: true },
   );
   const total = counted.total ?? 0;

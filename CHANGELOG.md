@@ -23,6 +23,9 @@ first.
   error, and a mail relay's host is checked as a host name.
 - The instance's log says "Server listening at https://…" when it
   starts: it wrote `http://` of a port that speaks HTTPS only.
+- An export under a search works: whatever the word searched, the job
+  failed. A search on a view with no field it can read finds nothing
+  instead of failing.
 - Email settings a mail relay refuses say why: nothing answers at
   this host and port, the connection cannot be encrypted and verified
   (no STARTTLS, a certificate the instance does not trust, a port that
