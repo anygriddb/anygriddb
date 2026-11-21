@@ -50,7 +50,7 @@ import type { NavigationMode } from "../../lib/narrow-screen";
 import { useTrashActions, useTrashDays } from "../../lib/trash";
 import { useChannel } from "../../lib/realtime";
 import { useCopy } from "../../lib/clipboard";
-import { useCatalog } from "../../lib/session";
+import { useCatalog, useMayRead } from "../../lib/session";
 import {
   readSidebarCollapsed,
   toggleSidebarFold,
@@ -289,6 +289,10 @@ export function Sidebar({
   // The base and table of the page shown, whichever page it is.
   const params = useParams({ strict: false });
   const catalog = useCatalog();
+  // Until the second factor the policy asks for is set up, the server
+  // answers about the account alone (ADR 0043): the navigation then
+  // holds the account's menu and nothing it would be refused.
+  const reads = useMayRead();
   const invalidate = useInvalidateCatalog();
   const trackJob = useTrackJob();
   const snapshotGaps = useSnapshotGaps();
@@ -475,16 +479,22 @@ export function Sidebar({
           </span>
         </Link>
       </div>
-      <button
-        type="button"
-        onClick={openCommandPalette}
-        className="mx-2 flex h-7 items-center gap-2 rounded-md border border-border bg-card px-2 text-sm text-muted-foreground hover:bg-muted"
+      {reads ? (
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          className="mx-2 flex h-7 items-center gap-2 rounded-md border border-border bg-card px-2 text-sm text-muted-foreground hover:bg-muted"
+        >
+          <Search className="h-4 w-4" aria-hidden />
+          <span className="flex-1 text-left">{t`Search`}</span>
+          <Kbd>{`${keys.mod} K`}</Kbd>
+        </button>
+      ) : null}
+      <nav
+        className="flex-1 overflow-y-auto px-2 py-3"
+        aria-label={t`Bases`}
+        hidden={!reads}
       >
-        <Search className="h-4 w-4" aria-hidden />
-        <span className="flex-1 text-left">{t`Search`}</span>
-        <Kbd>{`${keys.mod} K`}</Kbd>
-      </button>
-      <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label={t`Bases`}>
         {pinned.length > 0 ? (
           <section aria-label={t`Pinned`} className="mb-3">
             <span className="mb-1 block px-1 text-xs font-medium text-muted-foreground">
@@ -622,9 +632,9 @@ export function Sidebar({
         </ul>
         <SidebarSources bases={bases} />
       </nav>
-      <div className="flex items-center gap-1 border-t border-border px-2 py-1.5">
+      <div className="mt-auto flex items-center gap-1 border-t border-border px-2 py-1.5">
         <UserMenu user={user} />
-        {user.isAdmin || user.isSupport || user.isAuditor ? (
+        {reads && (user.isAdmin || user.isSupport || user.isAuditor) ? (
           <Button
             size="icon"
             variant="ghost"
@@ -638,8 +648,8 @@ export function Sidebar({
             </Link>
           </Button>
         ) : null}
-        <JobsMenu />
-        <NotificationBell />
+        {reads ? <JobsMenu /> : null}
+        {reads ? <NotificationBell /> : null}
       </div>
       {mode === "docked" ? (
         <ResizeHandle

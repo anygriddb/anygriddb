@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useLocale } from "../../lib/i18n";
+import { useMayRead } from "../../lib/session";
 import { useTheme, type ThemeChoice } from "../../lib/theme";
 import { trpc } from "../../lib/trpc";
 import { openAbout } from "./about-dialog";
@@ -47,6 +48,9 @@ export function UserMenu({
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
   const { locale, setLocale } = useLocale();
+  // Administration opens once the second factor the policy asks for is
+  // set up: until then its pages lead back to the account's.
+  const reads = useMayRead();
   const themes: Array<[ThemeChoice, string, typeof Sun]> = [
     ["light", t`Light`, Sun],
     ["dark", t`Dark`, Moon],
@@ -64,7 +68,7 @@ export function UserMenu({
             <Settings className="h-4 w-4" aria-hidden />
             {t`Account settings`}
           </DropdownMenuItem>
-          {user.isAdmin || user.isSupport || user.isAuditor ? (
+          {reads && (user.isAdmin || user.isSupport || user.isAuditor) ? (
             <DropdownMenuItem onSelect={() => void navigate({ to: "/admin" })}>
               <ShieldCheck className="h-4 w-4" aria-hidden />
               {t`Administration`}

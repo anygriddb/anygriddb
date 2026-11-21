@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
-import { uniqueStamp } from "./setup";
+import { accessibilityViolations, uniqueStamp } from "./setup";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 
@@ -76,6 +76,45 @@ test("the first account takes the operator's token", async ({ page }) => {
       /\b(catalog|jobs|notifications|shortcuts)\.list\b/.test(path),
     ),
   ).toEqual([]);
+
+  // Nor does the navigation offer what would be refused: it holds the
+  // account's menu, and no search, no base to make, no bell. The page
+  // of the account, where the second factor is also set up, is refused
+  // nothing either: it asked for the notifications' setting.
+  const refused: string[] = [];
+  page.on("response", (response) => {
+    if (response.status() >= 400) {
+      refused.push(
+        `${String(response.status())} ${new URL(response.url()).pathname}`,
+      );
+    }
+  });
+  await expect(
+    page.getByRole("button", { name: "First Operator" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "New base" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Search/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Notifications" })).toHaveCount(
+    0,
+  );
+  await page.getByRole("button", { name: "First Operator" }).click();
+  await expect(
+    page.getByRole("menuitem", { name: "Account settings" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Administration" }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.goto("/settings");
+  await expect(page.getByRole("alert")).toContainText(
+    "asks for a second factor",
+  );
+  await expect(
+    page.getByRole("button", { name: "Set up an authenticator app" }),
+  ).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  expect(refused).toEqual([]);
+  expect(await accessibilityViolations(page)).toEqual([]);
 
   // The form asks nobody else for it.
   await page.context().clearCookies();

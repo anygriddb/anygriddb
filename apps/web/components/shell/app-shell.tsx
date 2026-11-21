@@ -237,7 +237,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </PageInShell>
           </div>
         </div>
-        <CommandPalette />
+        {mustEnroll ? null : <CommandPalette />}
         <ShortcutsDialog />
         <AboutDialog />
       </JobsProvider>

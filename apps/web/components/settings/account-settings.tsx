@@ -5,7 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
-import { useCatalog, useSession } from "../../lib/session";
+import { mayRead, useCatalog, useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { ConfirmDialog } from "../shell/dialogs";
 import { NotebookPage, RuledSection } from "../shell/notebook-page";
@@ -24,7 +24,13 @@ export function AccountSettings() {
   const queryClient = useQueryClient();
   const session = useSession();
   const tokens = useQuery(api.auth.tokens.queryOptions());
-  const preferences = useQuery(api.notifications.preferences.queryOptions());
+  // Until the second factor the policy asks for is set up, the server
+  // answers about the account alone: nothing else is asked of it.
+  const reads = mayRead(session.data);
+  const preferences = useQuery({
+    ...api.notifications.preferences.queryOptions(),
+    enabled: reads,
+  });
   const [tokenName, setTokenName] = useState("");
   const [tokenBases, setTokenBases] = useState<string[]>([]);
   // A new token reads only unless asked, and one that writes does not
@@ -94,29 +100,31 @@ export function AccountSettings() {
           nameManaged={user.nameManaged}
         />
       </RuledSection>
-      <RuledSection title={t`Notifications`}>
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={preferences.data?.notifyByEmail ?? false}
-            disabled={!preferences.data}
-            onChange={(event) => {
-              const notifyByEmail = event.target.checked;
-              void run(async () => {
-                await trpc.notifications.setPreferences.mutate({
-                  notifyByEmail,
+      {reads ? (
+        <RuledSection title={t`Notifications`}>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={preferences.data?.notifyByEmail ?? false}
+              disabled={!preferences.data}
+              onChange={(event) => {
+                const notifyByEmail = event.target.checked;
+                void run(async () => {
+                  await trpc.notifications.setPreferences.mutate({
+                    notifyByEmail,
+                  });
+                  await queryClient.invalidateQueries({
+                    queryKey: api.notifications.preferences.queryKey(),
+                  });
                 });
-                await queryClient.invalidateQueries({
-                  queryKey: api.notifications.preferences.queryKey(),
-                });
-              });
-            }}
-          />
-          {t`Also send my notifications by email`}
-        </label>
-        <p className="text-xs text-muted-foreground">
-          {t`Mentions, replies, assignments, and alerts. The email only holds the table name and a link.`}
-        </p>
-      </RuledSection>
+              }}
+            />
+            {t`Also send my notifications by email`}
+          </label>
+          <p className="text-xs text-muted-foreground">
+            {t`Mentions, replies, assignments, and alerts. The email only holds the table name and a link.`}
+          </p>
+        </RuledSection>
+      ) : null}
       {user.hasPassword ? (
         <RuledSection
           title={t`Password`}
