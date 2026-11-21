@@ -241,7 +241,7 @@ function ValueInput({
         {choices.map((choice) => (
           <label
             key={choice.value}
-            className="flex items-center gap-1.5 text-xs"
+            className="flex min-h-6 items-center gap-1.5 text-xs"
           >
             <Checkbox
               checked={items.includes(choice.value)}

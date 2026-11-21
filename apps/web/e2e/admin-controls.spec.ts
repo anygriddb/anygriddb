@@ -168,6 +168,21 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
         .filter({ hasText: "Sign-up" }),
     ).toBeVisible();
 
+    // The trail's dates are typed part by part, each wide enough to
+    // press whatever a language writes in an empty one: French's day is
+    // "jj", half as wide as "dd".
+    const french = await browser.newContext({
+      ...from("198.51.100.30"),
+      locale: "fr-FR",
+      storageState: await page.context().storageState(),
+    });
+    const read = await french.newPage();
+    await read.goto("/admin/trails/sign-ins");
+    await read.getByRole("heading", { level: 1 }).waitFor();
+    await expect(read.getByRole("spinbutton").first()).toBeVisible();
+    expect(await accessibilityViolations(read)).toEqual([]);
+    await french.close();
+
     // The list shows 50 accounts a page, and the e2e database keeps every
     // run's: the account is looked up.
     await openAdmin(page, "People", "Accounts");

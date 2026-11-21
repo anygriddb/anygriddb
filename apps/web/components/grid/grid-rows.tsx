@@ -63,7 +63,7 @@ export function GridGroupRow(props: {
         <button
           type="button"
           aria-expanded={!folded}
-          className="sticky left-2 flex items-center gap-2"
+          className="sticky left-2 flex min-h-6 items-center gap-2"
           onClick={props.onFold}
         >
           {folded ? (

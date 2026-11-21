@@ -62,8 +62,10 @@ type DatePickerProps = {
   className?: string;
 };
 
+// Each part is a target of its own, 24 pixels wide at least (WCAG 2.2,
+// target size): French writes an empty day "jj", half as wide as "dd".
 const segmentClass =
-  "rounded px-0.5 tabular-nums outline-none data-[placeholder]:text-muted-foreground data-[type=literal]:px-0 data-[type=literal]:text-muted-foreground data-[focused]:bg-primary data-[focused]:text-primary-foreground data-[focused]:data-[placeholder]:text-primary-foreground";
+  "inline-block min-w-6 rounded px-0.5 text-center tabular-nums outline-none data-[placeholder]:text-muted-foreground data-[type=literal]:min-w-0 data-[type=literal]:px-0 data-[type=literal]:text-muted-foreground data-[focused]:bg-primary data-[focused]:text-primary-foreground data-[focused]:data-[placeholder]:text-primary-foreground";
 
 const navButton =
   "inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted data-[focus-visible]:outline-2 data-[focus-visible]:outline-ring";

@@ -80,6 +80,12 @@ first.
 - A page whose scripts do not arrive says so after a few seconds, in
   the reader's language, and offers to reload: it stayed blank, with no
   word, when a script was refused or lost on the way.
+- Small controls are 24 pixels to press, as WCAG 2.2 asks: each part
+  of a date as it is typed (an empty day in French, "jj", was 12 pixels
+  wide), the button that folds a group in a grid, an option of a
+  filter's list, and the navigation's small buttons (pin, menus). A
+  link in a sentence of Administration is underlined: in the dark theme
+  its colour alone did not tell it apart.
 
 ## 0.3.1 - 2026-11-20
 
