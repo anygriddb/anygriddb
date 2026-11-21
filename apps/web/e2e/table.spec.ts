@@ -788,9 +788,16 @@ test.describe("the grid", () => {
     const header = (label: string) =>
       page.getByRole("columnheader", { name: new RegExp(`^${label}`) });
     await expect(header("Amount")).toHaveAttribute("aria-colindex", "5");
+    const stored = page.waitForResponse(
+      (response) =>
+        response.url().includes("catalog.updateView") && response.ok(),
+    );
     await header("Amount").dragTo(header("Notes"));
     await expect(header("Amount")).toHaveAttribute("aria-colindex", "3");
     await expect(header("Notes")).toHaveAttribute("aria-colindex", "4");
+    // The page shows a change at once and saves it behind: what is asked
+    // of a reload is what was stored.
+    await stored;
     await page.reload();
     await expect(header("Amount")).toHaveAttribute("aria-colindex", "3");
     await expect(names.first()).toHaveCSS("height", "88px");
