@@ -9,7 +9,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
 import { useState } from "react";
 import { useChannel } from "../../lib/realtime";
-import { useSession } from "../../lib/session";
+import { mayRead, useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { useLingui } from "@lingui/react/macro";
 import {
@@ -31,7 +31,7 @@ export function NotificationBell() {
   const openNotification = useOpenNotification();
   const [open, setOpen] = useState(false);
   const options = api.notifications.list.queryOptions({ limit: 30 });
-  const list = useQuery({ ...options, enabled: Boolean(session.data) });
+  const list = useQuery({ ...options, enabled: mayRead(session.data) });
   const refresh = () =>
     queryClient.invalidateQueries({
       queryKey: api.notifications.list.queryKey(),

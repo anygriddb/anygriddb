@@ -45,6 +45,11 @@ first.
   each table, which inviting them again does not bring back.
   Administration already asked. Each bin is named after its member. A
   pending invitation that could not be revoked says why.
+- An account that must set up a second factor first, as a new
+  instance's first administrator must, no longer asks for the lists
+  every page shares before it has one. The server refused each: five
+  warnings in the instance's log on the first page of a new install,
+  and an error in the browser's console.
 - Adding the object store to an instance that runs
   (`-f compose.yml -f compose.s3.yml up -d`) no longer stops it. The
   stack's internal authority was made again with a new key to cover

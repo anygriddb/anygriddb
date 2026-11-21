@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "./errors";
+import { useMayRead } from "./session";
 import { trpc, useTRPC } from "./trpc";
 
 type PinTarget = { baseId: string } | { tableId: string };
@@ -11,7 +12,11 @@ export function useShortcuts() {
   const api = useTRPC();
   const queryClient = useQueryClient();
   const errorText = useErrorText();
-  const list = useQuery(api.shortcuts.list.queryOptions());
+  const reads = useMayRead();
+  const list = useQuery({
+    ...api.shortcuts.list.queryOptions(),
+    enabled: reads,
+  });
   const pinnedBases = new Set(list.data?.pinnedBases ?? []);
   const pinnedTables = new Set(list.data?.pinnedTables ?? []);
   const setPinned = useCallback(

@@ -49,9 +49,33 @@ test("the first account takes the operator's token", async ({ page }) => {
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page.getByText(/This install token is wrong/)).toBeVisible();
 
+  // The first account administers the instance, and the policy asks an
+  // administrator for a second factor before anything else. Until it is
+  // there the server refuses every list the pages share: the page asks
+  // for none of them, where it was refused four at once.
+  const asked: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith("/trpc/")) asked.push(path);
+  });
   await token.fill(installToken());
   await page.getByRole("button", { name: "Create account" }).click();
   await page.waitForURL(/\/welcome/);
+  await expect(
+    page.getByRole("button", { name: "Set up an authenticator app" }),
+  ).toBeVisible();
+  // The page is drawn: what it asks on arriving leaves within a turn.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        setTimeout(() => setTimeout(resolve, 0), 0);
+      }),
+  );
+  expect(
+    asked.filter((path) =>
+      /\b(catalog|jobs|notifications|shortcuts)\.list\b/.test(path),
+    ),
+  ).toEqual([]);
 
   // The form asks nobody else for it.
   await page.context().clearCookies();
