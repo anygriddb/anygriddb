@@ -161,7 +161,7 @@ function SidebarTableRow(props: {
         {manage ? (
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
+              className="-my-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
               aria-label={t`Table actions`}
             >
               <MoreHorizontal className="h-3.5 w-3.5" />
@@ -240,7 +240,7 @@ function PinButton(props: {
     <button
       type="button"
       className={cn(
-        "rounded p-0.5 text-muted-foreground hover:text-foreground focus:opacity-100",
+        "-my-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground focus:opacity-100",
         props.pinned ? "opacity-60" : "opacity-0 group-hover:opacity-100",
       )}
       aria-label={
@@ -966,7 +966,7 @@ function SidebarBase({
         <button
           type="button"
           aria-label={open ? t`Collapse` : t`Expand`}
-          className="rounded p-0.5 text-muted-foreground"
+          className="-my-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground"
           onClick={() =>
             setCollapsed((current) => {
               const next = new Set(current);
@@ -1002,7 +1002,7 @@ function SidebarBase({
         />
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
+            className="-my-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
             aria-label={t`Base actions`}
           >
             <MoreHorizontal className="h-4 w-4" />
@@ -1105,7 +1105,7 @@ function SidebarBase({
                 <div className="group flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm hover:bg-muted">
                   <button
                     type="button"
-                    className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                    className="-my-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
                     aria-expanded={folderOpen}
                     aria-label={
                       folderOpen
@@ -1137,7 +1137,7 @@ function SidebarBase({
                   {manage ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger
-                        className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        className="-my-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
                         aria-label={t`Folder actions`}
                       >
                         <MoreHorizontal className="h-3.5 w-3.5" />

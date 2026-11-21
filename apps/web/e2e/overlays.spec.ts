@@ -34,6 +34,15 @@ test("menus, submenus, a context menu, and a popover work from the keyboard", as
     ),
   ).toBe(true);
 
+  // Under the pointer, a base's line shows its small buttons (pin it,
+  // its menu): each is a target of 24 pixels.
+  await page
+    .getByRole("navigation", { name: "Bases" })
+    .getByRole("link", { name: "Lab", exact: true })
+    .hover();
+  await expect(page.getByRole("button", { name: "Pin Lab" })).toBeVisible();
+  expect(await accessibilityViolations(page)).toEqual([]);
+
   await page.getByRole("button", { name: "Menu User" }).click();
   await expect(page.getByRole("menu")).toBeVisible();
   await page.getByRole("menuitem", { name: "Theme" }).focus();

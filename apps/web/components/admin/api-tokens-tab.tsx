@@ -107,7 +107,7 @@ export function ApiTokensTab() {
         <p className="text-muted-foreground">
           {t`Its requests are described, in OpenAPI 3.1, at:`}{" "}
           <a
-            className="text-primary underline-offset-2 hover:underline"
+            className="text-primary underline underline-offset-2"
             href={document}
             target="_blank"
             rel="noreferrer"
