@@ -579,7 +579,7 @@ describe("buildHistogram", () => {
     expect(sql.text).toContain(`as "k0"`);
     expect(sql.text).toContain("count(*)");
     // Rows without a value are in no bin.
-    expect(sql.text).toContain("is null");
+    expect(sql.text).toContain(`q."price" is not null`);
   });
 
   it("puts every row in the first bin when all hold the same value", () => {

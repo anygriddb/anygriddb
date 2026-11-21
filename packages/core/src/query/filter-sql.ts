@@ -39,6 +39,11 @@ export type ColumnRef = {
    * bounds compare it as it is (`SqlDialect.comparesStoredDay`).
    */
   stored?: string;
+  /**
+   * Set where the store can hold a value this read cannot (`storedError`):
+   * the column of `q` that says so. Such a cell is not an empty one.
+   */
+  unread?: string;
 };
 
 export type FilterContext = {
@@ -91,7 +96,9 @@ export function emptySql(ref: ColumnRef, d: SqlDialect = POSTGRES): string {
     case "array":
       return `(coalesce(${d.listLength(x)}, 0) = 0)`;
     default:
-      return `(${x} is null)`;
+      return ref.unread
+        ? `(${x} is null and ${ref.unread} is null)`
+        : `(${x} is null)`;
   }
 }
 

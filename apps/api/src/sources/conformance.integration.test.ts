@@ -4144,6 +4144,70 @@ describe("conformance of formulas across engines", () => {
         const fine = page.rows.find((row) => row.id === "1");
         expect(Number(fine?.[float]), engine).toBe(2.5);
         expect(rowError(fine ?? {}, float), engine).toBeNull();
+
+        // A figure that needs it is empty, never one that leaves it out,
+        // and its cell is not counted as an empty one.
+        const figures = await aggregateRows(db, catalog, { timeZone: "UTC" }, [
+          { column: float, fn: "sum" },
+          { column: float, fn: "avg" },
+          { column: float, fn: "min" },
+          { column: float, fn: "max" },
+          { column: float, fn: "median" },
+          { column: float, fn: "count_unique" },
+          { column: float, fn: "count_empty" },
+          { column: float, fn: "count_filled" },
+        ]);
+        expect(figures.slice(0, 6), engine).toEqual([
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+        ]);
+        expect(figures.slice(6).map(Number), engine).toEqual([1, 2]);
+        // Without that row, the figure is the sum of what is left.
+        const [without] = await aggregateRows(
+          db,
+          catalog,
+          {
+            timeZone: "UTC",
+            excludeRowIds: ["2"],
+          },
+          [{ column: float, fn: "sum" }],
+        );
+        expect(Number(without), engine).toBe(2.5);
+        const empties = await readPage(
+          db,
+          catalog,
+          {
+            limit: 10,
+            timeZone: "UTC",
+            filter: {
+              conjunction: "and",
+              conditions: [{ column: float, op: "is_empty" }],
+            },
+          },
+          { total: false },
+        );
+        expect(
+          empties.rows.map((row) => row.id),
+          engine,
+        ).toEqual(["3"]);
+        const groups = await readTransaction(db, catalog, (run) =>
+          run(
+            buildGroupAggregates(
+              catalog,
+              { timeZone: "UTC" },
+              { groups: [whole], item: { column: float, fn: "sum" } },
+            ),
+          ),
+        );
+        expect(groups, engine).toHaveLength(3);
+        expect(
+          groups.flatMap((row) => (row.a0 === null ? [] : [Number(row.a0)])),
+          engine,
+        ).toEqual([2.5]);
       }
     }
   }, 600_000);
