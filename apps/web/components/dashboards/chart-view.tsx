@@ -436,11 +436,18 @@ export function chartOption(
     series: data.series.map((item, index) => {
       const radius = horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0];
       if (line) {
+        const labelled = data.series.length <= 4;
         return {
           type: "line",
           name: item.name,
           data: item.values,
           connectNulls: false,
+          // The end label follows a line as it appears, from its first
+          // point: with no value there, it has no place. Such a line is
+          // drawn at once, its label on its last value.
+          ...(labelled && (item.values[0] ?? null) === null
+            ? { animation: false }
+            : {}),
           ...(stacked && many ? { stack: "total" } : {}),
           lineStyle: { width: 2, cap: "round", join: "round" },
           symbol: "circle",
@@ -450,7 +457,7 @@ export function chartOption(
           ...(data.chartType === "area" ? { areaStyle: { opacity: 0.1 } } : {}),
           // A value at the end of each line, while lines stay few.
           endLabel: {
-            show: data.series.length <= 4,
+            show: labelled,
             color: colors.text,
             fontSize: 11,
             formatter: (params: { value: number | null }) =>

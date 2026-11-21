@@ -123,6 +123,26 @@ describe("chartOption", () => {
     }
   });
 
+  it("draws at once a labelled line that starts with no value", () => {
+    const animated = (values: Array<number | null>, others = 0) => {
+      const series = [
+        { name: "Line", values },
+        ...Array.from({ length: others }, (_, index) => ({
+          name: `Other ${String(index)}`,
+          values: [1, 2, 3, 4],
+        })),
+      ];
+      const option = chartOption(data({ chartType: "line", series }), context);
+      return (option.series as Array<{ animation?: boolean }>)[0]?.animation;
+    };
+    expect(animated([null, 2, 3, 4])).toBe(false);
+    // A line with a first value appears as any other, a gap further on
+    // or an empty end included.
+    expect(animated([1, null, 3, null])).toBeUndefined();
+    // Past four lines none has an end label, so nothing needs a place.
+    expect(animated([null, 2, 3, 4], 4)).toBeUndefined();
+  });
+
   it("draws no legend for a single series: its title names it", () => {
     const svg = drawn(
       data({
