@@ -32,6 +32,7 @@ import {
 } from "../components/admin/trail-search";
 import { useRememberedSearch } from "../lib/remembered-search";
 import { AuthPage } from "../components/auth/auth-page";
+import { InBase } from "../components/shell/in-base";
 import { NotFound } from "../components/shell/not-found";
 import { PageCrashed } from "../components/shell/page-crashed";
 import { reportFailure } from "../lib/report-failure";
@@ -584,9 +585,11 @@ const baseRoute = createRoute({
     const { baseId } = baseRoute.useParams();
     // A column, so the page's own spinner stays in the middle.
     return (
-      <div className="flex flex-1 flex-col overflow-y-auto">
-        <BaseHome baseId={baseId} />
-      </div>
+      <InBase baseId={baseId}>
+        <div className="flex flex-1 flex-col overflow-y-auto">
+          <BaseHome baseId={baseId} />
+        </div>
+      </InBase>
     );
   },
 });
@@ -597,9 +600,11 @@ const baseApiRoute = createRoute({
   component: function BaseApi() {
     const { baseId } = baseApiRoute.useParams();
     return (
-      <div className="flex-1 overflow-y-auto">
-        <ApiDocs baseId={baseId} />
-      </div>
+      <InBase baseId={baseId}>
+        <div className="flex-1 overflow-y-auto">
+          <ApiDocs baseId={baseId} />
+        </div>
+      </InBase>
     );
   },
 });
@@ -610,9 +615,11 @@ const baseSettingsRoute = createRoute({
   component: function BaseSettingsPage() {
     const { baseId } = baseSettingsRoute.useParams();
     return (
-      <div className="flex-1 overflow-y-auto">
-        <BaseSettings baseId={baseId} />
-      </div>
+      <InBase baseId={baseId}>
+        <div className="flex-1 overflow-y-auto">
+          <BaseSettings baseId={baseId} />
+        </div>
+      </InBase>
     );
   },
 });
@@ -623,9 +630,11 @@ const baseActivityRoute = createRoute({
   component: function BaseActivityPage() {
     const { baseId } = baseActivityRoute.useParams();
     return (
-      <div className="flex-1 overflow-y-auto">
-        <BaseActivity baseId={baseId} />
-      </div>
+      <InBase baseId={baseId}>
+        <div className="flex-1 overflow-y-auto">
+          <BaseActivity baseId={baseId} />
+        </div>
+      </InBase>
     );
   },
 });
@@ -636,9 +645,11 @@ const dashboardsRoute = createRoute({
   component: function Dashboards() {
     const { baseId } = dashboardsRoute.useParams();
     return (
-      <div className="flex-1 overflow-y-auto">
-        <DashboardList baseId={baseId} />
-      </div>
+      <InBase baseId={baseId}>
+        <div className="flex-1 overflow-y-auto">
+          <DashboardList baseId={baseId} />
+        </div>
+      </InBase>
     );
   },
 });
@@ -648,7 +659,11 @@ const dashboardRoute = createRoute({
   path: "/b/$baseId/dashboards/$dashboardId",
   component: function Dashboard() {
     const { baseId, dashboardId } = dashboardRoute.useParams();
-    return <DashboardBoard baseId={baseId} dashboardId={dashboardId} />;
+    return (
+      <InBase baseId={baseId}>
+        <DashboardBoard baseId={baseId} dashboardId={dashboardId} />
+      </InBase>
+    );
   },
 });
 
@@ -669,13 +684,15 @@ const tableRoute = createRoute({
     const { baseId, tableId, viewId } = tableRoute.useParams();
     const { row } = tableRoute.useSearch();
     return (
-      <TableWorkspace
-        key={tableId}
-        baseId={baseId}
-        tableId={tableId}
-        viewId={viewId}
-        rowId={row}
-      />
+      <InBase baseId={baseId}>
+        <TableWorkspace
+          key={tableId}
+          baseId={baseId}
+          tableId={tableId}
+          viewId={viewId}
+          rowId={row}
+        />
+      </InBase>
     );
   },
 });

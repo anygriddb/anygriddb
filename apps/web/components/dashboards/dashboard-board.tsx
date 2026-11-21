@@ -70,7 +70,7 @@ import { tableTakesUndo, undoShortcut } from "../../lib/keyboard-undo";
 import { useLingui } from "@lingui/react/macro";
 import { AGGREGATE_LABELS } from "../../lib/aggregate-labels";
 import { raw } from "../../lib/known-text";
-import { useErrorText } from "../../lib/errors";
+import { reasonOf, useErrorText } from "../../lib/errors";
 import {
   formatAggregate,
   formatInstant,
@@ -319,16 +319,21 @@ function DashboardEditor(props: { baseId: string; dashboardId: string }) {
       </div>
     );
   }
+  // A dashboard that is not there, or no longer: said so, where trying
+  // again could only be refused again.
+  if (
+    !board.data &&
+    (!board.isError || reasonOf(board.error).code === "unknown_dashboard")
+  ) {
+    return (
+      <p className="p-6 text-sm text-muted-foreground">
+        {t`This dashboard does not exist.`}
+      </p>
+    );
+  }
   if (board.isError) {
     return (
       <LoadFailed error={board.error} onRetry={() => void board.refetch()} />
-    );
-  }
-  if (!board.data) {
-    return (
-      <p className="p-6 text-sm text-muted-foreground">
-        {t`Dashboard not found`}
-      </p>
     );
   }
 

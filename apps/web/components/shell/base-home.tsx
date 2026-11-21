@@ -1,4 +1,4 @@
-import { Button, Spinner } from "@anygriddb/ui";
+import { Button } from "@anygriddb/ui";
 import {
   Code2,
   History,
@@ -18,7 +18,6 @@ import { trpc } from "../../lib/trpc";
 import { canManage } from "../../lib/types";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
-import { LoadFailed } from "./load-failed";
 import { NewTableDialog } from "./new-table-dialog";
 import { EmptyState, NotebookPage } from "./notebook-page";
 import { useInvalidateCatalog } from "./sidebar";
@@ -42,28 +41,8 @@ export function BaseHome({ baseId }: { baseId: string }) {
     .filter((item) => item.base.id === baseId)
     .slice(0, 6);
 
-  if (!catalog.data) {
-    if (catalog.isError) {
-      return (
-        <LoadFailed
-          error={catalog.error}
-          onRetry={() => void catalog.refetch()}
-        />
-      );
-    }
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <Spinner />
-      </div>
-    );
-  }
-  if (!base) {
-    return (
-      <p className="p-6 text-sm text-muted-foreground">
-        {t`This base does not exist or is not shared with you.`}
-      </p>
-    );
-  }
+  // Drawn inside `InBase`: the catalog is read, and holds the base.
+  if (!base) return null;
 
   return (
     <NotebookPage
