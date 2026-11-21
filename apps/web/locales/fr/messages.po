@@ -10575,7 +10575,7 @@ msgstr "Arrêtez d’abord d’agir en tant que l’autre personne"
 
 #: lib/errors.ts
 msgid "Stop acting as this person before starting this: it would run with your own rights"
-msgstr "Arrêtez d’agir en tant que cette personne avant de lancer ceci : l’opération s’exécuterait avec vos propres droits"
+msgstr "Arrêtez d’agir en tant que cette personne avant de lancer ceci : l’opération s’exécuterait avec vos propres droits"
 
 #: lib/errors.ts
 msgid "Stop acting as this person before using Administration"
