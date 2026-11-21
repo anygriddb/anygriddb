@@ -1,16 +1,29 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import type { Database } from "@anygriddb/db";
+import {
+  DummyDriver,
+  Kysely,
+  PostgresAdapter,
+  PostgresDialect,
+  PostgresIntrospector,
+  PostgresQueryCompiler,
+} from "kysely";
 import type pg from "pg";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   routeLabel,
   measureJob,
   measureSource,
   metricsAllowed,
+  registerDatabaseReachableGauge,
+  registerDatabaseSizeGauge,
   registerPoolGauge,
+  registerQueueGauge,
   registerWebsocketGauge,
   registry,
   requestAnswered,
+  scrapeReader,
   startTracing,
   watchQueries,
 } from "./observability.js";
@@ -159,6 +172,146 @@ describe("metrics", () => {
       stop();
       vi.useRealTimers();
     }
+  });
+
+  describe("a read made for a scrape", () => {
+    /** A read the test answers by hand. */
+    const held = <T>() => {
+      let answer: (value: T) => void = () => undefined;
+      let refuse: (error: Error) => void = () => undefined;
+      const promise = new Promise<T>((resolve, reject) => {
+        answer = resolve;
+        refuse = reject;
+      });
+      return { promise, answer, refuse };
+    };
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("gives what the database answered, nothing when it failed", async () => {
+      const read = scrapeReader<number>();
+      await expect(read(() => Promise.resolve(1))).resolves.toBe(1);
+      await expect(
+        read(() => Promise.reject(new Error("down"))),
+      ).resolves.toBeUndefined();
+    });
+
+    it("stops waiting at its limit, and asks once while a read runs", async () => {
+      const read = scrapeReader<number>(5);
+      const hung = vi.fn(() => new Promise<number>(() => undefined));
+      await expect(read(hung)).resolves.toBeUndefined();
+      await expect(read(hung)).resolves.toBeUndefined();
+      expect(hung).toHaveBeenCalledTimes(1);
+    });
+
+    it("gives a slow read's answer to the next scrape", async () => {
+      const read = scrapeReader<number>(5);
+      const slow = held<number>();
+      await expect(read(() => slow.promise)).resolves.toBeUndefined();
+      slow.answer(7);
+      await slow.promise;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const next = vi.fn(() => new Promise<number>(() => undefined));
+      await expect(read(next)).resolves.toBe(7);
+      // Two scrapers of one instance both get it.
+      await expect(read(next)).resolves.toBe(7);
+    });
+
+    it("does not give a late answer once it is old", async () => {
+      vi.useFakeTimers();
+      const read = scrapeReader<number>(5);
+      const slow = held<number>();
+      const first = read(() => slow.promise);
+      await vi.advanceTimersByTimeAsync(5);
+      await first;
+      slow.answer(7);
+      await vi.advanceTimersByTimeAsync(121_000);
+      const second = read(() => new Promise<number>(() => undefined));
+      await vi.advanceTimersByTimeAsync(5);
+      await expect(second).resolves.toBeUndefined();
+    });
+
+    it("does not call a database that stopped answering reachable", async () => {
+      const read = scrapeReader<number>(5);
+      await expect(read(() => Promise.resolve(1))).resolves.toBe(1);
+      await expect(
+        read(() => new Promise<number>(() => undefined)),
+      ).resolves.toBeUndefined();
+    });
+
+    it("drops a late answer when the read after it fails", async () => {
+      const read = scrapeReader<number>(5);
+      const slow = held<number>();
+      await read(() => slow.promise);
+      slow.answer(7);
+      await slow.promise;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await expect(
+        read(() => Promise.reject(new Error("down"))),
+      ).resolves.toBeUndefined();
+      await expect(
+        read(() => new Promise<number>(() => undefined)),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe("the series read from the database", () => {
+    const names = [
+      "anygriddb_queue_jobs",
+      "anygriddb_database_size_bytes",
+      "anygriddb_database_reachable",
+    ];
+    const register = (db: Database) => {
+      registerQueueGauge(db);
+      registerDatabaseSizeGauge(db);
+      registerDatabaseReachableGauge(db);
+    };
+    afterEach(() => {
+      for (const name of names) registry.removeSingleMetric(name);
+    });
+
+    it("say the database answers", async () => {
+      register(
+        new Kysely<never>({
+          dialect: {
+            createAdapter: () => new PostgresAdapter(),
+            createDriver: () => new DummyDriver(),
+            createIntrospector: (db) => new PostgresIntrospector(db),
+            createQueryCompiler: () => new PostgresQueryCompiler(),
+          },
+        }) as unknown as Database,
+      );
+      const text = await registry.metrics();
+      expect(text).toContain("anygriddb_database_reachable 1");
+      expect(text).toContain('anygriddb_queue_jobs{state="ready"} 0');
+    });
+
+    it("leave the scrape standing when it does not", async () => {
+      const error = vi.spyOn(console, "error").mockReturnValue();
+      register(
+        new Kysely<never>({
+          dialect: new PostgresDialect({
+            pool: {
+              connect: () => Promise.reject(new Error("down")),
+              end: () => Promise.resolve(),
+            } as never,
+          }),
+        }) as unknown as Database,
+      );
+      try {
+        const text = await registry.metrics();
+        expect(text).toContain("anygriddb_database_reachable 0");
+        expect(text).toContain("anygriddb_build_info");
+        expect(text).not.toContain('anygriddb_queue_jobs{state="ready"}');
+        // A second scrape of the same outage says nothing more.
+        await registry.metrics();
+        expect(error).toHaveBeenCalledTimes(1);
+      } finally {
+        error.mockRestore();
+      }
+    });
   });
 
   it("counts requests by route pattern, sources and jobs by outcome", async () => {
