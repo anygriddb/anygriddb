@@ -8,15 +8,47 @@ first.
 
 ## Unreleased
 
+## 0.3.4 - 2026-11-21
+
+**Before upgrading:** nothing to do. Afterwards, a notification channel
+whose address redirects to another host needs its final address, and a
+trace collector saved on a private address runs only while private
+notification targets are allowed.
+
+### Security
+
+- An administrator acting as someone is held to that person's field and
+  row rules on every route, and has none of an administrator's powers
+  meanwhile. A job cannot be started while acting. Acting ends when the
+  administrator loses that role, and an open socket follows.
+- Revoking an OAuth access token ends its grant. A code not yet exchanged
+  no longer survives a password change or a revocation of tokens.
+- A notification channel's credentials stay with the host they were
+  entered for: a redirect to another host is not followed, and moving a
+  channel to another host asks for its secret again.
+- A trace collector saved in Administration is held to the address checks
+  of every notification channel, at each connection.
+- A public link no longer names the fields it hides.
+
+### Fixed
+
+- A figure that needs a float too large to read is left empty: it was
+  computed without that value, and showed a wrong total. Such a cell is
+  no longer counted as empty.
+- An Oracle table opens whatever types it holds. ROWID, XML and vectors
+  read as text; LONG, BFILE and a type of the client's own say their type
+  in the cell. A float too large to read keeps its first character there.
+- A chart offers only the fields it can group by.
+- A formula can be duplicated on any client table.
+
 ### Changed
 
 - When a source's host is outside `ANYGRIDDB_SOURCES_ALLOWED_HOSTS`,
   Administration → Sources says what that leaves (tables that cannot be
   read, tables on their last copy, bases held there) and marks blocked
-  hosts, a replica's included. Tables, bases, and dashboards that depend on them stay visible
-  with a clear note: live tables cannot reach the client; synced tables
-  keep serving their last copy with refresh paused. Emptying the allow
-  list is documented the same way in `docs/sources.md`.
+  hosts, a replica's included. Tables, bases and dashboards that depend
+  on them stay visible with a clear note. Emptying the allow list is
+  documented the same way in `docs/sources.md`.
 
 ## 0.3.3 - 2026-11-21
 
