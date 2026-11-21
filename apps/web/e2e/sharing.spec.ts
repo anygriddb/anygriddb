@@ -476,15 +476,17 @@ test("a table's webhook is tested, delivers a new row, and is deleted once confi
   await expect(page.getByText(/^Test sent/)).toBeVisible();
   const sent = await mailedMessage(address, "test");
   expect(sent.subject).toContain("Orders to the desk");
-  // A row made in the table is delivered, and the log says both.
+  // A row made in the table is delivered, and the log, left open, says
+  // so by itself: a delivery is written a moment after its row, so a
+  // log read once showed the test alone until it was opened again.
+  await hook.getByRole("button", { name: "Delivery log" }).click();
+  const log = page.getByRole("dialog", { name: "Delivery log" });
+  await expect(log.getByRole("cell", { name: "Test" })).toBeVisible();
   const made = await page.request.post("/trpc/rows.insertMany", {
     data: { tableId, rows: [{ name: "An order" }] },
   });
   expect(made.ok(), await made.text()).toBe(true);
-  await hook.getByRole("button", { name: "Delivery log" }).click();
-  const log = page.getByRole("dialog", { name: "Delivery log" });
   await expect(log.getByRole("cell", { name: "Creation" })).toBeVisible();
-  await expect(log.getByRole("cell", { name: "Test" })).toBeVisible();
   expect(await accessibilityViolations(page)).toEqual([]);
   await log.getByRole("button", { name: "Close" }).first().click();
 

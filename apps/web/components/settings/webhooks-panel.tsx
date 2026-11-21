@@ -59,7 +59,9 @@ function DeliveriesDialog(props: { webhookId: string; onClose: () => void }) {
     webhookId: props.webhookId,
     limit: 50,
   });
-  const deliveries = useQuery(options);
+  // A delivery is written a moment after its row, then tried, and tried
+  // again when it fails: the log is read again while it is open.
+  const deliveries = useQuery({ ...options, refetchInterval: 5_000 });
   const columns = useColumnSort<"date" | "event" | "result" | "attempts">();
   const rows = sortRows(
     deliveries.data?.deliveries ?? [],

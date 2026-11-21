@@ -45,6 +45,11 @@ first.
   automation asks first too: its steps, the secrets it keeps, and the
   record of its runs went with one click. The buttons of an
   automation's line say what they do.
+- A webhook's delivery log follows its deliveries while it is open:
+  it is read again every few seconds. Read once, it missed a delivery
+  written a moment after its row, and went on saying "Retry scheduled"
+  of one that had since been sent, until it was closed and opened
+  again.
 - A chart of several lines, or of several areas, names each of them in
   its legend. The names were all drawn on one corner, one over the
   other, with no mark beside them: nothing said which line was which.
