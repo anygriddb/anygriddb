@@ -14,6 +14,11 @@ first.
   that holds its rows takes the keyboard, and shows that it has it. A
   view drawn as cards holds nothing to focus, so more rows than the
   window shows were reached with a pointer only.
+- Email settings a mail relay refuses say why: nothing answers at
+  this host and port, the connection cannot be encrypted and verified
+  (no STARTTLS, a certificate the instance does not trust, a port that
+  speaks no TLS), or the account is refused. Each read "Invalid email
+  settings: check the host, port, and password", whichever it was.
 
 ## 0.3.2 - 2026-11-21
 

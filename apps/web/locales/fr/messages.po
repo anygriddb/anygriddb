@@ -7408,6 +7408,10 @@ msgstr "Aucune ligne ne correspond à cette recherche."
 msgid "No longer an administrator"
 msgstr "N’est plus administrateur"
 
+#: lib/errors.ts
+msgid "No mail relay answers at this host and port"
+msgstr "Aucun relais de courrier ne répond à cet hôte et sur ce port"
+
 #: components/fields/cell-editor.tsx
 msgid "No matching row"
 msgstr "Aucune ligne correspondante"
@@ -11037,6 +11041,10 @@ msgstr "Le code par email est désactivé"
 msgid "The code could not be sent: try again in a minute, or use a backup code"
 msgstr "Le code n’a pas pu être envoyé : réessayez dans une minute, ou utilisez un code de secours"
 
+#: lib/errors.ts
+msgid "The connection to the mail relay cannot be encrypted and verified: 465 for TLS from the start, or 587 with STARTTLS, and a certificate this instance trusts"
+msgstr "La connexion au relais de courrier ne peut pas être chiffrée et vérifiée : 465 pour TLS dès le départ, ou 587 avec STARTTLS, et un certificat que cette instance reconnaît"
+
 #: components/table/empty-table-hint.tsx
 #: components/table/table-header.tsx
 msgid "The copy has not arrived. The table stays empty until then."
@@ -11269,6 +11277,10 @@ msgstr "Le journal montre qui a changé quels champs. Les valeurs restent visibl
 #: components/admin/identity-tab.tsx
 msgid "The logo in use"
 msgstr "Le logo utilisé"
+
+#: lib/errors.ts
+msgid "The mail relay refused the username or the password"
+msgstr "Le relais de courrier a refusé le compte ou le mot de passe"
 
 #: components/fields/formula-docs.ts
 msgid "The mean of the numbers given."

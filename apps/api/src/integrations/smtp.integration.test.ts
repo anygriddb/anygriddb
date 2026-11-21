@@ -119,7 +119,7 @@ describe("operator SMTP", () => {
           fromAddress: "broken@example.org",
         }),
       ),
-    ).toBe("invalid_smtp");
+    ).toBe("smtp_unreachable");
     const kept = await admin.call().admin.smtp.get();
     expect(kept.fromAddress).toBe("grid@example.org");
     expect(kept.port).toBe(smtp.port);

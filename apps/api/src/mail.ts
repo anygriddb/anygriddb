@@ -94,6 +94,34 @@ export async function sendMail(
 }
 
 /**
+ * What a mail server's refusal is called, from the mail library's code
+ * for it: nothing answers, the connection cannot be encrypted and
+ * verified, or the account is refused. Told "invalid settings" for all
+ * three, an administrator checks the password of a server whose
+ * certificate was the matter.
+ */
+export function smtpRefusal(
+  error: unknown,
+): "smtp_unreachable" | "smtp_tls" | "smtp_account" | "invalid_smtp" {
+  const { code, syscall } =
+    error && typeof error === "object"
+      ? (error as { code?: unknown; syscall?: unknown })
+      : {};
+  if (code === "EAUTH") return "smtp_account";
+  if (code === "ETLS") return "smtp_tls";
+  // A socket the system refused (nothing listens, no route) never reached
+  // the server. One that fails with nothing of the system in it failed
+  // in TLS: a certificate that is not trusted, a port that speaks none.
+  if (code === "ESOCKET") {
+    return typeof syscall === "string" ? "smtp_unreachable" : "smtp_tls";
+  }
+  if (code === "EDNS" || code === "ETIMEDOUT" || code === "ECONNECTION") {
+    return "smtp_unreachable";
+  }
+  return "invalid_smtp";
+}
+
+/**
  * Asks the relay to prove it takes mail with these settings: it answers,
  * speaks TLS, and accepts the account. Nothing is sent.
  */
@@ -106,7 +134,7 @@ export async function verifySmtp(config: SmtpConfig): Promise<void> {
   try {
     await transport.verify();
   } catch (error) {
-    throw new AppError("invalid_smtp", {
+    throw new AppError(smtpRefusal(error), {
       cause: error instanceof Error ? error : undefined,
     });
   } finally {
