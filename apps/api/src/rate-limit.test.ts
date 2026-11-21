@@ -47,8 +47,10 @@ describe("rateBucket", () => {
     expect(rateBucket("GET", "/auth/saml/start")).toBe("signOn");
     expect(rateBucket("POST", "/auth/saml/acs")).toBe("signOn");
     expect(RATE_LIMITS.signOn).toBeGreaterThan(RATE_LIMITS.auth);
-    expect(rateBucket("POST", "/oauth/token")).toBe("auth");
-    expect(rateBucket("POST", "/oauth/revoke")).toBe("auth");
+    expect(rateBucket("POST", "/oauth/token")).toBe("oauth");
+    expect(rateBucket("POST", "/oauth/revoke")).toBe("oauth");
+    expect(RATE_LIMITS.oauth).toBeGreaterThan(RATE_LIMITS.auth);
+    expect(RATE_LIMITS.oauth).toBeLessThan(RATE_LIMITS.api);
     expect(rateBucket("GET", "/oauth/authorize?client_id=x")).toBe("app");
 
     expect(rateBucket("GET", "/trpc/share.rows?input=x")).toBe("share");
@@ -173,5 +175,50 @@ describe("registerRateLimit", () => {
     expect(over.statusCode).toBe(429);
     expect(over.json()).toMatchObject({ error: "Too many requests" });
     await server.close();
+  });
+});
+
+describe("an application's calls and people's sign-ins", () => {
+  async function server() {
+    const app = Fastify();
+    await registerRateLimit(app);
+    app.post("/oauth/token", () => ({ ok: true }));
+    app.post("/trpc/auth.login", () => ({ ok: true }));
+    await app.ready();
+    return app;
+  }
+
+  it("lets a backend renew more grants than a person may sign in", async () => {
+    const app = await server();
+    try {
+      for (let call = 0; call <= RATE_LIMITS.auth; call += 1) {
+        const answer = await app.inject({
+          method: "POST",
+          url: "/oauth/token",
+        });
+        expect(answer.statusCode, `call ${String(call)}`).toBe(200);
+      }
+      // Those calls took nothing from the people behind the same address.
+      const signIn = await app.inject({
+        method: "POST",
+        url: "/trpc/auth.login",
+      });
+      expect(signIn.statusCode).toBe(200);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("still stops an address that goes past its own limit", async () => {
+    const app = await server();
+    try {
+      for (let call = 0; call < RATE_LIMITS.oauth; call += 1) {
+        await app.inject({ method: "POST", url: "/oauth/token" });
+      }
+      const past = await app.inject({ method: "POST", url: "/oauth/token" });
+      expect(past.statusCode).toBe(429);
+    } finally {
+      await app.close();
+    }
   });
 });

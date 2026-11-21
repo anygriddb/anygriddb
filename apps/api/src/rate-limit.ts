@@ -4,6 +4,7 @@ import { publicErrorBody } from "./http.js";
 
 type RateBucket =
   | "auth"
+  | "oauth"
   | "signOn"
   | "share"
   | "api"
@@ -15,6 +16,10 @@ type RateBucket =
 /** Requests allowed per minute and per client address, by bucket. */
 export const RATE_LIMITS: Record<RateBucket, number> = {
   auth: 20,
+  // An application's backend, which renews the grants of all its people
+  // from one address. Its secret is long and random, not a password to
+  // guess: what this holds back is the work of checking it.
+  oauth: 120,
   // The way to an identity provider and back: two requests a sign-in, and
   // the people of an office, behind one address, arrive together.
   signOn: 300,
@@ -84,7 +89,7 @@ export function rateBucket(method: string, url: string): RateBucket {
   // No password is checked there: the provider does it.
   if (path.startsWith("/auth/")) return "signOn";
   // An application's secret is checked at these two (ADR 0094).
-  if (path === "/oauth/token" || path === "/oauth/revoke") return "auth";
+  if (path === "/oauth/token" || path === "/oauth/revoke") return "oauth";
   // Public addresses a token opens, as public shares are.
   if (path.startsWith("/hooks/") || path.startsWith("/ical/")) return "share";
   if (
