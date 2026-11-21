@@ -450,7 +450,7 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
                 canAdd={canAdd}
                 canDelete={canDelete}
                 canManage={canManage(role)}
-                canDuplicateField={!external || external.enrichable}
+                tableKeepsValues={!external || external.enrichable}
                 aggregations={aggregates.aggregations}
                 aggregateValues={aggregates.values}
                 presence={presence.filter(

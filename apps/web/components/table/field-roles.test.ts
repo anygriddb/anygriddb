@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CatalogColumn } from "../../lib/types";
 import {
   canDateBy,
+  canDuplicate,
   canGroupBy,
   canSortBy,
   canStackBy,
@@ -38,6 +39,16 @@ describe("what a field can do for a view", () => {
     } as CatalogColumn;
     expect(canSortBy(links)).toBe(true);
     expect(canGroupBy(links)).toBe(false);
+  });
+
+  it("duplicates a formula on any table, a stored field where it is kept", () => {
+    const formula = field("total", "formula", "number");
+    expect(canDuplicate(formula, false)).toBe(true);
+    expect(canDuplicate(name, true)).toBe(true);
+    expect(canDuplicate(name, false)).toBe(false);
+    expect(canDuplicate(field("made", "created_at", "datetime"), true)).toBe(
+      false,
+    );
   });
 
   it("sorts and groups rows, files apart, which make no group", () => {

@@ -1,3 +1,4 @@
+import { isWritableType } from "@anygriddb/core";
 import type { CatalogColumn } from "../../lib/types";
 
 /**
@@ -27,6 +28,20 @@ export function canGroupBy(column: CatalogColumn): boolean {
 /** A kanban can stack its cards by the field: a list of one option. */
 export function canStackBy(column: CatalogColumn): boolean {
   return column.fieldType === "single_select" && canGroupBy(column);
+}
+
+/**
+ * The field can be duplicated. A formula stores nothing, so any table takes
+ * its copy; a field that stores values needs a table that can keep them.
+ */
+export function canDuplicate(
+  column: CatalogColumn,
+  tableKeepsValues: boolean,
+): boolean {
+  return (
+    column.fieldType === "formula" ||
+    (tableKeepsValues && isWritableType(column.fieldType))
+  );
 }
 
 /** A calendar or a timeline can place rows by the field: a day or a moment. */

@@ -27,11 +27,11 @@ import {
   Trash2,
   TriangleAlert,
 } from "lucide-react";
-import { isPrimaryType, isWritableType } from "@anygriddb/core";
+import { isPrimaryType } from "@anygriddb/core";
 import { useRef, useState } from "react";
 import type { CatalogColumn } from "../../lib/types";
 import { FieldIcon } from "../fields/field-meta";
-import { canGroupBy, canSortBy } from "../table/field-roles";
+import { canDuplicate, canGroupBy, canSortBy } from "../table/field-roles";
 import { ResizeHandle } from "../shell/resize-handle";
 import { distinctLimits, useLimitText } from "../../lib/limits";
 import { plural } from "@lingui/core/macro";
@@ -58,8 +58,8 @@ export function GridHeader(props: {
   padStart: number;
   width: number;
   canManage: boolean;
-  /** The table can take a field of AnyGridDB's own, as a copy is. */
-  canDuplicateField: boolean;
+  /** The table can keep the values of a field of AnyGridDB's own. */
+  tableKeepsValues: boolean;
   allChecked: boolean;
   /** How many loaded rows the header checkbox selects (not the whole view). */
   loadedCount: number;
@@ -181,9 +181,7 @@ export function GridHeader(props: {
                   <ArrowRightToLine className="h-4 w-4" aria-hidden />
                   {t`Insert right`}
                 </DropdownMenuItem>
-                {props.canDuplicateField &&
-                (isWritableType(column.fieldType) ||
-                  column.fieldType === "formula") ? (
+                {canDuplicate(column, props.tableKeepsValues) ? (
                   <DropdownMenuItem
                     onSelect={() => props.onAction("duplicate", column, index)}
                   >
