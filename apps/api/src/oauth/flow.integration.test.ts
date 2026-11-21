@@ -192,6 +192,23 @@ describe("oauth authorization code", () => {
     expect(await refusal(exchange(code))).toBe("invalid_input");
   });
 
+  it("refuses to register an address a code must not go back to", async () => {
+    for (const uri of [
+      "https://app.example.org/back#part",
+      "https://app.example.org/back#",
+      "https://someone:secret@app.example.org/back",
+      "http://app.example.org/back",
+      "javascript:alert(1)",
+    ]) {
+      await expect(
+        registerOauthClient(db, admin, {
+          name: "Refused",
+          redirectUris: [uri],
+        }),
+      ).rejects.toMatchObject({ code: "invalid_input" });
+    }
+  });
+
   it("gives one pair of tokens when a code is exchanged twice at once", async () => {
     const { code } = await consent();
     const answers = await Promise.allSettled([exchange(code), exchange(code)]);

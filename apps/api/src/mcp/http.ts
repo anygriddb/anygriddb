@@ -105,6 +105,10 @@ export function registerMcp(app: FastifyInstance, deps: Deps): void {
   };
 
   app.post("/mcp", handle);
-  app.get("/mcp", handle);
-  app.delete("/mcp", handle);
+  // Each call stands alone: there is no stream to open and no session to
+  // end, and a stream opened here would hold its connection for nothing.
+  const onlyPost = (_request: FastifyRequest, reply: FastifyReply) =>
+    reply.code(405).header("allow", "POST").send();
+  app.get("/mcp", onlyPost);
+  app.delete("/mcp", onlyPost);
 }

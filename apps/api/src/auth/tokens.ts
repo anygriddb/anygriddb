@@ -36,6 +36,15 @@ export type TokenScope = {
   allowDelete: boolean;
 };
 
+/**
+ * Whether a request names an API token. It then answers for that token: one
+ * that no longer works is refused, whatever session the browser also holds.
+ * Another scheme is not ours: a proxy's Basic sign-in travels in this header.
+ */
+export function namesApiToken(header: string | undefined): boolean {
+  return header?.startsWith("Bearer ") === true;
+}
+
 /** Resolves a bearer token to its owner and scope. Refreshes `last_used_at` at most once a minute. */
 export async function findApiToken(
   db: Database,
