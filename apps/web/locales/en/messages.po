@@ -6584,6 +6584,10 @@ msgstr "lookup carried over as values"
 msgid "Lost your authenticator? Use a backup code"
 msgstr "Lost your authenticator? Use a backup code"
 
+#: components/settings/base-settings.tsx
+msgid "Lower my role"
+msgstr "Lower my role"
+
 #: components/admin/sign-in-trail.tsx
 msgid "Made an administrator"
 msgstr "Made an administrator"
@@ -10521,6 +10525,10 @@ msgstr "Stop acting as the other person first"
 msgid "Stop acting as this person before using Administration"
 msgstr "Stop acting as this person before using Administration"
 
+#: components/settings/base-settings.tsx
+msgid "Stop being an owner of {base}?"
+msgstr "Stop being an owner of {base}?"
+
 #: components/admin/auth-labels.ts
 msgid "Stopped acting as this person"
 msgstr "Stopped acting as this person"
@@ -13249,6 +13257,10 @@ msgstr "You are acting as {0} until {until}."
 #: components/shell/pending-invitations.tsx
 msgid "You are invited to {base} as {role}"
 msgstr "You are invited to {base} as {role}"
+
+#: components/settings/base-settings.tsx
+msgid "You become its {role} at once, and no longer manage it: its members, its settings, its tables and their fields. Only another owner can make you an owner again."
+msgstr "You become its {role} at once, and no longer manage it: its members, its settings, its tables and their fields. Only another owner can make you an owner again."
 
 #: components/table/import-dialog.tsx
 msgid "You can close this window: the import goes on and stays in the jobs menu."

@@ -6584,6 +6584,10 @@ msgstr "recherche reprise en valeurs"
 msgid "Lost your authenticator? Use a backup code"
 msgstr "Authentificateur perdu ? Utilisez un code de secours"
 
+#: components/settings/base-settings.tsx
+msgid "Lower my role"
+msgstr "Baisser mon rôle"
+
 #: components/admin/sign-in-trail.tsx
 msgid "Made an administrator"
 msgstr "Nommé administrateur"
@@ -10521,6 +10525,10 @@ msgstr "Arrêtez d’abord d’agir en tant que l’autre personne"
 msgid "Stop acting as this person before using Administration"
 msgstr "Arrêtez d’agir en tant que cette personne avant d’utiliser l’administration"
 
+#: components/settings/base-settings.tsx
+msgid "Stop being an owner of {base}?"
+msgstr "Ne plus être propriétaire de {base} ?"
+
 #: components/admin/auth-labels.ts
 msgid "Stopped acting as this person"
 msgstr "A cessé d’agir en tant que cette personne"
@@ -13249,6 +13257,10 @@ msgstr "Vous agissez en tant que {0} jusqu’à {until}."
 #: components/shell/pending-invitations.tsx
 msgid "You are invited to {base} as {role}"
 msgstr "Vous êtes invité sur {base} en tant que {role}"
+
+#: components/settings/base-settings.tsx
+msgid "You become its {role} at once, and no longer manage it: its members, its settings, its tables and their fields. Only another owner can make you an owner again."
+msgstr "Votre rôle devient aussitôt {role}, et vous ne gérez plus cette base : ses membres, ses réglages, ses tables et leurs champs. Seul un autre propriétaire peut vous rendre ce rôle."
 
 #: components/table/import-dialog.tsx
 msgid "You can close this window: the import goes on and stays in the jobs menu."

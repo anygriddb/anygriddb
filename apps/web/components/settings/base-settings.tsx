@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { downloadJobFile, useTrackJob } from "../../lib/jobs";
-import { useCatalog } from "../../lib/session";
+import { useCatalog, useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import {
   canManage,
@@ -37,6 +37,7 @@ export function BaseSettings({ baseId }: { baseId: string }) {
   const api = useTRPC();
   const queryClient = useQueryClient();
   const catalog = useCatalog();
+  const session = useSession();
   const invalidate = useInvalidateCatalog();
   const roleLabel = useRoleLabel();
   const base = catalog.data?.find((item) => item.id === baseId);
@@ -69,6 +70,12 @@ export function BaseSettings({ baseId }: { baseId: string }) {
   const [removing, setRemoving] = useState<{
     userId: string;
     name: string;
+  } | null>(null);
+  // The role an owner is about to take in place of their own, once that
+  // is confirmed: nobody gives it back to themselves.
+  const [lowering, setLowering] = useState<{
+    email: string;
+    role: Role;
   } | null>(null);
   const track = useTrackJob();
 
@@ -195,15 +202,24 @@ export function BaseSettings({ baseId }: { baseId: string }) {
                     aria-label={t`Role`}
                     className={member.direct ? "w-40" : "hidden"}
                     value={member.role}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const next = event.target.value as Role;
+                      if (
+                        member.userId === session.data?.id &&
+                        member.role === "owner" &&
+                        next !== "owner"
+                      ) {
+                        setLowering({ email: member.email, role: next });
+                        return;
+                      }
                       void run(() =>
                         trpc.catalog.grant.mutate({
                           baseId,
                           email: member.email,
-                          role: event.target.value as Role,
+                          role: next,
                         }),
-                      )
-                    }
+                      );
+                    }}
                   >
                     {ROLES.map((value) => (
                       <option key={value} value={value}>
@@ -383,6 +399,26 @@ export function BaseSettings({ baseId }: { baseId: string }) {
             </div>
           ))}
         </RuledSection>
+      ) : null}
+      {lowering ? (
+        <ConfirmDialog
+          open
+          danger
+          onOpenChange={(open) => !open && setLowering(null)}
+          title={t`Stop being an owner of ${{ base: base.name }}?`}
+          description={t`You become its ${{ role: roleLabel(lowering.role) }} at once, and no longer manage it: its members, its settings, its tables and their fields. Only another owner can make you an owner again.`}
+          confirmLabel={t`Lower my role`}
+          onConfirm={async () => {
+            await trpc.catalog.grant.mutate({
+              baseId,
+              email: lowering.email,
+              role: lowering.role,
+            });
+            // The list of bases first: it says the role, and with it
+            // what this page may still ask.
+            await invalidate();
+          }}
+        />
       ) : null}
       {removing ? (
         <ConfirmDialog

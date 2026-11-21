@@ -64,6 +64,10 @@ first.
   each table, which inviting them again does not bring back.
   Administration already asked. Each bin is named after its member. A
   pending invitation that could not be revoked says why.
+- An owner who lowers their own role on a base is asked first, and
+  told that only another owner can give it back: one change of the
+  list in the base's settings did it at once. The page then asks for
+  nothing its reader may no longer read.
 - Administration's change trail lists what a change touched without
   the columns every row has. A row's creation read "ag_created_at,
   ag_created_by, the row's place, ag_status" before the fields it was
