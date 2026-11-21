@@ -34,8 +34,30 @@ function queueLogger(log: QueueLog): Logger {
 }
 
 /**
+ * The first table of graphile-worker's schema, as the library makes it in
+ * a new database: its own three statements, each of which changes nothing
+ * where it has run. One transaction, behind a lock of its own: two
+ * instances started on the same new database make it one after the other.
+ */
+const QUEUE_FIRST_TABLE = `
+select pg_advisory_xact_lock(hashtext('ag_queue_install'));
+create schema if not exists graphile_worker;
+create table if not exists graphile_worker.migrations(
+  id int primary key,
+  ts timestamptz default now() not null
+);
+alter table graphile_worker.migrations add column if not exists breaking boolean not null default false;
+`;
+
+/**
  * Creates or upgrades graphile-worker's schema. It needs no extension and
  * no superuser: only the right to create a schema in the database.
+ *
+ * The library learns that a database is new by asking its first table and
+ * being refused, and PostgreSQL writes a refused statement in its log as
+ * an error: one at every new install, for an operator to wonder about.
+ * The table is made here first, when it is not there, and the library
+ * then finds it empty and installs everything else.
  */
 export async function migrateQueue(
   connectionString: string,
@@ -48,6 +70,10 @@ export async function migrateQueue(
   pool.on("error", failed);
   pool.on("connect", (client) => client.on("error", failed));
   try {
+    const { rows } = await pool.query<{ there: boolean }>(
+      "select to_regclass('graphile_worker.migrations') is not null as there",
+    );
+    if (rows[0]?.there !== true) await pool.query(QUEUE_FIRST_TABLE);
     await runMigrations({ pgPool: pool, logger: queueLogger(log) });
   } finally {
     await pool.end();
