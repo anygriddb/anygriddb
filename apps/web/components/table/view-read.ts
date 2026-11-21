@@ -3,6 +3,7 @@ import type { CatalogColumn, ViewConfig } from "../../lib/types";
 import { isEditableColumn } from "../grid/grid-clipboard";
 import type { Groups, RowsLayout, RowsQuery } from "../grid/use-rows";
 import { dayToAdd, dayValue, type ShownDays } from "../views/view-days";
+import { stackField } from "./field-roles";
 import type { CellValue } from "./table-context";
 import type { ViewPatch } from "./view-toolbar";
 
@@ -47,8 +48,8 @@ export function rowsQuery(input: {
 }
 
 /**
- * The field a kanban stacks its cards by: the one its view names, or the
- * table's first list of options. Nothing for another kind of view.
+ * The field a kanban stacks its cards by (`stackField`). Nothing for
+ * another kind of view.
  */
 export function kanbanStack(
   viewType: string,
@@ -56,9 +57,7 @@ export function kanbanStack(
   columns: readonly CatalogColumn[],
 ): string | undefined {
   if (viewType !== "kanban") return undefined;
-  return typeof config.stackColumn === "string"
-    ? config.stackColumn
-    : columns.find((column) => column.fieldType === "single_select")?.name;
+  return stackField(config, columns)?.name;
 }
 
 /**

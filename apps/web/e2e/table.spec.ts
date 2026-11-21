@@ -224,6 +224,37 @@ test.describe("a field's menu", () => {
     await expect(header("Extra")).toBeVisible();
     await expect(header("Amount \\(copy\\)")).toHaveCount(0);
 
+    // A menu offers what its field can do: files sort and filter a view,
+    // and make no group. The entry was there, and the rows could no
+    // longer be read once it was taken.
+    await send(page, "catalog.addColumn", {
+      tableId: tableIdOf(page),
+      name: "files",
+      label: "Files",
+      fieldType: "attachment",
+    });
+    await page.reload();
+    const entry = (name: string) =>
+      page.getByRole("menuitem", { name, exact: true });
+    await page.getByRole("button", { name: "Files field menu" }).click();
+    await expect(entry("Sort A → Z")).toBeVisible();
+    await expect(entry("Filter by this field")).toBeVisible();
+    await expect(entry("Group by this field")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Status field menu" }).click();
+    await expect(entry("Group by this field")).toBeVisible();
+    await page.keyboard.press("Escape");
+    // The toolbar's own list of groups leaves files out as well.
+    await page.getByRole("button", { name: "Group", exact: true }).click();
+    await page.getByRole("button", { name: "Add a level" }).click();
+    const levels = page.getByRole("dialog").getByLabel("Field");
+    await expect(levels.locator("option", { hasText: "Status" })).toHaveCount(
+      1,
+    );
+    await expect(levels.locator("option", { hasText: "Files" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Remove", exact: true }).click();
+    await page.getByRole("dialog").press("Escape");
+
     // Rows coloured by rules: the first rule a row matches tints its
     // margin.
     await page.getByRole("button", { name: "Colour", exact: true }).click();

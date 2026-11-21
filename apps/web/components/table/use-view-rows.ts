@@ -4,11 +4,7 @@ import { useChannel } from "../../lib/realtime";
 import { useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, ViewConfig, ViewItem } from "../../lib/types";
 import { useRows } from "../grid/use-rows";
-import {
-  calendarFilter,
-  calendarStart,
-  thisMonth,
-} from "../views/calendar-view";
+import { calendarFilter, thisMonth } from "../views/calendar-view";
 import { placeColumns, placeFilter } from "../views/map-places";
 import {
   timelineFilter,
@@ -16,6 +12,7 @@ import {
   timelineScale,
 } from "../views/timeline-period";
 import { monthDays } from "../views/view-days";
+import { endField, startField } from "./field-roles";
 import { readKey } from "./view-patch";
 import {
   countsByDay,
@@ -52,16 +49,15 @@ export function useViewRows(input: {
   // A calendar reads the rows of the six weeks it shows, not a first page.
   const [calendarMonth, setCalendarMonth] = useState(thisMonth);
   const calendarField =
-    viewType === "calendar" ? calendarStart(columns, config) : undefined;
+    viewType === "calendar" ? startField(config, columns) : undefined;
   // A timeline reads the rows whose bars cross the period it shows.
   const [timelineFocus, setTimelineFocus] = useState(thisMonth);
   const timelineField =
-    viewType === "timeline" ? calendarStart(columns, config) : undefined;
+    viewType === "timeline" ? startField(config, columns) : undefined;
   const timelineStart = timelineField?.name;
-  const timelineEnd =
-    timelineStart && typeof config.endColumn === "string"
-      ? columns.find((column) => column.name === config.endColumn)?.name
-      : undefined;
+  const timelineEnd = timelineStart
+    ? endField(config, columns)?.name
+    : undefined;
   const timelineAt = timelineScale(config.timelineScale);
   // A map reads only the rows that have a place.
   const mapPlaces =
