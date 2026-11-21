@@ -120,6 +120,8 @@ import {
   beginRegistration,
   finishAuthentication,
   finishRegistration,
+  listPasskeys,
+  removePasskey,
 } from "../auth/webauthn.js";
 import { hasAccounts, signupDecision } from "../admin.js";
 import { readLogoVersion } from "../instance-logo.js";
@@ -908,6 +910,20 @@ export const authRouter = t.router({
         } catch (error) {
           mapProcedureError(error, ctx.req.log);
         }
+      }),
+    list: procedure.query(async ({ ctx }) => {
+      const user = await requireUser(ctx);
+      refuseApiToken(ctx);
+      return listPasskeys(ctx.db, user.id);
+    }),
+    remove: procedure
+      .input(factorProofSchema.extend({ id: z.uuid() }))
+      .mutation(async ({ ctx, input }) => {
+        const user = await requireUser(ctx);
+        const { id, ...proof } = input;
+        await proveFactorChange(ctx, user.id, "passkey", proof);
+        await removePasskey(ctx.db, user.id, id, ctx.req.ip);
+        return { ok: true as const };
       }),
     authenticateBegin: procedure.mutation(async ({ ctx }) => {
       const challenge = await requireChallenge(ctx);

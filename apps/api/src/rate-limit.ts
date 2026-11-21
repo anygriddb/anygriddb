@@ -33,7 +33,7 @@ const SIGN_IN_CALL =
  * the address, since each needs the session.
  */
 const PROOF_CALL =
-  /^(auth\.(totp\.confirm|email\.(begin|disable)|webauthn\.registerBegin)|admin\.stepUp)$/;
+  /^(auth\.(totp\.confirm|email\.(begin|disable)|webauthn\.(registerBegin|remove))|admin\.stepUp)$/;
 
 /**
  * Whether a call checks a password, a code or a secret link. A request

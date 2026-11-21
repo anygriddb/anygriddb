@@ -835,6 +835,14 @@ msgstr "{position} sur {total}"
 msgid "{ready, plural, one {Add # person} other {Add # people}}"
 msgstr "{ready, plural, one {Ajouter # personne} other {Ajouter # personnes}}"
 
+#: components/settings/second-factor.tsx
+msgid "{removingLabel} is your only second factor. Your backup codes stop working with it."
+msgstr "{removingLabel} est votre seul second facteur. Vos codes de secours ne fonctionneront plus."
+
+#: components/settings/second-factor.tsx
+msgid "{removingLabel} will no longer sign you in."
+msgstr "{removingLabel} ne vous connectera plus."
+
 #: components/admin/account-bases.tsx
 msgid "{role}, through the group {group}"
 msgstr "{role}, par le groupe {group}"
@@ -8128,8 +8136,16 @@ msgid "Passkey"
 msgstr "Clé d’accès"
 
 #: components/settings/second-factor.tsx
+msgid "Passkey {place}, added on {day}"
+msgstr "Clé d’accès {place}, ajoutée le {day}"
+
+#: components/settings/second-factor.tsx
 msgid "Passkey registered"
 msgstr "Clé d’accès enregistrée"
+
+#: components/settings/second-factor.tsx
+msgid "Passkey removed"
+msgstr "Clé d’accès retirée"
 
 #: components/admin/health-tab.tsx
 msgid "Passkeys are available once this connection is trusted (authority installed or your own certificate)."
@@ -8912,6 +8928,10 @@ msgstr "Retirer le filtre"
 msgid "Remove from {base}"
 msgstr "Retirer de {base}"
 
+#: components/settings/second-factor.tsx
+msgid "Remove passkey {place}, added on {day}"
+msgstr "Retirer la clé d’accès {place}, ajoutée le {day}"
+
 #: components/table/automations-dialog.tsx
 msgid "Remove secret"
 msgstr "Retirer le secret"
@@ -8927,6 +8947,10 @@ msgstr "Retirer le groupe {name}"
 #: components/admin/identity-tab.tsx
 msgid "Remove the logo"
 msgstr "Retirer le logo"
+
+#: components/settings/second-factor.tsx
+msgid "Remove the passkey"
+msgstr "Retirer la clé d’accès"
 
 #: components/admin/integrations-tab.tsx
 msgid "Remove the saved collector"
@@ -13361,6 +13385,10 @@ msgstr "Votre propre compte : depuis vos réglages"
 #: components/admin/alerts-section.tsx
 msgid "Your own choice, by email and in your notifications: the other administrators keep theirs, and every alert still shows here."
 msgstr "Votre choix à vous, par e-mail et dans vos notifications : les autres administrateurs gardent le leur, et chaque alerte reste affichée ici."
+
+#: components/settings/second-factor.tsx
+msgid "Your passkeys"
+msgstr "Vos clés d’accès"
 
 #: components/auth/reset-page.tsx
 msgid "Your password is changed, and every session of the account ended. Sign in with the new one."

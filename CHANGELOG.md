@@ -36,6 +36,10 @@ first.
 - The functions of a formula, in a field's dialog, are 24 pixels to
   press, as WCAG 2.2 asks: they were sixteen tall, in rows four pixels
   apart.
+- A person sees their passkeys in their settings and removes one, as
+  for a key that was lost: only an administrator could, and for all of
+  the account's factors at once. With no second factor left, the backup
+  codes stop working too.
 - A webhook's delivery that has not been tried yet reads "Waiting to be
   sent" in its log. It read "Retry scheduled (—)", as a delivery that
   failed and waits for its next attempt does.

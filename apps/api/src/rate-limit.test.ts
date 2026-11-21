@@ -33,6 +33,7 @@ describe("rateBucket", () => {
       "auth.email.begin",
       "auth.email.disable",
       "auth.webauthn.registerBegin",
+      "auth.webauthn.remove",
       "admin.stepUp",
     ]) {
       expect(rateBucket("POST", `/trpc/${procedure}`)).toBe("app");
