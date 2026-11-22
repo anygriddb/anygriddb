@@ -11,6 +11,7 @@ import { keyRing } from "../auth/key-ring.js";
 import { createApiToken } from "../auth/tokens.js";
 import { withAudit } from "../data/audit-context.js";
 import { insertBase, insertTable } from "../data/schema-ops.js";
+import { createBaseShare, createShare } from "../data/sharing.js";
 import type { Env } from "../env.js";
 import { listTables } from "../public-api/operations.js";
 import type { PublicApiDeps } from "../public-api/types.js";
@@ -348,8 +349,10 @@ describe("a field hidden from its reader", () => {
       viewType: "grid",
       config: { hiddenFields: [FIELD] },
     });
-    const { token } = await as(ownerToken).catalog.createShare({
+    const { token } = await createShare(db, {
       viewId: shared.id,
+      createdBy: owner,
+      allowCopy: false,
     });
     const opened = await page.call().share.open({ token });
     const text = JSON.stringify(opened);
@@ -365,7 +368,7 @@ describe("a field hidden from its reader", () => {
   });
 
   it("gives a link to the base no more than a link to a view", async () => {
-    const { token } = await as(ownerToken).catalog.createBaseShare({ baseId });
+    const { token } = await createBaseShare(db, { baseId, createdBy: owner });
     const opened = await page.call().share.openBase({ token });
     const table = opened.tables.find((item) => item.id === tableId);
     expect(table?.columns.map((column) => column.name)).toContain("band");

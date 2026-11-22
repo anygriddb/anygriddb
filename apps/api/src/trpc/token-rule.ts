@@ -20,6 +20,8 @@ const SESSION_ONLY: ReadonlySet<string> = new Set([
   "auth.pendingInvitations",
   "auth.answerInvitation",
   "auth.acceptInvitation",
+  "catalog.createShare",
+  "catalog.createBaseShare",
   "catalog.renewCalendarFeed",
   "catalog.revokeCalendarFeed",
 ]);
