@@ -345,16 +345,35 @@ export const addRelationInputSchema = z.object({
   inverseLabel: columnLabelSchema.optional(),
 });
 
+/** How many links one write names, whichever way it says them. */
+export const MAX_LINKS_WRITTEN = 500;
+
 export const setLinksInputSchema = z
   .object({
     tableId: z.uuid(),
     rowId: rowIdSchema,
     column: columnNameSchema,
-    targetIds: z.array(rowIdSchema).max(500),
+    /** The whole list of links. */
+    targetIds: z.array(rowIdSchema).max(MAX_LINKS_WRITTEN).optional(),
+    /** Or what changes in it, for a row with more links than a list takes. */
+    add: z.array(rowIdSchema).max(MAX_LINKS_WRITTEN).optional(),
+    remove: z.array(rowIdSchema).max(MAX_LINKS_WRITTEN).optional(),
     reason: reasonSchema.optional(),
   })
   .superRefine((input, context) => {
-    if (new Set(input.targetIds).size !== input.targetIds.length) {
+    const changing = input.add !== undefined || input.remove !== undefined;
+    if ((input.targetIds === undefined) === !changing) {
+      context.addIssue({
+        code: "custom",
+        message: "Either the list or what changes in it",
+      });
+    }
+    const named = [
+      ...(input.targetIds ?? []),
+      ...(input.add ?? []),
+      ...(input.remove ?? []),
+    ];
+    if (new Set(named).size !== named.length) {
       context.addIssue({ code: "custom", message: "Duplicate link" });
     }
   });

@@ -216,6 +216,7 @@ function withPlanned(
         deletedAt: null,
         deletedBy: null,
         deletedWith: null,
+        purgeStartedAt: null,
       })),
     ],
   };
@@ -344,6 +345,7 @@ export async function insertTable(
     externalDelete: false,
     externalSide: null,
     trailReads: false,
+    purgeStartedAt: null,
   };
   const rows = withPlanned(
     { tables: [draftTable], columns: [], relations: [], sources: new Map() },

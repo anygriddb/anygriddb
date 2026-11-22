@@ -13,6 +13,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
 import { trpc, useTRPC } from "../../lib/trpc";
+import { sayLinksLeft } from "./restored-links";
 import type { ReasonAnswer } from "./use-reason";
 import { useWhen } from "../../lib/i18n";
 
@@ -45,11 +46,12 @@ export function RowTrashDialog({
     try {
       const reason = await askReason();
       if (reason === false) return;
-      await trpc.rows.restore.mutate({
+      const { linksNotRestored } = await trpc.rows.restore.mutate({
         tableId,
         rowIds: [...picked],
         reason,
       });
+      sayLinksLeft(linksNotRestored);
       toast.success(
         plural(picked.size, {
           one: "# row restored",

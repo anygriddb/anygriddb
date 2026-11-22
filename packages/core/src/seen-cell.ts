@@ -9,28 +9,78 @@
  * that a person changing a cell twice in a row is not refused for the form
  * of their own write.
  */
-import { sameCell } from "./query/external-write";
+import { canonicalDecimal, sameCell } from "./query/external-write";
+import { parseIsoInstant } from "./query/iso-instant";
 
-const DATE_LIKE = /^\d{4}-\d{2}-\d{2}(?:[T ]|$)/;
+/** Types that keep a text: only the same characters are the same value. */
+const TEXT_TYPES: ReadonlySet<string> = new Set([
+  "text",
+  "long_text",
+  "email",
+  "url",
+  "phone",
+  "color",
+  "place",
+  "single_select",
+]);
+
+/** Past this exponent a number is compared as it is spelled. */
+const MAX_EXPONENT = 1_000;
+
+const JSON_NUMBER = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/;
 
 export function sameAsSeen(
   fieldType: string,
   current: unknown,
   seen: unknown,
 ): boolean {
-  const left = kept(fieldType, current);
-  const right = kept(fieldType, seen);
-  if (sameCell(left, right)) return true;
-  if (fieldType !== "date" && fieldType !== "datetime") return false;
-  const a = instant(left);
-  return a !== null && a === instant(right);
+  return sameFieldValue(
+    fieldType,
+    kept(fieldType, current),
+    kept(fieldType, seen),
+  );
+}
+
+/**
+ * Two values of one field, compared as that field keeps them: a text to the
+ * character, a number by value, an instant to the microsecond, a document
+ * whatever the order of its keys and with every digit of its numbers. Empty
+ * is only the same as empty.
+ */
+export function sameFieldValue(
+  fieldType: string | undefined,
+  left: unknown,
+  right: unknown,
+): boolean {
+  if (
+    left === null ||
+    left === undefined ||
+    right === null ||
+    right === undefined
+  ) {
+    return (left ?? null) === (right ?? null);
+  }
+  if (fieldType !== undefined && TEXT_TYPES.has(fieldType)) {
+    return textOf(left) === textOf(right);
+  }
+  if (fieldType === "json") return documentOf(left) === documentOf(right);
+  if (fieldType === "date" || fieldType === "datetime") {
+    const a = instantOf(left);
+    const b = instantOf(right);
+    if (a !== null && b !== null) return a === b;
+  }
+  return sameCell(left, right);
+}
+
+function textOf(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value);
 }
 
 /** A cell as its field keeps it: an empty one is null, whatever said so. */
 function kept(fieldType: string, value: unknown): unknown {
   if (value === undefined || value === null || value === "") return null;
   if (fieldType === "boolean") return value === true ? true : null;
-  if (fieldType === "json") return ordered(parsed(value));
+  if (fieldType === "json") return value;
   if (Array.isArray(value)) {
     if (value.length === 0) return null;
     return value.map((item: unknown) =>
@@ -55,15 +105,48 @@ function fileKey(item: unknown): string {
   return String(item);
 }
 
-/** A document sent as text is the document it spells. */
-function parsed(value: unknown): unknown {
-  if (typeof value !== "string") return value;
+/**
+ * A document in one spelling: its keys in order, each number by its exact
+ * value and each string marked as one, so that `1` and `"1"` stay apart.
+ * A text that is no document is compared as the text it is.
+ */
+function documentOf(value: unknown): string {
+  const text = typeof value === "string" ? value : JSON.stringify(value);
   try {
-    return JSON.parse(value) as unknown;
+    return ordered(JSON.parse(text, exactValue));
   } catch {
-    // Not a document: compared as the text it is.
-    return value;
+    return `text:${text}`;
   }
+}
+
+function exactValue(
+  _key: string,
+  value: unknown,
+  context?: { source?: string },
+): unknown {
+  if (typeof value === "string") return `s:${value}`;
+  if (typeof value === "number") {
+    return `n:${exactNumber(context?.source ?? String(value))}`;
+  }
+  return value;
+}
+
+/** A number's digits as they were written, `1e3` being `1000`. */
+function exactNumber(source: string): string {
+  const match = JSON_NUMBER.exec(source);
+  if (!match) return source;
+  const [, sign = "", whole = "", fraction = "", power = "0"] = match;
+  const exponent = Number(power);
+  if (Math.abs(exponent) > MAX_EXPONENT) return source.toLowerCase();
+  const digits = `${whole}${fraction}`;
+  const point = whole.length + exponent;
+  const plain =
+    point <= 0
+      ? `0.${"0".repeat(-point)}${digits}`
+      : point >= digits.length
+        ? `${digits}${"0".repeat(point - digits.length)}`
+        : `${digits.slice(0, point)}.${digits.slice(point)}`;
+  return canonicalDecimal(`${sign}${plain}`);
 }
 
 /** The same document whatever order its keys were written in. */
@@ -77,11 +160,12 @@ function ordered(value: unknown): string {
   );
 }
 
-/** The moment a date or a date and time names, however it is spelled. */
-function instant(value: unknown): number | null {
-  if (typeof value !== "string" || !DATE_LIKE.test(value)) return null;
-  const moment = Date.parse(
-    value.length === 10 ? `${value}T00:00:00.000Z` : value.replace(" ", "T"),
-  );
-  return Number.isFinite(moment) ? moment : null;
+/** The moment a date or a date and time names, to the microsecond. */
+function instantOf(value: unknown): string | null {
+  const text = value instanceof Date ? value.toISOString() : value;
+  if (typeof text !== "string") return null;
+  const parsed = parseIsoInstant(text);
+  if (!parsed) return null;
+  const [whole = "", fraction = ""] = parsed.timestamp.split(".");
+  return `${whole}.${fraction.padEnd(6, "0")}`;
 }

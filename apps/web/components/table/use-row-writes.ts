@@ -11,6 +11,7 @@ import type { RowsState } from "../grid/use-rows";
 import { useUndo } from "../grid/use-undo";
 import {
   lastInOrder,
+  linkChange,
   linkedIds,
   rowCopies,
   touchedFields,
@@ -19,6 +20,7 @@ import {
   writeValues,
   type CellUpdate,
 } from "./row-writes";
+import { sayLinksLeft } from "./restored-links";
 import type { CellValue } from "./table-context";
 import type { Reason } from "./use-reason";
 import { prefillFromFilter } from "./view-read";
@@ -181,7 +183,10 @@ export function useRowWrites(input: {
           tableId,
           rowId,
           column,
-          targetIds,
+          ...linkChange(
+            linkedIds(rowsById.get(rowId)?.[column as keyof RowItem]),
+            targetIds,
+          ),
           reason,
         });
         await rows.refetchIds([rowId]);
@@ -191,7 +196,7 @@ export function useRowWrites(input: {
         return false;
       }
     },
-    [tableId, rows, errorText],
+    [tableId, rows, rowsById, errorText],
   );
 
   /** A change of links undone or redone, with the reason it needs. */
@@ -240,7 +245,12 @@ export function useRowWrites(input: {
   const restoreAsStep = useCallback(
     async (rowIds: string[]) => {
       const reason = await askForStep(everyField);
-      await trpc.rows.restore.mutate({ tableId, rowIds, reason });
+      const { linksNotRestored } = await trpc.rows.restore.mutate({
+        tableId,
+        rowIds,
+        reason,
+      });
+      sayLinksLeft(linksNotRestored);
       rows.refresh();
     },
     [askForStep, everyField, tableId, rows],
@@ -327,11 +337,12 @@ export function useRowWrites(input: {
                 void (async () => {
                   const back = await ask(everyField);
                   if (back === false) return;
-                  await trpc.rows.restore.mutate({
+                  const { linksNotRestored } = await trpc.rows.restore.mutate({
                     tableId,
                     rowIds,
                     reason: back,
                   });
+                  sayLinksLeft(linksNotRestored);
                   rows.refresh();
                 })().catch((cause: unknown) => toast.error(errorText(cause)));
               },

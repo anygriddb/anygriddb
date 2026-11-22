@@ -1,7 +1,7 @@
 import type { RowEvent } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
-import { isLinkMarker } from "../data/rows.js";
+import { isLinkMarker } from "../data/row-links.js";
 
 /** Audit actions on rows, and the webhook event each one is. */
 const EVENT_OF = {

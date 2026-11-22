@@ -482,8 +482,58 @@ export function buildReadReferencing(input: {
   assertIdentifier(input.column, "column name");
   assertRowId(input.targetId);
   return {
-    text: `select "id", "ag_status" from ${quoteIdent(input.table)} where ${quoteIdent(input.column)} = $1 for update`,
+    text: `select "id", "ag_status" from ${quoteIdent(input.table)} where ${quoteIdent(input.column)} = $1 order by "id" for update`,
     values: [input.targetId],
+  };
+}
+
+/** The rows of `table` that point at `targetId`, read without locking them. */
+export function buildReadReferencingIds(input: {
+  table: string;
+  column: string;
+  targetId: string;
+}): ParameterizedSql {
+  assertIdentifier(input.table, "table name");
+  assertIdentifier(input.column, "column name");
+  assertRowId(input.targetId);
+  return {
+    text: `select "id" from ${quoteIdent(input.table)} where ${quoteIdent(input.column)} = $1 order by "id"`,
+    values: [input.targetId],
+  };
+}
+
+/** Rows locked together, each with its status and the key it holds. */
+export function buildReadHolders(input: {
+  table: string;
+  column: string;
+  ids: readonly string[];
+}): ParameterizedSql {
+  assertIdentifier(input.table, "table name");
+  assertIdentifier(input.column, "column name");
+  assertIdList(input.ids);
+  const params = new SqlParams();
+  return {
+    text: `select "id", "ag_status", ${quoteIdent(input.column)} as "key" from ${quoteIdent(input.table)} where "id" = any(${params.bindTextArray(input.ids)}::uuid[]) order by "id" for update`,
+    values: params.values,
+  };
+}
+
+/** Sets one foreign key on several rows, or clears it, in one statement. */
+export function buildSetForeignKeys(input: {
+  table: string;
+  column: string;
+  ids: readonly string[];
+  targetId: string | null;
+}): ParameterizedSql {
+  assertIdentifier(input.table, "table name");
+  assertIdentifier(input.column, "column name");
+  assertIdList(input.ids);
+  if (input.targetId !== null) assertRowId(input.targetId);
+  const params = new SqlParams();
+  const target = params.bind(input.targetId);
+  return {
+    text: `update ${quoteIdent(input.table)} set ${quoteIdent(input.column)} = ${target}::uuid where "id" = any(${params.bindTextArray(input.ids)}::uuid[]) returning "id"`,
+    values: params.values,
   };
 }
 
@@ -497,6 +547,25 @@ export function buildClearLinks(input: {
   return {
     text: `delete from ${quoteIdent(input.junction)} where "${input.side}" = $1`,
     values: [input.id],
+  };
+}
+
+/** Takes some links of one row out of a junction. */
+export function buildRemoveLinks(input: {
+  junction: string;
+  side: "left_id" | "right_id";
+  id: string;
+  ids: readonly string[];
+}): ParameterizedSql {
+  assertIdentifier(input.junction, "table name");
+  assertRowId(input.id);
+  assertIdList(input.ids);
+  const far = input.side === "left_id" ? "right_id" : "left_id";
+  const params = new SqlParams();
+  const own = params.bind(input.id);
+  return {
+    text: `delete from ${quoteIdent(input.junction)} where "${input.side}" = ${own}::uuid and "${far}" = any(${params.bindTextArray(input.ids)}::uuid[])`,
+    values: params.values,
   };
 }
 
@@ -514,6 +583,21 @@ export function buildInsertLinks(input: {
   return {
     text: `insert into ${quoteIdent(input.junction)} ("left_id", "right_id") select l::uuid, r::uuid from unnest(array(select jsonb_array_elements_text($1::text::jsonb)), array(select jsonb_array_elements_text($2::text::jsonb))) as pairs(l, r) on conflict do nothing`,
     values: [JSON.stringify(input.leftIds), JSON.stringify(input.rightIds)],
+  };
+}
+
+/** The links of several rows of one side of a junction, in one read. */
+export function buildReadJunctionRows(input: {
+  junction: string;
+  side: "left_id" | "right_id";
+  ids: readonly string[];
+}): ParameterizedSql {
+  assertIdentifier(input.junction, "table name");
+  assertIdList(input.ids);
+  const params = new SqlParams();
+  return {
+    text: `select "left_id", "right_id" from ${quoteIdent(input.junction)} where "${input.side}" = any(${params.bindTextArray(input.ids)}::uuid[])`,
+    values: params.values,
   };
 }
 

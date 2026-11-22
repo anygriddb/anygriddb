@@ -235,6 +235,74 @@ describe("a thread of comments, resolved and opened again", () => {
     ).toBe("no_row");
   });
 
+  it("is refused on a row that does not exist, and tells nobody", async () => {
+    const notified = async () =>
+      Number(
+        (
+          await db
+            .selectFrom("notifications")
+            .select((eb) => eb.fn.countAll<string>().as("total"))
+            .executeTakeFirstOrThrow()
+        ).total,
+      );
+    const before = await notified();
+    const missing = "11111111-1111-4111-8111-111111111111";
+    expect(
+      await errorCode(
+        owner.call().rows.addComment({
+          tableId,
+          rowId: missing,
+          body: "@[Cam](00000000-0000-4000-8000-000000000001) nowhere",
+        }),
+      ),
+    ).toBe("no_row");
+    const stored = await db
+      .selectFrom("comments")
+      .select("id")
+      .where("rowId", "=", missing)
+      .execute();
+    expect(stored).toEqual([]);
+    expect(await notified()).toBe(before);
+  });
+
+  it("is refused as a reply to a deleted comment", async () => {
+    const gone = (
+      await owner
+        .call()
+        .rows.addComment({ tableId, rowId: open, body: "Withdrawn" })
+    ).id;
+    await owner.call().rows.deleteComment({ commentId: gone });
+    expect(
+      await errorCode(
+        commenter.call().rows.addComment({
+          tableId,
+          rowId: open,
+          body: "Too late",
+          parentId: gone,
+        }),
+      ),
+    ).toBe("invalid_comment");
+    const replies = await db
+      .selectFrom("comments")
+      .select("id")
+      .where("parentId", "=", gone)
+      .execute();
+    expect(replies).toEqual([]);
+  });
+
+  it("is taken on a live row, and as a reply to a live comment", async () => {
+    const first = await commenter
+      .call()
+      .rows.addComment({ tableId, rowId: open, body: "Still here" });
+    const answer = await owner.call().rows.addComment({
+      tableId,
+      rowId: open,
+      body: "Noted",
+      parentId: first.id,
+    });
+    expect(answer.id).toEqual(expect.any(String));
+  });
+
   it("keeps a thread resolved when the account that resolved it is deleted", async () => {
     await owner
       .call()

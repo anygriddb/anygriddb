@@ -33,6 +33,7 @@ import {
   purgeCutoff,
   type RowEvent,
   sameCell,
+  sameFieldValue,
   type StoredColumn,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
@@ -268,6 +269,14 @@ function linkKey(value: unknown): unknown {
     return first?.id ?? null;
   }
   return value;
+}
+
+function fieldTypeOf(
+  context: ExternalWriteContext,
+  name: string,
+): string | undefined {
+  return context.engine.table.columns.find((column) => column.name === name)
+    ?.fieldType;
 }
 
 function labelOf(context: ExternalWriteContext, name: string): string {
@@ -540,15 +549,11 @@ export async function updateExternalRows(
         const row = { ...current.get(update.rowId), ...keptRow(update.rowId) };
         for (const [name, value] of Object.entries(update.expected ?? {})) {
           if (!(name in update.values)) continue;
-          const seen = columns.get(name)?.relation
-            ? linkKey(row[name])
-            : row[name];
-          if (
-            !sameCell(
-              seen,
-              columns.get(name)?.relation ? linkKey(value) : value,
-            )
-          ) {
+          const link = columns.get(name)?.relation;
+          const same = link
+            ? sameCell(linkKey(row[name]), linkKey(value))
+            : sameFieldValue(fieldTypeOf(context, name), row[name], value);
+          if (!same) {
             throw new AppError("source_conflict", labelOf(context, name));
           }
         }

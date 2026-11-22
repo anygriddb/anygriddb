@@ -529,12 +529,14 @@ export function sameCell(left: unknown, right: unknown): boolean {
         : undefined;
   const a = number(left);
   const b = number(right);
-  if (a !== undefined && b !== undefined) return canonical(a) === canonical(b);
+  if (a !== undefined && b !== undefined) {
+    return canonicalDecimal(a) === canonicalDecimal(b);
+  }
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
 /** `-012.50` reads `-12.5`; `-0` reads `0`. */
-function canonical(text: string): string {
+export function canonicalDecimal(text: string): string {
   const negative = text.startsWith("-");
   const [whole = "0", fraction = ""] = text.replace(/^-/, "").split(".");
   const integer = whole.replace(/^0+(?=\d)/, "");

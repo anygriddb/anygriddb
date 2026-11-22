@@ -9,15 +9,14 @@ import {
   buildExistingIds,
   buildGroupCounts,
   buildInserts,
-  buildInsertLinks,
   buildMoveRows,
   buildOrderLock,
-  buildReadJunction,
   buildReadCells,
   buildReadRows,
   buildReadStatus,
   buildReadStatuses,
   buildRestoreRow,
+  buildSetLink,
   buildRowPlaces,
   buildSetStatus,
   buildUpdate,
@@ -55,6 +54,18 @@ import {
   type AuditTx,
 } from "./audit-context.js";
 import { sourcePools } from "../sources/pools.js";
+import {
+  assertWritable,
+  detachLinks,
+  hasLinks,
+  isLinkMarker,
+  linkMapOf,
+  linkMarker,
+  linksForRestore,
+  planOwnKeys,
+  reattachLinks,
+  recordKeyReturn,
+} from "./row-links.js";
 import { claimStagedAttachments } from "./staged-attachments.js";
 
 const READ_TIMEOUT = "15s";
@@ -638,6 +649,19 @@ export async function assertRowsInScope(
   });
 }
 
+/** Refuses what is said of a row the table does not hold. */
+export async function assertRowExists(
+  db: Database,
+  engine: EngineCatalog,
+  rowId: string,
+): Promise<void> {
+  const total = await readTransaction(db, engine, async (run) => {
+    const [row] = await run(buildCountRows(engine, { rowIds: [rowId] }));
+    return Number(row?.total ?? 0);
+  });
+  if (total === 0) throw new AppError("no_row");
+}
+
 /**
  * Refuses a write that would leave a row outside its writer's row rule,
  * before it commits: the rule holds for what a row becomes, as for what it
@@ -811,20 +835,12 @@ async function lockRows(
   return statuses;
 }
 
-/** A stored cell against the value the screen still shows. */
-function sameStored(current: unknown, seen: unknown): boolean {
+/** The row's time of last change against what the screen still shows. */
+function sameMoment(current: unknown, seen: unknown): boolean {
   if (sameCell(current, seen)) return true;
   const left = epoch(current);
   const right = epoch(seen);
-  if (left !== null && right !== null && left === right) return true;
-  if (
-    typeof seen === "string" &&
-    /^\d{4}-\d{2}-\d{2}$/.test(seen) &&
-    current instanceof Date
-  ) {
-    return current.toISOString().slice(0, 10) === seen;
-  }
-  return false;
+  return left !== null && right !== null && left === right;
 }
 
 function epoch(value: unknown): number | null {
@@ -837,9 +853,57 @@ function epoch(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function assertWritable(status: string): void {
-  if (status === "locked" || status === "signed") {
-    throw new AppError("row_locked");
+/**
+ * Refuses to put a row back when it no longer holds what the screen shows
+ * (ADR 0089). A field is read as a page reads it and compared by its type;
+ * the row's time of last change is read from its column.
+ */
+async function assertStoredNow(
+  tx: AuditTx,
+  engine: EngineCatalog,
+  physicalName: string,
+  updates: ReadonlyArray<{
+    rowId: string;
+    storedNow?: Readonly<Record<string, unknown>> | undefined;
+  }>,
+): Promise<void> {
+  for (const update of updates) {
+    if (!update.storedNow) continue;
+    const names = Object.keys(update.storedNow);
+    if (names.length === 0) continue;
+    const fields = names.filter((name) => name !== "ag_updated_at");
+    if (fields.length < names.length) {
+      const [row] = await runRows(
+        tx,
+        buildReadCells({
+          table: physicalName,
+          id: update.rowId,
+          columns: ["ag_updated_at"],
+        }),
+      );
+      if (!row) throw new AppError("no_row");
+      if (!sameMoment(row.ag_updated_at, update.storedNow.ag_updated_at)) {
+        throw new AppError("revert_stale");
+      }
+    }
+    if (fields.length === 0) continue;
+    const [row] = (await runRows(
+      tx,
+      buildReadRows(engine, {
+        rowIds: [update.rowId],
+        limit: 1,
+        timeZone: "UTC",
+        fields,
+      }),
+    )) as RowRecord[];
+    if (!row) throw new AppError("no_row");
+    for (const name of fields) {
+      const column = engine.table.columns.find((item) => item.name === name);
+      if (!column) throw new AppError("unknown_column", name);
+      if (!sameAsSeen(column.fieldType, row[name], update.storedNow[name])) {
+        throw new AppError("revert_stale");
+      }
+    }
   }
 }
 
@@ -988,25 +1052,7 @@ export async function updateRows(
       }
       assertWritable(status);
     }
-    for (const update of updates) {
-      if (!update.storedNow) continue;
-      const names = Object.keys(update.storedNow);
-      if (names.length === 0) continue;
-      const [row] = await runRows(
-        tx,
-        buildReadCells({
-          table: context.physicalName,
-          id: update.rowId,
-          columns: names,
-        }),
-      );
-      if (!row) throw new AppError("no_row");
-      for (const name of names) {
-        if (!sameStored(row[name], update.storedNow[name])) {
-          throw new AppError("revert_stale");
-        }
-      }
-    }
+    await assertStoredNow(tx, engine, context.physicalName, updates);
     await assertAsSeen(tx, engine, updates);
     for (const item of statements) {
       readId(await runRows(tx, item.statement));
@@ -1113,144 +1159,52 @@ export async function moveRows(
   });
 }
 
-/** Marker in a post-delete audit event that carries many-to-many targets. */
-const M2M_RESTORE = "__ag_m2m";
-
-/** Links of one row in one junction: the rows on the other side. */
-type SavedLinks = {
-  junction: string;
-  side: "left_id" | "right_id";
-  ids: string[];
-};
-
-/** True for the internal event that keeps a deleted row's links. */
-export function isLinkMarker(value: unknown): boolean {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    M2M_RESTORE in value
-  );
-}
-
-type Junction = {
-  junction: string;
-  /** Where this table's rows sit in the junction. */
-  side: "left_id" | "right_id";
-  /** Physical table on the other side. */
-  other: string;
-};
-
 /**
- * Every junction a row of `tableId` can appear in: its own many-to-many
- * links (left side), and links of any table that point to it (right side),
- * one-way or two-way. Trashed link fields count too: their storage, and
- * the links a restore must bring back, are kept.
+ * Deletes rows. What they were linked to is changed here, under each linked
+ * row's own table and refused when one is locked or signed (`row-links.ts`),
+ * and kept in the same transaction for a restore.
  */
-async function junctionsOf(db: Database, tableId: string): Promise<Junction[]> {
-  const found = await db
-    .selectFrom("relations as r")
-    .innerJoin("dataColumns as c", "c.id", "r.fromColumnId")
-    .select([
-      "r.junctionName as junction",
-      "c.tableId as fromTable",
-      "r.toTableId as toTable",
-    ])
-    .where("r.kind", "=", "many_to_many")
-    .where("r.junctionName", "is not", null)
-    .where((eb) =>
-      eb.or([eb("c.tableId", "=", tableId), eb("r.toTableId", "=", tableId)]),
-    )
-    .execute();
-  const ids = [
-    ...new Set(found.flatMap((row) => [row.fromTable, row.toTable])),
-  ];
-  const physical = new Map(
-    ids.length === 0
-      ? []
-      : (
-          await db
-            .selectFrom("dataTables")
-            .select(["id", "physicalName"])
-            .where("id", "in", ids)
-            .execute()
-        ).map((row) => [row.id, row.physicalName]),
-  );
-  const junctions: Junction[] = [];
-  for (const row of found) {
-    if (!row.junction) continue;
-    const left = physical.get(row.toTable);
-    const right = physical.get(row.fromTable);
-    if (row.fromTable === tableId && left) {
-      junctions.push({ junction: row.junction, side: "left_id", other: left });
-    }
-    if (row.toTable === tableId && right) {
-      junctions.push({
-        junction: row.junction,
-        side: "right_id",
-        other: right,
-      });
-    }
-  }
-  return junctions;
-}
-
-async function readLinks(
-  tx: AuditTx,
-  junctions: readonly Junction[],
-  rowId: string,
-): Promise<SavedLinks[]> {
-  const saved: SavedLinks[] = [];
-  for (const { junction, side } of junctions) {
-    const rows = await runRows(
-      tx,
-      buildReadJunction({ junction, side, id: rowId }),
-    );
-    const far = side === "left_id" ? "right_id" : "left_id";
-    const ids = rows.flatMap((row) =>
-      typeof row[far] === "string" ? [row[far]] : [],
-    );
-    if (ids.length > 0) saved.push({ junction, side, ids });
-  }
-  return saved;
-}
-
 export async function deleteRows(
   db: Database,
   context: WriteContext,
   rowIds: readonly string[],
-): Promise<string[]> {
-  const junctions = await junctionsOf(db, context.tableId);
-  await withAudit(db, auditContext(context), async (tx) => {
-    for (const rowId of rowIds) {
-      assertWritable(await lockRow(tx, context.physicalName, rowId));
-      const m2m = await readLinks(tx, junctions, rowId);
-      readId(
-        await runRows(
-          tx,
-          buildDelete({ table: context.physicalName, id: rowId }),
-        ),
-      );
-      // Junction rows cascade with the delete. Keep the other sides, in the
-      // same transaction, so the event shares the delete's timestamp.
-      if (m2m.length > 0) {
-        await tx
-          .insertInto("auditEvents")
-          .values({
-            userId: context.userId,
-            action: "update",
-            tableId: context.tableId,
-            recordId: rowId,
-            oldValue: { [M2M_RESTORE]: m2m },
-            newValue: { [M2M_RESTORE]: [] },
-            reason: context.reason,
-            source: context.source,
-          })
-          .execute();
+): Promise<{ ids: string[]; touchedTables: string[] }> {
+  const map = await linkMapOf(db, context.tableId);
+  const touchedTables = await withAudit(
+    db,
+    auditContext(context),
+    async (tx) => {
+      const touched = new Set<string>();
+      for (const rowId of rowIds) {
+        assertWritable(await lockRow(tx, context.physicalName, rowId));
+        const detached = await detachLinks(tx, context, map, rowId);
+        for (const id of detached.touched) touched.add(id);
+        readId(
+          await runRows(
+            tx,
+            buildDelete({ table: context.physicalName, id: rowId }),
+          ),
+        );
+        // In the same transaction, so the event shares the delete's timestamp.
+        if (hasLinks(detached.kept)) {
+          await tx
+            .insertInto("auditEvents")
+            .values({
+              userId: context.userId,
+              action: "update",
+              tableId: context.tableId,
+              recordId: rowId,
+              ...linkMarker(detached.kept),
+              reason: context.reason,
+              source: context.source,
+            })
+            .execute();
+        }
       }
-    }
-  });
-  return [...rowIds];
+      return [...touched];
+    },
+  );
+  return { ids: [...rowIds], touchedTables };
 }
 
 /** Latest `delete` snapshot of each row, for rows that do not exist now. */
@@ -1375,54 +1329,10 @@ export async function listTrash(
 }
 
 /**
- * Links kept when each row was last deleted: the marker written in the
- * same transaction as the delete event, so it shares its timestamp. An
- * older marker belongs to an earlier deletion and is ignored.
+ * Brings deleted rows back from their audit snapshot, as drafts, then their
+ * links. `linksNotRestored` counts those left out because the row on the
+ * other side was locked or signed meanwhile.
  */
-async function linksForRestore(
-  db: Database,
-  tableId: string,
-  deletions: ReadonlyArray<{ recordId: string; deletedAt: string }>,
-): Promise<Map<string, SavedLinks[]>> {
-  if (deletions.length === 0) return new Map();
-  const at = new Map(deletions.map((item) => [item.recordId, item.deletedAt]));
-  const events = await db
-    .selectFrom("auditEvents")
-    .select(["recordId", "oldValue", "occurredAt"])
-    .where("tableId", "=", tableId)
-    .where("action", "=", "update")
-    .where("recordId", "in", [...at.keys()])
-    .orderBy("occurredAt", "desc")
-    .limit(deletions.length * 8)
-    .execute();
-  const found = new Map<string, SavedLinks[]>();
-  for (const event of events) {
-    if (
-      !event.recordId ||
-      found.has(event.recordId) ||
-      at.get(event.recordId) !== event.occurredAt.toISOString() ||
-      !isLinkMarker(event.oldValue)
-    ) {
-      continue;
-    }
-    const bag = (event.oldValue as Record<string, unknown>)[M2M_RESTORE];
-    if (!Array.isArray(bag)) continue;
-    const links = bag.flatMap((item): SavedLinks[] => {
-      const entry = item as Partial<SavedLinks> | null;
-      return entry &&
-        typeof entry.junction === "string" &&
-        (entry.side === "left_id" || entry.side === "right_id") &&
-        Array.isArray(entry.ids) &&
-        entry.ids.every((id) => typeof id === "string")
-        ? [{ junction: entry.junction, side: entry.side, ids: entry.ids }]
-        : [];
-    });
-    found.set(event.recordId, links);
-  }
-  return found;
-}
-
-/** Brings deleted rows back from their audit snapshot, as drafts. */
 export async function restoreRows(
   db: Database,
   engine: EngineCatalog,
@@ -1430,7 +1340,11 @@ export async function restoreRows(
   rowIds: readonly string[],
   /** Only rows this account deleted last: a collaborator with rules. */
   deletedBy?: string,
-): Promise<string[]> {
+): Promise<{
+  ids: string[];
+  linksNotRestored: number;
+  touchedTables: string[];
+}> {
   const snapshots = await deletedSnapshots(
     db,
     context,
@@ -1442,13 +1356,7 @@ export async function restoreRows(
     throw new AppError("unknown_row");
   }
   const saved = await linksForRestore(db, context.tableId, snapshots);
-  // Only junctions that still exist, with the other side's current table.
-  const junctions = new Map(
-    (await junctionsOf(db, context.tableId)).map((item) => [
-      `${item.junction}:${item.side}`,
-      item,
-    ]),
-  );
+  const map = await linkMapOf(db, context.tableId);
   const physical = engine.table.columns
     .filter(
       (column) =>
@@ -1457,45 +1365,78 @@ export async function restoreRows(
     )
     .filter((column) => column.relation?.direction !== "inverse")
     .map((column) => column.name);
-  await withAudit(
+  const restoring = { ...context, source: "restore" };
+  const outcome = await withAudit(
     db,
     { ...auditContext(context), source: "restore" },
     async (tx) => {
+      const keys = await planOwnKeys(
+        tx,
+        restoring,
+        map,
+        snapshots,
+        saved,
+        new Set(physical),
+      );
+      let refused = keys.refused;
+      const touched = new Set<string>();
       for (const item of snapshots) {
+        const left = keys.left.get(item.recordId);
         readId(
           await runRows(
             tx,
             buildRestoreRow({
               table: context.physicalName,
-              columns: physical,
+              columns: left
+                ? physical.filter((name) => !left.has(name))
+                : physical,
               id: item.recordId,
               event: item.eventId,
             }),
           ),
         );
-        for (const links of saved.get(item.recordId) ?? []) {
-          const junction = junctions.get(`${links.junction}:${links.side}`);
-          if (!junction || links.ids.length === 0) continue;
-          const found = await runRows(
-            tx,
-            buildExistingIds({ table: junction.other, ids: links.ids }),
-          );
-          const alive = found.map((row) => String(row.id));
-          if (alive.length === 0) continue;
-          const own = alive.map(() => item.recordId);
+      }
+      // Every row is back: a key between two of them can be written.
+      for (const { rowId, column, targetId } of keys.later) {
+        readId(
           await runRows(
             tx,
-            buildInsertLinks({
-              junction: junction.junction,
-              leftIds: links.side === "left_id" ? own : alive,
-              rightIds: links.side === "left_id" ? alive : own,
+            buildSetLink({
+              table: context.physicalName,
+              column,
+              rowId,
+              targetId,
             }),
-          );
-        }
+          ),
+        );
       }
+      // A key that came back shows again on the row it points to.
+      for (const { rowId, key, targetId } of keys.back) {
+        if (key.inverseField === null) continue;
+        await recordKeyReturn(tx, restoring, key, rowId, targetId);
+        touched.add(key.tableId);
+      }
+      for (const item of snapshots) {
+        const links = saved.get(item.recordId);
+        if (!links) continue;
+        const back = await reattachLinks(
+          tx,
+          restoring,
+          map,
+          item.recordId,
+          links,
+        );
+        refused += back.refused;
+        for (const id of back.touched) touched.add(id);
+      }
+      return { refused, touched: [...touched] };
     },
   );
-  return snapshots.map((item) => item.recordId);
+  return {
+    ids: snapshots.map((item) => item.recordId),
+    linksNotRestored: outcome.refused,
+    touchedTables: outcome.touched,
+  };
 }
 
 export async function setRowStatus(
