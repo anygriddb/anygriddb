@@ -8,6 +8,68 @@ first.
 
 ## Unreleased
 
+## 0.4.2 - 2026-11-22
+
+**Numbers pasted in the English interface may be wrong.** Until this version,
+copying a number shown with a thousands separator, such as 1,234, and pasting
+it into a number field stored 1.234, a thousand times less, with no message. A
+figure shown rounded was also pasted rounded. Nothing distinguishes such a
+value from a right one, so AnyGridDB can neither find nor repair them. If people
+used the English interface and copied numbers between cells, check the figures
+that matter against their source.
+
+This version keeps a copy made inside the grid exact. **A number with a
+thousands comma pasted from outside AnyGridDB, or imported, is still read as a
+decimal:** 0.5.0 closes that. Until then, enter such numbers without a
+separator.
+
+**Before upgrading, check what applies to you:**
+
+- **Locked and signed rows:** on a two-way link, a row can no longer be linked
+  to or unlinked from a locked or signed row, and a row such a row links to can
+  no longer be deleted. Unlock the row first.
+- **Trash:** once a purge has started on an item, that item can no longer be
+  restored, even if the purge failed. The next pass finishes it.
+- **API clients that send what they saw:** the comparison now follows the
+  field's type, so some stale writes that used to pass answer `row_conflict`.
+- **Realtime:** an account holds 64 sockets per process, and a socket is closed
+  past 1 MiB of unread messages. A client over a limit reconnects and reads
+  again. Pages under a row or field rule reload their view when a table changes.
+
+**After upgrading, if rows are in the trash:** links their deletion removed
+before this version can be put back with `anygriddb trash recover-links
+--dry-run`, then the same command without the flag.
+
+### Security
+
+- A socket now follows the rights its account has at present. A role taken away
+  by any path ends what it hears, on every process.
+- A reader under a row or field rule is told that a table moved, never which
+  row or field.
+- Deleting a row no longer changes a locked or signed row that links to it, and
+  neither does editing a link from its other side.
+
+### Fixed
+
+- A cell being edited stays on its row when rows are added or removed around
+  it. If its row is deleted, nothing is written elsewhere and the text is given
+  back.
+- A copy inside the grid keeps exact values, and a lone cell holding a quotation
+  mark is no longer quoted.
+- A date that does not exist, or an hour a clock change skips, is refused in a
+  cell and a form instead of being moved to a nearby value.
+- A paste or a file drop says how many items it could not place. A cell holds up
+  to 20 files everywhere.
+- A letter typed on a date or a checkbox no longer changes it, and a double
+  click no longer submits a form twice.
+- Links come back when a deleted row is restored, with their history. A restore
+  says how many it could not put back.
+- A restore confirmed during a purge of the same item is no longer lost.
+- A link list past 500 can be added to and removed from. A comment needs a row
+  that exists and a parent that is not deleted.
+- Reading the catalog no longer holds the instance: its cost now follows the
+  number of tables instead of its square.
+
 ## 0.4.1 - 2026-11-22
 
 **Before upgrading, check what applies to you:**
