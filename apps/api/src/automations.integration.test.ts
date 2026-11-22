@@ -193,6 +193,82 @@ describe("automations run by the queue", () => {
     await setAutomationEnabled(db, owner, saved.id, false);
   });
 
+  it("fails a step past a field's limit, naming the field and the limit", async () => {
+    const saved = await automation("Too long", { type: "row_updated" }, [
+      {
+        type: "create_record",
+        tableId: logId,
+        // Each value fits, and the two written side by side do not.
+        values: { note: "{{note}}{{note}}" },
+      },
+    ]);
+    const before = (await rowsOf(logId)).length;
+    const target = (await rowsOf(tasksId))[0];
+    if (!target) throw new Error("no row");
+    await updateRows(
+      { db, bus, log: () => undefined },
+      await scope(tasksId),
+      [{ rowId: target.id, values: { note: "n".repeat(2_001) } }],
+      meta,
+    );
+    await work();
+    expect(await rowsOf(logId)).toHaveLength(before);
+    const [run] = await stepsOf(saved.id);
+    expect(run?.status).toBe("failed");
+    expect(JSON.stringify(run?.steps)).toContain("Value too long: note: 4000");
+    await setAutomationEnabled(db, owner, saved.id, false);
+  });
+
+  it("reads a template with no language: a point is canonical, two readings fail", async () => {
+    const home = await findLiveTable(db, tasksId);
+    if (!home) throw new Error("no table");
+    const targetId = (
+      await insertTable(db, owner, {
+        baseId: home.baseId,
+        name: "Targets",
+        columns: [
+          { name: "label", label: "Label", fieldType: "text" },
+          { name: "qty", label: "Qty", fieldType: "number" },
+          { name: "day", label: "Day", fieldType: "date" },
+        ],
+      })
+    ).id;
+    const play = async (values: Record<string, string>) => {
+      const saved = await automation("Reading", { type: "row_updated" }, [
+        { type: "create_record", tableId: targetId, values },
+      ]);
+      const target = (await rowsOf(tasksId))[0];
+      if (!target) throw new Error("no row");
+      await updateRows(
+        { db, bus, log: () => undefined },
+        await scope(tasksId),
+        [
+          {
+            rowId: target.id,
+            values: { note: randomBytes(4).toString("hex") },
+          },
+        ],
+        meta,
+      );
+      await work();
+      await setAutomationEnabled(db, owner, saved.id, false);
+      const [run] = await stepsOf(saved.id);
+      return run;
+    };
+    const fine = await play({ qty: "1.234", day: "13/04/2026" });
+    expect(fine?.status).toBe("success");
+    expect(await rowsOf(targetId)).toMatchObject([
+      { qty: "1.234", day: "2026-04-13" },
+    ]);
+    const comma = await play({ qty: "1,234" });
+    expect(comma?.status).toBe("failed");
+    expect(JSON.stringify(comma?.steps)).toContain("Ambiguous number: qty");
+    const date = await play({ day: "03/04/2026" });
+    expect(date?.status).toBe("failed");
+    expect(JSON.stringify(date?.steps)).toContain("Ambiguous date");
+    expect(await rowsOf(targetId)).toHaveLength(1);
+  });
+
   it("deletes a row, and a deleted row's trigger reads its values", async () => {
     const remover = await automation(
       "Remove obsolete",

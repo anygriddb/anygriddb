@@ -571,7 +571,10 @@ function groupKeySql(
       ref.kind === "datetime" ? d.localDate(x, prepared.filterContext.tz) : x;
     return d.groupKey(span ? d.startOf(day, span) : day, "date");
   }
-  // Keys travel as each engine's JSON: a number as a JSON number.
+  // An exact number's key is its canonical text: as a JSON number, two
+  // large values would round to one label (ADR 0023). A count or a
+  // duration stays a JSON number.
+  if (isExactNumber(ref)) return d.groupKey(d.numberText(x), "text");
   return d.groupKey(x, ref.kind === "number" ? "number" : jsonKind(ref));
 }
 
@@ -665,6 +668,20 @@ export function readsComputedText(page: {
 
 function isExactNumber(ref: ProjectedColumn): boolean {
   return ref.kind === "number" && !FLOAT_SAFE_TYPES.has(ref.column.fieldType);
+}
+
+/**
+ * An aggregate of exact numbers as its field reads: canonical for a
+ * computed one, whose scale is the engine's; a stored one keeps its scale.
+ */
+function exactAggregateText(
+  d: Prepared["d"],
+  ref: ProjectedColumn,
+  value: string,
+): string {
+  return isComputed(ref) || ref.column.physical?.side === true
+    ? d.computedText(value)
+    : d.exactText(value);
 }
 
 /** The key of a row's formula errors: field name to message (ADR 0036). */
@@ -898,7 +915,7 @@ export function buildGroupAggregates(
     text: d.groupAggregates({
       keys: input.groups.length,
       source: `select ${keys.join(", ")}, ${refSql(ref.name)} as ${quoteIdent(ref.name)}${ref.unread ? `, ${ref.unread}` : ""} from ${prepared.derived}${prepared.where}`,
-      value: exact ? d.exactText(value) : value,
+      value: exact ? exactAggregateText(d, ref, value) : value,
       kind,
       limit: Math.min(input.limit ?? MAX_GROUPS, MAX_GROUPS),
       bind: (bound) => prepared.params.bind(bound),
@@ -1190,7 +1207,7 @@ export function buildAggregates(
       const name = `a${String(index)}`;
       // A sum, mean, or extreme of exact numbers is exact too (ADR 0023).
       if (EXACT_AGGREGATES.has(item.fn) && isExactNumber(ref)) {
-        return { name, sql: d.exactText(value), kind: "text" };
+        return { name, sql: exactAggregateText(d, ref, value), kind: "text" };
       }
       const kind: JsonKind =
         (item.fn === "earliest" || item.fn === "latest") &&

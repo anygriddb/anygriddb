@@ -303,3 +303,103 @@ describe("what a paste could not place", () => {
     expect(long.unplaced).toBe(0);
   });
 });
+
+describe("a paste read in the reader's language", () => {
+  const rows = [{ id: "r1" }] as never[];
+  const paste = (text: string, decimalMark?: "." | ",") =>
+    planPaste({
+      matrix: [[text]],
+      rows,
+      columns,
+      startRow: 0,
+      startColumn: 1,
+      resolveUser: () => undefined,
+      ...(decimalMark ? { reading: { decimalMark, timeZone: "UTC" } } : {}),
+    });
+
+  it("gives 1,234 the value its language writes", () => {
+    expect(paste("1,234", ".").updates[0]?.values.qty).toBe("1234");
+    expect(paste("1,234", ",").updates[0]?.values.qty).toBe("1.234");
+  });
+
+  it("counts it as skipped when nothing says what its comma is", () => {
+    expect(paste("1,234")).toMatchObject({ updates: [], skipped: 1 });
+  });
+});
+
+describe("a paste that reads two ways", () => {
+  const rows = [{ id: "r1" }] as never[];
+  const fields = [
+    {
+      name: "qty",
+      label: "Qty",
+      fieldType: "number",
+      config: {},
+      kind: "number",
+      error: null,
+    },
+    {
+      name: "day",
+      label: "Day",
+      fieldType: "date",
+      config: {},
+      kind: "date",
+      error: null,
+    },
+    {
+      name: "us",
+      label: "Us",
+      fieldType: "date",
+      config: { date: { format: "us" } },
+      kind: "date",
+      error: null,
+    },
+  ] as never[];
+  const paste = (
+    text: string,
+    startColumn: number,
+    reading: Parameters<typeof planPaste>[0]["reading"],
+  ) =>
+    planPaste({
+      matrix: [[text]],
+      rows,
+      columns: fields,
+      startRow: 0,
+      startColumn,
+      resolveUser: () => undefined,
+      reading,
+    });
+  const french = {
+    decimalMark: ",",
+    dayOrder: "day-first",
+    timeZone: "UTC",
+  } as const;
+  const english = { decimalMark: ".", timeZone: "UTC" } as const;
+
+  it("refuses 1.234 in French and says so, and keeps it in English", () => {
+    expect(paste("1.234", 0, french)).toMatchObject({
+      updates: [],
+      skipped: 1,
+      ambiguousPoints: 1,
+    });
+    expect(paste("1.234", 0, english).updates[0]?.values.qty).toBe("1.234");
+    expect(paste("1.5", 0, french).updates[0]?.values.qty).toBe("1.5");
+  });
+
+  it("settles a date in French, and refuses it in English", () => {
+    expect(paste("03/04/2026", 1, french).updates[0]?.values.day).toBe(
+      "2026-04-03",
+    );
+    expect(paste("03/04/2026", 1, english)).toMatchObject({
+      updates: [],
+      skipped: 1,
+      ambiguousDates: 1,
+    });
+    expect(paste("13/04/2026", 1, english).updates[0]?.values.day).toBe(
+      "2026-04-13",
+    );
+    expect(paste("03/04/2026", 2, english).updates[0]?.values.us).toBe(
+      "2026-03-04",
+    );
+  });
+});

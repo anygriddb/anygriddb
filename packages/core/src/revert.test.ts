@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellFromAudit, earlierChanges } from "./revert";
+import { cellFromAudit, earlierChanges, withExactNumbers } from "./revert";
 
 const base = (name: string) => ({ id: "base", name, description: null });
 
@@ -43,5 +43,28 @@ describe("cellFromAudit", () => {
     expect(() => cellFromAudit("text", { ok: true })).toThrow(
       "This cannot be put back",
     );
+  });
+});
+
+describe("withExactNumbers", () => {
+  it("puts back the digits a float changed, and nothing else", () => {
+    expect(
+      withExactNumbers(
+        { big: 9007199254740992, plain: 12.5, name: "a" },
+        { big: "9007199254740993", plain: "12.50" },
+      ),
+    ).toEqual({ big: "9007199254740993", plain: 12.5, name: "a" });
+  });
+
+  it("keeps the text of a number too long to be a decimal here", () => {
+    const digits = "1".repeat(70);
+    expect(withExactNumbers({ big: Number(digits) }, { big: digits })).toEqual({
+      big: digits,
+    });
+  });
+
+  it("leaves what holds no numbers as it is", () => {
+    expect(withExactNumbers(null, null)).toBeNull();
+    expect(withExactNumbers({ a: 1 }, null)).toEqual({ a: 1 });
   });
 });

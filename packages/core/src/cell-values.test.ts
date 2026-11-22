@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertCellValue, coerceCellValue } from "./cell-values";
+import { assertCellValue, coerceCellValue, readCellValue } from "./cell-values";
 
 const select = {
   fieldType: "single_select" as const,
@@ -99,8 +99,8 @@ describe("coerceCellValue", () => {
       true,
     );
     expect(
-      coerceCellValue({ fieldType: "date", config: {} }, "07/11/2026"),
-    ).toBe("2026-11-07");
+      coerceCellValue({ fieldType: "date", config: {} }, "17/11/2026"),
+    ).toBe("2026-11-17");
     expect(coerceCellValue({ fieldType: "duration", config: {} }, "1:30")).toBe(
       5400,
     );
@@ -118,5 +118,322 @@ describe("coerceCellValue", () => {
         },
       ),
     ).toEqual(["11111111-1111-4111-8111-111111111111"]);
+  });
+});
+
+const number = { fieldType: "number" as const, config: {} };
+const text = { fieldType: "text" as const, config: {} };
+const longText = { fieldType: "long_text" as const, config: {} };
+const rating = { fieldType: "rating" as const, config: { ratingMax: 5 } };
+const duration = { fieldType: "duration" as const, config: {} };
+const day = { fieldType: "date" as const, config: {} };
+const usDay = {
+  fieldType: "date" as const,
+  config: { date: { format: "us" as const } },
+};
+const euDay = {
+  fieldType: "date" as const,
+  config: { date: { format: "eu" as const } },
+};
+const instant = { fieldType: "datetime" as const, config: {} };
+const usInstant = {
+  fieldType: "datetime" as const,
+  config: { date: { format: "us" as const } },
+};
+const parisInstant = {
+  fieldType: "datetime" as const,
+  config: { date: { timeZone: "Europe/Paris" } },
+};
+const newYorkInstant = {
+  fieldType: "datetime" as const,
+  config: { date: { timeZone: "America/New_York" } },
+};
+
+describe("a number is read by the decimal mark declared", () => {
+  it.each([
+    ["1,234", ".", "1234"],
+    ["1,234", ",", "1.234"],
+    ["1,234.50", ".", "1234.5"],
+    ["1,234.50", ",", "1234.5"],
+    ["1.234,5", ".", "1234.5"],
+    ["1.234,5", ",", "1234.5"],
+    ["12,5", ".", "12.5"],
+    ["12,5", ",", "12.5"],
+    ["1,234,567", ".", "1234567"],
+    ["1,234,567", ",", "1234567"],
+    ["-1,234", ".", "-1234"],
+    ["1 234,5", ",", "1234.5"],
+    ["1 234", ",", "1234"],
+    ["1,234.50 €", ".", "1234.5"],
+  ] as const)("reads %s with mark %s as %s", (written, decimalMark, value) => {
+    expect(coerceCellValue(number, written, { decimalMark })).toBe(value);
+  });
+
+  it.each(["1,234", "-1,234", "999,999", "1,234 €"])(
+    "refuses %s when nothing says what its comma is",
+    (written) => {
+      expect(coerceCellValue(number, written)).toBeUndefined();
+    },
+  );
+
+  it.each([
+    ["12,5", "12.5"],
+    ["0,123", "0.123"],
+    ["1234,567", "1234.567"],
+    ["1,234.50", "1234.5"],
+    ["1.234,5", "1234.5"],
+    ["1,234,567", "1234567"],
+    ["1 234,5", "1234.5"],
+    ["1.5", "1.5"],
+    ["1e3", "1000"],
+  ])("reads %s the one way it can be read", (written, value) => {
+    expect(coerceCellValue(number, written)).toBe(value);
+  });
+
+  describe("where a comma is the decimal mark", () => {
+    it.each(["1.234", "-1.234", "999.999", "12.345 €"])(
+      "refuses %s, whose point could group thousands",
+      (written) => {
+        expect(readCellValue(number, written, { decimalMark: "," })).toEqual({
+          refused: { code: "ambiguous_point" },
+        });
+      },
+    );
+
+    it.each([
+      ["1.5", "1.5"],
+      ["1.2345", "1.2345"],
+      ["0.123", "0.123"],
+      ["1234.567", "1234.567"],
+      ["1.234,5", "1234.5"],
+      ["1234", "1234"],
+      ["1,234", "1.234"],
+    ])("reads %s as %s", (written, value) => {
+      expect(coerceCellValue(number, written, { decimalMark: "," })).toBe(
+        value,
+      );
+    });
+
+    it("keeps the canonical point with no language, or an English one", () => {
+      expect(coerceCellValue(number, "1.234")).toBe("1.234");
+      expect(coerceCellValue(number, "1.234", { decimalMark: "." })).toBe(
+        "1.234",
+      );
+    });
+  });
+
+  it.each(["1,2,3", "12,", ",5", "1,5e3", "1 2 3", "12 5", "1.234.567"])(
+    "refuses %s, which says no number",
+    (written) => {
+      expect(coerceCellValue(number, written, { decimalMark: "." })).toBe(
+        undefined,
+      );
+    },
+  );
+});
+
+describe("an integer past what JSON keeps exact", () => {
+  it("is refused as a JSON number, and kept as text", () => {
+    expect(coerceCellValue(number, 9007199254740991)).toBe("9007199254740991");
+    expect(coerceCellValue(number, "9007199254740993")).toBe(
+      "9007199254740993",
+    );
+    // eslint-disable-next-line no-loss-of-precision
+    expect(coerceCellValue(number, 9007199254740993)).toBeUndefined();
+    // eslint-disable-next-line no-loss-of-precision
+    expect(coerceCellValue(text, 9007199254740993)).toBeUndefined();
+    // eslint-disable-next-line no-loss-of-precision
+    expect(coerceCellValue(text, [9007199254740993])).toBeUndefined();
+    expect(coerceCellValue(number, 0.1)).toBe("0.1");
+  });
+
+  it("is refused by the strict check, as a JSON number only", () => {
+    expect(() => assertCellValue(number, 9007199254740991)).not.toThrow();
+    expect(() => assertCellValue(number, "9007199254740993")).not.toThrow();
+    // eslint-disable-next-line no-loss-of-precision
+    expect(() => assertCellValue(number, 9007199254740993)).toThrow(
+      "Invalid cell",
+    );
+    expect(() => assertCellValue(number, 1e300)).toThrow("Invalid cell");
+    expect(() => assertCellValue(number, 1.5)).not.toThrow();
+  });
+});
+
+describe("what is too long or not whole is refused, never cut", () => {
+  it("holds a text to its field's limit", () => {
+    expect(coerceCellValue(text, "a".repeat(4_000))).toHaveLength(4_000);
+    expect(coerceCellValue(text, "a".repeat(4_001))).toBeUndefined();
+    expect(coerceCellValue(longText, "a".repeat(20_000))).toHaveLength(20_000);
+    expect(coerceCellValue(longText, "a".repeat(20_001))).toBeUndefined();
+  });
+
+  it("takes a whole rating, and refuses the rest", () => {
+    expect(coerceCellValue(rating, "3")).toBe(3);
+    expect(coerceCellValue(rating, "★★★")).toBe(3);
+    expect(coerceCellValue(rating, "2.5")).toBeUndefined();
+    expect(coerceCellValue(rating, "3.7")).toBeUndefined();
+    expect(coerceCellValue(rating, 2.5)).toBeUndefined();
+    expect(coerceCellValue(rating, "★ good")).toBeUndefined();
+  });
+});
+
+describe("a day is read as its field writes it", () => {
+  it.each([
+    ["2024-03-07", "2024-03-07"],
+    ["17/03/2024", "2024-03-17"],
+    ["17.3.2024", "2024-03-17"],
+    ["03/17/2024", "2024-03-17"],
+    ["04/04/2026", "2026-04-04"],
+    ["March 7, 2024", "2024-03-07"],
+    ["7 March 2024", "2024-03-07"],
+    ["7 mars 2024", "2024-03-07"],
+    ["1er février 2024", "2024-02-01"],
+    ["2024/03/07", "2024-03-07"],
+  ])("reads %s as %s", (written, value) => {
+    expect(coerceCellValue(day, written)).toBe(value);
+  });
+
+  it("follows the order its field declares", () => {
+    expect(coerceCellValue(usDay, "03/04/2026")).toBe("2026-03-04");
+    expect(coerceCellValue(euDay, "03/04/2026")).toBe("2026-04-03");
+    expect(coerceCellValue(usDay, "13/25/2026")).toBeUndefined();
+    expect(coerceCellValue(usDay, "14/03/2026")).toBeUndefined();
+    expect(coerceCellValue(euDay, "04/13/2026")).toBeUndefined();
+    // The field's format wins over the reader's language.
+    expect(
+      coerceCellValue(usDay, "03/04/2026", { dayOrder: "day-first" }),
+    ).toBe("2026-03-04");
+  });
+
+  it("takes the order of a language that fixes it", () => {
+    expect(coerceCellValue(day, "03/04/2026", { dayOrder: "day-first" })).toBe(
+      "2026-04-03",
+    );
+    expect(
+      coerceCellValue(day, "04/13/2026", { dayOrder: "day-first" }),
+    ).toBeUndefined();
+  });
+
+  it.each(["03/04/2026", "3.4.2026", "03-04-2026"])(
+    "refuses %s, two days, with nothing to say which",
+    (written) => {
+      for (const field of [day, instant]) {
+        expect(readCellValue(field, written)).toEqual({
+          refused: { code: "ambiguous_date" },
+        });
+      }
+    },
+  );
+
+  it("refuses a date and time whose day reads two ways", () => {
+    expect(readCellValue(instant, "03/04/2026 14:30")).toEqual({
+      refused: { code: "ambiguous_date" },
+    });
+    expect(coerceCellValue(instant, "13/04/2026 14:30")).toBe(
+      "2026-04-13T14:30:00Z",
+    );
+  });
+
+  it.each(["Room 5", "1", "12", "Lot 3", "March 7", "2026", "13/25/2026"])(
+    "refuses %s",
+    (written) => {
+      expect(coerceCellValue(day, written)).toBeUndefined();
+      expect(coerceCellValue(instant, written)).toBeUndefined();
+    },
+  );
+
+  it("takes the years the control offers, and no day that does not exist", () => {
+    for (const value of [
+      "0001-01-01",
+      "0050-06-15",
+      "0099-12-31",
+      "0004-02-29",
+    ]) {
+      expect(() => assertCellValue(day, value)).not.toThrow();
+    }
+    for (const value of [
+      "0000-01-01",
+      "0050-02-30",
+      "0099-02-30",
+      "0003-02-29",
+    ]) {
+      expect(() => assertCellValue(day, value)).toThrow("Invalid cell");
+    }
+  });
+});
+
+describe("an instant", () => {
+  it("puts a day alone at midnight where its field is", () => {
+    expect(coerceCellValue(parisInstant, "14/03/2026")).toBe(
+      "2026-03-13T23:00:00Z",
+    );
+    expect(coerceCellValue(newYorkInstant, "14/03/2026")).toBe(
+      "2026-03-14T04:00:00Z",
+    );
+    expect(coerceCellValue(instant, "14/03/2026")).toBe("2026-03-14T00:00:00Z");
+    expect(
+      coerceCellValue(instant, "14/03/2026", { timeZone: "Europe/Paris" }),
+    ).toBe("2026-03-13T23:00:00Z");
+  });
+
+  it("prefers the field's zone to the reader's", () => {
+    expect(
+      coerceCellValue(parisInstant, "2026-07-01", {
+        timeZone: "America/New_York",
+      }),
+    ).toBe("2026-06-30T22:00:00Z");
+  });
+
+  it("reads the month first where its field says so", () => {
+    expect(coerceCellValue(usInstant, "03/04/2026")).toBe(
+      "2026-03-04T00:00:00Z",
+    );
+  });
+
+  it("reads a time without a zone where the field is, to the microsecond", () => {
+    expect(coerceCellValue(parisInstant, "2026-07-01 14:30")).toBe(
+      "2026-07-01T12:30:00Z",
+    );
+    expect(coerceCellValue(parisInstant, "13/07/2026 14:30:05.123456")).toBe(
+      "2026-07-13T12:30:05.123456Z",
+    );
+    expect(coerceCellValue(usInstant, "3/7/2026 2:30 PM")).toBe(
+      "2026-03-07T14:30:00Z",
+    );
+  });
+
+  it("keeps an instant that says its zone", () => {
+    expect(coerceCellValue(instant, "2026-07-01T14:30:00+02:00")).toBe(
+      "2026-07-01T14:30:00+02:00",
+    );
+    expect(coerceCellValue(instant, "2026-07-01 14:30:00+02")).toBe(
+      "2026-07-01T14:30:00+02:00",
+    );
+  });
+
+  it("refuses a time the zone's clocks skip", () => {
+    expect(coerceCellValue(parisInstant, "2026-03-29 02:30")).toBeUndefined();
+  });
+
+  it("stays within the years a field takes, once in UTC", () => {
+    expect(() =>
+      assertCellValue(instant, "9999-12-31T23:59:59Z"),
+    ).not.toThrow();
+    expect(() => assertCellValue(instant, "9999-12-31T23:59:59-12:00")).toThrow(
+      "Invalid cell",
+    );
+    expect(() => assertCellValue(instant, "0001-01-01T00:00:00+14:00")).toThrow(
+      "Invalid cell",
+    );
+  });
+});
+
+describe("a duration", () => {
+  it.each(["1d 1:01", "1j 1:01"])("reads %s", (written) => {
+    expect(coerceCellValue(duration, written)).toBe(90_060);
+  });
+
+  it("refuses an unknown unit", () => {
+    expect(coerceCellValue(duration, "1x 1:01")).toBeUndefined();
   });
 });

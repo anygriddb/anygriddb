@@ -1,4 +1,9 @@
-import { cellText, MAX_GROUPS } from "@anygriddb/core";
+import {
+  cellText,
+  isDecimalString,
+  MAX_GROUPS,
+  toDecimalString,
+} from "@anygriddb/core";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { optionsOf } from "../fields/cell-value";
 import type { Groups } from "./use-rows";
@@ -23,6 +28,8 @@ export type GridItem =
 export type GroupLevel = {
   column: string;
   colorOf?: (label: string) => string | undefined;
+  /** An exact number: its key is canonical, whatever scale a cell keeps. */
+  exactNumber?: boolean;
 };
 
 const SEPARATOR = "\u0000";
@@ -66,6 +73,7 @@ export function groupLevels(
       column?.fieldType === "multi_select";
     return {
       column: group.column,
+      ...(column?.kind === "number" ? { exactNumber: true } : {}),
       ...(colored
         ? {
             colorOf: (label: string) =>
@@ -204,7 +212,14 @@ export function layoutFromRows(
     ]),
   );
   const keysOf = (row: RowItem) =>
-    levels.map((level) => groupKeyOf(row[level.column as keyof RowItem]));
+    levels.map((level) => {
+      const value = row[level.column as keyof RowItem];
+      return groupKeyOf(
+        level.exactNumber && isDecimalString(value)
+          ? toDecimalString(value)
+          : value,
+      );
+    });
   const seen = new Map<string, number>();
   for (const row of rows) {
     const keys = keysOf(row);

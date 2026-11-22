@@ -1,5 +1,5 @@
 import {
-  coerceCellValue,
+  readCellValue,
   type FilterGroup,
   type FilterKind,
   formWindowNeverOpens,
@@ -46,6 +46,11 @@ import {
   startingPoint,
   toDateValue,
 } from "../../lib/dates";
+import {
+  readingGiven,
+  readingIn,
+  useRefusedText,
+} from "../../lib/cell-reading";
 import { useLocale } from "../../lib/i18n";
 import { useSession } from "../../lib/session";
 import { countConditions, FilterBuilder } from "../table/filter-builder";
@@ -389,6 +394,7 @@ export function FieldInput({
 
 export function FormView(props: ViewProps) {
   const { t } = useLingui();
+  const refusedText = useRefusedText();
   const table = useTable();
   const form = (props.config.form ?? {}) as FormConfig;
   const candidates = props.allColumns.filter(
@@ -461,23 +467,30 @@ export function FormView(props: ViewProps) {
         }
         continue;
       }
-      const value =
+      const reading =
         column.fieldType === "datetime" && typeof raw === "string"
-          ? formInstant(raw, editZone(dateFormatOf(column)))
-          : coerceCellValue(
+          ? { value: formInstant(raw, editZone(dateFormatOf(column))) }
+          : readCellValue(
               {
                 fieldType: column.fieldType,
                 config: column.config,
               },
               raw,
+              // What a link filled is not in the reader's language.
+              raw === prefill.values[column.name]
+                ? readingGiven()
+                : readingIn(table.locale),
             );
-      if (value === undefined) {
+      if ("refused" in reading || reading.value === undefined) {
         toast.error(
-          t`Invalid value for ${{ field: field.label || column.label }}`,
+          refusedText(
+            field.label || column.label,
+            "refused" in reading ? reading.refused : undefined,
+          ),
         );
         return;
       }
-      out[column.name] = value;
+      out[column.name] = reading.value;
     }
     setBusy(true);
     try {

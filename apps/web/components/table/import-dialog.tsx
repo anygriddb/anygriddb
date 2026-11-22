@@ -1,4 +1,8 @@
-import { WRITABLE_TYPES } from "@anygriddb/core";
+import {
+  CELL_TEXT_LIMITS,
+  type DayOrder,
+  WRITABLE_TYPES,
+} from "@anygriddb/core";
 import {
   Button,
   Checkbox,
@@ -9,6 +13,7 @@ import {
   Label,
   Select,
   Spinner,
+  getLocalTimeZone,
 } from "@anygriddb/ui";
 import { FileUp } from "lucide-react";
 import { useMemo, useRef, useState, type DragEvent } from "react";
@@ -27,6 +32,7 @@ import { FIELD_LABELS } from "../fields/field-meta";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
+import { useLocale } from "../../lib/i18n";
 import { raw } from "../../lib/known-text";
 import { pastedFile } from "./pasted-data";
 
@@ -38,6 +44,14 @@ type Preview = {
   sample: string[][];
   total: number;
   inferred: Array<{ fieldType: string }>;
+  /** Cells whose number reads two ways until the file's mark is known. */
+  ambiguousNumbers: number;
+  /** Cells like `1.234`, refused if the file's mark is a comma. */
+  ambiguousPoints: number;
+  /** Cells whose date reads two ways until the file's order is known. */
+  ambiguousDates: number;
+  /** The longest cell of each column. */
+  longest: number[];
 };
 
 type Started = RouterOutputs["rows"]["importCommit"];
@@ -127,6 +141,7 @@ export function ImportDialog(props: {
   onDone?: () => void;
 }) {
   const { t } = useLingui();
+  const { locale } = useLocale();
   const jobError = useJobErrorText();
   const errorText = useErrorText();
   const { watch } = useJobs();
@@ -138,6 +153,8 @@ export function ImportDialog(props: {
   const [tableName, setTableName] = useState("");
   const [upsertSource, setUpsertSource] = useState("");
   const [addOptions, setAddOptions] = useState(true);
+  const [decimalMark, setDecimalMark] = useState<"" | "." | ",">("");
+  const [dayOrder, setDayOrder] = useState<"" | DayOrder>("");
   const [reason, setReason] = useState("");
   const [result, setResult] = useState<ImportReport | null>(null);
   const [running, setRunning] = useState<{
@@ -168,6 +185,23 @@ export function ImportDialog(props: {
   const mapped = choices.flatMap((choice, source) =>
     choice.target ? [{ choice, source }] : [],
   );
+  /** Mapped columns holding a value longer than their field keeps. */
+  const tooLong = mapped.filter(({ choice, source }) => {
+    const fieldType =
+      choice.target === "new"
+        ? choice.fieldType
+        : writable.find((column) => column.name === choice.target)?.fieldType;
+    const limit =
+      fieldType === "text" || fieldType === "long_text"
+        ? CELL_TEXT_LIMITS[fieldType]
+        : undefined;
+    return limit !== undefined && (preview?.longest[source] ?? 0) > limit;
+  }).length;
+  // In French a point can group thousands: `1.234` alone is worth asking.
+  const asksDecimal =
+    preview !== null &&
+    (preview.ambiguousNumbers > 0 ||
+      (locale === "fr" && preview.ambiguousPoints > 0));
   const needsReason =
     target.kind === "existing" &&
     mapped.some(({ choice }) =>
@@ -183,6 +217,8 @@ export function ImportDialog(props: {
     setResult(null);
     setRunning(null);
     setUpsertSource("");
+    setDecimalMark("");
+    setDayOrder("");
     setReason("");
     setPasted("");
   }
@@ -230,6 +266,8 @@ export function ImportDialog(props: {
       }
       const parsed = json as Preview;
       setPreview(parsed);
+      // French puts the day first; English is written both ways.
+      setDayOrder(locale === "fr" ? "day-first" : "");
       setChoices(initialChoices(parsed, target));
       setTableName(parsed.filename.replace(/\.[^.]+$/, "").slice(0, 100));
     } catch (cause) {
@@ -280,6 +318,9 @@ export function ImportDialog(props: {
         upsertSource: upsertSource === "" ? undefined : Number(upsertSource),
         addOptions,
         reason: reason.trim() || undefined,
+        decimalMark: decimalMark === "" ? undefined : decimalMark,
+        dayOrder: dayOrder === "" ? undefined : dayOrder,
+        timeZone: getLocalTimeZone(),
       });
       props.onStarted?.(started);
       shown.current = started.jobId;
@@ -603,6 +644,71 @@ export function ImportDialog(props: {
                 </tbody>
               </table>
             </div>
+            {asksDecimal ? (
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="import-decimal">
+                  {t`What separates the decimals in this file?`}
+                </Label>
+                <Select
+                  id="import-decimal"
+                  value={decimalMark}
+                  onChange={(event) =>
+                    setDecimalMark(event.target.value as "" | "." | ",")
+                  }
+                >
+                  <option value="">{t`Not said: refuse 1,234, and read 1.234 with a decimal point`}</option>
+                  <option value=".">{t`A point: 1,234 is one thousand two hundred and thirty-four`}</option>
+                  <option value=",">{t`A comma: 1,234 is one point two three four`}</option>
+                </Select>
+                {preview.ambiguousNumbers > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {plural(preview.ambiguousNumbers, {
+                      one: "# value can be read in two ways, such as 1,234.",
+                      other: "# values can be read in two ways, such as 1,234.",
+                    })}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {decimalMark === "," && preview.ambiguousPoints > 0 ? (
+              <p role="status" className="text-xs text-warning">
+                {plural(preview.ambiguousPoints, {
+                  one: "With a comma for decimals, # value such as 1.234 reads two ways and will be refused: write it 1234 or 1,234.",
+                  other:
+                    "With a comma for decimals, # values such as 1.234 read two ways and will be refused: write them 1234 or 1,234.",
+                })}
+              </p>
+            ) : null}
+            {preview.ambiguousDates > 0 ? (
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="import-day-order">
+                  {t`What comes first in this file's dates?`}
+                </Label>
+                <Select
+                  id="import-day-order"
+                  value={dayOrder}
+                  onChange={(event) =>
+                    setDayOrder(event.target.value as "" | DayOrder)
+                  }
+                >
+                  <option value="">{t`Not said: refuse these dates`}</option>
+                  <option value="day-first">{t`The day: 03/04/2026 is 3 April`}</option>
+                  <option value="month-first">{t`The month: 03/04/2026 is 4 March`}</option>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {plural(preview.ambiguousDates, {
+                    one: "# date can be read in two ways, such as 03/04/2026. A field with its own date format follows it.",
+                    other:
+                      "# dates can be read in two ways, such as 03/04/2026. A field with its own date format follows it.",
+                  })}
+                </p>
+              </div>
+            ) : null}
+            {tooLong > 0 ? (
+              <p role="status" className="text-xs text-warning">
+                {t`Some values are longer than their field holds (4,000 characters for a text, 20,000 for a long text): their rows will be refused and listed, nothing is cut.`}
+              </p>
+            ) : null}
             {target.kind === "existing" ? (
               <div className="flex flex-col gap-2">
                 <div className="flex flex-col gap-1">

@@ -1,6 +1,7 @@
 import {
   cellText,
   coerceCellValue,
+  readCellValue,
   MAX_CELL_FILES,
   parseColor,
   prettyJson,
@@ -40,7 +41,13 @@ import {
   startingPoint,
   toDateValue,
 } from "../../lib/dates";
+import {
+  editableNumber,
+  readingIn,
+  useRefusedText,
+} from "../../lib/cell-reading";
 import { attachmentList, isLinkArray } from "../../lib/format";
+import { useLocale } from "../../lib/i18n";
 import { useFormatBytes } from "../../lib/format-bytes";
 import { filesThatFit, tableFileUrl } from "../../lib/send-file";
 import { readTypedDate, shownDate } from "../../lib/typed-date";
@@ -92,8 +99,16 @@ function toCellColumn(column: CatalogColumn) {
 }
 
 /** Text shown in an input when editing an existing value. */
-function editableText(value: unknown, column: CatalogColumn): string {
+function editableText(
+  value: unknown,
+  column: CatalogColumn,
+  locale: "fr" | "en",
+): string {
   if (value === null || value === undefined) return "";
+  // Read back in the same language: `1.234` is written `1,234` in French.
+  if (column.fieldType === "number") {
+    return editableNumber(cellText(value), locale);
+  }
   if (column.fieldType === "duration" && typeof value === "number") {
     const hours = Math.floor(value / 3600);
     const minutes = Math.floor((value % 3600) / 60);
@@ -138,20 +153,23 @@ function InlineEditor({
   onDone,
 }: EditorProps) {
   const { t } = useLingui();
+  const { locale } = useLocale();
+  const refusedText = useRefusedText();
   const { updateCells } = useTable();
   const seen = useSeenAtOpen(row, column);
   const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   const pickerRef = useRef<HTMLInputElement>(null);
   const current = row[column.name as keyof RowItem];
   const [text, setText] = useState(
-    initialText ?? editableText(current, column),
+    initialText ?? editableText(current, column, locale),
   );
   const committed = useRef(false);
   const multiline =
     column.fieldType === "long_text" || column.fieldType === "json";
   const invalid =
     text.trim() !== "" &&
-    coerceCellValue(toCellColumn(column), text) === undefined;
+    coerceCellValue(toCellColumn(column), text, readingIn(locale)) ===
+      undefined;
   useEffect(() => {
     const element = ref.current;
     if (element) onDraft?.(() => element.value);
@@ -176,23 +194,24 @@ function InlineEditor({
   async function commit(move?: Move) {
     if (committed.current) return;
     committed.current = true;
-    const original = editableText(current, column);
+    const original = editableText(current, column, locale);
     if (text === original) {
       onDone(move);
       return;
     }
-    const value: CellValue | undefined = coerceCellValue(
+    const reading = readCellValue(
       toCellColumn(column),
       text,
+      readingIn(locale),
     );
-    if (value === undefined) {
-      toast.error(t`Invalid value for ${{ field: column.label }}`);
+    if ("refused" in reading) {
+      toast.error(refusedText(column.label, reading.refused));
       committed.current = false;
       return;
     }
     onDone(move);
     await updateCells([
-      { rowId: row.id, values: { [column.name]: value }, seen },
+      { rowId: row.id, values: { [column.name]: reading.value }, seen },
     ]);
   }
 
@@ -777,6 +796,7 @@ const CREATE = "\u0000create";
 
 function LinkEditor({ column, row, onDone }: EditorProps) {
   const { t } = useLingui();
+  const { locale } = useLocale();
   const api = useTRPC();
   const queryClient = useQueryClient();
   const errorText = useErrorText();
@@ -825,7 +845,7 @@ function LinkEditor({ column, row, onDone }: EditorProps) {
     );
   }
   // What was typed and matched no row becomes a row of the other table.
-  const draft = linkedRowDraft(column, tables, query);
+  const draft = linkedRowDraft(column, tables, query, readingIn(locale));
   const typed = query.trim().toLowerCase();
   const found = candidates.data?.rows ?? [];
   const typedExists = found.some(

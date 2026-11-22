@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isDecimalString, numberToDecimal, toDecimalString } from "./decimal";
 import { AppError, type ErrorCode } from "./errors";
 
 /**
@@ -155,7 +156,12 @@ type BinaryOp =
   | "lte";
 
 export type FormulaExpr =
-  | { op: "num"; value: number }
+  | {
+      op: "num";
+      value: number;
+      /** The literal as written, when a float could not hold it exactly. */
+      exact?: string;
+    }
   | { op: "str"; value: string }
   | { op: "bool"; value: boolean }
   | { op: "col"; name: string }
@@ -187,7 +193,13 @@ const MAX_FORMULA_SOURCE = 4_000;
 
 const nodeSchema: z.ZodType<FormulaExpr> = z.lazy(() =>
   z.union([
-    z.object({ op: z.literal("num"), value: z.number() }).strict(),
+    z
+      .object({
+        op: z.literal("num"),
+        value: z.number(),
+        exact: z.string().refine(isDecimalString).optional(),
+      })
+      .strict(),
     z.object({ op: z.literal("str"), value: z.string().max(1_000) }).strict(),
     z.object({ op: z.literal("bool"), value: z.boolean() }).strict(),
     z
@@ -297,7 +309,7 @@ type Span = { from: number; to: number };
 
 type Token = Span &
   (
-    | { type: "num"; value: number }
+    | { type: "num"; value: number; exact?: string }
     | { type: "str"; value: string }
     | { type: "ref"; value: string }
     | { type: "ident"; value: string }
@@ -432,7 +444,16 @@ function tokenize(source: string): Token[] {
       if (!Number.isFinite(value)) {
         throw new FormulaError("invalid_number", { from, to });
       }
-      tokens.push({ type: "num", value, from, to });
+      const exact = toDecimalString(match[0]);
+      tokens.push({
+        type: "num",
+        value,
+        ...(exact !== undefined && exact !== numberToDecimal(value)
+          ? { exact }
+          : {}),
+        from,
+        to,
+      });
       index = to;
       continue;
     }
@@ -615,7 +636,17 @@ export function parseFormula(
       const arg = parseUnary();
       depth -= 1;
       if (arg.op === "num") {
-        return { op: "num", value: -arg.value };
+        return {
+          op: "num",
+          value: -arg.value,
+          ...(arg.exact === undefined
+            ? {}
+            : {
+                exact: arg.exact.startsWith("-")
+                  ? arg.exact.slice(1)
+                  : `-${arg.exact}`,
+              }),
+        };
       }
       return { op: "neg", arg };
     }
@@ -634,7 +665,11 @@ export function parseFormula(
     index += 1;
     switch (token.type) {
       case "num":
-        return { op: "num", value: token.value };
+        return {
+          op: "num",
+          value: token.value,
+          ...(token.exact === undefined ? {} : { exact: token.exact }),
+        };
       case "str":
         return { op: "str", value: token.value };
       case "ref":
@@ -738,7 +773,7 @@ export function formatFormula(
   const format = (node: FormulaExpr, parent: number): string => {
     switch (node.op) {
       case "num":
-        return String(node.value);
+        return node.exact ?? String(node.value);
       case "str":
         return quoteText(node.value);
       case "bool":

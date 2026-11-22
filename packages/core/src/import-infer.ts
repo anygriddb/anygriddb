@@ -1,11 +1,8 @@
-import {
-  coerceCellValue,
-  isEmail,
-  isHttpUrl,
-  isIsoDateTime,
-} from "./cell-values";
+import { coerceCellValue, isEmail, isHttpUrl } from "./cell-values";
 import { OPTION_COLORS, type SelectOption } from "./field-config";
 import type { WritableType } from "./field-types";
+import { isIsoDateTime } from "./iso-date";
+import { isAmbiguousDate } from "./typed-text";
 
 export type InferredField = {
   fieldType: WritableType;
@@ -37,6 +34,13 @@ export class FieldGuess {
   private readonly lowered = new Set<string>();
   private readonly distinct = new Set<string>();
 
+  /**
+   * `asked`: the file's reader will be asked what its commas are and which
+   * comes first in its dates, so `1,234` counts as a number and `03/04/2026`
+   * as a date. Otherwise they stay texts, kept as written.
+   */
+  constructor(private readonly asked = false) {}
+
   add(raw: string): void {
     const value = raw.trim();
     if (value === "") return;
@@ -52,7 +56,11 @@ export class FieldGuess {
     }
     if (
       this.number &&
-      coerceCellValue({ fieldType: "number", ...PLAIN }, value) === undefined
+      coerceCellValue(
+        { fieldType: "number", ...PLAIN },
+        value,
+        this.asked ? { decimalMark: "." } : {},
+      ) === undefined
     ) {
       this.number = false;
     }
@@ -66,7 +74,8 @@ export class FieldGuess {
     }
     if (
       this.date &&
-      coerceCellValue({ fieldType: "date", ...PLAIN }, value) === undefined
+      coerceCellValue({ fieldType: "date", ...PLAIN }, value) === undefined &&
+      !(this.asked && isAmbiguousDate(value))
     ) {
       this.date = false;
     }
@@ -115,8 +124,11 @@ export class FieldGuess {
  * them. Empty cells are ignored. A short list of repeated values becomes
  * a single select with options.
  */
-export function inferFieldType(raw: readonly string[]): InferredField {
-  const guess = new FieldGuess();
+export function inferFieldType(
+  raw: readonly string[],
+  asked = false,
+): InferredField {
+  const guess = new FieldGuess(asked);
   for (const value of raw.slice(0, SAMPLE)) guess.add(value);
   return guess.result();
 }

@@ -1,9 +1,10 @@
 import {
-  coerceCellValue,
   decimalSeries,
   isDecimalString,
   parseDelimited,
+  readCellValue,
 } from "@anygriddb/core";
+import type { Reading } from "../../lib/cell-reading";
 import { cellDisplay } from "../../lib/format";
 import type { CatalogColumn, Collaborator, RowItem } from "../../lib/types";
 import { isComputedField, isLinkField } from "../fields/field-meta";
@@ -176,6 +177,10 @@ type PastePlan = {
   skipped: number;
   /** Values with no cell to land in: past the last field or the last row. */
   unplaced: number;
+  /** Of those skipped, the dates that read two ways. */
+  ambiguousDates: number;
+  /** Of those skipped, the numbers like `1.234` under a decimal comma. */
+  ambiguousPoints: number;
 };
 
 /**
@@ -196,6 +201,8 @@ export function planPaste(input: {
   exact?: readonly (readonly CopiedCell[])[] | null;
   /** Whether rows past the last one may be added. */
   canInsert?: boolean;
+  /** The reader's language and time zone: what the pasted text means. */
+  reading?: Reading;
 }): PastePlan {
   const { matrix, rows, columns, startRow, startColumn, exact } = input;
   const canInsert = input.canInsert ?? true;
@@ -209,6 +216,8 @@ export function planPaste(input: {
   const inserts: Array<Record<string, CellValue>> = [];
   let skipped = 0;
   let unplaced = 0;
+  let ambiguousDates = 0;
+  let ambiguousPoints = 0;
   for (let r = 0; r < height; r += 1) {
     const source = single ? matrix[0] : matrix[r];
     const target = rows[startRow + r];
@@ -228,18 +237,26 @@ export function planPaste(input: {
         if (raw !== "") skipped += 1;
         continue;
       }
-      const value =
-        exactValue(single ? exact?.[0]?.[0] : exact?.[r]?.[c], column) ??
-        coerceCellValue(
-          { fieldType: column.fieldType, config: column.config },
-          raw,
-          { resolveUser: input.resolveUser },
-        );
-      if (value === undefined) {
-        skipped += 1;
+      const copied = exactValue(
+        single ? exact?.[0]?.[0] : exact?.[r]?.[c],
+        column,
+      );
+      if (copied !== undefined) {
+        values[column.name] = copied;
         continue;
       }
-      values[column.name] = value;
+      const reading = readCellValue(
+        { fieldType: column.fieldType, config: column.config },
+        raw,
+        { resolveUser: input.resolveUser, ...input.reading },
+      );
+      if ("refused" in reading) {
+        skipped += 1;
+        if (reading.refused.code === "ambiguous_date") ambiguousDates += 1;
+        if (reading.refused.code === "ambiguous_point") ambiguousPoints += 1;
+        continue;
+      }
+      values[column.name] = reading.value;
     }
     if (Object.keys(values).length === 0) continue;
     if (target) {
@@ -256,6 +273,8 @@ export function planPaste(input: {
     inserts,
     skipped,
     unplaced,
+    ambiguousDates,
+    ambiguousPoints,
   };
 }
 

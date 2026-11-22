@@ -223,7 +223,11 @@ export function formatAgo(
   return format.format(Math.round(seconds / 86_400), "day");
 }
 
-function formatDuration(seconds: number, format = "h:mm"): string {
+function formatDuration(
+  seconds: number,
+  locale: Locale,
+  format = "h:mm",
+): string {
   const total = Math.max(0, Math.round(seconds));
   const days = Math.floor(total / 86_400);
   const hours = Math.floor(
@@ -235,7 +239,7 @@ function formatDuration(seconds: number, format = "h:mm"): string {
   if (format === "h:mm:ss") return `${hours}:${two(minutes)}:${two(rest)}`;
   if (format === "d h:mm")
     return days > 0
-      ? `${days}j ${hours}:${two(minutes)}`
+      ? `${days}${locale === "fr" ? "j" : "d"} ${hours}:${two(minutes)}`
       : `${hours}:${two(minutes)}`;
   return `${hours}:${two(minutes)}`;
 }
@@ -282,7 +286,7 @@ export function cellDisplay(
       .join(", ");
   }
   if (column.fieldType === "duration" && typeof value === "number") {
-    return formatDuration(value, config.durationFormat);
+    return formatDuration(value, locale, config.durationFormat);
   }
   // A row's history holds a document as the object or the list it is.
   if (column.fieldType === "json") {
@@ -304,7 +308,9 @@ export function cellDisplay(
     const seconds = items.map(asSeconds);
     if (seconds.every((item) => item !== undefined)) {
       return seconds
-        .map((item) => formatDuration(item, column.duration ?? undefined))
+        .map((item) =>
+          formatDuration(item, locale, column.duration ?? undefined),
+        )
         .join(", ");
     }
   }

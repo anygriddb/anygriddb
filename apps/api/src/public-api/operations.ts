@@ -5,7 +5,7 @@ import {
   AppError,
   type CellValue,
   cellValueSchema,
-  coerceCellValue,
+  readCellValue,
   effectiveTableRole,
   type EngineCatalog,
   type FilterGroup,
@@ -274,9 +274,17 @@ async function prepareWrites(
       if (!isWritableType(column.fieldType))
         throw new AppError("formula_column_is_computed");
       if (body.typecast) {
-        const value = coerceCellValue(column, raw, { resolveUser });
-        if (value === undefined) throw new AppError("invalid_cell", key);
-        values[column.name] = value;
+        const reading = readCellValue(column, raw, { resolveUser });
+        if ("refused" in reading) {
+          // A date that reads two ways says which format to send.
+          throw new AppError(
+            reading.refused.code === "ambiguous_date"
+              ? "ambiguous_date"
+              : "invalid_cell",
+            key,
+          );
+        }
+        values[column.name] = reading.value;
       } else {
         const parsed = cellValueSchema.safeParse(raw);
         if (!parsed.success) throw new AppError("invalid_cell", key);

@@ -4067,6 +4067,78 @@ describe("conformance of formulas across engines", () => {
     }
   }, 300_000);
 
+  it("groups exact numbers, and sums computed ones, as canonical text", async () => {
+    const deps = { db, key, settings };
+    for (const [engine, { sourceId, schema }] of declared) {
+      const type = engine === "oracle" ? "number(30,2)" : "decimal(30,2)";
+      await outside(
+        engine,
+        `create table exact_keys (id int primary key, amount ${type})`,
+      );
+      for (const [id, value] of [
+        [1, "9007199254740992.00"],
+        [2, "9007199254740993.00"],
+        [3, "1.50"],
+      ] as const) {
+        await outside(
+          engine,
+          `insert into exact_keys values (${String(id)}, ${value})`,
+        );
+      }
+      await outside(
+        engine,
+        engine === "postgres"
+          ? "grant select on exact_keys to conformance_reader"
+          : engine === "mysql" || engine === "mariadb"
+            ? "grant select on erp.exact_keys to 'reader'@'%'"
+            : "grant select on exact_keys to reader",
+      );
+      const base = await insertBase(db, actorId, { name: `Exact ${engine}` });
+      const {
+        tableIds: [tableId = ""],
+      } = await exposeTables(deps, actorId, {
+        sourceId,
+        baseId: base.id,
+        tables: [
+          { schema, name: engine === "oracle" ? "EXACT_KEYS" : "exact_keys" },
+        ],
+      });
+      const added = await addColumn(db, actorId, tableId, {
+        label: "computed",
+        fieldType: "formula",
+        formulaSource: "{amount} + 0",
+      });
+      const { engine: catalog } = await loadEngine(db, tableId, () => true);
+      const column = columnOf(catalog, "amount");
+      const page = await readPage(
+        db,
+        catalog,
+        {
+          limit: 100,
+          timeZone: "UTC",
+          groupBy: [{ column, direction: "asc" }],
+        },
+        { total: false, groups: "starts" },
+      );
+      expect(
+        page.groups
+          .filter((group) => group.depth === 1)
+          .map((group) => group.keys[0]),
+        engine,
+      ).toEqual(["1.5", "9007199254740992", "9007199254740993"]);
+      const figures = await aggregateRows(db, catalog, { timeZone: "UTC" }, [
+        { column: added.name, fn: "sum" },
+        { column: added.name, fn: "min" },
+        { column: added.name, fn: "max" },
+      ]);
+      expect(figures, engine).toEqual([
+        "18014398509481986.5",
+        "1.5",
+        "9007199254740993",
+      ]);
+    }
+  }, 300_000);
+
   it("says where each group starts, its rows together, where the rows live", async () => {
     const deps = { db, key, settings };
     const tops = new Map<Engine, unknown[]>();

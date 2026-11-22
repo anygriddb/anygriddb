@@ -2,14 +2,16 @@ import {
   AppError,
   cellText,
   type CellValue,
-  coerceCellValue,
   type ColumnDefinition,
+  type DayOrder,
+  type DecimalMark,
   type EngineCatalog,
   IMPORT_FORMATS,
   type ImportCommitInput,
   isBlankCell,
   MAX_READ_LIMIT,
   OPTION_COLORS,
+  readCellValue,
   resolveChangeReason,
   type SelectOption,
   type WriteColumn,
@@ -351,6 +353,12 @@ export async function importIntoTable(
     canManage: boolean;
     reason?: string;
     resolveUser?: (text: string) => string | undefined;
+    /** What the file's numbers use for decimals, when its reader said. */
+    decimalMark?: DecimalMark;
+    /** Which comes first in the file's dates, when its reader said. */
+    dayOrder?: DayOrder;
+    /** Where a day alone starts, in a field with no zone of its own. */
+    timeZone?: string;
     /** Columns already created with the table, in mapping order. */
     created?: readonly string[];
     /** Called after each batch with the lines read so far. */
@@ -604,20 +612,28 @@ export async function importIntoTable(
         const column = columns.get(name);
         if (!column) continue;
         const raw = row.cells[index] ?? "";
-        const value = coerceCellValue(column, raw, {
-          resolveUser: input.resolveUser,
+        const reading = readCellValue(column, raw, {
+          ...(input.resolveUser ? { resolveUser: input.resolveUser } : {}),
+          ...(input.decimalMark ? { decimalMark: input.decimalMark } : {}),
+          ...(input.dayOrder ? { dayOrder: input.dayOrder } : {}),
+          ...(input.timeZone ? { timeZone: input.timeZone } : {}),
         });
-        if (value === undefined) {
+        if ("refused" in reading) {
+          const { refused } = reading;
           ok = false;
           note({
             line: row.line,
             column: source.headers[index] ?? "",
             value: raw.slice(0, 80),
             message: "Invalid value",
+            ...(refused.code === "invalid_cell" ? {} : { code: refused.code }),
+            ...(refused.code === "value_too_long"
+              ? { detail: String(refused.limit) }
+              : {}),
           });
           continue;
         }
-        values[name] = value;
+        values[name] = reading.value;
       }
       if (ok) valid.push({ line: row.line, values });
       else failed += 1;

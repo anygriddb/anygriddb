@@ -35,8 +35,9 @@ import {
   sameCell,
   placeTarget,
   type WriteColumn,
+  withExactNumbers,
 } from "@anygriddb/core";
-import { sql } from "kysely";
+import { type RawBuilder, sql } from "kysely";
 import {
   readWithin,
   runStatement,
@@ -1542,6 +1543,14 @@ export async function signRow(
   );
 }
 
+/** The numbers of a trail payload, each as the text the database writes. */
+export function trailNumbers(payload: RawBuilder<unknown>) {
+  return sql<Record<
+    string,
+    string
+  > | null>`(case when jsonb_typeof(${payload}) = 'object' then (select jsonb_object_agg(n.key, n.value #>> '{}') from jsonb_each(${payload}) n where jsonb_typeof(n.value) = 'number') end)`;
+}
+
 export async function readAudit(
   db: Database,
   tableId: string,
@@ -1565,6 +1574,10 @@ export async function readAudit(
       "e.reason",
       "e.source",
     ])
+    .select([
+      trailNumbers(sql.ref("e.old_value")).as("oldNumbers"),
+      trailNumbers(sql.ref("e.new_value")).as("newNumbers"),
+    ])
     .where("e.tableId", "=", tableId)
     .where("e.recordId", "=", recordId)
     .orderBy("e.occurredAt", "desc")
@@ -1587,8 +1600,8 @@ export async function readAudit(
       displayName: row.displayName,
       actingName: row.actingName,
       action: row.action,
-      oldValue: visible(row.oldValue),
-      newValue: visible(row.newValue),
+      oldValue: visible(withExactNumbers(row.oldValue, row.oldNumbers)),
+      newValue: visible(withExactNumbers(row.newValue, row.newNumbers)),
       reason: row.reason,
       source: row.source,
     }));

@@ -1,4 +1,5 @@
 import { coerceCellValue } from "@anygriddb/core";
+import type { Reading } from "../../lib/cell-reading";
 import {
   canWrite,
   type CatalogColumn,
@@ -38,6 +39,7 @@ export function linkedRowDraft(
   column: CatalogColumn,
   tables: readonly CatalogTable[],
   text: string,
+  reading?: Reading,
 ): { tableId: string; values: Record<string, CellValue> } | undefined {
   const typed = text.trim();
   const target = linkTarget(column, tables);
@@ -63,6 +65,7 @@ export function linkedRowDraft(
   const value = coerceCellValue(
     { fieldType: primary.fieldType, config: primary.config },
     typed,
+    reading,
   );
   if (value === undefined || value === null) return undefined;
   return { tableId: target.id, values: { [primary.name]: value } };

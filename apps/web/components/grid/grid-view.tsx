@@ -22,6 +22,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { toast } from "sonner";
+import { readingIn } from "../../lib/cell-reading";
 import { useCopy } from "../../lib/clipboard";
 import { useErrorText } from "../../lib/errors";
 import type { Presence } from "../../lib/realtime";
@@ -703,6 +704,7 @@ export function GridView(props: GridProps) {
     const plan = planPaste({
       matrix,
       exact,
+      reading: readingIn(table.locale),
       canInsert: !grouped && canAdd,
       rows: loadedRows,
       columns,
@@ -727,6 +729,24 @@ export function GridView(props: GridProps) {
         plural(plan.skipped, {
           one: "# cell skipped: incompatible value or computed field",
           other: "# cells skipped: incompatible value or computed field",
+        }),
+      );
+    }
+    if (plan.ambiguousDates > 0) {
+      toast.warning(
+        plural(plan.ambiguousDates, {
+          one: "# date reads two ways: write it YYYY-MM-DD, or set the field's date format",
+          other:
+            "# dates read two ways: write them YYYY-MM-DD, or set the field's date format",
+        }),
+      );
+    }
+    if (plan.ambiguousPoints > 0) {
+      toast.warning(
+        plural(plan.ambiguousPoints, {
+          one: "# number reads two ways with a comma for decimals: write it 1234 or 1,234",
+          other:
+            "# numbers read two ways with a comma for decimals: write them 1234 or 1,234",
         }),
       );
     }

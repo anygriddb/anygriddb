@@ -19,11 +19,27 @@ msgstr "-1, 0 ou 1, selon le signe."
 msgid "“{date}” does not exist."
 msgstr "« {date} » n’existe pas."
 
+#: lib/cell-reading.ts
+msgid "“{field}” holds at most {limit} characters"
+msgstr "« {field} » contient au plus {limit} caractères"
+
 #: components/public/public-view.tsx
 #: components/table/new-row-dialog.tsx
 #: components/views/form-view.tsx
 msgid "“{field}” is required"
 msgstr "« {field} » est obligatoire"
+
+#: lib/cell-reading.ts
+msgid "“{field}”: this date reads two ways. Write it YYYY-MM-DD, or set the field's date format"
+msgstr "« {field} » : cette date se lit de deux façons. Écrivez-la AAAA-MM-JJ, ou réglez le format de date du champ"
+
+#: lib/cell-reading.ts
+msgid "“{field}”: this number reads two ways. Write it without a thousands separator"
+msgstr "« {field} » : ce nombre se lit de deux façons. Écrivez-le sans séparateur de milliers"
+
+#: lib/cell-reading.ts
+msgid "“{field}”: with a comma for decimals, a point here reads two ways. Write it 1234 or 1,234"
+msgstr "« {field} » : avec la virgule comme séparateur décimal, ce point se lit de deux façons. Écrivez-le 1234 ou 1,234"
 
 #: components/views/form-files.tsx
 msgid "“{name}” could not be sent"
@@ -264,6 +280,16 @@ msgstr "{0, plural, one {# cellule ignorée : valeur incompatible ou champ calc
 msgid "{0, plural, one {# comment} other {# comments}}"
 msgstr "{0, plural, one {# commentaire} other {# commentaires}}"
 
+#. placeholder {0}: preview.ambiguousDates
+#: components/table/import-dialog.tsx
+msgid "{0, plural, one {# date can be read in two ways, such as 03/04/2026. A field with its own date format follows it.} other {# dates can be read in two ways, such as 03/04/2026. A field with its own date format follows it.}}"
+msgstr "{0, plural, one {# date peut se lire de deux façons, comme 03/04/2026. Un champ qui a son propre format de date le suit.} other {# dates peuvent se lire de deux façons, comme 03/04/2026. Un champ qui a son propre format de date le suit.}}"
+
+#. placeholder {0}: plan.ambiguousDates
+#: components/grid/grid-view.tsx
+msgid "{0, plural, one {# date reads two ways: write it YYYY-MM-DD, or set the field's date format} other {# dates read two ways: write them YYYY-MM-DD, or set the field's date format}}"
+msgstr "{0, plural, one {# date se lit de deux façons : écrivez-la AAAA-MM-JJ, ou réglez le format de date du champ} other {# dates se lisent de deux façons : écrivez-les AAAA-MM-JJ, ou réglez le format de date du champ}}"
+
 #. placeholder {0}: blockedListed.length
 #: components/admin/sources-tab.tsx
 msgid "{0, plural, one {# declared source sits on a host outside the allow list: its connections are refused until the operator adds that host.} other {# declared sources sit on hosts outside the allow list: their connections are refused until the operator adds those hosts.}}"
@@ -388,6 +414,11 @@ msgstr "{0, plural, one {# catégorie de plus n’est pas affichée.} other {# c
 msgid "{0, plural, one {# more series is not shown.} other {# more series are not shown.}}"
 msgstr "{0, plural, one {# série de plus n’est pas affichée.} other {# séries de plus ne sont pas affichées.}}"
 
+#. placeholder {0}: plan.ambiguousPoints
+#: components/grid/grid-view.tsx
+msgid "{0, plural, one {# number reads two ways with a comma for decimals: write it 1234 or 1,234} other {# numbers read two ways with a comma for decimals: write them 1234 or 1,234}}"
+msgstr "{0, plural, one {# nombre se lit de deux façons avec la virgule décimale : écrivez-le 1234 ou 1,234} other {# nombres se lisent de deux façons avec la virgule décimale : écrivez-les 1234 ou 1,234}}"
+
 #. placeholder {0}: plan.unplaced
 #: components/grid/grid-view.tsx
 msgid "{0, plural, one {# pasted value has no place in this view and was not added} other {# pasted values have no place in this view and were not added}}"
@@ -492,6 +523,11 @@ msgstr "{0, plural, one {# table ne peut pas joindre la base du client tant que 
 msgid "{0, plural, one {# table} other {# tables}}"
 msgstr "{0, plural, one {# table} other {# tables}}"
 
+#. placeholder {0}: preview.ambiguousNumbers
+#: components/table/import-dialog.tsx
+msgid "{0, plural, one {# value can be read in two ways, such as 1,234.} other {# values can be read in two ways, such as 1,234.}}"
+msgstr "{0, plural, one {# valeur peut se lire de deux façons, comme 1,234.} other {# valeurs peuvent se lire de deux façons, comme 1,234.}}"
+
 #. placeholder {0}: sync.leftOut
 #: components/admin/sources-tab.tsx
 msgid "{0, plural, one {# value is not of its field's type and reads empty. Refresh fields to follow the source.} other {# values are not of their field's type and read empty. Refresh fields to follow the source.}}"
@@ -521,6 +557,11 @@ msgstr "{0, plural, one {Point de restauration créé : # ligne} other {Point d
 #: components/admin/account-handoff.tsx
 msgid "{0, plural, one {Revoke their API token too: a token is never handed over} other {Revoke their # API tokens too: a token is never handed over}}"
 msgstr "{0, plural, one {Révoquer aussi son jeton d’API : un jeton n’est jamais transmis} other {Révoquer aussi ses # jetons d’API : un jeton n’est jamais transmis}}"
+
+#. placeholder {0}: preview.ambiguousPoints
+#: components/table/import-dialog.tsx
+msgid "{0, plural, one {With a comma for decimals, # value such as 1.234 reads two ways and will be refused: write it 1234 or 1,234.} other {With a comma for decimals, # values such as 1.234 read two ways and will be refused: write them 1234 or 1,234.}}"
+msgstr "{0, plural, one {Avec la virgule décimale, # valeur comme 1.234 se lit de deux façons et sera refusée : écrivez-la 1234 ou 1,234.} other {Avec la virgule décimale, # valeurs comme 1.234 se lisent de deux façons et seront refusées : écrivez-les 1234 ou 1,234.}}"
 
 #. placeholder {0}: row.events.length
 #: components/admin/notifications-tab.tsx
@@ -1238,6 +1279,10 @@ msgstr "Un code a été envoyé à votre adresse. Il sert une fois, pendant dix 
 msgid "A colour, shown with its swatch"
 msgstr "Une couleur, affichée avec sa pastille"
 
+#: components/table/import-dialog.tsx
+msgid "A comma: 1,234 is one point two three four"
+msgstr "Une virgule : 1,234 vaut un virgule deux cent trente-quatre"
+
 #: components/admin/notifications-tab.tsx
 msgid "A database migration failed"
 msgstr "Une migration de la base a échoué"
@@ -1356,6 +1401,10 @@ msgstr "Une image PNG, JPEG ou WebP de 256 Kio au plus. Elle est dessinée en p
 #: components/fields/field-meta.tsx
 msgid "A point on the globe, which a map shows"
 msgstr "Un point du globe, qu’une carte affiche"
+
+#: components/table/import-dialog.tsx
+msgid "A point: 1,234 is one thousand two hundred and thirty-four"
+msgstr "Un point : 1,234 vaut mille deux cent trente-quatre"
 
 #: components/views/calendar-feed.tsx
 msgid "A private address for your calendar application (Outlook, Google Calendar, Apple Calendar…). It shows what you can read of this view, from six months back to two years ahead. Keep it to yourself: whoever has it reads these rows."
@@ -5993,9 +6042,7 @@ msgid "Invalid value for"
 msgstr "Valeur invalide pour"
 
 #: components/fields/cell-editor.tsx
-#: components/public/public-view.tsx
-#: components/table/new-row-dialog.tsx
-#: components/views/form-view.tsx
+#: lib/cell-reading.ts
 msgid "Invalid value for {field}"
 msgstr "Valeur invalide pour {field}"
 
@@ -7751,6 +7798,14 @@ msgstr "Non verrouillé"
 #: components/admin/health-tab.tsx
 msgid "Not measured for this file store"
 msgstr "Non mesuré pour ce stockage de fichiers"
+
+#: components/table/import-dialog.tsx
+msgid "Not said: refuse 1,234, and read 1.234 with a decimal point"
+msgstr "Non précisé : refuser 1,234, et lire 1.234 avec un point décimal"
+
+#: components/table/import-dialog.tsx
+msgid "Not said: refuse these dates"
+msgstr "Non précisé : refuser ces dates"
 
 #: components/admin/sources-tab.tsx
 msgid "Not set"
@@ -10501,6 +10556,10 @@ msgstr "Lentes"
 msgid "Slow means one second or more. Figures come from every process writing to the database, not from Prometheus."
 msgstr "Lente : une seconde ou plus. Les chiffres viennent de chaque processus qui écrit en base, pas de Prometheus."
 
+#: components/table/import-dialog.tsx
+msgid "Some values are longer than their field holds (4,000 characters for a text, 20,000 for a long text): their rows will be refused and listed, nothing is cut."
+msgstr "Certaines valeurs dépassent ce que leur champ contient (4 000 caractères pour un texte, 20 000 pour un texte long) : leurs lignes seront refusées et listées, rien n’est coupé."
+
 #: components/shell/notification-items.ts
 msgid "Someone"
 msgstr "Quelqu’un"
@@ -11246,6 +11305,10 @@ msgstr "Le jour du mois."
 msgid "The day of the week, from 0 (Sunday) to 6 (Saturday)."
 msgstr "Le jour de la semaine, de 0 (dimanche) à 6 (samedi)."
 
+#: components/table/import-dialog.tsx
+msgid "The day: 03/04/2026 is 3 April"
+msgstr "Le jour : 03/04/2026 est le 3 avril"
+
 #: components/fields/formula-docs.ts
 msgid "The false value."
 msgstr "La valeur fausse."
@@ -11468,6 +11531,10 @@ msgstr "Le moniteur n’est interrogé que quand une planification sélectionné
 #: components/fields/formula-docs.ts
 msgid "The month, from 1 to 12."
 msgstr "Le mois, de 1 à 12."
+
+#: components/table/import-dialog.tsx
+msgid "The month: 03/04/2026 is 4 March"
+msgstr "Le mois : 03/04/2026 est le 4 mars"
 
 #: components/admin/identity-tab.tsx
 msgid "The name before the sender's address. Empty: the instance's name, and without one the address alone."
@@ -12037,6 +12104,10 @@ msgid "This date is not complete."
 msgstr "Cette date est incomplète."
 
 #: lib/errors.ts
+msgid "This date reads two ways: write it YYYY-MM-DD, or set the field's date format"
+msgstr "Cette date se lit de deux façons : écrivez-la AAAA-MM-JJ, ou réglez le format de date du champ"
+
+#: lib/errors.ts
 msgid "This delivery cannot be sent again"
 msgstr "Cet envoi ne peut pas être renvoyé"
 
@@ -12233,6 +12304,10 @@ msgstr "Cette liste exclut l’adresse depuis laquelle vous l’enregistrez, et 
 msgid "this month"
 msgstr "ce mois-ci"
 
+#: lib/errors.ts
+msgid "This number reads two ways: say which decimal separator it uses"
+msgstr "Ce nombre se lit de deux façons : indiquez son séparateur décimal"
+
 #: components/shell/load-failed.tsx
 msgid "This page could not be loaded: {reason}"
 msgstr "Cette page n’a pas pu être chargée : {reason}"
@@ -12376,6 +12451,10 @@ msgstr "Cette valeur a changé dans la base du client depuis votre lecture : la
 #: lib/errors.ts
 msgid "This value does not fit the client's database column"
 msgstr "Cette valeur ne convient pas à la colonne de la base du client"
+
+#: lib/errors.ts
+msgid "This value holds more digits than a field can be given back: it was left as it is"
+msgstr "Cette valeur a plus de chiffres qu’un champ ne peut en reprendre : elle est restée telle quelle"
 
 #: lib/errors.ts
 msgid "This view has more rows than this instance exports at once: filter it first"
@@ -12530,6 +12609,10 @@ msgstr "Reconnus aux premiers octets du fichier : le renommer n’y change rien
 #: components/table/filter-builder.tsx
 msgid "tomorrow"
 msgstr "demain"
+
+#: lib/errors.ts
+msgid "Too long for its field. Most characters allowed"
+msgstr "Trop long pour son champ. Nombre maximal de caractères"
 
 #: lib/errors.ts
 msgid "Too long for this instance. Most days allowed"
@@ -13199,6 +13282,10 @@ msgstr "Ce qui suit le premier délimiteur ; vide s’il n’y est pas."
 msgid "What comes before the first delimiter; blank when it is not there."
 msgstr "Ce qui précède le premier délimiteur ; vide s’il n’y est pas."
 
+#: components/table/import-dialog.tsx
+msgid "What comes first in this file's dates?"
+msgstr "Qu’est-ce qui vient en premier dans les dates de ce fichier ?"
+
 #: components/shell/home-page.tsx
 msgid "What is waiting for you, and what changed in your tables."
 msgstr "Ce qui vous attend, et ce qui a changé dans vos tables."
@@ -13218,6 +13305,10 @@ msgstr "Ce que chacun ajoute, modifie et supprime dans les tables de cette base 
 #: components/admin/security-tab.tsx
 msgid "What people may open to scripts and to anyone with a link."
 msgstr "Ce que chacun peut ouvrir aux scripts et à quiconque a un lien."
+
+#: components/table/import-dialog.tsx
+msgid "What separates the decimals in this file?"
+msgstr "Quel signe sépare les décimales dans ce fichier ?"
 
 #: components/admin/settings-tab.tsx
 msgid "What the operator fixed in the instance's environment: it changes there, with a restart. Passwords and keys are never shown."
@@ -13388,6 +13479,10 @@ msgstr "Widget introuvable"
 #: components/admin/accounts-tab.tsx
 msgid "With"
 msgstr "Avec"
+
+#: lib/errors.ts
+msgid "With a comma for decimals, a point here reads two ways: write it 1234 or 1,234"
+msgstr "Avec la virgule comme séparateur décimal, ce point se lit de deux façons : écrivez 1234 ou 1,234"
 
 #: components/settings/webhooks-panel.tsx
 msgid "with a condition"

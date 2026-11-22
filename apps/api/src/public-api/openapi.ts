@@ -4,7 +4,8 @@ import { MAX_RECORDS } from "./types.js";
 
 /**
  * Exact numbers travel as decimal text (ADR 0023): a JSON number would
- * round through a float. Writes accept either form.
+ * round through a float. Writes accept either form, but an integer past
+ * 2^53 has already been rounded as a JSON number, and is refused.
  */
 function exactNumberSchema(base: Record<string, unknown>) {
   return {
@@ -30,7 +31,10 @@ function fieldSchema(
   };
   switch (column.fieldType) {
     case "number":
-      return exactNumberSchema(base);
+      return exactNumberSchema({
+        ...base,
+        description: `${String(base.description)}. Send an exact number as a string: a JSON integer past 2^53 is refused`,
+      });
     case "rating":
     case "duration":
     case "autonumber":
@@ -197,7 +201,7 @@ export function buildOpenApi(
         typecast: {
           type: "boolean",
           description:
-            "Convert loose values (text, numbers with commas, option names)",
+            "Read loose values as their field keeps them (text, numbers, dates, option names). Nothing is cut, rounded, or guessed: a value that cannot be read exactly, such as 1,234 whose comma could be a decimal or a thousands separator, is refused as invalid_cell; a date such as 03/04/2026 that reads two ways, on a field with no date format, is refused as ambiguous_date",
         },
         fieldKey: { type: "string", enum: ["name", "label"] },
       },

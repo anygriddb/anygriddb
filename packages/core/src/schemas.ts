@@ -737,6 +737,12 @@ export const importCommitInputSchema = z
     /** Unknown select values become new options instead of errors. */
     addOptions: z.boolean().default(true),
     reason: reasonSchema.optional(),
+    /** What the file's numbers use for decimals: `1,234` is refused without. */
+    decimalMark: z.enum([".", ","]).optional(),
+    /** Which comes first in the file's dates, where a field does not say. */
+    dayOrder: z.enum(["day-first", "month-first"]).optional(),
+    /** Where a day alone starts, in a field with no zone of its own. */
+    timeZone: timeZoneInputSchema.optional(),
   })
   .superRefine((input, context) => {
     const sources = input.mapping.map((entry) => entry.source);

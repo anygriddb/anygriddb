@@ -4,7 +4,7 @@ import { FieldGuess, inferFieldType } from "./import-infer";
 describe("inferFieldType", () => {
   it("recognises numbers, dates, booleans, emails, and repeated choices", () => {
     expect(inferFieldType(["1", "2,5", "", "1 000"]).fieldType).toBe("number");
-    expect(inferFieldType(["2026-11-07", "07/11/2026"]).fieldType).toBe("date");
+    expect(inferFieldType(["2026-11-07", "17/11/2026"]).fieldType).toBe("date");
     expect(inferFieldType(["2026-11-07T10:30:00Z"]).fieldType).toBe("datetime");
     expect(inferFieldType(["oui", "non", "oui"]).fieldType).toBe("boolean");
     expect(inferFieldType(["a@example.org", "c@example.com"]).fieldType).toBe(
@@ -62,5 +62,27 @@ describe("FieldGuess", () => {
     for (let index = 0; index < 1_000; index += 1) varied.add(`Item ${index}`);
     expect(varied.result().fieldType).toBe("text");
     expect(new FieldGuess().result().fieldType).toBe("text");
+  });
+});
+
+describe("a column of numbers with commas", () => {
+  it("is a number when the file's reader will be asked what its comma is", () => {
+    expect(inferFieldType(["1,234", "5,678"], true).fieldType).toBe("number");
+  });
+
+  it("stays a text when nobody will be asked", () => {
+    expect(inferFieldType(["1,234", "5,678"]).fieldType).toBe("text");
+  });
+});
+
+describe("a column of dates that read two ways", () => {
+  it("is a date when the file's reader will be asked their order", () => {
+    expect(inferFieldType(["03/04/2026", "05/06/2026"], true).fieldType).toBe(
+      "date",
+    );
+  });
+
+  it("stays a text when nobody will be asked", () => {
+    expect(inferFieldType(["03/04/2026", "05/06/2026"]).fieldType).toBe("text");
   });
 });
