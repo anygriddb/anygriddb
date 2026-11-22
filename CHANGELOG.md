@@ -8,6 +8,8 @@ first.
 
 ## Unreleased
 
+## 0.4.0 - 2026-11-22
+
 **Before upgrading, if you use SAML:** a first sign-in no longer reaches an
 existing account by its address. If your identity provider verifies
 addresses, turn on **This identity provider verifies addresses** in
