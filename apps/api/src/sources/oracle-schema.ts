@@ -13,17 +13,20 @@ import {
   rowValue,
   type OracleRow,
 } from "./oracle.js";
-import type { SourceConnection, SourceTable } from "./types.js";
-
-/** Bounds on what one introspection returns. */
-const MAX_TABLES = 2_000;
+import { cutTables, TABLES_READ } from "./table-scope.js";
+import type {
+  SourceConnection,
+  SourceListing,
+  SourceTable,
+  TableScope,
+} from "./types.js";
 
 /**
  * The objects the account reads: its own, and those granted SELECT or
  * READ to it, a role it holds, or PUBLIC. `grants` lists, per object,
  * what it may do beyond reading.
  */
-const OBJECTS = `
+const objectsSql = (filter: string) => `
   with grants as (
     select p.table_schema as owner, p.table_name as name, p.privilege
       from all_tab_privs p
@@ -45,14 +48,14 @@ const OBJECTS = `
     from objects o
     join all_users u on u.username = o.owner and u.oracle_maintained = 'N'
     left join all_tab_comments c on c.owner = o.owner and c.table_name = o.name
-   where o.owner = sys_context('USERENV', 'SESSION_USER')
+   where (o.owner = sys_context('USERENV', 'SESSION_USER')
       or exists (
            select 1 from grants g
             where g.owner = o.owner and g.name = o.name
               and g.privilege in ('SELECT', 'READ')
-         )
+         ))${filter}
    order by o.owner, o.name
-   fetch first ${String(MAX_TABLES)} rows only`;
+   fetch first ${String(TABLES_READ)} rows only`;
 
 /** A type as written: `number(14,2)`, `varchar2(120)`, `timestamp(6)`. */
 function typeLabel(row: OracleRow): string {
@@ -91,10 +94,11 @@ function grouped(rows: OracleRow[]): Map<string, OracleRow[]> {
 export async function introspectOracle(
   source: SourceConnection,
   options: { allowPlaintext: boolean },
-): Promise<SourceTable[]> {
+  scope: TableScope = {},
+): Promise<SourceListing> {
   const { connection } = await connectOracle(source, options);
   try {
-    return await readSchema(connection);
+    return await readSchema(connection, scope);
   } catch (error) {
     throw oracleSourceError(error);
   } finally {
@@ -102,10 +106,36 @@ export async function introspectOracle(
   }
 }
 
-async function readSchema(connection: Connection): Promise<SourceTable[]> {
-  const objects = await oracleQuery(connection, OBJECTS);
-  if (objects.length === 0) return [];
-  const listed = `select o."owner", o."name" from (${OBJECTS}) o`;
+async function readSchema(
+  connection: Connection,
+  scope: TableScope,
+): Promise<SourceListing> {
+  const values: string[] = [];
+  const bind = (value: string) => {
+    values.push(value);
+    return `:${String(values.length)}`;
+  };
+  const named =
+    scope.only === undefined
+      ? ""
+      : ` and (${
+          scope.only
+            .map(
+              (table) =>
+                `(o.owner = ${bind(table.schema)} and o.name = ${bind(table.name)})`,
+            )
+            .join(" or ") || "1 = 0"
+        })`;
+  const searched =
+    scope.search === undefined
+      ? ""
+      : ` and instr(lower(o.owner || '.' || o.name), lower(${bind(scope.search)})) > 0`;
+  const objectsText = objectsSql(`${named}${searched}`);
+  const { kept: objects, truncated } = cutTables(
+    await oracleQuery(connection, objectsText, values),
+  );
+  if (objects.length === 0) return { tables: [], truncated: false };
+  const listed = `select o."owner", o."name" from (${objectsText}) o`;
   const [columns, constraints, checks, comments, rights, updatable] =
     await Promise.all([
       oracleQuery(
@@ -123,6 +153,7 @@ async function readSchema(connection: Connection): Promise<SourceTable[]> {
             and i.column_name = c.column_name
           where c.hidden_column = 'NO' and c.user_generated = 'YES'
           order by c.owner, c.table_name, c.column_id`,
+        values,
       ),
       oracleQuery(
         connection,
@@ -141,6 +172,7 @@ async function readSchema(connection: Connection): Promise<SourceTable[]> {
             and rc.position = kc.position
           where k.constraint_type in ('P', 'R')
           order by k.owner, k.table_name, k.constraint_name, kc.position`,
+        values,
       ),
       oracleQuery(
         connection,
@@ -149,6 +181,7 @@ async function readSchema(connection: Connection): Promise<SourceTable[]> {
            from all_constraints k
            join (${listed}) l on l."owner" = k.owner and l."name" = k.table_name
           where k.constraint_type = 'C' and k.search_condition_vc is not null`,
+        values,
       ),
       oracleQuery(
         connection,
@@ -157,6 +190,7 @@ async function readSchema(connection: Connection): Promise<SourceTable[]> {
            from all_col_comments c
            join (${listed}) l on l."owner" = c.owner and l."name" = c.table_name
           where c.comments is not null`,
+        values,
       ),
       // What the account may change: its own objects, object grants, and
       // grants of single columns.
@@ -184,6 +218,7 @@ async function readSchema(connection: Connection): Promise<SourceTable[]> {
            from all_updatable_columns u
            join (${listed}) l on l."owner" = u.owner and l."name" = u.table_name
            join all_views v on v.owner = u.owner and v.view_name = u.table_name`,
+        values,
       ),
     ]);
   const [session] = await oracleQuery(
@@ -198,7 +233,7 @@ async function readSchema(connection: Connection): Promise<SourceTable[]> {
   const rightsOf = grouped(rights);
   const viewColumnsOf = grouped(updatable);
 
-  return objects.map((object): SourceTable => {
+  const read = objects.map((object): SourceTable => {
     const schema = text(object, "owner");
     const name = text(object, "name");
     const key = `${schema}.${name}`;
@@ -305,4 +340,5 @@ async function readSchema(connection: Connection): Promise<SourceTable[]> {
         })),
     };
   });
+  return { tables: read, truncated };
 }

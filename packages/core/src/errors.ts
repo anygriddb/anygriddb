@@ -367,6 +367,10 @@ export const ERRORS = {
     BAD,
     "Changes older than the source keeps were missed: the table was read again",
   ],
+  source_watch_future: [
+    BAD,
+    "Rows are dated ahead of the source's clock: each is told once, and later changes still show",
+  ],
 
   // Releases (ADR 0048): opt-in check for a newer published version.
   release_check_disabled: [403, "Release check is off"],

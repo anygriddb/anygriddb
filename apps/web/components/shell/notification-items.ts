@@ -55,6 +55,9 @@ export function useDescribeNotification() {
       case "assigned":
         return t`${actor} assigned you a row in ${table} (${{ field: item.data?.column ?? "—" }})`;
       case "automation":
+        if (item.data?.code === "runs_dropped") {
+          return t`${{ name: item.data.name ?? t`Automation` }}: runs were dropped after waiting more than a day for their turn`;
+        }
         return item.data?.message
           ? t`${{ name: item.data.name ?? t`Automation` }}: ${{ message: item.data.message }}`
           : t`Automation in ${table}`;

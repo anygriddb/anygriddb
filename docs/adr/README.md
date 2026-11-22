@@ -129,3 +129,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0112](0112-row-rules-hold-after-writes.md)                  | A row rule holds for what a row becomes                                                 |
 | [0113](0113-a-socket-hears-what-its-account-may-read-now.md) | A socket hears what its account may read now                                            | Accepted                                                                    |
 | [0114](0114-sign-on-holds-to-its-provider.md)                | A sign-on is held to what its provider said                                             | Accepted (amends 0043, 0053)                                                |
+| [0115](0115-a-burst-of-runs-waits-its-turn.md)               | A burst of automation runs waits its turn                                               | Accepted (amends 0008)                                                      |

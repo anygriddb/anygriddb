@@ -7,10 +7,13 @@
 import { checkChoices, mapMysqlType, withChoices } from "@anygriddb/core";
 import type mysql from "mysql2/promise";
 import { connectMysql, mysqlSourceError } from "./mysql.js";
-import type { SourceConnection, SourceTable } from "./types.js";
-
-/** Bounds on what one introspection returns. */
-const MAX_TABLES = 2_000;
+import { cutTables, TABLES_READ } from "./table-scope.js";
+import type {
+  SourceConnection,
+  SourceListing,
+  SourceTable,
+  TableScope,
+} from "./types.js";
 
 type TableRow = {
   schema: string;
@@ -45,10 +48,11 @@ type PrivilegeRow = { privilege: string; table: string | null };
 export async function introspectMysql(
   source: SourceConnection,
   options: { allowPlaintext: boolean },
-): Promise<SourceTable[]> {
+  scope: TableScope = {},
+): Promise<SourceListing> {
   const { connection, serverVersion } = await connectMysql(source, options);
   try {
-    return await readSchema(connection, /mariadb/i.test(serverVersion));
+    return await readSchema(connection, /mariadb/i.test(serverVersion), scope);
   } catch (error) {
     throw mysqlSourceError(error);
   } finally {
@@ -67,18 +71,37 @@ async function rows<T>(
 async function readSchema(
   connection: mysql.Connection,
   mariadb: boolean,
-): Promise<SourceTable[]> {
-  const tables = await rows<TableRow>(
-    connection,
+  scope: TableScope,
+): Promise<SourceListing> {
+  // A prepared statement: a name or a search stays a value, whatever the
+  // session's quoting rules.
+  const named =
+    scope.only === undefined
+      ? ""
+      : ` and (${
+          scope.only
+            .map(() => "(table_schema = ? and table_name = ?)")
+            .join(" or ") || "1 = 0"
+        })`;
+  const searched =
+    scope.search === undefined
+      ? ""
+      : " and locate(lower(?), lower(concat(table_schema, '.', table_name))) > 0";
+  const [listed] = await connection.execute<mysql.RowDataPacket[]>(
     `select table_schema as \`schema\`, table_name as name, table_type as type,
             nullif(table_comment, '') as comment, table_rows as estimate
        from information_schema.tables
       where table_schema = database()
-        and table_type in ('BASE TABLE', 'VIEW', 'SYSTEM VERSIONED')
+        and table_type in ('BASE TABLE', 'VIEW', 'SYSTEM VERSIONED')${named}${searched}
       order by table_name
-      limit ${String(MAX_TABLES)}`,
+      limit ${String(TABLES_READ)}`,
+    [
+      ...(scope.only ?? []).flatMap((table) => [table.schema, table.name]),
+      ...(scope.search === undefined ? [] : [scope.search]),
+    ],
   );
-  if (tables.length === 0) return [];
+  const { kept: tables, truncated } = cutTables(listed as TableRow[]);
+  if (tables.length === 0) return { tables: [], truncated: false };
   const columns = await rows<ColumnRow>(
     connection,
     `select table_name as \`table\`, column_name as name, column_type as type,
@@ -168,7 +191,7 @@ async function readSchema(
     keysOf.set(key.table, table);
   }
 
-  return tables.map((table) => {
+  const read = tables.map((table): SourceTable => {
     const own = (byTable.get(table.name) ?? []).filter((column) =>
       rights(column).has("select"),
     );
@@ -223,6 +246,7 @@ async function readSchema(
         })),
     };
   });
+  return { tables: read, truncated };
 }
 
 /** The account's rights on a column, as information_schema lists them. */

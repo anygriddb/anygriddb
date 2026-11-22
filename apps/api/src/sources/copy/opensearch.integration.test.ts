@@ -182,7 +182,9 @@ describe("opensearch against the server", () => {
     );
     expect(response.ok).toBe(true);
 
-    const tables = await opensearch.tables(plain, { allowPlaintext: true });
+    const { tables } = await opensearch.tables(plain, {
+      allowPlaintext: true,
+    });
     const orders = tables.find((table) => table.name === "orders");
     expect(orders?.columns.map((column) => column.name).sort()).toEqual([
       "_id",

@@ -28,6 +28,20 @@ export type SourceSettings = {
   allowPlaintext: boolean;
 };
 
+/** A table of a source, by what names it there. */
+export type TableName = { schema: string; name: string };
+
+/** Which tables one look at a source reads (`table-scope.ts`). */
+export type TableScope = {
+  /** These tables only: what asks for one table never reads a cut list. */
+  only?: readonly TableName[];
+  /** A piece of `schema.name`, whatever its case. */
+  search?: string;
+};
+
+/** A source's tables, and whether there were more than a list keeps. */
+export type SourceListing = { tables: SourceTable[]; truncated: boolean };
+
 /** A table or view of a source, as its account sees it. */
 export type SourceTable = {
   schema: string;

@@ -8,7 +8,14 @@
  * hold several values, which no mapping tells.
  */
 import { AppError, type MappedField } from "@anygriddb/core";
-import type { SourceCheck, SourceConnection, SourceTable } from "../types.js";
+import { inScope } from "../table-scope.js";
+import type {
+  SourceCheck,
+  SourceConnection,
+  SourceListing,
+  SourceTable,
+  TableScope,
+} from "../types.js";
 import { openHttp, type HttpAnswer, type HttpStore } from "./http.js";
 import type {
   ConnectOptions,
@@ -244,7 +251,8 @@ const INDICES = "indices";
 async function tables(
   source: SourceConnection,
   options: ConnectOptions,
-): Promise<SourceTable[]> {
+  scope?: TableScope,
+): Promise<SourceListing> {
   const store = openHttp(source, options);
   try {
     const mappings = await ask(
@@ -254,13 +262,13 @@ async function tables(
     );
     const names = Object.keys(mappings)
       .filter((name) => !name.startsWith(".") && name.length <= 128)
-      .sort((left, right) => left.localeCompare(right))
-      .slice(0, MAX_INDICES);
+      .filter((name) => inScope({ schema: INDICES, name }, scope))
+      .sort((left, right) => left.localeCompare(right));
     const found: SourceTable[] = [];
-    for (const name of names) {
+    for (const name of names.slice(0, MAX_INDICES)) {
       found.push(await indexTable(store, name, mappings[name]));
     }
-    return found;
+    return { tables: found, truncated: names.length > MAX_INDICES };
   } finally {
     store.close();
   }

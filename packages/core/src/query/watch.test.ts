@@ -4,6 +4,8 @@ import type { EngineTable } from "./engine";
 import {
   buildChangeTracking,
   buildChangeVersion,
+  buildWatchClock,
+  buildWatchFuture,
   buildWatchPage,
   buildWatchStart,
   buildWatchWindow,
@@ -165,5 +167,110 @@ describe("SQL Server's Change Tracking", () => {
       `declare @ag_since bigint = cast($5 as bigint); select cast(ct."id" as nvarchar(1000)) as "id", ct.SYS_CHANGE_OPERATION as "op", cast(ct.SYS_CHANGE_VERSION as varchar(20)) as "v", cast(ct."id" as nvarchar(1000)) as "k0" from changetable(changes "app"."orders", @ag_since) ct where ct.SYS_CHANGE_VERSION <= cast($1 as bigint) and (ct.SYS_CHANGE_VERSION > cast($2 as bigint) or (ct.SYS_CHANGE_VERSION = cast($3 as bigint) and ((ct."id" > cast($4 as int))))) order by ct.SYS_CHANGE_VERSION, ct."id" offset 0 rows fetch next 1000 rows only`,
     );
     expect(changes.values).toEqual(["42", "12", "12", "7", "10"]);
+  });
+});
+
+describe("a check bounded by the engine's clock", () => {
+  const at = { name: "updated_at", type: "timestamp with time zone" };
+  const clocks: Array<[DialectName, string, string]> = [
+    ["postgres", "timestamp with time zone", "clock_timestamp()"],
+    ["mysql", "datetime", "now(6)"],
+    ["mariadb", "timestamp", "now(6)"],
+    ["sqlserver", "datetime2(3)", "sysdatetime()"],
+    ["sqlserver", "datetimeoffset(7)", "sysdatetimeoffset()"],
+    ["oracle", "timestamp with time zone", "systimestamp"],
+  ];
+
+  it.each(clocks)("reads %s's own clock for a %s", (dialect, type, clock) => {
+    const read = buildWatchClock(table(dialect, ["id"]), {
+      name: "updated_at",
+      type,
+    });
+    expect(read.text).toContain(clock);
+    expect(read.text).toContain('as "clock"');
+    expect(read.text).toContain('0 as "ahead"');
+    expect(read.values).toEqual([]);
+  });
+
+  it("asks the engine whether a stored cursor is past its clock", () => {
+    const read = buildWatchClock(
+      table("postgres", ["id"]),
+      at,
+      "2099-01-01 00:00:00+00",
+    );
+    expect(read.text).toContain(
+      "case when $1::timestamp with time zone > clock_timestamp()::timestamp with time zone then 1 else 0 end",
+    );
+    expect(read.values).toEqual(["2099-01-01 00:00:00+00"]);
+  });
+
+  it("casts SQL Server's clock to the column's precision", () => {
+    expect(
+      buildWatchClock(table("sqlserver", ["id"]), {
+        name: "updated_at",
+        type: "datetime",
+      }).text,
+    ).toContain("convert(varchar(40), cast(sysdatetime() as datetime), 126)");
+  });
+
+  it("refuses a column that tells no time", () => {
+    expect(() =>
+      buildWatchClock(table("sqlserver", ["id"]), {
+        name: "v",
+        type: "rowversion",
+      }),
+    ).toThrow();
+    expect(() =>
+      buildWatchFuture(
+        table("sqlserver", ["id"]),
+        { name: "v", type: "rowversion" },
+        "0x00",
+        10,
+      ),
+    ).toThrow();
+  });
+
+  it("starts from the highest value up to the clock, the key over all rows", () => {
+    const start = buildWatchStart(table("postgres", ["id"]), at, "NOW");
+    expect(start.text).toContain(
+      'where t."updated_at" <= $1::timestamp with time zone',
+    );
+    expect(start.text).toContain('(select (max(k."id"))::text as "top" from');
+    expect(start.values).toEqual(["NOW"]);
+  });
+
+  it("keeps a page at or before the clock", () => {
+    const page = buildWatchPage(
+      table("postgres", ["id"]),
+      at,
+      { value: "A", key: null },
+      10,
+      "NOW",
+    );
+    expect(page.text).toContain(
+      't."updated_at" > $1::timestamp with time zone and t."updated_at" <= $2::timestamp with time zone',
+    );
+    expect(page.values).toEqual(["A", "NOW", 10]);
+  });
+
+  it("leaves a rowversion's page as it was", () => {
+    const page = buildWatchPage(
+      table("sqlserver", ["id"]),
+      { name: "v", type: "rowversion" },
+      { value: "0x01", key: null },
+      10,
+    );
+    expect(page.text).not.toContain("sysdatetime");
+  });
+
+  it("reads the rows past the clock, in order, up to a limit", () => {
+    const future = buildWatchFuture(table("postgres", ["id"]), at, "NOW", 2001);
+    expect(future.text).toContain(
+      'where t."updated_at" > $2::timestamp with time zone order by t."updated_at", t."id" limit $3',
+    );
+    expect(future.text).toContain(
+      'case when t."updated_at" > ($1::timestamp with time zone + interval \'86400 seconds\') then 1 else 0 end as "far"',
+    );
+    expect(future.values).toEqual(["NOW", "NOW", 2001]);
   });
 });

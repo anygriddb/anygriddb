@@ -330,6 +330,12 @@ export function copyStoredRow(
 }
 
 /**
+ * Columns one `jsonb_build_object` names: it takes 100 arguments at most,
+ * and a column is two of them.
+ */
+const DIFF_PACKET = 40;
+
+/**
  * The rows that differ between the current copy and the next, compared on
  * the columns both have: `op` is insert, update, or delete. At most
  * `limit` rows, and the count of each kind.
@@ -339,8 +345,19 @@ export function buildCopyDiff(
   common: readonly string[],
   limit: number,
 ): ParameterizedSql {
+  const packets: string[][] = [];
+  for (let at = 0; at < common.length; at += DIFF_PACKET) {
+    packets.push(common.slice(at, at + DIFF_PACKET));
+  }
   const pairs = (alias: string) =>
-    `jsonb_build_object(${common.map((name) => `'${name.replaceAll("'", "''")}', ${alias}.${quoteExternalIdent(name)}`).join(", ")})`;
+    packets.length === 0
+      ? "jsonb_build_object()"
+      : `(${packets
+          .map(
+            (packet) =>
+              `jsonb_build_object(${packet.map((name) => `'${name.replaceAll("'", "''")}', ${alias}.${quoteExternalIdent(name)}`).join(", ")})`,
+          )
+          .join(" || ")})`;
   const diff = `select coalesce(n."ag_id", o."ag_id") as "id", case when o."ag_id" is null then 'insert' when n."ag_id" is null then 'delete' else 'update' end as "op" from ${qualified(copyTable(tableId, true))} n full join ${qualified(copyTable(tableId))} o on o."ag_id" = n."ag_id" where o."ag_id" is null or n."ag_id" is null or ${pairs("n")} is distinct from ${pairs("o")}`;
   return {
     text: `select d."id", d."op", count(*) over (partition by d."op") as "count" from (${diff}) d limit ${String(Math.trunc(limit))}`,

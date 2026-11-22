@@ -33,7 +33,6 @@ import {
 } from "@anygriddb/core";
 import type { AutomationRow, Database } from "@anygriddb/db";
 import type { Bus } from "./realtime/bus.js";
-import { sql } from "kysely";
 import { z } from "zod";
 import { loadBindings } from "./auth/access.js";
 import { decryptSecret, encryptSecret } from "./auth/crypto.js";
@@ -59,7 +58,18 @@ import {
 import { type Actor, presentRecord } from "./public-api/index.js";
 import { madeNamesFor, readGateSettings, readMailVoice } from "./settings.js";
 import { liveBase, liveTable } from "./data/live.js";
-import { automationScriptCounted } from "./observability.js";
+import {
+  firstDropToTell,
+  MAX_DELAY_MINUTES,
+  nextMinute,
+  releaseWaitingRuns,
+  reserveMinute,
+  startRun,
+} from "./automation-pace.js";
+import {
+  automationRunPaced,
+  automationScriptCounted,
+} from "./observability.js";
 import { addJob, TASKS } from "./queue/jobs.js";
 import { acquireLock } from "./realtime/locks.js";
 import {
@@ -85,10 +95,10 @@ export type AutomationDeps = {
   key?: KeyRing;
   /** How a script's call leaves the instance, when a test says otherwise. */
   request?: typeof requestPinned;
+  /** The time the limit of runs is held on, when a test says otherwise. */
+  clock?: () => Date;
 };
 
-/** Runs one automation may start per minute, whatever triggers it. */
-const RUNS_PER_MINUTE = 300;
 const RUN_RETENTION_DAYS = 30;
 const MAX_EMAIL_RECIPIENTS = 10;
 
@@ -606,8 +616,8 @@ export async function setAutomationEnabled(
   await withAudit(
     db,
     { userId: actorId, tableId: row.tableId, source: "web" },
-    (tx) =>
-      tx
+    async (tx) => {
+      await tx
         .updateTable("automations")
         .set({
           enabled,
@@ -615,7 +625,9 @@ export async function setAutomationEnabled(
           updatedAt: new Date(),
         })
         .where("id", "=", automationId)
-        .execute(),
+        .execute();
+      if (!enabled) await releaseWaitingRuns(tx, automationId);
+    },
   );
 }
 
@@ -775,23 +787,6 @@ function coerceAll(
   return out;
 }
 
-/**
- * At most RUNS_PER_MINUTE runs of one automation in the last minute,
- * counted from its run log, so every process sees the same count.
- */
-async function underRateLimit(
-  db: Database,
-  automationId: string,
-): Promise<boolean> {
-  const row = await db
-    .selectFrom("automationRuns")
-    .select(sql<number>`count(*)::int`.as("count"))
-    .where("automationId", "=", automationId)
-    .where("startedAt", ">", new Date(Date.now() - 60_000))
-    .executeTakeFirst();
-  return (row?.count ?? 0) < RUNS_PER_MINUTE;
-}
-
 type Step = {
   type: string;
   ok: boolean;
@@ -864,9 +859,14 @@ export async function runAutomation(
     deleted?: { auditId?: string };
     /** Template values of their own: a webhook call's body. */
     extra?: Readonly<Record<string, string>>;
+    /** When it took its place in the automation's limit, if it already did. */
+    startedAt?: Date;
+    /** It waited past the limit of a delay: it is logged, and does nothing. */
+    dropped?: boolean;
   },
 ): Promise<{ status: "success" | "failed" | "skipped"; error?: string }> {
   const parsed = parseStored(automation);
+  let startedAt = context.startedAt;
   const log = async (
     status: "success" | "failed" | "skipped",
     steps: Step[],
@@ -883,6 +883,7 @@ export async function runAutomation(
         error: error ?? null,
         depth: context.depth,
         triggeredBy: context.triggeredBy ?? null,
+        ...(startedAt ? { startedAt } : {}),
         finishedAt: new Date(),
       })
       .execute();
@@ -895,9 +896,11 @@ export async function runAutomation(
   };
   if (!parsed) return log("failed", [], "Invalid automation");
   if (context.depth >= MAX_EVENT_DEPTH) return log("skipped", [], "Loop limit");
-  if (!(await underRateLimit(deps.db, automation.id))) {
-    return log("skipped", [], "Rate limit");
-  }
+  if (context.dropped) return log("skipped", [], "Delayed too long");
+  // A press of a button is answered now: it does not wait for a place.
+  startedAt ??=
+    (await startRun(deps.db, automation.id, deps.clock?.())) ?? undefined;
+  if (!startedAt) return log("skipped", [], "Rate limit");
   if (!automation.createdBy) return log("failed", [], "Access denied");
   const creatorId = automation.createdBy;
   const own = await creatorEngine(deps.db, creatorId, automation.tableId);
@@ -1396,11 +1399,7 @@ export async function handleAutomationEvent(
  */
 export async function runQueuedAutomation(
   deps: AutomationDeps,
-  input: {
-    automationId: string;
-    event?: RowEvent;
-    values?: Record<string, string>;
-  },
+  input: QueuedRun,
 ): Promise<void> {
   const automation = await deps.db
     .selectFrom("automations")
@@ -1411,6 +1410,23 @@ export async function runQueuedAutomation(
   if (!automation) return;
   const parsed = parseStored(automation);
   const event = input.event;
+  const context = {
+    ...(event?.rowId ? { rowId: event.rowId } : {}),
+    depth: event?.depth ?? 0,
+    trigger: parsed?.trigger.type ?? "row",
+    ...(event?.actorId ? { triggeredBy: event.actorId } : {}),
+    ...(parsed?.trigger.type === "row_deleted"
+      ? { deleted: event?.auditId ? { auditId: event.auditId } : {} }
+      : {}),
+    ...(input.values ? { extra: input.values } : {}),
+  };
+  // A run that will only log why it stops takes no place.
+  let startedAt: Date | undefined;
+  if (parsed && context.depth < MAX_EVENT_DEPTH) {
+    const place = await takePlace(deps, automation, input, context);
+    if (!place) return;
+    startedAt = place;
+  }
   const watched =
     parsed?.trigger.type === "schedule" ? `automation:${automation.id}` : null;
   if (watched && deps.key) {
@@ -1423,14 +1439,8 @@ export async function runQueuedAutomation(
   }
   try {
     await runAutomation(deps, automation, {
-      ...(event?.rowId ? { rowId: event.rowId } : {}),
-      depth: event?.depth ?? 0,
-      trigger: parsed?.trigger.type ?? "row",
-      ...(event?.actorId ? { triggeredBy: event.actorId } : {}),
-      ...(parsed?.trigger.type === "row_deleted"
-        ? { deleted: event?.auditId ? { auditId: event.auditId } : {} }
-        : {}),
-      ...(input.values ? { extra: input.values } : {}),
+      ...context,
+      ...(startedAt ? { startedAt } : {}),
     });
     if (watched && deps.key) {
       const { pulse } = await import("./notify/pulse.js");
@@ -1450,6 +1460,98 @@ export async function runQueuedAutomation(
       );
     }
     throw error;
+  }
+}
+
+type QueuedRun = {
+  automationId: string;
+  event?: RowEvent;
+  values?: Record<string, string>;
+  /** When the run was first asked for: set once it has had to wait. */
+  queuedAt?: string;
+};
+
+/**
+ * A run's place in its automation's limit (ADR 0115), taken before any of
+ * its actions: to wait is never to do anything twice. Answers when it
+ * started, or null when it now waits in the queue or was dropped.
+ */
+async function takePlace(
+  deps: AutomationDeps,
+  automation: AutomationRow,
+  input: QueuedRun,
+  context: Parameters<typeof runAutomation>[2],
+): Promise<Date | null> {
+  const at = deps.clock?.();
+  const now = at ?? new Date();
+  const queuedAt = input.queuedAt ?? now.toISOString();
+  const again = { ...input, queuedAt };
+  if (input.queuedAt === undefined) {
+    const given = await deps.db.transaction().execute(async (tx) => {
+      const minute = await reserveMinute(tx, automation.id, at);
+      if (minute && !minute.due) {
+        await addJob(tx, TASKS.automationRun, again, {
+          runAt: minute.runAt,
+          // Actions send mail and call URLs: a run is never repeated.
+          maxAttempts: 1,
+        });
+      }
+      return minute;
+    });
+    if (!given) {
+      await dropRun(deps, automation, context, at);
+      return null;
+    }
+    if (!given.due) {
+      automationRunPaced("delayed");
+      return null;
+    }
+  } else if (
+    now.getTime() - new Date(input.queuedAt).getTime() >=
+    MAX_DELAY_MINUTES * 60_000
+  ) {
+    await dropRun(deps, automation, context, at);
+    return null;
+  }
+  const started = await startRun(deps.db, automation.id, at);
+  if (started) return started;
+  // This minute went to runs that came late to theirs: the next one.
+  await addJob(deps.db, TASKS.automationRun, again, {
+    runAt: await nextMinute(deps.db, at),
+    maxAttempts: 1,
+  });
+  automationRunPaced("delayed");
+  return null;
+}
+
+/** Logs a run that waited too long, and tells its author, once a day at most. */
+async function dropRun(
+  deps: AutomationDeps,
+  automation: AutomationRow,
+  context: Parameters<typeof runAutomation>[2],
+  at: Date | undefined,
+): Promise<void> {
+  automationRunPaced("dropped");
+  await runAutomation(deps, automation, { ...context, dropped: true });
+  if (!(await firstDropToTell(deps.db, automation.id, at))) return;
+  deps.log(null, "automation runs dropped after waiting a day");
+  if (!automation.createdBy) return;
+  try {
+    await notify(deps, [
+      {
+        userId: automation.createdBy,
+        kind: "automation",
+        actorId: null,
+        tableId: automation.tableId,
+        data: {
+          automationId: automation.id,
+          name: automation.name,
+          code: "runs_dropped",
+        },
+      },
+    ]);
+  } catch (error) {
+    deps.log(error, "dropped automation runs notice failed");
   }
 }
 
@@ -1577,7 +1679,16 @@ export async function runDueSchedules(deps: AutomationDeps): Promise<number> {
   });
   for (const automation of due) {
     try {
-      await runAutomation(deps, automation, { depth: 0, trigger: "schedule" });
+      const context = { depth: 0, trigger: "schedule" };
+      const startedAt = await takePlace(
+        deps,
+        automation,
+        { automationId: automation.id },
+        context,
+      );
+      if (startedAt) {
+        await runAutomation(deps, automation, { ...context, startedAt });
+      }
     } catch (error) {
       deps.log(error, "scheduled automation failed");
     }

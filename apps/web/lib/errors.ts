@@ -282,6 +282,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   source_side_missing: msg`The schema kept for AnyGridDB does not exist in the client's database: its administrator must create it`,
   source_side_denied: msg`The source's account may not create tables in the schema kept for AnyGridDB: its administrator must allow it`,
   source_changes_expired: msg`SQL Server no longer kept the changes: the table was read again in full`,
+  source_watch_future: msg`Rows are dated ahead of the source's clock: each is told once, and later changes still show`,
 
   release_check_disabled: msg`Turn on the release check in Health first`,
   release_check_failed: msg`Could not reach the release feed`,

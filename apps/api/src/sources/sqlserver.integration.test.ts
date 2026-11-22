@@ -177,7 +177,7 @@ describe("SQL Server sources", () => {
   });
 
   it("reads the tables the account may read, with their keys and rights", async () => {
-    const tables = await introspectSqlServer(connection(), {
+    const { tables } = await introspectSqlServer(connection(), {
       allowPlaintext: false,
     });
     // `salaries` was never granted: the account does not see it.

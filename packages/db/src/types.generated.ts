@@ -256,6 +256,15 @@ export interface AutomationMatches {
   rowId: string;
 }
 
+export interface AutomationRunPace {
+  automationId: string;
+  droppedToldAt: Timestamp | null;
+  reserved: number;
+  reservedMinute: Timestamp;
+  started: number;
+  startedMinute: Timestamp;
+}
+
 export interface AutomationRuns {
   automationId: string;
   depth: Generated<number>;
@@ -1136,6 +1145,7 @@ export interface DB {
   auditEvents: AuditEvents;
   authEvents: AuthEvents;
   automationMatches: AutomationMatches;
+  automationRunPace: AutomationRunPace;
   automationRuns: AutomationRuns;
   automations: Automations;
   backupCodes: BackupCodes;

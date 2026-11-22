@@ -24,11 +24,15 @@ import { introspectOracle } from "./oracle-schema.js";
 import { introspectMysql } from "./mysql-schema.js";
 import { introspectPostgres } from "./postgres-schema.js";
 import { copyConnector } from "./copy/index.js";
+import { exactly } from "./table-scope.js";
 import type {
   SourceCheck,
   SourceConnection,
+  SourceListing,
   SourceSettings,
   SourceTable,
+  TableName,
+  TableScope,
 } from "./types.js";
 
 export type SourceDeps = {
@@ -414,16 +418,23 @@ function storedConnection(deps: SourceDeps, row: SourceRow): SourceConnection {
   };
 }
 
-/** The tables and views a source's account may read, and their columns. */
-export async function sourceTables(
+/**
+ * The tables and views a source's account may read, and their columns, and
+ * whether there were more than one list keeps. `scope` narrows the look.
+ */
+export async function listSourceTables(
   deps: SourceDeps,
   id: string,
-  /**
-   * The schema of a base held in the source (ADR 0090). MySQL and MariaDB
-   * read the tables of one database at a time, and that schema is one.
-   */
-  home?: string,
-): Promise<SourceTable[]> {
+  options: {
+    /**
+     * The schema of a base held in the source (ADR 0090). MySQL and MariaDB
+     * read the tables of one database at a time, and that schema is one.
+     */
+    home?: string | undefined;
+    scope?: TableScope;
+  } = {},
+): Promise<SourceListing> {
+  const { home, scope } = options;
   const row = await loadSource(deps.db, id);
   const stored = storedConnection(deps, row);
   const connection =
@@ -433,20 +444,63 @@ export async function sourceTables(
   if (!deps.settings.allows(connection.host)) {
     throw new AppError("source_host_not_allowed", connection.host);
   }
-  const options = { allowPlaintext: deps.settings.allowPlaintext };
+  const connect = { allowPlaintext: deps.settings.allowPlaintext };
   switch (connection.engine) {
     case "postgres":
-      return introspectPostgres(connection, options);
+      return introspectPostgres(connection, connect, scope);
     case "mysql":
     case "mariadb":
-      return introspectMysql(connection, options);
+      return introspectMysql(connection, connect, scope);
     case "sqlserver":
-      return introspectSqlServer(connection, options);
+      return introspectSqlServer(connection, connect, scope);
     case "oracle":
-      return introspectOracle(connection, options);
+      return introspectOracle(connection, connect, scope);
     default:
-      return copyConnector(connection.engine).tables(connection, options);
+      return copyConnector(connection.engine).tables(
+        connection,
+        connect,
+        scope,
+      );
   }
+}
+
+/** A source's tables, up to what one list keeps. */
+export async function sourceTables(
+  deps: SourceDeps,
+  id: string,
+  home?: string,
+): Promise<SourceTable[]> {
+  return (await listSourceTables(deps, id, { home })).tables;
+}
+
+/** Names one statement asks for: SQL Server takes 2,100 parameters. */
+const NAMES_PER_LOOK = 400;
+
+/**
+ * The tables named, as the account sees them now, whatever a list would
+ * have kept. A table it cannot read, or that is gone, is simply not there.
+ */
+export async function namedSourceTables(
+  deps: SourceDeps,
+  id: string,
+  names: readonly TableName[],
+  home?: string,
+): Promise<SourceTable[]> {
+  const distinct = [
+    ...new Map(
+      names.map((item) => [`${item.schema}\0${item.name}`, item]),
+    ).values(),
+  ];
+  const found: SourceTable[] = [];
+  for (let at = 0; at < distinct.length; at += NAMES_PER_LOOK) {
+    const only = distinct.slice(at, at + NAMES_PER_LOOK);
+    const { tables } = await listSourceTables(deps, id, {
+      home,
+      scope: { only },
+    });
+    found.push(...exactly(tables, only));
+  }
+  return found;
 }
 
 type Exposure = {

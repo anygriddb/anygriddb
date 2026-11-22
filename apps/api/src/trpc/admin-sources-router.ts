@@ -15,9 +15,9 @@ import {
   createSource,
   deleteSource,
   exposedIn,
+  listSourceTables,
   listSources,
   recheckSource,
-  sourceTables,
   testSource,
   updateSource,
   type SourceDeps,
@@ -33,6 +33,31 @@ function sourceDeps(ctx: Context): SourceDeps {
     db: ctx.db,
     key: ctx.env.AUTH_ENCRYPTION_KEY,
     settings: ctx.sources,
+  };
+}
+
+/** What a source's account may read, as the administration page shows it. */
+async function presentedTables(ctx: Context, id: string, search?: string) {
+  const [listing, exposed, source] = await Promise.all([
+    listSourceTables(sourceDeps(ctx), id, {
+      ...(search ? { scope: { search } } : {}),
+    }),
+    exposedIn(ctx.db, id),
+    ctx.db
+      .selectFrom("sources")
+      .select("engine")
+      .where("id", "=", id)
+      .executeTakeFirstOrThrow(),
+  ]);
+  return {
+    truncated: listing.truncated,
+    tables: listing.tables.map((table) => ({
+      ...table,
+      changeTracking: table.changeTracking ?? false,
+      // Columns that can tell changes made elsewhere (ADR 0031).
+      watchColumns: watchColumns(source.engine, table),
+      exposedIn: exposed.get(`${table.schema}.${table.name}`) ?? [],
+    })),
   };
 }
 
@@ -220,24 +245,23 @@ export const sourcesRouter = t.router({
   tables: procedure.input(z.object({ id: z.uuid() })).query(({ ctx, input }) =>
     handle(ctx, async () => {
       await requireAdmin(ctx);
-      const [tables, exposed, source] = await Promise.all([
-        sourceTables(sourceDeps(ctx), input.id),
-        exposedIn(ctx.db, input.id),
-        ctx.db
-          .selectFrom("sources")
-          .select("engine")
-          .where("id", "=", input.id)
-          .executeTakeFirstOrThrow(),
-      ]);
-      return tables.map((table) => ({
-        ...table,
-        changeTracking: table.changeTracking ?? false,
-        // Columns that can tell changes made elsewhere (ADR 0031).
-        watchColumns: watchColumns(source.engine, table),
-        exposedIn: exposed.get(`${table.schema}.${table.name}`) ?? [],
-      }));
+      return (await presentedTables(ctx, input.id)).tables;
     }),
   ),
+  /** The same list, whether it was cut, and a search to reach the rest. */
+  tableListing: procedure
+    .input(
+      z.object({
+        id: z.uuid(),
+        search: z.string().trim().min(1).max(128).optional(),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      handle(ctx, async () => {
+        await requireAdmin(ctx);
+        return presentedTables(ctx, input.id, input.search);
+      }),
+    ),
   delete: procedure
     .input(z.object({ id: z.uuid() }))
     .mutation(({ ctx, input }) =>
