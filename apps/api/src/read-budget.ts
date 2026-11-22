@@ -6,7 +6,7 @@ import { AppError } from "@anygriddb/core";
  * rows, fits many times over; a page of 1,000 rows of the longest cells
  * does not, and is refused rather than built whole in memory (ADR 0110).
  */
-export const READ_BYTES_PER_REQUEST = 64 * 1024 * 1024;
+const READ_BYTES_PER_REQUEST = 64 * 1024 * 1024;
 
 /** What every request of this process may hold together. */
 export class ReadMemory {

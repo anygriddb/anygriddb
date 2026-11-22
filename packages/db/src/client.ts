@@ -120,7 +120,7 @@ export async function runStatement<Row = Record<string, unknown>>(
  * The same statement, a few rows at a time, for a reader that may stop
  * before the last: leaving the loop closes the cursor.
  */
-export async function* streamStatement(
+async function* streamStatement(
   executor: Executor,
   statement: Statement,
   chunkSize: number,
