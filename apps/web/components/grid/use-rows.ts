@@ -69,6 +69,10 @@ export type RowsState = Snapshot & {
    */
   holdRows: (rowIds: readonly string[]) => () => void;
   refetchIds: (rowIds: string[]) => Promise<void>;
+  /** Where a loaded row stands in the view; undefined if none is loaded. */
+  indexOfRow: (rowId: string) => number | undefined;
+  /** Whether the row still exists; undefined when that cannot be told. */
+  rowExists: (rowId: string) => Promise<boolean | undefined>;
   /** Counts a large client table's rows exactly. */
   countExactly: () => Promise<void>;
 };
@@ -462,6 +466,28 @@ export class RowPages {
   readonly rowAt = (index: number) =>
     this.pages.get(Math.floor(index / this.pageSize))?.[index % this.pageSize];
 
+  readonly indexOfRow = (rowId: string): number | undefined => {
+    for (const [page, rows] of this.pages) {
+      const place = rows.findIndex((row) => row.id === rowId);
+      if (place >= 0) return page * this.pageSize + place;
+    }
+    return undefined;
+  };
+
+  readonly rowExists = async (rowId: string): Promise<boolean | undefined> => {
+    try {
+      const { rows } = await trpc.rows.get.query({
+        tableId: this.tableId,
+        rowIds: [rowId],
+        timeZone: TIME_ZONE,
+      });
+      return rows.some((row) => row.id === rowId);
+    } catch {
+      // Not known: what is being typed is not given up on a failed read.
+      return undefined;
+    }
+  };
+
   readonly loadedRows = () =>
     [...this.pages.entries()]
       .sort(([left], [right]) => left - right)
@@ -532,6 +558,8 @@ export function useRows(
       patchLocal: store.patchLocal,
       holdRows: store.holdRows,
       refetchIds: store.refetchIds,
+      indexOfRow: store.indexOfRow,
+      rowExists: store.rowExists,
       countExactly: store.countExactly,
     }),
     [snapshot, store],

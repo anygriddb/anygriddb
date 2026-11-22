@@ -17,6 +17,7 @@ import type { ViewItem } from "../../lib/types";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { useWhen } from "../../lib/i18n";
+import { useSubmitGuard } from "../../lib/submit-guard";
 import { RevokeLink } from "./revoke-link";
 
 /** The addresses typed, apart by spaces, commas, or lines. */
@@ -54,6 +55,7 @@ export function ShareDialog({
   const [embedded, setEmbedded] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
   const when = useWhen();
+  const creating = useSubmitGuard();
   const refresh = () =>
     queryClient.invalidateQueries({
       queryKey: api.catalog.shares.queryKey({ viewId: view.id }),
@@ -79,24 +81,26 @@ export function ShareDialog({
         <form
           hidden={links === "off"}
           className="flex flex-col gap-2"
-          onSubmit={async (event) => {
+          onSubmit={(event) => {
             event.preventDefault();
-            try {
-              const created = await trpc.catalog.createShare.mutate({
-                viewId: view.id,
-                password: password || undefined,
-                expiresInDays: days ? Number(days) : undefined,
-                allowCopy,
-                embedOrigins: parseEmbedSites(sites),
-              });
-              setLink(`${window.location.origin}/s/${created.token}`);
-              setEmbedded(parseEmbedSites(sites).length > 0);
-              setPassword("");
-              setSites("");
-              await refresh();
-            } catch (cause) {
-              toast.error(errorText(cause));
-            }
+            void creating.guard(async () => {
+              try {
+                const created = await trpc.catalog.createShare.mutate({
+                  viewId: view.id,
+                  password: password || undefined,
+                  expiresInDays: days ? Number(days) : undefined,
+                  allowCopy,
+                  embedOrigins: parseEmbedSites(sites),
+                });
+                setLink(`${window.location.origin}/s/${created.token}`);
+                setEmbedded(parseEmbedSites(sites).length > 0);
+                setPassword("");
+                setSites("");
+                await refresh();
+              } catch (cause) {
+                toast.error(errorText(cause));
+              }
+            });
           }}
         >
           <div className="grid grid-cols-2 gap-2">
@@ -152,7 +156,13 @@ export function ShareDialog({
               {t`The addresses of the sites that may show this link in a frame, each starting with https://. Without one, no site can.`}
             </p>
           </div>
-          <Button type="submit" className="self-start">
+          {/* Not `disabled`: a focused button that is takes no key, and
+              Escape would no longer close the dialog. */}
+          <Button
+            type="submit"
+            className="self-start"
+            aria-disabled={creating.busy || undefined}
+          >
             <Link2 className="h-4 w-4" aria-hidden />
             {t`Create a link`}
           </Button>

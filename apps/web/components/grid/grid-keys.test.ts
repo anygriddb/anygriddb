@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gridKeyAction, type KeyPress } from "./grid-keys";
+import { gridKeyAction, togglesCheckbox, type KeyPress } from "./grid-keys";
 
 function press(key: string, held: Partial<KeyPress> = {}): KeyPress {
   return {
@@ -125,5 +125,17 @@ describe("gridKeyAction", () => {
     expect(gridKeyAction(press("Enter"), idle)).toBeNull();
     expect(gridKeyAction(press("x"), idle)).toBeNull();
     expect(gridKeyAction(press("ArrowDown"), { ...idle, rows: 0 })).toBeNull();
+  });
+});
+
+describe("togglesCheckbox", () => {
+  it("takes Enter, F2 and a double click, which carry no character", () => {
+    expect(togglesCheckbox(undefined)).toBe(true);
+  });
+
+  it("ignores a character typed on the cell", () => {
+    for (const key of ["n", "y", "x", "0", "É"]) {
+      expect(togglesCheckbox(key)).toBe(false);
+    }
   });
 });

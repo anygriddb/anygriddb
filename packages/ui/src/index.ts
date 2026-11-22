@@ -13,6 +13,8 @@ export { Checkbox, Input, Label, Select, Textarea } from "./input";
 export { ReadOnly, useReadOnly } from "./read-only";
 export {
   AriaLocaleProvider,
+  CalendarDate,
+  CalendarDateTime,
   DatePicker,
   getLocalTimeZone,
   now,

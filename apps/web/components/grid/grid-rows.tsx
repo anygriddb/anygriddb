@@ -125,6 +125,8 @@ export function GridAddRow(props: {
   /** Up to the end of the last field: the line is as wide as the sheet. */
   sheetWidth: number;
   frozenCount: number;
+  /** A row is being added: another press waits for it. */
+  adding: boolean;
   onAdd: () => void;
 }) {
   const { t } = useLingui();
@@ -143,6 +145,8 @@ export function GridAddRow(props: {
           type="button"
           className="group/add flex h-full items-center border-b border-rule text-[13px] text-muted-foreground hover:text-foreground"
           style={{ width: props.sheetWidth }}
+          // Stays focusable, so that the keyboard adds the next one from here.
+          aria-disabled={props.adding || undefined}
           onClick={props.onAdd}
         >
           {/* The gutter's share of the row: the plus sits where the numbers do. */}
@@ -199,7 +203,7 @@ export function GridDataRow(props: {
   return (
     <EditingRow
       selection={selection}
-      position={position}
+      rowId={row?.id}
       rowIndex={index + 2}
       className="group/row absolute left-0 flex"
       style={{
@@ -311,7 +315,7 @@ export function GridDataRow(props: {
  */
 function EditingRow(props: {
   selection: GridSelection;
-  position: number;
+  rowId: string | undefined;
   rowIndex: number;
   className?: string;
   style?: CSSProperties;
@@ -323,7 +327,7 @@ function EditingRow(props: {
   };
   children: ReactNode;
 }) {
-  const editing = useEditingRow(props.selection, props.position);
+  const editing = useEditingRow(props.selection, props.rowId);
   const ref = useRef<HTMLDivElement>(null);
   const drop = props.drop;
   const { dropProps, side } = useRowPlaceDrop(

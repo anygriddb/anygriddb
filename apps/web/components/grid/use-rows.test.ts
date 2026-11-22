@@ -47,6 +47,22 @@ describe("rows store", () => {
     get.mockReset();
   });
 
+  it("says where a row stands, and when it holds no such row", async () => {
+    const store = await loaded();
+    expect(store.indexOfRow("r1")).toBe(0);
+    expect(store.indexOfRow("gone")).toBeUndefined();
+  });
+
+  it("says whether a row still exists, and nothing when it cannot tell", async () => {
+    const store = await loaded();
+    get.mockResolvedValueOnce({ rows: [row(null)] });
+    await expect(store.rowExists("r1")).resolves.toBe(true);
+    get.mockResolvedValueOnce({ rows: [] });
+    await expect(store.rowExists("r1")).resolves.toBe(false);
+    get.mockRejectedValueOnce(new Error("offline"));
+    await expect(store.rowExists("r1")).resolves.toBeUndefined();
+  });
+
   it("keeps an edit made while an older read of its row was on the way", async () => {
     const store = await loaded();
     const answer = pendingGet();

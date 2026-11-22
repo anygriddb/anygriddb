@@ -72,29 +72,23 @@ function isRelation(fieldType: FieldType): boolean {
  * column itself on AnyGridDB's tables, the client's own foreign key on an
  * external table (kept in physical_name).
  */
-function foreignKeyOf(column: ColumnRow, rows: CatalogRows): string {
-  const table = rows.tables.find((item) => item.id === column.tableId);
+function foreignKeyOf(column: ColumnRow, lookup: CatalogLookup): string {
+  const table = lookup.tables.get(column.tableId);
   return table?.storage === "external" ? column.physicalName : column.name;
 }
 
 function relationFor(
   column: ColumnRow,
   config: ColumnConfig,
-  rows: CatalogRows,
+  lookup: CatalogLookup,
 ): EngineRelation | undefined {
-  const own = rows.relations.find(
-    (relation) => relation.fromColumnId === column.id,
-  );
+  const own = lookup.relations.get(column.id);
   if (!own) {
     return undefined;
   }
   if (config.inverseOf) {
-    const forward = rows.relations.find(
-      (relation) => relation.fromColumnId === config.inverseOf,
-    );
-    const forwardColumn = rows.columns.find(
-      (item) => item.id === config.inverseOf,
-    );
+    const forward = lookup.relations.get(config.inverseOf);
+    const forwardColumn = lookup.columns.get(config.inverseOf);
     if (!forward || !forwardColumn) {
       return undefined;
     }
@@ -103,7 +97,7 @@ function relationFor(
           kind: "one_to_many",
           direction: "inverse",
           targetTableId: own.toTableId,
-          fkColumn: foreignKeyOf(forwardColumn, rows),
+          fkColumn: foreignKeyOf(forwardColumn, lookup),
         }
       : {
           kind: "many_to_many",
@@ -117,7 +111,7 @@ function relationFor(
         kind: "one_to_many",
         direction: "forward",
         targetTableId: own.toTableId,
-        fkColumn: foreignKeyOf(column, rows),
+        fkColumn: foreignKeyOf(column, lookup),
       }
     : {
         kind: "many_to_many",
@@ -160,10 +154,12 @@ export function sourceDialect(
   throw new AppError("source_engine_unsupported", engine);
 }
 
-function toEngineTable(table: TableRow, rows: CatalogRows): EngineTable {
-  const own = sortColumns(
-    rows.columns.filter((column) => column.tableId === table.id),
-  );
+function toEngineTable(
+  table: TableRow,
+  rows: CatalogRows,
+  lookup: CatalogLookup,
+): EngineTable {
+  const own = sortColumns(lookup.columnsOf.get(table.id) ?? []);
   const copy = rows.syncs?.get(table.id);
   const engine =
     table.sourceId === null
@@ -213,7 +209,7 @@ function toEngineTable(table: TableRow, rows: CatalogRows): EngineTable {
   const engineColumns: EngineColumn[] = own.map((column) => {
     const config = columnConfig(column);
     const relation = isRelation(column.fieldType)
-      ? relationFor(column, config, rows)
+      ? relationFor(column, config, lookup)
       : undefined;
     return {
       id: column.id,
@@ -292,25 +288,68 @@ function controlVersion(db: Database): Promise<number[] | undefined> {
   return control;
 }
 
+/** The catalog's rows by what they are looked up by. */
+export type CatalogLookup = {
+  tables: ReadonlyMap<string, TableRow>;
+  columns: ReadonlyMap<string, ColumnRow>;
+  columnsOf: ReadonlyMap<string, readonly ColumnRow[]>;
+  /** A link column's relation, by that column's id. */
+  relations: ReadonlyMap<string, RelationRow>;
+};
+
+/** The same, and every table as the read engine takes it. */
+export type CatalogIndex = CatalogLookup & {
+  engineTables: ReadonlyMap<string, EngineTable>;
+};
+
+export function lookupCatalog(rows: CatalogRows): CatalogLookup {
+  const tables = new Map<string, TableRow>();
+  for (const table of rows.tables) {
+    if (!tables.has(table.id)) tables.set(table.id, table);
+  }
+  const columns = new Map<string, ColumnRow>();
+  const columnsOf = new Map<string, ColumnRow[]>();
+  for (const column of rows.columns) {
+    if (!columns.has(column.id)) columns.set(column.id, column);
+    const own = columnsOf.get(column.tableId);
+    if (own) own.push(column);
+    else columnsOf.set(column.tableId, [column]);
+  }
+  const relations = new Map<string, RelationRow>();
+  for (const relation of rows.relations) {
+    if (!relations.has(relation.fromColumnId)) {
+      relations.set(relation.fromColumnId, relation);
+    }
+  }
+  return { tables, columns, columnsOf, relations };
+}
+
+/**
+ * Every table of `rows`, once. What reads many tables of one catalog builds
+ * this once and hands it to each `assembleEngine`, whose cost is then the
+ * size of the catalog and not its square.
+ */
+export function indexCatalog(rows: CatalogRows): CatalogIndex {
+  const lookup = lookupCatalog(rows);
+  const engineTables = new Map<string, EngineTable>();
+  for (const table of lookup.tables.values()) {
+    engineTables.set(table.id, toEngineTable(table, rows, lookup));
+  }
+  return { ...lookup, engineTables };
+}
+
 /** Engine view of one table plus every table its links reach. */
 export function assembleEngine(
   tableId: string,
   rows: CatalogRows,
   readable: (tableId: string) => boolean,
+  index: CatalogIndex = indexCatalog(rows),
 ): EngineCatalog {
-  const table = rows.tables.find((item) => item.id === tableId);
-  if (!table) {
-    throw new AppError("unknown_table");
-  }
-  const map = new Map<string, EngineTable>();
-  for (const item of rows.tables) {
-    map.set(item.id, toEngineTable(item, rows));
-  }
-  const own = map.get(table.id);
+  const own = index.engineTables.get(tableId);
   if (!own) {
     throw new AppError("unknown_table");
   }
-  return { table: own, tables: map, readable };
+  return { table: own, tables: index.engineTables, readable };
 }
 
 /**

@@ -1,3 +1,5 @@
+import { MAX_CELL_FILES } from "@anygriddb/core";
+
 /** A file a form sent ahead of its answer: the key the answer names, and what the form shows. */
 export type SentFile = { key: string; filename: string; size: number };
 
@@ -26,6 +28,22 @@ export function formFileUrl(token: string, field: string): string {
 /** Where a member sends a file for a table. */
 export function tableFileUrl(tableId: string): string {
   return `/api/attachments?tableId=${encodeURIComponent(tableId)}`;
+}
+
+/**
+ * What a cell that already holds `held` files can still take of those
+ * chosen, and how many are left out: nothing is sent that the cell would
+ * refuse afterwards.
+ */
+export function filesThatFit<T>(
+  chosen: readonly T[],
+  held: number,
+): { fit: T[]; left: number } {
+  const room = Math.max(0, MAX_CELL_FILES - held);
+  return {
+    fit: chosen.slice(0, room),
+    left: Math.max(0, chosen.length - room),
+  };
 }
 
 /** Sends one file, and returns what the server kept of it. */

@@ -18,10 +18,16 @@ function normalize(a: Cell, b: Cell): Range {
   };
 }
 
+/**
+ * The cell being edited: its row and field, which stay what they are when
+ * rows are added or removed above it, and where they stand now.
+ */
+type Editing = { rowId: string; column: string; cell: Cell; text?: string };
+
 type SelectionState = {
   active: Cell | null;
   anchor: Cell | null;
-  editing: { cell: Cell; text?: string } | null;
+  editing: Editing | null;
   /** The last row a fill drag reaches, while it lasts. */
   fillTo: number | null;
 };
@@ -45,6 +51,8 @@ const EMPTY: SelectionState = {
 export class GridSelection {
   private state = EMPTY;
   private range: Range | null = null;
+  /** Reads what the open editor holds; it still answers once it is gone. */
+  private draft: (() => string) | null = null;
   private readonly listeners = new Set<() => void>();
 
   readonly subscribe = (listener: () => void) => {
@@ -71,6 +79,13 @@ export class GridSelection {
     ) {
       return;
     }
+    // What an editor held is its own: the next edit starts without it.
+    if (
+      next.editing?.rowId !== this.state.editing?.rowId ||
+      next.editing?.column !== this.state.editing?.column
+    ) {
+      this.draft = null;
+    }
     this.state = next;
     this.range = next.active
       ? normalize(next.anchor ?? next.active, next.active)
@@ -87,8 +102,32 @@ export class GridSelection {
     if (this.state === held) this.update(patch);
   }
 
-  /** The flags of the cell at row position `r`, column `c`. */
-  flags(r: number, c: number): number {
+  /** The edit stays on its row: the selection goes where that row now is. */
+  followEdit(cell: Cell): void {
+    const { editing } = this.state;
+    if (!editing || (editing.cell.r === cell.r && editing.cell.c === cell.c)) {
+      return;
+    }
+    this.update({ editing: { ...editing, cell }, active: cell, anchor: null });
+  }
+
+  /** Notes how to read what the open editor holds. */
+  holdDraft(read: () => string): void {
+    this.draft = read;
+  }
+
+  /** What the last editor held, once. */
+  takeDraft(): string {
+    const text = this.draft?.() ?? "";
+    this.draft = null;
+    return text;
+  }
+
+  /**
+   * The flags of the cell at row position `r`, column `c`, which holds
+   * `column` of the row `rowId`: only those two say that it is edited.
+   */
+  flags(r: number, c: number, rowId?: string, column?: string): number {
     const { active, editing, fillTo } = this.state;
     const range = this.range;
     let flags = 0;
@@ -100,13 +139,15 @@ export class GridSelection {
       if (r === range.r2 && c === range.c2) flags |= CORNER;
     }
     if (active?.r === r && active.c === c) flags |= ACTIVE;
-    if (editing?.cell.r === r && editing.cell.c === c) flags |= EDITING;
+    if (editing && editing.rowId === rowId && editing.column === column) {
+      flags |= EDITING;
+    }
     return flags;
   }
 
   /** True when any cell of this row is being edited. */
-  isEditingRow(r: number): boolean {
-    return this.state.editing?.cell.r === r;
+  isEditingRow(rowId: string | undefined): boolean {
+    return rowId !== undefined && this.state.editing?.rowId === rowId;
   }
 }
 
@@ -115,8 +156,12 @@ export function useCellFlags(
   selection: GridSelection,
   r: number,
   c: number,
+  rowId: string | undefined,
+  column: string,
 ): number {
-  return useSyncExternalStore(selection.subscribe, () => selection.flags(r, c));
+  return useSyncExternalStore(selection.subscribe, () =>
+    selection.flags(r, c, rowId, column),
+  );
 }
 
 /** The whole selection, for parts that show it all, such as a menu. */
@@ -128,9 +173,20 @@ export function useSelectionState(selection: GridSelection): SelectionState {
  * Whether this row holds the cell being edited. Used to raise the row above
  * later virtualized rows so an overflowing panel keeps pointer events.
  */
-export function useEditingRow(selection: GridSelection, r: number): boolean {
+export function useEditingRow(
+  selection: GridSelection,
+  rowId: string | undefined,
+): boolean {
   return useSyncExternalStore(selection.subscribe, () =>
-    selection.isEditingRow(r),
+    selection.isEditingRow(rowId),
+  );
+}
+
+/** The row being edited, if any: the grid keeps it drawn wherever it goes. */
+export function useEditedRowId(selection: GridSelection): string | undefined {
+  return useSyncExternalStore(
+    selection.subscribe,
+    () => selection.getState().editing?.rowId,
   );
 }
 

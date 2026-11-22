@@ -34,6 +34,7 @@ import { applyTemplate } from "../data/data-ops.js";
 import { enqueueJob } from "../jobs.js";
 import {
   assembleEngine,
+  indexCatalog,
   loadCatalogRows,
   sourceEngine,
   type CatalogRows,
@@ -120,6 +121,19 @@ async function visibleCatalog(ctx: Context, bindings: readonly Binding[]) {
 
 const collaboratorsInputSchema = z.object({ baseId: z.uuid() });
 
+function groupBy<Item>(
+  items: readonly Item[],
+  key: (item: Item) => string,
+): Map<string, Item[]> {
+  const groups = new Map<string, Item[]>();
+  for (const item of items) {
+    const group = groups.get(key(item));
+    if (group) group.push(item);
+    else groups.set(key(item), [item]);
+  }
+  return groups;
+}
+
 export const catalogBaseProcedures = {
   list: procedure.query(({ ctx }) =>
     handle(ctx, async () => {
@@ -154,11 +168,13 @@ export const catalogBaseProcedures = {
       );
       // A folder's name is shown to whoever arranges the base, and to
       // others only when it holds a table they read.
-      const holding = new Set(
-        rows.tables
-          .filter((table) => readableIds.includes(table.id))
-          .map((table) => table.folderId),
-      );
+      const readableSet = new Set(readableIds);
+      const shown = rows.tables.filter((table) => readableSet.has(table.id));
+      const holding = new Set(shown.map((table) => table.folderId));
+      const tablesOf = groupBy(shown, (table) => table.baseId);
+      const foldersOf = groupBy(folders, (folder) => folder.baseId);
+      // Built once: per table, it would cost the catalog's size squared.
+      const index = indexCatalog(rows);
       return baseRows
         .sort(
           (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
@@ -169,23 +185,18 @@ export const catalogBaseProcedures = {
           description: base.description,
           homeSchema: base.homeSchema,
           role: roleFor(bindings, "base", base.id),
-          folders: folders
+          folders: (foldersOf.get(base.id) ?? [])
             .filter(
               (folder) =>
-                folder.baseId === base.id &&
-                (holding.has(folder.id) ||
-                  roleAllows(roleFor(bindings, "base", base.id), "manage")),
+                holding.has(folder.id) ||
+                roleAllows(roleFor(bindings, "base", base.id), "manage"),
             )
             .map((folder) => ({
               id: folder.id,
               name: folder.name,
               position: folder.position,
             })),
-          tables: rows.tables
-            .filter(
-              (table) =>
-                table.baseId === base.id && readableIds.includes(table.id),
-            )
+          tables: [...(tablesOf.get(base.id) ?? [])]
             .sort(
               (left, right) =>
                 left.position - right.position ||
@@ -193,7 +204,7 @@ export const catalogBaseProcedures = {
             )
             .map((table) => {
               const engine = {
-                ...assembleEngine(table.id, rows, readable),
+                ...assembleEngine(table.id, rows, readable, index),
                 ...(access ? { access } : {}),
               };
               const sourceRow =
@@ -272,7 +283,7 @@ export const catalogBaseProcedures = {
                           : null,
                       }
                     : null,
-                columns: publicColumns(engine, rows),
+                columns: publicColumns(engine, rows, index),
               };
             }),
         }));
@@ -290,10 +301,11 @@ export const catalogBaseProcedures = {
       const { user, bindings } = await authorize(ctx);
       const { rows, readableIds } = await visibleCatalog(ctx, bindings);
       const wanted = new Set(input.tableIds);
+      const readableSet = new Set(readableIds);
       const tables = rows.tables.filter(
         (table) =>
           wanted.has(table.id) &&
-          readableIds.includes(table.id) &&
+          readableSet.has(table.id) &&
           table.storage !== "external",
       );
       if (tables.length === 0) return [];
@@ -303,8 +315,9 @@ export const catalogBaseProcedures = {
         { userId: user.id, bindings },
         rows.tables,
       );
+      const index = indexCatalog(rows);
       const engines = tables.map((table) => ({
-        ...assembleEngine(table.id, rows, readable),
+        ...assembleEngine(table.id, rows, readable, index),
         ...(access ? { access } : {}),
       }));
       const counts: Array<{ total: number; estimated: boolean }> = [];
