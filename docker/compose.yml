@@ -82,6 +82,9 @@ services:
     environment:
       AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env, or run scripts/compose.sh}
       AUTH_ENCRYPTION_PREVIOUS_KEYS: ${AUTH_ENCRYPTION_PREVIOUS_KEYS:-}
+      # With the operator's certificate, the public authority is not in use:
+      # a key of it that no longer opens does not stop the stack.
+      TLS_CERT_FILE: ${TLS_CERT_FILE:-}
     volumes:
       - tls_data:/data/tls
       - service_certs:/certs
@@ -89,7 +92,8 @@ services:
   # One-shot, before PostgreSQL: a stack that ran PostgreSQL 17 keeps its
   # data in `postgres_data`, which PostgreSQL 18 does not open. Rather than
   # start on an empty database, it stops and says how to move the data:
-  # scripts/upgrade-postgres.sh, which alone lets it through.
+  # scripts/upgrade-postgres.sh, which alone lets it through. It also stops
+  # a new cluster asked to make AnyGridDB's role under the superuser's name.
   postgres-upgrade-check:
     image: postgres:18
     restart: "no"
@@ -106,6 +110,7 @@ services:
     logging: *default-logging
     environment:
       ANYGRIDDB_PG_UPGRADE: ${ANYGRIDDB_PG_UPGRADE:-}
+      ANYGRIDDB_DB_USER: ${POSTGRES_USER:-}
     entrypoint:
       - sh
       - -c
@@ -113,6 +118,14 @@ services:
         if [ -f /old/PG_VERSION ] && [ ! -f /new/18/docker/PG_VERSION ] && [ -z "$$ANYGRIDDB_PG_UPGRADE" ]; then
           echo "This stack's data is in PostgreSQL $$(cat /old/PG_VERSION) format (volume postgres_data)." >&2
           echo "Move it to PostgreSQL 18 first: scripts/upgrade-postgres.sh (docs/operations.md)." >&2
+          exit 1
+        fi
+        # On a new cluster only: `postgres` is the cluster's own superuser,
+        # and AnyGridDB would sign in as it. A cluster that exists keeps
+        # the role it was made with, and is told so in Health.
+        if [ "$$ANYGRIDDB_DB_USER" = postgres ] && [ ! -f /new/18/docker/PG_VERSION ] && [ ! -f /old/PG_VERSION ]; then
+          echo "POSTGRES_USER is postgres, the cluster's own superuser: AnyGridDB would run with every right on it." >&2
+          echo "Choose another name in docker/.env (anygriddb, for example), then start again. Nothing was created." >&2
           exit 1
         fi
     volumes:

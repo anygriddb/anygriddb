@@ -8,6 +8,11 @@ export {
   type Executor,
   type Tx,
 } from "./client.js";
-export { migrateDb, migrationNames, UpgradeRefused } from "./migrate.js";
+export {
+  migrateDb,
+  migrationNames,
+  PostgresTooOld,
+  UpgradeRefused,
+} from "./migrate.js";
 export type * from "./types.generated.js";
 export type * from "./rows.js";

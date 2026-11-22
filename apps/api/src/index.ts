@@ -1,9 +1,18 @@
 import { purgeParseLeftovers } from "./import-isolated.js";
-import { createDb, migrateDb, UpgradeRefused } from "@anygriddb/db";
-import { hasAccounts, promoteListedAdmins } from "./admin.js";
+import {
+  createDb,
+  migrateDb,
+  PostgresTooOld,
+  UpgradeRefused,
+} from "@anygriddb/db";
+import {
+  databaseRoleIsSuperuser,
+  hasAccounts,
+  promoteListedAdmins,
+} from "./admin.js";
 import { passkeysEligible } from "./auth/relying-party.js";
 import { BUILD, describeBuild } from "./build-info.js";
-import { isLoopback, readEnv } from "./env.js";
+import { databasePasswordHint, isLoopback, readEnv } from "./env.js";
 import { createFileStore } from "./files/index.js";
 import { watchSyslog } from "./integrations/syslog.js";
 import { loggedError, loggedFields } from "./logged-error.js";
@@ -26,11 +35,21 @@ import {
   stopCurrentTracing,
 } from "./notify/tracing.js";
 import { buildFileIndexes } from "./data/file-indexes.js";
-import { loadTls } from "./tls/authority.js";
+import { loadTls, TlsKeyUnreadable } from "./tls/authority.js";
 import { listeningText } from "./tls/listener.js";
 
 console.info(`${describeBuild(BUILD)}: starting`);
 const env = readEnv();
+// HTTPS only (ADR 0029): the operator's certificate, or one from the
+// instance's own authority, made at the first start. First of all: a key
+// that opens nothing stops here, before the database is changed under it.
+const tls = await loadTls(env, (message) => {
+  console.warn(message);
+}).catch((error: unknown) => {
+  if (!(error instanceof TlsKeyUnreadable)) throw error;
+  console.error(error.message);
+  process.exit(1);
+});
 const { db, pool, close } = createDb(env.DATABASE_URL, {
   max: env.DATABASE_POOL_MAX,
   onError: (error) => {
@@ -41,6 +60,13 @@ const { db, pool, close } = createDb(env.DATABASE_URL, {
 try {
   await migrateDb(pool);
 } catch (error) {
+  // Nothing was asked of this server: there is nothing to tell it either.
+  if (error instanceof PostgresTooOld) {
+    console.error(error.message);
+    process.exit(1);
+  }
+  const hint = databasePasswordHint(env.DATABASE_URL, error);
+  if (hint) console.error(hint);
   const { notifyMigrationFailure } = await import("./notify/migrate.js");
   await notifyMigrationFailure(db, error);
   // A refusal has just said what to do: no stack to read after it.
@@ -55,6 +81,12 @@ await migrateQueue(env.DATABASE_URL, {
   debug: () => undefined,
 });
 await promoteListedAdmins(db, env.ADMIN_EMAILS);
+// An earlier stack's role still works: told, and left to the operator.
+if (await databaseRoleIsSuperuser(db)) {
+  console.warn(
+    "AnyGridDB signs in to PostgreSQL as a superuser. It works, but a fault in the application would then reach the whole server: docs/operations.md, A stack made before the role was limited.",
+  );
+}
 // Sign-in events also go to the operator's syslog collector, if one is
 // named (ADR 0084).
 watchSyslog(env.SYSLOG);
@@ -72,11 +104,6 @@ const bus = new PgBus(pool, env.DATABASE_URL, (error, message) => {
 });
 await bus.start();
 
-// HTTPS only (ADR 0029): the operator's certificate, or one from the
-// instance's own authority, made at the first start.
-const tls = await loadTls(env, (message) => {
-  console.warn(message);
-});
 // Spans go to the operator's collector, when one is named (ADR 0018, 0092).
 const savedTraces = env.OTEL_EXPORTER_OTLP_ENDPOINT
   ? undefined

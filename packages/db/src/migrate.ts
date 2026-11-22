@@ -2,6 +2,8 @@
  * Applies the plain SQL migrations in `migrations/` (ADR 0004). The SQL is
  * the only source of truth: no schema is diffed from TypeScript.
  *
+ * - A server older than the migrations can run on is refused first, with
+ *   nothing written.
  * - Files run in name order, each in one transaction.
  * - An advisory lock keeps two starting instances from migrating at once.
  * - Each applied file is recorded with its SHA-256; a file that changed
@@ -28,6 +30,8 @@ declare const __ANYGRID_MIGRATIONS__: string | undefined;
 const LOCK = "anygriddb.migrations";
 const FILE = /^\d{4}_[a-z0-9_]+\.sql$/;
 const CHECK = ".check.sql";
+/** The oldest server every migration runs on, as `server_version_num`. */
+const OLDEST_POSTGRES = 160_000;
 
 /**
  * When Drizzle recorded each file it applied (its journal's `when`), for
@@ -112,6 +116,30 @@ export class UpgradeRefused extends Error {
   }
 }
 
+/** A server the migrations cannot run on: nothing was asked of it. */
+export class PostgresTooOld extends Error {
+  constructor(version: string) {
+    const number = Number(version);
+    const found = /^\d+$/.test(version)
+      ? `PostgreSQL ${String(Math.floor(number / 10_000))}.${String(number % 10_000)}`
+      : "a PostgreSQL of unknown version";
+    super(
+      `This server is ${found}, and AnyGridDB needs PostgreSQL 16 or later. Nothing was changed: upgrade the server, then start again.`,
+    );
+    this.name = "PostgresTooOld";
+  }
+}
+
+async function assertSupportedServer(client: pg.PoolClient): Promise<void> {
+  const answer = await client.query<{ version: string }>(
+    `select current_setting('server_version_num') as version`,
+  );
+  const version = answer.rows[0]?.version ?? "";
+  if (!/^\d+$/.test(version) || Number(version) < OLDEST_POSTGRES) {
+    throw new PostgresTooOld(version);
+  }
+}
+
 /**
  * Asks the check of each pending migration that has one, in a
  * transaction that may only read. A check refuses by raising.
@@ -183,6 +211,12 @@ export async function migrateDb(
   const migrations = await readMigrations(folder);
   const client = await pool.connect();
   const ran: string[] = [];
+  try {
+    await assertSupportedServer(client);
+  } catch (error) {
+    client.release();
+    throw error;
+  }
   try {
     // A migration takes the time it needs: the pool's limits are for
     // requests, and an index built on a large table outlasts them.

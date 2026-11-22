@@ -827,6 +827,17 @@ async function timed(run: () => Promise<unknown>): Promise<Check> {
   }
 }
 
+/**
+ * Whether the role the instance signs in as is a superuser: what a stack
+ * made before the role was limited still has. Told, never refused.
+ */
+export async function databaseRoleIsSuperuser(db: Database): Promise<boolean> {
+  const found = await sqlTag<{ superuser: boolean }>`
+    select rolsuper as superuser from pg_roles where rolname = current_user
+  `.execute(db);
+  return found.rows[0]?.superuser === true;
+}
+
 export async function instanceHealth(deps: {
   db: Database;
   bus: Bus;
@@ -925,8 +936,12 @@ export async function instanceHealth(deps: {
     .orderBy("updatedAt", "desc")
     .limit(10)
     .execute();
+  const databaseSuperuser = await databaseRoleIsSuperuser(deps.db).catch(
+    () => false,
+  );
   return {
     build: BUILD,
+    databaseSuperuser,
     checks: { database, realtime, storage },
     queue: {
       events: queued,

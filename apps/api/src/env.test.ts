@@ -3,7 +3,16 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { isLoopback, readEnv, readFileSettings, secretFromEnv } from "./env.js";
+import { ATTACHMENT_MAX_BYTES_CEILING } from "@anygriddb/core";
+import {
+  databasePasswordHint,
+  isLoopback,
+  readEnv,
+  readFileSettings,
+  readSyslogCollector,
+  secretFromEnv,
+  strictInteger,
+} from "./env.js";
 
 const base = {
   DATABASE_URL: "postgres://anygriddb:secret@localhost:5432/anygriddb",
@@ -443,5 +452,185 @@ describe("readFileSettings", () => {
     expect(() =>
       readFileSettings({ ...unset, S3_ENDPOINT: "http://objects.example.org" }),
     ).toThrow(/S3_ENDPOINT/);
+  });
+});
+
+describe("whole numbers", () => {
+  it("reads decimal digits", () => {
+    expect(strictInteger("0")).toBe(0);
+    expect(strictInteger("4")).toBe(4);
+    expect(strictInteger("20971520")).toBe(20_971_520);
+  });
+
+  it.each([
+    "",
+    " ",
+    " 5",
+    "5 ",
+    "5\n",
+    "0x10",
+    "1e3",
+    "1.5",
+    "-1",
+    "+1",
+    "12abc",
+    "abc",
+    "Infinity",
+    "9007199254740993",
+  ])("refuses %j", (raw) => {
+    expect(strictInteger(raw)).toBeUndefined();
+  });
+
+  it("holds every number of the environment to it", () => {
+    for (const [name, value] of [
+      ["PORT", "0x10"],
+      ["PORT", "1e3"],
+      ["SMTP_PORT", "0x19"],
+      ["DATABASE_POOL_MAX", "1e1"],
+      ["WORKER_CONCURRENCY", "0x4"],
+      ["UPLOAD_CONCURRENCY", " 8"],
+      ["JOB_CONCURRENCY", "2.0"],
+      ["EXPORT_MAX_ROWS", "1e6"],
+      ["IMPORT_MAX_ROWS", "0x100000"],
+    ] as const) {
+      expect(() => readEnv({ ...base, [name]: value })).toThrow(name);
+    }
+    expect(() =>
+      readSyslogCollector({
+        SYSLOG_HOST: "log.example.org",
+        SYSLOG_PORT: "1e3",
+      }),
+    ).toThrow("SYSLOG_PORT");
+  });
+});
+
+describe("ATTACHMENT_MAX_BYTES", () => {
+  it.each(["1024", "20971520", String(ATTACHMENT_MAX_BYTES_CEILING)])(
+    "takes %s",
+    (value) => {
+      expect(
+        readEnv({ ...base, ATTACHMENT_MAX_BYTES: value }).ATTACHMENT_MAX_BYTES,
+      ).toBe(Number(value));
+    },
+  );
+
+  it("is unset when Compose passes it empty", () => {
+    expect(
+      readEnv({ ...base, ATTACHMENT_MAX_BYTES: "" }).ATTACHMENT_MAX_BYTES,
+    ).toBeUndefined();
+  });
+
+  it.each([
+    "20MB",
+    "10M",
+    "abc",
+    "0",
+    "-5",
+    "1.5",
+    "1e30",
+    "1e6",
+    "0x10",
+    "1023",
+    String(ATTACHMENT_MAX_BYTES_CEILING + 1),
+  ])("refuses %s, naming the variable", (value) => {
+    expect(() => readEnv({ ...base, ATTACHMENT_MAX_BYTES: value })).toThrow(
+      /ATTACHMENT_MAX_BYTES/,
+    );
+  });
+});
+
+describe("a secret's file that cannot be read", () => {
+  const missing = join(tmpdir(), `anygriddb-${randomBytes(6).toString("hex")}`);
+
+  it.each([
+    "AUTH_ENCRYPTION_KEY",
+    "AUTH_ENCRYPTION_PREVIOUS_KEYS",
+    "DATABASE_URL",
+    "S3_ACCESS_KEY",
+    "S3_SECRET_KEY",
+    "OIDC_CLIENT_SECRET",
+    "SMTP_PASSWORD",
+    "METRICS_TOKEN",
+    "OTEL_EXPORTER_OTLP_HEADERS",
+  ])("names %s_FILE and its error, never the path", (name) => {
+    let thrown: Error | undefined;
+    try {
+      secretFromEnv({ [`${name}_FILE`]: missing }, name);
+    } catch (error) {
+      thrown = error as Error;
+    }
+    expect(thrown?.message).toContain(`${name}_FILE`);
+    expect(thrown?.message).toContain("ENOENT");
+    expect(thrown?.message).not.toContain(missing);
+    expect(thrown?.cause).toBeUndefined();
+  });
+
+  it("does the same for SYSLOG_CA_FILE", () => {
+    let thrown: Error | undefined;
+    try {
+      readSyslogCollector({
+        SYSLOG_HOST: "log.example.org",
+        SYSLOG_CA_FILE: missing,
+      });
+    } catch (error) {
+      thrown = error as Error;
+    }
+    expect(thrown?.message).toContain("SYSLOG_CA_FILE");
+    expect(thrown?.message).toContain("ENOENT");
+    expect(thrown?.message).not.toContain(missing);
+    expect(thrown?.cause).toBeUndefined();
+  });
+});
+
+describe("OIDC_ISSUER", () => {
+  it("takes https, and http on this machine", () => {
+    for (const issuer of [
+      "https://idp.example.org/realms/grid",
+      "http://localhost:8080/realms/grid",
+      "http://127.0.0.1:8080/",
+    ]) {
+      expect(readEnv({ ...base, OIDC_ISSUER: issuer }).OIDC_ISSUER).toBe(
+        issuer,
+      );
+    }
+  });
+
+  it("refuses http beyond this machine, naming the variable", () => {
+    expect(() =>
+      readEnv({ ...base, OIDC_ISSUER: "http://idp.example.org/realms/grid" }),
+    ).toThrow(/OIDC_ISSUER must be an https/);
+  });
+});
+
+describe("a password PostgreSQL refused", () => {
+  const refused = Object.assign(new Error("refused"), { code: "28P01" });
+  const at = (password: string) =>
+    `postgres://grid:${password}@db.example.org:5432/grid?sslmode=verify-full`;
+
+  it("says an escape in the address was decoded, without the password", () => {
+    const hint = databasePasswordHint(at("abc%41def"), refused);
+    expect(hint).toContain("%25");
+    expect(hint).not.toContain("abc");
+    expect(hint).not.toContain("def");
+  });
+
+  it("says nothing when no escape could have changed it", () => {
+    expect(databasePasswordHint(at("abc%zzdef"), refused)).toBeUndefined();
+    expect(databasePasswordHint(at("plain"), refused)).toBeUndefined();
+    expect(
+      databasePasswordHint(
+        "postgres://grid:plain@db.example.org/grid%41?sslmode=verify-full",
+        refused,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("says nothing of another failure", () => {
+    expect(
+      databasePasswordHint(
+        at("abc%41def"),
+        Object.assign(new Error("gone"), { code: "57P01" }),
+      ),
+    ).toBeUndefined();
   });
 });

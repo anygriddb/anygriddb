@@ -7,8 +7,8 @@
 #   DATABASE_URL=postgres://anygriddb:…@pg.example.net:5432/anygriddb?sslmode=verify-full
 #
 # For an authority your system does not trust (most managed services give
-# theirs), put it in docker/managed-ca/ca.pem and end the address with
-# &sslrootcert=/managed-ca/ca.pem.
+# theirs), put it in docker/managed-ca/ca.pem (mkdir -p docker/managed-ca)
+# and end the address with &sslrootcert=/managed-ca/ca.pem.
 #
 #   docker compose -f compose.managed.yml up -d --build
 #
@@ -59,12 +59,16 @@ services:
       DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-}
       UPLOAD_CONCURRENCY: ${UPLOAD_CONCURRENCY:-}
       JOB_CONCURRENCY: ${JOB_CONCURRENCY:-}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-}
       EXPORT_MAX_ROWS: ${EXPORT_MAX_ROWS:-}
       IMPORT_MAX_ROWS: ${IMPORT_MAX_ROWS:-}
       METRICS_TOKEN: ${METRICS_TOKEN:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-}
+      SYSLOG_HOST: ${SYSLOG_HOST:-}
+      SYSLOG_PORT: ${SYSLOG_PORT:-}
+      SYSLOG_CA_FILE: ${SYSLOG_CA_FILE:-}
       STORAGE_DRIVER: ${STORAGE_DRIVER:-}
       S3_ENDPOINT: ${S3_ENDPOINT:-}
       S3_REGION: ${S3_REGION:-}

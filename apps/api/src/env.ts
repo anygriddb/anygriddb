@@ -107,6 +107,47 @@ export type SyslogCollector = {
   ca?: string;
 };
 
+/**
+ * A whole number as it is written, in decimal digits and nothing else.
+ * `Number` would also read "", " 5", "0x10", and "1e3". Shared by the
+ * environment and the operator commands.
+ */
+export function strictInteger(raw: string): number | undefined {
+  if (!/^\d+$/.test(raw)) return undefined;
+  const value = Number(raw);
+  return Number.isSafeInteger(value) ? value : undefined;
+}
+
+/** A setting's whole number within its bounds; anything else stops the start. */
+function boundedInteger(
+  raw: string,
+  name: string,
+  least: number,
+  most: number,
+): number {
+  const value = strictInteger(raw);
+  if (value === undefined || value < least || value > most) {
+    throw new Error(
+      `${name} must be an integer between ${String(least)} and ${String(most)}`,
+    );
+  }
+  return value;
+}
+
+/**
+ * A file named by a setting, or the system's code for why it cannot be
+ * read. Never the error itself: its message holds the path, and the start
+ * prints an error with everything it carries.
+ */
+function settingFile(path: string): { text: string } | { failure: string } {
+  try {
+    return { text: readFileSync(path, "utf8") };
+  } catch (error) {
+    const { code } = error as NodeJS.ErrnoException;
+    return { failure: typeof code === "string" ? code : "unknown error" };
+  }
+}
+
 /** RFC 5425's own port. */
 const SYSLOG_DEFAULT_PORT = 6514;
 const SYSLOG_HOST = /^[A-Za-z0-9]([A-Za-z0-9.:-]{0,251}[A-Za-z0-9])?$/;
@@ -132,19 +173,14 @@ export function readSyslogCollector(
     throw new Error("SYSLOG_HOST must be a host name or an address");
   }
   const port = source.SYSLOG_PORT
-    ? Number(source.SYSLOG_PORT)
+    ? boundedInteger(source.SYSLOG_PORT, "SYSLOG_PORT", 1, 65_535)
     : SYSLOG_DEFAULT_PORT;
-  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-    throw new Error("SYSLOG_PORT must be an integer between 1 and 65535");
-  }
   if (!source.SYSLOG_CA_FILE) return { host, port };
-  let ca: string;
-  try {
-    ca = readFileSync(source.SYSLOG_CA_FILE, "utf8");
-  } catch (error) {
-    // The variable's name, never the path.
-    throw new Error("SYSLOG_CA_FILE could not be read", { cause: error });
+  const file = settingFile(source.SYSLOG_CA_FILE);
+  if ("failure" in file) {
+    throw new Error(`SYSLOG_CA_FILE could not be read (${file.failure})`);
   }
+  const ca = file.text;
   if (!CERTIFICATE_PEM.test(ca)) {
     throw new Error("SYSLOG_CA_FILE must hold a PEM certificate");
   }
@@ -169,14 +205,11 @@ export function secretFromEnv(
     throw new Error(`${name} and ${fileName} cannot both be set`);
   }
   if (hasFile) {
-    let raw: string;
-    try {
-      raw = readFileSync(filePath, "utf8");
-    } catch (error) {
-      // The variable's name, never the path or what the file holds.
-      throw new Error(`${fileName} could not be read`, { cause: error });
+    const file = settingFile(filePath);
+    if ("failure" in file) {
+      throw new Error(`${fileName} could not be read (${file.failure})`);
     }
-    return raw.replace(/\r?\n$/, "");
+    return file.text.replace(/\r?\n$/, "");
   }
   if (hasDirect) return direct;
   return undefined;
@@ -203,11 +236,7 @@ function rowCeiling(
 ): number {
   const raw = source[name];
   if (raw === undefined || raw === "") return fallback;
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < 100_000 || value > 10_000_000) {
-    throw new Error(`${name} must be an integer between 100000 and 10000000`);
-  }
-  return value;
+  return boundedInteger(raw, name, 100_000, 10_000_000);
 }
 
 function count(
@@ -218,13 +247,7 @@ function count(
 ): number {
   const raw = source[name];
   if (raw === undefined || raw === "") return fallback;
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < least || value > 64) {
-    throw new Error(
-      `${name} must be an integer between ${String(least)} and 64`,
-    );
-  }
-  return value;
+  return boundedInteger(raw, name, least, 64);
 }
 
 /** A host on this machine only: the traffic never crosses a network. */
@@ -305,6 +328,24 @@ function assertReadableDatabaseUrl(raw: string, name: string): void {
   ) {
     refuse();
   }
+}
+
+/**
+ * What to add when PostgreSQL refuses the password of an address whose
+ * user or password holds a `%XX`: the driver read it as the character it
+ * encodes, so what was sent is not what was typed. Says that, and nothing
+ * of the address.
+ */
+export function databasePasswordHint(
+  raw: string,
+  error: unknown,
+): string | undefined {
+  if ((error as { code?: unknown } | null)?.code !== "28P01") return undefined;
+  const rest = raw.slice(raw.indexOf("://") + 3);
+  const authority = rest.split(/[/?]/, 1)[0] ?? "";
+  const account = authority.slice(0, authority.lastIndexOf("@") + 1);
+  if (!/%[0-9a-f]{2}/i.test(account)) return undefined;
+  return 'PostgreSQL refused the password. The user or password in DATABASE_URL holds a "%" and two hexadecimal digits, which are read as the one character they encode: to mean a "%" itself, write it %25. With the Compose stack, choose a POSTGRES_PASSWORD of letters and digits.';
 }
 
 /**
@@ -463,17 +504,10 @@ export function readEncryptionKey(
 export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const key = readEncryptionKey(source);
 
-  const port = Number(source.PORT ?? "4000");
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error("PORT must be an integer between 1 and 65535");
-  }
-  const smtpPort = source.SMTP_PORT ? Number(source.SMTP_PORT) : undefined;
-  if (
-    smtpPort !== undefined &&
-    (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535)
-  ) {
-    throw new Error("SMTP_PORT must be an integer between 1 and 65535");
-  }
+  const port = boundedInteger(source.PORT ?? "4000", "PORT", 1, 65_535);
+  const smtpPort = source.SMTP_PORT
+    ? boundedInteger(source.SMTP_PORT, "SMTP_PORT", 1, 65_535)
+    : undefined;
 
   const certFile = source.TLS_CERT_FILE || undefined;
   const keyFile = source.TLS_KEY_FILE || undefined;
@@ -492,6 +526,9 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
   assertEncryptedDatabase(databaseUrl, "DATABASE_URL");
   if (source.SAML_ENTRY_POINT) {
     assertEncryptedUrl(source.SAML_ENTRY_POINT, "SAML_ENTRY_POINT");
+  }
+  if (source.OIDC_ISSUER) {
+    assertEncryptedUrl(source.OIDC_ISSUER, "OIDC_ISSUER");
   }
   // Spans leave over verified TLS only, as every connection does (ADR 0030).
   if (source.OTEL_EXPORTER_OTLP_ENDPOINT) {
@@ -519,12 +556,11 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     TLS_NAMES: names(source, "TLS_NAMES"),
     ...readFileSettings(source),
     ATTACHMENT_MAX_BYTES: source.ATTACHMENT_MAX_BYTES
-      ? Math.max(
+      ? boundedInteger(
+          source.ATTACHMENT_MAX_BYTES,
+          "ATTACHMENT_MAX_BYTES",
           1024,
-          Math.min(
-            ATTACHMENT_MAX_BYTES_CEILING,
-            Number(source.ATTACHMENT_MAX_BYTES) || 0,
-          ),
+          ATTACHMENT_MAX_BYTES_CEILING,
         )
       : undefined,
     OIDC_ISSUER: source.OIDC_ISSUER,

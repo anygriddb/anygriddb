@@ -40,7 +40,12 @@ RUN pnpm --filter @anygriddb/api build && pnpm --filter @anygriddb/web build
 # The bundle holds the workspace packages, so only the API's own
 # dependencies are installed.
 FROM base AS production-dependencies
-RUN pnpm install --frozen-lockfile --prod --filter @anygriddb/api
+# TypeScript comes along as a peer of two libraries that only read it for
+# types or a config file written in it: nothing here runs it.
+RUN pnpm install --frozen-lockfile --prod --filter @anygriddb/api \
+    && rm -rf node_modules/.pnpm/typescript@* \
+    && find node_modules apps/api/node_modules \( -type l -name typescript \
+         -o -path '*/.bin/tsc' -o -path '*/.bin/tsserver' \) -delete
 
 FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1
 ENV NODE_ENV=production

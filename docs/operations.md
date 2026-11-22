@@ -53,11 +53,15 @@ docker compose -f compose.yml -f compose.release.yml \
 
 Choose `POSTGRES_PASSWORD` before the first start, of letters and
 digits (`openssl rand -hex 24`). It is written into the database's
-address, where a `/`, `?`, `#` or `%` would be read as part of the
-address: AnyGridDB then says so and does not start. The database keeps
-the password it was made with, so on an install that holds nothing yet,
-start again on empty volumes: the same command with `down -v`, then
-`up -d`.
+address. A `/`, `?` or `#` would be read as part of the address:
+AnyGridDB says so and does not start. A `%` followed by two hexadecimal
+digits is read as the character they encode, so PostgreSQL refuses the
+password, and the start says why. The database keeps the password it was
+made with, so on an install that holds nothing yet, start again on empty
+volumes: the same command with `down -v`, then `up -d`.
+
+`POSTGRES_USER` is any name but `postgres`, the cluster's own superuser:
+a new stack refuses it before it creates anything.
 
 The instance has no account yet. Its first account administers it, and
 is made with a token that only this command gives, to this terminal and
@@ -114,7 +118,8 @@ The stack has four services:
 
 - `certs` runs once and issues PostgreSQL its certificate.
 - `postgres-upgrade-check` runs once and refuses to start an empty
-  PostgreSQL 18 on top of 17's data.
+  PostgreSQL 18 on top of 17's data, or to make a new cluster with
+  `POSTGRES_USER=postgres`.
 - `db` is PostgreSQL 18, which only takes connections over TLS.
   AnyGridDB signs in as `POSTGRES_USER`, a role that owns its database
   and is no superuser; the cluster's superuser is `postgres`, which
@@ -394,6 +399,39 @@ would delete, and without the flag deletes them now. A folder or a
 bucket therefore belongs to one instance, and a database restored from
 a backup comes with the files of the same moment.
 
+### When the key does not open the certificates
+
+The private keys of the instance's two authorities are sealed with
+`AUTH_ENCRYPTION_KEY`, on the `tls` volume. Started under a key that does
+not open them, the stack stops: `certs` exits, or `app` on a PostgreSQL of
+your own, naming the file and writing nothing. Workstations keep their
+trust. Put back the key that sealed them, or add it to
+`AUTH_ENCRYPTION_PREVIOUS_KEYS`, and start again.
+
+Only if that key is lost for good, give up those authorities:
+
+```bash
+docker compose down
+docker compose run --rm certs anygriddb tls reset --yes
+docker compose up -d
+# compose.managed.yml: run --rm app anygriddb tls reset --yes
+```
+
+The files are moved to a `replaced-…` folder in the volume, and the next
+start issues new authorities. Every workstation then installs the new one
+(Administration > Health), and a client database that trusted the old one
+must be told of the new one. What the lost key sealed in the database
+(second factors, saved secrets) stays closed: this brings back the
+certificates, and nothing else.
+
+### Replacing your own certificate
+
+With `TLS_CERT_FILE` and `TLS_KEY_FILE`, replace the two files where they
+are mounted. The server looks at them every minute and serves the new
+pair without a restart. Write the key and the certificate together: a pair
+that does not match is refused, logged as `TLS certificate check failed`,
+and the certificate in service stays until the two agree.
+
 ### Address people open (`PUBLIC_URL`)
 
 `PUBLIC_URL` is the HTTPS origin people type: links in emails, cookies,
@@ -634,7 +672,8 @@ since is left alone and counted when the restore is made.
 
 A stack whose PostgreSQL volume was made by an earlier file has
 `POSTGRES_USER` as the cluster's first role, which PostgreSQL keeps a
-superuser. It works as before. To see which you have:
+superuser. It works as before, with a warning in the start log and in
+Administration > Health. To see which you have:
 
 ```sh
 docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
@@ -825,11 +864,13 @@ To use a managed service or a server you already run, use
 # In docker/.env:
 DATABASE_URL=postgres://anygriddb:…@pg.example.net:5432/anygriddb?sslmode=verify-full&sslrootcert=/managed-ca/ca.pem
 # The provider's certificate authority, if your system does not trust it:
+mkdir -p docker/managed-ca
 cp provider-ca.pem docker/managed-ca/ca.pem
 docker compose -f compose.managed.yml up -d --build
 ```
 
-- **Version.** PostgreSQL 13 or later is required; 17 or 18 is
+- **Version.** PostgreSQL 16 or later is required, and an older server is
+  refused at the start, before anything is written; 17 or 18 is
   recommended. No extension is needed.
 - **TLS.** The address must verify the server's certificate
   (`sslmode=verify-full`). AnyGridDB refuses to start otherwise (ADR 0030).

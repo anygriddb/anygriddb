@@ -2383,6 +2383,10 @@ msgid "AnyGridDB refuses any change to this row. The client's database can still
 msgstr "AnyGridDB refuses any change to this row. The client's database can still be changed by its other applications: AnyGridDB compares the row with its locked values and warns if it changes."
 
 #: components/admin/health-tab.tsx
+msgid "AnyGridDB signs in to PostgreSQL as a superuser. It works, but a fault in the application would then reach the whole server. The operations guide says how to move to a limited role."
+msgstr "AnyGridDB signs in to PostgreSQL as a superuser. It works, but a fault in the application would then reach the whole server. The operations guide says how to move to a limited role."
+
+#: components/admin/health-tab.tsx
 msgid "AnyGridDB signs its certificate with its own authority. Install it once on each workstation: the browser will then trust AnyGridDB, without a warning. It is valid for AnyGridDB's addresses only."
 msgstr "AnyGridDB signs its certificate with its own authority. Install it once on each workstation: the browser will then trust AnyGridDB, without a warning. It is valid for AnyGridDB's addresses only."
 

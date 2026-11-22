@@ -66,15 +66,13 @@ import { startQueue } from "./queue/worker.js";
 import { HostAllowList } from "./sources/allow-list.js";
 import { setSourcePools, SourcePools } from "./sources/pools.js";
 import type { SourceSettings } from "./sources/types.js";
-import { refreshTls, type TlsState } from "./tls/authority.js";
+import { refreshTls, TLS_CHECK_MS, type TlsState } from "./tls/authority.js";
 import { serializeError } from "./logged-error.js";
 import { redirectPlainHttp } from "./tls/listener.js";
 import { readGateSettings } from "./settings.js";
 import { registerWebApp } from "./web-app.js";
 import { GridHub, SOCKET_OPTIONS } from "./ws.js";
 
-/** How often the served certificate is checked for renewal or new files. */
-const TLS_CHECK_MS = 12 * 3_600_000;
 /** Messages a page may send before its session is looked up. */
 const MAX_EARLY_MESSAGES = 64;
 

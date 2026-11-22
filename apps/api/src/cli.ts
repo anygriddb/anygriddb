@@ -6,6 +6,7 @@
  *   anygriddb health
  *   anygriddb version
  *   anygriddb tls services --out <dir> [--postgres <name[:uid:gid]>] [--service <name[:uid:gid]>]…
+ *   anygriddb tls reset --yes
  *   anygriddb keys new [--id <id>]
  *   anygriddb keys status
  *   anygriddb keys rotate
@@ -33,10 +34,12 @@ import {
   readFileSettings,
   readSyslogCollector,
   secretFromEnv,
+  strictInteger,
 } from "./env.js";
 import { healthAuthorities, probeHealth, publicHost } from "./health-probe.js";
 import {
   issueServiceCertificates,
+  resetTlsFolder,
   type StackService,
 } from "./tls/authority.js";
 import { ScriptRunner } from "./automation-scripts/sandbox.js";
@@ -58,6 +61,10 @@ const USAGE = `Usage:
       Issues the stack's services their certificates, from the instance's
       internal authority: <dir>/<name>/<name>_cert.pem and _key.pem, owned
       by uid:gid, and <dir>/internal-authority.crt.
+  anygriddb tls reset --yes
+      Only when the key that sealed the certificates is lost for good.
+      Moves them to a folder beside them; the next start issues new ones,
+      and every workstation must install the new authority.
   anygriddb keys new [--id <id>]
       Prints a new encryption key, named by today's date or by <id>, as
       AUTH_ENCRYPTION_KEY takes it. Nothing is changed.
@@ -135,8 +142,8 @@ async function migrate(args: string[], settings: FileSettings) {
   const from = driverOf(values.from, "--from");
   const to = driverOf(values.to, "--to");
   if (from === to) throw new UsageError("--from and --to must differ");
-  const concurrency = Number(values.concurrency);
-  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 32) {
+  const concurrency = strictInteger(values.concurrency);
+  if (concurrency === undefined || concurrency < 1 || concurrency > 32) {
     throw new UsageError("--concurrency must be an integer between 1 and 32");
   }
   const source = createFileStore({ ...settings, STORAGE_DRIVER: from });
@@ -266,11 +273,11 @@ function version(args: string[]): number {
 function service(spec: string, postgres: boolean): StackService {
   const [name = "", uid, gid] = spec.split(":");
   if (uid === undefined) return { name, postgres };
-  const owner = { uid: Number(uid), gid: Number(gid ?? uid) };
-  if (!Number.isInteger(owner.uid) || !Number.isInteger(owner.gid)) {
+  const owner = { uid: strictInteger(uid), gid: strictInteger(gid ?? uid) };
+  if (owner.uid === undefined || owner.gid === undefined) {
     throw new UsageError(`${spec}: expected name:uid:gid`);
   }
-  return { name, owner, postgres };
+  return { name, owner: { uid: owner.uid, gid: owner.gid }, postgres };
 }
 
 async function tlsServices(args: string[]): Promise<number> {
@@ -295,6 +302,7 @@ async function tlsServices(args: string[]): Promise<number> {
     {
       AUTH_ENCRYPTION_KEY: readEncryptionKey(),
       TLS_DIR: process.env.TLS_DIR || "./data/tls",
+      TLS_CERT_FILE: process.env.TLS_CERT_FILE || undefined,
     },
     services,
     values.out,
@@ -302,6 +310,29 @@ async function tlsServices(args: string[]): Promise<number> {
   );
   process.stdout.write(
     `issued ${services.map((item) => item.name).join(", ")}; internal authority ${fingerprint}\n`,
+  );
+  return 0;
+}
+
+/** For whoever lost the key: sets the certificates aside, with a word. */
+async function tlsReset(args: string[]): Promise<number> {
+  const { values } = parseArgs({
+    args,
+    options: { yes: { type: "boolean", default: false } },
+    strict: true,
+  });
+  if (!values.yes) {
+    throw new UsageError(
+      "tls reset sets the instance's certificates aside and every workstation must install a new authority: add --yes only if the key that sealed them is lost",
+    );
+  }
+  const { moved, folder } = await resetTlsFolder(
+    process.env.TLS_DIR || "./data/tls",
+  );
+  process.stdout.write(
+    folder === null
+      ? "No certificates to set aside.\n"
+      : `${String(moved.length)} files kept in ${folder}, in the certificates folder. The next start issues new ones: install the new authority on each workstation.\n`,
   );
   return 0;
 }
@@ -402,8 +433,8 @@ async function backupsRecord(args: string[]): Promise<number> {
   if (Number.isNaN(startedAt.getTime()) || startedAt.getTime() > Date.now()) {
     throw new UsageError("--started must be a past time, as ISO 8601");
   }
-  const bytes = values.bytes === undefined ? null : Number(values.bytes);
-  if (bytes !== null && (!Number.isSafeInteger(bytes) || bytes < 0)) {
+  const bytes = values.bytes === undefined ? null : strictInteger(values.bytes);
+  if (bytes === undefined) {
     throw new UsageError("--bytes must be a whole number");
   }
   const url = databaseUrl();
@@ -583,6 +614,9 @@ async function main(argv: string[]): Promise<number> {
     }
     if (group === "tls" && command === "services") {
       return await tlsServices(rest);
+    }
+    if (group === "tls" && command === "reset") {
+      return await tlsReset(rest);
     }
     if (group === "keys" && command === "new") {
       return keysNew(rest);

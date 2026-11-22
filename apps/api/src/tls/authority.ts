@@ -11,13 +11,15 @@
  *   a copy of the volume alone gives neither away.
  */
 import type { KeyRing } from "../auth/key-ring.js";
-import { createPrivateKey, X509Certificate } from "node:crypto";
+import { createPrivateKey, randomBytes, X509Certificate } from "node:crypto";
 import {
   chown,
+  link,
   mkdir,
   readdir,
   readFile,
   rename,
+  rm,
   stat,
   writeFile,
 } from "node:fs/promises";
@@ -58,6 +60,27 @@ export type TlsState = {
 const RENEW_BEFORE_MS = 30 * 86_400_000;
 const AUTHORITY_NAME = "AnyGridDB local authority";
 
+/**
+ * How often the server asks whether its certificate changed: a look at two
+ * files' times for the operator's, a date in memory for its own.
+ */
+export const TLS_CHECK_MS = 60_000;
+
+/**
+ * A private key file is there and no key given opens it: another
+ * AUTH_ENCRYPTION_KEY, or a damaged file. Replaced, it would cost every
+ * workstation its trust in the instance, for a key that may come back: the
+ * start stops instead, with nothing written.
+ */
+export class TlsKeyUnreadable extends Error {
+  constructor(file: string) {
+    super(
+      `${file}: no key given opens it, so nothing was changed. Set the AUTH_ENCRYPTION_KEY that sealed it, or add that key to AUTH_ENCRYPTION_PREVIOUS_KEYS. If it is truly lost, anygriddb tls reset --yes sets the certificates aside and the next start issues new ones, which every workstation must install again (docs/operations.md).`,
+    );
+    this.name = "TlsKeyUnreadable";
+  }
+}
+
 function info(cert: X509Certificate): CertificateInfo {
   return {
     fingerprint: cert.fingerprint256,
@@ -96,11 +119,41 @@ async function readText(path: string): Promise<string | undefined> {
   }
 }
 
+/** A name of its own: two containers on one volume can both be process 1. */
+const beside = (path: string) =>
+  `${path}.${randomBytes(6).toString("hex")}.tmp`;
+
 /** Writes beside, then renames: a crash never leaves half a file. */
 async function writeAtomic(path: string, content: string, mode: number) {
-  const temporary = `${path}.${String(process.pid)}.tmp`;
+  const temporary = beside(path);
   await writeFile(temporary, content, { mode });
   await rename(temporary, path);
+}
+
+/**
+ * Writes a file that is not there yet, whole, and answers what it holds
+ * afterwards: this content, or that of the process that got there first.
+ */
+async function writeOnce(
+  path: string,
+  content: string,
+  mode: number,
+): Promise<string> {
+  const temporary = beside(path);
+  await writeFile(temporary, content, { mode });
+  try {
+    await link(temporary, path);
+    return content;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+      return await readFile(path, "utf8");
+    }
+    // A volume that keeps no hard links: written whole, without the race.
+    await rename(temporary, path);
+    return content;
+  } finally {
+    await rm(temporary, { force: true });
+  }
 }
 
 function sealed(key: string, secret: KeyRing): string {
@@ -131,16 +184,38 @@ function opened(
   }
 }
 
-/** The private key, or undefined: it is then issued anew. */
+/** The private key, or undefined when no key of the ring opens it. */
 function unsealed(text: string, secret: KeyRing): string | undefined {
   return opened(text, secret)?.plaintext;
+}
+
+/** An authority's private key, which is never replaced for want of opening. */
+function authorityKey(text: string, secret: KeyRing, file: string): string {
+  const key = unsealed(text, secret);
+  if (key === undefined) throw new TlsKeyUnreadable(file);
+  return key;
+}
+
+/** The certificate `text` holds, when `key` is its private key. */
+function certificateOf(
+  text: string | undefined,
+  key: string,
+): X509Certificate | undefined {
+  if (!text) return undefined;
+  try {
+    const cert = new X509Certificate(text);
+    return cert.checkPrivateKey(createPrivateKey(key)) ? cert : undefined;
+  } catch {
+    // A damaged file: a certificate to make again from the key.
+    return undefined;
+  }
 }
 
 /**
  * Seals a private key file of the certificates folder again under the
  * current key, when an earlier one sealed it (ADR 0066). Answers which
  * key holds it now; `unreadable` when no key of the ring opens it (left
- * as it is, the instance would issue a new authority at its next start);
+ * as it is: an authority's then stops the next start, see TlsKeyUnreadable);
  * `forbidden` when the file belongs to another account than the one
  * asking, as the internal authority's does in the compose stack.
  * A file rewritten keeps its owner, whoever rewrites it.
@@ -206,9 +281,9 @@ async function sealFolderAgain(dir: string, secret: KeyRing, log: Log) {
   for (const name of names.filter((item) => item.endsWith(".key.enc"))) {
     const outcome = await resealTlsKey(dir, name, secret, true);
     if (outcome === "unreadable") {
-      log(
-        `${name}: no key given opens it. Add the key that sealed it to AUTH_ENCRYPTION_PREVIOUS_KEYS.`,
-      );
+      // The authorities in use were checked first: this is a server's, or
+      // the public authority's while the operator's certificate is served.
+      log(`${name}: no key given opens it. It is not in use: left as it is.`);
     } else if (outcome !== "forbidden" && outcome.rewritten) {
       log(`${name}: sealed again under ${secret.currentId}`);
     }
@@ -228,6 +303,54 @@ const COMMON_NAMES: Record<Kind, string> = {
   "internal-authority": "AnyGridDB internal authority",
 };
 
+const writeNames = (dir: string, kind: Kind, names: readonly string[]) =>
+  writeAtomic(
+    join(dir, `${kind}.json`),
+    `${JSON.stringify({ names }, null, 2)}\n`,
+    0o644,
+  );
+
+/**
+ * Stops before anything is written when the key of an authority in use
+ * does not open. With the operator's certificate the public authority is
+ * not: a key of it left from before stops nothing, until it is needed.
+ */
+async function assertAuthoritiesOpen(
+  dir: string,
+  secret: KeyRing,
+  operatorCertificate: boolean,
+) {
+  const kinds: Kind[] = operatorCertificate
+    ? ["internal-authority"]
+    : ["authority", "internal-authority"];
+  for (const kind of kinds) {
+    const file = `${kind}.key.enc`;
+    const text = await readText(join(dir, file));
+    if (text !== undefined) authorityKey(text, secret, file);
+  }
+}
+
+/**
+ * A first authority. Several processes may start on one empty volume: the
+ * first key written is the instance's, and the others take it. What it may
+ * vouch for is written before it, for whoever finds the key.
+ */
+async function firstAuthorityKey(
+  settings: TlsSettings,
+  kind: Kind,
+  names: readonly string[],
+): Promise<string> {
+  const file = `${kind}.key.enc`;
+  const made = issueAuthority({ commonName: COMMON_NAMES[kind], names });
+  await writeNames(settings.TLS_DIR, kind, names);
+  const stored = await writeOnce(
+    join(settings.TLS_DIR, file),
+    sealed(made.key, settings.AUTH_ENCRYPTION_KEY),
+    0o600,
+  );
+  return authorityKey(stored, settings.AUTH_ENCRYPTION_KEY, file);
+}
+
 async function localAuthority(
   settings: TlsSettings,
   names: readonly string[],
@@ -241,58 +364,77 @@ async function localAuthority(
   permitted: string[];
 }> {
   const dir = settings.TLS_DIR;
+  const keyFile = `${kind}.key.enc`;
   const certText = await readText(join(dir, `${kind}.crt`));
-  const keyText = await readText(join(dir, `${kind}.key.enc`));
-  const key = keyText
-    ? unsealed(keyText, settings.AUTH_ENCRYPTION_KEY)
-    : undefined;
-  if (certText && key) {
-    const cert = new X509Certificate(certText);
-    const permitted = JSON.parse(
-      (await readText(join(dir, `${kind}.json`))) ?? "{}",
-    ) as { names?: string[] };
-    const allowed = new Set(permitted.names ?? []);
-    const valid =
-      new Date(cert.validTo).getTime() - Date.now() > 365 * 86_400_000;
-    if (valid && names.every((name) => allowed.has(name))) {
-      return {
-        issued: { cert: certText, key },
-        cert,
-        fresh: false,
-        permitted: [...allowed],
-      };
+  const keyText = await readText(join(dir, keyFile));
+  const key =
+    keyText === undefined
+      ? await firstAuthorityKey(settings, kind, names)
+      : authorityKey(keyText, settings.AUTH_ENCRYPTION_KEY, keyFile);
+  const cert = certificateOf(certText, key);
+  if (!cert || certText === undefined) {
+    // A first start, one stopped between the two files, or another process
+    // on the same volume: the certificate follows the key that is kept.
+    const made = issueAuthority({
+      commonName: COMMON_NAMES[kind],
+      names,
+      key: createPrivateKey(key),
+    });
+    await writeNames(dir, kind, names);
+    const path = join(dir, `${kind}.crt`);
+    let stored = made.cert;
+    if (certText === undefined) {
+      stored = await writeOnce(path, made.cert, 0o644);
+    } else {
+      await writeAtomic(path, made.cert, 0o644);
     }
-    // The stack's services keep serving the certificate they read at
-    // their start, and whoever checks them reads the authority again at
-    // any time. A new key would leave every running service refused
-    // until it restarts: the internal authority's certificate is made
-    // again with the key it has, so what that key signed stays good.
-    if (kind === "internal-authority") {
-      log(
-        "the internal authority does not cover the stack's services any more, or ends within a year: its certificate is renewed, with the key it has",
-      );
-      const renewed = issueAuthority({
-        commonName: COMMON_NAMES[kind],
-        names,
-        key: createPrivateKey(key),
-      });
-      await writeAtomic(join(dir, `${kind}.crt`), renewed.cert, 0o644);
-      await writeAtomic(
-        join(dir, `${kind}.json`),
-        `${JSON.stringify({ names }, null, 2)}\n`,
-        0o644,
-      );
-      return {
-        issued: { cert: renewed.cert, key },
-        cert: new X509Certificate(renewed.cert),
-        fresh: true,
-        permitted: [...names],
-      };
-    }
-    log(
-      "the local authority does not cover the instance's names any more, or ends within a year: issuing a new one, which workstations must install again",
-    );
+    return {
+      issued: { cert: stored, key },
+      cert: new X509Certificate(stored),
+      fresh: true,
+      permitted: [...names],
+    };
   }
+  const permitted = JSON.parse(
+    (await readText(join(dir, `${kind}.json`))) ?? "{}",
+  ) as { names?: string[] };
+  const allowed = new Set(permitted.names ?? []);
+  const valid =
+    new Date(cert.validTo).getTime() - Date.now() > 365 * 86_400_000;
+  if (valid && names.every((name) => allowed.has(name))) {
+    return {
+      issued: { cert: certText, key },
+      cert,
+      fresh: false,
+      permitted: [...allowed],
+    };
+  }
+  // The stack's services keep serving the certificate they read at
+  // their start, and whoever checks them reads the authority again at
+  // any time. A new key would leave every running service refused
+  // until it restarts: the internal authority's certificate is made
+  // again with the key it has, so what that key signed stays good.
+  if (kind === "internal-authority") {
+    log(
+      "the internal authority does not cover the stack's services any more, or ends within a year: its certificate is renewed, with the key it has",
+    );
+    const renewed = issueAuthority({
+      commonName: COMMON_NAMES[kind],
+      names,
+      key: createPrivateKey(key),
+    });
+    await writeAtomic(join(dir, `${kind}.crt`), renewed.cert, 0o644);
+    await writeNames(dir, kind, names);
+    return {
+      issued: { cert: renewed.cert, key },
+      cert: new X509Certificate(renewed.cert),
+      fresh: true,
+      permitted: [...names],
+    };
+  }
+  log(
+    "the local authority does not cover the instance's names any more, or ends within a year: issuing a new one, which workstations must install again",
+  );
   const issued = issueAuthority({ commonName: COMMON_NAMES[kind], names });
   await writeAtomic(
     join(dir, `${kind}.key.enc`),
@@ -300,11 +442,7 @@ async function localAuthority(
     0o600,
   );
   await writeAtomic(join(dir, `${kind}.crt`), issued.cert, 0o644);
-  await writeAtomic(
-    join(dir, `${kind}.json`),
-    `${JSON.stringify({ names }, null, 2)}\n`,
-    0o644,
-  );
+  await writeNames(dir, kind, names);
   return {
     issued,
     cert: new X509Certificate(issued.cert),
@@ -324,8 +462,8 @@ async function localTls(settings: TlsSettings, log: Log): Promise<TlsState> {
     ? unsealed(keyText, settings.AUTH_ENCRYPTION_KEY)
     : undefined;
   let server: Issued | undefined;
-  if (!authority.fresh && certText && key) {
-    const cert = new X509Certificate(certText);
+  const cert = key === undefined ? undefined : certificateOf(certText, key);
+  if (!authority.fresh && cert && certText && key) {
     const current =
       cert.checkIssued(authority.cert) &&
       cert.verify(authority.cert.publicKey) &&
@@ -433,6 +571,34 @@ export async function refreshTls(
   return ends - Date.now() > RENEW_BEFORE_MS ? current : loadTls(settings, log);
 }
 
+const INSTANCE_FILE =
+  /^(?:authority|internal-authority|server)\.(?:crt|json|key\.enc|key\.id)$/;
+
+/**
+ * For whoever really lost the key that sealed the certificates: moves them
+ * to a folder of their own, kept in case the key is found, and the next
+ * start issues new ones. Needs no key, and removes nothing.
+ */
+export async function resetTlsFolder(
+  dir: string,
+): Promise<{ moved: string[]; folder: string | null }> {
+  let present: string[];
+  try {
+    present = await readdir(dir);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    return { moved: [], folder: null };
+  }
+  const moved = present.filter((name) => INSTANCE_FILE.test(name));
+  if (moved.length === 0) return { moved, folder: null };
+  const folder = `replaced-${new Date().toISOString().replace(/[-:.]/g, "")}`;
+  await mkdir(join(dir, folder), { mode: 0o700 });
+  for (const name of moved) {
+    await rename(join(dir, name), join(dir, folder, name));
+  }
+  return { moved, folder };
+}
+
 /** A service of the stack that AnyGridDB reaches over TLS (ADR 0030). */
 export type StackService = {
   /** Its name on the stack's network, which its certificate names. */
@@ -457,7 +623,8 @@ hostssl all  all  ::/0          scram-sha-256
  * AnyGridDB trusts for them. Issued anew at each run, for five years.
  */
 export async function issueServiceCertificates(
-  settings: Pick<TlsSettings, "AUTH_ENCRYPTION_KEY" | "TLS_DIR">,
+  settings: Pick<TlsSettings, "AUTH_ENCRYPTION_KEY" | "TLS_DIR"> &
+    Partial<Pick<TlsSettings, "TLS_CERT_FILE">>,
   services: readonly StackService[],
   out: string,
   log: Log,
@@ -469,6 +636,11 @@ export async function issueServiceCertificates(
     }
   }
   await mkdir(settings.TLS_DIR, { recursive: true, mode: 0o700 });
+  await assertAuthoritiesOpen(
+    settings.TLS_DIR,
+    settings.AUTH_ENCRYPTION_KEY,
+    Boolean(settings.TLS_CERT_FILE),
+  );
   await sealFolderAgain(settings.TLS_DIR, settings.AUTH_ENCRYPTION_KEY, log);
   const names = services.map((service) => service.name);
   const authority = await localAuthority(

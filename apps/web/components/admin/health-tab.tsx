@@ -131,6 +131,11 @@ export function HealthTab() {
           </li>
         ))}
       </ul>
+      {data?.databaseSuperuser ? (
+        <p role="status" className="text-sm text-danger">
+          {t`AnyGridDB signs in to PostgreSQL as a superuser. It works, but a fault in the application would then reach the whole server. The operations guide says how to move to a limited role.`}
+        </p>
+      ) : null}
       <AlertsSection />
       <UsageSection
         usage={usage.data}
