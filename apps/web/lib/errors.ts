@@ -170,6 +170,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   restore_points_full: msg`This base keeps as many restore points as it may: delete one to make another`,
   unknown_restore_point: msg`This restore point no longer exists`,
   export_too_large: msg`This view has more rows than this instance exports at once: filter it first`,
+  export_no_columns: msg`There is no field you can read here, so there is nothing to export`,
   import_too_large: msg`This file has more rows than this instance imports at once: split it first`,
   too_many_jobs: msg`Too many jobs running: wait for one to finish`,
   unknown_job: msg`Job not found`,

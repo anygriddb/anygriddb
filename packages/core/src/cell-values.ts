@@ -14,6 +14,7 @@ import {
 import { AppError } from "./errors";
 import { isIsoDate, isIsoDateTime } from "./iso-date";
 import { isJsonDocument, parseJsonDocument } from "./json-text";
+import { holdsUnwritableText } from "./plain-text";
 import {
   type DayOrder,
   type DecimalMark,
@@ -492,6 +493,14 @@ export function coerceCellValue(
   return "value" in reading ? reading.value : undefined;
 }
 
+/** A document whose escapes spell what `holdsUnwritableText` refuses. */
+function spellsUnwritableText(document: string): boolean {
+  return (
+    document.includes("\\u") &&
+    holdsUnwritableText(JSON.parse(document) as unknown)
+  );
+}
+
 function coerceRaw(
   column: CellColumn,
   raw: unknown,
@@ -538,6 +547,8 @@ function coerceRaw(
   if (typeof raw !== "string") {
     return undefined;
   }
+  // Nothing can keep it, and removing it would change the value.
+  if (holdsUnwritableText(raw)) return undefined;
   const text = raw.replace(/\r\n/g, "\n");
   const trimmed = text.trim();
   if (trimmed === "" && fieldType !== "boolean") {
@@ -558,8 +569,12 @@ function coerceRaw(
       const place = parsePlace(trimmed);
       return place ? formatPlace(place) : undefined;
     }
-    case "json":
-      return parseJsonDocument(trimmed);
+    case "json": {
+      const document = parseJsonDocument(trimmed);
+      return document !== undefined && spellsUnwritableText(document)
+        ? undefined
+        : document;
+    }
     case "number":
       return readNumberText(trimmed, context.decimalMark);
     case "rating":

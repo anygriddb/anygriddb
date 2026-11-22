@@ -191,21 +191,52 @@ export function exportValue(
   return cellText(value);
 }
 
+/**
+ * What a workbook's XML cannot hold, and an underscore that would read as
+ * the escape of one: both written as the format escapes them (`_x0001_`).
+ */
+const XML_UNSAFE = /_(?=x[0-9A-Fa-f]{4}_)|[\p{Cc}\uFFFE\uFFFF]/gu;
+
+function excelEscaped(text: string): string {
+  return text.replace(XML_UNSAFE, (char) => {
+    const code = char.charCodeAt(0);
+    if (char === "\t" || char === "\n" || (code > 0x7f && code < 0xa0)) {
+      return char;
+    }
+    return `_x${code.toString(16).toUpperCase().padStart(4, "0")}_`;
+  });
+}
+
+/** A text as a cell holds it, cut at the cell's limit, never inside an escape. */
+function excelString(text: string): string {
+  const escaped = excelEscaped(text);
+  if (escaped.length <= EXCEL_CELL) return escaped;
+  const cut = escaped.slice(0, EXCEL_CELL);
+  const open = cut.lastIndexOf("_x");
+  return open > EXCEL_CELL - 7 ? cut.slice(0, open) : cut;
+}
+
+/** Whether an instant says more than the milliseconds a date cell keeps. */
+function isFinerThanMillis(value: string): boolean {
+  const fraction = /\.(\d+)/.exec(value)?.[1] ?? "";
+  return /[1-9]/.test(fraction.slice(3));
+}
+
 function excelValue(
   column: EngineColumn,
   value: ReturnType<typeof exportValue>,
 ): string | number | boolean | Date | null {
   if (value === null) return null;
-  if (Array.isArray(value)) return value.join(", ").slice(0, EXCEL_CELL);
+  if (Array.isArray(value)) return excelString(value.join(", "));
   if (typeof value === "string") {
     if (DATE_TYPES.has(column.fieldType) && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
       return new Date(`${value}T00:00:00Z`);
     }
-    if (DATETIME_TYPES.has(column.fieldType)) {
+    if (DATETIME_TYPES.has(column.fieldType) && !isFinerThanMillis(value)) {
       const time = Date.parse(value);
       if (Number.isFinite(time)) return new Date(time);
     }
-    return value.slice(0, EXCEL_CELL);
+    return excelString(value);
   }
   return value;
 }
@@ -259,7 +290,7 @@ export function exportWriter(
       views: [{ state: "frozen", ySplit: 1 }],
     });
     sheet.columns = columns.map((column) => ({
-      header: column.label,
+      header: excelEscaped(column.label),
       key: column.name,
       width: Math.min(60, Math.max(10, column.label.length + 2)),
       style: DATE_TYPES.has(column.fieldType)
@@ -337,7 +368,12 @@ export function exportWriter(
                   record,
                   null,
                   2,
-                ).replace(/^/gm, "  ")}`,
+                )
+                  // Line by line: a pattern's `^` would also stop after
+                  // U+2028 and U+2029, inside a value.
+                  .split("\n")
+                  .map((line) => `  ${line}`)
+                  .join("\n")}`,
             )
             .join(""),
         );
@@ -418,6 +454,7 @@ export async function exportTable(
   const columns = exportColumns(engine, config).filter(
     (column) => !engine.access?.hidden(engine.table.id, column.name),
   );
+  if (columns.length === 0) throw new AppError("export_no_columns");
   // Counted as it is read: a search looks in the fields the file holds.
   const counted = await readPage(
     deps.db,
@@ -641,6 +678,7 @@ export function registerDataTransferRoutes(
             rows: sheet.total,
             fields: sheet.headers.length,
             formulas: sheet.formulas,
+            emptyFormulas: sheet.emptyFormulas,
           })),
         });
       } catch (error) {
@@ -708,7 +746,9 @@ export function registerDataTransferRoutes(
       await folder.remove();
       if (
         error instanceof AppError &&
-        (error.code === "invalid_view" || error.code === "export_too_large")
+        (error.code === "invalid_view" ||
+          error.code === "export_too_large" ||
+          error.code === "export_no_columns")
       ) {
         return deny(reply, 400, error.code);
       }

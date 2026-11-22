@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   claimJob,
   enqueueJob,
+  JobStoppedAfter,
   recoverJobs,
   retryJob,
   runJob,
@@ -148,6 +149,29 @@ describe("a job retried by its author", () => {
     const again = await retryJob(deps, author, job.id);
     expect(again.status).toBe("queued");
     expect(await queued(job.id)).toBe(2);
+  });
+
+  it("keeps what a job did before it failed", async () => {
+    const job = await startExport();
+    const claimed = await claimJob(db, job.id);
+    if (!claimed) throw new Error("not claimed");
+    const ended = await runJob(
+      deps,
+      claimed,
+      () =>
+        Promise.reject(
+          new JobStoppedAfter(new Error("the store is away"), {
+            inserted: 500,
+            updated: 2,
+          }),
+        ),
+      new AbortController().signal,
+    );
+    expect(ended).toMatchObject({
+      status: "failed",
+      errorCode: "internal_error",
+      result: { inserted: 500, updated: 2 },
+    });
   });
 
   it("refuses a job that did not fail, an import, and someone else's job", async () => {

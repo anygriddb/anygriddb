@@ -344,6 +344,16 @@ msgstr "{0, plural, one {# fichier d’un type que cette instance refuse, laiss�
 msgid "{0, plural, one {# file} other {# files}}"
 msgstr "{0, plural, one {# fichier} other {# fichiers}}"
 
+#. placeholder {0}: preview.emptyFormulas
+#: components/table/import-dialog.tsx
+msgid "{0, plural, one {# formula has no stored value: its cell will stay empty.} other {# formulas have no stored value: their cells will stay empty.}}"
+msgstr "{0, plural, one {# formule n’a pas de valeur enregistrée : sa cellule restera vide.} other {# formules n’ont pas de valeur enregistrée : leurs cellules resteront vides.}}"
+
+#. placeholder {0}: sheet.emptyFormulas
+#: components/shell/new-base-dialog.tsx
+msgid "{0, plural, one {# formula with no stored value, left empty} other {# formulas with no stored value, left empty}}"
+msgstr "{0, plural, one {# formule sans valeur enregistrée, laissée vide} other {# formules sans valeur enregistrée, laissées vides}}"
+
 #. placeholder {0}: sheet.formulas
 #: components/shell/new-base-dialog.tsx
 msgid "{0, plural, one {# formula, imported as its value} other {# formulas, imported as their values}}"
@@ -701,6 +711,10 @@ msgstr "{disabled, plural, one {# compte désactivé} other {# comptes désactiv
 msgid "{disabled} disabled; {refused} could not be: read the list again."
 msgstr "{disabled} désactivés ; {refused} n’ont pas pu l’être : relisez la liste."
 
+#: components/table/import-dialog.tsx
+msgid "{emptyFormulas, plural, one {# formula had no stored value: its cell stayed empty.} other {# formulas had no stored value: their cells stayed empty.}}"
+msgstr "{emptyFormulas, plural, one {# formule n’avait pas de valeur enregistrée : sa cellule est restée vide.} other {# formules n’avaient pas de valeur enregistrée : leurs cellules sont restées vides.}}"
+
 #: lib/limits.ts
 msgid "{engine} computes {fn} approximately: the result is right to 15 digits. This is a limit of {engine}."
 msgstr "{engine} calcule {fn} de façon approchée : le résultat est juste à 15 chiffres près. C’est une limite de {engine}."
@@ -738,6 +752,10 @@ msgstr "{filterCount, plural, one {# filtre} other {# filtres}}"
 msgid "{from}–{to} of {total}"
 msgstr "{from}–{to} sur {total}"
 
+#: components/table/import-dialog.tsx
+msgid "{guardedInText, plural, one {Remove the apostrophe before =, +, - or @ in # text value (a CSV export adds it)} other {Remove the apostrophe before =, +, - or @ in # text values (a CSV export adds it)}}"
+msgstr "{guardedInText, plural, one {Retirer l’apostrophe devant =, +, - ou @ dans # valeur de texte (un export CSV l’ajoute)} other {Retirer l’apostrophe devant =, +, - ou @ dans # valeurs de texte (un export CSV l’ajoute)}}"
+
 #: components/admin/health-tab.tsx
 msgid "{hours} h"
 msgstr "{hours} h"
@@ -750,6 +768,10 @@ msgstr "{inserted, plural, one {# ligne ajoutée, {updated} mises à jour, {fail
 #: components/shell/pending-invitations.tsx
 msgid "{inviter} invites you to {base} as {role}"
 msgstr "{inviter} vous invite sur {base} en tant que {role}"
+
+#: components/table/import-dialog.tsx
+msgid "{kept, plural, one {The # row already written is kept.} other {The # rows already written are kept.}}"
+msgstr "{kept, plural, one {La # ligne déjà écrite est conservée.} other {Les # lignes déjà écrites sont conservées.}}"
 
 #: lib/jobs.tsx
 msgid "{label} ({percent}%)"
@@ -955,6 +977,10 @@ msgstr "{removingLabel} est votre seul second facteur. Vos codes de secours ne f
 #: components/settings/second-factor.tsx
 msgid "{removingLabel} will no longer sign you in."
 msgstr "{removingLabel} ne vous connectera plus."
+
+#: components/table/import-dialog.tsx
+msgid "{replaced, plural, one {# line was replaced by a later line with the same key.} other {# lines were replaced by a later line with the same key.}}"
+msgstr "{replaced, plural, one {# ligne a été remplacée par une ligne suivante de même clé.} other {# lignes ont été remplacées par une ligne suivante de même clé.}}"
 
 #: components/admin/account-bases.tsx
 msgid "{role}, through the group {group}"
@@ -6366,6 +6392,7 @@ msgid "key"
 msgstr "clé"
 
 #: components/settings/api-docs.tsx
+#: components/table/import-dialog.tsx
 msgid "Key"
 msgstr "Clé"
 
@@ -6551,6 +6578,10 @@ msgstr "Limitez la connexion interactive (mot de passe, authentification unique,
 #: components/dashboards/dashboard-board.tsx
 msgid "Line"
 msgstr "Courbe"
+
+#: components/table/import-dialog.tsx
+msgid "Lines replaced by a later line"
+msgstr "Lignes remplacées par une ligne suivante"
 
 #: components/admin/account-actions.tsx
 #: components/admin/trails.tsx
@@ -9227,6 +9258,10 @@ msgstr "Remplacer et confirmer"
 #: components/settings/second-factor.tsx
 msgid "Replace the authenticator app"
 msgstr "Remplacer l’application d’authentification"
+
+#: components/table/import-dialog.tsx
+msgid "Replaced by row"
+msgstr "Remplacée par la ligne"
 
 #: components/fields/formula-docs.ts
 msgid "Replaces characters from a position."
@@ -11961,6 +11996,10 @@ msgstr "Créez ensuite une automatisation déclenchée par ce bouton, depuis le 
 msgid "Then:"
 msgstr "Alors :"
 
+#: lib/errors.ts
+msgid "There is no field you can read here, so there is nothing to export"
+msgstr "Vous ne pouvez lire aucun champ ici : il n’y a rien à exporter"
+
 #: components/admin/logs-tab.tsx
 msgid "These are the recent lines of this process, newest first. They are kept in memory and disappear when the process stops. The database and the file store keep their own logs where they run."
 msgstr "Ce sont les lignes récentes de ce processus, les plus récentes d’abord. Elles sont gardées en mémoire et disparaissent quand le processus s’arrête. La base et le magasin de fichiers gardent les leurs là où ils tournent."
@@ -12202,6 +12241,10 @@ msgstr "Ce chiffre est trop grand pour que la base du client le calcule"
 #: lib/errors.ts
 msgid "This file has more rows than this instance imports at once: split it first"
 msgstr "Ce fichier a plus de lignes que l’instance n’en importe d’un coup : découpez-le d’abord"
+
+#: components/table/import-dialog.tsx
+msgid "This file is not in UTF-8: it is read as Windows-1252. Check its accents in the examples above."
+msgstr "Ce fichier n’est pas en UTF-8 : il est lu en Windows-1252. Vérifiez ses accents dans les exemples ci-dessus."
 
 #: lib/errors.ts
 msgid "This file is too long: at most 200 people in one file"

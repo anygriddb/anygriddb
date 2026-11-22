@@ -48,6 +48,267 @@ describe("cleanHeaders", () => {
       "Field 1 (2)",
     ]);
   });
+
+  it("finds a free name when a repeat meets a name already there", () => {
+    expect(cleanHeaders(["a", "a (2)", "a"], "Field")).toEqual([
+      "a",
+      "a (2)",
+      "a (3)",
+    ]);
+    expect(cleanHeaders(["a", "A", "a (2)"], "Field")).toEqual([
+      "a",
+      "A (2)",
+      "a (2) (2)",
+    ]);
+  });
+
+  it("keeps room for the counter in a name cut to 100", () => {
+    const long = "x".repeat(150);
+    const names = cleanHeaders([long, long, long], "Field");
+    expect(new Set(names).size).toBe(3);
+    for (const name of names) expect(name.length).toBeLessThanOrEqual(100);
+    expect(names[1]?.endsWith(" (2)")).toBe(true);
+  });
+
+  it("never cuts a character in two", () => {
+    const names = cleanHeaders([`${"x".repeat(99)}🌍`], "Field");
+    expect(names[0]).toBe("x".repeat(99));
+  });
+});
+
+describe("the encoding of a text file", () => {
+  it("reads UTF-8 and says so", async () => {
+    const read = await readImport("csv", "nom\nHélène\n");
+    expect(read.preview.encoding).toBe("utf-8");
+    expect(read.shape.encoding).toBeUndefined();
+    expect(cellsOf(read.rows)).toEqual([["Hélène"]]);
+  });
+
+  it("reads a character cut between two reads of the file", async () => {
+    const lines = `${"x".repeat(999)}\n`.repeat(1048);
+    const before = `nom\n${lines}${"y".repeat(570)}\n`;
+    expect(Buffer.byteLength(before)).toBe(1024 * 1024 - 1);
+    const read = await readImport("csv", `${before}éa\n`, { batch: 2000 });
+    expect(read.preview.encoding).toBe("utf-8");
+    expect(read.rows.at(-1)?.cells).toEqual(["éa"]);
+  });
+
+  it("reads Windows-1252, says so, and reads it the same way twice", async () => {
+    const bytes = Buffer.from([
+      ...Buffer.from("nom\nH\xe9l\xe8ne\n", "latin1"),
+      0x80,
+      0x20,
+      0x92,
+      0x0a,
+    ]);
+    const read = await readImport("csv", bytes);
+    expect(read.preview.encoding).toBe("windows-1252");
+    expect(read.shape.encoding).toBe("windows-1252");
+    expect(read.preview.sample[0]).toEqual(["Hélène"]);
+    expect(cellsOf(read.rows)).toEqual([["Hélène"], ["€ ’"]]);
+  });
+
+  it("refuses what no encoding reads for sure", async () => {
+    const refused = [
+      // A byte Windows-1252 does not define.
+      Buffer.from([0x6e, 0x6f, 0x6d, 0x0a, 0xe9, 0x81, 0x0a]),
+      // UTF-8 and something else in the same file.
+      Buffer.concat([Buffer.from("nom\nHélène\n"), Buffer.from([0xe9, 0x0a])]),
+      // UTF-16, both ways, and without its mark.
+      Buffer.from("\uFEFFnom,ville\nx,y\n", "utf16le"),
+      Buffer.from([0xfe, 0xff, 0x00, 0x6e, 0x00, 0x0a]),
+      Buffer.from("nom,ville\nx,y\n", "utf16le"),
+      // A workbook named .csv.
+      await workbookBytes([["nom"], ["x"]]),
+    ];
+    for (const bytes of refused) {
+      await expect(readImport("csv", bytes)).rejects.toMatchObject({
+        code: "invalid_import",
+      });
+    }
+  });
+
+  it("refuses a NUL in the header of any format", async () => {
+    await expect(readImport("csv", "a\0b,c\n1,2\n")).rejects.toMatchObject({
+      code: "invalid_import",
+    });
+    await expect(readImport("json", '[{"a\\u0000b":1}]')).rejects.toMatchObject(
+      { code: "invalid_import" },
+    );
+  });
+
+  it("leaves a NUL in a row for that row to be refused", async () => {
+    const read = await readImport("csv", "nom\nr1\nr\0 2\nr3\n");
+    expect(cellsOf(read.rows)).toEqual([["r1"], ["r\0 2"], ["r3"]]);
+  });
+
+  it("reads a UTF-8 byte order mark", async () => {
+    const read = await readImport("csv", "\uFEFFnom\nx\n");
+    expect(read.shape.headers).toEqual(["nom"]);
+    expect(read.preview.encoding).toBe("utf-8");
+  });
+
+  it("refuses a JSON file that is not UTF-8", async () => {
+    await expect(
+      readImport("json", Buffer.from('[{"a":"H\xe9l"}]', "latin1")),
+    ).rejects.toMatchObject({ code: "invalid_import" });
+  });
+});
+
+describe("the structure of a text file", () => {
+  it("reads lines ended by a carriage return alone", async () => {
+    const read = await readImport(
+      "csv",
+      "nom,ville\rDupont,Paris\rMartin,Lyon\r",
+    );
+    expect(read.shape.headers).toEqual(["nom", "ville"]);
+    expect(cellsOf(read.rows)).toEqual([
+      ["Dupont", "Paris"],
+      ["Martin", "Lyon"],
+    ]);
+  });
+
+  it("does not count a delimiter inside quotes", async () => {
+    const read = await readImport("csv", '"a;b;c",d\n1,2\n');
+    expect(read.shape.delimiter).toBe(",");
+    expect(read.shape.headers).toEqual(["a;b;c", "d"]);
+  });
+
+  it("counts the cells a CSV export guarded, column by column", async () => {
+    const read = await readImport("csv", "a,b\n'-1+1,x\n'=y,'plain\n");
+    expect(read.preview.guarded).toEqual([2, 0]);
+  });
+});
+
+describe("the numbers of a JSON file", () => {
+  it("keeps each number as it is written", async () => {
+    const read = await readImport(
+      "json",
+      '[{"a":12345678901234567890,"b":0.1234567890123456789,"c":1.50,"d":1e3}]',
+    );
+    expect(cellsOf(read.rows)).toEqual([
+      ["12345678901234567890", "0.1234567890123456789", "1.50", "1e3"],
+    ]);
+    expect(read.rows[0]?.unreadable).toBeUndefined();
+  });
+
+  it("keeps them inside a list and an object", async () => {
+    const read = await readImport(
+      "json",
+      '[{"l":[12345678901234567891,2],"o":{"n":12345678901234567892}}]',
+    );
+    expect(cellsOf(read.rows)).toEqual([
+      ["12345678901234567891, 2", '{"n":12345678901234567892}'],
+    ]);
+  });
+
+  it("marks a number past what a double holds, on its line, never Infinity", async () => {
+    const read = await readImport(
+      "json",
+      '[{"a":1,"b":2},{"a":1e400,"b":3},{"a":[-1e999],"b":{"c":1E+400}}]',
+    );
+    expect(read.rows[0]?.unreadable).toBeUndefined();
+    expect(read.rows[1]).toMatchObject({ line: 3, unreadable: [0] });
+    expect(read.rows[2]).toMatchObject({ line: 4, unreadable: [0, 1] });
+    expect(JSON.stringify(read.preview.sample)).not.toContain("Infinity");
+    expect(cellsOf(read.rows)[1]).toEqual(["1e400", "3"]);
+  });
+
+  it("takes neither a number nor a list as a record", async () => {
+    for (const text of ["[1]", "[[1]]", '{"records":[12]}', "12"]) {
+      await expect(readImport("json", text)).rejects.toMatchObject({
+        code: "invalid_import",
+      });
+    }
+  });
+});
+
+describe("the records of a JSON file", () => {
+  it("unwraps the records of a REST export", async () => {
+    const read = await readImport(
+      "json",
+      '[{"id":"r1","createdTime":"2026-01-01","fields":{"a":1,"b":"x"}}]',
+    );
+    expect(read.shape.headers).toEqual(["a", "b"]);
+    expect(cellsOf(read.rows)).toEqual([["1", "x"]]);
+  });
+
+  it("keeps every key of a record that only holds a key named fields", async () => {
+    const read = await readImport(
+      "json",
+      '[{"id":7,"name":"alpha","fields":{"x":1}}]',
+    );
+    expect(read.shape.headers).toEqual(["id", "name", "fields"]);
+    expect(cellsOf(read.rows)).toEqual([["7", "alpha", '{"x":1}']]);
+  });
+
+  it("keeps a key named fields that holds no object", async () => {
+    const read = await readImport("json", '[{"id":7,"fields":3}]');
+    expect(read.shape.headers).toEqual(["id", "fields"]);
+    expect(cellsOf(read.rows)).toEqual([["7", "3"]]);
+  });
+});
+
+describe("a formula with no stored value", () => {
+  it("keeps its row, with the cell empty, and counts it", async () => {
+    const bytes = await workbookBytes([
+      ["a", "b"],
+      ["x", "y"],
+      [{ formula: "1+1" }, { formula: "2+2" }],
+      ["z", { formula: "3+3", result: 6 }],
+    ]);
+    const read = await readImport("xlsx", bytes);
+    expect(read.preview.total).toBe(3);
+    expect(read.preview.emptyFormulas).toBe(2);
+    expect(cellsOf(read.rows)).toEqual([
+      ["x", "y"],
+      ["", ""],
+      ["z", "6"],
+    ]);
+    expect(read.rows[1]).toMatchObject({ line: 3, emptyFormulas: 2 });
+    expect(read.rows[2]?.emptyFormulas).toBeUndefined();
+  });
+
+  it("counts one whose stored value is empty or an error", async () => {
+    const bytes = await workbookBytes([
+      ["a", "b"],
+      [
+        { formula: "1+1", result: "" },
+        { formula: "1/0", result: { error: "#DIV/0!" } },
+      ],
+    ]);
+    const read = await readImport("xlsx", bytes);
+    expect(read.preview.total).toBe(1);
+    expect(read.preview.emptyFormulas).toBe(2);
+  });
+
+  it("still leaves a row that is really blank out", async () => {
+    const bytes = await workbookBytes([["a"], ["x"], [null], ["y"]]);
+    const read = await readImport("xlsx", bytes);
+    expect(read.preview.total).toBe(2);
+    expect(read.preview.emptyFormulas).toBe(0);
+  });
+
+  it("counts them on each worksheet of a workbook", async () => {
+    const bytes = await workbookBytes([["a"], [{ formula: "1+1" }]]);
+    const sheets = await onDisk(bytes, (path) =>
+      scanWorkbook(path, 100, "Field"),
+    );
+    expect(sheets[0]).toMatchObject({ emptyFormulas: 1, formulas: 1 });
+    expect(sheets[0]?.shape.total).toBe(1);
+  });
+});
+
+describe("the escapes of a workbook", () => {
+  it("reads the characters XML cannot hold", () => {
+    expect(excelText("c_x0001_d")).toBe("c\u0001d");
+    expect(excelText("e_x000D_f")).toBe("e\rf");
+  });
+
+  it("leaves a text that only looks like one as it was written", () => {
+    expect(excelText("_x005F_x0001_")).toBe("_x0001_");
+    expect(excelText("_x12_ x0001_ _xZZZZ_")).toBe("_x12_ x0001_ _xZZZZ_");
+  });
 });
 
 describe("reading an import file", () => {

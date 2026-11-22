@@ -88,6 +88,7 @@ export {
   cellText,
   DelimitedReader,
   detectDelimiter,
+  isFormulaGuarded,
   parseDelimited,
   toCsv,
   toCsvRows,

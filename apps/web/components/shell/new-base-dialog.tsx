@@ -44,6 +44,7 @@ type Workbook = {
     rows: number;
     fields: number;
     formulas: number;
+    emptyFormulas: number;
   }>;
 };
 
@@ -624,6 +625,13 @@ function NewBaseForm(props: NewBaseProps) {
                               ? plural(sheet.formulas, {
                                   one: "# formula, imported as its value",
                                   other: "# formulas, imported as their values",
+                                })
+                              : null,
+                            sheet.emptyFormulas > 0
+                              ? plural(sheet.emptyFormulas, {
+                                  one: "# formula with no stored value, left empty",
+                                  other:
+                                    "# formulas with no stored value, left empty",
                                 })
                               : null,
                           ]

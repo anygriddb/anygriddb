@@ -131,6 +131,7 @@ export const importJobInputSchema = z
     decimalMark: z.enum([".", ","]).optional(),
     dayOrder: z.enum(["day-first", "month-first"]).optional(),
     timeZone: z.string().max(64).optional(),
+    stripTextGuard: z.boolean().optional(),
   })
   .strict();
 /** An Airtable base's id, as its address or the API writes it. */

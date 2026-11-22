@@ -210,7 +210,12 @@ export function useTrackJob() {
   return useCallback(
     async (
       jobId: string,
-      options: { label: string; onDone?: (job: Job) => Done | undefined },
+      options: {
+        label: string;
+        onDone?: (job: Job) => Done | undefined;
+        /** What a failed job still did, said after its error. */
+        onFailed?: (job: Job) => string | undefined;
+      },
     ): Promise<Job> => {
       const cancel = {
         label: t`Cancel`,
@@ -240,7 +245,8 @@ export function useTrackJob() {
       } else if (job.status === "cancelled") {
         toast.message(t`Job cancelled`, { id: jobId, action: undefined });
       } else {
-        toast.error(jobError(job), {
+        const kept = options.onFailed?.(job);
+        toast.error(kept ? `${jobError(job)} ${kept}` : jobError(job), {
           id: jobId,
           action: undefined,
         });

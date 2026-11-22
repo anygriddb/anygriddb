@@ -145,6 +145,77 @@ describe("exportWriter", () => {
     );
   });
 
+  async function writtenOne(
+    format: ExportFormat,
+    only: readonly EngineColumn[],
+    row: Record<string, unknown>,
+  ): Promise<Buffer> {
+    const path = join(await folder, `${String(Math.random())}.${format}`);
+    const writer = exportWriter(format, path, "Clients", only, people);
+    await writer.add([{ id: "r", ...row }]);
+    await writer.finish();
+    return readFile(path);
+  }
+
+  it("keeps U+2028 and U+2029 in JSON, adding no space in a value", async () => {
+    const text = (
+      await writtenOne("json", [name], { nom: "x\u2028y\u2029z" })
+    ).toString("utf8");
+    const parsed = JSON.parse(text) as Array<{ Nom: string }>;
+    expect(parsed[0]?.Nom).toBe("x\u2028y\u2029z");
+    expect(text).toBe(JSON.stringify(parsed, null, 2));
+  });
+
+  it("writes a negative number bare in CSV, and imports it back equal", async () => {
+    const amount = column("amount", "Amount", "number");
+    const bytes = await writtenOne("csv", [amount], { amount: "-1250.50" });
+    expect(bytes.toString("utf8")).toBe("\uFEFFAmount\n-1250.50");
+    expect(cellsOf((await readImport("csv", bytes)).rows)).toEqual([
+      ["-1250.50"],
+    ]);
+  });
+
+  it("gives a workbook back every character a text holds", async () => {
+    for (const value of [
+      "c\u0001d",
+      "e\rf",
+      "g\r\nh",
+      "i\u007fj",
+      "tab\there\nline",
+      "_x0001_ stays written",
+      "_x005F_x0001_ too",
+      "\uFFFE and \uFFFF",
+    ]) {
+      const bytes = await writtenOne("xlsx", [name], { nom: value });
+      expect(cellsOf((await readImport("xlsx", bytes)).rows)).toEqual([
+        [value],
+      ]);
+    }
+  });
+
+  it("keeps a date-time's microseconds, as text", async () => {
+    const at = column("at", "At", "datetime");
+    for (const value of [
+      "2026-06-15T12:00:00.123456Z",
+      "2026-06-15T12:00:00.000001+00:00",
+    ]) {
+      const bytes = await writtenOne("xlsx", [at], { at: value });
+      expect(cellsOf((await readImport("xlsx", bytes)).rows)).toEqual([
+        [value],
+      ]);
+    }
+  });
+
+  it("still writes a date-time of whole milliseconds as a date", async () => {
+    const at = column("at", "At", "datetime");
+    const bytes = await writtenOne("xlsx", [at], {
+      at: "2026-06-15T12:00:00.123000Z",
+    });
+    expect(cellsOf((await readImport("xlsx", bytes)).rows)).toEqual([
+      ["2026-06-15T12:00:00.123Z"],
+    ]);
+  });
+
   it("writes a workbook that imports back", async () => {
     const bytes = await written("xlsx", [rows.slice(0, 1), rows.slice(1)]);
     const read = await readImport("xlsx", bytes);

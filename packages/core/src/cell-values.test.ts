@@ -437,3 +437,52 @@ describe("a duration", () => {
     expect(coerceCellValue(duration, "1x 1:01")).toBeUndefined();
   });
 });
+
+describe("a text nothing can keep", () => {
+  const types = [
+    "text",
+    "long_text",
+    "email",
+    "url",
+    "phone",
+    "number",
+    "date",
+    "json",
+  ] as const;
+
+  it("refuses a NUL in any field, never removing it", () => {
+    for (const fieldType of types) {
+      expect(readCellValue({ fieldType, config: {} }, "a\0b")).toEqual({
+        refused: { code: "invalid_cell" },
+      });
+    }
+    expect(readCellValue(select, "Open\0")).toEqual({
+      refused: { code: "invalid_cell" },
+    });
+  });
+
+  it("refuses half of a surrogate pair", () => {
+    expect(readCellValue({ fieldType: "text", config: {} }, "a\ud83d")).toEqual(
+      { refused: { code: "invalid_cell" } },
+    );
+  });
+
+  it("refuses a JSON document that spells a NUL, and keeps a backslash before u0000", () => {
+    const json = { fieldType: "json" as const, config: {} };
+    expect(readCellValue(json, '{"a":"x\\u0000"}')).toEqual({
+      refused: { code: "invalid_cell" },
+    });
+    expect(readCellValue(json, '{"a\\u0000":1}')).toEqual({
+      refused: { code: "invalid_cell" },
+    });
+    expect(readCellValue(json, '{"a":"x\\\\u0000"}')).toEqual({
+      value: '{"a": "x\\\\u0000"}',
+    });
+  });
+
+  it("keeps every other character", () => {
+    expect(
+      readCellValue({ fieldType: "text", config: {} }, "é 🌍 \u0001"),
+    ).toEqual({ value: "é 🌍 \u0001" });
+  });
+});

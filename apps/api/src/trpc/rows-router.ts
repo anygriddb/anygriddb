@@ -649,6 +649,7 @@ export const rowsRouter = t.router({
             decimalMark: input.decimalMark,
             dayOrder: input.dayOrder,
             timeZone: input.timeZone,
+            ...(input.stripTextGuard ? { stripTextGuard: true } : {}),
           },
         });
         if (created) {
