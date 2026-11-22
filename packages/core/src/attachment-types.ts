@@ -35,9 +35,18 @@ export function normalizeAttachmentExtension(raw: string): string | null {
   return withDot;
 }
 
+/** A name without the dots and spaces it ends with, in one pass. */
+function withoutTrailingDots(name: string): string {
+  let end = name.length;
+  while (end > 0 && (name[end - 1] === "." || name[end - 1] === " ")) end -= 1;
+  return name.slice(0, end);
+}
+
 /** Extension of a file name, or null when it has none. */
 export function attachmentExtensionOf(filename: string): string | null {
-  const base = filename.split(/[/\\]/).pop() ?? filename;
+  // Dots and spaces at the end of a name are dropped when it is saved on
+  // Windows: what comes before them is the extension it opens with.
+  const base = withoutTrailingDots(filename.split(/[/\\]/).pop() ?? filename);
   const dot = base.lastIndexOf(".");
   if (dot <= 0 || dot === base.length - 1) return null;
   return normalizeAttachmentExtension(base.slice(dot));
@@ -80,6 +89,62 @@ function startsWith(head: Uint8Array, magic: readonly number[]): boolean {
 }
 
 /**
+ * The start of a file as text: UTF-16 by its byte order mark, or by the
+ * empty byte beside its first character; otherwise one character a byte,
+ * which keeps every ASCII tag where it stands whatever surrounds it.
+ */
+function headText(head: Uint8Array): string {
+  if (startsWith(head, [0xff, 0xfe])) {
+    return new TextDecoder("utf-16le").decode(head.subarray(2));
+  }
+  if (startsWith(head, [0xfe, 0xff])) {
+    return new TextDecoder("utf-16be").decode(head.subarray(2));
+  }
+  if (head[0] !== 0 && head[1] === 0) {
+    return new TextDecoder("utf-16le").decode(head);
+  }
+  if (head[0] === 0 && head[1] !== 0) {
+    return new TextDecoder("utf-16be").decode(head);
+  }
+  const offset = startsWith(head, [0xef, 0xbb, 0xbf]) ? 3 : 0;
+  return String.fromCharCode(...head.subarray(offset));
+}
+
+/** Where a declaration that opens `text` ends, past its inner subset. */
+function doctypeEnd(text: string): number {
+  const inner = text.indexOf("[");
+  const close = text.indexOf(">");
+  if (inner === -1 || close < inner) return close === -1 ? -1 : close + 1;
+  const end = text.indexOf("]>", inner);
+  return end === -1 ? -1 : end + 2;
+}
+
+/**
+ * What `text` starts with past comments, prologues, and a declaration
+ * that is not a page's own: a browser reads through them to the first
+ * tag. Null when one of them is still open where the bytes read stop.
+ */
+function firstTag(text: string): string | null {
+  let rest = text.trimStart();
+  for (;;) {
+    let end: number;
+    if (rest.startsWith("<!--")) {
+      const close = rest.indexOf("-->", 4);
+      end = close === -1 ? -1 : close + 3;
+    } else if (rest.startsWith("<?")) {
+      const close = rest.indexOf("?>", 2);
+      end = close === -1 ? -1 : close + 2;
+    } else if (/^<!doctype\s/i.test(rest) && !PAGE_START.test(rest)) {
+      end = doctypeEnd(rest);
+    } else {
+      return rest;
+    }
+    if (end === -1) return null;
+    rest = rest.slice(end).trimStart();
+  }
+}
+
+/**
  * The kind of a file, from its first bytes, or null when it is none of
  * those an administrator may refuse.
  */
@@ -87,19 +152,10 @@ export function attachmentKindOf(
   head: Uint8Array,
 ): AttachmentRefusableKind | null {
   if (PROGRAM_MAGIC.some((magic) => startsWith(head, magic))) return "program";
-  // A UTF-8 byte order mark, then the text.
-  const offset = startsWith(head, [0xef, 0xbb, 0xbf]) ? 3 : 0;
-  if (head[offset] === 0x23 && head[offset + 1] === 0x21) return "script";
-  let text = "";
-  for (const byte of head.subarray(offset)) {
-    if (byte > 0x7e) break;
-    text += String.fromCharCode(byte);
-  }
-  const start = text.trimStart();
-  if (PAGE_START.test(start)) return "page";
-  // An XML file whose root is a drawing: an SVG holds scripts too.
-  if (/^<\?xml[\s\S]*?<svg[\s>/]/i.test(start)) return "page";
-  return null;
+  const text = headText(head);
+  if (text.startsWith("#!")) return "script";
+  const tag = firstTag(text);
+  return tag === null || PAGE_START.test(tag) ? "page" : null;
 }
 
 /**

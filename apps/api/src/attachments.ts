@@ -33,6 +33,7 @@ import { localFolder } from "./files/local-folder.js";
 import { sniffContentType } from "./storage.js";
 import { readerEngine } from "./data/acl.js";
 import { liveBase, liveTable } from "./data/live.js";
+import { fileFieldsIndexed } from "./data/file-indexes.js";
 import { attachmentVisible } from "./data/rows.js";
 import { publicErrorBody } from "./http.js";
 import { readGateSettings } from "./settings.js";
@@ -299,9 +300,13 @@ export async function assertAttachmentKeys(
   }
 }
 
-/** Replaces attachment keys in rows with their metadata, for display. */
+/**
+ * Replaces attachment keys in rows with their metadata, for display. Only
+ * a file of this table has any: another's key reads as an unknown one.
+ */
 export async function enrichAttachments(
   db: Database,
+  tableId: string,
   attachmentColumns: readonly string[],
   rows: Array<Record<string, unknown>>,
 ): Promise<void> {
@@ -325,7 +330,8 @@ export async function enrichAttachments(
       const value = row[column];
       if (!Array.isArray(value)) continue;
       row[column] = (value as unknown[]).map((key) => {
-        const found = typeof key === "string" ? meta.get(key) : undefined;
+        const stored = typeof key === "string" ? meta.get(key) : undefined;
+        const found = stored?.tableId === tableId ? stored : undefined;
         return found
           ? {
               key: found.key,
@@ -363,8 +369,10 @@ type HttpDeps = {
   uploads: UploadSlots;
 };
 /**
- * Under field or row rules, a file is served only from a field the reader
- * may see, on a row they may see: the same check as `attachments.get`.
+ * A file is served only from a field the reader may see, on a row they may
+ * see: one that left its cell, or whose row is in the trash, is not. Until
+ * the table's file fields have their index, a reader without rules keeps
+ * the table's right alone: the check would read the whole table each time.
  */
 export async function visibleToReader(
   deps: { db: Database },
@@ -373,7 +381,9 @@ export async function visibleToReader(
   key: string,
 ): Promise<boolean> {
   const { engine } = await readerEngine(deps.db, tableId, reader);
-  if (!engine.access) return true;
+  if (!engine.access && !(await fileFieldsIndexed(deps.db, engine))) {
+    return true;
+  }
   return attachmentVisible(deps.db, engine, key);
 }
 

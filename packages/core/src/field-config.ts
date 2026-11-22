@@ -1,8 +1,17 @@
 import { z } from "zod";
-import { formulaExprSchema, type FormulaExpr } from "./formula";
+import {
+  formulaExprSchema,
+  formulaReferences,
+  type FormulaExpr,
+} from "./formula";
 import { type FieldType } from "./field-types";
 import { AppError } from "./errors";
-import { filterGroupSchema, type FilterGroup } from "./filter";
+import {
+  filterColumnNames,
+  filterGroupSchema,
+  filterKeeping,
+  type FilterGroup,
+} from "./filter";
 
 /**
  * The rows a link field offers and accepts: those of a shared view of the
@@ -396,4 +405,82 @@ export function parseColumnConfig(
 
 export function selectOptionNames(config: ColumnConfig): string[] {
   return (config.options ?? []).map((option) => option.name);
+}
+
+/**
+ * What a field's settings say of how its values are drawn and typed: all
+ * a public link gets. A setting added later stays private until named
+ * here. What a field computes from, its default, and where it points are
+ * the table's own.
+ */
+const LINK_CONFIG_KEYS = [
+  "options",
+  "preventNewOptions",
+  "appearance",
+  "number",
+  "nonNegative",
+  "date",
+  "durationFormat",
+  "ratingMax",
+  "ratingIcon",
+  "ratingColor",
+  "multiple",
+  "richText",
+] as const satisfies ReadonlyArray<keyof ColumnConfig>;
+
+export function linkColumnConfig(config: ColumnConfig): ColumnConfig {
+  return Object.fromEntries(
+    LINK_CONFIG_KEYS.flatMap((key) =>
+      config[key] === undefined ? [] : [[key, config[key]]],
+    ),
+  );
+}
+
+/**
+ * A field's settings for a reader under field rules: a formula, a lookup,
+ * or a condition that names a field hidden from them says what that field
+ * is for, and the values it is compared to. `hidden` asks of this table,
+ * `linkedHidden` of the table the field links to.
+ */
+export function readerColumnConfig(
+  config: ColumnConfig,
+  rules: {
+    hidden: (name: string) => boolean;
+    linkedHidden: (name: string) => boolean;
+  },
+): ColumnConfig {
+  const next: ColumnConfig = { ...config };
+  if (next.expr && formulaReferences(next.expr).some(rules.hidden)) {
+    delete next.expr;
+  }
+  if (
+    (next.relation !== undefined && rules.hidden(next.relation)) ||
+    (next.target !== undefined && rules.linkedHidden(next.target))
+  ) {
+    delete next.relation;
+    delete next.target;
+    delete next.fn;
+    delete next.filter;
+  }
+  if (next.filter && filterColumnNames(next.filter).some(rules.linkedHidden)) {
+    delete next.filter;
+  }
+  if (next.selectFrom && "filter" in next.selectFrom) {
+    next.selectFrom = {
+      filter: filterKeeping(
+        next.selectFrom.filter,
+        (name) => !rules.linkedHidden(name),
+      ),
+    };
+  }
+  if (next.button?.url) {
+    next.button = {
+      ...next.button,
+      url: next.button.url.replace(
+        /\{\{\s*([A-Za-z0-9_]{1,63})\s*\}\}/g,
+        (whole: string, name: string) => (rules.hidden(name) ? "" : whole),
+      ),
+    };
+  }
+  return next;
 }

@@ -451,7 +451,7 @@ export async function exportTable(
       engine,
       columns.map((column) => column.name),
       async (page) => {
-        await enrichAttachments(deps.db, files, page);
+        await enrichAttachments(deps.db, engine.table.id, files, page);
         await writer.add(page);
         rows += page.length;
         await options.onProgress?.(rows, total);

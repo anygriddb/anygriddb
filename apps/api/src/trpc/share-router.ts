@@ -21,7 +21,7 @@ import {
   writeColumns,
 } from "../data/rows.js";
 import { createRows } from "../services/rows.js";
-import { publicColumns } from "./catalog-shared.js";
+import { linkColumns } from "./catalog-shared.js";
 import type { Context } from "./context.js";
 import { handle } from "./guard.js";
 import { procedure, t } from "./init.js";
@@ -133,13 +133,7 @@ export const shareRouter = t.router({
           tables.push({
             id: table.id,
             name: table.name,
-            columns: publicColumns(engine, rows)
-              .filter((column) => fields.includes(column.name))
-              .map((column) => ({
-                ...column,
-                formulaSource: null,
-                formula: null,
-              })),
+            columns: linkColumns(engine, rows, fields),
           });
         }
         return {
@@ -231,9 +225,6 @@ export const shareRouter = t.router({
             allowCopy: false,
           };
         }
-        const columns = publicColumns(opened.engine, opened.rows).filter(
-          (column) => opened.fields.includes(column.name),
-        );
         return {
           locked: false as const,
           access: opened.access,
@@ -245,12 +236,7 @@ export const shareRouter = t.router({
             window: formWindow(opened.config.form),
           },
           table: { name: opened.table.name },
-          columns: columns.map((column) => ({
-            ...column,
-            formulaSource: null,
-            formula: null,
-            description: column.description,
-          })),
+          columns: linkColumns(opened.engine, opened.rows, opened.fields),
           allowCopy: opened.share.allowCopy,
         };
       }),

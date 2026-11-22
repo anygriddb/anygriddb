@@ -1,8 +1,11 @@
 import { z } from "zod";
+import { AppError } from "./errors";
 import { optionColorSchema } from "./field-config";
 import {
   andFilters,
+  filterColumnNames,
   filterGroupSchema,
+  filterKeeping,
   legacyFilterSchema,
   legacyFiltersToGroup,
   type FilterGroup,
@@ -353,21 +356,7 @@ function stripFilter(
   group: FilterGroup | undefined,
   name: string,
 ): FilterGroup | undefined {
-  if (!group) {
-    return undefined;
-  }
-  const conditions: FilterGroup["conditions"] = [];
-  for (const node of group.conditions) {
-    if ("conjunction" in node) {
-      const inner = stripFilter(node, name);
-      if (inner && inner.conditions.length > 0) {
-        conditions.push(inner);
-      }
-    } else if (node.column !== name) {
-      conditions.push(node);
-    }
-  }
-  return { ...group, conditions };
+  return group && filterKeeping(group, (column) => column !== name);
 }
 
 /** Removes every reference to a deleted column from a view configuration. */
@@ -453,18 +442,189 @@ export function pruneViewConfig(
   config: ViewConfig,
   known: ReadonlySet<string>,
 ): ViewConfig {
-  const referenced = new Set([
+  let next = config;
+  for (const name of namedFields(config)) {
+    if (!known.has(name)) next = stripColumnFromConfig(next, name);
+  }
+  return next;
+}
+
+/** Every field a view's settings name, those of display included. */
+function namedFields(config: ViewConfig): Set<string> {
+  return new Set([
     ...viewConfigColumns(config),
     ...(config.fieldOrder ?? []),
     ...(config.hiddenFields ?? []),
     ...Object.keys(config.columnWidths ?? {}),
     ...Object.keys(config.aggregations ?? {}),
   ]);
-  let next = config;
-  for (const name of referenced) {
-    if (!known.has(name)) next = stripColumnFromConfig(next, name);
+}
+
+/**
+ * A view's settings as a reader with field rules reads them: nothing of a
+ * field hidden from them, neither its name nor a value a condition holds.
+ * The stored settings keep all of it, and `keepHiddenParts` puts it back
+ * when that reader saves the view.
+ */
+export function viewConfigForReader(
+  config: ViewConfig,
+  hidden: ReadonlySet<string>,
+): ViewConfig {
+  if (hidden.size === 0) return config;
+  const known = new Set(
+    [...namedFields(config)].filter((name) => !hidden.has(name)),
+  );
+  const next = { ...pruneViewConfig(config, known) };
+  // A folded stack is named by a value of the field it stacks by.
+  if (config.stackColumn && hidden.has(config.stackColumn)) {
+    delete next.collapsedStacks;
   }
   return next;
+}
+
+/**
+ * The filter to store when a reader changed one that also held conditions
+ * on fields hidden from them: theirs, with each of those conditions where
+ * it applied. A group that mixes both comes back whole while the reader
+ * left what they saw of it, and with its hidden conditions alone if not.
+ */
+function keptHiddenFilter(
+  stored: FilterGroup | undefined,
+  next: FilterGroup | undefined,
+  hidden: ReadonlySet<string>,
+): FilterGroup | undefined {
+  if (!stored) return next;
+  const mentions = (node: FilterGroup["conditions"][number]) =>
+    "conjunction" in node
+      ? filterColumnNames(node).some((name) => hidden.has(name))
+      : hidden.has(node.column);
+  if (!stored.conditions.some(mentions)) return next;
+  const visible = (name: string) => !hidden.has(name);
+  const own = next?.conditions.length ? next : undefined;
+  const conditions: FilterGroup["conditions"] =
+    own === undefined
+      ? []
+      : own.conjunction === stored.conjunction
+        ? [...own.conditions]
+        : [own];
+  for (const node of stored.conditions.filter(mentions)) {
+    if (!("conjunction" in node)) {
+      conditions.push(node);
+      continue;
+    }
+    const seen = JSON.stringify(filterKeeping(node, visible));
+    const at = conditions.findIndex((item) => JSON.stringify(item) === seen);
+    if (at >= 0) conditions[at] = node;
+    else conditions.push(filterKeeping(node, (name) => hidden.has(name)));
+  }
+  const merged = filterGroupSchema.safeParse({
+    conjunction: stored.conjunction,
+    conditions,
+  });
+  if (!merged.success) throw new AppError("invalid_view");
+  return merged.data;
+}
+
+/**
+ * The colours to store when a reader changed them: a rule wholly on a
+ * hidden field stays in its place, a rule that also reads one comes back
+ * whole while the reader left what they saw of it, and a colour by a
+ * hidden field stays until they choose another.
+ */
+function keptHiddenColor(
+  stored: NonNullable<ViewConfig["color"]>,
+  next: ViewConfig["color"],
+  hidden: ReadonlySet<string>,
+): ViewConfig["color"] {
+  const visible = (name: string) => !hidden.has(name);
+  const rules = [...(next?.rules ?? [])];
+  (stored.rules ?? []).forEach((rule, index) => {
+    if (filterColumnNames(rule.filter).every(visible)) return;
+    const seen = { ...rule, filter: filterKeeping(rule.filter, visible) };
+    if (seen.filter.conditions.length === 0) {
+      rules.splice(Math.min(index, rules.length), 0, rule);
+      return;
+    }
+    const text = JSON.stringify(seen);
+    const at = rules.findIndex((item) => JSON.stringify(item) === text);
+    if (at >= 0) rules[at] = rule;
+  });
+  const byHidden = stored.column !== undefined && hidden.has(stored.column);
+  const untouched = !next || (next.mode === "none" && !next.column);
+  const color = {
+    ...(next ?? { mode: stored.mode }),
+    ...(byHidden && untouched
+      ? { mode: stored.mode, column: stored.column }
+      : {}),
+    ...(rules.length > 0 ? { rules } : {}),
+  };
+  if (!byHidden && untouched && rules.length > 0) color.mode = stored.mode;
+  const parsed = viewColorSchema.safeParse(color);
+  if (!parsed.success) throw new AppError("invalid_view");
+  return parsed.data;
+}
+
+/**
+ * What to store when a reader under field rules saves `sent`, having seen
+ * the view without the fields in `hidden`. A setting they left as they
+ * saw it stays as stored; one they changed takes their change and keeps
+ * its part on those fields. A hidden field they name themselves counts
+ * for nothing: they can neither read nor change what a view says of it.
+ */
+export function keepHiddenParts(
+  stored: ViewConfig,
+  sent: ViewConfig,
+  hidden: ReadonlySet<string>,
+  /** The settings saved; "all" when the whole configuration was. */
+  keys: Iterable<string> | "all",
+): ViewConfig {
+  if (hidden.size === 0) return sent;
+  const clean = viewConfigForReader(sent, hidden);
+  const saw = viewConfigForReader(stored, hidden);
+  const saved = new Set(keys === "all" ? Object.keys(shape) : keys);
+  const kept: Record<string, unknown> = { ...clean };
+  const changed: string[] = [];
+  for (const key of Object.keys(shape) as Array<keyof ViewConfig>) {
+    if (
+      saved.has(key) &&
+      JSON.stringify(clean[key]) !== JSON.stringify(saw[key])
+    ) {
+      changed.push(key);
+    } else if (stored[key] === undefined) {
+      Reflect.deleteProperty(kept, key);
+    } else {
+      kept[key] = stored[key];
+    }
+  }
+  const out = keepTrashedParts(
+    stored,
+    kept,
+    hidden,
+    changed.filter((key) => key !== "filter"),
+  );
+  if (changed.includes("filter")) {
+    const filter = keptHiddenFilter(stored.filter, clean.filter, hidden);
+    if (filter) out.filter = filter;
+    else delete out.filter;
+  }
+  if (changed.includes("color") && stored.color) {
+    out.color = keptHiddenColor(stored.color, clean.color, hidden);
+  }
+  if (changed.includes("form") && out.form?.fields) {
+    const before = new Map(
+      (stored.form?.fields ?? []).map((field) => [field.column, field]),
+    );
+    out.form = {
+      ...out.form,
+      fields: out.form.fields.map((field) => {
+        const showIf = before.get(field.column)?.showIf;
+        if (hidden.has(field.column) || !showIf) return field;
+        const merged = keptHiddenFilter(showIf, field.showIf, hidden);
+        return merged ? { ...field, showIf: merged } : field;
+      }),
+    };
+  }
+  return out;
 }
 
 /**

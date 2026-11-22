@@ -48,7 +48,7 @@ function fnv(value: string): string {
 export function indexName(
   table: string,
   column: string,
-  kind: "uq" | "ix",
+  kind: "uq" | "ix" | "gin",
 ): string {
   return `${kind}_${table.slice(2, 18)}_${fnv(column)}`;
 }
@@ -103,6 +103,11 @@ export function buildCreateTable(input: {
     lines.push(columnDefinition(column));
   }
   const table = quoteIdent(input.table);
+  const fileIndexes = input.columns
+    .filter((column) => column.fieldType === "attachment")
+    .map((column) =>
+      buildFileIndex({ table: input.table, column: column.name }),
+    );
   return [
     statement(`create table ${table} (${lines.join(", ")})`),
     statement(
@@ -111,6 +116,7 @@ export function buildCreateTable(input: {
     statement(
       `create index ${quoteIdent(indexName(input.table, "ag_position", "ix"))} on ${table} ("ag_position", "ag_seq")`,
     ),
+    ...fileIndexes,
     buildStampTrigger(input.table),
     buildAuditTrigger(input.table),
   ];
@@ -233,6 +239,39 @@ export function buildForeignKeyIndex(input: {
   );
 }
 
+/**
+ * The index that finds the rows holding a file, so that serving one never
+ * reads the whole table. `concurrently` builds it beside the writes, for a
+ * table that already has rows; it cannot run inside a transaction.
+ */
+export function buildFileIndex(input: {
+  table: string;
+  column: string;
+  concurrently?: boolean;
+}): ParameterizedSql {
+  assertIdentifier(input.table, "table name");
+  assertUserColumn(input.column);
+  const how = input.concurrently ? "concurrently if not exists " : "";
+  return statement(
+    `create index ${how}${quoteIdent(indexName(input.table, input.column, "gin"))} on ${quoteIdent(input.table)} using gin (${quoteIdent(input.column)})`,
+  );
+}
+
+/** Removes an index a build left unfinished, without blocking the table. */
+export function buildDropIndexConcurrently(name: string): ParameterizedSql {
+  assertIdentifier(name, "identifier");
+  return statement(`drop index concurrently if exists ${quoteIdent(name)}`);
+}
+
+/** The whole-column GIN indexes of a table, and whether each is usable. */
+export function buildFileIndexStates(table: string): ParameterizedSql {
+  assertIdentifier(table, "table name");
+  return {
+    text: `select a.attname as "column", c.relname as "name", x.indisvalid as "valid" from pg_index x join pg_class c on c.oid = x.indexrelid join pg_am m on m.oid = c.relam join pg_attribute a on a.attrelid = x.indrelid and a.attnum = x.indkey[0] where x.indrelid = to_regclass($1) and m.amname = 'gin' and x.indnatts = 1 and x.indpred is null`,
+    values: [quoteIdent(table)],
+  };
+}
+
 /** Junction of row ids. Both sides cascade when a row is removed. */
 /**
  * Many-to-many junction: primary key covers left→right lookups; a second
@@ -273,6 +312,8 @@ export function isMetadataConversion(from: FieldType, to: FieldType): boolean {
     return false;
   }
   if (SPELLED.has(to)) return false;
+  // A file field holds keys the write path checked; a list's values are not.
+  if (to === "attachment") return false;
   return physicalSqlType(from) === physicalSqlType(to);
 }
 

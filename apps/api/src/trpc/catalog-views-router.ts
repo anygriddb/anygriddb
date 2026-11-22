@@ -21,15 +21,24 @@ import {
   trashView,
   updateView,
 } from "../data/views.js";
-import { readableTables } from "../data/acl.js";
+import { hiddenColumnNames, readableTables } from "../data/acl.js";
 import { authorize, guardTable, handle, tableAccess } from "./guard.js";
 import { procedure, requestNames } from "./init.js";
 
 export const catalogViewProcedures = {
   views: procedure.input(listViewsInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
-      const { user } = await guardTable(ctx, input.tableId, "read");
-      return { views: await listViews(ctx.db, input.tableId, user.id) };
+      const { user, bindings, table } = await guardTable(
+        ctx,
+        input.tableId,
+        "read",
+      );
+      const hidden = await hiddenColumnNames(
+        ctx.db,
+        { userId: user.id, bindings },
+        table,
+      );
+      return { views: await listViews(ctx.db, input.tableId, user.id, hidden) };
     }),
   ),
   createView: procedure
@@ -37,7 +46,7 @@ export const catalogViewProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const personal = input.personal === true;
-        const { user, bindings, role } = await guardTable(
+        const { user, bindings, role, table } = await guardTable(
           ctx,
           input.tableId,
           personal ? "read" : "write",
@@ -50,13 +59,19 @@ export const catalogViewProcedures = {
           input.tableId,
           readableTables(bindings, new Map()),
         );
-        return createView(ctx.db, engine, user.id, {
-          tableId: input.tableId,
-          name: input.name,
-          viewType: input.viewType,
-          config: input.config,
-          ownerId: personal ? user.id : null,
-        });
+        return createView(
+          ctx.db,
+          engine,
+          user.id,
+          {
+            tableId: input.tableId,
+            name: input.name,
+            viewType: input.viewType,
+            config: input.config,
+            ownerId: personal ? user.id : null,
+          },
+          await hiddenColumnNames(ctx.db, { userId: user.id, bindings }, table),
+        );
       }),
     ),
   updateView: procedure
@@ -65,7 +80,7 @@ export const catalogViewProcedures = {
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const view = await loadView(ctx.db, input.viewId);
-        const { user, role } = await tableAccess(
+        const { user, role, table } = await tableAccess(
           ctx,
           actor,
           view.tableId,
@@ -78,7 +93,19 @@ export const catalogViewProcedures = {
           throw new AppError("access_denied");
         }
         const { engine } = await loadEngine(ctx.db, view.tableId, () => true);
-        return updateView(ctx.db, engine, user.id, view, input);
+        return updateView(
+          ctx.db,
+          engine,
+          user.id,
+          view,
+          input,
+          "web",
+          await hiddenColumnNames(
+            ctx.db,
+            { userId: user.id, bindings: actor.bindings },
+            table,
+          ),
+        );
       }),
     ),
   duplicateView: procedure
@@ -87,7 +114,7 @@ export const catalogViewProcedures = {
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const view = await loadView(ctx.db, input.viewId);
-        const { user, role } = await tableAccess(
+        const { user, role, table } = await tableAccess(
           ctx,
           actor,
           view.tableId,
@@ -103,6 +130,11 @@ export const catalogViewProcedures = {
           view,
           input.name ?? (await requestNames(ctx)).copy(view.name).slice(0, 80),
           personal || view.ownerId ? user.id : null,
+          await hiddenColumnNames(
+            ctx.db,
+            { userId: user.id, bindings: actor.bindings },
+            table,
+          ),
         );
       }),
     ),

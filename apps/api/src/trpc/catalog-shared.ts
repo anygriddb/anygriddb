@@ -8,6 +8,8 @@ import {
   describeColumns,
   type EngineCatalog,
   formatFormula,
+  linkColumnConfig,
+  readerColumnConfig,
   selectOptionNames,
 } from "@anygriddb/core";
 import { columnConfig, sortColumns, type CatalogRows } from "../data/engine.js";
@@ -62,7 +64,7 @@ export function publicColumns(engine: EngineCatalog, rows: CatalogRows) {
     );
   };
   return own.map((column) => {
-    const config = columnConfig(column);
+    const stored = columnConfig(column);
     const described = kinds.get(column.name);
     const relation = rows.relations.find(
       (item) => item.fromColumnId === column.id,
@@ -70,6 +72,18 @@ export function publicColumns(engine: EngineCatalog, rows: CatalogRows) {
     const engineColumn = engine.table.columns.find(
       (item) => item.id === column.id,
     );
+    // The table a link or a lookup reads: its rules decide what its
+    // settings may say.
+    const linked =
+      engineColumn?.relation?.targetTableId ??
+      engine.table.columns.find((item) => item.name === stored.relation)
+        ?.relation?.targetTableId;
+    const config = readerColumnConfig(stored, {
+      hidden: (name) => access?.hidden(engine.table.id, name) ?? false,
+      linkedHidden: (name) =>
+        linked !== undefined &&
+        (!engine.readable(linked) || (access?.hidden(linked, name) ?? false)),
+    });
     return {
       id: column.id,
       name: column.name,
@@ -143,7 +157,8 @@ export function publicColumns(engine: EngineCatalog, rows: CatalogRows) {
           ? selectOptionNames(config)
           : null,
       computed:
-        column.fieldType === "lookup" || column.fieldType === "rollup"
+        (column.fieldType === "lookup" || column.fieldType === "rollup") &&
+        config.relation !== undefined
           ? {
               relation: config.relation ?? "",
               target: config.target ?? "",
@@ -152,6 +167,26 @@ export function publicColumns(engine: EngineCatalog, rows: CatalogRows) {
           : null,
     };
   });
+}
+
+/**
+ * The fields a public link shows, as anyone who opens it reads them: how
+ * their values are drawn, and nothing of what they compute from.
+ */
+export function linkColumns(
+  engine: EngineCatalog,
+  rows: CatalogRows,
+  fields: readonly string[],
+) {
+  return publicColumns(engine, rows)
+    .filter((column) => fields.includes(column.name))
+    .map((column) => ({
+      ...column,
+      config: linkColumnConfig(column.config),
+      formulaSource: null,
+      formula: null,
+      computed: null,
+    }));
 }
 
 export function logPublish(ctx: Context): (error: unknown) => void {

@@ -3,11 +3,13 @@ import {
   applyViewConfigPatch,
   buildReadRows,
   type EngineCatalog,
+  keepHiddenParts,
   keepTrashedParts,
   normalizeViewConfig,
   pruneViewConfig,
   type ViewConfig,
   viewConfigColumns,
+  viewConfigForReader,
   type ViewConfigPatch,
   type ViewType,
 } from "@anygriddb/core";
@@ -28,18 +30,27 @@ async function nextViewPosition(db: Database, tableId: string) {
   return row?.max ?? 0;
 }
 
+const NO_FIELDS: ReadonlySet<string> = new Set();
+
 /**
  * A view as clients see it. With `known`, references to fields outside
- * that set (fields in the trash) are left out; the stored config keeps them.
+ * that set (fields in the trash) are left out, and so is what it says of
+ * the fields in `hidden`, those the reader's rules hide. The stored config
+ * keeps them all.
  */
-function publicView(view: ViewRow, known?: ReadonlySet<string>) {
+function publicView(
+  view: ViewRow,
+  known?: ReadonlySet<string>,
+  hidden: ReadonlySet<string> = NO_FIELDS,
+) {
   const config = normalizeViewConfig(view.config, view.viewType);
+  const shown = known ? pruneViewConfig(config, known) : config;
   return {
     id: view.id,
     tableId: view.tableId,
     name: view.name,
     viewType: view.viewType,
-    config: known ? pruneViewConfig(config, known) : config,
+    config: viewConfigForReader(shown, hidden),
     position: view.position,
     personal: view.ownerId !== null,
     locked: view.locked,
@@ -60,7 +71,12 @@ export async function loadView(db: Database, viewId: string): Promise<ViewRow> {
 }
 
 /** Collaborative views plus the caller's personal ones, in tab order. */
-export async function listViews(db: Database, tableId: string, userId: string) {
+export async function listViews(
+  db: Database,
+  tableId: string,
+  userId: string,
+  hidden: ReadonlySet<string> = NO_FIELDS,
+) {
   const rows = await db
     .selectFrom("views")
     .selectAll()
@@ -73,7 +89,7 @@ export async function listViews(db: Database, tableId: string, userId: string) {
     .orderBy("createdAt", "asc")
     .execute();
   const known = await liveColumnNames(db, tableId);
-  return rows.map((row) => publicView(row, known));
+  return rows.map((row) => publicView(row, known, hidden));
 }
 
 /**
@@ -136,8 +152,13 @@ export async function createView(
     config?: ViewConfig;
     ownerId: string | null;
   },
+  /** Fields the author's rules hide: a view they make says nothing of them. */
+  hidden: ReadonlySet<string> = NO_FIELDS,
 ) {
-  const config = normalizeViewConfig(input.config ?? {}, input.viewType);
+  const config = viewConfigForReader(
+    normalizeViewConfig(input.config ?? {}, input.viewType),
+    hidden,
+  );
   assertViewConfig(engine, config);
   const known = new Set(engine.table.columns.map((column) => column.name));
   const position = await nextViewPosition(db, input.tableId);
@@ -161,7 +182,7 @@ export async function createView(
   if (!inserted) {
     throw new AppError("no_row");
   }
-  return publicView(inserted, known);
+  return publicView(inserted, known, hidden);
 }
 
 export async function updateView(
@@ -176,6 +197,8 @@ export async function updateView(
     locked?: boolean;
   },
   source = "web",
+  /** Fields the author's rules hide: what the view says of them stays. */
+  hidden: ReadonlySet<string> = NO_FIELDS,
 ) {
   const current = normalizeViewConfig(view.config, view.viewType);
   const base = input.config
@@ -184,11 +207,17 @@ export async function updateView(
   const trashed = new Set(await trashedColumnNames(db, view.tableId));
   // What was saved was seen without the fields in the trash: their part
   // of each setting saved stays, for when they come back.
+  const keys = input.config ? "all" : Object.keys(input.patch ?? {});
   const next = keepTrashedParts(
     current,
-    input.patch ? applyViewConfigPatch(base, input.patch) : base,
+    keepHiddenParts(
+      current,
+      input.patch ? applyViewConfigPatch(base, input.patch) : base,
+      hidden,
+      keys,
+    ),
     trashed,
-    input.config ? "all" : Object.keys(input.patch ?? {}),
+    keys,
   );
   assertViewConfig(engine, next, trashed);
   const updated = await withAudit(
@@ -212,6 +241,7 @@ export async function updateView(
   return publicView(
     updated,
     new Set(engine.table.columns.map((column) => column.name)),
+    hidden,
   );
 }
 
@@ -221,6 +251,7 @@ export async function duplicateView(
   view: ViewRow,
   name: string,
   ownerId: string | null,
+  hidden: ReadonlySet<string> = NO_FIELDS,
 ) {
   const position = await nextViewPosition(db, view.tableId);
   const inserted = await withAudit(
@@ -243,7 +274,7 @@ export async function duplicateView(
   if (!inserted) {
     throw new AppError("no_row");
   }
-  return publicView(inserted, await liveColumnNames(db, view.tableId));
+  return publicView(inserted, await liveColumnNames(db, view.tableId), hidden);
 }
 
 export async function reorderViews(

@@ -3,8 +3,11 @@ import {
   applyViewConfigPatch,
   formWindow,
   formWindowNeverOpens,
+  keepHiddenParts,
   keepTrashedParts,
   normalizeViewConfig,
+  type ViewConfig,
+  viewConfigForReader,
   withRequiredFormFields,
   pruneViewConfig,
   viewConfigColumns,
@@ -404,5 +407,196 @@ describe("withRequiredFormFields", () => {
     expect(
       withRequiredFormFields(undefined, ["title", "due"], ["due"]),
     ).toEqual([{ column: "title" }, { column: "due", required: true }]);
+  });
+});
+
+describe("a view's settings under a reader's field rules", () => {
+  const hidden = new Set(["salary"]);
+  const onSalary = { column: "salary", op: "gt", value: 91234 } as const;
+  const onName = { column: "name", op: "is", value: "Ada" } as const;
+  const stored = normalizeViewConfig({
+    filter: {
+      conjunction: "and",
+      conditions: [
+        onName,
+        onSalary,
+        { conjunction: "or", conditions: [onSalary, onName] },
+      ],
+    },
+    sort: [
+      { column: "salary", direction: "desc" },
+      { column: "name", direction: "asc" },
+    ],
+    groupBy: [{ column: "salary", direction: "asc" }],
+    fieldOrder: ["name", "salary", "team"],
+    hiddenFields: ["salary"],
+    columnWidths: { name: 200, salary: 120 },
+    aggregations: { salary: "sum" },
+    color: {
+      mode: "rules",
+      rules: [
+        {
+          color: "red",
+          filter: { conjunction: "and", conditions: [onSalary] },
+        },
+        {
+          color: "blue",
+          filter: { conjunction: "and", conditions: [onName, onSalary] },
+        },
+      ],
+    },
+    stackColumn: "salary",
+    collapsedStacks: ["91234"],
+    coverColumn: "salary",
+    cardFields: ["name", "salary"],
+    form: {
+      title: "Ask",
+      fields: [
+        {
+          column: "name",
+          showIf: { conjunction: "and", conditions: [onSalary] },
+        },
+        { column: "salary", label: "Pay", required: true },
+      ],
+    },
+  });
+
+  it("says nothing of a hidden field to the reader", () => {
+    const seen = viewConfigForReader(stored, hidden);
+    const text = JSON.stringify(seen);
+    expect(text).not.toContain("salary");
+    expect(text).not.toContain("91234");
+    expect(text).not.toContain("Pay");
+    expect(seen.fieldOrder).toEqual(["name", "team"]);
+    expect(seen.collapsedStacks).toBeUndefined();
+  });
+
+  it("gives everything back when nothing is hidden", () => {
+    expect(viewConfigForReader(stored, new Set())).toEqual(stored);
+    expect(keepHiddenParts(stored, { sort: [] }, new Set(), ["sort"])).toEqual({
+      sort: [],
+    });
+  });
+
+  it("keeps a stack's folded values when the stack stays visible", () => {
+    const config = normalizeViewConfig({
+      stackColumn: "team",
+      collapsedStacks: ["North"],
+    });
+    expect(viewConfigForReader(config, hidden).collapsedStacks).toEqual([
+      "North",
+    ]);
+  });
+
+  it("loses nothing when a reader saves back what they saw", () => {
+    const seen = viewConfigForReader(stored, hidden);
+    expect(keepHiddenParts(stored, seen, hidden, "all")).toEqual(stored);
+  });
+
+  it("keeps every other setting when one is patched", () => {
+    const seen = viewConfigForReader(stored, hidden);
+    const sent = applyViewConfigPatch(stored, { rowHeight: "tall" });
+    const kept = keepHiddenParts(stored, sent, hidden, ["rowHeight"]);
+    expect(kept).toEqual({ ...stored, rowHeight: "tall" });
+    expect(seen.rowHeight).toBeUndefined();
+  });
+
+  it("puts what the reader cannot see back into what they changed", () => {
+    const seen = viewConfigForReader(stored, hidden);
+    const sent: ViewConfig = {
+      ...seen,
+      filter: {
+        conjunction: "and",
+        conditions: [{ column: "team", op: "is", value: "North" }],
+      },
+      sort: [{ column: "team", direction: "asc" }],
+      fieldOrder: ["team", "name"],
+      columnWidths: { name: 300 },
+      form: {
+        title: "Ask again",
+        fields: [
+          {
+            column: "name",
+            showIf: {
+              conjunction: "and",
+              conditions: [{ column: "team", op: "is", value: "North" }],
+            },
+          },
+        ],
+      },
+    };
+    const kept = keepHiddenParts(stored, sent, hidden, "all");
+    const conditions = kept.filter?.conditions ?? [];
+    expect(conditions).toContainEqual({
+      column: "team",
+      op: "is",
+      value: "North",
+    });
+    expect(conditions).toContainEqual(onSalary);
+    expect(conditions).toContainEqual({
+      conjunction: "or",
+      conditions: [onSalary],
+    });
+    expect(conditions).not.toContainEqual(onName);
+    expect(kept.sort).toContainEqual({ column: "salary", direction: "desc" });
+    expect(kept.fieldOrder).toContain("salary");
+    expect(kept.columnWidths).toEqual({ name: 300, salary: 120 });
+    expect(kept.aggregations).toEqual({ salary: "sum" });
+    expect(kept.stackColumn).toBe("salary");
+    expect(kept.coverColumn).toBe("salary");
+    expect(kept.color).toEqual(stored.color);
+    const salaryField = kept.form?.fields?.find((f) => f.column === "salary");
+    expect(salaryField?.label).toBe("Pay");
+    const nameField = kept.form?.fields?.find((f) => f.column === "name");
+    expect(JSON.stringify(nameField?.showIf)).toContain("salary");
+    expect(JSON.stringify(nameField?.showIf)).toContain("team");
+  });
+
+  it("keeps an alternative on a hidden field in an either-or filter", () => {
+    const either = normalizeViewConfig({
+      filter: { conjunction: "or", conditions: [onName, onSalary] },
+    });
+    const sent: ViewConfig = {
+      filter: {
+        conjunction: "or",
+        conditions: [{ column: "team", op: "is", value: "North" }],
+      },
+    };
+    const kept = keepHiddenParts(either, sent, hidden, ["filter"]);
+    expect(kept.filter?.conjunction).toBe("or");
+    expect(kept.filter?.conditions).toContainEqual(onSalary);
+    expect(kept.filter?.conditions).toContainEqual({
+      column: "team",
+      op: "is",
+      value: "North",
+    });
+  });
+
+  it("takes a setting the reader chose on a field they see", () => {
+    const seen = viewConfigForReader(stored, hidden);
+    const kept = keepHiddenParts(
+      stored,
+      { ...seen, stackColumn: "team" },
+      hidden,
+      ["stackColumn"],
+    );
+    expect(kept.stackColumn).toBe("team");
+  });
+
+  it("drops what a reader names of a field hidden from them", () => {
+    const plain = normalizeViewConfig({ sort: [] });
+    const kept = keepHiddenParts(
+      plain,
+      {
+        filter: { conjunction: "and", conditions: [onSalary] },
+        sort: [{ column: "salary", direction: "asc" }],
+        stackColumn: "salary",
+        cardFields: ["salary", "name"],
+      },
+      hidden,
+      "all",
+    );
+    expect(JSON.stringify(kept)).not.toContain("salary");
+    expect(kept.cardFields).toEqual(["name"]);
   });
 });

@@ -34,6 +34,35 @@ describe("a view's settings on a public link", () => {
     expect(publicConfig(config, ["name", "city"])).toEqual(config);
   });
 
+  it("gives nothing of a condition on a field the link does not show", () => {
+    const given = publicConfig(
+      {
+        form: {
+          fields: [
+            { column: "salary", hidden: true },
+            { column: "name" },
+            {
+              column: "note",
+              showIf: {
+                conjunction: "and",
+                conditions: [
+                  { column: "salary", op: "gt", value: 91234 },
+                  { column: "name", op: "is", value: "Ada" },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      ["name", "note"],
+    );
+    const text = JSON.stringify(given);
+    expect(text).not.toContain("91234");
+    expect(text).not.toContain('"gt"');
+    // A condition on a field it shows stays as it is.
+    expect(text).toContain('"value":"Ada"');
+  });
+
   it("masks a form's hidden field and reaches the server's answer", () => {
     const fields = [
       { column: "salary", label: "Salary band", hidden: true },

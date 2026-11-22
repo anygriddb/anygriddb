@@ -137,3 +137,89 @@ describe("what an administrator refuses", () => {
     ).toBe(false);
   });
 });
+
+describe("a name and a start that dress a file as something else", () => {
+  it("reads a name full of spaces in one pass", () => {
+    const spaces = " ".repeat(200_000);
+    const started = performance.now();
+    expect(attachmentExtensionOf(`a${spaces}b.html${spaces}`)).toBe(".html");
+    expect(attachmentExtensionOf(`${spaces}x`)).toBeNull();
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
+  it("reads the extension past trailing dots and spaces", () => {
+    expect(attachmentExtensionOf("x.svg.")).toBe(".svg");
+    expect(attachmentExtensionOf("x.svg ")).toBe(".svg");
+    expect(attachmentExtensionOf("x.svg. . ")).toBe(".svg");
+    expect(attachmentExtensionOf("x.")).toBeNull();
+    expect(attachmentExtensionOf("...")).toBeNull();
+  });
+
+  it("tells a page behind a comment, a prologue, or a doctype", () => {
+    for (const text of [
+      "<!-- a note --><svg onload=x>",
+      "<!-- é --> \n<html>",
+      "<!-- one --><!-- two --><body>",
+      '<?xml version="1.0"?><!-- a note --><svg>',
+      '<?xml version="1.0"?><!DOCTYPE svg><svg/>',
+      '<!DOCTYPE svg [ <!ENTITY a "b"> ]><svg>',
+    ]) {
+      expect(attachmentKindOf(bytes(text))).toBe("page");
+    }
+  });
+
+  it("counts a comment still open at the end of what is read as a page", () => {
+    expect(attachmentKindOf(bytes(`<!-- ${"x".repeat(600)}`))).toBe("page");
+    expect(attachmentKindOf(bytes(`<?xml ${"x".repeat(600)}`))).toBe("page");
+  });
+
+  it("tells a page written in UTF-16, with or without its mark", () => {
+    const utf16 = (text: string, big: boolean, mark: boolean) => {
+      const units = [
+        ...(mark ? [0xfeff] : []),
+        ...Array.from({ length: text.length }, (_, at) => text.charCodeAt(at)),
+      ];
+      return Uint8Array.from(
+        units.flatMap((unit) =>
+          big ? [unit >> 8, unit & 0xff] : [unit & 0xff, unit >> 8],
+        ),
+      );
+    };
+    for (const big of [false, true]) {
+      for (const mark of [true, false]) {
+        expect(attachmentKindOf(utf16("<html><script>", big, mark))).toBe(
+          "page",
+        );
+      }
+      expect(attachmentKindOf(utf16("plain words", big, true))).toBeNull();
+    }
+  });
+
+  it("gives no kind to a text that quotes a tag further on", () => {
+    expect(attachmentKindOf(bytes("How to draw an <svg> element"))).toBeNull();
+    expect(attachmentKindOf(bytes("é and then <html>"))).toBeNull();
+    expect(attachmentKindOf(bytes('<?xml version="1.0"?><note/>'))).toBeNull();
+    expect(attachmentKindOf(bytes("<!-- a note --><note/>"))).toBeNull();
+  });
+
+  it("refuses what a trailing dot or a space would let through", () => {
+    for (const filename of ["x.svg.", "x.svg ", "X.SVG. "]) {
+      expect(
+        attachmentIsRefused({
+          filename,
+          head: bytes("harmless"),
+          refusedExtensions: [".svg"],
+          refusedKinds: [],
+        }),
+      ).toBe(true);
+    }
+    expect(
+      attachmentIsRefused({
+        filename: "x.svg.txt",
+        head: bytes("harmless"),
+        refusedExtensions: [".svg"],
+        refusedKinds: [],
+      }),
+    ).toBe(false);
+  });
+});
