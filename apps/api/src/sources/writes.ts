@@ -44,7 +44,7 @@ import {
   type SummaryEvent,
   TASKS,
 } from "../queue/jobs.js";
-import { readByIds } from "../data/rows.js";
+import { assertRowsStayInRule, readByIds } from "../data/rows.js";
 import {
   enrichmentRow,
   loadEnrichmentValues,
@@ -593,6 +593,7 @@ export async function updateExternalRows(
           for (const { sql } of statements) {
             for (const statement of sql) await change(statement);
           }
+          await assertRowsStayInRule(run, context.engine, ids);
           return readRows(context, run, ids, fields);
         });
     // The client's part committed: AnyGridDB's own values follow it.
@@ -695,6 +696,7 @@ export async function insertExternalRows(
           await change(buildSideUpsert(table, String(id), statement.side));
         }
       }
+      await assertRowsStayInRule(run, context.engine, ids);
       const read = await readRows(context, run, ids, fields);
       return { ids, read };
     },

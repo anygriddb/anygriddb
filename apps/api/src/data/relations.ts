@@ -22,7 +22,7 @@ import type { Database } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
 import { runRows, withAudit, type AuditTx } from "./audit-context.js";
 import { liveTable } from "./live.js";
-import { readTransaction } from "./rows.js";
+import { assertOwnRowsStayInRule, readTransaction } from "./rows.js";
 import { isForeignKeyViolation } from "./pg-error.js";
 import { isUniqueViolation } from "./schema-ops.js";
 import { selectionFilter } from "./link-selection.js";
@@ -276,6 +276,8 @@ export async function setLinks(
     source?: string;
     /** How many automations led to this write. */
     depth?: number;
+    /** A new row's links: its rule is asked once they are all written. */
+    deferRule?: boolean;
   },
 ): Promise<{ touchedTables: string[] }> {
   const relation = input.column.relation;
@@ -304,84 +306,138 @@ export async function setLinks(
         events: { depth: input.depth ?? 0 },
       },
       async (tx) => {
-        if (input.targetIds.length > 0) {
-          const found = await runRows(
-            tx,
-            buildExistingIds({
-              table: target.physicalName,
-              ids: input.targetIds,
-            }),
-          );
-          if (found.length !== input.targetIds.length) {
-            throw new AppError("unknown_row");
-          }
-        }
-        await assertDraft(tx, input.physicalName, input.rowId);
-        if (relation.kind === "one_to_many") {
-          if (!relation.fkColumn) {
-            throw new AppError("invalid_relation");
-          }
-          if (relation.direction === "forward") {
-            const updated = await runRows(
+        const write = async (): Promise<void> => {
+          if (input.targetIds.length > 0) {
+            const found = await runRows(
               tx,
-              buildSetLink({
-                table: input.physicalName,
-                column: relation.fkColumn,
-                rowId: input.rowId,
-                targetId: input.targetIds[0] ?? null,
+              buildExistingIds({
+                table: target.physicalName,
+                ids: input.targetIds,
               }),
             );
-            if (updated.length !== 1) {
-              throw new AppError("no_row");
+            if (found.length !== input.targetIds.length) {
+              throw new AppError("unknown_row");
             }
+          }
+          await assertDraft(tx, input.physicalName, input.rowId);
+          if (relation.kind === "one_to_many") {
+            if (!relation.fkColumn) {
+              throw new AppError("invalid_relation");
+            }
+            if (relation.direction === "forward") {
+              const updated = await runRows(
+                tx,
+                buildSetLink({
+                  table: input.physicalName,
+                  column: relation.fkColumn,
+                  rowId: input.rowId,
+                  targetId: input.targetIds[0] ?? null,
+                }),
+              );
+              if (updated.length !== 1) {
+                throw new AppError("no_row");
+              }
+              return;
+            }
+            await sqlTag`select set_config('anygrid.table_id', ${target.id}, true)`.execute(
+              tx,
+            );
+            const current = await runRows(
+              tx,
+              buildReadReferencing({
+                table: target.physicalName,
+                column: relation.fkColumn,
+                targetId: input.rowId,
+              }),
+            );
+            const wanted = new Set(input.targetIds);
+            for (const row of current) {
+              const id = String(row.id);
+              if (!wanted.has(id)) {
+                await runRows(
+                  tx,
+                  buildSetLink({
+                    table: target.physicalName,
+                    column: relation.fkColumn,
+                    rowId: id,
+                    targetId: null,
+                  }),
+                );
+              }
+            }
+            const have = new Set(current.map((row) => String(row.id)));
+            for (const id of input.targetIds) {
+              if (!have.has(id)) {
+                await assertDraft(tx, target.physicalName, id);
+                await runRows(
+                  tx,
+                  buildSetLink({
+                    table: target.physicalName,
+                    column: relation.fkColumn,
+                    rowId: id,
+                    targetId: input.rowId,
+                  }),
+                );
+              }
+            }
+            await sqlTag`select set_config('anygrid.table_id', ${input.tableId}, true)`.execute(
+              tx,
+            );
+            // The other rows' keys are audited by their trigger; the row the
+            // person edited records the change of its own field as well.
+            await tx
+              .insertInto("auditEvents")
+              .values({
+                userId: input.userId,
+                action: "update",
+                tableId: input.tableId,
+                recordId: input.rowId,
+                oldValue: { [input.column.name]: [...have] },
+                newValue: { [input.column.name]: [...input.targetIds] },
+                reason: input.reason,
+                source: input.source ?? "web",
+              })
+              .execute();
             return;
           }
-          await sqlTag`select set_config('anygrid.table_id', ${target.id}, true)`.execute(
+          if (!relation.junction) {
+            throw new AppError("invalid_relation");
+          }
+          const near =
+            relation.direction === "forward" ? "left_id" : "right_id";
+          const far = relation.direction === "forward" ? "right_id" : "left_id";
+          const previous = await runRows(
             tx,
-          );
-          const current = await runRows(
-            tx,
-            buildReadReferencing({
-              table: target.physicalName,
-              column: relation.fkColumn,
-              targetId: input.rowId,
+            buildReadJunction({
+              junction: relation.junction,
+              side: near,
+              id: input.rowId,
             }),
           );
-          const wanted = new Set(input.targetIds);
-          for (const row of current) {
-            const id = String(row.id);
-            if (!wanted.has(id)) {
-              await runRows(
-                tx,
-                buildSetLink({
-                  table: target.physicalName,
-                  column: relation.fkColumn,
-                  rowId: id,
-                  targetId: null,
-                }),
-              );
-            }
-          }
-          const have = new Set(current.map((row) => String(row.id)));
-          for (const id of input.targetIds) {
-            if (!have.has(id)) {
-              await assertDraft(tx, target.physicalName, id);
-              await runRows(
-                tx,
-                buildSetLink({
-                  table: target.physicalName,
-                  column: relation.fkColumn,
-                  rowId: id,
-                  targetId: input.rowId,
-                }),
-              );
-            }
-          }
-          await sqlTag`select set_config('anygrid.table_id', ${input.tableId}, true)`.execute(
-            tx,
+          const oldIds = previous.flatMap((row) =>
+            typeof row[far] === "string" ? [row[far]] : [],
           );
-          // The other rows' keys are audited by their trigger; the row the
-          // person edited records the change of its own field as well.
+          await runRows(
+            tx,
+            buildClearLinks({
+              junction: relation.junction,
+              side: near,
+              id: input.rowId,
+            }),
+          );
+          if (input.targetIds.length > 0) {
+            const own = input.targetIds.map(() => input.rowId);
+            await runRows(
+              tx,
+              buildInsertLinks({
+                junction: relation.junction,
+                leftIds:
+                  relation.direction === "forward" ? own : input.targetIds,
+                rightIds:
+                  relation.direction === "forward" ? input.targetIds : own,
+              }),
+            );
+          }
           await tx
             .insertInto("auditEvents")
             .values({
@@ -389,63 +445,17 @@ export async function setLinks(
               action: "update",
               tableId: input.tableId,
               recordId: input.rowId,
-              oldValue: { [input.column.name]: [...have] },
+              oldValue: { [input.column.name]: oldIds },
               newValue: { [input.column.name]: [...input.targetIds] },
               reason: input.reason,
               source: input.source ?? "web",
             })
             .execute();
-          return;
+        };
+        await write();
+        if (!input.deferRule) {
+          await assertOwnRowsStayInRule(tx, engine, [input.rowId]);
         }
-        if (!relation.junction) {
-          throw new AppError("invalid_relation");
-        }
-        const near = relation.direction === "forward" ? "left_id" : "right_id";
-        const far = relation.direction === "forward" ? "right_id" : "left_id";
-        const previous = await runRows(
-          tx,
-          buildReadJunction({
-            junction: relation.junction,
-            side: near,
-            id: input.rowId,
-          }),
-        );
-        const oldIds = previous.flatMap((row) =>
-          typeof row[far] === "string" ? [row[far]] : [],
-        );
-        await runRows(
-          tx,
-          buildClearLinks({
-            junction: relation.junction,
-            side: near,
-            id: input.rowId,
-          }),
-        );
-        if (input.targetIds.length > 0) {
-          const own = input.targetIds.map(() => input.rowId);
-          await runRows(
-            tx,
-            buildInsertLinks({
-              junction: relation.junction,
-              leftIds: relation.direction === "forward" ? own : input.targetIds,
-              rightIds:
-                relation.direction === "forward" ? input.targetIds : own,
-            }),
-          );
-        }
-        await tx
-          .insertInto("auditEvents")
-          .values({
-            userId: input.userId,
-            action: "update",
-            tableId: input.tableId,
-            recordId: input.rowId,
-            oldValue: { [input.column.name]: oldIds },
-            newValue: { [input.column.name]: [...input.targetIds] },
-            reason: input.reason,
-            source: input.source ?? "web",
-          })
-          .execute();
       },
     );
   } catch (error) {
