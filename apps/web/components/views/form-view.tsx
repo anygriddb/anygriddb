@@ -34,6 +34,7 @@ import { useMemo, useState, type ReactNode, type SubmitEvent } from "react";
 import { useNarrowScreen } from "../../lib/narrow-screen";
 import { formRedirectAfterSubmit } from "./form-redirect";
 import { FormField, formFieldIds } from "./form-field";
+import { FormDate } from "./form-date";
 import { FormFiles } from "./form-files";
 import { sendFile, tableFileUrl, type SentFile } from "../../lib/send-file";
 import {
@@ -135,7 +136,6 @@ export function FieldInput({
   described?: boolean;
 }) {
   const { t } = useLingui();
-  const { locale } = useLocale();
   const ids = formFieldIds(column.name);
   const id = ids.id;
   const aria = {
@@ -361,28 +361,18 @@ export function FieldInput({
       );
     }
     case "date":
-    case "datetime": {
-      const withTime = column.fieldType === "datetime";
-      const format = dateFormatOf(column);
-      const zone = editZone(format);
+    case "datetime":
       return (
-        <DatePicker
+        <FormDate
           id={id}
-          aria-labelledby={ids.label}
-          aria-describedby={aria["aria-describedby"]}
-          isRequired={required}
-          value={toDateValue(value, withTime, zone)}
-          onChange={(next) => onChange(fromDateValue(next, withTime) ?? "")}
-          granularity={withTime ? "minute" : "day"}
-          hourCycle={
-            format.hour12 === undefined ? undefined : format.hour12 ? 12 : 24
-          }
-          hideTimeZone={!format.timeZone}
-          placeholderValue={withTime ? startingPoint(zone) : undefined}
-          locale={dateFieldLocale(locale, format.format)}
+          labelId={ids.label}
+          describedBy={aria["aria-describedby"]}
+          required={required}
+          column={column}
+          value={typeof value === "string" ? value : ""}
+          onChange={onChange}
         />
       );
-    }
     default:
       return (
         <Input

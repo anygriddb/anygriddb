@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   FileRefused,
   formFileUrl,
+  filesThatFit,
   refusalOf,
   sendFile,
   tableFileUrl,
@@ -70,5 +71,28 @@ describe("sendFile", () => {
     await expect(
       sendFile("/api/attachments?tableId=x", new File(["x"], "big.bin")),
     ).rejects.toEqual(new FileRefused("too_large"));
+  });
+});
+
+describe("filesThatFit", () => {
+  const chosen = (count: number) =>
+    Array.from({ length: count }, (_, index) => `f${index}`);
+
+  it("takes eleven files on an empty cell", () => {
+    expect(filesThatFit(chosen(11), 0)).toEqual({
+      fit: chosen(11),
+      left: 0,
+    });
+  });
+
+  it("takes what is left of the room, and counts the rest", () => {
+    expect(filesThatFit(chosen(10), 15)).toEqual({
+      fit: chosen(5),
+      left: 5,
+    });
+  });
+
+  it("takes none on a full cell", () => {
+    expect(filesThatFit(chosen(3), 20)).toEqual({ fit: [], left: 3 });
   });
 });

@@ -136,3 +136,11 @@ export function gridKeyAction(
   }
   return null;
 }
+
+/**
+ * Whether a request to edit a checkbox toggles it: Enter, F2, and a double
+ * click do. A character typed on it is not a request to change it.
+ */
+export function togglesCheckbox(typed: string | undefined): boolean {
+  return typed === undefined;
+}

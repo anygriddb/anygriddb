@@ -28,6 +28,7 @@ import { useLocale } from "../../lib/i18n";
 import { useMayRead } from "../../lib/session";
 import { useTheme, type ThemeChoice } from "../../lib/theme";
 import { trpc } from "../../lib/trpc";
+import { copyBuffer } from "../grid/copy-buffer";
 import { openAbout } from "./about-dialog";
 import { openShortcuts } from "./shortcuts-dialog";
 import { useLingui } from "@lingui/react/macro";
@@ -121,6 +122,7 @@ export function UserMenu({
           onSelect={async () => {
             await trpc.auth.logout.mutate();
             queryClient.clear();
+            copyBuffer.clear();
             void navigate({ to: "/login", replace: true });
           }}
         >

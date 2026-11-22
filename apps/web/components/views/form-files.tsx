@@ -1,12 +1,11 @@
+import { MAX_CELL_FILES } from "@anygriddb/core";
 import { Button, Spinner } from "@anygriddb/ui";
+import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { Paperclip, Plus, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { useFormatBytes } from "../../lib/format-bytes";
-import { FileRefused, type SentFile } from "../../lib/send-file";
-
-/** The most files an attachment field holds. */
-const MAX_FILES = 20;
+import { FileRefused, filesThatFit, type SentFile } from "../../lib/send-file";
 
 /**
  * An attachment field of a form: files are sent one by one as they are
@@ -51,12 +50,19 @@ export function FormFiles({
   }
 
   async function add(list: FileList) {
-    const chosen = [...list].slice(0, Math.max(0, MAX_FILES - files.length));
+    const { fit, left } = filesThatFit([...list], files.length);
     setBusy(true);
-    setProblem("");
+    setProblem(
+      left > 0
+        ? plural(left, {
+            one: `# file was not added: a cell holds ${MAX_CELL_FILES} at most`,
+            other: `# files were not added: a cell holds ${MAX_CELL_FILES} at most`,
+          })
+        : "",
+    );
     let kept = [...files];
     try {
-      for (const file of chosen) {
+      for (const file of fit) {
         try {
           kept = [...kept, await send(file)];
           onChange(kept);
@@ -118,7 +124,7 @@ export function FormFiles({
         size="sm"
         variant="outline"
         className="self-start"
-        disabled={busy || files.length >= MAX_FILES}
+        disabled={busy || files.length >= MAX_CELL_FILES}
         onClick={() => input.current?.click()}
       >
         {busy ? <Spinner /> : <Plus className="h-4 w-4" aria-hidden />}

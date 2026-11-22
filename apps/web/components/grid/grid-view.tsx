@@ -15,15 +15,18 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import { toast } from "sonner";
 import { useCopy } from "../../lib/clipboard";
 import { useErrorText } from "../../lib/errors";
 import type { Presence } from "../../lib/realtime";
 import { placeBetween, type RowPlace } from "../../lib/row-place";
+import { useSubmitGuard } from "../../lib/submit-guard";
 import { focusOutside } from "../../lib/tab-out";
 import { useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, RowItem } from "../../lib/types";
@@ -33,18 +36,19 @@ import { useTable, type CellValue } from "../table/table-context";
 import { createLabelMeasure, defaultColumnWidth } from "./column-width";
 import { GridCell } from "./grid-cell";
 import { CheckedRowsBar } from "./grid-checked-bar";
+import { copyBuffer } from "./copy-buffer";
 import {
+  copiedCells,
   isEditableColumn,
   isEditableLink,
   parseClipboard,
   planPaste,
-  toTsv,
 } from "./grid-clipboard";
 import { clearUpdates, fillDownUpdates, fillSeriesUpdates } from "./grid-edits";
 import { GridFooter } from "./grid-footer";
 import { sheetGeometry } from "./grid-geometry";
 import { GridHeader } from "./grid-header";
-import { gridKeyAction } from "./grid-keys";
+import { gridKeyAction, togglesCheckbox } from "./grid-keys";
 import { GridMenuItems } from "./grid-menu";
 import {
   GRID_LIST,
@@ -64,7 +68,13 @@ import {
 } from "./group-layout";
 import { ADD_FIELD_WIDTH, GUTTER, marginColumn } from "./margin-column";
 import { RowsError } from "./rows-error";
-import { cellId, GridSelection, type Cell, type Range } from "./selection";
+import {
+  cellId,
+  GridSelection,
+  useEditedRowId,
+  type Cell,
+  type Range,
+} from "./selection";
 import { SelectionSummaryBar } from "./selection-summary";
 import type { RowsState } from "./use-rows";
 
@@ -162,6 +172,8 @@ export function GridView(props: GridProps) {
   }, []);
   // The selection lives outside React state: see selection.ts.
   const [selection] = useState(() => new GridSelection());
+  const editedRowId = useEditedRowId(selection);
+  const addingRow = useSubmitGuard();
   const gridId = useId();
   const dragging = useRef(false);
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -362,6 +374,86 @@ export function GridView(props: GridProps) {
     return selection.subscribe(sync);
   });
 
+  // The row being edited, as last seen: it stays drawn, and its editor
+  // open, while it is out of the rows read or scrolled out of view.
+  const editedRow = useRef<{ row: RowItem; index: number; top: number } | null>(
+    null,
+  );
+  const askedAfter = useRef<number | null>(null);
+
+  /** The edit can go nowhere: nothing is written, and the text comes back. */
+  function giveUpEdit(rowId: string, reason: string) {
+    if (selection.getState().editing?.rowId !== rowId) return;
+    const text = selection.takeDraft().trim();
+    // Gone before the keyboard moves: leaving an open editor saves it.
+    // No cell stays active: the next keys would start an edit of whichever
+    // row came to that place.
+    flushSync(() =>
+      selection.update({ editing: null, anchor: null, active: null }),
+    );
+    editedRow.current = null;
+    scroller.current?.focus({ preventScroll: true });
+    toast.warning(reason, {
+      duration: Number.POSITIVE_INFINITY,
+      ...(text
+        ? {
+            description: t`What you typed: ${text}`,
+            action: { label: t`Copy`, onClick: () => copy(text) },
+          }
+        : {}),
+    });
+  }
+
+  // Rows added or removed around the edited one move it: the edit goes
+  // with it. A row no read holds any more is asked for by its id.
+  useLayoutEffect(() => {
+    const { editing } = selection.getState();
+    if (!editing) {
+      editedRow.current = null;
+      return;
+    }
+    const c = columns.findIndex((column) => column.name === editing.column);
+    if (c < 0) {
+      const { rowId } = editing;
+      queueMicrotask(() =>
+        giveUpEdit(
+          rowId,
+          t`The field you were editing is gone. Nothing was saved.`,
+        ),
+      );
+      return;
+    }
+    const index = rows.indexOfRow(editing.rowId);
+    const r = index === undefined ? -1 : positionOf(visibleRowIndexes, index);
+    if (index !== undefined && r >= 0) {
+      const row = rows.rowAt(index);
+      const place = items.findIndex(
+        (item) => item.type === "row" && item.index === index,
+      );
+      const top = rowVirtualizer.measurementsCache[place]?.start;
+      if (row) {
+        editedRow.current = {
+          row,
+          index,
+          top: top ?? editedRow.current?.top ?? 0,
+        };
+      }
+      selection.followEdit({ r, c });
+      return;
+    }
+    if (askedAfter.current === rows.version) return;
+    askedAfter.current = rows.version;
+    const { rowId } = editing;
+    void rows.rowExists(rowId).then((exists) => {
+      if (exists === false) {
+        giveUpEdit(
+          rowId,
+          t`The row you were editing was deleted. Nothing was saved.`,
+        );
+      }
+    });
+  });
+
   const scrollTo = useCallback(
     (cell: Cell) => {
       const index = visibleRowIndexes[cell.r];
@@ -470,6 +562,7 @@ export function GridView(props: GridProps) {
       return;
     }
     if (column.fieldType === "boolean") {
+      if (!togglesCheckbox(text)) return;
       void table.updateCells([
         {
           rowId: row.id,
@@ -479,7 +572,12 @@ export function GridView(props: GridProps) {
       return;
     }
     selection.update({
-      editing: { cell, text: opensPanel(column.fieldType) ? undefined : text },
+      editing: {
+        rowId: row.id,
+        column: column.name,
+        cell,
+        text: opensPanel(column.fieldType) ? undefined : text,
+      },
     });
   }
 
@@ -546,16 +644,23 @@ export function GridView(props: GridProps) {
     }
   }
 
+  /** The range's text, its stored cells kept for a paste in this tab. */
+  function copyRange(range: Range): string {
+    const { text, cells } = copiedCells(
+      selectedRows(),
+      columnsOf(range),
+      table.locale,
+      table.people,
+    );
+    copyBuffer.keep(text, cells);
+    return text;
+  }
+
   function onCopy(event: ClipboardEvent<HTMLDivElement>) {
     const range = selection.getRange();
     if (selection.getState().editing || !range) return;
     event.preventDefault();
-    const text = toTsv(
-      selectedRows(),
-      columns.slice(range.c1, range.c2 + 1),
-      table.locale,
-      table.people,
-    );
+    const text = copyRange(range);
     event.clipboardData.setData("text/plain", text);
     const cells = (range.r2 - range.r1 + 1) * (range.c2 - range.c1 + 1);
     toast.success(
@@ -569,7 +674,9 @@ export function GridView(props: GridProps) {
     const range = selection.getRange();
     if (editing || !active || !props.canEdit) return;
     event.preventDefault();
-    const matrix = parseClipboard(event.clipboardData.getData("text/plain"));
+    const pasted = event.clipboardData.getData("text/plain");
+    const matrix = parseClipboard(pasted);
+    const exact = copyBuffer.recall(pasted);
     const start = range ? { r: range.r1, c: range.c1 } : active;
     const needed = Math.max(matrix.length, range ? range.r2 - range.r1 + 1 : 1);
     const end = Math.min(
@@ -595,6 +702,8 @@ export function GridView(props: GridProps) {
     const people = [...table.people.values()];
     const plan = planPaste({
       matrix,
+      exact,
+      canInsert: !grouped && canAdd,
       rows: loadedRows,
       columns,
       startRow: 0,
@@ -610,7 +719,7 @@ export function GridView(props: GridProps) {
     for (let index = 0; index < plan.updates.length; index += 500) {
       await table.updateCells(plan.updates.slice(index, index + 500));
     }
-    if (plan.inserts.length > 0 && !grouped && canAdd) {
+    if (plan.inserts.length > 0) {
       await props.onInsertRows(plan.inserts);
     }
     if (plan.skipped > 0) {
@@ -618,6 +727,15 @@ export function GridView(props: GridProps) {
         plural(plan.skipped, {
           one: "# cell skipped: incompatible value or computed field",
           other: "# cells skipped: incompatible value or computed field",
+        }),
+      );
+    }
+    if (plan.unplaced > 0) {
+      toast.warning(
+        plural(plan.unplaced, {
+          one: "# pasted value has no place in this view and was not added",
+          other:
+            "# pasted values have no place in this view and were not added",
         }),
       );
     }
@@ -635,6 +753,11 @@ export function GridView(props: GridProps) {
     if (event.button !== 0) return;
     const { active, anchor, editing } = selection.getState();
     scroller.current?.focus({ preventScroll: true });
+    // A row kept drawn for its edit, which the view no longer holds.
+    if (cell.r < 0) {
+      selection.update({ editing: null });
+      return;
+    }
     if (event.shiftKey && active) {
       selection.update({ anchor: anchor ?? active, active: cell });
       return;
@@ -650,6 +773,7 @@ export function GridView(props: GridProps) {
   }
 
   function cellPointerEnter(cell: Cell) {
+    if (cell.r < 0) return;
     const { active, anchor, fillTo } = selection.getState();
     const range = selection.getRange();
     if (fillTo !== null && range) {
@@ -686,6 +810,7 @@ export function GridView(props: GridProps) {
     row: RowItem | undefined,
     position: number,
     columnIndex: number,
+    heldAt?: number,
   ) {
     const column = columns[columnIndex];
     if (!column) return null;
@@ -700,6 +825,7 @@ export function GridView(props: GridProps) {
         column={column}
         width={widths[columnIndex] ?? 180}
         left={columnIndex < frozenCount ? offsets[columnIndex] : undefined}
+        {...(heldAt === undefined ? {} : { heldAt })}
         margin={columnIndex === marginColumn(frozenCount)}
         height={rowHeight}
         wrap={props.rowHeight !== "short"}
@@ -708,7 +834,9 @@ export function GridView(props: GridProps) {
         onPointerDown={cellPointerDown}
         onPointerEnter={cellPointerEnter}
         onEdit={startEdit}
-        onEditDone={(cell, direction) => {
+        onEditDone={(done, direction) => {
+          // Where the row now stands, if it moved while it was edited.
+          const cell = selection.getState().editing?.cell ?? done;
           selection.update({ editing: null });
           scroller.current?.focus({ preventScroll: true });
           if (direction === "down") move({ r: cell.r + 1, c: cell.c }, false);
@@ -721,6 +849,104 @@ export function GridView(props: GridProps) {
         }}
       />
     );
+  }
+
+  /** One row of the table, at its place in the view. */
+  function drawRow(
+    index: number,
+    position: number,
+    row: RowItem | undefined,
+    line: { top: number; height: number; width: number },
+  ) {
+    // The field being edited stays drawn when it scrolls out of the columns.
+    const editedColumn =
+      row && row.id === editedRowId
+        ? columns.findIndex(
+            (column) => column.name === selection.getState().editing?.column,
+          )
+        : -1;
+    const heldColumn =
+      editedColumn >= frozenCount &&
+      !virtualColumns.some(
+        (virtual) => virtual.index + frozenCount === editedColumn,
+      );
+    return (
+      <GridDataRow
+        key={row?.id ?? `r-${index}`}
+        selection={selection}
+        row={row}
+        index={index}
+        position={position}
+        line={line}
+        rowHeight={rowHeight}
+        frozenCount={frozenCount}
+        tint={row && props.tintOf ? props.tintOf(row) : undefined}
+        checked={row ? checked.has(row.id) : false}
+        onCheck={(value) => {
+          if (!row) return;
+          setChecked((current) => {
+            const next = new Set(current);
+            if (value) next.add(row.id);
+            else next.delete(row.id);
+            return next;
+          });
+        }}
+        comments={row ? (counts[row.id] ?? 0) : 0}
+        onOpen={() => {
+          if (row) table.openRecord(row.id);
+        }}
+        slot={onMoveRows ? { list: GRID_LIST, index: index } : undefined}
+        onPlace={moveRow}
+      >
+        {Array.from({ length: frozenCount }, (_, columnIndex) =>
+          renderCell(row, position, columnIndex),
+        )}
+        <div
+          aria-hidden
+          className="shrink-0"
+          style={{
+            width:
+              (virtualColumns[0]?.start ?? GUTTER + frozenWidth) -
+              GUTTER -
+              frozenWidth,
+          }}
+        />
+        {[
+          ...virtualColumns.map((virtualColumn) =>
+            renderCell(row, position, virtualColumn.index + frozenCount),
+          ),
+          ...(heldColumn
+            ? [renderCell(row, position, editedColumn, offsets[editedColumn])]
+            : []),
+        ]}
+      </GridDataRow>
+    );
+  }
+
+  /**
+   * The row being edited, when the lines drawn leave it out: scrolled away,
+   * or moved past the rows read. Its editor stays open, and what is typed
+   * still goes to it.
+   */
+  function heldRowLine() {
+    const held = editedRowId ? editedRow.current : null;
+    if (!editedRowId || held?.row.id !== editedRowId) return [];
+    const index = rows.indexOfRow(editedRowId);
+    const drawn = virtualRows.some((virtual) => {
+      const item = items[virtual.index];
+      return item?.type === "row" && item.index === index;
+    });
+    if (drawn) return [];
+    const position =
+      index === undefined ? -1 : positionOf(visibleRowIndexes, index);
+    return [
+      drawRow(
+        index ?? held.index,
+        position,
+        index === undefined ? held.row : (rows.rowAt(index) ?? held.row),
+        { top: held.top + HEADER, height: rowHeight, width: totalWidth },
+      ),
+    ];
   }
 
   const rowsOfSelection = () =>
@@ -818,117 +1044,73 @@ export function GridView(props: GridProps) {
                 onEditField={props.onEditField}
                 onAction={props.onHeaderAction}
               />
-              {virtualRows.map((virtual) => {
-                const item = items[virtual.index];
-                if (!item) return null;
-                const line = {
-                  top: virtual.start + HEADER,
-                  height: virtual.size,
-                  width: totalWidth,
-                };
-                if (item.type === "group") {
-                  return (
-                    <GridGroupRow
-                      key={`g-${item.key}`}
-                      item={item}
-                      line={line}
-                      span={columns.length + 1}
-                      folded={collapsed.has(item.key)}
-                      onFold={() =>
-                        setCollapsed((current) => {
-                          const next = new Set(current);
-                          if (next.has(item.key)) next.delete(item.key);
-                          else next.add(item.key);
-                          return next;
-                        })
-                      }
-                      allFolded={allCollapsed}
-                      onFoldAll={() =>
-                        setCollapsed(
-                          allCollapsed ? new Set() : new Set(groupKeys),
-                        )
-                      }
-                    />
+              {[
+                ...virtualRows.map((virtual) => {
+                  const item = items[virtual.index];
+                  if (!item) return null;
+                  const line = {
+                    top: virtual.start + HEADER,
+                    height: virtual.size,
+                    width: totalWidth,
+                  };
+                  if (item.type === "group") {
+                    return (
+                      <GridGroupRow
+                        key={`g-${item.key}`}
+                        item={item}
+                        line={line}
+                        span={columns.length + 1}
+                        folded={collapsed.has(item.key)}
+                        onFold={() =>
+                          setCollapsed((current) => {
+                            const next = new Set(current);
+                            if (next.has(item.key)) next.delete(item.key);
+                            else next.add(item.key);
+                            return next;
+                          })
+                        }
+                        allFolded={allCollapsed}
+                        onFoldAll={() =>
+                          setCollapsed(
+                            allCollapsed ? new Set() : new Set(groupKeys),
+                          )
+                        }
+                      />
+                    );
+                  }
+                  if (item.type === "limit") {
+                    return (
+                      <GridLimitRow
+                        key="group-limit"
+                        line={line}
+                        span={columns.length + 1}
+                      />
+                    );
+                  }
+                  if (item.type === "add") {
+                    return (
+                      <GridAddRow
+                        key="add-row"
+                        line={line}
+                        span={columns.length + 1}
+                        sheetWidth={sheetWidth}
+                        frozenCount={frozenCount}
+                        adding={addingRow.busy}
+                        onAdd={() =>
+                          void addingRow.guard(() => props.onAddRow())
+                        }
+                      />
+                    );
+                  }
+                  return drawRow(
+                    item.index,
+                    positionOfRow(item.index),
+                    rows.rowAt(item.index),
+                    line,
                   );
-                }
-                if (item.type === "limit") {
-                  return (
-                    <GridLimitRow
-                      key="group-limit"
-                      line={line}
-                      span={columns.length + 1}
-                    />
-                  );
-                }
-                if (item.type === "add") {
-                  return (
-                    <GridAddRow
-                      key="add-row"
-                      line={line}
-                      span={columns.length + 1}
-                      sheetWidth={sheetWidth}
-                      frozenCount={frozenCount}
-                      onAdd={() => void props.onAddRow()}
-                    />
-                  );
-                }
-                const position = positionOfRow(item.index);
-                const row = rows.rowAt(item.index);
-                return (
-                  <GridDataRow
-                    key={row?.id ?? `r-${item.index}`}
-                    selection={selection}
-                    row={row}
-                    index={item.index}
-                    position={position}
-                    line={line}
-                    rowHeight={rowHeight}
-                    frozenCount={frozenCount}
-                    tint={row && props.tintOf ? props.tintOf(row) : undefined}
-                    checked={row ? checked.has(row.id) : false}
-                    onCheck={(value) => {
-                      if (!row) return;
-                      setChecked((current) => {
-                        const next = new Set(current);
-                        if (value) next.add(row.id);
-                        else next.delete(row.id);
-                        return next;
-                      });
-                    }}
-                    comments={row ? (counts[row.id] ?? 0) : 0}
-                    onOpen={() => {
-                      if (row) table.openRecord(row.id);
-                    }}
-                    slot={
-                      onMoveRows
-                        ? { list: GRID_LIST, index: item.index }
-                        : undefined
-                    }
-                    onPlace={moveRow}
-                  >
-                    {Array.from({ length: frozenCount }, (_, columnIndex) =>
-                      renderCell(row, position, columnIndex),
-                    )}
-                    <div
-                      aria-hidden
-                      className="shrink-0"
-                      style={{
-                        width:
-                          (virtualColumns[0]?.start ?? GUTTER + frozenWidth) -
-                          GUTTER -
-                          frozenWidth,
-                      }}
-                    />
-                    {virtualColumns.map((virtualColumn) =>
-                      renderCell(
-                        row,
-                        position,
-                        virtualColumn.index + frozenCount,
-                      ),
-                    )}
-                  </GridDataRow>
-                );
-              })}
+                }),
+                ...heldRowLine(),
+              ]}
               <div style={{ height: rowVirtualizer.getTotalSize() }} />
               <GridFooter
                 columns={columns}
@@ -980,14 +1162,7 @@ export function GridView(props: GridProps) {
             }
             onCopy={() => {
               const range = selection.getRange();
-              if (!range) return;
-              const text = toTsv(
-                selectedRows(),
-                columns.slice(range.c1, range.c2 + 1),
-                table.locale,
-                table.people,
-              );
-              copy(text);
+              if (range) copy(copyRange(range));
             }}
             onDuplicate={() => void props.onDuplicateRows(rowsOfSelection())}
             onDelete={() => void props.onDeleteRows(rowsOfSelection())}

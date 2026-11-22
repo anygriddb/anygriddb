@@ -15,6 +15,10 @@ msgstr " The oldest still kept is {time}."
 msgid "-1, 0, or 1, by its sign."
 msgstr "-1, 0, or 1, by its sign."
 
+#: components/views/form-date.tsx
+msgid "“{date}” does not exist."
+msgstr "“{date}” does not exist."
+
 #: components/public/public-view.tsx
 #: components/table/new-row-dialog.tsx
 #: components/views/form-view.tsx
@@ -384,6 +388,11 @@ msgstr "{0, plural, one {# more category is not shown.} other {# more categories
 msgid "{0, plural, one {# more series is not shown.} other {# more series are not shown.}}"
 msgstr "{0, plural, one {# more series is not shown.} other {# more series are not shown.}}"
 
+#. placeholder {0}: plan.unplaced
+#: components/grid/grid-view.tsx
+msgid "{0, plural, one {# pasted value has no place in this view and was not added} other {# pasted values have no place in this view and were not added}}"
+msgstr "{0, plural, one {# pasted value has no place in this view and was not added} other {# pasted values have no place in this view and were not added}}"
+
 #. placeholder {0}: report.peopleDropped
 #: lib/snapshot-report.ts
 msgid "{0, plural, one {# person without access to the base, left out of Collaborator fields} other {# people without access to the base, left out of Collaborator fields}}"
@@ -667,6 +676,10 @@ msgstr "{failed, plural, one {# row did not fit its field and was left out} othe
 msgid "{failures, plural, one {failure in the last 24 hours} other {failures in the last 24 hours}}"
 msgstr "{failures, plural, one {failure in the last 24 hours} other {failures in the last 24 hours}}"
 
+#: components/fields/cell-editor.tsx
+msgid "{field}: “{date}” does not exist. Nothing was saved."
+msgstr "{field}: “{date}” does not exist. Nothing was saved."
+
 #. placeholder {0}: preview.total
 #: components/table/import-dialog.tsx
 msgid "{file}: {0, plural, one {# row found} other {# rows found}}."
@@ -700,6 +713,11 @@ msgstr "{label} ({percent}%)"
 #: components/fields/option-color.tsx
 msgid "{label}: {color}"
 msgstr "{label}: {color}"
+
+#: components/fields/cell-editor.tsx
+#: components/views/form-files.tsx
+msgid "{left, plural, one {# file was not added: a cell holds {MAX_CELL_FILES} at most} other {# files were not added: a cell holds {MAX_CELL_FILES} at most}}"
+msgstr "{left, plural, one {# file was not added: a cell holds {MAX_CELL_FILES} at most} other {# files were not added: a cell holds {MAX_CELL_FILES} at most}}"
 
 #: components/admin/admin-overview.tsx
 msgid "{lockedCount, plural, one {locked account} other {locked accounts}}"
@@ -3426,6 +3444,7 @@ msgstr "Copied on {date}"
 
 #: components/admin/logs-tab.tsx
 #: components/grid/grid-menu.tsx
+#: components/grid/grid-view.tsx
 #: components/settings/account-settings.tsx
 #: components/settings/api-docs.tsx
 #: components/settings/base-links.tsx
@@ -11231,6 +11250,10 @@ msgstr "The false value."
 msgid "The field goes to the base's trash for {days} days with its values."
 msgstr "The field goes to the base's trash for {days} days with its values."
 
+#: components/grid/grid-view.tsx
+msgid "The field you were editing is gone. Nothing was saved."
+msgstr "The field you were editing is gone. Nothing was saved."
+
 #: components/table/delete-field-dialog.tsx
 msgid "The field, and its inverse field if any, go to the base's trash for {days} days with their links."
 msgstr "The field, and its inverse field if any, go to the base's trash for {days} days with their links."
@@ -11549,6 +11572,10 @@ msgstr "The row is added in the client's database, which checks the values. A fi
 #: components/table/automations-dialog.tsx
 msgid "The row the run is about, with its id and its fields; none when the trigger has no row."
 msgstr "The row the run is about, with its id and its fields; none when the trigger has no row."
+
+#: components/grid/grid-view.tsx
+msgid "The row you were editing was deleted. Nothing was saved."
+msgstr "The row you were editing was deleted. Nothing was saved."
 
 #: components/fields/formula-docs.ts
 msgid "The row's id."
@@ -12000,6 +12027,10 @@ msgstr "This dashboard uses tables whose source host is not allowed."
 #: lib/errors.ts
 msgid "This database engine cannot compute it"
 msgstr "This database engine cannot compute it"
+
+#: components/views/form-date.tsx
+msgid "This date is not complete."
+msgstr "This date is not complete."
 
 #: lib/errors.ts
 msgid "This delivery cannot be sent again"
@@ -13219,6 +13250,10 @@ msgstr "What was done in {base}, newest first: in the tables and fields you see,
 #: components/shell/page-crashed.tsx
 msgid "What you saved is kept. Reload the page to carry on."
 msgstr "What you saved is kept. Reload the page to carry on."
+
+#: components/grid/grid-view.tsx
+msgid "What you typed: {text}"
+msgstr "What you typed: {text}"
 
 #: components/settings/account-settings.tsx
 msgid "Whatever uses this token is refused from now on. A token is not made again: you can make another."

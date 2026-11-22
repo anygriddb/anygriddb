@@ -39,6 +39,11 @@ export function GridCell(props: {
   width: number;
   /** Offset of a frozen column; undefined for one that scrolls. */
   left: number | undefined;
+  /**
+   * Where a cell that scrolled out of the columns drawn stands in its row:
+   * it stays while it is edited, or its editor would close.
+   */
+  heldAt?: number;
   /** Whether its right rule is the ledger's margin (`marginColumn`). */
   margin: boolean;
   height: number;
@@ -53,7 +58,13 @@ export function GridCell(props: {
 }) {
   const table = useTable();
   const { row, column, position, columnIndex, selection } = props;
-  const flags = useCellFlags(selection, position, columnIndex);
+  const flags = useCellFlags(
+    selection,
+    position,
+    columnIndex,
+    row?.id,
+    column.name,
+  );
   const cell = { r: position, c: columnIndex };
   const selected = (flags & SELECTED) !== 0;
   const active = (flags & ACTIVE) !== 0;
@@ -97,7 +108,12 @@ export function GridCell(props: {
         column.kind === "number" && "justify-end",
         !editable && "text-muted-foreground",
       )}
-      style={{ width: props.width, height: props.height, left: props.left }}
+      style={{
+        width: props.width,
+        height: props.height,
+        left: props.heldAt ?? props.left,
+        ...(props.heldAt === undefined ? {} : { position: "absolute" }),
+      }}
       onPointerDown={(event) => props.onPointerDown(event, cell)}
       onPointerEnter={() => props.onPointerEnter(cell)}
       onDoubleClick={() => props.onEdit(cell)}
@@ -167,6 +183,7 @@ export function GridCell(props: {
           column={column}
           row={row}
           initialText={selection.getState().editing?.text}
+          onDraft={(read) => selection.holdDraft(read)}
           onDone={(direction) => props.onEditDone(cell, direction)}
         />
       ) : null}

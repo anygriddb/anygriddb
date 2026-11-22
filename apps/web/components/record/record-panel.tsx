@@ -38,6 +38,7 @@ import { attachmentList, cellDisplay, formatInstant } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import { useNarrowScreen } from "../../lib/narrow-screen";
 import { useSession } from "../../lib/session";
+import { useSubmitGuard } from "../../lib/submit-guard";
 import { trpc, useTRPC } from "../../lib/trpc";
 import {
   canComment,
@@ -288,6 +289,7 @@ function Comments({ rowId }: { rowId: string }) {
         queryKey: api.rows.commentCounts.pathKey(),
       }),
     ]);
+  const sending = useSubmitGuard();
   async function run(action: () => Promise<unknown>) {
     try {
       await action();
@@ -460,16 +462,18 @@ function Comments({ rowId }: { rowId: string }) {
           onSubmit={(event) => {
             event.preventDefault();
             if (!body.trim()) return;
-            void run(async () => {
-              await trpc.rows.addComment.mutate({
-                tableId: table.table.id,
-                rowId,
-                body,
-                parentId: replyTo ?? undefined,
-              });
-              setBody("");
-              setReplyTo(null);
-            });
+            void sending.guard(() =>
+              run(async () => {
+                await trpc.rows.addComment.mutate({
+                  tableId: table.table.id,
+                  rowId,
+                  body,
+                  parentId: replyTo ?? undefined,
+                });
+                setBody("");
+                setReplyTo(null);
+              }),
+            );
           }}
         >
           {replyTo ? (
@@ -503,6 +507,7 @@ function Comments({ rowId }: { rowId: string }) {
             type="submit"
             className="self-end"
             disabled={!body.trim()}
+            aria-disabled={sending.busy || undefined}
           >
             {t`Comment`}
           </Button>
