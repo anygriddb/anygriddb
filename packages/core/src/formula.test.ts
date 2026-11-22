@@ -176,3 +176,45 @@ describe("formula editing", () => {
     });
   });
 });
+
+describe("a number written in a formula", () => {
+  const literal = (source: string) => parseFormula(source, []);
+
+  it("keeps the digits a float would round", () => {
+    expect(literal("9007199254740993")).toEqual({
+      op: "num",
+      value: 9007199254740992,
+      exact: "9007199254740993",
+    });
+    expect(literal("-9007199254740993")).toEqual({
+      op: "num",
+      value: -9007199254740992,
+      exact: "-9007199254740993",
+    });
+    expect(literal("99999999999999.99")).toMatchObject({
+      exact: "99999999999999.99",
+    });
+    expect(formatFormula(literal("9007199254740993"), [])).toBe(
+      "9007199254740993",
+    );
+  });
+
+  it("adds nothing to a number a float holds", () => {
+    expect(literal("12.5")).toEqual({ op: "num", value: 12.5 });
+  });
+
+  it("still reads a formula saved without the digits", () => {
+    expect(
+      formulaExprSchema.safeParse({ op: "num", value: 9007199254740992 })
+        .success,
+    ).toBe(true);
+    expect(
+      formulaExprSchema.safeParse({ op: "num", value: 1, exact: "abc" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("refuses a number no float holds", () => {
+    expect(() => literal("1e999")).toThrow();
+  });
+});

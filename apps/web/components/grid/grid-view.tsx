@@ -22,6 +22,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { toast } from "sonner";
+import { readingIn } from "../../lib/cell-reading";
 import { useCopy } from "../../lib/clipboard";
 import { useErrorText } from "../../lib/errors";
 import type { Presence } from "../../lib/realtime";
@@ -703,6 +704,7 @@ export function GridView(props: GridProps) {
     const plan = planPaste({
       matrix,
       exact,
+      reading: readingIn(table.locale),
       canInsert: !grouped && canAdd,
       rows: loadedRows,
       columns,

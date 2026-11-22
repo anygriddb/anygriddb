@@ -193,6 +193,32 @@ describe("automations run by the queue", () => {
     await setAutomationEnabled(db, owner, saved.id, false);
   });
 
+  it("fails a step past a field's limit, naming the field and the limit", async () => {
+    const saved = await automation("Too long", { type: "row_updated" }, [
+      {
+        type: "create_record",
+        tableId: logId,
+        // Each value fits, and the two written side by side do not.
+        values: { note: "{{note}}{{note}}" },
+      },
+    ]);
+    const before = (await rowsOf(logId)).length;
+    const target = (await rowsOf(tasksId))[0];
+    if (!target) throw new Error("no row");
+    await updateRows(
+      { db, bus, log: () => undefined },
+      await scope(tasksId),
+      [{ rowId: target.id, values: { note: "n".repeat(2_001) } }],
+      meta,
+    );
+    await work();
+    expect(await rowsOf(logId)).toHaveLength(before);
+    const [run] = await stepsOf(saved.id);
+    expect(run?.status).toBe("failed");
+    expect(JSON.stringify(run?.steps)).toContain("Value too long: note: 4000");
+    await setAutomationEnabled(db, owner, saved.id, false);
+  });
+
   it("deletes a row, and a deleted row's trigger reads its values", async () => {
     const remover = await automation(
       "Remove obsolete",

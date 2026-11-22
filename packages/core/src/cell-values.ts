@@ -1,6 +1,10 @@
 import { z } from "zod";
-import { isDecimalString, numberToDecimal, toDecimalString } from "./decimal";
-import { selectOptionNames, type ColumnConfig } from "./field-config";
+import { isDecimalString, numberToDecimal } from "./decimal";
+import {
+  isTimeZone,
+  selectOptionNames,
+  type ColumnConfig,
+} from "./field-config";
 import {
   isComputedType,
   isRelationType,
@@ -8,14 +12,21 @@ import {
   type FieldType,
 } from "./field-types";
 import { AppError } from "./errors";
-import { isIsoDate } from "./iso-date";
+import { isIsoDate, isIsoDateTime } from "./iso-date";
 import { isJsonDocument, parseJsonDocument } from "./json-text";
+import {
+  type DayOrder,
+  type DecimalMark,
+  DURATION_WITH_DAYS,
+  isAmbiguousNumber,
+  readDayText,
+  readInstantText,
+  readNumberText,
+} from "./typed-text";
 
 export const ATTACHMENT_KEY = /^att[A-Za-z0-9_-]{20,80}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PHONE = /^\+?[0-9 ().-]{3,32}$/;
-const ISO_DATETIME =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})$/;
 
 /**
  * A colour as it is kept: `#rrggbb`, in lower case. One spelling, so that
@@ -115,12 +126,12 @@ export type CellValue = z.infer<typeof cellValueSchema>;
 
 export type CellColumn = { fieldType: FieldType; config: ColumnConfig };
 
-export function isIsoDateTime(value: string): boolean {
-  return (
-    ISO_DATETIME.test(value) &&
-    isIsoDate(value.slice(0, 10)) &&
-    Number.isFinite(Date.parse(value))
-  );
+/** The most characters each kind of text field holds. */
+export const CELL_TEXT_LIMITS = { text: 4_000, long_text: 20_000 } as const;
+
+/** Past 2^53 a JSON integer has already been rounded: it is not what was sent. */
+function isRoundedInteger(value: number): boolean {
+  return Number.isInteger(value) && !Number.isSafeInteger(value);
 }
 
 export function isEmail(value: string): boolean {
@@ -173,10 +184,15 @@ export function assertCellValue(column: CellColumn, value: unknown): void {
   }
   switch (fieldType) {
     case "text":
-      if (typeof value === "string" && value.length <= 4_000) return;
+      if (typeof value === "string" && value.length <= CELL_TEXT_LIMITS.text)
+        return;
       break;
     case "long_text":
-      if (typeof value === "string" && value.length <= 20_000) return;
+      if (
+        typeof value === "string" &&
+        value.length <= CELL_TEXT_LIMITS.long_text
+      )
+        return;
       break;
     case "email":
       if (typeof value === "string" && isEmail(value)) return;
@@ -197,10 +213,17 @@ export function assertCellValue(column: CellColumn, value: unknown): void {
       if (isJsonDocument(value)) return;
       break;
     case "number": {
-      // Exact as a decimal string (ADR 0023); a finite number is accepted
-      // from older clients and converted on typecast.
+      // Exact as a decimal string (ADR 0023). A finite number is accepted
+      // from older clients, unless it is an integer JSON has already rounded.
       const decimal = isDecimalString(value);
-      if (!decimal && !(typeof value === "number" && Number.isFinite(value))) {
+      if (
+        !decimal &&
+        !(
+          typeof value === "number" &&
+          Number.isFinite(value) &&
+          !isRoundedInteger(value)
+        )
+      ) {
         break;
       }
       // Under zero: a minus sign before a digit that is not zero.
@@ -294,65 +317,65 @@ const FALSE_WORDS = new Set([
   "off",
 ]);
 
-/**
- * Typed text as a plain decimal: currency signs and spaces go, and a comma
- * is a decimal separator in `1.234,5` or `12,5` and a group one otherwise.
- */
-function normalizeNumberText(raw: string): string | undefined {
-  const cleaned = raw
-    .trim()
-    .replace(/[\s\u00a0\u202f]/g, "")
-    .replace(/[€$£¥%]/g, "");
-  if (cleaned === "") {
-    return undefined;
+function parseDuration(
+  raw: string,
+  mark: DecimalMark | undefined,
+): number | undefined {
+  const value = raw.trim().replace(/\s+/g, " ");
+  const days = DURATION_WITH_DAYS.exec(value);
+  if (days) {
+    return (
+      Number(days[1]) * 86_400 +
+      Number(days[2]) * 3600 +
+      Number(days[3]) * 60 +
+      Number(days[4] ?? 0)
+    );
   }
-  const normalized =
-    /^-?\d{1,3}(?:\.\d{3})+,\d+$/.test(cleaned) || /^-?\d+,\d+$/.test(cleaned)
-      ? cleaned.replace(/\./g, "").replace(",", ".")
-      : cleaned.replace(/,/g, "");
-  return /^[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/.test(normalized)
-    ? normalized
-    : undefined;
-}
-
-function parseLooseNumber(raw: string): number | undefined {
-  const normalized = normalizeNumberText(raw);
-  if (normalized === undefined) return undefined;
-  const value = Number(normalized);
-  return Number.isFinite(value) ? value : undefined;
-}
-
-/** The exact decimal a person typed, never rounded through a float. */
-function parseLooseDecimal(raw: string): string | undefined {
-  const normalized = normalizeNumberText(raw);
-  return normalized === undefined ? undefined : toDecimalString(normalized);
-}
-
-function parseLooseDate(raw: string): string | undefined {
-  const value = raw.trim();
-  if (isIsoDate(value)) {
-    return value;
-  }
-  if (isIsoDateTime(value)) {
-    return value.slice(0, 10);
-  }
-  const european = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(value);
-  if (european) {
-    const iso = `${european[3]}-${(european[2] ?? "").padStart(2, "0")}-${(european[1] ?? "").padStart(2, "0")}`;
-    return isIsoDate(iso) ? iso : undefined;
-  }
-  return undefined;
-}
-
-function parseDuration(raw: string): number | undefined {
-  const value = raw.trim();
   const clock = /^(\d+):([0-5]\d)(?::([0-5]\d(?:\.\d+)?))?$/.exec(value);
   if (clock) {
     return (
       Number(clock[1]) * 3600 + Number(clock[2]) * 60 + Number(clock[3] ?? 0)
     );
   }
-  return parseLooseNumber(value);
+  return readFloat(value, mark);
+}
+
+function readFloat(
+  raw: string,
+  mark: DecimalMark | undefined,
+): number | undefined {
+  const decimal = readNumberText(raw, mark);
+  if (decimal === undefined) return undefined;
+  const value = Number(decimal);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+/** The order a date field reads a day written in numbers. */
+function dayOrderOf(config: ColumnConfig): DayOrder {
+  const date = (config as { date?: { format?: string } }).date;
+  return date?.format === "us" ? "month-first" : "day-first";
+}
+
+/** Zones already asked about: checking one builds a formatter. */
+const KNOWN_ZONES = new Map<string, boolean>();
+
+function isUsableZone(zone: string): boolean {
+  let known = KNOWN_ZONES.get(zone);
+  if (known === undefined) {
+    known = isTimeZone(zone);
+    if (KNOWN_ZONES.size >= 512) KNOWN_ZONES.clear();
+    KNOWN_ZONES.set(zone, known);
+  }
+  return known;
+}
+
+/** The zone a date and time field keeps: its own, else the reader's, else UTC. */
+function fieldZone(config: ColumnConfig, context: CoerceContext): string {
+  const own = (config as { date?: { timeZone?: string } }).date?.timeZone;
+  if (own && isUsableZone(own)) return own;
+  return context.timeZone && isUsableZone(context.timeZone)
+    ? context.timeZone
+    : "UTC";
 }
 
 function splitList(raw: string): string[] {
@@ -365,27 +388,80 @@ function splitList(raw: string): string[] {
 type CoerceContext = {
   /** Resolves a pasted user name or email to a user id. */
   resolveUser?: (text: string) => string | undefined;
+  /**
+   * The decimal mark of the text read: the reader's language, or what an
+   * import was told. Without it, a number that reads two ways is refused.
+   */
+  decimalMark?: DecimalMark;
+  /** Where a day alone starts, for a field with no zone of its own. */
+  timeZone?: string;
 };
 
+/** Why a value was not taken, for whoever reports it. */
+export type CellRefusal =
+  | { code: "value_too_long"; limit: number }
+  | { code: "ambiguous_number" }
+  | { code: "invalid_cell" };
+
+type CellReading = { value: CellValue } | { refused: CellRefusal };
+
+function refusalOf(
+  column: CellColumn,
+  raw: unknown,
+  candidate: CellValue | undefined,
+  context: CoerceContext,
+): CellRefusal {
+  const { fieldType } = column;
+  if (
+    (fieldType === "text" || fieldType === "long_text") &&
+    typeof candidate === "string" &&
+    candidate.length > CELL_TEXT_LIMITS[fieldType]
+  ) {
+    return { code: "value_too_long", limit: CELL_TEXT_LIMITS[fieldType] };
+  }
+  if (
+    (fieldType === "number" ||
+      fieldType === "rating" ||
+      fieldType === "duration") &&
+    context.decimalMark === undefined &&
+    typeof raw === "string" &&
+    isAmbiguousNumber(raw)
+  ) {
+    return { code: "ambiguous_number" };
+  }
+  return { code: "invalid_cell" };
+}
+
 /**
- * Turns loose input (pasted text, CSV cells, API `typecast`) into a value
- * the column accepts, or `undefined` when it cannot. Never throws.
+ * Reads loose input (pasted text, a file's cells, API `typecast`) as the
+ * value its column keeps, by the language and format declared, or says
+ * why not: nothing is cut, rounded, or completed to fit. Never throws.
  */
+export function readCellValue(
+  column: CellColumn,
+  raw: unknown,
+  context: CoerceContext = {},
+): CellReading {
+  const candidate = coerceRaw(column, raw, context);
+  if (candidate === undefined) {
+    return { refused: refusalOf(column, raw, candidate, context) };
+  }
+  try {
+    assertCellValue(column, candidate);
+    return { value: candidate };
+  } catch {
+    return { refused: refusalOf(column, raw, candidate, context) };
+  }
+}
+
+/** `readCellValue`'s value, or `undefined` when it was refused. */
 export function coerceCellValue(
   column: CellColumn,
   raw: unknown,
   context: CoerceContext = {},
 ): CellValue | undefined {
-  const candidate = coerceRaw(column, raw, context);
-  if (candidate === undefined) {
-    return undefined;
-  }
-  try {
-    assertCellValue(column, candidate);
-    return candidate;
-  } catch {
-    return undefined;
-  }
+  const reading = readCellValue(column, raw, context);
+  return "value" in reading ? reading.value : undefined;
 }
 
 function coerceRaw(
@@ -397,7 +473,12 @@ function coerceRaw(
     return null;
   }
   const { fieldType, config } = column;
+  if (typeof raw === "number" && isRoundedInteger(raw)) {
+    return undefined;
+  }
   if (Array.isArray(raw)) {
+    if (raw.some((item) => typeof item === "number" && isRoundedInteger(item)))
+      return undefined;
     // A list sent as such is the document itself.
     if (fieldType === "json") {
       return parseJsonDocument(JSON.stringify(raw));
@@ -436,9 +517,9 @@ function coerceRaw(
   }
   switch (fieldType) {
     case "text":
-      return text.replace(/\n/g, " ").slice(0, 4_000);
+      return text.replace(/\n/g, " ");
     case "long_text":
-      return text.slice(0, 20_000);
+      return text;
     case "email":
     case "url":
     case "phone":
@@ -452,14 +533,14 @@ function coerceRaw(
     case "json":
       return parseJsonDocument(trimmed);
     case "number":
-      return parseLooseDecimal(trimmed);
-    case "rating": {
-      const stars = trimmed.match(/[★⭐]/gu)?.length ?? 0;
-      const value = stars > 0 ? stars : parseLooseNumber(trimmed);
-      return value === undefined ? undefined : Math.round(value);
-    }
+      return readNumberText(trimmed, context.decimalMark);
+    case "rating":
+      // Only stars, or a number: a whole one, which the check asks.
+      return /^[★⭐]+$/u.test(trimmed)
+        ? (trimmed.match(/[★⭐]/gu)?.length ?? 0)
+        : readFloat(trimmed, context.decimalMark);
     case "duration":
-      return parseDuration(trimmed);
+      return parseDuration(trimmed, context.decimalMark);
     case "boolean": {
       const lower = trimmed.toLowerCase();
       if (TRUE_WORDS.has(lower)) return true;
@@ -467,16 +548,12 @@ function coerceRaw(
       return undefined;
     }
     case "date":
-      return parseLooseDate(trimmed);
-    case "datetime": {
-      if (isIsoDateTime(trimmed)) return trimmed;
-      const date = parseLooseDate(trimmed);
-      if (date) return `${date}T00:00:00Z`;
-      const parsed = Date.parse(trimmed);
-      return Number.isFinite(parsed)
-        ? new Date(parsed).toISOString()
-        : undefined;
-    }
+      return readDayText(trimmed, dayOrderOf(config));
+    case "datetime":
+      return readInstantText(trimmed, {
+        order: dayOrderOf(config),
+        timeZone: fieldZone(config, context),
+      });
     case "single_select": {
       const names = selectOptionNames(config);
       return (

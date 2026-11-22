@@ -2131,9 +2131,12 @@ function compileNode(
 ): Typed {
   switch (expr.op) {
     case "num": {
-      const value = numberToDecimal(expr.value) ?? "0";
+      const value = expr.exact ?? numberToDecimal(expr.value) ?? "0";
       return {
-        sql: ctx.d.numberLiteral(ctx.params.bind(expr.value), value),
+        sql: ctx.d.numberLiteral(
+          ctx.params.bind(expr.exact ?? expr.value),
+          value,
+        ),
         kind: "number",
         digits: literalDigits(value),
       };

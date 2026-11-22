@@ -5,6 +5,7 @@
  * What has no equivalent comes with a note in the report, never dropped
  * silently.
  */
+import { numberToDecimal } from "./decimal";
 import type { BaseSnapshot, SnapshotLink, SnapshotTable } from "./snapshot";
 import { MAX_SNAPSHOT_TABLES, SNAPSHOT_KIND } from "./snapshot";
 import { madeNames, type MadeNames } from "./made-names";
@@ -189,12 +190,20 @@ function textOf(value: unknown): string {
   return JSON.stringify(value);
 }
 
-const number = (value: unknown): Cell =>
-  typeof value === "number" && Number.isFinite(value) ? value : null;
+/**
+ * Airtable keeps a number as a float: past 2^53 it travels as the decimal
+ * it prints as, which a write takes where it refuses a rounded JSON integer.
+ */
+const number = (value: unknown): Cell => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return Number.isInteger(value) && !Number.isSafeInteger(value)
+    ? (numberToDecimal(value) ?? null)
+    : value;
+};
 
 const percent = (value: unknown): Cell =>
   typeof value === "number" && Number.isFinite(value)
-    ? Number((value * 100).toPrecision(15))
+    ? number(Number((value * 100).toPrecision(15)))
     : null;
 
 const day = (value: unknown): Cell =>

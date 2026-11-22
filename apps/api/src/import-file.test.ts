@@ -208,6 +208,30 @@ describe("reading an import file", () => {
     ]);
   });
 
+  it("keeps a cell one character past the limit, to refuse it on its line", async () => {
+    const over = "x".repeat(IMPORT_LIMITS.maxCell + 5_000);
+    const atLimit = "y".repeat(IMPORT_LIMITS.maxCell);
+    const { rows } = await readImport("csv", `A,B\n${over},${atLimit}\n`);
+    expect(rows[0]?.cells[0]).toHaveLength(IMPORT_LIMITS.maxCell + 1);
+    expect(rows[0]?.cells[1]).toHaveLength(IMPORT_LIMITS.maxCell);
+    const sheet = await workbookBytes([["A"], [over]]);
+    const read = await readImport("xlsx", sheet);
+    expect(read.rows[0]?.cells[0]).toHaveLength(IMPORT_LIMITS.maxCell + 1);
+    const json = JSON.stringify([{ A: over }]);
+    const parsed = await readImport("json", json);
+    expect(parsed.rows[0]?.cells[0]).toHaveLength(IMPORT_LIMITS.maxCell + 1);
+  });
+
+  it("says what the preview must ask: two readings, and the longest cell", async () => {
+    const { preview } = await readImport(
+      "csv",
+      `A,B\n"1,234",short\n"12,5",${"z".repeat(4_001)}\n`,
+    );
+    expect(preview.ambiguousNumbers).toBe(1);
+    expect(preview.longest).toEqual([5, 4_001]);
+    expect(preview.inferred[0]?.fieldType).toBe("number");
+  });
+
   it("takes larger text files than spreadsheets or JSON", () => {
     expect(maxImportBytes("csv")).toBeGreaterThan(maxImportBytes("xlsx"));
     expect(maxImportBytes("xlsx")).toBeGreaterThan(maxImportBytes("json"));

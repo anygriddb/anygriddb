@@ -10,7 +10,7 @@ import {
   legacyFiltersToGroup,
   type FilterGroup,
 } from "./filter";
-import { isIsoDateTime } from "./cell-values";
+import { isIsoDateTime } from "./iso-date";
 import { columnNameSchema } from "./names";
 import { AGGREGATE_FNS, groupSpecSchema, rowSortSchema } from "./query/read";
 

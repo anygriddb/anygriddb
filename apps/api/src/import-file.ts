@@ -14,6 +14,7 @@ import {
   FieldGuess,
   type ImportFormat,
   inferFieldType,
+  isAmbiguousNumber,
   type InferredField,
   MAX_WORKBOOK_SHEETS,
 } from "@anygriddb/core";
@@ -64,6 +65,10 @@ export type ImportPreview = {
   sample: string[][];
   total: number;
   inferred: InferredField[];
+  /** Cells whose number reads two ways until the file's mark is known. */
+  ambiguousNumbers: number;
+  /** The longest cell of each column, to say which fields it will not fit. */
+  longest: number[];
 };
 
 const EXTENSIONS: Record<string, ImportFormat> = {
@@ -98,10 +103,15 @@ export function maxImportBytes(format: ImportFormat): number {
   }
 }
 
+/**
+ * A cell is held to one character past the most a field keeps: the memory
+ * stays bounded, and a value too long is still seen as one and refused on
+ * its line instead of arriving cut.
+ */
+const KEPT_CELL = IMPORT_LIMITS.maxCell + 1;
+
 function clip(text: string): string {
-  return text.length > IMPORT_LIMITS.maxCell
-    ? text.slice(0, IMPORT_LIMITS.maxCell)
-    : text;
+  return text.length > KEPT_CELL ? text.slice(0, KEPT_CELL) : text;
 }
 
 /**
@@ -169,7 +179,7 @@ async function* textRecords(
     if (!known && format === "csv") delimiter = detectDelimiter(text);
     const created = new DelimitedReader({
       delimiter,
-      maxCell: IMPORT_LIMITS.maxCell,
+      maxCell: KEPT_CELL,
       maxCells: IMPORT_LIMITS.maxColumns + SPARE_CELLS,
     });
     reader = created;
@@ -394,6 +404,8 @@ type Found = {
   total: number;
   sample: string[][];
   delimiter?: "," | ";" | "\t";
+  ambiguousNumbers: number;
+  longest: number[];
 };
 
 function nothingFound(): Found {
@@ -403,6 +415,8 @@ function nothingFound(): Found {
     width: 0,
     total: 0,
     sample: [],
+    ambiguousNumbers: 0,
+    longest: [],
   };
 }
 
@@ -416,6 +430,12 @@ function keepRow(
   count();
   found.total += 1;
   if (found.sample.length < sampleSize) found.sample.push(cells);
+  for (const [index, cell] of cells.entries()) {
+    if (cell.length > (found.longest[index] ?? 0)) {
+      found.longest[index] = cell.length;
+    }
+    if (isAmbiguousNumber(cell)) found.ambiguousNumbers += 1;
+  }
 }
 
 /**
@@ -448,9 +468,15 @@ function scanResult(
       headers,
       sample: rows.slice(0, PREVIEW_ROWS),
       total: found.total,
+      // A column of `1,234` is a number: the preview asks what its comma is.
       inferred: headers.map((_, index) =>
-        inferFieldType(rows.map((cells) => cells[index] ?? "")),
+        inferFieldType(
+          rows.map((cells) => cells[index] ?? ""),
+          ".",
+        ),
       ),
+      ambiguousNumbers: found.ambiguousNumbers,
+      longest: headers.map((_, index) => found.longest[index] ?? 0),
     },
   };
 }

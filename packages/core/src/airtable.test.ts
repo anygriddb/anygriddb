@@ -275,3 +275,34 @@ describe("airtableToSnapshot", () => {
     );
   });
 });
+
+describe("a number past what a float keeps exact", () => {
+  it("comes as the decimal it prints as, and a small one as it is", () => {
+    const { snapshot: big } = airtableToSnapshot({
+      name: "Big",
+      tables: [
+        {
+          id: "tblBig",
+          name: "Big",
+          primaryFieldId: "fldName",
+          fields: [
+            { id: "fldName", name: "Name", type: "singleLineText" },
+            { id: "fldN", name: "N", type: "number" },
+          ],
+          views: [],
+        },
+      ] as AirtableTable[],
+      records: new Map<string, AirtableRecord[]>([
+        [
+          "tblBig",
+          [
+            { id: "rec1", fields: { fldName: "big", fldN: 1e20 } },
+            { id: "rec2", fields: { fldName: "small", fldN: 12.5 } },
+          ],
+        ],
+      ]),
+    });
+    expect(big.tables[0]?.rows?.[0]?.n).toBe("100000000000000000000");
+    expect(big.tables[0]?.rows?.[1]?.n).toBe(12.5);
+  });
+});

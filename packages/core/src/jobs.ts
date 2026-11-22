@@ -128,6 +128,8 @@ export const importJobInputSchema = z
     addOptions: z.boolean(),
     reason: reasonSchema.optional(),
     created: z.array(columnNameSchema).max(200).optional(),
+    decimalMark: z.enum([".", ","]).optional(),
+    timeZone: z.string().max(64).optional(),
   })
   .strict();
 /** An Airtable base's id, as its address or the API writes it. */

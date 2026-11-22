@@ -1,5 +1,5 @@
 import {
-  coerceCellValue,
+  readCellValue,
   type FilterGroup,
   formWindowNeverOpens,
   rowError,
@@ -26,6 +26,7 @@ import { useErrorText } from "../../lib/errors";
 import { InstanceMark } from "../brand/instance-mark";
 import { AboutButton } from "../shell/about-dialog";
 import { SortHeader } from "../sort-header";
+import { readingIn, useRefusedText } from "../../lib/cell-reading";
 import { useLocale } from "../../lib/i18n";
 import { intlLocale } from "../../lib/format";
 
@@ -104,6 +105,8 @@ function PublicForm({
   form: FormConfig;
 }) {
   const { t } = useLingui();
+  const { locale } = useLocale();
+  const refusedText = useRefusedText();
   const errorText = useErrorText();
   // A link may fill fields of the form, and hide the ones it fills; the
   // server checks the answer as if it had been typed.
@@ -166,21 +169,27 @@ function PublicForm({
         }
         continue;
       }
-      const value =
+      const reading =
         column.fieldType === "datetime" && typeof raw === "string"
-          ? formInstant(raw, editZone(dateFormatOf(column)))
-          : coerceCellValue(
+          ? { value: formInstant(raw, editZone(dateFormatOf(column))) }
+          : readCellValue(
               {
                 fieldType: column.fieldType,
                 config: column.config,
               },
               raw,
+              readingIn(locale),
             );
-      if (value === undefined) {
-        setError(t`Invalid value for ${{ field: column.label }}`);
+      if ("refused" in reading || reading.value === undefined) {
+        setError(
+          refusedText(
+            column.label,
+            "refused" in reading ? reading.refused : undefined,
+          ),
+        );
         return;
       }
-      out[column.name] = value;
+      out[column.name] = reading.value;
     }
     setBusy(true);
     try {

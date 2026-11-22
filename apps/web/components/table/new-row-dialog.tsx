@@ -1,4 +1,5 @@
-import { coerceCellValue } from "@anygriddb/core";
+import { readCellValue } from "@anygriddb/core";
+import { readingIn, useRefusedText } from "../../lib/cell-reading";
 import {
   Button,
   Dialog,
@@ -164,7 +165,8 @@ export function NewRowDialog(props: {
   onCreate: (values: Record<string, unknown>) => Promise<string | undefined>;
 }) {
   const { t } = useLingui();
-  const { people } = useTable();
+  const { people, locale } = useTable();
+  const refusedText = useRefusedText();
   const fields = newRowFields(props.columns);
   const [values, setValues] = useState<Record<string, Draft>>(() =>
     draftsOf(props.initial ?? {}),
@@ -191,18 +193,24 @@ export function NewRowDialog(props: {
         out[column.name] = [raw as string];
         continue;
       }
-      const value =
+      const reading =
         column.fieldType === "datetime" && typeof raw === "string"
-          ? formInstant(raw, editZone(dateFormatOf(column)))
-          : coerceCellValue(
+          ? { value: formInstant(raw, editZone(dateFormatOf(column))) }
+          : readCellValue(
               { fieldType: column.fieldType, config: column.config },
               raw,
+              readingIn(locale),
             );
-      if (value === undefined) {
-        toast.error(t`Invalid value for ${{ field: column.label }}`);
+      if ("refused" in reading || reading.value === undefined) {
+        toast.error(
+          refusedText(
+            column.label,
+            "refused" in reading ? reading.refused : undefined,
+          ),
+        );
         return;
       }
-      out[column.name] = value;
+      out[column.name] = reading.value;
     }
     setBusy(true);
     try {

@@ -215,6 +215,8 @@ const runImport =
         ),
         reason: input.reason,
         created: input.created,
+        ...(input.decimalMark ? { decimalMark: input.decimalMark } : {}),
+        ...(input.timeZone ? { timeZone: input.timeZone } : {}),
         resolveUser: (text) => {
           const folded = text.trim().toLowerCase();
           return people.find(

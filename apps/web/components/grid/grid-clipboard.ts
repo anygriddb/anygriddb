@@ -1,5 +1,6 @@
 import {
   coerceCellValue,
+  type DecimalMark,
   decimalSeries,
   isDecimalString,
   parseDelimited,
@@ -196,6 +197,8 @@ export function planPaste(input: {
   exact?: readonly (readonly CopiedCell[])[] | null;
   /** Whether rows past the last one may be added. */
   canInsert?: boolean;
+  /** The reader's decimal mark and time zone: what the pasted text means. */
+  reading?: { decimalMark: DecimalMark; timeZone: string };
 }): PastePlan {
   const { matrix, rows, columns, startRow, startColumn, exact } = input;
   const canInsert = input.canInsert ?? true;
@@ -233,7 +236,7 @@ export function planPaste(input: {
         coerceCellValue(
           { fieldType: column.fieldType, config: column.config },
           raw,
-          { resolveUser: input.resolveUser },
+          { resolveUser: input.resolveUser, ...input.reading },
         );
       if (value === undefined) {
         skipped += 1;

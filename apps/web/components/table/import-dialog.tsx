@@ -1,4 +1,4 @@
-import { WRITABLE_TYPES } from "@anygriddb/core";
+import { CELL_TEXT_LIMITS, WRITABLE_TYPES } from "@anygriddb/core";
 import {
   Button,
   Checkbox,
@@ -9,6 +9,7 @@ import {
   Label,
   Select,
   Spinner,
+  getLocalTimeZone,
 } from "@anygriddb/ui";
 import { FileUp } from "lucide-react";
 import { useMemo, useRef, useState, type DragEvent } from "react";
@@ -38,6 +39,10 @@ type Preview = {
   sample: string[][];
   total: number;
   inferred: Array<{ fieldType: string }>;
+  /** Cells whose number reads two ways until the file's mark is known. */
+  ambiguousNumbers: number;
+  /** The longest cell of each column. */
+  longest: number[];
 };
 
 type Started = RouterOutputs["rows"]["importCommit"];
@@ -138,6 +143,7 @@ export function ImportDialog(props: {
   const [tableName, setTableName] = useState("");
   const [upsertSource, setUpsertSource] = useState("");
   const [addOptions, setAddOptions] = useState(true);
+  const [decimalMark, setDecimalMark] = useState<"" | "." | ",">("");
   const [reason, setReason] = useState("");
   const [result, setResult] = useState<ImportReport | null>(null);
   const [running, setRunning] = useState<{
@@ -168,6 +174,18 @@ export function ImportDialog(props: {
   const mapped = choices.flatMap((choice, source) =>
     choice.target ? [{ choice, source }] : [],
   );
+  /** Mapped columns holding a value longer than their field keeps. */
+  const tooLong = mapped.filter(({ choice, source }) => {
+    const fieldType =
+      choice.target === "new"
+        ? choice.fieldType
+        : writable.find((column) => column.name === choice.target)?.fieldType;
+    const limit =
+      fieldType === "text" || fieldType === "long_text"
+        ? CELL_TEXT_LIMITS[fieldType]
+        : undefined;
+    return limit !== undefined && (preview?.longest[source] ?? 0) > limit;
+  }).length;
   const needsReason =
     target.kind === "existing" &&
     mapped.some(({ choice }) =>
@@ -183,6 +201,7 @@ export function ImportDialog(props: {
     setResult(null);
     setRunning(null);
     setUpsertSource("");
+    setDecimalMark("");
     setReason("");
     setPasted("");
   }
@@ -280,6 +299,8 @@ export function ImportDialog(props: {
         upsertSource: upsertSource === "" ? undefined : Number(upsertSource),
         addOptions,
         reason: reason.trim() || undefined,
+        decimalMark: decimalMark === "" ? undefined : decimalMark,
+        timeZone: getLocalTimeZone(),
       });
       props.onStarted?.(started);
       shown.current = started.jobId;
@@ -603,6 +624,35 @@ export function ImportDialog(props: {
                 </tbody>
               </table>
             </div>
+            {preview.ambiguousNumbers > 0 ? (
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="import-decimal">
+                  {t`What separates the decimals in this file?`}
+                </Label>
+                <Select
+                  id="import-decimal"
+                  value={decimalMark}
+                  onChange={(event) =>
+                    setDecimalMark(event.target.value as "" | "." | ",")
+                  }
+                >
+                  <option value="">{t`Not said: refuse these values`}</option>
+                  <option value=".">{t`A point: 1,234 is one thousand two hundred and thirty-four`}</option>
+                  <option value=",">{t`A comma: 1,234 is one point two three four`}</option>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {plural(preview.ambiguousNumbers, {
+                    one: "# value can be read in two ways, such as 1,234.",
+                    other: "# values can be read in two ways, such as 1,234.",
+                  })}
+                </p>
+              </div>
+            ) : null}
+            {tooLong > 0 ? (
+              <p role="status" className="text-xs text-warning">
+                {t`Some values are longer than their field holds (4,000 characters for a text, 20,000 for a long text): their rows will be refused and listed, nothing is cut.`}
+              </p>
+            ) : null}
             {target.kind === "existing" ? (
               <div className="flex flex-col gap-2">
                 <div className="flex flex-col gap-1">

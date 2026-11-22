@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  cellDisplay,
   formatAggregate,
   formatAgo,
   formatClock,
@@ -89,5 +90,17 @@ describe("formatAggregate", () => {
     expect(formatAggregate("2026-04-03", "earliest", day, "en")).toMatch(
       /^03\/04\/2026$/,
     );
+  });
+});
+
+describe("a duration of days", () => {
+  const field = {
+    fieldType: "duration",
+    config: { durationFormat: "d h:mm" },
+  } as never;
+
+  it("writes its unit in the reader's language", () => {
+    expect(cellDisplay(90_060, field, "en", new Map())).toBe("1d 1:01");
+    expect(cellDisplay(90_060, field, "fr", new Map())).toBe("1j 1:01");
   });
 });

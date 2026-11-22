@@ -136,6 +136,10 @@ export const ERRORS = {
   invalid_reason: [BAD, "Invalid reason"],
   invalid_cell: [BAD, "Invalid cell"],
   invalid_value: [BAD, "Invalid value"],
+  /** Text past its field's limit: the detail says the limit. */
+  value_too_long: [BAD, "Value too long"],
+  /** A number whose comma could be a decimal or a thousands separator. */
+  ambiguous_number: [BAD, "Ambiguous number"],
   invalid_number: [BAD, "Invalid number"],
   negative_number: [BAD, "Negative number refused"],
   invalid_link: [BAD, "Invalid link"],

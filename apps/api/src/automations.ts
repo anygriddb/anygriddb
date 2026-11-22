@@ -11,7 +11,7 @@ import {
   buildReadRows,
   cellText,
   type CellValue,
-  coerceCellValue,
+  readCellValue,
   type FilterGroup,
   effectiveTableRole,
   type EngineCatalog,
@@ -758,11 +758,18 @@ function coerceAll(
   for (const [name, template] of Object.entries(templates)) {
     const column = columns.get(name);
     if (!column) throw new AppError("unknown_column", name);
-    const coerced = coerceCellValue(column, renderTemplate(template, values), {
+    const reading = readCellValue(column, renderTemplate(template, values), {
       resolveUser,
     });
-    if (coerced === undefined) throw new AppError("invalid_value", name);
-    out[name] = coerced;
+    if ("refused" in reading) {
+      const { refused } = reading;
+      throw refused.code === "value_too_long"
+        ? new AppError("value_too_long", `${name}: ${String(refused.limit)}`)
+        : refused.code === "ambiguous_number"
+          ? new AppError("ambiguous_number", name)
+          : new AppError("invalid_value", name);
+    }
+    out[name] = reading.value;
   }
   return out;
 }

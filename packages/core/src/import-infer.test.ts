@@ -64,3 +64,13 @@ describe("FieldGuess", () => {
     expect(new FieldGuess().result().fieldType).toBe("text");
   });
 });
+
+describe("a column of numbers with commas", () => {
+  it("is a number when the file's reader will be asked what its comma is", () => {
+    expect(inferFieldType(["1,234", "5,678"], ".").fieldType).toBe("number");
+  });
+
+  it("stays a text when nobody will be asked", () => {
+    expect(inferFieldType(["1,234", "5,678"]).fieldType).toBe("text");
+  });
+});

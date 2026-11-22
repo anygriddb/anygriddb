@@ -1,11 +1,8 @@
-import {
-  coerceCellValue,
-  isEmail,
-  isHttpUrl,
-  isIsoDateTime,
-} from "./cell-values";
+import { coerceCellValue, isEmail, isHttpUrl } from "./cell-values";
 import { OPTION_COLORS, type SelectOption } from "./field-config";
 import type { WritableType } from "./field-types";
+import { isIsoDateTime } from "./iso-date";
+import type { DecimalMark } from "./typed-text";
 
 export type InferredField = {
   fieldType: WritableType;
@@ -37,6 +34,12 @@ export class FieldGuess {
   private readonly lowered = new Set<string>();
   private readonly distinct = new Set<string>();
 
+  /**
+   * `decimalMark` is for a file whose reader will be asked what its commas
+   * are: `1,234` then counts as a number. Without one, it stays a text.
+   */
+  constructor(private readonly decimalMark?: DecimalMark) {}
+
   add(raw: string): void {
     const value = raw.trim();
     if (value === "") return;
@@ -52,7 +55,9 @@ export class FieldGuess {
     }
     if (
       this.number &&
-      coerceCellValue({ fieldType: "number", ...PLAIN }, value) === undefined
+      coerceCellValue({ fieldType: "number", ...PLAIN }, value, {
+        ...(this.decimalMark ? { decimalMark: this.decimalMark } : {}),
+      }) === undefined
     ) {
       this.number = false;
     }
@@ -115,8 +120,11 @@ export class FieldGuess {
  * them. Empty cells are ignored. A short list of repeated values becomes
  * a single select with options.
  */
-export function inferFieldType(raw: readonly string[]): InferredField {
-  const guess = new FieldGuess();
+export function inferFieldType(
+  raw: readonly string[],
+  decimalMark?: DecimalMark,
+): InferredField {
+  const guess = new FieldGuess(decimalMark);
   for (const value of raw.slice(0, SAMPLE)) guess.add(value);
   return guess.result();
 }

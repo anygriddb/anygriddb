@@ -132,6 +132,8 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   invalid_reason: msg`Invalid reason`,
   invalid_cell: msg`Invalid value`,
   invalid_value: msg`Invalid value for`,
+  value_too_long: msg`Too long for its field. Most characters allowed`,
+  ambiguous_number: msg`This number reads two ways: say which decimal separator it uses`,
   invalid_number: msg`Invalid number`,
   negative_number: msg`This field takes no negative number`,
   invalid_link: msg`Invalid link`,

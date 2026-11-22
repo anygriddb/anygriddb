@@ -489,6 +489,70 @@ test.describe("a file of more rows than one batch", () => {
     await expect(notes.first()).toContainText("again");
     expect(blocked).toEqual([]);
   });
+
+  test("asks what a comma is, and refuses a number that reads two ways", async ({
+    page,
+  }) => {
+    await signUpWithTable(page, "Dora Decimals");
+    const tableId = tableOf(page);
+    await call(page, "catalog.addColumn", {
+      tableId,
+      name: "qty",
+      label: "Qty",
+      fieldType: "number",
+      config: {},
+    });
+    await page.reload();
+    const importFile = async (name: string, choice: string | null) => {
+      await page.getByRole("button", { name: "More actions" }).click();
+      await page.getByRole("menuitem", { name: "Import a file" }).click();
+      const dialog = page.getByRole("dialog", { name: "Import rows" });
+      await dialog.locator('input[type="file"]').setInputFiles({
+        name: "figures.csv",
+        mimeType: "text/csv",
+        buffer: Buffer.from(`Name,Qty\n${name},"1,234"\n${name} 2,"12,5"\n`),
+      });
+      const question = dialog.getByLabel(
+        "What separates the decimals in this file?",
+      );
+      await expect(question).toBeVisible();
+      await expect(
+        dialog.getByText("1 value can be read in two ways, such as 1,234."),
+      ).toBeVisible();
+      expect(await accessibilityViolations(page)).toEqual([]);
+      if (choice) await question.selectOption({ label: choice });
+      await dialog.getByRole("button", { name: "Import 2 rows" }).click();
+      return dialog;
+    };
+
+    const refused = await importFile("unsaid", null);
+    await expect(
+      refused.getByText("1 row added, 0 updated, 1 rejected."),
+    ).toBeVisible({ timeout: 60_000 });
+    await expect(
+      refused.getByRole("cell", { name: "2", exact: true }),
+    ).toBeVisible();
+    await expect(refused.getByText(/reads two ways/)).toBeVisible();
+    await refused
+      .getByRole("button", { name: "Close" })
+      .filter({ hasText: "Close" })
+      .click();
+
+    const told = await importFile(
+      "told",
+      "A point: 1,234 is one thousand two hundred and thirty-four",
+    );
+    await expect(
+      told.getByText("2 rows added, 0 updated, 0 rejected."),
+    ).toBeVisible({ timeout: 60_000 });
+    await told
+      .getByRole("button", { name: "Close" })
+      .filter({ hasText: "Close" })
+      .click();
+    const quantities = (await readRows(page, tableId)).map((row) => row.qty);
+    expect(quantities).toEqual(expect.arrayContaining(["12.5", "1234"]));
+    expect(quantities).not.toContain("1.234");
+  });
 });
 
 // A base kept for later, two ways. A restore point keeps it on the
@@ -1264,6 +1328,64 @@ test.describe("what is copied, pasted, and typed in the grid", () => {
     await page.keyboard.press("Enter");
     await dated;
     expect((await rowById(page, tableId, rowId)).day).toBe("2026-03-31");
+  });
+
+  test("reads what is pasted in the reader's language, or refuses it", async ({
+    page,
+  }) => {
+    await signUpWithTable(page, "Lena Language");
+    const tableId = tableOf(page);
+    for (const [name, fieldType] of [
+      ["qty", "number"],
+      ["stars", "rating"],
+    ] as const) {
+      await call(page, "catalog.addColumn", {
+        tableId,
+        name,
+        label: name,
+        fieldType,
+        config: {},
+      });
+    }
+    const rowId = await addRow(page, tableId, { name: "kept", qty: "5" });
+    await page.reload();
+    const cellOf = (column: string) =>
+      page.locator(`[role="gridcell"][data-column="${column}"]`).first();
+    const clip = (text: string) =>
+      page.evaluate((value) => navigator.clipboard.writeText(value), text);
+    await expect(cellOf("qty")).toContainText("5");
+
+    await clip("1,234");
+    await cellOf("qty").click();
+    await pasteAndSettle(page);
+    expect((await rowById(page, tableId, rowId)).qty).toBe("1234");
+
+    // What does not fit is counted, and the cell stays as it was.
+    await clip("x".repeat(4_001));
+    await cellOf("name").click();
+    await page.keyboard.press("ControlOrMeta+v");
+    await expect(page.getByText(/1 cell skipped/).first()).toBeVisible();
+    expect((await rowById(page, tableId, rowId)).name).toBe("kept");
+    await clip("x".repeat(4_000));
+    await cellOf("name").click();
+    await pasteAndSettle(page);
+    expect(String((await rowById(page, tableId, rowId)).name)).toHaveLength(
+      4_000,
+    );
+    await clip("2.5");
+    await cellOf("stars").click();
+    await page.keyboard.press("ControlOrMeta+v");
+    await expect(page.getByText(/1 cell skipped/).first()).toBeVisible();
+    expect((await rowById(page, tableId, rowId)).stars ?? null).toBeNull();
+
+    // The same characters, in French, are a decimal.
+    await page.evaluate(() => window.localStorage.setItem("ag_locale", "fr"));
+    await page.reload();
+    await expect(cellOf("qty")).toContainText("1");
+    await clip("1,234");
+    await cellOf("qty").click();
+    await pasteAndSettle(page);
+    expect((await rowById(page, tableId, rowId)).qty).toBe("1.234");
   });
 
   test("adds one row for a double click, and two for two clicks", async ({

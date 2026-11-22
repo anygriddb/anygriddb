@@ -56,8 +56,10 @@ export {
   assertCellValue,
   ATTACHMENT_KEY,
   MAX_CELL_FILES,
+  type CellRefusal,
   type CellValue,
   cellValueSchema,
+  CELL_TEXT_LIMITS,
   coerceCellValue,
   formatPlace,
   isColor,
@@ -67,7 +69,10 @@ export {
   parseColor,
   parsePlace,
   type Place,
+  readCellValue,
 } from "./cell-values";
+
+export { type DecimalMark, isAmbiguousNumber } from "./typed-text";
 
 export { jsonCellText, prettyJson } from "./json-text";
 export { sameAsSeen, sameFieldValue } from "./seen-cell";

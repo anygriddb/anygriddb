@@ -19,11 +19,19 @@ msgstr "-1, 0, or 1, by its sign."
 msgid "“{date}” does not exist."
 msgstr "“{date}” does not exist."
 
+#: lib/cell-reading.ts
+msgid "“{field}” holds at most {limit} characters"
+msgstr "“{field}” holds at most {limit} characters"
+
 #: components/public/public-view.tsx
 #: components/table/new-row-dialog.tsx
 #: components/views/form-view.tsx
 msgid "“{field}” is required"
 msgstr "“{field}” is required"
+
+#: lib/cell-reading.ts
+msgid "“{field}”: this number reads two ways. Write it without a thousands separator"
+msgstr "“{field}”: this number reads two ways. Write it without a thousands separator"
 
 #: components/views/form-files.tsx
 msgid "“{name}” could not be sent"
@@ -491,6 +499,11 @@ msgstr "{0, plural, one {# table cannot reach the client's database until the op
 #: components/shell/new-base-dialog.tsx
 msgid "{0, plural, one {# table} other {# tables}}"
 msgstr "{0, plural, one {# table} other {# tables}}"
+
+#. placeholder {0}: preview.ambiguousNumbers
+#: components/table/import-dialog.tsx
+msgid "{0, plural, one {# value can be read in two ways, such as 1,234.} other {# values can be read in two ways, such as 1,234.}}"
+msgstr "{0, plural, one {# value can be read in two ways, such as 1,234.} other {# values can be read in two ways, such as 1,234.}}"
 
 #. placeholder {0}: sync.leftOut
 #: components/admin/sources-tab.tsx
@@ -1238,6 +1251,10 @@ msgstr "A code was sent to your address. It works once, for ten minutes."
 msgid "A colour, shown with its swatch"
 msgstr "A colour, shown with its swatch"
 
+#: components/table/import-dialog.tsx
+msgid "A comma: 1,234 is one point two three four"
+msgstr "A comma: 1,234 is one point two three four"
+
 #: components/admin/notifications-tab.tsx
 msgid "A database migration failed"
 msgstr "A database migration failed"
@@ -1356,6 +1373,10 @@ msgstr "A PNG, JPEG, or WebP image of 256 KiB at most. It is drawn small, in a s
 #: components/fields/field-meta.tsx
 msgid "A point on the globe, which a map shows"
 msgstr "A point on the globe, which a map shows"
+
+#: components/table/import-dialog.tsx
+msgid "A point: 1,234 is one thousand two hundred and thirty-four"
+msgstr "A point: 1,234 is one thousand two hundred and thirty-four"
 
 #: components/views/calendar-feed.tsx
 msgid "A private address for your calendar application (Outlook, Google Calendar, Apple Calendar…). It shows what you can read of this view, from six months back to two years ahead. Keep it to yourself: whoever has it reads these rows."
@@ -5993,9 +6014,7 @@ msgid "Invalid value for"
 msgstr "Invalid value for"
 
 #: components/fields/cell-editor.tsx
-#: components/public/public-view.tsx
-#: components/table/new-row-dialog.tsx
-#: components/views/form-view.tsx
+#: lib/cell-reading.ts
 msgid "Invalid value for {field}"
 msgstr "Invalid value for {field}"
 
@@ -7751,6 +7770,10 @@ msgstr "Not locked"
 #: components/admin/health-tab.tsx
 msgid "Not measured for this file store"
 msgstr "Not measured for this file store"
+
+#: components/table/import-dialog.tsx
+msgid "Not said: refuse these values"
+msgstr "Not said: refuse these values"
 
 #: components/admin/sources-tab.tsx
 msgid "Not set"
@@ -10501,6 +10524,10 @@ msgstr "Slow"
 msgid "Slow means one second or more. Figures come from every process writing to the database, not from Prometheus."
 msgstr "Slow means one second or more. Figures come from every process writing to the database, not from Prometheus."
 
+#: components/table/import-dialog.tsx
+msgid "Some values are longer than their field holds (4,000 characters for a text, 20,000 for a long text): their rows will be refused and listed, nothing is cut."
+msgstr "Some values are longer than their field holds (4,000 characters for a text, 20,000 for a long text): their rows will be refused and listed, nothing is cut."
+
 #: components/shell/notification-items.ts
 msgid "Someone"
 msgstr "Someone"
@@ -12233,6 +12260,10 @@ msgstr "This list leaves out the address you are saving it from, and would refus
 msgid "this month"
 msgstr "this month"
 
+#: lib/errors.ts
+msgid "This number reads two ways: say which decimal separator it uses"
+msgstr "This number reads two ways: say which decimal separator it uses"
+
 #: components/shell/load-failed.tsx
 msgid "This page could not be loaded: {reason}"
 msgstr "This page could not be loaded: {reason}"
@@ -12530,6 +12561,10 @@ msgstr "Told by the file's first bytes, so renaming it does not help. Nothing ti
 #: components/table/filter-builder.tsx
 msgid "tomorrow"
 msgstr "tomorrow"
+
+#: lib/errors.ts
+msgid "Too long for its field. Most characters allowed"
+msgstr "Too long for its field. Most characters allowed"
 
 #: lib/errors.ts
 msgid "Too long for this instance. Most days allowed"
@@ -13218,6 +13253,10 @@ msgstr "What people add, change, and delete in this base's tables shows here."
 #: components/admin/security-tab.tsx
 msgid "What people may open to scripts and to anyone with a link."
 msgstr "What people may open to scripts and to anyone with a link."
+
+#: components/table/import-dialog.tsx
+msgid "What separates the decimals in this file?"
+msgstr "What separates the decimals in this file?"
 
 #: components/admin/settings-tab.tsx
 msgid "What the operator fixed in the instance's environment: it changes there, with a restart. Passwords and keys are never shown."

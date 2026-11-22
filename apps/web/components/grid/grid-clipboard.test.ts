@@ -303,3 +303,26 @@ describe("what a paste could not place", () => {
     expect(long.unplaced).toBe(0);
   });
 });
+
+describe("a paste read in the reader's language", () => {
+  const rows = [{ id: "r1" }] as never[];
+  const paste = (text: string, decimalMark?: "." | ",") =>
+    planPaste({
+      matrix: [[text]],
+      rows,
+      columns,
+      startRow: 0,
+      startColumn: 1,
+      resolveUser: () => undefined,
+      ...(decimalMark ? { reading: { decimalMark, timeZone: "UTC" } } : {}),
+    });
+
+  it("gives 1,234 the value its language writes", () => {
+    expect(paste("1,234", ".").updates[0]?.values.qty).toBe("1234");
+    expect(paste("1,234", ",").updates[0]?.values.qty).toBe("1.234");
+  });
+
+  it("counts it as skipped when nothing says what its comma is", () => {
+    expect(paste("1,234")).toMatchObject({ updates: [], skipped: 1 });
+  });
+});
