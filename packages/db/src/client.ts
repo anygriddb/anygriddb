@@ -7,6 +7,7 @@ import {
   type Transaction,
 } from "kysely";
 import pg from "pg";
+import Cursor from "pg-cursor";
 import { JsonValuesPlugin } from "./json-values.js";
 import type { DB } from "./types.generated.js";
 
@@ -79,7 +80,7 @@ export function createDb(
     client.on("error", onError);
   });
   const db = new Kysely<DB>({
-    dialect: new PostgresDialect({ pool }),
+    dialect: new PostgresDialect({ pool, cursor: Cursor }),
     plugins: [
       // Column names only: keys inside jsonb documents (audit snapshots,
       // view and field configs) are data and stay as written.
@@ -115,12 +116,37 @@ export async function runStatement<Row = Record<string, unknown>>(
   return result.rows;
 }
 
+/**
+ * The same statement, a few rows at a time, for a reader that may stop
+ * before the last: leaving the loop closes the cursor.
+ */
+export async function* streamStatement(
+  executor: Executor,
+  statement: Statement,
+  chunkSize: number,
+): AsyncGenerator<Record<string, unknown>[]> {
+  const chunks = executor
+    .withoutPlugins()
+    .getExecutor()
+    .stream<Record<string, unknown>>(
+      CompiledQuery.raw(statement.text, [...statement.values]),
+      chunkSize,
+    );
+  for await (const chunk of chunks) yield chunk.rows;
+}
+
+export type StatementStream = (
+  statement: Statement,
+  chunkSize: number,
+) => AsyncGenerator<Record<string, unknown>[]>;
+
 /** A read under a time limit, so one query cannot hold a connection. */
 export async function readWithin<T>(
   db: Database,
   timeout: string,
   body: (
     run: (statement: Statement) => Promise<Record<string, unknown>[]>,
+    stream: StatementStream,
   ) => Promise<T>,
 ): Promise<T> {
   if (!/^\d+(ms|s|min)$/.test(timeout)) throw new Error("Invalid timeout");
@@ -129,6 +155,9 @@ export async function readWithin<T>(
     // Instants add and subtract in UTC, as on every engine (ADR 0005);
     // the reader's zone applies where a formula asks for it.
     await sql.raw(`set local time zone 'UTC'`).execute(tx);
-    return body((statement) => runStatement(tx, statement));
+    return body(
+      (statement) => runStatement(tx, statement),
+      (statement, chunkSize) => streamStatement(tx, statement, chunkSize),
+    );
   });
 }

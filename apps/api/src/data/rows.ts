@@ -36,7 +36,13 @@ import {
   placeTarget,
   type WriteColumn,
 } from "@anygriddb/core";
-import { readWithin, runStatement, type Database } from "@anygriddb/db";
+import {
+  readWithin,
+  runStatement,
+  type Database,
+  type StatementStream,
+} from "@anygriddb/db";
+import { rowsBytes, type ReadBudget } from "../read-budget.js";
 import { applyControlPlaneReadSpec } from "../sources/control-plane-read-filter.js";
 import { loadEnrichmentValues } from "../sources/enrichment-values.js";
 import type { SummaryEvent } from "../queue/jobs.js";
@@ -107,6 +113,8 @@ export async function readTransaction<T>(
   engine: EngineCatalog,
   body: (
     run: (statement: ParameterizedSql) => Promise<Record<string, unknown>[]>,
+    /** On AnyGridDB's own database, where a read can stop part way. */
+    stream?: StatementStream,
   ) => Promise<T>,
 ): Promise<T> {
   const external = engine.table.external;
@@ -115,6 +123,35 @@ export async function readTransaction<T>(
     return sourcePools().read(external.sourceId, body);
   }
   return readWithin(db, READ_TIMEOUT, body);
+}
+
+/** Rows taken from the server at a time, each lot counted before the next. */
+const BUDGET_CHUNK_ROWS = 16;
+
+/**
+ * A page under what the request may hold (ADR 0110). On AnyGridDB's own
+ * database it is read a few rows at a time, and the rows past the limit
+ * never reach memory. A client's database answers whole: its rows are
+ * counted once read, before anything is built from them.
+ */
+async function pageRows(
+  statement: ParameterizedSql,
+  run: (statement: ParameterizedSql) => Promise<Record<string, unknown>[]>,
+  stream: StatementStream | undefined,
+  budget: ReadBudget | undefined,
+): Promise<Record<string, unknown>[]> {
+  if (!budget) return run(statement);
+  if (!stream) {
+    const whole = await run(statement);
+    budget.take(rowsBytes(whole));
+    return whole;
+  }
+  const rows: Record<string, unknown>[] = [];
+  for await (const chunk of stream(statement, BUDGET_CHUNK_ROWS)) {
+    budget.take(rowsBytes(chunk));
+    for (const row of chunk) rows.push(row);
+  }
+  return rows;
 }
 
 type GroupRow = {
@@ -225,7 +262,12 @@ export async function readPage(
   db: Database,
   engine: EngineCatalog,
   spec: ReadSpec,
-  options: { total: boolean; exact?: boolean; groups?: GroupsWanted },
+  options: {
+    total: boolean;
+    exact?: boolean;
+    groups?: GroupsWanted;
+    budget?: ReadBudget;
+  },
 ): Promise<{
   rows: RowRecord[];
   total: number | null;
@@ -238,12 +280,16 @@ export async function readPage(
   const starts = wanted === "starts";
   const grouped =
     wanted === "none" ? null : buildGroupCounts(engine, spec, { starts });
-  const { rows, groups } = await readTransaction(db, engine, async (run) => ({
-    rows: (await run(page)) as RowRecord[],
-    groups: grouped
-      ? groupRows(await run(grouped), spec.groupBy?.length ?? 0, starts)
-      : [],
-  }));
+  const { rows, groups } = await readTransaction(
+    db,
+    engine,
+    async (run, stream) => ({
+      rows: (await pageRows(page, run, stream, options.budget)) as RowRecord[],
+      groups: grouped
+        ? groupRows(await run(grouped), spec.groupBy?.length ?? 0, starts)
+        : [],
+    }),
+  );
   if (!options.total) {
     return { rows, total: null, totalEstimated: false, groups };
   }
@@ -350,7 +396,12 @@ async function readExternalPage(
   db: Database,
   engine: EngineCatalog,
   spec: ReadSpec,
-  options: { total: boolean; exact?: boolean; groups?: GroupsWanted },
+  options: {
+    total: boolean;
+    exact?: boolean;
+    groups?: GroupsWanted;
+    budget?: ReadBudget;
+  },
 ): Promise<{
   rows: RowRecord[];
   total: number | null;
@@ -371,12 +422,16 @@ async function readExternalPage(
   const starts = wanted === "starts";
   const grouped =
     wanted === "none" ? null : buildGroupCounts(engine, clientSpec, { starts });
-  const { rows, groups } = await readTransaction(db, engine, async (run) => ({
-    rows: (await run(page)) as RowRecord[],
-    groups: grouped
-      ? groupRows(await run(grouped), clientSpec.groupBy?.length ?? 0, starts)
-      : [],
-  }));
+  const { rows, groups } = await readTransaction(
+    db,
+    engine,
+    async (run, stream) => ({
+      rows: (await pageRows(page, run, stream, options.budget)) as RowRecord[],
+      groups: grouped
+        ? groupRows(await run(grouped), clientSpec.groupBy?.length ?? 0, starts)
+        : [],
+    }),
+  );
   const merged = await mergeControlPlane(db, engine, rows, clientSpec.fields);
   if (!options.total)
     return { rows: merged, total: null, totalEstimated: false, groups };

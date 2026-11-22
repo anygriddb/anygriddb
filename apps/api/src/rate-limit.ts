@@ -66,6 +66,17 @@ function trpcCalls(url: string): string[] {
   return decodeURIComponent(path.slice("/trpc/".length)).split(",");
 }
 
+/** More than a public page ever asks for at once. */
+const MAX_SHARE_CALLS = 10;
+
+/** Whether a request names more public-link calls than any page sends. */
+export function tooManyShareCalls(url: string): boolean {
+  return (
+    trpcCalls(url).filter((call) => call.startsWith("share.")).length >
+    MAX_SHARE_CALLS
+  );
+}
+
 /** How many of a request's calls check a credential. */
 export function credentialCalls(url: string): number {
   return trpcCalls(url).filter(checksCredential).length;
@@ -144,7 +155,7 @@ export async function registerRateLimit(app: FastifyInstance): Promise<void> {
   // One guess a request: a batch naming several credential checks would
   // count once above and try them all.
   app.addHook("onRequest", async (request, reply) => {
-    if (credentialCalls(request.url) > 1) {
+    if (credentialCalls(request.url) > 1 || tooManyShareCalls(request.url)) {
       return reply.code(400).send(publicErrorBody(400));
     }
   });

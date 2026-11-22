@@ -14,12 +14,14 @@
   },
   "dependencies": {
     "kysely": "0.29.8",
-    "pg": "8.23.1"
+    "pg": "8.23.1",
+    "pg-cursor": "2.22.1"
   },
   "devDependencies": {
     "@anygriddb/tsconfig": "workspace:*",
     "@types/node": "26.6.6",
     "@types/pg": "8.23.1",
+    "@types/pg-cursor": "2.7.2",
     "kysely-codegen": "0.20.0",
     "typescript": "6.0.3"
   }

@@ -1,0 +1,100 @@
+import { getHeapStatistics } from "node:v8";
+import { AppError } from "@anygriddb/core";
+
+/**
+ * What one request may hold of the rows it reads. A page of the grid, 100
+ * rows, fits many times over; a page of 1,000 rows of the longest cells
+ * does not, and is refused rather than built whole in memory (ADR 0110).
+ */
+export const READ_BYTES_PER_REQUEST = 64 * 1024 * 1024;
+
+/** What every request of this process may hold together. */
+export class ReadMemory {
+  private held = 0;
+
+  constructor(readonly capacity: number) {}
+
+  reserve(bytes: number): boolean {
+    if (this.held + bytes > this.capacity) return false;
+    this.held += bytes;
+    return true;
+  }
+
+  give(bytes: number): void {
+    this.held = Math.max(0, this.held - bytes);
+  }
+}
+
+/** A quarter of the heap, and never less than one request's share. */
+const processMemory = new ReadMemory(
+  Math.max(
+    READ_BYTES_PER_REQUEST,
+    Math.floor(getHeapStatistics().heap_size_limit / 4),
+  ),
+);
+
+/** One request's share. It holds what it took until the response has left. */
+export class ReadBudget {
+  private used = 0;
+  private closed = false;
+
+  constructor(
+    private readonly memory: ReadMemory = processMemory,
+    private readonly limit: number = READ_BYTES_PER_REQUEST,
+  ) {}
+
+  take(bytes: number): void {
+    // The client has gone: what is still being read has nowhere to go.
+    if (this.closed) throw new AppError("reads_busy");
+    if (this.used + bytes > this.limit) throw new AppError("page_too_large");
+    if (!this.memory.reserve(bytes)) throw new AppError("reads_busy");
+    this.used += bytes;
+  }
+
+  release(): void {
+    this.closed = true;
+    this.memory.give(this.used);
+    this.used = 0;
+  }
+}
+
+/** A budget that ends with the response it serves. */
+export function budgetFor(response: {
+  once: (event: "close", listener: () => void) => unknown;
+}): ReadBudget {
+  const budget = new ReadBudget();
+  response.once("close", () => {
+    budget.release();
+  });
+  return budget;
+}
+
+/**
+ * About what these rows weigh once written out. Walked with a stack: a JSON
+ * cell can nest deeper than a recursive walk would survive.
+ */
+export function rowsBytes(rows: readonly unknown[]): number {
+  let bytes = 0;
+  const pending: unknown[] = [...rows];
+  while (pending.length > 0) {
+    const value = pending.pop();
+    if (typeof value === "string") {
+      bytes += value.length + 2;
+    } else if (value instanceof Date) {
+      bytes += 26;
+    } else if (Buffer.isBuffer(value)) {
+      bytes += value.length;
+    } else if (Array.isArray(value)) {
+      bytes += 2 + value.length;
+      for (const item of value) pending.push(item);
+    } else if (typeof value === "object" && value !== null) {
+      for (const [key, item] of Object.entries(value)) {
+        bytes += key.length + 4;
+        pending.push(item);
+      }
+    } else {
+      bytes += 8;
+    }
+  }
+  return bytes;
+}

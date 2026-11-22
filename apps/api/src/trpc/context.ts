@@ -3,6 +3,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Bus } from "../realtime/bus.js";
 import type { TokenScope } from "../auth/tokens.js";
 import type { Env } from "../env.js";
+import type { ReadBudget } from "../read-budget.js";
 import type { FileStore } from "../files/index.js";
 import type { TlsInfo } from "../server.js";
 import type { SourceSettings } from "../sources/types.js";
@@ -23,4 +24,6 @@ export type Context = {
   tls: () => TlsInfo | null;
   /** Set when the request authenticated with an API token. */
   tokenScope?: TokenScope;
+  /** What this request may hold of the rows it reads, its calls together. */
+  readBudget?: ReadBudget;
 };
