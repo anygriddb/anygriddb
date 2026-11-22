@@ -84,8 +84,6 @@ export const catalogAccessProcedures = {
     handle(ctx, async () => {
       const { user } = await guardBase(ctx, input.baseId, "manage");
       await revokeMember(ctx.db, user.id, input);
-      // Their open sockets reconnect, and the base's channels refuse them.
-      ctx.hub.closeUser(input.userId, 4000);
       return { ok: true as const };
     }),
   ),

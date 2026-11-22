@@ -1,9 +1,18 @@
+import { randomBytes } from "node:crypto";
 import { JOB_KINDS, JOB_STATUSES } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { WebSocket } from "ws";
 import { z } from "zod";
+import type { ChannelHearing } from "./auth/access.js";
+import { websocketRefused } from "./observability.js";
 import type { Bus } from "./realtime/bus.js";
-import { CELL_TOKEN, cellLockKey, gridChannel } from "./realtime/channels.js";
+import {
+  CELL_TOKEN,
+  cellLockKey,
+  gridChannel,
+  publishRightsChanged,
+  RIGHTS_CHANNEL,
+} from "./realtime/channels.js";
 import { acquireLock } from "./realtime/locks.js";
 
 const MAX_MESSAGE_CHARS = 16_384;
@@ -20,6 +29,21 @@ export const SOCKET_OPTIONS = {
 /** How often each socket is checked and told the link is alive (ADR 0049). */
 const BEAT_MS = 25_000;
 const BEAT = JSON.stringify({ type: "beat" });
+/**
+ * What may wait for one socket to read. A page that keeps up holds a few
+ * messages at most; one that stopped is closed (1013) rather than kept in
+ * this process's memory, and reads again what it shows when it comes back.
+ */
+export const MAX_BUFFERED_BYTES = 1_048_576;
+/** One tab is one socket: this is many tabs, and refuses an account's flood. */
+export const MAX_SOCKETS_PER_ACCOUNT = 64;
+/** A page follows a few channels; a dashboard, one per table it shows. */
+export const MAX_CHANNELS_PER_SOCKET = 128;
+/** Messages of one socket waiting: all its channels asked again, and more. */
+export const MAX_QUEUED_MESSAGES = 256;
+/** "I am on this cell", as fast as someone moves, then a few a second. */
+export const PRESENCE_BURST = 20;
+const PRESENCE_PER_SECOND = 5;
 const token = z.string().regex(CELL_TOKEN);
 const cellValue = z.union([
   z.string().max(4_000),
@@ -98,16 +122,30 @@ const relayMessage = z.discriminatedUnion("type", [
 ]);
 
 type ClientMessage = z.infer<typeof clientMessage>;
+type RelayMessage = z.infer<typeof relayMessage>;
+/** A channel a socket follows. */
+type Followed = {
+  hearing: ChannelHearing;
+  /** The round of checks under way when it was last allowed. */
+  since: number;
+};
 type SocketState = {
-  channels: Set<string>;
+  channels: Map<string, Followed>;
   userId: string;
   name: string;
   /** SHA-256 of the session cookie that opened this socket. */
   sessionTokenHash: string;
   /** Messages of one socket are handled in order, one at a time. */
   queue: Promise<void>;
+  /** Messages waiting in `queue`. */
+  queued: number;
   /** Answered the last ping: the link still carries traffic. */
   alive: boolean;
+  /** What the ping under way asks to be sent back. */
+  pingToken: Buffer | null;
+  /** How many presence messages it may send now, and when that was counted. */
+  presenceTokens: number;
+  presenceAt: number;
 };
 type GridDecision = "ok" | "denied" | "enroll";
 type GridAuthorizer = (
@@ -119,6 +157,10 @@ type GridAuthorizer = (
 type SessionIdentities = (
   tokenHashes: readonly string[],
 ) => Promise<ReadonlyMap<string, string>>;
+/** For each account, the channels it may read now and what it hears of them. */
+type ChannelRights = (
+  wanted: ReadonlyMap<string, ReadonlySet<string>>,
+) => Promise<ReadonlyMap<string, ReadonlyMap<string, ChannelHearing>>>;
 
 /**
  * A session that is over is told so. One that now holds someone else's
@@ -160,10 +202,11 @@ function rawText(raw: unknown): string {
 }
 
 export function acceptRelay(payload: string): string | undefined {
-  return relayPayload(payload);
+  const message = relayed(payload);
+  return message && JSON.stringify(message);
 }
 
-function relayPayload(payload: string): string | undefined {
+function relayed(payload: string): RelayMessage | undefined {
   if (payload.length > MAX_MESSAGE_CHARS) {
     return undefined;
   }
@@ -174,7 +217,39 @@ function relayPayload(payload: string): string | undefined {
     return undefined;
   }
   const parsed = relayMessage.safeParse(json);
-  return parsed.success ? JSON.stringify(parsed.data) : undefined;
+  return parsed.success ? parsed.data : undefined;
+}
+
+/**
+ * A message as a reader under a row or field rule hears it: that something
+ * moved, never which row or which field. Their page reads again with its
+ * own rights. Undefined when there is nothing left to say.
+ */
+function withoutRowOrField(message: RelayMessage): RelayMessage | undefined {
+  switch (message.type) {
+    case "rows":
+    case "patch":
+    case "delete":
+      return {
+        type: "rows",
+        channel: message.channel,
+        op: "refresh",
+        rowIds: [],
+      };
+    case "lock":
+      return undefined;
+    case "presence":
+      return {
+        type: "presence",
+        channel: message.channel,
+        userId: message.userId,
+        name: message.name,
+        ...(message.viewId === undefined ? {} : { viewId: message.viewId }),
+        ...(message.gone === undefined ? {} : { gone: message.gone }),
+      };
+    default:
+      return message;
+  }
 }
 
 /**
@@ -186,6 +261,15 @@ export class GridHub {
   private readonly sockets = new Map<WebSocket, SocketState>();
   /** The sockets of each channel: a message goes to these, and no further. */
   private readonly subscribers = new Map<string, Set<WebSocket>>();
+  /** How many sockets each account has open on this process. */
+  private readonly perAccount = new Map<string, number>();
+  /** Counts the changes of rights heard, to catch one during a check. */
+  private rightsHeard = 0;
+  /** The last round of checks started. */
+  private round = 0;
+  private checking: Promise<void> | undefined;
+  /** Counts the checks asked for: one asked during a check makes another. */
+  private checksAsked = 0;
 
   /** Open browser sockets on this process. */
   connections(): number {
@@ -202,26 +286,45 @@ export class GridHub {
       message: string,
     ) => void,
     private readonly sessionIdentities?: SessionIdentities,
+    private readonly channelRights?: ChannelRights,
   ) {
     this.bus.onMessage((channel, payload) => {
-      const safe = relayPayload(payload);
-      if (!safe) {
+      if (channel === RIGHTS_CHANNEL) {
+        this.rightsHeard += 1;
+        void this.recheck();
         return;
       }
       // Only the channel's own sockets: a busy table does not cost the
       // tabs open on every other one.
-      for (const socket of this.subscribers.get(channel) ?? []) {
-        if (socket.readyState !== socket.OPEN) continue;
-        socket.send(safe);
+      const sockets = this.subscribers.get(channel);
+      if (!sockets) return;
+      const message = relayed(payload);
+      if (!message) {
+        return;
+      }
+      const whole = JSON.stringify(message);
+      const narrowed = withoutRowOrField(message);
+      const reduced = narrowed && JSON.stringify(narrowed);
+      for (const socket of sockets) {
+        const hearing = this.sockets
+          .get(socket)
+          ?.channels.get(channel)?.hearing;
+        const data =
+          hearing === "rows"
+            ? whole
+            : hearing === "changes"
+              ? reduced
+              : undefined;
+        if (data !== undefined) this.transmit(socket, data);
       }
     });
-    // Messages sent while the listener was down are lost: every open tab
-    // re-reads what it shows.
+    // Messages sent while the listener was down are lost, a change of
+    // rights among them: every open tab re-reads what it shows.
     this.bus.onReconnect(() => {
       for (const [socket, state] of this.sockets) {
-        if (socket.readyState !== socket.OPEN) continue;
-        for (const channel of state.channels) {
-          socket.send(
+        for (const channel of state.channels.keys()) {
+          this.transmit(
+            socket,
             JSON.stringify({
               type: "stale",
               channel: channel.slice("grid:".length),
@@ -229,7 +332,24 @@ export class GridHub {
           );
         }
       }
+      this.rightsHeard += 1;
+      void this.recheck();
     });
+  }
+
+  /**
+   * Every message to a socket goes through here: one that stopped reading
+   * is closed instead of being kept in memory without bound.
+   */
+  private transmit(socket: WebSocket, data: string): void {
+    if (socket.readyState !== socket.OPEN) return;
+    if (socket.bufferedAmount > MAX_BUFFERED_BYTES) {
+      websocketRefused("slow_reader");
+      this.log("warn", undefined, "realtime reader too slow, closed");
+      socket.close(1013, "Too slow");
+      return;
+    }
+    socket.send(data);
   }
 
   /**
@@ -244,34 +364,65 @@ export class GridHub {
     early: readonly unknown[] = [],
     sessionTokenHash = "",
   ): void {
+    const open = this.perAccount.get(userId) ?? 0;
+    if (open >= MAX_SOCKETS_PER_ACCOUNT) {
+      websocketRefused("too_many_sockets");
+      this.log("warn", undefined, "too many sockets for one account");
+      socket.close(1013, "Too many connections");
+      return;
+    }
+    this.perAccount.set(userId, open + 1);
     const state: SocketState = {
-      channels: new Set(),
+      channels: new Map(),
       userId,
       name: name.slice(0, 80),
       sessionTokenHash,
       queue: Promise.resolve(),
+      queued: 0,
       alive: true,
+      pingToken: null,
+      presenceTokens: PRESENCE_BURST,
+      presenceAt: Date.now(),
     };
     this.sockets.set(socket, state);
-    socket.on("pong", () => {
-      state.alive = true;
+    // Only the answer to the ping under way: a client that reads nothing
+    // cannot know it, however many pongs it sends unasked.
+    socket.on("pong", (data: unknown) => {
+      if (
+        state.pingToken &&
+        Buffer.isBuffer(data) &&
+        data.equals(state.pingToken)
+      ) {
+        state.alive = true;
+        state.pingToken = null;
+      }
     });
-    socket.send(JSON.stringify({ type: "hello" }));
+    this.transmit(socket, JSON.stringify({ type: "hello" }));
     // Authorization is asynchronous: without a queue, an unsubscribe sent
     // just before a subscribe could finish last and silence the channel.
     const enqueue = (task: () => Promise<void>) => {
+      state.queued += 1;
       state.queue = state.queue
         .then(task)
-        .catch((error: unknown) => this.log("error", error, "realtime failed"));
+        .catch((error: unknown) => this.log("error", error, "realtime failed"))
+        .then(() => {
+          state.queued -= 1;
+        });
     };
-    for (const raw of early) {
+    const take = (raw: unknown) => {
+      if (state.queued >= MAX_QUEUED_MESSAGES) {
+        if (socket.readyState === socket.OPEN) {
+          websocketRefused("too_many_messages");
+          this.log("warn", undefined, "realtime client sends too fast");
+          socket.close(1008, "Too many messages");
+        }
+        return;
+      }
       const text = rawText(raw);
       enqueue(() => this.onClient(socket, state, text));
-    }
-    socket.on("message", (raw: unknown) => {
-      const text = rawText(raw);
-      enqueue(() => this.onClient(socket, state, text));
-    });
+    };
+    for (const raw of early) take(raw);
+    socket.on("message", take);
     socket.on("close", () => {
       enqueue(() => this.remove(socket, state));
     });
@@ -280,8 +431,9 @@ export class GridHub {
   /**
    * One heartbeat round (ADR 0049). A socket that did not answer the last
    * ping is dead (a laptop asleep, a dropped NAT entry) and is cut, which
-   * tells the others its presence is gone. The rest are pinged, and sent a
-   * message the page can see too: a browser hides pings from it.
+   * tells the others its presence is gone. The rest are pinged, with
+   * something to send back, and sent a message the page can see too: a
+   * browser hides pings from it.
    */
   beat(): void {
     for (const [socket, state] of this.sockets) {
@@ -291,8 +443,9 @@ export class GridHub {
       }
       if (socket.readyState !== socket.OPEN) continue;
       state.alive = false;
-      socket.ping();
-      socket.send(BEAT);
+      state.pingToken = randomBytes(8);
+      socket.ping(state.pingToken);
+      this.transmit(socket, BEAT);
     }
   }
 
@@ -321,13 +474,112 @@ export class GridHub {
     return closed;
   }
 
+  /**
+   * Asks again whether each socket's session and channels still hold: at
+   * each heartbeat, for what ends with nobody saying so (an opening's hour,
+   * a change made elsewhere), and at once when a process says rights
+   * changed. Calls during a check make one more after it, not one each.
+   */
+  recheck(): Promise<void> {
+    this.checksAsked += 1;
+    if (this.checking) return this.checking;
+    this.checking = this.runChecks().finally(() => {
+      this.checking = undefined;
+    });
+    return this.checking;
+  }
+
+  private async runChecks(): Promise<void> {
+    let answered = -1;
+    while (answered !== this.checksAsked) {
+      answered = this.checksAsked;
+      try {
+        await this.endExpiredSessions();
+        await this.checkChannels();
+      } catch (error) {
+        // The next heartbeat asks again.
+        this.log("error", error, "realtime failed");
+        return;
+      }
+    }
+  }
+
+  /**
+   * One question for every socket. A channel no longer allowed is left, and
+   * its page told to read again, which is refused; a channel subscribed
+   * while this was reading has an answer of its own and is left alone.
+   */
+  private async checkChannels(): Promise<void> {
+    if (!this.channelRights) return;
+    const wanted = new Map<string, Set<string>>();
+    for (const state of this.sockets.values()) {
+      if (state.channels.size === 0) continue;
+      const channels = wanted.get(state.userId) ?? new Set<string>();
+      for (const channel of state.channels.keys()) {
+        channels.add(channel.slice("grid:".length));
+      }
+      wanted.set(state.userId, channels);
+    }
+    if (wanted.size === 0) return;
+    this.round += 1;
+    const round = this.round;
+    const rights = await this.channelRights(wanted);
+    for (const [socket, state] of this.sockets) {
+      for (const [channel, followed] of state.channels) {
+        if (followed.since >= round) continue;
+        const hearing = rights
+          .get(state.userId)
+          ?.get(channel.slice("grid:".length));
+        if (hearing) followed.hearing = hearing;
+        else this.leave(socket, state, channel);
+      }
+    }
+  }
+
+  /** The socket no longer follows this channel: the others see it go. */
+  private leave(socket: WebSocket, state: SocketState, channel: string): void {
+    state.channels.delete(channel);
+    this.unfollow(channel, socket);
+    const name = channel.slice("grid:".length);
+    this.transmit(socket, JSON.stringify({ type: "stale", channel: name }));
+    this.bus
+      .publish(
+        channel,
+        JSON.stringify({
+          type: "presence",
+          channel: name,
+          userId: state.userId,
+          name: state.name,
+          gone: true,
+        }),
+      )
+      .catch((error: unknown) => this.log("error", error, "realtime failed"));
+  }
+
+  /** What this account hears of a channel now; undefined if it may not. */
+  private async hearingOf(
+    userId: string,
+    channel: string,
+  ): Promise<ChannelHearing | undefined> {
+    if (!this.channelRights) return "rows";
+    const rights = await this.channelRights(
+      new Map([[userId, new Set([channel])]]),
+    );
+    return rights.get(userId)?.get(channel);
+  }
+
+  /** Another process's sockets are told of a closing here. */
+  private announceClosing(): void {
+    void publishRightsChanged(this.bus, (error) => {
+      this.log("error", error, "realtime failed");
+    });
+  }
+
   /** Beats every `everyMs` until the returned function stops it. */
   startHeartbeat(everyMs = BEAT_MS): () => void {
     const timer = setInterval(() => {
       this.beat();
-      this.endExpiredSessions().catch((error: unknown) => {
-        this.log("error", error, "realtime failed");
-      });
+      void this.recheck();
     }, everyMs);
     timer.unref();
     return () => {
@@ -336,18 +588,18 @@ export class GridHub {
   }
 
   /**
-   * Closes an account's sockets in this process. The app reconnects and
-   * subscribes again, so each channel is authorized afresh: after a member
-   * is removed from a base, or with 4401 once their sessions are ended.
+   * Closes an account's sockets in this process once its sessions are
+   * ended, and has the others look at theirs.
    */
-  closeUser(userId: string, code: 4000 | 4401 = 4401): number {
+  closeUser(userId: string): number {
     let closed = 0;
     for (const [socket, state] of this.sockets) {
       if (state.userId !== userId) continue;
       if (socket.readyState !== socket.OPEN) continue;
-      socket.close(code, code === 4401 ? "Unauthorized" : "Reauthorize");
+      socket.close(4401, "Unauthorized");
       closed += 1;
     }
+    this.announceClosing();
     return closed;
   }
 
@@ -364,6 +616,7 @@ export class GridHub {
       socket.close(code, code === 4401 ? "Unauthorized" : "Reauthorize");
       closed += 1;
     }
+    this.announceClosing();
     return closed;
   }
 
@@ -376,6 +629,7 @@ export class GridHub {
       socket.close(4401, "Unauthorized");
       closed += 1;
     }
+    this.announceClosing();
     return closed;
   }
 
@@ -395,8 +649,13 @@ export class GridHub {
 
   private async remove(socket: WebSocket, state: SocketState): Promise<void> {
     this.sockets.delete(socket);
-    for (const channel of state.channels) this.unfollow(channel, socket);
-    for (const channel of state.channels) {
+    const open = (this.perAccount.get(state.userId) ?? 1) - 1;
+    if (open > 0) this.perAccount.set(state.userId, open);
+    else this.perAccount.delete(state.userId);
+    for (const channel of state.channels.keys()) {
+      this.unfollow(channel, socket);
+    }
+    for (const channel of state.channels.keys()) {
       await this.bus
         .publish(
           channel,
@@ -417,16 +676,32 @@ export class GridHub {
     state: SocketState,
     raw: string,
   ): Promise<void> {
-    if (!this.sockets.has(socket)) {
+    if (!this.sockets.has(socket) || socket.readyState !== socket.OPEN) {
       return;
     }
     const parsed = parseClientMessage(raw);
     if (!parsed) {
-      socket.send(
+      this.transmit(
+        socket,
         JSON.stringify({ type: "error", message: "Invalid message" }),
       );
       return;
     }
+    // Leaving a channel asks for no right, and works with the database down.
+    if (parsed.type === "unsubscribe") {
+      const left = gridChannel(parsed.channel);
+      state.channels.delete(left);
+      this.unfollow(left, socket);
+      return;
+    }
+    // Before anything is asked of the database: this one is a hint, and
+    // the page says it again within seconds.
+    if (parsed.type === "presence" && !this.mayTellPresence(state)) {
+      return;
+    }
+    // Read before the checks: a change of rights heard after this may
+    // not be in what they answer.
+    const heardBefore = this.rightsHeard;
     if (state.sessionTokenHash && this.sessionIdentities) {
       try {
         const identity = (
@@ -451,9 +726,7 @@ export class GridHub {
       );
     } catch (error) {
       this.log("error", error, "realtime failed");
-      socket.send(
-        JSON.stringify({ type: "error", message: "Request rejected" }),
-      );
+      this.reject(socket);
       return;
     }
     if (decision !== "ok") {
@@ -462,24 +735,40 @@ export class GridHub {
         undefined,
         decision === "enroll" ? "mfa enrollment required" : "access denied",
       );
-      socket.send(
-        JSON.stringify({ type: "error", message: "Request rejected" }),
-      );
+      // Refused a read: it no longer follows the channel either. A lock
+      // asks to write, which says nothing of what it may read.
+      if (parsed.type !== "lock") {
+        const followed = gridChannel(parsed.channel);
+        if (state.channels.has(followed)) {
+          this.leave(socket, state, followed);
+        }
+      }
+      this.reject(socket);
       return;
     }
     try {
       const channel = gridChannel(parsed.channel);
       if (parsed.type === "subscribe") {
-        state.channels.add(channel);
+        if (
+          !state.channels.has(channel) &&
+          state.channels.size >= MAX_CHANNELS_PER_SOCKET
+        ) {
+          this.reject(socket);
+          return;
+        }
+        const hearing = await this.hearingOf(state.userId, parsed.channel);
+        if (!hearing) {
+          this.reject(socket);
+          return;
+        }
+        state.channels.set(channel, { hearing, since: this.round });
         this.follow(channel, socket);
-        socket.send(
+        this.transmit(
+          socket,
           JSON.stringify({ type: "subscribed", channel: parsed.channel }),
         );
-        return;
-      }
-      if (parsed.type === "unsubscribe") {
-        state.channels.delete(channel);
-        this.unfollow(channel, socket);
+        // Rights changed while this was being answered: ask again now.
+        if (heardBefore !== this.rightsHeard) void this.recheck();
         return;
       }
       if (parsed.type === "presence") {
@@ -492,7 +781,12 @@ export class GridHub {
         );
         return;
       }
-      // Every other message type returned above: this is a cell lock.
+      // Every other message type returned above: this is a cell lock. It
+      // names a row and a field, which a rule may keep from this reader.
+      if ((await this.hearingOf(state.userId, parsed.channel)) !== "rows") {
+        this.reject(socket);
+        return;
+      }
       const acquired = await acquireLock(this.db, {
         key: cellLockKey(parsed.channel, parsed.rowId, parsed.column),
         owner: state.userId,
@@ -501,9 +795,28 @@ export class GridHub {
       await this.bus.publish(channel, JSON.stringify({ ...parsed, acquired }));
     } catch (error) {
       this.log("error", error, "realtime failed");
-      socket.send(
-        JSON.stringify({ type: "error", message: "Request rejected" }),
-      );
+      this.reject(socket);
     }
+  }
+
+  private reject(socket: WebSocket): void {
+    this.transmit(
+      socket,
+      JSON.stringify({ type: "error", message: "Request rejected" }),
+    );
+  }
+
+  /** A burst as someone moves across cells, then a few a second. */
+  private mayTellPresence(state: SocketState): boolean {
+    const now = Date.now();
+    state.presenceTokens = Math.min(
+      PRESENCE_BURST,
+      state.presenceTokens +
+        ((now - state.presenceAt) / 1000) * PRESENCE_PER_SECOND,
+    );
+    state.presenceAt = now;
+    if (state.presenceTokens < 1) return false;
+    state.presenceTokens -= 1;
+    return true;
   }
 }

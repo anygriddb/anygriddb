@@ -25,6 +25,14 @@ export function cellLockKey(
 
 export type RowsOp = "insert" | "update" | "delete" | "refresh";
 
+/**
+ * Says that someone's rights may have changed. It names no one: each
+ * process asks again what each of its sockets may hear, in one question.
+ * Never a grid channel, which all start with `grid:`.
+ */
+export const RIGHTS_CHANNEL = "rights";
+const RIGHTS_CHANGED = JSON.stringify({ type: "rights" });
+
 type Publisher = {
   publish: (channel: string, message: string) => Promise<unknown>;
 };
@@ -52,6 +60,18 @@ export async function publishRows(
         }),
       );
     }
+  } catch (error) {
+    onError(error);
+  }
+}
+
+/** After a change of who may read what is committed, on every process. */
+export async function publishRightsChanged(
+  bus: Publisher,
+  onError: (error: unknown) => void,
+): Promise<void> {
+  try {
+    await bus.publish(RIGHTS_CHANNEL, RIGHTS_CHANGED);
   } catch (error) {
     onError(error);
   }
