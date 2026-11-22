@@ -8,11 +8,60 @@ first.
 
 ## Unreleased
 
-**Before your next restore:** `scripts/restore.sh` now needs room for a second
-copy of the database and the files while it runs, and says so before changing
-anything; `--in-place` replaces the data directly when the disk cannot hold
-both. On a stack that runs an object store, a backup without that store's
-files is refused unless you pass `--keep-store-files`.
+## 0.4.1 - 2026-11-22
+
+**Before upgrading, check what applies to you:**
+
+- **MCP clients:** a request that carries a JSON-RPC batch now answers 400.
+  Send one message a request.
+- **Files through the API:** a file is served only while a cell of a live row
+  holds it. Attach a file before downloading it. One taken out of its cell, or
+  whose row is in the trash, answers 404 to everyone until it is put back.
+- **Restores:** `scripts/restore.sh` now needs room for a second copy of the
+  database and the files while it runs, and says so before changing anything;
+  `--in-place` replaces the data directly when the disk cannot hold both. On a
+  stack that runs an object store, a backup without that store's files is
+  refused unless you pass `--keep-store-files`.
+- **Scripts:** the operations scripts read `.env` as Compose does, so a
+  variable set in the shell now wins over the file.
+- **Long formulas:** a text a formula computes past 100,000 characters now
+  reads as an error in its cell.
+
+The first start builds an index for each file field, beside the writes. Until
+it is done, people without field or row rules keep their previous access to
+files. A failure is logged as `file index failed` and tried again at the next
+start.
+
+### Corrections to the notes of 0.4.0
+
+- 0.4.0 said a write outside a row rule "changes nothing". That was not true of
+  an import, which could add rows outside its author's rule, or of a creation
+  whose link was refused, which left its row behind. Both are closed here.
+  **If people with row rules imported files or created linked rows on 0.4.0 or
+  earlier, check those tables for rows outside their rule.**
+- 0.4.0 said its read limit held "for every way of reading". It did not cover a
+  row's history, rows read by id, group keys, calendar feeds, or the escaping a
+  response adds. It does now.
+
+### Security
+
+- An import now writes under its author's row rule and refuses a line outside
+  it on its number, on AnyGridDB's own tables and on a client's. An import by
+  key therefore works under a rule instead of being refused whole.
+- A view, a widget, and a field's settings no longer tell someone what they
+  say of a field hidden from them. A public link gets only the settings that
+  draw its values, without a formula's source or its thresholds.
+- API tokens can no longer list the account's tokens, and a token limited to
+  some bases or to reading no longer restarts a job that makes a base.
+- The file of a finished job follows its reader's present rights. An account's
+  export stays with an administrator or the person it is about. A table's
+  export stops being served when its author's field or row rules change;
+  exporting again gives a current file.
+- A file's details are given only for a file of the table read, and a list can
+  no longer be converted into a file field.
+- A page is recognised past comments, prologues and UTF-16, and a file's
+  extension past trailing dots and spaces, where an administrator refuses them.
+- The public API answers not found for a base in the trash.
 
 ### Fixed
 
@@ -34,8 +83,25 @@ files is refused unless you pass `--keep-store-files`.
 - `scripts/install.sh` moves quoted and `export` values as Compose reads
   them, never draws a new key for a variable `.env` names, and changes nothing
   when the password would not open the running stack's database.
+- One request can no longer end the process through a row's history, a page of
+  escaped characters, a long computed text, or a snapshot past its limits.
+- A snapshot past 100 tables is refused before anything is written, with a
+  message that says so.
+- An upload that stops sending is closed after 15 seconds, and one account or
+  public form can no longer take every upload slot.
+- A spreadsheet's temporary files are removed with its parser, and what a
+  stopped process left is purged at the next start.
+- A person's limit of five active jobs holds under simultaneous requests.
+- A body nested past any real input is refused before it is validated, and
+  `reads_busy` answers 503 on the app's API, as it does on REST.
+- `REPT` reaches its documented 10,000 characters, and says so past them
+  instead of cutting at 1,000 repetitions.
+- The MCP endpoint sends its rate limit headers and bounds each call.
 
 ## 0.4.0 - 2026-11-22
+
+_Two statements below claimed more than this version did: see the corrections
+in the notes of 0.4.1._
 
 **Before upgrading, if you use SAML:** a first sign-in no longer reaches an
 existing account by its address. If your identity provider verifies
