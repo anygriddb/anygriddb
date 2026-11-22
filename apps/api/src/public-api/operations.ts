@@ -483,7 +483,7 @@ export async function listRecords(
       timeZone: safeTimeZone(query.data.timeZone),
       me: rulesOwner(actor.user.id),
     },
-    { total: true },
+    { total: true, budget: actor.readBudget },
   );
   await enrichAttachments(
     deps.db,

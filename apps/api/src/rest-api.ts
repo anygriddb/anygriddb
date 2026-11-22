@@ -9,6 +9,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { requestActor } from "./auth/access.js";
 import { SESSION_COOKIE } from "./auth/session.js";
+import { budgetFor } from "./read-budget.js";
 import type { Bus } from "./realtime/bus.js";
 import {
   type Actor,
@@ -79,7 +80,7 @@ async function run(
         .code(401)
         .send(errorBody(publicError(new AppError("unauthenticated"))));
     }
-    result = await body(actor);
+    result = await body({ ...actor, readBudget: budgetFor(reply.raw) });
   } catch (error) {
     const { status, body: failed } = failure(error);
     if (status >= 500) request.log.error({ err: error }, "api request failed");

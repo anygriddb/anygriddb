@@ -183,7 +183,7 @@ export const shareRouter = t.router({
             limit: input.limit,
             timeZone: safeTimeZone(input.timeZone),
           },
-          { total: true },
+          { total: true, budget: ctx.readBudget },
         );
         return {
           rows: publicRows(page.rows, fields, engine.table.columns),
@@ -285,7 +285,7 @@ export const shareRouter = t.router({
             limit: input.limit,
             timeZone: safeTimeZone(input.timeZone),
           },
-          { total: true },
+          { total: true, budget: ctx.readBudget },
         );
         return {
           rows: publicRows(

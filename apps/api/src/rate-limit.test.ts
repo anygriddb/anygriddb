@@ -6,6 +6,7 @@ import {
   RATE_LIMITS,
   rateBucket,
   registerRateLimit,
+  tooManyShareCalls,
 } from "./rate-limit.js";
 
 describe("rateBucket", () => {
@@ -97,6 +98,21 @@ describe("buildFile", () => {
     expect(buildFile("GET", "/api/attachments/attabc")).toBe(false);
     expect(buildFile("GET", "/assetsx/index.js")).toBe(false);
     expect(buildFile("GET", "/")).toBe(false);
+  });
+});
+
+describe("tooManyShareCalls", () => {
+  const batch = (count: number) =>
+    `/trpc/${Array.from({ length: count }, () => "share.rows").join(",")}?batch=1`;
+
+  it("lets a public page send what it needs", () => {
+    expect(tooManyShareCalls(batch(10))).toBe(false);
+    expect(tooManyShareCalls("/trpc/rows.read,rows.read?batch=1")).toBe(false);
+  });
+
+  it("refuses a request that names more than any page does", () => {
+    expect(tooManyShareCalls(batch(11))).toBe(true);
+    expect(tooManyShareCalls(batch(100))).toBe(true);
   });
 });
 

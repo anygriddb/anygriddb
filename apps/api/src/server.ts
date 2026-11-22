@@ -1,4 +1,5 @@
 import { registerActingRequests } from "./acting-requests.js";
+import { budgetFor } from "./read-budget.js";
 import cookie from "@fastify/cookie";
 import websocket from "@fastify/websocket";
 import { migrationNames, type Database } from "@anygriddb/db";
@@ -540,6 +541,7 @@ export async function createApp(deps: {
         bus: deps.bus,
         req,
         res,
+        readBudget: budgetFor(res.raw),
         env: deps.env,
         files: deps.files,
         hub,

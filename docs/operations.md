@@ -19,6 +19,7 @@ here was tried on a stack of its own before it was written down.
 | Provision accounts (SCIM)                | [Provisioning with SCIM](#provisioning-with-scim)                                         |
 | Script Administration                    | [The administration API](#the-administration-api)                                         |
 | Run several API processes                | [Several API processes](#several-api-processes)                                           |
+| Size memory for large reads              | [How much a read may hold](#how-much-a-read-may-hold)                                     |
 | Ship logs / metrics                      | [Shipping logs](#shipping-logs-to-a-collector), [Metrics and traces](#metrics-and-traces) |
 | Send sign-in events to a collector       | [Sign-in events to a collector](#sign-in-events-to-a-collector)                           |
 | Notify when something fails              | [Notifications](integrations/notifications.md)                                            |
@@ -852,6 +853,18 @@ process that can serve them. `/health` only says the process is up.
 See [Health](integrations/health.md).
 
 Helm charts and multi-region active-active stay outside this repository.
+
+## How much a read may hold
+
+One request holds at most 64 MiB of rows, all its calls together, and one
+process holds at most a quarter of its heap for all of them (ADR 0110).
+
+- Past the first, the read answers `page_too_large` (400): ask for fewer rows
+  or fields. The app's own pages of 100 rows are far below it.
+- Past the second, it answers `reads_busy` (503): try again in a moment. If it
+  comes often, give the container more memory or add a process.
+
+Exports, snapshots and automations run in the background and are not counted.
 
 ## Recovery objectives (RPO / RTO)
 

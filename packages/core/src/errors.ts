@@ -45,6 +45,8 @@ export const ERRORS = {
   invitation_domain_not_allowed: [403, "Invitation domain not allowed"],
   instance_maintenance: [503, "Instance under maintenance"],
   uploads_busy: [503, "Too many uploads at once"],
+  reads_busy: [503, "Too many large reads at once"],
+  page_too_large: [BAD, "This page is too large: ask for fewer rows or fields"],
   unknown_account: [404, "Unknown account"],
   account_already_exists: [409, "Account already exists"],
   invalid_account: [BAD, "Invalid account"],

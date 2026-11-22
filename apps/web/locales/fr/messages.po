@@ -12185,6 +12185,10 @@ msgstr "Cette page n’a pas pu être chargée : {reason}"
 msgid "This page could not be loaded. Check your connection, then try again."
 msgstr "Cette page n’a pas pu être chargée. Vérifiez votre connexion, puis réessayez."
 
+#: lib/errors.ts
+msgid "This page holds too much to read at once. Show fewer rows or fields."
+msgstr "Cette page contient trop de données pour être lue d’un seul coup. Affichez moins de lignes ou de champs."
+
 #: components/admin/admin-shell.tsx
 msgid "This page is for instance administrators."
 msgstr "Cette page est réservée aux administrateurs de l’instance."
@@ -12504,6 +12508,10 @@ msgstr "Trop de destinataires (500 au plus par envoi)"
 #: lib/errors.ts
 msgid "Too many rows (100,000 at most)"
 msgstr "Trop de lignes (100 000 au plus)"
+
+#: lib/errors.ts
+msgid "Too much is being read right now. Try again in a moment."
+msgstr "Trop de données sont en cours de lecture. Réessayez dans un instant."
 
 #: components/settings/api-docs.tsx
 msgid "Tools: list_bases, list_tables, get_openapi, list_records, get_record, create_records, update_records, delete_records."

@@ -3,6 +3,7 @@ import type { Database } from "@anygriddb/db";
 import type { Bus } from "../realtime/bus.js";
 import type { SessionUser } from "../auth/session.js";
 import type { TokenScope } from "../auth/tokens.js";
+import type { ReadBudget } from "../read-budget.js";
 
 export const MAX_RECORDS = 100;
 
@@ -18,6 +19,8 @@ export type Actor = {
   user: SessionUser;
   bindings: Binding[];
   scope?: TokenScope;
+  /** What this request may hold of the rows it reads (ADR 0110). */
+  readBudget?: ReadBudget;
 };
 
 export class HttpError extends Error {

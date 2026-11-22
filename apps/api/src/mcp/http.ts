@@ -10,6 +10,7 @@ import { AppError, publicError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { budgetFor } from "../read-budget.js";
 import { requestActor } from "../auth/access.js";
 import type { Actor, PublicApiDeps } from "../public-api/index.js";
 import type { Bus } from "../realtime/bus.js";
@@ -76,7 +77,10 @@ export function registerMcp(app: FastifyInstance, deps: Deps): void {
         .send(errorBody(new AppError("unauthenticated")));
     }
 
-    const server = createAnyGridMcpServer(shared, actor);
+    const server = createAnyGridMcpServer(shared, {
+      ...actor,
+      readBudget: budgetFor(reply.raw),
+    });
     const transport = new NodeStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       // The tools answer once, with no progress to stream.

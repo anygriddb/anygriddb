@@ -255,6 +255,7 @@ export const rowsRouter = t.router({
         total: input.withTotal,
         exact: input.exactTotal,
         groups: input.withGroups,
+        budget: ctx.readBudget,
       });
       return {
         rows: await withSignatures(ctx, engine, page.rows),

@@ -3,6 +3,7 @@ export {
   POOL_WAIT_MS,
   readWithin,
   runStatement,
+  type StatementStream,
   type Database,
   type Executor,
   type Tx,
