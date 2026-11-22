@@ -12,36 +12,44 @@ import {
   readerColumnConfig,
   selectOptionNames,
 } from "@anygriddb/core";
-import { columnConfig, sortColumns, type CatalogRows } from "../data/engine.js";
+import {
+  columnConfig,
+  lookupCatalog,
+  sortColumns,
+  type CatalogLookup,
+  type CatalogRows,
+} from "../data/engine.js";
 import type { Context } from "./context.js";
 
 /** Public shape of a table's columns, with the kind each one reads as. */
-export function publicColumns(engine: EngineCatalog, rows: CatalogRows) {
+export function publicColumns(
+  engine: EngineCatalog,
+  rows: CatalogRows,
+  lookup: CatalogLookup = lookupCatalog(rows),
+) {
   const kinds = new Map(
     describeColumns(engine).map((column) => [column.name, column]),
   );
   const access = engine.access;
   // A field the reader may not see is left out, as if it did not exist.
   const own = sortColumns(
-    rows.columns.filter(
-      (column) =>
-        column.tableId === engine.table.id &&
-        !access?.hidden(engine.table.id, column.name),
+    (lookup.columnsOf.get(engine.table.id) ?? []).filter(
+      (column) => !access?.hidden(engine.table.id, column.name),
     ),
   );
+  const engineById = new Map(engine.table.columns.map((c) => [c.id, c]));
+  const engineByName = new Map(engine.table.columns.map((c) => [c.name, c]));
   const refs = own.map((column) => ({
     name: column.name,
     label: column.label,
   }));
-  const tableRow = rows.tables.find((table) => table.id === engine.table.id);
+  const tableRow = lookup.tables.get(engine.table.id);
   /**
    * A client's inverse link writes the other table's foreign key: it takes
    * changes when that table takes edits and its key may be written.
    */
   const inverseWritable = (name: string): boolean => {
-    const relation = engine.table.columns.find(
-      (item) => item.name === name,
-    )?.relation;
+    const relation = engineByName.get(name)?.relation;
     if (
       relation?.direction !== "inverse" ||
       relation.kind !== "one_to_many" ||
@@ -49,14 +57,10 @@ export function publicColumns(engine: EngineCatalog, rows: CatalogRows) {
     ) {
       return false;
     }
-    const target = rows.tables.find(
-      (table) => table.id === relation.targetTableId,
-    );
-    const key = rows.columns.find(
-      (item) =>
-        item.tableId === relation.targetTableId &&
-        item.physicalName === relation.fkColumn,
-    );
+    const target = lookup.tables.get(relation.targetTableId);
+    const key = lookup.columnsOf
+      .get(relation.targetTableId)
+      ?.find((item) => item.physicalName === relation.fkColumn);
     return Boolean(
       target?.externalUpdate &&
       key?.externalWritable &&
@@ -66,18 +70,15 @@ export function publicColumns(engine: EngineCatalog, rows: CatalogRows) {
   return own.map((column) => {
     const stored = columnConfig(column);
     const described = kinds.get(column.name);
-    const relation = rows.relations.find(
-      (item) => item.fromColumnId === column.id,
-    );
-    const engineColumn = engine.table.columns.find(
-      (item) => item.id === column.id,
-    );
+    const relation = lookup.relations.get(column.id);
+    const engineColumn = engineById.get(column.id);
     // The table a link or a lookup reads: its rules decide what its
     // settings may say.
     const linked =
       engineColumn?.relation?.targetTableId ??
-      engine.table.columns.find((item) => item.name === stored.relation)
-        ?.relation?.targetTableId;
+      (stored.relation === undefined
+        ? undefined
+        : engineByName.get(stored.relation)?.relation?.targetTableId);
     const config = readerColumnConfig(stored, {
       hidden: (name) => access?.hidden(engine.table.id, name) ?? false,
       linkedHidden: (name) =>
@@ -118,8 +119,7 @@ export function publicColumns(engine: EngineCatalog, rows: CatalogRows) {
        * (ADR 0046). Sort and group are refused; filters are limited.
        */
       controlPlane:
-        engine.table.columns.find((item) => item.name === column.name)?.physical
-          ?.controlPlane === true,
+        engineByName.get(column.name)?.physical?.controlPlane === true,
       /**
        * A client's column a new row may fill: its type is written back
        * exactly. Native fields follow `access`.

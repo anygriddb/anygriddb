@@ -17,8 +17,10 @@ import { withAudit } from "./audit-context.js";
 import { liveColumnNames } from "./live.js";
 import {
   assembleEngine,
+  indexCatalog,
   loadCatalogRows,
   loadEngine,
+  type CatalogIndex,
   type CatalogRows,
 } from "./engine.js";
 
@@ -322,17 +324,20 @@ export async function readerEngines(
 ): Promise<{
   engineOf: (tableId: string) => EngineCatalog;
   rows: CatalogRows;
+  index: CatalogIndex;
 }> {
   const rows = await loadCatalogRows(db, tableIds);
+  const index = indexCatalog(rows);
   const baseOf = new Map(rows.tables.map((table) => [table.id, table.baseId]));
   const access = await readerAccess(db, reader, rows.tables);
   const readable = readableTables(reader.bindings, baseOf);
   return {
     engineOf: (tableId) => ({
-      ...assembleEngine(tableId, rows, () => true),
+      ...assembleEngine(tableId, rows, () => true, index),
       readable,
       ...(access ? { access } : {}),
     }),
     rows,
+    index,
   };
 }
