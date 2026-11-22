@@ -236,7 +236,12 @@ async function withSignatures(
   engine: EngineCatalog,
   rows: RowRecord[],
 ) {
-  await enrichAttachments(ctx.db, attachmentColumns(engine), rows);
+  await enrichAttachments(
+    ctx.db,
+    engine.table.id,
+    attachmentColumns(engine),
+    rows,
+  );
   const drifts = await attachExternalStatuses(ctx.db, engine, rows);
   const signed = await attachSignatures(ctx.db, engine.table.id, rows);
   return signed.map((row) =>

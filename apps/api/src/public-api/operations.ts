@@ -377,8 +377,14 @@ export async function listTables(
   actor: Actor,
   baseId: string,
 ) {
+  const base = await deps.db
+    .selectFrom("bases")
+    .select("id")
+    .where("id", "=", baseId)
+    .where(liveBase())
+    .executeTakeFirst();
   const list = await readableBaseTables(deps, actor, baseId);
-  if (list.length === 0 && !roleFor(actor.bindings, "base", baseId))
+  if (!base || (list.length === 0 && !roleFor(actor.bindings, "base", baseId)))
     throw new AppError("not_found");
   const { engineOf, rows } = await enginesFor(deps, actor, list);
   const out = [];
@@ -488,6 +494,7 @@ export async function listRecords(
   );
   await enrichAttachments(
     deps.db,
+    engine.table.id,
     engine.table.columns
       .filter((column) => column.fieldType === "attachment")
       .map((column) => column.name),
@@ -524,6 +531,7 @@ export async function getRecord(
   await attachExternalStatuses(deps.db, engine, [row]);
   await enrichAttachments(
     deps.db,
+    engine.table.id,
     engine.table.columns
       .filter((column) => column.fieldType === "attachment")
       .map((column) => column.name),

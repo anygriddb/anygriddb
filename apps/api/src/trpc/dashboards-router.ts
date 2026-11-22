@@ -23,6 +23,7 @@ import {
   updateDashboard,
   upsertWidget,
   widgetData,
+  widgetsForReader,
 } from "../data/dashboards.js";
 import { authorize, baseAccess, guardBase, handle } from "./guard.js";
 import { procedure, t } from "./init.js";
@@ -39,7 +40,16 @@ export const dashboardsRouter = t.router({
       const actor = await authorize(ctx);
       const dashboard = await loadDashboard(ctx.db, input.dashboardId);
       await baseAccess(ctx, actor, dashboard.baseId, "read");
-      return getDashboard(ctx.db, input.dashboardId);
+      const board = await getDashboard(ctx.db, input.dashboardId);
+      return {
+        dashboard: board.dashboard,
+        widgets: await widgetsForReader(
+          ctx.db,
+          { userId: actor.user.id, bindings: actor.bindings },
+          dashboard.baseId,
+          board.widgets,
+        ),
+      };
     }),
   ),
   create: procedure

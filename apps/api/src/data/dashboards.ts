@@ -24,9 +24,10 @@ import {
   type UpsertWidgetInput,
   WIDGET_ROW_MAX,
   WIDGET_SIZES,
+  widgetConfigForReader,
 } from "@anygriddb/core";
 import type { Database, DashboardRow, WidgetRow } from "@anygriddb/db";
-import { readerEngine } from "./acl.js";
+import { readerAccess, readerEngine } from "./acl.js";
 import { withAudit } from "./audit-context.js";
 import { liveColumnNames, liveTable, liveView } from "./live.js";
 import {
@@ -57,6 +58,37 @@ export async function getDashboard(db: Database, dashboardId: string) {
     .orderBy("x", "asc")
     .execute();
   return { dashboard, widgets };
+}
+
+/** A dashboard's widgets, saying nothing of a field hidden from the reader. */
+export async function widgetsForReader(
+  db: Database,
+  reader: { userId: string; bindings: readonly Binding[] },
+  baseId: string,
+  widgets: readonly WidgetRow[],
+): Promise<WidgetRow[]> {
+  const tableOf = (widget: WidgetRow): string | undefined => {
+    const id = widget.config.tableId;
+    return typeof id === "string" ? id : undefined;
+  };
+  const tables = [...new Set(widgets.flatMap((item) => tableOf(item) ?? []))];
+  const access = await readerAccess(
+    db,
+    reader,
+    tables.map((id) => ({ id, baseId })),
+  );
+  if (!access) return [...widgets];
+  return widgets.map((widget) => {
+    const tableId = tableOf(widget);
+    return tableId === undefined
+      ? widget
+      : {
+          ...widget,
+          config: widgetConfigForReader(widget.config, (name) =>
+            access.hidden(tableId, name),
+          ),
+        };
+  });
 }
 
 export async function loadDashboard(
@@ -446,9 +478,13 @@ export async function widgetData(
     bindings: input.bindings,
   });
   const timeZone = safeTimeZone(input.timeZone);
+  const hiddenField = (name: string | undefined) =>
+    name !== undefined &&
+    engine.access?.hidden(parsed.config.tableId, name) === true;
 
   if (parsed.kind === "metric") {
     const { column, fn, orderBy } = parsed.config;
+    const shownColumn = hiddenField(column) ? "" : column;
     const spec = await viewFilterSpec(
       deps.db,
       parsed.config.tableId,
@@ -460,11 +496,11 @@ export async function widgetData(
       const [value] = await aggregateRows(deps.db, engine, spec, [
         { column, fn },
       ]);
-      return { kind: "metric", value, fn, column };
+      return { kind: "metric", value, fn, column: shownColumn };
     }
     if (!orderBy) throw new AppError("invalid_arguments");
     const value = await lastValue(deps.db, engine, spec, { column, orderBy });
-    return { kind: "metric", value, fn, column };
+    return { kind: "metric", value, fn, column: shownColumn };
   }
 
   const config = parsed.config;
@@ -489,8 +525,10 @@ export async function widgetData(
     : viewed;
   // The client formats keys in the reader's language: a checkbox, a date.
   const typeOf = (name: string | undefined) =>
-    engine.table.columns.find((column) => column.name === name)?.fieldType ??
-    null;
+    hiddenField(name)
+      ? null
+      : (engine.table.columns.find((column) => column.name === name)
+          ?.fieldType ?? null);
 
   if (config.chartType === "histogram") {
     const column = config.column;

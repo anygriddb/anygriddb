@@ -14,6 +14,7 @@ import {
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { withAudit } from "./audit-context.js";
+import { liveColumnNames } from "./live.js";
 import {
   assembleEngine,
   loadCatalogRows,
@@ -266,6 +267,21 @@ export async function readerRulesPrint(
     .sort((a, b) => (a.table < b.table ? -1 : 1));
   if (held.length === 0) return null;
   return createHash("sha256").update(JSON.stringify(held)).digest("hex");
+}
+
+/**
+ * The fields of a table hidden from this reader, by name: none for whoever
+ * owns the table or has no rule on it.
+ */
+export async function hiddenColumnNames(
+  db: Database,
+  reader: Reader,
+  table: { id: string; baseId: string },
+): Promise<ReadonlySet<string>> {
+  const access = await readerAccess(db, reader, [table]);
+  if (!access) return new Set();
+  const names = await liveColumnNames(db, table.id);
+  return new Set([...names].filter((name) => access.hidden(table.id, name)));
 }
 
 /**

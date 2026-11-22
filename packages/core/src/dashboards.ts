@@ -261,6 +261,24 @@ export const upsertWidgetInputSchema = z
     }
   });
 
+/** The settings of a widget that name a field of its table. */
+const WIDGET_FIELD_KEYS = ["column", "groupBy", "seriesBy", "orderBy"] as const;
+
+/** A widget's settings for a reader, without the fields hidden from them. */
+export function widgetConfigForReader(
+  config: Record<string, unknown>,
+  hidden: (name: string) => boolean,
+): Record<string, unknown> {
+  const next = { ...config };
+  for (const key of WIDGET_FIELD_KEYS) {
+    const name = next[key];
+    if (typeof name === "string" && hidden(name)) {
+      Reflect.deleteProperty(next, key);
+    }
+  }
+  return next;
+}
+
 export const deleteWidgetInputSchema = z
   .object({
     dashboardId: z.uuid(),

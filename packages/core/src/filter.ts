@@ -182,6 +182,33 @@ export const filterGroupSchema: z.ZodType<FilterGroup> = groupNode.superRefine(
   },
 );
 
+/** The fields a filter names, at any depth. */
+export function filterColumnNames(group: FilterGroup): string[] {
+  return group.conditions.flatMap((node) =>
+    isFilterGroup(node) ? filterColumnNames(node) : [node.column],
+  );
+}
+
+/**
+ * A filter with only the conditions on fields `keep` accepts. A nested
+ * group left with none goes; the group itself stays, even empty.
+ */
+export function filterKeeping(
+  group: FilterGroup,
+  keep: (column: string) => boolean,
+): FilterGroup {
+  const conditions: FilterGroup["conditions"] = [];
+  for (const node of group.conditions) {
+    if (isFilterGroup(node)) {
+      const inner = filterKeeping(node, keep);
+      if (inner.conditions.length > 0) conditions.push(inner);
+    } else if (keep(node.column)) {
+      conditions.push(node);
+    }
+  }
+  return { ...group, conditions };
+}
+
 /** The pre-tree flat filter, still accepted from stored views and old clients. */
 export const legacyFilterSchema = z.object({
   column: columnNameSchema,

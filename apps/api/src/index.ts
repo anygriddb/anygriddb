@@ -25,6 +25,7 @@ import {
   savedTracing,
   stopCurrentTracing,
 } from "./notify/tracing.js";
+import { buildFileIndexes } from "./data/file-indexes.js";
 import { loadTls } from "./tls/authority.js";
 import { listeningText } from "./tls/listener.js";
 
@@ -142,6 +143,12 @@ await app.listen({
   port: env.PORT,
   host: "0.0.0.0",
   listenTextResolver: listeningText,
+});
+
+// Beside the requests, and only once: a build stopped halfway is taken up
+// at the next start.
+void buildFileIndexes(db, env.DATABASE_URL, app.log).catch((error: unknown) => {
+  app.log.error({ err: error }, "file index build failed");
 });
 
 let shuttingDown = false;

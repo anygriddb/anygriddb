@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseColumnConfig, rollupFitsTarget } from "./field-config";
+import {
+  linkColumnConfig,
+  parseColumnConfig,
+  readerColumnConfig,
+  rollupFitsTarget,
+} from "./field-config";
 
 describe("parseColumnConfig", () => {
   it("upgrades string options and validates per type", () => {
@@ -146,5 +151,145 @@ describe("rollupFitsTarget", () => {
     expect(rollupFitsTarget("sum", "rollup")).toBe(true);
     expect(rollupFitsTarget("concatenate", "text")).toBe(true);
     expect(rollupFitsTarget("count", "attachment")).toBe(true);
+  });
+});
+
+describe("a field's settings on a public link", () => {
+  it("keeps how values are drawn, and nothing else", () => {
+    const kept = linkColumnConfig({
+      options: [{ name: "A", color: "red" }],
+      preventNewOptions: true,
+      appearance: "badge",
+      number: { precision: 2, style: "currency", currency: "EUR" },
+      nonNegative: true,
+      date: { format: "eu" },
+      durationFormat: "h:mm",
+      ratingMax: 5,
+      ratingIcon: "star",
+      ratingColor: "red",
+      multiple: true,
+      richText: true,
+      expr: { op: "col", name: "salary" },
+      relation: "link",
+      target: "salary",
+      fn: "sum",
+      defaultValue: "91234",
+      notify: true,
+      inverseOf: "00000000-0000-4000-8000-000000000000",
+      selectFrom: {
+        filter: {
+          conjunction: "and",
+          conditions: [{ column: "salary", op: "gt", value: 91234 }],
+        },
+      },
+      filter: {
+        conjunction: "and",
+        conditions: [{ column: "salary", op: "gt", value: 91234 }],
+      },
+      button: { label: "Go", action: "open_url", url: "https://example.org" },
+    });
+    expect(Object.keys(kept).sort()).toEqual(
+      [
+        "appearance",
+        "date",
+        "durationFormat",
+        "multiple",
+        "nonNegative",
+        "number",
+        "options",
+        "preventNewOptions",
+        "ratingColor",
+        "ratingIcon",
+        "ratingMax",
+        "richText",
+      ].sort(),
+    );
+    expect(JSON.stringify(kept)).not.toContain("91234");
+    expect(JSON.stringify(kept)).not.toContain("salary");
+  });
+});
+
+describe("a field's settings under a reader's field rules", () => {
+  const rules = {
+    hidden: (name: string) => name === "salary",
+    linkedHidden: (name: string) => name === "secret",
+  };
+  const onSecret = {
+    conjunction: "and" as const,
+    conditions: [{ column: "secret", op: "is" as const, value: "S3" }],
+  };
+
+  it("takes out a formula that reads a hidden field", () => {
+    const kept = readerColumnConfig(
+      {
+        expr: {
+          op: "gt",
+          left: { op: "col", name: "salary" },
+          right: { op: "num", value: 91234 },
+        },
+        number: { precision: 2 },
+      } as never,
+      rules,
+    );
+    expect(kept.expr).toBeUndefined();
+    expect(kept.number).toEqual({ precision: 2 });
+  });
+
+  it("keeps a formula on fields the reader sees", () => {
+    const config = { expr: { op: "col", name: "title" } } as never;
+    expect(readerColumnConfig(config, rules)).toEqual(config);
+  });
+
+  it("takes out a lookup through or onto a hidden field", () => {
+    for (const config of [
+      { relation: "salary", target: "name" },
+      { relation: "link", target: "secret", fn: "sum" as const },
+    ]) {
+      const kept = readerColumnConfig(config, rules);
+      expect(kept.relation).toBeUndefined();
+      expect(kept.target).toBeUndefined();
+      expect(kept.fn).toBeUndefined();
+    }
+  });
+
+  it("keeps a lookup but not its condition on a hidden field", () => {
+    const kept = readerColumnConfig(
+      { relation: "link", target: "name", filter: onSecret },
+      rules,
+    );
+    expect(kept).toEqual({ relation: "link", target: "name" });
+  });
+
+  it("keeps a link's selection without its conditions on a hidden field", () => {
+    const kept = readerColumnConfig(
+      {
+        selectFrom: {
+          filter: {
+            conjunction: "and",
+            conditions: [
+              { column: "secret", op: "is", value: "S3" },
+              { column: "name", op: "is", value: "A" },
+            ],
+          },
+        },
+      },
+      rules,
+    );
+    expect(JSON.stringify(kept)).not.toContain("secret");
+    expect(JSON.stringify(kept)).toContain('"name"');
+  });
+
+  it("empties a button's address where it names a hidden field", () => {
+    const kept = readerColumnConfig(
+      {
+        button: {
+          label: "Open",
+          action: "open_url",
+          url: "https://example.org/{{ salary }}/{{title}}",
+        },
+      },
+      rules,
+    );
+    expect(kept.button?.url).toBe("https://example.org//{{title}}");
   });
 });

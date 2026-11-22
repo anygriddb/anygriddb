@@ -8,6 +8,7 @@ import {
   buildCountDuplicates,
   buildCountLocked,
   buildCreateTable,
+  buildFileIndex,
   buildDistinctText,
   buildDropColumn,
   buildDropTable,
@@ -673,6 +674,15 @@ export async function addColumn(
               defaultValue: defaultLiteral(planned),
             }),
           );
+          if (planned.fieldType === "attachment") {
+            await runRows(
+              tx,
+              buildFileIndex({
+                table: table.physicalName,
+                column: planned.name,
+              }),
+            );
+          }
           if (planned.unique) {
             await runRows(
               tx,

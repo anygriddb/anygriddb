@@ -33,7 +33,8 @@ type Form = NonNullable<ViewConfig["form"]>;
 /**
  * A form as a link gives it. A field it does not show keeps its place, as
  * a condition counts only on fields placed before it, under a name that
- * says nothing: the browser reaches the answer the server will.
+ * says nothing, and a condition on it keeps neither its test nor its
+ * value: the browser knows no such field and leaves the condition out.
  */
 function publicForm(form: Form, shown: ReadonlySet<string>): Form {
   if (!form.fields) return form;
@@ -49,7 +50,9 @@ function publicForm(form: Form, shown: ReadonlySet<string>): Form {
     conditions: group.conditions.map((node) =>
       isFilterGroup(node)
         ? masked(node)
-        : { ...node, column: nameOf(node.column) },
+        : shown.has(node.column)
+          ? node
+          : { column: nameOf(node.column), op: "is_not_empty" as const },
     ),
   });
   return {
