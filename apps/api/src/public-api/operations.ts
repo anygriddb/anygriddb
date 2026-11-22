@@ -386,7 +386,7 @@ export async function listTables(
   const list = await readableBaseTables(deps, actor, baseId);
   if (!base || (list.length === 0 && !roleFor(actor.bindings, "base", baseId)))
     throw new AppError("not_found");
-  const { engineOf, rows } = await enginesFor(deps, actor, list);
+  const { engineOf, rows, index } = await enginesFor(deps, actor, list);
   const out = [];
   for (const table of list.sort(
     (left, right) => left.position - right.position,
@@ -395,7 +395,7 @@ export async function listTables(
     out.push({
       id: table.id,
       name: table.name,
-      fields: publicColumns(engine, rows).map((column) => ({
+      fields: publicColumns(engine, rows, index).map((column) => ({
         name: column.name,
         label: column.label,
         type: column.fieldType,
@@ -427,7 +427,7 @@ export async function openApiDocument(
   const list = await readableBaseTables(deps, actor, baseId);
   if (!base || (list.length === 0 && !roleFor(actor.bindings, "base", baseId)))
     throw new AppError("not_found");
-  const { engineOf, rows } = await enginesFor(deps, actor, list);
+  const { engineOf, rows, index } = await enginesFor(deps, actor, list);
   const described = [];
   for (const table of list) {
     const engine = engineOf(table.id);
@@ -435,7 +435,7 @@ export async function openApiDocument(
       id: table.id,
       name: table.name,
       external: table.storage === "external",
-      columns: publicColumns(engine, rows),
+      columns: publicColumns(engine, rows, index),
     });
   }
   return buildOpenApi(base, described, deps.publicUrl);
