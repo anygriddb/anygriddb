@@ -573,6 +573,8 @@ export {
   buildCountRows,
   buildGroupCounts,
   buildReadRows,
+  MAX_COMPUTED_TEXT,
+  readsComputedText,
   ROW_ERRORS,
   rowError,
   describeColumns,

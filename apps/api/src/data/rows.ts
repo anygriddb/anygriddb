@@ -29,6 +29,7 @@ import {
   MAX_READ_LIMIT,
   type ParameterizedSql,
   quoteIdent,
+  readsComputedText,
   type ReadSpec,
   type RowPlace,
   sameAsSeen,
@@ -43,7 +44,7 @@ import {
   type Database,
   type StatementStream,
 } from "@anygriddb/db";
-import { rowsBytes, type ReadBudget } from "../read-budget.js";
+import { rowsBytes, rowsWithin, type ReadBudget } from "../read-budget.js";
 import { applyControlPlaneReadSpec } from "../sources/control-plane-read-filter.js";
 import { loadEnrichmentValues } from "../sources/enrichment-values.js";
 import type { SummaryEvent } from "../queue/jobs.js";
@@ -134,6 +135,11 @@ export async function readTransaction<T>(
 /** Rows taken from the server at a time, each lot counted before the next. */
 const BUDGET_CHUNK_ROWS = 16;
 
+/** A row at a time where a formula's text can make one row long. */
+function chunkFor(page: Parameters<typeof readsComputedText>[0]): number {
+  return readsComputedText(page) ? 1 : BUDGET_CHUNK_ROWS;
+}
+
 /**
  * A page under what the request may hold (ADR 0110). On AnyGridDB's own
  * database it is read a few rows at a time, and the rows past the limit
@@ -145,6 +151,7 @@ async function pageRows(
   run: (statement: ParameterizedSql) => Promise<Record<string, unknown>[]>,
   stream: StatementStream | undefined,
   budget: ReadBudget | undefined,
+  chunkRows: number = BUDGET_CHUNK_ROWS,
 ): Promise<Record<string, unknown>[]> {
   if (!budget) return run(statement);
   if (!stream) {
@@ -153,7 +160,7 @@ async function pageRows(
     return whole;
   }
   const rows: Record<string, unknown>[] = [];
-  for await (const chunk of stream(statement, BUDGET_CHUNK_ROWS)) {
+  for await (const chunk of stream(statement, chunkRows)) {
     budget.take(rowsBytes(chunk));
     for (const row of chunk) rows.push(row);
   }
@@ -290,9 +297,25 @@ export async function readPage(
     db,
     engine,
     async (run, stream) => ({
-      rows: (await pageRows(page, run, stream, options.budget)) as RowRecord[],
+      rows: (await pageRows(
+        page,
+        run,
+        stream,
+        options.budget,
+        chunkFor(page),
+      )) as RowRecord[],
       groups: grouped
-        ? groupRows(await run(grouped), spec.groupBy?.length ?? 0, starts)
+        ? groupRows(
+            await pageRows(
+              grouped,
+              run,
+              stream,
+              options.budget,
+              chunkFor(page),
+            ),
+            spec.groupBy?.length ?? 0,
+            starts,
+          )
         : [],
     }),
   );
@@ -432,9 +455,25 @@ async function readExternalPage(
     db,
     engine,
     async (run, stream) => ({
-      rows: (await pageRows(page, run, stream, options.budget)) as RowRecord[],
+      rows: (await pageRows(
+        page,
+        run,
+        stream,
+        options.budget,
+        chunkFor(page),
+      )) as RowRecord[],
       groups: grouped
-        ? groupRows(await run(grouped), clientSpec.groupBy?.length ?? 0, starts)
+        ? groupRows(
+            await pageRows(
+              grouped,
+              run,
+              stream,
+              options.budget,
+              chunkFor(page),
+            ),
+            clientSpec.groupBy?.length ?? 0,
+            starts,
+          )
         : [],
     }),
   );
@@ -478,6 +517,7 @@ export async function readByIds(
   rowIds: readonly string[],
   timeZone: string,
   fields: readonly string[] | undefined = visibleFields(engine),
+  budget?: ReadBudget,
 ): Promise<RowRecord[]> {
   const statement = buildReadRows(engine, {
     rowIds,
@@ -488,7 +528,14 @@ export async function readByIds(
   const rows = await readTransaction(
     db,
     engine,
-    async (run) => (await run(statement)) as RowRecord[],
+    async (run, stream) =>
+      (await pageRows(
+        statement,
+        run,
+        stream,
+        budget,
+        chunkFor(statement),
+      )) as RowRecord[],
   );
   return mergeControlPlane(db, engine, rows, fields);
 }
@@ -1559,8 +1606,9 @@ export async function readAudit(
   tableId: string,
   recordId: string,
   hidden: (column: string) => boolean = () => false,
+  budget?: ReadBudget,
 ) {
-  const rows = await db
+  const events = db
     .selectFrom("auditEvents as e")
     .innerJoin("users as u", "u.id", "e.userId")
     .leftJoin("users as p", "p.id", "e.impersonatedUserId")
@@ -1579,8 +1627,8 @@ export async function readAudit(
     .where("e.tableId", "=", tableId)
     .where("e.recordId", "=", recordId)
     .orderBy("e.occurredAt", "desc")
-    .limit(200)
-    .execute();
+    .limit(200);
+  const rows = await rowsWithin(events, budget);
   const visible = (value: unknown): unknown => {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
       return value ?? null;

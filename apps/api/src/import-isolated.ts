@@ -1,3 +1,7 @@
+import { mkdtempSync } from "node:fs";
+import { readdir, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Worker } from "node:worker_threads";
 import { AppError, type ImportFormat } from "@anygriddb/core";
 import type {
@@ -64,6 +68,32 @@ function workerEntry(): { url: URL; execArgv: string[] } {
     : { url: new URL("./import-worker.js", import.meta.url), execArgv: [] };
 }
 
+/** The folders parsers write their temporary files in. */
+const PARSE_FOLDER = "anygriddb-parse-";
+
+/** Past this age, a parser's folder was left by a process that died. */
+const PARSE_FOLDER_MAX_AGE_MS = 60 * 60 * 1000;
+
+/**
+ * Removes what parsers of a process that died left behind. The folders of
+ * a parser still running, which another process may hold, are recent.
+ */
+export async function purgeParseLeftovers(
+  now: number = Date.now(),
+): Promise<number> {
+  const root = tmpdir();
+  let removed = 0;
+  for (const name of await readdir(root)) {
+    if (!name.startsWith(PARSE_FOLDER)) continue;
+    const path = join(root, name);
+    const { mtimeMs } = await stat(path);
+    if (now - mtimeMs < PARSE_FOLDER_MAX_AGE_MS) continue;
+    await rm(path, { recursive: true, force: true });
+    removed += 1;
+  }
+  return removed;
+}
+
 /**
  * A worker thread for one task, with a capped heap, and its replies in
  * the order they come. A reply waited for longer than `timeMs`, a crash,
@@ -75,12 +105,21 @@ class ParseWorker {
   private failure: unknown;
   private waiting: (() => void) | undefined;
   private timer: NodeJS.Timeout | undefined;
+  /** Where its parser spills a sheet: terminating a thread cleans nothing. */
+  private readonly folder: string;
 
   constructor(task: WorkerTask, heapMb: number) {
     const entry = workerEntry();
+    this.folder = mkdtempSync(join(tmpdir(), PARSE_FOLDER));
     this.worker = new Worker(entry.url, {
       workerData: task,
       execArgv: entry.execArgv,
+      env: {
+        ...process.env,
+        TMPDIR: this.folder,
+        TMP: this.folder,
+        TEMP: this.folder,
+      },
       resourceLimits: {
         maxOldGenerationSizeMb: heapMb,
         maxYoungGenerationSizeMb: 64,
@@ -124,7 +163,11 @@ class ParseWorker {
   async stop(): Promise<void> {
     clearTimeout(this.timer);
     this.worker.removeAllListeners();
-    await this.worker.terminate();
+    try {
+      await this.worker.terminate();
+    } finally {
+      await rm(this.folder, { recursive: true, force: true });
+    }
   }
 
   private fail(error: unknown): void {

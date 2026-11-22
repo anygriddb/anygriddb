@@ -87,6 +87,10 @@ describe("the MCP server", () => {
     ).token;
     app = Fastify();
     await app.register(cookie);
+    // What the rate limit leaves on a reply before the route runs.
+    app.addHook("onRequest", async (_request, reply) => {
+      reply.header("x-ratelimit-remaining", "41");
+    });
     registerMcp(app, {
       db: database,
       bus: recordingBus().bus,
@@ -197,6 +201,50 @@ describe("the MCP server", () => {
       arguments: { tableId, recordIds: ["1"] },
     });
     expect(refused.body.result?.isError ?? refused.body.error).toBeTruthy();
+  });
+
+  it("refuses a batch, and runs none of its calls", async () => {
+    const call = (id: number) => ({
+      jsonrpc: "2.0",
+      id,
+      method: "tools/call",
+      params: {
+        name: "create_records",
+        arguments: { tableId, records: [{ fields: { name: "from a batch" } }] },
+      },
+    });
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        "mcp-protocol-version": "2025-06-18",
+        authorization: `Bearer ${writer}`,
+      },
+      body: JSON.stringify([call(1), call(2)]),
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "invalid_input" });
+    const listed = await rpc(reader, "tools/call", {
+      name: "list_records",
+      arguments: { tableId, limit: 100 },
+    });
+    expect(JSON.stringify(listed.body)).not.toContain("from a batch");
+  });
+
+  it("keeps the rate limit's headers on its answer", async () => {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        "mcp-protocol-version": "2025-06-18",
+        authorization: `Bearer ${reader}`,
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-ratelimit-remaining")).toBe("41");
   });
 
   it("answers GET and DELETE at once: each call stands alone", async () => {

@@ -69,9 +69,47 @@ export function budgetFor(response: {
   return budget;
 }
 
+/** Rows of a query taken from the server at a time under a budget. */
+const BUDGET_STREAM_ROWS = 4;
+
 /**
- * About what these rows weigh once written out. Walked with a stack: a JSON
- * cell can nest deeper than a recursive walk would survive.
+ * A query's rows, each counted as it arrives, so that what passes the
+ * budget never reaches memory. Without a budget, the query as it is.
+ */
+export async function rowsWithin<Row>(
+  query: {
+    execute(): Promise<Row[]>;
+    stream(chunkSize?: number): AsyncIterableIterator<Row>;
+  },
+  budget: ReadBudget | undefined,
+): Promise<Row[]> {
+  if (!budget) return query.execute();
+  const rows: Row[] = [];
+  for await (const row of query.stream(BUDGET_STREAM_ROWS)) {
+    budget.take(rowsBytes([row]));
+    rows.push(row);
+  }
+  return rows;
+}
+
+/** Control characters JSON writes in two bytes; the others take six. */
+const SHORT_ESCAPES = new Set([0x08, 0x09, 0x0a, 0x0c, 0x0d]);
+
+/** A string as JSON writes it: its UTF-8, its quotes, and its escapes. */
+function jsonStringBytes(text: string): number {
+  let bytes = Buffer.byteLength(text) + 2;
+  for (let index = 0; index < text.length; index += 1) {
+    const code = text.charCodeAt(index);
+    if (code === 0x22 || code === 0x5c) bytes += 1;
+    else if (code < 0x20) bytes += SHORT_ESCAPES.has(code) ? 1 : 5;
+  }
+  return bytes;
+}
+
+/**
+ * What these rows weigh once written out as JSON, escapes included: a cell
+ * of control characters takes six times its length. Walked with a stack: a
+ * JSON cell can nest deeper than a recursive walk would survive.
  */
 export function rowsBytes(rows: readonly unknown[]): number {
   let bytes = 0;
@@ -79,7 +117,7 @@ export function rowsBytes(rows: readonly unknown[]): number {
   while (pending.length > 0) {
     const value = pending.pop();
     if (typeof value === "string") {
-      bytes += value.length + 2;
+      bytes += jsonStringBytes(value);
     } else if (value instanceof Date) {
       bytes += 26;
     } else if (Buffer.isBuffer(value)) {
@@ -88,8 +126,9 @@ export function rowsBytes(rows: readonly unknown[]): number {
       bytes += 2 + value.length;
       for (const item of value) pending.push(item);
     } else if (typeof value === "object" && value !== null) {
+      bytes += 2;
       for (const [key, item] of Object.entries(value)) {
-        bytes += key.length + 4;
+        bytes += jsonStringBytes(key) + 2;
         pending.push(item);
       }
     } else {

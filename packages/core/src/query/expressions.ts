@@ -1406,6 +1406,14 @@ function scalarExtreme(
   return { sql, kind };
 }
 
+/** The longest text REPT writes; past it, its cell carries an error. */
+const MAX_REPT_TEXT = 10_000;
+
+/** One past the limit, so that a count too large is still seen as one. */
+function reptCount(ctx: ExprContext, sql: string): string {
+  return clampInt(ctx, sql, 0, MAX_REPT_TEXT + 1);
+}
+
 function clampInt(
   ctx: ExprContext,
   sql: string,
@@ -1600,7 +1608,9 @@ function canFail(
   expr: FormulaExpr,
   seen: Set<string> = new Set(),
 ): boolean {
-  if (expr.op === "call" && expr.fn === "error") return true;
+  if (expr.op === "call" && (expr.fn === "error" || expr.fn === "rept")) {
+    return true;
+  }
   if (expr.op === "call" && expr.fn === "is_error") return false;
   if (expr.op === "col") {
     const column = findColumn(table, expr.name);
@@ -1677,6 +1687,23 @@ function formulaError(
         }
         case "is_error":
           return undefined;
+        case "rept": {
+          const [value, times] = expr.args;
+          if (!value || !times) return undefined;
+          const repeated = asText(
+            ctx,
+            compileFormula(ctx, table, alias, value, stack),
+          );
+          const count = reptCount(
+            ctx,
+            asNumber(ctx, compileFormula(ctx, table, alias, times, stack)),
+          );
+          return first([
+            of(value),
+            of(times),
+            `(case when ${d.textLength(repeated)} * ${count} > ${String(MAX_REPT_TEXT)} then ${d.errorMessage("'Text too long'")} end)`,
+          ]);
+        }
         case "if": {
           const [condition, then, otherwise] = expr.args;
           if (!condition || !then) return undefined;
@@ -2691,9 +2718,9 @@ function compileCall(
       );
     case "rept": {
       const value = text(0);
-      const times = clampInt(ctx, num(1), 0, 1_000);
+      const times = reptCount(ctx, num(1));
       return textResult(
-        `(case when ${d.textLength(value)} * ${times} <= 10000 then ${d.repeat(value, times)} end)`,
+        `(case when ${d.textLength(value)} * ${times} <= ${String(MAX_REPT_TEXT)} then ${d.repeat(value, times)} end)`,
       );
     }
     case "t": {

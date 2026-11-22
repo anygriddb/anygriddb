@@ -77,6 +77,32 @@ describe("a job retried by its author", () => {
     return Number(found.rows[0]?.count ?? 0);
   }
 
+  it("holds five active jobs a person, however many ask at once", async () => {
+    const [crowded, neighbour] = (
+      await db
+        .insertInto("users")
+        .values([
+          { email: `crowd-${suffix}@example.com`, displayName: "Crowd" },
+          { email: `next-${suffix}@example.com`, displayName: "Next" },
+        ])
+        .returning("id")
+        .execute()
+    ).map((row) => row.id) as [string, string];
+    const answers = await Promise.allSettled(
+      Array.from({ length: 30 }, () => startExport(crowded)),
+    );
+    const refused = answers.flatMap((answer) =>
+      answer.status === "rejected" ? [answer.reason as { code?: string }] : [],
+    );
+    expect(answers.length - refused.length).toBe(5);
+    expect(new Set(refused.map((error) => error.code))).toEqual(
+      new Set(["too_many_jobs"]),
+    );
+    await expect(startExport(neighbour)).resolves.toMatchObject({
+      status: "queued",
+    });
+  });
+
   it("queues a failed export again, as it was asked, and it can run", async () => {
     const job = await startExport();
     const failed = await fail(job.id);

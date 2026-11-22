@@ -46,6 +46,7 @@ export const ERRORS = {
   instance_maintenance: [503, "Instance under maintenance"],
   uploads_busy: [503, "Too many uploads at once"],
   reads_busy: [503, "Too many large reads at once"],
+  read_timeout: [503, "This request took too long"],
   page_too_large: [BAD, "This page is too large: ask for fewer rows or fields"],
   unknown_account: [404, "Unknown account"],
   account_already_exists: [409, "Account already exists"],
@@ -168,6 +169,10 @@ export const ERRORS = {
   invalid_snapshot: [BAD, "Invalid snapshot"],
   unknown_snapshot: [BAD, "Unknown snapshot"],
   too_large_snapshot: [BAD, "Too large snapshot"],
+  snapshot_too_many_tables: [
+    BAD,
+    "A base of more than 100 tables cannot be copied or exported",
+  ],
   too_many_rows: [BAD, "Too many rows"],
   snapshot_too_many_rows: [BAD, "Too many rows for one base file"],
   restore_points_full: [BAD, "Too many restore points"],

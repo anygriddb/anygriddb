@@ -117,6 +117,20 @@ export async function assertJobCapacity(
 }
 
 /**
+ * The same inside the transaction that adds the job, one at a time for a
+ * person: two requests at once would both count before either has written.
+ */
+async function holdJobCapacity(
+  tx: Parameters<typeof assertJobCapacity>[0],
+  userId: string,
+): Promise<void> {
+  await sqlTag`select pg_advisory_xact_lock(hashtext(${`jobs:${userId}`}))`.execute(
+    tx,
+  );
+  await assertJobCapacity(tx, userId);
+}
+
+/**
  * Queues a job for its author. The input is checked against the kind's
  * schema here, and the runner checks the author's rights again when it
  * starts, since they may change in between.
@@ -138,8 +152,8 @@ export async function enqueueJob(
   if (!parsed.success) {
     throw new AppError("invalid_job");
   }
-  await assertJobCapacity(deps.db, input.userId);
   const job = await deps.db.transaction().execute(async (tx) => {
+    await holdJobCapacity(tx, input.userId);
     const row = await tx
       .insertInto("jobs")
       .values({
@@ -654,8 +668,8 @@ export async function retryJob(
   if (!jobCanRetry(job)) {
     throw new AppError("job_not_retryable");
   }
-  await assertJobCapacity(deps.db, userId);
   const queued = await deps.db.transaction().execute(async (tx) => {
+    await holdJobCapacity(tx, userId);
     const row = await tx
       .updateTable("jobs")
       .set({

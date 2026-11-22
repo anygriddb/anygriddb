@@ -1,9 +1,20 @@
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  rm,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import ExcelJS from "exceljs";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { SheetRow } from "./import-file.js";
 import { onDisk } from "./import-file.test-helpers.js";
 import {
   PARSE_LIMITS,
+  purgeParseLeftovers,
   readImportFileIsolated,
   scanImportFileIsolated,
 } from "./import-isolated.js";
@@ -36,6 +47,72 @@ function declareSize(zip: Buffer, size: number): Buffer {
  * than a parse's own limit. The bundle's worker is plain JavaScript.
  */
 const FROM_SOURCE = { heapMb: 512, timeMs: 240_000 };
+
+describe("a parser's temporary files", () => {
+  let root = "";
+  let before: string | undefined;
+  const leftovers = async () =>
+    (await readdir(root)).filter((name) => name.startsWith("anygriddb-parse-"));
+
+  beforeEach(async () => {
+    before = process.env.TMPDIR;
+    root = await mkdtemp(join(tmpdir(), "parse-root-"));
+    process.env.TMPDIR = root;
+  });
+  afterEach(async () => {
+    if (before === undefined) delete process.env.TMPDIR;
+    else process.env.TMPDIR = before;
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it(
+    "keeps a folder while it reads, and removes it when stopped part way",
+    { timeout: 600_000 },
+    async () => {
+      const rows = Array.from({ length: 300 }, (_, i) => [`Firm ${i}`, "Lyon"]);
+      await onDisk(
+        await workbook([["name", "city"], ...rows]),
+        async (path) => {
+          const { shape } = await scanImportFileIsolated(
+            "xlsx",
+            path,
+            1_000,
+            "Column",
+            FROM_SOURCE,
+          );
+          expect(await leftovers()).toEqual([]);
+          const reading = readImportFileIsolated(
+            shape,
+            path,
+            10,
+            1_000,
+            FROM_SOURCE,
+          );
+          expect((await reading.next()).done).toBe(false);
+          expect(await leftovers()).toHaveLength(1);
+          await reading.return(undefined);
+          expect(await leftovers()).toEqual([]);
+        },
+      );
+    },
+  );
+
+  it("purges what a dead process left, and not a recent folder", async () => {
+    const old = join(root, "anygriddb-parse-old");
+    const recent = join(root, "anygriddb-parse-recent");
+    const other = join(root, "someone-else");
+    for (const path of [old, recent, other]) await mkdir(path);
+    await writeFile(join(old, "sheet"), "x");
+    const longAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    await utimes(old, longAgo, longAgo);
+    await utimes(other, longAgo, longAgo);
+    expect(await purgeParseLeftovers()).toBe(1);
+    expect((await readdir(root)).sort()).toEqual([
+      "anygriddb-parse-recent",
+      "someone-else",
+    ]);
+  });
+});
 
 describe("isolated import reading", () => {
   it(

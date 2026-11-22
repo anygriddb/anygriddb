@@ -7,6 +7,8 @@ import {
   buildHistogram,
   buildReadRows,
   describeColumns,
+  MAX_COMPUTED_TEXT,
+  readsComputedText,
 } from "./read";
 import {
   catalogFor,
@@ -175,7 +177,29 @@ describe("formula errors (ADR 0036)", () => {
     expect(sql.columns.every((column) => column.errorSql === undefined)).toBe(
       true,
     );
-    expect(sql.text).not.toContain("ag_errors");
+    // Neither field has an entry among a row's errors.
+    expect(sql.text).not.toContain("'checked',");
+    expect(sql.text).not.toContain("'plain',");
+  });
+
+  it("gives a formula's text a bound, and an error past it", () => {
+    const sql = read(formula("label", 'CONCAT({Price}, " EUR")'));
+    expect(sql.text).toContain(
+      `case when char_length(q."label") <= ${String(MAX_COMPUTED_TEXT)}`,
+    );
+    expect(sql.text).toContain("'label',");
+    expect(sql.text).toContain("Text too long");
+    expect(readsComputedText(sql)).toBe(true);
+  });
+
+  it("writes an object wider than one call of the engine takes", () => {
+    const many = Array.from({ length: 60 }, (_, index) =>
+      formula(`f${String(index)}`, 'CONCAT({Price}, "x")'),
+    );
+    const sql = read(...many);
+    const calls = sql.text.match(/jsonb_build_object\(/g) ?? [];
+    expect(calls.length).toBeGreaterThan(1);
+    expect(sql.text).toContain(") || jsonb_build_object(");
   });
 });
 

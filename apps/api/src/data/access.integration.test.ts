@@ -676,8 +676,8 @@ describe("field and row rules on PostgreSQL", () => {
     // taken, so each one below waits for it.
     const slots = uploadSlots(1);
     const uploads: UploadSlots = {
-      take() {
-        const give = slots.take();
+      take(holder) {
+        const give = slots.take(holder);
         return give && (() => void setTimeout(give, 25));
       },
       get busy() {
@@ -729,7 +729,7 @@ describe("field and row rules on PostgreSQL", () => {
       file?.body.destroy();
       // Every slot taken: refused at once, and taken again once free.
       await slotFree();
-      const held = uploads.take();
+      const held = uploads.take("someone else");
       expect(held).toBeDefined();
       expect(await upload(1024)).toBe(503);
       held?.();

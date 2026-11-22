@@ -36,7 +36,7 @@ import { liveBase, liveTable } from "./data/live.js";
 import { attachmentVisible } from "./data/rows.js";
 import { publicErrorBody } from "./http.js";
 import { readGateSettings } from "./settings.js";
-import type { UploadSlots } from "./upload-slots.js";
+import { cutIdleUpload, type UploadSlots } from "./upload-slots.js";
 import { acceptsFormFile, openShare } from "./data/open-share.js";
 import { stagedDeadline } from "./data/staged-attachments.js";
 
@@ -459,8 +459,13 @@ async function receiveAttachment(
     await readGateSettings(deps.db),
     deps.envMaxBytes,
   );
-  const release = deps.uploads.take();
+  const release = deps.uploads.take(
+    owner.stagedShareId
+      ? `share:${owner.stagedShareId}`
+      : `user:${owner.userId}`,
+  );
   if (!release) return denyBusy(reply);
+  const received = cutIdleUpload(request.raw, reply.raw);
   const folder = await localFolder("upload");
   try {
     const file = await request.file({ limits: { fileSize: maxBytes } });
@@ -475,6 +480,7 @@ async function receiveAttachment(
       request.log.warn({ err: error }, "attachment upload failed");
       return await deny(reply, 413);
     }
+    received();
     const { size } = await stat(path);
     if (file.file.truncated || size === 0) return await deny(reply, 413);
     let meta: AttachmentMeta;
@@ -496,6 +502,7 @@ async function receiveAttachment(
     }
     return await reply.send(answer(meta));
   } finally {
+    received();
     await folder.remove();
     release();
   }

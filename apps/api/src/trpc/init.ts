@@ -1,3 +1,4 @@
+import { nestsPast } from "./input-depth.js";
 import "@fastify/cookie";
 import { AppError, holdsUnwritableText, type MadeNames } from "@anygriddb/core";
 import { initTRPC, TRPCError } from "@trpc/server";
@@ -26,7 +27,12 @@ export const t = initTRPC.context<Context>().create({
     return {
       ...shape,
       message:
-        reason.code === "internal_error" ? "Internal error" : shape.message,
+        reason.code === "internal_error"
+          ? "Internal error"
+          : // What a schema said of the input stays in the server's log.
+            reason.code === "invalid_input"
+            ? "Invalid input"
+            : shape.message,
       data: {
         ...shape.data,
         stack: undefined,
@@ -46,7 +52,8 @@ const READ_BACK: ReadonlySet<string> = new Set(["expected", "seen"]);
  */
 export const procedure = t.procedure.use(
   async ({ ctx, next, path, type, getRawInput }) => {
-    if (holdsUnwritableText(await getRawInput(), READ_BACK)) {
+    const raw = await getRawInput();
+    if (nestsPast(raw) || holdsUnwritableText(raw, READ_BACK)) {
       throw toTRPCError(new AppError("invalid_input"));
     }
     await assertTokenMayCall(ctx, type, path);

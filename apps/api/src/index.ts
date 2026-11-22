@@ -1,3 +1,4 @@
+import { purgeParseLeftovers } from "./import-isolated.js";
 import { createDb, migrateDb, UpgradeRefused } from "@anygriddb/db";
 import { hasAccounts, promoteListedAdmins } from "./admin.js";
 import { passkeysEligible } from "./auth/relying-party.js";
@@ -96,6 +97,10 @@ registerDatabaseReachableGauge(db);
 await metricsBearer(db, env);
 watchQueries(pool);
 const app = await createApp({ env, db, files, bus, tls });
+// A parser of a process that died cleaned nothing up.
+await purgeParseLeftovers().catch((error: unknown) => {
+  app.log.warn({ err: error }, "could not purge old parser files");
+});
 if (tls.authority) {
   app.log.info(
     {

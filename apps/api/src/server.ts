@@ -312,6 +312,8 @@ export async function createApp(deps: {
         deps.db,
         request.params.token.replace(/\.ics$/, ""),
         deps.env.PUBLIC_URL,
+        new Date(),
+        budgetFor(reply.raw),
       );
       if (!document) {
         return reply.code(404).header("cache-control", "no-store").send();

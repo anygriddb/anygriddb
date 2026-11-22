@@ -1147,6 +1147,10 @@ msgstr "A base keeps {count} restore points at most: delete one to make another.
 msgid "A base must keep at least one owner"
 msgstr "A base must keep at least one owner"
 
+#: lib/errors.ts
+msgid "A base of more than 100 tables cannot be copied or exported"
+msgstr "A base of more than 100 tables cannot be copied or exported"
+
 #: components/shell/welcome-page.tsx
 msgid "A base, a first table, three fields. Kept in PostgreSQL from the first row."
 msgstr "A base, a first table, three fields. Kept in PostgreSQL from the first row."
@@ -12213,6 +12217,10 @@ msgstr "This page is for instance administrators."
 #: components/shell/page-crashed.tsx
 msgid "This page stopped working"
 msgstr "This page stopped working"
+
+#: lib/errors.ts
+msgid "This request took too long. Try again in a moment."
+msgstr "This request took too long. Try again in a moment."
 
 #: lib/errors.ts
 msgid "This restore point no longer exists"
