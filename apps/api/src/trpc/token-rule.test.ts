@@ -38,6 +38,16 @@ describe("tokenMayCall", () => {
     }
   });
 
+  it("refuses every token a public link, which would outlive it", () => {
+    for (const path of ["catalog.createShare", "catalog.createBaseShare"]) {
+      for (const over of [{}, { baseIds: ["a"] }, { readOnly: true }]) {
+        expect(tokenMayCall(scope(over), "mutation", path)).toBe(false);
+      }
+    }
+    expect(tokenMayCall(scope(), "mutation", "catalog.revokeShare")).toBe(true);
+    expect(tokenMayCall(scope(), "query", "catalog.shares")).toBe(true);
+  });
+
   it("refuses every token the list of the account's tokens", () => {
     for (const over of [{}, { baseIds: ["a"] }, { readOnly: true }]) {
       expect(tokenMayCall(scope(over), "query", "auth.tokens")).toBe(false);
