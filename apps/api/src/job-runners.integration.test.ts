@@ -1,10 +1,12 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { storeAttachment } from "./attachments.js";
+import { loadBindings } from "./auth/access.js";
+import { setTableAcl } from "./data/acl.js";
 import { withAudit } from "./data/audit-context.js";
 import {
   createDashboard,
@@ -18,7 +20,7 @@ import { insertNativeBatch } from "./services/rows.js";
 import { insertBase, insertTable } from "./data/schema-ops.js";
 import { DiskStore, readFile } from "./files/index.js";
 import { jobRunners } from "./job-runners.js";
-import type { JobRow } from "./jobs.js";
+import { jobFileReadableBy, type JobRow } from "./jobs.js";
 import { createTestDatabase } from "./test-database.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -314,5 +316,190 @@ describe("an export job", () => {
     await expect(
       runners.export({ job: exportJob("json"), progress: async () => {} }),
     ).rejects.toMatchObject({ code: "export_too_large" });
+  });
+});
+
+describe("the file of an export, against the rules of today", () => {
+  let db: Database;
+  let close: (() => Promise<void>) | undefined;
+  let owner = "";
+  let member = "";
+  let baseId = "";
+  let tableId = "";
+  let runners: ReturnType<typeof jobRunners>;
+
+  const noRule = () =>
+    setTableAcl(db, owner, {
+      tableId,
+      userId: member,
+      rowFilter: null,
+      columns: [],
+    });
+  const hideAmount = () =>
+    setTableAcl(db, owner, {
+      tableId,
+      userId: member,
+      rowFilter: null,
+      columns: [{ column: "title", access: "write" }],
+    });
+  const onlyOpen = () =>
+    setTableAcl(db, owner, {
+      tableId,
+      userId: member,
+      rowFilter: {
+        conjunction: "and",
+        conditions: [{ column: "title", op: "is", value: "open" }],
+      },
+      columns: [],
+    });
+
+  async function exported(userId = member): Promise<JobRow> {
+    const job = {
+      id: randomUUID(),
+      kind: "export",
+      userId,
+      baseId,
+      tableId,
+      status: "done",
+      input: { tableId, format: "csv" },
+    } as unknown as JobRow;
+    const done = await runners.export({ job, progress: async () => {} });
+    return { ...job, result: done.result ?? null };
+  }
+
+  const readable = async (job: JobRow, userId = member) =>
+    jobFileReadableBy(db, job, {
+      user: { id: userId, isAdmin: false },
+      bindings: await loadBindings(db, userId),
+    });
+
+  beforeAll(async () => {
+    const created = await createTestDatabase("job_file_rules");
+    db = created.db;
+    close = created.close;
+    const people = await db
+      .insertInto("users")
+      .values([
+        { email: `file-owner-${suffix}@example.com`, displayName: "Owner" },
+        { email: `file-member-${suffix}@example.com`, displayName: "Member" },
+      ])
+      .returning("id")
+      .execute();
+    owner = people[0]?.id ?? "";
+    member = people[1]?.id ?? "";
+    baseId = (await insertBase(db, owner, { name: "Sales" })).id;
+    await withAudit(db, { userId: owner, source: "web" }, (tx) =>
+      tx
+        .insertInto("roleBindings")
+        .values({
+          userId: member,
+          role: "editor",
+          scope: "base",
+          scopeId: baseId,
+        })
+        .execute(),
+    );
+    tableId = (
+      await insertTable(db, owner, {
+        baseId,
+        name: "Deals",
+        columns: [
+          { name: "title", label: "Title", fieldType: "text" },
+          { name: "amount", label: "Amount", fieldType: "number" },
+        ],
+      })
+    ).id;
+    runners = jobRunners({
+      db,
+      bus: { publish: async () => undefined } as never,
+      files: new DiskStore(await mkdtemp(join(tmpdir(), "anygriddb-file-"))),
+      log: () => undefined,
+    });
+  }, 120_000);
+
+  afterAll(async () => {
+    await close?.();
+  });
+
+  it("is served while the member's rules stay as they were", async () => {
+    await noRule();
+    expect(await readable(await exported())).toBe(true);
+    await hideAmount();
+    expect(await readable(await exported())).toBe(true);
+    await noRule();
+  });
+
+  it("is refused once a field is hidden from the member", async () => {
+    await noRule();
+    const job = await exported();
+    await hideAmount();
+    expect(await readable(job)).toBe(false);
+    await noRule();
+    expect(await readable(job)).toBe(true);
+  });
+
+  it("is refused once a row rule is set on the member", async () => {
+    await noRule();
+    const job = await exported();
+    await onlyOpen();
+    expect(await readable(job)).toBe(false);
+    await noRule();
+  });
+
+  it("is refused when the rule it was written under is replaced", async () => {
+    await hideAmount();
+    const job = await exported();
+    await onlyOpen();
+    expect(await readable(job)).toBe(false);
+    await noRule();
+  });
+
+  it("takes a file from before the print only from someone under no rule", async () => {
+    await noRule();
+    const job = await exported();
+    const older = {
+      ...job,
+      result: { format: "csv", filename: "d.csv", size: 1 },
+    };
+    expect(await readable(older)).toBe(true);
+    await hideAmount();
+    expect(await readable(older)).toBe(false);
+    await noRule();
+  });
+
+  it("is refused when a rule is set on a table in the trash", async () => {
+    await noRule();
+    const job = await exported();
+    await withAudit(db, { userId: owner, tableId, source: "web" }, (tx) =>
+      tx
+        .updateTable("dataTables")
+        .set({ deletedAt: new Date() })
+        .where("id", "=", tableId)
+        .execute(),
+    );
+    try {
+      expect(await readable(job)).toBe(true);
+      await hideAmount();
+      expect(await readable(job)).toBe(false);
+    } finally {
+      await noRule();
+      await withAudit(db, { userId: owner, tableId, source: "web" }, (tx) =>
+        tx
+          .updateTable("dataTables")
+          .set({ deletedAt: null })
+          .where("id", "=", tableId)
+          .execute(),
+      );
+    }
+  });
+
+  it("does not hold an owner of the table to rules that do not bind them", async () => {
+    await setTableAcl(db, owner, {
+      tableId,
+      userId: owner,
+      rowFilter: null,
+      columns: [{ column: "title", access: "read" }],
+    });
+    expect(await readable(await exported(owner), owner)).toBe(true);
   });
 });

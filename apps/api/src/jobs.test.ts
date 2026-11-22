@@ -5,6 +5,7 @@ import {
   JobCancelled,
   jobCanRetry,
   jobError,
+  jobMakesBase,
   publicJob,
   publishJob,
   type JobRow,
@@ -75,6 +76,25 @@ describe("job helpers", () => {
     }
     expect(publicJob({ ...job, status: "failed" }).retryable).toBe(true);
     expect(publicJob(job).retryable).toBe(false);
+  });
+
+  it("names the kinds that make a base among those started again", () => {
+    expect(jobMakesBase({ kind: "duplicate_base" })).toBe(true);
+    expect(jobMakesBase({ kind: "restore_base" })).toBe(true);
+    expect(jobMakesBase({ kind: "export" })).toBe(false);
+    expect(jobMakesBase({ kind: "duplicate_table" })).toBe(false);
+  });
+
+  it("keeps the print of its author's rules out of what a job shows", () => {
+    const result = { rows: 2, format: "csv", rulesPrint: "abc" };
+    expect(publicJob({ ...job, result }).result).toEqual({
+      rows: 2,
+      format: "csv",
+    });
+    expect(publicJob({ ...job, result: { rows: 1 } }).result).toEqual({
+      rows: 1,
+    });
+    expect(publicJob(job).result).toBeNull();
   });
 
   it("keeps public errors and hides the rest", () => {

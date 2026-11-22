@@ -32,7 +32,7 @@ import { cleanFilename } from "./attachments.js";
 import { findLiveTable } from "./services/rows.js";
 import { loadBindings } from "./auth/access.js";
 import { openBaseIds, withOpenBases } from "./data/emergency-access.js";
-import { readerEngine } from "./data/acl.js";
+import { readerEngine, readerRulesPrint } from "./data/acl.js";
 import { announceRows } from "./data/announce.js";
 import {
   importBaseSnapshot,
@@ -252,6 +252,13 @@ const runExport =
       input.tableId,
       "read",
     );
+    // Taken before the rows: a rule changed while they are read refuses
+    // the file rather than serving what it now hides.
+    const rulesPrint = await readerRulesPrint(
+      deps.db,
+      { userId, bindings },
+      table.id,
+    );
     // Written to a local file as the rows are read, then streamed to the
     // store: no page is held once written.
     const folder = await localFolder("export");
@@ -292,6 +299,7 @@ const runExport =
           format: input.format,
           filename: `${cleanFilename(table.name)}.${input.format}`,
           size,
+          ...(rulesPrint ? { rulesPrint } : {}),
         },
       };
     } finally {

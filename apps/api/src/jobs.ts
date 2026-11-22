@@ -1,5 +1,7 @@
 import { actingUserId } from "./data/acting-context.js";
+import { readerRulesPrint } from "./data/acl.js";
 import {
+  accountExportJobInputSchema,
   AppError,
   type Binding,
   effectiveTableRole,
@@ -454,6 +456,14 @@ export async function purgeJobs(deps: {
 /* Reading and cancelling                                              */
 /* ------------------------------------------------------------------ */
 
+/** A job's result as its author reads it: the print of their rules stays here. */
+function shownResult(result: JobRow["result"]): JobRow["result"] {
+  if (!result || !("rulesPrint" in result)) return result ?? null;
+  return Object.fromEntries(
+    Object.entries(result).filter(([key]) => key !== "rulesPrint"),
+  );
+}
+
 export function publicJob(job: JobRow & { tableName?: string | null }) {
   return {
     id: job.id,
@@ -466,7 +476,7 @@ export function publicJob(job: JobRow & { tableName?: string | null }) {
     reason: job.errorCode
       ? { code: job.errorCode, detail: job.errorDetail ?? undefined }
       : null,
-    result: job.result ?? null,
+    result: shownResult(job.result),
     baseId: job.baseId,
     tableId: job.tableId,
     tableName: job.tableName ?? null,
@@ -546,13 +556,22 @@ export async function loadOwnJob(
 /**
  * Whether its author may still have a job's file: the right that made it,
  * as it stands today. A person removed from a base does not keep what an
- * export of it wrote. A job of no base is the author's own account.
+ * export of it wrote, and an administrator who no longer is does not keep
+ * someone else's account. A base since deleted leaves no right to read.
  */
 export function jobReadableBy(
-  job: Pick<JobRow, "kind" | "baseId" | "tableId">,
+  job: Pick<JobRow, "kind" | "baseId" | "tableId" | "input">,
+  reader: { id: string; isAdmin: boolean },
   bindings: readonly Binding[],
 ): boolean {
-  if (job.baseId === null) return true;
+  if (job.kind === "account_export") {
+    return (
+      reader.isAdmin ||
+      accountExportJobInputSchema.safeParse(job.input).data?.userId ===
+        reader.id
+    );
+  }
+  if (job.baseId === null) return false;
   if (job.kind === "export_snapshot") {
     return roleAllows(roleFor(bindings, "base", job.baseId), "manage");
   }
@@ -562,6 +581,32 @@ export function jobReadableBy(
       : roleFor(bindings, "base", job.baseId),
     "read",
   );
+}
+
+/**
+ * The same, and a table's export is served only under the field and row
+ * rules it was written under: a file cannot be filtered again once written.
+ * A file from before the print was kept counts as written under no rule.
+ */
+export async function jobFileReadableBy(
+  db: Database,
+  job: Pick<JobRow, "kind" | "baseId" | "tableId" | "input" | "result">,
+  actor: {
+    user: { id: string; isAdmin: boolean };
+    bindings: readonly Binding[];
+  },
+): Promise<boolean> {
+  if (!jobReadableBy(job, actor.user, actor.bindings)) return false;
+  if (job.kind !== "export") return true;
+  const written = job.result?.rulesPrint;
+  const today = job.tableId
+    ? await readerRulesPrint(
+        db,
+        { userId: actor.user.id, bindings: actor.bindings },
+        job.tableId,
+      )
+    : null;
+  return (typeof written === "string" ? written : null) === today;
 }
 
 /**
@@ -579,6 +624,16 @@ const RETRYABLE_KINDS: ReadonlySet<JobKind> = new Set([
   "restore_point",
   "restore_base",
 ]);
+
+/** Of the kinds started again, those that make a new base. */
+const BASE_MAKING_KINDS: ReadonlySet<JobKind> = new Set([
+  "duplicate_base",
+  "restore_base",
+]);
+
+export function jobMakesBase(job: Pick<JobRow, "kind">): boolean {
+  return BASE_MAKING_KINDS.has(job.kind);
+}
 
 /** Whether its author may put this job back on the queue. */
 export function jobCanRetry(job: Pick<JobRow, "kind" | "status">): boolean {

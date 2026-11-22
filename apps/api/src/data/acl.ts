@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { rulesOwner } from "./acting-context.js";
 import {
   effectiveTableRole,
@@ -201,6 +202,70 @@ export async function readerAccess(
     rowFilter: (tableId) => filters.get(tableId),
     me: owner,
   };
+}
+
+/**
+ * A print of what a reader's rules leave them of a table and the tables it
+ * links to, or null when no rule holds: two prints differ when a file
+ * written under one may hold what the other hides. Which fields may be
+ * written does not count, since a file only shows them.
+ */
+export async function readerRulesPrint(
+  db: Database,
+  reader: Reader,
+  tableId: string,
+): Promise<string | null> {
+  const { tables: live } = await loadCatalogRows(db, [tableId]);
+  // A table in the trash is out of the catalog and still under its rules.
+  const tables =
+    live.length > 0
+      ? live
+      : await db
+          .selectFrom("dataTables")
+          .select(["id", "baseId"])
+          .where("id", "=", tableId)
+          .execute();
+  const roleOn = (table: { id: string; baseId: string }) =>
+    effectiveTableRole(reader.bindings, table.id, table.baseId);
+  const bound = tables.filter((table) => roleOn(table) !== "owner");
+  if (bound.length === 0) return null;
+  const ids = bound.map((table) => table.id);
+  const owner = rulesOwner(reader.userId);
+  const [rowRules, columnRules] = await Promise.all([
+    db
+      .selectFrom("tableAcls")
+      .select(["tableId", "rowFilter"])
+      .where("userId", "=", owner)
+      .where("tableId", "in", ids)
+      .execute(),
+    db
+      .selectFrom("columnAcls")
+      .select(["tableId", "columnName as column", "access"])
+      .where("userId", "=", owner)
+      .where("tableId", "in", ids)
+      .execute(),
+  ]);
+  const held = bound
+    .map((table) => {
+      const fields = columnRules.filter((rule) => rule.tableId === table.id);
+      return {
+        table: table.id,
+        readable: roleAllows(roleOn(table), "read"),
+        rows:
+          rowRules.find((rule) => rule.tableId === table.id)?.rowFilter ?? null,
+        fields:
+          fields.length === 0
+            ? null
+            : fields
+                .filter((rule) => rule.access !== "hide")
+                .map((rule) => rule.column)
+                .sort(),
+      };
+    })
+    .filter((rule) => !rule.readable || rule.rows || rule.fields)
+    .sort((a, b) => (a.table < b.table ? -1 : 1));
+  if (held.length === 0) return null;
+  return createHash("sha256").update(JSON.stringify(held)).digest("hex");
 }
 
 /**

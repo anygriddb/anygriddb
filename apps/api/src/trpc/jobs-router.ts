@@ -8,6 +8,7 @@ import { loadView } from "../data/views.js";
 import {
   cancelJob,
   enqueueJob,
+  jobMakesBase,
   listJobs,
   loadOwnJob,
   publicJob,
@@ -59,7 +60,14 @@ export const jobsRouter = t.router({
   retry: procedure.input(jobIdInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const { user } = await authorize(ctx);
-      await loadOwnJob(ctx.db, user.id, input.jobId, ctx.tokenScope);
+      const job = await loadOwnJob(
+        ctx.db,
+        user.id,
+        input.jobId,
+        ctx.tokenScope,
+      );
+      // Started again, it makes a base: it asks what making one asks.
+      if (jobMakesBase(job)) await authorize(ctx, true);
       return publicJob(await retryJob(queueDeps(ctx), user.id, input.jobId));
     }),
   ),
