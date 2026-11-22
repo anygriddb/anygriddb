@@ -263,13 +263,15 @@ says it asked a single factor (OIDC `amr` or `acr`, the SAML authentication
 class) does not replace the factor the account has here.
 
 **How long a session lasts.** A session never outlives the
-`SessionNotOnOrAfter` of the SAML assertion that opened it. Ending someone's
-access at the provider does not by itself end a session open here: give the
-provider this instance's **Back-channel logout URL** (OIDC, shown under
-Connections), provision with SCIM, or disable the account here, which ends its
-sessions and stops its tokens at once. Signing out here leaves the provider's
-session open, for the person's other applications; the next sign-on from that
-browser asks the provider to authenticate them again.
+`SessionNotOnOrAfter` of the SAML assertion that opened it. Disabling someone
+at the provider does not by itself end a session open here, nor their API
+tokens. To cut access at once, disable the account here, or deprovision it with
+SCIM. With OIDC, give the provider this instance's **Back-channel logout URL**
+(shown under Connections): ending the person's sessions at the provider then
+ends them here. A provider may send nothing when a person is only disabled, so
+end their sessions there too. Signing out here leaves the provider's session
+open, for the person's other applications; the next sign-on from that browser
+asks the provider to authenticate them again.
 
 **Single sign-on only.** Turning it on offers to end the sessions opened with a
 password and to revoke the API tokens of everyone but administrators. Scripts
