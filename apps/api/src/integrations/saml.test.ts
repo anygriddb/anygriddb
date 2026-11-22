@@ -41,6 +41,7 @@ describe("operator SAML", () => {
         entryPoint: "https://idp.example.org/sso",
         issuer: "https://idp.example.org",
         idpCert: "-----BEGIN CERTIFICATE-----",
+        trustsAddresses: false,
         updatedAt: new Date("2026-01-01T00:00:00.000Z"),
         updatedBy: null,
       },
@@ -51,6 +52,7 @@ describe("operator SAML", () => {
       entryPoint: "https://idp.example.org/sso",
       issuer: "https://idp.example.org",
       hasIdpCert: true,
+      trustsAddresses: false,
       callbackUrl: "https://app.example.org/auth/saml/acs",
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
@@ -58,6 +60,7 @@ describe("operator SAML", () => {
       configured: false,
       hasIdpCert: false,
       callbackUrl: null,
+      trustsAddresses: false,
     });
   });
 

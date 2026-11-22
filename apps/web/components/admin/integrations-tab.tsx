@@ -3,7 +3,14 @@
  * shown. What the instance's environment sets is read here and changed
  * there (ADR 0083).
  */
-import { Button, Input, Label, Spinner, Textarea } from "@anygriddb/ui";
+import {
+  Button,
+  Checkbox,
+  Input,
+  Label,
+  Spinner,
+  Textarea,
+} from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Cable, Mail, Shield } from "lucide-react";
@@ -525,6 +532,7 @@ function SamlSection() {
   const [entryPoint, setEntryPoint] = useState<string | null>(null);
   const [issuer, setIssuer] = useState<string | null>(null);
   const [idpCert, setIdpCert] = useState<string | null>(null);
+  const [trustsAddresses, setTrustsAddresses] = useState<boolean | null>(null);
   const [clearAsk, setClearAsk] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -546,6 +554,7 @@ function SamlSection() {
 
   const entryValue = entryPoint ?? saml.data.entryPoint ?? "";
   const issuerValue = issuer ?? saml.data.issuer ?? "";
+  const trustsValue = trustsAddresses ?? saml.data.trustsAddresses;
   // The certificate saved is never sent back: the field starts empty.
   const certValue = idpCert ?? "";
 
@@ -570,6 +579,10 @@ function SamlSection() {
             [t`Entry point (SSO URL)`, saml.data.entryPoint],
             [t`Issuer / Entity ID`, saml.data.issuer],
             [t`ACS URL`, saml.data.callbackUrl],
+            [
+              t`Provider verifies addresses`,
+              saml.data.trustsAddresses ? t`Yes` : t`No`,
+            ],
           ]}
         >
           {clearSaved}
@@ -592,10 +605,12 @@ function SamlSection() {
                   entryPoint: entryValue.trim(),
                   issuer: issuerValue.trim(),
                   ...(cert ? { idpCert: cert } : {}),
+                  trustsAddresses: trustsValue,
                 });
                 setIdpCert(null);
                 setEntryPoint(null);
                 setIssuer(null);
+                setTrustsAddresses(null);
                 await refresh();
                 toast.success(t`SAML settings saved`);
               } catch (cause) {
@@ -642,6 +657,18 @@ function SamlSection() {
               onChange={(event) => setIdpCert(event.target.value)}
             />
           </div>
+          <label className="flex items-start gap-2 text-sm">
+            <Checkbox
+              checked={trustsValue}
+              onChange={(event) => setTrustsAddresses(event.target.checked)}
+            />
+            <span>
+              {t`This identity provider verifies addresses`}
+              <span className="block text-xs text-muted-foreground">
+                {t`A first sign-in then reaches the existing account with the same address. Leave it off if people can change their address at the provider without proving it.`}
+              </span>
+            </span>
+          </label>
           {saml.data.callbackUrl ? (
             <p className="text-xs text-muted-foreground">
               {t`ACS URL for the identity provider:`}{" "}

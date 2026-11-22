@@ -483,7 +483,9 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       }
       await spendSamlAssertion(deps, profile);
       // A persistent NameID binds the account; a transient or address-shaped
-      // one says nothing lasting, and the address finds the account.
+      // one says nothing lasting. An assertion does not say its address was
+      // verified: it reaches an account that exists only when an
+      // administrator says this provider verifies addresses (ADR 0111).
       const userId = await userForIdentity(
         deps.db,
         {
@@ -494,6 +496,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
         email,
         email,
         deps.env.ADMIN_EMAILS,
+        { linkExisting: samlEnv.SAML_TRUST_ADDRESSES },
       );
       next = await finishSignIn(deps, request, reply, userId, "saml");
     } catch (error) {

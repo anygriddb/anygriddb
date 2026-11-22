@@ -38,6 +38,7 @@ type SamlRow = {
   entryPoint: string;
   issuer: string;
   idpCert: string;
+  trustsAddresses: boolean;
   updatedAt: Date;
   updatedBy: string | null;
 };
@@ -48,6 +49,8 @@ type PublicSaml = {
   issuer: string | null;
   hasIdpCert: boolean;
   callbackUrl: string | null;
+  /** Whether a first sign-in may reach an existing account by its address. */
+  trustsAddresses: boolean;
   updatedAt: string | null;
 };
 
@@ -56,6 +59,7 @@ export type SamlConfig = {
   SAML_ISSUER: string;
   SAML_CERT: string;
   SAML_CALLBACK_URL: string;
+  SAML_TRUST_ADDRESSES: boolean;
 };
 
 type SamlSource = "database" | "env" | "none";
@@ -66,6 +70,8 @@ export const samlUpdateSchema = z
     issuer: z.string().trim().min(1).max(1024),
     /** Omitted keeps the stored certificate. Required on first save. */
     idpCert: z.string().trim().min(1).max(16384).optional(),
+    /** Omitted keeps what is stored; off for a new provider (ADR 0111). */
+    trustsAddresses: z.boolean().optional(),
   })
   .strict();
 
@@ -104,6 +110,7 @@ export function publicSaml(row: SamlRow | null, publicUrl: string): PublicSaml {
       issuer: null,
       hasIdpCert: false,
       callbackUrl: null,
+      trustsAddresses: false,
       updatedAt: null,
     };
   }
@@ -113,6 +120,7 @@ export function publicSaml(row: SamlRow | null, publicUrl: string): PublicSaml {
     issuer: row.issuer,
     hasIdpCert: true,
     callbackUrl: samlCallbackUrl(publicUrl),
+    trustsAddresses: row.trustsAddresses,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -122,6 +130,7 @@ function envSaml(env: {
   SAML_ISSUER?: string;
   SAML_CERT?: string;
   SAML_CALLBACK_URL?: string;
+  SAML_TRUST_ADDRESSES?: boolean;
 }): SamlConfig | null {
   if (
     !env.SAML_ENTRY_POINT ||
@@ -136,6 +145,7 @@ function envSaml(env: {
     SAML_ISSUER: env.SAML_ISSUER,
     SAML_CERT: env.SAML_CERT,
     SAML_CALLBACK_URL: env.SAML_CALLBACK_URL,
+    SAML_TRUST_ADDRESSES: env.SAML_TRUST_ADDRESSES === true,
   };
 }
 
@@ -147,6 +157,7 @@ export async function resolveSaml(
     SAML_ISSUER?: string;
     SAML_CERT?: string;
     SAML_CALLBACK_URL?: string;
+    SAML_TRUST_ADDRESSES?: boolean;
   },
 ): Promise<{ config: SamlConfig | null; source: SamlSource }> {
   // The environment first: its operator set it (ADR 0083).
@@ -160,6 +171,7 @@ export async function resolveSaml(
         SAML_ISSUER: row.issuer,
         SAML_CERT: row.idpCert,
         SAML_CALLBACK_URL: samlCallbackUrl(env.PUBLIC_URL),
+        SAML_TRUST_ADDRESSES: row.trustsAddresses,
       },
       source: "database",
     };
@@ -182,6 +194,7 @@ export function environmentSaml(
     issuer: config.SAML_ISSUER,
     hasIdpCert: true,
     callbackUrl: config.SAML_CALLBACK_URL,
+    trustsAddresses: config.SAML_TRUST_ADDRESSES,
     updatedAt: null,
   };
 }
@@ -211,6 +224,8 @@ export async function saveSaml(
     entryPoint: input.entryPoint,
     issuer: input.issuer,
     idpCert,
+    trustsAddresses:
+      input.trustsAddresses ?? existing?.trustsAddresses ?? false,
     updatedBy: userId,
     updatedAt: new Date(),
   };
@@ -223,6 +238,7 @@ export async function saveSaml(
         entryPoint: row.entryPoint,
         issuer: row.issuer,
         idpCert: row.idpCert,
+        trustsAddresses: row.trustsAddresses,
         updatedBy: row.updatedBy,
         updatedAt: row.updatedAt,
       }),

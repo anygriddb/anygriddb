@@ -630,6 +630,7 @@ export interface InstanceSaml {
   id: Generated<boolean>;
   idpCert: string;
   issuer: string;
+  trustsAddresses: Generated<boolean>;
   updatedAt: Generated<Timestamp>;
   updatedBy: string | null;
 }

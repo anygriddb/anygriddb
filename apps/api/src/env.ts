@@ -49,6 +49,7 @@ export type Env = {
   SAML_ISSUER?: string;
   SAML_CERT?: string;
   SAML_CALLBACK_URL?: string;
+  SAML_TRUST_ADDRESSES?: boolean;
   SMTP_HOST?: string;
   SMTP_PORT?: number;
   SMTP_USER?: string;
@@ -534,6 +535,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     SAML_ISSUER: source.SAML_ISSUER,
     SAML_CERT: source.SAML_CERT,
     SAML_CALLBACK_URL: source.SAML_CALLBACK_URL,
+    SAML_TRUST_ADDRESSES: flag(source, "SAML_TRUST_ADDRESSES"),
     SMTP_HOST: source.SMTP_HOST,
     SMTP_PORT: smtpPort,
     SMTP_USER: source.SMTP_USER,

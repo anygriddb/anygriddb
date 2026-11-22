@@ -125,3 +125,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0108](0108-a-snapshot-carries-dashboards.md)          | A base's snapshot carries its dashboards                                                | Accepted (amends 0039, 0077)                                                |
 | [0109](0109-acting-holds-the-persons-rules.md)         | Acting as someone holds to that person's rules                                          | Accepted (amends 0091)                                                      |
 | [0110](0110-a-read-has-a-budget-in-bytes.md)           | A read has a budget in bytes                                                            |
+| [0111](0111-saml-trusts-an-address-when-told.md)       | SAML trusts an address only when told to                                                |
