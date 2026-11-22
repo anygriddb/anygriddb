@@ -45,6 +45,7 @@ import {
   TASKS,
 } from "../queue/jobs.js";
 import { assertRowsStayInRule, readByIds } from "../data/rows.js";
+import { rowsWithin, type ReadBudget } from "../read-budget.js";
 import {
   enrichmentRow,
   loadEnrichmentValues,
@@ -1012,8 +1013,9 @@ export async function readExternalAudit(
   tableId: string,
   rowId: string,
   hidden: (column: string) => boolean = () => false,
+  budget?: ReadBudget,
 ) {
-  const writes = await db
+  const trail = db
     .selectFrom("externalWrites as w")
     .innerJoin("users as u", "u.id", "w.userId")
     .leftJoin("externalWriteSteps as a", (join) =>
@@ -1039,8 +1041,8 @@ export async function readExternalAudit(
       ]),
     )
     .orderBy("w.requestedAt", "desc")
-    .limit(200)
-    .execute();
+    .limit(200);
+  const writes = await rowsWithin(trail, budget);
   const steps =
     writes.length === 0
       ? []

@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ReadBudget, ReadMemory } from "../read-budget.js";
 import { createTestDatabase } from "../test-database.js";
 import { loadEngine } from "./engine.js";
-import { insertRows, readPage } from "./rows.js";
+import { insertRows, readAudit, readByIds, readPage } from "./rows.js";
 import { insertBase, insertTable } from "./schema-ops.js";
 
 const suffix = randomBytes(6).toString("hex");
@@ -113,6 +113,59 @@ describe("a page read under a budget", () => {
         budget: budget(10 * ROWS * CELL, 5 * CELL),
       }),
     ).rejects.toMatchObject({ code: "reads_busy" });
+  });
+
+  it("reads a row's history whole when it fits, and refuses past it", async () => {
+    const read = await engine();
+    const [row] = (await readPage(db, read, spec, { total: false })).rows;
+    const id = row?.id ?? "";
+    const plain = await readAudit(db, tableId, id);
+    expect(plain.length).toBeGreaterThan(0);
+    await expect(
+      readAudit(db, tableId, id, () => false, budget(10 * CELL)),
+    ).resolves.toEqual(plain);
+    await expect(
+      readAudit(db, tableId, id, () => false, budget(CELL / 2)),
+    ).rejects.toMatchObject({ code: "page_too_large" });
+  });
+
+  it("counts rows read by id against the same budget", async () => {
+    const read = await engine();
+    const ids = (await readPage(db, read, spec, { total: false })).rows.map(
+      (row) => row.id,
+    );
+    await expect(
+      readByIds(db, read, ids, "UTC", undefined, budget(5 * CELL)),
+    ).rejects.toMatchObject({ code: "page_too_large" });
+    await expect(
+      readByIds(db, read, ids, "UTC", undefined, budget(10 * ROWS * CELL)),
+    ).resolves.toHaveLength(ROWS);
+  });
+
+  it("weighs a page of control characters as it is written out", async () => {
+    const owner = await db
+      .selectFrom("users")
+      .select("id")
+      .executeTakeFirstOrThrow();
+    const { engine: loaded, rows } = await loadEngine(db, tableId, () => true);
+    const physical = rows.tables.find((table) => table.id === tableId);
+    if (!physical) throw new Error("no table");
+    const [id] = await insertRows(
+      db,
+      loaded,
+      {
+        userId: owner.id,
+        tableId,
+        physicalName: physical.physicalName,
+        baseId: physical.baseId,
+        reason: null,
+        source: "test",
+      },
+      [{ n: "-1", body: "\u0001".repeat(CELL) }],
+    );
+    await expect(
+      readByIds(db, loaded, [id ?? ""], "UTC", undefined, budget(3 * CELL)),
+    ).rejects.toMatchObject({ code: "page_too_large" });
   });
 
   it("leaves its connection usable after a refusal", async () => {

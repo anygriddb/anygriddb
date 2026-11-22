@@ -60,6 +60,22 @@ describe("ZIP archives", () => {
     expect(await reader.read("files/none", 10)).toBeUndefined();
   });
 
+  it("raises nothing when given up with writes still pending", async () => {
+    const seen: unknown[] = [];
+    const onUncaught = (error: unknown) => seen.push(error);
+    process.on("uncaughtException", onUncaught);
+    try {
+      const writer = new ZipWriter(join(folder, "given-up.zip"));
+      const pending = writer.addBuffer("a.bin", randomBytes(4_000_000));
+      writer.abort();
+      await pending.catch(() => undefined);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(seen).toEqual([]);
+    } finally {
+      process.off("uncaughtException", onUncaught);
+    }
+  });
+
   it("refuses an entry over the limit, a changed byte, and a duplicate name", async () => {
     const made = await archive("broken.zip");
     const reader = await ZipReader.open(made.path, { maxEntries: 10 });

@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { madeNames } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import sharp from "sharp";
+import { MAX_SNAPSHOT_TABLES } from "@anygriddb/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { storeAttachment } from "../attachments.js";
 import { DiskStore, readFile as readStored } from "../files/index.js";
@@ -165,6 +166,29 @@ describe("snapshots with files and people", () => {
     const page = await readPage(db, engine, { limit: 10 }, { total: false });
     return { tableId: table.id, rows: page.rows };
   }
+
+  it("takes a base at the table limit, and refuses one past it", async () => {
+    const wide = (await insertBase(db, owner, { name: "Large" })).id;
+    for (let index = 0; index < MAX_SNAPSHOT_TABLES; index += 1) {
+      await insertTable(db, owner, {
+        baseId: wide,
+        name: `T${index}`,
+        columns: [{ name: "title", label: "Title", fieldType: "text" }],
+      });
+    }
+    const { snapshot } = await snapshotOf(db, files, wide, { withData: true });
+    expect(snapshot.tables).toHaveLength(MAX_SNAPSHOT_TABLES);
+    await insertTable(db, owner, {
+      baseId: wide,
+      name: "One too many",
+      columns: [{ name: "title", label: "Title", fieldType: "text" }],
+    });
+    for (const withData of [true, false]) {
+      await expect(
+        snapshotOf(db, files, wide, { withData }),
+      ).rejects.toMatchObject({ code: "snapshot_too_many_tables" });
+    }
+  }, 120_000);
 
   it("writes an archive with the files, people by email, and members", async () => {
     const { folder, packed, result } = await exported();

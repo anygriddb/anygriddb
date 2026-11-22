@@ -12,6 +12,7 @@ const TRPC_CODES: Partial<Record<number, TRPCCode>> = {
   409: "CONFLICT",
   412: "PRECONDITION_FAILED",
   429: "TOO_MANY_REQUESTS",
+  503: "SERVICE_UNAVAILABLE",
 };
 
 /** Refusals worth a warning in the log: someone was stopped, nothing broke. */

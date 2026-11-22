@@ -41,7 +41,7 @@ import {
   denyBusy,
   enrichAttachments,
 } from "./attachments.js";
-import type { UploadSlots } from "./upload-slots.js";
+import { cutIdleUpload, type UploadSlots } from "./upload-slots.js";
 import { requestActor } from "./auth/access.js";
 import { SESSION_COOKIE } from "./auth/session.js";
 import { MAX_COPY_ROWS, readAll } from "./data/data-ops.js";
@@ -500,8 +500,9 @@ export function registerDataTransferRoutes(
         return deny(reply, 403);
       }
     }
-    const release = deps.uploads.take();
+    const release = deps.uploads.take(`user:${actor.user.id}`);
     if (!release) return denyBusy(reply);
+    const received = cutIdleUpload(request.raw, reply.raw);
     const folder = await localFolder("import");
     try {
       const path = join(folder.path, "upload");
@@ -527,6 +528,7 @@ export function registerDataTransferRoutes(
         request.log.warn({ err: error }, "import upload too large");
         return await deny(reply, 413);
       } finally {
+        received();
         release();
       }
       if (size === 0) return await deny(reply, 413);
@@ -581,8 +583,9 @@ export function registerDataTransferRoutes(
     ) {
       return deny(reply, 403, "base_creation_restricted");
     }
-    const release = deps.uploads.take();
+    const release = deps.uploads.take(`user:${actor.user.id}`);
     if (!release) return denyBusy(reply);
+    const received = cutIdleUpload(request.raw, reply.raw);
     const folder = await localFolder("import");
     try {
       const path = join(folder.path, "upload");
@@ -608,6 +611,7 @@ export function registerDataTransferRoutes(
         request.log.warn({ err: error }, "workbook upload too large");
         return await deny(reply, 413);
       } finally {
+        received();
         release();
       }
       if (size === 0) return await deny(reply, 413);
@@ -794,8 +798,9 @@ export function registerDataTransferRoutes(
     const actor = await actorOf(deps.db, request);
     if (!actor) return deny(reply, 401);
     if (keptFromNewBases(actor)) return deny(reply, 403, "access_denied");
-    const release = deps.uploads.take();
+    const release = deps.uploads.take(`user:${actor.user.id}`);
     if (!release) return denyBusy(reply);
+    const received = cutIdleUpload(request.raw, reply.raw);
     const folder = await localFolder("snapshot");
     try {
       const upload = await request.file({
@@ -812,6 +817,7 @@ export function registerDataTransferRoutes(
         request.log.warn({ err: error }, "snapshot upload failed");
         return await deny(reply, 413, "too_large_snapshot");
       }
+      received();
       const { size } = await stat(path);
       if (upload.file.truncated)
         return await deny(reply, 413, "too_large_snapshot");
@@ -842,6 +848,7 @@ export function registerDataTransferRoutes(
         ...snapshotSummary(staged.snapshot, actor.user.email),
       });
     } finally {
+      received();
       await folder.remove();
       release();
     }

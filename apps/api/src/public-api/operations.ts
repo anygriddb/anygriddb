@@ -28,6 +28,7 @@ import {
   listCollaborators,
   readByIds,
   readPage,
+  visibleFields,
   safeTimeZone,
   type RowRecord,
 } from "../data/rows.js";
@@ -511,7 +512,14 @@ export async function getRecord(
 ) {
   const table = await tableFor(deps, actor, tableId, "read");
   const { engine } = await engineFor(deps, actor, table);
-  const [row] = await readByIds(deps.db, engine, [recordId], "UTC");
+  const [row] = await readByIds(
+    deps.db,
+    engine,
+    [recordId],
+    "UTC",
+    visibleFields(engine),
+    actor.readBudget,
+  );
   if (!row) throw new AppError("not_found");
   await attachExternalStatuses(deps.db, engine, [row]);
   await enrichAttachments(

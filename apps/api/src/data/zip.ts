@@ -64,26 +64,43 @@ export class ZipWriter {
   private readonly names = new Set<string>();
   private offset = 0;
   private readonly stamp = dosTime(new Date());
+  /** The file's failure: kept, so that it fails the work and not the process. */
+  private failure: Error | undefined;
 
   constructor(path: string) {
     this.out = createWriteStream(path, { flags: "wx", mode: 0o600 });
+    this.out.on("error", (error) => {
+      this.failure ??= error;
+    });
   }
 
   private async write(chunk: Buffer): Promise<void> {
+    if (this.failure) throw this.failure;
     this.offset += chunk.length;
     if (this.offset > LIMIT) throw new ZipError("Archive too large");
     if (!this.out.write(chunk)) {
       await new Promise<void>((resolve, reject) => {
-        const failed = (error: Error) => {
+        const stop = () => {
           this.out.off("drain", drained);
+          this.out.off("error", failed);
+          this.out.off("close", closed);
+        };
+        const failed = (error: Error) => {
+          stop();
           reject(error);
         };
         const drained = () => {
-          this.out.off("error", failed);
+          stop();
           resolve();
+        };
+        // Given up while this write waited: no drain will come.
+        const closed = () => {
+          stop();
+          reject(this.failure ?? new ZipError("Archive closed"));
         };
         this.out.once("drain", drained);
         this.out.once("error", failed);
+        this.out.once("close", closed);
       });
     }
   }
@@ -247,8 +264,12 @@ export class ZipWriter {
     await this.write(end);
     await new Promise<void>((resolve, reject) => {
       this.out.once("error", reject);
-      this.out.end(resolve);
+      this.out.end(() => {
+        this.out.off("error", reject);
+        resolve();
+      });
     });
+    if (this.failure) throw this.failure;
     return this.offset;
   }
 

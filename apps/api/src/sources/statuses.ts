@@ -31,6 +31,7 @@ import { sql } from "kysely";
 import { loadEngine, type TableRow } from "../data/engine.js";
 import { liveBase, liveTable } from "../data/live.js";
 import { readByIds, type RowRecord } from "../data/rows.js";
+import { rowsWithin, type ReadBudget } from "../read-budget.js";
 import { addJob, TASKS, type SqlExecutor } from "../queue/jobs.js";
 import type { NotificationInput } from "../notifications.js";
 
@@ -773,8 +774,9 @@ export async function readStatusEvents(
   tableId: string,
   rowId: string,
   hidden: (column: string) => boolean = () => false,
+  budget?: ReadBudget,
 ) {
-  const events = await db
+  const trail = db
     .selectFrom("externalStatusEvents as e")
     .leftJoin("users as u", "u.id", "e.userId")
     .select([
@@ -790,8 +792,8 @@ export async function readStatusEvents(
     .where("e.tableId", "=", tableId)
     .where("e.rowId", "=", rowId)
     .orderBy("e.at", "desc")
-    .limit(200)
-    .execute();
+    .limit(200);
+  const events = await rowsWithin(trail, budget);
   const visible = (value: unknown) =>
     value && typeof value === "object"
       ? Object.fromEntries(

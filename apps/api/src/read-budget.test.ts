@@ -49,6 +49,21 @@ describe("rowsBytes", () => {
     expect(large - small).toBe(999);
   });
 
+  it.each([
+    ["a control character", "\u0001".repeat(1_000)],
+    ["a line break", "\n".repeat(1_000)],
+    ["a quotation mark", '"'.repeat(1_000)],
+    ["a backslash", "\\".repeat(1_000)],
+    ["an accent", "é".repeat(1_000)],
+    ["a character past the first plane", "😀".repeat(1_000)],
+    ["plain text", "x".repeat(1_000)],
+  ])("weighs %s as JSON writes it", (_name, text) => {
+    const row = { [text.slice(0, 2)]: text };
+    const written = Buffer.byteLength(JSON.stringify(row));
+    expect(rowsBytes([row])).toBeGreaterThanOrEqual(written);
+    expect(rowsBytes([row])).toBeLessThanOrEqual(written + 16);
+  });
+
   it("reaches values nested in arrays and objects", () => {
     expect(rowsBytes([{ a: [{ b: "x".repeat(1_000) }] }])).toBeGreaterThan(
       1_000,

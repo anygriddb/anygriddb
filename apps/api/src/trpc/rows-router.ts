@@ -276,6 +276,8 @@ export const rowsRouter = t.router({
         engine,
         input.rowIds,
         safeTimeZone(input.timeZone),
+        visibleFields(engine),
+        ctx.readBudget,
       );
       return { rows: await withSignatures(ctx, engine, rows) };
     }),
@@ -482,12 +484,14 @@ export const rowsRouter = t.router({
           input.tableId,
           input.recordId,
           hidden,
+          ctx.readBudget,
         );
         const statuses = await readStatusEvents(
           ctx.db,
           input.tableId,
           input.recordId,
           hidden,
+          ctx.readBudget,
         );
         return {
           events: [
@@ -511,7 +515,13 @@ export const rowsRouter = t.router({
       if (!UUID.test(input.recordId)) return { events: [] };
       return {
         events: (
-          await readAudit(ctx.db, input.tableId, input.recordId, hidden)
+          await readAudit(
+            ctx.db,
+            input.tableId,
+            input.recordId,
+            hidden,
+            ctx.readBudget,
+          )
         ).map((event) => ({
           ...event,
           actingName: event.actingName,

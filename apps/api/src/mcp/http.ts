@@ -18,6 +18,9 @@ import { createAnyGridMcpServer } from "./server.js";
 
 type Deps = { db: Database; bus: Bus; publicUrl: string };
 
+/** A call that has not answered by then is told so, and its socket closed. */
+const MCP_REQUEST_MS = 60_000;
+
 function errorBody(error: AppError) {
   const body = publicError(error);
   return {
@@ -77,6 +80,12 @@ export function registerMcp(app: FastifyInstance, deps: Deps): void {
         .send(errorBody(new AppError("unauthenticated")));
     }
 
+    // One message a request: the rate limit and the per-call limits count
+    // requests, and a batch would multiply both.
+    if (Array.isArray(request.body)) {
+      return reply.code(400).send(errorBody(new AppError("invalid_input")));
+    }
+
     const server = createAnyGridMcpServer(shared, {
       ...actor,
       readBudget: budgetFor(reply.raw),
@@ -87,8 +96,26 @@ export function registerMcp(app: FastifyInstance, deps: Deps): void {
       enableJsonResponse: true,
     });
     await server.connect(transport);
+    // Written on the raw response from here on: the limit's headers with it.
+    for (const [name, value] of Object.entries(reply.getHeaders())) {
+      if (name.startsWith("x-ratelimit-") && value !== undefined) {
+        reply.raw.setHeader(name, value);
+      }
+    }
     reply.hijack();
+    const timer = setTimeout(() => {
+      request.log.warn("mcp request timed out");
+      if (reply.raw.headersSent) {
+        reply.raw.destroy();
+        return;
+      }
+      reply.raw.statusCode = 503;
+      reply.raw.setHeader("content-type", "application/json");
+      reply.raw.setHeader("retry-after", "30");
+      reply.raw.end(JSON.stringify(errorBody(new AppError("read_timeout"))));
+    }, MCP_REQUEST_MS);
     reply.raw.on("close", () => {
+      clearTimeout(timer);
       void transport.close();
       void server.close();
     });

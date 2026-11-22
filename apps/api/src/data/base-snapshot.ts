@@ -23,6 +23,7 @@ import {
   MAX_SNAPSHOT_ARCHIVE_BYTES,
   MAX_SNAPSHOT_BYTES,
   MAX_SNAPSHOT_DASHBOARDS,
+  MAX_SNAPSHOT_TABLES,
   MAX_SNAPSHOT_FILES,
   MAX_SNAPSHOT_FOLDERS,
   MAX_SNAPSHOT_LINE_BYTES,
@@ -327,6 +328,10 @@ async function describeBase(
     .orderBy("position", "asc")
     .orderBy("createdAt", "asc")
     .execute();
+  // Said before anything is written, whichever way the base is going out.
+  if (tableRows.length > MAX_SNAPSHOT_TABLES) {
+    throw new AppError("snapshot_too_many_tables");
+  }
   if (tableRows.length === 0) throw new AppError("no_tables");
 
   // The folders the tables are kept in, in their order: every one of

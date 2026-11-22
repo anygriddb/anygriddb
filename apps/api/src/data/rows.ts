@@ -43,7 +43,7 @@ import {
   type Database,
   type StatementStream,
 } from "@anygriddb/db";
-import { rowsBytes, type ReadBudget } from "../read-budget.js";
+import { rowsBytes, rowsWithin, type ReadBudget } from "../read-budget.js";
 import { applyControlPlaneReadSpec } from "../sources/control-plane-read-filter.js";
 import { loadEnrichmentValues } from "../sources/enrichment-values.js";
 import type { SummaryEvent } from "../queue/jobs.js";
@@ -478,6 +478,7 @@ export async function readByIds(
   rowIds: readonly string[],
   timeZone: string,
   fields: readonly string[] | undefined = visibleFields(engine),
+  budget?: ReadBudget,
 ): Promise<RowRecord[]> {
   const statement = buildReadRows(engine, {
     rowIds,
@@ -488,7 +489,8 @@ export async function readByIds(
   const rows = await readTransaction(
     db,
     engine,
-    async (run) => (await run(statement)) as RowRecord[],
+    async (run, stream) =>
+      (await pageRows(statement, run, stream, budget)) as RowRecord[],
   );
   return mergeControlPlane(db, engine, rows, fields);
 }
@@ -1559,8 +1561,9 @@ export async function readAudit(
   tableId: string,
   recordId: string,
   hidden: (column: string) => boolean = () => false,
+  budget?: ReadBudget,
 ) {
-  const rows = await db
+  const events = db
     .selectFrom("auditEvents as e")
     .innerJoin("users as u", "u.id", "e.userId")
     .leftJoin("users as p", "p.id", "e.impersonatedUserId")
@@ -1579,8 +1582,8 @@ export async function readAudit(
     .where("e.tableId", "=", tableId)
     .where("e.recordId", "=", recordId)
     .orderBy("e.occurredAt", "desc")
-    .limit(200)
-    .execute();
+    .limit(200);
+  const rows = await rowsWithin(events, budget);
   const visible = (value: unknown): unknown => {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
       return value ?? null;
