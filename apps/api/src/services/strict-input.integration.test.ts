@@ -472,6 +472,31 @@ describe("a value is read exactly, or refused", () => {
     expect(await stored("history", "qty")).toBe(PAST_SAFE);
   });
 
+  it("restores a number with the scale it was stored with", async () => {
+    const [id = ""] = await createRows(
+      deps(),
+      scope,
+      [{ values: { name: "scaled", qty: "12.50" } }],
+      META,
+    );
+    await updateRows(
+      deps(),
+      scope,
+      [{ rowId: id, values: { qty: "1" } }],
+      META,
+    );
+    const events = await readAudit(db, tableId, id);
+    const change = events.find((event) => event.action === "update");
+    if (!change) throw new Error("no change");
+    await revertRow(deps(), scope, {
+      recordId: id,
+      eventId: change.id,
+      field: "qty",
+      seen: { qty: "1" },
+    });
+    expect(await stored("scaled", "qty")).toBe("12.50");
+  });
+
   it("refuses to restore a number no write can hold, rather than round it", async () => {
     const digits = "1".repeat(70);
     const [id = ""] = await createRows(

@@ -8,7 +8,6 @@ import {
   cellFromAudit,
   isDecimalString,
   isWritableType,
-  withExactNumbers,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -200,7 +199,8 @@ async function nativePast(
     .executeTakeFirst();
   if (!event || event.action !== "update")
     throw new AppError("revert_unavailable");
-  return object(withExactNumbers(event.oldValue, event.oldNumbers));
+  // Each number as it is stored, scale included.
+  return { ...object(event.oldValue), ...event.oldNumbers };
 }
 
 async function externalPast(
