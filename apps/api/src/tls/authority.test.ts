@@ -1,5 +1,13 @@
-import { randomBytes, X509Certificate } from "node:crypto";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { createHash, randomBytes, X509Certificate } from "node:crypto";
+import {
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connect, createServer } from "node:tls";
@@ -10,8 +18,11 @@ import {
   loadTls,
   refreshTls,
   resealTlsKey,
+  resetTlsFolder,
   sealedBy,
   serverNames,
+  TLS_CHECK_MS,
+  TlsKeyUnreadable,
   type TlsSettings,
 } from "./authority.js";
 import { issueAuthority } from "./certificate.js";
@@ -121,19 +132,6 @@ describe("the certificate AnyGridDB serves", () => {
     );
     expect(grown.authority?.fingerprint).not.toBe(first.authority?.fingerprint);
     expect(notes.join(" ")).toContain("install again");
-
-    // Another encryption key cannot open the keys: issued anew.
-    const rekeyed = await loadTls(
-      {
-        ...options,
-        TLS_NAMES: ["grid.corp"],
-        AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
-      },
-      quiet,
-    );
-    expect(rekeyed.authority?.fingerprint).not.toBe(
-      grown.authority?.fingerprint,
-    );
   });
 
   it("serves the operator's certificate when given one, and checks its key", async () => {
@@ -288,21 +286,6 @@ describe("the certificate AnyGridDB serves", () => {
     expect(last.fingerprint).toBe(first.fingerprint);
   });
 
-  it("says which key is missing rather than replacing it without a word", async () => {
-    const options = await settings();
-    const out = join(options.TLS_DIR, "..", "certs");
-    const services = [{ name: "db", postgres: true }];
-    await issueServiceCertificates(options, services, out, quiet);
-    const notes: string[] = [];
-    await issueServiceCertificates(
-      { ...options, AUTH_ENCRYPTION_KEY: parseKeyRing(mintKey("other")) },
-      services,
-      out,
-      (note) => notes.push(note),
-    );
-    expect(notes.join(" ")).toContain("AUTH_ENCRYPTION_PREVIOUS_KEYS");
-  });
-
   it("refuses a service that another instance's authority vouches for", async () => {
     const mine = await settings();
     const theirs = await settings();
@@ -359,5 +342,308 @@ describe("the certificate AnyGridDB serves", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+/** Every file of the folder and what it holds, to prove none was touched. */
+async function sums(dir: string): Promise<Record<string, string>> {
+  const names = (await readdir(dir)).sort();
+  const entries = await Promise.all(
+    names.map(async (name) => [
+      name,
+      createHash("sha256")
+        .update(await readFile(join(dir, name)))
+        .digest("hex"),
+    ]),
+  );
+  return Object.fromEntries(entries) as Record<string, string>;
+}
+
+describe("a private key no key given opens", () => {
+  const services = [{ name: "db", postgres: true }];
+  const started = async () => {
+    const options = await settings();
+    const out = join(options.TLS_DIR, "..", "certs");
+    await issueServiceCertificates(options, services, out, quiet);
+    await loadTls(options, quiet);
+    return { options, out, before: await sums(options.TLS_DIR) };
+  };
+
+  it("stops the instance and its services under another key, writing nothing", async () => {
+    const { options, out, before } = await started();
+    const other = {
+      ...options,
+      AUTH_ENCRYPTION_KEY: parseKeyRing(mintKey("x")),
+    };
+    await expect(loadTls(other, quiet)).rejects.toBeInstanceOf(
+      TlsKeyUnreadable,
+    );
+    await expect(
+      issueServiceCertificates(other, services, out, quiet),
+    ).rejects.toBeInstanceOf(TlsKeyUnreadable);
+    expect(await sums(options.TLS_DIR)).toEqual(before);
+    // The right key is put back: the same authority, nothing to install.
+    const again = await loadTls(options, quiet);
+    expect(await sums(options.TLS_DIR)).toEqual(before);
+    expect(again.mode).toBe("local");
+  });
+
+  it("says what to do, and nothing of the key", async () => {
+    const { options } = await started();
+    const key = parseKeyRing(mintKey("x"));
+    const refused = await loadTls(
+      { ...options, AUTH_ENCRYPTION_KEY: key },
+      quiet,
+    ).catch((error: unknown) => error as Error);
+    expect((refused as Error).message).toContain("authority.key.enc");
+    expect((refused as Error).message).toContain(
+      "AUTH_ENCRYPTION_PREVIOUS_KEYS",
+    );
+    expect((refused as Error).message).toContain("anygriddb tls reset --yes");
+  });
+
+  it.each(["authority.key.enc", "internal-authority.key.enc"])(
+    "refuses %s damaged or emptied, before the services' certificates",
+    async (name) => {
+      for (const damage of [
+        "",
+        "{}",
+        "not json",
+        '{"nonce":"AA==","ciphertext":"AA=="}',
+      ]) {
+        const { options, out } = await started();
+        await writeFile(join(options.TLS_DIR, name), damage);
+        const before = await sums(options.TLS_DIR);
+        await expect(
+          issueServiceCertificates(options, services, out, quiet),
+        ).rejects.toBeInstanceOf(TlsKeyUnreadable);
+        expect(await sums(options.TLS_DIR)).toEqual(before);
+      }
+    },
+  );
+
+  it("leaves a good key alone when the other authority's cannot be opened", async () => {
+    const earlier = randomBytes(32);
+    const options = {
+      ...(await settings()),
+      AUTH_ENCRYPTION_KEY: keyRing(earlier),
+    };
+    const out = join(options.TLS_DIR, "..", "certs");
+    await issueServiceCertificates(options, services, out, quiet);
+    await loadTls(options, quiet);
+    await writeFile(join(options.TLS_DIR, "internal-authority.key.enc"), "{}");
+    const before = await sums(options.TLS_DIR);
+    // The authority's file opens under the earlier key and would be
+    // sealed again: not while the other stops the start.
+    const during = parseKeyRing(
+      mintKey("next"),
+      `0:${earlier.toString("base64")}`,
+    );
+    await expect(
+      issueServiceCertificates(
+        { ...options, AUTH_ENCRYPTION_KEY: during },
+        services,
+        out,
+        quiet,
+      ),
+    ).rejects.toBeInstanceOf(TlsKeyUnreadable);
+    expect(await sums(options.TLS_DIR)).toEqual(before);
+  });
+
+  it("is not stopped by a public authority the operator's certificate replaced", async () => {
+    const { options, out } = await started();
+    await writeFile(join(options.TLS_DIR, "authority.key.enc"), "{}");
+    const before = await sums(options.TLS_DIR);
+    const notes: string[] = [];
+    await issueServiceCertificates(
+      { ...options, TLS_CERT_FILE: "/own-tls/server.crt" },
+      services,
+      out,
+      (note) => notes.push(note),
+    );
+    expect((await sums(options.TLS_DIR))["authority.key.enc"]).toBe(
+      before["authority.key.enc"],
+    );
+    expect(notes.join(" ")).toContain("authority.key.enc");
+    // Without that certificate it is the one in use, and it stops the start.
+    await expect(
+      issueServiceCertificates(options, services, out, quiet),
+    ).rejects.toBeInstanceOf(TlsKeyUnreadable);
+  });
+
+  it("opens under an earlier key kept in the ring, and seals it again", async () => {
+    const earlier = randomBytes(32);
+    const options = {
+      ...(await settings()),
+      AUTH_ENCRYPTION_KEY: keyRing(earlier),
+    };
+    const first = await loadTls(options, quiet);
+    const during = parseKeyRing(
+      mintKey("next"),
+      `0:${earlier.toString("base64")}`,
+    );
+    const again = await loadTls(
+      { ...options, AUTH_ENCRYPTION_KEY: during },
+      quiet,
+    );
+    expect(again.authority?.fingerprint).toBe(first.authority?.fingerprint);
+    expect(
+      await resealTlsKey(options.TLS_DIR, "authority.key.enc", during, true),
+    ).toEqual({ keyId: "next", rewritten: true });
+  });
+
+  it("issues an authority when there is no key file at all", async () => {
+    const options = await settings();
+    const state = await loadTls(options, quiet);
+    expect(state.authority?.fingerprint).toBeTruthy();
+  });
+
+  it("replaces a server key it cannot open: the authority vouches for the next", async () => {
+    const options = await settings();
+    const first = await loadTls(options, quiet);
+    await writeFile(join(options.TLS_DIR, "server.key.enc"), "{}");
+    const again = await loadTls(options, quiet);
+    expect(again.authority?.fingerprint).toBe(first.authority?.fingerprint);
+    expect(again.server.fingerprint).not.toBe(first.server.fingerprint);
+  });
+
+  it("sets the files aside for whoever really lost the key, and starts anew", async () => {
+    const { options, out, before } = await started();
+    const other = {
+      ...options,
+      AUTH_ENCRYPTION_KEY: parseKeyRing(mintKey("x")),
+    };
+    const { moved, folder } = await resetTlsFolder(options.TLS_DIR);
+    expect(moved).toEqual(expect.arrayContaining(Object.keys(before)));
+    const kept = await sums(join(options.TLS_DIR, folder ?? ""));
+    expect(kept).toEqual(before);
+    const fresh = await issueServiceCertificates(other, services, out, quiet);
+    const state = await loadTls(other, quiet);
+    expect(fresh.fingerprint).toBeTruthy();
+    expect(state.authority?.fingerprint).toBeTruthy();
+  });
+
+  it("has nothing to set aside in a folder that does not exist", async () => {
+    const options = await settings();
+    expect(await resetTlsFolder(options.TLS_DIR)).toEqual({
+      moved: [],
+      folder: null,
+    });
+  });
+});
+
+describe("processes that start together, or stopped halfway", () => {
+  it("settles on one authority when several start on an empty folder", async () => {
+    const options = await settings();
+    const states = await Promise.all(
+      Array.from({ length: 8 }, () => loadTls(options, quiet)),
+    );
+    const prints = new Set(states.map((state) => state.authority?.fingerprint));
+    expect(prints.size).toBe(1);
+    const after = await loadTls(options, quiet);
+    expect(after.authority?.fingerprint).toBe(
+      states[0]?.authority?.fingerprint,
+    );
+    for (const state of states) {
+      const authority = state.authority?.cert ?? "";
+      expect(await handshake(state, authority, "grid.lan")).toBe("verified");
+    }
+    expect(
+      await handshake(after, states[0]?.authority?.cert ?? "", "grid.lan"),
+    ).toBe("verified");
+  });
+
+  it("makes the certificate again from the key when it is missing", async () => {
+    const options = await settings();
+    const first = await loadTls(options, quiet);
+    await rm(join(options.TLS_DIR, "authority.crt"));
+    const again = await loadTls(options, quiet);
+    expect(
+      new X509Certificate(again.authority?.cert ?? "").publicKey.equals(
+        new X509Certificate(first.authority?.cert ?? "").publicKey,
+      ),
+    ).toBe(true);
+    expect(
+      await handshake(again, again.authority?.cert ?? "", "grid.lan"),
+    ).toBe("verified");
+  });
+
+  it("serves no key beside a certificate that is not its own", async () => {
+    const options = await settings();
+    const first = await loadTls(options, quiet);
+    const other = await settings();
+    await loadTls(other, quiet);
+    // The server's certificate of another process, beside this key.
+    await writeFile(
+      join(options.TLS_DIR, "authority.crt"),
+      await readFile(join(other.TLS_DIR, "authority.crt")),
+    );
+    const again = await loadTls(options, quiet);
+    expect(
+      new X509Certificate(again.authority?.cert ?? "").publicKey.equals(
+        new X509Certificate(first.authority?.cert ?? "").publicKey,
+      ),
+    ).toBe(true);
+    expect(
+      await handshake(again, again.authority?.cert ?? "", "grid.lan"),
+    ).toBe("verified");
+  });
+
+  it("does not serve a server certificate with another's key", async () => {
+    const options = await settings();
+    await loadTls(options, quiet);
+    const twin = await settings();
+    await rm(twin.TLS_DIR, { recursive: true, force: true });
+    const kept = await readFile(join(options.TLS_DIR, "server.key.enc"));
+    await rm(join(options.TLS_DIR, "server.crt"));
+    await loadTls(options, quiet);
+    await writeFile(join(options.TLS_DIR, "server.key.enc"), kept);
+    const again = await loadTls(options, quiet);
+    expect(
+      await handshake(again, again.authority?.cert ?? "", "grid.lan"),
+    ).toBe("verified");
+  });
+});
+
+describe("the operator's certificate, replaced", () => {
+  const pair = async (options: TlsSettings, name: string) => {
+    const issued = issueAuthority({ commonName: name, names: ["grid.lan"] });
+    const certFile = join(options.TLS_DIR, "..", "own.crt");
+    const keyFile = join(options.TLS_DIR, "..", "own.key");
+    await writeFile(certFile, issued.cert);
+    await writeFile(keyFile, issued.key);
+    return { certFile, keyFile, issued };
+  };
+
+  it("is looked at every minute", () => {
+    expect(TLS_CHECK_MS).toBe(60_000);
+  });
+
+  it("is served from the next check", async () => {
+    const options = await settings();
+    const { certFile, keyFile } = await pair(options, "first");
+    const own = { ...options, TLS_CERT_FILE: certFile, TLS_KEY_FILE: keyFile };
+    const current = await loadTls(own, quiet);
+    expect(await refreshTls(own, current, quiet)).toBe(current);
+    const next = await pair(options, "second");
+    const later = new Date(Date.now() + 5_000);
+    await utimes(next.certFile, later, later);
+    const fresh = await refreshTls(own, current, quiet);
+    expect(fresh).not.toBe(current);
+    expect(fresh.server.fingerprint).not.toBe(current.server.fingerprint);
+  });
+
+  it("keeps the certificate served when the new pair does not match", async () => {
+    const options = await settings();
+    const { certFile, keyFile } = await pair(options, "first");
+    const own = { ...options, TLS_CERT_FILE: certFile, TLS_KEY_FILE: keyFile };
+    const current = await loadTls(own, quiet);
+    const stray = issueAuthority({ commonName: "stray", names: ["grid.lan"] });
+    await writeFile(keyFile, stray.key);
+    const later = new Date(Date.now() + 5_000);
+    await utimes(keyFile, later, later);
+    await expect(refreshTls(own, current, quiet)).rejects.toThrow(
+      /not the key/,
+    );
   });
 });

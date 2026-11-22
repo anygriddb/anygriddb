@@ -24,7 +24,7 @@ import { cancelAnyJob, listAllJobs } from "../jobs.js";
 import { resolveOidc } from "../integrations/oidc.js";
 import { resolveSaml } from "../integrations/saml.js";
 import { resolveSmtp } from "../integrations/smtp.js";
-import { sendMail, smtpReady } from "../mail.js";
+import { sendMail, smtpReady, smtpRefusal } from "../mail.js";
 import { testMailBody, testMailSubject } from "../mail-i18n.js";
 import {
   operatorMailInputSchema,
@@ -402,11 +402,19 @@ export const adminInstanceProcedures = {
       // Sent as every mail is: the test shows the sender name and the
       // signature as people will receive them.
       const voice = await readMailVoice(ctx.db);
-      await sendMail(smtp, voice, {
-        to: admin.email,
-        subject: testMailSubject(voice),
-        text: testMailBody(voice),
-      });
+      try {
+        await sendMail(smtp, voice, {
+          to: admin.email,
+          subject: testMailSubject(voice),
+          text: testMailBody(voice),
+        });
+      } catch (error) {
+        // What the relay answered, as saving it says: a relay that offers
+        // no encryption is told apart from one that cannot be reached.
+        throw new AppError(smtpRefusal(error), {
+          cause: error instanceof Error ? error : undefined,
+        });
+      }
       return { to: admin.email };
     }),
   ),

@@ -106,7 +106,7 @@ describe("the collector named in the environment", () => {
         SYSLOG_HOST: "logs.example.org",
         SYSLOG_CA_FILE: missing,
       }),
-    ).toThrow(/^SYSLOG_CA_FILE could not be read$/);
+    ).toThrow(/^SYSLOG_CA_FILE could not be read \(ENOENT\)$/);
   });
 
   it("refuses what names no collector", () => {

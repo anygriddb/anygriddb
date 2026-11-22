@@ -112,6 +112,15 @@ fi
   dd if=/dev/zero of=/tmp/large bs=1M count=128 2>/dev/null
   rm /tmp/large
 '
+# Production dependencies only: the TypeScript compiler, which two
+# libraries name as a peer, is not among them, and the workers started
+# without it (/ready above).
+"${compose[@]}" exec -T app sh -c '
+  if [ -n "$(find /app/node_modules \( -path "*/node_modules/typescript" -o -path "*/.bin/tsc" \) -print -quit)" ]; then
+    echo "The image holds the TypeScript compiler." >&2
+    exit 1
+  fi
+'
 # An automation's script runs in a process of its own, started from the
 # bundle with Node's permission model (ADR 0099): the image must let it.
 "${compose[@]}" exec -T app anygriddb scripts check

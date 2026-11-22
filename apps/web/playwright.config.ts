@@ -74,6 +74,9 @@ export default defineConfig({
           process.env.DATABASE_URL ??
           "postgres://anygriddb:anygriddb@127.0.0.1:5433/anygriddb",
         AUTH_ENCRYPTION_KEY: process.env.AUTH_ENCRYPTION_KEY ?? "",
+        // A folder of their own: the development server's certificates are
+        // sealed under another key, and the start refuses what it cannot open.
+        TLS_DIR: process.env.TLS_DIR ?? "./data/tls-journeys",
         PUBLIC_URL: appUrl,
         PORT: port,
         // The sources journey reads a database on the same server, which
