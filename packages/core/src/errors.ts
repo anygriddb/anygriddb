@@ -127,6 +127,7 @@ export const ERRORS = {
   unknown_row: [BAD, "Unknown row"],
   no_row: [BAD, "No row"],
   row_locked: [409, "Row locked"],
+  row_outside_rule: [403, "This would put the row outside what you can reach"],
   invalid_place: [BAD, "Invalid place"],
   reason_required: [BAD, "Reason required"],
   already_member: [409, "Already a member of this base"],

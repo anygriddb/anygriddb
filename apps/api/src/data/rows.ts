@@ -36,6 +36,7 @@ import {
   placeTarget,
   type WriteColumn,
 } from "@anygriddb/core";
+import { sql } from "kysely";
 import {
   readWithin,
   runStatement,
@@ -77,6 +78,11 @@ export type WriteContext = {
   source: string;
   /** How many automations led to this write. */
   depth?: number;
+  /**
+   * The links of these rows are written after them: the caller asks the
+   * row rule once they are, rather than of a row still without them.
+   */
+  deferRule?: boolean;
   /**
    * One event for the whole operation, such as an import, instead of one
    * event per row; false for none at all.
@@ -585,6 +591,42 @@ export async function assertRowsInScope(
   });
 }
 
+/**
+ * Refuses a write that would leave a row outside its writer's row rule,
+ * before it commits: the rule holds for what a row becomes, as for what it
+ * was (ADR 0112). `run` is the write's own transaction.
+ */
+export async function assertRowsStayInRule(
+  run: (statement: ParameterizedSql) => Promise<Record<string, unknown>[]>,
+  engine: EngineCatalog,
+  rowIds: readonly string[],
+): Promise<void> {
+  if (!engine.access?.rowFilter(engine.table.id)) return;
+  const unique = [...new Set(rowIds)];
+  for (let start = 0; start < unique.length; start += MAX_READ_LIMIT) {
+    const chunk = unique.slice(start, start + MAX_READ_LIMIT);
+    const [row] = await run(buildCountRows(engine, { rowIds: chunk }));
+    if (Number(row?.total ?? 0) !== chunk.length) {
+      throw new AppError("row_outside_rule");
+    }
+  }
+}
+
+/** The same in a write to AnyGridDB's own table, read as a read is, in UTC. */
+export async function assertOwnRowsStayInRule(
+  tx: AuditTx,
+  engine: EngineCatalog,
+  rowIds: readonly string[],
+): Promise<void> {
+  if (!engine.access?.rowFilter(engine.table.id)) return;
+  await sql.raw("set local time zone 'UTC'").execute(tx);
+  await assertRowsStayInRule(
+    (statement) => runRows(tx, statement),
+    engine,
+    rowIds,
+  );
+}
+
 export async function aggregateRows(
   db: Database,
   engine: EngineCatalog,
@@ -841,6 +883,7 @@ export async function insertRows(
         ids.push(readId([row]));
       }
     }
+    if (!context.deferRule) await assertOwnRowsStayInRule(tx, engine, ids);
     return ids;
   });
 }
@@ -921,6 +964,11 @@ export async function updateRows(
     for (const item of statements) {
       readId(await runRows(tx, item.statement));
     }
+    await assertOwnRowsStayInRule(
+      tx,
+      engine,
+      statements.map((item) => item.rowId),
+    );
   });
   return statements.map((item) => item.rowId);
 }

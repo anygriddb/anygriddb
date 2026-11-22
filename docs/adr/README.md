@@ -126,3 +126,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0109](0109-acting-holds-the-persons-rules.md)         | Acting as someone holds to that person's rules                                          | Accepted (amends 0091)                                                      |
 | [0110](0110-a-read-has-a-budget-in-bytes.md)           | A read has a budget in bytes                                                            |
 | [0111](0111-saml-trusts-an-address-when-told.md)       | SAML trusts an address only when told to                                                |
+| [0112](0112-row-rules-hold-after-writes.md)            | A row rule holds for what a row becomes                                                 |

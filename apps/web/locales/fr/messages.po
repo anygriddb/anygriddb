@@ -11962,6 +11962,10 @@ msgid "This cannot be undone. Your email and factors are removed. Comments stay 
 msgstr "Cette action est irréversible. Votre e-mail et vos facteurs sont retirés. Les commentaires restent sous « Erased account ». Les valeurs des lignes dans les bases ne sont pas effacées."
 
 #: lib/errors.ts
+msgid "This change would put the row outside what you can reach"
+msgstr "Cette modification placerait la ligne hors de ce que vous pouvez atteindre"
+
+#: lib/errors.ts
 msgid "This changed since you opened it. The history has been read again."
 msgstr "Ceci a changé depuis l’ouverture. L’historique a été relu."
 

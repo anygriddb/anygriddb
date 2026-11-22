@@ -298,6 +298,7 @@ async function writeLinks(
   checked: ReadonlyMap<string, EngineColumn>,
   reason: string | null,
   meta: WriteMeta,
+  deferRule = false,
 ): Promise<string[]> {
   const touched: string[] = [];
   for (const link of links) {
@@ -313,6 +314,7 @@ async function writeLinks(
       reason,
       source: meta.source,
       depth: meta.depth ?? 0,
+      deferRule,
     });
     touched.push(column.relation.targetTableId, ...result.touchedTables);
   }
@@ -543,11 +545,13 @@ export async function createRows(
     );
     return ids;
   }
+  const deferRule = rows.some((row) => row.links?.length);
   const ids = await insertRows(
     deps.db,
     scope.engine,
     {
       ...writeContext(scope, reason, meta),
+      deferRule,
       ...(meta.stagedShareId
         ? {
             claim: {
@@ -567,11 +571,48 @@ export async function createRows(
     const id = ids[index];
     if (!id || !row.links?.length) continue;
     extra.push(
-      ...(await writeLinks(deps, scope, id, row.links, checked, reason, meta)),
+      ...(await writeLinks(
+        deps,
+        scope,
+        id,
+        row.links,
+        checked,
+        reason,
+        meta,
+        true,
+      )),
     );
   }
+  if (deferRule) await keepNewRowsInRule(deps, scope, ids, reason, meta);
   await announceRows(deps, scope.table.id, "insert", ids, extra);
   return ids;
+}
+
+/**
+ * New rows and their links are written apart, so a rule that reads a link
+ * is asked once they are all there. Rows it does not keep go to the trash,
+ * where their writer does not reach them, and the write is refused.
+ */
+async function keepNewRowsInRule(
+  deps: RowServiceDeps,
+  scope: RowScope,
+  ids: readonly string[],
+  reason: string | null,
+  meta: WriteMeta,
+): Promise<void> {
+  try {
+    await assertRowsInScope(deps.db, scope.engine, ids);
+  } catch (error) {
+    if (!(error instanceof AppError) || error.code !== "access_denied") {
+      throw error;
+    }
+    await deleteRowRecords(
+      deps.db,
+      { ...writeContext(scope, reason, meta), events: false },
+      ids,
+    );
+    throw new AppError("row_outside_rule", { cause: error });
+  }
 }
 
 /**

@@ -16,6 +16,9 @@ people whose account is not yet bound to a persistent NameID are refused.
 
 ### Security
 
+- A person with a row rule could create a row outside it, or move one out of
+  it. The rule now holds for what a row becomes: such a write is refused and
+  changes nothing, on AnyGridDB's own tables and on a client's.
 - Through SAML, someone at the identity provider who gave themselves the
   address of an existing account could sign in as that account. An assertion
   now reaches an existing account only when an administrator has said the
