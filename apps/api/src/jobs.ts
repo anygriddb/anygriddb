@@ -1,6 +1,8 @@
 import { actingUserId } from "./data/acting-context.js";
 import {
   AppError,
+  type Binding,
+  effectiveTableRole,
   EXPORT_FILE_HOURS,
   JOB_HEARTBEAT_MS,
   JOB_LEASE_MS,
@@ -12,9 +14,12 @@ import {
   progressDue,
   type PublicError,
   publicError,
+  roleAllows,
+  roleFor,
 } from "@anygriddb/core";
 import type { Database, JobRow } from "@anygriddb/db";
 import type { KeyRing } from "./auth/key-ring.js";
+import type { TokenScope } from "./auth/tokens.js";
 import { sql as sqlTag } from "kysely";
 import type { Bus } from "./realtime/bus.js";
 import { gridChannel } from "./realtime/channels.js";
@@ -492,27 +497,71 @@ export async function listJobs(
   db: Database,
   userId: string,
   limit: number,
+  scope?: TokenScope,
 ): Promise<PublicJob[]> {
+  if (scope?.baseIds?.length === 0) return [];
   const rows = await jobsWithTable(db)
     .where("jobs.userId", "=", userId)
+    .$if(scope !== undefined, (query) =>
+      query.where("jobs.baseId", "is not", null),
+    )
+    .$if(Boolean(scope?.baseIds), (query) =>
+      query.where("jobs.baseId", "in", scope?.baseIds ?? []),
+    )
     .orderBy("jobs.createdAt", "desc")
     .limit(limit)
     .execute();
   return rows.map((row) => publicJob(row));
 }
 
-/** One of the caller's jobs; someone else's reads as unknown. */
+/**
+ * Whether a token reaches a job. A job of no base is an account's export,
+ * which an administrator may have asked for someone else: no token does.
+ */
+function jobInScope(job: Pick<JobRow, "baseId">, scope: TokenScope): boolean {
+  if (job.baseId === null) return false;
+  return scope.baseIds === null || scope.baseIds.includes(job.baseId);
+}
+
+/**
+ * One of the caller's jobs; someone else's reads as unknown, and so does
+ * one the token it is asked with does not reach.
+ */
 export async function loadOwnJob(
   db: Database,
   userId: string,
   jobId: string,
+  scope?: TokenScope,
 ): Promise<JobRow & { tableName: string | null }> {
   const row = await jobsWithTable(db)
     .where("jobs.id", "=", jobId)
     .where("jobs.userId", "=", userId)
     .executeTakeFirst();
-  if (!row) throw new AppError("unknown_job");
+  if (!row || (scope && !jobInScope(row, scope))) {
+    throw new AppError("unknown_job");
+  }
   return row;
+}
+
+/**
+ * Whether its author may still have a job's file: the right that made it,
+ * as it stands today. A person removed from a base does not keep what an
+ * export of it wrote. A job of no base is the author's own account.
+ */
+export function jobReadableBy(
+  job: Pick<JobRow, "kind" | "baseId" | "tableId">,
+  bindings: readonly Binding[],
+): boolean {
+  if (job.baseId === null) return true;
+  if (job.kind === "export_snapshot") {
+    return roleAllows(roleFor(bindings, "base", job.baseId), "manage");
+  }
+  return roleAllows(
+    job.tableId
+      ? effectiveTableRole(bindings, job.tableId, job.baseId)
+      : roleFor(bindings, "base", job.baseId),
+    "read",
+  );
 }
 
 /**

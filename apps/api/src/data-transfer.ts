@@ -68,7 +68,7 @@ import { madeNamesFor, readGateSettings } from "./settings.js";
 import { findLiveTable } from "./services/rows.js";
 import { stageSnapshotFile } from "./data/snapshot-stage.js";
 import { localFolder } from "./files/local-folder.js";
-import { loadOwnJob } from "./jobs.js";
+import { jobReadableBy, loadOwnJob } from "./jobs.js";
 import { readerEngine } from "./data/acl.js";
 import { recordExport } from "./data/export-audit.js";
 import type { FileStore } from "./files/index.js";
@@ -115,6 +115,11 @@ async function actorOf(
     request.log.warn({ err: error }, "actor rejected");
     return null;
   }
+}
+
+/** A token kept to reading or to some bases makes no base, so stages no file for one. */
+function keptFromNewBases(actor: Actor): boolean {
+  return Boolean(actor.scope?.readOnly || actor.scope?.baseIds);
 }
 
 function deny(reply: FastifyReply, status: number, code?: ErrorCode) {
@@ -569,6 +574,7 @@ export function registerDataTransferRoutes(
   app.post("/api/import/workbook", async (request, reply) => {
     const actor = await actorOf(deps.db, request);
     if (!actor) return deny(reply, 401);
+    if (keptFromNewBases(actor)) return deny(reply, 403, "access_denied");
     if (
       !actor.user.isAdmin &&
       (await readGateSettings(deps.db)).baseCreation === "admins"
@@ -731,13 +737,19 @@ export function registerDataTransferRoutes(
     if (!actor) return deny(reply, 401);
     let job: Awaited<ReturnType<typeof loadOwnJob>>;
     try {
-      job = await loadOwnJob(deps.db, actor.user.id, params.data.jobId);
+      job = await loadOwnJob(
+        deps.db,
+        actor.user.id,
+        params.data.jobId,
+        actor.scope,
+      );
     } catch (error) {
       request.log.warn({ err: error }, "job file denied");
       return deny(reply, 404);
     }
     const result = jobFileResultSchema.safeParse(job.result);
     if (
+      !jobReadableBy(job, actor.bindings) ||
       (job.kind !== "export" &&
         job.kind !== "export_snapshot" &&
         job.kind !== "account_export") ||
@@ -781,6 +793,7 @@ export function registerDataTransferRoutes(
   app.post("/api/snapshot/upload", async (request, reply) => {
     const actor = await actorOf(deps.db, request);
     if (!actor) return deny(reply, 401);
+    if (keptFromNewBases(actor)) return deny(reply, 403, "access_denied");
     const release = deps.uploads.take();
     if (!release) return denyBusy(reply);
     const folder = await localFolder("snapshot");

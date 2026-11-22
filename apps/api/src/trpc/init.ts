@@ -18,6 +18,7 @@ import { describeTRPCError, toTRPCError } from "./map-error.js";
 import { measureProcedure } from "../observability.js";
 import { checksCredential } from "../rate-limit.js";
 import { madeNamesFor } from "../settings.js";
+import { tokenMayCall } from "./token-rule.js";
 
 export const t = initTRPC.context<Context>().create({
   errorFormatter({ shape, error }) {
@@ -44,10 +45,11 @@ const READ_BACK: ReadonlySet<string> = new Set(["expected", "seen"]);
  * reaches the client with its status and code, never as an internal one.
  */
 export const procedure = t.procedure.use(
-  async ({ ctx, next, path, getRawInput }) => {
+  async ({ ctx, next, path, type, getRawInput }) => {
     if (holdsUnwritableText(await getRawInput(), READ_BACK)) {
       throw toTRPCError(new AppError("invalid_input"));
     }
+    await assertTokenMayCall(ctx, type, path);
     // A token never acts as someone. A session does, for this call only.
     // A caller built without a request (a test of error mapping) is no one.
     const request = ctx.req as typeof ctx.req | undefined;
@@ -80,6 +82,31 @@ export const procedure = t.procedure.use(
     return result;
   },
 );
+
+/**
+ * A token's scope, asked per call: the calls of one request may differ in
+ * what they are. A token that no longer works is refused later, by
+ * `requireUser`, and a public procedure does not ask for it.
+ */
+async function assertTokenMayCall(
+  ctx: Context,
+  type: "query" | "mutation" | "subscription",
+  path: string,
+): Promise<void> {
+  const request = ctx.req as typeof ctx.req | undefined;
+  if (!namesApiToken(request?.headers.authorization)) return;
+  const bearer = await bearerOf(ctx);
+  if (bearer && !tokenMayCall(bearer.scope, type, path)) {
+    ctx.req.log.warn("access denied");
+    throw toTRPCError(new AppError("access_denied"));
+  }
+}
+
+function bearerOf(ctx: Context) {
+  return sharedLookup(ctx, "bearer", () =>
+    findApiToken(ctx.db, ctx.req.headers.authorization),
+  );
+}
 
 /**
  * Whose password or code a call guesses at, so that such guesses take
@@ -136,7 +163,7 @@ export function requireUser(ctx: Context): Promise<SessionUser> {
 }
 
 async function findUser(ctx: Context): Promise<SessionUser> {
-  const bearer = await findApiToken(ctx.db, ctx.req.headers.authorization);
+  const bearer = await bearerOf(ctx);
   if (bearer) {
     await assertNotInMaintenance(ctx.db, bearer.user);
     ctx.tokenScope = bearer.scope;

@@ -8,6 +8,23 @@ first.
 
 ## Unreleased
 
+### Security
+
+- A read-only API token now changes nothing: every change is refused, a
+  procedure added later included. Only an export of what it can read stays
+  allowed.
+- A token limited to some bases no longer reads, downloads, stops, or
+  restarts the jobs of the account's other bases, and no token reaches an
+  account's data export. It is also kept off the notifications and
+  shortcuts, which span every base.
+- No API token can see or answer the account's invitations, or make or
+  remove a calendar address, which would go on serving rows once the token
+  is revoked. **Calendar addresses a token already made keep working:**
+  revoke them from the view's calendar settings if a token was exposed.
+- A person removed from a base can no longer download an export they made
+  there, and a base's snapshot file asks for the right to manage the base
+  at the time of the download.
+
 ## 0.3.6 - 2026-11-21
 
 **Before upgrading:** nothing to do. This version adds no migration.

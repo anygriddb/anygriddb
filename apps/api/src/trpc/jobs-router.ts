@@ -32,7 +32,7 @@ export const jobsRouter = t.router({
     handle(ctx, async () => {
       const { user } = await authorize(ctx);
       return {
-        jobs: await listJobs(ctx.db, user.id, input.limit),
+        jobs: await listJobs(ctx.db, user.id, input.limit, ctx.tokenScope),
         /** Exports run as jobs only when there is somewhere to keep the file. */
         // Exports always run as jobs: there is always a file store.
         exportFiles: true,
@@ -42,12 +42,15 @@ export const jobsRouter = t.router({
   get: procedure.input(jobIdInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
       const { user } = await authorize(ctx);
-      return publicJob(await loadOwnJob(ctx.db, user.id, input.jobId));
+      return publicJob(
+        await loadOwnJob(ctx.db, user.id, input.jobId, ctx.tokenScope),
+      );
     }),
   ),
   cancel: procedure.input(jobIdInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const { user } = await authorize(ctx);
+      await loadOwnJob(ctx.db, user.id, input.jobId, ctx.tokenScope);
       await cancelJob(queueDeps(ctx), user.id, input.jobId);
       return { ok: true as const };
     }),
@@ -56,6 +59,7 @@ export const jobsRouter = t.router({
   retry: procedure.input(jobIdInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const { user } = await authorize(ctx);
+      await loadOwnJob(ctx.db, user.id, input.jobId, ctx.tokenScope);
       return publicJob(await retryJob(queueDeps(ctx), user.id, input.jobId));
     }),
   ),
