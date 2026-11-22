@@ -24,8 +24,6 @@ first.
 - A person removed from a base can no longer download an export they made
   there, and a base's snapshot file asks for the right to manage the base
   at the time of the download.
-  ||||||| parent of 4e5ead91 (fix(api): bound what one read holds in memory)
-  \=======
 - One request can no longer end the process by reading too much, with or
   without an account. A request now holds at most 64 MiB of rows, and a
   process a quarter of its heap, for every way of reading: the app, public
@@ -37,8 +35,6 @@ first.
   or fields. When too much is being read at once, a read answers `reads_busy`
   (503) and can be tried again. A request names at most 10 calls to public
   links.
-
-> > > > > > > 4e5ead91 (fix(api): bound what one read holds in memory)
 
 ## 0.3.6 - 2026-11-21
 
