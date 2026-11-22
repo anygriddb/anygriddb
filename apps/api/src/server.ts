@@ -393,7 +393,8 @@ export async function createApp(deps: {
     // page, not shown a body of JSON.
     if (
       status === 429 &&
-      rateBucket(request.method, request.url) === "signOn"
+      rateBucket(request.method, request.url) === "signOn" &&
+      !request.url.startsWith("/auth/oidc/backchannel-logout")
     ) {
       void reply.redirect("/login?refused=too_many_attempts", 303);
       return;
@@ -409,7 +410,11 @@ export async function createApp(deps: {
     uploads,
     importMaxRows: deps.env.IMPORT_MAX_ROWS,
   });
-  registerEnterpriseAuth(app, { env: deps.env, db: deps.db });
+  registerEnterpriseAuth(app, {
+    env: deps.env,
+    db: deps.db,
+    closeSession: (tokenHash) => hub.closeSession(tokenHash),
+  });
   registerRestApi(app, {
     db: deps.db,
     bus: deps.bus,

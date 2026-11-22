@@ -2602,6 +2602,14 @@ msgstr "Back to sign-in"
 msgid "Back to the starting points"
 msgstr "Back to the starting points"
 
+#: components/admin/integrations-tab.tsx
+msgid "Back-channel logout URL"
+msgstr "Back-channel logout URL"
+
+#: components/admin/integrations-tab.tsx
+msgid "Back-channel logout URL, to end sessions here when they end there:"
+msgstr "Back-channel logout URL, to end sessions here when they end there:"
+
 #: components/admin/admin-overview.tsx
 msgid "Background jobs, webhook deliveries, or automation runs that did not go through."
 msgstr "Background jobs, webhook deliveries, or automation runs that did not go through."
@@ -4578,6 +4586,14 @@ msgstr "End a session after this long without activity"
 #: components/admin/security-tab.tsx
 msgid "End it in any case after"
 msgstr "End it in any case after"
+
+#: components/admin/security-tab.tsx
+msgid "End password access now?"
+msgstr "End password access now?"
+
+#: components/admin/security-tab.tsx
+msgid "End sessions and revoke tokens"
+msgstr "End sessions and revoke tokens"
 
 #: components/admin/access-tab.tsx
 #: components/admin/outbound-tab.tsx
@@ -8332,6 +8348,10 @@ msgstr "Password"
 msgid "Password (optional)"
 msgstr "Password (optional)"
 
+#: components/admin/sign-in-trail.tsx
+msgid "Password access ended for single sign-on"
+msgstr "Password access ended for single sign-on"
+
 #: components/admin/outbound-tab.tsx
 msgid "Password asked"
 msgstr "Password asked"
@@ -8362,8 +8382,8 @@ msgid "Password resets"
 msgstr "Password resets"
 
 #: lib/errors.ts
-msgid "Password sign-in is off: use single sign-on, or ask an administrator"
-msgstr "Password sign-in is off: use single sign-on, or ask an administrator"
+msgid "Password sign-in is off: use single sign-on. An administrator signing in with a password should check it"
+msgstr "Password sign-in is off: use single sign-on. An administrator signing in with a password should check it"
 
 #: lib/errors.ts
 msgid "Password too short. Minimum length"
@@ -8405,6 +8425,10 @@ msgstr "Pending: the client's database has not confirmed this change yet."
 #: components/admin/admin-sections.ts
 msgid "People"
 msgstr "People"
+
+#: components/admin/security-tab.tsx
+msgid "People already signed in with a password stay signed in until their session ends, and their API tokens keep working. You can end those sessions and revoke the API tokens of everyone but administrators: scripts and integrations that use them stop working."
+msgstr "People already signed in with a password stay signed in until their session ends, and their API tokens keep working. You can end those sessions and revoke the API tokens of everyone but administrators: scripts and integrations that use them stop working."
 
 #: components/shell/airtable-report.tsx
 msgid "people carried over as text (name and address)"
@@ -10149,6 +10173,10 @@ msgstr "Session lifetime"
 msgid "Sessions"
 msgstr "Sessions"
 
+#: components/admin/security-tab.tsx
+msgid "Sessions ended: {sessions}. API tokens revoked: {tokens}."
+msgstr "Sessions ended: {sessions}. API tokens revoked: {tokens}."
+
 #: lib/known-text.ts
 msgid "Sessions on a calendar, their venues, and a form where attendees register."
 msgstr "Sessions on a calendar, their venues, and a form where attendees register."
@@ -10495,6 +10523,10 @@ msgstr "Signed in"
 msgid "Signed out"
 msgstr "Signed out"
 
+#: components/admin/sign-in-trail.tsx
+msgid "Signed out at the identity provider"
+msgstr "Signed out at the identity provider"
+
 #: components/admin/notifications-tab.tsx
 msgid "Signing secret"
 msgstr "Signing secret"
@@ -10523,6 +10555,14 @@ msgstr "Single sign-on"
 #: components/admin/security-tab.tsx
 msgid "Single sign-on only (administrators keep a password)"
 msgstr "Single sign-on only (administrators keep a password)"
+
+#: lib/errors.ts
+msgid "Single sign-on only is on: keep this identity provider, or turn that setting off first"
+msgstr "Single sign-on only is on: keep this identity provider, or turn that setting off first"
+
+#: lib/errors.ts
+msgid "Single sign-on only is on: this is the last administrator who can sign in with a password if the provider fails"
+msgstr "Single sign-on only is on: this is the last administrator who can sign in with a password if the provider fails"
 
 #: components/admin/auth-labels.ts
 msgid "Single sign-on unlinked"
@@ -12743,8 +12783,8 @@ msgid "True when the value is filled."
 msgstr "True when the value is filled."
 
 #: components/admin/security-tab.tsx
-msgid "Trust it only if your identity provider requires a second factor of everyone. An account that signs in only through it then needs none here."
-msgstr "Trust it only if your identity provider requires a second factor of everyone. An account that signs in only through it then needs none here."
+msgid "Trust it only if your identity provider requires a second factor of everyone. An account that signs in only through it then needs none here, unless the provider says it asked for one factor. Administrators always keep their own."
+msgstr "Trust it only if your identity provider requires a second factor of everyone. An account that signs in only through it then needs none here, unless the provider says it asked for one factor. Administrators always keep their own."
 
 #: components/admin/security-tab.tsx
 msgid "Trust the identity provider's second factor"

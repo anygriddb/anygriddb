@@ -286,6 +286,7 @@ export type SecurityNotice =
   | { kind: "locked"; failures: number; until: Date | null }
   | { kind: "password_changed" }
   | { kind: "factors_removed" }
+  | { kind: "sso_linked" }
   | { kind: "inactive_soon"; days: number; disableAt: Date }
   | { kind: "inactive_disabled"; days: number };
 
@@ -307,6 +308,7 @@ export function securityMailSubject(
     locked: "votre compte est verrouillé",
     password_changed: "votre mot de passe a changé",
     factors_removed: "vos seconds facteurs ont été retirés",
+    sso_linked: "votre compte est lié à un fournisseur d’identité",
     inactive_soon: "votre compte sera bientôt désactivé",
     inactive_disabled: "votre compte est désactivé",
   };
@@ -314,6 +316,7 @@ export function securityMailSubject(
     locked: "your account is locked",
     password_changed: "your password was changed",
     factors_removed: "your second factors were removed",
+    sso_linked: "your account was linked to an identity provider",
     inactive_soon: "your account will soon be disabled",
     inactive_disabled: "your account is disabled",
   };
@@ -336,6 +339,8 @@ export function securityMailBody(
         return `Le mot de passe de votre compte ${voice.name} vient de changer, et vos autres sessions ont pris fin.\n\n${warn}`;
       case "factors_removed":
         return `Un administrateur a retiré les seconds facteurs de votre compte ${voice.name} (application d’authentification, clés d’accès, codes de secours). Configurez-en un à votre prochaine connexion.\n\n${warn}`;
+      case "sso_linked":
+        return `Votre compte ${voice.name} vient d’être lié à une identité de votre fournisseur d’authentification\u00a0: celle-ci ouvre désormais ce compte.\n\n${warn}`;
       case "inactive_soon":
         return `Votre compte ${voice.name} n’a pas servi depuis longtemps. Sans connexion d’ici le ${moment(voice.locale, notice.disableAt)}, il sera désactivé, comme tout compte inutilisé pendant ${String(notice.days)} jours sur cette instance.\n\nPour le garder, connectez-vous simplement.`;
       case "inactive_disabled":
@@ -350,6 +355,8 @@ export function securityMailBody(
       return `The password of your ${voice.name} account was just changed, and your other sessions ended.\n\n${warn}`;
     case "factors_removed":
       return `An administrator removed the second factors of your ${voice.name} account (authenticator app, passkeys, backup codes). Set one up again at your next sign-in.\n\n${warn}`;
+    case "sso_linked":
+      return `Your ${voice.name} account was just linked to an identity at your sign-on provider, which now opens this account.\n\n${warn}`;
     case "inactive_soon":
       return `Your ${voice.name} account has not been used for a long time. Unless you sign in by ${moment(voice.locale, notice.disableAt)}, it will be disabled, as any account unused for ${String(notice.days)} days is on this instance.\n\nTo keep it, just sign in.`;
     case "inactive_disabled":

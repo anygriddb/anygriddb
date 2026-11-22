@@ -231,7 +231,7 @@ export const oidcRouter = t.router({
   clear: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
-      await clearOidc(ctx.db, admin.id, ctx.req.ip);
+      await clearOidc(ctx.db, ctx.env, admin.id, ctx.req.ip);
       return { ok: true as const };
     }),
   ),
@@ -278,7 +278,7 @@ export const samlRouter = t.router({
   clear: procedure.mutation(({ ctx }) =>
     handle(ctx, async () => {
       const admin = await requireAdmin(ctx);
-      await clearSaml(ctx.db, admin.id, ctx.req.ip);
+      await clearSaml(ctx.db, ctx.env, admin.id, ctx.req.ip);
       return { ok: true as const };
     }),
   ),

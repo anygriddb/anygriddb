@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { AppError, sessionWindows } from "@anygriddb/core";
 import { recordAuthEvent } from "./auth-events.js";
+import { assertLocalSignInAllowed } from "./sso-only.js";
 import { ERASED_USER_ID } from "../data/erasure.js";
 import { readGateSettings, readSettings } from "../settings.js";
 
@@ -30,7 +31,39 @@ export function sessionCookieOptions(expiresAt: Date) {
   };
 }
 
+/**
+ * Left in a browser that signed out of a session a provider opened: the
+ * next sign-on from it asks the provider to authenticate the person again,
+ * though the provider's own session is still open. A shared computer does
+ * not sign the last person back in with one click.
+ */
+export const SSO_AGAIN_COOKIE = "__Host-ag_sso_again";
+const SSO_AGAIN_MAX_AGE_S = 30 * 24 * 60 * 60;
+
+export function ssoAgainOptions(maxAge: number = SSO_AGAIN_MAX_AGE_S) {
+  return {
+    httpOnly: true as const,
+    secure: true as const,
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge,
+  };
+}
+
 const SESSION_TOKEN = /^[A-Za-z0-9_-]{43,128}$/;
+
+/**
+ * What an identity provider said of a sign-in it vouched for: which
+ * protocol, its own session (as a hash), and when it says that one ends.
+ * A session without it was opened with a password.
+ */
+export type SignOn = {
+  provider: "oidc" | "saml";
+  sidHash?: string | null;
+  mustEndAt?: Date | null;
+  /** A first binding, written only once the account's factor is proved. */
+  binding?: { issuer: string; subject: string } | null;
+};
 
 export type SessionUser = {
   id: string;
@@ -203,19 +236,24 @@ export async function sessionIdentities(
 
 /**
  * Idle-timeout renewal. Returns the new expiry when less than half of the
- * idle window is left and the absolute lifetime still allows it, else null.
+ * idle window is left and neither the absolute lifetime nor the end an
+ * identity provider set is in the way, else null.
  */
 export function planSessionRenewal(
   createdAt: Date,
   expiresAt: Date,
   now: Date,
   windows: SessionWindows,
+  mustEndAt?: Date | null,
 ): Date | null {
   const remaining = expiresAt.getTime() - now.getTime();
   if (remaining <= 0 || remaining > windows.idleMs / 2) {
     return null;
   }
-  const ceiling = createdAt.getTime() + windows.maxMs;
+  const ceiling = Math.min(
+    createdAt.getTime() + windows.maxMs,
+    mustEndAt?.getTime() ?? Number.POSITIVE_INFINITY,
+  );
   const next = Math.min(now.getTime() + windows.idleMs, ceiling);
   if (next <= expiresAt.getTime()) {
     return null;
@@ -235,7 +273,7 @@ export async function renewSession(
   const tokenHash = hashSessionToken(token);
   const session = await db
     .selectFrom("sessions")
-    .select(["createdAt", "expiresAt"])
+    .select(["createdAt", "expiresAt", "mustEndAt"])
     .where("tokenHash", "=", tokenHash)
     .where("expiresAt", ">", now)
     .executeTakeFirst();
@@ -247,6 +285,7 @@ export async function renewSession(
     session.expiresAt,
     now,
     sessionWindows(await readGateSettings(db)),
+    session.mustEndAt,
   );
   if (!next) {
     return null;
@@ -266,14 +305,14 @@ export async function renewSession(
 export async function revokeSession(
   db: Database,
   token: string | undefined,
-): Promise<{ userId: string } | null> {
+): Promise<{ userId: string; signOn: string | null } | null> {
   if (!isSessionToken(token)) {
     return null;
   }
   const removed = await db
     .deleteFrom("sessions")
     .where("tokenHash", "=", hashSessionToken(token))
-    .returning("userId")
+    .returning(["userId", "signOn"])
     .executeTakeFirst();
   return removed ?? null;
 }
@@ -281,9 +320,11 @@ export async function revokeSession(
 export async function createSession(
   db: Database,
   userId: string,
+  signOn?: SignOn | null,
 ): Promise<{ token: string; expiresAt: Date }> {
-  // Every sign-in path ends here, so a disabled account, or anyone but an
-  // administrator during maintenance, is stopped here.
+  // Every sign-in path ends here, so a disabled account, anyone but an
+  // administrator during maintenance, and a password under single sign-on
+  // only, whenever that sign-in began, are stopped here.
   const account = await db
     .selectFrom("users")
     .select(["disabledAt", "isAdmin"])
@@ -296,11 +337,26 @@ export async function createSession(
   if (!account.isAdmin && settings.maintenance) {
     throw new AppError("instance_maintenance");
   }
+  if (!signOn) assertLocalSignInAllowed(settings, account);
+  const mustEndAt = signOn?.mustEndAt ?? null;
+  if (mustEndAt && mustEndAt.getTime() <= Date.now()) {
+    throw new AppError("invalid_credentials");
+  }
   const token = randomBytes(32).toString("base64url");
-  const expiresAt = new Date(Date.now() + sessionWindows(settings).idleMs);
+  const idleEnd = Date.now() + sessionWindows(settings).idleMs;
+  const expiresAt = new Date(
+    mustEndAt ? Math.min(idleEnd, mustEndAt.getTime()) : idleEnd,
+  );
   await db
     .insertInto("sessions")
-    .values({ userId, tokenHash: hashSessionToken(token), expiresAt })
+    .values({
+      userId,
+      tokenHash: hashSessionToken(token),
+      expiresAt,
+      signOn: signOn?.provider ?? null,
+      signOnSid: signOn?.sidHash ?? null,
+      mustEndAt,
+    })
     .execute();
   // Active again: an inactive account's count starts over (ADR 0044).
   // The sign-in's date stays on the account: its session will not.

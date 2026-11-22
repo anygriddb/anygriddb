@@ -360,6 +360,7 @@ function OidcSection() {
             [t`Issuer URL`, oidc.data.issuer],
             [t`Client ID`, oidc.data.clientId],
             [t`Redirect URL`, oidc.data.redirectUrl],
+            [t`Back-channel logout URL`, oidc.data.logoutUrl],
           ]}
         >
           {clearSaved}
@@ -458,6 +459,11 @@ function OidcSection() {
               {t`Redirect URL for the identity provider:`}{" "}
               <code className="rounded bg-muted px-1">
                 {oidc.data.redirectUrl}
+              </code>
+              <br />
+              {t`Back-channel logout URL, to end sessions here when they end there:`}{" "}
+              <code className="rounded bg-muted px-1">
+                {oidc.data.logoutUrl}
               </code>
             </p>
           ) : (

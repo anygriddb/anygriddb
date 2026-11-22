@@ -229,6 +229,7 @@ describe("OIDC sign-in through openid-client", () => {
     const { state, nonce, browser } = await start();
     provider.state.nonce = nonce;
     provider.state.claims = {
+      sub: `someone-else-${suffix}`,
       email: `ada-${suffix}@example.com`,
       email_verified: false,
     };

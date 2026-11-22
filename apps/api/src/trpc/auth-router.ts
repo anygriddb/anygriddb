@@ -80,13 +80,16 @@ import {
 } from "../auth/signup-requests.js";
 import {
   SESSION_COOKIE,
+  SSO_AGAIN_COOKIE,
   createSession,
   findSessionUser,
   hashSessionToken,
   isSessionToken,
   revokeSession,
   sessionCookieOptions,
+  ssoAgainOptions,
   withActingRights,
+  type SignOn,
 } from "../auth/session.js";
 import {
   backupCodeSchema,
@@ -99,10 +102,8 @@ import {
 } from "../auth/signup.js";
 import { assertMayChangeFactor } from "../auth/factor-step-up.js";
 import { assertSignInAddressAllowed } from "../auth/sign-in-allowlist.js";
-import {
-  assertLocalSignInAllowed,
-  assertPasswordSignupAllowed,
-} from "../auth/sso-only.js";
+import { assertPasswordSignupAllowed } from "../auth/sso-only.js";
+import { bindAfterProof } from "../auth/sso.js";
 import {
   createApiToken,
   listApiTokens,
@@ -304,14 +305,45 @@ async function refuseLocked(
   }
 }
 
+/**
+ * The session of a sign-in. A first binding that waited for this proof is
+ * written with it, in one transaction: neither exists without the other.
+ */
+async function openSession(
+  ctx: Context,
+  userId: string,
+  signOn?: SignOn | null,
+): Promise<Awaited<ReturnType<typeof createSession>>> {
+  const binding = signOn?.binding;
+  if (!signOn || !binding) return createSession(ctx.db, userId, signOn);
+  const other =
+    signOn.provider === "oidc"
+      ? await resolveSaml(ctx.db, ctx.env)
+      : await resolveOidc(ctx.db, ctx.env);
+  const session = await ctx.db.transaction().execute(async (tx) => {
+    await bindAfterProof(
+      tx,
+      signOn.provider,
+      binding,
+      userId,
+      other.config !== null,
+    );
+    return createSession(tx, userId, signOn);
+  });
+  void sendSecurityNotice(mailDeps(ctx), userId, { kind: "sso_linked" });
+  return session;
+}
+
 async function issueSession(
   ctx: Context,
   userId: string,
   method: AuthMethod,
+  /** The provider a second step finishes the sign-in of; none for a password. */
+  signOn?: SignOn | null,
 ): Promise<void> {
   let session: Awaited<ReturnType<typeof createSession>>;
   try {
-    session = await createSession(ctx.db, userId);
+    session = await openSession(ctx, userId, signOn);
   } catch (error) {
     if (
       error instanceof AppError &&
@@ -319,6 +351,14 @@ async function issueSession(
         error.code === "instance_maintenance")
     ) {
       await signInFailed(ctx, method, userId, error.code);
+    }
+    if (
+      error instanceof AppError &&
+      (error.code === "password_sign_in_disabled" ||
+        error.code === "invalid_credentials")
+    ) {
+      clearCookie(ctx, MFA_COOKIE);
+      await signInFailed(ctx, method, userId, "invalid_credentials");
     }
     throw error;
   }
@@ -624,6 +664,18 @@ export const authRouter = t.router({
       user?.hash ?? DUMMY_PASSWORD_HASH,
       input.password,
     );
+    // Under single sign-on only, a password opens nothing for a person: the
+    // same answer whether it is right, wrong, or the account does not exist,
+    // and nothing to count toward a lock.
+    if (settings.ssoOnly && !user?.isAdmin) {
+      await signInFailed(
+        ctx,
+        "password",
+        user?.id ?? null,
+        "invalid_credentials",
+      );
+      throw new AppError("password_sign_in_disabled");
+    }
     if (user) await refuseLocked(ctx, user, "password");
     if (!user || !passwordOk) {
       await signInFailed(
@@ -633,9 +685,12 @@ export const authRouter = t.router({
         "invalid_credentials",
       );
       if (user) await failedAttempt(ctx, user.id);
-      throw new AppError("invalid_credentials");
+      // An administrator's mistyped password answers as anyone's does here:
+      // another answer would tell which addresses administer the instance.
+      throw new AppError(
+        settings.ssoOnly ? "password_sign_in_disabled" : "invalid_credentials",
+      );
     }
-    assertLocalSignInAllowed(settings, user);
     if (user.disabledAt) {
       await signInFailed(ctx, "password", user.id, "account_disabled");
       throw new AppError("account_disabled");
@@ -666,6 +721,11 @@ export const authRouter = t.router({
       });
       if (isSessionToken(token)) {
         ctx.hub.closeSession(hashSessionToken(token));
+      }
+      // The provider's own session stays open: the next sign-on from this
+      // browser asks it to authenticate the person again.
+      if (ended.signOn) {
+        ctx.res.setCookie(SSO_AGAIN_COOKIE, "1", ssoAgainOptions());
       }
     }
     clearCookie(ctx, SESSION_COOKIE);
@@ -750,7 +810,7 @@ export const authRouter = t.router({
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }
       await deleteLoginChallenge(ctx.db, challenge.id);
-      await issueSession(ctx, challenge.userId, "totp");
+      await issueSession(ctx, challenge.userId, "totp", challenge.signOn);
       return { status: "session" as const };
     }),
   }),
@@ -772,7 +832,7 @@ export const authRouter = t.router({
           throw new TRPCError({ code: "UNAUTHORIZED" });
         }
         await deleteLoginChallenge(ctx.db, challenge.id);
-        await issueSession(ctx, challenge.userId, "backup");
+        await issueSession(ctx, challenge.userId, "backup", challenge.signOn);
         return { status: "session" as const };
       }),
   }),
@@ -869,7 +929,7 @@ export const authRouter = t.router({
           throw new TRPCError({ code: "UNAUTHORIZED" });
         }
         await deleteLoginChallenge(ctx.db, challenge.id);
-        await issueSession(ctx, challenge.userId, "email");
+        await issueSession(ctx, challenge.userId, "email", challenge.signOn);
         return { status: "session" as const };
       }),
   }),
@@ -948,7 +1008,12 @@ export const authRouter = t.router({
         }
         await deleteLoginChallenge(ctx.db, challenge.id);
         try {
-          await issueSession(ctx, challenge.userId, "webauthn");
+          await issueSession(
+            ctx,
+            challenge.userId,
+            "webauthn",
+            challenge.signOn,
+          );
           return { status: "session" as const };
         } catch (error) {
           mapProcedureError(error, ctx.req.log);

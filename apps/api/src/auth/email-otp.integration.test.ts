@@ -14,6 +14,7 @@ import { clearFactors } from "../admin-control.js";
 import type { Env } from "../env.js";
 import { clearSmtpCache } from "../integrations/smtp.js";
 import { fakeSmtp, mailText } from "../mail.test-helpers.js";
+import { writeSettings } from "../settings.js";
 import { createTestDatabase } from "../test-database.js";
 import {
   browserFactory,
@@ -445,5 +446,23 @@ describe("a code by email as a second factor", () => {
         .call()
         .auth.login({ email: person.email, password: PASSWORD }),
     ).toEqual({ status: "session", methods: [] });
+  });
+
+  it("does not finish a sign-in begun before single sign-on only", async () => {
+    const person = await enrolled("late-sso");
+    const page = browser();
+    await page.call().auth.login({ email: person.email, password: PASSWORD });
+    await aMinuteLater(person.id);
+    await page.call().auth.email.send();
+    const code = await mailed(person.email);
+    await writeSettings(db, administratorId, { ssoOnly: true });
+    try {
+      expect(await errorCode(page.call().auth.email.verify({ code }))).toBe(
+        "password_sign_in_disabled",
+      );
+      expect(page.jar[SESSION_COOKIE]).toBeFalsy();
+    } finally {
+      await writeSettings(db, administratorId, { ssoOnly: false });
+    }
   });
 });

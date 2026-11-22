@@ -10,6 +10,7 @@ import {
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { endOtherSessions } from "./admin-control.js";
+import { dropPasswordChallenges } from "./auth/challenge.js";
 import { parseSignInCidr, SignInAllowList } from "./auth/sign-in-allowlist.js";
 import type { Env } from "./env.js";
 import { resolveOidc } from "./integrations/oidc.js";
@@ -62,6 +63,10 @@ export async function saveInstanceSettings(
     }
   }
   await writeSettings(deps.db, actor.id, patch, actor.ip, actor.method);
+  if (patch.ssoOnly === true) {
+    // A sign-in begun with a password may not finish any more.
+    await dropPasswordChallenges(deps.db);
+  }
   if (patch.maintenance === true) {
     // Only administrators stay: the others are signed out now.
     const ended = await endOtherSessions(deps.db, actor.id, "non_admins");

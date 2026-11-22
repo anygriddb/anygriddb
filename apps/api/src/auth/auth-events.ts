@@ -59,6 +59,10 @@ export type AuthDetail =
   | "self_service_token"
   /** Sessions or tokens ended because the identity provider changed the account. */
   | "scim"
+  /** Sessions the identity provider said had ended there. */
+  | "provider_logout"
+  /** Password sessions and tokens ended as sign-in moved to the provider. */
+  | "sso_only"
   | "admin_reset"
   | "reset_link"
   /** Disabled after the instance's delay without activity (ADR 0044). */

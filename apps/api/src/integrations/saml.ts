@@ -7,23 +7,56 @@ import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { recordAuthEvent } from "../auth/auth-events.js";
+import {
+  assertProviderRemains,
+  type ProviderEnvironment,
+} from "../auth/sso-only.js";
+
+const PEM_BEGIN = "-----BEGIN CERTIFICATE-----";
+const PEM_END = "-----END CERTIFICATE-----";
 
 /**
- * Parses the IdP signing certificate and refuses an unreadable or expired
- * PEM (ADR 0053). A not-yet-valid cert is accepted so an administrator can
+ * The certificates a field holds, one per PEM block: during a rotation it
+ * holds the old one and the new one, and either signature is good. A value
+ * without a block (an environment may give bare base64) is kept for the
+ * library to read.
+ */
+export function samlCertificates(text: string): string[] {
+  const blocks: string[] = [];
+  let from = text.indexOf(PEM_BEGIN);
+  while (from !== -1) {
+    const end = text.indexOf(PEM_END, from);
+    if (end === -1) break;
+    const stop = end + PEM_END.length;
+    blocks.push(text.slice(from, stop));
+    from = text.indexOf(PEM_BEGIN, stop);
+  }
+  return blocks.length > 0 ? blocks : [text.trim()];
+}
+
+/**
+ * Parses each IdP signing certificate of the field and refuses the field if
+ * one is unreadable or expired, or if a block is cut or of another kind
+ * (ADR 0053). A not-yet-valid cert is accepted so an administrator can
  * stage a rotation before its notBefore.
  */
 export function proveSamlCertificate(pem: string): void {
-  let cert: X509Certificate;
-  try {
-    cert = new X509Certificate(pem);
-  } catch (error) {
-    throw new AppError("invalid_saml", { cause: error });
+  const certificates = samlCertificates(pem);
+  if (pem.split("-----BEGIN ").length - 1 > certificates.length) {
+    throw new AppError("invalid_saml");
   }
   const now = Date.now();
-  const notAfter = Date.parse(cert.validTo);
-  if (!Number.isFinite(notAfter) || notAfter <= now) {
-    throw new AppError("invalid_saml");
+  for (const certificate of certificates) {
+    let cert: X509Certificate;
+    try {
+      cert = new X509Certificate(certificate);
+    } catch (error) {
+      throw new AppError("invalid_saml", { cause: error });
+    }
+    const notAfter = Date.parse(cert.validTo);
+    if (!Number.isFinite(notAfter) || notAfter <= now) {
+      throw new AppError("invalid_saml");
+    }
   }
 }
 
@@ -259,10 +292,14 @@ export async function saveSaml(
 
 export async function clearSaml(
   db: Database,
+  env: ProviderEnvironment,
   userId: string,
   ip?: string,
 ): Promise<void> {
-  await db.deleteFrom("instanceSaml").where("id", "=", true).execute();
+  await db.transaction().execute(async (tx) => {
+    await assertProviderRemains(tx, env, "instanceOidc");
+    await tx.deleteFrom("instanceSaml").where("id", "=", true).execute();
+  });
   clearSamlCache(db);
   await recordAuthEvent(db, {
     action: "settings_changed",

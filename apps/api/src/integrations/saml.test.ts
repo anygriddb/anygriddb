@@ -4,6 +4,7 @@ import {
   proveSamlCertificate,
   publicSaml,
   samlCallbackUrl,
+  samlCertificates,
   samlUpdateSchema,
 } from "./saml.js";
 
@@ -84,5 +85,35 @@ describe("operator SAML", () => {
   it("accepts a valid PEM and refuses garbage", () => {
     expect(() => proveSamlCertificate(VALID_CERT)).not.toThrow();
     expect(() => proveSamlCertificate("not-pem")).toThrow(AppError);
+  });
+
+  it("reads every certificate of the field, for a rotation", () => {
+    expect(samlCertificates(`${VALID_CERT}\n${VALID_CERT}\n`)).toEqual([
+      VALID_CERT.trim(),
+      VALID_CERT.trim(),
+    ]);
+    expect(() =>
+      proveSamlCertificate(`${VALID_CERT}\n${VALID_CERT}`),
+    ).not.toThrow();
+  });
+
+  it("keeps a value that is not PEM for the library to read", () => {
+    expect(samlCertificates("  MIIC-base64  ")).toEqual(["MIIC-base64"]);
+  });
+
+  it("refuses a field with one unreadable certificate", () => {
+    const broken =
+      "-----BEGIN CERTIFICATE-----\nnot base64\n-----END CERTIFICATE-----";
+    expect(() => proveSamlCertificate(`${VALID_CERT}\n${broken}`)).toThrow(
+      AppError,
+    );
+    expect(() =>
+      proveSamlCertificate(`${VALID_CERT}\n-----BEGIN CERTIFICATE-----\nMII`),
+    ).toThrow(AppError);
+    expect(() =>
+      proveSamlCertificate(
+        `${VALID_CERT}\n-----BEGIN PUBLIC KEY-----\nMII\n-----END PUBLIC KEY-----`,
+      ),
+    ).toThrow(AppError);
   });
 });

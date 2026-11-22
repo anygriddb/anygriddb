@@ -35,12 +35,14 @@ describe("operator OIDC", () => {
       clientId: "client",
       hasClientSecret: true,
       redirectUrl: "https://app.example.org/auth/oidc/callback",
+      logoutUrl: "https://app.example.org/auth/oidc/backchannel-logout",
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
     expect(publicOidc(null, "https://app.example.org")).toMatchObject({
       configured: false,
       hasClientSecret: false,
       redirectUrl: null,
+      logoutUrl: null,
     });
   });
 

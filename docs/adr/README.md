@@ -128,3 +128,4 @@ accepted as the work they decide was done; each carries its own date.
 | [0111](0111-saml-trusts-an-address-when-told.md)             | SAML trusts an address only when told to                                                |
 | [0112](0112-row-rules-hold-after-writes.md)                  | A row rule holds for what a row becomes                                                 |
 | [0113](0113-a-socket-hears-what-its-account-may-read-now.md) | A socket hears what its account may read now                                            | Accepted                                                                    |
+| [0114](0114-sign-on-holds-to-its-provider.md)                | A sign-on is held to what its provider said                                             | Accepted (amends 0043, 0053)                                                |

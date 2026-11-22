@@ -91,10 +91,10 @@ export function can(
 
 /**
  * Who must confirm a second factor before working (ADR 0043):
- * administrators always; then, as the instance chooses, owners and anyone
- * creating a base (the default), every account, or nobody else. An
- * account the identity provider vouches for (`providerFactor`) counts as
- * enrolled.
+ * administrators always, with one of their own whatever a provider says;
+ * then, as the instance chooses, owners and anyone creating a base (the
+ * default), every account, or nobody else. Anyone else the identity
+ * provider vouches for (`providerFactor`) counts as enrolled.
  */
 export function enrollmentGate(input: {
   bindings: readonly Binding[];
@@ -104,8 +104,10 @@ export function enrollmentGate(input: {
   scope: "admins" | "owners" | "everyone";
   providerFactor?: boolean;
 }): "ok" | "enroll" {
-  if (input.factors > 0 || input.providerFactor) return "ok";
-  if (input.isAdmin || input.scope === "everyone") return "enroll";
+  if (input.factors > 0) return "ok";
+  if (input.isAdmin) return "enroll";
+  if (input.providerFactor) return "ok";
+  if (input.scope === "everyone") return "enroll";
   if (input.scope === "admins") return "ok";
   const owner = input.bindings.some((binding) => binding.role === "owner");
   return owner || input.creatingBase ? "enroll" : "ok";

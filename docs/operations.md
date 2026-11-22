@@ -229,7 +229,59 @@ sign-in through SAML does not reach an account that already exists. Turn on
 **This identity provider verifies addresses** (`SAML_TRUST_ADDRESSES=true`)
 only if nobody can change their address at the provider without proving it:
 with it, whoever holds an address there signs in as the account of that
-address. An account already bound to a persistent NameID is not concerned.
+address, unless the account has a second factor here, which they must prove
+first. An account already bound to a persistent NameID is not concerned.
+
+Once bound, an account is found by the provider's subject, whatever address
+the provider sends later. A first sign-in never reaches an account another
+subject holds. On an account with a second factor of its own, it asks for that
+factor whatever the setting below says, and binds only once it is proved. The
+person is told by email when an account that existed is bound. A provider that
+sends no lasting subject (a transient or address NameID) binds nothing: such an
+account is asked for its factor at every sign-in.
+
+**Review the bindings made before 0.4.0.** Until then a first SAML sign-in
+could bind an existing account by its address alone, and a binding survives an
+upgrade. Nothing removes them, since that would sign out legitimate people.
+List what was bound to accounts older than their binding, and check each
+against your provider:
+
+```sql
+SELECT u.email, i.provider, i.issuer, i.subject, i.created_at, i.last_seen_at
+FROM sso_identities i JOIN users u ON u.id = i.user_id
+WHERE i.provider = 'saml' AND i.created_at > u.created_at
+ORDER BY u.is_admin DESC, i.created_at;
+```
+
+To undo one, use **Unlink single sign-on** on the account's page in
+Administration, then end its sessions.
+
+**Second factor.** An administrator always keeps a factor of their own, even
+with **Trust the identity provider's second factor**: one who signs in through
+the provider without one is asked to enrol it. For anyone else, a provider that
+says it asked a single factor (OIDC `amr` or `acr`, the SAML authentication
+class) does not replace the factor the account has here.
+
+**How long a session lasts.** A session never outlives the
+`SessionNotOnOrAfter` of the SAML assertion that opened it. Disabling someone
+at the provider does not by itself end a session open here, nor their API
+tokens. To cut access at once, disable the account here, or deprovision it with
+SCIM. With OIDC, give the provider this instance's **Back-channel logout URL**
+(shown under Connections): ending the person's sessions at the provider then
+ends them here. A provider may send nothing when a person is only disabled, so
+end their sessions there too. Signing out here leaves the provider's session
+open, for the person's other applications; the next sign-on from that browser
+asks the provider to authenticate them again.
+
+**Single sign-on only.** Turning it on offers to end the sessions opened with a
+password and to revoke the API tokens of everyone but administrators. Scripts
+that use those tokens stop working, so it is your choice. While it is on, the
+last provider and the last administrator with a password cannot be removed.
+
+**Rotating a SAML certificate.** The certificate field takes several PEM
+certificates: paste the new one beside the old one, switch the provider, then
+remove the old one. An OIDC provider must sign its ID tokens with a key it
+publishes.
 
 ### Encryption at rest
 

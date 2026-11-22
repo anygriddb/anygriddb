@@ -3,23 +3,44 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { SAML, ValidateInResponseTo } from "@node-saml/node-saml";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { createRemoteJWKSet, customFetch, type JWTVerifyGetKey } from "jose";
 import * as oidc from "openid-client";
 import { factorMethods } from "./access.js";
 import { recordAuthEvent } from "./auth-events.js";
 import { MFA_COOKIE, createLoginChallenge } from "./challenge.js";
 import { decryptSecret, encryptSecret } from "./crypto.js";
 import {
+  endProviderSessions,
+  hashProviderSession,
+  spendLogoutToken,
+  verifyLogoutToken,
+} from "./oidc-logout.js";
+import {
+  oidcAnnouncesOneFactor,
+  samlAnnouncesOneFactor,
+  samlRecipientHolds,
+  samlSessionEnd,
+} from "./saml-assertion.js";
+import {
   SESSION_COOKIE,
+  SSO_AGAIN_COOKIE,
   createSession,
   hashSessionToken,
   sessionCookieOptions,
+  ssoAgainOptions,
+  type SignOn,
 } from "./session.js";
 import { samlRequestCache } from "./saml-cache.js";
+import { sendSecurityNotice } from "./security-mail.js";
 import { stableNameId, userForIdentity } from "./sso.js";
 import { isUniqueViolation } from "../data/schema-ops.js";
 import type { Env } from "../env.js";
 import { resolveOidc, type OidcConfig } from "../integrations/oidc.js";
-import { resolveSaml, type SamlConfig } from "../integrations/saml.js";
+import {
+  resolveSaml,
+  samlCertificates,
+  type SamlConfig,
+} from "../integrations/saml.js";
 import { assertSignInAddressAllowed } from "./sign-in-allowlist.js";
 import { readSettings } from "../settings.js";
 import { AppError, signOnRefusal } from "@anygriddb/core";
@@ -27,6 +48,8 @@ import { AppError, signOnRefusal } from "@anygriddb/core";
 type Deps = {
   env: Env;
   db: Database;
+  /** Ends the live connections of a session that ended. */
+  closeSession?: (tokenHash: string) => void;
   /** Tests only: a fake identity provider, reached over plain HTTP. */
   oidcTesting?: { fetch: oidc.CustomFetch };
 };
@@ -143,11 +166,12 @@ async function takeState(
   return { verifier: parsed.verifier, nonce: parsed.nonce };
 }
 
-function samlClient(deps: Deps, config: SamlConfig): SAML {
+function samlClient(deps: Deps, config: SamlConfig, forceAuthn = false): SAML {
   return new SAML({
     entryPoint: config.SAML_ENTRY_POINT,
     issuer: config.SAML_ISSUER,
-    idpCert: config.SAML_CERT,
+    idpCert: samlCertificates(config.SAML_CERT),
+    forceAuthn,
     callbackUrl: config.SAML_CALLBACK_URL,
     wantAssertionsSigned: true,
     audience: config.SAML_ISSUER,
@@ -209,19 +233,27 @@ export function samlAssertionId(parsed: unknown): string | null {
 
 const DISCOVERY_TTL_MS = 60 * 60 * 1000;
 let discovered:
-  { at: number; for: OidcConfig; config: oidc.Configuration } | undefined;
+  | {
+      at: number;
+      for: OidcConfig;
+      config: oidc.Configuration;
+      keys: JWTVerifyGetKey;
+    }
+  | undefined;
 
 /**
  * The provider's configuration, discovered once an hour, and again as
  * soon as the issuer, the client, or its secret changes: each process
  * compares what it holds with what is configured now. openid-client
  * checks that the metadata names the configured issuer, then validates
- * every response: state, nonce, PKCE, signature, audience, and expiry.
+ * every response: state, nonce, PKCE, audience, and expiry. The signature
+ * of an ID token is checked too, against the keys the provider publishes:
+ * keys it cannot fetch are a refused sign-in.
  */
-async function oidcConfig(
+async function oidcDiscovered(
   deps: Deps,
   env: OidcConfig,
-): Promise<oidc.Configuration> {
+): Promise<{ config: oidc.Configuration; keys: JWTVerifyGetKey }> {
   if (
     discovered &&
     discovered.for.OIDC_ISSUER === env.OIDC_ISSUER &&
@@ -229,7 +261,7 @@ async function oidcConfig(
     discovered.for.OIDC_CLIENT_SECRET === env.OIDC_CLIENT_SECRET &&
     Date.now() - discovered.at < DISCOVERY_TTL_MS
   ) {
-    return discovered.config;
+    return discovered;
   }
   const testing = deps.oidcTesting;
   const config = await oidc.discovery(
@@ -251,8 +283,26 @@ async function oidcConfig(
     },
   );
   if (testing) config[oidc.customFetch] = testing.fetch;
-  discovered = { at: Date.now(), for: env, config };
-  return config;
+  oidc.enableNonRepudiationChecks(config);
+  const jwksUri = config.serverMetadata().jwks_uri;
+  if (!jwksUri || (!testing && !jwksUri.startsWith("https://"))) {
+    throw new AppError("invalid_oidc");
+  }
+  const keys = createRemoteJWKSet(new URL(jwksUri), {
+    timeoutDuration: 5_000,
+    ...(testing
+      ? { [customFetch]: testing.fetch as unknown as typeof fetch }
+      : {}),
+  });
+  discovered = { at: Date.now(), for: env, config, keys };
+  return discovered;
+}
+
+async function oidcConfig(
+  deps: Deps,
+  env: OidcConfig,
+): Promise<oidc.Configuration> {
+  return (await oidcDiscovered(deps, env)).config;
 }
 
 async function signedIn(
@@ -269,34 +319,47 @@ async function signedIn(
   });
 }
 
+/** What a provider vouched for, past the account it names. */
+type Vouched = SignOn & {
+  /** The provider said one factor was asked. */
+  oneFactor: boolean;
+  /** Reached by its address: the account's own factor comes first. */
+  proofFirst: boolean;
+};
+
 /**
  * After the identity provider vouched for the person: a session, or first
- * AnyGridDB's own second step when the policy asks for it and the account
- * has a factor (ADR 0043). Returns where the browser goes.
+ * AnyGridDB's own second step, when the policy asks for it (ADR 0043), when
+ * the person is an administrator, when the provider itself says it asked a
+ * single factor, for an account that has one here, or when the address alone
+ * reached that account. Returns where the browser goes.
  */
 async function finishSignIn(
   deps: Deps,
   request: FastifyRequest,
   reply: FastifyReply,
   userId: string,
-  method: "oidc" | "saml",
+  vouched: Vouched,
 ): Promise<string> {
+  const { oneFactor, proofFirst, ...signOn } = vouched;
   const policy = await readSettings(deps.db);
   assertSignInAddressAllowed(policy.signInAllowlist, request.ip);
+  const account = await deps.db
+    .selectFrom("users")
+    .select(["disabledAt", "isAdmin"])
+    .where("id", "=", userId)
+    .executeTakeFirst();
+  if (!account || account.disabledAt) throw new AppError("account_disabled");
+  if (!account.isAdmin && policy.maintenance) {
+    throw new AppError("instance_maintenance");
+  }
+  reply.setCookie(SSO_AGAIN_COOKIE, "", ssoAgainOptions(0));
   if (
-    policy.ssoMfa === "local" &&
-    (await factorMethods(deps.db, userId)).length > 0
+    proofFirst ||
+    ((policy.ssoMfa === "local" || account.isAdmin || oneFactor) &&
+      (await factorMethods(deps.db, userId)).length > 0)
   ) {
-    const account = await deps.db
-      .selectFrom("users")
-      .select(["disabledAt", "isAdmin"])
-      .where("id", "=", userId)
-      .executeTakeFirst();
-    if (!account || account.disabledAt) throw new AppError("account_disabled");
-    if (!account.isAdmin && policy.maintenance) {
-      throw new AppError("instance_maintenance");
-    }
-    const challenge = await createLoginChallenge(deps.db, userId);
+    const challenge = await createLoginChallenge(deps.db, userId, signOn);
     reply.setCookie(
       MFA_COOKIE,
       challenge.token,
@@ -304,14 +367,25 @@ async function finishSignIn(
     );
     return "/login?mfa=1";
   }
-  const session = await createSession(deps.db, userId);
+  const session = await createSession(deps.db, userId, signOn);
   reply.setCookie(
     SESSION_COOKIE,
     session.token,
     sessionCookieOptions(session.expiresAt),
   );
-  await signedIn(deps.db, request, userId, method);
+  await signedIn(deps.db, request, userId, signOn.provider);
   return "/";
+}
+
+/** The person hears of a new way into an account that already existed. */
+function tellOfBinding(deps: Deps, request: FastifyRequest) {
+  return (userId: string) => {
+    void sendSecurityNotice(
+      { db: deps.db, env: deps.env, log: request.log },
+      userId,
+      { kind: "sso_linked" },
+    );
+  };
 }
 
 /** The trail keeps why, without the provider's account: it may be anyone. */
@@ -360,6 +434,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       nonce,
       code_challenge: await oidc.calculatePKCECodeChallenge(verifier),
       code_challenge_method: "S256",
+      ...(request.cookies[SSO_AGAIN_COOKIE] ? { prompt: "login" } : {}),
     });
     return reply.redirect(authorize.href);
   });
@@ -395,28 +470,35 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
         idTokenExpected: true,
       });
       const claims = tokens.claims();
-      const email = claims?.email;
-      const name = claims?.name;
-      // An account is found by the provider's subject once bound; the first
-      // time by its address, which the provider must have verified.
-      if (
-        !claims ||
-        typeof email !== "string" ||
-        claims.email_verified === false
-      ) {
-        throw new AppError("invalid_credentials");
-      }
-      // Only a boolean `true` may take over an account that already exists.
-      // A missing claim can still open a new account when sign-up allows it.
-      const userId = await userForIdentity(
+      if (!claims) throw new AppError("invalid_credentials");
+      const email = typeof claims.email === "string" ? claims.email : null;
+      // The subject finds a bound account, whatever the address says. A
+      // first binding reads the address: only a boolean `true` reaches an
+      // account that exists, and one marked unverified makes no account.
+      const reached = await userForIdentity(
         deps.db,
         { provider: "oidc", issuer: claims.iss, subject: claims.sub },
         email,
-        typeof name === "string" ? name : email,
+        typeof claims.name === "string" ? claims.name : (email ?? ""),
         deps.env.ADMIN_EMAILS,
-        { linkExisting: claims.email_verified === true },
+        {
+          linkExisting: claims.email_verified === true,
+          mayCreate: claims.email_verified !== false,
+          otherProtocolLive:
+            (await resolveSaml(deps.db, deps.env)).config !== null,
+          onBound: tellOfBinding(deps, request),
+        },
       );
-      next = await finishSignIn(deps, request, reply, userId, "oidc");
+      next = await finishSignIn(deps, request, reply, reached.userId, {
+        provider: "oidc",
+        proofFirst: reached.proofFirst,
+        binding: reached.binding,
+        sidHash:
+          typeof claims.sid === "string"
+            ? hashProviderSession(claims.iss, claims.sid)
+            : null,
+        oneFactor: oidcAnnouncesOneFactor(claims),
+      });
     } catch (error) {
       request.log.warn({ err: error }, "authentication failed");
       await signInRefused(deps.db, request, "oidc", error);
@@ -424,6 +506,40 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
     }
     // Signed in or told why, the browser goes back to the app.
     return reply.redirect(next);
+  });
+
+  // The provider, not a browser: it is told plainly whether this counted.
+  app.post("/auth/oidc/backchannel-logout", async (request, reply) => {
+    const { config: oidcEnv } = await resolveOidc(deps.db, deps.env);
+    if (!oidcEnv) {
+      return reply.code(404).send({ error: "Not found" });
+    }
+    void reply.header("cache-control", "no-store");
+    try {
+      const { keys } = await oidcDiscovered(deps, oidcEnv);
+      const body = request.body as { logout_token?: unknown } | null;
+      const claims = await verifyLogoutToken(body?.logout_token, {
+        issuer: oidcEnv.OIDC_ISSUER,
+        clientId: oidcEnv.OIDC_CLIENT_ID,
+        keys,
+      });
+      await spendLogoutToken(
+        deps.db,
+        deps.env.AUTH_ENCRYPTION_KEY,
+        oidcEnv.OIDC_ISSUER,
+        claims.jti,
+      );
+      const ended = await endProviderSessions(deps.db, {
+        issuer: oidcEnv.OIDC_ISSUER,
+        ...(claims.subject ? { subject: claims.subject } : {}),
+        ...(claims.sid ? { sid: claims.sid } : {}),
+      });
+      for (const tokenHash of ended) deps.closeSession?.(tokenHash);
+      return await reply.code(200).send({ ok: true });
+    } catch (error) {
+      request.log.warn({ err: error }, "provider sign-out refused");
+      return reply.code(400).send({ error: "invalid_request" });
+    }
   });
 
   app.get("/auth/saml/start", async (request, reply) => {
@@ -441,11 +557,11 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
         browser: browserValue(request, reply, "saml"),
       },
     );
-    const url = await samlClient(deps, samlEnv).getAuthorizeUrlAsync(
-      state,
-      undefined,
-      {},
-    );
+    const url = await samlClient(
+      deps,
+      samlEnv,
+      Boolean(request.cookies[SSO_AGAIN_COOKIE]),
+    ).getAuthorizeUrlAsync(state, undefined, {});
     return reply.redirect(url);
   });
 
@@ -477,16 +593,22 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
         SAMLResponse: body.SAMLResponse,
       });
       const profile = result.profile;
-      const email = profile?.email ?? profile?.mail ?? profile?.nameID;
-      if (!profile || !email || !email.includes("@")) {
+      if (!profile) throw new AppError("invalid_credentials");
+      const assertion = profile.getAssertion?.();
+      if (!samlRecipientHolds(assertion, samlEnv.SAML_CALLBACK_URL)) {
         throw new AppError("invalid_credentials");
       }
+      const mustEndAt = samlSessionEnd(assertion);
+      const named = profile.email ?? profile.mail ?? profile.nameID;
+      const email =
+        typeof named === "string" && named.includes("@") ? named : null;
       await spendSamlAssertion(deps, profile);
-      // A persistent NameID binds the account; a transient or address-shaped
-      // one says nothing lasting. An assertion does not say its address was
-      // verified: it reaches an account that exists only when an
-      // administrator says this provider verifies addresses (ADR 0111).
-      const userId = await userForIdentity(
+      // A persistent NameID binds the account, and finds it from then on;
+      // a transient or address-shaped one says nothing lasting. An
+      // assertion does not say its address was verified: a first sign-in
+      // reaches an account that exists only when an administrator says
+      // this provider verifies addresses (ADR 0111).
+      const reached = await userForIdentity(
         deps.db,
         {
           provider: "saml",
@@ -494,11 +616,22 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
           subject: stableNameId(profile.nameID, profile.nameIDFormat),
         },
         email,
-        email,
+        email ?? "",
         deps.env.ADMIN_EMAILS,
-        { linkExisting: samlEnv.SAML_TRUST_ADDRESSES },
+        {
+          linkExisting: samlEnv.SAML_TRUST_ADDRESSES,
+          otherProtocolLive:
+            (await resolveOidc(deps.db, deps.env)).config !== null,
+          onBound: tellOfBinding(deps, request),
+        },
       );
-      next = await finishSignIn(deps, request, reply, userId, "saml");
+      next = await finishSignIn(deps, request, reply, reached.userId, {
+        provider: "saml",
+        proofFirst: reached.proofFirst,
+        binding: reached.binding,
+        mustEndAt,
+        oneFactor: samlAnnouncesOneFactor(assertion),
+      });
     } catch (error) {
       request.log.warn({ err: error }, "authentication failed");
       await signInRefused(deps.db, request, "saml", error);

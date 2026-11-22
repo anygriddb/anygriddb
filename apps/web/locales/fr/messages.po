@@ -2602,6 +2602,14 @@ msgstr "Retour à la connexion"
 msgid "Back to the starting points"
 msgstr "Revenir aux points de départ"
 
+#: components/admin/integrations-tab.tsx
+msgid "Back-channel logout URL"
+msgstr "URL de déconnexion par canal arrière"
+
+#: components/admin/integrations-tab.tsx
+msgid "Back-channel logout URL, to end sessions here when they end there:"
+msgstr "URL de déconnexion par canal arrière, pour fermer ici les sessions qui se ferment là-bas :"
+
 #: components/admin/admin-overview.tsx
 msgid "Background jobs, webhook deliveries, or automation runs that did not go through."
 msgstr "Tâches de fond, envois de webhooks ou exécutions d’automatisations qui n’ont pas abouti."
@@ -4578,6 +4586,14 @@ msgstr "Terminer une session après cette durée sans activité"
 #: components/admin/security-tab.tsx
 msgid "End it in any case after"
 msgstr "La terminer dans tous les cas après"
+
+#: components/admin/security-tab.tsx
+msgid "End password access now?"
+msgstr "Fermer maintenant les accès par mot de passe ?"
+
+#: components/admin/security-tab.tsx
+msgid "End sessions and revoke tokens"
+msgstr "Fermer les sessions et révoquer les jetons"
 
 #: components/admin/access-tab.tsx
 #: components/admin/outbound-tab.tsx
@@ -8332,6 +8348,10 @@ msgstr "Mot de passe"
 msgid "Password (optional)"
 msgstr "Mot de passe (facultatif)"
 
+#: components/admin/sign-in-trail.tsx
+msgid "Password access ended for single sign-on"
+msgstr "Accès par mot de passe fermés pour l’authentification unique"
+
 #: components/admin/outbound-tab.tsx
 msgid "Password asked"
 msgstr "Mot de passe demandé"
@@ -8362,8 +8382,8 @@ msgid "Password resets"
 msgstr "Réinitialisation des mots de passe"
 
 #: lib/errors.ts
-msgid "Password sign-in is off: use single sign-on, or ask an administrator"
-msgstr "La connexion par mot de passe est fermée : utilisez l’authentification unique, ou demandez à un administrateur"
+msgid "Password sign-in is off: use single sign-on. An administrator signing in with a password should check it"
+msgstr "La connexion par mot de passe est fermée : utilisez l’authentification unique. Un administrateur qui se connecte par mot de passe doit vérifier le sien"
 
 #: lib/errors.ts
 msgid "Password too short. Minimum length"
@@ -8405,6 +8425,10 @@ msgstr "En attente : la base du client n’a pas encore confirmé cette modific
 #: components/admin/admin-sections.ts
 msgid "People"
 msgstr "Personnes"
+
+#: components/admin/security-tab.tsx
+msgid "People already signed in with a password stay signed in until their session ends, and their API tokens keep working. You can end those sessions and revoke the API tokens of everyone but administrators: scripts and integrations that use them stop working."
+msgstr "Les personnes déjà connectées par mot de passe le restent jusqu’à la fin de leur session, et leurs jetons d’API continuent de fonctionner. Vous pouvez fermer ces sessions et révoquer les jetons d’API de tous, sauf des administrateurs : les scripts et intégrations qui les utilisent cesseront de fonctionner."
 
 #: components/shell/airtable-report.tsx
 msgid "people carried over as text (name and address)"
@@ -10149,6 +10173,10 @@ msgstr "Durée de vie des sessions"
 msgid "Sessions"
 msgstr "Sessions"
 
+#: components/admin/security-tab.tsx
+msgid "Sessions ended: {sessions}. API tokens revoked: {tokens}."
+msgstr "Sessions fermées : {sessions}. Jetons d’API révoqués : {tokens}."
+
 #: lib/known-text.ts
 msgid "Sessions on a calendar, their venues, and a form where attendees register."
 msgstr "Des sessions sur un calendrier, leurs lieux, et un formulaire où les participants s’inscrivent."
@@ -10495,6 +10523,10 @@ msgstr "Connexion"
 msgid "Signed out"
 msgstr "Déconnexion"
 
+#: components/admin/sign-in-trail.tsx
+msgid "Signed out at the identity provider"
+msgstr "Déconnecté chez le fournisseur d’identité"
+
 #: components/admin/notifications-tab.tsx
 msgid "Signing secret"
 msgstr "Secret de signature"
@@ -10523,6 +10555,14 @@ msgstr "Authentification unique"
 #: components/admin/security-tab.tsx
 msgid "Single sign-on only (administrators keep a password)"
 msgstr "Authentification unique seulement (les administrateurs gardent un mot de passe)"
+
+#: lib/errors.ts
+msgid "Single sign-on only is on: keep this identity provider, or turn that setting off first"
+msgstr "L’authentification unique seule est activée : gardez ce fournisseur d’identité, ou désactivez d’abord ce réglage"
+
+#: lib/errors.ts
+msgid "Single sign-on only is on: this is the last administrator who can sign in with a password if the provider fails"
+msgstr "L’authentification unique seule est activée : c’est le dernier administrateur qui peut se connecter par mot de passe si le fournisseur tombe en panne"
 
 #: components/admin/auth-labels.ts
 msgid "Single sign-on unlinked"
@@ -12743,8 +12783,8 @@ msgid "True when the value is filled."
 msgstr "Vrai si la valeur est remplie."
 
 #: components/admin/security-tab.tsx
-msgid "Trust it only if your identity provider requires a second factor of everyone. An account that signs in only through it then needs none here."
-msgstr "Ne lui faites confiance que si votre fournisseur d’identité exige un second facteur de tout le monde. Un compte qui ne se connecte que par lui n’en a alors pas besoin ici."
+msgid "Trust it only if your identity provider requires a second factor of everyone. An account that signs in only through it then needs none here, unless the provider says it asked for one factor. Administrators always keep their own."
+msgstr "Ne lui faites confiance que si votre fournisseur d’identité exige un second facteur de tout le monde. Un compte qui ne se connecte que par lui n’en a alors pas besoin ici, sauf si le fournisseur indique n’avoir demandé qu’un seul facteur. Les administrateurs gardent toujours le leur."
 
 #: components/admin/security-tab.tsx
 msgid "Trust the identity provider's second factor"
