@@ -38,6 +38,13 @@ describe("tokenMayCall", () => {
     }
   });
 
+  it("refuses every token the list of the account's tokens", () => {
+    for (const over of [{}, { baseIds: ["a"] }, { readOnly: true }]) {
+      expect(tokenMayCall(scope(over), "query", "auth.tokens")).toBe(false);
+    }
+    expect(tokenMayCall(scope(), "query", "auth.current")).toBe(true);
+  });
+
   it("keeps a token limited to some bases off what lists the whole account", () => {
     const limited = scope({ baseIds: ["a"] });
     expect(tokenMayCall(limited, "query", "notifications.list")).toBe(false);

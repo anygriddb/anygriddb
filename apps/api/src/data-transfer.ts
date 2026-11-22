@@ -68,7 +68,7 @@ import { madeNamesFor, readGateSettings } from "./settings.js";
 import { findLiveTable } from "./services/rows.js";
 import { stageSnapshotFile } from "./data/snapshot-stage.js";
 import { localFolder } from "./files/local-folder.js";
-import { jobReadableBy, loadOwnJob } from "./jobs.js";
+import { jobFileReadableBy, loadOwnJob } from "./jobs.js";
 import { readerEngine } from "./data/acl.js";
 import { recordExport } from "./data/export-audit.js";
 import type { FileStore } from "./files/index.js";
@@ -749,7 +749,6 @@ export function registerDataTransferRoutes(
     }
     const result = jobFileResultSchema.safeParse(job.result);
     if (
-      !jobReadableBy(job, actor.bindings) ||
       (job.kind !== "export" &&
         job.kind !== "export_snapshot" &&
         job.kind !== "account_export") ||
@@ -757,7 +756,8 @@ export function registerDataTransferRoutes(
       !job.fileKey ||
       !job.fileExpiresAt ||
       job.fileExpiresAt.getTime() <= Date.now() ||
-      !result.success
+      !result.success ||
+      !(await jobFileReadableBy(deps.db, job, actor))
     ) {
       return deny(reply, 404);
     }

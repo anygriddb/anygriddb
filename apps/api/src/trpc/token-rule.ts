@@ -11,10 +11,12 @@ import type { TokenScope } from "../auth/tokens.js";
 const READ_ONLY_CALLS: ReadonlySet<string> = new Set(["jobs.startExport"]);
 
 /**
- * Refused to every token: what brings the account into a base, and an
- * address that goes on serving rows once the token is revoked.
+ * Refused to every token: what brings the account into a base, an address
+ * that goes on serving rows once the token is revoked, and the list of the
+ * account's tokens, which names the bases each one reaches.
  */
 const SESSION_ONLY: ReadonlySet<string> = new Set([
+  "auth.tokens",
   "auth.pendingInvitations",
   "auth.answerInvitation",
   "auth.acceptInvitation",
