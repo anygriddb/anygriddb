@@ -8,6 +8,33 @@ first.
 
 ## Unreleased
 
+**Before your next restore:** `scripts/restore.sh` now needs room for a second
+copy of the database and the files while it runs, and says so before changing
+anything; `--in-place` replaces the data directly when the disk cannot hold
+both. On a stack that runs an object store, a backup without that store's
+files is refused unless you pass `--keep-store-files`.
+
+### Fixed
+
+- A restore that cannot finish no longer costs the instance its data. The
+  backup is checked to its end and restored beside the data in service; the
+  switch happens by renaming, and any failure puts back what was there and
+  starts the application again.
+- A restore no longer stops on another session or a background vacuum.
+- A restore under a key that does not open the backup is refused before
+  anything changes, with its own exit code, instead of announcing a success
+  that second-factor sign-ins then fail on.
+- A list of sums that is empty, unreadable, or leaves a file out is refused
+  on every system.
+- The backup, restore, upgrade, install, and compose scripts read `.env` as
+  Compose does: a value with spaces, quotes, `&`, or parentheses no longer
+  stops them, and nothing in the file is ever run. As with `docker compose`
+  itself, a variable set in the shell now wins over the file. A backup stopped
+  by an unreadable `.env` is reported to the instance as failed.
+- `scripts/install.sh` moves quoted and `export` values as Compose reads
+  them, never draws a new key for a variable `.env` names, and changes nothing
+  when the password would not open the running stack's database.
+
 ## 0.4.0 - 2026-11-22
 
 **Before upgrading, if you use SAML:** a first sign-in no longer reaches an

@@ -23,6 +23,7 @@ const loader = join(root, "scripts", "secret-files.sh");
 async function prepared(env) {
   const dir = await mkdtemp(join(tmpdir(), "ag-install-"));
   await writeFile(join(dir, "compose.yml"), "services: {}\n");
+  await writeFile(join(dir, "compose.secrets.yml"), "services: {}\n");
   await writeFile(
     join(dir, ".env.example"),
     "POSTGRES_USER=anygriddb\nPOSTGRES_PASSWORD=\nPOSTGRES_DB=anygriddb\nAUTH_ENCRYPTION_KEY=\n",
@@ -125,6 +126,89 @@ describe("install.sh", () => {
         "DATABASE_URL=postgres://u:p@db.example.org/x\n",
       );
       await assert.rejects(exec("bash", [install, dir]), /DATABASE_URL/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  for (const [label, quote] of [
+    ["double quotes", (value) => `"${value}"`],
+    ["single quotes", (value) => `'${value}'`],
+  ]) {
+    it(`moves values written in ${label}, without them`, async () => {
+      const key = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
+      const dir = await prepared(
+        `POSTGRES_USER=grid\nPOSTGRES_PASSWORD=${quote("s3cret")}\nPOSTGRES_DB=sheets\nAUTH_ENCRYPTION_KEY=${quote(key)}\n`,
+      );
+      try {
+        await exec("bash", [install, dir]);
+        const secrets = join(dir, "secrets");
+        assert.equal(
+          await readFile(join(secrets, "postgres_password"), "utf8"),
+          "s3cret\n",
+        );
+        assert.equal(
+          await readFile(join(secrets, "auth_encryption_key"), "utf8"),
+          `${key}\n`,
+        );
+        const env = await readFile(join(dir, ".env"), "utf8");
+        assert.doesNotMatch(env, /^POSTGRES_PASSWORD=/m);
+        assert.doesNotMatch(env, /^AUTH_ENCRYPTION_KEY=/m);
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
+  }
+
+  it("moves values behind `export`, and draws no new key", async () => {
+    const key = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
+    const dir = await prepared(
+      `export POSTGRES_USER=grid\nexport POSTGRES_PASSWORD=s3cret\nexport POSTGRES_DB=sheets\nexport AUTH_ENCRYPTION_KEY=${key}\n`,
+    );
+    try {
+      await exec("bash", [install, dir]);
+      const secrets = join(dir, "secrets");
+      assert.equal(
+        await readFile(join(secrets, "postgres_password"), "utf8"),
+        "s3cret\n",
+      );
+      assert.equal(
+        await readFile(join(secrets, "auth_encryption_key"), "utf8"),
+        `${key}\n`,
+      );
+      const env = await readFile(join(dir, ".env"), "utf8");
+      assert.doesNotMatch(env, /POSTGRES_PASSWORD=/);
+      assert.doesNotMatch(env, /AUTH_ENCRYPTION_KEY=/);
+      assert.match(env, /POSTGRES_USER=grid/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses without compose.secrets.yml, and leaves .env as it was", async () => {
+    const text = "POSTGRES_PASSWORD=s3cret\nAUTH_ENCRYPTION_KEY=kept\n";
+    const dir = await prepared(text);
+    try {
+      await rm(join(dir, "compose.secrets.yml"));
+      await assert.rejects(
+        exec("bash", [install, dir]),
+        /compose\.secrets\.yml/,
+      );
+      assert.equal(await readFile(join(dir, ".env"), "utf8"), text);
+      await assert.rejects(stat(join(dir, "secrets")));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("draws no value for a variable .env names but Compose reads as empty", async () => {
+    const text =
+      "POSTGRES_PASSWORD=$NOT_SET_ANYWHERE\nAUTH_ENCRYPTION_KEY=kept\n";
+    const dir = await prepared(text);
+    try {
+      await assert.rejects(exec("bash", [install, dir]), /POSTGRES_PASSWORD/);
+      assert.equal(await readFile(join(dir, ".env"), "utf8"), text);
+      await assert.rejects(stat(join(dir, "secrets", "postgres_password")));
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

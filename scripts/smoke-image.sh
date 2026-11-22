@@ -194,6 +194,22 @@ case "$(basename "${backup[0]}")" in
     exit 1
     ;;
 esac
+# A backup whose dump was cut before its sums were written is refused, and
+# the stack goes on as it was.
+damaged="$work/damaged"
+cp -R "${backup[0]}" "$damaged"
+head -c "$(($(wc -c <"$damaged/database.dump") / 2))" "${backup[0]}/database.dump" >"$damaged/database.dump"
+(cd "$damaged" && sha256sum database.dump files_data.tar.gz tls_data.tar.gz >SHA256SUMS)
+if "${as_operator[@]}" "$root/scripts/restore.sh" "$damaged" "${options[@]}"; then
+  echo "A restore from a dump cut in half ended well." >&2
+  exit 1
+fi
+if [ "$(ask "select word from smoke_kept")" != kept ]; then
+  echo "A refused restore changed the database." >&2
+  exit 1
+fi
+curl --fail --silent --show-error --insecure "https://localhost:${port}/ready"
+echo
 ask "drop table smoke_kept" >/dev/null
 in_files 'rm /files/smoke-kept'
 "${as_operator[@]}" "$root/scripts/restore.sh" "${backup[0]}" "${options[@]}"

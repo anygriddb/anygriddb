@@ -129,6 +129,17 @@ async function rotateColumn(
   write: boolean,
   report: KeyRotation,
 ): Promise<void> {
+  // A backup made by an earlier version, read before its migrations ran,
+  // may not have this column yet: it then holds nothing sealed in it.
+  const present = await sql<{ found: boolean }>`
+    select exists (
+      select from information_schema.columns
+       where table_schema = current_schema()
+         and table_name = ${column.table}
+         and column_name = ${column.ciphertext}
+    ) as "found"
+  `.execute(db);
+  if (!present.rows[0]?.found) return;
   const table = sql.table(column.table);
   const id = sql.ref(column.id);
   const ciphertext = sql.ref(column.ciphertext);

@@ -35,12 +35,72 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root/docker"
 
 env_file="${ENV_FILE:-.env}"
-if [ -f "$env_file" ]; then
-  set -a
-  # shellcheck disable=SC1090
-  . "$env_file"
-  set +a
-fi
+args=("$@")
+if [ ${#args[@]} -eq 0 ]; then args=(-f compose.yml); fi
+
+# Tells the instance how this run ended, through its running container:
+# that takes nothing from .env, which may be what stopped the run. A report
+# that cannot be made never fails the backup: the instance then finds,
+# later, that it is late.
+started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+out=""
+project=""
+recipient=""
+report() {
+  local flags=() bytes name="${project:-backup}-${stamp}" container=""
+  if [ -n "$out" ]; then name="$(basename "$out")"; fi
+  if [ "$1" = failed ]; then flags+=(--failed); fi
+  if [ -n "$out" ]; then
+    bytes="$(du -sk "$out" 2>/dev/null | cut -f1)" || bytes=""
+    case "$bytes" in '' | *[!0-9]*) ;; *) flags+=(--bytes "$((bytes * 1024))") ;; esac
+  fi
+  if [ -n "$recipient" ]; then flags+=(--encrypted); fi
+  # Before .env is read the project's name comes from the options alone.
+  if [ -z "$project" ]; then
+    project="$(docker compose --env-file /dev/null "${args[@]}" config --no-interpolate 2>/dev/null |
+      sed -n 's/^name: *"\{0,1\}\([^"]*\)"\{0,1\} *$/\1/p' | head -n 1)" || project=""
+    name="${project:-backup}-${stamp}"
+  fi
+  if [ -n "$project" ]; then
+    container="$(docker ps -q --filter "label=com.docker.compose.project=$project" \
+      --filter label=com.docker.compose.service=app --filter status=running 2>/dev/null | head -n 1)" || container=""
+  fi
+  if [ -z "$container" ] || ! docker exec "$container" anygriddb backups record \
+    --name "$name" --started "$started" ${flags[@]+"${flags[@]}"} >/dev/null 2>&1; then
+    echo "The instance could not be told of this run: Administration will not show it." >&2
+  fi
+}
+# The instance is told once, where the script ends, of what became of the
+# backup: made, or not. A run that stops before its backup is made leaves
+# nothing: a folder with part of a dump is no backup, and holds what a
+# backup holds. Told where a command failed, a failure while a file was
+# written was told twice.
+made=""
+ended() {
+  status=$?
+  trap - EXIT HUP INT TERM
+  if [ -n "$made" ]; then
+    report succeeded
+  else
+    if [ -n "$out" ]; then rm -rf -- "$out"; fi
+    echo "This run stopped before its end: nothing is kept of it." >&2
+    report failed
+  fi
+  exit "$status"
+}
+trap ended EXIT
+# Stopped from outside, the run ends the same way: a signal that ends the
+# shell by itself would skip what the end has to do.
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# shellcheck source=scripts/env-file.sh
+. "$root/scripts/env-file.sh"
+read_env_file "$env_file" POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD \
+  AUTH_ENCRYPTION_KEY POSTGRES_PASSWORD_FILE AUTH_ENCRYPTION_KEY_FILE \
+  BACKUP_DIR BACKUP_AGE_RECIPIENT BACKUP_KEEP_DAYS
 # An install that keeps its secrets in files (scripts/install.sh).
 # shellcheck source=scripts/secret-files.sh
 . "$root/scripts/secret-files.sh"
@@ -71,8 +131,6 @@ case "$keep_days" in
     ;;
 esac
 
-args=("$@")
-if [ ${#args[@]} -eq 0 ]; then args=(-f compose.yml); fi
 compose=(docker compose "${args[@]}")
 if [ -f "$env_file" ]; then compose=(docker compose --env-file "$env_file" "${args[@]}"); fi
 config="$("${compose[@]}" config --format json)"
@@ -91,7 +149,7 @@ elif printf '%s\n' "$config" | grep -Eq '"STORAGE_DRIVER": *"s3"'; then
 fi
 
 backups="${BACKUP_DIR:-$root/data/backups}"
-out="$backups/${project}-$(date -u +%Y%m%dT%H%M%SZ)"
+out="$backups/${project}-${stamp}"
 mkdir -p "$out"
 chmod 700 "$out"
 
@@ -105,44 +163,6 @@ keep() {
     cat >"$1"
   fi
 }
-
-# Tells the instance how this run ended. A report that cannot be made
-# never fails the backup: the instance then finds, later, that it is late.
-started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-report() {
-  local flags=() bytes
-  if [ "$1" = failed ]; then flags+=(--failed); fi
-  bytes="$(du -sk "$out" 2>/dev/null | cut -f1)" || bytes=""
-  case "$bytes" in '' | *[!0-9]*) ;; *) flags+=(--bytes "$((bytes * 1024))") ;; esac
-  if [ -n "$recipient" ]; then flags+=(--encrypted); fi
-  "${compose[@]}" exec -T app anygriddb backups record \
-    --name "$(basename "$out")" --started "$started" ${flags[@]+"${flags[@]}"} >/dev/null 2>&1 ||
-    echo "The instance could not be told of this run: Administration will not show it." >&2
-}
-# The instance is told once, where the script ends, of what became of the
-# backup: made, or not. A run that stops before its backup is made leaves
-# nothing: a folder with part of a dump is no backup, and holds what a
-# backup holds. Told where a command failed, a failure while a file was
-# written was told twice.
-made=""
-ended() {
-  status=$?
-  trap - EXIT HUP INT TERM
-  if [ -n "$made" ]; then
-    report succeeded
-  else
-    rm -rf -- "$out"
-    echo "This run stopped before its end: nothing is kept of it." >&2
-    report failed
-  fi
-  exit "$status"
-}
-trap ended EXIT
-# Stopped from outside, the run ends the same way: a signal that ends the
-# shell by itself would skip what the end has to do.
-trap 'exit 129' HUP
-trap 'exit 130' INT
-trap 'exit 143' TERM
 
 # Docker makes a volume that is named and is not there: archived, it
 # would be a backup of nothing that says it went well.
@@ -162,7 +182,7 @@ for volume in "${volumes[@]}"; do
   echo "== Volume ${project}_${volume}"
   # The archive comes out on stdout: the file is the operator's, not root's.
   docker run --rm --network none -v "${project}_${volume}:/volume:ro" \
-    postgres:18 tar -C /volume -czf - . | keep "$out/${volume}.tar.gz"
+    postgres:18 tar -C /volume --exclude='./.ag-restore-*' -czf - . | keep "$out/${volume}.tar.gz"
   archives+=("${volume}.tar.gz$suffix")
 done
 

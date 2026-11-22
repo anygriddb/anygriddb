@@ -20,14 +20,16 @@ if [ "${1:-}" = "--dir" ]; then
 fi
 cd "$target"
 
-if [ -f .env ]; then
-  set -a
-  # shellcheck disable=SC1091
-  . ./.env
-  set +a
-fi
+# Named first, .env stays read when the options name another file too.
+env_files=()
+if [ -f .env ]; then env_files=(--env-file "$target/.env"); fi
+# shellcheck source=scripts/env-file.sh
+. "$root/scripts/env-file.sh"
+read_env_file "$target/.env" POSTGRES_PASSWORD AUTH_ENCRYPTION_KEY \
+  POSTGRES_PASSWORD_FILE AUTH_ENCRYPTION_KEY_FILE
 # shellcheck source=scripts/secret-files.sh
 . "$root/scripts/secret-files.sh"
 load_secret_files "$target"
 
-exec docker compose -f compose.yml -f compose.secrets.yml "$@"
+exec docker compose ${env_files[@]+"${env_files[@]}"} \
+  -f compose.yml -f compose.secrets.yml "$@"
