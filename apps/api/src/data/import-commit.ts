@@ -6,9 +6,11 @@ import {
   type DayOrder,
   type DecimalMark,
   type EngineCatalog,
+  holdsUnwritableText,
   IMPORT_FORMATS,
   type ImportCommitInput,
   isBlankCell,
+  isFormulaGuarded,
   MAX_READ_LIMIT,
   OPTION_COLORS,
   readCellValue,
@@ -54,6 +56,7 @@ const shapeSchema = z.object({
   delimiter: z.enum([",", ";", "\t"]).optional(),
   headerLine: z.int().min(0),
   total: z.int().min(0),
+  encoding: z.literal("windows-1252").optional(),
 });
 
 /** A file waiting for its import: whose it is, and how to read it. */
@@ -199,6 +202,38 @@ function splitValues(text: string, multiple: boolean): string[] {
 }
 
 /**
+ * A select's value without the apostrophe an export put before a formula
+ * sign, unless an option really is written with it.
+ */
+function unguardedChoice(
+  raw: string,
+  options: readonly SelectOption[],
+): string {
+  return isFormulaGuarded(raw) && !options.some((option) => option.name === raw)
+    ? raw.slice(1)
+    : raw;
+}
+
+/**
+ * A cell as its field reads it. The apostrophe a CSV export puts before a
+ * formula sign goes for a field that checks what it holds; in a text it
+ * may be the text itself, and goes only when the import was told so.
+ */
+function unguardedCell(
+  column: WriteColumn,
+  raw: string,
+  stripText: boolean,
+): string {
+  if (!isFormulaGuarded(raw)) return raw;
+  if (column.fieldType === "text" || column.fieldType === "long_text") {
+    return stripText ? raw.slice(1) : raw;
+  }
+  return isSelect(column.fieldType)
+    ? unguardedChoice(raw, column.config.options ?? [])
+    : raw.slice(1);
+}
+
+/**
  * Options to add so every value of a select column is known, found one
  * value at a time, with colours continuing after the existing ones. Names
  * compare without case, like the coercion does; past 200 options, the
@@ -216,8 +251,11 @@ class OptionFinder {
   }
 
   add(value: string): void {
-    for (const name of splitValues(value, this.multiple)) {
+    const text = unguardedChoice(value, this.existing);
+    for (const name of splitValues(text, this.multiple)) {
       const clipped = name.slice(0, 80);
+      // Its row is refused; an option holding it could not be saved.
+      if (holdsUnwritableText(clipped)) continue;
       if (this.known.has(clipped.toLowerCase())) continue;
       if (this.existing.length + this.added.length >= MAX_OPTIONS) return;
       this.known.add(clipped.toLowerCase());
@@ -323,6 +361,9 @@ type ImportError = {
   detail?: string;
 };
 
+/** A line whose key a later line of the file wrote again. */
+type ReplacedLine = { line: number; by: number; key: string };
+
 type ImportResult = {
   tableId: string;
   inserted: number;
@@ -330,7 +371,21 @@ type ImportResult = {
   failed: number;
   errors: ImportError[];
   createdColumns: number;
+  /** Lines replaced by a later one with the same key: the last one wins. */
+  replaced: number;
+  /** The first of them, each with the line that replaced it. */
+  replacedLines: ReplacedLine[];
+  /** Formula cells with no stored value, left empty. */
+  emptyFormulas: number;
 };
+
+/**
+ * A value quoted in a report, which is kept as JSON: a NUL is shown by its
+ * picture, and a character cut in two by the replacement mark.
+ */
+function reportedText(text: string): string {
+  return Buffer.from(text.replaceAll("\0", "\u2400")).toString();
+}
 
 /**
  * Writes a file into a table as it is read (ADR 0064). Columns to create
@@ -363,6 +418,10 @@ export async function importIntoTable(
     created?: readonly string[];
     /** Called after each batch with the lines read so far. */
     onProgress?: (done: number, total: number) => Promise<void>;
+    /** Called once rows are committed, with how many so far. */
+    onWritten?: (written: { inserted: number; updated: number }) => void;
+    /** Take off a CSV export's apostrophe in text fields too. */
+    stripTextGuard?: boolean;
     /** Names this import's one event; each batch updates its count. */
     eventKey: string;
     /**
@@ -498,8 +557,34 @@ export async function importIntoTable(
 
   const errors: ImportError[] = [];
   let failed = 0;
+  /** Lines of the current batch that were refused. */
+  const refusedLines = new Set<number>();
   const note = (error: ImportError) => {
-    if (errors.length < MAX_ERRORS) errors.push(error);
+    refusedLines.add(error.line);
+    if (errors.length < MAX_ERRORS) {
+      errors.push({ ...error, value: reportedText(error.value) });
+    }
+  };
+  /** The last line that wrote each key, from one batch to the next. */
+  const keyLines = new Map<string, number>();
+  const replacedLines: ReplacedLine[] = [];
+  let replaced = 0;
+  let emptyFormulas = 0;
+  /** A key written by `line`, over the `earlier` lines of its batch. */
+  const settleKey = (key: string, line: number, earlier: readonly number[]) => {
+    if (refusedLines.has(line)) return;
+    const before = keyLines.get(key);
+    for (const over of before === undefined ? earlier : [before, ...earlier]) {
+      replaced += 1;
+      if (replacedLines.length < MAX_ERRORS) {
+        replacedLines.push({
+          line: over,
+          by: line,
+          key: reportedText(key.slice(0, 80)),
+        });
+      }
+    }
+    keyLines.set(key, line);
   };
   const keyName =
     input.upsertSource === undefined
@@ -603,16 +688,29 @@ export async function importIntoTable(
   await input.onProgress?.(0, source.total);
   for await (const batch of source.batches()) {
     read += batch.length;
+    refusedLines.clear();
     const valid: Array<{ line: number; values: Record<string, CellValue> }> =
       [];
     for (const row of batch) {
+      emptyFormulas += row.emptyFormulas ?? 0;
       const values: Record<string, CellValue> = {};
       let ok = true;
       for (const [index, name] of targets) {
         const column = columns.get(name);
         if (!column) continue;
         const raw = row.cells[index] ?? "";
-        const reading = readCellValue(column, raw, {
+        if (row.unreadable?.includes(index)) {
+          ok = false;
+          note({
+            line: row.line,
+            column: source.headers[index] ?? "",
+            value: raw.slice(0, 80),
+            message: "Invalid value",
+          });
+          continue;
+        }
+        const cell = unguardedCell(column, raw, input.stripTextGuard === true);
+        const reading = readCellValue(column, cell, {
           ...(input.resolveUser ? { resolveUser: input.resolveUser } : {}),
           ...(input.decimalMark ? { decimalMark: input.decimalMark } : {}),
           ...(input.dayOrder ? { dayOrder: input.dayOrder } : {}),
@@ -649,11 +747,21 @@ export async function importIntoTable(
       line: number;
       values: Record<string, CellValue>;
     }> = [];
+    let keyedWrites: Array<{
+      key: string;
+      line: number;
+      earlier: readonly number[];
+    }> = [];
     if (keyName) {
-      // A key repeated in the file updates the same row; the last line wins.
+      // A key repeated in the file updates the same row; the last line
+      // wins, and the report names the lines it replaced.
       const added = new Map<
         string,
-        { line: number; values: Record<string, CellValue> }
+        {
+          line: number;
+          values: Record<string, CellValue>;
+          earlier: number[];
+        }
       >();
       const changes = new Map<
         string,
@@ -662,6 +770,7 @@ export async function importIntoTable(
           key: string;
           existing: boolean;
           values: Record<string, CellValue>;
+          earlier: number[];
         }
       >();
       for (const item of valid) {
@@ -672,9 +781,11 @@ export async function importIntoTable(
         }
         const match = known.get(text);
         if (!match) {
+          const before = added.get(text);
           added.set(text, {
             line: item.line,
-            values: { ...added.get(text)?.values, ...item.values },
+            values: { ...before?.values, ...item.values },
+            earlier: before ? [...before.earlier, before.line] : [],
           });
           continue;
         }
@@ -689,11 +800,13 @@ export async function importIntoTable(
           });
           continue;
         }
+        const before = changes.get(match.id);
         changes.set(match.id, {
           line: item.line,
           key: text,
           existing: match.existing,
-          values: { ...changes.get(match.id)?.values, ...item.values },
+          values: { ...before?.values, ...item.values },
+          earlier: before ? [...before.earlier, before.line] : [],
         });
       }
       const outside = await outsideRowRule(
@@ -719,6 +832,18 @@ export async function importIntoTable(
         line: change.line,
         values: change.values,
       }));
+      keyedWrites = [
+        ...[...added].map(([key, item]) => ({
+          key,
+          line: item.line,
+          earlier: item.earlier,
+        })),
+        ...[...changes.values()].map(({ key, line, earlier }) => ({
+          key,
+          line,
+          earlier,
+        })),
+      ];
     } else {
       inserts = valid;
     }
@@ -757,6 +882,12 @@ export async function importIntoTable(
           failed += 1;
           note(error);
         },
+        onWritten: (more) => {
+          input.onWritten?.({
+            inserted: inserted + more.inserted,
+            updated: updated + more.updated,
+          });
+        },
       });
       inserted += written.inserted;
       updated += written.updated;
@@ -772,6 +903,7 @@ export async function importIntoTable(
             part.map((item) => item.values),
           );
           inserted += written.length;
+          input.onWritten?.({ inserted, updated });
           return written;
         },
         refuseOutside,
@@ -786,6 +918,7 @@ export async function importIntoTable(
             part.map(({ rowId, values }) => ({ rowId, values })),
           );
           updated += written.length;
+          input.onWritten?.({ inserted, updated });
           return written;
         },
         refuseOutside,
@@ -798,6 +931,9 @@ export async function importIntoTable(
         known.set(item.key, { id, locked: false, existing: false });
       }
     });
+    for (const { key, line, earlier } of keyedWrites) {
+      settleKey(key, line, earlier);
+    }
     await input.onProgress?.(read, source.total);
   }
   return {
@@ -807,6 +943,9 @@ export async function importIntoTable(
     failed,
     errors,
     createdColumns: createdNames.length,
+    replaced,
+    replacedLines,
+    emptyFormulas,
   };
 }
 
@@ -892,6 +1031,8 @@ async function importIntoClientTable(
     }>;
     summary: (count: number) => { summary: SummaryEvent };
     report: (error: ImportError) => void;
+    /** Called once rows are committed, with this batch's count so far. */
+    onWritten: (written: { inserted: number; updated: number }) => void;
   },
 ): Promise<{
   inserted: number;
@@ -926,6 +1067,7 @@ async function importIntoClientTable(
       );
       inserted += written.length;
       ids.push(...written);
+      input.onWritten({ inserted, updated });
     } catch (error) {
       if (!rowLevel(error)) throw error;
       for (const item of part) {
@@ -937,6 +1079,7 @@ async function importIntoClientTable(
           );
           inserted += 1;
           ids.push(id);
+          input.onWritten({ inserted, updated });
         } catch (cause) {
           if (!rowLevel(cause)) throw cause;
           refused(item.line, cause);
@@ -955,6 +1098,7 @@ async function importIntoClientTable(
           part.map(({ rowId, values }) => ({ rowId, values })),
         )
       ).length;
+      input.onWritten({ inserted, updated });
     } catch (error) {
       if (!rowLevel(error)) throw error;
       for (const item of part) {
@@ -964,6 +1108,7 @@ async function importIntoClientTable(
               { rowId: item.rowId, values: item.values },
             ])
           ).length;
+          input.onWritten({ inserted, updated });
         } catch (cause) {
           if (!rowLevel(cause)) throw cause;
           refused(item.line, cause);

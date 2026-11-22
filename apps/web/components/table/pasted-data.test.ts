@@ -10,6 +10,21 @@ describe("pasted data", () => {
     expect(pastedFile("Nom,Ville\nAcme,Lyon", "Collé")?.name).toBe("Collé.csv");
   });
 
+  it("keeps one column whole when a value holds a comma", async () => {
+    const file = pastedFile("name\nDupont, Jean\nMartin; Luc", "Collé");
+    expect(file?.name).toBe("Collé.tsv");
+    expect(await file?.text()).toBe("name\nDupont, Jean\nMartin; Luc\n");
+  });
+
+  it("keeps two columns when the first line has a separator", () => {
+    expect(pastedFile("Nom,Ville\nDupont,Lyon", "Collé")?.name).toBe(
+      "Collé.csv",
+    );
+    expect(pastedFile("Nom;Ville\nDupont;Lyon", "Collé")?.name).toBe(
+      "Collé.csv",
+    );
+  });
+
   it("refuses an empty paste", () => {
     expect(pastedFile("  \n \n", "Collé")).toBeUndefined();
   });

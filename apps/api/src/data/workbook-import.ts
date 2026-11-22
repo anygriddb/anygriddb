@@ -45,6 +45,7 @@ const sheetSchema = z.object({
   name: z.string().min(1).max(100),
   hidden: z.boolean(),
   formulas: z.int().min(0),
+  emptyFormulas: z.int().min(0).default(0),
   headers: z.array(z.string().min(1).max(100)).min(1).max(200),
   headerLine: z.int().min(0),
   total: z.int().min(0),
@@ -99,6 +100,7 @@ export async function stageWorkbook(
       name: sheet.name,
       hidden: sheet.hidden,
       formulas: sheet.formulas,
+      emptyFormulas: sheet.emptyFormulas,
       headers: sheet.shape.headers,
       headerLine: sheet.shape.headerLine,
       total: sheet.shape.total,
@@ -177,6 +179,8 @@ type SheetReport = {
   failed: number;
   /** Its cells that held a formula: their values came. */
   formulas: number;
+  /** Those with no stored value, whose cells stayed empty. */
+  emptyFormulas?: number;
 };
 
 /**
@@ -285,6 +289,9 @@ export async function importWorkbook(
         rows: result.inserted,
         failed: result.failed,
         formulas: sheet.formulas,
+        ...(result.emptyFormulas > 0
+          ? { emptyFormulas: result.emptyFormulas }
+          : {}),
       });
     }
     return { baseId: base.id, report: { sheets: report } };

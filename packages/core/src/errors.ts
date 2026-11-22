@@ -189,6 +189,8 @@ export const ERRORS = {
   restore_points_full: [BAD, "Too many restore points"],
   unknown_restore_point: [BAD, "Unknown restore point"],
   export_too_large: [BAD, "Too many rows to export"],
+  /** Nothing the reader may see in this table or view: no file to write. */
+  export_no_columns: [BAD, "No column to export"],
   import_too_large: [BAD, "Too many rows to import"],
   too_many_jobs: [BAD, "Too many jobs"],
   unknown_job: [BAD, "Unknown job"],

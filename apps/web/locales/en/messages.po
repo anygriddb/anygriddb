@@ -344,6 +344,16 @@ msgstr "{0, plural, one {# file of a type this instance refuses, left out} other
 msgid "{0, plural, one {# file} other {# files}}"
 msgstr "{0, plural, one {# file} other {# files}}"
 
+#. placeholder {0}: preview.emptyFormulas
+#: components/table/import-dialog.tsx
+msgid "{0, plural, one {# formula has no stored value: its cell will stay empty.} other {# formulas have no stored value: their cells will stay empty.}}"
+msgstr "{0, plural, one {# formula has no stored value: its cell will stay empty.} other {# formulas have no stored value: their cells will stay empty.}}"
+
+#. placeholder {0}: sheet.emptyFormulas
+#: components/shell/new-base-dialog.tsx
+msgid "{0, plural, one {# formula with no stored value, left empty} other {# formulas with no stored value, left empty}}"
+msgstr "{0, plural, one {# formula with no stored value, left empty} other {# formulas with no stored value, left empty}}"
+
 #. placeholder {0}: sheet.formulas
 #: components/shell/new-base-dialog.tsx
 msgid "{0, plural, one {# formula, imported as its value} other {# formulas, imported as their values}}"
@@ -701,6 +711,10 @@ msgstr "{disabled, plural, one {# account disabled} other {# accounts disabled}}
 msgid "{disabled} disabled; {refused} could not be: read the list again."
 msgstr "{disabled} disabled; {refused} could not be: read the list again."
 
+#: components/table/import-dialog.tsx
+msgid "{emptyFormulas, plural, one {# formula had no stored value: its cell stayed empty.} other {# formulas had no stored value: their cells stayed empty.}}"
+msgstr "{emptyFormulas, plural, one {# formula had no stored value: its cell stayed empty.} other {# formulas had no stored value: their cells stayed empty.}}"
+
 #: lib/limits.ts
 msgid "{engine} computes {fn} approximately: the result is right to 15 digits. This is a limit of {engine}."
 msgstr "{engine} computes {fn} approximately: the result is right to 15 digits. This is a limit of {engine}."
@@ -738,6 +752,10 @@ msgstr "{filterCount, plural, one {# filter} other {# filters}}"
 msgid "{from}–{to} of {total}"
 msgstr "{from}–{to} of {total}"
 
+#: components/table/import-dialog.tsx
+msgid "{guardedInText, plural, one {Remove the apostrophe before =, +, - or @ in # text value (a CSV export adds it)} other {Remove the apostrophe before =, +, - or @ in # text values (a CSV export adds it)}}"
+msgstr "{guardedInText, plural, one {Remove the apostrophe before =, +, - or @ in # text value (a CSV export adds it)} other {Remove the apostrophe before =, +, - or @ in # text values (a CSV export adds it)}}"
+
 #: components/admin/health-tab.tsx
 msgid "{hours} h"
 msgstr "{hours} h"
@@ -750,6 +768,10 @@ msgstr "{inserted, plural, one {# row added, {updated} updated, {failed} rejecte
 #: components/shell/pending-invitations.tsx
 msgid "{inviter} invites you to {base} as {role}"
 msgstr "{inviter} invites you to {base} as {role}"
+
+#: components/table/import-dialog.tsx
+msgid "{kept, plural, one {The # row already written is kept.} other {The # rows already written are kept.}}"
+msgstr "{kept, plural, one {The # row already written is kept.} other {The # rows already written are kept.}}"
 
 #: lib/jobs.tsx
 msgid "{label} ({percent}%)"
@@ -955,6 +977,10 @@ msgstr "{removingLabel} is your only second factor. Your backup codes stop worki
 #: components/settings/second-factor.tsx
 msgid "{removingLabel} will no longer sign you in."
 msgstr "{removingLabel} will no longer sign you in."
+
+#: components/table/import-dialog.tsx
+msgid "{replaced, plural, one {# line was replaced by a later line with the same key.} other {# lines were replaced by a later line with the same key.}}"
+msgstr "{replaced, plural, one {# line was replaced by a later line with the same key.} other {# lines were replaced by a later line with the same key.}}"
 
 #: components/admin/account-bases.tsx
 msgid "{role}, through the group {group}"
@@ -6362,6 +6388,7 @@ msgid "key"
 msgstr "key"
 
 #: components/settings/api-docs.tsx
+#: components/table/import-dialog.tsx
 msgid "Key"
 msgstr "Key"
 
@@ -6547,6 +6574,10 @@ msgstr "Limit interactive sign-in (password, single sign-on, passkeys) to these 
 #: components/dashboards/dashboard-board.tsx
 msgid "Line"
 msgstr "Line"
+
+#: components/table/import-dialog.tsx
+msgid "Lines replaced by a later line"
+msgstr "Lines replaced by a later line"
 
 #: components/admin/account-actions.tsx
 #: components/admin/trails.tsx
@@ -9223,6 +9254,10 @@ msgstr "Replace and confirm"
 #: components/settings/second-factor.tsx
 msgid "Replace the authenticator app"
 msgstr "Replace the authenticator app"
+
+#: components/table/import-dialog.tsx
+msgid "Replaced by row"
+msgstr "Replaced by row"
 
 #: components/fields/formula-docs.ts
 msgid "Replaces characters from a position."
@@ -11957,6 +11992,10 @@ msgstr "Then create an automation triggered by this button, from the view menu."
 msgid "Then:"
 msgstr "Then:"
 
+#: lib/errors.ts
+msgid "There is no field you can read here, so there is nothing to export"
+msgstr "There is no field you can read here, so there is nothing to export"
+
 #: components/admin/logs-tab.tsx
 msgid "These are the recent lines of this process, newest first. They are kept in memory and disappear when the process stops. The database and the file store keep their own logs where they run."
 msgstr "These are the recent lines of this process, newest first. They are kept in memory and disappear when the process stops. The database and the file store keep their own logs where they run."
@@ -12198,6 +12237,10 @@ msgstr "This figure is too large for the client's database to compute"
 #: lib/errors.ts
 msgid "This file has more rows than this instance imports at once: split it first"
 msgstr "This file has more rows than this instance imports at once: split it first"
+
+#: components/table/import-dialog.tsx
+msgid "This file is not in UTF-8: it is read as Windows-1252. Check its accents in the examples above."
+msgstr "This file is not in UTF-8: it is read as Windows-1252. Check its accents in the examples above."
 
 #: lib/errors.ts
 msgid "This file is too long: at most 200 people in one file"

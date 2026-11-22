@@ -12,11 +12,13 @@ import {
   DelimitedReader,
   detectDelimiter,
   FieldGuess,
+  holdsUnwritableText,
   type ImportFormat,
   inferFieldType,
   isAmbiguousDate,
   isAmbiguousNumber,
   isAmbiguousPoint,
+  isFormulaGuarded,
   type InferredField,
   MAX_WORKBOOK_SHEETS,
 } from "@anygriddb/core";
@@ -44,7 +46,17 @@ const DELIMITER_PROBE = 64 * 1024;
 const SPARE_CELLS = 50;
 
 /** A data row of the file, with its line: the header is line 1. */
-export type SheetRow = { line: number; cells: string[] };
+export type SheetRow = {
+  line: number;
+  cells: string[];
+  /** Its cells holding a formula with no stored value: they stay empty. */
+  emptyFormulas?: number;
+  /** Columns whose value the file cannot state: refused on this line. */
+  unreadable?: number[];
+};
+
+/** How a text file's bytes are read. */
+type TextEncoding = "utf-8" | "windows-1252";
 
 /**
  * What the first pass found, kept with the staged file so the second
@@ -60,6 +72,8 @@ export type SheetShape = {
   total: number;
   /** A workbook's worksheet, by its place in the file: the first if none. */
   sheet?: number;
+  /** A text file that is not UTF-8. */
+  encoding?: "windows-1252";
 };
 
 export type ImportPreview = {
@@ -75,6 +89,12 @@ export type ImportPreview = {
   ambiguousDates: number;
   /** The longest cell of each column, to say which fields it will not fit. */
   longest: number[];
+  /** How the file's text was read: Windows-1252 is said before importing. */
+  encoding: TextEncoding;
+  /** Cells of each column with the apostrophe an export puts before a formula. */
+  guarded: number[];
+  /** Formula cells with no stored value, which stay empty. */
+  emptyFormulas: number;
 };
 
 const EXTENSIONS: Record<string, ImportFormat> = {
@@ -120,19 +140,32 @@ function clip(text: string): string {
   return text.length > KEPT_CELL ? text.slice(0, KEPT_CELL) : text;
 }
 
+const MAX_HEADER = 100;
+
+/** At most `length` code units, never half a character. */
+function cutName(text: string, length: number): string {
+  if (text.length <= length) return text;
+  const code = text.charCodeAt(length - 1);
+  return text.slice(0, code >= 0xd800 && code <= 0xdbff ? length - 1 : length);
+}
+
 /**
  * Blank headers get a name and their position, the name in the language of
  * the person who imports (`MadeNames.field`); repeated ones a counter.
  */
 export function cleanHeaders(raw: readonly string[], blank: string): string[] {
-  const seen = new Map<string, number>();
+  const taken = new Set<string>();
   return raw.map((value, index) => {
     const base =
-      value.replace(/\s+/g, " ").trim().slice(0, 100) ||
-      `${blank} ${index + 1}`.slice(0, 100);
-    const count = (seen.get(base.toLowerCase()) ?? 0) + 1;
-    seen.set(base.toLowerCase(), count);
-    return count === 1 ? base : `${base} (${count})`.slice(0, 100);
+      cutName(value.replace(/\s+/g, " ").trim(), MAX_HEADER) ||
+      cutName(`${blank} ${index + 1}`, MAX_HEADER);
+    let name = base;
+    for (let count = 2; taken.has(name.toLowerCase()); count += 1) {
+      const suffix = ` (${count})`;
+      name = `${cutName(base, MAX_HEADER - suffix.length).trimEnd()}${suffix}`;
+    }
+    taken.add(name.toLowerCase());
+    return name;
   });
 }
 
@@ -161,7 +194,120 @@ type RawRecord = {
   cells: string[];
   /** A worksheet's cells that hold a formula: their values come. */
   formulas?: number;
+  /** Those with no stored value to bring. */
+  emptyFormulas?: number;
 };
+
+/** Bytes Windows-1252 does not define: a file holding one is not in it. */
+const UNDEFINED_IN_1252 = [0x81, 0x8d, 0x8f, 0x90, 0x9d];
+
+/**
+ * Follows a file's bytes as UTF-8 and says what it was: valid UTF-8, or
+ * another encoding with no sequence of UTF-8 in it. A file holding both
+ * was put together from two encodings, and neither reads all of it.
+ */
+class EncodingProbe {
+  private needed = 0;
+  private lowest = 0x80;
+  private highest = 0xbf;
+  private sequences = 0;
+  private invalid = 0;
+  private undefinedByte = false;
+
+  push(bytes: Uint8Array): void {
+    for (let index = 0; index < bytes.length; index += 1) {
+      const byte = bytes[index] as number;
+      if (this.needed === 0 && byte < 0x80) continue;
+      if (UNDEFINED_IN_1252.includes(byte)) this.undefinedByte = true;
+      if (this.needed > 0) {
+        if (byte >= this.lowest && byte <= this.highest) {
+          this.needed -= 1;
+          this.lowest = 0x80;
+          this.highest = 0xbf;
+          if (this.needed === 0) this.sequences += 1;
+          continue;
+        }
+        this.invalid += 1;
+        this.needed = 0;
+        this.lowest = 0x80;
+        this.highest = 0xbf;
+        if (byte < 0x80) continue;
+      }
+      if (byte >= 0xc2 && byte <= 0xdf) {
+        this.needed = 1;
+      } else if (byte >= 0xe0 && byte <= 0xef) {
+        this.needed = 2;
+        if (byte === 0xe0) this.lowest = 0xa0;
+        if (byte === 0xed) this.highest = 0x9f;
+      } else if (byte >= 0xf0 && byte <= 0xf4) {
+        this.needed = 3;
+        if (byte === 0xf0) this.lowest = 0x90;
+        if (byte === 0xf4) this.highest = 0x8f;
+      } else {
+        this.invalid += 1;
+      }
+    }
+  }
+
+  /** The encoding, or nothing when no single one reads the whole file. */
+  result(): TextEncoding | undefined {
+    if (this.invalid === 0 && this.needed === 0) return "utf-8";
+    return this.sequences === 0 && !this.undefinedByte
+      ? "windows-1252"
+      : undefined;
+  }
+}
+
+/**
+ * How a text file is encoded, read through once: UTF-8, or Windows-1252,
+ * which the preview announces. UTF-16, and a file no single encoding
+ * reads, are refused: nothing is replaced to make it fit.
+ */
+async function textEncoding(path: string): Promise<TextEncoding> {
+  const stream = createReadStream(path, { highWaterMark: 1024 * 1024 });
+  const probe = new EncodingProbe();
+  let first = true;
+  try {
+    for await (const chunk of stream as AsyncIterable<Buffer>) {
+      if (first) {
+        first = false;
+        const mark = chunk.length >= 2 ? chunk.readUInt16BE(0) : 0;
+        if (mark === 0xfffe || mark === 0xfeff) {
+          throw new AppError("invalid_import");
+        }
+      }
+      probe.push(chunk);
+    }
+  } finally {
+    stream.destroy();
+  }
+  const encoding = probe.result();
+  if (!encoding) throw new AppError("invalid_import");
+  return encoding;
+}
+
+/** The file's text, a piece at a time; a byte order mark stays in it. */
+async function* decodedText(
+  path: string,
+  encoding: TextEncoding,
+): AsyncGenerator<string> {
+  const stream = createReadStream(path, { highWaterMark: 1024 * 1024 });
+  const decoder = new TextDecoder(encoding, { fatal: true, ignoreBOM: true });
+  try {
+    for await (const chunk of stream as AsyncIterable<Buffer>) {
+      yield decoder.decode(chunk, { stream: true });
+    }
+    const rest = decoder.decode();
+    if (rest !== "") yield rest;
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new AppError("invalid_import", { cause: error });
+    }
+    throw error;
+  } finally {
+    stream.destroy();
+  }
+}
 
 /**
  * Every record of a text file, the header first, numbered from 1. The
@@ -170,12 +316,9 @@ type RawRecord = {
 async function* textRecords(
   path: string,
   format: "csv" | "tsv",
+  encoding: TextEncoding,
   known?: "," | ";" | "\t",
 ): AsyncGenerator<RawRecord & { delimiter: "," | ";" | "\t" }> {
-  const stream = createReadStream(path, {
-    encoding: "utf8",
-    highWaterMark: 1024 * 1024,
-  });
   let reader: DelimitedReader | undefined;
   let delimiter: "," | ";" | "\t" = known ?? (format === "tsv" ? "\t" : ",");
   let head = "";
@@ -192,13 +335,13 @@ async function* textRecords(
     return created;
   };
   try {
-    for await (const chunk of stream as AsyncIterable<string>) {
+    for await (const chunk of decodedText(path, encoding)) {
       let records: string[][];
       if (reader) {
         records = reader.push(chunk);
       } else {
         head += chunk;
-        if (!head.includes("\n") && head.length < DELIMITER_PROBE) continue;
+        if (!/[\r\n]/.test(head) && head.length < DELIMITER_PROBE) continue;
         records = begin(head).push(head);
         head = "";
       }
@@ -223,14 +366,63 @@ async function* textRecords(
       throw new AppError("invalid_import", { cause: error });
     }
     throw error;
-  } finally {
-    stream.destroy();
   }
+}
+
+/**
+ * Numbers as the file writes them. A double would round an identifier of
+ * twenty digits, in a text field too: a number whose text a double does not
+ * give back is kept as that text, in a raw value that `JSON.stringify`
+ * writes unchanged. The others stay numbers, which hold far less memory.
+ */
+type RawNumber = { readonly rawJSON: string };
+const EXACT_JSON = JSON as typeof JSON & {
+  rawJSON(text: string): RawNumber;
+  isRawJSON(value: unknown): value is RawNumber;
+};
+
+function keepNumberText(
+  _key: string,
+  value: unknown,
+  context?: { source?: string },
+): unknown {
+  return typeof value === "number" &&
+    context?.source !== undefined &&
+    String(value) !== context.source
+    ? EXACT_JSON.rawJSON(context.source)
+    : value;
+}
+
+/** A record of the file: an object, and not a number kept as written. */
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    !EXACT_JSON.isRawJSON(value)
+  );
+}
+
+/** Whether a value holds a number past what a double can say (`1e400`). */
+function holdsOutOfRange(value: unknown): boolean {
+  const pending: unknown[] = [value];
+  while (pending.length > 0) {
+    const item = pending.pop();
+    if (EXACT_JSON.isRawJSON(item)) {
+      if (!Number.isFinite(Number(item.rawJSON))) return true;
+    } else if (Array.isArray(item)) {
+      for (const inner of item as unknown[]) pending.push(inner);
+    } else if (typeof item === "object" && item !== null) {
+      for (const inner of Object.values(item)) pending.push(inner);
+    }
+  }
+  return false;
 }
 
 function jsonText(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value;
+  if (EXACT_JSON.isRawJSON(value)) return value.rawJSON;
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
@@ -251,29 +443,43 @@ async function jsonRecords(
   }
   let parsed: unknown;
   try {
-    const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-    parsed = JSON.parse(text.startsWith("﻿") ? text.slice(1) : text);
+    // JSON is UTF-8: anything else is refused, and the mark is skipped.
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    parsed = JSON.parse(text, keepNumberText);
   } catch (error) {
     throw new AppError("invalid_import", { cause: error });
   }
   const list = Array.isArray(parsed)
     ? parsed
-    : parsed && typeof parsed === "object"
-      ? ((parsed as { records?: unknown; rows?: unknown }).records ??
-        (parsed as { rows?: unknown }).rows)
+    : isJsonObject(parsed)
+      ? (parsed.records ?? parsed.rows)
       : undefined;
   if (!Array.isArray(list)) throw new AppError("invalid_import");
   if (list.length > maxRows) throw new AppError("import_too_large");
   return list.map((item: unknown) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) {
-      throw new AppError("invalid_import");
-    }
-    // REST-style `{id, fields: {...}}` records import their fields.
-    const fields = (item as { fields?: unknown }).fields;
-    return fields && typeof fields === "object" && !Array.isArray(fields)
-      ? (fields as Record<string, unknown>)
-      : (item as Record<string, unknown>);
+    if (!isJsonObject(item)) throw new AppError("invalid_import");
+    // REST-style `{id, fields: {...}}` records import their fields; a
+    // record with keys of its own keeps them all.
+    return isJsonObject(item.fields) &&
+      Object.keys(item).every((key) => REST_RECORD_KEYS.has(key))
+      ? item.fields
+      : item;
   });
+}
+
+/** The keys a REST record holds around its `fields`. */
+const REST_RECORD_KEYS = new Set(["id", "fields", "createdTime"]);
+
+/** A record's cells under `keys`, and those the file cannot state. */
+function jsonCells(
+  record: Record<string, unknown>,
+  keys: readonly string[],
+): { cells: string[]; unreadable?: number[] } {
+  const cells = keys.map((key) => jsonText(record[key]));
+  const unreadable = keys.flatMap((key, index) =>
+    holdsOutOfRange(record[key]) ? [index] : [],
+  );
+  return unreadable.length > 0 ? { cells, unreadable } : { cells };
 }
 
 /** Every key the records use, in the order they first appear. */
@@ -291,6 +497,9 @@ function jsonKeys(records: ReadonlyArray<Record<string, unknown>>): string[] {
   return [...keys];
 }
 
+/** A character a workbook's XML cannot hold, as the format escapes it. */
+const EXCEL_ESCAPE = /_x([0-9A-Fa-f]{4})_/g;
+
 /** Text of one ExcelJS cell value; dates become ISO dates or date-times. */
 export function excelText(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -299,7 +508,11 @@ export function excelText(value: unknown): string {
     const iso = value.toISOString();
     return iso.endsWith("T00:00:00.000Z") ? iso.slice(0, 10) : iso;
   }
-  if (typeof value === "string") return value;
+  if (typeof value === "string") {
+    return value.replace(EXCEL_ESCAPE, (_, hex: string) =>
+      String.fromCharCode(Number.parseInt(hex, 16)),
+    );
+  }
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
@@ -314,7 +527,7 @@ export function excelText(value: unknown): string {
       return cell.richText.map((part) => excelText(part.text)).join("");
     }
     if ("result" in cell) return excelText(cell.result);
-    if (typeof cell.text === "string") return cell.text;
+    if (typeof cell.text === "string") return excelText(cell.text);
     if (cell.error !== undefined) return "";
   }
   return "";
@@ -340,6 +553,11 @@ function isFormula(value: unknown): boolean {
   );
 }
 
+/** A formula whose file keeps no value for it, or only an error. */
+function isEmptyFormula(value: unknown): boolean {
+  return isFormula(value) && excelText(value) === "";
+}
+
 /** The rows of one worksheet, numbered as the sheet numbers them. */
 async function* sheetRecords(
   sheet: AsyncIterable<ExcelJS.Row>,
@@ -353,6 +571,7 @@ async function* sheetRecords(
       line: row.number,
       cells: Array.from(values, (value) => clip(excelText(value))),
       formulas: values.filter(isFormula).length,
+      emptyFormulas: values.filter(isEmptyFormula).length,
     };
   }
 }
@@ -414,6 +633,9 @@ type Found = {
   ambiguousPoints: number;
   ambiguousDates: number;
   longest: number[];
+  guarded: number[];
+  emptyFormulas: number;
+  encoding: TextEncoding;
 };
 
 function nothingFound(): Found {
@@ -427,6 +649,9 @@ function nothingFound(): Found {
     ambiguousPoints: 0,
     ambiguousDates: 0,
     longest: [],
+    guarded: [],
+    emptyFormulas: 0,
+    encoding: "utf-8",
   };
 }
 
@@ -447,6 +672,9 @@ function keepRow(
     if (isAmbiguousNumber(cell)) found.ambiguousNumbers += 1;
     if (isAmbiguousPoint(cell)) found.ambiguousPoints += 1;
     if (isAmbiguousDate(cell)) found.ambiguousDates += 1;
+    if (isFormulaGuarded(cell)) {
+      found.guarded[index] = (found.guarded[index] ?? 0) + 1;
+    }
   }
 }
 
@@ -462,7 +690,9 @@ function scanResult(
   if (
     !found.rawHeader ||
     found.width === 0 ||
-    found.width > IMPORT_LIMITS.maxColumns
+    found.width > IMPORT_LIMITS.maxColumns ||
+    // A header nothing can keep: another encoding, or not text at all.
+    holdsUnwritableText(found.rawHeader)
   ) {
     throw new AppError("invalid_import");
   }
@@ -475,6 +705,9 @@ function scanResult(
       ...(found.delimiter ? { delimiter: found.delimiter } : {}),
       headerLine: found.headerLine,
       total: found.total,
+      ...(found.encoding === "windows-1252"
+        ? { encoding: found.encoding }
+        : {}),
     },
     preview: {
       headers,
@@ -492,6 +725,9 @@ function scanResult(
       ambiguousPoints: found.ambiguousPoints,
       ambiguousDates: found.ambiguousDates,
       longest: headers.map((_, index) => found.longest[index] ?? 0),
+      encoding: found.encoding,
+      guarded: headers.map((_, index) => found.guarded[index] ?? 0),
+      emptyFormulas: found.emptyFormulas,
     },
   };
 }
@@ -510,13 +746,15 @@ async function scanSheet(
   const found = { ...nothingFound(), formulas: 0 };
   for await (const record of records) {
     found.formulas += record.formulas ?? 0;
-    if (isBlank(record.cells)) continue;
+    const empty = record.emptyFormulas ?? 0;
+    if (isBlank(record.cells) && (empty === 0 || !found.rawHeader)) continue;
     if (!found.rawHeader) {
       found.rawHeader = record.cells;
       found.headerLine = record.line;
       found.width = usedWidth(record.cells);
       continue;
     }
+    found.emptyFormulas += empty;
     found.width = Math.max(found.width, usedWidth(record.cells));
     keepRow(found, record.cells, count, sampleSize);
     if (guesses) {
@@ -553,7 +791,8 @@ export async function scanImportFile(
     case "csv":
     case "tsv": {
       const found = nothingFound();
-      for await (const record of textRecords(path, format)) {
+      found.encoding = await textEncoding(path);
+      for await (const record of textRecords(path, format, found.encoding)) {
         found.delimiter = record.delimiter;
         if (!found.rawHeader) {
           found.rawHeader = record.cells;
@@ -582,7 +821,7 @@ export async function scanImportFile(
       const found = { ...nothingFound(), rawHeader: keys, headerLine: 1 };
       found.width = keys.length;
       for (const record of records) {
-        const cells = keys.map((key) => jsonText(record[key]));
+        const { cells } = jsonCells(record, keys);
         if (!isBlank(cells)) keepRow(found, cells, count, INFER_SAMPLE);
       }
       return scanResult(format, found, blank);
@@ -598,6 +837,8 @@ export type WorkbookSheet = {
   hidden: boolean;
   /** Its cells that hold a formula: their values come, not the formulas. */
   formulas: number;
+  /** Those with no stored value: their cells stay empty. */
+  emptyFormulas: number;
   shape: SheetShape;
   preview: ImportPreview;
 };
@@ -642,6 +883,7 @@ export async function scanWorkbook(
           name: about.name.trim().slice(0, 100) || `#${index + 1}`,
           hidden: about.hidden,
           formulas: found.formulas,
+          emptyFormulas: found.emptyFormulas,
           shape: { ...shape, sheet: index },
           preview: {
             ...preview,
@@ -681,11 +923,15 @@ export async function* readImportFile(
   const width = shape.headers.length;
   let batch: SheetRow[] = [];
   let total = 0;
-  const take = (line: number, cells: string[]): SheetRow[] | undefined => {
-    if (isBlank(cells)) return undefined;
+  const take = (
+    line: number,
+    cells: string[],
+    about: Pick<SheetRow, "emptyFormulas" | "unreadable"> = {},
+  ): SheetRow[] | undefined => {
+    if (isBlank(cells) && !about.emptyFormulas) return undefined;
     total += 1;
     if (total > maxRows) throw new AppError("import_too_large");
-    batch.push({ line, cells: fit(cells, width) });
+    batch.push({ line, cells: fit(cells, width), ...about });
     if (batch.length < size) return undefined;
     const full = batch;
     batch = [];
@@ -697,6 +943,7 @@ export async function* readImportFile(
       for await (const record of textRecords(
         path,
         shape.format,
+        shape.encoding ?? "utf-8",
         shape.delimiter,
       )) {
         if (record.line <= shape.headerLine) continue;
@@ -713,7 +960,11 @@ export async function* readImportFile(
         if (usedWidth(record.cells) > width) {
           throw new AppError("invalid_import");
         }
-        const full = take(record.line, record.cells);
+        const full = take(
+          record.line,
+          record.cells,
+          record.emptyFormulas ? { emptyFormulas: record.emptyFormulas } : {},
+        );
         if (full) yield full;
       }
       break;
@@ -721,10 +972,8 @@ export async function* readImportFile(
       const records = await jsonRecords(path, maxRows);
       const keys = jsonKeys(records);
       for (const [index, record] of records.entries()) {
-        const full = take(
-          index + 2,
-          keys.map((key) => jsonText(record[key])),
-        );
+        const { cells, unreadable } = jsonCells(record, keys);
+        const full = take(index + 2, cells, unreadable ? { unreadable } : {});
         if (full) yield full;
       }
       break;

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   DelimitedReader,
+  detectDelimiter,
+  isFormulaGuarded,
   parseCsv,
   parseDelimited,
   toCsv,
@@ -95,5 +97,84 @@ describe("DelimitedReader", () => {
     expect(() => open.end()).toThrow(/Invalid csv/);
     const wide = new DelimitedReader({ delimiter: ",", maxCells: 2 });
     expect(() => wide.push("a,b,c\n")).toThrow(/Invalid csv/);
+  });
+});
+
+describe("the guard against formulas", () => {
+  it("leaves a plain decimal as it is, whatever its sign", () => {
+    for (const value of ["-5", "-0.5", "-1250.50", "12"]) {
+      expect(toCsvRows(["n"], [{ n: value }])).toBe(value);
+    }
+  });
+
+  it("guards everything else a spreadsheet would run", () => {
+    for (const value of [
+      "=1+1",
+      "-1+1",
+      "+SUM(A1)",
+      "@x",
+      "-2*3",
+      "+5",
+      "-1e5",
+      "-.5",
+      "-5 ",
+    ]) {
+      expect(toCsvRows(["n"], [{ n: value }])).toBe(`'${value}`);
+    }
+    expect(toCsvRows(["n"], [{ n: "-5\n=1+1" }])).toBe(`"'-5\n=1+1"`);
+  });
+
+  it("knows a cell it guarded", () => {
+    expect(isFormulaGuarded("'-1+1")).toBe(true);
+    expect(isFormulaGuarded("'=x")).toBe(true);
+    expect(isFormulaGuarded("'quoted")).toBe(false);
+    expect(isFormulaGuarded("-5")).toBe(false);
+  });
+});
+
+describe("the end of a line", () => {
+  function read(pieces: readonly string[]): string[][] {
+    const reader = new DelimitedReader({ delimiter: "," });
+    return [...pieces.flatMap((piece) => reader.push(piece)), ...reader.end()];
+  }
+
+  it("takes a carriage return alone, as old spreadsheets write it", () => {
+    expect(read(["a,b\rc,d\re,f\r"])).toEqual([
+      ["a", "b"],
+      ["c", "d"],
+      ["e", "f"],
+    ]);
+  });
+
+  it("reads CRLF as one end of line, wherever the text is cut", () => {
+    const text = "a,b\r\nc,d\r\n\r\ne,f";
+    const whole = [["a", "b"], ["c", "d"], [""], ["e", "f"]];
+    expect(read([text])).toEqual(whole);
+    for (let cut = 0; cut <= text.length; cut += 1) {
+      expect(read([text.slice(0, cut), text.slice(cut)])).toEqual(whole);
+    }
+  });
+
+  it("keeps a carriage return inside quotes in its cell", () => {
+    expect(read(['"a\rb",c\rd,e'])).toEqual([
+      ["a\rb", "c"],
+      ["d", "e"],
+    ]);
+  });
+});
+
+describe("detectDelimiter", () => {
+  it("counts only what is outside quotes", () => {
+    expect(detectDelimiter('"a;b;c",d\n1,2\n')).toBe(",");
+    expect(detectDelimiter('"a,b,c";d\n')).toBe(";");
+    expect(detectDelimiter('"say ""a;b""",c\n')).toBe(",");
+  });
+
+  it("reads the first line, however it ends", () => {
+    expect(detectDelimiter("a;b\nc,d,e,f")).toBe(";");
+    expect(detectDelimiter("a;b\rc,d,e,f")).toBe(";");
+    expect(detectDelimiter("a\tb\n")).toBe("\t");
+    expect(detectDelimiter('5" disk;x\n')).toBe(";");
+    expect(detectDelimiter("alone\n")).toBe(",");
   });
 });

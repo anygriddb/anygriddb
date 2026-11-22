@@ -289,6 +289,19 @@ async function finishJob(
     .executeTakeFirst();
 }
 
+/**
+ * A job that failed with part of its work already kept: the failure, and
+ * what its author is told was done.
+ */
+export class JobStoppedAfter extends Error {
+  constructor(
+    readonly failure: unknown,
+    readonly result: Record<string, unknown>,
+  ) {
+    super("Job stopped");
+  }
+}
+
 /** A failure as its author may read it: a stable code, never internals. */
 export function jobError(error: unknown): PublicError {
   return publicError(error);
@@ -359,11 +372,14 @@ export async function runJob(
         progressDone: done,
       });
     } else {
-      const failure = jobError(error);
-      if (failure.code === "internal_error") deps.log(error, "job failed");
+      const stopped = error instanceof JobStoppedAfter ? error : undefined;
+      const cause = stopped ? stopped.failure : error;
+      const failure = jobError(cause);
+      if (failure.code === "internal_error") deps.log(cause, "job failed");
       finished = await finishJob(deps.db, job.id, {
         status: "failed",
         error: failure,
+        result: stopped?.result ?? null,
         progressDone: done,
       });
     }

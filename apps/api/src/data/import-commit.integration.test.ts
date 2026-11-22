@@ -6,6 +6,8 @@
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { ImportFormat } from "@anygriddb/core";
+import ExcelJS from "exceljs";
 import { readImportFile, scanImportFile } from "../import-file.js";
 import { onDisk } from "../import-file.test-helpers.js";
 import { createTestDatabase } from "../test-database.js";
@@ -145,5 +147,274 @@ describe("an import read as it is written", () => {
         (option) => option.name,
       ),
     ).toEqual(["Open", "Closed", "Held"]);
+  });
+
+  /** A whole file read by both passes and written into `target`. */
+  async function importFile(
+    target: Awaited<ReturnType<typeof table>>,
+    format: ImportFormat,
+    bytes: Buffer | string,
+    options: {
+      mapping: Parameters<typeof importIntoTable>[1]["mapping"];
+      upsertSource?: number;
+      stripTextGuard?: boolean;
+      batch?: number;
+    },
+  ) {
+    return onDisk(bytes, async (path) => {
+      const { shape } = await scanImportFile(format, path, 1_000_000, "Field");
+      return importIntoTable(db, {
+        userId: owner,
+        table: target,
+        source: {
+          headers: shape.headers,
+          total: shape.total,
+          batches: () =>
+            readImportFile(shape, path, options.batch ?? 500, 1_000_000),
+        },
+        mapping: options.mapping,
+        ...(options.upsertSource === undefined
+          ? {}
+          : { upsertSource: options.upsertSource }),
+        ...(options.stripTextGuard ? { stripTextGuard: true } : {}),
+        addOptions: true,
+        canManage: true,
+        eventKey: `import:faithful-${randomBytes(4).toString("hex")}`,
+      });
+    });
+  }
+
+  function stored(
+    target: Awaited<ReturnType<typeof table>>,
+    columns: readonly string[],
+  ) {
+    return db
+      .selectFrom(target.physicalName as never)
+      .select(columns as never)
+      .orderBy("ag_created_at" as never)
+      .orderBy("id" as never)
+      .execute() as Promise<Array<Record<string, unknown>>>;
+  }
+
+  const CODE_QTY = [
+    { source: 0, column: "code" },
+    { source: 1, column: "qty" },
+  ];
+
+  it("refuses a NUL on its line and writes every other row", async () => {
+    const target = await table("Nul");
+    const lines = Array.from({ length: 1_500 }, (_, index) =>
+      index === 699 ? "r\0x,1" : `r${index},1`,
+    );
+    const result = await importFile(
+      target,
+      "csv",
+      `Code,Qty\n${lines.join("\n")}\n`,
+      { mapping: CODE_QTY },
+    );
+    expect(result).toMatchObject({ inserted: 1_499, failed: 1 });
+    expect(result.errors).toEqual([
+      {
+        line: 701,
+        column: "Code",
+        value: "r\u2400x",
+        message: "Invalid value",
+      },
+    ]);
+    expect(await stored(target, ["code"])).toHaveLength(1_499);
+  });
+
+  it("refuses a NUL in a list's value without losing the import", async () => {
+    const target = await table("NulOption");
+    const result = await importFile(
+      target,
+      "csv",
+      "Code,Stage\nA,Open\nB,Bad\0\nC,New\n",
+      {
+        mapping: [
+          { source: 0, column: "code" },
+          { source: 1, column: "stage" },
+        ],
+      },
+    );
+    expect(result).toMatchObject({ inserted: 2, failed: 1 });
+    expect(result.errors[0]?.line).toBe(3);
+  });
+
+  it("refuses a document that spells a NUL on its line", async () => {
+    const { id } = await insertTable(db, owner, {
+      baseId,
+      name: "Documents",
+      columns: [{ label: "Doc", fieldType: "json" }],
+    });
+    const target = await db
+      .selectFrom("dataTables")
+      .selectAll()
+      .where("id", "=", id)
+      .executeTakeFirstOrThrow();
+    const result = await importFile(
+      target,
+      "json",
+      '[{"Doc":{"a":1}},{"Doc":{"a":"x\\u0000"}},{"Doc":{"a":2}}]',
+      { mapping: [{ source: 0, column: "doc" }] },
+    );
+    expect(result).toMatchObject({ inserted: 2, failed: 1 });
+    expect(result.errors[0]?.line).toBe(3);
+  });
+
+  it("writes Windows-1252 and UTF-8 alike, with no replacement mark", async () => {
+    const cp1252 = await table("Cp1252");
+    const utf8 = await table("Utf8");
+    const mapping = [{ source: 0, column: "code" }];
+    await importFile(
+      cp1252,
+      "csv",
+      Buffer.from("Code\nH\xe9l\xe8ne\n", "latin1"),
+      { mapping },
+    );
+    await importFile(utf8, "csv", "Code\nHélène\n", { mapping });
+    expect(await stored(cp1252, ["code"])).toEqual([{ code: "Hélène" }]);
+    expect(await stored(utf8, ["code"])).toEqual([{ code: "Hélène" }]);
+  });
+
+  it("keeps a JSON number exact and refuses one past a double on its line", async () => {
+    const target = await table("Exact");
+    const result = await importFile(
+      target,
+      "json",
+      '[{"Code":12345678901234567890,"Qty":12345678901234567890},' +
+        '{"Code":"b","Qty":0.1234567890123456789},' +
+        '{"Code":1e400,"Qty":1},{"Code":"d","Qty":1e400}]',
+      { mapping: CODE_QTY },
+    );
+    expect(result).toMatchObject({ inserted: 2, failed: 2 });
+    expect(result.errors.map((error) => error.line)).toEqual([4, 5]);
+    const rows = await stored(target, ["code", "qty"]);
+    expect(rows).toHaveLength(2);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { code: "12345678901234567890", qty: "12345678901234567890" },
+        { code: "b", qty: "0.1234567890123456789" },
+      ]),
+    );
+  });
+
+  it("says which lines a repeated key replaced, in a batch and across two", async () => {
+    const target = await table("Repeats");
+    const lines = ["A,100", "B,5", "A,200", "C,1", "C,2", "A,300"];
+    const result = await importFile(
+      target,
+      "csv",
+      `Code,Qty\n${lines.join("\n")}\n`,
+      { mapping: CODE_QTY, upsertSource: 0, batch: 2 },
+    );
+    expect(result).toMatchObject({ failed: 0, replaced: 3 });
+    expect(result.replacedLines).toEqual([
+      { line: 2, by: 4, key: "A" },
+      { line: 5, by: 6, key: "C" },
+      { line: 4, by: 7, key: "A" },
+    ]);
+    const rows = await stored(target, ["code", "qty"]);
+    const qty = (code: string) => rows.find((row) => row.code === code)?.qty;
+    expect(qty("A")).toBe("300");
+    expect(qty("C")).toBe("2");
+    expect(qty("B")).toBe("5");
+  });
+
+  it("reports nothing replaced when no key repeats", async () => {
+    const target = await table("NoRepeat");
+    const result = await importFile(target, "csv", "Code,Qty\nA,1\nB,2\n", {
+      mapping: CODE_QTY,
+      upsertSource: 0,
+    });
+    expect(result).toMatchObject({ replaced: 0, replacedLines: [] });
+  });
+
+  it("takes off an export's apostrophe in checked fields, and in a text only when told", async () => {
+    const file = "Code,Qty\n'-reste,'-5\n";
+    const kept = await table("GuardKept");
+    await importFile(kept, "csv", file, { mapping: CODE_QTY });
+    expect(await stored(kept, ["code", "qty"])).toEqual([
+      { code: "'-reste", qty: "-5" },
+    ]);
+    const stripped = await table("GuardStripped");
+    await importFile(stripped, "csv", file, {
+      mapping: CODE_QTY,
+      stripTextGuard: true,
+    });
+    expect(await stored(stripped, ["code", "qty"])).toEqual([
+      { code: "-reste", qty: "-5" },
+    ]);
+  });
+
+  it("reads an option an export guarded, and adds no option with its apostrophe", async () => {
+    const target = await table("GuardOption");
+    const result = await importFile(
+      target,
+      "csv",
+      "Code,Stage\nA,'-late\nB,'-late\n",
+      {
+        mapping: [
+          { source: 0, column: "code" },
+          { source: 1, column: "stage" },
+        ],
+      },
+    );
+    expect(result).toMatchObject({ inserted: 2, failed: 0 });
+    expect(await stored(target, ["stage"])).toEqual([
+      { stage: "-late" },
+      { stage: "-late" },
+    ]);
+  });
+
+  it("counts a formula with no stored value, and keeps its row", async () => {
+    const target = await table("Formulas");
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("S");
+    sheet.addRow(["Code", "Qty"]);
+    sheet.addRow(["A", 1]);
+    sheet.addRow([{ formula: "1+1" }, { formula: "2+2" }]);
+    const result = await importFile(
+      target,
+      "xlsx",
+      Buffer.from(await workbook.xlsx.writeBuffer()),
+      { mapping: CODE_QTY },
+    );
+    expect(result).toMatchObject({ inserted: 2, failed: 0, emptyFormulas: 2 });
+    const rows = await stored(target, ["code", "qty"]);
+    expect(rows).toHaveLength(2);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { code: "A", qty: "1" },
+        { code: null, qty: null },
+      ]),
+    );
+  });
+
+  it("says what was committed before a failure", async () => {
+    const target = await table("Stopped");
+    const written: Array<{ inserted: number; updated: number }> = [];
+    async function* stopping() {
+      await Promise.resolve();
+      yield [{ line: 2, cells: ["A", "1"] }];
+      throw new Error("the disk went away");
+    }
+    await expect(
+      importIntoTable(db, {
+        userId: owner,
+        table: target,
+        source: {
+          headers: ["Code", "Qty"],
+          total: 2,
+          batches: stopping,
+        },
+        mapping: CODE_QTY,
+        addOptions: true,
+        canManage: true,
+        eventKey: `import:stopped-${suffix}`,
+        onWritten: (counts) => written.push(counts),
+      }),
+    ).rejects.toThrow("the disk went away");
+    expect(written.at(-1)).toEqual({ inserted: 1, updated: 0 });
   });
 });

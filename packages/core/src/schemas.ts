@@ -743,6 +743,11 @@ export const importCommitInputSchema = z
     dayOrder: z.enum(["day-first", "month-first"]).optional(),
     /** Where a day alone starts, in a field with no zone of its own. */
     timeZone: timeZoneInputSchema.optional(),
+    /**
+     * Take off the apostrophe a CSV export put before a formula sign in a
+     * text field too. Off by default: a text may really start that way.
+     */
+    stripTextGuard: z.boolean().default(false),
   })
   .superRefine((input, context) => {
     const sources = input.mapping.map((entry) => entry.source);

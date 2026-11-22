@@ -127,6 +127,33 @@ describe("an export under a search", () => {
     });
   });
 
+  it("refuses every format when the view leaves no field to read", async () => {
+    const { id: viewId } = await db
+      .insertInto("views")
+      .values({
+        tableId: clients,
+        name: "Nothing",
+        viewType: "grid",
+        ownerId: owner,
+        config: JSON.stringify({ hiddenFields: ["name"] }),
+      } as never)
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    for (const format of ["csv", "json", "xlsx"] as const) {
+      const path = join(folder, `${randomBytes(4).toString("hex")}.${format}`);
+      await expect(
+        exportTable(
+          { db },
+          { userId: owner, bindings: await loadBindings(db, owner) },
+          await table(clients),
+          { format, viewId },
+          { path, maxRows: 100 },
+        ),
+      ).rejects.toMatchObject({ code: "export_no_columns" });
+      await expect(readFile(path)).rejects.toMatchObject({ code: "ENOENT" });
+    }
+  });
+
   it("takes a search on a table with no field to search", async () => {
     expect((await exported(flags, "anything")).rows).toBe(0);
   });

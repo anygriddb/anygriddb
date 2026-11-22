@@ -1,5 +1,8 @@
+import { isDecimalString } from "./decimal";
 import { AppError } from "./errors";
 const FORMULA_PREFIX = /^[=+\-@\t\r]/;
+/** A cell an export guarded: an apostrophe before what would run. */
+const FORMULA_GUARDED = /^'[=+\-@\t\r]/;
 
 type DelimitedOptions = {
   delimiter?: "," | ";" | "\t";
@@ -30,8 +33,8 @@ type DelimitedReaderOptions = {
 /**
  * Reads RFC 4180 style text a piece at a time, as it arrives, and hands
  * back each record once its line ends. A quote opens a quoted cell only
- * at the start of a cell; inside one, two quotes are one. Carriage
- * returns outside quotes are dropped, and a byte order mark is skipped.
+ * at the start of a cell; inside one, two quotes are one. A line ends
+ * with LF, CRLF, or a CR alone, and a byte order mark is skipped.
  */
 export class DelimitedReader {
   private readonly delimiter: number;
@@ -44,6 +47,8 @@ export class DelimitedReader {
   private quoted = false;
   /** A quote ended the last piece inside a quoted cell: closed or doubled. */
   private quoteAtEnd = false;
+  /** A CR ended the last piece: an LF that opens the next belongs to it. */
+  private crAtEnd = false;
   private started = false;
 
   constructor(options: DelimitedReaderOptions) {
@@ -62,6 +67,10 @@ export class DelimitedReader {
     }
     let index = 0;
     const length = text.length;
+    if (this.crAtEnd && length > 0) {
+      this.crAtEnd = false;
+      if (text.charCodeAt(0) === LF) index = 1;
+    }
     if (this.quoteAtEnd && length > 0) {
       this.quoteAtEnd = false;
       if (text.charCodeAt(0) === QUOTE) {
@@ -99,13 +108,15 @@ export class DelimitedReader {
       } else if (code === this.delimiter) {
         this.endCell();
         index += 1;
-      } else if (code === LF) {
+      } else if (code === LF || code === CR) {
         this.endCell();
         records.push(this.row);
         this.row = [];
         index += 1;
-      } else if (code === CR) {
-        index += 1;
+        if (code === CR) {
+          if (index === length) this.crAtEnd = true;
+          else if (text.charCodeAt(index) === LF) index += 1;
+        }
       } else {
         let next = index + 1;
         while (next < length) {
@@ -196,16 +207,34 @@ export function parseDelimited(
   return rows;
 }
 
-/** Guesses the delimiter from the first line: tab, semicolon, or comma. */
+/**
+ * Guesses the delimiter from the first line: tab, semicolon, or comma.
+ * What sits inside a quoted cell is not counted, and the line ends where
+ * the reader would end it.
+ */
 export function detectDelimiter(source: string): "," | ";" | "\t" {
-  const firstLine = source.slice(
-    0,
-    source.indexOf("\n") === -1 ? undefined : source.indexOf("\n"),
-  );
-  const count = (char: string): number => firstLine.split(char).length - 1;
-  const tabs = count("\t");
-  const semicolons = count(";");
-  const commas = count(",");
+  const counts = { "\t": 0, ";": 0, ",": 0 };
+  let quoted = false;
+  let cellStart = true;
+  const from = source.charCodeAt(0) === 0xfeff ? 1 : 0;
+  for (let index = from; index < source.length; index += 1) {
+    const char = source.charAt(index);
+    if (quoted) {
+      if (char !== '"') continue;
+      if (source.charAt(index + 1) === '"') index += 1;
+      else quoted = false;
+      continue;
+    }
+    if (char === "\n" || char === "\r") break;
+    if (char === "\t" || char === ";" || char === ",") {
+      counts[char] += 1;
+      cellStart = true;
+      continue;
+    }
+    if (char === '"' && cellStart) quoted = true;
+    cellStart = false;
+  }
+  const { "\t": tabs, ";": semicolons, ",": commas } = counts;
   if (tabs > 0 && tabs >= semicolons && tabs >= commas) return "\t";
   if (semicolons > commas) return ";";
   return ",";
@@ -238,9 +267,19 @@ export function cellText(value: unknown): string {
   return "";
 }
 
+/** Whether a cell holds the apostrophe an export puts before a formula. */
+export function isFormulaGuarded(text: string): boolean {
+  return FORMULA_GUARDED.test(text);
+}
+
+/** A plain decimal runs nothing: `-5` stays a number in a spreadsheet. */
+function wouldRun(text: string): boolean {
+  return FORMULA_PREFIX.test(text) && !isDecimalString(text);
+}
+
 function escapeCell(value: unknown): string {
   const raw = cellText(value);
-  const guarded = FORMULA_PREFIX.test(raw) ? `'${raw}` : raw;
+  const guarded = wouldRun(raw) ? `'${raw}` : raw;
   if (/[",\n\r]/.test(guarded)) {
     return `"${guarded.replace(/"/g, '""')}"`;
   }

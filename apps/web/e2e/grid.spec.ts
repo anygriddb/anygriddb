@@ -484,6 +484,12 @@ test.describe("a file of more rows than one batch", () => {
     await expect(
       dialog.getByText(/1,?200 rows added, 1 updated, 0 rejected\./),
     ).toBeVisible({ timeout: 60_000 });
+    await expect(
+      dialog.getByText(
+        "1 line was replaced by a later line with the same key.",
+      ),
+    ).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
     // The button under the report, not the dialog's cross.
     await dialog
       .getByRole("button", { name: "Close" })
@@ -494,6 +500,64 @@ test.describe("a file of more rows than one batch", () => {
     const notes = page.locator('[role="gridcell"][data-column="notes"]');
     await expect(notes.first()).toContainText("again");
     expect(blocked).toEqual([]);
+  });
+
+  test("says how it read a file, and keeps what it holds", async ({ page }) => {
+    await signUpWithTable(page, "Elsa Encodings");
+    const openImport = async () => {
+      await page.getByRole("button", { name: "More actions" }).click();
+      await page.getByRole("menuitem", { name: "Import a file" }).click();
+      return page.getByRole("dialog", { name: "Import rows" });
+    };
+    const finish = async (dialog: Locator) => {
+      await dialog.getByRole("button", { name: /^Import 1 row/ }).click();
+      await expect(
+        dialog.getByText("1 row added, 0 updated, 0 rejected."),
+      ).toBeVisible({ timeout: 30_000 });
+      await dialog
+        .getByRole("button", { name: "Close" })
+        .filter({ hasText: "Close" })
+        .click();
+      await expect(dialog).toBeHidden();
+    };
+    const names = page.locator('[role="gridcell"][data-column="name"]');
+
+    // One column pasted, a comma in its value: one cell.
+    let dialog = await openImport();
+    await dialog
+      .getByLabel("Or paste rows copied from a spreadsheet")
+      .fill("Name\nDupont, Jean");
+    await dialog.getByRole("button", { name: "Use the pasted data" }).click();
+    await expect(dialog.getByText(/1 row found\./)).toBeVisible();
+    await finish(dialog);
+    await expect(names.filter({ hasText: "Dupont, Jean" })).toHaveCount(1);
+
+    // A spreadsheet's file in Windows-1252 is read and said to be.
+    dialog = await openImport();
+    await dialog.locator('input[type="file"]').setInputFiles({
+      name: "latin.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from("Name\nH\xe9l\xe8ne\n", "latin1"),
+    });
+    await expect(dialog.getByText(/read as Windows-1252/)).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await finish(dialog);
+    await expect(names.filter({ hasText: "Hélène" })).toHaveCount(1);
+
+    // An export's apostrophe leaves a text only when asked.
+    dialog = await openImport();
+    await dialog.locator('input[type="file"]').setInputFiles({
+      name: "guarded.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from("Name\n'-reste\n"),
+    });
+    const strip = dialog.getByRole("checkbox", {
+      name: /Remove the apostrophe before/,
+    });
+    await expect(strip).not.toBeChecked();
+    await strip.check();
+    await finish(dialog);
+    await expect(names.filter({ hasText: /^-reste$/ })).toHaveCount(1);
   });
 
   test("asks what a comma is and what comes first in a date, or refuses", async ({

@@ -52,6 +52,12 @@ type Preview = {
   ambiguousDates: number;
   /** The longest cell of each column. */
   longest: number[];
+  /** How its text was read, when it is a text file. */
+  encoding: "utf-8" | "windows-1252";
+  /** Cells of each column with the apostrophe an export puts before a formula. */
+  guarded: number[];
+  /** Formula cells with no stored value, which stay empty. */
+  emptyFormulas: number;
 };
 
 type Started = RouterOutputs["rows"]["importCommit"];
@@ -69,6 +75,11 @@ type ImportReport = {
     code?: string;
     detail?: string;
   }>;
+  /** Lines a later one with the same key replaced. */
+  replaced: number;
+  replacedLines: Array<{ line: number; by: number; key: string }>;
+  /** Formula cells with no stored value, left empty. */
+  emptyFormulas: number;
 };
 
 /** The report an import job ends with; missing parts read as empty. */
@@ -78,11 +89,17 @@ function importReport(result: Record<string, unknown> | null): ImportReport {
   const errors = Array.isArray(result?.errors)
     ? (result.errors as ImportReport["errors"])
     : [];
+  const replacedLines = Array.isArray(result?.replacedLines)
+    ? (result.replacedLines as ImportReport["replacedLines"])
+    : [];
   return {
     inserted: number("inserted"),
     updated: number("updated"),
     failed: number("failed"),
     errors,
+    replaced: number("replaced"),
+    replacedLines,
+    emptyFormulas: number("emptyFormulas"),
   };
 }
 
@@ -92,6 +109,36 @@ function importSentence({ inserted, updated, failed }: ImportReport): string {
     one: `# row added, ${updated} updated, ${failed} rejected.`,
     other: `# rows added, ${updated} updated, ${failed} rejected.`,
   });
+}
+
+/** What an import left out without refusing it, when it did. */
+function importNotes({ replaced, emptyFormulas }: ImportReport): string[] {
+  return [
+    replaced > 0
+      ? plural(replaced, {
+          one: "# line was replaced by a later line with the same key.",
+          other: "# lines were replaced by a later line with the same key.",
+        })
+      : "",
+    emptyFormulas > 0
+      ? plural(emptyFormulas, {
+          one: "# formula had no stored value: its cell stayed empty.",
+          other: "# formulas had no stored value: their cells stayed empty.",
+        })
+      : "",
+  ].filter(Boolean);
+}
+
+/** What a failed import had already written, when it had. */
+function keptSentence(job: Job): string | undefined {
+  const { inserted, updated } = importReport(job.result);
+  const kept = inserted + updated;
+  return kept > 0
+    ? plural(kept, {
+        one: "The # row already written is kept.",
+        other: "The # rows already written are kept.",
+      })
+    : undefined;
 }
 
 type ImportTarget =
@@ -153,6 +200,7 @@ export function ImportDialog(props: {
   const [tableName, setTableName] = useState("");
   const [upsertSource, setUpsertSource] = useState("");
   const [addOptions, setAddOptions] = useState(true);
+  const [stripTextGuard, setStripTextGuard] = useState(false);
   const [decimalMark, setDecimalMark] = useState<"" | "." | ",">("");
   const [dayOrder, setDayOrder] = useState<"" | DayOrder>("");
   const [reason, setReason] = useState("");
@@ -185,12 +233,20 @@ export function ImportDialog(props: {
   const mapped = choices.flatMap((choice, source) =>
     choice.target ? [{ choice, source }] : [],
   );
+  const fieldTypeOf = (choice: Choice) =>
+    choice.target === "new"
+      ? choice.fieldType
+      : writable.find((column) => column.name === choice.target)?.fieldType;
+  /** Cells going to a text field with an export's apostrophe in front. */
+  const guardedInText = mapped.reduce((sum, { choice, source }) => {
+    const fieldType = fieldTypeOf(choice);
+    return fieldType === "text" || fieldType === "long_text"
+      ? sum + (preview?.guarded[source] ?? 0)
+      : sum;
+  }, 0);
   /** Mapped columns holding a value longer than their field keeps. */
   const tooLong = mapped.filter(({ choice, source }) => {
-    const fieldType =
-      choice.target === "new"
-        ? choice.fieldType
-        : writable.find((column) => column.name === choice.target)?.fieldType;
+    const fieldType = fieldTypeOf(choice);
     const limit =
       fieldType === "text" || fieldType === "long_text"
         ? CELL_TEXT_LIMITS[fieldType]
@@ -219,6 +275,7 @@ export function ImportDialog(props: {
     setUpsertSource("");
     setDecimalMark("");
     setDayOrder("");
+    setStripTextGuard(false);
     setReason("");
     setPasted("");
   }
@@ -226,8 +283,9 @@ export function ImportDialog(props: {
   function close(open: boolean) {
     if (!open && running) {
       const report = (job: Job) => {
+        const done = importReport(job.result);
         return {
-          message: importSentence(importReport(job.result)),
+          message: [importSentence(done), ...importNotes(done)].join(" "),
         };
       };
       void trackJob(running.jobId, {
@@ -236,6 +294,7 @@ export function ImportDialog(props: {
           props.onDone?.();
           return report(job);
         },
+        onFailed: keptSentence,
       });
     }
     if (!open) reset();
@@ -321,6 +380,7 @@ export function ImportDialog(props: {
         decimalMark: decimalMark === "" ? undefined : decimalMark,
         dayOrder: dayOrder === "" ? undefined : dayOrder,
         timeZone: getLocalTimeZone(),
+        stripTextGuard: guardedInText > 0 && stripTextGuard,
       });
       props.onStarted?.(started);
       shown.current = started.jobId;
@@ -344,7 +404,9 @@ export function ImportDialog(props: {
         props.onDone?.();
         close(false);
       } else {
-        toast.error(jobError(job));
+        const kept = keptSentence(job);
+        toast.error(kept ? `${jobError(job)} ${kept}` : jobError(job));
+        if (kept) props.onDone?.();
         setPreview(null);
       }
     } catch (cause) {
@@ -409,6 +471,34 @@ export function ImportDialog(props: {
         ) : result ? (
           <div className="flex flex-col gap-3 text-sm">
             <p>{importSentence(result)}</p>
+            {importNotes(result).map((note) => (
+              <p key={note} role="status" className="text-xs text-warning">
+                {note}
+              </p>
+            ))}
+            {result.replacedLines.length > 0 ? (
+              <div className="max-h-40 overflow-auto rounded border border-border">
+                <table className="w-full text-xs">
+                  <caption className="sr-only">{t`Lines replaced by a later line`}</caption>
+                  <thead className="bg-muted text-left">
+                    <tr>
+                      <th className="px-2 py-1">{t`Row`}</th>
+                      <th className="px-2 py-1">{t`Replaced by row`}</th>
+                      <th className="px-2 py-1">{t`Key`}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.replacedLines.map((item) => (
+                      <tr key={item.line} className="border-t border-border">
+                        <td className="px-2 py-1 tabular-nums">{item.line}</td>
+                        <td className="px-2 py-1 tabular-nums">{item.by}</td>
+                        <td className="px-2 py-1 font-mono">{item.key}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
             {result.errors.length > 0 ? (
               <div className="max-h-64 overflow-auto rounded border border-border">
                 <table className="w-full text-xs">
@@ -703,6 +793,33 @@ export function ImportDialog(props: {
                   })}
                 </p>
               </div>
+            ) : null}
+            {preview.encoding === "windows-1252" ? (
+              <p role="status" className="text-xs text-warning">
+                {t`This file is not in UTF-8: it is read as Windows-1252. Check its accents in the examples above.`}
+              </p>
+            ) : null}
+            {preview.emptyFormulas > 0 ? (
+              <p role="status" className="text-xs text-warning">
+                {plural(preview.emptyFormulas, {
+                  one: "# formula has no stored value: its cell will stay empty.",
+                  other:
+                    "# formulas have no stored value: their cells will stay empty.",
+                })}
+              </p>
+            ) : null}
+            {guardedInText > 0 ? (
+              <label className="flex items-center gap-2 text-xs">
+                <Checkbox
+                  checked={stripTextGuard}
+                  onChange={(event) => setStripTextGuard(event.target.checked)}
+                />
+                {plural(guardedInText, {
+                  one: "Remove the apostrophe before =, +, - or @ in # text value (a CSV export adds it)",
+                  other:
+                    "Remove the apostrophe before =, +, - or @ in # text values (a CSV export adds it)",
+                })}
+              </label>
             ) : null}
             {tooLong > 0 ? (
               <p role="status" className="text-xs text-warning">

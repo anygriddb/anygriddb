@@ -74,7 +74,12 @@ import {
 } from "./data/trash.js";
 import { recordExport } from "./data/export-audit.js";
 import { EXPORT_MIME, exportTable } from "./data-transfer.js";
-import type { JobRow, JobRunner } from "./jobs.js";
+import {
+  JobCancelled,
+  type JobRow,
+  type JobRunner,
+  JobStoppedAfter,
+} from "./jobs.js";
 import { publishCatalog } from "./realtime/channels.js";
 import { type FileStore, readFile as readStoredFile } from "./files/index.js";
 import { localFolder } from "./files/local-folder.js";
@@ -187,6 +192,7 @@ const runImport =
     const people = await listCollaborators(deps.db, table.baseId);
     const folder = await localFolder("import");
     let read = 0;
+    let written = { inserted: 0, updated: 0 };
     try {
       // The file is read from local disk as rows are written (ADR 0064).
       const path = join(folder.path, "upload");
@@ -228,6 +234,10 @@ const runImport =
           read = done;
           await progress(done, total);
         },
+        onWritten: (counts) => {
+          written = counts;
+        },
+        ...(input.stripTextGuard ? { stripTextGuard: true } : {}),
         eventKey: `job:${job.id}`,
         rowScope: engine,
       });
@@ -236,6 +246,15 @@ const runImport =
         await catalogChanged(deps, table.baseId);
       }
       return { result: { ...result } };
+    } catch (error) {
+      // Each batch commits alone: a failure says what is already in.
+      if (
+        error instanceof JobCancelled ||
+        written.inserted + written.updated === 0
+      ) {
+        throw error;
+      }
+      throw new JobStoppedAfter(error, { ...written });
     } finally {
       await folder.remove();
       // A cancelled import keeps the batches it wrote: tabs reload them.
