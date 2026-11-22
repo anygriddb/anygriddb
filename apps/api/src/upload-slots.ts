@@ -47,7 +47,7 @@ export function uploadSlots(
 }
 
 /** How long an upload may send nothing before its connection is closed. */
-export const UPLOAD_IDLE_MS = 15_000;
+const UPLOAD_IDLE_MS = 15_000;
 
 /**
  * Closes the connection of an upload that stops sending, which gives its
