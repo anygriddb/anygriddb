@@ -20,7 +20,6 @@ people whose account is not yet bound to a persistent NameID are refused.
   address of an existing account could sign in as that account. An assertion
   now reaches an existing account only when an administrator has said the
   provider verifies addresses.
-
 - A read-only API token now changes nothing: every change is refused, a
   procedure added later included. Only an export of what it can read stays
   allowed.
