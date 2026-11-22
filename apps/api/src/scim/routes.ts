@@ -31,6 +31,8 @@ import {
   replaceScimUser,
   type ScimContext,
 } from "./store.js";
+import type { Publisher } from "../realtime/bus.js";
+import { publishRightsChanged } from "../realtime/channels.js";
 import { scimActor } from "./tokens.js";
 
 const CONTENT_TYPE = "application/scim+json; charset=utf-8";
@@ -66,7 +68,7 @@ function withoutMembers(query: Query): boolean {
 
 export function registerScim(
   app: FastifyInstance,
-  deps: { db: Database; publicUrl: string },
+  deps: { db: Database; publicUrl: string; bus: Publisher },
 ): void {
   const baseUrl = `${deps.publicUrl}/scim/v2`;
   void app.register(
@@ -100,6 +102,18 @@ export function registerScim(
         }
         request.scimActorId = actor;
         return undefined;
+      });
+
+      // A provider moves people between groups and turns accounts off: once
+      // it is committed, before it is told, every process asks again what
+      // its sockets may hear.
+      scope.addHook("onSend", async (request, reply, payload) => {
+        if (request.method !== "GET" && reply.statusCode < 300) {
+          await publishRightsChanged(deps.bus, (error) => {
+            request.log.error({ err: error }, "realtime failed");
+          });
+        }
+        return payload;
       });
 
       scope.setErrorHandler((error: unknown, request, reply) => {

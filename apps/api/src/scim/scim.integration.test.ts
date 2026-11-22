@@ -11,6 +11,7 @@ import { loadBindings } from "../auth/access.js";
 import { withAudit } from "../data/audit-context.js";
 import { listMembers, revokeMember } from "../data/members.js";
 import { insertBase } from "../data/schema-ops.js";
+import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { createTestDatabase } from "../test-database.js";
 import { setGroupRole } from "./groups.js";
 import { registerScim } from "./routes.js";
@@ -58,7 +59,11 @@ describe("SCIM 2.0", () => {
     baseId = (await insertBase(db, admin, { name: "Ventes" })).id;
     ({ token, id: tokenId } = await createScimToken(db, admin, "Okta"));
     app = Fastify();
-    registerScim(app, { db, publicUrl: "https://grid.example" });
+    registerScim(app, {
+      db,
+      publicUrl: "https://grid.example",
+      bus: recordingBus().bus,
+    });
     await app.ready();
   });
 

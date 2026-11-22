@@ -107,7 +107,6 @@ export const groupsRouter = t.router({
       handle(ctx, async () => {
         const admin = await requireAdmin(ctx);
         await removeLocalGroupMember(ctx.db, admin.id, input);
-        ctx.hub.closeUser(input.userId, 4000);
         ctx.req.log.info(
           { actor: admin.id, group: input.groupId, target: input.userId },
           "local group member removed",

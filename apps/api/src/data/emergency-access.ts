@@ -93,19 +93,34 @@ export async function openBaseIds(
   db: Database,
   userId: string,
 ): Promise<string[]> {
+  return (await openBasesOf(db, [userId])).get(userId) ?? [];
+}
+
+/** The same for several accounts, in one question. */
+export async function openBasesOf(
+  db: Database,
+  userIds: readonly string[],
+): Promise<Map<string, string[]>> {
+  const open = new Map<string, string[]>();
+  if (userIds.length === 0) return open;
   const rows = await db
     .selectFrom("emergencyAccess as e")
     .innerJoin("users as u", "u.id", "e.userId")
     .innerJoin("bases", "bases.id", "e.baseId")
-    .select("e.baseId")
-    .where("e.userId", "=", userId)
+    .select(["e.userId", "e.baseId"])
+    .where("e.userId", "in", [...userIds])
     .where("e.endedAt", "is", null)
     .where("e.expiresAt", ">", sql<Date>`now()`)
     .where("u.isAdmin", "=", true)
     .where("u.disabledAt", "is", null)
     .where(liveBase())
     .execute();
-  return [...new Set(rows.map((row) => row.baseId))];
+  for (const { userId, baseId } of rows) {
+    const held = open.get(userId) ?? [];
+    if (!held.includes(baseId)) held.push(baseId);
+    open.set(userId, held);
+  }
+  return open;
 }
 
 /**

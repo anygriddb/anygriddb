@@ -17,8 +17,10 @@ import type { SessionUser } from "../auth/session.js";
 import type { Context } from "./context.js";
 import { describeTRPCError, toTRPCError } from "./map-error.js";
 import { measureProcedure } from "../observability.js";
+import { publishRightsChanged } from "../realtime/channels.js";
 import { checksCredential } from "../rate-limit.js";
 import { madeNamesFor } from "../settings.js";
+import { RIGHTS_CHANGES } from "./rights-rule.js";
 import { tokenMayCall } from "./token-rule.js";
 
 export const t = initTRPC.context<Context>().create({
@@ -85,6 +87,12 @@ export const procedure = t.procedure.use(
       result.error.cause instanceof AppError
     ) {
       throw toTRPCError(result.error.cause);
+    }
+    // Committed by now: every process asks again what its sockets may hear.
+    if (result.ok && type === "mutation" && RIGHTS_CHANGES.has(path)) {
+      await publishRightsChanged(ctx.bus, (error) => {
+        ctx.req.log.error({ err: error }, "realtime failed");
+      });
     }
     return result;
   },

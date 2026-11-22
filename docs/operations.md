@@ -1021,13 +1021,16 @@ Both are off until you turn them on (ADR 0018).
   Series cover requests by route, tRPC procedures, the pool requests go
   through, transactions and connections in use per client database,
   background tasks, the job queue, failures pages report from browsers,
-  and the process. Five more:
+  and the process. Six more:
   `anygriddb_db_query_duration_seconds` (how long a query on
   AnyGridDB's own database took; the statement is not a label),
   `anygriddb_database_size_bytes`,
   `anygriddb_database_reachable` (0 while that database answers no
   scrape; `/metrics` keeps answering),
   `anygriddb_websocket_connections` (browser sockets on this process),
+  `anygriddb_websocket_refused_total` (sockets closed or refused for
+  what they cost, by reason: `slow_reader`, `too_many_messages`,
+  `too_many_sockets`),
   and `anygriddb_automation_scripts_total` (scripts automations ran, by
   how each ended: `success`, `error`, `timeout`, `memory`, `stopped`).
   Rules to start from:

@@ -23,6 +23,8 @@ export function browserFactory(deps: {
   env: Env;
   hub: Context["hub"];
   ip?: string;
+  /** The bus requests publish on; by default, one that records and tells no one. */
+  bus?: () => Context["bus"];
 }) {
   return function browser() {
     const jar: Record<string, string> = {};
@@ -42,7 +44,7 @@ export function browserFactory(deps: {
       } as unknown as FastifyReply;
       const ctx: Context = {
         db: deps.db(),
-        bus: recordingBus().bus,
+        bus: deps.bus?.() ?? recordingBus().bus,
         req,
         res,
         env: deps.env,

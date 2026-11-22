@@ -145,8 +145,6 @@ export const adminBaseProcedures = {
         const admin = await requireAdmin(ctx);
         await assertGrantable(ctx.db, input);
         await revokeMember(ctx.db, admin.id, input);
-        // Their open sockets reconnect, and the base's channels refuse them.
-        ctx.hub.closeUser(input.userId, 4000);
         ctx.req.log.info(
           { actor: admin.id, target: input.userId, base: input.baseId },
           "base role removed by administrator",
@@ -429,8 +427,6 @@ export const adminBaseProcedures = {
             userId: admin.id,
             baseId: input.baseId,
           });
-          // Their open sockets reconnect, and the base's channels refuse them.
-          if (closed) ctx.hub.closeUser(admin.id, 4000);
           return { closed };
         }),
       ),

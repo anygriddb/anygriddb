@@ -22,7 +22,7 @@ import { registerClientErrors } from "./client-errors.js";
 import { registerLogoRoute } from "./instance-logo.js";
 import { registerCompression } from "./compression.js";
 import { registerTextGuard } from "./text-guard.js";
-import { authorizeGrid } from "./auth/access.js";
+import { authorizeGrid, gridChannelRights } from "./auth/access.js";
 import { passkeysEligible } from "./auth/relying-party.js";
 import { rateBucket, registerRateLimit } from "./rate-limit.js";
 import { metricsBearer } from "./notify/metrics-token.js";
@@ -201,6 +201,7 @@ export async function createApp(deps: {
       app.log.error({ err: error }, message);
     },
     (tokenHashes) => sessionIdentities(deps.db, tokenHashes),
+    (wanted) => gridChannelRights(deps.db, wanted),
   );
   registerWebsocketGauge(() => hub.connections());
   const stopHeartbeat = hub.startHeartbeat();
@@ -419,7 +420,11 @@ export async function createApp(deps: {
     bus: deps.bus,
     publicUrl: deps.env.PUBLIC_URL,
   });
-  registerScim(app, { db: deps.db, publicUrl: deps.env.PUBLIC_URL });
+  registerScim(app, {
+    db: deps.db,
+    publicUrl: deps.env.PUBLIC_URL,
+    bus: deps.bus,
+  });
   registerOauth(app, { db: deps.db, publicUrl: deps.env.PUBLIC_URL });
   registerAdminApi(app, {
     db: deps.db,

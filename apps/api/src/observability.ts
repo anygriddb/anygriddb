@@ -336,6 +336,20 @@ export function registerDatabaseSizeGauge(db: Database): void {
   });
 }
 
+const websocketsRefused = new Counter({
+  name: "anygriddb_websocket_refused_total",
+  help: "Browser sockets closed or refused for what they cost: a client that reads too slowly, sends too fast, or an account with too many open.",
+  labelNames: ["reason"] as const,
+  registers: [registry],
+});
+
+/** One socket closed or refused. No account id: the label stays small. */
+export function websocketRefused(
+  reason: "slow_reader" | "too_many_messages" | "too_many_sockets",
+): void {
+  websocketsRefused.inc({ reason });
+}
+
 /** Open browser sockets on this process. */
 export function registerWebsocketGauge(count: () => number): void {
   new Gauge({
