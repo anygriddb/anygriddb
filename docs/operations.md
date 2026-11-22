@@ -215,10 +215,17 @@ Connections, once the first account exists. To hold them where the
 instance is installed instead, give the application their variables
 through a Compose file of your own: `SMTP_HOST` and `SMTP_FROM`, with
 `SMTP_PORT`, `SMTP_USER` and `SMTP_PASSWORD`; the four `OIDC_*`; the four
-`SAML_*`. What the environment sets wins: Administration shows it, without
-its secrets, and cannot change it (ADR 0083). Half a configuration there
-is none, and Administration's applies. The same holds for
-`ATTACHMENT_MAX_BYTES`, the largest attachment.
+`SAML_*`, with `SAML_TRUST_ADDRESSES`. What the environment sets wins:
+Administration shows it, without its secrets, and cannot change it (ADR
+0083). Half a configuration there is none, and Administration's applies.
+The same holds for `ATTACHMENT_MAX_BYTES`, the largest attachment.
+
+A SAML assertion does not say whether its address was verified, so a first
+sign-in through SAML does not reach an account that already exists. Turn on
+**This identity provider verifies addresses** (`SAML_TRUST_ADDRESSES=true`)
+only if nobody can change their address at the provider without proving it:
+with it, whoever holds an address there signs in as the account of that
+address. An account already bound to a persistent NameID is not concerned.
 
 ### Encryption at rest
 

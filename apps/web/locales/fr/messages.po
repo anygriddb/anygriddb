@@ -1262,6 +1262,10 @@ msgstr "Un fichier de cette version n’est plus stocké"
 msgid "A file to keep elsewhere: schema, views, dashboards, rows, members, and attachments, in a .zip archive. Import it again from “New base”. Comments, the history of changes, automations, webhooks, and public links stay with this base."
 msgstr "Un fichier à garder ailleurs : schéma, vues, tableaux de bord, lignes, membres et pièces jointes, dans une archive .zip. Importez-le de nouveau depuis « Nouvelle base ». Les commentaires, l’historique des modifications, les automatisations, les webhooks et les liens publics restent avec cette base."
 
+#: components/admin/integrations-tab.tsx
+msgid "A first sign-in then reaches the existing account with the same address. Leave it off if people can change their address at the provider without proving it."
+msgstr "Une première connexion rejoint alors le compte existant de même adresse. Laissez décoché si on peut changer son adresse chez le fournisseur sans la prouver."
+
 #: lib/errors.ts
 msgid "A folder already has this name"
 msgstr "Un dossier porte déjà ce nom"
@@ -7265,6 +7269,7 @@ msgid "next year"
 msgstr "l’année prochaine"
 
 #: components/admin/accounts-tab.tsx
+#: components/admin/integrations-tab.tsx
 #: components/admin/security-tab.tsx
 #: components/dashboards/chart-view.tsx
 #: components/fields/cell-value.tsx
@@ -8552,6 +8557,10 @@ msgstr "Protéger votre compte"
 #: components/admin/notifications-tab.tsx
 msgid "Provider"
 msgstr "Fournisseur"
+
+#: components/admin/integrations-tab.tsx
+msgid "Provider verifies addresses"
+msgstr "Le fournisseur vérifie les adresses"
 
 #: components/admin/account-page.tsx
 msgid "Provisioned by the identity provider (SCIM), then removed by it"
@@ -12076,6 +12085,10 @@ msgstr "Ce groupe est tenu par le fournisseur d’identité"
 msgid "This host is not allowed: the operator must allow it"
 msgstr "Cet hôte n’est pas autorisé : l’opérateur doit l’autoriser"
 
+#: components/admin/integrations-tab.tsx
+msgid "This identity provider verifies addresses"
+msgstr "Ce fournisseur d’identité vérifie les adresses"
+
 #: lib/errors.ts
 msgid "This install token is wrong, was used already, or is more than an hour old"
 msgstr "Ce jeton d’installation est erroné, a déjà servi, ou date de plus d’une heure"
@@ -13406,6 +13419,7 @@ msgid "yes"
 msgstr "oui"
 
 #: components/admin/accounts-tab.tsx
+#: components/admin/integrations-tab.tsx
 #: components/dashboards/chart-view.tsx
 #: components/fields/cell-value.tsx
 #: components/views/form-view.tsx

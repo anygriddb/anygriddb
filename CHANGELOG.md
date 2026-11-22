@@ -8,7 +8,18 @@ first.
 
 ## Unreleased
 
+**Before upgrading, if you use SAML:** a first sign-in no longer reaches an
+existing account by its address. If your identity provider verifies
+addresses, turn on **This identity provider verifies addresses** in
+Administration, Connections (or set `SAML_TRUST_ADDRESSES=true`). Otherwise
+people whose account is not yet bound to a persistent NameID are refused.
+
 ### Security
+
+- Through SAML, someone at the identity provider who gave themselves the
+  address of an existing account could sign in as that account. An assertion
+  now reaches an existing account only when an administrator has said the
+  provider verifies addresses.
 
 - A read-only API token now changes nothing: every change is refused, a
   procedure added later included. Only an export of what it can read stays

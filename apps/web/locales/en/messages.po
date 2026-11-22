@@ -1262,6 +1262,10 @@ msgstr "A file from that version is no longer stored"
 msgid "A file to keep elsewhere: schema, views, dashboards, rows, members, and attachments, in a .zip archive. Import it again from “New base”. Comments, the history of changes, automations, webhooks, and public links stay with this base."
 msgstr "A file to keep elsewhere: schema, views, dashboards, rows, members, and attachments, in a .zip archive. Import it again from “New base”. Comments, the history of changes, automations, webhooks, and public links stay with this base."
 
+#: components/admin/integrations-tab.tsx
+msgid "A first sign-in then reaches the existing account with the same address. Leave it off if people can change their address at the provider without proving it."
+msgstr "A first sign-in then reaches the existing account with the same address. Leave it off if people can change their address at the provider without proving it."
+
 #: lib/errors.ts
 msgid "A folder already has this name"
 msgstr "A folder already has this name"
@@ -7265,6 +7269,7 @@ msgid "next year"
 msgstr "next year"
 
 #: components/admin/accounts-tab.tsx
+#: components/admin/integrations-tab.tsx
 #: components/admin/security-tab.tsx
 #: components/dashboards/chart-view.tsx
 #: components/fields/cell-value.tsx
@@ -8552,6 +8557,10 @@ msgstr "Protect your account"
 #: components/admin/notifications-tab.tsx
 msgid "Provider"
 msgstr "Provider"
+
+#: components/admin/integrations-tab.tsx
+msgid "Provider verifies addresses"
+msgstr "Provider verifies addresses"
 
 #: components/admin/account-page.tsx
 msgid "Provisioned by the identity provider (SCIM), then removed by it"
@@ -12076,6 +12085,10 @@ msgstr "This group is kept by the identity provider"
 msgid "This host is not allowed: the operator must allow it"
 msgstr "This host is not allowed: the operator must allow it"
 
+#: components/admin/integrations-tab.tsx
+msgid "This identity provider verifies addresses"
+msgstr "This identity provider verifies addresses"
+
 #: lib/errors.ts
 msgid "This install token is wrong, was used already, or is more than an hour old"
 msgstr "This install token is wrong, was used already, or is more than an hour old"
@@ -13406,6 +13419,7 @@ msgid "yes"
 msgstr "yes"
 
 #: components/admin/accounts-tab.tsx
+#: components/admin/integrations-tab.tsx
 #: components/dashboards/chart-view.tsx
 #: components/fields/cell-value.tsx
 #: components/views/form-view.tsx
