@@ -20,12 +20,10 @@ cd "$root/docker"
 
 # The stack's settings: docker/.env, or the file ENV_FILE names.
 env_file="${ENV_FILE:-.env}"
-if [ -f "$env_file" ]; then
-  set -a
-  # shellcheck disable=SC1090
-  . "$env_file"
-  set +a
-fi
+# shellcheck source=scripts/env-file.sh
+. "$root/scripts/env-file.sh"
+read_env_file "$env_file" POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD \
+  AUTH_ENCRYPTION_KEY POSTGRES_PASSWORD_FILE AUTH_ENCRYPTION_KEY_FILE BACKUP_DIR
 # An install that keeps its secrets in files (scripts/install.sh).
 # shellcheck source=scripts/secret-files.sh
 . "$root/scripts/secret-files.sh"

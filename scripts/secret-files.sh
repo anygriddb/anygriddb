@@ -10,7 +10,8 @@
 #   load_secret_files "$env_dir"
 #
 # Each value comes from NAME_FILE when .env sets it (a path relative to the
-# folder of .env, or absolute), else from secrets/<name> beside .env.
+# folder of .env, or absolute), else from secrets/<name> beside .env. The
+# caller has read NAME and NAME_FILE first (scripts/env-file.sh).
 
 load_secret_files() {
   local dir="$1" name file_var path value

@@ -175,9 +175,11 @@ scripts/compose.sh up -d      # every compose command goes through it
 (the folder is the owner's alone; PostgreSQL and the application read
 their files as accounts of their own, inside their containers), and the
 database's address made from the password. On an install that already
-runs, it moves the values `.env` holds into their files: a new key would
-leave everything sealed with the old one unread. Run again, it changes
-nothing. `scripts/compose.sh` reads the files so Compose can fill
+runs, it moves the values `.env` holds into their files, as Compose reads
+them: a new key would leave everything sealed with the old one unread. It
+changes nothing when the folder has no `compose.secrets.yml`, or when the
+password would not open the database of a stack running from that folder.
+Run again, it changes nothing. `scripts/compose.sh` reads the files so Compose can fill
 `compose.yml` in, which still refuses to start without them, and adds
 `compose.secrets.yml`, which mounts the files and leaves the variables
 empty in the containers: `docker inspect` shows neither. Options before
@@ -186,7 +188,9 @@ the command go to `docker compose` after those two files
 `scripts/backup.sh`, `scripts/restore.sh` and
 `scripts/upgrade-postgres.sh` read the same files: give them
 `-f compose.yml -f compose.secrets.yml` and the other files the stack runs
-with. On a PostgreSQL of your own, `DATABASE_URL` is handed over as below.
+with. All of them read `.env` through Compose, so a value means there what
+it means to Compose, a variable set in the shell wins over the file, and
+nothing in the file is ever run. On a PostgreSQL of your own, `DATABASE_URL` is handed over as below.
 
 The other secrets (`S3_ACCESS_KEY` and `S3_SECRET_KEY` of a store of your
 own, `METRICS_TOKEN`, `OTEL_EXPORTER_OTLP_HEADERS`, `DATABASE_URL` on a
@@ -676,10 +680,40 @@ BACKUP_AGE_IDENTITY=/path/to/anygriddb-backup.key \
   scripts/restore.sh data/backups/anygriddb-20261108T021500Z
 ```
 
-The script checks the sums, decrypts every file once to check it,
-stops AnyGridDB, replaces the database, the files, and the authorities
-with the backup's, and starts AnyGridDB again with service certificates
-issued from the restored authority, so a spare stack serves too.
+The script replaces nothing until the backup has proved itself, while
+AnyGridDB keeps serving:
+
+1. `SHA256SUMS` must list every file of the backup, and each must match.
+2. Every file is decrypted if it is encrypted, and every archive and the
+   dump are read to their end.
+3. There must be room for a second copy of the database and the files.
+4. The dump is restored whole into a temporary database.
+5. `anygriddb keys status` must open what the backup sealed, with the key
+   in place or one of `AUTH_ENCRYPTION_PREVIOUS_KEYS`.
+
+It then stops AnyGridDB, puts the restored database and files in place by
+renaming, and starts AnyGridDB again with service certificates issued
+from the restored authority, so a spare stack serves too. The previous
+data is removed only once AnyGridDB is healthy. If anything fails before
+that, what was there comes back and AnyGridDB starts again on it. A
+restore stopped by force (a power cut, `kill -9`) is put back by the next
+run of the script. `RESTORE_START_SECONDS` is how long AnyGridDB is given
+to start healthy (600 by default): raise it when a restore must also run
+long migrations.
+
+The script exits 3 when the key in place does not open the backup, 4 when
+there is no room for two copies, and 1 on any other refusal or failure.
+
+Two options, right after the folder:
+
+- `--in-place`, when the disk cannot hold two copies: the same checks of
+  the files, then the data is replaced directly. **A failure then cannot
+  be undone**: AnyGridDB stays stopped until a sound backup is restored.
+- `--keep-store-files`, for a backup that holds none of the object
+  store's files, on a stack that runs one: the rest is restored and the
+  store keeps the files it has, which may no longer match the database.
+  Without it, such a backup is refused.
+
 Try a restore on a spare stack now and then: an untested backup is a
 hope.
 

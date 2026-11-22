@@ -8,6 +8,7 @@ import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Database } from "@anygriddb/db";
+import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { withAudit } from "../data/audit-context.js";
 import { insertBase, insertTable } from "../data/schema-ops.js";
@@ -273,6 +274,30 @@ describe("the encryption key changed", () => {
         })
       ).forbidden,
     ).toEqual([]);
+  });
+
+  it("reads a database whose earlier version lacks a sealed column", async () => {
+    const whole = await rotateKeys(db, during, { write: false });
+    await sql`alter table instance_siem rename to instance_siem_later`.execute(
+      db,
+    );
+    await sql`alter table sources rename column replica_password_ciphertext to replica_later`.execute(
+      db,
+    );
+    try {
+      const older = await rotateKeys(db, during, { write: false });
+      expect(older.unreadable).toEqual([]);
+      const count = (report: typeof whole) =>
+        Object.values(report.byKey).reduce((sum, held) => sum + held, 0);
+      expect(count(older)).toBe(count(whole) - 1);
+    } finally {
+      await sql`alter table sources rename column replica_later to replica_password_ciphertext`.execute(
+        db,
+      );
+      await sql`alter table instance_siem_later rename to instance_siem`.execute(
+        db,
+      );
+    }
   });
 
   it("keeps a backup code made before the change, while its key is kept", async () => {
