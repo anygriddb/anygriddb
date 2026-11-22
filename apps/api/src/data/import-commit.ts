@@ -358,8 +358,8 @@ export async function importIntoTable(
     /** Names this import's one event; each batch updates its count. */
     eventKey: string;
     /**
-     * The importer's reading of the table, with their row rule: a key
-     * that finds a row outside it is refused on its line.
+     * The importer's reading of the table, with their row rule: a line
+     * that would write or reach a row outside it is refused on its number.
      */
     rowScope?: EngineCatalog;
   },
@@ -478,6 +478,11 @@ export async function importIntoTable(
   if (changed) {
     ({ engine, rows: catalog } = await loadEngine(db, table.id, () => true));
   }
+  // Keys are looked up in the whole table, so that one outside the rule is
+  // refused rather than added again; what is written answers to the rule.
+  const writer: EngineCatalog = input.rowScope?.access
+    ? { ...engine, access: input.rowScope.access }
+    : engine;
   const columns = importable();
   const own = catalog.columns.filter((column) => column.tableId === table.id);
   const reason = resolveChangeReason(own, [...targets.values()], input.reason);
@@ -545,6 +550,16 @@ export async function importIntoTable(
       message: "Refused",
       code: "value_required",
       detail: column.label,
+    });
+  };
+  const refuseOutside = (item: { line: number }) => {
+    failed += 1;
+    note({
+      line: item.line,
+      column: "",
+      value: "",
+      message: "Refused",
+      code: "row_outside_rule",
     });
   };
   const context: WriteContext = {
@@ -710,7 +725,7 @@ export async function importIntoTable(
         context: {
           userId: input.userId,
           table,
-          engine,
+          engine: writer,
           catalog,
           reason,
           source: "import",
@@ -731,26 +746,34 @@ export async function importIntoTable(
       updated += written.updated;
       ids = written.ids;
     } else {
-      ids =
-        inserts.length === 0
-          ? []
-          : await insertNativeBatch(
-              db,
-              engine,
-              batchContext(inserted + updated + inserts.length),
-              inserts.map((item) => item.values),
-            );
-      inserted += ids.length;
-      if (updates.length > 0) {
-        updated += (
-          await updateNativeBatch(
+      ids = await writeWithinRule(
+        inserts,
+        async (part) => {
+          const written = await insertNativeBatch(
             db,
-            engine,
-            batchContext(inserted + updated + updates.length),
-            updates.map(({ rowId, values }) => ({ rowId, values })),
-          )
-        ).length;
-      }
+            writer,
+            batchContext(inserted + updated + part.length),
+            part.map((item) => item.values),
+          );
+          inserted += written.length;
+          return written;
+        },
+        refuseOutside,
+      );
+      await writeWithinRule(
+        updates,
+        async (part) => {
+          const written = await updateNativeBatch(
+            db,
+            writer,
+            batchContext(inserted + updated + part.length),
+            part.map(({ rowId, values }) => ({ rowId, values })),
+          );
+          updated += written.length;
+          return written;
+        },
+        refuseOutside,
+      );
     }
     // A key this batch added finds its row in the batches after it.
     inserts.forEach((item, index) => {
@@ -769,6 +792,41 @@ export async function importIntoTable(
     errors,
     createdColumns: createdNames.length,
   };
+}
+
+/**
+ * Writes a batch in one transaction. When a row rule refuses it, nothing of
+ * it was kept: its rows are written again one by one, so the lines outside
+ * the rule are named and the others kept. Returns each row's id, or
+ * undefined where it was refused.
+ */
+async function writeWithinRule<Item>(
+  items: readonly Item[],
+  write: (part: readonly Item[]) => Promise<string[]>,
+  refuse: (item: Item) => void,
+): Promise<Array<string | undefined>> {
+  if (items.length === 0) return [];
+  try {
+    return await write(items);
+  } catch (error) {
+    if (!isOutsideRule(error)) throw error;
+  }
+  const ids: Array<string | undefined> = [];
+  for (const item of items) {
+    try {
+      const [id] = await write([item]);
+      ids.push(id);
+    } catch (error) {
+      if (!isOutsideRule(error)) throw error;
+      refuse(item);
+      ids.push(undefined);
+    }
+  }
+  return ids;
+}
+
+function isOutsideRule(error: unknown): boolean {
+  return error instanceof AppError && error.code === "row_outside_rule";
 }
 
 /** A client's foreign keys, imported as the key each one holds. */
@@ -796,7 +854,7 @@ async function sealedRows(db: Database, tableId: string): Promise<Set<string>> {
 
 /** Rows rejected one by one: what the client refused is about the row. */
 const ROW_REFUSALS =
-  /^(source_value_|source_write_refused|invalid_cell|row_locked|source_conflict|source_row_missing)/;
+  /^(source_value_|source_write_refused|invalid_cell|row_locked|row_outside_rule|source_conflict|source_row_missing)/;
 
 /**
  * Writes a batch of an import to a client's table (ADR 0028), through the

@@ -566,52 +566,70 @@ export async function createRows(
   ).catch((error: unknown) => {
     throw valueTaken(scope, error);
   });
-  const extra: string[] = [];
-  for (const [index, row] of rows.entries()) {
-    const id = ids[index];
-    if (!id || !row.links?.length) continue;
-    extra.push(
-      ...(await writeLinks(
-        deps,
-        scope,
-        id,
-        row.links,
-        checked,
-        reason,
-        meta,
-        true,
-      )),
-    );
-  }
-  if (deferRule) await keepNewRowsInRule(deps, scope, ids, reason, meta);
+  const extra = deferRule
+    ? await linkNewRows(deps, scope, rows, ids, checked, reason, meta)
+    : [];
   await announceRows(deps, scope.table.id, "insert", ids, extra);
   return ids;
 }
 
 /**
  * New rows and their links are written apart, so a rule that reads a link
- * is asked once they are all there. Rows it does not keep go to the trash,
- * where their writer does not reach them, and the write is refused.
+ * is asked once they are all there. A link that cannot be written, or rows
+ * the rule does not keep, send the new rows to the trash, where their
+ * writer does not reach them: a refused creation leaves nothing behind.
  */
-async function keepNewRowsInRule(
+async function linkNewRows(
   deps: RowServiceDeps,
   scope: RowScope,
+  rows: readonly RowInput[],
   ids: readonly string[],
+  checked: ReadonlyMap<string, EngineColumn>,
   reason: string | null,
   meta: WriteMeta,
-): Promise<void> {
+): Promise<string[]> {
+  const extra: string[] = [];
   try {
-    await assertRowsInScope(deps.db, scope.engine, ids);
-  } catch (error) {
-    if (!(error instanceof AppError) || error.code !== "access_denied") {
-      throw error;
+    for (const [index, row] of rows.entries()) {
+      const id = ids[index];
+      if (!id || !row.links?.length) continue;
+      extra.push(
+        ...(await writeLinks(
+          deps,
+          scope,
+          id,
+          row.links,
+          checked,
+          reason,
+          meta,
+          true,
+        )),
+      );
     }
+    await assertNewRowsInRule(deps, scope, ids);
+  } catch (error) {
     await deleteRowRecords(
       deps.db,
       { ...writeContext(scope, reason, meta), events: false },
       ids,
     );
-    throw new AppError("row_outside_rule", { cause: error });
+    throw error;
+  }
+  return extra;
+}
+
+async function assertNewRowsInRule(
+  deps: RowServiceDeps,
+  scope: RowScope,
+  ids: readonly string[],
+): Promise<void> {
+  try {
+    await assertRowsInScope(deps.db, scope.engine, ids);
+  } catch (error) {
+    if (error instanceof AppError && error.code === "access_denied") {
+      throw new AppError("row_outside_rule", { cause: error });
+    }
+    throw error;
   }
 }
 

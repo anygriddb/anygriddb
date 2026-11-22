@@ -3639,6 +3639,51 @@ describe("conformance of formulas across engines", () => {
       ]);
       // By key: the label finds its row.
       const third = await run([[`${stamp}-A`, "9.99", "7", "3"]], 0);
+      // Under a row rule: a line outside it is refused on its number, and
+      // nothing of it reaches the client.
+      const ruledUser = (
+        await db
+          .insertInto("users")
+          .values({
+            email: `import-rule-${engine}@example.org`,
+            displayName: "Ruled",
+          })
+          .returning("id")
+          .executeTakeFirstOrThrow()
+      ).id;
+      await setTableAcl(db, actorId, {
+        tableId: ledgerId,
+        userId: ruledUser,
+        rowFilter: {
+          conjunction: "and",
+          conditions: [
+            { column: field("label"), op: "starts_with", value: `${stamp}-IN` },
+          ],
+        },
+        columns: [],
+      });
+      const { engine: ruled } = await readerEngine(db, ledgerId, {
+        userId: ruledUser,
+        bindings: [{ role: "editor", scope: "base", scopeId: table.baseId }],
+      });
+      const outside = await importIntoTable(db, {
+        userId: ruledUser,
+        table,
+        source: rowsSource(
+          ["label", "amount", "qty", "team"],
+          [[`${stamp}-OUT`, "1", "1", "1"]],
+        ),
+        mapping,
+        addOptions: false,
+        canManage: false,
+        eventKey: `import-rule:${engine}`,
+        rowScope: ruled,
+      });
+      expect(outside).toMatchObject({ inserted: 0, updated: 0, failed: 1 });
+      expect(outside.errors[0]).toMatchObject({
+        line: 2,
+        code: "row_outside_rule",
+      });
       const shape = (result: typeof first) => ({
         inserted: result.inserted,
         updated: result.updated,

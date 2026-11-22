@@ -591,13 +591,6 @@ export const rowsRouter = t.router({
               entry.column ? [entry.column] : [],
             ),
           );
-          // Updates by key would reach rows outside a row rule.
-          if (
-            input.upsertSource !== undefined &&
-            engine.access?.rowFilter(engine.table.id)
-          ) {
-            throw new AppError("access_denied");
-          }
         }
         // The file must still be staged: fail now rather than in the worker.
         const staged = await loadStagedImport(
