@@ -314,6 +314,7 @@ export interface Bases {
   homeSourceId: string | null;
   id: Generated<string>;
   name: string;
+  purgeStartedAt: Timestamp | null;
 }
 
 export interface CalendarFeeds {
@@ -389,6 +390,7 @@ export interface DataColumns {
   name: string;
   physicalName: string;
   position: Generated<number>;
+  purgeStartedAt: Timestamp | null;
   required: Generated<boolean>;
   requireReason: Generated<boolean>;
   tableId: string;
@@ -412,6 +414,7 @@ export interface DataTables {
   name: string;
   physicalName: string;
   position: Generated<number>;
+  purgeStartedAt: Timestamp | null;
   sourceId: string | null;
   storage: Generated<TableStorage>;
   trailReads: Generated<boolean>;

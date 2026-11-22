@@ -3817,7 +3817,9 @@ describe("conformance of formulas across engines", () => {
       );
       await deleteRows(services, scope, [id], { source: "web" });
       const before = await listExternalTrash(db, scope.engine, 50);
-      const [restored = ""] = await restoreRows(services, scope, [id], {
+      const {
+        ids: [restored = ""],
+      } = await restoreRows(services, scope, [id], {
         source: "restore",
       });
       const after = await listExternalTrash(db, scope.engine, 50);

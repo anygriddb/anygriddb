@@ -188,6 +188,12 @@ const BY_HAND: Record<string, unknown> = {
     kind: "metric",
     config: { tableId: randomUUID(), column: "asked", fn: "count_all" },
   },
+  "rows.setLinks": {
+    tableId: randomUUID(),
+    rowId: randomUUID(),
+    column: "asked",
+    targetIds: [],
+  },
   "rows.importCommit": {
     importId: "a".repeat(22),
     target: { kind: "new", baseId: randomUUID(), name: "Asked" },

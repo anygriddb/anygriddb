@@ -12,11 +12,12 @@
  *   anygriddb backups record --name <name> --started <time> [--failed] [--bytes <n>] [--encrypted]
  *   anygriddb install-token
  *   anygriddb admin recover --email <address> [--create <name>] [--clear-factors] [--any-address]
+ *   anygriddb trash recover-links [--dry-run]
  *
  * They read the API's environment. `migrate` needs only the storage
- * settings; `sweep`, `backups record`, `install-token`, and `admin
- * recover` also need DATABASE_URL; `keys status` and `keys rotate` need
- * DATABASE_URL and the encryption keys.
+ * settings; `sweep`, `backups record`, `install-token`, `admin recover`,
+ * and `trash recover-links` also need DATABASE_URL; `keys status` and
+ * `keys rotate` need DATABASE_URL and the encryption keys.
  */
 import { parseArgs } from "node:util";
 import { createDb } from "@anygriddb/db";
@@ -42,6 +43,7 @@ import { ScriptRunner } from "./automation-scripts/sandbox.js";
 import { createFileStore, type FileSettings } from "./files/index.js";
 import { sweepOrphanFiles } from "./files/sweep.js";
 import { copyFiles, type CopyReport } from "./files/transfer.js";
+import { recoverTrashedLinks } from "./data/trash-links.js";
 
 const USAGE = `Usage:
   anygriddb storage migrate --from <disk|s3> --to <disk|s3> [--dry-run] [--concurrency <n>]
@@ -75,6 +77,11 @@ const USAGE = `Usage:
       when the address has none; --clear-factors removes its second
       factors; --any-address empties the list of addresses sign-in is
       allowed from. What it changed is on the sign-in trail.
+  anygriddb trash recover-links [--dry-run]
+      Finds, in the change trail, the links of rows deleted by an earlier
+      version and still in the trash, so that restoring them brings their
+      links back. Adds to the trail and changes no row. --dry-run only
+      counts what it would add.
   anygriddb backups record --name <name> --started <time> [--failed] [--bytes <n>] [--encrypted]
       Tells the instance a backup ended, for Administration to show and
       to raise an alert when backups stop: scripts/backup.sh runs it, and
@@ -163,6 +170,30 @@ async function migrate(args: string[], settings: FileSettings) {
     );
   }
   return report.failed === 0 ? 0 : 1;
+}
+
+/** Keeps, for a restore, the links of rows an earlier version deleted. */
+async function trashRecoverLinks(args: string[]) {
+  const { values } = parseArgs({
+    args,
+    options: { "dry-run": { type: "boolean", default: false } },
+    strict: true,
+  });
+  const { db, close } = createDb(databaseUrl(), { max: 2 });
+  try {
+    const report = await recoverTrashedLinks(db, {
+      dryRun: values["dry-run"],
+    });
+    const done = values["dry-run"]
+      ? "nothing written (dry run)"
+      : `${report.written} rows noted in the change trail`;
+    process.stdout.write(
+      `found ${report.links} links of ${report.rows} rows in the trash, on ${report.tables} tables: ${done}\n`,
+    );
+  } finally {
+    await close();
+  }
+  return 0;
 }
 
 /** The database's address, from DATABASE_URL or the file DATABASE_URL_FILE names. */
@@ -568,6 +599,9 @@ async function main(argv: string[]): Promise<number> {
     }
     if (group === "admin" && command === "recover") {
       return await adminRecover(rest);
+    }
+    if (group === "trash" && command === "recover-links") {
+      return await trashRecoverLinks(rest);
     }
     if (group === "scripts" && command === "check") {
       parseArgs({ args: rest, options: {}, strict: true });

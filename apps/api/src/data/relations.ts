@@ -7,10 +7,12 @@ import {
   buildExistingIds,
   buildForeignKeyIndex,
   buildInsertLinks,
+  buildReadCells,
   buildReadJunction,
   buildReadReferencing,
   buildReadRows,
   buildReadStatus,
+  buildRemoveLinks,
   buildSetLink,
   cellText,
   deriveColumnName,
@@ -255,11 +257,23 @@ async function assertDraft(
   }
 }
 
+/** The list a row's links become once `change` is applied to them. */
+function changedList(current: readonly string[], change: LinkDelta): string[] {
+  const removed = new Set(change.remove);
+  return [
+    ...new Set([...current.filter((id) => !removed.has(id)), ...change.add]),
+  ];
+}
+
+type LinkDelta = { add: readonly string[]; remove: readonly string[] };
+
 /**
- * Replaces the links of one row. Forward one-to-many updates the foreign
- * key; inverse one-to-many updates the foreign keys of the other rows, so
- * their audit trail and locks apply; many-to-many rewrites the junction
- * and audits the change by hand, since a junction has no row trigger.
+ * Replaces the links of one row, or changes them by what `change` adds and
+ * removes, read against the row's links in the same transaction. Forward
+ * one-to-many updates the foreign key; inverse one-to-many updates the
+ * foreign keys of the other rows, so their audit trail and locks apply;
+ * many-to-many rewrites the junction and audits the change by hand, since
+ * a junction has no row trigger.
  */
 export async function setLinks(
   db: Database,
@@ -270,7 +284,9 @@ export async function setLinks(
     physicalName: string;
     column: EngineColumn;
     rowId: string;
-    targetIds: readonly string[];
+    /** The whole list, or `change`. */
+    targetIds?: readonly string[];
+    change?: LinkDelta;
     reason: string | null;
     /** Audit source: web by default, api for REST calls. */
     source?: string;
@@ -288,10 +304,12 @@ export async function setLinks(
   if (!target) {
     throw new AppError("invalid_relation");
   }
+  const change = input.change;
+  const listed = input.targetIds ?? [];
   if (
     relation.kind === "one_to_many" &&
     relation.direction === "forward" &&
-    input.targetIds.length > 1
+    listed.length > 1
   ) {
     throw new AppError("invalid_link_count");
   }
@@ -307,15 +325,14 @@ export async function setLinks(
       },
       async (tx) => {
         const write = async (): Promise<void> => {
-          if (input.targetIds.length > 0) {
+          // What a change removes need not be there any more.
+          const named = change ? change.add : listed;
+          if (named.length > 0) {
             const found = await runRows(
               tx,
-              buildExistingIds({
-                table: target.physicalName,
-                ids: input.targetIds,
-              }),
+              buildExistingIds({ table: target.physicalName, ids: named }),
             );
-            if (found.length !== input.targetIds.length) {
+            if (found.length !== named.length) {
               throw new AppError("unknown_row");
             }
           }
@@ -325,13 +342,32 @@ export async function setLinks(
               throw new AppError("invalid_relation");
             }
             if (relation.direction === "forward") {
+              let single = listed;
+              if (change) {
+                const [cells] = await runRows(
+                  tx,
+                  buildReadCells({
+                    table: input.physicalName,
+                    id: input.rowId,
+                    columns: [relation.fkColumn],
+                  }),
+                );
+                const held = cells?.[relation.fkColumn];
+                single = changedList(
+                  typeof held === "string" ? [held] : [],
+                  change,
+                );
+                if (single.length > 1) {
+                  throw new AppError("invalid_link_count");
+                }
+              }
               const updated = await runRows(
                 tx,
                 buildSetLink({
                   table: input.physicalName,
                   column: relation.fkColumn,
                   rowId: input.rowId,
-                  targetId: input.targetIds[0] ?? null,
+                  targetId: single[0] ?? null,
                 }),
               );
               if (updated.length !== 1) {
@@ -350,7 +386,13 @@ export async function setLinks(
                 targetId: input.rowId,
               }),
             );
-            const wanted = new Set(input.targetIds);
+            const targetIds = change
+              ? changedList(
+                  current.map((row) => String(row.id)),
+                  change,
+                )
+              : listed;
+            const wanted = new Set(targetIds);
             for (const row of current) {
               const id = String(row.id);
               if (!wanted.has(id)) {
@@ -366,7 +408,7 @@ export async function setLinks(
               }
             }
             const have = new Set(current.map((row) => String(row.id)));
-            for (const id of input.targetIds) {
+            for (const id of targetIds) {
               if (!have.has(id)) {
                 await assertDraft(tx, target.physicalName, id);
                 await runRows(
@@ -393,7 +435,7 @@ export async function setLinks(
                 tableId: input.tableId,
                 recordId: input.rowId,
                 oldValue: { [input.column.name]: [...have] },
-                newValue: { [input.column.name]: [...input.targetIds] },
+                newValue: { [input.column.name]: [...targetIds] },
                 reason: input.reason,
                 source: input.source ?? "web",
               })
@@ -417,24 +459,40 @@ export async function setLinks(
           const oldIds = previous.flatMap((row) =>
             typeof row[far] === "string" ? [row[far]] : [],
           );
-          await runRows(
-            tx,
-            buildClearLinks({
-              junction: relation.junction,
-              side: near,
-              id: input.rowId,
-            }),
-          );
-          if (input.targetIds.length > 0) {
-            const own = input.targetIds.map(() => input.rowId);
+          const targetIds = change ? changedList(oldIds, change) : listed;
+          // A change touches only what it names, whatever the list's length.
+          const removed = change
+            ? oldIds.filter((id) => change.remove.includes(id))
+            : [];
+          if (!change) {
+            await runRows(
+              tx,
+              buildClearLinks({
+                junction: relation.junction,
+                side: near,
+                id: input.rowId,
+              }),
+            );
+          } else if (removed.length > 0) {
+            await runRows(
+              tx,
+              buildRemoveLinks({
+                junction: relation.junction,
+                side: near,
+                id: input.rowId,
+                ids: removed,
+              }),
+            );
+          }
+          const inserted = change ? change.add : targetIds;
+          if (inserted.length > 0) {
+            const own = inserted.map(() => input.rowId);
             await runRows(
               tx,
               buildInsertLinks({
                 junction: relation.junction,
-                leftIds:
-                  relation.direction === "forward" ? own : input.targetIds,
-                rightIds:
-                  relation.direction === "forward" ? input.targetIds : own,
+                leftIds: relation.direction === "forward" ? own : inserted,
+                rightIds: relation.direction === "forward" ? inserted : own,
               }),
             );
           }
@@ -446,7 +504,7 @@ export async function setLinks(
               tableId: input.tableId,
               recordId: input.rowId,
               oldValue: { [input.column.name]: oldIds },
-              newValue: { [input.column.name]: [...input.targetIds] },
+              newValue: { [input.column.name]: targetIds },
               reason: input.reason,
               source: input.source ?? "web",
             })

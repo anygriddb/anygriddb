@@ -523,7 +523,7 @@ describe("field and row rules on PostgreSQL", () => {
         restoreRows(database, engine, editing, [theirs], editor),
       ).rejects.toMatchObject({ code: "unknown_row" });
       expect(
-        await restoreRows(database, engine, editing, [mine], editor),
+        (await restoreRows(database, engine, editing, [mine], editor)).ids,
       ).toEqual([mine]);
       // The owner, without rules, sees every deleted row.
       const all = await listTrash(

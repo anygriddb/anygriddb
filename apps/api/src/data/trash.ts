@@ -8,6 +8,7 @@ import {
   type TrashItem,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
+import { sql } from "kysely";
 import { deleteFiles, type FileStore } from "../files/index.js";
 import { readSettings } from "../settings.js";
 import { withAudit } from "./audit-context.js";
@@ -224,6 +225,7 @@ export async function restoreBase(
       .set({ deletedAt: null, deletedBy: null })
       .where("id", "=", baseId)
       .where("deletedAt", "is not", null)
+      .where("purgeStartedAt", "is", null)
       .returning("id")
       .executeTakeFirst(),
   );
@@ -243,6 +245,7 @@ export async function restoreTable(
     .select("b.deletedAt as baseDeletedAt")
     .where("t.id", "=", tableId)
     .where("t.deletedAt", "is not", null)
+    .where("t.purgeStartedAt", "is", null)
     .executeTakeFirst();
   if (!table) throw new AppError("no_row");
   if (table.baseDeletedAt) throw new AppError("invalid_restore");
@@ -265,18 +268,25 @@ export async function restoreTable(
         .where(liveFolder())
         .executeTakeFirst()
     : undefined;
-  await withAudit(db, { userId, tableId, source: "restore" }, (tx) =>
-    tx
-      .updateTable("dataTables")
-      .set({
-        deletedAt: null,
-        deletedBy: null,
-        name,
-        folderId: folder?.id ?? null,
-      })
-      .where("id", "=", tableId)
-      .execute(),
+  const back = await withAudit(
+    db,
+    { userId, tableId, source: "restore" },
+    (tx) =>
+      tx
+        .updateTable("dataTables")
+        .set({
+          deletedAt: null,
+          deletedBy: null,
+          name,
+          folderId: folder?.id ?? null,
+        })
+        .where("id", "=", tableId)
+        .where("deletedAt", "is not", null)
+        .where("purgeStartedAt", "is", null)
+        .returning("id")
+        .executeTakeFirst(),
   );
+  if (!back) throw new AppError("no_row");
   const affected = await restoreCompanions(db, userId, tableId);
   return { baseId: table.baseId, affected };
 }
@@ -297,6 +307,7 @@ export async function restoreColumn(
     .where("id", "=", columnId)
     .where("deletedAt", "is not", null)
     .where("deletedWith", "is", null)
+    .where("purgeStartedAt", "is", null)
     .executeTakeFirst();
   if (!column) throw new AppError("no_row");
   const catalog = await loadCatalogRows(db, [column.tableId]);
@@ -361,13 +372,20 @@ export async function restoreColumn(
     );
     if (described?.error) throw new Error(described.error);
   }
-  await withAudit(db, { userId, tableId: table.id, source: "restore" }, (tx) =>
-    tx
-      .updateTable("dataColumns")
-      .set({ deletedAt: null, deletedBy: null, label })
-      .where("id", "=", column.id)
-      .execute(),
+  const back = await withAudit(
+    db,
+    { userId, tableId: table.id, source: "restore" },
+    (tx) =>
+      tx
+        .updateTable("dataColumns")
+        .set({ deletedAt: null, deletedBy: null, label })
+        .where("id", "=", column.id)
+        .where("deletedAt", "is not", null)
+        .where("purgeStartedAt", "is", null)
+        .returning("id")
+        .executeTakeFirst(),
   );
+  if (!back) throw new AppError("no_row");
   const affected = await restoreCompanions(db, userId, column.id);
   return { table, affected };
 }
@@ -502,6 +520,7 @@ export async function listTrash(
     .select(["t.id", "t.name", "t.deletedAt", "u.displayName as deletedBy"])
     .where("t.baseId", "=", baseId)
     .where("t.deletedAt", "is not", null)
+    .where("t.purgeStartedAt", "is", null)
     .execute();
   const columnRows = await db
     .selectFrom("dataColumns as c")
@@ -520,6 +539,7 @@ export async function listTrash(
     .where(liveTable("t"))
     .where("c.deletedAt", "is not", null)
     .where("c.deletedWith", "is", null)
+    .where("c.purgeStartedAt", "is", null)
     .execute();
   const viewRows = await db
     .selectFrom("views as v")
@@ -566,6 +586,7 @@ export async function listTrashedBases(
     ])
     .where("b.id", "in", [...baseIds])
     .where("b.deletedAt", "is not", null)
+    .where("b.purgeStartedAt", "is", null)
     .orderBy("b.deletedAt", "asc")
     .execute();
   const days = (await readSettings(db)).trashDays;
@@ -589,6 +610,7 @@ export async function listAllTrashedBases(
     .leftJoin("users as u", "u.id", "b.deletedBy")
     .select(["b.id", "b.name", "b.deletedAt", "u.displayName as deletedBy"])
     .where("b.deletedAt", "is not", null)
+    .where("b.purgeStartedAt", "is", null)
     .orderBy("b.deletedAt", "desc")
     .orderBy("b.id", "asc")
     .limit(limit)
@@ -614,6 +636,43 @@ export type PurgeTarget = TrashItem & {
   dropSchema?: string;
 };
 
+/**
+ * How long a reservation stands for a purge still running. Past it, the
+ * process that took it is taken to have stopped, and the next pass ends
+ * what it began.
+ */
+const PURGE_LEASE = sql`interval '6 hours'`;
+
+/**
+ * Takes an item of the trash for its purge, before anything is destroyed:
+ * from here no restore can take it back, and a restore that came first
+ * leaves nothing to take. One statement, so that of the two exactly one
+ * wins. False when the item is back, gone, or held by a purge still running.
+ */
+async function reserveForPurge(
+  db: Database,
+  userId: string,
+  catalog: "bases" | "dataTables" | "dataColumns",
+  id: string,
+): Promise<boolean> {
+  const taken = await withAudit(db, { userId, source: "purge" }, (tx) =>
+    tx
+      .updateTable(catalog as "bases")
+      .set({ purgeStartedAt: sql`now()` })
+      .where("id", "=", id)
+      .where("deletedAt", "is not", null)
+      .where((eb) =>
+        eb.or([
+          eb("purgeStartedAt", "is", null),
+          eb("purgeStartedAt", "<", sql<Date>`now() - ${PURGE_LEASE}`),
+        ]),
+      )
+      .returning("id")
+      .executeTakeFirst(),
+  );
+  return taken !== undefined;
+}
+
 /** Drops one item of the trash for good. An item no longer there is skipped. */
 export async function purgeItem(
   deps: PurgeDeps,
@@ -638,6 +697,16 @@ export async function purgeItem(
       return removed.length > 0;
     }
     case "column": {
+      if (
+        !(await reserveForPurge(
+          deps.db,
+          target.actorId,
+          "dataColumns",
+          target.id,
+        ))
+      ) {
+        return false;
+      }
       // A field of a table held in a source: its column goes first.
       const hosted = await deps.db
         .selectFrom("dataColumns as c")
@@ -690,6 +759,16 @@ export async function purgeItem(
         .where("deletedAt", "is not", null)
         .executeTakeFirst();
       if (!table) return false;
+      if (
+        !(await reserveForPurge(
+          deps.db,
+          target.actorId,
+          "dataTables",
+          target.id,
+        ))
+      ) {
+        return false;
+      }
       // A table held in a source is dropped there first. A base's own
       // purge leaves its schema, and what is in it, to the typed name.
       if (isHomeTable(table)) {
@@ -713,10 +792,15 @@ export async function purgeItem(
         .where("deletedAt", "is not", null)
         .executeTakeFirst();
       if (!base) return false;
+      if (target.dropSchema && target.dropSchema !== base.homeSchema) {
+        throw new AppError("invalid_arguments");
+      }
+      if (
+        !(await reserveForPurge(deps.db, target.actorId, "bases", target.id))
+      ) {
+        return false;
+      }
       if (target.dropSchema) {
-        if (target.dropSchema !== base.homeSchema) {
-          throw new AppError("invalid_arguments");
-        }
         const { dropHostedSchema } = await import("../sources/host-table.js");
         await dropHostedSchema(deps.db, target.id, target.dropSchema);
       }
@@ -761,9 +845,9 @@ export function orderForPurge<T extends TrashItem>(items: readonly T[]): T[] {
 }
 
 /**
- * Items deleted longer ago than the trash keeps them (`trashDays`),
- * audited under whoever deleted them, or the oldest administrator when
- * that account is gone.
+ * Items deleted longer ago than the trash keeps them (`trashDays`), and
+ * those a purge began and did not end, audited under whoever deleted them,
+ * or the oldest administrator when that account is gone.
  */
 export async function dueTrashItems(
   db: Database,
@@ -778,6 +862,7 @@ export async function dueTrashItems(
     .limit(1)
     .executeTakeFirst();
   const actor = (deletedBy: string | null) => deletedBy ?? admin?.id;
+  const due = sql<boolean>`deleted_at < ${cutoff} or (deleted_at is not null and purge_started_at < now() - ${PURGE_LEASE})`;
   const found: Array<TrashItem & { actorId: string | undefined }> = [];
   for (const row of await db
     .selectFrom("views")
@@ -789,7 +874,7 @@ export async function dueTrashItems(
   for (const row of await db
     .selectFrom("dataColumns")
     .select(["id", "deletedBy as by"])
-    .where("deletedAt", "<", cutoff)
+    .where(due)
     .where("deletedWith", "is", null)
     .execute()) {
     found.push({ kind: "column", id: row.id, actorId: actor(row.by) });
@@ -797,14 +882,14 @@ export async function dueTrashItems(
   for (const row of await db
     .selectFrom("dataTables")
     .select(["id", "deletedBy as by"])
-    .where("deletedAt", "<", cutoff)
+    .where(due)
     .execute()) {
     found.push({ kind: "table", id: row.id, actorId: actor(row.by) });
   }
   for (const row of await db
     .selectFrom("bases")
     .select(["id", "deletedBy as by"])
-    .where("deletedAt", "<", cutoff)
+    .where(due)
     .execute()) {
     found.push({ kind: "base", id: row.id, actorId: actor(row.by) });
   }

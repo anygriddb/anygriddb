@@ -137,14 +137,15 @@ export async function addComment(
   if (input.parentId) {
     const parent = await db
       .selectFrom("comments")
-      .select(["tableId", "rowId", "parentId"])
+      .select(["tableId", "rowId", "parentId", "deletedAt"])
       .where("id", "=", input.parentId)
       .executeTakeFirst();
     if (
       !parent ||
       parent.tableId !== input.tableId ||
       parent.rowId !== input.rowId ||
-      parent.parentId
+      parent.parentId ||
+      parent.deletedAt
     ) {
       throw new AppError("invalid_comment");
     }

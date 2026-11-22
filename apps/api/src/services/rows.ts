@@ -92,7 +92,19 @@ type WriteMeta = {
   stagedShareId?: string;
 };
 
-type LinkWrite = { column: string; targetIds: readonly string[] };
+/** A link cell's whole list, or what changes in it. */
+type LinkList = { column: string; targetIds: readonly string[] };
+type LinkChange = {
+  column: string;
+  add: readonly string[];
+  remove: readonly string[];
+};
+type LinkWrite = LinkList | LinkChange;
+
+/** Every row a link write names, on the other side. */
+function namedTargets(link: LinkWrite): readonly string[] {
+  return "targetIds" in link ? link.targetIds : [...link.add, ...link.remove];
+}
 
 type RowInput = {
   values: Readonly<Record<string, CellValue>>;
@@ -282,7 +294,7 @@ async function assertLinkAllowed(
   const target = scope.engine.tables.get(relation.targetTableId);
   if (target) {
     const targetEngine = { ...scope.engine, table: target };
-    await assertRowsInScope(deps.db, targetEngine, link.targetIds);
+    await assertRowsInScope(deps.db, targetEngine, namedTargets(link));
     if (writesOther && relation.fkColumn) {
       assertFieldsWritable(targetEngine, [relation.fkColumn]);
     }
@@ -310,7 +322,9 @@ async function writeLinks(
       physicalName: scope.table.physicalName,
       column,
       rowId,
-      targetIds: link.targetIds,
+      ...("targetIds" in link
+        ? { targetIds: link.targetIds }
+        : { change: { add: link.add, remove: link.remove } }),
       reason,
       source: meta.source,
       depth: meta.depth ?? 0,
@@ -384,7 +398,8 @@ async function assertSelections(
       const had = new Set(
         linkIds(id === undefined ? undefined : current.get(id)?.[column.name]),
       );
-      return link.targetIds.filter((target) => !had.has(target));
+      const asked = "targetIds" in link ? link.targetIds : link.add;
+      return asked.filter((target) => !had.has(target));
     });
     await assertLinksInSelection(deps.db, scope.engine, column, added);
   }
@@ -434,6 +449,7 @@ function withLinks(
   for (const link of row.links) {
     const relation = relationColumn(scope, link.column).relation;
     if (
+      !("targetIds" in link) ||
       relation?.kind !== "one_to_many" ||
       relation.direction !== "forward" ||
       link.targetIds.length > 1
@@ -455,7 +471,7 @@ async function writeInverseLinks(
   deps: RowServiceDeps,
   scope: RowScope,
   rowId: string,
-  link: LinkWrite,
+  link: LinkList,
   meta: WriteMeta,
 ): Promise<void> {
   const column = await assertLinkAllowed(deps, scope, link);
@@ -768,12 +784,12 @@ export async function deleteRows(
     await announceRows(deps, scope.table.id, "delete", ids, []);
     return ids;
   }
-  const ids = await deleteRowRecords(
+  const { ids, touchedTables } = await deleteRowRecords(
     deps.db,
     writeContext(scope, reason, meta),
     rowIds,
   );
-  await announceRows(deps, scope.table.id, "delete", ids, []);
+  await announceRows(deps, scope.table.id, "delete", ids, touchedTables);
   return ids;
 }
 
@@ -797,7 +813,7 @@ export async function restoreRows(
   scope: RowScope,
   rowIds: readonly string[],
   meta: WriteMeta,
-): Promise<string[]> {
+): Promise<{ ids: string[]; linksNotRestored: number }> {
   const deletedBy = trashScope(scope);
   const reason = resolveReason(scope, "all", meta);
   if (isExternal(scope)) {
@@ -808,23 +824,43 @@ export async function restoreRows(
       rowIds,
     );
     await announceRows(deps, scope.table.id, "insert", ids, []);
-    return ids;
+    return { ids, linksNotRestored: 0 };
   }
   if (rowIds.some((id) => !UUID.test(id))) {
     throw new AppError("invalid_row_id");
   }
-  const ids = await restoreRowRecords(
+  const { ids, linksNotRestored, touchedTables } = await restoreRowRecords(
     deps.db,
     scope.engine,
     writeContext(scope, reason, meta),
     rowIds,
     deletedBy,
   );
-  await announceRows(deps, scope.table.id, "insert", ids, []);
-  return ids;
+  await announceRows(deps, scope.table.id, "insert", ids, touchedTables);
+  return { ids, linksNotRestored };
 }
 
-/** Replaces the links of one row in one relation column. */
+/** A client's row keeps no list to change: its links are read, then set. */
+async function wholeList(
+  deps: RowServiceDeps,
+  scope: RowScope,
+  rowId: string,
+  link: LinkWrite,
+): Promise<LinkList> {
+  if ("targetIds" in link) return link;
+  const [own] = await readByIds(deps.db, scope.engine, [rowId], "UTC", [
+    link.column,
+  ]);
+  if (!own) throw new AppError("source_row_missing");
+  const removed = new Set(link.remove);
+  const kept = linkIds(own[link.column]).filter((id) => !removed.has(id));
+  return {
+    column: link.column,
+    targetIds: [...new Set([...kept, ...link.add])],
+  };
+}
+
+/** Replaces the links of one row in one relation column, or changes them. */
 export async function replaceLinks(
   deps: RowServiceDeps,
   scope: RowScope,
@@ -833,12 +869,18 @@ export async function replaceLinks(
   meta: WriteMeta,
 ): Promise<void> {
   if (isExternal(scope)) {
-    const relation = relationColumn(scope, link.column).relation;
+    const whole = await wholeList(deps, scope, rowId, link);
+    const relation = relationColumn(scope, whole.column).relation;
     if (relation?.direction === "inverse" && relation.kind === "one_to_many") {
-      await writeInverseLinks(deps, scope, rowId, link, meta);
+      await writeInverseLinks(deps, scope, rowId, whole, meta);
       return;
     }
-    await updateRows(deps, scope, [{ rowId, values: {}, links: [link] }], meta);
+    await updateRows(
+      deps,
+      scope,
+      [{ rowId, values: {}, links: [whole] }],
+      meta,
+    );
     return;
   }
   const checked = await prepare(

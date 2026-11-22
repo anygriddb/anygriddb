@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import {
   lastInOrder,
+  linkChange,
   linkedIds,
   rowCopies,
   touchedFields,
@@ -140,5 +141,23 @@ describe("lastInOrder", () => {
 
   it("is nothing when no row is given", () => {
     expect(lastInOrder([], rows)).toBeUndefined();
+  });
+});
+
+describe("linkChange", () => {
+  const ids = (count: number) =>
+    Array.from({ length: count }, (_, index) => `row-${index}`);
+
+  it("sends a list a write can name whole", () => {
+    expect(linkChange(ids(3), ids(2))).toEqual({ targetIds: ids(2) });
+    expect(linkChange(ids(501), ids(500))).toEqual({ targetIds: ids(500) });
+  });
+
+  it("sends only what changes in a longer one", () => {
+    const after = [...ids(501).slice(1), "row-new"];
+    expect(linkChange(ids(501), after)).toEqual({
+      add: ["row-new"],
+      remove: ["row-0"],
+    });
   });
 });

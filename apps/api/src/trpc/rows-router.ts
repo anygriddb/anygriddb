@@ -62,6 +62,7 @@ import { linkCandidates } from "../data/relations.js";
 import {
   aggregateRows,
   assertFieldsWritable,
+  assertRowExists,
   assertRowsInScope,
   attachSignatures,
   listTrash,
@@ -393,11 +394,10 @@ export const rowsRouter = t.router({
   restore: procedure.input(restoreRowsInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const scope = await writeScope(ctx, input.tableId);
-      const ids = await restoreRows(serviceDeps(ctx), scope, input.rowIds, {
+      return restoreRows(serviceDeps(ctx), scope, input.rowIds, {
         reason: input.reason,
         source: "restore",
       });
-      return { ids };
     }),
   ),
   setLinks: procedure.input(setLinksInputSchema).mutation(({ ctx, input }) =>
@@ -407,7 +407,13 @@ export const rowsRouter = t.router({
         serviceDeps(ctx),
         scope,
         input.rowId,
-        { column: input.column, targetIds: input.targetIds },
+        input.targetIds
+          ? { column: input.column, targetIds: input.targetIds }
+          : {
+              column: input.column,
+              add: input.add ?? [],
+              remove: input.remove ?? [],
+            },
         { reason: input.reason, source: "web" },
       );
       const [row] = await readByIds(ctx.db, scope.engine, [input.rowId], "UTC");
@@ -678,6 +684,7 @@ export const rowsRouter = t.router({
         const access = await guardTable(ctx, input.tableId, "comment");
         const { engine } = await engineFor(ctx, access);
         await assertRowsInScope(ctx.db, engine, [input.rowId]);
+        await assertRowExists(ctx.db, engine, input.rowId);
         const created = await addComment(ctx.db, {
           tableId: input.tableId,
           rowId: input.rowId,

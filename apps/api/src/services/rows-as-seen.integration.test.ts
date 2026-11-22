@@ -361,4 +361,95 @@ describe("a write compared with what its author saw", () => {
       expect(stale, `${name}, stale`).toBe("row_conflict");
     }
   });
+
+  it.each([
+    ["name", "007", "7"],
+    ["name", "01000", "1000"],
+    ["name", "1.0", "1.00"],
+    ["story", "007", "7"],
+    ["call", "0612345678", "612345678"],
+    ["moment", "2026-03-04T10:00:00.123456Z", "2026-03-04T10:00:00.123999Z"],
+    ["meta", '{"v": 12345678901234567890}', '{"v": 12345678901234567891}'],
+    ["amount", "1.000000000000000001", "1"],
+  ])("refuses a stale write over %s: %s became %s", async (name, was, now) => {
+    const rowId = await add({ [name]: was });
+    const seen = await read(rowId);
+    await updateRows(deps(), scope, [{ rowId, values: { [name]: now } }], {
+      source: "web",
+    });
+    const replacement =
+      name === "moment"
+        ? "2027-01-01T00:00:00Z"
+        : name === "call"
+          ? "0700000000"
+          : "9";
+    expect(
+      await code(
+        updateRows(
+          deps(),
+          scope,
+          [
+            {
+              rowId,
+              values: {
+                [name]: name === "meta" ? '{"stale": true}' : replacement,
+              },
+              expected: { [name]: seen[name] as CellValue },
+            },
+          ],
+          { source: "web" },
+        ),
+      ),
+    ).toBe("row_conflict");
+  });
+
+  it.each([
+    ["amount", "12.50", "12.5"],
+    ["moment", "2026-03-04T10:00:00Z", "2026-03-04T11:00:00+01:00"],
+    ["meta", '{"b": 1, "a": 2}', '{"a": 2, "b": 1}'],
+  ])("takes %s written another way: %s and %s", async (name, was, same) => {
+    const rowId = await add({ [name]: was });
+    expect(
+      await code(
+        updateRows(
+          deps(),
+          scope,
+          [
+            {
+              rowId,
+              values: {
+                [name]: name === "moment" ? "2027-01-01T00:00:00Z" : was,
+              },
+              expected: { [name]: same },
+            },
+          ],
+          { source: "web" },
+        ),
+      ),
+    ).toBe("written");
+  });
+
+  it("refuses to put a field back over a value that only reads the same", async () => {
+    const rowId = await add({ name: "7" });
+    expect(
+      await code(
+        updateRows(
+          deps(),
+          scope,
+          [{ rowId, values: { name: "back" }, storedNow: { name: "007" } }],
+          { source: "revert" },
+        ),
+      ),
+    ).toBe("revert_stale");
+    expect(
+      await code(
+        updateRows(
+          deps(),
+          scope,
+          [{ rowId, values: { name: "back" }, storedNow: { name: "7" } }],
+          { source: "revert" },
+        ),
+      ),
+    ).toBe("written");
+  });
 });

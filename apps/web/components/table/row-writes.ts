@@ -1,4 +1,4 @@
-import { cellValueSchema } from "@anygriddb/core";
+import { cellValueSchema, MAX_LINKS_WRITTEN } from "@anygriddb/core";
 import { toWriteValue } from "../../lib/format";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { isEditableColumn } from "../grid/grid-clipboard";
@@ -107,6 +107,23 @@ export function linkedIds(value: unknown): string[] {
           : [],
       )
     : [];
+}
+
+/**
+ * How a link cell's new list travels: whole, or, past what one write can
+ * name, as what changes from the list the row holds.
+ */
+export function linkChange(
+  before: readonly string[],
+  after: readonly string[],
+): { targetIds: string[] } | { add: string[]; remove: string[] } {
+  if (after.length <= MAX_LINKS_WRITTEN) return { targetIds: [...after] };
+  const had = new Set(before);
+  const wanted = new Set(after);
+  return {
+    add: after.filter((id) => !had.has(id)),
+    remove: before.filter((id) => !wanted.has(id)),
+  };
 }
 
 /** What a copy of each row holds: the values of its editable fields. */

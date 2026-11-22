@@ -562,6 +562,22 @@ dismissed or the instance is upgraded.
 image's labels: `docker compose images app`, then `docker image inspect`
 on that image.
 
+### Links of rows already in the trash
+
+A row deleted by a version before this command existed comes back without
+the links other rows held to it through a one-to-many field: the keys were
+cleared, and only the change trail remembers them. To have a restore bring
+them back, run this once after updating:
+
+```bash
+docker compose exec app anygriddb trash recover-links --dry-run
+docker compose exec app anygriddb trash recover-links
+```
+
+It only adds to the change trail, changes no row, and running it again adds
+nothing. A link set again since stays as it is, and a row locked or signed
+since is left alone and counted when the restore is made.
+
 ## A stack made before the role was limited
 
 A stack whose PostgreSQL volume was made by an earlier file has

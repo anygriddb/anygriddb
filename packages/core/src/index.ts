@@ -69,7 +69,7 @@ export {
 } from "./cell-values";
 
 export { jsonCellText, prettyJson } from "./json-text";
-export { sameAsSeen } from "./seen-cell";
+export { sameAsSeen, sameFieldValue } from "./seen-cell";
 
 export {
   cellText,
@@ -363,6 +363,7 @@ export {
   rowsAggregateInputSchema,
   rowsGetInputSchema,
   rowsReadInputSchema,
+  MAX_LINKS_WRITTEN,
   setLinksInputSchema,
   setPrimaryColumnInputSchema,
   setStatusInputSchema,
@@ -603,7 +604,12 @@ export {
   buildInserts,
   buildNonNullValues,
   buildReadJunction,
+  buildReadHolders,
+  buildReadJunctionRows,
   buildReadReferencing,
+  buildReadReferencingIds,
+  buildRemoveLinks,
+  buildSetForeignKeys,
   buildReadCells,
   buildReadStatus,
   buildReadStatuses,

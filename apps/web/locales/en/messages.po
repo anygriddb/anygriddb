@@ -619,6 +619,10 @@ msgstr "{chosenCount, plural, one {Disable # account} other {Disable # accounts}
 msgid "{count, plural, one {# API token revoked} other {# API tokens revoked}}"
 msgstr "{count, plural, one {# API token revoked} other {# API tokens revoked}}"
 
+#: components/table/restored-links.ts
+msgid "{count, plural, one {# link was not put back: the row on its other side is locked or signed.} other {# links were not put back: the rows on their other side are locked or signed.}}"
+msgstr "{count, plural, one {# link was not put back: the row on its other side is locked or signed.} other {# links were not put back: the rows on their other side are locked or signed.}}"
+
 #: components/admin/sources-tab.tsx
 msgid "{count, plural, one {# table added to {base}} other {# tables added to {base}}}"
 msgstr "{count, plural, one {# table added to {base}} other {# tables added to {base}}}"

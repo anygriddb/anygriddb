@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sameAsSeen } from "./seen-cell";
+import { sameAsSeen, sameFieldValue } from "./seen-cell";
 
 describe("a cell compared with what its writer saw", () => {
   it("takes a value read twice the same way", () => {
@@ -69,5 +69,96 @@ describe("a cell compared with what its writer saw", () => {
     expect(sameAsSeen("json", [{ a: 1 }], '[{"a":1}]')).toBe(true);
     expect(sameAsSeen("json", [{ a: 1 }], '[{"a":2}]')).toBe(false);
     expect(sameAsSeen("json", "not a document", "not a document")).toBe(true);
+  });
+});
+
+describe("a value compared as its field keeps it", () => {
+  it.each(["text", "long_text", "phone", "email", "url", "single_select"])(
+    "keeps apart two %s values that read as one number",
+    (type) => {
+      for (const [left, right] of [
+        ["007", "7"],
+        ["01000", "1000"],
+        ["1.0", "1.00"],
+        ["1.10", "1.1"],
+        ["0", "-0"],
+      ]) {
+        expect(sameAsSeen(type, left, right)).toBe(false);
+      }
+      expect(sameAsSeen(type, "007", "007")).toBe(true);
+    },
+  );
+
+  it("still reads two spellings of one number as one", () => {
+    expect(sameAsSeen("number", "12.50", "12.5")).toBe(true);
+    expect(sameAsSeen("number", "-0.0", "0")).toBe(true);
+    expect(sameAsSeen("number", 3, "3.0")).toBe(true);
+    expect(sameAsSeen("number", "1.000000000000000001", "1")).toBe(false);
+    expect(
+      sameAsSeen("number", "12345678901234567890", "12345678901234567891"),
+    ).toBe(false);
+  });
+
+  it("tells two instants apart to the microsecond", () => {
+    expect(
+      sameAsSeen(
+        "datetime",
+        "2026-03-04T10:00:00.123456+00:00",
+        "2026-03-04T10:00:00.123999Z",
+      ),
+    ).toBe(false);
+    expect(
+      sameAsSeen(
+        "datetime",
+        "2026-03-04T10:00:00.1234+00:00",
+        "2026-03-04T11:00:00.123400+01:00",
+      ),
+    ).toBe(true);
+    expect(
+      sameAsSeen(
+        "datetime",
+        "2026-03-04T10:00:00.5+00:00",
+        "2026-03-04T10:00:00.500Z",
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps every digit of a document's numbers", () => {
+    expect(
+      sameAsSeen(
+        "json",
+        '{"v": 12345678901234567890}',
+        '{"v": 12345678901234567891}',
+      ),
+    ).toBe(false);
+    expect(sameAsSeen("json", '{"v": "1"}', '{"v": 1}')).toBe(false);
+    expect(sameAsSeen("json", '{"b": 1, "a": [2]}', '{"a":[2],"b":1}')).toBe(
+      true,
+    );
+    expect(sameAsSeen("json", '{"a": 1.50}', { a: 1.5 })).toBe(true);
+    expect(sameAsSeen("json", '{"a": 1000}', '{"a": 1e3}')).toBe(true);
+  });
+
+  it("reads an exponent no longer than a number can be, and no further", () => {
+    expect(sameAsSeen("json", '{"a": 1e999999}', '{"a": 1e999998}')).toBe(
+      false,
+    );
+    expect(sameAsSeen("json", '{"a": 1e999999}', '{"a": 1e999999}')).toBe(true);
+  });
+
+  it("compares a client's value without taking empty for false", () => {
+    expect(sameFieldValue("boolean", false, null)).toBe(false);
+    expect(sameFieldValue("text", "", null)).toBe(false);
+    expect(sameFieldValue("text", "007", "7")).toBe(false);
+    expect(sameFieldValue("number", "12.50", 12.5)).toBe(true);
+    expect(
+      sameFieldValue(
+        "datetime",
+        "2026-03-04T10:00:00Z",
+        "2026-03-04T11:00:00+01:00",
+      ),
+    ).toBe(true);
+    expect(sameFieldValue(undefined, "a", "a")).toBe(true);
+    expect(sameFieldValue(undefined, "12.50", "12.5")).toBe(true);
   });
 });
