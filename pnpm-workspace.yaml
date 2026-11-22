@@ -45,5 +45,8 @@ overrides:
 # exceljs reads an XLSX import as a stream: unzipper ends it before the last
 # parts are read when a sheet is parked in a temporary file first, and the
 # import failed or lost its shared strings (import-file.test.ts).
+# mysql2 gives TLS no host for a server reached by address, and its
+# certificate was then checked against "localhost" (mysql.integration.test.ts).
 patchedDependencies:
   exceljs@4.4.0: patches/exceljs@4.4.0.patch
+  mysql2@3.24.6: patches/mysql2@3.24.6.patch

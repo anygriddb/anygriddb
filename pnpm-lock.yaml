@@ -13,6 +13,7 @@ overrides:
 
 patchedDependencies:
   exceljs@4.4.0: 3ce29ab6225fcba6245e5c7ea5a73671e78cbe7753bc7b03d5a541a6722567cf
+  mysql2@3.24.6: 03b1c155bf3e17d2d0c7062b69bbe9fb23128b7050374bc0fe62391b5533f444
 
 importers:
 
@@ -140,7 +141,7 @@ importers:
         version: 7.8.0
       mysql2:
         specifier: 3.24.6
-        version: 3.24.6(@types/node@26.6.6)
+        version: 3.24.6(patch_hash=03b1c155bf3e17d2d0c7062b69bbe9fb23128b7050374bc0fe62391b5533f444)(@types/node@26.6.6)
       nodemailer:
         specifier: 10.4.0
         version: 10.4.0
@@ -411,7 +412,7 @@ importers:
         version: 2.7.2
       kysely-codegen:
         specifier: 0.20.0
-        version: 0.20.0(kysely@0.29.8)(mysql2@3.24.6(@types/node@26.6.6))(pg@8.23.1)(typescript@6.0.3)
+        version: 0.20.0(kysely@0.29.8)(mysql2@3.24.6(patch_hash=03b1c155bf3e17d2d0c7062b69bbe9fb23128b7050374bc0fe62391b5533f444)(@types/node@26.6.6))(pg@8.23.1)(typescript@6.0.3)
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -8355,7 +8356,7 @@ snapshots:
     dependencies:
       '@keyv/serialize': 1.1.1
 
-  kysely-codegen@0.20.0(kysely@0.29.8)(mysql2@3.24.6(@types/node@26.6.6))(pg@8.23.1)(typescript@6.0.3):
+  kysely-codegen@0.20.0(kysely@0.29.8)(mysql2@3.24.6(patch_hash=03b1c155bf3e17d2d0c7062b69bbe9fb23128b7050374bc0fe62391b5533f444)(@types/node@26.6.6))(pg@8.23.1)(typescript@6.0.3):
     dependencies:
       chalk: 4.1.2
       cosmiconfig: 9.0.2(typescript@6.0.3)
@@ -8368,7 +8369,7 @@ snapshots:
       pluralize: 8.0.0
       zod: 4.6.7
     optionalDependencies:
-      mysql2: 3.24.6(@types/node@26.6.6)
+      mysql2: 3.24.6(patch_hash=03b1c155bf3e17d2d0c7062b69bbe9fb23128b7050374bc0fe62391b5533f444)(@types/node@26.6.6)
       pg: 8.23.1
     transitivePeerDependencies:
       - typescript
@@ -8580,7 +8581,7 @@ snapshots:
 
   ms@2.1.3: {}
 
-  mysql2@3.24.6(@types/node@26.6.6):
+  mysql2@3.24.6(patch_hash=03b1c155bf3e17d2d0c7062b69bbe9fb23128b7050374bc0fe62391b5533f444)(@types/node@26.6.6):
     dependencies:
       '@types/node': 26.6.6
       aws-ssl-profiles: 1.1.2

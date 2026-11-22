@@ -448,7 +448,9 @@ grant select on erp.invoices to 'anygriddb'@'%';
 TLS: give the server a certificate that names its host (`ssl_cert`,
 `ssl_key`, and `require_secure_transport = ON` in the server's
 configuration). MySQL's auto-generated certificate names no host and
-cannot be verified: replace it.
+cannot be verified: replace it. A source reached through a tunnel, an alias,
+or an address needs that name or address in its certificate too; otherwise
+the connection is refused as an untrusted certificate.
 
 The server must have its **time zone tables**, which AnyGridDB needs to
 read dates in the reader's zone. The official images load them; otherwise:
