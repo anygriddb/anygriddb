@@ -4,13 +4,14 @@
  * does not, with the connection left usable.
  */
 import { randomBytes } from "node:crypto";
+import { MAX_COMPUTED_TEXT, rowError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ReadBudget, ReadMemory } from "../read-budget.js";
 import { createTestDatabase } from "../test-database.js";
 import { loadEngine } from "./engine.js";
 import { insertRows, readAudit, readByIds, readPage } from "./rows.js";
-import { insertBase, insertTable } from "./schema-ops.js";
+import { addColumn, insertBase, insertTable } from "./schema-ops.js";
 
 const suffix = randomBytes(6).toString("hex");
 const ROWS = 40;
@@ -166,6 +167,48 @@ describe("a page read under a budget", () => {
     await expect(
       readByIds(db, loaded, [id ?? ""], "UTC", undefined, budget(3 * CELL)),
     ).rejects.toMatchObject({ code: "page_too_large" });
+  });
+
+  it("keeps a formula's text up to the bound, and past it says so", async () => {
+    const owner = await db
+      .selectFrom("users")
+      .select("id")
+      .executeTakeFirstOrThrow();
+    const blocks = Array.from(
+      { length: MAX_COMPUTED_TEXT / 10_000 },
+      () => 'REPT("a", 10000)',
+    ).join(", ");
+    const formulas = {
+      at_bound: `CONCAT(${blocks})`,
+      past_bound: `CONCAT(${blocks}, "b")`,
+      rept_fits: 'REPT("a", 5000)',
+      rept_past: 'REPT("a", 10001)',
+    };
+    for (const [name, formulaSource] of Object.entries(formulas)) {
+      await addColumn(db, owner.id, tableId, {
+        name,
+        label: name,
+        fieldType: "formula",
+        formulaSource,
+      });
+    }
+    const read = await engine();
+    const { rows } = await readPage(
+      db,
+      read,
+      { ...spec, limit: 1, fields: Object.keys(formulas) },
+      { total: false, budget: budget(64 * 1024 * 1024) },
+    );
+    const [row] = rows;
+    if (!row) throw new Error("no row");
+    expect(String(row.at_bound)).toHaveLength(MAX_COMPUTED_TEXT);
+    expect(rowError(row, "at_bound")).toBeNull();
+    expect(row.past_bound ?? null).toBeNull();
+    expect(rowError(row, "past_bound")).toBe("Text too long");
+    expect(String(row.rept_fits)).toHaveLength(5_000);
+    expect(rowError(row, "rept_fits")).toBeNull();
+    expect(row.rept_past ?? null).toBeNull();
+    expect(rowError(row, "rept_past")).toBe("Text too long");
   });
 
   it("leaves its connection usable after a refusal", async () => {

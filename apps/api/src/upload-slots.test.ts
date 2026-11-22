@@ -47,31 +47,29 @@ describe("uploadSlots", () => {
 
 describe("cutIdleUpload", () => {
   const socketDouble = () => {
-    const socket = new Socket();
-    return Object.assign(socket, {
-      setTimeout: vi.fn(),
-      destroy: vi.fn(),
-    });
+    const setTimeout = vi.fn();
+    const destroy = vi.fn();
+    const socket = Object.assign(new Socket(), { setTimeout, destroy });
+    return { socket, setTimeout, destroy };
   };
-  const on = (socket: Socket) => ({ socket });
 
   it("closes a connection that stops sending", () => {
-    const socket = socketDouble();
-    cutIdleUpload(on(socket), { writableEnded: false }, 1_000);
-    expect(socket.setTimeout).toHaveBeenCalledWith(1_000);
+    const { socket, setTimeout, destroy } = socketDouble();
+    cutIdleUpload({ socket }, { writableEnded: false }, 1_000);
+    expect(setTimeout).toHaveBeenCalledWith(1_000);
     socket.emit("timeout");
-    expect(socket.destroy).toHaveBeenCalledOnce();
+    expect(destroy).toHaveBeenCalledOnce();
   });
 
   it("leaves it alone once the body has arrived", () => {
-    const socket = socketDouble();
-    const received = cutIdleUpload(on(socket), { writableEnded: false }, 1_000);
+    const { socket, setTimeout, destroy } = socketDouble();
+    const received = cutIdleUpload({ socket }, { writableEnded: false }, 1_000);
     received();
     received();
     socket.emit("timeout");
-    expect(socket.destroy).not.toHaveBeenCalled();
-    expect(socket.setTimeout).toHaveBeenLastCalledWith(0);
-    expect(socket.setTimeout).toHaveBeenCalledTimes(2);
+    expect(destroy).not.toHaveBeenCalled();
+    expect(setTimeout).toHaveBeenLastCalledWith(0);
+    expect(setTimeout).toHaveBeenCalledTimes(2);
   });
 
   it("has nothing to watch on a request made in-process", () => {
@@ -83,9 +81,9 @@ describe("cutIdleUpload", () => {
   });
 
   it("does not take the timer back from an answered request", () => {
-    const socket = socketDouble();
-    const received = cutIdleUpload(on(socket), { writableEnded: true }, 1_000);
+    const { socket, setTimeout } = socketDouble();
+    const received = cutIdleUpload({ socket }, { writableEnded: true }, 1_000);
     received();
-    expect(socket.setTimeout).toHaveBeenCalledTimes(1);
+    expect(setTimeout).toHaveBeenCalledTimes(1);
   });
 });

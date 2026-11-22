@@ -745,8 +745,17 @@ export const POSTGRES: SqlDialect = {
   listFrom: (list, alias) => `unnest(${list}) with ordinality ${alias}(v, i)`,
   listOne: (sql, kind) => `array[${sql}]::${PG_SCALAR[kind]}[]`,
   boundRow: boundSelect,
-  jsonObject: (entries) =>
-    `jsonb_strip_nulls(jsonb_build_object(${entries.map(([key, sql]) => `'${key}', ${sql}`).join(", ")}))`,
+  // A call takes 100 arguments, two an entry: a wide table takes several.
+  jsonObject: (entries) => {
+    const parts: string[] = [];
+    for (let start = 0; start < entries.length; start += 40) {
+      const part = entries
+        .slice(start, start + 40)
+        .map(([key, sql]) => `'${key}', ${sql}`);
+      parts.push(`jsonb_build_object(${part.join(", ")})`);
+    }
+    return `jsonb_strip_nulls(${parts.join(" || ") || "'{}'::jsonb"})`;
+  },
   textSplit: (text, delimiter) =>
     `string_to_array(${text}, coalesce(${delimiter}, ''))`,
   listSort: (list, kind, descending) =>

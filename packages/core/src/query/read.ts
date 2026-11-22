@@ -645,6 +645,24 @@ function isComputed(ref: ProjectedColumn): boolean {
   return type === "formula" || type === "lookup" || type === "rollup";
 }
 
+/**
+ * The longest text a computed cell gives: five times the longest stored
+ * cell. Past it the cell is empty and carries an error, so that one formula
+ * cannot make a page too large to hold.
+ */
+export const MAX_COMPUTED_TEXT = 100_000;
+
+function boundsText(ref: ProjectedColumn): boolean {
+  return isComputed(ref) && ref.kind === "text";
+}
+
+/** Whether a read holds a text a formula computes, which may be long. */
+export function readsComputedText(page: {
+  columns: readonly ProjectedColumn[];
+}): boolean {
+  return page.columns.some(boundsText);
+}
+
 function isExactNumber(ref: ProjectedColumn): boolean {
   return ref.kind === "number" && !FLOAT_SAFE_TYPES.has(ref.column.fieldType);
 }
@@ -686,16 +704,19 @@ function errorsEntry(
   names: readonly string[],
 ): readonly [string, string] | undefined {
   const order = [...prepared.columns.keys()];
+  const d = prepared.d;
   const entries = names.flatMap((name) => {
     const ref = prepared.columns.get(name);
-    return ref?.errorSql
-      ? [
-          [
-            name,
-            prepared.d.errorJson(`q.${errorColumn(order.indexOf(name))}`),
-          ] as const,
-        ]
-      : [];
+    if (!ref) return [];
+    const own = ref.errorSql
+      ? `q.${errorColumn(order.indexOf(name))}`
+      : undefined;
+    const tooLong = boundsText(ref)
+      ? `(case when ${d.textLength(refSql(name))} > ${String(MAX_COMPUTED_TEXT)} then ${d.errorMessage("'Text too long'")} end)`
+      : undefined;
+    const message =
+      own && tooLong ? `coalesce(${own}, ${tooLong})` : (own ?? tooLong);
+    return message ? [[name, d.errorJson(message)] as const] : [];
   });
   if (entries.length === 0) return undefined;
   return [ROW_ERRORS, prepared.d.json(prepared.d.jsonObject(entries), "json")];
@@ -737,7 +758,9 @@ function projection(
       : ref.kind === "array" && ref.elem === "number" && d.name === "postgres"
         ? // A list's numbers are computed: canonical, as on every engine.
           `array(select trim_scale(v)::text from unnest(${refSql(name)}) v)`
-        : refSql(name);
+        : boundsText(ref)
+          ? `(case when ${d.textLength(refSql(name))} <= ${String(MAX_COMPUTED_TEXT)} then ${refSql(name)} end)`
+          : refSql(name);
     entries.push([name, d.json(value, jsonKind(ref))]);
   }
   const errors = errorsEntry(prepared, names);

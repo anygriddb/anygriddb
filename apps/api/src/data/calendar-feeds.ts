@@ -21,6 +21,7 @@ import {
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { loadBindings } from "../auth/access.js";
+import type { ReadBudget } from "../read-budget.js";
 import { readerEngine } from "./acl.js";
 import { withAudit } from "./audit-context.js";
 import { readPage } from "./rows.js";
@@ -147,6 +148,7 @@ export async function calendarFeedDocument(
   token: string,
   publicUrl: string,
   now: Date = new Date(),
+  budget?: ReadBudget,
 ): Promise<string | null> {
   if (!TOKEN.test(token)) return null;
   const feed = await db
@@ -212,7 +214,7 @@ export async function calendarFeedDocument(
         timeZone: "UTC",
         ...(filter ? { filter } : {}),
       },
-      { total: false },
+      { total: false, budget },
     );
     for (const row of read.rows) {
       const from = momentOf(row[start], kinds.get(start) ?? "date");
