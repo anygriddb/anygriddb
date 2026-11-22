@@ -223,7 +223,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   source_unreachable: msg`Source unreachable: check the host, the port, and the firewall`,
   source_timeout: msg`The source did not answer in time`,
   source_tls_unavailable: msg`The source does not offer TLS: enable it on the server`,
-  source_tls_failed: msg`The source's certificate is not trusted: paste its certificate authority or its certificate`,
+  source_tls_failed: msg`The source's certificate is not trusted, or does not name this host: paste its certificate authority or its certificate, and use a host it names`,
   source_auth_failed: msg`Sign-in refused: check the account and the password`,
   source_unknown_database: msg`Database not found on the source`,
   source_admin_account: msg`This account is an administrator: create an account dedicated to AnyGridDB`,

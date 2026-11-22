@@ -1,0 +1,14 @@
+diff --git a/lib/base/connection.js b/lib/base/connection.js
+index 4a02617f76648ebabfda755c5850b98a3d47bf25..59169196dd9536c57133813c5c75d1f3f81c6c01 100644
+--- a/lib/base/connection.js
++++ b/lib/base/connection.js
+@@ -456,6 +456,9 @@ class BaseConnection extends EventEmitter {
+         session: sessionSlot.get(),
+         isServer: false,
+         socket: this.stream,
++        // No SNI for an address, but its identity is still this host: without
++        // it the TLS layer checks the certificate against "localhost".
++        host: this.config.host,
+         servername,
+       },
+       () => {

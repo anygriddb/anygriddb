@@ -66,6 +66,19 @@ export function serverFlavor(version: string): {
 }
 
 /**
+ * The TLS of every connection to a MySQL or MariaDB source: the chain, and
+ * the host as it was declared on the certificate (ADR 0026). Nothing turns
+ * either off.
+ */
+export function mysqlTls(tlsCa: string | null | undefined) {
+  return {
+    rejectUnauthorized: true,
+    verifyIdentity: true,
+    ca: tlsCa ?? undefined,
+  };
+}
+
+/**
  * Signs in to a MySQL or MariaDB source the way every read does: verified
  * TLS (with the pasted certificate when there is one), the program name
  * AnyGridDB, UTC for TIMESTAMP values, and exact numbers as text. The
@@ -88,9 +101,7 @@ export async function connectMysql(
       connectAttributes: { program_name: "AnyGridDB" },
       // No switch turns verification off (ADR 0026): only the operator's
       // development flag connects without TLS at all.
-      ssl: options.allowPlaintext
-        ? undefined
-        : { rejectUnauthorized: true, ca: source.tlsCa ?? undefined },
+      ssl: options.allowPlaintext ? undefined : mysqlTls(source.tlsCa),
       supportBigNumbers: true,
       bigNumberStrings: true,
       decimalNumbers: false,

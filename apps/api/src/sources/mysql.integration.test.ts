@@ -4,6 +4,7 @@
  * would, and reading what their dedicated account may see.
  */
 import { randomBytes } from "node:crypto";
+import dns from "node:dns";
 import { AppError, describeColumns } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import {
@@ -11,23 +12,27 @@ import {
   Wait,
   type StartedTestContainer,
 } from "testcontainers";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { keyRing } from "../auth/key-ring.js";
+import { withAudit } from "../data/audit-context.js";
 import { loadEngine } from "../data/engine.js";
 import { aggregateRows, readPage } from "../data/rows.js";
 import { addColumn, insertBase } from "../data/schema-ops.js";
 import { createTestDatabase } from "../test-database.js";
 import { exposeTables } from "./expose.js";
 import { exerciseHostedBase } from "./host-table.test-helpers.js";
+import { startStandIn } from "./mysql-stand-in.test-helpers.js";
 import { isAdministrator } from "./mysql.js";
 import { introspectMysql } from "./mysql-schema.js";
 import { setSourcePools, SourcePools, toPositional } from "./pools.js";
 import { checkConnection, createSource } from "./sources.js";
 import type { SourceConnection, SourceSettings } from "./types.js";
 
+const NAMED_HOST = "db.example.test";
+
 const settings: SourceSettings = {
-  allows: (host) => host === "localhost" || host === "127.0.0.1",
-  allowedHosts: ["localhost", "127.0.0.1"],
+  allows: (host) => ["localhost", "127.0.0.1", NAMED_HOST].includes(host),
+  allowedHosts: ["localhost", "127.0.0.1", NAMED_HOST],
   allowPlaintext: false,
 };
 
@@ -50,6 +55,7 @@ const FLAVORS: Array<{
   image: string;
   server: string;
   client: string;
+  reloadTls: string;
   env: Record<string, string>;
   version: RegExp;
 }> = [
@@ -58,6 +64,8 @@ const FLAVORS: Array<{
     image: "mysql:8.4",
     server: "mysqld",
     client: "mysql",
+    reloadTls:
+      "set global ssl_ca = '/tmp/trust.crt'; alter instance reload tls",
     env: { MYSQL_ROOT_PASSWORD: "rootpass", MYSQL_DATABASE: "erp" },
     version: /^8\.4\./,
   },
@@ -66,6 +74,7 @@ const FLAVORS: Array<{
     image: "mariadb:11.4",
     server: "mariadbd",
     client: "mariadb",
+    reloadTls: "flush ssl",
     env: { MARIADB_ROOT_PASSWORD: "rootpass", MARIADB_DATABASE: "erp" },
     version: /^11\.4\..*MariaDB/,
   },
@@ -176,6 +185,162 @@ describe.each(FLAVORS)("$engine sources", (flavor) => {
         engine: flavor.engine === "mysql" ? "mariadb" : "mysql",
       }),
     ).toBe("source_engine_mismatch");
+  });
+
+  describe("the name on the server's certificate", () => {
+    let authority = "";
+
+    const shell = async (script: string) => {
+      const done = await server?.exec(["bash", "-c", script]);
+      expect(done?.exitCode, done?.output).toBe(0);
+      return done?.stdout ?? "";
+    };
+    const reload = async () => {
+      const done = await server?.exec([
+        flavor.client,
+        "-uroot",
+        "-prootpass",
+        "-e",
+        flavor.reloadTls,
+      ]);
+      expect(done?.exitCode, done?.output).toBe(0);
+    };
+    const issue = async (names: string) => {
+      await shell(
+        [
+          "cd /tmp",
+          "openssl req -newkey rsa:2048 -nodes -subj /CN=source -keyout leaf.key -out leaf.csr 2>/dev/null",
+          `printf 'subjectAltName=${names}' > leaf.ext`,
+          "openssl x509 -req -in leaf.csr -CA ca.crt -CAkey ca.key -CAcreateserial -days 1 -extfile leaf.ext -out leaf.crt 2>/dev/null",
+        ].join(" && "),
+      );
+      return {
+        cert: await shell("cat /tmp/leaf.crt"),
+        key: await shell("cat /tmp/leaf.key"),
+      };
+    };
+    const serve = async (names: string) => {
+      await issue(names);
+      await shell(
+        "cd /tmp && cp leaf.crt server.crt && cp leaf.key server.key && chown mysql server.crt server.key && chmod 600 server.key",
+      );
+      await reload();
+    };
+    const outcome = (patch: Partial<SourceConnection>) =>
+      checkConnection(
+        settings,
+        connection({ tlsCa: authority, ...patch }),
+      ).then(
+        () => "connected",
+        (error: unknown) =>
+          error instanceof AppError ? error.code : String(error),
+      );
+
+    beforeAll(async () => {
+      await shell(
+        [
+          "cd /tmp",
+          "cp server.crt first.crt",
+          "cp server.key first.key",
+          "openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=Test-Authority -keyout ca.key -out ca.crt 2>/dev/null",
+          "cp ca.crt trust.crt",
+          "chmod 644 trust.crt",
+        ].join(" && "),
+      );
+      authority = await shell("cat /tmp/ca.crt");
+      const resolve = dns.lookup.bind(dns) as (...args: unknown[]) => void;
+      vi.spyOn(dns, "lookup").mockImplementation(
+        (host: string, ...rest: unknown[]) =>
+          resolve(host === NAMED_HOST ? "127.0.0.1" : host, ...rest),
+      );
+    });
+
+    afterAll(async () => {
+      vi.restoreAllMocks();
+      await shell(
+        "cd /tmp && cp first.crt trust.crt && cp first.crt server.crt && cp first.key server.key && chown mysql server.crt server.key && chmod 600 server.key",
+      );
+      await reload();
+    });
+
+    it.each([
+      ["its exact name", `DNS:${NAMED_HOST}`, NAMED_HOST],
+      ["a wildcard of its domain", "DNS:*.example.test", NAMED_HOST],
+      ["the address it is declared by", "IP:127.0.0.1", "127.0.0.1"],
+    ])("accepts a certificate for %s", async (_label, names, host) => {
+      await serve(names);
+      expect(await outcome({ host })).toBe("connected");
+    });
+
+    it.each([
+      ["another name", "DNS:other.example.test", NAMED_HOST],
+      ["a wildcard of another domain", "DNS:*.example.invalid", NAMED_HOST],
+      ["a name, when it is declared by address", "DNS:localhost", "127.0.0.1"],
+      ["another address", "IP:127.0.0.2", "127.0.0.1"],
+    ])("refuses a certificate for %s", async (_label, names, host) => {
+      await serve(names);
+      expect(await outcome({ host })).toBe("source_tls_failed");
+    });
+
+    it("gives its password only to a server whose certificate names it", async () => {
+      const right = await startStandIn(await issue(`DNS:${NAMED_HOST}`));
+      const wrong = await startStandIn(await issue("DNS:other.example.test"));
+      try {
+        expect(await outcome({ host: NAMED_HOST, port: right.port })).toBe(
+          "source_auth_failed",
+        );
+        expect(right.received().includes("readerpass\0")).toBe(true);
+        expect(await outcome({ host: NAMED_HOST, port: wrong.port })).toBe(
+          "source_tls_failed",
+        );
+        expect(wrong.received().length).toBe(0);
+      } finally {
+        await right.close();
+        await wrong.close();
+      }
+    });
+
+    it("holds the pool to the same name", async () => {
+      await serve(`DNS:${NAMED_HOST}`);
+      const deps = { db, key, settings };
+      const source = await createSource(deps, admin, {
+        name: `Named ${flavor.engine}`,
+        ...connection({ host: NAMED_HOST, tlsCa: authority }),
+        connectionLimit: 1,
+        timeZone: "UTC",
+      });
+      const named = new SourcePools({
+        db,
+        key,
+        settings,
+        log: () => undefined,
+      });
+      const wrong = await startStandIn(await issue("DNS:other.example.test"));
+      try {
+        await expect(
+          named.read(source.id, async (run) =>
+            run({ text: "select 1 as one", values: [] }),
+          ),
+        ).resolves.toBeDefined();
+        await named.forget(source.id);
+        await withAudit(db, { userId: admin, source: "web" }, (tx) =>
+          tx
+            .updateTable("sources")
+            .set({ port: wrong.port, updatedAt: new Date() })
+            .where("id", "=", source.id)
+            .execute(),
+        );
+        await expect(
+          named.read(source.id, async (run) =>
+            run({ text: "select 1 as one", values: [] }),
+          ),
+        ).rejects.toMatchObject({ code: "source_tls_failed" });
+        expect(wrong.received().length).toBe(0);
+      } finally {
+        await named.close();
+        await wrong.close();
+      }
+    });
   });
 
   it("reads the tables the account may read, with their keys and rights", async () => {

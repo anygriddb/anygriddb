@@ -3,7 +3,7 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { lookup as dnsLookup } from "node:dns";
 import { lookup } from "node:dns/promises";
 import { request } from "node:https";
-import { BlockList, isIP, type LookupFunction } from "node:net";
+import { isIP, type LookupFunction } from "node:net";
 import {
   AppError,
   effectiveTableRole,
@@ -30,6 +30,7 @@ import {
   webhookDisabledMailSubject,
 } from "./mail-i18n.js";
 import { sendMail, smtpReady, type SmtpConfig } from "./mail.js";
+import { isPrivateAddress, isReservedAddress } from "./special-addresses.js";
 import type { NotificationInput } from "./notifications.js";
 import { addJob, TASKS, type SqlExecutor } from "./queue/jobs.js";
 
@@ -76,49 +77,10 @@ export type HookDeps = {
 /* Public targets                                                      */
 /* ------------------------------------------------------------------ */
 
-const blocked = new BlockList();
-blocked.addSubnet("0.0.0.0", 8, "ipv4");
-blocked.addSubnet("10.0.0.0", 8, "ipv4");
-blocked.addSubnet("100.64.0.0", 10, "ipv4");
-blocked.addSubnet("127.0.0.0", 8, "ipv4");
-blocked.addSubnet("169.254.0.0", 16, "ipv4");
-blocked.addSubnet("172.16.0.0", 12, "ipv4");
-blocked.addSubnet("192.168.0.0", 16, "ipv4");
-blocked.addSubnet("224.0.0.0", 4, "ipv4");
-// Class E (reserved), same bound as notify targets.
-blocked.addSubnet("240.0.0.0", 4, "ipv4");
-blocked.addAddress("::", "ipv6");
-
-blocked.addAddress("::1", "ipv6");
-blocked.addSubnet("64:ff9b::", 96, "ipv6");
-blocked.addSubnet("64:ff9b:1::", 48, "ipv6");
-blocked.addSubnet("2001:0::", 32, "ipv6");
-blocked.addSubnet("2002::", 16, "ipv6");
-blocked.addSubnet("fc00::", 7, "ipv6");
-blocked.addSubnet("fec0::", 10, "ipv6");
-blocked.addSubnet("fe80::", 10, "ipv6");
-
-/** The IPv4 address inside `::ffff:a.b.c.d` or `::ffff:xxxx:xxxx`, if any. */
-function mappedIpv4(address: string): string | null {
-  const match = /^(?:0{0,4}:){0,5}:?ffff:(.+)$/i.exec(address);
-  if (!match?.[1]) return null;
-  const rest = match[1];
-  if (isIP(rest) === 4) return rest;
-  const hex = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(rest);
-  if (!hex?.[1] || !hex[2]) return null;
-  const high = Number.parseInt(hex[1], 16);
-  const low = Number.parseInt(hex[2], 16);
-  return [high >> 8, high & 255, low >> 8, low & 255].join(".");
-}
-
 export function isBlockedAddress(address: string, family: number): boolean {
-  if (family === 6) {
-    // Node's BlockList would match an IPv4-mapped rule against every IPv4
-    // address, so mapped addresses are unwrapped and checked as IPv4.
-    const inner = mappedIpv4(address);
-    if (inner) return blocked.check(inner, "ipv4");
-  }
-  return blocked.check(address, family === 6 ? "ipv6" : "ipv4");
+  return (
+    isReservedAddress(address, family) || isPrivateAddress(address, family)
+  );
 }
 
 /** Checks scheme, credentials, and names that never point outside. */

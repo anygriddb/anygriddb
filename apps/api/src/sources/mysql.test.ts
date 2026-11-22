@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { serverFlavor } from "./mysql.js";
+import { mysqlTls, serverFlavor } from "./mysql.js";
 
 describe("serverFlavor", () => {
   it("tells MySQL from MariaDB, and whether it is recent enough", () => {
@@ -15,5 +15,20 @@ describe("serverFlavor", () => {
       supported: true,
     });
     expect(serverFlavor("10.5.27-MariaDB").supported).toBe(false);
+  });
+});
+
+describe("mysqlTls", () => {
+  it("verifies the chain and the name, with or without a pasted authority", () => {
+    expect(mysqlTls("PEM")).toEqual({
+      rejectUnauthorized: true,
+      verifyIdentity: true,
+      ca: "PEM",
+    });
+    expect(mysqlTls(null)).toEqual({
+      rejectUnauthorized: true,
+      verifyIdentity: true,
+      ca: undefined,
+    });
   });
 });

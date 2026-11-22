@@ -11686,8 +11686,8 @@ msgid "The source's account may not make this change: its administrator can gran
 msgstr "The source's account may not make this change: its administrator can grant it"
 
 #: lib/errors.ts
-msgid "The source's certificate is not trusted: paste its certificate authority or its certificate"
-msgstr "The source's certificate is not trusted: paste its certificate authority or its certificate"
+msgid "The source's certificate is not trusted, or does not name this host: paste its certificate authority or its certificate, and use a host it names"
+msgstr "The source's certificate is not trusted, or does not name this host: paste its certificate authority or its certificate, and use a host it names"
 
 #: components/admin/instant-range.tsx
 msgid "The start is after the end."

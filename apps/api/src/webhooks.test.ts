@@ -50,6 +50,15 @@ describe("isBlockedAddress", () => {
       ["::ffff:127.0.0.1", 6],
       ["::ffff:7f00:1", 6],
       ["::ffff:a9fe:a9fe", 6],
+      ["192.0.0.1", 4],
+      ["192.88.99.1", 4],
+      ["198.18.0.1", 4],
+      ["198.19.255.255", 4],
+      ["ff02::1", 6],
+      ["::ffff:198.18.0.1", 6],
+      ["::ffff:c612:1", 6],
+      ["::ffff:192.0.0.1", 6],
+      ["::ffff:192.88.99.1", 6],
     ] as const) {
       expect(isBlockedAddress(address, family), address).toBe(true);
     }
@@ -59,6 +68,9 @@ describe("isBlockedAddress", () => {
     expect(isBlockedAddress("93.184.216.34", 4)).toBe(false);
     expect(isBlockedAddress("2606:4700::1111", 6)).toBe(false);
     expect(isBlockedAddress("::ffff:93.184.216.34", 6)).toBe(false);
+    expect(isBlockedAddress("203.0.113.10", 4)).toBe(false);
+    expect(isBlockedAddress("198.17.255.255", 4)).toBe(false);
+    expect(isBlockedAddress("198.20.0.0", 4)).toBe(false);
   });
 });
 

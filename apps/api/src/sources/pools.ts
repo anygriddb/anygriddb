@@ -14,7 +14,7 @@ import type { Database } from "@anygriddb/db";
 import mysql from "mysql2/promise";
 import pg from "pg";
 import { decryptSecret } from "../auth/crypto.js";
-import { mysqlSourceError } from "./mysql.js";
+import { mysqlSourceError, mysqlTls } from "./mysql.js";
 import { postgresSourceError } from "./postgres.js";
 import {
   openSqlServer,
@@ -371,9 +371,7 @@ function mysqlBackend(row: SourceRow, plaintext: boolean, log: Log): Backend {
     idleTimeout: 60_000,
     maxIdle: row.connectionLimit,
     connectAttributes: { program_name: "AnyGridDB" },
-    ssl: plaintext
-      ? undefined
-      : { rejectUnauthorized: true, ca: row.tlsCa ?? undefined },
+    ssl: plaintext ? undefined : mysqlTls(row.tlsCa),
     supportBigNumbers: true,
     bigNumberStrings: true,
     decimalNumbers: false,
