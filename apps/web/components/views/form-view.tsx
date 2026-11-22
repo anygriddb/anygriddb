@@ -46,7 +46,11 @@ import {
   startingPoint,
   toDateValue,
 } from "../../lib/dates";
-import { readingIn, useRefusedText } from "../../lib/cell-reading";
+import {
+  readingGiven,
+  readingIn,
+  useRefusedText,
+} from "../../lib/cell-reading";
 import { useLocale } from "../../lib/i18n";
 import { useSession } from "../../lib/session";
 import { countConditions, FilterBuilder } from "../table/filter-builder";
@@ -472,7 +476,10 @@ export function FormView(props: ViewProps) {
                 config: column.config,
               },
               raw,
-              readingIn(table.locale),
+              // What a link filled is not in the reader's language.
+              raw === prefill.values[column.name]
+                ? readingGiven()
+                : readingIn(table.locale),
             );
       if ("refused" in reading || reading.value === undefined) {
         toast.error(

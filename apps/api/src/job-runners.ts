@@ -216,6 +216,7 @@ const runImport =
         reason: input.reason,
         created: input.created,
         ...(input.decimalMark ? { decimalMark: input.decimalMark } : {}),
+        ...(input.dayOrder ? { dayOrder: input.dayOrder } : {}),
         ...(input.timeZone ? { timeZone: input.timeZone } : {}),
         resolveUser: (text) => {
           const folded = text.trim().toLowerCase();

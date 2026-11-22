@@ -1,5 +1,11 @@
 import { readFile } from "node:fs/promises";
-import { expect, test, type Page, type WebSocketRoute } from "./journey";
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type WebSocketRoute,
+} from "./journey";
 import {
   accessibilityViolations,
   pickFieldType,
@@ -490,68 +496,105 @@ test.describe("a file of more rows than one batch", () => {
     expect(blocked).toEqual([]);
   });
 
-  test("asks what a comma is, and refuses a number that reads two ways", async ({
+  test("asks what a comma is and what comes first in a date, or refuses", async ({
     page,
   }) => {
     await signUpWithTable(page, "Dora Decimals");
     const tableId = tableOf(page);
-    await call(page, "catalog.addColumn", {
-      tableId,
-      name: "qty",
-      label: "Qty",
-      fieldType: "number",
-      config: {},
-    });
+    for (const [name, label, fieldType] of [
+      ["qty", "Qty", "number"],
+      ["due", "Due", "date"],
+    ] as const) {
+      await call(page, "catalog.addColumn", {
+        tableId,
+        name,
+        label,
+        fieldType,
+        config: {},
+      });
+    }
     await page.reload();
-    const importFile = async (name: string, choice: string | null) => {
+    const closeReport = (dialog: Locator) =>
+      dialog
+        .getByRole("button", { name: "Close" })
+        .filter({ hasText: "Close" })
+        .click();
+    const open = async (lines: string) => {
       await page.getByRole("button", { name: "More actions" }).click();
       await page.getByRole("menuitem", { name: "Import a file" }).click();
       const dialog = page.getByRole("dialog", { name: "Import rows" });
       await dialog.locator('input[type="file"]').setInputFiles({
         name: "figures.csv",
         mimeType: "text/csv",
-        buffer: Buffer.from(`Name,Qty\n${name},"1,234"\n${name} 2,"12,5"\n`),
+        buffer: Buffer.from(`Name,Qty,Due\n${lines}`),
       });
-      const question = dialog.getByLabel(
+      const decimals = dialog.getByLabel(
         "What separates the decimals in this file?",
       );
-      await expect(question).toBeVisible();
-      await expect(
-        dialog.getByText("1 value can be read in two ways, such as 1,234."),
-      ).toBeVisible();
-      expect(await accessibilityViolations(page)).toEqual([]);
-      if (choice) await question.selectOption({ label: choice });
-      await dialog.getByRole("button", { name: "Import 2 rows" }).click();
-      return dialog;
+      await expect(decimals).toBeVisible();
+      return { dialog, decimals };
     };
+    const lines = (name: string) =>
+      `${name},"1,234",03/04/2026\n${name} 2,"12,5",13/04/2026\n`;
 
-    const refused = await importFile("unsaid", null);
+    // Nothing said: the line that reads two ways is refused, on its number.
+    const unsaid = await open(lines("unsaid"));
     await expect(
-      refused.getByText("1 row added, 0 updated, 1 rejected."),
-    ).toBeVisible({ timeout: 60_000 });
-    await expect(
-      refused.getByRole("cell", { name: "2", exact: true }),
+      unsaid.dialog.getByText(
+        "1 value can be read in two ways, such as 1,234.",
+      ),
     ).toBeVisible();
-    await expect(refused.getByText(/reads two ways/)).toBeVisible();
-    await refused
-      .getByRole("button", { name: "Close" })
-      .filter({ hasText: "Close" })
-      .click();
-
-    const told = await importFile(
-      "told",
-      "A point: 1,234 is one thousand two hundred and thirty-four",
-    );
     await expect(
-      told.getByText("2 rows added, 0 updated, 0 rejected."),
+      unsaid.dialog.getByLabel("What comes first in this file's dates?"),
+    ).toHaveValue("");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await unsaid.dialog.getByRole("button", { name: "Import 2 rows" }).click();
+    await expect(
+      unsaid.dialog.getByText("1 row added, 0 updated, 1 rejected."),
     ).toBeVisible({ timeout: 60_000 });
-    await told
-      .getByRole("button", { name: "Close" })
-      .filter({ hasText: "Close" })
-      .click();
-    const quantities = (await readRows(page, tableId)).map((row) => row.qty);
-    expect(quantities).toEqual(expect.arrayContaining(["12.5", "1234"]));
-    expect(quantities).not.toContain("1.234");
+    await expect(
+      unsaid.dialog.getByText(/number reads two ways/),
+    ).toBeVisible();
+    await expect(unsaid.dialog.getByText(/date reads two ways/)).toBeVisible();
+    await closeReport(unsaid.dialog);
+
+    // Told both, the file reads as it was said.
+    const told = await open(lines("told"));
+    await told.decimals.selectOption({
+      label: "A point: 1,234 is one thousand two hundred and thirty-four",
+    });
+    await told.dialog
+      .getByLabel("What comes first in this file's dates?")
+      .selectOption({ label: "The day: 03/04/2026 is 3 April" });
+    await told.dialog.getByRole("button", { name: "Import 2 rows" }).click();
+    await expect(
+      told.dialog.getByText("2 rows added, 0 updated, 0 rejected."),
+    ).toBeVisible({ timeout: 60_000 });
+    await closeReport(told.dialog);
+    const kept = (await readRows(page, tableId)).find(
+      (row) => row.name === "told",
+    );
+    expect(kept).toMatchObject({ qty: "1234", due: "2026-04-03" });
+
+    // Told a comma, a point before three digits is refused, and said first.
+    const comma = await open(`comma,"1,234",\npoint,5.678,\n`);
+    await comma.decimals.selectOption({
+      label: "A comma: 1,234 is one point two three four",
+    });
+    await expect(
+      comma.dialog.getByText(/1 value such as 1\.234 reads two ways/),
+    ).toBeVisible();
+    await comma.dialog.getByRole("button", { name: "Import 2 rows" }).click();
+    await expect(
+      comma.dialog.getByText("1 row added, 0 updated, 1 rejected."),
+    ).toBeVisible({ timeout: 60_000 });
+    await expect(
+      comma.dialog.getByText(/write it 1234 or 1,234/),
+    ).toBeVisible();
+    await closeReport(comma.dialog);
+    const rows = await readRows(page, tableId);
+    expect(rows.find((row) => row.name === "comma")?.qty).toBe("1.234");
+    expect(rows.some((row) => row.name === "point")).toBe(false);
   });
 });
 
@@ -1338,6 +1381,7 @@ test.describe("what is copied, pasted, and typed in the grid", () => {
     for (const [name, fieldType] of [
       ["qty", "number"],
       ["stars", "rating"],
+      ["day", "date"],
     ] as const) {
       await call(page, "catalog.addColumn", {
         tableId,
@@ -1378,6 +1422,17 @@ test.describe("what is copied, pasted, and typed in the grid", () => {
     await expect(page.getByText(/1 cell skipped/).first()).toBeVisible();
     expect((await rowById(page, tableId, rowId)).stars ?? null).toBeNull();
 
+    // English is written both ways: a date with two readings is refused.
+    await clip("03/04/2026");
+    await cellOf("day").click();
+    await page.keyboard.press("ControlOrMeta+v");
+    await expect(page.getByText(/1 date reads two ways/).first()).toBeVisible();
+    expect((await rowById(page, tableId, rowId)).day ?? null).toBeNull();
+    await clip("13/04/2026");
+    await cellOf("day").click();
+    await pasteAndSettle(page);
+    expect((await rowById(page, tableId, rowId)).day).toBe("2026-04-13");
+
     // The same characters, in French, are a decimal.
     await page.evaluate(() => window.localStorage.setItem("ag_locale", "fr"));
     await page.reload();
@@ -1385,6 +1440,32 @@ test.describe("what is copied, pasted, and typed in the grid", () => {
     await clip("1,234");
     await cellOf("qty").click();
     await pasteAndSettle(page);
+    expect((await rowById(page, tableId, rowId)).qty).toBe("1.234");
+
+    // French puts the day first.
+    await clip("03/04/2026");
+    await cellOf("day").click();
+    await pasteAndSettle(page);
+    expect((await rowById(page, tableId, rowId)).day).toBe("2026-04-03");
+
+    // Where a comma is the decimal, a point before three digits is refused.
+    await clip("5.678");
+    await cellOf("qty").click();
+    await page.keyboard.press("ControlOrMeta+v");
+    await expect(page.getByText(/1 nombre se lit/).first()).toBeVisible();
+    expect((await rowById(page, tableId, rowId)).qty).toBe("1.234");
+
+    // Typed, it is refused and said; the stored value opens with its comma.
+    await cellOf("qty").click();
+    await page.keyboard.press("Enter");
+    const editor = page.getByRole("textbox", { name: "qty", exact: true });
+    await expect(editor).toHaveValue("1,234");
+    await editor.fill("5.678");
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByText(/Écrivez-le 1234 ou 1,234/).first(),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
     expect((await rowById(page, tableId, rowId)).qty).toBe("1.234");
   });
 

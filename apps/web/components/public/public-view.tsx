@@ -26,7 +26,11 @@ import { useErrorText } from "../../lib/errors";
 import { InstanceMark } from "../brand/instance-mark";
 import { AboutButton } from "../shell/about-dialog";
 import { SortHeader } from "../sort-header";
-import { readingIn, useRefusedText } from "../../lib/cell-reading";
+import {
+  readingGiven,
+  readingIn,
+  useRefusedText,
+} from "../../lib/cell-reading";
 import { useLocale } from "../../lib/i18n";
 import { intlLocale } from "../../lib/format";
 
@@ -178,7 +182,10 @@ function PublicForm({
                 config: column.config,
               },
               raw,
-              readingIn(locale),
+              // What a link filled is not in the reader's language.
+              raw === prefill.values[column.name]
+                ? readingGiven()
+                : readingIn(locale),
             );
       if ("refused" in reading || reading.value === undefined) {
         setError(

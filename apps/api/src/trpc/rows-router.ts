@@ -647,6 +647,7 @@ export const rowsRouter = t.router({
             reason: input.reason,
             created,
             decimalMark: input.decimalMark,
+            dayOrder: input.dayOrder,
             timeZone: input.timeZone,
           },
         });

@@ -1,4 +1,5 @@
-import { coerceCellValue, type DecimalMark } from "@anygriddb/core";
+import { coerceCellValue } from "@anygriddb/core";
+import type { Reading } from "../../lib/cell-reading";
 import {
   canWrite,
   type CatalogColumn,
@@ -38,7 +39,7 @@ export function linkedRowDraft(
   column: CatalogColumn,
   tables: readonly CatalogTable[],
   text: string,
-  reading?: { decimalMark: DecimalMark; timeZone: string },
+  reading?: Reading,
 ): { tableId: string; values: Record<string, CellValue> } | undefined {
   const typed = text.trim();
   const target = linkTarget(column, tables);

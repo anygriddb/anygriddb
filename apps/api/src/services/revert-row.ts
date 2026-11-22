@@ -6,11 +6,14 @@ import {
   AppError,
   type CellValue,
   cellFromAudit,
+  isDecimalString,
   isWritableType,
+  withExactNumbers,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
+import { sql } from "kysely";
 import { assertAttachmentKeys } from "../attachments.js";
-import { readByIds } from "../data/rows.js";
+import { readByIds, trailNumbers } from "../data/rows.js";
 import type { RowScope, RowServiceDeps } from "./rows.js";
 import { replaceLinks, updateRows } from "./rows.js";
 
@@ -50,7 +53,16 @@ export async function revertRow(
     }
     if (!isWritableType(column.fieldType))
       throw new AppError("revert_unavailable");
-    values[field] = cellFromAudit(column.fieldType, raw ?? null);
+    const cell = cellFromAudit(column.fieldType, raw ?? null);
+    // Never a rounded value: what a write cannot hold is not put back.
+    if (
+      column.fieldType === "number" &&
+      typeof cell === "string" &&
+      !isDecimalString(cell)
+    ) {
+      throw new AppError("revert_not_exact", field);
+    }
+    values[field] = cell;
   }
   if (input.field) {
     if (!Object.hasOwn(input.seen, input.field)) {
@@ -180,13 +192,15 @@ async function nativePast(
   const event = await db
     .selectFrom("auditEvents")
     .select(["oldValue", "action"])
+    // jsonb keeps every digit of a number; its JSON read here does not.
+    .select(trailNumbers(sql.ref("old_value")).as("oldNumbers"))
     .where("id", "=", eventId)
     .where("tableId", "=", tableId)
     .where("recordId", "=", recordId)
     .executeTakeFirst();
   if (!event || event.action !== "update")
     throw new AppError("revert_unavailable");
-  return object(event.oldValue);
+  return object(withExactNumbers(event.oldValue, event.oldNumbers));
 }
 
 async function externalPast(

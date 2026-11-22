@@ -38,6 +38,7 @@ export {
   asPayload,
   auditValue,
   cellFromAudit,
+  withExactNumbers,
   earlierChanges,
   earlierInputSchema,
   payloadId,
@@ -72,7 +73,13 @@ export {
   readCellValue,
 } from "./cell-values";
 
-export { type DecimalMark, isAmbiguousNumber } from "./typed-text";
+export {
+  type DayOrder,
+  type DecimalMark,
+  isAmbiguousDate,
+  isAmbiguousNumber,
+  isAmbiguousPoint,
+} from "./typed-text";
 
 export { jsonCellText, prettyJson } from "./json-text";
 export { sameAsSeen, sameFieldValue } from "./seen-cell";

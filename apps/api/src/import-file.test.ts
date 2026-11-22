@@ -232,6 +232,24 @@ describe("reading an import file", () => {
     expect(preview.inferred[0]?.fieldType).toBe("number");
   });
 
+  it("counts a point that a decimal comma would read as thousands", async () => {
+    const { preview } = await readImport(
+      "csv",
+      "A\n1.234\n1.5\n1.2345\n0.123\n",
+    );
+    expect(preview.ambiguousPoints).toBe(1);
+    expect(preview.ambiguousNumbers).toBe(0);
+  });
+
+  it("counts the dates that read two ways, and only those", async () => {
+    const { preview } = await readImport(
+      "csv",
+      "D\n03/04/2026\n13/04/2026\n04/04/2026\n2026-04-03\n",
+    );
+    expect(preview.ambiguousDates).toBe(1);
+    expect(preview.inferred[0]?.fieldType).toBe("date");
+  });
+
   it("takes larger text files than spreadsheets or JSON", () => {
     expect(maxImportBytes("csv")).toBeGreaterThan(maxImportBytes("xlsx"));
     expect(maxImportBytes("xlsx")).toBeGreaterThan(maxImportBytes("json"));

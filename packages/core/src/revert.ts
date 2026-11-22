@@ -6,7 +6,7 @@
  */
 import { z } from "zod";
 import { type CellValue } from "./cell-values";
-import { numberToDecimal } from "./decimal";
+import { numberToDecimal, toDecimalString } from "./decimal";
 import { AppError } from "./errors";
 import type { FieldType } from "./field-types";
 import { columnNameSchema } from "./names";
@@ -174,6 +174,27 @@ export function earlierChanges(input: {
     oldPayload !== null &&
     changes.some((change) => change.canRevert || change.field === "kind");
   return { changes, canRevertAll };
+}
+
+/**
+ * A payload of the trail with its numbers exact. The trail keeps every
+ * digit, and its JSON is read through a float: `texts` holds each number
+ * as the database writes it, and takes the place of one the float changed.
+ */
+export function withExactNumbers(payload: unknown, texts: unknown): unknown {
+  const fields = asPayload(payload);
+  const numbers = asPayload(texts);
+  if (!fields || !numbers) return payload;
+  const exact = { ...fields };
+  for (const [name, text] of Object.entries(numbers)) {
+    const read = exact[name];
+    if (typeof text !== "string" || typeof read !== "number") continue;
+    const decimal = toDecimalString(text);
+    if (decimal === undefined || numberToDecimal(read) !== decimal) {
+      exact[name] = text;
+    }
+  }
+  return exact;
 }
 
 /**

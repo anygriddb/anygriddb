@@ -15,6 +15,8 @@ export type DayOrder = "day-first" | "month-first";
 const GROUPS_BY_COMMA = /^\d{1,3}(?:,\d{3})+$/;
 const GROUPS_BY_POINT = /^\d{1,3}(?:\.\d{3})+$/;
 const GROUPS_BY_SPACE = /^\d{1,3}(?: \d{3})+$/;
+/** `1.234`: where a comma is the decimal mark, this point groups thousands. */
+const ONE_GROUP_BY_POINT = /^[1-9]\d{0,2}\.\d{3}$/;
 const DIGITS = /^\d+$/;
 
 /** Whole digits and decimals as a plain decimal; nothing if either is not. */
@@ -57,7 +59,9 @@ function plainBody(
     const digits = whole.replace(/ /g, "");
     return at === -1 ? digits : joined(digits, body.slice(at + 1));
   }
-  if (comma === -1) return body;
+  if (comma === -1) {
+    return mark === "," && ONE_GROUP_BY_POINT.test(body) ? undefined : body;
+  }
   if (point !== -1) {
     const whole = body.slice(0, Math.max(comma, point));
     const grouped = comma > point ? GROUPS_BY_POINT : GROUPS_BY_COMMA;
@@ -73,22 +77,29 @@ function plainBody(
   return oneComma(body, comma, mark);
 }
 
+/** A number's text without its currency sign, its sign set apart. */
+function signedBody(raw: string): { sign: string; body: string } {
+  const tidy = raw
+    .replace(/[€$£¥%]/g, "")
+    .trim()
+    .replace(/\s+/g, " ");
+  const sign = tidy.startsWith("-") ? "-" : tidy.startsWith("+") ? "+" : "";
+  return { sign, body: tidy.slice(sign.length).trimStart() };
+}
+
 /**
  * The exact decimal a text writes: currency signs go, and its separators
  * are read. `1,234` alone reads two ways, and needs `mark` to say which.
+ * Where the mark is a comma, `1.234` reads two ways too, and is refused.
  */
 export function readNumberText(
   raw: string,
   mark?: DecimalMark,
 ): string | undefined {
-  const tidy = raw
-    .replace(/[€$£¥%]/g, "")
-    .trim()
-    .replace(/\s+/g, " ");
-  if (tidy === "") return undefined;
-  const sign = tidy.startsWith("-") ? "-" : tidy.startsWith("+") ? "+" : "";
-  const body = plainBody(tidy.slice(sign.length).trimStart(), mark);
-  return body === undefined ? undefined : toDecimalString(`${sign}${body}`);
+  const { sign, body } = signedBody(raw);
+  if (body === "") return undefined;
+  const plain = plainBody(body, mark);
+  return plain === undefined ? undefined : toDecimalString(`${sign}${plain}`);
 }
 
 /** Whether a text is a number only once its decimal mark is known. */
@@ -98,6 +109,11 @@ export function isAmbiguousNumber(text: string): boolean {
     readNumberText(text) === undefined &&
     readNumberText(text, ".") !== undefined
   );
+}
+
+/** Whether a text is `1.234`, which a comma's language would read as 1234. */
+export function isAmbiguousPoint(text: string): boolean {
+  return text.includes(".") && ONE_GROUP_BY_POINT.test(signedBody(text).body);
 }
 
 const MONTHS = new Map<string, number>(
@@ -135,23 +151,36 @@ const NUMBERS_YEAR_FIRST = /^(\d{4})([/.])(\d{1,2})\2(\d{1,2})$/;
 const NAME_THEN_DAY = /^(\p{L}+)\.? (\d{1,2})(?:st|nd|rd|th)?,? (\d{4})$/u;
 const DAY_THEN_NAME = /^(\d{1,2})(?:st|nd|rd|th|er)? (\p{L}+)\.?,? (\d{4})$/u;
 
+/** The two days a text in numbers can name: day first, and month first. */
+function bothReadings(numbers: RegExpExecArray): {
+  dayFirst: string | undefined;
+  monthFirst: string | undefined;
+} {
+  const [, first = "", , second = "", year = ""] = numbers;
+  return {
+    dayFirst: isoDay(year, Number(second), first),
+    monthFirst: isoDay(year, Number(first), second),
+  };
+}
+
 /**
- * The day a text writes, with a year of four digits: in numbers, in the
- * order its field declares, or with the month's name in English or French.
+ * The day a text writes, with a year of four digits: in numbers, or with
+ * the month's name in English or French. `order` is what the field or the
+ * reader declares, and is followed. Without one, a text with a single
+ * valid reading has that one, and `03/04/2026`, which has two, has none.
  */
-export function readDayText(
-  raw: string,
-  order: DayOrder = "day-first",
-): string | undefined {
+export function readDayText(raw: string, order?: DayOrder): string | undefined {
   const text = raw.trim().replace(/\s+/g, " ");
   if (isIsoDate(text)) return text;
   if (isIsoDateTime(text)) return text.slice(0, 10);
   const numbers = NUMBERS_YEAR_LAST.exec(text);
   if (numbers) {
-    const [, first = "", , second = "", year = ""] = numbers;
-    const [day, month] =
-      order === "month-first" ? [second, first] : [first, second];
-    return isoDay(year, Number(month), day);
+    const { dayFirst, monthFirst } = bothReadings(numbers);
+    if (order === "day-first") return dayFirst;
+    if (order === "month-first") return monthFirst;
+    return dayFirst && monthFirst && dayFirst !== monthFirst
+      ? undefined
+      : (dayFirst ?? monthFirst);
   }
   const yearFirst = NUMBERS_YEAR_FIRST.exec(text);
   if (yearFirst) {
@@ -171,6 +200,18 @@ export function readDayText(
     return month === undefined ? undefined : isoDay(year, month, day);
   }
   return undefined;
+}
+
+/**
+ * Whether a text starts with a day in numbers that is two valid, different
+ * days, as `03/04/2026` is. A time may follow it.
+ */
+export function isAmbiguousDate(text: string): boolean {
+  const [head = ""] = text.trim().split(/\s/, 1);
+  const numbers = NUMBERS_YEAR_LAST.exec(head);
+  if (!numbers) return false;
+  const { dayFirst, monthFirst } = bothReadings(numbers);
+  return Boolean(dayFirst && monthFirst && dayFirst !== monthFirst);
 }
 
 const DAY_MS = 86_400_000;

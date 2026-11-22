@@ -732,6 +732,24 @@ export function GridView(props: GridProps) {
         }),
       );
     }
+    if (plan.ambiguousDates > 0) {
+      toast.warning(
+        plural(plan.ambiguousDates, {
+          one: "# date reads two ways: write it YYYY-MM-DD, or set the field's date format",
+          other:
+            "# dates read two ways: write them YYYY-MM-DD, or set the field's date format",
+        }),
+      );
+    }
+    if (plan.ambiguousPoints > 0) {
+      toast.warning(
+        plural(plan.ambiguousPoints, {
+          one: "# number reads two ways with a comma for decimals: write it 1234 or 1,234",
+          other:
+            "# numbers read two ways with a comma for decimals: write them 1234 or 1,234",
+        }),
+      );
+    }
     if (plan.unplaced > 0) {
       toast.warning(
         plural(plan.unplaced, {

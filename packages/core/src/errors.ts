@@ -140,6 +140,13 @@ export const ERRORS = {
   value_too_long: [BAD, "Value too long"],
   /** A number whose comma could be a decimal or a thousands separator. */
   ambiguous_number: [BAD, "Ambiguous number"],
+  /** `1.234` where a comma is the decimal mark: a group, or a decimal. */
+  ambiguous_point: [BAD, "Ambiguous number: write it 1234 or 1,234"],
+  /** A day in numbers with two valid readings, and no order declared. */
+  ambiguous_date: [
+    BAD,
+    "Ambiguous date: write it YYYY-MM-DD or set the field's date format",
+  ],
   invalid_number: [BAD, "Invalid number"],
   negative_number: [BAD, "Negative number refused"],
   invalid_link: [BAD, "Invalid link"],
@@ -295,6 +302,8 @@ export const ERRORS = {
   revert_stale: [409, "Changed since it was shown"],
   revert_unavailable: [400, "This cannot be put back"],
   revert_file_gone: [400, "A file from that version is gone"],
+  /** A number of the trail with more digits than a write takes. */
+  revert_not_exact: [400, "This value cannot be written back exactly"],
   row_changed_elsewhere: [
     409,
     "Row changed outside AnyGridDB since it was locked",

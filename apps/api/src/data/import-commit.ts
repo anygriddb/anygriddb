@@ -3,6 +3,7 @@ import {
   cellText,
   type CellValue,
   type ColumnDefinition,
+  type DayOrder,
   type DecimalMark,
   type EngineCatalog,
   IMPORT_FORMATS,
@@ -354,6 +355,8 @@ export async function importIntoTable(
     resolveUser?: (text: string) => string | undefined;
     /** What the file's numbers use for decimals, when its reader said. */
     decimalMark?: DecimalMark;
+    /** Which comes first in the file's dates, when its reader said. */
+    dayOrder?: DayOrder;
     /** Where a day alone starts, in a field with no zone of its own. */
     timeZone?: string;
     /** Columns already created with the table, in mapping order. */
@@ -612,6 +615,7 @@ export async function importIntoTable(
         const reading = readCellValue(column, raw, {
           ...(input.resolveUser ? { resolveUser: input.resolveUser } : {}),
           ...(input.decimalMark ? { decimalMark: input.decimalMark } : {}),
+          ...(input.dayOrder ? { dayOrder: input.dayOrder } : {}),
           ...(input.timeZone ? { timeZone: input.timeZone } : {}),
         });
         if ("refused" in reading) {

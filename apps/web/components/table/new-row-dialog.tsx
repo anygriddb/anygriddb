@@ -1,5 +1,9 @@
 import { readCellValue } from "@anygriddb/core";
-import { readingIn, useRefusedText } from "../../lib/cell-reading";
+import {
+  readingGiven,
+  readingIn,
+  useRefusedText,
+} from "../../lib/cell-reading";
 import {
   Button,
   Dialog,
@@ -199,7 +203,10 @@ export function NewRowDialog(props: {
           : readCellValue(
               { fieldType: column.fieldType, config: column.config },
               raw,
-              readingIn(locale),
+              // What the page gave the row is not in the reader's language.
+              raw === props.initial?.[column.name]
+                ? readingGiven()
+                : readingIn(locale),
             );
       if ("refused" in reading || reading.value === undefined) {
         toast.error(

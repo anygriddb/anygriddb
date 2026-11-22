@@ -14,7 +14,9 @@ import {
   FieldGuess,
   type ImportFormat,
   inferFieldType,
+  isAmbiguousDate,
   isAmbiguousNumber,
+  isAmbiguousPoint,
   type InferredField,
   MAX_WORKBOOK_SHEETS,
 } from "@anygriddb/core";
@@ -67,6 +69,10 @@ export type ImportPreview = {
   inferred: InferredField[];
   /** Cells whose number reads two ways until the file's mark is known. */
   ambiguousNumbers: number;
+  /** Cells like `1.234`, refused if the file's mark is a comma. */
+  ambiguousPoints: number;
+  /** Cells whose date reads two ways until the file's order is known. */
+  ambiguousDates: number;
   /** The longest cell of each column, to say which fields it will not fit. */
   longest: number[];
 };
@@ -405,6 +411,8 @@ type Found = {
   sample: string[][];
   delimiter?: "," | ";" | "\t";
   ambiguousNumbers: number;
+  ambiguousPoints: number;
+  ambiguousDates: number;
   longest: number[];
 };
 
@@ -416,6 +424,8 @@ function nothingFound(): Found {
     total: 0,
     sample: [],
     ambiguousNumbers: 0,
+    ambiguousPoints: 0,
+    ambiguousDates: 0,
     longest: [],
   };
 }
@@ -435,6 +445,8 @@ function keepRow(
       found.longest[index] = cell.length;
     }
     if (isAmbiguousNumber(cell)) found.ambiguousNumbers += 1;
+    if (isAmbiguousPoint(cell)) found.ambiguousPoints += 1;
+    if (isAmbiguousDate(cell)) found.ambiguousDates += 1;
   }
 }
 
@@ -468,14 +480,17 @@ function scanResult(
       headers,
       sample: rows.slice(0, PREVIEW_ROWS),
       total: found.total,
-      // A column of `1,234` is a number: the preview asks what its comma is.
+      // The preview asks what a comma is and which comes first in a date:
+      // a column of `1,234` is a number, one of `03/04/2026` a date.
       inferred: headers.map((_, index) =>
         inferFieldType(
           rows.map((cells) => cells[index] ?? ""),
-          ".",
+          true,
         ),
       ),
       ambiguousNumbers: found.ambiguousNumbers,
+      ambiguousPoints: found.ambiguousPoints,
+      ambiguousDates: found.ambiguousDates,
       longest: headers.map((_, index) => found.longest[index] ?? 0),
     },
   };

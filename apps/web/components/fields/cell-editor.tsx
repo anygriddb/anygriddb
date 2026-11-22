@@ -41,7 +41,11 @@ import {
   startingPoint,
   toDateValue,
 } from "../../lib/dates";
-import { readingIn, useRefusedText } from "../../lib/cell-reading";
+import {
+  editableNumber,
+  readingIn,
+  useRefusedText,
+} from "../../lib/cell-reading";
 import { attachmentList, isLinkArray } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
 import { useFormatBytes } from "../../lib/format-bytes";
@@ -95,8 +99,16 @@ function toCellColumn(column: CatalogColumn) {
 }
 
 /** Text shown in an input when editing an existing value. */
-function editableText(value: unknown, column: CatalogColumn): string {
+function editableText(
+  value: unknown,
+  column: CatalogColumn,
+  locale: "fr" | "en",
+): string {
   if (value === null || value === undefined) return "";
+  // Read back in the same language: `1.234` is written `1,234` in French.
+  if (column.fieldType === "number") {
+    return editableNumber(cellText(value), locale);
+  }
   if (column.fieldType === "duration" && typeof value === "number") {
     const hours = Math.floor(value / 3600);
     const minutes = Math.floor((value % 3600) / 60);
@@ -149,7 +161,7 @@ function InlineEditor({
   const pickerRef = useRef<HTMLInputElement>(null);
   const current = row[column.name as keyof RowItem];
   const [text, setText] = useState(
-    initialText ?? editableText(current, column),
+    initialText ?? editableText(current, column, locale),
   );
   const committed = useRef(false);
   const multiline =
@@ -182,7 +194,7 @@ function InlineEditor({
   async function commit(move?: Move) {
     if (committed.current) return;
     committed.current = true;
-    const original = editableText(current, column);
+    const original = editableText(current, column, locale);
     if (text === original) {
       onDone(move);
       return;

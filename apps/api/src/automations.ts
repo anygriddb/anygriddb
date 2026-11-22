@@ -765,8 +765,9 @@ function coerceAll(
       const { refused } = reading;
       throw refused.code === "value_too_long"
         ? new AppError("value_too_long", `${name}: ${String(refused.limit)}`)
-        : refused.code === "ambiguous_number"
-          ? new AppError("ambiguous_number", name)
+        : refused.code === "ambiguous_number" ||
+            refused.code === "ambiguous_date"
+          ? new AppError(refused.code, name)
           : new AppError("invalid_value", name);
     }
     out[name] = reading.value;

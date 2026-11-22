@@ -129,6 +129,7 @@ export const importJobInputSchema = z
     reason: reasonSchema.optional(),
     created: z.array(columnNameSchema).max(200).optional(),
     decimalMark: z.enum([".", ","]).optional(),
+    dayOrder: z.enum(["day-first", "month-first"]).optional(),
     timeZone: z.string().max(64).optional(),
   })
   .strict();

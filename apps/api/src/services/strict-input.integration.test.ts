@@ -9,16 +9,18 @@ import cookie from "@fastify/cookie";
 import { AppError } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import Fastify, { type FastifyInstance } from "fastify";
+import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadBindings } from "../auth/access.js";
 import { createApiToken } from "../auth/tokens.js";
 import { importIntoTable, type ImportSource } from "../data/import-commit.js";
 import { withAudit } from "../data/audit-context.js";
-import { aggregateRows, readPage } from "../data/rows.js";
+import { aggregateRows, readAudit, readPage } from "../data/rows.js";
 import { insertBase, insertTable } from "../data/schema-ops.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { registerRestApi } from "../rest-api.js";
 import { createTestDatabase } from "../test-database.js";
+import { revertRow } from "./revert-row.js";
 import {
   createRows,
   findLiveTable,
@@ -38,6 +40,7 @@ describe("a value is read exactly, or refused", () => {
   let app: FastifyInstance;
   let owner = "";
   let token = "";
+  let editorId = "";
   let tableId = "";
   let scope: RowScope;
   const recorder = recordingBus();
@@ -76,6 +79,36 @@ describe("a value is read exactly, or refused", () => {
       },
       payload: body,
     });
+
+  /** A table of its own, with a date of each kind, for what a date reads. */
+  async function datedTable() {
+    const base = await insertBase(db, owner, { name: `Dated ${suffix}` });
+    const id = (
+      await insertTable(db, owner, {
+        baseId: base.id,
+        name: "Dated",
+        columns: [
+          { name: "name", label: "Name", fieldType: "text" },
+          { name: "plain", label: "Plain", fieldType: "date" },
+          {
+            name: "us",
+            label: "Us",
+            fieldType: "date",
+            config: { date: { format: "us" } },
+          },
+          {
+            name: "eu",
+            label: "Eu",
+            fieldType: "date",
+            config: { date: { format: "eu" } },
+          },
+        ],
+      })
+    ).id;
+    const table = await findLiveTable(db, id);
+    if (!table) throw new Error("no table");
+    return table;
+  }
 
   function fileOf(headers: string[], rows: string[][]): ImportSource {
     return {
@@ -144,6 +177,7 @@ describe("a value is read exactly, or refused", () => {
       .values({ email: `editor-${suffix}@example.com`, displayName: "Editor" })
       .returning("id")
       .executeTakeFirstOrThrow();
+    editorId = editor.id;
     await withAudit(db, { userId: owner, source: "web" }, (tx) =>
       tx
         .insertInto("roleBindings")
@@ -296,6 +330,185 @@ describe("a value is read exactly, or refused", () => {
     });
     expect(comma.failed).toBe(0);
     expect(await stored("comma", "qty")).toBe("1.234");
+  });
+
+  it("refuses in an import told a comma what only a point could be", async () => {
+    const result = await run(
+      fileOf(
+        ["Name", "Qty"],
+        [
+          ["dotted", "1.234"],
+          ["short", "1.5"],
+          ["long", "1.2345"],
+          ["grouped", "1.234,5"],
+        ],
+      ),
+      { decimalMark: "," },
+    );
+    expect(result).toMatchObject({ inserted: 3, failed: 1 });
+    expect(result.errors).toMatchObject([
+      { line: 2, column: "Qty", code: "ambiguous_point" },
+    ]);
+    expect(await stored("dotted", "qty")).toBeUndefined();
+    expect(await stored("short", "qty")).toBe("1.5");
+    expect(await stored("long", "qty")).toBe("1.2345");
+    expect(await stored("grouped", "qty")).toBe("1234.5");
+  });
+
+  it("keeps the canonical point by typecast, where no language is declared", async () => {
+    const kept = await post(
+      `{"typecast":true,"records":[{"fields":{"name":"canon","qty":"1.234"}}]}`,
+    );
+    expect(kept.statusCode, kept.body).toBe(200);
+    expect(await stored("canon", "qty")).toBe("1.234");
+  });
+
+  it("reads a date by its field, else what the import said, else refuses", async () => {
+    const table = await datedTable();
+    const mapping = ["name", "plain", "us", "eu"].map((column, source) => ({
+      source,
+      column,
+    }));
+    const importing = (rows: string[][], dayOrder?: "day-first") =>
+      importIntoTable(db, {
+        userId: owner,
+        table,
+        source: fileOf(["Name", "Plain", "Us", "Eu"], rows),
+        mapping,
+        addOptions: false,
+        canManage: true,
+        eventKey: `import:dates-${randomBytes(4).toString("hex")}`,
+        ...(dayOrder ? { dayOrder } : {}),
+      });
+    const cell = async (name: string, column: string) => {
+      const row = await db
+        .selectFrom(table.physicalName as never)
+        .select(sql<string>`${sql.ref(column)}::text`.as("v"))
+        .where("name" as never, "=", name as never)
+        .executeTakeFirst();
+      return row?.v;
+    };
+    const unsaid = await importing([
+      ["ambiguous", "03/04/2026", "", ""],
+      ["clear", "13/04/2026", "", ""],
+      ["same", "04/04/2026", "", ""],
+      ["formats", "", "03/04/2026", "03/04/2026"],
+    ]);
+    expect(unsaid).toMatchObject({ inserted: 3, failed: 1 });
+    expect(unsaid.errors).toMatchObject([
+      { line: 2, column: "Plain", code: "ambiguous_date" },
+    ]);
+    expect(await cell("clear", "plain")).toBe("2026-04-13");
+    expect(await cell("same", "plain")).toBe("2026-04-04");
+    expect(await cell("formats", "us")).toBe("2026-03-04");
+    expect(await cell("formats", "eu")).toBe("2026-04-03");
+    const said = await importing(
+      [["told", "03/04/2026", "03/04/2026", ""]],
+      "day-first",
+    );
+    expect(said.failed).toBe(0);
+    expect(await cell("told", "plain")).toBe("2026-04-03");
+    // The field's own format wins over what the import said.
+    expect(await cell("told", "us")).toBe("2026-03-04");
+  });
+
+  it("refuses by typecast a date that reads two ways, naming the format", async () => {
+    const table = await datedTable();
+    const send = (fields: Record<string, unknown>) =>
+      app.inject({
+        method: "POST",
+        url: `/api/v1/tables/${table.id}/records`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { typecast: true, records: [{ fields }] },
+      });
+    await withAudit(db, { userId: owner, source: "web" }, (tx) =>
+      tx
+        .insertInto("roleBindings")
+        .values({
+          userId: editorId,
+          role: "editor",
+          scope: "base",
+          scopeId: table.baseId,
+        })
+        .execute(),
+    );
+    const refused = await send({ name: "two", plain: "03/04/2026" });
+    expect(refused.statusCode, refused.body).toBe(400);
+    expect(refused.json<{ code: string }>().code).toBe("ambiguous_date");
+    for (const fields of [
+      { name: "one", plain: "13/04/2026" },
+      { name: "iso", plain: "2026-04-03" },
+      { name: "us", us: "03/04/2026" },
+    ]) {
+      const answer = await send(fields);
+      expect(answer.statusCode, answer.body).toBe(200);
+    }
+  });
+
+  it("restores a number from history with every digit it had", async () => {
+    const [id = ""] = await createRows(
+      deps(),
+      scope,
+      [{ values: { name: "history", qty: PAST_SAFE } }],
+      META,
+    );
+    await updateRows(
+      deps(),
+      scope,
+      [{ rowId: id, values: { qty: "1" } }],
+      META,
+    );
+    const events = await readAudit(db, tableId, id);
+    const change = events.find((event) => event.action === "update");
+    if (!change) throw new Error("no change");
+    // What the history shows is the value it will put back.
+    expect((change.oldValue as { qty: unknown }).qty).toBe(PAST_SAFE);
+    await revertRow(deps(), scope, {
+      recordId: id,
+      eventId: change.id,
+      field: "qty",
+      seen: { qty: "1" },
+    });
+    expect(await stored("history", "qty")).toBe(PAST_SAFE);
+  });
+
+  it("refuses to restore a number no write can hold, rather than round it", async () => {
+    const digits = "1".repeat(70);
+    const [id = ""] = await createRows(
+      deps(),
+      scope,
+      [{ values: { name: "too-many", qty: "5" } }],
+      META,
+    );
+    const table = await findLiveTable(db, tableId);
+    if (!table) throw new Error("no table");
+    await withAudit(db, { userId: owner, tableId, source: "web" }, (tx) =>
+      sql`update ${sql.table(table.physicalName)} set qty = ${digits}::numeric where id = ${id}`.execute(
+        tx,
+      ),
+    );
+    await updateRows(
+      deps(),
+      scope,
+      [{ rowId: id, values: { qty: "1" } }],
+      META,
+    );
+    const events = await readAudit(db, tableId, id);
+    const change = events.find(
+      (event) => (event.newValue as { qty?: unknown } | null)?.qty === 1,
+    );
+    if (!change) throw new Error("no change");
+    expect(
+      await refusal(
+        revertRow(deps(), scope, {
+          recordId: id,
+          eventId: change.id,
+          field: "qty",
+          seen: { qty: "1" },
+        }),
+      ),
+    ).toBe("revert_not_exact");
+    expect(await stored("too-many", "qty")).toBe("1");
   });
 
   it("gives large numbers their own group, under their exact key", async () => {

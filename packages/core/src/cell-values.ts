@@ -18,7 +18,9 @@ import {
   type DayOrder,
   type DecimalMark,
   DURATION_WITH_DAYS,
+  isAmbiguousDate,
   isAmbiguousNumber,
+  isAmbiguousPoint,
   readDayText,
   readInstantText,
   readNumberText,
@@ -350,10 +352,18 @@ function readFloat(
   return Number.isFinite(value) ? value : undefined;
 }
 
-/** The order a date field reads a day written in numbers. */
-function dayOrderOf(config: ColumnConfig): DayOrder {
-  const date = (config as { date?: { format?: string } }).date;
-  return date?.format === "us" ? "month-first" : "day-first";
+/**
+ * The order a day in numbers is read in: the one its field declares (`us`,
+ * `eu`), else the reader's. The other formats only say how a day is shown.
+ */
+function dayOrderOf(
+  config: ColumnConfig,
+  context: CoerceContext,
+): DayOrder | undefined {
+  const format = (config as { date?: { format?: string } }).date?.format;
+  if (format === "us") return "month-first";
+  if (format === "eu") return "day-first";
+  return context.dayOrder;
 }
 
 /** Zones already asked about: checking one builds a formatter. */
@@ -393,6 +403,12 @@ type CoerceContext = {
    * import was told. Without it, a number that reads two ways is refused.
    */
   decimalMark?: DecimalMark;
+  /**
+   * Which comes first in a day in numbers, where the reader's language or
+   * an import says so. Without it, and without a format on the field, a
+   * day that reads two ways is refused.
+   */
+  dayOrder?: DayOrder;
   /** Where a day alone starts, for a field with no zone of its own. */
   timeZone?: string;
 };
@@ -401,6 +417,8 @@ type CoerceContext = {
 export type CellRefusal =
   | { code: "value_too_long"; limit: number }
   | { code: "ambiguous_number" }
+  | { code: "ambiguous_point" }
+  | { code: "ambiguous_date" }
   | { code: "invalid_cell" };
 
 type CellReading = { value: CellValue } | { refused: CellRefusal };
@@ -419,15 +437,25 @@ function refusalOf(
   ) {
     return { code: "value_too_long", limit: CELL_TEXT_LIMITS[fieldType] };
   }
+  if (typeof raw !== "string") return { code: "invalid_cell" };
   if (
-    (fieldType === "number" ||
-      fieldType === "rating" ||
-      fieldType === "duration") &&
-    context.decimalMark === undefined &&
-    typeof raw === "string" &&
-    isAmbiguousNumber(raw)
+    fieldType === "number" ||
+    fieldType === "rating" ||
+    fieldType === "duration"
   ) {
-    return { code: "ambiguous_number" };
+    if (context.decimalMark === undefined && isAmbiguousNumber(raw)) {
+      return { code: "ambiguous_number" };
+    }
+    if (context.decimalMark === "," && isAmbiguousPoint(raw)) {
+      return { code: "ambiguous_point" };
+    }
+  }
+  if (
+    (fieldType === "date" || fieldType === "datetime") &&
+    dayOrderOf(column.config, context) === undefined &&
+    isAmbiguousDate(raw)
+  ) {
+    return { code: "ambiguous_date" };
   }
   return { code: "invalid_cell" };
 }
@@ -548,10 +576,10 @@ function coerceRaw(
       return undefined;
     }
     case "date":
-      return readDayText(trimmed, dayOrderOf(config));
+      return readDayText(trimmed, dayOrderOf(config, context));
     case "datetime":
       return readInstantText(trimmed, {
-        order: dayOrderOf(config),
+        order: dayOrderOf(config, context),
         timeZone: fieldZone(config, context),
       });
     case "single_select": {
