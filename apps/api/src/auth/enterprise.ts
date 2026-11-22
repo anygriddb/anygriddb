@@ -323,14 +323,16 @@ async function signedIn(
 type Vouched = SignOn & {
   /** The provider said one factor was asked. */
   oneFactor: boolean;
+  /** Reached by its address: the account's own factor comes first. */
+  proofFirst: boolean;
 };
 
 /**
  * After the identity provider vouched for the person: a session, or first
  * AnyGridDB's own second step, when the policy asks for it (ADR 0043), when
- * the person is an administrator, or when the provider itself says it asked
- * a single factor, for an account that has one here. Returns where the
- * browser goes.
+ * the person is an administrator, when the provider itself says it asked a
+ * single factor, for an account that has one here, or when the address alone
+ * reached that account. Returns where the browser goes.
  */
 async function finishSignIn(
   deps: Deps,
@@ -339,7 +341,7 @@ async function finishSignIn(
   userId: string,
   vouched: Vouched,
 ): Promise<string> {
-  const { oneFactor, ...signOn } = vouched;
+  const { oneFactor, proofFirst, ...signOn } = vouched;
   const policy = await readSettings(deps.db);
   assertSignInAddressAllowed(policy.signInAllowlist, request.ip);
   const account = await deps.db
@@ -353,8 +355,9 @@ async function finishSignIn(
   }
   reply.setCookie(SSO_AGAIN_COOKIE, "", ssoAgainOptions(0));
   if (
-    (policy.ssoMfa === "local" || account.isAdmin || oneFactor) &&
-    (await factorMethods(deps.db, userId)).length > 0
+    proofFirst ||
+    ((policy.ssoMfa === "local" || account.isAdmin || oneFactor) &&
+      (await factorMethods(deps.db, userId)).length > 0)
   ) {
     const challenge = await createLoginChallenge(deps.db, userId, signOn);
     reply.setCookie(
@@ -472,7 +475,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       // The subject finds a bound account, whatever the address says. A
       // first binding reads the address: only a boolean `true` reaches an
       // account that exists, and one marked unverified makes no account.
-      const userId = await userForIdentity(
+      const reached = await userForIdentity(
         deps.db,
         { provider: "oidc", issuer: claims.iss, subject: claims.sub },
         email,
@@ -486,8 +489,10 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
           onBound: tellOfBinding(deps, request),
         },
       );
-      next = await finishSignIn(deps, request, reply, userId, {
+      next = await finishSignIn(deps, request, reply, reached.userId, {
         provider: "oidc",
+        proofFirst: reached.proofFirst,
+        binding: reached.binding,
         sidHash:
           typeof claims.sid === "string"
             ? hashProviderSession(claims.iss, claims.sid)
@@ -603,7 +608,7 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
       // assertion does not say its address was verified: a first sign-in
       // reaches an account that exists only when an administrator says
       // this provider verifies addresses (ADR 0111).
-      const userId = await userForIdentity(
+      const reached = await userForIdentity(
         deps.db,
         {
           provider: "saml",
@@ -620,8 +625,10 @@ export function registerEnterpriseAuth(app: FastifyInstance, deps: Deps): void {
           onBound: tellOfBinding(deps, request),
         },
       );
-      next = await finishSignIn(deps, request, reply, userId, {
+      next = await finishSignIn(deps, request, reply, reached.userId, {
         provider: "saml",
+        proofFirst: reached.proofFirst,
+        binding: reached.binding,
         mustEndAt,
         oneFactor: samlAnnouncesOneFactor(assertion),
       });

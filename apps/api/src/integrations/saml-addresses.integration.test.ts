@@ -95,34 +95,38 @@ describe("a SAML provider's addresses", () => {
     const person = await account("person");
     const subject = `bound-${suffix}`;
     expect(
-      await userForIdentity(
-        db,
-        identity(subject),
-        person.email,
-        "Person",
-        undefined,
-        {
-          linkExisting: true,
-        },
-      ),
+      (
+        await userForIdentity(
+          db,
+          identity(subject),
+          person.email,
+          "Person",
+          undefined,
+          {
+            linkExisting: true,
+          },
+        )
+      ).userId,
     ).toBe(person.id);
     expect(
-      await userForIdentity(
-        db,
-        identity(subject),
-        person.email,
-        "Person",
-        undefined,
-        {
-          linkExisting: false,
-        },
-      ),
+      (
+        await userForIdentity(
+          db,
+          identity(subject),
+          person.email,
+          "Person",
+          undefined,
+          {
+            linkExisting: false,
+          },
+        )
+      ).userId,
     ).toBe(person.id);
   });
 
   it("still makes a new account for a new address", async () => {
     const email = `new-${suffix}@example.org`;
-    const id = await userForIdentity(
+    const { userId: id } = await userForIdentity(
       db,
       identity(`n-${suffix}`),
       email,

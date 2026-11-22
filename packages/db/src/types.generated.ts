@@ -734,6 +734,8 @@ export interface Jobs {
 
 export interface LoginChallenges {
   attempts: Generated<number>;
+  bindIssuer: string | null;
+  bindSubject: string | null;
   createdAt: Generated<Timestamp>;
   expiresAt: Timestamp;
   id: Generated<string>;

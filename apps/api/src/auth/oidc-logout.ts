@@ -126,6 +126,15 @@ export async function endProviderSessions(
           .where("subject", "=", input.subject)
           .executeTakeFirst()
       : undefined;
+    if (input.subject) {
+      // A first sign-in waiting for its factor has no binding yet.
+      await tx
+        .deleteFrom("loginChallenges")
+        .where("signOn", "=", "oidc")
+        .where("bindIssuer", "=", input.issuer)
+        .where("bindSubject", "=", input.subject)
+        .execute();
+    }
     if (input.subject && !account) return [];
     const sidHash = input.sid
       ? hashProviderSession(input.issuer, input.sid)

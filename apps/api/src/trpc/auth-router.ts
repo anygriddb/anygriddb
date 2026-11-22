@@ -103,6 +103,7 @@ import {
 import { assertMayChangeFactor } from "../auth/factor-step-up.js";
 import { assertSignInAddressAllowed } from "../auth/sign-in-allowlist.js";
 import { assertPasswordSignupAllowed } from "../auth/sso-only.js";
+import { bindAfterProof } from "../auth/sso.js";
 import {
   createApiToken,
   listApiTokens,
@@ -304,6 +305,35 @@ async function refuseLocked(
   }
 }
 
+/**
+ * The session of a sign-in. A first binding that waited for this proof is
+ * written with it, in one transaction: neither exists without the other.
+ */
+async function openSession(
+  ctx: Context,
+  userId: string,
+  signOn?: SignOn | null,
+): Promise<Awaited<ReturnType<typeof createSession>>> {
+  const binding = signOn?.binding;
+  if (!signOn || !binding) return createSession(ctx.db, userId, signOn);
+  const other =
+    signOn.provider === "oidc"
+      ? await resolveSaml(ctx.db, ctx.env)
+      : await resolveOidc(ctx.db, ctx.env);
+  const session = await ctx.db.transaction().execute(async (tx) => {
+    await bindAfterProof(
+      tx,
+      signOn.provider,
+      binding,
+      userId,
+      other.config !== null,
+    );
+    return createSession(tx, userId, signOn);
+  });
+  void sendSecurityNotice(mailDeps(ctx), userId, { kind: "sso_linked" });
+  return session;
+}
+
 async function issueSession(
   ctx: Context,
   userId: string,
@@ -313,7 +343,7 @@ async function issueSession(
 ): Promise<void> {
   let session: Awaited<ReturnType<typeof createSession>>;
   try {
-    session = await createSession(ctx.db, userId, signOn);
+    session = await openSession(ctx, userId, signOn);
   } catch (error) {
     if (
       error instanceof AppError &&
@@ -324,7 +354,8 @@ async function issueSession(
     }
     if (
       error instanceof AppError &&
-      error.code === "password_sign_in_disabled"
+      (error.code === "password_sign_in_disabled" ||
+        error.code === "invalid_credentials")
     ) {
       clearCookie(ctx, MFA_COOKIE);
       await signInFailed(ctx, method, userId, "invalid_credentials");

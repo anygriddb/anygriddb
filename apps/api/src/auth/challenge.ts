@@ -28,6 +28,8 @@ export async function createLoginChallenge(
         signOn: signOn?.provider ?? null,
         signOnSid: signOn?.sidHash ?? null,
         mustEndAt: signOn?.mustEndAt ?? null,
+        bindIssuer: signOn?.binding?.issuer ?? null,
+        bindSubject: signOn?.binding?.subject ?? null,
       })
       .execute();
   });
@@ -48,17 +50,35 @@ export async function findLoginChallenge(
   }
   const challenge = await db
     .selectFrom("loginChallenges")
-    .select(["id", "userId", "attempts", "signOn", "signOnSid", "mustEndAt"])
+    .select([
+      "id",
+      "userId",
+      "attempts",
+      "signOn",
+      "signOnSid",
+      "mustEndAt",
+      "bindIssuer",
+      "bindSubject",
+    ])
     .where("tokenHash", "=", hashSessionToken(token))
     .where("expiresAt", ">", new Date())
     .executeTakeFirst();
   if (!challenge) return null;
-  const { signOn, signOnSid, mustEndAt, ...rest } = challenge;
+  const { signOn, signOnSid, mustEndAt, bindIssuer, bindSubject, ...rest } =
+    challenge;
   return {
     ...rest,
     signOn:
       signOn === "oidc" || signOn === "saml"
-        ? { provider: signOn, sidHash: signOnSid, mustEndAt }
+        ? {
+            provider: signOn,
+            sidHash: signOnSid,
+            mustEndAt,
+            binding:
+              bindIssuer !== null && bindSubject !== null
+                ? { issuer: bindIssuer, subject: bindSubject }
+                : null,
+          }
         : null,
   };
 }

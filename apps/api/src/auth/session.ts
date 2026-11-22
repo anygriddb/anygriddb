@@ -61,6 +61,8 @@ export type SignOn = {
   provider: "oidc" | "saml";
   sidHash?: string | null;
   mustEndAt?: Date | null;
+  /** A first binding, written only once the account's factor is proved. */
+  binding?: { issuer: string; subject: string } | null;
 };
 
 export type SessionUser = {

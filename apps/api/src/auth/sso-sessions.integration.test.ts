@@ -20,6 +20,7 @@ import { acceptFormBodies } from "../http.js";
 import { clearSamlCache } from "../integrations/saml.js";
 import { writeSettings } from "../settings.js";
 import { createTestDatabase } from "../test-database.js";
+import { browserFactory, errorCode } from "../trpc/caller.test-helpers.js";
 import { assertEnrolled, loadBindings } from "./access.js";
 import { registerEnterpriseAuth, SSO_BROWSER_COOKIES } from "./enterprise.js";
 import { keyRing } from "./key-ring.js";
@@ -32,8 +33,10 @@ import {
   type AssertionInput,
   type SamlIdentity,
 } from "./sso-providers.test-helpers.js";
+import { hashBackupCode } from "./backup-code.js";
+import { MFA_COOKIE } from "./challenge.js";
 import { saveTotpSecret } from "./totp.js";
-import { generateTotpSecret } from "./totp-code.js";
+import { decodeBase32, generateTotpSecret, totpCode } from "./totp-code.js";
 
 const suffix = randomBytes(6).toString("hex");
 const OIDC_ISSUER = `http://idp-${suffix}.test`;
@@ -576,6 +579,199 @@ describe("single sign-on, end to end", () => {
     });
   });
 
+  describe("a first binding to an account with a factor of its own", () => {
+    const tabs = browserFactory({
+      db: () => db,
+      env,
+      hub: { closeUser: () => 0, closeAllBut: () => 0, closeSession: () => 0 },
+    });
+    const newSubject = (label: string) =>
+      `${label}-${randomBytes(4).toString("hex")}`;
+    const bindingsOf = (userId: string) =>
+      db
+        .selectFrom("ssoIdentities")
+        .select("subject")
+        .where("userId", "=", userId)
+        .execute();
+    const guarded = async (label: string, isAdmin = false) => {
+      const person = await account(label, isAdmin);
+      const secret = generateTotpSecret();
+      await saveTotpSecret(db, person.id, secret, key, 0);
+      return { ...person, secret };
+    };
+    const rightCode = (secret: string) =>
+      totpCode(decodeBase32(secret), Date.now());
+    /** The browser that came back from the provider, at its second step. */
+    const atSecondStep = (back: {
+      cookies: Array<{ name: string; value: string }>;
+    }) => {
+      const tab = tabs();
+      tab.jar[MFA_COOKIE] = cookies(back)[MFA_COOKIE] ?? "";
+      return tab;
+    };
+    const protocols = [
+      [
+        "OIDC",
+        (email: string, subject: string) =>
+          oidcSignIn({ sub: subject, email, email_verified: true }),
+      ],
+      [
+        "SAML",
+        (email: string, subject: string) =>
+          samlSignIn({ nameId: subject, email }),
+      ],
+    ] as const;
+
+    beforeAll(async () => {
+      await writeSettings(db, operator, { ssoMfa: "provider" });
+    });
+    afterAll(async () => {
+      await writeSettings(db, operator, { ssoMfa: "local" });
+    });
+    beforeEach(() => {
+      env.SAML_TRUST_ADDRESSES = true;
+      clearSamlCache(db);
+    });
+
+    describe.each(protocols)("through %s", (_name, signIn) => {
+      it("stops at the second step, and binds nothing", async () => {
+        const person = await guarded("stops");
+        const { back } = await signIn(person.email, newSubject("stops"));
+        expect(back.headers.location).toBe("/login?mfa=1");
+        expect(opened(back)).toBeNull();
+        expect(await bindingsOf(person.id)).toEqual([]);
+      });
+
+      it("binds once the factor is proved, and not on a wrong code", async () => {
+        const person = await guarded("proved");
+        const subject = newSubject("proved");
+        const { back } = await signIn(person.email, subject);
+        const tab = atSecondStep(back);
+        const wrong =
+          rightCode(person.secret) === "000000" ? "000001" : "000000";
+        expect(
+          await errorCode(tab.call().auth.totp.verify({ code: wrong })),
+        ).toBe("UNAUTHORIZED");
+        expect(await bindingsOf(person.id)).toEqual([]);
+        await tab.call().auth.totp.verify({ code: rightCode(person.secret) });
+        const token = tab.jar[SESSION_COOKIE] ?? "";
+        expect((await sessionRow(token))?.userId).toBe(person.id);
+        expect(await bindingsOf(person.id)).toEqual([{ subject }]);
+        // Bound now: the subject signs in as any bound subject does.
+        const again = await signIn(person.email, subject);
+        expect(opened(again.back)).not.toBeNull();
+      });
+
+      it("leaves nothing a later attempt can use", async () => {
+        const person = await guarded("later");
+        const first = newSubject("first");
+        const stopped = atSecondStep((await signIn(person.email, first)).back);
+        const retry = await signIn(person.email, first);
+        expect(retry.back.headers.location).toBe("/login?mfa=1");
+        expect(opened(retry.back)).toBeNull();
+        // The newer attempt replaced the one that stopped.
+        expect(
+          await errorCode(
+            stopped.call().auth.totp.verify({ code: rightCode(person.secret) }),
+          ),
+        ).toBe("UNAUTHORIZED");
+        expect(await bindingsOf(person.id)).toEqual([]);
+      });
+
+      it("refuses a proof given after another subject took the account", async () => {
+        const person = await guarded("raced");
+        const { back } = await signIn(person.email, newSubject("raced"));
+        const tab = atSecondStep(back);
+        await db
+          .insertInto("ssoIdentities")
+          .values({
+            provider: _name === "OIDC" ? "oidc" : "saml",
+            issuer: _name === "OIDC" ? OIDC_ISSUER : SAML_ISSUER,
+            subject: "the-other",
+            userId: person.id,
+          })
+          .execute();
+        expect(
+          await errorCode(
+            tab.call().auth.totp.verify({ code: rightCode(person.secret) }),
+          ),
+        ).toBe("invalid_credentials");
+        expect(tab.jar[SESSION_COOKIE]).toBeFalsy();
+        expect(await bindingsOf(person.id)).toEqual([{ subject: "the-other" }]);
+      });
+
+      it("binds an account with no factor at once", async () => {
+        const person = await account("no-factor");
+        const subject = newSubject("no-factor");
+        const { back } = await signIn(person.email, subject);
+        expect((await sessionRow(opened(back) ?? ""))?.userId).toBe(person.id);
+        expect(await bindingsOf(person.id)).toEqual([{ subject }]);
+      });
+
+      it("refuses an account whose only factor cannot be asked", async () => {
+        const person = await account("email-admin", true);
+        await db
+          .insertInto("emailFactors")
+          .values({ userId: person.id })
+          .execute();
+        const { back } = await signIn(person.email, newSubject("email-admin"));
+        expect(back.headers.location).toBe("/login?refused=sso_refused");
+        expect(await bindingsOf(person.id)).toEqual([]);
+      });
+    });
+
+    it("holds when the instance asks its own factor too", async () => {
+      await writeSettings(db, operator, { ssoMfa: "local" });
+      try {
+        const person = await guarded("local-policy");
+        const { back } = await samlSignIn({
+          nameId: newSubject("local-policy"),
+          email: person.email,
+        });
+        expect(back.headers.location).toBe("/login?mfa=1");
+        expect(await bindingsOf(person.id)).toEqual([]);
+      } finally {
+        await writeSettings(db, operator, { ssoMfa: "provider" });
+      }
+    });
+
+    it("asks for the factor every time when no lasting subject is sent", async () => {
+      const person = await guarded("address-only");
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const { back } = await samlSignIn({
+          nameId: person.email,
+          nameIdFormat:
+            "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+          email: person.email,
+        });
+        expect(back.headers.location).toBe("/login?mfa=1");
+        expect(opened(back)).toBeNull();
+      }
+      expect(await bindingsOf(person.id)).toEqual([]);
+    });
+
+    it("binds through a backup code as through a code", async () => {
+      const person = await guarded("backup");
+      await db
+        .insertInto("backupCodes")
+        .values({
+          userId: person.id,
+          codeHash: hashBackupCode("AAAA-BBBB-CCCC", key),
+        })
+        .execute();
+      const subject = newSubject("backup");
+      const { back } = await oidcSignIn({
+        sub: subject,
+        email: person.email,
+        email_verified: true,
+      });
+      const tab = atSecondStep(back);
+      await tab.call().auth.backup.verify({ code: "AAAA-BBBB-CCCC" });
+      expect(tab.jar[SESSION_COOKIE]).toBeTruthy();
+      expect(await bindingsOf(person.id)).toEqual([{ subject }]);
+    });
+  });
+
   describe("a sign-out the provider sends", () => {
     const post = (token: string) =>
       app.inject({
@@ -634,6 +830,29 @@ describe("single sign-on, end to end", () => {
       expect(answer.statusCode).toBe(200);
       expect(await sessionRow(person.token)).toBeUndefined();
       expect(await sessionRow(kept ?? "")).toBeDefined();
+    });
+
+    it("ends a first sign-in still waiting for its factor", async () => {
+      const person = await account("logout-pending");
+      await giveFactor(person.id);
+      const sub = `pending-${randomBytes(4).toString("hex")}`;
+      const { back } = await oidcSignIn({
+        sub,
+        email: person.email,
+        email_verified: true,
+      });
+      expect(back.headers.location).toBe("/login?mfa=1");
+      const waiting = () =>
+        db
+          .selectFrom("loginChallenges")
+          .select("id")
+          .where("userId", "=", person.id)
+          .execute();
+      expect(await waiting()).toHaveLength(1);
+      expect((await post(await oidc.logoutToken({ sub }))).statusCode).toBe(
+        200,
+      );
+      expect(await waiting()).toEqual([]);
     });
 
     it("takes a token once", async () => {

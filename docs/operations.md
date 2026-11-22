@@ -229,12 +229,16 @@ sign-in through SAML does not reach an account that already exists. Turn on
 **This identity provider verifies addresses** (`SAML_TRUST_ADDRESSES=true`)
 only if nobody can change their address at the provider without proving it:
 with it, whoever holds an address there signs in as the account of that
-address. An account already bound to a persistent NameID is not concerned.
+address, unless the account has a second factor here, which they must prove
+first. An account already bound to a persistent NameID is not concerned.
 
 Once bound, an account is found by the provider's subject, whatever address
 the provider sends later. A first sign-in never reaches an account another
-subject holds, and the person is told by email when an account that existed
-is bound.
+subject holds. On an account with a second factor of its own, it asks for that
+factor whatever the setting below says, and binds only once it is proved. The
+person is told by email when an account that existed is bound. A provider that
+sends no lasting subject (a transient or address NameID) binds nothing: such an
+account is asked for its factor at every sign-in.
 
 **Review the bindings made before 0.4.0.** Until then a first SAML sign-in
 could bind an existing account by its address alone, and a binding survives an

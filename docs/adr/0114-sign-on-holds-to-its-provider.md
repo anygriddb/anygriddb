@@ -21,6 +21,12 @@ it.
   same provider, or on the other protocol while that provider is set up. A
   provider replaced by another does not hold its accounts. The person is told
   by mail when an account that existed is bound.
+- **An address does not replace an account's own factor.** Reaching an account
+  by its address, whatever `ssoMfa` says, first asks the factor it has here. A
+  first binding waits on the sign-in and is written with the session once that
+  factor is proved: a sign-in that stops there leaves no binding. A provider
+  that sends no lasting subject is asked it at every sign-in. An account whose
+  only factor cannot be asked is refused.
 - **An administrator always has a factor of their own,** whatever
   `ssoMfa` says. For anyone else under `ssoMfa: "provider"`, a provider that
   says it asked a single factor (`amr`, `acr`, the SAML authentication class)

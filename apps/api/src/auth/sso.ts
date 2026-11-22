@@ -1,6 +1,8 @@
 import { AppError, labelSchema, madeNames } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { signupDecision } from "../admin.js";
+import { factorMethods } from "./access.js";
+import { hasEmailFactor } from "./email-otp.js";
 import { readGateSettings } from "../settings.js";
 
 /**
@@ -51,12 +53,57 @@ function bindingHolds(
     : otherProtocolLive;
 }
 
+/** Refuses an identity whose account a binding already holds. */
+async function assertAccountFree(
+  tx: Database,
+  identity: SsoIdentity,
+  userId: string,
+  otherProtocolLive: boolean,
+): Promise<void> {
+  const bindings = await tx
+    .selectFrom("ssoIdentities")
+    .select(["provider", "issuer"])
+    .where("userId", "=", userId)
+    .execute();
+  if (
+    bindings.some((binding) =>
+      bindingHolds(binding, identity, otherProtocolLive),
+    )
+  ) {
+    throw new AppError("invalid_credentials");
+  }
+}
+
+/**
+ * Whether reaching this account by its address must first prove a factor
+ * of its own. A factor that cannot be asked (a code by email, once the
+ * account administers the instance) cannot be proved: refused.
+ */
+async function proofFirst(tx: Database, userId: string): Promise<boolean> {
+  if ((await factorMethods(tx, userId)).length > 0) return true;
+  if (await hasEmailFactor(tx, userId)) {
+    throw new AppError("invalid_credentials");
+  }
+  return false;
+}
+
+/** The account a sign-on reaches, and what it must prove before a session. */
+export type SignOnAccount = {
+  userId: string;
+  /** Reached by its address, with a factor to prove first. */
+  proofFirst: boolean;
+  /** The binding to write once that factor is proved. */
+  binding: { issuer: string; subject: string } | null;
+};
+
 /**
  * The account for a sign-on identity. The subject comes first: it finds the
  * account bound to it, whatever its address is now, or whether the provider
  * sends one. Only a first binding reads the address, and it never reaches an
- * account that another subject holds. A new account is made when the
- * instance's sign-up policy allows it.
+ * account that another subject holds. An account with a factor of its own
+ * is bound only once that factor is proved (`bindAfterProof`): until then
+ * nothing is written. A new account is made when the instance's sign-up
+ * policy allows it.
  */
 export async function userForIdentity(
   db: Database,
@@ -65,7 +112,7 @@ export async function userForIdentity(
   name: string,
   adminEmails?: string,
   options: BindingOptions = {},
-): Promise<string> {
+): Promise<SignOnAccount> {
   const { provider, issuer, subject } = identity;
   const found = await db.transaction().execute(async (tx) => {
     if (subject) {
@@ -77,7 +124,14 @@ export async function userForIdentity(
         .where("subject", "=", subject)
         .returning("userId")
         .executeTakeFirst();
-      if (bound) return { userId: bound.userId, boundExisting: false };
+      if (bound) {
+        return {
+          userId: bound.userId,
+          proofFirst: false,
+          binding: null,
+          boundExisting: false,
+        };
+      }
     }
     if (email === null) throw new AppError("invalid_credentials");
     const normalized = email.toLowerCase();
@@ -95,18 +149,19 @@ export async function userForIdentity(
     }
     let userId = existing?.id;
     if (userId) {
-      const bindings = await tx
-        .selectFrom("ssoIdentities")
-        .select(["provider", "issuer"])
-        .where("userId", "=", userId)
-        .execute();
-      const otherProtocolLive = options.otherProtocolLive ?? true;
-      if (
-        bindings.some((binding) =>
-          bindingHolds(binding, identity, otherProtocolLive),
-        )
-      ) {
-        throw new AppError("invalid_credentials");
+      await assertAccountFree(
+        tx,
+        identity,
+        userId,
+        options.otherProtocolLive ?? true,
+      );
+      if (await proofFirst(tx, userId)) {
+        return {
+          userId,
+          proofFirst: true,
+          binding: subject ? { issuer, subject } : null,
+          boundExisting: false,
+        };
       }
     }
     const boundExisting = userId !== undefined && subject !== null;
@@ -143,8 +198,43 @@ export async function userForIdentity(
         .values({ provider, issuer, subject, userId })
         .execute();
     }
-    return { userId, boundExisting };
+    return { userId, proofFirst: false, binding: null, boundExisting };
   });
-  if (found.boundExisting) options.onBound?.(found.userId);
-  return found.userId;
+  const { boundExisting, ...account } = found;
+  if (boundExisting) options.onBound?.(account.userId);
+  return account;
+}
+
+/**
+ * Writes a first binding, in the transaction that opens the session, once
+ * the account's factor is proved. What may have changed during the second
+ * step is asked again: another subject holding the account, or this subject
+ * bound to another account, refuses it.
+ */
+export async function bindAfterProof(
+  tx: Database,
+  provider: SsoIdentity["provider"],
+  binding: { issuer: string; subject: string },
+  userId: string,
+  otherProtocolLive: boolean,
+): Promise<void> {
+  await tx
+    .selectFrom("users")
+    .select("id")
+    .where("id", "=", userId)
+    .forUpdate()
+    .executeTakeFirst();
+  await assertAccountFree(
+    tx,
+    { provider, ...binding },
+    userId,
+    otherProtocolLive,
+  );
+  const written = await tx
+    .insertInto("ssoIdentities")
+    .values({ provider, ...binding, userId })
+    .onConflict((conflict) => conflict.doNothing())
+    .returning("userId")
+    .executeTakeFirst();
+  if (!written) throw new AppError("invalid_credentials");
 }
