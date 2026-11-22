@@ -213,6 +213,10 @@ export const ERRORS = {
   password_sign_in_disabled: [403, "Password sign-in is disabled"],
   /** Turning on SSO-only without a ready identity provider. */
   sso_required: [BAD, "Single sign-on must be configured first"],
+  /** Removing the only provider while the instance is SSO-only. */
+  sso_last_provider: [409, "The last identity provider cannot be removed"],
+  /** Removing the last administrator who can still sign in with a password. */
+  sso_last_password_admin: [409, "The last password administrator stays"],
   /** A change to what the instance's environment sets (ADR 0083). */
   set_by_environment: [409, "Set by the instance's environment"],
   /** A token of the administration API without the scope a request asks. */

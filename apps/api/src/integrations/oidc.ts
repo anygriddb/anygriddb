@@ -8,6 +8,10 @@ import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { decryptSecret, encryptSecret } from "../auth/crypto.js";
 import { recordAuthEvent } from "../auth/auth-events.js";
+import {
+  assertProviderRemains,
+  type ProviderEnvironment,
+} from "../auth/sso-only.js";
 
 const CACHE_TTL_MS = 5_000;
 
@@ -31,6 +35,8 @@ type PublicOidc = {
   clientId: string | null;
   hasClientSecret: boolean;
   redirectUrl: string | null;
+  /** Where the provider posts a sign-out. */
+  logoutUrl: string | null;
   updatedAt: string | null;
 };
 
@@ -79,6 +85,11 @@ export function oidcRedirectUrl(publicUrl: string): string {
   return `${publicUrl.replace(/\/+$/, "")}/auth/oidc/callback`;
 }
 
+/** Where the provider posts a sign-out (OIDC Back-Channel Logout). */
+function oidcLogoutUrl(publicUrl: string): string {
+  return `${publicUrl.replace(/\/+$/, "")}/auth/oidc/backchannel-logout`;
+}
+
 export function publicOidc(row: OidcRow | null, publicUrl: string): PublicOidc {
   if (!row) {
     return {
@@ -87,6 +98,7 @@ export function publicOidc(row: OidcRow | null, publicUrl: string): PublicOidc {
       clientId: null,
       hasClientSecret: false,
       redirectUrl: null,
+      logoutUrl: null,
       updatedAt: null,
     };
   }
@@ -96,6 +108,7 @@ export function publicOidc(row: OidcRow | null, publicUrl: string): PublicOidc {
     clientId: row.clientId,
     hasClientSecret: true,
     redirectUrl: oidcRedirectUrl(publicUrl),
+    logoutUrl: oidcLogoutUrl(publicUrl),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -171,6 +184,7 @@ export function environmentOidc(
     clientId: config.OIDC_CLIENT_ID,
     hasClientSecret: true,
     redirectUrl: config.OIDC_REDIRECT_URL,
+    logoutUrl: oidcLogoutUrl(new URL(config.OIDC_REDIRECT_URL).origin),
     updatedAt: null,
   };
 }
@@ -331,10 +345,14 @@ export async function saveOidc(
 
 export async function clearOidc(
   db: Database,
+  env: ProviderEnvironment,
   userId: string,
   ip?: string,
 ): Promise<void> {
-  await db.deleteFrom("instanceOidc").where("id", "=", true).execute();
+  await db.transaction().execute(async (tx) => {
+    await assertProviderRemains(tx, env, "instanceSaml");
+    await tx.deleteFrom("instanceOidc").where("id", "=", true).execute();
+  });
   clearOidcCache(db);
   await recordAuthEvent(db, {
     action: "settings_changed",

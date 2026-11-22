@@ -737,6 +737,9 @@ export interface LoginChallenges {
   createdAt: Generated<Timestamp>;
   expiresAt: Timestamp;
   id: Generated<string>;
+  mustEndAt: Timestamp | null;
+  signOn: string | null;
+  signOnSid: string | null;
   tokenHash: string;
   userId: string;
 }
@@ -901,6 +904,9 @@ export interface Sessions {
   id: Generated<string>;
   impersonatedUserId: string | null;
   impersonateUntil: Timestamp | null;
+  mustEndAt: Timestamp | null;
+  signOn: string | null;
+  signOnSid: string | null;
   steppedUpAt: Timestamp | null;
   tokenHash: string;
   userId: string;

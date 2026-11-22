@@ -512,6 +512,67 @@ export async function revokeUserTokens(
 }
 
 /**
+ * What an administrator may end as sign-in moves to the provider: the
+ * sessions opened with a password and the API tokens of everyone but the
+ * administrators. Sessions the provider opened stay. Refused unless the
+ * instance is SSO-only. Returns what ended, and whose.
+ */
+export async function endPasswordAccess(
+  db: Database,
+  actorId: string,
+): Promise<{ sessions: number; tokens: number; users: string[] }> {
+  return db.transaction().execute(async (tx) => {
+    if (!(await readSettings(tx)).ssoOnly) {
+      throw new AppError("sso_required");
+    }
+    const ended = await tx
+      .deleteFrom("sessions")
+      .where("signOn", "is", null)
+      .where("userId", "in", (eb) =>
+        eb.selectFrom("users").select("id").where("isAdmin", "=", false),
+      )
+      .returning("userId")
+      .execute();
+    if (ended.length > 0) {
+      await recordAuthEvent(tx, {
+        action: "session_revoked",
+        actorId,
+        method: "admin",
+        detail: "sso_only",
+      });
+    }
+    const holders = await tx
+      .selectFrom("apiTokens as k")
+      .innerJoin("users as u", "u.id", "k.userId")
+      .select("k.userId")
+      .distinct()
+      .where("u.isAdmin", "=", false)
+      .execute();
+    let tokens = 0;
+    for (const { userId } of holders) {
+      tokens += (await dropAccountTokens(tx, userId)).length;
+      await recordAuthEvent(tx, {
+        action: "tokens_revoked",
+        userId,
+        actorId,
+        method: "admin",
+        detail: "sso_only",
+      });
+    }
+    return {
+      sessions: ended.length,
+      tokens,
+      users: [
+        ...new Set([
+          ...ended.map((row) => row.userId),
+          ...holders.map((row) => row.userId),
+        ]),
+      ],
+    };
+  });
+}
+
+/**
  * Revokes every API token of the instance at once, in an emergency (a
  * leaked token, a compromised script): each account that had one gets
  * the event on its trail. Tokens made afterwards work.

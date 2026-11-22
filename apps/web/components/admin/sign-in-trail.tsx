@@ -96,6 +96,8 @@ export function SignInTrail({
             admin_unlock: t`By an administrator`,
             self_service: t`Asked by the person`,
             self_service_token: t`Their own API token`,
+            provider_logout: t`Signed out at the identity provider`,
+            sso_only: t`Password access ended for single sign-on`,
             admin_reset: t`Link from an administrator`,
             reset_link: t`By an administrator`,
             // Settings that changed (settings_changed).

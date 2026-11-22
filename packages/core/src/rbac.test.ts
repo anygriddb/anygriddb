@@ -50,6 +50,14 @@ describe("enrollmentGate", () => {
     }
   });
 
+  it("asks an administrator for one even when the provider vouches", () => {
+    expect(gate({ isAdmin: true, providerFactor: true })).toBe("enroll");
+    expect(gate({ isAdmin: true, providerFactor: true, factors: 1 })).toBe(
+      "ok",
+    );
+    expect(gate({ scope: "everyone", providerFactor: true })).toBe("ok");
+  });
+
   it("follows the instance's scope for everyone else", () => {
     expect(gate({ scope: "everyone" })).toBe("enroll");
     expect(gate({ scope: "everyone", factors: 2 })).toBe("ok");
@@ -58,8 +66,8 @@ describe("enrollmentGate", () => {
   });
 
   it("counts the identity provider's factor when the instance trusts it", () => {
-    expect(gate({ isAdmin: true, providerFactor: true })).toBe("ok");
     expect(gate({ scope: "everyone", providerFactor: true })).toBe("ok");
+    expect(gate({ bindings: owner, providerFactor: true })).toBe("ok");
   });
 });
 

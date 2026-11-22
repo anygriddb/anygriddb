@@ -133,6 +133,9 @@ importers:
       graphile-worker:
         specifier: 0.18.0
         version: 0.18.0(supports-color@7.2.0)(typescript@6.0.3)
+      jose:
+        specifier: 6.2.16
+        version: 6.2.16
       kysely:
         specifier: 0.29.8
         version: 0.29.8
@@ -191,9 +194,6 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
-      jose:
-        specifier: 6.2.16
-        version: 6.2.16
       testcontainers:
         specifier: 12.2.1
         version: 12.2.1(supports-color@7.2.0)

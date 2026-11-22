@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { ConfirmDialog } from "../shell/dialogs";
 import { RuledSection } from "../shell/notebook-page";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { AccessReport } from "./access-report";
@@ -65,9 +66,18 @@ function SecurityTab() {
   const stepUp = useStepUp();
   const settings = useQuery(api.admin.settings.queryOptions());
   const [allowlistDraft, setAllowlistDraft] = useState<string | null>(null);
-  async function save(patch: InstanceSettingsPatch) {
+  const [offerEnd, setOfferEnd] = useState(false);
+  async function endPasswordAccess(): Promise<boolean> {
+    if (!(await stepUp.ensure())) return false;
+    const ended = await trpc.admin.endPasswordAccess.mutate();
+    toast.success(
+      t`Sessions ended: ${{ sessions: ended.sessions }}. API tokens revoked: ${{ tokens: ended.tokens }}.`,
+    );
+    return true;
+  }
+  async function save(patch: InstanceSettingsPatch): Promise<boolean> {
     try {
-      if (!(await stepUp.ensure())) return;
+      if (!(await stepUp.ensure())) return false;
       await trpc.admin.updateSettings.mutate(patch);
       await Promise.all(
         [api.admin.settings, api.auth.instance, api.session.current].map(
@@ -76,8 +86,10 @@ function SecurityTab() {
         ),
       );
       toast.success(t`Settings saved`);
+      return true;
     } catch (cause) {
       toast.error(errorText(cause));
+      return false;
     }
   }
   const data = settings.data;
@@ -103,6 +115,17 @@ function SecurityTab() {
   return (
     <div className="flex max-w-2xl flex-col gap-4">
       {stepUp.dialog}
+      {offerEnd ? (
+        <ConfirmDialog
+          open
+          danger
+          onOpenChange={(open) => !open && setOfferEnd(false)}
+          title={t`End password access now?`}
+          description={t`People already signed in with a password stay signed in until their session ends, and their API tokens keep working. You can end those sessions and revoke the API tokens of everyone but administrators: scripts and integrations that use them stop working.`}
+          confirmLabel={t`End sessions and revoke tokens`}
+          onConfirm={endPasswordAccess}
+        />
+      ) : null}
       <p className="text-sm text-muted-foreground">
         {t`Each choice starts at a value that suits most organizations. Change it to follow your own rules: the limits that protect accounts cannot be turned off.`}
       </p>
@@ -132,7 +155,7 @@ function SecurityTab() {
               ["provider", t`Trust the identity provider's second factor`],
             ]}
             onChange={(ssoMfa) => void save({ ssoMfa })}
-            hint={t`Trust it only if your identity provider requires a second factor of everyone. An account that signs in only through it then needs none here.`}
+            hint={t`Trust it only if your identity provider requires a second factor of everyone. An account that signs in only through it then needs none here, unless the provider says it asked for one factor. Administrators always keep their own.`}
           />
         ) : null}
         {data.ssoReady ? (
@@ -144,7 +167,12 @@ function SecurityTab() {
               ["password", t`Anyone with a password`],
               ["sso", t`Single sign-on only (administrators keep a password)`],
             ]}
-            onChange={(value) => void save({ ssoOnly: value === "sso" })}
+            onChange={(value) => {
+              const turningOn = value === "sso" && !data.ssoOnly;
+              void save({ ssoOnly: value === "sso" }).then((saved) => {
+                if (saved && turningOn) setOfferEnd(true);
+              });
+            }}
             hint={t`When single sign-on only is on, other people use the identity provider. Administrators keep a password so the instance is not locked out if the provider fails.`}
           />
         ) : null}

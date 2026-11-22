@@ -8,6 +8,7 @@ import {
   adminEraseInputSchema,
   clearFactors,
   endOtherSessions,
+  endPasswordAccess,
   endSession,
   endUserSessions,
   eraseInfo,
@@ -438,6 +439,15 @@ export const adminAccountProcedures = {
       const ended = await endOtherSessions(ctx.db, admin.id, "everyone");
       ctx.hub.closeAllBut(admin.id);
       return { count: ended.length };
+    }),
+  ),
+  /** Offered when single sign-on only is turned on: not done unasked. */
+  endPasswordAccess: procedure.mutation(({ ctx }) =>
+    handle(ctx, async () => {
+      const admin = await requireAdmin(ctx);
+      const { users, ...ended } = await endPasswordAccess(ctx.db, admin.id);
+      for (const userId of users) ctx.hub.closeUser(userId);
+      return ended;
     }),
   ),
   clearFactors: procedure

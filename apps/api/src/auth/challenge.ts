@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
-import { hashSessionToken, isSessionToken } from "./session.js";
+import { hashSessionToken, isSessionToken, type SignOn } from "./session.js";
 
 export const MFA_COOKIE = "__Host-ag_mfa";
 const MFA_TTL_MS = 5 * 60 * 1000;
@@ -9,6 +9,8 @@ export const MFA_ATTEMPT_LIMIT = 5;
 export async function createLoginChallenge(
   db: Database,
   userId: string,
+  /** The provider this sign-in came through; none for a password. */
+  signOn?: SignOn | null,
 ): Promise<{ token: string; expiresAt: Date }> {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + MFA_TTL_MS);
@@ -19,7 +21,14 @@ export async function createLoginChallenge(
       .execute();
     await tx
       .insertInto("loginChallenges")
-      .values({ userId, tokenHash: hashSessionToken(token), expiresAt })
+      .values({
+        userId,
+        tokenHash: hashSessionToken(token),
+        expiresAt,
+        signOn: signOn?.provider ?? null,
+        signOnSid: signOn?.sidHash ?? null,
+        mustEndAt: signOn?.mustEndAt ?? null,
+      })
       .execute();
   });
   return { token, expiresAt };
@@ -28,17 +37,45 @@ export async function createLoginChallenge(
 export async function findLoginChallenge(
   db: Database,
   token: string | undefined,
-): Promise<{ id: string; userId: string; attempts: number } | null> {
+): Promise<{
+  id: string;
+  userId: string;
+  attempts: number;
+  signOn: SignOn | null;
+} | null> {
   if (!isSessionToken(token)) {
     return null;
   }
   const challenge = await db
     .selectFrom("loginChallenges")
-    .select(["id", "userId", "attempts"])
+    .select(["id", "userId", "attempts", "signOn", "signOnSid", "mustEndAt"])
     .where("tokenHash", "=", hashSessionToken(token))
     .where("expiresAt", ">", new Date())
     .executeTakeFirst();
-  return challenge ?? null;
+  if (!challenge) return null;
+  const { signOn, signOnSid, mustEndAt, ...rest } = challenge;
+  return {
+    ...rest,
+    signOn:
+      signOn === "oidc" || signOn === "saml"
+        ? { provider: signOn, sidHash: signOnSid, mustEndAt }
+        : null,
+  };
+}
+
+/**
+ * Drops the sign-ins waiting for a second step that began with a password,
+ * for anyone but an administrator: under single sign-on only, none of them
+ * may finish.
+ */
+export async function dropPasswordChallenges(db: Database): Promise<void> {
+  await db
+    .deleteFrom("loginChallenges")
+    .where("signOn", "is", null)
+    .where("userId", "in", (eb) =>
+      eb.selectFrom("users").select("id").where("isAdmin", "=", false),
+    )
+    .execute();
 }
 
 /**

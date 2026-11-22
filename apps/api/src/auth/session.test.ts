@@ -38,6 +38,17 @@ describe("session cookies", () => {
 describe("planSessionRenewal", () => {
   const created = new Date("2026-11-07T08:00:00.000Z");
 
+  it("never passes the end the identity provider set", () => {
+    const now = new Date(created.getTime() + 10 * 60 * 1000);
+    const expires = new Date(created.getTime() + SESSION_TTL_MS);
+    const end = new Date(now.getTime() + 60 * 1000);
+    expect(planSessionRenewal(created, expires, now, WINDOWS, end)).toBeNull();
+    const later = new Date(expires.getTime() + 60 * 1000);
+    expect(planSessionRenewal(created, expires, now, WINDOWS, later)).toEqual(
+      later,
+    );
+  });
+
   it("slides the idle window when less than half of it is left", () => {
     const now = new Date(created.getTime() + 10 * 60 * 1000);
     const expires = new Date(created.getTime() + SESSION_TTL_MS);

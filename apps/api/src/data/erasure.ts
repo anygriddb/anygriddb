@@ -3,6 +3,7 @@ import type { Database, Tx } from "@anygriddb/db";
 import { z } from "zod";
 import { AppError } from "@anygriddb/core";
 import { recordAuthEvent } from "../auth/auth-events.js";
+import { assertKeepsPasswordAdmin } from "../auth/sso-only.js";
 import { bindRole, soleOwnerBases } from "./members.js";
 import { withTransactionRetry } from "./retry.js";
 
@@ -100,6 +101,7 @@ export async function eraseAccount(
         }
       }
       if (account.isAdmin && account.disabledAt === null) {
+        await assertKeepsPasswordAdmin(tx, userId);
         // Locking the other active administrators keeps two of them from
         // erasing themselves at the same moment and leaving none.
         const others = await tx

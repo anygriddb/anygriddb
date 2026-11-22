@@ -17,6 +17,7 @@ import { sql as sqlTag } from "kysely";
 import { z } from "zod";
 import type { Bus } from "./realtime/bus.js";
 import { factorMethods } from "./auth/access.js";
+import { assertKeepsPasswordAdmin } from "./auth/sso-only.js";
 import { listApiTokens } from "./auth/tokens.js";
 import { withAudit } from "./data/audit-context.js";
 import { ERASED_USER_ID } from "./data/erasure.js";
@@ -313,6 +314,7 @@ export async function setUserDisabled(
     throw new AppError("invalid_account");
   }
   await db.transaction().execute(async (tx) => {
+    if (disabled) await assertKeepsPasswordAdmin(tx, userId);
     const updated = await tx
       .updateTable("users")
       .set(
@@ -688,6 +690,7 @@ export async function setUserAdmin(
   }
   await db.transaction().execute(async (tx) => {
     if (!admin) {
+      await assertKeepsPasswordAdmin(tx, userId);
       // Locking the active administrators keeps two of them from removing
       // each other at the same moment and leaving none.
       const others = await tx
