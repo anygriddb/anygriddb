@@ -71,6 +71,9 @@ export function rethrowAuditError(error: unknown): never {
   if (text.includes("Row locked")) {
     throw new AppError("row_locked", { cause: error });
   }
+  if (text.includes("Table converting")) {
+    throw new AppError("table_converting", { cause: error });
+  }
   if (text.includes("Invalid status")) {
     throw new AppError("invalid_status", { cause: error });
   }

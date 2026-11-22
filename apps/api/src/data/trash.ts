@@ -21,6 +21,7 @@ import {
 import { liveBase, liveColumn, liveFolder, liveTable } from "./live.js";
 import {
   dependents,
+  conversionRunning,
   loadBaseRows,
   ownColumns,
   PRIMARY_TYPES,
@@ -107,6 +108,9 @@ export async function trashColumn(
   const column = own.find((item) => item.name === name);
   if (!column) {
     throw new AppError("unknown_column", name);
+  }
+  if (await conversionRunning(db, table.id)) {
+    throw new AppError("table_converting");
   }
   const relation = rows.relations.find(
     (item) => item.fromColumnId === column.id,

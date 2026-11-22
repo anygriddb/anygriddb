@@ -286,7 +286,7 @@ describe("a JSON field", () => {
       "null",
       "plain words",
       '{"a":1,}',
-      // Deeper than a write takes: left to the database, and read.
+      // Deeper than a write takes: it does not fit the field.
       `${"[".repeat(150)}${"]".repeat(150)}`,
       "",
     ];
@@ -316,7 +316,7 @@ describe("a JSON field", () => {
       null,
       null,
       null,
-      `${"[".repeat(150)}${"]".repeat(150)}`,
+      null,
       null,
     ]);
   });

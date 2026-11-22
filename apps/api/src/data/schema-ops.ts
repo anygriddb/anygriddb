@@ -3,21 +3,26 @@ import {
   isSideFieldType,
   AppError,
   buildAddColumn,
-  buildConversionPreview,
-  buildConversionStatements,
+  buildConversionOptions,
+  buildConversionSwitch,
+  buildConversionTempColumn,
   buildCountDuplicates,
   buildCountLocked,
   buildCreateTable,
   buildFileIndex,
-  buildDistinctText,
+  buildCountRowsUpTo,
   buildDropColumn,
   buildDropTable,
   buildDropUniqueIndex,
+  buildLockOutWriters,
+  buildReadRows,
+  buildRenameConversionIndex,
   buildRenameOption,
   buildSetDefault,
   buildUniqueIndex,
   type ColumnConfig,
   type ColumnDefinition,
+  conversionZone,
   deriveColumnName,
   describeColumns,
   type FieldType,
@@ -28,6 +33,8 @@ import {
   isHomeTable,
   isMetadataConversion,
   isRelationType,
+  isStoredAlike,
+  isTimeZone,
   isWritableType,
   canBeRequired,
   madeNames,
@@ -37,11 +44,13 @@ import {
   PRIMARY_TYPES,
   rollupFitsTarget,
   parseFormula,
+  pruneViewConfig,
   stripColumnFromConfig,
+  viewFilter,
 } from "@anygriddb/core";
 
 export { PRIMARY_TYPES };
-import { runStatement, type Database } from "@anygriddb/db";
+import { runStatement, type Database, type Tx } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
 import { runRows, withAudit, type AuditTx } from "./audit-context.js";
 import { liveColumn, liveTable, trashedColumnNames } from "./live.js";
@@ -56,7 +65,9 @@ import {
   type ColumnRow,
   type TableRow,
 } from "./engine.js";
+import { rewriteField, tallyConversion } from "./conversion-rows.js";
 import { assertSelectionConfig } from "./link-selection.js";
+import { postgresCode } from "./pg-error.js";
 
 const UNIQUE_TYPES: ReadonlySet<FieldType> = new Set([
   "text",
@@ -938,7 +949,7 @@ export async function setPrimaryColumn(
   });
 }
 
-type ColumnUpdate = {
+export type ColumnUpdate = {
   name: string;
   label?: string;
   description?: string | null;
@@ -950,32 +961,167 @@ type ColumnUpdate = {
   formulaSource?: string;
   reason?: string;
   optionRenames?: ReadonlyArray<{ from: string; to: string }>;
+  /** Where a day and an instant meet: the zone of the person converting. */
+  timeZone?: string;
 };
 
-async function distinctOptions(
-  db: Database,
+/** Past this many rows a conversion runs in the background, by batches. */
+const CONVERSION_JOB_ROWS = 20_000;
+/** The most values a preview reads: past them, it says what it saw. */
+const PREVIEW_VALUES = 100_000;
+const MAX_OPTIONS = 200;
+
+/** The options a list field takes from the values it is converted from. */
+async function conversionOptions(
+  db: Database | Tx,
   table: TableRow,
   column: ColumnRow,
+  fieldType: FieldType,
 ): Promise<string[]> {
-  const statement = buildDistinctText({
-    table: table.physicalName,
-    column: column.name,
-    arrayColumn: column.fieldType === "multi_select",
-    limit: 200,
-  });
-  const result = await runStatement(db, statement);
+  const result = await runStatement(
+    db,
+    buildConversionOptions({
+      table: table.physicalName,
+      column: column.name,
+      from: column.fieldType,
+      to: fieldType,
+      limit: MAX_OPTIONS,
+    }),
+  );
   return result.flatMap((row) =>
-    typeof row.value === "string" ? [row.value.slice(0, 80)] : [],
+    typeof row.value === "string" ? [row.value] : [],
   );
 }
 
-export async function updateColumn(
+/** The settings of the type a field is converted to, its options settled. */
+async function convertedConfig(
+  db: Database | Tx,
+  table: TableRow,
+  column: ColumnRow,
+  fieldType: FieldType,
+  raw: Record<string, unknown>,
+): Promise<ColumnConfig> {
+  const next = { ...raw };
+  if (
+    (fieldType === "single_select" || fieldType === "multi_select") &&
+    next.options === undefined
+  ) {
+    const fromCurrent = columnConfig(column).options ?? [];
+    const names =
+      fromCurrent.length > 0
+        ? []
+        : await conversionOptions(db, table, column, fieldType);
+    next.options =
+      fromCurrent.length > 0
+        ? fromCurrent
+        : (names.length > 0 ? names : ["Option 1"]).map((name, index) => ({
+            name,
+            color: OPTION_COLORS[index % OPTION_COLORS.length],
+          }));
+  }
+  return parseColumnConfig(fieldType, next);
+}
+
+/** A conversion of this kind waits for no one: it refuses a zone it cannot use. */
+function assertConversionZone(
+  from: FieldType,
+  to: FieldType,
+  timeZone: string | undefined,
+): void {
+  if (timeZone !== undefined && !isTimeZone(timeZone)) {
+    throw new AppError("invalid_time_zone");
+  }
+  if (timeZone === undefined && conversionZone(from, to) === "required") {
+    throw new AppError("conversion_needs_time_zone");
+  }
+}
+
+/** Whether a job is converting one of this table's fields, or waits to. */
+export async function conversionRunning(
   db: Database,
-  userId: string,
+  tableId: string,
+  except?: string,
+): Promise<boolean> {
+  let query = db
+    .selectFrom("jobs")
+    .select("id")
+    .where("kind", "=", "convert_column")
+    .where("tableId", "=", tableId)
+    .where("status", "in", ["queued", "running"]);
+  if (except) query = query.where("id", "!=", except);
+  return (await query.executeTakeFirst()) !== undefined;
+}
+
+/** Whether a conversion of this table is long enough for the background. */
+async function isLongConversion(
+  db: Database,
+  table: TableRow,
+  from: FieldType,
+  to: FieldType,
+): Promise<boolean> {
+  if (from === to || isMetadataConversion(from, to)) return false;
+  if (!hasPhysicalColumn(from) || !isWritableType(to)) return false;
+  const [row] = await runStatement(
+    db,
+    buildCountRowsUpTo(table.physicalName, CONVERSION_JOB_ROWS + 1),
+  );
+  return Number(row?.count ?? 0) > CONVERSION_JOB_ROWS;
+}
+
+/**
+ * The change of a field as a background job would run it, its options
+ * settled, when it is long enough for one; undefined otherwise.
+ */
+export async function planLongConversion(
+  db: Database,
   table: TableRow,
   input: ColumnUpdate,
-  source = "web",
-): Promise<void> {
+): Promise<ColumnUpdate | undefined> {
+  if (input.fieldType === undefined || table.storage === "external") {
+    return undefined;
+  }
+  const column = await db
+    .selectFrom("dataColumns")
+    .select("fieldType")
+    .where("tableId", "=", table.id)
+    .where("name", "=", input.name)
+    .where(liveColumn())
+    .executeTakeFirst();
+  if (
+    !column ||
+    !isConvertible(column.fieldType, input.fieldType) ||
+    !(await isLongConversion(db, table, column.fieldType, input.fieldType))
+  ) {
+    return undefined;
+  }
+  await planColumnUpdate(db, table, input);
+  return input;
+}
+
+/** What a change of a field was checked to be, ready to apply. */
+export type ColumnPlan = {
+  column: ColumnRow;
+  own: ColumnRow[];
+  fieldType: FieldType;
+  converting: boolean;
+  config: ColumnConfig;
+  unique: boolean;
+  renames: ReadonlyArray<{ from: string; to: string }>;
+  /** What was asked of the settings: options left out come from the values. */
+  asked: Record<string, unknown>;
+};
+
+/**
+ * Checks a change of a field against the catalog and the rows, and settles
+ * what it will write. Changes nothing. `job` is the conversion running this
+ * change, which does not stand in its own way.
+ */
+export async function planColumnUpdate(
+  db: Database,
+  table: TableRow,
+  input: ColumnUpdate,
+  job?: string,
+): Promise<ColumnPlan> {
   const rows = await loadBaseRows(db, table.baseId);
   const own = ownColumns(rows, table.id);
   const column = own.find((item) => item.name === input.name);
@@ -987,6 +1133,10 @@ export async function updateColumn(
       own.filter((item) => item.id !== column.id),
       input.label,
     );
+  }
+  // Its fields stay as they are until a running conversion has switched.
+  if (await conversionRunning(db, table.id, job)) {
+    throw new AppError("table_converting");
   }
   const fieldType = input.fieldType ?? column.fieldType;
   const converting = fieldType !== column.fieldType;
@@ -1002,6 +1152,17 @@ export async function updateColumn(
     const metadataOnly = isMetadataConversion(column.fieldType, fieldType);
     if (!metadataOnly && !isConvertible(column.fieldType, fieldType)) {
       throw new AppError("invalid_conversion");
+    }
+    assertConversionZone(column.fieldType, fieldType, input.timeZone);
+    // Every table keeps a field that names its rows.
+    if (
+      column.isPrimary &&
+      !PRIMARY_TYPES.has(fieldType) &&
+      !own.some(
+        (item) => item.id !== column.id && PRIMARY_TYPES.has(item.fieldType),
+      )
+    ) {
+      throw new AppError("primary_field_needed");
     }
   }
   const current = columnConfig(column);
@@ -1027,21 +1188,20 @@ export async function updateColumn(
   if (isRelationType(fieldType) && current.inverseOf) {
     raw.inverseOf = current.inverseOf;
   }
-  if (
-    (fieldType === "single_select" || fieldType === "multi_select") &&
-    raw.options === undefined
-  ) {
-    const names = converting ? await distinctOptions(db, table, column) : [];
-    const fromCurrent = current.options ?? [];
-    raw.options =
-      fromCurrent.length > 0
-        ? fromCurrent
-        : (names.length > 0 ? names : ["Option 1"]).map((name, index) => ({
-            name,
-            color: OPTION_COLORS[index % OPTION_COLORS.length],
-          }));
-  }
-  const config = parseColumnConfig(fieldType, raw);
+  const config = converting
+    ? await convertedConfig(db, table, column, fieldType, raw)
+    : parseColumnConfig(fieldType, {
+        ...raw,
+        ...((fieldType === "single_select" || fieldType === "multi_select") &&
+        raw.options === undefined
+          ? {
+              options:
+                (current.options ?? []).length > 0
+                  ? current.options
+                  : [{ name: "Option 1", color: OPTION_COLORS[0] }],
+            }
+          : {}),
+      });
   // A selection names a shared view of the linked table, or a filter on it.
   if (isRelationType(fieldType) && config.selectFrom) {
     const engine = assembleEngine(table.id, rows, () => true);
@@ -1122,10 +1282,49 @@ export async function updateColumn(
       throw new AppError("invalid_option");
     }
   }
+  return {
+    column,
+    own,
+    fieldType,
+    converting,
+    config,
+    unique,
+    renames,
+    asked: raw,
+  };
+}
+
+/**
+ * Writes a planned change in one transaction. `filled`: a job has already
+ * written the converted values beside the field, and this is its switch.
+ */
+export async function applyColumnUpdate(
+  db: Database,
+  userId: string,
+  table: TableRow,
+  input: ColumnUpdate,
+  plan: ColumnPlan,
+  source = "web",
+  filled = false,
+): Promise<void> {
+  const { column, own, fieldType, converting, unique, renames } = plan;
+  let { config } = plan;
   await withAudit(
     db,
     { userId, tableId: table.id, reason: input.reason ?? null, source },
     async (tx) => {
+      // The switch waits briefly for the table, and is tried again: a long
+      // wait here would hold every reader behind it.
+      if (filled) await sqlTag`set local lock_timeout = '3s'`.execute(tx);
+      const rewrites =
+        converting &&
+        hasPhysicalColumn(column.fieldType) &&
+        isWritableType(fieldType) &&
+        !isMetadataConversion(column.fieldType, fieldType);
+      // No write lands between the values read here and the new type.
+      if (rewrites && !filled) {
+        await runRows(tx, buildLockOutWriters(table.physicalName));
+      }
       if (column.isUnique && (!unique || converting)) {
         await runRows(
           tx,
@@ -1135,25 +1334,7 @@ export async function updateColumn(
           }),
         );
       }
-      if (
-        converting &&
-        hasPhysicalColumn(column.fieldType) &&
-        isWritableType(fieldType)
-      ) {
-        if (!isMetadataConversion(column.fieldType, fieldType)) {
-          const statements = buildConversionStatements({
-            table: table.physicalName,
-            column: column.name,
-            from: column.fieldType,
-            to: fieldType,
-          });
-          for (const statement of statements.prepare)
-            await runRows(tx, statement);
-          await runRows(tx, statements.rewrite);
-          for (const statement of statements.finish)
-            await runRows(tx, statement);
-        }
-      }
+      // Under the names the rows hold now, before they are read for a type.
       for (const rename of renames) {
         if (
           column.fieldType === "single_select" ||
@@ -1171,6 +1352,51 @@ export async function updateColumn(
           );
         }
       }
+      if (rewrites && filled) {
+        for (const statement of buildConversionSwitch({
+          table: table.physicalName,
+          column: column.name,
+        }))
+          await runRows(tx, statement);
+      } else if (rewrites) {
+        config = await convertedConfig(
+          tx,
+          table,
+          column,
+          fieldType,
+          plan.asked,
+        );
+        const beside = !isStoredAlike(column.fieldType, fieldType);
+        if (beside) {
+          await runRows(
+            tx,
+            buildConversionTempColumn({
+              table: table.physicalName,
+              column: column.name,
+              to: fieldType,
+            }),
+          );
+        }
+        await rewriteField(
+          tx,
+          {
+            table: table.physicalName,
+            column: column.name,
+            from: column.fieldType,
+            to: fieldType,
+            config,
+            timeZone: input.timeZone,
+          },
+          beside,
+        );
+        if (beside) {
+          for (const statement of buildConversionSwitch({
+            table: table.physicalName,
+            column: column.name,
+          }))
+            await runRows(tx, statement);
+        }
+      }
       if (isWritableType(fieldType) && hasPhysicalColumn(column.fieldType)) {
         const fallback = config.defaultValue;
         await runRows(
@@ -1185,7 +1411,15 @@ export async function updateColumn(
       if (unique && (!column.isUnique || converting)) {
         await runRows(
           tx,
-          buildUniqueIndex({ table: table.physicalName, column: column.name }),
+          filled
+            ? buildRenameConversionIndex({
+                table: table.physicalName,
+                column: column.name,
+              })
+            : buildUniqueIndex({
+                table: table.physicalName,
+                column: column.name,
+              }),
         );
       }
       await tx
@@ -1233,46 +1467,214 @@ export async function updateColumn(
   );
 }
 
-/** What a conversion would do to existing values: totals and a few examples. */
+export async function updateColumn(
+  db: Database,
+  userId: string,
+  table: TableRow,
+  input: ColumnUpdate,
+  source = "web",
+): Promise<void> {
+  try {
+    const plan = await planColumnUpdate(db, table, input);
+    await applyColumnUpdate(db, userId, table, input, plan, source);
+  } catch (error) {
+    // Past the pool's limit for a statement: the table is left as it was.
+    if (input.fieldType !== undefined && postgresCode(error) === "57014") {
+      throw new AppError("conversion_too_large", { cause: error });
+    }
+    throw error;
+  }
+}
+
+/** What stops working once a field has its new type. */
+function brokenByConversion(
+  rows: CatalogRows,
+  table: TableRow,
+  column: ColumnRow,
+  fieldType: FieldType,
+  config: ColumnConfig,
+  views: ReadonlyArray<{
+    id: string;
+    name: string;
+    viewType: string;
+    config: unknown;
+  }>,
+  canRead: (tableId: string) => boolean,
+): {
+  views: Array<{ id: string; name: string }>;
+  fields: Array<{ tableId: string; name: string; label: string }>;
+  /** Fields that stop too, in tables the person asking may not read. */
+  fieldsElsewhere: number;
+} {
+  const after: CatalogRows = {
+    ...rows,
+    columns: rows.columns.map((item) =>
+      item.id === column.id ? { ...item, fieldType, config } : item,
+    ),
+  };
+  const fields: Array<{ tableId: string; name: string; label: string }> = [];
+  let fieldsElsewhere = 0;
+  const computed = rows.columns.filter(
+    (item) =>
+      item.fieldType === "formula" ||
+      item.fieldType === "lookup" ||
+      item.fieldType === "rollup",
+  );
+  for (const tableId of new Set(computed.map((item) => item.tableId))) {
+    const failing = (catalog: CatalogRows) =>
+      new Set(
+        describeColumns(assembleEngine(tableId, catalog, () => true))
+          .filter((item) => item.error)
+          .map((item) => item.name),
+      );
+    const before = failing(rows);
+    const now = failing(after);
+    for (const item of computed) {
+      if (
+        item.tableId === tableId &&
+        now.has(item.name) &&
+        !before.has(item.name)
+      ) {
+        // Named only to who may read its table; counted for anyone else.
+        if (canRead(tableId)) {
+          fields.push({ tableId, name: item.name, label: item.label });
+        } else {
+          fieldsElsewhere += 1;
+        }
+      }
+    }
+  }
+  const engine = assembleEngine(table.id, after, () => true);
+  const known = new Set(engine.table.columns.map((item) => item.name));
+  const broken = views.filter((view) => {
+    const filter = viewFilter(
+      pruneViewConfig(
+        normalizeViewConfig(view.config, view.viewType as never),
+        known,
+      ),
+    );
+    if (!filter) return false;
+    try {
+      buildReadRows(engine, { filter, limit: 1 });
+      return false;
+    } catch (error) {
+      if (
+        error instanceof AppError &&
+        (error.code === "invalid_filter" || error.code === "not_comparable")
+      ) {
+        return true;
+      }
+      throw error;
+    }
+  });
+  return {
+    views: broken.map((view) => ({ id: view.id, name: view.name })),
+    fields,
+    fieldsElsewhere,
+  };
+}
+
+/**
+ * What a conversion would do, before anything changes: the values it
+ * keeps, empties and writes differently, a few examples, the zone it reads
+ * days in, what stops working, and whether it runs in the background.
+ */
 export async function previewConversion(
   db: Database,
   table: TableRow,
   name: string,
   fieldType: FieldType,
+  asked: {
+    config?: Record<string, unknown>;
+    timeZone?: string;
+    /** Who asks: another person's own views and unread tables stay unnamed. */
+    viewer: { userId: string; canRead: (tableId: string) => boolean };
+  },
 ): Promise<{
   total: number;
   lost: number;
+  rewritten: number;
+  /** Counted on the first values only: the table holds more. */
+  sampled: boolean;
   samples: Array<{ before: unknown; after: unknown }>;
+  timeZone: string | null;
+  background: boolean;
+  views: Array<{ id: string; name: string }>;
+  fields: Array<{ tableId: string; name: string; label: string }>;
+  fieldsElsewhere: number;
 }> {
-  const column = await db
-    .selectFrom("dataColumns")
-    .selectAll()
-    .where("tableId", "=", table.id)
-    .where("name", "=", name)
-    .where(liveColumn())
-    .executeTakeFirst();
+  const rows = await loadBaseRows(db, table.baseId);
+  const column = ownColumns(rows, table.id).find((item) => item.name === name);
   if (!column) {
     throw new AppError("unknown_column", name);
   }
-  if (isMetadataConversion(column.fieldType, fieldType)) {
-    return { total: 0, lost: 0, samples: [] };
-  }
-  if (!isConvertible(column.fieldType, fieldType)) {
+  const metadata = isMetadataConversion(column.fieldType, fieldType);
+  if (!metadata && !isConvertible(column.fieldType, fieldType)) {
     throw new AppError("invalid_conversion");
   }
-  const statement = buildConversionPreview({
-    table: table.physicalName,
-    column: column.name,
-    from: column.fieldType,
-    to: fieldType,
-  });
-  const row: Record<string, unknown> =
-    (await runStatement(db, statement))[0] ?? {};
+  assertConversionZone(column.fieldType, fieldType, asked.timeZone);
+  const config = await convertedConfig(
+    db,
+    table,
+    column,
+    fieldType,
+    asked.config ?? {},
+  );
+  const views = await db
+    .selectFrom("views")
+    .select(["id", "name", "viewType", "config"])
+    .where("tableId", "=", table.id)
+    .where((eb) =>
+      eb.or([
+        eb("ownerId", "is", null),
+        eb("ownerId", "=", asked.viewer.userId),
+      ]),
+    )
+    .execute();
+  const broken = brokenByConversion(
+    rows,
+    table,
+    column,
+    fieldType,
+    config,
+    views,
+    asked.viewer.canRead,
+  );
+  // A field with a zone of its own reads its days there.
+  const ownZone = (config as { date?: { timeZone?: string } }).date?.timeZone;
+  const zone =
+    conversionZone(column.fieldType, fieldType) === "none"
+      ? null
+      : (ownZone ?? asked.timeZone ?? null);
+  if (metadata) {
+    return {
+      total: 0,
+      lost: 0,
+      rewritten: 0,
+      sampled: false,
+      samples: [],
+      timeZone: null,
+      background: false,
+      ...broken,
+    };
+  }
+  const counted = await tallyConversion(
+    db,
+    {
+      table: table.physicalName,
+      column: column.name,
+      from: column.fieldType,
+      to: fieldType,
+      config,
+      timeZone: asked.timeZone,
+    },
+    PREVIEW_VALUES,
+  );
   return {
-    total: Number(row.total ?? 0),
-    lost: Number(row.lost ?? 0),
-    samples: Array.isArray(row.samples)
-      ? (row.samples as Array<{ before: unknown; after: unknown }>)
-      : [],
+    ...counted,
+    sampled: counted.total >= PREVIEW_VALUES,
+    timeZone: zone,
+    background: await isLongConversion(db, table, column.fieldType, fieldType),
+    ...broken,
   };
 }

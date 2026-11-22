@@ -1,9 +1,11 @@
 import { assertCellValue, type CellColumn } from "../cell-values";
 import {
+  type FieldType,
   isRelationType,
   isWritableType,
   physicalSqlType,
 } from "../field-types";
+import { storedFromJson } from "./conversion";
 import {
   assertIdentifier,
   quoteIdent,
@@ -401,16 +403,36 @@ export function buildSetStatus(input: {
 }
 
 /**
+ * What the `delete` events of the trail hold in these fields, as JSON a
+ * reader can take without rounding anything: a number and a document as
+ * their exact text, a list of names as it is.
+ */
+export function buildReadHeldCells(input: {
+  events: readonly string[];
+  columns: readonly string[];
+}): ParameterizedSql {
+  assertIdList(input.events);
+  for (const name of input.columns) assertIdentifier(name, "column name");
+  const params = new SqlParams();
+  const events = params.bindTextArray(input.events);
+  const names = params.bindTextArray(input.columns);
+  return {
+    text: `select e."id" as "event", (select jsonb_object_agg(c.k, case jsonb_typeof(c.v) when 'number' then to_jsonb(c.v #>> '{}') when 'object' then to_jsonb(c.v::text) when 'array' then case when exists (select 1 from jsonb_array_elements(c.v) i where jsonb_typeof(i) <> 'string') then to_jsonb(c.v::text) else c.v end else c.v end) from jsonb_each(e."old_value") c(k, v) where c.k = any(${names})) as "held" from "audit_events" e where e."id" = any(${events}::uuid[]) and e."action" = 'delete'`,
+    values: params.values,
+  };
+}
+
+/**
  * Re-inserts a deleted row from the `delete` event of the trail that kept
  * it (`old_value`), keeping its id, sequence number, place, and creation
  * stamp. It always comes back as a draft. Columns that no longer exist are
- * ignored; new ones stay null. The database reads the event where it is:
- * read out and written back, a number past sixteen digits would come back
- * rounded.
+ * ignored; new ones stay null. `values` are its fields as they read now
+ * (`restoredCell`), a number as its exact text.
  */
 export function buildRestoreRow(input: {
   table: string;
-  columns: readonly string[];
+  columns: ReadonlyArray<{ name: string; fieldType: FieldType }>;
+  values: Readonly<Record<string, unknown>>;
   /** The row. */
   id: string;
   /** The event of the trail that holds it as it was deleted. */
@@ -419,26 +441,34 @@ export function buildRestoreRow(input: {
   assertIdentifier(input.table, "table name");
   assertRowId(input.id);
   assertRowId(input.event);
-  const names = [
+  for (const column of input.columns) {
+    assertIdentifier(column.name, "column name");
+  }
+  const list = [
     "id",
     "ag_seq",
     "ag_created_at",
     "ag_created_by",
-    ...input.columns,
-  ];
-  for (const name of names) {
-    assertIdentifier(name, "column name");
-  }
-  const list = [...names, "ag_position"].map(quoteIdent).join(", ");
+    ...input.columns.map((column) => column.name),
+    "ag_position",
+  ]
+    .map(quoteIdent)
+    .join(", ");
   // A row deleted before rows had a place of their own stood at its
   // sequence number.
-  const source = [
-    ...names.map((name) => `s.${quoteIdent(name)}`),
-    `coalesce(s."ag_position", s."ag_seq")`,
+  const row = [
+    `(s."o" ->> 'id')::uuid`,
+    `(s."o" ->> 'ag_seq')::bigint`,
+    `(s."o" ->> 'ag_created_at')::timestamptz`,
+    `(s."o" ->> 'ag_created_by')::uuid`,
+    ...input.columns.map(({ name, fieldType }) =>
+      storedFromJson(fieldType, `g."v" -> '${name}'`),
+    ),
+    `coalesce((s."o" ->> 'ag_position')::numeric, (s."o" ->> 'ag_seq')::numeric)`,
   ].join(", ");
   return {
-    text: `insert into ${quoteIdent(input.table)} (${list}) select ${source} from "audit_events" e cross join lateral jsonb_populate_record(null::${quoteIdent(input.table)}, e."old_value") s where e."id" = $1::uuid and e."record_id" = $2::uuid and e."action" = 'delete' returning "id"`,
-    values: [input.event, input.id],
+    text: `with "held" as (select e."old_value" as "o" from "audit_events" e where e."id" = $1::uuid and e."record_id" = $2::uuid and e."action" = 'delete'), "given" as (select $3::text::jsonb as "v") insert into ${quoteIdent(input.table)} (${list}) select ${row} from "held" s cross join "given" g returning "id"`,
+    values: [input.event, input.id, JSON.stringify(input.values)],
   };
 }
 
@@ -639,27 +669,6 @@ export function buildNonNullValues(input: {
   };
 }
 
-/** Distinct non-empty text values of a column, for building select options. */
-export function buildDistinctText(input: {
-  table: string;
-  column: string;
-  arrayColumn?: boolean;
-  limit: number;
-}): ParameterizedSql {
-  assertIdentifier(input.table, "table name");
-  assertIdentifier(input.column, "column name");
-  if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 1000) {
-    throw new AppError("invalid_limit");
-  }
-  const source = input.arrayColumn
-    ? `select unnest(${quoteIdent(input.column)})::text as v from ${quoteIdent(input.table)}`
-    : `select ${quoteIdent(input.column)}::text as v from ${quoteIdent(input.table)}`;
-  return {
-    text: `select distinct btrim(v) as "value" from (${source}) s where v is not null and btrim(v) <> '' order by 1 limit $1`,
-    values: [input.limit],
-  };
-}
-
 export function buildCountLocked(table: string): ParameterizedSql {
   assertIdentifier(table, "table name");
   return {
@@ -694,7 +703,8 @@ export function buildRenameOption(input: {
   const column = quoteIdent(input.column);
   return input.multiple
     ? {
-        text: `update ${quoteIdent(input.table)} set ${column} = array_replace(${column}, $1::text, $2::text) where $1::text = any(${column})`,
+        // Two options merged leave one in a cell, where the first of them was.
+        text: `update ${quoteIdent(input.table)} set ${column} = (select array_agg(d.v order by d.at) from (select u.v, min(u.ord) as at from unnest(array_replace(${column}, $1::text, $2::text)) with ordinality as u(v, ord) group by u.v) d) where $1::text = any(${column})`,
         values: [input.from, input.to],
       }
     : {

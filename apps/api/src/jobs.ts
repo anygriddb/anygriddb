@@ -1,4 +1,5 @@
 import { actingUserId } from "./data/acting-context.js";
+import { abandonConversion } from "./data/conversion-job.js";
 import { readerRulesPrint } from "./data/acl.js";
 import {
   accountExportJobInputSchema,
@@ -421,6 +422,12 @@ export async function recoverJobs(deps: QueueDeps): Promise<number> {
     .returningAll()
     .execute();
   for (const job of lapsed) {
+    // Its table is read-only for no one now: what it had begun goes away.
+    if (job.kind === "convert_column") {
+      await abandonConversion(deps.db, job).catch((error: unknown) =>
+        deps.log(error, "conversion cleanup failed"),
+      );
+    }
     await publishJob(deps.bus, job, deps.log);
     await notifyJobOutcome(
       deps.db,
@@ -642,9 +649,10 @@ export async function jobFileReadableBy(
 /**
  * Kinds whose run is safe to start again from nothing: an export rewrites
  * its file, a restore point keeps its file only once its line is written,
- * and a copy or a restore removes the table or base it had begun when it
- * fails or is stopped. An import is not one of them: the rows it wrote
- * before failing would be written twice.
+ * a copy or a restore removes the table or base it had begun when it fails
+ * or is stopped, and a conversion leaves its field as it was until its
+ * last step. An import is not one of them: the rows it wrote before
+ * failing would be written twice.
  */
 const RETRYABLE_KINDS: ReadonlySet<JobKind> = new Set([
   "export",
@@ -653,6 +661,7 @@ const RETRYABLE_KINDS: ReadonlySet<JobKind> = new Set([
   "duplicate_base",
   "restore_point",
   "restore_base",
+  "convert_column",
 ]);
 
 /** Of the kinds started again, those that make a new base. */

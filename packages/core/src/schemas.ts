@@ -190,6 +190,8 @@ export const updateColumnInputSchema = z.object({
   config: z.record(z.string(), z.unknown()).optional(),
   formulaSource: z.string().trim().min(1).max(4_000).optional(),
   reason: reasonSchema.optional(),
+  /** Where a day and an instant meet, for a conversion between them. */
+  timeZone: timeZoneInputSchema.optional(),
 });
 
 export const deleteColumnInputSchema = z.object({
@@ -211,6 +213,8 @@ export const previewConversionInputSchema = z.object({
   tableId: z.uuid(),
   name: columnNameSchema,
   fieldType: fieldTypeSchema,
+  config: z.record(z.string(), z.unknown()).optional(),
+  timeZone: timeZoneInputSchema.optional(),
 });
 
 export const rowsReadInputSchema = z.object({

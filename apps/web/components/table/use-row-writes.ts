@@ -20,7 +20,7 @@ import {
   writeValues,
   type CellUpdate,
 } from "./row-writes";
-import { sayLinksLeft } from "./restored-links";
+import { sayLinksLeft, sayValuesCleared } from "./restored-links";
 import type { CellValue } from "./table-context";
 import type { Reason } from "./use-reason";
 import { prefillFromFilter } from "./view-read";
@@ -245,12 +245,14 @@ export function useRowWrites(input: {
   const restoreAsStep = useCallback(
     async (rowIds: string[]) => {
       const reason = await askForStep(everyField);
-      const { linksNotRestored } = await trpc.rows.restore.mutate({
-        tableId,
-        rowIds,
-        reason,
-      });
+      const { linksNotRestored, valuesCleared } =
+        await trpc.rows.restore.mutate({
+          tableId,
+          rowIds,
+          reason,
+        });
       sayLinksLeft(linksNotRestored);
+      sayValuesCleared(valuesCleared);
       rows.refresh();
     },
     [askForStep, everyField, tableId, rows],
@@ -337,12 +339,14 @@ export function useRowWrites(input: {
                 void (async () => {
                   const back = await ask(everyField);
                   if (back === false) return;
-                  const { linksNotRestored } = await trpc.rows.restore.mutate({
-                    tableId,
-                    rowIds,
-                    reason: back,
-                  });
+                  const { linksNotRestored, valuesCleared } =
+                    await trpc.rows.restore.mutate({
+                      tableId,
+                      rowIds,
+                      reason: back,
+                    });
                   sayLinksLeft(linksNotRestored);
+                  sayValuesCleared(valuesCleared);
                   rows.refresh();
                 })().catch((cause: unknown) => toast.error(errorText(cause)));
               },

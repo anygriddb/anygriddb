@@ -21,16 +21,19 @@ import { duplicateColumn } from "../data/data-ops.js";
 import { addRelation } from "../data/relations.js";
 import {
   addColumn,
+  planLongConversion,
   previewConversion,
   reorderColumns,
   setPrimaryColumn,
   updateColumn,
 } from "../data/schema-ops.js";
 import { trashColumn } from "../data/trash.js";
+import { enqueueJob } from "../jobs.js";
 import { publishCatalog } from "../realtime/channels.js";
 import type { Context } from "./context.js";
 import { readableTables } from "../data/acl.js";
 import { guardTable, handle } from "./guard.js";
+import { queueDeps } from "./jobs-router.js";
 import { procedure, requestNames } from "./init.js";
 import { logPublish } from "./catalog-shared.js";
 
@@ -79,9 +82,21 @@ export const catalogFieldProcedures = {
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
         const { user, table } = await guardTable(ctx, input.tableId, "manage");
+        // A long conversion goes to the background: its job says when it ends.
+        const long = await planLongConversion(ctx.db, table, input);
+        if (long) {
+          const job = await enqueueJob(queueDeps(ctx), {
+            kind: "convert_column",
+            userId: user.id,
+            baseId: table.baseId,
+            tableId: table.id,
+            input: { ...long, tableId: table.id },
+          });
+          return { ok: true as const, jobId: job.id };
+        }
         await updateColumn(ctx.db, user.id, table, input);
         await publishCatalog(ctx.bus, table.baseId, logPublish(ctx));
-        return { ok: true as const };
+        return { ok: true as const, jobId: null };
       }),
     ),
   duplicateColumn: procedure
@@ -104,8 +119,20 @@ export const catalogFieldProcedures = {
     .input(previewConversionInputSchema)
     .query(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { table } = await guardTable(ctx, input.tableId, "manage");
-        return previewConversion(ctx.db, table, input.name, input.fieldType);
+        const { user, bindings, table } = await guardTable(
+          ctx,
+          input.tableId,
+          "manage",
+        );
+        const baseOf = await tablesOfBase(ctx, table.baseId);
+        return previewConversion(ctx.db, table, input.name, input.fieldType, {
+          ...(input.config ? { config: input.config } : {}),
+          ...(input.timeZone ? { timeZone: input.timeZone } : {}),
+          viewer: {
+            userId: user.id,
+            canRead: readableTables(bindings, baseOf),
+          },
+        });
       }),
     ),
   deleteColumn: procedure

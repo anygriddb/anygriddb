@@ -4,6 +4,7 @@ import {
   type FieldType,
   type FilterGroup,
   isPrimaryType,
+  isTimeZone,
   type LinkSelection,
   MULTI_SELECT_APPEARANCES,
   type ROLLUP_FNS,
@@ -402,6 +403,42 @@ export function convertsValues(
   );
 }
 
+/**
+ * The zone a conversion between a day and an instant reads days in: the
+ * one the person sees them in, their field's own if it has one, else
+ * their browser's. Shown in the dialog before anything changes.
+ */
+export function conversionTimeZone(
+  editing: CatalogColumn | null,
+  browser: string = Intl.DateTimeFormat().resolvedOptions().timeZone,
+): string {
+  const own = (editing?.config as { date?: { timeZone?: unknown } } | undefined)
+    ?.date?.timeZone;
+  if (typeof own === "string" && isTimeZone(own)) return own;
+  return isTimeZone(browser) ? browser : "UTC";
+}
+
+/** Whether a conversion has anything to say before it is done. */
+export function conversionAsksFirst(preview: {
+  lost: number;
+  rewritten: number;
+  timeZone: string | null;
+  background: boolean;
+  views: readonly unknown[];
+  fields: readonly unknown[];
+  fieldsElsewhere: number;
+}): boolean {
+  return (
+    preview.lost > 0 ||
+    preview.rewritten > 0 ||
+    preview.timeZone !== null ||
+    preview.background ||
+    preview.views.length > 0 ||
+    preview.fields.length > 0 ||
+    preview.fieldsElsewhere > 0
+  );
+}
+
 /** What saving the dialog asks of the server. */
 export type FieldRequest =
   | { call: "addRelation"; input: RouterInputs["catalog"]["addRelation"] }
@@ -522,7 +559,7 @@ export function fieldRequest(
       : {};
   // The server keeps a lookup's link, field, and aggregation.
   const condition = linkedCondition(draft);
-  const config =
+  const settings =
     fieldType === "link"
       ? selection
       : fieldType === "lookup" || fieldType === "rollup"
@@ -532,6 +569,15 @@ export function fieldRequest(
         : formula
           ? formulaConfigOf(draft, stored)
           : configOf(draft, stored);
+  // A field becoming a list with no option named takes them from its values.
+  const config =
+    converting &&
+    (fieldType === "single_select" || fieldType === "multi_select") &&
+    optionsOf(draft).length === 0
+      ? Object.fromEntries(
+          Object.entries(settings ?? {}).filter(([key]) => key !== "options"),
+        )
+      : settings;
   return {
     call: "updateColumn",
     input: {

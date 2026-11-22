@@ -41,7 +41,8 @@ export type ServerMessage =
         | "restore_point"
         | "restore_base"
         | "import_workbook"
-        | "account_export";
+        | "account_export"
+        | "convert_column";
       status: "queued" | "running" | "done" | "failed" | "cancelled";
       done: number;
       total: number | null;

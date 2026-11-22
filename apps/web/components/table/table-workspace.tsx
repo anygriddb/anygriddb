@@ -1,5 +1,5 @@
 import { isCopySourceEngine } from "@anygriddb/core";
-import { Spinner } from "@anygriddb/ui";
+import { Button, Spinner } from "@anygriddb/ui";
 import { useLingui } from "@lingui/react/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -432,6 +432,23 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
           description={config.description}
           editable={settings.editable}
         />
+        {rows.viewFilterBroken ? (
+          <div
+            role="status"
+            className="flex flex-wrap items-center gap-2 border-b border-warning/40 bg-warning-surface px-3 py-2 text-sm"
+          >
+            <span className="min-w-0 flex-1">
+              {t`A field this view filters on changed type: the view shows no rows until its filter is corrected.`}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFilterOpen(true)}
+            >
+              {t`Correct the filter`}
+            </Button>
+          </div>
+        ) : null}
         {isGrid && rows.total > 0 ? <GridTips canEdit={writable} /> : null}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">

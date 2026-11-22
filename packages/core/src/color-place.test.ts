@@ -16,11 +16,8 @@ import {
   physicalSqlType,
   storedValueKind,
 } from "./field-types";
-import {
-  convertExpression,
-  isConvertible,
-  isMetadataConversion,
-} from "./query/ddl";
+import { convertCell } from "./cell-conversion";
+import { isConvertible, isMetadataConversion } from "./query/conversion";
 import { isSideFieldType, sideColumnType } from "./query/external-write";
 
 const color = { fieldType: "color" as const, config: {} };
@@ -177,19 +174,13 @@ describe("both, as field types", () => {
       expect(isMetadataConversion(type, "text")).toBe(true);
       expect(isConvertible(type, "number")).toBe(true);
     }
-    expect(convertExpression("text", "color", `"x"`)).toContain(
-      `'^#?[0-9a-f]{6}$'`,
-    );
-    expect(convertExpression("text", "place", `"x"`)).toContain(
-      "abs(p.lat) <= 90 and abs(p.lng) <= 180",
+    expect(convertCell("text", color, " #ABC ")).toBe("#aabbcc");
+    expect(convertCell("text", place, "48,8566; 2,3522")).toBe(
+      "48.8566,2.3522",
     );
     // A number is first written as text, then read the same way.
-    expect(convertExpression("number", "place", `"x"`)).toContain(
-      `trim_scale("x")::text`,
-    );
-    expect(() => convertExpression("attachment", "color", `"x"`)).toThrow(
-      "Invalid conversion",
-    );
+    expect(convertCell("number", place, "12")).toBeUndefined();
+    expect(isConvertible("attachment", "color")).toBe(false);
   });
 
   it("are kept beside a client's table on each of the five engines", () => {

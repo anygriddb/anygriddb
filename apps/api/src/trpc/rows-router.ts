@@ -3,6 +3,7 @@ import {
   addCommentInputSchema,
   andFilters,
   AppError,
+  buildReadRows,
   auditReadInputSchema,
   deleteCommentInputSchema,
   deleteRowsInputSchema,
@@ -251,18 +252,71 @@ async function withSignatures(
     }),
   );
 }
+
+/**
+ * Whether a read was refused because of its view's stored filter alone: a
+ * field it names was converted, and an operator no longer fits. The page
+ * then opens with no rows and says so. It never reads the table without
+ * that filter, which would show rows the view keeps out.
+ */
+async function stoppedByViewFilter(
+  ctx: Context,
+  access: TableAccess,
+  input: Parameters<typeof readSpec>[2],
+  engine: EngineCatalog,
+  error: unknown,
+): Promise<boolean> {
+  if (
+    !input.viewId ||
+    input.ignoreViewFilter ||
+    !(error instanceof AppError) ||
+    (error.code !== "invalid_filter" && error.code !== "not_comparable")
+  ) {
+    return false;
+  }
+  const without = await readSpec(
+    ctx,
+    access,
+    { ...input, ignoreViewFilter: true },
+    engine,
+  );
+  try {
+    buildReadRows(engine, without);
+    return true;
+  } catch (cause) {
+    // The filter asked with this read is at fault: it is refused as such.
+    if (cause instanceof AppError) return false;
+    throw cause;
+  }
+}
+
 export const rowsRouter = t.router({
   read: procedure.input(rowsReadInputSchema).query(({ ctx, input }) =>
     handle(ctx, async () => {
       const access = await guardTable(ctx, input.tableId, "read");
       const { engine } = await engineFor(ctx, access);
       const spec = await readSpec(ctx, access, input, engine);
-      const page = await readPage(ctx.db, engine, spec, {
-        total: input.withTotal,
-        exact: input.exactTotal,
-        groups: input.withGroups,
-        budget: ctx.readBudget,
-      });
+      let page: Awaited<ReturnType<typeof readPage>>;
+      try {
+        page = await readPage(ctx.db, engine, spec, {
+          total: input.withTotal,
+          exact: input.exactTotal,
+          groups: input.withGroups,
+          budget: ctx.readBudget,
+        });
+      } catch (error) {
+        if (!(await stoppedByViewFilter(ctx, access, input, engine, error))) {
+          throw error;
+        }
+        return {
+          rows: [],
+          total: 0,
+          totalEstimated: false,
+          groups: [],
+          offset: spec.offset ?? 0,
+          viewFilterBroken: true as const,
+        };
+      }
       return {
         rows: await withSignatures(ctx, engine, page.rows),
         // Null when the page was read without its count.
@@ -270,6 +324,7 @@ export const rowsRouter = t.router({
         totalEstimated: page.totalEstimated,
         groups: page.groups,
         offset: spec.offset ?? 0,
+        viewFilterBroken: undefined as true | undefined,
       };
     }),
   ),
@@ -292,9 +347,17 @@ export const rowsRouter = t.router({
     handle(ctx, async () => {
       const access = await guardTable(ctx, input.tableId, "read");
       const { engine } = await engineFor(ctx, access);
-      const spec = await readSpec(ctx, access, { ...input, limit: 1 }, engine);
-      const values = await aggregateRows(ctx.db, engine, spec, input.items);
-      return { values };
+      const asked = { ...input, limit: 1 };
+      const spec = await readSpec(ctx, access, asked, engine);
+      try {
+        const values = await aggregateRows(ctx.db, engine, spec, input.items);
+        return { values };
+      } catch (error) {
+        if (!(await stoppedByViewFilter(ctx, access, asked, engine, error))) {
+          throw error;
+        }
+        return { values: input.items.map(() => null) };
+      }
     }),
   ),
   insert: procedure.input(insertRowInputSchema).mutation(({ ctx, input }) =>

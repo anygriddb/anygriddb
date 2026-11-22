@@ -52,6 +52,8 @@ type Snapshot = {
   error: unknown;
   version: number;
   groups: Groups;
+  /** The view's filter no longer fits a field: it shows no rows until fixed. */
+  viewFilterBroken: boolean;
 };
 
 export type RowsState = Snapshot & {
@@ -105,6 +107,7 @@ export class RowPages {
     error: null,
     version: 0,
     groups: [],
+    viewFilterBroken: false,
   };
   private open = false;
   /**
@@ -237,7 +240,12 @@ export class RowPages {
         totalEstimated: estimated,
         loading: false,
         error: null,
-        ...(page === 0 ? { groups: result.groups } : {}),
+        ...(page === 0
+          ? {
+              groups: result.groups,
+              viewFilterBroken: result.viewFilterBroken === true,
+            }
+          : {}),
       });
     } catch (error) {
       // A client's database may refuse or time out: the view says so and

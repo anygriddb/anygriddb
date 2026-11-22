@@ -5,6 +5,7 @@ import {
   importIdSchema,
   importMappingSchema,
   reasonSchema,
+  updateColumnInputSchema,
 } from "./schemas";
 import {
   duplicateBaseJobInputSchema,
@@ -35,6 +36,7 @@ export const JOB_KINDS = [
   "restore_base",
   "import_workbook",
   "account_export",
+  "convert_column",
 ] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
@@ -177,6 +179,21 @@ export const importAirtableJobInputSchema = z
       .optional(),
   })
   .strict();
+/** A field's conversion, as the person asked it, with its options settled. */
+export const convertColumnJobInputSchema = updateColumnInputSchema
+  .extend({
+    optionRenames: z
+      .array(
+        z.object({
+          from: z.string().min(1).max(80),
+          to: z.string().min(1).max(80),
+        }),
+      )
+      .max(200)
+      .optional(),
+  })
+  .strict();
+
 export const jobInputSchemas = {
   import: importJobInputSchema,
   export: exportJobInputSchema,
@@ -190,6 +207,7 @@ export const jobInputSchemas = {
   restore_base: restoreBaseJobInputSchema,
   import_workbook: importWorkbookJobInputSchema,
   account_export: accountExportJobInputSchema,
+  convert_column: convertColumnJobInputSchema,
 } as const satisfies Record<JobKind, z.ZodType>;
 
 export const jobIdInputSchema = z.object({ jobId: z.uuid() }).strict();

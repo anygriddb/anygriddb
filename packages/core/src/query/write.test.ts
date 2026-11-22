@@ -266,7 +266,8 @@ describe("write builders", () => {
     const event = "22222222-2222-4222-8222-222222222222";
     const restore = buildRestoreRow({
       table: "t_orders",
-      columns: ["title"],
+      columns: [{ name: "title", fieldType: "text" }],
+      values: { title: "kept" },
       id,
       event,
     });
@@ -274,19 +275,31 @@ describe("write builders", () => {
       `("id", "ag_seq", "ag_created_at", "ag_created_by", "title", "ag_position")`,
     );
     // A row deleted before rows had a place comes back at its number.
-    expect(restore.text).toContain(`coalesce(s."ag_position", s."ag_seq")`);
-    expect(restore.text).not.toContain("ag_status");
-    // The database reads the row where the trail holds it: nothing of it
-    // is bound, so nothing of it was read out and written back.
     expect(restore.text).toContain(
-      `jsonb_populate_record(null::"t_orders", e."old_value")`,
+      `coalesce((s."o" ->> 'ag_position')::numeric, (s."o" ->> 'ag_seq')::numeric)`,
     );
-    expect(restore.values).toEqual([event, id]);
+    expect(restore.text).not.toContain("ag_status");
+    // Its identity is read where the trail holds it; its fields come as
+    // they read now, a number as its exact text.
+    expect(restore.text).toContain(`e."old_value" as "o"`);
+    expect(restore.values).toEqual([event, id, '{"title":"kept"}']);
     expect(() =>
-      buildRestoreRow({ table: "t_orders", columns: [], id: "", event }),
+      buildRestoreRow({
+        table: "t_orders",
+        columns: [],
+        values: {},
+        id: "",
+        event,
+      }),
     ).toThrow("Invalid row id");
     expect(() =>
-      buildRestoreRow({ table: "t_orders", columns: [], id, event: "1 or 1" }),
+      buildRestoreRow({
+        table: "t_orders",
+        columns: [],
+        values: {},
+        id,
+        event: "1 or 1",
+      }),
     ).toThrow("Invalid row id");
   });
 });

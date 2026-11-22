@@ -30,6 +30,17 @@ describe("PostgreSQL errors", () => {
     ).toBe("users_email_unique");
   });
 
+  it("says a table is converting only when its guard refused", () => {
+    expect(
+      thrownBy(Object.assign(new Error("Table converting"), { code: "P0001" })),
+    ).toMatchObject({ code: "table_converting" });
+    // A type mismatch is a fault of the statement, and stays one.
+    const mismatch = Object.assign(new Error("column is of type numeric"), {
+      code: "42804",
+    });
+    expect(thrownBy(mismatch)).toBe(mismatch);
+  });
+
   it("names no index for another failure", () => {
     expect(
       violatedUnique(

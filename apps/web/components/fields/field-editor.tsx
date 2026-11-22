@@ -20,11 +20,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
-import { trpc, useTRPC } from "../../lib/trpc";
+import { useTrackJob } from "../../lib/jobs";
+import { trpc, useTRPC, type RouterOutputs } from "../../lib/trpc";
 import type { CatalogTable, Collaborator } from "../../lib/types";
 import { Earlier } from "../history/earlier";
 import { CODE_FIELD_TYPES } from "./field-appearance";
 import {
+  conversionAsksFirst,
+  conversionTimeZone,
   CONVERTIBLE,
   convertsValues,
   draftOf,
@@ -62,6 +65,12 @@ const DATED = new Set([
   "created_time",
   "last_modified_time",
 ]);
+
+/** A value of a conversion's example, as the dialog writes it. */
+function sampleText(value: unknown, empty: string): string {
+  if (value === null || value === undefined) return empty;
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
 
 /**
  * The dialog that makes a field or changes one: its name and type, the
@@ -110,11 +119,11 @@ export function FieldEditor({
   const linkTarget = editing?.relation
     ? tables.find((item) => item.id === editing.relation?.targetTableId)
     : undefined;
-  const [conversion, setConversion] = useState<{
-    fieldType: string;
-    total: number;
-    lost: number;
-  } | null>(null);
+  const track = useTrackJob();
+  const [conversion, setConversion] = useState<
+    | (RouterOutputs["catalog"]["previewConversion"] & { fieldType: string })
+    | null
+  >(null);
   // A conversion preview holds for the type it was computed for only.
   const preview = conversion?.fieldType === fieldType ? conversion : null;
   const [busy, setBusy] = useState(false);
@@ -127,16 +136,23 @@ export function FieldEditor({
   const settings = { draft, set };
 
   /**
-   * Whether a change of type must be confirmed first: it would lose
-   * values, and the dialog says how many.
+   * Whether a change of type must be confirmed first: it would lose or
+   * rewrite values, reads days in a zone, runs in the background, or stops
+   * something that depends on the field. The dialog says which.
    */
-  async function losesValues(name: string): Promise<boolean> {
+  async function asksFirst(
+    name: string,
+    config: Record<string, unknown> | undefined,
+    timeZone: string,
+  ): Promise<boolean> {
     const result = await trpc.catalog.previewConversion.query({
       tableId: table.id,
       name,
       fieldType: fieldType as never,
+      config,
+      timeZone,
     });
-    if (result.lost === 0) return false;
+    if (!conversionAsksFirst(result)) return false;
     setConversion({ ...result, fieldType });
     return true;
   }
@@ -147,9 +163,18 @@ export function FieldEditor({
         ? editing.name
         : undefined;
     const request = fieldRequest(draft, target, table);
+    const timeZone = conversionTimeZone(editing);
+    const toConfirm =
+      converted !== undefined && request.call === "updateColumn"
+        ? { name: converted, config: request.input.config }
+        : null;
     try {
-      if (converted !== undefined) {
-        const confirmFirst = await losesValues(converted);
+      if (toConfirm) {
+        const confirmFirst = await asksFirst(
+          toConfirm.name,
+          toConfirm.config,
+          timeZone,
+        );
         if (confirmFirst) return;
       }
       let primary: string | undefined;
@@ -168,10 +193,23 @@ export function FieldEditor({
           if (request.makePrimary) primary = created.name;
           break;
         }
-        case "updateColumn":
-          await trpc.catalog.updateColumn.mutate(request.input);
+        case "updateColumn": {
+          const { jobId } = await trpc.catalog.updateColumn.mutate({
+            ...request.input,
+            timeZone,
+          });
+          // A large table: the field changes when its job ends.
+          if (jobId) {
+            void track(jobId, {
+              label: t`Converting ${{ field: draft.label.trim() }}`,
+              onDone: () => ({ message: t`Field converted` }),
+            });
+            onOpenChange(false);
+            return;
+          }
           if (request.makePrimary) primary = request.input.name;
           break;
+        }
       }
       if (primary !== undefined) {
         await trpc.catalog.setPrimaryColumn.mutate({
@@ -356,18 +394,70 @@ export function FieldEditor({
             />
           </div>
           {preview ? (
-            <p
+            <div
               role="alert"
-              className="rounded-md border border-danger/40 bg-danger/10 p-2 text-sm"
+              className="flex flex-col gap-1 rounded-md border border-danger/40 bg-danger/10 p-2 text-sm"
             >
-              {plural(
-                { lost: preview.lost },
-                {
-                  one: `# value out of ${ph({ total: preview.total })} cannot be converted and will be cleared. Save anyway?`,
-                  other: `# values out of ${ph({ total: preview.total })} cannot be converted and will be cleared. Save anyway?`,
-                },
-              )}
-            </p>
+              {preview.lost > 0 ? (
+                <p>
+                  {plural(
+                    { lost: preview.lost },
+                    {
+                      one: `# value out of ${ph({ total: preview.total })} cannot be converted and will be cleared. Save anyway?`,
+                      other: `# values out of ${ph({ total: preview.total })} cannot be converted and will be cleared. Save anyway?`,
+                    },
+                  )}
+                </p>
+              ) : null}
+              {preview.rewritten > 0 ? (
+                <p>
+                  {plural(
+                    { rewritten: preview.rewritten },
+                    {
+                      one: "# value will be written differently.",
+                      other: "# values will be written differently.",
+                    },
+                  )}
+                </p>
+              ) : null}
+              {preview.sampled ? (
+                <p>{t`Counted on the first ${ph({ total: preview.total })} values: the table holds more.`}</p>
+              ) : null}
+              {preview.timeZone ? (
+                <p>{t`Days are read in this time zone: ${ph({ zone: preview.timeZone })}.`}</p>
+              ) : null}
+              {preview.background ? (
+                <p>{t`This table is large: it is converted in the background, and stays read-only until that ends.`}</p>
+              ) : null}
+              {preview.views.length > 0 ? (
+                <p>{t`The filter of these views will no longer apply, and they will show no rows until it is corrected: ${ph({ views: preview.views.map((view) => view.name).join(", ") })}.`}</p>
+              ) : null}
+              {preview.fields.length > 0 ? (
+                <p>{t`These fields will stop computing: ${ph({ fields: preview.fields.map((item) => item.label).join(", ") })}.`}</p>
+              ) : null}
+              {preview.fieldsElsewhere > 0 ? (
+                <p>
+                  {plural(
+                    { elsewhere: preview.fieldsElsewhere },
+                    {
+                      one: "# field in a table you cannot read will stop computing.",
+                      other:
+                        "# fields in tables you cannot read will stop computing.",
+                    },
+                  )}
+                </p>
+              ) : null}
+              {preview.samples.length > 0 ? (
+                <ul className="text-xs">
+                  {preview.samples.map((sample, index) => (
+                    <li key={index} className="break-words">
+                      {sampleText(sample.before, t`empty`)} →{" "}
+                      {sampleText(sample.after, t`empty`)}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
           ) : null}
           {editing ? (
             <Earlier
