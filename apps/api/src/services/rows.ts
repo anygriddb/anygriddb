@@ -47,7 +47,11 @@ import {
   type WriteContext,
   type RowRecord,
 } from "../data/rows.js";
-import { setExternalStatus, signExternalRow } from "../sources/statuses.js";
+import {
+  assertUnsealed,
+  setExternalStatus,
+  signExternalRow,
+} from "../sources/statuses.js";
 import {
   restoreExternalRows,
   deleteExternalRows,
@@ -462,6 +466,58 @@ function withLinks(
 }
 
 /**
+ * A client's row points to another by its key, and that other row lists it:
+ * a row locked or signed there keeps its list. A new row has no `rowId`,
+ * and leaves nothing behind it. The rows are read once, whatever their number.
+ */
+async function assertKeyTargetsUnsealed(
+  deps: RowServiceDeps,
+  scope: RowScope,
+  rows: ReadonlyArray<{
+    rowId?: string;
+    links?: readonly LinkWrite[] | undefined;
+  }>,
+): Promise<void> {
+  const written = rows.flatMap((row) =>
+    (row.links ?? []).flatMap((link) => {
+      if (!("targetIds" in link)) return [];
+      const relation = relationColumn(scope, link.column).relation;
+      return relation?.kind === "one_to_many" &&
+        relation.direction === "forward"
+        ? [{ rowId: row.rowId, link, tableId: relation.targetTableId }]
+        : [];
+    }),
+  );
+  if (written.length === 0) return;
+  const ids = written.flatMap((item) => (item.rowId ? [item.rowId] : []));
+  const held = new Map(
+    ids.length === 0
+      ? []
+      : (
+          await readByIds(deps.db, scope.engine, [...new Set(ids)], "UTC", [
+            ...new Set(written.map((item) => item.link.column)),
+          ])
+        ).map((row) => [row.id, row]),
+  );
+  const changed = new Map<string, Set<string>>();
+  for (const { rowId, link, tableId } of written) {
+    const before = new Set(
+      rowId === undefined ? [] : linkIds(held.get(rowId)?.[link.column]),
+    );
+    const after = new Set(link.targetIds);
+    const targets = changed.get(tableId) ?? new Set<string>();
+    for (const id of before) if (!after.has(id)) targets.add(id);
+    for (const id of after) if (!before.has(id)) targets.add(id);
+    changed.set(tableId, targets);
+  }
+  for (const [tableId, targets] of changed) {
+    if (targets.size > 0) {
+      await assertUnsealed(deps.db, tableId, [...targets]);
+    }
+  }
+}
+
+/**
  * A client's inverse link is the other table's foreign key (ADR 0006):
  * linking a row sets the key on each row added, unlinking clears it on
  * each row removed. Those rows change through their own table's write
@@ -517,6 +573,17 @@ async function writeInverseLinks(
       .map((id) => ({ rowId: id, values: { [foreignKey.name]: null } })),
   ];
   if (updates.length === 0) return;
+  // This row's list changes, and so does that of any row one of them leaves.
+  const joining = [...after].filter((id) => !before.has(id));
+  const left =
+    joining.length === 0
+      ? []
+      : (
+          await readByIds(deps.db, target.engine, joining, "UTC", [
+            foreignKey.name,
+          ])
+        ).flatMap((row) => linkIds(row[foreignKey.name]));
+  await assertUnsealed(deps.db, scope.table.id, [rowId, ...left]);
   await updateRows(deps, target, updates, meta);
   await announceRows(deps, scope.table.id, "update", [rowId], []);
 }
@@ -547,6 +614,7 @@ export async function createRows(
   const checked = await prepare(deps, scope, rows, [], meta.stagedShareId);
   const reason = resolveReason(scope, touchedColumns(rows), meta);
   if (isExternal(scope)) {
+    await assertKeyTargetsUnsealed(deps, scope, rows);
     const ids = await insertExternalRows(
       deps.db,
       externalContext(scope, reason, meta),
@@ -677,6 +745,7 @@ export async function updateRows(
   const touched = touchedColumns(updates);
   const reason = resolveReason(scope, touched, meta);
   if (isExternal(scope)) {
+    await assertKeyTargetsUnsealed(deps, scope, updates);
     const ids = await updateExternalRows(
       deps.db,
       externalContext(scope, reason, meta),

@@ -8,6 +8,7 @@ import {
   buildForeignKeyIndex,
   buildInsertLinks,
   buildReadCells,
+  buildReadHolders,
   buildReadJunction,
   buildReadReferencing,
   buildReadRows,
@@ -24,6 +25,14 @@ import type { Database } from "@anygriddb/db";
 import { sql as sqlTag } from "kysely";
 import { runRows, withAudit, type AuditTx } from "./audit-context.js";
 import { liveTable } from "./live.js";
+import {
+  assertWritable,
+  changeJunctionSide,
+  changeKeySide,
+  leaveParents,
+  linkMapOf,
+  type LinkWriter,
+} from "./row-links.js";
 import { assertOwnRowsStayInRule, readTransaction } from "./rows.js";
 import { isForeignKeyViolation } from "./pg-error.js";
 import { isUniqueViolation } from "./schema-ops.js";
@@ -273,7 +282,9 @@ type LinkDelta = { add: readonly string[]; remove: readonly string[] };
  * one-to-many updates the foreign key; inverse one-to-many updates the
  * foreign keys of the other rows, so their audit trail and locks apply;
  * many-to-many rewrites the junction and audits the change by hand, since
- * a junction has no row trigger.
+ * a junction has no row trigger. A row on the other side that shows a link
+ * added or removed is asked too: refused when locked or signed, and the
+ * change is written in its history, as a delete does (`row-links.ts`).
  */
 export async function setLinks(
   db: Database,
@@ -306,6 +317,14 @@ export async function setLinks(
   }
   const change = input.change;
   const listed = input.targetIds ?? [];
+  const map = await linkMapOf(db, input.tableId);
+  const who: LinkWriter = {
+    userId: input.userId,
+    tableId: input.tableId,
+    physicalName: input.physicalName,
+    reason: input.reason,
+    source: input.source ?? "web",
+  };
   if (
     relation.kind === "one_to_many" &&
     relation.direction === "forward" &&
@@ -342,8 +361,11 @@ export async function setLinks(
               throw new AppError("invalid_relation");
             }
             if (relation.direction === "forward") {
-              let single = listed;
-              if (change) {
+              const key = map.ownKeys.find(
+                (item) => item.column === relation.fkColumn,
+              );
+              let held: string | null = null;
+              if (change || key?.inverseField) {
                 const [cells] = await runRows(
                   tx,
                   buildReadCells({
@@ -352,14 +374,24 @@ export async function setLinks(
                     columns: [relation.fkColumn],
                   }),
                 );
-                const held = cells?.[relation.fkColumn];
-                single = changedList(
-                  typeof held === "string" ? [held] : [],
-                  change,
+                const stored = cells?.[relation.fkColumn];
+                held = typeof stored === "string" ? stored : null;
+              }
+              const single = change
+                ? changedList(held === null ? [] : [held], change)
+                : listed;
+              if (single.length > 1) {
+                throw new AppError("invalid_link_count");
+              }
+              if (key) {
+                await changeKeySide(
+                  tx,
+                  who,
+                  key,
+                  input.rowId,
+                  held,
+                  single[0] ?? null,
                 );
-                if (single.length > 1) {
-                  throw new AppError("invalid_link_count");
-                }
               }
               const updated = await runRows(
                 tx,
@@ -408,9 +440,41 @@ export async function setLinks(
               }
             }
             const have = new Set(current.map((row) => String(row.id)));
+            const joining = targetIds.filter((id) => !have.has(id));
+            if (joining.length > 0) {
+              // A row that moves here leaves the row it pointed to.
+              const moving = await runRows(
+                tx,
+                buildReadHolders({
+                  table: target.physicalName,
+                  column: relation.fkColumn,
+                  ids: joining,
+                }),
+              );
+              const leaving = new Map<string, string[]>();
+              for (const row of moving) {
+                assertWritable(row.ag_status);
+                if (typeof row.key === "string" && row.key !== input.rowId) {
+                  leaving.set(row.key, [
+                    ...(leaving.get(row.key) ?? []),
+                    String(row.id),
+                  ]);
+                }
+              }
+              await leaveParents(
+                tx,
+                who,
+                {
+                  physical: input.physicalName,
+                  tableId: input.tableId,
+                  field: input.column.name,
+                },
+                { physical: target.physicalName, column: relation.fkColumn },
+                leaving,
+              );
+            }
             for (const id of targetIds) {
               if (!have.has(id)) {
-                await assertDraft(tx, target.physicalName, id);
                 await runRows(
                   tx,
                   buildSetLink({
@@ -460,6 +524,21 @@ export async function setLinks(
             typeof row[far] === "string" ? [row[far]] : [],
           );
           const targetIds = change ? changedList(oldIds, change) : listed;
+          const junction = map.junctions.find(
+            (item) => item.junction === relation.junction && item.side === near,
+          );
+          if (junction) {
+            const kept = new Set(targetIds);
+            const had = new Set(oldIds);
+            await changeJunctionSide(
+              tx,
+              who,
+              junction,
+              input.rowId,
+              targetIds.filter((id) => !had.has(id)),
+              oldIds.filter((id) => !kept.has(id)),
+            );
+          }
           // A change touches only what it names, whatever the list's length.
           const removed = change
             ? oldIds.filter((id) => change.remove.includes(id))

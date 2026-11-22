@@ -13,6 +13,8 @@ import { runRows, withAudit } from "../data/audit-context.js";
 import { addRelation } from "../data/relations.js";
 import { readAudit, readByIds, setRowStatus, signRow } from "../data/rows.js";
 import { insertBase, insertTable } from "../data/schema-ops.js";
+import { createRecords, updateRecords } from "../public-api/operations.js";
+import type { Actor, PublicApiDeps } from "../public-api/types.js";
 import { recoverTrashedLinks } from "../data/trash-links.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { createTestDatabase } from "../test-database.js";
@@ -418,6 +420,464 @@ describe("a row's links through the trash", () => {
       );
       expect(restored.linksNotRestored).toBe(1);
       expect(await linked(sources, source, "items")).toEqual([]);
+    });
+  });
+
+  describe("a link edited from either side", () => {
+    const sealed = ["locked", "signed"] as const;
+
+    async function inverseName(id: string | null): Promise<string> {
+      const column = await db
+        .selectFrom("dataColumns")
+        .select("name")
+        .where("id", "=", id ?? "")
+        .executeTakeFirstOrThrow();
+      return column.name;
+    }
+
+    /** Refused, and neither side's links nor the sealed row's history moved. */
+    async function refusedUnchanged(
+      edit: () => Promise<unknown>,
+      watched: {
+        tableId: string;
+        rowId: string;
+        column: string;
+      },
+    ) {
+      const links = await linked(
+        watched.tableId,
+        watched.rowId,
+        watched.column,
+      );
+      const trail = (await events(watched.tableId, watched.rowId)).length;
+      expect(await refusal(edit())).toBe("row_locked");
+      expect(
+        await linked(watched.tableId, watched.rowId, watched.column),
+      ).toEqual(links);
+      expect((await events(watched.tableId, watched.rowId)).length).toBe(trail);
+    }
+
+    it.each(sealed)(
+      "many-to-many, from the inverse side: keeps a %s source as it is",
+      async (status) => {
+        const { target, sources, targetRow, source, relation } =
+          await manyToMany(true);
+        const inverse = await inverseName(relation.inverseId);
+        const free = await row(sources, "free");
+        await seal(sources, source, status);
+        const watched = { tableId: sources, rowId: source, column: "items" };
+        // Taking the sealed row out, by the list and by difference.
+        await refusedUnchanged(
+          () => link(target, targetRow, inverse, [free]),
+          watched,
+        );
+        await refusedUnchanged(
+          async () =>
+            replaceLinks(
+              deps(),
+              await scopeOf(target),
+              targetRow,
+              { column: inverse, add: [], remove: [source] },
+              meta,
+            ),
+          watched,
+        );
+        // Putting it on another target.
+        const other = await row(target, "other");
+        await refusedUnchanged(
+          () => link(target, other, inverse, [source]),
+          watched,
+        );
+      },
+    );
+
+    it.each(sealed)(
+      "many-to-many, from the forward side: keeps a %s target that lists it",
+      async (status) => {
+        const { target, sources, targetRow, source, relation } =
+          await manyToMany(true);
+        const inverse = await inverseName(relation.inverseId);
+        const second = await row(sources, "second");
+        await seal(target, targetRow, status);
+        const watched = { tableId: target, rowId: targetRow, column: inverse };
+        await refusedUnchanged(
+          () => link(sources, source, "items", []),
+          watched,
+        );
+        await refusedUnchanged(
+          () => link(sources, second, "items", [targetRow]),
+          watched,
+        );
+        await refusedUnchanged(
+          async () =>
+            replaceLinks(
+              deps(),
+              await scopeOf(sources),
+              second,
+              { column: "items", add: [targetRow], remove: [] },
+              meta,
+            ),
+          watched,
+        );
+      },
+    );
+
+    it.each(sealed)(
+      "one-to-many, from the forward side: keeps a %s target that lists it",
+      async (status) => {
+        const { target, holders, targetRow, holder, relation } =
+          await oneToMany(true);
+        const inverse = await inverseName(relation.inverseId);
+        const other = await row(target, "other");
+        const second = await row(holders, "second");
+        await seal(target, targetRow, status);
+        const watched = { tableId: target, rowId: targetRow, column: inverse };
+        await refusedUnchanged(
+          () => link(holders, holder, "parent", []),
+          watched,
+        );
+        await refusedUnchanged(
+          () => link(holders, holder, "parent", [other]),
+          watched,
+        );
+        await refusedUnchanged(
+          () => link(holders, second, "parent", [targetRow]),
+          watched,
+        );
+      },
+    );
+
+    it.each(sealed)(
+      "one-to-many, from the inverse side: keeps a %s holder as it is",
+      async (status) => {
+        const { target, holders, targetRow, holder, relation } =
+          await oneToMany(true);
+        const inverse = await inverseName(relation.inverseId);
+        const other = await row(target, "other");
+        await seal(holders, holder, status);
+        const watched = { tableId: holders, rowId: holder, column: "parent" };
+        await refusedUnchanged(
+          () => link(target, targetRow, inverse, []),
+          watched,
+        );
+        await refusedUnchanged(
+          () => link(target, other, inverse, [holder]),
+          watched,
+        );
+      },
+    );
+
+    it.each(sealed)(
+      "one-to-many: does not take a holder away from a %s row",
+      async (status) => {
+        const { target, holders, targetRow, holder, relation } =
+          await oneToMany(true);
+        const inverse = await inverseName(relation.inverseId);
+        const other = await row(target, "other");
+        await seal(target, targetRow, status);
+        await refusedUnchanged(() => link(target, other, inverse, [holder]), {
+          tableId: target,
+          rowId: targetRow,
+          column: inverse,
+        });
+        expect(await linked(holders, holder, "parent")).toEqual([targetRow]);
+      },
+    );
+
+    it("writes nothing on a sealed row when the list does not change it", async () => {
+      const { target, sources, targetRow, source, relation } =
+        await manyToMany(true);
+      const inverse = await inverseName(relation.inverseId);
+      const free = await row(sources, "free");
+      await seal(sources, source, "signed");
+      const trail = (await events(sources, source)).length;
+      await link(target, targetRow, inverse, [source, free]);
+      expect(await linked(sources, source, "items")).toEqual([targetRow]);
+      expect(await linked(sources, free, "items")).toEqual([targetRow]);
+      expect((await events(sources, source)).length).toBe(trail);
+    });
+
+    it("still links a row to the signed target of a one-way link", async () => {
+      const { target, sources, targetRow } = await manyToMany();
+      await seal(target, targetRow, "signed");
+      const second = await row(sources, "second");
+      await link(sources, second, "items", [targetRow]);
+      expect(await linked(sources, second, "items")).toEqual([targetRow]);
+      await link(sources, second, "items", []);
+      expect(await linked(sources, second, "items")).toEqual([]);
+    });
+
+    it("writes the change in the history of an unlocked row, many-to-many", async () => {
+      const { target, sources, targetRow, source, relation } =
+        await manyToMany(true);
+      const inverse = await inverseName(relation.inverseId);
+      const before = (await events(sources, source)).length;
+      await link(target, targetRow, inverse, []);
+      const removed = await events(sources, source);
+      expect(removed.length).toBe(before + 1);
+      expect(removed[0]?.oldValue).toEqual({ items: [targetRow] });
+      expect(removed[0]?.newValue).toEqual({ items: [] });
+      await link(target, targetRow, inverse, [source]);
+      const added = await events(sources, source);
+      expect(added.length).toBe(before + 2);
+      expect(added[0]?.oldValue).toEqual({ items: [] });
+      expect(added[0]?.newValue).toEqual({ items: [targetRow] });
+      const targetTrail = await events(target, targetRow);
+      expect(targetTrail[0]?.newValue).toEqual({ [inverse]: [source] });
+    });
+
+    it("writes the change in the history of an unlocked target, one-to-many", async () => {
+      const { target, holders, targetRow, holder, relation } =
+        await oneToMany(true);
+      const inverse = await inverseName(relation.inverseId);
+      const other = await row(target, "other");
+      const left = (await events(target, targetRow)).length;
+      const joined = (await events(target, other)).length;
+      await link(holders, holder, "parent", [other]);
+      const fromOld = await events(target, targetRow);
+      const toNew = await events(target, other);
+      expect(fromOld.length).toBe(left + 1);
+      expect(fromOld[0]?.oldValue).toEqual({ [inverse]: [holder] });
+      expect(fromOld[0]?.newValue).toEqual({ [inverse]: [] });
+      expect(toNew.length).toBe(joined + 1);
+      expect(toNew[0]?.oldValue).toEqual({ [inverse]: [] });
+      expect(toNew[0]?.newValue).toEqual({ [inverse]: [holder] });
+    });
+
+    it("writes the move in the history of the row a holder leaves", async () => {
+      const { target, targetRow, holder, relation } = await oneToMany(true);
+      const inverse = await inverseName(relation.inverseId);
+      const other = await row(target, "other");
+      const left = (await events(target, targetRow)).length;
+      await link(target, other, inverse, [holder]);
+      const fromOld = await events(target, targetRow);
+      expect(fromOld.length).toBe(left + 1);
+      expect(fromOld[0]?.oldValue).toEqual({ [inverse]: [holder] });
+      expect(fromOld[0]?.newValue).toEqual({ [inverse]: [] });
+    });
+
+    it("leaves no new row behind a link it refuses", async () => {
+      const { target, sources, targetRow } = await manyToMany(true);
+      await seal(target, targetRow, "signed");
+      const count = async () => (await readAllIds(sources)).length;
+      const before = await count();
+      expect(
+        await refusal(
+          (async () =>
+            createRows(
+              deps(),
+              await scopeOf(sources),
+              [
+                {
+                  values: { label: "new" },
+                  links: [{ column: "items", targetIds: [targetRow] }],
+                },
+              ],
+              meta,
+            ))(),
+        ),
+      ).toBe("row_locked");
+      expect(await count()).toBe(before);
+    });
+
+    async function readAllIds(tableId: string): Promise<string[]> {
+      const found = await findLiveTable(db, tableId);
+      if (!found) throw new Error("no table");
+      const { rows } = await sql<{ id: string }>`
+        select id from ${sql.table(found.physicalName)}
+      `.execute(db);
+      return rows.map((item) => item.id);
+    }
+
+    describe("through the public API", () => {
+      const api = (): PublicApiDeps => ({
+        db,
+        bus: recorder.bus,
+        publicUrl: "https://grid.example.org",
+        log: () => undefined,
+      });
+      const caller = async (): Promise<Actor> => ({
+        user: {
+          id: owner,
+          email: `owner-${suffix}@example.com`,
+          displayName: "Owner",
+          isAdmin: false,
+          isSupport: false,
+          isAuditor: false,
+        },
+        bindings: await loadBindings(db, owner),
+      });
+
+      it("refuses an update that would change a signed row", async () => {
+        const { target, sources, targetRow, source, relation } =
+          await manyToMany(true);
+        const inverse = await inverseName(relation.inverseId);
+        await seal(sources, source, "signed");
+        await refusedUnchanged(
+          async () =>
+            updateRecords(api(), await caller(), target, {
+              records: [{ id: targetRow, fields: { [inverse]: [] } }],
+            }),
+          { tableId: sources, rowId: source, column: "items" },
+        );
+      });
+
+      it("refuses a new record linked to a signed row, and keeps none", async () => {
+        const { target, sources, targetRow, relation } = await manyToMany(true);
+        const inverse = await inverseName(relation.inverseId);
+        await seal(target, targetRow, "signed");
+        const before = (await readAllIds(sources)).length;
+        await refusedUnchanged(
+          async () =>
+            createRecords(api(), await caller(), sources, {
+              records: [{ fields: { label: "new", items: [targetRow] } }],
+            }),
+          { tableId: target, rowId: targetRow, column: inverse },
+        );
+        expect((await readAllIds(sources)).length).toBe(before);
+      });
+
+      it("takes the same edit once the other side is a draft", async () => {
+        const { target, sources, targetRow, source, relation } =
+          await manyToMany(true);
+        const inverse = await inverseName(relation.inverseId);
+        await updateRecords(api(), await caller(), target, {
+          records: [{ id: targetRow, fields: { [inverse]: [] } }],
+        });
+        expect(await linked(sources, source, "items")).toEqual([]);
+      });
+    });
+  });
+
+  describe("two linked rows, both in the trash", () => {
+    it("gets a one-to-many link back when the holder returns first", async () => {
+      const { target, holders, targetRow, holder } = await oneToMany();
+      await deleteRows(deps(), await scopeOf(holders), [holder], meta);
+      await deleteRows(deps(), await scopeOf(target), [targetRow], meta);
+      await restoreRows(deps(), await scopeOf(holders), [holder], meta);
+      expect(await linked(holders, holder, "parent")).toEqual([]);
+      const back = await restoreRows(
+        deps(),
+        await scopeOf(target),
+        [targetRow],
+        meta,
+      );
+      expect(back.linksNotRestored).toBe(0);
+      expect(await linked(holders, holder, "parent")).toEqual([targetRow]);
+    });
+
+    it("gets it back when the target was deleted first and returns first", async () => {
+      const { target, holders, targetRow, holder } = await oneToMany();
+      await deleteRows(deps(), await scopeOf(target), [targetRow], meta);
+      await deleteRows(deps(), await scopeOf(holders), [holder], meta);
+      await restoreRows(deps(), await scopeOf(target), [targetRow], meta);
+      await restoreRows(deps(), await scopeOf(holders), [holder], meta);
+      expect(await linked(holders, holder, "parent")).toEqual([targetRow]);
+    });
+
+    it("gets a many-to-many link back in either order", async () => {
+      for (const first of ["target", "source"]) {
+        const { target, sources, targetRow, source } = await manyToMany();
+        await deleteRows(deps(), await scopeOf(target), [targetRow], meta);
+        await deleteRows(deps(), await scopeOf(sources), [source], meta);
+        if (first === "target") {
+          await restoreRows(deps(), await scopeOf(target), [targetRow], meta);
+          await restoreRows(deps(), await scopeOf(sources), [source], meta);
+        } else {
+          await restoreRows(deps(), await scopeOf(sources), [source], meta);
+          await restoreRows(deps(), await scopeOf(target), [targetRow], meta);
+        }
+        expect(await linked(sources, source, "items")).toEqual([targetRow]);
+      }
+    });
+
+    it("leaves a key set meanwhile, and a holder locked meanwhile", async () => {
+      const first = await oneToMany();
+      const other = await row(first.target, "other");
+      await deleteRows(
+        deps(),
+        await scopeOf(first.holders),
+        [first.holder],
+        meta,
+      );
+      await deleteRows(
+        deps(),
+        await scopeOf(first.target),
+        [first.targetRow],
+        meta,
+      );
+      await restoreRows(
+        deps(),
+        await scopeOf(first.holders),
+        [first.holder],
+        meta,
+      );
+      await link(first.holders, first.holder, "parent", [other]);
+      await restoreRows(
+        deps(),
+        await scopeOf(first.target),
+        [first.targetRow],
+        meta,
+      );
+      expect(await linked(first.holders, first.holder, "parent")).toEqual([
+        other,
+      ]);
+
+      const second = await oneToMany();
+      await deleteRows(
+        deps(),
+        await scopeOf(second.holders),
+        [second.holder],
+        meta,
+      );
+      await deleteRows(
+        deps(),
+        await scopeOf(second.target),
+        [second.targetRow],
+        meta,
+      );
+      await restoreRows(
+        deps(),
+        await scopeOf(second.holders),
+        [second.holder],
+        meta,
+      );
+      await seal(second.holders, second.holder, "locked");
+      const back = await restoreRows(
+        deps(),
+        await scopeOf(second.target),
+        [second.targetRow],
+        meta,
+      );
+      expect(back.linksNotRestored).toBe(1);
+      expect(await linked(second.holders, second.holder, "parent")).toEqual([]);
+    });
+
+    it("gets back every link of a target whose holders return one by one", async () => {
+      const target = await table("Target");
+      const holders = await table("Holders");
+      await addRelation(db, owner, {
+        tableId: holders,
+        name: "parent",
+        kind: "one_to_many",
+        targetTableId: target,
+      });
+      const targetRow = await row(target, "target");
+      const many: string[] = [];
+      for (let index = 0; index < 12; index += 1) {
+        const id = await row(holders, `h${index}`);
+        await link(holders, id, "parent", [targetRow]);
+        many.push(id);
+      }
+      await deleteRows(deps(), await scopeOf(holders), many, meta);
+      await deleteRows(deps(), await scopeOf(target), [targetRow], meta);
+      for (const id of many) {
+        await restoreRows(deps(), await scopeOf(holders), [id], meta);
+      }
+      await restoreRows(deps(), await scopeOf(target), [targetRow], meta);
+      for (const id of many) {
+        expect(await linked(holders, id, "parent")).toEqual([targetRow]);
+      }
     });
   });
 

@@ -28,6 +28,10 @@ const JUNCTIONS_KEPT = "__ag_m2m";
 const HOLDERS_KEPT = "__ag_fk";
 /** A marker written after the delete names the delete it completes. */
 const FOR_DELETE = "__ag_for";
+/** In a marker for a row still in the trash: the keys it takes back. */
+const KEYS_KEPT = "__ag_keys";
+/** Left by a restore for a row still in the trash, not read from the trail. */
+const NOTE = "__ag_note";
 
 type Side = "left_id" | "right_id";
 
@@ -37,9 +41,16 @@ type SavedLinks = { junction: string; side: Side; ids: string[] };
 /** The rows whose key, in one field, pointed to a deleted row. */
 export type SavedHolders = { column: string; ids: string[] };
 
-export type KeptLinks = { junctions: SavedLinks[]; holders: SavedHolders[] };
+/** A key a row in the trash takes again when it comes back. */
+type SavedKey = { column: string; target: string };
 
-type Junction = {
+export type KeptLinks = {
+  junctions: SavedLinks[];
+  holders: SavedHolders[];
+  keys: SavedKey[];
+};
+
+export type Junction = {
   junction: string;
   /** Where this table's rows sit in the junction. */
   side: Side;
@@ -59,7 +70,8 @@ type Holder = {
 };
 
 /** A foreign key of this table. */
-type OwnKey = {
+export type OwnKey = {
+  columnId: string;
   column: string;
   tableId: string;
   physical: string;
@@ -169,6 +181,7 @@ export async function linkMapOf(
       }
       if (row.fromTable === tableId) {
         map.ownKeys.push({
+          columnId: row.columnId,
           column: row.column,
           tableId: row.toTable,
           physical: row.toPhysical,
@@ -258,6 +271,125 @@ async function recordLinkChanges(
 }
 
 /**
+ * A link of `rowId` in a junction about to be added or removed, as the rows
+ * on the other side show it. Refused when one of them is locked or signed;
+ * otherwise written in their own history. A row that shows nothing of the
+ * link (the target of a one-way link) is not asked.
+ */
+export async function changeJunctionSide(
+  tx: AuditTx,
+  who: LinkWriter,
+  junction: Junction,
+  rowId: string,
+  added: readonly string[],
+  removed: readonly string[],
+): Promise<void> {
+  if (junction.otherField === null) return;
+  const others = [...new Set([...added, ...removed])].filter(
+    (id) => id !== rowId,
+  );
+  if (others.length === 0) return;
+  const statuses = await lockedStatuses(tx, junction.other, others);
+  for (const status of statuses.values()) assertWritable(status);
+  const lists = await junctionLists(tx, junction, others);
+  const adding = new Set(added);
+  await recordLinkChanges(
+    tx,
+    who,
+    junction.otherTableId,
+    junction.otherField,
+    others.map((id) => {
+      const before = lists.get(id) ?? [];
+      return {
+        rowId: id,
+        before,
+        after: adding.has(id)
+          ? [...before, rowId]
+          : before.filter((item) => item !== rowId),
+      };
+    }),
+  );
+}
+
+/**
+ * The key of `rowId` about to move, as the rows it points to list it: the
+ * same refusal and the same event, when the link is two-way.
+ */
+export async function changeKeySide(
+  tx: AuditTx,
+  who: LinkWriter,
+  key: OwnKey,
+  rowId: string,
+  from: string | null,
+  to: string | null,
+): Promise<void> {
+  if (key.inverseField === null || from === to) return;
+  const parents = [from, to].flatMap((id) =>
+    id !== null && id !== rowId ? [id] : [],
+  );
+  if (parents.length === 0) return;
+  const statuses = await lockedStatuses(tx, key.physical, parents);
+  for (const status of statuses.values()) assertWritable(status);
+  for (const parent of parents) {
+    const siblings = await runRows(
+      tx,
+      buildReadReferencingIds({
+        table: who.physicalName,
+        column: key.column,
+        targetId: parent,
+      }),
+    );
+    const before = siblings.map((row) => String(row.id));
+    await recordLinkChanges(tx, who, key.tableId, key.inverseField, [
+      {
+        rowId: parent,
+        before,
+        after:
+          parent === to
+            ? [...before, rowId]
+            : before.filter((id) => id !== rowId),
+      },
+    ]);
+  }
+}
+
+/**
+ * Holders about to leave the rows they point to for another, written from
+ * that other row's side: the rows they leave list them, so each is asked
+ * and keeps the change in its history.
+ */
+export async function leaveParents(
+  tx: AuditTx,
+  who: LinkWriter,
+  parents: { physical: string; tableId: string; field: string },
+  holders: { physical: string; column: string },
+  leaving: ReadonlyMap<string, readonly string[]>,
+): Promise<void> {
+  const ids = [...leaving.keys()];
+  if (ids.length === 0) return;
+  const statuses = await lockedStatuses(tx, parents.physical, ids);
+  for (const status of statuses.values()) assertWritable(status);
+  for (const [parent, moved] of leaving) {
+    const siblings = await runRows(
+      tx,
+      buildReadReferencingIds({
+        table: holders.physical,
+        column: holders.column,
+        targetId: parent,
+      }),
+    );
+    const before = siblings.map((row) => String(row.id));
+    await recordLinkChanges(tx, who, parents.tableId, parents.field, [
+      {
+        rowId: parent,
+        before,
+        after: before.filter((id) => !moved.includes(id)),
+      },
+    ]);
+  }
+}
+
+/**
  * Takes a row about to be deleted out of the rows linked to it, in the
  * delete's transaction. Refused while one of them that shows the link is
  * locked or signed: its content would change. A row that shows nothing of
@@ -269,7 +401,7 @@ export async function detachLinks(
   map: LinkMap,
   rowId: string,
 ): Promise<{ kept: KeptLinks; touched: string[] }> {
-  const kept: KeptLinks = { junctions: [], holders: [] };
+  const kept: KeptLinks = { junctions: [], holders: [], keys: [] };
   const touched = new Set<string>();
 
   for (const holder of map.holders) {
@@ -319,26 +451,8 @@ export async function detachLinks(
       side: junction.side,
       ids,
     });
-    const others = ids.filter((id) => id !== rowId);
-    if (junction.otherField === null || others.length === 0) continue;
-    const statuses = await lockedStatuses(tx, junction.other, others);
-    for (const status of statuses.values()) assertWritable(status);
-    const lists = await junctionLists(tx, junction, others);
-    await recordLinkChanges(
-      tx,
-      who,
-      junction.otherTableId,
-      junction.otherField,
-      others.map((id) => {
-        const before = lists.get(id) ?? [];
-        return {
-          rowId: id,
-          before,
-          after: before.filter((item) => item !== rowId),
-        };
-      }),
-    );
-    touched.add(junction.otherTableId);
+    await changeJunctionSide(tx, who, junction, rowId, [], ids);
+    if (junction.otherField !== null) touched.add(junction.otherTableId);
   }
 
   const shown = map.ownKeys.filter((key) => key.inverseField !== null);
@@ -354,24 +468,7 @@ export async function detachLinks(
     for (const key of shown) {
       const target = cells?.[key.column];
       if (typeof target !== "string" || target === rowId) continue;
-      const statuses = await lockedStatuses(tx, key.physical, [target]);
-      assertWritable(statuses.get(target));
-      const siblings = await runRows(
-        tx,
-        buildReadReferencingIds({
-          table: who.physicalName,
-          column: key.column,
-          targetId: target,
-        }),
-      );
-      const before = siblings.map((row) => String(row.id));
-      await recordLinkChanges(tx, who, key.tableId, key.inverseField ?? "", [
-        {
-          rowId: target,
-          before,
-          after: before.filter((id) => id !== rowId),
-        },
-      ]);
+      await changeKeySide(tx, who, key, rowId, target, null);
       touched.add(key.tableId);
     }
   }
@@ -382,12 +479,15 @@ export async function detachLinks(
 export function linkMarker(
   kept: KeptLinks,
   forDelete?: string,
+  note = false,
 ): { oldValue: Record<string, unknown>; newValue: Record<string, unknown> } {
   return {
     oldValue: {
       [JUNCTIONS_KEPT]: kept.junctions,
       [HOLDERS_KEPT]: kept.holders,
+      ...(kept.keys.length > 0 ? { [KEYS_KEPT]: kept.keys } : {}),
       ...(forDelete ? { [FOR_DELETE]: forDelete } : {}),
+      ...(note ? { [NOTE]: true } : {}),
     },
     newValue: { [JUNCTIONS_KEPT]: [] },
   };
@@ -424,6 +524,18 @@ function savedHolders(bag: unknown): SavedHolders[] {
   });
 }
 
+function savedKeys(bag: unknown): SavedKey[] {
+  if (!Array.isArray(bag)) return [];
+  return bag.flatMap((item): SavedKey[] => {
+    const entry = item as Partial<SavedKey> | null;
+    return entry &&
+      typeof entry.column === "string" &&
+      typeof entry.target === "string"
+      ? [{ column: entry.column, target: entry.target }]
+      : [];
+  });
+}
+
 /**
  * Links kept when each row was last deleted: the marker written in the
  * same transaction as the delete event, so it shares its timestamp, and
@@ -441,14 +553,20 @@ export async function linksForRestore(
 ): Promise<Map<string, KeptLinks>> {
   if (deletions.length === 0) return new Map();
   const of = new Map(deletions.map((item) => [item.recordId, item]));
+  const oldest = deletions.reduce(
+    (first, item) => (item.deletedAt < first ? item.deletedAt : first),
+    deletions[0]?.deletedAt ?? "",
+  );
+  // Only the markers, from the first of these deletes on: a row linked to
+  // many others may have one for each that came back before it.
   const events = await db
     .selectFrom("auditEvents")
     .select(["recordId", "oldValue", "occurredAt"])
     .where("tableId", "=", tableId)
     .where("action", "=", "update")
     .where("recordId", "in", [...of.keys()])
-    .orderBy("occurredAt", "desc")
-    .limit(deletions.length * 8)
+    .where("occurredAt", ">=", new Date(oldest))
+    .where(sql<boolean>`jsonb_exists(old_value, ${JUNCTIONS_KEPT})`)
     .execute();
   const found = new Map<string, KeptLinks>();
   for (const event of events) {
@@ -462,9 +580,14 @@ export async function linksForRestore(
         ? deletion.deletedAt === event.occurredAt.toISOString()
         : named === deletion.eventId;
     if (!belongs) continue;
-    const links = found.get(event.recordId) ?? { junctions: [], holders: [] };
+    const links = found.get(event.recordId) ?? {
+      junctions: [],
+      holders: [],
+      keys: [],
+    };
     links.junctions.push(...savedJunctions(marker[JUNCTIONS_KEPT]));
     links.holders.push(...savedHolders(marker[HOLDERS_KEPT]));
+    links.keys.push(...savedKeys(marker[KEYS_KEPT]));
     found.set(event.recordId, links);
   }
   return found;
@@ -472,10 +595,9 @@ export async function linksForRestore(
 
 /** Whether rows deleted before this kept their holders has been made up. */
 export function markerHasHolders(value: unknown): boolean {
-  return (
-    isLinkMarker(value) &&
-    savedHolders((value as Record<string, unknown>)[HOLDERS_KEPT]).length > 0
-  );
+  if (!isLinkMarker(value)) return false;
+  const marker = value as Record<string, unknown>;
+  return !marker[NOTE] && savedHolders(marker[HOLDERS_KEPT]).length > 0;
 }
 
 export function markerDelete(value: unknown): string | undefined {
@@ -485,26 +607,80 @@ export function markerDelete(value: unknown): string | undefined {
 }
 
 /**
+ * What a restore leaves for a row still in the trash: written beside that
+ * row's last delete, so that the link comes back with whichever returns
+ * last. A row with no delete on the trail is gone for good, and gets none.
+ */
+async function noteForTrashed(
+  tx: AuditTx,
+  who: LinkWriter,
+  tableId: string,
+  notes: ReadonlyMap<string, KeptLinks>,
+): Promise<void> {
+  if (notes.size === 0) return;
+  const deletes = await tx
+    .selectFrom("auditEvents")
+    .select(["id", "recordId"])
+    .where("tableId", "=", tableId)
+    .where("action", "=", "delete")
+    .where("recordId", "in", [...notes.keys()])
+    .orderBy("occurredAt", "desc")
+    .execute();
+  const latest = new Map<string, string>();
+  for (const event of deletes) {
+    if (event.recordId && !latest.has(event.recordId)) {
+      latest.set(event.recordId, event.id);
+    }
+  }
+  const values = [...notes].flatMap(([recordId, kept]) => {
+    const deleted = latest.get(recordId);
+    return deleted
+      ? [
+          {
+            userId: who.userId,
+            action: "update" as const,
+            tableId,
+            recordId,
+            ...linkMarker(kept, deleted, true),
+            reason: who.reason,
+            source: who.source,
+          },
+        ]
+      : [];
+  });
+  if (values.length > 0)
+    await tx.insertInto("auditEvents").values(values).execute();
+}
+
+/**
  * The foreign keys of rows about to come back: which each may keep. A key
- * whose target is gone, or locked or signed where it would show this row,
- * comes back empty; one pointing to a row of this same restore is written
- * once both are there.
+ * whose target is locked or signed where it would show this row comes back
+ * empty and is counted. One whose target is still in the trash comes back
+ * empty too, and is noted there for when it returns. One pointing to a row
+ * of this same restore, or noted while this row was away, is written once
+ * every row is back.
  */
 export async function planOwnKeys(
   tx: AuditTx,
+  who: LinkWriter,
   map: LinkMap,
   rows: ReadonlyArray<{
     recordId: string;
     snapshot: Record<string, unknown>;
   }>,
+  noted: ReadonlyMap<string, KeptLinks>,
+  /** The fields a restored row is written with. */
+  written: ReadonlySet<string>,
 ): Promise<{
   left: Map<string, Set<string>>;
   later: Array<{ rowId: string; column: string; targetId: string }>;
+  back: Array<{ rowId: string; key: OwnKey; targetId: string }>;
   refused: number;
 }> {
   const coming = new Set(rows.map((row) => row.recordId));
   const left = new Map<string, Set<string>>();
   const later: Array<{ rowId: string; column: string; targetId: string }> = [];
+  const back: Array<{ rowId: string; key: OwnKey; targetId: string }> = [];
   let refused = 0;
   const leave = (rowId: string, column: string) => {
     const columns = left.get(rowId) ?? new Set<string>();
@@ -512,56 +688,77 @@ export async function planOwnKeys(
     left.set(rowId, columns);
   };
   for (const key of map.ownKeys) {
-    const asked = new Set<string>();
-    for (const row of rows) {
-      const target = row.snapshot[key.column];
-      if (
-        typeof target === "string" &&
-        target !== row.recordId &&
-        !coming.has(target)
-      ) {
-        asked.add(target);
+    if (!written.has(key.column)) continue;
+    const wanted = rows.flatMap((row) => {
+      const stored = row.snapshot[key.column];
+      if (typeof stored === "string") {
+        return [{ rowId: row.recordId, target: stored, stored: true }];
       }
-    }
+      const note = noted
+        .get(row.recordId)
+        ?.keys.find((item) => item.column === key.column);
+      return note
+        ? [{ rowId: row.recordId, target: note.target, stored: false }]
+        : [];
+    });
+    const asked = [
+      ...new Set(
+        wanted
+          .filter((item) => !coming.has(item.target))
+          .map((item) => item.target),
+      ),
+    ];
     const open = new Set<string>();
     const closed = new Set<string>();
-    if (asked.size > 0) {
+    if (asked.length > 0) {
       if (key.inverseField === null) {
         const found = await runRows(
           tx,
-          buildExistingIds({ table: key.physical, ids: [...asked] }),
+          buildExistingIds({ table: key.physical, ids: asked }),
         );
         for (const row of found) open.add(String(row.id));
       } else {
-        const statuses = await lockedStatuses(tx, key.physical, [...asked]);
+        const statuses = await lockedStatuses(tx, key.physical, asked);
         for (const [id, status] of statuses) {
           (status === "locked" || status === "signed" ? closed : open).add(id);
         }
       }
     }
-    for (const row of rows) {
-      const target = row.snapshot[key.column];
-      if (typeof target !== "string" || target === row.recordId) continue;
-      if (coming.has(target)) {
-        leave(row.recordId, key.column);
-        later.push({
-          rowId: row.recordId,
-          column: key.column,
-          targetId: target,
-        });
-      } else if (!open.has(target)) {
-        leave(row.recordId, key.column);
-        if (closed.has(target)) refused += 1;
+    const notes = new Map<string, KeptLinks>();
+    for (const { rowId, target, stored } of wanted) {
+      if (coming.has(target) && target !== rowId) {
+        if (stored) leave(rowId, key.column);
+        later.push({ rowId, column: key.column, targetId: target });
+        back.push({ rowId, key, targetId: target });
+      } else if (target === rowId || open.has(target)) {
+        if (!stored)
+          later.push({ rowId, column: key.column, targetId: target });
+        back.push({ rowId, key, targetId: target });
+      } else {
+        if (stored) leave(rowId, key.column);
+        if (closed.has(target)) {
+          refused += 1;
+        } else {
+          const note = notes.get(target) ?? {
+            junctions: [],
+            holders: [{ column: key.columnId, ids: [] }],
+            keys: [],
+          };
+          note.holders[0]?.ids.push(rowId);
+          notes.set(target, note);
+        }
       }
     }
+    await noteForTrashed(tx, who, key.tableId, notes);
   }
-  return { left, later, refused };
+  return { left, later, back, refused };
 }
 
 /**
  * Puts a restored row back into the rows linked to it. A holder takes its
  * key again only while the key is still empty: one set since is a newer
- * choice. A row locked or signed since is left as it is, and counted.
+ * choice. A row locked or signed since is left as it is, and counted. A row
+ * still in the trash gets a note, and the link comes back with it.
  */
 export async function reattachLinks(
   tx: AuditTx,
@@ -583,6 +780,24 @@ export async function reattachLinks(
         column: holder.column,
         ids: saved.ids,
       }),
+    );
+    const present = new Set(rows.map((row) => String(row.id)));
+    await noteForTrashed(
+      tx,
+      who,
+      holder.tableId,
+      new Map(
+        saved.ids
+          .filter((id) => !present.has(id))
+          .map((id) => [
+            id,
+            {
+              junctions: [],
+              holders: [],
+              keys: [{ column: holder.column, target: rowId }],
+            },
+          ]),
+      ),
     );
     const empty = rows.filter((row) => row.key === null);
     const free = empty.filter(
@@ -610,14 +825,17 @@ export async function reattachLinks(
     );
     if (!junction || saved.ids.length === 0) continue;
     let alive: string[];
+    let present: Set<string>;
     if (junction.otherField === null) {
       const found = await runRows(
         tx,
         buildExistingIds({ table: junction.other, ids: saved.ids }),
       );
       alive = found.map((row) => String(row.id));
+      present = new Set(alive);
     } else {
       const statuses = await lockedStatuses(tx, junction.other, saved.ids);
+      present = new Set(statuses.keys());
       alive = [];
       for (const [id, status] of statuses) {
         if (id !== rowId && (status === "locked" || status === "signed")) {
@@ -627,6 +845,26 @@ export async function reattachLinks(
         }
       }
     }
+    const theirs: Side = saved.side === "left_id" ? "right_id" : "left_id";
+    await noteForTrashed(
+      tx,
+      who,
+      junction.otherTableId,
+      new Map(
+        saved.ids
+          .filter((id) => !present.has(id))
+          .map((id) => [
+            id,
+            {
+              junctions: [
+                { junction: saved.junction, side: theirs, ids: [rowId] },
+              ],
+              holders: [],
+              keys: [],
+            },
+          ]),
+      ),
+    );
     if (alive.length === 0) continue;
     const others = alive.filter((id) => id !== rowId);
     const lists =

@@ -199,7 +199,7 @@ async function recoverPage(
         action: "update",
         tableId: table.id,
         recordId: item.recordId,
-        ...linkMarker({ junctions: [], holders: kept }, item.id),
+        ...linkMarker({ junctions: [], holders: kept, keys: [] }, item.id),
         source: "operator",
       })
       .execute();

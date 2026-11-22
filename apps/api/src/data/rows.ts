@@ -1370,7 +1370,14 @@ export async function restoreRows(
     db,
     { ...auditContext(context), source: "restore" },
     async (tx) => {
-      const keys = await planOwnKeys(tx, map, snapshots);
+      const keys = await planOwnKeys(
+        tx,
+        restoring,
+        map,
+        snapshots,
+        saved,
+        new Set(physical),
+      );
       let refused = keys.refused;
       const touched = new Set<string>();
       for (const item of snapshots) {
@@ -1404,22 +1411,10 @@ export async function restoreRows(
         );
       }
       // A key that came back shows again on the row it points to.
-      for (const key of map.ownKeys) {
+      for (const { rowId, key, targetId } of keys.back) {
         if (key.inverseField === null) continue;
-        for (const item of snapshots) {
-          const target = item.snapshot[key.column];
-          if (typeof target !== "string") continue;
-          const written = keys.later.some(
-            (entry) =>
-              entry.rowId === item.recordId && entry.column === key.column,
-          );
-          const kept =
-            physical.includes(key.column) &&
-            !keys.left.get(item.recordId)?.has(key.column);
-          if (!written && !kept) continue;
-          await recordKeyReturn(tx, restoring, key, item.recordId, target);
-          touched.add(key.tableId);
-        }
+        await recordKeyReturn(tx, restoring, key, rowId, targetId);
+        touched.add(key.tableId);
       }
       for (const item of snapshots) {
         const links = saved.get(item.recordId);

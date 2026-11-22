@@ -3963,12 +3963,84 @@ describe("conformance of formulas across engines", () => {
       const afterLink = await teamOf();
       // Unlinking the second row clears its key.
       const unlinked = await link(ids.slice(0, 1));
+      const afterUnlink = await teamOf();
+      // A sealed row on either side keeps what it lists.
+      const seal = async (
+        scope: Awaited<ReturnType<typeof scopeOf>>,
+        rowId: string,
+      ) => {
+        for (const next of ["submitted", "locked"] as const) {
+          await changeStatus(
+            services,
+            { ...scope, role: "owner" },
+            rowId,
+            next,
+            { source: "web" },
+          );
+        }
+      };
+      const relink = (rowId: string, targetIds: string[]) =>
+        failure(
+          updateRows(
+            services,
+            ledger,
+            [
+              {
+                rowId,
+                values: {},
+                links: [{ column: field("team"), targetIds }],
+              },
+            ],
+            { source: "web" },
+          ),
+        );
+      ledger = await scopeOf(ledgerId);
+      const [held = "", free = ""] = ids;
+      const [third = ""] = await createRows(
+        services,
+        ledger,
+        [{ values: { [field("label")]: `${label}-9`, [field("team")]: "2" } }],
+        { source: "web" },
+      );
+      await seal(ledger, held);
+      const holderSealed = await link([free]);
+      const movedOntoOther = await failure(
+        replaceLinks(
+          services,
+          teams,
+          "1",
+          { column: inverse ?? "", targetIds: [held] },
+          { source: "web" },
+        ),
+      );
+      await relink(free, ["1"]);
+      await seal(teams, "1");
+      const offSealedTeam = await relink(free, ["2"]);
+      const takenFromSealedTeam = await failure(
+        replaceLinks(
+          services,
+          teams,
+          "2",
+          { column: inverse ?? "", targetIds: [third, free] },
+          { source: "web" },
+        ),
+      );
+      const ontoSealedTeam = await relink(third, ["1"]);
+      const freeTeam = await relink(third, ["3"]);
+      const afterSeals = await teamOf();
       traces.set(engine, [
         refused,
         linked,
         afterLink,
         unlinked,
-        await teamOf(),
+        afterUnlink,
+        holderSealed,
+        movedOntoOther,
+        offSealedTeam,
+        takenFromSealedTeam,
+        ontoSealedTeam,
+        freeTeam,
+        afterSeals,
       ]);
     }
     for (const engine of [
@@ -3984,6 +4056,13 @@ describe("conformance of formulas across engines", () => {
         ["3", "3"],
         "ok",
         ["3", null],
+        "row_locked",
+        "row_locked",
+        "row_locked",
+        "row_locked",
+        "row_locked",
+        "ok",
+        ["3", "1"],
       ]);
     }
   }, 300_000);

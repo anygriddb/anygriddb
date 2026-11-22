@@ -5,6 +5,8 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApiToken } from "../auth/tokens.js";
 import { withAudit } from "../data/audit-context.js";
+import { addRelation } from "../data/relations.js";
+import { setRowStatus, signRow } from "../data/rows.js";
 import { insertBase, insertTable } from "../data/schema-ops.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
 import { createTestDatabase } from "../test-database.js";
@@ -201,6 +203,94 @@ describe("the MCP server", () => {
       arguments: { tableId, recordIds: ["1"] },
     });
     expect(refused.body.result?.isError ?? refused.body.error).toBeTruthy();
+  });
+
+  it("refuses an edit of a link that would change a signed row", async () => {
+    const owner = (
+      await database
+        .selectFrom("users")
+        .select("id")
+        .where("email", "=", `mcp-${suffix}@example.com`)
+        .executeTakeFirstOrThrow()
+    ).id;
+    const make = async (name: string) =>
+      insertTable(database, owner, {
+        baseId,
+        name,
+        columns: [{ name: "name", label: "Nom", fieldType: "text" }],
+      });
+    const targets = (await make("Cibles")).id;
+    const sources = (await make("Porteurs")).id;
+    const relation = await addRelation(database, owner, {
+      tableId: sources,
+      name: "liens",
+      kind: "many_to_many",
+      targetTableId: targets,
+      twoWay: true,
+    });
+    const inverse = (
+      await database
+        .selectFrom("dataColumns")
+        .select("name")
+        .where("id", "=", relation.inverseId ?? "")
+        .executeTakeFirstOrThrow()
+    ).name;
+    const create = async (table: string, fields: Record<string, unknown>) => {
+      const made = await rpc(writer, "tools/call", {
+        name: "create_records",
+        arguments: { tableId: table, records: [{ fields }] },
+      });
+      const records = made.body.result?.structuredContent?.records as Array<{
+        id: string;
+      }>;
+      return records[0]?.id ?? "";
+    };
+    const target = await create(targets, { name: "cible" });
+    const signed = await create(sources, { name: "signe", liens: [target] });
+    const draft = await create(sources, { name: "brouillon" });
+    const physical = await database
+      .selectFrom("dataTables")
+      .selectAll()
+      .where("id", "=", sources)
+      .executeTakeFirstOrThrow();
+    for (const status of ["submitted", "locked"] as const) {
+      await setRowStatus(database, {
+        userId: owner,
+        role: "owner",
+        table: physical,
+        rowId: signed,
+        status,
+      });
+    }
+    await signRow(database, {
+      userId: owner,
+      table: physical,
+      rowId: signed,
+      meaning: "Approved",
+    });
+    const refused = await rpc(writer, "tools/call", {
+      name: "update_records",
+      arguments: {
+        tableId: targets,
+        records: [{ id: target, fields: { [inverse]: [draft] } }],
+      },
+    });
+    expect(refused.body.result?.isError).toBe(true);
+    expect(JSON.stringify(refused.body)).toContain("Row locked");
+    const read = await rpc(writer, "tools/call", {
+      name: "get_record",
+      arguments: { tableId: sources, recordId: signed },
+    });
+    expect(JSON.stringify(read.body)).toContain(target);
+    // Once nothing sealed is on the other side, the same edit goes through.
+    const kept = await rpc(writer, "tools/call", {
+      name: "update_records",
+      arguments: {
+        tableId: targets,
+        records: [{ id: target, fields: { [inverse]: [signed, draft] } }],
+      },
+    });
+    expect(kept.body.result?.isError ?? false).toBe(false);
   });
 
   it("refuses a batch, and runs none of its calls", async () => {
