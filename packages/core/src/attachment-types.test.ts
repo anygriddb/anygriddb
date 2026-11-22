@@ -139,6 +139,14 @@ describe("what an administrator refuses", () => {
 });
 
 describe("a name and a start that dress a file as something else", () => {
+  it("reads a name full of spaces in one pass", () => {
+    const spaces = " ".repeat(200_000);
+    const started = performance.now();
+    expect(attachmentExtensionOf(`a${spaces}b.html${spaces}`)).toBe(".html");
+    expect(attachmentExtensionOf(`${spaces}x`)).toBeNull();
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
   it("reads the extension past trailing dots and spaces", () => {
     expect(attachmentExtensionOf("x.svg.")).toBe(".svg");
     expect(attachmentExtensionOf("x.svg ")).toBe(".svg");

@@ -35,14 +35,18 @@ export function normalizeAttachmentExtension(raw: string): string | null {
   return withDot;
 }
 
+/** A name without the dots and spaces it ends with, in one pass. */
+function withoutTrailingDots(name: string): string {
+  let end = name.length;
+  while (end > 0 && (name[end - 1] === "." || name[end - 1] === " ")) end -= 1;
+  return name.slice(0, end);
+}
+
 /** Extension of a file name, or null when it has none. */
 export function attachmentExtensionOf(filename: string): string | null {
   // Dots and spaces at the end of a name are dropped when it is saved on
   // Windows: what comes before them is the extension it opens with.
-  const base = (filename.split(/[/\\]/).pop() ?? filename).replace(
-    /[. ]+$/,
-    "",
-  );
+  const base = withoutTrailingDots(filename.split(/[/\\]/).pop() ?? filename);
   const dot = base.lastIndexOf(".");
   if (dot <= 0 || dot === base.length - 1) return null;
   return normalizeAttachmentExtension(base.slice(dot));
