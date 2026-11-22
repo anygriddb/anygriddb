@@ -25,6 +25,8 @@ import { cn } from "./cn";
 
 export type { DateValue };
 export {
+  CalendarDate,
+  CalendarDateTime,
   getLocalTimeZone,
   now,
   parseAbsolute,

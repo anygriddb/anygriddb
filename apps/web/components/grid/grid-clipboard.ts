@@ -8,6 +8,7 @@ import { cellDisplay } from "../../lib/format";
 import type { CatalogColumn, Collaborator, RowItem } from "../../lib/types";
 import { isComputedField, isLinkField } from "../fields/field-meta";
 import type { CellValue } from "../table/table-context";
+import type { CopiedCell } from "./copy-buffer";
 
 export function isEditableColumn(column: CatalogColumn): boolean {
   return (
@@ -39,10 +40,13 @@ const PLAIN_NUMBER = /^[+-]?\d[\d.,\s]*$/;
  * cell that already has one gets another, so pasting it back gives the
  * same text.
  */
-function tsvCell(text: string): string {
+function tsvCell(text: string, alone: boolean): string {
   const guarded =
     FORMULA_START.test(text) && !PLAIN_NUMBER.test(text) ? `'${text}` : text;
-  return /[\t\n"]/.test(guarded) ? `"${guarded.replace(/"/g, '""')}"` : guarded;
+  // A lone cell is read back whole: only a tab or a line would split it.
+  return (alone ? /[\t\n]/ : /[\t\n"]/).test(guarded)
+    ? `"${guarded.replace(/"/g, '""')}"`
+    : guarded;
 }
 
 /** A pasted cell without the apostrophe `tsvCell` put in front of it. */
@@ -50,13 +54,18 @@ function unguarded(cell: string): string {
   return GUARDED.test(cell) ? cell.slice(1) : cell;
 }
 
-/** Selected cells as tab-separated text, quoting cells with tabs, newlines, or quotes. */
+/**
+ * Selected cells as tab-separated text, as they are shown. In a block, a
+ * cell with a tab, a line, or a quote is quoted; a lone cell only for a
+ * tab or a line.
+ */
 export function toTsv(
   rows: readonly RowItem[],
   columns: readonly CatalogColumn[],
   locale: "fr" | "en",
   people: ReadonlyMap<string, Collaborator>,
 ): string {
+  const alone = rows.length === 1 && columns.length === 1;
   return rows
     .map((row) =>
       columns
@@ -67,19 +76,71 @@ export function toTsv(
               value
                 .map((id) => people.get(String(id))?.displayName ?? "")
                 .join(", "),
+              alone,
             );
           }
           if (
             (column.fieldType === "date" || column.fieldType === "datetime") &&
             typeof value === "string"
           ) {
-            return tsvCell(column.fieldType === "date" ? value : value);
+            return tsvCell(value, alone);
           }
-          return tsvCell(cellDisplay(value, column, locale, people));
+          return tsvCell(cellDisplay(value, column, locale, people), alone);
         })
         .join("\t"),
     )
     .join("\n");
+}
+
+/** The text a copy writes, and the stored cells kept beside it. */
+export function copiedCells(
+  rows: readonly RowItem[],
+  columns: readonly CatalogColumn[],
+  locale: "fr" | "en",
+  people: ReadonlyMap<string, Collaborator>,
+): { text: string; cells: CopiedCell[][] } {
+  return {
+    text: toTsv(rows, columns, locale, people),
+    cells: rows.map((row) =>
+      columns.map((column) => ({
+        fieldType: column.fieldType,
+        value: row[column.name as keyof RowItem],
+      })),
+    ),
+  };
+}
+
+/** Fields whose stored value a cell may show rounded or reshaped. */
+const EXACT_FIELDS = new Set([
+  "text",
+  "long_text",
+  "email",
+  "url",
+  "phone",
+  "number",
+  "duration",
+  "rating",
+  "json",
+  "boolean",
+]);
+
+/**
+ * The value a copied cell gives a field of its own type; undefined when
+ * the pasted text is to be read instead.
+ */
+function exactValue(
+  copied: CopiedCell | undefined,
+  column: CatalogColumn,
+): CellValue | undefined {
+  if (copied?.fieldType !== column.fieldType) return undefined;
+  if (!EXACT_FIELDS.has(column.fieldType)) return undefined;
+  const { value } = copied;
+  return value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+    ? value
+    : undefined;
 }
 
 /**
@@ -113,12 +174,16 @@ type PastePlan = {
   updates: Array<{ rowId: string; values: Record<string, CellValue> }>;
   inserts: Array<Record<string, CellValue>>;
   skipped: number;
+  /** Values with no cell to land in: past the last field or the last row. */
+  unplaced: number;
 };
 
 /**
  * Maps a pasted matrix onto rows and columns starting at the active cell.
  * A single value fills the whole selected range. Cells that do not fit
- * their column type are skipped and counted.
+ * their column type are skipped and counted, and so are values that have
+ * no cell to land in. `exact` holds the cells of the copy that wrote this
+ * text, if it came from a grid: a field of the same type takes their value.
  */
 export function planPaste(input: {
   matrix: string[][];
@@ -128,8 +193,12 @@ export function planPaste(input: {
   startColumn: number;
   range?: { rows: number; columns: number };
   resolveUser: (text: string) => string | undefined;
+  exact?: readonly (readonly CopiedCell[])[] | null;
+  /** Whether rows past the last one may be added. */
+  canInsert?: boolean;
 }): PastePlan {
-  const { matrix, rows, columns, startRow, startColumn } = input;
+  const { matrix, rows, columns, startRow, startColumn, exact } = input;
+  const canInsert = input.canInsert ?? true;
   const single = matrix.length === 1 && matrix[0]?.length === 1;
   const height = single && input.range ? input.range.rows : matrix.length;
   const width =
@@ -139,23 +208,33 @@ export function planPaste(input: {
   const updates = new Map<string, Record<string, CellValue>>();
   const inserts: Array<Record<string, CellValue>> = [];
   let skipped = 0;
+  let unplaced = 0;
   for (let r = 0; r < height; r += 1) {
     const source = single ? matrix[0] : matrix[r];
     const target = rows[startRow + r];
+    if (!target && !canInsert) {
+      unplaced += (source ?? []).filter((raw) => raw !== "").length;
+      continue;
+    }
     const values: Record<string, CellValue> = {};
     for (let c = 0; c < width; c += 1) {
       const column = columns[startColumn + c];
-      if (!column) continue;
       const raw = single ? (source?.[0] ?? "") : (source?.[c] ?? "");
+      if (!column) {
+        if (raw !== "") unplaced += 1;
+        continue;
+      }
       if (!isEditableColumn(column)) {
         if (raw !== "") skipped += 1;
         continue;
       }
-      const value = coerceCellValue(
-        { fieldType: column.fieldType, config: column.config },
-        raw,
-        { resolveUser: input.resolveUser },
-      );
+      const value =
+        exactValue(single ? exact?.[0]?.[0] : exact?.[r]?.[c], column) ??
+        coerceCellValue(
+          { fieldType: column.fieldType, config: column.config },
+          raw,
+          { resolveUser: input.resolveUser },
+        );
       if (value === undefined) {
         skipped += 1;
         continue;
@@ -176,6 +255,7 @@ export function planPaste(input: {
     })),
     inserts,
     skipped,
+    unplaced,
   };
 }
 

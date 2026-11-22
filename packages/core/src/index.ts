@@ -55,6 +55,7 @@ export {
 export {
   assertCellValue,
   ATTACHMENT_KEY,
+  MAX_CELL_FILES,
   type CellValue,
   cellValueSchema,
   coerceCellValue,

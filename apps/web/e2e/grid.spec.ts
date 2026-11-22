@@ -1023,3 +1023,321 @@ test.describe("putting a value back", () => {
     expect(blocked).toEqual([]);
   });
 });
+
+// What is being typed, and what is copied, stays what it is while the
+// rows move. Each journey makes an account: an address of its own.
+test.describe("a cell being edited, as another person changes the rows", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.98" } });
+
+  test("keeps its row, and gives the text back when the row is gone", async ({
+    page,
+    browser,
+    baseURL,
+  }) => {
+    await signUpWithTable(page, "Row Keeper");
+    const tableId = tableOf(page);
+    const ids: string[] = [];
+    for (const name of ["first", "second", "third", "fourth"]) {
+      ids.push(await addRow(page, tableId, { name }));
+    }
+    await page.reload();
+    await expect(nameCells(page)).toHaveCount(4);
+
+    // The same account, in a browser of its own.
+    const other = await browser.newContext({
+      baseURL: baseURL ?? "",
+      ignoreHTTPSErrors: true,
+      extraHTTPHeaders: { "x-forwarded-for": "198.51.100.98" },
+      storageState: await page.context().storageState(),
+    });
+
+    // A row above goes away: the open editor stays on its own row.
+    await page.locator('[role="gridcell"][data-column="notes"]').nth(2).click();
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("for the third");
+    await other.request.post("/trpc/rows.deleteMany", {
+      data: { tableId, rowIds: [ids[0]] },
+    });
+    await expect(nameCells(page)).toHaveCount(3);
+    const editor = page.getByRole("textbox", { name: "Notes" });
+    await expect(editor).toHaveValue("for the third");
+    await expect(editor).toBeFocused();
+    await page.keyboard.type(", still");
+    const saved = page.waitForResponse(
+      (response) => response.url().includes("rows.updateMany") && response.ok(),
+    );
+    // Notes is a long text: Enter is a new line there.
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await saved;
+    expect(await notesById(page, tableId)).toEqual({
+      [ids[1] ?? ""]: null,
+      [ids[2] ?? ""]: "for the third, still",
+      [ids[3] ?? ""]: null,
+    });
+
+    // The edited row itself goes away: nothing lands anywhere else, and
+    // what was typed is given back.
+    const writes: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("rows.updateMany")) writes.push(request.url());
+    });
+    await page.locator('[role="gridcell"][data-column="notes"]').nth(2).click();
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("never saved");
+    await other.request.post("/trpc/rows.deleteMany", {
+      data: { tableId, rowIds: [ids[3]] },
+    });
+    await expect(
+      page.getByText(
+        "The row you were editing was deleted. Nothing was saved.",
+      ),
+    ).toBeVisible();
+    await expect(page.getByText("What you typed: never saved")).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Notes" })).toHaveCount(0);
+    // The keys that follow start no edit of the row now in its place.
+    await page.keyboard.type("more");
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("textbox", { name: "Notes" })).toHaveCount(0);
+    expect(writes).toEqual([]);
+    expect(await notesById(page, tableId)).toEqual({
+      [ids[1] ?? ""]: null,
+      [ids[2] ?? ""]: "for the third, still",
+    });
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await other.close();
+
+    // Scrolled far from its cell, down or across, an editor stays open.
+    for (let index = 0; index < 12; index += 1) {
+      await call(page, "catalog.addColumn", {
+        tableId,
+        name: `wide_${String(index)}`,
+        label: `Wide ${String(index)}`,
+        fieldType: "text",
+      });
+    }
+    for (let index = 0; index < 60; index += 1) {
+      await addRow(page, tableId, { name: `more ${String(index)}` });
+    }
+    await page.setViewportSize({ width: 800, height: 500 });
+    await page.reload();
+    await expect(nameCells(page).first()).toBeVisible();
+    await page
+      .locator('[role="gridcell"][data-column="notes"]')
+      .first()
+      .click();
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("far away");
+    const sheet = page.getByRole("grid");
+    for (const [left, top] of [
+      [0, 100_000],
+      [100_000, 0],
+    ] as const) {
+      await sheet.evaluate((element, to) => element.scrollTo(to.left, to.top), {
+        left,
+        top,
+      });
+      await expect(page.getByRole("textbox", { name: "Notes" })).toHaveValue(
+        "far away",
+      );
+    }
+  });
+});
+
+test.describe("what is copied, pasted, and typed in the grid", () => {
+  test.use({
+    extraHTTPHeaders: { "x-forwarded-for": "198.51.100.99" },
+    permissions: ["clipboard-read", "clipboard-write"],
+  });
+
+  test("comes back exact, or is refused and counted", async ({ page }) => {
+    await signUpWithTable(page, "Exact Copier");
+    const tableId = tableOf(page);
+    for (const [name, fieldType, config] of [
+      ["price", "number", { number: { precision: 2 } }],
+      ["copy", "number", { number: { precision: 2 } }],
+      ["spent", "duration", {}],
+      ["again", "duration", {}],
+      ["day", "date", {}],
+      ["done", "boolean", {}],
+    ] as const) {
+      await call(page, "catalog.addColumn", {
+        tableId,
+        name,
+        label: name,
+        fieldType,
+        config,
+      });
+    }
+    const rowId = await addRow(page, tableId, {
+      name: 'a"b',
+      price: "1.23456789012",
+      spent: 3661,
+      day: "2026-03-14",
+    });
+    await page.reload();
+    const cellOf = (column: string) =>
+      page.locator(`[role="gridcell"][data-column="${column}"]`).first();
+    await expect(cellOf("price")).toContainText("1.23");
+
+    // From the keyboard: the figure shown rounded is written whole.
+    await cellOf("price").click();
+    await page.keyboard.press("ControlOrMeta+c");
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe("1.23");
+    await cellOf("copy").click();
+    await pasteAndSettle(page);
+    expect((await rowById(page, tableId, rowId)).copy).toBe("1.23456789012");
+
+    // From the menu, the same.
+    await cellOf("spent").click();
+    await cellOf("spent").click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Copy", exact: true }).click();
+    await cellOf("again").click();
+    await pasteAndSettle(page);
+    expect((await rowById(page, tableId, rowId)).again).toBe(3661);
+
+    // A text changed elsewhere is read as what it says.
+    await page.evaluate(() => navigator.clipboard.writeText("2.50"));
+    await cellOf("copy").click();
+    await pasteAndSettle(page);
+    expect((await rowById(page, tableId, rowId)).copy).toBe("2.5");
+
+    // A quote stays one quote.
+    await cellOf("name").click();
+    await page.keyboard.press("ControlOrMeta+c");
+    await cellOf("notes").click();
+    await pasteAndSettle(page);
+    expect((await rowById(page, tableId, rowId)).notes).toBe('a"b');
+
+    // More than the sheet holds is counted.
+    await page.evaluate(() =>
+      navigator.clipboard.writeText("false\ty\tz\tu\tv\tw\tp\tq\tr\ts"),
+    );
+    await cellOf("done").click();
+    await page.keyboard.press("ControlOrMeta+v");
+    await expect(page.getByText(/9 pasted values have no place/)).toBeVisible();
+
+    // A letter typed on a checkbox changes nothing; Enter does.
+    await cellOf("done").click();
+    await page.keyboard.press("y");
+    await page.keyboard.press("n");
+    expect((await rowById(page, tableId, rowId)).done ?? false).toBe(false);
+    const toggled = page.waitForResponse(
+      (response) => response.url().includes("rows.updateMany") && response.ok(),
+    );
+    await page.keyboard.press("Enter");
+    await toggled;
+    expect((await rowById(page, tableId, rowId)).done).toBe(true);
+
+    // A date that does not exist is refused, by each way out of the cell.
+    const refused = page.getByText(/“31\/04\/2026” does not exist/).first();
+    for (const leave of ["Enter", "Tab"]) {
+      await cellOf("day").click();
+      await page.keyboard.press("Enter");
+      await page.keyboard.type("31042026");
+      await page.keyboard.press(leave);
+      await expect(refused).toBeVisible();
+      await page.keyboard.press("Escape");
+    }
+    await cellOf("day").click();
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("31042026");
+    await cellOf("notes").click();
+    await expect(page.getByRole("spinbutton")).toHaveCount(0);
+    expect((await rowById(page, tableId, rowId)).day).toBe("2026-03-14");
+
+    // A letter opens the cell and writes nothing: the date stays.
+    await cellOf("day").click();
+    await page.keyboard.press("a");
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("spinbutton")).toHaveCount(0);
+    expect((await rowById(page, tableId, rowId)).day).toBe("2026-03-14");
+
+    // A date that does exist, its day typed before its month, is kept.
+    await cellOf("day").click();
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("31032026");
+    const dated = page.waitForResponse(
+      (response) => response.url().includes("rows.updateMany") && response.ok(),
+    );
+    await page.keyboard.press("Enter");
+    await dated;
+    expect((await rowById(page, tableId, rowId)).day).toBe("2026-03-31");
+  });
+
+  test("adds one row for a double click, and two for two clicks", async ({
+    page,
+  }) => {
+    await page.setExtraHTTPHeaders({ "x-forwarded-for": "198.51.100.100" });
+    await signUpWithTable(page, "Double Clicker");
+    await page.route("**/trpc/rows.insert*", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await route.continue();
+    });
+    const add = page.getByRole("button", { name: "Add a row", exact: true });
+    await add.dblclick();
+    await expect(nameCells(page)).toHaveCount(1);
+    await expect(add).not.toHaveAttribute("aria-disabled", "true");
+    await expect(nameCells(page)).toHaveCount(1);
+    await add.click();
+    await expect(nameCells(page)).toHaveCount(2);
+  });
+});
+
+const nameCells = (page: Page) =>
+  page.locator('[role="gridcell"][data-column="name"]');
+
+/** The id of the table whose page is open. */
+const tableOf = (page: Page) =>
+  /\/t\/([0-9a-f-]{36})/.exec(page.url())?.[1] ?? "";
+
+/** Calls the server as the page's session. */
+async function call(page: Page, path: string, data: unknown) {
+  const response = await page.request.post(`/trpc/${path}`, { data });
+  expect(response.ok(), await response.text()).toBe(true);
+  return (await response.json()) as { result: { data: { id: string } } };
+}
+
+async function addRow(
+  page: Page,
+  tableId: string,
+  values: Record<string, unknown>,
+): Promise<string> {
+  const made = await call(page, "rows.insert", { tableId, values });
+  return made.result.data.id;
+}
+
+/** The rows as the server holds them. */
+async function readRows(page: Page, tableId: string) {
+  const input = encodeURIComponent(
+    JSON.stringify({ tableId, offset: 0, limit: 100, timeZone: "UTC" }),
+  );
+  const response = await page.request.get(`/trpc/rows.read?input=${input}`);
+  expect(response.ok(), await response.text()).toBe(true);
+  const body = (await response.json()) as {
+    result: { data: { rows: Array<Record<string, unknown> & { id: string }> } };
+  };
+  return body.result.data.rows;
+}
+
+async function rowById(page: Page, tableId: string, rowId: string) {
+  const row = (await readRows(page, tableId)).find((item) => item.id === rowId);
+  if (!row) throw new Error("no such row");
+  return row;
+}
+
+async function notesById(page: Page, tableId: string) {
+  return Object.fromEntries(
+    (await readRows(page, tableId)).map((row) => [row.id, row.notes ?? null]),
+  );
+}
+
+/** Pastes on the active cell and waits for what it writes. */
+async function pasteAndSettle(page: Page) {
+  const saved = page.waitForResponse(
+    (response) => response.url().includes("rows.updateMany") && response.ok(),
+  );
+  await page.keyboard.press("ControlOrMeta+v");
+  await saved;
+}

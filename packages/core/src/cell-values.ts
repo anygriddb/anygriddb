@@ -99,6 +99,9 @@ export function isPlace(value: string): boolean {
 
 const MAX_ARRAY_ITEMS = 100;
 
+/** The most files one attachment cell holds. */
+export const MAX_CELL_FILES = 20;
+
 /** Wire shape of a cell. Arrays hold option names, user ids, or file keys. */
 export const cellValueSchema = z.union([
   z.string().max(20_000),
@@ -257,7 +260,7 @@ export function assertCellValue(column: CellColumn, value: unknown): void {
     }
     case "attachment":
       if (
-        isUniqueStrings(value, 20) &&
+        isUniqueStrings(value, MAX_CELL_FILES) &&
         value.every((key) => ATTACHMENT_KEY.test(key))
       )
         return;

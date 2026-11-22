@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { fillValues, parseClipboard, planPaste, toTsv } from "./grid-clipboard";
+import {
+  copiedCells,
+  fillValues,
+  parseClipboard,
+  planPaste,
+  toTsv,
+} from "./grid-clipboard";
 
 const columns = [
   {
@@ -78,8 +84,20 @@ describe("grid clipboard", () => {
 
   it("prefixes a formula so a spreadsheet does not run it", () => {
     expect(copied('=HYPERLINK("http://example.test")')).toBe(
-      '"\'=HYPERLINK(""http://example.test"")"',
+      '\'=HYPERLINK("http://example.test")',
     );
+    // In a block, the same cell is quoted too, and stays guarded.
+    expect(
+      toTsv(
+        [
+          { id: "r1", title: '=HYPERLINK("http://example.test")' },
+          { id: "r2", title: "b" },
+        ] as never[],
+        columns.slice(0, 1),
+        "en",
+        new Map(),
+      ),
+    ).toBe('"\'=HYPERLINK(""http://example.test"")"\nb');
     expect(copied("-1+cmd|' /C calc'!A0")).toBe("'-1+cmd|' /C calc'!A0");
     expect(copied("@SUM(1)")).toBe("'@SUM(1)");
   });
@@ -106,5 +124,182 @@ describe("grid clipboard", () => {
     expect(parseClipboard(`${copied("=a")}\t${copied("b")}`)).toEqual([
       ["=a", "b"],
     ]);
+  });
+
+  it("leaves a lone cell's quotes alone, and pastes it back as it was", () => {
+    for (const value of ['a"b', '"quoted"', '5" screen', '{"a": [1, 2]}']) {
+      expect(copied(value)).toBe(value);
+      expect(parseClipboard(copied(value))).toEqual([[value]]);
+    }
+  });
+
+  it("still protects a lone cell that holds a tab or a line", () => {
+    expect(copied("a\tb")).toBe('"a\tb"');
+    expect(parseClipboard(copied('q"uo\nte'))).toEqual([['q"uo\nte']]);
+  });
+
+  it("keeps a block's quoting, cell by cell", () => {
+    const text = toTsv(
+      [
+        { id: "r1", title: 'a"b' },
+        { id: "r2", title: "c" },
+      ] as never[],
+      columns.slice(0, 1),
+      "en",
+      new Map(),
+    );
+    expect(text).toBe('"a""b"\nc');
+    expect(parseClipboard(text)).toEqual([['a"b'], ["c"]]);
+  });
+
+  it("leaves the quotes of a text that came from elsewhere", () => {
+    expect(parseClipboard('"quoted"')).toEqual([['"quoted"']]);
+  });
+});
+
+describe("what a copy keeps of its cells", () => {
+  const rounded = {
+    name: "price",
+    label: "Price",
+    fieldType: "number",
+    config: { number: { precision: 2 } },
+    kind: "number",
+    error: null,
+  };
+  const duration = {
+    name: "spent",
+    label: "Spent",
+    fieldType: "duration",
+    config: {},
+    kind: "number",
+    error: null,
+  };
+  const named = {
+    name: "title",
+    label: "Title",
+    fieldType: "text",
+    config: {},
+    kind: "text",
+    error: null,
+  };
+  const target = [{ id: "t1" }] as never[];
+  const paste = (
+    text: string,
+    field: unknown,
+    exact: ReturnType<typeof copiedCells>["cells"] | null,
+  ) =>
+    planPaste({
+      matrix: parseClipboard(text),
+      exact,
+      rows: target,
+      columns: [field] as never[],
+      startRow: 0,
+      startColumn: 0,
+      resolveUser: () => undefined,
+    }).updates[0]?.values;
+
+  it("shows the rounded text, and keeps the exact value", () => {
+    const { text, cells } = copiedCells(
+      [{ id: "r1", price: "1.23456789012" }] as never[],
+      [rounded] as never[],
+      "en",
+      new Map(),
+    );
+    expect(text).toBe("1.23");
+    expect(paste(text, rounded, cells)).toEqual({ price: "1.23456789012" });
+  });
+
+  it("keeps a tiny number and a duration to the second", () => {
+    for (const [field, value] of [
+      [rounded, "0.000000000001"],
+      [duration, 3661],
+      [duration, 59],
+    ] as const) {
+      const { text, cells } = copiedCells(
+        [{ id: "r1", [field.name]: value }] as never[],
+        [field] as never[],
+        "en",
+        new Map(),
+      );
+      expect(paste(text, field, cells)).toEqual({ [field.name]: value });
+    }
+  });
+
+  it("reads the text when the field it lands in is of another type", () => {
+    const { text, cells } = copiedCells(
+      [{ id: "r1", price: "1.23456789012" }] as never[],
+      [rounded] as never[],
+      "en",
+      new Map(),
+    );
+    expect(paste(text, named, cells)).toEqual({ title: "1.23" });
+  });
+
+  it("reads the text when nothing was kept for it", () => {
+    expect(paste("1.23", rounded, null)).toEqual({ price: "1.23" });
+  });
+
+  it("never takes a list or an object as an exact value", () => {
+    const files = {
+      name: "files",
+      label: "Files",
+      fieldType: "attachment",
+      config: {},
+      kind: "text",
+      error: null,
+    };
+    const plan = planPaste({
+      matrix: [["a.pdf"]],
+      exact: [[{ fieldType: "attachment", value: [{ key: "k" }] }]],
+      rows: target,
+      columns: [files] as never[],
+      startRow: 0,
+      startColumn: 0,
+      resolveUser: () => undefined,
+    });
+    // The text is read, and a file's name is no file: nothing is written.
+    expect(plan.updates).toEqual([]);
+    expect(plan.skipped).toBe(1);
+  });
+});
+
+describe("what a paste could not place", () => {
+  const plan = (input: { text: string; rows?: number; canInsert?: boolean }) =>
+    planPaste({
+      matrix: parseClipboard(input.text),
+      rows: Array.from({ length: input.rows ?? 1 }, (_, index) => ({
+        id: `r${index}`,
+      })) as never[],
+      columns: columns.slice(0, 2),
+      startRow: 0,
+      startColumn: 0,
+      resolveUser: () => undefined,
+      ...(input.canInsert === undefined ? {} : { canInsert: input.canInsert }),
+    });
+
+  it("says nothing of a block that fits", () => {
+    expect(plan({ text: "a\t1\nb\t2", rows: 2 }).unplaced).toBe(0);
+  });
+
+  it("counts what runs past the last field", () => {
+    const wide = plan({ text: "a\t1\textra\tmore" });
+    expect(wide.unplaced).toBe(2);
+    expect(wide.updates[0]?.values).toEqual({ title: "a", qty: "1" });
+  });
+
+  it("does not count an empty cell past the last field", () => {
+    expect(plan({ text: "a\t1\t\t" }).unplaced).toBe(0);
+  });
+
+  it("counts the rows it may not add, value by value", () => {
+    const long = plan({ text: "a\t1\nb\t2\nc", canInsert: false });
+    expect(long.inserts).toEqual([]);
+    expect(long.unplaced).toBe(3);
+  });
+
+  it("adds the rows it may add", () => {
+    const long = plan({ text: "a\nb", canInsert: true });
+    expect(long.inserts).toEqual([{ title: "b" }]);
+    expect(long.unplaced).toBe(0);
   });
 });

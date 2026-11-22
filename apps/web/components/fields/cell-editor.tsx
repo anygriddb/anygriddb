@@ -1,6 +1,7 @@
 import {
   cellText,
   coerceCellValue,
+  MAX_CELL_FILES,
   parseColor,
   prettyJson,
 } from "@anygriddb/core";
@@ -17,6 +18,7 @@ import {
   Spinner,
   Tooltip,
 } from "@anygriddb/ui";
+import { plural } from "@lingui/core/macro";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Paperclip, Plus, X } from "lucide-react";
 import {
@@ -40,6 +42,8 @@ import {
 } from "../../lib/dates";
 import { attachmentList, isLinkArray } from "../../lib/format";
 import { useFormatBytes } from "../../lib/format-bytes";
+import { filesThatFit, tableFileUrl } from "../../lib/send-file";
+import { readTypedDate, shownDate } from "../../lib/typed-date";
 import { trpc, useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { useTable, type CellValue } from "../table/table-context";
@@ -64,6 +68,8 @@ type EditorProps = {
   row: RowItem;
   /** Text typed to start editing; replaces the current value. */
   initialText?: string;
+  /** Told how to read what the editor holds, should its row go away. */
+  onDraft?: (read: () => string) => void;
   onDone: (move?: Move) => void;
 };
 
@@ -124,7 +130,13 @@ function endingKey(
 const INLINE_EDITOR_CLASS =
   "absolute inset-0 z-20 w-full min-w-full rounded-none border-2 border-primary bg-card px-2 text-sm text-foreground shadow-lg outline-none";
 
-function InlineEditor({ column, row, initialText, onDone }: EditorProps) {
+function InlineEditor({
+  column,
+  row,
+  initialText,
+  onDraft,
+  onDone,
+}: EditorProps) {
   const { t } = useLingui();
   const { updateCells } = useTable();
   const seen = useSeenAtOpen(row, column);
@@ -140,6 +152,10 @@ function InlineEditor({ column, row, initialText, onDone }: EditorProps) {
   const invalid =
     text.trim() !== "" &&
     coerceCellValue(toCellColumn(column), text) === undefined;
+  useEffect(() => {
+    const element = ref.current;
+    if (element) onDraft?.(() => element.value);
+  }, [onDraft]);
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
@@ -286,7 +302,13 @@ function InlineEditor({ column, row, initialText, onDone }: EditorProps) {
  * and time zone, with a calendar. A key that opened the editor goes into
  * its first segment.
  */
-function DateEditor({ column, row, initialText, onDone }: EditorProps) {
+function DateEditor({
+  column,
+  row,
+  initialText,
+  onDraft,
+  onDone,
+}: EditorProps) {
   const { t } = useLingui();
   const { updateCells, locale } = useTable();
   const seen = useSeenAtOpen(row, column);
@@ -317,6 +339,11 @@ function DateEditor({ column, row, initialText, onDone }: EditorProps) {
   }, []);
 
   useEffect(() => {
+    const element = box.current;
+    if (element) onDraft?.(() => shownDate(element));
+  }, [onDraft]);
+
+  useEffect(() => {
     if (!initialText) return;
     const segment = box.current?.querySelector<HTMLElement>(
       '[role="spinbutton"]',
@@ -333,25 +360,57 @@ function DateEditor({ column, row, initialText, onDone }: EditorProps) {
     );
   }, [initialText]);
 
-  async function commit(move?: Move) {
-    if (committed.current) return;
-    const segments = [
-      ...(box.current?.querySelectorAll('[role="spinbutton"]') ?? []),
-    ];
-    const blank = segments.filter((item) =>
-      item.hasAttribute("data-placeholder"),
-    ).length;
-    if (blank > 0 && blank < segments.length) {
+  /**
+   * Ends the edit with what the segments say, read before the field moves
+   * a date that does not exist to one that does. A day picked in the
+   * calendar is the field's value: its segments are not drawn yet.
+   * Says whether the edit ended.
+   */
+  function commit(move?: Move, picking = false): boolean {
+    if (committed.current) return true;
+    const typed =
+      picking || !box.current
+        ? null
+        : readTypedDate(box.current, {
+            withTime,
+            zone,
+            held: latest.current,
+          });
+    if (typed?.state === "partial") {
       toast.error(t`Invalid value for ${{ field: column.label }}`);
-      return;
+      return false;
+    }
+    if (typed?.state === "impossible") {
+      toast.error(
+        t`${{ field: column.label }}: “${{ date: typed.text }}” does not exist. Nothing was saved.`,
+      );
+      return false;
     }
     committed.current = true;
-    const next = fromDateValue(latest.current, withTime);
+    // A letter that opened the editor wrote nothing: the date stays.
+    if (
+      typed?.state === "empty" &&
+      initialText !== undefined &&
+      !/^\d$/.test(initialText)
+    ) {
+      onDone(move);
+      return true;
+    }
+    const next = fromDateValue(
+      typed?.state === "date"
+        ? typed.value
+        : typed?.state === "empty"
+          ? null
+          : latest.current,
+      withTime,
+    );
     onDone(move);
-    if (sameDate(current, next, withTime)) return;
-    await updateCells([
-      { rowId: row.id, values: { [column.name]: next }, seen },
-    ]);
+    if (!sameDate(current, next, withTime)) {
+      void updateCells([
+        { rowId: row.id, values: { [column.name]: next }, seen },
+      ]);
+    }
+    return true;
   }
 
   return (
@@ -364,20 +423,21 @@ function DateEditor({ column, row, initialText, onDone }: EditorProps) {
         if (open.current) return;
         endingKey(event, (move, keep) => {
           if (keep) {
-            void commit(move);
+            commit(move);
             return;
           }
           committed.current = true;
           onDone();
         });
       }}
-      onBlur={(event) => {
+      onBlurCapture={(event) => {
         // Focus leaving the calendar (it closes, or a day was picked) is
         // not the editor's end: only focus leaving the field itself is.
         if (open.current || !box.current?.contains(event.target)) return;
         const next = event.relatedTarget;
         if (next instanceof Node && box.current.contains(next)) return;
-        void commit();
+        // Refused: the field must not go on to correct what was typed.
+        if (!commit()) event.stopPropagation();
       }}
     >
       <DatePicker
@@ -403,7 +463,7 @@ function DateEditor({ column, row, initialText, onDone }: EditorProps) {
           // A day picked in the calendar is the answer.
           if (!value && picked.current) {
             picked.current = false;
-            void commit();
+            commit(undefined, true);
           }
         }}
         autoFocus
@@ -857,13 +917,30 @@ function AttachmentEditor({ column, row, onDone }: EditorProps) {
   const [preview, setPreview] = useState<number | null>(null);
   const input = useRef<HTMLInputElement>(null);
   async function upload(list: FileList) {
+    // The room left is counted from the files held: not during a send.
+    if (busy) {
+      toast.warning(
+        t`Too many files are being sent right now. Try again in a moment.`,
+      );
+      return;
+    }
+    const { fit, left } = filesThatFit([...list], files.length);
+    if (left > 0) {
+      toast.warning(
+        plural(left, {
+          one: `# file was not added: a cell holds ${MAX_CELL_FILES} at most`,
+          other: `# files were not added: a cell holds ${MAX_CELL_FILES} at most`,
+        }),
+      );
+    }
+    if (fit.length === 0) return;
     setBusy(true);
     try {
       const added: string[] = [];
-      for (const file of [...list].slice(0, 10)) {
+      for (const file of fit) {
         const body = new FormData();
         body.append("file", file, file.name);
-        const response = await fetch(`/api/attachments?tableId=${table.id}`, {
+        const response = await fetch(tableFileUrl(table.id), {
           method: "POST",
           body,
         });
