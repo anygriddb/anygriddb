@@ -13,7 +13,7 @@
     "db:types": "kysely-codegen && prettier --write src/types.generated.ts"
   },
   "dependencies": {
-    "kysely": "0.29.8",
+    "kysely": "0.29.9",
     "pg": "8.23.1",
     "pg-cursor": "2.22.1"
   },
