@@ -255,6 +255,23 @@ describe("compileFormula", () => {
     }
   });
 
+  it("reads a JSON value of any length on SQL Server", () => {
+    // JSON_VALUE and JSON_QUERY are both null past 4,000 characters, as on
+    // a key that is not there: OPENJSON reads the value whole.
+    const read = compile('JSON_EXTRACT({Title}, "$.a.b")', SQLSERVER);
+    expect(read.typed.sql).toMatch(
+      /^coalesce\(json_value\(.+\), json_query\(.+\), \(select j\.v from openjson\(.+\) with \(v nvarchar\(max\) '\$\."a"\."b"'\) j\)\)$/,
+    );
+    // The path is a text of the statement there: a quote in a key is doubled.
+    expect(SQLSERVER.jsonExtract("x", [{ key: "it's" }], () => "$1")).toContain(
+      `nvarchar(max) '$."it''s"'`,
+    );
+    // The other engines read it as before.
+    expect(compile('JSON_EXTRACT({Title}, "$.a")').typed.sql).not.toContain(
+      "openjson",
+    );
+  });
+
   it("refuses a formula whose SQL grows past its bound", () => {
     const nested = "SQRT(".repeat(30) + "{Price}" + ")".repeat(30);
     expect(() => compile(nested)).toThrow("Formula too large");

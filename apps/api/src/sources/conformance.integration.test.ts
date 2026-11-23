@@ -5037,6 +5037,68 @@ describe("conformance of formulas across engines", () => {
     }
   }, 300_000);
 
+  it("reads a JSON value of any length on SQL Server, and a missing one as blank", async () => {
+    const mssql = declared.get("sqlserver");
+    if (!mssql) throw new Error("no SQL Server source declared");
+    const deps = { db, key, settings };
+    // Past 4,000 characters the value read blank, as a key that is not
+    // there does.
+    await outside(
+      "sqlserver",
+      "create table docs (id int primary key, j nvarchar(max))",
+    );
+    await outside("sqlserver", "grant select on docs to reader");
+    const text = (length: number) =>
+      `N'{"a":"' + replicate(cast(N'x' as nvarchar(max)), ${String(length)}) + N'"}'`;
+    for (const [id, document] of [
+      [1, text(4000)],
+      [2, text(4001)],
+      [3, text(20000)],
+      [4, `N'{"b":"elsewhere"}'`],
+      [5, `N'{"a":null}'`],
+      [6, `N'{"a":{"b":[1,2]}}'`],
+      [7, `N'{"a":12.50}'`],
+    ] as const) {
+      await outside(
+        "sqlserver",
+        `insert into docs values (${String(id)}, ${document})`,
+      );
+    }
+    const base = await insertBase(db, actorId, { name: "Long documents" });
+    const {
+      tableIds: [docsId = ""],
+    } = await exposeTables(deps, actorId, {
+      sourceId: mssql.sourceId,
+      baseId: base.id,
+      tables: [{ schema: mssql.schema, name: "docs" }],
+    });
+    const value = await addColumn(db, actorId, docsId, {
+      label: "Value",
+      fieldType: "formula",
+      formulaSource: 'JSON_EXTRACT({j}, "$.a")',
+    });
+    const { engine: catalog } = await loadEngine(db, docsId, () => true);
+    const page = await readPage(
+      db,
+      catalog,
+      {
+        limit: 10,
+        timeZone: "UTC",
+        sort: [{ column: columnOf(catalog, "id"), direction: "asc" }],
+      },
+      { total: false },
+    );
+    expect(
+      page.rows.map((row) => {
+        const read = row[value.name];
+        return typeof read === "string" && read.length > 20
+          ? read.length
+          : read;
+      }),
+    ).toEqual([4000, 4001, 20000, null, null, '{"b":[1,2]}', "12.50"]);
+    await outside("sqlserver", "drop table docs");
+  }, 300_000);
+
   /** Every sort, group, filter and figure a field offers, on its engine. */
   const playEveryField = async (
     engine: Engine,

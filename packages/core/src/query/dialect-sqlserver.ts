@@ -740,8 +740,10 @@ export const SQLSERVER: SqlDialect = {
   textLeft: (sql, count) => `left(${sql}, ${count})`,
   textRight: (sql, count) => `right(${sql}, ${count})`,
   textSlice: (sql, start, length) => `substring(${sql}, ${start}, ${length})`,
-  // JSON_VALUE reads scalars, JSON_QUERY objects and lists; a scalar past
-  // 4,000 characters reads blank (lax mode).
+  // JSON_VALUE reads scalars, JSON_QUERY objects and lists. A scalar past
+  // 4,000 characters is null to both, as a key that is not there would be:
+  // OPENJSON reads it whole. Its path is written in the statement, which
+  // takes no parameter there: `jsonPathText` has checked it.
   // SQL Server reads no regular expression before 2025.
   regexMatch: () => unavailable("REGEX_MATCH"),
   regexExtract: () => unavailable("REGEX_EXTRACT"),
@@ -749,7 +751,8 @@ export const SQLSERVER: SqlDialect = {
   jsonExtract: (sql, path, bind) => {
     const at = bind(jsonPathText(path));
     const json = `(case when isjson(${sql}) = 1 then ${sql} end)`;
-    return `coalesce(json_value(${json}, ${at}), json_query(${json}, ${at}))`;
+    const written = `'${jsonPathText(path).replace(/'/g, "''")}'`;
+    return `coalesce(json_value(${json}, ${at}), json_query(${json}, ${at}), (select j.v from openjson(${json}) with (v nvarchar(max) ${written}) j))`;
   },
   exactTextKey: (sql) => `${sql} collate ${BIN}`,
   unavailable,

@@ -353,8 +353,24 @@ export function assembleEngine(
 }
 
 /**
+ * How many links a read follows from its tables: as deep as the compiler
+ * follows a chain of computed fields.
+ */
+const MAX_HOPS = 15;
+
+const COMPUTED_TYPES: ReadonlySet<string> = new Set([
+  "formula",
+  "lookup",
+  "rollup",
+]);
+
+/**
  * Loads the catalog rows a read of `tableIds` needs: the tables, their
- * columns and links, and the tables those links reach, one level deep.
+ * columns and links, and the tables those links reach. A table reached
+ * that way has its own links followed only where something reads through
+ * them: one of its computed fields, or a lookup of the link itself. A
+ * lookup of a lookup then finds its table, and a read of a table whose
+ * neighbours compute nothing loads no more than it did.
  */
 export async function loadCatalogRows(
   db: Database,
@@ -393,46 +409,79 @@ export async function loadCatalogRows(
             columnRows.map((column) => column.id),
           )
           .execute();
-  const linked = [
-    ...new Set(
-      ownRelations
-        .map((relation) => relation.toTableId)
-        .filter((id) => !liveIds.includes(id)),
-    ),
-  ];
-  const linkedTables =
-    linked.length === 0
-      ? []
-      : await db
-          .selectFrom("dataTables")
-          .selectAll()
-          .where("id", "in", linked)
-          .where(liveTable())
-          .execute();
-  const linkedIds = linkedTables.map((table) => table.id);
-  const linkedColumns =
-    linkedIds.length === 0
-      ? []
-      : await db
-          .selectFrom("dataColumns")
-          .selectAll()
-          .where("tableId", "in", linkedIds)
-          .where(liveColumn())
-          .execute();
-  const linkedRelations =
-    linkedColumns.length === 0
-      ? []
-      : await db
-          .selectFrom("relations")
-          .selectAll()
-          .where(
-            "fromColumnId",
-            "in",
-            linkedColumns.map((column) => column.id),
-          )
-          .execute();
-  const allColumns = [...columnRows, ...linkedColumns];
-  const allRelations = [...ownRelations, ...linkedRelations];
+  const seen = new Set(liveIds);
+  const linkedTables: typeof tableRows = [];
+  const allColumns = [...columnRows];
+  const allRelations = [...ownRelations];
+  let followed = ownRelations;
+  for (let hop = 0; hop < MAX_HOPS; hop += 1) {
+    const linked = [
+      ...new Set(
+        followed
+          .map((relation) => relation.toTableId)
+          .filter((id) => !seen.has(id)),
+      ),
+    ];
+    if (linked.length === 0) break;
+    for (const id of linked) seen.add(id);
+    const reached = await db
+      .selectFrom("dataTables")
+      .selectAll()
+      .where("id", "in", linked)
+      .where(liveTable())
+      .execute();
+    if (reached.length === 0) break;
+    const reachedColumns = await db
+      .selectFrom("dataColumns")
+      .selectAll()
+      .where(
+        "tableId",
+        "in",
+        reached.map((table) => table.id),
+      )
+      .where(liveColumn())
+      .execute();
+    const reachedRelations =
+      reachedColumns.length === 0
+        ? []
+        : await db
+            .selectFrom("relations")
+            .selectAll()
+            .where(
+              "fromColumnId",
+              "in",
+              reachedColumns.map((column) => column.id),
+            )
+            .execute();
+    linkedTables.push(...reached);
+    allColumns.push(...reachedColumns);
+    allRelations.push(...reachedRelations);
+    // What reads through a link of these tables: a computed field of the
+    // table itself, or a lookup, further up, of the link's own field.
+    const computing = new Set(
+      reachedColumns
+        .filter((column) => COMPUTED_TYPES.has(column.fieldType))
+        .map((column) => column.tableId),
+    );
+    const targeted = new Set(
+      allColumns
+        .filter(
+          (column) =>
+            column.fieldType === "lookup" || column.fieldType === "rollup",
+        )
+        .map((column) => columnConfig(column).target)
+        .filter((name): name is string => typeof name === "string"),
+    );
+    followed = reachedRelations.filter((relation) => {
+      const link = reachedColumns.find(
+        (column) => column.id === relation.fromColumnId,
+      );
+      return (
+        link !== undefined &&
+        (computing.has(link.tableId) || targeted.has(link.name))
+      );
+    });
+  }
   const missingForward = allColumns
     .map((column) => columnConfig(column).inverseOf)
     .filter(
