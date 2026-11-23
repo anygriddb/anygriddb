@@ -143,7 +143,10 @@ if loud="$(grep -E '^initdb: warning|(WARNING|ERROR|FATAL|PANIC):' <<<"$said")";
   echo "$loud" >&2
   exit 1
 fi
-said="$("${compose[@]}" logs --no-color --no-log-prefix certs app 2>&1)"
+# Some versions of Compose begin each line with an erase sequence, even
+# to a pipe: without them a line of JSON starts with its brace again.
+said="$("${compose[@]}" logs --no-color --no-log-prefix certs app 2>&1 |
+  sed $'s/\x1b\\[[0-9;]*[A-Za-z]//g')"
 if loud="$(grep -E '^\{"level":(40|50|60),' <<<"$said")" ||
   loud="$(grep -v '^{' <<<"$said" | grep -iE 'warn|error|fail|fatal|deprecat')"; then
   echo "The instance's log of a first start holds a warning or an error:" >&2

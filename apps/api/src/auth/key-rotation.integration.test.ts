@@ -235,46 +235,51 @@ describe("the encryption key changed", () => {
     });
   });
 
-  it("counts a key it may not read by the note beside it, and never takes a closed folder for an empty one", async () => {
-    const locked = await mkdtemp(join(tmpdir(), "anygriddb-locked-"));
-    const file = join(locked, "internal-authority.key.enc");
-    await writeFile(file, await readFile(join(tlsDir, "internal.key.enc")));
-    await chmod(file, 0o000);
-    try {
-      const refused = await rotateKeys(db, after, {
-        write: false,
-        tlsDir: locked,
-      });
-      expect(refused.forbidden).toEqual(["internal-authority.key.enc"]);
-
-      await writeFile(join(locked, "internal-authority.key.id"), "next\n");
-      const counted = await rotateKeys(db, after, {
-        write: false,
-        tlsDir: locked,
-      });
-      expect(counted.forbidden).toEqual([]);
-      expect(counted.byKey.next).toBe((refused.byKey.next ?? 0) + 1);
-
-      await chmod(locked, 0o000);
-      const closed = await rotateKeys(db, after, {
-        write: false,
-        tlsDir: locked,
-      });
-      expect(closed.forbidden).toEqual(["the certificates folder"]);
-    } finally {
-      await chmod(locked, 0o700);
-      await rm(locked, { recursive: true, force: true });
-    }
-    // A folder that is not there holds nothing: the operator's certificates.
-    expect(
-      (
-        await rotateKeys(db, after, {
+  // The administrator of a machine reads a file whatever its mode: run
+  // as root, nothing here is refused, and the run says it skipped this.
+  it.skipIf(process.getuid?.() === 0)(
+    "counts a key it may not read by the note beside it, and never takes a closed folder for an empty one",
+    async () => {
+      const locked = await mkdtemp(join(tmpdir(), "anygriddb-locked-"));
+      const file = join(locked, "internal-authority.key.enc");
+      await writeFile(file, await readFile(join(tlsDir, "internal.key.enc")));
+      await chmod(file, 0o000);
+      try {
+        const refused = await rotateKeys(db, after, {
           write: false,
-          tlsDir: join(tlsDir, "nothing-here"),
-        })
-      ).forbidden,
-    ).toEqual([]);
-  });
+          tlsDir: locked,
+        });
+        expect(refused.forbidden).toEqual(["internal-authority.key.enc"]);
+
+        await writeFile(join(locked, "internal-authority.key.id"), "next\n");
+        const counted = await rotateKeys(db, after, {
+          write: false,
+          tlsDir: locked,
+        });
+        expect(counted.forbidden).toEqual([]);
+        expect(counted.byKey.next).toBe((refused.byKey.next ?? 0) + 1);
+
+        await chmod(locked, 0o000);
+        const closed = await rotateKeys(db, after, {
+          write: false,
+          tlsDir: locked,
+        });
+        expect(closed.forbidden).toEqual(["the certificates folder"]);
+      } finally {
+        await chmod(locked, 0o700);
+        await rm(locked, { recursive: true, force: true });
+      }
+      // A folder that is not there holds nothing: the operator's certificates.
+      expect(
+        (
+          await rotateKeys(db, after, {
+            write: false,
+            tlsDir: join(tlsDir, "nothing-here"),
+          })
+        ).forbidden,
+      ).toEqual([]);
+    },
+  );
 
   it("reads a database whose earlier version lacks a sealed column", async () => {
     const whole = await rotateKeys(db, during, { write: false });

@@ -47,6 +47,8 @@ actionlint
 if [ -n "${GH_TOKEN:-}" ]; then
   zizmor --no-progress .github/workflows
 else
-  zizmor --no-progress --offline .github/workflows
+  # Set and empty, the variable is still read by the tool as its token,
+  # which it refuses: offline, it is given none.
+  env -u GH_TOKEN zizmor --no-progress --offline .github/workflows
 fi
 echo "The workflows are clean."
