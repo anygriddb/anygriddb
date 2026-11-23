@@ -55,14 +55,23 @@ function isForwardLink(column: CatalogColumn): boolean {
   );
 }
 
-/** The fields a new row of a client's table may fill, in grid order. */
-function newRowFields(columns: readonly CatalogColumn[]) {
+/**
+ * The fields a new row may fill, in grid order. A link is one of them in a
+ * client's table only, where it is a key the row itself holds. In a table
+ * of AnyGridDB's own a link is set on a row that exists: offered here, it
+ * was sent as a value, and the row was refused for a field it does not
+ * have.
+ */
+export function newRowFields(
+  columns: readonly CatalogColumn[],
+  external: boolean,
+) {
   return columns.filter(
     (column) =>
       column.insertable &&
       !column.error &&
       !isComputedField(column.fieldType) &&
-      (INPUTS.has(column.fieldType) || isForwardLink(column)),
+      (INPUTS.has(column.fieldType) || (external && isForwardLink(column))),
   );
 }
 
@@ -171,7 +180,7 @@ export function NewRowDialog(props: {
   const { t } = useLingui();
   const { people, locale } = useTable();
   const refusedText = useRefusedText();
-  const fields = newRowFields(props.columns);
+  const fields = newRowFields(props.columns, props.external);
   const [values, setValues] = useState<Record<string, Draft>>(() =>
     draftsOf(props.initial ?? {}),
   );

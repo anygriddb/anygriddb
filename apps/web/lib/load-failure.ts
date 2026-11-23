@@ -44,3 +44,21 @@ export function showLoadFailure(
   box.append(text, button);
   root.replaceChildren(box);
 }
+
+/**
+ * What to do when a piece of the app fails to load. A tab opened before an
+ * update asks for files the new build no longer has: it is reloaded, once,
+ * to get the new page (`reload`), and never in a loop (`leave`). With no
+ * network a reload would put the browser's own error page in place of the
+ * app, and what the screen held would be lost: the app's fallback says what
+ * failed, and the page is reloaded when the network is back (`wait`).
+ */
+export function afterFailedLoad(input: {
+  online: boolean;
+  /** When this tab last reloaded itself for an update, or 0. */
+  reloadedAt: number;
+  now: number;
+}): "reload" | "wait" | "leave" {
+  if (!input.online) return "wait";
+  return input.now - input.reloadedAt < 30_000 ? "leave" : "reload";
+}
