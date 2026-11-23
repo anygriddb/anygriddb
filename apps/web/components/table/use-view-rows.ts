@@ -4,7 +4,11 @@ import { useChannel } from "../../lib/realtime";
 import { useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, ViewConfig, ViewItem } from "../../lib/types";
 import { useRows } from "../grid/use-rows";
-import { calendarFilter, thisMonth } from "../views/calendar-view";
+import {
+  calendarDayFilter,
+  calendarFilter,
+  thisMonth,
+} from "../views/calendar-view";
 import { placeColumns, placeFilter } from "../views/map-places";
 import {
   timelineFilter,
@@ -179,10 +183,27 @@ export function useViewRows(input: {
     },
   });
 
+  // The rows of one day, as the view reads its weeks: its filter, its
+  // search, its order.
+  const dayQuery = useMemo(
+    () =>
+      calendarField
+        ? (day: string) =>
+            rowsQuery({
+              viewId: view?.id,
+              search,
+              config,
+              local,
+              scope: calendarDayFilter(calendarField, day),
+            })
+        : undefined,
+    [calendarField, view?.id, search, config, local],
+  );
   return {
     rows,
     layout,
     counts,
+    dayQuery,
     calendarMonth,
     setCalendarMonth: onMonth,
     pickedDay,

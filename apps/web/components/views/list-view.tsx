@@ -182,12 +182,15 @@ export function ListView(props: ViewProps) {
           onChange={(next) => props.onPatch({ cardFields: next })}
         />
         <span className="text-xs text-muted-foreground">
-          {parents.length === 0
-            ? t`To nest rows under one another, add a link to a row of this table.`
-            : props.total > LIST_CEILING
-              ? t`The first ${{ shown: formatNumber(LIST_CEILING, locale) }} of ${{ total: formatNumber(props.total, locale) }} rows`
-              : plural(props.total, { one: `# row`, other: `# rows` })}
+          {props.total > LIST_CEILING
+            ? t`The first ${{ shown: formatNumber(LIST_CEILING, locale) }} of ${{ total: formatNumber(props.total, locale) }} rows`
+            : plural(props.total, { one: `# row`, other: `# rows` })}
         </span>
+        {parents.length === 0 ? (
+          <span className="text-xs text-muted-foreground">
+            {t`To nest rows under one another, add a link to a row of this table.`}
+          </span>
+        ) : null}
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
         <div

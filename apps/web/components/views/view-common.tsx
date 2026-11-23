@@ -19,7 +19,7 @@ import { drawnFields } from "./card-fields";
 import { EmptyState } from "../shell/notebook-page";
 import { useTable } from "../table/table-context";
 import type { ViewPatch } from "../table/view-toolbar";
-import type { Groups } from "../grid/use-rows";
+import type { Groups, RowsQuery } from "../grid/use-rows";
 import { useLingui } from "@lingui/react/macro";
 
 export type ViewProps = {
@@ -41,6 +41,11 @@ export type ViewProps = {
    * a view shows at most a page of rows, the counts are of them all.
    */
   counts?: ReadonlyMap<string, number>;
+  /**
+   * What reads the rows of one day, for a calendar: a day draws a few of
+   * them, and the calendar's page holds a thousand at most.
+   */
+  dayQuery?: (day: string) => RowsQuery;
   /** Where each group starts, for a view that reads its rows grouped. */
   groups?: Groups;
   /** Optional row tint from the view colour settings. */

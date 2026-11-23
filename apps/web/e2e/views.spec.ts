@@ -294,6 +294,29 @@ test.describe("a kanban, a gallery, and a calendar", () => {
     await expect.poll(cutByTheDay).toBe(0);
     await page.setViewportSize({ width: 1280, height: 720 });
 
+    // A day draws six of its rows and counts the others. The count is the
+    // way to them: it opens the day's rows, and a row is opened from there.
+    await send(page, "rows.insertMany", {
+      tableId: tableIdOf(page),
+      rows: Array.from({ length: 8 }, (_, index) => ({
+        name: `Busy ${String(index + 1)}`,
+        due: dayOfThisMonth(17),
+      })),
+    });
+    const more = day(17).getByRole("button", { name: /^\+2 rows on / });
+    await expect(more).toHaveText("+2");
+    await more.click();
+    // The day was not picked, and took no new row, by the click on its count.
+    const busiest = page.getByRole("button", { name: "Busy 8", exact: true });
+    await expect(busiest).toBeVisible();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await busiest.click();
+    await expect(panel.getByRole("heading", { name: "Busy 8" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(day(17).getByRole("button", { name: /^Busy / })).toHaveCount(
+      6,
+    );
+
     // From the keyboard the month is one stop: the arrows walk its days,
     // the bar adds to the day reached, and Enter on a day adds there too.
     await page.keyboard.press("Escape");

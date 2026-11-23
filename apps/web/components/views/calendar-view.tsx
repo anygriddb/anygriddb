@@ -1,8 +1,19 @@
-import { Button, cn } from "@anygriddb/ui";
+import {
+  Button,
+  cn,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Spinner,
+} from "@anygriddb/ui";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useRef, type KeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import { useRowDrag, useRowDrop } from "../../lib/drag";
 import { useLocale } from "../../lib/i18n";
+import { useTRPC } from "../../lib/trpc";
+import type { RowsQuery } from "../grid/use-rows";
+import { LoadFailed } from "../shell/load-failed";
 import type { FilterGroup } from "@anygriddb/core";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { canDateBy, startField } from "../table/field-roles";
@@ -15,11 +26,131 @@ import {
 } from "./view-common";
 import { useLingui } from "@lingui/react/macro";
 import { CalendarFeedButton } from "./calendar-feed";
-import { intlLocale } from "../../lib/format";
-import { dayToAdd, dayValue, isoDay, monthDays } from "./view-days";
+import { formatNumber, intlLocale } from "../../lib/format";
+import {
+  dayToAdd,
+  dayValue,
+  isoDay,
+  monthDays,
+  undrawnOnDay,
+} from "./view-days";
 
 /** Events a day shows; the others are counted under them. */
 const SHOWN = 6;
+/** Rows the list of a day reads; past them, it says how many there are. */
+const DAY_ROWS = 200;
+
+/** The rows of one day, read when its count is opened. */
+function DayRows(props: {
+  tableId: string;
+  query: RowsQuery;
+  dayName: string;
+  title: (row: RowItem) => string;
+  onOpened: () => void;
+}) {
+  const { t } = useLingui();
+  const { locale } = useLocale();
+  const api = useTRPC();
+  const table = useTable();
+  const read = useQuery(
+    api.rows.read.queryOptions({
+      ...props.query,
+      tableId: props.tableId,
+      offset: 0,
+      limit: DAY_ROWS,
+    }),
+  );
+  const rows = read.data?.rows ?? [];
+  const all = read.data?.total ?? rows.length;
+  const shown = formatNumber(rows.length, locale);
+  const total = formatNumber(all, locale);
+  return (
+    <div className="flex max-h-80 flex-col">
+      <p className="border-b border-border px-3 py-2 text-xs font-semibold first-letter:uppercase">
+        {props.dayName}
+      </p>
+      {read.isLoading ? <Spinner className="m-3" /> : null}
+      {read.isError ? (
+        <LoadFailed error={read.error} onRetry={() => void read.refetch()} />
+      ) : null}
+      <ul className="overflow-y-auto p-1">
+        {rows.map((row) => (
+          <li key={row.id}>
+            <button
+              type="button"
+              className="w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+              onClick={() => {
+                props.onOpened();
+                table.openRecord(row.id);
+              }}
+            >
+              {props.title(row)}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {all > rows.length ? (
+        <p className="border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground">
+          {t`The first ${shown} of ${total} rows`}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The rows of a day that the calendar does not draw: how many, and the way
+ * to them. A day draws a few rows, and may hold rows the calendar's page
+ * did not read at all.
+ */
+function MoreOfDay(props: {
+  more: number;
+  tableId: string;
+  query: RowsQuery | undefined;
+  dayName: string;
+  title: (row: RowItem) => string;
+}) {
+  const { t } = useLingui();
+  const [open, setOpen] = useState(false);
+  if (props.more <= 0) return null;
+  const more = String(props.more);
+  const day = props.dayName;
+  if (!props.query) {
+    return <span className="text-[10px] text-muted-foreground">+{more}</span>;
+  }
+  const query = props.query;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          // The name holds the count as it is written (WCAG 2.5.3).
+          aria-label={t`+${more} rows on ${day}`}
+          // As large as a pointer needs, whatever the size of its text.
+          className="inline-flex min-h-6 min-w-6 items-center self-start rounded px-1 text-[10px] text-muted-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+          // The day under it takes a click to be picked, two to add a row,
+          // and keys to move from day to day.
+          onClick={(event) => event.stopPropagation()}
+          onDoubleClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          +{more}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-0">
+        {open ? (
+          <DayRows
+            tableId={props.tableId}
+            query={query}
+            dayName={props.dayName}
+            title={props.title}
+            onOpened={() => setOpen(false)}
+          />
+        ) : null}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function dayOf(value: unknown, withTime: boolean): string | null {
   if (typeof value !== "string") return null;
@@ -190,6 +321,28 @@ export function calendarFilter(start: CatalogColumn, month: Date): FilterGroup {
   };
 }
 
+/** The rows of one day, as `calendarFilter` asks for those of six weeks. */
+export function calendarDayFilter(
+  start: CatalogColumn,
+  day: string,
+): FilterGroup {
+  return {
+    conjunction: "and",
+    conditions: [
+      {
+        column: start.name,
+        op: "is_on_or_after",
+        value: { mode: "exact", date: day },
+      },
+      {
+        column: start.name,
+        op: "is_on_or_before",
+        value: { mode: "exact", date: day },
+      },
+    ],
+  };
+}
+
 export function CalendarView(
   props: ViewProps & {
     month: Date;
@@ -324,6 +477,13 @@ export function CalendarView(
           columns={dated}
           onChange={(value) => props.onPatch({ startColumn: value })}
         />
+        {props.total > props.rows.length ? (
+          // The page read does not hold every row of these weeks: a day
+          // says how many more it has, and opens them.
+          <span className="text-xs text-muted-foreground">
+            {t`The first ${{ shown: formatNumber(props.rows.length, locale) }} of ${{ total: formatNumber(props.total, locale) }} rows`}
+          </span>
+        ) : null}
         {props.viewId ? (
           <div className="ml-auto">
             <CalendarFeedButton viewId={props.viewId} />
@@ -383,14 +543,17 @@ export function CalendarView(
                   tint={props.tintOf?.(row)}
                 />
               ))}
-              {(props.counts?.get(key) ?? byDay.get(key)?.length ?? 0) >
-              SHOWN ? (
-                <span className="text-[10px] text-muted-foreground">
-                  +
-                  {(props.counts?.get(key) ?? byDay.get(key)?.length ?? 0) -
-                    Math.min(SHOWN, byDay.get(key)?.length ?? 0)}
-                </span>
-              ) : null}
+              <MoreOfDay
+                more={undrawnOnDay(
+                  props.counts?.get(key),
+                  byDay.get(key)?.length ?? 0,
+                  SHOWN,
+                )}
+                tableId={table.table.id}
+                query={props.dayQuery?.(key)}
+                dayName={dayName.format(date)}
+                title={title}
+              />
             </Day>
           );
         })}

@@ -31,6 +31,20 @@ export function dayValue(
   return time.toISOString();
 }
 
+/**
+ * How many of a day's rows a calendar does not draw: those past what a day
+ * shows, and those past the page the calendar reads. `count` is the day's
+ * rows as the database counts them, when it does; `read`, those of them
+ * the page holds.
+ */
+export function undrawnOnDay(
+  count: number | undefined,
+  read: number,
+  shown: number,
+): number {
+  return Math.max((count ?? read) - Math.min(shown, read), 0);
+}
+
 /** The days of a month, from the first to the last. */
 export function monthDays(month: Date): ShownDays {
   return {
