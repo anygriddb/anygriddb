@@ -3,6 +3,9 @@ import type { CellUpdate } from "../table/row-writes";
 import type { CellValue } from "../table/table-context";
 import { fillValues, isEditableColumn } from "./grid-clipboard";
 
+/** How many rows a series typed in figures reaches: each page is a read. */
+export const MAX_SERIES_ROWS = 1000;
+
 /** What a row holds in a field, as a write takes it. */
 function held(row: RowItem, column: CatalogColumn): CellValue {
   return (row[column.name as keyof RowItem] ?? null) as CellValue;

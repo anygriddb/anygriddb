@@ -33,6 +33,7 @@ import { useTRPC } from "../../lib/trpc";
 import type { CatalogColumn, RowItem } from "../../lib/types";
 import { opensPanel } from "../fields/cell-editor";
 import { DEFAULT_WIDTH } from "../fields/field-meta";
+import { placeAfterMove } from "../table/column-layout";
 import { useTable, type CellValue } from "../table/table-context";
 import {
   COLUMN_WIDTH,
@@ -49,7 +50,12 @@ import {
   parseClipboard,
   planPaste,
 } from "./grid-clipboard";
-import { clearUpdates, fillDownUpdates, fillSeriesUpdates } from "./grid-edits";
+import {
+  clearUpdates,
+  fillDownUpdates,
+  fillSeriesUpdates,
+  MAX_SERIES_ROWS,
+} from "./grid-edits";
 import { GridFooter } from "./grid-footer";
 import { sheetGeometry } from "./grid-geometry";
 import { GridHeader } from "./grid-header";
@@ -485,32 +491,53 @@ export function GridView(props: GridProps) {
 
   function reorderField(from: string, to: string) {
     const index = columns.findIndex((column) => column.name === from);
-    movedField.current = {
-      name: from,
-      from: index,
-      active: selection.getState().active?.c === index,
-    };
+    // A drop that changes nothing leaves nothing to follow later.
+    movedField.current =
+      placeAfterMove(columns, from, to) === index
+        ? null
+        : {
+            name: from,
+            from: index,
+            active: selection.getState().active?.c === index,
+          };
     props.onReorder(from, to);
   }
 
   // What the keyboard opened from a cell gives the keyboard back to the
   // grid when it ends, unless a dialog it opened has taken it.
   const openedFromCell = useRef(false);
+  const widthFromCell = useRef(false);
   const [askedWidth, setAskedWidth] = useState<CatalogColumn | null>(null);
   const [seriesRoomAsked, setSeriesRoomAsked] = useState<number | null>(null);
 
-  function backToGrid() {
+  function focusGridIfFree() {
+    const held = document.activeElement;
+    if (
+      held === document.body ||
+      (held instanceof HTMLElement && held.closest('[role="columnheader"]'))
+    ) {
+      scroller.current?.focus({ preventScroll: true });
+    }
+  }
+
+  function menuClosed() {
     if (!openedFromCell.current) return;
     requestAnimationFrame(() => {
-      const held = document.activeElement;
-      if (
-        held === document.body ||
-        (held instanceof HTMLElement && held.closest('[role="columnheader"]'))
-      ) {
-        openedFromCell.current = false;
-        scroller.current?.focus({ preventScroll: true });
-      }
+      openedFromCell.current = false;
+      focusGridIfFree();
     });
+  }
+
+  function askWidth(column: CatalogColumn) {
+    widthFromCell.current = openedFromCell.current;
+    setAskedWidth(column);
+  }
+
+  function widthClosed() {
+    setAskedWidth(null);
+    if (!widthFromCell.current) return;
+    widthFromCell.current = false;
+    requestAnimationFrame(focusGridIfFree);
   }
 
   const scrollTo = useCallback(
@@ -531,12 +558,12 @@ export function GridView(props: GridProps) {
 
   function openFieldMenu(cell: Cell) {
     scrollTo(cell);
-    openedFromCell.current = true;
     requestAnimationFrame(() => {
       const trigger = scroller.current?.querySelector<HTMLElement>(
         `[role="columnheader"][aria-colindex="${cell.c + 2}"] button[aria-haspopup]`,
       );
       if (!trigger) return;
+      openedFromCell.current = true;
       // As the key opens a menu from its button: on its first entry.
       trigger.focus();
       trigger.dispatchEvent(
@@ -630,7 +657,10 @@ export function GridView(props: GridProps) {
   function seriesRoom() {
     const range = selection.getRange();
     if (!range || !columnsOf(range).some(isEditableColumn)) return 0;
-    return Math.max(visibleRowIndexes.length - 1 - range.r2, 0);
+    return Math.min(
+      Math.max(visibleRowIndexes.length - 1 - range.r2, 0),
+      MAX_SERIES_ROWS,
+    );
   }
 
   function startEdit(cell: Cell, text?: string) {
@@ -1149,8 +1179,8 @@ export function GridView(props: GridProps) {
                 }
                 onResize={props.onResize}
                 onReorder={reorderField}
-                onAskWidth={setAskedWidth}
-                onMenuClosed={backToGrid}
+                onAskWidth={askWidth}
+                onMenuClosed={menuClosed}
                 onAddField={() => props.onAddField()}
                 onEditField={props.onEditField}
                 onAction={props.onHeaderAction}
@@ -1294,10 +1324,7 @@ export function GridView(props: GridProps) {
           min={COLUMN_WIDTH.min}
           max={COLUMN_WIDTH.max}
           onSubmit={(width) => props.onResize(askedWidth.name, width)}
-          onClose={() => {
-            setAskedWidth(null);
-            backToGrid();
-          }}
+          onClose={widthClosed}
         />
       ) : null}
       {seriesRoomAsked !== null ? (
