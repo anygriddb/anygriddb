@@ -195,6 +195,66 @@ describe("compileFormula", () => {
     }
   });
 
+  it("reads a unit as it is written, and no plural of a single letter", () => {
+    const added = (unit: string) =>
+      compile(`DATE_ADD({Due}, 1, "${unit}")`).typed.sql;
+    expect(added("months")).toBe(added("month"));
+    expect(added("m")).toBe(added("month"));
+    expect(added("seconds")).toBe(added("s"));
+    expect(added("mins")).toBe(added("minute"));
+    expect(added("secs")).toBe(added("second"));
+    expect(added("Days")).toBe(added("d"));
+    // "ms" lost its s, and a millisecond was a month.
+    for (const unit of ["ms", "ds", "hs", "x", "millisecond"]) {
+      expect(() => added(unit), unit).toThrow(
+        expect.objectContaining({ code: "invalid_unit" }),
+      );
+    }
+    expect(() =>
+      compile('DATETIME_DIFF("2024-03-01", "2024-01-01", "ms")'),
+    ).toThrow(expect.objectContaining({ code: "invalid_unit" }));
+    expect(() => compile('IS_SAME("2024-01-01", "2024-01-02", "ms")')).toThrow(
+      expect.objectContaining({ code: "invalid_unit" }),
+    );
+  });
+
+  it("compares dates as dates, whatever writes them", () => {
+    // Two texts compared by code point, where each names an instant.
+    const before = compile(
+      'IS_BEFORE("2024-01-01T23:00:00-05:00", "2024-01-02T01:00:00Z")',
+    );
+    expect(before.typed.kind).toBe("boolean");
+    expect(before.typed.sql).toContain(" < ");
+    expect(before.typed.sql).not.toContain('collate "C"');
+    expect(before.values).toEqual(
+      expect.arrayContaining(["2024-01-02 04:00:00", "2024-01-02 01:00:00"]),
+    );
+    // Two days stay days.
+    expect(compile("IS_AFTER({Due}, {Due})").typed.sql).toBe(
+      `(r."due" > r."due")`,
+    );
+    // The smallest and the largest of dates is a date, of instants an
+    // instant; with a number they are numbers, as before.
+    expect(compile('MAX("2024-01-01", "2024-06-01")').typed.kind).toBe("date");
+    expect(compile('MIN({Due}, "2024-06-01")').typed.kind).toBe("date");
+    expect(
+      compile('MIN("2024-02-29T13:45:30Z", "2024-03-01T00:00:00Z")').typed.kind,
+    ).toBe("datetime");
+    expect(compile('MAX({Due}, "2024-03-01T00:00:00Z")').typed.kind).toBe(
+      "datetime",
+    );
+    expect(compile("MIN({Due}, 5)").typed.kind).toBe("number");
+    expect(compile('MAX({Title}, "2024-06-01")').typed.kind).toBe("number");
+    // A text that names no date is no instant, however it is written.
+    expect(compile('MAX("abc", "2024-06-01")').typed.kind).toBe("number");
+    expect(compile('MIN({Due}, "soon")').typed.kind).toBe("number");
+    for (const d of [MYSQL, MARIADB, SQLSERVER]) {
+      expect(compile('MAX({Due}, "2024-03-01T00:00:00Z")', d).typed.kind).toBe(
+        "datetime",
+      );
+    }
+  });
+
   it("refuses a formula whose SQL grows past its bound", () => {
     const nested = "SQRT(".repeat(30) + "{Price}" + ")".repeat(30);
     expect(() => compile(nested)).toThrow("Formula too large");

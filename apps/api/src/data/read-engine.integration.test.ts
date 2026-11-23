@@ -418,6 +418,73 @@ describe("read engine on PostgreSQL", () => {
     expect(Number(zz?.plain)).toBe(0);
   });
 
+  it("compares and orders dates as dates, whatever writes them", async () => {
+    const sources: Array<[string, string]> = [
+      // 23:00 at -05:00 on the 1st is 04:00Z on the 2nd: after 01:00Z.
+      [
+        "before",
+        'IS_BEFORE("2024-01-01T23:00:00-05:00", "2024-01-02T01:00:00Z")',
+      ],
+      [
+        "after",
+        'IS_AFTER("2024-01-01T23:00:00-05:00", "2024-01-02T01:00:00Z")',
+      ],
+      ["nodate", 'IS_BEFORE("no date", "2024-01-02")'],
+      ["field", 'IS_BEFORE({Due}, "2100-01-01")'],
+      ["days", 'IS_AFTER({Due}, DATE_ADD({Due}, -1, "days"))'],
+      ["first", 'MIN("2024-02-29T13:45:30Z", "2024-03-01T00:00:00Z")'],
+      ["last", 'MAX("2024-02-29T13:45:30Z", "2024-03-01T00:00:00Z")'],
+      ["dayfield", 'MIN({Due}, "2024-06-01")'],
+      ["daytexts", 'MAX("2024-01-01", "2024-06-01")'],
+      ["mixed", 'MAX({Due}, "2024-03-01T00:00:00Z")'],
+      ["numbers", "MIN({Price}, 2)"],
+      ["month", 'DATETIME_FORMAT(DATE_ADD({Due}, 1, "months"), "YYYY-MM-DD")'],
+    ];
+    const refs = orders.columns.map((column) => ({
+      name: column.name,
+      label: column.label,
+    }));
+    const dated: EngineCatalog = {
+      ...catalog,
+      table: {
+        ...orders,
+        columns: [
+          ...orders.columns,
+          ...sources.map(([name, source]) => ({
+            id: `d_${name}`,
+            name,
+            label: name,
+            fieldType: "formula" as const,
+            config: { expr: parseFormula(source, refs) },
+          })),
+        ],
+      },
+    };
+    const read = buildReadRows(dated, {
+      limit: 10,
+      fields: ["title", ...sources.map(([name]) => name)],
+      sort: [{ column: "title", direction: "asc" }],
+      timeZone: "UTC",
+    });
+    const rows = await query(read.text, read.values);
+    const [abc, zz] = rows;
+    const instant = (value: unknown) =>
+      typeof value === "string" ? new Date(value).toISOString() : value;
+    expect([abc?.before, abc?.after]).toEqual([false, true]);
+    expect(abc?.nodate).toBeNull();
+    expect([abc?.field, zz?.field]).toEqual([true, null]);
+    expect(abc?.days).toBe(true);
+    expect(instant(abc?.first)).toBe("2024-02-29T13:45:30.000Z");
+    expect(instant(abc?.last)).toBe("2024-03-01T00:00:00.000Z");
+    // The row without a due date keeps the day the formula writes.
+    expect([abc?.dayfield, zz?.dayfield]).toEqual(["2024-06-01", "2024-06-01"]);
+    expect(abc?.daytexts).toBe("2024-06-01");
+    expect(instant(abc?.mixed)).toBe("2026-11-01T00:00:00.000Z");
+    expect(instant(zz?.mixed)).toBe("2024-03-01T00:00:00.000Z");
+    expect([Number(abc?.numbers), Number(zz?.numbers)]).toEqual([2, 1]);
+    expect(abc?.month).toBe("2026-12-01");
+  });
+
   it("filters, counts, groups, and aggregates", async () => {
     const filter = {
       conjunction: "and" as const,

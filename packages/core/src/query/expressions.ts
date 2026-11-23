@@ -1159,26 +1159,38 @@ function literalString(
   return expr.value.trim().toLowerCase();
 }
 
+const SHORT_UNITS: Readonly<Record<string, TimeUnit>> = {
+  y: "year",
+  m: "month",
+  w: "week",
+  d: "day",
+  h: "hour",
+  min: "minute",
+  mi: "minute",
+  s: "second",
+  sec: "second",
+};
+
+/** A unit by its name or its abbreviation, as written. */
+function unitNamed(unit: string): TimeUnit | undefined {
+  return (DATE_PARTS as readonly string[]).includes(unit)
+    ? (unit as TimeUnit)
+    : SHORT_UNITS[unit];
+}
+
+/**
+ * The unit a formula names. A name and an abbreviation of several letters
+ * take a plural (`months`, `mins`); a single letter does not, so that `ms`
+ * is no month: there is no millisecond among the units.
+ */
 function normalizeUnit(raw: string): TimeUnit {
-  const unit = raw.endsWith("s") && raw !== "s" ? raw.slice(0, -1) : raw;
-  const short: Record<string, string> = {
-    y: "year",
-    m: "month",
-    w: "week",
-    d: "day",
-    h: "hour",
-    min: "minute",
-    mi: "minute",
-    s: "second",
-    sec: "second",
-    month: "month",
-    year: "year",
-  };
-  const value = short[unit] ?? unit;
-  if (!(DATE_PARTS as readonly string[]).includes(value)) {
+  const singular =
+    raw.length > 2 && raw.endsWith("s") ? raw.slice(0, -1) : undefined;
+  const value = unitNamed(raw) ?? (singular ? unitNamed(singular) : undefined);
+  if (!value) {
     throw new AppError("invalid_unit");
   }
-  return value as TimeUnit;
+  return value;
 }
 
 function compileArgs(
@@ -1270,7 +1282,7 @@ function sqlServerValues(
       );
       digits.push(UNKNOWN_DIGITS);
     } else if (kind === "date") {
-      selects.push(`select ${arg.sql} as v`);
+      selects.push(`select ${asDate(ctx, arg)} as v`);
     } else {
       const value = sized(ctx, arg);
       selects.push(`select ${value.sql} as v`);
@@ -1382,15 +1394,79 @@ function roundingStep(written: FormulaExpr | undefined, digits: string): Sized {
 }
 
 /** MIN and MAX of separate values, blanks left out. */
+/** A text the formula writes out that is a day: `"2024-06-01"`. */
+function writtenDay(typed: Typed): boolean {
+  return (
+    typed.kind === "text" &&
+    typed.literal !== undefined &&
+    isIsoDate(typed.literal.trim())
+  );
+}
+
+/** A text the formula writes out that names a day or an instant. */
+function writtenInstant(typed: Typed): boolean {
+  return (
+    typed.kind === "text" &&
+    typed.literal !== undefined &&
+    parseIsoInstant(typed.literal, 1) !== null
+  );
+}
+
+/**
+ * What the smallest and the largest of these values is: a day when each is
+ * one, an instant when days, instants and the texts that write them meet,
+ * and otherwise a number, as it always was.
+ */
+function datedAs(args: readonly Typed[]): "date" | "datetime" | undefined {
+  if (
+    args.every(
+      (arg) =>
+        arg.kind === "date" ||
+        (arg.kind === "array" && arg.elem === "date") ||
+        writtenDay(arg),
+    )
+  ) {
+    return "date";
+  }
+  return args.every(
+    (arg) =>
+      arg.kind === "date" || arg.kind === "datetime" || writtenInstant(arg),
+  )
+    ? "datetime"
+    : undefined;
+}
+
+/** The earliest or the latest of days and instants, as an instant. */
+function instantExtreme(
+  ctx: ExprContext,
+  fn: "min" | "max",
+  args: readonly Typed[],
+): Typed {
+  const values = args.map((arg) => asDatetime(ctx, arg));
+  if (ctx.d.name === "sqlserver") {
+    // No LEAST or GREATEST before SQL Server 2022: one column of values.
+    const rows = values.map((value) => `select ${value} as v`);
+    return {
+      sql: `(select ${fn}(y.v) from (${rows.join(" union all ")}) y)`,
+      kind: "datetime",
+    };
+  }
+  const pick = fn === "min" ? "least" : "greatest";
+  const sql = values.reduce(
+    (acc, value) =>
+      `(case when ${acc} is null then ${value} when ${value} is null then ${acc} else ${pick}(${acc}, ${value}) end)`,
+  );
+  return { sql, kind: "datetime" };
+}
+
 function scalarExtreme(
   ctx: ExprContext,
   fn: "min" | "max",
   args: readonly Typed[],
 ): Typed {
-  const dated = args.every(
-    (arg) =>
-      arg.kind === "date" || (arg.kind === "array" && arg.elem === "date"),
-  );
+  const timed = datedAs(args);
+  if (timed === "datetime") return instantExtreme(ctx, fn, args);
+  const dated = timed === "date";
   const kind = dated ? "date" : "number";
   if (ctx.d.name === "sqlserver") {
     // No LEAST or GREATEST before SQL Server 2022: one column of values.
@@ -1408,7 +1484,7 @@ function scalarExtreme(
         ? ctx.d.listAggregate(arg.sql, fn, kind)
         : ctx.d.nullOf(kind)
       : dated
-        ? arg.sql
+        ? asDate(ctx, arg)
         : asNumber(ctx, arg),
   );
   // LEAST and GREATEST are null when one value is: skip the blanks.
@@ -2606,13 +2682,11 @@ function compileCall(
       if (d.name !== "postgres") {
         return scalarExtreme(ctx, fn, args);
       }
-      const dated = args.every(
-        (arg) =>
-          arg.kind === "date" || (arg.kind === "array" && arg.elem === "date"),
-      );
-      if (dated) {
+      const timed = datedAs(args);
+      if (timed === "datetime") return instantExtreme(ctx, fn, args);
+      if (timed === "date") {
         const parts = args.map((arg) =>
-          arg.kind === "array" ? arg.sql : `array[${arg.sql}]::date[]`,
+          arg.kind === "array" ? arg.sql : `array[${asDate(ctx, arg)}]::date[]`,
         );
         return {
           sql: `(select ${fn}(v) from unnest(${parts.join(" || ")}) v)`,
@@ -3052,7 +3126,14 @@ function compileCall(
     case "is_after": {
       const left = lazy(0);
       const right = lazy(1);
-      return bool(compare(ctx, fn === "is_before" ? "lt" : "gt", left, right));
+      const symbol = fn === "is_before" ? "<" : ">";
+      // Two days compare as days. Anything else is read as the instant it
+      // names: two texts compared as texts gave the order of their letters.
+      return bool(
+        left.kind === "date" && right.kind === "date"
+          ? `(${left.sql} ${symbol} ${right.sql})`
+          : `(${asDatetime(ctx, left)} ${symbol} ${asDatetime(ctx, right)})`,
+      );
     }
     case "is_same": {
       const unit = normalizeUnit(literalString(rawArgs[2], "day"));
