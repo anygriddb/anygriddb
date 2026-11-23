@@ -21,7 +21,7 @@
  * `keys rotate` need DATABASE_URL and the encryption keys.
  */
 import { parseArgs } from "node:util";
-import { createDb } from "@anygriddb/db";
+import { createDb, grantRuntimeRole, PostgresTooOld } from "@anygriddb/db";
 import type { RecoveryChange, RecoveryRefusal } from "./auth/admin-recovery.js";
 import { rotateKeys, type KeyRotation } from "./auth/key-rotation.js";
 import { mintInstallToken } from "./auth/installation-token.js";
@@ -47,6 +47,9 @@ import { createFileStore, type FileSettings } from "./files/index.js";
 import { sweepOrphanFiles } from "./files/sweep.js";
 import { copyFiles, type CopyReport } from "./files/transfer.js";
 import { recoverTrashedLinks } from "./data/trash-links.js";
+import { buildFileIndexes } from "./data/file-indexes.js";
+import { migrateStore } from "./database-start.js";
+import { notifyMigrationFailure } from "./notify/migrate.js";
 
 const USAGE = `Usage:
   anygriddb storage migrate --from <disk|s3> --to <disk|s3> [--dry-run] [--concurrency <n>]
@@ -57,6 +60,13 @@ const USAGE = `Usage:
       Exits 0 when the API on this machine answers (container health checks).
   anygriddb version [--json]
       The version, commit, and build time of this AnyGridDB.
+  anygriddb database prepare [--role <name>]
+      With the address of the role that owns the tables: runs the
+      migrations, and gives <name> (anygriddb_app) what the application
+      needs and no table of its own.
+  anygriddb database indexes
+      With that same address: builds the indexes file fields lack, beside
+      the writes. A role of its own cannot.
   anygriddb tls services --out <dir> [--postgres <name[:uid:gid]>] [--service <name[:uid:gid]>]
       Issues the stack's services their certificates, from the instance's
       internal authority: <dir>/<name>/<name>_cert.pem and _key.pem, owned
@@ -210,6 +220,57 @@ function databaseUrl(): string {
     throw new UsageError("DATABASE_URL or DATABASE_URL_FILE is required");
   }
   return url;
+}
+
+async function databasePrepare(args: string[]): Promise<number> {
+  const { values } = parseArgs({
+    args,
+    options: { role: { type: "string", default: "anygriddb_app" } },
+    strict: true,
+  });
+  const url = databaseUrl();
+  const { db, pool, close } = createDb(url, { max: 2 });
+  try {
+    try {
+      await migrateStore(pool, url, {
+        error: (_meta, text) => process.stderr.write(`${text}\n`),
+        warn: (_meta, text) => process.stderr.write(`${text}\n`),
+        info: () => undefined,
+        debug: () => undefined,
+      });
+    } catch (error) {
+      if (error instanceof PostgresTooOld) {
+        process.stderr.write(`${error.message}\n`);
+      } else {
+        await notifyMigrationFailure(db, error);
+      }
+      return 1;
+    }
+    await grantRuntimeRole(pool, values.role);
+    process.stdout.write(`The database is ready for ${values.role}.\n`);
+    return 0;
+  } finally {
+    await close();
+  }
+}
+
+async function databaseIndexes(args: string[]): Promise<number> {
+  parseArgs({ args, options: {}, strict: true });
+  const url = databaseUrl();
+  const { db, close } = createDb(url, { max: 2 });
+  const failures: string[] = [];
+  try {
+    await buildFileIndexes(db, url, {
+      info: (_fields, text) => process.stdout.write(`${text}\n`),
+      error: (_fields, text) => {
+        failures.push(text);
+        process.stderr.write(`${text}\n`);
+      },
+    });
+  } finally {
+    await close();
+  }
+  return failures.length > 0 ? 1 : 0;
 }
 
 async function sweep(args: string[], settings: FileSettings) {
@@ -611,6 +672,12 @@ async function main(argv: string[]): Promise<number> {
     }
     if (group === "version" || group === "--version") {
       return version(command === undefined ? rest : [command, ...rest]);
+    }
+    if (group === "database" && command === "prepare") {
+      return await databasePrepare(rest);
+    }
+    if (group === "database" && command === "indexes") {
+      return await databaseIndexes(rest);
     }
     if (group === "tls" && command === "services") {
       return await tlsServices(rest);

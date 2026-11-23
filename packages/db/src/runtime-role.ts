@@ -22,6 +22,15 @@ export async function grantRuntimeRole(
   role: string,
 ): Promise<void> {
   if (!ROLE_NAME.test(role)) throw new Error("invalid role name");
+  const owns = await client.query<{ owns: boolean }>(
+    "select ag_role_owns_store($1::name) as owns",
+    [role],
+  );
+  if (owns.rows[0]?.owns) {
+    throw new Error(
+      `${role} owns the tables: it cannot be the role that does not`,
+    );
+  }
   const who = `"${role}"`;
   const statements = [
     `grant usage on schema public to ${who}`,

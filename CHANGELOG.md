@@ -19,6 +19,15 @@ first.
 - **A restore** refuses a free space, a size or a time limit that is not a
   number, where such a value skipped the check for room.
 
+### Added
+
+- **`anygriddb database prepare`** runs the migrations with the address of the
+  role that owns the tables, and gives another role what the application needs
+  and no table of its own. **`anygriddb database indexes`** builds the indexes
+  file fields lack. An application signed in as such a role changes nothing in
+  the database's structure at its start, and refuses a database that has not
+  been brought to its version.
+
 ## 0.6.1 - 2026-11-23
 
 **Nothing to do before upgrading.** The upgrade adds one column to the change
