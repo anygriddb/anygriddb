@@ -1038,6 +1038,7 @@ describe("a field converted", () => {
 
       const accepted = new Map<string, string>();
       const refusals = new Set<string>();
+      const refused: string[] = [];
       let reads = 0;
       const writing = { on: true };
       const writer = (async () => {
@@ -1052,8 +1053,12 @@ describe("a field converted", () => {
               updates: [{ rowId, values: { v: value } }],
             }),
           );
-          if (code === "ok") accepted.set(rowId, value);
-          else refusals.add(code);
+          if (code === "ok") {
+            accepted.set(rowId, value);
+          } else {
+            refusals.add(code);
+            refused.push(value);
+          }
           await owner.call().rows.read({ tableId: id, limit: 10 });
           reads += 1;
           await new Promise((resolve) => setTimeout(resolve, 15));
@@ -1070,8 +1075,12 @@ describe("a field converted", () => {
         .executeTakeFirstOrThrow();
       expect([job.status, job.errorCode]).toEqual(["done", null]);
       expect(reads).toBeGreaterThan(0);
+      // Read-only while the job runs. A write the switch itself catches was
+      // checked against the type the field had, and is refused for that.
       expect(
-        [...refusals].filter((code) => code !== "table_converting"),
+        [...refusals].filter(
+          (code) => code !== "table_converting" && code !== "field_changed",
+        ),
       ).toEqual([]);
       expect(await columnType(id, "v")).toBe("number");
       expect(await leftovers(physical)).toEqual({ columns: 0, guards: 0 });
@@ -1088,6 +1097,12 @@ describe("a field converted", () => {
         });
         expect(row?.value).toBe(value);
       }
+      // No value a refusal answered was written all the same.
+      const [leaked] = await runStatement(db, {
+        text: `select count(*)::int as "count" from "${physical}" where "v"::text in (select jsonb_array_elements_text($1::text::jsonb))`,
+        values: [JSON.stringify(refused)],
+      });
+      expect(leaked?.count).toBe(0);
       // Writable again.
       await owner.call().rows.updateMany({
         tableId: id,
