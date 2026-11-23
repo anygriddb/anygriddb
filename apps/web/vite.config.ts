@@ -76,6 +76,15 @@ export default defineConfig({
     tailwindcss(),
     compressedCopies(),
   ],
+  resolve: {
+    // Every `zod` of the bundle, the packages' included (`lib/zod-jitless.ts`).
+    alias: [
+      {
+        find: /^zod$/,
+        replacement: resolve(import.meta.dirname, "lib/zod-jitless.ts"),
+      },
+    ],
+  },
   server: {
     port: 3000,
     strictPort: true,

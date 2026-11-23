@@ -82,7 +82,7 @@ export function ShortcutsDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent title={t`Keyboard shortcuts`} wide>
-        <div className="grid gap-5 overflow-y-auto sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-2">
           {groups.map(([title, items]) => (
             <section key={title}>
               <h3 className="mb-2 text-xs font-medium text-muted-foreground">

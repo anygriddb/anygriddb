@@ -1419,7 +1419,7 @@ msgstr "La valeur d’un JSON à un chemin, comme $.client.nom ou $.lignes[0]."
 
 #: components/views/kanban-view.tsx
 msgid "A kanban needs a single select field that the client's database holds."
-msgstr "Un kanban demande un champ « Choix unique » que la base du client contient."
+msgstr "Un kanban demande un champ « Choix unique » que la base du client contient."
 
 #: components/views/map-view.tsx
 msgid "A latitude and a longitude"
@@ -12464,7 +12464,7 @@ msgstr "Cette invitation n’existe pas ou a expiré."
 
 #: components/admin/sessions-tab.tsx
 msgid "This is who is signed in on the instance. Who has a table open is shown as “People here” on that table, not here."
-msgstr "Ce sont les personnes connectées à l’instance. Qui a une table ouverte apparaît comme « Personnes présentes » sur cette table, pas ici."
+msgstr "Ce sont les personnes connectées à l’instance. Qui a une table ouverte apparaît comme « Personnes présentes » sur cette table, pas ici."
 
 #: lib/errors.ts
 msgid "This job cannot be retried"

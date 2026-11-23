@@ -4,6 +4,7 @@
  * close, menus are keyboard-navigable with type-ahead, and every overlay
  * is announced by its role and label.
  */
+import { needsTabStop } from "./scroll-stop";
 import { useUiText } from "./text";
 import { GripVertical, X } from "lucide-react";
 import {
@@ -12,6 +13,7 @@ import {
   createContext,
   isValidElement,
   use,
+  useEffect,
   useId,
   useRef,
   useState,
@@ -95,6 +97,44 @@ export function Dialog(props: {
   );
 }
 
+/**
+ * A dialog's body. What overflows with nothing in it to focus takes Tab
+ * itself, so that the arrows can read it to its end (WCAG 2.1.1).
+ */
+function DialogBody(props: { label: ReactNode; children: ReactNode }) {
+  const body = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const [tabStop, setTabStop] = useState(false);
+  useEffect(() => {
+    const scroller = body.current;
+    const held = content.current;
+    if (!scroller || !held) return;
+    const observer = new ResizeObserver(() => {
+      setTabStop(needsTabStop(scroller));
+    });
+    observer.observe(scroller);
+    observer.observe(held);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div
+      ref={body}
+      className="overflow-y-auto px-5 py-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+      {...(tabStop
+        ? {
+            tabIndex: 0,
+            role: "group",
+            ...(typeof props.label === "string"
+              ? { "aria-label": props.label }
+              : {}),
+          }
+        : {})}
+    >
+      <div ref={content}>{props.children}</div>
+    </div>
+  );
+}
+
 /** The dialog's frame. Its content mounts on open and unmounts on close. */
 /**
  * Where a phone's screen is too small for a dialog in a frame, one that
@@ -161,7 +201,7 @@ export function DialogContent({
               <X className="h-4 w-4" aria-hidden />
             </AriaButton>
           </div>
-          <div className="overflow-y-auto px-5 py-4">{children}</div>
+          <DialogBody label={title}>{children}</DialogBody>
         </AriaDialog>
       </Modal>
     </ModalOverlay>
