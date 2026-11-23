@@ -1337,6 +1337,7 @@ function lastDeletes(
     .selectFrom(
       each
         .orderBy("e.recordId")
+        .orderBy("e.writeOrder", (order) => order.desc().nullsLast())
         .orderBy("e.occurredAt", "desc")
         .orderBy("e.id", "desc")
         .as("d"),
@@ -1744,7 +1745,9 @@ export async function readAudit(
     ])
     .where("e.tableId", "=", tableId)
     .where("e.recordId", "=", recordId)
+    .orderBy("e.writeOrder", (order) => order.desc().nullsLast())
     .orderBy("e.occurredAt", "desc")
+    .orderBy("e.id", "desc")
     .limit(200);
   const rows = await rowsWithin(events, budget);
   const visible = (value: unknown): unknown => {

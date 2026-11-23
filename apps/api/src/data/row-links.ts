@@ -624,6 +624,7 @@ async function noteForTrashed(
     .where("tableId", "=", tableId)
     .where("action", "=", "delete")
     .where("recordId", "in", [...notes.keys()])
+    .orderBy("writeOrder", (order) => order.desc().nullsLast())
     .orderBy("occurredAt", "desc")
     .execute();
   const latest = new Map<string, string>();
