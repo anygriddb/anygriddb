@@ -609,6 +609,36 @@ export type StackService = {
   postgres?: boolean;
 };
 
+/**
+ * The password of the role the application signs in as (ADR 0119), made
+ * once and kept: PostgreSQL's copy and the application's, each its service's
+ * alone. No operator has to choose or keep it.
+ */
+export async function issueApplicationPassword(
+  out: string,
+  database: StackService,
+  application: StackService,
+): Promise<void> {
+  const copies = [
+    { service: database, path: join(out, database.name, "app_password") },
+    { service: application, path: join(out, application.name, "db_password") },
+  ];
+  let password: string | undefined;
+  for (const { path } of copies) {
+    password ||= (await readText(path))?.trim();
+  }
+  const value = password ?? randomBytes(32).toString("hex");
+  for (const { service, path } of copies) {
+    const dir = join(out, service.name);
+    await mkdir(dir, { recursive: true, mode: 0o750 });
+    await writeAtomic(path, `${value}\n`, 0o400);
+    if (service.owner) {
+      await chown(dir, service.owner.uid, service.owner.gid);
+      await chown(path, service.owner.uid, service.owner.gid);
+    }
+  }
+}
+
 /** Over the stack's network, PostgreSQL takes encrypted connections only. */
 const PG_HBA = `# Written by AnyGridDB (ADR 0030): over the network, TLS only.
 local   all  all                trust

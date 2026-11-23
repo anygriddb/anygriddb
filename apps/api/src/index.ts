@@ -34,7 +34,7 @@ import {
   savedTracing,
   stopCurrentTracing,
 } from "./notify/tracing.js";
-import { buildFileIndexes } from "./data/file-indexes.js";
+import { buildFileIndexes, fileIndexesMissing } from "./data/file-indexes.js";
 import { loadTls, TlsKeyUnreadable } from "./tls/authority.js";
 import { listeningText } from "./tls/listener.js";
 
@@ -91,6 +91,10 @@ await promoteListedAdmins(db, env.ADMIN_EMAILS);
 if (await databaseRoleIsSuperuser(db)) {
   console.warn(
     "AnyGridDB signs in to PostgreSQL as a superuser. It works, but a fault in the application would then reach the whole server: docs/operations.md, A stack made before the role was limited.",
+  );
+} else if (ownsTables) {
+  console.warn(
+    "AnyGridDB signs in to PostgreSQL as the role that owns its tables. It works, but that account could rewrite the change trail and signed rows. The operations guide says how to give the application a role of its own.",
   );
 }
 // Sign-in events also go to the operator's syslog collector, if one is
@@ -179,14 +183,26 @@ await app.listen({
 });
 
 // Beside the requests, and only once: a build stopped halfway is taken up
-// at the next start. It takes the tables' owner: a role of its own leaves
-// it to `anygriddb database indexes`.
+// at the next start. It takes the tables' owner: a role of its own says
+// what is missing, since a file is still served correctly, only more slowly.
 if (ownsTables) {
   void buildFileIndexes(db, env.DATABASE_URL, app.log).catch(
     (error: unknown) => {
       app.log.error({ err: error }, "file index build failed");
     },
   );
+} else {
+  void fileIndexesMissing(db)
+    .then((missing) => {
+      if (missing === 0) return;
+      app.log.warn(
+        { missing },
+        "file fields lack their index: run `anygriddb database indexes` as the tables' owner (under Compose: docker compose run --rm indexes)",
+      );
+    })
+    .catch((error: unknown) => {
+      app.log.error({ err: error }, "file index check failed");
+    });
 }
 
 let shuttingDown = false;

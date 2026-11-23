@@ -470,7 +470,7 @@ prove_key() {
   # By name, from this process: an address on the command line would show
   # the password to anyone who lists the host's processes.
   if ! said="$(DATABASE_URL="$address" "${compose[@]}" run --rm --no-deps -T \
-    -e DATABASE_URL -e DATABASE_URL_FILE= -e TLS_DIR=/restored-tls \
+    -e DATABASE_URL -e DATABASE_URL_FILE= -e DATABASE_PASSWORD_FILE= -e TLS_DIR=/restored-tls \
     -v "$proof_volume:/restored-tls:ro" app anygriddb keys status 2>&1 </dev/null)"; then
     printf '%s\n' "$said" | tail -n 4 >&2
     case "$said" in

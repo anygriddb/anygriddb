@@ -135,6 +135,10 @@ export function HealthTab() {
         <p role="status" className="text-sm text-danger">
           {t`AnyGridDB signs in to PostgreSQL as a superuser. It works, but a fault in the application would then reach the whole server. The operations guide says how to move to a limited role.`}
         </p>
+      ) : data?.databaseOwnsTables ? (
+        <p role="status" className="text-sm text-danger">
+          {t`AnyGridDB signs in to PostgreSQL as the role that owns its tables. It works, but that account could rewrite the change trail and signed rows. The operations guide says how to give the application a role of its own.`}
+        </p>
       ) : null}
       <AlertsSection />
       <UsageSection

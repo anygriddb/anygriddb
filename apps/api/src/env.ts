@@ -215,6 +215,26 @@ export function secretFromEnv(
   return undefined;
 }
 
+/**
+ * `DATABASE_URL`, with the password `DATABASE_PASSWORD_FILE` holds when it
+ * names one: the address itself then carries no secret, and the file is
+ * the application role's own (ADR 0119).
+ */
+export function databaseAddress(source: NodeJS.ProcessEnv): string | undefined {
+  const url = secretFromEnv(source, "DATABASE_URL");
+  const path = source.DATABASE_PASSWORD_FILE;
+  if (!url || !path) return url;
+  const file = settingFile(path);
+  if ("failure" in file) {
+    throw new Error(
+      `DATABASE_PASSWORD_FILE could not be read (${file.failure})`,
+    );
+  }
+  const address = new URL(url);
+  address.password = encodeURIComponent(file.text.replace(/\r?\n$/, ""));
+  return address.toString();
+}
+
 /** Like `secretFromEnv`, but required. */
 function requiredSecret(source: NodeJS.ProcessEnv, name: string): string {
   const value = secretFromEnv(source, name);
@@ -524,7 +544,10 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     );
   }
 
-  const databaseUrl = requiredSecret(source, "DATABASE_URL");
+  const databaseUrl = databaseAddress(source);
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL or DATABASE_URL_FILE is required");
+  }
   assertReadableDatabaseUrl(databaseUrl, "DATABASE_URL");
   assertEncryptedDatabase(databaseUrl, "DATABASE_URL");
   if (source.SAML_ENTRY_POINT) {

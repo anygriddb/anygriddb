@@ -88,6 +88,10 @@ Sign-ins, refused sign-ins, sign-outs, and what an administrator does to an acco
 
 It is append-only, kept six months to a year as the instance says, and cleared of an erased account's ids and addresses (ADRs 0042, 0043). Administration > Audit log > Sign-ins shows it. Row and catalog changes stay in the separate `audit_events` trail.
 
+### What the application's database account can do
+
+Under Compose the application signs in to PostgreSQL as a role that owns no table. A one-shot service alone holds the owner's credentials, for the migrations. Stolen, the application's account cannot rewrite the change trail, the signatures, or the sign-in trail, delete what they must keep, change a signed row without a trace, or alter a table. It could still add an event or a signature in someone's name, since the application says who acts (ADR 0119).
+
 ### An administrator's way into data
 
 Being an administrator gives no role on a base. Three gestures give an administrator a way into one, and none is silent:

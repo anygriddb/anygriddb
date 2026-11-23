@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ATTACHMENT_MAX_BYTES_CEILING } from "@anygriddb/core";
 import {
+  databaseAddress,
   databasePasswordHint,
   isLoopback,
   readEnv,
@@ -18,6 +19,35 @@ const base = {
   DATABASE_URL: "postgres://anygriddb:secret@localhost:5432/anygriddb",
   AUTH_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
 };
+
+describe("databaseAddress", () => {
+  const url = "postgres://anygriddb_app@db:5432/grid?sslmode=verify-full";
+
+  it("puts in the address the password its file holds", () => {
+    const dir = mkdtempSync(join(tmpdir(), "anygriddb-role-"));
+    const path = join(dir, "db_password");
+    writeFileSync(path, "p@ss/word:1\n", "utf8");
+    const address = new URL(
+      databaseAddress({ DATABASE_URL: url, DATABASE_PASSWORD_FILE: path }) ??
+        "",
+    );
+    expect(decodeURIComponent(address.password)).toBe("p@ss/word:1");
+    expect(address.username).toBe("anygriddb_app");
+    expect(address.hostname).toBe("db");
+    expect(address.searchParams.get("sslmode")).toBe("verify-full");
+  });
+
+  it("leaves an address alone without a file, and refuses one it cannot read", () => {
+    expect(databaseAddress({ DATABASE_URL: url })).toBe(url);
+    expect(databaseAddress({})).toBeUndefined();
+    expect(() =>
+      databaseAddress({
+        DATABASE_URL: url,
+        DATABASE_PASSWORD_FILE: "/no/such/file",
+      }),
+    ).toThrow(/DATABASE_PASSWORD_FILE could not be read/);
+  });
+});
 
 describe("secretFromEnv", () => {
   it("reads NAME, or NAME_FILE, and refuses both", () => {

@@ -78,6 +78,8 @@ services:
         "/certs",
         "--postgres",
         "db:999:999",
+        "--application",
+        "app:1000:1000",
       ]
     environment:
       AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env, or run scripts/compose.sh}
@@ -187,6 +189,30 @@ services:
         SQL
         ROLE
         chmod +x /docker-entrypoint-initdb.d/10-application-role.sh
+        # At each start, once the server answers on the network: the role
+        # the application signs in as, which owns no table (ADR 0119), with
+        # the password `certs` made. Through the socket, as the cluster's
+        # superuser, in one transaction, and out of the server's log.
+        if [ -r /certs/db/app_password ]; then
+          (
+            until pg_isready -q -h 127.0.0.1 -U "$$ANYGRIDDB_DB_USER" -d "$$POSTGRES_DB"; do sleep 1; done
+            admin="$$(psql -X -At -U "$$ANYGRIDDB_DB_USER" -d "$$POSTGRES_DB" -c "select rolname from pg_roles where rolsuper order by rolname = 'postgres' desc, oid limit 1")"
+            psql -X -q -v ON_ERROR_STOP=1 -U "$$admin" -d "$$POSTGRES_DB" \
+              --set=owner="$$ANYGRIDDB_DB_USER" <<'SQL'
+        SET log_statement = 'none';
+        SET log_min_duration_statement = -1;
+        \set password `cat /certs/db/app_password`
+        BEGIN;
+        SELECT NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anygriddb_app') AS absent \gset
+        \if :absent
+          CREATE ROLE anygriddb_app LOGIN;
+        \endif
+        ALTER ROLE anygriddb_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'password';
+        GRANT anygriddb_app TO :"owner" WITH INHERIT FALSE, SET TRUE;
+        COMMIT;
+        SQL
+          ) &
+        fi
         # An overlay that gives no command (development, the journeys)
         # starts PostgreSQL as the image does.
         if [ "$$#" -eq 0 ]; then set -- postgres; fi
@@ -244,7 +270,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          'pg_isready -h 127.0.0.1 -U "$$ANYGRIDDB_DB_USER" -d "$$POSTGRES_DB"',
+          'pg_isready -h 127.0.0.1 -U "$$ANYGRIDDB_DB_USER" -d "$$POSTGRES_DB" && { [ ! -r /certs/db/app_password ] || [ "$$(psql -X -At -U "$$ANYGRIDDB_DB_USER" -d "$$POSTGRES_DB" -c "select count(*) from pg_roles where rolname = ''anygriddb_app'' and rolcanlogin")" = 1 ]; }',
         ]
       interval: 5s
       timeout: 5s
@@ -252,6 +278,40 @@ services:
       start_period: 2m
     networks:
       - internal
+
+  # One-shot, before the application: the one service that holds the
+  # credentials of the role that owns the tables (ADR 0119). It runs the
+  # migrations and gives the application's role its rights, at each start:
+  # a restored database comes without them.
+  prepare: &owner-step
+    <<: *anygriddb-image
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    cap_drop:
+      - ALL
+    logging: *default-logging
+    command: ["anygriddb", "database", "prepare"]
+    healthcheck:
+      disable: true
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=verify-full&sslrootcert=/certs/internal-authority.crt
+    volumes:
+      - service_certs:/certs:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # On demand, as the tables' owner: `docker compose run --rm indexes` builds
+  # the index of a file field that has none, beside the writes. The
+  # application's log says when one is missing; files are served meanwhile.
+  indexes:
+    <<: *owner-step
+    profiles: ["maintenance"]
+    command: ["anygriddb", "database", "indexes"]
 
   app:
     <<: *anygriddb-image
@@ -265,8 +325,10 @@ services:
       - ALL
     logging: *default-logging
     environment:
-      # Verified TLS to PostgreSQL, by the internal authority (ADR 0030).
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=verify-full&sslrootcert=/certs/internal-authority.crt
+      # Verified TLS to PostgreSQL, by the internal authority (ADR 0030), as
+      # a role that owns no table (ADR 0119), with the password `certs` made.
+      DATABASE_URL: postgres://anygriddb_app@db:5432/${POSTGRES_DB}?sslmode=verify-full&sslrootcert=/certs/internal-authority.crt
+      DATABASE_PASSWORD_FILE: /certs/app/db_password
       AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env, or run scripts/compose.sh}
       AUTH_ENCRYPTION_PREVIOUS_KEYS: ${AUTH_ENCRYPTION_PREVIOUS_KEYS:-}
       PORT: "4000"
@@ -333,6 +395,8 @@ services:
         condition: service_completed_successfully
       db:
         condition: service_healthy
+      prepare:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "anygriddb", "health"]
       interval: 10s

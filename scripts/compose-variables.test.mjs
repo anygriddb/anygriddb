@@ -33,6 +33,19 @@ describe("the two ways to run AnyGridDB under Compose", () => {
     assert.deepEqual(appVariables(managed), appVariables(bundled));
   });
 
+  it("keep the credentials of the tables' owner out of the application", async () => {
+    const bundled = await readFile(join(root, "docker", "compose.yml"), "utf8");
+    const lines = bundled.split("\n");
+    const start = lines.indexOf("  app:");
+    const end = lines.findIndex(
+      (line, at) => at > start && /^ {2}[a-z_-]+:/.test(line),
+    );
+    const app = lines.slice(start, end === -1 ? undefined : end).join("\n");
+    assert.match(app, /DATABASE_URL: postgres:\/\/anygriddb_app@db:/);
+    assert.match(app, /DATABASE_PASSWORD_FILE: \/certs\/app\/db_password/);
+    assert.doesNotMatch(app, /POSTGRES_USER|POSTGRES_PASSWORD/);
+  });
+
   it("would see one added to a single file", () => {
     const one =
       "  app:\n    environment:\n      A: a\n      # note\n      B: b\n    volumes:\n";

@@ -2456,6 +2456,10 @@ msgid "AnyGridDB signs in to PostgreSQL as a superuser. It works, but a fault in
 msgstr "AnyGridDB se connecte à PostgreSQL en superutilisateur. Cela fonctionne, mais une faille de l’application atteindrait alors tout le serveur. Le guide d’exploitation indique comment passer à un rôle limité."
 
 #: components/admin/health-tab.tsx
+msgid "AnyGridDB signs in to PostgreSQL as the role that owns its tables. It works, but that account could rewrite the change trail and signed rows. The operations guide says how to give the application a role of its own."
+msgstr "AnyGridDB se connecte à PostgreSQL avec le rôle propriétaire de ses tables. Cela fonctionne, mais ce compte pourrait réécrire le journal des modifications et les lignes signées. Le guide d’exploitation indique comment donner à l’application un rôle à elle."
+
+#: components/admin/health-tab.tsx
 msgid "AnyGridDB signs its certificate with its own authority. Install it once on each workstation: the browser will then trust AnyGridDB, without a warning. It is valid for AnyGridDB's addresses only."
 msgstr "AnyGridDB signe son certificat avec sa propre autorité. Installez-la une fois sur chaque poste : le navigateur fera alors confiance à AnyGridDB, sans avertissement. Elle ne vaut que pour les adresses d’AnyGridDB."
 
