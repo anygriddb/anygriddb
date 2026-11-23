@@ -745,6 +745,11 @@ export async function purgeItem(
         return true;
       } catch (error) {
         if (error instanceof Error && error.message === "No row") return false;
+        // A locked or signed row holds a value in it: it stays in the trash.
+        if (error instanceof AppError && error.code === "row_locked") {
+          deps.log(error, "field kept: a locked or signed row holds a value");
+          return false;
+        }
         throw error;
       }
     }

@@ -7,6 +7,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import pg from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { writeSettings } from "../settings.js";
 import { createTestDatabase } from "../test-database.js";
 
 const role = `ag_runtime_${randomBytes(5).toString("hex")}`;
@@ -139,6 +140,7 @@ describe("a session that does not own the trail", () => {
   });
 
   it("purges nothing younger than the shortest retention", async () => {
+    await writeSettings(db, authorId, { auditRetentionDays: 365 });
     const young = await newEvent(authorId, 100);
     const old = await newEvent(authorId, 900);
     for (const days of [0, 1, 364, 3651]) {

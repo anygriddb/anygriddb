@@ -723,10 +723,17 @@ is made once and kept on the `service_certs` volume, readable by PostgreSQL
 and the application alone: nobody has to choose or keep it.
 
 That role cannot rewrite the change trail, the signatures, or the sign-in
-trail, delete what they must keep, change a signed row without a trace, or
-alter a table. The application remains the authority on who acts: someone
-who steals its account could still add an event or a signature in another
-person's name. Guard `POSTGRES_PASSWORD` as you guard the data.
+trail, or change or remove a value a locked or signed row holds. A field
+such a row holds a value in stays in the trash until the row is unlocked.
+
+The application remains the authority on who acts: someone who steals its
+account could still add an event or a signature in another person's name.
+They could also unlock a row, drop a table, erase an account, or purge
+events past a year, and each of these leaves an event they cannot remove.
+Send the sign-in trail to a collector of your own
+(see [Sign-in events to a collector](#sign-in-events-to-a-collector)), keep
+backups out of the instance's reach, and guard `POSTGRES_PASSWORD` as you
+guard the data.
 
 An index on a file field is built when the field is added. One that is
 missing, on an instance from before 0.4.1 or after a build cut short, is
