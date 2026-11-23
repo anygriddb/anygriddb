@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useErrorText } from "../../lib/errors";
+import { LoadFailed } from "../shell/load-failed";
 import { useLocale } from "../../lib/i18n";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { formatInstant } from "../../lib/format";
@@ -217,6 +218,14 @@ export function Earlier(props: {
   }
   if (earlier.isLoading) {
     return <p className="text-xs text-muted-foreground">{t`Loading…`}</p>;
+  }
+  if (earlier.isError) {
+    return (
+      <LoadFailed
+        error={earlier.error}
+        onRetry={() => void earlier.refetch()}
+      />
+    );
   }
   return (
     <div className="flex flex-col gap-1">

@@ -10,6 +10,7 @@ import { canManage } from "../../lib/types";
 import { useLingui } from "@lingui/react/macro";
 import { useErrorText } from "../../lib/errors";
 import { ConfirmDialog } from "../shell/dialogs";
+import { LoadFailed } from "../shell/load-failed";
 import { EmptyState, NotebookPage } from "../shell/notebook-page";
 import { useWhen } from "../../lib/i18n";
 
@@ -87,7 +88,10 @@ export function DashboardList({ baseId }: { baseId: string }) {
         </form>
       ) : null}
       {list.isLoading ? <Spinner className="mt-6" /> : null}
-      {!list.isLoading && dashboards.length === 0 ? (
+      {list.isError ? (
+        <LoadFailed error={list.error} onRetry={() => void list.refetch()} />
+      ) : null}
+      {!list.isLoading && !list.isError && dashboards.length === 0 ? (
         <EmptyState
           title={t`No dashboards yet.`}
           description={

@@ -376,6 +376,21 @@ test("an owner shares a whole base read-only, and anyone with the link reads it"
   await expect(cards.getByText("Card 60", { exact: true })).toBeInViewport();
   await reader.goto(link);
 
+  // The server failing is not the link being gone: the page says that it
+  // could not be loaded, and reads again once asked.
+  const isOpen = (url: URL) => url.pathname.includes("share.openBase");
+  await reader.route(isOpen, (route) =>
+    route.fulfill({ status: 500, body: "" }),
+  );
+  await reader.reload();
+  await expect(reader.getByRole("alert")).toContainText("could not be loaded");
+  await expect(
+    reader.getByText("This link does not exist, has expired, or was revoked."),
+  ).toHaveCount(0);
+  await reader.unroute(isOpen);
+  await reader.getByRole("button", { name: "Try again" }).click();
+  await expect(reader.getByRole("heading", { name: "Lab" })).toBeVisible();
+
   // The link is listed with the day it was made, written as every
   // screen writes a day. Revoking it asks first: everyone who has it
   // loses it, and a link is not made again.

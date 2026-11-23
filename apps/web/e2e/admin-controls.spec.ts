@@ -64,6 +64,26 @@ test("an administrator ends a session, reads the sign-ins, and exports access", 
     // The first page lists what needs action, nothing when nothing does.
     await page.goto("/admin");
     expect(await accessibilityViolations(page)).toEqual([]);
+    // Reads that fail say so: a count that could not be read is not zero,
+    // and the page must not say that nothing needs attention.
+    const isAdminRead = (url: URL) => url.pathname.includes("/trpc/admin.");
+    await page.route(isAdminRead, (route) =>
+      route.fulfill({ status: 500, body: "" }),
+    );
+    await page.reload();
+    const unread = page
+      .getByRole("alert")
+      .filter({ hasText: "could not be loaded" });
+    await expect(unread.first()).toBeVisible();
+    await expect(page.getByText("Nothing needs your attention.")).toHaveCount(
+      0,
+    );
+    await page.unroute(isAdminRead);
+    await page.getByRole("button", { name: "Try again" }).first().click();
+    await expect(
+      page.getByText("Accounts active in the last 30 days"),
+    ).toBeVisible();
+    await expect(unread).toHaveCount(0);
     await openAdmin(page, "People", "Sessions");
     const row = page.getByRole("row", { name: new RegExp(memberEmail) });
     await expect(page.getByText(/^\d+ open sessions?$/)).toBeVisible();
