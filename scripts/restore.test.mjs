@@ -21,11 +21,14 @@ const restore = join(root, "scripts", "restore.sh");
 
 /**
  * A `docker` that answers what the script asks of a composition and writes
- * down every other call: a backup refused here must reach none of them.
+ * down every other call: a backup refused here must reach none of them. It
+ * reads the composition it is given, as the real one does: leaving before
+ * the script has written it closes the pipe under the script's hand.
  */
 const FAKE_DOCKER = `#!/bin/sh
 case " $* " in
   *" -f - config "*)
+    cat >/dev/null
     printf '{"services":{"env":{"environment":{\\n'
     printf '"ANYGRIDDB_ENV_DOLLAR": "$$",\\n"POSTGRES_USER": "grid",\\n"POSTGRES_DB": "sheets",\\n"POSTGRES_PASSWORD": "p"\\n}}}}\\n'
     exit 0 ;;
