@@ -68,6 +68,9 @@ describe("rateBucket", () => {
     );
     expect(RATE_LIMITS.formUpload).toBeLessThan(RATE_LIMITS.upload);
     expect(rateBucket("POST", "/api/import/preview?baseId=x")).toBe("upload");
+    // A base's file is an upload too: it was counted with the app's calls.
+    expect(rateBucket("POST", "/api/snapshot/upload")).toBe("upload");
+    expect(rateBucket("GET", "/api/snapshot/x/download")).toBe("app");
     expect(rateBucket("GET", "/api/export/x?format=csv")).toBe("app");
     expect(rateBucket("GET", "/api/v1/tables/x/records")).toBe("api");
     // The administration API counts with the others (ADR 0086).

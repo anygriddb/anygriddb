@@ -102,7 +102,7 @@ nothing from theirs. Past that, they answer 429.
 | 400 `invalid_grant`          | The code or the refresh token is wrong, used, expired, or was given for another address or verifier |
 | 400 `invalid_request`        | The secret was sent in the header and in the body                                                   |
 | 400 `unsupported_grant_type` | Any grant but the two above                                                                         |
-| 429                          | More than twenty requests a minute from one address                                                 |
+| 429                          | More than 120 requests a minute from one address                                                    |
 
 The person finds the grant among their tokens (Account settings), named
 after the application, and revokes it there. An administrator who

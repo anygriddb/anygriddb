@@ -51,7 +51,9 @@ Schemas, views, members, and settings are out of reach.
 ## Errors
 
 A tool that fails still answers HTTP 200 with a JSON-RPC result whose
-`isError` is true (and a short JSON body with `code`). A call to a tool
+`isError` is true (and a short JSON body with `code`). Arguments the
+tool's schema does not take answer the same way, with the code
+`invalid_input` and, in `detail`, what was wrong. A call to a tool
 the token is not offered (for example `create_records` on a read-only
 token, or `delete_records` when deletes are off) is a JSON-RPC error
 (`-32602`). Clients must read `isError` and the JSON-RPC `error`, not

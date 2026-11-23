@@ -175,6 +175,36 @@ describe("the MCP server", () => {
     );
   });
 
+  it("refuses arguments a tool does not take in the shape of its other refusals", async () => {
+    const body = (reply: RpcReply) =>
+      JSON.parse(reply.body.result?.content?.[0]?.text ?? "{}") as {
+        code?: string;
+        detail?: string;
+        error?: string;
+      };
+    // Refused by the tool's schema, before the tool runs.
+    const ill = await rpc(reader, "tools/call", {
+      name: "list_tables",
+      arguments: { baseId: "not-a-uuid" },
+    });
+    expect(ill.body.result?.isError).toBe(true);
+    expect(body(ill)).toMatchObject({
+      code: "invalid_input",
+      error: expect.stringContaining("Invalid input") as string,
+    });
+    expect(body(ill).detail).toContain("baseId");
+    // Refused by the tool itself: the same shape, another code.
+    const unknown = await rpc(reader, "tools/call", {
+      name: "list_tables",
+      arguments: { baseId: "00000000-0000-4000-8000-00000000dead" },
+    });
+    expect(unknown.body.result?.isError).toBe(true);
+    expect(body(unknown).code).toBe("not_found");
+    expect(Object.keys(body(ill)).sort()).toEqual(
+      [...Object.keys(body(unknown)), "detail"].sort(),
+    );
+  });
+
   it("offers a read-only token no tool that writes, and refuses its writes", async () => {
     const listed = await rpc(reader, "tools/list");
     const names = (listed.body.result?.tools ?? []).map((tool) => tool.name);

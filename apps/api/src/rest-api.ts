@@ -24,6 +24,7 @@ import {
   openApiDocument,
   type PublicApiDeps,
   recordIds,
+  recordQuerySchema,
   updateRecords,
 } from "./public-api/index.js";
 
@@ -166,9 +167,9 @@ export function registerRestApi(app: FastifyInstance, deps: Deps): void {
         request.params,
         "invalid_record_id",
       );
-      const fieldKey = read(
-        z.enum(["name", "label"]).default("name"),
-        (request.query as { fieldKey?: unknown }).fieldKey,
+      const { fieldKey } = read(
+        recordQuerySchema,
+        request.query,
         "invalid_query",
       );
       return getRecord(shared, actor, tableId, recordId, fieldKey);

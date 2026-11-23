@@ -1,6 +1,34 @@
 import { ERROR_CODES, isRelationType, isWritableType } from "@anygriddb/core";
 import { publicColumns } from "../trpc/catalog-shared.js";
-import { MAX_RECORDS } from "./types.js";
+import { z } from "zod";
+import { listQuerySchema, MAX_RECORDS, recordQuerySchema } from "./types.js";
+
+/**
+ * The parameters of a query, as the schema it is read with describes them:
+ * the document cannot say otherwise than the server does.
+ */
+function queryParameters(schema: z.ZodType): unknown[] {
+  const described = z.toJSONSchema(schema, { io: "input" }) as {
+    properties?: Record<string, { description?: string }>;
+  };
+  return Object.entries(described.properties ?? {}).map(
+    ([name, { description, ...rest }]) => ({
+      name,
+      in: "query",
+      ...(description === undefined ? {} : { description }),
+      schema: rest,
+    }),
+  );
+}
+
+/** Why a write is made, where a field asks for it. */
+const REASON_HEADER = {
+  name: "X-Reason",
+  in: "header",
+  schema: { type: "string" },
+  description:
+    "Why the change is made. A field that requires a reason refuses a write without one (400 `reason_required`). Percent-encode it to carry what a header cannot; its first 500 characters are kept.",
+};
 
 /**
  * Exact numbers travel as decimal text (ADR 0023): a JSON number would
@@ -150,6 +178,100 @@ export function buildOpenApi(
       },
     },
   };
+  // The routes that lead to the tables, and to this document.
+  const json = (schema: unknown) => ({ "application/json": { schema } });
+  const text = { type: "string" };
+  const flag = { type: "boolean" };
+  const refused = {
+    "401": { description: "Missing or invalid token" },
+    "404": { description: "Unknown or unreadable base" },
+    "429": { description: "Rate limited" },
+  };
+  paths["/bases"] = {
+    get: {
+      summary: "List the bases the token reads",
+      tags: ["Bases"],
+      responses: {
+        "200": {
+          description: "Bases, each with the role the token has on it",
+          content: json({
+            type: "object",
+            properties: {
+              bases: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", format: "uuid" },
+                    name: text,
+                    role: { type: ["string", "null"] },
+                  },
+                },
+              },
+            },
+          }),
+        },
+        "401": refused["401"],
+        "429": refused["429"],
+      },
+    },
+  };
+  paths[`/bases/${base.id}/tables`] = {
+    get: {
+      summary: `List the tables of ${base.name}, with their fields`,
+      tags: ["Bases"],
+      responses: {
+        "200": {
+          description: "Tables the token reads, in the base's order",
+          content: json({
+            type: "object",
+            properties: {
+              tables: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", format: "uuid" },
+                    name: text,
+                    fields: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          name: text,
+                          label: text,
+                          type: text,
+                          kind: text,
+                          primary: flag,
+                          required: flag,
+                          readOnly: flag,
+                          config: { type: "object" },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          }),
+        },
+        ...refused,
+      },
+    },
+  };
+  paths[`/bases/${base.id}/openapi.json`] = {
+    get: {
+      summary: "This document",
+      tags: ["Bases"],
+      responses: {
+        "200": {
+          description: "OpenAPI 3.1, written for the tables the token reads",
+          content: json({ type: "object" }),
+        },
+        ...refused,
+      },
+    },
+  };
   for (const table of tableList) {
     const schemaName = `Table_${table.id.replace(/-/g, "")}`;
     const recordId = table.external
@@ -185,6 +307,7 @@ export function buildOpenApi(
       properties: {
         records: {
           type: "array",
+          minItems: 1,
           maxItems: MAX_RECORDS,
           items: {
             type: "object",
@@ -229,47 +352,7 @@ export function buildOpenApi(
       get: {
         summary: `List ${table.name}`,
         tags: [table.name],
-        parameters: [
-          {
-            name: "limit",
-            in: "query",
-            schema: { type: "integer", maximum: 1000, default: 100 },
-          },
-          {
-            name: "offset",
-            in: "query",
-            schema: { type: "integer", default: 0 },
-          },
-          {
-            name: "view",
-            in: "query",
-            schema: { type: "string", format: "uuid" },
-          },
-          {
-            name: "sort",
-            in: "query",
-            schema: { type: "string" },
-            description: "Comma list, `-` for descending",
-          },
-          {
-            name: "filter",
-            in: "query",
-            schema: { type: "string" },
-            description: "JSON filter group with field names",
-          },
-          { name: "search", in: "query", schema: { type: "string" } },
-          {
-            name: "fields",
-            in: "query",
-            schema: { type: "string" },
-            description: "Comma list of fields to return",
-          },
-          {
-            name: "fieldKey",
-            in: "query",
-            schema: { type: "string", enum: ["name", "label"] },
-          },
-        ],
+        parameters: queryParameters(listQuerySchema),
         responses: {
           "200": {
             description: "Records",
@@ -292,6 +375,7 @@ export function buildOpenApi(
       post: {
         summary: `Create ${table.name} records`,
         tags: [table.name],
+        parameters: [REASON_HEADER],
         requestBody: {
           required: true,
           content: { "application/json": { schema: writeRequest } },
@@ -301,6 +385,7 @@ export function buildOpenApi(
       patch: {
         summary: `Update ${table.name} records`,
         tags: [table.name],
+        parameters: [REASON_HEADER],
         requestBody: {
           required: true,
           content: { "application/json": { schema: writeRequest } },
@@ -315,10 +400,11 @@ export function buildOpenApi(
             name: "records",
             in: "query",
             required: true,
-            schema: { type: "string" },
+            schema: { type: "string", minLength: 1 },
             description:
               "Comma list of ids, or a JSON array of them, 100 at most",
           },
+          REASON_HEADER,
         ],
         responses: { "200": { description: "Deleted ids" }, ...errors },
       },
@@ -334,6 +420,7 @@ export function buildOpenApi(
             required: true,
             schema: recordId,
           },
+          ...queryParameters(recordQuerySchema),
         ],
         responses: {
           "200": {
