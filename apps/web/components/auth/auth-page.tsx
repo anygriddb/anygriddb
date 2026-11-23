@@ -542,7 +542,7 @@ export function AuthPage({
                 </p>
               ) : null}
               <Button type="submit" disabled={busy}>
-                {mode === "login" ? t`Sign in` : t`Create account`}
+                {mode === "login" ? t`Sign in` : t`Create an account`}
               </Button>
             </>
           )}

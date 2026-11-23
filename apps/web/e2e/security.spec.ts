@@ -228,7 +228,7 @@ test("an administrator sets the lock, unlocks an account, and sends a reset link
       visitor.getByText("Sign-up is closed on this instance"),
     ).toBeVisible();
     await expect(
-      visitor.getByRole("button", { name: "Create account" }),
+      visitor.getByRole("button", { name: "Create an account" }),
     ).toHaveCount(0);
     expect(await accessibilityViolations(visitor)).toEqual([]);
     await visitor.goto("/login");

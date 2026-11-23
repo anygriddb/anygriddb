@@ -38,7 +38,7 @@ export function ConfirmSignupPage({ token }: { token: string }) {
       {link.data && !link.data.valid ? (
         <div className="flex flex-col gap-3">
           <p role="alert" className="text-sm">
-            {t`This link no longer works: it was used, it expired, or the account exists already. Sign in, or sign up again.`}
+            {t`This link no longer works: it was used, it expired, or the account exists already. Sign in, or create an account again.`}
           </p>
           <Link className="text-sm text-primary hover:underline" to="/login">
             {t`Back to sign-in`}

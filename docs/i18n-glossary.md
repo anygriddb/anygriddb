@@ -22,7 +22,7 @@ French translations live in `apps/web/locales/fr/messages.po`.
 | Instance          | Instance                                                 | The deployment                                                                                                                   |
 | Locale / language | Language                                                 | User-facing menu label                                                                                                           |
 | Account create    | Add a person                                             | Administration accounts; not “Create account” there                                                                              |
-| Account erase     | Delete                                                   | Not “Erase”; confirmation still types the email                                                                                  |
+| Account erase     | Delete                                                   | Not “Erase”; confirmation still types the email. “Erased account” stays as the name the trail and signatures keep: it is data    |
 | Second factor     | Second factor                                            | Not “two-factor authentication”, “2FA”, or “MFA”                                                                                 |
 | Sign-up           | Create an account                                        | “Sign-up” is the noun (sign-up domains); the action is “create an account”, not “sign up” or “register”                          |
 | Card              | Card                                                     | A row drawn as a card in the kanban and the gallery (“Add a card”, “Card fields”); a row everywhere else                         |

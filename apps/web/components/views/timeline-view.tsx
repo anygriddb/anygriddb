@@ -224,9 +224,9 @@ export function TimelineView(
               })
             }
           >
-            <option value="day">{t`Day`}</option>
-            <option value="week">{t`Week`}</option>
-            <option value="month">{t`Month`}</option>
+            <option value="day">{t`Month`}</option>
+            <option value="week">{t`Quarter`}</option>
+            <option value="month">{t`Year`}</option>
           </Select>
         </label>
       </div>

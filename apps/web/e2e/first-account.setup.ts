@@ -46,7 +46,7 @@ test("the first account takes the operator's token", async ({ page }) => {
 
   // A guess is refused, and no account is made.
   await token.fill("a-guess-at-the-token");
-  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Create an account" }).click();
   await expect(page.getByText(/This install token is wrong/)).toBeVisible();
 
   // The first account administers the instance, and the policy asks an
@@ -59,7 +59,7 @@ test("the first account takes the operator's token", async ({ page }) => {
     if (path.startsWith("/trpc/")) asked.push(path);
   });
   await token.fill(installToken());
-  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Create an account" }).click();
   await page.waitForURL(/\/welcome/);
   await expect(
     page.getByRole("button", { name: "Set up an authenticator app" }),
