@@ -17,7 +17,6 @@ describe("comparing two copies of a wide table", () => {
     const created = await createTestDatabase("copy_diff");
     db = created.db;
     close = created.close;
-    await sql`create schema if not exists ${sql.id(SYNC_SCHEMA)}`.execute(db);
   });
 
   afterAll(async () => {
