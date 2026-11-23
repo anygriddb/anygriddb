@@ -1116,6 +1116,10 @@ msgstr "% distincts"
 msgid "+ Field to fill"
 msgstr "+ Champ à remplir"
 
+#: components/views/calendar-view.tsx
+msgid "+{more} rows on {day}"
+msgstr "+{more} lignes le {day}"
+
 #: components/table/filter-builder.tsx
 msgid "<"
 msgstr "<"
@@ -11522,6 +11526,7 @@ msgstr "Les {shown} premiers lieux sur {total}"
 
 #: components/dashboards/view-widget.tsx
 #: components/settings/table-rules-panel.tsx
+#: components/views/calendar-view.tsx
 #: components/views/list-view.tsx
 msgid "The first {shown} of {total} rows"
 msgstr "Les {shown} premières lignes sur {total}"

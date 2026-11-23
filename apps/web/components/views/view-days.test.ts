@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { dayToAdd, dayValue, isoDay, monthDays } from "./view-days";
+import {
+  dayToAdd,
+  dayValue,
+  isoDay,
+  monthDays,
+  undrawnOnDay,
+} from "./view-days";
 
 describe("isoDay", () => {
   it("writes the day where the reader is, not the day in UTC", () => {
@@ -65,5 +71,29 @@ describe("dayToAdd", () => {
       "2026-03-17",
     );
     expect(dayToAdd(march, new Date(2026, 2, 17, 10), null)).toBe("2026-03-17");
+  });
+});
+
+describe("undrawnOnDay", () => {
+  it("counts the rows past what a day shows", () => {
+    // 1,000 rows on the 1st, all of them read: six are drawn.
+    expect(undrawnOnDay(1000, 1000, 6)).toBe(994);
+    expect(undrawnOnDay(7, 7, 6)).toBe(1);
+  });
+
+  it("counts the rows the calendar's page did not read at all", () => {
+    // Three rows on the 15th, past the thousand the page holds: none is
+    // drawn, and the day said nothing of them.
+    expect(undrawnOnDay(3, 0, 6)).toBe(3);
+    expect(undrawnOnDay(5, 2, 6)).toBe(3);
+  });
+
+  it("counts none when every row of the day is drawn", () => {
+    expect(undrawnOnDay(3, 3, 6)).toBe(0);
+    expect(undrawnOnDay(6, 6, 6)).toBe(0);
+    expect(undrawnOnDay(0, 0, 6)).toBe(0);
+    // No count from the database (a field that keeps a time): what was read.
+    expect(undrawnOnDay(undefined, 4, 6)).toBe(0);
+    expect(undrawnOnDay(undefined, 9, 6)).toBe(3);
   });
 });

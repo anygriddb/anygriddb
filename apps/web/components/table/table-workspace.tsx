@@ -376,6 +376,7 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
     ...(byHand ? { onMoveRows: moveRows } : {}),
     groups: rows.groups,
     ...(read.counts ? { counts: read.counts } : {}),
+    ...(read.dayQuery ? { dayQuery: read.dayQuery } : {}),
     ...(canManage(role) && !external
       ? { onOpenFieldEditor: () => setFieldEditor({ mode: "create" }) }
       : {}),
