@@ -9,7 +9,12 @@
  * and drains the old one.
  */
 import type { KeyRing } from "../auth/key-ring.js";
-import { AppError, isCopySourceEngine, withExactFloats } from "@anygriddb/core";
+import {
+  AppError,
+  isCopySourceEngine,
+  rewritePlaceholders,
+  withExactFloats,
+} from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import mysql from "mysql2/promise";
 import pg from "pg";
@@ -290,16 +295,24 @@ export function toPositional(statement: Statement): {
   values: unknown[];
 } {
   const values: unknown[] = [];
-  const text = rewritePlaceholders(statement, (position) => {
-    values.push(statement.values[position - 1]);
-    return "?";
-  });
+  const text = rewritePlaceholders(
+    statement.text,
+    statement.values.length,
+    (position) => {
+      values.push(statement.values[position - 1]);
+      return "?";
+    },
+  );
   return { text, values };
 }
 
 /** SQL Server's placeholders are named: `$3` reads `@p3`, values unchanged. */
 function toNamed(statement: Statement): string {
-  return rewritePlaceholders(statement, (position) => `@p${String(position)}`);
+  return rewritePlaceholders(
+    statement.text,
+    statement.values.length,
+    (position) => `@p${String(position)}`,
+  );
 }
 
 /**
@@ -312,55 +325,15 @@ export function toOracle(statement: Statement): {
   values: unknown[];
 } {
   const values: unknown[] = [];
-  const text = rewritePlaceholders(statement, (position) => {
-    values.push(statement.values[position - 1]);
-    return `:${String(values.length)}`;
-  });
+  const text = rewritePlaceholders(
+    statement.text,
+    statement.values.length,
+    (position) => {
+      values.push(statement.values[position - 1]);
+      return `:${String(values.length)}`;
+    },
+  );
   return { text, values };
-}
-
-/** Rewrites each `$n` outside quoted text and identifiers. */
-function rewritePlaceholders(
-  statement: Statement,
-  render: (position: number) => string,
-): string {
-  const { text } = statement;
-  let output = "";
-  let quote: "'" | '"' | null = null;
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index] ?? "";
-    if (quote) {
-      output += char;
-      if (char === quote) {
-        // A doubled quote stays inside the literal.
-        if (text[index + 1] === quote) {
-          output += quote;
-          index += 1;
-        } else {
-          quote = null;
-        }
-      }
-      continue;
-    }
-    if (char === "'" || char === '"') {
-      quote = char;
-      output += char;
-      continue;
-    }
-    const placeholder =
-      char === "$" ? /^\$(\d+)/.exec(text.slice(index)) : null;
-    if (placeholder) {
-      const position = Number(placeholder[1]);
-      if (position < 1 || position > statement.values.length) {
-        throw new AppError("internal_error", "placeholder");
-      }
-      output += render(position);
-      index += placeholder[0].length - 1;
-      continue;
-    }
-    output += char;
-  }
-  return output;
 }
 
 function mysqlBackend(row: SourceRow, plaintext: boolean, log: Log): Backend {

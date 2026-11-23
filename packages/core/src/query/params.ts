@@ -41,6 +41,82 @@ export function quoteExternalIdent(value: string): string {
   return `"${value.replaceAll('"', '""')}"`;
 }
 
+/**
+ * Rewrites each `$n` of a statement, outside quoted text and identifiers:
+ * a JSON path such as `'$[0]'` is no placeholder. `count` is how many
+ * values the statement binds.
+ */
+export function rewritePlaceholders(
+  text: string,
+  count: number,
+  render: (position: number) => string,
+): string {
+  let output = "";
+  let quote: "'" | '"' | null = null;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index] ?? "";
+    if (quote) {
+      output += char;
+      if (char === quote) {
+        // A doubled quote stays inside the literal.
+        if (text[index + 1] === quote) {
+          output += quote;
+          index += 1;
+        } else {
+          quote = null;
+        }
+      }
+      continue;
+    }
+    if (char === "'" || char === '"') {
+      quote = char;
+      output += char;
+      continue;
+    }
+    const placeholder =
+      char === "$" ? /^\$(\d+)/.exec(text.slice(index)) : null;
+    if (placeholder) {
+      const position = Number(placeholder[1]);
+      if (position < 1 || position > count) {
+        throw new AppError("internal_error", "placeholder");
+      }
+      output += render(position);
+      index += placeholder[0].length - 1;
+      continue;
+    }
+    output += char;
+  }
+  return output;
+}
+
+/**
+ * A statement with only the values it reads, numbered again in their
+ * order. Compiling a formula binds each literal as it meets it, and may
+ * then keep none of that argument's SQL: PostgreSQL cannot give a type to
+ * a parameter nothing reads, and refuses the whole statement.
+ */
+export function withoutUnreadValues<Statement extends ParameterizedSql>(
+  statement: Statement,
+): Statement {
+  const read = new Set<number>();
+  rewritePlaceholders(statement.text, statement.values.length, (position) => {
+    read.add(position);
+    return "";
+  });
+  if (read.size === statement.values.length) return statement;
+  const kept = [...read].sort((left, right) => left - right);
+  const renumbered = new Map(kept.map((position, index) => [position, index]));
+  return {
+    ...statement,
+    text: rewritePlaceholders(
+      statement.text,
+      statement.values.length,
+      (position) => `$${String((renumbered.get(position) ?? 0) + 1)}`,
+    ),
+    values: kept.map((position) => statement.values[position - 1]),
+  };
+}
+
 /** Collects bound values and hands out `$n` placeholders in order. */
 export class SqlParams {
   readonly values: unknown[] = [];

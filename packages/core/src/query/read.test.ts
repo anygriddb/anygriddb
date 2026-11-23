@@ -203,6 +203,136 @@ describe("formula errors (ADR 0036)", () => {
   });
 });
 
+/** The positions a statement's placeholders read, outside quoted text. */
+function positionsRead(text: string): number[] {
+  const bare = text.replace(/'(?:[^']|'')*'|"(?:[^"]|"")*"/g, "");
+  const found = [...bare.matchAll(/\$(\d+)/g)].map((match) => Number(match[1]));
+  return [...new Set(found)].sort((left, right) => left - right);
+}
+
+describe("a statement's parameters", () => {
+  const withFormula = (source: string) => ({
+    ...catalogFor(),
+    table: {
+      ...orders,
+      columns: [
+        ...orders.columns,
+        {
+          id: "f",
+          name: "f",
+          label: "f",
+          fieldType: "formula" as const,
+          config: {
+            expr: parseFormula(source, [{ name: "price", label: "Price" }]),
+          },
+        },
+      ],
+    },
+  });
+  // Each compiles an argument, binds its literal, then keeps none of its
+  // SQL: PostgreSQL cannot type a parameter nothing reads, and refuses the
+  // whole statement.
+  const sources = [
+    "YEAR(1)",
+    "T(1)",
+    "BLANK() >= 1",
+    'ARRAY_JOIN("x", "-")',
+    "ABS(TODAY())",
+    "1 + TODAY()",
+  ];
+
+  it.each(sources)(
+    "binds nothing the statement does not read: %s",
+    (source) => {
+      const catalog = withFormula(source);
+      const statements = [
+        buildReadRows(catalog, { limit: 5 }),
+        buildReadRows(catalog, { limit: 5, fields: ["price"] }),
+        buildCountRows(catalog, {}),
+        buildAggregates(catalog, {}, [{ column: "price", fn: "sum" }]),
+      ];
+      for (const statement of statements) {
+        expect(positionsRead(statement.text)).toEqual(
+          statement.values.map((_, index) => index + 1),
+        );
+      }
+    },
+  );
+
+  it("keeps each value under the placeholder that reads it", () => {
+    const catalog = withFormula('IF(YEAR(1) = 2, "kept", "other")');
+    const statement = buildReadRows(catalog, { limit: 7, offset: 3 });
+    expect(statement.values).toContain("kept");
+    expect(statement.values).toContain("other");
+    const at = (value: unknown) =>
+      `$${String(statement.values.indexOf(value) + 1)}`;
+    expect(positionsRead(statement.text)).toEqual(
+      statement.values.map((_, index) => index + 1),
+    );
+    expect(statement.text).toContain(at("kept"));
+    expect(statement.text).toContain(`limit ${at(7)} offset ${at(3)}`);
+  });
+});
+
+describe("a chain of formulas", () => {
+  // Each reads the one before it; the first reads a cell.
+  const chained = (length: number) => {
+    const names = Array.from({ length }, (_, index) => `f${String(index + 1)}`);
+    const refs = [
+      { name: "price", label: "Price" },
+      ...names.map((name) => ({ name, label: name })),
+    ];
+    return {
+      ...catalogFor(),
+      table: {
+        ...orders,
+        columns: [
+          ...orders.columns,
+          ...names.map((name, index) => ({
+            id: name,
+            name,
+            label: name,
+            fieldType: "formula" as const,
+            config: {
+              expr: parseFormula(
+                index === 0 ? "{Price} + 1" : `{f${String(index)}} + 1`,
+                refs,
+              ),
+            },
+          })),
+        ],
+      },
+    };
+  };
+
+  it("computes fifteen levels", () => {
+    const catalog = chained(15);
+    const last = buildReadRows(catalog, { limit: 1 }).columns.find(
+      (column) => column.name === "f15",
+    );
+    expect(last?.error).toBeUndefined();
+    expect(
+      describeColumns(catalog).find((column) => column.name === "f15")?.cause,
+    ).toBeUndefined();
+  });
+
+  it("says the sixteenth is too large, and reads the rest", () => {
+    const catalog = chained(16);
+    const statement = buildReadRows(catalog, { limit: 1 });
+    const column = (name: string) =>
+      statement.columns.find((item) => item.name === name);
+    // It was blank, with nothing to say why.
+    expect(column("f16")?.cause).toEqual({ code: "formula_too_large" });
+    expect(column("f16")?.error).toBeDefined();
+    expect(column("f15")?.error).toBeUndefined();
+    expect(statement.text).toContain(`as "title"`);
+    // What a save asks before it keeps a formula.
+    expect(
+      describeColumns(catalog).find((item) => item.name === "f16")?.cause,
+    ).toEqual({ code: "formula_too_large" });
+  });
+});
+
 describe("formulas a field cannot compute", () => {
   it("names the function whose arguments it refuses", () => {
     const refs = [{ name: "due", label: "Due" }];
