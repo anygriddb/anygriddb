@@ -1,23 +1,25 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import {
   ADMIN_LOCK_MINUTES,
   API_SETTING_KEYS,
   apiSettingsPatchSchema,
   DEFAULT_ATTACHMENT_MAX_BYTES,
-  INSTANCE_DEFAULTS,
   emailDomainAllowed,
+  fillMapTileUrl,
   inactivityDates,
+  INSTANCE_DEFAULTS,
   instanceSettingsPatchSchema,
   instanceSettingsSchema,
   lockState,
+  mapTileOrigin,
   memberDomainAllowed,
   parseAdminEmails,
   parseInstanceSettings,
+  POLICY_BOUNDS,
   resolveAttachmentMaxBytes,
   sessionWindows,
   signupAllowed,
-  fillMapTileUrl,
-  mapTileOrigin,
 } from "./instance";
 
 describe("signupAllowed", () => {
@@ -410,6 +412,20 @@ describe("the settings a token of the administration API may change", () => {
     ).toBe(false);
     expect(apiSettingsPatchSchema.safeParse({ unknown: 1 }).success).toBe(
       false,
+    );
+  });
+});
+
+describe("the guides", () => {
+  it("give the days after which an unused account may be disabled", async () => {
+    // Copied by hand into the security page: read here against the bounds.
+    const security = await readFile(
+      new URL("../../../SECURITY.md", import.meta.url),
+      "utf8",
+    );
+    const { min, max } = POLICY_BOUNDS.inactiveDays;
+    expect(security).toContain(
+      `accounts nobody used for ${String(min)} to ${String(max)} days disabled`,
     );
   });
 });

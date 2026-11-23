@@ -34,7 +34,13 @@ here was tried on a stack of its own before it was written down.
 ## Install
 
 Install a release, never `main`: each release is a Git tag `vX.Y.Z`
-(ADR 0048). Prefer the published image, pinned by version and digest:
+(ADR 0048). It needs a host with Docker Engine and its Compose plugin
+(the releases are tried on Compose 2.26 and later), `curl` and `openssl`,
+and port 3000 free on that host, or another one you publish it on
+([below](#address-people-open-public_url)). The scripts under `scripts/`
+are run from a checkout, and so need `git`.
+
+Prefer the published image, pinned by version and digest:
 
 ```sh
 version=X.Y.Z   # the release to install, from GitHub Releases
@@ -50,6 +56,22 @@ curl -fsSLO "https://github.com/anygriddb/anygriddb/releases/download/v$version/
 docker compose -f compose.yml -f compose.release.yml \
   --env-file .env --env-file image-pin.env up -d
 ```
+
+**Further on, this guide writes its commands as from a checkout's
+`docker/` folder: `docker compose …`. On an install made as above, run
+each with the release's files and its pin, as the command above is:**
+
+```sh
+docker compose -f compose.yml -f compose.release.yml \
+  --env-file .env --env-file image-pin.env …
+```
+
+Without them Compose looks for an image built on this host: it finds
+none and stops, or starts one that is not the release. A file a later
+section adds (`compose.s3.yml`, `compose.proxy.yml`,
+`compose.secrets.yml`) is fetched first, as the two above were
+(`curl -fsSLO "$files/compose.s3.yml"`), and named after them with a
+`-f` of its own.
 
 Choose `POSTGRES_PASSWORD` before the first start, of letters and
 digits (`openssl rand -hex 24`). It is written into the database's
@@ -74,7 +96,9 @@ docker compose -f compose.yml -f compose.release.yml \
 ```
 
 Open `PUBLIC_URL`, create the account, and type the token where the form
-asks for it.
+asks for it. With the certificate the instance makes for itself, the
+browser warns until its authority is installed
+([below](#address-people-open-public_url)).
 
 `image-pin.env`, attached to each release, names the image and its
 digest. Give Compose both files: the second one alone would hide `.env`.
@@ -89,6 +113,9 @@ gh attestation verify "oci://$ANYGRIDDB_IMAGE@$ANYGRIDDB_DIGEST" \
   --repo anygriddb/anygriddb
 ```
 
+It takes a recent GitHub CLI, signed in (`gh auth login`): an older one
+has no `attestation` command.
+
 Each release also lists the packages its images hold, in SPDX, one file
 per architecture (`anygriddb-amd64.spdx.json`,
 `anygriddb-arm64.spdx.json`): the system's and Node.js's, for a scanner
@@ -100,6 +127,7 @@ checkout.
 To build from a checkout instead:
 
 ```sh
+git clone https://github.com/anygriddb/anygriddb.git && cd anygriddb
 git checkout "$(git tag --list 'v*' --sort=-v:refname | head -n 1)"   # the latest release
 cd docker
 cp .env.example .env
@@ -376,6 +404,9 @@ Files live on the `files` volume. To keep them in an S3-compatible store
 instead, start the stack with `compose.s3.yml`, which adds RustFS
 (`docker compose -f compose.yml -f compose.s3.yml up -d`), or set
 `STORAGE_DRIVER=s3` and the `S3_*` values of a service of your own.
+`compose.s3.yml` asks `.env` for `RUSTFS_ACCESS_KEY` and
+`RUSTFS_SECRET_KEY`, the name and the password its store is made with:
+without them the stack does not start, and says which is missing.
 
 To move an instance's files from one to the other, with both stores
 set in the environment and `STORAGE_DRIVER` naming the one in use
@@ -508,7 +539,7 @@ Add `rustfs/rustfs` to the `docker save` command when you use
 ### Imports
 
 An uploaded file is written to the system's temporary folder as it
-arrives (256 MB for CSV and TSV, 64 MB for Excel, 20 MB for JSON), read
+arrives (256 MiB for CSV and TSV, 64 MiB for Excel, 20 MiB for JSON), read
 once for its columns and its row count, then kept in the files' store
 until its import runs, at most two hours. The import job copies it back
 to the temporary folder and writes its rows as it reads them, 500 at a
@@ -886,8 +917,11 @@ docker compose -f compose.managed.yml up -d --build
 - **Version.** PostgreSQL 16 or later is required, and an older server is
   refused at the start, before anything is written; 17 or 18 is
   recommended. No extension is needed.
-- **TLS.** The address must verify the server's certificate
-  (`sslmode=verify-full`). AnyGridDB refuses to start otherwise (ADR 0030).
+- **TLS.** The address must verify the server's certificate and its
+  name: `sslmode=verify-full`. `verify-ca`, `require` and `ssl=true` are
+  taken too, since the driver checks the name under each of them, but
+  not with `uselibpqcompat=true`, which makes them stop checking it.
+  AnyGridDB refuses to start otherwise (ADR 0030).
 - **Rights.** The account owns its database. AnyGridDB creates its
   tables and the `graphile_worker` and `ag_sync` schemas there.
 - **Connections.** With the default concurrency, one AnyGridDB process
@@ -1125,10 +1159,25 @@ Both are off until you turn them on (ADR 0018).
         - targets: ["anygriddb.example.net:3000"]
   ```
 
-  Series cover requests by route, tRPC procedures, the pool requests go
-  through, transactions and connections in use per client database,
-  background tasks, the job queue, failures pages report from browsers,
-  and the process. Six more:
+  The series, beside the process's own (`anygriddb_process_*`,
+  `anygriddb_nodejs_*`):
+  `anygriddb_http_requests_total` and
+  `anygriddb_http_request_duration_seconds` (requests, by route
+  pattern),
+  `anygriddb_trpc_procedure_duration_seconds` (by procedure and
+  outcome),
+  `anygriddb_db_pool_connections` (the pool every request goes through:
+  open, idle, waited for),
+  `anygriddb_source_operation_duration_seconds` and
+  `anygriddb_source_operations_in_flight` (a read or a write in a
+  client's database, and those under way: its connections in use),
+  `anygriddb_job_duration_seconds` (a background task, by task and
+  outcome),
+  `anygriddb_queue_jobs` (the job queue, by state),
+  `anygriddb_client_errors_total` (failures pages report from browsers),
+  `anygriddb_acting_as_total` (an administrator started or stopped
+  acting as someone, or was refused),
+  `anygriddb_build_info` (the version and the commit running),
   `anygriddb_db_query_duration_seconds` (how long a query on
   AnyGridDB's own database took; the statement is not a label),
   `anygriddb_database_size_bytes`,
@@ -1199,7 +1248,9 @@ Before opening the instance to users:
 4. Configure OIDC or SAML; use **Test issuer** / **Test certificate**, then
    complete one real sign-in.
 5. Optionally turn on **SSO-only** (administrators keep a password).
-6. Optionally set the **sign-in allowlist** and `ANYGRIDDB_TRUSTED_PROXIES`.
+6. Optionally set the addresses people may sign in from
+   (Administration, Security, **Sign-in addresses**) and
+   `ANYGRIDDB_TRUSTED_PROXIES`.
 7. Create a SCIM token and push one user and one group from the identity
    provider; assign the group a role on a base.
 8. Set MFA scope to everyone (or your policy); confirm an enrollment gate.

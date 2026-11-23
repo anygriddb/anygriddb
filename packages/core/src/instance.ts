@@ -30,7 +30,7 @@ const INVITATION_MODES = ["anyone", "domains"] as const;
  * floors no setting crosses: brute force always meets a limit, a password
  * keeps 12 characters, the sign-in trail six months (CNIL).
  */
-const POLICY_BOUNDS = {
+export const POLICY_BOUNDS = {
   lockoutThreshold: { min: 3, max: 20 },
   /** 0 keeps the account locked until an administrator unlocks it. */
   lockoutMinutes: { min: 5, max: 1440 },

@@ -367,13 +367,15 @@ function assertEncryptedDatabase(raw: string, name: string): void {
   if (host === "" || host.startsWith("/") || isLoopback(host)) return;
   const mode = params.get("sslmode");
   const ssl = params.get("ssl");
-  // With libpq's semantics, `require` encrypts without checking who answers.
+  // With libpq's semantics, `require` encrypts without checking who
+  // answers, and `verify-ca` checks the authority and not the name: an
+  // address the certificate does not hold was taken.
   const libpq = params.get("uselibpqcompat") === "true";
   const verified =
     mode === "verify-full" ||
-    mode === "verify-ca" ||
     (!libpq &&
-      (mode === "require" ||
+      (mode === "verify-ca" ||
+        mode === "require" ||
         (mode === null && (ssl === "true" || ssl === "1"))));
   if (!verified) {
     throw new Error(
