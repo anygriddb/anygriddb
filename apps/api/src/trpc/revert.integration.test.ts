@@ -13,6 +13,7 @@ import {
   browserFactory,
   enrollTotp,
   errorCode,
+  joinBase,
   signUpProved,
 } from "./caller.test-helpers.js";
 
@@ -74,11 +75,7 @@ describe("putting a value back", () => {
       displayName: "Ed Editor",
       password: PASSWORD,
     });
-    await owner.call().catalog.grant({
-      baseId,
-      email: `editor-${suffix}@example.org`,
-      role: "editor",
-    });
+    await joinBase(db, { baseId, userId: editorId, role: "editor" });
   }, 120_000);
 
   afterAll(async () => {

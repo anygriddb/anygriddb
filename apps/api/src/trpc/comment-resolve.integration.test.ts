@@ -15,6 +15,7 @@ import {
   browserFactory,
   enrollTotp,
   errorCode,
+  joinBase,
   signUpProved,
 } from "./caller.test-helpers.js";
 
@@ -82,7 +83,7 @@ describe("a thread of comments, resolved and opened again", () => {
         displayName,
         password: PASSWORD,
       });
-      await owner.call().catalog.grant({ baseId, email, role });
+      await joinBase(db, { baseId, userId, role });
       if (role === "commenter") {
         // The commenter reads the open row, and not the one kept from them.
         await owner.call().catalog.setTableAcl({

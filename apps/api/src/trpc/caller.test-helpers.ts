@@ -3,13 +3,14 @@
  * migrated database: each browser keeps its own cookie jar, behind one
  * client address.
  */
-import { AppError } from "@anygriddb/core";
+import { AppError, type Role } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { vi } from "vitest";
 import { hashPassword } from "../auth/argon2.js";
 import { mintInstallToken } from "../auth/installation-token.js";
 import { decodeBase32, totpCode } from "../auth/totp-code.js";
+import { setMemberRole } from "../data/members.js";
 import type { Env } from "../env.js";
 import type { FileStore } from "../files/index.js";
 import { recordingBus } from "../realtime/recording-bus.test-helpers.js";
@@ -113,6 +114,26 @@ export async function signUpProved(
     .call()
     .auth.login({ email: input.email, password: input.password });
   return id;
+}
+
+/**
+ * Puts an account in a base at once, in its owner's name: what an
+ * invitation accepted makes, without the invitation. For tests whose
+ * subject is not how one joins.
+ */
+export async function joinBase(
+  db: Database,
+  input: { baseId: string; userId: string; role: Role },
+): Promise<void> {
+  const owner = await db
+    .selectFrom("roleBindings")
+    .select("userId")
+    .where("scope", "=", "base")
+    .where("scopeId", "=", input.baseId)
+    .where("role", "=", "owner")
+    .where("groupId", "is", null)
+    .executeTakeFirstOrThrow();
+  await setMemberRole(db, owner.userId, input);
 }
 
 /** "ok", or the code a call failed with: an AppError's, or tRPC's. */

@@ -12543,6 +12543,10 @@ msgid "This page stopped working"
 msgstr "This page stopped working"
 
 #: lib/errors.ts
+msgid "This person is not a member of this base: invite them"
+msgstr "This person is not a member of this base: invite them"
+
+#: lib/errors.ts
 msgid "This request took too long. Try again in a moment."
 msgstr "This request took too long. Try again in a moment."
 

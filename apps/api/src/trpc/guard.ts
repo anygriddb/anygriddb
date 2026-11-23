@@ -7,7 +7,6 @@ import {
   roleAllows,
   roleFor,
 } from "@anygriddb/core";
-import { TRPCError } from "@trpc/server";
 import { assertEnrolled, loadBindings, scopeBindings } from "../auth/access.js";
 import { type SessionUser, withActingRights } from "../auth/session.js";
 import { readGateSettings } from "../settings.js";
@@ -83,11 +82,16 @@ export async function requireEnrolledUser(ctx: Context): Promise<SessionUser> {
   return (await authorize(ctx)).user;
 }
 
+/**
+ * A table that is not there is refused as one the caller has no role on:
+ * another answer would tell someone with no right whether an id names
+ * anything. The screens say both in one sentence.
+ */
 async function loadTable(ctx: Context, tableId: string): Promise<TableRow> {
   // A table in the trash, or in a base in the trash, reads as missing.
   const table = await findLiveTable(ctx.db, tableId);
   if (!table) {
-    throw new TRPCError({ code: "NOT_FOUND" });
+    throw new AppError("access_denied");
   }
   return table;
 }
@@ -145,8 +149,10 @@ export async function baseAccess(
     .where("id", "=", baseId)
     .where(liveBase())
     .executeTakeFirst();
+  // As for a table: a base that is not there is one the caller has no
+  // role on.
   if (!base) {
-    throw new TRPCError({ code: "NOT_FOUND" });
+    throw new AppError("access_denied");
   }
   const role = roleFor(actor.bindings, "base", baseId);
   if (!role || !roleAllows(role, action)) {

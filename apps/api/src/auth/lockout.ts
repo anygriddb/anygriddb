@@ -6,6 +6,7 @@
  * there. Single sign-on is the identity provider's business, and is not
  * locked; its second step here is.
  */
+import { createHash } from "node:crypto";
 import { AppError, type InstanceSettings, lockState } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { recordAuthEvent } from "./auth-events.js";
@@ -130,4 +131,67 @@ export async function unlockAccount(
     method: "admin",
     detail: "admin_unlock",
   });
+}
+
+/**
+ * The lock of an address that has no account to lock. A known account
+ * answers `account_locked` once its failures reach the instance's count,
+ * and an address that never did told, by that alone, that it has none. So
+ * its failures are counted too, by the same policy: here, in memory, since
+ * there is no row to keep them on. Nothing is kept of the address but a
+ * digest, and the oldest are forgotten past `UNKNOWN_ADDRESSES`.
+ */
+const unknownAddresses = new Map<
+  string,
+  { failed: number; lockedAt: Date | null }
+>();
+const UNKNOWN_ADDRESSES = 20_000;
+
+function addressKey(address: string): string {
+  return createHash("sha256")
+    .update(address.trim().toLowerCase())
+    .digest("hex");
+}
+
+/**
+ * Whether an address with no account is locked now, as an account would
+ * be. A lock that has run out is forgotten, and the count starts over.
+ */
+export function unknownAddressLocked(
+  address: string,
+  policy: Pick<InstanceSettings, "lockoutMinutes">,
+  now: Date = new Date(),
+): boolean {
+  const key = addressKey(address);
+  const kept = unknownAddresses.get(key);
+  if (!kept?.lockedAt) return false;
+  if (lockState(kept.lockedAt, policy, false, now).locked) return true;
+  unknownAddresses.delete(key);
+  return false;
+}
+
+/** One more failure on an address with no account. */
+export function countUnknownAddressFailure(
+  address: string,
+  policy: Pick<InstanceSettings, "lockoutThreshold">,
+  now: Date = new Date(),
+): void {
+  const key = addressKey(address);
+  const failed = (unknownAddresses.get(key)?.failed ?? 0) + 1;
+  // Written again at the end: the oldest entry is the one least lately used.
+  unknownAddresses.delete(key);
+  unknownAddresses.set(key, {
+    failed,
+    lockedAt: failed >= policy.lockoutThreshold ? now : null,
+  });
+  while (unknownAddresses.size > UNKNOWN_ADDRESSES) {
+    const oldest = unknownAddresses.keys().next();
+    if (oldest.done) break;
+    unknownAddresses.delete(oldest.value);
+  }
+}
+
+/** Forgets every address counted: for tests, which share the process. */
+export function forgetUnknownAddresses(): void {
+  unknownAddresses.clear();
 }

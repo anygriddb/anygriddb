@@ -134,6 +134,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   invalid_place: msg`A row cannot be placed next to itself`,
   reason_required: msg`A reason is required`,
   already_member: msg`You already have a role on this base: open it as its member`,
+  not_a_member: msg`This person is not a member of this base: invite them`,
   value_required: msg`A value is required`,
   invalid_reason: msg`Invalid reason`,
   invalid_cell: msg`Invalid value`,

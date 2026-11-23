@@ -51,9 +51,11 @@ import { alertLock } from "../auth/lock-alerts.js";
 import {
   clearFailures,
   countFailure,
+  countUnknownAddressFailure,
   currentLock,
   lockOf,
   type LockedAccount,
+  unknownAddressLocked,
 } from "../auth/lockout.js";
 import { loginInputSchema } from "../auth/login.js";
 import { profileManaged, renameOwnAccount } from "../auth/profile.js";
@@ -677,6 +679,13 @@ export const authRouter = t.router({
       throw new AppError("password_sign_in_disabled");
     }
     if (user) await refuseLocked(ctx, user, "password");
+    // An address with no account locks as an account does, so that the
+    // lock tells nothing of whether it has one. The trail keeps what
+    // happened: a sign-in that failed on an address nobody has.
+    if (!user && unknownAddressLocked(input.email, settings)) {
+      await signInFailed(ctx, "password", null, "invalid_credentials");
+      throw new AppError("account_locked");
+    }
     if (!user || !passwordOk) {
       await signInFailed(
         ctx,
@@ -685,6 +694,7 @@ export const authRouter = t.router({
         "invalid_credentials",
       );
       if (user) await failedAttempt(ctx, user.id);
+      else countUnknownAddressFailure(input.email, settings);
       // An administrator's mistyped password answers as anyone's does here:
       // another answer would tell which addresses administer the instance.
       throw new AppError(

@@ -21,6 +21,7 @@ import { createTestDatabase } from "../test-database.js";
 import {
   browserFactory,
   enrollTotp,
+  joinBase,
   signUpProved,
   type TestBrowser,
 } from "../trpc/caller.test-helpers.js";
@@ -240,11 +241,7 @@ describe("what an open socket hears", () => {
       {
         name: "removed from the base",
         give: async (member) => {
-          await admin.call().catalog.grant({
-            baseId,
-            email: member.email,
-            role: "viewer",
-          });
+          await joinBase(db, { baseId, userId: member.id, role: "viewer" });
         },
         take: async (member) => {
           await admin.call().catalog.revoke({ baseId, userId: member.id });
