@@ -95,7 +95,7 @@ services:
   # scripts/upgrade-postgres.sh, which alone lets it through. It also stops
   # a new cluster asked to make AnyGridDB's role under the superuser's name.
   postgres-upgrade-check:
-    image: postgres:18
+    image: postgres:19
     restart: "no"
     network_mode: none
     security_opt:
@@ -133,7 +133,7 @@ services:
       - postgres_18:/new:ro
 
   db:
-    image: postgres:18
+    image: postgres:19
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
