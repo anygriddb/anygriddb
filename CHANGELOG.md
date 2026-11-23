@@ -8,6 +8,39 @@ first.
 
 ## Unreleased
 
+## 0.6.1 - 2026-11-23
+
+**Nothing to do before upgrading.** The upgrade adds one column to the change
+trail, without rewriting it.
+
+### Added
+
+- **The grid from the keyboard.** A field's menu moves the field left or right
+  and sets its width in figures, from 60 to 1200 pixels. Alt Down opens that
+  menu from a cell. The cell's menu, on Shift F10, continues a series over the
+  rows typed, up to a thousand at a time. The shortcuts' help lists them, with
+  the keys it did not mention.
+
+### Changed
+
+- **Labels.** A timeline's scales are named by the span they show: Month,
+  Quarter and Year, where they said Day, Week and Month. The sign-up page's
+  button says "Create an account", as its title does: a script that finds the
+  button by its old name needs the new one.
+
+### Fixed
+
+- **A row's history.** Two writes to one row that overlapped could leave an
+  earlier change at the top of its history. Each change now keeps the order it
+  was written in. Changes kept before this version stay behind the new ones,
+  by their date.
+- **Dialogs and the keyboard.** A dialog whose text overflows scrolls from the
+  keyboard, the shortcuts' help on a phone included. A search of the command
+  palette that finds nothing says so to a screen reader, and leaves no empty
+  list.
+- **The page's security policy.** Loading a page no longer sets off a violation
+  of its own policy: a collector of those reports stops receiving that one.
+
 ## 0.6.0 - 2026-11-23
 
 **Before upgrading, check what applies to you:**
