@@ -203,6 +203,19 @@ describe("the web app", () => {
       { url: "/api/v1/unknown" },
       { url: "/trpc/unknown" },
       { url: "/auth/nowhere" },
+      // A probe set on one of these by mistake read the page, and so a
+      // healthy instance, whatever its state.
+      { url: "/healthz/x" },
+      { url: "/readyz/x" },
+      { url: "/metrics/x" },
+      { url: "/hooks/x" },
+      { url: "/hooks/automations" },
+      { url: "/ical/a/b" },
+      { url: "/mcp/x" },
+      { url: "/scim/x" },
+      { url: "/oauth/x" },
+      { url: "/tls/x" },
+      { url: "/.well-known/x" },
       { url: "/assets/index-old999.js" },
       { url: "/index.html" },
       { url: "/b/1", method: "POST" as const },
@@ -214,6 +227,18 @@ describe("the web app", () => {
         code: "not_found",
       });
     }
+  });
+
+  it("serves the one page of the app that lies under a path of the API", async () => {
+    const app = await server(await build());
+    for (const url of ["/oauth/consent", "/oauth/consent?client_id=x"]) {
+      const page = await app.inject({ url });
+      expect(page.statusCode).toBe(200);
+      expect(page.headers["content-type"]).toContain("text/html");
+    }
+    expect((await app.inject({ url: "/oauth/consent/x" })).statusCode).toBe(
+      404,
+    );
   });
 
   it("serves the API alone when the app is not built", async () => {
