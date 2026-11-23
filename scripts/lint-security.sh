@@ -35,7 +35,7 @@ fetch() {
 if ! command -v shellcheck >/dev/null 2>&1 ||
   ! command -v hadolint >/dev/null 2>&1 ||
   ! command -v gitleaks >/dev/null 2>&1; then
-  if [ "$(uname -s)-$(uname -m)" != "Linux-x86_64" ]; then
+  if [[ "$(uname -s)-$(uname -m)" != "Linux-x86_64" ]]; then
     echo "Install ShellCheck $SHELLCHECK_VERSION, Hadolint $HADOLINT_VERSION and Gitleaks $GITLEAKS_VERSION, or run this in CI." >&2
     exit 1
   fi
