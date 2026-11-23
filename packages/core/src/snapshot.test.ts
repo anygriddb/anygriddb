@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
+  ROW_STATE_KEY,
+  SNAPSHOT_KEPT_VERSION,
   SNAPSHOT_KIND,
   SNAPSHOT_VERSION,
   baseSnapshotSchema,
+  claimsRowState,
   exportSnapshotJobInputSchema,
   importSnapshotJobInputSchema,
+  ownSnapshotLineSchema,
   snapshotFilename,
+  snapshotLineCells,
+  snapshotLineField,
   snapshotLineSchema,
   snapshotRowCount,
   snapshotRowsEntry,
   snapshotSummary,
+  writeSnapshotLine,
 } from "./snapshot";
 
 const id = "0b5c4f3e-8a5e-4c43-9f61-2d4b8d1c7a10";
@@ -340,6 +347,153 @@ describe("version 3: rows as lines of their own entry", () => {
         __position: "1",
         nom: { nested: true },
       }).success,
+    ).toBe(false);
+  });
+
+  it("holds a line's number to what a table can go on from", () => {
+    const line = (seq: string) =>
+      snapshotLineSchema.safeParse({ __seq: seq, __position: "1" }).success;
+    expect(line(String(Number.MAX_SAFE_INTEGER))).toBe(true);
+    expect(line("9007199254740992")).toBe(false);
+    expect(line("9223372036854775807")).toBe(false);
+    // A copy the instance made of its own table reads what that table holds.
+    expect(
+      ownSnapshotLineSchema.safeParse({
+        __seq: "9223372036854775807",
+        __position: "1",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("holds a line's place to what the places of new rows can go on from", () => {
+    const line = (place: string) =>
+      snapshotLineSchema.safeParse({ __seq: "1", __position: place }).success;
+    expect(line(String(Number.MAX_SAFE_INTEGER))).toBe(true);
+    expect(line(`-${String(Number.MAX_SAFE_INTEGER)}.5`)).toBe(true);
+    expect(line("12.0625")).toBe(true);
+    expect(line("9007199254740992")).toBe(false);
+    expect(line("9223372036854775807")).toBe(false);
+    expect(line("-9223372036854775807.5")).toBe(false);
+    expect(line("9".repeat(5_000))).toBe(false);
+    expect(
+      ownSnapshotLineSchema.safeParse({
+        __seq: "1",
+        __position: "9223372036854775807",
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe("a field named like a line's own keys", () => {
+  it("keeps its value apart from the row's number and place", () => {
+    const line = writeSnapshotLine({
+      seq: "7",
+      position: "1.5",
+      cells: { name: "Ada", __seq: "field", __position: ["3"], __id: "kept" },
+    });
+    expect(line.__seq).toBe("7");
+    expect(line.__position).toBe("1.5");
+    expect(line.name).toBe("Ada");
+    expect(line.__id).toBe("kept");
+    const read = snapshotLineSchema.parse(line);
+    expect(snapshotLineCells(read)).toEqual({
+      name: "Ada",
+      __seq: "field",
+      __position: ["3"],
+      __id: "kept",
+    });
+    expect(snapshotLineField(read, "__seq")).toBe("field");
+    expect(snapshotLineField(read, "name")).toBe("Ada");
+  });
+
+  it("writes a plain line when no field is named that way", () => {
+    const state = {
+      status: "draft" as const,
+      createdAt: "2026-03-01T08:15:30.123456Z",
+      updatedAt: "2026-03-01T08:15:30.123456Z",
+      createdBy: null,
+      updatedBy: null,
+    };
+    const line = writeSnapshotLine({
+      seq: "7",
+      position: "1",
+      cells: { name: "Ada" },
+      state,
+    });
+    expect(line).toEqual({
+      __seq: "7",
+      __position: "1",
+      name: "Ada",
+      [ROW_STATE_KEY]: state,
+    });
+    expect(snapshotLineCells(line)).toEqual({ name: "Ada" });
+  });
+
+  it("refuses anything else kept apart", () => {
+    expect(
+      snapshotLineSchema.safeParse({
+        __seq: "1",
+        __position: "1",
+        "@fields": { name: "Ada" },
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("version 4: an instance's own copy of its rows", () => {
+  const state = {
+    status: "locked",
+    createdAt: "2026-03-01T08:15:30.123456Z",
+    updatedAt: "2026-03-02T09:00:00.000001Z",
+    createdBy: id,
+    updatedBy: null,
+  };
+  const own = (rowState: unknown) =>
+    ownSnapshotLineSchema.safeParse({
+      __seq: "1",
+      __position: "1",
+      [ROW_STATE_KEY]: rowState,
+    }).success;
+
+  it("reads a row's dates, authors, and status", () => {
+    expect(own(state)).toBe(true);
+    expect(own({ ...state, status: "signed", updatedBy: id })).toBe(true);
+  });
+
+  it("refuses a state it cannot write back as it was", () => {
+    expect(own({ ...state, status: "archived" })).toBe(false);
+    expect(own({ ...state, createdAt: "yesterday" })).toBe(false);
+    expect(own({ ...state, updatedAt: "2026-03-02T09:00:00Z" })).toBe(false);
+    expect(own({ ...state, createdBy: "someone" })).toBe(false);
+    expect(own({ ...state, extra: true })).toBe(false);
+  });
+
+  it("holds its rows in entries, as version 3 does", () => {
+    const table = minimal.tables[0];
+    if (!table) throw new Error("no table");
+    const { rows: _rows, ...schema } = table;
+    const kept = { ...minimal, version: SNAPSHOT_KEPT_VERSION };
+    expect(
+      baseSnapshotSchema.safeParse({
+        ...kept,
+        tables: [{ ...schema, rowCount: 1 }],
+      }).success,
+    ).toBe(true);
+    expect(baseSnapshotSchema.safeParse(kept).success).toBe(false);
+  });
+
+  it("tells a row that claims a state from a field of that name", () => {
+    const line = { __seq: "1", __position: "1", __status: "signed" };
+    expect(claimsRowState(line, new Set(["nom"]))).toBe(true);
+    expect(claimsRowState(line, new Set(["__status"]))).toBe(false);
+    expect(
+      claimsRowState(
+        { __seq: "1", __position: "1", [ROW_STATE_KEY]: "signed" },
+        new Set(["nom"]),
+      ),
+    ).toBe(true);
+    expect(
+      claimsRowState({ __seq: "1", __position: "1", nom: "Ada" }, new Set()),
     ).toBe(false);
   });
 });

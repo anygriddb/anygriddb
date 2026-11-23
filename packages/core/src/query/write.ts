@@ -14,6 +14,7 @@ import {
 } from "./params";
 import { AppError } from "../errors";
 import { MAX_READ_LIMIT } from "./read";
+import { FAR_ROW_NUMBER } from "./snapshot-rows";
 
 export type WriteColumn = CellColumn & { name: string };
 
@@ -54,6 +55,44 @@ export function assertRowId(value: string): void {
   if (!ROW_ID.test(value)) {
     throw new AppError("invalid_row_id");
   }
+}
+
+/** When and by whom a row was written, as a copy of it keeps them. */
+export type KeptRowStamp = {
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+};
+
+const ROW_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+const STAMP_FIELDS = [
+  `"ag_created_at"`,
+  `"ag_updated_at"`,
+  `"ag_created_by"`,
+  `"ag_updated_by"`,
+];
+const STAMP_ALIASES = [`"kc"`, `"ku"`, `"kb"`, `"kw"`];
+
+/** A row's kept dates and authors, bound in the order of `STAMP_FIELDS`. */
+function bindStamp(params: SqlParams, stamp: KeptRowStamp): string[] {
+  if (
+    !ROW_INSTANT.test(stamp.createdAt) ||
+    !ROW_INSTANT.test(stamp.updatedAt)
+  ) {
+    throw new AppError("invalid_body");
+  }
+  const author = (value: string | null) => {
+    if (value === null) return "null::uuid";
+    assertRowId(value);
+    return `${params.bind(value)}::uuid`;
+  };
+  return [
+    `${params.bind(stamp.createdAt)}::timestamptz`,
+    `${params.bind(stamp.updatedAt)}::timestamptz`,
+    author(stamp.createdBy),
+    author(stamp.updatedBy),
+  ];
 }
 
 export function assertIdList(ids: readonly string[], max = 10_000): void {
@@ -122,6 +161,8 @@ export function buildInsert(input: {
   position?: string | undefined;
   /** The sequence number the row keeps; the sequence's next by default. */
   seq?: string | undefined;
+  /** The dates and authors the row keeps, from a copy made here. */
+  stamp?: KeptRowStamp | undefined;
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
   const params = new SqlParams();
@@ -134,6 +175,11 @@ export function buildInsert(input: {
   }
   if (input.seq !== undefined) {
     assigned.push({ name: `"ag_seq"`, sql: bindSeq(params, input.seq) });
+  }
+  if (input.stamp) {
+    bindStamp(params, input.stamp).forEach((sql, index) => {
+      assigned.push({ name: STAMP_FIELDS[index] ?? "", sql });
+    });
   }
   if (assigned.length === 0) {
     return {
@@ -167,6 +213,8 @@ export function buildInsertMany(input: {
   positions?: readonly string[] | undefined;
   /** The sequence number each row keeps, one per row. */
   seqs?: readonly string[] | undefined;
+  /** The dates and authors each row keeps, one per row. */
+  stamps?: readonly KeptRowStamp[] | undefined;
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
   const first = input.rows[0];
@@ -177,11 +225,14 @@ export function buildInsertMany(input: {
   if (names.length === 0) {
     throw new AppError("no_columns");
   }
-  const { positions, seqs } = input;
+  const { positions, seqs, stamps } = input;
   if (positions && positions.length !== input.rows.length) {
     throw new AppError("invalid_place");
   }
   if (seqs && seqs.length !== input.rows.length) {
+    throw new AppError("invalid_body");
+  }
+  if (stamps && stamps.length !== input.rows.length) {
     throw new AppError("invalid_body");
   }
   const params = new SqlParams();
@@ -204,7 +255,8 @@ export function buildInsertMany(input: {
       ? [bindPosition(params, positions[index] ?? "")]
       : [];
     const seq = seqs ? [bindSeq(params, seqs[index] ?? "")] : [];
-    return `(${[...assigned.map((item) => item.sql), ...position, ...seq, String(index)].join(", ")})`;
+    const stamp = stamps?.[index] ? bindStamp(params, stamps[index]) : [];
+    return `(${[...assigned.map((item) => item.sql), ...position, ...seq, ...stamp, String(index)].join(", ")})`;
   });
   const aliases = names.map((_, index) => `"c${String(index)}"`);
   if (positions) {
@@ -214,6 +266,10 @@ export function buildInsertMany(input: {
   if (seqs) {
     fields.push(`"ag_seq"`);
     aliases.push(`"cs"`);
+  }
+  if (stamps) {
+    fields.push(...STAMP_FIELDS);
+    aliases.push(...STAMP_ALIASES);
   }
   return {
     text: `insert into ${quoteIdent(input.table)} (${fields.join(", ")}) select ${aliases.join(", ")} from (values ${tuples.join(", ")}) as r (${[...aliases, '"n"'].join(", ")}) order by "n" returning "id"`,
@@ -240,12 +296,17 @@ export function buildInserts(input: {
   positions?: readonly string[] | undefined;
   /** The sequence number each row keeps; the sequence's next by default. */
   seqs?: readonly string[] | undefined;
+  /** The dates and authors each row keeps, from a copy made here. */
+  stamps?: readonly KeptRowStamp[] | undefined;
 }): Array<{ statement: ParameterizedSql; rows: number }> {
-  const { table, columns, positions, seqs } = input;
+  const { table, columns, positions, seqs, stamps } = input;
   if (positions && positions.length !== input.rows.length) {
     throw new AppError("invalid_place");
   }
   if (seqs && seqs.length !== input.rows.length) {
+    throw new AppError("invalid_body");
+  }
+  if (stamps && stamps.length !== input.rows.length) {
     throw new AppError("invalid_body");
   }
   const statements: Array<{ statement: ParameterizedSql; rows: number }> = [];
@@ -257,6 +318,7 @@ export function buildInserts(input: {
     if (run.length === 0) return;
     const placed = positions?.slice(start, start + run.length);
     const numbered = seqs?.slice(start, start + run.length);
+    const stamped = stamps?.slice(start, start + run.length);
     statements.push({
       statement:
         shape === ""
@@ -267,6 +329,7 @@ export function buildInserts(input: {
               values: {},
               position: placed?.[0],
               seq: numbered?.[0],
+              stamp: stamped?.[0],
             })
           : buildInsertMany({
               table,
@@ -274,6 +337,7 @@ export function buildInserts(input: {
               rows: run,
               positions: placed,
               seqs: numbered,
+              stamps: stamped,
             }),
       rows: run.length,
     });
@@ -286,7 +350,8 @@ export function buildInserts(input: {
     const cells =
       Object.values(values).filter((value) => value !== null).length +
       (positions ? 1 : 0) +
-      (seqs ? 1 : 0);
+      (seqs ? 1 : 0) +
+      (stamps ? STAMP_FIELDS.length : 0);
     if (
       next !== shape ||
       next === "" ||
@@ -455,16 +520,19 @@ export function buildRestoreRow(input: {
     .map(quoteIdent)
     .join(", ");
   // A row deleted before rows had a place of their own stood at its
-  // sequence number.
+  // sequence number. A number or a place nothing can follow is not given
+  // back: the row takes the next one.
+  const seq = `(s."o" ->> 'ag_seq')::bigint`;
+  const place = `coalesce((s."o" ->> 'ag_position')::numeric, (s."o" ->> 'ag_seq')::numeric)`;
   const row = [
     `(s."o" ->> 'id')::uuid`,
-    `(s."o" ->> 'ag_seq')::bigint`,
+    `case when ${seq} <= ${FAR_ROW_NUMBER} then ${seq} else nextval(pg_get_serial_sequence('${quoteIdent(input.table)}', 'ag_seq')) end`,
     `(s."o" ->> 'ag_created_at')::timestamptz`,
     `(s."o" ->> 'ag_created_by')::uuid`,
     ...input.columns.map(({ name, fieldType }) =>
       storedFromJson(fieldType, `g."v" -> '${name}'`),
     ),
-    `coalesce((s."o" ->> 'ag_position')::numeric, (s."o" ->> 'ag_seq')::numeric)`,
+    `case when abs(${place}) <= ${FAR_ROW_NUMBER} then ${place} else nextval('ag_row_position') end`,
   ].join(", ");
   return {
     text: `with "held" as (select e."old_value" as "o" from "audit_events" e where e."id" = $1::uuid and e."record_id" = $2::uuid and e."action" = 'delete'), "given" as (select $3::text::jsonb as "v") insert into ${quoteIdent(input.table)} (${list}) select ${row} from "held" s cross join "given" g returning "id"`,

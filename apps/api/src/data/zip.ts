@@ -459,8 +459,11 @@ export class ZipReader {
     if (rest.length > 0) yield rest;
   }
 
-  /** Reads an entry through to check its size and CRC, keeping nothing. */
-  async check(name: string): Promise<void> {
+  /**
+   * Reads an entry through to check its size and CRC, keeping nothing;
+   * `onChunk` sees its bytes as they pass.
+   */
+  async check(name: string, onChunk?: (chunk: Buffer) => void): Promise<void> {
     const entry = this.entries.get(name);
     if (!entry) throw new ZipError(`Missing entry: ${name}`);
     let crc = 0;
@@ -469,6 +472,7 @@ export class ZipReader {
       crc = crc32(chunk, crc);
       size += chunk.length;
       if (size > entry.size) throw new ZipError("Broken entry");
+      onChunk?.(chunk);
     }
     if (size !== entry.size || crc !== entry.crc) {
       throw new ZipError("Broken entry");

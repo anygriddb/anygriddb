@@ -1,11 +1,13 @@
 import {
   AppError,
+  buildPlacesInRange,
   buildPositionsAfter,
   buildRowSeqs,
   buildSequenceAfter,
   buildSnapshotForeignKeys,
   buildSnapshotJunction,
   buildSnapshotKeys,
+  buildSnapshotStatus,
   DEFAULT_ATTACHMENT_MAX_BYTES,
   type BaseSnapshot,
   baseSnapshotSchema,
@@ -15,9 +17,11 @@ import {
   dashboardWidgetConfigSchema,
   deriveColumnName,
   type EngineCatalog,
+  FAR_ROW_NUMBER,
   type FieldType,
   filterGroupSchema,
   type FormulaExpr,
+  type KeptRowStamp,
   type MadeNames,
   madeNames,
   MAX_SNAPSHOT_ARCHIVE_BYTES,
@@ -31,11 +35,14 @@ import {
   MAX_SNAPSHOT_ROWS,
   MAX_SNAPSHOT_WIDGETS,
   normalizeViewConfig,
+  ownSnapshotLineSchema,
   ROLLUP_FNS,
   type RollupFn,
   type Role,
   roleFor,
+  ROW_STATE_KEY,
   SNAPSHOT_ENTRY,
+  SNAPSHOT_KEPT_VERSION,
   SNAPSHOT_KIND,
   SNAPSHOT_VERSION,
   type SnapshotDashboard,
@@ -44,13 +51,18 @@ import {
   snapshotFileRefSchema,
   snapshotFilename,
   type SnapshotLine,
+  snapshotLineCells,
+  snapshotLineField,
   snapshotLineSchema,
   type SnapshotLink,
   snapshotRowCount,
+  type SnapshotRowState,
+  snapshotRowStateSchema,
   snapshotRowsEntry,
   type SnapshotTable,
   widgetConfigOn,
   widgetSettings,
+  writeSnapshotLine,
 } from "@anygriddb/core";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -583,14 +595,16 @@ async function seqsOf(
 /**
  * A table's rows as the lines of its entry, read a range of sequence
  * numbers at a time: each row's cells, its number and place, and the
- * numbers of the rows its links name. A row added or removed while it
- * reads is written once or not at all, never twice.
+ * numbers of the rows its links name and, with `keepState`, what the row
+ * is. A row added or removed while it reads is written once or not at all,
+ * never twice.
  */
 async function* tableLines(
   db: Database,
   table: SourceTable,
   attachments: SnapshotAttachments,
   onRows: (count: number) => Promise<void>,
+  keepState: boolean,
 ): AsyncGenerator<string> {
   const fields = [...table.writable, ...table.links.map((link) => link.name)];
   let after = "0";
@@ -601,6 +615,7 @@ async function* tableLines(
         table: table.physicalName,
         after,
         limit: SNAPSHOT_PAGE,
+        state: keepState,
       }),
     );
     const last = keys.at(-1);
@@ -619,18 +634,34 @@ async function* tableLines(
     const byId = new Map(page.rows.map((row) => [row.id, row]));
     const rows: Array<{
       source: RowRecord;
+      seq: string;
+      position: string;
       cells: Record<string, CellValue | string | undefined>;
+      state?: SnapshotRowState;
     }> = [];
     for (const key of keys) {
       const source = byId.get(String(key.id));
       // Removed between the two reads.
       if (!source) continue;
-      const cells: Record<string, CellValue | string | undefined> = {
-        __seq: String(key.seq),
-        __position: String(key.position),
-      };
+      const cells: Record<string, CellValue | string | undefined> = {};
       for (const name of table.writable) cells[name] = toCell(source[name]);
-      rows.push({ source, cells });
+      rows.push({
+        source,
+        seq: String(key.seq),
+        position: String(key.position),
+        cells,
+        ...(keepState
+          ? {
+              state: snapshotRowStateSchema.parse({
+                status: key.status,
+                createdAt: key.createdAt,
+                updatedAt: key.updatedAt,
+                createdBy: key.createdBy,
+                updatedBy: key.updatedBy,
+              }),
+            }
+          : {}),
+      });
     }
     await describeCells(
       db,
@@ -658,7 +689,15 @@ async function* tableLines(
         if (named.length > 0) row.cells[link.name] = named;
       }
     }
-    for (const row of rows) yield `${JSON.stringify(row.cells)}\n`;
+    for (const row of rows) {
+      const line = writeSnapshotLine({
+        seq: row.seq,
+        position: row.position,
+        cells: row.cells,
+        state: row.state,
+      });
+      yield `${JSON.stringify(line)}\n`;
+    }
     await onRows(rows.length);
   }
 }
@@ -695,6 +734,8 @@ export type WrittenSnapshot = {
  * Nothing but a page of rows is held in memory: a snapshot holds as many
  * rows as `maxRows` allows. `embedFiles: false` leaves the files out, for a
  * copy made inside the instance, which reads them from its store.
+ * `keepRowState` writes version 4 (ADR 0117), each row with its dates,
+ * authors, and status: for a copy that stays on this instance.
  */
 export async function writeBaseSnapshot(
   db: Database,
@@ -706,13 +747,15 @@ export async function writeBaseSnapshot(
     /** The most rows the snapshot holds, all tables together. */
     maxRows: number;
     embedFiles?: boolean;
+    keepRowState?: boolean;
     onProgress?: (done: number, total: number | null) => Promise<void>;
   },
 ): Promise<WrittenSnapshot> {
   const described = await describeBase(db, baseId);
+  const keepState = input.withData && input.keepRowState === true;
   const head = {
     kind: SNAPSHOT_KIND,
-    version: SNAPSHOT_VERSION,
+    version: keepState ? SNAPSHOT_KEPT_VERSION : SNAPSHOT_VERSION,
     exportedAt: new Date().toISOString(),
     base: {
       name: described.base.name,
@@ -773,15 +816,21 @@ export async function writeBaseSnapshot(
       let rowCount = 0;
       await writer.addDeflatedStream(
         snapshotRowsEntry(table.key),
-        tableLines(db, table, attachments, async (count) => {
-          rowCount += count;
-          written += count;
-          // Rows added while it reads count too.
-          if (written > input.maxRows) {
-            throw new AppError("snapshot_too_many_rows");
-          }
-          await input.onProgress?.(Math.min(written, total), total);
-        }),
+        tableLines(
+          db,
+          table,
+          attachments,
+          async (count) => {
+            rowCount += count;
+            written += count;
+            // Rows added while it reads count too.
+            if (written > input.maxRows) {
+              throw new AppError("snapshot_too_many_rows");
+            }
+            await input.onProgress?.(Math.min(written, total), total);
+          },
+          keepState,
+        ),
       );
       const people = access.get(table.id);
       tables.push({
@@ -926,6 +975,8 @@ type SnapshotImportReport = {
    * the snapshot does not hold.
    */
   widgetsLeft: number;
+  /** Signed rows come back locked: a signature stays with what it signed. */
+  signaturesLeft?: number;
 };
 
 /** Rows of access a statement writes at a time. */
@@ -1087,8 +1138,7 @@ type RowTarget = {
 /**
  * A snapshot row's cells as the new table takes them: its files by their
  * new keys, its people by their accounts here, its other cells as they
- * are. What the table has no field for, and the row's number and place,
- * are left out.
+ * are. What the table has no field for is left out.
  */
 function cellsFor(
   row: Readonly<Record<string, unknown>>,
@@ -1098,7 +1148,7 @@ function cellsFor(
 ): Record<string, CellValue> {
   return Object.fromEntries(
     Object.entries(row).flatMap(([key, value]): Array<[string, CellValue]> => {
-      if (key === "__id" || !target.writable.has(key)) return [];
+      if (!target.writable.has(key)) return [];
       if (target.fileColumns.has(key)) {
         const keys = fileRefs(value).flatMap((ref) => {
           const found = target.stored.get(ref.file);
@@ -1144,6 +1194,11 @@ async function linkLines(
     from: string;
     to: string;
     multiple: boolean;
+    /** A link made leaves its row's last change as it was. */
+    keepRowState: boolean;
+    /** The numbers of the rows that took a new one, on either end. */
+    fromSeqs: ReadonlyMap<string, string>;
+    toSeqs: ReadonlyMap<string, string>;
     onRows: (count: number) => Promise<void>;
   },
 ): Promise<void> {
@@ -1191,7 +1246,12 @@ async function linkLines(
       }
       await withAudit(
         db,
-        { userId, tableId: input.from, source: "snapshot" },
+        {
+          userId,
+          tableId: input.from,
+          source: "snapshot",
+          keepRowState: input.keepRowState,
+        },
         (tx) => runRows(tx, statement),
       );
     }
@@ -1202,14 +1262,14 @@ async function linkLines(
   };
   for await (const line of input.lines) {
     seen += 1;
-    const named = line[input.field];
+    const named = snapshotLineField(line, input.field);
     if (Array.isArray(named)) {
       const targets = named.filter(
         (item): item is string => typeof item === "string" && SEQ.test(item),
       );
       for (const seq of targets.slice(0, input.multiple ? ROW_TARGETS : 1)) {
-        fromSeqs.push(line.__seq);
-        toSeqs.push(seq);
+        fromSeqs.push(input.fromSeqs.get(line.__seq) ?? line.__seq);
+        toSeqs.push(input.toSeqs.get(seq) ?? seq);
       }
     }
     if (
@@ -1222,6 +1282,82 @@ async function linkLines(
   await flush();
 }
 
+/** What a version 4 line says its row was; a line without it is broken. */
+function rowStateOf(line: SnapshotLine): SnapshotRowState {
+  const parsed = snapshotRowStateSchema.safeParse(line[ROW_STATE_KEY]);
+  if (!parsed.success) throw new AppError("invalid_snapshot");
+  return parsed.data;
+}
+
+function stampOf(line: SnapshotLine): KeptRowStamp {
+  const { createdAt, updatedAt, createdBy, updatedBy } = rowStateOf(line);
+  return { createdAt, updatedAt, createdBy, updatedBy };
+}
+
+/**
+ * Gives one table's rows their status back, its lines read again a batch
+ * at a time: each row takes the steps that lead there, through the
+ * transitions the trail records. A signed row stops at locked: its
+ * signature stays with what was signed. Answers how many did.
+ */
+async function restoreStatuses(
+  db: Database,
+  userId: string,
+  input: {
+    tableId: string;
+    physicalName: string;
+    lines: AsyncIterable<SnapshotLine>;
+    /** The numbers of the rows that took a new one. */
+    seqs: ReadonlyMap<string, string>;
+    onRows: (count: number) => Promise<void>;
+  },
+): Promise<number> {
+  let signed = 0;
+  let seen = 0;
+  let submit: string[] = [];
+  let lock: string[] = [];
+  const move = async (
+    seqs: readonly string[],
+    from: "draft" | "submitted",
+    to: "submitted" | "locked",
+    action: "submit" | "lock",
+  ) => {
+    if (seqs.length === 0) return;
+    await withAudit(
+      db,
+      { userId, tableId: input.tableId, action, source: "snapshot" },
+      async (tx) => {
+        const [moved] = await runRows(
+          tx,
+          buildSnapshotStatus({ table: input.physicalName, seqs, from, to }),
+        );
+        if (Number(moved?.count) !== seqs.length) {
+          throw new AppError("invalid_snapshot");
+        }
+      },
+    );
+  };
+  const flush = async () => {
+    await move(submit, "draft", "submitted", "submit");
+    await move(lock, "submitted", "locked", "lock");
+    await input.onRows(seen);
+    submit = [];
+    lock = [];
+    seen = 0;
+  };
+  for await (const line of input.lines) {
+    seen += 1;
+    const { status } = rowStateOf(line);
+    const seq = input.seqs.get(line.__seq) ?? line.__seq;
+    if (status === "signed") signed += 1;
+    if (status !== "draft") submit.push(seq);
+    if (status === "locked" || status === "signed") lock.push(seq);
+    if (seen >= SNAPSHOT_PAGE) await flush();
+  }
+  await flush();
+  return signed;
+}
+
 /**
  * Creates a new base from a snapshot. On failure the half-built base is
  * removed. Attachment cells get their files back from the archive, user
@@ -1229,7 +1365,9 @@ async function linkLines(
  * version 3 snapshot's rows are read from their entries a batch at a time
  * and keep their sequence number and place, through which their links are
  * made (ADR 0076): only the batch is held in memory, and `maxRows` bounds
- * the whole. Versions 1 and 2 carry their rows inside the JSON.
+ * the whole. Versions 1 and 2 carry their rows inside the JSON. Version 4
+ * brings each row's dates, authors, and status back, and is read only for a
+ * caller that says the copy is the instance's own (`keepRowState`).
  */
 export async function importBaseSnapshot(
   db: Database,
@@ -1259,10 +1397,16 @@ export async function importBaseSnapshot(
     maxFileBytes?: number;
     /** Names made up where the snapshot gives none; English otherwise. */
     names?: MadeNames;
+    /** The copy is this instance's own: its rows' state is believed. */
+    keepRowState?: boolean;
   },
 ): Promise<{ baseId: string; report: SnapshotImportReport }> {
   const parsed = baseSnapshotSchema.parse(snapshot);
-  const lines = parsed.version === SNAPSHOT_VERSION;
+  const lines = parsed.version >= SNAPSHOT_VERSION;
+  const keepState = parsed.version === SNAPSHOT_KEPT_VERSION;
+  if (keepState && !input.keepRowState) {
+    throw new AppError("invalid_snapshot");
+  }
   const totalRows = snapshotRowCount(parsed);
   if (lines) {
     if (totalRows > input.maxRows) {
@@ -1296,7 +1440,8 @@ export async function importBaseSnapshot(
     parsed.links.length +
     parsed.computed.length +
     1 +
-    (lines ? totalRows + linkedRows : 0);
+    (lines ? totalRows + linkedRows : 0) +
+    (keepState ? totalRows : 0);
   let done = 0;
   const step = async (count = 1) => {
     done += count;
@@ -1318,6 +1463,13 @@ export async function importBaseSnapshot(
   try {
     const ids = new Map<string, string>();
     const rowMaps = new Map<string, Map<string, string>>();
+    /**
+     * By table, the rows of an instance's own copy whose number nothing
+     * could follow, and the number each takes here.
+     */
+    const renumbered = new Map<string, Map<string, string>>();
+    const seqsOfTable = (key: string) =>
+      renumbered.get(key) ?? new Map<string, string>();
     const restoring: Restoring | undefined = input.restoreMembers
       ? {
           userId,
@@ -1441,14 +1593,16 @@ export async function importBaseSnapshot(
         let last = 0n;
         const flush = async () => {
           if (batch.length === 0) return;
-          await restore(batch);
-          const values = batch.map((line) =>
+          const fields = batch.map(snapshotLineCells);
+          await restore(fields);
+          const values = fields.map((line) =>
             cellsFor(line, target, people, report),
           );
           try {
             await insertNativeBatch(db, engine, context, values, {
               seqs: batch.map((line) => line.__seq),
               positions: batch.map((line) => line.__position),
+              ...(keepState ? { stamps: batch.map(stampOf) } : {}),
             });
           } catch (error) {
             // Two lines with one number, or a value twice in a field that
@@ -1461,10 +1615,21 @@ export async function importBaseSnapshot(
           await step(batch.length);
           batch = [];
         };
-        for await (const line of readLines(table.key)) {
+        // An instance's own copy lists its rows by number: those nothing
+        // could follow come last, and go on from the others.
+        const far = BigInt(FAR_ROW_NUMBER);
+        const moved = new Map<string, string>();
+        renumbered.set(table.key, moved);
+        for await (const read of readLines(table.key)) {
           count += 1;
           if (count > (table.rowCount ?? 0)) {
             throw new AppError("invalid_snapshot");
+          }
+          let line = read;
+          if (input.keepRowState && BigInt(read.__seq) > far) {
+            const next = String(last + 1n);
+            moved.set(read.__seq, next);
+            line = { ...read, __seq: next };
           }
           const seq = BigInt(line.__seq);
           if (seq > last) last = seq;
@@ -1485,6 +1650,12 @@ export async function importBaseSnapshot(
                 last: String(last),
               }),
             );
+            if (input.keepRowState) {
+              await runRows(
+                tx,
+                buildPlacesInRange({ table: physical.physicalName }),
+              );
+            }
             await runRows(
               tx,
               buildPositionsAfter({ table: physical.physicalName }),
@@ -1493,7 +1664,8 @@ export async function importBaseSnapshot(
         );
       } else if (table.rows) {
         await restore(table.rows);
-        const values = table.rows.map((row) =>
+        // Versions 1 and 2 name a row's id under `__id`.
+        const values = table.rows.map(({ __id: _id, ...row }) =>
           cellsFor(row, target, people, report),
         );
         const newIds = await insertNativeBatch(db, engine, context, values);
@@ -1530,6 +1702,9 @@ export async function importBaseSnapshot(
             from,
             to,
             multiple: link.multiple,
+            keepRowState: keepState,
+            fromSeqs: seqsOfTable(link.from),
+            toSeqs: seqsOfTable(link.to),
             onRows: (count) => step(count),
           });
         }
@@ -1678,6 +1853,28 @@ export async function importBaseSnapshot(
       report.widgetsLeft += dashboard.left ?? 0;
     }
 
+    // Each row's status last: a locked row takes no link or other write.
+    if (keepState && readLines) {
+      let signed = 0;
+      for (const table of parsed.tables) {
+        const tableId = ids.get(table.key);
+        if (!tableId || !table.rowCount) continue;
+        const { physicalName } = await db
+          .selectFrom("dataTables")
+          .select("physicalName")
+          .where("id", "=", tableId)
+          .executeTakeFirstOrThrow();
+        signed += await restoreStatuses(db, userId, {
+          tableId,
+          physicalName,
+          lines: readLines(table.key),
+          seqs: seqsOfTable(table.key),
+          onRows: (count) => step(count),
+        });
+      }
+      if (signed > 0) report.signaturesLeft = signed;
+    }
+
     await input.onProgress?.(total, total);
     return { baseId: created.id, report };
   } catch (error) {
@@ -1775,7 +1972,10 @@ async function restoreFiles(
 export async function* readSnapshotLines(
   archive: ZipReader,
   key: string,
+  /** The instance's own copy: numbers as its tables hold them, and state. */
+  options: { own?: boolean } = {},
 ): AsyncGenerator<SnapshotLine> {
+  const schema = options.own ? ownSnapshotLineSchema : snapshotLineSchema;
   try {
     for await (const text of archive.lines(snapshotRowsEntry(key), {
       maxLine: MAX_SNAPSHOT_LINE_BYTES,
@@ -1786,7 +1986,7 @@ export async function* readSnapshotLines(
       } catch {
         throw new AppError("invalid_snapshot");
       }
-      const parsed = snapshotLineSchema.safeParse(raw);
+      const parsed = schema.safeParse(raw);
       if (!parsed.success) throw new AppError("invalid_snapshot");
       yield parsed.data;
     }

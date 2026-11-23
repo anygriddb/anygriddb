@@ -5,6 +5,7 @@ import {
   buildDuplicateJunction,
   buildDuplicateRows,
   buildDuplicateSelfLinks,
+  buildDuplicateStatus,
   buildSequenceAfter,
   DUPLICATE_CHUNK,
   type CellValue,
@@ -309,7 +310,7 @@ async function copyRows(
     total: number | null;
     onProgress?: (done: number, total: number | null) => Promise<void>;
   },
-): Promise<void> {
+): Promise<number> {
   const target = await loadEngine(db, input.copyId, () => true);
   const physical = target.rows.tables.find((item) => item.id === input.copyId);
   if (!physical) {
@@ -342,7 +343,12 @@ async function copyRows(
       columns.push({ from: link.from.fkColumn, to: link.to.fkColumn });
     }
   }
-  const audit = { userId, tableId: input.copyId, source: "duplicate" };
+  const audit = {
+    userId,
+    tableId: input.copyId,
+    source: "duplicate",
+    keepRowState: true,
+  };
   const ranges: Array<{ after: string; upto: string }> = [];
   let after = "0";
   let done = 0;
@@ -367,7 +373,7 @@ async function copyRows(
     done += count;
     await input.onProgress?.(done, input.total);
   }
-  if (ranges.length === 0) return;
+  if (ranges.length === 0) return 0;
   // A row added to the copy later takes a number none of its rows has.
   await withAudit(db, audit, (tx) =>
     runRows(
@@ -415,14 +421,38 @@ async function copyRows(
       }
     }
   }
+  // Each row's status last: a locked row takes no link. A signed row comes
+  // back locked, its signature staying with what was signed (ADR 0117).
+  let signed = 0;
+  const statusAudit = { userId, tableId: input.copyId, source: "duplicate" };
+  const take = (step: "submit" | "lock", range: (typeof ranges)[number]) =>
+    withAudit(db, { ...statusAudit, action: step }, (tx) =>
+      runRows(
+        tx,
+        buildDuplicateStatus({
+          from: input.source.physicalName,
+          to: physical.physicalName,
+          step,
+          ...range,
+        }),
+      ),
+    );
+  for (const range of ranges) {
+    await take("submit", range);
+    const [locked] = await take("lock", range);
+    signed += Number(locked?.signed ?? 0);
+  }
+  return signed;
 }
 
 /**
  * Copies a table into the same base: stored and system columns, formulas,
  * outgoing links, and the lookups and rollups over them, plus the first
  * view's settings. With `withData`, rows and their links come too, audited
- * as inserts with source `duplicate`. Attachment cells are left empty: a
- * file belongs to exactly one table.
+ * as inserts with source `duplicate`, with their dates, authors, and status:
+ * a locked row is as locked in the copy, and a signed one comes locked,
+ * without its signature. Attachment cells are left empty: a file belongs to
+ * exactly one table.
  */
 export async function duplicateTable(
   db: Database,
@@ -436,7 +466,7 @@ export async function duplicateTable(
     /** Called after each page of copied rows. */
     onProgress?: (done: number, total: number | null) => Promise<void>;
   },
-): Promise<{ id: string }> {
+): Promise<{ id: string; signaturesLeft?: number }> {
   // Copying a client's table into AnyGridDB is the synced mode, not yet.
   // A table this product created in a source is writable, and still not
   // duplicated: its links are the source's own columns, which are not
@@ -577,7 +607,7 @@ export async function duplicateTable(
   }
 
   if (input.withData) {
-    await copyRows(db, userId, {
+    const signaturesLeft = await copyRows(db, userId, {
       source,
       engine,
       copyId: created.id,
@@ -585,6 +615,7 @@ export async function duplicateTable(
       total,
       onProgress: input.onProgress,
     });
+    if (signaturesLeft > 0) return { id: created.id, signaturesLeft };
   }
   return { id: created.id };
 }

@@ -3,6 +3,7 @@ import {
   buildDuplicateJunction,
   buildDuplicateRows,
   buildDuplicateSelfLinks,
+  buildDuplicateStatus,
   buildSequenceAfter,
 } from "./duplicate";
 
@@ -22,7 +23,7 @@ describe("copying a table's rows in SQL", () => {
       limit: 5_000,
     });
     expect(statement.text).toContain(
-      `insert into "t_copy" ("id", "ag_seq", "ag_position", "title", "team_2") select ag_uuidv7(), s."ag_seq", s."ag_position", s."title", s."team" from "t_tasks" s where s."ag_seq" > $1::bigint order by s."ag_seq" limit $2`,
+      `insert into "t_copy" ("id", "ag_seq", "ag_position", "ag_created_at", "ag_updated_at", "ag_created_by", "ag_updated_by", "title", "team_2") select ag_uuidv7(), s."ag_seq", s."ag_position", s."ag_created_at", s."ag_updated_at", s."ag_created_by", s."ag_updated_by", s."title", s."team" from "t_tasks" s where s."ag_seq" > $1::bigint order by s."ag_seq" limit $2`,
     );
     expect(statement.values).toEqual(["5000", 5_000]);
     expect(
@@ -72,6 +73,60 @@ describe("copying a table's rows in SQL", () => {
     });
     expect(other.text).toContain(`select d."id", j."right_id"`);
     expect(other.text).not.toContain(`r."ag_seq"`);
+  });
+
+  it("keeps each row's dates and authors, and moves its status a step at a time", () => {
+    const statement = buildDuplicateRows({
+      from: "t_tasks",
+      to: "t_copy",
+      columns: [{ from: "title", to: "title" }],
+      after: "0",
+      limit: 10,
+    });
+    expect(statement.text).toContain(
+      `("id", "ag_seq", "ag_position", "ag_created_at", "ag_updated_at", "ag_created_by", "ag_updated_by", "title") select ag_uuidv7(), s."ag_seq", s."ag_position", s."ag_created_at", s."ag_updated_at", s."ag_created_by", s."ag_updated_by", s."title"`,
+    );
+    const status = buildDuplicateStatus({
+      from: "t_tasks",
+      to: "t_copy",
+      step: "lock",
+      after: "0",
+      upto: "10",
+    });
+    expect(status.text).toContain(
+      `update "t_copy" d set "ag_status" = $1 from "t_tasks" s where s."ag_seq" = d."ag_seq" and d."ag_seq" > $2::bigint and d."ag_seq" <= $3::bigint and d."ag_status" = $4 and s."ag_status" = any($5::text[])`,
+    );
+    expect(status.values).toEqual([
+      "locked",
+      "0",
+      "10",
+      "submitted",
+      ["locked", "signed"],
+    ]);
+    expect(
+      buildDuplicateStatus({
+        from: "t_tasks",
+        to: "t_copy",
+        step: "submit",
+        after: "0",
+        upto: "10",
+      }).values,
+    ).toEqual([
+      "submitted",
+      "0",
+      "10",
+      "draft",
+      ["submitted", "locked", "signed"],
+    ]);
+    expect(() =>
+      buildDuplicateStatus({
+        from: "t_tasks",
+        to: "t_copy",
+        step: "lock",
+        after: "x",
+        upto: "10",
+      }),
+    ).toThrow();
   });
 
   it("refuses names that are not identifiers and numbers that are not sequence numbers", () => {

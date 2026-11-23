@@ -12,6 +12,12 @@ const SEQ = /^\d{1,19}$/;
 const ROW_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Past this, a row's number or place is one nothing can follow for long: no
+ * table reaches it by adding rows. What was imported there is brought back.
+ */
+export const FAR_ROW_NUMBER = "4503599627370496";
+
 /** The most pairs one statement links: well inside the pool's time limit. */
 export const MAX_SNAPSHOT_LINK_PAIRS = 5_000;
 
@@ -33,15 +39,21 @@ function assertPairs(fromSeqs: readonly string[], toSeqs: readonly string[]) {
   assertSeqs(toSeqs);
 }
 
+/** An instant to the microsecond, in UTC, as a line keeps it. */
+const instant = (column: string) =>
+  `to_char(${quoteIdent(column)} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+
 /**
  * The next rows of a table past `after`, by sequence number: each one's id,
- * number, and place. A snapshot reads a table this way so that a row is
- * written once, whatever is added or removed while it reads.
+ * number, and place, and with `state` its status, dates, and authors. A
+ * snapshot reads a table this way so that a row is written once, whatever
+ * is added or removed while it reads.
  */
 export function buildSnapshotKeys(input: {
   table: string;
   after: string;
   limit: number;
+  state?: boolean;
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
   assertSeqs([input.after]);
@@ -52,9 +64,38 @@ export function buildSnapshotKeys(input: {
   ) {
     throw new AppError("invalid_limit");
   }
+  const state = input.state
+    ? `, "ag_status" as "status", ${instant("ag_created_at")} as "createdAt", ${instant("ag_updated_at")} as "updatedAt", "ag_created_by"::text as "createdBy", "ag_updated_by"::text as "updatedBy"`
+    : "";
   return {
-    text: `select "id", "ag_seq"::text as "seq", "ag_position"::text as "position" from ${quoteIdent(input.table)} where "ag_seq" > $1::bigint order by "ag_seq" limit $2`,
+    text: `select "id", "ag_seq"::text as "seq", "ag_position"::text as "position"${state} from ${quoteIdent(input.table)} where "ag_seq" > $1::bigint order by "ag_seq" limit $2`,
     values: [input.after, input.limit],
+  };
+}
+
+/**
+ * Moves rows one step of their status, by sequence number, and says how
+ * many moved. The table's trigger holds the step to the transition the
+ * transaction asks for, and records it.
+ */
+export function buildSnapshotStatus(input: {
+  table: string;
+  seqs: readonly string[];
+  from: "draft" | "submitted";
+  to: "submitted" | "locked";
+}): ParameterizedSql {
+  assertIdentifier(input.table, "table name");
+  const step =
+    (input.from === "draft" && input.to === "submitted") ||
+    (input.from === "submitted" && input.to === "locked");
+  if (!step) throw new AppError("invalid_status");
+  if (input.seqs.length === 0 || input.seqs.length > MAX_SNAPSHOT_LINK_PAIRS) {
+    throw new AppError("invalid_limit");
+  }
+  assertSeqs(input.seqs);
+  return {
+    text: `with moved as (update ${quoteIdent(input.table)} set "ag_status" = $1 where "ag_seq" = any($2::bigint[]) and "ag_status" = $3 returning 1) select count(*)::int as "count" from moved`,
+    values: [input.to, [...input.seqs], input.from],
   };
 }
 
@@ -79,14 +120,30 @@ export function buildRowSeqs(input: {
 /**
  * Moves the sequence that places new rows past the highest place of a
  * table's rows, so that a row added after a snapshot is read in goes after
- * them: the snapshot keeps the places of the instance it came from.
+ * them: the snapshot keeps the places of the instance it came from. Every
+ * table shares this sequence: it never moves to a place past what a file
+ * may hold.
  */
 export function buildPositionsAfter(input: {
   table: string;
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
   return {
-    text: `select setval('ag_row_position', ceil(s."top")::bigint) from (select max("ag_position") as "top" from ${quoteIdent(input.table)}) s where ceil(s."top") > (select "last_value" from ag_row_position)`,
+    text: `select setval('ag_row_position', ceil(s."top")::bigint) from (select max("ag_position") as "top" from ${quoteIdent(input.table)} where "ag_position" <= 9007199254740992) s where ceil(s."top") > (select "last_value" from ag_row_position)`,
+    values: [],
+  };
+}
+
+/**
+ * Brings a table's far places next to its other rows, those past the top
+ * above them and those past the bottom below, in the order they had. The
+ * rows in range do not move.
+ */
+export function buildPlacesInRange(input: { table: string }): ParameterizedSql {
+  assertIdentifier(input.table, "table name");
+  const table = quoteIdent(input.table);
+  return {
+    text: `with bounds as (select coalesce(max("ag_position"), 0) as "top", coalesce(min("ag_position"), 0) as "bottom" from ${table} where "ag_position" between -${FAR_ROW_NUMBER} and ${FAR_ROW_NUMBER}), far as (select "id", "ag_position" > 0 as "high", row_number() over (partition by "ag_position" > 0 order by "ag_position", "ag_seq") as "n", count(*) over (partition by "ag_position" > 0) as "total" from ${table} where "ag_position" > ${FAR_ROW_NUMBER} or "ag_position" < -${FAR_ROW_NUMBER}) update ${table} t set "ag_position" = case when f."high" then b."top" + f."n"::numeric / (f."total" + 1) else b."bottom" - (f."total" - f."n" + 1)::numeric / (f."total" + 1) end from far f, bounds b where t."id" = f."id"`,
     values: [],
   };
 }

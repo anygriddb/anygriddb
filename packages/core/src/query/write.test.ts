@@ -199,6 +199,58 @@ describe("write builders", () => {
     }
   });
 
+  it("keeps each row's dates and authors when asked, and refuses bad ones", () => {
+    const author = "11111111-1111-4111-8111-111111111111";
+    const stamp = {
+      createdAt: "2026-03-01T08:15:30.123456Z",
+      updatedAt: "2026-03-02T09:00:00.000001Z",
+      createdBy: author,
+      updatedBy: null,
+    };
+    const statements = buildInserts({
+      table: "t_orders",
+      columns,
+      rows: [{ title: "A" }, {}],
+      seqs: ["7", "9"],
+      stamps: [stamp, stamp],
+    });
+    expect(statements[0]?.statement.text).toBe(
+      `insert into "t_orders" ("title", "ag_seq", "ag_created_at", "ag_updated_at", "ag_created_by", "ag_updated_by") select "c0", "cs", "kc", "ku", "kb", "kw" from (values ($1::text, $2::bigint, $3::timestamptz, $4::timestamptz, $5::uuid, null::uuid, 0)) as r ("c0", "cs", "kc", "ku", "kb", "kw", "n") order by "n" returning "id"`,
+    );
+    expect(statements[0]?.statement.values).toEqual([
+      "A",
+      "7",
+      stamp.createdAt,
+      stamp.updatedAt,
+      author,
+    ]);
+    expect(statements[1]?.statement.text).toBe(
+      `insert into "t_orders" ("ag_seq", "ag_created_at", "ag_updated_at", "ag_created_by", "ag_updated_by") values ($1::bigint, $2::timestamptz, $3::timestamptz, $4::uuid, null::uuid) returning "id"`,
+    );
+    for (const wrong of [
+      { ...stamp, createdAt: "yesterday" },
+      { ...stamp, updatedAt: "2026-03-02 09:00:00" },
+      { ...stamp, createdBy: "someone" },
+    ]) {
+      expect(() =>
+        buildInserts({
+          table: "t_orders",
+          columns,
+          rows: [{ title: "A" }],
+          stamps: [wrong],
+        }),
+      ).toThrow("Invalid");
+    }
+    expect(() =>
+      buildInserts({
+        table: "t_orders",
+        columns,
+        rows: [{ title: "A" }, { title: "B" }],
+        stamps: [stamp],
+      }),
+    ).toThrow("Invalid");
+  });
+
   it("locks rows together, in the order of their ids", () => {
     const first = "aaaaaaaa-0000-4000-8000-000000000001";
     const second = "aaaaaaaa-0000-4000-8000-000000000002";
@@ -275,8 +327,13 @@ describe("write builders", () => {
       `("id", "ag_seq", "ag_created_at", "ag_created_by", "title", "ag_position")`,
     );
     // A row deleted before rows had a place comes back at its number.
+    const place = `coalesce((s."o" ->> 'ag_position')::numeric, (s."o" ->> 'ag_seq')::numeric)`;
+    // A number no table can go on from is not given back.
     expect(restore.text).toContain(
-      `coalesce((s."o" ->> 'ag_position')::numeric, (s."o" ->> 'ag_seq')::numeric)`,
+      `case when (s."o" ->> 'ag_seq')::bigint <= 4503599627370496 then (s."o" ->> 'ag_seq')::bigint else nextval(pg_get_serial_sequence('"t_orders"', 'ag_seq')) end`,
+    );
+    expect(restore.text).toContain(
+      `case when abs(${place}) <= 4503599627370496 then ${place} else nextval('ag_row_position') end`,
     );
     expect(restore.text).not.toContain("ag_status");
     // Its identity is read where the trail holds it; its fields come as
