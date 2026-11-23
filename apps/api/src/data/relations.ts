@@ -33,7 +33,11 @@ import {
   linkMapOf,
   type LinkWriter,
 } from "./row-links.js";
-import { assertOwnRowsStayInRule, readTransaction } from "./rows.js";
+import {
+  assertOwnRowsStayInRule,
+  guardingLongJoins,
+  readTransaction,
+} from "./rows.js";
 import { isForeignKeyViolation } from "./pg-error.js";
 import { isUniqueViolation } from "./schema-ops.js";
 import { selectionFilter } from "./link-selection.js";
@@ -629,14 +633,19 @@ export async function linkCandidates(
   const primary = target.primaryColumn;
   // Only the rows the field's selection keeps (a view, a filter).
   const { filter } = await selectionFilter(db, column);
-  const statement = buildReadRows(targetEngine, {
-    limit,
-    search,
-    fields: primary ? [primary] : [],
-    ...(filter ? { filter } : {}),
-  });
   // In the client's database for a client's table, where the rows live.
-  const rows = await readTransaction(db, targetEngine, (run) => run(statement));
+  const rows = await guardingLongJoins(targetEngine, (guarded) =>
+    readTransaction(db, guarded, (run) =>
+      run(
+        buildReadRows(guarded, {
+          limit,
+          search,
+          fields: primary ? [primary] : [],
+          ...(filter ? { filter } : {}),
+        }),
+      ),
+    ),
+  );
   return rows.map((row) => {
     const value = primary ? row[primary] : null;
     const text = cellText(value);
