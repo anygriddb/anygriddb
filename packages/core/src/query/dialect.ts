@@ -282,13 +282,6 @@ export interface SqlDialect {
   formatTimestamp(sql: string, pattern: string, bind: Bind): string;
   /** Texts joined, nulls skipped. */
   concatAll(parts: readonly string[]): string;
-  /**
-   * The condition that these texts, joined, are longer than the engine's
-   * text holds, where it raises on such a join rather than answer: the
-   * join is blank on that row, and its cell says why. Absent where a text
-   * has no such bound.
-   */
-  joinTooLong?(parts: readonly string[]): string;
   /** Text without spaces at either end. */
   trim(sql: string): string;
   /** The position of `needle` in `haystack` from `start` (0 when absent). */

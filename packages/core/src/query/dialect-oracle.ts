@@ -387,13 +387,6 @@ function firstRead(
   return `cast(from_tz(cast(${ref} as timestamp), ${zoneLiteral(physical.zone)}) at time zone 'UTC' as timestamp(6))`;
 }
 
-/**
- * The bytes a text holds on this instance: 4,000, or 32,767 where it was
- * set to extended strings. The engine says which to anyone who asks: a
- * text padded past 4,000 bytes is cut there, or is not.
- */
-const TEXT_BYTES = `(select case when lengthb(rpad('x', 4001, 'x')) > 4000 then 32767 else 4000 end from dual)`;
-
 export const ORACLE: SqlDialect = {
   name: "oracle",
   boolLiteral: (value) => (value ? "1" : "0"),
@@ -675,10 +668,6 @@ export const ORACLE: SqlDialect = {
   formatTimestamp,
   concatAll: (parts) =>
     parts.length <= 1 ? (parts[0] ?? "null") : `(${parts.join(" || ")})`,
-  // Past its text's size Oracle raises (ORA-01489), and the whole page is
-  // lost for one row. The size is counted in bytes.
-  joinTooLong: (parts) =>
-    `(${parts.map((part) => `coalesce(lengthb(${part}), 0)`).join(" + ")} > ${TEXT_BYTES})`,
   trim: (sql) => `trim(${sql})`,
   locate: (needle, haystack, start, foldCase) => {
     const fold = (s: string) => (foldCase ? `lower(${s})` : s);
