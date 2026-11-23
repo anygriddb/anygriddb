@@ -254,6 +254,12 @@ function quotedNames(column: string): string[] {
 export function checkChoices(
   definition: string | null | undefined,
   column: string,
+  /**
+   * `foldCase` where a name written without quotes has no case of its own
+   * (Oracle): the engine keeps the constraint as it was typed, and the
+   * column in capitals.
+   */
+  options: { foldCase?: boolean } = {},
 ): string[] | null {
   if (!definition || definition.length > 4_000) return null;
   // MySQL prints CHECK_CLAUSE's quotes escaped: `_latin1\'low\'`.
@@ -270,7 +276,10 @@ export function checkChoices(
     skeleton = skeleton.split(name).join(" C ");
   }
   if (/^\w+$/.test(column)) {
-    skeleton = skeleton.replace(new RegExp(`\\b${column}\\b`, "g"), " C ");
+    skeleton = skeleton.replace(
+      new RegExp(`\\b${column}\\b`, options.foldCase ? "gi" : "g"),
+      " C ",
+    );
   }
   skeleton = skeleton.replace(/=/g, " = ");
   const tokens = skeleton

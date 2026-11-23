@@ -49,6 +49,27 @@ describe("checkChoices", () => {
     ).toEqual(["open", "closed"]);
   });
 
+  it("reads a name written without quotes whatever its case, where the engine does", () => {
+    // Oracle keeps the constraint as it was typed and the column in capitals.
+    expect(
+      checkChoices("status in ('draft', 'sent')", "STATUS", { foldCase: true }),
+    ).toEqual(["draft", "sent"]);
+    expect(
+      checkChoices("Status = 'a' or STATUS = 'b'", "STATUS", {
+        foldCase: true,
+      }),
+    ).toEqual(["a", "b"]);
+    // A quoted name is the one written, and another column is still another.
+    expect(
+      checkChoices(`"status" in ('draft')`, "STATUS", { foldCase: true }),
+    ).toBeNull();
+    expect(
+      checkChoices("state in ('draft')", "STATUS", { foldCase: true }),
+    ).toBeNull();
+    // Elsewhere a name keeps its case.
+    expect(checkChoices("status in ('draft')", "STATUS")).toBeNull();
+  });
+
   it("refuses anything else", () => {
     expect(checkChoices("CHECK ((price >= (0)::numeric))", "price")).toBeNull();
     expect(checkChoices("(`qty` > 0)", "qty")).toBeNull();

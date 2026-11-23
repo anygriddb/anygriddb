@@ -229,7 +229,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   source_already_exists: msg`A source already has this name`,
   source_host_not_allowed: msg`This host is not allowed: the operator must allow it`,
   source_engine_unsupported: msg`This engine is not supported yet`,
-  source_version_unsupported: msg`This server version is not supported: PostgreSQL 13, MySQL 8.0, MariaDB 10.6, SQL Server 2017 or later`,
+  source_version_unsupported: msg`This server version is not supported: PostgreSQL 13, MySQL 8.0.16, MariaDB 10.6, SQL Server 2017, Oracle 19c, or later`,
   source_engine_mismatch: msg`The server is not of the chosen engine: MySQL and MariaDB differ`,
   function_unavailable: msg`This database engine cannot compute it`,
   source_time_zones_missing: msg`The server has no time zone tables: ask its administrator to load them (mysql_tzinfo_to_sql)`,

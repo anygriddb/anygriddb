@@ -183,7 +183,7 @@ What each package owns, and where a change usually goes, is the table of
 - **Saving, and the engines.** A source is saved only once a connection succeeded. Its password is encrypted with `AUTH_ENCRYPTION_KEY`, never sent back, and never logged; the audit trail records a change of password by its date.
   - Engines:
     - PostgreSQL 13 or later.
-    - MySQL 8.0.14 and MariaDB 10.6 or later (`mysql2`), declared, checked, and introspected, their tables exposed and read.
+    - MySQL 8.0.16 and MariaDB 10.6 or later (`mysql2`), declared, checked, and introspected, their tables exposed and read.
     - SQL Server 2017 or later (`tedious`), its tables exposed and read through a T-SQL dialect, formulas, lookups, and rollups included: the compiler follows each number's T-SQL `decimal(p, s)` (`packages/core/src/query/digits.ts`) so results stay exact where the declared types allow, and marks the field where they may be rounded.
     - Oracle Database 19c or later (`oracledb`, thin mode, no Oracle client in the image), its tables exposed, read, and written like the others; what its engine does differently (an empty text is NULL, `NUMBER` keeps no scale) is listed in [`docs/sources.md`](docs/sources.md) and under Known limits in the roadmap.
   - On Oracle, a DBA or SYSDBA session is refused. On SQL Server, a sysadmin or an account with CONTROL SERVER is refused. A MySQL or MariaDB server must have its time zone tables (CONVERT_TZ with named zones). On MySQL and MariaDB, an account with a global grant beyond rows (ALL, SUPER, CREATE USER, a `*_ADMIN` privilege, DDL on every schema, or the grant option) is an administrator and refused, and the server must be the engine chosen.
