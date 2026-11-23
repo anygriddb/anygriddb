@@ -8,6 +8,122 @@ first.
 
 ## Unreleased
 
+## 0.6.0 - 2026-11-23
+
+**Before upgrading, check what applies to you:**
+
+- **A MySQL source on 8.0.14 or 8.0.15** is refused when it is saved or
+  checked: the list of its tables reads a view those versions do not have.
+  Move the server to 8.0.16 or later.
+- **A PostgreSQL of your own reached with `sslmode=verify-ca` and
+  `uselibpqcompat=true`** is refused at the start. Read that way, the mode
+  checks the certificate's authority and not the name it was signed for. Use
+  `sslmode=verify-full`.
+- **Formulas:** a formula at the end of a chain of more than fifteen formulas,
+  or whose unit is `ms` or a single letter with an `s`, is refused when saved;
+  one already saved shows an error where it showed a blank, or computed with
+  months. `IS_BEFORE` and `IS_AFTER` are blank on values that name no date,
+  where they compared texts. `POWER` is blank past 65,000 digits. A rollup
+  that counts values counts a zero and an unticked box. A group or a sort no
+  longer tells an empty text or an emptied list from a cell never filled, and
+  a formula in error reads blank whatever else it wrote.
+- **Scripts that call the application's own procedures:** `catalog.grant`
+  changes the role of a member of the base only. Any other address, with an
+  account or without, is refused (`not_a_member`) and is invited instead
+  (`catalog.invite`). A base or a table that is not there answers 403
+  `access_denied`, as one the caller has no role on, where it answered 404.
+- **REST API:** `limit` and `offset` are read in digits only: `limit=0x10` and
+  `limit=1e3` answer 400. A path or a query that cannot be read answers 400
+  with its code, where it answered 500. An update with no field of a row that
+  is not there is refused, where it said the row was updated. A body that is
+  no upload answers 415 on the upload routes, where they answered 413 or 406.
+- **Monitoring:** a path under a prefix of the API that no route answers is a
+  404, and no longer the application's page: a probe set by mistake on
+  `/healthz/x` or `/readyz/x` now fails, as it should have. A read stopped by
+  its time limit answers 503 `read_timeout`, where it answered 500, and every
+  503 says when to ask again (`Retry-After`).
+
+### Security
+
+- **An answer no longer tells whether an address has an account.** Giving a
+  role by address took effect at once for an address that has one, and said
+  "unknown account" for one that has none. An address with no account now
+  locks after the instance's count of failed sign-ins, as an account does.
+- **Nor whether an id names anything, to someone with no role on it:** a base
+  or a table that is not there answers as one that is.
+- **A webhook automation's secret address** answers the same 404 whatever the
+  body: one too large, or that was no JSON, answered 413 or 400 before the
+  secret was read.
+- **An address the server cannot read** (a stray percent sign) gets the
+  security headers of every other answer, and no longer names the framework's
+  own code nor sends the path back.
+- **A forged passkey answer** (its origin, its challenge, or its relying
+  party) is refused 401. It was refused as a fault of the server.
+
+### Added
+
+- **Calendar:** a day counts every row it does not draw, those the calendar's
+  page of a thousand did not read included, and its count opens the rows of
+  that day. The calendar says when its page does not hold them all.
+- **The REST API's document** describes the routes that list the bases, a
+  base's tables, and the document itself, a list's `timeZone`, a record's
+  `fieldKey`, and the `X-Reason` a write gives. A list's parameters are
+  written from the schema the list is read with.
+- **MCP:** arguments a tool's schema does not take answer the short JSON with
+  a code (`invalid_input`) that a tool's other refusals have.
+
+### Changed
+
+- **What someone else changes reaches the open screens:** a shared view made,
+  renamed, ordered or removed; a member taken out of a base, who reads at once
+  that it is not shared with them; a dashboard's figure after its field is
+  removed.
+- **A read that failed says so,** with a way to try again, where it was drawn
+  as nothing: Administration's first page said that nothing needed attention,
+  a public link or an invitation that it did not exist, a base's dashboards
+  and its earlier changes that there were none.
+- **A base's file is counted as an upload,** 120 a minute per address, with
+  attachments and imports.
+- **The trash of a table** lists the last delete of each row, and the comments
+  of a row are its latest five hundred.
+- **The guides** say how to run their commands on an install of the published
+  image and what an install needs, and name every series of `/metrics`. The
+  limits and the sizes they give are read against the code by a test.
+
+### Fixed
+
+- **A client's columns read exactly:** SQL Server's money and floats, a
+  PostgreSQL `real`, a MySQL `TIME` from 32 hours on, binaries. A rowversion,
+  or a text holding a nul byte, can be sealed. A seal carries the format of
+  the reading that made it: an upgrade raises no alert for a row nobody
+  changed, and seals it again in the current format, with an entry in its
+  trail.
+- **A formula the server takes is one it runs.** One whose argument was bound
+  and never read (`YEAR(1)`) cost its table every read, its export, and its
+  rows through the API. One row out of reach no longer fails the page.
+- **Dates in formulas** compare and order as dates: `IS_BEFORE` and `IS_AFTER`
+  compared texts by their letters, and `MIN` and `MAX` were blank on dates.
+- **A lookup of a lookup and a rollup of a rollup** read their value. They
+  were taken when saved, then read empty or zero.
+- **SQL Server:** `JSON_EXTRACT` reads a value past 4,000 characters, which it
+  read as blank.
+- **Oracle:** a row whose formula joins texts past what a text holds there no
+  longer loses the page: the join is blank on that row, and its cell says that
+  the text is too long. A check typed in lower case makes its single select.
+- **REST API and procedures:** the accounts sort by last sign-in; the tables of
+  a source that is not there answer "unknown source" every time; an update of
+  a base or a table that changes nothing no longer fails; a method no
+  procedure answers (`TRACE`) is refused 405; a reason that does not decode
+  (`X-Reason` with a bare percent sign) is kept as sent.
+- **Screens:** a list says its ceiling of five thousand rows in a table with
+  no link to nest by; with no network, a link to a page not yet loaded leaves
+  the application in place, and the page comes back with the network; the
+  dialog of a new row no longer offers a link it then refused the row for.
+- **Trash:** a row deleted and put back many times no longer hides the other
+  rows of the trash, nor makes a restore of several rows fail.
+- **Scripts:** the usage written at the head of the backup, restore and
+  PostgreSQL upgrade scripts is the usage that works.
+
 ## 0.5.0 - 2026-11-23
 
 **Before upgrading, check what applies to you:**
