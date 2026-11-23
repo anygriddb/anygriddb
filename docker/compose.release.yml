@@ -22,6 +22,11 @@ services:
     build: !reset null
     pull_policy: missing
 
+  indexes:
+    image: ${ANYGRIDDB_IMAGE:?set ANYGRIDDB_IMAGE}@${ANYGRIDDB_DIGEST:?set ANYGRIDDB_DIGEST}
+    build: !reset null
+    pull_policy: missing
+
   app:
     image: ${ANYGRIDDB_IMAGE:?set ANYGRIDDB_IMAGE}@${ANYGRIDDB_DIGEST:?set ANYGRIDDB_DIGEST}
     build: !reset null

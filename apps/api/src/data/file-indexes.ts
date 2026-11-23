@@ -26,6 +26,41 @@ type Log = {
   error: (fields: object, message: string) => void;
 };
 
+/** Every file field of the instance's own tables. */
+function fileFields(db: Database) {
+  return db
+    .selectFrom("dataColumns as c")
+    .innerJoin("dataTables as t", "t.id", "c.tableId")
+    .select(["t.physicalName as table", "c.name as column"])
+    .where("c.fieldType", "=", "attachment")
+    .where("t.storage", "=", "native")
+    .execute();
+}
+
+/**
+ * How many file fields have no usable index: what a role that cannot build
+ * them tells its operator at the start.
+ */
+export async function fileIndexesMissing(db: Database): Promise<number> {
+  const usable = new Map<string, Set<string>>();
+  let missing = 0;
+  for (const field of await fileFields(db)) {
+    let columns = usable.get(field.table);
+    if (!columns) {
+      const states = await runStatement<IndexState>(
+        db,
+        buildFileIndexStates(field.table),
+      );
+      columns = new Set(
+        states.filter((state) => state.valid).map((state) => state.column),
+      );
+      usable.set(field.table, columns);
+    }
+    if (!columns.has(field.column)) missing += 1;
+  }
+  return missing;
+}
+
 /** Whether every file field the engine reads has a usable index. */
 export async function fileFieldsIndexed(
   db: Database,
@@ -56,13 +91,7 @@ export async function buildFileIndexes(
   connectionString: string,
   log: Log,
 ): Promise<void> {
-  const fields = await db
-    .selectFrom("dataColumns as c")
-    .innerJoin("dataTables as t", "t.id", "c.tableId")
-    .select(["t.physicalName as table", "c.name as column"])
-    .where("c.fieldType", "=", "attachment")
-    .where("t.storage", "=", "native")
-    .execute();
+  const fields = await fileFields(db);
   if (fields.length === 0) return;
   const client = new pg.Client({
     connectionString,

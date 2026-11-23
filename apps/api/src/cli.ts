@@ -250,12 +250,6 @@ async function databasePrepare(args: string[]): Promise<number> {
       return 1;
     }
     await grantRuntimeRole(pool, values.role);
-    // The role cannot build these, and a read works without them: one that
-    // fails is said, and tried again at the next start.
-    await buildFileIndexes(db, url, {
-      info: (_fields, text) => process.stdout.write(`${text}\n`),
-      error: (_fields, text) => process.stderr.write(`${text}\n`),
-    });
     process.stdout.write(`The database is ready for ${values.role}.\n`);
     return 0;
   } finally {

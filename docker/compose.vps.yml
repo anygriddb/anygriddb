@@ -31,6 +31,9 @@ services:
   prepare:
     <<: *anygriddb-vps-image
 
+  indexes:
+    <<: *anygriddb-vps-image
+
   app:
     <<: *anygriddb-vps-image
     ports: !override

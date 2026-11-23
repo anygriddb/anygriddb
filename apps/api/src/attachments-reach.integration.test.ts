@@ -12,7 +12,11 @@ import { loadBindings } from "./auth/access.js";
 import { keyRing } from "./auth/key-ring.js";
 import { createApiToken } from "./auth/tokens.js";
 import { withAudit } from "./data/audit-context.js";
-import { buildFileIndexes, fileFieldsIndexed } from "./data/file-indexes.js";
+import {
+  buildFileIndexes,
+  fileFieldsIndexed,
+  fileIndexesMissing,
+} from "./data/file-indexes.js";
 import { readerEngine } from "./data/acl.js";
 import { insertBase, insertTable } from "./data/schema-ops.js";
 import type { Env } from "./env.js";
@@ -199,8 +203,10 @@ describe("which file a key opens", () => {
       bindings: await loadBindings(db, owner),
     });
     expect(await fileFieldsIndexed(db, engine)).toBe(false);
+    expect(await fileIndexesMissing(db)).toBe(1);
     await buildFileIndexes(db, url, { error: vi.fn(), info: vi.fn() });
     expect(await fileFieldsIndexed(db, engine)).toBe(true);
+    expect(await fileIndexesMissing(db)).toBe(0);
 
     // An index a failed build left behind does not count, and is rebuilt.
     await runStatement(ownerDb, {

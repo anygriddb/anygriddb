@@ -283,7 +283,7 @@ services:
   # credentials of the role that owns the tables (ADR 0119). It runs the
   # migrations and gives the application's role its rights, at each start:
   # a restored database comes without them.
-  prepare:
+  prepare: &owner-step
     <<: *anygriddb-image
     restart: "no"
     security_opt:
@@ -304,6 +304,14 @@ services:
         condition: service_healthy
     networks:
       - internal
+
+  # On demand, as the tables' owner: `docker compose run --rm indexes` builds
+  # the index of a file field that has none, beside the writes. The
+  # application's log says when one is missing; files are served meanwhile.
+  indexes:
+    <<: *owner-step
+    profiles: ["maintenance"]
+    command: ["anygriddb", "database", "indexes"]
 
   app:
     <<: *anygriddb-image
