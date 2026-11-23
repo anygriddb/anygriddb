@@ -1302,7 +1302,70 @@ export async function deleteRows(
   return { ids: [...rowIds], touchedTables };
 }
 
-/** Latest `delete` snapshot of each row, for rows that do not exist now. */
+type LastDelete = {
+  id: string;
+  recordId: string | null;
+  oldValue: unknown;
+  occurredAt: Date;
+  userId: string;
+  displayName: string;
+};
+
+/**
+ * The last `delete` of each row of a table, newest first: one event a
+ * row, however often the row was deleted and put back.
+ */
+function lastDeletes(
+  db: Database,
+  tableId: string,
+  input: {
+    rowIds: readonly string[] | null;
+    deletedBy: string | undefined;
+    limit: number;
+    offset: number;
+  },
+): Promise<LastDelete[]> {
+  let each = db
+    .selectFrom("auditEvents as e")
+    .distinctOn("e.recordId")
+    .select(["e.id", "e.recordId", "e.oldValue", "e.occurredAt", "e.userId"])
+    .where("e.tableId", "=", tableId)
+    .where("e.action", "=", "delete")
+    .where("e.recordId", "is not", null);
+  if (input.rowIds) each = each.where("e.recordId", "in", [...input.rowIds]);
+  let last = db
+    .selectFrom(
+      each
+        .orderBy("e.recordId")
+        .orderBy("e.occurredAt", "desc")
+        .orderBy("e.id", "desc")
+        .as("d"),
+    )
+    .innerJoin("users as u", "u.id", "d.userId")
+    .select([
+      "d.id",
+      "d.recordId",
+      "d.oldValue",
+      "d.occurredAt",
+      "d.userId",
+      "u.displayName",
+    ]);
+  // Only the rows whose last delete is this account's.
+  if (input.deletedBy) last = last.where("d.userId", "=", input.deletedBy);
+  return last
+    .orderBy("d.occurredAt", "desc")
+    .orderBy("d.id", "desc")
+    .limit(input.limit)
+    .offset(input.offset)
+    .execute();
+}
+
+/**
+ * Latest `delete` snapshot of each row, for rows that do not exist now,
+ * newest first. It reads rows, not a window of events: a row deleted and
+ * put back many times filled such a window alone, and hid every other row
+ * of the trash, or made a restore of several rows miss one of them.
+ */
 async function deletedSnapshots(
   db: Database,
   context: { tableId: string; physicalName: string },
@@ -1321,52 +1384,6 @@ async function deletedSnapshots(
   }>
 > {
   if (rowIds?.length === 0) return [];
-  if (deletedBy && !rowIds) {
-    // The rows this account deleted; each is kept below only when its
-    // last delete is still theirs.
-    const own = await db
-      .selectFrom("auditEvents")
-      .select("recordId")
-      .where("tableId", "=", context.tableId)
-      .where("action", "=", "delete")
-      .where("userId", "=", deletedBy)
-      .orderBy("occurredAt", "desc")
-      .limit(limit * 4)
-      .execute();
-    const ids = [...new Set(own.flatMap((event) => event.recordId ?? []))];
-    return deletedSnapshots(db, context, ids, limit, deletedBy);
-  }
-  let query = db
-    .selectFrom("auditEvents as e")
-    .innerJoin("users as u", "u.id", "e.userId")
-    .select([
-      "e.id",
-      "e.recordId",
-      "e.oldValue",
-      "e.occurredAt",
-      "e.userId",
-      "u.displayName",
-    ])
-    .where("e.tableId", "=", context.tableId)
-    .where("e.action", "=", "delete");
-  if (rowIds) query = query.where("e.recordId", "in", [...rowIds]);
-  const events = await query
-    .orderBy("e.occurredAt", "desc")
-    .limit(rowIds ? rowIds.length * 4 : limit * 4)
-    .execute();
-  const latest = new Map<string, (typeof events)[number]>();
-  for (const event of events) {
-    if (event.recordId && !latest.has(event.recordId)) {
-      latest.set(event.recordId, event);
-    }
-  }
-  const ids = [...latest.keys()];
-  if (ids.length === 0) {
-    return [];
-  }
-  const existing = buildExistingIds({ table: context.physicalName, ids });
-  const present = await runStatement(db, existing);
-  const alive = new Set(present.map((row) => String(row.id)));
   const result: Array<{
     recordId: string;
     eventId: string;
@@ -1374,25 +1391,41 @@ async function deletedSnapshots(
     deletedAt: string;
     deletedBy: string;
   }> = [];
-  for (const [recordId, event] of latest) {
-    if (
-      alive.has(recordId) ||
-      !event.oldValue ||
-      typeof event.oldValue !== "object" ||
-      (deletedBy !== undefined && event.userId !== deletedBy)
-    ) {
-      continue;
-    }
-    result.push({
-      recordId,
-      eventId: event.id,
-      snapshot: event.oldValue as Record<string, unknown>,
-      deletedAt: event.occurredAt.toISOString(),
-      deletedBy: event.displayName,
+  // Rows put back since are passed over: read on until the page is full.
+  const page = rowIds ? rowIds.length : Math.max(limit * 2, 50);
+  for (let offset = 0; result.length < limit; offset += page) {
+    const events = await lastDeletes(db, context.tableId, {
+      rowIds,
+      deletedBy,
+      limit: page,
+      offset,
     });
-    if (result.length >= limit) {
-      break;
+    const ids = events.flatMap((event) => event.recordId ?? []);
+    if (ids.length === 0) break;
+    const present = await runStatement(
+      db,
+      buildExistingIds({ table: context.physicalName, ids }),
+    );
+    const alive = new Set(present.map((row) => String(row.id)));
+    for (const event of events) {
+      if (
+        !event.recordId ||
+        alive.has(event.recordId) ||
+        !event.oldValue ||
+        typeof event.oldValue !== "object"
+      ) {
+        continue;
+      }
+      result.push({
+        recordId: event.recordId,
+        eventId: event.id,
+        snapshot: event.oldValue as Record<string, unknown>,
+        deletedAt: event.occurredAt.toISOString(),
+        deletedBy: event.displayName,
+      });
+      if (result.length >= limit) break;
     }
+    if (events.length < page) break;
   }
   return result;
 }
