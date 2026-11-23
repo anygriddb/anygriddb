@@ -90,7 +90,7 @@ It is append-only, kept six months to a year as the instance says, and cleared o
 
 ### What the application's database account can do
 
-Under Compose the application signs in to PostgreSQL as a role that owns no table. A one-shot service alone holds the owner's credentials, for the migrations. Stolen, the application's account cannot rewrite the change trail, the signatures, or the sign-in trail, delete what they must keep, change a signed row without a trace, or alter a table. It could still add an event or a signature in someone's name, since the application says who acts (ADR 0119).
+Under Compose the application signs in to PostgreSQL as a role that owns no table. A one-shot service alone holds the owner's credentials, for the migrations. Stolen, the application's account cannot rewrite the change trail, the signatures, or the sign-in trail, or change or remove a value a locked or signed row holds. It could still add an event or a signature in someone's name, since the application says who acts. Unlocking a row, dropping a table, erasing an account, or purging events past a year each leave an event it cannot remove (ADR 0119).
 
 ### An administrator's way into data
 

@@ -30,6 +30,7 @@ import {
   stageImport,
 } from "./import-commit.js";
 import { purgeStagedUploads } from "./staged-uploads.js";
+import { insertRows, setRowStatus, signRow } from "./rows.js";
 import { insertBase, insertTable } from "./schema-ops.js";
 import {
   dueTrashItems,
@@ -435,6 +436,84 @@ describe("jobs, trash, and authors", () => {
   });
 
   describe("a view and a field in the trash", () => {
+    it("keeps a field a signed row holds a value in, and purges an empty one", async () => {
+      const baseId = (await insertBase(db, owner, { name: "Signed" })).id;
+      const tableId = (
+        await insertTable(db, owner, {
+          baseId,
+          name: "Reviewed",
+          columns: [
+            { name: "title", label: "Title", fieldType: "text" },
+            { name: "remark", label: "Remark", fieldType: "text" },
+            { name: "unused", label: "Unused", fieldType: "text" },
+          ],
+        })
+      ).id;
+      const table = await db
+        .selectFrom("dataTables")
+        .selectAll()
+        .where("id", "=", tableId)
+        .executeTakeFirstOrThrow();
+      const { engine } = await loadEngine(db, tableId, () => true);
+      const [rowId] = await insertRows(
+        db,
+        engine,
+        {
+          userId: owner,
+          tableId,
+          physicalName: table.physicalName,
+          baseId,
+          reason: null,
+          source: "test",
+        },
+        [{ title: "a", remark: "as signed" }],
+      );
+      for (const status of ["submitted", "locked"] as const) {
+        await setRowStatus(db, {
+          userId: owner,
+          role: "owner",
+          table,
+          rowId: rowId ?? "",
+          status,
+        });
+      }
+      await signRow(db, {
+        userId: owner,
+        table,
+        rowId: rowId ?? "",
+        meaning: "Reviewed",
+      });
+      await trashColumn(db, owner, table, "remark");
+      await trashColumn(db, owner, table, "unused");
+      const idOf = async (name: string) =>
+        (
+          await db
+            .selectFrom("dataColumns")
+            .select("id")
+            .where("tableId", "=", tableId)
+            .where("name", "=", name)
+            .executeTakeFirstOrThrow()
+        ).id;
+      const deps = {
+        db,
+        files: new DiskStore(await mkdtemp(join(tmpdir(), "anygriddb-files-"))),
+        log: vi.fn(),
+      };
+      const remark = await idOf("remark");
+      expect(
+        await purgeItem(deps, { kind: "column", id: remark, actorId: owner }),
+      ).toBe(false);
+      expect(deps.log).toHaveBeenCalledOnce();
+      expect(await idOf("remark")).toBe(remark);
+      expect(
+        await purgeItem(deps, {
+          kind: "column",
+          id: await idOf("unused"),
+          actorId: owner,
+        }),
+      ).toBe(true);
+    });
+
     it("keeps the field's place and settings in a view saved meanwhile", async () => {
       const baseId = (await insertBase(db, owner, { name: "Kept" })).id;
       const tableId = (

@@ -200,4 +200,116 @@ describe("the role the application signs in as", () => {
       /permission denied|must be owner/,
     );
   });
+
+  describe("through the functions of the tables' owner", () => {
+    const within = async <T>(work: (client: pg.PoolClient) => Promise<T>) => {
+      const client = await pool.connect();
+      try {
+        await client.query("begin");
+        return await work(client);
+      } finally {
+        await client.query("rollback").catch(() => undefined);
+        client.release();
+      }
+    };
+    const oldEvent = (client: pg.PoolClient) =>
+      client.query(
+        `insert into audit_events (user_id, action, occurred_at)
+         values ($1, 'update', now() - interval '800 days')`,
+        [userId],
+      );
+
+    it("cannot empty a signed value by converting its field", async () => {
+      await expect(
+        inTransaction(
+          `select ag_conversion_add_column('${table}', 'amount', 'number')`,
+          `select ag_conversion_switch('${table}', 'amount')`,
+        ),
+      ).rejects.toThrow(/Row locked/);
+      expect(await held()).toEqual({ amount: "10", status: "signed" });
+    });
+
+    it("cannot drop a field a signed row holds a value in", async () => {
+      await expect(
+        inTransaction(`select ag_drop_column('${table}', 'amount')`),
+      ).rejects.toThrow(/Row locked/);
+      expect(await held()).toEqual({ amount: "10", status: "signed" });
+    });
+
+    it("drops a field no signed row holds a value in", async () => {
+      await within(async (client) => {
+        await client.query(
+          `select ag_add_column('${table}', 'later', 'text', null)`,
+        );
+        await client.query(`select ag_drop_column('${table}', 'later')`);
+      });
+    });
+
+    it("leaves an event when a table holding a signed row is dropped", async () => {
+      await within(async (client) => {
+        await client.query(`select ag_drop_table('${table}')`);
+        const { rows } = await client.query<{ rows: string }>(
+          `select new_value #>> '{dropped,lockedOrSignedRows}' as rows
+             from audit_events
+            where action = 'catalog' and catalog_table = 'structure'
+              and new_value #>> '{dropped,table}' = $1`,
+          [table],
+        );
+        expect(rows).toEqual([{ rows: "1" }]);
+      });
+    });
+
+    it("purges nothing of a trail the instance keeps for ever", async () => {
+      await within(async (client) => {
+        await oldEvent(client);
+        const { rows } = await client.query<{ gone: number }>(
+          "select ag_purge_audit_events(365, now(), 10) as gone",
+        );
+        expect(rows[0]?.gone).toBe(0);
+      });
+    });
+
+    it("says what a purge took, called by whoever", async () => {
+      await within(async (client) => {
+        await client.query(
+          `insert into instance_settings (key, value, updated_by)
+           values ('auditRetentionDays', '365', $1)
+           on conflict (key) do update set value = excluded.value`,
+          [userId],
+        );
+        await oldEvent(client);
+        const { rows } = await client.query<{ gone: number }>(
+          "select ag_purge_audit_events(365, now(), 10) as gone",
+        );
+        expect(rows[0]?.gone).toBeGreaterThan(0);
+        const said = await client.query<{ events: number }>(
+          `select (new_value ->> 'events')::int as events
+             from audit_events where action = 'purge' and source = 'retention'`,
+        );
+        expect(said.rows).toEqual([{ events: rows[0]?.gone }]);
+      });
+    });
+
+    it("leaves an event when it erases an account", async () => {
+      await within(async (client) => {
+        const made = await client.query<{ id: string }>(
+          `insert into users (email, display_name)
+           values ($1, 'Erin Erased') returning id`,
+          [`erased-${randomBytes(4).toString("hex")}@example.org`],
+        );
+        const count = async () =>
+          (
+            await client.query<{ events: number }>(
+              `select count(*)::int as events from auth_events
+                where action = 'account_erased'`,
+            )
+          ).rows[0]?.events;
+        const before = await count();
+        await client.query("select ag_erase_account($1::uuid)", [
+          made.rows[0]?.id,
+        ]);
+        expect(await count()).toBe((before ?? 0) + 1);
+      });
+    });
+  });
 });

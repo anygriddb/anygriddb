@@ -34,6 +34,11 @@ new value, stayed signed, and the trail did not move.
   install signs in as that role, `anygriddb_app`, with a password made once
   beside the services' certificates. The one-shot `prepare` service alone
   holds the owner's credentials.
+- **The owner's functions hold the same line.** The role calls them, so each
+  keeps what it could otherwise take away. A value a locked or signed row holds
+  is neither dropped nor converted. A table or a link that goes, a purge, and
+  an erasure write their own event, whoever called them, and a purge takes
+  nothing the instance's retention keeps.
 - **An index is not built before the start.** On a very large table it can
   take hours. The application names what is missing, files are served
   correctly meanwhile, and `docker compose run --rm indexes` builds it.
@@ -45,9 +50,11 @@ nothing from these checks: that account is the owner. It says so in its start
 log and in Administration > Health.
 
 The application stays the authority on who acts, since it says so to the
-database. A stolen application account could still add an event or a signature
-in someone's name. It could not delete or rewrite what is there, nor change a
-signed row without leaving a trace.
+database. A stolen application account could still add an event or a signature in
+someone's name. It could unlock a row, drop a table, erase an account, or change
+the retention and purge what is past a year: each leaves an event it cannot
+remove. It could not rewrite what the trails hold, nor change a value a locked
+or signed row holds without first unlocking it on the trail.
 
 ## Rejected
 

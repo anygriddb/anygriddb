@@ -7,9 +7,7 @@
 import type { InstanceSettings } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
-import { ERASED_USER_ID } from "./erasure.js";
 
-const DAY_MS = 86_400_000;
 /** Events one statement deletes: far inside the pool's time for one. */
 const BATCH = 5_000;
 /** How long one run goes on: a trail of years empties over several days. */
@@ -44,11 +42,11 @@ export async function purgeAuditEvents(
   now: Date = new Date(),
 ): Promise<number> {
   if (days === 0) return 0;
-  const before = new Date(now.getTime() - days * DAY_MS);
   const until = Date.now() + RUN_MS;
   let events = 0;
   for (;;) {
-    // The trail's owner deletes, within its own limits (ADR 0119).
+    // The trail's owner deletes, within the instance's retention, and
+    // writes what went on the trail itself (ADR 0119).
     const { rows } = await sql<{ gone: number }>`
       select ag_purge_audit_events(${days}::int, ${now}::timestamptz, ${BATCH}::int) as gone
     `.execute(db);
@@ -56,28 +54,5 @@ export async function purgeAuditEvents(
     events += deleted;
     if (deleted < BATCH || Date.now() > until) break;
   }
-  if (events === 0) return 0;
-  // Under the name of who chose how long the trail is kept; the erased
-  // account stands for someone who has since left.
-  const chosen = await db
-    .selectFrom("instanceSettings")
-    .select("updatedBy")
-    .where("key", "=", "auditRetentionDays")
-    .executeTakeFirst();
-  const record: PurgeRecord = { events, before: before.toISOString(), days };
-  await db
-    .insertInto("auditEvents")
-    .values({
-      userId: chosen?.updatedBy ?? ERASED_USER_ID,
-      action: "purge",
-      tableId: null,
-      recordId: null,
-      oldValue: null,
-      newValue: record,
-      reason: null,
-      source: "retention",
-      occurredAt: now,
-    })
-    .execute();
   return events;
 }

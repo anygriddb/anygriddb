@@ -13,13 +13,18 @@ first.
 - **The application no longer signs in as the owner of its tables.** Under
   Compose, a one-shot service, `prepare`, holds the owner's credentials, runs
   the migrations and gives the application a role of its own, `anygriddb_app`,
-  with a password made once. That role cannot rewrite the change trail, the
-  signatures or the sign-in trail, delete what they must keep, change a signed
-  row without a trace, or alter a table. Nothing to do when upgrading with the
+  with a password made once. That role cannot rewrite the change trail, the signatures or the sign-in trail, or change or remove a value a locked or signed row holds. What it can still do is written on the trail: unlock a row, drop a table, erase an account, purge events past the retention. Nothing to do when upgrading with the
   release's Compose files. On a PostgreSQL of your own, an instance keeps
   working as it was and says so in Administration > Health; the operations
   guide gives the two steps. A refused upgrade or a failed migration is now in
   `docker compose logs prepare`.
+- **A field a locked or signed row holds a value in stays in the trash** until
+  that row is unlocked, which the trail records. Purging it would have left a
+  record shown as signed without what was signed.
+- **The retention purge and an account's erasure write their own event**, in
+  the database, whatever called them. The purge takes nothing the instance's
+  retention keeps.
+
 - **The change trail answers to the role that owns it.** A setting any database
   session could write was enough to delete an event, give it to another author,
   or change the catalog with no event. It now counts only for the owner of the
