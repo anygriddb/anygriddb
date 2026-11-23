@@ -336,6 +336,20 @@ export function hasReason(cause: unknown): boolean {
   return givenReason(cause) !== undefined;
 }
 
+/**
+ * Whether the server answered with one of these codes. A read that failed
+ * another way (the server down, the network gone, too many requests) did
+ * not say so: a page must not tell a person that what they asked for does
+ * not exist when it only could not be read.
+ */
+export function refusedAs(
+  cause: unknown,
+  ...codes: readonly ErrorCode[]
+): boolean {
+  const reason = givenReason(cause);
+  return reason !== undefined && codes.includes(reason.code);
+}
+
 function givenReason(cause: unknown): Reason | undefined {
   if (!cause || typeof cause !== "object") return;
   if ("data" in cause && cause.data && typeof cause.data === "object") {

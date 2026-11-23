@@ -4,7 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { InstanceMark } from "../brand/instance-mark";
+import { refusedAs } from "../../lib/errors";
 import { AboutButton } from "../shell/about-dialog";
+import { LoadFailed } from "../shell/load-failed";
 import { PublicRows, readProof, ShareLocked } from "./public-view";
 
 /**
@@ -54,6 +56,17 @@ export function PublicBase({ token }: { token: string }) {
       <div className="flex h-screen items-center justify-center">
         <Spinner />
       </div>
+    );
+  }
+  // A link that could not be read is not a link that does not exist: only
+  // the server says that one.
+  if (opened.isError && !refusedAs(opened.error, "unknown_share")) {
+    return (
+      <LoadFailed
+        fullScreen
+        error={opened.error}
+        onRetry={() => void opened.refetch()}
+      />
     );
   }
   if (opened.isError || !opened.data) {

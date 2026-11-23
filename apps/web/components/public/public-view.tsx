@@ -22,9 +22,10 @@ import { FormField, formFieldIds } from "../views/form-field";
 import { FieldInput, FORM_TIME_ZONE, formKinds } from "../views/form-view";
 import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
-import { useErrorText } from "../../lib/errors";
+import { refusedAs, useErrorText } from "../../lib/errors";
 import { InstanceMark } from "../brand/instance-mark";
 import { AboutButton } from "../shell/about-dialog";
+import { LoadFailed } from "../shell/load-failed";
 import { SortHeader } from "../sort-header";
 import {
   readingGiven,
@@ -590,6 +591,17 @@ export function PublicView({ token }: { token: string }) {
       <div className="flex h-screen items-center justify-center">
         <Spinner />
       </div>
+    );
+  }
+  // A link that could not be read is not a link that does not exist: only
+  // the server says that one.
+  if (opened.isError && !refusedAs(opened.error, "unknown_share")) {
+    return (
+      <LoadFailed
+        fullScreen
+        error={opened.error}
+        onRetry={() => void opened.refetch()}
+      />
     );
   }
   if (opened.isError || !opened.data) {

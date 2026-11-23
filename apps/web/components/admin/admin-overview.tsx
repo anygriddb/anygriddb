@@ -9,6 +9,7 @@ import { useTRPC } from "../../lib/trpc";
 import type { AccountsSearch } from "./accounts-search";
 import { useReadsAll } from "./admin-access";
 import { useAlertText } from "./alerts-section";
+import { LoadFailed } from "../shell/load-failed";
 
 /** Counting only: the total comes back with the first row. */
 const COUNT = { offset: 0, limit: 1 } as const;
@@ -171,6 +172,21 @@ export function AdminOverview() {
   }
 
   if (queries.some((query) => query.isLoading)) return <Spinner />;
+  // A read that failed is no count of zero: nothing below may then say
+  // that all is well.
+  const failed = queries.find((query) => query.isError);
+  if (failed) {
+    return (
+      <LoadFailed
+        error={failed.error}
+        onRetry={() => {
+          for (const query of queries) {
+            if (query.isError) void query.refetch();
+          }
+        }}
+      />
+    );
+  }
   const usageNow = usage.data?.current;
   return (
     <div className="flex flex-col gap-4">

@@ -6,7 +6,8 @@ import { useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import { useRoleLabel } from "../settings/role-label";
 import { useLingui } from "@lingui/react/macro";
-import { useErrorText } from "../../lib/errors";
+import { refusedAs, useErrorText } from "../../lib/errors";
+import { LoadFailed } from "../shell/load-failed";
 import { InstanceMark } from "../brand/instance-mark";
 
 export function InvitationPage({ token }: { token: string }) {
@@ -29,7 +30,14 @@ export function InvitationPage({ token }: { token: string }) {
         <InstanceMark className="h-7 w-7" named />
         {preview.isLoading ? <Spinner /> : null}
         {preview.isError ? (
-          <p>{t`This invitation does not exist or has expired.`}</p>
+          refusedAs(preview.error, "invalid_invitation") ? (
+            <p>{t`This invitation does not exist or has expired.`}</p>
+          ) : (
+            <LoadFailed
+              error={preview.error}
+              onRetry={() => void preview.refetch()}
+            />
+          )
         ) : null}
         {preview.data ? (
           <>
