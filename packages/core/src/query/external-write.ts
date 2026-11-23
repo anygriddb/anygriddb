@@ -19,7 +19,7 @@ import type { EngineColumn, EngineTable, PhysicalColumn } from "./engine";
 import { parseIsoInstant } from "./iso-instant";
 import { quoteExternalIdent, SqlParams, type ParameterizedSql } from "./params";
 import { tableSql } from "./storage";
-import { trimEndRun } from "../plain-text";
+import { cutAt, trimEndRun } from "../plain-text";
 
 /** A client column, with where and how it is stored. */
 export type StoredColumn = EngineColumn & { physical: PhysicalColumn };
@@ -135,7 +135,7 @@ function declared(type: string | undefined): string | undefined {
 }
 
 function baseType(type: string): string {
-  return type.toLowerCase().replace(/\(.*$/, "").replace(/\s+/g, " ").trim();
+  return cutAt(type.toLowerCase(), "(").replace(/\s+/g, " ").trim();
 }
 
 /**

@@ -3,7 +3,7 @@
  * from PUBLIC_URL; the IdP certificate is PEM text (not a sealed secret).
  */
 import { X509Certificate } from "node:crypto";
-import { AppError } from "@anygriddb/core";
+import { AppError, trimEndRun } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { recordAuthEvent } from "../auth/auth-events.js";
@@ -132,7 +132,7 @@ export function loadSamlRow(db: Database): Promise<SamlRow | null> {
 }
 
 export function samlCallbackUrl(publicUrl: string): string {
-  return `${publicUrl.replace(/\/+$/, "")}/auth/saml/acs`;
+  return `${trimEndRun(publicUrl, "/")}/auth/saml/acs`;
 }
 
 export function publicSaml(row: SamlRow | null, publicUrl: string): PublicSaml {

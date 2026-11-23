@@ -1,4 +1,4 @@
-import { toDecimalString } from "@anygriddb/core";
+import { toDecimalString, trimEndRun } from "@anygriddb/core";
 
 type SelectionSummary = {
   /** Cells the range covers among the loaded rows. */
@@ -30,7 +30,7 @@ function fromUnits(count: bigint, scale: number): string {
     .toString()
     .padStart(scale + 1, "0");
   const whole = digits.slice(0, digits.length - scale);
-  const fraction = digits.slice(digits.length - scale).replace(/0+$/, "");
+  const fraction = trimEndRun(digits.slice(digits.length - scale), "0");
   const text = fraction ? `${whole}.${fraction}` : whole;
   return negative && /[1-9]/.test(text) ? `-${text}` : text;
 }

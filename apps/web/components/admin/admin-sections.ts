@@ -1,3 +1,4 @@
+import { trimEndRun } from "@anygriddb/core";
 import { useLingui } from "@lingui/react/macro";
 import {
   Boxes,
@@ -164,7 +165,7 @@ export function locate(
   sections: readonly AdminSection[],
   pathname: string,
 ): { section: AdminSection; page: AdminPage } | null {
-  const path = pathname.replace(/\/+$/, "") || "/";
+  const path = trimEndRun(pathname, "/") || "/";
   let found: { section: AdminSection; page: AdminPage } | null = null;
   for (const section of sections) {
     for (const page of section.pages) {

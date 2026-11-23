@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { AppError } from "@anygriddb/core";
+import { AppError, trimEndRun } from "@anygriddb/core";
 
 const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 const STEP_MS = 30_000;
@@ -23,7 +23,7 @@ export function encodeBase32(bytes: Buffer): string {
 }
 
 export function decodeBase32(secret: string): Buffer {
-  const normalized = secret.replace(/=+$/g, "").toUpperCase();
+  const normalized = trimEndRun(secret, "=").toUpperCase();
   if (!/^[A-Z2-7]+$/.test(normalized)) {
     throw new AppError("invalid_totp_secret");
   }

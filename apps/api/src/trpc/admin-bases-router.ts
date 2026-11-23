@@ -2,7 +2,7 @@
  * Who sees which base: roles given from Administration, invitations,
  * what leaves the instance, and an administrator's own way in.
  */
-import { AppError, ROLES } from "@anygriddb/core";
+import { AppError, ROLES, trimEndRun } from "@anygriddb/core";
 import { z } from "zod";
 import {
   listPendingInvitations,
@@ -524,7 +524,7 @@ export const adminBaseProcedures = {
           admin.id,
           input.invitationId,
         );
-        const link = `${ctx.env.PUBLIC_URL.replace(/\/+$/, "")}/invite/${renewed.token}`;
+        const link = `${trimEndRun(ctx.env.PUBLIC_URL, "/")}/invite/${renewed.token}`;
         const { config: smtp } = await resolveSmtp(ctx.db, ctx.env);
         ctx.req.log.info(
           { actor: admin.id, invitation: input.invitationId },

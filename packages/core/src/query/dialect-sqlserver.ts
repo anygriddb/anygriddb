@@ -9,6 +9,7 @@
  * compiler follows (`digits.ts`, ADR 0027).
  */
 import { AppError } from "../errors";
+import { cutAt } from "../plain-text";
 import { isTimeZone } from "../field-config";
 import type { FieldType } from "../field-types";
 import type { PhysicalColumn } from "./engine";
@@ -61,7 +62,7 @@ function zoneLiteral(iana: string): string {
 
 /** `decimal(14,2)` reads as `decimal`. */
 function typeName(type: string): string {
-  return type.toLowerCase().replace(/\(.*$/, "").trim();
+  return cutAt(type.toLowerCase(), "(").trim();
 }
 
 /** A value as JSON text: a quoted, escaped string. */

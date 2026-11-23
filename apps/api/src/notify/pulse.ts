@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { heartbeatSecretsSchema } from "@anygriddb/core";
+import { heartbeatSecretsSchema, trimEndRun } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { KeyRing } from "../auth/key-ring.js";
 import { decryptSecret } from "../auth/crypto.js";
@@ -27,7 +27,7 @@ export function heartbeatTarget(
   phase: PulsePhase,
 ): string | null {
   if (provider === "healthchecks" && secrets.pingUrl) {
-    const base = secrets.pingUrl.replace(/\/+$/, "");
+    const base = trimEndRun(secrets.pingUrl, "/");
     if (phase === "start") return `${base}/start`;
     if (phase === "fail") return `${base}/fail`;
     return base;

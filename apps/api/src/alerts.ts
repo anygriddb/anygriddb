@@ -13,6 +13,7 @@ import {
   type AlertFacts,
   type AlertKind,
   type DueAlert,
+  trimEndRun,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -435,7 +436,7 @@ async function mailAlerts(
     }
   }
   const voice = await readMailVoice(deps.db);
-  const url = `${deps.env.PUBLIC_URL.replace(/\/+$/, "")}/admin/instance/health`;
+  const url = `${trimEndRun(deps.env.PUBLIC_URL, "/")}/admin/instance/health`;
   for (const [email, theirs] of recipients) {
     await sendMail(smtp, voice, {
       to: email,

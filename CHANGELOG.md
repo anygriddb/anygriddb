@@ -13,6 +13,15 @@ first.
 **Nothing to do before upgrading.** The upgrade adds one column to the change
 trail, without rewriting it.
 
+### Security
+
+- **A long value built to slow a check.** The grants a MySQL server lists, the
+  type names a client database declares, and a few other texts were read by
+  patterns that took seconds on a long enough value, and held the server
+  meanwhile. Each is now read in one pass.
+- **The image's build** installs its package manager without running install
+  scripts.
+
 ### Added
 
 - **The grid from the keyboard.** A field's menu moves the field left or right

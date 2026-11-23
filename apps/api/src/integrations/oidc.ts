@@ -3,7 +3,7 @@
  * sealed; the redirect URL is derived from PUBLIC_URL.
  */
 import type { KeyRing } from "../auth/key-ring.js";
-import { AppError } from "@anygriddb/core";
+import { AppError, trimEndRun } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { z } from "zod";
 import { decryptSecret, encryptSecret } from "../auth/crypto.js";
@@ -82,12 +82,12 @@ export function loadOidcRow(db: Database): Promise<OidcRow | null> {
 }
 
 export function oidcRedirectUrl(publicUrl: string): string {
-  return `${publicUrl.replace(/\/+$/, "")}/auth/oidc/callback`;
+  return `${trimEndRun(publicUrl, "/")}/auth/oidc/callback`;
 }
 
 /** Where the provider posts a sign-out (OIDC Back-Channel Logout). */
 function oidcLogoutUrl(publicUrl: string): string {
-  return `${publicUrl.replace(/\/+$/, "")}/auth/oidc/backchannel-logout`;
+  return `${trimEndRun(publicUrl, "/")}/auth/oidc/backchannel-logout`;
 }
 
 export function publicOidc(row: OidcRow | null, publicUrl: string): PublicOidc {

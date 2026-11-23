@@ -2,6 +2,7 @@ import {
   instanceEventText,
   ntfyConfigSchema,
   ntfySecretsSchema,
+  trimEndRun,
 } from "@anygriddb/core";
 import type { Outbound, OutboundResponse } from "../outbound.js";
 import type { NotifyPayload } from "./webhook.js";
@@ -32,7 +33,7 @@ export async function sendNtfy(input: {
   const config = ntfyConfigSchema.parse(input.config);
   const secrets = ntfySecretsSchema.parse(input.secrets);
   const text = instanceEventText(input.event);
-  const server = config.server.replace(/\/+$/, "");
+  const server = trimEndRun(config.server, "/");
   const headers: Record<string, string> = {
     Title: text.title,
     Priority: priority(input.event.type),

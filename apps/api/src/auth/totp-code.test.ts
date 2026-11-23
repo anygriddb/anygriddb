@@ -16,4 +16,11 @@ describe("totp", () => {
     expect(verifyTotp(encoded, "000000", 59_000)).toBe(false);
     expect(verifyTotp("not-base32", "287082", 59_000)).toBe(false);
   });
+
+  it("refuses a long run of padding in one pass", () => {
+    const started = performance.now();
+    expect(() => decodeBase32(`${"=".repeat(200_000)}A`)).toThrow();
+    expect(performance.now() - started).toBeLessThan(1000);
+    expect(decodeBase32("MFRGG===").toString()).toBe("abc");
+  });
 });

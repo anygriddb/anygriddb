@@ -1,4 +1,4 @@
-import { AppError } from "@anygriddb/core";
+import { AppError, cutAt } from "@anygriddb/core";
 import mysql from "mysql2/promise";
 import type { SourceCheck, SourceConnection } from "./types.js";
 
@@ -32,16 +32,19 @@ const ROW_PRIVILEGES = new Set([
  * FILE, PROCESS, a `*_ADMIN` privilege, DDL on every schema, …).
  */
 export function isAdministrator(grants: readonly string[]): boolean {
-  for (const line of grants) {
-    const global = /^GRANT\s+(.+?)\s+ON\s+\*\.\*\s+TO\s/is.exec(line);
+  for (const grant of grants) {
+    // The server writes these lines: one space between words, so that a
+    // long run of them is not read again from each of its positions.
+    const line = grant.replace(/\s+/g, " ");
+    const global = /^GRANT (.+?) ON \*\.\* TO /is.exec(line);
     if (!global) continue;
-    if (/\bWITH\s+GRANT\s+OPTION\b/i.test(line)) return true;
-    const privileges = (global[1] ?? "").split(",").map((item) =>
-      item
-        .trim()
-        .replace(/\s*\(.*\)$/, "")
-        .toUpperCase(),
-    );
+    if (/\bWITH GRANT OPTION\b/i.test(line)) return true;
+    const privileges = (global[1] ?? "").split(",").map((item) => {
+      const privilege = item.trim();
+      return (
+        privilege.endsWith(")") ? cutAt(privilege, "(").trimEnd() : privilege
+      ).toUpperCase();
+    });
     if (privileges.some((item) => !ROW_PRIVILEGES.has(item))) return true;
   }
   return false;

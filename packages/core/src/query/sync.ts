@@ -35,9 +35,17 @@ export type CopyColumn = {
 const INTEGER =
   /^(?:tiny|small|medium|big)?int(?:eger)?(?:\(\d+\))?$|^int[248]$|^(?:big|small)?serial$/i;
 
+/** `int unsigned` reads as `int`, in one pass whatever the source wrote. */
+function withoutUnsigned(type: string): string {
+  if (type.slice(-8).toLowerCase() !== "unsigned") return type;
+  const head = type.slice(0, -8);
+  const kept = head.trimEnd();
+  return kept === head ? type : kept;
+}
+
 /** A key or a foreign key: whole numbers stay numbers, so they sort as such. */
 function keyType(declared: string | undefined): string {
-  const type = (declared ?? "").trim().replace(/\s+unsigned$/i, "");
+  const type = withoutUnsigned((declared ?? "").trim());
   return INTEGER.test(type) ? "bigint" : "text";
 }
 
