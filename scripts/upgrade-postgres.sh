@@ -8,9 +8,10 @@
 # dump there. The old volume is kept, untouched, until you drop it.
 #
 #   scripts/upgrade-postgres.sh            # the stack in docker/, project "anygriddb"
-#   scripts/upgrade-postgres.sh -p name -f docker/compose.yml -f other.yml
+#   scripts/upgrade-postgres.sh -p name -f compose.yml -f other.yml
 #
-# Options after the script's name go to `docker compose` as they are.
+# Options after the script's name go to `docker compose` as they are, read
+# from docker/: a Compose file is named as it is there, without the folder.
 # The database's settings come from docker/.env, as the stack reads them,
 # or from the file ENV_FILE names.
 set -euo pipefail

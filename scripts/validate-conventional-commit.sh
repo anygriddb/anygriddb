@@ -35,7 +35,7 @@ if [ "$skip_subject" -eq 0 ]; then
 # Types follow @commitlint/config-conventional (Angular convention).
 # Description must be non-empty and must not end with a period.
 if ! printf '%s\n' "$subject" | grep -Eq \
-  '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9][a-zA-Z0-9._/-]*\))?(!)?: [^[:space:]].+$'
+  '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9][a-zA-Z0-9._/-]*\))?(!)?: [^[:space:]].*$'
 then
   cat >&2 <<'EOF'
 error: commit message does not follow Conventional Commits 1.0.0
@@ -77,6 +77,18 @@ if [ "${#subject}" -gt 100 ]; then
   echo "got (${#subject}): $subject" >&2
   exit 1
 fi
+fi
+
+# The lines under the header, at most 100 characters each, as the hook's
+# other check has them. A line that holds an address is left whole.
+long="$(
+  grep -v '^#' "$msg_file" | sed '/./,$!d' | tail -n +2 | tr -d '\r' |
+    grep -v '://' | awk 'length($0) > 100' | head -n 1
+)"
+if [ -n "$long" ]; then
+  echo "error: a line under the header must be at most 100 characters" >&2
+  echo "got (${#long}): $long" >&2
+  exit 1
 fi
 
 exit 0

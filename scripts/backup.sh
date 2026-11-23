@@ -9,9 +9,10 @@
 # so, and that service's own means keep its bucket.
 #
 #   scripts/backup.sh                       # the stack in docker/, project "anygriddb"
-#   scripts/backup.sh -p name -f docker/compose.yml
+#   scripts/backup.sh -p name -f compose.yml -f compose.s3.yml
 #
-# Options go to `docker compose` as they are. Settings come from
+# Options go to `docker compose` as they are, read from docker/: a
+# Compose file is named as it is there, without the folder. Settings come from
 # docker/.env, or the file ENV_FILE names; the folder from BACKUP_DIR
 # (default data/backups, which git ignores).
 #

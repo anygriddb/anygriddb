@@ -43,7 +43,8 @@ if [[ "$NOISY" -eq 1 ]]; then
   PROFILE_ARGS+=(--profile noisy)
 fi
 
-UP_ARGS=(up -d "${PROFILE_ARGS[@]}")
+# A profile is named before the command: after `up`, Compose refuses it.
+UP_ARGS=("${PROFILE_ARGS[@]}" up -d)
 if [[ "$BUILD" -eq 1 ]]; then
   UP_ARGS+=(--build)
 fi

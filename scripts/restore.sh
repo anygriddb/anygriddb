@@ -7,7 +7,10 @@
 # stack that runs one (-f compose.yml -f compose.s3.yml).
 #
 #   scripts/restore.sh data/backups/anygriddb-20261108T120000Z
-#   scripts/restore.sh <folder> -p name -f docker/compose.yml
+#   scripts/restore.sh <folder> -p name -f compose.yml -f compose.s3.yml
+#
+# Options after the folder go to `docker compose` as they are, read from
+# docker/: a Compose file is named as it is there, without the folder.
 #
 # What the stack holds is replaced only once the backup has proved itself,
 # while the application keeps serving: SHA256SUMS covers every file, each
