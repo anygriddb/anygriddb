@@ -1,10 +1,11 @@
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
-import { createDb, migrateDb } from "@anygriddb/db";
+import { createDb, grantRuntimeRole, migrateDb } from "@anygriddb/db";
 import pg from "pg";
 import type { TestProject } from "vitest/node";
 import { migrateQueue } from "./queue/worker.js";
 
 const TEMPLATE_DATABASE = "anygriddb_template";
+const RUNTIME_ROLE = "anygriddb_app";
 
 async function waitForNoSessions(databaseUrl: string): Promise<void> {
   const target = new URL(databaseUrl);
@@ -50,6 +51,19 @@ export default async function setup(
     info: quiet,
     debug: quiet,
   });
+  // The role the tests sign in as, which owns no table (ADR 0119).
+  const owner = new pg.Client({
+    connectionString: container.getConnectionUri(),
+  });
+  await owner.connect();
+  try {
+    await owner.query(
+      `create role ${RUNTIME_ROLE} login password '${RUNTIME_ROLE}'`,
+    );
+    await grantRuntimeRole(owner, RUNTIME_ROLE);
+  } finally {
+    await owner.end();
+  }
   // A closed pool returns before the server ends its sessions; a template
   // must have none.
   await waitForNoSessions(container.getConnectionUri());

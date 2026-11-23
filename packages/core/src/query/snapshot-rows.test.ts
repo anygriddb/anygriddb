@@ -28,9 +28,10 @@ describe("a snapshot's rows, by sequence number", () => {
     expect(buildRowSeqs({ table: "t_tasks", ids: [ROW] }).values).toEqual([
       [ROW],
     ]);
-    expect(buildPositionsAfter({ table: "t_tasks" }).text).toBe(
-      `select setval('ag_row_position', ceil(s."top")::bigint) from (select max("ag_position") as "top" from "t_tasks" where "ag_position" <= 9007199254740992) s where ceil(s."top") > (select "last_value" from ag_row_position)`,
-    );
+    expect(buildPositionsAfter({ table: "t_tasks" })).toEqual({
+      text: "select ag_advance_row_place($1::text)",
+      values: ["t_tasks"],
+    });
   });
 
   it("brings a table's far places next to its others, in their order", () => {

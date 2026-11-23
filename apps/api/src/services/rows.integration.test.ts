@@ -23,6 +23,7 @@ const suffix = randomBytes(6).toString("hex");
 
 describe("row writes through the REST API", () => {
   let database: Database;
+  let ownerDb: Database;
   let close: (() => Promise<void>) | undefined;
   let app: FastifyInstance;
   const recorder = recordingBus();
@@ -35,6 +36,7 @@ describe("row writes through the REST API", () => {
   beforeAll(async () => {
     const created = await createTestDatabase("rows");
     database = created.db;
+    ownerDb = created.owner.db;
     close = created.close;
 
     const people = await database
@@ -490,7 +492,7 @@ describe("row writes through the REST API", () => {
       expect.stringContaining("(client)") as string,
     ]);
     // A link made before the index existed: the migration names it alike.
-    await sql.raw(`drop index "${name}"`).execute(database);
+    await sql.raw(`drop index "${name}"`).execute(ownerDb);
     expect(await found()).toEqual([]);
     const migration = await readFile(
       new URL(
@@ -499,7 +501,7 @@ describe("row writes through the REST API", () => {
       ),
       "utf8",
     );
-    await sql.raw(migration).execute(database);
+    await sql.raw(migration).execute(ownerDb);
     expect(await found()).toHaveLength(1);
     // The other side of the link stores nothing, and gets no index.
     const clients = await database

@@ -1,0 +1,203 @@
+/**
+ * What the role the application signs in as cannot do to what it keeps
+ * (ADR 0119), whatever a statement reaching the database asks: the attacks
+ * on the trail, played as that role, on a real database.
+ */
+import { randomBytes, randomUUID } from "node:crypto";
+import { buildCreateTable, buildInsert } from "@anygriddb/core";
+import { grantRuntimeRole, type Database } from "@anygriddb/db";
+import type pg from "pg";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createTestDatabase, RUNTIME_ROLE } from "../test-database.js";
+import { runRows, withAudit } from "./audit-context.js";
+
+const table = `t_${randomBytes(16).toString("hex")}`;
+const columns = [{ name: "amount", fieldType: "number" as const, config: {} }];
+const TRAILS = [
+  ["audit_events", "id"],
+  ["row_signatures", "id"],
+  ["external_writes", "id"],
+  ["external_write_steps", "write_id"],
+  ["external_status_events", "id"],
+] as const;
+
+describe("the role the application signs in as", () => {
+  let db: Database;
+  let pool: pg.Pool;
+  let ownerPool: pg.Pool;
+  let close: (() => Promise<void>) | undefined;
+  let userId = "";
+  let rowId = "";
+  const tableId = randomUUID();
+
+  const inTransaction = async (...statements: string[]) => {
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      for (const statement of statements) await client.query(statement);
+    } finally {
+      await client.query("rollback").catch(() => undefined);
+      client.release();
+    }
+  };
+  const held = async () => {
+    const { rows } = await ownerPool.query<{ amount: string; status: string }>(
+      `select amount::text as amount, ag_status as status from "${table}" where id = $1`,
+      [rowId],
+    );
+    return rows[0];
+  };
+
+  beforeAll(async () => {
+    const created = await createTestDatabase("runtime_role");
+    db = created.db;
+    pool = created.pool;
+    ownerPool = created.owner.pool;
+    close = created.close;
+    for (const statement of buildCreateTable({ table, columns })) {
+      await pool.query(statement.text, [...statement.values]);
+    }
+    userId = (
+      await db
+        .insertInto("users")
+        .values({
+          email: `runtime-${randomBytes(4).toString("hex")}@example.org`,
+          displayName: "Rae Runtime",
+        })
+        .returning("id")
+        .executeTakeFirstOrThrow()
+    ).id;
+    const inserted = await withAudit(db, { userId, tableId }, (tx) =>
+      runRows(tx, buildInsert({ table, columns, values: { amount: "10" } })),
+    );
+    rowId = String(inserted[0]?.id);
+    for (const action of ["submit", "lock", "sign"] as const) {
+      const status = { submit: "submitted", lock: "locked", sign: "signed" };
+      await withAudit(db, { userId, tableId, action }, (tx) =>
+        tx.executeQuery({
+          sql: `update "${table}" set ag_status = $1 where id = $2`,
+          parameters: [status[action], rowId],
+          query: { kind: "RawNode" } as never,
+          queryId: { queryId: randomUUID() },
+        }),
+      );
+    }
+  });
+
+  afterAll(async () => {
+    await close?.();
+  });
+
+  it("owns nothing it keeps", async () => {
+    const { rows } = await pool.query<{ owned: number }>(
+      `select count(*)::int as owned from pg_class c
+        where pg_has_role(current_user, c.relowner, 'MEMBER')
+          and c.relnamespace = 'public'::regnamespace`,
+    );
+    expect(rows[0]?.owned).toBe(0);
+  });
+
+  it.each(TRAILS)("cannot rewrite or empty %s", async (trail, column) => {
+    for (const statement of [
+      `update ${trail} set ${column} = ${column}`,
+      `delete from ${trail}`,
+      `truncate ${trail}`,
+    ]) {
+      await expect(pool.query(statement)).rejects.toThrow(/permission denied/);
+    }
+    await expect(
+      pool.query(`alter table ${trail} disable trigger user`),
+    ).rejects.toThrow(/must be owner/);
+  });
+
+  it("does not get past the trail with the flags that open it", async () => {
+    await expect(
+      inTransaction(
+        "select set_config('anygrid.purge_audit', 'on', true)",
+        "delete from audit_events",
+      ),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      inTransaction(
+        "select set_config('anygrid.anonymize', 'on', true)",
+        "update audit_events set user_id = user_id",
+      ),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      inTransaction(
+        "select set_config('anygrid.migrate', 'on', true)",
+        "insert into bases (name) values ('Hidden')",
+      ),
+    ).rejects.toThrow(/Audit context required/);
+  });
+
+  it.each([
+    ["disable its triggers", `alter table "${table}" disable trigger user`],
+    [
+      "rewrite it with no trigger",
+      `alter table "${table}" alter column amount type numeric using 31337`,
+    ],
+    ["drop its trail's trigger", `drop trigger audit_record on "${table}"`],
+    ["empty it", `truncate "${table}"`],
+    ["drop it", `drop table "${table}"`],
+  ])("cannot %s, and a signed row stays as it is", async (_what, statement) => {
+    await expect(pool.query(statement)).rejects.toThrow(
+      /must be owner|permission denied/,
+    );
+    expect(await held()).toEqual({ amount: "10", status: "signed" });
+  });
+
+  it("keeps the copies of clients' tables in their own schema", async () => {
+    const ownerOf = async (name: string) =>
+      (
+        await ownerPool.query<{ owner: string }>(
+          `select tableowner as owner from pg_tables
+            where schemaname = 'ag_sync' and tablename = $1`,
+          [name],
+        )
+      ).rows[0]?.owner;
+    const made = `c_${randomBytes(8).toString("hex")}`;
+    await pool.query(`create table ag_sync."${made}" (id int)`);
+    expect(await ownerOf(made)).toBe(RUNTIME_ROLE);
+    await pool.query(`drop table ag_sync."${made}"`);
+    expect(await ownerOf(made)).toBeUndefined();
+
+    // A copy made while the application signed in as the owner comes to it.
+    const earlier = `c_${randomBytes(8).toString("hex")}`;
+    await ownerPool.query(`create table ag_sync."${earlier}" (id int)`);
+    expect(await ownerOf(earlier)).not.toBe(RUNTIME_ROLE);
+    await grantRuntimeRole(ownerPool, RUNTIME_ROLE);
+    expect(await ownerOf(earlier)).toBe(RUNTIME_ROLE);
+    await pool.query(`drop table ag_sync."${earlier}"`);
+    expect(await ownerOf(earlier)).toBeUndefined();
+  });
+
+  it("cannot change a signed row by writing to it", async () => {
+    await expect(
+      inTransaction(
+        `select set_config('anygrid.user_id', '${userId}', true)`,
+        `select set_config('anygrid.table_id', '${tableId}', true)`,
+        `update "${table}" set amount = 31337 where id = '${rowId}'`,
+      ),
+    ).rejects.toThrow(/Row locked/);
+    expect(await held()).toEqual({ amount: "10", status: "signed" });
+  });
+
+  it.each([
+    [
+      "move the trail's order",
+      "select setval('audit_events_write_order_seq', 1)",
+    ],
+    ["move a table's places", "select setval('ag_row_position', 1)"],
+    ["forge the migrations' record", "delete from schema_migrations"],
+    ["make a table of its own", "create table planted (id int)"],
+    [
+      "replace a function",
+      "create or replace function ag_stamp() returns trigger language plpgsql as $$ begin return new; end $$",
+    ],
+  ])("cannot %s", async (_what, statement) => {
+    await expect(pool.query(statement)).rejects.toThrow(
+      /permission denied|must be owner/,
+    );
+  });
+});

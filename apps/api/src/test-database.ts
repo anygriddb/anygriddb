@@ -1,11 +1,16 @@
 /**
  * A fresh database for one integration test file, copied from the
- * migrated template that `postgres-global.ts` prepares.
+ * migrated template that `postgres-global.ts` prepares. What it hands out
+ * signs in as the application does, as a role that owns no table
+ * (ADR 0119); `owner` is for what a test does in a migration's place.
  */
 import { randomBytes } from "node:crypto";
 import { createDb } from "@anygriddb/db";
 import pg from "pg";
 import { inject } from "vitest";
+
+/** The role integration tests sign in as, made by `postgres-global.ts`. */
+export const RUNTIME_ROLE = "anygriddb_app";
 
 export async function createTestDatabase(prefix: string) {
   const adminUrl = inject("adminUrl");
@@ -21,5 +26,18 @@ export async function createTestDatabase(prefix: string) {
   }
   const url = new URL(adminUrl);
   url.pathname = `/${name}`;
-  return { ...createDb(url.toString()), url: url.toString() };
+  const ownerUrl = url.toString();
+  url.username = RUNTIME_ROLE;
+  url.password = RUNTIME_ROLE;
+  const application = createDb(url.toString());
+  const owner = createDb(ownerUrl);
+  return {
+    ...application,
+    url: url.toString(),
+    owner: { db: owner.db, pool: owner.pool, url: ownerUrl },
+    close: async () => {
+      await application.close();
+      await owner.close();
+    },
+  };
 }

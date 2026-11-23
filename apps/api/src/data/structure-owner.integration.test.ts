@@ -43,7 +43,7 @@ describe("the owner's functions on a table's structure", () => {
   beforeAll(async () => {
     const created = await createTestDatabase("structure_owner");
     db = created.db;
-    owner = created.pool;
+    owner = created.owner.pool;
     close = created.close;
     await owner.query(`create role "${role}" login password '${password}'`);
     await owner.query(`grant usage on schema public to "${role}"`);

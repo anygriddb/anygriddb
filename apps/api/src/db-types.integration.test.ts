@@ -43,7 +43,7 @@ describe("generated database types", () => {
   it("match a freshly migrated database", async () => {
     const database = await createTestDatabase("types");
     try {
-      expect(await generatedTypes(database.url)).toBe(
+      expect(await generatedTypes(database.owner.url)).toBe(
         await readFile(committed, "utf8"),
       );
     } finally {
@@ -54,8 +54,8 @@ describe("generated database types", () => {
   it("differ when the schema has a table they do not know", async () => {
     const database = await createTestDatabase("types_drift");
     try {
-      await database.pool.query("create table drift_probe (id integer)");
-      const generated = await generatedTypes(database.url);
+      await database.owner.pool.query("create table drift_probe (id integer)");
+      const generated = await generatedTypes(database.owner.url);
       expect(generated).toContain("DriftProbe");
       expect(generated).not.toBe(await readFile(committed, "utf8"));
     } finally {

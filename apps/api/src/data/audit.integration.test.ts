@@ -19,6 +19,7 @@ describe("audit triggers", () => {
   const table = `t_${randomBytes(8).toString("hex")}`;
   let database: Database;
   let pool: pg.Pool;
+  let ownerPool: pg.Pool;
   let close: (() => Promise<void>) | undefined;
   const query = async <Row extends Record<string, unknown>>(
     text: string,
@@ -29,6 +30,7 @@ describe("audit triggers", () => {
     const created = await createTestDatabase("audit");
     database = created.db;
     pool = created.pool;
+    ownerPool = created.owner.pool;
     close = created.close;
 
     const migrated = await query<{ ready: string | null }>(
@@ -165,13 +167,16 @@ describe("audit triggers", () => {
       return;
     }
 
-    await expect(
-      query(`update audit_events set reason = 'tamper' where id = $1::uuid`, [
-        eventId,
-      ]),
-    ).rejects.toThrow(/Audit immutable/);
-    await expect(
-      query(`delete from audit_events where id = $1::uuid`, [eventId]),
-    ).rejects.toThrow(/Audit immutable/);
+    for (const tamper of [
+      `update audit_events set reason = 'tamper' where id = $1::uuid`,
+      `delete from audit_events where id = $1::uuid`,
+    ]) {
+      await expect(query(tamper, [eventId])).rejects.toThrow(
+        /permission denied/,
+      );
+      await expect(ownerPool.query(tamper, [eventId])).rejects.toThrow(
+        /Audit immutable/,
+      );
+    }
   });
 });

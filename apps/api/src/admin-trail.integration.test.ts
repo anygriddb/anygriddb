@@ -75,7 +75,7 @@ describe("the change trail, read through its indexes", () => {
   beforeAll(async () => {
     const created = await createTestDatabase("admin_trail");
     db = created.db;
-    pool = created.pool;
+    pool = created.owner.pool;
     close = created.close;
     const account = async (name: string) =>
       (
@@ -109,7 +109,7 @@ describe("the change trail, read through its indexes", () => {
         now() - make_interval(mins => n)
       from generate_series(1, 5000) as n
     `.execute(db);
-    await sql`analyze audit_events`.execute(db);
+    await pool.query("analyze audit_events");
   }, 120_000);
 
   afterAll(async () => {

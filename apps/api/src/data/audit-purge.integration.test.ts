@@ -19,6 +19,7 @@ const daysAgo = (days: number) => new Date(now.getTime() - days * 86_400_000);
 
 describe("the change trail kept for a time", () => {
   let db: Database;
+  let ownerDb: Database;
   let close: (() => Promise<void>) | undefined;
   let admin = "";
   let tableId = "";
@@ -53,6 +54,7 @@ describe("the change trail kept for a time", () => {
   beforeAll(async () => {
     const created = await createTestDatabase("audit_purge");
     db = created.db;
+    ownerDb = created.owner.db;
     close = created.close;
     admin = (
       await db
@@ -133,9 +135,15 @@ describe("the change trail kept for a time", () => {
   it("lets nothing else delete from the trail, and nothing at all delete a signature", async () => {
     await expect(
       db.deleteFrom("auditEvents").where("tableId", "=", tableId).execute(),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      ownerDb
+        .deleteFrom("auditEvents")
+        .where("tableId", "=", tableId)
+        .execute(),
     ).rejects.toThrow(/Audit immutable/);
     await expect(
-      db
+      ownerDb
         .updateTable("auditEvents")
         .set({ reason: "rewritten" })
         .where("tableId", "=", tableId)
@@ -154,7 +162,7 @@ describe("the change trail kept for a time", () => {
       })
       .execute();
     await expect(
-      db.transaction().execute(async (tx) => {
+      ownerDb.transaction().execute(async (tx) => {
         await sql`select set_config('anygrid.purge_audit', 'on', true)`.execute(
           tx,
         );

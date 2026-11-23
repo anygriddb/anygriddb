@@ -5,6 +5,7 @@
  * ids to new ones is held anywhere.
  */
 import { AppError } from "../errors";
+import { ownerCall } from "./ddl";
 import { assertIdentifier, quoteIdent, type ParameterizedSql } from "./params";
 import { MAX_READ_LIMIT } from "./read";
 
@@ -128,10 +129,7 @@ export function buildPositionsAfter(input: {
   table: string;
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
-  return {
-    text: `select setval('ag_row_position', ceil(s."top")::bigint) from (select max("ag_position") as "top" from ${quoteIdent(input.table)} where "ag_position" <= 9007199254740992) s where ceil(s."top") > (select "last_value" from ag_row_position)`,
-    values: [],
-  };
+  return ownerCall("ag_advance_row_place", input.table);
 }
 
 /**

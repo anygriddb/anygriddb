@@ -26,6 +26,7 @@ const suffix = randomBytes(6).toString("hex");
 
 describe("which file a key opens", () => {
   let db: Database;
+  let ownerDb: Database;
   let url = "";
   let close: (() => Promise<void>) | undefined;
   const env = {
@@ -87,8 +88,9 @@ describe("which file a key opens", () => {
   beforeAll(async () => {
     const created = await createTestDatabase("attachments_reach");
     db = created.db;
+    ownerDb = created.owner.db;
     close = created.close;
-    url = created.url;
+    url = created.owner.url;
     [owner, viewer] = (
       await db
         .insertInto("users")
@@ -191,7 +193,7 @@ describe("which file a key opens", () => {
   it("builds a missing index, and one left unfinished, beside the writes", async () => {
     const table = await physical(foreignTable);
     const name = indexName(table, "doc", "gin");
-    await runStatement(db, { text: `drop index "${name}"`, values: [] });
+    await runStatement(ownerDb, { text: `drop index "${name}"`, values: [] });
     const { engine } = await readerEngine(db, foreignTable, {
       userId: owner,
       bindings: await loadBindings(db, owner),
@@ -201,7 +203,7 @@ describe("which file a key opens", () => {
     expect(await fileFieldsIndexed(db, engine)).toBe(true);
 
     // An index a failed build left behind does not count, and is rebuilt.
-    await runStatement(db, {
+    await runStatement(ownerDb, {
       text: `update pg_index set indisvalid = false where indexrelid = '"${name}"'::regclass`,
       values: [],
     });
@@ -279,7 +281,7 @@ describe("which file a key opens", () => {
     });
     const table = await physical(tableId);
     const name = indexName(table, "doc", "gin");
-    await runStatement(db, { text: `drop index "${name}"`, values: [] });
+    await runStatement(ownerDb, { text: `drop index "${name}"`, values: [] });
     // Until it is there, a reader without rules keeps the answer they had.
     expect(await canRead("no-such-cell")).toBe(true);
     await buildFileIndexes(db, url, { error: vi.fn(), info: vi.fn() });
