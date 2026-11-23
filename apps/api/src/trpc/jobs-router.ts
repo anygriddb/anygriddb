@@ -34,8 +34,11 @@ export const jobsRouter = t.router({
       const { user } = await authorize(ctx);
       return {
         jobs: await listJobs(ctx.db, user.id, input.limit, ctx.tokenScope),
-        /** Exports run as jobs only when there is somewhere to keep the file. */
-        // Exports always run as jobs: there is always a file store.
+        /**
+         * Whether an export can run as a job, its file kept until fetched:
+         * always, since there is always a file store. A view of up to
+         * 100,000 rows is also sent at once (`GET /api/export/:tableId`).
+         */
         exportFiles: true,
       };
     }),

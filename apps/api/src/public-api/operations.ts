@@ -46,19 +46,12 @@ import {
   type RowServiceDeps,
 } from "../services/rows.js";
 import { buildOpenApi } from "./openapi.js";
-import { type Actor, MAX_RECORDS, type PublicApiDeps } from "./types.js";
-
-export const listQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(1000).default(100),
-  offset: z.coerce.number().int().min(0).max(10_000_000).default(0),
-  view: z.uuid().optional(),
-  sort: z.string().max(500).optional(),
-  filter: z.string().max(20_000).optional(),
-  search: z.string().trim().min(1).max(200).optional(),
-  fields: z.string().max(5_000).optional(),
-  fieldKey: z.enum(["name", "label"]).default("name"),
-  timeZone: z.string().max(64).optional(),
-});
+import {
+  type Actor,
+  listQuerySchema,
+  MAX_RECORDS,
+  type PublicApiDeps,
+} from "./types.js";
 
 export const writeBodySchema = z.object({
   records: z

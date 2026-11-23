@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { listQuerySchema } from "./public-api/types.js";
 import { buildOpenApi } from "./rest-api.js";
 
 const columns = [
@@ -63,15 +64,73 @@ describe("buildOpenApi", () => {
     });
     expect(schema.properties.client?.readOnly).toBeUndefined();
     expect(Object.keys(document.paths)).toEqual([
+      "/bases",
+      "/bases/base-1/tables",
+      "/bases/base-1/openapi.json",
       "/tables/11111111-2222-4333-8444-555555555555/records",
       "/tables/11111111-2222-4333-8444-555555555555/records/{recordId}",
     ]);
   });
 
-  it("has no paths for a base without readable tables", () => {
+  it("describes the routes of the base alone when it has no readable table", () => {
     expect(
-      buildOpenApi({ id: "b", name: "Empty" }, [], "http://localhost:4000")
-        .paths,
-    ).toEqual({});
+      Object.keys(
+        buildOpenApi({ id: "b", name: "Empty" }, [], "http://localhost:4000")
+          .paths,
+      ),
+    ).toEqual(["/bases", "/bases/b/tables", "/bases/b/openapi.json"]);
+  });
+
+  it("writes a list's parameters from the schema the list is read with", () => {
+    type Parameter = {
+      name: string;
+      in: string;
+      description?: string;
+      schema: Record<string, unknown>;
+    };
+    const document = buildOpenApi(
+      { id: "base-1", name: "CRM" },
+      [{ id: "11111111-2222-4333-8444-555555555555", name: "Deals", columns }],
+      "https://grid.example.org",
+    );
+    const records = document.paths[
+      "/tables/11111111-2222-4333-8444-555555555555/records"
+    ] as Record<string, { parameters: Parameter[]; requestBody?: unknown }>;
+    const listed = records.get?.parameters ?? [];
+    // Every name the server reads, and no other: `timeZone` was read
+    // and not said.
+    expect(listed.map((parameter) => parameter.name).sort()).toEqual(
+      Object.keys(listQuerySchema.shape).sort(),
+    );
+    expect(listed.every((parameter) => parameter.in === "query")).toBe(true);
+    const named = (name: string) =>
+      listed.find((parameter) => parameter.name === name)?.schema;
+    expect(named("limit")).toEqual({
+      type: "integer",
+      minimum: 1,
+      maximum: 1000,
+      default: 100,
+    });
+    expect(named("offset")).toMatchObject({ type: "integer", minimum: 0 });
+    expect(named("search")).toMatchObject({ minLength: 1, maxLength: 200 });
+    expect(named("sort")).toMatchObject({ minLength: 1 });
+    expect(named("fieldKey")).toMatchObject({ enum: ["name", "label"] });
+    // A write says the reason a field may ask for, and holds a record.
+    for (const method of ["post", "patch", "delete"]) {
+      expect(
+        records[method]?.parameters.find(
+          (parameter) => parameter.in === "header",
+        )?.name,
+      ).toBe("X-Reason");
+    }
+    expect(JSON.stringify(records.post?.requestBody)).toContain('"minItems":1');
+    // One record takes the key its fields are named by, as the list does.
+    const one = document.paths[
+      "/tables/11111111-2222-4333-8444-555555555555/records/{recordId}"
+    ] as Record<string, { parameters: Parameter[] }>;
+    expect(one.get?.parameters.map((parameter) => parameter.name)).toEqual([
+      "recordId",
+      "fieldKey",
+    ]);
   });
 });

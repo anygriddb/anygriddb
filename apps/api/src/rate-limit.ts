@@ -111,7 +111,9 @@ export function rateBucket(method: string, url: string): RateBucket {
     return "api";
   if (path.startsWith("/api/shares/") && method === "POST") return "formUpload";
   if (
-    (path.startsWith("/api/attachments") || path.startsWith("/api/import/")) &&
+    (path.startsWith("/api/attachments") ||
+      path.startsWith("/api/import/") ||
+      path === "/api/snapshot/upload") &&
     method === "POST"
   )
     return "upload";

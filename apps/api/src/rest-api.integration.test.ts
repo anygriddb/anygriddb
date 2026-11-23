@@ -172,6 +172,19 @@ describe("a request its caller got wrong", () => {
         call("DELETE", `/tables/${tableId}/records?records=${id}&records=x`),
       ),
     ).toEqual([400, "invalid_record_id"]);
+    // A whole number is written in digits: `Number` read these three.
+    for (const limit of ["0x10", "1e3", "%201"]) {
+      expect(
+        await refusal(call("GET", `/tables/${tableId}/records?limit=${limit}`)),
+      ).toEqual([400, "invalid_query"]);
+    }
+    expect(
+      await refusal(call("GET", `/tables/${tableId}/records?sort=`)),
+    ).toEqual([400, "invalid_query"]);
+    expect(
+      (await call("GET", `/tables/${tableId}/records?limit=10&offset=0`))
+        .statusCode,
+    ).toBe(200);
     // What it can read, it answers.
     const read = await call("GET", `${record}?fieldKey=label`);
     expect(read.statusCode, read.body).toBe(200);

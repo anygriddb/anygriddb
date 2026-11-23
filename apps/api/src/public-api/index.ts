@@ -13,4 +13,9 @@ export {
   writeBodySchema,
   type WriteOrigin,
 } from "./operations.js";
-export { type Actor, HttpError, type PublicApiDeps } from "./types.js";
+export {
+  type Actor,
+  HttpError,
+  type PublicApiDeps,
+  recordQuerySchema,
+} from "./types.js";

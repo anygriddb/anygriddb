@@ -37,6 +37,25 @@ function toolError(error: unknown): {
   };
 }
 
+/**
+ * Arguments a tool's schema does not take are refused by the library
+ * before the tool runs, as a line of text. A tool's own refusal is a
+ * short JSON with a code: the library's is given that shape, so that a
+ * client reads one as it reads the other. The library keeps the method
+ * to itself, and the test of a refused argument holds this in place.
+ */
+function refuseArgumentsAsTools(server: McpServer): void {
+  const refused = /^Input validation error: Invalid arguments for tool [^:]+: /;
+  Object.defineProperty(server, "createToolError", {
+    value: (message: string) =>
+      toolError(
+        refused.test(message)
+          ? new AppError("invalid_input", message.replace(refused, ""))
+          : new AppError("internal_error"),
+      ),
+  });
+}
+
 function ok(data: unknown) {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(data) }],
@@ -61,6 +80,7 @@ export function registerPublicApiTools(
   deps: PublicApiDeps,
   actor: Actor,
 ): void {
+  refuseArgumentsAsTools(server);
   const run = async <T>(body: (actor: Actor) => Promise<T>) => {
     try {
       return ok(await body(actor));
