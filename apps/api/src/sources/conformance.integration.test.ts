@@ -321,6 +321,10 @@ const FORMULAS: string[] = [
   'DATETIME_FORMAT({ts}, "h:mm a")',
   "IS_SAME({ts}, \"2026-01-10T08:00:00Z\", 'day')",
   "IS_SAME({d}, \"2026-02-23\", 'week')",
+  // Dates compared and ordered as dates, whatever writes them.
+  'IF(IS_BEFORE("2024-01-01T23:00:00-05:00", "2024-01-02T01:00:00Z"), "before", "not") & "|" & IF(IS_AFTER({ts}, "2026-01-10T08:00:00Z"), "after", "not") & "|" & IF(IS_BEFORE({d}, {ts}), "before", "not") & "|" & IF(IS_BEFORE({s}, {d}), "before", "not")',
+  'DATETIME_FORMAT(MIN({ts}, "2026-01-10T08:00:00Z"), "YYYY-MM-DD HH:mm") & "|" & DATETIME_FORMAT(MAX({d}, {ts}), "YYYY-MM-DD HH:mm")',
+  'DATETIME_FORMAT(MAX("2024-01-01", "2024-06-01"), "YYYY-MM-DD") & "|" & DATETIME_FORMAT(MIN({d}, "2024-06-01"), "YYYY-MM-DD")',
   // Text read as dates, by AnyGridDB's grammar; a field's text too.
   'DATETIME_DIFF(CONCAT("2026-01-", {i} + 10), "2026-01-01", "days")',
   'DATETIME_DIFF("2026-03-01", "2026-02-28", "days") & "|" & YEAR("2026-02-30") & "|" & DATETIME_DIFF("2026-01-10T10:00:00Z", "2026-01-10 09:30", "minutes") & "|" & DATETIME_DIFF("2026-01-10T09:59:00+02:00", "2026-01-10 09:00", "minutes") & "|" & DATETIME_DIFF("2026-01-10T12:00+0530", "2026-01-10T06:30Z", "minutes")',
