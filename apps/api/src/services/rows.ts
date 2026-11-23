@@ -17,6 +17,7 @@ import {
   type EngineCatalog,
   type EngineColumn,
   indexName,
+  MAX_READ_LIMIT,
   placeTarget,
   resolveChangeReason,
   roleAllows,
@@ -772,6 +773,7 @@ export async function updateRows(
   const updates = withoutExponents(scope, given);
   const rowIds = updates.map((update) => update.rowId);
   const checked = await prepare(deps, scope, updates, rowIds);
+  await assertUnchangedRowsExist(deps, scope, updates);
   const touched = touchedColumns(updates);
   const reason = resolveReason(scope, touched, meta);
   if (isExternal(scope)) {
@@ -832,6 +834,40 @@ export async function updateRows(
   ];
   await announceRows(deps, scope.table.id, "update", ids, extra);
   return ids;
+}
+
+/**
+ * An update that carries nothing writes nothing, so nothing below looks
+ * for its row: it must still be one the writer reads, or the answer would
+ * say that a row which is not there was updated.
+ */
+async function assertUnchangedRowsExist(
+  deps: RowServiceDeps,
+  scope: RowScope,
+  updates: readonly RowUpdate[],
+): Promise<void> {
+  const asked = [
+    ...new Set(
+      updates
+        .filter(
+          (update) =>
+            Object.keys(update.values).length === 0 && !update.links?.length,
+        )
+        .map((update) => update.rowId),
+    ),
+  ];
+  // The same refusal as with a field to write.
+  if (!isExternal(scope) && asked.some((id) => !UUID.test(id))) {
+    throw new AppError("invalid_row_id");
+  }
+  for (let start = 0; start < asked.length; start += MAX_READ_LIMIT) {
+    const ids = asked.slice(start, start + MAX_READ_LIMIT);
+    const found = await readByIds(deps.db, scope.engine, ids, "UTC", []);
+    const read = new Set(found.map((row) => row.id.toLowerCase()));
+    if (ids.some((id) => !read.has(id.toLowerCase()))) {
+      throw new AppError("no_row");
+    }
+  }
 }
 
 /**

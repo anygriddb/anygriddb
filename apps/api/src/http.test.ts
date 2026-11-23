@@ -7,7 +7,9 @@ import {
   publicErrorBody,
   publicErrorStatus,
   replyFromError,
+  sayWhenToRetry,
   stripCrlf,
+  unservedProcedureMethod,
 } from "./http.js";
 
 describe("API security headers", () => {
@@ -182,5 +184,75 @@ describe("a session's write from another origin", () => {
     expect(write({})).toBe(false);
     // The identity provider's answer, which may come from the same site.
     expect(write(foreign, { url: "/auth/saml/acs?x=1" })).toBe(false);
+  });
+});
+
+describe("a method no procedure answers", () => {
+  it("lets a query, a mutation, and a HEAD through", () => {
+    for (const method of ["GET", "POST", "HEAD"]) {
+      expect(
+        unservedProcedureMethod({ method, url: "/trpc/session.current" }),
+      ).toBe(false);
+    }
+  });
+
+  it("refuses any other under /trpc, TRACE among them, and nothing elsewhere", () => {
+    for (const method of ["TRACE", "PUT", "PATCH", "DELETE", "OPTIONS"]) {
+      expect(
+        unservedProcedureMethod({ method, url: "/trpc/session.current" }),
+      ).toBe(true);
+      expect(unservedProcedureMethod({ method, url: "/trpc/nope" })).toBe(true);
+      // The REST API has its own routes for these.
+      expect(
+        unservedProcedureMethod({ method, url: "/api/v1/tables/x/records" }),
+      ).toBe(false);
+    }
+  });
+});
+
+describe("an answer of 'not now'", () => {
+  const answer = (statusCode: number, sent: Record<string, string> = {}) => {
+    const headers = new Map(Object.entries(sent));
+    sayWhenToRetry({
+      statusCode,
+      hasHeader: (name) => headers.has(name.toLowerCase()),
+      header: (name, value) => {
+        headers.set(name.toLowerCase(), value);
+      },
+    });
+    return headers.get("retry-after");
+  };
+
+  it("says when to ask again", () => {
+    expect(answer(503)).toBe("30");
+  });
+
+  it("keeps what its route said, and says nothing on any other answer", () => {
+    expect(answer(503, { "retry-after": "5" })).toBe("5");
+    for (const status of [200, 400, 429, 500, 504]) {
+      expect(answer(status)).toBeUndefined();
+    }
+  });
+
+  it("reads the status of an answer handed whole, which the reply has not taken yet", () => {
+    const whole = (status: number, headers: Record<string, string> = {}) => {
+      const said = new Map<string, string>();
+      sayWhenToRetry(
+        {
+          // What a reply holds until the answer is sent.
+          statusCode: 200,
+          hasHeader: (name) => said.has(name.toLowerCase()),
+          header: (name, value) => {
+            said.set(name.toLowerCase(), value);
+          },
+        },
+        new Response(null, { status, headers }),
+      );
+      return said.get("retry-after");
+    };
+    expect(whole(503)).toBe("30");
+    expect(whole(503, { "Retry-After": "5" })).toBeUndefined();
+    expect(whole(200)).toBeUndefined();
+    expect(whole(207)).toBeUndefined();
   });
 });

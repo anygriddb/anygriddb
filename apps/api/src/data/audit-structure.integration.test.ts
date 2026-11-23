@@ -17,7 +17,12 @@ import {
 } from "./dashboards.js";
 import { loadEngine } from "./engine.js";
 import { createFolder, reorderFolders } from "./folders.js";
-import { insertBase, insertTable, updateBase } from "./schema-ops.js";
+import {
+  insertBase,
+  insertTable,
+  updateBase,
+  updateTable,
+} from "./schema-ops.js";
 import { restoreBase, restoreView, trashBase } from "./trash.js";
 import {
   createView,
@@ -102,6 +107,17 @@ describe("the structure of a base, on the change trail", () => {
     );
     expect(renamed?.tableName).toBeNull();
     expect(renamed?.baseName).toBe("Renamed");
+  });
+
+  it("writes nothing, and fails nothing, when an update changes nothing", async () => {
+    const before = (await eventsOf("bases")).length;
+    // An update that set no field was a statement PostgreSQL refuses.
+    await expect(updateBase(db, owner, { baseId })).resolves.toBeUndefined();
+    await expect(updateTable(db, owner, { tableId })).resolves.toBeUndefined();
+    expect((await eventsOf("bases")).length).toBe(before);
+    // With something to change, it is written and kept.
+    await updateBase(db, owner, { baseId, description: "Kept" });
+    expect((await eventsOf("bases")).length).toBe(before + 1);
   });
 
   it("keeps a shared view's making, its lock, its trash and its return, under its table", async () => {

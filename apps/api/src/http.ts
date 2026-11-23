@@ -37,6 +37,43 @@ export function logFailure(
   log.info({ ...failure.context, status: failure.status }, failure.message);
 }
 
+/**
+ * Whether a request under `/trpc` uses a method no procedure answers. A
+ * query is a GET and a mutation a POST; HEAD asks only whether one
+ * answers. The adapter builds a web request out of any other, which
+ * cannot carry some of them (TRACE): refused before it, such a method is
+ * the caller's mistake and not a fault of the server.
+ */
+export function unservedProcedureMethod(request: {
+  method: string;
+  url: string;
+}): boolean {
+  return (
+    request.url.startsWith("/trpc/") &&
+    !["GET", "POST", "HEAD"].includes(request.method)
+  );
+}
+
+/**
+ * An answer that the instance cannot give for now (under maintenance, too
+ * many large reads at once, a read past its time limit) says when to ask
+ * again, unless its route already did. An adapter may hand its answer
+ * whole, as a web `Response`: the reply takes its status only once sent.
+ */
+export function sayWhenToRetry(
+  reply: HeaderReply & {
+    statusCode: number;
+    hasHeader: (name: string) => boolean;
+  },
+  answer?: unknown,
+): void {
+  const status = answer instanceof Response ? answer.status : reply.statusCode;
+  const said =
+    reply.hasHeader("retry-after") ||
+    (answer instanceof Response && answer.headers.has("retry-after"));
+  if (status === 503 && !said) reply.header("Retry-After", "30");
+}
+
 /** Removes line breaks so a user value cannot forge extra log lines. */
 export function stripCrlf(value: string): string {
   return value.replace(/[\r\n\u2028\u2029]/g, "");

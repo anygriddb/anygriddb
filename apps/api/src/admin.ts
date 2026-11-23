@@ -237,7 +237,7 @@ export async function listUsers(
     name: sqlTag`lower(u.display_name)`,
     email: sqlTag`lower(u.email)`,
     created: sqlTag`u.created_at`,
-    lastSeen: sqlTag`${lastSeen} nulls first`,
+    lastSeen,
     mfa: hasFactor,
     bases: sqlTag`(select count(distinct b.scope_id) from role_bindings b where b.user_id = u.id and b.scope = 'base')`,
     status: sqlTag`(case when u.disabled_at is not null then 2 when ${lockedNow} then 1 else 0 end)`,
@@ -268,7 +268,13 @@ export async function listUsers(
         "bases",
       ),
     ])
-    .orderBy(sqlTag`${order} ${direction}`)
+    // Never signed in comes first, whichever way the dates go: the
+    // accounts an administrator looks for when sorting by it.
+    .orderBy(
+      query.sort === "lastSeen"
+        ? sqlTag`${order} ${direction} nulls first`
+        : sqlTag`${order} ${direction}`,
+    )
     .orderBy("u.id", "asc")
     .offset(query.offset)
     .limit(query.limit)

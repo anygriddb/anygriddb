@@ -148,7 +148,13 @@ export async function readTransaction<T>(
   if (external && !external.synced) {
     return sourcePools().read(external.sourceId, body);
   }
-  return readWithin(db, READ_TIMEOUT, body);
+  return readWithin(db, READ_TIMEOUT, body).catch((error: unknown) => {
+    // Stopped by its time limit: said as such, with a code a client can
+    // act on, and not as a fault of the server.
+    throw isStatementTimeout(error)
+      ? new AppError("read_timeout", { cause: error })
+      : error;
+  });
 }
 
 /**
@@ -398,10 +404,10 @@ async function nativeTotal(
     );
     return { total: Number(row?.total ?? 0), estimated: false };
   } catch (error) {
-    // readWithin's statement_timeout surfaces as Postgres 57014; fall
-    // back to the estimate (or at least the rows already seen) rather
-    // than failing the whole read.
-    if (!isStatementTimeout(error)) throw error;
+    // A count stopped by the read's time limit falls back to the
+    // estimate (or at least the rows already seen) rather than failing
+    // the whole read.
+    if (!isReadTimeout(error)) throw error;
     return { total: Math.max(estimate ?? 0, options.seen), estimated: true };
   }
 }
@@ -417,6 +423,11 @@ export function countVisibleRows(
   return nativeTotal(db, engine, { limit: 1 }, { seen: 0, exact: false });
 }
 
+function isReadTimeout(error: unknown): boolean {
+  return error instanceof AppError && error.code === "read_timeout";
+}
+
+/** PostgreSQL's 57014: the statement ran past its `statement_timeout`. */
 function isStatementTimeout(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;
   const code = "code" in error ? String(error.code) : "";

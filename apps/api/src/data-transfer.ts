@@ -122,6 +122,19 @@ function keptFromNewBases(actor: Actor): boolean {
   return Boolean(actor.scope?.readOnly || actor.scope?.baseIds);
 }
 
+/**
+ * The status a body that could not be read as an upload is refused with:
+ * 415 when it is no upload at all (not `multipart/form-data`), 413 when
+ * it stopped at a size limit or was cut on the way.
+ */
+export function uploadRefusal(error: unknown): 413 | 415 {
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String(error.code)
+      : "";
+  return code === "FST_INVALID_MULTIPART_CONTENT_TYPE" ? 415 : 413;
+}
+
 function deny(reply: FastifyReply, status: number, code?: ErrorCode) {
   return reply.code(status).send(publicErrorBody(status, code));
 }
@@ -562,8 +575,8 @@ export function registerDataTransferRoutes(
         size = (await stat(path)).size;
         if (file.file.truncated) return await deny(reply, 413);
       } catch (error) {
-        request.log.warn({ err: error }, "import upload too large");
-        return await deny(reply, 413);
+        request.log.warn({ err: error }, "import upload refused");
+        return await deny(reply, uploadRefusal(error));
       } finally {
         received();
         release();
@@ -645,8 +658,8 @@ export function registerDataTransferRoutes(
         size = (await stat(path)).size;
         if (file.file.truncated) return await deny(reply, 413);
       } catch (error) {
-        request.log.warn({ err: error }, "workbook upload too large");
-        return await deny(reply, 413);
+        request.log.warn({ err: error }, "workbook upload refused");
+        return await deny(reply, uploadRefusal(error));
       } finally {
         received();
         release();
@@ -843,9 +856,20 @@ export function registerDataTransferRoutes(
     const received = cutIdleUpload(request.raw, reply.raw);
     const folder = await localFolder("snapshot");
     try {
-      const upload = await request.file({
-        limits: { fileSize: MAX_SNAPSHOT_ARCHIVE_BYTES, files: 1, fields: 2 },
-      });
+      const upload = await request
+        .file({
+          limits: {
+            fileSize: MAX_SNAPSHOT_ARCHIVE_BYTES,
+            files: 1,
+            fields: 2,
+          },
+        })
+        .catch((error: unknown) => {
+          request.log.warn({ err: error }, "snapshot upload refused");
+          return uploadRefusal(error);
+        });
+      if (upload === 413) return await deny(reply, 413, "too_large_snapshot");
+      if (upload === 415) return await deny(reply, 415);
       if (!upload) return await deny(reply, 400, "invalid_snapshot");
       const path = join(folder.path, "upload");
       try {
