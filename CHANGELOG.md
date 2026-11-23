@@ -8,6 +8,17 @@ first.
 
 ## Unreleased
 
+### Security
+
+- **The change trail answers to the role that owns it.** A setting any database
+  session could write was enough to delete an event, give it to another author,
+  or change the catalog with no event. It now counts only for the owner of the
+  trail. The purge and an account's erasure are functions of that owner, with
+  their own limits: nothing younger than a year goes, and an author leaves the
+  trail only with the account's deletion.
+- **A restore** refuses a free space, a size or a time limit that is not a
+  number, where such a value skipped the check for room.
+
 ## 0.6.1 - 2026-11-23
 
 **Nothing to do before upgrading.** The upgrade adds one column to the change
