@@ -834,6 +834,17 @@ async function timed(run: () => Promise<unknown>): Promise<Check> {
 }
 
 /**
+ * Whether the role the instance signs in as owns its tables: it could then
+ * rewrite the trails (ADR 0119). Told, never refused.
+ */
+export async function databaseRoleOwnsTables(db: Database): Promise<boolean> {
+  const found = await sqlTag<{ owns: boolean }>`
+    select ag_role_owns_store(current_user) as owns
+  `.execute(db);
+  return found.rows[0]?.owns === true;
+}
+
+/**
  * Whether the role the instance signs in as is a superuser: what a stack
  * made before the role was limited still has. Told, never refused.
  */
@@ -945,9 +956,13 @@ export async function instanceHealth(deps: {
   const databaseSuperuser = await databaseRoleIsSuperuser(deps.db).catch(
     () => false,
   );
+  const databaseOwnsTables = await databaseRoleOwnsTables(deps.db).catch(
+    () => false,
+  );
   return {
     build: BUILD,
     databaseSuperuser,
+    databaseOwnsTables,
     checks: { database, realtime, storage },
     queue: {
       events: queued,

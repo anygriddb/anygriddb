@@ -30,6 +30,7 @@ import { recordBackup } from "./alerts.js";
 import { BUILD, describeBuild } from "./build-info.js";
 import {
   databaseAddress,
+  databasePasswordHint,
   publicUrl,
   readEncryptionKey,
   readFileSettings,
@@ -245,6 +246,8 @@ async function databasePrepare(args: string[]): Promise<number> {
       if (error instanceof PostgresTooOld) {
         process.stderr.write(`${error.message}\n`);
       } else {
+        const hint = databasePasswordHint(url, error);
+        if (hint) process.stderr.write(`${hint}\n`);
         await notifyMigrationFailure(db, error);
       }
       return 1;

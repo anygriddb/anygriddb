@@ -678,13 +678,13 @@ cd docker && docker compose up -d
 Read the notes before a release that changes the first number of the
 version, or the second before 1.0: it may ask for a step of its own.
 
-Migrations run when AnyGridDB starts, under a lock, so two instances
-starting at once do not both migrate.
+Migrations run at each start in the one-shot service `prepare`, under a
+lock, before the application starts. When it fails, the application does
+not start, and `docker compose logs prepare` says why.
 
 A release that asks for a step before the upgrade looks for it before
 its first migration runs. When the step was not done, AnyGridDB does not
-start, and its log (`docker compose logs app`) says "Upgrade refused"
-and what to do. Nothing was changed: start the version before again,
+start, and the log of `prepare` says "Upgrade refused" and what to do. Nothing was changed: start the version before again,
 with the Compose files and the pin it was installed from, do the step,
 then upgrade (ADR 0106).
 
@@ -712,6 +712,31 @@ docker compose exec app anygriddb trash recover-links
 It only adds to the change trail, changes no row, and running it again adds
 nothing. A link set again since stays as it is, and a row locked or signed
 since is left alone and counted when the restore is made.
+
+## The application's database role
+
+A Compose stack uses two PostgreSQL roles. `POSTGRES_USER` owns the tables,
+and only the one-shot service `prepare` signs in with it: at each start it
+runs the migrations, gives the second role its rights, and exits. The
+application signs in as `anygriddb_app`, which owns no table. Its password
+is made once and kept on the `service_certs` volume, readable by PostgreSQL
+and the application alone: nobody has to choose or keep it.
+
+That role cannot rewrite the change trail, the signatures, or the sign-in
+trail, delete what they must keep, change a signed row without a trace, or
+alter a table. The application remains the authority on who acts: someone
+who steals its account could still add an event or a signature in another
+person's name. Guard `POSTGRES_PASSWORD` as you guard the data.
+
+An index on a file field is built when the field is added. One that is
+missing, on an instance from before 0.4.1 or after a build cut short, is
+named in the application's start log. Files are served correctly meanwhile,
+more slowly. To build it, beside the writes, with the same Compose files as
+`up`:
+
+```sh
+docker compose run --rm indexes
+```
 
 ## A stack made before the role was limited
 
@@ -923,7 +948,10 @@ docker compose -f compose.managed.yml up -d --build
   not with `uselibpqcompat=true`, which makes them stop checking it.
   AnyGridDB refuses to start otherwise (ADR 0030).
 - **Rights.** The account owns its database. AnyGridDB creates its
-  tables and the `graphile_worker` and `ag_sync` schemas there.
+  tables and the `graphile_worker` and `ag_sync` schemas there. Used alone,
+  it also signs the application in as the owner of those tables: the
+  instance works, and says in its start log and in Administration > Health
+  that this account could rewrite the trails. The next section removes that.
 - **Connections.** With the default concurrency, one AnyGridDB process
   opens at most about 22 connections: 10 for requests, 10 for background
   work, and 1 to listen for realtime messages. Size the service's limit
@@ -933,6 +961,32 @@ docker compose -f compose.managed.yml up -d --build
 - **Backups.** Back up with the provider's own tools. `scripts/backup.sh`
   covers the bundled PostgreSQL only; copy `files_data` and `tls_data`
   the same way it does.
+
+### A role of its own for the application
+
+Once, as an administrator of the server, with the name of the role that
+owns the database in place of `anygriddb`:
+
+```sql
+CREATE ROLE anygriddb_app LOGIN PASSWORD '…'
+  NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT anygriddb_app TO anygriddb WITH INHERIT FALSE, SET TRUE;
+```
+
+Then, now and before starting each new version, run the migrations with the
+owner's address. It is read from the environment, so that it never shows on
+a command line:
+
+```sh
+read -rs DATABASE_URL && export DATABASE_URL   # the owner's address
+docker compose -f compose.managed.yml run --rm --no-deps -T \
+  -e DATABASE_URL app anygriddb database prepare
+unset DATABASE_URL
+```
+
+In `docker/.env`, `DATABASE_URL` is now the address of `anygriddb_app`, and
+the owner's password stays out of the instance. A new version signed in as
+this role refuses to start until `prepare` has run, and says so.
 
 ## Provisioning with SCIM
 

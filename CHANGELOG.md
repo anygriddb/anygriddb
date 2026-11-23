@@ -10,6 +10,16 @@ first.
 
 ### Security
 
+- **The application no longer signs in as the owner of its tables.** Under
+  Compose, a one-shot service, `prepare`, holds the owner's credentials, runs
+  the migrations and gives the application a role of its own, `anygriddb_app`,
+  with a password made once. That role cannot rewrite the change trail, the
+  signatures or the sign-in trail, delete what they must keep, change a signed
+  row without a trace, or alter a table. Nothing to do when upgrading with the
+  release's Compose files. On a PostgreSQL of your own, an instance keeps
+  working as it was and says so in Administration > Health; the operations
+  guide gives the two steps. A refused upgrade or a failed migration is now in
+  `docker compose logs prepare`.
 - **The change trail answers to the role that owns it.** A setting any database
   session could write was enough to delete an event, give it to another author,
   or change the catalog with no event. It now counts only for the owner of the

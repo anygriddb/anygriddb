@@ -92,6 +92,10 @@ if (await databaseRoleIsSuperuser(db)) {
   console.warn(
     "AnyGridDB signs in to PostgreSQL as a superuser. It works, but a fault in the application would then reach the whole server: docs/operations.md, A stack made before the role was limited.",
   );
+} else if (ownsTables) {
+  console.warn(
+    "AnyGridDB signs in to PostgreSQL as the role that owns its tables. It works, but that account could rewrite the change trail and signed rows. The operations guide says how to give the application a role of its own.",
+  );
 }
 // Sign-in events also go to the operator's syslog collector, if one is
 // named (ADR 0084).

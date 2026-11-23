@@ -30,18 +30,24 @@ new value, stayed signed, and the trail did not move.
 - **This is the first step of a separation.** What the application changes
   in its tables goes through typed functions of the owner. Migrations run apart
   with the owner's credentials (`anygriddb database prepare`), and an
-  application whose role owns no table only checks that they ran. The last
-  step signs a Compose install in as that role.
+  application whose role owns no table only checks that they ran. A Compose
+  install signs in as that role, `anygriddb_app`, with a password made once
+  beside the services' certificates. The one-shot `prepare` service alone
+  holds the owner's credentials.
+- **An index is not built before the start.** On a very large table it can
+  take hours. The application names what is missing, files are served
+  correctly meanwhile, and `docker compose run --rm indexes` builds it.
 
-## What this does not do yet
+## What this does not do
 
-While an instance signs in as the owner, these checks hold nothing against
-that account: it is the owner. They take effect with the last step.
+An instance that still signs in as the owner, on a PostgreSQL of its own, gets
+nothing from these checks: that account is the owner. It says so in its start
+log and in Administration > Health.
 
-After it, the application stays the authority on who acts, since it says so
-to the database. A stolen application account could still add an event or a
-signature in someone's name. It could not delete or rewrite what is there, nor
-change a signed row without leaving a trace.
+The application stays the authority on who acts, since it says so to the
+database. A stolen application account could still add an event or a signature
+in someone's name. It could not delete or rewrite what is there, nor change a
+signed row without leaving a trace.
 
 ## Rejected
 
