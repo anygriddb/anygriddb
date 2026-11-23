@@ -1,10 +1,5 @@
 import { purgeParseLeftovers } from "./import-isolated.js";
-import {
-  createDb,
-  migrateDb,
-  PostgresTooOld,
-  UpgradeRefused,
-} from "@anygriddb/db";
+import { createDb, PostgresTooOld, UpgradeRefused } from "@anygriddb/db";
 import {
   databaseRoleIsSuperuser,
   hasAccounts,
@@ -12,13 +7,18 @@ import {
 } from "./admin.js";
 import { passkeysEligible } from "./auth/relying-party.js";
 import { BUILD, describeBuild } from "./build-info.js";
+import {
+  assertPrepared,
+  DatabaseNotPrepared,
+  migrateStore,
+  signsInAsOwner,
+} from "./database-start.js";
 import { databasePasswordHint, isLoopback, readEnv } from "./env.js";
 import { createFileStore } from "./files/index.js";
 import { watchSyslog } from "./integrations/syslog.js";
 import { loggedError, loggedFields } from "./logged-error.js";
 import { processLog } from "./process-log.js";
 import { metricsBearer } from "./notify/metrics-token.js";
-import { migrateQueue } from "./queue/worker.js";
 import { PgBus } from "./realtime/bus.js";
 import { createApp } from "./server.js";
 import {
@@ -57,11 +57,24 @@ const { db, pool, close } = createDb(env.DATABASE_URL, {
     processLog.rememberFailure("database connection failed", error);
   },
 });
+// Row writes queue their events in graphile-worker: its schema comes with
+// the migrations. A role of its own finds them done (ADR 0119).
+let ownsTables: boolean;
 try {
-  await migrateDb(pool);
+  ownsTables = await signsInAsOwner(pool);
+  if (ownsTables) {
+    await migrateStore(pool, env.DATABASE_URL, {
+      error: (meta, message) => console.error(message, loggedFields(meta)),
+      warn: (meta, message) => console.warn(message, loggedFields(meta)),
+      info: () => undefined,
+      debug: () => undefined,
+    });
+  } else {
+    await assertPrepared(pool);
+  }
 } catch (error) {
   // Nothing was asked of this server: there is nothing to tell it either.
-  if (error instanceof PostgresTooOld) {
+  if (error instanceof PostgresTooOld || error instanceof DatabaseNotPrepared) {
     console.error(error.message);
     process.exit(1);
   }
@@ -73,13 +86,6 @@ try {
   if (error instanceof UpgradeRefused) process.exit(1);
   throw error;
 }
-// Row writes queue their events in graphile-worker: its schema comes first.
-await migrateQueue(env.DATABASE_URL, {
-  error: (meta, message) => console.error(message, loggedFields(meta)),
-  warn: (meta, message) => console.warn(message, loggedFields(meta)),
-  info: () => undefined,
-  debug: () => undefined,
-});
 await promoteListedAdmins(db, env.ADMIN_EMAILS);
 // An earlier stack's role still works: told, and left to the operator.
 if (await databaseRoleIsSuperuser(db)) {
@@ -173,10 +179,15 @@ await app.listen({
 });
 
 // Beside the requests, and only once: a build stopped halfway is taken up
-// at the next start.
-void buildFileIndexes(db, env.DATABASE_URL, app.log).catch((error: unknown) => {
-  app.log.error({ err: error }, "file index build failed");
-});
+// at the next start. It takes the tables' owner: a role of its own leaves
+// it to `anygriddb database indexes`.
+if (ownsTables) {
+  void buildFileIndexes(db, env.DATABASE_URL, app.log).catch(
+    (error: unknown) => {
+      app.log.error({ err: error }, "file index build failed");
+    },
+  );
+}
 
 let shuttingDown = false;
 const shutdown = async (reason: string) => {

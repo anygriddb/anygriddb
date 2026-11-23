@@ -27,10 +27,11 @@ new value, stayed signed, and the trail did not move.
   than the shortest retention an instance can choose, whatever date it is
   given. The erasure moves an account's trails and deletes the account in one
   step: an author cannot be taken off the trail of an account that stays.
-- **This is the first step of a separation.** Next, what the application
-  changes in its tables goes through typed functions of the owner, migrations
-  run apart with the owner's credentials, and the application signs in as a
-  role that owns nothing.
+- **This is the first step of a separation.** What the application changes
+  in its tables goes through typed functions of the owner. Migrations run apart
+  with the owner's credentials (`anygriddb database prepare`), and an
+  application whose role owns no table only checks that they ran. The last
+  step signs a Compose install in as that role.
 
 ## What this does not do yet
 
