@@ -37,7 +37,7 @@ cd "$root/docker"
 
 env_file="${ENV_FILE:-.env}"
 args=("$@")
-if [ ${#args[@]} -eq 0 ]; then args=(-f compose.yml); fi
+if [[ ${#args[@]} -eq 0 ]]; then args=(-f compose.yml); fi
 
 # Tells the instance how this run ended, through its running container:
 # that takes nothing from .env, which may be what stopped the run. A report
@@ -50,24 +50,24 @@ project=""
 recipient=""
 report() {
   local flags=() bytes name="${project:-backup}-${stamp}" container=""
-  if [ -n "$out" ]; then name="$(basename "$out")"; fi
-  if [ "$1" = failed ]; then flags+=(--failed); fi
-  if [ -n "$out" ]; then
+  if [[ -n "$out" ]]; then name="$(basename "$out")"; fi
+  if [[ "$1" = failed ]]; then flags+=(--failed); fi
+  if [[ -n "$out" ]]; then
     bytes="$(du -sk "$out" 2>/dev/null | cut -f1)" || bytes=""
     case "$bytes" in '' | *[!0-9]*) ;; *) flags+=(--bytes "$((bytes * 1024))") ;; esac
   fi
-  if [ -n "$recipient" ]; then flags+=(--encrypted); fi
+  if [[ -n "$recipient" ]]; then flags+=(--encrypted); fi
   # Before .env is read the project's name comes from the options alone.
-  if [ -z "$project" ]; then
+  if [[ -z "$project" ]]; then
     project="$(docker compose --env-file /dev/null "${args[@]}" config --no-interpolate 2>/dev/null |
       sed -n 's/^name: *"\{0,1\}\([^"]*\)"\{0,1\} *$/\1/p' | head -n 1)" || project=""
     name="${project:-backup}-${stamp}"
   fi
-  if [ -n "$project" ]; then
+  if [[ -n "$project" ]]; then
     container="$(docker ps -q --filter "label=com.docker.compose.project=$project" \
       --filter label=com.docker.compose.service=app --filter status=running 2>/dev/null | head -n 1)" || container=""
   fi
-  if [ -z "$container" ] || ! docker exec "$container" anygriddb backups record \
+  if [[ -z "$container" ]] || ! docker exec "$container" anygriddb backups record \
     --name "$name" --started "$started" ${flags[@]+"${flags[@]}"} >/dev/null 2>&1; then
     echo "The instance could not be told of this run: Administration will not show it." >&2
   fi
@@ -81,10 +81,10 @@ made=""
 ended() {
   status=$?
   trap - EXIT HUP INT TERM
-  if [ -n "$made" ]; then
+  if [[ -n "$made" ]]; then
     report succeeded
   else
-    if [ -n "$out" ]; then rm -rf -- "$out"; fi
+    if [[ -n "$out" ]]; then rm -rf -- "$out"; fi
     echo "This run stopped before its end: nothing is kept of it." >&2
     report failed
   fi
@@ -110,7 +110,7 @@ load_secret_files "$(cd "$(dirname "$env_file")" && pwd)"
 : "${POSTGRES_DB:?set POSTGRES_DB in docker/.env}"
 
 recipient="${BACKUP_AGE_RECIPIENT:-}"
-if [ -n "$recipient" ]; then
+if [[ -n "$recipient" ]]; then
   command -v age >/dev/null || {
     echo "BACKUP_AGE_RECIPIENT is set: install age (https://age-encryption.org) first." >&2
     exit 1
@@ -133,7 +133,7 @@ case "$keep_days" in
 esac
 
 compose=(docker compose "${args[@]}")
-if [ -f "$env_file" ]; then compose=(docker compose --env-file "$env_file" "${args[@]}"); fi
+if [[ -f "$env_file" ]]; then compose=(docker compose --env-file "$env_file" "${args[@]}"); fi
 config="$("${compose[@]}" config --format json)"
 # The project's name is the composition's own `name`, at its top: a
 # config, a network or a volume has a name too, further in.
@@ -156,9 +156,9 @@ chmod 700 "$out"
 
 # Writes stdin to the file, encrypted as it comes when a recipient is set.
 suffix=""
-if [ -n "$recipient" ]; then suffix=".age"; fi
+if [[ -n "$recipient" ]]; then suffix=".age"; fi
 keep() {
-  if [ -n "$recipient" ]; then
+  if [[ -n "$recipient" ]]; then
     age -r "$recipient" >"$1$suffix"
   else
     cat >"$1"
@@ -194,14 +194,14 @@ echo
 echo "Backup: $out"
 du -sh "$out" | cut -f1
 
-if [ -n "$keep_days" ]; then
+if [[ -n "$keep_days" ]]; then
   # Folders are named by when they were made, in UTC: older names sort first.
   cutoff="$(date -u -d "-${keep_days} days" +%Y%m%dT%H%M%SZ 2>/dev/null ||
     date -u -v-"${keep_days}"d +%Y%m%dT%H%M%SZ)"
   for folder in "$backups/${project}"-*; do
     name="$(basename "$folder")"
     stamp="${name#"${project}"-}"
-    [ -d "$folder" ] && [ "$folder" != "$out" ] || continue
+    [[ -d "$folder" ]] && [[ "$folder" != "$out" ]] || continue
     [[ "$stamp" =~ ^[0-9]{8}T[0-9]{6}Z$ ]] || continue
     if [[ "$stamp" < "$cutoff" ]]; then
       rm -rf -- "$folder"
@@ -210,10 +210,10 @@ if [ -n "$keep_days" ]; then
   done
 fi
 
-if [ -n "$recipient" ]; then
+if [[ -n "$recipient" ]]; then
   echo "Encrypted for ${recipient}: restore it with that key's identity (BACKUP_AGE_IDENTITY)."
 fi
 echo "Keep AUTH_ENCRYPTION_KEY apart from it: without that key, this backup's sealed secrets stay sealed."
-if [ -n "$elsewhere" ]; then
+if [[ -n "$elsewhere" ]]; then
   echo "The files of this stack are in an object store outside it: this backup does not hold them. Keep that bucket with its service's own means." >&2
 fi

@@ -180,7 +180,7 @@ export function scriptHost(
       input.body ?? "",
     ];
     const allowed = new Map<string, string>();
-    for (const name of texts.flatMap(secretNames)) {
+    for (const name of texts.flatMap((text) => secretNames(text))) {
       const secret = context.secrets?.get(name);
       if (!secret) throw new AppError("unknown_secret", name);
       if (secret.host !== host) {

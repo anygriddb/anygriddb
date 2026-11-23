@@ -21,10 +21,10 @@ version="$(sed -n 's/^  "version": *"\([^"]*\)".*/\1/p' package.json | head -n 1
 : "${version:?no version in package.json}"
 
 commit="$(git rev-parse HEAD 2>/dev/null || true)"
-if [ -z "$commit" ]; then
+if [[ -z "$commit" ]]; then
   warn "not a git checkout: the image will not record its commit."
 else
-  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
     warn "changes not committed: the image is not exactly commit ${commit:0:12}."
   fi
   if ! git tag --points-at HEAD | grep -Fxq "v$version"; then
@@ -40,9 +40,9 @@ export ANYGRIDDB_CREATED
 cd "$root/docker"
 env_file="${ENV_FILE:-.env}"
 args=("$@")
-if [ ${#args[@]} -eq 0 ]; then args=(-f compose.yml); fi
+if [[ ${#args[@]} -eq 0 ]]; then args=(-f compose.yml); fi
 compose=(docker compose "${args[@]}")
-if [ -f "$env_file" ]; then compose=(docker compose --env-file "$env_file" "${args[@]}"); fi
+if [[ -f "$env_file" ]]; then compose=(docker compose --env-file "$env_file" "${args[@]}"); fi
 
 "${compose[@]}" build
 printf 'Built AnyGridDB %s (commit %s). Start it: docker compose up -d\n' \

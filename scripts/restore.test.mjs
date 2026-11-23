@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  access,
   chmod,
   mkdir,
   mkdtemp,
@@ -36,6 +37,13 @@ case " $* " in
     if [ -n "$FAKE_STORE" ]; then echo '{"volumes":{"rustfs_data":{}}}'; else echo '{"volumes":{}}'; fi
     exit 0 ;;
   *" config "*) echo 'name: fake'; exit 0 ;;
+  *" df -Pk "*)
+    printf 'Filesystem 1K-blocks Used Available Use Mounted\\n'
+    printf '/dev/fake 100 50 %s 1%% /\\n' "\${FAKE_FREE:-1000000000}"
+    exit 0 ;;
+  *"select rolname"*) echo postgres; exit 0 ;;
+  *" run "*"tar -tvf"*) cat >/dev/null; echo '10 1'; exit 0 ;;
+  *" run "*"pg_restore -f"*) cat >/dev/null; echo 10; exit 0 ;;
 esac
 echo "$*" >> "$FAKE_LOG"
 exit 0
@@ -139,4 +147,36 @@ describe("restore.sh, before it touches anything", () => {
 
   it("refuses a backup without the store's files on a stack that has one", () =>
     refused({ names: WHOLE }, { store: true, says: /--keep-store-files/ }));
+
+  for (const [what, hostile] of [
+    ["the time it is given", (mark) => ({ RESTORE_START_SECONDS: mark })],
+    ["the free space a container reports", (mark) => ({ FAKE_FREE: mark })],
+  ]) {
+    it(`runs nothing held by ${what}`, async () => {
+      const { dir, backup, bin, log, envFile } = await prepared({
+        names: WHOLE,
+      });
+      const ran = join(dir, "ran");
+      try {
+        await assert.rejects(
+          exec("bash", [restore, backup, "-p", "fake"], {
+            env: {
+              ...process.env,
+              PATH: `${bin}:${process.env.PATH}`,
+              ENV_FILE: envFile,
+              FAKE_LOG: log,
+              ...hostile(`a[$(touch ${ran})]`),
+            },
+          }),
+          (error) => {
+            assert.match(error.stderr, /is not a number/);
+            return true;
+          },
+        );
+        await assert.rejects(access(ran));
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
+  }
 });

@@ -46,7 +46,7 @@ compose=(docker compose -p "$project" --env-file "$work/smoke.env"
 
 cleanup() {
   status=$?
-  if [ "$status" -ne 0 ]; then
+  if [[ "$status" -ne 0 ]]; then
     echo "The image did not start as it should: what the stack said." >&2
     "${compose[@]}" ps --all >&2 || true
     "${compose[@]}" logs --no-color --tail 80 certs db app >&2 || true
@@ -62,7 +62,7 @@ trap cleanup EXIT
 # AnyGridDB was started once: its database could be reached when it
 # asked, and nothing else stopped it on the way.
 restarts="$(docker inspect --format '{{.RestartCount}}' "$("${compose[@]}" ps --quiet app)")"
-if [ "$restarts" != "0" ]; then
+if [[ "$restarts" != "0" ]]; then
   echo "AnyGridDB was started $((restarts + 1)) times: it stopped on the way, as it does in front of a database it cannot reach yet." >&2
   exit 1
 fi
@@ -92,7 +92,7 @@ esac
 # AnyGridDB's role owns its database and is no superuser (ADR 0003).
 role="$("${compose[@]}" exec -T db psql -U anygriddb -d anygriddb -tAc \
   "select rolsuper::text || ' ' || pg_get_userbyid(datdba) from pg_roles, pg_database where rolname = current_user and datname = current_database()")"
-if [ "$role" != "false anygriddb" ]; then
+if [[ "$role" != "false anygriddb" ]]; then
   echo "AnyGridDB's PostgreSQL role is a superuser, or does not own its database: $role" >&2
   exit 1
 fi
@@ -127,7 +127,7 @@ fi
 "${compose[@]}" exec -T app anygriddb scripts check
 reported="$("${compose[@]}" exec -T app anygriddb version)"
 echo "$reported"
-if [ -n "${SMOKE_VERSION:-}" ] && ! grep -Fq "$SMOKE_VERSION" <<<"$reported"; then
+if [[ -n "${SMOKE_VERSION:-}" ]] && ! grep -Fq "$SMOKE_VERSION" <<<"$reported"; then
   echo "The image reports another version than $SMOKE_VERSION." >&2
   exit 1
 fi
@@ -175,7 +175,7 @@ in_files() {
 ask "create table smoke_kept (word text); insert into smoke_kept values ('kept')" >/dev/null
 in_files 'echo kept > /files/smoke-kept'
 "${as_operator[@]}" "$root/scripts/backup.sh" "${options[@]}"
-if [ "$(told)" != "1 0" ]; then
+if [[ "$(told)" != "1 0" ]]; then
   echo "The instance was not told, once, of the backup just made: $(told)" >&2
   exit 1
 fi
@@ -189,12 +189,12 @@ if PATH="$work/bin:$PATH" BACKUP_AGE_RECIPIENT=age1smoke \
   echo "A backup whose files could not be written ended well." >&2
   exit 1
 fi
-if [ "$(told)" != "1 1" ]; then
+if [[ "$(told)" != "1 1" ]]; then
   echo "The instance was not told, once, of the backup that failed: $(told)" >&2
   exit 1
 fi
 backup=("$work"/backups/*)
-if [ "${#backup[@]}" -ne 1 ] || [ ! -f "${backup[0]}/SHA256SUMS" ]; then
+if [[ "${#backup[@]}" -ne 1 ]] || [[ ! -f "${backup[0]}/SHA256SUMS" ]]; then
   echo "The backups' folder holds more than the one backup made: ${backup[*]}" >&2
   exit 1
 fi
@@ -218,7 +218,7 @@ if "${as_operator[@]}" "$root/scripts/restore.sh" "$damaged" "${options[@]}"; th
   echo "A restore from a dump cut in half ended well." >&2
   exit 1
 fi
-if [ "$(ask "select word from smoke_kept")" != kept ]; then
+if [[ "$(ask "select word from smoke_kept")" != kept ]]; then
   echo "A refused restore changed the database." >&2
   exit 1
 fi
@@ -227,11 +227,11 @@ echo
 ask "drop table smoke_kept" >/dev/null
 in_files 'rm /files/smoke-kept'
 "${as_operator[@]}" "$root/scripts/restore.sh" "${backup[0]}" "${options[@]}"
-if [ "$(ask "select word from smoke_kept")" != kept ]; then
+if [[ "$(ask "select word from smoke_kept")" != kept ]]; then
   echo "The restore did not bring back the rows the backup held." >&2
   exit 1
 fi
-if [ "$(in_files 'cat /files/smoke-kept' 2>/dev/null)" != kept ]; then
+if [[ "$(in_files 'cat /files/smoke-kept' 2>/dev/null)" != kept ]]; then
   echo "The restore did not bring back the files the backup held." >&2
   exit 1
 fi

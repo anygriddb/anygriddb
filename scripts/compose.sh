@@ -14,7 +14,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 target="$root/docker"
-if [ "${1:-}" = "--dir" ]; then
+if [[ "${1:-}" = "--dir" ]]; then
   target="$(cd "${2:?usage: scripts/compose.sh --dir <folder> ...}" && pwd)"
   shift 2
 fi
@@ -22,7 +22,7 @@ cd "$target"
 
 # Named first, .env stays read when the options name another file too.
 env_files=()
-if [ -f .env ]; then env_files=(--env-file "$target/.env"); fi
+if [[ -f .env ]]; then env_files=(--env-file "$target/.env"); fi
 # shellcheck source=scripts/env-file.sh
 . "$root/scripts/env-file.sh"
 read_env_file "$target/.env" POSTGRES_PASSWORD AUTH_ENCRYPTION_KEY \

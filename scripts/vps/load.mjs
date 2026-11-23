@@ -60,7 +60,9 @@ function makePacer(rps) {
 }
 
 function decodeBase32(secret) {
-  const normalized = secret.replace(/=+$/g, "").toUpperCase();
+  let end = secret.length;
+  while (end > 0 && secret[end - 1] === "=") end -= 1;
+  const normalized = secret.slice(0, end).toUpperCase();
   let value = 0;
   let bits = 0;
   const bytes = [];

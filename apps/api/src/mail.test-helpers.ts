@@ -55,7 +55,7 @@ export async function fakeSmtp() {
           current.from = line.replace(/^MAIL FROM:\s*/i, "");
           reply("250 OK");
         } else if (verb === "RCPT") {
-          current.to.push(line.replace(/^RCPT TO:\s*<?([^>\s]*)>?.*$/i, "$1"));
+          current.to.push(/^RCPT TO:\s*<?([^>\s]*)/i.exec(line)?.[1] ?? "");
           reply("250 OK");
         } else if (verb === "DATA") {
           inData = true;

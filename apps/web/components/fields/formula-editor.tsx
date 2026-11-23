@@ -270,7 +270,11 @@ export default function FormulaEditor(props: {
       // What the engine computes differently, marked where it is written.
       const limited = engine ? formulaLimits(source, engine) : [];
       const known = saved?.source === source ? saved.limits : [];
-      setLimits(distinctLimits([...limited, ...fromTyped, ...known]).map(say));
+      setLimits(
+        distinctLimits([...limited, ...fromTyped, ...known]).map((limit) =>
+          say(limit),
+        ),
+      );
       const warnings = limited.map((limit): Diagnostic => ({
         from: limit.from,
         to: limit.to,

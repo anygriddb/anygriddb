@@ -47,11 +47,15 @@ export const EXCEPTIONS = new Map([
  * license elected.
  */
 export function allowed(expression) {
-  const text = expression.trim().replace(/^\((.*)\)$/, "$1");
+  const trimmed = expression.trim();
+  const text =
+    trimmed.startsWith("(") && trimmed.endsWith(")")
+      ? trimmed.slice(1, -1)
+      : trimmed;
   return text
-    .split(/\s+OR\s+/)
+    .split(" OR ")
     .some((choice) =>
-      choice.split(/\s+AND\s+/).every((id) => ALLOWED.has(id.trim())),
+      choice.split(" AND ").every((id) => ALLOWED.has(id.trim())),
     );
 }
 

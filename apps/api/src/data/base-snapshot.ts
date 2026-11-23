@@ -1593,7 +1593,7 @@ export async function importBaseSnapshot(
         let last = 0n;
         const flush = async () => {
           if (batch.length === 0) return;
-          const fields = batch.map(snapshotLineCells);
+          const fields = batch.map((line) => snapshotLineCells(line));
           await restore(fields);
           const values = fields.map((line) =>
             cellsFor(line, target, people, report),

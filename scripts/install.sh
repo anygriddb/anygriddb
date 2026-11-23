@@ -23,19 +23,19 @@ target="$(cd "${1:-$root/docker}" && pwd)"
 env_file="$target/.env"
 secrets="$target/secrets"
 
-if [ ! -f "$target/compose.yml" ]; then
+if [[ ! -f "$target/compose.yml" ]]; then
   echo "install.sh: no compose.yml in $target" >&2
   exit 1
 fi
 
-if [ ! -f "$target/compose.secrets.yml" ]; then
+if [[ ! -f "$target/compose.secrets.yml" ]]; then
   echo "install.sh: no compose.secrets.yml in $target: nothing was changed." >&2
   exit 1
 fi
 
 umask 077
-if [ ! -f "$env_file" ]; then
-  if [ -f "$target/.env.example" ]; then
+if [[ ! -f "$env_file" ]]; then
+  if [[ -f "$target/.env.example" ]]; then
     cp "$target/.env.example" "$env_file"
   else
     : >"$env_file"
@@ -51,7 +51,7 @@ unset DATABASE_URL POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD AUTH_ENCRYPTION_K
 read_env_file "$env_file" DATABASE_URL POSTGRES_USER POSTGRES_DB \
   POSTGRES_PASSWORD AUTH_ENCRYPTION_KEY
 
-if [ -n "${DATABASE_URL:-}" ]; then
+if [[ -n "${DATABASE_URL:-}" ]]; then
   echo "install.sh: .env sets DATABASE_URL, a PostgreSQL of your own." >&2
   echo "compose.secrets.yml is for the database this stack runs." >&2
   exit 1
@@ -68,13 +68,13 @@ env_names() {
 # already has, or a new one when neither does. Nothing is written yet.
 secret_value() {
   local name="$1" file="$2" fresh="$3" value="${!1:-}"
-  if [ -e "$file" ]; then
-    if [ -n "$value" ] && [ "$value" != "$(tr -d '\r\n' <"$file")" ]; then
+  if [[ -e "$file" ]]; then
+    if [[ -n "$value" ]] && [[ "$value" != "$(tr -d '\r\n' <"$file")" ]]; then
       echo "install.sh: $name in .env differs from $file. Keep one, then run again." >&2
       return 1
     fi
     tr -d '\r\n' <"$file"
-  elif [ -n "$value" ]; then
+  elif [[ -n "$value" ]]; then
     printf '%s' "$value"
   elif env_names "$name"; then
     # A new value in its place would leave what the old one sealed unread.
@@ -97,9 +97,9 @@ running=""
 for folder in "$target" "$(cd "$target" && pwd -P)"; do
   running="$(docker ps -q --filter "label=com.docker.compose.project.working_dir=$folder" \
     --filter label=com.docker.compose.service=db --filter status=running 2>/dev/null | head -n 1)" || running=""
-  if [ -n "$running" ]; then break; fi
+  if [[ -n "$running" ]]; then break; fi
 done
-if [ -n "$running" ] && ! PGPASSWORD="$password" docker exec -e PGPASSWORD -e PGSSLMODE=require \
+if [[ -n "$running" ]] && ! PGPASSWORD="$password" docker exec -e PGPASSWORD -e PGSSLMODE=require \
   "$running" psql -h 127.0.0.1 -U "$user" -d "$database" -Atc 'select 1' >/dev/null 2>&1; then
   echo "install.sh: this password does not open the running stack's database: nothing was changed." >&2
   exit 1
@@ -109,7 +109,7 @@ mkdir -p "$secrets"
 chmod 700 "$secrets"
 for pair in "postgres_password:$password" "auth_encryption_key:$key"; do
   file="$secrets/${pair%%:*}"
-  if [ ! -e "$file" ]; then printf '%s\n' "${pair#*:}" >"$file"; fi
+  if [[ ! -e "$file" ]]; then printf '%s\n' "${pair#*:}" >"$file"; fi
   chmod 644 "$file"
 done
 
@@ -118,13 +118,13 @@ set_env() {
   local tmp
   tmp="$(mktemp "$target/.env.XXXXXX")"
   grep -Ev "^[[:space:]]*(export[[:space:]]+)?$1[[:space:]]*=" "$env_file" >"$tmp" || true
-  if [ "$#" -gt 1 ]; then printf '%s=%s\n' "$1" "$2" >>"$tmp"; fi
+  if [[ "$#" -gt 1 ]]; then printf '%s=%s\n' "$1" "$2" >>"$tmp"; fi
   chmod 600 "$tmp"
   mv "$tmp" "$env_file"
 }
 
-if [ -z "${POSTGRES_USER:-}" ]; then set_env POSTGRES_USER "$user"; fi
-if [ -z "${POSTGRES_DB:-}" ]; then set_env POSTGRES_DB "$database"; fi
+if [[ -z "${POSTGRES_USER:-}" ]]; then set_env POSTGRES_USER "$user"; fi
+if [[ -z "${POSTGRES_DB:-}" ]]; then set_env POSTGRES_DB "$database"; fi
 set_env POSTGRES_PASSWORD
 set_env AUTH_ENCRYPTION_KEY
 set_env POSTGRES_PASSWORD_FILE ./secrets/postgres_password

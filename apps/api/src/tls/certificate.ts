@@ -137,7 +137,7 @@ function addressBytes(address: string): Buffer {
   const all = [...left, ...middle, ...right];
   const bytes = Buffer.alloc(16);
   all.forEach((group, index) =>
-    bytes.writeUInt16BE(parseInt(group, 16), index * 2),
+    bytes.writeUInt16BE(Number.parseInt(group, 16), index * 2),
   );
   return bytes;
 }
