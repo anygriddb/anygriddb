@@ -14,5 +14,6 @@ export {
   PostgresTooOld,
   UpgradeRefused,
 } from "./migrate.js";
+export { grantRuntimeRole } from "./runtime-role.js";
 export type * from "./types.generated.js";
 export type * from "./rows.js";

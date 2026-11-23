@@ -24,6 +24,7 @@ const PASSWORD = "correct horse battery staple";
 
 describe("rights at a date", () => {
   let db: Database;
+  let ownerDb: Database;
   let close: (() => Promise<void>) | undefined;
   let adminId = "";
   let personId = "";
@@ -32,6 +33,7 @@ describe("rights at a date", () => {
   beforeAll(async () => {
     const created = await createTestDatabase("rights_at");
     db = created.db;
+    ownerDb = created.owner.db;
     close = created.close;
     const env = {
       AUTH_ENCRYPTION_KEY: keyRing(randomBytes(32)),
@@ -150,7 +152,7 @@ describe("rights at a date", () => {
   });
 
   it("says the trail is gone when the person's roles remain and every event was purged", async () => {
-    await db.transaction().execute(async (tx) => {
+    await ownerDb.transaction().execute(async (tx) => {
       await sql`select set_config('anygrid.purge_audit', 'on', true)`.execute(
         tx,
       );

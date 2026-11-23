@@ -7,6 +7,7 @@
  * takes its status back by the recorded steps (ADR 0117).
  */
 import { AppError } from "../errors";
+import { ownerCall } from "./ddl";
 import { assertIdentifier, quoteIdent, type ParameterizedSql } from "./params";
 
 /** Rows one statement copies: each is a transaction of its own. */
@@ -89,10 +90,7 @@ export function buildSequenceAfter(input: {
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
   assertSeq(input.last);
-  return {
-    text: `select setval(pg_get_serial_sequence($1, 'ag_seq'), greatest($2::bigint, 1))`,
-    values: [quoteIdent(input.table), input.last],
-  };
+  return ownerCall("ag_set_row_number", input.table, input.last);
 }
 
 /**

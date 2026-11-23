@@ -27,6 +27,7 @@ const suffix = randomBytes(6).toString("hex");
 
 describe("every public link and calendar feed, for an administrator", () => {
   let db: Database;
+  let ownerDb: Database;
   let close: (() => Promise<void>) | undefined;
   let owner = "";
   let admin = "";
@@ -35,6 +36,7 @@ describe("every public link and calendar feed, for an administrator", () => {
   beforeAll(async () => {
     const created = await createTestDatabase("outbound");
     db = created.db;
+    ownerDb = created.owner.db;
     close = created.close;
     const people = await db
       .insertInto("users")
@@ -260,7 +262,7 @@ describe("every public link and calendar feed, for an administrator", () => {
         tx,
       ),
     );
-    await sql`analyze ${sql.table(physical.physicalName)}`.execute(db);
+    await sql`analyze ${sql.table(physical.physicalName)}`.execute(ownerDb);
     const shared = await view("Ouverte");
     await createShare(db, {
       viewId: shared.id,

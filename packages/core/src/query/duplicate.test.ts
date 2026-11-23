@@ -28,7 +28,7 @@ describe("copying a table's rows in SQL", () => {
     expect(statement.values).toEqual(["5000", 5_000]);
     expect(
       buildSequenceAfter({ table: "t_copy", last: "6001" }).values,
-    ).toEqual(['"t_copy"', "6001"]);
+    ).toEqual(["t_copy", "6001"]);
   });
 
   it("points links at the copied rows through their numbers", () => {

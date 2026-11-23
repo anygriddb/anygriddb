@@ -318,7 +318,7 @@ describe("the migration that gives rows a place", () => {
 
   beforeAll(async () => {
     const created = await createTestDatabase("roworder_migration");
-    database = created.db;
+    database = created.owner.db;
     close = created.close;
   });
 

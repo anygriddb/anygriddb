@@ -75,7 +75,7 @@ describe("a session that does not own the trail", () => {
   beforeAll(async () => {
     const created = await createTestDatabase("trail_owner");
     db = created.db;
-    owner = created.pool;
+    owner = created.owner.pool;
     close = created.close;
     await owner.query(`create role "${role}" login password '${password}'`);
     await owner.query(`grant usage on schema public to "${role}"`);

@@ -31,6 +31,7 @@ const PASSWORD = "correct horse battery staple";
 
 describe("instance controls", () => {
   let db: Database;
+  let ownerDb: Database;
   let close: (() => Promise<void>) | undefined;
   const hub = {
     closeUser: vi.fn(() => 0),
@@ -64,6 +65,7 @@ describe("instance controls", () => {
   beforeAll(async () => {
     const created = await createTestDatabase("control");
     db = created.db;
+    ownerDb = created.owner.db;
     close = created.close;
     // The first account administers the instance.
     await admin.signUpFirst({
@@ -128,6 +130,13 @@ describe("instance controls", () => {
     const [first] = await events(memberId);
     await expect(
       db
+        .updateTable("authEvents")
+        .set({ detail: "forged" })
+        .where("id", "=", first?.id ?? "")
+        .execute(),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      ownerDb
         .updateTable("authEvents")
         .set({ detail: "forged" })
         .where("id", "=", first?.id ?? "")

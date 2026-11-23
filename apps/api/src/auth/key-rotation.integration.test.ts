@@ -36,6 +36,7 @@ function sealedBeforeIds(plaintext: string, master: Buffer) {
 
 describe("the encryption key changed", () => {
   let db: Database;
+  let ownerDb: Database;
   let close: (() => Promise<void>) | undefined;
   let tlsDir = "";
   let ada = "";
@@ -54,6 +55,7 @@ describe("the encryption key changed", () => {
   beforeAll(async () => {
     const created = await createTestDatabase("key_rotation");
     db = created.db;
+    ownerDb = created.owner.db;
     close = created.close;
     tlsDir = await mkdtemp(join(tmpdir(), "anygriddb-keys-"));
     const people = await db
@@ -284,10 +286,10 @@ describe("the encryption key changed", () => {
   it("reads a database whose earlier version lacks a sealed column", async () => {
     const whole = await rotateKeys(db, during, { write: false });
     await sql`alter table instance_siem rename to instance_siem_later`.execute(
-      db,
+      ownerDb,
     );
     await sql`alter table sources rename column replica_password_ciphertext to replica_later`.execute(
-      db,
+      ownerDb,
     );
     try {
       const older = await rotateKeys(db, during, { write: false });
@@ -297,10 +299,10 @@ describe("the encryption key changed", () => {
       expect(count(older)).toBe(count(whole) - 1);
     } finally {
       await sql`alter table sources rename column replica_later to replica_password_ciphertext`.execute(
-        db,
+        ownerDb,
       );
       await sql`alter table instance_siem_later rename to instance_siem`.execute(
-        db,
+        ownerDb,
       );
     }
   });
