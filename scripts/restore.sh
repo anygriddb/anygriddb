@@ -203,6 +203,7 @@ in_volume() {
 # Back as they were, from what the volume holds: an interrupted run comes
 # here too. `.ag-restore-moved` says everything old has left the root, so
 # what is there now came from the backup.
+# shellcheck disable=SC2016 # run in the container, where it expands
 VOLUME_BACK='set -e
 cd /volume
 if [ -f .ag-restore-moved ]; then
@@ -379,6 +380,7 @@ fi
 
 # Read to their end, through gzip's own check: `tar -t` alone stops at the
 # archive's last entry and does not see what comes after it.
+# shellcheck disable=SC2016 # run in the container, where it expands
 ARCHIVE_SIZE='set -o pipefail
 gzip -dc | tar -tvf - | awk "{ bytes += \$3; entries++ } END { if (!entries) exit 1; printf \"%.0f %d\n\", bytes, entries }"'
 DUMP_SIZE='set -o pipefail
@@ -427,11 +429,11 @@ need_room() {
   room_need+=("$3")
 }
 if [ -z "$in_place" ]; then
-  # shellcheck disable=SC2086
+  # shellcheck disable=SC2046 # three words, meant to be split
   set -- $("${compose[@]}" exec -T db df -Pk /var/lib/postgresql </dev/null | awk 'NR == 2 { print $1 ":" $2, $4 }')
   need_room "$1" "$2" $((dump_bytes / 512 + 262144))
   for i in "${!volumes[@]}"; do
-    # shellcheck disable=SC2086
+    # shellcheck disable=SC2046,SC2086 # four words, meant to be split
     set -- $(in_volume "${volumes[i]}" 'df -Pk /volume' </dev/null | awk 'NR == 2 { print $1 ":" $2, $4 }') ${archive_sizes[i]}
     need_room "$1" "$2" $(($3 / 1024 + $4 * 4))
   done
@@ -491,6 +493,7 @@ SQL
   say "Starting AnyGridDB"
   "${compose[@]}" up -d
   wait_for_app || refuse "AnyGridDB did not start healthy on the restored data."
+  # shellcheck disable=SC1010 # the name of the stage
   stage=done
   echo
   echo "Restored from $backup, in place."
@@ -568,6 +571,7 @@ trap '' HUP INT TERM
 in_db --set=old="$old_db" --set=spent="$spent_db" >/dev/null <<'SQL'
 ALTER DATABASE :"old" RENAME TO :"spent";
 SQL
+# shellcheck disable=SC1010 # the name of the stage
 stage=done
 trap 'exit 129' HUP
 trap 'exit 130' INT

@@ -1,5 +1,6 @@
 import eslint from "@eslint/js";
 import reactHooks from "eslint-plugin-react-hooks";
+import regexp from "eslint-plugin-regexp";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
@@ -8,6 +9,17 @@ export default tseslint.config(
   },
   eslint.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
+  {
+    // A pattern that retries from every position takes seconds on a long
+    // value built for it, and holds the whole process meanwhile. A test
+    // reads what it wrote itself.
+    ignores: ["**/*.test.ts", "**/*.test.tsx", "**/*.test-helpers.ts"],
+    plugins: { regexp },
+    rules: {
+      "regexp/no-super-linear-backtracking": "error",
+      "regexp/no-super-linear-move": "error",
+    },
+  },
   {
     languageOptions: {
       parserOptions: {

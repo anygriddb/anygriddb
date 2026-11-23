@@ -226,12 +226,29 @@ jobs:
       - name: Start it as an operator would
         run: scripts/smoke-image.sh
 
+  # What the compiler and ESLint do not read: the shell scripts, the image's
+  # recipe, and every commit for a secret. The whole history is fetched for
+  # that last one.
+  guards:
+    name: guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: ShellCheck, Hadolint and Gitleaks
+        run: scripts/lint-security.sh
+
   # The one check the ruleset needs from this workflow: it passes only when
   # every job above passed, so a new job never means a new required check.
   ci-ok:
     name: ci-ok
     if: always()
-    needs: [unit, integration, engines, e2e, image]
+    needs: [unit, integration, engines, e2e, image, guards]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -240,7 +257,7 @@ jobs:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
           set -eu
-          echo "unit integration engines e2e image: $RESULTS"
+          echo "unit integration engines e2e image guards: $RESULTS"
           for result in $RESULTS; do
             if [ "$result" != "success" ]; then
               echo "a job ended $result" >&2

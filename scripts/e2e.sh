@@ -9,9 +9,10 @@ cd "$root"
 export POSTGRES_USER=anygriddb
 export POSTGRES_PASSWORD=anygriddb
 export POSTGRES_DB=anygriddb
-export AUTH_ENCRYPTION_KEY="$(
+AUTH_ENCRYPTION_KEY="$(
   node -e "process.stdout.write(Buffer.from('0123456789abcdef0123456789abcdef').toString('base64'))"
 )"
+export AUTH_ENCRYPTION_KEY
 export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5433/${POSTGRES_DB}"
 export PUBLIC_URL="https://localhost:4010"
 # The browser is the TCP peer. Trusting loopback lets a journey set its
