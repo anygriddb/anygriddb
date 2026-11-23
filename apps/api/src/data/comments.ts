@@ -2,6 +2,9 @@ import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import { AppError } from "@anygriddb/core";
 
+/** Comments of a row listed at once: its latest, oldest first. */
+const MAX_COMMENTS_LISTED = 500;
+
 export async function listComments(
   db: Database,
   tableId: string,
@@ -25,10 +28,13 @@ export async function listComments(
     ])
     .where("c.tableId", "=", tableId)
     .where("c.rowId", "=", rowId)
-    .orderBy("c.createdAt", "asc")
-    .limit(500)
+    // The latest ones, when a row has more than are listed: the oldest
+    // five hundred hid what was just said.
+    .orderBy("c.createdAt", "desc")
+    .orderBy("c.id", "desc")
+    .limit(MAX_COMMENTS_LISTED)
     .execute();
-  return rows.map((row) => ({
+  return rows.reverse().map((row) => ({
     id: row.id,
     body: row.deletedAt ? "" : row.body,
     parentId: row.parentId,
