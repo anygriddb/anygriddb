@@ -238,6 +238,7 @@ export interface AuditEvents {
   source: string | null;
   tableId: string | null;
   userId: string;
+  writeOrder: Generated<Int8 | null>;
   xactId: Generated<string | null>;
 }
 
