@@ -55,6 +55,26 @@ describe("the document a JSON field keeps", () => {
     }
   });
 
+  it("holds no text the database refuses in a document", () => {
+    // JSON takes a nul and half of a surrogate pair; PostgreSQL's jsonb
+    // takes neither, and the write ended on its error.
+    for (const text of [
+      '{"a": "x\\u0000y"}',
+      '{"a\\u0000": 1}',
+      '["\\ud800"]',
+      '{"\\udc00": [1]}',
+      '{"a": {"b": ["ok", "half \\ud83d"]}}',
+      ["{", '"a": "raw ', "\ud800", '"}'].join(""),
+    ]) {
+      expect([text, parseJsonDocument(text)]).toEqual([text, undefined]);
+    }
+    // A whole pair is a character like any other, written either way.
+    expect(parseJsonDocument('{"a": "\\ud83d\\ude00 😀"}')).toBe(
+      '{"a": "\\ud83d\\ude00 😀"}',
+    );
+    expect(() => assertCellValue(column, '{"a": "x\\u0000y"}')).toThrow();
+  });
+
   it("nests and runs as far as every engine takes, and no further", () => {
     const nested = (depth: number) =>
       `${"[".repeat(depth)}${"]".repeat(depth)}`;

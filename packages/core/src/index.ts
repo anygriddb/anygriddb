@@ -623,7 +623,11 @@ export {
   limitOf,
   type SourceLimit,
 } from "./query/limits";
-export { quoteIdent, type ParameterizedSql } from "./query/params";
+export {
+  quoteIdent,
+  rewritePlaceholders,
+  type ParameterizedSql,
+} from "./query/params";
 
 export {
   MAX_GROUPS,

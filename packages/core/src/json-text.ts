@@ -59,6 +59,14 @@ function* parts(text: string): Generator<string> {
 }
 
 /**
+ * True for what JSON allows in a key or a string and PostgreSQL's `jsonb`
+ * refuses: a nul, and half of a surrogate pair.
+ */
+function unstorable(text: string): boolean {
+  return text.includes("\u0000") || /\p{Cs}/u.test(text);
+}
+
+/**
  * A typed text as the document a JSON field keeps, in its one spelling.
  * `undefined` when it is not JSON, is a bare value (`12`, `"a"`, `null`),
  * nests too deep or is too long.
@@ -70,9 +78,16 @@ export function parseJsonDocument(text: string): string | undefined {
   if (first !== "{" && first !== "[") return undefined;
   if (trimmed.length > JSON_MAX_CHARS * 10) return undefined;
   try {
-    JSON.parse(trimmed);
+    JSON.parse(trimmed, (key, value: unknown) => {
+      if (unstorable(key)) throw new SyntaxError("unstorable");
+      if (typeof value === "string" && unstorable(value)) {
+        throw new SyntaxError("unstorable");
+      }
+      return value;
+    });
   } catch {
-    // Not JSON, or nested past what the parser itself takes.
+    // Not JSON, nested past what the parser itself takes, or holding a
+    // text the database does not.
     return undefined;
   }
   let kept = "";

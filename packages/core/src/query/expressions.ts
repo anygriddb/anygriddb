@@ -79,6 +79,12 @@ export type Typed =
       kind: ScalarKind;
       /** A number's T-SQL type, where the compiler followed it (`digits.ts`). */
       digits?: Digits;
+      /**
+       * A number known to be small: a literal, a blank, or a cell of
+       * AnyGridDB's own, which holds 60 digits at most. A product takes it
+       * as it is (`withinReach`).
+       */
+      small?: true;
       /** A text the formula writes out, read as a date when it compiles. */
       literal?: string;
     }
@@ -202,7 +208,7 @@ function asList(
 function nullOf(kind: ScalarKind, d: SqlDialect = POSTGRES): Typed {
   // A blank number is the narrowest decimal: it widens nothing it meets.
   return kind === "number"
-    ? { sql: d.nullOf(kind), kind, digits: { p: 1, s: 0 } }
+    ? { sql: d.nullOf(kind), kind, digits: { p: 1, s: 0 }, small: true }
     : { sql: d.nullOf(kind), kind };
 }
 
@@ -497,6 +503,8 @@ function storedTyped(
         : {
             sql: column.fieldType === "autonumber" ? `${ref}::numeric` : ref,
             kind,
+            // A client's column holds what its engine lets it.
+            ...(kind === "number" && !column.physical ? { small: true } : {}),
           };
     case "user":
       return { sql: `${ref}::text`, kind: "text" };
@@ -579,8 +587,10 @@ function compileVisibleColumn(
   if (stack.includes(key)) {
     throw new AppError("circular_formula");
   }
+  // Past the deepest chain it follows, a field says so: blank, it read as
+  // a result, and a save kept a formula that computed nothing.
   if (stack.length >= MAX_STACK) {
-    return nullOf("text", ctx.d);
+    throw new AppError("formula_too_large");
   }
   // Read by a formula, a lookup, or a rollup: a field kept in AnyGridDB's
   // database is not in the query the engine runs (ADR 0046).
@@ -2144,6 +2154,7 @@ function compileNode(
         ),
         kind: "number",
         digits: literalDigits(value),
+        small: true,
       };
     }
     case "str":
@@ -2342,6 +2353,29 @@ function sqlServerMean(
 
 const OPERATORS = { add: "+", sub: "-", mul: "*" } as const;
 
+/**
+ * The size past which a number is blank in a product or as a dividend on
+ * PostgreSQL: 65,000 digits. Its numbers stop at 131,072 digits before the
+ * point, and it raises past them, which would cost the whole page for one
+ * row. Two operands under this bound give a product it holds, and a
+ * dividend under it a quotient it holds, whatever divides it.
+ */
+const POSTGRES_REACH = "1e65000";
+/** `POWER` stops under the same size: its result is a product's operand. */
+const POSTGRES_POWER_CEILING = "149000";
+/** Past this, PostgreSQL's exponential raises: it stops at e to the 6,000. */
+const POSTGRES_EXP_CEILING = "5999.9";
+
+/**
+ * A number of PostgreSQL's, blank at `POSTGRES_REACH` and past it. The
+ * operand is written once: a guard that repeated it would double the
+ * statement at each nested product.
+ */
+function withinReach(sql: string): string {
+  const reach = POSTGRES_REACH;
+  return `nullif(greatest(nullif(least(${sql}, ${reach}), ${reach}), -${reach}), -${reach})`;
+}
+
 function arithmetic(
   ctx: ExprContext,
   op: "add" | "sub" | "mul" | "div",
@@ -2350,6 +2384,17 @@ function arithmetic(
 ): Typed {
   if (ctx.d.name !== "sqlserver") {
     const [a, b] = [asNumber(ctx, left), asNumber(ctx, right)];
+    if (ctx.d.name === "postgres" && (op === "mul" || op === "div")) {
+      const near = (operand: Typed, sql: string) =>
+        operand.kind === "number" && operand.small ? sql : withinReach(sql);
+      return {
+        sql:
+          op === "div"
+            ? ctx.d.divide(near(left, a), b)
+            : `(${near(left, a)} * ${near(right, b)})`,
+        kind: "number",
+      };
+    }
     return {
       sql: op === "div" ? ctx.d.divide(a, b) : `(${a} ${OPERATORS[op]} ${b})`,
       kind: "number",
@@ -2491,9 +2536,18 @@ function compileCall(
     case "power": {
       const a = num(0);
       const b = num(1);
-      const ceiling = d.name === "postgres" ? "200000" : String(d.expCeiling);
+      const fractional = `${b} <> ${d.truncate(b, "0")}`;
+      const ceiling =
+        d.name === "postgres" ? POSTGRES_POWER_CEILING : String(d.expCeiling);
+      // PostgreSQL multiplies out a whole exponent, to any size its numbers
+      // hold; any other goes through its exponential, which raises far
+      // sooner, and only when the result is large: a small one is zero.
+      const exponential =
+        d.name === "postgres"
+          ? ` when ${fractional} and ${b} * ${d.ln(`abs(${a})`)} > ${POSTGRES_EXP_CEILING} then null`
+          : "";
       return floating(
-        `(case when ${a} = 0 then (case when ${b} > 0 then 0 when ${b} = 0 then 1 end) when ${a} < 0 and ${b} <> ${d.truncate(b, "0")} then null when abs(${b}) * abs(${d.ln(`abs(${a})`)}) > ${ceiling} then null else ${d.power(a, b)} end)`,
+        `(case when ${a} = 0 then (case when ${b} > 0 then 0 when ${b} = 0 then 1 end) when ${a} < 0 and ${fractional} then null${exponential} when abs(${b}) * abs(${d.ln(`abs(${a})`)}) > ${ceiling} then null else ${d.power(a, b)} end)`,
       );
     }
     case "round":

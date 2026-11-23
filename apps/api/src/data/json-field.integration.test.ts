@@ -172,6 +172,9 @@ describe("a JSON field", () => {
       '{"a":1,}',
       "plain words",
       `${"[".repeat(101)}${"]".repeat(101)}`,
+      // JSON takes these two; the database does not.
+      '{"a": "x\\u0000y"}',
+      '["\\ud800"]',
     ]) {
       const refused = await write({ name: "Refused", meta });
       expect([meta.slice(0, 20), refused.statusCode]).toEqual([

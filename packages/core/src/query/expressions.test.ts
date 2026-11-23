@@ -166,6 +166,35 @@ describe("compileFormula", () => {
     );
   });
 
+  it("keeps PostgreSQL's numbers within what it holds, and no further", () => {
+    const within = (sql: string) =>
+      `nullif(greatest(nullif(least(${sql}, 1e65000), 1e65000), -1e65000), -1e65000)`;
+    // A cell and a literal are small: their product is written as it was.
+    expect(compile("{Price} * {Qty}").typed.sql).toBe(`(r."price" * r."qty")`);
+    expect(compile("{Price} * 2").typed.sql).toBe(`(r."price" * $1::numeric)`);
+    // What was computed is bounded, each operand written once.
+    expect(compile("({Price} * {Qty}) * {Price}").typed.sql).toBe(
+      `(${within(`(r."price" * r."qty")`)} * r."price")`,
+    );
+    expect(compile("({Price} + 1) / {Qty}").typed.sql).toContain(
+      `round((${within(`(r."price" + $1::numeric)`)} + 0.0`,
+    );
+    // The divisor is left alone: only a dividend makes a quotient large.
+    expect(compile("{Price} / ({Qty} + 1)").typed.sql).not.toContain("1e65000");
+    // Any exponent but a whole one goes through the exponential.
+    const power = compile("POWER({Price}, {Qty})").typed.sql;
+    expect(power).toContain(
+      `when r."qty" <> trunc(r."qty", 0) and r."qty" * ln(abs(r."price")) > 5999.9 then null`,
+    );
+    expect(power).toContain("> 149000 then null");
+    // The other engines compute in floating point, under their own ceiling.
+    for (const d of [MYSQL, MARIADB, SQLSERVER]) {
+      const elsewhere = compile("POWER({Price}, {Qty}) * {Price}", d).typed.sql;
+      expect(elsewhere).not.toContain("5999.9");
+      expect(elsewhere).not.toContain("1e65000");
+    }
+  });
+
   it("refuses a formula whose SQL grows past its bound", () => {
     const nested = "SQRT(".repeat(30) + "{Price}" + ")".repeat(30);
     expect(() => compile(nested)).toThrow("Formula too large");

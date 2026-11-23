@@ -315,6 +315,109 @@ describe("read engine on PostgreSQL", () => {
     });
   });
 
+  it("reads a table whose formula keeps none of an argument it bound", async () => {
+    // Each binds a literal whose SQL it then drops. PostgreSQL refused the
+    // statement, and with it every field of the table.
+    const sources = [
+      "YEAR(1)",
+      "T(1)",
+      "BLANK() >= 1",
+      'ARRAY_JOIN("x", "-")',
+      "ABS(TODAY())",
+      "1 + TODAY()",
+    ];
+    const unread: EngineCatalog = {
+      ...catalog,
+      table: {
+        ...orders,
+        columns: [
+          ...orders.columns,
+          ...sources.map((source, index) => ({
+            id: `u${String(index)}`,
+            name: `u${String(index)}`,
+            label: `U${String(index)}`,
+            fieldType: "formula" as const,
+            config: { expr: parseFormula(source, []) },
+          })),
+        ],
+      },
+    };
+    const read = buildReadRows(unread, { limit: 10, timeZone: "Europe/Paris" });
+    const rows = await query(read.text, read.values);
+    expect(rows.map((row) => row.title)).toContain("abc");
+    const one = buildReadRows(unread, { limit: 10, fields: ["title"] });
+    await expect(query(one.text, one.values)).resolves.not.toHaveLength(0);
+    const count = buildCountRows(unread, {});
+    await expect(query(count.text, count.values)).resolves.toHaveLength(1);
+    const sum = buildAggregates(unread, {}, [{ column: "price", fn: "sum" }]);
+    await expect(query(sum.text, sum.values)).resolves.toHaveLength(1);
+  });
+
+  it("leaves a number out of reach blank on its row, and reads the others", async () => {
+    // PostgreSQL raises on each of the blanks below, and one row then cost
+    // the whole page.
+    const sources: Array<[string, string]> = [
+      ["frac", "POWER(10, 2605.5)"],
+      ["whole", "POWER(10, 2607)"],
+      ["byrow", "POWER({Price}, 4500.5)"],
+      ["inverse", "POWER(0.1, -2606.5)"],
+      ["tiny", "POWER(10, -2606.5)"],
+      ["wide", "POWER(10, 60000) * POWER(10, 60000)"],
+      ["past", "POWER(10, 86000) * POWER(10, 86000)"],
+      ["again", "{Wide} * {Wide}"],
+      ["split", "{Wide} / 0.0000000001"],
+      ["plain", "{Price} * {Qty} / 4"],
+    ];
+    const refs = [
+      ...orders.columns.map((column) => ({
+        name: column.name,
+        label: column.label,
+      })),
+      ...sources.map(([name]) => ({
+        name,
+        label: name[0]?.toUpperCase() + name.slice(1),
+      })),
+    ];
+    const far: EngineCatalog = {
+      ...catalog,
+      table: {
+        ...orders,
+        columns: [
+          ...orders.columns,
+          ...sources.map(([name, source]) => ({
+            id: `p_${name}`,
+            name,
+            label: name[0]?.toUpperCase() + name.slice(1),
+            fieldType: "formula" as const,
+            config: { expr: parseFormula(source, refs) },
+          })),
+        ],
+      },
+    };
+    const read = buildReadRows(far, {
+      limit: 10,
+      fields: ["title", ...sources.map(([name]) => name)],
+      sort: [{ column: "title", direction: "asc" }],
+    });
+    const rows = await query(read.text, read.values);
+    const [abc, zz] = rows as Array<Record<string, string | null>>;
+    expect([abc?.title, zz?.title]).toEqual(["abc", "zz"]);
+    expect(abc?.frac).toMatch(/^3162277660168379\d+/);
+    expect(abc?.frac?.split(".")[0]).toHaveLength(2606);
+    expect(abc?.whole).toBe(`1${"0".repeat(2607)}`);
+    // 4 to that power is out of reach; 1 to any power is 1.
+    expect(abc?.byrow).toBeNull();
+    expect(Number(zz?.byrow)).toBe(1);
+    expect(abc?.inverse).toBeNull();
+    expect(Number(abc?.tiny)).toBe(0);
+    expect(abc?.wide).toBe(`1${"0".repeat(120_000)}`);
+    expect(abc?.past).toBeNull();
+    expect(abc?.again).toBeNull();
+    expect(abc?.split).toBeNull();
+    expect(Number(abc?.plain)).toBe(3);
+    expect(Number(zz?.plain)).toBe(0);
+  });
+
   it("filters, counts, groups, and aggregates", async () => {
     const filter = {
       conjunction: "and" as const,

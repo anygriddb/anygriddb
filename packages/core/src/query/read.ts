@@ -27,7 +27,12 @@ import {
   type ColumnRef,
   type FilterContext,
 } from "./filter-sql";
-import { quoteIdent, SqlParams, type ParameterizedSql } from "./params";
+import {
+  quoteIdent,
+  SqlParams,
+  withoutUnreadValues,
+  type ParameterizedSql,
+} from "./params";
 import { ROW_FLOATS } from "./float-text";
 import {
   dialectOf,
@@ -835,13 +840,13 @@ export function buildReadRows(
     prepared.params.bind(value),
   );
   const rows = `${prepared.derived}${prepared.where}${order}${page}`;
-  return {
+  return withoutUnreadValues({
     text: `select ${projection(prepared, spec.fields)} from ${
       prepared.d.name === "postgres" ? pageFirst(rows, order) : rows
     }`,
     values: prepared.params.values,
     columns: [...prepared.columns.values()],
-  };
+  });
 }
 
 /**
@@ -859,10 +864,10 @@ export function buildCountRows(
   spec: Omit<ReadSpec, "limit">,
 ): ParameterizedSql {
   const prepared = prepare(catalog, { ...spec, limit: 1 });
-  return {
+  return withoutUnreadValues({
     text: `select ${prepared.d.count("count(*)")} as "total" from ${prepared.derived}${prepared.where}`,
     values: prepared.params.values,
-  };
+  });
 }
 
 /**
@@ -899,7 +904,7 @@ export function buildGroupCounts(
       `row_number() over (${orderClause(prepared, spec).trim()}) as "rn"`,
     );
   }
-  return {
+  return withoutUnreadValues({
     text: prepared.d.groupCounts({
       keys: groups.length,
       source: `select ${keys.join(", ")} from ${prepared.derived}${prepared.where}`,
@@ -908,7 +913,7 @@ export function buildGroupCounts(
       bind: (value) => prepared.params.bind(value),
     }),
     values: prepared.params.values,
-  };
+  });
 }
 
 /**
@@ -949,7 +954,7 @@ export function buildGroupAggregates(
         (ref.kind === "date" || ref.kind === "datetime")
       ? ref.kind
       : "number";
-  return {
+  return withoutUnreadValues({
     text: d.groupAggregates({
       keys: input.groups.length,
       source: `select ${keys.join(", ")}, ${refSql(ref.name)} as ${quoteIdent(ref.name)}${ref.unread ? `, ${ref.unread}` : ""} from ${prepared.derived}${prepared.where}`,
@@ -959,7 +964,7 @@ export function buildGroupAggregates(
       bind: (bound) => prepared.params.bind(bound),
     }),
     values: prepared.params.values,
-  };
+  });
 }
 
 /** The most bins a histogram has: as many as a chart shows categories. */
@@ -1019,7 +1024,7 @@ export function buildHistogram(
     prepared.where.length > 0
       ? `${prepared.where} and ${read}`
       : ` where ${read}`;
-  return {
+  return withoutUnreadValues({
     text: d.groupAggregates({
       keys: 1,
       source: `select ${bucket} as "k0" from ${prepared.derived}${where}`,
@@ -1029,7 +1034,7 @@ export function buildHistogram(
       bind: (bound) => prepared.params.bind(bound),
     }),
     values: prepared.params.values,
-  };
+  });
 }
 
 export const AGGREGATE_FNS = [
@@ -1262,10 +1267,10 @@ export function buildAggregates(
     value.name,
     d.json(`a."${value.name}"`, value.kind),
   ]);
-  return {
+  return withoutUnreadValues({
     text: `select ${d.row(entries)} from (select ${inner} from ${prepared.derived}${prepared.where}) a`,
     values: prepared.params.values,
-  };
+  });
 }
 
 /** Kind of each column as reads see it, for clients choosing operators and renderers. */
