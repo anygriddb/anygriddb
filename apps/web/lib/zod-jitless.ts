@@ -9,4 +9,5 @@ import { config } from "zod/v4";
 config({ jitless: true });
 
 export * from "zod/v4";
+/** @public This module stands for `zod`: a package may import its default. */
 export { default } from "zod/v4";
