@@ -5,10 +5,10 @@
  */
 import { randomBytes, randomUUID } from "node:crypto";
 import { buildCreateTable, buildInsert } from "@anygriddb/core";
-import type { Database } from "@anygriddb/db";
+import { grantRuntimeRole, type Database } from "@anygriddb/db";
 import type pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createTestDatabase } from "../test-database.js";
+import { createTestDatabase, RUNTIME_ROLE } from "../test-database.js";
 import { runRows, withAudit } from "./audit-context.js";
 
 const table = `t_${randomBytes(16).toString("hex")}`;
@@ -148,9 +148,28 @@ describe("the role the application signs in as", () => {
   });
 
   it("keeps the copies of clients' tables in their own schema", async () => {
-    const copy = `c_${randomBytes(8).toString("hex")}`;
-    await pool.query(`create table ag_sync."${copy}" (id int)`);
-    await pool.query(`drop table ag_sync."${copy}"`);
+    const ownerOf = async (name: string) =>
+      (
+        await ownerPool.query<{ owner: string }>(
+          `select tableowner as owner from pg_tables
+            where schemaname = 'ag_sync' and tablename = $1`,
+          [name],
+        )
+      ).rows[0]?.owner;
+    const made = `c_${randomBytes(8).toString("hex")}`;
+    await pool.query(`create table ag_sync."${made}" (id int)`);
+    expect(await ownerOf(made)).toBe(RUNTIME_ROLE);
+    await pool.query(`drop table ag_sync."${made}"`);
+    expect(await ownerOf(made)).toBeUndefined();
+
+    // A copy made while the application signed in as the owner comes to it.
+    const earlier = `c_${randomBytes(8).toString("hex")}`;
+    await ownerPool.query(`create table ag_sync."${earlier}" (id int)`);
+    expect(await ownerOf(earlier)).not.toBe(RUNTIME_ROLE);
+    await grantRuntimeRole(ownerPool, RUNTIME_ROLE);
+    expect(await ownerOf(earlier)).toBe(RUNTIME_ROLE);
+    await pool.query(`drop table ag_sync."${earlier}"`);
+    expect(await ownerOf(earlier)).toBeUndefined();
   });
 
   it("cannot change a signed row by writing to it", async () => {
