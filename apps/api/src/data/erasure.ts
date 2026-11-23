@@ -155,38 +155,12 @@ export async function eraseAccount(
         }
         await sql`select set_config('anygrid.source', '', true)`.execute(tx);
       }
-      await sql`select set_config('anygrid.anonymize', 'on', true)`.execute(tx);
       await sql`select set_config('anygrid.user_id', ${ERASED_USER_ID}, true)`.execute(
         tx,
       );
       await sql`select set_config('anygrid.reason', 'Account erasure', true)`.execute(
         tx,
       );
-      await tx
-        .updateTable("auditEvents")
-        .set({ userId: ERASED_USER_ID })
-        .where("userId", "=", userId)
-        .execute();
-      await tx
-        .updateTable("auditEvents")
-        .set({ impersonatedUserId: ERASED_USER_ID })
-        .where("impersonatedUserId", "=", userId)
-        .execute();
-      await tx
-        .updateTable("rowSignatures")
-        .set({ userId: ERASED_USER_ID, displayName: "Erased account" })
-        .where("userId", "=", userId)
-        .execute();
-      await tx
-        .updateTable("externalWrites")
-        .set({ userId: ERASED_USER_ID })
-        .where("userId", "=", userId)
-        .execute();
-      await tx
-        .updateTable("externalStatusEvents")
-        .set({ userId: ERASED_USER_ID })
-        .where("userId", "=", userId)
-        .execute();
       // Comments are the table's conversation, as cell values are its data:
       // the bodies stay under the tombstone; a manager deletes one if the
       // text itself must leave.
@@ -194,13 +168,6 @@ export async function eraseAccount(
         .updateTable("comments")
         .set({ authorId: ERASED_USER_ID })
         .where("authorId", "=", userId)
-        .execute();
-      await tx
-        .updateTable("authEvents")
-        .set({ ip: null })
-        .where((eb) =>
-          eb.or([eb("userId", "=", userId), eb("actorId", "=", userId)]),
-        )
         .execute();
       await tx
         .deleteFrom("invitations")
@@ -229,7 +196,9 @@ export async function eraseAccount(
           detail: "admin_erase",
         });
       }
-      await tx.deleteFrom("users").where("id", "=", userId).execute();
+      // The trails move to the erased account with the account's deletion,
+      // in one step of their owner (ADR 0119).
+      await sql`select ag_erase_account(${userId}::uuid)`.execute(tx);
     }),
   );
 }

@@ -48,23 +48,11 @@ export async function purgeAuditEvents(
   const until = Date.now() + RUN_MS;
   let events = 0;
   for (;;) {
-    const deleted = await db.transaction().execute(async (tx) => {
-      // The one flag that lets a row of the trail go, for this
-      // transaction only.
-      await sql`select set_config('anygrid.purge_audit', 'on', true)`.execute(
-        tx,
-      );
-      const gone = await sql`
-        delete from audit_events
-         where id in (
-           select id from audit_events
-            where occurred_at < ${before}
-            order by occurred_at
-            limit ${BATCH}
-         )
-      `.execute(tx);
-      return Number(gone.numAffectedRows ?? 0);
-    });
+    // The trail's owner deletes, within its own limits (ADR 0119).
+    const { rows } = await sql<{ gone: number }>`
+      select ag_purge_audit_events(${days}::int, ${now}::timestamptz, ${BATCH}::int) as gone
+    `.execute(db);
+    const deleted = rows[0]?.gone ?? 0;
     events += deleted;
     if (deleted < BATCH || Date.now() > until) break;
   }
