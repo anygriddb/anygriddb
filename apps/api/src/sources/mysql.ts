@@ -3,11 +3,11 @@ import mysql from "mysql2/promise";
 import type { SourceCheck, SourceConnection } from "./types.js";
 
 /**
- * The oldest servers the read engine supports: window functions and
- * JSON_TABLE; on MySQL, derived tables that read the outer row and
- * LATERAL (8.0.14).
+ * The oldest servers supported: window functions and JSON_TABLE; on MySQL,
+ * derived tables that read the outer row and LATERAL (8.0.14), and the
+ * view of check constraints the list of a source's tables reads (8.0.16).
  */
-const MINIMUM = { mysql: [8, 0, 14], mariadb: [10, 6, 0] } as const;
+const MINIMUM = { mysql: [8, 0, 16], mariadb: [10, 6, 0] } as const;
 
 /**
  * Global privileges a dedicated account may hold on `*.*`: reading and

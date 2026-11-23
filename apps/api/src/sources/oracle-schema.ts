@@ -316,7 +316,9 @@ async function readSchema(
             ),
           }),
           definitions
-            .map((definition) => checkChoices(definition, columnName))
+            .map((definition) =>
+              checkChoices(definition, columnName, { foldCase: true }),
+            )
             .find((found) => found !== null) ?? null,
         );
         const computed = text(column, "virtual") === "YES";

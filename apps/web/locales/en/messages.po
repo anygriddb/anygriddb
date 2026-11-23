@@ -12571,8 +12571,8 @@ msgid "This row was changed outside AnyGridDB since it was locked."
 msgstr "This row was changed outside AnyGridDB since it was locked."
 
 #: lib/errors.ts
-msgid "This server version is not supported: PostgreSQL 13, MySQL 8.0, MariaDB 10.6, SQL Server 2017 or later"
-msgstr "This server version is not supported: PostgreSQL 13, MySQL 8.0, MariaDB 10.6, SQL Server 2017 or later"
+msgid "This server version is not supported: PostgreSQL 13, MySQL 8.0.16, MariaDB 10.6, SQL Server 2017, Oracle 19c, or later"
+msgstr "This server version is not supported: PostgreSQL 13, MySQL 8.0.16, MariaDB 10.6, SQL Server 2017, Oracle 19c, or later"
 
 #: lib/errors.ts
 msgid "This setting is changed in Administration, not with a token"

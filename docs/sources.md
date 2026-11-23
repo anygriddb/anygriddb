@@ -445,9 +445,10 @@ hostssl  erp  anygriddb  10.0.0.0/8  scram-sha-256
 Paste the server's certificate authority (or its self-signed certificate)
 in the form when it is not one the system trusts.
 
-## MySQL (8.0.14 or later) and MariaDB (10.6 or later)
+## MySQL (8.0.16 or later) and MariaDB (10.6 or later)
 
 Choose the engine the server is: AnyGridDB checks, since the two differ.
+An older server is refused when the source is saved, with its version.
 
 ```sql
 create user 'anygriddb'@'%' identified by '…' require ssl;
@@ -477,6 +478,13 @@ Notes:
   `enum` as a single select.
 - `TIME` reads as its text, past 24 hours and negative included. Binary
   and blob columns read as `0x` and hexadecimal, their first 1,000 bytes.
+- A filter, a search, and a sort on a text compare as the column's
+  collation does, which is what the database's other applications show
+  and what keeps its indexes usable. Under a collation blind to accents
+  and case (`utf8mb4_0900_ai_ci`, MySQL's default), "contains É" also
+  finds `e` and `E`. Give the column a `_bin` or an `_as_cs` collation to
+  tell them apart. What a formula computes compares the same on every
+  engine, by code point.
 - A foreign key becomes a link only when the table declares it with
   `FOREIGN KEY … REFERENCES`: MySQL ignores a `REFERENCES` written in a
   column's definition.
