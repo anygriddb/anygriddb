@@ -202,7 +202,7 @@ describe("read engine on PostgreSQL", () => {
         rightTable: clients.physicalName,
       }),
     ]) {
-      await query(statement.text);
+      await query(statement.text, [...statement.values]);
     }
     const user = await database
       .insertInto("users")

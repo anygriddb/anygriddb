@@ -4,7 +4,14 @@
  * account that touched them, and the pool's own limits.
  */
 import { randomBytes } from "node:crypto";
-import { copyFile, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -292,6 +299,35 @@ async function catalogBefore(upTo: string) {
   return created;
 }
 
+const STRUCTURE = "0130_structure_through_the_owner.sql";
+
+/**
+ * The owner's functions the application now makes its tables with, which an
+ * older catalog lacks: lent while a test fills that catalog as the
+ * application does, and taken back before the upgrade makes them.
+ */
+async function lendStructure(pool: pg.Pool): Promise<void> {
+  const text = await readFile(join(MIGRATIONS, STRUCTURE), "utf8");
+  for (const statement of text.split("--> statement-breakpoint")) {
+    await pool.query(statement);
+  }
+}
+
+async function takeBackStructure(pool: pg.Pool): Promise<void> {
+  const text = await readFile(join(MIGRATIONS, STRUCTURE), "utf8");
+  const names = [...text.matchAll(/^CREATE FUNCTION (\w+)\(/gm)].map(
+    (match) => match[1],
+  );
+  const { rows } = await pool.query<{ signature: string }>(
+    `select p.oid::regprocedure::text as signature from pg_proc p
+      where p.pronamespace = 'public'::regnamespace and p.proname = any($1)`,
+    [names],
+  );
+  for (const { signature } of rows) {
+    await pool.query(`drop function ${signature}`);
+  }
+}
+
 /** The migrations the database says it ran, in order. */
 async function appliedTo(db: Database): Promise<string[]> {
   const applied = await sql<{ name: string }>`
@@ -460,6 +496,7 @@ describe("an upgrade of an instance whose row numbers ran out", () => {
 
   it("repairs what ran out, keeps the order and every other value of each row", async () => {
     const { db, pool, close } = await catalogBefore(FIRST_PENDING);
+    await lendStructure(pool);
     try {
       const { userId, make } = await instance(db);
       const other = await make("Other");
@@ -541,6 +578,7 @@ describe("an upgrade of an instance whose row numbers ran out", () => {
         .where("tableId", "=", hit.id)
         .execute();
 
+      await takeBackStructure(pool);
       await migrateDb(pool);
 
       const after = await read();
@@ -621,6 +659,7 @@ describe("an upgrade of an instance whose row numbers ran out", () => {
 
   it("leaves a healthy instance exactly as it was", async () => {
     const { db, pool, close } = await catalogBefore(FIRST_PENDING);
+    await lendStructure(pool);
     try {
       const { userId, make } = await instance(db);
       const table = await make("Healthy");
@@ -633,6 +672,7 @@ describe("an upgrade of an instance whose row numbers ran out", () => {
         await sql`select count(*) as count, max(occurred_at) as last from audit_events`.execute(
           db,
         );
+      await takeBackStructure(pool);
       await migrateDb(pool);
       expect(await fingerprint(db, table.physicalName)).toBe(rows);
       expect(await sequences(db, table.physicalName)).toEqual(numbers);

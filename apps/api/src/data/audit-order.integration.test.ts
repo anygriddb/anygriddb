@@ -51,7 +51,7 @@ describe("the order of a row's history", () => {
     pool = created.pool;
     close = created.close;
     for (const statement of buildCreateTable({ table, columns })) {
-      await pool.query(statement.text);
+      await pool.query(statement.text, [...statement.values]);
     }
     userId = (
       await database
