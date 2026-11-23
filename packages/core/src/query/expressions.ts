@@ -277,6 +277,21 @@ function asNumber(ctx: ExprContext, typed: Typed): string {
   }
 }
 
+/**
+ * Whether a value is there: not blank, and for a text or a list not empty.
+ * A zero and a false are values, which `asBool` reads as false.
+ */
+function asFilled(typed: Typed, d: SqlDialect): string {
+  switch (typed.kind) {
+    case "text":
+    case "array":
+    case "null":
+      return asBool(typed, d);
+    default:
+      return `(${typed.sql} is not null)`;
+  }
+}
+
 /** A value as a condition, never unknown: a blank is false. */
 function asBool(typed: Typed, d: SqlDialect = POSTGRES): string {
   switch (typed.kind) {
@@ -839,7 +854,7 @@ function compileComputed(
       return { sql: `(select count(*)::numeric ${scope})`, kind: "number" };
     case "counta":
       return {
-        sql: `(select count(*)::numeric ${flat.from} and ${asBool(flatTyped, ctx.d)})`,
+        sql: `(select count(*)::numeric ${flat.from} and ${asFilled(flatTyped, ctx.d)})`,
         kind: "number",
       };
     case "count_unique":
@@ -987,7 +1002,7 @@ function computedWithoutArrays(
     case "count":
       return counted(`(select count(*) ${scope})`);
     case "counta":
-      return counted(`(select count(*) ${scope} and ${asBool(value, d)})`);
+      return counted(`(select count(*) ${scope} and ${asFilled(value, d)})`);
     case "count_unique":
       return counted(
         `(select count(distinct ${value.kind === "text" ? d.exactTextKey(value.sql) : value.sql}) ${scope})`,

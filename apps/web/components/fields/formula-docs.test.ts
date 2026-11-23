@@ -19,6 +19,13 @@ describe("formula help", () => {
     }
   });
 
+  it("shows IS_ERROR on an error, which a division by zero is not", () => {
+    // A division by zero is blank (ADR 0036): the example answered false.
+    const { example } = FORMULA_DOCS.is_error;
+    expect(example).toContain("ERROR(");
+    expect(example).not.toBe("IS_ERROR({Price} / {Quantity})");
+  });
+
   it("lists each function once, in one group", () => {
     const listed = formulaGroups().flatMap((group) => group.fns);
     expect(new Set(listed).size).toBe(listed.length);

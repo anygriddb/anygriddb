@@ -411,7 +411,8 @@ export const FORMULA_DOCS: Record<FormulaFn, FormulaDoc> = {
     group: "logic",
     args: VALUE,
     summary: msg`True when the value is an error.`,
-    example: "IS_ERROR({Price} / {Quantity})",
+    example:
+      'IS_ERROR(IF({Quantity} = 0, ERROR("No quantity"), {Price} / {Quantity}))',
   },
 
   today: {

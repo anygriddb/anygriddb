@@ -274,6 +274,127 @@ describe("a statement's parameters", () => {
   });
 });
 
+describe("a value that holds nothing", () => {
+  const withColumns = (
+    ...columns: Array<(typeof orders.columns)[number]>
+  ): typeof orders => ({ ...orders, columns: [...orders.columns, ...columns] });
+
+  it("counts a zero and a false among a rollup's values", () => {
+    // The clients gain a number and a checkbox for the rollups to count.
+    const scored = {
+      ...clients,
+      columns: [
+        ...clients.columns,
+        {
+          id: "c3",
+          name: "score",
+          label: "Score",
+          fieldType: "number" as const,
+          config: {},
+        },
+        {
+          id: "c4",
+          name: "vip",
+          label: "Vip",
+          fieldType: "boolean" as const,
+          config: {},
+        },
+      ],
+    };
+    const rollup = (name: string, target: string) => ({
+      id: name,
+      name,
+      label: name,
+      fieldType: "rollup" as const,
+      config: { relation: "client", target, fn: "counta" as const },
+    });
+    const base = catalogFor();
+    const statement = buildReadRows(
+      {
+        ...base,
+        table: withColumns(
+          rollup("scores", "score"),
+          rollup("vips", "vip"),
+          rollup("cities", "city"),
+        ),
+        tables: new Map([...base.tables, [scored.id, scored]]),
+      },
+      { limit: 1, fields: ["scores", "vips", "cities"] },
+    );
+    const counted = (name: string) =>
+      statement.columns.find((column) => column.name === name)?.sql ?? "";
+    // A value is counted for being there, not for being true.
+    expect(counted("scores")).toMatch(/\."score" is not null\)/);
+    expect(counted("scores")).not.toContain("<> 0");
+    expect(counted("vips")).toMatch(/\."vip" is not null\)/);
+    // An empty text is still no value.
+    expect(counted("cities")).toMatch(/\."city" <> ''/);
+  });
+
+  it("makes one group and one place in a sort of the empty and the never filled", () => {
+    const catalog = catalogFor();
+    const byTitle = buildReadRows(catalog, {
+      limit: 5,
+      sort: [{ column: "title", direction: "asc" }],
+    });
+    expect(byTitle.text).toContain(`nullif(q."title", '')`);
+    const byTags = buildReadRows(catalog, {
+      limit: 5,
+      sort: [{ column: "tags", direction: "asc" }],
+    });
+    // A list with an order of its own already reads both as no position.
+    expect(byTags.text).toContain(`"tags"[1]`);
+    const groups = (column: string) =>
+      buildGroupCounts(catalog, {
+        groupBy: [{ column, direction: "asc" }],
+      })?.text ?? "";
+    expect(groups("title")).toContain(
+      `case when (coalesce(q."title", '') = '') then null else q."title" end`,
+    );
+    expect(groups("tags")).toContain(
+      `case when (coalesce(cardinality(q."tags"), 0) = 0) then null else q."tags" end`,
+    );
+    // A number and a choice have one way to be empty.
+    expect(groups("price")).not.toContain("then null else");
+    expect(groups("status")).not.toContain("then null else");
+  });
+
+  it("is what a formula in error reads as, whatever else it wrote", () => {
+    const refs = [{ name: "price", label: "Price" }];
+    const formula = (name: string, source: string) => ({
+      id: name,
+      name,
+      label: name,
+      fieldType: "formula" as const,
+      config: { expr: parseFormula(source, refs) },
+    });
+    const statement = buildReadRows(
+      {
+        ...catalogFor(),
+        table: withColumns(
+          formula("tail", 'IF({Price} < 0, ERROR("neg"), "a") & "z"'),
+          formula("plain", '{Price} & "z"'),
+          formula("only", 'ERROR("always")'),
+        ),
+      },
+      { limit: 5 },
+    );
+    const column = (name: string) =>
+      statement.columns.find((item) => item.name === name);
+    // The error was kept apart, and the rest of the text was the value.
+    expect(column("tail")?.sql).toMatch(
+      /^\(case when .+ is null then .+ end\)$/s,
+    );
+    expect(column("tail")?.sql).toContain(column("tail")?.errorSql ?? "none");
+    // A formula that cannot be in error is written as it was.
+    expect(column("plain")?.errorSql).toBeUndefined();
+    expect(column("plain")?.sql).not.toMatch(/^\(case when .+ is null then/s);
+    // A formula that is only an error is blank already.
+    expect(column("only")?.errorSql).toBeDefined();
+    expect(column("only")?.sql).not.toContain("case when");
+  });
+});
+
 describe("a chain of formulas", () => {
   // Each reads the one before it; the first reads a cell.
   const chained = (length: number) => {
@@ -676,7 +797,9 @@ describe("the row's id as a field (ADR 0063)", () => {
     );
     expect(sql.text).toContain(`r."id"::text as "ref"`);
     expect(sql.values).toContain("0190a8b0-0000-7000-8000-000000000001");
-    expect(sql.text).toMatch(/order by lower\(q\."ref"\) asc nulls last/);
+    expect(sql.text).toMatch(
+      /order by lower\(nullif\(q\."ref", ''\)\) asc nulls last/,
+    );
     expect(sql.columns.find((column) => column.name === "ref")?.kind).toBe(
       "text",
     );

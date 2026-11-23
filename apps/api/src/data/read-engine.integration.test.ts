@@ -485,6 +485,84 @@ describe("read engine on PostgreSQL", () => {
     expect(abc?.month).toBe("2026-12-01");
   });
 
+  it("reads what holds nothing as one empty value, and an error as a blank", async () => {
+    const sources: Array<[string, string]> = [
+      // An empty text on one row, never a value on the other.
+      ["hollow", 'IF({Price} = 4, "", BLANK())'],
+      // The error is on the cheap row; the rest of the text is no value.
+      ["tail", 'IF({Price} < 2, ERROR("low"), "a") & "z"'],
+    ];
+    const refs = orders.columns.map((column) => ({
+      name: column.name,
+      label: column.label,
+    }));
+    const hollowed: EngineCatalog = {
+      ...catalog,
+      table: {
+        ...orders,
+        columns: [
+          ...orders.columns,
+          ...sources.map(([name, source]) => ({
+            id: `e_${name}`,
+            name,
+            label: name,
+            fieldType: "formula" as const,
+            config: { expr: parseFormula(source, refs) },
+          })),
+        ],
+      },
+    };
+    const titles = async (spec: Parameters<typeof buildReadRows>[1]) => {
+      const read = buildReadRows(hollowed, spec);
+      return (await query(read.text, read.values)).map((row) => [
+        row.title,
+        row.tail,
+        (row.ag_errors as Record<string, string> | null)?.tail ?? null,
+      ]);
+    };
+    const fields = ["title", "tail", "hollow"];
+    expect(
+      await titles({
+        limit: 10,
+        fields,
+        sort: [{ column: "title", direction: "asc" }],
+      }),
+    ).toEqual([
+      ["abc", "az", null],
+      ["zz", null, "low"],
+    ]);
+    // A filter, a count and a sort read the cell in error as empty.
+    const empty = (column: string) => ({
+      conjunction: "and" as const,
+      conditions: [{ column, op: "is_empty" as const }],
+    });
+    expect(
+      (await titles({ limit: 10, fields, filter: empty("tail") })).map(
+        ([title]) => title,
+      ),
+    ).toEqual(["zz"]);
+    const filled = buildAggregates(hollowed, {}, [
+      { column: "tail", fn: "count_filled" },
+      { column: "hollow", fn: "count_filled" },
+    ]);
+    expect(
+      Object.values((await query(filled.text, filled.values))[0] ?? {}),
+    ).toEqual([1, 0]);
+    // An empty text and a cell never filled: one group, as the filter says.
+    expect(
+      (await titles({ limit: 10, fields, filter: empty("hollow") })).length,
+    ).toBe(2);
+    const groups = buildGroupCounts(hollowed, {
+      groupBy: [{ column: "hollow", direction: "asc" }],
+    });
+    const grouped = await query(groups?.text ?? "", groups?.values ?? []);
+    expect(
+      grouped
+        .filter((group) => group.depth === 1)
+        .map((group) => [group.k0, group.count]),
+    ).toEqual([[null, 2]]);
+  });
+
   it("filters, counts, groups, and aggregates", async () => {
     const filter = {
       conjunction: "and" as const,

@@ -112,6 +112,10 @@ const COMPUTED: Array<[string, string, string | undefined, FilterGroup?]> = [
   ["L_dup", "dup", undefined],
   ["R_count", "n", "count"],
   ["R_counta", "s", "counta"],
+  // A zero and a false are values; an empty text is none.
+  ["R_counta_m", "m", "counta"],
+  ["R_counta_b", "b", "counta"],
+  ["R_counta_t", "t", "counta"],
   ["R_unique", "t", "count_unique"],
   ["R_sum", "n", "sum"],
   ["R_avg", "n", "avg"],
@@ -430,6 +434,8 @@ const ERRORS = [
   'IS_ERROR(IF({n} > 100, ERROR("x"), 1)) & "|" & IF(IS_ERROR(ERROR()), "caught", "no")',
   'SWITCH({i}, 3, ERROR("three"), -4, "minus", ERROR("other"))',
   "ERROR()",
+  // An error's value is blank, whatever the formula wrote around it.
+  'IF({n} > 100, ERROR("big"), "a") & "z"',
 ];
 
 /** A JSON number: MySQL reads it as a double, and says so (ADR 0027). */
@@ -525,6 +531,7 @@ const FOOTER = [
 
 /** Results pinned on the reference: AnyGridDB's semantics, written out. */
 const PINNED: Record<string, unknown[]> = {
+  'IF({n} > 100, ERROR("big"), "a") & "z"': ["az", "az", null],
   'ENCODE_URL_COMPONENT({s} & "/?&é~")': [
     "Hello%20World%2F%3F%26%C3%A9~",
     "%2F%3F%26%C3%A9~",
@@ -712,6 +719,10 @@ const PINNED: Record<string, unknown[]> = {
   L_n: [["7.25", null], ["1000000.1"], []],
   L_b: [[true, false], [null], []],
   R_count: ["2", "1", "0"],
+  R_counta: ["1", "1", "0"],
+  R_counta_m: ["2", "1", "0"],
+  R_counta_b: ["2", "0", "0"],
+  R_counta_t: ["1", "1", "0"],
   R_avg: ["7.25", "1000000.1", null],
   R_concat: ["Hello World", "Élan vital", null],
   // A blank counts as false.
