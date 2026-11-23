@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAddColumn,
-  buildConversionStatements,
   buildCreateJunction,
   buildCreateTable,
   buildForeignKeyIndex,
-  convertExpression,
   indexName,
-  isMetadataConversion,
   sqlLiteral,
 } from "./ddl";
 
@@ -59,29 +56,6 @@ describe("DDL", () => {
       }),
     ).toThrow("Invalid column");
     expect(() => sqlLiteral("a\u0000")).toThrow("Invalid default");
-  });
-
-  it("converts through safe expressions", () => {
-    expect(isMetadataConversion("text", "single_select")).toBe(true);
-    expect(isMetadataConversion("text", "number")).toBe(false);
-    expect(convertExpression("text", "number", `"x"`)).toBe(
-      `ag_try_numeric("x")`,
-    );
-    expect(convertExpression("single_select", "multi_select", `"x"`)).toContain(
-      "string_to_array",
-    );
-    const conversion = buildConversionStatements({
-      table: "t_x",
-      column: "x",
-      from: "text",
-      to: "date",
-    });
-    expect(conversion.rewrite.text).toBe(
-      `update "t_x" set "ag_tmp_x" = ag_try_date("x") where "x" is not null`,
-    );
-    expect(() => convertExpression("attachment", "text", `"x"`)).toThrow(
-      "Invalid conversion",
-    );
   });
 
   it("creates a junction with a right_id index for inverse lookups", () => {

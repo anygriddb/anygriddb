@@ -15,7 +15,10 @@ import {
   buildReadRows,
   buildReadStatus,
   buildReadStatuses,
+  buildLockForRowWrite,
+  buildReadHeldCells,
   buildRestoreRow,
+  restoredCell,
   buildSetLink,
   buildRowPlaces,
   buildSetStatus,
@@ -67,6 +70,7 @@ import {
   reattachLinks,
   recordKeyReturn,
 } from "./row-links.js";
+import { liveColumn } from "./live.js";
 import { claimStagedAttachments } from "./staged-attachments.js";
 
 const READ_TIMEOUT = "15s";
@@ -954,6 +958,35 @@ async function placesBeside(
   return positions as string[];
 }
 
+/**
+ * A write was checked and built against the fields its engine read, which
+ * a conversion may have changed since. With the table's lock held, none
+ * can change until it commits: a field no longer of that type refuses it.
+ */
+async function holdFieldTypes(
+  tx: AuditTx,
+  engine: EngineCatalog,
+  context: { tableId: string; physicalName: string },
+  written: readonly string[],
+): Promise<void> {
+  const names = [...new Set(written)];
+  if (names.length === 0) return;
+  await runRows(tx, buildLockForRowWrite(context.physicalName));
+  const now = await tx
+    .selectFrom("dataColumns")
+    .select(["name", "fieldType"])
+    .where("tableId", "=", context.tableId)
+    .where("name", "in", names)
+    .where(liveColumn())
+    .execute();
+  const types = new Map(engine.table.columns.map((c) => [c.name, c.fieldType]));
+  for (const column of now) {
+    if (types.get(column.name) !== column.fieldType) {
+      throw new AppError("field_changed", column.name);
+    }
+  }
+}
+
 export async function insertRows(
   db: Database,
   engine: EngineCatalog,
@@ -965,6 +998,12 @@ export async function insertRows(
   const columns = writeColumns(engine);
   await assertUserValues(db, context.baseId, columns, rows);
   return withAudit(db, auditContext(context), async (tx) => {
+    await holdFieldTypes(
+      tx,
+      engine,
+      context,
+      rows.flatMap((row) => Object.keys(row)),
+    );
     if (context.claim) {
       await claimStagedAttachments(
         tx,
@@ -1039,6 +1078,12 @@ export async function updateRows(
       }),
     }));
   await withAudit(db, auditContext(context), async (tx) => {
+    await holdFieldTypes(
+      tx,
+      engine,
+      context,
+      updates.flatMap((update) => Object.keys(update.values)),
+    );
     // Every row is locked first, in one statement, then checked in the
     // order asked: the first one missing or locked refuses the write.
     const statuses = await lockRows(
@@ -1344,6 +1389,8 @@ export async function restoreRows(
 ): Promise<{
   ids: string[];
   linksNotRestored: number;
+  /** Values that no longer fit their field, since converted: left empty. */
+  valuesCleared: number;
   touchedTables: string[];
 }> {
   const snapshots = await deletedSnapshots(
@@ -1365,7 +1412,7 @@ export async function restoreRows(
         column.fieldType === "relation_one_to_many",
     )
     .filter((column) => column.relation?.direction !== "inverse")
-    .map((column) => column.name);
+    .map(({ name, fieldType, config }) => ({ name, fieldType, config }));
   const restoring = { ...context, source: "restore" };
   const outcome = await withAudit(
     db,
@@ -1377,20 +1424,54 @@ export async function restoreRows(
         map,
         snapshots,
         saved,
-        new Set(physical),
+        new Set(physical.map((column) => column.name)),
       );
       let refused = keys.refused;
+      let cleared = 0;
       const touched = new Set<string>();
+      await holdFieldTypes(
+        tx,
+        engine,
+        context,
+        physical.map((column) => column.name),
+      );
+      const heldRows = await runRows(
+        tx,
+        buildReadHeldCells({
+          events: snapshots.map((item) => item.eventId),
+          columns: physical.map((column) => column.name),
+        }),
+      );
+      const heldBy = new Map(
+        heldRows.map((row) => [
+          String(row.event),
+          (row.held ?? {}) as Record<
+            string,
+            string | boolean | string[] | null
+          >,
+        ]),
+      );
       for (const item of snapshots) {
         const left = keys.left.get(item.recordId);
+        const columns = left
+          ? physical.filter((column) => !left.has(column.name))
+          : physical;
+        const held = heldBy.get(item.eventId) ?? {};
+        const values: Record<string, unknown> = {};
+        for (const column of columns) {
+          const value = held[column.name] ?? null;
+          if (value === null) continue;
+          const back = restoredCell(column, value);
+          if (back === undefined) cleared += 1;
+          values[column.name] = back ?? null;
+        }
         readId(
           await runRows(
             tx,
             buildRestoreRow({
               table: context.physicalName,
-              columns: left
-                ? physical.filter((name) => !left.has(name))
-                : physical,
+              columns,
+              values,
               id: item.recordId,
               event: item.eventId,
             }),
@@ -1430,12 +1511,13 @@ export async function restoreRows(
         refused += back.refused;
         for (const id of back.touched) touched.add(id);
       }
-      return { refused, touched: [...touched] };
+      return { refused, cleared, touched: [...touched] };
     },
   );
   return {
     ids: snapshots.map((item) => item.recordId),
     linksNotRestored: outcome.refused,
+    valuesCleared: outcome.cleared,
     touchedTables: outcome.touched,
   };
 }

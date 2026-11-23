@@ -19,6 +19,7 @@ import {
   FileSpreadsheet,
   FileUp,
   ListChecks,
+  Replace,
   Trash2,
   XCircle,
 } from "lucide-react";
@@ -55,6 +56,7 @@ const ICONS = {
   restore_base: ArchiveArrowUp,
   import_workbook: FileSpreadsheet,
   account_export: FileDown,
+  convert_column: Replace,
 } as const;
 
 function resultNumber(job: Job, key: string): number {
@@ -162,6 +164,8 @@ export function JobsMenu() {
         return t`Spreadsheet import`;
       case "account_export":
         return t`Account data export`;
+      case "convert_column":
+        return t`Field conversion in ${table}`;
     }
   }
 
@@ -229,6 +233,13 @@ export function JobsMenu() {
         });
       case "account_export":
         return job.download ? t`File available for 24 h` : t`File expired`;
+      case "convert_column": {
+        const lost = resultNumber(job, "lost");
+        return plural(resultNumber(job, "converted"), {
+          one: `# value converted, ${lost} left empty.`,
+          other: `# values converted, ${lost} left empty.`,
+        });
+      }
     }
   }
 

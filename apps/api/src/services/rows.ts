@@ -882,7 +882,7 @@ export async function restoreRows(
   scope: RowScope,
   rowIds: readonly string[],
   meta: WriteMeta,
-): Promise<{ ids: string[]; linksNotRestored: number }> {
+): Promise<{ ids: string[]; linksNotRestored: number; valuesCleared: number }> {
   const deletedBy = trashScope(scope);
   const reason = resolveReason(scope, "all", meta);
   if (isExternal(scope)) {
@@ -893,20 +893,21 @@ export async function restoreRows(
       rowIds,
     );
     await announceRows(deps, scope.table.id, "insert", ids, []);
-    return { ids, linksNotRestored: 0 };
+    return { ids, linksNotRestored: 0, valuesCleared: 0 };
   }
   if (rowIds.some((id) => !UUID.test(id))) {
     throw new AppError("invalid_row_id");
   }
-  const { ids, linksNotRestored, touchedTables } = await restoreRowRecords(
-    deps.db,
-    scope.engine,
-    writeContext(scope, reason, meta),
-    rowIds,
-    deletedBy,
-  );
+  const { ids, linksNotRestored, valuesCleared, touchedTables } =
+    await restoreRowRecords(
+      deps.db,
+      scope.engine,
+      writeContext(scope, reason, meta),
+      rowIds,
+      deletedBy,
+    );
   await announceRows(deps, scope.table.id, "insert", ids, touchedTables);
-  return { ids, linksNotRestored };
+  return { ids, linksNotRestored, valuesCleared };
 }
 
 /** A client's row keeps no list to change: its links are read, then set. */

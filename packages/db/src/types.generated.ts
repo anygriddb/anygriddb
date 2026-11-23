@@ -107,6 +107,7 @@ export type Int8 = ColumnType<
 
 export type JobKind =
   | "account_export"
+  | "convert_column"
   | "duplicate_base"
   | "duplicate_table"
   | "export"

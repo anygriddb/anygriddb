@@ -8,6 +8,7 @@ import {
   buildGroupCounts,
   buildInsert,
   buildReadRows,
+  buildReadHeldCells,
   buildRestoreRow,
   parseFormula,
   type EngineCatalog,
@@ -373,16 +374,20 @@ describe("read engine on PostgreSQL", () => {
   });
 
   it("restores a deleted row from its audit snapshot as a draft", async () => {
-    const writable = [
-      "title",
-      "price",
-      "qty",
-      "status",
-      "tags",
-      "due",
-      "done",
-      "client",
-    ];
+    const writable = orders.columns
+      .filter((column) =>
+        [
+          "title",
+          "price",
+          "qty",
+          "status",
+          "tags",
+          "due",
+          "done",
+          "client",
+        ].includes(column.name),
+      )
+      .map(({ name, fieldType }) => ({ name, fieldType }));
     await withAudit(database, { userId, tableId: ordersId }, (tx) =>
       runRows(tx, {
         text: `delete from "${orders.physicalName}" where "id" = $1 returning "id"`,
@@ -397,6 +402,15 @@ describe("read engine on PostgreSQL", () => {
     if (!event) {
       return;
     }
+    const held = buildReadHeldCells({
+      events: [event.id],
+      columns: writable.map((column) => column.name),
+    });
+    const [kept] = await query<{ held: Record<string, unknown> }>(
+      held.text,
+      held.values,
+    );
+    const values = kept?.held ?? {};
     await withAudit(
       database,
       { userId, tableId: ordersId, source: "restore" },
@@ -406,6 +420,7 @@ describe("read engine on PostgreSQL", () => {
           buildRestoreRow({
             table: orders.physicalName,
             columns: writable,
+            values,
             id: firstOrder,
             event: event.id,
           }),
@@ -433,6 +448,7 @@ describe("read engine on PostgreSQL", () => {
             buildRestoreRow({
               table: orders.physicalName,
               columns: writable,
+              values,
               id: "11111111-1111-4111-8111-111111111111",
               event: event.id,
             }),
@@ -443,6 +459,7 @@ describe("read engine on PostgreSQL", () => {
       buildRestoreRow({
         table: orders.physicalName,
         columns: writable,
+        values,
         id: "no id",
         event: event.id,
       }),

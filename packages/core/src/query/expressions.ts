@@ -1,4 +1,4 @@
-import { type RollupFn } from "../field-config";
+import { rollupFitsTarget, type RollupFn } from "../field-config";
 import {
   SYSTEM_COLUMN,
   isRelationType,
@@ -768,6 +768,10 @@ function compileComputed(
       return emptyArray("text", ctx.d);
     }
     return nullOf(fn === "concatenate" ? "text" : "number", ctx.d);
+  }
+  // Its target may have changed type since: a sum over words is no sum.
+  if (fn && !rollupFitsTarget(fn, targetColumn.fieldType)) {
+    throw new AppError("invalid_formula");
   }
   const inner = nextAlias(ctx);
   const source = linkSource(

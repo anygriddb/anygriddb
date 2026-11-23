@@ -3,6 +3,8 @@ import type { CatalogColumn, CatalogTable } from "../../lib/types";
 import {
   codeAppearance,
   configOf,
+  conversionAsksFirst,
+  conversionTimeZone,
   convertsValues,
   draftOf,
   fieldRequest,
@@ -337,7 +339,76 @@ describe("convertsValues", () => {
   });
 });
 
+describe("a conversion's confirmation", () => {
+  const quiet = {
+    lost: 0,
+    rewritten: 0,
+    timeZone: null,
+    background: false,
+    views: [],
+    fields: [],
+    fieldsElsewhere: 0,
+  };
+
+  it("says nothing when every value stays as it is", () => {
+    expect(conversionAsksFirst(quiet)).toBe(false);
+  });
+
+  it("asks when it loses or rewrites a value, reads a zone, runs long, or stops something", () => {
+    for (const change of [
+      { lost: 1 },
+      { rewritten: 1 },
+      { timeZone: "Europe/Paris" },
+      { background: true },
+      { views: [{ id: "v", name: "View" }] },
+      { fields: [{ name: "f" }] },
+      { fieldsElsewhere: 1 },
+    ]) {
+      expect(conversionAsksFirst({ ...quiet, ...change })).toBe(true);
+    }
+  });
+
+  it("reads days in the field's own zone, else the browser's, else UTC", () => {
+    const zoned = column({
+      fieldType: "datetime",
+      config: { date: { timeZone: "Asia/Tokyo" } },
+    });
+    expect(conversionTimeZone(zoned, "Europe/Paris")).toBe("Asia/Tokyo");
+    expect(
+      conversionTimeZone(column({ fieldType: "datetime" }), "Europe/Paris"),
+    ).toBe("Europe/Paris");
+    expect(conversionTimeZone(null, "Etc/Unknown")).toBe("UTC");
+  });
+});
+
 describe("fieldRequest", () => {
+  it("lets a field that becomes a list take its options from its values", () => {
+    const request = fieldRequest(
+      fresh({ fieldType: "single_select", label: "Status", options: [] }),
+      { mode: "edit", column: column({ fieldType: "text" }) },
+      { id: "t1", external: null } as unknown as CatalogTable,
+    );
+    expect(request.call).toBe("updateColumn");
+    expect(
+      request.call === "updateColumn" ? request.input.config : undefined,
+    ).not.toHaveProperty("options");
+  });
+
+  it("keeps the options named for a field that becomes a list", () => {
+    const request = fieldRequest(
+      fresh({
+        fieldType: "single_select",
+        label: "Status",
+        options: [{ name: "Open", color: "gray" }],
+      }),
+      { mode: "edit", column: column({ fieldType: "text" }) },
+      { id: "t1", external: null } as unknown as CatalogTable,
+    );
+    expect(
+      request.call === "updateColumn" ? request.input.config : undefined,
+    ).toMatchObject({ options: [{ name: "Open", color: "gray" }] });
+  });
+
   it("makes a link, a lookup, and a rollup by their own calls", () => {
     expect(
       fieldRequest(

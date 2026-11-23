@@ -450,8 +450,6 @@ export {
 export {
   buildAddColumn,
   buildAddForeignKeyColumn,
-  buildConversionPreview,
-  buildConversionStatements,
   buildCreateJunction,
   buildCreateTable,
   buildDropColumn,
@@ -464,9 +462,37 @@ export {
   buildSetDefault,
   buildUniqueIndex,
   indexName,
+} from "./query/ddl";
+
+export {
+  buildConversionGuard,
+  buildConversionMarks,
+  buildConversionOptions,
+  buildConversionRead,
+  buildConversionStamp,
+  buildConversionSwitch,
+  buildConversionTempColumn,
+  buildConversionUniqueIndex,
+  buildConversionWrite,
+  buildCountRowsUpTo,
+  buildCountValues,
+  buildDropConversionColumns,
+  buildDropConversionGuard,
+  buildLockForRowWrite,
+  buildLockOutWriters,
+  buildRenameConversionIndex,
+  conversionZone,
   isConvertible,
   isMetadataConversion,
-} from "./query/ddl";
+  isStoredAlike,
+} from "./query/conversion";
+
+export {
+  conversionChanges,
+  convertCell,
+  restoredCell,
+  type StoredCell,
+} from "./cell-conversion";
 
 export {
   type EngineAccess,
@@ -613,7 +639,6 @@ export {
   buildCountDuplicates,
   buildCountLocked,
   buildDelete,
-  buildDistinctText,
   buildExistingIds,
   buildInsert,
   buildInsertLinks,
@@ -630,6 +655,7 @@ export {
   buildReadStatus,
   buildReadStatuses,
   buildRenameOption,
+  buildReadHeldCells,
   buildRestoreRow,
   buildSetLink,
   buildSetStatus,
@@ -663,6 +689,7 @@ export {
   jobInputSchemas,
   listJobsInputSchema,
   accountExportJobInputSchema,
+  convertColumnJobInputSchema,
   progressDue,
   type ExportJobInput,
   type JobKind,

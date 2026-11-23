@@ -538,6 +538,11 @@ msgstr "{0, plural, one {# table} other {# tables}}"
 msgid "{0, plural, one {# value can be read in two ways, such as 1,234.} other {# values can be read in two ways, such as 1,234.}}"
 msgstr "{0, plural, one {# valeur peut se lire de deux façons, comme 1,234.} other {# valeurs peuvent se lire de deux façons, comme 1,234.}}"
 
+#. placeholder {0}: resultNumber(job, "converted")
+#: components/shell/jobs-menu.tsx
+msgid "{0, plural, one {# value converted, {lost} left empty.} other {# values converted, {lost} left empty.}}"
+msgstr "{0, plural, one {# valeur convertie, valeurs vidées : {lost}.} other {# valeurs converties, valeurs vidées : {lost}.}}"
+
 #. placeholder {0}: sync.leftOut
 #: components/admin/sources-tab.tsx
 msgid "{0, plural, one {# value is not of its field's type and reads empty. Refresh fields to follow the source.} other {# values are not of their field's type and read empty. Refresh fields to follow the source.}}"
@@ -687,6 +692,10 @@ msgstr "{count, plural, one {# lien n’a pas été remis : la ligne à son aut
 msgid "{count, plural, one {# table added to {base}} other {# tables added to {base}}}"
 msgstr "{count, plural, one {# table ajoutée à {base}} other {# tables ajoutées à {base}}}"
 
+#: components/table/restored-links.ts
+msgid "{count, plural, one {# value no longer fits its field, converted since: it came back empty, and stays in the row's history.} other {# values no longer fit their fields, converted since: they came back empty, and stay in the rows' history.}}"
+msgstr "{count, plural, one {# valeur ne convient plus à son champ, converti depuis : elle revient vide et reste dans l’historique de la ligne.} other {# valeurs ne conviennent plus à leurs champs, convertis depuis : elles reviennent vides et restent dans l’historique des lignes.}}"
+
 #: components/admin/notifications-banner.tsx
 msgid "{count, plural, one {An integration is failing and has stopped receiving events.} other {# integrations are failing and have stopped receiving events.}}"
 msgstr "{count, plural, one {Une intégration échoue et ne reçoit plus d’événements.} other {# intégrations échouent et ne reçoivent plus d’événements.}}"
@@ -710,6 +719,10 @@ msgstr "{disabled, plural, one {# compte désactivé} other {# comptes désactiv
 #: components/admin/accounts-tab.tsx
 msgid "{disabled} disabled; {refused} could not be: read the list again."
 msgstr "{disabled} désactivés ; {refused} n’ont pas pu l’être : relisez la liste."
+
+#: components/fields/field-editor.tsx
+msgid "{elsewhere, plural, one {# field in a table you cannot read will stop computing.} other {# fields in tables you cannot read will stop computing.}}"
+msgstr "{elsewhere, plural, one {# champ d’une table que vous ne pouvez pas lire cessera d’être calculé.} other {# champs de tables que vous ne pouvez pas lire cesseront d’être calculés.}}"
 
 #: components/table/import-dialog.tsx
 msgid "{emptyFormulas, plural, one {# formula had no stored value: its cell stayed empty.} other {# formulas had no stored value: their cells stayed empty.}}"
@@ -985,6 +998,10 @@ msgstr "{removingLabel} ne vous connectera plus."
 #: components/table/import-dialog.tsx
 msgid "{replaced, plural, one {# line was replaced by a later line with the same key.} other {# lines were replaced by a later line with the same key.}}"
 msgstr "{replaced, plural, one {# ligne a été remplacée par une ligne suivante de même clé.} other {# lignes ont été remplacées par une ligne suivante de même clé.}}"
+
+#: components/fields/field-editor.tsx
+msgid "{rewritten, plural, one {# value will be written differently.} other {# values will be written differently.}}"
+msgstr "{rewritten, plural, one {# valeur sera écrite autrement.} other {# valeurs seront écrites autrement.}}"
 
 #: components/admin/account-bases.tsx
 msgid "{role}, through the group {group}"
@@ -1350,6 +1367,10 @@ msgstr "Un champ conservé dans AnyGridDB ne peut pas placer sur une chronologie
 #: components/fields/field-meta.tsx
 msgid "A field of the linked rows"
 msgstr "Un champ des lignes liées"
+
+#: components/table/table-workspace.tsx
+msgid "A field this view filters on changed type: the view shows no rows until its filter is corrected."
+msgstr "Un champ filtré par cette vue a changé de type : la vue n’affiche aucune ligne tant que son filtre n’est pas corrigé."
 
 #: lib/errors.ts
 msgid "A file could not be attached. Add it again."
@@ -3527,6 +3548,10 @@ msgstr "Continuer en arrière-plan"
 msgid "Convert"
 msgstr "Convertir"
 
+#: components/fields/field-editor.tsx
+msgid "Converting {field}"
+msgstr "Conversion de {field}"
+
 #: components/admin/logs-tab.tsx
 #: lib/clipboard.ts
 msgid "Copied"
@@ -3637,6 +3662,10 @@ msgstr "Copiez ce jeton maintenant : il ne sera plus affiché."
 msgid "Copyright © the AnyGridDB contributors, and the authors of the libraries it is built with."
 msgstr "Copyright © les contributeurs d’AnyGridDB et les auteurs des bibliothèques dont il est fait."
 
+#: components/table/table-workspace.tsx
+msgid "Correct the filter"
+msgstr "Corriger le filtre"
+
 #: components/admin/logs-tab.tsx
 msgid "Could not copy."
 msgstr "Impossible de copier."
@@ -3664,6 +3693,10 @@ msgstr "Nombre de liens"
 #: components/fields/field-link-settings.tsx
 msgid "Count of values"
 msgstr "Nombre de valeurs"
+
+#: components/fields/field-editor.tsx
+msgid "Counted on the first {total} values: the table holds more."
+msgstr "Compté sur les {total} premières valeurs : la table en contient davantage."
 
 #: components/views/gallery-view.tsx
 msgid "Cover"
@@ -3919,6 +3952,10 @@ msgstr "Jour"
 #: components/table/filter-builder.tsx
 msgid "Days"
 msgstr "Jours"
+
+#: components/fields/field-editor.tsx
+msgid "Days are read in this time zone: {zone}."
+msgstr "Les jours sont lus dans ce fuseau horaire : {zone}."
 
 #: components/admin/api-tokens-tab.tsx
 msgid "Days it lives"
@@ -4542,6 +4579,10 @@ msgstr "Intégré dans {sites}"
 msgid "Embedded view"
 msgstr "Vue intégrée"
 
+#: components/fields/field-editor.tsx
+msgid "empty"
+msgstr "vide"
+
 #: lib/aggregate-labels.ts
 msgid "Empty"
 msgstr "Vides"
@@ -5010,6 +5051,18 @@ msgstr "Champ"
 #: components/table/import-dialog.tsx
 msgid "Field {position}"
 msgstr "Champ {position}"
+
+#: components/admin/support-tab.tsx
+msgid "Field conversion"
+msgstr "Conversion de champ"
+
+#: components/shell/jobs-menu.tsx
+msgid "Field conversion in {table}"
+msgstr "Conversion d’un champ dans {table}"
+
+#: components/fields/field-editor.tsx
+msgid "Field converted"
+msgstr "Champ converti"
 
 #: components/table/use-field-changes.ts
 msgid "Field moved to the trash"
@@ -11441,6 +11494,10 @@ msgstr "Le champ et son champ inverse éventuel vont dans la corbeille de la bas
 msgid "The fields were up to date"
 msgstr "Les champs étaient à jour"
 
+#: components/fields/field-editor.tsx
+msgid "The filter of these views will no longer apply, and they will show no rows until it is corrected: {views}."
+msgstr "Le filtre de ces vues ne s’appliquera plus, et elles n’afficheront aucune ligne tant qu’il n’est pas corrigé : {views}."
+
 #: components/grid/grid-rows.tsx
 #: components/views/row-cards.tsx
 msgid "The first {limit} groups are shown: filter the view to see the others."
@@ -12037,6 +12094,10 @@ msgstr "Vous ne pouvez lire aucun champ ici : il n’y a rien à exporter"
 msgid "These are the recent lines of this process, newest first. They are kept in memory and disappear when the process stops. The database and the file store keep their own logs where they run."
 msgstr "Ce sont les lignes récentes de ce processus, les plus récentes d’abord. Elles sont gardées en mémoire et disparaissent quand le processus s’arrête. La base et le magasin de fichiers gardent les leurs là où ils tournent."
 
+#: components/fields/field-editor.tsx
+msgid "These fields will stop computing: {fields}."
+msgstr "Ces champs cesseront d’être calculés : {fields}."
+
 #: components/admin/account-handoff.tsx
 msgid "These stay with {name}: {successor} has no role to manage their tables. They stop working when {name}'s account is disabled. Give {successor} a role on those bases, then hand over again."
 msgstr "Ceux-ci restent à {name} : {successor} n’a pas de rôle pour gérer leurs tables. Ils cesseront de fonctionner quand le compte de {name} sera désactivé. Donnez à {successor} un rôle sur ces bases, puis transmettez de nouveau."
@@ -12203,6 +12264,10 @@ msgstr "Cette colonne ne dit pas quand une ligne change : choisissez une date e
 msgid "This conversion is not possible"
 msgstr "Conversion impossible"
 
+#: lib/errors.ts
+msgid "This conversion needs a time zone"
+msgstr "Cette conversion a besoin d’un fuseau horaire"
+
 #: components/dashboards/dashboard-board.tsx
 msgid "This dashboard does not exist."
 msgstr "Ce tableau de bord n’existe pas."
@@ -12236,6 +12301,10 @@ msgid "This field appears twice"
 msgstr "Ce champ apparaît deux fois"
 
 #: lib/errors.ts
+msgid "This field has just changed type: nothing was written, read it again"
+msgstr "Ce champ vient de changer de type : rien n’a été écrit, relisez-le"
+
+#: lib/errors.ts
 msgid "This field holds long text its database cannot sort, group, or compare"
 msgstr "Ce champ contient un texte long que sa base ne sait ni trier, ni grouper, ni comparer"
 
@@ -12258,6 +12327,10 @@ msgstr "Ce champ est conservé dans AnyGridDB : sur une table client lue en dir
 #: lib/errors.ts
 msgid "This field is read-only"
 msgstr "Ce champ est en lecture seule"
+
+#: lib/errors.ts
+msgid "This field names the rows: create or choose another that can before converting it"
+msgstr "Ce champ nomme les lignes : créez ou choisissez-en un autre qui le puisse avant de le convertir"
 
 #: components/table/reason-dialog.tsx
 msgid "This field needs a reason, kept in the audit trail."
@@ -12549,12 +12622,28 @@ msgid "This table is a synced copy: only formulas, lookups, rollups, and buttons
 msgstr "Cette table est une copie synchronisée : seules les formules, recherches, agrégats et boutons peuvent être ajoutés. Les champs stockés nécessitent une table live."
 
 #: components/fields/field-editor.tsx
+msgid "This table is large: it is converted in the background, and stays read-only until that ends."
+msgstr "Cette table est volumineuse : elle est convertie en arrière-plan et reste en lecture seule jusqu’à la fin."
+
+#: lib/errors.ts
+msgid "This table is read-only while one of its fields is converted"
+msgstr "Cette table est en lecture seule pendant la conversion d’un de ses champs"
+
+#: lib/errors.ts
+msgid "This table is too large to convert at once: try again"
+msgstr "Cette table est trop volumineuse pour être convertie d’un seul coup : réessayez"
+
+#: components/fields/field-editor.tsx
 msgid "This table was created in the external source. The field is a column of that table, and the values you type are written there."
 msgstr "Cette table a été créée dans la source externe. Le champ est une colonne de cette table, et les valeurs saisies y sont écrites."
 
 #: components/fields/attachment-preview.tsx
 msgid "This text file cannot be previewed: download it."
 msgstr "Ce fichier texte ne peut pas être prévisualisé : téléchargez-le."
+
+#: lib/errors.ts
+msgid "This time zone is not one"
+msgstr "Ce fuseau horaire n’existe pas"
 
 #: lib/errors.ts
 msgid "This token does not have the scope the request asks for"

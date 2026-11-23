@@ -19,6 +19,7 @@ import {
   resolveAttachmentMaxBytes,
   importWorkbookJobInputSchema,
   accountExportJobInputSchema,
+  convertColumnJobInputSchema,
   restoreBaseJobInputSchema,
   restorePointJobInputSchema,
   roleAllows,
@@ -34,6 +35,7 @@ import { loadBindings } from "./auth/access.js";
 import { openBaseIds, withOpenBases } from "./data/emergency-access.js";
 import { readerEngine, readerRulesPrint } from "./data/acl.js";
 import { announceRows } from "./data/announce.js";
+import { runConversion } from "./data/conversion-job.js";
 import {
   importBaseSnapshot,
   readSnapshotLines,
@@ -918,6 +920,27 @@ const runAccountExport =
     }
   };
 
+/** A field of a large table converted by batches (ADR 0116). */
+const runConvertColumn =
+  (deps: RunnerDeps): JobRunner =>
+  async ({ job, progress }) => {
+    const input = convertColumnJobInputSchema.parse(job.input);
+    const { userId, table } = await authorTable(
+      deps.db,
+      job,
+      input.tableId,
+      "manage",
+    );
+    const { converted, lost } = await runConversion(deps.db, {
+      userId,
+      table,
+      job,
+      progress,
+    });
+    await catalogChanged(deps, table.baseId);
+    return { result: { tableId: table.id, converted, lost } };
+  };
+
 export function jobRunners(deps: RunnerDeps): Record<JobKind, JobRunner> {
   return {
     import: runImport(deps),
@@ -932,5 +955,6 @@ export function jobRunners(deps: RunnerDeps): Record<JobKind, JobRunner> {
     restore_base: runRestoreBase(deps),
     import_workbook: runImportWorkbook(deps),
     account_export: runAccountExport(deps),
+    convert_column: runConvertColumn(deps),
   };
 }
