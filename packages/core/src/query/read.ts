@@ -193,6 +193,13 @@ function projectColumn(
   try {
     const typed = compileColumn(ctx, table, "r", column, []);
     const errorSql = columnError(ctx, table, "r", column);
+    // An error's value is blank (ADR 0036): what else the formula wrote,
+    // around the error, is no value of its cell. A formula that is only
+    // an error is blank already, and SQL Server refuses a CASE of nulls.
+    const sql =
+      column.fieldType === "formula" && errorSql && typed.kind !== "null"
+        ? `(case when ${errorSql} is null then ${typed.sql} end)`
+        : typed.sql;
     const duration = computedDuration(ctx, table, column);
     const base: ProjectedColumn = {
       name: column.name,
@@ -203,7 +210,7 @@ function projectColumn(
           ? kindOf(typed)
           : storedValueKind(column.fieldType),
       column,
-      sql: typed.sql,
+      sql,
       options,
       ...(column.physical?.controlPlane ? { apart: true } : {}),
       ...(table.external && holdsLargeObject(ctx, column, typed.kind)
@@ -536,9 +543,11 @@ function orderSql(prepared: Prepared, ref: ProjectedColumn): string {
     d.textList(items, (value) => prepared.params.bind(value));
   switch (ref.kind) {
     case "text":
+      // An empty text sorts with the cell never filled, as it groups.
+      // Oracle already holds one for the other.
       return ref.options
         ? d.optionPosition(x, list(ref.options))
-        : d.sortText(x);
+        : d.sortText(d.name === "oracle" ? x : `nullif(${x}, '')`);
     case "boolean":
       return `(case when ${d.cond(x)} then 1 else 0 end)`;
     case "datetime":
@@ -558,7 +567,7 @@ function orderSql(prepared: Prepared, ref: ProjectedColumn): string {
       if (d.name !== "postgres") return d.unavailable("array");
       return ref.options
         ? `array_position(${prepared.params.bindTextArray(ref.options)}, ${x}[1])`
-        : `array_to_string(${x}, ',')`;
+        : `nullif(array_to_string(${x}, ','), '')`;
     default:
       return d.listSortText(x);
   }
@@ -569,6 +578,15 @@ function orderSql(prepared: Prepared, ref: ProjectedColumn): string {
  * the reader is; with a `span`, by the first day of that day's week,
  * month, quarter, or year. A span means nothing to another field.
  */
+/** The kinds that can hold an empty value, which is no value. */
+const EMPTIABLE: ReadonlySet<string> = new Set([
+  "text",
+  "options",
+  "users",
+  "files",
+  "array",
+]);
+
 function groupKeySql(
   prepared: Prepared,
   ref: ProjectedColumn,
@@ -585,7 +603,14 @@ function groupKeySql(
   // large values would round to one label (ADR 0023). A count or a
   // duration stays a JSON number.
   if (isExactNumber(ref)) return d.groupKey(d.numberText(x), "text");
-  return d.groupKey(x, ref.kind === "number" ? "number" : jsonKind(ref));
+  // What holds nothing has one key: an empty text and an empty list group
+  // with the cell never filled, as the "is empty" filter finds them.
+  // A choice among options is one of them or nothing.
+  const value =
+    EMPTIABLE.has(ref.kind) && !(ref.kind === "text" && ref.options)
+      ? `(case when ${emptySql(ref, d)} then null else ${x} end)`
+      : x;
+  return d.groupKey(value, ref.kind === "number" ? "number" : jsonKind(ref));
 }
 
 /** How a column's value travels as JSON. */
