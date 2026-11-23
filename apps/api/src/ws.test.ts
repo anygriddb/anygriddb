@@ -916,6 +916,21 @@ describe("GridHub under the rights held now", () => {
     expect(viewer.sent.at(-1)).toEqual(message);
   });
 
+  it("relays that the views of a table changed, and nothing it cannot read as that", async () => {
+    const { open, rights, deliver } = await rig();
+    rights.set("reader", "rows");
+    const reader = open("reader");
+    reader.socket.emit("message", subscribe);
+    await settle();
+    const message = { type: "views", channel: table, tableId: row };
+    deliver(channel, JSON.stringify(message));
+    expect(reader.sent.at(-1)).toEqual(message);
+    // Without the table it is about, it tells nothing a page can act on.
+    const before = reader.sent.length;
+    deliver(channel, JSON.stringify({ type: "views", channel: table }));
+    expect(reader.sent).toHaveLength(before);
+  });
+
   it("closes a socket past the buffer, and sends below it", async () => {
     const { open, rights, deliver } = await rig();
     rights.set("reader", "rows");

@@ -6,7 +6,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useLocale } from "../../lib/i18n";
 import { useNarrowScreen } from "../../lib/narrow-screen";
-import { usePresence } from "../../lib/realtime";
+import { useChannel, usePresence } from "../../lib/realtime";
 import { useCatalog, useSession } from "../../lib/session";
 import { trpc, useTRPC } from "../../lib/trpc";
 import {
@@ -110,6 +110,18 @@ function OpenTable({ baseId, tableId, viewId, rowId }: TableWorkspaceProps) {
   const table = base?.tables.find((item) => item.id === tableId);
   const role = table?.role ?? base?.role ?? null;
   const views = useQuery(api.catalog.views.queryOptions({ tableId }));
+  // A view someone else made, renamed, ordered or removed: the tabs are
+  // read again.
+  useChannel(baseId, {
+    message: (message) => {
+      if (message.type === "views" && message.tableId === tableId) {
+        void views.refetch();
+      }
+    },
+    resync: () => {
+      void views.refetch();
+    },
+  });
   const collaborators = useQuery(
     api.catalog.collaborators.queryOptions({ baseId }),
   );

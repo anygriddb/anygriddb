@@ -82,7 +82,7 @@ import {
   numberFormatOf,
 } from "../../lib/format";
 import { useLocale } from "../../lib/i18n";
-import { useTableChanges } from "../../lib/realtime";
+import { useChannel, useTableChanges } from "../../lib/realtime";
 // ECharts loads with the dashboards only (ADR 0035).
 const ChartView = lazy(() =>
   import("./chart-view").then((module) => ({ default: module.ChartView })),
@@ -676,6 +676,19 @@ function WidgetCard(props: {
       : configString(props.widget.config, "tableId") || undefined,
     () => void data.refetch(),
   );
+  // And the fields of its base: a figure of a field that was removed is
+  // no figure any more, and must not stay on the screen as one.
+  useChannel(props.baseId, {
+    message: (message) => {
+      if (message.type === "catalog") void data.refetch();
+    },
+    resync: () => {
+      void data.refetch();
+    },
+  });
+  // What a read that failed had read before is no longer what the widget
+  // holds: the figure of a field since removed must not stay as one.
+  const shown = data.isError ? undefined : data.data;
   const name = props.widget.title;
   const { dragProps, dragButtonProps, isDragging } = useWidgetDrag(
     props.widget.id,
@@ -768,19 +781,13 @@ function WidgetCard(props: {
             <div className="flex h-full items-center justify-center">
               <Spinner />
             </div>
-          ) : data.data?.kind === "metric" ? (
+          ) : shown?.kind === "metric" ? (
             <p className="flex h-full items-center justify-center text-3xl font-semibold tabular-nums">
-              {data.data.fn === "last"
-                ? lastValueText(data.data.value, measured, locale)
-                : formatAggregate(
-                    data.data.value,
-                    data.data.fn,
-                    measured,
-                    locale,
-                    2,
-                  )}
+              {shown.fn === "last"
+                ? lastValueText(shown.value, measured, locale)
+                : formatAggregate(shown.value, shown.fn, measured, locale, 2)}
             </p>
-          ) : data.data?.kind === "chart" ? (
+          ) : shown?.kind === "chart" ? (
             <Suspense
               fallback={
                 <div className="flex h-full items-center justify-center">
@@ -789,16 +796,16 @@ function WidgetCard(props: {
               }
             >
               <ChartView
-                data={data.data}
+                data={shown}
                 title={name}
                 numberFormat={numberFormatOf(measured)}
               />
             </Suspense>
-          ) : data.data?.kind === "view_embed" ? (
+          ) : shown?.kind === "view_embed" ? (
             <ViewWidget
               baseId={props.baseId}
-              tableId={data.data.tableId}
-              viewId={data.data.viewId}
+              tableId={shown.tableId}
+              viewId={shown.viewId}
               title={name}
             />
           ) : (
