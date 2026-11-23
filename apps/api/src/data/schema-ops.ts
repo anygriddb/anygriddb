@@ -278,15 +278,18 @@ export async function updateBase(
   input: { baseId: string; name?: string; description?: string | null },
   source = "web",
 ): Promise<void> {
+  const changes = {
+    ...(input.name !== undefined ? { name: input.name } : {}),
+    ...(input.description !== undefined
+      ? { description: input.description }
+      : {}),
+  };
+  // Nothing to change: an update that sets nothing is no statement.
+  if (Object.keys(changes).length === 0) return;
   await withAudit(db, { userId, source }, async (tx) => {
     await tx
       .updateTable("bases")
-      .set({
-        ...(input.name !== undefined ? { name: input.name } : {}),
-        ...(input.description !== undefined
-          ? { description: input.description }
-          : {}),
-      })
+      .set(changes)
       .where("id", "=", input.baseId)
       .execute();
   });
@@ -483,6 +486,14 @@ export async function updateTable(
   },
   source = "web",
 ): Promise<void> {
+  const changes = {
+    ...(input.name !== undefined ? { name: input.name } : {}),
+    ...(input.description !== undefined
+      ? { description: input.description }
+      : {}),
+    ...(input.trailReads !== undefined ? { trailReads: input.trailReads } : {}),
+  };
+  if (Object.keys(changes).length === 0) return;
   try {
     await withAudit(
       db,
@@ -490,15 +501,7 @@ export async function updateTable(
       async (tx) => {
         await tx
           .updateTable("dataTables")
-          .set({
-            ...(input.name !== undefined ? { name: input.name } : {}),
-            ...(input.description !== undefined
-              ? { description: input.description }
-              : {}),
-            ...(input.trailReads !== undefined
-              ? { trailReads: input.trailReads }
-              : {}),
-          })
+          .set(changes)
           .where("id", "=", input.tableId)
           .execute();
       },

@@ -122,10 +122,10 @@ export async function finishRegistration(
     }
     credential = result.registrationInfo.credential;
   } catch (error) {
-    if (error instanceof Error && error.message === "WebAuthn rejected") {
-      throw error;
-    }
-    throw new Error("WebAuthn rejected", { cause: error });
+    // The library raises on whatever does not match: the origin, the
+    // challenge, the relying party, the signature. It is a refusal.
+    if (error instanceof AppError) throw error;
+    throw new AppError("webauthn_rejected", { cause: error });
   }
   await saveWebAuthnCredential(db, {
     userId,
@@ -194,10 +194,10 @@ export async function finishAuthentication(
     }
     nextCounter = result.authenticationInfo.newCounter;
   } catch (error) {
-    if (error instanceof Error && error.message === "WebAuthn rejected") {
-      throw error;
-    }
-    throw new Error("WebAuthn rejected", { cause: error });
+    // The library raises on whatever does not match: the origin, the
+    // challenge, the relying party, the signature. It is a refusal.
+    if (error instanceof AppError) throw error;
+    throw new AppError("webauthn_rejected", { cause: error });
   }
   if (stored.counter > 0 && nextCounter <= stored.counter) {
     throw new AppError("webauthn_rejected");

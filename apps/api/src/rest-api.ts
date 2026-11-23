@@ -1,5 +1,6 @@
 import {
   AppError,
+  type ErrorCode,
   publicError,
   type PublicError,
   rowIdSchema,
@@ -42,8 +43,27 @@ function failure(error: unknown): { status: number; body: PublicError } {
   if (error instanceof AppError) {
     return { status: error.status, body: publicError(error) };
   }
+  // What a schema refuses is what the caller sent, wherever it was read.
+  if (error instanceof z.ZodError) {
+    const refused = new AppError("invalid_input");
+    return { status: refused.status, body: publicError(refused) };
+  }
   return { status: 500, body: publicError(error) };
 }
+
+/** What a request names in its path or its query: a mismatch is the caller's. */
+function read<Schema extends z.ZodType>(
+  schema: Schema,
+  value: unknown,
+  refusal: ErrorCode = "invalid_input",
+): z.infer<Schema> {
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) throw new AppError(refusal);
+  return parsed.data;
+}
+
+const baseParams = z.object({ baseId: z.uuid() });
+const tableParams = z.object({ tableId: z.uuid() });
 
 function errorBody(body: PublicError) {
   return {
@@ -89,10 +109,22 @@ async function run(
   return reply.send(result);
 }
 
+/**
+ * The reason a write gives, percent-encoded so that a header can carry any
+ * letter. One that does not decode is kept as it was sent: a plain "100%"
+ * is a reason, not a mistake.
+ */
 function reasonOf(request: FastifyRequest): string | undefined {
   const header = request.headers["x-reason"];
   const value = Array.isArray(header) ? header[0] : header;
-  return value ? decodeURIComponent(value).slice(0, 500) : undefined;
+  if (!value) return undefined;
+  let reason = value;
+  try {
+    reason = decodeURIComponent(value);
+  } catch (error) {
+    if (!(error instanceof URIError)) throw error;
+  }
+  return reason.slice(0, 500);
 }
 
 export function registerRestApi(app: FastifyInstance, deps: Deps): void {
@@ -107,47 +139,45 @@ export function registerRestApi(app: FastifyInstance, deps: Deps): void {
 
   app.get("/api/v1/bases/:baseId/tables", (request, reply) =>
     run(request, reply, deps, async (actor) => {
-      const { baseId } = z.object({ baseId: z.uuid() }).parse(request.params);
+      const { baseId } = read(baseParams, request.params);
       return listTables(shared, actor, baseId);
     }),
   );
 
   app.get("/api/v1/bases/:baseId/openapi.json", (request, reply) =>
     run(request, reply, deps, async (actor) => {
-      const { baseId } = z.object({ baseId: z.uuid() }).parse(request.params);
+      const { baseId } = read(baseParams, request.params);
       return openApiDocument(shared, actor, baseId);
     }),
   );
 
   app.get("/api/v1/tables/:tableId/records", (request, reply) =>
     run(request, reply, deps, async (actor) => {
-      const { tableId } = z.object({ tableId: z.uuid() }).parse(request.params);
+      const { tableId } = read(tableParams, request.params);
       return listRecords(shared, actor, tableId, request.query);
     }),
   );
 
   app.get("/api/v1/tables/:tableId/records/:recordId", (request, reply) =>
     run(request, reply, deps, async (actor) => {
-      const params = z
-        .object({ tableId: z.uuid(), recordId: rowIdSchema })
-        .parse(request.params);
-      const fieldKey = z
-        .enum(["name", "label"])
-        .default("name")
-        .parse((request.query as { fieldKey?: string }).fieldKey);
-      return getRecord(
-        shared,
-        actor,
-        params.tableId,
-        params.recordId,
-        fieldKey,
+      const { tableId } = read(tableParams, request.params);
+      const { recordId } = read(
+        z.object({ recordId: rowIdSchema }),
+        request.params,
+        "invalid_record_id",
       );
+      const fieldKey = read(
+        z.enum(["name", "label"]).default("name"),
+        (request.query as { fieldKey?: unknown }).fieldKey,
+        "invalid_query",
+      );
+      return getRecord(shared, actor, tableId, recordId, fieldKey);
     }),
   );
 
   app.post("/api/v1/tables/:tableId/records", (request, reply) =>
     run(request, reply, deps, async (actor) => {
-      const { tableId } = z.object({ tableId: z.uuid() }).parse(request.params);
+      const { tableId } = read(tableParams, request.params);
       return createRecords(
         shared,
         actor,
@@ -160,7 +190,7 @@ export function registerRestApi(app: FastifyInstance, deps: Deps): void {
 
   app.patch("/api/v1/tables/:tableId/records", (request, reply) =>
     run(request, reply, deps, async (actor) => {
-      const { tableId } = z.object({ tableId: z.uuid() }).parse(request.params);
+      const { tableId } = read(tableParams, request.params);
       return updateRecords(
         shared,
         actor,
@@ -173,8 +203,13 @@ export function registerRestApi(app: FastifyInstance, deps: Deps): void {
 
   app.delete("/api/v1/tables/:tableId/records", (request, reply) =>
     run(request, reply, deps, async (actor) => {
-      const { tableId } = z.object({ tableId: z.uuid() }).parse(request.params);
-      const raw = (request.query as { records?: string }).records ?? "";
+      const { tableId } = read(tableParams, request.params);
+      // Named twice, the parameter is a list and no longer a text.
+      const raw = read(
+        z.string().default(""),
+        (request.query as { records?: unknown }).records,
+        "invalid_record_id",
+      );
       const ids = recordIds(raw);
       if (!ids) throw new AppError("invalid_record_id");
       return deleteRecords(shared, actor, tableId, ids, reasonOf(request));

@@ -12,6 +12,7 @@ import {
   exportValue,
   exportWriter,
   sheetName,
+  uploadRefusal,
 } from "./data-transfer.js";
 import type { RowRecord } from "./data/rows.js";
 import { cellsOf, readImport } from "./import-file.test-helpers.js";
@@ -228,5 +229,23 @@ describe("exportWriter", () => {
     const imported = cellsOf(read.rows);
     expect(imported[0]).toEqual(['=HYPERLINK("x")', "2026-11-07", "Inès", ""]);
     expect(imported[1]).toEqual(["Boréal", "", "", "Acme"]);
+  });
+});
+
+describe("uploadRefusal", () => {
+  it("refuses as too large what stopped at a limit or was cut on the way", () => {
+    expect(uploadRefusal({ code: "FST_REQ_FILE_TOO_LARGE" })).toBe(413);
+    expect(uploadRefusal({ code: "FST_PARTS_LIMIT" })).toBe(413);
+    expect(uploadRefusal(new Error("premature close"))).toBe(413);
+  });
+
+  it("refuses by its type a body that is no upload at all", () => {
+    // Two bytes of JSON are not too large: they are not a file.
+    expect(
+      uploadRefusal({
+        code: "FST_INVALID_MULTIPART_CONTENT_TYPE",
+        statusCode: 406,
+      }),
+    ).toBe(415);
   });
 });

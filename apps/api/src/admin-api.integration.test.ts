@@ -364,6 +364,28 @@ describe("the administration API", () => {
     expect(JSON.stringify(page)).not.toMatch(
       /hash|secret|ciphertext|nonce|aga_|ag_/i,
     );
+    // Every order the document names answers, both ways. By last sign-in,
+    // those who never signed in come first whichever way the dates go.
+    for (const sort of ["name", "email", "created", "lastSeen"]) {
+      for (const direction of ["asc", "desc"]) {
+        const sorted = await call(
+          "GET",
+          `/accounts?sort=${sort}&direction=${direction}`,
+          both,
+        );
+        expect([sort, direction, sorted.statusCode]).toEqual([
+          sort,
+          direction,
+          200,
+        ]);
+        if (sort !== "lastSeen") continue;
+        const seen = sorted
+          .json<{ users: Array<{ lastSeen: string | null }> }>()
+          .users.map((user) => user.lastSeen);
+        expect(seen.indexOf(null)).toBe(seen.includes(null) ? 0 : -1);
+        expect(seen.slice(seen.lastIndexOf(null) + 1)).not.toContain(null);
+      }
+    }
     // A filter that is none is refused, not ignored.
     for (const query of ["?limit=1000", "?admin=yes", "?unknown=1"]) {
       const refused = await call("GET", `/accounts${query}`, both);

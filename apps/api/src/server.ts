@@ -57,6 +57,8 @@ import {
   logFailure,
   publicErrorBody,
   replyFromError,
+  sayWhenToRetry,
+  unservedProcedureMethod,
 } from "./http.js";
 import type { Context } from "./trpc/context.js";
 import { describeTRPCError } from "./trpc/map-error.js";
@@ -260,6 +262,17 @@ export async function createApp(deps: {
       request.log.warn("a session's write from another origin refused");
       return reply.code(403).send(publicErrorBody(403));
     }
+  });
+  app.addHook("onRequest", async (request, reply) => {
+    if (unservedProcedureMethod(request)) {
+      return reply
+        .code(405)
+        .header("allow", "GET, POST")
+        .send(publicErrorBody(405));
+    }
+  });
+  app.addHook("onSend", async (_request, reply, payload) => {
+    sayWhenToRetry(reply, payload);
   });
   registerActingRequests(app, deps.db);
   registerTextGuard(app);

@@ -1,7 +1,11 @@
 /**
  * Client databases, as an administrator declares them.
  */
-import { sourceInputSchema, sourceUpdateSchema } from "@anygriddb/core";
+import {
+  AppError,
+  sourceInputSchema,
+  sourceUpdateSchema,
+} from "@anygriddb/core";
 import { z } from "zod";
 import {
   exposeTables,
@@ -38,16 +42,19 @@ function sourceDeps(ctx: Context): SourceDeps {
 
 /** What a source's account may read, as the administration page shows it. */
 async function presentedTables(ctx: Context, id: string, search?: string) {
-  const [listing, exposed, source] = await Promise.all([
+  // First, and alone: read beside the others, a source that is not there
+  // failed two of them, and the first to fail chose the answer.
+  const source = await ctx.db
+    .selectFrom("sources")
+    .select("engine")
+    .where("id", "=", id)
+    .executeTakeFirst();
+  if (!source) throw new AppError("unknown_source");
+  const [listing, exposed] = await Promise.all([
     listSourceTables(sourceDeps(ctx), id, {
       ...(search ? { scope: { search } } : {}),
     }),
     exposedIn(ctx.db, id),
-    ctx.db
-      .selectFrom("sources")
-      .select("engine")
-      .where("id", "=", id)
-      .executeTakeFirstOrThrow(),
   ]);
   return {
     truncated: listing.truncated,
