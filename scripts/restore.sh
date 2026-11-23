@@ -40,7 +40,7 @@ backup="$(cd "${1:?usage: scripts/restore.sh <backup folder> [--in-place] [--kee
 shift
 in_place=""
 keep_store=""
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
     --in-place) in_place=yes ;;
     --keep-store-files) keep_store=yes ;;
@@ -65,9 +65,9 @@ load_secret_files "$(cd "$(dirname "$env_file")" && pwd)"
 : "${POSTGRES_DB:?set POSTGRES_DB in docker/.env}"
 
 args=("$@")
-if [ ${#args[@]} -eq 0 ]; then args=(-f compose.yml); fi
+if [[ ${#args[@]} -eq 0 ]]; then args=(-f compose.yml); fi
 compose=(docker compose "${args[@]}")
-if [ -f "$env_file" ]; then compose=(docker compose --env-file "$env_file" "${args[@]}"); fi
+if [[ -f "$env_file" ]]; then compose=(docker compose --env-file "$env_file" "${args[@]}"); fi
 config="$("${compose[@]}" config --format json)"
 # The project's name is the composition's own `name`, at its top: a
 # config, a network or a volume has a name too, further in.
@@ -87,7 +87,7 @@ case "$POSTGRES_DB" in
     ;;
 esac
 maintenance=postgres
-if [ "$POSTGRES_DB" = postgres ]; then maintenance=template1; fi
+if [[ "$POSTGRES_DB" = postgres ]]; then maintenance=template1; fi
 proof_volume="${project}_restore_tls"
 
 say() { printf '== %s\n' "$*"; }
@@ -96,19 +96,28 @@ refuse() {
   exit "${2:-1}"
 }
 
+# What the environment or a container says is taken for a number only once
+# it is digits: in arithmetic, bash runs what such a value holds.
+whole_number() {
+  case "${1:-}" in
+    '' | *[!0-9]*) refuse "$2 is not a number." ;;
+  esac
+}
+whole_number "${RESTORE_START_SECONDS:-600}" RESTORE_START_SECONDS
+
 suffix=""
 identity="${BACKUP_AGE_IDENTITY:-}"
-if [ -f "$backup/database.dump.age" ]; then suffix=".age"; fi
+if [[ -f "$backup/database.dump.age" ]]; then suffix=".age"; fi
 
 # The volumes this restore replaces, and the files the backup must hold.
 volumes=(files_data tls_data)
 store=""
 if printf '%s\n' "$config" | grep -q '"rustfs_data"'; then store=yes; fi
-if [ -f "$backup/rustfs_data.tar.gz$suffix" ] && [ -z "$store" ]; then
+if [[ -f "$backup/rustfs_data.tar.gz$suffix" ]] && [[ -z "$store" ]]; then
   refuse "This backup holds an object store's files: restore it into a stack that runs one (-f compose.yml -f compose.s3.yml)."
 fi
-if [ -n "$store" ] && [ -z "$keep_store" ]; then
-  if [ ! -f "$backup/rustfs_data.tar.gz$suffix" ]; then
+if [[ -n "$store" ]] && [[ -z "$keep_store" ]]; then
+  if [[ ! -f "$backup/rustfs_data.tar.gz$suffix" ]]; then
     refuse "This stack runs an object store and this backup holds none of its files. To restore the rest and leave the store's files as they are: --keep-store-files."
   fi
   volumes+=(rustfs_data)
@@ -129,11 +138,11 @@ sum_of() {
 prove_sums() {
   local line sum name known item listed=" "
   local format='^([0-9a-fA-F]{64})[[:space:]]+[*]?([^[:space:]].*)$'
-  if [ ! -r "$backup/SHA256SUMS" ]; then
+  if [[ ! -r "$backup/SHA256SUMS" ]]; then
     refuse "$backup has no readable SHA256SUMS: not a whole backup."
   fi
-  while IFS= read -r line || [ -n "$line" ]; do
-    if [ -z "$line" ]; then continue; fi
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ -z "$line" ]]; then continue; fi
     if [[ ! "$line" =~ $format ]]; then
       refuse "SHA256SUMS holds a line that is not a sum: this backup cannot be checked."
     fi
@@ -141,16 +150,16 @@ prove_sums() {
     name="${BASH_REMATCH[2]}"
     known=""
     for item in "${wanted[@]}" "rustfs_data.tar.gz$suffix"; do
-      if [ "$item" = "$name" ]; then known=yes; fi
+      if [[ "$item" = "$name" ]]; then known=yes; fi
     done
-    if [ -z "$known" ]; then refuse "SHA256SUMS names $name, which is no file of a backup."; fi
-    if [ ! -f "$backup/$name" ]; then refuse "$name is in SHA256SUMS and not in the backup."; fi
-    if [ "$(sum_of "$backup/$name")" != "$sum" ]; then
+    if [[ -z "$known" ]]; then refuse "SHA256SUMS names $name, which is no file of a backup."; fi
+    if [[ ! -f "$backup/$name" ]]; then refuse "$name is in SHA256SUMS and not in the backup."; fi
+    if [[ "$(sum_of "$backup/$name")" != "$sum" ]]; then
       refuse "$name does not match its sum: this file is damaged."
     fi
     listed="$listed$name "
   done <"$backup/SHA256SUMS"
-  if [ "$listed" = " " ]; then refuse "SHA256SUMS lists nothing: this backup cannot be checked."; fi
+  if [[ "$listed" = " " ]]; then refuse "SHA256SUMS lists nothing: this backup cannot be checked."; fi
   for item in "${wanted[@]}"; do
     case "$listed" in
       *" $item "*) ;;
@@ -160,13 +169,13 @@ prove_sums() {
 }
 prove_sums
 
-if [ -n "$suffix" ]; then
+if [[ -n "$suffix" ]]; then
   : "${identity:?this backup is encrypted: set BACKUP_AGE_IDENTITY to its age identity file}"
   command -v age >/dev/null || refuse "This backup is encrypted: install age (https://age-encryption.org) first."
 fi
 # A file of the backup, decrypted as it is read when it is encrypted.
 read_back() {
-  if [ -n "$suffix" ]; then
+  if [[ -n "$suffix" ]]; then
     age -d -i "$identity" "$1$suffix"
   else
     cat "$1"
@@ -175,7 +184,7 @@ read_back() {
 
 # What is running now: what a failure has to leave running.
 is_running() {
-  [ -n "$("${compose[@]}" ps -q --status running "$1" 2>/dev/null </dev/null || true)" ]
+  [[ -n "$("${compose[@]}" ps -q --status running "$1" 2>/dev/null </dev/null || true)" ]]
 }
 app_ran=""
 db_ran=""
@@ -187,8 +196,8 @@ in_db() {
   "${compose[@]}" exec -T db psql -X -q -v ON_ERROR_STOP=1 -U "$db_admin" -d "$maintenance" "$@"
 }
 database_exists() {
-  [ "$("${compose[@]}" exec -T db psql -X -At -U "$db_admin" -d "$maintenance" \
-    -c "select 1 from pg_database where datname = '$1'" </dev/null)" = 1 ]
+  [[ "$("${compose[@]}" exec -T db psql -X -At -U "$db_admin" -d "$maintenance" \
+    -c "select 1 from pg_database where datname = '$1'" </dev/null)" = 1 ]]
 }
 drop_database() {
   in_db --set=name="$1" >/dev/null <<'SQL'
@@ -232,7 +241,7 @@ start_database() {
 put_back() {
   local volume failed="" back="$VOLUME_BACK" held
   "${compose[@]}" stop app >/dev/null 2>&1
-  if [ -n "$store" ]; then "${compose[@]}" stop rustfs >/dev/null 2>&1; fi
+  if [[ -n "$store" ]]; then "${compose[@]}" stop rustfs >/dev/null 2>&1; fi
   start_database >/dev/null 2>&1
   if ! held="$("${compose[@]}" exec -T db psql -X -At -U "$db_admin" -d "$maintenance" \
     -c "select count(*) from pg_database where datname = '$old_db'" </dev/null)"; then
@@ -241,17 +250,17 @@ put_back() {
   fi
   # No old database: the switch was not made, or it is over. Either way
   # the old files are not to come back.
-  if [ "$held" = 0 ]; then back='rm -rf /volume/.ag-restore-new'; fi
+  if [[ "$held" = 0 ]]; then back='rm -rf /volume/.ag-restore-new'; fi
   for volume in files_data tls_data ${store:+rustfs_data}; do
     if docker volume inspect "${project}_${volume}" >/dev/null 2>&1; then
       in_volume "$volume" "$back" </dev/null || failed="$failed ${project}_${volume}"
     fi
   done
-  if [ -n "$failed" ]; then
+  if [[ -n "$failed" ]]; then
     echo "Could not put back the volumes:$failed. What they held is in their .ag-restore-old folder, and the database in $old_db. Run this script again to finish putting them back." >&2
     return 1
   fi
-  if [ "$held" = 1 ]; then
+  if [[ "$held" = 1 ]]; then
     if ! in_db --set=db="$POSTGRES_DB" --set=old="$old_db" --set=new="$new_db" >/dev/null <<'SQL'; then
 SET client_min_messages = warning;
 DROP DATABASE IF EXISTS :"new" WITH (FORCE);
@@ -274,17 +283,17 @@ SQL
 wait_for_app() {
   local deadline id state count first=""
   deadline=$((SECONDS + ${RESTORE_START_SECONDS:-600}))
-  while [ "$SECONDS" -lt "$deadline" ]; do
+  while [[ "$SECONDS" -lt "$deadline" ]]; do
     id="$("${compose[@]}" ps -q app 2>/dev/null | head -n 1)" || id=""
-    if [ -n "$id" ]; then
+    if [[ -n "$id" ]]; then
       state="$(docker inspect -f '{{.State.Health.Status}} {{.RestartCount}}' "$id" 2>/dev/null)" || state=""
       case "$state" in healthy*) return 0 ;; esac
       count="${state##* }"
       case "$count" in
         '' | *[!0-9]*) ;;
         *)
-          if [ -z "$first" ]; then first="$count"; fi
-          if [ $((count - first)) -ge 3 ]; then return 1; fi
+          if [[ -z "$first" ]]; then first="$count"; fi
+          if [[ $((count - first)) -ge 3 ]]; then return 1; fi
           ;;
       esac
     fi
@@ -294,7 +303,7 @@ wait_for_app() {
 }
 
 start_what_ran() {
-  if [ -n "$app_ran" ]; then
+  if [[ -n "$app_ran" ]]; then
     # The database takes its certificate from the authority put back.
     "${compose[@]}" stop db >/dev/null 2>&1
     if "${compose[@]}" up -d app >/dev/null 2>&1 && wait_for_app; then
@@ -302,7 +311,7 @@ start_what_ran() {
     else
       echo "AnyGridDB did not come back by itself: its data is in place, start it with: docker compose up -d" >&2
     fi
-  elif [ -z "$db_ran" ]; then
+  elif [[ -z "$db_ran" ]]; then
     "${compose[@]}" stop db >/dev/null 2>&1
   fi
 }
@@ -314,9 +323,9 @@ finish() {
   docker volume rm -f "$proof_volume" >/dev/null 2>&1
   case "$stage" in
     proving)
-      if [ -n "${db_admin:-}" ]; then drop_database "$new_db" >/dev/null 2>&1; fi
-      if [ -z "$db_ran" ] && [ -z "$app_ran" ]; then "${compose[@]}" stop db >/dev/null 2>&1; fi
-      if [ "$status" -ne 0 ]; then echo "Nothing was changed." >&2; fi
+      if [[ -n "${db_admin:-}" ]]; then drop_database "$new_db" >/dev/null 2>&1; fi
+      if [[ -z "$db_ran" ]] && [[ -z "$app_ran" ]]; then "${compose[@]}" stop db >/dev/null 2>&1; fi
+      if [[ "$status" -ne 0 ]]; then echo "Nothing was changed." >&2; fi
       ;;
     switching)
       echo "== Putting back what was there" >&2
@@ -337,7 +346,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 say "Checking ${backup}"
-if [ -n "$suffix" ]; then
+if [[ -n "$suffix" ]]; then
   for name in "${wanted[@]}"; do
     age -d -i "$identity" "$backup/$name" >/dev/null ||
       refuse "$name does not decrypt with this identity."
@@ -364,7 +373,7 @@ fi
 # Stopped before its switch, it may have left the application stopped on
 # data it never touched.
 stopped_early=""
-if [ -z "$app_ran" ] && database_exists "$new_db"; then stopped_early=yes; fi
+if [[ -z "$app_ran" ]] && database_exists "$new_db"; then stopped_early=yes; fi
 drop_database "$new_db"
 drop_database "$spent_db"
 for volume in files_data tls_data ${store:+rustfs_data}; do
@@ -372,7 +381,7 @@ for volume in files_data tls_data ${store:+rustfs_data}; do
     in_volume "$volume" 'cd /volume && rm -rf .ag-restore-new .ag-restore-old .ag-restore-moved .ag-restore-root' </dev/null
   fi
 done
-if [ -n "$stopped_early" ]; then
+if [[ -n "$stopped_early" ]]; then
   echo "An earlier restore stopped before its switch: starting AnyGridDB again." >&2
   app_ran=yes
   start_what_ran
@@ -419,7 +428,7 @@ room_need=()
 need_room() {
   local i
   for ((i = 0; i < ${#room_keys[@]}; i++)); do
-    if [ "${room_keys[i]}" = "$1" ]; then
+    if [[ "${room_keys[i]}" = "$1" ]]; then
       room_need[i]=$((room_need[i] + $3))
       return 0
     fi
@@ -428,17 +437,21 @@ need_room() {
   room_free+=("$2")
   room_need+=("$3")
 }
-if [ -z "$in_place" ]; then
+if [[ -z "$in_place" ]]; then
   # shellcheck disable=SC2046 # three words, meant to be split
   set -- $("${compose[@]}" exec -T db df -Pk /var/lib/postgresql </dev/null | awk 'NR == 2 { print $1 ":" $2, $4 }')
+  whole_number "${2:-}" "The free space of the database's volume"
   need_room "$1" "$2" $((dump_bytes / 512 + 262144))
   for i in "${!volumes[@]}"; do
     # shellcheck disable=SC2046,SC2086 # four words, meant to be split
     set -- $(in_volume "${volumes[i]}" 'df -Pk /volume' </dev/null | awk 'NR == 2 { print $1 ":" $2, $4 }') ${archive_sizes[i]}
+    whole_number "${2:-}" "The free space of ${volumes[i]}"
+    whole_number "${3:-}" "The size of ${volumes[i]} in the backup"
+    whole_number "${4:-}" "The file count of ${volumes[i]} in the backup"
     need_room "$1" "$2" $(($3 / 1024 + $4 * 4))
   done
   for i in "${!room_keys[@]}"; do
-    if [ "${room_need[i]}" -gt "${room_free[i]}" ]; then
+    if [[ "${room_need[i]}" -gt "${room_free[i]}" ]]; then
       refuse "Not enough room to keep what is there until the restore has succeeded: about $((room_need[i] / 1024)) MiB needed, $((room_free[i] / 1024)) MiB free on ${room_keys[i]%%:*}. Free some, or run again with --in-place, which cannot be undone if it fails." 4
     fi
   done
@@ -470,11 +483,11 @@ prove_key() {
   docker volume rm -f "$proof_volume" >/dev/null
 }
 
-if [ -n "$in_place" ]; then
+if [[ -n "$in_place" ]]; then
   say "Replacing in place, as asked: a failure from here cannot be undone"
   stage=in-place
   "${compose[@]}" stop app
-  if [ -n "$store" ]; then "${compose[@]}" stop rustfs; fi
+  if [[ -n "$store" ]]; then "${compose[@]}" stop rustfs; fi
   in_db --set=name="$POSTGRES_DB" --set=owner="$POSTGRES_USER" >/dev/null <<'SQL'
 SET client_min_messages = warning;
 DROP DATABASE IF EXISTS :"name" WITH (FORCE);
@@ -514,7 +527,7 @@ prove_key "$new_db"
 say "Stopping AnyGridDB"
 stage=switching
 "${compose[@]}" stop app
-if [ -n "$store" ]; then "${compose[@]}" stop rustfs; fi
+if [[ -n "$store" ]]; then "${compose[@]}" stop rustfs; fi
 
 for volume in "${volumes[@]}"; do
   say "Volume ${project}_${volume}: unpacked beside what it holds"
@@ -540,7 +553,7 @@ SQL
   fi
   sleep 2
 done
-if [ -z "$switched" ]; then refuse "The database could not be switched: something keeps it open."; fi
+if [[ -z "$switched" ]]; then refuse "The database could not be switched: something keeps it open."; fi
 
 # The old content moves aside first, whole, then the new takes the root,
 # with the owner and mode the backup gave it.

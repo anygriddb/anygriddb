@@ -33,9 +33,9 @@ load_secret_files "$(cd "$(dirname "$env_file")" && pwd)"
 : "${POSTGRES_DB:?set POSTGRES_DB in docker/.env}"
 
 args=("$@")
-if [ ${#args[@]} -eq 0 ]; then args=(-f compose.yml); fi
+if [[ ${#args[@]} -eq 0 ]]; then args=(-f compose.yml); fi
 compose=(docker compose --env-file "$env_file" "${args[@]}")
-if [ ! -f "$env_file" ]; then compose=(docker compose "${args[@]}"); fi
+if [[ ! -f "$env_file" ]]; then compose=(docker compose "${args[@]}"); fi
 # The project's name is the composition's own `name`, at its top: a
 # config, a network or a volume has a name too, further in.
 project="$("${compose[@]}" config | sed -n 's/^name: *"\{0,1\}\([^"]*\)"\{0,1\} *$/\1/p' | head -n 1)"
@@ -50,7 +50,7 @@ if ! docker volume inspect "$old" >/dev/null 2>&1; then
   exit 1
 fi
 version="$(docker run --rm -v "$old:/old:ro" --network none postgres:18 cat /old/PG_VERSION 2>/dev/null || true)"
-if [ "$version" != "17" ]; then
+if [[ "$version" != "17" ]]; then
   echo "Volume $old holds PostgreSQL '${version:-nothing}', not 17: nothing done." >&2
   exit 1
 fi

@@ -11,11 +11,11 @@
 # none replayed from the cache.
 set -euo pipefail
 
-if [ "${EVENT_NAME:-}" = "pull_request" ]; then
+if [[ "${EVENT_NAME:-}" = "pull_request" ]]; then
   base="origin/${BASE_REF:?BASE_REF is required on a pull request}"
   changed="$(git diff --name-only "$base...HEAD")"
   outside="$(grep -vE '^(apps|packages|docs)/|\.md$' <<<"$changed" || true)"
-  if [ -z "$outside" ]; then
+  if [[ -z "$outside" ]]; then
     TURBO_SCM_BASE="$base" exec pnpm exec turbo run "$@" --affected
   fi
   echo "Every task runs, past the cache: files outside the packages changed."

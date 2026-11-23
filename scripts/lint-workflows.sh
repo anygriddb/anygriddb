@@ -32,7 +32,7 @@ fetch() {
 }
 
 if ! command -v actionlint >/dev/null 2>&1 || ! command -v zizmor >/dev/null 2>&1; then
-  if [ "$(uname -s)-$(uname -m)" != "Linux-x86_64" ]; then
+  if [[ "$(uname -s)-$(uname -m)" != "Linux-x86_64" ]]; then
     echo "Install actionlint $ACTIONLINT_VERSION and zizmor $ZIZMOR_VERSION, or run this in CI." >&2
     exit 1
   fi
@@ -44,7 +44,7 @@ if ! command -v actionlint >/dev/null 2>&1 || ! command -v zizmor >/dev/null 2>&
 fi
 
 actionlint
-if [ -n "${GH_TOKEN:-}" ]; then
+if [[ -n "${GH_TOKEN:-}" ]]; then
   zizmor --no-progress .github/workflows
 else
   # Set and empty, the variable is still read by the tool as its token,

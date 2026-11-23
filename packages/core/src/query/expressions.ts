@@ -1467,10 +1467,7 @@ function instantExtreme(
     };
   }
   const pick = fn === "min" ? "least" : "greatest";
-  const sql = values.reduce(
-    (acc, value) =>
-      `(case when ${acc} is null then ${value} when ${value} is null then ${acc} else ${pick}(${acc}, ${value}) end)`,
-  );
+  const sql = nestNullableExtreme(values, pick);
   return { sql, kind: "datetime" };
 }
 
@@ -1504,11 +1501,25 @@ function scalarExtreme(
   );
   // LEAST and GREATEST are null when one value is: skip the blanks.
   const pick = fn === "min" ? "least" : "greatest";
-  const sql = values.reduce(
+  const sql = nestNullableExtreme(values, pick);
+  return { sql, kind };
+}
+
+/**
+ * Fold values with null-skipping LEAST/GREATEST. An empty list is not a
+ * formula argument list the typer admits; the first value seeds the fold.
+ */
+function nestNullableExtreme(
+  values: readonly string[],
+  pick: "least" | "greatest",
+): string {
+  const [first, ...rest] = values;
+  if (first === undefined) throw new AppError("invalid_arguments");
+  return rest.reduce(
     (acc, value) =>
       `(case when ${acc} is null then ${value} when ${value} is null then ${acc} else ${pick}(${acc}, ${value}) end)`,
+    first,
   );
-  return { sql, kind };
 }
 
 /** The longest text REPT writes; past it, its cell carries an error. */

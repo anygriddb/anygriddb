@@ -180,7 +180,7 @@ export function CellValueView({
   if (type === "single_select" || type === "multi_select") {
     const options = optionsOf(column);
     const names = Array.isArray(value)
-      ? value.map(cellText)
+      ? value.map((entry) => cellText(entry))
       : [cellText(value)];
     const appearance =
       type === "single_select"
@@ -215,7 +215,9 @@ export function CellValueView({
     return <RatingControl column={column} value={value} />;
   }
   if (type === "user" || type === "created_by" || type === "last_modified_by") {
-    const ids = Array.isArray(value) ? value.map(cellText) : [cellText(value)];
+    const ids = Array.isArray(value)
+      ? value.map((entry) => cellText(entry))
+      : [cellText(value)];
     return (
       <span
         className={cn("flex gap-1.5", wrap ? "flex-wrap" : "overflow-hidden")}
