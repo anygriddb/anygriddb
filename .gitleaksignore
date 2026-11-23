@@ -1,0 +1,15 @@
+# Made-up values of tests and documentation, each by its exact place.
+11e090e993950fb4497f939ed18426e4a5214c14:docker/lab/compose.yml:curl-auth-user:225
+14f5f337d74b286f79e328565b22d010a7ce38a2:scripts/install.test.mjs:generic-api-key:69
+22ffe29ed2eb931c0712f1c8fabe22f5ef0f19d0:scripts/install.test.mjs:generic-api-key:139
+22ffe29ed2eb931c0712f1c8fabe22f5ef0f19d0:scripts/install.test.mjs:generic-api-key:164
+6be3a8a221ba7ad79e25d9999f6b5f362c64d0c5:scripts/install.test.mjs:generic-api-key:139
+6be3a8a221ba7ad79e25d9999f6b5f362c64d0c5:scripts/install.test.mjs:generic-api-key:164
+6d69be1f6e6f3c434f8807e15486dea6f23234bc:docker/lab/compose.yml:curl-auth-user:222
+7c3f37295d7b4df8f8cbf35a9c2ca3f0cd373962:docs/integrations/oauth.md:curl-auth-user:50
+7c3f37295d7b4df8f8cbf35a9c2ca3f0cd373962:docs/integrations/oauth.md:curl-auth-user:79
+7c3f37295d7b4df8f8cbf35a9c2ca3f0cd373962:docs/integrations/oauth.md:curl-auth-user:87
+9cba3d8b69bc94f24106e4350c71b6aa1b6e918c:scripts/install.test.mjs:generic-api-key:69
+f3e097d7d6363a1bb7a6e259598a2b228de91af8:docs/integrations/oauth.md:curl-auth-user:50
+f3e097d7d6363a1bb7a6e259598a2b228de91af8:docs/integrations/oauth.md:curl-auth-user:79
+f3e097d7d6363a1bb7a6e259598a2b228de91af8:docs/integrations/oauth.md:curl-auth-user:87

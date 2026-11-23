@@ -115,6 +115,7 @@ fi
 # Production dependencies only: the TypeScript compiler, which two
 # libraries name as a peer, is not among them, and the workers started
 # without it (/ready above).
+# shellcheck disable=SC2016 # run in the container, where it expands
 "${compose[@]}" exec -T app sh -c '
   if [ -n "$(find /app/node_modules \( -path "*/node_modules/typescript" -o -path "*/.bin/tsc" \) -print -quit)" ]; then
     echo "The image holds the TypeScript compiler." >&2
@@ -210,7 +211,8 @@ esac
 # the stack goes on as it was.
 damaged="$work/damaged"
 cp -R "${backup[0]}" "$damaged"
-head -c "$(($(wc -c <"$damaged/database.dump") / 2))" "${backup[0]}/database.dump" >"$damaged/database.dump"
+dump_size="$(wc -c <"${backup[0]}/database.dump")"
+head -c "$((dump_size / 2))" "${backup[0]}/database.dump" >"$damaged/database.dump"
 (cd "$damaged" && sha256sum database.dump files_data.tar.gz tls_data.tar.gz >SHA256SUMS)
 if "${as_operator[@]}" "$root/scripts/restore.sh" "$damaged" "${options[@]}"; then
   echo "A restore from a dump cut in half ended well." >&2

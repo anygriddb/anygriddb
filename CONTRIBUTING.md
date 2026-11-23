@@ -245,7 +245,10 @@ Workflows pin each action to a commit SHA and may use actions from GitHub and
 an allowlist; a new third-party action needs a maintainer to add it. Their
 jobs get the permissions they use and no more, and a checkout keeps no
 token. `Workflows` checks them with actionlint and zizmor whenever one
-changes (`scripts/lint-workflows.sh`). A pull request runs the tests of
+changes (`scripts/lint-workflows.sh`). Every pull request runs ShellCheck on
+the scripts, Hadolint on the image's recipe, and Gitleaks over the whole
+history (`scripts/lint-security.sh`); a value known to be made up is listed
+by its fingerprint in `.gitleaksignore`. A pull request runs the tests of
 the packages it changes, and every test, none replayed from the cache,
 once it changes a file outside the packages: the workflows, `scripts/`,
 `docker/`, or the root's configuration (`scripts/ci-turbo.sh`). Trivy scans the image's system

@@ -92,7 +92,7 @@ container_name() {
 
 # Whole-disk major:minor under Docker's data root (cgroup io.max rejects partitions).
 root_block_device() {
-  local target source parent node maj hex_maj hex_min
+  local target source parent node hex_maj hex_min
   target="$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)"
   [[ -e "$target" ]] || target=/
   source="$(findmnt -n -o SOURCE --target "$target" 2>/dev/null || true)"
@@ -148,8 +148,8 @@ wait_healthy() {
   # Credits: health CLI alone can take >10s; allow several minutes.
   local name tries=90
   name="$(container_name app)"
-  local i status
-  for i in $(seq 1 "$tries"); do
+  local _ status
+  for _ in $(seq 1 "$tries"); do
     status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$name" 2>/dev/null || echo missing)"
     if [[ "$status" == "healthy" ]] && fetch_authority; then
       return 0
