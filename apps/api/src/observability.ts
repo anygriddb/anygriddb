@@ -120,6 +120,18 @@ export function automationScriptCounted(
   automationScripts.inc({ outcome });
 }
 
+const automationRunsPaced = new Counter({
+  name: "anygriddb_automation_runs_paced_total",
+  help: "Runs past their automation's limit: delayed to a later minute, or dropped after a day of waiting.",
+  labelNames: ["outcome"] as const,
+  registers: [registry],
+});
+
+/** One run that could not start when it was asked (ADR 0115). */
+export function automationRunPaced(outcome: "delayed" | "dropped"): void {
+  automationRunsPaced.inc({ outcome });
+}
+
 /** How long a scrape waits for AnyGridDB's own database. */
 const SCRAPE_READ_MS = 2_000;
 

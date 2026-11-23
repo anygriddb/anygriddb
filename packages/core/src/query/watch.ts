@@ -151,6 +151,43 @@ function behind(dialect: DialectName, value: string, seconds: number): string {
   }
 }
 
+/**
+ * The engine's time now, in the column's type: a check never takes a value
+ * past it for where it stands. Sessions read in UTC, or in the server's own
+ * time on SQL Server: a column written in a zone ahead of it only passes
+ * through the rows kept apart (`buildWatchFuture`), and nothing is lost.
+ */
+function clockOf(dialect: DialectName, column: WatchColumn): string {
+  const type = declaredType(column);
+  switch (dialect) {
+    case "postgres":
+      return `clock_timestamp()::${type}`;
+    case "sqlserver":
+      return /^datetimeoffset/i.test(type)
+        ? `cast(sysdatetimeoffset() as ${type})`
+        : `cast(sysdatetime() as ${type})`;
+    case "oracle":
+      return "systimestamp";
+    default:
+      return "now(6)";
+  }
+}
+
+/** `value` moved forward by `seconds`. */
+function ahead(dialect: DialectName, value: string, seconds: number): string {
+  const whole = String(Math.trunc(seconds));
+  switch (dialect) {
+    case "postgres":
+      return `(${value} + interval '${whole} seconds')`;
+    case "sqlserver":
+      return `dateadd(second, ${whole}, ${value})`;
+    case "oracle":
+      return `(${value} + numtodsinterval(${whole}, 'SECOND'))`;
+    default:
+      return `(${value} + interval ${whole} second)`;
+  }
+}
+
 /** A key column as text, and a text value back in its type. */
 function keyText(dialect: DialectName, ref: string): string {
   switch (dialect) {
@@ -226,11 +263,26 @@ type ColumnMark = { value: string; key: readonly string[] | null };
 export function buildWatchStart(
   table: EngineTable,
   column: WatchColumn,
+  /** The engine's clock: a row dated past it is no place to start from. */
+  upTo?: string,
 ): ParameterizedSql {
   const { key, dialect } = external(table);
   const kind = kindOf(table, column);
   const ref = `t.${quoteExternalIdent(column.name)}`;
   const [only, ...more] = key;
+  if (upTo !== undefined && kind === "time") {
+    const params = new SqlParams();
+    const mark = `select ${markText(dialect, kind, `max(${ref})`)} as "m" from ${tableSql(table)} t where ${ref} <= ${markValue(dialect, kind, column, params.bind(upTo))}`;
+    // The highest key over every row: one dated ahead is not new later.
+    const highest =
+      only !== undefined && more.length === 0
+        ? `(select ${keyText(dialect, `max(k.${quoteExternalIdent(only)})`)} as "top" from ${tableSql(table)} k)`
+        : `(select null as "top"${dialect === "oracle" ? " from dual" : ""})`;
+    return {
+      text: `select a."m" as "m", b."top" as "top" from (${mark}) a cross join ${highest} b`,
+      values: params.values,
+    };
+  }
   const top =
     only !== undefined && more.length === 0
       ? `, ${keyText(dialect, `max(t.${quoteExternalIdent(only)})`)}`
@@ -252,6 +304,8 @@ export function buildWatchPage(
   column: WatchColumn,
   mark: ColumnMark | null,
   limit: number,
+  /** The engine's clock: a row dated past it waits, apart (`buildWatchFuture`). */
+  upTo?: string,
 ): ParameterizedSql {
   const { key, dialect } = external(table);
   const d = dialectOf(table);
@@ -272,6 +326,9 @@ export function buildWatchPage(
     where = `(${where} or (${ref} = ${again} and (${after(keys, bound)})))`;
   }
   if (kind === "version") where += ` and ${ref} < min_active_rowversion()`;
+  if (kind === "time" && upTo !== undefined) {
+    where += ` and ${ref} <= ${markValue(dialect, kind, column, params.bind(upTo))}`;
+  }
   const columns = [
     `${d.keyId(keys)} as "id"`,
     `${markText(dialect, kind, ref)} as "m"`,
@@ -312,6 +369,63 @@ export function buildWatchWindow(
   const to = markValue(dialect, kind, column, params.bind(at));
   return {
     text: `select ${d.keyId(keys)} as "id", ${markText(dialect, kind, ref)} as "m" from ${tableSql(table)} t where ${ref} > ${from} and ${ref} <= ${to} order by ${[ref, ...keys].join(", ")}${limitClause(dialect, limit, (item) => params.bind(item))}`,
+    values: params.values,
+  };
+}
+
+/**
+ * The engine's clock as the column's values are written, and whether `at`,
+ * a stored cursor, is past it. A date and time only.
+ */
+export function buildWatchClock(
+  table: EngineTable,
+  column: WatchColumn,
+  at?: string | null,
+): ParameterizedSql {
+  const { dialect } = external(table);
+  const kind = kindOf(table, column);
+  if (kind !== "time") throw new AppError("source_watch_column");
+  const params = new SqlParams();
+  const clock = clockOf(dialect, column);
+  const ahead =
+    at === undefined || at === null
+      ? "0"
+      : `case when ${markValue(dialect, kind, column, params.bind(at))} > ${clock} then 1 else 0 end`;
+  return {
+    text: `select ${markText(dialect, kind, clock)} as "clock", ${ahead} as "ahead"${dialect === "oracle" ? " from dual" : ""}`,
+    values: params.values,
+  };
+}
+
+/** Past this, a date is no zone's difference: it says the row is dated ahead. */
+const FAR_AHEAD_SECONDS = 86_400;
+
+/**
+ * Rows dated past `clock`: `id`, the column's value `m`, and `far` when it
+ * is more than a day ahead, the nearest first. A check keeps them apart,
+ * so that one of them hides nothing and is told once.
+ */
+export function buildWatchFuture(
+  table: EngineTable,
+  column: WatchColumn,
+  clock: string,
+  limit: number,
+): ParameterizedSql {
+  const { key, dialect } = external(table);
+  const d = dialectOf(table);
+  const kind = kindOf(table, column);
+  if (kind !== "time") throw new AppError("source_watch_column");
+  const params = new SqlParams();
+  const ref = `t.${quoteExternalIdent(column.name)}`;
+  const keys = key.map((name) => `t.${quoteExternalIdent(name)}`);
+  const far = ahead(
+    dialect,
+    markValue(dialect, kind, column, params.bind(clock)),
+    FAR_AHEAD_SECONDS,
+  );
+  const from = markValue(dialect, kind, column, params.bind(clock));
+  return {
+    text: `select ${d.keyId(keys)} as "id", ${markText(dialect, kind, ref)} as "m", case when ${ref} > ${far} then 1 else 0 end as "far" from ${tableSql(table)} t where ${ref} > ${from} order by ${[ref, ...keys].join(", ")}${limitClause(dialect, limit, (item) => params.bind(item))}`,
     values: params.values,
   };
 }

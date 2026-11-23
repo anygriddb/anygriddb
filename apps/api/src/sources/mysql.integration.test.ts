@@ -344,7 +344,7 @@ describe.each(FLAVORS)("$engine sources", (flavor) => {
   });
 
   it("reads the tables the account may read, with their keys and rights", async () => {
-    const tables = await introspectMysql(connection(), {
+    const { tables } = await introspectMysql(connection(), {
       allowPlaintext: false,
     });
     // `salaries` was never granted: the account does not see it.

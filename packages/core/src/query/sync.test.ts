@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { EngineColumn, EngineTable } from "./engine";
 import {
   buildCopyCreate,
+  buildCopyDiff,
   buildCopyInsert,
   buildCopyUpsert,
   buildCopySwap,
@@ -258,5 +259,46 @@ describe("a row of a store that speaks no SQL", () => {
       row: { ag_id: "a2", _id: "a2", amount: null, paid: null, id: null },
       misfits: 2,
     });
+  });
+});
+
+describe("buildCopyDiff", () => {
+  /** How many arguments each `jsonb_build_object` of a statement is given. */
+  function argumentCounts(text: string): number[] {
+    return text
+      .split("jsonb_build_object(")
+      .slice(1)
+      .map((call) => {
+        const inner = call.slice(0, call.indexOf(")"));
+        return inner === "" ? 0 : inner.split(", ").length;
+      });
+  }
+
+  const names = (count: number) =>
+    Array.from({ length: count }, (_, index) => `c${String(index)}`);
+
+  it.each([1, 40, 41, 49, 50, 51, 300])(
+    "compares %i columns without passing a call's limit of arguments",
+    (count) => {
+      const { text } = buildCopyDiff(TABLE_ID, names(count), 201);
+      const counts = argumentCounts(text);
+      expect(Math.max(...counts)).toBeLessThanOrEqual(100);
+      // Both sides name every column once.
+      expect(counts.reduce((sum, item) => sum + item, 0)).toBe(count * 4);
+      for (const name of names(count)) {
+        expect(text).toContain(`n."${name}"`);
+        expect(text).toContain(`o."${name}"`);
+      }
+    },
+  );
+
+  it("still compares a table with no column in common", () => {
+    const { text } = buildCopyDiff(TABLE_ID, [], 201);
+    expect(text).toContain("jsonb_build_object() is distinct from");
+  });
+
+  it("escapes a column's name as a key of the comparison", () => {
+    const { text } = buildCopyDiff(TABLE_ID, ["it's"], 201);
+    expect(text).toContain(`'it''s', n."it's"`);
   });
 });

@@ -12,7 +12,9 @@ DBA) prepares two things first:
   grant beyond rows, a SQL Server sysadmin or holder of CONTROL SERVER, and
   an Oracle DBA / SYSDBA session.
   The account's grants decide what AnyGridDB can see: it lists only the
-  tables and columns the account may read.
+  tables and columns the account may read. The list stops at 2,000 tables
+  (1,000 for a store read from a copy) and says so: a search by schema or
+  name reaches the others, which expose and watch like any other.
 - **TLS with a certificate AnyGridDB can verify**: one signed by an
   authority the system trusts, or the server's own authority or
   self-signed certificate, pasted in the source's form. The certificate
@@ -410,6 +412,10 @@ administrator chooses how, per table, in the source's page:
 
 A table needs a primary key to be watched. Rows AnyGridDB itself writes
 are not told twice.
+
+A check never moves past the engine's own clock. A row dated ahead of it
+is told once, and again if it changes, and hides nothing written after it;
+the source's page says so when a row is more than a day ahead.
 
 ## PostgreSQL (13 or later)
 

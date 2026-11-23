@@ -26,7 +26,14 @@ import {
   ObjectId,
   Timestamp,
 } from "mongodb";
-import type { SourceCheck, SourceConnection, SourceTable } from "../types.js";
+import { inScope } from "../table-scope.js";
+import type {
+  SourceCheck,
+  SourceConnection,
+  SourceListing,
+  SourceTable,
+  TableScope,
+} from "../types.js";
 import { connectionError } from "./errors.js";
 import type {
   ConnectOptions,
@@ -359,7 +366,8 @@ async function collectionTable(
 async function tables(
   source: SourceConnection,
   options: ConnectOptions,
-): Promise<SourceTable[]> {
+  scope?: TableScope,
+): Promise<SourceListing> {
   return withClient(source, options, async (client) => {
     const listed = await client
       .db(source.database)
@@ -370,19 +378,22 @@ async function tables(
       .filter(
         (entry) => entry.name.length <= 128 && !/\p{Cc}/u.test(entry.name),
       )
-      .sort((left, right) => left.name.localeCompare(right.name))
-      .slice(0, MAX_COLLECTIONS);
+      .filter((entry) =>
+        inScope({ schema: source.database, name: entry.name }, scope),
+      )
+      .sort((left, right) => left.name.localeCompare(right.name));
+    const kept = entries.slice(0, MAX_COLLECTIONS);
     const found: SourceTable[] = [];
-    for (let at = 0; at < entries.length; at += SAMPLING) {
+    for (let at = 0; at < kept.length; at += SAMPLING) {
       found.push(
         ...(await Promise.all(
-          entries
+          kept
             .slice(at, at + SAMPLING)
             .map((entry) => collectionTable(client, source, entry)),
         )),
       );
     }
-    return found;
+    return { tables: found, truncated: entries.length > kept.length };
   });
 }
 

@@ -19,6 +19,8 @@ import {
   AppError,
   buildChangeTracking,
   buildChangeVersion,
+  buildWatchClock,
+  buildWatchFuture,
   buildWatchPage,
   buildWatchStart,
   buildWatchWindow,
@@ -36,7 +38,7 @@ import { addJob, TASKS, type SqlExecutor } from "../queue/jobs.js";
 import type { Bus } from "../realtime/bus.js";
 import { publishRows } from "../realtime/channels.js";
 import { sourcePools, type Run } from "./pools.js";
-import { sourceTables, type SourceDeps } from "./sources.js";
+import { namedSourceTables, type SourceDeps } from "./sources.js";
 import { checkSeals, type SealDeps } from "./statuses.js";
 import type { SourceTable } from "./types.js";
 
@@ -46,6 +48,8 @@ const PAGE = 1_000;
 const LOOKBACK_SECONDS = 120;
 /** Rows in that window a check compares; past it, the window is skipped. */
 const WINDOW_LIMIT = 2_000;
+/** Rows dated past the engine's clock a check keeps apart, to tell them once. */
+const FUTURE_LIMIT = 2_000;
 /** Row events one check sends; past it, one event per kind with a count. */
 const EVENT_LIMIT = 200;
 /** A check that left rows behind runs again after this. */
@@ -74,6 +78,11 @@ type ColumnCursor = {
   top: string | null;
   /** Rows read within the look-back window: their id and value. */
   seen: Record<string, string>;
+  /**
+   * Rows dated past the engine's clock, already told: their id and value.
+   * The cursor never follows them, or it would see nothing below them.
+   */
+  future?: Record<string, string>;
 };
 
 /** Where a Change Tracking check stands. */
@@ -153,11 +162,12 @@ export async function setTableWatch(
       .where("tableId", "=", table.id)
       .executeTakeFirst();
     if (synced) throw new AppError("external_table_synced");
-    const found = (await sourceTables(deps, table.sourceId)).find(
-      (item) =>
-        item.schema === table.externalSchema &&
-        item.name === table.externalName,
-    );
+    if (!table.externalSchema || !table.externalName) {
+      throw new AppError("unknown_table");
+    }
+    const [found] = await namedSourceTables(deps, table.sourceId, [
+      { schema: table.externalSchema, name: table.externalName },
+    ]);
     if (!found) throw new AppError("source_schema_changed");
     if (found.primaryKey.length === 0) {
       throw new AppError("external_table_no_key");
@@ -268,39 +278,66 @@ async function checkColumn(
     );
     return rows.length > WINDOW_LIMIT ? null : rows;
   };
+  // The engine's clock bounds the cursor: a date and time only.
+  const [reading] =
+    kind === "time"
+      ? await run(buildWatchClock(table, column, stored?.at))
+      : [];
+  const clock = typeof reading?.clock === "string" ? reading.clock : null;
+  const dated = async () => {
+    const found: Record<string, string> = {};
+    if (clock === null) return { found, far: false };
+    const rows = await run(
+      buildWatchFuture(table, column, clock, FUTURE_LIMIT + 1),
+    );
+    for (const row of rows.slice(0, FUTURE_LIMIT)) {
+      found[String(row.id)] = String(row.m);
+    }
+    return { found, far: rows.some((row) => Number(row.far) === 1) };
+  };
   if (!stored) {
     // The first check takes its bearings: what is there is not a change.
-    const [start] = await run(buildWatchStart(table, column));
+    const [start] = await run(
+      buildWatchStart(table, column, clock ?? undefined),
+    );
     const at = typeof start?.m === "string" ? start.m : null;
     const seen: Record<string, string> = {};
     for (const row of (at ? await window(at) : null) ?? []) {
       seen[String(row.id)] = String(row.m);
     }
+    const ahead = await dated();
     return {
       cursor: {
         at,
         key: null,
         top: typeof start?.top === "string" ? start.top : null,
         seen,
+        future: ahead.found,
       },
       changes: [],
       more: false,
       refresh: false,
-      note: null,
+      note: ahead.far ? "source_watch_future" : null,
     };
   }
+  // A cursor an earlier version moved past the clock comes back to it: what
+  // it hid cannot be told, so open grids read the table again.
+  const repaired = clock !== null && Number(reading?.ahead) === 1;
+  const from = repaired ? clock : stored.at;
+  const paging = repaired ? null : stored.key;
+  const told = stored.future ?? {};
   const page = await run(
     buildWatchPage(
       table,
       column,
-      stored.at === null ? null : { value: stored.at, key: stored.key },
+      from === null ? null : { value: from, key: paging },
       PAGE,
+      clock ?? undefined,
     ),
   );
   const more = page.length >= PAGE;
   // Late commits land behind the cursor; not while catching up.
-  const late =
-    stored.at !== null && stored.key === null ? await window(stored.at) : null;
+  const late = from !== null && paging === null ? await window(from) : null;
   const changes: Change[] = [];
   // The window, read again, holds every row it still has to compare; while
   // paging or past its limit, the rows already told stay known instead.
@@ -309,33 +346,49 @@ async function checkColumn(
       ? { ...stored.seen }
       : {};
   let top = stored.top;
+  const changed = (id: string) => {
+    changes.push({ op: pastTop(id, stored.top) ? "insert" : "update", id });
+  };
   for (const row of late ?? []) {
     const id = String(row.id);
     const value = String(row.m);
     seen[id] = value;
-    if (stored.seen[id] !== value) {
-      changes.push({ op: pastTop(id, stored.top) ? "insert" : "update", id });
-    }
+    if (stored.seen[id] !== value && told[id] !== value) changed(id);
   }
   for (const row of page) {
     const id = String(row.id);
-    seen[id] = String(row.m);
-    changes.push({ op: pastTop(id, stored.top) ? "insert" : "update", id });
+    const value = String(row.m);
+    seen[id] = value;
+    // A row told while it was dated ahead, which the clock has reached.
+    if (told[id] !== value) changed(id);
     top = higher(top, id);
+  }
+  let future = told;
+  let far = false;
+  if (clock !== null && !more) {
+    const ahead = await dated();
+    future = ahead.found;
+    far = ahead.far;
+    for (const [id, value] of Object.entries(future)) {
+      // Past a repaired cursor, these rows were already read once.
+      if (!repaired && told[id] !== value) changed(id);
+      top = higher(top, id);
+    }
   }
   const last = page.at(-1);
   return {
     cursor: {
-      at: last ? String(last.m) : stored.at,
+      at: last ? String(last.m) : from,
       // Paging inside a value: the next check goes on from this key.
       key: more && last ? keyOf(last, keySize) : null,
       top,
       seen,
+      future,
     },
     changes: unique(changes),
     more,
-    refresh: false,
-    note: null,
+    refresh: repaired,
+    note: far || repaired ? "source_watch_future" : null,
   };
 }
 

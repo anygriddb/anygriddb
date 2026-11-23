@@ -951,6 +951,10 @@ msgid "{name}: {ready} of {total} lines in order."
 msgstr "{name}: {ready} of {total} lines in order."
 
 #: components/shell/notification-items.ts
+msgid "{name}: runs were dropped after waiting more than a day for their turn"
+msgstr "{name}: runs were dropped after waiting more than a day for their turn"
+
+#: components/shell/notification-items.ts
 msgid "{name}'s account locked after failed sign-ins"
 msgstr "{name}'s account locked after failed sign-ins"
 
@@ -4325,6 +4329,10 @@ msgstr "Drop a workbook (.xlsx) to make a base of its sheets. From Google Sheets
 msgid "Drop files here"
 msgstr "Drop files here"
 
+#: lib/known-text.ts
+msgid "Dropped: it waited more than a day for its turn"
+msgstr "Dropped: it waited more than a day for its turn"
+
 #: components/admin/notifications-tab.tsx
 msgid "DSN"
 msgstr "DSN"
@@ -5163,6 +5171,10 @@ msgstr "Find a base"
 #: components/shell/shortcuts-dialog.tsx
 msgid "Find a base, a table, or an action"
 msgstr "Find a base, a table, or an action"
+
+#: components/admin/sources-tab.tsx
+msgid "Find a table by its schema or name"
+msgstr "Find a table by its schema or name"
 
 #: components/admin/base-admin-members.tsx
 #: components/admin/group-page.tsx
@@ -7761,6 +7773,10 @@ msgstr "No source yet. Add one to show its tables in a base, read and written wh
 msgid "No table in this base."
 msgstr "No table in this base."
 
+#: components/admin/sources-tab.tsx
+msgid "No table matches this search."
+msgstr "No table matches this search."
+
 #: components/admin/base-admin-page.tsx
 msgid "No table."
 msgstr "No table."
@@ -8110,6 +8126,10 @@ msgstr "Only changes made in AnyGridDB show here: those of other applications st
 #: components/fields/field-editor.tsx
 msgid "Only formulas, lookups, rollups, and buttons can be added on this table."
 msgstr "Only formulas, lookups, rollups, and buttons can be added on this table."
+
+#: components/admin/sources-tab.tsx
+msgid "Only the first {count} tables are listed: search by schema or name to reach the others."
+msgstr "Only the first {count} tables are listed: search by schema or name to reach the others."
 
 #: components/fields/field-link-settings.tsx
 msgid "Only the linked rows that match"
@@ -9674,6 +9694,10 @@ msgstr "Rows"
 msgid "Rows already empty here stay so until someone changes this field."
 msgstr "Rows already empty here stay so until someone changes this field."
 
+#: lib/errors.ts
+msgid "Rows are dated ahead of the source's clock: each is told once, and later changes still show"
+msgstr "Rows are dated ahead of the source's clock: each is told once, and later changes still show"
+
 #: components/fields/field-meta.tsx
 msgid "Rows of another table"
 msgstr "Rows of another table"
@@ -9875,6 +9899,10 @@ msgstr "Schema kept for AnyGridDB (optional)"
 msgid "Schema name, to remove it there too"
 msgstr "Schema name, to remove it there too"
 
+#: components/admin/sources-tab.tsx
+msgid "Schema or table name"
+msgstr "Schema or table name"
+
 #: components/admin/scim-tab.tsx
 msgid "SCIM 2.0 provisioning"
 msgstr "SCIM 2.0 provisioning"
@@ -9913,6 +9941,7 @@ msgstr "Scripts in automations are turned off on this instance"
 msgid "Scripts that start with #!"
 msgstr "Scripts that start with #!"
 
+#: components/admin/sources-tab.tsx
 #: components/public/public-view.tsx
 #: components/shell/sidebar.tsx
 #: components/table/view-toolbar.tsx
@@ -10349,6 +10378,10 @@ msgstr "Show more"
 #: components/dashboards/chart-view.tsx
 msgid "Show the chart"
 msgstr "Show the chart"
+
+#: components/admin/sources-tab.tsx
+msgid "Show the list"
+msgstr "Show the list"
 
 #: components/dashboards/chart-view.tsx
 msgid "Show the table of values"

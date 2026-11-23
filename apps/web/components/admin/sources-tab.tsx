@@ -26,7 +26,11 @@ import {
 } from "@anygriddb/ui";
 import { ph, plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Plus, RefreshCw, ShieldAlert, Table2 } from "lucide-react";
 import { sortRows } from "../../lib/sort-rows";
 import { useColumnSort } from "../sort-header";
@@ -46,7 +50,8 @@ import { intlLocale, formatInstant } from "../../lib/format";
 import { useWhen } from "../../lib/i18n";
 
 type Source = RouterOutputs["admin"]["sources"]["list"][number];
-type SourceTableItem = RouterOutputs["admin"]["sources"]["tables"][number];
+type SourceTableItem =
+  RouterOutputs["admin"]["sources"]["tableListing"]["tables"][number];
 type Exposure = SourceTableItem["exposedIn"][number];
 type Right = keyof Exposure["writes"];
 
@@ -803,8 +808,15 @@ function SourceTables(props: { source: Source }) {
   const errorText = useErrorText();
   const api = useTRPC();
   const queryClient = useQueryClient();
+  // A search reaches the tables a list of this source stops before.
+  const [typed, setTyped] = useState("");
+  const [search, setSearch] = useState("");
   const tables = useQuery({
-    ...api.admin.sources.tables.queryOptions({ id: props.source.id }),
+    ...api.admin.sources.tableListing.queryOptions({
+      id: props.source.id,
+      ...(search ? { search } : {}),
+    }),
+    placeholderData: keepPreviousData,
     retry: false,
   });
   // Where each exposed table stands, read again while a copy or a first
@@ -837,8 +849,9 @@ function SourceTables(props: { source: Source }) {
       </p>
     );
   }
-  const list = tables.data ?? [];
-  if (list.length === 0) {
+  const list = tables.data?.tables ?? [];
+  const truncated = tables.data?.truncated ?? false;
+  if (list.length === 0 && !search) {
     return (
       <p className="text-sm text-muted-foreground">
         {t`The account may read no table: grant it SELECT on the tables to expose.`}
@@ -890,7 +903,7 @@ function SourceTables(props: { source: Source }) {
       setChosen(new Set());
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: api.admin.sources.tables.queryKey({ id: props.source.id }),
+          queryKey: api.admin.sources.tableListing.pathKey(),
         }),
         queryClient.invalidateQueries({
           queryKey: api.catalog.list.queryKey(),
@@ -903,8 +916,55 @@ function SourceTables(props: { source: Source }) {
     }
   }
 
+  function find(next: string) {
+    // What was ticked in another list is not in this one.
+    setChosen(new Set());
+    setTyped(next);
+    setSearch(next.trim());
+  }
+
   return (
     <div className="flex flex-col gap-3">
+      {truncated || search ? (
+        <form
+          role="search"
+          className="flex flex-wrap items-center gap-2"
+          onSubmit={(event: SubmitEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            find(typed);
+          }}
+        >
+          <Label htmlFor="source-table-search" className="sr-only">
+            {t`Find a table by its schema or name`}
+          </Label>
+          <Input
+            id="source-table-search"
+            className="max-w-xs"
+            maxLength={128}
+            placeholder={t`Schema or table name`}
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+          />
+          <Button type="submit" variant="outline" disabled={tables.isFetching}>
+            {t`Search`}
+          </Button>
+          {search ? (
+            <Button type="button" variant="ghost" onClick={() => find("")}>
+              {t`Show the list`}
+            </Button>
+          ) : null}
+        </form>
+      ) : null}
+      {truncated ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t`Only the first ${{ count: number.format(list.length) }} tables are listed: search by schema or name to reach the others.`}
+        </p>
+      ) : null}
+      {search && list.length === 0 ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t`No table matches this search.`}
+        </p>
+      ) : null}
       <ul className="flex flex-col gap-2">
         {list.map((table) => {
           const rights = [
@@ -1078,7 +1138,7 @@ function TableWrites(props: {
       });
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: api.admin.sources.tables.queryKey({ id: props.sourceId }),
+          queryKey: api.admin.sources.tableListing.pathKey(),
         }),
         queryClient.invalidateQueries({
           queryKey: api.catalog.list.queryKey(),
@@ -1159,7 +1219,7 @@ function TableSync(props: {
     try {
       await action();
       await queryClient.invalidateQueries({
-        queryKey: api.admin.sources.tables.queryKey({ id: props.sourceId }),
+        queryKey: api.admin.sources.tableListing.pathKey(),
       });
       await queryClient.invalidateQueries({
         queryKey: api.admin.sources.exposures.queryKey({ id: props.sourceId }),
@@ -1413,7 +1473,7 @@ function TableWatch(props: {
         intervalSeconds: seconds,
       });
       await queryClient.invalidateQueries({
-        queryKey: api.admin.sources.tables.queryKey({ id: props.sourceId }),
+        queryKey: api.admin.sources.tableListing.pathKey(),
       });
       await queryClient.invalidateQueries({
         queryKey: api.admin.sources.exposures.queryKey({ id: props.sourceId }),

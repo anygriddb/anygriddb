@@ -570,6 +570,8 @@ export {
   buildChangeVersion,
   buildWatchPage,
   buildWatchStart,
+  buildWatchClock,
+  buildWatchFuture,
   buildWatchWindow,
   watchKind,
   type WatchColumn,

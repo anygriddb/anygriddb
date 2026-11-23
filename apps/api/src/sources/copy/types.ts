@@ -5,7 +5,12 @@
  * rows go to a copy in AnyGridDB's database (ADR 0034), and every read
  * people make goes there. Nothing is ever written to the store.
  */
-import type { SourceCheck, SourceConnection, SourceTable } from "../types.js";
+import type {
+  SourceCheck,
+  SourceConnection,
+  SourceListing,
+  TableScope,
+} from "../types.js";
 
 export type ConnectOptions = {
   /** Development only: connect without TLS. */
@@ -40,7 +45,8 @@ export type CopyConnector = {
   tables(
     source: SourceConnection,
     options: ConnectOptions,
-  ): Promise<SourceTable[]>;
+    scope?: TableScope,
+  ): Promise<SourceListing>;
   /**
    * The table's rows, a page at a time. The connection lives as long as
    * the pages are read, and closes when the reader stops, early or not.

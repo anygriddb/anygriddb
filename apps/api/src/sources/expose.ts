@@ -19,9 +19,9 @@ import { sql } from "kysely";
 import { withAudit, type AuditTx } from "../data/audit-context.js";
 import { isUniqueViolation } from "../data/schema-ops.js";
 import { followedField } from "./follow-field.js";
-import { sourceTables, type SourceDeps } from "./sources.js";
+import { namedSourceTables, type SourceDeps } from "./sources.js";
 import { refreshCopy, startCopy } from "./sync.js";
-import type { SourceTable } from "./types.js";
+import type { SourceTable, TableName } from "./types.js";
 
 type ExposeInput = {
   sourceId: string;
@@ -266,6 +266,28 @@ function linksOf(
   return links;
 }
 
+/**
+ * The tables named, with those their foreign keys point to (`linksOf` reads
+ * their keys), read by name: where a list of the source would stop plays no
+ * part.
+ */
+async function withLinkTargets(
+  deps: SourceDeps,
+  sourceId: string,
+  names: readonly TableName[],
+  home?: string,
+): Promise<Map<string, SourceTable>> {
+  const tables = await namedSourceTables(deps, sourceId, names, home);
+  const found = new Map(tables.map((table) => [keyOf(table), table]));
+  const targets = tables
+    .flatMap((table) => table.foreignKeys.map((key) => key.target))
+    .filter((target) => !found.has(keyOf(target)));
+  for (const table of await namedSourceTables(deps, sourceId, targets, home)) {
+    found.set(keyOf(table), table);
+  }
+  return found;
+}
+
 type TableWrites = { update: boolean; insert: boolean; delete: boolean };
 
 /**
@@ -306,10 +328,9 @@ export async function setTableWrites(
   if (wanted && isCopySourceEngine(source?.engine)) {
     throw new AppError("source_copy_only");
   }
-  const found = (await sourceTables(deps, table.sourceId)).find(
-    (item) =>
-      item.schema === table.externalSchema && item.name === table.externalName,
-  );
+  const [found] = await namedSourceTables(deps, table.sourceId, [
+    { schema: table.externalSchema, name: table.externalName },
+  ]);
   if (!found) throw new AppError("source_schema_changed");
   if (wanted && found.primaryKey.length === 0) {
     throw new AppError("external_table_no_key");
@@ -387,12 +408,7 @@ export async function exposeTables(
     .executeTakeFirst();
   if (!source) throw new AppError("unknown_source");
   // What the account sees now, never what the request says it sees.
-  const found = new Map(
-    (await sourceTables(deps, input.sourceId)).map((table) => [
-      keyOf(table),
-      table,
-    ]),
-  );
+  const found = await withLinkTargets(deps, input.sourceId, input.tables);
   const chosen: SourceTable[] = input.tables.map((wanted) => {
     const table = found.get(keyOf(wanted));
     if (!table)
@@ -556,14 +572,11 @@ export async function refreshExposedTable(
     throw new AppError("unknown_table");
   }
   const sourceId = table.sourceId;
-  const found = new Map(
-    (
-      await sourceTables(
-        deps,
-        sourceId,
-        isHomeTable(table) ? table.externalSchema : undefined,
-      )
-    ).map((item) => [keyOf(item), item]),
+  const found = await withLinkTargets(
+    deps,
+    sourceId,
+    [{ schema: table.externalSchema, name: table.externalName }],
+    isHomeTable(table) ? table.externalSchema : undefined,
   );
   const client = found.get(
     keyOf({ schema: table.externalSchema, name: table.externalName }),

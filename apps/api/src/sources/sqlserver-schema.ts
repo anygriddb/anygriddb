@@ -12,10 +12,13 @@ import {
   sqlServerQuery,
   sqlServerSourceError,
 } from "./sqlserver.js";
-import type { SourceConnection, SourceTable } from "./types.js";
-
-/** Bounds on what one introspection returns. */
-const MAX_TABLES = 2_000;
+import { cutTables, TABLES_READ } from "./table-scope.js";
+import type {
+  SourceConnection,
+  SourceListing,
+  SourceTable,
+  TableScope,
+} from "./types.js";
 
 type TableRow = {
   object_id: number;
@@ -55,10 +58,11 @@ type KeyRow = {
 export async function introspectSqlServer(
   source: SourceConnection,
   options: { allowPlaintext: boolean },
-): Promise<SourceTable[]> {
+  scope: TableScope = {},
+): Promise<SourceListing> {
   const { connection } = await connectSqlServer(source, options);
   try {
-    return await readSchema(connection);
+    return await readSchema(connection, scope);
   } catch (error) {
     throw sqlServerSourceError(error);
   } finally {
@@ -80,10 +84,33 @@ const TYPE_SQL = `
     else t.name
   end`;
 
-async function readSchema(connection: Connection): Promise<SourceTable[]> {
-  const tables = (await sqlServerQuery(
+async function readSchema(
+  connection: Connection,
+  scope: TableScope,
+): Promise<SourceListing> {
+  const values: string[] = [];
+  const bind = (value: string) => {
+    values.push(value);
+    return `@p${String(values.length)}`;
+  };
+  const named =
+    scope.only === undefined
+      ? ""
+      : ` and (${
+          scope.only
+            .map(
+              (table) =>
+                `(s.name = ${bind(table.schema)} and o.name = ${bind(table.name)})`,
+            )
+            .join(" or ") || "1 = 0"
+        })`;
+  const searched =
+    scope.search === undefined
+      ? ""
+      : ` and charindex(lower(${bind(scope.search)}), lower(s.name + '.' + o.name)) > 0`;
+  const listed = (await sqlServerQuery(
     connection,
-    `select top (${String(MAX_TABLES)}) o.object_id, s.name as [schema], o.name, rtrim(o.type) as type,
+    `select top (${String(TABLES_READ)}) o.object_id, s.name as [schema], o.name, rtrim(o.type) as type,
             cast(ep.value as nvarchar(4000)) as comment,
             (select sum(p.rows) from sys.partitions p
               where p.object_id = o.object_id and p.index_id in (0, 1)) as estimate,
@@ -99,10 +126,12 @@ async function readSchema(connection: Connection): Promise<SourceTable[]> {
          on ep.class = 1 and ep.major_id = o.object_id and ep.minor_id = 0
         and ep.name = 'MS_Description'
       where o.type in ('U', 'V') and o.is_ms_shipped = 0
-        and has_perms_by_name(quotename(s.name) + '.' + quotename(o.name), 'OBJECT', 'SELECT') = 1
+        and has_perms_by_name(quotename(s.name) + '.' + quotename(o.name), 'OBJECT', 'SELECT') = 1${named}${searched}
       order by s.name, o.name`,
+    values,
   )) as TableRow[];
-  if (tables.length === 0) return [];
+  const { kept: tables, truncated } = cutTables(listed);
+  if (tables.length === 0) return { tables: [], truncated: false };
   const columns = (await sqlServerQuery(
     connection,
     `select c.object_id, c.name, ${TYPE_SQL} as type, c.is_nullable as nullable,
@@ -170,7 +199,7 @@ async function readSchema(connection: Connection): Promise<SourceTable[]> {
     keysOf.set(key.object_id, table);
   }
 
-  return tables.map((table) => {
+  const read = tables.map((table): SourceTable => {
     const own = (byTable.get(table.object_id) ?? []).filter(
       (column) => Number(column.can_select) === 1,
     );
@@ -230,4 +259,5 @@ async function readSchema(connection: Connection): Promise<SourceTable[]> {
         })),
     };
   });
+  return { tables: read, truncated };
 }

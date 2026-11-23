@@ -6,10 +6,13 @@
 import { checkChoices, mapPostgresType, withChoices } from "@anygriddb/core";
 import type pg from "pg";
 import { connectPostgres, postgresSourceError } from "./postgres.js";
-import type { SourceConnection, SourceTable } from "./types.js";
-
-/** Bounds on what one introspection returns. */
-const MAX_TABLES = 2_000;
+import { cutTables, TABLES_READ } from "./table-scope.js";
+import type {
+  SourceConnection,
+  SourceListing,
+  SourceTable,
+  TableScope,
+} from "./types.js";
 
 type TableRow = {
   oid: number;
@@ -52,10 +55,11 @@ type KeyRow = {
 export async function introspectPostgres(
   source: SourceConnection,
   options: { allowPlaintext: boolean },
-): Promise<SourceTable[]> {
+  scope: TableScope = {},
+): Promise<SourceListing> {
   const { client } = await connectPostgres(source, options);
   try {
-    return await readSchema(client);
+    return await readSchema(client, scope);
   } catch (error) {
     throw postgresSourceError(error);
   } finally {
@@ -63,8 +67,11 @@ export async function introspectPostgres(
   }
 }
 
-async function readSchema(client: pg.Client): Promise<SourceTable[]> {
-  const tables = await client.query<TableRow>(
+async function readSchema(
+  client: pg.Client,
+  scope: TableScope,
+): Promise<SourceListing> {
+  const listed = await client.query<TableRow>(
     `select c.oid::int as oid, n.nspname as schema, c.relname as name,
             c.relkind as kind,
             nullif(c.reltuples, -1)::bigint::text as estimate,
@@ -80,12 +87,22 @@ async function readSchema(client: pg.Client): Promise<SourceTable[]> {
         and n.nspname not like 'pg\\_%'
         and not c.relispartition
         and has_table_privilege(c.oid, 'SELECT')
+        and ($2::text[] is null or (n.nspname::text, c.relname::text) in
+              (select * from unnest($2::text[], $3::text[])))
+        and ($4::text is null or
+             position(lower($4::text) in lower(n.nspname || '.' || c.relname)) > 0)
       order by n.nspname, c.relname
       limit $1`,
-    [MAX_TABLES],
+    [
+      TABLES_READ,
+      scope.only?.map((table) => table.schema) ?? null,
+      scope.only?.map((table) => table.name) ?? null,
+      scope.search ?? null,
+    ],
   );
-  const oids = tables.rows.map((table) => table.oid);
-  if (oids.length === 0) return [];
+  const { kept: tables, truncated } = cutTables(listed.rows);
+  const oids = tables.map((table) => table.oid);
+  if (oids.length === 0) return { tables: [], truncated: false };
   const columns = await client.query<ColumnRow>(
     `select a.attrelid::int as table_oid, a.attname as name,
             format_type(a.atttypid, a.atttypmod) as type,
@@ -132,7 +149,7 @@ async function readSchema(client: pg.Client): Promise<SourceTable[]> {
       where k.conrelid = any($1) and k.contype in ('p', 'f')`,
     [oids],
   );
-  return tables.rows.map((table) => {
+  const read = tables.map((table): SourceTable => {
     const own = columns.rows.filter((column) => column.table_oid === table.oid);
     const tableKeys = keys.rows.filter((key) => key.table_oid === table.oid);
     const view = table.kind === "v" || table.kind === "m";
@@ -178,4 +195,5 @@ async function readSchema(client: pg.Client): Promise<SourceTable[]> {
         })),
     };
   });
+  return { tables: read, truncated };
 }

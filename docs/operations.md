@@ -1124,8 +1124,11 @@ Both are off until you turn them on (ADR 0018).
   `anygriddb_websocket_refused_total` (sockets closed or refused for
   what they cost, by reason: `slow_reader`, `too_many_messages`,
   `too_many_sockets`),
-  and `anygriddb_automation_scripts_total` (scripts automations ran, by
-  how each ended: `success`, `error`, `timeout`, `memory`, `stopped`).
+  `anygriddb_automation_scripts_total` (scripts automations ran, by
+  how each ended: `success`, `error`, `timeout`, `memory`, `stopped`),
+  and `anygriddb_automation_runs_paced_total` (runs past their
+  automation's 300 a minute: `delayed` to a later minute, or `dropped`
+  after a day of waiting, which also tells the automation's author).
   Rules to start from:
 
   ```yaml

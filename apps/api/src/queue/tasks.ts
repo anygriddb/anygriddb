@@ -190,6 +190,8 @@ const deliveryPayloadSchema = z.object({ deliveryId: z.uuid() });
 const automationRunPayloadSchema = eventPayloadSchema.partial().extend({
   automationId: z.uuid(),
   values: z.record(z.string().max(63), z.string().max(10_000)).optional(),
+  // Set on a run that has had to wait for a minute of its own.
+  queuedAt: z.iso.datetime().optional(),
 });
 const productJobPayloadSchema = z.object({ jobId: z.uuid() });
 const collectorPayloadSchema = z.object({

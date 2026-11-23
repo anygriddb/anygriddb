@@ -229,7 +229,7 @@ describe("Oracle sources", () => {
   });
 
   it("lists what the account may read, and what it may change", async () => {
-    const tables = await introspectOracle(connection(), {
+    const { tables } = await introspectOracle(connection(), {
       allowPlaintext: true,
     });
     expect(tables.map((table) => `${table.schema}.${table.name}`)).toEqual([

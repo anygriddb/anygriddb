@@ -49,6 +49,7 @@ const KNOWN: Record<string, MessageDescriptor> = {
   "Webhook disabled": msg`Webhook disabled after too many failures`,
   "Loop limit": msg`Stopped: automation loop`,
   "Rate limit": msg`Stopped: too many runs a minute`,
+  "Delayed too long": msg`Dropped: it waited more than a day for its turn`,
   "Invalid email settings": msg`Invalid email settings`,
   "Scripts disabled": msg`Scripts in automations are turned off on this instance`,
   "Script took too long": msg`The script took too long and was stopped`,

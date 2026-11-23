@@ -62,7 +62,12 @@ import { setSourcePools, SourcePools } from "./pools.js";
 import { dropUnusedCopy, runSync, setTableSync } from "./sync.js";
 import { readerEngine, setTableAcl } from "../data/acl.js";
 import { withAudit } from "../data/audit-context.js";
-import { createSource, updateSource } from "./sources.js";
+import {
+  createSource,
+  listSourceTables,
+  namedSourceTables,
+  updateSource,
+} from "./sources.js";
 import type { SourceSettings } from "./types.js";
 import { listExternalTrash, settleExternalWrites } from "./writes.js";
 import {
@@ -2598,6 +2603,194 @@ describe("conformance of formulas across engines", () => {
       [],
       [],
     ]);
+  }, 300_000);
+
+  it("reads a table by its name, and finds one by a piece of it", async () => {
+    const deps = { db, key, settings };
+    for (const [engine, { sourceId, schema }] of declared) {
+      const named = (table: string) =>
+        engine === "oracle" ? table.toUpperCase() : table;
+      const teams = engine === "oracle" ? "teams" : named("teams");
+      const found = await namedSourceTables(deps, sourceId, [
+        { schema, name: teams },
+        { schema, name: "never_there" },
+        { schema: "elsewhere", name: teams },
+      ]);
+      expect(
+        found.map((table) => table.name),
+        engine,
+      ).toEqual([teams]);
+      expect(found[0]?.primaryKey, engine).toEqual(["id"]);
+      const search = await listSourceTables(deps, sourceId, {
+        scope: { search: "TEAM" },
+      });
+      expect(
+        search.tables.map((table) => table.name),
+        engine,
+      ).toEqual([teams]);
+      expect(search.truncated, engine).toBe(false);
+      for (const text of ["%", "'"]) {
+        const nothing = await listSourceTables(deps, sourceId, {
+          scope: { search: text },
+        });
+        expect(nothing.tables, `${engine} ${text}`).toEqual([]);
+      }
+    }
+  }, 120_000);
+
+  it("hides no change behind a row dated ahead, and tells that row once", async () => {
+    const deps = { db, key, settings };
+    const { bus, published } = recordingBus();
+    const watchDeps = { db, bus, log: () => undefined };
+    const told = () => {
+      const seen = published
+        .map(
+          (item) =>
+            item.message as { type: string; op?: string; rowIds?: string[] },
+        )
+        .filter(
+          (message) => message.type === "rows" && message.op !== "refresh",
+        )
+        .map((message) => [message.op, message.rowIds]);
+      published.length = 0;
+      return seen;
+    };
+    const shape: Record<Engine, { id: string; at: string; to: string }> = {
+      postgres: { id: "int", at: "timestamptz", to: "conformance_reader" },
+      mysql: { id: "int", at: "datetime(3)", to: "'reader'@'%'" },
+      mariadb: { id: "int", at: "datetime(3)", to: "'reader'@'%'" },
+      sqlserver: { id: "int", at: "datetime2(3)", to: "reader" },
+      oracle: { id: "number(10)", at: "timestamp(3)", to: "reader" },
+    };
+    const now: Record<Engine, string> = {
+      postgres: "clock_timestamp()",
+      mysql: "current_timestamp(3)",
+      mariadb: "current_timestamp(3)",
+      sqlserver: "sysutcdatetime()",
+      oracle: "sys_extract_utc(systimestamp)",
+    };
+    const days = (engine: Engine, count: number) => {
+      const from = now[engine];
+      if (engine === "postgres")
+        return `${from} + interval '${String(count)} days'`;
+      if (engine === "sqlserver")
+        return `dateadd(day, ${String(count)}, ${from})`;
+      if (engine === "oracle")
+        return `${from} + numtodsinterval(${String(count)}, 'DAY')`;
+      return `${from} + interval ${String(count)} day`;
+    };
+    const earlier = (engine: Engine) => {
+      const from = now[engine];
+      if (engine === "postgres") return `${from} - interval '30 seconds'`;
+      if (engine === "sqlserver") return `dateadd(second, -30, ${from})`;
+      if (engine === "oracle") return `${from} - numtodsinterval(30, 'SECOND')`;
+      return `${from} - interval 30 second`;
+    };
+    const expected = [
+      [],
+      [["update", ["1"]]],
+      [["update", ["2"]]],
+      "source_watch_future",
+      [],
+      [["update", ["1"]]],
+      [["update", ["2"]]],
+      [],
+      [["update", ["1"]]],
+      [],
+      "source_watch_future",
+      [["update", ["1"]]],
+      [],
+      "source_watch_future",
+      [["update", ["1"]]],
+    ];
+    for (const [engine, { sourceId, schema }] of declared) {
+      const { id, at, to } = shape[engine];
+      const target =
+        engine === "mysql" || engine === "mariadb" ? "erp.dated" : "dated";
+      await outside(
+        engine,
+        `create table dated (id ${id} primary key, changed ${at} not null)`,
+      );
+      await outside(engine, `grant select, update on ${target} to ${to}`);
+      await outside(
+        engine,
+        `insert into dated (id, changed) values (1, ${now[engine]})`,
+      );
+      await outside(
+        engine,
+        `insert into dated (id, changed) values (2, ${now[engine]})`,
+      );
+      const set = (row: number, value: string) =>
+        outside(
+          engine,
+          `update dated set changed = ${value} where id = ${String(row)}`,
+        );
+      const {
+        tableIds: [tableId = ""],
+      } = await exposeTables(deps, actorId, {
+        sourceId,
+        baseId,
+        tables: [{ schema, name: engine === "oracle" ? "DATED" : "dated" }],
+      });
+      const watchOn = () =>
+        setTableWatch(deps, actorId, {
+          tableId,
+          method: "column",
+          column: "changed",
+          intervalSeconds: 5,
+        });
+      const stored = () =>
+        db
+          .selectFrom("externalWatches")
+          .select(["cursor", "errorCode"])
+          .where("tableId", "=", tableId)
+          .executeTakeFirstOrThrow();
+      const check = async () => {
+        await runWatch(watchDeps, tableId);
+        return told();
+      };
+      await watchOn();
+      const trace: unknown[] = [await check()];
+      await set(1, now[engine]);
+      trace.push(await check());
+      await set(2, days(engine, 400));
+      trace.push(await check(), (await stored()).errorCode);
+      // Nothing changed: the row dated ahead is not told again.
+      trace.push(await check());
+      await set(1, now[engine]);
+      trace.push(await check());
+      // It changed: it is told again.
+      await set(2, days(engine, 500));
+      trace.push(await check());
+      trace.push(await check());
+      // A commit that lands behind the cursor, within the window.
+      await set(1, earlier(engine));
+      trace.push(await check());
+      // A cursor an earlier version left past the clock is brought back.
+      const { cursor } = await stored();
+      const held = cursor as { future: Record<string, string> };
+      await db
+        .updateTable("externalWatches")
+        .set({
+          cursor: { ...held, at: held.future["2"] ?? null, future: undefined },
+        })
+        .where("tableId", "=", tableId)
+        .execute();
+      trace.push(await check(), (await stored()).errorCode);
+      await set(1, now[engine]);
+      trace.push(await check());
+      // Watching a table that already holds a row dated ahead.
+      await setTableWatch(deps, actorId, {
+        tableId,
+        method: null,
+        intervalSeconds: 5,
+      });
+      await watchOn();
+      trace.push(await check(), (await stored()).errorCode);
+      await set(1, now[engine]);
+      trace.push(await check());
+      expect(trace, engine).toEqual(expected);
+    }
   }, 300_000);
 
   it("seals locked client rows and tells a change made elsewhere", async () => {
