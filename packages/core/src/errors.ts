@@ -138,6 +138,8 @@ export const ERRORS = {
   invalid_place: [BAD, "Invalid place"],
   reason_required: [BAD, "Reason required"],
   already_member: [409, "Already a member of this base"],
+  /** Whoever the address is, with an account or without: it is invited. */
+  not_a_member: [404, "Not a member of this base"],
   value_required: [BAD, "Value required"],
   invalid_reason: [BAD, "Invalid reason"],
   invalid_cell: [BAD, "Invalid cell"],

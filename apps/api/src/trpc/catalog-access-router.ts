@@ -72,10 +72,19 @@ export const catalogAccessProcedures = {
       }));
     }),
   ),
+  /**
+   * Changes the role of someone the base already counts: whoever manages
+   * it sees its members. Any other address is refused alike, with an
+   * account or without, and is invited instead (`invite`): giving a role
+   * at once to an address that has an account told that it has one.
+   */
   grant: procedure.input(grantInputSchema).mutation(({ ctx, input }) =>
     handle(ctx, async () => {
       const { user } = await guardBase(ctx, input.baseId, "manage");
       await assertMemberDomain(ctx.db, input.email);
+      if (!(await isMember(ctx.db, input.baseId, input.email))) {
+        throw new AppError("not_a_member");
+      }
       await grantMember(ctx.db, user.id, input);
       return { ok: true as const };
     }),
@@ -270,10 +279,11 @@ export const catalogAccessProcedures = {
         .select(["id", "displayName", "email"])
         .where("id", "=", input.userId)
         .executeTakeFirst();
-      if (!target) throw new AppError("unknown_account");
       const bindings = await loadBindings(ctx.db, input.userId);
       const role = effectiveTableRole(bindings, table.id, table.baseId);
-      if (!role) throw new AppError("access_denied");
+      // The same answer for an account that is not there and for one the
+      // table does not count.
+      if (!target || !role) throw new AppError("unknown_account");
       const { engine } = await readerEngine(ctx.db, table.id, {
         userId: input.userId,
         bindings,
