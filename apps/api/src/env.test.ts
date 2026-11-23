@@ -228,6 +228,8 @@ describe("connections AnyGridDB opens", () => {
       `${remote}?sslmode=prefer`,
       `${remote}?sslmode=no-verify`,
       `${remote}?sslmode=require&uselibpqcompat=true`,
+      // The authority is checked then, and not the name it signed.
+      `${remote}?sslmode=verify-ca&uselibpqcompat=true`,
     ]) {
       expect(() => readEnv({ ...base, DATABASE_URL }), DATABASE_URL).toThrow(
         /verified TLS/,
@@ -236,6 +238,8 @@ describe("connections AnyGridDB opens", () => {
     for (const DATABASE_URL of [
       `${remote}?sslmode=verify-full&sslrootcert=/certs/internal-authority.crt`,
       `${remote}?sslmode=require`,
+      // The driver checks the name under this one too, read its own way.
+      `${remote}?sslmode=verify-ca`,
       "postgres://anygriddb:secret@127.0.0.1:5432/anygriddb",
       "postgres://anygriddb@/anygriddb?host=/var/run/postgresql",
     ]) {

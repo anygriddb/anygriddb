@@ -23,7 +23,7 @@ In short; [`ROADMAP.md`](ROADMAP.md#done) says what works, area by area.
 - **Views**: grid, form, kanban, gallery, list, calendar, timeline, and map; personal and locked views; nested filters.
 - **Collaboration**: live updates and presence, comments and @mentions, notifications, row history, and a trash that keeps what was deleted for 30 days.
 - **Sharing**: owner, editor, commenter, and viewer roles per base or per table, with field and row rules; public views, forms, and read-only bases, with a password and an expiry.
-- **Data**: import and export of CSV, TSV, JSON, and Excel; an Airtable base or a workbook made a base; base backups, restore points, and templates.
+- **Data**: import of CSV, TSV, JSON, and Excel, and export to CSV, JSON, and Excel; an Airtable base or a workbook made a base; base backups, restore points, and templates.
 - **Integrations**: a REST API with an OpenAPI 3.1 document per base, an [MCP server](docs/mcp.md) for the AI you run, scoped tokens, OAuth for applications, webhooks, and automations that run scripts of your own.
 - **Dashboards**: metrics, charts, and a view's rows, computed by the database under each reader's rights.
 - **Security**: Argon2id passwords, TOTP and passkeys, OIDC, SAML, and SCIM; an append-only audit trail; row statuses and signatures; HTTPS only, every connection encrypted and verified.
@@ -72,8 +72,9 @@ The first account you create administers the instance, and takes a token only it
 
 ## Layout
 
-Two apps (`apps/web`, `apps/api`), three packages (`packages/core`,
-`packages/db`, `packages/ui`), and the install path (`docker/`): what each
+Two apps (`apps/web`, `apps/api`), three packages of code (`packages/core`,
+`packages/db`, `packages/ui`) beside the compiler settings they share
+(`packages/tsconfig`), and the install path (`docker/`): what each
 owns is the table of [`CONTRIBUTING.md`](CONTRIBUTING.md#where-to-change-what).
 
 ## Principles

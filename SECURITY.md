@@ -80,7 +80,7 @@ The security policy is the administrator's, from defaults most organizations kee
 
 A reset link works once, an hour when the person asks by email, a day when an administrator sends it, and keeps the second factors. After single sign-on, an account's own second factor is asked too, unless the instance trusts the identity provider's. No setting turns the lock off, lets an administrator work without a second factor, or keeps the sign-in trail less than six months.
 
-Administrators can also keep invitations to the organization's domains, keep base and API token creation to themselves, and have accounts nobody used for 30 to 365 days disabled, after an email warning a week before; administrators and identity-provider accounts are never disabled this way. Administrators are told of each lock in the app and by email, at most ten times an hour (ADR 0044).
+Administrators can also keep invitations to the organization's domains, keep base and API token creation to themselves, and have accounts nobody used for 30 to 730 days disabled, after an email warning a week before; administrators and identity-provider accounts are never disabled this way. Administrators are told of each lock in the app and by email, at most ten times an hour (ADR 0044).
 
 ### The sign-in trail
 
