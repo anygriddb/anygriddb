@@ -17,8 +17,15 @@ const DEFAULT_WEB_ROOT = fileURLToPath(
   new URL("../../web/dist/", import.meta.url),
 );
 
-/** Paths the API answers itself: an unknown one is a 404, never the app. */
-const API_PATH = /^\/(?:api|trpc|auth|ws|health|ready)(?:\/|$)/;
+/**
+ * Paths the API answers itself: an unknown one is a 404, never the app. A
+ * probe set by mistake on `/healthz/x` must not read a page, which says
+ * the instance is well whatever its state.
+ */
+const API_PATH =
+  /^\/(?:api|trpc|auth|ws|health|healthz|ready|readyz|metrics|hooks|ical|mcp|scim|oauth|tls|\.well-known)(?:\/|$)/;
+/** The one page of the app among them: where a person allows an application. */
+const APP_PAGE = /^\/oauth\/consent\/?$/;
 /** A missing file, such as a chunk of an older build: a 404, not a page. */
 const FILE_PATH = /\/[^/]*\.[A-Za-z0-9]+$/;
 /** Pages reached by a secret link: search engines must not keep them. */
@@ -141,7 +148,7 @@ export async function registerWebApp(
     const isPage =
       built &&
       (request.method === "GET" || request.method === "HEAD") &&
-      !API_PATH.test(path) &&
+      (!API_PATH.test(path) || APP_PAGE.test(path)) &&
       !FILE_PATH.test(path);
     if (!isPage) return reply.code(404).send(publicErrorBody(404));
     // A share's page may be framed by the sites its link names. When

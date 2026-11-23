@@ -74,6 +74,41 @@ export function sayWhenToRetry(
   if (status === 503 && !said) reply.header("Retry-After", "30");
 }
 
+type SendingReply = HeaderReply & {
+  code(status: number): { send(body?: unknown): unknown };
+};
+
+/**
+ * Answers a request Fastify refused before any hook ran, such as an
+ * address it cannot read (a stray percent sign): the headers and the body
+ * every other refusal has, and neither the framework's own code nor the
+ * path that was sent.
+ */
+export function refuseBeforeHooks(
+  error: unknown,
+  reply: SendingReply,
+  hsts: boolean,
+): void {
+  applyApiSecurityHeaders(reply, hsts);
+  const { status, body } = replyFromError(error);
+  reply.code(status).send(body);
+}
+
+/**
+ * For a route whose address is its secret: a body refused before the
+ * secret is read (too large, not JSON, of another type) is answered as an
+ * address that names nothing, so that no answer tells the two apart. A
+ * fault of the server stays one.
+ */
+export function refuseAsUnknownAddress(
+  error: unknown,
+  reply: SendingReply,
+): void {
+  if (replyFromError(error).status >= 500) throw error;
+  reply.header("cache-control", "no-store");
+  reply.code(404).send();
+}
+
 /** Removes line breaks so a user value cannot forge extra log lines. */
 export function stripCrlf(value: string): string {
   return value.replace(/[\r\n\u2028\u2029]/g, "");

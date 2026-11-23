@@ -1,3 +1,4 @@
+import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
 import { AppError } from "@anygriddb/core";
 import {
@@ -6,6 +7,8 @@ import {
   logFailure,
   publicErrorBody,
   publicErrorStatus,
+  refuseAsUnknownAddress,
+  refuseBeforeHooks,
   replyFromError,
   sayWhenToRetry,
   stripCrlf,
@@ -254,5 +257,103 @@ describe("an answer of 'not now'", () => {
     expect(whole(503, { "Retry-After": "5" })).toBeUndefined();
     expect(whole(200)).toBeUndefined();
     expect(whole(207)).toBeUndefined();
+  });
+});
+
+describe("a request refused before any hook", () => {
+  const server = () => {
+    const app = Fastify({
+      frameworkErrors: (error, _request, reply) => {
+        refuseBeforeHooks(error, reply, true);
+      },
+    });
+    // As the server does for every request a route answers.
+    app.addHook("onRequest", async (_request, reply) => {
+      applyApiSecurityHeaders(reply, true);
+    });
+    app.get("/known", () => ({ ok: true }));
+    return app;
+  };
+
+  it("answers an address it cannot read as any other refusal, headers included", async () => {
+    const app = server();
+    for (const url of ["/%", "/trpc/%3Cscript%3E%"]) {
+      const refused = await app.inject({ url });
+      expect(refused.statusCode).toBe(400);
+      // Neither the framework's code nor the path that was sent.
+      expect(refused.json()).toEqual({
+        error: "Request rejected",
+        code: "request_rejected",
+      });
+      expect(refused.headers["x-content-type-options"]).toBe("nosniff");
+      expect(refused.headers["x-frame-options"]).toBe("DENY");
+      expect(refused.headers["content-security-policy"]).toContain(
+        "default-src 'none'",
+      );
+      expect(refused.headers["strict-transport-security"]).toBeDefined();
+    }
+  });
+
+  it("leaves an address it can read to its route", async () => {
+    const known = await server().inject({ url: "/known" });
+    expect(known.statusCode).toBe(200);
+    expect(known.json()).toEqual({ ok: true });
+  });
+});
+
+describe("a route whose address is its secret", () => {
+  const server = () => {
+    const app = Fastify();
+    app.post(
+      "/hooks/:token",
+      {
+        bodyLimit: 64,
+        errorHandler: (error, _request, reply) => {
+          refuseAsUnknownAddress(error, reply);
+        },
+      },
+      (request, reply) => {
+        const { token } = request.params as { token: string };
+        if (token === "fault") throw new Error("the database is away");
+        return token === "known"
+          ? reply.code(202).send({ queued: true })
+          : reply.code(404).header("cache-control", "no-store").send();
+      },
+    );
+    return app;
+  };
+  const post = (
+    app: ReturnType<typeof server>,
+    token: string,
+    payload: string,
+    type = "application/json",
+  ) =>
+    app.inject({
+      method: "POST",
+      url: `/hooks/${token}`,
+      headers: { "content-type": type },
+      payload,
+    });
+
+  it("answers a body refused before the secret is read as an unknown address", async () => {
+    const app = server();
+    const unknown = await post(app, "unknown", "{}");
+    for (const refused of [
+      await post(app, "unknown", JSON.stringify({ x: "y".repeat(100) })),
+      await post(app, "unknown", "{not json"),
+      await post(app, "unknown", "x", "application/x-other"),
+      // The same for the address that is one: the body is read first.
+      await post(app, "known", "{not json"),
+    ]) {
+      expect(refused.statusCode).toBe(404);
+      expect(refused.body).toBe(unknown.body);
+      expect(refused.headers["cache-control"]).toBe("no-store");
+    }
+  });
+
+  it("takes a body it can read, and keeps a fault of the server one", async () => {
+    const app = server();
+    expect((await post(app, "known", "{}")).statusCode).toBe(202);
+    expect((await post(app, "fault", "{}")).statusCode).toBe(500);
   });
 });

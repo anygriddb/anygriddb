@@ -56,6 +56,8 @@ import {
   foreignSessionWrite,
   logFailure,
   publicErrorBody,
+  refuseAsUnknownAddress,
+  refuseBeforeHooks,
   replyFromError,
   sayWhenToRetry,
   unservedProcedureMethod,
@@ -138,6 +140,9 @@ export async function createApp(deps: {
     // characters a page of five widgets was answered 414. The web client
     // keeps a whole URL under 6,000 characters.
     routerOptions: { maxParamLength: 6_000 },
+    frameworkErrors: (error, _request, reply) => {
+      refuseBeforeHooks(error, reply, tls?.mode === "operator");
+    },
     logger: {
       // A second copy of each line, for Administration (ADR 0087). The
       // stream still writes the container's output, which a collector reads.
@@ -302,7 +307,12 @@ export async function createApp(deps: {
   // of 64 KiB at most; any other answer is the same 404.
   app.post<{ Params: { token: string } }>(
     "/hooks/automations/:token",
-    { bodyLimit: 65_536 },
+    {
+      bodyLimit: 65_536,
+      errorHandler: (error, _request, reply) => {
+        refuseAsUnknownAddress(error, reply);
+      },
+    },
     async (request, reply) => {
       const queued = await queueWebhookRun(
         deps.db,
