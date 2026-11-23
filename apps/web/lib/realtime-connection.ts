@@ -24,6 +24,7 @@ export type ServerMessage =
     }
   | { type: "stale"; channel: string }
   | { type: "catalog"; channel: string }
+  | { type: "views"; channel: string; tableId: string }
   | { type: "notification"; channel: string }
   | {
       type: "job";

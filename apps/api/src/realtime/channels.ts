@@ -95,6 +95,28 @@ export async function publishStale(
   }
 }
 
+/**
+ * Tells everyone looking at a base that the views of one of its tables
+ * changed: one was made, renamed, set, ordered, or removed. A message of
+ * its own, so that a view made by someone does not make every open grid
+ * of the base read its rows again, as a change of fields does.
+ */
+export async function publishViews(
+  bus: Publisher,
+  baseId: string,
+  tableId: string,
+  onError: (error: unknown) => void,
+): Promise<void> {
+  try {
+    await bus.publish(
+      gridChannel(baseId),
+      JSON.stringify({ type: "views", channel: baseId, tableId }),
+    );
+  } catch (error) {
+    onError(error);
+  }
+}
+
 /** Tells everyone looking at a base that its tables or columns changed. */
 export async function publishCatalog(
   bus: Publisher,

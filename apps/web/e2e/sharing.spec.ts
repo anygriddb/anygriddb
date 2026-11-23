@@ -267,6 +267,20 @@ test("an owner invites an address, its account accepts, and reads what its permi
   await expect(guest.getByRole("gridcell", { name: "Desk" })).toBeVisible();
   await page.reload();
 
+  // A view the owner makes is on the member's screen at once: nobody
+  // reloads to see the tab of a view someone else just made.
+  const made = await page.request.post("/trpc/catalog.createView", {
+    data: {
+      tableId: /\/t\/([0-9a-f-]{36})/.exec(tablePath)?.[1] ?? "",
+      name: "Seen live",
+      viewType: "grid",
+    },
+  });
+  expect(made.ok(), await made.text()).toBe(true);
+  await expect(
+    guest.getByRole("link", { name: "Seen live", exact: true }),
+  ).toBeVisible();
+
   // The owner takes the member out of the base, once that is confirmed:
   // their role goes at once, with what was set for them on its tables.
   const out = page.getByRole("button", { name: `Remove Guest ${stamp}` });
@@ -283,7 +297,11 @@ test("an owner invites an address, its account accepts, and reads what its permi
   await out.click();
   await asking.getByRole("button", { name: "Remove", exact: true }).click();
   await expect(out).toHaveCount(0);
-  await guest.reload();
+  // Their screen says so at once: the rows they had read do not stay
+  // there, as if the base were still theirs to read.
+  await expect(
+    guest.getByText("This base does not exist or is not shared with you."),
+  ).toBeVisible();
   await expect(guest.getByRole("gridcell", { name: "Desk" })).toHaveCount(0);
 
   await own.close();

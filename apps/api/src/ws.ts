@@ -109,6 +109,7 @@ const relayMessage = z.discriminatedUnion("type", [
     gone: z.boolean().optional(),
   }),
   z.object({ type: z.literal("catalog"), channel: token }),
+  z.object({ type: z.literal("views"), channel: token, tableId: token }),
   z.object({ type: z.literal("notification"), channel: token }),
   z.object({
     type: z.literal("job"),

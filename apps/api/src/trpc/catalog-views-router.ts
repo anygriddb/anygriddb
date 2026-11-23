@@ -22,8 +22,25 @@ import {
   updateView,
 } from "../data/views.js";
 import { hiddenColumnNames, readableTables } from "../data/acl.js";
+import { publishViews } from "../realtime/channels.js";
+import { logPublish } from "./catalog-shared.js";
+import type { Context } from "./context.js";
 import { authorize, guardTable, handle, tableAccess } from "./guard.js";
 import { procedure, requestNames } from "./init.js";
+
+/**
+ * Tells the open screens of a base that the views of a table changed, for
+ * a view everyone of the table sees. A person's own view is theirs alone:
+ * nobody else is told of it.
+ */
+async function tellViews(
+  ctx: Context,
+  table: { id: string; baseId: string },
+  shared: boolean,
+): Promise<void> {
+  if (!shared) return;
+  await publishViews(ctx.bus, table.baseId, table.id, logPublish(ctx));
+}
 
 export const catalogViewProcedures = {
   views: procedure.input(listViewsInputSchema).query(({ ctx, input }) =>
@@ -59,7 +76,7 @@ export const catalogViewProcedures = {
           input.tableId,
           readableTables(bindings, new Map()),
         );
-        return createView(
+        const made = await createView(
           ctx.db,
           engine,
           user.id,
@@ -72,6 +89,8 @@ export const catalogViewProcedures = {
           },
           await hiddenColumnNames(ctx.db, { userId: user.id, bindings }, table),
         );
+        await tellViews(ctx, table, !personal);
+        return made;
       }),
     ),
   updateView: procedure
@@ -93,7 +112,7 @@ export const catalogViewProcedures = {
           throw new AppError("access_denied");
         }
         const { engine } = await loadEngine(ctx.db, view.tableId, () => true);
-        return updateView(
+        const updated = await updateView(
           ctx.db,
           engine,
           user.id,
@@ -106,6 +125,8 @@ export const catalogViewProcedures = {
             table,
           ),
         );
+        await tellViews(ctx, table, view.ownerId === null);
+        return updated;
       }),
     ),
   duplicateView: procedure
@@ -124,7 +145,8 @@ export const catalogViewProcedures = {
         if (view.ownerId && view.ownerId !== user.id) {
           throw new AppError("access_denied");
         }
-        return duplicateView(
+        const shared = !(personal || view.ownerId);
+        const copy = await duplicateView(
           ctx.db,
           user.id,
           view,
@@ -136,14 +158,17 @@ export const catalogViewProcedures = {
             table,
           ),
         );
+        await tellViews(ctx, table, shared);
+        return copy;
       }),
     ),
   reorderViews: procedure
     .input(reorderViewsInputSchema)
     .mutation(({ ctx, input }) =>
       handle(ctx, async () => {
-        const { user } = await guardTable(ctx, input.tableId, "write");
+        const { user, table } = await guardTable(ctx, input.tableId, "write");
         await reorderViews(ctx.db, user.id, input.tableId, input.order);
+        await tellViews(ctx, table, true);
         return { ok: true as const };
       }),
     ),
@@ -153,7 +178,7 @@ export const catalogViewProcedures = {
       handle(ctx, async () => {
         const actor = await authorize(ctx);
         const view = await loadView(ctx.db, input.viewId);
-        const { user, role } = await tableAccess(
+        const { user, role, table } = await tableAccess(
           ctx,
           actor,
           view.tableId,
@@ -163,6 +188,7 @@ export const catalogViewProcedures = {
           throw new AppError("access_denied");
         }
         await trashView(ctx.db, user.id, view);
+        await tellViews(ctx, table, view.ownerId === null);
         return { ok: true as const };
       }),
     ),

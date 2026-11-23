@@ -16,7 +16,7 @@ import {
   type Subscriber,
 } from "./realtime-connection";
 import { oncePerBurst } from "./once-per-burst";
-import { socketUrl, useTRPC } from "./trpc";
+import { socketUrl } from "./trpc";
 const ConnectionContext = createContext<Connection | null>(null);
 
 /**
@@ -31,12 +31,13 @@ export function RealtimeProvider({
   enabled: boolean;
 }) {
   const queryClient = useQueryClient();
-  const api = useTRPC();
-  // The session ended elsewhere: reading it again sends the page to sign-in.
+  // The server closed the link: the session ended elsewhere, or what this
+  // person may read has changed (a role taken away). Everything on the
+  // screen is read again: the session sends the page to sign-in, and the
+  // catalog says of a base that is no longer theirs that it is not, where
+  // its rows stayed on the screen with nothing said.
   const onUnauthorized = useEffectEvent(() => {
-    void queryClient.invalidateQueries({
-      queryKey: api.session.current.queryKey(),
-    });
+    void queryClient.invalidateQueries();
   });
   const [connection] = useState(
     () =>
