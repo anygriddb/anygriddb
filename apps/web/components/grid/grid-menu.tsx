@@ -9,6 +9,7 @@ import {
   CopyPlus,
   Expand,
   Link as LinkIcon,
+  ListOrdered,
   Trash2,
 } from "lucide-react";
 import { useCopy } from "../../lib/clipboard";
@@ -31,6 +32,10 @@ export function GridMenuItems(props: {
   onMove:
     | ((rowId: string, place: RowPlace, back: RowPlace | null) => void)
     | undefined;
+  /** How many rows under the selection a series can reach. */
+  seriesRoom: () => number;
+  /** Unset for a reader who cannot change the cells. */
+  onContinueSeries: ((room: number) => void) | undefined;
   onCopy: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -45,6 +50,8 @@ export function GridMenuItems(props: {
   const back = placeBetween(above?.id, below?.id);
   const onInsertBeside = props.canAdd ? props.onInsertBeside : undefined;
   const onMove = row && !isFixed(row) ? props.onMove : undefined;
+  const onContinueSeries = props.onContinueSeries;
+  const room = props.seriesRoom();
   return (
     <>
       {row ? (
@@ -97,6 +104,15 @@ export function GridMenuItems(props: {
         >
           <ArrowDown className="h-4 w-4" aria-hidden />
           {t`Move the row down`}
+        </ContextMenuItem>
+      ) : null}
+      {row && onContinueSeries ? (
+        <ContextMenuItem
+          disabled={room === 0}
+          onSelect={() => onContinueSeries(room)}
+        >
+          <ListOrdered className="h-4 w-4" aria-hidden />
+          {t`Continue the series…`}
         </ContextMenuItem>
       ) : null}
       {props.canAdd || props.canDelete ? <ContextMenuSeparator /> : null}

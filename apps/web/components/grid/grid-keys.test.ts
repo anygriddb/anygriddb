@@ -15,6 +15,17 @@ function press(key: string, held: Partial<KeyPress> = {}): KeyPress {
 const sheet = { active: { r: 2, c: 1 }, rows: 10, columns: 4 };
 
 describe("gridKeyAction", () => {
+  it("opens the field's menu with Alt Down, and moves down without Alt", () => {
+    expect(gridKeyAction(press("ArrowDown", { altKey: true }), sheet)).toEqual({
+      kind: "fieldMenu",
+    });
+    expect(gridKeyAction(press("ArrowUp", { altKey: true }), sheet)).toEqual({
+      kind: "move",
+      cell: { r: 1, c: 1 },
+      extend: false,
+    });
+  });
+
   it("moves the active cell with the arrows, and to an end with Ctrl or Cmd", () => {
     expect(gridKeyAction(press("ArrowDown"), sheet)).toEqual({
       kind: "move",

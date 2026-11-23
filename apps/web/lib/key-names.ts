@@ -20,29 +20,39 @@ function browserPlatform(): string {
 
 const KEYS = {
   ctrl: msg({ message: "Ctrl", context: "keyboard key" }),
+  alt: msg({ message: "Alt", context: "keyboard key" }),
   shift: msg({ message: "Shift", context: "keyboard key" }),
   enter: msg({ message: "Enter", context: "keyboard key" }),
   escape: msg({ message: "Esc", context: "keyboard key" }),
   space: msg({ message: "Space", context: "keyboard key" }),
   delete: msg({ message: "Delete", context: "keyboard key" }),
+  backspace: msg({ message: "Backspace", context: "keyboard key" }),
   home: msg({ message: "Home", context: "keyboard key" }),
   end: msg({ message: "End", context: "keyboard key" }),
 };
 
-export type KeyNames = Record<Exclude<keyof typeof KEYS, "ctrl">, string> & {
+export type KeyNames = Record<
+  Exclude<keyof typeof KEYS, "ctrl" | "alt">,
+  string
+> & {
   /** Ctrl, or ⌘ on Apple's systems. */
   mod: string;
+  /** Alt, or ⌥ on Apple's systems. */
+  alt: string;
 };
 
 export function useKeyNames(): KeyNames {
   const { t } = useLingui();
+  const apple = writesCommandKey(browserPlatform());
   return {
-    mod: writesCommandKey(browserPlatform()) ? "⌘" : t(KEYS.ctrl),
+    mod: apple ? "⌘" : t(KEYS.ctrl),
+    alt: apple ? "⌥" : t(KEYS.alt),
     shift: t(KEYS.shift),
     enter: t(KEYS.enter),
     escape: t(KEYS.escape),
     space: t(KEYS.space),
     delete: t(KEYS.delete),
+    backspace: t(KEYS.backspace),
     home: t(KEYS.home),
     end: t(KEYS.end),
   };

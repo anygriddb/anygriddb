@@ -3,6 +3,8 @@ const HEADER_CHROME = 64;
 /** A long name widens its column this far at most; past it, it truncates. */
 const MAX_FROM_LABEL = 280;
 const FALLBACK = 180;
+/** How narrow and how wide a person can set a column. */
+export const COLUMN_WIDTH = { min: 60, max: 1200 } as const;
 
 /**
  * A column's width until someone sets one: its type's, or wider when its

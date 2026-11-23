@@ -41,7 +41,7 @@ export function ShortcutsDialog() {
       window.removeEventListener("ag:shortcuts", onOpen);
     };
   }, []);
-  const { mod, shift, enter, escape, space, home, end } = keys;
+  const { mod, alt, shift, enter, escape, space, home, end } = keys;
   const groups: Array<[string, Array<[string[], string]>]> = [
     [
       t`Everywhere`,
@@ -56,6 +56,8 @@ export function ShortcutsDialog() {
         [["↑", "↓", "←", "→"], t`Move between cells`],
         [[mod, "↑ ↓ ← →"], t`Jump to the edge of the grid`],
         [[shift, "↑ ↓ ← →"], t`Extend the selection`],
+        [[shift, home, end], t`Extend it to the start or end of the row`],
+        [[shift, "Page ↑", "Page ↓"], t`Extend it by 15 rows`],
         [
           ["Tab"],
           t`Next cell (${shift}: previous); at either end of the row, leaves the grid`,
@@ -69,12 +71,15 @@ export function ShortcutsDialog() {
       t`Grid: editing`,
       [
         [[enter], t`Edit the cell (or F2); typing replaces the value`],
-        [[escape], t`Cancel editing`],
-        [[keys.delete], t`Clear the selected cells`],
+        [[mod, enter], t`In a long text, end editing (${enter}: a new line)`],
+        [[escape], t`Cancel editing, or drop the selection`],
+        [[keys.delete, keys.backspace], t`Clear the selected cells`],
         [[mod, "C"], t`Copy (${mod} V pastes, even from a spreadsheet)`],
         [[mod, "D"], t`Fill down`],
         [[mod, "Z"], t`Undo (${mod} ${shift} Z or ${mod} Y: redo)`],
-        [[space], t`Open the row (or ${shift} ${enter})`],
+        [[space], t`Open the row (or ${shift} ${enter}, ${shift} F2)`],
+        [[shift, "F10"], t`The cell's menu: insert, move, continue a series`],
+        [[alt, "↓"], t`The field's menu: move it, set its width, sort`],
       ],
     ],
     [t`Comments`, [[[mod, enter], t`Send the comment; @ to mention`]]],
