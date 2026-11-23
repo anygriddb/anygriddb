@@ -940,4 +940,83 @@ test.describe("the grid", () => {
 
     expect(blocked).toEqual([]);
   });
+
+  test("keeps the keyboard's menus right on a wide and long table", async ({
+    page,
+  }) => {
+    await signUpWithTable(page, "Kit Keys");
+    const tableId = tableIdOf(page);
+    for (let index = 0; index < 24; index += 1) {
+      await send(page, "catalog.addColumn", {
+        tableId,
+        name: `extra_${index}`,
+        label: `Extra ${index}`,
+        fieldType: "text",
+      });
+    }
+    for (let batch = 0; batch < 3; batch += 1) {
+      await send(page, "rows.insertMany", {
+        tableId,
+        rows: Array.from({ length: 400 }, (_, index) => ({
+          name: `Row ${batch}-${index}`,
+        })),
+      });
+    }
+    const grid = page.getByRole("grid");
+    const notesMenu = page.getByRole("button", { name: "Notes field menu" });
+    const entry = (name: string) =>
+      page.getByRole("menuitem", { name, exact: true });
+    await expect(notesMenu).toBeVisible();
+    await expect(cells(page, "name").first()).toHaveText("Row 0-0");
+
+    // The active cell's field has scrolled away: its menu still opens.
+    await grid.focus();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowRight");
+    await expect(grid).toHaveAttribute("aria-activedescendant", /.+/);
+    await grid.evaluate((element) => {
+      element.scrollLeft = element.scrollWidth;
+    });
+    await expect(notesMenu).toHaveCount(0);
+    await page.keyboard.press("Alt+ArrowDown");
+    await expect(page.getByRole("menu").locator(":focus")).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(grid).toBeFocused();
+
+    // A dialog opened from that menu does not leave the next menu, opened
+    // by the pointer, sending the keyboard to the grid when it closes.
+    await page.keyboard.press("Alt+ArrowDown");
+    await expect(entry("Edit field")).toBeVisible();
+    await page.keyboard.type("Edit");
+    await expect(entry("Edit field")).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await notesMenu.click();
+    await expect(entry("Edit field")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await page.evaluate(
+      () =>
+        new Promise((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(done)),
+        ),
+    );
+    await expect(notesMenu).toBeFocused();
+
+    // A series reaches a thousand rows at most, however many lie below.
+    await grid.focus();
+    await page.keyboard.press("Shift+F10");
+    await page.keyboard.type("Continue");
+    await expect(entry("Continue the series…")).toBeFocused();
+    await page.keyboard.press("Enter");
+    const series = page.getByRole("dialog", { name: "Continue the series" });
+    const count = series.getByLabel("Rows to fill below");
+    await count.fill("1001");
+    await page.keyboard.press("Enter");
+    await expect(series.getByRole("alert")).toContainText("1 to 1000");
+    await page.keyboard.press("Escape");
+    await expect(series).toHaveCount(0);
+  });
 });

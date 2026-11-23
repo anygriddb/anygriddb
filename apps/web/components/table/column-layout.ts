@@ -37,6 +37,21 @@ export function fieldBeside<T extends { name: string; isPrimary?: boolean }>(
     : undefined;
 }
 
+/**
+ * Where a field stands once dropped on another: at that field's place, or
+ * just after the primary, which stays first and does not move itself.
+ */
+export function placeAfterMove(
+  columns: ReadonlyArray<{ name: string; isPrimary?: boolean }>,
+  from: string,
+  to: string,
+): number {
+  const start = columns.findIndex((column) => column.name === from);
+  const target = columns.findIndex((column) => column.name === to);
+  if (start < 0 || target < 0 || columns[start]?.isPrimary) return start;
+  return columns[target]?.isPrimary ? target + 1 : target;
+}
+
 /** Columns not listed in the view's hidden fields; the primary never hides. */
 export function visibleColumns<T extends { name: string; isPrimary?: boolean }>(
   columns: readonly T[],

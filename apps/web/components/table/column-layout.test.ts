@@ -1,5 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { fieldBeside, orderColumns, visibleColumns } from "./column-layout";
+import {
+  fieldBeside,
+  orderColumns,
+  placeAfterMove,
+  visibleColumns,
+} from "./column-layout";
+
+describe("placeAfterMove", () => {
+  const columns = [
+    { name: "prenom", isPrimary: true },
+    { name: "nom", isPrimary: false },
+    { name: "role", isPrimary: false },
+    { name: "ville", isPrimary: false },
+  ];
+
+  it("puts a field at the place of the one it is dropped on", () => {
+    expect(placeAfterMove(columns, "ville", "nom")).toBe(1);
+    expect(placeAfterMove(columns, "nom", "ville")).toBe(3);
+  });
+
+  it("keeps a field behind the primary, and the primary where it is", () => {
+    expect(placeAfterMove(columns, "ville", "prenom")).toBe(1);
+    expect(placeAfterMove(columns, "nom", "prenom")).toBe(1);
+    expect(placeAfterMove(columns, "prenom", "role")).toBe(0);
+  });
+
+  it("answers the field's own place when either name is unknown", () => {
+    expect(placeAfterMove(columns, "role", "gone")).toBe(2);
+    expect(placeAfterMove(columns, "gone", "role")).toBe(-1);
+  });
+});
 
 describe("orderColumns", () => {
   const columns = [
