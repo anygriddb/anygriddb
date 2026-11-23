@@ -14,6 +14,7 @@ import { connect, createServer } from "node:tls";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { keyRing, mintKey, parseKeyRing } from "../auth/key-ring.js";
 import {
+  issueApplicationPassword,
   issueServiceCertificates,
   loadTls,
   refreshTls,
@@ -645,5 +646,38 @@ describe("the operator's certificate, replaced", () => {
     await expect(refreshTls(own, current, quiet)).rejects.toThrow(
       /not the key/,
     );
+  });
+});
+
+describe("the password of the application's role", () => {
+  const db = { name: "db" };
+  const app = { name: "app" };
+
+  it("is made once, the same for both, and each copy is its service's", async () => {
+    const out = await mkdtemp(join(tmpdir(), "anygriddb-role-"));
+    dirs.push(out);
+    const forDatabase = join(out, "db", "app_password");
+    const forApplication = join(out, "app", "db_password");
+    await issueApplicationPassword(out, db, app);
+    const made = await readFile(forDatabase, "utf8");
+    expect(made).toMatch(/^[0-9a-f]{64}\n$/);
+    expect(await readFile(forApplication, "utf8")).toBe(made);
+    expect((await stat(forDatabase)).mode & 0o777).toBe(0o400);
+    expect((await stat(forApplication)).mode & 0o777).toBe(0o400);
+
+    await issueApplicationPassword(out, db, app);
+    expect(await readFile(forDatabase, "utf8")).toBe(made);
+  });
+
+  it("comes back from the one copy left", async () => {
+    const out = await mkdtemp(join(tmpdir(), "anygriddb-role-"));
+    dirs.push(out);
+    await issueApplicationPassword(out, db, app);
+    const forDatabase = join(out, "db", "app_password");
+    const forApplication = join(out, "app", "db_password");
+    const made = await readFile(forDatabase, "utf8");
+    await rm(forApplication);
+    await issueApplicationPassword(out, db, app);
+    expect(await readFile(forApplication, "utf8")).toBe(made);
   });
 });

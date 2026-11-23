@@ -45,6 +45,9 @@ services:
     logging: *default-logging
     environment:
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in docker/.env}
+      # A file with the password of a role that owns no table, when the
+      # address names one (docs/operations.md, A PostgreSQL of your own).
+      DATABASE_PASSWORD_FILE: ${DATABASE_PASSWORD_FILE:-}
       AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY:?set AUTH_ENCRYPTION_KEY in docker/.env}
       AUTH_ENCRYPTION_PREVIOUS_KEYS: ${AUTH_ENCRYPTION_PREVIOUS_KEYS:-}
       PORT: "4000"

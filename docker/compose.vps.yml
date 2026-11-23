@@ -28,6 +28,9 @@ services:
   certs:
     <<: *anygriddb-vps-image
 
+  prepare:
+    <<: *anygriddb-vps-image
+
   app:
     <<: *anygriddb-vps-image
     ports: !override

@@ -29,15 +29,16 @@ import { mintKey } from "./auth/key-ring.js";
 import { recordBackup } from "./alerts.js";
 import { BUILD, describeBuild } from "./build-info.js";
 import {
+  databaseAddress,
   publicUrl,
   readEncryptionKey,
   readFileSettings,
   readSyslogCollector,
-  secretFromEnv,
   strictInteger,
 } from "./env.js";
 import { healthAuthorities, probeHealth, publicHost } from "./health-probe.js";
 import {
+  issueApplicationPassword,
   issueServiceCertificates,
   resetTlsFolder,
   type StackService,
@@ -67,10 +68,12 @@ const USAGE = `Usage:
   anygriddb database indexes
       With that same address: builds the indexes file fields lack, beside
       the writes. A role of its own cannot.
-  anygriddb tls services --out <dir> [--postgres <name[:uid:gid]>] [--service <name[:uid:gid]>]
+  anygriddb tls services --out <dir> [--postgres <name[:uid:gid]>] [--service <name[:uid:gid]>] [--application <name:uid:gid>]
       Issues the stack's services their certificates, from the instance's
       internal authority: <dir>/<name>/<name>_cert.pem and _key.pem, owned
-      by uid:gid, and <dir>/internal-authority.crt.
+      by uid:gid, and <dir>/internal-authority.crt. With --application, also
+      the password of the role the application signs in as, made once:
+      <dir>/<name>/db_password, and PostgreSQL's copy of it.
   anygriddb tls reset --yes
       Only when the key that sealed the certificates is lost for good.
       Moves them to a folder beside them; the next start issues new ones,
@@ -215,7 +218,7 @@ async function trashRecoverLinks(args: string[]) {
 
 /** The database's address, from DATABASE_URL or the file DATABASE_URL_FILE names. */
 function databaseUrl(): string {
-  const url = secretFromEnv(process.env, "DATABASE_URL");
+  const url = databaseAddress(process.env);
   if (!url) {
     throw new UsageError("DATABASE_URL or DATABASE_URL_FILE is required");
   }
@@ -247,6 +250,12 @@ async function databasePrepare(args: string[]): Promise<number> {
       return 1;
     }
     await grantRuntimeRole(pool, values.role);
+    // The role cannot build these, and a read works without them: one that
+    // fails is said, and tried again at the next start.
+    await buildFileIndexes(db, url, {
+      info: (_fields, text) => process.stdout.write(`${text}\n`),
+      error: (_fields, text) => process.stderr.write(`${text}\n`),
+    });
     process.stdout.write(`The database is ready for ${values.role}.\n`);
     return 0;
   } finally {
@@ -348,6 +357,7 @@ async function tlsServices(args: string[]): Promise<number> {
       out: { type: "string" },
       postgres: { type: "string", multiple: true, default: [] },
       service: { type: "string", multiple: true, default: [] },
+      application: { type: "string" },
     },
     strict: true,
   });
@@ -369,6 +379,16 @@ async function tlsServices(args: string[]): Promise<number> {
     values.out,
     (note) => process.stderr.write(`${note}\n`),
   );
+  if (values.application) {
+    const [database] = values.postgres.map((spec) => service(spec, true));
+    const application = service(values.application, false);
+    if (!database?.owner || !application.owner) {
+      throw new UsageError(
+        "--application needs a --postgres, and both as name:uid:gid",
+      );
+    }
+    await issueApplicationPassword(values.out, database, application);
+  }
   process.stdout.write(
     `issued ${services.map((item) => item.name).join(", ")}; internal authority ${fingerprint}\n`,
   );
