@@ -8,6 +8,140 @@ first.
 
 ## Unreleased
 
+## 0.5.0 - 2026-11-23
+
+**Before upgrading, check what applies to you:**
+
+- **PostgreSQL older than 16** is refused before the first migration, with both
+  versions named. Upgrade PostgreSQL first.
+- **Settings the instance cannot honor stop the start,** and nothing is
+  written: a numeric setting that is not a whole number within its bounds (an
+  attachment limit above 500 MiB included), an OIDC issuer over plain HTTP
+  beyond this machine, and a key that does not open the TLS authority in use.
+  Put back the key that sealed it, or add it to
+  `AUTH_ENCRYPTION_PREVIOUS_KEYS`. Only if it is lost for good,
+  `anygriddb tls reset --yes` sets the certificates aside, and the next start
+  issues new authorities for every workstation to install. A new cluster
+  refuses `postgres` as the application's role.
+- **MySQL and MariaDB sources:** the certificate must name the host the source
+  was declared with. A source on MySQL's auto-generated certificate, behind a
+  tunnel, or under an alias is refused with `source_tls_failed` until its
+  certificate names that host.
+- **Single sign-on:** an administrator who signs in through a provider and has
+  no second factor here must enrol one. A sign-on finds its account by the
+  provider's subject, an ID token must be signed by a key the provider
+  publishes, and a SAML assertion must be addressed to this service. Review
+  the SAML bindings made before 0.4.0.
+- **API tokens no longer create public links,** for a view or a base: a script
+  that did is refused, and must create them from a signed-in session. A token
+  still lists and revokes links. A link a token made before stays active until
+  it is revoked.
+- **Values written from outside** (a paste, a file, a form, an automation, the
+  API's typecast) are read by the language and format declared, or refused and
+  counted, where they used to be made to fit. A number whose comma could be a
+  decimal or a thousands separator is refused, and the import preview asks
+  what the file uses. A JSON integer past 2^53 is refused: send it as a
+  string. A text past its field's limit and a rating that is not whole are
+  refused. Values already stored are not rewritten.
+- **Imported files:** a JSON file that is not UTF-8, a UTF-16 file, and a file
+  mixing two encodings are refused instead of being imported with replaced
+  characters. A carriage return alone, outside quotes, now ends a line.
+- **Changing a field's type:** a value that does not fit the new type becomes
+  empty, where it used to be kept or become false; the preview counts them
+  first. A conversion between a date and a date and time needs a time zone.
+  Past 20,000 rows it runs in the background, and the table is read-only
+  meanwhile: a write answers `table_converting`. A write that read a field
+  before it changed type answers `field_changed`.
+- **Base files:** a file that claims a row's status or dates, or a row number
+  or place too high for new rows to follow, is refused. An import reads the
+  whole file again before it makes a base, which takes longer on a large one.
+- **Going back:** a restore point made by this version is not read by an
+  earlier one.
+
+The upgrade replaces the trigger that dates rows and rewrites no table. On an
+instance where an import had left row numbers out of range, so that its tables
+took no new row, it brings those rows back beside their table's others, in
+their order, and logs one warning for each table repaired. No row's content,
+status, or trail changes.
+
+A conversion that runs in the background writes one event per row in the
+trail, with the source `conversion`: allow for it on a large table.
+
+### Security
+
+- A sign-on is held to its provider: the account is found by the provider's
+  subject, and an address is read only for a first binding, which never
+  reaches an account another subject holds. The person is told by mail when an
+  existing account is bound, and an account with a second factor of its own is
+  asked for it first.
+- A session remembers the provider that opened it and ends no later than the
+  provider said. OIDC back-channel logout ends the sessions a provider names.
+- "Single sign-on only" holds wherever a session is made. Turning it on offers
+  to end password sessions and the tokens of non-administrators.
+- A MySQL or MariaDB source is checked against the host it was declared with,
+  at declaration and on every pooled connection.
+- Webhooks and notifications refuse one shared list of reserved and private
+  addresses, which adds the special-use ranges each was missing.
+- A public link no longer outlives the rights of what made it: only a
+  signed-in session creates one.
+- An import, a restore point, and a copy no longer let a row that was locked
+  or signed be written again: a restore point and a copy keep each row's
+  status, and a file from outside is not believed on it.
+
+### Changed
+
+- A restore point, a copy of a base, and a copy of a table with its rows keep
+  each row's dates, authors, and status. A signed row comes back locked,
+  without its signature, and the job says how many did. A point made by an
+  earlier version still restores, as drafts.
+- An automation past 300 runs a minute now runs the rest late instead of
+  dropping them. A run that waited a day is dropped, and its author is told.
+  `anygriddb_automation_runs_paced_total` counts runs delayed and dropped.
+- A source's list of tables stops at 2,000, says so, and takes a search; a
+  table past the cut is exposed, watched, and refreshed by its name.
+- The preview of a field's conversion counts the values emptied and those
+  written differently, shows examples, and names the views and computed
+  fields that stop working.
+- An import's preview says when a file is read as Windows-1252, and its
+  report lists the lines a repeated key replaced.
+- A start names an unreadable secret file by its error code, a test mail says
+  why a relay was refused, and a superuser application role is reported in
+  the log and in Health.
+
+### Fixed
+
+- Numbers follow the reader's decimal mark: `1,234` is no longer stored as
+  1.234 in every language. A figure a float cannot hold is kept exact through
+  a formula, a group, a restore from history, and the import of a JSON file.
+- A date that reads two ways follows the field's order, then the language;
+  otherwise it is refused, and the message names the format.
+- Changing a field's type no longer writes values the new field refuses, takes
+  a word for false, or cuts a text at a date or at its commas. On a large
+  table it no longer ends on the statement limit, and a failure leaves the
+  type, the values, and each row's last modified as they were.
+- A row in the trash comes back after a conversion with what still fits, and
+  says how many values did not.
+- A view whose filter no longer fits its field opens with no rows and offers
+  to correct it, and its public link keeps refusing rather than show more.
+- A watched table of a source no longer stops at a row dated ahead of the
+  engine's clock, and a table of 50 columns or more refreshes again.
+- A steady flow of rows no longer stops an automation for good: dropped runs
+  counted against its limit.
+- An import reads lines ended by a carriage return alone, a delimiter between
+  quotes, repeated headers, and a workbook formula with no stored value. A
+  failed import says how many rows it had already written.
+- A CSV export leaves a plain decimal bare, and JSON and workbook exports keep
+  line separators, control characters, and microseconds.
+- A field named like one of a snapshot line's own keys keeps its value through
+  a restore point and a file.
+- A private key of the instance's authorities that no key given opens is no
+  longer treated as missing and replaced, which cost every workstation its
+  trust. Processes that first start together on one volume settle on one
+  authority.
+- The managed Compose file passes the same variables as the bundled one, a
+  replaced operator certificate is served within a minute, and the image no
+  longer holds the TypeScript compiler.
+
 ## 0.4.2 - 2026-11-22
 
 **Numbers pasted in the English interface may be wrong.** Until this version,
