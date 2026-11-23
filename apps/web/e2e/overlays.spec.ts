@@ -326,6 +326,7 @@ test.describe("what the keyboard reaches in a dialog", () => {
     await page.keyboard.press("?");
     const help = page.getByRole("dialog", { name: "Keyboard shortcuts" });
     await expect(help).toContainText("Fill down");
+    await expect(help).toContainText("The field's menu");
     await page.evaluate(
       () =>
         new Promise((done) =>

@@ -21,6 +21,22 @@ export function orderColumns<T extends { name: string; isPrimary?: boolean }>(
     : list;
 }
 
+/**
+ * The field a field changes places with when moved one step: none past
+ * either end, and none for or past the primary, which stays first.
+ */
+export function fieldBeside<T extends { name: string; isPrimary?: boolean }>(
+  columns: readonly T[],
+  index: number,
+  step: -1 | 1,
+): T | undefined {
+  const field = columns[index];
+  const other = columns[index + step];
+  return field && other && !field.isPrimary && !other.isPrimary
+    ? other
+    : undefined;
+}
+
 /** Columns not listed in the view's hidden fields; the primary never hides. */
 export function visibleColumns<T extends { name: string; isPrimary?: boolean }>(
   columns: readonly T[],

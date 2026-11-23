@@ -11,7 +11,9 @@ import {
 import { ADD_FIELD_WIDTH, GUTTER, marginColumn } from "./margin-column";
 import {
   ArrowDownAZ,
+  ArrowLeft,
   ArrowLeftToLine,
+  ArrowRight,
   ArrowRightToLine,
   ArrowUpZA,
   Check,
@@ -20,6 +22,7 @@ import {
   EyeOff,
   Filter,
   Group,
+  MoveHorizontal,
   Pencil,
   Pin,
   Plus,
@@ -31,7 +34,9 @@ import { isPrimaryType } from "@anygriddb/core";
 import { useRef, useState } from "react";
 import type { CatalogColumn } from "../../lib/types";
 import { FieldIcon } from "../fields/field-meta";
+import { fieldBeside } from "../table/column-layout";
 import { canDuplicate, canGroupBy, canSortBy } from "../table/field-roles";
+import { COLUMN_WIDTH } from "./column-width";
 import { ResizeHandle } from "../shell/resize-handle";
 import { distinctLimits, useLimitText } from "../../lib/limits";
 import { plural } from "@lingui/core/macro";
@@ -66,6 +71,10 @@ export function GridHeader(props: {
   onToggleAll: (value: boolean) => void;
   onResize: (column: string, width: number) => void;
   onReorder: (from: string, to: string) => void;
+  /** Asks for a width in figures: the handle is the pointer's. */
+  onAskWidth: (column: CatalogColumn) => void;
+  /** A field's menu has closed. */
+  onMenuClosed: () => void;
   onAddField: () => void;
   onEditField: (column: CatalogColumn) => void;
   onAction: (action: string, column: CatalogColumn, index: number) => void;
@@ -89,6 +98,8 @@ export function GridHeader(props: {
       resizing?.name === column.name
         ? resizing.width
         : (props.widths[index] ?? 180);
+    const before = fieldBeside(props.columns, index, -1);
+    const after = fieldBeside(props.columns, index, 1);
     return (
       <div
         key={column.name}
@@ -155,7 +166,11 @@ export function GridHeader(props: {
         {column.limits.length > 0 ? (
           <LimitMark text={limitsText(column)} />
         ) : null}
-        <DropdownMenu>
+        <DropdownMenu
+          onOpenChange={(open) => {
+            if (!open) props.onMenuClosed();
+          }}
+        >
           <DropdownMenuTrigger
             aria-label={t`${{ name: column.label }} field menu`}
             className="rounded p-0.5 opacity-0 group-hover/header:opacity-100 focus:opacity-100 hover:bg-card"
@@ -224,6 +239,32 @@ export function GridHeader(props: {
               </DropdownMenuItem>
             ) : null}
             <DropdownMenuSeparator />
+            {column.isPrimary ? null : (
+              <>
+                <DropdownMenuItem
+                  disabled={!before}
+                  onSelect={() => {
+                    if (before) props.onReorder(column.name, before.name);
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4" aria-hidden />
+                  {t`Move left`}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!after}
+                  onSelect={() => {
+                    if (after) props.onReorder(column.name, after.name);
+                  }}
+                >
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                  {t`Move right`}
+                </DropdownMenuItem>
+              </>
+            )}
+            <DropdownMenuItem onSelect={() => props.onAskWidth(column)}>
+              <MoveHorizontal className="h-4 w-4" aria-hidden />
+              {t`Set the width…`}
+            </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() =>
                 props.onAction(
@@ -279,7 +320,7 @@ export function GridHeader(props: {
         </DropdownMenu>
         <ResizeHandle
           width={width}
-          bounds={{ min: 60, max: 1200 }}
+          bounds={COLUMN_WIDTH}
           label={t`Resize`}
           onResize={(next, phase) => {
             if (phase === "move") {

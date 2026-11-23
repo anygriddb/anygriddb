@@ -26,7 +26,9 @@ export type GridKeyAction =
   /** The range's first row is copied down it. */
   | { kind: "fillDown" }
   /** Every cell is selected. */
-  | { kind: "selectAll" };
+  | { kind: "selectAll" }
+  /** The menu of the active cell's field opens. */
+  | { kind: "fieldMenu" };
 
 /** How far Page Up and Page Down go. */
 const PAGE = 15;
@@ -37,7 +39,8 @@ const PAGE = 15;
  * (with Ctrl or Cmd, to an end of the sheet); Tab walks a row and leaves
  * the grid past its ends; Enter and F2 edit, Shift Enter and Space open
  * the row; Delete empties the range; Ctrl D fills it down, Ctrl A takes
- * every cell; a character starts typing. Nothing for any other key.
+ * every cell; Alt Down opens the field's menu; a character starts typing.
+ * Nothing for any other key.
  */
 export function gridKeyAction(
   press: KeyPress,
@@ -58,6 +61,7 @@ export function gridKeyAction(
       ? { kind: "move", cell: { r: 0, c: 0 }, extend: false }
       : null;
   }
+  if (press.altKey && press.key === "ArrowDown") return { kind: "fieldMenu" };
   const lastRow = state.rows - 1;
   const lastColumn = state.columns - 1;
   switch (press.key) {

@@ -1652,6 +1652,10 @@ msgstr "Les lignes d’une vue, en {format}"
 msgid "A web address, as a link"
 msgstr "Une adresse web, en lien"
 
+#: components/grid/number-prompt.tsx
+msgid "A whole number from {min} to {max}."
+msgstr "Un nombre entier de {min} à {max}."
+
 #: components/admin/logs-tab.tsx
 msgid "A word in a message, a path, or a code"
 msgstr "Un mot dans un message, un chemin ou un code"
@@ -2286,6 +2290,11 @@ msgstr "Créer aussi le champ inverse dans l’autre table"
 msgid "Also send my notifications by email"
 msgstr "Recevoir aussi mes notifications par email"
 
+#: lib/key-names.ts
+msgctxt "keyboard key"
+msgid "Alt"
+msgstr "Alt"
+
 #: components/auth/auth-frame.tsx
 msgid "Amount"
 msgstr "Montant"
@@ -2513,6 +2522,7 @@ msgstr "Jetons d’API révoqués"
 msgid "Applications"
 msgstr "Applications"
 
+#: components/grid/number-prompt.tsx
 #: components/table/view-toolbar.tsx
 msgid "Apply"
 msgstr "Appliquer"
@@ -2677,6 +2687,11 @@ msgstr "URL de déconnexion par canal arrière, pour fermer ici les sessions qui
 #: components/admin/admin-overview.tsx
 msgid "Background jobs, webhook deliveries, or automation runs that did not go through."
 msgstr "Tâches de fond, envois de webhooks ou exécutions d’automatisations qui n’ont pas abouti."
+
+#: lib/key-names.ts
+msgctxt "keyboard key"
+msgid "Backspace"
+msgstr "Retour arrière"
 
 #: components/settings/base-settings.tsx
 msgid "Backup"
@@ -2966,6 +2981,7 @@ msgstr "Appelle l’adresse push d’un moniteur Uptime Kuma, avec l’état up 
 #: components/admin/step-up.tsx
 #: components/admin/support-tab.tsx
 #: components/fields/field-editor.tsx
+#: components/grid/number-prompt.tsx
 #: components/oauth/consent-page.tsx
 #: components/record/record-panel.tsx
 #: components/record/row-status.tsx
@@ -2984,8 +3000,8 @@ msgid "Cancel"
 msgstr "Annuler"
 
 #: components/shell/shortcuts-dialog.tsx
-msgid "Cancel editing"
-msgstr "Annuler la saisie"
+msgid "Cancel editing, or drop the selection"
+msgstr "Annuler la saisie, ou abandonner la sélection"
 
 #: components/table/import-dialog.tsx
 msgid "Cancel the import"
@@ -3552,6 +3568,14 @@ msgstr "contient"
 #: components/table/import-dialog.tsx
 msgid "Continue in the background"
 msgstr "Continuer en arrière-plan"
+
+#: components/grid/grid-view.tsx
+msgid "Continue the series"
+msgstr "Prolonger la série"
+
+#: components/grid/grid-menu.tsx
+msgid "Continue the series…"
+msgstr "Prolonger la série…"
 
 #: components/fields/field-editor.tsx
 msgid "Convert"
@@ -4988,6 +5012,14 @@ msgid "Expose {table}"
 msgstr "Exposer {table}"
 
 #: components/shell/shortcuts-dialog.tsx
+msgid "Extend it by 15 rows"
+msgstr "L’étendre de 15 lignes"
+
+#: components/shell/shortcuts-dialog.tsx
+msgid "Extend it to the start or end of the row"
+msgstr "L’étendre au début ou à la fin de la ligne"
+
+#: components/shell/shortcuts-dialog.tsx
 msgid "Extend the selection"
 msgstr "Étendre la sélection"
 
@@ -5874,6 +5906,10 @@ msgstr "Import en cours…"
 #: components/admin/base-admin-page.tsx
 msgid "In a client's database"
 msgstr "Dans la base de données d’un client"
+
+#: components/shell/shortcuts-dialog.tsx
+msgid "In a long text, end editing ({enter}: a new line)"
+msgstr "Dans un texte long, terminer la saisie ({enter} : une nouvelle ligne)"
 
 #: components/admin/emergency-section.tsx
 msgid "In an emergency"
@@ -7188,6 +7224,7 @@ msgstr "Vers l’est"
 msgid "Move later"
 msgstr "Placer après"
 
+#: components/grid/grid-header.tsx
 #: components/table/view-tabs.tsx
 msgid "Move left"
 msgstr "Déplacer à gauche"
@@ -7200,6 +7237,7 @@ msgstr "Vers le nord"
 msgid "Move out of folder"
 msgstr "Retirer du dossier"
 
+#: components/grid/grid-header.tsx
 #: components/table/view-tabs.tsx
 msgid "Move right"
 msgstr "Déplacer à droite"
@@ -8262,8 +8300,8 @@ msgid "Open the navigation"
 msgstr "Ouvrir la navigation"
 
 #: components/shell/shortcuts-dialog.tsx
-msgid "Open the row (or {shift} {enter})"
-msgstr "Ouvrir la fiche de la ligne (ou {shift} {enter})"
+msgid "Open the row (or {shift} {enter}, {shift} F2)"
+msgstr "Ouvrir la ligne (ou {shift} {enter}, {shift} F2)"
 
 #: components/grid/grid-tips.tsx
 msgid "Open the row, with its comments and history. A right-click shows a cell's actions."
@@ -9784,6 +9822,10 @@ msgstr "Lignes par page"
 msgid "Rows this member sees"
 msgstr "Lignes que ce membre voit"
 
+#: components/grid/grid-view.tsx
+msgid "Rows to fill below"
+msgstr "Lignes à remplir en dessous"
+
 #: components/views/list-view.tsx
 msgid "Rows under"
 msgstr "Lignes sous"
@@ -10330,6 +10372,10 @@ msgstr "Fixé dans l’environnement de l’instance : son opérateur le change
 #: components/auth/reset-page.tsx
 msgid "Set the password"
 msgstr "Enregistrer le mot de passe"
+
+#: components/grid/grid-header.tsx
+msgid "Set the width…"
+msgstr "Régler la largeur…"
 
 #: components/settings/second-factor.tsx
 msgid "Set up a code by email"
@@ -11385,6 +11431,10 @@ msgstr "Le navigateur a refusé la copie : sélectionnez le texte et copiez-le.
 msgid "The bundle holds the version, health checks, counts, and which features are set up: no data, no address, no secret. Who has access is exported from Security."
 msgstr "Le paquet contient la version, les contrôles de santé, des comptages et les fonctions configurées : aucune donnée, aucune adresse, aucun secret. Qui a accès s’exporte depuis Sécurité."
 
+#: components/shell/shortcuts-dialog.tsx
+msgid "The cell's menu: insert, move, continue a series"
+msgstr "Le menu de la cellule : insérer, déplacer, prolonger une série"
+
 #: components/admin/alerts-section.tsx
 msgid "The certificate expires within"
 msgstr "Le certificat expire dans moins de"
@@ -11506,6 +11556,10 @@ msgstr "Le champ que vous modifiiez n’existe plus. Rien n’a été enregistr�
 #: components/table/delete-field-dialog.tsx
 msgid "The field, and its inverse field if any, go to the base's trash for {days} days with their links."
 msgstr "Le champ et son champ inverse éventuel vont dans la corbeille de la base pendant {days} jours, avec leurs liens."
+
+#: components/shell/shortcuts-dialog.tsx
+msgid "The field's menu: move it, set its width, sort"
+msgstr "Le menu du champ : le déplacer, régler sa largeur, trier"
 
 #: components/admin/refresh-fields.tsx
 msgid "The fields were up to date"
@@ -13718,6 +13772,14 @@ msgstr "Qui les propriétaires peuvent inviter"
 #: lib/errors.ts
 msgid "Widget not found"
 msgstr "Widget introuvable"
+
+#: components/grid/grid-view.tsx
+msgid "Width in pixels"
+msgstr "Largeur en pixels"
+
+#: components/grid/grid-view.tsx
+msgid "Width of {name}"
+msgstr "Largeur de {name}"
 
 #: components/admin/accounts-tab.tsx
 msgid "With"

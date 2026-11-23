@@ -809,4 +809,135 @@ test.describe("the grid", () => {
 
     expect(blocked).toEqual([]);
   });
+
+  test("offers the keyboard what the pointer drags: a field's place, its width, a series", async ({
+    page,
+  }) => {
+    const blocked = watchPolicy(page);
+    await signUpWithTable(page, "Kim Keys");
+    const tableId = tableIdOf(page);
+    await send(page, "catalog.addColumn", {
+      tableId,
+      name: "amount",
+      label: "Amount",
+      fieldType: "number",
+    });
+    await send(page, "rows.insertMany", {
+      tableId,
+      rows: [
+        { name: "One", amount: "1" },
+        { name: "Two", amount: "2" },
+        { name: "Three" },
+        { name: "Four" },
+      ],
+    });
+    const amounts = cells(page, "amount");
+    await expect(amounts).toHaveText(["1", "2", "", ""]);
+    const grid = page.getByRole("grid");
+    const headerAt = (place: number) =>
+      page.locator(`[role="columnheader"][aria-colindex="${place + 2}"]`);
+    const entry = (name: string) =>
+      page.getByRole("menuitem", { name, exact: true });
+    /** Opens the active field's menu, and picks an entry by typing it. */
+    const pick = async (name: string) => {
+      await page.keyboard.press("Alt+ArrowDown");
+      await expect(page.getByRole("menu").locator(":focus")).toHaveCount(1);
+      await page.keyboard.type(name.replace("…", ""));
+      await expect(entry(name)).toBeFocused();
+      await page.keyboard.press("Enter");
+    };
+
+    // The primary field stays first: its menu offers no move, and Escape
+    // gives the keyboard back to the grid.
+    await grid.focus();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Alt+ArrowDown");
+    await expect(page.getByRole("menu").locator(":focus")).toHaveCount(1);
+    await expect(entry("Set the width…")).toBeVisible();
+    await expect(entry("Move right")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await expect(grid).toBeFocused();
+
+    // The field beside it cannot go past it.
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Alt+ArrowDown");
+    await expect(entry("Move left")).toHaveAttribute("aria-disabled", "true");
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(grid).toBeFocused();
+
+    // It moves, and the active cell moves with it.
+    await pick("Move right");
+    await expect(headerAt(2)).toContainText("Notes");
+    await expect(headerAt(1)).toContainText("Status");
+    await expect(grid).toBeFocused();
+    await pick("Move left");
+    await expect(headerAt(1)).toContainText("Notes");
+    await expect(grid).toBeFocused();
+
+    // At the last place, no further right.
+    await page.keyboard.press("End");
+    await page.keyboard.press("Alt+ArrowDown");
+    await expect(entry("Move right")).toHaveAttribute("aria-disabled", "true");
+    await page.keyboard.press("Escape");
+    await expect(grid).toBeFocused();
+
+    // A width in figures: out of bounds it is refused and said.
+    const amountHeader = headerAt(3);
+    await expect(amountHeader).toContainText("Amount");
+    const widthBefore = await amountHeader.evaluate(
+      (element) => getComputedStyle(element).width,
+    );
+    await pick("Set the width…");
+    const sizing = page.getByRole("dialog", { name: "Width of Amount" });
+    const width = sizing.getByLabel("Width in pixels");
+    await expect(width).toBeFocused();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    for (const refused of ["59", "1201", "1e3"]) {
+      await width.fill(refused);
+      await page.keyboard.press("Enter");
+      await expect(sizing.getByRole("alert")).toContainText("60 to 1200");
+      await expect(width).toHaveAttribute("aria-invalid", "true");
+    }
+    await expect(amountHeader).toHaveCSS("width", widthBefore);
+    await width.fill("240");
+    await page.keyboard.press("Enter");
+    await expect(sizing).toHaveCount(0);
+    await expect(amountHeader).toHaveCSS("width", "240px");
+    await expect(grid).toBeFocused();
+
+    // A series goes on, by as many rows as there are under it and no more.
+    await page.keyboard.press("Control+Home");
+    await page.keyboard.press("End");
+    await page.keyboard.press("Shift+ArrowDown");
+    await page.keyboard.press("Shift+F10");
+    await expect(page.getByRole("menu").locator(":focus")).toHaveCount(1);
+    await page.keyboard.type("Continue");
+    await expect(entry("Continue the series…")).toBeFocused();
+    await page.keyboard.press("Enter");
+    const series = page.getByRole("dialog", { name: "Continue the series" });
+    const count = series.getByLabel("Rows to fill below");
+    await expect(count).toBeFocused();
+    await count.fill("3");
+    await page.keyboard.press("Enter");
+    await expect(series.getByRole("alert")).toContainText("1 to 2");
+    await expect(amounts).toHaveText(["1", "2", "", ""]);
+    await count.fill("2");
+    await page.keyboard.press("Enter");
+    await expect(series).toHaveCount(0);
+    await expect(amounts).toHaveText(["1", "2", "3", "4"]);
+    await expect(grid).toBeFocused();
+
+    // Under the last row there is nothing to fill.
+    await page.keyboard.press("Control+End");
+    await page.keyboard.press("Shift+F10");
+    await expect(entry("Continue the series…")).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await page.keyboard.press("Escape");
+
+    expect(blocked).toEqual([]);
+  });
 });
