@@ -123,6 +123,7 @@ export {
 
 export {
   PRIMARY_TYPES,
+  physicalSqlType,
   WRITABLE_TYPES,
   hasPhysicalColumn,
   isComputedType,

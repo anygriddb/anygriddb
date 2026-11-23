@@ -109,13 +109,11 @@ describe("a conversion's statements", () => {
     expect(
       buildConversionStamp({ table: "t_x", after: null, limit: 10 }).text,
     ).toContain(`where "ag_tmp_ag_changed"`);
-    expect(
-      buildDropConversionColumns({ table: "t_x", column: "x" }).map(
-        (statement) => statement.text,
-      ),
-    ).toEqual([
-      `alter table "t_x" drop column if exists "ag_tmp_x"`,
-      `alter table "t_x" drop column if exists "ag_tmp_ag_changed"`,
+    expect(buildDropConversionColumns({ table: "t_x", column: "x" })).toEqual([
+      {
+        text: "select ag_conversion_drop_columns($1::text, $2::text)",
+        values: ["t_x", "x"],
+      },
     ]);
   });
 

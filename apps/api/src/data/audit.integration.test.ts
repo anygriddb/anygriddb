@@ -37,7 +37,7 @@ describe("audit triggers", () => {
     expect(migrated[0]?.ready).toBe("audit_events");
 
     for (const statement of buildCreateTable({ table, columns })) {
-      await query(statement.text);
+      await query(statement.text, [...statement.values]);
     }
   });
 

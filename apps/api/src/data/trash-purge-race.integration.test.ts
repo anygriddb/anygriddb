@@ -116,13 +116,14 @@ describe("a purge and a restore of one item", () => {
   }
 
   /** Waits until a statement naming `physical` waits for a lock. */
-  async function blocked(physical: string, statement: string) {
+  /** Until this database has the owner's function waiting on a lock. */
+  async function blocked(call: string) {
     const deadline = Date.now() + 10_000;
     while (Date.now() < deadline) {
       const { rows } = await sql<{ waiting: string }>`
         select count(*)::text as waiting from pg_stat_activity
-        where wait_event_type = 'Lock'
-          and query ilike ${`%${statement}%${physical}%`}
+        where datname = current_database() and wait_event_type = 'Lock'
+          and query ilike ${`%${call}%`}
       `.execute(db);
       if (rows[0]?.waiting !== "0") return;
       await new Promise((resolve) => setTimeout(resolve, 25));
@@ -189,7 +190,7 @@ describe("a purge and a restore of one item", () => {
         id: item.id,
         actorId: owner,
       });
-      await blocked(item.physicalName, "drop table");
+      await blocked("ag_drop_table");
       expect(await code(restoreTable(db, owner, item.id))).toBe("no_row");
       await held.release();
       expect(await purge).toBe(true);
@@ -202,7 +203,7 @@ describe("a purge and a restore of one item", () => {
       const id = await columnId(item.id, "extra");
       const held = await hold(item.physicalName);
       const purge = purgeItem(deps(), { kind: "column", id, actorId: owner });
-      await blocked(item.physicalName, "alter table");
+      await blocked("ag_drop_column");
       expect(await code(restoreColumn(db, owner, id))).toBe("no_row");
       await held.release();
       expect(await purge).toBe(true);
@@ -230,7 +231,8 @@ describe("a purge and a restore of one item", () => {
       for (;;) {
         const { rows } = await sql<{ waiting: string }>`
           select count(*)::text as waiting from pg_stat_activity
-          where wait_event_type = 'Lock' and query ilike '%drop table%'
+          where datname = current_database()
+            and wait_event_type = 'Lock' and query ilike '%ag_drop_table%'
         `.execute(db);
         if (rows[0]?.waiting !== "0") break;
         if (Date.now() > deadline) throw new Error("no drop reached");

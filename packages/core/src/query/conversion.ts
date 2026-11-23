@@ -5,7 +5,7 @@ import {
   physicalSqlType,
   type FieldType,
 } from "../field-types";
-import { assertUserColumn, buildDropColumn, indexName } from "./ddl";
+import { assertUserColumn, ownerCall } from "./ddl";
 import {
   assertIdentifier,
   quoteIdent,
@@ -236,17 +236,19 @@ export function buildConversionTempColumn(input: {
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
   assertUserColumn(input.column);
-  return statement(
-    `alter table ${quoteIdent(input.table)} add column ${quoteIdent(tempColumn(input.column))} ${physicalSqlType(input.to)}`,
+  physicalSqlType(input.to);
+  return ownerCall(
+    "ag_conversion_add_column",
+    input.table,
+    input.column,
+    input.to,
   );
 }
 
 /** The column where a job marks the rows it changes. */
 export function buildConversionMarks(table: string): ParameterizedSql {
   assertIdentifier(table, "table name");
-  return statement(
-    `alter table ${quoteIdent(table)} add column ${quoteIdent(CHANGED)} boolean`,
-  );
+  return ownerCall("ag_conversion_add_marks", table);
 }
 
 /** The next marked rows, stamped by the trigger and unmarked. */
@@ -271,12 +273,7 @@ export function buildConversionSwitch(input: {
 }): ParameterizedSql[] {
   assertIdentifier(input.table, "table name");
   assertUserColumn(input.column);
-  return [
-    buildDropColumn({ table: input.table, column: input.column }),
-    statement(
-      `alter table ${quoteIdent(input.table)} rename column ${quoteIdent(tempColumn(input.column))} to ${quoteIdent(input.column)}`,
-    ),
-  ];
+  return [ownerCall("ag_conversion_switch", input.table, input.column)];
 }
 
 /** Takes away the columns of a conversion that has ended, however it did. */
@@ -284,13 +281,11 @@ export function buildDropConversionColumns(input: {
   table: string;
   column: string;
 }): ParameterizedSql[] {
+  assertIdentifier(input.table, "table name");
   assertUserColumn(input.column);
-  return [tempColumn(input.column), CHANGED].map((column) =>
-    buildDropColumn({ table: input.table, column }),
-  );
+  return [ownerCall("ag_conversion_drop_columns", input.table, input.column)];
 }
 
-const GUARD = "ag_converting";
 const JOB_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /**
@@ -304,14 +299,12 @@ export function buildConversionGuard(
 ): ParameterizedSql {
   assertIdentifier(table, "table name");
   if (!JOB_ID.test(jobId)) throw new AppError("invalid_job");
-  return statement(
-    `create trigger ${GUARD} before insert or update or delete on ${quoteIdent(table)} for each statement execute function ag_refuse_while_converting('${jobId}')`,
-  );
+  return ownerCall("ag_conversion_guard", table, jobId);
 }
 
 export function buildDropConversionGuard(table: string): ParameterizedSql {
   assertIdentifier(table, "table name");
-  return statement(`drop trigger if exists ${GUARD} on ${quoteIdent(table)}`);
+  return ownerCall("ag_conversion_drop_guard", table);
 }
 
 /** Holds off every write of a table, and no read, until the transaction ends. */
@@ -338,10 +331,7 @@ export function buildConversionUniqueIndex(input: {
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
   assertUserColumn(input.column);
-  const temp = tempColumn(input.column);
-  return statement(
-    `create unique index ${quoteIdent(indexName(input.table, temp, "uq"))} on ${quoteIdent(input.table)} (${quoteIdent(temp)})`,
-  );
+  return ownerCall("ag_conversion_unique_index", input.table, input.column);
 }
 
 /** That index, under the name the field's own has. */
@@ -351,9 +341,7 @@ export function buildRenameConversionIndex(input: {
 }): ParameterizedSql {
   assertIdentifier(input.table, "table name");
   assertUserColumn(input.column);
-  return statement(
-    `alter index ${quoteIdent(indexName(input.table, tempColumn(input.column), "uq"))} rename to ${quoteIdent(indexName(input.table, input.column, "uq"))}`,
-  );
+  return ownerCall("ag_conversion_rename_index", input.table, input.column);
 }
 
 /** How many rows a table has, counted no further than `limit`. */
