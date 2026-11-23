@@ -3,6 +3,7 @@ import { parseFormula } from "../formula";
 import { compileFormula, toCharPattern, type ExprContext } from "./expressions";
 import { catalogFor, orders } from "./fixtures.test-helpers";
 import { MARIADB, MYSQL, POSTGRES, type SqlDialect } from "./dialect";
+import { ORACLE } from "./dialect-oracle";
 import { SQLSERVER } from "./dialect-sqlserver";
 import type { EngineTable } from "./engine";
 import { formulaLimits, type SourceLimit } from "./limits";
@@ -253,6 +254,47 @@ describe("compileFormula", () => {
         "datetime",
       );
     }
+  });
+
+  it("joins a chain of texts once, and guards the join where an engine raises on its size", () => {
+    // One join for the chain, each part written once.
+    expect(compile('{Title} & " " & {Title} & "!"').typed.sql).toMatch(
+      /^concat\(r\."title", [^()]+, r\."title", [^()]+\)$/,
+    );
+    // Oracle raises past the bytes its text holds: the join is blank there.
+    const guarded = compile('{Title} & " " & {Title}', ORACLE).typed.sql;
+    expect(guarded).toMatch(/^\(case when not \(coalesce\(lengthb\(/);
+    expect(guarded).toContain("lengthb(rpad('x', 4001, 'x')) > 4000");
+    expect(compile('CONCAT({Title}, "-", {Title})', ORACLE).typed.sql).toMatch(
+      /^\(case when not \(coalesce\(lengthb\(/,
+    );
+    // A longer chain adds its parts, and does not double what came before.
+    const chain = (length: number) =>
+      compile(Array.from({ length }, () => "{Title}").join(" & "), ORACLE).typed
+        .sql.length;
+    expect(chain(16) - chain(8)).toBe(chain(24) - chain(16));
+    // One part alone is no join, and the other engines have no such bound.
+    expect(compile("{Title}", ORACLE).typed.sql).not.toContain("lengthb");
+    for (const d of [POSTGRES, MYSQL, MARIADB, SQLSERVER]) {
+      expect(compile("{Title} & {Title}", d).typed.sql).not.toContain("case");
+    }
+  });
+
+  it("reads a JSON value of any length on SQL Server", () => {
+    // JSON_VALUE and JSON_QUERY are both null past 4,000 characters, as on
+    // a key that is not there: OPENJSON reads the value whole.
+    const read = compile('JSON_EXTRACT({Title}, "$.a.b")', SQLSERVER);
+    expect(read.typed.sql).toMatch(
+      /^coalesce\(json_value\(.+\), json_query\(.+\), \(select j\.v from openjson\(.+\) with \(v nvarchar\(max\) '\$\."a"\."b"'\) j\)\)$/,
+    );
+    // The path is a text of the statement there: a quote in a key is doubled.
+    expect(SQLSERVER.jsonExtract("x", [{ key: "it's" }], () => "$1")).toContain(
+      `nvarchar(max) '$."it''s"'`,
+    );
+    // The other engines read it as before.
+    expect(compile('JSON_EXTRACT({Title}, "$.a")').typed.sql).not.toContain(
+      "openjson",
+    );
   });
 
   it("refuses a formula whose SQL grows past its bound", () => {

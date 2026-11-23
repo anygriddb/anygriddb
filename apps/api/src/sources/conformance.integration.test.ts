@@ -5037,6 +5037,138 @@ describe("conformance of formulas across engines", () => {
     }
   }, 300_000);
 
+  it("reads a JSON value of any length on SQL Server, and a missing one as blank", async () => {
+    const mssql = declared.get("sqlserver");
+    if (!mssql) throw new Error("no SQL Server source declared");
+    const deps = { db, key, settings };
+    // Past 4,000 characters the value read blank, as a key that is not
+    // there does.
+    await outside(
+      "sqlserver",
+      "create table docs (id int primary key, j nvarchar(max))",
+    );
+    await outside("sqlserver", "grant select on docs to reader");
+    const text = (length: number) =>
+      `N'{"a":"' + replicate(cast(N'x' as nvarchar(max)), ${String(length)}) + N'"}'`;
+    for (const [id, document] of [
+      [1, text(4000)],
+      [2, text(4001)],
+      [3, text(20000)],
+      [4, `N'{"b":"elsewhere"}'`],
+      [5, `N'{"a":null}'`],
+      [6, `N'{"a":{"b":[1,2]}}'`],
+      [7, `N'{"a":12.50}'`],
+    ] as const) {
+      await outside(
+        "sqlserver",
+        `insert into docs values (${String(id)}, ${document})`,
+      );
+    }
+    const base = await insertBase(db, actorId, { name: "Long documents" });
+    const {
+      tableIds: [docsId = ""],
+    } = await exposeTables(deps, actorId, {
+      sourceId: mssql.sourceId,
+      baseId: base.id,
+      tables: [{ schema: mssql.schema, name: "docs" }],
+    });
+    const value = await addColumn(db, actorId, docsId, {
+      label: "Value",
+      fieldType: "formula",
+      formulaSource: 'JSON_EXTRACT({j}, "$.a")',
+    });
+    const { engine: catalog } = await loadEngine(db, docsId, () => true);
+    const page = await readPage(
+      db,
+      catalog,
+      {
+        limit: 10,
+        timeZone: "UTC",
+        sort: [{ column: columnOf(catalog, "id"), direction: "asc" }],
+      },
+      { total: false },
+    );
+    expect(
+      page.rows.map((row) => {
+        const read = row[value.name];
+        return typeof read === "string" && read.length > 20
+          ? read.length
+          : read;
+      }),
+    ).toEqual([4000, 4001, 20000, null, null, '{"b":[1,2]}', "12.50"]);
+    await outside("sqlserver", "drop table docs");
+  }, 300_000);
+
+  it("leaves a joined text too long for Oracle blank on its row, and says so", async () => {
+    const oracle = declared.get("oracle");
+    if (!oracle) throw new Error("no Oracle source declared");
+    const deps = { db, key, settings };
+    // Two texts of 3,000 bytes: joined, they are past what a text holds
+    // there, and Oracle raised for the whole page.
+    await outside(
+      "oracle",
+      'create table "longs" ("id" number(10) primary key, "a" varchar2(3000), "b" varchar2(3000))',
+    );
+    await outside("oracle", 'grant select on "longs" to reader');
+    await outside("oracle", `insert into "longs" values (1, 'short', 'text')`);
+    await outside(
+      "oracle",
+      `insert into "longs" values (2, rpad('a', 3000, 'a'), rpad('b', 3000, 'b'))`,
+    );
+    // 2,000 accented letters are 4,000 bytes: the most a text holds.
+    await outside(
+      "oracle",
+      `insert into "longs" values (3, rpad('é', 1500, 'é'), rpad('é', 500, 'é'))`,
+    );
+    const base = await insertBase(db, actorId, { name: "Long texts" });
+    const {
+      tableIds: [longsId = ""],
+    } = await exposeTables(deps, actorId, {
+      sourceId: oracle.sourceId,
+      baseId: base.id,
+      tables: [{ schema: oracle.schema, name: "longs" }],
+    });
+    const joined = await addColumn(db, actorId, longsId, {
+      label: "Joined",
+      fieldType: "formula",
+      formulaSource: "{a} & {b}",
+    });
+    const size = await addColumn(db, actorId, longsId, {
+      label: "Size",
+      fieldType: "formula",
+      formulaSource: "LEN(CONCAT({a}, {b}))",
+    });
+    const { engine: catalog } = await loadEngine(db, longsId, () => true);
+    const page = await readPage(
+      db,
+      catalog,
+      {
+        limit: 10,
+        timeZone: "UTC",
+        sort: [{ column: columnOf(catalog, "id"), direction: "asc" }],
+      },
+      { total: false },
+    );
+    const told = page.rows.map((row) => {
+      const text = row[joined.name];
+      const errors = (row.ag_errors ?? {}) as Record<string, string>;
+      return [
+        typeof text === "string" ? text.length : text,
+        row[size.name],
+        errors[joined.name] ?? null,
+        errors[size.name] ?? null,
+      ];
+    });
+    expect(told).toEqual([
+      [9, "9", null, null],
+      [null, null, "Text too long", "Text too long"],
+      [2000, "2000", null, null],
+    ]);
+    // The rest of the page reads, the long row included.
+    expect(page.rows.map((row) => row[columnOf(catalog, "a")])).toHaveLength(3);
+    await outside("oracle", 'drop table "longs"');
+  }, 300_000);
+
   /** Every sort, group, filter and figure a field offers, on its engine. */
   const playEveryField = async (
     engine: Engine,

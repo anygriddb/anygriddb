@@ -1707,8 +1707,37 @@ function linkedFilterAnd(
 /* Errors (ADR 0036)                                                   */
 /* ------------------------------------------------------------------ */
 
-/** Whether ERROR can be reached from `expr`, through the formulas it reads. */
+/** The parts a chain of `&` joins, in order. */
+function joinedParts(expr: FormulaExpr): FormulaExpr[] {
+  return expr.op === "concat"
+    ? [...joinedParts(expr.left), ...joinedParts(expr.right)]
+    : [expr];
+}
+
+/** Whether `expr` joins texts: `&`, or CONCAT. */
+function joins(expr: FormulaExpr): boolean {
+  return expr.op === "concat" || (expr.op === "call" && expr.fn === "concat");
+}
+
+/**
+ * Texts joined end to end. Where the engine raises on a join too long for
+ * its text, the join is blank on that row, and `formulaError` says why. A
+ * large object has no such bound: joined, it stays one.
+ */
+function joinOf(
+  ctx: ExprContext,
+  parts: readonly string[],
+  large: boolean,
+): string {
+  const sql = ctx.d.concatAll(parts);
+  return ctx.d.joinTooLong && !large && parts.length > 1
+    ? `(case when not ${ctx.d.joinTooLong(parts)} then ${sql} end)`
+    : sql;
+}
+
+/** Whether an error can be reached from `expr`, through the formulas it reads. */
 function canFail(
+  d: SqlDialect,
   table: EngineTable,
   expr: FormulaExpr,
   seen: Set<string> = new Set(),
@@ -1716,6 +1745,7 @@ function canFail(
   if (expr.op === "call" && (expr.fn === "error" || expr.fn === "rept")) {
     return true;
   }
+  if (d.joinTooLong && joins(expr)) return true;
   if (expr.op === "call" && expr.fn === "is_error") return false;
   if (expr.op === "col") {
     const column = findColumn(table, expr.name);
@@ -1725,9 +1755,9 @@ function canFail(
     }
     seen.add(key);
     const inner = column.config.expr;
-    return inner ? canFail(table, inner, seen) : false;
+    return inner ? canFail(d, table, inner, seen) : false;
   }
-  return formulaChildren(expr).some((child) => canFail(table, child, seen));
+  return formulaChildren(expr).some((child) => canFail(d, table, child, seen));
 }
 
 /**
@@ -1743,7 +1773,7 @@ function formulaError(
   expr: FormulaExpr,
   stack: readonly string[],
 ): string | undefined {
-  if (!canFail(table, expr)) return undefined;
+  if (!canFail(ctx.d, table, expr)) return undefined;
   const d = ctx.d;
   const of = (node: FormulaExpr) =>
     formulaError(ctx, table, alias, node, stack);
@@ -1768,6 +1798,17 @@ function formulaError(
         : `(case when ${asBool(compileFormula(ctx, table, alias, condition, stack), d)} then ${yes ?? d.nullOf("text")} else ${no ?? d.nullOf("text")} end)`;
     return first([of(condition), taken]);
   };
+  // The join these parts make, where the engine would raise on its size.
+  const tooLong = (parts: readonly FormulaExpr[]) =>
+    d.joinTooLong &&
+    parts.length > 1 &&
+    !parts.some((part) => givesLargeObject(ctx, table, part, stack))
+      ? `(case when ${d.joinTooLong(
+          parts.map((part) =>
+            asText(ctx, compileFormula(ctx, table, alias, part, stack)),
+          ),
+        )} then ${d.errorMessage("'Text too long'")} end)`
+      : undefined;
   switch (expr.op) {
     case "col": {
       const column = findColumn(table, expr.name);
@@ -1843,9 +1884,15 @@ function formulaError(
             `(case ${pairs.join(" ")} else ${fallback ?? d.nullOf("text")} end)`,
           ]);
         }
+        case "concat":
+          return first([...expr.args.map(of), tooLong(expr.args)]);
         default:
           return first(expr.args.map(of));
       }
+    case "concat": {
+      const parts = joinedParts(expr);
+      return first([...parts.map(of), tooLong(parts)]);
+    }
     default:
       return first(formulaChildren(expr).map(of));
   }
@@ -2293,6 +2340,21 @@ function compileNode(
     }
     case "call":
       return compileCall(ctx, table, alias, expr.fn, expr.args, stack);
+    case "concat": {
+      // A chain of `&` is one join: each part is written once, however
+      // long the chain.
+      const parts = joinedParts(expr);
+      return {
+        sql: joinOf(
+          ctx,
+          parts.map((part) =>
+            asText(ctx, compileFormula(ctx, table, alias, part, stack)),
+          ),
+          parts.some((part) => givesLargeObject(ctx, table, part, stack)),
+        ),
+        kind: "text",
+      };
+    }
     default: {
       const left = compileFormula(ctx, table, alias, expr.left, stack);
       const right = compileFormula(ctx, table, alias, expr.right, stack);
@@ -2304,11 +2366,6 @@ function compileNode(
           return arithmetic(ctx, expr.op, left, right);
         case "mod":
           return modulo(ctx, left, right);
-        case "concat":
-          return {
-            sql: ctx.d.concatAll([asText(ctx, left), asText(ctx, right)]),
-            kind: "text",
-          };
         default:
           return {
             sql: ctx.d.boolValue(
@@ -2737,7 +2794,13 @@ function compileCall(
     }
     case "concat": {
       const args = compileArgs(ctx, table, alias, rawArgs, stack);
-      return textResult(d.concatAll(args.map((arg) => asText(ctx, arg))));
+      return textResult(
+        joinOf(
+          ctx,
+          args.map((arg) => asText(ctx, arg)),
+          rawArgs.some((arg) => givesLargeObject(ctx, table, arg, stack)),
+        ),
+      );
     }
     case "lower":
       return textResult(`lower(${text(0)})`);
