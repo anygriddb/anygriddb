@@ -1,4 +1,4 @@
-import { Command as CommandPrimitive } from "cmdk";
+import { Command as CommandPrimitive, useCommandState } from "cmdk";
 import type { ComponentProps } from "react";
 import { cn } from "./cn";
 
@@ -29,26 +29,35 @@ export function CommandInput({
   );
 }
 
+/** The options. With none left it is hidden: a listbox holds options. */
 export function CommandList({
   className,
   ...props
 }: ComponentProps<typeof CommandPrimitive.List>) {
+  const empty = useCommandState((state) => state.filtered.count === 0);
   return (
     <CommandPrimitive.List
+      hidden={empty}
       className={cn("max-h-80 overflow-y-auto p-1", className)}
       {...props}
     />
   );
 }
 
+/**
+ * What a search that found nothing says. It goes beside `CommandList`, not
+ * in it, and its region is there before the message so that it is announced.
+ */
 export function CommandEmpty(
   props: ComponentProps<typeof CommandPrimitive.Empty>,
 ) {
   return (
-    <CommandPrimitive.Empty
-      className="px-3 py-6 text-center text-sm text-muted-foreground"
-      {...props}
-    />
+    <div role="status">
+      <CommandPrimitive.Empty
+        className="px-3 py-6 text-center text-sm text-muted-foreground"
+        {...props}
+      />
+    </div>
   );
 }
 

@@ -38,13 +38,14 @@ let typography = 0;
 const typographySamples = [];
 
 /**
- * French typography: a typographic apostrophe, and a non-breaking space
- * before a colon, a semicolon, a question mark or an exclamation mark that
- * ends a clause. A mark that opens a piece of code (`?records=`, `!=`) is
- * not one.
+ * French typography: a typographic apostrophe, a non-breaking space inside
+ * « », and one before a colon, a semicolon, a question mark or an
+ * exclamation mark that ends a clause. A mark that opens a piece of code
+ * (`?records=`, `!=`) is not one.
  */
 const STRAIGHT_APOSTROPHE = /'/;
 const BREAKING_SPACE = / [:;?!](?=\s|$|[»).}])/;
+const BREAKING_QUOTE = /« | »/;
 
 for (const fr of frEntries) {
   if (!fr.msgid) continue;
@@ -54,7 +55,11 @@ for (const fr of frEntries) {
   if (msgstr === fr.msgid) identicalFr++;
   const idPh = extractPlaceholders(fr.msgid);
   const strPh = extractPlaceholders(msgstr);
-  if (STRAIGHT_APOSTROPHE.test(msgstr) || BREAKING_SPACE.test(msgstr)) {
+  if (
+    STRAIGHT_APOSTROPHE.test(msgstr) ||
+    BREAKING_SPACE.test(msgstr) ||
+    BREAKING_QUOTE.test(msgstr)
+  ) {
     typography++;
     if (typographySamples.length < 10) typographySamples.push(msgstr);
   }
@@ -94,7 +99,7 @@ if (mismatchSamples.length) {
 
 if (typographySamples.length) {
   console.log(
-    "  French: use ’ for the apostrophe and a non-breaking space before : ; ? !",
+    "  French: use ’ for the apostrophe and a non-breaking space inside « » and before : ; ? !",
   );
   for (const sample of typographySamples) {
     console.log(`    ${JSON.stringify(sample.slice(0, 80))}`);

@@ -67,17 +67,17 @@ export function CommandPalette() {
       <DialogContent title={t`Go to…`} className="[&>div:last-child]:p-0">
         <Command loop>
           <CommandInput placeholder={t`Table, base, or action`} autoFocus />
-          <CommandList>
-            <CommandEmpty>
-              <span className="block px-2 py-4 text-sm">
-                <span className="font-medium text-foreground">
-                  {t`No results`}
-                </span>
-                <span className="mt-1 block text-muted-foreground">
-                  {t`Try another table or base name, or open a recent one from home.`}
-                </span>
+          <CommandEmpty>
+            <span className="block px-2 py-4 text-sm">
+              <span className="font-medium text-foreground">
+                {t`No results`}
               </span>
-            </CommandEmpty>
+              <span className="mt-1 block text-muted-foreground">
+                {t`Try another table or base name, or open a recent one from home.`}
+              </span>
+            </span>
+          </CommandEmpty>
+          <CommandList>
             <CommandGroup heading={t`Tables`}>
               {(catalog.data ?? []).flatMap((base) =>
                 base.tables.map((table) => (

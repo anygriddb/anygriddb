@@ -259,6 +259,103 @@ test.describe("a narrow screen", () => {
 // A script refused for the number of requests, or lost on the way: the app
 // never draws. The page itself then says so and offers to reload, with
 // no script to run: it stayed blank.
+test.describe("what the keyboard reaches in a dialog", () => {
+  test.use({ extraHTTPHeaders: { "x-forwarded-for": "198.51.100.77" } });
+
+  test("a search that finds nothing, a help longer than the screen, and no eval asked", async ({
+    page,
+  }) => {
+    // What the page's policy refuses, from its first script on.
+    await page.addInitScript(() => {
+      const seen: string[] = [];
+      Object.assign(window, { policyFaults: seen });
+      document.addEventListener("securitypolicyviolation", (event) => {
+        seen.push(event.effectiveDirective);
+      });
+    });
+    const policyFaults = () =>
+      page.evaluate(
+        () => (window as unknown as { policyFaults: string[] }).policyFaults,
+      );
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await signUpWithTable(page, "Dialog User");
+    await page.reload();
+    await expect(page.getByRole("grid")).toBeVisible();
+    expect(await policyFaults()).toEqual([]);
+    // The policy itself still holds: a real eval is refused, and reported.
+    // In a task of the page's own: what the test tool evaluates may eval.
+    expect(
+      await page.evaluate(
+        () =>
+          new Promise((done) => {
+            setTimeout(() => {
+              try {
+                new Function("return 1")();
+                done("ran");
+              } catch {
+                done("refused");
+              }
+            });
+          }),
+      ),
+    ).toBe("refused");
+    await expect.poll(policyFaults).toContain("script-src");
+
+    // A search with no result says so, and leaves no listbox without options.
+    await page.keyboard.press("Control+k");
+    const palette = page.getByRole("dialog", { name: "Go to…" });
+    const search = palette.getByRole("combobox");
+    await expect(search).toBeFocused();
+    await expect(palette.getByRole("option").first()).toBeVisible();
+    await search.fill("nothing goes by this name");
+    await expect(palette.getByRole("status")).toContainText("No results");
+    await expect(palette.getByRole("listbox")).toHaveCount(0);
+    expect(await accessibilityViolations(page)).toEqual([]);
+    // With results again, the list has its options and its arrows.
+    await search.fill("");
+    await expect(palette.getByRole("status")).not.toContainText("No results");
+    await expect(palette.getByRole("option").first()).toBeVisible();
+    const chosen = palette.locator('[role="option"][aria-selected="true"]');
+    const before = await chosen.textContent();
+    await page.keyboard.press("ArrowDown");
+    await expect(chosen).not.toHaveText(before ?? "");
+    await page.keyboard.press("Escape");
+    await expect(palette).toHaveCount(0);
+
+    // A help that fits adds no stop to the keyboard's way through it.
+    await page.keyboard.press("?");
+    const help = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+    await expect(help).toContainText("Fill down");
+    await page.evaluate(
+      () =>
+        new Promise((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(done)),
+        ),
+    );
+    await expect(help.getByRole("group")).toHaveCount(0);
+
+    // On a phone it overflows: Tab reaches it, and the keys read it to its end.
+    await page.setViewportSize({ width: 390, height: 640 });
+    const area = help.getByRole("group", { name: "Keyboard shortcuts" });
+    await expect(area).toHaveAttribute("tabindex", "0");
+    await expect(async () => {
+      await page.keyboard.press("Tab");
+      await expect(area).toBeFocused({ timeout: 200 });
+    }).toPass();
+    await page.keyboard.press("End");
+    await expect
+      .poll(() =>
+        area.evaluate(
+          (element) =>
+            element.scrollTop + element.clientHeight >=
+            element.scrollHeight - 1,
+        ),
+      )
+      .toBe(true);
+    expect(await accessibilityViolations(page)).toEqual([]);
+  });
+});
+
 test.describe("a page whose scripts do not arrive", () => {
   test("says it is late and offers to reload, in the reader's language", async ({
     page,
