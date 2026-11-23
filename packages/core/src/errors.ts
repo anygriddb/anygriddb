@@ -328,6 +328,12 @@ export const ERRORS = {
   source_value_reference: [BAD, "Source foreign key refused the value"],
   source_value_check: [BAD, "Source check constraint refused the value"],
   source_value_too_long: [BAD, "Value too long for the source column"],
+  source_value_unrepresentable: [
+    BAD,
+    "The source column cannot keep this value",
+  ],
+  number_too_long: [BAD, "Number has too many digits"],
+  source_flag_holds_code: [409, "This checkbox holds another value"],
   source_value_invalid: [BAD, "Value does not fit the source column"],
   source_write_denied: [403, "Source account may not write here"],
   source_write_refused: [BAD, "Source refused the write"],

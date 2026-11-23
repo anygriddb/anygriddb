@@ -60,6 +60,20 @@ export function toDecimalString(text: string): string | undefined {
 }
 
 /**
+ * A number written with an exponent, as the canonical decimal it is;
+ * `tooLong` past the digits a value may have; undefined for a text that
+ * has no exponent or is no number.
+ */
+export function canonicalScientific(
+  text: string,
+): { value: string } | { tooLong: true } | undefined {
+  const written = SCIENTIFIC.exec(text.trim());
+  if (!written || (!written[2] && !written[3])) return undefined;
+  const value = toDecimalString(text);
+  return value === undefined ? { tooLong: true } : { value };
+}
+
+/**
  * A JavaScript number as a decimal. Only finite numbers; their shortest
  * round-trip text is the value the sender meant.
  */

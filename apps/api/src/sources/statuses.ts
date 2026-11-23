@@ -20,11 +20,16 @@ import {
   assertStatusTransition,
   type AuditRole,
   type EngineCatalog,
+  isCopySourceEngine,
+  numberToDecimal,
   type RowEvent,
+  SEAL_FORMAT,
   sealDrift,
   sealedFields,
+  type SealFormat,
   sealRow,
   sealText,
+  shownSealValue,
 } from "@anygriddb/core";
 import type { Database, ExternalStatus } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -49,9 +54,12 @@ const CHECK_BATCH = 2_000;
 const CHUNK = 100;
 
 /** The fingerprint of sealed values: the SHA-256 of their canonical text. */
-function fingerprintOf(values: Readonly<Record<string, unknown>>) {
+function fingerprintOf(
+  values: Readonly<Record<string, unknown>>,
+  format: SealFormat = SEAL_FORMAT,
+) {
   return createHash("sha256")
-    .update(`anygriddb-seal-1\n${sealText(values)}`)
+    .update(`anygriddb-seal-${String(format)}\n${sealText(values)}`)
     .digest("hex");
 }
 
@@ -156,7 +164,9 @@ export async function attachExternalStatuses(
       at: state.driftAt.toISOString(),
       missing: drift.missing === true,
       fields,
-      sealed: Object.fromEntries(fields.map((name) => [name, sealed[name]])),
+      sealed: Object.fromEntries(
+        fields.map((name) => [name, shownSealValue(sealed[name])]),
+      ),
     });
   }
   return drifts;
@@ -175,6 +185,7 @@ type State = {
   version: number;
   fingerprint: string | null;
   sealed: Record<string, unknown> | null;
+  sealFormat: number;
 };
 
 async function readState(
@@ -184,7 +195,7 @@ async function readState(
 ): Promise<State | undefined> {
   return db
     .selectFrom("externalStatuses")
-    .select(["status", "version", "fingerprint", "sealed"])
+    .select(["status", "version", "fingerprint", "sealed", "sealFormat"])
     .where("tableId", "=", tableId)
     .where("rowId", "=", rowId)
     .executeTakeFirst();
@@ -200,6 +211,157 @@ async function readSealed(
   const fields = sealedFields(engine.table).map((column) => column.name);
   const [row] = await readByIds(db, engine, [rowId], "UTC", fields);
   return row ? sealRow(engine.table, row) : null;
+}
+
+/** A value of a store's copy as it read before whole numbers were kept. */
+function roundedAsFirstRead(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  if (/^-?\d{16,}$/.test(value)) {
+    return numberToDecimal(Number(value)) ?? value;
+  }
+  if (!/^[[{]/.test(value)) return value;
+  try {
+    return JSON.stringify(
+      JSON.parse(value, (_key, item: unknown) =>
+        typeof item === "string" && /^-?\d{16,}$/.test(item)
+          ? Number(item)
+          : item,
+      ),
+    );
+  } catch {
+    return value;
+  }
+}
+
+type Reading = Map<string, Record<string, unknown>>;
+
+/**
+ * Rows sealed in the first format, read the way that format read them
+ * (ADR 0118): `first` is compared with the seal, and `renewal` gives the
+ * values to seal again, or nothing while they cannot be trusted to stay
+ * what a later check reads.
+ */
+type FirstFormat = {
+  first: Reading;
+  drift: (
+    sealed: Readonly<Record<string, unknown>>,
+    values: Readonly<Record<string, unknown>>,
+  ) => string[];
+  renewal: (
+    rowId: string,
+    sealed: Readonly<Record<string, unknown>>,
+  ) => Record<string, unknown> | null;
+};
+
+async function readFirstFormat(
+  db: Database,
+  tableId: string,
+  rowIds: readonly string[],
+): Promise<FirstFormat> {
+  const { engine: stored, rows: catalog } = await loadEngine(
+    db,
+    tableId,
+    () => true,
+  );
+  const fields = sealedFields(stored.table).map((column) => column.name);
+  const readAll = async (engine: EngineCatalog, format: SealFormat) => {
+    const found: Reading = new Map();
+    for (const chunk of chunks(rowIds)) {
+      for (const row of await readByIds(db, engine, chunk, "UTC", fields)) {
+        found.set(row.id, sealRow(engine.table, row, format));
+      }
+    }
+    return found;
+  };
+  const sourceId = stored.table.external?.sourceId;
+  // A store has only its copy, which a refresh rewrites whole numbers in.
+  if (isCopySourceEngine(catalog.sources.get(sourceId ?? "")?.engine)) {
+    const now = await readAll(stored, SEAL_FORMAT);
+    return {
+      first: await readAll(stored, 1),
+      drift: (sealed, values) =>
+        sealDrift(sealed, values).filter(
+          (name) =>
+            JSON.stringify(roundedAsFirstRead(values[name]) ?? null) !==
+            JSON.stringify(sealed[name] ?? null),
+        ),
+      renewal: (rowId, sealed) =>
+        /\d{16}/.test(sealText(sealed)) ? null : (now.get(rowId) ?? null),
+    };
+  }
+  const live = stored.table.external?.synced
+    ? (await loadEngine(db, tableId, () => true, { live: true })).engine
+    : stored;
+  // Read before and after: a change between the two readings is no seal's.
+  const before = await readAll(live, SEAL_FORMAT);
+  const first = await readAll({ ...live, firstSealReading: true }, 1);
+  const after = await readAll(live, SEAL_FORMAT);
+  // A copy that does not hold this reading yet would look changed.
+  const copy = live === stored ? after : await readAll(stored, SEAL_FORMAT);
+  return {
+    first,
+    drift: sealDrift,
+    renewal: (rowId) => {
+      const values = before.get(rowId);
+      const same = (other: Reading) => {
+        const held = other.get(rowId);
+        return held && values && sealText(held) === sealText(values);
+      };
+      return values && same(after) && same(copy) ? values : null;
+    },
+  };
+}
+
+/**
+ * Seals again in the current format the rows that still hold what their
+ * first-format seal says, and says so in their trail. The signatures keep
+ * the fingerprint they signed: the entry names it.
+ */
+async function renewSeals(
+  db: Database,
+  tableId: string,
+  rows: ReadonlyArray<{
+    rowId: string;
+    version: number;
+    fingerprint: string | null;
+    sealed: Record<string, unknown> | null;
+  }>,
+  reading: FirstFormat,
+): Promise<void> {
+  const renewed = rows.flatMap((row) => {
+    const first = reading.first.get(row.rowId);
+    if (!first || !row.sealed || !row.fingerprint) return [];
+    if (reading.drift(row.sealed, first).length > 0) return [];
+    const values = reading.renewal(row.rowId, row.sealed);
+    return values ? [{ row, values, fingerprint: fingerprintOf(values) }] : [];
+  });
+  if (renewed.length === 0) return;
+  await db.transaction().execute(async (tx) => {
+    for (const { row, values, fingerprint } of renewed) {
+      const done = await tx
+        .updateTable("externalStatuses")
+        .set({ sealed: values, fingerprint, sealFormat: SEAL_FORMAT })
+        .where("tableId", "=", tableId)
+        .where("rowId", "=", row.rowId)
+        .where("version", "=", row.version)
+        .where("sealFormat", "=", 1)
+        .where("fingerprint", "=", row.fingerprint)
+        .executeTakeFirst();
+      if (done.numUpdatedRows === 0n) continue;
+      await logEvent(
+        tx,
+        {
+          userId: null,
+          table: { id: tableId },
+          rowId: row.rowId,
+          source: "check",
+        },
+        "resealed",
+        fingerprint,
+        { from: 1, to: SEAL_FORMAT, previous: row.fingerprint, values },
+      );
+    }
+  });
 }
 
 /** The `status` event webhooks and automations receive, as from native rows. */
@@ -360,6 +522,7 @@ async function lockRow(
       .set({
         sealed,
         fingerprint,
+        sealFormat: SEAL_FORMAT,
         sealedAt: new Date(),
         checkedAt: new Date(),
       })
@@ -385,12 +548,31 @@ export async function signExternalRow(
 ): Promise<void> {
   assertKeyed(input.table);
   const { table, rowId } = input;
-  const state = await readState(db, table.id, rowId);
-  if (state?.status !== "locked" || !state.fingerprint || !state.sealed) {
+  const read = await readState(db, table.id, rowId);
+  if (read?.status !== "locked" || !read.fingerprint || !read.sealed) {
     throw new AppError("invalid_status");
   }
-  const current = await readSealed(db, table.id, rowId);
-  if (!current || sealDrift(state.sealed, current).length > 0) {
+  let state = read;
+  let holds: boolean;
+  if (read.sealFormat === SEAL_FORMAT) {
+    const current = await readSealed(db, table.id, rowId);
+    holds = current !== null && sealDrift(read.sealed, current).length === 0;
+  } else {
+    // Sealed by an earlier reading: compared by it, then sealed anew.
+    const reading = await readFirstFormat(db, table.id, [rowId]);
+    const first = reading.first.get(rowId);
+    holds =
+      first !== undefined && reading.drift(read.sealed, first).length === 0;
+    if (holds) {
+      await renewSeals(db, table.id, [{ ...read, rowId }], reading);
+      const renewed = await readState(db, table.id, rowId);
+      if (renewed?.status !== "locked" || !renewed.fingerprint) {
+        throw new AppError("invalid_status");
+      }
+      state = renewed;
+    }
+  }
+  if (!holds) {
     // The check records it and tells the owners.
     await queueSealCheck(db, table.id, [rowId]);
     throw new AppError("row_changed_elsewhere");
@@ -435,7 +617,7 @@ export async function signExternalRow(
 }
 
 type EventAction =
-  "submit" | "lock" | "unlock" | "sign" | "changed" | "restored";
+  "submit" | "lock" | "unlock" | "sign" | "changed" | "restored" | "resealed";
 
 async function logEvent(
   executor: SqlExecutor,
@@ -520,6 +702,8 @@ type Sealed = {
   version: number;
   sealed: Record<string, unknown> | null;
   drift: Record<string, unknown> | null;
+  fingerprint: string | null;
+  sealFormat: number;
 };
 
 function sameDrift(left: StoredDrift | null, right: StoredDrift | null) {
@@ -551,6 +735,8 @@ export async function checkSeals(
       "s.version",
       "s.sealed",
       "s.drift",
+      "s.fingerprint",
+      "s.sealFormat",
     ])
     .where("s.status", "in", SEALED)
     .where("s.fingerprint", "is not", null)
@@ -572,14 +758,24 @@ export async function checkSeals(
   }
   let checked = 0;
   for (const [tableId, rows] of byTable) {
+    const sealedNow = rows.filter((row) => row.sealFormat === SEAL_FORMAT);
+    const sealedBefore = rows.filter((row) => row.sealFormat !== SEAL_FORMAT);
     let current: Map<string, Record<string, unknown>>;
+    let firstFormat: FirstFormat | undefined;
     try {
       const { engine } = await loadEngine(deps.db, tableId, () => true);
       const fields = sealedFields(engine.table).map((column) => column.name);
       current = new Map();
-      for (const chunk of chunks(rows.map((row) => row.rowId))) {
+      for (const chunk of chunks(sealedNow.map((row) => row.rowId))) {
         const read = await readByIds(deps.db, engine, chunk, "UTC", fields);
         for (const row of read) current.set(row.id, sealRow(engine.table, row));
+      }
+      if (sealedBefore.length > 0) {
+        firstFormat = await readFirstFormat(
+          deps.db,
+          tableId,
+          sealedBefore.map((row) => row.rowId),
+        );
       }
     } catch (error) {
       if (!(error instanceof AppError && error.code === "unknown_table")) {
@@ -589,7 +785,19 @@ export async function checkSeals(
       await markChecked(deps.db, tableId, rows);
       continue;
     }
-    const moved = await recordFindings(deps, tableId, rows, current);
+    const moved = await recordFindings(deps, tableId, sealedNow, current);
+    if (firstFormat) {
+      moved.push(
+        ...(await recordFindings(
+          deps,
+          tableId,
+          sealedBefore,
+          firstFormat.first,
+          firstFormat.drift,
+        )),
+      );
+      await renewSeals(deps.db, tableId, sealedBefore, firstFormat);
+    }
     checked += rows.length;
     if (moved.length > 0 && deps.announce) {
       await deps.announce(tableId, moved);
@@ -638,12 +846,14 @@ async function recordFindings(
   tableId: string,
   rows: readonly Sealed[],
   current: ReadonlyMap<string, Record<string, unknown>>,
+  driftOf: FirstFormat["drift"] = sealDrift,
 ): Promise<string[]> {
+  if (rows.length === 0) return [];
   const now = new Date();
   const moved: Array<{ row: Sealed; drift: StoredDrift | null }> = [];
   for (const row of rows) {
     const values = current.get(row.rowId);
-    const fields = values ? sealDrift(row.sealed ?? {}, values) : [];
+    const fields = values ? driftOf(row.sealed ?? {}, values) : [];
     const drift: StoredDrift | null = !values
       ? { missing: true, fields: [] }
       : fields.length > 0
@@ -797,9 +1007,9 @@ export async function readStatusEvents(
   const visible = (value: unknown) =>
     value && typeof value === "object"
       ? Object.fromEntries(
-          Object.entries(value as Record<string, unknown>).filter(
-            ([name]) => !hidden(name),
-          ),
+          Object.entries(value as Record<string, unknown>)
+            .filter(([name]) => !hidden(name))
+            .map(([name, held]) => [name, shownSealValue(held)]),
         )
       : null;
   // A change found by a check shows what the lock before it sealed.
@@ -807,7 +1017,7 @@ export async function readStatusEvents(
   let sealed: Record<string, unknown> = {};
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = events[index];
-    if (event?.action === "lock") {
+    if (event?.action === "lock" || event?.action === "resealed") {
       sealed =
         (event.detail as { values?: Record<string, unknown> } | null)?.values ??
         {};

@@ -24,11 +24,27 @@ export type HttpStore = {
   close(): void;
 };
 
+/** What the JSON parser says of the number it just read. */
+type ParsedFrom = { source?: string };
+
+/** A whole number a double cannot hold stays its digits, as MongoDB's does. */
+function keepWhole(_key: string, value: unknown, from?: ParsedFrom): unknown {
+  return typeof value === "number" &&
+    !Number.isSafeInteger(value) &&
+    from?.source !== undefined &&
+    /^-?\d+$/.test(from.source)
+    ? from.source
+    : value;
+}
+
 /** An answer's JSON; null for one that is not JSON, which tells its status only. */
-function parsedJson(text: string): unknown {
+export function parsedJson(text: string): unknown {
   if (text.length === 0) return null;
   try {
-    return JSON.parse(text) as unknown;
+    // Only an answer holding a number that long pays for the reviver.
+    return /\d{16}/.test(text)
+      ? (JSON.parse(text, keepWhole as never) as unknown)
+      : (JSON.parse(text) as unknown);
   } catch {
     return null;
   }

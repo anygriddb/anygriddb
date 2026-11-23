@@ -8,6 +8,7 @@
  */
 import {
   AppError,
+  canonicalScientific,
   assertRequiredValues,
   type AuditRole,
   type Binding,
@@ -606,10 +607,11 @@ async function assertPlace(
 export async function createRows(
   deps: RowServiceDeps,
   scope: RowScope,
-  rows: readonly RowInput[],
+  given: readonly RowInput[],
   meta: WriteMeta,
   place?: RowPlace,
 ): Promise<string[]> {
+  const rows = withoutExponents(scope, given);
   if (place) await assertPlace(deps, scope, place);
   const checked = await prepare(deps, scope, rows, [], meta.stagedShareId);
   const reason = resolveReason(scope, touchedColumns(rows), meta);
@@ -734,12 +736,40 @@ function valueTaken(scope: RowScope, error: unknown): unknown {
     : error;
 }
 
+/**
+ * A number written with an exponent, as a grid may show one, stored as the
+ * decimal it is: past the digits a value may have, the limit is said.
+ */
+function withoutExponents<Row extends RowInput>(
+  scope: RowScope,
+  rows: readonly Row[],
+): Row[] {
+  const numbers = new Map(
+    scope.engine.table.columns
+      .filter((column) => column.fieldType === "number")
+      .map((column) => [column.name, column.label]),
+  );
+  return rows.map((row) => {
+    let values = row.values;
+    for (const [name, value] of Object.entries(row.values)) {
+      const label = numbers.get(name);
+      if (label === undefined || typeof value !== "string") continue;
+      const written = canonicalScientific(value);
+      if (!written) continue;
+      if ("tooLong" in written) throw new AppError("number_too_long", label);
+      values = { ...values, [name]: written.value };
+    }
+    return values === row.values ? row : { ...row, values };
+  });
+}
+
 export async function updateRows(
   deps: RowServiceDeps,
   scope: RowScope,
-  updates: readonly RowUpdate[],
+  given: readonly RowUpdate[],
   meta: WriteMeta,
 ): Promise<string[]> {
+  const updates = withoutExponents(scope, given);
   const rowIds = updates.map((update) => update.rowId);
   const checked = await prepare(deps, scope, updates, rowIds);
   const touched = touchedColumns(updates);

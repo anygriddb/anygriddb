@@ -4,7 +4,12 @@
  * granted to it, its roles, or PUBLIC), their columns and keys, and what
  * it may write. Schemas Oracle maintains are left out.
  */
-import { checkChoices, mapOracleType, withChoices } from "@anygriddb/core";
+import {
+  checkChoices,
+  checksFlag,
+  mapOracleType,
+  withChoices,
+} from "@anygriddb/core";
 import type { Connection } from "oracledb";
 import {
   connectOracle,
@@ -304,7 +309,12 @@ async function readSchema(
         const columnName = text(column, "name");
         const type = typeLabel(column);
         const field = withChoices(
-          mapOracleType({ type }),
+          mapOracleType({
+            type,
+            flagChecked: definitions.some((definition) =>
+              checksFlag(definition, columnName),
+            ),
+          }),
           definitions
             .map((definition) => checkChoices(definition, columnName))
             .find((found) => found !== null) ?? null,

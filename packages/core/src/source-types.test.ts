@@ -5,6 +5,7 @@ import {
   mapPostgresType,
   mapSqlServerType,
   mysqlEnumValues,
+  checksFlag,
 } from "./source-types";
 
 describe("PostgreSQL types", () => {
@@ -90,7 +91,10 @@ describe("MySQL and MariaDB columns", () => {
 
 describe("Oracle columns", () => {
   it("maps their types to fields", () => {
-    expect(mapOracleType({ type: "NUMBER(1)" }).fieldType).toBe("boolean");
+    expect(
+      mapOracleType({ type: "NUMBER(1)", flagChecked: true }).fieldType,
+    ).toBe("boolean");
+    expect(mapOracleType({ type: "NUMBER(1)" }).fieldType).toBe("number");
     expect(mapOracleType({ type: "NUMBER(14,2)" }).fieldType).toBe("number");
     expect(mapOracleType({ type: "VARCHAR2(120)" }).fieldType).toBe("text");
     expect(mapOracleType({ type: "CLOB" }).fieldType).toBe("long_text");
@@ -144,6 +148,31 @@ describe("SQL Server columns", () => {
       "timestamp",
     ]) {
       expect(mapSqlServerType({ type }).readOnly, type).toBe(true);
+    }
+  });
+});
+
+describe("an Oracle check that keeps a column to 0 and 1", () => {
+  it("reads the ways an engine prints it", () => {
+    for (const check of [
+      '"PAID" IN (0, 1)',
+      "paid in (1,0)",
+      '("PAID"=0 OR "PAID"=1)',
+      '"PAID" BETWEEN 0 AND 1',
+    ]) {
+      expect(checksFlag(check, "PAID"), check).toBe(true);
+    }
+  });
+
+  it("refuses any other check", () => {
+    for (const check of [
+      '"PAID" IN (0, 1, 2)',
+      '"OTHER" IN (0, 1)',
+      '"PAID" > 0',
+      '"PAID" IN (0, 1) OR "OTHER" = 1',
+      null,
+    ]) {
+      expect(checksFlag(check, "PAID"), String(check)).toBe(false);
     }
   });
 });

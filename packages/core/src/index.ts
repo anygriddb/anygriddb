@@ -593,7 +593,17 @@ export {
   type StoredValue,
 } from "./query/sync";
 
-export { sealDrift, sealedFields, sealRow, sealText } from "./query/seal";
+export { isIsoDateTime } from "./iso-date";
+export {
+  SEAL_FORMAT,
+  sealDrift,
+  sealedFields,
+  sealRow,
+  sealText,
+  shownSealValue,
+  type SealFormat,
+} from "./query/seal";
+export { withExactFloats } from "./query/float-text";
 
 export {
   buildChangeTracking,
@@ -811,8 +821,10 @@ export {
 } from "./workbook";
 export {
   decimalSeries,
+  canonicalScientific,
   decimalToNumber,
   isDecimalString,
+  numberToDecimal,
   toDecimalString,
 } from "./decimal";
 
@@ -838,6 +850,8 @@ export {
   mapMysqlType,
   mapPostgresType,
   mapOracleType,
+  checksFlag,
+  instantDigitsOf,
   mapSqlServerType,
   withChoices,
   type MappedField,

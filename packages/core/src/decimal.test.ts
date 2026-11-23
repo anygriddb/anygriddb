@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canonicalScientific,
   decimalSeries,
   decimalToNumber,
   isDecimalString,
@@ -61,5 +62,21 @@ describe("exact series", () => {
     expect(decimalSeries("9007199254740991", "9007199254740992", 1)).toEqual([
       "9007199254740993",
     ]);
+  });
+});
+
+describe("canonicalScientific", () => {
+  it("writes an exponent out as the canonical decimal", () => {
+    expect(canonicalScientific("1e5")).toEqual({ value: "100000" });
+    expect(canonicalScientific("1.5e3")).toEqual({ value: "1500" });
+    expect(canonicalScientific("-2E-3")).toEqual({ value: "-0.002" });
+  });
+
+  it("says a value past the limit apart from one that is no number", () => {
+    expect(canonicalScientific("1e300")).toEqual({ tooLong: true });
+    expect(canonicalScientific("1e")).toBeUndefined();
+    expect(canonicalScientific("e5")).toBeUndefined();
+    expect(canonicalScientific("12")).toBeUndefined();
+    expect(canonicalScientific("abc")).toBeUndefined();
   });
 });

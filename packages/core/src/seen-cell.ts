@@ -160,12 +160,12 @@ function ordered(value: unknown): string {
   );
 }
 
-/** The moment a date or a date and time names, to the microsecond. */
+/** The moment a date or a date and time names, to the tenth of a microsecond. */
 function instantOf(value: unknown): string | null {
   const text = value instanceof Date ? value.toISOString() : value;
   if (typeof text !== "string") return null;
-  const parsed = parseIsoInstant(text);
+  const parsed = parseIsoInstant(text, 1, 7);
   if (!parsed) return null;
   const [whole = "", fraction = ""] = parsed.timestamp.split(".");
-  return `${whole}.${fraction.padEnd(6, "0")}`;
+  return `${whole}.${fraction.padEnd(7, "0")}`;
 }

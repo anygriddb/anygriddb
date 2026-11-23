@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { EngineColumn, EngineTable } from "./engine";
-import { sealDrift, sealedFields, sealRow, sealText, sealValue } from "./seal";
+import {
+  SEAL_FORMAT,
+  sealDrift,
+  sealedFields,
+  sealRow,
+  sealText,
+  sealValue,
+} from "./seal";
 
 function column(
   name: string,
@@ -93,5 +100,50 @@ describe("seals of client rows", () => {
     expect(sealDrift(sealed, { amount: "10.5", label: null })).toEqual([
       "label",
     ]);
+  });
+});
+
+describe("seal formats", () => {
+  const text = column("note", "text");
+  const amount = column("amount", "number");
+  const sealedTable = { columns: [text, amount] } as unknown as EngineTable;
+
+  it("seals in the second format by default", () => {
+    expect(SEAL_FORMAT).toBe(2);
+  });
+
+  it("keeps a text holding U+0000 apart from every other text", () => {
+    const sealed = sealValue(text, "a\u0000b");
+    expect(JSON.stringify(sealed)).not.toContain("\\u0000");
+    expect(sealed).not.toEqual(sealValue(text, "a\u0000c"));
+    expect(sealed).not.toEqual(sealValue(text, "ab"));
+    expect(sealValue(text, "plain")).toBe("plain");
+  });
+
+  it("leaves a first-format value as it was read", () => {
+    expect(sealValue(text, "a\u0000b", 1)).toBe("a\u0000b");
+  });
+
+  it("seals what a cell in error holds, so that a change there is seen", () => {
+    const row = (held: string) => ({
+      note: null,
+      amount: null,
+      ag_errors: { amount: held },
+    });
+    const first = sealRow(sealedTable, row("5"));
+    expect(first.amount).not.toBeNull();
+    expect(sealDrift(first, sealRow(sealedTable, row("7")))).toEqual([
+      "amount",
+    ]);
+    expect(sealDrift(first, sealRow(sealedTable, row("5")))).toEqual([]);
+  });
+
+  it("does not read errors into a first-format seal", () => {
+    const sealed = sealRow(
+      sealedTable,
+      { note: null, amount: null, ag_errors: { amount: "5" } },
+      1,
+    );
+    expect(sealed.amount).toBeNull();
   });
 });

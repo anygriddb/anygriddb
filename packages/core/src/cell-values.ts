@@ -127,7 +127,12 @@ export const cellValueSchema = z.union([
 
 export type CellValue = z.infer<typeof cellValueSchema>;
 
-export type CellColumn = { fieldType: FieldType; config: ColumnConfig };
+export type CellColumn = {
+  fieldType: FieldType;
+  config: ColumnConfig;
+  /** The decimals of a second this column keeps, when it is not the usual. */
+  instantDigits?: number;
+};
 
 /** The most characters each kind of text field holds. */
 export const CELL_TEXT_LIMITS = { text: 4_000, long_text: 20_000 } as const;
@@ -260,7 +265,11 @@ export function assertCellValue(column: CellColumn, value: unknown): void {
       if (typeof value === "string" && isIsoDate(value)) return;
       break;
     case "datetime":
-      if (typeof value === "string" && isIsoDateTime(value)) return;
+      if (
+        typeof value === "string" &&
+        isIsoDateTime(value, column.instantDigits)
+      )
+        return;
       break;
     case "single_select":
       if (
@@ -596,6 +605,7 @@ function coerceRaw(
       return readInstantText(trimmed, {
         order: dayOrderOf(config, context),
         timeZone: fieldZone(config, context),
+        digits: column.instantDigits,
       });
     case "single_select": {
       const names = selectOptionNames(config);

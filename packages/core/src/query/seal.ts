@@ -4,11 +4,32 @@
  * AnyGridDB's own fields. Formulas, lookups, and rollups follow other
  * rows and stay out. The canonical form puts names in order and writes
  * numbers canonical, and its SHA-256 is the row's fingerprint.
+ *
+ * A seal carries the format of the reading that made it (ADR 0118): a
+ * row is compared with its seal by that same reading, or a change in how
+ * a value is read would look like a change of the value.
  */
 import { numberToDecimal, toDecimalString } from "../decimal";
 import type { EngineColumn, EngineTable } from "./engine";
+import { rowError } from "./read";
 
 const NUMERIC = new Set(["number", "rating", "duration"]);
+
+/** The format a seal is made in now. */
+export const SEAL_FORMAT = 2;
+
+export type SealFormat = 1 | 2;
+
+/** A text PostgreSQL's JSON cannot keep, as a value no text can be. */
+function sealedText(value: string): unknown {
+  return value.includes("\u0000")
+    ? {
+        ag_hex: Array.from(new TextEncoder().encode(value), (byte) =>
+          byte.toString(16).padStart(2, "0"),
+        ).join(""),
+      }
+    : value;
+}
 
 /** The fields of `table` a lock seals. */
 export function sealedFields(table: EngineTable): EngineColumn[] {
@@ -33,6 +54,7 @@ function linkKeys(value: unknown): unknown {
 export function sealValue(
   column: Pick<EngineColumn, "fieldType" | "relation">,
   value: unknown,
+  format: SealFormat = SEAL_FORMAT,
 ): unknown {
   if (value === undefined || value === null) return null;
   if (column.relation) return linkKeys(value);
@@ -45,17 +67,37 @@ export function sealValue(
           : undefined;
     return text ?? value;
   }
-  return value;
+  return format >= 2 && typeof value === "string" ? sealedText(value) : value;
+}
+
+/** A sealed value as a person reads it: the text or the error it stands for. */
+export function shownSealValue(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const { ag_error: error, ag_hex: hex } = value as {
+    ag_error?: unknown;
+    ag_hex?: unknown;
+  };
+  if (typeof error === "string") return error;
+  if (typeof hex !== "string") return value;
+  const bytes = Uint8Array.from(hex.match(/../g) ?? [], (pair) =>
+    Number.parseInt(pair, 16),
+  );
+  return new TextDecoder().decode(bytes).replaceAll("\u0000", "\uFFFD");
 }
 
 /** The sealed values of a row as the read engine returned it, by field name. */
 export function sealRow(
   table: EngineTable,
   row: Readonly<Record<string, unknown>>,
+  format: SealFormat = SEAL_FORMAT,
 ): Record<string, unknown> {
   const sealed: Record<string, unknown> = {};
   for (const column of sealedFields(table)) {
-    sealed[column.name] = sealValue(column, row[column.name]);
+    const value = sealValue(column, row[column.name], format);
+    // A value its field cannot hold reads empty: what it says is sealed.
+    const held =
+      format >= 2 && value === null ? rowError(row, column.name) : null;
+    sealed[column.name] = held === null ? value : { ag_error: held };
   }
   return sealed;
 }

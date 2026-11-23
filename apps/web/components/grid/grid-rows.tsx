@@ -294,7 +294,7 @@ export function GridDataRow(props: {
             🔒
           </span>
         ) : null}
-        {row?.drift ? (
+        {row?.ag_drift ? (
           <span
             role="img"
             aria-label={t`Changed outside AnyGridDB since it was locked`}

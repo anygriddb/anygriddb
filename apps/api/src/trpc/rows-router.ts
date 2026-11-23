@@ -230,8 +230,10 @@ function attachmentColumns(engine: EngineCatalog): string[] {
 
 /**
  * Statuses, signatures, and attachment metadata, added after the SQL read.
- * A client's row gets its status from AnyGridDB's database, and `drift`
- * when a check found it changed since it was sealed (ADR 0033).
+ * A client's row gets its status from AnyGridDB's database, and `ag_drift`
+ * when a check found it changed since it was sealed (ADR 0033). Both carry
+ * the `ag_` no field can be named, so a client's column named `signature`
+ * or `drift` keeps its value (ADR 0118).
  */
 async function withSignatures(
   ctx: Context,
@@ -248,7 +250,7 @@ async function withSignatures(
   const signed = await attachSignatures(ctx.db, engine.table.id, rows);
   return signed.map((row) =>
     Object.assign(row, {
-      drift: drifts.get(row.id) ?? (null as Drift | null),
+      ag_drift: drifts.get(row.id) ?? (null as Drift | null),
     }),
   );
 }

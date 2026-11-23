@@ -203,7 +203,8 @@ const ORACLE_INTEGER = /^number\(\s*\d+\s*(?:,\s*0\s*)?\)$/i;
 
 /** `YYYY-MM-DD HH:MM:SS[.ffffff]` in UTC, from an instant. */
 function utcTimestamp(value: string): string {
-  const parsed = parseIsoInstant(value);
+  // Seven decimals are SQL Server's; the column's own limit was checked.
+  const parsed = parseIsoInstant(value, 1, 7);
   if (!parsed) throw new AppError("invalid_cell");
   return parsed.timestamp;
 }

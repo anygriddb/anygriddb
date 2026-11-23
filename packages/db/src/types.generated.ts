@@ -478,6 +478,7 @@ export interface ExternalStatuses {
   rowId: string;
   sealed: Record<string, unknown> | null;
   sealedAt: Timestamp | null;
+  sealFormat: Generated<number>;
   status: ExternalStatus;
   tableId: string;
   updatedAt: Generated<Timestamp>;

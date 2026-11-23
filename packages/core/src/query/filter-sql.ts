@@ -105,18 +105,15 @@ export function emptySql(ref: ColumnRef, d: SqlDialect = POSTGRES): string {
 }
 
 /**
- * A comparison of a number, which also sees a value no read can hold, by
- * the stored one. Only for those: a value a read holds is compared as its
- * cell shows it.
+ * A comparison of a number by what is stored, where a read of it may round
+ * or hold nothing (`storedNumber`): 1e-11 is above zero.
  */
 function comparedNumber(
   ref: ColumnRef,
   x: string,
   compare: (subject: string) => string,
 ): string {
-  return ref.storedNumber
-    ? `(${compare(x)} or (${ref.unread ?? "null"} is not null and ${compare(ref.storedNumber)}))`
-    : compare(x);
+  return compare(ref.storedNumber ?? x);
 }
 
 function textValue(value: FilterValue | undefined): string | undefined {

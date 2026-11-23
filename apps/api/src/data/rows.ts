@@ -1704,7 +1704,7 @@ export async function attachSignatures(
 ): Promise<
   Array<
     RowRecord & {
-      signature: {
+      ag_signature: {
         displayName: string;
         meaning: string;
         signedAt: string;
@@ -1717,7 +1717,7 @@ export async function attachSignatures(
     .filter((row) => row.ag_status === "signed")
     .map((row) => row.id);
   if (ids.length === 0 || signed.length === 0) {
-    return rows.map((row) => ({ ...row, signature: null }));
+    return rows.map((row) => ({ ...row, ag_signature: null }));
   }
   const signatures = await db
     .selectFrom("rowSignatures")
@@ -1739,5 +1739,8 @@ export async function attachSignatures(
       });
     }
   }
-  return rows.map((row) => ({ ...row, signature: latest.get(row.id) ?? null }));
+  return rows.map((row) => ({
+    ...row,
+    ag_signature: latest.get(row.id) ?? null,
+  }));
 }

@@ -6,9 +6,9 @@
  */
 import { trimRuns } from "../plain-text";
 
-/** `YYYY-MM-DD`, then `T` or a space and `HH:MM[:SS[.ffffff]]`, then a zone. */
+/** `YYYY-MM-DD`, then `T` or a space and `HH:MM[:SS[.fffffff]]`, then a zone. */
 const ISO =
-  /^([0-9]{4})-([0-9]{2})-([0-9]{2})(?:[T ]([0-9]{2}):([0-9]{2})(?::([0-9]{2})(\.[0-9]{1,6})?)?)?\s*(Z|([+-])([0-9]{2})(?::?([0-9]{2}))?)?$/;
+  /^([0-9]{4})-([0-9]{2})-([0-9]{2})(?:[T ]([0-9]{2}):([0-9]{2})(?::([0-9]{2})(\.[0-9]{1,7})?)?)?\s*(Z|([+-])([0-9]{2})(?::?([0-9]{2}))?)?$/;
 
 type IsoInstant = {
   /** `YYYY-MM-DD HH:MM:SS[.ffffff]`: the wall clock, or UTC when zoned. */
@@ -21,9 +21,14 @@ const pad = (value: number, width = 2) => String(value).padStart(width, "0");
 
 /**
  * The instant a text names, or null when it is not one: a day that does
- * not exist, an hour past 23, a year before `minYear`.
+ * not exist, an hour past 23, a year before `minYear`, more decimals of
+ * a second than `digits`.
  */
-export function parseIsoInstant(text: string, minYear = 1): IsoInstant | null {
+export function parseIsoInstant(
+  text: string,
+  minYear = 1,
+  digits = 6,
+): IsoInstant | null {
   // The engines trim spaces only.
   const match = ISO.exec(trimRuns(text, " "));
   if (!match) return null;
@@ -36,6 +41,8 @@ export function parseIsoInstant(text: string, minYear = 1): IsoInstant | null {
     Number(part ?? 0),
   ) as [number, number, number];
   const fraction = match[7] ?? "";
+  // The point counts: `.123456` is six decimals.
+  if (fraction.length - 1 > digits) return null;
   const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
   const last =
     month === 2 ? (leap ? 29 : 28) : [4, 6, 9, 11].includes(month) ? 30 : 31;

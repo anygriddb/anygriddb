@@ -239,6 +239,23 @@ describe("what a copy keeps of its cells", () => {
     expect(paste("1.23", rounded, null)).toEqual({ price: "1.23" });
   });
 
+  it("keeps a copied instant's decimals where the column keeps them", () => {
+    const seven = "2024-03-31T02:30:00.1234567+00:00";
+    const instant = {
+      name: "at",
+      label: "At",
+      fieldType: "datetime",
+      config: {},
+      kind: "datetime",
+      error: null,
+    };
+    const copied = [[{ fieldType: "datetime", value: seven }]] as never;
+    expect(
+      paste("31/03/2024", { ...instant, instantDigits: 7 }, copied),
+    ).toEqual({ at: seven });
+    expect(paste(seven, instant, copied)).toBeUndefined();
+  });
+
   it("never takes a list or an object as an exact value", () => {
     const files = {
       name: "files",
