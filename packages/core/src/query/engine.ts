@@ -126,6 +126,13 @@ export type EngineCatalog = {
   access?: EngineAccess;
   /** Read as the first seal format read a client's row (ADR 0118). */
   firstSealReading?: boolean;
+  /**
+   * Test each join of texts before making it, where the engine raises on
+   * one too long for its text (`SqlDialect.joinTooLong`). The test writes
+   * every joined text again: it is asked for a read done again after the
+   * engine raised, never for a first read.
+   */
+  guardedJoins?: boolean;
 };
 
 export function findColumn(

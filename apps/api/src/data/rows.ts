@@ -151,6 +151,29 @@ export async function readTransaction<T>(
   return readWithin(db, READ_TIMEOUT, body);
 }
 
+/**
+ * A read of a table's rows. Oracle raises on texts joined past what its
+ * text holds, and stops the whole statement for one row: the read is then
+ * done again with each join tested first, which leaves that row's join
+ * blank and tells why in its cell. The test writes every joined text
+ * again, so no first read carries it.
+ */
+export async function guardingLongJoins<T>(
+  engine: EngineCatalog,
+  read: (engine: EngineCatalog) => Promise<T>,
+): Promise<T> {
+  try {
+    return await read(engine);
+  } catch (error) {
+    if (engine.guardedJoins || !isTextTooLong(error)) throw error;
+  }
+  return read({ ...engine, guardedJoins: true });
+}
+
+function isTextTooLong(error: unknown): boolean {
+  return error instanceof AppError && error.code === "source_text_too_long";
+}
+
 /** Rows taken from the server at a time, each lot counted before the next. */
 const BUDGET_CHUNK_ROWS = 16;
 
@@ -306,7 +329,11 @@ export async function readPage(
   totalEstimated: boolean;
   groups: GroupRow[];
 }> {
-  if (engine.table.external) return readExternalPage(db, engine, spec, options);
+  if (engine.table.external) {
+    return guardingLongJoins(engine, (guarded) =>
+      readExternalPage(db, guarded, spec, options),
+    );
+  }
   const page = buildReadRows(engine, spec);
   const wanted = options.groups ?? "counts";
   const starts = wanted === "starts";
@@ -538,24 +565,26 @@ export async function readByIds(
   fields: readonly string[] | undefined = visibleFields(engine),
   budget?: ReadBudget,
 ): Promise<RowRecord[]> {
-  const statement = buildReadRows(engine, {
-    rowIds,
-    limit: Math.min(Math.max(rowIds.length, 1), 1000),
-    timeZone,
-    ...(fields ? { fields } : {}),
+  const rows = await guardingLongJoins(engine, (guarded) => {
+    const statement = buildReadRows(guarded, {
+      rowIds,
+      limit: Math.min(Math.max(rowIds.length, 1), 1000),
+      timeZone,
+      ...(fields ? { fields } : {}),
+    });
+    return readTransaction(
+      db,
+      guarded,
+      async (run, stream) =>
+        (await pageRows(
+          statement,
+          run,
+          stream,
+          budget,
+          chunkFor(statement),
+        )) as RowRecord[],
+    );
   });
-  const rows = await readTransaction(
-    db,
-    engine,
-    async (run, stream) =>
-      (await pageRows(
-        statement,
-        run,
-        stream,
-        budget,
-        chunkFor(statement),
-      )) as RowRecord[],
-  );
   return mergeControlPlane(db, engine, rows, fields);
 }
 
@@ -719,13 +748,14 @@ export async function aggregateRows(
     return items.map(() => null);
   }
   const { limit: _limit, ...withoutLimit } = clientSpec;
-  const read = async (asked: readonly AggregateItem[]) => {
-    const statement = buildAggregates(engine, withoutLimit, asked);
-    return readTransaction(db, engine, async (run) => {
-      const row = (await run(statement))[0] ?? {};
-      return asked.map((_, index) => row[`a${index}`] ?? null);
+  const read = (asked: readonly AggregateItem[]) =>
+    guardingLongJoins(engine, (guarded) => {
+      const statement = buildAggregates(guarded, withoutLimit, asked);
+      return readTransaction(db, guarded, async (run) => {
+        const row = (await run(statement))[0] ?? {};
+        return asked.map((_, index) => row[`a${index}`] ?? null);
+      });
     });
-  };
   try {
     return await read(items);
   } catch (error) {

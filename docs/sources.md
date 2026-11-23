@@ -343,6 +343,9 @@ other engines, and why:
 - Oracle stores no empty text: `''` is NULL. A blank text reads as
   blank, `REPT` or `SHA256` of it as blank too, and a list built from such
   values holds nothing where the others hold an empty text.
+- A text holds 4,000 bytes, or 32,767 where the instance has extended
+  strings. A formula that joins texts past it reads blank on that row,
+  and its cell says the text is too long; the other rows read.
 - `NUMBER` keeps no scale: `7.50` is stored and read as `7.5`. A
   `NUMBER(p)` column refuses a value with decimals rather than round it.
 - `NUMBER(1)` reads as a checkbox when a check keeps it to 0 and 1, and

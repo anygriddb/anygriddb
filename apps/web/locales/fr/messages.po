@@ -12663,6 +12663,10 @@ msgid "This text file cannot be previewed: download it."
 msgstr "Ce fichier texte ne peut pas être prévisualisé : téléchargez-le."
 
 #: lib/errors.ts
+msgid "This text is too long for the client's database to compute"
+msgstr "Ce texte est trop long pour que la base du client le calcule"
+
+#: lib/errors.ts
 msgid "This time zone is not one"
 msgstr "Ce fuseau horaire n’existe pas"
 

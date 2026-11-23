@@ -630,6 +630,10 @@ function oracleReadError(raised: unknown, log: Log): AppError {
   if (number === 1426 || number === 1438 || number === 1455) {
     return new AppError("source_number_overflow", { cause: raised });
   }
+  // 1489: texts joined past what a text holds.
+  if (number === 1489) {
+    return new AppError("source_text_too_long", { cause: raised });
+  }
   const mapped = oracleSourceError(raised);
   if (mapped.code !== "source_unreachable") return mapped;
   log(raised);

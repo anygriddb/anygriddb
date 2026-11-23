@@ -353,6 +353,8 @@ export const ERRORS = {
   ],
   /** A figure past what the client's engine can compute. */
   source_number_overflow: [BAD, "A figure is too large for this database"],
+  /** Texts joined past what the client's engine holds in one text. */
+  source_text_too_long: [BAD, "A text is too long for this database"],
   /** A field its engine holds as a large object: it compares nothing. */
   not_comparable: [BAD, "This database cannot compare this field's values"],
   control_plane_sort: [

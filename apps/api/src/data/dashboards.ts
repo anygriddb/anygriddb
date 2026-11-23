@@ -32,6 +32,7 @@ import { withAudit } from "./audit-context.js";
 import { liveColumnNames, liveTable, liveView } from "./live.js";
 import {
   aggregateRows,
+  guardingLongJoins,
   readPage,
   readTransaction,
   safeTimeZone,
@@ -539,33 +540,35 @@ export async function widgetData(
     const found =
       scoped === null
         ? null
-        : await readTransaction(deps.db, engine, async (run) => {
-            const { limit: _limit, ...within } = scoped;
-            const [edges] = await run(
-              buildAggregates(engine, within, [
-                { column, fn: "min" },
-                { column, fn: "max" },
-              ]),
-            );
-            const lo = decimalToNumber(edges?.a0);
-            const hi = decimalToNumber(edges?.a1);
-            // No value at all, or one past what a chart's axis holds.
-            if (
-              lo === undefined ||
-              hi === undefined ||
-              !Number.isFinite(lo) ||
-              !Number.isFinite(hi)
-            ) {
-              return null;
-            }
-            return {
-              lo,
-              hi,
-              rows: await run(
-                buildHistogram(engine, within, { column, lo, hi, bins }),
-              ),
-            };
-          });
+        : await guardingLongJoins(engine, (guarded) =>
+            readTransaction(deps.db, guarded, async (run) => {
+              const { limit: _limit, ...within } = scoped;
+              const [edges] = await run(
+                buildAggregates(guarded, within, [
+                  { column, fn: "min" },
+                  { column, fn: "max" },
+                ]),
+              );
+              const lo = decimalToNumber(edges?.a0);
+              const hi = decimalToNumber(edges?.a1);
+              // No value at all, or one past what a chart's axis holds.
+              if (
+                lo === undefined ||
+                hi === undefined ||
+                !Number.isFinite(lo) ||
+                !Number.isFinite(hi)
+              ) {
+                return null;
+              }
+              return {
+                lo,
+                hi,
+                rows: await run(
+                  buildHistogram(guarded, within, { column, lo, hi, bins }),
+                ),
+              };
+            }),
+          );
     return {
       kind: "chart",
       chartType: "histogram",
@@ -601,16 +604,18 @@ export async function widgetData(
   const rows =
     scoped === null
       ? []
-      : await readTransaction(deps.db, engine, (run) => {
-          const { limit: _limit, ...within } = scoped;
-          return run(
-            buildGroupAggregates(engine, within, {
-              groups,
-              item: { column: config.column ?? groupBy, fn: config.fn },
-              spans: [span],
-            }),
-          );
-        });
+      : await guardingLongJoins(engine, (guarded) =>
+          readTransaction(deps.db, guarded, (run) => {
+            const { limit: _limit, ...within } = scoped;
+            return run(
+              buildGroupAggregates(guarded, within, {
+                groups,
+                item: { column: config.column ?? groupBy, fn: config.fn },
+                spans: [span],
+              }),
+            );
+          }),
+        );
   return {
     kind: "chart",
     chartType: config.chartType,
