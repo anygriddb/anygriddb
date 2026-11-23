@@ -3766,10 +3766,6 @@ msgid "Create a token"
 msgstr "Créer un jeton"
 
 #: components/auth/auth-page.tsx
-msgid "Create account"
-msgstr "Créer le compte"
-
-#: components/auth/auth-page.tsx
 #: components/public/invitation-page.tsx
 msgid "Create an account"
 msgstr "Créer un compte"
@@ -3977,7 +3973,6 @@ msgstr "Dates regroupées par"
 
 #: components/dashboards/dashboard-board.tsx
 #: components/table/automations-dialog.tsx
-#: components/views/timeline-view.tsx
 msgid "Day"
 msgstr "Jour"
 
@@ -8931,6 +8926,7 @@ msgid "QR code of {value}"
 msgstr "QR code de {value}"
 
 #: components/dashboards/dashboard-board.tsx
+#: components/views/timeline-view.tsx
 msgid "Quarter"
 msgstr "Trimestre"
 
@@ -12549,17 +12545,17 @@ msgstr "Ce lien nomme une adresse que l’application n’a pas enregistrée. Ro
 msgid "This link no longer works: ask for a new one"
 msgstr "Ce lien ne fonctionne plus : demandez-en un nouveau"
 
+#: lib/errors.ts
+msgid "This link no longer works: create an account again"
+msgstr "Ce lien ne fonctionne plus : créez de nouveau un compte"
+
 #: components/auth/reset-page.tsx
 msgid "This link no longer works: it was used, it expired, or a newer one replaced it. Ask for a new one."
 msgstr "Ce lien ne fonctionne plus : il a servi, il a expiré ou un plus récent l’a remplacé. Demandez-en un nouveau."
 
 #: components/auth/confirm-signup-page.tsx
-msgid "This link no longer works: it was used, it expired, or the account exists already. Sign in, or sign up again."
-msgstr "Ce lien ne fonctionne plus : il a servi, il a expiré, ou le compte existe déjà. Connectez-vous, ou inscrivez-vous de nouveau."
-
-#: lib/errors.ts
-msgid "This link no longer works: sign up again"
-msgstr "Ce lien ne fonctionne plus : inscrivez-vous de nouveau"
+msgid "This link no longer works: it was used, it expired, or the account exists already. Sign in, or create an account again."
+msgstr "Ce lien ne fonctionne plus : il a servi, il a expiré, ou le compte existe déjà. Connectez-vous, ou créez de nouveau un compte."
 
 #: lib/errors.ts
 msgid "This link takes only one row"
@@ -13551,7 +13547,6 @@ msgid "Wednesday"
 msgstr "Mercredi"
 
 #: components/dashboards/dashboard-board.tsx
-#: components/views/timeline-view.tsx
 msgid "Week"
 msgstr "Semaine"
 
@@ -13858,6 +13853,7 @@ msgid "Wrong second factor"
 msgstr "Second facteur incorrect"
 
 #: components/dashboards/dashboard-board.tsx
+#: components/views/timeline-view.tsx
 msgid "Year"
 msgstr "Année"
 

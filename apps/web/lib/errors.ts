@@ -30,7 +30,7 @@ const ERROR_MESSAGES: Record<ErrorCode, MessageDescriptor> = {
   signup_closed: msg`Sign-up is not open for this address`,
   signup_domain_not_allowed: msg`Sign-up is open only to your organization's addresses`,
   signup_needs_mail: msg`This instance sends no email, so it cannot confirm your address. Ask an administrator for an account, or use the invitation link you were sent.`,
-  invalid_signup_link: msg`This link no longer works: sign up again`,
+  invalid_signup_link: msg`This link no longer works: create an account again`,
   password_too_short: msg`Password too short. Minimum length`,
   invalid_reset_link: msg`This link no longer works: ask for a new one`,
   password_reset_disabled: msg`Ask an administrator to reset your password`,

@@ -3766,10 +3766,6 @@ msgid "Create a token"
 msgstr "Create a token"
 
 #: components/auth/auth-page.tsx
-msgid "Create account"
-msgstr "Create account"
-
-#: components/auth/auth-page.tsx
 #: components/public/invitation-page.tsx
 msgid "Create an account"
 msgstr "Create an account"
@@ -3977,7 +3973,6 @@ msgstr "Dates grouped by"
 
 #: components/dashboards/dashboard-board.tsx
 #: components/table/automations-dialog.tsx
-#: components/views/timeline-view.tsx
 msgid "Day"
 msgstr "Day"
 
@@ -8931,6 +8926,7 @@ msgid "QR code of {value}"
 msgstr "QR code of {value}"
 
 #: components/dashboards/dashboard-board.tsx
+#: components/views/timeline-view.tsx
 msgid "Quarter"
 msgstr "Quarter"
 
@@ -12549,17 +12545,17 @@ msgstr "This link names an address the application did not register. Open it aga
 msgid "This link no longer works: ask for a new one"
 msgstr "This link no longer works: ask for a new one"
 
+#: lib/errors.ts
+msgid "This link no longer works: create an account again"
+msgstr "This link no longer works: create an account again"
+
 #: components/auth/reset-page.tsx
 msgid "This link no longer works: it was used, it expired, or a newer one replaced it. Ask for a new one."
 msgstr "This link no longer works: it was used, it expired, or a newer one replaced it. Ask for a new one."
 
 #: components/auth/confirm-signup-page.tsx
-msgid "This link no longer works: it was used, it expired, or the account exists already. Sign in, or sign up again."
-msgstr "This link no longer works: it was used, it expired, or the account exists already. Sign in, or sign up again."
-
-#: lib/errors.ts
-msgid "This link no longer works: sign up again"
-msgstr "This link no longer works: sign up again"
+msgid "This link no longer works: it was used, it expired, or the account exists already. Sign in, or create an account again."
+msgstr "This link no longer works: it was used, it expired, or the account exists already. Sign in, or create an account again."
 
 #: lib/errors.ts
 msgid "This link takes only one row"
@@ -13551,7 +13547,6 @@ msgid "Wednesday"
 msgstr "Wednesday"
 
 #: components/dashboards/dashboard-board.tsx
-#: components/views/timeline-view.tsx
 msgid "Week"
 msgstr "Week"
 
@@ -13858,6 +13853,7 @@ msgid "Wrong second factor"
 msgstr "Wrong second factor"
 
 #: components/dashboards/dashboard-board.tsx
+#: components/views/timeline-view.tsx
 msgid "Year"
 msgstr "Year"
 

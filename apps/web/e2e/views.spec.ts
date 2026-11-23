@@ -791,6 +791,13 @@ test.describe("a timeline", () => {
     expect(await nameWidth("Tasting")).toBeLessThanOrEqual(1);
     await expect(bar("Tasting")).toHaveAccessibleName("Tasting");
 
+    // The scale is named by the span it shows.
+    await expect(scale.locator("option")).toHaveText([
+      "Month",
+      "Quarter",
+      "Year",
+    ]);
+
     // A year, four pixels a day: November is past the page's width.
     await scale.selectOption("month");
     await expect(page.getByText("2026", { exact: true })).toBeVisible();

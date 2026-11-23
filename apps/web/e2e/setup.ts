@@ -159,7 +159,7 @@ export async function signUp(
   await page.getByLabel("Email").fill(input.email);
   await page.getByLabel("Display name").fill(input.name);
   await page.getByLabel("Password").fill(input.password);
-  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByRole("button", { name: "Create an account" }).click();
   const outcome = await Promise.race([
     page.waitForURL(/\/welcome/).then(
       () => "session" as const,
