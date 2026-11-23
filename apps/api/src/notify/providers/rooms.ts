@@ -5,6 +5,7 @@ import {
   instanceEventText,
   matrixConfigSchema,
   matrixSecretsSchema,
+  trimEndRun,
 } from "@anygriddb/core";
 import type { Outbound, OutboundResponse } from "../outbound.js";
 import type { NotifyPayload } from "./webhook.js";
@@ -28,7 +29,7 @@ export async function sendMatrix(input: SendInput): Promise<OutboundResponse> {
   const secrets = matrixSecretsSchema.parse(input.secrets);
   const text = instanceEventText(input.event);
   const room = encodeURIComponent(config.roomId);
-  const base = config.homeserver.replace(/\/+$/, "");
+  const base = trimEndRun(config.homeserver, "/");
   return input.send(
     {
       url: `${base}/_matrix/client/v3/rooms/${room}/send/m.room.message/${input.event.id}`,
@@ -101,7 +102,7 @@ export async function sendAlertmanager(
     input.event.type.endsWith(".succeeded");
   return input.send(
     {
-      url: `${config.url.replace(/\/+$/, "")}/api/v2/alerts`,
+      url: `${trimEndRun(config.url, "/")}/api/v2/alerts`,
       method: "POST",
       headers,
       body: JSON.stringify([

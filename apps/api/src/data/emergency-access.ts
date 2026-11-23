@@ -5,7 +5,7 @@
  * and until when. The same notice goes out when an administrator gives
  * themselves a role on a base, which is the other way in.
  */
-import { AppError, type Binding } from "@anygriddb/core";
+import { AppError, type Binding, trimEndRun } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
 import {
@@ -361,7 +361,7 @@ export async function tellOwners(
   }
   if (!smtpReady(deps.smtp)) return owners.length;
   const voice = await readMailVoice(deps.db);
-  const link = `${deps.publicUrl.replace(/\/+$/, "")}/b/${input.baseId}/settings`;
+  const link = `${trimEndRun(deps.publicUrl, "/")}/b/${input.baseId}/settings`;
   for (const owner of owners) {
     await sendMail(deps.smtp, voice, {
       to: owner.email,

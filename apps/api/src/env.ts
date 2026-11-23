@@ -316,7 +316,8 @@ function assertReadableDatabaseUrl(raw: string, name: string): void {
   const after = end === -1 ? "" : rest.slice(end);
   // `…:pass/word@host:5432/db`: the path would hold the host.
   const path = after.startsWith("/") ? (after.split("?")[0] ?? "") : "";
-  if (/@[^/]*\//.test(path)) refuse();
+  const at = path.indexOf("@");
+  if (at !== -1 && path.includes("/", at)) refuse();
   // `…:pass?word@host/db?sslmode=…`: the first setting's name would.
   const query = after.includes("?") ? after.slice(after.indexOf("?") + 1) : "";
   if ((query.split("=")[0] ?? "").includes("@")) refuse();

@@ -8,7 +8,7 @@
 FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS base
 ENV TURBO_TELEMETRY_DISABLED=1
 # Node 25 and later ship without Corepack: pnpm comes from npm.
-RUN npm install --global pnpm@11.28.8
+RUN npm install --global --ignore-scripts pnpm@11.28.8
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY patches patches

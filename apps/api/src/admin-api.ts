@@ -15,6 +15,7 @@ import {
   labelSchema,
   publicError,
   type PublicError,
+  trimEndRun,
 } from "@anygriddb/core";
 import type { Database } from "@anygriddb/db";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -244,7 +245,7 @@ function adminOpenApi(publicUrl: string): Record<string, unknown> {
         "A token works while the administrator who made it is one, and what it does is on the trails under their name. It makes no administrator, gives no role on a base, and changes none of the settings that decide who gets in: those are done on screen.",
       ].join("\n"),
     },
-    servers: [{ url: `${publicUrl.replace(/\/+$/, "")}/api/v1/admin` }],
+    servers: [{ url: `${trimEndRun(publicUrl, "/")}/api/v1/admin` }],
     components: {
       securitySchemes: { token: { type: "http", scheme: "bearer" } },
       schemas: {

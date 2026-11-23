@@ -1,5 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { mysqlTls, serverFlavor } from "./mysql.js";
+import { isAdministrator, mysqlTls, serverFlavor } from "./mysql.js";
+
+describe("isAdministrator", () => {
+  it("tells a reader's grants from an administrator's", () => {
+    expect(isAdministrator(["GRANT SELECT, INSERT ON *.* TO `app`@`%`"])).toBe(
+      false,
+    );
+    expect(isAdministrator(["GRANT  SELECT\n ON *.*  TO `app`@`%`"])).toBe(
+      false,
+    );
+    expect(isAdministrator(["GRANT ALL ON `shop`.* TO `app`@`%`"])).toBe(false);
+    expect(isAdministrator(["GRANT ALL PRIVILEGES ON *.* TO `a`@`%`"])).toBe(
+      true,
+    );
+    expect(isAdministrator(["GRANT SELECT, SUPER ON *.* TO `a`@`%`"])).toBe(
+      true,
+    );
+    expect(
+      isAdministrator(["GRANT SELECT ON *.* TO `a`@`%` WITH GRANT OPTION"]),
+    ).toBe(true);
+  });
+
+  it.each([
+    ["spaces", `GRANT a${" ".repeat(200_000)}x`],
+    ["brackets", `GRANT SELECT ${"(".repeat(200_000)} ON *.* TO \`a\`@\`%\``],
+  ])("reads a line of %s built to slow it in one pass", (_name, line) => {
+    const started = performance.now();
+    isAdministrator([line]);
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+});
 
 describe("serverFlavor", () => {
   it("tells MySQL from MariaDB, and whether it is recent enough", () => {

@@ -4,6 +4,7 @@
  * Without email set up, nothing is sent. A failure is logged, never
  * thrown: the action it reports already happened.
  */
+import { trimEndRun } from "@anygriddb/core";
 import type { KeyRing } from "./key-ring.js";
 import type { Database } from "@anygriddb/db";
 import { resolveSmtp } from "../integrations/smtp.js";
@@ -126,7 +127,7 @@ export async function sendWelcome(
 }
 
 export function resetLinkUrl(publicUrl: string, token: string): string {
-  return `${publicUrl.replace(/\/+$/, "")}/reset/${token}`;
+  return `${trimEndRun(publicUrl, "/")}/reset/${token}`;
 }
 
 /**
@@ -163,7 +164,7 @@ export async function sendSignupMail(
 ): Promise<boolean> {
   const { config: smtp } = await resolveSmtp(deps.db, deps.env);
   if (!smtpReady(smtp)) return false;
-  const publicUrl = deps.env.PUBLIC_URL.replace(/\/+$/, "");
+  const publicUrl = trimEndRun(deps.env.PUBLIC_URL, "/");
   const voice = await readMailVoice(deps.db, input.locale);
   await sendMail(
     smtp,

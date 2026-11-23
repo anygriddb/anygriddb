@@ -86,6 +86,18 @@ describe("copies of synced tables", () => {
     ]);
   });
 
+  it("reads an unsigned key as a number, in one pass on a long type", () => {
+    const keyOf = (type: string) =>
+      copyColumns(table, new Map([...declared, ["order_id", type]])).find(
+        (item) => item.name === "order_id",
+      )?.type;
+    expect(keyOf("int   UNSIGNED")).toBe("bigint");
+    expect(keyOf("intunsigned")).toBe("text");
+    const started = performance.now();
+    expect(keyOf(`int${" ".repeat(200_000)}x`)).toBe("text");
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
   it("keeps a JSON document as the text it arrives as", () => {
     // A document reaches the copy as its text: kept as jsonb, the copy
     // would hold a JSON string of it, and read it back in quotes.

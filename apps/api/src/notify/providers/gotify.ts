@@ -2,6 +2,7 @@ import {
   gotifyConfigSchema,
   gotifySecretsSchema,
   instanceEventText,
+  trimEndRun,
 } from "@anygriddb/core";
 import type { Outbound, OutboundResponse } from "../outbound.js";
 import type { NotifyPayload } from "./webhook.js";
@@ -25,7 +26,7 @@ export async function sendGotify(input: {
       : 5;
   return input.send(
     {
-      url: `${config.url.replace(/\/+$/, "")}/message`,
+      url: `${trimEndRun(config.url, "/")}/message`,
       method: "POST",
       body: JSON.stringify({
         title: text.title,

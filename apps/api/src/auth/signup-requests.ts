@@ -6,6 +6,7 @@
  * or joined to an account by its address can reach a person who does not
  * read that mailbox.
  */
+import { trimEndRun } from "@anygriddb/core";
 import { createHash, randomBytes } from "node:crypto";
 import type { Database } from "@anygriddb/db";
 import { sql } from "kysely";
@@ -96,5 +97,5 @@ export async function purgeSignupRequests(db: Database): Promise<number> {
 
 /** Where the link sends the person. */
 export function signupLinkUrl(publicUrl: string, token: string): string {
-  return `${publicUrl.replace(/\/+$/, "")}/signup/${token}`;
+  return `${trimEndRun(publicUrl, "/")}/signup/${token}`;
 }

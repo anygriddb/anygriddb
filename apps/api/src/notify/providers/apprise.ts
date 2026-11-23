@@ -2,6 +2,7 @@ import {
   appriseConfigSchema,
   appriseSecretsSchema,
   instanceEventText,
+  trimEndRun,
 } from "@anygriddb/core";
 import type { Outbound, OutboundResponse } from "../outbound.js";
 import type { NotifyPayload } from "./webhook.js";
@@ -44,7 +45,7 @@ export async function sendApprise(input: {
   }
   return input.send(
     {
-      url: `${config.url.replace(/\/+$/, "")}/notify`,
+      url: `${trimEndRun(config.url, "/")}/notify`,
       method: "POST",
       body: JSON.stringify({
         urls: secrets.urls,

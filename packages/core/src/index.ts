@@ -13,7 +13,7 @@ export {
   type SignOnRefusal,
 } from "./errors";
 
-export { holdsUnwritableText } from "./plain-text";
+export { cutAt, holdsUnwritableText, trimEndRun } from "./plain-text";
 
 export { COMPARING_OPERATORS } from "./query/filter-sql";
 

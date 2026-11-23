@@ -5,7 +5,7 @@
  * tRPC); these take form bodies from the application itself.
  */
 import type { Database } from "@anygriddb/db";
-import { AppError } from "@anygriddb/core";
+import { AppError, trimEndRun } from "@anygriddb/core";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   CLIENT_REFUSED,
@@ -48,7 +48,7 @@ const CLIENT_AUTH_METHODS = ["client_secret_basic", "client_secret_post"];
  * the grant and what they take, all on the address people open.
  */
 export function authorizationServerMetadata(publicUrl: string) {
-  const issuer = publicUrl.replace(/\/+$/, "");
+  const issuer = trimEndRun(publicUrl, "/");
   return {
     issuer,
     authorization_endpoint: `${issuer}/oauth/authorize`,

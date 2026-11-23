@@ -4,6 +4,7 @@
  * locks within an hour, one last alert says so and the rest wait in the
  * sign-in trail: a guessing run over many accounts must not flood anyone.
  */
+import { trimEndRun } from "@anygriddb/core";
 import { alertRecipients } from "../alerts.js";
 import type { KeyRing } from "./key-ring.js";
 import type { Database } from "@anygriddb/db";
@@ -93,7 +94,7 @@ export async function alertLock(
   const { config: smtp } = await resolveSmtp(deps.db, deps.env);
   if (smtpReady(smtp)) {
     const voice = mailVoice(settings);
-    const adminUrl = `${deps.env.PUBLIC_URL.replace(/\/+$/, "")}/admin`;
+    const adminUrl = `${trimEndRun(deps.env.PUBLIC_URL, "/")}/admin`;
     for (const admin of admins) {
       await sendMail(smtp, voice, {
         to: admin.email,
